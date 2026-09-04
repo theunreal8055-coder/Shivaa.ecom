@@ -12,6 +12,9 @@ const CATS = window.Shivaa ? {
   pendants: 'Pendants & Chains', mangalsutra: 'Mangalsutra', nosepins: 'Nose Pins', silver: 'Silver 925',
 } : {};
 const IMG_FILES = ['ring-floral.jpg','ring-kundan.jpg','ring-signet.jpg','ring-couple.jpg','necklace-rani.jpg','necklace-choker.jpg','necklace-satlada.jpg','earrings-jhumka.jpg','earrings-chandbali.jpg','earrings-studs.jpg','earrings-drops.jpg','bangle-kada.jpg','bangle-pair.jpg','bracelet-tennis.jpg','bracelet-charm.jpg','pendant-om.jpg','pendant-infinity.jpg','chain-gold.jpg','mangalsutra-trad.jpg','mangalsutra-modern.jpg','nosepin.jpg','silver-anklet.jpg','silver-chain.jpg','silver-kada.jpg'];
+/* v51 — order-status workflow (client mirror of api.php order_next) */
+const ORDER_FLOW = ['Placed', 'Packed', 'Shipped', 'Delivered'];
+const ORDER_NEXT = { Placed: ['Packed', 'Shipped', 'Delivered', 'Cancelled'], Packed: ['Shipped', 'Delivered', 'Cancelled'], Shipped: ['Delivered', 'Cancelled'], Delivered: [], Cancelled: [] };
 
 /* ════════════════ ADMIN ════════════════ */
 async function renderAdmin(view, q) {
@@ -34,6 +37,7 @@ async function renderAdmin(view, q) {
   if (tab === 'partners') { try { partnersData = await api('/api/partners'); } catch (e) {} }
   let orders = [];
   if (tab === 'orders') { try { orders = (await api('/api/orders')).orders; } catch (e) {} }
+  window.ShivaaAdmin._orders = orders;
   let catalogs = [];
   if (tab === 'catalogs') { try { catalogs = (await api('/api/catalogs')).catalogs; } catch (e) {} }
   let users = [];
@@ -158,8 +162,8 @@ async function renderAdmin(view, q) {
           <td>${o.items.reduce((a, i) => a + i.qty, 0)}</td>
           <td class="num"><b>${fmt(o.total)}</b></td>
           <td>${esc(o.paymentMethod)}${o.paymentMethod === 'COD' ? ' <small style="color:var(--warn)">(pending)</small>' : ' ✓'}</td>
-          <td><select onchange="ShivaaAdmin.setStatus('${o.id}', this.value)">
-            ${['Placed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'].map(s => `<option ${o.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+          <td><select onchange="ShivaaAdmin.setStatus('${o.id}', this.value, this)">
+            ${[o.status, ...(ORDER_NEXT[o.status] || [])].map(s => `<option ${o.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
           <td><button class="icon-e" onclick="Shivaa.orderDetail('${o.id}')">👁</button></td>
         </tr>`).join('')}</tbody>
       </table></div></div>`;
@@ -648,8 +652,22 @@ window.ShivaaAdmin.blStatus = async (id, status) => {
   try { await api('/api/bullion/orders/' + id, { method: 'PUT', body: JSON.stringify({ status }) }); toast('Order ' + id + ' → ' + status); } catch (e) { toast(e.message, 'err'); }
 };
 window.ShivaaAdmin.setOrderStatus = null;
-window.ShivaaAdmin.setStatus = async (id, status) => {
-  try { await api('/api/orders/' + id, { method: 'PUT', body: JSON.stringify({ status }) }); toast(`Order ${id} → ${status}`); }
+window.ShivaaAdmin.setStatus = async (id, status, el) => {
+  // v51 — client guard mirrors the server state machine (server stays authoritative)
+  const o = (window.ShivaaAdmin._orders || []).find(x => x.id === id);
+  if (o && status !== o.status && !(ORDER_NEXT[o.status] || []).includes(status)) {
+    return toast(`Illegal status change: ${o.status} → ${status}`, 'err');
+  }
+  try {
+    const r = await api('/api/orders/' + id, { method: 'PUT', body: JSON.stringify({ status }) });
+    toast(`Order ${id} → ${status}`);
+    // update the dropdown in place so the row reflects the new state + its next options
+    if (el && r.order) {
+      const cur = r.order.status;
+      el.innerHTML = [cur, ...(r.order.allowedNext || [])].map(s => `<option ${cur === s ? 'selected' : ''}>${s}</option>`).join('');
+    }
+    if (o) o.status = status;
+  }
   catch (err) { toast(err.message, 'err'); }
 };
 window.ShivaaAdmin.editProduct = id => {

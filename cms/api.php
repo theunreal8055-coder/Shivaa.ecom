@@ -162,6 +162,26 @@ function compute_price(array $p, array $R): array {
           'stoneValue' => $stoneValue, 'subtotal' => $subtotal, 'gst' => $gst, 'total' => $subtotal + $gst];
 }
 
+/* ── order-status workflow (v51) ──
+   The fulfilment state machine. An order can advance forward through the
+   flow (Placed → Packed → Shipped → Delivered) or be cancelled only while
+   it is still en route (before delivery); Delivered and Cancelled are
+   terminal. `allowedNext` is derived on read — never persisted. */
+function order_next(string $status): array {
+  return [
+    'Placed'    => ['Packed', 'Shipped', 'Delivered', 'Cancelled'],
+    'Packed'    => ['Shipped', 'Delivered', 'Cancelled'],
+    'Shipped'   => ['Delivered', 'Cancelled'],
+    'Delivered' => [],
+    'Cancelled' => [],
+  ][$status] ?? ['Cancelled'];
+}
+function order_workflow_meta(array $o): array {
+  $o['allowedNext'] = order_next((string)($o['status'] ?? ''));
+  $o['orderFlow'] = ['Placed', 'Packed', 'Shipped', 'Delivered'];
+  return $o;
+}
+
 /* ───────── auth ───────── */
 /* ── password hashing (bcrypt, with transparent upgrade from legacy sha256+salt) ── */
 function pw_hash(string $plain): string { return password_hash($plain, PASSWORD_DEFAULT); }
@@ -860,21 +880,27 @@ try {
       $u = req_user($db);
       if (!$o) jout(404, ['error' => 'Not found']);
       if ($o['userId'] !== ($u['id'] ?? '') && ($u['role'] ?? '') !== 'admin') jout(403, ['error' => 'Not yours']);
-      jout(200, ['order' => $o]);
+      jout(200, ['order' => order_workflow_meta($o)]);
     }
     if ($method === 'PUT') {
       need_admin($db);
-      $st = body_json()['status'] ?? null;
-      $didChange = false;
-      foreach ($db['orders'] as &$x) if ($x['id'] === $m[1]) {
-        if ($st && $st !== $x['status']) { $x['status'] = $st; $x['timeline'][] = ['s' => $st, 't' => now_iso()]; $didChange = true; }
-        $o = $x;
-      }
-      if ($didChange) {  // v49 — status update WhatsApp/email
+      $st = trim((string)(body_json()['status'] ?? ''));
+      $idx = null; foreach ($db['orders'] as $i => $x) if ($x['id'] === $m[1]) { $idx = $i; $o = $x; }
+      if (!$o) jout(404, ['error' => 'Order not found']);
+      // v51 — only legal transitions are allowed (advance or cancel-before-delivery)
+      if ($st !== '' && $st !== $o['status']) {
+        $allowed = order_next((string)$o['status']);
+        if (!in_array($st, $allowed, true)) {
+          jout(400, ['error' => "Illegal status change: {$o['status']} → {$st}", 'current' => $o['status'], 'allowed' => $allowed, 'orderFlow' => ['Placed', 'Packed', 'Shipped', 'Delivered']]);
+        }
+        $db['orders'][$idx]['status'] = $st;
+        $db['orders'][$idx]['timeline'][] = ['s' => $st, 't' => now_iso()];
+        $o = $db['orders'][$idx];
         $u2 = null; foreach ($db['users'] as $uz) if ($uz['id'] === $o['userId']) $u2 = $uz;
         shivaa_notify($db, ['event'=>'order_status','status'=>$st,'user'=>$u2 ?: [],'order'=>$o,'settings'=>$db['settings'],'channels'=>['whatsapp','email']]);
+        db_save($DB_FILE, $db);
       }
-      db_save($DB_FILE, $db); jout(200, $o);
+      jout(200, order_workflow_meta($o));
     }
   }
 

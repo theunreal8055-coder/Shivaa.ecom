@@ -1043,10 +1043,23 @@ pages.privacy = async (view) => {
 
 window.Shivaa.orderDetail = async id => {
   const { order: o } = await api('/api/orders/' + id);
+  const flow = ['Placed', 'Packed', 'Shipped', 'Delivered'];
+  const done = (o.timeline || []).map(t => t.s);
+  const isAdmin = state.user && state.user.role === 'admin';
+  const nxt = o.allowedNext || [];
+  /* v51 — visual fulfilment timeline (reuses the customer order stepper) */
+  const tl = `<div class="timeline mt-2">${flow.map(s => `<div class="tl-step ${done.includes(s) ? 'done' : ''}">${s}</div>`).join('')}${o.status === 'Cancelled' ? `<div class="tl-step done" style="color:var(--bad)">Cancelled</div>` : ''}</div>`;
+  /* v51 — admin can advance the order right from the detail sheet */
+  const adminCtl = isAdmin ? `
+    <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px">
+      <div class="opt-label" style="margin-bottom:8px">Update status${nxt.length ? '' : ' <small style="color:var(--ink-3)">· terminal</small>'}</div>
+      <div class="size-row">${nxt.length ? nxt.map(s => `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.setStatus('${o.id}','${s}');Shivaa.closeModal();setTimeout(()=>Shivaa.orderDetail('${o.id}'),250)">${s}</button>`).join('') : '<span style="font-size:12px;color:var(--ink-3)">This order is complete — no further changes.</span>'}</div>
+    </div>` : '';
   openModal(`<h3 style="font-size:24px;margin-bottom:4px">Order ${o.id}</h3><div style="font-size:13px;color:var(--ink-3);margin-bottom:14px">${timeFmt(o.createdAt)} · ${esc(o.paymentMethod)} · ${esc(o.paymentStatus)}</div>
+  ${tl}
   ${(o.items || []).map(i => `<div class="sum-row"><span>${esc(i.name)}${i.size ? ' (' + esc(i.size) + ')' : ''} × ${i.qty} <small style="display:block;color:var(--ink-3)">${i.metal === 'Silver' ? 'Silver' : i.purity} ${i.weightG}g · rate ${fmt(i.ratePerGram)}/g · MC ${fmt(i.makingCharge * i.qty)}</small></span><b>${fmt(i.unitPrice * i.qty)}</b></div>`).join('')}
   <div class="sum-row total"><span>Total (incl. GST)</span><b>${fmt(o.total)}</b></div>
-  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address?.name || '')}, ${esc(o.address?.line || '')}, ${esc(o.address?.city || '')} — ${esc(o.address?.pincode || '')}<br><b>Timeline:</b> ${(o.timeline || []).map(t => t.s).join(' → ')}</div>`, 'lg');
+  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address?.name || '')}, ${esc(o.address?.line || '')}, ${esc(o.address?.city || '')} — ${esc(o.address?.pincode || '')}</div>${adminCtl}`, 'lg');
 };
 window.Shivaa.logout = () => { setToken(null); state.user = null; toast('Logged out'); location.hash = '#/'; boot(true); };
 
