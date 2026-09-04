@@ -64,7 +64,7 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['reviews','★','Reviews'],['carts','🛒','Cart Recovery'],['notifications','🔔','Notifications'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'reviews' && reviews.filter(r => r.status === 'pending').length ? ` <span class="cnt">${reviews.filter(r => r.status === 'pending').length}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['reviews','★','Reviews'],['carts','🛒','Cart Recovery'],['notifications','🔔','Notifications'],['pages','📄','Pages'],['exports','⇩','Exports'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'reviews' && reviews.filter(r => r.status === 'pending').length ? ` <span class="cnt">${reviews.filter(r => r.status === 'pending').length}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
@@ -167,6 +167,42 @@ async function renderAdmin(view, q) {
           <td><button class="icon-e" onclick="Shivaa.orderDetail('${o.id}')">👁</button></td>
         </tr>`).join('')}</tbody>
       </table></div></div>`;
+  }
+
+  /* ── EXPORTS ── */
+  if (tab === 'exports') {
+    body.innerHTML = `<div class="adm-card"><h3>⇩ Export data as CSV</h3>
+      <p style="font-size:13.5px;color:var(--ink-2);line-height:1.7;margin-bottom:20px">One-click downloads for accounting, GST and partner reporting. Products use the live rate engine, so the price snapshot matches the bill. Every export is generated fresh from the current database.</p>
+      <div class="attn-grid" id="expGrid"><div class="loading-spin"></div></div></div>`;
+    (async () => {
+      const grid = document.getElementById('expGrid');
+      const names = { orders: 'shivaa-orders', customers: 'shivaa-customers', leads: 'shivaa-leads', products: 'shivaa-products', carts: 'shivaa-abandoned-carts', reviews: 'shivaa-reviews' };
+      const get = async (u, k) => { try { const r = await api(u); return (r && r[k]) || []; } catch (e) { return []; } };
+      const [orders, users, leads, prods, carts, reviews] = await Promise.all([
+        get('/api/orders', 'orders'),
+        get('/api/admin/users', 'users'),
+        get('/api/services', 'requests'),
+        (state.productsCache.length ? Promise.resolve(state.productsCache) : get('/api/products', 'products')),
+        get('/api/cart-abandon', 'carts'),
+        get('/api/reviews?status=all', 'reviews'),
+      ]);
+      const sets = [
+        ['orders', 'Orders', orders.length, 'Sales log — order, customer, items, totals & status.'],
+        ['customers', 'Customers', users.length, 'Users, roles, loyalty points, referral codes & lifetime spend.'],
+        ['leads', 'Leads', leads.length, 'Service enquiries — type, contact, budget & status.'],
+        ['products', 'Products', prods.length, 'Catalogue with live rate breakdown (metal, MC, GST, total).'],
+        ['carts', 'Abandoned carts', carts.length, 'Recovery list — contact, items, value & nudge level.'],
+        ['reviews', 'Reviews', reviews.length, 'Moderation log — rating, text, product, verified flag.'],
+      ];
+      grid.innerHTML = sets.map(([type, label, count, desc]) => `
+        <div class="attn-item" style="cursor:default;align-items:stretch;flex-direction:column;gap:9px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+            <b style="font-family:var(--ff-disp);font-size:17px;color:var(--maroon-deep)">${label}</b>
+            <span style="font-size:12px;color:var(--ink-3)">${count}</span></div>
+          <p style="font-size:12.5px;color:var(--ink-2);line-height:1.6;flex:1">${desc}</p>
+          <button class="btn btn-outline btn-sm" style="align-self:flex-start" onclick="ShivaaAdmin.exportCsv('${type}','${names[type]}')">⬇ Download CSV</button>
+        </div>`).join('');
+    })();
   }
 
   /* ── RING WEIGHTS quick-entry desk ── */
@@ -669,6 +705,19 @@ window.ShivaaAdmin.setStatus = async (id, status, el) => {
     if (o) o.status = status;
   }
   catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.exportCsv = async (type, name) => {
+  try {
+    const res = await fetch('/api/admin/export?type=' + encodeURIComponent(type), { headers: { 'Authorization': 'Bearer ' + token() } });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Export failed'); }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (name || 'shivaa-export') + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 800);
+    toast('Downloaded ' + (name || type) + '.csv');
+  } catch (err) { toast(err.message, 'err'); }
 };
 window.ShivaaAdmin.editProduct = id => {
   const p = id ? state.productsCache.find(x => x.id === id) : { name: '', category: 'rings', metal: 'Gold', purity: '22K', weightG: 5, mcScheme: 'percent', mcValue: '', stoneValue: 0, images: ['/images/products/ring-floral.jpg'], desc: '', tags: [], sizes: [], stock: 10 };

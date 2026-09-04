@@ -25,6 +25,18 @@ function jout(int $code, $payload): void {
   echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
   exit;
 }
+/* v52 — stream a CSV download (admin exports). Each row is a flat array. */
+function csvout(string $filename, array $rows): void {
+  header('Content-Type: text/csv; charset=utf-8');
+  header('Content-Disposition: attachment; filename="' . preg_replace('/[^a-z0-9_.-]/i', '-', $filename) . '"');
+  header('Cache-Control: no-store');
+  header('X-Content-Type-Options: nosniff');
+  $out = fopen('php://output', 'w');
+  if ($out === false) { jout(500, ['error' => 'Could not open output stream']); }
+  foreach ($rows as $r) fputcsv($out, $r);
+  fclose($out);
+  exit;
+}
 function now_iso(?string $mod = null, bool $unixts = false): string {
   $t = $mod === null ? time() : strtotime($mod);
   return $unixts ? (string)$t : date('c', $t);
@@ -1627,6 +1639,74 @@ try {
   if ($route === 'admin/users' && $method === 'GET') {
     need_admin($db);
     jout(200, ['users' => array_map('pub_user', $db['users'])]);
+  }
+
+  /* ── v52 · admin CSV export ──
+     One-click downloads for accounting / GST / partner reporting. Each
+     dataset is streamed as a CSV attachment. Products use the live rate
+     engine so the price snapshot matches the bill; orders include the
+     customer + shipping detail; customers get LTV (orders + spent). */
+  if ($route === 'admin/export' && $method === 'GET') {
+    need_admin($db);
+    $type = (string)($_GET['type'] ?? 'orders');
+    $R = current_rates($db);
+    switch ($type) {
+      case 'orders':
+        $rows = [['Order ID','Date','Customer','Phone','Email','Items','Qty','Subtotal','Discount','Shipping','Total','Payment','Payment Status','Status','Ship To']];
+        foreach ($db['orders'] as $o) {
+          $items = implode(' | ', array_map(fn($i) => ($i['name'] ?? '') . ' × ' . ($i['qty'] ?? 1), $o['items'] ?? []));
+          $qty = array_sum(array_map(fn($i) => (int)($i['qty'] ?? 1), $o['items'] ?? []));
+          $addr = ($o['address'] ?? []);
+          $rows[] = [$o['id'], $o['createdAt'], $o['userName'], $addr['phone'] ?? '', $addr['email'] ?? '',
+                     $items, $qty, $o['subtotal'], $o['discount'], $o['shipping'], $o['total'],
+                     $o['paymentMethod'], $o['paymentStatus'], $o['status'],
+                     trim(($addr['name'] ?? '') . ', ' . ($addr['line'] ?? '') . ', ' . ($addr['city'] ?? '') . ' ' . ($addr['pincode'] ?? ''))];
+        }
+        csvout('shivaa-orders', $rows);
+      case 'customers':
+        $spent = []; $ocount = [];
+        foreach ($db['orders'] as $o) { $spent[$o['userId']] = ($spent[$o['userId']] ?? 0) + (float)$o['total']; $ocount[$o['userId']] = ($ocount[$o['userId']] ?? 0) + 1; }
+        $rows = [['ID','Name','Email','Phone','Role','Joined','Loyalty Points','Referral Code','Referrals','Orders','Lifetime Spend']];
+        foreach ($db['users'] as $u) {
+          $rows[] = [$u['id'], $u['name'], $u['email'], $u['phone'] ?? '', $u['role'], $u['createdAt'] ?? '',
+                     $u['loyaltyPoints'] ?? 0, $u['referralCode'] ?? '', $u['referrals'] ?? 0,
+                     $ocount[$u['id']] ?? 0, $spent[$u['id']] ?? 0];
+        }
+        csvout('shivaa-customers', $rows);
+      case 'leads':
+        $rows = [['ID','Type','Name','Phone','Email','Budget','Details','Status','Created']];
+        foreach ($db['serviceRequests'] as $s) {
+          $rows[] = [$s['id'], $s['type'] ?? '', $s['name'], $s['phone'], $s['email'] ?? '', $s['budget'] ?? '', $s['details'] ?? '', $s['status'], $s['createdAt']];
+        }
+        csvout('shivaa-leads', $rows);
+      case 'products':
+        $rows = [['ID','Name','Category','Metal','Purity','Weight g','Stock','MC Scheme','MC Value','Stone Value','Rate/g','Metal Value','Making Charge','GST','Total']];
+        foreach ($db['products'] as $p) {
+          $pr = compute_price($p, $R);
+          $rows[] = [$p['id'], $p['name'], $p['category'], $p['metal'], $p['purity'], $p['weightG'], $p['stock'],
+                     $p['mcScheme'], $p['mcValue'], $p['stoneValue'] ?? 0, $pr['ratePerGram'], $pr['metalValue'],
+                     $pr['makingCharge'], $pr['gst'], $pr['total']];
+        }
+        csvout('shivaa-products', $rows);
+      case 'carts':
+        $rows = [['ID','Phone','Email','User','Items','Subtotal','Created','Updated','Nudge Level','Converted']];
+        foreach (($db['abandonedCarts'] ?? []) as $c) {
+          $rows[] = [$c['id'], $c['phone'] ?? '', $c['email'] ?? '', $c['userId'] ?? '',
+                     implode(' | ', array_map(fn($i) => ($i['name'] ?? '') . ' × ' . ($i['qty'] ?? 1), $c['items'] ?? [])),
+                     $c['subtotal'], $c['createdAt'], $c['updatedAt'] ?? '', $c['nudgeLevel'] ?? 0, !empty($c['converted']) ? 'Yes' : 'No'];
+        }
+        csvout('shivaa-abandoned-carts', $rows);
+      case 'reviews':
+        $rows = [['ID','Product','User','Rating','Text','Status','Verified','Photos','Created']];
+        foreach (($db['reviews'] ?? []) as $r) {
+          $pn = ''; foreach ($db['products'] as $p) if ($p['id'] === ($r['productId'] ?? '')) { $pn = $p['name']; break; }
+          $rows[] = [$r['id'], $pn, $r['userName'] ?? '', $r['rating'] ?? '', $r['text'] ?? '', $r['status'] ?? '',
+                     !empty($r['verified']) ? 'Yes' : 'No', count($r['photos'] ?? []), $r['createdAt'] ?? ''];
+        }
+        csvout('shivaa-reviews', $rows);
+      default:
+        jout(400, ['error' => 'Unknown export type', 'types' => ['orders', 'customers', 'leads', 'products', 'carts', 'reviews']]);
+    }
   }
 
   if ($changed) db_save($DB_FILE, $db);

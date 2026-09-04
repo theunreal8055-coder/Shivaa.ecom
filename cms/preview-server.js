@@ -73,6 +73,18 @@ function JSONout(res, code, payload) {
   res.end(body);
 }
 
+const csvCell = v => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+function CSVout(res, rows, filename) {
+  const body = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  res.writeHead(200, {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': 'attachment; filename="' + filename + '"',
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  res.end(body);
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -285,6 +297,51 @@ function handleApi(db, route, method, query, req, res) {
       recentOrders: orders.slice().reverse().slice(0, 8),
       topSelling: [],
     });
+  }
+
+  // ── v52 admin CSV export (read-only preview mirror; preview is demo/admin) ──
+  if (route === 'admin/export' && method === 'GET') {
+    const type = query.type || 'orders';
+    const orders = db.orders || [];
+    let rows; let filename;
+    const itemsTxt = list => (list || []).map(i => (i.name || '') + ' × ' + (i.qty || 1)).join(' | ');
+    switch (type) {
+      case 'orders':
+        rows = [['Order ID','Date','Customer','Phone','Email','Items','Qty','Subtotal','Discount','Shipping','Total','Payment','Payment Status','Status','Ship To']];
+        for (const o of orders) {
+          const a = o.address || {};
+          rows.push([o.id, o.createdAt, o.userName, a.phone || '', a.email || '', itemsTxt(o.items),
+            (o.items || []).reduce((x, i) => x + (i.qty || 1), 0), o.subtotal, o.discount, o.shipping, o.total,
+            o.paymentMethod, o.paymentStatus, o.status, [a.name, a.line, a.city, a.pincode].filter(Boolean).join(', ')]);
+        }
+        filename = 'shivaa-orders.csv'; break;
+      case 'customers': {
+        const spent = {}; const oc = {};
+        for (const o of orders) { spent[o.userId] = (spent[o.userId] || 0) + Number(o.total || 0); oc[o.userId] = (oc[o.userId] || 0) + 1; }
+        rows = [['ID','Name','Email','Phone','Role','Joined','Loyalty Points','Referral Code','Referrals','Orders','Lifetime Spend']];
+        for (const u of (db.users || [])) rows.push([u.id, u.name, u.email, u.phone || '', u.role, u.createdAt || '', u.loyaltyPoints || 0, u.referralCode || '', u.referrals || 0, oc[u.id] || 0, spent[u.id] || 0]);
+        filename = 'shivaa-customers.csv'; break;
+      }
+      case 'leads':
+        rows = [['ID','Type','Name','Phone','Email','Budget','Details','Status','Created']];
+        for (const s of (db.serviceRequests || [])) rows.push([s.id, s.type || '', s.name, s.phone, s.email || '', s.budget || '', s.details || '', s.status, s.createdAt]);
+        filename = 'shivaa-leads.csv'; break;
+      case 'products':
+        rows = [['ID','Name','Category','Metal','Purity','Weight g','Stock','MC Scheme','MC Value','Stone Value','Rate/g','Metal Value','Making Charge','GST','Total']];
+        for (const p of (db.products || [])) { const pr = computePrice(p, R); rows.push([p.id, p.name, p.category, p.metal, p.purity, p.weightG, p.stock, p.mcScheme, p.mcValue, p.stoneValue || 0, pr.ratePerGram, pr.metalValue, pr.makingCharge, pr.gst, pr.total]); }
+        filename = 'shivaa-products.csv'; break;
+      case 'carts':
+        rows = [['ID','Phone','Email','User','Items','Subtotal','Created','Updated','Nudge Level','Converted']];
+        for (const c of (db.abandonedCarts || [])) rows.push([c.id, c.phone || '', c.email || '', c.userId || '', itemsTxt(c.items), c.subtotal, c.createdAt, c.updatedAt || '', c.nudgeLevel || 0, c.converted ? 'Yes' : 'No']);
+        filename = 'shivaa-abandoned-carts.csv'; break;
+      case 'reviews':
+        rows = [['ID','Product','User','Rating','Text','Status','Verified','Photos','Created']];
+        for (const r of (db.reviews || [])) { const p = (db.products || []).find(x => x.id === (r.productId || '')); rows.push([r.id, (p && p.name) || '', r.userName || '', r.rating || '', r.text || '', r.status || '', r.verified ? 'Yes' : 'No', (r.photos || []).length, r.createdAt || '']); }
+        filename = 'shivaa-reviews.csv'; break;
+      default:
+        return JSONout(res, 400, { error: 'Unknown export type', types: ['orders','customers','leads','products','carts','reviews'] });
+    }
+    return CSVout(res, rows, filename);
   }
 
   // ── v49 notification gateway (read-only preview mirror; demo mode in preview) ──
