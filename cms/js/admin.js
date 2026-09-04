@@ -55,6 +55,10 @@ async function renderAdmin(view, q) {
   let notifData = { notifications: [], total: 0, log: null };
   if (tab === 'notifications') { try { notifData = await api('/api/notify'); } catch (e) {} }
   window.ShivaaAdmin._notif = notifData;
+  let msgData = { messages: [], unread: 0 };
+  if (tab === 'messages') { try { msgData = await api('/api/contact'); } catch (e) {} }
+  window.ShivaaAdmin._messages = msgData.messages || [];
+  const unreadMsgs = msgData.unread || (msgData.messages || []).filter(m => !m.read).length;
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -64,12 +68,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['reviews','★','Reviews'],['carts','🛒','Cart Recovery'],['notifications','🔔','Notifications'],['pages','📄','Pages'],['exports','⇩','Exports'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'reviews' && reviews.filter(r => r.status === 'pending').length ? ` <span class="cnt">${reviews.filter(r => r.status === 'pending').length}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['reviews','★','Reviews'],['carts','🛒','Cart Recovery'],['notifications','🔔','Notifications'],['pages','📄','Pages'],['messages','✉','Messages'],['exports','⇩','Exports'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'reviews' && reviews.filter(r => r.status === 'pending').length ? ` <span class="cnt">${reviews.filter(r => r.status === 'pending').length}</span>` : ''}${n[0] === 'messages' && unreadMsgs ? ` <span class="cnt">${unreadMsgs}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',reviews:'Review Moderation',carts:'Cart Recovery',notifications:'Notifications',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',reviews:'Review Moderation',carts:'Cart Recovery',notifications:'Notifications',pages:'Pages',messages:'Messages',exports:'Exports',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -88,7 +92,7 @@ async function renderAdmin(view, q) {
     const items = (r => [[na.pendingReviews, 'Reviews awaiting moderation', '#/admin?tab=reviews', 'reviews'],
                          [na.pendingPartners, 'B2B partner applications', '#/admin?tab=partners', 'partners'],
                          [na.newLeads, 'New service requests', '#/admin?tab=leads', 'leads'],
-                         [na.newContacts, 'New contact messages', '#/admin?tab=pages', 'messages'],
+                         [na.newContacts, 'New contact messages', '#/admin?tab=messages', 'messages'],
                          [na.paymentsPending, `Payments pending (${fmt(na.paymentsPendingValue || 0)})`, '#/admin?tab=orders', 'payments'],
                          [na.abandonedCarts, `Abandoned carts (${fmt(na.abandonedValue || 0)})`, '#/admin?tab=carts', 'carts'],
                          [na.lowStockCount, 'Low / out of stock', '#/admin?tab=products', 'stock'],
@@ -168,6 +172,34 @@ async function renderAdmin(view, q) {
         </tr>`).join('')}</tbody>
       </table></div></div>`;
   }
+
+  /* ── MESSAGES (contact inbox) ── */
+  if (tab === 'messages') {
+    const list = msgData.messages || [];
+    body.innerHTML = `<div class="adm-card"><h3>✉ Contact messages <span class="ad-attn-cnt">${list.filter(m => !m.read).length} unread</span></h3>
+      ${list.length ? `<div id="msgList">${list.map(m => `
+        <div class="adm-card" style="margin:0 0 12px;padding:16px;border-left:4px solid ${m.read ? 'var(--line)' : 'var(--gold)'}">
+          <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+            <b style="font-family:var(--ff-disp);font-size:18px;color:var(--maroon-deep)">${esc(m.name)}</b>
+            <span style="font-size:12px;color:var(--ink-3)">${new Date(m.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}${!m.read ? ' · <b style="color:var(--gold)">NEW</b>' : ''}</span>
+          </div>
+          ${m.phone ? `<div style="font-size:13px;color:var(--ink-2)">📞 <a href="tel:${esc(m.phone)}" style="color:var(--maroon)">${esc(m.phone)}</a>${m.email ? ` · ✉ <a href="mailto:${esc(m.email)}" style="color:var(--maroon)">${esc(m.email)}</a>` : ''}</div>` : (m.email ? `<div style="font-size:13px;color:var(--ink-2)">✉ <a href="mailto:${esc(m.email)}" style="color:var(--maroon)">${esc(m.email)}</a></div>` : '')}
+          <p style="font-size:14px;color:var(--ink);line-height:1.65;margin:10px 0 12px;white-space:pre-wrap">${esc(m.message)}</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.markMsg('${m.id}', ${m.read ? 'false' : 'true'})">${m.read ? '↺ Mark unread' : '✓ Mark read'}</button>
+            ${m.phone ? `<button class="btn btn-wa btn-sm" onclick="ShivaaAdmin.replyMsg('${m.id}')">Reply on WhatsApp</button>` : ''}
+            ${m.email ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(m.email)}?subject=Re: Your message to Shivaa">Reply by email</a>` : ''}
+            <button class="btn btn-ghost btn-sm" style="margin-left:auto;color:var(--bad)" onclick="ShivaaAdmin.delMsg('${m.id}')">✕ Delete</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)">
+            <span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Note:</span>
+            <input id="note-${m.id}" value="${esc(m.note || '')}" placeholder="internal note (only you see this)…" style="flex:1;min-width:140px;border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:13px">
+            <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.noteMsg('${m.id}')">Save note</button>
+          </div>
+        </div>`).join('')}</div>` : `<div class="empty"><div class="big">&#9993;</div><h3>No messages yet</h3><p style="color:var(--ink-3);margin-top:6px">Enquiries from the Contact page and stock-requests will appear here.</p></div>`}
+    </div>`;
+  }
+
 
   /* ── EXPORTS ── */
   if (tab === 'exports') {
@@ -719,6 +751,48 @@ window.ShivaaAdmin.exportCsv = async (type, name) => {
     toast('Downloaded ' + (name || type) + '.csv');
   } catch (err) { toast(err.message, 'err'); }
 };
+window.ShivaaAdmin.markMsg = async (id, read) => {
+  try {
+    await api('/api/contact/' + id, { method: 'PUT', body: JSON.stringify({ read }) });
+    toast(read ? 'Marked as read' : 'Marked as unread');
+    const m = (window.ShivaaAdmin._messages || []).find(x => x.id === id);
+    if (m) m.read = !!read;
+    renderAdmin($('#view'), new URLSearchParams('tab=messages'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.replyMsg = id => {
+  const c = (window.ShivaaAdmin._messages || []).find(x => x.id === id);
+  if (!c || !c.phone) return toast('No phone number on this message to reply via WhatsApp', 'err');
+  const p = String(c.phone).replace(/\D/g, '');
+  const num = p.length === 12 && p.startsWith('91') ? p.slice(2) : p;
+  const body = `Namaste ${c.name || ''} ✦\n\n${c.message ? 'Re your message:\n' + c.message : 'Thank you for writing to Shivaa.'}`;
+  const wa = 'https://wa.me/' + num + '?text=' + encodeURIComponent(body);
+  openModal(`<div class="center"><h3 style="margin-bottom:6px">Reply to ${esc(c.name || '')}</h3>
+    <p style="font-size:13px;color:var(--ink-2);margin-bottom:14px">The WhatsApp chat is pre-filled below — send once the chat opens on your phone.</p>
+    <a class="btn btn-wa btn-block" target="_blank" rel="noopener" href="${wa}">Open WhatsApp chat →</a>
+    <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.closeModal()">Done</button></div>`);
+};
+window.ShivaaAdmin.noteMsg = async id => {
+  const t = document.getElementById('note-' + id);
+  const note = t ? t.value : '';
+  try {
+    await api('/api/contact/' + id, { method: 'PUT', body: JSON.stringify({ note }) });
+    const m = (window.ShivaaAdmin._messages || []).find(x => x.id === id);
+    if (m) m.note = note;
+    toast('Note saved');
+    renderAdmin($('#view'), new URLSearchParams('tab=messages'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.delMsg = async id => {
+  if (!confirm('Delete this message?')) return;
+  try {
+    await api('/api/contact/' + id, { method: 'DELETE' });
+    window.ShivaaAdmin._messages = (window.ShivaaAdmin._messages || []).filter(x => x.id !== id);
+    toast('Message deleted');
+    renderAdmin($('#view'), new URLSearchParams('tab=messages'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+
 window.ShivaaAdmin.editProduct = id => {
   const p = id ? state.productsCache.find(x => x.id === id) : { name: '', category: 'rings', metal: 'Gold', purity: '22K', weightG: 5, mcScheme: 'percent', mcValue: '', stoneValue: 0, images: ['/images/products/ring-floral.jpg'], desc: '', tags: [], sizes: [], stock: 10 };
   openModal(`

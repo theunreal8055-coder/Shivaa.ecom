@@ -22155,7 +22155,10 @@
   ],
   "serviceRequests": [],
   "newsletter": [],
-  "contactMsgs": [],
+  "contactMsgs": [
+    { "id": "cm_demo1", "name": "Riya Sharma", "phone": "919876543210", "email": "riya@example.in", "message": "Hi, I would like to know if the floral ring is available in 22K gold and its latest price.", "at": "2026-09-04T08:05:00", "read": false, "note": "" },
+    { "id": "cm_demo2", "name": "Karan Mehta", "phone": "919812345678", "email": "karan.m@example.com", "message": "I placed a stock request for the temple necklace. Please update me when it arrives.", "at": "2026-09-03T14:30:00", "read": true, "note": "Followed up on WhatsApp." }
+  ],
   "rateAlerts": [],
   "tokens": [],
   "otps": [],

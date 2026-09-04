@@ -216,6 +216,19 @@ function handleApi(db, route, method, query, req, res) {
   if (rvPut && method === 'PUT') return JSONout(res, 200, { ok: true, status: 'approved', verified: true });
   if (rvPut && method === 'DELETE') return JSONout(res, 200, { ok: true });
 
+  // ── v53 contact-message inbox (read-only preview mirror for the admin) ──
+  if (route === 'contact' && method === 'POST') {
+    // Storefront contact form — read-only stub so demo mode doesn't 501 (no write to db.json).
+    return JSONout(res, 200, { ok: true, id: 'cm_preview' });
+  }
+  if (route === 'contact' && method === 'GET') {
+    const list = (db.contactMsgs || []).slice().reverse();
+    return JSONout(res, 200, { messages: list, unread: list.filter(c => !c.read).length });
+  }
+  const cmPut = route.match(/^contact\/([\w-]+)$/);
+  if (cmPut && method === 'PUT') return JSONout(res, 200, { id: cmPut[1], read: query.read === 'true' || query.read === true, note: query.note || '' });
+  if (cmPut && method === 'DELETE') return JSONout(res, 200, { ok: true });
+
   // ── v45 price alerts (read-only preview mirror; no auth in preview → demo list) ──
   if (route === 'alerts' && method === 'GET') {
     const R = currentRates(db);

@@ -1344,6 +1344,34 @@ try {
     $db['contactMsgs'][] = ['id' => uid('cm'), 'name' => $b['name'], 'phone' => $b['phone'] ?? '', 'email' => $b['email'] ?? '', 'message' => $b['message'], 'at' => now_iso(), 'read' => false];
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
+  /* ── v53 · contact-message inbox (admin) ──
+     The storefront's contact form collects contactMsgs; this gives the
+     owner an inbox to read, mark read/unread, reply (WhatsApp/email) and
+     delete them. Unread count feeds the dashboard's "New contact messages"
+     tile. Also supports an optional note/tag for bookkeeping. */
+  if ($route === 'contact' && $method === 'GET') {
+    need_admin($db);
+    $list = array_reverse(array_values($db['contactMsgs'] ?? []));
+    jout(200, ['messages' => $list, 'unread' => count(array_filter($list, fn($c) => empty($c['read'])))]);
+  }
+  if (preg_match('#^contact/([\\w-]+)$#', $route, $mCM) && $method === 'PUT') {
+    need_admin($db);
+    $b = body_json();
+    $idx = null; foreach ($db['contactMsgs'] as $i => $c) if ($c['id'] === $mCM[1]) { $idx = $i; break; }
+    if ($idx === null) jout(404, ['error' => 'Message not found']);
+    if (array_key_exists('read', $b)) $db['contactMsgs'][$idx]['read'] = !empty($b['read']);
+    if (array_key_exists('note', $b)) $db['contactMsgs'][$idx]['note'] = cut500((string)$b['note']);
+    db_save($DB_FILE, $db);
+    jout(200, $db['contactMsgs'][$idx]);
+  }
+  if (preg_match('#^contact/([\\w-]+)$#', $route, $mCM) && $method === 'DELETE') {
+    need_admin($db);
+    $idx = null; foreach ($db['contactMsgs'] as $i => $c) if ($c['id'] === $mCM[1]) { $idx = $i; break; }
+    if ($idx === null) jout(404, ['error' => 'Message not found']);
+    array_splice($db['contactMsgs'], $idx, 1);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true]);
+  }
   if ($route === 'reviews' && $method === 'POST') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
