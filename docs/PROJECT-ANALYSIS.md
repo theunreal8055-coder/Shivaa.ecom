@@ -399,3 +399,18 @@ All four JS files still pass `node --check`; `?v=42` refs unchanged.
 - Added `checkout`, `continue`, `addReview`, `shopCollection` keys to `LANG` (en/hi).
 
 Cache-bumped to `?v=43`; all four JS files pass `node --check`.
+
+### 13.9 BIS hallmark / HUID live lookup on every product (v44)
+- **Data:** every product now carries a stable `hallmark` (6-char BIS HUID), `fineness`
+  (916/750/999/925) and `hallmarkStandard` (IS 1417:2016 gold / IS 2112:2025 silver),
+  auto-healed in `api.php` and baked into `cms/data/db.json` (342 products, all unique).
+- **PDP:** a compact "BIS Hallmarked" row shows the HUID + fineness with a
+  **"Verify this hallmark"** button. Tapping it calls `GET /api/hallmark/:huid` and renders
+  a verification card (metal/purity, fineness, standard, assaying & hallmarking centre,
+  jeweller) with a **"Check on BIS portal ↗"** link (bis.gov.in) and **"Copy HUID"**, plus a
+  note to also verify in the free **BIS Care app → Verify HUID**. A 404 for an unknown HUID
+  shows a helpful "check it on BIS" fallback.
+- **Invoice:** added a **BIS HUID** column (per item) and a footer note that the hallmark is
+  verifiable at bis.gov.in / Bis Care. Order items now store `hallmark`/`fineness`.
+- **Preview shim** mirrors `/api/hallmark/:huid`. Cache-bumped to `?v=44`; all JS passes
+  `node --check`; `api.php` brace-balanced.

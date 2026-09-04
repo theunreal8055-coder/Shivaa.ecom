@@ -145,6 +145,22 @@ function handleApi(db, route, method, query, req, res) {
     return JSONout(res, 200, { catalogs: list, gated: false });
   }
 
+  // v44 — BIS hallmark lookup (mirror of api.php /api/hallmark/:huid)
+  const hm = route.match(/^hallmark\/([A-Z0-9]{6})$/);
+  if (hm && method === 'GET') {
+    const huid = hm[1];
+    const p = (db.products || []).find(x => x.hallmark === huid);
+    if (!p) return JSONout(res, 404, { error: 'Hallmark not found', huid });
+    const fin = p.fineness || (p.metal === 'Silver' ? '925' : (p.purity === '22K' ? '916' : p.purity === '18K' ? '750' : '999'));
+    return JSONout(res, 200, {
+      huid, status: 'valid', metal: p.metal, purity: p.purity, fineness: fin,
+      standard: p.hallmarkStandard || (p.metal === 'Silver' ? 'IS 2112:2025' : 'IS 1417:2016'),
+      trademark: 'BIS', hallmarkCentre: 'BIS-recognised Assaying & Hallmarking Centre, Jaipur',
+      jeweller: 'Shivaa Jewellers, Jayal, Nagaur (BIS licence on request)',
+      note: 'Cross-check this HUID on the official BIS portal (bis.gov.in) or the free BIS Care app → Verify HUID.',
+    });
+  }
+
   if (route === 'making-charges' && method === 'GET') {
     return JSONout(res, 200, { table: db.makingCharges, gst: 3 });
   }

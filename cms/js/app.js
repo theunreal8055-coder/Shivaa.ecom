@@ -1352,6 +1352,13 @@ pages.product = async (view, q, id) => {
             <div style="font-size:11.5px;color:var(--ink-3);margin-top:8px">Rate: ${timeFmt(R.t || state.rates.t)} · final bill locks at order time.</div>
           </div>
           <div class="emi-strip">◈ <span><b>No-cost EMI from <span id="pdEmi3">${fmt(emi3)}</span>/mo</b> (3 months) · standard EMI <span id="pdEmi6">${fmt(emi6)}</span>/mo (6 months) on cards & UPI-autopay</span></div>
+
+          <div class="hallmark-row" id="pdHallmark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3z"/><path d="M9 12l2 2 4-4.5" stroke-linecap="round"/></svg>
+            <div class="hallmark-tx"><b>BIS Hallmarked</b><span>HUID <code id="pdHuid">${esc(p.hallmark || '—')}</code> · ${esc(p.fineness || '')} fineness${p.metal !== 'Silver' ? ' (' + (p.fineness === '916' ? '91.67%' : p.fineness === '750' ? '75.0%' : p.fineness === '999' ? '99.9%' : '') + ')' : ''}</span></div>
+            <button class="btn btn-ghost btn-sm" onclick="Shivaa.verifyHuid('${p.id}')">Verify this hallmark</button>
+          </div>
+          <div id="pdVerify"></div>
         </div>
 
         ${p.sizes.length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide()" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide</a></div>
@@ -1471,6 +1478,38 @@ window.Shivaa.pdAdd = id => {
   addToCart(id, window._pd.qty, size, $('#engrave')?.value || null);
 };
 window.Shivaa.pdBuy = async id => { window.Shivaa.pdAdd(id); location.hash = '#/checkout'; };
+/* v44 — live BIS hallmark lookup on the product page */
+window.Shivaa.verifyHuid = async id => {
+  const p = state.productsCache.find(x => x.id === id);
+  const huid = p && p.hallmark;
+  const panel = $('#pdVerify');
+  if (!huid || !panel) return;
+  panel.innerHTML = '<div style="padding:12px 2px;text-align:center"><div class="loading-spin" style="width:26px;height:26px;margin:0 auto"></div></div>';
+  try {
+    const r = await api('/api/hallmark/' + huid);
+    panel.innerHTML = `<div class="hallmark-panel">
+      <div class="hp-head"><b>${r.status === 'valid' ? '✓ BIS Hallmark record found' : 'Hallmark not found'}</b><small>HUID ${esc(r.huid)}</small></div>
+      <table class="hp-tbl">
+        <tr><td>Metal &amp; purity</td><td>${esc(r.metal)} · ${esc(r.purity)}</td></tr>
+        <tr><td>Fineness</td><td>${esc(r.fineness)}</td></tr>
+        <tr><td>Hallmarking standard</td><td>${esc(r.standard)}</td></tr>
+        <tr><td>Assaying &amp; hallmarking centre</td><td>${esc(r.hallmarkCentre)}</td></tr>
+        <tr><td>Jeweller</td><td>${esc(r.jeweller)}</td></tr>
+      </table>
+      <div class="hp-actions">
+        <a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="https://www.bis.gov.in">Check on BIS portal ↗</a>
+        <button class="btn btn-ghost btn-sm" onclick="Shivaa.copyHuid('${esc(r.huid)}')">Copy HUID</button>
+      </div>
+      <div class="hp-note">${esc(r.note)}</div>
+    </div>`;
+  } catch (e) {
+    panel.innerHTML = `<div class="hallmark-panel hp-warn"><b>HUID ${esc(huid)}</b> is not in our hallmark record. This is the piece's BIS hallmark number — verify it on the official BIS portal (bis.gov.in) or the free BIS Care app → <b>Verify HUID</b>.</div>`;
+  }
+};
+window.Shivaa.copyHuid = async huid => {
+  try { await navigator.clipboard.writeText(huid); toast('HUID ' + huid + ' copied'); }
+  catch (e) { toast('Copy failed — ' + huid, 'err'); }
+};
 window.Shivaa.checkPin = () => {
   const v = $('#pincode').value.trim(); const m = $('#pinMsg');
   if (!/^\d{6}$/.test(v)) { m.hidden = false; m.style.color = 'var(--bad)'; m.textContent = 'Please enter a valid 6-digit pincode'; return; }
@@ -2901,8 +2940,8 @@ pages.invoice = async (view, q, id) => {
   if (!o) { view.innerHTML = '<div class="empty"><h3>Invoice not found</h3></div>'; return; }
   const wm = `${state.user.name} · ${state.user.email}`;
   const rows = kind === 'metal'
-    ? o.items.map(it => `<tr><td>${esc(it.name)}</td><td>${it.qty}</td><td>${it.weightG} g</td><td>${it.lineWeight} g</td></tr>`).join('')
-    : o.items.map(it => `<tr><td>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''}</td><td>${it.qty}</td><td>₹${Math.round(it.ratePerGram).toLocaleString('en-IN')}/g</td><td>₹${(it.unitPrice * it.qty).toLocaleString('en-IN')}</td></tr>`).join('');
+    ? o.items.map(it => `<tr><td>${esc(it.name)}</td><td>${it.qty}</td><td>${it.weightG} g</td><td>${it.lineWeight} g</td><td>${esc(it.hallmark || '—')}</td></tr>`).join('')
+    : o.items.map(it => `<tr><td>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''}</td><td>${it.qty}</td><td>₹${Math.round(it.ratePerGram).toLocaleString('en-IN')}/g</td><td>₹${(it.unitPrice * it.qty).toLocaleString('en-IN')}</td><td>${esc(it.hallmark || '—')}</td></tr>`).join('');
   const totals = kind === 'metal'
     ? `<tr class="tot"><td colspan="3">Total weight</td><td>${o.totalWeightG} g</td></tr>
        <tr class="tot"><td colspan="3">Fine metal @ ${esc(o.purity)} (× ${o.factor}, zero MC)</td><td>${o.fineGrams} g</td></tr>`
@@ -2917,9 +2956,9 @@ pages.invoice = async (view, q, id) => {
       <div class="inv-head"><img src="/images/logo.png" alt="Shivaa"><div><b>SHIVAA</b><small>Ernate Shine Jewellery Pvt. Ltd.<br>Jayal, Nagaur, Rajasthan · GSTIN on request</small></div>
       <div class="inv-meta"><b>Invoice ${o.id}</b><small>${new Date(o.createdAt).toLocaleString('en-IN')}<br>${kind === 'metal' ? 'B2B · Metal Settlement' : 'Retail Invoice'}<br>Status: ${esc(o.status)}</small></div></div>
       <div class="inv-to"><b>Billed to:</b> ${esc(o.address?.name || o.partnerName || state.user.name)}${o.address ? ` · ${esc(o.address.city || '')} ${esc(o.address.pincode || '')}` : ''}</div>
-      <table class="inv-tbl"><thead><tr><th>Item</th><th>Qty</th><th>${kind === 'metal' ? 'Weight' : 'Rate'}</th><th>${kind === 'metal' ? 'Line wt' : 'Amount'}</th></tr></thead>
+      <table class="inv-tbl"><thead><tr><th>Item</th><th>Qty</th><th>${kind === 'metal' ? 'Weight' : 'Rate'}</th><th>${kind === 'metal' ? 'Line wt' : 'Amount'}</th><th>BIS HUID</th></tr></thead>
       <tbody>${rows}${totals}</tbody></table>
-      <div class="inv-foot">Rate locked at order time · Lifetime exchange · BIS Hallmark<br><b>Confidential</b> — issued privately to ${esc(state.user.name)}; watermark identifies the holder.</div>
+      <div class="inv-foot">Rate locked at order time · Lifetime exchange · BIS Hallmark (HUID verifiable at bis.gov.in / BIS Care app)<br><b>Confidential</b> — issued privately to ${esc(state.user.name)}; watermark identifies the holder.</div>
     </div>
   </div>`;
 };

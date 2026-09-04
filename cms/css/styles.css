@@ -4596,3 +4596,24 @@ body.cmp-open{padding-bottom:92px}
 .verified-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(30,138,105,.12);color:#1e8a69;border:1px solid rgba(30,138,105,.35);font:600 11px/1 var(--sans);border-radius:99px;padding:4px 8px}
 .rv-photos{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .rv-photos img{width:74px;height:74px;object-fit:cover;border-radius:10px;cursor:zoom-in;border:1px solid var(--line)}
+
+/* ══════════ v44 — BIS hallmark lookup (product page) ══════════ */
+.hallmark-row{display:flex;align-items:center;gap:12px;margin-top:14px;background:linear-gradient(120deg,var(--cream),#fff9ee);border:1px solid rgba(185,138,47,.3);border-radius:12px;padding:10px 12px;flex-wrap:wrap}
+.hallmark-row>svg{width:30px;height:30px;flex:none;color:var(--gold)}
+.hallmark-tx{flex:1;min-width:160px;line-height:1.4}
+.hallmark-tx b{display:block;font-family:var(--ff-disp);color:var(--maroon);font-size:15px}
+.hallmark-tx span{font-size:12px;color:var(--ink-2)}
+.hallmark-tx code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:rgba(185,138,47,.12);border:1px solid rgba(185,138,47,.32);border-radius:6px;padding:1px 7px;color:var(--maroon-deep);font-weight:700;letter-spacing:.12em}
+#pdVerify{margin-top:10px;min-height:0}
+.hallmark-panel{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:13.5px;box-shadow:var(--sh-1);animation:rvIn .3s var(--ease)}
+.hallmark-panel .hp-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.hallmark-panel .hp-head b{color:var(--ok);font-size:15px}
+.hallmark-panel .hp-head small{color:var(--ink-3);font-family:ui-monospace,monospace;letter-spacing:.06em}
+.hallmark-panel .hp-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}
+.hallmark-panel .hp-tbl td{padding:6px 4px;border-bottom:1px solid var(--line)}
+.hallmark-panel .hp-tbl td:first-child{color:var(--ink-3);width:180px}
+.hallmark-panel .hp-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.hallmark-panel .hp-note{font-size:12px;color:var(--ink-3);line-height:1.5;background:var(--cream);border-radius:8px;padding:8px 10px}
+.hallmark-panel.hp-warn{border-color:var(--warn)}
+.hallmark-panel.hp-warn b{color:var(--warn)}
+@media(max-width:680px){.hallmark-tx span{font-size:11.5px}.hallmark-panel .hp-tbl td:first-child{width:132px}.hallmark-row .btn{width:100%;justify-content:center}}

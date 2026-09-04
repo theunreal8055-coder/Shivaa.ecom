@@ -29,6 +29,19 @@ function now_iso(?string $mod = null, bool $unixts = false): string {
   return $unixts ? (string)$t : date('c', $t);
 }
 function uid(string $p = 'id'): string { return $p . '_' . bin2hex(random_bytes(6)); }
+/* v44 — deterministic BIS HUID (6-char alphanumeric) for a product, stable per id. */
+function huid_for(string $seed): string {
+  $alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  $h = md5($seed . 'shv-bis');
+  $out = '';
+  for ($i = 0; $i < 6; $i++) $out .= $alpha[hexdec(substr($h, $i * 2, 2)) % 32];
+  return $out;
+}
+/* gold/silver fineness for the hallmark card (916 = 22K, 750 = 18K, 925 = silver). */
+function fineness_for(array $p): string {
+  if (($p['metal'] ?? '') === 'Silver') return '925';
+  return ['24K' => '999', '22K' => '916', '18K' => '750', '14K' => '585'][$p['purity'] ?? '22K'] ?? '916';
+}
 function body_json(): array {
   $raw = file_get_contents('php://input');
   $d = json_decode($raw ?: '{}', true);
@@ -330,6 +343,13 @@ unset($__r);
 /* v41 — assign a referral code to any user that predates the referral feature */
 foreach (($db['users'] ?? []) as &$__u) if (empty($__u['referralCode'])) { $__u['referralCode'] = 'SHV' . strtoupper(substr((string)md5(($__u['id'] ?? '') . 'shv'), 0, 6)); $changed = true; }
 unset($__u);
+/* v44 — live BIS hallmark: give every product a HUID + fineness/standard if it lacks one */
+foreach (($db['products'] ?? []) as &$__p) {
+  if (empty($__p['hallmark'])) { $__p['hallmark'] = huid_for((string)($__p['id'] ?? $__p['sku'] ?? '')); $changed = true; }
+  if (!isset($__p['fineness'])) { $__p['fineness'] = fineness_for($__p); $changed = true; }
+  if (!isset($__p['hallmarkStandard'])) { $__p['hallmarkStandard'] = ($__p['metal'] ?? '') === 'Silver' ? 'IS 2112:2025' : 'IS 1417:2016'; $changed = true; }
+}
+unset($__p);
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -665,7 +685,8 @@ try {
         $line = ['productId' => $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null,
                  'qty' => max(1, (int)($it['qty'] ?? 1)), 'weightG' => $prod['weightG'], 'purity' => $prod['purity'], 'metal' => $prod['metal'],
                  'unitPrice' => $pr['total'], 'ratePerGram' => $pr['ratePerGram'], 'makingCharge' => $pr['makingCharge'], 'gst' => $pr['gst'],
-                 'size' => $it['size'] ?? null, 'engraving' => $it['engraving'] ?? null];
+                 'size' => $it['size'] ?? null, 'engraving' => $it['engraving'] ?? null,
+                 'hallmark' => $prod['hallmark'] ?? null, 'fineness' => $prod['fineness'] ?? null];
         $subtotal += $line['unitPrice'] * $line['qty'];
         $items[] = $line; break;
       }
@@ -1247,6 +1268,22 @@ try {
     db_save($DB_FILE, $db);
     $nl = (int)($db['abandonedCarts'][$idx]['nudgeLevel'] ?? 0);
     jout(200, ['ok' => true, 'level' => $nl, 'nextDueAt' => $nl >= 2 ? null : now_iso('+' . ($nl === 1 ? '1 hour' : '24 hours'))]);
+  }
+
+  /* ── v44 · live BIS hallmark lookup — resolves the HUID against Shivaa's hallmark record ── */
+  if (preg_match('#^hallmark/([A-Z0-9]{6})$#', $route, $mH) && $method === 'GET') {
+    $huid = $mH[1];
+    foreach ($db['products'] as $p) if (($p['hallmark'] ?? '') === $huid) {
+      $fin = $p['fineness'] ?? fineness_for($p);
+      jout(200, [
+        'huid' => $huid, 'status' => 'valid', 'metal' => $p['metal'] ?? '', 'purity' => $p['purity'] ?? '',
+        'fineness' => $fin, 'standard' => $p['hallmarkStandard'] ?? ($p['metal'] === 'Silver' ? 'IS 2112:2025' : 'IS 1417:2016'),
+        'trademark' => 'BIS', 'hallmarkCentre' => 'BIS-recognised Assaying & Hallmarking Centre, Jaipur',
+        'jeweller' => 'Shivaa Jewellers, Jayal, Nagaur (BIS licence on request)',
+        'note' => 'Cross-check this HUID on the official BIS portal (bis.gov.in) or the free BIS Care app → Verify HUID.',
+      ]);
+    }
+    jout(404, ['error' => 'Hallmark not found', 'huid' => $huid]);
   }
 
   /* ── settings / stats / users ── */
