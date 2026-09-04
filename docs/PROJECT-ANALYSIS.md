@@ -362,3 +362,23 @@ Began on top of the Razorpay commit `329154a`. `?v=40 → ?v=41` across CSS/font
 - Preview shim (`preview-server.js`) mirrors `/api/referral`, `/api/reviews` (GET/PUT/DELETE),
   and `/api/cart-abandon` (POST/GET/nudge) so the sandbox preview behaves; smoke-tested the
   endpoints + `?v=41` references. PHP reviewed by line (no `php -l` in sandbox).
+
+### 13.7 UI/UX audit fixes (v41.1)
+- **Category slider circles restored:** the compare-bar CSS used the same `.cb-item` / `.cb-item img`
+  class names as the homepage category circle slider, and being later in the sheet it
+  overrode them — turning the circular category images into 38px rounded rectangles.
+  Renamed the compare-bar classes to `.cpb-*` so the two no longer collide. The category
+  images are 1000×1000 squares in an `84px` `border-radius:50%` `overflow:hidden` frame.
+- **Compare modal showed `₹NaN`:** the price rows referenced `p.ratePerGram` / `p.metalValue` /
+  `p.makingCharge` / `p.gst` / `p.total` on the *product* instead of the computed *price*
+  object, so every price column rendered `₹NaN`. Now reads `pr[i].*`.
+- **Compare state not refreshing:** `refreshCompareBadge()` + `renderCompareBar()` are now called
+  at the end of every `route()` so the per-card ⇄ highlight and the bottom bar stay in sync
+  after navigation.
+- **Compare bar overlapped the mobile bottom nav & hid content:** toggles a `body.cmp-open`
+  class that pads the page and lifts the bar above the mobile nav (`bottom:calc(56px + safe-area)`).
+- **Mobile product-card action buttons** (wishlist + compare) shrank from 38px to 32px on
+  ≤680px so they cover less of the product photo.
+- **Home "Shop by category" labels** bumped from 9px to 11px for readability.
+
+All four JS files still pass `node --check`; `?v=41` refs unchanged.

@@ -388,16 +388,17 @@ function toggleCompare(id) {
 }
 function renderCompareBar() {
   let bar = $('#compareBar');
-  if (!state.compare.length) { if (bar) bar.remove(); refreshCompareBadge(); return; }
+  if (!state.compare.length) { document.body.classList.remove('cmp-open'); if (bar) bar.remove(); refreshCompareBadge(); return; }
+  document.body.classList.add('cmp-open');
   if (!bar) {
     const el = document.createElement('div'); el.id = 'compareBar'; el.className = 'compare-bar';
     document.body.appendChild(el); bar = el;
   }
   const items = state.compare.map(id => state.productsCache.find(p => p.id === id)).filter(Boolean);
-  bar.innerHTML = `<div class="cb-in"><div class="cb-t"><b>Compare (${state.compare.length}/${COMPARE_MAX})</b>
-      <button class="cb-clear" onclick="Shivaa.clearCompare()">Clear</button></div>
-    <div class="cb-items">${items.map(p => `<div class="cb-item"><img src="${p.images && p.images[0]}" alt="${esc(p.name)}" onerror="this.style.display='none'"><span>${esc(p.name)}</span><button class="cb-x" onclick="Shivaa.toggleCompare('${p.id}')">✕</button></div>`).join('')}
-      <button class="cb-open" onclick="Shivaa.openCompare()">Compare now ›</button></div></div>`;
+  bar.innerHTML = `<div class="cpb-in"><div class="cpb-t"><b>Compare (${state.compare.length}/${COMPARE_MAX})</b>
+      <button class="cpb-clear" onclick="Shivaa.clearCompare()">Clear</button></div>
+    <div class="cpb-items">${items.map(p => `<div class="cpb-item"><img src="${p.images && p.images[0]}" alt="${esc(p.name)}" onerror="this.style.display='none'"><span>${esc(p.name)}</span><button class="cpb-x" onclick="Shivaa.toggleCompare('${p.id}')">✕</button></div>`).join('')}
+      <button class="cpb-open" onclick="Shivaa.openCompare()">Compare now ›</button></div></div>`;
   refreshCompareBadge();
 }
 window.Shivaa.compareOpen = () => { renderCompareBar(); };
@@ -414,12 +415,12 @@ window.Shivaa.openCompare = () => {
     ['Metal', items.map(p => p.metal).join('')],
     ['Purity', items.map(p => p.purity).join('')],
     ['Weight', items.map(p => p.weightG + ' g').join('')],
-    ['Rate / g', items.map(p => fmt(p.ratePerGram)).join('')],
-    ['Metal value', items.map(p => fmt(p.metalValue)).join('')],
-    ['Making charge', items.map(p => fmt(p.makingCharge)).join('')],
-    ['Stone', items.map(p => p.stoneValue ? fmt(p.stoneValue) : '—').join('')],
-    ['GST (3%)', items.map(p => fmt(p.gst)).join('')],
-    ['Total', items.map(p => `<b>${fmt(p.total)}</b>`).join('')],
+    ['Rate / g', items.map((p, i) => fmt(pr[i].ratePerGram)).join('')],
+    ['Metal value', items.map((p, i) => fmt(pr[i].metalValue)).join('')],
+    ['Making charge', items.map((p, i) => fmt(pr[i].makingCharge)).join('')],
+    ['Stone', items.map((p, i) => pr[i].stoneValue ? fmt(pr[i].stoneValue) : '—').join('')],
+    ['GST (3%)', items.map((p, i) => fmt(pr[i].gst)).join('')],
+    ['Total', items.map((p, i) => `<b>${fmt(pr[i].total)}</b>`).join('')],
   ];
   openModal(`<h3 style="font-size:24px;margin-bottom:16px">Compare pieces</h3>
     <div class="cmp-wrap"><table class="cmp-table"><tbody>
@@ -4078,6 +4079,9 @@ function route() {
   });
   if(window._closeDrawer) window._closeDrawer(); else { $('#navToggle')?.classList.remove('open'); $('#mainNav')?.classList.remove('open'); }
   requestAnimationFrame(() => { bindReveal(); bindTilt(); bindMagnetic(); decorate5D(); setHeaderH(); initDsfilters(); bindV23Reveal(); try { updatePartnerUI(); } catch (e) {} });
+  // v41 — keep the compare bar + per-card ⇄ active state in sync after every navigation
+  refreshCompareBadge();
+  if (state.compare.length) renderCompareBar();
 }
 addEventListener('hashchange', route);
 
