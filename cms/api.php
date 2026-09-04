@@ -11,6 +11,7 @@ $ROOT = __DIR__;
 $DB_FILE = $ROOT . '/data/db.json';
 $CAT_DIR = $ROOT . '/uploads/catalogs';
 require_once __DIR__ . '/sms.php';   // v33 — OTP SMS delivery plug-in (no-op in demo mode)
+require_once __DIR__ . '/notify.php'; // v49 — WhatsApp/email order & payment confirmations (queues in demo mode)
 
 /* ───────── helpers ───────── */
 function jout(int $code, $payload): void {
@@ -330,7 +331,8 @@ $db = db_load($DB_FILE);
 $changed = false;
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','otpThrottle','referrals','abandonedCarts'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','otpThrottle','referrals','abandonedCarts','notifications'] as $__k) $db[$__k] = $db[$__k] ?? [];
+$db['notifyLog'] = $db['notifyLog'] ?? ['sent'=>0,'failed'=>0,'queued'=>0,'lastAt'=>null];
 /* legacy partners predate the approved-status flag → treat existing 'partner' users as approved */
 foreach (($db['users'] ?? []) as &$__u) if (($__u['role'] ?? '') === 'partner' && !isset($__u['partnerStatus'])) $__u['partnerStatus'] = 'approved';
 unset($__u);
@@ -841,6 +843,8 @@ try {
       $uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0) - $pointsUsed) + $earned;
     }
     foreach ($items as $it) foreach ($db['products'] as &$pr2) if ($pr2['id'] === $it['productId']) $pr2['stock'] = max(0, (int)($pr2['stock'] ?? 0) - $it['qty']);
+    // v49 — WhatsApp/email order confirmation (queues in demo mode)
+    shivaa_notify($db, ['event'=>'order_confirmed','user'=>$u,'order'=>$order,'settings'=>$db['settings'],'channels'=>['whatsapp','email']]);
     db_save($DB_FILE, $db);
     jout(200, $order);
   }
@@ -861,9 +865,14 @@ try {
     if ($method === 'PUT') {
       need_admin($db);
       $st = body_json()['status'] ?? null;
+      $didChange = false;
       foreach ($db['orders'] as &$x) if ($x['id'] === $m[1]) {
-        if ($st && $st !== $x['status']) { $x['status'] = $st; $x['timeline'][] = ['s' => $st, 't' => now_iso()]; }
+        if ($st && $st !== $x['status']) { $x['status'] = $st; $x['timeline'][] = ['s' => $st, 't' => now_iso()]; $didChange = true; }
         $o = $x;
+      }
+      if ($didChange) {  // v49 — status update WhatsApp/email
+        $u2 = null; foreach ($db['users'] as $uz) if ($uz['id'] === $o['userId']) $u2 = $uz;
+        shivaa_notify($db, ['event'=>'order_status','status'=>$st,'user'=>$u2 ?: [],'order'=>$o,'settings'=>$db['settings'],'channels'=>['whatsapp','email']]);
       }
       db_save($DB_FILE, $db); jout(200, $o);
     }
@@ -948,6 +957,8 @@ try {
       $x['timeline'][] = ['s' => 'Paid', 't' => now_iso()];
       $o = $x;
     }
+    // v49 — WhatsApp/email payment confirmation (queues in demo mode)
+    shivaa_notify($db, ['event'=>'payment_confirmed','user'=>$u,'order'=>$o,'settings'=>$db['settings'],'channels'=>['whatsapp','email']]);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'order' => $o]);
   }
@@ -1058,6 +1069,44 @@ try {
     shivaa_sms_log($db, $r); db_save($DB_FILE, $db);
     if ($r['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code, 'note' => 'No data/sms-config.json yet — gateway not configured, demo mode']);
     jout($r['ok'] ? 200 : 502, ['ok' => $r['ok'], 'provider' => $r['provider'], 'error' => $r['error'], 'response' => cut500((string)$r['response']), 'hint' => $r['ok'] ? 'Check the phone for the SMS — if it arrived, you are live.' : 'Fix the error, then test again. See OTP-SETUP-GUIDE.md.']);
+  }
+
+  /* ── Notification gateway admin tools (v49) ── */
+  if ($route === 'notify/status' && $method === 'GET') {
+    need_admin($db);
+    $c = shivaa_notify_config();
+    jout(200, [
+      'configured'  => (bool)$c,
+      'email'       => $c['email']['provider'] ?? null,
+      'whatsapp'    => $c['whatsapp']['provider'] ?? null,
+      'channels'    => $c['channels'] ?? ['whatsapp', 'email'],
+      'fromName'    => $c['fromName'] ?? null,
+      'log'         => $db['notifyLog'] ?? ['sent' => 0, 'failed' => 0, 'queued' => 0, 'lastAt' => null],
+      'field_name'  => 'Notifications (whatsapp/email confirmations)',
+    ]);
+  }
+  if ($route === 'notify' && $method === 'GET') {
+    need_admin($db);
+    $list = array_reverse(array_values($db['notifications'] ?? []));
+    jout(200, ['notifications' => array_slice($list, 0, 100), 'total' => count($list), 'log' => $db['notifyLog'] ?? null]);
+  }
+  if ($route === 'notify/test' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $email = trim((string)($b['email'] ?? ''));
+    $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email']);
+    if ($phone !== '' && !preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
+    if ($email === '' && $phone === '') jout(400, ['error' => 'Provide an email or a mobile to send the test to']);
+    $tt = ['id' => 'SHVtest' . substr((string)time(), -8), 'status' => 'Placed', 'paymentMethod' => 'Test',
+           'userName' => 'Shivaa Test', 'items' => [['name' => 'Test order', 'qty' => 1, 'unitPrice' => 1000]],
+           'subtotal' => 1000, 'discount' => 0, 'shipping' => 0, 'total' => 1000,
+           'address' => ['city' => 'Jaipur', 'pincode' => '302001']];
+    $uu = ['id' => 'test', 'name' => 'Shivaa Test', 'phone' => $phone, 'email' => $email];
+    $r = shivaa_notify($db, ['event' => $b['event'] ?? 'order_confirmed', 'user' => $uu, 'order' => $tt, 'settings' => $db['settings'], 'channels' => ['whatsapp', 'email']]);
+    db_save($DB_FILE, $db);
+    jout(200, ['mode' => $r['mode'], 'sent' => $r['sent'], 'queued' => $r['queued'], 'records' => $r['records'],
+               'note' => $r['mode'] === 'live' ? ($r['sent'] ? 'Real notification sent ✓ — check the inbox/WhatsApp.' : 'Live gateway reached but the send failed — see the record error.') : 'Demo mode — no data/notify-config.json yet. The notification was composed and queued (visible in Admin → Notifications). To go live, create the config file (see NOTIFY-SETUP-GUIDE.md).']);
   }
 
   /* ── design selection → metal exchange (zero MC) ── */

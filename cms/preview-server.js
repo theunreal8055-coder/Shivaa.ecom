@@ -244,6 +244,18 @@ function handleApi(db, route, method, query, req, res) {
     return JSONout(res, 400, { error: 'Preview shim: Razorpay is read-only here.' });
   }
 
+  // ── v49 notification gateway (read-only preview mirror; demo mode in preview) ──
+  if (route === 'notify/test' && method === 'POST') {
+    return JSONout(res, 200, { mode: 'demo', sent: 0, queued: 0, records: [], note: 'Demo mode — no data/notify-config.json in preview. On the live site this is composed & queued; create the config to send for real.' });
+  }
+  if (route === 'notify/status' && method === 'GET') {
+    return JSONout(res, 200, { configured: false, email: null, whatsapp: null, channels: ['whatsapp', 'email'], fromName: db.settings && db.settings.storeName || 'Shivaa Jewellers', log: db.notifyLog || { sent: 0, failed: 0, queued: 0, lastAt: null } });
+  }
+  if (route === 'notify' && method === 'GET') {
+    const list = (db.notifications || []).slice().reverse();
+    return JSONout(res, 200, { notifications: list.slice(0, 100), total: list.length, log: db.notifyLog || null });
+  }
+
   // Writes are out of scope for the preview — 501 so the UI gracefully no-ops.
   return JSONout(res, 501, { error: 'Writes disabled in preview (read-only shim)' });
 }

@@ -48,6 +48,9 @@ async function renderAdmin(view, q) {
   let abandoned = [];
   if (tab === 'carts') { try { abandoned = (await api('/api/cart-abandon')).carts || []; } catch (e) {} }
   window.ShivaaAdmin._abandoned = abandoned;
+  let notifData = { notifications: [], total: 0, log: null };
+  if (tab === 'notifications') { try { notifData = await api('/api/notify'); } catch (e) {} }
+  window.ShivaaAdmin._notif = notifData;
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -57,12 +60,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['reviews','★','Reviews'],['carts','🛒','Cart Recovery'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'reviews' && reviews.filter(r => r.status === 'pending').length ? ` <span class="cnt">${reviews.filter(r => r.status === 'pending').length}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['reviews','★','Reviews'],['carts','🛒','Cart Recovery'],['notifications','🔔','Notifications'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'reviews' && reviews.filter(r => r.status === 'pending').length ? ` <span class="cnt">${reviews.filter(r => r.status === 'pending').length}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',reviews:'Review Moderation',carts:'Cart Recovery',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',reviews:'Review Moderation',carts:'Cart Recovery',notifications:'Notifications',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -413,6 +416,37 @@ async function renderAdmin(view, q) {
       </div>`;
   }
 
+  /* ── NOTIFICATIONS (v49 — WhatsApp/email confirmations) ── */
+  if (tab === 'notifications') {
+    const recs = notifData.notifications || [];
+    const log = notifData.log || { sent: 0, failed: 0, queued: 0, lastAt: null };
+    body.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat"><small>Sent</small><b>${log.sent || 0}</b><span>live delivery</span></div>
+        <div class="stat"><small>Queued</small><b>${log.queued || 0}</b><span>demo / no gateway</span></div>
+        <div class="stat"><small>Failed</small><b style="color:${log.failed ? 'var(--bad)' : 'inherit'}">${log.failed || 0}</b><span>gateway errors</span></div>
+        <div class="stat"><small>Stored</small><b>${notifData.total || 0}</b><span>capped at 500</span></div>
+      </div>
+      <div class="adm-card"><h3>Notification gateway — WhatsApp &amp; email
+        <span style="font-size:12px;color:var(--ink-3);font-weight:400">order confirmed · payment received · status changes</span></h3>
+        <div id="admNotifyCard"><div class="loading-spin"></div></div></div>
+      <div class="adm-card"><h3>Recent notifications <span style="font-size:12px;color:var(--ink-3);font-weight:400">composed automatically on every order/payment</span></h3>
+        ${(notifData.total || recs.length) ? `<div class="adm-table-wrap"><table class="adm-table">
+          <thead><tr><th>When</th><th>Event</th><th>Channel</th><th>To</th><th>Subject</th><th>Result</th></tr></thead>
+          <tbody>${recs.map(r => `<tr>
+            <td><small>${new Date(r.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</small></td>
+            <td><span class="pill pm">${esc(r.event)}</span> <small style="color:var(--ink-3)">${esc(r.ref)}</small></td>
+            <td>${r.channel === 'whatsapp' ? '📱 WhatsApp' : '✉ Email'}</td>
+            <td>${esc(r.to || '—')}${r.waUrl ? ` <a class="icon-e" target="_blank" rel="noopener" href="${esc(r.waUrl)}" title="Open this WhatsApp message in demo">📲</a>` : ''}</td>
+            <td style="max-width:300px"><small>${esc(r.subject)}</small>
+              <details style="margin-top:4px"><summary style="cursor:pointer;font-size:11px;color:var(--gold)">view copy</summary><pre style="white-space:pre-wrap;font-size:11.5px;color:var(--ink-3);background:var(--gold-faint);border:1px solid var(--gold-soft);border-radius:8px;padding:8px 10px;margin:6px 0 0;max-height:220px;overflow:auto">${esc(r.text || '')}</pre></details></td>
+            <td><span class="status-pill ${r.status === 'sent' ? 'st-delivered' : r.status === 'failed' ? 'st-cancelled' : 'st-placed'}">${esc(r.status)}${r.mode === 'demo' ? ' ·demo' : ''}</span></td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : '<p class="partner-note">No notifications yet — they are composed on every order, payment and status change. Send a test above or place a demo order to see them here. Queued (demo) entries appear too.</p>'}
+      </div>`;
+    setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.notifCard && window.ShivaaAdmin.notifCard(), 0);
+  }
+
   /* ── PAGES ── */
   if (tab === 'pages') {
     body.innerHTML = `<div class="adm-card"><h3>📄 Pages <button class="btn btn-primary btn-sm" onclick="ShivaaPages.edit()">+ New Page</button></h3>
@@ -494,6 +528,40 @@ window.ShivaaAdmin.smsTest = async e => {
     else toast('Gateway error: ' + (r.error || 'unknown'), 'err');
   } catch (err) { toast(err.message, 'err'); }
   window.ShivaaAdmin.smsCard();
+};
+/* ── v49 · notification gateway status + test sender (Notifications tab) ── */
+window.ShivaaAdmin.notifCard = async () => {
+  const card = document.getElementById('admNotifyCard');
+  if (!card) return;
+  try {
+    const s = await api('/api/notify/status');
+    const live = !!s.configured;
+    const ep = s.email, wp = s.whatsapp;
+    card.innerHTML = `
+      <div class="sum-row"><span>Mode</span><b style="color:${live ? '#1a7f37' : '#b45309'}">${live ? '● LIVE — real delivery via ' + esc(String(wp || ep || 'provider').toUpperCase()) : '● DEMO — notifications composed & queued, nothing sent yet'}</b></div>
+      <div class="sum-row"><span>Email</span><b>${ep ? esc(ep) : 'not configured'}</b></div>
+      <div class="sum-row"><span>WhatsApp</span><b>${wp ? esc(wp) : 'not configured'}</b></div>
+      <div class="sum-row"><span>Channels</span><b>${(s.channels || []).join(' + ')}</b></div>
+      <div class="kyc-inline" style="margin-top:10px">
+        <input id="admNotifyPhone" maxlength="10" inputmode="numeric" placeholder="mobile (WhatsApp test)" style="flex:1">
+        <input id="admNotifyEmail" type="email" placeholder="email (email test)" style="flex:1">
+        <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.notifTest(event)">Send test</button>
+      </div>
+      <p style="font-size:12px;color:var(--ink-3);margin:8px 0 0">${live ? 'Send a test to your own phone/email first — errors appear above after every send.' : 'To go live: create <b>data/notify-config.json</b> with your email + WhatsApp provider keys (see <b>NOTIFY-SETUP-GUIDE.md</b>). Until then every confirmation is still composed and queued here so you can preview the exact copy customers will get.'}</p>`;
+  } catch (e) { card.innerHTML = `<p style="color:var(--ink-3);font-size:13px">Notification status unavailable (${esc(e.message)})</p>`; }
+};
+window.ShivaaAdmin.notifTest = async e => {
+  const btn = e && e.target;
+  const ph = (document.getElementById('admNotifyPhone') || {}).value || '';
+  const em = (document.getElementById('admNotifyEmail') || {}).value || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const r = await api('/api/notify/test', { method: 'POST', body: JSON.stringify({ phone: ph, email: em }) });
+    if (r.mode === 'demo') toast('Demo — notification composed & queued for preview ✓');
+    else if (r.sent) toast('Real notification sent ✓ — check inbox / WhatsApp');
+    else toast('Gateway error recorded — see the row below', 'err');
+  } catch (err) { toast(err.message, 'err'); }
+  window.ShivaaAdmin.notifCard();
 };
 
 /* admin actions */
