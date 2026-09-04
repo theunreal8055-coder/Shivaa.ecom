@@ -259,6 +259,53 @@ window.Shivaa.waProduct = id => {
   waOpen(waProductMsg(p, pd.qty || 1, size, $('#engrave')?.value || null));
 };
 
+/* ─────────── PRICE-DROP & BACK-IN-STOCK ALERTS (v45) ─────────── */
+async function getAlerts() {
+  if (!state.user) return [];
+  try { return (await api('/api/alerts')).alerts || []; }
+  catch (e) { return []; }
+}
+let _alertsCache = [];
+let _alertsFresh = 0;
+async function refreshAlerts(force) {
+  if (!state.user) { _alertsCache = []; return []; }
+  const now = Date.now();
+  if (!force && now - _alertsFresh < 30000 && _alertsCache.length) return _alertsCache;
+  _alertsCache = await getAlerts(); _alertsFresh = now;
+  return _alertsCache;
+}
+window.Shivaa.setPriceAlert = async (id, target) => {
+  if (!state.user) { openLogin(); toast('Login to set a price alert ✦'); return; }
+  const pd = window._pd || {};
+  const p = pd.p || state.productsCache.find(x => x.id === id);
+  const cur = pd.pr?.total || (p ? price(p).total : 0);
+  const t = target != null ? +target : Math.round(cur * 0.95);
+  if (!t || t <= 0) { toast('Enter a target price', 'err'); return; }
+  try {
+    const r = await api('/api/alerts', { method: 'POST', body: JSON.stringify({ productId: id, type: 'price', target: t }) });
+    _alertsCache = r.alerts || []; _alertsFresh = Date.now();
+    const just = (r.alerts || []).find(a => a.productId === id && a.type === 'price');
+    if (just && just.fired && just.current <= t) toast('Already at/below your target — price alert ready ✦');
+    else toast('Price alert set — we\u2019ll let you know when it drops to ' + fmt(t));
+    if (window._pd) pages.product($('#view'), new URLSearchParams(), id);
+    else route(true);
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.setStockAlert = async id => {
+  if (!state.user) { openLogin(); toast('Login for a back-in-stock alert ✦'); return; }
+  try {
+    const r = await api('/api/alerts', { method: 'POST', body: JSON.stringify({ productId: id, type: 'stock' }) });
+    _alertsCache = r.alerts || []; _alertsFresh = Date.now();
+    toast('Back-in-stock alert set ✦ we\u2019ll notify you the moment it\u2019s back');
+    if (window._pd) pages.product($('#view'), new URLSearchParams(), id);
+    else route(true);
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.removeAlert = async aId => {
+  try { await api('/api/alerts/' + aId, { method: 'DELETE' }); _alertsFresh = 0; toast('Alert removed'); route(true); }
+  catch (e) { toast(e.message, 'err'); }
+};
+
 /* ─────────── page component registry ─────────── */
 const TAGS = { wedding: 'Wedding', festive: 'Festive', daily: 'Everyday', gifting: 'Gifting', mens: "Men's", heritage: 'Heritage', luxe: 'Luxe', new: 'New In', bestseller: 'Bestsellers' };
 
@@ -1297,6 +1344,10 @@ pages.product = async (view, q, id) => {
   try { data = await api('/api/products/' + id); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
   const p = data.product, pr = price(p), R = data.rates || state.rates;
   const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
+  const alerts = await refreshAlerts();
+  const myAlert = alerts.find(a => a.productId === p.id);
+  const priceAlert = myAlert && myAlert.type === 'price' ? myAlert : null;
+  const stockAlert = myAlert && myAlert.type === 'stock' ? myAlert : null;
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
   view.innerHTML = `
   <div class="container" style="padding-top:26px">
@@ -1376,6 +1427,32 @@ pages.product = async (view, q, id) => {
           <button class="btn btn-ghost" onclick="Shivaa.toggleCompare('${p.id}')">⇄ Compare</button>
         </div>
         <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'}">${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</div>
+
+        <div class="alert-widget" id="alertWidget">
+          <div class="aw-head"><span class="aw-bell">${state.user ? '🔔' : '🔒'}</span><div><b>${p.stock > 0 ? 'Price-drop alert' : 'Back-in-stock alert'}</b><small>${state.user ? 'We will tell you the moment the price moves.' : 'Login to get notified on this piece.'}</small></div></div>
+          ${state.user ? `
+            ${priceAlert ? `
+              <div class="aw-status awake ${priceAlert.fired ? 'fired' : ''}">
+                <span>${priceAlert.fired ? '🎉 Price dropped to your target' : '✓ Watching this price'}</span>
+                <b>${priceAlert.fired ? fmt(pr.total) : 'Will alert below ' + fmt(priceAlert.target)}</b>
+                <button class="btn btn-ghost btn-sm" onclick="Shivaa.removeAlert('${priceAlert.id}')">Remove</button>
+              </div>
+            ` : `
+              <div class="aw-form">
+                <label>Alert me when it drops to</label>
+                <div class="aw-row">
+                  <div class="aw-cmp">₹<input id="awTgt" type="number" min="1" step="1" value="${Math.round(pr.total * 0.96)}"></div>
+                  <button class="btn btn-gold btn-sm" onclick="Shivaa.setPriceAlert('${p.id}', $('#awTgt').value)">Set alert</button>
+                </div>
+                <span class="aw-hint">Current price ${fmt(pr.total)} · suggestion ≈ 4% below</span>
+              </div>
+            `}
+            ${p.stock <= 0 ? (stockAlert
+              ? `<div class="aw-status awake ${stockAlert.fired ? 'fired' : ''}"><span>${stockAlert.fired ? '🎉 Back in stock!' : '✓ Watching for restock'}</span><b>${stockAlert.fired ? 'It\u2019s available again' : 'We\u2019ll notify you when it\u2019s back'}</b>${stockAlert.fired ? '' : `<button class="btn btn-ghost btn-sm" onclick="Shivaa.removeAlert('${stockAlert.id}')">Remove</button>`}</div>`
+              : `<button class="btn btn-outline btn-sm aw-stock" onclick="Shivaa.setStockAlert('${p.id}')">Notify me when back in stock</button>`)
+            : ''}
+          ` : `<a class="btn btn-outline btn-sm aw-stock" href="javascript:Shivaa.openLogin()">Login to set alerts</a>`}
+        </div>
 
         <div class="opt-label"><span>Check delivery</span></div>
         <div class="pin-row" style="max-width:340px"><input id="pincode" maxlength="6" placeholder="Enter 6-digit pincode"><button class="btn btn-ghost btn-sm" onclick="Shivaa.checkPin()">Check</button></div>
@@ -1828,6 +1905,7 @@ pages.account = async (view, q) => {
     ['addresses', '⌖', 'Manage Addresses', nAdr ? nAdr + ' saved · deliveries & billing' : 'Add delivery addresses'],
     ['loyalty', '✦', 'Royalty Points', me.loyaltyPoints + ' pts · ' + tier + ' tier'],
     ['wishlist', '♡', 'My Wishlist', wl.length + ' saved piece' + (wl.length === 1 ? '' : 's')],
+    ['alerts', '🔔', 'Price & Stock Alerts', (me.alerts || []).length + ' watch' + ((me.alerts || []).length === 1 ? '' : 'es')],
   ];
 
   view.innerHTML = `
@@ -1930,10 +2008,15 @@ pages.account = async (view, q) => {
         <div id="referralBody" style="color:var(--ink-3);font-size:13px">Loading your referral code…</div>
       </div>
     </div>` : ''}
+  ${tab === 'alerts' ? `<div class="acct-sec" id="alertsBody">
+      <div class="as-head"><h3>Price &amp; Stock Alerts</h3><span class="as-note">We tell you the moment your watched piece drops to your target or is back in stock</span></div>
+      <div id="alertsList"><div class="empty"><h3>Loading your watches…</h3></div></div>
+    </div>` : ''}
     </div>
   </div>
   <div style="height:40px"></div>`;
   if (tab === 'loyalty') Shivaa.loadReferral();
+  if (tab === 'alerts') Shivaa.loadAlertsTab();
 };
 window.Shivaa.loadReferral = async () => {
   try {
@@ -1950,6 +2033,36 @@ window.Shivaa.loadReferral = async () => {
 };
 window.Shivaa.copyRef = async code => { try { await navigator.clipboard.writeText(code || ''); $('#refTip').textContent = code + ' copied ✦'; } catch (e) {} };
 window.Shivaa.copyRefLink = async () => { try { await navigator.clipboard.writeText((SITE_URL + '/?ref=' + (state.user?.referralCode || ''))); $('#refTip').textContent = 'Invite link copied ✦'; } catch (e) {} };
+window.Shivaa.loadAlertsTab = async () => {
+  const box = $('#alertsList'); if (!box) return;
+  const body = $('#alertsBody'); if (!body) return;
+  const list = await refreshAlerts(true);
+  if (!list.length) {
+    box.innerHTML = `<div class="empty"><div class="big">🔔</div><h3>No watches yet</h3><p style="margin:10px 0 20px;color:var(--ink-3)">Open any piece and set a price-drop or back-in-stock alert.</p><a class="btn btn-primary" href="#/shop">Browse Jewellery</a></div>`;
+    return;
+  }
+  const rows = await Promise.all(list.map(async a => {
+    const p = a.product || state.productsCache.find(x => x.id === a.productId);
+    if (!p) return '';
+    // a.price is server-computed; fall back to client price()
+    const t = a.currentPrice || price(p).total;
+    const fired = a.fired || (a.type === 'price' ? t <= (a.target || 0) : (p.stock || 0) > 0);
+    return `<div class="alert-card ${fired ? 'fired' : ''}">
+      <a class="al-thumb" href="#/product/${p.id}"><img src="${(p.images && p.images[0]) || ''}" alt="" loading="lazy"></a>
+      <div class="al-main">
+        <div class="al-name"><b>${esc(p.name)}</b><a href="#/product/${p.id}" style="color:var(--ink-3);font-size:12px">view →</a></div>
+        <div class="al-line"><span>${a.type === 'stock' ? 'Back in stock' : 'Price drop'}</span>
+          ${a.type === 'price' ? `<small>watch below ₹${fmt(a.target || 0)}</small>` : `<small>restock watch</small>`}</div>
+        <div class="al-live">${a.type === 'price' ? `now <b>₹${fmt(t)}</b>` : `stock <b>${p.stock || 0}</b> left`}${fired ? ' · <span class="al-fired">TARGET HIT 🎉</span>' : ''}</div>
+      </div>
+      <div class="al-acts">
+        ${fired ? `<a class="btn btn-gold btn-sm" href="#/product/${p.id}">Buy now</a>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="Shivaa.removeAlert('${a.id}')">Remove</button>
+      </div>
+    </div>`;
+  }));
+  box.innerHTML = rows.join('') || `<div class="empty"><h3>No watches yet</h3><a class="btn btn-primary" href="#/shop">Browse Jewellery</a></div>`;
+};
 window.Shivaa.saveProfile = async e => {
   e.preventDefault();
   try {

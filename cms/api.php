@@ -205,7 +205,8 @@ function pub_user(array $u): array {
           'role' => $u['role'], 'loyaltyPoints' => $u['loyaltyPoints'] ?? 0, 'partnerId' => $u['partnerId'] ?? null,
           'partnerStatus' => $u['partnerStatus'] ?? null,
           'referralCode' => $u['referralCode'] ?? null, 'referrals' => $u['referrals'] ?? 0,
-          'createdAt' => $u['createdAt'] ?? '', 'profile' => $u['profile'] ?? [], 'addresses' => $u['addresses'] ?? []];
+          'createdAt' => $u['createdAt'] ?? '', 'profile' => $u['profile'] ?? [], 'addresses' => $u['addresses'] ?? [],
+          'alerts' => $u['alerts'] ?? []];
 }
 function need_admin(array $db): array {
   $u = req_user($db);
@@ -342,6 +343,9 @@ foreach (($db['reviews'] ?? []) as &$__r) {
 unset($__r);
 /* v41 — assign a referral code to any user that predates the referral feature */
 foreach (($db['users'] ?? []) as &$__u) if (empty($__u['referralCode'])) { $__u['referralCode'] = 'SHV' . strtoupper(substr((string)md5(($__u['id'] ?? '') . 'shv'), 0, 6)); $changed = true; }
+unset($__u);
+/* v45 — give every user a price-alert list (created lazily; always present in memory) */
+foreach (($db['users'] ?? []) as &$__u) if (!isset($__u['alerts'])) { $__u['alerts'] = []; $changed = true; }
 unset($__u);
 /* v44 — live BIS hallmark: give every product a HUID + fineness/standard if it lacks one */
 foreach (($db['products'] ?? []) as &$__p) {
@@ -649,6 +653,74 @@ try {
       $w = $uu['wishlist'];
     }
     db_save($DB_FILE, $db); jout(200, ['wishlist' => $w ?? []]);
+  }
+
+  /* ── price-drop / back-in-stock alerts (v45) ──
+     A logged-in user asks to be told when a specific piece either (a) drops to
+     a target price, or (b) is back in stock. The server owns the price math
+     (current_rates + compute_price) so the check is identical to the bill. */ 
+  function alerts_for_user(array $db, array $u): array {
+    $R = current_rates($db);
+    $out = [];
+    foreach (($u['alerts'] ?? []) as $a) {
+      $p = null; foreach ($db['products'] as $x) if ($x['id'] === ($a['productId'] ?? '')) { $p = $x; break; }
+      if (!$p) continue;   // product removed → drop the alert
+      $pr = compute_price($p, $R);
+      $cur = $a['type'] === 'stock' ? (int)($p['stock'] ?? 0) : $pr['total'];
+      // fire-on-condition: price alert fired when current total <= target; stock when stock > 0
+      $fired = ($a['type'] === 'price' && (float)$cur <= (float)$a['target']) ||
+               ($a['type'] === 'stock' && $cur > 0);
+      $a['current'] = $cur;
+      $a['currentPrice'] = $pr['total'];
+      $a['price'] = $pr;
+      $a['fired'] = $fired;
+      $a['product'] = $p;   // includes hallmark, fineness, image, weight for the card
+      $out[] = $a;
+    }
+    return $out;
+  }
+  if ($route === 'alerts' && $method === 'GET') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    jout(200, ['alerts' => alerts_for_user($db, $u)]);
+  }
+  if ($route === 'alerts' && $method === 'POST') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    $b = body_json();
+    $pid = (string)($b['productId'] ?? '');
+    $type = ($b['type'] ?? 'price') === 'stock' ? 'stock' : 'price';
+    $exists = false; foreach ($db['products'] as $x) if ($x['id'] === $pid) { $exists = true; break; }
+    if (!$exists) jout(404, ['error' => 'Piece not found']);
+    if ($type === 'price') {
+      $target = (float)($b['target'] ?? 0);
+      if ($target <= 0) jout(400, ['error' => 'Enter a target price']);
+    } else {
+      $target = 0;
+    }
+    foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
+      $uu['alerts'] = $uu['alerts'] ?? [];
+      // update existing (same product+type) instead of duplicating
+      $found = false;
+      foreach ($uu['alerts'] as &$a) if (($a['productId'] ?? '') === $pid && ($a['type'] ?? '') === $type) {
+        $a['target'] = $type === 'price' ? $target : 0; $a['createdAt'] = now_iso(); $found = true; break;
+      }
+      unset($a);
+      if (!$found) $uu['alerts'][] = ['id' => uid('al'), 'productId' => $pid, 'type' => $type,
+                                      'target' => $type === 'price' ? $target : 0, 'createdAt' => now_iso()];
+      $alerts = alerts_for_user($db, $uu);   // re-evaluate so the toast can show 'already at target'
+      db_save($DB_FILE, $db); jout(200, ['ok' => true, 'alerts' => $alerts]);
+    }
+    jout(404, ['error' => 'User not found']);
+  }
+  if (preg_match('#^alerts/([\\w-]+)$#', $route, $mA) && $method === 'DELETE') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
+      $uu['alerts'] = array_values(array_filter($uu['alerts'] ?? [], fn($a) => ($a['id'] ?? '') !== $mA[1]));
+      db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+    }
+    jout(404, ['error' => 'Alert not found']);
   }
 
   /* ── coupons ── */

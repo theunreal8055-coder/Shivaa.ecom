@@ -200,6 +200,18 @@ function handleApi(db, route, method, query, req, res) {
   if (rvPut && method === 'PUT') return JSONout(res, 200, { ok: true, status: 'approved', verified: true });
   if (rvPut && method === 'DELETE') return JSONout(res, 200, { ok: true });
 
+  // ── v45 price alerts (read-only preview mirror; no auth in preview → demo list) ──
+  if (route === 'alerts' && method === 'GET') {
+    const R = currentRates(db);
+    const list = (db.alerts || []).map(a => {
+      const p = (db.products || []).find(x => x.id === a.productId) || {};
+      const pr = p && p.id ? computePrice(p, R) : { total: 0 };
+      const fired = a.type === 'stock' ? ((p.stock || 0) > 0) : (pr.total <= (a.target || Infinity));
+      return { ...a, fired, current: a.type === 'stock' ? (p.stock || 0) : pr.total, price: pr, product: p };
+    });
+    return JSONout(res, 200, { alerts: list });
+  }
+
   // ── v41 abandoned cart (read-only preview mirror) ──
   if (route === 'cart-abandon' && method === 'POST') {
     return JSONout(res, 200, { id: 'ab_preview', subtotal: 0 });
