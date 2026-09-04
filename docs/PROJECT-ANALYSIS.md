@@ -298,3 +298,67 @@ and `base-uri 'self'` are unchanged.
   `saveRazorpay` handler (zero errors).
 - JS syntax: `app.js`, `admin.js`, `preview-server.js`, `index.html` (`?v=40`) all pass
   `node --check`. PHP reviewed by line (no `php -l` in sandbox).
+
+## 13. CHANGELOG — v41 · six-feature batch (SEO, abandon-cart, compare, Hindi, loyalty/referral, review moderation)
+
+Began on top of the Razorpay commit `329154a`. `?v=40 → ?v=41` across CSS/fonts/JS.
+
+### 13.1 SEO structure
+- `index.html` head: canonical `https://shivaa.in/`, `robots`, `keywords`, geo meta, full
+  Open Graph + Twitter cards, `JewelryStore` JSON-LD (name, Jayal/Nagaur address,
+  geo 27.2433/74.0583, priceRange ₹₹, INR).
+- `js/app.js`: `setSeo()` helper; a per-page default meta map inside `route()`; Product +
+  BreadcrumbList JSON-LD at the end of `pages.product` (uses `price(p).total`, `aggregateRating`
+  only when `p.reviews > 0`).
+- Generated `cms/sitemap.xml` (351 URLs from `data/db.json`) and `cms/robots.txt`
+  (Disallow `/api/ /data/ /uploads/ /admin`, Sitemap `https://shivaa.in/sitemap.xml`).
+
+### 13.2 Abandoned-cart recovery
+- Backend: `POST /api/cart-abandon` (register cart with contact — computes subtotal from live
+  rates, reuses an open record for the same phone); `GET /api/cart-abandon` (admin list);
+  `POST /api/cart-abandon/:id` (admin nudge → advances `nudgeLevel` 1 (≈1h) then 2 (≈24h),
+  returns `nextDueAt`, or `action:'converted'`).
+- Frontend: `state.cart` age tracked in `shv_cart_at`; cart page calls `regAbandoned()` and shows
+  a dismissible banner after ~1h with a "Complete order" + "WhatsApp reminder" (pre-filled
+  saved-cart nudge) + dismiss. `cartQty/cartRemove/placeOrder` maintain the timestamp.
+- Admin: **Cart Recovery** tab shows open/abandoned carts, recoverable value, nudge level and
+  a "Send nudge" button (opens a pre-filled WhatsApp chat to the cart's number) + "Converted".
+- Production automation: point a cron at `POST /api/cart-abandon/:id` (admin token) at 1h and
+  24h; the WhatsApp/email send itself is your messaging gateway (BSP / WhatsApp Business API).
+
+### 13.3 Compare products
+- `state.compare` (localStorage `shv_compare`, max 4) + `toggleCompare`, a fixed bottom
+  `#compareBar` with thumbnails/remove/clear, and a side-by-side modal (`openCompare`) showing
+  metal, purity, weight, rate/g, metal value, making charge, stone, GST, total.
+- `⇄` button on every product card and on the PDP; header `#compareBtn` + `#compareCount` badge;
+  persists across reloads.
+
+### 13.4 Hindi / regional language toggle
+- Small, unobtrusive side-fixed toggle (`#langToggle`, right edge, two tiny pills EN / हिं).
+  One tap switches; choice persisted (`shv_lang`).
+- Translates key CTAs & nav labels (Shop, Rates, Wishlist, Account, Add to Cart, Chat to Order,
+  Make It Yours) via `t()` + `applyLang()`. New text-string window can be extended in `LANG`.
+
+### 13.5 Customer loyalty / referral tie-in
+- Cart summary shows "You'll earn ~X royalty points (1 pt per ₹100)" ('earn points on every gram').
+- Register form: optional "Referral code" input (prefilled from `?ref=CODE`, which is captured
+  in `REF_CODE`); sends `referral` to `auth/register`.
+- Backend: register credits the referrer +200 pts, logs a `referrals` row, backfills
+  `referralCode` for legacy users, adds `GET /api/referral` (`{code, earned, pointsAwarded, count}`).
+- Account → Loyalty tab shows the referral card (code, copy code / copy invite link, pts earned
+  from `loadReferral()`).
+
+### 13.6 Review moderation + photo reviews
+- New reviews enter as `status:'pending'` and only `approved` ones appear on the product page.
+  Legacy 767 reviews are backfilled to `approved` (so nothing disappears).
+- Reviews carry `verified` (auto-true for customers with a completed order) + `photos` (up to 4,
+  client-shrunk to ≤1200px JPEG data-URLs, saved to `cms/uploads/reviews/`).
+- Product page shows a `✓ Verified buyer` badge, clickable photo gallery, and an optional photo
+  upload in the review form + a "awaiting moderation" note.
+- Admin → **Reviews** tab: filter by status, Approve / Reject / toggle-verified / Delete.
+
+### Verified
+- `node --check` passes for `app.js`, `auth.js`, `admin.js`, `preview-server.js`.
+- Preview shim (`preview-server.js`) mirrors `/api/referral`, `/api/reviews` (GET/PUT/DELETE),
+  and `/api/cart-abandon` (POST/GET/nudge) so the sandbox preview behaves; smoke-tested the
+  endpoints + `?v=41` references. PHP reviewed by line (no `php -l` in sandbox).

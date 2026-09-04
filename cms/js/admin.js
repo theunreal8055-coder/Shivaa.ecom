@@ -42,6 +42,12 @@ async function renderAdmin(view, q) {
   if (tab === 'leads') { try { leads = await api('/api/services'); } catch (e) {} }
   let coupons = [];
   if (tab === 'coupons') { try { coupons = (await api('/api/coupons')).coupons; } catch (e) {} }
+  let reviews = [];
+  // Always load reviews for the pending-count badge on the nav; tab==='reviews' uses the full list.
+  try { reviews = (await api('/api/reviews?status=all')).reviews || []; } catch (e) {}
+  let abandoned = [];
+  if (tab === 'carts') { try { abandoned = (await api('/api/cart-abandon')).carts || []; } catch (e) {} }
+  window.ShivaaAdmin._abandoned = abandoned;
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -51,12 +57,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['reviews','★','Reviews'],['carts','🛒','Cart Recovery'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'reviews' && reviews.filter(r => r.status === 'pending').length ? ` <span class="cnt">${reviews.filter(r => r.status === 'pending').length}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',reviews:'Review Moderation',carts:'Cart Recovery',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -344,6 +350,69 @@ async function renderAdmin(view, q) {
         </form></div>`;
   }
 
+  /* ── REVIEW MODERATION (v41) ── */
+  if (tab === 'reviews') {
+    const filter = q.get('status') || 'all';
+    const list = reviews.filter(r => filter === 'all' || (r.status || 'approved') === filter);
+    const cnt = s => reviews.filter(r => (r.status || 'approved') === s).length;
+    body.innerHTML = `
+      <div class="adm-card"><h3>Reviews &amp; moderation
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          ${[['all', 'All (' + reviews.length + ')'], ['pending', 'Pending (' + cnt('pending') + ')'], ['approved', 'Approved (' + cnt('approved') + ')'], ['rejected', 'Rejected (' + cnt('rejected') + ')']]
+            .map(f => `<a class="btn btn-sm ${filter === f[0] ? 'btn-primary' : 'btn-ghost'}" href="#/admin?tab=reviews&status=${f[0]}">${f[1]}</a>`).join('')}
+        </div></h3>
+        <div style="font-size:12.5px;color:var(--ink-3);margin-bottom:12px">Approve to publish on the product page. New submissions enter as <b>Pending</b>; the ✓ Verified buyer badge is auto-set for customers who have completed an order.</div>
+        ${list.length ? `<div class="adm-table-wrap"><table class="adm-table">
+          <thead><tr><th>Product</th><th>Reviewer</th><th class="num">Rating</th><th>Review</th><th>Photos</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>${list.map(r => `<tr>
+            <td><small>${esc((state.productsCache.find(p => p.id === r.productId) || {}).name || r.productId)}</small></td>
+            <td><b>${esc(r.userName || r.name || '—')}</b>${r.verified ? '<br><span class="verified-badge">✓ Verified buyer</span>' : ''}<br><small style="color:var(--ink-3)">${new Date(r.createdAt).toLocaleDateString('en-IN')}</small></td>
+            <td class="num">${'★'.repeat(r.rating)}</td>
+            <td style="max-width:300px"><small>${esc(r.text)}</small></td>
+            <td>${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(ph => `<a href="${esc(ph)}" target="_blank"><img src="${esc(ph)}"></a>`).join('')}</div>` : '—'}</td>
+            <td><span class="status-pill ${r.status === 'approved' ? 'st-delivered' : r.status === 'rejected' ? 'st-cancelled' : 'st-placed'}">${r.status || 'pending'}</span></td>
+            <td style="white-space:nowrap">
+              ${(r.status || 'pending') !== 'approved' ? `<button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.moderateReview('${r.id}','approved')">Approve</button>` : ''}
+              ${(r.status || 'pending') !== 'rejected' ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.moderateReview('${r.id}','rejected')">Reject</button>` : ''}
+              <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.toggleVerified('${r.id}', ${r.verified ? 'false' : 'true'})">${r.verified ? 'Unmark' : 'Mark ✓'}</button>
+              <button class="icon-x" onclick="ShivaaAdmin.delReview('${r.id}')">✕</button>
+            </td>
+          </tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No reviews in this view.</p>'}
+      </div>`;
+  }
+
+  /* ── CART RECOVERY (v41 — abandoned carts) ── */
+  if (tab === 'carts') {
+    const open = abandoned.filter(c => !c.converted).length;
+    const value = abandoned.filter(c => !c.converted).reduce((a, c) => a + (c.subtotal || 0), 0);
+    body.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat"><small>Abandoned carts</small><b>${abandoned.length}</b><span>${open} open</span></div>
+        <div class="stat"><small>Recoverable value</small><b>${fmt(value)}</b><span>not yet converted</span></div>
+        <div class="stat"><small>Nudged ×1 / ×2</small><b>${abandoned.filter(c => c.nudgeLevel >= 1 && c.nudgeLevel < 2).length} / ${abandoned.filter(c => c.nudgeLevel >= 2).length}</b><span>1h &amp; 24h nudges</span></div>
+        <div class="stat"><small>Converted</small><b>${abandoned.filter(c => c.converted).length}</b><span>recovered</span></div>
+      </div>
+      <div class="adm-card"><h3>Abandoned carts — send the 1h / 24h WhatsApp nudge</h3>
+        <div style="font-size:12.5px;color:var(--ink-3);margin-bottom:12px">Triggered when a "Chat to order" shopper added pieces but never converted. The nudge button opens a WhatsApp chat to their number with a saved-cart message and logs the nudge level (1h then 24h). Automated delivery is driven by your cron job calling <code>/api/cart-abandon/:id</code> (see PROJECT-ANALYSIS §13).</div>
+        ${abandoned.length ? `<div class="adm-table-wrap"><table class="adm-table">
+          <thead><tr><th>Cart</th><th>Customer</th><th>Items</th><th class="num">Subtotal</th><th>Age</th><th>Nudges</th><th>Actions</th></tr></thead>
+          <tbody>${abandoned.map(c => {
+            const age = (() => { const t = c.createdAt ? new Date(c.createdAt).getTime() : Date.now(); const h = (Date.now() - t) / 36e5; if (!isFinite(h)) return '—'; if (h < 1) return Math.max(0, Math.round(h * 60)) + 'm'; return Math.round(h) + 'h'; })();
+            return `<tr style="opacity:${c.converted ? .5 : 1}">
+            <td><b>${c.id}</b><br><small style="color:var(--ink-3)">${new Date(c.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</small></td>
+            <td>${esc(c.phone || '—')}<br><small style="color:var(--ink-3)">${esc(c.email || '—')}</small></td>
+            <td>${(c.items || []).reduce((a, i) => a + i.qty, 0)}</td>
+            <td class="num"><b>${fmt(c.subtotal || 0)}</b></td>
+            <td>${age}</td>
+            <td>${c.converted ? '<span class="pill pm">✓ converted</span>' : `<span class="pill pf">${c.nudgeLevel || 0}/2</span>`}</td>
+            <td style="white-space:nowrap">
+              ${c.converted ? '' : `<button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.nudgeCart('${c.id}')">📲 Send nudge</button>`}
+              <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.convertCart('${c.id}')">✓ Converted</button>
+            </td></tr>`;
+          }).join('')}</tbody></table></div>` : '<p class="partner-note">No abandoned carts yet — carts are logged the moment items are left without checkout.</p>'}
+      </div>`;
+  }
+
   /* ── PAGES ── */
   if (tab === 'pages') {
     body.innerHTML = `<div class="adm-card"><h3>📄 Pages <button class="btn btn-primary btn-sm" onclick="ShivaaPages.edit()">+ New Page</button></h3>
@@ -625,6 +694,45 @@ window.ShivaaAdmin.saveRazorpay = async e => {
     if (st) { st.style.color = on ? 'var(--ok)' : 'var(--bad)'; st.textContent = on ? '● Live — online checkout active' : '○ Off — checkout uses demo (no real charge)'; }
     if (msg) { msg.style.color = 'var(--ok)'; msg.textContent = on ? '✓ Razorpay saved & live. Test a checkout with a UPI/card to confirm.' : 'Saved. Enter both Key ID & Key Secret to turn online payments on.'; }
   } catch (err) { const msg = $('#rzMsg'); if (msg) { msg.style.color = 'var(--bad)'; msg.textContent = err.message; } }
+};
+
+/* ── v41 · review moderation ── */
+window.ShivaaAdmin.moderateReview = async (id, status) => {
+  try { await api('/api/reviews/' + id, { method: 'PUT', body: JSON.stringify({ status }) }); toast('Review ' + status); renderAdmin($('#view'), new URLSearchParams('tab=reviews')); }
+  catch (e) { toast(e.message, 'err'); }
+};
+window.ShivaaAdmin.toggleVerified = async (id, verified) => {
+  try { await api('/api/reviews/' + id, { method: 'PUT', body: JSON.stringify({ verified }) }); toast(verified ? 'Marked as verified buyer' : 'Verified badge removed'); renderAdmin($('#view'), new URLSearchParams('tab=reviews')); }
+  catch (e) { toast(e.message, 'err'); }
+};
+window.ShivaaAdmin.delReview = async id => {
+  if (!confirm('Delete this review permanently?')) return;
+  try { await api('/api/reviews/' + id, { method: 'DELETE' }); toast('Review deleted'); renderAdmin($('#view'), new URLSearchParams('tab=reviews')); }
+  catch (e) { toast(e.message, 'err'); }
+};
+
+/* ── v41 · abandoned-cart recovery ── */
+const NUDGE_MSG = c => {
+  const line = (c.items || []).map(i => `• ${i.name} × ${i.qty}`).join('\n');
+  return `Namaste Shivaa ✦\n\nYou added a few pieces to your cart but didn't finalise:\n\n${line}\n\nStill saved on shivaa.in — would you like to complete the order or ask me a question?\n\nI can hold these for you.`;
+};
+window.ShivaaAdmin.nudgeCart = async id => {
+  const c = (window.ShivaaAdmin._abandoned || []).find(x => x.id === id);
+  try {
+    const r = await api('/api/cart-abandon/' + id, { method: 'POST', body: JSON.stringify({}) });
+    if (c && c.phone) {
+      const wa = 'https://wa.me/' + String(c.phone).replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '') + '?text=' + encodeURIComponent(NUDGE_MSG(c));
+      openModal(`<div class="center"><h3 style="margin-bottom:6px">Nudge ${r.level}/2 sent</h3>
+        <p style="font-size:13px;color:var(--ink-2);margin-bottom:14px">The WhatsApp chat below is pre-filled. In production your <b>1h / 24h</b> cron hits this endpoint to send it automatically.</p>
+        <a class="btn btn-gold btn-block" target="_blank" rel="noopener" href="${wa}">Open WhatsApp nudge to ${esc(c.phone)} →</a>
+        <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.closeModal()">Done</button></div>`);
+    } else toast('Nudge ' + r.level + '/2 logged — no phone on this cart, so send via email or skip.');
+    renderAdmin($('#view'), new URLSearchParams('tab=carts'));
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.ShivaaAdmin.convertCart = async id => {
+  try { await api('/api/cart-abandon/' + id, { method: 'POST', body: JSON.stringify({ action: 'converted' }) }); toast('Marked converted'); renderAdmin($('#view'), new URLSearchParams('tab=carts')); }
+  catch (e) { toast(e.message, 'err'); }
 };
 function drawBarChart(cv, days) {
   if (!cv || !days.length) { if (cv) cv.parentElement.innerHTML += '<p style="color:var(--ink-3);font-size:13px">Revenue chart appears once orders come in.</p>'; return; }

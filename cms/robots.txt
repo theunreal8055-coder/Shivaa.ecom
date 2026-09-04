@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /data/
+Disallow: /uploads/
+Disallow: /admin
+
+Sitemap: https://shivaa.in/sitemap.xml

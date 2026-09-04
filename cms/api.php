@@ -24,7 +24,10 @@ function jout(int $code, $payload): void {
   echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
   exit;
 }
-function now_iso(): string { return date('c'); }
+function now_iso(?string $mod = null, bool $unixts = false): string {
+  $t = $mod === null ? time() : strtotime($mod);
+  return $unixts ? (string)$t : date('c', $t);
+}
 function uid(string $p = 'id'): string { return $p . '_' . bin2hex(random_bytes(6)); }
 function body_json(): array {
   $raw = file_get_contents('php://input');
@@ -188,6 +191,7 @@ function pub_user(array $u): array {
   return ['id' => $u['id'], 'name' => $u['name'], 'email' => $u['email'], 'phone' => $u['phone'] ?? '',
           'role' => $u['role'], 'loyaltyPoints' => $u['loyaltyPoints'] ?? 0, 'partnerId' => $u['partnerId'] ?? null,
           'partnerStatus' => $u['partnerStatus'] ?? null,
+          'referralCode' => $u['referralCode'] ?? null, 'referrals' => $u['referrals'] ?? 0,
           'createdAt' => $u['createdAt'] ?? '', 'profile' => $u['profile'] ?? [], 'addresses' => $u['addresses'] ?? []];
 }
 function need_admin(array $db): array {
@@ -309,11 +313,22 @@ $route = $_GET['__route'] ?? '';
 $route = trim((string)$route, '/');
 $method = $_SERVER['REQUEST_METHOD'];
 $db = db_load($DB_FILE);
+$changed = false;
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','otpThrottle'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','otpThrottle','referrals','abandonedCarts'] as $__k) $db[$__k] = $db[$__k] ?? [];
 /* legacy partners predate the approved-status flag → treat existing 'partner' users as approved */
 foreach (($db['users'] ?? []) as &$__u) if (($__u['role'] ?? '') === 'partner' && !isset($__u['partnerStatus'])) $__u['partnerStatus'] = 'approved';
+unset($__u);
+/* v41 — moderation + verified-buyer fields on legacy reviews (already-live ones stay live) */
+foreach (($db['reviews'] ?? []) as &$__r) {
+  if (!isset($__r['status'])) { $__r['status'] = 'approved'; $changed = true; }
+  if (!isset($__r['verified'])) { $__r['verified'] = false; $changed = true; }
+  if (!isset($__r['photos'])) { $__r['photos'] = []; $changed = true; }
+}
+unset($__r);
+/* v41 — assign a referral code to any user that predates the referral feature */
+foreach (($db['users'] ?? []) as &$__u) if (empty($__u['referralCode'])) { $__u['referralCode'] = 'SHV' . strtoupper(substr((string)md5(($__u['id'] ?? '') . 'shv'), 0, 6)); $changed = true; }
 unset($__u);
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
@@ -324,7 +339,6 @@ if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
 }
 if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => now_iso(), 'gold24' => 11800, 'gold22' => 10800, 'gold18' => 8850, 'silver' => 95, 'source' => 'bootstrap']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
 foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'jaipurSilverPremium' => 3, 'whatsapp' => '918905005921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
-$changed = false;
 
 try {
   /* ── rates ── */
@@ -386,7 +400,7 @@ try {
       $R = current_rates($db);
       $similar = [];
       foreach ($db['products'] as $x) if ($x['category'] === $db['products'][$idx]['category'] && $x['id'] !== $m[1] && !empty($x['active'])) { $y = $x; $y['price'] = compute_price($x, $R); $similar[] = $y; if (count($similar) >= 4) break; }
-      $reviews = array_values(array_filter($db['reviews'] ?? [], fn($r) => ($r['productId'] ?? '') === $m[1]));
+      $reviews = array_values(array_filter($db['reviews'] ?? [], fn($r) => ($r['productId'] ?? '') === $m[1] && ($r['status'] ?? 'approved') === 'approved'));
       $p = $db['products'][$idx]; $p['price'] = compute_price($p, $R);
       jout(200, ['product' => $p, 'rates' => current_rates($db), 'similar' => $similar, 'reviews' => $reviews]);
     }
@@ -494,10 +508,22 @@ try {
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && !empty($o['verified']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
     foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower($b['email'])) jout(409, ['error' => 'Email already registered']);
+    $refCode = strtoupper(trim((string)($b['referral'] ?? '')));
     $u = ['id' => uid('u'), 'name' => $b['name'], 'email' => strtolower($b['email']), 'phone' => $phone,
           'passHash' => pw_hash((string)$b['password']), 'role' => 'customer',
-          'loyaltyPoints' => 120, 'wishlist' => [], 'createdAt' => now_iso()];
-    $db['users'][] = $u; $tk = issue_token($db, $u);
+          'loyaltyPoints' => 120, 'wishlist' => [], 'createdAt' => now_iso(),
+          'referralCode' => 'SHV' . strtoupper(substr(str_replace('-', '', $u0 = uid()), 3, 6))];
+    $db['users'][] = $u;
+    // ── referral (v41): award the referrer points when a new account uses their code ──
+    if ($refCode !== '') {
+      foreach ($db['users'] as &$ru) if (strtoupper((string)($ru['referralCode'] ?? '')) === $refCode && $ru['id'] !== $u['id']) {
+        $ru['loyaltyPoints'] = (int)($ru['loyaltyPoints'] ?? 0) + 200;
+        $ru['referrals'] = ($ru['referrals'] ?? 0) + 1;
+        $u['referredBy'] = $ru['id'];
+        $db['referrals'][] = ['id' => uid('rf'), 'by' => $ru['id'], 'to' => $u['id'], 'at' => now_iso(), 'points' => 200];
+      }
+    }
+    $tk = issue_token($db, $u);
     db_save($DB_FILE, $db); jout(200, ['token' => $tk, 'user' => pub_user($u)]);
   }
   if ($route === 'auth/login' && $method === 'POST') {
@@ -1096,15 +1122,131 @@ try {
     if (!$u) jout(401, ['error' => 'Login required']);
     $b = body_json();
     if (empty($b['productId']) || empty($b['text'])) jout(400, ['error' => 'productId & text required']);
+    // New reviews enter moderation (>1 "pending"); legacy/approved ones already live.
+    $hasOrder = false;
+    foreach ($db['orders'] as $o) if (($o['userId'] ?? '') === $u['id'] && ($o['status'] ?? '') !== 'cancelled') $hasOrder = true;
+    $photos = [];
+    foreach (($b['photos'] ?? []) as $i => $photo64) {
+      if (count($photos) >= 4) break;
+      if (is_string($photo64) && preg_match('#^data:image/(jpe?g|png|webp);base64,#i', $photo64, $pm)) {
+        $bin = base64_decode(substr($photo64, strpos($photo64, ',') + 1));
+        if ($bin !== false && strlen($bin) <= 4000000) {
+          $ext = strtolower($pm[1]) === 'jpeg' ? 'jpg' : strtolower($pm[1]);
+          $name = 'rv_' . $u['id'] . '_' . uniqid() . '_' . $i . '.' . $ext;
+          $file = $ROOT . '/uploads/reviews/' . $name;
+          @mkdir($ROOT . '/uploads/reviews', 0775, true);
+          if (file_put_contents($file, $bin) !== false) $photos[] = '/uploads/reviews/' . $name;
+        }
+      }
+    }
     $rv = ['id' => uid('rv'), 'productId' => $b['productId'], 'userName' => $u['name'],
-           'rating' => clampn((int)($b['rating'] ?? 5), 1, 5), 'text' => cut500((string)$b['text']), 'createdAt' => now_iso()];
+           'rating' => clampn((int)($b['rating'] ?? 5), 1, 5), 'text' => cut500((string)$b['text']),
+           'createdAt' => now_iso(), 'status' => 'pending', 'verified' => $hasOrder, 'photos' => $photos];
     $db['reviews'][] = $rv;
+    // Product aggregates only count reviews once moderated.
     foreach ($db['products'] as &$pr) if ($pr['id'] === $b['productId']) {
-      $rs = array_values(array_filter($db['reviews'], fn($r) => $r['productId'] === $pr['id']));
-      $pr['rating'] = round(array_sum(array_column($rs, 'rating')) / max(1, count($rs)), 1);
+      $rs = array_values(array_filter($db['reviews'], fn($r) => $r['productId'] === $pr['id'] && ($r['status'] ?? '') === 'approved'));
+      $pr['rating'] = $rs ? round(array_sum(array_column($rs, 'rating')) / count($rs), 1) : 4.6;
       $pr['reviews'] = count($rs);
     }
     db_save($DB_FILE, $db); jout(200, $rv);
+  }
+
+  /* ── review moderation (v41) — admin: list / approve / reject / delete ── */
+  if ($route === 'reviews' && $method === 'GET') {
+    need_admin($db);
+    $status = trim((string)($_GET['status'] ?? ''));
+    $list = array_reverse($db['reviews']);
+    if ($status !== '' && $status !== 'all') $list = array_values(array_filter($list, fn($r) => ($r['status'] ?? '') === $status));
+    jout(200, ['reviews' => $list]);
+  }
+  if (preg_match('#^reviews/([\\w-]+)$#', $route, $mRV) && $method === 'PUT') {
+    need_admin($db);
+    $b = body_json();
+    $idx = null; foreach ($db['reviews'] as $i => $r) if ($r['id'] === $mRV[1]) $idx = $i;
+    if ($idx === null) jout(404, ['error' => 'Review not found']);
+    if (isset($b['status'])) $db['reviews'][$idx]['status'] = in_array($b['status'], ['pending', 'approved', 'rejected']) ? $b['status'] : 'approved';
+    if (isset($b['verified'])) $db['reviews'][$idx]['verified'] = (bool)$b['verified'];
+    $pid = $db['reviews'][$idx]['productId'];
+    foreach ($db['products'] as &$pr) if ($pr['id'] === $pid) {
+      $rs = array_values(array_filter($db['reviews'], fn($r) => $r['productId'] === $pid && ($r['status'] ?? '') === 'approved'));
+      $pr['rating'] = $rs ? round(array_sum(array_column($rs, 'rating')) / count($rs), 1) : 4.6;
+      $pr['reviews'] = count($rs);
+    }
+    db_save($DB_FILE, $db); jout(200, $db['reviews'][$idx]);
+  }
+  if (preg_match('#^reviews/([\\w-]+)$#', $route, $mRV) && $method === 'DELETE') {
+    need_admin($db);
+    $idx = null; foreach ($db['reviews'] as $i => $r) if ($r['id'] === $mRV[1]) $idx = $i;
+    if ($idx === null) jout(404, ['error' => 'Review not found']);
+    $pid = $db['reviews'][$idx]['productId'];
+    unset($db['reviews'][$idx]); $db['reviews'] = array_values($db['reviews']);
+    foreach ($db['products'] as &$pr) if ($pr['id'] === $pid) {
+      $rs = array_values(array_filter($db['reviews'], fn($r) => $r['productId'] === $pid && ($r['status'] ?? '') === 'approved'));
+      $pr['rating'] = $rs ? round(array_sum(array_column($rs, 'rating')) / count($rs), 1) : 4.6;
+      $pr['reviews'] = count($rs);
+    }
+    db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+  }
+
+  /* ── abandoned-cart recovery (v41) ──
+     The storefront registers a cart the moment it has items and a contact. An
+     external cron — or the admin panel button — calls <nudge> to advance the
+     1-hour then 24-hour nudge levels. */
+  if ($route === 'cart-abandon' && $method === 'POST') {
+    $b = body_json();
+    $items = is_array($b['items'] ?? null) ? $b['items'] : [];
+    if (!$items) jout(400, ['error' => 'items required']);
+    $R = current_rates($db);
+    $lines = []; $subtotal = 0;
+    foreach ($items as $it) {
+      $pid = $it['id'] ?? '';
+      foreach ($db['products'] as $p) if ($p['id'] === $pid) {
+        $pr = compute_price($p, $R); $qty = max(1, (int)($it['qty'] ?? 1));
+        $lines[] = ['id' => $pid, 'name' => $p['name'], 'qty' => $qty, 'total' => $pr['total'] * $qty];
+        $subtotal += $pr['total'] * $qty;
+      }
+    }
+    if (!$lines) jout(400, ['error' => 'No valid products in cart']);
+    $u = req_user($db);
+    $phone = trim((string)($b['phone'] ?? ($u['phone'] ?? '')));
+    $email = trim((string)($b['email'] ?? ($u['email'] ?? '')));
+    // Reuse an active (non-converted, <24h) record for the same phone to avoid duplicates.
+    $found = null;
+    foreach ($db['abandonedCarts'] as $i => $c) {
+      if (($c['converted'] ?? false)) continue;
+      if ($phone && ($c['phone'] ?? '') === $phone) $found = $i;
+      elseif (!$phone && ($u['id'] ?? '') && ($c['userId'] ?? '') === $u['id']) $found = $i;
+    }
+    if ($found !== null) {
+      $db['abandonedCarts'][$found]['items'] = $lines;
+      $db['abandonedCarts'][$found]['subtotal'] = $subtotal;
+      $db['abandonedCarts'][$found]['updatedAt'] = now_iso();
+      db_save($DB_FILE, $db);
+      jout(200, ['id' => $db['abandonedCarts'][$found]['id'], 'subtotal' => $subtotal]);
+    }
+    $rec = ['id' => uid('ab'), 'userId' => $u['id'] ?? null, 'phone' => $phone, 'email' => $email,
+            'items' => $lines, 'subtotal' => $subtotal, 'createdAt' => now_iso(), 'updatedAt' => now_iso(),
+            'nudgeLevel' => 0, 'converted' => false];
+    $db['abandonedCarts'][] = $rec;
+    db_save($DB_FILE, $db);
+    jout(200, ['id' => $rec['id'], 'subtotal' => $subtotal]);
+  }
+  if ($route === 'cart-abandon' && $method === 'GET') {
+    need_admin($db);
+    jout(200, ['carts' => array_reverse($db['abandonedCarts'] ?? [])]);
+  }
+  if (preg_match('#^cart-abandon/([\\w-]+)$#', $route, $mAB) && $method === 'POST') {
+    need_admin($db);
+    $idx = null; foreach ($db['abandonedCarts'] as $i => $c) if ($c['id'] === $mAB[1]) $idx = $i;
+    if ($idx === null) jout(404, ['error' => 'Cart not found']);
+    $b = body_json();
+    $lv = (int)($db['abandonedCarts'][$idx]['nudgeLevel'] ?? 0);
+    if (($b['action'] ?? '') === 'converted') { $db['abandonedCarts'][$idx]['converted'] = true; }
+    else { $db['abandonedCarts'][$idx]['nudgeLevel'] = min(2, $lv + 1); $db['abandonedCarts'][$idx]['lastNudgeAt'] = now_iso(); }
+    db_save($DB_FILE, $db);
+    $nl = (int)($db['abandonedCarts'][$idx]['nudgeLevel'] ?? 0);
+    jout(200, ['ok' => true, 'level' => $nl, 'nextDueAt' => $nl >= 2 ? null : now_iso('+' . ($nl === 1 ? '1 hour' : '24 hours'))]);
   }
 
   /* ── settings / stats / users ── */
@@ -1134,6 +1276,13 @@ try {
       }
     }
     db_save($DB_FILE, $db); jout(200, $db['settings']);
+  }
+  /* ── referral (v41) ── */
+  if ($route === 'referral' && $method === 'GET') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    $refs = array_values(array_filter($db['referrals'] ?? [], fn($r) => ($r['by'] ?? '') === $u['id']));
+    jout(200, ['code' => $u['referralCode'] ?? null, 'earned' => (int)($u['referrals'] ?? 0), 'pointsAwarded' => array_sum(array_column($refs, 'points')), 'count' => count($refs)]);
   }
   /* ── custom pages (owner-managed) ── */
   if ($route === 'pages' && $method === 'GET') {

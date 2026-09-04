@@ -286,6 +286,8 @@
         <div class="shv-pw"><input id="shvRgPass" type="password" autocomplete="new-password" placeholder="8+ characters" required>
           <button type="button" class="shv-eye" id="shvEye" aria-label="Show password">&#128065;&#65039;</button></div>
         <div class="shv-meter"><i id="shvMeter"></i></div>
+        <label class="shv-lbl" for="shvRgRef">Referral code <small>(optional &middot; your friend earns 200 points)</small></label>
+        <input id="shvRgRef" autocomplete="off" placeholder="e.g. SHV7K2M9" style="text-transform:uppercase" value="${esc((window.Shivaa && window.Shivaa.REF_CODE) || '')}">
         <button type="submit" class="shv-cta" id="shvRgBtn" data-label="Create my account &#10022;">Create my account &#10022;</button>
       </form>
       ${previewNote()}`;
@@ -307,7 +309,7 @@
       const btn = $('#shvRgBtn'); busy(btn, true, 'Creating\u2026');
       try {
         const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, phone: ph, password: pw }) });
+          body: JSON.stringify({ name, email, phone: ph, password: pw, referral: ($('#shvRgRef')?.value || '').trim() }) });
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.token) { land(d); return; }
         busy(btn, false);

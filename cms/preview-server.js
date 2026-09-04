@@ -168,6 +168,30 @@ function handleApi(db, route, method, query, req, res) {
     return JSONout(res, 200, { user: null });
   }
 
+  // ── v41 referral — stubbed (preview has no auth/user) so the UI never 501s ──
+  if (route === 'referral' && method === 'GET') {
+    return JSONout(res, 200, { code: 'SHVDEMO', earned: 0, pointsAwarded: 0, count: 0 });
+  }
+
+  // ── v41 review moderation (read-only preview mirror) ──
+  if (route === 'reviews' && method === 'GET') {
+    const status = query.status || 'all';
+    let list = (db.reviews || []).filter(r => r.status !== 'rejected');
+    if (status !== 'all' && status) list = list.filter(r => (r.status || 'approved') === status);
+    return JSONout(res, 200, { reviews: list.slice().reverse() });
+  }
+  const rvPut = route.match(/^reviews\/([\w-]+)$/);
+  if (rvPut && method === 'PUT') return JSONout(res, 200, { ok: true, status: 'approved', verified: true });
+  if (rvPut && method === 'DELETE') return JSONout(res, 200, { ok: true });
+
+  // ── v41 abandoned cart (read-only preview mirror) ──
+  if (route === 'cart-abandon' && method === 'POST') {
+    return JSONout(res, 200, { id: 'ab_preview', subtotal: 0 });
+  }
+  if (route === 'cart-abandon' && method === 'GET') return JSONout(res, 200, { carts: [] });
+  const abNudge = route.match(/^cart-abandon\/([\w-]+)$/);
+  if (abNudge && method === 'POST') return JSONout(res, 200, { ok: true, level: 1, nextDueAt: null });
+
   // v40 Razorpay payment shim. In the sandbox there are no real keys, so we expose
   // config (enabled=false) and stub create/verify. With keys set in production api.php
   // these are real. Preview lets the checkout UX be exercised end-to-end (demo mode).

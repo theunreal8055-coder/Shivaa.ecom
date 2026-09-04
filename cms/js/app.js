@@ -43,6 +43,35 @@ addEventListener('online', () => {
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* Capture a referral code from the URL (?ref=CODE) so it can prefill sign-up. */
+const REF_CODE = (() => { try { return (new URLSearchParams(location.href.split('?')[1] || '')).get('ref') || ''; } catch (e) { return ''; } })();
+/* ─────────── SEO (v41) — dynamic title/OG/JSON-LD per page ─────────── */
+const SITE_URL = 'https://shivaa.in';
+function setSeo(opts = {}) {
+  try {
+    const { title, desc, url, image, jsonLd } = opts;
+    if (title) document.title = title;
+    const set = (sel, v) => { const el = document.querySelector(sel); if (el && v) el.setAttribute('content', v); };
+    set('meta[name="description"]', desc);
+    set('meta[property="og:title"]', title);
+    set('meta[property="og:description"]', desc);
+    set('meta[property="og:url"]', url);
+    set('meta[property="og:image"]', image);
+    set('meta[name="twitter:title"]', title);
+    set('meta[name="twitter:description"]', desc);
+    set('meta[name="twitter:image"]', image);
+    const link = document.querySelector('link[rel="canonical"]');
+    if (link && url) link.href = url;
+    // replace existing JSON-LD, then inject fresh
+    document.querySelectorAll('script[data-seo]').forEach(s => s.remove());
+    if (jsonLd) {
+      const s = document.createElement('script');
+      s.type = 'application/ld+json'; s.dataset.seo = '1';
+      s.textContent = JSON.stringify(jsonLd);
+      document.head.appendChild(s);
+    }
+  } catch (e) {}
+}
 const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmt2 = n => '₹' + (+n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateFmt = iso => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -236,7 +265,7 @@ const TAGS = { wedding: 'Wedding', festive: 'Festive', daily: 'Everyday', giftin
 /* price computation — mirrors the server exactly */
 function price(p, R) {
   R = R || state.rates || {};
-  const rate = p.metal === 'Silver' ? R.silver : R['gold' + p.purity.replace('K', '')];
+  const rate = (p.metal === 'Silver' ? R.silver : R['gold' + p.purity.replace('K', '')]) || R.gold22 || R.gold24 || 0;
   const metalValue = Math.round(rate * p.weightG);
   const makingCharge = Math.round(p.mcScheme === 'percent' ? metalValue * p.mcValue / 100 : p.mcScheme === 'perGram' ? p.mcValue * p.weightG : p.mcValue);
   const stoneValue = Math.round(p.stoneValue || 0);
@@ -286,8 +315,48 @@ function addToCart(id, qty = 1, size = null, engraving = null) {
   const ex = state.cart.find(i => key(i) === key(item));
   if (ex) ex.qty += qty; else state.cart.push(item);
   store.set('shv_cart', state.cart);
+  touchCartAt();
   updateBadges(); toast('Added to cart');
 }
+/* v41 — abandoned-cart recovery: track when the cart was first filled. */
+function touchCartAt() {
+  if (state.cart && state.cart.length && !store.get('shv_cart_at')) store.set('shv_cart_at', Date.now());
+  if (!state.cart || !state.cart.length) store.set('shv_cart_at', null);
+}
+/* Register this cart with the server so it can be nudged (1h / 24h). */
+window.Shivaa.regAbandoned = () => {
+  if (!state.cart || !state.cart.length) return;
+  const items = state.cart.map(c => ({ id: c.id, qty: c.qty, size: c.size, engraving: c.engraving }));
+  api('/api/cart-abandon', { method: 'POST', body: JSON.stringify({
+    items, phone: state.user?.phone || '', email: state.user?.email || '',
+  }) }).catch(() => {});
+};
+function renderAbandonedBanner() {
+  const host = $('#abandonBanner'); if (!host) return;
+  const at = store.get('shv_cart_at');
+  if (!at) { host.innerHTML = ''; return; }
+  const gone = Date.now() - at;
+  const hr = 60 * 60 * 1000;
+  // One gentle nudge on-screen after ~1h; the WhatsApp/email is sent via the admin/cron queue.
+  if (gone < hr) { host.innerHTML = ''; return; }
+  const mins = Math.floor(gone / 60000);
+  host.innerHTML = `<div class="abandon-banner">
+    <div class="ab-ic">✦</div>
+    <div><b>Still thinking it over?</b> <span>Your pieces are held for you — lock today's live rate before it moves. ${mins >= 1440 ? 'It has been over a day.' : 'Been ' + Math.floor(mins / 60) + 'h' + (mins % 60 ? ' ' + (mins % 60) + 'm' : '') + ' since you added them.'}</span></div>
+    <div class="ab-actions">
+      <a class="btn btn-gold btn-sm" href="#/checkout">Complete order</a>
+      <button class="btn btn-ghost btn-sm" onclick="Shivaa.waNudgeCart()">WhatsApp reminder</button>
+      <button class="btn btn-ghost btn-sm ab-dismiss" onclick="Shivaa.dismissAbandon()">✕</button>
+    </div></div>`;
+}
+window.Shivaa.dismissAbandon = () => { store.set('shv_cart_at', Date.now() + 6 * 60 * 60 * 1000); renderAbandonedBanner(); };
+window.Shivaa.waNudgeCart = () => {
+  const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+  const sub = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
+  const line = items.map(it => `• ${it.p.name} × ${it.qty} — ${fmt(price(it.p).total * it.qty)}`).join('\n');
+  waOpen(`Namaste Shivaa ✦\n\nI added a few pieces to my cart but didn't finish:\n\n${line}\n\nTotal ≈ ${fmt(sub)}\n\nPlease hold these for me / I'd like to complete the order.\n\nMy cart is still saved on the site.`);
+};
+window.Shivaa.refreshAbandoned = renderAbandonedBanner;
 async function toggleWish(id) {
   if (!state.user) {
     state.localWish = state.localWish.includes(id) ? state.localWish.filter(x => x !== id) : [...state.localWish, id];
@@ -301,6 +370,109 @@ async function toggleWish(id) {
   refreshWishBadge(); toast(!on ? 'Saved to wishlist' : 'Removed from wishlist');
 }
 const isWished = id => state.user ? null : state.localWish.includes(id); // null = unknown(server), handled in card
+
+/* ─────────── COMPARE (v41) — side-by-side specs drawer ─────────── */
+const COMPARE_MAX = 4;
+state.compare = store.get('shv_compare', []);
+const isComparing = id => state.compare.includes(id);
+function saveCompare() { store.set('shv_compare', state.compare); refreshCompareBadge(); }
+function refreshCompareBadge() {
+  const b = $('#compareCount'); if (b) { b.hidden = !state.compare.length; b.textContent = state.compare.length; }
+  $$('.pc-cmp[data-pid]').forEach(x => x.classList.toggle('on', isComparing(x.dataset.pid)));
+}
+function toggleCompare(id) {
+  if (isComparing(id)) state.compare = state.compare.filter(x => x !== id);
+  else { if (state.compare.length >= COMPARE_MAX) { toast('You can compare up to ' + COMPARE_MAX + ' pieces — remove one first', 'err'); return; } state.compare.push(id); }
+  saveCompare(); toast(state.compare.includes(id) ? 'Added to compare' : 'Removed from compare');
+  renderCompareBar();
+}
+function renderCompareBar() {
+  let bar = $('#compareBar');
+  if (!state.compare.length) { if (bar) bar.remove(); refreshCompareBadge(); return; }
+  if (!bar) {
+    const el = document.createElement('div'); el.id = 'compareBar'; el.className = 'compare-bar';
+    document.body.appendChild(el); bar = el;
+  }
+  const items = state.compare.map(id => state.productsCache.find(p => p.id === id)).filter(Boolean);
+  bar.innerHTML = `<div class="cb-in"><div class="cb-t"><b>Compare (${state.compare.length}/${COMPARE_MAX})</b>
+      <button class="cb-clear" onclick="Shivaa.clearCompare()">Clear</button></div>
+    <div class="cb-items">${items.map(p => `<div class="cb-item"><img src="${p.images && p.images[0]}" alt="${esc(p.name)}" onerror="this.style.display='none'"><span>${esc(p.name)}</span><button class="cb-x" onclick="Shivaa.toggleCompare('${p.id}')">✕</button></div>`).join('')}
+      <button class="cb-open" onclick="Shivaa.openCompare()">Compare now ›</button></div></div>`;
+  refreshCompareBadge();
+}
+window.Shivaa.compareOpen = () => { renderCompareBar(); };
+window.Shivaa.clearCompare = () => { state.compare = []; saveCompare(); renderCompareBar(); };
+$('#compareBtn')?.addEventListener('click', () => { if (state.compare.length) Shivaa.openCompare(); else toast('Use the ⇄ button on a product to start comparing'); });
+window.Shivaa.openCompare = () => {
+  const items = state.compare.map(id => state.productsCache.find(p => p.id === id)).filter(Boolean);
+  if (!items.length) return;
+  const pr = items.map(p => price(p));
+  const rows = [
+    ['Photo', items.map(p => `<img src="${p.images && p.images[0]}" style="width:90px;height:90px;object-fit:cover;border-radius:12px" alt="">`).join('')],
+    ['Name', items.map(p => esc(p.name)).join('')],
+    ['Category', items.map(p => CATS[p.category]?.name || p.category).join('')],
+    ['Metal', items.map(p => p.metal).join('')],
+    ['Purity', items.map(p => p.purity).join('')],
+    ['Weight', items.map(p => p.weightG + ' g').join('')],
+    ['Rate / g', items.map(p => fmt(p.ratePerGram)).join('')],
+    ['Metal value', items.map(p => fmt(p.metalValue)).join('')],
+    ['Making charge', items.map(p => fmt(p.makingCharge)).join('')],
+    ['Stone', items.map(p => p.stoneValue ? fmt(p.stoneValue) : '—').join('')],
+    ['GST (3%)', items.map(p => fmt(p.gst)).join('')],
+    ['Total', items.map(p => `<b>${fmt(p.total)}</b>`).join('')],
+  ];
+  openModal(`<h3 style="font-size:24px;margin-bottom:16px">Compare pieces</h3>
+    <div class="cmp-wrap"><table class="cmp-table"><tbody>
+      ${rows.map(r => `<tr><td class="cmp-lbl">${r[0]}</td>${r[1]}</tr>`).join('')}
+    </tbody></table></div>
+    <div class="cmp-actions">${items.map(p => `<a class="btn btn-outline btn-sm" href="#/product/${p.id}">View ${esc(p.name)}</a>`).join('')}</div>`);
+};
+window.Shivaa.toggleCompare = toggleCompare;
+
+/* ─────────── LANGUAGE TOGGLE (v41) — small side control, Hindi labels on key CTAs ─────────── */
+const LANG = {
+  en: { shop: 'Shop', home: 'Home', rates: 'Live Rates', wishlist: 'Wishlist', account: 'Account', cart: 'Cart',
+    addToCart: 'Add to Cart', chatOrder: 'Chat to Order', makeYours: 'Make It Yours', buyNow: 'Buy Now',
+    total: 'Total', price: 'Price', weight: 'Weight', purity: 'Purity', metal: 'Metal', making: 'Making Charge',
+    isGold: 'Gold', gem: 'Jewellery', submitReview: 'Submit review', browse: 'Browse the Collection' },
+  hi: { shop: 'दुकान', home: 'होम', rates: 'भाव', wishlist: 'पसंद', account: 'खाता', cart: 'कार्ट',
+    addToCart: 'कार्ट में जोड़ें', chatOrder: 'WhatsApp पर ऑर्डर', makeYours: 'अपना बनाएं', buyNow: 'अभी खरीदें',
+    total: 'कुल', price: 'कीमत', weight: 'वज़न', purity: 'शुद्धता', metal: 'धातु', making: 'मेकिंग चार्ज',
+    isGold: 'सोना', gem: 'आभूषण', submitReview: 'समीक्षा भेजें', browse: 'संग्रह देखें' },
+};
+let LANG_CUR = store.get('shv_lang', 'en');
+function t(key) { return (LANG[LANG_CUR] && LANG[LANG_CUR][key]) || (LANG.en[key]) || key; }
+function applyLang() {
+  store.set('shv_lang', LANG_CUR);
+  $$('#langToggle .lt-pill').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG_CUR));
+  // Swap header / nav labels (desktop drawer + mobile bottom bar)
+  $$('#mainNav a[data-nav] .dw-tx b, #mnav a[data-m] span').forEach(el => {
+    const nav = el.closest('a'); if (!nav) return;
+    const mk = nav.dataset.m || (nav.dataset.nav === 'shop' ? 'shop' : nav.dataset.nav === 'rates' ? 'rates' : null);
+    if (!mk || mk === 'home') return;
+    if (LANG[LANG_CUR] && LANG[LANG_CUR][mk]) el.textContent = t(mk);
+  });
+  // Product page CTAs + labels
+  const livePieces = $('#view .pd-cta-row, #view .miy-btn');
+  if (livePieces) {
+    livePieces.querySelectorAll('.btn').forEach(b => {
+      const txt = b.textContent.trim();
+      if (txt.includes('Add to Cart')) b.innerHTML = '🛍 ' + t('addToCart');
+      else if (txt.includes('Chat to Order') || txt.includes('Chat to order')) b.innerHTML = (t('chatOrder')) + ' ' + WA_SVG;
+    });
+  }
+  const miy = $('#view .miy-btn'); if (miy) miy.innerHTML = '✦ ' + t('makeYours');
+}
+function initLangToggle() {
+  const toggle = $('#langToggle');
+  if (!toggle) return;
+  applyLang();
+  toggle.addEventListener('click', e => {
+    const b = e.target.closest('.lt-pill'); if (!b) return;
+    LANG_CUR = b.dataset.lang; applyLang(); toast(LANG_CUR === 'hi' ? 'भाषा: हिंदी' : 'Language: English');
+  });
+}
+window.Shivaa.setLang = l => { LANG_CUR = l; applyLang(); };
 
 /* ─────────── 3D + motion helpers ─────────── */
 function bindTilt(scope = document) {
@@ -567,9 +739,12 @@ function productCard(p, opts = {}) {
       <div class="glare"></div>
     </a>
     <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${TAGS[t] || t}</span>`).join('')}</div>
-    <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
-      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
-    </button>
+    <div class="pc-acts">
+      <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
+      </button>
+      <button class="pc-cmp ${isComparing(p.id) ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleCompare('${p.id}')" aria-label="Compare" title="Compare">⇄</button>
+    </div>
     <div class="pc-body">
       <div class="pc-cat">${CATS[p.category] ? CATS[p.category].name : p.category} · ${p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold'}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
@@ -1169,6 +1344,7 @@ pages.product = async (view, q, id) => {
         <div class="pd-cta-row">
           <button class="btn btn-outline" onclick="Shivaa.pdAdd('${p.id}')">🛍 Add to Cart</button>
           <button class="btn btn-ghost wa-order" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat to Order</button>
+          <button class="btn btn-ghost" onclick="Shivaa.toggleCompare('${p.id}')">⇄ Compare</button>
         </div>
         <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'}">${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</div>
 
@@ -1191,11 +1367,23 @@ pages.product = async (view, q, id) => {
         <details class="acc"><summary>Making Charges & Exchange</summary><div class="acc-body">Making charges for this design are shown in the price table above — nothing hidden, nothing category-averaged. Lifetime exchange at the day's live rate with making charges waived on exchanges within 6 months; 90% buy-back of metal value thereafter.</div></details>
         <details class="acc"><summary>Shipping & Returns</summary><div class="acc-body">Free insured shipping above ${fmt(state.settings.freeShipAbove)}; tamper-sealed packaging with signature & OTP delivery. 7-day no-question returns (uncustomised pieces). Engraved pieces are exchangeable, not returnable.</div></details>
         <details class="acc"><summary>Reviews (${data.reviews.length})</summary><div class="acc-body">
-          ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p></div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
+          ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span>
+              <b>${esc(r.userName)}</b>${r.verified ? '<span class="verified-badge">✓ Verified buyer</span>' : ''}
+              <small>${dateFmt(r.createdAt)}</small>
+            </div>
+            <p>${esc(r.text)}</p>
+            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(ph => `<img src="${esc(ph)}" alt="review photo" loading="lazy" onclick="Shivaa.zoomImg('${esc(ph)}')">`).join('')}</div>` : ''}
+          </div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
           <form class="review-form" onsubmit="Shivaa.postReview(event,'${p.id}')">
             <div class="rate-pick" id="ratePick">${[1,2,3,4,5].map(i => `<span data-r="${i}" onclick="Shivaa.pickRate(${i})">★</span>`).join('')}</div>
             <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece…" required></textarea></div>
+            <div class="fld"><label style="font-size:12.5px;color:var(--ink-3)">Add a photo (optional, helps others see the actual piece)</label>
+              <input type="file" id="revPhotos" accept="image/*" multiple style="font-size:13px" onchange="Shivaa.pickPhoto(this)"></div>
+            <div id="revPhotoPre" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
             <button class="btn btn-outline btn-sm" style="justify-self:start">Submit review</button>
+            <small style="grid-column:1/-1;color:var(--ink-3);font-size:12px;margin-top:6px">Reviews are shown after a quick moderation check. Verified buyers get a ✓ badge.</small>
           </form>
         </div></details>
       </div>
@@ -1235,6 +1423,25 @@ pages.product = async (view, q, id) => {
   bindTilt(view);
   window._pd = { p, qty: 1 };
   window._lastOrder = null;
+  // ── SEO: product + breadcrumb structured data & per-page meta ──
+  setSeo({
+    title: `${p.name} (${p.weightG}g ${p.purity}) — Buy at Live Rate | Shivaa`,
+    desc: `${p.name} — ${p.weightG}g ${p.purity} ${p.metal === 'Silver' ? 'silver' : 'gold'} jewellery, BIS-hallmarked, live-rate priced. Making charges shown openly.`,
+    url: SITE_URL + '/#/product/' + p.id,
+    image: SITE_URL + (p.images && p.images[0]),
+    jsonLd: [
+      { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL + '/' },
+        { '@type': 'ListItem', position: 2, name: 'Shop', item: SITE_URL + '/#/shop' },
+        { '@type': 'ListItem', position: 3, name: p.name, item: SITE_URL + '/#/product/' + p.id } ] },
+      { '@context': 'https://schema.org', '@type': 'Product', name: p.name, sku: p.sku || p.id, mpn: p.sku || p.id,
+        image: (p.images || []).map(i => SITE_URL + i), description: (p.desc || p.name),
+        brand: { '@type': 'Brand', name: 'Shivaa' },
+        material: p.metal === 'Silver' ? 'Sterling Silver' : p.purity + ' Gold',
+        category: p.category, url: SITE_URL + '/#/product/' + p.id,
+        offers: { '@type': 'Offer', url: SITE_URL + '/#/product/' + p.id, priceCurrency: 'INR', price: pr.total.toFixed(0), priceValidUntil: '2027-12-31', availability: (p.stock ?? 0) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', itemCondition: 'https://schema.org/NewCondition' },
+        aggregateRating: p.reviews > 0 ? { '@type': 'AggregateRating', ratingValue: p.rating, reviewCount: p.reviews } : undefined } ],
+  });
 };
 window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd.qty + d)); $('#pdQtyN').textContent = window._pd.qty; };
 window.Shivaa.pdAdd = id => {
@@ -1254,10 +1461,24 @@ window.Shivaa.pickRate = r => { window._rate = r; $$('#ratePick span').forEach((
 window.Shivaa.postReview = async (e, pid) => {
   e.preventDefault();
   if (!state.user) return openLogin();
+  // Optional photos → base64 data URLs (client shrinks large images).
+  const files = [...($('#revPhotos')?.files || [])].slice(0, 4);
+  const photos = await Promise.all(files.map(f => new Promise(res => {
+    const img = new Image();
+    const rd = new FileReader();
+    rd.onload = () => { img.onload = () => { const c = document.createElement('canvas'); const m = Math.min(1, 1200 / Math.max(img.width, img.height)); c.width = img.width * m; c.height = img.height * m; const cx = c.getContext('2d'); cx.drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', 0.78)); }; img.src = rd.result; };
+    rd.onerror = () => res(null); rd.readAsDataURL(f);
+  }))).filter(Boolean);
   try {
-    await api('/api/reviews', { method: 'POST', body: JSON.stringify({ productId: pid, rating: window._rate || 5, text: $('#revText').value }) });
-    toast('Thank you! Review posted ✦'); pages.product($('#view'), new URLSearchParams(), pid);
+    await api('/api/reviews', { method: 'POST', body: JSON.stringify({ productId: pid, rating: window._rate || 5, text: $('#revText').value, photos }) });
+    toast('Thank you! Your review is awaiting moderation ✦');
+    pages.product($('#view'), new URLSearchParams(), pid);
   } catch (err) { toast(err.message, 'err'); }
+};
+window.Shivaa.zoomImg = src => openModal(`<div style="text-align:center"><img src="${esc(src)}" alt="review photo" style="max-width:100%;max-height:82vh;border-radius:14px"></div>`);
+window.Shivaa.pickPhoto = (input) => {
+  const pre = $('#revPhotoPre'); if (!pre) return;
+  pre.innerHTML = [...(input.files || [])].slice(0, 4).map(f => `<span style="font-size:12px;background:var(--cream);border:1px solid var(--line);border-radius:8px;padding:4px 8px">📷 ${esc(f.name)}</span>`).join('');
 };
 window.Shivaa.sizeGuide = () => openModal(`
   <h3 style="font-size:24px;margin-bottom:10px">Ring size guide</h3>
@@ -1306,23 +1527,27 @@ pages.cart = async (view) => {
       <div class="sum-row"><span>Shipping (insured)</span>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</div>
       ${shipping > 0 ? `<div class="sum-row" style="font-size:12.5px;color:var(--ink-3)"><span>Add ${fmt(state.settings.freeShipAbove - subtotal)} for free shipping</span><span></span></div>` : ''}
       <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
-      <div style="margin:16px 0 6px" class="label" id="ptLbl">Loyalty & offers applied at checkout →</div>
+      <div class="points-preview" id="ptPreview">✦ You'll earn <b>${fmt(Math.floor(subtotal / 100))}</b> royalty points on this order (1 pt per ₹100) — redeemable next time, up to 10%.</div>
       <a class="btn btn-primary btn-block btn-lg" href="#/checkout">Proceed to Checkout</a>
       <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.waOpenCart()">Order via WhatsApp chat <span class="mini-wa">${WA_SVG}</span></button>
       <a class="btn btn-ghost btn-block btn-sm mt-2" href="#/shop">Continue shopping</a>
     </div>
-  </div>`;
+  </div>
+  <div id="abandonBanner"></div>`;
+  touchCartAt();
+  Shivaa.regAbandoned();
+  renderAbandonedBanner();
 };
 window.Shivaa.cartQty = (id, size, d) => {
   const it = state.cart.find(i => i.id === id && (i.size || '') === size);
   if (!it) return;
   it.qty += d;
   if (it.qty <= 0) state.cart = state.cart.filter(i => i !== it);
-  store.set('shv_cart', state.cart); updateBadges(); pages.cart($('#view'));
+  store.set('shv_cart', state.cart); touchCartAt(); updateBadges(); pages.cart($('#view'));
 };
 window.Shivaa.cartRemove = (id, size) => {
   state.cart = state.cart.filter(i => !(i.id === id && (i.size || '') === size));
-  store.set('shv_cart', state.cart); updateBadges(); pages.cart($('#view'));
+  store.set('shv_cart', state.cart); touchCartAt(); updateBadges(); pages.cart($('#view'));
 };
 
 /* ─────────── CHECKOUT ─────────── */
@@ -1413,7 +1638,7 @@ window.Shivaa.placeOrder = async () => {
       items: state.cart.map(c => ({ id: c.id, qty: c.qty, size: c.size, engraving: c.engraving })),
       address, paymentMethod, coupon: window._co.coupon, usePoints: !!$('#usePts')?.checked,
     }) });
-    state.cart = []; store.set('shv_cart', state.cart); updateBadges();
+    state.cart = []; store.set('shv_cart', state.cart); touchCartAt(); updateBadges();
     if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
     window._lastOrder = order;
     // Online methods → if Razorpay is on, open the gateway. Order is already "Pending payment".
@@ -1639,11 +1864,31 @@ pages.account = async (view, q) => {
         <div class="benefit"><div class="bic">◈</div><div><b>Redeem at checkout</b><p>Tick "redeem points" on the payment page.</p></div></div>
         <div class="benefit"><div class="bic">❖</div><div><b>Never expire</b><p>Your points wait for the next auspicious occasion.</p></div></div>
       </div>
+      <div class="order-card" id="referralCard"><h3 style="margin-bottom:6px">Invite &amp; earn</h3>
+        <p style="font-size:13px;color:var(--ink-2);margin-bottom:12px">Share your code — a friend who registers with it earns <b>120 welcome points</b> and you earn <b>200 points</b> once they join.</p>
+        <div id="referralBody" style="color:var(--ink-3);font-size:13px">Loading your referral code…</div>
+      </div>
     </div>` : ''}
     </div>
   </div>
   <div style="height:40px"></div>`;
+  if (tab === 'loyalty') Shivaa.loadReferral();
 };
+window.Shivaa.loadReferral = async () => {
+  try {
+    const r = await api('/api/referral');
+    const link = SITE_URL + '/?ref=' + r.code;
+    const el = $('#referralBody');
+    if (!el) return;
+    el.innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <b style="background:var(--cream);border:1px dashed var(--gold);border-radius:10px;padding:8px 14px;letter-spacing:.08em;font-size:16px">${esc(r.code || '—')}</b>
+        <button class="btn btn-ghost btn-sm" onclick="Shivaa.copyRef('${esc(r.code)}')">Copy code</button>
+        <button class="btn btn-outline btn-sm" onclick="Shivaa.copyRefLink()" style="margin-left:4px">Copy invite link</button></div>
+      <small class="copy-tip" id="refTip" style="color:var(--ink-3)">You've earned <b style="color:var(--ok)">${r.pointsAwarded} pts</b> from <b>${r.count}</b> friend${r.count === 1 ? '' : 's'}. Invite link: <span style="color:var(--maroon)">${esc(link)}</span></small>`;
+  } catch (e) { const el = $('#referralBody'); if (el) el.textContent = 'Log in to see your code.'; }
+};
+window.Shivaa.copyRef = async code => { try { await navigator.clipboard.writeText(code || ''); $('#refTip').textContent = code + ' copied ✦'; } catch (e) {} };
+window.Shivaa.copyRefLink = async () => { try { await navigator.clipboard.writeText((SITE_URL + '/?ref=' + (state.user?.referralCode || ''))); $('#refTip').textContent = 'Invite link copied ✦'; } catch (e) {} };
 window.Shivaa.saveProfile = async e => {
   e.preventDefault();
   try {
@@ -3765,7 +4010,7 @@ const routes = {};
 Object.keys(pages).forEach(k => routes[k] = pages[k]);
 Object.assign(window.Shivaa, {
   api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,
-  routes, price, fmt, esc, productCard, mcTableHTML, openLogin,
+  routes, price, fmt, esc, productCard, mcTableHTML, openLogin, REF_CODE,
   waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
 });
@@ -3792,6 +4037,20 @@ function route() {
     }, 1000);
   }
   window.scrollTo({ top: 0 });
+  // ── SEO: default page meta (product/shop override below) ──
+  const pgs = { home: ['Home', 'Honest purity, transparent making charges and live gold-rate pricing. BIS-hallmarked gold & silver.'], shop: ['Shop Jewellery', 'Shop BIS-hallmarked gold & silver jewellery at live Jaipur rates.'],
+    rates: ['Live Gold Rates', 'Jaipur live gold & silver rates, updated every 10 minutes.'], about: ['About | Our Craft & Story', 'Shivaa Jewellers — 30+ years of karigari, Jayal, Nagaur, Rajasthan.'],
+    cart: ['Your Cart', 'Review your jewellery selection.'], checkout: ['Checkout', 'Secure checkout for your Shivaa jewellery.'],
+    wishlist: ['My Wishlist', 'Your saved pieces.'], account: ['My Account', 'Orders, addresses and royalty.'],
+    b2b: ['For Jewellers | B2B', 'GST-verified partner portal — bullion desk & design selection.'], savings: ['Swarna Nidhi Gold Savings', 'Pay eleven, own twelve.'], track:'Track Order' };
+  const sp = pgs[page];
+  setSeo({
+    title: sp ? (typeof sp === 'string' ? sp + ' | Shivaa' : sp[0] + ' | Shivaa Jewellers') : document.title,
+    desc: sp && typeof sp !== 'string' ? sp[1] : document.querySelector('meta[name="description"]')?.getAttribute('content'),
+    url: SITE_URL + '/#' + (page && page !== 'home' ? '/' + page : ''),
+    image: SITE_URL + '/images/banners/poster-bridal.jpg',
+    jsonLd: page === 'home' ? { '@context': 'https://schema.org', '@type': 'JewelryStore', name: 'Shivaa Jewellers', url: SITE_URL + '/', image: SITE_URL + '/images/logo.png' } : undefined,
+  });
   // performance: lazy-load everything below the fold (runs right after paint)
   const lazySweep = () => document.querySelectorAll('img:not([loading])').forEach(img => {
     if (img.getBoundingClientRect().top > innerHeight + 40) { img.loading = 'lazy'; img.decoding = 'async'; }
@@ -4116,6 +4375,9 @@ async function boot(isRedraw) {
   $('#footCats').innerHTML = Object.entries(CATS).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
   const pl = $('#preloader');
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
+  refreshCompareBadge();
+  if (state.compare.length) renderCompareBar();
+  initLangToggle();
   route();
   // poll rates every 60s (server caches 10-min; ticker + prices refresh)
   setInterval(loadRates, 60000);
