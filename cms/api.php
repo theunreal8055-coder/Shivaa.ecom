@@ -206,7 +206,7 @@ function pub_user(array $u): array {
           'partnerStatus' => $u['partnerStatus'] ?? null,
           'referralCode' => $u['referralCode'] ?? null, 'referrals' => $u['referrals'] ?? 0,
           'createdAt' => $u['createdAt'] ?? '', 'profile' => $u['profile'] ?? [], 'addresses' => $u['addresses'] ?? [],
-          'alerts' => $u['alerts'] ?? []];
+          'alerts' => $u['alerts'] ?? [], 'templates' => $u['templates'] ?? []];
 }
 function need_admin(array $db): array {
   $u = req_user($db);
@@ -346,6 +346,9 @@ foreach (($db['users'] ?? []) as &$__u) if (empty($__u['referralCode'])) { $__u[
 unset($__u);
 /* v45 — give every user a price-alert list (created lazily; always present in memory) */
 foreach (($db['users'] ?? []) as &$__u) if (!isset($__u['alerts'])) { $__u['alerts'] = []; $changed = true; }
+unset($__u);
+/* v46 — give every user a repeat-order template list (created lazily) */
+foreach (($db['users'] ?? []) as &$__u) if (!isset($__u['templates'])) { $__u['templates'] = []; $changed = true; }
 unset($__u);
 /* v44 — live BIS hallmark: give every product a HUID + fineness/standard if it lacks one */
 foreach (($db['products'] ?? []) as &$__p) {
@@ -721,6 +724,50 @@ try {
       db_save($DB_FILE, $db); jout(200, ['ok' => true]);
     }
     jout(404, ['error' => 'Alert not found']);
+  }
+
+  /* ── repeat-order templates (v46) ──
+     A logged-in user saves a cart (or a batch) as a named template and can
+     'reorder' it later with one tap. Templates store only {id, qty, size,
+     engraving} — prices are re-derived live at the current rate on load. */
+  function templates_for_user(array $u): array {
+    return array_values(array_reverse($u['templates'] ?? []));
+  }
+  if ($route === 'templates' && $method === 'GET') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    jout(200, ['templates' => templates_for_user($u)]);
+  }
+  if ($route === 'templates' && $method === 'POST') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    $b = body_json();
+    $name = trim((string)($b['name'] ?? ''));
+    if ($name === '') $name = 'Template ' . (count($u['templates'] ?? []) + 1);
+    $items = [];
+    foreach (($b['items'] ?? []) as $it) {
+      $pid = (string)($it['id'] ?? '');
+      $exists = false; foreach ($db['products'] as $x) if ($x['id'] === $pid) { $exists = true; break; }
+      if (!$exists) continue;
+      $items[] = ['id' => $pid, 'qty' => max(1, (int)($it['qty'] ?? 1)), 'size' => $it['size'] ?? null, 'engraving' => $it['engraving'] ?? null];
+    }
+    if (!$items) jout(400, ['error' => 'No valid pieces in this template']);
+    foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
+      $uu['templates'] = $uu['templates'] ?? [];
+      $t = ['id' => uid('tpl'), 'name' => cut500($name), 'items' => $items, 'createdAt' => now_iso()];
+      array_unshift($uu['templates'], $t);
+      db_save($DB_FILE, $db); jout(200, ['ok' => true, 'template' => $t, 'templates' => templates_for_user($uu)]);
+    }
+    jout(404, ['error' => 'User not found']);
+  }
+  if (preg_match('#^templates/([\\w-]+)$#', $route, $mT) && $method === 'DELETE') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
+      $uu['templates'] = array_values(array_filter($uu['templates'] ?? [], fn($t) => ($t['id'] ?? '') !== $mT[1]));
+      db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+    }
+    jout(404, ['error' => 'Template not found']);
   }
 
   /* ── coupons ── */

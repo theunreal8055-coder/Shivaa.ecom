@@ -306,6 +306,120 @@ window.Shivaa.removeAlert = async aId => {
   catch (e) { toast(e.message, 'err'); }
 };
 
+/* ─────────── BULK CSV + REPEAT-ORDER TEMPLATES (v46) ─────────── */
+// Parse CSV/TSV of SKUs → [{sku, qty}]. Accepts "SKU", "SKU,QTY", "SKU,QTY,size" and a header row.
+function parseCsvSku(raw) {
+  const lines = String(raw || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const rows = [];
+  for (const ln of lines) {
+    const parts = ln.split(/[,;\t]+/).map(s => s.trim()).filter(Boolean);
+    if (!parts.length) continue;
+    const first = parts[0].toLowerCase();
+    if (first === 'sku' || first === 'sku,qty' || first === 'id') continue;   // header
+    const qty = Math.max(1, parseInt(parts[1] || '1', 10) || 1);
+    const size = parts[2] || null;
+    rows.push({ sku: parts[0], qty, size });
+  }
+  return rows;
+}
+function matchSku(sku) {
+  const s = String(sku).trim().toUpperCase();
+  const list = state.productsCache || [];
+  return list.find(p => (p.sku || '').toUpperCase() === s) ||
+         list.find(p => (p.id || '').toUpperCase() === s) ||
+         list.find(p => (p.barcode || '').toUpperCase() === s) || null;
+}
+// Preview bulk rows on the cart page.
+window.Shivaa.bulkPreview = () => {
+  const raw = $('#bulkRaw')?.value || '';
+  const rows = parseCsvSku(raw);
+  const host = $('#bulkPrev'); if (!host) return;
+  if (!rows.length) { host.innerHTML = '<p style="color:var(--ink-3);font-size:13px">Paste SKUs (one per line, optionally SKU,QTY) above.</p>'; return; }
+  const found = [], missing = [];
+  for (const r of rows) { const p = matchSku(r.sku); (p ? found : missing).push({ r, p }); }
+  const sub = found.reduce((a, f) => a + price(f.p).total * f.r.qty, 0);
+  host.innerHTML = `
+    <div class="bulk-meta"><b>${found.length}</b> of <b>${rows.length}</b> matched · total <b>${fmt(sub)}</b>${missing.length ? ` · <span style="color:var(--warn)">${missing.length} not found</span>` : ''}</div>
+    <div class="bulk-list">${found.map(f => `<div class="bulk-row"><img src="${f.p.images[0]}" alt=""><div class="bulk-pn"><b>${esc(f.p.name)}</b><small>SKU ${esc(f.p.sku)} · ₹${fmt(price(f.p).total)}</small></div><b class="bulk-q">×${f.r.qty}</b></div>`).join('')}</div>
+    ${missing.length ? `<div class="bulk-miss">Couldn't find: ${missing.map(m => `<code>${esc(m.r.sku)}</code>`).join(', ')}</div>` : ''}
+    <button class="btn btn-primary btn-sm bn" onclick="Shivaa.addBulk()">${found.length ? 'Add ' + found.length + ' to cart' : ''}</button>`;
+  window._bulkFound = found.map(f => ({ id: f.p.id, qty: f.r.qty, size: f.r.size }));
+};
+window.Shivaa.addBulk = () => {
+  const added = window._bulkFound || [];
+  if (!added.length) { toast('Nothing to add', 'err'); return; }
+  added.forEach(i => addToCart(i.id, i.qty, i.size || null, null));
+  const units = added.reduce((a, i) => a + (i.qty || 1), 0);
+  toast(units + ' piece' + (units > 1 ? 's' : '') + ' added to cart ✦');
+  window._bulkFound = [];
+  location.hash = '#/cart';
+  route(true);
+};
+window.Shivaa.bulkExample = () => { const t = $('#bulkRaw'); if (t) { t.value = state.productsCache.slice(0, 3).map((p, i) => p.sku + ',1').join('\n'); Shivaa.bulkPreview(); } };
+window.Shivaa.uploadCsv = (input) => {
+  const f = input.files && input.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { const t = $('#bulkRaw'); if (t) t.value = String(rd.result || ''); Shivaa.bulkPreview(); };
+  rd.readAsText(f);
+};
+// ── repeat-order templates ──
+window.Shivaa.saveTemplate = async () => {
+  if (!state.user) { openLogin(); toast('Login to save a repeat-order template ✦'); return; }
+  if (!state.cart || !state.cart.length) { toast('Add something to the cart first', 'err'); return; }
+  const name = prompt('Name this repeat-order template', 'My order ' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+  if (name === null) return;
+  try {
+    const r = await api('/api/templates', { method: 'POST', body: JSON.stringify({ name, items: state.cart.map(c => ({ id: c.id, qty: c.qty, size: c.size, engraving: c.engraving })) }) });
+    toast('Template saved ✦ — find it under My Account → Repeat Orders');
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.reorderOrder = async id => {
+  try {
+    const { order } = await api('/api/orders/' + id);
+    const items = (order.items || []).map(i => ({ id: i.productId || i.id, qty: i.qty, size: i.size, engraving: i.engraving })).filter(i => i.id);
+    items.forEach(i => addToCart(i.id, i.qty, i.size || null, null));
+    toast('Cart reloaded from order ' + order.id + ' ✦');
+    location.hash = '#/cart'; route(true);
+  } catch (e) { toast(e.message, 'err'); }
+};
+let _templatesCache = [];
+window.Shivaa.loadTemplate = id => {
+  const t = _templatesCache.find(x => x.id === id) || (state.user?.templates || []).find(x => x.id === id);
+  if (!t || !t.items) return;
+  t.items.forEach(i => addToCart(i.id, i.qty, i.size || null, null));
+  toast('Template "' + (t.name || '') + '" loaded into cart ✦');
+  location.hash = '#/cart'; route(true);
+};
+window.Shivaa.deleteTemplate = async id => {
+  try { await api('/api/templates/' + id, { method: 'DELETE' }); toast('Template deleted'); _templatesCache = _templatesCache.filter(x => x.id !== id); Shivaa.loadTemplatesTab(); }
+  catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.loadTemplatesTab = async () => {
+  const box = $('#templatesList'); if (!box) return;
+  if (!state.user) { box.innerHTML = '<div class="empty"><h3>Login to use repeat-order templates</h3></div>'; return; }
+  let list = [];
+  try { list = (await api('/api/templates')).templates || []; } catch (e) { list = []; }
+  _templatesCache = list;
+  if (!state.user.templates && list.length) state.user.templates = list;
+  if (!list.length) {
+    box.innerHTML = `<div class="empty"><div class="big">↻</div><h3>No repeat-order templates yet</h3><p style="margin:10px 0 20px;color:var(--ink-3)">Build a cart and hit "Save as template", or use Reorder on a past order.</p><a class="btn btn-primary" href="#/shop">Browse Jewellery</a></div>`;
+    return;
+  }
+  const rows = await Promise.all(list.map(async t => {
+    const lines = await Promise.all(t.items.map(async it => {
+      const p = state.productsCache.find(x => x.id === it.id);
+      return `<a href="#/product/${it.id}" class="tpl-line"><img src="${p ? (p.images[0] || '') : ''}" alt=""><span><b>${esc(p ? p.name : it.id)}</b><small>×${it.qty}</small></span></a>`;
+    }));
+    return `<div class="tpl-card">
+      <div class="tpl-top"><b>${esc(t.name || 'Untitled')}</b><small>${t.items.length} piece${t.items.length === 1 ? '' : 's'} · saved ${dateFmt(t.createdAt)}</small></div>
+      <div class="tpl-lines">${lines.join('')}</div>
+      <div class="tpl-acts"><button class="btn btn-gold btn-sm" onclick="Shivaa.loadTemplate('${t.id}')">Load into cart</button>
+      <button class="btn btn-ghost btn-sm" onclick="Shivaa.deleteTemplate('${t.id}')">Delete</button></div>
+    </div>`;
+  }));
+  box.innerHTML = rows.join('');
+};
+
 /* ─────────── page component registry ─────────── */
 const TAGS = { wedding: 'Wedding', festive: 'Festive', daily: 'Everyday', gifting: 'Gifting', mens: "Men's", heritage: 'Heritage', luxe: 'Luxe', new: 'New In', bestseller: 'Bestsellers' };
 
@@ -1657,6 +1771,17 @@ pages.cart = async (view) => {
         </div>`).join('')}
       </div>
       <div class="qty-banner">◈ Prices in your cart re-compute automatically with every rate refresh (every ~10 minutes) and are finally locked at checkout.</div>
+      <div class="bulk-box rv">
+        <h3>Bulk add by SKU</h3>
+        <div class="bb-sub">Paste one SKU per line — or <code>SKU,QTY</code> — and we'll fill your cart in one go. Great for repeat orders &amp; reseller batches. <a href="javascript:Shivaa.bulkExample()" style="color:var(--gold);text-decoration:underline">see example</a></div>
+        <textarea id="bulkRaw" placeholder="e.g.&#10;RING-001,2&#10;PND-014&#10;BRC-09,1" oninput="Shivaa.bulkPreview()"></textarea>
+        <div class="bulk-actions">
+          <button class="btn btn-gold btn-sm" onclick="Shivaa.bulkPreview()">Preview</button>
+          <label class="btn btn-ghost btn-sm" for="bulkFile">⬆ Upload CSV<input type="file" id="bulkFile" accept=".csv,.txt" hidden onchange="Shivaa.uploadCsv(this)"></label>
+          <button class="btn btn-ghost btn-sm" onclick="Shivaa.saveTemplate()">Save as repeat-order template</button>
+        </div>
+        <div id="bulkPrev"></div>
+      </div>
     </div>
     <div class="summary">
       <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
@@ -1906,6 +2031,7 @@ pages.account = async (view, q) => {
     ['loyalty', '✦', 'Royalty Points', me.loyaltyPoints + ' pts · ' + tier + ' tier'],
     ['wishlist', '♡', 'My Wishlist', wl.length + ' saved piece' + (wl.length === 1 ? '' : 's')],
     ['alerts', '🔔', 'Price & Stock Alerts', (me.alerts || []).length + ' watch' + ((me.alerts || []).length === 1 ? '' : 'es')],
+    ['templates', '↻', 'Repeat Orders', (me.templates || []).length + ' saved template' + ((me.templates || []).length === 1 ? '' : 's')],
   ];
 
   view.innerHTML = `
@@ -1953,6 +2079,7 @@ pages.account = async (view, q) => {
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
         ${o.items.map(i => `<img src="${i.img}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
         <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail('${o.id}')">Details</a>
+          <a class="btn btn-gold btn-sm" href="javascript:Shivaa.reorderOrder('${o.id}')">↻ Reorder</a>
           <a class="btn btn-outline btn-sm" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
       </div></div>`).join('') || '<div class="empty"><h3>No orders yet</h3><a class="btn btn-outline" href="#/shop">Start shopping</a></div>' : ''}
   ${tab === 'addresses' ? `
@@ -2012,11 +2139,17 @@ pages.account = async (view, q) => {
       <div class="as-head"><h3>Price &amp; Stock Alerts</h3><span class="as-note">We tell you the moment your watched piece drops to your target or is back in stock</span></div>
       <div id="alertsList"><div class="empty"><h3>Loading your watches…</h3></div></div>
     </div>` : ''}
+  ${tab === 'templates' ? `<div class="acct-sec">
+      <div class="as-head"><h3>Repeat Orders</h3><span class="as-note">Saved carts you can load back into the cart in one tap — great for regular pieces or reseller batches</span></div>
+      <div class="qty-banner">✦ Save any cart as a template from the cart page, or press "↻ Reorder" on a past order. Pieces reprice live at today's rate every time.</div>
+      <div id="templatesList"><div class="empty"><h3>Loading your templates…</h3></div></div>
+    </div>` : ''}
     </div>
   </div>
   <div style="height:40px"></div>`;
   if (tab === 'loyalty') Shivaa.loadReferral();
   if (tab === 'alerts') Shivaa.loadAlertsTab();
+  if (tab === 'templates') Shivaa.loadTemplatesTab();
 };
 window.Shivaa.loadReferral = async () => {
   try {

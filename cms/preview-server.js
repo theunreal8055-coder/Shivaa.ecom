@@ -212,6 +212,11 @@ function handleApi(db, route, method, query, req, res) {
     return JSONout(res, 200, { alerts: list });
   }
 
+  // ── v46 repeat-order templates (read-only preview mirror; no auth in preview) ──
+  if (route === 'templates' && method === 'GET') {
+    return JSONout(res, 200, { templates: [] });
+  }
+
   // ── v41 abandoned cart (read-only preview mirror) ──
   if (route === 'cart-abandon' && method === 'POST') {
     return JSONout(res, 200, { id: 'ab_preview', subtotal: 0 });

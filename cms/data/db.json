@@ -15541,7 +15541,8 @@
       "createdAt": "2026-08-23T07:31:19.969Z",
       "profile": [],
       "addresses": [],
-      "alerts": []
+      "alerts": [],
+      "templates": []
     },
     {
       "id": "u_demo",
@@ -15577,6 +15578,27 @@
           "target": 99999,
           "createdAt": "2026-09-02T10:00:00+05:30"
         }
+      ],
+      "templates": [
+        {
+          "id": "tpl_demo_1",
+          "name": "My daily gold rings",
+          "items": [
+            {
+              "id": "p_smp_rings_01",
+              "qty": 1,
+              "size": "16",
+              "engraving": null
+            },
+            {
+              "id": "p_smp_rings_02",
+              "qty": 2,
+              "size": null,
+              "engraving": null
+            }
+          ],
+          "createdAt": "2026-09-03T09:00:00+05:30"
+        }
       ]
     },
     {
@@ -15593,7 +15615,8 @@
       "createdAt": "2026-08-23T07:31:19.969Z",
       "profile": [],
       "addresses": [],
-      "alerts": []
+      "alerts": [],
+      "templates": []
     }
   ],
   "orders": [],
