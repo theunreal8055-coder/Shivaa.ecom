@@ -22,7 +22,8 @@
     "jaipurPremium": 55,
     "jaipurSilverPremium": 3,
     "metalFactor": 0.92,
-    "finePurity": "99.50%"
+    "finePurity": "99.50%",
+    "gstin": ""
   },
   "rates": {
     "last": {

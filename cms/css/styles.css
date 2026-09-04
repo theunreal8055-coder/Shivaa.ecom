@@ -4617,3 +4617,35 @@ body.cmp-open{padding-bottom:92px}
 .hallmark-panel.hp-warn{border-color:var(--warn)}
 .hallmark-panel.hp-warn b{color:var(--warn)}
 @media(max-width:680px){.hallmark-tx span{font-size:11.5px}.hallmark-panel .hp-tbl td:first-child{width:132px}.hallmark-row .btn{width:100%;justify-content:center}}
+
+/* ══════════ v45 — Why Trust Shivaa page ══════════ */
+.trust-badges{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 34px}
+.trust-badges span{background:rgba(185,138,47,.12);border:1px solid rgba(185,138,47,.3);color:var(--maroon-deep);font:600 11.5px var(--ff-label);letter-spacing:.08em;text-transform:uppercase;border-radius:99px;padding:7px 13px}
+.trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.trust-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;box-shadow:var(--sh-1);transition:.25s var(--ease)}
+.trust-card:hover{transform:translateY(-3px);border-color:var(--gold-soft);box-shadow:var(--sh-2)}
+.trust-card .tc-ic{font-size:26px;line-height:1;margin-bottom:8px}
+.trust-card b{display:block;font-family:var(--ff-disp);color:var(--maroon);font-size:16px;margin-bottom:5px}
+.trust-card .tc-num{font-size:14px;color:var(--ink-2);font-weight:600;line-height:1.4}
+.trust-card .tc-sub{font-size:12px;color:var(--ink-3);margin-top:5px;line-height:1.5}
+.cert-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-top:8px}
+.cert-card{background:linear-gradient(160deg,var(--white),var(--cream));border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;min-height:120px;box-shadow:var(--sh-1)}
+.cert-card .cc-ic{font-size:22px;margin-bottom:8px}
+.cert-card b{font-family:var(--ff-disp);color:var(--maroon);font-size:14.5px}
+.cert-card .cc-num{font-size:12.5px;color:var(--ink-3);font-family:ui-monospace,monospace;letter-spacing:.04em;margin:6px 0 10px}
+.cert-card .cc-link{margin-top:auto;font-size:12.5px;color:var(--gold);font-weight:600;text-decoration:none}
+.cert-card .cc-link:hover{text-decoration:underline}
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.testi-card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--sh-1)}
+.testi-card .tc-stars{color:var(--gold);letter-spacing:2px;font-size:15px;margin-bottom:9px}
+.testi-card p{font-size:13.5px;line-height:1.6;color:var(--ink-2);margin-bottom:14px}
+.testi-card .tc-who{display:flex;gap:10px;align-items:center}
+.testi-card .tc-av{width:38px;height:38px;border-radius:50%;background:var(--maroon);color:#f6e6c6;font:600 13px var(--sans);display:flex;align-items:center;justify-content:center;flex:none}
+.testi-card .tc-who b{font-size:13.5px;color:var(--ink-2)}
+.testi-card .tc-who small{font-size:11.5px;color:var(--ink-3)}
+.testi-card .tc-who em{font-style:normal;color:var(--ok)}
+.trust-cta{background:linear-gradient(120deg,#5c1822,var(--maroon-deep));color:#f9ecd2;border-radius:20px;padding:34px;text-align:center;margin-top:34px;box-shadow:var(--sh-2)}
+.trust-cta h3{font-family:var(--ff-disp);font-size:28px;margin:0 0 6px}
+.trust-cta p{font-size:14px;opacity:.9;margin:0 0 20px}
+@media(max-width:900px){.trust-grid{grid-template-columns:repeat(2,1fr)}.testi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.trust-grid,.testi-grid{grid-template-columns:1fr}.trust-cta{padding:26px 18px}.trust-cta h3{font-size:24px}}

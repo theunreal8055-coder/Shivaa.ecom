@@ -429,6 +429,7 @@ async function renderAdmin(view, q) {
         <div class="fld"><label>Phone</label><input name="phone" value="${esc(S.phone || '')}"></div>
         <div class="fld"><label>WhatsApp number (with 91, no +)</label><input name="whatsapp" value="${esc(S.whatsapp || '918905005921')}" placeholder="918905005921"></div>
         <div class="fld"><label>Email</label><input name="email" type="email" value="${esc(S.email || '')}"></div>
+        <div class="fld"><label>Company GSTIN (shown on the "Why Trust Shivaa" page)</label><input name="gstin" value="${esc(S.gstin || '')}" placeholder="e.g. 08AABCE1234F1Z5" style="text-transform:uppercase"></div>
         <div class="fld full"><label>Address</label><input name="address" value="${esc(S.address || '')}"></div>
         <div class="fld"><label>Free shipping above ₹</label><input name="freeShipAbove" type="number" value="${S.freeShipAbove}"></div>
         <div class="fld"><label>Shipping fee ₹</label><input name="shippingFee" type="number" value="${S.shippingFee}"></div>
@@ -677,7 +678,7 @@ window.ShivaaAdmin.saveSettings = async e => {
   // read by name — positional indexing silently corrupts settings if a field moves
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
   try {
-    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), jaipurPremium: +g('jaipurPremium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: g('gstKey').trim() }, announcements: g('announcements').split('\n').filter(Boolean) }) });
+    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), gstin: g('gstin').trim().toUpperCase(), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), jaipurPremium: +g('jaipurPremium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: g('gstKey').trim() }, announcements: g('announcements').split('\n').filter(Boolean) }) });
     Object.assign(state.settings, s); toast('Settings saved');
   } catch (err) { toast(err.message, 'err'); }
 };

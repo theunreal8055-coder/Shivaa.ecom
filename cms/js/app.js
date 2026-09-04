@@ -2487,6 +2487,70 @@ pages.about = async (view) => {
   </div>`;
 };
 
+/* ─────────── WHAT TRUST SHIVAA (A-2) ─────────── */
+pages.trust = async (view) => {
+  const S = state.settings || {};
+  const gstin = (S.gstin || '').trim();
+  const regs = [
+    { ic: '🏛', t: 'Registered company', n: S.legalName || 'Ernate Shine Jewellery Private Limited', s: 'CIN ' + (S.cin || '') + ' · ROC Jaipur · Incorporated ' + (S.incorporated || '') },
+    { ic: '🧾', t: 'GST registered', n: gstin || 'GSTIN on every invoice', s: 'Every bill carries the GSTIN · verifiable on the GST portal' },
+    { ic: '📜', t: 'MSME / UDYAM', n: (S.udyam || 'UDYAM on record'), s: 'Udyam registration · Retail sale of jewellery' },
+    { ic: '✓', t: 'BIS hallmarked', n: 'Every gold & silver piece', s: 'Gold IS 1417 · Silver IS 2112 · HUID on every invoice' },
+    { ic: '🚀', t: 'Startup India recognised', n: (S.dipp || 'DIPP on record'), s: 'Dept. for Promotion of Industry & Internal Trade' },
+    { ic: '📌', t: 'Physical store', n: 'Sadar Bazaar, Jayal', s: esc(S.address || '') },
+  ];
+  const certs = [
+    { ic: '🏛', t: 'Incorporation Certificate', n: 'CIN ' + (S.cin || '—'), by: 'Verify on MCA', href: 'https://www.mca.gov.in' },
+    { ic: '🧾', t: 'GST Registration Certificate', n: 'GSTIN ' + (gstin || '—'), by: 'Verify on GST portal', href: 'https://www.gst.gov.in' },
+    { ic: '📜', t: 'UDYAM Registration Certificate', n: (S.udyam || '—'), by: 'Verify on Udyam', href: 'https://udyamregistration.gov.in' },
+    { ic: '✓', t: 'BIS Hallmarking Licence', n: 'IS 1417 / IS 2112', by: 'Verify on BIS', href: 'https://www.bis.gov.in' },
+    { ic: '🚀', t: 'Startup India Recognition', n: (S.dipp || '—'), by: 'Verify on Startup India', href: 'https://www.startupindia.gov.in' },
+  ];
+  const testis = [
+    ['Meenakshi Rathore', 'Nagaur', 'The kundan ring matched its photos exactly — and the price table told me everything before I asked. That honesty is rare.'],
+    ['Anita Devi', 'Nagaur', 'Bought my daughter\u2019s mangalsutra here. Making charges were explained openly and the bill matched the website rate to the rupee.'],
+    ['Dr. Rakesh Jodha', 'Jodhpur', 'Ordered the tennis bracelet for our anniversary. Certified stones, insured delivery, gorgeous packaging.'],
+    ['Priya Sonthalia', 'Jayal', 'The jhumkas are exactly as pictured. As a jeweller\u2019s daughter, I can say the tanch is genuinely honest.'],
+    ['Krishna Jewellers', 'Partner · Jayal', 'The bullion desk keeps RTGS rates live and Shivaa updates cash rates instantly — our counter decisions got faster.'],
+    ['Radhe Jewellers', 'Partner · Nagaur', 'Design selection to fine-metal settlement in minutes. Zero making charges means clean, trusted deals.'],
+  ];
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Why Trust Shivaa</div><h1>Why <span class="disp-italic">trust</span> Shivaa</h1>
+  <p>Jewellery is built on trust. Every registration below is real, in writing, and independently verifiable.</p></div></section>
+
+  <div class="container" style="padding:28px 0 70px">
+    <div class="trust-badges">
+      ${['BIS Hallmarked', 'Live-Rate Pricing', 'Published Making Charges', 'Registered Company', 'MSME / UDYAM', 'GST Registered'].map(b => `<span>✦ ${b}</span>`).join('')}
+    </div>
+
+    <div class="sec-head mt-3"><span class="label">Registrations &amp; compliance</span><h2>Real numbers, <span class="disp-italic">verifiable</span></h2>
+      <p style="max-width:660px;color:var(--ink-2)">The same numbers appear on our invoices and at our Jayal counter. You can check each one on the government's own portal.</p></div>
+
+    <div class="trust-grid">
+      ${regs.map(r => `<div class="trust-card rv"><div class="tc-ic">${r.ic}</div><b>${esc(r.t)}</b><div class="tc-num">${esc(r.n)}</div><div class="tc-sub">${r.s}</div></div>`).join('')}
+    </div>
+
+    <div class="sec-head mt-3"><span class="label">Certificates, in writing</span><h2>Scanned on <span class="disp-italic">every invoice</span></h2></div>
+    <div class="cert-grid">
+      ${certs.map(c => `<div class="cert-card rv"><div class="cc-ic">${c.ic}</div><b>${esc(c.t)}</b><div class="cc-num">${esc(c.n)}</div><a class="cc-link" target="_blank" rel="noopener" href="${c.href}">${c.by} ↗</a></div>`).join('')}
+    </div>
+
+    <div class="sec-head mt-3"><span class="label">Third parties</span><h2>What buyers &amp; <span class="disp-italic">jewellers</span> say</h2></div>
+    <div class="testi-grid">
+      ${testis.map(t => `<div class="testi-card rv"><div class="tc-stars">★★★★★</div><p>“${esc(t[2])}”</p><div class="tc-who"><span class="tc-av">${esc(t[0].split(' ').map(w => w[0]).slice(0, 2).join(''))}</span><div><b>${esc(t[0])}</b><small>${esc(t[1])} · <em>✓ verified</em></small></div></div></div>`).join('')}
+    </div>
+
+    <div class="trust-cta rv">
+      <h3>See it for yourself</h3>
+      <p>Visit the Jayal counter, check a hallmark on the BIS Care app, or ask us anything on WhatsApp.</p>
+      <div class="lux-cta-btns">
+        <a class="btn btn-gold btn-lg" href="#/contact">Visit the store</a>
+        <a class="btn btn-light btn-lg" href="javascript:Shivaa.waOpen('Namaste Shivaa ✦ I have a question about trusting your store.')">Ask us on WhatsApp</a>
+      </div>
+    </div>
+  </div>`;
+};
+
 /* ─────────── CONTACT ─────────── */
 pages.contact = async (view) => {
   view.innerHTML = `
@@ -4101,6 +4165,7 @@ function route() {
   // ── SEO: default page meta (product/shop override below) ──
   const pgs = { home: ['Home', 'Honest purity, transparent making charges and live gold-rate pricing. BIS-hallmarked gold & silver.'], shop: ['Shop Jewellery', 'Shop BIS-hallmarked gold & silver jewellery at live Jaipur rates.'],
     rates: ['Live Gold Rates', 'Jaipur live gold & silver rates, updated every 10 minutes.'], about: ['About | Our Craft & Story', 'Shivaa Jewellers — 30+ years of karigari, Jayal, Nagaur, Rajasthan.'],
+    trust: ['Why Trust Shivaa', 'Shivaa — GSTIN, CIN, MSME/UDYAM, BIS hallmark, physical address & third-party testimonials. A registered, verifiable jewellery company.'],
     cart: ['Your Cart', 'Review your jewellery selection.'], checkout: ['Checkout', 'Secure checkout for your Shivaa jewellery.'],
     wishlist: ['My Wishlist', 'Your saved pieces.'], account: ['My Account', 'Orders, addresses and royalty.'],
     b2b: ['For Jewellers | B2B', 'GST-verified partner portal — bullion desk & design selection.'], savings: ['Swarna Nidhi Gold Savings', 'Pay eleven, own twelve.'], track:'Track Order' };
