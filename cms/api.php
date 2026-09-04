@@ -1527,19 +1527,76 @@ try {
 
   if ($route === 'admin/stats' && $method === 'GET') {
     need_admin($db);
-    $rev = array_sum(array_column($db['orders'], 'total'));
-    $byDay = [];
-    foreach ($db['orders'] as $o) { $d = substr($o['createdAt'], 0, 10); $byDay[$d] = ($byDay[$d] ?? 0) + $o['total']; }
+    /* ── v50 · admin morning dashboard ───────────────────────────────
+       "Good morning" briefing: today vs yesterday, a needs-your-attention
+       ticker, a 7-day trend, recent orders and best sellers. Everything is
+       derived from the live db; nothing is stored. */
+    $orders = $db['orders'];
+    $todayKey = date('Y-m-d');
+    $dayOf = fn(string $k) => array_values(array_filter($orders, fn($o) => substr((string)($o['createdAt'] ?? ''), 0, 10) === $k));
+    $tally = fn(array $list) => ['orders' => count($list), 'revenue' => (float)array_sum(array_map(fn($o) => (float)($o['total'] ?? 0), $list))];
+    $today = $tally($dayOf($todayKey));
+    $yest  = $tally($dayOf(date('Y-m-d', strtotime('-1 day'))));
+    /* registered customers whose account was created today vs yesterday */
+    $custOf = fn(string $k) => count(array_filter($db['users'], fn($u) => ($u['role'] ?? '') === 'customer' && substr((string)($u['createdAt'] ?? ''), 0, 10) === $k));
+    $todayCustomers = $custOf($todayKey);
+    $yestCustomers  = $custOf(date('Y-m-d', strtotime('-1 day')));
+    /* 7-day revenue + order series (zero-filled so the chart is continuous) */
+    $byDay = []; $byDayOrders = [];
+    for ($i = 6; $i >= 0; $i--) {
+      $k = date('Y-m-d', strtotime("-{$i} days"));
+      $t = $tally($dayOf($k));
+      $byDay[$k] = (int)round($t['revenue']);
+      $byDayOrders[$k] = $t['orders'];
+    }
+    $last7 = ['revenue' => array_sum($byDay), 'orders' => array_sum($byDayOrders)];
+    $rev = array_sum(array_map(fn($o) => (float)($o['total'] ?? 0), $orders));
+    /* needs-your-attention ticker */
+    $payPending = array_values(array_filter($orders, fn($o) => ($o['paymentStatus'] ?? 'Paid') !== 'Paid'));
     $low = [];
-    foreach ($db['products'] as $p) if (($p['stock'] ?? 0) <= 3) $low[] = ['name' => $p['name'], 'stock' => $p['stock']];
+    foreach ($db['products'] as $p) if (($p['stock'] ?? 0) <= 3) $low[] = ['name' => $p['name'], 'stock' => (int)($p['stock'] ?? 0)];
+    $aband = array_values(array_filter($db['abandonedCarts'] ?? [], fn($c) => empty($c['converted'])));
+    $needsAttention = [
+      'pendingReviews'      => count(array_filter($db['reviews'] ?? [], fn($r) => ($r['status'] ?? '') === 'pending')),
+      'pendingPartners'     => count(array_filter($db['partners'] ?? [], fn($x) => ($x['status'] ?? '') === 'pending')),
+      'newLeads'            => count(array_filter($db['serviceRequests'] ?? [], fn($s) => ($s['status'] ?? '') === 'new')),
+      'newContacts'         => count(array_filter($db['contactMsgs'] ?? [], fn($c) => empty($c['read']))),
+      'lowStockCount'       => count($low),
+      'outOfStockCount'     => count(array_filter($db['products'], fn($p) => (int)($p['stock'] ?? 0) === 0)),
+      'paymentsPending'     => count($payPending),
+      'paymentsPendingValue'=> (int)round(array_sum(array_map(fn($o) => (float)($o['total'] ?? 0), $payPending))),
+      'abandonedCarts'      => count($aband),
+      'abandonedValue'      => (int)round(array_sum(array_map(fn($c) => (float)($c['subtotal'] ?? 0), $aband))),
+      'notificationsFailed' => (int)($db['notifyLog']['failed'] ?? 0),
+    ];
+    /* recent orders (newest first, capped 8) */
+    $recentOrders = array_slice(array_values(array_reverse($orders)), 0, 8);
+    /* best sellers by units + revenue (all-time) */
+    $bought = [];
+    foreach ($orders as $o) foreach (($o['items'] ?? []) as $it) {
+      $pid = (string)($it['productId'] ?? $it['id'] ?? '');
+      $name = (string)($it['name'] ?? 'Piece');
+      $qty = (int)($it['qty'] ?? 1);
+      $bought[$pid]['name'] = $name;
+      $bought[$pid]['qty'] = ($bought[$pid]['qty'] ?? 0) + $qty;
+      $bought[$pid]['total'] = ($bought[$pid]['total'] ?? 0) + (float)(($it['unitPrice'] ?? $it['price'] ?? 0) * $qty);
+    }
+    uasort($bought, fn($a, $b) => ($b['qty'] ?? 0) <=> ($a['qty'] ?? 0));
+    $topSelling = array_slice(array_values($bought), 0, 5);
     $customers = count(array_filter($db['users'], fn($u) => $u['role'] === 'customer'));
-    jout(200, ['revenue' => $rev, 'orders' => count($db['orders']), 'customers' => $customers,
-               'products' => count($db['products']),
-               'partners' => count(array_filter($db['partners'], fn($x) => $x['status'] === 'approved')),
-               'pendingPartners' => count(array_filter($db['partners'], fn($x) => $x['status'] === 'pending')),
-               'serviceRequests' => count(array_filter($db['serviceRequests'], fn($s) => $s['status'] === 'new')),
-               'aov' => count($db['orders']) ? (int)round($rev / count($db['orders'])) : 0,
-               'byDay' => $byDay, 'newsletter' => count($db['newsletter']), 'lowStock' => $low]);
+    jout(200, [
+      'revenue' => $rev, 'orders' => count($orders), 'customers' => $customers,
+      'products' => count($db['products']),
+      'partners' => count(array_filter($db['partners'], fn($x) => $x['status'] === 'approved')),
+      'pendingPartners' => count(array_filter($db['partners'], fn($x) => $x['status'] === 'pending')),
+      'serviceRequests' => count(array_filter($db['serviceRequests'], fn($s) => $s['status'] === 'new')),
+      'aov' => count($orders) ? (int)round($rev / count($orders)) : 0,
+      'byDay' => $byDay, 'byDayOrders' => $byDayOrders, 'newsletter' => count($db['newsletter']),
+      'lowStock' => $low,
+      'today' => $today, 'yesterday' => $yest, 'last7' => $last7,
+      'todayCustomers' => $todayCustomers, 'yesterdayCustomers' => $yestCustomers,
+      'needsAttention' => $needsAttention, 'recentOrders' => $recentOrders, 'topSelling' => $topSelling,
+    ]);
   }
   if ($route === 'admin/users' && $method === 'GET') {
     need_admin($db);

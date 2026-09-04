@@ -72,22 +72,58 @@ async function renderAdmin(view, q) {
   </div>`;
   const body = $('#admBody');
 
-  /* ── OVERVIEW ── */
+  /* ── OVERVIEW · v50 morning dashboard ── */
   if (tab === 'overview') {
-    const days = Object.entries(stats.byDay || {}).slice(-14);
+    const na = stats.needsAttention || {};
+    const deltas = v => v > 0 ? `+${v}` : v < 0 ? `−${Math.abs(v)}` : '±0';
+    const today = stats.today || { orders: 0, revenue: 0 };
+    const yest  = stats.yesterday || { orders: 0, revenue: 0 };
+    const dRev = deltas(Math.round(today.revenue - yest.revenue));
+    const dOrd = deltas(today.orders - yest.orders);
+    const days = Object.entries(stats.byDay || {}).slice(-7);
+    const items = (r => [[na.pendingReviews, 'Reviews awaiting moderation', '#/admin?tab=reviews', 'reviews'],
+                         [na.pendingPartners, 'B2B partner applications', '#/admin?tab=partners', 'partners'],
+                         [na.newLeads, 'New service requests', '#/admin?tab=leads', 'leads'],
+                         [na.newContacts, 'New contact messages', '#/admin?tab=pages', 'messages'],
+                         [na.paymentsPending, `Payments pending (${fmt(na.paymentsPendingValue || 0)})`, '#/admin?tab=orders', 'payments'],
+                         [na.abandonedCarts, `Abandoned carts (${fmt(na.abandonedValue || 0)})`, '#/admin?tab=carts', 'carts'],
+                         [na.lowStockCount, 'Low / out of stock', '#/admin?tab=products', 'stock'],
+                         [na.notificationsFailed, 'Notification send failures', '#/admin?tab=notifications', 'notifs']])(0)
+            .filter(x => (x[0] || 0) > 0);
+    const recent = stats.recentOrders || [];
     body.innerHTML = `
+      <div class="morn-hero">
+        <div class="morn-hero-date">
+          <span class="morn-dow">${new Date().toLocaleDateString('en-IN', { weekday: 'long' })}</span>
+          <span class="morn-date">${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+        </div>
+        <div class="morn-greeting">${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, ${esc(state.user.name || 'Admin')} ✦</div>
+        <div class="morn-sub">Here is what happened at Shivaa <b>today</b> vs yesterday — and where your attention is needed.</div>
+      </div>
       <div class="stat-grid">
-        <div class="stat"><small>Revenue</small><b>${fmt(stats.revenue || 0)}</b><span>${stats.orders || 0} orders</span></div>
-        <div class="stat"><small>Avg order value</small><b>${fmt(stats.aov || 0)}</b><span>incl. GST</span></div>
-        <div class="stat"><small>Customers</small><b>${stats.customers || 0}</b><span>${stats.newsletter || 0} newsletter</span></div>
+        <div class="stat"><small>Today's revenue</small><b>${fmt(today.revenue)}</b><span class="morn-delta ${today.revenue >= yest.revenue ? 'up' : 'down'}">${dRev} vs yesterday</span></div>
+        <div class="stat"><small>Today's orders</small><b>${today.orders}</b><span class="morn-delta ${today.orders >= yest.orders ? 'up' : 'down'}">${dOrd} vs yesterday</span></div>
+        <div class="stat"><small>New customers</small><b>${stats.todayCustomers || 0}</b><span class="morn-delta ${(stats.todayCustomers||0) >= (stats.yesterdayCustomers||0) ? 'up' : 'down'}">${deltas((stats.todayCustomers||0)-(stats.yesterdayCustomers||0))} vs yesterday</span></div>
         <div class="stat"><small>B2B partners</small><b>${stats.partners || 0}</b><span style="${stats.pendingPartners ? 'color:var(--warn)' : ''}">${stats.pendingPartners || 0} pending</span></div>
       </div>
-      <div class="adm-card"><h3>Daily revenue (last ${days.length || 0} days)</h3><canvas id="admChart"></canvas></div>
+      <div class="stat-grid" style="margin-top:-8px">
+        <div class="stat"><small>Lifetime revenue</small><b>${fmt(stats.revenue || 0)}</b><span>${stats.orders || 0} orders</span></div>
+        <div class="stat"><small>Avg order value</small><b>${fmt(stats.aov || 0)}</b><span>incl. GST</span></div>
+        <div class="stat"><small>7-day revenue</small><b>${fmt((stats.last7 && stats.last7.revenue) || 0)}</b><span>${(stats.last7 && stats.last7.orders) || 0} orders</span></div>
+        <div class="stat"><small>Customers</small><b>${stats.customers || 0}</b><span>${stats.newsletter || 0} newsletter</span></div>
+      </div>
+      ${items.length ? `<div class="adm-card attention-card"><h3>Needs your attention <span class="ad-attn-cnt">${items.length}</span></h3>
+        <div class="attn-grid">${items.map(it => `<a class="attn-item" href="${it[2]}"><span class="attn-num">${it[0]}</span><span class="attn-txt">${it[1]}</span><span class="attn-go">→</span></a>`).join('')}</div></div>` : `<div class="adm-card"><h3>Needs your attention</h3><p style="color:var(--ink-3);font-size:13.5px">All clear ✦ — nothing is waiting on you right now.</p></div>`}
       <div class="grid2">
+        <div class="adm-card"><h3>Revenue — last 7 days</h3><canvas id="admChart"></canvas></div>
+        <div class="adm-card"><h3>Recent orders <a class="btn btn-ghost btn-sm" href="#/admin?tab=orders">All →</a></h3>
+          ${recent.length ? `<div style="display:grid;gap:8px">${recent.map(o => `<div class="sum-row"><span><b>${esc(o.id)}</b> · ${esc(o.userName)}${o.items ? ' · ' + o.items.reduce((a,i)=>a+i.qty,0) + ' items' : ''}</span><b>${fmt(o.total)}</b></div>`).join('')}</div>` : '<p style="color:var(--ink-3);font-size:13.5px">No orders yet — they’ll appear here as they come in.</p>'}</div>
+      </div>
+      <div class="grid2">
+        <div class="adm-card"><h3>Top selling pieces</h3>
+          ${stats.topSelling && stats.topSelling.length ? `<div style="display:grid;gap:8px">${stats.topSelling.map(t => `<div class="sum-row"><span><b>${esc(t.name)}</b> · ${t.qty} sold</span><b>${fmt(t.total)}</b></div>`).join('')}</div>` : '<p style="color:var(--ink-3);font-size:13.5px">Best sellers appear once orders come in.</p>'}</div>
         <div class="adm-card"><h3>Low stock <a class="btn btn-ghost btn-sm" href="#/admin?tab=products">Manage →</a></h3>
           ${stats.lowStock && stats.lowStock.length ? `<div style="display:grid;gap:8px">${stats.lowStock.map(l => `<div class="sum-row"><span>${esc(l.name)}</span><b style="color:${l.stock === 0 ? 'var(--bad)' : 'var(--warn)'}">${l.stock} left</b></div>`).join('')}</div>` : '<p style="color:var(--ink-3);font-size:13.5px">All pieces healthy (stock > 3).</p>'}</div>
-        <div class="adm-card"><h3>Pending service requests <a class="btn btn-ghost btn-sm" href="#/admin?tab=leads">Open →</a></h3>
-          <p style="font-size:42px;font-family:var(--ff-disp);color:var(--maroon)">${stats.serviceRequests || 0}</p><span style="font-size:13px;color:var(--ink-3)">bespoke / repair / appointments awaiting first response</span></div>
       </div>`;
     drawBarChart($('#admChart'), days);
   }

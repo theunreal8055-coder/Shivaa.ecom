@@ -244,6 +244,49 @@ function handleApi(db, route, method, query, req, res) {
     return JSONout(res, 400, { error: 'Preview shim: Razorpay is read-only here.' });
   }
 
+  // ── v50 admin morning dashboard stats (read-only preview mirror) ──
+  if (route === 'admin/stats' && method === 'GET') {
+    const orders = db.orders || [];
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const dk = k => orders.filter(o => (o.createdAt || '').slice(0, 10) === k);
+    const tally = list => ({ orders: list.length, revenue: Math.round(list.reduce((a, o) => a + (o.total || 0), 0)) });
+    const yestKey = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    const byDay = {}; const byDayOrders = {};
+    for (let i = 6; i >= 0; i--) { const k = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10); const t = tally(dk(k)); byDay[k] = t.revenue; byDayOrders[k] = t.orders; }
+    const last7 = { revenue: Object.values(byDay).reduce((a, b) => a + b, 0), orders: Object.values(byDayOrders).reduce((a, b) => a + b, 0) };
+    const rev = orders.reduce((a, o) => a + (o.total || 0), 0);
+    const low = (db.products || []).filter(p => (p.stock || 0) <= 3).map(p => ({ name: p.name, stock: p.stock }));
+    const aband = (db.abandonedCarts || []).filter(c => !c.converted);
+    const payPending = orders.filter(o => (o.paymentStatus || 'Paid') !== 'Paid');
+    return JSONout(res, 200, {
+      revenue: rev, orders: orders.length,
+      customers: (db.users || []).filter(u => u.role === 'customer').length,
+      products: (db.products || []).length,
+      partners: (db.partners || []).filter(x => x.status === 'approved').length,
+      pendingPartners: (db.partners || []).filter(x => x.status === 'pending').length,
+      serviceRequests: (db.serviceRequests || []).filter(x => x.status === 'new').length,
+      aov: orders.length ? Math.round(rev / orders.length) : 0,
+      byDay, byDayOrders, newsletter: (db.newsletter || []).length, lowStock: low,
+      today: tally(dk(todayKey)), yesterday: tally(dk(yestKey)), last7,
+      todayCustomers: 0, yesterdayCustomers: 0,
+      needsAttention: {
+        pendingReviews: (db.reviews || []).filter(r => (r.status || '') === 'pending').length,
+        pendingPartners: (db.partners || []).filter(x => x.status === 'pending').length,
+        newLeads: (db.serviceRequests || []).filter(x => x.status === 'new').length,
+        newContacts: (db.contactMsgs || []).filter(c => !c.read).length,
+        lowStockCount: low.length,
+        outOfStockCount: (db.products || []).filter(p => (p.stock || 0) === 0).length,
+        paymentsPending: payPending.length,
+        paymentsPendingValue: Math.round(payPending.reduce((a, o) => a + (o.total || 0), 0)),
+        abandonedCarts: aband.length,
+        abandonedValue: Math.round(aband.reduce((a, c) => a + (c.subtotal || 0), 0)),
+        notificationsFailed: (db.notifyLog && db.notifyLog.failed) || 0,
+      },
+      recentOrders: orders.slice().reverse().slice(0, 8),
+      topSelling: [],
+    });
+  }
+
   // ── v49 notification gateway (read-only preview mirror; demo mode in preview) ──
   if (route === 'notify/test' && method === 'POST') {
     return JSONout(res, 200, { mode: 'demo', sent: 0, queued: 0, records: [], note: 'Demo mode — no data/notify-config.json in preview. On the live site this is composed & queued; create the config to send for real.' });
