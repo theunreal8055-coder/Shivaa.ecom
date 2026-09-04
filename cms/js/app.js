@@ -435,17 +435,39 @@ const LANG = {
   en: { shop: 'Shop', home: 'Home', rates: 'Live Rates', wishlist: 'Wishlist', account: 'Account', cart: 'Cart',
     addToCart: 'Add to Cart', chatOrder: 'Chat to Order', makeYours: 'Make It Yours', buyNow: 'Buy Now',
     total: 'Total', price: 'Price', weight: 'Weight', purity: 'Purity', metal: 'Metal', making: 'Making Charge',
-    isGold: 'Gold', gem: 'Jewellery', submitReview: 'Submit review', browse: 'Browse the Collection' },
+    isGold: 'Gold', gem: 'Jewellery', submitReview: 'Submit review', browse: 'Browse the Collection',
+    checkout: 'Proceed to Checkout', continue: 'Continue shopping', addReview: 'Write a review', shopCollection: 'Shop the Collection' },
   hi: { shop: 'दुकान', home: 'होम', rates: 'भाव', wishlist: 'पसंद', account: 'खाता', cart: 'कार्ट',
     addToCart: 'कार्ट में जोड़ें', chatOrder: 'WhatsApp पर ऑर्डर', makeYours: 'अपना बनाएं', buyNow: 'अभी खरीदें',
     total: 'कुल', price: 'कीमत', weight: 'वज़न', purity: 'शुद्धता', metal: 'धातु', making: 'मेकिंग चार्ज',
-    isGold: 'सोना', gem: 'आभूषण', submitReview: 'समीक्षा भेजें', browse: 'संग्रह देखें' },
+    isGold: 'सोना', gem: 'आभूषण', submitReview: 'समीक्षा भेजें', browse: 'संग्रह देखें',
+    checkout: 'चेकआउट करें', continue: 'ख़रीदारी जारी रखें', addReview: 'समीक्षा लिखें', shopCollection: 'संग्रह देखें' },
 };
 let LANG_CUR = store.get('shv_lang', 'en');
 function t(key) { return (LANG[LANG_CUR] && LANG[LANG_CUR][key]) || (LANG.en[key]) || key; }
+// Text→translation map applied to the currently-rendered view (buttons etc.).
+// Each returns the FULL innerHTML so SVG icons (e.g. the WhatsApp mark) are preserved.
+const LANG_TEXT = [
+  [/Add to Cart/, () => '🛍 ' + t('addToCart')],
+  [/Chat to Order|Chat to order/, () => t('chatOrder') + ' ' + WA_SVG],
+  [/Buy Now/, () => t('buyNow')],
+  [/Make It Yours/, () => '✦ ' + t('makeYours')],
+  [/Submit review/, () => t('submitReview')],
+  [/Proceed to Checkout/, () => t('checkout')],
+  [/Continue shopping/, () => t('continue')],
+  [/Shop the Collection/, () => t('shopCollection')],
+];
 function applyLang() {
   store.set('shv_lang', LANG_CUR);
-  $$('#langToggle .lt-pill').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG_CUR));
+  // Header toggle button label + state
+  const tg = $('#langToggle');
+  if (tg) {
+    tg.classList.toggle('hi', LANG_CUR === 'hi');
+    const txt = $('#langToggle .lang-txt');
+    if (txt) txt.textContent = LANG_CUR === 'hi' ? 'हिं' : 'EN';
+    tg.setAttribute('aria-label', LANG_CUR === 'hi' ? 'अंग्रेज़ी में बदलें (Switch to English)' : 'हिंदी में बदलें (Switch to Hindi)');
+    tg.title = LANG_CUR === 'hi' ? 'अंग्रेज़ी' : 'हिंदी';
+  }
   // Swap header / nav labels (desktop drawer + mobile bottom bar)
   $$('#mainNav a[data-nav] .dw-tx b, #mnav a[data-m] span').forEach(el => {
     const nav = el.closest('a'); if (!nav) return;
@@ -453,24 +475,23 @@ function applyLang() {
     if (!mk || mk === 'home') return;
     if (LANG[LANG_CUR] && LANG[LANG_CUR][mk]) el.textContent = t(mk);
   });
-  // Product page CTAs + labels
-  const livePieces = $('#view .pd-cta-row, #view .miy-btn');
-  if (livePieces) {
-    livePieces.querySelectorAll('.btn').forEach(b => {
-      const txt = b.textContent.trim();
-      if (txt.includes('Add to Cart')) b.innerHTML = '🛍 ' + t('addToCart');
-      else if (txt.includes('Chat to Order') || txt.includes('Chat to order')) b.innerHTML = (t('chatOrder')) + ' ' + WA_SVG;
-    });
-  }
+  // Translate known CTAs / buttons in the currently-rendered view (keeps PDP/shop/cart in sync after navigation)
+  $$('#view .btn, #view a.btn').forEach(b => {
+    const txt = (b.textContent || '').trim();
+    const hit = LANG_TEXT.find(([re]) => re.test(txt));
+    if (hit) b.innerHTML = hit[1]();
+  });
+  // Product page Make It Yours label (if present)
   const miy = $('#view .miy-btn'); if (miy) miy.innerHTML = '✦ ' + t('makeYours');
 }
 function initLangToggle() {
   const toggle = $('#langToggle');
   if (!toggle) return;
-  applyLang();
-  toggle.addEventListener('click', e => {
-    const b = e.target.closest('.lt-pill'); if (!b) return;
-    LANG_CUR = b.dataset.lang; applyLang(); toast(LANG_CUR === 'hi' ? 'भाषा: हिंदी' : 'Language: English');
+  applyLang(); // set the header label + static nav to the stored language
+  toggle.addEventListener('click', () => {
+    LANG_CUR = LANG_CUR === 'hi' ? 'en' : 'hi';
+    applyLang();
+    toast(LANG_CUR === 'hi' ? 'भाषा: हिंदी' : 'Language: English');
   });
 }
 window.Shivaa.setLang = l => { LANG_CUR = l; applyLang(); };
@@ -4082,6 +4103,8 @@ function route() {
   // v41 — keep the compare bar + per-card ⇄ active state in sync after every navigation
   refreshCompareBadge();
   if (state.compare.length) renderCompareBar();
+  // v42 — re-apply the chosen language to the freshly-rendered content
+  try { applyLang(); } catch (e) {}
 }
 addEventListener('hashchange', route);
 

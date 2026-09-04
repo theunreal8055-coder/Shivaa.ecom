@@ -4574,13 +4574,13 @@ body.cmp-open{padding-bottom:92px}
 .math-copy{user-select:none}
 
 /* ═══════════════ LANGUAGE TOGGLE (v41) — small, side, unobtrusive ═══════════════ */
-.lang-toggle{position:fixed;right:10px;top:50%;transform:translateY(-50%);z-index:70;display:flex;flex-direction:column;gap:4px}
-.lang-toggle .lt-pill{width:32px;height:32px;border-radius:50%;border:1px solid rgba(120,31,43,.25);background:rgba(255,253,249,.92);color:var(--ink-2);font:600 12px/1 var(--sans);cursor:pointer;box-shadow:var(--sh-1);transition:.2s;display:flex;align-items:center;justify-content:center}
-.lang-toggle .lt-pill:hover{color:var(--maroon);transform:scale(1.08)}
-.lang-toggle .lt-pill.on{background:var(--maroon);color:#fff;border-color:var(--maroon)}
-.lang-toggle .lt-label{font-size:10px;text-align:center;color:var(--ink-3);letter-spacing:.04em}
-@media(max-width:760px){.lang-toggle{top:auto;bottom:76px;transform:none;right:8px}}
-.lang-toggle.no-input{display:none}
+.lang-btn{display:inline-flex;align-items:center;gap:5px;height:36px;padding:0 10px;border-radius:99px;border:1px solid var(--line);background:var(--white);color:var(--ink-2);font:600 11px var(--ff-label);letter-spacing:.06em;cursor:pointer;transition:.2s;box-shadow:var(--sh-1);white-space:nowrap}
+.lang-btn svg{width:15px;height:15px;flex:none}
+.lang-btn .lang-txt{font:700 12px/1 var(--sans);color:var(--maroon)}
+.lang-btn:hover{border-color:var(--gold-soft);color:var(--maroon)}
+.lang-btn.hi .lang-txt{color:var(--ink-2)}
+.lang-btn.hi svg{color:var(--maroon)}
+@media(max-width:680px){.lang-btn{width:34px;height:34px;padding:0;justify-content:center;border-radius:50%}.lang-btn .lang-txt{display:none}}
 
 /* ═══════════════ ABANDONED-CART BANNER + POINTS PREVIEW + REVIEWS (v41) ═══════════════ */
 .points-preview{background:linear-gradient(120deg,var(--cream),#fff8ec);border:1px solid rgba(185,138,47,.35);border-radius:12px;padding:10px 12px;margin:16px 0 8px;font-size:13px;color:var(--ink-2)}

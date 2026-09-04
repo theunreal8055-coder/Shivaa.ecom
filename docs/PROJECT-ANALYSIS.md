@@ -382,3 +382,20 @@ Began on top of the Razorpay commit `329154a`. `?v=40 → ?v=42` across CSS/font
 - **Home "Shop by category" labels** bumped from 9px to 11px for readability.
 
 All four JS files still pass `node --check`; `?v=42` refs unchanged.
+
+### 13.8 Language toggle → header-only + persistence fix (v43)
+- Moved the language control from the side-fixed element into the **header action row**
+  (a compact globe pill showing `EN`/`हिं`); removed the old side rail entirely so it is now
+  visible **only** in the top header. On ≤680px it collapses to a small circular icon.
+- **Fixed it not working:** `applyLang()` was only run on load/click *before* `route()`
+  rendered, so the stored language never applied to freshly-rendered pages and reverted to
+  English after any navigation. `applyLang()` is now called at the end of **every `route()`**
+  and on toggle, so the chosen language sticks across the whole session and persists
+  (localStorage `shv_lang`).
+- Toggle is now a single one-tap switch (EN ⇄ हिं). `LANG_TEXT` maps common CTAs (Add to Cart,
+  Chat to Order, Buy Now, Make It Yours, Submit review, Proceed to Checkout, Continue shopping,
+  Shop the Collection) while **preserving inline SVG icons** (e.g. the WhatsApp mark) and
+  their `onclick` handlers.
+- Added `checkout`, `continue`, `addReview`, `shopCollection` keys to `LANG` (en/hi).
+
+Cache-bumped to `?v=43`; all four JS files pass `node --check`.
