@@ -90,6 +90,10 @@ function serveStatic(req, res, urlPath) {
   let p = decodeURIComponent(urlPath.split('?')[0]);
   if (p === '/' || p === '') p = '/index.html';
   const safe = path.normalize(p).replace(/^(\.\.[/\\])+/, '');
+  if (/(^|\/)\.[^/]/.test(safe) || /(^|\/)data([\\/]|$)/.test(safe) ||
+      /\.php$/i.test(safe) || /\.(json|sqlite|sqlite3|env|log|bak|backup|old|orig|swp|tmp)$/i.test(safe)) {
+    res.writeHead(403); return res.end('Forbidden');
+  }
   let file = path.join(ROOT, safe);
   if (!file.startsWith(ROOT)) { res.writeHead(403); return res.end('Forbidden'); }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');

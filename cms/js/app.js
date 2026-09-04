@@ -123,7 +123,7 @@ async function api(path, opts = {}) {
 
 /* ─────────── app state ─────────── */
 const state = {
-  user: null, rates: null, settings: null, mcTable: [],
+  user: null, rates: { t: null, gold22: 0, gold24: 0, gold18: 0, silver: 0, source: '—' }, settings: null, mcTable: [],
   cart: store.get('shv_cart', []),            // [{id, qty, size, engraving}]
   localWish: store.get('shv_wish', []),
   productsCache: [], cacheAt: 0,
@@ -921,7 +921,7 @@ function productCard(p, opts = {}) {
       ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
       <div class="glare"></div>
     </a>
-    <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${TAGS[t] || t}</span>`).join('')}</div>
+      <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${esc(TAGS[t] || t)}</span>`).join('')}</div>
     <div class="pc-acts">
       <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
         <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
@@ -929,7 +929,7 @@ function productCard(p, opts = {}) {
       <button class="pc-cmp ${isComparing(p.id) ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleCompare('${p.id}')" aria-label="Compare" title="Compare">⇄</button>
     </div>
     <div class="pc-body">
-      <div class="pc-cat">${CATS[p.category] ? CATS[p.category].name : p.category} · ${p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold'}</div>
+      <div class="pc-cat">${CATS[p.category] ? esc(CATS[p.category].name) : esc(p.category)} · ${p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold'}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
       <div class="pc-meta">${p.weightG} g${p.stoneValue ? ' · certified stones' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
       <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST</small></div>
@@ -1044,9 +1044,9 @@ pages.privacy = async (view) => {
 window.Shivaa.orderDetail = async id => {
   const { order: o } = await api('/api/orders/' + id);
   openModal(`<h3 style="font-size:24px;margin-bottom:4px">Order ${o.id}</h3><div style="font-size:13px;color:var(--ink-3);margin-bottom:14px">${timeFmt(o.createdAt)} · ${esc(o.paymentMethod)} · ${esc(o.paymentStatus)}</div>
-  ${o.items.map(i => `<div class="sum-row"><span>${esc(i.name)}${i.size ? ' (' + esc(i.size) + ')' : ''} × ${i.qty} <small style="display:block;color:var(--ink-3)">${i.metal === 'Silver' ? 'Silver' : i.purity} ${i.weightG}g · rate ${fmt(i.ratePerGram)}/g · MC ${fmt(i.makingCharge * i.qty)}</small></span><b>${fmt(i.unitPrice * i.qty)}</b></div>`).join('')}
+  ${(o.items || []).map(i => `<div class="sum-row"><span>${esc(i.name)}${i.size ? ' (' + esc(i.size) + ')' : ''} × ${i.qty} <small style="display:block;color:var(--ink-3)">${i.metal === 'Silver' ? 'Silver' : i.purity} ${i.weightG}g · rate ${fmt(i.ratePerGram)}/g · MC ${fmt(i.makingCharge * i.qty)}</small></span><b>${fmt(i.unitPrice * i.qty)}</b></div>`).join('')}
   <div class="sum-row total"><span>Total (incl. GST)</span><b>${fmt(o.total)}</b></div>
-  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address.name || '')}, ${esc(o.address.line || '')}, ${esc(o.address.city || '')} — ${esc(o.address.pincode || '')}<br><b>Timeline:</b> ${o.timeline.map(t => t.s).join(' → ')}</div>`, 'lg');
+  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address?.name || '')}, ${esc(o.address?.line || '')}, ${esc(o.address?.city || '')} — ${esc(o.address?.pincode || '')}<br><b>Timeline:</b> ${(o.timeline || []).map(t => t.s).join(' → ')}</div>`, 'lg');
 };
 window.Shivaa.logout = () => { setToken(null); state.user = null; toast('Logged out'); location.hash = '#/'; boot(true); };
 
@@ -1360,7 +1360,7 @@ pages.shop = async (view, q) => {
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container">
     <div class="crumbs"><a href="#/">Home</a> / Shop</div>
-    <h1>${search ? `“${esc(search)}”` : cat ? CATS[cat].name : 'All Jewellery'}${tag ? ' · ' + (TAGS[tag] || tag) : ''}</h1>
+    <h1>${search ? `“${esc(search)}”` : CATS[cat] ? CATS[cat].name : 'All Jewellery'}${tag ? ' · ' + esc(TAGS[tag] || tag) : ''}</h1>
     <p>Every price below follows the live Jaipur gold & silver rate and our published making-charge chart — automatically.</p>
   </div></section>
   <div class="catbar-outer shop-catbar" style="background:var(--white);border-bottom:1px solid var(--line)">${catBarHTML()}</div>
@@ -1380,8 +1380,8 @@ pages.shop = async (view, q) => {
         ${Object.entries(TAGS).map(([k, v]) => `<label class="fcheck"><input type="checkbox" data-f="tag" value="${k}" ${tag === k ? 'checked' : ''}>${v}</label>`).join('')}
       </div>
       <div class="fgroup"><h4>Max price</h4>
-        <input type="range" id="priceRange" min="10000" max="1500000" step="5000" value="${+q.get('max') || 1500000}" style="width:100%;accent-color:var(--gold)">
-        <div class="fmeta"><span>₹10,000</span><span id="priceMaxLbl">${q.get('max') ? fmt(+q.get('max')) : 'Any'}</span></div>
+        <input type="range" id="priceRange" min="10000" max="1500000" step="5000" value="${(() => { const m = parseInt(q.get('max'), 10); return (m >= 10000 && m <= 1500000) ? m : 1500000; })()}" style="width:100%;accent-color:var(--gold)">
+        <div class="fmeta"><span>₹10,000</span><span id="priceMaxLbl">${(() => { const m = parseInt(q.get('max'), 10); return (m >= 10000 && m <= 1500000) ? fmt(m) : 'Any'; })()}</span></div>
       </div>
       <button class="btn btn-ghost btn-sm btn-block" id="clearFilters" style="margin-top:14px">Clear all filters</button>
     </aside>
@@ -1424,7 +1424,7 @@ pages.shop = async (view, q) => {
     if (sort === 'price-asc') list.sort((a, b) => price(a).total - price(b).total);
     if (sort === 'price-desc') list.sort((a, b) => price(b).total - price(a).total);
     if (sort === 'rating') list.sort((a, b) => b.rating - a.rating);
-    if (sort === 'newest') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (sort === 'newest') list.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
     const wishSet = state.user ? await wishIds() : [];
     $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
     $('#resCount').innerHTML = `<b>${list.length}</b> pieces · prices update with the live rate`;
@@ -1852,7 +1852,7 @@ pages.checkout = async (view) => {
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
       <div class="coupon-row"><input id="couponIn" placeholder="Coupon code"><button class="btn btn-ghost btn-sm" onclick="Shivaa.applyCoupon()">Apply</button></div>
       <div id="couponMsg" style="font-size:12.5px;min-height:18px"></div>
-      ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
+      ${(state.user.loyaltyPoints || 0) > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
       <div class="sum-row"><span>Subtotal</span><b id="coSub">${fmt(subtotal)}</b></div>
       <div class="sum-row" id="coDiscRow" hidden><span>Coupon discount</span><b id="coDisc" style="color:var(--ok)">− ₹0</b></div>
       <div class="sum-row"><span>Shipping</span>${freeShip ? '<span class="free">FREE</span>' : `<b id="coShip">${fmt(state.settings.shippingFee)}</b>`}</div>
@@ -1878,7 +1878,7 @@ window.Shivaa.applyCoupon = async () => {
 window.Shivaa.updateCheckout = () => {
   if (!window._co) return;
   let disc = window._co.disc;
-  if ($('#usePts')?.checked) disc += Math.min(state.user.loyaltyPoints, Math.floor(window._co.subtotal * 0.1));
+  if ($('#usePts')?.checked) disc += Math.min((state.user.loyaltyPoints || 0), Math.floor(window._co.subtotal * 0.1));
   const ship = window._co.freeShip ? 0 : state.settings.shippingFee;
   $('#coDiscRow').hidden = !(disc > 0);
   $('#coDisc').textContent = '− ' + fmt(disc);
@@ -1968,19 +1968,19 @@ pages.order = async (view, q, id) => {
         <img src="/images/logo.png" class="order-logo" alt="Shivaa">
         <div style="font-size:34px;margin-bottom:8px;color:var(--gold)">✦</div>
         <span class="label">Order placed</span>
-        <h1 style="font-size:42px">Shubh Aashirwad, ${esc(order.userName.split(' ')[0])}!</h1>
+        <h1 style="font-size:42px">Shubh Aashirwad, ${esc((order.userName || 'friend').split(' ')[0])}!</h1>
         <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed. You earned <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> ✦<br>
         Invoice & rate-lock summary sent to your account. Live tracking below.</p>
       </div>
       <div class="order-card mt-3">
-        <div class="order-top"><div class="order-id">${order.id} · ${timeFmt(order.createdAt)}</div><span class="status-pill st-${order.status.toLowerCase()}">${order.status}</span></div>
+        <div class="order-top"><div class="order-id">${order.id} · ${timeFmt(order.createdAt)}</div><span class="status-pill st-${String(order.status || 'placed').toLowerCase()}">${esc(order.status || 'placed')}</span></div>
         ${order.items.map(it => `<div class="sum-row"><span>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b>${fmt(it.unitPrice * it.qty)}</b></div>`).join('')}
-        <div class="sum-row"><span>Rate locked at</span><b>${fmt(order.rateSnapshot.gold22 || order.rateSnapshot.silver)}/g (${esc(order.rateSnapshot.stampedAt ? timeFmt(order.rateSnapshot.stampedAt) : 'order time')})</b></div>
+        <div class="sum-row"><span>Rate locked at</span><b>${fmt(order.rateSnapshot ? (order.rateSnapshot.gold22 || order.rateSnapshot.silver) : 0)}/g (${esc(order.rateSnapshot && order.rateSnapshot.stampedAt ? timeFmt(order.rateSnapshot.stampedAt) : 'order time')})</b></div>
         <div class="sum-row"><span>Subtotal</span><b>${fmt(order.subtotal)}</b></div>
         ${order.discount ? `<div class="sum-row"><span>Discount${order.coupon ? ' (' + esc(order.coupon) + ')' : ''}${order.pointsUsed ? ' · ' + order.pointsUsed + ' pts' : ''}</span><b style="color:var(--ok)">− ${fmt(order.discount)}</b></div>` : ''}
         <div class="sum-row"><span>Shipping</span>${order.shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(order.shipping)}</b>`}</div>
         <div class="sum-row total"><span>Paid via ${esc(order.paymentMethod)}</span><b>${fmt(order.total)}</b></div>
-        <div class="timeline mt-2">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${order.timeline.find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
+        <div class="timeline mt-2">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${(order.timeline || []).find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
       </div>
       ${order.paymentMethod === 'WhatsApp' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Your order is reserved — confirm &amp; pay on WhatsApp to lock today's rate.</div>
       <div class="center" style="margin-bottom:18px"><button class="btn btn-gold btn-lg" onclick="Shivaa.waOpenOrder('${order.id}')">Confirm &amp; Pay on WhatsApp</button></div>` : (order.paymentStatus === 'Pending payment' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Payment pending — complete it now to lock today's rate. Your order is saved.</div>
@@ -2008,7 +2008,7 @@ function confetti() {
 /* ─────────── WISHLIST ─────────── */
 pages.account = async (view, q) => {
   if (!state.user) { openLogin('account'); return; }
-  const tab = q.get('tab') || 'home';
+  const tab = ['overview', 'orders', 'addresses', 'loyalty', 'alerts', 'templates'].includes(q.get('tab') || '') ? q.get('tab') : 'overview';
   const me = state.user;
   // v31 — a failed fetch must never blank the account page; if the session
   // died (401), api() has already cleared it, so show the login gate.
@@ -2018,7 +2018,7 @@ pages.account = async (view, q) => {
   try { wl = (await api('/api/wishlist')).wishlist || []; }
   catch (e) { if (!state.user) { openLogin('account'); return; } }
   const tier = me.loyaltyPoints > 5000 ? 'Gold' : me.loyaltyPoints > 2000 ? 'Silver' : 'Bronze';
-  const initials = me.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const initials = String(me.name || '').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '✦';
   const prof = me.profile || {};
   const filled = ['name', 'phone', 'email'].filter(k => me[k]).length + ['dob', 'anniversary', 'gender'].filter(k => prof[k]).length;
   const profPct = Math.round(filled / 6 * 100);
@@ -2035,7 +2035,7 @@ pages.account = async (view, q) => {
   ];
 
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / My Account</div><h1>Namaste, ${esc(me.name.split(' ')[0])}</h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / My Account</div><h1>Namaste, ${esc((me.name || '').split(' ')[0] || 'friend')}</h1>
   <p>Your Shivaa world — orders, occasions, addresses and royalty, in one place.</p></div></section>
   <div class="container acct-wrap">
     <div class="acct-hero">
@@ -2049,7 +2049,7 @@ pages.account = async (view, q) => {
 
     <div class="acct-tiles">
       ${isPartner() ? `<a href="#/partner" class="acct-tile portal"><span class="at-ic">✦</span><span class="at-tx"><b>Partner Portal</b><small>bullion desk · design selection · schemes · reports</small></span><span class="at-go">›</span></a>` : ''}
-      ${tiles.map(t => `<a href="#/account?tab=${t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
+      ${tiles.map(t => { const href = t[0] === 'wishlist' ? '#/wishlist' : '#/account?tab=' + t[0]; return `<a href="${href}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`; }).join('')}
       <a href="javascript:Shivaa.logout()" class="acct-tile danger"><span class="at-ic">↩</span><span class="at-tx"><b>Logout</b><small>sign out safely</small></span><span class="at-go">›</span></a>
     </div>
 
@@ -2074,8 +2074,8 @@ pages.account = async (view, q) => {
     </div>` : ''}
   ${tab === 'orders' ? orders.map(o => `<div class="order-card">
       <div class="order-top"><div><div class="order-id">${o.id}</div><div style="font-size:12.5px;color:var(--ink-3)">${timeFmt(o.createdAt)} · ${o.items.reduce((a, i) => a + i.qty, 0)} items · ${esc(o.paymentMethod)}</div></div>
-      <div style="text-align:right"><span class="status-pill st-${o.status.toLowerCase()}">${o.status}</span><div style="margin-top:6px"><b>${fmt(o.total)}</b></div></div></div>
-      <div class="timeline">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${o.timeline.find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
+      <div style="text-align:right"><span class="status-pill st-${String(o.status || 'placed').toLowerCase()}">${esc(o.status || 'placed')}</span><div style="margin-top:6px"><b>${fmt(o.total || 0)}</b></div></div></div>
+      <div class="timeline">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${(o.timeline || []).find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
         ${o.items.map(i => `<img src="${i.img}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
         <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail('${o.id}')">Details</a>
@@ -2514,7 +2514,7 @@ pages.partner = async (view) => {
   const approved = isPartner();
   view.innerHTML = `<section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container"><div class="crumbs"><a href="#/">Home</a> / Partner Portal</div>
-    <h1>Welcome, <em class="disp-italic">${esc(state.user.name.split(' ')[0])}</em></h1>
+    <h1>Welcome, <em class="disp-italic">${esc((state.user.name || '').split(' ')[0] || 'Partner')}</em></h1>
     <p>${approved ? 'Your Shivaa partner counter — bullion desk, design selection &amp; settlements.' : 'Your partnership application is with our team — here is the live status.'}</p></div></section>
   <div class="container" style="padding:40px 0 90px;max-width:1080px">
     <div class="grid2" style="align-items:stretch">
@@ -2835,6 +2835,19 @@ window.Shivaa.contactForm = async e => {
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
   try { await api('/api/contact', { method: 'POST', body: JSON.stringify({ name: g('name'), phone: g('phone'), email: g('email'), message: g('message') }) }); toast('Message sent ✦ we will reach out soon'); e.target.reset(); }
   catch (err) { toast(err.message, 'err'); }
+};
+
+/* ─────────── newsletter signup (footer + home) ─────────── */
+window.ShivaiNL = async e => {
+  e.preventDefault();
+  const f = e.target;
+  const em = String((f.querySelector('input[type=email]')?.value || '')).trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { toast('Enter a valid email address', 'err'); return; }
+  try {
+    await api('/api/newsletter', { method: 'POST', body: JSON.stringify({ email: em }) });
+    toast('Welcome to the Shivaa Circle ✦ — you are on the list');
+    f.reset();
+  } catch (err) { toast(err.message || 'Could not subscribe — try again', 'err'); }
 };
 
 /* ─────────── LOGIN ─────────── */
@@ -3248,7 +3261,7 @@ pages.invoice = async (view, q, id) => {
     try { o = (await api('/api/orders/' + id)).order; } catch (e) {}
   }
   if (!o) { view.innerHTML = '<div class="empty"><h3>Invoice not found</h3></div>'; return; }
-  const wm = `${state.user.name} · ${state.user.email}`;
+  const wm = `${state.user.name || ''} · ${state.user.email || ''}`;
   const rows = kind === 'metal'
     ? o.items.map(it => `<tr><td>${esc(it.name)}</td><td>${it.qty}</td><td>${it.weightG} g</td><td>${it.lineWeight} g</td><td>${esc(it.hallmark || '—')}</td></tr>`).join('')
     : o.items.map(it => `<tr><td>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''}</td><td>${it.qty}</td><td>₹${Math.round(it.ratePerGram).toLocaleString('en-IN')}/g</td><td>₹${(it.unitPrice * it.qty).toLocaleString('en-IN')}</td><td>${esc(it.hallmark || '—')}</td></tr>`).join('');
@@ -4414,7 +4427,12 @@ function route() {
     trust: ['Why Trust Shivaa', 'Shivaa — GSTIN, CIN, MSME/UDYAM, BIS hallmark, physical address & third-party testimonials. A registered, verifiable jewellery company.'],
     cart: ['Your Cart', 'Review your jewellery selection.'], checkout: ['Checkout', 'Secure checkout for your Shivaa jewellery.'],
     wishlist: ['My Wishlist', 'Your saved pieces.'], account: ['My Account', 'Orders, addresses and royalty.'],
-    b2b: ['For Jewellers | B2B', 'GST-verified partner portal — bullion desk & design selection.'], savings: ['Swarna Nidhi Gold Savings', 'Pay eleven, own twelve.'], track:'Track Order' };
+    b2b: ['For Jewellers | B2B', 'GST-verified partner portal — bullion desk & design selection.'], savings: ['Swarna Nidhi Gold Savings', 'Pay eleven, own twelve.'], track:'Track Order',
+    privacy: ['Privacy Policy', 'How Shivaa keeps your data private & secure.'], contact: ['Contact & Store', 'Visit the Jayal, Nagaur store or reach us on WhatsApp.'],
+    faq: ['FAQs', 'Common questions on hallmarking, making charges, returns & exchanges.'], buyback: ['100% Gold Buyback', 'Transparent gold buy-back at the live rate, no hidden deductions.'],
+    services: ['Bespoke & Repair', 'Custom jewellery design and expert jewellery repair at Shivaa.'], metal: ['Fine Metal Exchange', 'Settle in fine gold/silver grams with zero making charges.'],
+    partner: ['Partner Portal', 'Jeweller partner portal — bullion desk, design selection & schemes.'],
+    catalogues: ['Design Selection', 'Digital catalogues and fine-metal billing for our jeweller partners.'], invoice: ['Invoice', 'Your Shivaa invoice'], order: ['Order', 'Your Shivaa order confirmation'], p: ['Page', 'Shivaa Jewellers'] };
   const sp = pgs[page];
   setSeo({
     title: sp ? (typeof sp === 'string' ? sp + ' | Shivaa' : sp[0] + ' | Shivaa Jewellers') : document.title,
