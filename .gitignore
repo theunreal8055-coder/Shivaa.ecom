@@ -1,0 +1,10 @@
+# Transport archives (source lives as the extracted tree)
+*.rar
+# We keep the 4-file live-update zip under deploy/; ignore loose zips at root
+/shivaa-update-v37.zip
+# Python caches
+__pycache__/
+*.pyc
+# Node/bundler/editor junk
+node_modules/
+.DS_Store
