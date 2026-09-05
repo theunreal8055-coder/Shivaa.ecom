@@ -47,3 +47,15 @@ deployable site lives in `cms/`, and a root deploy would clobber the live
 `data/db.json` (orders, users, prices) and `uploads/`. Either disable that
 deployment or point it at a repo/path that only mirrors `cms/` static files.
 Product/media uploads must go through the API command above, never via git.
+
+## Option C — TABLET / PHONE (no terminal): the upload bridge
+`deploy/upload_bridge.php` = a one-file, browser-only uploader that runs ON the
+Hostinger server (server → same-server API calls).
+1. File Manager: upload repo ZIP to home dir, Extract.
+2. File Manager: in `public_html/` create a secret folder (e.g. `pub-k9x2m`),
+   copy `deploy/upload_bridge.php` from the extracted repo into it.
+3. Browser: `https://shivaa.in/pub-k9x2m/upload_bridge.php` → enter admin
+   password → tap "Upload next 4 designs" until none remain (resumable).
+4. Tap **SELF-DESTRUCT**, delete the folder in File Manager, rotate password.
+Security: secret folder name + admin password + session-only token; script
+talks only to its own site; ledger keeps it resumable/idempotent (upserts).
