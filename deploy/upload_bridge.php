@@ -85,6 +85,38 @@ if ($act === 'login' && $root) {
     if ($st === 200 && !empty($r['token'])) { $_SESSION['tok'] = $r['token']; $log = "Logged in as " . h($r['user']['name'] ?? 'admin') . "."; }
     else $log = "Login failed ($st): " . h(json_encode($r));
 }
+$HOME_DIR = dirname(__DIR__, 2);
+if ($act === 'setup' && $root) {
+    $cfg = [
+        'email'    => (($_POST['email'] ?? '') ?: 'admin@shivaa.in'),
+        'password' => $_POST['password'] ?? '',
+        'pat'      => trim($_POST['pat'] ?? ''),
+        'repo'     => 'theunreal8055-coder/Shivaa.ecom',
+        'branch'   => 'arena/01a07082-shivaa-ecom',
+        'repo_dir' => trim($_POST['repo_dir'] ?? ''),
+    ];
+    if ($cfg['password'] === '') { $log = 'Setup needs the admin password.'; }
+    else {
+        $p = "$HOME_DIR/.shivaa-sync.json";
+        file_put_contents($p, json_encode($cfg, JSON_PRETTY_PRINT));
+        @chmod($p, 0600);
+        $src = "$root/deploy/auto_sync.php";
+        if (is_file($src)) { copy($src, "$HOME_DIR/auto_sync.php"); @chmod("$HOME_DIR/auto_sync.php", 0755); }
+        $log = "Auto-sync configured. Config: $p (0600). Worker: $HOME_DIR/auto_sync.php\nAdd the cron line shown below in hPanel → Cron Jobs.";
+    }
+}
+if ($act === 'syncnow') {
+    $w = "$HOME_DIR/auto_sync.php";
+    if (!is_file($w)) {
+        $log = 'auto_sync.php not in home dir — run setup first.';
+    } else {
+        $out = @shell_exec('php ' . escapeshellarg($w) . ' 2>&1');
+        $tail = is_file("$HOME_DIR/shivaa-sync.log") ? explode("\n", trim((string)file_get_contents("$HOME_DIR/shivaa-sync.log"))) : [];
+        $tail = array_slice($tail, -25);
+        $last = is_file("$HOME_DIR/shivaa-sync-last.json") ? (json_decode((string)file_get_contents("$HOME_DIR/shivaa-sync-last.json"), true) ?: []) : [];
+        $log = "sync exit: " . h(json_encode($last)) . "\n" . h(implode("\n", $tail)) . ($out ? "\nshell: " . h(substr($out, 0, 400)) : '');
+    }
+}
 if ($act === 'batch' && $root && !empty($_SESSION['tok'])) {
     $tok = $_SESSION['tok'];
     $lines = [];
@@ -162,5 +194,20 @@ input{font-size:1rem;padding:.5rem;width:100%;box-sizing:border-box}pre{backgrou
     <button style="background:#c62828;color:#fff">💣 SELF-DESTRUCT bridge</button></form>
   <form method="post"><input type="hidden" name="action" value="logout"><button>Log out</button></form>
 <?php endif; ?>
+<h2>🤖 Auto-sync (one-time setup — then everything is automatic)</h2>
+<p>Saves your admin login + optional GitHub token into <code><?= h($HOME_DIR) ?>/.shivaa-sync.json</code> (permissions 0600, server-only),
+installs the cron worker, and shows the single cron line to paste in hPanel. After this, every batch I push to GitHub
+goes live on shivaa.in by itself within minutes.</p>
+<form method="post">
+  <input type="hidden" name="action" value="setup">
+  <label>Admin email <input name="email" value="admin@shivaa.in"></label>
+  <label>Admin password (stored 0600 on your server only) <input type="password" name="password"></label>
+  <label>GitHub fine-grained PAT (contents: read) — optional if hPanel git-deploy checkout path given below <input name="pat" placeholder="github_pat_…"></label>
+  <label>…or path of an existing git checkout on the server (optional) <input name="repo_dir" placeholder="/home/u…/shivaa-sync"></label>
+  <button>Save auto-sync settings</button>
+</form>
+<p>Cron line — hPanel → <b>Cron Jobs</b> → Custom, schedule every 5 minutes:<br>
+<code>php <?= h($HOME_DIR) ?>/auto_sync.php &gt;/dev/null 2&gt;&amp;1</code></p>
+<form method="post"><input type="hidden" name="action" value="syncnow"><button>▶ Run sync now (test)</button></form>
 <?php if ($log): ?><h3>Last run</h3><pre><?= h($log) ?></pre><?php endif; ?>
 <p class="warn">When done: SELF-DESTRUCT → delete this folder in File Manager → rotate the admin password.</p>
