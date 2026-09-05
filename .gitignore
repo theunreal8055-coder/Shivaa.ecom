@@ -4,9 +4,8 @@
 __pycache__/
 *.tmp
 
-# batch workspace: heavy generated media stays local (zip in deploy/ or push at milestones)
-demo65/raw/
-demo65/media/
+# batch workspace scratch (regenerable); MEDIA IS TRACKED — snapshots respect
+# .gitignore, so untracked media does not survive sandbox restarts (lesson 5 Sep)
 demo65/work/tags/
 demo65/work/sheets/
 demo65/work/run.log

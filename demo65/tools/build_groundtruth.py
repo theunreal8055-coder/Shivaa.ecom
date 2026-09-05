@@ -63,8 +63,8 @@ with open(HERE / "work" / "page_map.csv", "w", newline="") as f:
 DES = HERE / "media" / "designs"
 DES.mkdir(parents=True, exist_ok=True)
 with open(HERE / "suppliers" / "tags.csv", "w", newline="") as f:
-    w = csv.DictWriter(f, fieldnames=["sku", "name", "category", "metal", "purity", "weightG",
-                                      "mcValue", "sizes", "stoneDesc", "tags", "img"])
+    w = csv.DictWriter(f, fieldnames=["sku", "name", "category", "metal", "purity", "weight",
+                                      "mc", "sizes", "stoneDesc", "tags", "img"])
     w.writeheader()
     for r in rows:
         n = int(r["sku"][3:])
@@ -73,7 +73,7 @@ with open(HERE / "suppliers" / "tags.csv", "w", newline="") as f:
         if src.exists() and not dst.exists():
             shutil.move(str(src), str(dst))
         w.writerow({"sku": r["sku"], "name": f"{NAMES[n]} Ring {r['sku']}", "category": "rings",
-                    "metal": "Gold", "purity": "22K", "weightG": r["weight_g"], "mcValue": "12",
+                    "metal": "Gold", "purity": "22K", "weight": r["weight_g"], "mc": "12",
                     "sizes": "12, 14, 16, 18", "stoneDesc": "", "tags": "ring, gold, 22k, handcrafted",
                     "img": f"media/designs/{r['sku']}.jpg"})
 print(f"page_map.csv + tags.csv written · {len(list(DES.glob('*.jpg')))} crops in media/designs · contiguous PGS5001-5065 ✓")
