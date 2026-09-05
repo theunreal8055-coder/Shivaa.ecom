@@ -1,0 +1,77 @@
+# AGENT HANDOFF — read this first, every new chat (updated 5 Sep 2026)
+
+**Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
+dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
+(v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
+workspace pattern `demo65/` (one folder per supplier batch).
+
+## FIRST MESSAGE for a new chat (paste this)
+> Repo connected. Read `docs/AGENT-HANDOFF.md` fully, run `demo65/status.py`
+> (or the current batch folder's), verify state against
+> `work/designs.json` + git log, then continue where the ledger stops.
+> Admin password for shivaa.in: I'll give when needed (never stored in repo).
+
+## The automation architecture (already live — do not rebuild)
+1. **You (agent)**: intake (PDF/photos/info from owner in chat) →
+   `pipeline/01_ingest_pdf.py` (crops) → read supplier tags VISUALLY
+   (green tags; contact sheets via `demo65/tools/`) → `suppliers/tags.csv`
+   (real codes+weights; NEVER invent) → `02_normalize` → shots via
+   `generate_image` (10/message cap; reference `media/designs/{SKU}.jpg`;
+   **men's styling: worn shots on a man's hand** — owner directive) →
+   `04_render_video.py` (720², CRF27, SHIVAA.IN mark) → `05_metadata.py`
+   (provider `template`, spec-lock) → **commit + push**.
+2. **Owner's Hostinger server (cron, every 5 min)**: `~/auto_sync.php`
+   pulls the latest **default branch (main)** from GitHub (PAT tarball),
+   then: (a) **auto-deploys `cms/` code** to public_html — excluding `data/`
+   and `uploads/`, php -l gate, 1-gen backup in `~/shivaa-deploy-backup/`;
+   (b) **auto-uploads** every design with 4 shots + film + meta that isn't in
+   `~/shivaa-sync-ledger.json` (media POST /api/media, product upsert by SKU;
+   category + `mens`-style tag per owner's section). Config: `~/.shivaa-sync.json`
+   (0600). Logs: `~/shivaa-sync.log`. Owner set this up once via
+   `deploy/upload_bridge.php` (self-destructed afterwards).
+3. Therefore: **push to main (via PR) = goes live within ~5 min.** New chats
+   branch from main → see everything; finish work → PR into main → live.
+
+## Branch/PR rules (Arena)
+Work on your session branch (`arena/…`); commit+push there every turn
+(**media is TRACKED in git — snapshots respect .gitignore, untracked media
+dies on sandbox restarts**); open a PR `arena/… → main` and merge at milestones
+/ session end so future chats and the sync worker (main) pick it up.
+
+## Sandbox survival kit (restarts happen between turns!)
+- Workspace may reset to the branch base: `git fetch origin <branch> &&
+  git reset --hard FETCH_HEAD` recovers everything pushed.
+- pip + /home/user/tools vanish: `pip3 install --break-system-packages
+  imageio-ffmpeg pymupdf`; `mkdir -p /home/user/tools/bin &&
+  ln -sf $(python3 -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())") /home/user/tools/bin/ffmpeg`
+- apt is BROKEN (egress); RAR5 via npm `node-unrar-js`; shivaa.in UNREACHABLE
+  from sandbox (uploads happen on the server, never from here).
+- `generate_image` paths are repo-root-relative.
+- ffmpeg-7 quirks already patched in `04_render_video.py` (no drawtext →
+  blend-screen watermark; `[0:v]` pad labels).
+
+## Ground-truth rules (owner's law)
+Never fabricate weight/purity/price/stones. Weights come only from supplier
+tags (visual read; page order is ARBITRARY — verify contiguity, cf.
+`demo65/work/page_map.csv`). Unreadable tags → quarantine, ask owner.
+Names/SEO copy may be creative. Exemplar live names stay: PGS5001
+"Rajkumari", PGS5004 "Mughal Moti".
+
+## Current batch state (demo65, men's rings, 65 SKUs PGS5001–5065)
+At merge-to-main: COMPLETE 19/65 (shots+films+meta), META 65/65,
+CROPS 65/65. Queue order = `work/designs.json` order; `status.py` prints
+next batch. Remaining work per turn: 10 shots → films for completers →
+commit → push. At 65/65: verify via owner screenshots (sandbox can't reach
+site); build `shivaa-batch65-media.zip` in `deploy/` only if owner asks.
+
+## Site-change requests (features/fixes)
+Edit `cms/` on your branch; bump `?v=` in `cms/index.html` (7 refs) whenever
+js/css change; PR → main → cron auto-deploys. NEVER edit live db.json by
+hand; products only via API/upsert. Warn owner: hand-edits in hPanel File
+Manager get overwritten by the next auto-deploy — changes go through chat.
+
+## Key files
+`pipeline/*` stages · `demo65/{config.json,status.py,tools/}` ·
+`deploy/{upload_bridge.php,auto_sync.php,UPLOAD-RUNBOOK.md,AUTOMATION.md}` ·
+`qa/preview_shim.py` (READ-ONLY local preview, no PHP in sandbox; never deploy) ·
+`docs/SESSION-STATE-2026-09-05.md` (history + lessons).
