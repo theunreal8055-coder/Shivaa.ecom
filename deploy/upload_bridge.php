@@ -92,7 +92,7 @@ if ($act === 'setup' && $root) {
         'password' => $_POST['password'] ?? '',
         'pat'      => trim($_POST['pat'] ?? ''),
         'repo'     => 'theunreal8055-coder/Shivaa.ecom',
-        'branch'   => 'arena/01a07082-shivaa-ecom',
+        'branch'   => trim($_POST['branch'] ?? '') ?: '',   // empty = follow default branch (main)
         'repo_dir' => trim($_POST['repo_dir'] ?? ''),
     ];
     if ($cfg['password'] === '') { $log = 'Setup needs the admin password.'; }
@@ -203,6 +203,7 @@ goes live on shivaa.in by itself within minutes.</p>
   <label>Admin email <input name="email" value="admin@shivaa.in"></label>
   <label>Admin password (stored 0600 on your server only) <input type="password" name="password"></label>
   <label>GitHub fine-grained PAT (contents: read) — optional if hPanel git-deploy checkout path given below <input name="pat" placeholder="github_pat_…"></label>
+  <label>Branch to follow — leave EMPTY for default (main, recommended) <input name="branch" value="" placeholder="(empty = main)"></label>
   <label>…or path of an existing git checkout on the server (optional) <input name="repo_dir" placeholder="/home/u…/shivaa-sync"></label>
   <button>Save auto-sync settings</button>
 </form>

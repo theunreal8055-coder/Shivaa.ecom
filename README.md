@@ -40,3 +40,6 @@ python3 ../pipeline/06_upload.py --all                          # then live
 Never fabricate weight/purity/price (`work/designs.json` is OCR-verified ground
 truth). Never commit API keys — the pipeline reads them from env vars. Generated
 media lives in `demo65/media/` (never a folder named `out/`).
+
+## New chat? Start here
+Read [`docs/AGENT-HANDOFF.md`](docs/AGENT-HANDOFF.md) — architecture, automation, rules, first-message template.

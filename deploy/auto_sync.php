@@ -60,9 +60,18 @@ $root = null;
 if (!empty($cfg['repo_dir']) && is_file($cfg['repo_dir'] . '/demo65/config.json')) {
     $root = $cfg['repo_dir'];
     logline("using existing checkout $root");
-} elseif (!empty($cfg['pat']) && !empty($cfg['repo']) && !empty($cfg['branch'])) {
+} elseif (!empty($cfg['pat']) && !empty($cfg['repo'])) {
+    $branch = $cfg['branch'] ?? '';
+    if ($branch === '') {   // follow the repo's default branch (main)
+        $ch = curl_init("https://api.github.com/repos/{$cfg['repo']}");
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => 1, CURLOPT_TIMEOUT => 60,
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $cfg['pat'], 'Accept: application/vnd.github+json']]);
+        $rr = json_decode((string)curl_exec($ch), true) ?: [];
+        curl_close($ch);
+        $branch = (string)($rr['default_branch'] ?? 'main');
+    }
     $tmp = "$SRC.tar.gz";
-    $ch = curl_init("https://api.github.com/repos/{$cfg['repo']}/tarball/{$cfg['branch']}");
+    $ch = curl_init("https://api.github.com/repos/{$cfg['repo']}/tarball/{$branch}");
     curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => 1, CURLOPT_TIMEOUT => 300, CURLOPT_FOLLOWLOCATION => 1,
         CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $cfg['pat'], 'Accept: application/vnd.github+json'],
         CURLOPT_FILE => ($fh = fopen($tmp, 'w'))]);
@@ -82,6 +91,47 @@ if (!empty($cfg['repo_dir']) && is_file($cfg['repo_dir'] . '/demo65/config.json'
 } else {
     finish(1, 'config has neither repo_dir nor pat — cannot fetch source');
 }
+
+/* 1b · auto-deploy cms CODE changes (never touches live data/ or uploads/) */
+function deploy_code(string $root, array $cfg): void {
+    global $HOME;
+    if (($cfg['deploy_code'] ?? true) === false) return;
+    $src = "$root/cms";
+    if (!is_dir($src)) { logline('deploy: no cms/ in source'); return; }
+    $pub = '';
+    foreach (array_merge([$HOME . '/public_html'], glob("$HOME/domains/*/public_html") ?: []) as $c) {
+        if (is_file("$c/api.php") && is_file("$c/index.html")) { $pub = $c; break; }
+    }
+    if (!$pub) { logline('deploy: public_html not found'); return; }
+    $files = [];
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($src, FilesystemIterator::SKIP_DOTS));
+    foreach ($it as $f) {
+        if (!$f->isFile()) continue;
+        $rel = substr($f->getPathname(), strlen($src) + 1);
+        if (str_starts_with($rel, 'data/') || str_starts_with($rel, 'uploads/')) continue;
+        $files[$rel] = $f->getPathname();
+    }
+    ksort($files);
+    $h = '';
+    foreach ($files as $rel => $p) $h .= $rel . sha1_file($p);
+    $hash = sha1($h);
+    $marker = "$HOME/.shivaa-deploy-hash";
+    if (is_file($marker) && trim((string)file_get_contents($marker)) === $hash) return;
+    $lint = @shell_exec('php -l ' . escapeshellarg("$src/api.php") . ' 2>&1');
+    if ($lint && stripos($lint, 'No syntax errors') === false) { logline('deploy ABORT: api.php lint: ' . trim($lint)); return; }
+    $bk = "$HOME/shivaa-deploy-backup";
+    exec('rm -rf ' . escapeshellarg($bk));
+    $n = 0;
+    foreach ($files as $rel => $p) {
+        $dst = "$pub/$rel";
+        if (is_file($dst)) { @mkdir(dirname("$bk/$rel"), 0755, true); @copy($dst, "$bk/$rel"); }
+        @mkdir(dirname($dst), 0755, true);
+        if (copy($p, $dst)) $n++; else logline("deploy COPY FAIL $rel");
+    }
+    file_put_contents($marker, $hash);
+    logline("DEPLOYED $n cms code file(s) -> $pub (data/ + uploads/ untouched; backup: $bk)");
+}
+deploy_code($root, $cfg);
 
 /* 2 · login */
 [$st, $r] = api('/api/auth/login', 'POST', null, ['email' => $cfg['email'], 'password' => $cfg['password']]);
