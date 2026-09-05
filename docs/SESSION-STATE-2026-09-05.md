@@ -42,10 +42,27 @@ Everything batch-related was rebuilt from scratch in this session.
   `demo65/media/designs/{SKU}.jpg`.
 - Tools kept in /home/user/tools (bin/ffmpeg, bin/7za) — outside the repo.
 
-## Batch progress at commit
-CROPS 65/65 · SHOTS 18/260 · COMPLETE 4/65 (PGS5065, PGS5064, PGS5004, PGS5001)
-· VIDEOS 4/65 · META 65/65. Next: finish PGS5063 (gift, editorial), then
-PGS5062, PGS5061, PGS5026 … at 10 shots/message.
+## RESTART LESSON (learned the hard way, 5 Sep turn 3)
+The sandbox restarted between turns: **snapshots respect .gitignore** — all
+gitignored demo65/media/ vanished and local .git rolled back (only the pushed
+remote survived). Recovery: `git fetch origin arena/01a07082-shivaa-ecom &&
+git reset --hard FETCH_HEAD`, then rebuild deterministic layers (stage 1 crops,
+build_groundtruth moves, stage 2/5, exemplar copies). pip packages and
+/home/user/tools also vanish → reinstall: `pip3 install --break-system-packages
+imageio-ffmpeg pymupdf` + relink /home/user/tools/bin/ffmpeg.
+**RULE NOW: demo65/media is TRACKED in git; commit + push every turn.**
+
+## User directives (5 Sep)
+- All 65 designs are MEN'S rings; worn shots on a man's hand, masculine
+  styling; quality over quantity; max 10 shots/message.
+- Upload: portable one-command pack at batch completion (site unreachable here).
+- Duplicate PGS-1 (1).pdf deleted. Preview shim approved (qa/preview_shim.py).
+
+## Batch progress at latest commit
+CROPS 65/65 · SHOTS 18/260 · COMPLETE 4/65 (PGS5065, PGS5064 + 2 exemplars)
+· VIDEOS 4/65 · META 65/65. Partial: PGS5063 (studio, worn).
+Next: PGS5063 gift+editorial, then PGS5062 ×4, PGS5061 ×4 … 10 shots/message.
+Exemplar worn shots (PGS5001/5004) still need men's re-shoot (2 of a future 10).
 
 ## Open decisions (asked user 5 Sep)
 1. pace of the remaining ~242 shots
