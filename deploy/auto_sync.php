@@ -339,10 +339,15 @@ foreach (glob("$root/*/work/designs.json") ?: [] as $dj) {          // demo65, b
             }
             continue;
         }
-        if (isset($ledger[$sku]) && empty($ledger[$sku]['off'])) continue;
+        /* v3.1: media_revision forces a deliberate re-upload without touching
+         * cms/data/db.json. Existing ledger rows predate this revision and are
+         * therefore re-synced once; subsequent cron runs remain idempotent. */
+        $media_revision = (int)($d['mediaRevision'] ?? 2);
+        if (isset($ledger[$sku]) && empty($ledger[$sku]['off'])
+            && (int)($ledger[$sku]['media_revision'] ?? 0) === $media_revision) continue;
         $ok = is_file("$dir/video.mp4") && is_file("$dir/meta.json");
         foreach (['studio', 'worn', 'gift', 'editorial'] as $k) $ok = $ok && is_file("$dir/shot_$k.jpg");
-        if ($ok) $todo[] = ['sku' => $sku, 'dir' => $dir, 'batch' => $bname];
+        if ($ok) $todo[] = ['sku' => $sku, 'dir' => $dir, 'batch' => $bname, 'media_revision' => $media_revision];
     }
 }
 if (!$todo) finish(0, 'nothing new to sync (' . count($ledger) . ' in ledger)');
@@ -350,7 +355,7 @@ logline('phase: upload — ' . count($todo) . ' pending across batch(es), taking
 
 $done = 0;
 foreach (array_slice($todo, 0, 12) as $t) {
-    $sku = $t['sku']; $dir = $t['dir'];
+    $sku = $t['sku']; $dir = $t['dir']; $media_revision = (int)($t['media_revision'] ?? 2);
     $imgs = []; $fail = false;
     foreach (['studio', 'worn', 'gift', 'editorial'] as $k) {
         $okfile = false;
@@ -372,7 +377,7 @@ foreach (array_slice($todo, 0, 12) as $t) {
     if (isset($skumap[$sku])) [$st, $r] = api('/api/products/' . $skumap[$sku], 'PUT', $tok, $rec);
     else [$st, $r] = api('/api/products', 'POST', $tok, $rec);
     if ($st === 200) {
-        $ledger[$sku] = ['ts' => time(), 'pid' => $r['id'] ?? $skumap[$sku] ?? '', 'batch' => $t['batch']];
+        $ledger[$sku] = ['ts' => time(), 'pid' => $r['id'] ?? $skumap[$sku] ?? '', 'batch' => $t['batch'], 'media_revision' => $media_revision];
         file_put_contents($LEDG, json_encode($ledger, JSON_PRETTY_PRINT));
         logline("LIVE $sku [" . $t['batch'] . "/$cat] (" . (isset($skumap[$sku]) ? 'updated' : 'created') . ')');
         $done++;
