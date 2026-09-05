@@ -67,6 +67,8 @@ def template_meta(d):
     tags = [cat, metal.lower(), purity.lower(), wt + "g"]
     if stones: tags += [stones.lower().split()[0]]
     tags += ["handcrafted", "bishallmarked" if metal == "Gold" else "925silver"]
+    extra = [t for t in d.get("tags", []) if t and t not in tags]
+    tags = tags[:3] + extra + tags[3:]   # design tags (e.g. mens) before fillers
     return {"title": title, "desc": desc,
             "tags": list(dict.fromkeys(tags))[:8],
             "seo_keywords": [f"{cat.lower()} {metal.lower()} {purity}" if not stones else f"{stones.lower()} {cat.lower()}",

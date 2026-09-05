@@ -33,6 +33,8 @@ def api(base, route, method="GET", token=None, json_body=None, files=None, field
     except urllib.error.HTTPError as e:
         try: return e.code, json.loads(e.read().decode())
         except Exception: return e.code, {"error": str(e)}
+    except Exception as e:
+        return 0, {"error": f"connection: {str(e)[:120]}"}
 
 def main():
     ap = argparse.ArgumentParser()
@@ -57,10 +59,21 @@ def main():
     if a.limit: designs = designs[:a.limit]
 
     LOG.info("login %s …", a.email)
-    st, r = api(base, "/api/auth/login", "POST", json_body={"email": a.email, "password": a.password})
-    if st != 200 or not r.get("token"):
-        LOG.error("login failed (%s): %s", st, r); sys.exit(1)
-    tok = r["token"]; LOG.info("logged in as %s", r.get("user", {}).get("name", ""))
+    if dry:
+        tok = None  # offline dry-run: public GETs only, no login, no writes
+        skumap = {}
+        st0, r0 = api(base, ucfg["products_route"])
+        if st0 == 200:
+            skumap = {p.get("sku"): p.get("id") for p in r0.get("products", []) if p.get("sku")}
+    else:
+        st, r = api(base, "/api/auth/login", "POST", json_body={"email": a.email, "password": a.password})
+        if st != 200 or not r.get("token"):
+            LOG.error("login failed (%s): %s", st, r); sys.exit(1)
+        tok = r["token"]; LOG.info("logged in as %s", r.get("user", {}).get("name", ""))
+        skumap = {}
+        st0, r0 = api(base, ucfg["products_route"], token=tok)
+        if st0 == 200:
+            skumap = {p.get("sku"): p.get("id") for p in r0.get("products", []) if p.get("sku")}
 
     ledger = Ledger(work / "ledger_upload.csv", ["id", "sku", "stage", "status", "location", "ts"])
 
@@ -75,6 +88,10 @@ def main():
             f = out / sku / f"shot_{k}.jpg"
             if f.exists(): media[k] = str(f)
         vid = out / sku / "video.mp4"
+        if len(media) < 4 or not vid.exists():
+            LOG.warning("skip %s — incomplete media set (%d/4 shots, video=%s); finish shots first",
+                        sku, len(media), vid.exists())
+            continue
         paths = [*media.values(), str(vid)] if vid.exists() else [*media.values()]
 
         # 1 · media
@@ -132,10 +149,17 @@ def main():
             save_json(work / "payloads" / f"{sku}.json", rec)
             LOG.info("[dry] would POST /api/products %s (%d images%s)", sku, len(img_paths), " + video" if video_path else "")
             continue
-        st4, r4 = api(base, ucfg["products_route"], "POST", tok, json_body=rec)
-        if st4 == 200 and r4.get("id"):
-            ledger.set(f"{sku}::product", sku=sku, stage="product", status="done", location=r4.get("id", ""), ts=time.time())
-            LOG.info("product %s -> %s", sku, r4["id"])
+        existing = skumap.get(sku)
+        if existing:
+            st4, r4 = api(base, f"{ucfg['products_route']}/{existing}", "PUT", tok, json_body=rec)
+            pid, ok4 = existing, st4 == 200 and bool(r4.get("id"))
+        else:
+            st4, r4 = api(base, ucfg["products_route"], "POST", tok, json_body=rec)
+            pid, ok4 = r4.get("id", ""), st4 == 200 and bool(r4.get("id"))
+        if ok4:
+            ledger.set(f"{sku}::product", sku=sku, stage="product", status="done",
+                       location=pid, ts=time.time())
+            LOG.info("product %s -> %s (%s)", sku, pid, "updated" if existing else "created")
         else:
             LOG.error("product fail %s (%s): %s", sku, st4, r4)
         time.sleep(ucfg.get("batch_pause_s", 1.5))
