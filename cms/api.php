@@ -328,7 +328,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts','searchCaptures','notifications','warranties','careReminders'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts','searchCaptures','notifications','warranties','careReminders','vaultItems'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -981,6 +981,84 @@ try {
     $res = shivaa_care_send($db, $rid, $ch);
     db_save($DB_FILE, $db);
     jout($res['ok'] ? 200 : 502, $res);
+  }
+
+  /* ── v51 · My Jewellery Box vault ── */
+  if ($route === 'vault' && $method === 'GET') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $list = array_values(array_filter($db['vaultItems'] ?? [], fn($x) => ($x['userId'] ?? '') === $u['id']));
+    jout(200, ['items' => array_reverse($list)]);
+  }
+  if ($route === 'vault' && $method === 'POST') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $b = body_json();
+    $name = trim((string)($b['name'] ?? ''));
+    if ($name === '') jout(400, ['error' => 'Piece name required']);
+    $it = ['id' => uid('vb'), 'userId' => $u['id'], 'name' => $name,
+           'metal' => trim((string)($b['metal'] ?? '')), 'purity' => trim((string)($b['purity'] ?? '')),
+           'weight' => (float)($b['weight'] ?? 0), 'weightG' => (float)($b['weight'] ?? 0),
+           'purchaseAt' => trim((string)($b['purchaseAt'] ?? '')), 'purchasedFrom' => trim((string)($b['purchasedFrom'] ?? '')),
+           'value' => max(0, (float)($b['value'] ?? 0)), 'photo' => trim((string)($b['photo'] ?? '')) ?: null,
+           'occasion' => trim((string)($b['occasion'] ?? '')), 'notes' => trim((string)($b['notes'] ?? '')),
+           'orderId' => trim((string)($b['orderId'] ?? '')) ?: null, 'productId' => trim((string)($b['productId'] ?? '')) ?: null,
+           'createdAt' => now_iso()];
+    $db['vaultItems'][] = $it; db_save($DB_FILE, $db);
+    jout(200, $it);
+  }
+  if ($route === 'vault/upload' && $method === 'POST') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    if (empty($_FILES['file'])) jout(400, ['error' => 'No file field named "file"']);
+    $f = $_FILES['file'];
+    if ($f['error'] !== UPLOAD_ERR_OK) jout(400, ['error' => 'Upload failed (code ' . $f['error'] . ')']);
+    if (($f['size'] ?? 0) > 10485760) jout(400, ['error' => 'Image too large (max 10 MB)']);
+    $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) jout(400, ['error' => 'Only jpg/png/webp images']);
+    $head = (string)@file_get_contents($f['tmp_name'], false, null, 0, 8);
+    if (!(substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n" || substr($head, 0, 4) === 'RIFF')) jout(400, ['error' => 'File content does not match its extension']);
+    $dir = __DIR__ . '/uploads/vault';
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+    $name = 'vb_' . bin2hex(random_bytes(6)) . '.' . $ext;
+    if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) jout(500, ['error' => 'Could not save — check uploads/vault permissions (755)']);
+    jout(200, ['url' => '/uploads/vault/' . $name, 'size' => (int)$f['size'], 'ext' => $ext]);
+  }
+  if ($route === 'vault/from-orders' && $method === 'POST') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $db['vaultItems'] = $db['vaultItems'] ?? [];
+    $have = [];
+    foreach ($db['vaultItems'] as $x) if (($x['userId'] ?? '') === $u['id']) $have[($x['orderId'] ?? '') . '|' . ($x['productId'] ?? '')] = true;
+    $added = 0;
+    foreach ($db['orders'] as $o) if (($o['userId'] ?? '') === $u['id']) {
+      foreach ($o['items'] ?? [] as $it) {
+        $key = ($o['id'] ?? '') . '|' . ($it['productId'] ?? '');
+        if ($key === '|' || isset($have[$key])) continue;
+        $db['vaultItems'][] = ['id' => uid('vb'), 'userId' => $u['id'], 'name' => $it['name'] ?? 'Purchased piece',
+          'metal' => $it['metal'] ?? '', 'purity' => $it['purity'] ?? '', 'weight' => (float)($it['weightG'] ?? 0),
+          'weightG' => (float)($it['weightG'] ?? 0), 'purchaseAt' => $o['createdAt'] ?? now_iso(),
+          'purchasedFrom' => 'Shivaa order ' . ($o['id'] ?? ''), 'value' => max(0, (float)(($it['unitPrice'] ?? 0) * ($it['qty'] ?? 1))),
+          'photo' => $it['img'] ?? null, 'occasion' => ($it['size'] ?? '') ? 'Size ' . $it['size'] : '',
+          'notes' => ($it['engraving'] ?? '') ? 'Engraving: ' . $it['engraving'] : '',
+          'orderId' => $o['id'] ?? null, 'productId' => $it['productId'] ?? null, 'createdAt' => now_iso()];
+        $have[$key] = true; $added++;
+      }
+    }
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'added' => $added]);
+  }
+  if (preg_match('#^vault/([\\w-]+)$#', $route, $mV)) {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $id = $mV[1];
+    $idx = null; foreach ($db['vaultItems'] ?? [] as $i => $x) if (($x['id'] ?? '') === $id && ($x['userId'] ?? '') === $u['id']) { $idx = $i; break; }
+    if ($idx === null) jout(404, ['error' => 'Vault piece not found']);
+    if ($method === 'DELETE') { array_splice($db['vaultItems'], $idx, 1); db_save($DB_FILE, $db); jout(200, ['ok' => true]); }
+    if ($method === 'PUT') {
+      $b = body_json();
+      foreach (['name', 'metal', 'purity', 'purchaseAt', 'purchasedFrom', 'photo', 'occasion', 'notes', 'orderId', 'productId'] as $k) if (array_key_exists($k, $b)) $db['vaultItems'][$idx][$k] = trim((string)$b[$k]) ?: null;
+      if (array_key_exists('weight', $b)) $db['vaultItems'][$idx]['weight'] = (float)$b['weight'];
+      if (array_key_exists('value', $b)) $db['vaultItems'][$idx]['value'] = max(0, (float)$b['value']);
+      db_save($DB_FILE, $db);
+      jout(200, $db['vaultItems'][$idx]);
+    }
+    jout(400, ['error' => 'Method not allowed']);
   }
 
   /* ── design selection → metal exchange (zero MC) ── */

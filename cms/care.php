@@ -13,7 +13,7 @@
 declare(strict_types=1);
 
 function shivaa_care_schedule(): array {
-  return [30 => 'Welcome check', 180 => 'Free cleaning & polish', 365 => 'Annual inspection', 730 => 'Re-polish & stone check', 1095 => 'Deep server care'];
+  return [30 => 'Welcome check', 180 => 'Free cleaning & polish', 365 => 'Annual inspection', 730 => 'Re-polish & stone check', 1095 => 'Deep service care'];
 }
 
 /* Register one warranty record per ordered piece. */

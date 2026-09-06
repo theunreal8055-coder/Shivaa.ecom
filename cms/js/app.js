@@ -2298,6 +2298,8 @@ pages.account = async (view, q) => {
     <div class="acct-tiles">
       ${isPartner() ? `<a href="#/partner" class="acct-tile portal"><span class="at-ic">✦</span><span class="at-tx"><b>Partner Portal</b><small>bullion desk · design selection · schemes · reports</small></span><span class="at-go">›</span></a>` : ''}
       ${tiles.map(t => `<a href="#/account?tab=${t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
+      <a href="#/vault" class="acct-tile ${tab === 'vault' ? 'on' : ''}"><span class="at-ic">🗄</span><span class="at-tx"><b>My Jewellery Box</b><small>private vault · photos &amp; declared values</small></span><span class="at-go">›</span></a>
+      <a href="#/care" class="acct-tile"><span class="at-ic">🛡</span><span class="at-tx"><b>Care &amp; Warranty</b><small>service reminders &amp; warranty cards</small></span><span class="at-go">›</span></a>
       <a href="javascript:Shivaa.logout()" class="acct-tile danger"><span class="at-ic">↩</span><span class="at-tx"><b>Logout</b><small>sign out safely</small></span><span class="at-go">›</span></a>
     </div>
 
@@ -2924,6 +2926,106 @@ pages.care = async (view) => {
     </div>
     <div class="qty-banner mt-2">✦ Free inspection &amp; polishing are included in your warranty. Bring the piece or courier it insured — we photograph and document before any work begins.</div>
   </div>`;
+};
+
+/* ─────────── MY JEWELLERY BOX VAULT (Feature #20) ─────────── */
+pages.vault = async (view) => {
+  if (!state.user) {
+    view.innerHTML = `<div class="empty" style="padding:120px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your private jewellery vault</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Sign in to keep your pieces, photos, documents and declared values in one private place.</p><button class="btn btn-primary" onclick="openLogin('vault')">Sign in to open your vault</button></div>`;
+    return;
+  }
+  let items = [];
+  try { items = (await api('/api/vault')).items || []; } catch (e) { toast(e.message, 'err'); }
+  window._vaultItems = items;
+  const total = items.reduce((a, x) => a + (+x.value || 0), 0);
+  const gold = items.filter(x => /gold/i.test(x.metal || '')).length;
+  const silver = items.filter(x => /silver/i.test(x.metal || '')).length;
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / My Jewellery Box</div><h1>My Jewellery <em class="disp-italic">Box</em></h1>
+  <p>Your private vault — photos, metal details, purchase records and declared values for every piece you own.</p></div></section>
+  <div class="container" style="max-width:1120px;padding:30px 16px 80px">
+    <div class="stat-grid vault-stats">
+      <div class="stat"><small>Pieces in box</small><b>${items.length}</b><span>private to your account</span></div>
+      <div class="stat"><small>Gold pieces</small><b>${gold}</b><span>${silver} silver · ${items.length - gold - silver} other</span></div>
+      <div class="stat"><small>Declared value</small><b style="font-size:19px">${fmt(total)}</b><span>as entered by you</span></div>
+    </div>
+    <div class="vault-actions">
+      <button class="btn btn-primary" onclick="Shivaa.vaultOpen()">+ Add a piece</button>
+      <button class="btn btn-outline" onclick="Shivaa.vaultImport()">Import from my orders</button>
+      <a class="btn btn-ghost" href="#/care">Care &amp; warranty reminders →</a>
+    </div>
+    ${items.length ? `<div class="vault-grid">${items.map(x => `<div class="vault-piece">
+      <div class="vp-img">${x.photo ? `<img src="${esc(x.photo)}" alt="">` : '<span>✦</span>'}</div>
+      <div class="vp-body">
+        <b>${esc(x.name)}</b>
+        <small>${esc([x.metal, x.purity, x.weight + ' g'].filter(Boolean).join(' · ') || 'Details not added')}</small>
+        ${x.purchaseAt ? `<small>Bought ${dateFmt(x.purchaseAt)}${x.purchasedFrom ? ' · ' + esc(x.purchasedFrom) : ''}</small>` : ''}
+        ${x.occasion ? `<small>${esc(x.occasion)}</small>` : ''}
+        ${x.notes ? `<p>${esc(x.notes)}</p>` : ''}
+        ${x.value > 0 ? `<div class="vp-value">Declared: ${fmt(x.value)}</div>` : ''}
+        ${x.orderId ? `<a href="#/order/${esc(x.orderId)}" class="vp-order">Order ${esc(x.orderId)} →</a>` : ''}
+      </div>
+      <div class="vp-actions"><button class="btn btn-ghost btn-sm" onclick="Shivaa.vaultOpen('${x.id}')">Edit</button><button class="btn btn-ghost btn-sm" onclick="Shivaa.vaultDel('${x.id}')">Remove</button></div>
+    </div>`).join('')}</div>` : `<div class="empty" style="padding:80px 20px"><div class="big">🗄</div><h3>Your vault is empty</h3><p style="margin:10px 0 20px;color:var(--ink-3)">Add a piece manually or import the jewellery from your Shivaa orders.</p><button class="btn btn-primary" onclick="Shivaa.vaultOpen()">+ Add your first piece</button></div>`}
+    <div class="qty-banner mt-2">🔒 Your jewellery box is private — only you can see it. Photos are stored on shivaa.in; declared values are just a personal record, not a valuation or insurance quote.</div>
+  </div>`;
+};
+window.Shivaa.vaultOpen = (id) => {
+  const x = id ? (window._vaultItems || []).find(i => i.id === id) : null;
+  openModal(`
+  <div class="wa-modal">
+    <h3 style="font-size:28px">${x ? 'Edit piece' : 'Add a piece'} 🗄</h3>
+    <form class="form-grid" onsubmit="Shivaa.vaultSave(event)">
+      <input type="hidden" id="vaultId" value="${x ? esc(x.id) : ''}">
+      <div class="fld full"><label>Piece name *</label><input id="vName" required value="${x ? esc(x.name) : ''}" placeholder="e.g. 22K bridal kada"></div>
+      <div class="fld"><label>Metal</label><select id="vMetal">${['Gold', 'Silver 925', 'Platinum', 'Other'].map(m => `<option ${x && x.metal === m ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
+      <div class="fld"><label>Purity</label><input id="vPurity" value="${x ? esc(x.purity || '') : ''}" placeholder="22K / 18K / 925"></div>
+      <div class="fld"><label>Weight (g)</label><input id="vWeight" type="number" step="0.001" value="${x ? esc(x.weight || '') : ''}"></div>
+      <div class="fld"><label>Declared value ₹</label><input id="vValue" type="number" step="1" min="0" value="${x ? esc(x.value || '') : ''}"></div>
+      <div class="fld"><label>Purchased date</label><input id="vBuy" type="date" value="${x && x.purchaseAt ? esc(x.purchaseAt.slice(0, 10)) : ''}"></div>
+      <div class="fld"><label>Bought from</label><input id="vFrom" value="${x ? esc(x.purchasedFrom || '') : ''}" placeholder="Shivaa / family / other jeweller"></div>
+      <div class="fld"><label>Occasion</label><input id="vOcc" value="${x ? esc(x.occasion || '') : ''}" placeholder="Wedding / anniversary / daily"></div>
+      <div class="fld full"><label>Photo (optional)</label>
+        <input id="vPhoto" type="hidden" value="${x ? esc(x.photo || '') : ''}">
+        <input type="file" accept="image/*" onchange="Shivaa.vaultUpload(this)"><small id="vPhotoName" style="color:var(--ink-3)">${x && x.photo ? 'Current photo saved' : 'jpg / png / webp · max 10 MB'}</small>
+      </div>
+      <div class="fld full"><label>Notes</label><textarea id="vNotes" placeholder="stones, hallmark, insurance, family history…">${x ? esc(x.notes || '') : ''}</textarea></div>
+      <button class="btn btn-primary btn-block" style="grid-column:1/-1">${x ? 'Save changes' : 'Add to my box'}</button>
+    </form>
+  </div>`);
+};
+window.Shivaa.vaultUpload = async inp => {
+  const f = inp.files && inp.files[0]; if (!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  try {
+    const r = await api('/api/vault/upload', { method: 'POST', body: fd });
+    $('#vPhoto').value = r.url;
+    $('#vPhotoName').textContent = '✓ ' + f.name;
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.vaultSave = async e => {
+  e.preventDefault();
+  const id = $('#vaultId').value;
+  const body = { name: $('#vName').value, metal: $('#vMetal').value, purity: $('#vPurity').value, weight: +$('#vWeight').value || 0,
+    value: +$('#vValue').value || 0, purchaseAt: $('#vBuy').value, purchasedFrom: $('#vFrom').value, occasion: $('#vOcc').value,
+    photo: $('#vPhoto').value, notes: $('#vNotes').value };
+  try {
+    await api(id ? '/api/vault/' + id : '/api/vault', { method: id ? 'PUT' : 'POST', body: JSON.stringify(body) });
+    closeModal(); toast(id ? 'Piece updated ✦' : 'Piece added to your box ✦');
+    pages.vault($('#view'));
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.vaultDel = async id => {
+  if (!confirm('Remove this piece from your jewellery box?')) return;
+  try { await api('/api/vault/' + id, { method: 'DELETE' }); toast('Piece removed'); pages.vault($('#view')); }
+  catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.vaultImport = async () => {
+  try {
+    const r = await api('/api/vault/from-orders', { method: 'POST', body: JSON.stringify({}) });
+    toast(r.added ? ('Added ' + r.added + ' piece' + (r.added === 1 ? '' : 's') + ' from your orders ✦') : 'No new pieces to import — your ordered jewellery is already in the box');
+    pages.vault($('#view'));
+  } catch (e) { toast(e.message, 'err'); }
 };
 
 /* ─────────── ABOUT ─────────── */
