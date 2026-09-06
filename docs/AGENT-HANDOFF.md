@@ -85,16 +85,15 @@ Names/SEO copy may be creative. Exemplar live names stay: PGS5001
 "Rajkumari", PGS5004 "Mughal Moti".
 
 ## Current batch state (demo65, men's rings, 65 SKUs PGS5001–5065)
-On branch `arena/01a0768e-shivaa-ecom` (6 Sep 2026): COMPLETE 34/65
-(shots+films+meta), SHOTS 136/260, VIDEOS 34/65, META 65/65, CROPS 65/65.
-**PGS5036 is structurally complete but FAILED visual QA on all 4 shots**
-(studio: "AU 750" 18K + weight engraving; worn: pink stones instead of clear
-white; gift: "Aethelred Jewellers" brand on box; editorial: green supplier tag)
-— reshoot all 4 shots (guarded prompts) + re-render its video NEXT TURN, and
-**do NOT merge any PR while PGS5036's contaminated media is on the branch**
-(the Hostinger auto-uploader reads `main` and would publish it).
+On branch `arena/01a0768e-shivaa-ecom` (6 Sep 2026): COMPLETE 35/65
+(shots+films+meta), SHOTS 140/260, VIDEOS 35/65, META 65/65, CROPS 65/65.
+**Rule: never merge a PR containing a shot that failed visual QA** — the
+Hostinger auto-uploader reads `main` and would publish it. (First case:
+PGS5036 — all 4 shots failed first pass: "AU 750" 18K engraving / pink
+stones / brand on box / supplier tag. Reshoot 2nd pass PASSED 4/4, film
+re-rendered + frame-verified 6 Sep 2026.)
 Queue order = `work/designs.json` order; `status.py` prints next batch
-(now: PGS5033, PGS5044, PGS5043 … 31 designs / 124 shots).
+(now: PGS5044, PGS5043, PGS5023 … 30 designs / 120 shots).
 Work per turn: ≤10 shots → visual QA each (read back; regenerate failures
 within the same 10) → films for completers → commit → push. At 65/65: verify
 via owner screenshots (sandbox can't reach site); build
