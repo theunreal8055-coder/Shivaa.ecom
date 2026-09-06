@@ -1029,6 +1029,26 @@ function renderRateStrip() {
     `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${esc(R.source)} · every 10 min</span></div>`;
 }
 
+/* ─────────── Feature 17 — recently viewed + back in stock rows ───────────
+   Recently viewed is device-local (works for logged-out and logged-in). The
+   back-in-stock feed uses `restockedAt`, which the API stamps the first time
+   an admin restores a piece from 0 → >0, with `createdAt` as a fallback so
+   fresh catalogues show a meaningful discovery row. */
+function recordView(id) {
+  if (!id) return;
+  const r = [id, ...store.get('shv_recent', []).filter(x => x !== id)].slice(0, 12);
+  store.set('shv_recent', r);
+}
+function recentIds() { return store.get('shv_recent', []); }
+function recentViewed(max = 8) {
+  return recentIds().map(id => state.productsCache.find(p => p.id === id)).filter(Boolean).slice(0, max);
+}
+function backInStock(max = 8) {
+  return state.productsCache.filter(p => (p.stock || 0) > 0)
+    .sort((a, b) => (b.restockedAt || b.createdAt || '').localeCompare(a.restockedAt || a.createdAt || ''))
+    .slice(0, max);
+}
+
 /* ─────────── HOME ─────────── */
 pages.home = async (view) => {
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
@@ -1037,6 +1057,8 @@ pages.home = async (view) => {
   const spot = state.productsCache.find(p => p.id === 'p_aara') || state.productsCache[0];
   const spotPr = spot ? price(spot) : null;
   if (!state.user) { try { guestWatchScan(); } catch (e) {} }
+  const recent = recentViewed(8);
+  const back = backInStock(8);
   const wishSet = state.user ? await wishIds() : [];
   const wkAlerts = state.user ? (state.watchData.alerts || []).filter(a => state.watchData.wishlist.includes(a.productId)) : (state.guestAlerts || []).filter(a => state.localWish.includes(a.productId));
   view.innerHTML = `
@@ -1148,6 +1170,16 @@ pages.home = async (view) => {
     <div class="sec-head rv"><span class="label">Loved most</span><h2>Bestsellers <a class="see-all" href="#/shop">View all ${state.productsCache.length} pieces →</a></h2></div>
     <div class="p-grid">${best.map(p => productCard(p, { wishSet })).join('')}</div>
   </section>
+
+  ${recent.length ? `<section class="sec container" style="padding-top:0">
+    <div class="sec-head rv"><span class="label">Pick up where you left off</span><h2>Recently viewed <a class="see-all" href="#/wishlist">Your saved pieces →</a></h2></div>
+    <div class="hscroll">${recent.map(p => productCard(p, { wishSet })).join('')}</div>
+  </section>` : ''}
+
+  ${back.length ? `<section class="sec container" style="padding-top:0">
+    <div class="sec-head rv"><span class="label">Back in the vault</span><h2>Back in stock <a class="see-all" href="#/shop">View all →</a></h2></div>
+    <div class="hscroll">${back.map(p => productCard(p, { wishSet })).join('')}</div>
+  </section>` : ''}
 
   ${spot ? `
   <section class="sec container" style="padding-top:0">
@@ -1326,6 +1358,9 @@ pages.shop = async (view, q) => {
   const cat = q.get('category') || '', tag = q.get('tag') || '', search = q.get('q') || '';
   const metals = new Set(), purities = new Set();
   state.productsCache.forEach(p => { metals.add(p.metal); purities.add(p.purity); });
+  const recentShop = recentViewed(6);
+  const backShop = backInStock(6);
+  const shopWishSet = state.user ? await wishIds() : [];
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container">
     <div class="crumbs"><a href="#/">Home</a> / Shop</div>
@@ -1370,6 +1405,14 @@ pages.shop = async (view, q) => {
       </div>
       <div class="chipbar" id="chipbar"></div>
       <div id="shopGrid" class="p-grid"></div>
+      ${recentShop.length ? `<section class="sec container" style="padding-top:56px;padding-bottom:0">
+        <div class="sec-head rv"><span class="label">Pick up where you left off</span><h2>Recently viewed</h2></div>
+        <div class="hscroll">${recentShop.map(p => productCard(p, { wishSet: shopWishSet })).join('')}</div>
+      </section>` : ''}
+      ${backShop.length ? `<section class="sec container" style="padding-top:56px;padding-bottom:0">
+        <div class="sec-head rv"><span class="label">Back in the vault</span><h2>Back in stock</h2></div>
+        <div class="hscroll">${backShop.map(p => productCard(p, { wishSet: shopWishSet })).join('')}</div>
+      </section>` : ''}
     </div>
   </div>`;
 
@@ -1425,6 +1468,7 @@ pages.shop = async (view, q) => {
 pages.product = async (view, q, id) => {
   let data;
   try { data = await api('/api/products/' + id); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
+  recordView(id);
   const p = data.product, pr = price(p), R = data.rates || state.rates;
   const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
   const watch = watchFor(p.id) || {};

@@ -430,7 +430,9 @@ try {
       $b = body_json();
       try { hallmark_guard_product_write($b); }
       catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
+      $oldStock = (int)($db['products'][$idx]['stock'] ?? 0);
       foreach ($b as $k => $v) $db['products'][$idx][$k] = $v;
+      if (array_key_exists('stock', $b) && $oldStock <= 0 && (int)$b['stock'] > 0) $db['products'][$idx]['restockedAt'] = now_iso();
       db_save($DB_FILE, $db);
       watch_scan_all($DB_FILE, $db, current_rates($db));   // stock edits immediately notify back-in-stock watchers
       jout(200, hallmark_product($db['products'][$idx]));
