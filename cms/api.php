@@ -234,6 +234,81 @@ function bullion_rows(array &$db): array {
   foreach ($rows as &$row) $row['change'] = $row['change'] ?? 0;
   return ['rows' => $rows, 'updatedAt' => $db['bullion']['updatedAt'], 'date' => date('d M Y')];
 }
+
+/* ───────── Feature 3 — watch a product (price-drop / back-in-stock) ─────────
+   The wishlist stays the place a customer saves a piece; `watches` stores the
+   per-piece alert preferences + the baseline price/stock we compare against.
+   Alerts are stored centrally so they can later be emailed / WhatsApp'ed
+   without a second cron (Batch C hooks into the same records). */
+function watch_product_info(array $p, array $R): array {
+  $y = hallmark_product($p);
+  $y['price'] = compute_price($p, $R);
+  return [
+    'id' => $y['id'], 'name' => $y['name'], 'img' => $y['images'][0] ?? null,
+    'stock' => (int)($y['stock'] ?? 0), 'weightG' => $y['weightG'] ?? 0,
+    'metal' => $y['metal'] ?? '', 'purity' => $y['purity'] ?? '',
+    'total' => $y['price']['total'] ?? 0, 'active' => !empty($y['active']),
+  ];
+}
+function watch_add_alert(array &$db, array $a): void {
+  $db['alerts'][] = $a;
+  if (count($db['alerts']) > 1200) $db['alerts'] = array_slice($db['alerts'], -1200);
+}
+function watch_unread(array $db, string $userId): array {
+  return array_values(array_filter($db['alerts'] ?? [], fn($a) => ($a['userId'] ?? '') === $userId && empty($a['read'])));
+}
+function watch_scan_user(string $DB_FILE, array &$db, array $u, array $R): array {
+  $u = is_array($u) ? $u : [];
+  $uid = (string)($u['id'] ?? '');
+  $watches = $u['watches'] ?? [];
+  if (!is_array($watches) || !$watches || $uid === '') return $watches;
+  $idx = null;
+  foreach ($db['users'] as $i => $uu) if (($uu['id'] ?? '') === $uid) { $idx = $i; break; }
+  if ($idx === null) return $watches;
+  $changed = false;
+  foreach ($db['products'] as $p) {
+    $pid = $p['id'] ?? '';
+    if ($pid === '' || !isset($watches[$pid])) continue;
+    $w = $watches[$pid];
+    $curPrice = (int)(compute_price($p, $R)['total'] ?? 0);
+    $curStock = (int)($p['stock'] ?? 0);
+    $basePrice = isset($w['baselinePrice']) ? (int)$w['baselinePrice'] : $curPrice;
+    $baseStock = isset($w['baselineStock']) ? (int)$w['baselineStock'] : $curStock;
+    $opts = ['priceDrop' => !empty($w['priceDrop']), 'backInStock' => !empty($w['backInStock'])];
+    $fired = false;
+    if ($opts['priceDrop'] && $curPrice < $basePrice) {
+      watch_add_alert($db, [
+        'id' => uid('al'), 'userId' => $uid, 'productId' => $pid, 'type' => 'priceDrop',
+        'message' => $p['name'] . ' price dropped', 'oldPrice' => $basePrice, 'newPrice' => $curPrice,
+        'oldStock' => $baseStock, 'newStock' => $curStock, 'read' => false, 'createdAt' => now_iso(),
+      ]);
+      $w['baselinePrice'] = $curPrice; $fired = true;
+    }
+    if ($opts['backInStock'] && $baseStock <= 0 && $curStock > 0) {
+      watch_add_alert($db, [
+        'id' => uid('al'), 'userId' => $uid, 'productId' => $pid, 'type' => 'backInStock',
+        'message' => $p['name'] . ' is back in stock', 'oldPrice' => $basePrice, 'newPrice' => $curPrice,
+        'oldStock' => $baseStock, 'newStock' => $curStock, 'read' => false, 'createdAt' => now_iso(),
+      ]);
+      $w['baselineStock'] = $curStock; $fired = true;
+    }
+    if (!isset($w['baselinePrice'])) { $w['baselinePrice'] = $curPrice; $changed = true; }
+    if (!isset($w['baselineStock'])) { $w['baselineStock'] = $curStock; $changed = true; }
+    if ($curStock <= 0 && (int)($w['baselineStock'] ?? 1) !== 0) { $w['baselineStock'] = 0; $changed = true; }
+    $w['priceDrop'] = $opts['priceDrop'];
+    $w['backInStock'] = $opts['backInStock'];
+    $w['createdAt'] = $w['createdAt'] ?? now_iso();
+    $w['lastFiredAt'] = $fired ? now_iso() : ($w['lastFiredAt'] ?? null);
+    $watches[$pid] = $w;
+    if ($fired) $changed = true;
+  }
+  $db['users'][$idx]['watches'] = $watches;
+  if ($changed) db_save($DB_FILE, $db);
+  return $watches;
+}
+function watch_scan_all(string $DB_FILE, array &$db, array $R): void {
+  foreach ($db['users'] as $u) watch_scan_user($DB_FILE, $db, $u, $R);
+}
 /* ═════════ router ═════════ */
 $route = $_GET['__route'] ?? '';
 $route = trim((string)$route, '/');
@@ -251,7 +326,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -332,6 +407,8 @@ try {
     if (!empty($_GET['metal'])) $list = array_values(array_filter($list, fn($x) => $x['metal'] === $_GET['metal']));
     if (!empty($_GET['tag'])) $list = array_values(array_filter($list, fn($x) => in_array($_GET['tag'], $x['tags'] ?? [])));
     $R = current_rates($db);
+    $wu = req_user($db);
+    if ($wu) watch_scan_user($DB_FILE, $db, $wu, $R);   // catches price/stock changes even before the customer opens the wishlist
     $out = [];
     foreach ($list as $x) { $y = hallmark_product($x); $y['lessWeightG'] = $y['lessWeightG'] ?? 0; $y['wastagePct'] = $y['wastagePct'] ?? 8; $y['price'] = compute_price($x, $R); $out[] = $y; }
     jout(200, ['products' => $out, 'rates' => current_rates($db)]);
@@ -354,7 +431,9 @@ try {
       try { hallmark_guard_product_write($b); }
       catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
       foreach ($b as $k => $v) $db['products'][$idx][$k] = $v;
-      db_save($DB_FILE, $db); jout(200, hallmark_product($db['products'][$idx]));
+      db_save($DB_FILE, $db);
+      watch_scan_all($DB_FILE, $db, current_rates($db));   // stock edits immediately notify back-in-stock watchers
+      jout(200, hallmark_product($db['products'][$idx]));
     }
     if ($method === 'DELETE') {
       need_admin($db);
@@ -457,7 +536,7 @@ try {
     foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower($b['email'])) jout(409, ['error' => 'Email already registered']);
     $u = ['id' => uid('u'), 'name' => $b['name'], 'email' => strtolower($b['email']), 'phone' => $phone,
           'passHash' => pw_hash((string)$b['password']), 'role' => 'customer',
-          'loyaltyPoints' => 120, 'wishlist' => [], 'createdAt' => now_iso()];
+          'loyaltyPoints' => 120, 'wishlist' => [], 'watches' => [], 'createdAt' => now_iso()];
     $db['users'][] = $u; $tk = issue_token($db, $u);
     db_save($DB_FILE, $db); jout(200, ['token' => $tk, 'user' => pub_user($u)]);
   }
@@ -545,25 +624,73 @@ try {
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'addresses' => $out['addresses'] ?? []]);
   }
 
-  /* ── wishlist ── */
+  /* ── wishlist + feature 3 watch a product ── */
   if ($route === 'wishlist' && $method === 'GET') {
     $u = req_user($db);
     $w = $u ? ($u['wishlist'] ?? []) : [];
-    $R = current_rates($db); $items = [];
+    $R = current_rates($db);
+    $watches = [];
+    if ($u) $watches = watch_scan_user($DB_FILE, $db, $u, $R);
+    $items = [];
     foreach ($db['products'] as $x) if (in_array($x['id'], $w)) { $y = hallmark_product($x); $y['price'] = compute_price($x, $R); $items[] = $y; }
-    jout(200, ['wishlist' => $w, 'items' => $items]);
+    $alerts = [];
+    if ($u) {
+      $alerts = watch_unread($db, $u['id']);
+      $R2 = current_rates($db);
+      foreach ($alerts as &$a) {
+        $a['product'] = null;
+        foreach ($db['products'] as $x) if ($x['id'] === ($a['productId'] ?? '')) { $a['product'] = watch_product_info($x, $R2); break; }
+      }
+    }
+    jout(200, ['wishlist' => $w, 'items' => $items, 'watches' => $watches, 'alerts' => $alerts]);
   }
   if ($route === 'wishlist' && $method === 'POST') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
     $b = body_json();
+    $id = (string)($b['id'] ?? '');
+    if ($id === '') jout(400, ['error' => 'Product id required']);
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
       $uu['wishlist'] = $uu['wishlist'] ?? [];
-      if (!empty($b['add']) && !in_array($b['id'], $uu['wishlist'])) $uu['wishlist'][] = $b['id'];
-      if (empty($b['add'])) $uu['wishlist'] = array_values(array_filter($uu['wishlist'], fn($x) => $x !== $b['id']));
-      $w = $uu['wishlist'];
+      $uu['watches'] = $uu['watches'] ?? [];
+      if (!empty($b['add'])) {
+        if (!in_array($id, $uu['wishlist'])) $uu['wishlist'][] = $id;
+        if (isset($b['watch']) && is_array($b['watch'])) {
+          $w = $uu['watches'][$id] ?? ['createdAt' => now_iso()];
+          foreach (['priceDrop', 'backInStock'] as $k) $w[$k] = !empty($b['watch'][$k]);
+          foreach ($db['products'] as $p) if ($p['id'] === $id) {
+            $pr = compute_price($p, current_rates($db));
+            $w['baselineStock'] = (int)($p['stock'] ?? 0);
+            $w['baselinePrice'] = (int)($pr['total'] ?? 0);
+            $w['productId'] = $id;
+            break;
+          }
+          $uu['watches'][$id] = $w;
+        }
+      } else {
+        $uu['wishlist'] = array_values(array_filter($uu['wishlist'], fn($x) => $x !== $id));
+        unset($uu['watches'][$id]);
+      }
+      $w = $uu['wishlist']; $watches = $uu['watches'];
     }
-    db_save($DB_FILE, $db); jout(200, ['wishlist' => $w ?? []]);
+    db_save($DB_FILE, $db);
+    jout(200, ['wishlist' => $w ?? [], 'watches' => $watches ?? [], 'alerts' => watch_unread($db, $u['id'])]);
+  }
+  if ($route === 'watch/alerts' && $method === 'GET') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $R = current_rates($db);
+    $watches = watch_scan_user($DB_FILE, $db, $u, $R);
+    $alerts = watch_unread($db, $u['id']);
+    foreach ($alerts as &$a) {
+      $a['product'] = null;
+      foreach ($db['products'] as $x) if ($x['id'] === ($a['productId'] ?? '')) { $a['product'] = watch_product_info($x, $R); break; }
+    }
+    jout(200, ['alerts' => $alerts, 'watches' => $watches]);
+  }
+  if ($route === 'watch/alerts/read' && $method === 'POST') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    foreach ($db['alerts'] as &$a) if (($a['userId'] ?? '') === $u['id']) $a['read'] = true;
+    db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
 
   /* ── coupons ── */
@@ -641,6 +768,7 @@ try {
   if ($route === 'orders' && $method === 'GET') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
+    if ($u['role'] !== 'admin') watch_scan_user($DB_FILE, $db, $u, current_rates($db));
     $list = $u['role'] === 'admin' ? $db['orders'] : array_values(array_filter($db['orders'], fn($o) => $o['userId'] === $u['id']));
     jout(200, ['orders' => array_reverse(array_values($list))]);
   }
@@ -894,7 +1022,7 @@ try {
     $db['partners'][] = $pr;
     $u = ['id' => uid('u'), 'name' => $b['firm'], 'email' => strtolower($b['email']), 'phone' => $b['phone'],
           'passHash' => pw_hash((string)$b['password']), 'role' => 'partner', 'partnerId' => $pr['id'],
-          'loyaltyPoints' => 0, 'wishlist' => [], 'createdAt' => now_iso()];
+          'loyaltyPoints' => 0, 'wishlist' => [], 'watches' => [], 'createdAt' => now_iso()];
     $db['users'][] = $u;
     $tk = issue_token($db, $u);
     db_save($DB_FILE, $db);

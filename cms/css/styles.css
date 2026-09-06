@@ -4566,3 +4566,74 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 @media(max-width:380px){
   .header-top .header-actions #acctBtn,.header-top .header-actions #wishBtn{display:none}
 }
+
+/* ═══════════════ v42 · Feature 3 — watchlist + price-drop / back-in-stock alerts ═══════════════ */
+.badge-alert{top:20px;right:0;background:var(--bad)}
+.pc-watch{position:absolute;top:54px;right:10px;width:38px;height:38px;border-radius:50%;background:rgba(255,253,249,.94);display:flex;align-items:center;justify-content:center;color:var(--ink-3);transition:.25s;z-index:2;box-shadow:var(--sh-1)}
+.pc-watch:hover{color:var(--emerald);transform:scale(1.1)}
+.pc-watch.on{color:#fff;background:linear-gradient(135deg,var(--emerald),var(--emerald-2));box-shadow:0 7px 18px rgba(15,91,70,.32)}
+.pc-watch svg{width:18px;height:18px}
+.pc-watch.on svg{fill:rgba(255,255,255,.18)}
+.pd-watch.on{background:var(--emerald-soft);border-color:var(--emerald);color:var(--emerald)}
+.watch-modal h3{margin:18px 0 6px;font-size:26px}
+.watch-modal .wm-product{display:flex;align-items:center;gap:14px;background:var(--cream);border:1px solid var(--line);border-radius:18px;padding:12px 14px}
+.watch-modal .wm-product img{width:58px;height:58px;border-radius:13px;object-fit:cover}
+.watch-modal .wm-product b{display:block;font-family:var(--ff-disp);font-size:18px;color:var(--maroon-deep)}
+.watch-modal .wm-product small{color:var(--ink-3);font-size:12.5px}
+.wtoggle{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1.5px solid var(--line);border-radius:16px;margin:10px 0;cursor:pointer;background:var(--white);transition:.22s}
+.wtoggle:hover{border-color:var(--gold-soft)}
+.wtoggle.on{border-color:var(--gold);background:var(--gold-faint)}
+.wt-ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--cream-2);color:var(--ink-2);font-size:19px}
+.wtoggle.on .wt-ic{background:var(--gold);color:#fff}
+.wt-tx{flex:1;min-width:0}
+.wt-tx b{display:block;font-size:15px;color:var(--ink)}
+.wt-tx small{color:var(--ink-3);font-size:12.5px}
+.wt-sw{position:relative;flex:none;width:46px;height:27px;border-radius:20px;background:var(--line);transition:.22s}
+.wt-sw::after{content:'';position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:var(--sh-1);transition:.22s}
+.wtoggle.on .wt-sw{background:var(--emerald)}
+.wtoggle.on .wt-sw::after{left:22px}
+.watch-alert-strip{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,var(--maroon-deep),var(--maroon));color:#f9ecd2;border-radius:18px;padding:16px 20px;box-shadow:var(--sh-2);transition:transform .25s var(--ease)}
+.watch-alert-strip:hover{transform:translateY(-2px)}
+.watch-alert-strip .was-ic{font-size:26px}
+.watch-alert-strip b{display:block;font-family:var(--ff-disp);font-size:20px;color:#fff3d0}
+.watch-alert-strip small{display:block;color:rgba(249,236,210,.75);font-size:13px}
+.watch-alert-strip .was-go{margin-left:auto;font-size:22px}
+.watch-alerts{margin-bottom:38px;padding:26px;border-radius:var(--r-lg);background:var(--white);border:1px solid var(--line);box-shadow:var(--sh-1)}
+.watch-alert-list{display:grid;gap:12px}
+.watch-alert-card{display:flex;align-items:center;gap:14px;padding:13px 14px;border-radius:18px;border:1px solid var(--line);background:var(--cream)}
+.watch-alert-card.price{border-left:4px solid var(--gold)}
+.watch-alert-card.stock{border-left:4px solid var(--emerald)}
+.wac-ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:none;background:var(--gold-faint);color:var(--gold)}
+.watch-alert-card.stock .wac-ic{background:var(--emerald-soft);color:var(--emerald)}
+.wac-img{width:52px;height:52px;border-radius:12px;overflow:hidden;flex:none;background:var(--cream-2)}
+.wac-img img{width:100%;height:100%;object-fit:cover}
+.wac-ph{width:100%;height:100%;display:grid;place-items:center;color:var(--gold);font-size:22px}
+.wac-body{flex:1;min-width:0}
+.wac-body b{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--emerald)}
+.watch-alert-card.price .wac-body b{color:var(--gold)}
+.wac-body h4{font-family:var(--ff-disp);font-size:18px;color:var(--maroon-deep);margin:2px 0 3px;line-height:1.2}
+.wac-body small{color:var(--ink-3);font-size:12px;display:block}
+.wac-rate{margin-top:6px;font-size:14px;color:var(--ink)}
+.wac-rate s{color:var(--ink-3);margin-left:8px}
+.watch-panel{margin-top:34px;padding:26px;border-radius:var(--r-lg);background:var(--white);border:1px solid var(--line);box-shadow:var(--sh-1)}
+.wp-head{margin-bottom:18px}
+.wp-head h3{font-size:28px;margin-top:6px}
+.wp-head p{color:var(--ink-3);font-size:13.5px;margin-top:5px}
+.watch-rows{display:grid;gap:10px}
+.watch-row{display:grid;grid-template-columns:60px 1fr auto auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--cream)}
+.wr-img{width:60px;height:60px;border-radius:13px;overflow:hidden;background:var(--cream-2)}
+.wr-img img{width:100%;height:100%;object-fit:cover}
+.wr-name{min-width:0}
+.wr-name b{display:block;font-family:var(--ff-disp);font-size:17px;color:var(--maroon-deep);line-height:1.2}
+.wr-name small{color:var(--ink-3);font-size:12px}
+.wt-btn{font:600 11.5px/1 var(--ff-label);letter-spacing:.1em;text-transform:uppercase;padding:10px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--white);color:var(--ink-3);transition:.2s;white-space:nowrap}
+.wt-btn:hover{border-color:var(--gold);color:var(--gold)}
+.wt-btn.on{background:var(--emerald);border-color:var(--emerald);color:#fff;box-shadow:0 6px 16px rgba(15,91,70,.24)}
+@media(max-width:760px){
+  .watch-alert-strip{gap:10px;padding:14px 16px;border-radius:15px}.watch-alert-strip .was-ic{font-size:22px}.watch-alert-strip b{font-size:17px}.watch-alert-strip small{font-size:12px}
+  .watch-alerts{padding:20px 16px}.watch-alert-card{gap:10px;padding:11px 10px}.wac-img{width:46px;height:46px}.wac-body h4{font-size:16px}
+  .watch-panel{padding:20px 16px}.wp-head h3{font-size:24px}
+  .watch-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:11px 12px}.wr-img{width:48px;height:48px;flex:0 0 auto}.wr-name{flex:1 1 calc(100% - 58px);min-width:0}.wt-btn{width:auto;padding:9px 12px}
+  .pc-watch{top:52px;right:8px;width:36px;height:36px}
+}
+@media(prefers-reduced-motion:reduce){.pc-watch,.wtoggle,.wtoggle.on,.wt-sw,.wt-sw::after,.watch-alert-strip{transition:none!important}.watch-alert-strip:hover{transform:none}}

@@ -98,6 +98,9 @@ const state = {
   user: null, rates: null, settings: null, mcTable: [],
   cart: store.get('shv_cart', []),            // [{id, qty, size, engraving}]
   localWish: store.get('shv_wish', []),
+  localWatch: store.get('shv_watch', {}),     // feature 3 — guest watch prefs (logged out only)
+  guestAlerts: store.get('shv_guestAlerts', []),
+  watchData: { wishlist: [], items: [], watches: {}, alerts: [], loadedAt: 0 },
   compare: store.get('shv_compare', []),      // product ids, max 4 — local shortlist only
   productsCache: [], cacheAt: 0,
 };
@@ -412,11 +415,153 @@ function updateBadges() {
 }
 async function refreshWishBadge() {
   let wl = state.localWish;
-  if (state.user) { try { const r = await api('/api/wishlist'); wl = r.wishlist; } catch (e) {} }
+  if (state.user) { try { await ensureWatchData(); wl = state.watchData.wishlist; } catch (e) {} }
   const wc = $('#wishCount'); if (wc) { wc.textContent = wl.length; wc.hidden = !wl.length; }
+  const ac = $('#watchAlertCount');
+  if (ac) { const n = state.user ? (state.watchData.alerts || []).filter(a => state.watchData.wishlist.includes(a.productId)).length : (state.guestAlerts || []).filter(a => state.localWish.includes(a.productId)).length; ac.textContent = n; ac.hidden = !n; }
 }
 function cartCount() { return state.cart.reduce((a, i) => a + i.qty, 0); }
 const isPartner = () => !!(state.user && (state.user.role === 'partner' || state.user.role === 'admin'));
+
+/* ── Feature 3 — watch a product (price-drop + back-in-stock alerts) ──
+   Front-end plumbing for the wishlist alerts. Logged-in prefs live in the
+   server (`watches`); guests keep the same shape in localStorage so the
+   wishlist page behaves identically before an account is created. */
+async function ensureWatchData(force = false) {
+  if (!state.user) return;
+  if (!force && state.watchData.loadedAt && Date.now() - state.watchData.loadedAt < 30000) return;
+  try {
+    const r = await api('/api/wishlist');
+    state.watchData = { wishlist: r.wishlist || [], items: r.items || [], watches: r.watches || {}, alerts: r.alerts || [], loadedAt: Date.now() };
+  } catch (e) { /* session cleared by api() on 401 */ }
+}
+function watchFor(id) {
+  const w = state.user ? (state.watchData.watches || {})[id] : state.localWatch[id];
+  return w && (w.priceDrop || w.backInStock) ? w : null;
+}
+function syncWatchButtons(id) {
+  const on = !!watchFor(id);
+  $$(`.pc-watch[data-pid="${id}"], .pd-watch[data-pid="${id}"]`).forEach(b => {
+    b.classList.toggle('on', on);
+    const l = b.querySelector('[data-watch-label]');
+    if (l) l.textContent = on ? 'Watching' : 'Watch';
+  });
+}
+function setGuestWatch(id, opts, p) {
+  p = p || state.productsCache.find(x => x.id === id);
+  if (!p) return;
+  const w = state.localWatch[id] || { productId: id, createdAt: new Date().toISOString() };
+  w.priceDrop = !!opts.priceDrop;
+  w.backInStock = !!opts.backInStock;
+  if (!Number.isFinite(w.baselinePrice)) w.baselinePrice = price(p).total;
+  if (!Number.isFinite(w.baselineStock)) w.baselineStock = +p.stock || 0;
+  state.localWatch[id] = w;
+  store.set('shv_watch', state.localWatch);
+}
+function guestWatchScan() {
+  if (state.user) return;
+  state.guestAlerts = store.get('shv_guestAlerts', []) || [];
+  let changed = false;
+  state.localWish.forEach(id => {
+    const w = state.localWatch[id]; if (!w) return;
+    const p = state.productsCache.find(x => x.id === id); if (!p) return;
+    const cur = price(p);
+    if (!Number.isFinite(w.baselinePrice)) w.baselinePrice = cur.total;
+    if (!Number.isFinite(w.baselineStock)) w.baselineStock = +p.stock || 0;
+    if (w.priceDrop && Number.isFinite(w.baselinePrice) && cur.total < w.baselinePrice) {
+      state.guestAlerts.push({ id: 'ga_' + Date.now() + '_' + id, type: 'priceDrop', productId: id,
+        message: p.name + ' price dropped', oldPrice: w.baselinePrice, newPrice: cur.total, oldStock: w.baselineStock, newStock: p.stock, read: false, createdAt: new Date().toISOString() });
+      w.baselinePrice = cur.total; changed = true;
+    }
+    if (+p.stock <= 0 && (w.baselineStock || 0) !== 0) { w.baselineStock = 0; changed = true; }
+    if (w.backInStock && (w.baselineStock || 0) <= 0 && +p.stock > 0) {
+      state.guestAlerts.push({ id: 'ga_' + Date.now() + '_' + id, type: 'backInStock', productId: id,
+        message: p.name + ' is back in stock', oldPrice: w.baselinePrice, newPrice: cur.total, oldStock: w.baselineStock, newStock: p.stock, read: false, createdAt: new Date().toISOString() });
+      w.baselineStock = +p.stock; changed = true;
+    }
+    state.localWatch[id] = w;
+  });
+  if (changed) { store.set('shv_watch', state.localWatch); state.guestAlerts = state.guestAlerts.slice(-30); store.set('shv_guestAlerts', state.guestAlerts); }
+}
+function openWatchModal(id, p) {
+  p = p || state.productsCache.find(x => x.id === id) || (window._pd && window._pd.p && window._pd.p.id === id ? window._pd.p : null);
+  if (!p) return toast('Could not load this piece — try again', 'err');
+  const w = watchFor(id) || {};
+  const cur = price(p);
+  openModal(`
+  <div class="wa-modal watch-modal">
+    <div class="wm-product">
+      <img src="${p.images[0]}" alt="${esc(p.name)}">
+      <div><b>${esc(p.name)}</b><small>${fmt(cur.total)} · ${p.stock > 0 ? p.stock + ' in stock' : 'currently out of stock'}</small></div>
+    </div>
+    <h3>Watch this piece</h3>
+    <p class="sub">Keep it in your wishlist and we'll raise a bell when the price or stock changes.</p>
+    <div class="wtoggle ${w.priceDrop ? 'on' : ''}" data-k="priceDrop" role="button" tabindex="0">
+      <span class="wt-ic">↓</span><span class="wt-tx"><b>Price drop</b><small>Tell me when this piece gets cheaper</small></span><span class="wt-sw"></span>
+    </div>
+    <div class="wtoggle ${w.backInStock ? 'on' : ''}" data-k="backInStock" role="button" tabindex="0">
+      <span class="wt-ic">↺</span><span class="wt-tx"><b>Back in stock</b><small>Tell me when it returns to the vault</small></span><span class="wt-sw"></span>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="Shivaa.saveWatch('${id}')">Save my watch alerts</button>
+  </div>`);
+  $$('.wtoggle', $('#modalBox')).forEach(t => {
+    t.onclick = () => t.classList.toggle('on');
+    t.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.classList.toggle('on'); } };
+  });
+}
+window.Shivaa.watchProduct = id => openWatchModal(id);
+window.Shivaa.saveWatch = async id => {
+  const priceDrop = !!$('.wtoggle[data-k="priceDrop"]')?.classList.contains('on');
+  const backInStock = !!$('.wtoggle[data-k="backInStock"]')?.classList.contains('on');
+  if (!priceDrop && !backInStock) return toast('Turn on at least one alert', 'err');
+  const opts = { priceDrop, backInStock };
+  if (!state.user) {
+    setGuestWatch(id, opts);
+    syncWatchButtons(id);
+    closeModal();
+    toast('Saved ✦ we will alert you in your wishlist');
+    pages.wishlist && location.hash === '#/wishlist' && pages.wishlist($('#view'));
+    return;
+  }
+  try {
+    const r = await api('/api/wishlist', { method: 'POST', body: JSON.stringify({ id, add: true, watch: opts }) });
+    state.watchData.wishlist = r.wishlist || state.watchData.wishlist;
+    state.watchData.watches = r.watches || {};
+    state.watchData.alerts = r.alerts || [];
+    state.watchData.loadedAt = Date.now();
+    syncWatchButtons(id);
+    refreshWishBadge();
+    closeModal();
+    toast(priceDrop && backInStock ? 'Alerts on — price drop + back in stock' : 'Alert saved ✦');
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.watchKey = async (id, key) => {
+  const w = state.user ? (state.watchData.watches[id] || {}) : (state.localWatch[id] || {});
+  w[key] = !w[key];
+  if (state.user) {
+    try {
+      const r = await api('/api/wishlist', { method: 'POST', body: JSON.stringify({ id, add: true, watch: { priceDrop: !!w.priceDrop, backInStock: !!w.backInStock } }) });
+      state.watchData.watches = r.watches || {};
+      state.watchData.wishlist = r.wishlist || state.watchData.wishlist;
+    } catch (e) { return toast(e.message, 'err'); }
+  } else {
+    const cur = state.productsCache.find(x => x.id === id);
+    setGuestWatch(id, { priceDrop: !!w.priceDrop, backInStock: !!w.backInStock }, cur);
+  }
+  syncWatchButtons(id);
+  toast(key === 'priceDrop' ? (w.priceDrop ? 'Price-drop alert on' : 'Price-drop alert off') : (w.backInStock ? 'Back-in-stock alert on' : 'Back-in-stock alert off'));
+  pageWishRefresh();
+};
+window.Shivaa.markWatchAlerts = async () => {
+  if (state.user) {
+    try { await api('/api/watch/alerts/read', { method: 'POST', body: JSON.stringify({}) }); } catch (e) {}
+    state.watchData.alerts = [];
+  } else {
+    state.guestAlerts = []; store.set('shv_guestAlerts', []);
+  }
+  refreshWishBadge();
+  pageWishRefresh();
+};
 
 /* ── v35 — partner portal always reachable ──
    Once a jeweller is signed in, the portal is one tap away from EVERY page:
@@ -448,16 +593,37 @@ function addToCart(id, qty = 1, size = null, engraving = null) {
   updateBadges(); toast('Added to cart');
 }
 async function toggleWish(id) {
+  const p = state.productsCache.find(x => x.id === id) || (window._pd && window._pd.p && window._pd.p.id === id ? window._pd.p : null);
   if (!state.user) {
-    state.localWish = state.localWish.includes(id) ? state.localWish.filter(x => x !== id) : [...state.localWish, id];
-    store.set('shv_wish', state.localWish); refreshWishBadge();
-    $$('.pc-wish[data-pid="' + id + '"]').forEach(b => b.classList.toggle('on'));
+    const on = state.localWish.includes(id);
+    if (on) {
+      state.localWish = state.localWish.filter(x => x !== id);
+      delete state.localWatch[id];
+      state.guestAlerts = (state.guestAlerts || []).filter(a => a.productId !== id);
+      store.set('shv_wish', state.localWish); store.set('shv_watch', state.localWatch); store.set('shv_guestAlerts', state.guestAlerts);
+      refreshWishBadge(); syncWatchButtons(id);
+      $$('.pc-wish[data-pid="' + id + '"]').forEach(b => b.classList.remove('on'));
+      toast('Removed from wishlist');
+    } else {
+      state.localWish = [...state.localWish, id];
+      store.set('shv_wish', state.localWish); refreshWishBadge(); syncWatchButtons(id);
+      $$('.pc-wish[data-pid="' + id + '"]').forEach(b => b.classList.add('on'));
+      toast('Saved to wishlist');
+      openWatchModal(id, p);
+    }
     return;
   }
   const on = $$(`.pc-wish[data-pid="${id}"]`)[0]?.classList.contains('on');
-  await api('/api/wishlist', { method: 'POST', body: JSON.stringify({ id, add: !on }) });
+  const r = await api('/api/wishlist', { method: 'POST', body: JSON.stringify({ id, add: !on }) });
+  state.watchData.wishlist = r.wishlist || state.watchData.wishlist.filter(x => x !== id);
+  state.watchData.watches = r.watches || {};
+  state.watchData.alerts = r.alerts || state.watchData.alerts;
+  state.watchData.loadedAt = Date.now();
   $$(`.pc-wish[data-pid="${id}"]`).forEach(b => b.classList.toggle('on', !on));
-  refreshWishBadge(); toast(!on ? 'Saved to wishlist' : 'Removed from wishlist');
+  syncWatchButtons(id);
+  refreshWishBadge();
+  if (on) { delete state.watchData.watches[id]; toast('Removed from wishlist'); }
+  else { toast('Saved to wishlist'); openWatchModal(id, p); }
 }
 const isWished = id => state.user ? null : state.localWish.includes(id); // null = unknown(server), handled in card
 
@@ -726,6 +892,9 @@ function productCard(p, opts = {}) {
     <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
     </button>
+    <button class="pc-watch ${watchFor(p.id) ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.watchProduct('${p.id}')" aria-label="Watch price & stock alerts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a5 5 0 0 0-5 5v3l-2 4h14l-2-4V8a5 5 0 0 0-5-5z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+    </button>
     <div class="pc-body">
       <div class="pc-cat">${CATS[p.category] ? CATS[p.category].name : p.category} · ${p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold'}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
@@ -867,7 +1036,9 @@ pages.home = async (view) => {
   const news = state.productsCache.filter(p => p.tags && p.tags.includes('new')).slice(0, 8);
   const spot = state.productsCache.find(p => p.id === 'p_aara') || state.productsCache[0];
   const spotPr = spot ? price(spot) : null;
+  if (!state.user) { try { guestWatchScan(); } catch (e) {} }
   const wishSet = state.user ? await wishIds() : [];
+  const wkAlerts = state.user ? (state.watchData.alerts || []).filter(a => state.watchData.wishlist.includes(a.productId)) : (state.guestAlerts || []).filter(a => state.localWish.includes(a.productId));
   view.innerHTML = `
   <section class="hero">
     <div class="hero-img"></div><div class="hero-fade"></div>
@@ -963,6 +1134,8 @@ pages.home = async (view) => {
   </section>
 
   <section class="rate-strip"><div class="container rate-strip-in" id="rateStrip"></div></section>
+
+  ${wkAlerts.length ? `<section class="container" style="padding:22px 0 0"><a class="watch-alert-strip" href="#/wishlist"><span class="was-ic">🔔</span><span><b>${wkAlerts.length} watch alert${wkAlerts.length === 1 ? '' : 's'}</b><small>a piece you're watching just dropped or came back — see it in your wishlist</small></span><span class="was-go">→</span></a></section>` : ''}
 
   <section class="sec container" style="padding-bottom:26px">
     <div class="sec-head rv" style="margin-bottom:22px"><span class="label">Shop by category</span><h2>Find your <span class="disp-italic">forever</span></h2></div>
@@ -1254,6 +1427,7 @@ pages.product = async (view, q, id) => {
   try { data = await api('/api/products/' + id); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
   const p = data.product, pr = price(p), R = data.rates || state.rates;
   const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
+  const watch = watchFor(p.id) || {};
   const compared = isCompared(p.id);
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
   view.innerHTML = `
@@ -1324,6 +1498,7 @@ pages.product = async (view, q, id) => {
         <div class="pd-cta-row">
           <button class="btn btn-outline" onclick="Shivaa.pdAdd('${p.id}')">🛍 Add to Cart</button>
           <button class="btn btn-ghost wa-order" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat to Order</button>
+          <button type="button" class="btn btn-outline pd-watch ${watch.priceDrop || watch.backInStock ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.watchProduct('${p.id}')" aria-label="Watch price & stock alerts">🔔 <span data-watch-label>${(watch.priceDrop || watch.backInStock) ? 'Watching' : 'Watch'}</span></button>
           <button type="button" class="btn btn-outline pd-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">⚖ <span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span></button>
         </div>
         <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'}">${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</div>
@@ -1722,8 +1897,9 @@ pages.account = async (view, q) => {
   let orders = [], wl = [];
   try { orders = (await api('/api/orders')).orders || []; }
   catch (e) { if (!state.user) { openLogin('account'); return; } }
-  try { wl = (await api('/api/wishlist')).wishlist || []; }
+  try { await ensureWatchData(true); wl = state.watchData.wishlist || []; }
   catch (e) { if (!state.user) { openLogin('account'); return; } }
+  const wAlerts = (state.watchData.alerts || []).filter(a => wl.includes(a.productId)).length;
   const tier = me.loyaltyPoints > 5000 ? 'Gold' : me.loyaltyPoints > 2000 ? 'Silver' : 'Bronze';
   const initials = me.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const prof = me.profile || {};
@@ -1736,7 +1912,7 @@ pages.account = async (view, q) => {
     ['orders', '▦', 'My Orders', orders.length + ' order' + (orders.length === 1 ? '' : 's')],
     ['addresses', '⌖', 'Manage Addresses', nAdr ? nAdr + ' saved · deliveries & billing' : 'Add delivery addresses'],
     ['loyalty', '✦', 'Royalty Points', me.loyaltyPoints + ' pts · ' + tier + ' tier'],
-    ['wishlist', '♡', 'My Wishlist', wl.length + ' saved piece' + (wl.length === 1 ? '' : 's')],
+    ['wishlist', '♡', 'My Wishlist', wl.length + ' saved piece' + (wl.length === 1 ? '' : 's') + (wAlerts ? ' · 🔔 ' + wAlerts + ' alert' + (wAlerts === 1 ? '' : 's') : '')],
   ];
 
   view.innerHTML = `
@@ -1878,15 +2054,63 @@ window.Shivaa.addrDel = async id => {
     state.user.addresses = r.addresses; toast('Address deleted'); pages.account($('#view'), new URLSearchParams('tab=addresses')); }
   catch (e) { toast(e.message, 'err'); }
 };
+function alertCardHTML(a) {
+  const isPrice = a.type === 'priceDrop';
+  const p = a.product || {};
+  const oldV = isPrice ? (a.oldPrice || 0) : (a.oldStock || 0);
+  const newV = isPrice ? (a.newPrice || 0) : (a.newStock || 0);
+  const dropPct = a.oldPrice ? Math.round((1 - a.newPrice / a.oldPrice) * 100) : 0;
+  return `<div class="watch-alert-card ${isPrice ? 'price' : 'stock'}">
+    <div class="wac-ic">${isPrice ? '↓' : '↺'}</div>
+    <a href="#/product/${esc(a.productId)}" class="wac-img">${p.img ? `<img src="${p.img}" alt="">` : '<div class="wac-ph">✦</div>'}</a>
+    <div class="wac-body">
+      <b>${isPrice ? 'Price dropped' : 'Back in stock'}</b>
+      <a href="#/product/${esc(a.productId)}"><h4>${esc(a.message || 'A piece you watch changed')}</h4></a>
+      <small>${isPrice ? (dropPct ? `${dropPct}% lower` : 'new lower price') : `stock is back at ${newV} left`}</small>
+      <div class="wac-rate">${isPrice ? `${fmt(newV)} <s>${fmt(oldV)}</s>` : `<b style="color:var(--ok)">${newV} left</b>`}</div>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="#/product/${esc(a.productId)}">View</a>
+  </div>`;
+}
+function watchPanelHTML(items, watches, wl) {
+  if (!items.length) return '';
+  return `<div class="watch-panel"><div class="wp-head"><div><span class="label">Watch preferences</span><h3>Price-drop &amp; back-in-stock bells</h3><p>We check every time you open the site. Alerts appear here and stay until you dismiss them.</p></div></div>
+    <div class="watch-rows">${items.map(p => {
+      const w = watches[p.id] || {};
+      const cur = price(p);
+      return `<div class="watch-row">
+        <a class="wr-img" href="#/product/${p.id}"><img src="${p.images[0]}" loading="lazy" alt=""></a>
+        <div class="wr-name"><a href="#/product/${p.id}"><b>${esc(p.name)}</b></a><small>${fmt(cur.total)} · ${p.stock > 0 ? p.stock + ' in stock' : 'out of stock'}</small></div>
+        <button class="wt-btn ${w.priceDrop ? 'on' : ''}" data-wk="priceDrop" data-id="${p.id}" onclick="Shivaa.watchKey('${p.id}','priceDrop')">↓ Price drop</button>
+        <button class="wt-btn ${w.backInStock ? 'on' : ''}" data-wk="backInStock" data-id="${p.id}" onclick="Shivaa.watchKey('${p.id}','backInStock')">↺ Back in stock</button>
+      </div>`;
+    }).join('')}</div></div>`;
+}
+async function pageWishRefresh() {
+  if (location.hash !== '#/wishlist') return;
+  pages.wishlist($('#view'));
+}
 pages.wishlist = async (view) => {
-  let items = [], wl = [];
-  if (state.user) { const r = await api('/api/wishlist'); wl = r.wishlist; items = r.items; }
-  else { wl = state.localWish; items = state.productsCache.filter(p => state.localWish.includes(p.id)); }
+  let items = [], wl = [], watches = {}, alerts = [];
+  if (state.user) {
+    await ensureWatchData(true);
+    wl = state.watchData.wishlist; items = state.watchData.items;
+    watches = state.watchData.watches || {};
+    alerts = (state.watchData.alerts || []).filter(a => wl.includes(a.productId));
+  } else {
+    guestWatchScan();
+    wl = state.localWish; items = state.productsCache.filter(p => state.localWish.includes(p.id));
+    watches = state.localWatch; alerts = (state.guestAlerts || []).filter(a => state.localWish.includes(a.productId));
+  }
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Wishlist</div><h1>Wishlist</h1><p>${items.length} saved piece${items.length === 1 ? '' : 's'}${state.user ? '' : ' · login to sync across devices'}</p></div></section>
   <div class="container" style="padding:44px 0 90px">
+    ${alerts.length ? `<div class="watch-alerts"><div class="sec-head" style="margin-bottom:18px;text-align:left"><span class="label">Alerts</span><h2>Watch bells</h2><p style="color:var(--ink-3);font-size:14px;margin-top:4px">Something you're watching just changed.</p></div>
+      <div class="watch-alert-list">${alerts.map(alertCardHTML).join('')}</div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:14px" onclick="Shivaa.markWatchAlerts()">✓ Mark all seen</button></div>` : ''}
     ${items.length ? `<div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
     : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Nothing saved yet</h3><p style="margin:10px 0 20px">Tap the heart on any piece to keep it here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+    ${watchPanelHTML(items, watches, wl)}
   </div>`;
 };
 
@@ -4137,8 +4361,8 @@ function decorate5D() {
 
 /* ─────────── boot ─────────── */
 async function wishIds() {
-  if (!state.user) return [];
-  try { return (await api('/api/wishlist')).wishlist; } catch (e) { return []; }
+  await ensureWatchData();
+  return state.user ? state.watchData.wishlist : [];
 }
 async function boot(isRedraw) {
   // parallel initial fetches
