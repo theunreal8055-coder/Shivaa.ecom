@@ -11,6 +11,7 @@ $ROOT = __DIR__;
 $DB_FILE = $ROOT . '/data/db.json';
 $CAT_DIR = $ROOT . '/uploads/catalogs';
 require_once __DIR__ . '/hallmark.php';
+require_once __DIR__ . '/trust.php';
 require_once __DIR__ . '/sms.php';   // v33 — OTP SMS delivery plug-in (no-op in demo mode)
 
 /* ───────── helpers ───────── */
@@ -238,6 +239,15 @@ $route = $_GET['__route'] ?? '';
 $route = trim((string)$route, '/');
 $method = $_SERVER['REQUEST_METHOD'];
 hallmark_public_route($route, $method);
+// Feature 2: current allowlisted settings only, before any legacy schema/rate
+// defaults are added. This route is read-only and never queries a registry.
+if ($route === 'trust') {
+  if ($method !== 'GET') {
+    header('Allow: GET');
+    jout(405, ['error' => 'Business details are read-only.']);
+  }
+  jout(200, trust_profile(db_load($DB_FILE)));
+}
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];

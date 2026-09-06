@@ -33,16 +33,20 @@ python3 ../pipeline/06_upload.py --all                          # then live
 
 ## Feature roadmap
 
-Compare + Shareable Shortlist (Feature 13) is preserved. Feature 1 adds a
-real-data-only HUID guide at `#/hallmark`, explicit unverified product states,
-and an optional admin piece-reference editor. **Automatic live BIS verification
-is not connected**; customers complete the official lookup in BIS Care. No
-HUIDs, verification results or certificates are generated or seeded.
+- **Feature 13 — Compare + Shareable Shortlist:** preserved and regression-tested.
+- **Feature 1 — HUID workflow:** released through PR #5; public live deployment
+  confirmed. **Automatic BIS verification is not connected**. The guide at
+  `#/hallmark` hands off to official BIS Care; recorded references stay unverified.
+- **Feature 2 — Why Trust Shivaa:** implemented at `#/trust`, using the existing
+  owner-confirmed CIN, UDYAM and address. **GSTIN and certificate files remain
+  empty.** Its business profile is not a government-verification result.
+  Publication/live confirmation is tracked in the roadmap ledger.
 
-See [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md) and
-[`docs/FEATURE-01-HUID.md`](docs/FEATURE-01-HUID.md) for release limits, API
-contracts, tests and the authorised-integration prerequisites. UI assets are
-now v39; database/media are unchanged by this feature.
+See [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md),
+[`docs/FEATURE-01-HUID.md`](docs/FEATURE-01-HUID.md) and
+[`docs/FEATURE-02-TRUST.md`](docs/FEATURE-02-TRUST.md). UI assets are now v40;
+no catalogue, supplier, registration or certificate data was generated or seeded
+by these features. Work stops after Feature 2 until the next original spec.
 
 ## Docs
 `docs/DEPLOY-v37.md` (update + fresh-install steps) ·

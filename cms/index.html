@@ -8,9 +8,10 @@
 <link rel="icon" type="image/png" href="/images/favicon.png">
 <meta name="theme-color" content="#1d0509">
 <link rel="apple-touch-icon" href="/images/logo.png">
-<link rel="stylesheet" href="/css/fonts.css?v=39">
-<link rel="stylesheet" href="/css/styles.css?v=39">
-<link rel="stylesheet" href="/css/hallmark.css?v=39">
+<link rel="stylesheet" href="/css/fonts.css?v=40">
+<link rel="stylesheet" href="/css/styles.css?v=40">
+<link rel="stylesheet" href="/css/hallmark.css?v=40">
+<link rel="stylesheet" href="/css/trust.css?v=40">
 </head>
 <body>
 
@@ -98,6 +99,7 @@
         <button class="nav-cats dw-more" id="navCats" aria-haspopup="true" aria-expanded="false"><span class="dw-more-lbl">All 17 categories</span><span class="dt-more-lbl">Categories</span><svg class="dw-ar" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg></button>
 
         <div class="dw-sec">Explore</div>
+        <a href="#/trust" data-nav="trust" class="dw-row dw-lite"><span class="dw-gi">&#9671;</span><span class="dw-tx"><b>Why Trust Shivaa</b><small>Business details &amp; documents</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
         <a href="#/hallmark" data-nav="hallmark" class="dw-row dw-lite"><span class="dw-gi">&#9432;</span><span class="dw-tx"><b>HUID Check</b><small>Official BIS Care guide</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
         <a href="#/rates" data-nav="rates" class="dw-row dw-lite"><span class="dw-gi">&#9878;</span><span class="dw-tx"><b>Live Rates</b><small>Jaipur gold &amp; silver, live</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
         <a href="#/buyback" data-nav="buyback" class="dw-row dw-lite"><span class="dw-gi">&#9670;</span><span class="dw-tx"><b>Gold Buyback</b><small>100% value, zero deduction</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
@@ -141,12 +143,12 @@
     <div class="f-crest">
       <div class="f-emblem"><i class="ring-a"></i><i class="ring-b"></i><img src="/images/logo.png" alt="Shivaa"></div>
       <h2 class="f-motto">Where every <em>auspicious beginning</em> finds its gold</h2>
-      <div class="f-stats">
-        <div><b>30+</b><span>Years of Karigari</span></div>
-        <div><b>300+</b><span>Partner Jewellers</span></div>
-        <div><b>9</b><span>Collections</span></div>
-        <div><b>24×7</b><span>Jaipur Live Rates</span></div>
-      </div>
+      <nav class="trust-footer-links" aria-label="Business information">
+        <a href="#/trust">Why Trust Shivaa</a>
+        <a href="#/hallmark">BIS Care / HUID guide</a>
+        <a href="#/compare">Compare your shortlist</a>
+        <a href="#/contact">Contact Shivaa</a>
+      </nav>
     </div>
     <div class="f-body">
       <div class="f-brand-col">
@@ -158,14 +160,15 @@
         </div>
         <div class="foot-seals">
           <a class="seal" href="#/hallmark"><b>HUID</b><small>Check guide</small></a>
-          <span class="seal"><b>UDYAM</b><small>RJ-25-0086081</small></span>
-          <span class="seal"><b>🇮🇳</b><small>Startup India</small></span>
+
         </div>
+        <p class="trust-footer-note"><a href="#/trust">View the business details and document availability →</a></p>
       </div>
       <div class="f-cols">
         <div class="foot-col"><h4>Shop</h4><div id="footCats"></div></div>
         <div class="foot-col"><h4>Company</h4>
           <a href="#/about">About Shivaa</a>
+          <a href="#/trust">Why Trust Shivaa</a>
           <a href="#/privacy">Privacy Policy 🔒</a>
           <a href="#/b2b">B2B for Jewellers</a>
           <a href="#/services">Bespoke &amp; Repair</a>
@@ -178,7 +181,7 @@
           <a href="#/faq">FAQs</a>
         </div>
         <div class="foot-col"><h4>Reach Us</h4>
-          <p class="foot-addr">Shop No. 01, Main Road, Sadar Bazaar,<br>Jayal, Nagaur, Rajasthan — 341023</p>
+          <p class="foot-addr" id="trustFooterAddress">Loading store address…</p>
           <a href="tel:+918905005921">☎ +91 89050 05921</a>
           <a href="mailto:Support@shivaa.in">✉ Support@shivaa.in</a>
           <p class="foot-hrs">All days · 10:00 – 20:30 IST</p>
@@ -204,7 +207,7 @@
       <span class="pay-chip">UPI</span><span class="pay-chip">GOOGLE PAY</span><span class="pay-chip">PHONEPE</span><span class="pay-chip">VISA</span><span class="pay-chip">MASTERCARD</span><span class="pay-chip">RUPAY</span><span class="pay-chip">NETBANKING</span><span class="pay-chip">COD</span><span class="pay-chip">WHATSAPP PAY</span>
     </div>
     <div class="foot-legal">
-      <span>© 2026 Ernate Shine Jewellery Pvt. Ltd. · CIN U32111RJ2025PTC099173 · UDYAM-RJ-25-0086081</span>
+      <span id="trustFooterIdentity">© 2026 Shivaa</span>
       <span class="foot-staff"><a href="#/privacy">Privacy Policy</a> · <a href="#/admin">Admin</a> · <a href="#/partner">Partner Portal</a></span>
     </div>
   </div>
@@ -233,11 +236,12 @@
   <iframe id="pdfFrame" title="Catalogue PDF"></iframe>
 </div>
 
-<script src="/js/qr.js?v=39"></script>
-<script src="/js/otp-autofill.js?v=39"></script>
-<script src="/js/app.js?v=39"></script>
-<script src="/js/hallmark.js?v=39"></script>
-<script src="/js/auth.js?v=39"></script>
-<script src="/js/admin.js?v=39"></script>
+<script src="/js/qr.js?v=40"></script>
+<script src="/js/otp-autofill.js?v=40"></script>
+<script src="/js/app.js?v=40"></script>
+<script src="/js/hallmark.js?v=40"></script>
+<script src="/js/trust.js?v=40"></script>
+<script src="/js/auth.js?v=40"></script>
+<script src="/js/admin.js?v=40"></script>
 </body>
 </html>
