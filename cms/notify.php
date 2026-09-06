@@ -210,11 +210,11 @@ function shivaa_notify_send_email(array $cfg, array $state): array {
 
   if ($p === 'generic') {
     if (empty($c['url'])) return ['ok' => false, 'mode' => 'live', 'provider' => $p, 'to' => $to, 'error' => 'generic email config needs url', 'response' => ''];
-    $url = shivaa_notify_repl($state, (string)$c['url']);
-    $hdrs = [];
-    foreach ((array)($c['headers'] ?? []) as $k => $v) $hdrs[] = $k . ': ' . shivaa_notify_repl($state, (string)$v);
-    if (!$hdrs) $hdrs[] = 'Content-Type: application/json';
     $st2 = array_merge($state, ['to' => $to, 'email' => $to]);
+    $url = shivaa_notify_repl($st2, (string)$c['url']);
+    $hdrs = [];
+    foreach ((array)($c['headers'] ?? []) as $k => $v) $hdrs[] = $k . ': ' . shivaa_notify_repl($st2, (string)$v);
+    if (!$hdrs) $hdrs[] = 'Content-Type: application/json';
     $b = (array)($c['body'] ?? []);
     $pb = $b ? json_encode(array_map(fn($v) => shivaa_notify_repl($st2, (string)$v), $b), JSON_UNESCAPED_UNICODE) : '{}';
     [$status, $body, $err] = shivaa_notify_http(strtoupper((string)($c['method'] ?? 'POST')), $url, $hdrs, $pb);
