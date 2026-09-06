@@ -1,0 +1,35 @@
+{
+ "sku": "PGS5023",
+ "name": "Marwar Ring PGS5023 | Gold 22K",
+ "desc": "Marwar Ring PGS5023 \u2014 Gold 22K, 4.13 g, 12.0% making charges. Gold price follows the live Jaipur bullion rate of the day. Shivaa Jewellers \u2014 Sadar Bazaar, Jayal, Nagaur, Rajasthan. BIS hallmarked, hand-finished by our karigars.",
+ "category": "rings",
+ "metal": "Gold",
+ "purity": "22K",
+ "weightG": 4.13,
+ "mcScheme": "percent",
+ "mcValue": 12.0,
+ "stoneValue": 0,
+ "stoneDesc": "",
+ "sizes": [
+  "12",
+  "14",
+  "16",
+  "18"
+ ],
+ "tags": [
+  "ring",
+  "gold",
+  "22k",
+  "handcrafted",
+  "mens",
+  "rings",
+  "bishallmarked"
+ ],
+ "images": [
+  "/uploads/designs/PGS5023_shot_front.jpg",
+  "/uploads/designs/PGS5023_shot_angle.jpg",
+  "/uploads/designs/PGS5023_shot_macro.jpg",
+  "/uploads/designs/PGS5023_shot_model.jpg"
+ ],
+ "active": true
+}
