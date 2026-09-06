@@ -49,6 +49,8 @@ async function renderAdmin(view, q) {
   if (tab === 'notify') { try { notifyData = await api('/api/notify/status'); } catch (e) {} try { notifications = (await api('/api/notifications')).notifications || []; } catch (e) {} }
   let careData = { warranties: [], reminders: [], schedule: [] };
   if (tab === 'care') { try { careData = await api('/api/care/warranties'); } catch (e) {} try { careData.reminders = (await api('/api/care/reminders')).reminders || []; } catch (e) {} }
+  let blog = [];
+  if (tab === 'blog') { try { blog = (await api('/api/blog?admin=1')).posts || []; } catch (e) {} }
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -58,12 +60,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['search','🔍','Search'],['notify','🔔','Notify'],['care','🛡','Care'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['search','🔍','Search'],['notify','🔔','Notify'],['care','🛡','Care'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['blog','📖','Blog'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',search:'Search Analytics',notify:'Notifications',care:'Care & Warranty',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',search:'Search Analytics',notify:'Notifications',care:'Care & Warranty',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',blog:'Blog',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -480,6 +482,24 @@ async function renderAdmin(view, q) {
     ShivaaPages.load();
   }
 
+  /* ── BLOG (Feature #11) ── */
+  if (tab === 'blog') {
+    window._adminBlog = blog;
+    body.innerHTML = `<div class="adm-card"><h3>Blog <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.blogOpen()">+ New Story</button></h3>
+      <p style="font-size:13px;color:var(--ink-3);margin-bottom:14px">Published stories appear at <b>/#/blog</b> and open at <b>/#/post/your-address</b>.</p>
+      ${blog.length ? `<div class="adm-table-wrap"><table class="adm-table">
+        <thead><tr><th>Title</th><th>Category</th><th>Status</th><th class="num">Views</th><th>Updated</th><th></th></tr></thead>
+        <tbody>${blog.map(p => `<tr>
+          <td><b>${esc(p.title)}</b><br><small style="color:var(--ink-3)">/${esc(p.slug)}</small></td>
+          <td><span class="pill pm">${esc(p.category || 'Jewellery')}</span></td>
+          <td>${p.published ? '<span style="color:var(--ok)">● Published</span>' : '<span style="color:var(--warn)">Draft</span>'}</td>
+          <td class="num">${p.views || 0}</td>
+          <td><small style="color:var(--ink-3)">${new Date(p.updatedAt || p.createdAt).toLocaleDateString('en-IN')}</small></td>
+          <td style="white-space:nowrap"><a class="btn btn-ghost btn-sm" href="#/post/${esc(p.slug)}" target="_blank">View</a> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.blogOpen('${esc(p.slug)}')">Edit</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.blogDel('${esc(p.slug)}')">Delete</button></td>
+        </tr>`).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3);font-size:13.5px">No stories yet — create the first one.</p>'}
+    </div>`;
+  }
+
   /* ── SETTINGS ── */
   if (tab === 'settings') {
     const S = state.settings;
@@ -569,6 +589,46 @@ window.ShivaaAdmin.careRemind = async (reminderId, channel) => {
     else toast('Reminder failed: ' + (r.error || 'unknown'), 'err');
     renderAdmin($('#view'), new URLSearchParams('tab=care'));
   } catch (err) { toast(err.message, 'err'); }
+};
+
+/* Feature #11 — blog */
+window.ShivaaAdmin.blogOpen = slug => {
+  const p = slug ? (window._adminBlog || []).find(x => x.slug === slug) : null;
+  window._blogOpenSlug = p ? p.slug : '';
+  openModal(`
+  <div class="wa-modal">
+    <h3 style="font-size:28px">${p ? 'Edit story' : 'New story'} 📖</h3>
+    <form class="form-grid" onsubmit="ShivaaAdmin.blogSave(event)">
+      <div class="fld full"><label>Title *</label><input id="blTitle" required value="${esc(p?.title || '')}"></div>
+      <div class="fld"><label>Web address *</label><input id="blSlug" required value="${esc(p?.slug || '')}" placeholder="gold-purity-guide"></div>
+      <div class="fld"><label>Category</label><input id="blCat" value="${esc(p?.category || 'Jewellery')}"></div>
+      <div class="fld full"><label>Excerpt</label><input id="blEx" value="${esc(p?.excerpt || '')}" placeholder="One-line summary for the blog card"></div>
+      <div class="fld"><label>Cover image URL</label><input id="blCover" value="${esc(p?.cover || '')}" placeholder="/uploads/blog/..."></div>
+      <div class="fld"><label>Tags (comma separated)</label><input id="blTags" value="${esc((p?.tags || []).join(', '))}"></div>
+      <div class="fld full"><label>Body *</label><textarea id="blBody" required style="min-height:220px" placeholder="Write the story as plain text — line breaks are preserved.">${esc(p?.body || '')}</textarea></div>
+      <div class="fld full" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="blPub" style="accent-color:var(--gold);width:17px;height:17px" ${p?.published ? 'checked' : ''}><label for="blPub" style="margin:0">Publish to the live blog</label></div>
+      <button class="btn btn-primary btn-block" style="grid-column:1/-1">${p ? 'Save story' : 'Create story'}</button>
+    </form>
+  </div>`);
+};
+window.ShivaaAdmin.blogSave = async e => {
+  e.preventDefault();
+  const slug = $('#blSlug').value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+  const editingCurrent = window._blogOpenSlug;
+  const body = { title: $('#blTitle').value, slug, category: $('#blCat').value, excerpt: $('#blEx').value,
+    cover: $('#blCover').value.trim(), tags: $('#blTags').value.split(',').map(s => s.trim()).filter(Boolean),
+    body: $('#blBody').value, published: $('#blPub').checked };
+  try {
+    const r = await api(editingCurrent ? '/api/blog/' + editingCurrent : '/api/blog', { method: editingCurrent ? 'PUT' : 'POST', body: JSON.stringify(body) });
+    closeModal(); window._blogOpenSlug = null;
+    toast((editingCurrent ? 'Story updated' : 'Story created') + (r.published ? ' & published ✦' : ' (draft)'));
+    renderAdmin($('#view'), new URLSearchParams('tab=blog'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.blogDel = async slug => {
+  if (!window.confirm('Delete this blog post permanently?')) return;
+  try { await api('/api/blog/' + slug, { method: 'DELETE' }); toast('Story deleted'); renderAdmin($('#view'), new URLSearchParams('tab=blog')); }
+  catch (err) { toast(err.message, 'err'); }
 };
 
 /* admin actions */

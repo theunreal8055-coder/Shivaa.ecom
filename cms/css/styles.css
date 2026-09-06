@@ -4730,3 +4730,26 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 .vp-order{display:inline-block;margin-top:8px;font-size:12.5px;color:var(--gold);font-weight:600;text-decoration:underline}
 .vp-actions{display:flex;gap:8px;justify-content:flex-end;padding:10px 16px 14px}
 @media(max-width:560px){.vault-grid{grid-template-columns:1fr 1fr;gap:10px}.vp-img{height:130px;font-size:34px}.vp-body{padding:12px 10px 4px}.vp-body>b{font-size:15px}.vp-actions{padding:8px 10px 10px}.vp-actions .btn{padding:7px 9px;font-size:11.5px}}
+
+/* ═══════════════ v52 · Batch D #11 — blog & journal ═══════════════ */
+.blog-cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.blog-cats .chip.on{background:var(--gold);color:#fff;border-color:var(--gold)}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+.blog-card{display:block;background:var(--white);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--sh-1);transition:transform .25s var(--ease),box-shadow .25s var(--ease);color:var(--ink)}
+.blog-card:hover{transform:translateY(-4px);box-shadow:var(--sh-2);color:var(--ink)}
+.bc-img{height:200px;background:linear-gradient(135deg,var(--cream),var(--gold-faint));display:grid;place-items:center;font-size:52px;color:var(--gold)}
+.bc-img img{width:100%;height:100%;object-fit:cover;display:block}
+.bc-body{padding:18px 18px 20px}
+.bc-meta{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:600}
+.bc-body h3{font-family:var(--ff-disp);font-size:21px;color:var(--maroon-deep);margin:8px 0 8px;line-height:1.25}
+.bc-body p{font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.bc-body small{color:var(--gold);font-weight:700;font-size:12.5px}
+.post-head{margin:24px 0 20px}
+.post-head h1{font-family:var(--ff-disp);font-size:40px;color:var(--maroon-deep);line-height:1.15}
+.post-meta{color:var(--ink-3);font-size:13px;margin-top:10px}
+.post-cover{border-radius:22px;overflow:hidden;margin:0 0 26px;box-shadow:var(--sh-1)}
+.post-cover img{width:100%;display:block;max-height:460px;object-fit:cover}
+.post-body{white-space:pre-line;font-size:16.5px;line-height:1.85;color:var(--ink);max-width:760px}
+.post-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+.post-foot{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin-top:30px}
+@media(max-width:560px){.post-head h1{font-size:28px}.post-cover{margin-bottom:18px}.post-body{font-size:15px}.blog-grid{grid-template-columns:1fr}.bc-img{height:170px}}

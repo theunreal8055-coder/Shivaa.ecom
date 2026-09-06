@@ -328,7 +328,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts','searchCaptures','notifications','warranties','careReminders','vaultItems'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts','searchCaptures','notifications','warranties','careReminders','vaultItems','blogPosts'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -1340,6 +1340,58 @@ try {
     }
     if (!$found) jout(404, ['error' => 'Page not found']);
     db_save($DB_FILE, $db); jout(200, $out);
+  }
+
+  /* ── v52 · blog (owner-managed, public reader) ── */
+  if ($route === 'blog' && $method === 'GET') {
+    $admin = !empty($_GET['admin']);
+    $list = array_values($db['blogPosts'] ?? []);
+    if ($admin) { need_admin($db); $list = array_reverse($list); }
+    else {
+      $list = array_values(array_filter($list, fn($x) => !empty($x['published'])));
+      $list = array_reverse($list);
+      if (!empty($_GET['category'])) $list = array_values(array_filter($list, fn($x) => strtolower((string)($x['category'] ?? '')) === strtolower((string)$_GET['category'])));
+    }
+    jout(200, ['posts' => $list]);
+  }
+  if ($route === 'blog' && $method === 'POST') {
+    $u2 = req_user($db); if (!$u2 || $u2['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
+    $b = body_json();
+    if (empty($b['title']) || empty($b['slug'])) jout(400, ['error' => 'Title & blog address required']);
+    $slug = trim(preg_replace('/[^a-z0-9-]+/', '-', strtolower(trim((string)$b['slug']))), '-');
+    if (strlen($slug) > 70 || $slug === '') jout(400, ['error' => 'Invalid blog address']);
+    foreach (($db['blogPosts'] ?? []) as $x) if ($x['slug'] === $slug) jout(409, ['error' => 'A post with this address already exists']);
+    $body = function_exists('mb_substr') ? mb_substr((string)($b['body'] ?? ''), 0, 100000) : substr((string)($b['body'] ?? ''), 0, 100000);
+    $post = ['id' => uid('bp'), 'slug' => $slug, 'title' => cut500($b['title']), 'excerpt' => cut500($b['excerpt'] ?? ''),
+             'body' => $body, 'cover' => trim((string)($b['cover'] ?? '')) ?: null, 'category' => cut500($b['category'] ?? 'Jewellery'),
+             'tags' => is_array($b['tags'] ?? null) ? array_values(array_map(fn($t) => cut500((string)$t), $b['tags'])) : [],
+             'author' => $u2['name'] ?? 'Shivaa Team', 'published' => !empty($b['published']), 'views' => 0, 'createdAt' => now_iso(), 'updatedAt' => now_iso()];
+    $db['blogPosts'][] = $post; db_save($DB_FILE, $db); jout(200, $post);
+  }
+  if (preg_match('#^blog/([\\w-]+)$#', $route, $mBL)) {
+    if ($method === 'GET') {
+      $list = array_values(array_filter($db['blogPosts'] ?? [], fn($x) => $x['slug'] === $mBL[1]));
+      $post = $list[0] ?? null;
+      if (!$post || empty($post['published'])) jout(404, ['error' => 'Post not found']);
+      $post['views'] = ($post['views'] ?? 0) + 1;
+      foreach ($db['blogPosts'] as &$x) if ($x['slug'] === $mBL[1]) { $x['views'] = $post['views']; break; }
+      db_save($DB_FILE, $db);
+      $related = array_values(array_filter($db['blogPosts'] ?? [], fn($x) => $x['slug'] !== $mBL[1] && !empty($x['published']) && (($x['category'] ?? '') === ($post['category'] ?? '') || count(array_intersect($x['tags'] ?? [], $post['tags'] ?? [])) > 0)));
+      jout(200, ['post' => $post, 'related' => array_slice($related, 0, 3)]);
+    }
+    if ($method === 'PUT' || $method === 'DELETE') {
+      $u2 = req_user($db); if (!$u2 || $u2['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
+      $idx = null; foreach ($db['blogPosts'] as $i => $x) if ($x['slug'] === $mBL[1]) { $idx = $i; break; }
+      if ($idx === null) jout(404, ['error' => 'Post not found']);
+      if ($method === 'DELETE') { array_splice($db['blogPosts'], $idx, 1); db_save($DB_FILE, $db); jout(200, ['ok' => true]); }
+      $b = body_json();
+      foreach (['title', 'excerpt', 'cover', 'category', 'author'] as $k) if (array_key_exists($k, $b)) $db['blogPosts'][$idx][$k] = cut500((string)$b[$k]);
+      if (isset($b['body'])) $db['blogPosts'][$idx]['body'] = function_exists('mb_substr') ? mb_substr((string)$b['body'], 0, 100000) : substr((string)$b['body'], 0, 100000);
+      if (isset($b['published'])) $db['blogPosts'][$idx]['published'] = !empty($b['published']);
+      if (array_key_exists('tags', $b)) $db['blogPosts'][$idx]['tags'] = is_array($b['tags']) ? array_values(array_map(fn($t) => cut500((string)$t), $b['tags'])) : [];
+      $db['blogPosts'][$idx]['updatedAt'] = now_iso();
+      db_save($DB_FILE, $db); jout(200, $db['blogPosts'][$idx]);
+    }
   }
 
   if ($route === 'admin/stats' && $method === 'GET') {

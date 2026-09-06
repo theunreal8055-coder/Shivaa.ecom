@@ -3028,6 +3028,51 @@ window.Shivaa.vaultImport = async () => {
   } catch (e) { toast(e.message, 'err'); }
 };
 
+/* ─────────── BLOG (Feature #11) ─────────── */
+pages.blog = async (view, q) => {
+  let posts = [];
+  try { posts = (await api('/api/blog')).posts || []; } catch (e) { toast(e.message, 'err'); }
+  const cat = (q && q.get('category')) || '';
+  if (cat) posts = posts.filter(p => String(p.category || '').toLowerCase() === cat.toLowerCase());
+  const cats = [...new Set((window._allBlog || posts).map(p => p.category).filter(Boolean))];
+  if (!window._allBlog) window._allBlog = posts;
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Blog</div><h1>The Shivaa <em class="disp-italic">Journal</em></h1>
+  <p>Purity, karigari, style and money-smart gold stories — written by the family that works in it.</p></div></section>
+  <div class="container blog-wrap" style="max-width:1120px;padding:34px 16px 80px">
+    ${cats.length ? `<div class="blog-cats">${[['', 'All']].concat(cats.map(c => [c, c])).map(c => `<a href="#/blog${c[0] ? '?category=' + encodeURIComponent(c[0]) : ''}" class="chip ${cat === c[0] ? 'on' : ''}">${esc(c[1])}</a>`).join('')}</div>` : ''}
+    ${posts.length ? `<div class="blog-grid">${posts.map(p => `<a class="blog-card" href="#/post/${esc(p.slug)}">
+      <div class="bc-img">${p.cover ? `<img src="${esc(p.cover)}" alt="" loading="lazy">` : '<span>✦</span>'}</div>
+      <div class="bc-body">
+        <div class="bc-meta">${esc(p.category || 'Jewellery')} · ${dateFmt(p.createdAt)}</div>
+        <h3>${esc(p.title)}</h3>
+        <p>${esc(p.excerpt || String(p.body || '').slice(0, 150))}</p>
+        <small>Read post →</small>
+      </div></a>`).join('')}</div>` : `<div class="empty" style="padding:80px 20px"><div class="big">📖</div><h3>No stories published yet</h3><p style="margin:10px 0 18px;color:var(--ink-3)">Our team is writing the first ones — check back soon.</p><a class="btn btn-outline" href="#/">Back home</a></div>`}
+  </div>`;
+};
+pages.post = async (view, q, slug) => {
+  if (!slug) { location.hash = '#/blog'; return; }
+  let data;
+  try { data = await api('/api/blog/' + slug); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">📖</div><h3>Story not found</h3><a class="btn btn-outline" href="#/blog">Back to Blog</a></div>`; return; }
+  const p = data.post, related = data.related || [];
+  view.innerHTML = `
+  <div class="container" style="max-width:900px;padding:40px 16px 80px">
+    <div class="crumbs" style="color:var(--ink-3)"><a href="#/">Home</a> / <a href="#/blog">Blog</a> / ${esc(p.category || 'Story')}</div>
+    <div class="post-head">
+      <h1>${esc(p.title)}</h1>
+      <p class="post-meta">By ${esc(p.author || 'Shivaa Team')} · ${dateFmt(p.createdAt)} · ${(p.views || 0).toLocaleString()} views</p>
+    </div>
+    ${p.cover ? `<div class="post-cover"><img src="${esc(p.cover)}" alt=""></div>` : ''}
+    <div class="post-body">${esc(p.body || '')}</div>
+    ${(p.tags || []).length ? `<div class="post-tags">${p.tags.map(t => `<span class="tagx">${esc(t)}</span>`).join('')}</div>` : ''}
+    <div class="post-foot"><a class="btn btn-outline" href="#/blog">← All stories</a><a class="btn btn-primary" href="#/shop">Shop the story →</a></div>
+    ${related.length ? `<div class="sec-head mt-3"><span class="label">Keep reading</span><h2>Related stories</h2></div><div class="blog-grid">${related.map(r => `<a class="blog-card" href="#/post/${esc(r.slug)}">
+      <div class="bc-img">${r.cover ? `<img src="${esc(r.cover)}" alt="">` : '<span>✦</span>'}</div>
+      <div class="bc-body"><div class="bc-meta">${esc(r.category || 'Jewellery')}</div><h3>${esc(r.title)}</h3><small>Read post →</small></div></a>`).join('')}</div>` : ''}
+  </div>`;
+};
+
 /* ─────────── ABOUT ─────────── */
 pages.about = async (view) => {
   view.innerHTML = `
