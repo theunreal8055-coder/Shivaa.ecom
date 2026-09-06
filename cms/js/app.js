@@ -715,19 +715,19 @@ function productCard(p, opts = {}) {
   const compared = isCompared(p.id);
   return `<article class="p-card" data-pid="${p.id}">
     <a href="#/product/${p.id}" class="pc-imgwrap">
-      <img src="${p.images[0]}" alt="${esc(p.name)}" loading="lazy">
+      <img src="${esc(p.images[0] || '')}" alt="${esc(p.name)}" loading="lazy">
       ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
       <div class="glare"></div>
     </a>
     <button type="button" class="pc-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg><span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span>
     </button>
-    <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${TAGS[t] || t}</span>`).join('')}</div>
+    <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${esc(TAGS[t] || t)}</span>`).join('')}</div>
     <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
     </button>
     <div class="pc-body">
-      <div class="pc-cat">${CATS[p.category] ? CATS[p.category].name : p.category} · ${p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold'}</div>
+      <div class="pc-cat">${esc(CATS[p.category] ? CATS[p.category].name : p.category)} · ${esc(p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold')}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
       <div class="pc-meta">${p.weightG} g${p.stoneValue ? ' · stone value listed' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
       <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST</small></div>
@@ -857,7 +857,8 @@ function renderRateStrip() {
     cell('✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
     cell('Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
     cell('Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
-    `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${esc(R.source)} · every 10 min</span></div>`;
+    `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${esc(R.source)} · every 10 min</span></div>` +
+    `<div class="rscell rs-alert"><small>Waiting for a dip?</small><button type="button" class="rs-alert-btn" onclick="Shivaa.rateAlertModal()"><span class="live-dot"></span> Set a rate alert</button></div>`;
 }
 
 /* ─────────── HOME ─────────── */
@@ -1005,6 +1006,8 @@ pages.home = async (view) => {
     <div class="sec-head rv"><span class="label">Fresh from the karigar</span><h2>New Arrivals <a class="see-all" href="#/shop?tag=new">View all →</a></h2></div>
     <div class="p-grid">${news.map(p => productCard(p, { wishSet })).join('')}</div>
   </section>
+
+  ${giftBandHTML()}
 
   <section class="container" style="padding-bottom:70px">
     <div class="banner rv" style="min-height:280px">
@@ -1362,6 +1365,11 @@ pages.product = async (view, q, id) => {
 
     <div class="sec-head" style="margin-top:20px"><span class="label">You may also love</span><h2>Similar pieces</h2></div>
     <div class="p-grid">${data.similar.map(s => productCard(s)).join('')}</div>
+
+    <section class="sec" style="padding:0;margin-top:46px" id="recentSec">
+      <div class="sec-head"><span class="label">Pick up where you left off</span><h2>Recently viewed</h2></div>
+      <div class="p-grid" id="recentGrid"></div>
+    </section>
     <div style="height:80px"></div>
   </div>
   <div class="pd-stickybar">
@@ -1394,6 +1402,7 @@ pages.product = async (view, q, id) => {
   bindTilt(view);
   window._pd = { p, qty: 1 };
   window._lastOrder = null;
+  recordViewed(p.id);                    // v42 — recently-viewed rail (also fills the grid)
 };
 window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd.qty + d)); $('#pdQtyN').textContent = window._pd.qty; };
 window.Shivaa.pdAdd = id => {
@@ -1915,6 +1924,7 @@ pages.rates = async (view) => {
       ${[['GOLD 24K · JAIPUR', 'gold24', '99.99% fine — reference'], ['GOLD 22K · JAIPUR', 'gold22', '91.67% — jewellery grade'], ['GOLD 18K · JAIPUR', 'gold18', '75.0% — contemporary'], ['SILVER 925 · JAIPUR', 'silver', 'sterling — jewellery grade']]
         .map(c => `<div class="rate-card ${c[0].includes('GOLD') ? 'gold' : ''} rv"><div class="rc-name">${c[0]}</div><div class="rc-val">${c[1] === 'silver' ? fmt2(R[c[1]]) : fmt(R[c[1]])}</div><small>per gram · ${c[2]}</small><div style="margin-top:10px;font-size:12px;color:var(--ink-3)">per 10 g: <b>${c[1] === 'silver' ? fmt2(R[c[1]] * 10) : fmt(R[c[1]] * 10)}</b></div></div>`).join('')}
     </div>
+    ${calcHTML()}
     <div class="chart-wrap mt-3 rv"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
       <h3 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
       <span class="src-badge ${R.source === 'live' ? 'src-live' : 'src-sim'}">${R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*'}</span></div>
@@ -1937,6 +1947,7 @@ pages.rates = async (view) => {
     </div>
   </div>`;
   drawRateChart($('#rateChart'), R.history || []);
+  window.Shivaa.bindCalc();                    // v42 — calculator wiring (no-ops if absent)
 };
 function drawRateChart(cv, hist) {
   if (!cv || !hist.length) return;
@@ -1969,8 +1980,16 @@ function drawRateChart(cv, hist) {
 }
 window.Shivaa.rateAlert = async e => {
   e.preventDefault();
-  try { await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ email: e.target[0].value, metal: 'gold22', target: +e.target[1].value }) }); toast('Alert set — we will write to you ✦'); e.target.reset(); }
-  catch (err) { toast(err.message, 'err'); }
+  const email = String(e.target[0].value || '').trim();
+  const target = Math.round(parseFloat(e.target[1].value) || 0);
+  const btn = e.target.querySelector('button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const r = await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ email, metal: 'gold22', target }) });
+    toast(r.note || (r.duplicate ? 'Alert already saved ✦' : 'Alert saved ✦'));
+    e.target.reset();
+  } catch (err) { toast(err.message, 'err'); }
+  if (btn) { btn.disabled = false; btn.textContent = 'Set alert'; }
 };
 
 /* ─────────── MAKING CHARGES PAGE ─────────── */
@@ -4134,6 +4153,255 @@ function decorate5D() {
   addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; }, { passive: true });
   (function glow() { gx += (mx - gx) * 0.12; gy += (my - gy) * 0.12; cg.style.left = gx + 'px'; cg.style.top = gy + 'px'; requestAnimationFrame(glow); })();
 })();
+
+/* ═══════════════════════════════════════════════════════════════════
+   v42 — new chrome: Gift Assistant, gold-rate calculator,
+   recently-viewed rail, rate-alert modal + floating quick actions
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── recently viewed (device-local, honest — just this browser) ── */
+const RECENT_KEY = 'shv_recent_v42';
+function viewedIds() { const v = store.get(RECENT_KEY, []); return Array.isArray(v) ? v.filter(x => typeof x === 'string' && x).slice(0, 10) : []; }
+function recordViewed(id) {
+  if (!id || !state.productsCache.some(p => p.id === id)) return;
+  store.set(RECENT_KEY, [id, ...viewedIds().filter(x => x !== id)].slice(0, 10));
+  const grid = $('#recentGrid');
+  if (grid) fillRecentGrid(grid);
+}
+function fillRecentGrid(grid) {
+  const wrap = grid.closest('.sec');
+  const items = viewedIds().map(i => state.productsCache.find(p => p.id === i)).filter(Boolean).slice(0, 4);
+  if (!items.length) { if (wrap) wrap.style.display = 'none'; return; }
+  if (wrap) wrap.style.display = '';
+  grid.innerHTML = items.map(p => productCard(p)).join('');
+}
+
+/* ── Gift Assistant — 30-second guided finder (uses the live catalogue) ── */
+const GIFT_WHO = {
+  her: { label: 'Her' }, him: { label: 'Him' }, couple: { label: 'A couple' }, family: { label: 'Family' },
+};
+const GIFT_OCC = {
+  wedding: { label: 'Wedding / trousseau', tag: 'wedding', cats: ['mangalsutra', 'necklaces', 'bangles', 'earrings', 'rakhdi', 'aad', 'sheeshphool'] },
+  birthday: { label: 'Birthday / anniversary', tag: 'gifting', cats: ['rings', 'pendants', 'earrings', 'bracelets', 'chains', 'nosepins', 'silver'] },
+  festive: { label: 'Festive gifting', tag: 'festive', cats: ['bangles', 'earrings', 'necklaces', 'rings', 'silver', 'mangalsutra'] },
+  everyday: { label: 'Just because / daily wear', tag: 'daily', cats: ['rings', 'pendants', 'chains', 'nosepins', 'silver', 'bracelets', 'earrings'] },
+};
+function giftSuggest(who, occ) {
+  const occMap = GIFT_OCC[occ] || GIFT_OCC.birthday;
+  let pool = state.productsCache.filter(p => p.tags && p.tags.includes(occMap.tag));
+  if (!pool.length) pool = state.productsCache.filter(p => occMap.cats.includes(p.category));
+  if (who === 'him') {
+    const m = pool.filter(p => ['chains', 'rings', 'silver', 'kadas', 'bracelets'].includes(p.category));
+    if (m.length >= 3) pool = m;
+  }
+  if (who === 'couple') {
+    const c = pool.filter(p => p.category === 'rings' || p.category === 'bracelets' || (p.name || '').toLowerCase().includes('couple'));
+    if (c.length) pool = [...c, ...pool.filter(p => !c.includes(p))];
+  }
+  return pool;
+}
+window._giftA = { who: '', occ: '', budget: '' };
+window.Shivaa.giftOpen = () => {
+  window._giftA = { who: '', occ: '', budget: '' };
+  giftStep(0);
+};
+function giftStep(i) {
+  const steps = [
+    { key: 'who', q: 'Who is it for?', opts: [['her', 'Her', '🌸'], ['him', 'Him', '✦'], ['couple', 'A couple', '♡'], ['family', 'Family', '🏡']] },
+    { key: 'occ', q: 'What is the occasion?', opts: [['wedding', 'Wedding · trousseau', '💍'], ['birthday', 'Birthday · anniversary', '🎉'], ['festive', 'Festive gifting', '🪔'], ['everyday', 'Just because · daily wear', '✨']] },
+    { key: 'budget', q: 'And your budget?', opts: [['lt25', 'Under ₹25,000', ''], ['25to50', '₹25,000 – ₹50,000', ''], ['50to1l', '₹50,000 – ₹1,00,000', ''], ['gt1l', 'Over ₹1,00,000', '']] },
+  ];
+  if (i >= steps.length) { giftResults(); return; }
+  const st = steps[i];
+  openModal(`
+    <div class="giftq" style="max-width:640px;width:100%">
+      <span class="label">The Shivaa Gift Assistant</span>
+      <div class="giftq-prog">${steps.map((_, k) => `<i class="${k < i ? 'done' : k === i ? 'on' : ''}"></i>`).join('')}</div>
+      <h3 class="giftq-q">${st.q}</h3>
+      <div class="giftq-opts">${st.opts.map(o => `
+        <button type="button" class="giftq-opt ${o[2] ? 'em' : ''}" onclick="Shivaa.giftPick('${st.key}','${o[0]}','${esc(o[1])}',${i})">
+          ${o[2] ? `<span class="giftq-em">${o[2]}</span>` : ''}<b>${esc(o[1])}</b><i>→</i>
+        </button>`).join('')}
+      </div>
+      <div class="giftq-back">${i > 0 ? `<a href="javascript:Shivaa.giftBack(${i - 1})">← back</a>` : '<span></span>'}<span>step ${i + 1} of 4 · ${state.productsCache.length} live-priced pieces</span></div>
+    </div>`, 'giftq-modal');
+  window.Shivaa.giftPick = (key, v, label, idx) => { window._giftA[key] = v; window._giftLbl = window._giftLbl || {}; window._giftLbl[key] = label; giftStep(idx + 1); };
+  window.Shivaa.giftBack = idx => { if (idx >= 0) giftStep(idx); };
+}
+function giftResults() {
+  const A = window._giftA, L = window._giftLbl || {};
+  const budget = A.budget || '50to1l';
+  const lo = { lt25: 0, '25to50': 25000, '50to1l': 50000, gt1l: 100000 }[budget];
+  const hi = { lt25: 25000, '25to50': 50000, '50to1l': 100000, gt1l: Infinity }[budget];
+  let pool = giftSuggest(A.who, A.occ).map(p => ({ p, t: price(p).total }))
+    .filter(x => x.t >= lo && x.t <= hi);
+  if (!pool.length) {   // relax budget first, then occasion
+    pool = giftSuggest(A.who, A.occ).map(p => ({ p, t: price(p).total }))
+      .sort((a, b) => Math.abs(a.t - (lo + (hi === Infinity ? 100000 : hi)) / 2) - Math.abs(b.t - (lo + (hi === Infinity ? 100000 : hi)) / 2)).slice(0, 12);
+  }
+  if (!pool.length) {   // last resort: any live-priced piece so the finder always answers
+    pool = state.productsCache.map(p => ({ p, t: price(p).total }))
+      .sort((a, b) => Math.abs(a.t - (lo + (hi === Infinity ? 100000 : hi)) / 2) - Math.abs(b.t - (lo + (hi === Infinity ? 100000 : hi)) / 2)).slice(0, 12);
+  }
+  const pickOrder = ['bestseller', 'new', 'gifting', 'handcrafted'];
+  const sortPool = (a, b) => (a.p.tags || []).some(t => pickOrder.includes(t)) === (b.p.tags || []).some(t => pickOrder.includes(t)) ? 0 : ((a.p.tags || []).some(t => pickOrder.includes(t)) ? -1 : 1);
+  pool = pool.slice(0, 9).sort(sortPool);
+  const picks = pool.slice(0, 4);
+  const whoL = GIFT_WHO[A.who] ? GIFT_WHO[A.who].label : '';
+  const occL = L.occ || 'gift';
+  const lines = picks.map(x => `${x.p.name} — ${fmt(x.t)} (${CATS[x.p.category] ? CATS[x.p.category].name : x.p.category})`).join('\n');
+  const waMsg = `Namaste Shivaa ✦\n\nI used the Gift Assistant for: ${whoL} · ${occL} (budget ${L.budget || ''})\n\nMy shortlist:\n${lines}\n\nPlease hold these / suggest more in my budget.`;
+  window._giftWaMsg = waMsg;
+  const wishSet = state.user ? [] : state.localWish;
+  openModal(`
+    <div class="giftq" style="max-width:820px;width:100%">
+      <span class="label">The Shivaa Gift Assistant</span>
+      <h3 class="giftq-q">${picks.length ? `Shortlist for ${esc(whoL || 'a loved one')} · ${esc(String(occL).toLowerCase())} <small style="display:block;font-size:13px;color:var(--ink-3);font-weight:400;margin-top:6px">budget ${esc(L.budget || '')} · live Jaipur rates</small>` : 'Hand-picked for the moment'}</h3>
+      ${picks.length ? `<div class="giftq-grid">${picks.map(x => productCard(x.p, { wishSet })).join('')}</div>`
+        : `<div class="empty" style="padding:36px 18px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>The vault is being restocked</h3><p>New designs are being priced at today's Jaipur rate — check back soon or ask us on WhatsApp.</p></div>`}
+      <div class="giftq-foot">
+        <button class="btn btn-gold" onclick="Shivaa.waOpen(window._giftWaMsg);Shivaa.closeModal()">Send shortlist on WhatsApp ✦</button>
+        <button class="btn btn-ghost" onclick="Shivaa.giftOpen()">Start over</button>
+        <a class="btn btn-ghost" href="#/shop" onclick="Shivaa.closeModal()">Browse all ${state.productsCache.length} pieces</a>
+      </div>
+    </div>`, 'giftq-modal');
+}
+// Home teaser band (static, no data dependency)
+function giftBandHTML() {
+  return `
+  <section class="sec gift-band rv">
+    <div class="gb-in">
+      <div class="gb-tx">
+        <span class="label">New · v42</span>
+        <h2>The <span class="disp-italic">Gift Assistant</span></h2>
+        <p>Three questions, and we shortlist real pieces from today's collection — priced at this morning's live Jaipur rate. No guesswork, no pushy upsell.</p>
+        <div class="gb-cta">
+          <button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.giftOpen()">✨ Find the perfect piece <span style="opacity:.7">30 seconds</span></button>
+          <a class="btn btn-light btn-lg" href="#/shop">or browse everything</a>
+        </div>
+      </div>
+      <div class="gb-chips" aria-hidden="true">
+        <span class="gb-chip c1">🌸 Her</span><span class="gb-chip c2">💍 Wedding</span>
+        <span class="gb-chip c3">🪔 Festive</span><span class="gb-chip c4">✨ Daily wear</span>
+        <span class="gb-chip c5">♡ Couples</span><span class="gb-chip c6">📿 Mangalsutra</span>
+      </div>
+    </div>
+  </section>`;
+}
+
+/* ── Gold price calculator (rates page) — same math as the PDP ── */
+function calcHTML() {
+  const R = state.rates;
+  return `
+  <div class="goldcalc rv">
+    <div class="gc-head">
+      <div><span class="label">v42 · instant estimate</span><h3>What will that piece cost?</h3>
+      <p>Your design + today's Jaipur rate. The same breakdown appears on every product page — nothing hidden.</p></div>
+      <div class="gc-live"><span class="live-dot"></span>${R ? `22K ${fmt(R.jaipur.gold22)}/g` : 'loading rates…'}</div>
+    </div>
+    <div class="gc-grid">
+      <div class="gc-fields">
+        <div class="fld"><label>Metal &amp; purity</label>
+          <select id="gcMetal" class="sortsel">
+            <option value="gold24">Gold 24K (99.9%)</option>
+            <option value="gold22" selected>Gold 22K (91.6%) — jewellery</option>
+            <option value="gold18">Gold 18K (75%)</option>
+            <option value="silver">Silver 925 (sterling)</option>
+          </select>
+        </div>
+        <div class="fld"><label>Weight <span id="gcWtLbl">5.0 g</span></label>
+          <input type="range" id="gcWt" min="1" max="100" step="0.5" value="5">
+        </div>
+        <div class="fld"><label>Making charge</label>
+          <select id="gcMc" class="sortsel">
+            <option value="8">Light machine work — ~8%</option>
+            <option value="13" selected>Mid-range karigar work — ~13%</option>
+            <option value="18">Heavy handcraft / antique — ~18%</option>
+            <option value="25">Bridal couture / polki — ~25%</option>
+          </select>
+        </div>
+      </div>
+      <div class="gc-out" id="gcOut">
+        <div class="gc-row"><span>Metal value (live rate)</span><b id="gcMetalV">—</b></div>
+        <div class="gc-row"><span>Making charges</span><b id="gcMcV">—</b></div>
+        <div class="gc-row"><span>GST @ 3%</span><b id="gcGstV">—</b></div>
+        <div class="gc-total"><span>Estimated total</span><b id="gcTotal">—</b></div>
+        <p id="gcNote" class="gc-note"></p>
+      </div>
+    </div>
+  </div>`;
+}
+function calcRun() {
+  const R = state.rates; if (!R || !$('#gcTotal')) return;
+  const metal = $('#gcMetal').value;
+  const wt = parseFloat($('#gcWt').value) || 0;
+  const mcPct = parseFloat($('#gcMc').value) || 0;
+  const rate = R.jaipur[metal] || 0;
+  $('#gcWtLbl').textContent = wt.toLocaleString('en-IN') + ' g';
+  const metalV = Math.round(rate * wt);
+  const mc = Math.round(metalV * mcPct / 100);
+  const gst = Math.round((metalV + mc) * 0.03);
+  const total = metalV + mc + gst;
+  const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+  set('#gcMetalV', fmt(metalV));
+  set('#gcMcV', mcPct ? fmt(mc) + ` <small style="color:var(--ink-3);font-weight:400">(${mcPct}%)</small>` : '—');
+  set('#gcGstV', fmt(gst));
+  set('#gcTotal', fmt(total));
+  const n = $('#gcNote');
+  if (n) n.textContent = `${wt.toLocaleString('en-IN')} g ${metal === 'silver' ? 'silver' : metal.replace('gold', '') + 'K gold'} at ${fmt2(rate)}/g · stones/uncut diamonds, if any, are added at cost on the product page.`;
+  if (total) { const t = $('#gcTotal'); t.classList.remove('gc-pop'); void t.offsetWidth; t.classList.add('gc-pop'); }
+}
+window.Shivaa.bindCalc = () => {
+  ['gcMetal', 'gcWt', 'gcMc'].forEach(id => { const el = $(id); if (el) el.addEventListener('input', calcRun); });
+  calcRun();
+};
+
+/* ── Rate alert modal (desk emails you when rates cross your target) ── */
+window.Shivaa.rateAlertModal = () => {
+  const R = state.rates;
+  const now22 = R ? R.gold22 : 0;
+  openModal(`
+    <div class="ralert" style="max-width:430px;width:100%">
+      <span class="label">Live-rate nudge</span>
+      <h3 style="font-size:26px;margin:6px 0 4px">Alert me on <em class="disp-italic" style="color:var(--gold)">gold rates</em></h3>
+      <p style="color:var(--ink-2);font-size:14px;margin-bottom:16px">Tell us the 22K price you are waiting for — the desk writes to you the moment Jaipur crosses it.</p>
+      <form class="form-grid" style="grid-template-columns:1fr" onsubmit="Shivaa.rateAlertSubmit(event)">
+        <div class="fld"><label>Your email</label><input type="email" id="raEmail" required placeholder="you@example.com"></div>
+        <div class="fld"><label>Alert when 22K gold crosses (₹/g)</label><input type="number" id="raTarget" min="2000" max="200000" required value="${now22 ? now22 + 250 : ''}" placeholder="${now22 ? now22 + 250 : 'e.g. 75000'}"></div>
+        <button class="btn btn-gold btn-block">Set my alert ✦</button>
+      </form>
+      <p style="font-size:12px;color:var(--ink-3);margin-top:12px">Current 22K Jaipur rate: <b style="color:var(--maroon-deep)">${now22 ? fmt(now22) : '…'}/g</b> · one email per crossing, no spam.</p>
+    </div>`);
+};
+window.Shivaa.rateAlertSubmit = async e => {
+  e.preventDefault();
+  const email = $('#raEmail').value.trim();
+  const target = Math.round(parseFloat($('#raTarget').value));
+  if (!email || !target || target < 2000 || target > 200000) { toast('Enter your email and a realistic target rate', 'err'); return; }
+  const btn = e.target.querySelector('button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const r = await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ email, metal: 'gold22', target }) });
+    toast(r.note || (r.duplicate ? 'Alert already saved ✦' : 'Alert saved ✦'));
+    closeModal();
+  } catch (err) { toast(err.message, 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Set my alert ✦'; } }
+};
+
+/* ── floating actions (v42) ── */
+(function wireFabs() {
+  const top = $('#backTop');
+  if (top) {
+    top.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' }));
+    addEventListener('scroll', () => top.classList.toggle('show', scrollY > 650), { passive: true });
+  }
+  const wa = $('#fabWa');
+  if (wa) {
+    wa.href = '#';
+    wa.addEventListener('click', ev => { ev.preventDefault(); waOpen('Namaste Shivaa ✦\n\nI was browsing shivaa.in and have a question:'); });
+  }
+})();
+
+Object.assign(window.Shivaa, { giftOpen: window.Shivaa.giftOpen, recordViewed, rateAlertModal: window.Shivaa.rateAlertModal, giftBandHTML });
 
 /* ─────────── boot ─────────── */
 async function wishIds() {

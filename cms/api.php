@@ -28,8 +28,10 @@ function jout(int $code, $payload): void {
 }
 function now_iso(): string { return date('c'); }
 function uid(string $p = 'id'): string { return $p . '_' . bin2hex(random_bytes(6)); }
+const MAX_BODY_BYTES = 524288;            // v42 — hard 512 KB cap on every JSON request body
 function body_json(): array {
   $raw = file_get_contents('php://input');
+  if (strlen((string)$raw) > MAX_BODY_BYTES) jout(413, ['error' => 'Request body too large.']);
   $d = json_decode($raw ?: '{}', true);
   return is_array($d) ? $d : [];
 }
@@ -46,11 +48,78 @@ function db_load(string $DB_FILE): array {
   }
   jout(500, ['error' => 'Database file unreadable — check data/db.json exists & permissions (755/644)']);
 }
-function db_save(string $DB_FILE, array $db): void {
+
+/* v42 — bounded-growth housekeeping. Called on every persisted write so the
+   single-file DB can never balloon: stale sessions/OTPs/lockouts are dropped,
+   and every visitor-written collection is capped at a sane size. */
+function db_housekeep(array &$db): void {
+  $now = time();
+  $db['tokens'] = array_values(array_filter($db['tokens'] ?? [], fn($t) => (int)($t['exp'] ?? 0) > $now));
+  if (count($db['tokens']) > 2000) $db['tokens'] = array_slice($db['tokens'], -1500);
+  $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => (int)($o['exp'] ?? 0) > $now - 3600));
+  if (count($db['otps']) > 300) $db['otps'] = array_slice($db['otps'], -200);
+  $lf = $db['loginfails'] ?? [];
+  $lf = array_filter($lf, fn($f) => (int)($f['until'] ?? 0) > $now || (int)($f['at'] ?? $now) >= $now - 86400);
+  if (count($lf) > 600) $lf = array_slice($lf, -400, null, true);
+  $db['loginfails'] = $lf;
+  $th = $db['throttle'] ?? [];
+  $th = array_filter($th, fn($v) => $now - (int)($v['at'] ?? 0) <= 3600);
+  if (count($th) > 600) $th = array_slice($th, -400, null, true);
+  $db['throttle'] = $th;
+  $caps = ['rateAlerts' => 800, 'contactMsgs' => 1200, 'newsletter' => 2500, 'serviceRequests' => 1000, 'reviews' => 3000];
+  foreach ($caps as $col => $cap) {
+    if (!is_array($db[$col] ?? null)) continue;
+    if (count($db[$col]) > $cap) $db[$col] = array_slice($db[$col], -$cap);
+  }
+  // NOTE: do NOT recompute product ratings here — that is O(products × reviews)
+  // per save; only the reviews POST route is allowed to mutate ratings.
+}
+
+function db_save(string $DB_FILE, array &$db): void {
+  db_housekeep($db);
   $lock = fopen($DB_FILE . '.lock', 'c');
   if ($lock) flock($lock, LOCK_EX);
   file_put_contents($DB_FILE, json_encode($db, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
   if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+}
+
+/* v42 — real client identity for lockouts/rate limits. Never trust
+   X-Forwarded-For: any direct client can spoof it to dodge a ban. Hostinger's
+   proxy (mod_remoteip) already writes the true client into REMOTE_ADDR. */
+function client_ip(): string {
+  $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+  $ip = preg_replace('/[^0-9a-fA-F:.%]/', '', $ip);
+  return substr($ip ?: '0.0.0.0', 0, 45);
+}
+
+/* v42 — per-IP sliding-window throttle for visitor-write endpoints. */
+function throttle_hit(array &$db, string $bucket, int $max, int $winSec): void {
+  if ($max <= 0) return;
+  $now = time();
+  $t = is_array($db['throttle'] ?? null) ? $db['throttle'] : [];
+  $key = client_ip() . '|' . $bucket;
+  $rec = $t[$key] ?? ['n' => 0, 'at' => $now];
+  if ($now - (int)$rec['at'] > $winSec) $rec = ['n' => 0, 'at' => $now];
+  if ((int)$rec['n'] >= $max) {
+    $db['throttle'] = $t;
+    jout(429, ['error' => 'Too many requests — please wait a few minutes and try again.']);
+  }
+  $rec['n']++; $rec['at'] = $now;
+  $t[$key] = $rec;
+  $db['throttle'] = $t;
+}
+
+/* v42 — truncate + strip control characters from any free-text field. */
+function tcap($v, int $max = 500): string {
+  $s = (string)$v;
+  $s = (string)preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', ' ', $s);
+  $s = trim($s);
+  return function_exists('mb_substr') ? mb_substr($s, 0, $max) : substr($s, 0, $max);
+}
+
+/* v42 — human-friendly reference number: prefix + yymmdd + 4 random hex. */
+function ref_id(string $prefix): string {
+  return $prefix . date('ymd') . strtoupper(bin2hex(random_bytes(2)));
 }
 function clampn($v, $a, $b) { return max($a, min($b, $v)); }
 function cut500(string $s): string { return function_exists('mb_substr') ? mb_substr($s, 0, 500) : substr($s, 0, 500); }
@@ -299,9 +368,24 @@ try {
     jout(200, ['ok' => true, 'override' => $db['rates']['override']]);
   }
   if ($route === 'rates/alert' && $method === 'POST') {
+    throttle_hit($db, 'rate-alert', 6, 600);
     $b = body_json();
-    $db['rateAlerts'][] = ['id' => uid('ra'), 'email' => $b['email'] ?? '', 'metal' => $b['metal'] ?? '', 'target' => (float)($b['target'] ?? 0), 'createdAt' => now_iso()];
-    db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+    $email = strtolower(tcap($b['email'] ?? '', 120));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'A valid email address is required']);
+    $metal = in_array(($b['metal'] ?? ''), ['gold24', 'gold22', 'gold18', 'silver'], true) ? $b['metal'] : 'gold22';
+    $target = (float)($b['target'] ?? 0);
+    if ($target < 1 || $target > 500000) jout(400, ['error' => 'Target rate is out of range']);
+    foreach ($db['rateAlerts'] as $a) {
+      if (($a['email'] ?? '') === $email && ($a['metal'] ?? '') === $metal && abs((float)($a['target'] ?? 0) - $target) < 1) {
+        jout(200, ['ok' => true, 'duplicate' => true, 'note' => 'You already have this alert saved — we will not add a duplicate.']);
+      }
+    }
+    $db['rateAlerts'][] = ['id' => uid('ra'), 'email' => $email, 'metal' => $metal, 'target' => $target, 'createdAt' => now_iso()];
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'note' => 'Saved — the desk emails you from Support@shivaa.in when rates cross your target.']);
+  }
+  if ($route === 'rates/alerts' && $method === 'GET') {   // v42 — admin view of alert subscriptions
+    need_admin($db);
+    jout(200, ['alerts' => array_reverse($db['rateAlerts'])]);
   }
 
   /* ── Feature 1: staff-entered piece HUIDs (never BIS verification) ── */
@@ -414,6 +498,7 @@ try {
     $db['sms'] = $s;
   }
   if ($route === 'auth/send-otp' && $method === 'POST') {
+    throttle_hit($db, 'send-otp', 12, 600);   // v42 — anti SMS-bombing per real IP
     $phone = substr(preg_replace('/\D/', '', (string)(body_json()['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
@@ -446,31 +531,43 @@ try {
     jout(404, ['error' => 'No account with this number — please register first']);
   }
   if ($route === 'auth/register' && $method === 'POST') {
+    throttle_hit($db, 'auth-register', 8, 3600);
     $b = body_json();
-    if (empty($b['name']) || empty($b['email']) || empty($b['password'])) jout(400, ['error' => 'Name, email & password required']);
-    if (strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
+    $name = tcap($b['name'] ?? '', 80);
+    $email = strtolower(tcap($b['email'] ?? '', 120));
+    $plain = (string)($b['password'] ?? '');
+    if ($name === '' || $email === '' || $plain === '') jout(400, ['error' => 'Name, email & password required']);
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email address']);
+    if (strlen($plain) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
+    if (strlen($plain) > 128) jout(400, ['error' => 'Password must be at most 128 characters']);
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Valid 10-digit phone required']);
     $otpOk = false;
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && !empty($o['verified']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
-    foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower($b['email'])) jout(409, ['error' => 'Email already registered']);
-    $u = ['id' => uid('u'), 'name' => $b['name'], 'email' => strtolower($b['email']), 'phone' => $phone,
-          'passHash' => pw_hash((string)$b['password']), 'role' => 'customer',
+    foreach ($db['users'] as $u) {
+      if (strtolower($u['email'] ?? '') === $email) jout(409, ['error' => 'Email already registered']);
+      if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $phone && $phone !== '') jout(409, ['error' => 'This mobile number is already registered — log in instead']);
+    }
+    $u = ['id' => uid('u'), 'name' => $name, 'email' => $email, 'phone' => $phone,
+          'passHash' => pw_hash($plain), 'role' => 'customer',
           'loyaltyPoints' => 120, 'wishlist' => [], 'createdAt' => now_iso()];
     $db['users'][] = $u; $tk = issue_token($db, $u);
     db_save($DB_FILE, $db); jout(200, ['token' => $tk, 'user' => pub_user($u)]);
   }
   if ($route === 'auth/login' && $method === 'POST') {
     $b = body_json();
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?';
-    $key = $ip . '|' . strtolower((string)($b['email'] ?? ''));
+    throttle_hit($db, 'auth-login', 40, 900);                       // v42 — coarse per-IP cap
+    $email = strtolower(tcap($b['email'] ?? '', 120));
+    $plain = (string)($b['password'] ?? '');
+    if (strlen($plain) > 128) jout(401, ['error' => 'Invalid email or password']);   // stop bcrypt CPU abuse
+    $key = client_ip() . '|' . $email;                              // v42 — real peer IP only (no spoofable XFF)
     $db['loginfails'] = $db['loginfails'] ?? [];
-    $rec = $db['loginfails'][$key] ?? ['n' => 0, 'until' => 0];
+    $rec = $db['loginfails'][$key] ?? ['n' => 0, 'until' => 0, 'at' => time()];
     if (($rec['until'] ?? 0) > time()) jout(429, ['error' => 'Too many attempts — try again in 15 minutes']);
-    foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower((string)($b['email'] ?? ''))) {
+    foreach ($db['users'] as $u) if (strtolower($u['email']) === $email) {
       $__rehash = false;
-      if (pw_verify($u, (string)($b['password'] ?? ''), $__rehash)) {
+      if (pw_verify($u, $plain, $__rehash)) {
         if ($__rehash) {
           foreach ($db['users'] as $__i => $__uu) if ($__uu['id'] === $u['id']) {
             $db['users'][$__i]['passHash'] = pw_hash((string)($b['password'] ?? ''));
@@ -482,6 +579,7 @@ try {
         jout(200, ['token' => $tk, 'user' => pub_user($u)]);
       }
       $rec['n'] = ($rec['n'] ?? 0) + 1;
+      $rec['at'] = time();
       if ($rec['n'] >= 5) { $rec['until'] = time() + 900; $rec['n'] = 0; }
       $db['loginfails'][$key] = $rec;
       db_save($DB_FILE, $db);
@@ -498,8 +596,8 @@ try {
     $b = body_json();
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
       $uu['profile'] = $uu['profile'] ?? [];
-      foreach (['dob', 'anniversary', 'gender'] as $k) if (isset($b[$k])) $uu['profile'][$k] = mb_substr((string)$b[$k], 0, 20);
-      if (!empty($b['name'])) $uu['name'] = cut500(trim((string)$b['name']));
+      foreach (['dob', 'anniversary', 'gender'] as $k) if (isset($b[$k])) $uu['profile'][$k] = tcap($b[$k], 20);
+      if (!empty($b['name'])) $uu['name'] = tcap($b['name'], 80);
       $u = $uu;
     }
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'user' => pub_user($u)]);
@@ -515,8 +613,9 @@ try {
     if (!preg_match('#^\d{6}$#', (string)$b['pincode'])) jout(400, ['error' => 'Pincode must be 6 digits']);
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
       $uu['addresses'] = $uu['addresses'] ?? [];
-      $addr = ['id' => uid('ad'), 'label' => $b['label'] ?? 'Home', 'name' => trim((string)$b['name']), 'phone' => substr(preg_replace('/\D/', '', (string)$b['phone']), -10),
-               'line' => trim((string)$b['line']), 'city' => trim((string)$b['city']), 'state' => (string)($b['state'] ?? 'Rajasthan'), 'pincode' => (string)$b['pincode']];
+      if (count($uu['addresses']) >= 20) jout(400, ['error' => 'You can save up to 20 addresses — remove one first']);
+      $addr = ['id' => uid('ad'), 'label' => tcap($b['label'] ?? 'Home', 30), 'name' => tcap($b['name'], 80), 'phone' => substr(preg_replace('/\D/', '', (string)$b['phone']), -10),
+               'line' => tcap($b['line'], 220), 'city' => tcap($b['city'], 60), 'state' => tcap($b['state'] ?? 'Rajasthan', 60), 'pincode' => (string)$b['pincode']];
       if (!empty($b['isDefault']) || !count($uu['addresses'])) { foreach ($uu['addresses'] as &$a) $a['isDefault'] = false; $addr['isDefault'] = true; }
       $uu['addresses'][] = $addr;
       $out = $uu;
@@ -534,7 +633,8 @@ try {
           $b = body_json();
           if (!empty($b['setDefault'])) { foreach ($uu['addresses'] as &$a2) $a2['isDefault'] = false; $uu['addresses'][$i]['isDefault'] = true; }
           else {
-            foreach (['label', 'name', 'phone', 'line', 'city', 'state', 'pincode'] as $k) if (isset($b[$k])) $uu['addresses'][$i][$k] = trim((string)$b[$k]);
+            $caps = ['label' => 30, 'name' => 80, 'phone' => 10, 'line' => 220, 'city' => 60, 'state' => 60, 'pincode' => 6];
+            foreach ($caps as $k => $mx) if (isset($b[$k])) $uu['addresses'][$i][$k] = tcap($b[$k], $mx);
             if (!empty($b['isDefault'])) { foreach ($uu['addresses'] as &$a2) $a2['isDefault'] = false; $uu['addresses'][$i]['isDefault'] = true; }
           }
         } elseif ($method === 'DELETE') { array_splice($uu['addresses'], $i, 1); }
@@ -598,9 +698,9 @@ try {
       foreach ($db['products'] as $prod) if ($prod['id'] === $it['id']) {
         $pr = compute_price($prod, $R);
         $line = ['productId' => $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null,
-                 'qty' => max(1, (int)($it['qty'] ?? 1)), 'weightG' => $prod['weightG'], 'purity' => $prod['purity'], 'metal' => $prod['metal'],
+                 'qty' => min(99, max(1, (int)($it['qty'] ?? 1))), 'weightG' => $prod['weightG'], 'purity' => $prod['purity'], 'metal' => $prod['metal'],
                  'unitPrice' => $pr['total'], 'ratePerGram' => $pr['ratePerGram'], 'makingCharge' => $pr['makingCharge'], 'gst' => $pr['gst'],
-                 'size' => $it['size'] ?? null, 'engraving' => $it['engraving'] ?? null];
+                 'size' => tcap($it['size'] ?? '', 20) ?: null, 'engraving' => tcap($it['engraving'] ?? '', 60) ?: null];
         $subtotal += $line['unitPrice'] * $line['qty'];
         $items[] = $line; break;
       }
@@ -620,10 +720,14 @@ try {
     $shipping = $subtotal >= $freeShip ? 0 : (int)($db['settings']['shippingFee'] ?? 250);
     $total = max(0, $subtotal - $discount + $shipping);
     $earned = (int)floor($total / 100);
-    $pm = $b['paymentMethod'] ?? 'Online';
+    $pm = in_array(($b['paymentMethod'] ?? ''), ['Online', 'COD', 'WhatsApp', 'UPI', 'Bank'], true) ? $b['paymentMethod'] : 'Online';
+    $ad = is_array($b['address'] ?? null) ? $b['address'] : [];
+    $addrStore = ['name' => tcap($ad['name'] ?? $u['name'], 80), 'phone' => substr(preg_replace('/\D/', '', (string)($ad['phone'] ?? $u['phone'] ?? '')), -10),
+                  'line' => tcap($ad['line'] ?? '', 220), 'city' => tcap($ad['city'] ?? '', 60), 'state' => tcap($ad['state'] ?? '', 60),
+                  'pincode' => tcap($ad['pincode'] ?? '', 6), 'label' => tcap($ad['label'] ?? 'Home', 30)];
     $order = [
-      'id' => 'SHV' . substr((string)time(), -8), 'userId' => $u['id'], 'userName' => $u['name'], 'items' => $items,
-      'address' => $b['address'] ?? (object)[], 'paymentMethod' => $pm,
+      'id' => ref_id('SHV'), 'userId' => $u['id'], 'userName' => $u['name'], 'items' => $items,
+      'address' => $addrStore, 'paymentMethod' => $pm,
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Paid'),
       'subtotal' => $subtotal, 'discount' => $discount, 'pointsUsed' => $pointsUsed, 'coupon' => $coupon['code'] ?? null,
       'shipping' => $shipping, 'total' => $total, 'earnedPoints' => $earned,
@@ -718,6 +822,7 @@ try {
     $cfg = $db['settings']['gstApi'] ?? [];
     if (empty($cfg['key'])) jout(200, ['configured' => false, 'note' => 'Add a GST API key in Admin → Settings to auto-verify legal names online']);
     $url = ($cfg['url'] ?? 'https://api.mastersindia.co/v2/gstin/') . '?gstin=' . urlencode($g);
+    if (stripos($url, 'https://') !== 0) jout(400, ['error' => 'GST provider URL must start with https://']);   // v42 — SSRF guard
     $ctx = stream_context_create(['http' => ['timeout' => 8, 'header' => 'Authorization: Bearer ' . $cfg['key'] . "\r\n"]]);
     $raw = @file_get_contents($url, false, $ctx);
     $j = $raw ? json_decode($raw, true) : null;
@@ -726,6 +831,7 @@ try {
     jout(200, ['configured' => true, 'verified' => false, 'note' => 'GST service unreachable — admin will verify manually']);
   }
   if ($route === 'kyc/send-otp' && $method === 'POST') {
+    throttle_hit($db, 'kyc-otp', 12, 600);    // v42 — anti SMS-bombing per real IP
     $phone = substr(preg_replace('/\D/', '', (string)(body_json()['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
     foreach (($db['otps'] ?? []) as $o) if (($o['phone'] ?? '') === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
@@ -779,16 +885,16 @@ try {
     $totalWeight = 0; $items = [];
     foreach (($b['items'] ?? []) as $it) {
       foreach ($db['products'] as $prod) if ($prod['id'] === $it['id'] && !empty($prod['active'])) {
-        $qty = max(1, (int)($it['qty'] ?? 1));
+        $qty = min(99, max(1, (int)($it['qty'] ?? 1)));
         $totalWeight += $prod['weightG'] * $qty;
         $items[] = ['productId' => $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null, 'qty' => $qty, 'weightG' => $prod['weightG'], 'lineWeight' => round($prod['weightG'] * $qty, 3)];
       }
     }
     if (!count($items)) jout(400, ['error' => 'No designs selected']);
-    $ord = ['id' => 'MX' . substr((string)time(), -8), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
+    $ord = ['id' => ref_id('MX'), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
             'items' => $items, 'totalWeightG' => round($totalWeight, 3), 'factor' => $factor,
             'fineGrams' => round($totalWeight * $factor, 2), 'purity' => $purity,
-            'makingCharges' => 0, 'note' => $b['note'] ?? '', 'status' => 'New', 'createdAt' => now_iso()];
+            'makingCharges' => 0, 'note' => tcap($b['note'] ?? '', 500), 'status' => 'New', 'createdAt' => now_iso()];
     $db['metalOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
   }
   if ($route === 'metalexchange/orders' && $method === 'GET') {
@@ -823,9 +929,11 @@ try {
       }
     }
     if (empty($fields['name']) || empty($fields['weight'])) jout(400, ['error' => 'Product name & weight required']);
-    $ord = ['id' => 'CO' . substr((string)time(), -8), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
-            'name' => cut500($fields['name']), 'weightG' => (float)$fields['weight'], 'melting' => (float)($fields['melting'] ?? 0),
-            'advance' => (float)($fields['advance'] ?? 0), 'size' => cut500($fields['size'] ?? ''), 'note' => cut500($fields['note'] ?? ''),
+    $cWeight = (float)$fields['weight'];
+    if ($cWeight < 0.1 || $cWeight > 20000) jout(400, ['error' => 'Weight must be between 0.1 g and 20 kg']);
+    $ord = ['id' => ref_id('CO'), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
+            'name' => tcap($fields['name'], 120), 'weightG' => $cWeight, 'melting' => max(0.0, min(100000.0, (float)($fields['melting'] ?? 0))),
+            'advance' => max(0.0, min(5000000.0, (float)($fields['advance'] ?? 0))), 'size' => tcap($fields['size'] ?? '', 40), 'note' => tcap($fields['note'] ?? '', 1000),
             'designImg' => $file, 'status' => 'New', 'createdAt' => now_iso()];
     $db['customOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
   }
@@ -858,9 +966,10 @@ try {
     $br = null; foreach ($rows as $r0) if ($r0['key'] === ($b['metKey'] ?? '')) $br = $r0;
     $rate = $br ? ($b['side'] === 'buy' ? $br['buy'] : $br['sell']) : 0;
     $mult = ($b['unit'] ?? 'kg') === 'kg' ? 1000 : 1;
-    $ord = ['id' => 'BL' . substr((string)time(), -8), 'side' => $b['side'], 'metKey' => $b['metKey'] ?? '', 'metal' => $b['metal'], 'mode' => $br['mode'] ?? '',
-            'qty' => (float)$b['qty'], 'unit' => $b['unit'] ?? 'kg', 'rate' => $rate,
-            'amount' => (int)round($rate * (float)$b['qty'] * $mult), 'note' => $b['note'] ?? '',
+    $qtyV = max(0.001, min(5000.0, (float)($b['qty'] ?? 0)));
+    $ord = ['id' => ref_id('BL'), 'side' => $b['side'], 'metKey' => $b['metKey'] ?? '', 'metal' => $b['metal'], 'mode' => $br['mode'] ?? '',
+            'qty' => $qtyV, 'unit' => $b['unit'] ?? 'kg', 'rate' => $rate,
+            'amount' => (int)round($rate * $qtyV * $mult), 'note' => tcap($b['note'] ?? '', 300),
             'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'], 'status' => 'New', 'createdAt' => now_iso()];
     $db['bullionOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
   }
@@ -879,21 +988,30 @@ try {
 
   /* ── partners (full KYC) ── */
   if ($route === 'partners/apply' && $method === 'POST') {
+    throttle_hit($db, 'partner-apply', 5, 3600);
     $b = body_json();
-    if (empty($b['firm']) || empty($b['email']) || empty($b['phone']) || empty($b['password'])) jout(400, ['error' => 'Firm, email, phone & password required']);
+    $firm = tcap($b['firm'] ?? '', 120);
+    $email = strtolower(tcap($b['email'] ?? '', 120));
+    $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    $plain = (string)($b['password'] ?? '');
+    if ($firm === '' || $email === '' || $phone === '' || $plain === '') jout(400, ['error' => 'Firm, email, phone & password required']);
+    if (strlen($plain) < 8 || strlen($plain) > 128) jout(400, ['error' => 'Password must be 8–128 characters']);
     $gst = gstin_check((string)($b['gstin'] ?? ''));
     if (!$gst['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $gst['reason']]);
     $otpOk = false;
-    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === substr((string)$b['phone'], -10) && !empty($o['verified']) && $o['exp'] > time() - 3600) $otpOk = true;
+    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && !empty($o['verified']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
-    foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower((string)$b['email'])) jout(409, ['error' => 'Email already registered — login instead']);
-    $pr = ['id' => uid('pt'), 'firm' => $b['firm'], 'contactPerson' => $b['contactPerson'] ?? '', 'city' => $b['city'] ?? $gst['state'],
-           'phone' => $b['phone'], 'email' => strtolower($b['email']),
-           'kyc' => ['gstin' => strtoupper((string)$b['gstin']), 'gstinValid' => true, 'gstinState' => $gst['state'], 'pan' => $gst['pan'], 'ownerPan' => strtoupper((string)($b['ownerPan'] ?? '')), 'otpVerified' => true, 'at' => now_iso()],
-           'message' => $b['message'] ?? '', 'status' => 'pending', 'appliedAt' => now_iso()];
+    foreach ($db['users'] as $u) {
+      if (strtolower($u['email'] ?? '') === $email) jout(409, ['error' => 'Email already registered — login instead']);
+      if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $phone && $phone !== '') jout(409, ['error' => 'This mobile number is already registered — login instead']);
+    }
+    $pr = ['id' => uid('pt'), 'firm' => $firm, 'contactPerson' => tcap($b['contactPerson'] ?? '', 80), 'city' => tcap($b['city'] ?? $gst['state'], 60),
+           'phone' => $phone, 'email' => $email,
+           'kyc' => ['gstin' => strtoupper((string)$b['gstin']), 'gstinValid' => true, 'gstinState' => $gst['state'], 'pan' => $gst['pan'], 'ownerPan' => strtoupper(tcap($b['ownerPan'] ?? '', 10)), 'otpVerified' => true, 'at' => now_iso()],
+           'message' => tcap($b['message'] ?? '', 1000), 'status' => 'pending', 'appliedAt' => now_iso()];
     $db['partners'][] = $pr;
-    $u = ['id' => uid('u'), 'name' => $b['firm'], 'email' => strtolower($b['email']), 'phone' => $b['phone'],
-          'passHash' => pw_hash((string)$b['password']), 'role' => 'partner', 'partnerId' => $pr['id'],
+    $u = ['id' => uid('u'), 'name' => $firm, 'email' => $email, 'phone' => $phone,
+          'passHash' => pw_hash($plain), 'role' => 'partner', 'partnerId' => $pr['id'],
           'loyaltyPoints' => 0, 'wishlist' => [], 'createdAt' => now_iso()];
     $db['users'][] = $u;
     $tk = issue_token($db, $u);
@@ -905,11 +1023,12 @@ try {
   if (preg_match('#^users/([\w-]+)/password$#', $route, $m) && $method === 'POST') {
     need_admin($db);
     $b = body_json();
-    if (strlen((string)($b['password'] ?? '')) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
+    $plain = (string)($b['password'] ?? '');
+    if (strlen($plain) < 8 || strlen($plain) > 128) jout(400, ['error' => 'Password must be 8–128 characters']);
     $target = null; $ti = -1;
     foreach ($db['users'] as $i => $u) if ($u['id'] === $m[1]) { $target = $u; $ti = $i; break; }
     if (!$target) jout(404, ['error' => 'User not found']);
-    $db['users'][$ti]['passHash'] = pw_hash((string)$b['password']);
+    $db['users'][$ti]['passHash'] = pw_hash($plain);
     unset($db['users'][$ti]['salt']);
     /* kill every live session for that user so the new password takes effect */
     $db['tokens'] = array_values(array_filter($db['tokens'] ?? [], fn($t) => ($t['userId'] ?? '') !== $m[1]));
@@ -937,60 +1056,118 @@ try {
   if ($route === 'partners/me' && $method === 'GET') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
-    $pid = $u['partnerId'] ?? ($db['partners'][0]['id'] ?? '');
+    // v42 — no silent fallback: a non-partner account must never see the first
+    // partner's KYC/settlement data by accident.
+    $pid = $u['partnerId'] ?? '';
+    if ($pid === '') jout(404, ['error' => 'No partner profile on this account']);
     $pr = null; foreach ($db['partners'] as $x) if ($x['id'] === $pid) $pr = $x;
+    if (!$pr) jout(404, ['error' => 'Partner profile not found']);
     $set = array_values(array_filter($db['settlements'], fn($s) => $s['partnerId'] === $pid));
     jout(200, ['partner' => $pr, 'settlements' => $set]);
   }
 
   /* ── leads / services / misc ── */
   if ($route === 'services' && $method === 'POST') {
+    throttle_hit($db, 'services', 10, 3600);
     $b = body_json();
-    if (empty($b['name']) || empty($b['phone'])) jout(400, ['error' => 'Name & phone required']);
-    $db['serviceRequests'][] = ['id' => uid('sr'), 'type' => $b['type'] ?? '', 'name' => $b['name'], 'phone' => $b['phone'],
-                                'email' => $b['email'] ?? '', 'details' => $b['details'] ?? '', 'budget' => $b['budget'] ?? '', 'status' => 'new', 'createdAt' => now_iso()];
+    $name = tcap($b['name'] ?? '', 80);
+    $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    if ($name === '' || !preg_match('#^\d{10}$#', $phone)) jout(400, ['error' => 'Name & a valid 10-digit mobile are required']);
+    $db['serviceRequests'][] = ['id' => uid('sr'), 'type' => tcap($b['type'] ?? '', 40), 'name' => $name, 'phone' => $phone,
+                                'email' => strtolower(tcap($b['email'] ?? '', 120)), 'details' => tcap($b['details'] ?? '', 1000),
+                                'budget' => tcap($b['budget'] ?? '', 40), 'status' => 'new', 'createdAt' => now_iso()];
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'services' && $method === 'GET') { need_admin($db); jout(200, ['requests' => array_reverse($db['serviceRequests'])]); }
   if ($route === 'newsletter' && $method === 'POST') {
+    throttle_hit($db, 'newsletter', 10, 3600);
     $b = body_json();
-    if (!filter_var($b['email'] ?? '', FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Valid email required']);
-    if (!in_array($b['email'], array_column($db['newsletter'], 'email'))) $db['newsletter'][] = ['email' => $b['email'], 'at' => now_iso()];
-    db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+    $email = strtolower(tcap($b['email'] ?? '', 120));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Valid email required']);
+    $dup = false;
+    foreach ($db['newsletter'] as $n) if (strtolower((string)($n['email'] ?? '')) === $email) { $dup = true; break; }
+    if (!$dup) $db['newsletter'][] = ['email' => $email, 'at' => now_iso()];
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'subscribed' => !$dup]);
   }
   if ($route === 'contact' && $method === 'POST') {
+    throttle_hit($db, 'contact', 10, 3600);
     $b = body_json();
-    if (empty($b['name']) || empty($b['message'])) jout(400, ['error' => 'Name & message required']);
-    $db['contactMsgs'][] = ['id' => uid('cm'), 'name' => $b['name'], 'phone' => $b['phone'] ?? '', 'email' => $b['email'] ?? '', 'message' => $b['message'], 'at' => now_iso(), 'read' => false];
+    $name = tcap($b['name'] ?? '', 80);
+    $message = tcap($b['message'] ?? '', 2000);
+    if ($name === '' || $message === '') jout(400, ['error' => 'Name & message required']);
+    $db['contactMsgs'][] = ['id' => uid('cm'), 'name' => $name, 'phone' => substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10),
+                            'email' => strtolower(tcap($b['email'] ?? '', 120)), 'message' => $message, 'at' => now_iso(), 'read' => false];
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'reviews' && $method === 'POST') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
+    throttle_hit($db, 'reviews', 12, 600);
     $b = body_json();
-    if (empty($b['productId']) || empty($b['text'])) jout(400, ['error' => 'productId & text required']);
-    $rv = ['id' => uid('rv'), 'productId' => $b['productId'], 'userName' => $u['name'],
-           'rating' => clampn((int)($b['rating'] ?? 5), 1, 5), 'text' => cut500((string)$b['text']), 'createdAt' => now_iso()];
+    $pid = (string)($b['productId'] ?? '');
+    $text = tcap($b['text'] ?? '', 500);
+    if ($pid === '' || $text === '') jout(400, ['error' => 'productId & a written review are required']);
+    $pidx = -1;
+    foreach ($db['products'] as $i => $pr0) if (($pr0['id'] ?? '') === $pid) { $pidx = $i; break; }
+    if ($pidx < 0) jout(404, ['error' => 'Product not found — refresh the page and try again']);
+    $ratingRaw = $b['rating'] ?? 5;
+    $rating = filter_var($ratingRaw, FILTER_VALIDATE_INT);
+    if ($rating === false) $rating = 5;
+    $rating = clampn((int)$rating, 1, 5);
+    $rv = ['id' => uid('rv'), 'productId' => $pid, 'userName' => $u['name'], 'userId' => $u['id'],
+           'rating' => $rating, 'text' => $text, 'createdAt' => now_iso()];
     $db['reviews'][] = $rv;
-    foreach ($db['products'] as &$pr) if ($pr['id'] === $b['productId']) {
-      $rs = array_values(array_filter($db['reviews'], fn($r) => $r['productId'] === $pr['id']));
-      $pr['rating'] = round(array_sum(array_column($rs, 'rating')) / max(1, count($rs)), 1);
-      $pr['reviews'] = count($rs);
-    }
+    $rs = array_values(array_filter($db['reviews'], fn($r) => ($r['productId'] ?? '') === $pid));
+    $db['products'][$pidx]['rating'] = round(array_sum(array_column($rs, 'rating')) / max(1, count($rs)), 1);
+    $db['products'][$pidx]['reviews'] = count($rs);
     db_save($DB_FILE, $db); jout(200, $rv);
   }
 
   /* ── settings / stats / users ── */
-  if ($route === 'settings' && $method === 'GET') jout(200, $db['settings']);
+  if ($route === 'settings' && $method === 'GET') {
+    $u0 = req_user($db);
+    if (!$u0 || $u0['role'] !== 'admin') {
+      // v42 — PUBLIC view is redacted: the GST lookup key (and any future
+      // credential-style key) is never sent to anonymous visitors / customers.
+      $pub = $db['settings'];
+      $pub['gstApi'] = ['configured' => !empty($db['settings']['gstApi']['key'] ?? '')];
+      foreach ($pub as $k => $v) {
+        if (is_string($k) && preg_match('/(key|secret|token|auth|password|credential|apikey|api_key|access)/i', (string)$k)) unset($pub[$k]);
+      }
+      jout(200, $pub);
+    }
+    jout(200, $db['settings']);
+  }
   if ($route === 'settings' && $method === 'PUT') {
     need_admin($db);
-    foreach (body_json() as $k => $v) $db['settings'][$k] = $v;
+    // v42 — allowlist, so a stray/malicious key can never be smuggled into settings
+    $allow = ['storeName', 'tagline', 'phone', 'whatsapp', 'email', 'address', 'freeShipAbove', 'shippingFee',
+              'jaipurPremium', 'jaipurSilverPremium', 'bullionGoldPremium', 'bullionSilverPremium', 'metalFactor',
+              'finePurity', 'announcements', 'gstApi', 'cin', 'udyam', 'dipp', 'incorporated', 'gstin', 'about', 'mapQuery'];
+    $b = body_json();
+    foreach ($allow as $k) if (array_key_exists($k, $b)) {
+      $v = $b[$k];
+      if ($k === 'gstApi') {
+        $key = is_array($v) ? trim((string)($v['key'] ?? '')) : '';
+        if ($key !== '') $db['settings']['gstApi'] = ['key' => substr($key, 0, 200)];
+        else unset($db['settings']['gstApi']);
+      } elseif (is_string($v)) {
+        $db['settings'][$k] = tcap($v, 2000);
+      } elseif (is_int($v) || is_float($v)) {
+        $db['settings'][$k] = $v;
+      } elseif (is_array($v) && $k === 'announcements') {
+        $db['settings'][$k] = array_slice(array_map(fn($l) => tcap($l, 300), array_values(array_filter($v, 'is_scalar'))), 0, 20);
+      }
+    }
     db_save($DB_FILE, $db); jout(200, $db['settings']);
   }
   /* ── custom pages (owner-managed) ── */
   if ($route === 'pages' && $method === 'GET') {
     $list = array_values(array_filter($db['pages'] ?? [], fn($x) => !empty($x['published'])));
-    if (!empty($_GET['slug'])) { foreach ($list as $pg) if ($pg['slug'] === $_GET['slug']) jout(200, $pg); jout(200, ['error' => 'Not found']); }
+    if (!empty($_GET['slug'])) {
+      foreach ($list as $pg) if ($pg['slug'] === $_GET['slug']) jout(200, $pg);
+      jout(404, ['error' => 'Page not found']);
+    }
     jout(200, ['pages' => array_map(fn($x) => ['title' => $x['title'], 'slug' => $x['slug'], 'updatedAt' => $x['updatedAt'] ?? ''], $list)]);
   }
   if ($route === 'pages' && $method === 'POST') {

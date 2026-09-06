@@ -4566,3 +4566,105 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 @media(max-width:380px){
   .header-top .header-actions #acctBtn,.header-top .header-actions #wishBtn{display:none}
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   v42 — Gift Assistant · gold calculator · recently viewed ·
+          rate-alert · floating quick actions
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── rate strip gains a 5th "alert" cell ── */
+.rate-strip-in{grid-template-columns:repeat(5,1fr)}
+@media(max-width:980px){.rate-strip-in{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.rate-strip-in{grid-template-columns:repeat(2,1fr)}}
+.rs-alert{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px}
+.rs-alert-btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--ff-label);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:#ffe9bd;background:rgba(212,175,90,.14);border:1px solid rgba(212,175,90,.45);border-radius:30px;padding:8px 14px;transition:.25s var(--ease)}
+.rs-alert-btn:hover{background:var(--gold);color:#fff;transform:translateY(-1px)}
+.rs-alert-btn .live-dot{margin-right:0}
+
+/* ── floating action buttons ── */
+.fab-stack{position:fixed;right:18px;bottom:88px;z-index:80;display:flex;flex-direction:column;gap:12px;align-items:center}
+.fab{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 26px rgba(61,14,21,.22);transition:transform .25s var(--ease),box-shadow .25s,opacity .3s;color:#fff}
+.fab:hover{transform:translateY(-3px) scale(1.05)}
+.fab-top{background:linear-gradient(135deg,var(--maroon),var(--maroon-deep));color:#f3dfae;opacity:0;pointer-events:none}
+.fab-top.show{opacity:1;pointer-events:auto}
+.fab-top svg{width:20px;height:20px}
+.fab-wa{background:linear-gradient(135deg,#2bd364,#128c7e);color:#fff}
+.fab-wa svg{width:26px;height:26px}
+.fab-wa::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid rgba(37,211,102,.4);animation:fabPing 2.2s ease-out infinite;pointer-events:none}
+@keyframes fabPing{0%{transform:scale(.9);opacity:.9}70%{transform:scale(1.25);opacity:0}100%{opacity:0}}
+@media(min-width:821px){.fab-stack{bottom:26px}}
+@media(max-width:640px){.fab{width:48px;height:48px}}
+
+/* ── Gift Assistant teaser band (home) ── */
+.gift-band{padding:0}
+.gb-in{position:relative;overflow:hidden;border-radius:28px;background:radial-gradient(120% 200% at 90% -20%,rgba(212,175,90,.22),transparent 45%),linear-gradient(135deg,#2a090e 0%,var(--maroon-deep) 58%,#4a1118 100%);color:#f3dfae;padding:56px clamp(22px,5vw,64px);display:grid;grid-template-columns:1.25fr .75fr;gap:36px;align-items:center;border:1px solid rgba(212,175,90,.28);box-shadow:var(--sh-2)}
+.gb-in::before{content:'';position:absolute;inset:0;background:radial-gradient(340px 180px at 18% 0,rgba(212,175,90,.16),transparent 70%);pointer-events:none}
+.gb-tx{position:relative}
+.gb-tx h2{color:#ffe9bd;font-size:clamp(30px,4.2vw,46px);margin:8px 0 12px}
+.gb-tx p{color:rgba(243,223,174,.82);max-width:520px;font-size:15.5px;line-height:1.7}
+.gb-cta{display:flex;gap:14px;margin-top:26px;flex-wrap:wrap}
+.gb-cta .btn-gold{box-shadow:0 10px 30px rgba(185,138,47,.35)}
+.gb-chips{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:14px;justify-items:center}
+.gb-chip{font-family:var(--ff-disp);font-size:19px;color:var(--maroon-deep);background:linear-gradient(145deg,#fdf6e3,#eed9ac);border:1px solid rgba(212,175,90,.6);border-radius:16px;padding:16px 18px;box-shadow:0 12px 26px rgba(0,0,0,.22);transform:rotate(var(--r,-2deg));animation:gbFloat 5.5s ease-in-out infinite;white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
+.gb-chip.c1{--r:-3deg;animation-delay:-.4s}
+.gb-chip.c2{--r:2deg;animation-delay:-1.6s}
+.gb-chip.c3{--r:-1.5deg;animation-delay:-2.7s}
+.gb-chip.c4{--r:2.6deg;animation-delay:-3.8s}
+.gb-chip.c5{--r:-2.4deg;animation-delay:-4.6s}
+.gb-chip.c6{--r:1.8deg;animation-delay:-1s;grid-column:1/-1}
+@keyframes gbFloat{0%,100%{transform:rotate(var(--r)) translateY(0)}50%{transform:rotate(var(--r)) translateY(-7px)}}
+@media(max-width:860px){.gb-in{grid-template-columns:1fr;text-align:center}.gb-tx p{margin:0 auto}.gb-cta{justify-content:center}.gb-chips{max-width:420px;margin:6px auto 0}}
+
+/* ── Gift Assistant quiz modal ── */
+.modal.giftq-modal{max-width:880px}
+.giftq{padding:6px 2px 2px}
+.giftq .label{display:block;margin-bottom:10px}
+.giftq-prog{display:flex;gap:8px;margin:2px 0 18px}
+.giftq-prog i{height:4px;flex:1;border-radius:4px;background:var(--line);transition:background .3s}
+.giftq-prog i.on{background:var(--gold)}
+.giftq-prog i.done{background:var(--maroon)}
+.giftq-q{font-size:clamp(22px,3vw,30px);margin-bottom:20px}
+.giftq-opts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.giftq-opt{position:relative;display:flex;align-items:center;gap:10px;text-align:left;background:var(--cream);border:1.5px solid var(--line);border-radius:16px;padding:16px 18px;font-size:15px;color:var(--ink);transition:.25s var(--ease);overflow:hidden}
+.giftq-opt b{font-weight:500}
+.giftq-opt>i{position:absolute;right:14px;font-style:normal;color:var(--gold);opacity:0;transform:translateX(-6px);transition:.25s}
+.giftq-opt:hover{border-color:var(--gold);background:#fffdf6;transform:translateY(-2px);box-shadow:var(--sh-1)}
+.giftq-opt:hover>i{opacity:1;transform:none}
+.giftq-em{font-size:24px}
+.giftq-back{display:flex;justify-content:space-between;align-items:center;margin-top:18px;font-size:12.5px;color:var(--ink-3)}
+.giftq-back a{color:var(--maroon);font-weight:500}
+.giftq-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 4px}
+.giftq-grid .p-card{box-shadow:var(--sh-1)}
+.giftq-grid .pc-imgwrap img{aspect-ratio:1/1}
+.giftq-grid .pc-name{font-size:15px}
+.giftq-grid .pc-price b{font-size:17px}
+.giftq-foot{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:18px}
+@media(max-width:900px){.giftq-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.giftq-opts{grid-template-columns:1fr}.giftq-grid{grid-template-columns:1fr 1fr;gap:9px}.modal.giftq-modal{padding:26px 18px}}
+
+/* ── gold calculator (rates page) ── */
+.goldcalc{background:linear-gradient(160deg,#fffdf6,#f7efdc);border:1px solid var(--line);border-radius:24px;padding:clamp(22px,3.4vw,40px);margin-top:34px;box-shadow:var(--sh-1);position:relative;overflow:hidden}
+.goldcalc::after{content:'';position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(212,175,90,.2),transparent 65%);pointer-events:none}
+.gc-head{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-bottom:22px}
+.gc-head h3{font-size:clamp(23px,3vw,32px)}
+.gc-head p{color:var(--ink-2);font-size:14px;max-width:520px;margin-top:6px}
+.gc-live{font-family:var(--ff-label);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);background:var(--gold-faint);border:1px solid var(--gold-soft);border-radius:30px;padding:9px 16px;white-space:nowrap}
+.gc-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.gc-fields .fld{margin-bottom:14px}
+.gc-fields label{font-family:var(--ff-label);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-2);display:flex;justify-content:space-between}
+.gc-fields label span{color:var(--maroon);letter-spacing:.05em;font-family:var(--ff-body)}
+.gc-fields input[type=range]{width:100%;accent-color:var(--gold);margin-top:10px;cursor:pointer}
+.gc-out{background:var(--maroon-deep);border-radius:18px;padding:22px 24px;color:#f3dfae;display:flex;flex-direction:column;gap:11px;justify-content:center}
+.gc-row{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:rgba(243,223,174,.85)}
+.gc-row b{color:#ffe9bd;font-weight:500}
+.gc-total{display:flex;justify-content:space-between;gap:10px;align-items:baseline;border-top:1px dashed rgba(212,175,90,.4);margin-top:8px;padding-top:14px}
+.gc-total span{font-family:var(--ff-label);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:rgba(243,223,174,.75)}
+.gc-total b{font-family:var(--ff-disp);font-size:clamp(26px,3vw,34px);color:var(--gold-2)}
+.gc-note{font-size:12px;color:rgba(243,223,174,.62);line-height:1.55}
+.gc-pop{animation:gcPop .5s var(--ease)}
+@keyframes gcPop{0%{transform:scale(.92)}55%{transform:scale(1.06)}100%{transform:scale(1)}}
+@media(max-width:760px){.gc-grid{grid-template-columns:1fr}}
+
+/* ── rate-alert modal ── */
+.ralert input{border:1px solid var(--line);border-radius:12px;padding:11px 13px;width:100%;margin-top:6px;background:var(--cream)}
+.ralert input:focus{outline:none;border-color:var(--gold);background:#fff}

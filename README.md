@@ -33,6 +33,14 @@ python3 ../pipeline/06_upload.py --all                          # then live
 
 ## Feature roadmap
 
+- **Update v42 (2026-09-06):** security-hardened `api.php` (public settings
+  secret leak, spoofable XFF lockout bypass, unbounded single-file DB growth,
+  SMS-bombing vectors, partner-profile data leak, input caps/allowlists),
+  collision-proof order IDs, and new storefront features — Gift Assistant quiz,
+  live gold calculator on `#/rates`, recently-viewed rail, rate-alert modal +
+  admin panel, floating WhatsApp/back-to-top actions, JSON-LD + OG meta.
+  Ship with `shivaa-update-v42.zip`; full audit & deploy in
+  [`docs/UPDATE-v42.md`](docs/UPDATE-v42.md).
 - **Feature 13 — Compare + Shareable Shortlist:** preserved and regression-tested.
 - **Feature 1 — HUID workflow:** released through PR #5; public live deployment
   confirmed. **Automatic BIS verification is not connected**. The guide at

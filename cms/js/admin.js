@@ -40,6 +40,8 @@ async function renderAdmin(view, q) {
   if (tab === 'customers') { try { users = (await api('/api/admin/users')).users; } catch (e) {} }
   let leads = { requests: [] };
   if (tab === 'leads') { try { leads = await api('/api/services'); } catch (e) {} }
+  let rateAlerts = [];
+  if (tab === 'leads') { try { rateAlerts = (await api('/api/rates/alerts')).alerts || []; } catch (e) {} }   // v42
   let coupons = [];
   if (tab === 'coupons') { try { coupons = (await api('/api/coupons')).coupons; } catch (e) {} }
   const P = partnersData.partners || [];
@@ -319,6 +321,16 @@ async function renderAdmin(view, q) {
           <td>${new Date(r.createdAt).toLocaleDateString('en-IN')}</td>
           <td><select onchange="this.dataset.v=this.value" style="border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px">${['new', 'contacted', 'quoted', 'won', 'closed'].map(s => `<option ${r.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
         </tr>`).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3)">No service requests yet — they land here from Bespoke & Care, B2B forms and contact page.</p>'}
+    </div>
+    <div class="adm-card"><h3>Rate alerts (${rateAlerts.length}) <span style="font-size:11px;color:var(--ink-3);font-weight:400">desk action — email the customer when their level crosses</span></h3>
+      ${rateAlerts.length ? `<div class="adm-table-wrap"><table class="adm-table">
+        <thead><tr><th>Email</th><th>Metal</th><th class="num">Target ₹/g</th><th>Current 22K</th><th>When</th><th></th></tr></thead>
+        <tbody>${rateAlerts.slice(0, 60).map(a => `<tr>
+          <td><b>${esc(a.email)}</b></td><td><span class="pill pm">${esc(a.metal)}</span></td>
+          <td class="num">${fmt(+a.target)}</td><td class="num">${state.rates ? fmt(state.rates.gold22) : '—'}</td>
+          <td>${new Date(a.createdAt).toLocaleString('en-IN')}</td>
+          <td><a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="mailto:${esc(a.email)}?subject=${esc(encodeURIComponent('Shivaa — your gold-rate alert level has crossed'))}&body=${esc(encodeURIComponent('Namaste,\n\nThe 22K gold rate you asked about has crossed ₹' + (+a.target).toLocaleString('en-IN') + '/g.\n\nCall or reply and we will hold your choice for the day.\n— Shivaa desk'))}">Email</a></td>
+        </tr>`).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3)">No rate alerts yet — they appear here from the bell on the rates page / homepage ticker.</p>'}
     </div>`;
   }
 
@@ -365,7 +377,7 @@ async function renderAdmin(view, q) {
         <div class="fld"><label>Shipping fee ₹</label><input name="shippingFee" type="number" value="${S.shippingFee}"></div>
         <div class="fld"><label>Jaipur gold premium ₹/g</label><input name="jaipurPremium" type="number" value="${S.jaipurPremium ?? 55}"></div>
         <div class="fld"><label>Jaipur silver premium ₹/g</label><input name="jaipurSilverPremium" type="number" step="0.5" value="${S.jaipurSilverPremium ?? 3}"></div>
-        <div class="fld full"><label>GST verification API key (auto-fills firm names in B2B KYC)</label><input name="gstKey" placeholder="paste key from your GST API provider — blank = verify manually at approval"></div>
+        <div class="fld full"><label>GST verification API key (auto-fills firm names in B2B KYC)</label><input name="gstKey" placeholder="paste key from your GST API provider — leave blank to keep the saved key"><small style="display:block;color:var(--ink-3);margin-top:5px">The saved key is never displayed again and its file is blocked from the web — leave blank on later saves to keep it unchanged.</small></div>
         <div class="fld full"><label>Announcement ticker (one per line)</label><textarea name="announcements">${esc((S.announcements || []).join('\n'))}</textarea></div>
         <button class="btn btn-primary btn-sm" style="justify-self:start">Save settings</button>
       </form></div>
@@ -597,7 +609,14 @@ window.ShivaaAdmin.saveSettings = async e => {
   // read by name — positional indexing silently corrupts settings if a field moves
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
   try {
-    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), jaipurPremium: +g('jaipurPremium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: g('gstKey').trim() }, announcements: g('announcements').split('\n').filter(Boolean) }) });
+    // v42 — keep the existing GST key when the field is left blank (the key is
+    // never echoed back into the form, so an empty field must mean "unchanged").
+    let gstKey = g('gstKey').trim();
+    if (!gstKey) {
+      const cur = await api('/api/settings');
+      gstKey = (cur.gstApi && cur.gstApi.key) ? String(cur.gstApi.key) : '';
+    }
+    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), jaipurPremium: +g('jaipurPremium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: gstKey }, announcements: g('announcements').split('\n').filter(Boolean) }) });
     Object.assign(state.settings, s); toast('Settings saved');
   } catch (err) { toast(err.message, 'err'); }
 };
