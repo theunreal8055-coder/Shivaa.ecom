@@ -42,6 +42,8 @@ async function renderAdmin(view, q) {
   if (tab === 'leads') { try { leads = await api('/api/services'); } catch (e) {} }
   let coupons = [];
   if (tab === 'coupons') { try { coupons = (await api('/api/coupons')).coupons; } catch (e) {} }
+  let searchData = { captures: [], zero: [], top: [] };
+  if (tab === 'search') { try { searchData = await api('/api/search/captures'); } catch (e) {} }
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -51,12 +53,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['search','🔍','Search'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',search:'Search Analytics',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -81,6 +83,45 @@ async function renderAdmin(view, q) {
           <p style="font-size:42px;font-family:var(--ff-disp);color:var(--maroon)">${stats.serviceRequests || 0}</p><span style="font-size:13px;color:var(--ink-3)">bespoke / repair / appointments awaiting first response</span></div>
       </div>`;
     drawBarChart($('#admChart'), days);
+  }
+
+  /* ── SEARCH ANALYTICS (Batch B #10) ── */
+  if (tab === 'search') {
+    const caps = searchData.captures || [], zero = searchData.zero || [], top = searchData.top || [];
+    const total = caps.length, zeroCount = zero.length;
+    const zeroRate = total ? Math.round(zeroCount / total * 100) : 0;
+    const topQ = top[0] || null;
+    const fmtday = iso => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    body.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat"><small>Search queries captured</small><b>${total}</b><span>from #21 zero-result capture</span></div>
+        <div class="stat"><small>Zero-result queries</small><b>${zeroCount}</b><span>${zeroRate}% of captured</span></div>
+        <div class="stat"><small>Top missed query</small><b style="font-size:22px">${topQ ? esc(topQ.q) : '—'}</b><span>${topQ ? topQ.count + ' times' : 'no captures yet'}</span></div>
+        <div class="stat"><small>Last capture</small><b style="font-size:20px">${caps[0] ? esc(fmtday(caps[0].createdAt)) : '—'}</b><span>${caps[0] ? esc(caps[0].q) : 'search from shop'}</span></div>
+      </div>
+      <div class="grid2">
+        <div class="adm-card"><h3>Most-missed search phrases</h3>
+          ${top.length ? `<div class="search-top-list">${top.map((t, i) => `<div class="sum-row"><span>${i + 1}. <b style="color:var(--maroon-deep)">${esc(t.q)}</b></span><b>${t.count}×</b></div>`).join('')}</div>` : '<p style="color:var(--ink-3);font-size:13.5px">No zero-result searches captured yet — they appear when a shop search comes up empty.</p>'}
+        </div>
+        <div class="adm-card"><h3>How this is captured</h3>
+          <p style="font-size:13.5px;color:var(--ink-2);line-height:1.7">When a customer searches the shop and gets zero results, the phrase (plus any active category / metal / purity filters) is stored once per page session. Use this list to decide which missing designs to stock or photograph.</p>
+          <div class="sum-row"><span>Newest query</span><b>${caps[0] ? esc(caps[0].q) : '—'}</b></div>
+          <div class="sum-row"><span>Filters used</span><b>${caps[0] ? [caps[0].category, caps[0].metal, caps[0].purity].filter(Boolean).map(esc).join(', ') || 'none' : '—'}</b></div>
+          <p style="font-size:11.5px;color:var(--ink-3);margin-top:10px">Search analytics also feed #15 natural-language search quality; repeat phrases here are the best source for new stock.</p>
+        </div>
+      </div>
+      <div class="adm-card"><h3>Recent captures <span style="font-size:12px;color:var(--ink-3);font-weight:400">(last ${Math.min(total, 200)})</span></h3>
+        ${caps.length ? `<div class="adm-table-wrap"><table class="adm-table">
+          <thead><tr><th>Query</th><th>Filters</th><th class="num">Results</th><th>Status</th><th>When</th></tr></thead>
+          <tbody>${caps.map(c => `<tr>
+            <td><b>${esc(c.q)}</b></td>
+            <td>${[c.category, c.metal, c.purity].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--ink-3)">none</span>'}</td>
+            <td class="num">${c.results}</td>
+            <td>${c.zero ? '<span style="color:var(--bad);font-size:12px" class="status-pill st-cancelled">zero</span>' : '<span style="color:var(--ok);font-size:12px">results</span>'}</td>
+            <td><small style="color:var(--ink-3)">${esc(fmtday(c.createdAt))}</small></td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : '<p style="color:var(--ink-3);font-size:13.5px">Nothing captured yet.</p>'}
+      </div>`;
   }
 
   if (tab === 'products') {
