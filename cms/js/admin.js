@@ -97,7 +97,7 @@ async function renderAdmin(view, q) {
             <td>${p.mcScheme === 'percent' ? p.mcValue + '%' : p.mcScheme === 'perGram' ? '₹' + p.mcValue + '/g' : 'flat ' + fmt(p.mcValue)}</td>
             <td class="num"><b style="color:${p.stock <= 3 ? 'var(--warn)' : 'inherit'}">${p.stock}</b></td>
             <td class="num"><b>${fmt(window.Shivaa.price(p).total)}</b></td>
-            <td style="white-space:nowrap"><button class="icon-e" onclick="ShivaaAdmin.editProduct('${p.id}')">✎</button> <button class="icon-x" onclick="ShivaaAdmin.delProduct('${p.id}')">✕</button></td>
+            <td style="white-space:nowrap"><button type="button" class="btn btn-ghost btn-sm" data-product-id="${esc(p.id)}" onclick="ShivaaHallmark.editRecords(this.dataset.productId)">HUIDs</button> <button class="icon-e" onclick="ShivaaAdmin.editProduct('${p.id}')">✎</button> <button class="icon-x" onclick="ShivaaAdmin.delProduct('${p.id}')">✕</button></td>
           </tr>`).join('')}</tbody>
         </table></div></div>`;
   }

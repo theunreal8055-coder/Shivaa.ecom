@@ -56,6 +56,7 @@ function toast(msg, type = 'ok') {
 }
 function openModal(html, cls = '') {
   const box = $('#modalBox');
+  box.removeAttribute('aria-labelledby');
   box.className = 'modal ' + cls; box.innerHTML = `<button class="modal-close" onclick="Shivaa.closeModal()">✕</button>` + html;
   $('#modalOverlay').classList.add('open'); lockScroll();
 }
@@ -172,7 +173,7 @@ function waProductMsg(p, qty, size, engraving) {
   L.push('Live price: ' + fmt(pr.total) + ' (incl. 3% GST)');
   L.push('• Metal @ ' + fmt(pr.ratePerGram) + '/g × ' + p.weightG + 'g = ' + fmt(pr.metalValue));
   L.push('• Making charges = ' + fmt(pr.makingCharge));
-  if (pr.stoneValue) L.push('• Certified stones = ' + fmt(pr.stoneValue));
+  if (pr.stoneValue) L.push('• Listed stone value = ' + fmt(pr.stoneValue));
   L.push('• GST 3% = ' + fmt(pr.gst));
   L.push('');
   L.push('Rate as on ' + timeFmt(R.t) + ' (' + R.source + ' feed)');
@@ -728,7 +729,7 @@ function productCard(p, opts = {}) {
     <div class="pc-body">
       <div class="pc-cat">${CATS[p.category] ? CATS[p.category].name : p.category} · ${p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold'}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
-      <div class="pc-meta">${p.weightG} g${p.stoneValue ? ' · certified stones' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
+      <div class="pc-meta">${p.weightG} g${p.stoneValue ? ' · stone value listed' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
       <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST</small></div>
       <div class="pc-live"><span class="live-dot"></span>live price · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g today</div>
     </div>
@@ -745,7 +746,7 @@ function mcTableHTML(rows, editable = false) {
       <td style="color:var(--ink-3);font-size:13px">${esc(r.note || '')}</td>
     </tr>`).join('')}</tbody>
   </table></div>
-  <div class="gst-note">◈ Every price = live metal rate × weight + making charge (as above) + certified stone value, then 3% GST. No hidden charges, ever. Live rates on this site update automatically — <a href="#/rates" style="text-decoration:underline">see current rates</a>.</div>`;
+  <div class="gst-note">◈ Every price = live metal rate × weight + making charge (as above) + listed stone value, then 3% GST. No hidden charges, ever. Live rates on this site update automatically — <a href="#/rates" style="text-decoration:underline">see current rates</a>.</div>`;
 }
 
 /* ═══════════════════ PAGES ═══════════════════ */
@@ -880,12 +881,12 @@ pages.home = async (view) => {
       <div>
         <span class="hero-kicker">✦ &nbsp;Jayal · Nagaur · Since 2025 &nbsp;✦</span>
         <h1>Jewellery as honest as your <em class="shimmer foil-txt">love</em></h1>
-        <p class="hero-sub">BIS-hallmarked gold & silver at live Jaipur rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
+        <p class="hero-sub">Gold & silver jewellery at live Jaipur rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
         <div class="hero-cta">
           <a class="btn btn-gold btn-lg" href="#/shop">Shop the Collection</a>
           <a class="btn btn-light btn-lg" href="#/rates">Jaipur Live Rates</a>
         </div>
-        <div class="hero-trust"><span>✦ BIS Hallmarked</span><span>✦ 30+ Years Karigari</span><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
+        <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><span>✦ 30+ Years Karigari</span><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
         <div class="hero-stats">
           <div class="hstat"><b>30+</b><span>Years of karigari</span></div>
           <div class="hstat"><b>17</b><span>Categories</span></div>
@@ -897,7 +898,7 @@ pages.home = async (view) => {
           <div class="hs-card hs-main" data-depth="1"><img src="/images/banners/poster-bridal.jpg" alt="Shivaa bridal couture jewellery"><span class="hs-frame"></span><span class="hs-tag">✦ The Bridal House</span></div>
           <div class="hs-card hs-a" data-depth="2.2"><img src="/images/products/necklace-rani.jpg" alt="Rani haar"><span class="hs-frame"></span></div>
           <div class="hs-card hs-b" data-depth="3.2"><img src="/images/products/earrings-chandbali.jpg" alt="Chandbali earrings"><span class="hs-frame"></span></div>
-          <div class="hs-badge" data-depth="4"><img src="/images/logo.png" alt="Shivaa"><small>BIS Hallmark<br>Assured</small></div>
+          <div class="hs-badge" data-depth="4"><img src="/images/logo.png" alt="Shivaa"><small>HUID check<br>Guide</small></div>
         </div>
     </div>
     <div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>
@@ -916,7 +917,7 @@ pages.home = async (view) => {
           <div class="c-body">
             <span class="label">&#10022; The House of Honest Gold</span>
             <h3>Purity you can <em class="shimmer foil-txt">pass down</em></h3>
-            <div class="offer-seal alt seal-plaque"><b>99.999<small>FINE</small></b><span>assayed gold &middot; BIS hallmark</span></div>
+            <div class="offer-seal alt seal-plaque"><b>HUID<small>GUIDE</small></b><span>check the actual piece</span></div>
             <p>Every Shivaa piece is handcrafted by master karigars, weighed to the milligram and billed at Jaipur's live rate &mdash; jewellery made to be inherited, not replaced.</p>
             <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop">Explore the Collections</a><a class="btn btn-light btn-lg" href="#/about">Our Craft &amp; Story</a></div>
           </div>
@@ -939,7 +940,7 @@ pages.home = async (view) => {
             <span class="label">&#10022; The everyday edit</span>
             <h3>Above ordinary,<br><em class="shimmer foil-txt">under &#8377;50,000</em></h3>
             <div class="price-lock"><b>&#8377;2,400</b><span>from &middot; live-rate priced &middot; daily wear</span></div>
-            <p>Studs, pendants, chains &amp; silver &mdash; hallmarked, honestly priced, always at Jaipur live rates.</p>
+            <p>Studs, pendants, chains &amp; silver &mdash; with individual specifications and Jaipur-rate pricing.</p>
             <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop?max=50000">Shop the Edit</a></div>
           </div>
         </div>
@@ -984,7 +985,7 @@ pages.home = async (view) => {
         <p style="color:var(--ink-2);margin:12px 0 8px">${esc(spot.desc.split('.')[0])}.</p>
         <div style="display:flex;align-items:baseline;gap:14px;margin:14px 0 22px">
           <b style="font-family:var(--ff-disp);font-size:34px;color:var(--maroon-deep)" class="js-price" data-pid="${spot.id}" data-qty="1">${fmt(spotPr.total)}</b>
-          <small style="color:var(--ink-3)">live price · incl. GST · 18K ${spot.weightG}g + certified stones</small>
+          <small style="color:var(--ink-3)">live price · incl. GST · 18K ${spot.weightG}g + listed stone value</small>
         </div>
         <a class="btn btn-primary" href="#/product/${spot.id}">View the Piece</a>
       </div>
@@ -1044,7 +1045,7 @@ pages.home = async (view) => {
   <section class="sec container" style="padding-top:0">
     <div class="pillars">
       ${[
-        ['bis', 'BIS Hallmark', 'Purity stamped &amp; independently assay-verified on every single piece', '<path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3z" style="--dash:64"/><path class="pl-draw" d="M9 11.5l2 2 4-4.5" style="--dash:14"/>'],
+        ['bis', '<a href="#/hallmark">Check a HUID</a>', 'Use the actual piece’s HUID in BIS Care; catalogue data is not verification', '<path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3z" style="--dash:64"/><path class="pl-draw" d="M9 11.5l2 2 4-4.5" style="--dash:14"/>'],
         ['rate', 'Live-Rate Pricing', 'Jaipur market feed &mdash; the price you see is the price you are billed', '<circle class="pl-draw" cx="12" cy="12" r="8.5" style="--dash:54"/><path class="pl-draw" d="M12 7.5v4.5l3.2 1.9" style="--dash:12"/>'],
         ['ship', 'Insured Shipping', 'Tamper-sealed and fully insured, delivered anywhere in India', '<path class="pl-draw" d="M4 8l8-4 8 4v8l-8 4-8-4V8z" style="--dash:56"/><path class="pl-draw" d="M4 8l8 4 8-4M12 12v8" style="--dash:34"/>'],
         ['ret', '7-Day Easy Returns', 'No-questions returns &middot; lifetime exchange at the live rate', '<path class="pl-draw" d="M4.5 12a7.5 7.5 0 1 1 2.2 5.3" style="--dash:44"/><path class="pl-draw" d="M4.5 12V7.5M4.5 12H9" style="--dash:14"/>'],
@@ -1076,7 +1077,6 @@ pages.home = async (view) => {
   const revs = [
     ['Meenakshi Rathore', 'Nagaur', 'The kundan ring matched its photos exactly — and the price table told me everything before I asked. That honesty is rare.', 5, 'MR', '/images/products/ring-kundan.jpg'],
     ['Anita Devi', 'Nagaur', 'Bought my daughter\'s mangalsutra here. Making charges were explained openly and the bill matched the website rate to the rupee.', 5, 'AD', '/images/products/mangalsutra-trad.jpg'],
-    ['Dr. Rakesh Jodha', 'Jodhpur', 'Ordered the tennis bracelet for our anniversary. Certified stones, insured delivery, gorgeous packaging.', 5, 'RJ', '/images/products/bracelet-tennis.jpg'],
     ['Priya Sonthalia', 'Jayal', 'The jhumkas are exactly as pictured. As a jeweller\'s daughter, I can say the tanch is genuinely honest.', 5, 'PS', '/images/products/earrings-jhumka.jpg'],
     ['Krishna Jewellers', 'Partner · Jayal', 'The bullion desk keeps RTGS rates live and Shivaa updates cash rates instantly — our counter decisions got faster.', 5, 'KJ', '/images/banners/b2b-bullion.jpg'],
     ['Sneha Kulkarni', 'Jaipur', 'OTP login, live rates on every page, WhatsApp ordering — this is how jewellery buying should feel.', 5, 'SK', '/images/products/ring-floral.jpg'],
@@ -1090,7 +1090,6 @@ pages.home = async (view) => {
     ['Priya Sonthalia','Jayal','/images/reviews/cust-3.jpg','As a jeweller&rsquo;s daughter I check everything. The kundan work is genuinely fine and the weight is exact.',5,'Kundan Cocktail Ring','/images/products/ring-kundan.jpg'],
     ['Kavita Jodha','Jodhpur','/images/reviews/cust-4.jpg','My mangalsutra arrived in a festive box that made it a gift before the gift. Insured delivery, zero worry.',5,'Traditional Mangalsutra','/images/products/mangalsutra-trad.jpg'],
     ['Sneha Kulkarni','Jaipur','/images/reviews/cust-5.jpg','OTP login, live rates on every page, WhatsApp ordering. This is how buying jewellery online should feel.',5,'Layered Gold Chain','/images/products/chain-gold.jpg'],
-    ['Ritu Agarwal','Ajmer','/images/reviews/cust-6.jpg','The kada pair is heavier and finer than I expected at this price. Hallmark visible on both. Very happy.',5,'Carved Kada Pair','/images/products/bangle-kada.jpg'],
   ];
   const wall = $('#ugcWall');
   if (wall) {
@@ -1269,7 +1268,7 @@ pages.product = async (view, q, id) => {
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
           <button class="gal-nav gal-next" aria-label="Next">›</button>
           <div class="gal-dots" id="galDots">${(p.video ? 1 : 0) + (p.images || []).length > 1 ? Array.from({length: (p.video ? 1 : 0) + (p.images || []).length}, (_, i) => `<span class="${i === 0 ? 'on' : ''}"></span>`).join('') : ''}</div>
-          <span class="pd-stamp"><img src="/images/logo.png" alt=""> BIS Hallmark</span>
+          <a class="pd-stamp" href="#/hallmark?product=${encodeURIComponent(p.id)}">HUID check guide →</a>
           <span class="gal-hint">swipe / drag</span>
         </div>
       </div>
@@ -1304,7 +1303,7 @@ pages.product = async (view, q, id) => {
             <table class="tanq-table">
               <tr><td>Metal weight</td><td>${p.weightG} g × ₹<span id="pdRate">${fmt(pr.ratePerGram)}</span>/g</td><td id="pdMetal">${fmt(pr.metalValue)}</td></tr>
               <tr><td>Making charges</td><td>for this design</td><td id="pdMC">${fmt(pr.makingCharge)}</td></tr>
-              ${p.stoneValue ? `<tr><td>Stone details</td><td>${esc(p.stoneDesc || 'Certified stones')}</td><td>${fmt(pr.stoneValue)}</td></tr>` : ''}
+              ${p.stoneValue ? `<tr><td>Stone details</td><td>${esc(p.stoneDesc || 'Stone details not provided')}</td><td>${fmt(pr.stoneValue)}</td></tr>` : ''}
               <tr><td>GST</td><td>3%</td><td id="pdGst">${fmt(pr.gst)}</td></tr>
               <tr class="total"><td>Total payable</td><td></td><td id="pdBrkTot">${fmt(pr.total)}</td></tr>
             </table>
@@ -1329,13 +1328,15 @@ pages.product = async (view, q, id) => {
         </div>
         <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'}">${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</div>
 
+        ${window.ShivaaHallmark ? window.ShivaaHallmark.productPanel(p) : '<p class="hm-note">HUID information is temporarily unavailable. No BIS verification has been performed here.</p>'}
+
         <div class="opt-label"><span>Check delivery</span></div>
         <div class="pin-row" style="max-width:340px"><input id="pincode" maxlength="6" placeholder="Enter 6-digit pincode"><button class="btn btn-ghost btn-sm" onclick="Shivaa.checkPin()">Check</button></div>
         <div class="pin-msg" id="pinMsg" hidden></div>
 
         <div class="pd-perks">
-          ${[['BIS Hallmarked', '<path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3z"/>'],
-             ['Certified stones', '<path d="M6 4h12l2 5-8 11L4 9l2-5z"/>'],
+          ${[['<a href="#/hallmark">HUID check guide</a>', '<path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3z"/>'],
+             ['Ask about stone documents', '<path d="M6 4h12l2 5-8 11L4 9l2-5z"/>'],
              ['Free engraving', '<path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/>'],
              ['Insured shipping', '<path d="M4 8l8-4 8 4v8l-8 4-8-4V8z"/>'],
              ['Lifetime exchange', '<path d="M4 12a8 8 0 1 1 2.3 5.6M4 12V7m0 5h5" fill="none"/>'],
@@ -1343,8 +1344,8 @@ pages.product = async (view, q, id) => {
             .map(x => `<div class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">${x[1]}</svg>${x[0]}</div>`).join('')}
         </div>
 
-        <details class="acc" open><summary>The Piece</summary><div class="acc-body">${esc(p.desc)}</div></details>
-        <details class="acc"><summary>Purity & Certification</summary><div class="acc-body">BIS-hallmarked ${p.metal === 'Silver' ? 'sterling silver (925)' : p.purity + ' gold (' + (p.purity === '22K' ? '91.67' : '75.0') + '% fineness)'}, ${p.weightG} g net weight (weighed before you at billing). Stones, if any, carry an IGI/in-house certificate. Our honest-purity (tanch) promise: if an assay disagrees with the stamp, we refund the piece and 110% of the difference.</div></details>
+        <details class="acc" open><summary>Catalogue description</summary><div class="acc-body">${esc(p.desc)}${/(hallmark|certif|\bbis\b)/i.test(p.desc || '') ? '<p class="hm-note">Catalogue claims are not an official BIS record or certificate. Check the piece-level information above.</p>' : ''}</div></details>
+        <details class="acc"><summary>Purity &amp; hallmark evidence</summary><div class="acc-body">Listed specification: ${esc(p.purity)} ${esc(p.metal)}, ${esc(p.weightG)} g. These catalogue values are not a BIS lookup or an assay result. Use the piece HUID information above and compare the actual stamp with the official BIS Care result. No BIS verification or stone certificate is issued by this website feature.</div></details>
         <details class="acc"><summary>Making Charges & Exchange</summary><div class="acc-body">Making charges for this design are shown in the price table above — nothing hidden, nothing category-averaged. Lifetime exchange at the day's live rate with making charges waived on exchanges within 6 months; 90% buy-back of metal value thereafter.</div></details>
         <details class="acc"><summary>Shipping & Returns</summary><div class="acc-body">Free insured shipping above ${fmt(state.settings.freeShipAbove)}; tamper-sealed packaging with signature & OTP delivery. 7-day no-question returns (uncustomised pieces). Engraved pieces are exchangeable, not returnable.</div></details>
         <details class="acc"><summary>Reviews (${data.reviews.length})</summary><div class="acc-body">
@@ -1927,7 +1928,7 @@ pages.rates = async (view) => {
       <div class="adm-card"><h3>How your price is built</h3>
         <div class="sum-row"><span>Live rate × net weight</span><b>metal value</b></div>
         <div class="sum-row"><span>+ Making charges for your piece</span><b>shown at product page</b></div>
-        <div class="sum-row"><span>+ Certified stone value (if any)</span><b>at cost</b></div>
+        <div class="sum-row"><span>+ Listed stone value (if any)</span><b>at cost</b></div>
         <div class="sum-row"><span>+ 3% GST</span><b>statutory</b></div>
         <p style="font-size:13px;color:var(--ink-3);margin-top:12px">No "local rate" games — the rate on this page is the rate on your bill. That is our tanch (honest purity) promise.</p>
         ${R.source !== 'live' ? '<p style="font-size:12px;color:var(--ink-3);margin-top:8px">*Feed shown as simulated when the bullion API is unreachable from the server; values track the last live market feed.</p>' : ''}
@@ -2248,7 +2249,7 @@ pages.services = async (view) => {
         </form></div>
       <div class="adm-card"><h3>How it works</h3>
         <div class="benefit"><div class="bic">1</div><div><b>Share your idea or piece</b><p>Photos, sketches or the piece itself — free assessment either way.</p></div></div>
-        <div class="benefit"><div class="bic">2</div><div><b>Transparent quote</b><p>Live metal rate + chart making charges + stones at certificate value. Nothing else.</p></div></div>
+        <div class="benefit"><div class="bic">2</div><div><b>Transparent quote</b><p>Live metal rate + chart making charges + the stated stone value. Nothing else.</p></div></div>
         <div class="benefit"><div class="bic">3</div><div><b>Craft & deliver</b><p>Typical custom work: 10–21 days. Repairs: 2–7 days. Fully insured both ways.</p></div></div>
         <div class="qty-banner">✦ Family heirlooms are photographed and documented before any work begins — restoration reports shared on WhatsApp.</div></div>
     </div>
@@ -2521,7 +2522,7 @@ function openLogin(next = '') {
     <aside class="auth-brand" aria-hidden="true">
       <img src="/images/logo.png" alt="" class="ab-logo">
       <b>The House of<br>Honest Gold</b>
-      <p>Live Jaipur rates &middot; BIS-hallmarked craft &middot; OTP-verified accounts.</p>
+      <p>Live Jaipur rates &middot; piece-level HUID guidance &middot; OTP-verified accounts.</p>
       <ul class="ab-list">
         <li>Rate-locked billing, honest to the rupee</li>
         <li>100% buyback on every Shivaa piece</li>
@@ -2766,7 +2767,7 @@ pages.invoice = async (view, q, id) => {
       <div class="inv-to"><b>Billed to:</b> ${esc(o.address?.name || o.partnerName || state.user.name)}${o.address ? ` · ${esc(o.address.city || '')} ${esc(o.address.pincode || '')}` : ''}</div>
       <table class="inv-tbl"><thead><tr><th>Item</th><th>Qty</th><th>${kind === 'metal' ? 'Weight' : 'Rate'}</th><th>${kind === 'metal' ? 'Line wt' : 'Amount'}</th></tr></thead>
       <tbody>${rows}${totals}</tbody></table>
-      <div class="inv-foot">Rate locked at order time · Lifetime exchange · BIS Hallmark<br><b>Confidential</b> — issued privately to ${esc(state.user.name)}; watermark identifies the holder.</div>
+      <div class="inv-foot">Rate locked at order time · Check the actual piece’s HUID in BIS Care<br><b>Confidential</b> — issued privately to ${esc(state.user.name)}; watermark identifies the holder.</div>
     </div>
   </div>`;
 };
@@ -3056,7 +3057,7 @@ pages.buyback = async (view) => {
     <section class="rv">
       <div class="sec-head"><h2>How the buyback works</h2><p>Four steps, usually finished inside a single visit.</p></div>
       <div class="step-rail">
-        <div class="step-item"><span class="si-n">01</span><b>Bring the piece &amp; the invoice</b><p>Your original Shivaa invoice carries the rate-lock and the hallmark reference we verify against.</p></div>
+        <div class="step-item"><span class="si-n">01</span><b>Bring the piece &amp; the invoice</b><p>Bring the invoice and the actual piece. Check any hallmark reference against the stamp; a catalogue listing or invoice is not a BIS lookup result.</p></div>
         <div class="step-item"><span class="si-n">02</span><b>Weighed in front of you</b><p>On a calibrated counter scale. You watch the number, we both agree on it before anything else happens.</p></div>
         <div class="step-item"><span class="si-n">03</span><b>Valued at the live rate</b><p>The same published Jaipur rate on the board that day — no private "counter rate".</p></div>
         <div class="step-item"><span class="si-n">04</span><b>Paid or exchanged</b><p>Take it as bank transfer, or put the full value against a new piece with nothing deducted.</p></div>
@@ -3394,7 +3395,7 @@ pages.metal = async (view) => {
     <div class="mtl-pure rv">
       <div class="mp-num"><b>999.9</b><span>fineness</span></div>
       <div class="mp-tx"><b>Only the purest metal enters this scheme</b>
-        <p>Every deposit is weighed and assayed in your presence and sealed with a fineness certificate. 22K or 18K jewellery? That belongs on our <a href="#/deadstock">Dead Stock Purchase</a> desk, where it is converted to fine metal for you.</p></div>
+        <p>Ask the team about weighing, assaying and the documentation available for your deposit. 22K or 18K jewellery? That belongs on our <a href="#/deadstock">Dead Stock Purchase</a> desk, where it is converted to fine metal for you.</p></div>
       <div class="mp-chip" aria-hidden="true"><span>ASSAY</span>VERIFIED</div>
     </div>
 
@@ -3847,7 +3848,7 @@ pages.faq = async (view) => {
   </section>
   <div class="container" style="padding:44px 0 90px;max-width:860px">
     <h2 class="label" style="margin-bottom:16px">Purity &amp; pricing</h2>
-    <details class="acc" open><summary>Is your gold BIS hallmarked?</summary><div class="acc-body">Yes — every gold piece ships with BIS hallmarking and our own invoice stating the weight, purity and making charges in plain sight. Silver is 925 sterling, likewise stamped.</div></details>
+    <details class="acc" open><summary>How do I check BIS hallmark details?</summary><div class="acc-body">Use the HUID stamped on the actual piece in the official BIS Care app’s “Verify HUID” feature. Staff-entered HUIDs, catalogue descriptions and listed purity are not BIS verification. Our <a class="hm-text-link" href="#/hallmark">HUID check guide</a> explains the process and clearly shows when no piece-level HUID has been provided. Automatic BIS verification is not connected here.</div></details>
     <details class="acc"><summary>How is the price of a piece calculated?</summary><div class="acc-body">(Live metal rate × weight) + making charges for that piece + GST at 3%. The metal rate is Jaipur's live rate at the time of billing — the same number you see on the ticker, to the rupee.</div></details>
     <details class="acc"><summary>Do making charges differ between designs?</summary><div class="acc-body">Yes — each design carries its own making charge based on the karigar's work, shown clearly on the product page. Machine-made chains cost far less than hand-carved bridal work, and we think you should see that honestly.</div></details>
     <details class="acc"><summary>Why do prices change between visits?</summary><div class="acc-body">Because the metal rate moves. Prices track the live Jaipur rate and refresh every few minutes — the rate is locked at the moment you place your order.</div></details>
@@ -3918,7 +3919,7 @@ function route() {
     $$('.page-hero:not(.lg-done)').forEach(ph => {
       ph.classList.add('lg-done');
       ph.insertAdjacentHTML('beforeend', '<img src="/images/logo.png" class="ph-mark" alt="">');
-      if (!ph.querySelector('.ph-trust')) ph.insertAdjacentHTML('beforeend', '<div class="ph-trust"><span>✦ BIS Hallmarked</span><span>✦ 30+ Years Karigari</span><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>');
+      if (!ph.querySelector('.ph-trust')) ph.insertAdjacentHTML('beforeend', '<div class="ph-trust"><a href="#/hallmark">✦ HUID check guide</a><span>✦ 30+ Years Karigari</span><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>');
     });
     const heroEl = $('#view .hero');
     if (heroEl && !heroEl.querySelector('.hero-logo')) {
@@ -4238,6 +4239,9 @@ async function boot(isRedraw) {
   // poll rates every 60s (server caches 10-min; ticker + prices refresh)
   setInterval(loadRates, 60000);
 }
-boot();
+// Wait for the following feature/auth/admin scripts to register their routes.
+// A fast cached API must not outrun loading the HUID module on a cold visit.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => boot(), { once: true });
+else boot();
 
 })();

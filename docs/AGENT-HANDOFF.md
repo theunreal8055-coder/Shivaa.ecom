@@ -1,9 +1,32 @@
-# AGENT HANDOFF — read this first, every new chat (updated 5 Sep 2026)
+# AGENT HANDOFF — read this first, every new chat (updated 6 Sep 2026)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
+
+## Current feature work (6 Sep 2026)
+
+Feature 13 **Compare + Shareable Shortlist** is live per owner and must be
+preserved. The current task is the owner's 1–21 roadmap, **one feature at a
+time**, starting with Feature 1 (BIS hallmark / HUID lookup).
+
+Read [`FEATURE-ROADMAP.md`](FEATURE-ROADMAP.md) and
+[`FEATURE-01-HUID.md`](FEATURE-01-HUID.md). The safe Feature 1 workflow is built
+and tested on the working branch (asset v39); **release approved, live
+confirmation pending**.
+Automatic BIS verification is **not connected**: accepted format and staff
+references never mean BIS verified. No HUIDs or certificates were seeded.
+Feature 2 is now specified: **Why Trust Shivaa**, using the existing owner-
+confirmed CIN, UDYAM and address only. GSTIN/certificates stay empty until real
+details/files are supplied. Release it separately after Feature 1. The rest of
+the original list is not in this checkout; do not invent Feature 3.
+
+Owner rule: **never fabricate supplier, payment, courier, notification, legal,
+BIS, HUID, GSTIN, certificate or analytics data.** Existing legacy placeholders
+are not evidence that any such integration is live. Do not add mock success
+fallbacks. New HUID tests use only labelled temporary QA fixtures and leave the
+repository DB untouched.
 
 ## FIRST MESSAGE for a new chat (paste this)
 > Repo connected. Read `docs/AGENT-HANDOFF.md` fully, run `demo65/status.py`
@@ -65,7 +88,7 @@ commit → push. At 65/65: verify via owner screenshots (sandbox can't reach
 site); build `shivaa-batch65-media.zip` in `deploy/` only if owner asks.
 
 ## Site-change requests (features/fixes)
-Edit `cms/` on your branch; bump `?v=` in `cms/index.html` (7 refs) whenever
+Edit `cms/` on your branch; bump every `?v=` in `cms/index.html` (currently 9 refs) whenever
 js/css change; PR → main → cron auto-deploys. NEVER edit live db.json by
 hand; products only via API/upsert. Warn owner: hand-edits in hPanel File
 Manager get overwritten by the next auto-deploy — changes go through chat.
@@ -73,5 +96,6 @@ Manager get overwritten by the next auto-deploy — changes go through chat.
 ## Key files
 `pipeline/*` stages · `demo65/{config.json,status.py,tools/}` ·
 `deploy/{upload_bridge.php,auto_sync.php,UPLOAD-RUNBOOK.md,AUTOMATION.md}` ·
-`qa/preview_shim.py` (READ-ONLY local preview, no PHP in sandbox; never deploy) ·
+`qa/php_router.php` (isolated PHP QA/read-only preview; never deploy) ·
+`qa/preview_shim.py` (older read-only Python shim; does not implement Feature 1) ·
 `docs/SESSION-STATE-2026-09-05.md` (history + lessons).

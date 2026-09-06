@@ -10,6 +10,7 @@ date_default_timezone_set('Asia/Kolkata');
 $ROOT = __DIR__;
 $DB_FILE = $ROOT . '/data/db.json';
 $CAT_DIR = $ROOT . '/uploads/catalogs';
+require_once __DIR__ . '/hallmark.php';
 require_once __DIR__ . '/sms.php';   // v33 — OTP SMS delivery plug-in (no-op in demo mode)
 
 /* ───────── helpers ───────── */
@@ -236,6 +237,7 @@ function bullion_rows(array &$db): array {
 $route = $_GET['__route'] ?? '';
 $route = trim((string)$route, '/');
 $method = $_SERVER['REQUEST_METHOD'];
+hallmark_public_route($route, $method);
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
@@ -292,6 +294,26 @@ try {
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
 
+  /* ── Feature 1: staff-entered piece HUIDs (never BIS verification) ── */
+  if (preg_match('#^admin/products/([\w-]+)/hallmark$#', $route, $hm)) {
+    need_admin($db);
+    try {
+      if ($method === 'GET') {
+        foreach ($db['products'] as $p) if ($p['id'] === $hm[1]) {
+          jout(200, ['productId' => $p['id'], 'name' => $p['name'], 'hallmark' => hallmark_staff_record($p)]);
+        }
+        jout(404, ['error' => 'Product not found.']);
+      }
+      if ($method === 'PUT') {
+        $p = hallmark_save($DB_FILE, $hm[1], hallmark_request_body(100000));
+        jout(200, ['hallmark' => hallmark_staff_record($p), 'product' => hallmark_product($p)]);
+      }
+      header('Allow: GET, PUT');
+      jout(405, ['error' => 'Method not allowed.']);
+    } catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
+    catch (Throwable $e) { jout(500, ['error' => 'HUID records could not be saved. Reopen the editor and check before retrying.']); }
+  }
+
   /* ── products ── */
   if ($route === 'products' && $method === 'GET') {
     $list = array_values(array_filter($db['products'], fn($x) => !empty($x['active'])));
@@ -301,7 +323,7 @@ try {
     if (!empty($_GET['tag'])) $list = array_values(array_filter($list, fn($x) => in_array($_GET['tag'], $x['tags'] ?? [])));
     $R = current_rates($db);
     $out = [];
-    foreach ($list as $x) { $y = $x; $y['lessWeightG'] = $y['lessWeightG'] ?? 0; $y['wastagePct'] = $y['wastagePct'] ?? 8; $y['price'] = compute_price($x, $R); $out[] = $y; }
+    foreach ($list as $x) { $y = hallmark_product($x); $y['lessWeightG'] = $y['lessWeightG'] ?? 0; $y['wastagePct'] = $y['wastagePct'] ?? 8; $y['price'] = compute_price($x, $R); $out[] = $y; }
     jout(200, ['products' => $out, 'rates' => current_rates($db)]);
   }
   if (preg_match('#^products/([\w-]+)$#', $route, $m)) {
@@ -310,16 +332,19 @@ try {
       if ($idx === null) jout(404, ['error' => 'Not found']);
       $R = current_rates($db);
       $similar = [];
-      foreach ($db['products'] as $x) if ($x['category'] === $db['products'][$idx]['category'] && $x['id'] !== $m[1] && !empty($x['active'])) { $y = $x; $y['price'] = compute_price($x, $R); $similar[] = $y; if (count($similar) >= 4) break; }
+      foreach ($db['products'] as $x) if ($x['category'] === $db['products'][$idx]['category'] && $x['id'] !== $m[1] && !empty($x['active'])) { $y = hallmark_product($x); $y['price'] = compute_price($x, $R); $similar[] = $y; if (count($similar) >= 4) break; }
       $reviews = array_values(array_filter($db['reviews'] ?? [], fn($r) => ($r['productId'] ?? '') === $m[1]));
-      $p = $db['products'][$idx]; $p['price'] = compute_price($p, $R);
+      $p = hallmark_product($db['products'][$idx]); $p['price'] = compute_price($p, $R);
       jout(200, ['product' => $p, 'rates' => current_rates($db), 'similar' => $similar, 'reviews' => $reviews]);
     }
     if ($method === 'PUT') {
       need_admin($db);
+      if ($idx === null) jout(404, ['error' => 'Not found']);
       $b = body_json();
+      try { hallmark_guard_product_write($b); }
+      catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
       foreach ($b as $k => $v) $db['products'][$idx][$k] = $v;
-      db_save($DB_FILE, $db); jout(200, $db['products'][$idx]);
+      db_save($DB_FILE, $db); jout(200, hallmark_product($db['products'][$idx]));
     }
     if ($method === 'DELETE') {
       need_admin($db);
@@ -330,9 +355,11 @@ try {
   if ($route === 'products' && $method === 'POST') {
     need_admin($db);
     $b = body_json();
+    try { hallmark_guard_product_write($b); }
+    catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
     $prod = array_merge(['createdAt' => now_iso(), 'active' => true, 'rating' => 4.6, 'reviews' => 0, 'stock' => 10, 'sizes' => [], 'tags' => [], 'images' => [], 'stoneValue' => 0], $b);
     $prod['id'] = uid('p');
-    $db['products'][] = $prod; db_save($DB_FILE, $db); jout(200, $prod);
+    $db['products'][] = $prod; db_save($DB_FILE, $db); jout(200, hallmark_product($prod));
   }
 
   /* ── media upload (v36 — AI photoshoot shots + product videos) ── */
@@ -513,7 +540,7 @@ try {
     $u = req_user($db);
     $w = $u ? ($u['wishlist'] ?? []) : [];
     $R = current_rates($db); $items = [];
-    foreach ($db['products'] as $x) if (in_array($x['id'], $w)) { $y = $x; $y['price'] = compute_price($x, $R); $items[] = $y; }
+    foreach ($db['products'] as $x) if (in_array($x['id'], $w)) { $y = hallmark_product($x); $y['price'] = compute_price($x, $R); $items[] = $y; }
     jout(200, ['wishlist' => $w, 'items' => $items]);
   }
   if ($route === 'wishlist' && $method === 'POST') {
