@@ -2426,6 +2426,24 @@ pages.catalogues = async (view) => {
   <p>The live design desk our B2B partners order from — filter by category, weight, purity and stone, select what your counter needs, and settle in <b>fine metal grams</b> with zero making charges.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
 
+  <div class="bulk-order-card" id="bulkCard">
+    <div class="bulk-head">
+      <div><span class="label">Repeat order desk</span><h2 style="font-size:28px;margin:6px 0 4px">Bulk / CSV SKU upload</h2>
+        <p style="font-size:13.5px;color:var(--ink-3)">Paste or upload a CSV with <b>SKU</b> and <b>Qty</b> columns — we match the SKU, load every design into the bill below, then proceed with one click.</p></div>
+      <div class="bulk-actions">
+        <a class="btn btn-ghost btn-sm" href="javascript:ShivaaDS.downloadTemplate()">⬇ SKU template</a>
+        <button class="btn btn-outline btn-sm" onclick="ShivaaDS.bulkFile()">Upload CSV</button>
+      </div>
+    </div>
+    <input type="file" id="bulkFile" accept=".csv,text/csv,text/plain" hidden>
+    <textarea id="bulkText" class="bulk-text" rows="3" placeholder="SKU, Qty&#10;SS-RIN-01, 2&#10;SS-NEC-04, 1"></textarea>
+    <div class="bulk-foot">
+      <button class="btn btn-primary btn-sm" onclick="ShivaaDS.bulkParse()">Load into bill</button>
+      <span class="bulk-status" id="bulkStatus"></span>
+    </div>
+    <div id="bulkSummary"></div>
+  </div>
+
   <div class="ds-wrap" id="dsWrap">
     <div class="pf-bar">
       <div class="pf-f"><label>Category</label>
@@ -3277,6 +3295,51 @@ window.ShivaaDS = {
       card.querySelector('.ds-qty span').textContent = window._sel[pid];
     }
     this.updateBar();
+  },
+  /* ── C4 · bulk SKU CSV repeat-order upload ── */
+  downloadTemplate() {
+    const rows = [['SKU', 'Qty']].concat(state.productsCache.slice(0, 4).map(p => [p.sku || p.id, 1]));
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'shivaa-repeat-order-template.csv';
+    a.click();
+  },
+  bulkFile() {
+    const i = $('#bulkFile'); if (i) { if (!i._wired) { i._wired = true; i.addEventListener('change', () => { const f = i.files && i.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const t = $('#bulkText'); if (t) { t.value = String(r.result || ''); this.bulkParse(); } }; r.readAsText(f); }); } i.click(); }
+  },
+  bulkParse() {
+    const el = $('#bulkText'), st = $('#bulkStatus'), sum = $('#bulkSummary');
+    const raw = (el && el.value || '').trim();
+    if (!raw) { if (st) st.textContent = 'Paste SKU, Qty lines or upload a CSV first.'; return; }
+    const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (!lines.length) { if (st) st.textContent = 'No usable lines found.'; return; }
+    const header = lines[0].toLowerCase().split(/[,;\t]/).map(x => x.replace(/["\s]/g, ''));
+    let skuI = header.findIndex(h => /^sku$/i.test(h));
+    let qtyI = header.findIndex(h => /^(qty|quantity|count|pcs)$/i.test(h));
+    const isHeader = skuI !== -1;
+    const dataLines = isHeader ? lines.slice(1) : lines;
+    if (skuI === -1) skuI = 0;
+    if (qtyI === -1) qtyI = 1;
+    const found = []; const missing = []; let added = 0;
+    dataLines.forEach((ln, i) => {
+      const cells = ln.split(/[,;\t]/).map(c => c.replace(/["\s]/g, ''));
+      const sku = (cells[skuI] || '').trim().toUpperCase();
+      const qty = Math.max(1, +(cells[qtyI || 1] || '1').replace(/[^\d]/g, '') || 1);
+      if (!sku) return;
+      const p = state.productsCache.find(x => (x.sku || '').toUpperCase() === sku || x.id.toUpperCase() === sku);
+      if (p) { window._sel[p.id] = (window._sel[p.id] || 0) + qty; found.push({ p, qty, line: i + 2 }); added++; }
+      else missing.push({ sku, line: i + 2 });
+    });
+    if (st) { st.textContent = found.length ? `Loaded ${found.length} SKU${found.length === 1 ? '' : 's'} into the bill${missing.length ? ' · ' + missing.length + ' not found' : ''}` : (missing.length ? 'No SKUs matched. Check the template format.' : 'Nothing to load.'); }
+    if (sum) sum.innerHTML = found.length ? `<div class="bulk-list">${found.map(f => `<div><span>${esc(f.p.name)} <small>${esc(f.p.sku)}</small></span><b>× ${f.qty}</b><i>${(f.p.weightG * f.qty).toFixed(2)} g</i></div>`).join('')}</div>` : '';
+    state.productsCache.forEach(p => { const card = document.getElementById('ds-' + p.id); const q = window._sel[p.id] || 0; if (card) { card.classList.toggle('on', q > 0); card.querySelector('.ds-qty span').textContent = q; } });
+    this.updateBar();
+    if (added) {
+      const wrap = $('.bulk-order-card');
+      if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      toast('Bulk SKUs loaded into your bill ✦');
+    }
   },
   updateBar() {
     let g = 0, n = 0;

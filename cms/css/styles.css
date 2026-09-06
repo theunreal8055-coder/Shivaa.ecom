@@ -4644,3 +4644,20 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 .search-chips{display:flex;flex-wrap:wrap;gap:8px}
 .search-natural-note{font-size:12.5px;color:var(--ink-3);padding:8px 0 2px;grid-column:1/-1}
 @media(max-width:560px){.search-chips-row{gap:8px}.search-chips-row .sc-label{display:block;width:100%;padding:0 0 4px}.search-chips .chip{font-size:11px;padding:6px 12px}}
+
+/* ═══════════════ v47 · Batch C #4 — bulk/CSV repeat-order template ═══════════════ */
+.bulk-order-card{margin-bottom:28px;padding:22px 24px;border-radius:var(--r-lg);background:var(--white);border:1px solid var(--line);box-shadow:var(--sh-1)}
+.bulk-order-card .bulk-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.bulk-order-card .bulk-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.bulk-text{width:100%;margin-top:16px;border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;font-family:var(--ff-body);font-size:13.5px;line-height:1.6;background:var(--cream);outline:none;transition:.2s}
+.bulk-text:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(185,138,47,.12)}
+.bulk-foot{display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap}
+.bulk-status{font-size:12.5px;color:var(--ink-2)}
+.bulk-summary{margin-top:12px}
+.bulk-list{display:grid;gap:6px;margin-top:12px}
+.bulk-list>div{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--cream)}
+.bulk-list b{color:var(--maroon-deep);font-weight:600}
+.bulk-list i{color:var(--ink-3);font-style:normal;font-size:12px}
+.bulk-list small{color:var(--ink-3);font-size:11px;display:block}
+@media(max-width:680px){.bulk-order-card{padding:18px 16px}.bulk-order-card .bulk-head{display:block}.bulk-order-card .bulk-actions{justify-content:flex-start;margin-top:12px}.bulk-list>div{grid-template-columns:1fr auto;gap:8px}.bulk-list i{display:none}}
+@media(prefers-reduced-motion:reduce){.bulk-list>div,.bulk-text{transition:none!important}}
