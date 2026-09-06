@@ -37,28 +37,30 @@
   },
   "photoshoot": {
     "provider": "arena-agent",
-    "note": "4 shots per design, chosen to cover EVERY angle and detail of the ring (user directive 6 Sep 2026): front/top, 45-degree three-quarter, profile+inner band, and a macro detail. Together they show the face, both shoulders, the side height, the band and the stone setting. All 65 designs are MEN'S rings. Reference = media/designs/{SKU}.jpg. Shots are stamped with the Shivaa logo by tools/brand_logo.py. NO VIDEO \u2014 the site is photo-only (v42).",
+    "note": "4 shots per design (user directive 6 Sep 2026). SHOT 1 'front' is a CATALOGUE-STANDARD PLATE: identical framing, scale, angle, pure-white background and flat lighting for EVERY ring, so the listing grid looks uniform and only the DESIGN differs. Shots 2-4 then cover angle, detail and a real model wearing it. All 65 are MEN'S rings. Reference = media/designs/{SKU}.jpg. Logo stamped by tools/brand_logo.py. NO VIDEO (v42).",
     "size": "1024x1024",
     "shots": [
       {
         "key": "front",
-        "name": "Front / Top View",
-        "prompt": "Luxury jewellery e-commerce photograph, absolutely no text, no words, no lettering, no logo and no watermark anywhere in the frame, top-down front view of THE EXACT men's ring from the reference image \u2014 identical design, identical stone layout, identical shank pattern, identical metal tones \u2014 standing upright and perfectly centred so the full face of the ring and its complete stone setting are square to the camera, seamless soft ivory background, bright even diffused studio light, every stone and prong crisply resolved, razor-sharp focus throughout, f/11, 8k product shot"
+        "name": "Catalogue Front (standardised)",
+        "standardised": true,
+        "note": "MUST be visually identical in framing/background/light for all 65 \u2014 only the ring changes.",
+        "prompt": "Luxury jewellery e-commerce catalogue photograph, no text, no words, no lettering, no logo, no watermark, no props, of THE EXACT men's ring from the reference image, identical design, identical stone layout, identical shank pattern, identical metal tones, photographed straight-on at eye level, ring standing perfectly upright and dead centre in the frame, the face of the ring square to the camera, occupying the same central two-thirds of a square frame, on a completely plain seamless pure white background with a soft even shadow directly beneath, flat bright shadowless studio lighting from a large softbox, neutral white balance, no colour cast, no vignette, no reflections, catalogue standard, razor-sharp focus throughout, f/11, 8k"
       },
       {
         "key": "angle",
         "name": "45\u00b0 Three-Quarter",
-        "prompt": "Luxury jewellery e-commerce photograph, absolutely no text, no words, no lettering, no logo and no watermark anywhere in the frame, forty-five degree three-quarter view of THE EXACT men's ring from the reference image \u2014 identical design, identical stone layout, identical shank pattern, identical metal tones \u2014 showing the face of the ring together with one decorated shoulder and the rise of the band, revealing the depth and thickness of the setting, seamless soft ivory background, soft diffused studio light with gentle gold specular highlights, razor-sharp focus, f/11, 8k product shot"
-      },
-      {
-        "key": "side",
-        "name": "Side Profile & Band",
-        "prompt": "Luxury jewellery e-commerce photograph, absolutely no text, no words, no lettering, no logo and no watermark anywhere in the frame, direct side profile view of THE EXACT men's ring from the reference image \u2014 identical design, identical stone layout, identical shank pattern, identical metal tones \u2014 standing upright, showing the height of the setting, the full shoulder engraving and the polished inner band and its thickness, seamless soft ivory background, even diffused studio light, razor-sharp focus edge to edge, f/11, 8k product shot"
+        "prompt": "Luxury jewellery e-commerce photograph, no text, no words, no lettering, no logo, no watermark, no props, forty-five degree three-quarter view of THE EXACT men's ring from the reference image, identical design, identical stone layout, identical shank pattern, identical metal tones, showing the face together with one decorated shoulder and the rise and thickness of the band, revealing the depth of the setting, plain seamless soft ivory background, soft diffused studio light with gentle gold specular highlights, razor-sharp focus, f/11, 8k product shot"
       },
       {
         "key": "macro",
         "name": "Macro Detail",
-        "prompt": "Extreme macro jewellery photograph, absolutely no text, no words, no lettering, no logo and no watermark anywhere in the frame, tight close-up of the centre setting of THE EXACT men's ring from the reference image \u2014 identical design, identical stone layout, identical shank pattern, identical metal tones \u2014 filling the frame, showing individual stones, prongs, pave work, metal texture and the hand-finished detail, seamless soft ivory background, soft diffused light revealing every facet, focus-stacked so the entire detail is sharp, 100mm macro, 8k"
+        "prompt": "Extreme macro jewellery photograph, no text, no words, no lettering, no logo, no watermark, no props, tight close-up of the centre setting of THE EXACT men's ring from the reference image, identical design, identical stone layout, identical shank pattern, identical metal tones, filling the frame, showing individual stones, prongs, pave work, metal texture, engraving and hand-finished detail, plain soft ivory background, soft diffused light revealing every facet, focus-stacked so the whole detail is sharp, 100mm macro, 8k"
+      },
+      {
+        "key": "model",
+        "name": "Model Photoshoot (worn)",
+        "prompt": "Premium menswear jewellery campaign photograph, no text or lettering in frame, a handsome well-groomed Indian male model wearing THE EXACT men's ring from the reference image, identical design, identical stone layout, identical shank pattern, identical metal tones, on his ring finger, his hand raised in a natural relaxed pose near his chest or chin so the ring is clearly visible and in sharp focus, wearing an elegant dark sherwani or tailored blazer, warm soft cinematic lighting, tasteful blurred luxury interior background, shallow depth of field, photorealistic editorial photography, 85mm, 8k"
       }
     ],
     "img2img_strength": 0.55,

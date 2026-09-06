@@ -148,3 +148,33 @@ re-roll it when it is not a genuine side view.
 Old films remain on disk as `media/{SKU}/video*.mp4` and `story/` frames; they
 are simply no longer referenced by the site. `tools/render_story.py` and the
 `04_render_video.py` logo overlay are retained but unused.
+
+### v42.1 — standardised first image + model shot
+
+Final 4-shot spec (`config.json → photoshoot.shots`), in gallery order:
+
+| # | key | role |
+|---|---|---|
+| 1 | `front` | **CATALOGUE PLATE — standardised.** Identical framing, scale, pure-white background and flat lighting for *every* ring. This is the listing-grid thumbnail. |
+| 2 | `angle` | 45° three-quarter — face + shoulder + depth/thickness of the setting |
+| 3 | `macro` | extreme close-up — stones, prongs, pavé, metal texture |
+| 4 | `model` | **model photoshoot** — Indian male model wearing the ring, editorial |
+
+**Why shot 1 is special:** on the listing page every tile must look like it came
+from the same shoot, so the customer compares *designs*, not photography. The
+prompt alone gets the style right but NOT the scale — one ring fills the frame,
+the next sits small.
+
+`tools/normalize_plate.py` fixes that deterministically after generation:
+
+```bash
+python3 tools/normalize_plate.py --media     # normalise every media/*/shot_front.jpg
+```
+
+It samples the backdrop from the image corners, finds the ring, rescales it so its
+width is exactly **72 % of the canvas**, centres it on a clean 1200×1200 white
+square and adds a soft contact shadow. Verified across 6 different rings: all
+land at width 0.72, so the grid is uniform.
+
+**Order of operations per design:** generate 4 shots → `normalize_plate.py`
+→ `brand_logo.py` → upload.
