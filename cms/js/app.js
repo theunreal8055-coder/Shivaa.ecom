@@ -1055,6 +1055,96 @@ function backInStock(max = 8) {
    The related fallback uses a light token scorer (name/category/tags/metal/purity/desc)
    so a missed term still lands the guest on believable pieces. */
 const _capturedQueries = new Set();
+
+/* ─────────── Feature 15 — natural-language search + quick chips ───────────
+   Parser turns phrases like “gold ring under 30000”, “22k necklace”, “silver
+   jhumka”, “bridal set” into metal/purity/category/tag/price filters plus the
+   leftover keyword terms, so the shop results behave like a guided search. */
+const NLCAT_ALIASES = {
+  rings: ['ring', 'ring', 'solitaires', 'band', 'band'], necklaces: ['necklace', 'necklaces', 'haar', 'haars', 'rani haar', 'choker', 'chokers', 'satlada', 'long chain'],
+  earrings: ['earring', 'earrings', 'jhumka', 'jhumkas', 'chandbali', 'chandbalis', 'stud', 'studs', 'drops', 'sui dhaga'],
+  bangles: ['bangle', 'bangles', 'kada', 'kadas', 'bracelet', 'bracelets'], chains: ['chain', 'chains', 'rope chain', 'box chain', 'sing chain'],
+  pendants: ['pendant', 'pendants', 'locket', 'lockets', 'om'], mangalsutra: ['mangalsutra', 'mangalsutras', 'black bead'],
+  bajubandh: ['bajubandh', 'armband', 'armbands'], rakhdi: ['rakhdi', 'rakhdi set', 'borla', 'tikka'],
+  aad: ['aad', 'hair ornament', 'hair ornaments'], sheeshphool: ['sheeshphool', 'sheesh phool', 'head ornament'],
+  hathphool: ['hathphool', 'hand harness'], punach: ['punach', 'anklet', 'anklets'], bridalanklets: ['payal', 'payals', 'bridal anklets', 'anklets'],
+};
+const NLTAG_ALIASES = {
+  wedding: ['wedding', 'bridal', 'bride', 'shadi', 'shaadi', 'trousseau', 'marriage'],
+  festive: ['festive', 'diwali', 'festival', 'celebration', 'navratri', 'sankranti'],
+  daily: ['daily', 'everyday', 'office', 'college'], gifting: ['gift', 'gifting', 'give', 'present'],
+  mens: ['men', "men's", 'gents', 'male'], heritage: ['heritage', 'traditional', 'rajputana', 'antique'],
+  luxe: ['luxe', 'luxury', 'premium'], new: ['new', 'new in', 'latest'], bestseller: ['bestseller', 'best sell', 'popular', 'loved'],
+};
+const NLC_STOP = new Set(['i', 'me', 'my', 'the', 'a', 'an', 'of', 'in', 'and', 'or', 'to', 'for', 'under', 'below', 'above', 'within', 'upto', 'up', 'with', 'show', 'find', 'looking', 'want', 'need', 'buy', 'price', 'budget', 'under', 'rs', 'inr', 'pieces', 'piece', 'matching', 'between', 'and', 'more']);
+function numFrom(s) { return +(s || '').replace(/[^\d]/g, '') || null; }
+function parseNaturalSearch(q) {
+  const s = (' ' + String(q || '').toLowerCase().replace(/₹/g, ' rs ') + ' ').replace(/[^\w\s]/g, ' ');
+  const out = { metal: new Set(), purity: new Set(), cats: new Set(), tags: new Set(), max: null, min: null, terms: [] };
+  let m;
+  const maxRe = /(?:under|below|less than|lesser than|upto|up to|within|max|maximum|budget|below)\s*(?:rs|inr)?\s*([\d,]+)/g;
+  while ((m = maxRe.exec(s))) { const n = numFrom(m[1]); if (n && (out.max === null || n < out.max)) out.max = n; }
+  m = s.match(/between\s*([\d,]+)\s*(?:and|to|-)\s*([\d,]+)/);
+  if (m) { out.min = numFrom(m[1]); out.max = numFrom(m[2]); }
+  m = s.match(/(?:from|above|over|min|minimum)\s*(?:rs|inr)?\s*([\d,]+)/);
+  if (m) out.min = numFrom(m[1]);
+  if (/\bgold\b/.test(s)) out.metal.add('Gold');
+  if (/\bsilver\b/.test(s)) out.metal.add('Silver');
+  if (/\bplatinum\b/.test(s)) { /* no catalogue, leave terms */ }
+  const pur = s.match(/\b(24|22|18|14|10)k\b/);
+  if (pur) out.purity.add(pur[1] + 'K');
+  if (/\b925\b/.test(s)) out.purity.add('925');
+  let work = s;
+  const aliases = { cat: NLCAT_ALIASES, tag: NLTAG_ALIASES };
+  for (const [kind, map] of Object.entries(aliases)) {
+    for (const [key, words] of Object.entries(map)) {
+      for (const w of words) {
+        const re = new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+        if (re.test(work)) {
+          if (kind === 'cat') out.cats.add(key); else out.tags.add(key);
+          work = work.replace(re, '  ');
+        }
+      }
+    }
+  }
+  for (const p of pur ? [pur[1] + 'k'] : []) work = work.replace(new RegExp('\\b' + p + '\\b', 'i'), '  ');
+  for (const met of ['gold', 'silver', 'platinum']) work = work.replace(new RegExp('\\b' + met + '\\b', 'gi'), '  ');
+  for (const w of ['under', 'below', 'less', 'than', 'upto', 'up', 'to', 'within', 'max', 'maximum', 'budget', 'from', 'above', 'over', 'min', 'minimum', 'rs', 'inr']) work = work.replace(new RegExp('\\b' + w + '\\b', 'gi'), '  ');
+  work = work.replace(/[\d,]+/g, '  ');
+  out.terms = work.split(/\s+/).filter(x => x && !NLC_STOP.has(x)).slice(0, 6);
+  return out;
+}
+function naturalMatch(p, q) {
+  const s = String(q || '').toLowerCase().trim();
+  if (!s) return true;
+  const n = parseNaturalSearch(s);
+  if (n.metal.size && !n.metal.has(p.metal)) return false;
+  if (n.purity.size && !n.purity.has(p.purity)) return false;
+  if (n.cats.size && !n.cats.has(p.category)) return false;
+  if (n.tags.size && !(p.tags || []).some(t => n.tags.has(t))) return false;
+  const pr = price(p);
+  if (n.max !== null && pr.total > n.max) return false;
+  if (n.min !== null && pr.total < n.min) return false;
+  const hay = (p.name + ' ' + (CATS[p.category]?.name || p.category) + ' ' + (p.tags || []).join(' ') + ' ' + (p.desc || '')).toLowerCase();
+  if (n.terms.length) return n.terms.every(t => hay.includes(t));
+  return hay.includes(s) || n.metal.size || n.purity.size || n.cats.size || n.tags.size || n.max !== null;
+}
+function searchChips(q) {
+  return [
+    ['Gold rings under ₹30k', 'gold ring under 30000', 'rings', 'gold', '₹30k'],
+    ['22K necklace', '22k necklace', 'necklaces', 'gold', '22K'],
+    ['Silver jhumkas', 'silver jhumka', 'earrings', 'silver', 'jhumkas'],
+    ['Mangalsutra', 'mangalsutra', 'mangalsutra', 'gold', 'classic'],
+    ['Wedding sets', 'wedding set', 'all', 'gold', 'bridal'],
+    ['Under ₹50k', 'under 50000', 'all', 'all', 'everyday'],
+    ['New arrivals', 'new', 'all', 'all', 'fresh'],
+    ['Bestsellers', 'bestseller', 'all', 'all', 'loved'],
+  ].map(c => ({ label: c[0], q: c[1], cat: c[2], metal: c[3], sub: c[4] }));
+}
+function searchChipsHTML() {
+  return `<div class="search-chips-row"><span class="sc-label">Quick looks</span><div class="search-chips">${searchChips().map(c => `<button class="chip" data-search-q="${esc(c.q)}">${esc(c.label)}</button>`).join('')}</div></div>`;
+}
+
 function relatedSearchProducts(q, max = 8) {
   const toks = String(q || '').toLowerCase().split(/[\s\-_.,/]+/).filter(Boolean);
   const hay = p => (p.name + ' ' + (CATS[p.category]?.name || p.category) + ' ' + p.metal + ' ' + p.purity + ' ' + (p.tags || []).join(' ') + ' ' + (p.desc || '')).toLowerCase();
@@ -1462,7 +1552,7 @@ pages.shop = async (view, q) => {
           </select>
         </div>
       </div>
-      <div class="chipbar" id="chipbar"></div>
+      <div class="chipbar" id="chipbar">${search ? searchChipsHTML().replace(/<button class="chip"/g, '<button class="chip" onclick="Shivaa.searchChip(this)"') : ''}</div>
       <div id="shopGrid" class="p-grid"></div>
       <div id="searchSuggestions"></div>
       ${recentShop.length ? `<section class="sec container" style="padding-top:56px;padding-bottom:0">
@@ -1490,7 +1580,7 @@ pages.shop = async (view, q) => {
     if (f.metals.length) list = list.filter(p => f.metals.includes(p.metal));
     if (f.purities.length) list = list.filter(p => f.purities.includes(p.purity));
     if (f.tags.length) list = list.filter(p => f.tags.some(t => (p.tags || []).includes(t)));
-    if (search) list = list.filter(p => (p.name + p.category + (p.desc || '')).toLowerCase().includes(search.toLowerCase()));
+    if (search) list = list.filter(p => naturalMatch(p, search));
     list = list.filter(p => price(p).total <= f.max);
     const sort = $('#sortSel').value;
     if (sort === 'price-asc') list.sort((a, b) => price(a).total - price(b).total);
@@ -4297,12 +4387,22 @@ $('#searchInput').onkeydown = e => {
 };
 function renderSugg(qs) {
   const s = qs.toLowerCase();
-  const list = state.productsCache.filter(p => (p.name + p.category).toLowerCase().includes(s)).slice(0, 6);
   const el = $('#searchSugg');
-  el.classList.toggle('open', list.length > 0);
-  el.innerHTML = list.map(p => `<div class="sugg" onclick="location.hash='#/product/${p.id}';document.getElementById('searchDrawer').classList.remove('open')">
-    <img src="${p.images[0]}" alt=""><div><b>${esc(p.name)}</b><small>${CATS[p.category]?.name} · ${fmt(price(p).total)}</small></div></div>`).join('');
+  const chips = searchChipsHTML();
+  const nat = parseNaturalSearch(qs);
+  const list = (s ? state.productsCache.filter(p => naturalMatch(p, qs)).slice(0, 6) : []);
+  el.classList.toggle('open', true);
+  const note = s ? `<div class="search-natural-note">Trying “${esc(qs)}” as a natural search — metal, purity, category, occasion &amp; price are understood.</div>` : '';
+  const sug = list.length ? list.map(p => `<div class="sugg" onclick="location.hash='#/product/${p.id}';document.getElementById('searchDrawer').classList.remove('open')">
+    <img src="${p.images[0]}" alt=""><div><b>${esc(p.name)}</b><small>${CATS[p.category]?.name} · ${fmt(price(p).total)}</small></div></div>`).join('') : '';
+  el.innerHTML = chips + note + sug;
+  $$('.search-chips .chip', el).forEach(c => c.onclick = () => window.Shivaa.searchChip(c));
 }
+window.Shivaa.searchChip = el => {
+  const q = el?.dataset?.searchQ || '';
+  const inp = $('#searchInput'); if (inp) inp.value = q;
+  if (q) { location.hash = '#/shop?q=' + encodeURIComponent(q); $('#searchDrawer').classList.remove('open'); }
+};
 
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */
 document.addEventListener('rates', () => {

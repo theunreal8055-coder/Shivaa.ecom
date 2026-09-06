@@ -4637,3 +4637,10 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
   .pc-watch{top:52px;right:8px;width:36px;height:36px}
 }
 @media(prefers-reduced-motion:reduce){.pc-watch,.wtoggle,.wtoggle.on,.wt-sw,.wt-sw::after,.watch-alert-strip{transition:none!important}.watch-alert-strip:hover{transform:none}}
+
+/* ═══════════════ v45 · Feature 15 — natural-language search + quick chips ═══════════════ */
+.search-chips-row{display:flex;gap:14px;align-items:flex-start;padding:4px 0 2px;flex-wrap:wrap}
+.search-chips-row .sc-label{font-family:var(--ff-label);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);padding-top:8px;white-space:nowrap}
+.search-chips{display:flex;flex-wrap:wrap;gap:8px}
+.search-natural-note{font-size:12.5px;color:var(--ink-3);padding:8px 0 2px;grid-column:1/-1}
+@media(max-width:560px){.search-chips-row{gap:8px}.search-chips-row .sc-label{display:block;width:100%;padding:0 0 4px}.search-chips .chip{font-size:11px;padding:6px 12px}}
