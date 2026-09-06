@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """STAGE 6 · UPLOAD — media + products to shivaa.in (category-wise, idempotent).
 
-1) PUT each shot/video via POST /api/media (multipart, admin token, needs the v36 patch)
+1) PUT the 4 shots via POST /api/media (multipart, admin token)
    -> returns /uploads/designs/{category}/{sku}/shot_studio.jpg (auto-sharded by category)
-2) POST /api/products with the metadata record + absolute image paths + video path
-3) Optional: POST /api/catalogs to attach the source catalogue PDF to the category
+2) POST /api/products with the metadata record + the 4 absolute image paths
+
+v42: product films are retired — a design uploads as EXACTLY 4 images and nothing
+else. Stage 4 (video) is no longer part of the pipeline and `video` is never sent.
 
 SAFE BY DEFAULT: --dry-run prints payloads, uploads nothing. Uses live login, no
 stored passwords. Skips designs already uploaded (SKU lookup) -> resumable forever.
@@ -87,12 +89,9 @@ def main():
         for k in ["studio", "worn", "gift", "editorial"]:
             f = out / sku / f"shot_{k}.jpg"
             if f.exists(): media[k] = str(f)
-        vid = out / sku / "video.mp4"
-        if len(media) < 4 or not vid.exists():
-            LOG.warning("skip %s — incomplete media set (%d/4 shots, video=%s); finish shots first",
-                        sku, len(media), vid.exists())
+        if len(media) < 4:
+            LOG.warning("skip %s — incomplete shot set (%d/4); finish shots first", sku, len(media))
             continue
-        paths = [*media.values(), str(vid)] if vid.exists() else [*media.values()]
 
         # 1 · media
         img_paths = []
@@ -111,19 +110,6 @@ def main():
                 LOG.info("media %s -> %s", k, r2["url"])
             else:
                 LOG.error("media fail %s: %s", k, r2); ledger.set(f"{sku}::media::{k}", sku=sku, stage="media", status="fail", ts=time.time())
-        video_path, video_new = None, False
-        if vid.exists():
-            if ledger.done(f"{sku}::video"):
-                video_path = f"/uploads/videos/{cat}/{sku}/video.mp4"
-            elif dry:
-                video_path = f"/uploads/videos/{cat}/{sku}/video.mp4"
-            else:
-                st3, r3 = api(base, ucfg["media_route"], "POST", tok, files={"file": str(vid)}, fields={"category": cat})
-                if st3 in (200, 201) and r3.get("url"):
-                    video_path, video_new = r3["url"], True
-                    ledger.set(f"{sku}::video", sku=sku, stage="media", status="done", location=r3["url"], ts=time.time())
-                else:
-                    LOG.error("video fail: %s", r3)
         if a.media_only: continue
 
         # 2 · product record (exact api.php schema)
@@ -134,20 +120,13 @@ def main():
                                     "seo", "category_note", "mediaNote"] if k in meta}
         rec["sku"] = meta.get("sku") or d["sku"]
         rec["images"] = img_paths or [d.get("img", "")]
-        if video_path: rec["video"] = video_path
         prod_done = ledger.get(f"{sku}::product")
         if prod_done and prod_done.get("status") == "done":
-            if video_new:
-                # re-sync: product was created before the video arrived -> PUT it in
-                pid = prod_done.get("location", "")
-                st6, r6 = api(base, f"{ucfg['products_route']}/{pid}", "PUT", tok, json_body={"video": video_path})
-                LOG.info("resync video on %s -> %s", sku, st6)
-            else:
-                LOG.info("skip product (done) %s", sku)
+            LOG.info("skip product (done) %s", sku)
             continue
         if dry:
             save_json(work / "payloads" / f"{sku}.json", rec)
-            LOG.info("[dry] would POST /api/products %s (%d images%s)", sku, len(img_paths), " + video" if video_path else "")
+            LOG.info("[dry] would POST /api/products %s (%d images)", sku, len(img_paths))
             continue
         existing = skumap.get(sku)
         if existing:

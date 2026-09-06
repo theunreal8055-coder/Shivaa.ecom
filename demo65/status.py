@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Batch status for the 65-ring job — crops / shots / complete / videos / meta.
+"""Batch status for the 65-ring job — crops / shots / complete / meta.
 Rebuilt for v37 session (demo65 workspace was missing from the fresh-install RAR).
 Run: cd demo65 && python3 status.py
 """
@@ -25,7 +25,7 @@ def ok(f: Path) -> bool:
 def main():
     all_skus = skus()
     crops = sorted(f.stem for f in DESIGNS_CROPS.glob("*.jpg") if f.stat().st_size > MIN_BYTES)
-    shots = complete = videos = metas = 0
+    shots = complete = metas = 0
     complete_skus, partial, missing_all = [], [], []
     for s in all_skus:
         d = MEDIA / s
@@ -38,14 +38,12 @@ def main():
             partial.append((s, have))
         else:
             missing_all.append(s)
-        if ok(d / "video.mp4"): videos += 1
         if (d / "meta.json").exists() and (d / "meta.json").stat().st_size > 200: metas += 1
 
     n = max(len(all_skus), 65)
     print(f"CROPS    {len(crops)}/{n}")
     print(f"SHOTS    {shots}/{n * 4}")
     print(f"COMPLETE {complete}/{n}" + (f"  ({complete_skus[0]}–{complete_skus[-1]})" if complete_skus else ""))
-    print(f"VIDEOS   {videos}/{n}")
     print(f"META     {metas}/{n}")
     if partial:
         print("\nPARTIAL (need remaining shots):")
@@ -60,7 +58,7 @@ def main():
         print(f"\nNEXT BATCH: {', '.join(nxt)} … · {len(todo)} designs left · {remaining_shots} shots remaining")
         print(f"(≈ {-(-remaining_shots // 10)} messages at 10 shots/message)")
     else:
-        print("\nALL DESIGNS COMPLETE — next: 04_render_video, 05_metadata, then 06_upload.")
+        print("\nALL DESIGNS COMPLETE — next: 05_metadata, then 06_upload (4 images per design).")
 
 if __name__ == "__main__":
     main()

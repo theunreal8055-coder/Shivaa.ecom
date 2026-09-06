@@ -353,7 +353,8 @@ try {
       $b = body_json();
       try { hallmark_guard_product_write($b); }
       catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
-      foreach ($b as $k => $v) $db['products'][$idx][$k] = $v;
+      foreach ($b as $k => $v) { if ($k === 'video') continue; $db['products'][$idx][$k] = $v; }
+      unset($db['products'][$idx]['video']);   // v42 · product films retired — 4 images per product
       db_save($DB_FILE, $db); jout(200, hallmark_product($db['products'][$idx]));
     }
     if ($method === 'DELETE') {
@@ -368,11 +369,12 @@ try {
     try { hallmark_guard_product_write($b); }
     catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
     $prod = array_merge(['createdAt' => now_iso(), 'active' => true, 'rating' => 4.6, 'reviews' => 0, 'stock' => 10, 'sizes' => [], 'tags' => [], 'images' => [], 'stoneValue' => 0], $b);
+    unset($prod['video']);   // v42 · product films retired — 4 images per product
     $prod['id'] = uid('p');
     $db['products'][] = $prod; db_save($DB_FILE, $db); jout(200, hallmark_product($prod));
   }
 
-  /* ── media upload (v36 — AI photoshoot shots + product videos) ── */
+  /* ── media upload (v42 — AI photoshoot shots; IMAGES ONLY, product videos retired) ── */
   if ($route === 'media' && $method === 'POST') {
     need_admin($db);
     if (empty($_FILES['file'])) jout(400, ['error' => 'No file field named "file"']);
@@ -381,14 +383,12 @@ try {
     if (($f['size'] ?? 0) > 26214400) jout(400, ['error' => 'File too large (max 25 MB)']);
     $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
     $isImg = in_array($ext, ['jpg', 'jpeg', 'png', 'webp']);
-    $isVid = in_array($ext, ['mp4', 'webm', 'mov']);
-    if (!$isImg && !$isVid) jout(400, ['error' => 'Only jpg/png/webp images or mp4/webm videos']);
+    if (!$isImg) jout(400, ['error' => 'Only jpg/png/webp images — product videos are no longer accepted']);
     $head = (string)@file_get_contents($f['tmp_name'], false, null, 0, 12);
-    $headOk = $isImg ? (substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n" || substr($head, 0, 4) === 'RIFF')
-                     : (substr($head, 4, 4) === 'ftyp');
+    $headOk = substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n" || substr($head, 0, 4) === 'RIFF';
     if (!$headOk) jout(400, ['error' => 'File content does not match its extension']);
     $cat = preg_replace('/[^a-z0-9_-]/', '', strtolower((string)($_POST['category'] ?? 'general'))) ?: 'general';
-    $sub = $isVid ? 'videos' : 'designs';
+    $sub = 'designs';
     $dir = __DIR__ . '/uploads/' . $sub . '/' . $cat;
     if (!is_dir($dir)) mkdir($dir, 0755, true);
     $name = $cat . '_' . bin2hex(random_bytes(5)) . '.' . $ext;

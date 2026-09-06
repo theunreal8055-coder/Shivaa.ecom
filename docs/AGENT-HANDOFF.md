@@ -51,7 +51,7 @@ repository DB untouched.
    pulls the latest **default branch (main)** from GitHub (PAT tarball),
    then: (a) **auto-deploys `cms/` code** to public_html — excluding `data/`
    and `uploads/`, php -l gate, 1-gen backup in `~/shivaa-deploy-backup/`;
-   (b) **auto-uploads** every design with 4 shots + film + meta that isn't in
+   (b) **auto-uploads** every design with 4 shots + meta that isn't in
    `~/shivaa-sync-ledger.json` (media POST /api/media, product upsert by SKU;
    category + `mens`-style tag per owner's section). Config: `~/.shivaa-sync.json`
    (0600). Logs: `~/shivaa-sync.log`. Owner set this up once via

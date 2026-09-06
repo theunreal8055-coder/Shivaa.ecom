@@ -44,7 +44,8 @@ note `out/`-named folders do NOT persist — media lives in `demo65/media/`).
    Password is NOT in the repo/workspace — ask; advise rotating it after.
 3. `python3 ../pipeline/06_upload.py --all` (upsert-by-SKU, 0.6 s pause).
 4. Verify live (never declare done otherwise): `/api/products?q=PGS` → all 65,
-   each 4 images + video + computed price; spot-check 3 PDPs (film first slide)
+   each with EXACTLY 4 images (no video — retired in v42) + computed price;
+   spot-check 3 PDPs (4 image slides, no film slide)
    → **screenshots**; homepage still fine.
 5. Build `shivaa-batch65-media.zip` + refresh FULL zip to 100% (media included),
    then prune heavy workspace trees (site-v2, demo65) to stay under the 128 MB

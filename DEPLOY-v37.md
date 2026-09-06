@@ -18,7 +18,8 @@ Zip: **`shivaa-FULL-fresh-install-v37.zip`**
    handoff doc — then **rotate it**).
 4. Verify: homepage renders (posters + carousel + bestsellers) ·
    `?v=37` ×7 · login works · catalogue PDFs download (20 files) ·
-   the two exemplar products (PGS5001/PGS5004) show 4 photos **and a film**.
+   the two exemplar products (PGS5001/PGS5004) show exactly 4 photos.
+   (v42: product films are retired — no `<video>` slide, no FILM badge.)
 5. This zip ships a **demo database** (342 products). Go live with your real DB
    only after restoring it, or keep using demo data while testing.
 

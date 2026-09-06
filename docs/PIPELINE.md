@@ -9,13 +9,13 @@ raw/65rings.pdf ─► 01_ingest_pdf ─► 01b_ocr_tags (green tags → code + 
                         │
       ┌─────────────────┼──────────────────────┐
       ▼                 ▼                      ▼
-02_normalize_data  03_photoshoot (4 shots)   04_render_video (10 s Ken Burns)
-      │                 │                      │
-      └─────────────────┴──────────┬───────────┘
+02_normalize_data  03_photoshoot (4 shots)   04_render_video — RETIRED (v42)
+      │                 │
+      └─────────────────┴──────────────────────┐
                                    ▼
                     05_metadata (title/desc/tags/SEO per design)
                                    ▼
-                    06_upload ──► POST /api/media (photos+video)
+                    06_upload ──► POST /api/media (4 photos, images only)
                                   POST /api/products (upsert by SKU)
 ```
 
@@ -26,7 +26,7 @@ python3 01b_ocr_tags.py --all       # OCR tag codes+weights → suppliers/*.csv
 python3 tight_crop.py               # tag-free design crops → media/designs/
 python3 02_normalize_data.py        # merge OCR × supplier sheets → designs.json
 python3 03_photoshoot.py --limit N  # AI shots (needs REPLICATE_API_TOKEN / OPENAI_API_KEY)
-python3 04_render_video.py --limit N # Ken-Burns films (ffmpeg)
+# 04_render_video.py — retired in v42: a design ships as exactly 4 images
 python3 05_metadata.py --limit N    # per-design meta.json
 python3 06_upload.py --all --dry-run  # review, then --all for live
 ```

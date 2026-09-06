@@ -9,11 +9,11 @@ photographs, describes, prices and uploads jewellery designs.
 cms/        the website (PHP 8 + vanilla JS SPA). Deploy to public_html.
             api.php = all /api/* routes   ·   data/db.json = demo DB
             uploads/ = catalogue PDFs + exemplar product media
-pipeline/   7-stage automation: PDF → OCR tags → normalize → AI photoshoot
-            → video → metadata → upload to the live site
+pipeline/   6-stage automation: PDF → OCR tags → normalize → AI photoshoot
+            → metadata → upload to the live site (v42: no product videos)
 demo65/     the 65-ring batch (razor-thin demo of the pipeline, real data):
             raw/65rings.pdf, suppliers/, work/designs.json (verified codes+weights),
-            media/designs/*.jpg (65 crops), media/PGS5xxx/ (4 AI shots + film +
+            media/designs/*.jpg (65 crops), media/PGS5xxx/ (4 AI shots +
             meta.json per design), status.py
 qa/         qa_v36.py (API regression) · smoke_media.py (upload smoke test)
 ```
@@ -24,7 +24,7 @@ qa/         qa_v36.py (API regression) · smoke_media.py (upload smoke test)
 cd cms && php -S 0.0.0.0:8090        # v37 UI, clean demo DB (admin@shivaa.in)
 
 # batch status
-cd demo65 && python3 status.py       # crops/shots/videos/meta counts
+cd demo65 && python3 status.py       # crops/shots/complete/meta counts
 
 # upload a finished batch to production
 cd demo65 && python3 ../pipeline/06_upload.py --all --dry-run   # review first

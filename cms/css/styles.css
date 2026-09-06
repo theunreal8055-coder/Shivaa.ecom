@@ -4516,13 +4516,6 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
   .portal-pill:hover{transform:none}
 }
 
-/* ─────────────── v36 · product videos (AI photoshoot films) ─────────────── */
-.gal-slide.gal-vid video{width:100%;height:100%;object-fit:cover;background:#111}
-.gal-slide.gal-vid .gal-vid-tag{position:absolute;left:14px;bottom:14px;z-index:3;display:inline-flex;align-items:center;gap:6px;background:rgba(12,40,28,.82);color:#fff;font:600 12px/1 var(--sans);letter-spacing:.06em;padding:8px 12px;border-radius:99px;backdrop-filter:blur(4px);pointer-events:none}
-.pc-vid-badge{position:absolute;right:10px;bottom:10px;z-index:2;display:inline-flex;align-items:center;gap:5px;background:rgba(12,40,28,.85);color:#fff;font:600 11px/1 var(--sans);letter-spacing:.05em;padding:6px 9px;border-radius:99px;pointer-events:none}
-.pc-vid-badge svg{width:9px;height:9px;fill:currentColor}
-@media(max-width:760px){.gal-slide.gal-vid .gal-vid-tag{font-size:11px;padding:7px 10px}}
-
 /* ═══════════════ v38 · Feature 13 — product compare + shareable shortlist ═══════════════ */
 .compare-btn.on{color:var(--maroon);background:var(--gold-faint);box-shadow:inset 0 0 0 1.5px var(--gold-soft)}
 .pc-compare{position:absolute;top:10px;right:56px;z-index:3;height:36px;display:inline-flex;align-items:center;gap:7px;padding:0 12px;border-radius:999px;background:rgba(255,253,249,.94);color:var(--ink-2);box-shadow:var(--sh-1);border:1px solid rgba(230,217,192,.86);font-family:var(--ff-label);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;transition:transform .25s var(--ease),background .25s,color .25s,border-color .25s,box-shadow .25s}
