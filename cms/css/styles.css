@@ -4701,3 +4701,9 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 .pd-gift-hidden #pdTotal{letter-spacing:.08em;color:var(--maroon-deep)}
 .gift-pdp-note{margin:12px 0 0;font-size:13px;color:var(--ink-3);display:flex;align-items:center;gap:8px}
 .gift-emi-note{margin-top:12px;padding:12px 14px;border-radius:14px;border:1.5px dashed var(--gold-soft);background:var(--gold-faint);color:var(--maroon-deep);font-size:13px;font-weight:600}
+
+/* ═══════════════ v49 · Batch C #5 — automated WhatsApp/email confirmations ═══════════════ */
+.notify-confirm{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:14px auto 0;padding:11px 16px;border-radius:16px;border:1px solid var(--line);background:var(--cream);color:var(--ink-2);font-size:13px;max-width:620px}
+.notify-confirm b{color:var(--maroon-deep);font-weight:600}
+.notify-confirm .notify-dot{color:var(--gold);font-weight:700;margin:0 4px}
+@media(max-width:560px){.notify-confirm{font-size:12px;padding:9px 12px}}

@@ -2188,7 +2188,7 @@ window.Shivaa.placeOrder = async () => {
   try {
     const order = await api('/api/orders', { method: 'POST', body: JSON.stringify({
       items: state.cart.map(c => ({ id: c.id, qty: c.qty, size: c.size, engraving: c.engraving })),
-      address, paymentMethod, coupon: window._co.coupon, usePoints: !!$('#usePts')?.checked,
+      address, paymentMethod, coupon: window._co.coupon, usePoints: !!$('#usePts')?.checked, giftMode: giftOn(),
     }) });
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
     if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
@@ -2215,7 +2215,11 @@ pages.order = async (view, q, id) => {
         <span class="label">Order placed</span>
         <h1 style="font-size:42px">Shubh Aashirwad, ${esc(order.userName.split(' ')[0])}!</h1>
         <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed. You earned <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> ✦<br>
-        Invoice & rate-lock summary sent to your account. Live tracking below.</p>
+        Invoice &amp; rate-lock summary have been sent. Live tracking below.</p>
+        ${order.notify ? `<div class="notify-confirm">${[
+          order.notify.whatsapp ? `<b>${order.notify.whatsapp.mode === 'live' ? '✅' : '👁'} WhatsApp</b> ${esc(order.notify.whatsapp.mode === 'live' ? 'confirmation sent' : 'confirmation logged' + (order.notify.whatsapp.to ? ' · ' + order.notify.whatsapp.to : ''))}` : '',
+          order.notify.email ? `<b>${order.notify.email.mode === 'live' ? '✅' : '👁'} Email</b> ${esc(order.notify.email.mode === 'live' ? 'receipt sent' : 'receipt logged' + (order.notify.email.to ? ' · ' + order.notify.email.to : ''))}` : ''
+        ].filter(Boolean).join('<span class="notify-dot">·</span>')}</div>` : ''}
       </div>
       <div class="order-card mt-3">
         <div class="order-top"><div class="order-id">${order.id} · ${timeFmt(order.createdAt)}</div><span class="status-pill st-${order.status.toLowerCase()}">${order.status}</span></div>

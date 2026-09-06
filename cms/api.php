@@ -13,6 +13,7 @@ $CAT_DIR = $ROOT . '/uploads/catalogs';
 require_once __DIR__ . '/hallmark.php';
 require_once __DIR__ . '/trust.php';
 require_once __DIR__ . '/sms.php';   // v33 — OTP SMS delivery plug-in (no-op in demo mode)
+require_once __DIR__ . '/notify.php'; // v49 — automated order WhatsApp + email confirmations
 
 /* ───────── helpers ───────── */
 function jout(int $code, $payload): void {
@@ -326,7 +327,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts','searchCaptures'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts','searchCaptures','notifications'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -336,6 +337,7 @@ if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
 }
 if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => now_iso(), 'gold24' => 11800, 'gold22' => 10800, 'gold18' => 8850, 'silver' => 95, 'source' => 'bootstrap']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
 foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'jaipurSilverPremium' => 3, 'whatsapp' => '918905005921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
+if (!is_array($db['notify'] ?? null)) $db['notify'] = ['sent' => 0, 'ok' => 0, 'demo' => 0, 'lastAt' => null, 'lastErr' => null];
 $changed = false;
 
 try {
@@ -756,6 +758,7 @@ try {
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Paid'),
       'subtotal' => $subtotal, 'discount' => $discount, 'pointsUsed' => $pointsUsed, 'coupon' => $coupon['code'] ?? null,
       'shipping' => $shipping, 'total' => $total, 'earnedPoints' => $earned,
+      'gift' => !empty($b['giftMode']),
       'rateSnapshot' => array_merge($R, ['stampedAt' => now_iso()]),
       'status' => 'Placed', 'createdAt' => now_iso(), 'timeline' => [['s' => 'Placed', 't' => now_iso()]],
     ];
@@ -764,6 +767,11 @@ try {
       $uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0) - $pointsUsed) + $earned;
     }
     foreach ($items as $it) foreach ($db['products'] as &$pr2) if ($pr2['id'] === $it['productId']) $pr2['stock'] = max(0, (int)($pr2['stock'] ?? 0) - $it['qty']);
+    db_save($DB_FILE, $db);
+    // v49 — automated WhatsApp + email confirmations (demo-safe, logged to db)
+    $notify = shivaa_order_notify($db, $order, $u, []);
+    $order['notify'] = $notify;
+    foreach ($db['orders'] as &$ord) if ($ord['id'] === $order['id']) $ord['notify'] = $notify;
     db_save($DB_FILE, $db);
     jout(200, $order);
   }
@@ -898,6 +906,38 @@ try {
     shivaa_sms_log($db, $r); db_save($DB_FILE, $db);
     if ($r['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code, 'note' => 'No data/sms-config.json yet — gateway not configured, demo mode']);
     jout($r['ok'] ? 200 : 502, ['ok' => $r['ok'], 'provider' => $r['provider'], 'error' => $r['error'], 'response' => cut500((string)$r['response']), 'hint' => $r['ok'] ? 'Check the phone for the SMS — if it arrived, you are live.' : 'Fix the error, then test again. See OTP-SETUP-GUIDE.md.']);
+  }
+
+  /* ── v49 · automated order confirmations (WhatsApp + email) ── */
+  if ($route === 'notify/status' && $method === 'GET') {
+    need_admin($db);
+    $c = shivaa_notify_config();
+    $wa = shivaa_notify_channel($c ?? [], 'whatsapp');
+    $em = shivaa_notify_channel($c ?? [], 'email');
+    jout(200, ['configured' => (bool)$c, 'whatsapp' => $wa, 'email' => $em, 'stats' => $db['notify'] ?? null]);
+  }
+  if ($route === 'notifications' && $method === 'GET') {
+    need_admin($db);
+    $list = array_reverse(array_values($db['notifications'] ?? []));
+    if (!empty($_GET['orderId'])) $list = array_values(array_filter($list, fn($n) => ($n['orderId'] ?? '') === $_GET['orderId']));
+    jout(200, ['notifications' => $list]);
+  }
+  if ($route === 'notifications/resend' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $oid = trim((string)($b['orderId'] ?? ''));
+    $ch  = strtolower(trim((string)($b['channel'] ?? 'whatsapp')));
+    if (!in_array($ch, ['whatsapp', 'email'], true)) jout(400, ['error' => 'Channel must be whatsapp or email']);
+    $o = null;
+    foreach ($db['orders'] as &$ord) if (($ord['id'] ?? '') === $oid) { $o = $ord; break; }
+    if (!$o) jout(404, ['error' => 'Order not found']);
+    $u = null;
+    foreach ($db['users'] as $uu) if ($uu['id'] === $o['userId']) { $u = $uu; break; }
+    if (!$u) jout(404, ['error' => 'Customer account not found']);
+    $notify = shivaa_order_notify($db, $o, $u, ['channels' => [$ch]]);
+    foreach ($db['orders'] as &$ord) if ($ord['id'] === $oid) $ord['notify'] = array_merge($ord['notify'] ?? [], $notify);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'notify' => $notify]);
   }
 
   /* ── design selection → metal exchange (zero MC) ── */

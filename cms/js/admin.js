@@ -44,6 +44,9 @@ async function renderAdmin(view, q) {
   if (tab === 'coupons') { try { coupons = (await api('/api/coupons')).coupons; } catch (e) {} }
   let searchData = { captures: [], zero: [], top: [] };
   if (tab === 'search') { try { searchData = await api('/api/search/captures'); } catch (e) {} }
+  let notifyData = {};
+  let notifications = [];
+  if (tab === 'notify') { try { notifyData = await api('/api/notify/status'); } catch (e) {} try { notifications = (await api('/api/notifications')).notifications || []; } catch (e) {} }
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -53,12 +56,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['search','🔍','Search'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['search','🔍','Search'],['notify','🔔','Notify'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',search:'Search Analytics',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',search:'Search Analytics',notify:'Notifications',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -122,6 +125,50 @@ async function renderAdmin(view, q) {
           </tr>`).join('')}</tbody>
         </table></div>` : '<p style="color:var(--ink-3);font-size:13.5px">Nothing captured yet.</p>'}
       </div>`;
+  }
+
+  /* ── NOTIFICATIONS (Feature #5 · automated WhatsApp + email confirmations) ── */
+  if (tab === 'notify') {
+    const nd = notifyData || {}, st = nd.stats || {};
+    const waLive = !!(nd.configured && nd.whatsapp?.provider && nd.whatsapp.provider !== 'demo');
+    const emLive = !!(nd.configured && nd.email?.provider && nd.email.provider !== 'demo');
+    const fmtday = iso => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    body.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat"><small>Orders confirmed</small><b>${st.sent || 0}</b><span>WhatsApp + email attempts</span></div>
+        <div class="stat"><small>Delivered OK</small><b>${st.ok || 0}</b><span>${st.sent ? Math.round((st.ok || 0) / st.sent * 100) : 0}% success</span></div>
+        <div class="stat"><small>Demo (logged only)</small><b>${st.demo || 0}</b><span>no gateway configured</span></div>
+        <div class="stat"><small>Last attempt</small><b style="font-size:18px">${st.lastAt ? esc(fmtday(st.lastAt)) : '—'}</b><span>${st.lastErr ? 'has errors' : 'no errors logged'}</span></div>
+      </div>
+      <div class="grid2">
+        <div class="adm-card"><h3>WhatsApp confirmation</h3>
+          <div class="sum-row"><span>Status</span><b style="color:${waLive ? 'var(--ok)' : 'var(--warn)'}">${waLive ? '● LIVE — ' + esc(String(nd.whatsapp.provider).toUpperCase()) : '● DEMO — logged only, no message sent'}</b></div>
+          <div class="sum-row"><span>Recipient</span><b>customer mobile on order / account</b></div>
+          <div class="sum-row"><span>Contents</span><b>order ID, items, totals${nd.whatsapp?.provider === 'twilio' ? ', Twilio WhatsApp' : ''}</b></div>
+          <p style="font-size:12px;color:var(--ink-3);margin:10px 0 0">To go live create <b>data/notify-config.json</b> with a <b>whatsapp</b> provider (generic webhook or Twilio). See the block comment in <b>cms/notify.php</b>.</p>
+        </div>
+        <div class="adm-card"><h3>Email receipt</h3>
+          <div class="sum-row"><span>Status</span><b style="color:${emLive ? 'var(--ok)' : 'var(--warn)'}">${emLive ? '● LIVE — ' + esc(String(nd.email.provider).toUpperCase()) : '● DEMO — logged only, no email sent'}</b></div>
+          <div class="sum-row"><span>Recipient</span><b>customer email on order / account</b></div>
+          <div class="sum-row"><span>Contents</span><b>order ID, items, totals, tracking link</b></div>
+          <p style="font-size:12px;color:var(--ink-3);margin:10px 0 0">For <b>php</b> provider use Hostinger's PHP mail(); for any other ESP use the <b>generic</b> webhook.</p>
+        </div>
+      </div>
+      <div class="adm-card"><h3>Notification log <span style="font-size:12px;color:var(--ink-3);font-weight:400">(last ${Math.min(notifications.length, 120)})</span></h3>
+        ${notifications.length ? `<div class="adm-table-wrap"><table class="adm-table">
+          <thead><tr><th>Order</th><th>Channel</th><th>Mode</th><th>Result</th><th>To</th><th>When</th><th></th></tr></thead>
+          <tbody>${notifications.slice(0, 120).map(n => `<tr>
+            <td><b>${esc(n.orderId || '—')}</b></td>
+            <td><span class="pill pm">${n.channel}</span></td>
+            <td>${n.mode === 'live' ? '<span style="color:var(--ok)">LIVE</span>' : '<span style="color:var(--warn)">DEMO</span>'}</td>
+            <td>${n.ok ? '<span style="color:var(--ok)">✅ OK</span>' : '<span style="color:var(--bad)">⚠️ ' + esc(n.error || 'failed') + '</span>'}</td>
+            <td><small>${esc(n.to || '—')}</small></td>
+            <td><small style="color:var(--ink-3)">${n.createdAt ? esc(fmtday(n.createdAt)) : '—'}</small></td>
+            <td>${n.orderId ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.notifyResend('${esc(n.orderId)}','${n.channel}')">Resend</button>` : ''}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : '<p style="color:var(--ink-3);font-size:13.5px">No confirmations attempted yet — they appear as soon as a customer places an order.</p>'}
+        <p style="font-size:12px;color:var(--ink-3);margin-top:10px">Gift orders are confirmed with prices hidden in the WhatsApp message and email receipt.</p>
+      </div>`; 
   }
 
   if (tab === 'products') {
@@ -454,6 +501,17 @@ window.ShivaaAdmin.smsTest = async e => {
     else toast('Gateway error: ' + (r.error || 'unknown'), 'err');
   } catch (err) { toast(err.message, 'err'); }
   window.ShivaaAdmin.smsCard();
+};
+
+/* v49 — resend an automated order confirmation (WhatsApp / email) */
+window.ShivaaAdmin.notifyResend = async (orderId, channel) => {
+  if (!window.confirm('Resend ' + channel + ' confirmation for ' + orderId + '?')) return;
+  try {
+    const r = await api('/api/notifications/resend', { method: 'POST', body: JSON.stringify({ orderId, channel }) });
+    const n = r.notify && r.notify[channel];
+    if (n) toast((n.mode === 'live' ? 'Resent Live ✓' : 'Demo — logged') + ' ' + channel + ' for ' + orderId + (n.to ? ' → ' + n.to : ''));
+    renderAdmin($('#view'), new URLSearchParams('tab=notify'));
+  } catch (err) { toast(err.message, 'err'); }
 };
 
 /* admin actions */
