@@ -1,13 +1,12 @@
 # Feature 1 — BIS hallmark / HUID lookup, real-data-only rebuild
 
-Updated: 6 September 2026 · UI asset version: **39**
+Updated: 6 September 2026 · Introduced in UI asset version **39** (subsequent feature releases may advance the shared version).
 
 ## Release boundary
 
 **The safe guide and recording workflow are implemented; automatic live BIS
 verification is NOT connected.** This is not a claim that a live API integration
-has shipped, nor that any item has been verified. The owner has approved production release; publication and live
-confirmation are pending.
+has shipped, nor that any item has been verified. Released through [PR #5](https://github.com/theunreal8055-coder/Shivaa.ecom/pull/5), merge `77d5069`, on 6 September 2026. The live status endpoint, updated entrypoint title and HUID JavaScript asset were confirmed after Hostinger auto-sync. No production HUIDs or private staff records were entered during these checks.
 
 This checkout contained no item-level HUID records and no documented, authorised
 BIS lookup integration. Do not guess an endpoint, scrape/reverse-engineer the
@@ -153,12 +152,13 @@ python3 qa/test_hallmark_ui.py
 
 `PHP_BIN` can specify an alternative executable; `BROWSER_BIN` can specify a
 Chromium path. Validated with actual PHP 8.2.32 running through PHP.wasm,
-Chromium/Playwright, and isolated temporary databases. No Hostinger/BIS live
-end-to-end verification was performed.
+Chromium/Playwright, and isolated temporary databases. No live BIS lookup or production admin-write end-to-end test was performed.
 
 Latest local results: **67 PHP unit checks**, **8 HTTP test groups** and **53
 browser checks** passed, including Compare + Shareable Shortlist regression.
 PHP/JavaScript syntax checks passed and the tracked catalogue DB is unchanged.
+Public deployment checks above do not constitute a live BIS lookup or a
+production admin-write test.
 
 The tests run the production PHP code using `qa/php_router.php`; they do not use
 the old Python API shim. The test server is torn down afterwards. A read-only
@@ -169,8 +169,9 @@ Never deploy the QA router, test fixtures, scratch workspace or tools.
 
 Deploy all changed/new `cms/` code together via the normal release workflow,
 without replacing `data/` or `uploads/`. If copying manually, put `hallmark.php`
-and new JS/CSS assets in place before `api.php` and `index.html`. All nine JS/CSS
-cache references are version 39. Confirm the public route, deliberately
+and new JS/CSS assets in place before `api.php` and `index.html`. The initial release used nine JS/CSS
+cache references at version 39; Feature 2 advances the shared assets to version
+40. Always ship the current entrypoint and all referenced assets together. Confirm the public route, deliberately
 unavailable API result, missing-data PDP, authenticated editor and compare page
 on the deployed host before declaring the safe workflow live. Do **not** label
 the automatic integration complete until the requirements above are met.

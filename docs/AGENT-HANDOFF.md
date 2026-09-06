@@ -11,16 +11,19 @@ Feature 13 **Compare + Shareable Shortlist** is live per owner and must be
 preserved. The current task is the owner's 1–21 roadmap, **one feature at a
 time**, starting with Feature 1 (BIS hallmark / HUID lookup).
 
-Read [`FEATURE-ROADMAP.md`](FEATURE-ROADMAP.md) and
-[`FEATURE-01-HUID.md`](FEATURE-01-HUID.md). The safe Feature 1 workflow is built
-and tested on the working branch (asset v39); **release approved, live
-confirmation pending**.
-Automatic BIS verification is **not connected**: accepted format and staff
-references never mean BIS verified. No HUIDs or certificates were seeded.
-Feature 2 is now specified: **Why Trust Shivaa**, using the existing owner-
-confirmed CIN, UDYAM and address only. GSTIN/certificates stay empty until real
-details/files are supplied. Release it separately after Feature 1. The rest of
-the original list is not in this checkout; do not invent Feature 3.
+Read [`FEATURE-ROADMAP.md`](FEATURE-ROADMAP.md),
+[`FEATURE-01-HUID.md`](FEATURE-01-HUID.md) and
+[`FEATURE-02-TRUST.md`](FEATURE-02-TRUST.md).
+
+- **Feature 1 is live**, released via PR #5 (`77d5069`); public status, entrypoint
+  and HUID JS confirmed on 6 Sep 2026. Automatic BIS verification is still **not
+  connected**. Accepted format and staff references never mean BIS verified.
+- **Feature 2 is implemented and tested, publication/live confirmation pending**
+  (shared assets v40). Why Trust Shivaa uses only the existing owner-confirmed
+  CIN, UDYAM and address. GSTIN/certificates stay empty pending real details/files.
+  The profile is not a government registry result or product certificate.
+- Release Feature 2 separately, then stop. The rest of the original owner list
+  is not in this checkout; ask for the exact Feature 3 specification.
 
 Owner rule: **never fabricate supplier, payment, courier, notification, legal,
 BIS, HUID, GSTIN, certificate or analytics data.** Existing legacy placeholders
@@ -88,7 +91,7 @@ commit → push. At 65/65: verify via owner screenshots (sandbox can't reach
 site); build `shivaa-batch65-media.zip` in `deploy/` only if owner asks.
 
 ## Site-change requests (features/fixes)
-Edit `cms/` on your branch; bump every `?v=` in `cms/index.html` (currently 9 refs) whenever
+Edit `cms/` on your branch; bump every `?v=` in `cms/index.html` (currently 11 refs) whenever
 js/css change; PR → main → cron auto-deploys. NEVER edit live db.json by
 hand; products only via API/upsert. Warn owner: hand-edits in hPanel File
 Manager get overwritten by the next auto-deploy — changes go through chat.

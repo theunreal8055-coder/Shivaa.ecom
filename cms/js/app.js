@@ -886,7 +886,7 @@ pages.home = async (view) => {
           <a class="btn btn-gold btn-lg" href="#/shop">Shop the Collection</a>
           <a class="btn btn-light btn-lg" href="#/rates">Jaipur Live Rates</a>
         </div>
-        <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><span>✦ 30+ Years Karigari</span><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
+        <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
         <div class="hero-stats">
           <div class="hstat"><b>30+</b><span>Years of karigari</span></div>
           <div class="hstat"><b>17</b><span>Categories</span></div>
@@ -1329,6 +1329,7 @@ pages.product = async (view, q, id) => {
         <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'}">${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</div>
 
         ${window.ShivaaHallmark ? window.ShivaaHallmark.productPanel(p) : '<p class="hm-note">HUID information is temporarily unavailable. No BIS verification has been performed here.</p>'}
+        <a class="trust-pdp-link" href="#/trust">Business details &amp; documents →</a>
 
         <div class="opt-label"><span>Check delivery</span></div>
         <div class="pin-row" style="max-width:340px"><input id="pincode" maxlength="6" placeholder="Enter 6-digit pincode"><button class="btn btn-ghost btn-sm" onclick="Shivaa.checkPin()">Check</button></div>
@@ -2277,10 +2278,10 @@ pages.about = async (view) => {
         <h2 style="font-size:36px;margin:10px 0 16px">Tradition, engineered <span class="disp-italic">transparently</span></h2>
         <p style="color:var(--ink-2)">Shivaa is the house brand of <b>Ernate Shine Jewellery Private Limited</b> (incorporated January 2025), built on three decades of jewellery craft by the Soni family of Jayal, Nagaur — the heart of Rajasthan's gold country.</p>
         <p style="color:var(--ink-2);margin-top:12px">We serve two families: the <b>300+ jewellers</b> who stock their counters with our honest-purity gold and silver across Rajasthan's cities — and the <b>families who mark life's biggest moments</b> with a piece from shivaa.in. Both get the same thing: published making charges, live-rate pricing, and a bill that matches the website to the rupee.</p>
-        <div class="reg-list">
-          <div class="reg-item"><div class="ric">✦</div><div><b>Registered Company</b><small>CIN U32111RJ2025PTC099173 · ROC Jaipur · Incorporated 03 Jan 2025</small></div></div>
-          <div class="reg-item"><div class="ric">◈</div><div><b>MSME / UDYAM</b><small>UDYAM-RJ-25-0086081 · Classified: Retail sale of jewellery</small></div></div>
-          <div class="reg-item"><div class="ric">❖</div><div><b>Startup India Recognised</b><small>DIPP191222 · Fashion / Jewellery sector · Dept. for Promotion of Industry & Internal Trade</small></div></div>
+        <div class="trust-about-callout">
+          <h3>Business details, in plain sight</h3>
+          <p>See the CIN, UDYAM number and store address on record, with clear empty states for documents that have not been provided. These are not automatic government-verification results.</p>
+          <a class="btn btn-outline btn-sm" href="#/trust">Why Trust Shivaa →</a>
         </div>
       </div>
       <div class="rv"><div class="banner" style="min-height:460px"><img src="/images/banners/wedding.jpg" alt=""><div class="b-fade"></div>
@@ -3919,7 +3920,7 @@ function route() {
     $$('.page-hero:not(.lg-done)').forEach(ph => {
       ph.classList.add('lg-done');
       ph.insertAdjacentHTML('beforeend', '<img src="/images/logo.png" class="ph-mark" alt="">');
-      if (!ph.querySelector('.ph-trust')) ph.insertAdjacentHTML('beforeend', '<div class="ph-trust"><a href="#/hallmark">✦ HUID check guide</a><span>✦ 30+ Years Karigari</span><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>');
+      if (!ph.querySelector('.ph-trust')) ph.insertAdjacentHTML('beforeend', '<div class="ph-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>');
     });
     const heroEl = $('#view .hero');
     if (heroEl && !heroEl.querySelector('.hero-logo')) {

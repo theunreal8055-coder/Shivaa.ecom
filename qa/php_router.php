@@ -41,5 +41,6 @@ if (preg_match('#(?:^|/)\.|^/(?:data|qa)/|\.(?:php|json|lock|md|log|bak|ini|sql)
 if ($file && is_file($file)) return false;
 header('Content-Type: text/html; charset=utf-8');
 $html = file_get_contents($root . '/index.html');
-if ($readOnly) $html = str_replace('<body>', '<body><script>if (!location.hash) history.replaceState(null, "", "#/hallmark");</script><div role="note" style="padding:8px 16px;background:#f7eed8;text-align:center;font-size:13px">Local read-only preview · repository catalogue snapshot · not live prices or BIS verification</div>', $html);
+$previewPage = getenv('SHIVAA_PREVIEW_PAGE') === 'trust' ? '#/trust' : '#/hallmark';
+if ($readOnly) $html = str_replace('<body>', '<body><script>if (!location.hash) history.replaceState(null, "", ' . json_encode($previewPage) . ');</script><div role="note" style="padding:8px 16px;background:#f7eed8;text-align:center;font-size:13px">Local read-only preview · repository catalogue snapshot · not live prices or BIS verification</div>', $html);
 echo $html;

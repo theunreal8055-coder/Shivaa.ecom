@@ -13,20 +13,18 @@ Do not advance to another feature in the same implementation pass.
 
 | Owner number | Feature | Status |
 | --- | --- | --- |
-| **1** | **Live BIS hallmark / HUID lookup** | Safe real-data-only guide, format check, official BIS Care handoff and staff reference editor implemented and tested on this branch. **Automatic live BIS verification remains blocked: no documented authorised integration is connected. Release approved by the owner; publication and live confirmation pending.** See [Feature 1 details](FEATURE-01-HUID.md). |
+| **1** | **Live BIS hallmark / HUID lookup** | Released through [PR #5](https://github.com/theunreal8055-coder/Shivaa.ecom/pull/5), merge `77d5069`. Live API, entrypoint and HUID JS confirmed on 6 Sep 2026. **Automatic live BIS verification remains disconnected**; the live feature is the safe official handoff/recording workflow. See [Feature 1 details](FEATURE-01-HUID.md). |
 | **13** | **Product Compare + Shareable Shortlist** | Live per owner; present at base commit `cc6d88b`. Preserved and regression-tested during Feature 1. |
-| **2** | **Why Trust Shivaa** | Owner specification received: use the existing owner-confirmed CIN, UDYAM and address. Leave GSTIN and certificates empty until real details/files are provided. Build and release separately after Feature 1. |
+| **2** | **Why Trust Shivaa** | Implemented and tested as a separate release: existing owner-confirmed CIN, UDYAM and address only; GSTIN and certificates remain empty. **Publication/live confirmation pending.** See [Feature 2 details](FEATURE-02-TRUST.md). |
 | 3–12, 14–21 | Original owner wording not present in this checkout | Not implemented in this pass. Obtain the original specification before starting another numbered feature; do not invent the missing list or treat old UI placeholders as completed integrations. |
 
 ## Next handoff
 
-1. Review/release the Feature 1 safe workflow through the normal deployment path.
-   Do not call automatic live verification complete merely because the guide is
-   visible or a six-character code passes validation.
-2. Actual automatic verification requires documented authorised BIS access,
-   verified response semantics and a separate reviewed adapter. Never request
-   credentials in chat; secrets belong in protected server configuration.
-3. Release Feature 1 first. The owner has now authorised Feature 2, **Why Trust
-   Shivaa**, using only the existing CIN, UDYAM and address. Keep GSTIN and
-   certificates empty pending real details/files. Release Feature 2 separately.
-   Do not proceed to Feature 3 without its original specification.
+1. Feature 1's safe workflow is live. Do not call automatic BIS verification
+   connected merely because a guide or an accepted six-character format exists.
+2. Publish and confirm Feature 2 separately. Its profile is provided business
+   information, not government verification. No GSTIN, certificates, corporate
+   classification, DIPP recognition, registration status or trust score may be
+   inferred from the supplied identifiers.
+3. Stop after Feature 2. Ask for the owner's exact Feature 3 specification before
+   doing further roadmap implementation. The rest of the list is still unknown.
