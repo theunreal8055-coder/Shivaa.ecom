@@ -14,7 +14,8 @@ pipeline/   7-stage automation: PDF → OCR tags → normalize → AI photoshoot
 demo65/     the 65-ring batch (razor-thin demo of the pipeline, real data):
             raw/65rings.pdf, suppliers/, work/designs.json (verified codes+weights),
             media/designs/*.jpg (65 crops), media/PGS5xxx/ (4 AI shots + film +
-            meta.json per design), status.py
+            meta.json per design; .orig/ = unbranded masters), status.py,
+            tools/brand_logo.py (stamps the Shivaa logo bottom-right)
 qa/         qa_v36.py (API regression) · smoke_media.py (upload smoke test)
 ```
 
@@ -22,6 +23,9 @@ qa/         qa_v36.py (API regression) · smoke_media.py (upload smoke test)
 ```bash
 # local demo of the site
 cd cms && php -S 0.0.0.0:8090        # v37 UI, clean demo DB (admin@shivaa.in)
+
+# stamp the Shivaa logo on any new shots (bottom-right), then render films
+cd demo65 && python3 tools/brand_logo.py && python3 ../pipeline/04_render_video.py
 
 # batch status
 cd demo65 && python3 status.py       # crops/shots/videos/meta counts

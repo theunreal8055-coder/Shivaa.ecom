@@ -90,8 +90,9 @@ def ffmpeg_kenburns(shots: list, mp4: Path, vcfg: dict):
             filters.append(f"[{prev}][{i}:v]xfade=transition=fade:duration={xf:.4f}:"
                            f"offset={i * (seg - xf):.4f}[x{i}]")
     out_label = "0:v" if n == 1 else f"x{n - 1}"
-    wm = vcfg.get("watermark", "")
-    if n == 1 and not wm:  # nothing to crossfade or watermark — clip IS the video
+    logo_cfg = vcfg.get("logo", "")
+    wm = "" if logo_cfg else vcfg.get("watermark", "")
+    if n == 1 and not wm and not logo_cfg:  # nothing to crossfade/brand — clip IS the video
         import shutil; shutil.copy2(clips[0], mp4); shutil.rmtree(tmp, ignore_errors=True)
         return mp4.stat().st_size
     if wm:
@@ -120,6 +121,21 @@ def ffmpeg_kenburns(shots: list, mp4: Path, vcfg: dict):
                 out_label = "vout"
             else:
                 LOG.warning("no font/blend for watermark — skipping")
+    if logo_cfg:
+        # Brand mark: the Shivaa logo composited into the bottom-right corner.
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            sys.path.insert(0, str(Path("tools").resolve()))
+            from brand_logo import video_logo_png
+            png = video_logo_png(int(w), int(h), Path(tmp) / "logo_overlay.png",
+                                 width_pct=float(vcfg.get("logo_width_pct", 0.24)))
+            inputs += ["-loop", "1", "-t", f"{dur:.3f}", "-i", str(png)]
+            li = inputs.count("-i") - 1  # index of the just-added input
+            filters.append(f"[{out_label}][{li}:v]overlay=0:0:format=auto,"
+                           f"format=yuv420p[vlogo]")
+            out_label = "vlogo"
+        except Exception as e:  # never fail a render because of branding
+            LOG.warning("logo overlay skipped: %s", str(e)[:160])
     mp4.parent.mkdir(parents=True, exist_ok=True)
     r = subprocess.run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *inputs,
                         "-filter_complex", ";".join(filters), "-map", f"[{out_label}]",
@@ -165,8 +181,14 @@ def main():
         mp4 = out / d["sku"] / "video.mp4"
         if ledger.done(d["sku"]):
             LOG.info("skip (done) %s", d["sku"]); continue
-        shots = [out / d["sku"] / f"shot_{k}.jpg" for k in shots_order]
-        shots = [s for s in shots if s.exists()]
+        shots = []
+        for k in shots_order:
+            s = out / d["sku"] / f"shot_{k}.jpg"
+            master = s.parent / ".orig" / s.name   # unbranded master, if any
+            if master.exists():
+                shots.append(master)
+            elif s.exists():
+                shots.append(s)
         if not shots:
             LOG.warning("no shots for %s", d["sku"]); continue
         try:

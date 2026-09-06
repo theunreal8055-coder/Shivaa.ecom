@@ -46,3 +46,31 @@ chunk by PDF, `--limit` per run, restart-safe ledgers, upsert-by-SKU uploads.
 Watch: PyMuPDF is not thread-safe (per-thread `fitz.open()`, ≤3 workers);
 OCR only ~44/65 designs complete → always run the visual-verification pass
 and the contiguous-SKU check before uploading.
+
+## Brand mark (logo on every shot and film)
+
+Every generated still and every film carries the Shivaa logo in the **bottom-right
+corner** (user directive, 6 Sep 2026). Source art: `cms/images/logo.png`.
+
+**Stills** — `demo65/tools/brand_logo.py`:
+```bash
+cd demo65 && python3 tools/brand_logo.py            # stamp all unstamped shots
+python3 tools/brand_logo.py --only PGS5001          # or a subset
+```
+* The unbranded master of each shot is preserved at `media/{SKU}/.orig/shot_*.jpg`;
+  stamping is therefore repeatable and never compounds.
+* Logo width = 26 % of image width, margin = 3.5 %, opacity 0.82. The white or
+  navy variant is chosen automatically from the brightness of that corner, so it
+  reads on both the ivory-silk studio shots and the dark editorial ones.
+* A ledger at `work/branded.json` (path → md5) makes the run idempotent; newly
+  generated shots are picked up on the next run.
+
+**Films** — `pipeline/04_render_video.py` now overlays the same logo (on a soft
+dark plate for legibility over moving footage) instead of the old `SHIVAA.IN`
+drawtext watermark. Controlled by `config.json → video.kenburns.logo` and
+`logo_width_pct`; remove `logo` to fall back to the text watermark. The renderer
+always sources frames from `.orig/` when present, so the logo is composited once,
+never twice.
+
+**After generating new shots** the order is: `tools/brand_logo.py` → then
+`04_render_video.py`.
