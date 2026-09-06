@@ -85,15 +85,15 @@ Names/SEO copy may be creative. Exemplar live names stay: PGS5001
 "Rajkumari", PGS5004 "Mughal Moti".
 
 ## Current batch state (demo65, men's rings, 65 SKUs PGS5001–5065)
-On branch `arena/01a0768e-shivaa-ecom` (6 Sep 2026): COMPLETE 37/65
-(shots+films+meta), SHOTS 148/260, VIDEOS 37/65, META 65/65, CROPS 65/65.
+On branch `arena/01a0768e-shivaa-ecom` (6 Sep 2026): COMPLETE 39/65
+(shots+films+meta), SHOTS 156/260, VIDEOS 39/65, META 65/65, CROPS 65/65.
 **Rule: never merge a PR containing a shot that failed visual QA** — the
 Hostinger auto-uploader reads `main` and would publish it. (First case:
 PGS5036 — all 4 shots failed first pass: "AU 750" 18K engraving / pink
 stones / brand on box / supplier tag. Reshoot 2nd pass PASSED 4/4, film
 re-rendered + frame-verified 6 Sep 2026.)
 Queue order = `work/designs.json` order; `status.py` prints next batch
-(now: PGS5023, PGS5027, PGS5040 … 28 designs / 112 shots).
+(now: PGS5040, PGS5020, PGS5019 … 26 designs / 104 shots).
 Work per turn: ≤10 shots → visual QA each (read back; regenerate failures
 within the same 10) → films for completers → commit → push. At 65/65: verify
 via owner screenshots (sandbox can't reach site); build
