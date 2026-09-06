@@ -2,6 +2,16 @@
 
 Updated: 6 September 2026 · Introduced in UI asset version **40**.
 
+**Released and live:** [PR #6](https://github.com/theunreal8055-coder/Shivaa.ecom/pull/6),
+merge `fad5aca`, after the separate Feature 1 release. On 6 September 2026,
+`https://shivaa.in/api/trust?release=fad5aca` returned the existing CIN, UDYAM and
+address with `gstin: null`, `certificates: []` and
+`registryVerification: { performed: false, checkedAt: null }`.
+`/js/trust.js?v=40` and `/css/trust.css?v=40` were served with the new feature
+code/styles. The live HUID status retained its explicit disconnected/unverified
+contract. These were public read-only deployment checks, not government
+verification or production data-entry tests.
+
 ## Owner-approved scope
 
 > Feature 2 — Why Trust Shivaa. Use existing verified CIN, UDYAM, address.

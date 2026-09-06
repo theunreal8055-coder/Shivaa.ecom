@@ -40,7 +40,7 @@ python3 ../pipeline/06_upload.py --all                          # then live
 - **Feature 2 — Why Trust Shivaa:** implemented at `#/trust`, using the existing
   owner-confirmed CIN, UDYAM and address. **GSTIN and certificate files remain
   empty.** Its business profile is not a government-verification result.
-  Publication/live confirmation is tracked in the roadmap ledger.
+  Released through PR #6; the live profile and v40 JS/CSS assets are confirmed.
 
 See [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md),
 [`docs/FEATURE-01-HUID.md`](docs/FEATURE-01-HUID.md) and
