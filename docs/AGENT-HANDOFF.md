@@ -85,11 +85,42 @@ Names/SEO copy may be creative. Exemplar live names stay: PGS5001
 "Rajkumari", PGS5004 "Mughal Moti".
 
 ## Current batch state (demo65, men's rings, 65 SKUs PGS5001–5065)
-At merge-to-main: COMPLETE 19/65 (shots+films+meta), META 65/65,
-CROPS 65/65. Queue order = `work/designs.json` order; `status.py` prints
-next batch. Remaining work per turn: 10 shots → films for completers →
-commit → push. At 65/65: verify via owner screenshots (sandbox can't reach
-site); build `shivaa-batch65-media.zip` in `deploy/` only if owner asks.
+On branch `arena/01a0768e-shivaa-ecom` (6 Sep 2026): COMPLETE 34/65
+(shots+films+meta), SHOTS 136/260, VIDEOS 34/65, META 65/65, CROPS 65/65.
+**PGS5036 is structurally complete but FAILED visual QA on all 4 shots**
+(studio: "AU 750" 18K + weight engraving; worn: pink stones instead of clear
+white; gift: "Aethelred Jewellers" brand on box; editorial: green supplier tag)
+— reshoot all 4 shots (guarded prompts) + re-render its video NEXT TURN, and
+**do NOT merge any PR while PGS5036's contaminated media is on the branch**
+(the Hostinger auto-uploader reads `main` and would publish it).
+Queue order = `work/designs.json` order; `status.py` prints next batch
+(now: PGS5033, PGS5044, PGS5043 … 31 designs / 124 shots).
+Work per turn: ≤10 shots → visual QA each (read back; regenerate failures
+within the same 10) → films for completers → commit → push. At 65/65: verify
+via owner screenshots (sandbox can't reach site); build
+`shivaa-batch65-media.zip` in `deploy/` only if owner asks.
+
+### Shot QA protocol (6 Sep 2026 — from the PGS5036 failures)
+Guarded prompts in `demo65/config.json` (no tag / no text / no branding /
+stones-as-reference) are MANDATORY for every new shot. After generation, READ
+BACK each shot (10/turn) and check: supplier tag · any engraving or text
+(purity must be 22K — "AU 750" = 18K is a fail) · brand names/monograms on
+boxes · stone colour vs the reference crop. `demo65/tools/tag_scan.py` is a
+bright-tag first pass ONLY (misses dark-scene tags — documented failure).
+The other 30 completed designs were not re-QA'd; if the owner reports odd
+shots on the live site, reshoot that SKU + re-render + re-upload.
+
+### Catalog batch (10–15k images/hr target) — PLANNED, not started
+Owner wants the full 3-lakh-design catalogue at 10,000–15,000 images/hr.
+Agreed in chat (6 Sep 2026): in-chat `generate_image` (10/turn) can't do that
+— it needs a batch job on a VPS calling Replicate directly with parallel
+workers + a hard budget cap. Decisions: provider = Replicate; A/B test models
+= FLUX.1 schnell (Apache-2.0, ~$0.003/img) vs FLUX.2 pro (~$0.03/img) —
+FLUX.1/2 [dev] are EXCLUDED (non-commercial licence; this is a commercial
+site); test-first gate = paid A/B on 20 designs before any full run. Owner to
+provide: Replicate token (pay-as-you-go), a VPS (or confirm their Hostinger
+plan is a VPS), and per supplier drop: weights CSV + photos zip. NOTHING is
+built yet (that chat was interrupted); owner's priority = finish demo65 first.
 
 ## Site-change requests (features/fixes)
 Edit `cms/` on your branch; bump every `?v=` in `cms/index.html` (currently 11 refs) whenever

@@ -43,22 +43,22 @@
       {
         "key": "studio",
         "name": "Studio Macro",
-        "prompt": "Luxury jewellery e-commerce studio macro photograph of THE EXACT men's ring from the reference image, identical design and stones, perfectly centred on seamless ivory silk backdrop, soft diffused key light, gentle gold specular highlights, razor-sharp detail, f/8, 8k"
+        "prompt": "Luxury jewellery e-commerce studio macro photograph of THE EXACT men's ring from the reference image, identical design and stones, perfectly centred on seamless ivory silk backdrop, soft diffused key light, gentle gold specular highlights, razor-sharp detail, f/8, 8k The green price tag in the reference photo is a supplier label and must NOT appear. Keep the stones exactly as in the reference (clear white diamonds, not pink). No engraving or text on the ring metal. Plain unbranded jewellery box: no logos, no brand names, no letters or monograms anywhere in the image."
       },
       {
         "key": "worn",
         "name": "On Hand",
-        "prompt": "The EXACT men's ring from the reference image being worn on a man's hand, identical design and stones, strong masculine hand, neat grooming, soft warm window light, blurred luxurious Indian menswear such as a sherwani or blazer in background, editorial jewellery photography, 50mm, shallow depth of field"
+        "prompt": "The EXACT men's ring from the reference image being worn on a man's hand, identical design and stones, strong masculine hand, neat grooming, soft warm window light, blurred luxurious Indian menswear such as a sherwani or blazer in background, editorial jewellery photography, 50mm, shallow depth of field The green price tag in the reference photo is a supplier label and must NOT appear. Keep the stones exactly as in the reference (clear white diamonds, not pink). No engraving or text on the ring metal. Plain unbranded jewellery box: no logos, no brand names, no letters or monograms anywhere in the image."
       },
       {
         "key": "gift",
         "name": "Gift Moment",
-        "prompt": "The EXACT men's ring from the reference image, identical design and stones, resting in an open premium jewellery box on silk with soft rose petals and warm candle bokeh, festive luxury gifting e-commerce photography for men, rich but tasteful, 8k"
+        "prompt": "The EXACT men's ring from the reference image, identical design and stones, resting in an open premium jewellery box on silk with soft rose petals and warm candle bokeh, festive luxury gifting e-commerce photography for men, rich but tasteful, 8k The green price tag in the reference photo is a supplier label and must NOT appear. Keep the stones exactly as in the reference (clear white diamonds, not pink). No engraving or text on the ring metal. Plain unbranded jewellery box: no logos, no brand names, no letters or monograms anywhere in the image."
       },
       {
         "key": "editorial",
         "name": "Editorial Dark",
-        "prompt": "Dramatic editorial jewellery photograph of THE EXACT men's ring from the reference image, identical design and stones, on dark charcoal velvet, single rim light sculpting the metal, deep shadows, high-contrast luxury men's campaign style, hyper-detailed"
+        "prompt": "Dramatic editorial jewellery photograph of THE EXACT men's ring from the reference image, identical design and stones, on dark charcoal velvet, single rim light sculpting the metal, deep shadows, high-contrast luxury men's campaign style, hyper-detailed The green price tag in the reference photo is a supplier label and must NOT appear. Keep the stones exactly as in the reference (clear white diamonds, not pink). No engraving or text on the ring metal. Plain unbranded jewellery box: no logos, no brand names, no letters or monograms anywhere in the image."
       }
     ],
     "img2img_strength": 0.55,
