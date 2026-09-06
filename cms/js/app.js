@@ -716,7 +716,6 @@ function productCard(p, opts = {}) {
   return `<article class="p-card" data-pid="${p.id}">
     <a href="#/product/${p.id}" class="pc-imgwrap">
       <img src="${p.images[0]}" alt="${esc(p.name)}" loading="lazy">
-      ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
       <div class="glare"></div>
     </a>
     <button type="button" class="pc-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">
@@ -1263,11 +1262,11 @@ pages.product = async (view, q, id) => {
       <div class="pd-gallery">
         <div class="gal-wrap" id="galWrap">
           <div class="gal-track" id="galTrack">
-            ${(p.video ? [`<div class="gal-slide gal-vid on"><video src="${esc(p.video)}" controls playsinline preload="metadata" poster="${p.images && p.images[0] ? p.images[0] : ''}"></video><span class="gal-vid-tag">▶ 360° film</span></div>`] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${im}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`)).join('')}
+            ${(p.images || []).map((im, i) => `<div class="gal-slide${i === 0 ? ' on' : ''}"><img src="${im}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`).join('')}
           </div>
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
           <button class="gal-nav gal-next" aria-label="Next">›</button>
-          <div class="gal-dots" id="galDots">${(p.video ? 1 : 0) + (p.images || []).length > 1 ? Array.from({length: (p.video ? 1 : 0) + (p.images || []).length}, (_, i) => `<span class="${i === 0 ? 'on' : ''}"></span>`).join('') : ''}</div>
+          <div class="gal-dots" id="galDots">${(p.images || []).length > 1 ? Array.from({length: (p.images || []).length}, (_, i) => `<span class="${i === 0 ? 'on' : ''}"></span>`).join('') : ''}</div>
           <a class="pd-stamp" href="#/hallmark?product=${encodeURIComponent(p.id)}">HUID check guide →</a>
           <span class="gal-hint">swipe / drag</span>
         </div>
@@ -1371,7 +1370,7 @@ pages.product = async (view, q, id) => {
   </div>`;
   (() => {
     const wrap = $('#galWrap'), track = $('#galTrack'); if (!wrap || !track) return;
-    const n = $$('.gal-slide', track).length;   // v36: counts video slide too
+    const n = $$('.gal-slide', track).length;   // v42: photos only — video removed
     let idx = 0, sx = null, dx = 0;
     const go = i => {
       idx = (i + n) % n;
@@ -1386,7 +1385,7 @@ pages.product = async (view, q, id) => {
     wrap.addEventListener('pointermove', e => { if (sx == null) return; dx = e.clientX - sx; track.style.transform = `translateX(calc(-${idx * 100}% + ${dx}px))`; });
     const end = () => { if (sx == null) return; track.style.transition = ''; if (Math.abs(dx) > 42) go(idx + (dx < 0 ? 1 : -1)); else go(idx); sx = null; };
     wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
-    const timer = setInterval(() => { const v = $('.gal-slide.on video', track); if (v && !v.paused) return; go(idx + 1); }, 5200);
+    const timer = setInterval(() => go(idx + 1), 5200);
     wrap.addEventListener('pointerdown', () => clearInterval(timer), { once: true });
   })();
   $('#brkBtn').onclick = () => { const b = $('#pdBrk'); b.hidden = !b.hidden; $('#brkBtn').setAttribute('aria-expanded', String(!b.hidden)); };

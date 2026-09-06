@@ -113,3 +113,38 @@ lettering…") — the image model otherwise hallucinates campaign words such as
 text-to-video model, so these are real *cinematic cuts with camera motion over
 generated frames*, not generative motion video. True AI motion (Kling/Runway/Veo)
 would need `04_render_video.py --mode kling` with an API key and network access.
+
+## v42 — VIDEO REMOVED · four-angle photo coverage (6 Sep 2026)
+
+User directive: **no videos on the website.** Each design is sold on **4 photos
+that between them show every angle and every detail.**
+
+**Site changes (`cms/`)** — all video code deleted, assets bumped to `?v=42`:
+* `js/app.js` — the PDP gallery is photo-only (the `<video>` slide, the "360° film"
+  tag, the FILM badge on product cards and the video-aware autoplay pause are gone).
+* `css/styles.css` — `.gal-vid`, `.gal-vid-tag`, `.pc-vid-badge` rules removed.
+* `api.php` — `POST /api/media` now accepts **images only** (jpg/png/webp);
+  the `uploads/videos/` branch is gone.
+* `data/db.json` — the `video` field was stripped from all products.
+
+**The four shots** (`config.json → photoshoot.shots`) are chosen for coverage,
+not mood — together they show the face, both shoulders, the side height, the
+band and the stone setting:
+
+| # | key | what it must show |
+|---|---|---|
+| 1 | `front` | full face square to camera — complete stone setting |
+| 2 | `angle` | 45° three-quarter — face + shoulder + depth of the setting |
+| 3 | `side`  | side profile — setting height, shoulder engraving, inner band |
+| 4 | `macro` | extreme close-up — individual stones, prongs, pavé, metal texture |
+
+Every prompt names the reference image and demands *identical design, stone
+layout, shank pattern and metal tones*, plus a no-text guard.
+
+**Known weakness:** the `side` prompt does not reliably produce a true profile —
+the model often returns another front-ish view. Check shot 3 per design and
+re-roll it when it is not a genuine side view.
+
+Old films remain on disk as `media/{SKU}/video*.mp4` and `story/` frames; they
+are simply no longer referenced by the site. `tools/render_story.py` and the
+`04_render_video.py` logo overlay are retained but unused.

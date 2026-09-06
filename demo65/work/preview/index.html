@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shivaa — latest video</title>
+<style>
+  :root{--ink:#12151f;--gold:#c9962f}
+  *{box-sizing:border-box}
+  body{margin:0;background:#0d1017;color:#eef0f5;
+       font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .top{max-width:900px;margin:0 auto;padding:32px 20px 8px;text-align:center}
+  .tag{display:inline-block;background:var(--gold);color:#1a1200;font-size:12px;
+       font-weight:700;letter-spacing:.12em;padding:5px 12px;border-radius:20px}
+  h1{font-size:26px;margin:14px 0 6px}
+  .sub{color:#98a0b3;font-size:15px;margin:0 0 22px}
+  .stage{max-width:520px;margin:0 auto;padding:0 20px}
+  video{width:100%;border-radius:14px;background:#000;display:block;
+        box-shadow:0 14px 50px rgba(0,0,0,.6)}
+  .cap{color:#98a0b3;font-size:13.5px;text-align:center;margin:12px 0 0}
+  .btn{display:inline-block;margin-top:14px;background:var(--gold);color:#1a1200;
+       text-decoration:none;font-weight:700;font-size:14px;padding:11px 20px;border-radius:8px}
+  .strip{max-width:1000px;margin:34px auto 0;padding:0 20px}
+  .strip img{width:100%;border-radius:10px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);
+     margin:34px 0 12px;text-align:center}
+  .old{max-width:1000px;margin:0 auto 60px;padding:0 20px;
+       display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:700px){.old{grid-template-columns:1fr}}
+  .old video{border-radius:10px;box-shadow:none;opacity:.75}
+  .old p{font-size:13px;color:#7d8598;margin:0 0 8px;text-align:center}
+  .box{max-width:900px;margin:30px auto 0;padding:16px 20px;background:#161b26;
+       border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:14px;color:#b9c0d0}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span class="tag">LATEST — REAL MOTION</span>
+  <h1>The ring actually slides onto his finger</h1>
+  <p class="sub">One continuous 2.8-second shot · no cuts · cost ₹0</p>
+</div>
+
+<div class="stage">
+  <video src="motion.mp4" controls autoplay muted loop playsinline></video>
+  <p class="cap">Plays on loop. Watch the ring travel down the finger — those
+     in-between frames were synthesized, not photographed.</p>
+  <p style="text-align:center"><a class="btn" href="motion.mp4" download>Download this clip</a></p>
+</div>
+
+<div class="strip">
+  <h2>Frame by frame</h2>
+  <img src="msheet.jpg" alt="filmstrip showing the ring sliding down the finger">
+</div>
+
+<div class="box">
+  <b>How it's made, free:</b> the image model re-renders the same photo with only
+  the ring's position changed (same hand, light and background), giving a few
+  keyframes. ffmpeg's optical-flow interpolation then invents every frame in
+  between. No API key, no GPU, no subscription.
+  <br><br>
+  <b>Best for</b> short simple movements — sliding on, a hand turning, fingers
+  flexing. Large motions would smear.
+</div>
+
+<h2>For comparison — the two earlier attempts you rejected</h2>
+<div class="old">
+  <div>
+    <p>1st: pan over 4 catalogue stills</p>
+    <video src="old.mp4" controls muted loop playsinline></video>
+  </div>
+  <div>
+    <p>2nd: 6-beat story, but cuts not motion</p>
+    <video src="video.mp4" controls muted loop playsinline></video>
+  </div>
+</div>
+
+</body>
+</html>
