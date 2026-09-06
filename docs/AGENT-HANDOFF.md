@@ -18,11 +18,12 @@ Read [`FEATURE-ROADMAP.md`](FEATURE-ROADMAP.md),
 - **Feature 1 is live**, released via PR #5 (`77d5069`); public status, entrypoint
   and HUID JS confirmed on 6 Sep 2026. Automatic BIS verification is still **not
   connected**. Accepted format and staff references never mean BIS verified.
-- **Feature 2 is implemented and tested, publication/live confirmation pending**
-  (shared assets v40). Why Trust Shivaa uses only the existing owner-confirmed
-  CIN, UDYAM and address. GSTIN/certificates stay empty pending real details/files.
-  The profile is not a government registry result or product certificate.
-- Release Feature 2 separately, then stop. The rest of the original owner list
+- **Feature 2 is live**, released via PR #6 (`fad5aca`), with the live API and
+  v40 JS/CSS confirmed on 6 Sep 2026. Why Trust Shivaa uses only the existing
+  owner-confirmed CIN, UDYAM and address. GSTIN/certificates stay empty pending
+  real details/files. The profile is not a government registry result or product
+  certificate.
+- Stop after Feature 2. The rest of the original owner list
   is not in this checkout; ask for the exact Feature 3 specification.
 
 Owner rule: **never fabricate supplier, payment, courier, notification, legal,
