@@ -1049,6 +1049,65 @@ function backInStock(max = 8) {
     .slice(0, max);
 }
 
+/* ─────────── Feature 21 — zero-result search capture + related suggestions ───────────
+   We only capture a query when the shop search actually returns nothing, so the
+   admin analytics (Batch B #10) show real demand gaps rather than typing noise.
+   The related fallback uses a light token scorer (name/category/tags/metal/purity/desc)
+   so a missed term still lands the guest on believable pieces. */
+const _capturedQueries = new Set();
+function relatedSearchProducts(q, max = 8) {
+  const toks = String(q || '').toLowerCase().split(/[\s\-_.,/]+/).filter(Boolean);
+  const hay = p => (p.name + ' ' + (CATS[p.category]?.name || p.category) + ' ' + p.metal + ' ' + p.purity + ' ' + (p.tags || []).join(' ') + ' ' + (p.desc || '')).toLowerCase();
+  const scored = state.productsCache.map(p => {
+    const h = hay(p);
+    let s = 0;
+    toks.forEach(t => {
+      let hit = false;
+      if (p.name && p.name.toLowerCase().includes(t)) { s += 4; hit = true; }
+      if ((CATS[p.category]?.name || p.category).toLowerCase().includes(t)) { s += 3; hit = true; }
+      if ((p.tags || []).some(x => x.toLowerCase().includes(t))) { s += 3; hit = true; }
+      if (p.metal && p.metal.toLowerCase().includes(t)) { s += 2; hit = true; }
+      if (p.purity && p.purity.toLowerCase().includes(t)) { s += 2; hit = true; }
+      if (p.desc && p.desc.toLowerCase().includes(t)) { s += 1; hit = true; }
+      if (h.includes(t)) s += 1;
+      if (!hit) s -= 2;
+    });
+    const bothLen = (toks.join('').length + h.length) || 1;
+    s += Math.round((toks.join('').length / bothLen) * 8); // favour shorter, closer matches
+    const pr = price(p);
+    const want = q.match(/[\d,]+/)?.[0] ? +(q.replace(/[^\d]/g, '')) : null;
+    if (want && pr.total) s += Math.max(0, 3 - Math.abs(Math.log10(want / pr.total)));
+    return { p, s };
+  }).sort((a, b) => b.s - a.s);
+  return scored.slice(0, max).map(x => x.p);
+}
+async function captureZeroSearch(q, list, filters0) {
+  const key = String(q || '').trim().toLowerCase();
+  if (!key || _capturedQueries.has(key)) return;
+  _capturedQueries.add(key);
+  try {
+    await api('/api/search/capture', { method: 'POST', body: JSON.stringify({ q, results: list.length, category: filters0.cats.join(','), metal: filters0.metals.join(','), purity: filters0.purities.join(',') }) });
+  } catch (e) { /* best-effort */ }
+}
+function renderSearchSuggestions(q, wishSet) {
+  const el = $('#searchSuggestions'); if (!el) return;
+  const found = relatedSearchProducts(q, 8);
+  const toks = String(q || '').toLowerCase().split(/[\s\-_.,/]+/).filter(Boolean);
+  const catHits = Object.entries(CATS).filter(([k, c]) => toks.some(t => c.name.toLowerCase().includes(t) || k.includes(t))).slice(0, 5);
+  const tagHits = Object.entries(TAGS).filter(([k, v]) => toks.some(t => v.toLowerCase().includes(t) || k.includes(t))).slice(0, 6);
+  el.innerHTML = found.length ? `
+    <section class="sec container" style="padding-top:46px;padding-bottom:0">
+      <div class="sec-head rv"><span class="label">You might love</span><h2>Related pieces for “${esc(q)}”</h2></div>
+      <div class="chipbar" style="justify-content:center;margin-bottom:18px">
+        ${catHits.map(c => `<a class="chip" href="#/shop?category=${c[0]}">${esc(c[1].name)}</a>`).join('')}
+        ${tagHits.map(t => `<a class="chip" href="#/shop?tag=${t[0]}">${esc(t[1])}</a>`).join('')}
+        <a class="chip" href="#/shop">View all pieces</a>
+      </div>
+      <div class="hscroll">${found.map(p => productCard(p, { wishSet })).join('')}</div>
+    </section>` : `<div class="container" style="padding:16px 0"><div class="qty-banner">We didn't find “${esc(q)}” in the vault yet. Tell us what you're looking for — our designers can source or craft it.</div></div>`;
+  bindTilt(el);
+}
+
 /* ─────────── HOME ─────────── */
 pages.home = async (view) => {
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
@@ -1405,6 +1464,7 @@ pages.shop = async (view, q) => {
       </div>
       <div class="chipbar" id="chipbar"></div>
       <div id="shopGrid" class="p-grid"></div>
+      <div id="searchSuggestions"></div>
       ${recentShop.length ? `<section class="sec container" style="padding-top:56px;padding-bottom:0">
         <div class="sec-head rv"><span class="label">Pick up where you left off</span><h2>Recently viewed</h2></div>
         <div class="hscroll">${recentShop.map(p => productCard(p, { wishSet: shopWishSet })).join('')}</div>
@@ -1438,8 +1498,14 @@ pages.shop = async (view, q) => {
     if (sort === 'rating') list.sort((a, b) => b.rating - a.rating);
     if (sort === 'newest') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const wishSet = state.user ? await wishIds() : [];
-    $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
+    $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match${search ? ' for “' + esc(search) + '”' : ''}</h3><p>Try widening the filters${search ? ' or see related picks below' : ''}.</p></div>`;
     $('#resCount').innerHTML = `<b>${list.length}</b> pieces · prices update with the live rate`;
+    if (!list.length && search) {
+      captureZeroSearch(search, list, f);
+      renderSearchSuggestions(search, wishSet);
+    } else {
+      const sg = $('#searchSuggestions'); if (sg) sg.innerHTML = '';
+    }
     bindTilt($('#shopGrid'));
   }
   const closeSheet = () => { $('#filterDrawer')?.classList.remove('open'); $('#fsheetOverlay')?.classList.remove('open'); unlockScroll(); };

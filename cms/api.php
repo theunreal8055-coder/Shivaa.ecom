@@ -326,7 +326,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts','searchCaptures'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -1087,6 +1087,34 @@ try {
     if (!filter_var($b['email'] ?? '', FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Valid email required']);
     if (!in_array($b['email'], array_column($db['newsletter'], 'email'))) $db['newsletter'][] = ['email' => $b['email'], 'at' => now_iso()];
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+  }
+
+  /* ── Feature 21: zero-result search capture (surfaced as admin analytics in Batch B #10) ── */
+  if ($route === 'search/capture' && $method === 'POST') {
+    $b = body_json();
+    $q = trim((string)($b['q'] ?? ''));
+    $q = function_exists('mb_substr') ? mb_substr($q, 0, 120) : substr($q, 0, 120);
+    if ($q === '') jout(400, ['error' => 'Search query required']);
+    $db['searchCaptures'][] = [
+      'id' => uid('sc'), 'q' => $q,
+      'results' => max(0, (int)($b['results'] ?? 0)),
+      'zero' => (int)($b['results'] ?? 0) <= 0,
+      'metal' => $b['metal'] ?? '', 'purity' => $b['purity'] ?? '', 'category' => $b['category'] ?? '',
+      'userId' => ($u0 = req_user($db)) ? $u0['id'] : null, 'createdAt' => now_iso(),
+    ];
+    if (count($db['searchCaptures']) > 2000) $db['searchCaptures'] = array_slice($db['searchCaptures'], -2000);
+    db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+  }
+  if ($route === 'search/captures' && $method === 'GET') {
+    need_admin($db);
+    $list = array_reverse($db['searchCaptures'] ?? []);
+    $zero = array_values(array_filter($list, fn($x) => !empty($x['zero'])));
+    $byQ = [];
+    foreach ($list as $x) $byQ[strtolower($x['q'])] = ($byQ[strtolower($x['q'])] ?? 0) + 1;
+    $top = array_map(fn($k) => ['q' => $k, 'count' => $byQ[$k]], array_keys($byQ));
+    usort($top, fn($a, $b) => $b['count'] - $a['count']);
+    $top = array_slice($top, 0, 15);
+    jout(200, ['captures' => array_slice($list, 0, 200), 'zero' => array_slice($zero, 0, 200), 'top' => $top]);
   }
   if ($route === 'contact' && $method === 'POST') {
     $b = body_json();
