@@ -74,3 +74,42 @@ never twice.
 
 **After generating new shots** the order is: `tools/brand_logo.py` → then
 `04_render_video.py`.
+
+## Story films — "a man tries the ring on" (v42, 6 Sep 2026)
+
+User directive: the films must show a man **trying the ring on and how he feels
+wearing it**, not a pan over catalogue stills. The old kenburns slideshow is
+superseded (kept per design as `media/{SKU}/video_kenburns.mp4`).
+
+**6-beat narrative** (prompts + timings in `config.json → video.story.beats`):
+
+| beat | seconds | camera | what happens |
+|---|---|---|---|
+| `f1_reach`  | 1.9 | push-in      | he picks the ring out of the box |
+| `f2_slide`  | 2.6 | slow push-in | **he slides it onto his finger** |
+| `f3_fit`    | 2.0 | drift-left   | he flexes his hand, feeling the fit |
+| `f4_admire` | 2.2 | push-out     | he turns his hand, admiring it |
+| `f5_smile`  | 2.6 | slow push-in | **his reaction — quiet satisfaction** |
+| `f6_hero`   | 2.0 | push-in      | hero macro on the fist |
+
+The try-on and the reaction beats hold longest — that is where the feeling lands.
+Total ≈ 11 s, 720x900 (4:5 portrait for the PDP gallery), 0.45 s dissolves,
+Shivaa logo bottom-right throughout.
+
+```bash
+cd demo65
+# 1. shoot the 6 story frames per design with generate_image, reference =
+#    media/designs/{SKU}.jpg, prompts from config.json -> video.story.beats
+# 2. cut the film
+python3 tools/render_story.py --only PGS5041     # or no --only for every SKU
+#    that has a story/ folder
+```
+
+**Every beat prompt carries a no-text guard** ("absolutely no text no words no
+lettering…") — the image model otherwise hallucinates campaign words such as
+"LEGACY" into the frame. Always eyeball the frames before cutting.
+
+**Limitation, stated plainly:** this sandbox has no outbound network and no
+text-to-video model, so these are real *cinematic cuts with camera motion over
+generated frames*, not generative motion video. True AI motion (Kling/Runway/Veo)
+would need `04_render_video.py --mode kling` with an API key and network access.

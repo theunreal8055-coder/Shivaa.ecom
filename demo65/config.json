@@ -66,7 +66,7 @@
     "retries": 3
   },
   "video": {
-    "mode": "kenburns",
+    "mode": "story",
     "kenburns": {
       "duration_s": 10,
       "fps": 30,
@@ -81,6 +81,51 @@
       "crossfade_s": 0.7,
       "logo": "../cms/images/logo.png",
       "logo_width_pct": 0.24
+    },
+    "story": {
+      "note": "6-beat try-on narrative: he picks the ring up, slides it on, feels the fit, admires it, reacts, hero. Rendered by demo65/tools/render_story.py. Frames live in media/{SKU}/story/. Reference image = media/designs/{SKU}.jpg so the ring stays EXACT.",
+      "size": "720x900",
+      "fps": 30,
+      "crossfade_s": 0.45,
+      "logo_width_pct": 0.24,
+      "beats": [
+        {
+          "key": "f1_reach",
+          "seconds": 1.9,
+          "move": "push-in",
+          "prompt": "Cinematic close-up, absolutely no text no words no lettering no logos and no watermark anywhere in the frame, a well-dressed Indian man's hand reaching down to pick up THE EXACT men's ring from the reference image, identical design and stones, from an open velvet jewellery box on a boutique counter, warm shop lighting, shallow depth of field, 50mm, photorealistic film still"
+        },
+        {
+          "key": "f2_slide",
+          "seconds": 2.6,
+          "move": "push-in-slow",
+          "prompt": "Cinematic macro close-up, absolutely no text no words no lettering no logos and no watermark anywhere in the frame, an Indian man sliding THE EXACT men's ring from the reference image, identical design and stones, onto his ring finger, fingertips of the other hand guiding it halfway down the finger, warm window light, blurred sherwani sleeve, photorealistic film still, 85mm shallow depth of field"
+        },
+        {
+          "key": "f3_fit",
+          "seconds": 2.0,
+          "move": "drift-left",
+          "prompt": "Cinematic close-up, absolutely no text no words no lettering no logos and no watermark anywhere in the frame, THE EXACT men's ring from the reference image, identical design and stones, now fully seated on the ring finger of a strong masculine Indian hand, the man flexing and spreading his fingers to feel the fit, warm golden light catching the stones, blurred luxury boutique background, photorealistic film still"
+        },
+        {
+          "key": "f4_admire",
+          "seconds": 2.2,
+          "move": "push-out",
+          "prompt": "Cinematic shot, absolutely no text no words no lettering no logos and no watermark anywhere in the frame, a handsome Indian man in a dark sherwani holding his hand up near his face, turning it slightly to admire THE EXACT men's ring from the reference image, identical design and stones, on his finger, eyes on the ring, soft admiring expression, warm cinematic light, shallow depth of field, photorealistic film still"
+        },
+        {
+          "key": "f5_smile",
+          "seconds": 2.6,
+          "move": "push-in-slow",
+          "prompt": "Cinematic portrait, absolutely no text no words no lettering no logos and no watermark anywhere in the frame, a confident handsome Indian man in a dark sherwani smiling with quiet satisfaction, his hand raised near his chest showing THE EXACT men's ring from the reference image, identical design and stones, on his finger, genuine warm smile, festive bokeh lights behind, photorealistic film still, 85mm"
+        },
+        {
+          "key": "f6_hero",
+          "seconds": 2.0,
+          "move": "push-in",
+          "prompt": "Cinematic hero macro photograph, absolutely no text no words no lettering no logos and no watermark anywhere in the frame, THE EXACT men's ring from the reference image, identical design and stones, worn on the finger of a confident man's relaxed fist resting on dark leather, dramatic rim light sculpting the gold, deep rich shadows, clean empty background, luxury menswear campaign final shot, hyper-detailed photorealistic film still"
+        }
+      ]
     }
   },
   "metadata": {
