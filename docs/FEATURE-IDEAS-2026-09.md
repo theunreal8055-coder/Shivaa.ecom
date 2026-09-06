@@ -103,14 +103,23 @@ better than a buy button. Small feature, big fit for jewellery.
 
 ## C. Operational integrity
 
-### C1. Live rate freshness is a pricing risk
-`rates.last` in the demo DB is stamped **2026-08-29** — eight days stale — and
-`POST /api/rates/refresh` is gated behind `need_admin`, i.e. manual. Since every
-price is `rate × weight`, a stale or failed feed silently mis-prices the whole
-catalogue.
-Proposed: server cron refresh, a `rateAsOf` stamp shown next to prices, and a
-fail-safe — if the rate is older than N hours, show "rate being updated" and hold
-checkout rather than selling at a wrong price. (Order-time `rateSnapshot` is
+### C1. The gold rate is the wrong kind of rate (upgraded to critical)
+**Correction to an earlier draft of this document:** refreshing is *not*
+admin-only — `GET /api/rates` (api.php:269) auto-refreshes whenever the stamp is
+older than 11 minutes. The stale 2026-08-29 stamp is just this repo's committed
+demo snapshot.
+
+The real problem is worse. `rates_refresh()` derives the price from
+**international XAU spot × USD/INR**, which excludes Indian import duty, customs
+IGST and the local bullion premium — so the site prices gold roughly **13% below
+the Indian market** (₹13,688/g vs a market ₹15,824/g for 24K on 29 Aug 2026).
+Separately, when the feed fails the code **fabricates a price** with `mt_rand()`
+around a hard-coded ₹11,850 base and sells at it (`source: simulated`).
+
+Full analysis, provider comparison and step-by-step fix:
+[`RATES-API-SETUP.md`](RATES-API-SETUP.md). Headline: move to an India-published
+benchmark (IBJA via metals.dev, ~$2–10/month), delete the simulator, refresh by
+cron, and hold checkout when the rate is stale. (Order-time `rateSnapshot` is
 already implemented and correct — keep it.)
 
 ### C2. Single-file JSON database
@@ -138,7 +147,7 @@ manifest (add-to-home-screen, offline catalogue browsing) would help buyers on 4
 | --- | --- | --- |
 | 1 | A1 payments (+ A2 invoice) | Nothing else matters if the site cannot take money |
 | 2 | A3 order status + A4 notifications | Delivers the promise already made on-screen |
-| 3 | C1 rate cron + fail-safe | Protects against selling at the wrong price |
+| 3 | C1 India rate benchmark + kill the simulator | You are pricing ~13% under market; see RATES-API-SETUP.md |
 | 4 | B1 SEO | Largest free-traffic gain, uses only real data |
 | 5 | B2 verified reviews | Cheap trust, feeds SEO ratings |
 | 6 | C2/C3 backups + flags, then B3–B5, C4 | Hardening and conversion polish |
