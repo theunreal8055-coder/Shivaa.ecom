@@ -173,13 +173,18 @@ function waProductMsg(p, qty, size, engraving) {
   if (qty > 1) L.push('Qty: ' + qty);
   if (engraving) L.push('Engraving: ' + engraving);
   L.push('');
-  L.push('Live price: ' + fmt(pr.total) + ' (incl. 3% GST)');
-  L.push('• Metal @ ' + fmt(pr.ratePerGram) + '/g × ' + p.weightG + 'g = ' + fmt(pr.metalValue));
-  L.push('• Making charges = ' + fmt(pr.makingCharge));
-  if (pr.stoneValue) L.push('• Listed stone value = ' + fmt(pr.stoneValue));
-  L.push('• GST 3% = ' + fmt(pr.gst));
-  L.push('');
-  L.push('Rate as on ' + timeFmt(R.t) + ' (' + R.source + ' feed)');
+  if (giftOn()) {
+    L.push('GIFT MODE — prices are hidden for the recipient.');
+    L.push('✦ a surprise is waiting');
+  } else {
+    L.push('Live price: ' + fmt(pr.total) + ' (incl. 3% GST)');
+    L.push('• Metal @ ' + fmt(pr.ratePerGram) + '/g × ' + p.weightG + 'g = ' + fmt(pr.metalValue));
+    L.push('• Making charges = ' + fmt(pr.makingCharge));
+    if (pr.stoneValue) L.push('• Listed stone value = ' + fmt(pr.stoneValue));
+    L.push('• GST 3% = ' + fmt(pr.gst));
+    L.push('');
+    L.push('Rate as on ' + timeFmt(R.t) + ' (' + R.source + ' feed)');
+  }
   L.push(location.origin + '/#/product/' + p.id);
   L.push('');
   L.push('Namaste Shivaa ✦ I would like to order this piece.');
@@ -191,36 +196,71 @@ function waCartMsg() {
   let sub = 0;
   items.forEach((it, i) => {
     const t = price(it.p).total * it.qty; sub += t;
-    L.push((i + 1) + '. ' + it.p.name + ' × ' + it.qty + (it.size ? ' (size ' + it.size + ')' : '') + ' — ' + fmt(t));
+    L.push((i + 1) + '. ' + it.p.name + ' × ' + it.qty + (it.size ? ' (size ' + it.size + ')' : '') + (giftOn() ? '' : ' — ' + fmt(t)));
   });
   const shipping = sub >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   L.push('');
-  L.push('Subtotal: ' + fmt(sub) + ' (incl. GST, live rates)');
-  L.push('Shipping: ' + (shipping ? fmt(shipping) : 'FREE insured'));
-  L.push('Total: ' + fmt(sub + shipping));
+  if (giftOn()) {
+    L.push('GIFT MODE — prices are hidden for the recipient. 🎁 Hidden');
+    L.push('Subtotal / shipping / total: ' + '🎁 Hidden');
+  } else {
+    L.push('Subtotal: ' + fmt(sub) + ' (incl. GST, live rates)');
+    L.push('Shipping: ' + (shipping ? fmt(shipping) : 'FREE insured'));
+    L.push('Total: ' + fmt(sub + shipping));
+  }
   L.push('');
-  L.push('Final bill locks at order confirmation. Rate as on ' + timeFmt(state.rates.t) + '.');
+  if (giftOn()) L.push('The recipient never sees these amounts.');
+  else L.push('Final bill locks at order confirmation. Rate as on ' + timeFmt(state.rates.t) + '.');
   L.push('');
   L.push('Namaste! I would like to place this order.');
   return L.join('\n');
 }
 function waOrderMsg(o) {
-  const L = ['✦ SHIVAA — ORDER ' + o.id + ' ✦', ''];
-  o.items.forEach(it => L.push('• ' + it.name + ' × ' + it.qty + (it.size ? ' (' + it.size + ')' : '') + ' — ' + fmt(it.unitPrice * it.qty)));
+  const hid = giftOn();
+  const L = ['✦ SHIVAA — ' + (hid ? 'GIFT ORDER ' + o.id : 'ORDER ' + o.id) + ' ✦', ''];
+  o.items.forEach(it => L.push('• ' + it.name + ' × ' + it.qty + (it.size ? ' (' + it.size + ')' : '') + (hid ? '' : ' — ' + fmt(it.unitPrice * it.qty))));
   L.push('');
-  L.push('Subtotal: ' + fmt(o.subtotal));
-  if (o.discount) L.push('Discount' + (o.coupon ? ' (' + o.coupon + ')' : '') + ': −' + fmt(o.discount));
-  L.push('Shipping: ' + (o.shipping ? fmt(o.shipping) : 'FREE insured'));
-  L.push('Total: ' + fmt(o.total));
+  if (hid) {
+    L.push('GIFT MODE — prices hidden for the recipient. 🎁 Hidden');
+    L.push('Subtotal / shipping / total: 🎁 Hidden');
+  } else {
+    L.push('Subtotal: ' + fmt(o.subtotal));
+    if (o.discount) L.push('Discount' + (o.coupon ? ' (' + o.coupon + ')' : '') + ': −' + fmt(o.discount));
+    L.push('Shipping: ' + (o.shipping ? fmt(o.shipping) : 'FREE insured'));
+    L.push('Total: ' + fmt(o.total));
+  }
   L.push('');
   L.push('Payment: to be confirmed on WhatsApp');
   L.push('Name: ' + (o.address && o.address.name || ''));
   L.push('Phone: ' + (o.address && o.address.phone || ''));
   L.push('Address: ' + (o.address && o.address.line || '') + ', ' + (o.address && o.address.city || '') + ' — ' + (o.address && o.address.pincode || ''));
   L.push('');
-  L.push('Namaste Shivaa ✦ please confirm my order ' + o.id + ' and share payment details.');
+  L.push('Namaste Shivaa ✦ please confirm my ' + (hid ? 'gift' : '') + ' order ' + o.id + ' and share payment details privately.');
   return L.join('\n');
 }
+function waGiftMsg(items) {
+  const L = ['✦ SHIVAA — GIFT REQUEST ✦', ''];
+  if (items && items.length) {
+    L.push('Someone shared this gift list with me:', '');
+    items.forEach((it, i) => {
+      const p = it.p || (it.id ? state.productsCache.find(x => x.id === it.id) : null);
+      L.push((i + 1) + '. ' + (p ? p.name : (it.name || 'A piece')) + (it.size ? ' (size ' + it.size + ')' : '') + ' × ' + it.qty);
+    });
+    L.push('');
+    L.push('Please keep the price a secret — it is a gift. 🎁');
+  } else {
+    L.push('Someone shared a gift from Shivaa with me.');
+    L.push('');
+    L.push('Please keep the price a secret — it is a gift. 🎁');
+  }
+  L.push('');
+  L.push('Namaste Shivaa ✦ I would like this gift.');
+  return L.join('\n');
+}
+window.Shivaa.waGift = () => {
+  const items = (window._giftItems || []).length ? window._giftItems : state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+  waOpen(waGiftMsg(items));
+};
 window.Shivaa.waOpenCart = () => waOpen(waCartMsg());
 window.Shivaa.waOpenOrder = async id => {
   let o = window._lastOrder && window._lastOrder.id === id ? window._lastOrder : null;
@@ -583,6 +623,55 @@ function updatePartnerUI() {
 }
 window.Shivaa.updatePartnerUI = updatePartnerUI;
 
+/* ─────────── Feature 14 · gift-buying mode (hide prices / send a link) ───────────
+   Toggled by the buyer. When ON, prices are masked everywhere the gift is visible
+   (cart, checkout, product cards) and the cart WhatsApp message drops the amounts.
+   The shareable gift link encodes the cart in the URL; `#/gift` lands the recipient
+   in the same disguised collection with a QR + copy link for the sender. */
+function giftOn() { return store.get('shv_gift', false) || !!window._giftLanding; }
+function setGiftMode(on, rerender = true) {
+  store.set('shv_gift', !!on);
+  updateBadges();
+  if (rerender && location.hash.startsWith('#/cart')) pages.cart($('#view'));
+  else if (rerender && location.hash.startsWith('#/checkout')) pages.checkout($('#view'));
+  else if (rerender && location.hash.startsWith('#/gift')) pages.gift($('#view'), new URLSearchParams((location.hash.split('?')[1] || '')));
+  document.dispatchEvent(new CustomEvent('giftmode'));
+  toast(on ? 'Gift mode ON — prices are hidden on this gift ✦' : 'Gift mode OFF — prices visible');
+}
+window.Shivaa.giftToggle = () => setGiftMode(!giftOn());
+function giftLink() {
+  const body = encodeURIComponent(JSON.stringify(state.cart));
+  return location.origin + '/#/gift?c=' + body;
+}
+window.Shivaa.giftShare = () => {
+  if (!state.cart.length) return toast('Add something to the cart first', 'err');
+  const url = giftLink();
+  let qrTag = '';
+  try {
+    const qr = window.qrcode ? qrcode(0, 'L') : null;
+    if (qr && url.length < 2600) { qr.addData(url); qr.make(); qrTag = qr.createSvgTag({ cellSize: 3.4, margin: 0, scalable: true }); }
+  } catch (e) {}
+  const msg = '✦ A gift from me to you ✦\\n\\nSomeone has picked a little sparkle for you from Shivaa. Open this link to see it — prices stay hidden, it is a surprise.\\n\\n' + url;
+  openModal(`
+  <div class="wa-modal gift-modal">
+    <h3 style="font-size:28px">🎁 Send this gift</h3>
+    <p class="sub">The link carries your exact selection. On opening, the recipient only sees the pieces — no prices, no totals.</p>
+    ${qrTag ? `<div class="wa-qr">${qrTag}<small>scan to open the gift</small></div>` : ''}
+    <a class="btn btn-primary btn-lg btn-block" style="margin-top:16px" target="_blank" rel="noopener" href="${url}">Open gift preview</a>
+    <a class="btn btn-outline btn-lg btn-block mt-2" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">${WA_SVG} Share on WhatsApp</a>
+    <button class="btn btn-ghost btn-lg btn-block mt-2" onclick="Shivaa.giftCopy()">⧉ Copy gift link</button>
+  </div>`);
+  window._giftUrl = url;
+};
+window.Shivaa.giftCopy = () => {
+  const v = window._giftUrl || '';
+  (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).catch(() => {
+    const t = document.createElement('textarea'); t.value = v; document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); } catch (e) {} t.remove();
+  });
+  toast('Gift link copied — send it on any chat ✦');
+};
+
 /* ─────────── cart ops ─────────── */
 function addToCart(id, qty = 1, size = null, engraving = null) {
   const key = i => i.id + '|' + (i.size || '');
@@ -877,9 +966,10 @@ function initHeroStage() {
 /* ─────────── page components ─────────── */
 function productCard(p, opts = {}) {
   const pr = price(p);
+  const hidden = opts.hidePrice || giftOn();
   const wished = state.user ? (opts.wishSet || []).includes(p.id) : state.localWish.includes(p.id);
   const compared = isCompared(p.id);
-  return `<article class="p-card" data-pid="${p.id}">
+  return `<article class="p-card ${hidden ? 'gift-card' : ''}" data-pid="${p.id}">
     <a href="#/product/${p.id}" class="pc-imgwrap">
       <img src="${p.images[0]}" alt="${esc(p.name)}" loading="lazy">
       ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
@@ -888,7 +978,7 @@ function productCard(p, opts = {}) {
     <button type="button" class="pc-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg><span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span>
     </button>
-    <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${TAGS[t] || t}</span>`).join('')}</div>
+    <div class="pc-tags">${(hidden ? '<span class="tagx gold">🎁 Gift</span>' : '') + (p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${TAGS[t] || t}</span>`).join('')}</div>
     <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
     </button>
@@ -899,8 +989,8 @@ function productCard(p, opts = {}) {
       <div class="pc-cat">${CATS[p.category] ? CATS[p.category].name : p.category} · ${p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold'}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
       <div class="pc-meta">${p.weightG} g${p.stoneValue ? ' · stone value listed' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
-      <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST</small></div>
-      <div class="pc-live"><span class="live-dot"></span>live price · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g today</div>
+      <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${hidden ? '▰ ▰ ▰' : fmt(pr.total)}</b><small>${hidden ? 'price hidden · gift' : 'incl. 3% GST'}</small></div>
+      <div class="pc-live">${hidden ? '<span style="color:var(--warn)">✦ a surprise is waiting</span>' : `<span class="live-dot"></span>live price · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g today`}</div>
     </div>
   </article>`;
 }
@@ -1630,6 +1720,7 @@ pages.product = async (view, q, id) => {
   const watch = watchFor(p.id) || {};
   const compared = isCompared(p.id);
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
+  const hid = giftOn();
   view.innerHTML = `
   <div class="container" style="padding-top:26px">
     <div class="crumbs" style="color:var(--ink-3)"><a href="#/">Home</a> / <a href="#/shop">Shop</a> / <a href="#/shop?category=${p.category}">${CATS[p.category]?.name}</a> / <span style="color:var(--gold)">${esc(p.name)}</span></div>
@@ -1658,12 +1749,12 @@ pages.product = async (view, q, id) => {
           </button>
         </div>
 
-        <div class="pd-pricebox">
+        <div class="pd-pricebox ${hid ? 'pd-gift-hidden' : ''}">
           <div class="pd-total">
-            <div><b id="pdTotal">${fmt(pr.total)}</b>
-              <div class="pd-live"><span class="live-dot"></span>live price · updates with the ${p.metal === 'Silver' ? 'silver' : p.purity + ' gold'} rate · incl. GST</div>
+            <div><b id="pdTotal">${hid ? '▰ ▰ ▰' : fmt(pr.total)}</b>
+              <div class="pd-live">${hid ? '<span style="color:var(--warn);font-style:italic;font-weight:600">✦ price hidden · gift</span>' : `<span class="live-dot"></span>live price · updates with the ${p.metal === 'Silver' ? 'silver' : p.purity + ' gold'} rate · incl. GST`}</div>
             </div>
-            <button class="brk-btn-lg" id="brkBtn">💰 Price Details <b>⌄</b></button>
+            ${hid ? '<div class="gift-pdp-note">🎁 The price of this piece stays hidden in gift mode.</div>' : '<button class="brk-btn-lg" id="brkBtn">💰 Price Details <b>⌄</b></button>'}
           </div>
           ${isPartner() ? `<div class="wholesale-box"><span class="label">B2B · Wholesale</span>
             <table class="tanq-table">
@@ -1673,7 +1764,7 @@ pages.product = async (view, q, id) => {
               <tr class="total"><td>Fine metal 995</td><td>settlement</td><td>${((p.weightG - (p.lessWeightG || 0)) * (1 - (p.wastagePct ?? 8) / 100)).toFixed(2)} g</td></tr>
             </table>
             <a class="btn btn-gold btn-sm" style="margin-top:10px" href="#/catalogues">Order in fine metal →</a></div>` : ''}
-          <div class="pd-brk" id="pdBrk" hidden>
+          ${hid ? '' : `<div class="pd-brk" id="pdBrk" hidden>
             <table class="tanq-table">
               <tr><td>Metal weight</td><td>${p.weightG} g × ₹<span id="pdRate">${fmt(pr.ratePerGram)}</span>/g</td><td id="pdMetal">${fmt(pr.metalValue)}</td></tr>
               <tr><td>Making charges</td><td>for this design</td><td id="pdMC">${fmt(pr.makingCharge)}</td></tr>
@@ -1682,8 +1773,8 @@ pages.product = async (view, q, id) => {
               <tr class="total"><td>Total payable</td><td></td><td id="pdBrkTot">${fmt(pr.total)}</td></tr>
             </table>
             <div style="font-size:11.5px;color:var(--ink-3);margin-top:8px">Rate: ${timeFmt(R.t || state.rates.t)} · final bill locks at order time.</div>
-          </div>
-          <div class="emi-strip">◈ <span><b>No-cost EMI from <span id="pdEmi3">${fmt(emi3)}</span>/mo</b> (3 months) · standard EMI <span id="pdEmi6">${fmt(emi6)}</span>/mo (6 months) on cards & UPI-autopay</span></div>
+          </div>`}
+          ${hid ? '<div class="gift-emi-note">✦ A surprise is waiting — no EMI or rate details in gift mode.</div>' : `<div class="emi-strip">◈ <span><b>No-cost EMI from <span id="pdEmi3">${fmt(emi3)}</span>/mo</b> (3 months) · standard EMI <span id="pdEmi6">${fmt(emi6)}</span>/mo (6 months) on cards & UPI-autopay</span></div>`}
         </div>
 
         ${p.sizes.length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide()" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide</a></div>
@@ -1888,46 +1979,109 @@ pages.cart = async (view) => {
     view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart awaits its sparkle</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`;
     return;
   }
+  const hid = giftOn();
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const lines = items.map(it => ({ it, pr: price(it.p) }));
   const subtotal = lines.reduce((a, l) => a + l.pr.total * l.it.qty, 0);
   const shipping = subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Cart</div><h1>Your Cart</h1>
-  <p>${lines.length} piece${lines.length > 1 ? 's' : ''} · priced at the live Jaipur rate of ${timeFmt(state.rates.t)}</p></div></section>
+  <p>${lines.length} piece${lines.length > 1 ? 's' : ''}${hid ? ' · gift mode — prices hidden' : ` · priced at the live Jaipur rate of ${timeFmt(state.rates.t)}`}</p></div></section>
   <div class="container cart-layout">
     <div>
+      <div class="gift-bar ${hid ? 'on' : ''}">
+        <div class="gb-tx"><b>🎁 Gift-buying mode</b><small>${hid ? 'Prices are hidden — send the link and keep the surprise.' : 'Hide every price and send a gift link instead of showing totals.'}</small></div>
+        <button class="btn ${hid ? 'btn-gold' : 'btn-ghost'} btn-sm" onclick="Shivaa.giftToggle()">${hid ? 'Hide prices ON' : 'Hide prices'}</button>
+        <button class="btn btn-outline btn-sm" onclick="Shivaa.giftShare()">Send gift link</button>
+      </div>
       <div class="cart-items">
         ${lines.map(({ it, pr }) => `
-        <div class="cart-item">
+        <div class="cart-item ${hid ? 'gift-item' : ''}">
           <a href="#/product/${it.p.id}"><img src="${it.p.images[0]}" alt=""></a>
           <div>
             <a href="#/product/${it.p.id}" class="ci-name">${esc(it.p.name)}</a>
             <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : it.p.purity + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved “' + esc(it.engraving) + '”' : ''}</div>
-            <div class="ci-meta js-price" data-pid="${it.p.id}" data-qty="${it.qty}">${fmt(pr.total * it.qty)} <span style="opacity:.6">(live · incl. GST)</span></div>
+            <div class="ci-meta ${hid ? 'gift-hidden' : 'js-price'}">${hid ? '<span style="color:var(--gold);font-weight:600">🎁 price hidden · surprise</span>' : `${fmt(pr.total * it.qty)} <span style="opacity:.6">(live · incl. GST)</span>`}</div>
             <div class="qty-row" style="transform:scale(.86);transform-origin:left">
               <button onclick="Shivaa.cartQty('${it.id}','${it.size || ''}',-1)">−</button><b>${it.qty}</b><button onclick="Shivaa.cartQty('${it.id}','${it.size || ''}',1)">+</button>
             </div>
           </div>
-          <div class="ci-right"><b>${fmt(pr.total * it.qty)}</b><br><a class="ci-remove" href="javascript:Shivaa.cartRemove('${it.id}','${it.size || ''}')">Remove</a></div>
+          <div class="ci-right"><b>${hid ? '🎁' : fmt(pr.total * it.qty)}</b><br><a class="ci-remove" href="javascript:Shivaa.cartRemove('${it.id}','${it.size || ''}')">Remove</a></div>
         </div>`).join('')}
       </div>
-      <div class="qty-banner">◈ Prices in your cart re-compute automatically with every rate refresh (every ~10 minutes) and are finally locked at checkout.</div>
+      <div class="qty-banner">◈ ${hid ? 'Gift mode is active — totals and live-rate lines stay hidden until you switch it off.' : 'Prices in your cart re-compute automatically with every rate refresh (every ~10 minutes) and are finally locked at checkout.'}</div>
     </div>
     <div class="summary">
-      <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
-      <h3>Order Summary</h3>
-      <div class="sum-row"><span>Subtotal (${cartCount()} items, incl. GST)</span><b>${fmt(subtotal)}</b></div>
-      <div class="sum-row"><span>Shipping (insured)</span>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</div>
-      ${shipping > 0 ? `<div class="sum-row" style="font-size:12.5px;color:var(--ink-3)"><span>Add ${fmt(state.settings.freeShipAbove - subtotal)} for free shipping</span><span></span></div>` : ''}
-      <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
-      <div style="margin:16px 0 6px" class="label" id="ptLbl">Loyalty & offers applied at checkout →</div>
-      <a class="btn btn-primary btn-block btn-lg" href="#/checkout">Proceed to Checkout</a>
+      <div class="sum-logo"><span>${hid ? 'Shivaa · Gift' : 'Shivaa · Secure Checkout'}</span><img src="/images/logo.png" alt=""></div>
+      <h3>${hid ? 'Gift Summary' : 'Order Summary'}</h3>
+      <div class="sum-row"><span>${cartCount()} item${cartCount() === 1 ? '' : 's'}</span><b>${hid ? '🎁 Hidden' : fmt(subtotal)}</b></div>
+      <div class="sum-row"><span>Shipping (insured)</span>${hid ? '<b>🎁 Hidden</b>' : (shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`)}</div>
+      ${!hid && shipping > 0 ? `<div class="sum-row" style="font-size:12.5px;color:var(--ink-3)"><span>Add ${fmt(state.settings.freeShipAbove - subtotal)} for free shipping</span><span></span></div>` : ''}
+      <div class="sum-row total"><span>Total</span><b>${hid ? '🎁 Hidden' : fmt(subtotal + shipping)}</b></div>
+      <div style="margin:16px 0 6px" class="label" id="ptLbl">${hid ? 'The recipient never sees this amount.' : 'Loyalty & offers applied at checkout →'}</div>
+      <a class="btn btn-primary btn-block btn-lg" href="#/checkout">${hid ? 'Continue (prices hidden)' : 'Proceed to Checkout'}</a>
       <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.waOpenCart()">Order via WhatsApp chat <span class="mini-wa">${WA_SVG}</span></button>
+      <button class="btn btn-ghost btn-block btn-sm mt-2" onclick="Shivaa.giftShare()">🎁 Send gift link</button>
       <a class="btn btn-ghost btn-block btn-sm mt-2" href="#/shop">Continue shopping</a>
     </div>
   </div>`;
 };
+/* ─────────── GIFT LANDING (#/gift) ─────────── */
+pages.gift = async (view, qs) => {
+  window._giftLanding = true;
+  let raw = '';
+  try { raw = (qs && qs.get('c')) || ''; } catch (e) {}
+  let list = [];
+  try { const v = JSON.parse(raw); if (Array.isArray(v)) list = v; } catch (e) {}
+  const items = list.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+  window._giftItems = items;
+  if (!items.length) {
+    view.innerHTML = `<section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Gift</div><h1>This gift link <em class="disp-italic">missed</em> its sparkle</h1>
+    <p>It may have expired, been copied incorrectly, or the sender removed the pieces.</p></div></section>
+    <div class="container" style="padding:40px 0 80px;max-width:700px">
+      <div class="card" style="padding:30px;text-align:center">
+        <div style="font-size:52px">🎁</div>
+        <h3>No gift list found</h3>
+        <p style="margin:10px 0 22px;color:var(--ink-3)">Ask the sender for a fresh link, or browse Shivaa yourself.</p>
+        <a class="btn btn-primary" href="#/shop">Explore Jewellery</a>
+      </div>
+    </div>`;
+    return;
+  }
+  const totalQty = items.reduce((a, it) => a + (+it.qty || 1), 0);
+  view.innerHTML = `
+  <section class="page-hero gift-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / A Gift For You</div>
+    <h1>A little sparkle, <em class="disp-italic">just for you</em> ✦</h1>
+    <p>Someone chose this for you. The prices have been hidden so the surprise stays intact — the pieces, not the totals, are the gift.</p>
+  </div></section>
+  <div class="container gift-wrap" style="max-width:1100px;padding:30px 16px 70px">
+    <div class="gift-hero-banner">
+      <div class="ghb-tx"><b>🎁 Your gift list</b><small>${items.length} piece${items.length > 1 ? 's' : ''} · ${totalQty} item${totalQty === 1 ? '' : 's'} · price hidden</small></div>
+      <button class="btn btn-gold" onclick="Shivaa.waGift()">💬 I would like this gift</button>
+    </div>
+    <div class="shop-grid">
+      ${items.map(it => `<article class="p-card gift-card" data-pid="${it.p.id}">
+        <a href="#/product/${it.p.id}" class="pc-imgwrap"><img src="${it.p.images[0]}" alt="${esc(it.p.name)}" loading="lazy"></a>
+        <div class="pc-tags"><span class="tagx gold">🎁 Gift</span></div>
+        <div class="pc-body">
+          <div class="pc-cat">${CATS[it.p.category] ? CATS[it.p.category].name : it.p.category} · ${it.p.metal === 'Silver' ? 'Silver ' + it.p.purity : it.p.purity + ' Gold'}</div>
+          <a href="#/product/${it.p.id}"><h3 class="pc-name">${esc(it.p.name)}</h3></a>
+          <div class="pc-meta">${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved “' + esc(it.engraving) + '”' : ''} · <span class="pc-rating">★ ${it.p.rating}<span>(${it.p.reviews})</span></span></div>
+          <div class="pc-meta"><b>${it.qty}</b> in this gift${it.size || it.engraving ? ' · as chosen by the sender' : ''}</div>
+          <div class="pc-price"><b>▰ ▰ ▰</b><small>price hidden · gift</small></div>
+          <div class="pc-live"><span style="color:var(--warn)">✦ a surprise is waiting</span></div>
+        </div>
+      </article>`).join('')}
+    </div>
+    <div class="gift-cta card" style="padding:30px;text-align:center;margin-top:30px">
+      <div style="font-size:44px">✨</div>
+      <h3 style="margin-top:8px">Love this gift?</h3>
+      <p style="margin:10px auto 20px;max-width:520px;color:var(--ink-3)">Tell us which pieces you would like and our team will take it from there — no prices will appear in your message.</p>
+      <button class="btn btn-primary btn-lg" onclick="Shivaa.waGift()">💬 I would like this gift</button>
+    </div>
+  </div>`;
+};
+
 window.Shivaa.cartQty = (id, size, d) => {
   const it = state.cart.find(i => i.id === id && (i.size || '') === size);
   if (!it) return;
@@ -1944,13 +2098,20 @@ window.Shivaa.cartRemove = (id, size) => {
 pages.checkout = async (view) => {
   if (!state.cart.length) { location.hash = '#/cart'; return; }
   if (!state.user) { openLogin('checkout'); return; }
+  const hid = giftOn();
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/cart">Cart</a> / Checkout</div><h1>Checkout</h1></div></section>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/cart">Cart</a> / Checkout</div><h1>Checkout</h1>
+  <p>${hid ? 'Gift mode ON — amounts stay hidden while you check out.' : 'Prices lock at the Jaipur live rate when you place the order.'}</p></div></section>
   <div class="container cart-layout" style="padding-top:40px">
     <div>
+      <div class="gift-bar ${hid ? 'on' : ''}">
+        <div class="gb-tx"><b>🎁 Gift-buying mode</b><small>${hid ? 'Prices are hidden on this checkout — the confirmation keeps amounts private too.' : 'Hide every price and turn this checkout into a surprise gift.'}</small></div>
+        <button class="btn ${hid ? 'btn-gold' : 'btn-ghost'} btn-sm" onclick="Shivaa.giftToggle()">${hid ? 'Hide prices ON' : 'Hide prices'}</button>
+        <button class="btn btn-outline btn-sm" onclick="Shivaa.giftShare()">Send gift link</button>
+      </div>
       <div class="sec-title">Delivery address</div>
       <form id="addrForm" class="form-grid">
         <div class="fld"><label for="adName">Full name</label><input id="adName" name="name" autocomplete="name" required value="${esc(state.user.name)}"></div>
@@ -1974,17 +2135,18 @@ pages.checkout = async (view) => {
     </div>
 
     <div class="summary">
-      <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
-      <h3>Your Order</h3>
-      ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
+      <div class="sum-logo"><span>${hid ? 'Shivaa · Gift Checkout' : 'Shivaa · Secure Checkout'}</span><img src="/images/logo.png" alt=""></div>
+      <h3>${hid ? 'Your Gift' : 'Your Order'}</h3>
+      ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span>${hid ? '<b>🎁 Hidden</b>' : `<b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b>`}</div>`).join('')}
       <div class="coupon-row"><input id="couponIn" placeholder="Coupon code"><button class="btn btn-ghost btn-sm" onclick="Shivaa.applyCoupon()">Apply</button></div>
       <div id="couponMsg" style="font-size:12.5px;min-height:18px"></div>
       ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
-      <div class="sum-row"><span>Subtotal</span><b id="coSub">${fmt(subtotal)}</b></div>
+      <div class="sum-row"><span>Subtotal</span><b id="coSub">${hid ? '🎁 Hidden' : fmt(subtotal)}</b></div>
       <div class="sum-row" id="coDiscRow" hidden><span>Coupon discount</span><b id="coDisc" style="color:var(--ok)">− ₹0</b></div>
-      <div class="sum-row"><span>Shipping</span>${freeShip ? '<span class="free">FREE</span>' : `<b id="coShip">${fmt(state.settings.shippingFee)}</b>`}</div>
-      <div class="sum-row total"><span>Total</span><b id="coTotal">${fmt(subtotal + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
-      <button class="btn btn-gold btn-block btn-lg mt-2" id="placeBtn" onclick="Shivaa.placeOrder()">Place Order ✦</button>
+      <div class="sum-row"><span>Shipping</span>${hid ? '<b>🎁 Hidden</b>' : (freeShip ? '<span class="free">FREE</span>' : `<b id="coShip">${fmt(state.settings.shippingFee)}</b>`)}</div>
+      <div class="sum-row total"><span>Total</span><b id="coTotal">${hid ? '🎁 Hidden' : fmt(subtotal + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
+      <button class="btn btn-gold btn-block btn-lg mt-2" id="placeBtn" onclick="Shivaa.placeOrder()">${hid ? 'Place Gift Order ✦' : 'Place Order ✦'}</button>
+      <button class="btn btn-ghost btn-block btn-sm mt-2" onclick="Shivaa.giftShare()">🎁 Send gift link instead</button>
     </div>
   </div>`;
   window._co = { subtotal, freeShip, coupon: null, disc: 0 };
@@ -4370,7 +4532,7 @@ Object.assign(window.Shivaa, {
   api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,
   toggleCompare, removeCompare, clearCompare, copyCompareLink, waCompare, compareLink, compareItems,
   routes, price, fmt, esc, productCard, mcTableHTML, openLogin,
-  waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
+  waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waGiftMsg, waCompareMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
 });
 function route() {
@@ -4378,6 +4540,7 @@ function route() {
   const [pathPart, qs] = hash.split('?');
   const seg = pathPart.split('/').filter(Boolean);
   const page = seg[0] || 'home';
+  if (!['gift', 'product', 'checkout', 'cart'].includes(page)) window._giftLanding = false;
   const q = new URLSearchParams(qs || '');
   const view = $('#view');
   closeModal();
@@ -4470,7 +4633,7 @@ window.Shivaa.searchChip = el => {
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */
 document.addEventListener('rates', () => {
   if (typeof renderRateStrip === 'function') renderRateStrip();
-  $$('.js-price').forEach(el => {
+  if (!giftOn() && !location.hash.startsWith('#/gift')) $$('.js-price').forEach(el => {
     const p = state.productsCache.find(x => x.id === el.dataset.pid);
     if (!p) return;
     const val = Math.round(price(p).total * (+el.dataset.qty || 1));
@@ -4492,6 +4655,7 @@ function refreshPdLive() {
   if (!pd || !pd.p || !$('#pdTotal')) return;
   const pr = price(pd.p);
   const set = (sel, v) => { const el = $(sel); if (el) el.textContent = v; };
+  if (giftOn()) { set('#pdTotal', '▰ ▰ ▰'); return; }
   set('#pdTotal', fmt(pr.total));
   set('#pdRate', fmt(pr.ratePerGram));
   set('#pdMetal', fmt(pr.metalValue));
@@ -4503,6 +4667,13 @@ function refreshPdLive() {
 }
 function refreshCheckoutTotals() {
   if (!$('#coSub') || !window._co) return;
+  if (giftOn()) {
+    $('#coSub').textContent = '🎁 Hidden';
+    if ($('#coDiscRow')) $('#coDiscRow').hidden = true;
+    if ($('#coShip')) $('#coShip').textContent = '🎁 Hidden';
+    if ($('#coTotal')) $('#coTotal').textContent = '🎁 Hidden';
+    return;
+  }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   window._co.subtotal = subtotal;
