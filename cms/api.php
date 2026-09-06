@@ -14,6 +14,7 @@ require_once __DIR__ . '/hallmark.php';
 require_once __DIR__ . '/trust.php';
 require_once __DIR__ . '/sms.php';   // v33 — OTP SMS delivery plug-in (no-op in demo mode)
 require_once __DIR__ . '/notify.php'; // v49 — automated order WhatsApp + email confirmations
+require_once __DIR__ . '/care.php';   // v50 — care & warranty + service reminders
 
 /* ───────── helpers ───────── */
 function jout(int $code, $payload): void {
@@ -327,7 +328,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts','searchCaptures','notifications'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','alerts','searchCaptures','notifications','warranties','careReminders'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -771,7 +772,12 @@ try {
     // v49 — automated WhatsApp + email confirmations (demo-safe, logged to db)
     $notify = shivaa_order_notify($db, $order, $u, []);
     $order['notify'] = $notify;
-    foreach ($db['orders'] as &$ord) if ($ord['id'] === $order['id']) $ord['notify'] = $notify;
+    // v50 — care & warranty: every piece gets a warranty card + service schedule
+    shivaa_care_create_warranty($db, $order, $u);
+    $careScan = shivaa_care_scan($db);
+    $order['warrantyCount'] = count(array_filter($db['warranties'], fn($w) => ($w['orderId'] ?? '') === $order['id']));
+    $order['care'] = $careScan;
+    foreach ($db['orders'] as &$ord) if ($ord['id'] === $order['id']) { $ord['notify'] = $notify; $ord['warrantyCount'] = $order['warrantyCount']; $ord['care'] = $careScan; }
     db_save($DB_FILE, $db);
     jout(200, $order);
   }
@@ -938,6 +944,43 @@ try {
     foreach ($db['orders'] as &$ord) if ($ord['id'] === $oid) $ord['notify'] = array_merge($ord['notify'] ?? [], $notify);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'notify' => $notify]);
+  }
+
+  /* ── v50 · care & warranty + service reminders ── */
+  if ($route === 'care/my' && $method === 'GET') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    $w = array_values(array_filter($db['warranties'] ?? [], fn($x) => ($x['userId'] ?? '') === $u['id']));
+    $ids = array_column($w, 'id');
+    $rem = array_values(array_filter($db['careReminders'] ?? [], fn($r) => in_array($r['warrantyId'] ?? '', $ids, true)));
+    $rem = array_reverse($rem);
+    $w = array_reverse($w);
+    jout(200, ['warranties' => $w, 'reminders' => $rem, 'schedule' => array_map(fn($d, $s) => ['days' => $d, 'label' => $s], array_keys(shivaa_care_schedule()), array_values(shivaa_care_schedule()))]);
+  }
+  if ($route === 'care/warranties' && $method === 'GET') {
+    need_admin($db);
+    jout(200, ['warranties' => array_reverse(array_values($db['warranties'] ?? [])), 'schedule' => array_map(fn($d, $s) => ['days' => $d, 'label' => $s], array_keys(shivaa_care_schedule()), array_values(shivaa_care_schedule()))]);
+  }
+  if ($route === 'care/reminders' && $method === 'GET') {
+    need_admin($db);
+    jout(200, ['reminders' => array_reverse(array_values($db['careReminders'] ?? []))]);
+  }
+  if ($route === 'care/scan' && $method === 'POST') {
+    need_admin($db);
+    $out = shivaa_care_scan($db);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'created' => $out['created'], 'due' => $out['due']]);
+  }
+  if ($route === 'care/remind' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $rid = trim((string)($b['reminderId'] ?? ''));
+    $ch  = strtolower(trim((string)($b['channel'] ?? 'whatsapp')));
+    if (!in_array($ch, ['whatsapp', 'email'], true)) jout(400, ['error' => 'Channel must be whatsapp or email']);
+    if ($rid === '') jout(400, ['error' => 'reminderId required']);
+    $res = shivaa_care_send($db, $rid, $ch);
+    db_save($DB_FILE, $db);
+    jout($res['ok'] ? 200 : 502, $res);
   }
 
   /* ── design selection → metal exchange (zero MC) ── */

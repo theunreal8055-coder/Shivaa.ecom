@@ -47,6 +47,8 @@ async function renderAdmin(view, q) {
   let notifyData = {};
   let notifications = [];
   if (tab === 'notify') { try { notifyData = await api('/api/notify/status'); } catch (e) {} try { notifications = (await api('/api/notifications')).notifications || []; } catch (e) {} }
+  let careData = { warranties: [], reminders: [], schedule: [] };
+  if (tab === 'care') { try { careData = await api('/api/care/warranties'); } catch (e) {} try { careData.reminders = (await api('/api/care/reminders')).reminders || []; } catch (e) {} }
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -56,12 +58,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['search','🔍','Search'],['notify','🔔','Notify'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['search','🔍','Search'],['notify','🔔','Notify'],['care','🛡','Care'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',search:'Search Analytics',notify:'Notifications',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',search:'Search Analytics',notify:'Notifications',care:'Care & Warranty',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -169,6 +171,44 @@ async function renderAdmin(view, q) {
         </table></div>` : '<p style="color:var(--ink-3);font-size:13.5px">No confirmations attempted yet — they appear as soon as a customer places an order.</p>'}
         <p style="font-size:12px;color:var(--ink-3);margin-top:10px">Gift orders are confirmed with prices hidden in the WhatsApp message and email receipt.</p>
       </div>`; 
+  }
+
+  /* ── CARE & WARRANTY (Feature #19) ── */
+  if (tab === 'care') {
+    const W = careData.warranties || [], R = careData.reminders || [], S = careData.schedule || [];
+    const due = R.filter(r => r.status === 'pending').length;
+    const sent = R.filter(r => r.status === 'sent').length;
+    const fmtday = iso => iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    body.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat"><small>Warranty cards</small><b>${W.length}</b><span>auto-created from orders</span></div>
+        <div class="stat"><small>Active coverage</small><b>${W.filter(w => w.status === 'active').length}</b><span>${S.length} service reminders</span></div>
+        <div class="stat"><small>Reminders due</small><b style="color:${due ? 'var(--warn)' : 'var(--ok)'}">${due}</b><span>${sent} already sent</span></div>
+        <div class="stat"><small>Scan status</small><b style="font-size:18px">${R.length ? 'scanning' : 'idle'}</b><span>last reminder ${R[0] ? fmtday(R[0].createdAt) : '—'}</span></div>
+      </div>
+      <div class="adm-card"><h3>Service reminders <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.careScan()">Scan now</button></h3>
+        <p style="font-size:13px;color:var(--ink-3);margin-bottom:12px">Scan creates reminders when a piece crosses 30 / 180 / 365 / 730 / 1095 days. Send via the same WhatsApp/email gateway as order confirmations.</p>
+        ${R.length ? `<div class="adm-table-wrap"><table class="adm-table">
+          <thead><tr><th>Piece</th><th>Service</th><th>Order</th><th>Due</th><th>Customer</th><th>Status</th><th></th></tr></thead>
+          <tbody>${R.slice(0, 160).map(r => `<tr>
+            <td><b>${esc(r.productName || '—')}</b></td>
+            <td>${esc(r.service || '—')}</td><td><b>${esc(r.orderId || '—')}</b></td><td>${fmtday(r.dueAt)}</td>
+            <td><small>${esc(r.customerName || '—')}<br>${esc(r.phone || '')}${r.email ? ' · ' + esc(r.email) : ''}</small></td>
+            <td>${r.status === 'sent' ? '<span style="color:var(--ok)">✅ Sent</span>' : '<span style="color:var(--warn)">Due</span>'}</td>
+            <td style="white-space:nowrap">${r.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.careRemind('${r.id}','whatsapp')">WhatsApp</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.careRemind('${r.id}','email')">Email</button>` : `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.careRemind('${r.id}','whatsapp')">Resend</button>`}</td>
+          </tr>`).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3);font-size:13.5px">No reminders yet — run Scan now or wait for an order to age past its first service date.</p>'}
+      </div>
+      <div class="adm-card mt-2"><h3>Warranty register <span style="font-size:12px;color:var(--ink-3);font-weight:400">(${W.length})</span></h3>
+        ${W.length ? `<div class="adm-table-wrap"><table class="adm-table">
+          <thead><tr><th>Piece</th><th>Order</th><th>Customer</th><th>Purchased</th><th>Warranty until</th><th>Reminders</th><th>Status</th></tr></thead>
+          <tbody>${W.slice(0, 200).map(w => `<tr>
+            <td><b>${esc(w.productName)}</b>${w.itemQty > 1 ? `<br><small style="color:var(--ink-3)">${w.itemQty} in order</small>` : ''}</td>
+            <td><b>${esc(w.orderId || '—')}</b></td><td><small>${esc(w.customerName || '—')}</small></td>
+            <td>${fmtday(w.purchaseAt)}</td><td>${fmtday(w.warrantyUntil)}</td>
+            <td><small>${(w.reminders || []).length} scheduled</small></td>
+            <td><span class="status-pill ${w.status === 'active' ? 'st-delivered' : 'st-cancelled'}">${w.status}</span></td>
+          </tr>`).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3);font-size:13.5px">No warranty cards yet — they appear automatically after an order.</p>'}
+      </div>`;
   }
 
   if (tab === 'products') {
@@ -511,6 +551,23 @@ window.ShivaaAdmin.notifyResend = async (orderId, channel) => {
     const n = r.notify && r.notify[channel];
     if (n) toast((n.mode === 'live' ? 'Resent Live ✓' : 'Demo — logged') + ' ' + channel + ' for ' + orderId + (n.to ? ' → ' + n.to : ''));
     renderAdmin($('#view'), new URLSearchParams('tab=notify'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+
+/* v50 — care & warranty service reminders */
+window.ShivaaAdmin.careScan = async () => {
+  try {
+    const r = await api('/api/care/scan', { method: 'POST', body: JSON.stringify({}) });
+    toast('Care scan complete — ' + (r.created || 0) + ' new reminder' + (r.created === 1 ? '' : 's') + ', ' + (r.due || 0) + ' due');
+    renderAdmin($('#view'), new URLSearchParams('tab=care'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.careRemind = async (reminderId, channel) => {
+  try {
+    const r = await api('/api/care/remind', { method: 'POST', body: JSON.stringify({ reminderId, channel }) });
+    if (r.ok) toast((r.mode === 'live' ? 'Reminder sent Live ✓' : 'Demo — logged') + ' ' + channel + (r.to ? ' → ' + r.to : ''));
+    else toast('Reminder failed: ' + (r.error || 'unknown'), 'err');
+    renderAdmin($('#view'), new URLSearchParams('tab=care'));
   } catch (err) { toast(err.message, 'err'); }
 };
 

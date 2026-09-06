@@ -4707,3 +4707,10 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 .notify-confirm b{color:var(--maroon-deep);font-weight:600}
 .notify-confirm .notify-dot{color:var(--gold);font-weight:700;margin:0 4px}
 @media(max-width:560px){.notify-confirm{font-size:12px;padding:9px 12px}}
+
+/* ═══════════════ v50 · Batch D #19 — care & warranty + service reminders ═══════════════ */
+.care-book-banner{display:flex;align-items:center;gap:16px;justify-content:space-between;flex-wrap:wrap;background:linear-gradient(135deg,var(--maroon-deep),var(--maroon));color:#f9ecd2;border-radius:20px;padding:18px 22px;margin-bottom:30px;box-shadow:var(--sh-2)}
+.care-book-banner b{font-family:var(--ff-disp);font-size:20px;color:#fff3d0;display:block}
+.care-book-banner small{color:rgba(249,236,210,.78);font-size:13px;display:block;margin-top:3px}
+.care-book-banner .btn{white-space:nowrap}
+@media(max-width:560px){.care-book-banner{display:block;padding:16px}.care-book-banner .btn{width:100%;margin-top:12px}}

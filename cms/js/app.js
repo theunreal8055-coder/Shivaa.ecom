@@ -2220,6 +2220,7 @@ pages.order = async (view, q, id) => {
           order.notify.whatsapp ? `<b>${order.notify.whatsapp.mode === 'live' ? '✅' : '👁'} WhatsApp</b> ${esc(order.notify.whatsapp.mode === 'live' ? 'confirmation sent' : 'confirmation logged' + (order.notify.whatsapp.to ? ' · ' + order.notify.whatsapp.to : ''))}` : '',
           order.notify.email ? `<b>${order.notify.email.mode === 'live' ? '✅' : '👁'} Email</b> ${esc(order.notify.email.mode === 'live' ? 'receipt sent' : 'receipt logged' + (order.notify.email.to ? ' · ' + order.notify.email.to : ''))}` : ''
         ].filter(Boolean).join('<span class="notify-dot">·</span>')}</div>` : ''}
+        ${order.warrantyCount ? `<div class="notify-confirm"><b>🛡 Warranty</b> ${order.warrantyCount} piece${order.warrantyCount > 1 ? 's' : ''} registered under care &amp; service reminders · <a href="#/care" style="color:var(--maroon);font-weight:600">Open Care Book</a></div>` : ''}
       </div>
       <div class="order-card mt-3">
         <div class="order-top"><div class="order-id">${order.id} · ${timeFmt(order.createdAt)}</div><span class="status-pill st-${order.status.toLowerCase()}">${order.status}</span></div>
@@ -2835,6 +2836,7 @@ pages.services = async (view) => {
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Bespoke & Care</div><h1>Bespoke & Care Studio</h1>
   <p>Custom designs, repair & restoration, and personal shopping assistance — the D2C services our family has always offered, now bookable online.</p></div></section>
   <div class="container" style="padding:50px 0 90px">
+    <div class="care-book-banner"><div><b>🧾 Own something from Shivaa?</b><small>Every order is automatically registered for free cleaning, inspection & polishing reminders.</small></div><a class="btn btn-gold btn-sm" href="#/care">Open My Care Book →</a></div>
     <div class="svc-grid" style="margin-bottom:44px">
       <div class="svc rv"><div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 4l1.8 4.2L18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8L12 4z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg></div>
         <h4>Custom Designs</h4><p>Bring a photo, a sketch, or grandma's idea — our karigars craft it in 22K/18K with a transparent quote (metal at live rate + chart making charges).</p></div>
@@ -2873,6 +2875,55 @@ window.Shivaa.svcForm = async e => {
     }) });
     toast('Request received — we will call you within a working day ✦'); f.reset();
   } catch (err) { toast(err.message, 'err'); }
+};
+
+/* ─────────── CARE & WARRANTY (Feature #19) ─────────── */
+pages.care = async (view) => {
+  if (!state.user) {
+    view.innerHTML = `<div class="empty" style="padding:120px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your care & warranty book</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Sign in to see the warranty card and service reminders for the pieces you own.</p><button class="btn btn-primary" onclick="openLogin('care')">Sign in to view</button></div>`;
+    return;
+  }
+  let data = { warranties: [], reminders: [], schedule: [] };
+  try { data = await api('/api/care/my'); } catch (e) { toast(e.message, 'err'); }
+  const W = data.warranties || [], R = data.reminders || [], S = data.schedule || [];
+  const fmtday = iso => iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  const pending = R.filter(r => r.status === 'pending').length;
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Care & Warranty</div><h1>Your Care & <em class="disp-italic">Warranty</em> Book</h1>
+  <p>Every piece you order gets a warranty card and a service schedule — cleaning, inspection and polishing reminders sent on WhatsApp &amp; email.</p></div></section>
+  <div class="container" style="max-width:1050px;padding:34px 16px 80px">
+    <div class="grid2">
+      <div class="adm-card"><h3>Service schedule</h3>
+        <p style="font-size:13.5px;color:var(--ink-2);margin-bottom:10px">We remind you when each service is due, then log that it was sent.</p>
+        ${S.length ? S.map(s => `<div class="sum-row"><span>${s.days} days</span><b>${esc(s.label)}</b></div>`).join('') : '<p style="color:var(--ink-3);font-size:13.5px">Schedule loads after your first order.</p>'}
+      </div>
+      <div class="adm-card"><h3>Your registered pieces</h3>
+        <div class="sum-row"><span>Pieces under care</span><b>${W.length}</b></div>
+        <div class="sum-row"><span>Reminders due</span><b style="color:${pending ? 'var(--warn)' : 'var(--ok)'}">${pending}</b></div>
+        <div class="sum-row"><span>Last service reminder</span><b>${R[0] ? fmtday(R[0].notifiedAt || R[0].createdAt) : '—'}</b></div>
+      </div>
+    </div>
+    <div class="adm-card mt-2"><h3>Warranty cards</h3>
+      ${W.length ? `<div class="adm-table-wrap"><table class="adm-table">
+        <thead><tr><th>Piece</th><th>Order</th><th>Purchased</th><th>Coverage</th><th>Warranty until</th><th>Status</th></tr></thead>
+        <tbody>${W.map(w => `<tr>
+          <td><b>${esc(w.productName)}</b>${w.itemQty > 1 ? `<br><small style="color:var(--ink-3)">${w.itemQty} in order</small>` : ''}</td>
+          <td><b>${esc(w.orderId)}</b></td><td>${fmtday(w.purchaseAt)}</td>
+          <td><small>${esc(w.coverage || '—')}</small></td><td>${fmtday(w.warrantyUntil)}</td>
+          <td><span class="status-pill ${w.status === 'active' ? 'st-delivered' : 'st-cancelled'}">${w.status}</span></td>
+        </tr>`).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3);font-size:13.5px">No warranty cards yet — they are created automatically on your next order.</p>'}
+    </div>
+    <div class="adm-card mt-2"><h3>Service reminders</h3>
+      ${R.length ? `<div class="adm-table-wrap"><table class="adm-table">
+        <thead><tr><th>Piece</th><th>Service</th><th>Due</th><th>Status</th></tr></thead>
+        <tbody>${R.map(r => `<tr>
+          <td><b>${esc(r.productName || '—')}</b><br><small style="color:var(--ink-3)">${esc(r.orderId || '')}</small></td>
+          <td>${esc(r.service || '—')}</td><td>${fmtday(r.dueAt)}</td>
+          <td>${r.status === 'sent' ? '<span style="color:var(--ok)">✅ Reminder sent</span>' : '<span style="color:var(--warn)">Due — book a visit</span>'}</td>
+        </tr>`).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3);font-size:13.5px">No reminders yet.</p>'}
+    </div>
+    <div class="qty-banner mt-2">✦ Free inspection &amp; polishing are included in your warranty. Bring the piece or courier it insured — we photograph and document before any work begins.</div>
+  </div>`;
 };
 
 /* ─────────── ABOUT ─────────── */
