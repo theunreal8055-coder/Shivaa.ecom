@@ -97,6 +97,7 @@ const state = {
   user: null, rates: null, settings: null, mcTable: [],
   cart: store.get('shv_cart', []),            // [{id, qty, size, engraving}]
   localWish: store.get('shv_wish', []),
+  compare: store.get('shv_compare', []),      // product ids, max 4 — local shortlist only
   productsCache: [], cacheAt: 0,
 };
 
@@ -224,10 +225,11 @@ window.Shivaa.waOpenOrder = async id => {
 };
 window.Shivaa.waProduct = id => {
   const pd = window._pd || {};
-  const p = pd.p || state.productsCache.find(x => x.id === id);
+  const p = pd.p && pd.p.id === id ? pd.p : state.productsCache.find(x => x.id === id);
   if (!p) return;
-  const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
-  waOpen(waProductMsg(p, pd.qty || 1, size, $('#engrave')?.value || null));
+  const onPdp = !!(pd.p && pd.p.id === id);
+  const size = onPdp ? ($('#sizeRow .size-pill.on')?.dataset.size || null) : null;
+  waOpen(waProductMsg(p, onPdp ? (pd.qty || 1) : 1, size, onPdp ? ($('#engrave')?.value || null) : null));
 };
 
 /* ─────────── page component registry ─────────── */
@@ -245,16 +247,172 @@ function price(p, R) {
   return { ratePerGram: Math.round(rate * 100) / 100, metalValue, makingCharge, stoneValue, subtotal, gst, total: subtotal + gst };
 }
 
+/* ─────────── Feature 13: product compare + shareable shortlist ─────────── */
+const COMPARE_MAX = 4;
+function normalizeCompare(ids = state.compare) {
+  const seen = new Set();
+  return (Array.isArray(ids) ? ids : [])
+    .map(id => String(id || '').trim())
+    .filter(id => id && !seen.has(id) && (seen.add(id), true))
+    .slice(0, COMPARE_MAX);
+}
+function compareItems(ids = state.compare) {
+  const clean = normalizeCompare(ids);
+  return clean.map(id => state.productsCache.find(p => p.id === id)).filter(Boolean);
+}
+function saveCompare(ids) {
+  state.compare = normalizeCompare(ids);
+  store.set('shv_compare', state.compare);
+  updateCompareUI();
+}
+function isCompared(id) { return normalizeCompare(state.compare).includes(String(id)); }
+function compareCountLabel(n) { return n + ' piece' + (n === 1 ? '' : 's') + ' in compare'; }
+function compareLink(ids = state.compare) {
+  const clean = normalizeCompare(ids);
+  return location.origin + '/#/compare' + (clean.length ? '?ids=' + encodeURIComponent(clean.join(',')) : '');
+}
+function copyText(text) {
+  return (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).catch(() => {
+    const t = document.createElement('textarea');
+    t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.left = '-999px';
+    document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    t.remove();
+  });
+}
+function stoneInfo(p) {
+  const desc = String(p.stoneDesc || '').trim();
+  const type = String(p.stoneType || '').trim();
+  const colour = String(p.stoneColour || '').trim();
+  const val = +(p.stoneValue || 0);
+  if (desc) return desc + (val ? ' · ' + fmt(val) : '');
+  if (val) return 'Stone value ' + fmt(val);
+  if (type && type.toLowerCase() !== 'plain') return type + (colour ? ' · ' + colour : '');
+  return '—';
+}
+function updateCompareButtons() {
+  $$('.pc-compare[data-pid], .pd-compare[data-pid]').forEach(btn => {
+    const on = isCompared(btn.dataset.pid);
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
+    btn.setAttribute('aria-label', on ? 'Remove from compare' : 'Add to compare');
+    const lbl = $('[data-compare-label]', btn);
+    if (lbl) lbl.textContent = on ? 'In Compare' : 'Compare';
+  });
+}
+function ensureCompareTray() {
+  let tray = $('#compareTray');
+  if (!tray) {
+    tray = document.createElement('aside');
+    tray.id = 'compareTray';
+    tray.className = 'compare-tray';
+    tray.setAttribute('role', 'region');
+    tray.setAttribute('aria-label', 'Product compare shortlist');
+    tray.setAttribute('aria-live', 'polite');
+    document.body.appendChild(tray);
+  }
+  return tray;
+}
+function updateCompareUI() {
+  state.compare = normalizeCompare(state.compare);
+  if (state.productsCache.length) {
+    const valid = state.compare.filter(id => state.productsCache.some(p => p.id === id));
+    if (valid.length !== state.compare.length) { state.compare = valid; store.set('shv_compare', state.compare); }
+  }
+  const items = compareItems();
+  const n = state.compare.length;
+  const badge = $('#cmpCount');
+  if (badge) { badge.textContent = n; badge.hidden = !n; }
+  const cmpBtn = $('#cmpBtn');
+  if (cmpBtn) {
+    cmpBtn.classList.toggle('on', n > 0);
+    cmpBtn.setAttribute('aria-label', n ? 'Open compare shortlist — ' + compareCountLabel(n) : 'Compare shortlist');
+  }
+  updateCompareButtons();
+  const tray = ensureCompareTray();
+  if (!n || document.body.dataset.page === 'compare') { tray.hidden = true; return; }
+  const thumbs = items.map(p => `
+    <span class="ct-thumb">
+      <a href="#/product/${p.id}" aria-label="Open ${esc(p.name)}"><img src="${p.images[0]}" alt=""></a>
+      <button type="button" onclick="Shivaa.removeCompare('${p.id}')" aria-label="Remove ${esc(p.name)} from compare">×</button>
+    </span>`).join('');
+  tray.innerHTML = `
+    <div class="compare-tray-in">
+      <div class="compare-tray-copy"><b>Compare shortlist</b><small>${compareCountLabel(n)} · max ${COMPARE_MAX}</small></div>
+      <div class="compare-tray-thumbs">${thumbs}</div>
+      <div class="compare-tray-actions">
+        <a class="btn btn-primary btn-sm" href="#/compare">Compare</a>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.clearCompare()">Clear</button>
+      </div>
+    </div>`;
+  tray.hidden = false;
+}
+function rerenderComparePage() {
+  if (location.hash.startsWith('#/compare')) pages.compare($('#view'), new URLSearchParams());
+}
+function toggleCompare(id) {
+  const pid = String(id || '');
+  const p = state.productsCache.find(x => x.id === pid);
+  if (!p) return;
+  const list = normalizeCompare(state.compare);
+  if (list.includes(pid)) {
+    saveCompare(list.filter(x => x !== pid));
+    toast('Removed from compare');
+  } else {
+    if (list.length >= COMPARE_MAX) { toast('Compare holds 4 pieces — remove one to add another', 'err'); return; }
+    saveCompare([...list, pid]);
+    toast('Added to compare ✦');
+  }
+  rerenderComparePage();
+}
+function removeCompare(id) {
+  const p = state.productsCache.find(x => x.id === id);
+  saveCompare(normalizeCompare(state.compare).filter(x => x !== id));
+  toast(p ? 'Removed ' + p.name + ' from compare' : 'Removed from compare');
+  rerenderComparePage();
+}
+function clearCompare() {
+  saveCompare([]);
+  toast('Compare shortlist cleared');
+  rerenderComparePage();
+}
+function copyCompareLink() {
+  const items = compareItems();
+  if (!items.length) return toast('Add a piece to compare first', 'err');
+  copyText(compareLink(items.map(p => p.id))).then(() => toast('Shortlist link copied ✦'));
+}
+function waCompareMsg() {
+  const items = compareItems();
+  if (!items.length) { toast('Add a piece to compare first', 'err'); return ''; }
+  const L = ['✦ SHIVAA — PRODUCT SHORTLIST ✦', '', 'Please help me compare these shortlisted pieces:', ''];
+  let total = 0;
+  items.forEach((p, i) => {
+    const pr = price(p); total += pr.total;
+    L.push((i + 1) + '. ' + p.name);
+    L.push('SKU ' + (p.sku || p.id) + ' · ' + (p.metal === 'Silver' ? 'Silver 925' : p.purity + ' Gold') + ' · ' + p.weightG + ' g');
+    L.push('Live price: ' + fmt(pr.total) + ' (incl. 3% GST)');
+    L.push(location.origin + '/#/product/' + p.id);
+    L.push('');
+  });
+  L.push('Current combined shortlist value: ' + fmt(total) + ' (incl. 3% GST; final bill locks at order confirmation).');
+  L.push('Shortlist link: ' + compareLink(items.map(p => p.id)));
+  L.push('');
+  L.push('Namaste Shivaa ✦ please guide me on these pieces.');
+  return L.join('\n');
+}
+function waCompare() { const msg = waCompareMsg(); if (msg) waOpen(msg); }
+
 /* ─────────── header widgets ─────────── */
 function updateBadges() {
   const n = state.cart.reduce((a, i) => a + i.qty, 0);
-  const cc = $('#cartCount'); cc.textContent = n; cc.hidden = !n;
+  const cc = $('#cartCount'); if (cc) { cc.textContent = n; cc.hidden = !n; }
   refreshWishBadge();
+  updateCompareUI();
 }
 async function refreshWishBadge() {
   let wl = state.localWish;
   if (state.user) { try { const r = await api('/api/wishlist'); wl = r.wishlist; } catch (e) {} }
-  const wc = $('#wishCount'); wc.textContent = wl.length; wc.hidden = !wl.length;
+  const wc = $('#wishCount'); if (wc) { wc.textContent = wl.length; wc.hidden = !wl.length; }
 }
 function cartCount() { return state.cart.reduce((a, i) => a + i.qty, 0); }
 const isPartner = () => !!(state.user && (state.user.role === 'partner' || state.user.role === 'admin'));
@@ -553,12 +711,16 @@ function initHeroStage() {
 function productCard(p, opts = {}) {
   const pr = price(p);
   const wished = state.user ? (opts.wishSet || []).includes(p.id) : state.localWish.includes(p.id);
+  const compared = isCompared(p.id);
   return `<article class="p-card" data-pid="${p.id}">
     <a href="#/product/${p.id}" class="pc-imgwrap">
       <img src="${p.images[0]}" alt="${esc(p.name)}" loading="lazy">
       ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
       <div class="glare"></div>
     </a>
+    <button type="button" class="pc-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg><span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span>
+    </button>
     <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${TAGS[t] || t}</span>`).join('')}</div>
     <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
@@ -1093,6 +1255,7 @@ pages.product = async (view, q, id) => {
   try { data = await api('/api/products/' + id); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
   const p = data.product, pr = price(p), R = data.rates || state.rates;
   const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
+  const compared = isCompared(p.id);
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
   view.innerHTML = `
   <div class="container" style="padding-top:26px">
@@ -1162,6 +1325,7 @@ pages.product = async (view, q, id) => {
         <div class="pd-cta-row">
           <button class="btn btn-outline" onclick="Shivaa.pdAdd('${p.id}')">🛍 Add to Cart</button>
           <button class="btn btn-ghost wa-order" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat to Order</button>
+          <button type="button" class="btn btn-outline pd-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">⚖ <span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span></button>
         </div>
         <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'}">${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</div>
 
@@ -1259,6 +1423,87 @@ window.Shivaa.sizeGuide = () => openModal(`
   ${[['10', 14.0, 44.0], ['12', 14.9, 46.8], ['14', 15.7, 49.3], ['16', 16.5, 51.9], ['18', 17.3, 54.4], ['20', 18.1, 56.9], ['22', 19.0, 59.7]].map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}
   </tbody></table></div>
   <p style="font-size:12.5px;color:var(--ink-3);margin-top:12px">Between sizes? Take the larger — we resize free within 30 days. Bangles: size 2.4 ≈ 2¼" internal diameter.</p>`);
+
+/* ─────────── COMPARE / SHORTLIST ─────────── */
+pages.compare = async (view, q) => {
+  const shared = (q.get('ids') || '').split(',').map(x => x.trim()).filter(Boolean);
+  if (shared.length) {
+    const valid = normalizeCompare(shared).filter(id => state.productsCache.some(p => p.id === id));
+    saveCompare(valid);
+    history.replaceState(null, '', '#/compare');
+  }
+  const items = compareItems();
+  if (!items.length) {
+    view.innerHTML = `
+    <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Compare</div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
+      <p>Add up to four pieces from product cards or product pages. The comparison uses only live prices and product details already shown on Shivaa.</p></div></section>
+    <div class="empty pcmp-empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your compare tray is empty</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Tap “Compare” on any piece to build a private shortlist on this device.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`;
+    updateCompareUI();
+    return;
+  }
+  const total = items.reduce((a, p) => a + price(p).total, 0);
+  const stoneRowNeeded = items.some(p => stoneInfo(p) !== '—');
+  const row = (label, fn, cls = '') => `<tr class="${cls}"><th scope="row">${label}</th>${items.map(p => `<td>${fn(p)}</td>`).join('')}</tr>`;
+  const metalLabel = p => p.metal === 'Silver' ? 'Silver 925' : p.purity + ' Gold';
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Compare</div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
+    <p>${items.length} of ${COMPARE_MAX} pieces selected · prices recalculate from the current Jaipur live rate and product making-charge data.</p></div></section>
+
+  <section class="sec container pcmp-page">
+    <div class="pcmp-toolbar" aria-label="Compare shortlist actions">
+      <div><span class="label">Compare</span><h2>Side-by-side clarity</h2><p>Use this before checkout or send the shortlist to Shivaa for guidance.</p></div>
+      <div class="pcmp-tools">
+        <a class="btn btn-ghost btn-sm" href="#/shop">Add more</a>
+        <button type="button" class="btn btn-outline btn-sm" onclick="Shivaa.copyCompareLink()">Copy link</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="Shivaa.waCompare()">${WA_SVG} Send shortlist</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.clearCompare()">Clear</button>
+      </div>
+    </div>
+
+    <div class="pcmp-note">Current combined shortlist value: <b>${fmt(total)}</b> · indicative until order confirmation.</div>
+    ${items.length < 2 ? '<div class="qty-banner pcmp-tip">Add one more piece to unlock a true side-by-side comparison.</div>' : ''}
+
+    <div class="pcmp-grid" role="list">
+      ${items.map(p => { const pr = price(p); return `<article class="pcmp-card" role="listitem">
+        <button type="button" class="pcmp-remove" onclick="Shivaa.removeCompare('${p.id}')" aria-label="Remove ${esc(p.name)} from compare">×</button>
+        <a href="#/product/${p.id}" class="pcmp-img"><img src="${p.images[0]}" alt="${esc(p.name)}"></a>
+        <div class="pcmp-card-body">
+          <span class="label">${esc(CATS[p.category]?.name || p.category)}</span>
+          <h3><a href="#/product/${p.id}">${esc(p.name)}</a></h3>
+          <p>${esc(metalLabel(p))} · ${p.weightG} g · SKU ${esc(p.sku || p.id)}</p>
+          <b class="pcmp-price js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small> incl. GST</small>
+          <div class="pcmp-card-actions"><button type="button" class="btn btn-outline btn-sm" onclick="Shivaa.addToCart('${p.id}')">Add to Cart</button><button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat</button></div>
+        </div>
+      </article>`; }).join('')}
+    </div>
+
+    <div class="pcmp-table-wrap" tabindex="0" aria-label="Scrollable product comparison table">
+      <table class="pcmp-table">
+        <caption class="sr-only">Side-by-side product comparison using current product data</caption>
+        <thead><tr><th scope="col">Detail</th>${items.map(p => `<th scope="col"><a href="#/product/${p.id}">${esc(p.name)}</a></th>`).join('')}</tr></thead>
+        <tbody>
+          ${row('Live price', p => { const pr = price(p); return `<b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small> incl. 3% GST</small>`; }, 'pcmp-total-row')}
+          ${row('Metal value', p => fmt(price(p).metalValue))}
+          ${row('Making charges', p => fmt(price(p).makingCharge))}
+          ${row('GST', p => fmt(price(p).gst))}
+          ${row('Rate basis', p => { const pr = price(p); return `${esc(metalLabel(p))} · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g`; })}
+          ${row('Net weight', p => `${p.weightG} g`)}
+          ${row('Category', p => esc(CATS[p.category]?.name || p.category))}
+          ${row('SKU', p => esc(p.sku || p.id))}
+          ${stoneRowNeeded ? row('Stone details', p => esc(stoneInfo(p))) : ''}
+          ${items.some(p => (p.sizes || []).length) ? row('Available sizes', p => (p.sizes || []).length ? esc((p.sizes || []).join(', ')) : '—') : ''}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pcmp-foot-cta">
+      <div><b>Need help choosing?</b><p>Send this exact shortlist to Shivaa; we will guide you using only the product details shown here.</p></div>
+      <button type="button" class="btn btn-gold" onclick="Shivaa.waCompare()">${WA_SVG} Share on WhatsApp</button>
+    </div>
+  </section>`;
+  updateCompareUI();
+  bindTilt(view);
+};
 
 /* ─────────── CART ─────────── */
 pages.cart = async (view) => {
@@ -3634,8 +3879,9 @@ const routes = {};
 Object.keys(pages).forEach(k => routes[k] = pages[k]);
 Object.assign(window.Shivaa, {
   api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,
+  toggleCompare, removeCompare, clearCompare, copyCompareLink, waCompare, compareLink, compareItems,
   routes, price, fmt, esc, productCard, mcTableHTML, openLogin,
-  waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, WA_SVG, waFallbackModal,
+  waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
 });
 function route() {
@@ -3687,7 +3933,7 @@ function route() {
     a.classList.toggle('on', m === page || (m === 'home' && (page === '' || page === 'home')));
   });
   if(window._closeDrawer) window._closeDrawer(); else { $('#navToggle')?.classList.remove('open'); $('#mainNav')?.classList.remove('open'); }
-  requestAnimationFrame(() => { bindReveal(); bindTilt(); bindMagnetic(); decorate5D(); setHeaderH(); initDsfilters(); bindV23Reveal(); try { updatePartnerUI(); } catch (e) {} });
+  requestAnimationFrame(() => { bindReveal(); bindTilt(); bindMagnetic(); decorate5D(); setHeaderH(); initDsfilters(); bindV23Reveal(); updateCompareUI(); try { updatePartnerUI(); } catch (e) {} });
 }
 addEventListener('hashchange', route);
 
@@ -3740,6 +3986,7 @@ document.addEventListener('rates', () => {
   refreshCheckoutTotals();
   if (location.hash.startsWith('#/rates')) pages.rates($('#view'));
   if (location.hash.startsWith('#/cart')) pages.cart($('#view'));
+  if (location.hash.startsWith('#/compare')) pages.compare($('#view'), new URLSearchParams());
 });
 function refreshPdLive() {
   const pd = window._pd;
@@ -3903,6 +4150,8 @@ async function boot(isRedraw) {
   state.user = me.user; state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
   state.mcTable = mc.table || [];
   state.productsCache = prods.products || []; state.cacheAt = Date.now();
+  state.compare = normalizeCompare(state.compare).filter(id => state.productsCache.some(p => p.id === id));
+  store.set('shv_compare', state.compare);
   window.Shivaa.catCache = cats.catalogs || []; catCache = window.Shivaa.catCache;
   await loadRates();
   updateBadges();
