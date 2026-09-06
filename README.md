@@ -1,6 +1,6 @@
 # Shivaa — Jewellery CMS + AI Design Pipeline (v37)
 
-**shivaa.in** — BIS-hallmarked gold & silver at live Jaipur rates.
+**shivaa.in** — gold & silver jewellery CMS with Jaipur-rate pricing.
 This repository packages the website (v37) and the end-to-end automation that
 photographs, describes, prices and uploads jewellery designs.
 
@@ -30,6 +30,19 @@ cd demo65 && python3 status.py       # crops/shots/videos/meta counts
 cd demo65 && python3 ../pipeline/06_upload.py --all --dry-run   # review first
 python3 ../pipeline/06_upload.py --all                          # then live
 ```
+
+## Feature roadmap
+
+Compare + Shareable Shortlist (Feature 13) is preserved. Feature 1 adds a
+real-data-only HUID guide at `#/hallmark`, explicit unverified product states,
+and an optional admin piece-reference editor. **Automatic live BIS verification
+is not connected**; customers complete the official lookup in BIS Care. No
+HUIDs, verification results or certificates are generated or seeded.
+
+See [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md) and
+[`docs/FEATURE-01-HUID.md`](docs/FEATURE-01-HUID.md) for release limits, API
+contracts, tests and the authorised-integration prerequisites. UI assets are
+now v39; database/media are unchanged by this feature.
 
 ## Docs
 `docs/DEPLOY-v37.md` (update + fresh-install steps) ·

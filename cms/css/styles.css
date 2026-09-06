@@ -4560,3 +4560,9 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 }
 .pcmp-table-wrap:focus-visible{outline:2px solid var(--gold-2);outline-offset:3px}
 @media print{.compare-tray{display:none!important}}
+
+/* Narrow phones: account/wishlist remain in the bottom navigation. Avoid
+   pushing search/cart off-screen when opening the HUID guide at 320px. */
+@media(max-width:380px){
+  .header-top .header-actions #acctBtn,.header-top .header-actions #wishBtn{display:none}
+}

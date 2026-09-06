@@ -1,0 +1,85 @@
+/* Feature 1 — neutral evidence states, never an implied certification seal. */
+.hm-hero{padding:44px 0 38px;border-bottom:1px solid var(--line);background:linear-gradient(120deg,var(--cream-2),var(--ivory))}
+.hm-hero .crumbs{color:var(--ink-3);margin-bottom:24px}
+.hm-hero h1{font-size:clamp(32px,4.8vw,57px);margin:10px 0 16px;max-width:920px}
+.hm-hero>div>p{max-width:720px;color:var(--ink-2);font-size:17px}
+.hm-page{padding:30px 0 76px}
+.hm-connection{display:flex;align-items:flex-start;gap:14px;padding:19px 22px;border:1px solid var(--gold-soft);border-left:4px solid var(--gold);border-radius:14px;background:var(--gold-faint);color:var(--ink-2);margin-bottom:24px}
+.hm-connection b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+.hm-connection p{font-size:14px;line-height:1.65;max-width:930px}
+.hm-info-mark{display:grid;place-items:center;flex:none;width:25px;height:25px;border:1.5px solid var(--ink-3);border-radius:50%;font:600 16px Georgia,serif;margin-top:2px}
+.hm-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.hm-card{padding:30px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--white);box-shadow:var(--sh-1);min-width:0}
+.hm-card h2{font-size:36px;margin:10px 0 16px}
+.hm-card>p{font-size:15px;color:var(--ink-2);line-height:1.7;margin:0 0 20px}
+.hm-card .label{color:var(--ink-3);font-size:10px}
+#hmForm{margin:26px 0 18px}
+#hmForm .fld{gap:8px}
+#hmHuid{font-size:21px;letter-spacing:.13em;border-color:var(--ink-3);border-radius:12px;padding:14px 16px;width:100%;background:var(--ivory)}
+#hmHuid::placeholder{letter-spacing:normal;font-size:16px}
+#hmHuid[aria-invalid="true"]{border:2px solid var(--bad)}
+#hmHelp{line-height:1.6;font-size:13px;color:var(--ink-3)}
+.hm-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.hm-page .btn,.hm-actions .btn{white-space:normal;letter-spacing:.06em;font-size:12px;min-height:44px;text-align:center}
+.hm-actions .btn-primary{flex:1 1 auto}
+.hm-error{color:var(--bad);font-size:14px;line-height:1.6;margin:10px 0}
+.hm-result{padding:20px;border:1px solid var(--line);border-left:4px solid var(--ink-3);border-radius:12px;background:var(--cream);margin-top:22px;overflow-wrap:anywhere}
+.hm-result h3{font-family:var(--ff-body);font-size:17px;line-height:1.4;margin-bottom:8px;color:var(--ink)}
+.hm-result p{font-size:14px;line-height:1.7;color:var(--ink-2)}
+.hm-result[data-state="unavailable"]{border-left-color:var(--gold);background:var(--gold-faint)}
+.hm-result[data-state="error"]{border-left-color:var(--warn)}
+.hm-copy-row{margin:12px 0}
+#hmCopyStatus{font-size:13px;color:var(--ink-2);line-height:1.6;margin-top:8px}
+.hm-note,.hm-card>p.hm-note{font-size:13px;line-height:1.65;color:var(--ink-3);margin:12px 0}
+.hm-card .hm-privacy{padding-top:18px;border-top:1px solid var(--line);margin-bottom:0}
+.hm-official{background:var(--ivory-2)}
+.hm-official>.btn{width:100%}
+.hm-app-links{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;padding:16px 0 24px}
+.hm-app-links a,.hm-source a,.hm-text-link,.hm-context-name a{color:var(--maroon);font-weight:500;text-decoration:underline;text-underline-offset:4px}
+.hm-app-links a{font-size:14px;min-height:32px;padding-top:4px}
+.hm-steps{list-style:none;counter-reset:hm-step;display:grid;gap:20px;padding:22px 0;border-top:1px solid var(--line)}
+.hm-steps li{position:relative;padding-left:44px;counter-increment:hm-step}
+.hm-steps li::before{content:counter(hm-step);position:absolute;left:0;top:0;display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--line);border-radius:50%;color:var(--maroon);background:var(--white);font-size:14px}
+.hm-steps b{display:block;font-size:15px;margin-bottom:5px;color:var(--ink)}
+.hm-steps span{display:block;font-size:14px;line-height:1.65;color:var(--ink-2)}
+.hm-questions{margin:36px auto 0;max-width:960px}
+.hm-source{font-size:12px;color:var(--ink-3);margin-top:22px;line-height:1.7}
+.hm-product{padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--ivory);margin:20px 0}
+.hm-product-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.hm-product h3{font-size:24px}
+.hm-product p{font-size:14px;line-height:1.65;color:var(--ink-2)}
+.hm-product .hm-note{font-size:12.5px;color:var(--ink-3);margin:12px 0}
+.hm-badge{display:inline-block;border:1px solid var(--line);background:var(--cream-2);color:var(--ink-2);border-radius:6px;padding:5px 9px;font:500 12px/1.4 var(--ff-body)}
+.hm-text-link{display:inline-block;padding:6px 0;font-size:14px;min-height:36px}
+.hm-records{list-style:none;display:grid;gap:10px;margin:16px 0}
+.hm-records li{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;padding:10px 0;border-bottom:1px solid var(--line)}
+.hm-records li>span{flex:1;min-width:100px;font-size:14px;overflow-wrap:anywhere}
+.hm-records code{font-size:16px;letter-spacing:.1em;white-space:nowrap;color:var(--ink)}
+.hm-context-name{font-size:15px;color:var(--ink-2);margin:10px 0;overflow-wrap:anywhere}
+#hmProductContext:not(:empty){margin-bottom:26px}
+#hmProductContext .hm-product{margin-top:10px}
+#hmEditor{margin-top:16px}
+#hmEditorRows{display:grid;gap:16px;margin:20px 0}
+.hm-editor-row{display:grid;grid-template-columns:1fr 1.5fr;gap:14px;border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.hm-editor-row legend{font-size:12px;color:var(--ink-3);padding:0 6px}
+.hm-editor-row input{width:100%;min-width:0}
+.hm-editor-row .hm-editor-source{grid-column:1/-1}
+.hm-editor-row button{grid-column:1/-1;justify-self:start}
+.hm-card [hidden],.hm-page [hidden],#hmEditor [hidden]{display:none!important}
+.hm-page :is(a,button,input):focus-visible,.hm-product a:focus-visible,#hmEditor :is(input,button):focus-visible{outline:2px solid var(--maroon);outline-offset:4px}
+@media(max-width:850px){
+  .hm-grid{grid-template-columns:1fr}
+  .hm-card h2{font-size:32px}
+  .hm-hero{padding:28px 0}
+}
+@media(max-width:480px){
+  .hm-card{padding:22px 18px}
+  .hm-connection{padding:16px 14px;gap:10px}
+  .hm-info-mark{display:none}
+  .hm-hero .label{letter-spacing:.16em}
+  .hm-product{padding:16px}
+  .hm-editor-row{grid-template-columns:1fr}
+  .hm-actions .btn{padding:12px 16px}
+  .hm-steps li{padding-left:40px}
+}
+@media print{.hm-actions,#hmCopy,.hm-app-links{display:none!important}}
