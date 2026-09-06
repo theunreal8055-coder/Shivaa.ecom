@@ -13,6 +13,7 @@ $CAT_DIR = $ROOT . '/uploads/catalogs';
 require_once __DIR__ . '/hallmark.php';
 require_once __DIR__ . '/trust.php';
 require_once __DIR__ . '/sms.php';   // v33 — OTP SMS delivery plug-in (no-op in demo mode)
+require_once __DIR__ . '/rates_provider.php';  // v42 — India benchmark (IBJA) rate feed, no fabrication
 
 /* ───────── helpers ───────── */
 function jout(int $code, $payload): void {
@@ -71,50 +72,58 @@ function fetch_url(string $url, int $timeout = 4): ?array {
   return is_array($d) ? $d : null;
 }
 
-/* ───────── rate engine (identical math to Node) ───────── */
+/* ───────── rate engine ─────────
+   Rates come from an India-published benchmark (IBJA) via rates_provider.php.
+   The old simulator (mt_rand around a hard-coded base) has been REMOVED: a
+   fabricated gold rate must never price a real invoice. When the feed is
+   unavailable the last known good rate is held and marked stale.            */
 const PURITY_22 = 0.9167, PURITY_18 = 0.75, OZ = 31.1034768;
-const BASE_GOLD = 11850.0, BASE_SILVER = 168.0;
 
 function rates_refresh(array &$db): array {
-  $last = $db['rates']['last'] ?? null;
-  $gold24 = $last['gold24'] ?? BASE_GOLD;
-  $silver = $last['silver'] ?? BASE_SILVER;
-  $source = 'simulated';
-  $gold = fetch_url('https://api.gold-api.com/price/XAU');
-  $silv = fetch_url('https://api.gold-api.com/price/XAG');
-  $fx = fetch_url('https://open.er-api.com/v6/latest/USD');
-  if ($gold && isset($gold['price']) && $silv && isset($silv['price']) && $fx && isset($fx['rates']['INR'])) {
-    $inr = (float)$fx['rates']['INR'];
-    $gold24 = ((float)$gold['price'] * $inr) / OZ;
-    $silver = ((float)$silv['price'] * $inr) / OZ;
-    $source = 'live';
-  } else {
-    $gold24 = clampn($gold24 * (1 + (mt_rand(-35, 35) / 10000)), BASE_GOLD * 0.96, BASE_GOLD * 1.04);
-    $silver = clampn($silver * (1 + (mt_rand(-50, 50) / 10000)), BASE_SILVER * 0.96, BASE_SILVER * 1.04);
-    $source = ($last['source'] ?? '') === 'live' ? 'cached+sim' : 'simulated';
-  }
-  $stamp = [
-    't' => now_iso(),
-    'gold24' => (int)round($gold24),
-    'gold22' => (int)round($gold24 * PURITY_22),
-    'gold18' => (int)round($gold24 * PURITY_18),
-    'silver' => round($silver, 1),
-    'source' => $source,
-  ];
-  $db['rates']['last'] = $stamp;
-  $db['rates']['history'][] = $stamp;
-  if (count($db['rates']['history']) > 720) $db['rates']['history'] = array_slice($db['rates']['history'], -720);
-  return $stamp;
+  $report = shivaa_rates_apply($db, shivaa_rates_cfg());
+  return $db['rates']['last'] ?? ['t' => now_iso(), 'source' => (string)$report['source']];
 }
+
+/**
+ * Should the web request refresh the rate itself?
+ * Cron is the primary refresher; this lazy path is only a backstop, and it is
+ * rate-limited so that traffic cannot drain a metered API quota.
+ */
 function rates_stale(array $db): bool {
-  $t = $db['rates']['last']['t'] ?? null;
-  if (!$t) return true;
-  return (time() - strtotime($t)) > 11 * 60;
+  $cfg = shivaa_rates_cfg();
+  $minMinutes = (int)($cfg['lazy_min_minutes'] ?? 30);
+  return shivaa_rates_age_minutes($db) >= $minMinutes;
+}
+
+/** Age/staleness facts for the UI — so a price can never be shown undated. */
+function rates_freshness(array $db): array {
+  $cfg = shivaa_rates_cfg();
+  $age = shivaa_rates_age_minutes($db);
+  $holdHours = (float)($cfg['hold_checkout_after_hours'] ?? 48); // 48h survives Sundays & holidays, when IBJA does not publish
+  $l = $db['rates']['last'] ?? [];
+  return [
+    'rateAsOf'    => $l['t'] ?? null,
+    'ageMinutes'  => $age === PHP_INT_MAX ? null : $age,
+    'source'      => $l['source'] ?? 'unknown',
+    'usable'      => isset($l['gold24']) && $l['gold24'] !== null,
+    'stale'       => $age !== PHP_INT_MAX && $age > ($holdHours * 60),
+    'holdAfterHrs' => $holdHours,
+  ];
 }
 function current_rates(array $db): array {
   $ov = $db['rates']['override'] ?? null;
   if ($ov) return ['gold24' => (int)$ov['gold24'], 'gold22' => (int)$ov['gold22'], 'gold18' => (int)$ov['gold18'], 'silver' => (double)$ov['silver']];
-  $l = $db['rates']['last'];
+  $l = $db['rates']['last'] ?? [];
+  // A stamp with no numbers means the feed has never succeeded. Fall back to the
+  // newest usable history entry rather than pricing anything at zero.
+  if (!isset($l['gold24']) || $l['gold24'] === null) {
+    foreach (array_reverse($db['rates']['history'] ?? []) as $h) {
+      if (isset($h['gold24']) && $h['gold24'] !== null) { $l = $h; break; }
+    }
+  }
+  if (!isset($l['gold24']) || $l['gold24'] === null) {
+    return ['gold24' => 0, 'gold22' => 0, 'gold18' => 0, 'silver' => 0.0, 'unavailable' => true];
+  }
   $gp = (int)($db['settings']['jaipurPremium'] ?? 55); $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
   return ['gold24' => (int)$l['gold24'] + $gp, 'gold22' => (int)$l['gold22'] + $gp,
           'gold18' => (int)$l['gold18'] + (int)round($gp * 0.75), 'silver' => round((double)$l['silver'] + $sp, 1)];
@@ -277,6 +286,8 @@ try {
       'override' => $db['rates']['override'] ?? null,
       'history' => array_slice($db['rates']['history'] ?? [], -120),
       'nextUpdateIn' => 60,
+      'freshness' => rates_freshness($db),
+      'pendingReview' => $db['rates']['pendingReview'] ?? null,
     ]));
   }
   if ($route === 'rates/refresh' && $method === 'POST') {

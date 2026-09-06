@@ -1,7 +1,10 @@
 # Live gold-rate API — setup guide
 
-Written 6 September 2026. Nothing in this guide is implemented yet.
-Read section 1 before spending money on any API.
+Written 6 September 2026.
+**Answer to "can we do this for free": yes — ₹0/month is enough. See section 2.**
+The code is written and tested on branch `arena/01a07792-shivaa-ecom` but is
+**not deployed** and must not be merged until the API key is on the server.
+Read section 1 first — it explains why this matters more than it sounds.
 
 ---
 
@@ -51,42 +54,64 @@ API you pick. That is the single most important change in this document.
 
 ---
 
-## 2. Would the metals-api.com page you found help?
+## 2. Yes — this can be done for FREE
 
-Partly. Metals-API does publish India city symbols (their site shows e.g.
-`USDXAU-BANG` for Bangalore at a visible premium over plain `USDXAU`), and a
-Jaipur symbol is what that blog post is selling. So yes — it would fix the
-"spot instead of India" problem.
+**The key fact: IBJA publishes only twice a business day.** Tradable prices are
+polled 11:30–12:00 and 16:30–17:00 IST and displayed at roughly **12:05 PM and
+5:05 PM** on business days only (no Sundays or Mumbai holidays). There is no
+tick-by-tick Indian rate to chase — so you need about **2 API calls a day**.
 
-But before subscribing, note:
+| | |
+| --- | --- |
+| 2 calls × ~26 business days | **~52 calls/month** |
+| metals.dev **Free** plan | **100 calls/month**, no credit card, 60-second data |
+| Headroom left over | ~48 calls for retries, testing and manual refreshes |
 
-- **Cost.** Metals-API's entry plan is around **$19.99/month** (2,500 calls);
-  their Gold tier is far higher. The blog post is marketing for those plans.
-- **Provenance.** A city symbol is a vendor's derived number. As a jeweller you
-  are judged against **IBJA** (India Bullion and Jewellers Association) — the
-  rate your customers and competitors quote.
-- **Better fit exists.** `metals.dev` has an **authority endpoint** that returns
-  prices published by **IBJA and MCX** directly:
-  `GET https://api.metals.dev/v1/metal/authority?api_key=…&authority=ibja&currency=INR&unit=g`
-  Their plans start at **$0 (100 calls/mo)**, **$1.79/mo (2,000)** and
-  **$9.99/mo (10,000)** — roughly a tenth of Metals-API's price for the data
-  that matters more to you.
+The free plan also explicitly includes **MCX & IBJA prices**, and metals.dev's
+docs state *"All endpoints are available on all the plans"* — so the authority
+endpoint you need is not paywalled.
 
-| Option | India-specific? | Entry cost | Verdict |
-| --- | --- | --- | --- |
-| **metals.dev — `authority=ibja`** | **IBJA, the Indian benchmark** | $1.79–$9.99/mo | **Recommended primary** |
-| metals.dev — `authority=mcx` | MCX futures (India) | same key | Useful cross-check |
-| metals-api.com — Jaipur symbol | City-level derived | ~$19.99/mo | Reasonable alternative / second source |
-| Current gold-api + FX | No — spot only | free | Keep only as a last-resort input, never as the price |
-| Manual admin override | Owner types the sarafa rate | free | **Already built** — keep it as the safety net |
+**Conclusion: ₹0/month covers it.** Upgrade to $1.79/mo (2,000 calls) only if
+you later want hourly refreshes, or $9.99/mo for 10-minute refreshes.
 
-**Recommendation: start with metals.dev at $1.79–$9.99/month, keep your
-existing admin override, and only add Metals-API later if you want a second
-independent source.**
+### Why not metals-api.com (the page you found)?
+It would work — they do publish India city symbols. But their entry plan is
+about **$19.99/month**, and a "Jaipur" symbol is a vendor-derived figure. IBJA
+is the benchmark your customers, competitors and the Sovereign Gold Bond scheme
+actually reference. Free and more authoritative beats $20/month and derived.
+
+Keep metals-api on the shelf as an optional second source later.
+
+### One more thing that makes IBJA the right base
+IBJA's published rates are *"inclusive of all taxes and levies relating to
+import duty, customs but **excluding GST**"*. Your `compute_price()` adds 3% GST
+itself — so an IBJA rate slots in exactly where your code expects, with no
+double-counting.
 
 ---
 
-## 3. Step-by-step setup
+## 3. What is already built (on branch `arena/01a07792-shivaa-ecom`, NOT deployed)
+
+| File | What it does |
+| --- | --- |
+| `cms/rates_provider.php` | The feed: config loading, IBJA mapping, plausibility check, jump guard, quota guard. **Never fabricates a rate.** |
+| `cms/cron_rates.php` | CLI runner with `--discover`, `--dry-run`, `--force`. Refuses to run over the web. |
+| `cms/api.php` | `rates_refresh()` now delegates to the provider; **the `mt_rand()` simulator and `BASE_GOLD` are deleted**; `/api/rates` gained a `freshness` block (`rateAsOf`, `ageMinutes`, `stale`, `source`). |
+| `qa/test_rates.php` | 35 assertions covering every guard. |
+
+Verified by actually executing PHP 8.2: **35/35 tests pass**, and a live
+`GET /api/rates` smoke test returns HTTP 200 with all 342 products still pricing
+correctly. With the network unavailable the API now answers
+`"source": "stale (feed unavailable)"` and holds the last real rate — where the
+old code would have invented one.
+
+**Behaviour before you add a key:** the benchmark is disabled, so it falls back
+to the old spot maths (labelled honestly) and, if that also fails, holds the
+last known rate. Nothing breaks, and nothing is fabricated.
+
+---
+
+## 4. Step-by-step setup (all free)
 
 ### Step 0 — Decide what "our rate" means (owner decision, before any code)
 Write down one sentence: *"Shivaa's website 24K rate = IBJA 999 rate + X ₹/g."*
@@ -94,175 +119,99 @@ Get X by comparing IBJA's published rate against what your Jaipur supplier
 quotes you, on three different days. Do not guess it, and do not keep ₹55 —
 that number was sized against a spot-derived base and no longer means anything.
 
-### Step 1 — Create the account and key
-1. Sign up at metals.dev, verify email.
-2. Dashboard → copy the API key.
-3. Pick a plan using the quota maths in section 4 (start on Free to test).
+### Step 1 — Get the free key
+Sign up at metals.dev (no card needed), verify email, copy the API key from the
+dashboard. Stay on the Free plan.
 
-### Step 2 — Store the key on the server, never in the repo
+### Step 2 — Put the key on the server, never in git
 Your repo auto-deploys to `public_html` every 5 minutes, so a key committed to
-Git is a key published to the world. Put it beside your existing sync config:
+Git is a key published to the world.
 
 ```bash
-# on Hostinger, over SSH — NOT in the repo
+# on Hostinger over SSH — NOT in the repo
 cat > ~/.shivaa-rates.json <<'JSON'
-{ "provider": "metals.dev", "api_key": "PASTE_KEY_HERE", "authority": "ibja" }
+{
+  "enabled": true,
+  "provider": "metals.dev",
+  "api_key": "PASTE_KEY_HERE",
+  "authority": "ibja",
+  "currency": "INR",
+  "unit": "g",
+  "monthly_cap": 95,
+  "max_jump_pct": 7,
+  "spot_fallback": true
+}
 JSON
 chmod 600 ~/.shivaa-rates.json
 ```
-`api.php` reads it from outside the web root. Add `.shivaa-rates.json` to
-`.gitignore` as belt-and-braces.
 
-### Step 3 — Discover the exact response keys (one throwaway call)
-The docs only show the LBMA example, so confirm IBJA's field names once:
+`monthly_cap: 95` is the safety belt — the code stops calling at 95 so you can
+never blow past the free 100 and get cut off.
 
+### Step 3 — Discover the exact field names (1 call)
 ```bash
-curl -s "https://api.metals.dev/v1/metal/authority?api_key=KEY&authority=ibja&currency=INR&unit=g" | python3 -m json.tool
+php ~/public_html/cron_rates.php --discover
 ```
-IBJA publishes fineness-wise rates (999 / 995 / 916 / 750 gold, 999 silver).
-Note the actual key names from that output — the mapping in Step 4 depends on
-them. **Do not assume; paste the real output into the next step.**
+Prints the raw IBJA response plus what the mapper extracted. The mapper matches
+on content (`999`, `916`, `750`, `silver`), so it should work unchanged — this
+step just proves it. If the numbers look like per-10-gram figures, add
+`"scale": 0.1` to the config. **The code refuses implausible values rather than
+silently dividing by 10**, so a unit mistake cannot become a 10× pricing error.
 
-### Step 4 — Replace `rates_refresh()` in `cms/api.php`
-Shape of the new function (field names to be filled from Step 3):
-
-```php
-function rates_cfg(): array {
-  $f = getenv('SHIVAA_RATES_CFG') ?: (getenv('HOME') . '/.shivaa-rates.json');
-  return is_readable($f) ? (json_decode((string)file_get_contents($f), true) ?: []) : [];
-}
-
-/** Returns ['gold24'=>float,'silver'=>float,'source'=>string] or null. Never invents. */
-function fetch_india_rates(array $cfg): ?array {
-  $key = $cfg['api_key'] ?? '';
-  if ($key === '') return null;
-  $url = 'https://api.metals.dev/v1/metal/authority'
-       . '?api_key=' . urlencode($key)
-       . '&authority=' . urlencode($cfg['authority'] ?? 'ibja')
-       . '&currency=INR&unit=g';
-  $r = fetch_url($url, 8);
-  if (!$r || ($r['status'] ?? '') !== 'success') return null;
-  $rt = $r['rates'] ?? [];
-  $g = $rt['<24K_KEY_FROM_STEP_3>'] ?? null;   // IBJA 999 fine gold, INR/gram
-  $s = $rt['<SILVER_KEY_FROM_STEP_3>'] ?? null;
-  if (!$g || !$s) return null;
-  return ['gold24' => (float)$g, 'silver' => (float)$s, 'source' => 'ibja'];
-}
-
-function rates_refresh(array &$db): array {
-  $last = $db['rates']['last'] ?? null;
-  $new  = fetch_india_rates(rates_cfg());
-
-  if (!$new) {
-    // NO SIMULATION. Hold the last known good rate and mark it stale.
-    if (!$last) return $db['rates']['last'] = ['t'=>now_iso(),'source'=>'unavailable','gold24'=>null,'gold22'=>null,'gold18'=>null,'silver'=>null];
-    $last['source'] = 'stale (feed unavailable)';
-    $last['staleSince'] = $last['staleSince'] ?? now_iso();
-    return $db['rates']['last'] = $last;
-  }
-
-  // Sanity guard: refuse a silent >7% jump; needs admin confirmation instead.
-  if ($last && !empty($last['gold24'])) {
-    $delta = abs($new['gold24'] - $last['gold24']) / $last['gold24'];
-    if ($delta > 0.07) {
-      $last['source'] = 'held (feed moved ' . round($delta * 100, 1) . '% — admin review)';
-      $db['rates']['pendingReview'] = $new + ['t' => now_iso()];
-      return $db['rates']['last'] = $last;
-    }
-  }
-
-  $stamp = [
-    't' => now_iso(),
-    'gold24' => (int)round($new['gold24']),
-    'gold22' => (int)round($new['gold24'] * PURITY_22),
-    'gold18' => (int)round($new['gold24'] * PURITY_18),
-    'silver' => round($new['silver'], 1),
-    'source' => $new['source'],
-  ];
-  $db['rates']['last'] = $stamp;
-  $db['rates']['history'][] = $stamp;
-  if (count($db['rates']['history']) > 720) $db['rates']['history'] = array_slice($db['rates']['history'], -720);
-  return $stamp;
-}
+### Step 4 — Dry run (0 further risk)
+```bash
+php ~/public_html/cron_rates.php --dry-run
 ```
+Shows old → new for 24K / 22K / silver and writes nothing. Compare the numbers
+against ibjarates.com before going further.
 
-Also delete `BASE_GOLD` / `BASE_SILVER` once nothing references them, so the
-₹11,850 fallback cannot come back.
-
-**Purity note:** IBJA publishes 916 (22K) and 750 (18K) rates directly. Using
-IBJA's own 916 figure is more defensible than `gold24 × 0.9167` — prefer the
-published value where available.
-
-### Step 5 — Move refreshing to cron (and cap the quota)
-Today `GET /api/rates` refreshes whenever the stamp is older than 11 minutes
-(line 269). That is fine with a free unauthenticated feed, but with a metered
-key a traffic spike burns your quota. Switch to:
-
-1. A tiny CLI script `cms/cron_rates.php` that loads the DB, calls
-   `rates_refresh()`, saves, exits. No HTTP, no auth surface.
-2. Hostinger → Advanced → Cron Jobs, alongside your existing `auto_sync.php`:
-   ```
-   */15 * * * * /usr/bin/php /home/USER/public_html/cron_rates.php >> /home/USER/shivaa-rates.log 2>&1
-   ```
-3. In `api.php`, keep the lazy refresh but only as a backstop — e.g. allow it at
-   most once every 30 minutes, so a bot cannot drain the quota.
+### Step 5 — Schedule it (2 calls/day)
+Hostinger → Advanced → Cron Jobs, alongside your existing `auto_sync.php`.
+Just after IBJA publishes:
+```
+7 12 * * 1-6 /usr/bin/php ~/public_html/cron_rates.php >> ~/shivaa-rates.log 2>&1
+7 17 * * 1-6 /usr/bin/php ~/public_html/cron_rates.php >> ~/shivaa-rates.log 2>&1
+```
+Mon–Sat only, because IBJA does not publish on Sundays. ~52 calls/month.
 
 ### Step 6 — Set the premium honestly
-With an IBJA-based feed, `jaipurPremium` becomes the small, real difference
-between IBJA and your local buying rate — the X from Step 0. Change it in
-Admin → Settings, and record *why* it has that value.
+`jaipurPremium` becomes the small, real gap between IBJA and your local buying
+rate — the X from Step 0. Change it in Admin → Settings and record why.
 
 ### Step 7 — Verify for three days before trusting it
-Do **not** flip prices live the same hour. Run the cron, and each morning
-compare your `/api/rates` output against (a) IBJA's published rate, (b) a public
-city rate page, (c) your own sarafa quote. Log the three numbers. Only when
-they agree within your expected premium should you announce live pricing.
+Each morning compare `/api/rates` against (a) ibjarates.com, (b) a public city
+rate page, (c) your own sarafa quote. Only when they agree within your expected
+premium should you announce live pricing. The **admin override**
+(`POST /api/rates/override`) stays as the manual brake.
 
-Keep the **admin override** (`POST /api/rates/override`, already built) as the
-manual brake for any day the feed misbehaves.
-
-### Step 8 — Add the stale-rate safety rail
-Because price = rate × weight, a stale rate must never quietly sell metal. In
-`compute_price()` / checkout: if the rate stamp is older than N hours (owner
-picks N, e.g. 6), show *"live rate updating — prices confirmed on WhatsApp"* and
-hold checkout, rather than transacting at yesterday's number. Show the
-`rateAsOf` timestamp next to every price. Your existing order-time
-`rateSnapshot` is good design — keep it.
+### Step 8 — Optional: the stale-rate brake
+`/api/rates` now reports `freshness.stale` (default: older than 48 hours — long
+enough to survive Sundays and festival holidays). **Nothing is blocked yet** —
+deliberately, so a config slip cannot stop your shop selling. When you are ready,
+we wire it to show *"live rate updating — price confirmed on WhatsApp"* instead
+of transacting on an old number.
 
 ---
 
-## 4. Quota maths (so you buy the right plan)
+## 5. What I need from you
 
-One cron call per refresh, one call per run (the authority endpoint returns gold
-and silver together):
-
-| Refresh every | Calls/month | Cheapest metals.dev plan |
-| --- | --- | --- |
-| 60 min | ~744 | $1.79 (2,000) |
-| 30 min | ~1,488 | $1.79 (2,000) |
-| 15 min | ~2,976 | $9.99 (10,000) |
-| 10 min | ~4,464 | $9.99 (10,000) |
-| 5 min | ~8,928 | $9.99 (10,000) |
-
-For a retail jewellery site, **15–30 minutes is plenty** — Indian rates are
-published a couple of times a day, not tick-by-tick. Start at 30 minutes on the
-$1.79 plan; move to $9.99 only if you want faster.
-
-Add the free-tier caveat: 100 calls/month is enough to *test*, not to run.
-
----
-
-## 5. What I need from you to implement this
-
-1. Which provider you want (my recommendation: metals.dev, IBJA authority).
-2. The API key — **paste it into `~/.shivaa-rates.json` on the server yourself**;
-   do not send it in chat and do not put it in the repo.
-3. The output of the Step 3 discovery call, so I can map the exact field names.
-4. Your answer to Step 0: IBJA + how many ₹/gram = Shivaa's rate.
-5. Confirmation of whether the live `db.json` has real orders priced with the
+1. A free metals.dev key, pasted into `~/.shivaa-rates.json` **on the server by
+   you** — do not send it in chat and never commit it.
+2. The output of `--discover` and `--dry-run` (redact the key), so I can confirm
+   the mapping and the numbers.
+3. Your answer to Step 0: IBJA + how many ₹/gram = Shivaa's rate.
+4. Confirmation of whether the live `db.json` has real orders priced with the
    old formula — if yes, that needs a separate conversation about the invoices
    already issued.
 
-I cannot test any of this from the build sandbox — outbound network is blocked
-here (`api.metals.dev`, `api.gold-api.com` and `shivaa.in` all fail to connect).
-All verification has to run on the Hostinger server.
+**Do not merge this branch to `main` until step 2 is done.** `main` auto-deploys
+within 5 minutes, and while the change is safe (it holds rates rather than
+inventing them), you want the key in place so the first live refresh pulls a
+real IBJA number.
+
+**Testing honesty:** the sandbox has no outbound network (`api.metals.dev`,
+`api.gold-api.com` and `shivaa.in` all fail to connect) and no system PHP, so I
+ran the code under a PHP 8.2 WebAssembly build instead: `qa/test_rates.php`
+passes 35/35 and `GET /api/rates` returns HTTP 200 against the real `db.json`.
+What that does **not** prove is the live provider response — that is exactly
+what Step 3's `--discover` call is for, and it must run on your server.
