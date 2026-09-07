@@ -17596,9 +17596,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5054.jpg"
+        "/images/designs/rings/PGS5054_shot_studio.jpg",
+        "/images/designs/rings/PGS5054_shot_editorial.jpg",
+        "/images/designs/rings/PGS5054_shot_worn.jpg",
+        "/images/designs/rings/PGS5054_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5054_video.mp4",
       "desc": "Thewa Ring PGS5054 \u2014 Gold 22K, 4.02 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -17625,7 +17628,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5011",
@@ -18194,9 +18198,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5053.jpg"
+        "/images/designs/rings/PGS5053_shot_studio.jpg",
+        "/images/designs/rings/PGS5053_shot_editorial.jpg",
+        "/images/designs/rings/PGS5053_shot_worn.jpg",
+        "/images/designs/rings/PGS5053_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5053_video.mp4",
       "desc": "Jadau Ring PGS5053 \u2014 Gold 22K, 3.41 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -18223,7 +18230,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5052",
