@@ -83,12 +83,12 @@ PGS5008 Mehndi · PGS5009 Jharokha · PGS5010 Marudhara · PGS5011 Sheesh Mahal 
 PGS5012 Hawa Mahal · PGS5013 City Palace · PGS5019 Heera · PGS5020 Panna · PGS5021 Manik ·
 PGS5028 Banas · PGS5030 Thar · PGS5031 Shekhawati · PGS5034 Udaipur ·
 PGS5037 Kumbhal · PGS5038 Ranakpur · PGS5039 Dilwara · PGS5040 Nahargarh ·
-PGS5041 Baori · PGS5042 Sindoor
+PGS5041 Baori · PGS5042 Sindoor · PGS5048 Kesar · PGS5052 Kundan
 (each: 4 AI shots 896×1195 + 10s 720×720 film, in `cms/images/designs/rings/`, wired in db.json,
  media staged in `demo65/media/{SKU}/` for the uploader)
 
-**⏳ Photoshoot pending (7):**
-PGS5048 5052 5053 5054 5055 5056 5059
+**⏳ Photoshoot pending (5):**
+PGS5053 5054 5055 5056 5059
 → how to continue: `tools/photoshoot/SESSION-STATE.md` (workflow, prompts, per-ring design notes)
 
 **Owner's "31 rings / 93 images" note:** ground truth on repo = the 26 PGS rings above
@@ -121,7 +121,7 @@ PGS5048 5052 5053 5054 5055 5056 5059
 7. Opened PR #13 (`arena/01a07bb3-shivaa-ecom` → `main`); all work pushed.
 8. Verified sandbox→shivaa.in blocked (TLS killed) → documented auto-sync deployment path (above).
 9. Rewrote this HANDOFF as the permanent single source of truth.
-10. (same session, later turns) +2 rings: PGS5020 Panna, PGS5021 Manik (5021 editorial re-rolled for garbled prop text). +2 rings: PGS5028 Banas, PGS5030 Thar. +2 rings: PGS5031 Shekhawati, PGS5034 Udaipur (074f020). +2 rings: PGS5037 Kumbhal, PGS5038 Ranakpur (04d6509; 5037 ref needed white-tag removal — median-fill inpaint). +2 rings: PGS5039 Dilwara, PGS5040 Nahargarh (c48a8a4, first-pass clean). +2 rings: PGS5041 Baori, PGS5042 Sindoor (e9b5aff). All 4-shot+film+db+uploader-staged. 7 rings pending. Deployment zip from step 6 covers the first 9; auto-sync cron deploys all 13 automatically once set up.
+10. (same session, later turns) +2 rings: PGS5020 Panna, PGS5021 Manik (5021 editorial re-rolled for garbled prop text). +2 rings: PGS5028 Banas, PGS5030 Thar. +2 rings: PGS5031 Shekhawati, PGS5034 Udaipur (074f020). +2 rings: PGS5037 Kumbhal, PGS5038 Ranakpur (04d6509; 5037 ref needed white-tag removal — median-fill inpaint). +2 rings: PGS5039 Dilwara, PGS5040 Nahargarh (c48a8a4, first-pass clean). +2 rings: PGS5041 Baori, PGS5042 Sindoor (e9b5aff). +2 rings: PGS5048 Kesar, PGS5052 Kundan (aae17f7). All 4-shot+film+db+uploader-staged. 5 rings pending. Deployment zip from step 6 covers the first 9; auto-sync cron deploys all 13 automatically once set up.
 
 **Pre-v42 (summary):** 65 PGS rings imported; 39 photographed; v42 bug-fix set (see git tag `v42-stable`).
 
