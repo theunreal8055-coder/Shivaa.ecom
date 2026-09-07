@@ -16,7 +16,8 @@ No PGS5066+ exists.
 - PGS5028, PGS5030 — 87d673d (both first-pass clean; media staged for uploader too)
 - PGS5031, PGS5034 — 074f020 (both first-pass clean; media staged)
 - PGS5037, PGS5038 — 04d6509 (5037's price tag was WHITE not green — standard green-inpaint missed it; fixed with gold-y percentile crop + median-fill inpaint. Watch for white tags on remaining refs!)
-Remaining 11: PGS5039 5040 5041 5042 5048 5052 5053 5054 5055 5056 5059
+- PGS5039, PGS5040 — c48a8a4 (both first-pass clean; media staged)
+Remaining 9: PGS5041 5042 5048 5052 5053 5054 5055 5056 5059
 
 ## WORKFLOW PER TURN (2 rings = 8 gens; 10 gen max/turn)
 1. Sandbox may reset: pip install --break-system-packages pillow numpy imageio-ffmpeg;
