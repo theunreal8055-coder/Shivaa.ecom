@@ -477,8 +477,12 @@ function bindTilt(scope = document) {
   });
 }
 function bindReveal(scope = document) {
-  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
-  $$('.rv', scope).forEach(el => io.observe(el));
+  if (!window._rvIO) {
+    window._rvIO = new IntersectionObserver(es => es.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in'); window._rvIO.unobserve(e.target); }
+    }), { threshold: 0.12 });
+  }
+  $$('.rv', scope).forEach(el => { if (!el._rv) { el._rv = true; window._rvIO.observe(el); } });
 }
 function bindCountdown(el, target) {
   const tick = () => {
@@ -505,6 +509,7 @@ function initCarousel() {
     // mark the visible slide so its Ken-Burns zoom + copy reveal run only there
     slides.forEach((sl, j) => {
       sl.classList.toggle('on', j === idx);
+      sl.classList.toggle('is-active', j === idx);
       sl.setAttribute('aria-hidden', j === idx ? 'false' : 'true');
     });
   };
@@ -672,20 +677,36 @@ function heroDust(canvasId) {
   const cv = document.getElementById(canvasId);
   if (!cv || cv._dust) return; cv._dust = true;
   const ctx = cv.getContext('2d');
-  let W, H;
+  let W, H, running = true;
   const dpr = Math.min(devicePixelRatio || 1, 2);
-  const size = () => { const r = cv.parentElement.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
-  size(); addEventListener('resize', size);
-  const P = Array.from({ length: 55 }, () => ({ x: Math.random(), y: Math.random(), r: .6 + Math.random() * 1.9, p: Math.random() * 6.28, v: .00016 + Math.random() * .0004 }));
-  let t = 0;
+  const size = () => {
+    if (!running) return;
+    const parent = cv.parentElement;
+    if (!parent) return;
+    const r = parent.getBoundingClientRect();
+    W = r.width; H = r.height;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  size();
+  const ro = new ResizeObserver(size); if (cv.parentElement) ro.observe(cv.parentElement);
+  addEventListener('resize', size);
+  const P = Array.from({ length: matchMedia('(max-width:680px)').matches ? 16 : 40 }, () => ({ x: Math.random(), y: Math.random(), r: .6 + Math.random() * 1.9, p: Math.random() * 6.28, v: .00016 + Math.random() * .0004 }));
+  let t = 0, paused = false;
+  // pause when off-screen (battery / perf)
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(es => { paused = !es[0].isIntersecting; }, { threshold: 0 });
+    io.observe(cv);
+  }
   (function f() {
+    if (!running) return;
+    if (!document.body.contains(cv)) { running = false; ro.disconnect(); return; }
+    if (paused) { requestAnimationFrame(f); return; }
     t += .016;
-    if (!document.body.contains(cv)) return;
     ctx.clearRect(0, 0, W, H);
     for (const d of P) {
       d.y -= d.v * 60; if (d.y < -.05) d.y = 1.05;
-      const a = .1 + .34 * Math.abs(Math.sin(t * 1.4 + d.p));
-      const x = d.x * W + Math.sin(t * .6 + d.p) * 8;
+      const a = .08 + .22 * Math.abs(Math.sin(t * 1.4 + d.p));
+      const x = d.x * W + Math.sin(t * .6 + d.p) * 6;
       ctx.fillStyle = `rgba(240,216,150,${a})`;
       ctx.beginPath(); ctx.arc(x, d.y * H, d.r, 0, 7); ctx.fill();
     }
@@ -695,17 +716,38 @@ function heroDust(canvasId) {
 /* layered 3D hero stage — image cards at different depths with mouse parallax */
 function initHeroStage() {
   const stage = $('.hero-stage'); if (!stage || stage._hs) return; stage._hs = true;
-  heroDust('heroDust');
   const layers = $$('[data-depth]', stage);
-  addEventListener('mousemove', e => {
-    const r = stage.getBoundingClientRect();
-    const dx = (e.clientX - r.left) / r.width - .5, dy = (e.clientY - r.top) / r.height - .5;
-    layers.forEach(el => {
-      const d = +el.dataset.depth;
-      el.style.setProperty('--px', (dx * -18 * d).toFixed(1) + 'px');
-      el.style.setProperty('--py', (dy * -12 * d).toFixed(1) + 'px');
-    });
-  }, { passive: true });
+  if (!layers.length) return;
+  // Attach mousemove only ONCE globally and reference the current stage layers.
+  if (!window._hsBound) {
+    window._hsBound = true;
+    addEventListener('mousemove', e => {
+      const s = $('.hero-stage');
+      if (!s) return;
+      const r = s.getBoundingClientRect();
+      if (e.clientY < r.top - 80 || e.clientY > r.bottom + 80) return;
+      const dx = (e.clientX - r.left) / r.width - .5, dy = (e.clientY - r.top) / r.height - .5;
+      $$('[data-depth]', s).forEach(el => {
+        const d = +el.dataset.depth;
+        el.style.setProperty('--px', (dx * -14 * d).toFixed(1) + 'px');
+        el.style.setProperty('--py', (dy * -9 * d).toFixed(1) + 'px');
+      });
+    }, { passive: true });
+  }
+  // Orbs parallax — attach only once.
+  if (!window._orbsBound) {
+    window._orbsBound = true;
+    addEventListener('mousemove', e => {
+      const orbs = $('.hero-orbs');
+      if (!orbs) return;
+      const h = orbs.parentElement;
+      if (!h) return;
+      const r = h.getBoundingClientRect();
+      if (e.clientY < r.top - 200 || e.clientY > r.bottom + 200) { orbs.style.transform = ''; return; }
+      const dx = (e.clientX / innerWidth - .5), dy = (e.clientY / innerHeight - .5);
+      orbs.style.transform = `translate(${dx * -10}px, ${dy * -7}px)`;
+    }, { passive: true });
+  }
 }
 
 /* ─────────── page components ─────────── */
@@ -871,34 +913,44 @@ pages.home = async (view) => {
   view.innerHTML = `
   <section class="hero">
     <div class="hero-img"></div><div class="hero-fade"></div>
-    <div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="hero-orbs">
-      <div class="orb" style="width:130px;height:130px;left:6%;top:16%;background:radial-gradient(circle at 35% 35%,#f3dfae,#b98a2f 68%,transparent 72%);animation-delay:-2s"></div>
-      <div class="orb" style="width:70px;height:70px;left:44%;bottom:14%;background:radial-gradient(circle at 35% 35%,#fff6dd,#d4af5a 66%,transparent 72%);animation-delay:-5s"></div>
-      <div class="orb" style="width:46px;height:46px;left:12%;bottom:30%;background:radial-gradient(circle at 35% 35%,#ffe9bd,#b98a2f 64%,transparent 72%);animation-delay:-7s"></div>
+      <div class="orb" style="width:180px;height:180px;left:4%;top:10%;background:radial-gradient(circle at 35% 35%,#f3dfae,#b98a2f 68%,transparent 72%);animation-delay:-2s"></div>
+      <div class="orb" style="width:90px;height:90px;left:42%;bottom:10%;background:radial-gradient(circle at 35% 35%,#fff6dd,#d4af5a 66%,transparent 72%);animation-delay:-5s"></div>
+      <div class="orb" style="width:56px;height:56px;left:14%;bottom:24%;background:radial-gradient(circle at 35% 35%,#ffe9bd,#b98a2f 64%,transparent 72%);animation-delay:-7s"></div>
+      <div class="orb" style="width:36px;height:36px;right:28%;top:20%;background:radial-gradient(circle at 35% 35%,#fff1c7,#d4af5a 66%,transparent 72%);animation-delay:-4s"></div>
     </div>
     <div class="container hero-in">
-      <div>
-        <span class="hero-kicker">✦ &nbsp;Jayal · Nagaur · Since 2025 &nbsp;✦</span>
-        <h1>Jewellery as honest as your <em class="shimmer foil-txt">love</em></h1>
-        <p class="hero-sub">Gold & silver jewellery at live Jaipur rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
-        <div class="hero-cta">
-          <a class="btn btn-gold btn-lg" href="#/shop">Shop the Collection</a>
-          <a class="btn btn-light btn-lg" href="#/rates">Jaipur Live Rates</a>
+      <div class="hero-copy">
+        <span class="hero-kicker"><span class="k-dot"></span>Handcrafted in Jayal · Nagaur · Since 2025<span class="k-dot"></span></span>
+        <h1 class="hero-title">Heirloom jewellery,<br><em class="shimmer foil-txt">honestly priced.</em></h1>
+        <p class="hero-sub">Every piece is BIS-hallmarked with a unique HUID, weighed to the milligram, and billed at Jaipur's <b>live gold rate today</b> — no hidden making, no surprise premiums, no tall tales. The same tanch our family has guarded for three generations, now at your fingertips.</p>
+        <div class="hero-live-rate" aria-label="Today's live Jaipur rate">
+          <span class="hlr-dot"></span>
+          <span class="hlr-label">Today 22K · Jaipur</span>
+          <b class="hlr-price" id="heroG22">${fmt(state.rates && state.rates.gold22 ? state.rates.gold22 : 14300)}<small>/g</small></b>
+          <span class="hlr-note">Live · 22K · incl. BIS HUID hallmark</span>
         </div>
-        <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
+        <div class="hero-cta">
+          <a class="btn btn-gold btn-lg hero-cta-primary" href="#/shop">
+            Shop the Collection
+            <span class="cta-arrow">→</span>
+          </a>
+          <a class="btn btn-light btn-lg" href="#giftConcierge">
+            Find a Gift
+          </a>
+        </div>
+        <div class="hero-trust"><a href="#/hallmark"><span class="ht-ic">✦</span>100% BIS HUID Hallmarked</a><a href="#/trust"><span class="ht-ic">✦</span>Live-Rate Pricing</a><a href="#/rates"><span class="ht-ic">✦</span>7-Day Easy Returns</a></div>
         <div class="hero-stats">
           <div class="hstat"><b>30+</b><span>Years of karigari</span></div>
           <div class="hstat"><b>17</b><span>Categories</span></div>
-          <div class="hstat"><b>24</b><span>Digital catalogues</span></div>
+          <div class="hstat"><b>342</b><span>Hallmarked designs</span></div>
+          <div class="hstat"><b>4.9★</b><span>767 reviews</span></div>
         </div>
       </div>
       <div class="hero-stage">
-          <canvas id="heroDust"></canvas>
-          <div class="hs-card hs-main" data-depth="1"><img src="/images/banners/poster-bridal.jpg" alt="Shivaa bridal couture jewellery"><span class="hs-frame"></span><span class="hs-tag">✦ The Bridal House</span></div>
-          <div class="hs-card hs-a" data-depth="2.2"><img src="/images/products/necklace-rani.jpg" alt="Rani haar"><span class="hs-frame"></span></div>
-          <div class="hs-card hs-b" data-depth="3.2"><img src="/images/products/earrings-chandbali.jpg" alt="Chandbali earrings"><span class="hs-frame"></span></div>
-          <div class="hs-badge" data-depth="4"><img src="/images/logo.png" alt="Shivaa"><small>HUID check<br>Guide</small></div>
+          <div class="hs-card hs-main" data-depth="1"><img src="/images/banners/poster-bridal.jpg" alt="Shivaa bridal couture jewellery" loading="eager"><span class="hs-frame"></span><span class="hs-tag">✦ The Bridal House</span></div>
+          <div class="hs-card hs-a" data-depth="2.2"><img src="/images/products/necklace-rani.jpg" alt="Rani haar" loading="lazy"><span class="hs-frame"></span></div>
+          <div class="hs-card hs-b" data-depth="3.2"><img src="/images/products/earrings-chandbali.jpg" alt="Chandbali earrings" loading="lazy"><span class="hs-frame"></span></div>
         </div>
     </div>
     <div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>
@@ -1059,6 +1111,113 @@ pages.home = async (view) => {
     </div>
   </section>
 
+  <!-- ── GIFT CONCIERGE ─────────────────────────────────── -->
+  <section class="gift-concierge" id="giftConcierge" aria-label="Gift Concierge">
+    <div class="container">
+      <div class="gc-head">
+        <div class="gc-kicker">Personalised Gift Concierge</div>
+        <h2>Find the <em>perfect</em> piece</h2>
+        <p>Answer four quick questions and we'll hand-pick jewellery that fits who it's for, the moment and your budget — with live pricing and a WhatsApp hand-off to a Shivaa advisor.</p>
+        <div class="gc-sub">60 seconds · no login · curated by our family</div>
+      </div>
+
+      <div class="gc-quiz">
+        <!-- progress -->
+        <div class="gc-progress" id="gcProgress">
+          <div class="gc-step active"><i></i></div>
+          <div class="gc-step"><i></i></div>
+          <div class="gc-step"><i></i></div>
+          <div class="gc-step"><i></i></div>
+        </div>
+
+        <!-- Step 1: Recipient -->
+        <div class="gc-panel active" data-step="1">
+          <h3 class="gc-q">Who is the gift for?<small>We pick pieces that suit their style & age.</small></h3>
+          <div class="gc-opts c3" data-q="recipient">
+            <button type="button" class="gc-opt" data-val="mother"><span class="gc-ic">👩‍🦱</span><span><b>Mother / Mother-in-law</b><span>Elegant, traditional, weight that feels solid</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="wife"><span class="gc-ic">💍</span><span><b>Wife / Partner</b><span>Romantic, heirloom feel, pieces she'll wear daily</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="daughter"><span class="gc-ic">🌸</span><span><b>Daughter / Sister</b><span>Young, light, versatile — office + festive</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="bride"><span class="gc-ic">👰</span><span><b>Bride-to-be</b><span>Bridal sets, kundan, statement heirlooms</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="friend"><span class="gc-ic">🎁</span><span><b>Friend / Colleague</b><span>Thoughtful, versatile, budget-friendly</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="self"><span class="gc-ic">✨</span><span><b>Myself (a self-gift!)</b><span>Something I've had my eye on</span></span><span class="gc-check">✓</span></button>
+          </div>
+          <div class="gc-nav">
+            <span></span>
+            <button type="button" class="btn btn-gold gc-next" disabled>Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Occasion -->
+        <div class="gc-panel" data-step="2">
+          <h3 class="gc-q">What's the occasion?<small>We'll tune the formality & motifs.</small></h3>
+          <div class="gc-opts c3" data-q="occasion">
+            <button type="button" class="gc-opt" data-val="wedding"><span class="gc-ic">💒</span><span><b>Wedding / Reception</b><span>Bridal, kundan, heavy rani haar & chokers</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="anniversary"><span class="gc-ic">💞</span><span><b>Anniversary</b><span>Romantic, meaningful — rings, pendants, bracelets</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="birthday"><span class="gc-ic">🎂</span><span><b>Birthday</b><span>Personal, fun — earrings, charms, chains</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="festive"><span class="gc-ic">🪔</span><span><b>Festive / Diwali</b><span>Auspicious pieces — jhumkas, mangalsutra, coin sets</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="milestone"><span class="gc-ic">🏆</span><span><b>Milestone / Graduation</b><span>Timeless — a first gold piece, studs, plain chains</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="justbecause"><span class="gc-ic">💛</span><span><b>Just Because</b><span>Everyday favourites she didn't ask for</span></span><span class="gc-check">✓</span></button>
+          </div>
+          <div class="gc-nav">
+            <button type="button" class="btn btn-ghost gc-prev">← Back</button>
+            <button type="button" class="btn btn-gold gc-next" disabled>Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Budget -->
+        <div class="gc-panel" data-step="3">
+          <h3 class="gc-q">What's your budget?<small>Prices are live — today's gold rate is used.</small></h3>
+          <div class="gc-budget">
+            <b id="gcBudDisp">₹ 30,000</b>
+            <small>Rough total budget (per piece)</small>
+            <input type="range" id="gcBudRange" min="5000" max="300000" step="1000" value="30000">
+            <div class="gc-chips" id="gcBudChips">
+              <button type="button" data-val="15000">Under ₹15k</button>
+              <button type="button" data-val="30000" class="on">₹30k</button>
+              <button type="button" data-val="60000">₹60k</button>
+              <button type="button" data-val="100000">₹1L</button>
+              <button type="button" data-val="200000">₹2L+</button>
+            </div>
+          </div>
+          <div class="gc-nav">
+            <button type="button" class="btn btn-ghost gc-prev">← Back</button>
+            <button type="button" class="btn btn-gold gc-next">Show my picks →</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Style -->
+        <div class="gc-panel" data-step="4">
+          <h3 class="gc-q">What's her style?<small>Pick the closest.</small></h3>
+          <div class="gc-opts c2" data-q="style">
+            <button type="button" class="gc-opt" data-val="traditional"><span class="gc-ic">🏛️</span><span><b>Traditional / Heritage</b><span>Kundan, meenakari, temple motifs, Rajasthani</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="modern"><span class="gc-ic">⚡</span><span><b>Modern / Minimal</b><span>Clean lines, geometric, everyday wear</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="bridal"><span class="gc-ic">👑</span><span><b>Bridal / Statement</b><span>Heavy sets, chokers, rani haar, bridal kadas</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="versatile"><span class="gc-ic">🌿</span><span><b>Versatile / Daily</b><span>Lightweight, office-to-festive pieces</span></span><span class="gc-check">✓</span></button>
+          </div>
+          <div class="gc-nav">
+            <button type="button" class="btn btn-ghost gc-prev">← Back</button>
+            <button type="button" class="btn btn-gold gc-next" disabled>See my gifts →</button>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div class="gc-results" id="gcResults">
+          <div class="gc-recap" id="gcRecap"></div>
+          <h3>Curated <em>just for them</em></h3>
+          <span class="gc-sub">Live gold/silver pricing · click through for full breakdown</span>
+          <div class="gc-grid" id="gcGrid"></div>
+          <div class="gc-foot">
+            <p>Want a human touch? <b>Share these picks on WhatsApp</b> with our family advisors — we'll send videos, weight confirmation and bespoke options within the hour.</p>
+            <button type="button" class="btn btn-gold" id="gcWA">${WA_SVG}<span>Chat on WhatsApp</span></button>
+          </div>
+          <div style="text-align:center">
+            <button type="button" class="gc-restart" id="gcRestart">↻ Start over</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="sec container" style="padding-top:0">
     <div class="newsletter rv">
       <img src="/images/logo.png" class="news-logo" alt="Shivaa">
@@ -1129,8 +1288,9 @@ pages.home = async (view) => {
     track.innerHTML = half + half; // seamless loop
   }
   initHeroStage(); initCatbar();
-  // stat count-up
+  // stat count-up — run once (the _scored guard prevents re-count on re-routes)
   $$('.hstat b').forEach(el => {
+    if (el._scored) return; el._scored = true;
     const m = el.textContent.match(/^([\d.,]+)(.*)$/); if (!m) return;
     const target = parseFloat(m[1].replace(/,/g, '')), suffix = m[2] || '';
     const dec = m[1].includes('.') ? 1 : 0, t0 = performance.now();
@@ -1140,13 +1300,339 @@ pages.home = async (view) => {
       if (k < 1) requestAnimationFrame(up);
     })(t0);
   });
-  // hero orb parallax
-  const orbs = $('.hero-orbs');
-  if (orbs) addEventListener('mousemove', e => {
-    const dx = (e.clientX / innerWidth - .5), dy = (e.clientY / innerHeight - .5);
-    orbs.style.transform = `translate(${dx * -18}px, ${dy * -12}px)`;
-  }, { passive: true });
+  // hero orb parallax handled inside initHeroStage() — no global attach per route
+
+  // Gift Concierge
+  initGiftConcierge();
 };
+
+/* ─────────── GIFT CONCIERGE ─────────── */
+function initGiftConcierge() {
+  const root = $('#giftConcierge'); if (!root) return;
+
+  const STORAGE_KEY = 'shivaa_gc_state';
+  const state = {
+    step: 1,
+    answers: { recipient: null, occasion: null, budget: 30000, style: null },
+  };
+
+  // ---- helper: scoring recipes ----
+  // tag & category signals per answer
+  const PROFILE = {
+    recipient: {
+      mother:     { tags: ['heritage','wedding','festive'], cats: ['necklaces','earrings','bangles','pendants','mangalsutra'], wt: 1.0 },
+      wife:       { tags: ['luxe','heritage','wedding','new'],       cats: ['rings','necklaces','bangles','pendants','bracelets','chains'], wt: 1.0 },
+      daughter:   { tags: ['daily','new','festive'],                 cats: ['earrings','rings','chains','pendants','nosepins','bracelets'], wt: 1.0 },
+      bride:      { tags: ['wedding','heritage','luxe'],             cats: ['necklaces','bangles','earrings','rings','mangalsutra','aad','sheeshphool','bajubandh','bridalanklets','hathphool'], wt: 1.2 },
+      friend:     { tags: ['gifting','daily','festive','new'],       cats: ['earrings','pendants','chains','rings','silver'], wt: 1.0 },
+      self:       { tags: ['new','bestseller','heritage','daily'],   cats: null, wt: 1.0 },
+    },
+    occasion: {
+      wedding:     { tags: ['wedding','heritage','luxe'],  cats: ['necklaces','bangles','earrings','mangalsutra','rings'], wt: 1.2 },
+      anniversary: { tags: ['gifting','luxe'],             cats: ['rings','pendants','bracelets','chains','necklaces'], wt: 1.0 },
+      birthday:    { tags: ['gifting','new'],              cats: ['earrings','rings','pendants','chains'], wt: 1.0 },
+      festive:     { tags: ['festive','heritage'],         cats: ['earrings','necklaces','bangles','chains','pendants','rakhdi'], wt: 1.0 },
+      milestone:   { tags: ['gifting','daily','heritage'], cats: ['chains','rings','earrings','pendants','silver'], wt: 1.0 },
+      justbecause: { tags: ['gifting','daily','new'],      cats: ['earrings','chains','pendants','nosepins','silver'], wt: 0.9 },
+    },
+    style: {
+      traditional: { tags: ['heritage','festive','wedding'], cats: ['necklaces','bangles','earrings','mangalsutra','aad','rakhdi','bajubandh'], wt: 1.1 },
+      modern:      { tags: ['new','daily'],                  cats: ['rings','chains','pendants','bracelets','earrings','nosepins'], wt: 1.0 },
+      bridal:      { tags: ['wedding','luxe','heritage'],    cats: ['necklaces','bangles','earrings','rings','mangalsutra','bridalanklets','hathphool'], wt: 1.3 },
+      versatile:   { tags: ['daily','new'],                  cats: ['earrings','rings','chains','pendants','bracelets','nosepins'], wt: 1.0 },
+    },
+  };
+
+  const RECIPIENT_LABEL = { mother:'Mother / Mother-in-law', wife:'Wife / Partner', daughter:'Daughter / Sister', bride:'Bride-to-be', friend:'Friend / Colleague', self:'Self-gift' };
+  const OCCASION_LABEL = { wedding:'Wedding / Reception', anniversary:'Anniversary', birthday:'Birthday', festive:'Festive / Diwali', milestone:'Milestone', justbecause:'Just Because' };
+  const STYLE_LABEL = { traditional:'Traditional / Heritage', modern:'Modern / Minimal', bridal:'Bridal / Statement', versatile:'Versatile / Daily' };
+
+  // ---- DOM refs ----
+  const progressSteps = [...root.querySelectorAll('.gc-step')];
+  const panels = [...root.querySelectorAll('.gc-panel')];
+  const resultsEl = $('#gcResults', root);
+  const recapEl = $('#gcRecap', root);
+  const gridEl = $('#gcGrid', root);
+  const budRange = $('#gcBudRange', root);
+  const budDisp = $('#gcBudDisp', root);
+  const budChips = [...$('#gcBudChips', root).querySelectorAll('button')];
+
+  // ---- progress helpers ----
+  function setStep(n) {
+    state.step = n;
+    progressSteps.forEach((s, i) => {
+      s.classList.toggle('done', i < n - 1);
+      s.classList.toggle('active', i === n - 1);
+    });
+    panels.forEach(p => p.classList.toggle('active', Number(p.dataset.step) === n));
+    resultsEl.classList.remove('active');
+  }
+
+  function refreshNext() {
+    const panel = panels.find(p => p.classList.contains('active'));
+    const nextBtn = panel?.querySelector('.gc-next');
+    if (!nextBtn) return;
+    const q = panel.dataset.q;
+    const ok = q ? !!state.answers[q] : true;
+    nextBtn.disabled = !ok;
+  }
+
+  // ---- option clicks ----
+  function advanceAfterPick() {
+    clearTimeout(window._gcAdv);
+    window._gcAdv = setTimeout(() => {
+      if (state.step < panels.length) setStep(state.step + 1);
+      else showResults();
+    }, 420);
+  }
+  panels.forEach(panel => {
+    const q = panel.dataset.q;
+    const opts = panel.querySelectorAll('.gc-opt');
+    opts.forEach(opt => {
+      const pick = (e) => {
+        e.preventDefault();
+        opts.forEach(o => o.classList.remove('on'));
+        opt.classList.add('on');
+        if (q) state.answers[q] = opt.dataset.val;
+        refreshNext();
+        if (q && q !== 'budget') advanceAfterPick();
+      };
+      opt.addEventListener('click', pick);
+    });
+    panel.querySelector('.gc-prev')?.addEventListener('click', (e) => { e.preventDefault(); clearTimeout(window._gcAdv); setStep(state.step - 1); });
+    const nextBtn = panel.querySelector('.gc-next');
+    if (nextBtn) nextBtn.addEventListener('click', (e) => {
+      e.preventDefault(); clearTimeout(window._gcAdv);
+      if (state.step < panels.length) setStep(state.step + 1);
+      else showResults();
+    });
+  });
+
+  // ---- budget slider ----
+  function fmtBud(v){ return '₹ ' + Number(v).toLocaleString('en-IN'); }
+  function setBud(v) {
+    v = Number(v); state.answers.budget = v;
+    budRange.value = v; budDisp.textContent = fmtBud(v);
+    budChips.forEach(b => b.classList.toggle('on', Number(b.dataset.val) === v));
+  }
+  budRange.addEventListener('input', e => {
+    setBud(e.target.value);
+    // clear "on" on chips if value doesn't exactly match
+    if (!budChips.some(b => Number(b.dataset.val) === Number(e.target.value))) {
+      budChips.forEach(b => b.classList.remove('on'));
+    }
+  });
+  budChips.forEach(b => b.addEventListener('click', () => { setBud(b.dataset.val); advanceAfterPick(); }));
+  // Show a small "tap to pick" hint on auto-advance steps only once
+  panels.forEach(p => {
+    if (p.dataset.q && p.dataset.q !== 'budget') {
+      const nav = p.querySelector('.gc-nav');
+      if (nav && !nav.querySelector('.gc-next-hint')) {
+        const hint = document.createElement('div');
+        hint.className = 'gc-next-hint';
+        hint.textContent = 'Tap any option to continue →';
+        p.appendChild(hint);
+      }
+    }
+  });
+
+  // ---- restart ----
+  $('#gcRestart', root).addEventListener('click', () => {
+    state.answers = { recipient: null, occasion: null, budget: 30000, style: null };
+    root.querySelectorAll('.gc-opt.on').forEach(o => o.classList.remove('on'));
+    setStep(1);
+    setBud(30000);
+    try{ sessionStorage.removeItem(STORAGE_KEY); }catch(e){}
+    root.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+
+  // ---- scoring ----
+  function scoreProduct(p) {
+    let s = 0;
+    const tags = new Set(p.tags || []);
+    const cat = (p.category || '').toLowerCase();
+    let bestPrice = price(p); // returns { total, metalValue, ... }
+    let finalPrice = bestPrice && bestPrice.total ? bestPrice.total : (Number(p.price) || 0);
+
+    // budget match (penalise > 20% over; favour close to 60-90% of budget)
+    const bud = state.answers.budget;
+    if (finalPrice <= bud) {
+      const ratio = finalPrice / bud;
+      s += 20 + (1 - Math.abs(ratio - 0.75)) * 15; // sweet spot ~75% of budget
+    } else if (finalPrice <= bud * 1.25) {
+      s += 10 - ((finalPrice - bud) / bud) * 30;
+    } else {
+      s -= 40;
+    }
+    if (finalPrice < bud * 0.25) s -= 10; // too cheap is odd
+
+    // tag/category matches per profile
+    const sigs = [
+      PROFILE.recipient[state.answers.recipient],
+      PROFILE.occasion[state.answers.occasion],
+      PROFILE.style[state.answers.style],
+    ].filter(Boolean);
+    sigs.forEach(sig => {
+      if (sig.tags) sig.tags.forEach(t => { if (tags.has(t)) s += 8 * sig.wt; });
+      if (sig.cats) sig.cats.forEach(c => { if (cat.includes(c)) s += 5 * sig.wt; });
+    });
+
+    // global bonuses
+    if (tags.has('gifting')) s += 6;
+    if (tags.has('bestseller')) s += 4;
+    if (tags.has('new')) s += 2;
+    if (p.rating) s += Math.min(5, p.rating);
+    if (p.active === false || (typeof p.stock === 'number' && p.stock <= 0)) s -= 100;
+
+    return s;
+  }
+
+  function pickProducts() {
+    const list = (state.productsCache || []).slice();
+    const scored = list.map(p => ({ p, s: scoreProduct(p) })).sort((a,b) => b.s - a.s);
+    // pick top 3 but ensure category diversity (no same category triple)
+    const picked = []; const usedCats = new Set();
+    for (const {p} of scored) {
+      if (picked.length >= 3) break;
+      const cat = (p.category||'').toLowerCase();
+      if (usedCats.has(cat) && picked.length < 3) {
+        // allow duplicate only if not enough unique
+        if (usedCats.size < 3 && picked.length >= usedCats.size) continue;
+      }
+      if (p.tags && p.tags.includes('mens') && state.answers.recipient !== 'friend' && state.answers.style !== 'modern') {
+        // skip mens unless requested
+        continue;
+      }
+      picked.push(p); usedCats.add(cat);
+    }
+    // if still < 3 due to filters, just take top
+    if (picked.length < 3) for (const {p} of scored) { if (picked.length >= 3) break; if (!picked.includes(p)) picked.push(p); }
+    return picked.slice(0, 3);
+  }
+
+  function productImage(p) {
+    if (p.images && p.images[0]) return p.images[0];
+    if (p.image) return p.image;
+    const slug = String(p.id || p.name || '').toLowerCase().replace(/[^a-z0-9]+/g,'-');
+    return `/images/products/${slug}.jpg`;
+  }
+
+  function ribbonFor(p) {
+    const t = new Set(p.tags || []);
+    if (t.has('bestseller')) return 'Bestseller';
+    if (t.has('new')) return 'New';
+    if (t.has('luxe')) return 'Signature';
+    if (t.has('heritage')) return 'Heritage';
+    if (t.has('gifting')) return 'Gift-ready';
+    if (t.has('wedding')) return 'Wedding';
+    if (t.has('festive')) return 'Festive';
+    return '';
+  }
+
+  function showResults() {
+    panels.forEach(p => p.classList.remove('active'));
+    progressSteps.forEach((s,i) => { s.classList.add('done'); s.classList.remove('active'); });
+    resultsEl.classList.add('active');
+
+    const picks = pickProducts();
+
+    // recap
+    const chips = [
+      RECIPIENT_LABEL[state.answers.recipient],
+      OCCASION_LABEL[state.answers.occasion],
+      fmtBud(state.answers.budget) + ' budget',
+      STYLE_LABEL[state.answers.style],
+    ].filter(Boolean);
+    recapEl.innerHTML = `<b>Your brief</b><div class="gc-picks">${chips.map(c=>`<span>${esc(c)}</span>`).join('')}</div>`;
+
+    // grid
+    if (!picks.length) {
+      gridEl.innerHTML = `<div class="gc-empty"><div class="big">✦</div><h3>Let's find this together</h3><p>Our advisors will curate a custom shortlist — share your brief on WhatsApp.</p></div>`;
+    } else {
+      gridEl.innerHTML = picks.map((p, i) => {
+        const pr = price(p);
+        const finalPrice = pr && pr.total ? pr.total : (Number(p.price) || 0);
+        const img = productImage(p);
+        const rib = ribbonFor(p);
+        const catLabel = (p.category||'').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+        const w = p.weightG ? Number(p.weightG).toFixed(2) + 'g' : '';
+        return `<article class="gc-pick" data-id="${esc(String(p.id))}">
+          <div class="gc-pick-img">
+            ${rib ? `<span class="gc-ribbon">${esc(rib)}</span>` : ''}
+            <img src="${esc(img)}" alt="${esc(p.name)}" loading="lazy" onerror="this.src='/images/logo.png';this.style.objectFit='contain';this.style.padding='28%';this.style.opacity='.35'">
+          </div>
+          <div class="gc-pick-body">
+            <div class="gc-pick-cat">${esc(catLabel)}</div>
+            <h4>${esc(p.name)}</h4>
+            <div class="gc-pick-meta">${esc(p.metal||'Gold')} ${esc(p.purity||'')}${w?' · '+esc(w):''}${p.stoneType && p.stoneType !== 'Plain' ? ' · '+esc(p.stoneType):''}</div>
+            <div class="gc-pick-price"><b>${fmt(finalPrice)}</b><small>incl. 3% GST · live rate</small></div>
+            <div class="gc-pick-actions">
+              <a class="btn btn-gold" href="#/product/${esc(String(p.id))}">View piece</a>
+              <button class="btn btn-ghost gc-send" data-id="${esc(String(p.id))}" title="Send this to WhatsApp">${WA_SVG}</button>
+            </div>
+          </div>
+        </article>`;
+      }).join('');
+    }
+
+    // per-piece whatsapp
+    gridEl.querySelectorAll('.gc-send').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const p = (state.productsCache||[]).find(x => String(x.id) === String(id));
+        if (p) waOpen(waProductMsg(p, 1, null, null));
+      });
+    });
+
+    // share-all whatsapp
+    const waBtn = $('#gcWA', root);
+    waBtn.onclick = () => {
+      const lines = ['Namaste Shivaa! I just used the Gift Concierge. My brief:'];
+      lines.push('• For: ' + RECIPIENT_LABEL[state.answers.recipient]);
+      lines.push('• Occasion: ' + OCCASION_LABEL[state.answers.occasion]);
+      lines.push('• Budget: ' + fmtBud(state.answers.budget));
+      lines.push('• Style: ' + STYLE_LABEL[state.answers.style]);
+      if (picks.length) {
+        lines.push('\nMy top picks:');
+        picks.forEach((p, i) => {
+          const pr = price(p);
+          lines.push(`${i+1}. ${p.name} — ${fmt(pr && pr.total ? pr.total : Number(p.price||0))} (#/product/${p.id})`);
+        });
+        lines.push('\nCould you share videos, exact weight and bespoke options? 🙏');
+      } else {
+        lines.push('\nCould your advisors curate a shortlist for me? 🙏');
+      }
+      waOpen(lines.join('\n'));
+    };
+
+    // persist state
+    try{ sessionStorage.setItem(STORAGE_KEY, JSON.stringify({answers: state.answers, results: true})); }catch(e){}
+  }
+
+  // ---- restore from session ----
+  try{
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const s = JSON.parse(saved);
+      if (s.answers) Object.assign(state.answers, s.answers);
+      setBud(state.answers.budget || 30000);
+      // restore selected options visual
+      panels.forEach(panel => {
+        const q = panel.dataset.q; if (!q || !state.answers[q]) return;
+        const opt = panel.querySelector(`.gc-opt[data-val="${state.answers[q]}"]`);
+        if (opt) opt.classList.add('on');
+      });
+      if (s.results) {
+        // show results directly (but stay on intro so user can re-run easily)
+        setStep(1);
+      }
+    } else {
+      setBud(state.answers.budget);
+    }
+  }catch(e){ setBud(state.answers.budget); }
+
+  refreshNext();
+}
 
 /* ─────────── SHOP ─────────── */
 pages.shop = async (view, q) => {
@@ -2911,11 +3397,13 @@ setTimeout(() => {
 window.bindV23Reveal = function bindV23Reveal() {
   const els = document.querySelectorAll('.pillar:not(.seen),.wp-card:not(.seen),.rvl:not(.seen),.ugc-card:not(.seen)');
   if (!els.length) return;
-  if (!('IntersectionObserver' in window)) { els.forEach(e => e.classList.add('seen')); return; }
-  const io = new IntersectionObserver((es, o) => es.forEach((e, i) => {
-    if (e.isIntersecting) { setTimeout(() => e.target.classList.add('seen'), Math.min(i * 80, 400)); o.unobserve(e.target); }
-  }), { threshold: .14, rootMargin: '0px 0px -30px' });
-  els.forEach(e => io.observe(e));
+  if (!window._v23IO) {
+    if (!('IntersectionObserver' in window)) { els.forEach(e => e.classList.add('seen')); return; }
+    window._v23IO = new IntersectionObserver(es => es.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('seen'); window._v23IO.unobserve(e.target); }
+    }), { threshold: .10, rootMargin: '0px 0px -30px' });
+  }
+  els.forEach(e => window._v23IO.observe(e));
 }
 
 
@@ -3587,9 +4075,9 @@ pages.deadstock = async (view) => {
   <section class="page-hero lux-hero ds-hero-bg"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container">
       <div class="crumbs"><a href="#/">Home</a> / <a href="#/partner">Partner Portal</a> / Dead Stock</div>
-      <span class="lux-badge">&#9670; PARTNERS ONLY</span>
+      <span class="lux-badge">&#9670; PARTNERS ONLY · JEWELLER DESK</span>
       <h1 class="ink-reveal">Dead Stock <em class="shimmer foil-txt">Purchase</em></h1>
-      <p>Your slow-moving 22K jewellery, bought at one wastage and settled as fine 99.999 metal value &mdash; with half your making charges credited back so melting never wins.</p>
+      <p>Any karat, any category, any age &mdash; we buy back your slow-moving stock at the live Jaipur rate on the day of assay. You receive <b>fine-metal value only</b> (no making charges refunded, no wastage deductions beyond assay), settled instantly against your next Shivaa order or bullion account.</p>
     </div>
   </section>
 
@@ -3598,73 +4086,84 @@ pages.deadstock = async (view) => {
     <!-- ── the offer ── -->
     <div class="vault-grid rv">
       <div class="vault-card">
-        <span class="vc-num">22<small>K</small></span>
-        <b>Plain 22K jewellery only</b>
-        <p>Bangles, chains, rings, plain sets &mdash; any design, any age. One wastage, no grading arguments, no per-piece haggling.</p>
+        <span class="vc-num">ALL<small>Karats</small></span>
+        <b>Any jewellery, any category</b>
+        <p>22K, 18K, gold, silver, plain or studded &mdash; rings, necklaces, bangles, chains, pendants, earrings, sets, bridal, antique. Name it; we assay it.</p>
       </div>
       <div class="vault-card vc-emerald">
-        <span class="vc-num">50<small>%</small></span>
-        <b>Melting-loss protection</b>
-        <p>Not a payment for making charges &mdash; a protection. Half of what you paid is credited against your next Shivaa bill so selling to us always beats melting.</p>
+        <span class="vc-num">0<small>haggle</small></span>
+        <b>Live-rate, transparent</b>
+        <p>Quotation follows the physical assay at our Jaipur counter: weight × actual purity × live rate. Zero hidden deductions. Zero per-piece haggling.</p>
       </div>
       <div class="vault-card">
-        <span class="vc-num">999.9</span>
-        <b>Settled in fine metal</b>
-        <p>We convert the 22K gold content of your stock to fine-metal value at the live rate. You restock with fresh designs &mdash; nothing of yours is destroyed.</p>
+        <span class="vc-num">FINE<small>metal</small></span>
+        <b>Settled as fine</b>
+        <p>Your stock is converted to fine-metal credit at the live Jaipur rate on the day &mdash; usable against fresh Shivaa designs or withdrawn as bullion. No MC is refunded (karigar labour does not survive melting).</p>
       </div>
     </div>
 
-    <!-- ── LIVE RECOVERY ESTIMATOR ── -->
+    <!-- ── LIVE VALUATION ESTIMATOR ── -->
     <section class="sv-calc rv" id="dsCalc">
       <div class="bbc-head">
-        <span class="bbc-live"><i></i> LIVE ESTIMATE</span>
-        <h2>What your 22K stock is <em class="shimmer foil-txt">actually worth</em></h2>
-        <p>Today's Jaipur rates &mdash; 22K gold <b>${fmt(g22)}/g</b> &middot; fine 24K <b>${fmt(g24)}/g</b>.</p>
+        <span class="bbc-live"><i></i> LIVE VALUATION</span>
+        <h2>What your stock is <em class="shimmer foil-txt">actually worth</em></h2>
+        <p>Pick the metal/purity, category and weight. We quote fine-metal value at today's Jaipur rate — no making charges are returned on buyback.</p>
+        <div class="ds-rate-row">
+          ${g24 ? `<span>24K <b>${fmt(g24)}/g</b></span><span>22K <b>${fmt(g22)}/g</b></span><span>18K <b>${fmt(R.gold18 || Math.round(g24*0.75))}/g</b></span><span>Silver <b>₹${R.silver || 239}/g</b></span>` : ''}
+        </div>
       </div>
 
       <div class="svc-body">
         <div class="svc-form">
+
           <div class="fld">
-            <label>Category we purchase</label>
-            <div class="purity-lock emerald"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>the only category on this desk</span></div>
+            <label>Metal & purity</label>
+            <select id="dsMetal" class="sortsel">
+              <option value="22">22K Gold (91.6% fine)</option>
+              <option value="18">18K Gold (75% fine)</option>
+              <option value="24">24K Gold (99.5% fine)</option>
+              <option value="silver">Silver 925</option>
+            </select>
           </div>
 
           <div class="fld">
-            <label>Total weight of dead stock</label>
+            <label>Category</label>
+            <select id="dsCat" class="sortsel">
+              <option value="">Any / Mixed lot</option>
+              ${Object.entries(CATS).map(([k,c]) => `<option value="${k}">${c.name}</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="fld">
+            <label>Piece / lot name (optional)</label>
+            <input type="text" id="dsName" placeholder="e.g. Old bridal choker lot · plain bangles · mixed rings">
+          </div>
+
+          <div class="fld">
+            <label>Total weight</label>
             <div class="bbc-wt">
               <input type="number" id="dsWt" value="250" min="1" step="1" inputmode="decimal">
               <span class="bbc-unit">grams</span>
             </div>
             <input type="range" id="dsRange" class="bbc-range" min="10" max="5000" step="10" value="250">
           </div>
-
-          <div class="fld">
-            <label>Making charges you originally paid</label>
-            <div class="bbc-wt">
-              <span class="svc-rs">&#8377;</span>
-              <input type="number" id="dsMc" value="60000" min="0" step="1000" inputmode="numeric">
-            </div>
-            <div class="ds-mc-hint">Roughly what the karigar charged on this lot. This is only used to size your melting-loss protection.</div>
-          </div>
         </div>
 
         <div class="svc-result">
           <div class="bbr-shine" aria-hidden="true"></div>
-          <span class="bbr-label">TOTAL YOU RECOVER</span>
+          <span class="bbr-label">FINE-METAL VALUE YOU RECEIVE</span>
           <div class="svr-gold" id="dsTotal">&#8377;0</div>
           <div class="bbr-rate" id="dsSub">&mdash;</div>
 
           <div class="ds-split">
-            <div class="dss-row dss-fine"><span>Fine 99.999 metal you receive</span><b id="dsFine">&mdash;</b></div>
-            <div class="dss-row"><span>Metal value at one wastage</span><b id="dsMetalVal">&mdash;</b></div>
-            <div class="dss-row dss-credit"><span>Melting-loss protection &middot; 50% of MC</span><b id="dsCredit">&mdash;</b></div>
-            <div class="dss-row dss-vs"><span>If you melted it instead</span><b id="dsMelt">&mdash;</b></div>
-            <div class="dss-gain" id="dsGain">&mdash;</div>
+            <div class="dss-row dss-fine"><span>Fine metal content</span><b id="dsFine">&mdash;</b></div>
+            <div class="dss-row"><span>Rate applied</span><b id="dsRate">&mdash;</b></div>
+            <div class="dss-row"><span>Making charges</span><b style="color:var(--ink-3)">₹0 · not returned</b></div>
           </div>
+          <div class="ds-note-box"><b>⚠ No MC on buyback.</b> Making charges are the karigar's labour and are never refunded when jewellery is melted back to metal. On <em>exchange</em> against a new Shivaa piece, we waive MC differences — speak to the desk.</div>
 
-          <a class="btn btn-gold btn-block btn-lg" id="dsWa">Send this lot for pickup</a>
-          <p class="bbr-fine">Indicative. Final settlement follows physical assay and weight at our Jayal counter. The 50% credit applies against Shivaa purchases only, never as cash.</p>
+          <a class="btn btn-gold btn-block btn-lg" id="dsWa">Get firm quote on WhatsApp</a>
+          <p class="bbr-fine">Indicative. Final figure follows physical XRF/fire assay at our Jaipur counter — weight × actual purity × live rate on the day.</p>
         </div>
       </div>
     </section>
@@ -3678,20 +4177,33 @@ pages.deadstock = async (view) => {
           <div class="fld"><label>Contact person *</label><input name="person" required placeholder="Your name"></div>
           <div class="fld"><label>Mobile *</label><input name="phone" required pattern="[6-9][0-9]{9}" maxlength="10" inputmode="numeric" placeholder="10-digit mobile"></div>
           <div class="fld"><label>City *</label><input name="city" required placeholder="e.g. Nagaur"></div>
+          <div class="fld"><label>Metal & purity *</label>
+            <select name="metal" required>
+              <option value="22K Gold">22K Gold</option>
+              <option value="18K Gold">18K Gold</option>
+              <option value="24K Gold">24K Gold</option>
+              <option value="Silver 925">Silver 925</option>
+              <option value="Mixed">Mixed (we will separate on assay)</option>
+            </select>
+          </div>
           <div class="fld"><label>Category</label>
-            <div class="purity-lock emerald ds-lock-sm"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>22 karat only</span></div>
+            <select name="cat">
+              <option value="">Any / Mixed</option>
+              ${Object.entries(CATS).map(([k,c]) => `<option value="${c.name}">${c.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="fld"><label>Piece / lot name</label>
+            <input name="lotname" placeholder="e.g. Old bridal choker lot, mixed rings">
           </div>
           <div class="fld"><label>Approx. total weight (g) *</label><input name="weight" type="number" step="0.1" min="1" required placeholder="e.g. 250"></div>
-          <div class="fld"><label>Approx. making charges paid (&#8377;)</label><input name="mc" type="number" min="0" step="500" placeholder="e.g. 60000"></div>
           <div class="fld"><label>Roughly how old is this stock?</label>
-            <select name="age"><option>6 – 12 months</option><option>1 – 2 years</option><option>2 – 5 years</option><option>Over 5 years</option></select>
+            <select name="age"><option>6 – 12 months</option><option>1 – 2 years</option><option>2 – 5 years</option><option>Over 5 years</option><option>Antique / family pieces</option></select>
           </div>
           <div class="fld full"><label>What is in the lot?</label>
-            <input name="items" placeholder="e.g. 40 plain bangles, 12 chains, assorted rings">
+            <input name="items" placeholder="e.g. 40 bangles, 12 chains, assorted rings, a kundan choker, 3 silver kadas">
           </div>
           <div class="fld full"><label>Anything else we should know?</label>
-            <input name="note" placeholder="Hallmarked? Original bills available? Preferred pickup week?">
+            <input name="note" placeholder="Hallmarked? Original bills available? Stones? Preferred pickup week?">
           </div>
           <button class="btn btn-gold btn-block btn-lg">Request a firm quote &rarr;</button>
         </form>
@@ -3731,47 +4243,44 @@ pages.deadstock = async (view) => {
     </div>
   </div>`;
 
-  /* ---- live estimator: 22K → fine metal + melting-loss protection ---- */
-  const FINE = 0.916;   // 22K = 91.6% fine content
-  const WAST = 0.99;    // bought at one wastage
-  const MELT = 0.92;    // typical melting route loses ~8%
+  /* ---- live estimator: any purity/category → fine-metal value ---- */
+  const FINE_PCT = { '24': 0.995, '22': 0.9167, '18': 0.75, 'silver': 0.925 };
+  const RATE_FOR = {
+    '24': g24,
+    '22': g22,
+    '18': R.gold18 || Math.round(g24 * 0.75),
+    'silver': R.silver || 239,
+  };
+  const LABEL_FOR = { '24': '24K fine gold', '22': '22K gold', '18': '18K gold', 'silver': 'Silver 925' };
 
   const calc = () => {
     const wt = Math.max(0, parseFloat($('#dsWt').value) || 0);
-    const mc = Math.max(0, parseFloat($('#dsMc').value) || 0);
-    const fineG = wt * FINE * WAST;          // fine grams after one wastage
-    const metalVal = g24 > 0 ? fineG * g24 : wt * g22 * WAST;
-    const credit = mc * 0.5;                 // melting-loss protection
-    const total = metalVal + credit;
-    const melted = wt * g22 * MELT;          // melting: 8% loss, MC gone
-    const gain = total - melted;
+    const metal = $('#dsMetal')?.value || '22';
+    const cat = $('#dsCat')?.value || '';
+    const name = ($('#dsName')?.value || '').trim();
+    const pf = FINE_PCT[metal] || 0.9167;
+    const rate = RATE_FOR[metal] || 0;
+    const fineG = wt * pf;
+    const total = Math.round(fineG * rate);
 
     const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
-    set('#dsFine', `${fineG.toLocaleString('en-IN', { maximumFractionDigits: 1 })} g \u2248 ${fmt(metalVal)}`);
-    set('#dsMetalVal', fmt(metalVal));
-    set('#dsCredit', '+ ' + fmt(credit));
-    set('#dsMelt', fmt(melted));
-    set('#dsSub', `${wt.toLocaleString('en-IN')} g of 22K jewellery \u00b7 one wastage \u00b7 settled as fine metal`);
-
-    const gEl = $('#dsGain');
-    if (gEl) gEl.innerHTML = gain >= 0
-      ? `You stay <b>${fmt(gain)}</b> ahead of melting \u2014 and the karigar's work survives`
-      : `Melting would return ${fmt(-gain)} more`;
-
+    set('#dsFine', `${fineG.toLocaleString('en-IN', { maximumFractionDigits: 2 })} g fine`);
+    set('#dsRate', fmt(rate) + '/g · ' + LABEL_FOR[metal]);
+    set('#dsSub', `${wt.toLocaleString('en-IN')} g · ${LABEL_FOR[metal]}${cat ? ' · ' + (CATS[cat]?.name || cat) : ''}${name ? ' · "' + name + '"' : ''}`);
     const tEl = $('#dsTotal');
-    if (tEl) {
-      tEl.textContent = fmt(total);
-      tEl.classList.remove('bbr-pop'); void tEl.offsetWidth; tEl.classList.add('bbr-pop');
-    }
+    if (tEl) { tEl.textContent = fmt(total); tEl.classList.remove('bbr-pop'); void tEl.offsetWidth; tEl.classList.add('bbr-pop'); }
 
-    const msg = `Namaste Shivaa bullion desk \u2726\n\nI'd like to sell dead stock under the 1-wastage scheme.\n\nCategory: 22K plain gold jewellery\nWeight: ${wt} g\nMaking charges paid: ${fmt(mc)}\n\nIndicative fine-metal value: ${fmt(metalVal)}\nMelting-loss protection (50% of MC): ${fmt(credit)}\nTotal recovery: ${fmt(total)}\n\nFirm name: \nCity: \n\nPlease arrange a pickup.`;
+    const catLabel = cat ? (CATS[cat]?.name || cat) : 'Mixed lot / any category';
+    const msg = `Namaste Shivaa bullion desk ✦\n\nI'd like a firm quote for dead stock.\n\nMetal/Purity: ${LABEL_FOR[metal]}\nCategory: ${catLabel}${name ? '\nPiece/lot: ' + name : ''}\nApprox weight: ${wt} g\nIndicative fine-metal value (live rate): ${fmt(total)}\n\nFirm name:\nCity:\n\nPlease confirm and arrange pickup if the rate matches.`;
     ['#dsWa', '#dsWa2'].forEach(sel => { const e = $(sel); if (e) e.onclick = () => waOpen(msg); });
   };
 
-  const wt = $('#dsWt'), rng = $('#dsRange'), mc = $('#dsMc');
+  const wt = $('#dsWt'), rng = $('#dsRange');
   if (wt) wt.addEventListener('input', () => { if (rng) rng.value = Math.min(5000, Math.max(10, parseFloat(wt.value) || 10)); calc(); });
   if (rng) rng.addEventListener('input', () => { if (wt) wt.value = rng.value; calc(); });
-  if (mc) mc.addEventListener('input', calc);
+  $('#dsMetal')?.addEventListener('change', calc);
+  $('#dsCat')?.addEventListener('change', calc);
+  $('#dsName')?.addEventListener('input', calc);
   calc();
 };
 
@@ -3783,14 +4292,13 @@ window.Shivaa.dsSubmit = (e) => {
   const g = k => String(f.get(k) || '').trim();
   const phone = g('phone');
   if (!/^[6-9][0-9]{9}$/.test(phone)) { toast('Please enter a valid 10-digit mobile number'); return; }
-  const msg = `Namaste Shivaa bullion desk \u2726\n\nDEAD STOCK PURCHASE ENQUIRY\n\n`
+  const msg = `Namaste Shivaa bullion desk ✦\n\nDEAD STOCK PURCHASE ENQUIRY\n\n`
     + `Firm: ${g('firm')}\nContact: ${g('person')}\nMobile: ${phone}\nCity: ${g('city')}\n\n`
-    + `Category: 22K plain gold jewellery\nApprox weight: ${g('weight')} g\n`
-    + `Making charges paid: ${g('mc') ? '\u20b9' + g('mc') : 'not stated'}\n`
+    + `Metal/Purity: ${g('metal')}\nCategory: ${g('cat') || 'Mixed / Any'}${g('lotname') ? '\nLot name: ' + g('lotname') : ''}\nApprox weight: ${g('weight')} g\n`
     + `Age of stock: ${g('age')}\n`
     + `Lot contains: ${g('items') || 'not stated'}\n`
-    + `Note: ${g('note') || '\u2014'}\n\n`
-    + `Please confirm the wastage and my melting-loss protection credit (50% of making charges).`;
+    + `Note: ${g('note') || '—'}\n\n`
+    + `I understand: (1) valuation is at the live Jaipur rate on assay day, (2) making charges are not returned on buyback, (3) final settlement follows XRF/fire assay at your Jaipur counter.\n\nPlease share a firm indicative quote and arrange pickup when the rate works.`;
   waOpen(msg);
   toast('Opening WhatsApp with your enquiry \u2726');
   e.target.reset();
@@ -3879,6 +4387,18 @@ pages.faq = async (view) => {
 /* ─────────── ROUTER ─────────── */
 const routes = {};
 Object.keys(pages).forEach(k => routes[k] = pages[k]);
+// Merge any routes registered by external page scripts (hallmark.js, etc.)
+// that were attached to window.Shivaa._extRoutes before routes{} existed.
+if (window.Shivaa && window.Shivaa._extRoutes) {
+  Object.keys(window.Shivaa._extRoutes).forEach(k => {
+    if (!routes[k]) routes[k] = window.Shivaa._extRoutes[k];
+  });
+}
+if (window.Shivaa && window.Shivaa.routes) {
+  Object.keys(window.Shivaa.routes).forEach(k => {
+    if (!routes[k]) routes[k] = window.Shivaa.routes[k];
+  });
+}
 Object.assign(window.Shivaa, {
   api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,
   toggleCompare, removeCompare, clearCompare, copyCompareLink, waCompare, compareLink, compareItems,
@@ -3972,6 +4492,9 @@ function renderSugg(qs) {
 
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */
 document.addEventListener('rates', () => {
+  // update hero live rate pill if visible
+  const heroG22 = document.getElementById('heroG22');
+  if (heroG22 && state.rates && state.rates.gold22) heroG22.innerHTML = fmt(state.rates.gold22) + '<small>/g</small>';
   if (typeof renderRateStrip === 'function') renderRateStrip();
   $$('.js-price').forEach(el => {
     const p = state.productsCache.find(x => x.id === el.dataset.pid);
@@ -4126,13 +4649,21 @@ function decorate5D() {
   initBannerMotion();
   $$('.page-hero h1').forEach(el => { if (!el.closest('.order-card')) el.classList.add('ink-reveal'); });
 }
-// cursor glow — positioned always, shown only on fine pointers (CSS media gate)
+// cursor glow — shown only on fine pointers; auto-pauses when doc hidden / glow removed.
 (() => {
   const cg = $('#cursorGlow'); if (!cg) return;
+  if (matchMedia('(hover:none),(pointer:coarse)').matches) { cg.remove(); return; }
   cg.classList.add('on');
   let mx = innerWidth / 2, my = innerHeight / 2, gx = mx, gy = my;
   addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; }, { passive: true });
-  (function glow() { gx += (mx - gx) * 0.12; gy += (my - gy) * 0.12; cg.style.left = gx + 'px'; cg.style.top = gy + 'px'; requestAnimationFrame(glow); })();
+  (function glow() {
+    if (!document.body.contains(cg)) return;
+    if (!document.hidden) {
+      gx += (mx - gx) * 0.10; gy += (my - gy) * 0.10;
+      cg.style.left = gx + 'px'; cg.style.top = gy + 'px';
+    }
+    requestAnimationFrame(glow);
+  })();
 })();
 
 /* ─────────── boot ─────────── */

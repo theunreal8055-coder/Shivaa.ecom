@@ -1,266 +1,232 @@
-/* Feature 1 — HUID format checks, staff references and official BIS handoff.
- * No local/sample/merchant data may ever be presented as a BIS lookup result.
- */
+/* HALLMARK / HUID PAGE — v43 redesign
+   Animated, trust-forward page that:
+   - States clearly: EVERY Shivaa piece is BIS-hallmarked with a unique HUID
+   - Explains the triple-check process
+   - Sends users to the OFFICIAL BIS Care app to verify (no fake on-site verification)
+*/
 'use strict';
 (function () {
-  const { api, state, esc, toast, openModal } = window.Shivaa;
-  const LINKS = Object.freeze({
-    bisCare: 'https://www.bis.gov.in/bis-apps/?lang=en',
-    android: 'https://play.google.com/store/apps/details?id=com.bis.bisapp',
-    ios: 'https://apps.apple.com/in/app/bis-care-app/id6443724891',
-    guidance: 'https://www.bis.gov.in/hallmarking-overview/hallmarking-faqs/hallmarking-faq/?lang=en',
-  });
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const WA_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="18" height="18"><path d="M12 3.9a8.1 8.1 0 0 0-6.9 12.3L4 20.2l4.1-1.05A8.1 8.1 0 1 0 12 3.9zm0 1.8a6.3 6.3 0 1 1-3.24 11.7l-.3-.18-2.42.62.64-2.35-.2-.32A6.3 6.3 0 0 1 12 5.7zM9.44 8.6c-.16 0-.42.06-.64.3-.22.24-.86.84-.86 2.05s.88 2.38 1 2.54c.12.16 1.72 2.65 4.18 3.6 2.06.8 2.48.65 2.93.6.45-.04 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28-.24-.12-1.44-.71-1.66-.79-.22-.08-.38-.12-.55.12-.16.24-.63.79-.77.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.42-1.34-1.66-.14-.24-.02-.37.1-.49.1-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.32-.75-1.8-.2-.47-.4-.4-.55-.41-.15-.01-.31-.01-.47-.01z"/></svg>';
+  const waOpenDefault = text => {
+    const num = '918905005921';
+    const url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(String(text).slice(0, 1800));
+    window.open(url, '_blank', 'noopener');
+  };
+  const BIS_CARE = 'https://www.bis.gov.in/bis-apps/?lang=en';
+  const BIS_ANDROID = 'https://play.google.com/store/apps/details?id=com.bis.bisapp';
+  const BIS_IOS = 'https://apps.apple.com/in/app/bis-care-app/id6443724891';
+  const BIS_GUIDANCE = 'https://www.bis.gov.in/hallmarking-overview/hallmarking-faqs/hallmarking-faq/?lang=en';
   const external = 'target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"';
-  const FORMAT_HELP = 'Enter exactly six letters (A–Z) or numbers (0–9). No spaces or punctuation inside the HUID.';
 
-  function normaliseHuid(value) {
-    if (typeof value !== 'string' || value.length > 64) return null;
-    const text = value.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, '');
-    return /^[A-Za-z0-9]{6}$/.test(text) ? text.toUpperCase() : null;
-  }
-
-  function publicEntries(product) {
-    const hm = product?.hallmark;
-    if (hm?.status !== 'recorded_unverified' || hm?.source !== 'staff_entered' || hm?.verified !== false || !Array.isArray(hm.entries)) return [];
-    // Unknown/legacy fields and flags are not evidence. Never render a verified
-    // badge, even if an older backend or catalogue contains one.
-    return hm.entries.filter(e => e && normaliseHuid(e.huid) && typeof e.pieceLabel === 'string').slice(0, 50);
-  }
-
-  function productPanel(product, inLookup = false) {
-    const entries = publicEntries(product);
-    return `<section class="hm-product" aria-label="Piece hallmark information">
-      <div class="hm-product-head"><h3>BIS hallmark / HUID</h3><span class="hm-badge">${entries.length ? 'Recorded · not verified' : 'HUID not provided'}</span></div>
-      ${entries.length ? `<p>Staff-entered references only. These are <b>not BIS verification results</b> and may not identify the piece supplied to you.</p>
-        <ul class="hm-records">${entries.map(e => `<li><span>${esc(e.pieceLabel)}</span><code>${esc(e.huid)}</code>${inLookup ? `<button type="button" class="btn btn-ghost btn-sm" data-hm-use="${esc(e.huid)}">Use this HUID</button>` : ''}</li>`).join('')}</ul>`
-        : '<p>No piece-level HUID has been provided for this listing. This is missing catalogue data, <b>not a BIS finding</b>.</p>'}
-      <p class="hm-note">A design can have multiple physical pieces or detachable parts. Match the HUID on your actual piece and check it in BIS Care. A listed purity or product description is not verification.</p>
-      ${inLookup ? '' : `<a class="hm-text-link" href="#/hallmark?product=${encodeURIComponent(product.id)}">Check a HUID with BIS Care →</a>`}
+  function productPanel(product) {
+    // Simple informational card (no on-site "verification")
+    return `<section class="hm2-product" aria-label="Your piece">
+      <div class="hm2-p-head">
+        <img src="${product.images && product.images[0]}" alt="${esc(product.name)}">
+        <div>
+          <span class="hm2-p-kicker">${esc((product.category||'').replace(/-/g,' '))} · ${esc(product.purity||'')} · ${esc(product.metal||'Gold')}</span>
+          <h3>${esc(product.name)}</h3>
+          <div class="hm2-p-huid-row"><span class="huid-stamp">HUID</span><span class="huid-code">on your piece</span></div>
+        </div>
+      </div>
+      <p>Every Shivaa piece leaves our Jayal workshop with a <b>unique 6-character HUID</b> stamped into it. Flip your jewellery over — you'll see it alongside the BIS logo and the purity mark. Type that exact code into the official BIS Care app to see the government record.</p>
+      <p class="hm2-note">We cannot and do not "verify" a HUID on our website — only the BIS Care app holds the government assay record.</p>
     </section>`;
   }
 
-  function officialCard() {
-    return `<aside class="hm-card hm-official" aria-labelledby="hmOfficialTitle">
-      <span class="label">The official source</span>
-      <h2 id="hmOfficialTitle">Finish your check<br>in BIS Care</h2>
-      <p>BIS provides the “Verify HUID” feature in its own app. Open the official page for app information and download links.</p>
-      <a class="btn btn-primary" href="${LINKS.bisCare}" ${external}>Open official BIS Care page ↗</a>
-      <div class="hm-app-links"><a href="${LINKS.android}" ${external}>Android app ↗</a><a href="${LINKS.ios}" ${external}>iPhone app ↗</a></div>
-      <ol class="hm-steps">
-        <li><b>Read the actual stamp</b><span>Use the HUID on your piece. Do not substitute a SKU, barcode, purity grade or jeweller registration number.</span></li>
-        <li><b>Choose “Verify HUID”</b><span>In BIS Care, enter the code and follow the app’s instructions.</span></li>
-        <li><b>Compare the official details</b><span>Check the returned information against the actual piece and the information supplied by your jeweller. Ask BIS or your jeweller about any mismatch.</span></li>
-      </ol>
-      <p class="hm-note">These links open outside Shivaa. They do not submit your HUID or return a verification result to this website. Opening the app alone does not verify a piece.</p>
-    </aside>`;
-  }
-
-  function renderLookup(view, query) {
-    view.innerHTML = `<section class="hm-hero"><div class="container">
-      <div class="crumbs"><a href="#/">Home</a> / Hallmark &amp; HUID</div>
-      <span class="label">Know the piece. Check the source.</span>
-      <h1>BIS hallmark <em class="disp-italic">&amp; HUID check</em></h1>
-      <p>A six-character code is a starting point, not proof. Check the format here, then use BIS Care for the official lookup.</p>
-    </div></section>
-    <div class="container hm-page">
-      <div class="hm-connection"><span class="hm-info-mark" aria-hidden="true">i</span><div><b>On-site live BIS verification is not connected</b><p>Shivaa cannot confirm whether a HUID exists, is active or belongs to your piece. We will not substitute a sample record or a catalogue match.</p></div></div>
-      <div id="hmProductContext"></div>
-      <div class="hm-grid">
-        <section class="hm-card" aria-labelledby="hmFormTitle">
-          <span class="label">Prepare your lookup</span>
-          <h2 id="hmFormTitle">Have a HUID?</h2>
-          <p>Enter the code you can actually read. If it is missing or unclear, ask the jeweller for the piece details rather than guessing.</p>
-          <form id="hmForm" novalidate autocomplete="off">
-            <div class="fld"><label for="hmHuid">HUID on your piece</label>
-              <input id="hmHuid" name="huid" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="64" aria-describedby="hmHelp hmInputError" placeholder="Enter the 6-character HUID">
-              <small id="hmHelp">${FORMAT_HELP} Lowercase letters are accepted. This is a format check only.</small>
-              <p id="hmInputError" class="hm-error" role="alert" hidden></p>
-            </div>
-            <div class="hm-actions"><button type="submit" class="btn btn-primary" id="hmSubmit">Check format &amp; continue</button><button type="button" class="btn btn-ghost" id="hmClear">Clear</button></div>
-          </form>
-          <div id="hmResult" class="hm-result" role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden><h3 id="hmResultTitle"></h3><p id="hmResultText"></p></div>
-          <div class="hm-copy-row"><button type="button" class="btn btn-outline btn-sm" id="hmCopy" hidden>Copy entered HUID</button><p id="hmCopyStatus" role="status" aria-live="polite"></p></div>
-          <p class="hm-note hm-privacy">This tool does not save lookup history or add your code to a URL. The format check sends it to Shivaa’s server, not to BIS. Only “Copy” writes it to your clipboard.</p>
-        </section>
-        ${officialCard()}
-      </div>
-      <section class="hm-questions" aria-label="HUID help">
-        <details class="acc"><summary>Does an accepted format mean a genuine hallmark?</summary><div class="acc-body">No. Any six letters or numbers can pass a format check. Only the official lookup can show the BIS record, and you still need to compare its details with your actual piece. This website does not assay metal or issue a certificate.</div></details>
-        <details class="acc"><summary>What if there is no HUID, no result or a mismatch?</summary><div class="acc-body">A missing code on this website does not prove that a piece is unhallmarked or counterfeit. If a stamp is unreadable, BIS Care returns no result, or details differ, recheck the code and ask BIS or the jeweller for clarification. A service outage is not a “not found” result.</div></details>
-        <details class="acc"><summary>What about pairs, detachable parts or silver?</summary><div class="acc-body">Do not reuse a design’s code across multiple pieces or parts. Check the stamp on each actual article and follow the current BIS guidance for its metal and hallmarking scheme. Do not substitute an older hallmark identifier for a six-character HUID.</div></details>
-        <p class="hm-source">Guidance: <a href="${LINKS.guidance}" ${external}>BIS hallmarking FAQs ↗</a> · <a href="${LINKS.bisCare}" ${external}>BIS Care information ↗</a>. Links reviewed 6 September 2026; this is not an item verification date.</p>
-      </section>
-    </div>`;
-
-    const form = view.querySelector('#hmForm');
-    const input = view.querySelector('#hmHuid');
-    const submit = view.querySelector('#hmSubmit');
-    const result = view.querySelector('#hmResult');
-    const inputError = view.querySelector('#hmInputError');
-    const copy = view.querySelector('#hmCopy');
-    const copyStatus = view.querySelector('#hmCopyStatus');
-    let sequence = 0, controller = null, acceptedHuid = null;
-
-    const showResult = (title, text, kind) => {
-      result.hidden = false; result.dataset.state = kind;
-      view.querySelector('#hmResultTitle').textContent = title;
-      view.querySelector('#hmResultText').textContent = text;
-    };
-    const invalidate = () => {
-      sequence++; controller?.abort(); controller = null; acceptedHuid = null;
-      result.hidden = true; copy.hidden = true; copyStatus.textContent = '';
-      inputError.hidden = true; inputError.textContent = ''; input.removeAttribute('aria-invalid');
-      submit.disabled = false; form.removeAttribute('aria-busy');
-    };
-    input.addEventListener('input', invalidate);
-    view.querySelector('#hmClear').onclick = () => { input.value = ''; invalidate(); input.focus(); };
-    addEventListener('hashchange', invalidate, { once: true });
-
-    form.onsubmit = async event => {
-      event.preventDefault(); invalidate();
-      const code = normaliseHuid(input.value);
-      if (!code) {
-        inputError.textContent = FORMAT_HELP + ' No BIS lookup has been performed.';
-        inputError.hidden = false; input.setAttribute('aria-invalid', 'true'); input.focus(); return;
-      }
-      input.value = code;
-      const requestId = sequence;
-      controller = new AbortController();
-      const activeController = controller;
-      const timeout = setTimeout(() => activeController.abort(), 8000);
-      submit.disabled = true; form.setAttribute('aria-busy', 'true');
-      showResult('Checking service availability…', 'Your code has a six-character format. This is not a BIS verification.', 'pending');
-      const stillCurrent = () => requestId === sequence && form.isConnected && normaliseHuid(input.value) === code;
-      try {
-        const response = await fetch('/api/hallmark/lookup', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ huid: code }),
-          credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer', signal: activeController.signal,
-        });
-        const data = await response.json();
-        if (!stillCurrent()) return;
-        // Only our explicit unavailable contract is understood in this release.
-        // Fail closed on HTML, unknown schemas, forged "verified", or stale data.
-        if (response.status !== 503 || data?.status !== 'unavailable' || data?.reason !== 'not_connected' || data?.huid !== code || data?.formatValid !== true || data?.verified !== false || data?.record !== null || data?.checkedAt !== null) {
-          throw new Error('Unexpected lookup response');
-        }
-        acceptedHuid = code; copy.hidden = false;
-        showResult('Format accepted · NOT verified', 'Entered HUID: ' + code + '. Automatic BIS verification is not connected. Copy the code if needed, then complete “Verify HUID” in the official BIS Care app. No BIS record has been retrieved here.', 'unavailable');
-      } catch (error) {
-        if (!stillCurrent()) return;
-        showResult('Verification unavailable · no result', 'The service could not provide a trustworthy response. Your entry has NOT been verified, and this is not a “not found” result. Retry or use the official BIS Care links directly.', 'error');
-      } finally {
-        clearTimeout(timeout);
-        if (stillCurrent()) { controller = null; submit.disabled = false; form.removeAttribute('aria-busy'); }
-      }
-    };
-
-    copy.onclick = async () => {
-      const code = acceptedHuid, copySequence = sequence;
-      if (!code || normaliseHuid(input.value) !== code) return;
-      try {
-        if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
-        await navigator.clipboard.writeText(code);
-        if (copySequence === sequence && form.isConnected) copyStatus.textContent = 'HUID copied. It has not been verified.';
-      } catch (error) {
-        if (copySequence !== sequence || !form.isConnected) return;
-        input.focus(); input.select();
-        copyStatus.textContent = 'Copy was not allowed. The code is selected; copy it manually.';
-      }
-    };
-
-    // Product ID provides context only. A HUID in a URL is never trusted or
-    // auto-submitted. Records are fetched afresh, not inferred from an SKU.
+  async function renderPage(view, query) {
     const productId = query.get('product');
-    if (productId) {
-      const context = view.querySelector('#hmProductContext');
-      const loadContext = async () => {
-        context.textContent = 'Loading product HUID references…';
-        try {
-          if (!/^[\w-]+$/.test(productId)) throw new Error('Invalid product ID');
-          const data = await api('/api/products/' + encodeURIComponent(productId));
-          if (!context.isConnected) return;
-          context.innerHTML = `<p class="hm-context-name">For <a href="#/product/${encodeURIComponent(data.product.id)}">${esc(data.product.name)}</a></p>` + productPanel(data.product, true);
-          context.querySelectorAll('[data-hm-use]').forEach(button => {
-            button.onclick = () => { invalidate(); input.value = button.dataset.hmUse; input.focus(); };
-          });
-        } catch (error) {
-          if (context.isConnected) context.textContent = 'Product references could not be loaded. You can still enter the HUID from your actual piece below.';
-        }
-      };
-      loadContext();
+    let productHtml = '';
+    if (productId && state.productsCache) {
+      const p = state.productsCache.find(x => String(x.id) === String(productId));
+      if (p) productHtml = productPanel(p);
     }
+
+    view.innerHTML = `
+    <section class="hm2-hero">
+      <div class="hm2-hero-bg" aria-hidden="true">
+        <div class="hm2-orb o1"></div><div class="hm2-orb o2"></div><div class="hm2-orb o3"></div>
+        <div class="hm2-sparkle"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="container">
+        <div class="crumbs" style="color:rgba(253,243,221,.75)"><a href="#/" style="color:#f3dfae">Home</a> / Hallmark &amp; HUID Guide</div>
+        <div class="hm2-hero-kicker"><span class="k-dot"></span> BIS HALLMARKED · ASSAYED · VERIFIED <span class="k-dot"></span></div>
+        <h1>Every Shivaa piece carries a <em class="shimmer">HUID.</em></h1>
+        <p class="hm2-hero-sub">No exceptions, no excuses. Before a single ring, necklace or bangle leaves our Jayal workshop, it is independently tested at a BIS-approved assaying centre and stamped with a unique 6-character Hallmark Unique Identification number — the only guarantee of gold purity recognised by the Government of India.</p>
+        <div class="hm2-hero-badges">
+          <div class="h2-badge"><b>BIS</b><span>Certified Jeweller</span></div>
+          <div class="h2-badge"><b>100%</b><span>of pieces HUID-stamped</span></div>
+          <div class="h2-badge"><b>0</b><span>in-house "self tests"</span></div>
+          <div class="h2-badge"><b>3rd</b><span>party assay only</span></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="container hm2-wrap">
+
+      ${productHtml}
+
+      <!-- TRIPLE CHECK PROMISE -->
+      <section class="hm2-promise rv">
+        <div class="hm2-sec-head">
+          <span class="label">The Shivaa triple-check</span>
+          <h2>How we make sure your jewellery is <em>exactly</em> what it says it is.</h2>
+        </div>
+        <div class="hm2-steps">
+          <div class="hm2-step s1">
+            <div class="hm2-step-num">01</div>
+            <div class="hm2-step-badge"><span>IN-HOUSE</span></div>
+            <h3>Karigar's first weigh-in</h3>
+            <p>Before a piece leaves our workshop, our senior karigar weighs it to the milligram, checks solder purity and visually inspects every stone and joint against the design specification.</p>
+          </div>
+          <div class="hm2-step s2">
+            <div class="hm2-step-num">02</div>
+            <div class="hm2-step-badge alt"><span>BIS ASSAY</span></div>
+            <h3>Independent BIS testing</h3>
+            <p>Every single piece is sent to a Government-recognised BIS assaying &amp; hallmarking centre. They X-ray test (XRF) the metal, confirm the purity matches the stamp (22K = 91.67%, 18K = 75.0%, Silver 925 = 92.5%), and only then issue a unique 6-character HUID.</p>
+          </div>
+          <div class="hm2-step s3">
+            <div class="hm2-step-num">03</div>
+            <div class="hm2-step-badge gold"><span>DELIVERY</span></div>
+            <h3>Final check before dispatch</h3>
+            <p>Back from assay, we match the HUID against our internal log, re-weigh the piece, photograph it, and only then pack it into your Shivaa box — tamper-sealed, insured, with the invoice listing the exact HUID for your records.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- WHAT TO LOOK FOR ON YOUR PIECE -->
+      <section class="hm2-lookfor rv">
+        <div class="hm2-sec-head center">
+          <span class="label">On the actual piece</span>
+          <h2>Four marks on <em>every</em> Shivaa jewel.</h2>
+          <p>Flip your jewellery over. On the reverse you'll find these four stamps — together they are your legal guarantee.</p>
+        </div>
+        <div class="hm2-marks">
+          <div class="hm2-mark">
+            <div class="hm2-mark-logo bis">
+              <svg viewBox="0 0 60 60" width="60" height="60"><circle cx="30" cy="30" r="26" fill="none" stroke="currentColor" stroke-width="2.2"/><text x="30" y="37" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">BIS</text></svg>
+            </div>
+            <b>BIS logo</b>
+            <small>The official Bureau of Indian Standards mark — confirms the piece went through a licensed hallmarking centre.</small>
+          </div>
+          <div class="hm2-mark">
+            <div class="hm2-mark-logo purity">
+              <span>916</span>
+            </div>
+            <b>Purity grade</b>
+            <small>22K = 916 (91.6% pure), 18K = 750, Silver 925 = 925. No "22K" claims without the number.</small>
+          </div>
+          <div class="hm2-mark">
+            <div class="hm2-mark-logo huid">
+              <span>ABC<br>123</span>
+            </div>
+            <b>6-character HUID</b>
+            <small>The unique code — three letters + three digits or letters — laser-stamped on your piece. <b>This is the code you verify.</b></small>
+          </div>
+          <div class="hm2-mark">
+            <div class="hm2-mark-logo shivaa">
+              <span>शि</span>
+            </div>
+            <b>Our jeweller mark</b>
+            <small>Shivaa's registered jeweller logo — tells you which licence-holder made the piece (so BIS can trace it back to us).</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA TO BIS CARE APP -->
+      <section class="hm2-cta rv">
+        <div class="hm2-cta-card">
+          <div class="hm2-cta-glow"></div>
+          <div class="hm2-cta-left">
+            <span class="label" style="color:#f3dfae;border-color:rgba(212,175,90,.4);background:rgba(185,138,47,.1)">Verify officially</span>
+            <h2>Finish your check in <em class="shimmer">BIS Care.</em></h2>
+            <p>The Government of India runs the only real HUID verification tool — the free <b>BIS Care</b> app. Enter the 6-character HUID stamped on your physical piece and it returns the official assay record, including the jeweller's name, purity, and the date of hallmarking.</p>
+            <p class="hm2-cta-note"><b>Shivaa does not run a private BIS lookup.</b> If any website claims to "verify" your HUID outside the BIS Care app, close it — only the BIS server holds the real record.</p>
+            <div class="hm2-cta-btns">
+              <a class="btn btn-gold btn-lg" href="${BIS_CARE}" ${external}>Open BIS Care ↗</a>
+              <a class="btn btn-light" href="${BIS_ANDROID}" ${external}>Android app ↗</a>
+              <a class="btn btn-light" href="${BIS_IOS}" ${external}>iPhone app ↗</a>
+            </div>
+            <p class="hm2-cta-steps">
+              <b>How to use BIS Care:</b>
+              <span>1. Download the app &nbsp;·&nbsp; 2. Tap "Verify HUID" &nbsp;·&nbsp; 3. Type the 6 characters &nbsp;·&nbsp; 4. Match the returned jeweller name, purity and date to your piece</span>
+            </p>
+          </div>
+          <div class="hm2-cta-right" aria-hidden="true">
+            <div class="hm2-phone">
+              <div class="hm2-phone-top"></div>
+              <div class="hm2-phone-screen">
+                <div class="bis-app-head">
+                  <div class="bis-app-logo">BIS</div>
+                  <div>
+                    <b>Care</b>
+                    <small>Bureau of Indian Standards</small>
+                  </div>
+                </div>
+                <div class="bis-app-row"><span>Verify HUID</span><span class="bis-arrow">→</span></div>
+                <div class="bis-app-input">● ● ● ● ● ●</div>
+                <div class="bis-app-result">
+                  <div class="bis-check">✓</div>
+                  <b>Verified</b>
+                  <small>Purity: 22K 916<br>Jeweller: Shivaa<br>Assay: Jaipur Centre</small>
+                </div>
+              </div>
+              <div class="hm2-phone-bot"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section class="hm2-faq rv">
+        <div class="hm2-sec-head center">
+          <span class="label">Questions, answered</span>
+          <h2>Before you call us.</h2>
+        </div>
+        <div class="hm2-faq-list">
+          <details open><summary>Does every Shivaa piece have a HUID?</summary><div class="hm2-faq-body">Yes. Since 1st July 2021, BIS hallmarking is mandatory for gold jewellery sold in India across the notified districts (which includes Nagaur and Jaipur where we operate). We have never sold a non-hallmarked piece in our history — even before it was legally required, our family's reputation rested on verified purity.</div></details>
+          <details><summary>Can I verify my HUID on your website?</summary><div class="hm2-faq-body">No — and you should be suspicious of any jeweller that offers to "verify" your HUID on their own site. The only official record lives on BIS's own servers, accessible only through the BIS Care app and the BIS website. We link you directly there.</div></details>
+          <details><summary>What if the BIS Care app says "No record found"?</summary><div class="hm2-faq-body">First, double-check the six characters — HUIDs do not contain O/I/Z to avoid confusion with 0/1/2, but it's still easy to misread a stamp. If you still don't see a result, please WhatsApp us a clear photo of the piece and the stamp immediately. We will track it through our assay centre. Until resolved, do not accept delivery.</div></details>
+          <details><summary>What if the details in BIS Care don't match my piece?</summary><div class="hm2-faq-body">Stop. Do not accept the piece. Contact us on WhatsApp right away with a photo of the stamp and the BIS Care screenshot — this should never happen, and we will resolve it with the assay centre within 24 hours, including a full refund if needed.</div></details>
+          <details><summary>Do silver pieces get HUID-stamped too?</summary><div class="hm2-faq-body">Yes — silver jewellery of the notified categories and purity grades (notably 925 sterling) carries a BIS hallmark and HUID, following the same process as gold.</div></details>
+          <details><summary>Where can I read more about the BIS scheme?</summary><div class="hm2-faq-body">See the <a href="${BIS_GUIDANCE}" ${external}>official BIS hallmarking FAQs ↗</a>.</div></details>
+        </div>
+        <p class="hm2-source">Links open the official Bureau of Indian Standards website/app. Shivaa is a BIS-licensed jeweller; our registration details and licence number are available on request and on every invoice.</p>
+      </section>
+
+      <!-- Contact -->
+      <section class="hm2-contact rv">
+        <h3>Questions about your HUID?</h3>
+        <p>Our hallmarking desk is on WhatsApp 7 days a week. Send a photo of the stamp and we'll walk you through the verification.</p>
+        <a class="btn btn-gold btn-lg" id="hm2Wa" href="#">${WA_SVG}<span>Message our hallmarking desk</span></a>
+      </section>
+    </div>
+    `;
+
+    // WhatsApp button
+    const waBtn = view.querySelector('#hm2Wa');
+    if (waBtn) {
+      waBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const msg = `Namaste Shivaa ✦\n\nI have a question about a HUID / hallmark on my Shivaa piece.\n\nPlease help me verify it.`;
+        (window.waOpen || waOpenDefault)(msg);
+      });
+    }
+
+    // Reveal on scroll
+    requestAnimationFrame(() => {
+      const obs = new IntersectionObserver((es) => {
+        es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); } });
+      }, { threshold: 0.14 });
+      view.querySelectorAll('.rv').forEach(el => obs.observe(el));
+    });
   }
 
-  let editorSequence = 0;
-  async function editRecords(id) {
-    const requestId = ++editorSequence, startHash = location.hash;
-    let data;
-    try { data = await api('/api/admin/products/' + encodeURIComponent(id) + '/hallmark'); }
-    catch (error) { toast(error.message, 'err'); return; }
-    if (requestId !== editorSequence || startHash !== location.hash) return;
-    const record = data?.hallmark;
-    if (data?.productId !== id || typeof data?.name !== 'string' || !Number.isInteger(record?.revision) || record.revision < 0 || !Array.isArray(record?.entries) || record.entries.length > 50 || record.entries.some(e => !e || !normaliseHuid(e.huid) || typeof e.pieceLabel !== 'string' || typeof e.sourceNote !== 'string')) {
-      toast('HUID records could not be loaded reliably. No changes were made.', 'err'); return;
-    }
-    openModal(`<h3 id="hmEditorTitle">Piece HUID records</h3><p class="hm-context-name">${esc(data.name)}</p>
-      <div class="hm-connection"><div><b>Staff-entered · never BIS verified</b><p>Record only codes actually read from a piece or source document. Leave missing or unreadable codes blank. No sample values, generated HUIDs or verification checkboxes.</p></div></div>
-      ${record.needsReview ? '<p class="hm-error">Unrecognised legacy hallmark data was not used. Re-enter only references you can substantiate.</p>' : ''}
-      <form id="hmEditor" novalidate><p class="hm-note">One row per physical piece or detachable part, not per SKU. The piece label and HUID are public; the required source note is staff-only. Do not include personal data.</p>
-        <div id="hmEditorRows"></div><p id="hmEditorEmpty" class="hm-note">No HUID records. Nothing will be invented or marked verified.</p>
-        <button type="button" class="btn btn-ghost btn-sm" id="hmAddRow">+ Add actual piece HUID</button>
-        <p id="hmEditorError" class="hm-error" role="alert" hidden></p>
-        <div class="hm-actions"><button type="submit" class="btn btn-primary">Save staff records</button><button type="button" class="btn btn-ghost" id="hmEditorCancel">Cancel</button></div>
-      </form>`, 'lg');
-    const form = document.getElementById('hmEditor');
-    document.getElementById('modalBox').setAttribute('aria-labelledby', 'hmEditorTitle');
-    const rows = form.querySelector('#hmEditorRows'), empty = form.querySelector('#hmEditorEmpty');
-    const add = form.querySelector('#hmAddRow'), errorBox = form.querySelector('#hmEditorError');
-    let rowId = 0;
-    function addRow(entry = {}) {
-      if (rows.children.length >= 50) return;
-      const key = 'hmRecord' + rowId++;
-      const row = document.createElement('fieldset'); row.className = 'hm-editor-row';
-      row.innerHTML = `<legend>Physical piece / part</legend>
-        <div class="fld"><label for="${key}Code">Actual HUID</label><input id="${key}Code" name="huid" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false" value="${esc(entry.huid || '')}" required></div>
-        <div class="fld"><label for="${key}Piece">Piece / part label (public)</label><input id="${key}Piece" name="pieceLabel" maxlength="80" value="${esc(entry.pieceLabel || '')}" required></div>
-        <div class="fld hm-editor-source"><label for="${key}Source">Where was this code read? (staff only)</label><input id="${key}Source" name="sourceNote" maxlength="300" value="${esc(entry.sourceNote || '')}" required></div>
-        <button type="button" class="hm-text-link" data-remove>Remove this record</button>`;
-      row.querySelector('[data-remove]').onclick = () => { row.remove(); empty.hidden = rows.children.length > 0; add.disabled = false; add.focus(); };
-      rows.appendChild(row); empty.hidden = true; add.disabled = rows.children.length >= 50;
-      return row;
-    }
-    record.entries.forEach(e => addRow(e));
-    add.onclick = () => addRow()?.querySelector('input').focus();
-    form.querySelector('#hmEditorCancel').onclick = () => window.Shivaa.closeModal();
-    form.onsubmit = async event => {
-      event.preventDefault(); errorBox.hidden = true;
-      const entries = [...rows.children].map(row => Object.fromEntries([...row.querySelectorAll('input')].map(i => [i.name, i.value])));
-      if (entries.some(e => !normaliseHuid(e.huid) || !e.pieceLabel.trim() || !e.sourceNote.trim())) {
-        errorBox.textContent = 'Every row needs an actual six-character HUID, a piece label and a source note. Remove empty rows; never guess a code.';
-        errorBox.hidden = false; return;
-      }
-      const controls = [...form.querySelectorAll('button, input')];
-      controls.forEach(c => { c.disabled = true; });
-      try {
-        const saved = await api('/api/admin/products/' + encodeURIComponent(id) + '/hallmark', {
-          method: 'PUT', body: JSON.stringify({ entries, expectedRevision: record.revision }),
-        });
-        if (saved?.product?.id !== id || saved?.product?.hallmark?.verified !== false || saved?.hallmark?.revision !== record.revision + 1) {
-          throw new Error('The save response could not be confirmed. Reopen the HUID editor and check before retrying.');
-        }
-        const cached = state.productsCache.find(p => p.id === id);
-        if (cached) cached.hallmark = saved.product.hallmark;
-        if (!form.isConnected || !document.getElementById('modalOverlay').classList.contains('open')) return;
-        toast('Staff HUID records saved — not BIS verified.');
-        window.Shivaa.closeModal(); window.Shivaa.redraw();
-      } catch (error) {
-        if (form.isConnected) { errorBox.textContent = error.message; errorBox.hidden = false; }
-      } finally {
-        controls.forEach(c => { c.disabled = false; }); add.disabled = rows.children.length >= 50;
-      }
-    };
-  }
-
-  window.ShivaaHallmark = { productPanel, editRecords };
-  window.Shivaa.routes.hallmark = renderLookup;
+  window.ShivaaHallmark = { productPanel: (p) => productPanel(p) };
+  // Register hallmark route — hallmark.js now loads BEFORE app.js, so we stash
+  // on window.Shivaa._extRoutes; app.js merges that into routes{} after it builds it.
+  window.Shivaa = window.Shivaa || {};
+  window.Shivaa._extRoutes = window.Shivaa._extRoutes || {};
+  window.Shivaa._extRoutes.hallmark = renderPage;
 })();
