@@ -6,7 +6,13 @@
 */
 'use strict';
 (function () {
-  const { state, esc } = window.Shivaa;
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const WA_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="18" height="18"><path d="M12 3.9a8.1 8.1 0 0 0-6.9 12.3L4 20.2l4.1-1.05A8.1 8.1 0 1 0 12 3.9zm0 1.8a6.3 6.3 0 1 1-3.24 11.7l-.3-.18-2.42.62.64-2.35-.2-.32A6.3 6.3 0 0 1 12 5.7zM9.44 8.6c-.16 0-.42.06-.64.3-.22.24-.86.84-.86 2.05s.88 2.38 1 2.54c.12.16 1.72 2.65 4.18 3.6 2.06.8 2.48.65 2.93.6.45-.04 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28-.24-.12-1.44-.71-1.66-.79-.22-.08-.38-.12-.55.12-.16.24-.63.79-.77.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.42-1.34-1.66-.14-.24-.02-.37.1-.49.1-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.32-.75-1.8-.2-.47-.4-.4-.55-.41-.15-.01-.31-.01-.47-.01z"/></svg>';
+  const waOpenDefault = text => {
+    const num = '918905005921';
+    const url = 'https://wa.me/' + num + '?text=' + encodeURIComponent(String(text).slice(0, 1800));
+    window.open(url, '_blank', 'noopener');
+  };
   const BIS_CARE = 'https://www.bis.gov.in/bis-apps/?lang=en';
   const BIS_ANDROID = 'https://play.google.com/store/apps/details?id=com.bis.bisapp';
   const BIS_IOS = 'https://apps.apple.com/in/app/bis-care-app/id6443724891';
@@ -203,8 +209,8 @@
     if (waBtn) {
       waBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        const msg = `Namaste Shivaa ✦\n\nI have a question about a HUID / hallmark on my Shivaa piece.\n\n${productId ? `Product: ${productId}\n` : ''}Please help me verify it.`;
-        if (window.waOpen) waOpen(msg);
+        const msg = `Namaste Shivaa ✦\n\nI have a question about a HUID / hallmark on my Shivaa piece.\n\nPlease help me verify it.`;
+        (window.waOpen || waOpenDefault)(msg);
       });
     }
 
@@ -217,15 +223,10 @@
     });
   }
 
-  window.ShivaaHallmark = { productPanel };
-  // Register hallmark route. hallmark.js loads BEFORE app.js creates const routes={},
-  // so we stash it on window.Shivaa._extRoutes and app.js merges it in when ready.
+  window.ShivaaHallmark = { productPanel: (p) => productPanel(p) };
+  // Register hallmark route — hallmark.js now loads BEFORE app.js, so we stash
+  // on window.Shivaa._extRoutes; app.js merges that into routes{} after it builds it.
   window.Shivaa = window.Shivaa || {};
   window.Shivaa._extRoutes = window.Shivaa._extRoutes || {};
   window.Shivaa._extRoutes.hallmark = renderPage;
-  // Also bind as soon as window.Shivaa.routes exists (covers all timings):
-  const bind = () => { if (window.Shivaa && window.Shivaa.routes) window.Shivaa.routes.hallmark = renderPage; };
-  bind();
-  document.addEventListener('DOMContentLoaded', bind, { once: true });
-  addEventListener('load', bind, { once: true });
 })();

@@ -1349,28 +1349,30 @@ function initGiftConcierge() {
 
   // ---- option clicks ----
   function advanceAfterPick() {
-    // small delay for the "on" animation, then advance
     clearTimeout(window._gcAdv);
     window._gcAdv = setTimeout(() => {
       if (state.step < panels.length) setStep(state.step + 1);
       else showResults();
-    }, 480);
+    }, 420);
   }
   panels.forEach(panel => {
     const q = panel.dataset.q;
     const opts = panel.querySelectorAll('.gc-opt');
     opts.forEach(opt => {
-      opt.addEventListener('click', () => {
+      const pick = (e) => {
+        e.preventDefault();
         opts.forEach(o => o.classList.remove('on'));
         opt.classList.add('on');
         if (q) state.answers[q] = opt.dataset.val;
         refreshNext();
-        if (q && q !== 'budget') advanceAfterPick(); // auto-advance on recipient/occasion/style picks
-      });
+        if (q && q !== 'budget') advanceAfterPick();
+      };
+      opt.addEventListener('click', pick);
     });
-    panel.querySelector('.gc-prev')?.addEventListener('click', () => { clearTimeout(window._gcAdv); setStep(state.step - 1); });
-    panel.querySelector('.gc-next')?.addEventListener('click', () => {
-      clearTimeout(window._gcAdv);
+    panel.querySelector('.gc-prev')?.addEventListener('click', (e) => { e.preventDefault(); clearTimeout(window._gcAdv); setStep(state.step - 1); });
+    const nextBtn = panel.querySelector('.gc-next');
+    if (nextBtn) nextBtn.addEventListener('click', (e) => {
+      e.preventDefault(); clearTimeout(window._gcAdv);
       if (state.step < panels.length) setStep(state.step + 1);
       else showResults();
     });

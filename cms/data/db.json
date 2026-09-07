@@ -26,12 +26,12 @@
  },
  "rates": {
   "last": {
-   "t": "2026-09-07T05:30:06.160Z",
-   "gold24": 15600,
-   "gold22": 14300,
-   "gold18": 11603,
-   "silver": 239,
-   "source": "manual_v42"
+   "t": "2026-09-07T06:34:43.295Z",
+   "gold24": 15545,
+   "gold22": 14245,
+   "gold18": 11562,
+   "silver": 236,
+   "source": "manual_v43"
   },
   "history": [
    {
@@ -1553,8 +1553,22 @@
     "gold18": 11603,
     "silver": 239,
     "source": "manual_v42"
+   },
+   {
+    "t": "2026-09-07T06:34:43.295Z",
+    "gold24": 15545,
+    "gold22": 14245,
+    "gold18": 11562,
+    "silver": 236,
+    "source": "manual_v43"
    }
-  ]
+  ],
+  "override": {
+   "gold24": 15600,
+   "gold22": 14300,
+   "gold18": 11603,
+   "silver": 239
+  }
  },
  "makingCharges": [
   {
