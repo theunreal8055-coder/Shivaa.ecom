@@ -1,137 +1,137 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-07**
-**Current version: v43 (batch 1)**
-**Repository: theunreal8055-coder/Shivaa.ecom**
-**This file is on GitHub and persists across all sessions and branches**
+**Last updated: 2026-09-07 (v43 batch 1)**
+**Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
+**THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
 ---
 
-## 🚨 READ THIS FIRST (For Any New Agent / New Chat)
+## 🚀 HOW ANY NEW CHAT STARTS (owner: just do these two things)
 
-This is a **live jewellery e-commerce website** for Shivaa Jewellery (Jaipur, India). The owner has worked across multiple Arena AI sessions and previously lost progress when agents made mistakes. **Follow these rules strictly.**
+1. Open a new chat (any branch session) and connect it to this GitHub repo.
+2. Say: **"Read HANDOFF.md first before doing anything"** — then paste/ask your task.
 
-### STRICT RULES — NEVER BREAK THESE:
-1. **DO NOT delete any existing products, data, features, or files** unless the owner explicitly asks you to
-2. **Read `cms/data/db.json` BEFORE making any changes** — understand what exists
-3. **Back up before major changes** — `git add -A && git commit -m "backup before [change]"`
-4. **After changes, verify nothing was lost** — check product counts, check images exist
-5. **When adding new data, verify it actually gets added** — don't assume, count and confirm
-6. **Ask the owner before removing anything** — even if it seems unused
-7. **Update this HANDOFF.md after every significant change** — this is how future sessions know what happened
-8. **Only move FORWARD** — never undo working features to "clean up"
-
-### WHAT "FORWARD ONLY" MEANS:
-- Before making changes: note the current state (product counts, features working)
-- After making changes: verify the same or better state (same counts + new additions)
-- If something breaks during your work: FIX IT before telling the owner you're done
-- Never say "I fixed X but broke Y" — that is not acceptable
+The agent reads this file + `tools/photoshoot/SESSION-STATE.md` and knows:
+what exists, what is done, what is pending, how to deploy, and what never to touch.
+**No information needs to be re-explained. Ever. This file is always updated after every work session.**
 
 ---
 
-## ✅ CURRENT WORKING STATE (v43 — batch 1 on branch, main = v42)
+## ⛔ STRICT RULES — NEVER BREAK (carried from v42, still law)
 
-### Products (405 total in db.json)
-| Category | Count |
-|----------|-------|
-| Rings | 85 (65 PGS + 20 original) |
-| Necklaces | 20 |
-| Earrings | 20 |
-| Bangles | 20 |
-| Bracelets | 20 |
-| Pendants | 20 |
-| Mangalsutra | 20 |
-| Nosepins | 20 |
-| Silver | 20 |
-| Bajubandh | 20 |
-| Rakhdi | 20 |
-| Aad | 20 |
-| Sheeshphool | 20 |
-| Hathphool | 20 |
-| Punach | 20 |
-| Bridal Anklets | 20 |
-| Chains | 20 |
+1. DO NOT delete any existing products, data, features, or files unless the owner explicitly asks
+2. Read `cms/data/db.json` BEFORE making changes — understand what exists
+3. Back up before major changes — `git add -A && git commit -m "backup before [change]"`
+4. After changes, verify nothing was lost — count products, count images
+5. When adding new data, verify it actually got added — count and confirm
+6. Ask the owner before removing anything — even if it seems unused
+7. **Update THIS HANDOFF (or `tools/photoshoot/SESSION-STATE.md`) after EVERY work session — every step, every product**
+8. Only move FORWARD — never undo working features
+9. COMMIT EVERY TURN and `git push origin <branch>` — sandbox resets can wipe uncommitted work
+10. Work only on the current session branch (the `arena/…` branch Arena gives you). Never switch branches.
 
-### PGS Ring Designs (PGS5001–PGS5065) — ALL LIVE
-- **65 designs total** — all imported and visible on website
-- **39 with full AI photoshoot** (studio + editorial + worn + gift images + video) — done by v42
-- **9 more completed in v43 batch 1**: PGS5008 5009 5010 5011 5012 5013 5019 5020 5021 (4 shots + film + db each)
-- **17 still pending**: PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5048 5052 5053 5054 5055 5056 5059
-- All media in `cms/images/designs/rings/`; toolchain + runbook in `tools/photoshoot/`
+---
 
-### Gold Rates (per gram)
-- 24K: ₹15,600
-- 22K: ₹14,300
-- 18K: ₹11,603
-- Silver: ₹239
+## 📡 DEPLOYMENT — HOW IT WORKS (read this before saying "deploy")
 
-### Key Files
-| File | Lines | Purpose |
-|------|-------|---------|
-| `cms/index.html` | ~850 | Main SPA shell (cache buster ?v=42) |
-| `cms/js/app.js` | ~4294 | All JS logic |
-| `cms/css/styles.css` | ~4859 | All styles |
-| `cms/data/db.json` | ~24847 | Product database (405 products) |
-| `cms/images/designs/rings/` | 286 files | Ring images + videos |
-| `HANDOFF.md` | this file | Session handoff document |
+**Hard fact (verified 7 Sep 2026):** the Arena chat sandbox CANNOT reach shivaa.in.
+DNS resolves but the firewall kills the TLS handshake (`SSL_ERROR_SYSCALL`, curl exit 35,
+3/3 attempts). No chat — this one or any future one — can call the live site's API directly.
+That is why `deploy/UPLOAD-RUNBOOK.md` and `deploy/AUTOMATION.md` exist.
 
-### Working Features (All Verified ✅)
-- ✅ No flicker on page load (hero pre-rendered in HTML)
-- ✅ No unresponsive page after load (lazy init, no forced scroll)
-- ✅ Hero banner no longer white (pre-rendered in static HTML)
-- ✅ No hero image vibration/jitter
-- ✅ No scroll lag on mobile (GPU-only animations, reduced motion)
-- ✅ Hallmark popup no longer crashes on mobile (debounced + mobile-safe)
-- ✅ Gift Concierge carousel auto-advances on mobile (12s interval)
-- ✅ Product gallery auto-advances on mobile (10s interval)
-- ✅ Gold rates updated correctly
-- ✅ All 65 PGS ring designs visible on website
-- ✅ Mobile B2B banner clean (no overlap)
+**Therefore deployment = GitHub push + server-side auto-sync:**
+
+1. **One-time owner setup (~5 min, per `deploy/AUTOMATION.md`):**
+   - On the Hostinger server: put `deploy/auto_sync.php` in the home dir.
+   - Save its config (`~/.shivaa-sync.json`, 0600) with: admin email + password,
+     `repo: theunreal8055-coder/Shivaa.ecom`, **`branch: arena/01a07bb3-shivaa-ecom`** ← the
+     branch the agent works on (older docs mention `arena/01a07082-…` — that is WRONG now),
+     optional read-only GitHub PAT, `deploy_code: true`.
+   - hPanel cron: `php /home/<USER>/auto_sync.php` every 5 minutes.
+2. **From then on, EVERY deploy from EVERY chat is just:** finish the work →
+   `git add -A && git commit && git push origin <branch>`. Within ~5 minutes the server
+   pulls the branch and automatically:
+   - deploys changed `cms/` code to `public_html` (verified + smoke-tested + auto-rollback;
+     **never** touches live `data/` or `uploads/`), and
+   - uploads every design in `<batch>/media/{SKU}/` that has complete media
+     (4 shots + `video.mp4` + `meta.json`, staged by the agent) to the live catalogue
+     via `/api/media` + `/api/products` (upsert by SKU, ledger-deduped, resumable).
+3. **Manual alternative paths** (if cron not installed):
+   - Zip: `shivaa-update-v43-rings-batch1.zip` (9 rings) — see `DEPLOY-v43-RINGS-BATCH1.md`.
+   - API from any online machine: `python3 pipeline/06_upload.py --config demo65/config.json --live --only <SKUs>`.
+
+**When the owner says "deploy" in a chat, the agent's job is:** finish + verify staging,
+commit, push, confirm in HANDOFF that batch N is pushed, and remind the owner the server
+cron deploys it within ~5 min (or run Path B manually if no cron).
+
+---
+
+## ✅ CURRENT STATE (v43 batch 1 — pushed to `arena/01a07bb3-shivaa-ecom`)
+
+### Product counts (405 total in db.json — MUST stay 405 unless owner orders otherwise)
+| Category | Count | Status |
+|----------|-------|--------|
+| Rings | 85 = 65 PGS + 20 original | PGS media升级 in progress (ledger below) |
+| Necklaces, Earrings, Bangles, Bracelets, Pendants, Mangalsutra, Nosepins, Silver, Bajubandh, Rakhdi, Aad, Sheeshphool, Hathphool, Punach, Bridal Anklets, Chains | 16 × 20 = 320 | Untouched, live |
+
+### PGS RING LEDGER (all 65 — agent: keep this exact table current)
+**✅ Full photoshoot since v42 (39):**
+PGS5001 5002 5003 5004 5005 5006 5007 5014 5015 5016 5017 5018 5022 5023 5024 5025 5026 5027 5029 5032 5033 5035 5036 5043 5044 5045 5046 5047 5049 5050 5051 5057 5058 5060 5061 5062 5063 5064 5065
+
+**✅ Full photoshoot completed in v43 batch 1 (9):**
+PGS5008 Mehndi · PGS5009 Jharokha · PGS5010 Marudhara · PGS5011 Sheesh Mahal ·
+PGS5012 Hawa Mahal · PGS5013 City Palace · PGS5019 Heera · PGS5020 Panna · PGS5021 Manik
+(each: 4 AI shots 896×1195 + 10s 720×720 film, in `cms/images/designs/rings/`, wired in db.json,
+ media staged in `demo65/media/{SKU}/` for the uploader)
+
+**⏳ Photoshoot pending (17):**
+PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5048 5052 5053 5054 5055 5056 5059
+→ how to continue: `tools/photoshoot/SESSION-STATE.md` (workflow, prompts, per-ring design notes)
+
+**Owner's "31 rings / 93 images" note:** ground truth on repo = the 26 PGS rings above
+(25 were pending when v43 started). No PGS5066+ exists anywhere.
+
+### Key files
+| File | Purpose |
+|------|---------|
+| `cms/data/db.json` | Product DB (405). api.php serves it. Byte-faithful round-trip: `json.dumps(db, indent=2, ensure_ascii=True)` |
+| `cms/images/designs/rings/` | All ring media (refs + shots + videos) |
+| `tools/photoshoot/` | make_refs.py · finalize.py · video.py · db_update.py · badge assets · SESSION-STATE.md |
+| `demo65/` | Batch-1 staging: `work/designs.json` (65 designs) + `media/{SKU}/` for the uploader |
+| `deploy/auto_sync.php` | Server cron worker (pull + deploy + upload). Setup: `deploy/AUTOMATION.md` |
+| `pipeline/06_upload.py` | Manual API uploader (Path B) |
+| `DEPLOY-v43-RINGS-BATCH1.md` | Batch-1 deploy instructions (zip + API paths) |
+
+### Gold rates (per gram): 24K ₹15,600 · 22K ₹14,300 · 18K ₹11,603 · Silver ₹239
+
+---
+
+## 📝 SESSION STEP LOG (newest first — append every session)
+
+**2026-09-07 — v43 batch 1 (this session)**
+1. Read HANDOFF v42; found 26 PGS rings with reference photo only (their `_shot_studio.jpg` was a byte-copy of the raw photo incl. green price tag).
+2. Built + tested photoshoot toolchain (now in `tools/photoshoot/`): tag-free ref cropper, house-style finisher (896×1195 + Shivaa INC. badge), ken-burns video renderer (10s 720×720 25fps — matches the 39 existing films), byte-faithful db updater.
+3. Generated full photoshoots for 9 rings: PGS5008 5009 5010 5011 5012 5013 5019 5020 5021 (36 shots + 9 films), every shot QA'd against the reference; re-rolled off-design renders (PGS5010 studio/gift, PGS5021 editorial prop-card) until faithful.
+4. Wired all 9 into db.json (images[4] + video + mediaNote). 405 products intact before/after.
+5. Staged `demo65/media/{9 SKUs}/` (shots + video + meta.json) for the auto-sync/manual uploader.
+6. Built `shivaa-update-v43-rings-batch1.zip` (14.7 MB, 46 files) + `DEPLOY-v43-RINGS-BATCH1.md`.
+7. Opened PR #13 (`arena/01a07bb3-shivaa-ecom` → `main`); all work pushed.
+8. Verified sandbox→shivaa.in blocked (TLS killed) → documented auto-sync deployment path (above).
+9. Rewrote this HANDOFF as the permanent single source of truth.
+
+**Pre-v42 (summary):** 65 PGS rings imported; 39 photographed; v42 bug-fix set (see git tag `v42-stable`).
 
 ---
 
 ## ⛔ DO NOT TOUCH
 - `cms/deadstock.html` — owner explicitly said leave it alone
-- Existing product data — unless explicitly asked to change
-- Carousel/gallery auto-advance — already set to slower mobile pace, don't disable
+- Existing product data (weights, purities, prices) — unless explicitly asked
+- Carousel/gallery auto-advance — tuned, don't disable
+- Live `data/db.json` + `uploads/` on the server — only via API upsert / cron; never clobber via manual file copy if live orders exist (Path A zip warning in `DEPLOY-v43-RINGS-BATCH1.md`)
 
 ---
 
-## 🔄 DEPLOYMENT (v43 batch 1 — rings)
-See **`DEPLOY-v43-RINGS-BATCH1.md`** for full instructions. Two paths:
-- **Path A (zip):** owner downloads `shivaa-update-v43-rings-batch1.zip` (14.7 MB, 46 files: 45 media + db.json), uploads via hPanel, extracts over public_html. ⚠️ contains db.json — merge/first-export live orders if any were taken since v42.
-- **Path B (API, safest):** `python3 pipeline/06_upload.py --config demo65/config.json --live --only PGS5008,PGS5009,PGS5010,PGS5011,PGS5012,PGS5013,PGS5019,PGS5020,PGS5021` from any online machine — media pre-staged in `demo65/media/{SKU}/`, upserts by SKU, never touches db.json.
-- Auto-sync cron users: point the saved branch at `arena/01a07bb3-shivaa-ecom`.
-
-To rebuild a full-site zip (v42 style):
-```bash
-cd /home/user/Shivaa.ecom
-zip -r shivaa-update-v42.zip cms/
-```
-
----
-
-## 📌 GIT HISTORY & MILESTONES
-| Tag/Commit | Description |
-|------------|-------------|
-| `v42-stable` (tag) | All 65 PGS rings live + all v42 bug fixes |
-| `dc2814d` | Added HANDOFF.md |
-| `8bd241c` | Restored all 65 PGS ring designs |
-| `7e55d19` | Fixed carousel/gallery auto-advance |
-| `a5146f1` | Mobile performance lockdown + bug fixes |
-
----
-
-## 📋 OPEN TODO / NEXT STEPS
-- [x] v43 batch 1: photoshoots for PGS5008 5009 5010 5011 5012 5013 5019 5020 5021 (committed & pushed)
-- [ ] Deploy batch 1 (see DEPLOY-v43-RINGS-BATCH1.md — zip uploaded or API command run by owner)
-- [ ] Generate photoshoots for remaining 17 PGS rings (PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5048 5052 5053 5054 5055 5056 5059) — toolchain ready in tools/photoshoot/
-- [ ] Owner may request new features — ask before assuming
-
----
-
-## 💡 FOR THE OWNER: HOW TO USE THIS FILE
-1. When starting a new chat, just say: **"Read HANDOFF.md first before doing anything"**
-2. The new agent will read it and know exactly what's working
-3. After significant work, the agent should update this file
-4. This file is on GitHub — it's always there, no matter which chat or branch
+## 💡 OWNER QUICK RECIPES
+- **Continue ring photoshoots:** new chat → connect repo → "Read HANDOFF.md first, continue the ring photoshoots" (agent follows `tools/photoshoot/SESSION-STATE.md`, 2 rings/turn).
+- **Deploy what's done:** new chat → "Read HANDOFF.md first, deploy" (agent verifies staging, commits, pushes; server cron finishes within ~5 min — or agent gives you the one Path B command if no cron yet).
+- **One-time auto-deploy setup:** follow `deploy/AUTOMATION.md` (5 minutes), then deployment is fully automatic forever.
