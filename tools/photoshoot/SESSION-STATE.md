@@ -20,7 +20,9 @@ No PGS5066+ exists.
 - PGS5041, PGS5042 — e9b5aff (both first-pass clean; media staged)
 - PGS5048, PGS5052 — aae17f7 (both first-pass clean; media staged)
 - PGS5053, PGS5054 — e04a557 (both first-pass clean; media staged)
-Remaining 3: PGS5055 5056 5059
+- PGS5055 Minakari, PGS5056 Rani Padmini — (branch arena/01a07cae-shivaa-ecom, 25 of 26)
+  both first-pass clean (no green-tag scan hits); media staged
+Remaining 1: PGS5059 (studio+editorial generated this turn; worn+gift pending — hit 10-img/turn cap)
 
 ## WORKFLOW PER TURN (2 rings = 8 gens; 10 gen max/turn)
 1. Sandbox may reset: pip install --break-system-packages pillow numpy imageio-ffmpeg;
@@ -83,9 +85,9 @@ PGS5048 Kesar: tall vertical rectangular CZ pavé panel flanked by polished gold
 PGS5052 Kundan: long vertical CZ pavé slab framed in gold, lattice basket-weave band sides, chunky square shoulders
 PGS5053 Jadau: central rectangular CZ pavé block flanked by rows of vertical CZ bars in gold rails
 PGS5054 Thewa: large square gold frame head with inner CZ pavé border and polished gold rotated-square centrepiece, lattice band
-PGS5055 Minakari: wide rectangular CZ pavé plaque on bright polished band, small CZ accent blocks on shoulders
-PGS5056 Rani Padmini: hexagonal openwork ring, hexagon outline fully set with CZ pavé, polished gold Y-monogram medallion at centre
-PGS5059 Kanchan: wide rectangular CZ pavé tablet at centre, fluted/laddered gold rail shoulders
+PGS5055 Minakari: wide rectangular CZ pavé plaque on bright polished band, small CZ accent blocks on shoulders  ✅ done
+PGS5056 Rani Padmini: hexagonal openwork ring, hexagon outline fully set with CZ pavé, polished gold Y-monogram medallion at centre  ✅ done
+PGS5059 Kanchan: wide rectangular CZ pavé tablet at centre, fluted/laddered gold rail shoulders  ← LAST ONE
 
 ## AFTER ALL 26 DONE
 1. Verify: all 65 PGS have 4 shots + video on disk AND in db (write a verify script)
