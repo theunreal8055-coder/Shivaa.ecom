@@ -73,7 +73,10 @@ function fetch_url(string $url, int $timeout = 4): ?array {
 
 /* ───────── rate engine (identical math to Node) ───────── */
 const PURITY_22 = 0.9167, PURITY_18 = 0.75, OZ = 31.1034768;
-const BASE_GOLD = 11850.0, BASE_SILVER = 168.0;
+const BASE_GOLD = 15600.0, BASE_SILVER = 239.0;
+// Rates bootstrapped to Jaipur bullion desk as of 7 Sep 2026:
+//   24K: ₹15,600/g · 22K: ₹14,300/g (91.67%) · 18K: ₹11,603/g (74.4%) · Silver 999: ₹239/g
+//   A premium of ₹55/g for jewellery-grade delivery is added below by jaipurPremium.
 
 function rates_refresh(array &$db): array {
   $last = $db['rates']['last'] ?? null;
@@ -89,8 +92,8 @@ function rates_refresh(array &$db): array {
     $silver = ((float)$silv['price'] * $inr) / OZ;
     $source = 'live';
   } else {
-    $gold24 = clampn($gold24 * (1 + (mt_rand(-35, 35) / 10000)), BASE_GOLD * 0.96, BASE_GOLD * 1.04);
-    $silver = clampn($silver * (1 + (mt_rand(-50, 50) / 10000)), BASE_SILVER * 0.96, BASE_SILVER * 1.04);
+    $gold24 = clampn($gold24 * (1 + (mt_rand(-20, 20) / 10000)), BASE_GOLD * 0.985, BASE_GOLD * 1.015);
+    $silver = clampn($silver * (1 + (mt_rand(-30, 30) / 10000)), BASE_SILVER * 0.97, BASE_SILVER * 1.03);
     $source = ($last['source'] ?? '') === 'live' ? 'cached+sim' : 'simulated';
   }
   $stamp = [
@@ -259,7 +262,7 @@ if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
     'goldRef9930' => ['label' => 'Ref. Gold Local 99.30 — CASH', 'purity' => '99.30%', 'buy' => 0, 'sell' => 0],
   ], 'updatedAt' => now_iso()];
 }
-if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => now_iso(), 'gold24' => 11800, 'gold22' => 10800, 'gold18' => 8850, 'silver' => 95, 'source' => 'bootstrap']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
+if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => now_iso(), 'gold24' => 15600, 'gold22' => 14300, 'gold18' => 11603, 'silver' => 239.0, 'source' => 'bootstrap']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
 foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'jaipurSilverPremium' => 3, 'whatsapp' => '918905005921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
 $changed = false;
 

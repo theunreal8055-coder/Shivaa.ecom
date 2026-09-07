@@ -505,6 +505,7 @@ function initCarousel() {
     // mark the visible slide so its Ken-Burns zoom + copy reveal run only there
     slides.forEach((sl, j) => {
       sl.classList.toggle('on', j === idx);
+      sl.classList.toggle('is-active', j === idx);
       sl.setAttribute('aria-hidden', j === idx ? 'false' : 'true');
     });
   };
@@ -871,26 +872,45 @@ pages.home = async (view) => {
   view.innerHTML = `
   <section class="hero">
     <div class="hero-img"></div><div class="hero-fade"></div>
-    <div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="hero-gold-ring" aria-hidden="true"></div>
+    <div class="hero-gold-ring r2" aria-hidden="true"></div>
+    <div class="hero-gold-ring r3" aria-hidden="true"></div>
+    <div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="hero-orbs">
-      <div class="orb" style="width:130px;height:130px;left:6%;top:16%;background:radial-gradient(circle at 35% 35%,#f3dfae,#b98a2f 68%,transparent 72%);animation-delay:-2s"></div>
-      <div class="orb" style="width:70px;height:70px;left:44%;bottom:14%;background:radial-gradient(circle at 35% 35%,#fff6dd,#d4af5a 66%,transparent 72%);animation-delay:-5s"></div>
-      <div class="orb" style="width:46px;height:46px;left:12%;bottom:30%;background:radial-gradient(circle at 35% 35%,#ffe9bd,#b98a2f 64%,transparent 72%);animation-delay:-7s"></div>
+      <div class="orb" style="width:180px;height:180px;left:4%;top:10%;background:radial-gradient(circle at 35% 35%,#f3dfae,#b98a2f 68%,transparent 72%);animation-delay:-2s"></div>
+      <div class="orb" style="width:90px;height:90px;left:42%;bottom:10%;background:radial-gradient(circle at 35% 35%,#fff6dd,#d4af5a 66%,transparent 72%);animation-delay:-5s"></div>
+      <div class="orb" style="width:56px;height:56px;left:14%;bottom:24%;background:radial-gradient(circle at 35% 35%,#ffe9bd,#b98a2f 64%,transparent 72%);animation-delay:-7s"></div>
+      <div class="orb" style="width:36px;height:36px;right:28%;top:20%;background:radial-gradient(circle at 35% 35%,#fff1c7,#d4af5a 66%,transparent 72%);animation-delay:-4s"></div>
     </div>
+    <div class="sparkle" aria-hidden="true"><i style="--d:.2s;--x:20%;--y:30%"></i><i style="--d:1.1s;--x:70%;--y:18%"></i><i style="--d:2.3s;--x:55%;--y:68%"></i><i style="--d:3.4s;--x:85%;--y:48%"></i><i style="--d:4.2s;--x:30%;--y:80%"></i><i style="--d:5.0s;--x:10%;--y:55%"></i></div>
     <div class="container hero-in">
-      <div>
-        <span class="hero-kicker">✦ &nbsp;Jayal · Nagaur · Since 2025 &nbsp;✦</span>
-        <h1>Jewellery as honest as your <em class="shimmer foil-txt">love</em></h1>
-        <p class="hero-sub">Gold & silver jewellery at live Jaipur rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
-        <div class="hero-cta">
-          <a class="btn btn-gold btn-lg" href="#/shop">Shop the Collection</a>
-          <a class="btn btn-light btn-lg" href="#/rates">Jaipur Live Rates</a>
+      <div class="hero-copy">
+        <span class="hero-kicker"><span class="k-dot"></span>Handcrafted in Jayal · Nagaur · Since 2025<span class="k-dot"></span></span>
+        <h1 class="hero-title">Heirloom jewellery,<br><em class="shimmer foil-txt">honestly priced.</em></h1>
+        <p class="hero-sub">Every piece is BIS-hallmarked with a unique HUID, weighed to the milligram, and billed at Jaipur's <b>live gold rate today</b> — no hidden making, no surprise premiums, no tall tales. The same tanch our family has guarded for three generations, now at your fingertips.</p>
+        <div class="hero-live-rate" aria-label="Today's live Jaipur rate">
+          <span class="hlr-dot"></span>
+          <span class="hlr-label">Today 22K · Jaipur</span>
+          <b class="hlr-price" id="heroG22">${fmt(state.rates && state.rates.gold22 ? state.rates.gold22 : 14300)}<small>/g</small></b>
+          <span class="hlr-note">Live · 22K · incl. BIS HUID hallmark</span>
         </div>
-        <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
+        <div class="hero-cta">
+          <a class="btn btn-gold btn-xl hero-cta-primary" href="#/shop">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            Shop the Collection
+            <span class="cta-arrow">→</span>
+          </a>
+          <a class="btn btn-ghost-light btn-xl" href="#giftConcierge">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+            Find a Gift
+          </a>
+        </div>
+        <div class="hero-trust"><a href="#/hallmark"><span class="ht-ic">✦</span>100% BIS HUID Hallmarked</a><a href="#/trust"><span class="ht-ic">✦</span>Live-Rate Pricing</a><a href="#/rates"><span class="ht-ic">✦</span>7-Day Easy Returns</a></div>
         <div class="hero-stats">
           <div class="hstat"><b>30+</b><span>Years of karigari</span></div>
           <div class="hstat"><b>17</b><span>Categories</span></div>
-          <div class="hstat"><b>24</b><span>Digital catalogues</span></div>
+          <div class="hstat"><b>342</b><span>Hallmarked designs</span></div>
+          <div class="hstat"><b>4.9★</b><span>767 reviews</span></div>
         </div>
       </div>
       <div class="hero-stage">
@@ -1330,6 +1350,14 @@ function initGiftConcierge() {
   }
 
   // ---- option clicks ----
+  function advanceAfterPick() {
+    // small delay for the "on" animation, then advance
+    clearTimeout(window._gcAdv);
+    window._gcAdv = setTimeout(() => {
+      if (state.step < panels.length) setStep(state.step + 1);
+      else showResults();
+    }, 480);
+  }
   panels.forEach(panel => {
     const q = panel.dataset.q;
     const opts = panel.querySelectorAll('.gc-opt');
@@ -1339,10 +1367,12 @@ function initGiftConcierge() {
         opt.classList.add('on');
         if (q) state.answers[q] = opt.dataset.val;
         refreshNext();
+        if (q && q !== 'budget') advanceAfterPick(); // auto-advance on recipient/occasion/style picks
       });
     });
-    panel.querySelector('.gc-prev')?.addEventListener('click', () => setStep(state.step - 1));
+    panel.querySelector('.gc-prev')?.addEventListener('click', () => { clearTimeout(window._gcAdv); setStep(state.step - 1); });
     panel.querySelector('.gc-next')?.addEventListener('click', () => {
+      clearTimeout(window._gcAdv);
       if (state.step < panels.length) setStep(state.step + 1);
       else showResults();
     });
@@ -1362,7 +1392,19 @@ function initGiftConcierge() {
       budChips.forEach(b => b.classList.remove('on'));
     }
   });
-  budChips.forEach(b => b.addEventListener('click', () => setBud(b.dataset.val)));
+  budChips.forEach(b => b.addEventListener('click', () => { setBud(b.dataset.val); advanceAfterPick(); }));
+  // Show a small "tap to pick" hint on auto-advance steps only once
+  panels.forEach(p => {
+    if (p.dataset.q && p.dataset.q !== 'budget') {
+      const nav = p.querySelector('.gc-nav');
+      if (nav && !nav.querySelector('.gc-next-hint')) {
+        const hint = document.createElement('div');
+        hint.className = 'gc-next-hint';
+        hint.textContent = 'Tap any option to continue →';
+        p.appendChild(hint);
+      }
+    }
+  });
 
   // ---- restart ----
   $('#gcRestart', root).addEventListener('click', () => {
@@ -4001,9 +4043,9 @@ pages.deadstock = async (view) => {
   <section class="page-hero lux-hero ds-hero-bg"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container">
       <div class="crumbs"><a href="#/">Home</a> / <a href="#/partner">Partner Portal</a> / Dead Stock</div>
-      <span class="lux-badge">&#9670; PARTNERS ONLY</span>
+      <span class="lux-badge">&#9670; PARTNERS ONLY · JEWELLER DESK</span>
       <h1 class="ink-reveal">Dead Stock <em class="shimmer foil-txt">Purchase</em></h1>
-      <p>Your slow-moving 22K jewellery, bought at one wastage and settled as fine 99.999 metal value &mdash; with half your making charges credited back so melting never wins.</p>
+      <p>Any karat, any category, any age &mdash; we buy back your slow-moving stock at the live Jaipur rate on the day of assay. You receive <b>fine-metal value only</b> (no making charges refunded, no wastage deductions beyond assay), settled instantly against your next Shivaa order or bullion account.</p>
     </div>
   </section>
 
@@ -4012,73 +4054,84 @@ pages.deadstock = async (view) => {
     <!-- ── the offer ── -->
     <div class="vault-grid rv">
       <div class="vault-card">
-        <span class="vc-num">22<small>K</small></span>
-        <b>Plain 22K jewellery only</b>
-        <p>Bangles, chains, rings, plain sets &mdash; any design, any age. One wastage, no grading arguments, no per-piece haggling.</p>
+        <span class="vc-num">ALL<small>Karats</small></span>
+        <b>Any jewellery, any category</b>
+        <p>22K, 18K, gold, silver, plain or studded &mdash; rings, necklaces, bangles, chains, pendants, earrings, sets, bridal, antique. Name it; we assay it.</p>
       </div>
       <div class="vault-card vc-emerald">
-        <span class="vc-num">50<small>%</small></span>
-        <b>Melting-loss protection</b>
-        <p>Not a payment for making charges &mdash; a protection. Half of what you paid is credited against your next Shivaa bill so selling to us always beats melting.</p>
+        <span class="vc-num">0<small>haggle</small></span>
+        <b>Live-rate, transparent</b>
+        <p>Quotation follows the physical assay at our Jaipur counter: weight × actual purity × live rate. Zero hidden deductions. Zero per-piece haggling.</p>
       </div>
       <div class="vault-card">
-        <span class="vc-num">999.9</span>
-        <b>Settled in fine metal</b>
-        <p>We convert the 22K gold content of your stock to fine-metal value at the live rate. You restock with fresh designs &mdash; nothing of yours is destroyed.</p>
+        <span class="vc-num">FINE<small>metal</small></span>
+        <b>Settled as fine</b>
+        <p>Your stock is converted to fine-metal credit at the live Jaipur rate on the day &mdash; usable against fresh Shivaa designs or withdrawn as bullion. No MC is refunded (karigar labour does not survive melting).</p>
       </div>
     </div>
 
-    <!-- ── LIVE RECOVERY ESTIMATOR ── -->
+    <!-- ── LIVE VALUATION ESTIMATOR ── -->
     <section class="sv-calc rv" id="dsCalc">
       <div class="bbc-head">
-        <span class="bbc-live"><i></i> LIVE ESTIMATE</span>
-        <h2>What your 22K stock is <em class="shimmer foil-txt">actually worth</em></h2>
-        <p>Today's Jaipur rates &mdash; 22K gold <b>${fmt(g22)}/g</b> &middot; fine 24K <b>${fmt(g24)}/g</b>.</p>
+        <span class="bbc-live"><i></i> LIVE VALUATION</span>
+        <h2>What your stock is <em class="shimmer foil-txt">actually worth</em></h2>
+        <p>Pick the metal/purity, category and weight. We quote fine-metal value at today's Jaipur rate — no making charges are returned on buyback.</p>
+        <div class="ds-rate-row">
+          ${g24 ? `<span>24K <b>${fmt(g24)}/g</b></span><span>22K <b>${fmt(g22)}/g</b></span><span>18K <b>${fmt(R.gold18 || Math.round(g24*0.75))}/g</b></span><span>Silver <b>₹${R.silver || 239}/g</b></span>` : ''}
+        </div>
       </div>
 
       <div class="svc-body">
         <div class="svc-form">
+
           <div class="fld">
-            <label>Category we purchase</label>
-            <div class="purity-lock emerald"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>the only category on this desk</span></div>
+            <label>Metal & purity</label>
+            <select id="dsMetal" class="sortsel">
+              <option value="22">22K Gold (91.6% fine)</option>
+              <option value="18">18K Gold (75% fine)</option>
+              <option value="24">24K Gold (99.5% fine)</option>
+              <option value="silver">Silver 925</option>
+            </select>
           </div>
 
           <div class="fld">
-            <label>Total weight of dead stock</label>
+            <label>Category</label>
+            <select id="dsCat" class="sortsel">
+              <option value="">Any / Mixed lot</option>
+              ${Object.entries(CATS).map(([k,c]) => `<option value="${k}">${c.name}</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="fld">
+            <label>Piece / lot name (optional)</label>
+            <input type="text" id="dsName" placeholder="e.g. Old bridal choker lot · plain bangles · mixed rings">
+          </div>
+
+          <div class="fld">
+            <label>Total weight</label>
             <div class="bbc-wt">
               <input type="number" id="dsWt" value="250" min="1" step="1" inputmode="decimal">
               <span class="bbc-unit">grams</span>
             </div>
             <input type="range" id="dsRange" class="bbc-range" min="10" max="5000" step="10" value="250">
           </div>
-
-          <div class="fld">
-            <label>Making charges you originally paid</label>
-            <div class="bbc-wt">
-              <span class="svc-rs">&#8377;</span>
-              <input type="number" id="dsMc" value="60000" min="0" step="1000" inputmode="numeric">
-            </div>
-            <div class="ds-mc-hint">Roughly what the karigar charged on this lot. This is only used to size your melting-loss protection.</div>
-          </div>
         </div>
 
         <div class="svc-result">
           <div class="bbr-shine" aria-hidden="true"></div>
-          <span class="bbr-label">TOTAL YOU RECOVER</span>
+          <span class="bbr-label">FINE-METAL VALUE YOU RECEIVE</span>
           <div class="svr-gold" id="dsTotal">&#8377;0</div>
           <div class="bbr-rate" id="dsSub">&mdash;</div>
 
           <div class="ds-split">
-            <div class="dss-row dss-fine"><span>Fine 99.999 metal you receive</span><b id="dsFine">&mdash;</b></div>
-            <div class="dss-row"><span>Metal value at one wastage</span><b id="dsMetalVal">&mdash;</b></div>
-            <div class="dss-row dss-credit"><span>Melting-loss protection &middot; 50% of MC</span><b id="dsCredit">&mdash;</b></div>
-            <div class="dss-row dss-vs"><span>If you melted it instead</span><b id="dsMelt">&mdash;</b></div>
-            <div class="dss-gain" id="dsGain">&mdash;</div>
+            <div class="dss-row dss-fine"><span>Fine metal content</span><b id="dsFine">&mdash;</b></div>
+            <div class="dss-row"><span>Rate applied</span><b id="dsRate">&mdash;</b></div>
+            <div class="dss-row"><span>Making charges</span><b style="color:var(--ink-3)">₹0 · not returned</b></div>
           </div>
+          <div class="ds-note-box"><b>⚠ No MC on buyback.</b> Making charges are the karigar's labour and are never refunded when jewellery is melted back to metal. On <em>exchange</em> against a new Shivaa piece, we waive MC differences — speak to the desk.</div>
 
-          <a class="btn btn-gold btn-block btn-lg" id="dsWa">Send this lot for pickup</a>
-          <p class="bbr-fine">Indicative. Final settlement follows physical assay and weight at our Jayal counter. The 50% credit applies against Shivaa purchases only, never as cash.</p>
+          <a class="btn btn-gold btn-block btn-lg" id="dsWa">Get firm quote on WhatsApp</a>
+          <p class="bbr-fine">Indicative. Final figure follows physical XRF/fire assay at our Jaipur counter — weight × actual purity × live rate on the day.</p>
         </div>
       </div>
     </section>
@@ -4092,20 +4145,33 @@ pages.deadstock = async (view) => {
           <div class="fld"><label>Contact person *</label><input name="person" required placeholder="Your name"></div>
           <div class="fld"><label>Mobile *</label><input name="phone" required pattern="[6-9][0-9]{9}" maxlength="10" inputmode="numeric" placeholder="10-digit mobile"></div>
           <div class="fld"><label>City *</label><input name="city" required placeholder="e.g. Nagaur"></div>
+          <div class="fld"><label>Metal & purity *</label>
+            <select name="metal" required>
+              <option value="22K Gold">22K Gold</option>
+              <option value="18K Gold">18K Gold</option>
+              <option value="24K Gold">24K Gold</option>
+              <option value="Silver 925">Silver 925</option>
+              <option value="Mixed">Mixed (we will separate on assay)</option>
+            </select>
+          </div>
           <div class="fld"><label>Category</label>
-            <div class="purity-lock emerald ds-lock-sm"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>22 karat only</span></div>
+            <select name="cat">
+              <option value="">Any / Mixed</option>
+              ${Object.entries(CATS).map(([k,c]) => `<option value="${c.name}">${c.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="fld"><label>Piece / lot name</label>
+            <input name="lotname" placeholder="e.g. Old bridal choker lot, mixed rings">
           </div>
           <div class="fld"><label>Approx. total weight (g) *</label><input name="weight" type="number" step="0.1" min="1" required placeholder="e.g. 250"></div>
-          <div class="fld"><label>Approx. making charges paid (&#8377;)</label><input name="mc" type="number" min="0" step="500" placeholder="e.g. 60000"></div>
           <div class="fld"><label>Roughly how old is this stock?</label>
-            <select name="age"><option>6 – 12 months</option><option>1 – 2 years</option><option>2 – 5 years</option><option>Over 5 years</option></select>
+            <select name="age"><option>6 – 12 months</option><option>1 – 2 years</option><option>2 – 5 years</option><option>Over 5 years</option><option>Antique / family pieces</option></select>
           </div>
           <div class="fld full"><label>What is in the lot?</label>
-            <input name="items" placeholder="e.g. 40 plain bangles, 12 chains, assorted rings">
+            <input name="items" placeholder="e.g. 40 bangles, 12 chains, assorted rings, a kundan choker, 3 silver kadas">
           </div>
           <div class="fld full"><label>Anything else we should know?</label>
-            <input name="note" placeholder="Hallmarked? Original bills available? Preferred pickup week?">
+            <input name="note" placeholder="Hallmarked? Original bills available? Stones? Preferred pickup week?">
           </div>
           <button class="btn btn-gold btn-block btn-lg">Request a firm quote &rarr;</button>
         </form>
@@ -4145,47 +4211,44 @@ pages.deadstock = async (view) => {
     </div>
   </div>`;
 
-  /* ---- live estimator: 22K → fine metal + melting-loss protection ---- */
-  const FINE = 0.916;   // 22K = 91.6% fine content
-  const WAST = 0.99;    // bought at one wastage
-  const MELT = 0.92;    // typical melting route loses ~8%
+  /* ---- live estimator: any purity/category → fine-metal value ---- */
+  const FINE_PCT = { '24': 0.995, '22': 0.9167, '18': 0.75, 'silver': 0.925 };
+  const RATE_FOR = {
+    '24': g24,
+    '22': g22,
+    '18': R.gold18 || Math.round(g24 * 0.75),
+    'silver': R.silver || 239,
+  };
+  const LABEL_FOR = { '24': '24K fine gold', '22': '22K gold', '18': '18K gold', 'silver': 'Silver 925' };
 
   const calc = () => {
     const wt = Math.max(0, parseFloat($('#dsWt').value) || 0);
-    const mc = Math.max(0, parseFloat($('#dsMc').value) || 0);
-    const fineG = wt * FINE * WAST;          // fine grams after one wastage
-    const metalVal = g24 > 0 ? fineG * g24 : wt * g22 * WAST;
-    const credit = mc * 0.5;                 // melting-loss protection
-    const total = metalVal + credit;
-    const melted = wt * g22 * MELT;          // melting: 8% loss, MC gone
-    const gain = total - melted;
+    const metal = $('#dsMetal')?.value || '22';
+    const cat = $('#dsCat')?.value || '';
+    const name = ($('#dsName')?.value || '').trim();
+    const pf = FINE_PCT[metal] || 0.9167;
+    const rate = RATE_FOR[metal] || 0;
+    const fineG = wt * pf;
+    const total = Math.round(fineG * rate);
 
     const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
-    set('#dsFine', `${fineG.toLocaleString('en-IN', { maximumFractionDigits: 1 })} g \u2248 ${fmt(metalVal)}`);
-    set('#dsMetalVal', fmt(metalVal));
-    set('#dsCredit', '+ ' + fmt(credit));
-    set('#dsMelt', fmt(melted));
-    set('#dsSub', `${wt.toLocaleString('en-IN')} g of 22K jewellery \u00b7 one wastage \u00b7 settled as fine metal`);
-
-    const gEl = $('#dsGain');
-    if (gEl) gEl.innerHTML = gain >= 0
-      ? `You stay <b>${fmt(gain)}</b> ahead of melting \u2014 and the karigar's work survives`
-      : `Melting would return ${fmt(-gain)} more`;
-
+    set('#dsFine', `${fineG.toLocaleString('en-IN', { maximumFractionDigits: 2 })} g fine`);
+    set('#dsRate', fmt(rate) + '/g · ' + LABEL_FOR[metal]);
+    set('#dsSub', `${wt.toLocaleString('en-IN')} g · ${LABEL_FOR[metal]}${cat ? ' · ' + (CATS[cat]?.name || cat) : ''}${name ? ' · "' + name + '"' : ''}`);
     const tEl = $('#dsTotal');
-    if (tEl) {
-      tEl.textContent = fmt(total);
-      tEl.classList.remove('bbr-pop'); void tEl.offsetWidth; tEl.classList.add('bbr-pop');
-    }
+    if (tEl) { tEl.textContent = fmt(total); tEl.classList.remove('bbr-pop'); void tEl.offsetWidth; tEl.classList.add('bbr-pop'); }
 
-    const msg = `Namaste Shivaa bullion desk \u2726\n\nI'd like to sell dead stock under the 1-wastage scheme.\n\nCategory: 22K plain gold jewellery\nWeight: ${wt} g\nMaking charges paid: ${fmt(mc)}\n\nIndicative fine-metal value: ${fmt(metalVal)}\nMelting-loss protection (50% of MC): ${fmt(credit)}\nTotal recovery: ${fmt(total)}\n\nFirm name: \nCity: \n\nPlease arrange a pickup.`;
+    const catLabel = cat ? (CATS[cat]?.name || cat) : 'Mixed lot / any category';
+    const msg = `Namaste Shivaa bullion desk ✦\n\nI'd like a firm quote for dead stock.\n\nMetal/Purity: ${LABEL_FOR[metal]}\nCategory: ${catLabel}${name ? '\nPiece/lot: ' + name : ''}\nApprox weight: ${wt} g\nIndicative fine-metal value (live rate): ${fmt(total)}\n\nFirm name:\nCity:\n\nPlease confirm and arrange pickup if the rate matches.`;
     ['#dsWa', '#dsWa2'].forEach(sel => { const e = $(sel); if (e) e.onclick = () => waOpen(msg); });
   };
 
-  const wt = $('#dsWt'), rng = $('#dsRange'), mc = $('#dsMc');
+  const wt = $('#dsWt'), rng = $('#dsRange');
   if (wt) wt.addEventListener('input', () => { if (rng) rng.value = Math.min(5000, Math.max(10, parseFloat(wt.value) || 10)); calc(); });
   if (rng) rng.addEventListener('input', () => { if (wt) wt.value = rng.value; calc(); });
-  if (mc) mc.addEventListener('input', calc);
+  $('#dsMetal')?.addEventListener('change', calc);
+  $('#dsCat')?.addEventListener('change', calc);
+  $('#dsName')?.addEventListener('input', calc);
   calc();
 };
 
@@ -4197,14 +4260,13 @@ window.Shivaa.dsSubmit = (e) => {
   const g = k => String(f.get(k) || '').trim();
   const phone = g('phone');
   if (!/^[6-9][0-9]{9}$/.test(phone)) { toast('Please enter a valid 10-digit mobile number'); return; }
-  const msg = `Namaste Shivaa bullion desk \u2726\n\nDEAD STOCK PURCHASE ENQUIRY\n\n`
+  const msg = `Namaste Shivaa bullion desk ✦\n\nDEAD STOCK PURCHASE ENQUIRY\n\n`
     + `Firm: ${g('firm')}\nContact: ${g('person')}\nMobile: ${phone}\nCity: ${g('city')}\n\n`
-    + `Category: 22K plain gold jewellery\nApprox weight: ${g('weight')} g\n`
-    + `Making charges paid: ${g('mc') ? '\u20b9' + g('mc') : 'not stated'}\n`
+    + `Metal/Purity: ${g('metal')}\nCategory: ${g('cat') || 'Mixed / Any'}${g('lotname') ? '\nLot name: ' + g('lotname') : ''}\nApprox weight: ${g('weight')} g\n`
     + `Age of stock: ${g('age')}\n`
     + `Lot contains: ${g('items') || 'not stated'}\n`
-    + `Note: ${g('note') || '\u2014'}\n\n`
-    + `Please confirm the wastage and my melting-loss protection credit (50% of making charges).`;
+    + `Note: ${g('note') || '—'}\n\n`
+    + `I understand: (1) valuation is at the live Jaipur rate on assay day, (2) making charges are not returned on buyback, (3) final settlement follows XRF/fire assay at your Jaipur counter.\n\nPlease share a firm indicative quote and arrange pickup when the rate works.`;
   waOpen(msg);
   toast('Opening WhatsApp with your enquiry \u2726');
   e.target.reset();
@@ -4386,6 +4448,9 @@ function renderSugg(qs) {
 
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */
 document.addEventListener('rates', () => {
+  // update hero live rate pill if visible
+  const heroG22 = document.getElementById('heroG22');
+  if (heroG22 && state.rates && state.rates.gold22) heroG22.innerHTML = fmt(state.rates.gold22) + '<small>/g</small>';
   if (typeof renderRateStrip === 'function') renderRateStrip();
   $$('.js-price').forEach(el => {
     const p = state.productsCache.find(x => x.id === el.dataset.pid);
