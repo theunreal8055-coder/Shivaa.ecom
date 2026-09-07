@@ -18023,9 +18023,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5055.jpg"
+        "/images/designs/rings/PGS5055_shot_studio.jpg",
+        "/images/designs/rings/PGS5055_shot_editorial.jpg",
+        "/images/designs/rings/PGS5055_shot_worn.jpg",
+        "/images/designs/rings/PGS5055_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5055_video.mp4",
       "desc": "Minakari Ring PGS5055 \u2014 Gold 22K, 3.51 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -18052,7 +18055,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5048",
@@ -18141,9 +18145,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5056.jpg"
+        "/images/designs/rings/PGS5056_shot_studio.jpg",
+        "/images/designs/rings/PGS5056_shot_editorial.jpg",
+        "/images/designs/rings/PGS5056_shot_worn.jpg",
+        "/images/designs/rings/PGS5056_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5056_video.mp4",
       "desc": "Rani Padmini Ring PGS5056 \u2014 Gold 22K, 4.33 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -18170,7 +18177,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5053",
