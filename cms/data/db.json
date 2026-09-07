@@ -17336,9 +17336,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5034.jpg"
+        "/images/designs/rings/PGS5034_shot_studio.jpg",
+        "/images/designs/rings/PGS5034_shot_editorial.jpg",
+        "/images/designs/rings/PGS5034_shot_worn.jpg",
+        "/images/designs/rings/PGS5034_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5034_video.mp4",
       "desc": "Udaipur Ring PGS5034 \u2014 Gold 22K, 1.89 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -17365,7 +17368,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5009",
@@ -17694,9 +17698,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5031.jpg"
+        "/images/designs/rings/PGS5031_shot_studio.jpg",
+        "/images/designs/rings/PGS5031_shot_editorial.jpg",
+        "/images/designs/rings/PGS5031_shot_worn.jpg",
+        "/images/designs/rings/PGS5031_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5031_video.mp4",
       "desc": "Shekhawati Ring PGS5031 \u2014 Gold 22K, 3.4 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -17723,7 +17730,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5012",
