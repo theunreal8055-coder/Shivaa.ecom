@@ -515,10 +515,10 @@ function initCarousel() {
   $('.c-next', car).onclick = next; $('.c-prev', car).onclick = prev;
   $$('.c-dot', dots).forEach(d => d.onclick = () => go(+d.dataset.i));
   const start = () => {
-    // v42: disable auto-advance on mobile/touch to prevent Gift Concierge jumping
+    // v42: slower auto-advance on mobile (12s vs 5.5s desktop) so it glides, not jumps
     const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
-    if (_mob) return; // no auto-advance on mobile — user controls it via swipe/dots
-    window._carTimer = setInterval(next, 5500);
+    const interval = _mob ? 12000 : 5500;
+    window._carTimer = setInterval(next, interval);
   };
   const stop = () => clearInterval(window._carTimer);
   car.addEventListener('mouseenter', stop);
@@ -1403,10 +1403,10 @@ pages.product = async (view, q, id) => {
     const end = () => { if (sx == null) return; track.style.transition = ''; if (Math.abs(dx) > 42) go(idx + (dx < 0 ? 1 : -1)); else go(idx); sx = null; };
     wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
     const _mobGal = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
+    const _galInterval = _mobGal ? 10000 : 5200; // v42: slower on mobile, still advances
     const timer = setInterval(() => {
-      if (_mobGal) return; // v42: no auto-advance on mobile
       const v = $('.gal-slide.on video', track); if (v && !v.paused) return; go(idx + 1);
-    }, 5200);
+    }, _galInterval);
     wrap.addEventListener('pointerdown', () => clearInterval(timer), { once: true });
   })();
   $('#brkBtn').onclick = () => { const b = $('#pdBrk'); b.hidden = !b.hidden; $('#brkBtn').setAttribute('aria-expanded', String(!b.hidden)); };
