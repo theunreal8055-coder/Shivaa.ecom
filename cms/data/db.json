@@ -16990,9 +16990,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5041.jpg"
+        "/images/designs/rings/PGS5041_shot_studio.jpg",
+        "/images/designs/rings/PGS5041_shot_editorial.jpg",
+        "/images/designs/rings/PGS5041_shot_worn.jpg",
+        "/images/designs/rings/PGS5041_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5041_video.mp4",
       "desc": "Baori Ring PGS5041 \u2014 Gold 22K, 3.37 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -17019,7 +17022,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5059",
@@ -17104,9 +17108,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5042.jpg"
+        "/images/designs/rings/PGS5042_shot_studio.jpg",
+        "/images/designs/rings/PGS5042_shot_editorial.jpg",
+        "/images/designs/rings/PGS5042_shot_worn.jpg",
+        "/images/designs/rings/PGS5042_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5042_video.mp4",
       "desc": "Sindoor Ring PGS5042 \u2014 Gold 22K, 1.95 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -17133,7 +17140,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5030",
