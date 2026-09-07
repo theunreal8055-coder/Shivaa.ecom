@@ -12,7 +12,8 @@ No PGS5066+ exists.
 - PGS5009, PGS5010 — 70ed177 -> re-committed 3f71f58
 - PGS5011, PGS5012 — 2f3f0d8 -> re-committed 3f71f58
 - PGS5013, PGS5019 — 69c9fc3
-Remaining 19: PGS5020 5021 5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5048 5052 5053 5054 5055 5056 5059
+- PGS5020, PGS5021 — 3b28cd0 (5021 editorial re-rolled: prop card with garbled text; 'no cards/paper/props/text' clause added to prompt)
+Remaining 17: PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5048 5052 5053 5054 5055 5056 5059
 
 ## WORKFLOW PER TURN (2 rings = 8 gens; 10 gen max/turn)
 1. Sandbox may reset: pip install --break-system-packages pillow numpy imageio-ffmpeg;
