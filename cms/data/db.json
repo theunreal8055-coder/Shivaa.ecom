@@ -14404,10 +14404,10 @@
         "bishallmarked"
       ],
       "images": [
-        "/uploads/designs/rings/rings_6da79ce885.jpg",
-        "/uploads/designs/rings/rings_3e83765508.jpg",
-        "/uploads/designs/rings/rings_3f681c4cd5.jpg",
-        "/uploads/designs/rings/rings_c37dd494c6.jpg"
+        "/images/designs/rings/PGS5004_shot_studio.jpg",
+        "/images/designs/rings/PGS5004_shot_editorial.jpg",
+        "/images/designs/rings/PGS5004_shot_worn.jpg",
+        "/images/designs/rings/PGS5004_shot_gift.jpg"
       ],
       "stoneValue": 0,
       "name": "Mughal Moti Ring PGS5004 | Gold 22K",
@@ -14438,7 +14438,7 @@
       "category_note": "Ring by Shivaa Jewellers",
       "mediaNote": "AI-stylised visualisation of the original design photo.",
       "sku": "PGS5004",
-      "video": "/uploads/videos/rings/rings_0a6dd6f16c.mp4",
+      "video": "/images/designs/rings/PGS5004_video.mp4",
       "id": "p_396c38f75085"
     },
     {
@@ -14463,10 +14463,10 @@
         "bishallmarked"
       ],
       "images": [
-        "/uploads/designs/rings/rings_fe5539953c.jpg",
-        "/uploads/designs/rings/rings_3b4eea9b36.jpg",
-        "/uploads/designs/rings/rings_7a9e3bc788.jpg",
-        "/uploads/designs/rings/rings_f212cbcdb5.jpg"
+        "/images/designs/rings/PGS5001_shot_studio.jpg",
+        "/images/designs/rings/PGS5001_shot_editorial.jpg",
+        "/images/designs/rings/PGS5001_shot_worn.jpg",
+        "/images/designs/rings/PGS5001_shot_gift.jpg"
       ],
       "stoneValue": 0,
       "name": "Rajkumari Ring PGS5001 | Gold 22K",
@@ -14497,8 +14497,3710 @@
       "category_note": "Ring by Shivaa Jewellers",
       "mediaNote": "AI-stylised visualisation of the original design photo.",
       "sku": "PGS5001",
-      "video": "/uploads/videos/rings/rings_8fb4562c1a.mp4",
+      "video": "/images/designs/rings/PGS5001_video.mp4",
       "id": "p_90dacbb0b4d8"
+    },
+    {
+      "id": "p_pgs5065",
+      "sku": "PGS5065",
+      "name": "Megh Ring PGS5065",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.65,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5065_shot_studio.jpg",
+        "/images/designs/rings/PGS5065_shot_editorial.jpg",
+        "/images/designs/rings/PGS5065_shot_worn.jpg",
+        "/images/designs/rings/PGS5065_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5065_video.mp4",
+      "desc": "Megh Ring PGS5065 \u2014 Gold 22K, 1.65 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Megh Ring PGS5065"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5064",
+      "sku": "PGS5064",
+      "name": "Sharad Ring PGS5064",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.2,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5064_shot_studio.jpg",
+        "/images/designs/rings/PGS5064_shot_editorial.jpg",
+        "/images/designs/rings/PGS5064_shot_worn.jpg",
+        "/images/designs/rings/PGS5064_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5064_video.mp4",
+      "desc": "Sharad Ring PGS5064 \u2014 Gold 22K, 3.2 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Sharad Ring PGS5064"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5063",
+      "sku": "PGS5063",
+      "name": "Vasanta Ring PGS5063",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.28,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5063_shot_studio.jpg",
+        "/images/designs/rings/PGS5063_shot_editorial.jpg",
+        "/images/designs/rings/PGS5063_shot_worn.jpg",
+        "/images/designs/rings/PGS5063_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5063_video.mp4",
+      "desc": "Vasanta Ring PGS5063 \u2014 Gold 22K, 3.28 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Vasanta Ring PGS5063"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5062",
+      "sku": "PGS5062",
+      "name": "Ratna Ring PGS5062",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 4.87,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5062_shot_studio.jpg",
+        "/images/designs/rings/PGS5062_shot_editorial.jpg",
+        "/images/designs/rings/PGS5062_shot_worn.jpg",
+        "/images/designs/rings/PGS5062_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5062_video.mp4",
+      "desc": "Ratna Ring PGS5062 \u2014 Gold 22K, 4.87 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Ratna Ring PGS5062"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5061",
+      "sku": "PGS5061",
+      "name": "Swarna Ring PGS5061",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.88,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5061_shot_studio.jpg",
+        "/images/designs/rings/PGS5061_shot_editorial.jpg",
+        "/images/designs/rings/PGS5061_shot_worn.jpg",
+        "/images/designs/rings/PGS5061_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5061_video.mp4",
+      "desc": "Swarna Ring PGS5061 \u2014 Gold 22K, 3.88 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Swarna Ring PGS5061"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5026",
+      "sku": "PGS5026",
+      "name": "Gulab Ring PGS5026",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.76,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5026_shot_studio.jpg",
+        "/images/designs/rings/PGS5026_shot_editorial.jpg",
+        "/images/designs/rings/PGS5026_shot_worn.jpg",
+        "/images/designs/rings/PGS5026_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5026_video.mp4",
+      "desc": "Gulab Ring PGS5026 \u2014 Gold 22K, 1.76 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Gulab Ring PGS5026"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5015",
+      "sku": "PGS5015",
+      "name": "Surya Ring PGS5015",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.66,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5015_shot_studio.jpg",
+        "/images/designs/rings/PGS5015_shot_editorial.jpg",
+        "/images/designs/rings/PGS5015_shot_worn.jpg",
+        "/images/designs/rings/PGS5015_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5015_video.mp4",
+      "desc": "Surya Ring PGS5015 \u2014 Gold 22K, 1.66 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Surya Ring PGS5015"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5002",
+      "sku": "PGS5002",
+      "name": "Suraj Kiran Ring PGS5002",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.8,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5002_shot_studio.jpg",
+        "/images/designs/rings/PGS5002_shot_editorial.jpg",
+        "/images/designs/rings/PGS5002_shot_worn.jpg",
+        "/images/designs/rings/PGS5002_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5002_video.mp4",
+      "desc": "Suraj Kiran Ring PGS5002 \u2014 Gold 22K, 1.8 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Suraj Kiran Ring PGS5002"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5050",
+      "sku": "PGS5050",
+      "name": "Itr Ring PGS5050",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.69,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5050_shot_studio.jpg",
+        "/images/designs/rings/PGS5050_shot_editorial.jpg",
+        "/images/designs/rings/PGS5050_shot_worn.jpg",
+        "/images/designs/rings/PGS5050_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5050_video.mp4",
+      "desc": "Itr Ring PGS5050 \u2014 Gold 22K, 3.69 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Itr Ring PGS5050"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5029",
+      "sku": "PGS5029",
+      "name": "Aravalli Ring PGS5029",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.93,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5029_shot_studio.jpg",
+        "/images/designs/rings/PGS5029_shot_editorial.jpg",
+        "/images/designs/rings/PGS5029_shot_worn.jpg",
+        "/images/designs/rings/PGS5029_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5029_video.mp4",
+      "desc": "Aravalli Ring PGS5029 \u2014 Gold 22K, 1.93 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Aravalli Ring PGS5029"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5032",
+      "sku": "PGS5032",
+      "name": "Bikaner Ring PGS5032",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.77,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5032_shot_studio.jpg",
+        "/images/designs/rings/PGS5032_shot_editorial.jpg",
+        "/images/designs/rings/PGS5032_shot_worn.jpg",
+        "/images/designs/rings/PGS5032_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5032_video.mp4",
+      "desc": "Bikaner Ring PGS5032 \u2014 Gold 22K, 1.77 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Bikaner Ring PGS5032"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5014",
+      "sku": "PGS5014",
+      "name": "Chandra Ring PGS5014",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.81,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5014_shot_studio.jpg",
+        "/images/designs/rings/PGS5014_shot_editorial.jpg",
+        "/images/designs/rings/PGS5014_shot_worn.jpg",
+        "/images/designs/rings/PGS5014_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5014_video.mp4",
+      "desc": "Chandra Ring PGS5014 \u2014 Gold 22K, 1.81 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Chandra Ring PGS5014"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5025",
+      "sku": "PGS5025",
+      "name": "Dhola Ring PGS5025",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.77,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5025_shot_studio.jpg",
+        "/images/designs/rings/PGS5025_shot_editorial.jpg",
+        "/images/designs/rings/PGS5025_shot_worn.jpg",
+        "/images/designs/rings/PGS5025_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5025_video.mp4",
+      "desc": "Dhola Ring PGS5025 \u2014 Gold 22K, 1.77 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Dhola Ring PGS5025"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5022",
+      "sku": "PGS5022",
+      "name": "Pushkar Ring PGS5022",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.91,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5022_shot_studio.jpg",
+        "/images/designs/rings/PGS5022_shot_editorial.jpg",
+        "/images/designs/rings/PGS5022_shot_worn.jpg",
+        "/images/designs/rings/PGS5022_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5022_video.mp4",
+      "desc": "Pushkar Ring PGS5022 \u2014 Gold 22K, 1.91 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Pushkar Ring PGS5022"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5047",
+      "sku": "PGS5047",
+      "name": "Genda Ring PGS5047",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.88,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5047_shot_studio.jpg",
+        "/images/designs/rings/PGS5047_shot_editorial.jpg",
+        "/images/designs/rings/PGS5047_shot_worn.jpg",
+        "/images/designs/rings/PGS5047_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5047_video.mp4",
+      "desc": "Genda Ring PGS5047 \u2014 Gold 22K, 1.88 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Genda Ring PGS5047"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5035",
+      "sku": "PGS5035",
+      "name": "Jaisalmer Ring PGS5035",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.92,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5035_shot_studio.jpg",
+        "/images/designs/rings/PGS5035_shot_editorial.jpg",
+        "/images/designs/rings/PGS5035_shot_worn.jpg",
+        "/images/designs/rings/PGS5035_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5035_video.mp4",
+      "desc": "Jaisalmer Ring PGS5035 \u2014 Gold 22K, 1.92 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Jaisalmer Ring PGS5035"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5049",
+      "sku": "PGS5049",
+      "name": "Zafra Ring PGS5049",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.93,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5049_shot_studio.jpg",
+        "/images/designs/rings/PGS5049_shot_editorial.jpg",
+        "/images/designs/rings/PGS5049_shot_worn.jpg",
+        "/images/designs/rings/PGS5049_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5049_video.mp4",
+      "desc": "Zafra Ring PGS5049 \u2014 Gold 22K, 1.93 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Zafra Ring PGS5049"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5036",
+      "sku": "PGS5036",
+      "name": "Chittor Ring PGS5036",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.06,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5036_shot_studio.jpg",
+        "/images/designs/rings/PGS5036_shot_editorial.jpg",
+        "/images/designs/rings/PGS5036_shot_worn.jpg",
+        "/images/designs/rings/PGS5036_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5036_video.mp4",
+      "desc": "Chittor Ring PGS5036 \u2014 Gold 22K, 3.06 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Chittor Ring PGS5036"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5003",
+      "sku": "PGS5003",
+      "name": "Chandni Ring PGS5003",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.84,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5003_shot_studio.jpg",
+        "/images/designs/rings/PGS5003_shot_editorial.jpg",
+        "/images/designs/rings/PGS5003_shot_worn.jpg",
+        "/images/designs/rings/PGS5003_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5003_video.mp4",
+      "desc": "Chandni Ring PGS5003 \u2014 Gold 22K, 1.84 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Chandni Ring PGS5003"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5060",
+      "sku": "PGS5060",
+      "name": "Rajshri Ring PGS5060",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.98,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5060_shot_studio.jpg",
+        "/images/designs/rings/PGS5060_shot_editorial.jpg",
+        "/images/designs/rings/PGS5060_shot_worn.jpg",
+        "/images/designs/rings/PGS5060_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5060_video.mp4",
+      "desc": "Rajshri Ring PGS5060 \u2014 Gold 22K, 3.98 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Rajshri Ring PGS5060"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5057",
+      "sku": "PGS5057",
+      "name": "Noor Jahan Ring PGS5057",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 4.28,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5057_shot_studio.jpg",
+        "/images/designs/rings/PGS5057_shot_editorial.jpg",
+        "/images/designs/rings/PGS5057_shot_worn.jpg",
+        "/images/designs/rings/PGS5057_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5057_video.mp4",
+      "desc": "Noor Jahan Ring PGS5057 \u2014 Gold 22K, 4.28 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Noor Jahan Ring PGS5057"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5051",
+      "sku": "PGS5051",
+      "name": "Meenakari Ring PGS5051",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.61,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5051_shot_studio.jpg",
+        "/images/designs/rings/PGS5051_shot_editorial.jpg",
+        "/images/designs/rings/PGS5051_shot_worn.jpg",
+        "/images/designs/rings/PGS5051_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5051_video.mp4",
+      "desc": "Meenakari Ring PGS5051 \u2014 Gold 22K, 3.61 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Meenakari Ring PGS5051"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5006",
+      "sku": "PGS5006",
+      "name": "Amber Ring PGS5006",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 2.07,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5006_shot_studio.jpg",
+        "/images/designs/rings/PGS5006_shot_editorial.jpg",
+        "/images/designs/rings/PGS5006_shot_worn.jpg",
+        "/images/designs/rings/PGS5006_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5006_video.mp4",
+      "desc": "Amber Ring PGS5006 \u2014 Gold 22K, 2.07 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Amber Ring PGS5006"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5007",
+      "sku": "PGS5007",
+      "name": "Kesariya Ring PGS5007",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.68,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5007_shot_studio.jpg",
+        "/images/designs/rings/PGS5007_shot_editorial.jpg",
+        "/images/designs/rings/PGS5007_shot_worn.jpg",
+        "/images/designs/rings/PGS5007_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5007_video.mp4",
+      "desc": "Kesariya Ring PGS5007 \u2014 Gold 22K, 1.68 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Kesariya Ring PGS5007"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5005",
+      "sku": "PGS5005",
+      "name": "Pichola Ring PGS5005",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.17,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5005_shot_studio.jpg",
+        "/images/designs/rings/PGS5005_shot_editorial.jpg",
+        "/images/designs/rings/PGS5005_shot_worn.jpg",
+        "/images/designs/rings/PGS5005_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5005_video.mp4",
+      "desc": "Pichola Ring PGS5005 \u2014 Gold 22K, 1.17 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Pichola Ring PGS5005"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5046",
+      "sku": "PGS5046",
+      "name": "Borla Ring PGS5046",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.75,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5046_shot_studio.jpg",
+        "/images/designs/rings/PGS5046_shot_editorial.jpg",
+        "/images/designs/rings/PGS5046_shot_worn.jpg",
+        "/images/designs/rings/PGS5046_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5046_video.mp4",
+      "desc": "Borla Ring PGS5046 \u2014 Gold 22K, 1.75 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Borla Ring PGS5046"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5024",
+      "sku": "PGS5024",
+      "name": "Mewar Ring PGS5024",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.76,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5024_shot_studio.jpg",
+        "/images/designs/rings/PGS5024_shot_editorial.jpg",
+        "/images/designs/rings/PGS5024_shot_worn.jpg",
+        "/images/designs/rings/PGS5024_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5024_video.mp4",
+      "desc": "Mewar Ring PGS5024 \u2014 Gold 22K, 1.76 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Mewar Ring PGS5024"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5018",
+      "sku": "PGS5018",
+      "name": "Moti Ring PGS5018",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.59,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5018_shot_studio.jpg",
+        "/images/designs/rings/PGS5018_shot_editorial.jpg",
+        "/images/designs/rings/PGS5018_shot_worn.jpg",
+        "/images/designs/rings/PGS5018_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5018_video.mp4",
+      "desc": "Moti Ring PGS5018 \u2014 Gold 22K, 1.59 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Moti Ring PGS5018"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5016",
+      "sku": "PGS5016",
+      "name": "Tara Ring PGS5016",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 2.02,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5016_shot_studio.jpg",
+        "/images/designs/rings/PGS5016_shot_editorial.jpg",
+        "/images/designs/rings/PGS5016_shot_worn.jpg",
+        "/images/designs/rings/PGS5016_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5016_video.mp4",
+      "desc": "Tara Ring PGS5016 \u2014 Gold 22K, 2.02 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Tara Ring PGS5016"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5017",
+      "sku": "PGS5017",
+      "name": "Kiran Ring PGS5017",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.7,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5017_shot_studio.jpg",
+        "/images/designs/rings/PGS5017_shot_editorial.jpg",
+        "/images/designs/rings/PGS5017_shot_worn.jpg",
+        "/images/designs/rings/PGS5017_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5017_video.mp4",
+      "desc": "Kiran Ring PGS5017 \u2014 Gold 22K, 1.7 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Kiran Ring PGS5017"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5058",
+      "sku": "PGS5058",
+      "name": "Meher Ring PGS5058",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.8,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5058_shot_studio.jpg",
+        "/images/designs/rings/PGS5058_shot_editorial.jpg",
+        "/images/designs/rings/PGS5058_shot_worn.jpg",
+        "/images/designs/rings/PGS5058_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5058_video.mp4",
+      "desc": "Meher Ring PGS5058 \u2014 Gold 22K, 3.8 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Meher Ring PGS5058"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5045",
+      "sku": "PGS5045",
+      "name": "Kangana Ring PGS5045",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.75,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5045_shot_studio.jpg",
+        "/images/designs/rings/PGS5045_shot_editorial.jpg",
+        "/images/designs/rings/PGS5045_shot_worn.jpg",
+        "/images/designs/rings/PGS5045_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5045_video.mp4",
+      "desc": "Kangana Ring PGS5045 \u2014 Gold 22K, 1.75 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Kangana Ring PGS5045"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5033",
+      "sku": "PGS5033",
+      "name": "Jodhpur Ring PGS5033",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.89,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5033_shot_studio.jpg",
+        "/images/designs/rings/PGS5033_shot_editorial.jpg",
+        "/images/designs/rings/PGS5033_shot_worn.jpg",
+        "/images/designs/rings/PGS5033_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5033_video.mp4",
+      "desc": "Jodhpur Ring PGS5033 \u2014 Gold 22K, 1.89 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Jodhpur Ring PGS5033"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5044",
+      "sku": "PGS5044",
+      "name": "Payal Ring PGS5044",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.78,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5044_shot_studio.jpg",
+        "/images/designs/rings/PGS5044_shot_editorial.jpg",
+        "/images/designs/rings/PGS5044_shot_worn.jpg",
+        "/images/designs/rings/PGS5044_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5044_video.mp4",
+      "desc": "Payal Ring PGS5044 \u2014 Gold 22K, 1.78 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Payal Ring PGS5044"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5043",
+      "sku": "PGS5043",
+      "name": "Kajal Ring PGS5043",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 2.01,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5043_shot_studio.jpg",
+        "/images/designs/rings/PGS5043_shot_editorial.jpg",
+        "/images/designs/rings/PGS5043_shot_worn.jpg",
+        "/images/designs/rings/PGS5043_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5043_video.mp4",
+      "desc": "Kajal Ring PGS5043 \u2014 Gold 22K, 2.01 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Kajal Ring PGS5043"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5023",
+      "sku": "PGS5023",
+      "name": "Marwar Ring PGS5023",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 4.13,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5023_shot_studio.jpg",
+        "/images/designs/rings/PGS5023_shot_editorial.jpg",
+        "/images/designs/rings/PGS5023_shot_worn.jpg",
+        "/images/designs/rings/PGS5023_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5023_video.mp4",
+      "desc": "Marwar Ring PGS5023 \u2014 Gold 22K, 4.13 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Marwar Ring PGS5023"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5027",
+      "sku": "PGS5027",
+      "name": "Chambal Ring PGS5027",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.84,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5027_shot_studio.jpg",
+        "/images/designs/rings/PGS5027_shot_editorial.jpg",
+        "/images/designs/rings/PGS5027_shot_worn.jpg",
+        "/images/designs/rings/PGS5027_shot_gift.jpg"
+      ],
+      "video": "/images/designs/rings/PGS5027_video.mp4",
+      "desc": "Chambal Ring PGS5027 \u2014 Gold 22K, 1.84 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Chambal Ring PGS5027"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5040",
+      "sku": "PGS5040",
+      "name": "Nahargarh Ring PGS5040",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.75,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5040.jpg"
+      ],
+      "video": "",
+      "desc": "Nahargarh Ring PGS5040 \u2014 Gold 22K, 1.75 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Nahargarh Ring PGS5040"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5020",
+      "sku": "PGS5020",
+      "name": "Panna Ring PGS5020",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 2.04,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5020.jpg"
+      ],
+      "video": "",
+      "desc": "Panna Ring PGS5020 \u2014 Gold 22K, 2.04 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Panna Ring PGS5020"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5019",
+      "sku": "PGS5019",
+      "name": "Heera Ring PGS5019",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.83,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5019.jpg"
+      ],
+      "video": "",
+      "desc": "Heera Ring PGS5019 \u2014 Gold 22K, 1.83 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Heera Ring PGS5019"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5028",
+      "sku": "PGS5028",
+      "name": "Banas Ring PGS5028",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.69,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5028.jpg"
+      ],
+      "video": "",
+      "desc": "Banas Ring PGS5028 \u2014 Gold 22K, 1.69 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Banas Ring PGS5028"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5041",
+      "sku": "PGS5041",
+      "name": "Baori Ring PGS5041",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.37,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5041.jpg"
+      ],
+      "video": "",
+      "desc": "Baori Ring PGS5041 \u2014 Gold 22K, 3.37 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Baori Ring PGS5041"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5059",
+      "sku": "PGS5059",
+      "name": "Kanchan Ring PGS5059",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 2.99,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5059.jpg"
+      ],
+      "video": "",
+      "desc": "Kanchan Ring PGS5059 \u2014 Gold 22K, 2.99 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Kanchan Ring PGS5059"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5042",
+      "sku": "PGS5042",
+      "name": "Sindoor Ring PGS5042",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.95,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5042.jpg"
+      ],
+      "video": "",
+      "desc": "Sindoor Ring PGS5042 \u2014 Gold 22K, 1.95 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Sindoor Ring PGS5042"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5030",
+      "sku": "PGS5030",
+      "name": "Thar Ring PGS5030",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.72,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5030.jpg"
+      ],
+      "video": "",
+      "desc": "Thar Ring PGS5030 \u2014 Gold 22K, 1.72 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Thar Ring PGS5030"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5037",
+      "sku": "PGS5037",
+      "name": "Kumbhal Ring PGS5037",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.93,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5037.jpg"
+      ],
+      "video": "",
+      "desc": "Kumbhal Ring PGS5037 \u2014 Gold 22K, 1.93 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Kumbhal Ring PGS5037"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5013",
+      "sku": "PGS5013",
+      "name": "City Palace Ring PGS5013",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.9,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5013.jpg"
+      ],
+      "video": "",
+      "desc": "City Palace Ring PGS5013 \u2014 Gold 22K, 1.9 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 City Palace Ring PGS5013"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5034",
+      "sku": "PGS5034",
+      "name": "Udaipur Ring PGS5034",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.89,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5034.jpg"
+      ],
+      "video": "",
+      "desc": "Udaipur Ring PGS5034 \u2014 Gold 22K, 1.89 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Udaipur Ring PGS5034"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5009",
+      "sku": "PGS5009",
+      "name": "Jharokha Ring PGS5009",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.34,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5009.jpg"
+      ],
+      "video": "",
+      "desc": "Jharokha Ring PGS5009 \u2014 Gold 22K, 3.34 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Jharokha Ring PGS5009"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5008",
+      "sku": "PGS5008",
+      "name": "Mehndi Ring PGS5008",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.71,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5008.jpg"
+      ],
+      "video": "",
+      "desc": "Mehndi Ring PGS5008 \u2014 Gold 22K, 1.71 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Mehndi Ring PGS5008"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5021",
+      "sku": "PGS5021",
+      "name": "Manik Ring PGS5021",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.94,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5021.jpg"
+      ],
+      "video": "",
+      "desc": "Manik Ring PGS5021 \u2014 Gold 22K, 1.94 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Manik Ring PGS5021"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5054",
+      "sku": "PGS5054",
+      "name": "Thewa Ring PGS5054",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 4.02,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5054.jpg"
+      ],
+      "video": "",
+      "desc": "Thewa Ring PGS5054 \u2014 Gold 22K, 4.02 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Thewa Ring PGS5054"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5011",
+      "sku": "PGS5011",
+      "name": "Sheesh Mahal Ring PGS5011",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 4.96,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5011.jpg"
+      ],
+      "video": "",
+      "desc": "Sheesh Mahal Ring PGS5011 \u2014 Gold 22K, 4.96 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Sheesh Mahal Ring PGS5011"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5031",
+      "sku": "PGS5031",
+      "name": "Shekhawati Ring PGS5031",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.4,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5031.jpg"
+      ],
+      "video": "",
+      "desc": "Shekhawati Ring PGS5031 \u2014 Gold 22K, 3.4 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Shekhawati Ring PGS5031"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5012",
+      "sku": "PGS5012",
+      "name": "Hawa Mahal Ring PGS5012",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.92,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5012.jpg"
+      ],
+      "video": "",
+      "desc": "Hawa Mahal Ring PGS5012 \u2014 Gold 22K, 1.92 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Hawa Mahal Ring PGS5012"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5039",
+      "sku": "PGS5039",
+      "name": "Dilwara Ring PGS5039",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 2.67,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5039.jpg"
+      ],
+      "video": "",
+      "desc": "Dilwara Ring PGS5039 \u2014 Gold 22K, 2.67 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Dilwara Ring PGS5039"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5010",
+      "sku": "PGS5010",
+      "name": "Marudhara Ring PGS5010",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.53,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5010.jpg"
+      ],
+      "video": "",
+      "desc": "Marudhara Ring PGS5010 \u2014 Gold 22K, 3.53 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Marudhara Ring PGS5010"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5038",
+      "sku": "PGS5038",
+      "name": "Ranakpur Ring PGS5038",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 1.7,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5038.jpg"
+      ],
+      "video": "",
+      "desc": "Ranakpur Ring PGS5038 \u2014 Gold 22K, 1.7 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Ranakpur Ring PGS5038"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5055",
+      "sku": "PGS5055",
+      "name": "Minakari Ring PGS5055",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.51,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5055.jpg"
+      ],
+      "video": "",
+      "desc": "Minakari Ring PGS5055 \u2014 Gold 22K, 3.51 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Minakari Ring PGS5055"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5048",
+      "sku": "PGS5048",
+      "name": "Kesar Ring PGS5048",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 4.19,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5048.jpg"
+      ],
+      "video": "",
+      "desc": "Kesar Ring PGS5048 \u2014 Gold 22K, 4.19 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Kesar Ring PGS5048"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5056",
+      "sku": "PGS5056",
+      "name": "Rani Padmini Ring PGS5056",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 4.33,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5056.jpg"
+      ],
+      "video": "",
+      "desc": "Rani Padmini Ring PGS5056 \u2014 Gold 22K, 4.33 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Rani Padmini Ring PGS5056"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5053",
+      "sku": "PGS5053",
+      "name": "Jadau Ring PGS5053",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 3.41,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5053.jpg"
+      ],
+      "video": "",
+      "desc": "Jadau Ring PGS5053 \u2014 Gold 22K, 3.41 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Jadau Ring PGS5053"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
+    },
+    {
+      "id": "p_pgs5052",
+      "sku": "PGS5052",
+      "name": "Kundan Ring PGS5052",
+      "category": "rings",
+      "metal": "Gold",
+      "purity": "22K",
+      "weightG": 4.27,
+      "mcScheme": "percent",
+      "mcValue": 12.0,
+      "stoneType": "",
+      "stoneColour": "",
+      "stoneDesc": "",
+      "stoneValue": 0,
+      "sizes": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "tags": [
+        "new",
+        "handcrafted",
+        "mens"
+      ],
+      "images": [
+        "/images/designs/rings/PGS5052.jpg"
+      ],
+      "video": "",
+      "desc": "Kundan Ring PGS5052 \u2014 Gold 22K, 4.27 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+      "rating": 4.7,
+      "reviews": 0,
+      "stock": 8,
+      "active": true,
+      "createdAt": "2026-09-07T10:00:00+05:30",
+      "lessWeightG": 0,
+      "wastagePct": 8,
+      "barcode": "",
+      "supplier": "",
+      "supplierId": "",
+      "costPerGram": 0.0,
+      "seo": {
+        "keywords": [
+          "gold 22K ring",
+          "shivaa jewellers ring"
+        ],
+        "alt": "Gold 22K ring \u2014 Kundan Ring PGS5052"
+      },
+      "category_note": "Ring by Shivaa Jewellers",
+      "hallmark": {
+        "status": "not_provided",
+        "verified": false,
+        "source": null,
+        "checkedAt": null,
+        "entries": []
+      }
     }
   ],
   "users": [
