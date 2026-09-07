@@ -1059,6 +1059,113 @@ pages.home = async (view) => {
     </div>
   </section>
 
+  <!-- ── GIFT CONCIERGE ─────────────────────────────────── -->
+  <section class="gift-concierge" id="giftConcierge" aria-label="Gift Concierge">
+    <div class="container">
+      <div class="gc-head">
+        <div class="gc-kicker">Personalised Gift Concierge</div>
+        <h2>Find the <em>perfect</em> piece</h2>
+        <p>Answer four quick questions and we'll hand-pick jewellery that fits who it's for, the moment and your budget — with live pricing and a WhatsApp hand-off to a Shivaa advisor.</p>
+        <div class="gc-sub">60 seconds · no login · curated by our family</div>
+      </div>
+
+      <div class="gc-quiz">
+        <!-- progress -->
+        <div class="gc-progress" id="gcProgress">
+          <div class="gc-step active"><i></i></div>
+          <div class="gc-step"><i></i></div>
+          <div class="gc-step"><i></i></div>
+          <div class="gc-step"><i></i></div>
+        </div>
+
+        <!-- Step 1: Recipient -->
+        <div class="gc-panel active" data-step="1">
+          <h3 class="gc-q">Who is the gift for?<small>We pick pieces that suit their style & age.</small></h3>
+          <div class="gc-opts c3" data-q="recipient">
+            <button type="button" class="gc-opt" data-val="mother"><span class="gc-ic">👩‍🦱</span><span><b>Mother / Mother-in-law</b><span>Elegant, traditional, weight that feels solid</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="wife"><span class="gc-ic">💍</span><span><b>Wife / Partner</b><span>Romantic, heirloom feel, pieces she'll wear daily</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="daughter"><span class="gc-ic">🌸</span><span><b>Daughter / Sister</b><span>Young, light, versatile — office + festive</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="bride"><span class="gc-ic">👰</span><span><b>Bride-to-be</b><span>Bridal sets, kundan, statement heirlooms</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="friend"><span class="gc-ic">🎁</span><span><b>Friend / Colleague</b><span>Thoughtful, versatile, budget-friendly</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="self"><span class="gc-ic">✨</span><span><b>Myself (a self-gift!)</b><span>Something I've had my eye on</span></span><span class="gc-check">✓</span></button>
+          </div>
+          <div class="gc-nav">
+            <span></span>
+            <button type="button" class="btn btn-gold gc-next" disabled>Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Occasion -->
+        <div class="gc-panel" data-step="2">
+          <h3 class="gc-q">What's the occasion?<small>We'll tune the formality & motifs.</small></h3>
+          <div class="gc-opts c3" data-q="occasion">
+            <button type="button" class="gc-opt" data-val="wedding"><span class="gc-ic">💒</span><span><b>Wedding / Reception</b><span>Bridal, kundan, heavy rani haar & chokers</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="anniversary"><span class="gc-ic">💞</span><span><b>Anniversary</b><span>Romantic, meaningful — rings, pendants, bracelets</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="birthday"><span class="gc-ic">🎂</span><span><b>Birthday</b><span>Personal, fun — earrings, charms, chains</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="festive"><span class="gc-ic">🪔</span><span><b>Festive / Diwali</b><span>Auspicious pieces — jhumkas, mangalsutra, coin sets</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="milestone"><span class="gc-ic">🏆</span><span><b>Milestone / Graduation</b><span>Timeless — a first gold piece, studs, plain chains</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="justbecause"><span class="gc-ic">💛</span><span><b>Just Because</b><span>Everyday favourites she didn't ask for</span></span><span class="gc-check">✓</span></button>
+          </div>
+          <div class="gc-nav">
+            <button type="button" class="btn btn-ghost gc-prev">← Back</button>
+            <button type="button" class="btn btn-gold gc-next" disabled>Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Budget -->
+        <div class="gc-panel" data-step="3">
+          <h3 class="gc-q">What's your budget?<small>Prices are live — today's gold rate is used.</small></h3>
+          <div class="gc-budget">
+            <b id="gcBudDisp">₹ 30,000</b>
+            <small>Rough total budget (per piece)</small>
+            <input type="range" id="gcBudRange" min="5000" max="300000" step="1000" value="30000">
+            <div class="gc-chips" id="gcBudChips">
+              <button type="button" data-val="15000">Under ₹15k</button>
+              <button type="button" data-val="30000" class="on">₹30k</button>
+              <button type="button" data-val="60000">₹60k</button>
+              <button type="button" data-val="100000">₹1L</button>
+              <button type="button" data-val="200000">₹2L+</button>
+            </div>
+          </div>
+          <div class="gc-nav">
+            <button type="button" class="btn btn-ghost gc-prev">← Back</button>
+            <button type="button" class="btn btn-gold gc-next">Show my picks →</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Style -->
+        <div class="gc-panel" data-step="4">
+          <h3 class="gc-q">What's her style?<small>Pick the closest.</small></h3>
+          <div class="gc-opts c2" data-q="style">
+            <button type="button" class="gc-opt" data-val="traditional"><span class="gc-ic">🏛️</span><span><b>Traditional / Heritage</b><span>Kundan, meenakari, temple motifs, Rajasthani</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="modern"><span class="gc-ic">⚡</span><span><b>Modern / Minimal</b><span>Clean lines, geometric, everyday wear</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="bridal"><span class="gc-ic">👑</span><span><b>Bridal / Statement</b><span>Heavy sets, chokers, rani haar, bridal kadas</span></span><span class="gc-check">✓</span></button>
+            <button type="button" class="gc-opt" data-val="versatile"><span class="gc-ic">🌿</span><span><b>Versatile / Daily</b><span>Lightweight, office-to-festive pieces</span></span><span class="gc-check">✓</span></button>
+          </div>
+          <div class="gc-nav">
+            <button type="button" class="btn btn-ghost gc-prev">← Back</button>
+            <button type="button" class="btn btn-gold gc-next" disabled>See my gifts →</button>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div class="gc-results" id="gcResults">
+          <div class="gc-recap" id="gcRecap"></div>
+          <h3>Curated <em>just for them</em></h3>
+          <span class="gc-sub">Live gold/silver pricing · click through for full breakdown</span>
+          <div class="gc-grid" id="gcGrid"></div>
+          <div class="gc-foot">
+            <p>Want a human touch? <b>Share these picks on WhatsApp</b> with our family advisors — we'll send videos, weight confirmation and bespoke options within the hour.</p>
+            <button type="button" class="btn btn-gold" id="gcWA">${WA_SVG}<span>Chat on WhatsApp</span></button>
+          </div>
+          <div style="text-align:center">
+            <button type="button" class="gc-restart" id="gcRestart">↻ Start over</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="sec container" style="padding-top:0">
     <div class="newsletter rv">
       <img src="/images/logo.png" class="news-logo" alt="Shivaa">
@@ -1146,7 +1253,314 @@ pages.home = async (view) => {
     const dx = (e.clientX / innerWidth - .5), dy = (e.clientY / innerHeight - .5);
     orbs.style.transform = `translate(${dx * -18}px, ${dy * -12}px)`;
   }, { passive: true });
+
+  // Gift Concierge
+  initGiftConcierge();
 };
+
+/* ─────────── GIFT CONCIERGE ─────────── */
+function initGiftConcierge() {
+  const root = $('#giftConcierge'); if (!root) return;
+
+  const STORAGE_KEY = 'shivaa_gc_state';
+  const state = {
+    step: 1,
+    answers: { recipient: null, occasion: null, budget: 30000, style: null },
+  };
+
+  // ---- helper: scoring recipes ----
+  // tag & category signals per answer
+  const PROFILE = {
+    recipient: {
+      mother:     { tags: ['heritage','wedding','festive'], cats: ['necklaces','earrings','bangles','pendants','mangalsutra'], wt: 1.0 },
+      wife:       { tags: ['luxe','heritage','wedding','new'],       cats: ['rings','necklaces','bangles','pendants','bracelets','chains'], wt: 1.0 },
+      daughter:   { tags: ['daily','new','festive'],                 cats: ['earrings','rings','chains','pendants','nosepins','bracelets'], wt: 1.0 },
+      bride:      { tags: ['wedding','heritage','luxe'],             cats: ['necklaces','bangles','earrings','rings','mangalsutra','aad','sheeshphool','bajubandh','bridalanklets','hathphool'], wt: 1.2 },
+      friend:     { tags: ['gifting','daily','festive','new'],       cats: ['earrings','pendants','chains','rings','silver'], wt: 1.0 },
+      self:       { tags: ['new','bestseller','heritage','daily'],   cats: null, wt: 1.0 },
+    },
+    occasion: {
+      wedding:     { tags: ['wedding','heritage','luxe'],  cats: ['necklaces','bangles','earrings','mangalsutra','rings'], wt: 1.2 },
+      anniversary: { tags: ['gifting','luxe'],             cats: ['rings','pendants','bracelets','chains','necklaces'], wt: 1.0 },
+      birthday:    { tags: ['gifting','new'],              cats: ['earrings','rings','pendants','chains'], wt: 1.0 },
+      festive:     { tags: ['festive','heritage'],         cats: ['earrings','necklaces','bangles','chains','pendants','rakhdi'], wt: 1.0 },
+      milestone:   { tags: ['gifting','daily','heritage'], cats: ['chains','rings','earrings','pendants','silver'], wt: 1.0 },
+      justbecause: { tags: ['gifting','daily','new'],      cats: ['earrings','chains','pendants','nosepins','silver'], wt: 0.9 },
+    },
+    style: {
+      traditional: { tags: ['heritage','festive','wedding'], cats: ['necklaces','bangles','earrings','mangalsutra','aad','rakhdi','bajubandh'], wt: 1.1 },
+      modern:      { tags: ['new','daily'],                  cats: ['rings','chains','pendants','bracelets','earrings','nosepins'], wt: 1.0 },
+      bridal:      { tags: ['wedding','luxe','heritage'],    cats: ['necklaces','bangles','earrings','rings','mangalsutra','bridalanklets','hathphool'], wt: 1.3 },
+      versatile:   { tags: ['daily','new'],                  cats: ['earrings','rings','chains','pendants','bracelets','nosepins'], wt: 1.0 },
+    },
+  };
+
+  const RECIPIENT_LABEL = { mother:'Mother / Mother-in-law', wife:'Wife / Partner', daughter:'Daughter / Sister', bride:'Bride-to-be', friend:'Friend / Colleague', self:'Self-gift' };
+  const OCCASION_LABEL = { wedding:'Wedding / Reception', anniversary:'Anniversary', birthday:'Birthday', festive:'Festive / Diwali', milestone:'Milestone', justbecause:'Just Because' };
+  const STYLE_LABEL = { traditional:'Traditional / Heritage', modern:'Modern / Minimal', bridal:'Bridal / Statement', versatile:'Versatile / Daily' };
+
+  // ---- DOM refs ----
+  const progressSteps = [...root.querySelectorAll('.gc-step')];
+  const panels = [...root.querySelectorAll('.gc-panel')];
+  const resultsEl = $('#gcResults', root);
+  const recapEl = $('#gcRecap', root);
+  const gridEl = $('#gcGrid', root);
+  const budRange = $('#gcBudRange', root);
+  const budDisp = $('#gcBudDisp', root);
+  const budChips = [...$('#gcBudChips', root).querySelectorAll('button')];
+
+  // ---- progress helpers ----
+  function setStep(n) {
+    state.step = n;
+    progressSteps.forEach((s, i) => {
+      s.classList.toggle('done', i < n - 1);
+      s.classList.toggle('active', i === n - 1);
+    });
+    panels.forEach(p => p.classList.toggle('active', Number(p.dataset.step) === n));
+    resultsEl.classList.remove('active');
+  }
+
+  function refreshNext() {
+    const panel = panels.find(p => p.classList.contains('active'));
+    const nextBtn = panel?.querySelector('.gc-next');
+    if (!nextBtn) return;
+    const q = panel.dataset.q;
+    const ok = q ? !!state.answers[q] : true;
+    nextBtn.disabled = !ok;
+  }
+
+  // ---- option clicks ----
+  panels.forEach(panel => {
+    const q = panel.dataset.q;
+    const opts = panel.querySelectorAll('.gc-opt');
+    opts.forEach(opt => {
+      opt.addEventListener('click', () => {
+        opts.forEach(o => o.classList.remove('on'));
+        opt.classList.add('on');
+        if (q) state.answers[q] = opt.dataset.val;
+        refreshNext();
+      });
+    });
+    panel.querySelector('.gc-prev')?.addEventListener('click', () => setStep(state.step - 1));
+    panel.querySelector('.gc-next')?.addEventListener('click', () => {
+      if (state.step < panels.length) setStep(state.step + 1);
+      else showResults();
+    });
+  });
+
+  // ---- budget slider ----
+  function fmtBud(v){ return '₹ ' + Number(v).toLocaleString('en-IN'); }
+  function setBud(v) {
+    v = Number(v); state.answers.budget = v;
+    budRange.value = v; budDisp.textContent = fmtBud(v);
+    budChips.forEach(b => b.classList.toggle('on', Number(b.dataset.val) === v));
+  }
+  budRange.addEventListener('input', e => {
+    setBud(e.target.value);
+    // clear "on" on chips if value doesn't exactly match
+    if (!budChips.some(b => Number(b.dataset.val) === Number(e.target.value))) {
+      budChips.forEach(b => b.classList.remove('on'));
+    }
+  });
+  budChips.forEach(b => b.addEventListener('click', () => setBud(b.dataset.val)));
+
+  // ---- restart ----
+  $('#gcRestart', root).addEventListener('click', () => {
+    state.answers = { recipient: null, occasion: null, budget: 30000, style: null };
+    root.querySelectorAll('.gc-opt.on').forEach(o => o.classList.remove('on'));
+    setStep(1);
+    setBud(30000);
+    try{ sessionStorage.removeItem(STORAGE_KEY); }catch(e){}
+    root.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+
+  // ---- scoring ----
+  function scoreProduct(p) {
+    let s = 0;
+    const tags = new Set(p.tags || []);
+    const cat = (p.category || '').toLowerCase();
+    let bestPrice = price(p); // returns { total, metalValue, ... }
+    let finalPrice = bestPrice && bestPrice.total ? bestPrice.total : (Number(p.price) || 0);
+
+    // budget match (penalise > 20% over; favour close to 60-90% of budget)
+    const bud = state.answers.budget;
+    if (finalPrice <= bud) {
+      const ratio = finalPrice / bud;
+      s += 20 + (1 - Math.abs(ratio - 0.75)) * 15; // sweet spot ~75% of budget
+    } else if (finalPrice <= bud * 1.25) {
+      s += 10 - ((finalPrice - bud) / bud) * 30;
+    } else {
+      s -= 40;
+    }
+    if (finalPrice < bud * 0.25) s -= 10; // too cheap is odd
+
+    // tag/category matches per profile
+    const sigs = [
+      PROFILE.recipient[state.answers.recipient],
+      PROFILE.occasion[state.answers.occasion],
+      PROFILE.style[state.answers.style],
+    ].filter(Boolean);
+    sigs.forEach(sig => {
+      if (sig.tags) sig.tags.forEach(t => { if (tags.has(t)) s += 8 * sig.wt; });
+      if (sig.cats) sig.cats.forEach(c => { if (cat.includes(c)) s += 5 * sig.wt; });
+    });
+
+    // global bonuses
+    if (tags.has('gifting')) s += 6;
+    if (tags.has('bestseller')) s += 4;
+    if (tags.has('new')) s += 2;
+    if (p.rating) s += Math.min(5, p.rating);
+    if (p.active === false || (typeof p.stock === 'number' && p.stock <= 0)) s -= 100;
+
+    return s;
+  }
+
+  function pickProducts() {
+    const list = (state.productsCache || []).slice();
+    const scored = list.map(p => ({ p, s: scoreProduct(p) })).sort((a,b) => b.s - a.s);
+    // pick top 3 but ensure category diversity (no same category triple)
+    const picked = []; const usedCats = new Set();
+    for (const {p} of scored) {
+      if (picked.length >= 3) break;
+      const cat = (p.category||'').toLowerCase();
+      if (usedCats.has(cat) && picked.length < 3) {
+        // allow duplicate only if not enough unique
+        if (usedCats.size < 3 && picked.length >= usedCats.size) continue;
+      }
+      if (p.tags && p.tags.includes('mens') && state.answers.recipient !== 'friend' && state.answers.style !== 'modern') {
+        // skip mens unless requested
+        continue;
+      }
+      picked.push(p); usedCats.add(cat);
+    }
+    // if still < 3 due to filters, just take top
+    if (picked.length < 3) for (const {p} of scored) { if (picked.length >= 3) break; if (!picked.includes(p)) picked.push(p); }
+    return picked.slice(0, 3);
+  }
+
+  function productImage(p) {
+    if (p.images && p.images[0]) return p.images[0];
+    if (p.image) return p.image;
+    const slug = String(p.id || p.name || '').toLowerCase().replace(/[^a-z0-9]+/g,'-');
+    return `/images/products/${slug}.jpg`;
+  }
+
+  function ribbonFor(p) {
+    const t = new Set(p.tags || []);
+    if (t.has('bestseller')) return 'Bestseller';
+    if (t.has('new')) return 'New';
+    if (t.has('luxe')) return 'Signature';
+    if (t.has('heritage')) return 'Heritage';
+    if (t.has('gifting')) return 'Gift-ready';
+    if (t.has('wedding')) return 'Wedding';
+    if (t.has('festive')) return 'Festive';
+    return '';
+  }
+
+  function showResults() {
+    panels.forEach(p => p.classList.remove('active'));
+    progressSteps.forEach((s,i) => { s.classList.add('done'); s.classList.remove('active'); });
+    resultsEl.classList.add('active');
+
+    const picks = pickProducts();
+
+    // recap
+    const chips = [
+      RECIPIENT_LABEL[state.answers.recipient],
+      OCCASION_LABEL[state.answers.occasion],
+      fmtBud(state.answers.budget) + ' budget',
+      STYLE_LABEL[state.answers.style],
+    ].filter(Boolean);
+    recapEl.innerHTML = `<b>Your brief</b><div class="gc-picks">${chips.map(c=>`<span>${esc(c)}</span>`).join('')}</div>`;
+
+    // grid
+    if (!picks.length) {
+      gridEl.innerHTML = `<div class="gc-empty"><div class="big">✦</div><h3>Let's find this together</h3><p>Our advisors will curate a custom shortlist — share your brief on WhatsApp.</p></div>`;
+    } else {
+      gridEl.innerHTML = picks.map((p, i) => {
+        const pr = price(p);
+        const finalPrice = pr && pr.total ? pr.total : (Number(p.price) || 0);
+        const img = productImage(p);
+        const rib = ribbonFor(p);
+        const catLabel = (p.category||'').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+        const w = p.weightG ? Number(p.weightG).toFixed(2) + 'g' : '';
+        return `<article class="gc-pick" data-id="${esc(String(p.id))}">
+          <div class="gc-pick-img">
+            ${rib ? `<span class="gc-ribbon">${esc(rib)}</span>` : ''}
+            <img src="${esc(img)}" alt="${esc(p.name)}" loading="lazy" onerror="this.src='/images/logo.png';this.style.objectFit='contain';this.style.padding='28%';this.style.opacity='.35'">
+          </div>
+          <div class="gc-pick-body">
+            <div class="gc-pick-cat">${esc(catLabel)}</div>
+            <h4>${esc(p.name)}</h4>
+            <div class="gc-pick-meta">${esc(p.metal||'Gold')} ${esc(p.purity||'')}${w?' · '+esc(w):''}${p.stoneType && p.stoneType !== 'Plain' ? ' · '+esc(p.stoneType):''}</div>
+            <div class="gc-pick-price"><b>${fmt(finalPrice)}</b><small>incl. 3% GST · live rate</small></div>
+            <div class="gc-pick-actions">
+              <a class="btn btn-gold" href="#/product/${esc(String(p.id))}">View piece</a>
+              <button class="btn btn-ghost gc-send" data-id="${esc(String(p.id))}" title="Send this to WhatsApp">${WA_SVG}</button>
+            </div>
+          </div>
+        </article>`;
+      }).join('');
+    }
+
+    // per-piece whatsapp
+    gridEl.querySelectorAll('.gc-send').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const p = (state.productsCache||[]).find(x => String(x.id) === String(id));
+        if (p) waOpen(waProductMsg(p, 1, null, null));
+      });
+    });
+
+    // share-all whatsapp
+    const waBtn = $('#gcWA', root);
+    waBtn.onclick = () => {
+      const lines = ['Namaste Shivaa! I just used the Gift Concierge. My brief:'];
+      lines.push('• For: ' + RECIPIENT_LABEL[state.answers.recipient]);
+      lines.push('• Occasion: ' + OCCASION_LABEL[state.answers.occasion]);
+      lines.push('• Budget: ' + fmtBud(state.answers.budget));
+      lines.push('• Style: ' + STYLE_LABEL[state.answers.style]);
+      if (picks.length) {
+        lines.push('\nMy top picks:');
+        picks.forEach((p, i) => {
+          const pr = price(p);
+          lines.push(`${i+1}. ${p.name} — ${fmt(pr && pr.total ? pr.total : Number(p.price||0))} (#/product/${p.id})`);
+        });
+        lines.push('\nCould you share videos, exact weight and bespoke options? 🙏');
+      } else {
+        lines.push('\nCould your advisors curate a shortlist for me? 🙏');
+      }
+      waOpen(lines.join('\n'));
+    };
+
+    // persist state
+    try{ sessionStorage.setItem(STORAGE_KEY, JSON.stringify({answers: state.answers, results: true})); }catch(e){}
+  }
+
+  // ---- restore from session ----
+  try{
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const s = JSON.parse(saved);
+      if (s.answers) Object.assign(state.answers, s.answers);
+      setBud(state.answers.budget || 30000);
+      // restore selected options visual
+      panels.forEach(panel => {
+        const q = panel.dataset.q; if (!q || !state.answers[q]) return;
+        const opt = panel.querySelector(`.gc-opt[data-val="${state.answers[q]}"]`);
+        if (opt) opt.classList.add('on');
+      });
+      if (s.results) {
+        // show results directly (but stay on intro so user can re-run easily)
+        setStep(1);
+      }
+    } else {
+      setBud(state.answers.budget);
+    }
+  }catch(e){ setBud(state.answers.budget); }
+
+  refreshNext();
+}
 
 /* ─────────── SHOP ─────────── */
 pages.shop = async (view, q) => {

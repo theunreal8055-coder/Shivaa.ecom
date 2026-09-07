@@ -1,10 +1,3 @@
-# scratch / transient
-/work/
-*.pyc
-__pycache__/
-*.tmp
-
-# batch workspace scratch (regenerable); MEDIA IS TRACKED — snapshots respect
 # .gitignore, so untracked media does not survive sandbox restarts (lesson 5 Sep)
 demo65/work/tags/
 demo65/work/sheets/
@@ -12,3 +5,8 @@ demo65/work/run.log
 
 # keep ground truth + provenance in git:
 #   demo65/work/designs.json · demo65/suppliers/*.csv · demo65/config.json · demo65/status.py
+#
+# dist/ is intentionally committed — official release deploy zips live here.
+# Temp copies placed in cms/ are ignored (don't ship to web root):
+cms/shivaa-update-v42-gift-concierge.zip
+cms/DEPLOY-v42-gift-concierge.md
