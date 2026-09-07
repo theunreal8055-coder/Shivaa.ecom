@@ -16860,9 +16860,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5019.jpg"
+        "/images/designs/rings/PGS5019_shot_studio.jpg",
+        "/images/designs/rings/PGS5019_shot_editorial.jpg",
+        "/images/designs/rings/PGS5019_shot_worn.jpg",
+        "/images/designs/rings/PGS5019_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5019_video.mp4",
       "desc": "Heera Ring PGS5019 \u2014 Gold 22K, 1.83 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -16889,7 +16892,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5028",
@@ -17259,9 +17263,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5013.jpg"
+        "/images/designs/rings/PGS5013_shot_studio.jpg",
+        "/images/designs/rings/PGS5013_shot_editorial.jpg",
+        "/images/designs/rings/PGS5013_shot_worn.jpg",
+        "/images/designs/rings/PGS5013_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5013_video.mp4",
       "desc": "City Palace Ring PGS5013 \u2014 Gold 22K, 1.9 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -17288,7 +17295,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5034",
