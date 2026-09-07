@@ -138,7 +138,7 @@
             <p>The Government of India runs the only real HUID verification tool — the free <b>BIS Care</b> app. Enter the 6-character HUID stamped on your physical piece and it returns the official assay record, including the jeweller's name, purity, and the date of hallmarking.</p>
             <p class="hm2-cta-note"><b>Shivaa does not run a private BIS lookup.</b> If any website claims to "verify" your HUID outside the BIS Care app, close it — only the BIS server holds the real record.</p>
             <div class="hm2-cta-btns">
-              <a class="btn btn-gold btn-xl" href="${BIS_CARE}" ${external}>Open BIS Care ↗</a>
+              <a class="btn btn-gold btn-lg" href="${BIS_CARE}" ${external}>Open BIS Care ↗</a>
               <a class="btn btn-light" href="${BIS_ANDROID}" ${external}>Android app ↗</a>
               <a class="btn btn-light" href="${BIS_IOS}" ${external}>iPhone app ↗</a>
             </div>
@@ -193,7 +193,7 @@
       <section class="hm2-contact rv">
         <h3>Questions about your HUID?</h3>
         <p>Our hallmarking desk is on WhatsApp 7 days a week. Send a photo of the stamp and we'll walk you through the verification.</p>
-        <a class="btn btn-gold btn-xl" id="hm2Wa" href="#">${WA_SVG}<span>Message our hallmarking desk</span></a>
+        <a class="btn btn-gold btn-lg" id="hm2Wa" href="#">${WA_SVG}<span>Message our hallmarking desk</span></a>
       </section>
     </div>
     `;
@@ -218,5 +218,14 @@
   }
 
   window.ShivaaHallmark = { productPanel };
-  window.Shivaa.routes.hallmark = renderPage;
+  // Register hallmark route. hallmark.js loads BEFORE app.js creates const routes={},
+  // so we stash it on window.Shivaa._extRoutes and app.js merges it in when ready.
+  window.Shivaa = window.Shivaa || {};
+  window.Shivaa._extRoutes = window.Shivaa._extRoutes || {};
+  window.Shivaa._extRoutes.hallmark = renderPage;
+  // Also bind as soon as window.Shivaa.routes exists (covers all timings):
+  const bind = () => { if (window.Shivaa && window.Shivaa.routes) window.Shivaa.routes.hallmark = renderPage; };
+  bind();
+  document.addEventListener('DOMContentLoaded', bind, { once: true });
+  addEventListener('load', bind, { once: true });
 })();
