@@ -54,8 +54,9 @@ This is a **live jewellery e-commerce website** for Shivaa Jewellery (Jaipur, In
 
 ### PGS Ring Designs (PGS5001–PGS5065) — ALL LIVE
 - **65 designs total** — all imported and visible on website
-- **39 with full AI photoshoot** (studio + editorial + worn + gift images + video)
-- **26 with reference design images** (studio shot only — photoshoot not yet generated)
+- **41 with full AI photoshoot** (studio + editorial + worn + gift images + video)
+- **24 with reference design images** (photoshoot not yet generated) + **1 partial** (PGS5019 has studio+worn, needs gift+editorial)
+- 94 shots remaining (≈10 messages at the 10-images/turn cap)
 - All media in `cms/images/designs/rings/`
 
 ### Gold Rates (per gram)
@@ -119,7 +120,9 @@ zip -r shivaa-update-v42.zip cms/
 ---
 
 ## 📋 OPEN TODO / NEXT STEPS
-- [ ] Generate photoshoots for remaining 26 PGS rings (reference images only)
+- [ ] Generate photoshoots for remaining 24 PGS rings + finish PGS5019 (gift+editorial) — 94 shots left
+  - Queue order: PGS5019(gift,editorial), PGS5028, PGS5041, PGS5059, PGS5042, PGS5030, PGS5037, PGS5013, PGS5034, PGS5009, PGS5008, PGS5021, PGS5054, PGS5011, PGS5031, PGS5012, PGS5039, PGS5010, PGS5038, PGS5055, PGS5048, PGS5056, PGS5053, PGS5052
+  - Progress on 7 Sep 2026: PGS5040 + PGS5020 completed (4 shots + film each, QA passed); PGS5019 studio+worn done
 - [ ] Owner may request new features — ask before assuming
 
 ---
