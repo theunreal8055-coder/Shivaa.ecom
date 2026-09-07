@@ -1,7 +1,7 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
 **Last updated: 2026-09-07**
-**Current version: v42**
+**Current version: v43 (batch 1)**
 **Repository: theunreal8055-coder/Shivaa.ecom**
 **This file is on GitHub and persists across all sessions and branches**
 
@@ -29,7 +29,7 @@ This is a **live jewellery e-commerce website** for Shivaa Jewellery (Jaipur, In
 
 ---
 
-## ✅ CURRENT WORKING STATE (v42 — MERGED TO MAIN)
+## ✅ CURRENT WORKING STATE (v43 — batch 1 on branch, main = v42)
 
 ### Products (405 total in db.json)
 | Category | Count |
@@ -54,9 +54,10 @@ This is a **live jewellery e-commerce website** for Shivaa Jewellery (Jaipur, In
 
 ### PGS Ring Designs (PGS5001–PGS5065) — ALL LIVE
 - **65 designs total** — all imported and visible on website
-- **39 with full AI photoshoot** (studio + editorial + worn + gift images + video)
-- **26 with reference design images** (studio shot only — photoshoot not yet generated)
-- All media in `cms/images/designs/rings/`
+- **39 with full AI photoshoot** (studio + editorial + worn + gift images + video) — done by v42
+- **9 more completed in v43 batch 1**: PGS5008 5009 5010 5011 5012 5013 5019 5020 5021 (4 shots + film + db each)
+- **17 still pending**: PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5048 5052 5053 5054 5055 5056 5059
+- All media in `cms/images/designs/rings/`; toolchain + runbook in `tools/photoshoot/`
 
 ### Gold Rates (per gram)
 - 24K: ₹15,600
@@ -96,10 +97,13 @@ This is a **live jewellery e-commerce website** for Shivaa Jewellery (Jaipur, In
 
 ---
 
-## 🔄 DEPLOYMENT
-Owner downloads `shivaa-update-v42.zip` from the repo, uploads to hosting panel, extracts to replace `cms/` folder.
+## 🔄 DEPLOYMENT (v43 batch 1 — rings)
+See **`DEPLOY-v43-RINGS-BATCH1.md`** for full instructions. Two paths:
+- **Path A (zip):** owner downloads `shivaa-update-v43-rings-batch1.zip` (14.7 MB, 46 files: 45 media + db.json), uploads via hPanel, extracts over public_html. ⚠️ contains db.json — merge/first-export live orders if any were taken since v42.
+- **Path B (API, safest):** `python3 pipeline/06_upload.py --config demo65/config.json --live --only PGS5008,PGS5009,PGS5010,PGS5011,PGS5012,PGS5013,PGS5019,PGS5020,PGS5021` from any online machine — media pre-staged in `demo65/media/{SKU}/`, upserts by SKU, never touches db.json.
+- Auto-sync cron users: point the saved branch at `arena/01a07bb3-shivaa-ecom`.
 
-To rebuild the zip:
+To rebuild a full-site zip (v42 style):
 ```bash
 cd /home/user/Shivaa.ecom
 zip -r shivaa-update-v42.zip cms/
@@ -119,7 +123,9 @@ zip -r shivaa-update-v42.zip cms/
 ---
 
 ## 📋 OPEN TODO / NEXT STEPS
-- [ ] Generate photoshoots for remaining 26 PGS rings (reference images only)
+- [x] v43 batch 1: photoshoots for PGS5008 5009 5010 5011 5012 5013 5019 5020 5021 (committed & pushed)
+- [ ] Deploy batch 1 (see DEPLOY-v43-RINGS-BATCH1.md — zip uploaded or API command run by owner)
+- [ ] Generate photoshoots for remaining 17 PGS rings (PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5048 5052 5053 5054 5055 5056 5059) — toolchain ready in tools/photoshoot/
 - [ ] Owner may request new features — ask before assuming
 
 ---
