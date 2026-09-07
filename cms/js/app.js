@@ -463,13 +463,16 @@ const isWished = id => state.user ? null : state.localWish.includes(id); // null
 
 /* ─────────── 3D + motion helpers ─────────── */
 function bindTilt(scope = document) {
+  // Disable 3D card tilt entirely on touch/coarse pointers — it fires on tap,
+  // causes visible transform jumps, and is a main source of "flicker" reports.
+  if (matchMedia('(hover:none),(pointer:coarse)').matches) return;
   $$('.p-card, .cat-card, .poster, .testi', scope).forEach(card => {
     if (card._tilt) return; card._tilt = true;
     card.addEventListener('mousemove', e => {
       const r = card.getBoundingClientRect();
       const TI = +card.dataset.tilt || 1;
       const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-      card.style.transform = `perspective(900px) rotateX(${(0.5 - py) * 7 * TI}deg) rotateY(${(px - 0.5) * 9 * TI}deg) translateY(-4px)`;
+      card.style.transform = `perspective(900px) rotateX(${(0.5 - py) * 5 * TI}deg) rotateY(${(px - 0.5) * 6 * TI}deg) translateY(-2px)`;
       const g = card.querySelector('.glare');
       if (g) { g.style.setProperty('--gx', px * 100 + '%'); g.style.setProperty('--gy', py * 100 + '%'); }
     });
@@ -718,23 +721,29 @@ function initHeroStage() {
   const stage = $('.hero-stage'); if (!stage || stage._hs) return; stage._hs = true;
   const layers = $$('[data-depth]', stage);
   if (!layers.length) return;
-  // Attach mousemove only ONCE globally and reference the current stage layers.
+  // Disable parallax entirely on touch/mobile (causes "vibrating" bugs and
+  // fights the infinite float keyframe). Early-return so no listeners attach.
+  if (matchMedia('(hover:none),(pointer:coarse),(max-width:860px)').matches) return;
+  // Attach mousemove only ONCE globally.
   if (!window._hsBound) {
     window._hsBound = true;
     addEventListener('mousemove', e => {
       const s = $('.hero-stage');
       if (!s) return;
       const r = s.getBoundingClientRect();
-      if (e.clientY < r.top - 80 || e.clientY > r.bottom + 80) return;
+      if (e.clientY < r.top - 80 || e.clientY > r.bottom + 80) {
+        $$('[data-depth]', s).forEach(el => { el.style.setProperty('--px','0'); el.style.setProperty('--py','0'); });
+        return;
+      }
       const dx = (e.clientX - r.left) / r.width - .5, dy = (e.clientY - r.top) / r.height - .5;
       $$('[data-depth]', s).forEach(el => {
         const d = +el.dataset.depth;
-        el.style.setProperty('--px', (dx * -14 * d).toFixed(1) + 'px');
-        el.style.setProperty('--py', (dy * -9 * d).toFixed(1) + 'px');
+        el.style.setProperty('--px', (dx * -10 * d).toFixed(1) + 'px');
+        el.style.setProperty('--py', (dy * -7 * d).toFixed(1) + 'px');
       });
     }, { passive: true });
   }
-  // Orbs parallax — attach only once.
+  // Orbs parallax — once only, disabled on touch.
   if (!window._orbsBound) {
     window._orbsBound = true;
     addEventListener('mousemove', e => {
@@ -745,7 +754,7 @@ function initHeroStage() {
       const r = h.getBoundingClientRect();
       if (e.clientY < r.top - 200 || e.clientY > r.bottom + 200) { orbs.style.transform = ''; return; }
       const dx = (e.clientX / innerWidth - .5), dy = (e.clientY / innerHeight - .5);
-      orbs.style.transform = `translate(${dx * -10}px, ${dy * -7}px)`;
+      orbs.style.transform = `translate(${dx * -6}px, ${dy * -4}px)`;
     }, { passive: true });
   }
 }
@@ -4610,7 +4619,8 @@ const setHeaderH = () => { const h = document.getElementById('header'); if (h) d
 addEventListener('resize', setHeaderH, { passive: true });
 // magnetic buttons + glare-follow on extra cards (5D layer)
 function bindMagnetic(scope = document) {
-  // binds everywhere; motion only matters on fine pointers
+  // No magnetic button pull on touch/coarse pointers — causes sticky taps
+  if (matchMedia('(hover:none),(pointer:coarse)').matches) return;
   $$('.btn-primary,.btn-gold,.btn-outline', scope).forEach(b => {
     if (b._mag) return; b._mag = true; b.classList.add('magnetic');
     b.addEventListener('mousemove', e => { const r = b.getBoundingClientRect(); const dx = (e.clientX - r.left - r.width / 2) / r.width, dy = (e.clientY - r.top - r.height / 2) / r.height; b.style.transform = `translate(${dx * 7}px, ${dy * 5}px)`; });

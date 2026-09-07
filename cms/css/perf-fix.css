@@ -1,0 +1,163 @@
+/*
+ * v43-stable: performance & flicker-fix overrides.
+ * Loaded LAST so it wins over every other stylesheet.
+ *
+ * Strategy:
+ *  - Kill 3D transform context on product/category cards (it forces a full
+ *    compositing layer on every card and causes GPU thrash/flicker on
+ *    mid-range phones).
+ *  - Remove blanket will-change (creates hundreds of layers that never get
+ *    released). Only add will-change on hover.
+ *  - Replace backdrop-filter (massively expensive on Adreno/Mali GPUs) with
+ *    solid fallback colors.
+ *  - Stop orb/dust/perspective parallax on touch devices — the "vibrating at
+ *    one place" bug is caused by mousemove + transform animation stacking on
+ *    cards that also run infinite keyframes.
+ *  - Shorten long box-shadows on hero cards; they're the second-biggest
+ *    paint cost.
+ *  - Disable Ken-Burns / aurora drift / marquee animations for users who
+ *    prefer reduced motion AND for all mobile/touch devices.
+ */
+
+/* 1) Nuke blanket preserve-3d + will-change */
+.p-card,.cat-card,.acct-tile,.addr-card,.order-card,.adm-card,.catlog,.testi,.trust,
+.cat-mini-card,.pillar,.wp-card,.poster,.pd-main {
+    transform-style: flat !important;
+    will-change: auto !important;
+    perspective: none !important;
+}
+
+/* 2) Re-apply will-change ONLY while user is actively hovering (desktop) */
+@media (hover:hover) and (pointer:fine) {
+    .p-card:hover,.cat-card:hover,.cat-mini-card:hover,.pillar:hover,.wp-card:hover,.poster:hover {
+        will-change: transform !important;
+    }
+}
+
+/* 3) Calm the 3D hero stage. The -13px hsFloat + rotateY(-8deg) + mousemove
+ *    parallax was the main source of the "vibrating on the spot" feeling.
+ *    Keep a gentle float on desktop, kill rotate/parallax on touch. */
+.hero-stage {
+    perspective: 900px !important;
+}
+.hs-main,.hs-a,.hs-b {
+    box-shadow: 0 18px 40px rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.28) !important;
+}
+.hs-card {
+    will-change: auto !important;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+.hs-main {
+    animation: hsFloat 9s ease-in-out infinite !important;
+    transform: translate3d(var(--px,0),var(--py,0),0) rotateY(4deg) rotateX(1deg) !important;
+}
+.hs-a {
+    animation: hsFloat 11s ease-in-out -2s infinite !important;
+    transform: translate3d(var(--px,0),var(--py,0),0) rotateY(-5deg) rotateX(2deg) !important;
+}
+.hs-b {
+    animation: hsFloat 13s ease-in-out -4s infinite !important;
+    transform: translate3d(var(--px,0),var(--py,0),0) rotateY(-4deg) rotateX(1deg) !important;
+}
+
+/* 4) Replace expensive backdrop-filter blurs with solid color fallback.
+ *    This alone is the #1 scroll-jank fix on Android Chrome. */
+.header,.utilbar,.pd-stickybar,.mega-backdrop,.fsheet-overlay,.modal-overlay,
+.fn-card,.fl-news .fn-card,.fc-cell,.hs-tag,.catlog-cover .pages,
+.hero-stats,.c-body .label,.toast-wrap .toast,.shv-backdrop,.compare-tray-in,
+.gc-panel.gc-on,.hm-card,.gal-slide .gal-vid-tag {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+.header{background:rgba(250,246,239,.98) !important}
+.utilbar{background:rgba(29,5,9,.98) !important}
+.pd-stickybar{background:rgba(250,246,239,.99) !important}
+.mega-backdrop{background:rgba(31,4,9,.45) !important}
+.fsheet-overlay{background:rgba(15,3,6,.62) !important}
+.modal-overlay{background:rgba(35,10,14,.60) !important}
+.fn-card,.fl-news .fn-card{background:rgba(212,175,90,.10) !important}
+.fc-cell{background:rgba(250,246,239,.18) !important}
+.hs-tag{background:rgba(29,5,9,.85) !important}
+.hero-stats{background:rgba(20,3,7,.75) !important}
+.c-body .label{background:rgba(29,5,9,.65) !important}
+.toast-wrap .toast{background:rgba(250,246,239,.98) !important}
+.shv-backdrop{background:rgba(26,8,12,.75) !important}
+.compare-tray-in{background:#fffdf8 !important}
+.gc-panel.gc-on{background:rgba(255,253,249,.97) !important}
+.hm-card{background:rgba(253,243,221,.97) !important}
+
+/* 5) Calm the blurred orb in hero — was 26px blur (paint cost), now 8px. */
+.hero > .hero-fade{filter:blur(14px) !important;opacity:.55 !important}
+.orb{filter:blur(3px) !important;opacity:.38 !important}
+.aurora>*{filter:blur(18px) !important;opacity:.25 !important}
+
+/* 6) Disable big gold dust animation (shvDust) — it's a non-stop
+ *    transform+opacity keyframe on 9 motes. */
+.dust,.sparkle{display:none !important}
+.dust i,.sparkle i{animation:none !important}
+
+/* 7) Global: touch/mobile users get NO infinite animation on stage
+ *    cards, no orb drift, no Ken Burns zoom. This is the "vibrating
+ *    while scrolling" fix for phones. */
+@media (hover:none),(pointer:coarse),(max-width:860px) {
+    /* Stop all stage-card float + carousel Ken-Burns + marquee drift +
+     * orb drift + aurora drift + plFloat + slowSpin ring. */
+    .hs-main,.hs-a,.hs-b,.hs-badge,.orb,
+    .pl-orb,.rev-track,.pillar .pl-orb,
+    .hero.ken-on .hero-img,.c-slide.on img,
+    .aurora>*,[class*="ring"]{
+        animation: none !important;
+        transform: none !important;
+    }
+    .hs-card{transform: none !important; box-shadow: 0 12px 28px rgba(0,0,0,.35) !important}
+    .hs-badge{transform:none !important}
+
+    /* Disable mousemove parallax fallback on touch — we handle that in JS
+       by not attaching listeners, but zero-out the CSS variables too. */
+    .hs-main,.hs-a,.hs-b{--px:0;--py:0}
+
+    /* Slow marquee to static scroll-behaviour by disabling infinite
+     * transform (it fights scroll on some Android browsers). */
+    .rev-track{animation: none !important; display:flex; gap:16px;
+               overflow-x:auto; -webkit-overflow-scrolling:touch;
+               scroll-snap-type:x mandatory; padding-bottom:8px}
+    .rev-card{flex:0 0 280px; scroll-snap-align:start}
+    .rev-glow{display:none}
+
+    /* Remove any 3D perspective overhead on mobile hero */
+    .hero-stage{perspective:none !important; transform-style:flat !important}
+
+    /* Tame button hover transforms that fire on tap */
+    .btn{transform:none !important}
+    .btn:hover{transform:none !important}
+}
+
+/* 8) Respect the user's OS-level "reduce motion" everywhere */
+@media (prefers-reduced-motion:reduce) {
+    *,*::before,*::after{
+        animation-duration:.001ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:.001ms !important;
+        scroll-behavior:auto !important;
+    }
+    .hero.ken-on .hero-img,.c-slide img,.hs-main,.hs-a,.hs-b,.orb,.rev-track,.aurora>*{
+        animation:none !important; transform:none !important;
+    }
+}
+
+/* 9) Fix any elements that flicker when entering viewport (reveal
+ *    animations). Just set them visible by default so a broken Intersection
+ *    Observer doesn't leave them invisible. */
+.rv,.pillar,.wp-card,.rvl,.ugc-card{
+    opacity:1 !important;
+    transform:none !important;
+}
+.rv.in,.pillar.seen,.wp-card.seen,.rvl.seen,.ugc-card.seen{
+    opacity:1 !important;
+    transform:none !important;
+}
+
+/* 10) Hero shimmer/foil text — the background-position keyframe is
+ *     expensive on large text. Simplify. */
+.foil-txt,.shimmer{animation-duration:6s !important}
