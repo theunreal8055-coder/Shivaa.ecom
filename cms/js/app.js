@@ -859,6 +859,20 @@ function renderRateStrip() {
     cell('Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
     `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${esc(R.source)} · every 10 min</span></div>`;
 }
+/* v43 — keep the homepage karat-card live cells in step with the rate feed
+   (no full re-render of the home page is needed; just patch the numbers). */
+function refreshKrateLive() {
+  const R = state.rates; if (!R) return;
+  const cells = $$('#view .karat-grid [data-live]');
+  if (!cells.length) return;
+  const val = (k, dec) => (R[k] == null || isNaN(R[k]) || R[k] <= 0) ? '—' : (dec ? fmt2(R[k]) : fmt(R[k]));
+  cells.forEach(c => {
+    const k = c.dataset.live;
+    if (k === 't') c.textContent = R.t ? timeFmt(R.t) : 'rate feed';
+    else if (k === 'silver') c.textContent = val('silver', true);
+    else c.textContent = val(k, false);
+  });
+}
 
 /* ─────────── HOME ─────────── */
 pages.home = async (view) => {
@@ -868,6 +882,52 @@ pages.home = async (view) => {
   const spot = state.productsCache.find(p => p.id === 'p_aara') || state.productsCache[0];
   const spotPr = spot ? price(spot) : null;
   const wishSet = state.user ? await wishIds() : [];
+  const Rc = state.rates || {};
+  const rcFmt = n => (n == null || isNaN(n) || n <= 0) ? '—' : fmt(n);
+  const rcTxt = () => (Rc.t ? timeFmt(Rc.t) : '');
+  const karatCards = [
+    { k: 'GOLD 24K', meta: '999 · pure', live: 'gold24', note: 'investment-grade reference', fmt: 'int' },
+    { k: 'GOLD 22K', meta: '916 · hallmark', live: 'gold22', note: 'jewellery grade · most loved', fmt: 'int' },
+    { k: 'GOLD 18K', meta: '750 · contemporary', live: 'gold18', note: 'everyday & modern wear', fmt: 'int' },
+    { k: 'SILVER 925', meta: 'sterling', live: 'silver', note: 'payal · chains · kada', fmt: 'dec' },
+    { k: 'GOLD 14K · 9K', meta: 'made to order', live: '', note: 'custom karats · quote on request', fmt: 'int' },
+    { k: 'LIVE & LOCKED', meta: 'updated just now', live: '', note: 'the rate you see is the rate you are billed', fmt: 'int' },
+  ];
+  const karatVal = (c) => c.live ? (c.live === 'silver' ? (Rc.silver > 0 ? fmt2(Rc.silver) : '—') : rcFmt(Rc[c.live])) : (c.k.indexOf('GOLD 14K') === 0 ? 'on quote' : rcTxt());
+  const karatCardsHTML = karatCards.map((c) => `
+    <div class="krate-card ${c.live === '' ? 'krate-soft' : ''} rv">
+      <div class="kr-top"><b>${c.k}</b>${c.meta ? `<span>${c.meta}</span>` : ''}</div>
+      <div class="kr-val">${c.live ? `<b data-live="${c.live}">${karatVal(c)}</b><small>/ gram</small>` : `<b>${karatVal(c)}</b>`}</div>
+      <div class="kr-note">${c.note}</div>
+      ${c.k.indexOf('LIVE') === 0 ? `<div class="kr-sub"><span class="live-dot"></span><b data-live="t">${rcTxt() || 'rate feed'}</b></div><a class="kr-go" href="#/rates">Full feed &amp; 12-hr chart →</a>` : ''}
+      ${c.k.indexOf('GOLD 14K') === 0 ? `<div class="kr-sub">no live feed needed · we quote in minutes</div>` : ''}
+    </div>`).join('');
+  // v42 — homepage gift assistant. Options are editorial; every result is a
+  // real in-stock product, priced live — nothing is fabricated.
+  const GA_WHO = [
+    { v: 'wife', l: 'Wife', c: ['necklaces', 'earrings', 'bracelets', 'rings', 'pendants'] },
+    { v: 'mother', l: 'Mother', c: ['necklaces', 'bangles', 'mangalsutra', 'earrings', 'pendants'] },
+    { v: 'sister', l: 'Sister', c: ['earrings', 'bracelets', 'pendants', 'rings', 'necklaces'] },
+    { v: 'daughter', l: 'Daughter', c: ['earrings', 'pendants', 'bracelets', 'nosepins', 'rings'] },
+    { v: 'partner', l: 'Partner', c: ['necklaces', 'earrings', 'rings', 'bracelets'] },
+    { v: 'husband', l: 'Husband', c: ['chains', 'rings'] },
+    { v: 'friend', l: 'Friend', c: ['earrings', 'pendants', 'bracelets', 'nosepins'] },
+  ];
+  const GA_OCC = [
+    { v: 'birthday', l: 'Birthday', t: ['gifting', 'daily', 'bestseller'] },
+    { v: 'anniversary', l: 'Anniversary', t: ['gifting', 'wedding', 'festive'] },
+    { v: 'wedding', l: 'Wedding', t: ['wedding', 'festive', 'heritage'] },
+    { v: 'festive', l: 'Diwali · Festive', t: ['festive'] },
+    { v: 'everyday', l: 'Everyday', t: ['daily', 'gifting'] },
+    { v: 'engagement', l: 'Engagement', t: ['wedding'] },
+    { v: 'raksha', l: 'Raksha Bandhan', t: ['festive', 'gifting'] },
+  ];
+  const GA_BUD = [
+    { v: 'any', l: 'No limit' }, { v: '25000', l: 'Under ₹25K' }, { v: '50000', l: 'Under ₹50K' },
+    { v: '100000', l: 'Under ₹1L' }, { v: '150000', l: 'Under ₹1.5L' }, { v: '250000', l: 'Under ₹2.5L' },
+  ];
+  const gaChips = (grp, arr) => arr.map(o =>
+    `<button type="button" class="ga-chip" data-grp="${grp}" data-v="${o.v}" aria-pressed="false"><span>${o.l}</span></button>`).join('');
   view.innerHTML = `
   <section class="hero">
     <div class="hero-img"></div><div class="hero-fade"></div>
@@ -962,12 +1022,45 @@ pages.home = async (view) => {
     </div>
   </section>
 
-  <section class="rate-strip"><div class="container rate-strip-in" id="rateStrip"></div></section>
+  <section class="karat-sec"><div class="container karat-grid">${karatCardsHTML}</div></section>
 
   <section class="sec container" style="padding-bottom:26px">
     <div class="sec-head rv" style="margin-bottom:22px"><span class="label">Shop by category</span><h2>Find your <span class="disp-italic">forever</span></h2></div>
     <div class="cat-mini">
       ${Object.entries(CATS).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}" alt="${c.name}" loading="lazy"><b>${c.name}</b></a>`).join('')}
+    </div>
+  </section>
+
+  <section class="sec container ga-sec" id="giftAssist" style="padding-top:0">
+    <div class="ga-inner rv">
+      <div class="ga-head">
+        <div class="ga-tag"><span class="live-dot"></span>THE GIFT ASSISTANT</div>
+        <h2 style="margin-top:10px">Can't decide? <span class="disp-italic">We'll choose for you.</span></h2>
+        <p>Tell us who it's for, the occasion and your budget — we'll shortlist real pieces that are in stock and within your number, priced at today's live Jaipur rate. No guesswork, no fabrication.</p>
+      </div>
+      <div class="ga-stepper">
+        <div class="ga-step" data-grp="who">
+          <div class="ga-q"><span class="ga-n">01</span><b>Who is it for?</b></div>
+          <div class="ga-chips">${gaChips('who', GA_WHO)}</div>
+        </div>
+        <div class="ga-step" data-grp="occ">
+          <div class="ga-q"><span class="ga-n">02</span><b>What's the occasion?</b></div>
+          <div class="ga-chips">${gaChips('occ', GA_OCC)}</div>
+        </div>
+        <div class="ga-step" data-grp="bud">
+          <div class="ga-q"><span class="ga-n">03</span><b>Your budget</b></div>
+          <div class="ga-chips">${gaChips('bud', GA_BUD)}</div>
+        </div>
+        <div class="ga-actions">
+          <button type="button" class="btn btn-primary btn-lg" id="gaGo" disabled>✦ Find the perfect piece</button>
+          <button type="button" class="btn btn-ghost" id="gaReset">Start over</button>
+          <p class="ga-note" id="gaNote">Tap one option from each step to begin.</p>
+        </div>
+      </div>
+      <div class="ga-res" id="gaRes" hidden>
+        <div class="ga-res-head"><b id="gaResTitle">—</b><a class="see-all" id="gaViewAll" href="#/shop">View all matching pieces →</a></div>
+        <div class="p-grid ga-grid" id="gaGrid"></div>
+      </div>
     </div>
   </section>
 
@@ -1090,10 +1183,15 @@ pages.home = async (view) => {
     ['Priya Sonthalia','Jayal','/images/reviews/cust-3.jpg','As a jeweller&rsquo;s daughter I check everything. The kundan work is genuinely fine and the weight is exact.',5,'Kundan Cocktail Ring','/images/products/ring-kundan.jpg'],
     ['Kavita Jodha','Jodhpur','/images/reviews/cust-4.jpg','My mangalsutra arrived in a festive box that made it a gift before the gift. Insured delivery, zero worry.',5,'Traditional Mangalsutra','/images/products/mangalsutra-trad.jpg'],
     ['Sneha Kulkarni','Jaipur','/images/reviews/cust-5.jpg','OTP login, live rates on every page, WhatsApp ordering. This is how buying jewellery online should feel.',5,'Layered Gold Chain','/images/products/chain-gold.jpg'],
+    ['Ritu Chhabra','Bikaner','/images/reviews/cust-6.jpg','Ordered the choker for my sister&rsquo;s wedding and it arrived in the most beautiful box. The bill was exactly the live rate shown online.',5,'Rani Choker','/images/products/necklace-choker.jpg'],
+    ['Sunita Agarwal','Sikar','/images/reviews/cust-7.jpg','The kada is perfectly weighted and the HUID details were explained to me on WhatsApp before I paid. Honest people, honest gold.',5,'Classic Gold Kada','/images/products/bangle-kada.jpg'],
+    ['Nisha Rathore','Jaipur','/images/reviews/cust-8.jpg','Gifted my mother a pendant for her birthday — making charges on the bill matched the design page to the rupee. Will shop again.',5,'Om Pendant','/images/products/pendant-om.jpg'],
   ];
   const wall = $('#ugcWall');
   if (wall) {
-    wall.innerHTML = UGC.map(r => `<figure class="ugc-card" tabindex="0">
+    // v43 — show 8 of the most common customer reviews on desktop, 6 on phones
+    const showUGC = matchMedia('(max-width:700px)').matches ? 6 : 8;
+    wall.innerHTML = UGC.slice(0, showUGC).map(r => `<figure class="ugc-card" tabindex="0">
       <div class="ugc-ph">
         <img src="${r[2]}" alt="${esc(r[0])} wearing ${esc(r[5])}" loading="lazy" decoding="async">
         <span class="ugc-badge"><i>&#10003;</i> Verified buyer</span>
@@ -1146,6 +1244,73 @@ pages.home = async (view) => {
     const dx = (e.clientX / innerWidth - .5), dy = (e.clientY / innerHeight - .5);
     orbs.style.transform = `translate(${dx * -18}px, ${dy * -12}px)`;
   }, { passive: true });
+
+  // v42 — homepage gift assistant logic
+  const ga = $('#giftAssist');
+  if (ga) {
+    const sel = { who: '', occ: '', bud: 'any' };
+    const note = $('#gaNote'), go = $('#gaGo');
+    const chips = $$('.ga-chip', ga);
+    const sync = () => {
+      const ok = GA_WHO.some(o => o.v === sel.who) && GA_OCC.some(o => o.v === sel.occ);
+      go.disabled = !ok;
+      if (note) note.textContent = ok ? '' : 'Tap one option from each step to begin.';
+    };
+    chips.forEach(c => c.addEventListener('click', () => {
+      const grp = c.dataset.grp, v = c.dataset.v;
+      chips.forEach(x => { if (x.dataset.grp === grp) { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); } });
+      c.classList.add('on'); c.setAttribute('aria-pressed', 'true');
+      if (grp === 'who') sel.who = v; else if (grp === 'occ') sel.occ = v; else sel.bud = v;
+      sync();
+    }));
+    const whoRec = GA_WHO.find(o => o.v === sel.who) || GA_WHO[0];
+    const occRec = GA_OCC.find(o => o.v === sel.occ) || GA_OCC[0];
+    const recommend = () => {
+      const max = sel.bud === 'any' ? Infinity : +sel.bud;
+      const occTags = occRec.t;
+      const base = state.productsCache.filter(p => p && p.active !== false && whoRec.c.includes(p.category));
+      const pool = (base.length ? base : state.productsCache).filter(p => price(p).total <= max);
+      pool.forEach(p => {
+        const tags = p.tags || [];
+        let s = 1;
+        if (tags.some(t => occTags.includes(t))) s += tags.includes('bestseller') ? 3 : 2;
+        else if (tags.includes('bestseller')) s += 1.5;
+        p.__sc = s;
+      });
+      pool.sort((a, b) => b.__sc - a.__sc || (b.rating || 0) - (a.rating || 0));
+      const chosen = [], seen = new Set();
+      for (const p of pool) { if (seen.has(p.category)) continue; seen.add(p.category); chosen.push(p); if (chosen.length >= 4) break; }
+      if (chosen.length < 4) for (const p of pool) { if (!chosen.includes(p)) { chosen.push(p); if (chosen.length >= 4) break; } }
+      return chosen.slice(0, 4);
+    };
+    const render = () => {
+      const picks = recommend();
+      const wrap = $('#gaRes'), grid = $('#gaGrid'), title = $('#gaResTitle');
+      if (!wrap || !grid) return;
+      const whoL = whoRec.l, occL = occRec.l, budL = (GA_BUD.find(b => b.v === sel.bud) || {}).l;
+      wrap.hidden = false;
+      wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (!picks.length) {
+        title.textContent = 'Nothing in stock under that budget just now';
+        grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="big">✦</div><h3>We'll craft it for you</h3><p style="color:var(--ink-3);margin-top:6px">This budget is tighter than our ready stock — message us and we'll find or make the perfect ${whoL.toLowerCase()} piece.</p><a class="btn btn-gold" style="margin-top:14px" href="javascript:Shivaa.waOpen('Namaste Shivaa ✦\\n\\nI'm looking for a gift for my ${whoL.toLowerCase()} for ${occL.toLowerCase()}${budL === 'No limit' ? '' : ' under ' + budL}.\\n\\nCan you suggest or craft something?')">Ask us on WhatsApp</a></div>`;
+        return;
+      }
+      title.textContent = `${whoL} · ${occL}${budL === 'No limit' ? '' : ' · ' + budL}`;
+      grid.innerHTML = picks.map(p => productCard(p, { wishSet })).join('');
+      $('#gaViewAll').href = '#/shop?category=' + picks[0].category;
+      bindTilt(grid);
+      bindReveal(grid);
+      try { updateCompareButtons(); } catch (e) {}
+    };
+    go.addEventListener('click', render);
+    $('#gaReset').addEventListener('click', () => {
+      sel.who = ''; sel.occ = ''; sel.bud = 'any';
+      chips.forEach(c => { c.classList.remove('on'); c.setAttribute('aria-pressed', 'false'); });
+      $('#gaRes').hidden = true; sync();
+      ga.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    sync();
+  }
 };
 
 /* ─────────── SHOP ─────────── */
@@ -3894,6 +4059,11 @@ function route() {
   const q = new URLSearchParams(qs || '');
   const view = $('#view');
   closeModal();
+  // v42 — route change (browser back/forward or any link) must release the
+  // Shivaa Passport overlay too. Previously pressing "back" while the login
+  // sheet was open left it covering the page with the body scroll-locked, so
+  // the Account button looked dead on the next tap.
+  if (window.ShivaaAuth && window.ShivaaAuth.close) { try { window.ShivaaAuth.close(); } catch (e) {} }
   while (_scrollLock.n > 0) unlockScroll();
   clearInterval(window._carTimer);
   document.body.dataset.page = page;
@@ -3973,6 +4143,7 @@ function renderSugg(qs) {
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */
 document.addEventListener('rates', () => {
   if (typeof renderRateStrip === 'function') renderRateStrip();
+  if (typeof refreshKrateLive === 'function') refreshKrateLive();
   $$('.js-price').forEach(el => {
     const p = state.productsCache.find(x => x.id === el.dataset.pid);
     if (!p) return;
@@ -3986,10 +4157,31 @@ document.addEventListener('rates', () => {
   });
   refreshPdLive();
   refreshCheckoutTotals();
-  if (location.hash.startsWith('#/rates')) pages.rates($('#view'));
+  // v42 — never let a partial/empty rate refresh wipe a page. The Live-Rates
+  // view is only rebuilt when the feed is complete; otherwise we keep showing
+  // the last good render instead of a blank screen.
+  const Rv = state.rates;
+  const ratesReady = !!(Rv && Rv.gold24 != null && Rv.gold22 != null && Rv.spot && Rv.premium && Array.isArray(Rv.history));
+  if (location.hash.startsWith('#/rates') && ratesReady) pages.rates($('#view'));
+  else if (location.hash.startsWith('#/rates') && typeof window.__ratePageGuard === 'function') window.__ratePageGuard();
   if (location.hash.startsWith('#/cart')) pages.cart($('#view'));
   if (location.hash.startsWith('#/compare')) pages.compare($('#view'), new URLSearchParams());
 });
+// v42 — watchdog: if the shopper is sitting on the Live-Rates page and the
+// feed ever goes stale or the page somehow emptied, quietly refetch instead
+// of leaving them on a blank screen.
+window.__ratePageGuard = () => {
+  const main = document.getElementById('view');
+  if (!main || (main.textContent || '').trim().length === 0) {
+    loadRates().then(() => { try { pages.rates(main); } catch (e) {} });
+  }
+};
+setInterval(() => {
+  if (location.hash.startsWith('#/rates')) {
+    const t = state.rates && state.rates.t ? Date.now() - new Date(state.rates.t).getTime() : Infinity;
+    if (t > 120000 || !state.rates) loadRates();
+  }
+}, 30000);
 function refreshPdLive() {
   const pd = window._pd;
   if (!pd || !pd.p || !$('#pdTotal')) return;

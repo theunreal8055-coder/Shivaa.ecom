@@ -396,6 +396,39 @@ table.mc-table{width:100%;border-collapse:collapse;min-width:680px}
 .rate-card .rc-name{font-family:var(--ff-label);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-2)}
 .rate-card .rc-val{font-family:var(--ff-disp);font-size:33px;font-weight:700;color:var(--maroon-deep);margin:8px 0 2px}
 .rate-card small{color:var(--ink-3);font-size:12px}
+/* ─────────── homepage live-karat rate row ─────────── */
+.karat-sec{padding:0 0 8px}
+.karat-sec .container{padding-bottom:0}
+.karat-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
+.krate-card{position:relative;background:linear-gradient(170deg,var(--ivory),var(--gold-faint));border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 18px;overflow:hidden;transition:transform .35s var(--ease),box-shadow .35s var(--ease),border-color .35s var(--ease)}
+.krate-card::after{content:'';position:absolute;inset:0;background:radial-gradient(120px 70px at 50% 0,rgba(185,138,47,.16),transparent 70%);pointer-events:none}
+.krate-card:hover{transform:translateY(-4px);box-shadow:var(--sh-2);border-color:var(--gold-2)}
+.krate-card.rv{opacity:0;transform:translateY(14px)}
+.krate-card.rv.in{opacity:1;transform:none;transition:opacity .6s var(--ease),transform .6s var(--ease)}
+.krate-card .kr-top{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:baseline;justify-content:space-between}
+.krate-card .kr-top b{font-family:var(--ff-label);font-size:13px;letter-spacing:.14em;color:var(--maroon-deep)}
+.krate-card .kr-top span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+.krate-card .kr-val{margin:14px 0 4px;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.krate-card .kr-val b{font-family:var(--ff-disp);font-size:clamp(24px,2.4vw,33px);font-weight:700;color:var(--maroon);line-height:1}
+.krate-card .kr-val small{font-size:11px;color:var(--ink-3)}
+.krate-card .kr-note{font-size:12.5px;color:var(--ink-2);line-height:1.4}
+.krate-card .kr-sub{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line);display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-2)}
+.krate-card .kr-sub b{font-family:var(--ff-disp);font-size:14px;color:var(--maroon-deep);font-weight:600}
+.krate-card .kr-go{display:inline-flex;margin-top:10px;font-family:var(--ff-label);font-size:12px;letter-spacing:.06em;color:var(--gold);text-transform:uppercase;transition:color .25s}
+.krate-card .kr-go:hover{color:var(--maroon)}
+/* the two "soft" cards (14K·9K quote + live lock) read quieter than the metal cards */
+.krate-card.krate-soft{background:linear-gradient(170deg,var(--maroon-deep),#551722);border-color:rgba(212,175,90,.35);text-align:center}
+.krate-card.krate-soft::after{background:radial-gradient(140px 80px at 50% 0,rgba(212,175,90,.22),transparent 70%)}
+.krate-card.krate-soft .kr-top{justify-content:center}
+.krate-card.krate-soft .kr-top b{color:#f3dfae}
+.krate-card.krate-soft .kr-top span{color:var(--gold-2)}
+.krate-card.krate-soft .kr-val{justify-content:center}
+.krate-card.krate-soft .kr-val b{color:#ffe9bd}
+.krate-card.krate-soft .kr-note{color:rgba(243,223,174,.78)}
+.krate-card.krate-soft .kr-sub{border-top-color:rgba(212,175,90,.28);color:rgba(243,223,174,.8);justify-content:center}
+.krate-card.krate-soft .kr-sub b{color:#f3dfae}
+.krate-card.krate-soft .kr-go{justify-content:center;color:var(--gold-2)}
+.krate-card.krate-soft .kr-go:hover{color:#fff}
 .chart-wrap{background:var(--white);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;box-shadow:var(--sh-1)}
 #rateChart{width:100%;height:300px;display:block}
 
@@ -546,6 +579,10 @@ table.adm-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:6
 .qty-banner{background:linear-gradient(90deg,var(--gold-faint),transparent);border-left:3px solid var(--gold);padding:16px 20px;border-radius:0 12px 12px 0;font-size:14px;color:var(--ink-2);margin:20px 0}
 
 /* ─────────── responsive ─────────── */
+/* live-karat row: 6 → 3 → 2 → 1 across viewports */
+@media(max-width:1080px){.karat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:680px){.karat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.krate-card{padding:16px 14px}}
+@media(max-width:420px){.karat-grid{grid-template-columns:1fr}.krate-card{padding:18px 16px}.krate-card .kr-val b{font-size:30px}}
 @media(max-width:1080px){
   .hero-in{grid-template-columns:1fr;padding:50px 0}
   .hero-3d{height:420px;order:-1}
@@ -4566,3 +4603,49 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 @media(max-width:380px){
   .header-top .header-actions #acctBtn,.header-top .header-actions #wishBtn{display:none}
 }
+
+/* ─────────── v42 homepage Gift Assistant ─────────── */
+.ga-sec{scroll-margin-top:90px}
+.ga-inner{position:relative;overflow:hidden;border-radius:28px;padding:46px clamp(18px,4vw,60px) 44px;background:
+  radial-gradient(1400px 500px at 85% -10%,rgba(185,138,47,.14),transparent 60%),
+  linear-gradient(160deg,#fffdf8 0%,#f7eede 60%,#f0e2c6 100%);
+  border:1px solid #e6d5ae;box-shadow:var(--sh-2)}
+.ga-inner::before,.ga-inner::after{content:'';position:absolute;width:340px;height:340px;border-radius:50%;pointer-events:none}
+.ga-inner::before{top:-190px;right:-110px;background:radial-gradient(circle,rgba(212,175,90,.20),transparent 65%)}
+.ga-inner::after{bottom:-170px;left:-90px;background:radial-gradient(circle,rgba(110,30,42,.10),transparent 65%)}
+.ga-inner.rv{opacity:0;transform:translateY(18px)}
+.ga-inner.rv.in{opacity:1;transform:none;transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.ga-head{text-align:center;max-width:760px;margin:0 auto 30px;position:relative;z-index:1}
+.ga-tag{display:inline-flex;align-items:center;gap:8px;font-family:var(--ff-label);letter-spacing:.26em;font-size:11px;color:var(--gold);text-transform:uppercase}
+.ga-head h2{font-size:clamp(28px,3.8vw,40px)}
+.ga-head p{color:var(--ink-2);margin:12px auto 0;max-width:640px;font-size:15px;line-height:1.6}
+.ga-stepper{position:relative;z-index:1;display:grid;gap:26px;background:rgba(255,253,249,.72);border:1px solid var(--line);border-radius:22px;padding:26px clamp(16px,3vw,34px);backdrop-filter:blur(4px)}
+.ga-step{display:flex;flex-direction:column;gap:12px}
+.ga-q{display:flex;align-items:center;gap:11px;font-family:var(--ff-disp);font-size:18px;color:var(--maroon-deep)}
+.ga-n{font-family:var(--ff-label);font-size:11px;color:#fff;background:linear-gradient(135deg,var(--gold),#9c7222);width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.ga-q b{font-weight:600}
+.ga-chips{display:flex;flex-wrap:wrap;gap:9px}
+.ga-chip{display:inline-flex;align-items:center;border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 16px;font-family:var(--ff-body);font-size:13.5px;color:var(--ink-2);transition:all .22s var(--ease);cursor:pointer}
+.ga-chip span{pointer-events:none}
+.ga-chip:hover{border-color:var(--gold);color:var(--maroon);transform:translateY(-1px)}
+.ga-chip.on{background:linear-gradient(135deg,var(--maroon),var(--maroon-2));border-color:var(--maroon-2);color:#f6e8c8;box-shadow:0 8px 18px rgba(110,30,42,.22)}
+.ga-actions{margin-top:6px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ga-note{font-size:13px;color:var(--ink-3);margin-left:auto}
+.ga-res{margin-top:26px;position:relative;z-index:1}
+.ga-res-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.ga-res-head b{font-family:var(--ff-disp);font-size:21px;color:var(--maroon-deep)}
+.ga-grid{animation:gaFade .5s var(--ease)}
+.ga-grid .p-card{animation:gaUp .5s var(--ease) both}
+.ga-grid .p-card:nth-child(2){animation-delay:.06s}
+.ga-grid .p-card:nth-child(3){animation-delay:.12s}
+.ga-grid .p-card:nth-child(4){animation-delay:.18s}
+@keyframes gaUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes gaFade{from{opacity:0}to{opacity:1}}
+@media(max-width:680px){
+  .ga-inner{padding:30px 14px 26px}
+  .ga-stepper{padding:20px 14px}
+  .ga-actions .btn{flex:1 1 100%}
+  .ga-note{margin-left:0;width:100%}
+  .ga-res-head b{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.ga-inner.rv{opacity:1;transform:none}.ga-inner::before,.ga-inner::after,.ga-grid .p-card{animation:none}}
