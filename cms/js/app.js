@@ -463,6 +463,8 @@ const isWished = id => state.user ? null : state.localWish.includes(id); // null
 
 /* ─────────── 3D + motion helpers ─────────── */
 function bindTilt(scope = document) {
+  // v42: skip tilt on mobile/touch — causes vibration, flicker, scroll-jank
+  if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820)) return;
   $$('.p-card, .cat-card, .poster, .testi', scope).forEach(card => {
     if (card._tilt) return; card._tilt = true;
     card.addEventListener('mousemove', e => {
@@ -512,7 +514,12 @@ function initCarousel() {
   const next = () => go(idx + 1), prev = () => go(idx - 1);
   $('.c-next', car).onclick = next; $('.c-prev', car).onclick = prev;
   $$('.c-dot', dots).forEach(d => d.onclick = () => go(+d.dataset.i));
-  const start = () => { window._carTimer = setInterval(next, 5500); };
+  const start = () => {
+    // v42: slower auto-advance on mobile (12s vs 5.5s desktop) so it glides, not jumps
+    const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
+    const interval = _mob ? 12000 : 5500;
+    window._carTimer = setInterval(next, interval);
+  };
   const stop = () => clearInterval(window._carTimer);
   car.addEventListener('mouseenter', stop);
   car.addEventListener('mouseleave', start);
@@ -670,7 +677,13 @@ function initCatbar() {
 /* ─────────── hero gold dust (ambience only — no 3D models) ─────────── */
 function heroDust(canvasId) {
   const cv = document.getElementById(canvasId);
-  if (!cv || cv._dust) return; cv._dust = true;
+  if (!cv || cv._dust) return;
+  // v42: skip heavy canvas animation on mobile — major scroll-jank source
+  if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820)) {
+    cv.style.display = 'none';
+    return;
+  }
+  cv._dust = true;
   const ctx = cv.getContext('2d');
   let W, H;
   const dpr = Math.min(devicePixelRatio || 1, 2);
@@ -696,6 +709,8 @@ function heroDust(canvasId) {
 function initHeroStage() {
   const stage = $('.hero-stage'); if (!stage || stage._hs) return; stage._hs = true;
   heroDust('heroDust');
+  // v42: disable mouse parallax on mobile — causes card vibration at one spot
+  if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820)) return;
   const layers = $$('[data-depth]', stage);
   addEventListener('mousemove', e => {
     const r = stage.getBoundingClientRect();
@@ -1140,9 +1155,10 @@ pages.home = async (view) => {
       if (k < 1) requestAnimationFrame(up);
     })(t0);
   });
-  // hero orb parallax
+  // hero orb parallax — v42: disabled on mobile (flicker/vibration source)
   const orbs = $('.hero-orbs');
-  if (orbs) addEventListener('mousemove', e => {
+  const _isMob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
+  if (orbs && !_isMob) addEventListener('mousemove', e => {
     const dx = (e.clientX / innerWidth - .5), dy = (e.clientY / innerHeight - .5);
     orbs.style.transform = `translate(${dx * -18}px, ${dy * -12}px)`;
   }, { passive: true });
@@ -1386,7 +1402,11 @@ pages.product = async (view, q, id) => {
     wrap.addEventListener('pointermove', e => { if (sx == null) return; dx = e.clientX - sx; track.style.transform = `translateX(calc(-${idx * 100}% + ${dx}px))`; });
     const end = () => { if (sx == null) return; track.style.transition = ''; if (Math.abs(dx) > 42) go(idx + (dx < 0 ? 1 : -1)); else go(idx); sx = null; };
     wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
-    const timer = setInterval(() => { const v = $('.gal-slide.on video', track); if (v && !v.paused) return; go(idx + 1); }, 5200);
+    const _mobGal = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
+    const _galInterval = _mobGal ? 10000 : 5200; // v42: slower on mobile, still advances
+    const timer = setInterval(() => {
+      const v = $('.gal-slide.on video', track); if (v && !v.paused) return; go(idx + 1);
+    }, _galInterval);
     wrap.addEventListener('pointerdown', () => clearInterval(timer), { once: true });
   })();
   $('#brkBtn').onclick = () => { const b = $('#pdBrk'); b.hidden = !b.hidden; $('#brkBtn').setAttribute('aria-expanded', String(!b.hidden)); };
@@ -3917,9 +3937,10 @@ function route() {
   // branded page banners + advanced category slider
   initCatbar();
   setTimeout(() => {
+    try {
     $$('.page-hero:not(.lg-done)').forEach(ph => {
       ph.classList.add('lg-done');
-      ph.insertAdjacentHTML('beforeend', '<img src="/images/logo.png" class="ph-mark" alt="">');
+      if (!ph.querySelector('.ph-mark')) ph.insertAdjacentHTML('beforeend', '<img src="/images/logo.png" class="ph-mark" alt="">');
       if (!ph.querySelector('.ph-trust')) ph.insertAdjacentHTML('beforeend', '<div class="ph-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>');
     });
     const heroEl = $('#view .hero');
@@ -3927,6 +3948,7 @@ function route() {
       heroEl.insertAdjacentHTML('beforeend', '<img src="/images/logo.png" class="hero-logo" alt="">');
       if (!heroEl.querySelector('.hero-cue')) heroEl.insertAdjacentHTML('beforeend', '<div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>');
     }
+    } catch(e) { /* v42: prevent crash on pages with unusual DOM (e.g. hallmark) */ }
   }, 0);
   // nav active
   $$('.nav a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#/' + page || (page === '' && a.getAttribute('href') === '#/')));
@@ -3935,7 +3957,17 @@ function route() {
     a.classList.toggle('on', m === page || (m === 'home' && (page === '' || page === 'home')));
   });
   if(window._closeDrawer) window._closeDrawer(); else { $('#navToggle')?.classList.remove('open'); $('#mainNav')?.classList.remove('open'); }
-  requestAnimationFrame(() => { bindReveal(); bindTilt(); bindMagnetic(); decorate5D(); setHeaderH(); initDsfilters(); bindV23Reveal(); updateCompareUI(); try { updatePartnerUI(); } catch (e) {} });
+  requestAnimationFrame(() => {
+    try { bindReveal(); } catch(e) {}
+    try { bindTilt(); } catch(e) {}
+    try { bindMagnetic(); } catch(e) {}
+    try { decorate5D(); } catch(e) {}
+    try { setHeaderH(); } catch(e) {}
+    try { initDsfilters(); } catch(e) {}
+    try { bindV23Reveal(); } catch(e) {}
+    try { updateCompareUI(); } catch(e) {}
+    try { updatePartnerUI(); } catch(e) {}
+  });
 }
 addEventListener('hashchange', route);
 
@@ -4025,15 +4057,23 @@ function refreshCheckoutTotals() {
 }
 
 /* ─────────── header behaviours + premium chrome ─────────── */
-addEventListener('scroll', () => {
-  const hdr = $('#header');
-  hdr.classList.toggle('scrolled', scrollY > 8);
-  // v29 — collapse the menu strip into a slim bar once the shopper scrolls (desktop)
-  hdr.classList.toggle('compact', scrollY > 170);
-  const d = document.documentElement;
-  const pct = scrollY / Math.max(1, d.scrollHeight - innerHeight) * 100;
-  const sp = $('#scrollProg'); if (sp) sp.style.width = pct + '%';
-}, { passive: true });
+addEventListener('scroll', (() => {
+  // v42: throttled scroll handler — prevents jank on Android Chrome
+  let _scrollTicking = false;
+  return () => {
+    if (_scrollTicking) return;
+    _scrollTicking = true;
+    requestAnimationFrame(() => {
+      const hdr = $('#header');
+      if (hdr) hdr.classList.toggle('scrolled', scrollY > 8);
+      hdr && hdr.classList.toggle('compact', scrollY > 170);
+      const d = document.documentElement;
+      const pct = scrollY / Math.max(1, d.scrollHeight - innerHeight) * 100;
+      const sp = $('#scrollProg'); if (sp) sp.style.width = pct + '%';
+      _scrollTicking = false;
+    });
+  };
+})(), { passive: true });
 /* ── drawer: scrim, body-lock, ESC, focus-trap, swipe-to-close ── */
 (function initDrawer(){
   const tgl=$('#navToggle'), nav=$('#mainNav'), scrim=$('#drawerScrim');
@@ -4087,6 +4127,9 @@ const setHeaderH = () => { const h = document.getElementById('header'); if (h) d
 addEventListener('resize', setHeaderH, { passive: true });
 // magnetic buttons + glare-follow on extra cards (5D layer)
 function bindMagnetic(scope = document) {
+  // v42: disabled entirely on mobile/touch — major source of scroll-jank & flicker
+  const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
+  if (_mob) return;
   // binds everywhere; motion only matters on fine pointers
   $$('.btn-primary,.btn-gold,.btn-outline', scope).forEach(b => {
     if (b._mag) return; b._mag = true; b.classList.add('magnetic');
@@ -4127,8 +4170,11 @@ function decorate5D() {
   $$('.page-hero h1').forEach(el => { if (!el.closest('.order-card')) el.classList.add('ink-reveal'); });
 }
 // cursor glow — positioned always, shown only on fine pointers (CSS media gate)
+// v42: disabled on mobile/touch to prevent scroll-jank and page unresponsiveness
 (() => {
   const cg = $('#cursorGlow'); if (!cg) return;
+  const _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
+  if (_isTouchDevice) return;  // skip entirely on mobile — prevents flicker + lag
   cg.classList.add('on');
   let mx = innerWidth / 2, my = innerHeight / 2, gx = mx, gy = my;
   addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; }, { passive: true });
