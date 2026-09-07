@@ -3,6 +3,18 @@
  */
 'use strict';
 (function () {
+  // v42: defensive init — if Shivaa shell isn't ready, retry once after a tick
+  if (!window.Shivaa || !window.Shivaa.api) {
+    setTimeout(() => {
+      if (window.Shivaa && window.Shivaa.api) {
+        // Re-trigger by dispatching a hashchange if we're on the hallmark page
+        if (location.hash.startsWith('#/hallmark')) {
+          window.dispatchEvent(new HashChangeEvent('hashchange'));
+        }
+      }
+    }, 500);
+    return;
+  }
   const { api, state, esc, toast, openModal } = window.Shivaa;
   const LINKS = Object.freeze({
     bisCare: 'https://www.bis.gov.in/bis-apps/?lang=en',
