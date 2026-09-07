@@ -16925,9 +16925,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5028.jpg"
+        "/images/designs/rings/PGS5028_shot_studio.jpg",
+        "/images/designs/rings/PGS5028_shot_editorial.jpg",
+        "/images/designs/rings/PGS5028_shot_worn.jpg",
+        "/images/designs/rings/PGS5028_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5028_video.mp4",
       "desc": "Banas Ring PGS5028 \u2014 Gold 22K, 1.69 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -16954,7 +16957,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5041",
@@ -17153,9 +17157,12 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5030.jpg"
+        "/images/designs/rings/PGS5030_shot_studio.jpg",
+        "/images/designs/rings/PGS5030_shot_editorial.jpg",
+        "/images/designs/rings/PGS5030_shot_worn.jpg",
+        "/images/designs/rings/PGS5030_shot_gift.jpg"
       ],
-      "video": "",
+      "video": "/images/designs/rings/PGS5030_video.mp4",
       "desc": "Thar Ring PGS5030 \u2014 Gold 22K, 1.72 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
       "rating": 4.7,
       "reviews": 0,
@@ -17182,7 +17189,8 @@
         "source": null,
         "checkedAt": null,
         "entries": []
-      }
+      },
+      "mediaNote": "AI-stylised visualisation of the original design photo."
     },
     {
       "id": "p_pgs5037",
