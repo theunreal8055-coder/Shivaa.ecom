@@ -1,49 +1,57 @@
 {
- "sku": "PGS5011",
- "name": "Sheesh Mahal Ring PGS5011 | Gold 22K",
- "category": "rings",
- "metal": "Gold",
- "purity": "22K",
- "weightG": 4.96,
- "mcScheme": "percent",
- "mcValue": 12.0,
- "stoneValue": 0,
- "stoneDesc": "",
- "stoneType": "",
- "stoneColour": "",
- "desc": "Sheesh Mahal Ring PGS5011 — Gold 22K, 4.96 g, hand-finished by our karigars with 12% making charges. Gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
- "tags": [
-  "Ring",
-  "gold",
-  "22k",
-  "ring",
-  "mens",
-  "4.96g",
-  "handcrafted",
-  "bishallmarked"
- ],
- "sizes": [
-  "12",
-  "14",
-  "16",
-  "18"
- ],
- "stock": 0,
- "barcode": "",
- "lessWeightG": 0,
- "wastagePct": 8,
- "active": true,
- "supplier": "",
- "supplierId": "",
- "costPerGram": 0.0,
- "seo": {
-  "keywords": [
-   "ring gold 22K",
-   "gold 22K ring price",
-   "shivaa jewellers ring"
+  "sku": "PGS5011",
+  "name": "Sheesh Mahal Ring PGS5011",
+  "category": "rings",
+  "metal": "Gold",
+  "purity": "22K",
+  "weightG": 4.96,
+  "mcScheme": "percent",
+  "mcValue": 12.0,
+  "stoneType": "",
+  "stoneColour": "",
+  "stoneDesc": "",
+  "stoneValue": 0,
+  "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
   ],
-  "alt": "Gold 22K ring — Sheesh Mahal Ring PGS5011 | Gold 22K"
- },
- "category_note": "Ring by Shivaa Jewellers",
- "mediaNote": "AI-stylised visualisation of the original design photo."
+  "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+  ],
+  "images": [
+    "/images/designs/rings/PGS5011_shot_studio.jpg",
+    "/images/designs/rings/PGS5011_shot_editorial.jpg",
+    "/images/designs/rings/PGS5011_shot_worn.jpg",
+    "/images/designs/rings/PGS5011_shot_gift.jpg"
+  ],
+  "video": "/images/designs/rings/PGS5011_video.mp4",
+  "desc": "Sheesh Mahal Ring PGS5011 \u2014 Gold 22K, 4.96 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+  "stock": 8,
+  "active": true,
+  "lessWeightG": 0,
+  "wastagePct": 8,
+  "barcode": "",
+  "supplier": "",
+  "supplierId": "",
+  "costPerGram": 0.0,
+  "seo": {
+    "keywords": [
+      "gold 22K ring",
+      "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring \u2014 Sheesh Mahal Ring PGS5011"
+  },
+  "category_note": "Ring by Shivaa Jewellers",
+  "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+  },
+  "mediaNote": "AI-stylised visualisation of the original design photo."
 }
