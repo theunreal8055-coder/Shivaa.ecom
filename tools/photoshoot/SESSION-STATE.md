@@ -22,7 +22,9 @@ No PGS5066+ exists.
 - PGS5053, PGS5054 — e04a557 (both first-pass clean; media staged)
 - PGS5055 Minakari, PGS5056 Rani Padmini — (branch arena/01a07cae-shivaa-ecom, 25 of 26)
   both first-pass clean (no green-tag scan hits); media staged
-Remaining 1: PGS5059 (studio+editorial generated this turn; worn+gift pending — hit 10-img/turn cap)
+- PGS5059 Kanchan — (branch arena/01a07cae-shivaa-ecom, 26 of 26) DONE
+  worn+gift shots (2nd turn after 10-img cap), film, db, staging — all clean.
+ALL 26 v43 rings complete → 65/65 PGS rings now have full photoshoots.
 
 ## WORKFLOW PER TURN (2 rings = 8 gens; 10 gen max/turn)
 1. Sandbox may reset: pip install --break-system-packages pillow numpy imageio-ffmpeg;
@@ -87,13 +89,13 @@ PGS5053 Jadau: central rectangular CZ pavé block flanked by rows of vertical CZ
 PGS5054 Thewa: large square gold frame head with inner CZ pavé border and polished gold rotated-square centrepiece, lattice band
 PGS5055 Minakari: wide rectangular CZ pavé plaque on bright polished band, small CZ accent blocks on shoulders  ✅ done
 PGS5056 Rani Padmini: hexagonal openwork ring, hexagon outline fully set with CZ pavé, polished gold Y-monogram medallion at centre  ✅ done
-PGS5059 Kanchan: wide rectangular CZ pavé tablet at centre, fluted/laddered gold rail shoulders  ← LAST ONE
+PGS5059 Kanchan: wide rectangular CZ pavé tablet at centre, fluted/laddered gold rail shoulders  ✅ done
 
-## AFTER ALL 26 DONE
-1. Verify: all 65 PGS have 4 shots + video on disk AND in db (write a verify script)
-2. Update HANDOFF.md to v43 (65/65 full photoshoots; remove TODO; add feature note)
-3. cd /home/user/Shivaa.ecom && zip -r shivaa-update-v43.zip cms/ ; commit
-4. git push origin arena/01a07bb3-shivaa-ecom
+## AFTER ALL 26 DONE  ✅ (completed 7 Sep 2026, branch arena/01a07cae-shivaa-ecom)
+1. ✅ Verify: all 65 PGS have 4 shots + video on disk AND in db — verified 65/65 + 65/65 + 26/26 staged
+2. ✅ Update HANDOFF.md to v43 (65/65 full photoshoots)
+3. (open) zip shivaa-update-v43.zip cms/ if owner wants manual Path A deploy
+4. ✅ push — branch arena/01a07cae-shivaa-ecom; PR → main pending
 
 ## LIMITS
 - generate_image: max 10/turn. QA with labelled contact sheet BEFORE finalizing.

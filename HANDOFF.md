@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-07 (v43 batch 1)**
+**Last updated: 2026-09-07 (v43 COMPLETE — all 65 PGS rings full photoshoot)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
@@ -66,34 +66,33 @@ cron deploys it within ~5 min (or run Path B manually if no cron).
 
 ---
 
-## ✅ CURRENT STATE (v43 batch 1 — pushed to `arena/01a07bb3-shivaa-ecom`)
+## ✅ CURRENT STATE (v43 COMPLETE — 65/65 full photoshoots)
 
 ### Product counts (405 total in db.json — MUST stay 405 unless owner orders otherwise)
 | Category | Count | Status |
 |----------|-------|--------|
-| Rings | 85 = 65 PGS + 20 original | PGS media升级 in progress (ledger below) |
+| Rings | 85 = 65 PGS + 20 original | ✅ ALL 65 PGS full photoshoot (4 shots + film each) |
 | Necklaces, Earrings, Bangles, Bracelets, Pendants, Mangalsutra, Nosepins, Silver, Bajubandh, Rakhdi, Aad, Sheeshphool, Hathphool, Punach, Bridal Anklets, Chains | 16 × 20 = 320 | Untouched, live |
 
 ### PGS RING LEDGER (all 65 — agent: keep this exact table current)
 **✅ Full photoshoot since v42 (39):**
 PGS5001 5002 5003 5004 5005 5006 5007 5014 5015 5016 5017 5018 5022 5023 5024 5025 5026 5027 5029 5032 5033 5035 5036 5043 5044 5045 5046 5047 5049 5050 5051 5057 5058 5060 5061 5062 5063 5064 5065
 
-**✅ Full photoshoot completed in v43 (15):**
+**✅ Full photoshoot completed in v43 (26):**
 PGS5008 Mehndi · PGS5009 Jharokha · PGS5010 Marudhara · PGS5011 Sheesh Mahal ·
 PGS5012 Hawa Mahal · PGS5013 City Palace · PGS5019 Heera · PGS5020 Panna · PGS5021 Manik ·
 PGS5028 Banas · PGS5030 Thar · PGS5031 Shekhawati · PGS5034 Udaipur ·
 PGS5037 Kumbhal · PGS5038 Ranakpur · PGS5039 Dilwara · PGS5040 Nahargarh ·
 PGS5041 Baori · PGS5042 Sindoor · PGS5048 Kesar · PGS5052 Kundan ·
-PGS5053 Jadau · PGS5054 Thewa · PGS5055 Minakari · PGS5056 Rani Padmini
+PGS5053 Jadau · PGS5054 Thewa · PGS5055 Minakari · PGS5056 Rani Padmini ·
+PGS5059 Kanchan
 (each: 4 AI shots 896×1195 + 10s 720×720 film, in `cms/images/designs/rings/`, wired in db.json,
  media staged in `demo65/media/{SKU}/` for the uploader)
 
-**⏳ Photoshoot pending (1):**
-PGS5059 Kanchan (studio + editorial shots already generated; worn + gift pending — 10-img/turn cap)
-→ how to continue: `tools/photoshoot/SESSION-STATE.md` (workflow, prompts, per-ring design notes)
+**✅ MILESTONE REACHED — all 65 PGS rings now have full photoshoots** (39 pre-v42 + 26 in v43).
 
 **Owner's "31 rings / 93 images" note:** ground truth on repo = the 26 PGS rings above
-(25 were pending when v43 started). No PGS5066+ exists anywhere.
+(all 26 were pending when v43 started). No PGS5066+ exists anywhere.
 
 ### Key files
 | File | Purpose |
@@ -124,6 +123,7 @@ PGS5059 Kanchan (studio + editorial shots already generated; worn + gift pending
 9. Rewrote this HANDOFF as the permanent single source of truth.
 10. (same session, later turns) +2 rings: PGS5020 Panna, PGS5021 Manik (5021 editorial re-rolled for garbled prop text). +2 rings: PGS5028 Banas, PGS5030 Thar. +2 rings: PGS5031 Shekhawati, PGS5034 Udaipur (074f020). +2 rings: PGS5037 Kumbhal, PGS5038 Ranakpur (04d6509; 5037 ref needed white-tag removal — median-fill inpaint). +2 rings: PGS5039 Dilwara, PGS5040 Nahargarh (c48a8a4, first-pass clean). +2 rings: PGS5041 Baori, PGS5042 Sindoor (e9b5aff). +2 rings: PGS5048 Kesar, PGS5052 Kundan (aae17f7). +2 rings: PGS5053 Jadau, PGS5054 Thewa (e04a557). All 4-shot+film+db+uploader-staged. 3 rings pending (PGS5055 5056 5059). Deployment zip from step 6 covers the first 9; auto-sync cron deploys all 13 automatically once set up.
 11. (new chat, branch `arena/01a07cae-shivaa-ecom`) +2 rings: PGS5055 Minakari, PGS5056 Rani Padmini — full photoshoots, 25 of 26 complete, pushed. PGS5059 Kanchan is the last remaining (studio+editorial generated this turn; worn+gift pending the 10-img/turn cap).
+12. (same chat) +1 ring: PGS5059 Kanchan — worn+gift shots, film, db wiring, staging. **26/26 v43 batch done → all 65 PGS rings now have full photoshoots.** Verified: 65/65 db-wired + 65/65 disk media + 26/26 demo65 staged + 405 products intact. Committed a5c9743, pushed to `arena/01a07cae-shivaa-ecom`.
 
 **Pre-v42 (summary):** 65 PGS rings imported; 39 photographed; v42 bug-fix set (see git tag `v42-stable`).
 
