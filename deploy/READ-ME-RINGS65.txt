@@ -1,0 +1,42 @@
+SHIVAA — ALL 65 RINGS UPDATE (v46) — READ ME FIRST
+====================================================
+This zip puts ALL 65 PGS rings (PGS5001-PGS5065) live with their
+final photos: creamy-white face cover + editorial + worn + gift
+(4 photos each, no videos). It disturbs NOTHING else.
+
+WHAT'S INSIDE (263 files, site-root paths — extract into public_html)
+  images/designs/rings/*.jpg   260 ring photos (4 per ring)
+  data/rings65-products.json     the 65 ring records (installer payload)
+  apply-rings65.php              one-click merge installer (deletes itself after)
+  READ-ME-RINGS65.txt            this file
+
+WHAT IT TOUCHES / DOES NOT TOUCH
+  + ADDS 260 ring photos. No other image/folder is touched.
+  + UPDATES (or adds) ONLY the 65 PGS ring products in data/db.json.
+  - NEVER touches: orders, users, rates, making charges, coupons,
+    reviews, any other category, or the 20 old SS-RIN demo rings
+    (those are kept; the installer has an OPTIONAL checkbox to remove
+    them if you want a pure 65-ring catalogue).
+  - Preserves live data per ring: stock, ratings, reviews, active flag,
+    staff-entered barcode/supplier/cost, and any real HUID records.
+  - Makes an automatic backup: data/db.json.bak-<date> (one-click rollback).
+
+STEPS (hPanel, ~3 minutes, tablet OK)
+  1. File Manager -> public_html -> Upload shivaa-update-v46-rings65.zip
+     -> right-click -> Extract. (It only ADDS files; nothing is overwritten
+     except ring photos of the same name.)
+  2. In your browser open:  https://shivaa.in/apply-rings65.php
+  3. Log in with the admin password.
+  4. STEP 1 -> "Merge 65 rings now" (backup is automatic).
+  5. STEP 2 -> "Verify" -> expect: 65 PGS rings, 0 videos, 260/260 images.
+  6. STEP 3 -> "SELF-DESTRUCT", then delete the zip in File Manager.
+  7. LiteSpeed Cache -> Purge All. Hard-refresh the shop (Ctrl+Shift+R).
+  8. Spot-check: Rings category shows 65 PGS rings; open 2-3 ring pages —
+     each shows 4 photos starting with the white-face cover, no film badge.
+
+ROLLBACK (if anything looks wrong)
+  In File Manager: rename data/db.json away, then rename
+  data/db.json.bak-<date> to data/db.json. Done — old catalogue is back.
+
+VERIFY FROM OUTSIDE (optional)
+  https://shivaa.in/api/products?q=PGS  -> 65 entries, 4 image URLs each.
