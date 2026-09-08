@@ -1,8 +1,53 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-07 (v43 COMPLETE — all 65 PGS rings full photoshoot)**
+**Last updated: 2026-09-08 (v44 in progress — creamy-white face pass, branch `arena/01a07e8c-shivaa-ecom`)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
+
+---
+
+## ⚠️ DISCREPANCY NOTE (2026-09-08) — verified ground truth vs. earlier chat claims
+
+An earlier chat reported "39 creamy-white `_face.jpg` images generated and committed
+locally (`bd2c1eb`)". **Verified false on 2026-09-08:** commit `bd2c1eb` exists on no
+branch (local or origin), and zero `_face.jpg` files existed anywhere in history.
+What IS true (all verified against origin):
+- PR #14 merged to `main` (`ba3f69c`): 65/65 PGS rings full photoshoots ✅
+- PR #14 also included "white-bg batch 1/7" (`ef6ef73`): the `_shot_studio.jpg` of
+  PGS5001–PGS5010 was REPLACED in place with a creamy-white version (not saved as `_face.jpg`)
+- Corner-luminance scan of all 65 studio shots: **34 already have a creamy-white face**
+  (5001-5010, 5014, 5015, 5022, 5023, 5025-5027, 5029, 5032, 5033, 5035, 5036, 5043-5045,
+  5047, 5049, 5050, 5058, 5061-5065) and **31 were still dark** at the start of this pass.
+Treat any other claim from that chat as unverified until checked on disk/origin.
+
+---
+
+## 🎯 v44 — CREAMY-WHITE FACE + RING RESET (owner-approved) — REPO WORK ✅ COMPLETE
+
+Plan approved by the owner (do NOT re-ask):
+1. ✅ Creamy-white face for every dark PGS ring → `cms/images/designs/rings/{SKU}_face.jpg`
+   (31 generated this session; the other 34 already had white `_shot_studio.jpg` covers).
+2. ✅ db.json wired: `images[0]` = white face cover, `images[1..3]` = editorial/worn/gift,
+   **`video` removed from all 65 PGS rings**. 405 products intact, every image verified on disk.
+   (Frontend needs no change — `app.js` renders the FILM badge/slide only when `p.video` exists.)
+3. ✅ `demo65/media/{SKU}/` staging synced: `shot_studio.jpg` = white face cover, `video.mp4`
+   deleted, `meta.json` images updated + video key removed (65/65).
+4. ⏳ LIVE SITE (the only remaining step — needs a non-sandbox machine):
+   **delete all 85 rings → re-upload 65 (4 images, no video)** using the new one-shot script:
+   `python3 deploy/ring_reset.py --email admin@shivaa.in --password '***'` (dry-run first,
+   then add `--live`). Idempotent + ledger-resumable. Run from owner laptop or Hostinger SSH —
+   the Arena sandbox cannot reach shivaa.in (TLS blocked).
+   Alternative: the `deploy/auto_sync.php` cron will deploy the new `cms/` code + upserted
+   media automatically, but it does NOT delete the 20 original (non-PGS) rings — the full
+   85→65 reset requires `ring_reset.py`.
+
+### Face-pass ledger (31 dark rings) — ALL DONE ✅
+- batch 2 (10, `b1545df`): PGS5011 5012 5013 5016 5017 5018 5019 5020 5021 5024
+- batch 3 (10, `37de002`): PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042
+  (5037 ref had a white price tag — cropped out before generation)
+- batch 4 (8, `ba45553`): PGS5046 5048 5051 5052 5054 5055 5056 5059
+- final (3, this commit): PGS5053 (re-rolled: first gen broke the shank), PGS5057
+  (re-rolled: pavé bars offset), PGS5060
 
 ---
 
