@@ -1,8 +1,42 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-07 (v43 COMPLETE — all 65 PGS rings full photoshoot)**
+**Last updated: 2026-09-08 (v44 in progress — creamy-white face pass, branch `arena/01a07e8c-shivaa-ecom`)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
+
+---
+
+## ⚠️ DISCREPANCY NOTE (2026-09-08) — verified ground truth vs. earlier chat claims
+
+An earlier chat reported "39 creamy-white `_face.jpg` images generated and committed
+locally (`bd2c1eb`)". **Verified false on 2026-09-08:** commit `bd2c1eb` exists on no
+branch (local or origin), and zero `_face.jpg` files existed anywhere in history.
+What IS true (all verified against origin):
+- PR #14 merged to `main` (`ba3f69c`): 65/65 PGS rings full photoshoots ✅
+- PR #14 also included "white-bg batch 1/7" (`ef6ef73`): the `_shot_studio.jpg` of
+  PGS5001–PGS5010 was REPLACED in place with a creamy-white version (not saved as `_face.jpg`)
+- Corner-luminance scan of all 65 studio shots: **34 already have a creamy-white face**
+  (5001-5010, 5014, 5015, 5022, 5023, 5025-5027, 5029, 5032, 5033, 5035, 5036, 5043-5045,
+  5047, 5049, 5050, 5058, 5061-5065) and **31 were still dark** at the start of this pass.
+Treat any other claim from that chat as unverified until checked on disk/origin.
+
+---
+
+## 🎯 CURRENT PASS (v44) — CREAMY-WHITE FACE + RING RESET (owner-approved, do NOT re-ask)
+
+Plan approved by the owner:
+1. Generate a creamy-white face shot for each of the **31 still-dark** PGS rings,
+   saved as `cms/images/designs/rings/{SKU}_face.jpg` (896×1195, Shivaa badge, house style).
+2. Wire db.json: `images[0]` = white face (`_face.jpg` for the 31; the existing white
+   `_shot_studio.jpg` for the 34), `images[1..3]` = editorial/worn/gift. **Remove `video`.**
+3. Live site: **delete all 85 rings → re-upload the 65 PGS rings** (4 images, no video).
+   Sandbox cannot reach shivaa.in (TLS blocked) → runs via server cron
+   (`deploy/auto_sync.php`) or a one-shot server-side script.
+
+### Face-pass ledger (31 dark rings)
+- ✅ DONE batch 2 (10, commit `b1545df`, pushed): PGS5011 5012 5013 5016 5017 5018 5019 5020 5021 5024
+- ⏳ PENDING (21): PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5046 5048 5051 5052 5053 5054 5055 5056 5057 5059 5060
+(10 image-gens max per turn → 2 more turns of generation, then db wiring + reset script.)
 
 ---
 
