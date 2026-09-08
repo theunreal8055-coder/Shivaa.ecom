@@ -32,14 +32,20 @@ Plan approved by the owner (do NOT re-ask):
    (Frontend needs no change — `app.js` renders the FILM badge/slide only when `p.video` exists.)
 3. ✅ `demo65/media/{SKU}/` staging synced: `shot_studio.jpg` = white face cover, `video.mp4`
    deleted, `meta.json` images updated + video key removed (65/65).
-4. ⏳ LIVE SITE (the only remaining step — needs a non-sandbox machine):
-   **delete all 85 rings → re-upload 65 (4 images, no video)** using the new one-shot script:
-   `python3 deploy/ring_reset.py --email admin@shivaa.in --password '***'` (dry-run first,
-   then add `--live`). Idempotent + ledger-resumable. Run from owner laptop or Hostinger SSH —
-   the Arena sandbox cannot reach shivaa.in (TLS blocked).
-   Alternative: the `deploy/auto_sync.php` cron will deploy the new `cms/` code + upserted
-   media automatically, but it does NOT delete the 20 original (non-PGS) rings — the full
-   85→65 reset requires `ring_reset.py`.
+4. ⏳ LIVE SITE (the only remaining step — needs a non-sandbox machine; PR #16 MERGED to main
+   on 2026-09-08, so all media/meta are fetchable from GitHub main):
+   **delete all 85 rings → re-upload 65 (4 images, no video)** — two equivalent paths:
+   - **Tablet/phone (no terminal): `deploy/ring_reset_bridge.php`** ← owner is on a tablet.
+     hPanel File Manager → create secret folder in public_html (e.g. `rst-x7k2q`) → upload
+     this one file → open `https://shivaa.in/<folder>/ring_reset_bridge.php` → login →
+     Step 1 Delete → Step 2 Upload (tap ~17×, 4 rings/tap; server pulls media itself from
+     raw.githubusercontent.com main) → Step 3 Verify (65 rings, 0 videos) → SELF-DESTRUCT,
+     delete folder, rotate admin password. Ledger-resumable, rings-only.
+   - Laptop/SSH: `python3 deploy/ring_reset.py --email … --password …` (dry-run), then `--live`.
+   NOTE: the auto_sync.php cron (if ever installed) requires video.mp4 per design and thus
+   will NOT sync this no-video batch — the bridge/script above is the correct path. Also
+   remember to deploy the new `cms/` code (db.json face covers) via zip or auto-sync AFTER
+   the reset, or product pages will still reference old media on stale caches.
 
 ### Face-pass ledger (31 dark rings) — ALL DONE ✅
 - batch 2 (10, `b1545df`): PGS5011 5012 5013 5016 5017 5018 5019 5020 5021 5024
