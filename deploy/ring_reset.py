@@ -128,7 +128,7 @@ def main():
         for k in SHOTS:
             st, r = api('/api/media', token=tok, file=str(d / f'shot_{k}.jpg'),
                         fields={'category': 'rings', 'sku': sku})
-            if st != 200 or not (r.get('path') or r.get('location') or r.get('url')):
+            if st not in (200, 201) or not (r.get('path') or r.get('location') or r.get('url')):
                 sys.exit(f'{sku} media shot_{k} failed ({st}): {r} — re-run to resume')
             paths.append(r.get('path') or r.get('location') or r.get('url'))
         rec = dict(meta)
@@ -143,9 +143,15 @@ def main():
 
     # 3) verify
     st, r = api('/api/products', token=tok)
+    if st != 200:
+        sys.exit(f'final GET products failed ({st}): {r}')
     rings = [p for p in r.get('products', []) if p.get('category') == 'rings']
-    print(f'\nVERIFY: {len(rings)} rings live (expected 65).',
-          'OK ✅' if len(rings) == 65 else 'MISMATCH ⚠️ — investigate before re-running')
+    with_video = [p for p in rings if p.get('video')]
+    ok = len(rings) == 65 and not with_video
+    print(f'\nVERIFY: {len(rings)} rings live (expected 65); {len(with_video)} ring videos (expected 0).',
+          'OK ✅' if ok else 'MISMATCH ⚠️ — investigate before re-running')
+    if not ok:
+        sys.exit(2)
 
 
 if __name__ == '__main__':

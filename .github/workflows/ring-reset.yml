@@ -1,0 +1,151 @@
+name: Ring Reset
+
+on:
+  workflow_dispatch:
+    inputs:
+      live:
+        description: "Type YES to delete all live rings and re-upload exactly 65 PGS rings. Anything else runs a dry-run."
+        required: true
+        default: "NO"
+        type: string
+      email:
+        description: "Shivaa admin email"
+        required: true
+        default: "admin@shivaa.in"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shivaa-ring-reset
+  cancel-in-progress: false
+
+jobs:
+  reset-rings:
+    name: Reset live rings to 65 PGS designs
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Preflight staged 65-ring payload
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, sys
+
+          root = Path('demo65/media')
+          skus = sorted(p.name for p in root.glob('PGS*') if p.is_dir())
+          errors = []
+          if len(skus) != 65:
+              errors.append(f'expected 65 PGS media folders, found {len(skus)}')
+          for sku in skus:
+              d = root / sku
+              for shot in ('studio', 'editorial', 'worn', 'gift'):
+                  if not (d / f'shot_{shot}.jpg').is_file():
+                      errors.append(f'{sku}: missing shot_{shot}.jpg')
+              meta_path = d / 'meta.json'
+              if not meta_path.is_file():
+                  errors.append(f'{sku}: missing meta.json')
+              else:
+                  meta = json.loads(meta_path.read_text())
+                  if meta.get('category') != 'rings':
+                      errors.append(f'{sku}: meta category is {meta.get("category")!r}, expected rings')
+                  if meta.get('video'):
+                      errors.append(f'{sku}: meta still contains video')
+              if (d / 'video.mp4').exists():
+                  errors.append(f'{sku}: video.mp4 should not be staged for this reset')
+          if errors:
+              for e in errors:
+                  print(f'::error::{e}')
+              sys.exit(1)
+          print('preflight OK: 65 PGS designs, 4 JPG shots each, ring category, no videos')
+          PY
+
+      - name: Run ring reset
+        env:
+          ADMIN_EMAIL: ${{ inputs.email }}
+          ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
+          LIVE: ${{ inputs.live }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ADMIN_PASSWORD:-}" ]; then
+            echo "::error::Repository secret SHIVAA_ADMIN_PASSWORD is not set."
+            exit 1
+          fi
+
+          if [ "$LIVE" = "YES" ]; then
+            echo "LIVE=YES confirmed: deleting live ring products, then uploading the 65 staged PGS rings."
+            python3 deploy/ring_reset.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --live | tee ring-reset.log
+          else
+            echo "LIVE is '$LIVE' (not YES): running dry-run only."
+            python3 deploy/ring_reset.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" | tee ring-reset.log
+          fi
+
+      - name: Independently verify live ring count
+        if: ${{ inputs.live == 'YES' }}
+        env:
+          ADMIN_EMAIL: ${{ inputs.email }}
+          ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, sys, urllib.request, urllib.error
+
+          BASE = 'https://shivaa.in'
+          email = os.environ['ADMIN_EMAIL']
+          password = os.environ['ADMIN_PASSWORD']
+
+          def api(route, method='GET', token=None, body=None, timeout=180):
+              data = json.dumps(body).encode() if body is not None else None
+              req = urllib.request.Request(
+                  BASE + route,
+                  data=data,
+                  method=method,
+                  headers={'Content-Type': 'application/json'} if data is not None else {},
+              )
+              if token:
+                  req.add_header('Authorization', f'Bearer {token}')
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as r:
+                      payload = r.read().decode()
+                      return r.status, json.loads(payload) if payload else {}
+              except urllib.error.HTTPError as e:
+                  payload = e.read().decode()
+                  try:
+                      parsed = json.loads(payload) if payload else {}
+                  except Exception:
+                      parsed = {'error': payload or str(e)}
+                  return e.code, parsed
+
+          st, login = api('/api/auth/login', 'POST', body={'email': email, 'password': password})
+          if st != 200 or not login.get('token'):
+              print(f'::error::verification login failed ({st}): {login}')
+              sys.exit(1)
+
+          st, products = api('/api/products', token=login['token'])
+          if st != 200:
+              print(f'::error::verification GET /api/products failed ({st}): {products}')
+              sys.exit(1)
+
+          rings = [p for p in products.get('products', []) if p.get('category') == 'rings']
+          pgs = [p for p in rings if str(p.get('sku', '')).startswith('PGS')]
+          with_video = [p for p in rings if p.get('video')]
+          print(f'Live verification: total_products={len(products.get("products", []))}, rings={len(rings)}, pgs_rings={len(pgs)}, rings_with_video={len(with_video)}')
+
+          if len(rings) != 65:
+              print(f'::error::expected exactly 65 live rings, found {len(rings)}')
+              sys.exit(1)
+          if len(pgs) != 65:
+              print(f'::error::expected all 65 rings to be PGS SKUs, found {len(pgs)} PGS rings')
+              sys.exit(1)
+          if with_video:
+              print(f'::error::expected 0 ring videos, found {len(with_video)}')
+              sys.exit(1)
+
+          print('VERIFY OK: live site has exactly 65 PGS rings and 0 ring videos ✅')
+          PY
