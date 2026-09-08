@@ -1,49 +1,55 @@
 {
- "sku": "PGS5007",
- "name": "Kesariya Ring PGS5007 | Gold 22K",
- "category": "rings",
- "metal": "Gold",
- "purity": "22K",
- "weightG": 1.68,
- "mcScheme": "percent",
- "mcValue": 12.0,
- "stoneValue": 0,
- "stoneDesc": "",
- "stoneType": "",
- "stoneColour": "",
- "desc": "Kesariya Ring PGS5007 — Gold 22K, 1.68 g, hand-finished by our karigars with 12% making charges. Gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
- "tags": [
-  "Ring",
-  "gold",
-  "22k",
-  "ring",
-  "mens",
-  "1.68g",
-  "handcrafted",
-  "bishallmarked"
- ],
- "sizes": [
-  "12",
-  "14",
-  "16",
-  "18"
- ],
- "stock": 0,
- "barcode": "",
- "lessWeightG": 0,
- "wastagePct": 8,
- "active": true,
- "supplier": "",
- "supplierId": "",
- "costPerGram": 0.0,
- "seo": {
-  "keywords": [
-   "ring gold 22K",
-   "gold 22K ring price",
-   "shivaa jewellers ring"
+  "sku": "PGS5007",
+  "name": "Kesariya Ring PGS5007 | Gold 22K",
+  "category": "rings",
+  "metal": "Gold",
+  "purity": "22K",
+  "weightG": 1.68,
+  "mcScheme": "percent",
+  "mcValue": 12.0,
+  "stoneValue": 0,
+  "stoneDesc": "",
+  "stoneType": "",
+  "stoneColour": "",
+  "desc": "Kesariya Ring PGS5007 \u2014 Gold 22K, 1.68 g, hand-finished by our karigars with 12% making charges. Gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal \u2014 Nagaur, Rajasthan.",
+  "tags": [
+    "Ring",
+    "gold",
+    "22k",
+    "ring",
+    "mens",
+    "1.68g",
+    "handcrafted",
+    "bishallmarked"
   ],
-  "alt": "Gold 22K ring — Kesariya Ring PGS5007 | Gold 22K"
- },
- "category_note": "Ring by Shivaa Jewellers",
- "mediaNote": "AI-stylised visualisation of the original design photo."
+  "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+  ],
+  "stock": 0,
+  "barcode": "",
+  "lessWeightG": 0,
+  "wastagePct": 8,
+  "active": true,
+  "supplier": "",
+  "supplierId": "",
+  "costPerGram": 0.0,
+  "seo": {
+    "keywords": [
+      "ring gold 22K",
+      "gold 22K ring price",
+      "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring \u2014 Kesariya Ring PGS5007 | Gold 22K"
+  },
+  "category_note": "Ring by Shivaa Jewellers",
+  "mediaNote": "AI-stylised visualisation of the original design photo.",
+  "images": [
+    "/images/designs/rings/PGS5007_shot_studio.jpg",
+    "/images/designs/rings/PGS5007_shot_editorial.jpg",
+    "/images/designs/rings/PGS5007_shot_worn.jpg",
+    "/images/designs/rings/PGS5007_shot_gift.jpg"
+  ]
 }

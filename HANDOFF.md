@@ -22,25 +22,32 @@ Treat any other claim from that chat as unverified until checked on disk/origin.
 
 ---
 
-## 🎯 CURRENT PASS (v44) — CREAMY-WHITE FACE + RING RESET (owner-approved, do NOT re-ask)
+## 🎯 v44 — CREAMY-WHITE FACE + RING RESET (owner-approved) — REPO WORK ✅ COMPLETE
 
-Plan approved by the owner:
-1. Generate a creamy-white face shot for each of the **31 still-dark** PGS rings,
-   saved as `cms/images/designs/rings/{SKU}_face.jpg` (896×1195, Shivaa badge, house style).
-2. Wire db.json: `images[0]` = white face (`_face.jpg` for the 31; the existing white
-   `_shot_studio.jpg` for the 34), `images[1..3]` = editorial/worn/gift. **Remove `video`.**
-3. Live site: **delete all 85 rings → re-upload the 65 PGS rings** (4 images, no video).
-   Sandbox cannot reach shivaa.in (TLS blocked) → runs via server cron
-   (`deploy/auto_sync.php`) or a one-shot server-side script.
+Plan approved by the owner (do NOT re-ask):
+1. ✅ Creamy-white face for every dark PGS ring → `cms/images/designs/rings/{SKU}_face.jpg`
+   (31 generated this session; the other 34 already had white `_shot_studio.jpg` covers).
+2. ✅ db.json wired: `images[0]` = white face cover, `images[1..3]` = editorial/worn/gift,
+   **`video` removed from all 65 PGS rings**. 405 products intact, every image verified on disk.
+   (Frontend needs no change — `app.js` renders the FILM badge/slide only when `p.video` exists.)
+3. ✅ `demo65/media/{SKU}/` staging synced: `shot_studio.jpg` = white face cover, `video.mp4`
+   deleted, `meta.json` images updated + video key removed (65/65).
+4. ⏳ LIVE SITE (the only remaining step — needs a non-sandbox machine):
+   **delete all 85 rings → re-upload 65 (4 images, no video)** using the new one-shot script:
+   `python3 deploy/ring_reset.py --email admin@shivaa.in --password '***'` (dry-run first,
+   then add `--live`). Idempotent + ledger-resumable. Run from owner laptop or Hostinger SSH —
+   the Arena sandbox cannot reach shivaa.in (TLS blocked).
+   Alternative: the `deploy/auto_sync.php` cron will deploy the new `cms/` code + upserted
+   media automatically, but it does NOT delete the 20 original (non-PGS) rings — the full
+   85→65 reset requires `ring_reset.py`.
 
-### Face-pass ledger (31 dark rings)
-- ✅ DONE batch 2 (10, commit `b1545df`, pushed): PGS5011 5012 5013 5016 5017 5018 5019 5020 5021 5024
-- ✅ DONE batch 3 (10, commit `37de002`, pushed): PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042
+### Face-pass ledger (31 dark rings) — ALL DONE ✅
+- batch 2 (10, `b1545df`): PGS5011 5012 5013 5016 5017 5018 5019 5020 5021 5024
+- batch 3 (10, `37de002`): PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042
   (5037 ref had a white price tag — cropped out before generation)
-- ✅ DONE batch 4 (8, commit `ba45553`, pushed): PGS5046 5048 5051 5052 5054 5055 5056 5059
-- ⏳ PENDING (3): PGS5053 (re-roll: gen opened a gap in the shank, lost centre block),
-  PGS5057 (re-roll: pavé bars offset, centre rectangle wrong), PGS5060 (not yet generated)
-(next turn: 3 gens → finalize → then db wiring + reset script in the same turn.)
+- batch 4 (8, `ba45553`): PGS5046 5048 5051 5052 5054 5055 5056 5059
+- final (3, this commit): PGS5053 (re-rolled: first gen broke the shank), PGS5057
+  (re-rolled: pavé bars offset), PGS5060
 
 ---
 
