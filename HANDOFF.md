@@ -1,9 +1,32 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-07**
+**Last updated: 2026-09-08**
 **Current version: v42**
 **Repository: theunreal8055-coder/Shivaa.ecom**
 **This file is on GitHub and persists across all sessions and branches**
+
+---
+
+## ⚠️ DISCREPANCY NOTE (2026-09-08) — READ FIRST
+
+A previous chat session claimed to have generated 39 "creamy-white `_face.jpg`"
+images for the dark rings, and to have committed them across 5 local commits.
+**This did not happen.** Verified on 2026-09-08:
+- `find . -name "*_face.jpg"` → 0 files
+- `git log` on `arena/01a07e88-shivaa-ecom` → 1 commit (the original HANDOFF update)
+- No branch on origin (no other Arena branch) contains any `_face.jpg` files
+- The "5 commits" and "41 face files on disk" do not exist anywhere
+
+The owner's previous status report was based on what the prior chat **said it
+did**, not what it actually did. Treat any reference to those "creamy-white
+face images" as a task that was **never completed** — it would need to be
+done from scratch (this is now in OPEN TODO below).
+
+**What IS true and live** (PR #14 merged 2026-09-07):
+- 39/65 PGS rings have a full AI photoshoot (4 images + 1 video each)
+- 26/65 PGS rings have the reference design image only
+- 65 PGS ring products live on shivaa.in (via cron auto-sync)
+- 405 total products in db.json
 
 ---
 
@@ -105,12 +128,23 @@ cd /home/user/Shivaa.ecom
 zip -r shivaa-update-v42.zip cms/
 ```
 
+### Live-site upload (shivaa.in) — REQUIRES RUNNING ON A NON-SANDBOX MACHINE
+The Arena sandbox **cannot reach shivaa.in** (TLS handshake to 77.37.76.139
+fails with `SSL_ERROR_SYSCALL`). Any "wire face images to live site" /
+"delete and reupload rings on shivaa.in" task must be done from:
+- the owner's laptop, or
+- a Hostinger SSH terminal, or
+- the `deploy/upload_bridge.php` form on the live server
+
+See `deploy/UPLOAD-RUNBOOK.md` for the exact commands.
+
 ---
 
 ## 📌 GIT HISTORY & MILESTONES
 | Tag/Commit | Description |
 |------------|-------------|
 | `v42-stable` (tag) | All 65 PGS rings live + all v42 bug fixes |
+| PR #14 (merged 2026-09-07) | v43 complete: all 65 PGS rings full AI photoshoots |
 | `dc2814d` | Added HANDOFF.md |
 | `8bd241c` | Restored all 65 PGS ring designs |
 | `7e55d19` | Fixed carousel/gallery auto-advance |
@@ -119,6 +153,9 @@ zip -r shivaa-update-v42.zip cms/
 ---
 
 ## 📋 OPEN TODO / NEXT STEPS
+- [ ] **Generate 39 creamy-white `_face.jpg` images for the dark PGS rings** (THIS WAS NEVER DONE — see discrepancy note above)
+- [ ] Wire `_face.jpg` as the product cover (`images[0]`) in db.json after generation
+- [ ] **Live-site wiring** of the above (must be done on non-sandbox machine — see DEPLOYMENT section)
 - [ ] Generate photoshoots for remaining 26 PGS rings (reference images only)
 - [ ] Owner may request new features — ask before assuming
 
