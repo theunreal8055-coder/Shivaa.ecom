@@ -37,8 +37,10 @@ Plan approved by the owner:
 - ✅ DONE batch 2 (10, commit `b1545df`, pushed): PGS5011 5012 5013 5016 5017 5018 5019 5020 5021 5024
 - ✅ DONE batch 3 (10, commit `37de002`, pushed): PGS5028 5030 5031 5034 5037 5038 5039 5040 5041 5042
   (5037 ref had a white price tag — cropped out before generation)
-- ⏳ PENDING (11): PGS5046 5048 5051 5052 5053 5054 5055 5056 5057 5059 5060
-(10 image-gens max per turn → 1 turn of 10 + 1 final, then db wiring + reset script.)
+- ✅ DONE batch 4 (8, commit `ba45553`, pushed): PGS5046 5048 5051 5052 5054 5055 5056 5059
+- ⏳ PENDING (3): PGS5053 (re-roll: gen opened a gap in the shank, lost centre block),
+  PGS5057 (re-roll: pavé bars offset, centre rectangle wrong), PGS5060 (not yet generated)
+(next turn: 3 gens → finalize → then db wiring + reset script in the same turn.)
 
 ---
 
