@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shivaa.in — New Year Gold Finale | Investment Pitch ₹1.5 Cr</title>
+<style>
+  :root{
+    --bg:#0b0906; --bg2:#14100a; --panel:#1a140c; --panel2:#221a0f;
+    --gold:#d4af37; --gold2:#f4d97a; --gold3:#8a6d1f;
+    --cream:#f6ecd4; --text:#efe6d2; --muted:#c9bda2;
+    --line:rgba(212,175,55,.28); --red:#e2725b; --green:#8fce9a; --blue:#9cc0e8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg); color:var(--text);
+    font-family:Georgia,'Times New Roman',serif; -webkit-font-smoothing:antialiased}
+  .deck{width:100%}
+  .slide{min-height:100vh; padding:6.5vh 6vw 9vh; display:flex; flex-direction:column;
+    justify-content:center; position:relative; border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(1200px 500px at 85% -10%, rgba(212,175,55,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(212,175,55,.06), transparent 60%),
+      var(--bg);}
+  .eyebrow{font-family:Verdana,Arial,sans-serif; font-size:.72rem; letter-spacing:.24em;
+    text-transform:uppercase; color:var(--gold2); margin-bottom:1.1rem;
+    display:flex; align-items:center; gap:.7rem}
+  .eyebrow::before{content:""; width:2.4rem; height:1px; background:var(--gold)}
+  h1{font-size:clamp(2.2rem,5vw,4.2rem); line-height:1.06; color:#fff;
+    font-weight:600; letter-spacing:.5px}
+  h1 .accent{color:var(--gold2)}
+  h2{font-size:clamp(1.5rem,3vw,2.6rem); color:#fff; font-weight:600; line-height:1.15; margin-bottom:.4rem}
+  h3{font-size:1.02rem; color:var(--gold2); text-transform:uppercase; letter-spacing:.12em; font-family:Verdana,Arial,sans-serif; margin-bottom:.5rem}
+  .sub{color:var(--muted); font-size:clamp(.95rem,1.35vw,1.15rem); line-height:1.55; max-width:70ch}
+  .lead{color:var(--cream); font-size:clamp(1.05rem,1.5vw,1.3rem); line-height:1.5}
+  .grid{display:grid; gap:1.2rem; margin-top:1.6rem}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .card{background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line); border-radius:14px; padding:1.2rem 1.3rem}
+  .card .k{font-family:Verdana,Arial,sans-serif; font-size:.68rem; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:.5rem}
+  .card .v{font-size:clamp(1.3rem,2vw,1.9rem); color:var(--gold2); font-weight:600}
+  .card .d{color:var(--muted); font-size:.86rem; line-height:1.45; margin-top:.45rem}
+  .num{color:var(--gold2); font-weight:600}
+  table{width:100%; border-collapse:collapse; margin-top:1rem; font-size:.92rem}
+  th,td{padding:.6rem .7rem; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-family:Verdana,Arial,sans-serif; font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:var(--gold2)}
+  td{color:var(--text)}
+  tr:last-child td{border-bottom:none}
+  .chip{display:inline-block; font-family:Verdana,Arial,sans-serif; font-size:.68rem; letter-spacing:.06em;
+    border:1px solid var(--gold); color:var(--gold2); border-radius:999px; padding:.28rem .7rem; margin:.15rem .3rem .15rem 0}
+  .tagred{color:var(--red); border-color:rgba(226,114,91,.5)}
+  .taggreen{color:var(--green); border-color:rgba(143,206,154,.45)}
+  .foot{position:absolute; bottom:2.2vh; left:6vw; right:6vw; display:flex; justify-content:space-between;
+    align-items:center; font-family:Verdana,Arial,sans-serif; font-size:.62rem; letter-spacing:.18em;
+    text-transform:uppercase; color:#6f654f; border-top:1px solid rgba(212,175,55,.12); padding-top:.7rem}
+  .bigstat{font-size:clamp(2rem,4.6vw,3.6rem); color:var(--gold2); font-weight:600; line-height:1.05}
+  .rule{width:64px; height:2px; background:var(--gold); margin:1.1rem 0}
+  .check li, li.check{list-style:none; position:relative; padding-left:1.4rem; margin:.42rem 0; line-height:1.5}
+  .check li::before{content:"◆"; position:absolute; left:0; color:var(--gold); font-size:.7rem; top:.42rem}
+  ul.plain{margin:.4rem 0 .4rem 1.1rem} ul.plain li{margin:.34rem 0; line-height:1.5}
+  .pill{font-family:Verdana,Arial,sans-serif; font-weight:bold; font-size:.7rem; letter-spacing:.1em;
+    background:var(--gold); color:#14100a; border-radius:6px; padding:.22rem .55rem; display:inline-block; margin-right:.4rem}
+  .center{text-align:center}
+  .twocol{display:grid; grid-template-columns:1.05fr .95fr; gap:2.2rem; align-items:center}
+  @media(max-width:860px){.twocol{grid-template-columns:1fr}}
+  .small{font-size:.8rem; color:var(--muted); line-height:1.45}
+  .big{margin-top:1.2rem}
+  .note{border:1px dashed var(--gold3); border-radius:10px; padding:.7rem .9rem; color:var(--muted); font-size:.8rem; line-height:1.5; background:rgba(212,175,55,.05)}
+  nav#ui{position:fixed; right:1.1rem; bottom:1.1rem; z-index:50; display:flex; gap:.45rem; align-items:center}
+  nav#ui button{background:var(--gold); border:none; color:#14100a; font-family:Verdana,Arial,sans-serif;
+    font-weight:bold; border-radius:8px; width:2.3rem; height:2.3rem; cursor:pointer; font-size:1rem}
+  nav#ui button:hover{background:var(--gold2)}
+  #cnt{font-family:Verdana,Arial,sans-serif; font-size:.72rem; color:var(--gold2); letter-spacing:.08em;
+    background:rgba(20,16,10,.85); border:1px solid var(--line); padding:.4rem .7rem; border-radius:8px}
+  .progress{position:fixed; top:0; left:0; height:3px; background:linear-gradient(90deg,var(--gold3),var(--gold2)); z-index:60}
+  @media print{ nav#ui,.progress{display:none} .slide{min-height:auto; page-break-after:always; border:none} }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<main class="deck" id="deck">
+
+<!-- ============ 1 TITLE ============ -->
+<section class="slide">
+  <div class="eyebrow">Shivaa.in · Ernate Shine Jewellery Pvt. Ltd.</div>
+  <h1>The <span class="accent">New Year Gold Finale</span></h1>
+  <h1 style="font-size:clamp(1.2rem,2.4vw,1.8rem); color:var(--cream); margin-top:.6rem">One customer wins 100&nbsp;g of certified gold — LIVE on 31 December 2026</h1>
+  <div class="rule"></div>
+  <p class="lead">A fully compliance-engineered festive customer-acquisition engine for India's first 200-manufacturer, 400,000-design jewellery marketplace — with a ₹1.5&nbsp;crore investment proposal.</p>
+  <div class="grid g4 big">
+    <div class="card"><div class="k">Investment ask</div><div class="v">₹1.5 Cr</div><div class="d">Deployment &amp; working capital</div></div>
+    <div class="card"><div class="k">Marketing budget</div><div class="v">₹9,00,000</div><div class="d">Fixed, phased to 31 Dec</div></div>
+    <div class="card"><div class="k">Giveaway prize</div><div class="v">100 g 24K gold</div><div class="d">~₹15 lakh · certified · audited draw</div></div>
+    <div class="card"><div class="k">Balance</div><div class="v">~₹1.16 Cr</div><div class="d">Inventory &amp; supply-chain working capital (an asset)</div></div>
+  </div>
+  <p class="small" style="margin-top:1.1rem">September 2026 · For investor discussion · Prepared with legal / CA / consumer-protection / marketing diligence — companion pack files 01–09. Not investment advice.</p>
+</section>
+
+<!-- ============ 2 OPPORTUNITY ============ -->
+<section class="slide">
+  <div class="eyebrow">Why now · Why India · Why gold</div>
+  <h2>The opportunity window</h2>
+  <div class="rule"></div>
+  <div class="grid g4">
+    <div class="card"><div class="k">Gold today (24K)</div><div class="v">₹1.49–1.55 L</div><div class="d">per 10 g (Sep 2026); festive-season upside historically 5–10% by December</div></div>
+    <div class="card"><div class="k">Silver today</div><div class="v">₹234–250/g</div><div class="d">volatile — a qualification basket at ~₹100k tier</div></div>
+    <div class="card"><div class="k">Peak demand</div><div class="v">6 Nov–10 Nov</div><div class="d">Dhanteras · Diwali · Bhai Dooj — then wedding &amp; Christmas gifting to New Year</div></div>
+    <div class="card"><div class="k">Online jewellery</div><div class="v">Trust gap</div><div class="d">hallmarking, purity &amp; return anxiety — a transparent, verifiable platform wins</div></div>
+  </div>
+  <div class="twocol big">
+    <div>
+      <h3>The structural gap we attack</h3>
+      <p class="sub">India's festive gold market is a giant that still sells through fragmented local jewellers and generic marketplaces. Nobody has combined <b>aggregated manufacturer designs (200+ makers, 400,000+ SKUs)</b>, an <b>AI design concierge</b>, <b>verifiable BIS hallmarking/HUID</b> — and a <b>compliance-safe, national "dream prize" funnel</b> to break through at launch.</p>
+    </div>
+    <div>
+      <h3>Why the prize is the point</h3>
+      <p class="sub">A ₹15 lakh headline on Instagram is <b>media</b>, not just a cost. At ₹9L of paid spend, the prize multiplies attention ~2–3×; every rupee of prize doubles as brand PR, live content, and a nationwide retargeting asset — legally structured (free-entry + skill quiz + audited draw).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 PLATFORM ============ -->
+<section class="slide">
+  <div class="eyebrow">What already exists</div>
+  <h2>Shivaa.in — the machine behind the campaign</h2>
+  <div class="rule"></div>
+  <div class="grid g3">
+    <div class="card"><div class="k">Live CMS &amp; storefront</div><div class="v">Built</div><div class="d">PHP 8 SPA, catalogue, product pages, checkout flow — v37+ with HUID workflow (Feature 1) and "Why Trust Shivaa" (Feature 2).</div></div>
+    <div class="card"><div class="k">Registered entity</div><div class="v">Pvt Ltd</div><div class="d">Ernate Shine Jewellery Pvt. Ltd. — CIN U32111RJ2025PTC099173 · UDYAM registered · GSTIN to be live pre-sale.</div></div>
+    <div class="card"><div class="k">Supply pipeline</div><div class="v">200 makers</div><div class="d">Mumbai manufacturer network; batched onboarding with hallmark/HUID warranty, IP indemnity &amp; dispatch SLAs (templated agreement).</div></div>
+    <div class="card"><div class="k">Design catalogue</div><div class="v">400,000+</div><div class="d">Across bridal, daily-wear gold, festive silver — phased, fulfil-able listings at launch (never phantom stock).</div></div>
+    <div class="card"><div class="k">AI design concierge</div><div class="v">Gemini chatbot</div><div class="d">Quiz + chat to turn 400k designs into a shortlist — disclosed AI, consent-based, DPDP-ready.</div></div>
+    <div class="card"><div class="k">Compliance kit</div><div class="v">Ready</div><div class="d">T&amp;C template, free-entry route, grievance officer, audited live-draw protocol, CCPA/ASCI copy rules — all specified in pack files 01–09.</div></div>
+  </div>
+  <p class="note big"><b>Why this matters to an investor:</b> the prize only pays if traffic converts. Shivaa already has the catalogue, the chatbot, the trust assets and the compliance engineering — the campaign converts that into demand.</p>
+</section>
+
+<!-- ============ 4 CAMPAIGN ============ -->
+<section class="slide">
+  <div class="eyebrow">The offer · The rules · The date</div>
+  <h2>The campaign in one breath</h2>
+  <div class="rule"></div>
+  <div class="twocol">
+    <div>
+      <ul class="check" style="list-style:none">
+        <li><b>12 Sep 2026</b> — compliant Instagram Live launch announcement + free pre-registration waitlist.</li>
+        <li><b>Qualifying order:</b> a single paid, non-cancelled order containing <b>≥ 3 g gold</b> and <b>≥ 100 g silver</b> (verified by invoice weight at dispatch).</li>
+        <li><b>After purchase:</b> a short skill/preference quiz → <b>entry</b> into the prize selection.</li>
+        <li><b>Free route:</b> a genuine no-purchase entry with the same quiz &amp; equal odds — this is what keeps the scheme a lawful contest, not a lottery.</li>
+        <li><b>Prize:</b> one customer receives <b>100 g of 24K certified gold</b> (refiner certificate; ~₹15 lakh current market value).</li>
+        <li><b>31 Dec 2026</b> — CA-witnessed, live-streamed random draw on Instagram. Winner announced publicly. Entries close ~18–20 Dec.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card"><div class="k">Why compliant from day one</div>
+        <ul class="check" style="list-style:none; margin-top:.4rem">
+          <li>No-purchase free entry → removes "consideration" (lottery risk gone).</li>
+          <li>Real skill element in quiz → contest, not pure chance.</li>
+          <li>"Win a chance" copy (never "100% free") → CCPA/ASCI safe.</li>
+          <li>Winner's ~30% statutory TDS disclosed upfront (paid before delivery).</li>
+          <li>TN/WB excluded ("void where prohibited"); Maharashtra rules reviewed.</li>
+          <li>Written lawyer + CA opinions before entries open (gate register, file 03).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 CONSUMER-COURT lens ============ -->
+<section class="slide">
+  <div class="eyebrow">Consumer-protection engineering</div>
+  <h2>Built so the consumer court &amp; regulators see a defensible file</h2>
+  <div class="rule"></div>
+  <div class="grid g3">
+    <div class="card"><div class="k">Ads &amp; claims</div><div class="v">No "100% free"</div><div class="d">CCPA Guidelines 2022 + ASCI: "win a chance", value stated as current-market (~₹15L at date, varies), conditions prominent. Repeat-offence fines up to ₹50L avoided by design.</div></div>
+    <div class="card"><div class="k">Draw fairness</div><div class="v">Audited &amp; on video</div><div class="d">Entry ledger frozen with SHA-256 hash published; independent CA/notary witness; unedited recording retained 8 years; results announced on the same channels.</div></div>
+    <div class="card"><div class="k">Grievance machinery</div><div class="v">48h / 30-day</div><div class="d">Named grievance officer + nodal contact; complaints acknowledged ≤48 hrs, redressed ≤30 days (E-Commerce Rules 2020); display block: legal name, CIN, GSTIN, address.</div></div>
+    <div class="card"><div class="k">Product truth</div><div class="v">BIS + HUID</div><div class="d">Every gold jewellery SKU hallmarked with HUID (mandatory); silver purity declared (IS 2112:2025 marks); prize from a certified refiner with certificate. No fabricated weights/purity.</div></div>
+    <div class="card"><div class="k">Prize terms</div><div class="v">Published pre-launch</div><div class="d">Eligibility, odds, dates (IST), draw method, tax, forfeit/re-draw, data use — in lawyer-drafted T&amp;C linked at checkout, on the page and in every ad.</div></div>
+    <div class="card"><div class="k">Data &amp; AI</div><div class="v">DPDP-ready</div><div class="d">Notice + consent for quiz/entry/PAN; retention limits; AI disclosed with human escalation; no AI in winner selection.</div></div>
+  </div>
+  <p class="note big"><b>Investor comfort:</b> the two risks that kill jewellery promotions — "it's a lottery" and "the draw was rigged" — are engineered out before the first rupee is spent.</p>
+</section>
+
+<!-- ============ 6 UNIT ECONOMICS ============ -->
+<section class="slide">
+  <div class="eyebrow">The CA's page · Owner-confirmed margins</div>
+  <h2>Unit economics of a qualifying order</h2>
+  <div class="rule"></div>
+  <div class="twocol">
+    <div>
+      <table>
+        <tr><th>Component (min basket)</th><th>Metal @ Sep-26</th><th>Sale (ex-GST)</th><th>Gross profit</th></tr>
+        <tr><td>Gold jewellery — <b>3 g min</b> (22K, +10% making)</td><td>₹42,750</td><td>₹47,025</td><td class="num">8% → ₹3,762</td></tr>
+        <tr><td>Silver jewellery — <b>100 g min</b> (999, +15% making)</td><td>₹23,500</td><td>₹27,025</td><td class="num">4% → ₹1,081</td></tr>
+        <tr><td><b>Minimum qualifying basket</b></td><td>—</td><td><b>₹74,050</b></td><td class="num"><b>₹4,843</b> (6.5%)</td></tr>
+        <tr><td>Customer pays incl. GST (~3%)</td><td colspan="3">≈ ₹76,400</td></tr>
+      </table>
+      <p class="small">Rates: 22K gold ₹14,250/g · silver ₹235/g (8–9 Sep 2026). Making-charge assumptions typical; average orders run higher (₹90k–1L+) as buyers add gold weight — raising profit/order.</p>
+    </div>
+    <div>
+      <div class="card"><div class="k">Average-order scenario (₹1,00,000, ~6.8% blended)</div><div class="v">≈ ₹6,800 profit</div><div class="d">Upsell (chatbot + festive offers) lifts basket; gold-heavy baskets carry the 8% margin.</div></div>
+      <div class="card big"><div class="k">Margin philosophy</div><div class="v">Margin in making, not metal</div><div class="d">Metal is passed at market + 3% GST; profit comes from making-charge spread on gold (8%) and silver (4%) — agreed per-vendor markup splits in writing.</div></div>
+      <div class="note">All figures exclude the upside of non-qualifying orders, repeat/wedding purchases and inventory gold appreciation.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7 CUSTOMERS NEEDED ============ -->
+<section class="slide">
+  <div class="eyebrow">The breakeven every investor asks first</div>
+  <h2>How many customers sustain the marketing &amp; bullion budget?</h2>
+  <div class="rule"></div>
+  <p class="sub">Fixed campaign cash spend: <b>₹9L marketing + ₹15L prize + ₹3L ops/legal ≈ ₹27L</b> (TDS is pass-through — winner pays). At ₹4,843 profit per minimum basket:</p>
+  <div class="grid g3 big">
+    <div class="card"><div class="k">Cover marketing alone</div><div class="v">≈ 190 orders</div><div class="d">₹9L ÷ ₹4,843 → GMV ≈ ₹1.4 Cr (min-basket basis)</div></div>
+    <div class="card"><div class="k">Cover marketing + prize</div><div class="v">≈ 500 orders</div><div class="d">₹24L ÷ ₹4,843 → GMV ≈ ₹3.7 Cr</div></div>
+    <div class="card"><div class="k">Cover full ₹27L burn</div><div class="v">≈ 560 orders</div><div class="d">GMV ≈ ₹4.1–4.3 Cr → add 5% cancellation leakage: <b>≈ 590 orders</b></div></div>
+  </div>
+  <table class="big">
+    <tr><th>Scenario</th><th>Avg order</th><th>Profit/order</th><th>Orders to cover ₹9L mkt</th><th>Orders to cover ₹24L mkt+prize</th><th>Orders to cover ₹27L total</th></tr>
+    <tr><td>Minimum basket</td><td>₹74,050</td><td>₹4,843</td><td>186</td><td>496</td><td>558</td></tr>
+    <tr><td>Average basket (target)</td><td>₹1,00,000</td><td>₹6,800</td><td>132</td><td>353</td><td>397</td></tr>
+  </table>
+  <div class="note big"><b>The honest framing for a launch:</b> 400–600 qualifying buyers in 8–10 weeks of festive demand is demanding but reachable at ₹9L of Instagram reach (1–3M impressions → 2–4% CTR → ~20–60k visits → 1–2% qualify). Below that, the prize still buys a nationwide launch at ~₹300–600 per entry/lead — cheaper than HNIs bought any other way.</div>
+</section>
+
+<!-- ============ 8 TARGETS ============ -->
+<section class="slide">
+  <div class="eyebrow">What "success" looks like</div>
+  <h2>Three scenarios · twelve-month horizon</h2>
+  <div class="rule"></div>
+  <table>
+    <tr><th>Scenario</th><th>Qualifying orders</th><th>Qualifying GMV</th><th>Basket profit</th><th>+ Non-qualifying &amp; repeat (~5%)</th><th>Vs ₹33.2L fixed burn*</th></tr>
+    <tr><td><b>Conservative</b></td><td>300</td><td>₹2.7 Cr</td><td>₹17.8L</td><td>₹8L</td><td style="color:var(--red)">≈ −₹7L (max downside band)</td></tr>
+    <tr><td><b>Base</b></td><td>500</td><td>₹4.5 Cr</td><td>₹29.7L</td><td>₹13.5L</td><td style="color:var(--green)">≈ +₹10L surplus</td></tr>
+    <tr><td><b>Stretch</b></td><td>800</td><td>₹7.2 Cr</td><td>₹47.5L</td><td>₹21.6L</td><td style="color:var(--green)">≈ +₹36L</td></tr>
+  </table>
+  <p class="small">*Fixed burn = ₹9L marketing + ₹15L prize + ₹9.2L ops/compliance during the window (prize &amp; ads expensed; inventory excluded — it is an asset). Surpluses exclude gold appreciation on held stock and 12-month customer LTV (₹60k–1.2L per buyer).</p>
+  <div class="grid g3 big">
+    <div class="card"><div class="k">Capital at true risk</div><div class="v">≈ ₹24–28L</div><div class="d">Prize bought early (hedged), ads, ops. Inventory (~₹1.16 Cr) stays owned and liquid.</div></div>
+    <div class="card"><div class="k">Cash at risk if low uptake</div><div class="v">≈ −₹7–10L</div><div class="d">Conservative-case deficit on burn — absorbed by surplus inventory and LTV; prize re-saleable.</div></div>
+    <div class="card"><div class="k">Upside levers</div><div class="v">5× stretch</div><div class="d">Wedding funnel, repeat Diwali cohort, gold appreciation, vendor net-terms float.</div></div>
+  </div>
+</section>
+
+<!-- ============ 9 USE OF FUNDS ============ -->
+<section class="slide">
+  <div class="eyebrow">₹1.5 crore deployment</div>
+  <h2>Use of funds — every rupee accounted</h2>
+  <div class="rule"></div>
+  <table>
+    <tr><th>Head</th><th>Amount</th><th>Share</th><th>Detail</th></tr>
+    <tr><td><b>Marketing &amp; content</b></td><td><b>₹9.0L</b></td><td>6.0%</td><td>Instagram ads, boosted Lives, influencer (#ad), content production — phased to 31 Dec</td></tr>
+    <tr><td><b>Giveaway — prize logistics</b></td><td><b>₹15.8L</b></td><td>10.5%</td><td>100 g 24K certified biscuit ₹15.0L + insurance/custody ₹0.3L + CA-witnessed draw &amp; ceremony ₹0.5L</td></tr>
+    <tr><td><b>Platform ops &amp; compliance</b></td><td><b>₹9.2L</b></td><td>6.1%</td><td>Legal + CA written opinions, T&amp;C, DPDP, grievance officer, quiz/free-entry/draw tooling, chatbot, CS staff, load/queue</td></tr>
+    <tr><td><b>Inventory &amp; supply-chain working capital</b></td><td><b>₹116.0L</b></td><td>77.3%</td><td>Gold &amp; silver stock + manufacturer advances (15/30/45-day settlements); rotates ~3× in the window</td></tr>
+    <tr><td><b>Total</b></td><td><b>₹1,50,00,000</b></td><td>100%</td><td>—</td></tr>
+  </table>
+  <div class="note big"><b>Why 77% sits in inventory:</b> it is the engine AND the safety net. The stock generates the qualifying sales, then remains a saleable asset — the campaign cannot "burn" it. Peak stock need ≈ ₹1.0–1.2 Cr supports ~₹4–5 Cr GMV at ~3× festive turnover.</div>
+</section>
+
+<!-- ============ 10 CASH CYCLE ============ -->
+<section class="slide">
+  <div class="eyebrow">The CA's cash-flow view</div>
+  <h2>Cash cycle &amp; inventory engine</h2>
+  <div class="rule"></div>
+  <div class="grid g4">
+    <div class="card"><div class="k">1 · Customer pays</div><div class="v">Upfront</div><div class="d">Digital payment at order — incl. ~3% GST, full value in.</div></div>
+    <div class="card"><div class="k">2 · Vendor paid later</div><div class="v">15/30/45 days</div><div class="d">Templated net-terms with the 200 Mumbai makers; float funds the next stock cycle.</div></div>
+    <div class="card"><div class="k">3 · Dispatch ≤ 7 days</div><div class="v">Insured</div><div class="d">BIS/HUID-verified, invoice-weighted; festive CS on 48h/30-day SLA.</div></div>
+    <div class="card"><div class="k">4 · Gold hedge</div><div class="v">Buy early</div><div class="d">Prize biscuit purchased ≤30 Sep (price locked); held stock rides festive appreciation.</div></div>
+  </div>
+  <div class="twocol big">
+    <div>
+      <h3>Revenue streams</h3>
+      <ul class="check" style="list-style:none">
+        <li>Making-charge margin on gold (8%) &amp; silver (4%) across the qualifying + non-qualifying catalogue.</li>
+        <li>Vendor markup splits (written per maker) on 400,000-design catalogue.</li>
+        <li>Repeat &amp; wedding-season revenue from the captured cohort (target 25k–100k consented leads).</li>
+        <li>Consolation funnel — making-charge discounts to non-winning entrants (post-draw profit engine).</li>
+      </ul>
+    </div>
+    <div>
+      <h3>What the pack adds that wasn't in the brief</h3>
+      <ul class="check" style="list-style:none">
+        <li>Leakage buffer (5% cancellations/refunds) built into targets.</li>
+        <li>Prize bought early + insurance → gold-price risk managed.</li>
+        <li>TDS on prize = pass-through (winner pays ~31.2%); no hidden company cost.</li>
+        <li>GST/ITC: CA-written model for the gifted biscuit (ITC reversal §17(5)(h)) before purchase.</li>
+        <li>Fraud controls: OTP, per-identity entry caps, order-weight re-verification.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11 TAX & PRIZE ============ -->
+<section class="slide">
+  <div class="eyebrow">Tax compliance (Income-tax Act 2025, effective 1 Apr 2026)</div>
+  <h2>Prize, tax &amp; GST — engineered, not improvised</h2>
+  <div class="rule"></div>
+  <div class="grid g3">
+    <div class="card"><div class="k">Winner's tax</div><div class="v">30% + cess ≈ 31.2%</div><div class="d">Flat-rate casual income — IT Act 2025 §128 (formerly §115BB); TDS §393(3) Table Sl.1. In-kind prize ⇒ winner pays TDS (~₹4.7L) before delivery; Shivaa deposits &amp; issues Form 16A/26AS. PAN mandatory (higher rate without it).</div></div>
+    <div class="card"><div class="k">GST on sales</div><div class="v">3%</div><div class="d">Gold &amp; silver value + 5% on making charges in practice. Proper HSN invoicing, e-invoice if threshold met, e-way bill carve-outs per CA. GSTIN live before first sale.</div></div>
+    <div class="card"><div class="k">Gift vs supply</div><div class="v">ITC reversal</div><div class="d">The ₹15L biscuit given free ⇒ input credit reversal (§17(5)(h)) — CA's written rupee model before purchase; booked as marketing expense.</div></div>
+    <div class="card"><div class="k">PML / reporting</div><div class="v">Cash >₹10L</div><div class="d">As a precious-metals dealer: FIU-IND reporting-entity status; digital model mostly outside cash CTRs; STR discipline &amp; vendor KYC maintained.</div></div>
+    <div class="card"><div class="k">Governance</div><div class="v">Board resolution</div><div class="d">Offer, prize, ₹9L budget, ₹1.5Cr deployment, prize custodian &amp; draw authority — documented; financier loan documented under Companies Act deposit rules (§73).</div></div>
+    <div class="card"><div class="k">Value discipline</div><div class="v">₹15L = current-market</div><div class="d">Never a fixed rupee promise. Budget ₹15–17L; TDS on draw-date FMV. Refiner certificate + serial + invoice for the 100 g.</div></div>
+  </div>
+</section>
+
+<!-- ============ 12 MARKETING ============ -->
+<section class="slide">
+  <div class="eyebrow">₹9,00,000 — the media plan</div>
+  <h2>Marketing plan: spend where festive gold demand peaks</h2>
+  <div class="rule"></div>
+  <table>
+    <tr><th>Phase</th><th>Window</th><th>₹</th><th>Focus</th></tr>
+    <tr><td>Announcement + pre-entry</td><td>12 Sep – early Oct</td><td>0.8L</td><td>Compliant Live launch; waitlist; catalogue teasers; pixel building</td></tr>
+    <tr><td>Launch + Diwali burst</td><td>early Oct – 15 Nov</td><td>3.4L</td><td>Public entry opening; <b>Dhanteras 6 Nov · Diwali 8 Nov · Bhai Dooj 10 Nov</b> peak; quiz/free-entry promos</td></tr>
+    <tr><td>Wedding + Christmas</td><td>16 Nov – 15 Dec</td><td>1.8L</td><td>Wedding gifting; entry reminders; optional interim Live (12 Oct superseded)</td></tr>
+    <tr><td>Finale</td><td>16 – 31 Dec</td><td>2.6L</td><td>Entries close ~18–20 Dec; countdown; <b>31 Dec live draw</b>; post-draw amplification</td></tr>
+    <tr><td>Buffer / experiments</td><td>rolling</td><td>0.4L</td><td>Creative &amp; influencer (#ad) testing</td></tr>
+  </table>
+  <div class="grid g3 big">
+    <div class="card"><div class="k">Funnel targets</div><div class="v">1–3M reach</div><div class="d">→ 20–60k visits (2–4% CTR) → 15–25% entries → 1–2% qualifying orders.</div></div>
+    <div class="card"><div class="k">Cost discipline</div><div class="v">CAC ≤ ₹12–15k</div><div class="d">per qualifying buyer; ₹100–300 per entry/lead. Never quote "₹300 per customer" at 50k customers — that math fails (file 07).</div></div>
+    <div class="card"><div class="k">Creative rules</div><div class="v">Trust first</div><div class="d">Show hallmark/HUID, the sealed certified biscuit, maker workshops, audited-draw promise; captions carry compliant wording + rules link.</div></div>
+  </div>
+</section>
+
+<!-- ============ 13 TIMELINE ============ -->
+<section class="slide">
+  <div class="eyebrow">Execution · gates · dates</div>
+  <h2>Timeline to the 31 December draw</h2>
+  <div class="rule"></div>
+  <table>
+    <tr><th>#</th><th>Date</th><th>Milestone</th><th>Gate</th></tr>
+    <tr><td>1</td><td>Now – 11 Sep</td><td>Lawyer + CA engaged; written opinions; GST application; board resolution; prize vendor shortlist; insurer</td><td>G1–G3</td></tr>
+    <tr><td>2</td><td><b>12 Sep</b></td><td>Compliant announcement Live + free pre-registration (no entries, no purchase linkage)</td><td>G7 copy approval</td></tr>
+    <tr><td>3</td><td>13 – 30 Sep</td><td>T&amp;C, official rules, privacy (DPDP), grievance officer, vendor agreements, prize purchased ≤30 Sep</td><td>G4–G5</td></tr>
+    <tr><td>4</td><td>Early Oct</td><td><b>Entries open</b> — free route + purchaser perk; quiz live; ledger + fraud controls</td><td>G6</td></tr>
+    <tr><td>5</td><td>Oct – 15 Dec</td><td>Phased ₹9L marketing; Dhanteras/Diwali/Bhai Dooj peak; weekly compliance check-ins</td><td>—</td></tr>
+    <tr><td>6</td><td>16 – 20 Dec</td><td><b>Entries close (recommend 18–20 Dec, 12:00 IST)</b>; ledger freeze + hash; audit prep; finalist PAN/KYC</td><td>—</td></tr>
+    <tr><td>7</td><td><b>31 Dec</b></td><td><b>CA-witnessed live draw — winner announced</b></td><td>—</td></tr>
+    <tr><td>8</td><td>Jan 2027</td><td>TDS deposit + Form 16A; insured handover; winner PR; campaign &amp; MIS report by 31 Jan</td><td>—</td></tr>
+  </table>
+  <p class="note big"><b>Dates that were superseded:</b> 12 Oct 2026 → optional interim progress Live only (never a "shortlist"). Bhai Dooj 11 Nov → festive marketing spike (actual 10–11 Nov). Both kept for momentum, neither is a prize event.</p>
+</section>
+
+<!-- ============ 14 RISK ============ -->
+<section class="slide">
+  <div class="eyebrow">Risk register (CA / legal / ops)</div>
+  <h2>Risk &amp; mitigation — what could go wrong, and the answer already built</h2>
+  <div class="rule"></div>
+  <table>
+    <tr><th>Risk</th><th>L</th><th>I</th><th>Mitigation in place</th></tr>
+    <tr><td>Read as lottery / unfair practice</td><td>Med</td><td>High</td><td>Free-entry route + skill quiz + written lawyer opinion before entries open</td></tr>
+    <tr><td>CCPA "100% free" action</td><td>Low</td><td>High</td><td>"Win a chance" copy; conditions prominent; ASCI/CCPA review of every creative</td></tr>
+    <tr><td>Gold price up by Dec</td><td>Med-High</td><td>Med</td><td>Prize bought ≤30 Sep; inventory hedges naturally; budgeted ₹15–17L range</td></tr>
+    <tr><td>Vendor ships fake / under-carat</td><td>Med</td><td>High</td><td>Hallmark/HUID warranty + indemnity in agreements; batch QC; seller-of-record QA</td></tr>
+    <tr><td>Site crash on viral day</td><td>Med</td><td>Med</td><td>Load test + queue/rate-limiter before peak spend</td></tr>
+    <tr><td>Draw perceived rigged</td><td>Low</td><td>High</td><td>CA witness; SHA-256 freeze; unedited recording kept 8 years; live stream</td></tr>
+    <tr><td>Winner is a free entrant who bought nothing</td><td>Med</td><td>Low</td><td>Disclosed odds; purchaser perks carry the funnel; consolation offers drive profit</td></tr>
+    <tr><td>Low uptake → burn deficit</td><td>Med</td><td>Med</td><td>Max downside ≈ ₹7–10L; inventory remains an asset; prize re-saleable</td></tr>
+  </table>
+</section>
+
+<!-- ============ 15 WHY NOT OTHERS ============ -->
+<section class="slide">
+  <div class="eyebrow">The moat · the page you asked for</div>
+  <h2>Why other jewellers are NOT running this scheme</h2>
+  <div class="rule"></div>
+  <div class="twocol">
+    <div>
+      <ul class="check" style="list-style:none">
+        <li><b>They can't do it legally.</b> A purchase-only lucky draw is a lottery — most jewellers run them blind, without a free-entry route or lawyer T&amp;C. We engineered the compliance first; a copycat without it inherits the CCPA/lottery exposure.</li>
+        <li><b>They won't risk margin.</b> A ₹15L prize needs ~500–600 qualifying buyers on 4–8% margins. A typical jeweller won't put 6–10 months of profit behind one promotion.</li>
+        <li><b>They lack the inventory to absorb it.</b> A ₹1L qualifying basket demands deep, varied stock across gold <i>and</i> silver — most shops hold ₹30–60L of slow stock, not a rotating ₹1.16 Cr engine.</li>
+        <li><b>Traffic wouldn't convert.</b> The prize only pays if visitors buy. Without a 400,000-design catalogue + AI concierge, a giveaway sends traffic to a thin catalogue → wasted prize.</li>
+        <li><b>No tech stack.</b> Entry ledger, audited draw tool, free-entry route, HUID verification, DPDP consent, queue handling — beyond a traditional jeweller's shop system.</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="check" style="list-style:none">
+        <li><b>Cash &amp; liquidity.</b> Prize + ads + stock upfront (~₹1.5 Cr) with a 3.5-month hold before the draw — most jewellers are inventory-cash-tight on exactly this scale.</li>
+        <li><b>Brand-optics fear.</b> Heritage jewellers see "lucky draw" as cheap and damaging to trust; they quietly prefer plain discounts — leaving the high-attention game open.</li>
+        <li><b>Tax complexity.</b> §128/§393(3) TDS on an in-kind prize, ITC reversal, PAN/KYC, notary draws — small firms avoid the paperwork entirely.</li>
+        <li><b>They can't fulfil 200 makers.</b> Managing dispatch SLAs, hallmarking, returns and quality under one brand across 200 vendors is an operations machine most don't have.</li>
+        <li><b>And even if they copy it tomorrow</b> — we hold first-mover data, supplier contracts, HUID-verified catalogue and the compliance playbook. The moat compounds with every customer we keep.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 16 THE ASK ============ -->
+<section class="slide">
+  <div class="eyebrow">The ask · the comfort · the return</div>
+  <h2>The investment — ₹1.5 crore</h2>
+  <div class="rule"></div>
+  <div class="grid g2">
+    <div>
+      <div class="card"><div class="k">Deployment (recap)</div>
+        <table style="margin-top:.4rem">
+          <tr><td>Marketing</td><td>₹9.0L</td></tr>
+          <tr><td>Prize + logistics</td><td>₹15.8L</td></tr>
+          <tr><td>Ops &amp; compliance</td><td>₹9.2L</td></tr>
+          <tr><td>Inventory &amp; supply chain</td><td>₹116.0L</td></tr>
+          <tr><td><b>Total</b></td><td><b>₹1.50 Cr</b></td></tr>
+        </table>
+      </div>
+      <div class="card big"><div class="k">Investor comforts</div>
+        <ul class="check" style="list-style:none; margin-top:.3rem">
+          <li>~77% of capital sits in <b>owned, liquid inventory</b> — not burned.</li>
+          <li>Prize funded &amp; purchased first; insured; custodied.</li>
+          <li>Legal + CA written opinions gate every public step (files 01–09).</li>
+          <li>Monthly MIS: orders, GMV, entries, CAC, complaints, cash position.</li>
+          <li>Financier loan documented under Companies Act deposit rules (§73) — no misclassification.</li>
+          <li>Campaign report by 31 Jan 2027 against the Section-8 scenarios.</li>
+        </ul>
+      </div>
+    </div>
+    <div>
+      <div class="card"><div class="k">Structure options (to finalise with CA/lawyer)</div>
+        <table style="margin-top:.4rem">
+          <tr><th>Option</th><th>Terms (indicative)</th></tr>
+          <tr><td>A · Secured loan</td><td>18% p.a. simple, 12-month bullet; hypothecation of inventory + guarantee; prize escrow</td></tr>
+          <tr><td>B · Convertible</td><td>Convertible note / CCPS at next-round valuation, cap + discount</td></tr>
+          <tr><td>C · Equity</td><td>Dilution at agreed valuation (to be negotiated)</td></tr>
+        </table>
+        <p class="small" style="margin-top:.5rem">Base-case campaign economics (Section 8) support interest + principal from operating surplus within 12 months; downside cushioned by inventory asset value and gold price.</p>
+      </div>
+      <div class="card big"><div class="k">What success returns beyond money</div>
+        <p class="sub" style="margin-top:.3rem">A 25k–100k consented festive cohort · a verified, HUID-clean supplier network · a repeatable New-Year prize engine · a brand that owns "transparent gold" in India's most trusted category.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 17 ASSUMPTIONS ============ -->
+<section class="slide">
+  <div class="eyebrow">Assumptions &amp; sources · diligence trail</div>
+  <h2>Every number, sourced</h2>
+  <div class="rule"></div>
+  <div class="twocol">
+    <div>
+      <h3>Key assumptions (stated, not hidden)</h3>
+      <ul class="plain">
+        <li>Gold 22K ₹14,250/g · silver ₹235/g (8–9 Sep 2026, IBJA/major-city).</li>
+        <li>Making charges gold 10%, silver 15% (typical); margins gold 8%, silver 4% (owner-provided).</li>
+        <li>Qualifying = ≥3 g gold AND ≥100 g silver in one paid, non-cancelled order.</li>
+        <li>5% cancellation/refund leakage; TDS on prize = winner pays (~31.2%).</li>
+        <li>Inventory turns ~3× over the window; GST 3% on metal (+5% making).</li>
+        <li>Full compliance gates (lawyer/CA opinions, GSTIN live, T&amp;C, free-entry route, audited draw) complete before entries open.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Anchor sources (Sep 2026)</h3>
+      <ul class="plain">
+        <li>Gold/silver rates: Economic Times, Financial Express, Livemint, Moneycontrol (8–9 Sep 2026).</li>
+        <li>Festival dates 2026: Dhanteras 6 Nov, Diwali 8 Nov, Bhai Dooj 10–11 Nov (panchang sources).</li>
+        <li>Lottery/prize law: Lotteries (Regulation) Act 1998; IPC §294A; Prize Competitions Act 1955; state schemes (TN/WB/Maharashtra).</li>
+        <li>Consumer Protection Act 2019 + CCPA; E-Commerce Rules 2020; Legal Metrology; BIS hallmarking &amp; HUID; IS 2112:2025 (silver).</li>
+        <li>Income-tax Act 2025 (§128 / §393(3)); GST §17(5)(h), §52; DPDP Act 2023 (Rules notified 13 Nov 2025); PMLA/FIU-IND; Meta promotion rules.</li>
+      </ul>
+      <p class="small">Full research pack: files 01–09 in <b>shivaa-offer-research/</b> — report, action plan, gate register, master plan, reconciliations, financier summary, feasibility report.</p>
+    </div>
+  </div>
+  <p class="note big" style="margin-top:1.2rem">This deck is a planning and investor-discussion document prepared with legal/CA/consumer-protection research — <b>not</b> legal, tax or investment advice. Final terms, sections and rates to be confirmed by the engaged lawyer, CA and the investor's own advisors before commitment.</p>
+</section>
+
+<!-- ============ 18 THANKS ============ -->
+<section class="slide center">
+  <div class="eyebrow" style="justify-content:center">Shivaa.in · New Year Gold Finale</div>
+  <h1 style="text-align:center">One prize.<br><span class="accent">One nation.</span> One night.</h1>
+  <h1 style="font-size:clamp(1.1rem,2vw,1.6rem); color:var(--cream); text-align:center; margin-top:.8rem">The winner is announced live on 31 December 2026 —<br>let's build the machine that gets India there.</h1>
+  <div class="rule" style="margin:1.6rem auto"></div>
+  <p class="lead" style="text-align:center; margin:0 auto">Ernate Shine Jewellery Pvt. Ltd. · shivaa.in · CIN U32111RJ2025PTC099173<br>Investment proposal: ₹1.5 crore · Thank you.</p>
+  <p class="small center" style="margin-top:2rem">This presentation is confidential and for the addressee only. © 2026 Shivaa.in</p>
+</section>
+
+</main>
+
+<nav id="ui">
+  <span id="cnt">1 / 18</span>
+  <button id="prev" title="Previous">‹</button>
+  <button id="next" title="Next">›</button>
+</nav>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  const cnt=document.getElementById('cnt');
+  const prog=document.getElementById('progress');
+  function go(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides[i].scrollIntoView({behavior:'smooth',block:'start'});
+    cnt.textContent=(i+1)+' / '+slides.length;
+    prog.style.width=((i+1)/slides.length*100)+'%';
+  }
+  document.getElementById('next').onclick=()=>go(i+1);
+  document.getElementById('prev').onclick=()=>go(i-1);
+  document.addEventListener('keydown',e=>{
+    if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();go(i+1);}
+    if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();go(i-1);}
+    if(e.key==='Home')go(0); if(e.key==='End')go(slides.length-1);
+  });
+  go(0);
+</script>
+</body>
+</html>
