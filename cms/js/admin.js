@@ -42,6 +42,8 @@ async function renderAdmin(view, q) {
   if (tab === 'leads') { try { leads = await api('/api/services'); } catch (e) {} }
   let coupons = [];
   if (tab === 'coupons') { try { coupons = (await api('/api/coupons')).coupons; } catch (e) {} }
+  let finaleEntries = [];
+  if (tab === 'finale') { try { const fe = await api('/api/finale/entries'); finaleEntries = fe.entries || []; } catch (e) {} }
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -51,12 +53,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['finale','🎯','Gold Finale'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -118,6 +120,30 @@ async function renderAdmin(view, q) {
           <td><button class="icon-e" onclick="Shivaa.orderDetail('${o.id}')">👁</button></td>
         </tr>`).join('')}</tbody>
       </table></div></div>`;
+  }
+
+  /* ── GOLD FINALE — entry ledger for the CA-witnessed draw ── */
+  if (tab === 'finale') {
+    const enteredN = finaleEntries.filter(e => e.status === 'Entered').length;
+    const freeN = finaleEntries.filter(e => e.route === 'free').length;
+    body.innerHTML = `<div class="adm-card"><h3>${finaleEntries.length} Gold Finale entries · ${enteredN} entered · ${freeN} free-route</h3>
+      <p class="partner-note" style="font-size:12.5px">One entry per person (purchase + free routes combined). Before the draw: confirm every purchase entry's order is <b>paid / not cancelled</b>, then export this list and hand it to the CA witness along with the SHA-256 ledger freeze.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 4px">
+        <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.finaleCSV()">⬇ Download CSV</button>
+        <a class="btn btn-ghost btn-sm" href="#/finale" target="_blank" rel="noopener">View campaign page ↗</a>
+      </div>
+      ${finaleEntries.length ? `<div class="adm-table-wrap"><table class="adm-table">
+        <thead><tr><th>Entry</th><th>Customer</th><th>Route</th><th>Order</th><th class="num">Score</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>${finaleEntries.map(e => `<tr>
+          <td><b>${esc(e.id)}</b></td>
+          <td>${esc(e.name)}<br><small style="color:var(--ink-3)">${esc(e.phone)}</small></td>
+          <td><span class="status-pill ${e.route === 'free' ? 'st-placed' : 'st-packed'}">${e.route === 'free' ? 'free' : 'purchase'}</span></td>
+          <td>${e.orderId ? '<b>' + esc(e.orderId) + '</b>' : '—'}</td>
+          <td class="num"><b>${e.score}/${e.total}</b></td>
+          <td><span class="status-pill ${e.status === 'Entered' ? 'st-placed' : 'st-packed'}">${esc(e.status)}</span></td>
+          <td style="white-space:nowrap">${new Date(e.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : '<p class="partner-note">No entries yet — entries are created when a customer passes the scored quiz after a qualifying order, or through the free route on the campaign page.</p>'}</div>`;
   }
 
   /* ── RING WEIGHTS quick-entry desk ── */
@@ -466,6 +492,21 @@ window.ShivaaAdmin.setOrderStatus = null;
 window.ShivaaAdmin.setStatus = async (id, status) => {
   try { await api('/api/orders/' + id, { method: 'PUT', body: JSON.stringify({ status }) }); toast(`Order ${id} → ${status}`); }
   catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.finaleCSV = async () => {
+  try {
+    const { entries } = await window.Shivaa.api('/api/finale/entries');
+    if (!entries || !entries.length) { window.Shivaa.toast('No entries to export yet', 'err'); return; }
+    const head = ['Entry ID', 'Name', 'Phone', 'Email', 'Route', 'Order', 'Score', 'Total', 'Status', 'Date (IST)'];
+    const rows = entries.map(e => [e.id, e.name, e.phone, e.email, e.route, e.orderId || '', e.score, e.total, e.status,
+      new Date(e.createdAt).toLocaleString('en-IN')]);
+    const csv = '\uFEFF' + [head, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'shivaa-finale-entries-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    window.Shivaa.toast('CSV downloaded — keep it for the draw file ✦');
+  } catch (e) { window.Shivaa.toast(e.message || 'Could not export', 'err'); }
 };
 window.ShivaaAdmin.editProduct = id => {
   const p = id ? state.productsCache.find(x => x.id === id) : { name: '', category: 'rings', metal: 'Gold', purity: '22K', weightG: 5, mcScheme: 'percent', mcValue: '', stoneValue: 0, images: ['/images/products/ring-floral.jpg'], desc: '', tags: [], sizes: [], stock: 10 };

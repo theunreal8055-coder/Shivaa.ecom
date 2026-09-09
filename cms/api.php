@@ -251,7 +251,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -1042,6 +1042,170 @@ try {
   if ($route === 'admin/users' && $method === 'GET') {
     need_admin($db);
     jout(200, ['users' => array_map('pub_user', $db['users'])]);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     NEW YEAR GOLD FINALE · scored quiz entries (deck-compliant)
+     One entry per person (the logged-in user) across the purchase
+     route and the free no-purchase route. The server owns the
+     question bank and re-scores submissions, so a client can never
+     self-certify an entry. Entries land in db['finaleEntries'] for
+     the CA-witnessed draw / admin export.
+     ───────────────────────────────────────────────────────────── */
+  if ($route === 'finale/quiz' && $method === 'GET' || $route === 'finale/entry' && $method === 'GET' ||
+      $route === 'finale/entry' && $method === 'POST' || $route === 'finale/entries' && $method === 'GET') {
+    $FE_OPEN  = strtotime('2026-09-01T00:00:00+05:30'); // ← set the official entries-open date here before public launch
+    $FE_CLOSE = strtotime('2026-12-20T23:59:59+05:30'); // entries close ~18–20 Dec 2026
+    $FE_END   = strtotime('2027-01-01T00:00:00+05:30'); // module auto-expiry (1 Jan 2027)
+    $FE_PASS  = 4; $FE_MAX  = 5; $FE_DAILY_ATTEMPTS = 5;
+
+    $FE_QUIZ = [
+      ['id' => 'q1', 'q' => 'Which statement about BIS hallmarking on gold jewellery in India is correct?',
+       'opts' => ['Hallmarking is voluntary in every state of India',
+                  'Every hallmarked piece carries a unique 6-character HUID code',
+                  'The HUID printed on the tag states the making charge',
+                  'Hallmarking is done only for silver, not gold'], 'a' => 1],
+      ['id' => 'q2', 'q' => 'A piece stamped “916” is gold of which purity?',
+       'opts' => ['18 karat', '20 karat', '22 karat', '24 karat'], 'a' => 2],
+      ['id' => 'q3', 'q' => 'On shivaa.in, making charges are shown:',
+       'opts' => ['Only after checkout on WhatsApp',
+                  'Openly on every piece, before you pay',
+                  'On the invoice after delivery',
+                  'Only to B2B partners'], 'a' => 1],
+      ['id' => 'q4', 'q' => 'The price you pay for a piece on shivaa.in is based on:',
+       'opts' => ['A fixed national rate set every January',
+                  'Yesterday’s Jaipur closing rate',
+                  'The live Jaipur gold / silver rate at the time you buy',
+                  'The rate on the day the piece was made'], 'a' => 2],
+      ['id' => 'q5', 'q' => 'Sterling silver marked “925” means the piece is:',
+       'opts' => ['92.5% silver with the rest alloy for strength',
+                  '99.9% pure silver',
+                  '92.5% silver-plated over copper',
+                  'A silver-toned imitation'], 'a' => 0],
+    ];
+
+    $now = time();
+    $is_open  = $now >= $FE_OPEN && $now <= $FE_END;   // campaign marketing live
+    $accepting = $now <= $FE_CLOSE;                    // entries being accepted
+    $u = req_user($db);
+
+    function finale_entry_for(array $db, string $userId): ?array {
+      foreach ($db['finaleEntries'] as $e) if (($e['userId'] ?? '') === $userId && ($e['status'] ?? '') === 'Entered') return $e;
+      return null;
+    }
+    function finale_qualifies(array $items): bool {
+      $gold = 0.0; $silver = 0.0;
+      foreach ($items as $it) {
+        $w = (float)($it['weightG'] ?? 0) * max(1, (int)($it['qty'] ?? 1));
+        if (strcasecmp((string)($it['metal'] ?? ''), 'Silver') === 0) $silver += $w;
+        elseif (in_array((string)($it['purity'] ?? ''), ['18K', '22K', '24K'], true)) $gold += $w;
+      }
+      return $gold >= 3.0 || $silver >= 100.0;
+    }
+    function finale_public_entry(array $e): array {
+      return ['id' => $e['id'], 'route' => $e['route'], 'orderId' => $e['orderId'] ?? null,
+              'score' => $e['score'], 'total' => $e['total'], 'status' => $e['status'],
+              'createdAt' => $e['createdAt']];
+    }
+    function finale_daily_attempts(array &$db, string $userId): int {
+      $today = gmdate('Y-m-d', time() + 19800); // IST date
+      $a = $db['finaleAttempts'][$userId] ?? null;
+      if (!is_array($a) || ($a['day'] ?? '') !== $today) { $db['finaleAttempts'][$userId] = ['day' => $today, 'count' => 0]; return 0; }
+      return (int)$a['count'];
+    }
+
+    if ($route === 'finale/quiz' && $method === 'GET') {
+      if (!$u) jout(401, ['error' => 'Login required']);
+      $my = finale_entry_for($db, $u['id']);
+      jout(200, [
+        'open' => $is_open, 'accepting' => $accepting,
+        'reason' => !$is_open ? 'The New Year Gold Finale has concluded. Thank you for being part of it.'
+                   : (!$accepting ? 'Entries closed in December — the CA-witnessed live draw takes place on 31 December 2026.' : ''),
+        'passMark' => $FE_PASS, 'total' => $FE_MAX, 'attemptsLeft' => max(0, $FE_DAILY_ATTEMPTS - finale_daily_attempts($db, $u['id'])),
+        'questions' => array_map(fn($q) => ['id' => $q['id'], 'q' => $q['q'], 'opts' => $q['opts']], $FE_QUIZ),
+        'entry' => $my ? finale_public_entry($my) : null,
+      ]);
+    }
+
+    if ($route === 'finale/entry' && $method === 'GET') {
+      if (!$u) jout(401, ['error' => 'Login required']);
+      $my = finale_entry_for($db, $u['id']);
+      jout(200, ['entry' => $my ? finale_public_entry($my) : null]);
+    }
+
+    if ($route === 'finale/entry' && $method === 'POST') {
+      if (!$u) jout(401, ['error' => 'Login required']);
+      if (!$is_open) jout(403, ['error' => 'The New Year Gold Finale has concluded. Thank you for being part of it.']);
+      if (!$accepting) jout(403, ['error' => 'Entries closed in December — the CA-witnessed live draw takes place on 31 December 2026.']);
+      $b = body_json();
+      $route_type = ($b['route'] ?? '') === 'free' ? 'free' : 'purchase';
+      $order_id = $route_type === 'purchase' ? trim((string)($b['orderId'] ?? '')) : null;
+
+      // one entry per person — ever (purchase and free routes combined)
+      $existing = finale_entry_for($db, $u['id']);
+      if ($existing) jout(200, ['already' => true, 'entry' => finale_public_entry($existing)]);
+
+      // eligibility self-declarations (age 18+, India, not TN/WB where void, no insiders)
+      $chk = $b['checks'] ?? [];
+      foreach (['age18', 'notExcluded', 'notInsider'] as $k) {
+        if (empty($chk[$k])) jout(400, ['error' => 'Please confirm the eligibility statements before taking the quiz.']);
+      }
+
+      // purchase route: the order must exist, belong to this user and qualify
+      if ($route_type === 'purchase') {
+        if (!$order_id) jout(400, ['error' => 'Order reference missing.']);
+        $ord = null; foreach ($db['orders'] as $o) if ($o['id'] === $order_id) $ord = $o;
+        if (!$ord) jout(404, ['error' => 'Order not found.']);
+        if (($ord['userId'] ?? '') !== $u['id']) jout(403, ['error' => 'This order does not belong to your account.']);
+        if (!finale_qualifies($ord['items'] ?? [])) jout(400, ['error' => 'This order does not qualify — a qualifying order is any gold piece of 3 g or more in any karat, or 100 g or more of silver per order.']);
+      }
+
+      // attempt guard: 5 quiz attempts per person per day
+      $day = gmdate('Y-m-d', time() + 19800);
+      $a = $db['finaleAttempts'][$u['id']] ?? null;
+      $count = (is_array($a) && ($a['day'] ?? '') === $day) ? (int)$a['count'] : 0;
+      if ($count >= $FE_DAILY_ATTEMPTS) jout(429, ['error' => 'You have used today’s quiz attempts. Please try again tomorrow.']);
+      $count++;
+
+      // server-side scoring against the canonical bank
+      $answers = is_array($b['answers'] ?? null) ? $b['answers'] : [];
+      $got = []; foreach ($answers as $ans) if (is_array($ans) && isset($ans['id'], $ans['c'])) $got[(string)$ans['id']] = (int)$ans['c'];
+      $score = 0; $missing = [];
+      foreach ($FE_QUIZ as $qq) {
+        if (!array_key_exists($qq['id'], $got) || $got[$qq['id']] < 0 || $got[$qq['id']] >= count($qq['opts'])) { $missing[] = $qq['id']; continue; }
+        if ($got[$qq['id']] === $qq['a']) $score++;
+      }
+      if ($missing) jout(400, ['error' => 'Please answer every question.']);
+
+      $db['finaleAttempts'][$u['id']] = ['day' => $day, 'count' => $count];
+      $passed = $score >= $FE_PASS;
+      $entry = null;
+      if ($passed) {
+        $entry = ['id' => uid('fe'), 'userId' => $u['id'], 'route' => $route_type, 'orderId' => $order_id,
+                  'name' => (string)($u['name'] ?? ''), 'phone' => (string)($u['phone'] ?? ''),
+                  'email' => (string)($u['email'] ?? ''),
+                  'score' => $score, 'total' => $FE_MAX, 'passed' => true, 'status' => 'Entered',
+                  'checks' => ['age18' => true, 'notExcluded' => true, 'notInsider' => true],
+                  'answers' => $got, 'createdAt' => now_iso(), 'source' => 'site-quiz'];
+        $db['finaleEntries'][] = $entry;
+      }
+      db_save($DB_FILE, $db);
+      jout(200, $passed
+        ? ['passed' => true, 'score' => $score, 'total' => $FE_MAX, 'passMark' => $FE_PASS, 'entry' => finale_public_entry($entry)]
+        : ['passed' => false, 'score' => $score, 'total' => $FE_MAX, 'passMark' => $FE_PASS,
+           'attemptsLeft' => max(0, $FE_DAILY_ATTEMPTS - $count)]);
+    }
+
+    if ($route === 'finale/entries' && $method === 'GET') {
+      need_admin($db);
+      $list = array_reverse(array_values($db['finaleEntries']));
+      jout(200, ['entries' => array_map(function ($e) {
+        return ['id' => $e['id'], 'name' => $e['name'] ?? '', 'phone' => $e['phone'] ?? '',
+                'email' => $e['email'] ?? '', 'route' => $e['route'], 'orderId' => $e['orderId'] ?? null,
+                'score' => $e['score'], 'total' => $e['total'], 'status' => $e['status'],
+                'createdAt' => $e['createdAt']];
+      }, $list), 'entered' => count(array_filter($db['finaleEntries'], fn($e) => ($e['status'] ?? '') === 'Entered'))]);
+    }
   }
 
   if ($changed) db_save($DB_FILE, $db);

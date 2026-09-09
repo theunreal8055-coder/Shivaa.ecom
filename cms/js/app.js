@@ -504,8 +504,10 @@ function bindCountdown(el, target) {
    3 g gold ANY karat OR 100 g silver per order · free no-purchase
    quiz route with equal odds · CA-witnessed live draw 31 Dec 2026 ·
    100 g certified 24K bullion at current market value · TN & WB
-   excluded · statutory TDS ≈ 31.2% on the winner. Entries are
-   explained only — no entry form/funnel is built (per scope).
+   excluded · statutory TDS ≈ 31.2% on the winner. The scored quiz
+   funnel (purchase route after a qualifying order + free route on
+   the landing page, entries saved server-side in db['finaleEntries'])
+   is implemented further below in this file.
    ═══════════════════════════════════════════════════════════════════ */
 const FINALE = {
   route: 'finale',
@@ -663,6 +665,7 @@ function finaleLanding() {
           <h3>…or enter free</h3>
           <p>No purchase needed: the <b>free route</b> uses the same scored quiz and carries the same odds. Buying is optional, never required — and no entry fee of any kind is ever taken.</p>
           <span class="fin-tag">Free route · same quiz · equal odds</span>
+          <div class="fq-zone" style="margin-top:16px"></div>
         </div>
       </div>
       <div class="fin-panel rv" style="margin-top:20px">
@@ -706,7 +709,7 @@ function finaleLanding() {
           <div class="fin-rule"><span>·</span><p>Open to <b>Indian residents aged 18 and above</b>. All dates and times are IST.</p></div>
           <div class="fin-rule"><span>·</span><p><b>Qualifying order:</b> gold of 3&nbsp;g or more in any karat (18K / 22K / 24K) <i>or</i> silver of 100&nbsp;g or more per order, bought inside the entry window.</p></div>
           <div class="fin-rule"><span>·</span><p><b>One entry per person</b> across both routes, created by the scored skill quiz. Multiple qualifying orders still mean one entry.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Free entry available</b> — the same quiz with equal odds. We never say &ldquo;no purchase necessary&rdquo;; we say the purchase route is simply optional.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Free entry available</b> — the same scored quiz with equal odds. The purchase route is simply optional; an entry never requires a purchase or any fee.</p></div>
           <div class="fin-rule"><span>·</span><p><b>Late entries are void.</b> Entries close ≈ 18–20 Dec 2026; the exact date and time are in the official rules.</p></div>
           <div class="fin-rule"><span>·</span><p><b>Void where prohibited.</b> Residents of Tamil Nadu and West Bengal may not enter; other state rules apply as set out in the official rules.</p></div>
           <div class="fin-rule"><span>·</span><p><b>No insiders.</b> Employees of Shivaa / Ernate Shine Jewellery Pvt. Ltd., their relatives, vendors, agencies and each of their households are excluded.</p></div>
@@ -753,6 +756,279 @@ window.Shivaa.finJump = id => {
 window.Shivaa.finWa = () => {
   if (window.Shivaa.waOpen) window.Shivaa.waOpen('Namaste Shivaa ✦\n\nI have a question about the New Year Gold Finale: ');
 };
+
+/* ═══════════════════════════════════════════════════════════════════
+   Finale quiz — the scored skill quiz that creates the entry.
+   Deck-compliant: same quiz for the purchase route and the free
+   no-purchase route · one entry per person · 18+/India · TN/WB and
+   insiders excluded (self-declared) · server re-scores, so the client
+   can never self-certify. Entries are saved by api.php into the site
+   database for the CA-witnessed draw.
+   ═══════════════════════════════════════════════════════════════════ */
+const FQ = { cache: null, pending: null, _openedFree: false };
+
+/* does an order qualify? (any gold piece ≥3 g in ANY karat, or ≥100 g silver per order) */
+function finaleQualifiesItems(items) {
+  let gold = 0, silver = 0;
+  (items || []).forEach(it => {
+    const w = (+it.weightG || 0) * Math.max(1, +it.qty || 1);
+    if (String(it.metal || '').toLowerCase() === 'silver') silver += w;
+    else if (['18K', '22K', '24K'].includes(String(it.purity || ''))) gold += w;
+  });
+  return { gold, silver, ok: gold >= 3 || silver >= 100 };
+}
+
+function fqGetStatus() {
+  return api('/api/finale/entry').then(r => r.entry || null).catch(() => null);
+}
+
+/* login gate: quiz is tied to the OTP-verified account (anti-fraud, one person = one entry) */
+function fqRequireAuth(route, orderId) {
+  if (state.user) return true;
+  FQ.pending = { route, orderId };
+  openLogin(location.hash || '#/');
+  return false;
+}
+
+function fqShowEntered(entry) {
+  try { sessionStorage.removeItem('fqPrompt'); } catch (e) {}
+  openModal(`<div class="finq center">
+    <div class="finq-big">✦</div>
+    <span class="fb-kicker" style="justify-content:center"><i>✦</i> The New Year Gold Finale · 2026</span>
+    <h3 style="font-size:26px;margin:6px 0 8px">You are entered ${entry && entry.id ? '· ' + esc(entry.id) : ''}</h3>
+    <p class="finq-sub" style="text-align:center">${entry ? `Scored <b>${entry.score}/${entry.total}</b> · ${entry.route === 'free' ? 'free entry' : 'purchase entry'}` : ''} — one entry per person, equal odds for everyone in the draw.</p>
+    <p class="finq-note" style="text-align:center;max-width:440px;margin:8px auto 0">The CA-witnessed live draw happens <b>31 December 2026</b>. A valid entry needs your order to stay paid &amp; undisputed; the winner&rsquo;s PAN is verified and statutory TDS ≈31.2% is deducted before the gold is handed over.</p>
+    <button class="btn btn-gold" style="margin-top:14px" onclick="Shivaa.closeModal()">Wonderful ✦</button>
+  </div>`, 'finq');
+  fqSyncZones();
+  finaleBandRefresh(entry);
+}
+/* rebuild the order-page band once an entry exists (kept in sync after the quiz) */
+function finaleBandHTML(order, entry, gold, silver) {
+  const orderId = order.id;
+  return `<div class="container fb-wrap fb-wrap-tight">
+    <div class="fb-main">
+      <span class="fb-kicker"><i>✦</i> The New Year Gold Finale · 2026</span>
+      <h2 class="fb-title" style="font-size:clamp(22px,3vw,34px)">${entry ? 'You are entered — see you at the draw' : 'You’re one quiz away from the draw'}</h2>
+      <p class="fb-sub" style="margin-top:8px">${entry
+        ? `Your entry <b>${esc(entry.id)}</b> (${entry.score}/${entry.total}) is registered for the CA-witnessed live draw on <b>31 December 2026</b>.`
+        : `This order qualifies${silver >= 100 ? ` — <b>${(+silver).toFixed(1)} g silver</b>` : ` — <b>${(+gold).toFixed(1)} g gold</b>`}. Take the 5-question scored quiz (4 of 5 to pass) and your entry is in.`}</p>
+      <div class="fb-cta">
+        ${entry
+          ? '<a class="btn btn-gold btn-lg" href="#/finale">See the campaign page</a>'
+          : `<button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.fqOpen({route:'purchase',orderId:'${orderId}'})">Take the quiz — it takes ~1 minute</button>`}
+        <a class="btn btn-light btn-lg" href="#/shop">Shop more</a>
+      </div>
+      <ul class="fb-chips">
+        <li>CA-witnessed draw · 31 Dec 2026</li>
+        <li>Free entry available — buying optional</li>
+        <li>One entry per person · T&amp;Cs apply</li>
+      </ul>
+    </div>
+  </div>`;
+}
+function finaleBandRefresh(entry) {
+  const band = $('#fqOrderBand'); const order = window._fqOrder;
+  if (!band || !order || !entry) return;
+  const q = finaleQualifiesItems(order.items || []);
+  band.innerHTML = finaleBandHTML(order, entry, q.gold, q.silver);
+}
+
+function fqShowClosed(reason) {
+  openModal(`<div class="finq center">
+    <div class="finq-big" style="color:var(--gold)">✦</div>
+    <h3 style="font-size:24px;margin:6px 0 8px">The Gold Finale draw</h3>
+    <p class="finq-sub" style="text-align:center">${esc(reason || 'Entries for the Gold Finale are now closed.')}</p>
+    <p class="finq-note" style="text-align:center">Watch this page and your WhatsApp — the winner is announced live on 31 December 2026.</p>
+    <button class="btn btn-gold" style="margin-top:14px" onclick="Shivaa.closeModal()">Close</button>
+  </div>`, 'finq');
+}
+
+function fqStepIntro(route, orderId) {
+  const purchase = route === 'purchase';
+  openModal(`<div class="finq">
+    <span class="fb-kicker"><i>✦</i> Scored quiz · 5 questions · need 4 of 5</span>
+    <h3>${purchase ? 'One quiz between you and the draw' : 'Your free entry — same quiz, equal odds'}</h3>
+    <p class="finq-sub">${purchase
+      ? 'Your qualifying order is confirmed. Finish the short scored quiz and your entry is registered for the CA-witnessed live draw on <b>31 December 2026</b>.'
+      : 'No purchase needed. Take the same scored quiz as every buyer — a pass gives you an entry with <b>equal odds</b> in the CA-witnessed live draw on <b>31 December 2026</b>.'}</p>
+    <ul class="finq-steps">
+      <li><b>5 questions</b> on gold &amp; jewellery — purity marks, hallmarking, live pricing.</li>
+      <li><b>Score 4 of 5</b> to be entered. You may retry today if you fall short (max 5 attempts/day).</li>
+      <li><b>One entry per person</b> — purchase and free routes together. Extra orders never add entries.</li>
+    </ul>
+    <div class="finq-decl">
+      <p class="finq-decl-t">Please confirm before you begin:</p>
+      <label><input type="checkbox" id="fqAge"><span>I am <b>18 or older</b> and a <b>resident of India</b>.</span></label>
+      <label><input type="checkbox" id="fqState"><span>I am <b>not a resident of Tamil Nadu or West Bengal</b>, where this contest is void.</span></label>
+      <label><input type="checkbox" id="fqInsider"><span>I am <b>not an employee or relative</b> of Shivaa / Ernate Shine, nor of its vendors or agencies (they cannot enter).</span></label>
+    </div>
+    <button class="btn btn-gold btn-lg" id="fqBegin" disabled onclick="Shivaa.fqBegin()">Begin the quiz ✦</button>
+    <p class="finq-note">Official rules, published before entries open, govern this contest. Free entry is available to everyone — buying is never required to enter.</p>
+  </div>`, 'finq');
+  const en = () => {
+    const b = $('#fqBegin'); if (!b) return;
+    b.disabled = !($('#fqAge').checked && $('#fqState').checked && $('#fqInsider').checked);
+  };
+  ['fqAge', 'fqState', 'fqInsider'].forEach(id => { const el = $('#' + id); if (el) el.onchange = en; });
+}
+
+window.Shivaa.fqBegin = () => {
+  const qz = FQ.cache; if (!qz || !qz.questions || !qz.questions.length) return;
+  openModal(`<form class="finq" onsubmit="Shivaa.fqSubmit(event)">
+    <div class="finq-head">
+      <div>
+        <span class="fb-kicker"><i>✦</i> The New Year Gold Finale · scored quiz</span>
+        <h3 style="margin:6px 0 2px">Score ${qz.passMark} of ${qz.total} to enter</h3>
+      </div>
+      <div class="finq-pill">${qz.total} questions</div>
+    </div>
+    <p class="finq-err" id="fqErr" hidden></p>
+    ${qz.questions.map((qq, i) => `<fieldset class="finq-q" data-id="${esc(qq.id)}">
+      <legend><span>${i + 1}</span>${esc(qq.q)}</legend>
+      ${qq.opts.map((op, o) => `<label class="finq-opt"><input type="radio" name="q_${esc(qq.id)}" value="${o}" required><i></i><span>${esc(op)}</span></label>`).join('')}
+    </fieldset>`).join('')}
+    <button class="btn btn-gold btn-lg btn-block" type="submit" id="fqSub">Submit my answers</button>
+    <p class="finq-note">One entry per person across purchase &amp; free routes · 4 of 5 to pass · answers are scored by the server.</p>
+  </form>`, 'finq');
+};
+
+window.Shivaa.fqSubmit = async (e) => {
+  e.preventDefault();
+  const errBox = $('#fqErr');
+  const clearErr = () => { if (errBox) errBox.hidden = true; };
+  clearErr();
+  const qz = FQ.cache; if (!qz) return;
+  const ctx = window._fqCtx || { route: 'free', orderId: null };
+  const route = ctx.route;
+  const orderId = ctx.orderId || null;
+  const answers = [];
+  for (const qq of qz.questions) {
+    const sel = document.querySelector(`input[name="q_${qq.id}"]:checked`);
+    if (!sel) { if (errBox) { errBox.textContent = 'Please answer every question.'; errBox.hidden = false; } return; }
+    answers.push({ id: qq.id, c: +sel.value });
+  }
+  const btn = $('#fqSub'); if (btn) { btn.disabled = true; btn.textContent = 'Scoring…'; }
+  try {
+    const r = await api('/api/finale/entry', { method: 'POST', body: JSON.stringify({
+      route, orderId,
+      // declarations were confirmed on the intro screen (server re-checks them)
+      checks: { age18: true, notExcluded: true, notInsider: true },
+      answers,
+    }) });
+    if (r.already && r.entry) { FQ.pending = null; return fqShowEntered(r.entry); }
+    if (r.passed) {
+      FQ.pending = null;
+      return fqShowEntered(r.entry);
+    }
+    const retry = (r.attemptsLeft || 0) > 0;
+    openModal(`<div class="finq center">
+      <div class="finq-big" style="color:var(--maroon)">✎</div>
+      <span class="fb-kicker" style="justify-content:center"><i>✦</i> Almost there</span>
+      <h3 style="font-size:26px;margin:6px 0 8px">You scored ${r.score} of ${r.total}</h3>
+      <p class="finq-sub" style="text-align:center">You need <b>${r.passMark} of ${r.total}</b> to be entered. ${retry ? `You have <b>${r.attemptsLeft}</b> attempt${r.attemptsLeft === 1 ? '' : 's'} left today.` : 'You have used today’s attempts — please try again tomorrow.'}</p>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:14px;flex-wrap:wrap">
+        ${retry ? '<button class="btn btn-gold" onclick="Shivaa.fqRetry()">Try again</button>' : ''}
+        <button class="btn btn-ghost" onclick="Shivaa.closeModal()">Close</button>
+      </div>
+      <p class="finq-note">Hint: re-read the quiz intro — every answer is everyday gold knowledge.</p>
+    </div>`, 'finq');
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit my answers'; }
+    if (errBox) { errBox.textContent = err.message || 'Could not submit — please try again.'; errBox.hidden = false; }
+  }
+};
+
+window.Shivaa.fqRetry = () => {
+  const p = FQ.pending || { route: 'free' };
+  closeModal();
+  fqOpen(p);
+};
+
+/* main open: purchase (from an order) or free (from the finale page) */
+async function fqOpen({ route = 'free', orderId = null } = {}) {
+  if (!finaleLive()) { toast('The New Year Gold Finale has ended — thank you for being part of it.', 'err'); return; }
+  if (!fqRequireAuth(route, orderId)) return;
+  window._fqCtx = { route, orderId };
+  FQ.pending = null;   // consumed — resume context now lives in _fqCtx
+  window._fqRoute = route; window._fqOrderId = orderId;
+  try {
+    const data = await api('/api/finale/quiz');
+    FQ.cache = data;
+    if (data.entry) return fqShowEntered(data.entry);
+    if (!data.accepting) return fqShowClosed(data.reason);
+    fqStepIntro(route, orderId);
+  } catch (err) {
+    if (!state.user) { fqRequireAuth(route, orderId); return; }
+    toast(err.message || 'The quiz is busy — please try again.', 'err');
+  }
+}
+window.Shivaa.fqOpen = fqOpen;
+window.Shivaa.fqFree = () => fqOpen({ route: 'free' });
+
+/* order-page banner + auto prompt right after a qualifying checkout */
+async function finaleAfterOrder(order) {
+  if (!finaleLive() || !order) return;
+  const items = (order.items) || [];
+  const q = finaleQualifiesItems(items);
+  if (!q.ok) return;
+  const orderId = order.id;
+  let entry = null;
+  if (state.user) entry = await fqGetStatus();
+  const view = $('#view'); if (!view || !finaleLive()) return;
+
+  const band = document.createElement('section');
+  band.className = 'finale-band finq-band';
+  band.setAttribute('data-camp-zone', '');
+  band.id = 'fqOrderBand';
+  band.innerHTML = finaleBandHTML(order, entry, q.gold, q.silver);
+  window._fqOrder = order;   // finaleBandRefresh() re-renders this band after the quiz
+  view.insertBefore(band, view.firstChild);
+
+  // fresh from checkout → open the quiz automatically (once)
+  try {
+    if (!entry && sessionStorage.getItem('fqPrompt') === orderId) {
+      sessionStorage.removeItem('fqPrompt');
+      if (state.user) setTimeout(() => fqOpen({ route: 'purchase', orderId }), 900);
+    }
+  } catch (e) {}
+  // after a login detour for this order
+  if (FQ.pending && FQ.pending.route === 'purchase' && FQ.pending.orderId === orderId && state.user) {
+    const p = FQ.pending; FQ.pending = null;
+    setTimeout(() => fqOpen(p), 700);
+  }
+}
+
+/* landing-page free-entry zones + ?quiz=free auto-open after login */
+async function fqSyncZones() {
+  const zones = $$('.fq-zone'); if (!zones.length) return;
+  let entry = null, accepting = true, reason = '';
+  if (state.user) {
+    try { const d = await api('/api/finale/quiz'); accepting = !!d.accepting; reason = d.reason || ''; entry = d.entry || null; }
+    catch (e) {}
+  }
+  zones.forEach(z => {
+    if (entry) z.innerHTML = `<span class="finq-chip ok">✦ You’re entered${entry.id ? ' · ' + esc(entry.id) : ''} — the CA-witnessed draw is 31 December 2026.</span>`;
+    else if (!accepting) z.innerHTML = `<span class="finq-chip">✦ ${esc(reason || 'Entries closed — the draw is 31 December 2026.')}</span>`;
+    else if (!finaleLive()) z.innerHTML = `<span class="finq-chip">✦ The Gold Finale has concluded. Thank you.</span>`;
+    else z.innerHTML = `<button type="button" class="btn btn-gold" onclick="Shivaa.fqFree()">Take the quiz — free ✦</button>`;
+  });
+}
+
+function finaleLandingHook() {
+  // free-route intent after an OTP login lands back on #/finale?quiz=free
+  const q = new URLSearchParams((location.hash.split('?')[1] || ''));
+  if (q.get('quiz') === 'free' && state.user && !FQ._openedFree) {
+    FQ._openedFree = true;
+    setTimeout(() => fqOpen({ route: 'free' }), 600);
+  }
+  if (FQ.pending && FQ.pending.route === 'free' && state.user) {
+    const p = FQ.pending; FQ.pending = null;
+    setTimeout(() => fqOpen(p), 600);
+  }
+  fqSyncZones();
+}
+window.Shivaa.fqSyncZones = fqSyncZones;
 
 /* ─────────── poster carousel ─────────── */
 function initCarousel() {
@@ -1942,6 +2218,10 @@ window.Shivaa.placeOrder = async () => {
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
     if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
     window._lastOrder = order;
+    // Gold Finale: remember a qualifying order so the order page can offer the quiz
+    try {
+      if (finaleLive() && finaleQualifiesItems((order && order.items) || []).ok) sessionStorage.setItem('fqPrompt', order.id);
+    } catch (e) {}
     if (paymentMethod === 'WhatsApp') {
       const w = waOpen(waOrderMsg(order));
       if (!w) toast('Popup blocked — use the "Confirm & Pay on WhatsApp" button on your order page', 'err');
@@ -1982,6 +2262,7 @@ pages.order = async (view, q, id) => {
     </div>
   </div>`;
   confetti();
+  finaleAfterOrder(order);   // Gold Finale: quiz prompt for qualifying orders (if campaign live)
 };
 function confetti() {
   const c = document.createElement('canvas');
@@ -2063,15 +2344,19 @@ pages.account = async (view, q) => {
       </form>
       <div class="qty-banner">✦ We remember your big days — birthday &amp; anniversary month brings 2× royalty points and first look at festive designs.</div>
     </div>` : ''}
-  ${tab === 'orders' ? orders.map(o => `<div class="order-card">
-      <div class="order-top"><div><div class="order-id">${o.id}</div><div style="font-size:12.5px;color:var(--ink-3)">${timeFmt(o.createdAt)} · ${o.items.reduce((a, i) => a + i.qty, 0)} items · ${esc(o.paymentMethod)}</div></div>
+  ${tab === 'orders' ? orders.map(o => {
+    const oq = finaleLive() && (o.items || []).length && finaleQualifiesItems(o.items).ok;   // Gold Finale: qualifies → quiz reachable from here too
+    return `<div class="order-card">
+      <div class="order-top"><div><a class="order-id" href="#/order/${o.id}" style="color:var(--maroon-deep);text-decoration:none">${o.id}</a><div style="font-size:12.5px;color:var(--ink-3)">${timeFmt(o.createdAt)} · ${o.items.reduce((a, i) => a + i.qty, 0)} items · ${esc(o.paymentMethod)}</div></div>
       <div style="text-align:right"><span class="status-pill st-${o.status.toLowerCase()}">${o.status}</span><div style="margin-top:6px"><b>${fmt(o.total)}</b></div></div></div>
       <div class="timeline">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${o.timeline.find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
         ${o.items.map(i => `<img src="${i.img}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
         <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail('${o.id}')">Details</a>
           <a class="btn btn-outline btn-sm" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
-      </div></div>`).join('') || '<div class="empty"><h3>No orders yet</h3><a class="btn btn-outline" href="#/shop">Start shopping</a></div>' : ''}
+          ${oq ? `<a class="btn btn-gold btn-sm" href="javascript:Shivaa.fqOpen({route:'purchase',orderId:'${o.id}'})" style="margin-left:auto">✦ Gold Finale — this order qualifies</a>` : ''}
+      </div></div>`;
+  }).join('') || '<div class="empty"><h3>No orders yet</h3><a class="btn btn-outline" href="#/shop">Start shopping</a></div>' : ''}
   ${tab === 'addresses' ? `
     <div class="acct-sec">
       <div class="as-head"><h3>Manage Addresses</h3><button class="btn btn-primary btn-sm" onclick="Shivaa.addrForm()">+ Add Address</button></div>
@@ -4168,6 +4453,7 @@ pages.finale = async (view) => {
   view.innerHTML = finaleLanding();
   const cd = $('#finaleCd');
   if (cd) bindFinaleCd(cd);
+  finaleLandingHook();   // free-entry zone state + ?quiz=free auto-open after login
 };
 
 /* ─────────── ROUTER ─────────── */
