@@ -492,6 +492,268 @@ function bindCountdown(el, target) {
   const iv = setInterval(tick, 1000); tick();
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   NEW YEAR GOLD FINALE · 2026 — campaign module
+   Time-boxed: lives through 31 Dec 2026 (IST draw day) and
+   auto-expires at 00:00 IST on 1 Jan 2027 by date check alone — no
+   flag to flip. Once off, the homepage band, the nav/footer links and
+   the #/finale landing page all disappear; the site simply stays a
+   normal jewellery store.
+   Copy follows the approved pitch-deck wording verbatim:
+   "win a chance" framing (never "lottery") · qualifying purchase =
+   3 g gold ANY karat OR 100 g silver per order · free no-purchase
+   quiz route with equal odds · CA-witnessed live draw 31 Dec 2026 ·
+   100 g certified 24K bullion at current market value · TN & WB
+   excluded · statutory TDS ≈ 31.2% on the winner. Entries are
+   explained only — no entry form/funnel is built (per scope).
+   ═══════════════════════════════════════════════════════════════════ */
+const FINALE = {
+  route: 'finale',
+  name: 'The New Year Gold Finale',
+  drawLabel: '31 December 2026',
+  // last moment of the draw day (local time — site audience is India/IST)
+  drawAt: new Date(2026, 11, 31, 23, 59, 59).getTime(),
+  // the module switches itself off from the first moment of 1 Jan 2027
+  endAt: new Date(2027, 0, 1, 0, 0, 0).getTime(),
+};
+const finaleLive = () => Date.now() < FINALE.endAt;
+
+/* show/hide static campaign presences (nav + footer links). Elements
+   start with .camp-off in the markup so nothing flashes pre-boot, and
+   the class — not an inline style — also wins over the mobile drawer's
+   display:flex !important rules. */
+function syncFinaleChrome(force) {
+  const on = finaleLive();
+  document.querySelectorAll('[data-camp]').forEach(el => el.classList.toggle('camp-off', !on));
+  if (on) return;
+  document.querySelectorAll('[data-camp-zone]').forEach(el => el.remove());
+  if (location.hash.replace(/^#\/?/, '').split('/')[0] === FINALE.route) location.hash = '#/';
+  if (force && window.Shivaa.redraw) window.Shivaa.redraw();
+}
+
+/* countdown chips to the 31 Dec draw (same .fc-cell visual language) */
+function finaleCdCells() {
+  const d = Math.max(0, FINALE.drawAt - Date.now());
+  const days = Math.floor(d / 864e5), hrs = Math.floor(d % 864e5 / 36e5),
+        min = Math.floor(d % 36e5 / 6e4), sec = Math.floor(d % 6e4 / 1e3);
+  return [[days, 'Days'], [hrs, 'Hrs'], [min, 'Min'], [sec, 'Sec']]
+    .map(x => `<div class="fc-cell"><b>${String(x[0]).padStart(2, '0')}</b><span>${x[1]}</span></div>`).join('');
+}
+function finaleCdHTML(id = 'finaleCd') {
+  return `<div class="finale-cd" id="${id}" role="timer" aria-live="off"
+    aria-label="Countdown to the CA-witnessed live draw on ${FINALE.drawLabel}">${finaleCdCells()}
+    <span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span></div>`;
+}
+function bindFinaleCd(el) {
+  const iv = setInterval(() => {
+    if (!document.body.contains(el)) return clearInterval(iv);
+    if (!finaleLive()) { syncFinaleChrome(true); return clearInterval(iv); }
+    el.innerHTML = finaleCdCells() +
+      `<span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span>`;
+  }, 1000);
+}
+
+/* gold-biscuit artwork used on the band + landing hero (pure CSS) */
+function finaleBarArt() {
+  return `<div class="fin-bar" aria-hidden="true"><div class="fin-eng"><small>Shivaa · fine gold</small><em>100 g</em><span>24K · 999.9</span></div></div>`;
+}
+
+/* homepage campaign band — inserted by pages.home while the campaign is live */
+function finaleHomeBand() {
+  if (!finaleLive()) return '';
+  return `
+  <section class="finale-band rv" id="homeFinale" data-camp-zone aria-label="The New Year Gold Finale — one customer wins 100 g of certified 24K gold bullion">
+    <div class="container fb-wrap">
+      <div class="fb-art">
+        ${finaleBarArt()}
+        <i class="fin-spark" style="top:10%;left:16%;animation-delay:-.4s">✦</i>
+        <i class="fin-spark" style="bottom:16%;right:14%;animation-delay:-1.6s;font-size:10px">✦</i>
+        <i class="fin-spark" style="top:6%;right:28%;animation-delay:-2.6s;font-size:9px">✦</i>
+      </div>
+      <div class="fb-main">
+        <span class="fb-kicker"><i>✦</i> The New Year Gold Finale · 2026</span>
+        <h2 class="fb-title">Every qualifying order gets a chance to win <em>100&nbsp;g of certified 24K gold</em></h2>
+        <p class="fb-sub">Buy any gold piece of <b>3&nbsp;g or more in any karat</b> (18K / 22K / 24K) or <b>100&nbsp;g of silver</b> during the campaign window, take the short scored quiz, and you are in the CA-witnessed live draw on <b>31 December 2026</b>. No purchase? The free route enters you with equal odds.</p>
+        ${finaleCdHTML('homeFinaleCd')}
+        <div class="fb-cta">
+          <a class="btn btn-gold btn-lg" href="#/finale">How to enter &amp; full rules</a>
+          <a class="btn btn-light btn-lg" href="#/shop">Shop gold &amp; silver</a>
+        </div>
+        <ul class="fb-chips">
+          <li>CA-witnessed draw · 31 Dec 2026</li>
+          <li>Free entry available — buying optional</li>
+          <li>One entry per person · T&amp;Cs apply</li>
+          <li>Void where prohibited · TN &amp; WB excluded</li>
+        </ul>
+      </div>
+    </div>
+  </section>`;
+}
+
+/* #/finale — the full campaign landing page */
+function finaleLanding() {
+  return `
+  <div class="finale-page">
+    <section class="page-hero finale-hero">
+      <div class="container">
+        <div class="fh-in">
+          <div class="fh-copy">
+            <div class="crumbs"><a href="#/">Home</a> / The New Year Gold Finale</div>
+            <span class="fh-kicker">✦ New Year Gold Finale · 2026</span>
+            <h1>One customer will win <em class="fh-gold">100&nbsp;g of certified 24K gold</em></h1>
+            <p class="fh-sub">A lawful, CA-witnessed contest — every <b>qualifying purchase</b> (any gold piece of 3&nbsp;g or more in any karat, or 100&nbsp;g of silver per order) and every <b>free quiz entry</b> carries an equal chance in the live draw on <b>31 December 2026</b>. The prize is the gold itself, at its market value on draw day.</p>
+            ${finaleCdHTML()}
+            <div class="fb-cta">
+              <button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.finJump('finRoutes')">See how to enter</button>
+              <button type="button" class="btn btn-light btn-lg" onclick="Shivaa.finJump('finRules')">Eligibility &amp; rules</button>
+            </div>
+            <div class="ph-trust"><span>✦ CA-witnessed live draw · 31 Dec 2026</span><span>✦ Free entry available</span><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a></div>
+          </div>
+          <div class="fh-art" aria-hidden="true">
+            <div class="fh-stack">
+              ${finaleBarArt()}
+              <span class="fh-badge"><b>Certified · Insured</b><small>refiner certificate &amp; serial on file</small></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finPrize">
+      <div class="sec-head rv"><span class="label">The prize</span><h2>One hundred grams. <span class="disp-italic">Certified.</span></h2>
+      <p class="sub">The value follows the gold market — it is never a fixed rupee promise.</p></div>
+      <div class="fin-prize rv">
+        <div class="fp-in">
+          <div>
+            <span class="fp-gold">✦ 100 g · 24K gold bullion biscuit</span>
+            <h3>Valued at the live gold price <em>on draw day</em></h3>
+            <p>Not a voucher and not a discount: the winner takes delivery of a 100&nbsp;g certified 24K gold biscuit — worth ≈ ₹15 lakh when the campaign was announced at its ≈ ₹15,000/g planning rate, and worth whatever 100&nbsp;g of 24K gold commands on 31 December 2026. Bought early, insured, and held under two-person custody until the draw.</p>
+            <ul class="fp-ticks">
+              <li><i>✓</i><span><b>Certified &amp; insured.</b> Refiner certificate, serial number and purchase invoice are kept on file from the day the biscuit is bought.</span></li>
+              <li><i>✓</i><span><b>Only statutory TDS is ever deducted</b> — ≈ 31.2% (30% + surcharge + cess), deposited before handover, with Form 16A issued to the winner. Nothing else is charged.</span></li>
+              <li><i>✓</i><span><b>No cash alternative.</b> The prize is the gold. It is released only after the winner&rsquo;s PAN is verified and the TDS is deposited, then handed over fully insured.</span></li>
+            </ul>
+          </div>
+          <div class="fp-side">
+            ${finaleBarArt()}
+            <span class="fp-chip">✦ market value at draw date · TDS ≈ 31.2% · TN &amp; WB excluded</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finRoutes" style="padding-top:10px">
+      <div class="sec-head rv"><span class="label">How the entry works</span><h2>Three ways in — <span class="disp-italic">equal odds</span></h2>
+      <p class="sub">One scored skill quiz, one entry per person. The purchase route is optional — a genuine free route with equal odds keeps this a lawful contest under Indian law.</p></div>
+      <div class="fin-grid3">
+        <div class="fin-panel rv">
+          <div class="fin-num">1</div>
+          <h3>Buy gold — any karat</h3>
+          <p>Any gold piece of <b>3&nbsp;g or more</b> — 18K, 22K or 24K — bought within the campaign&rsquo;s entry window qualifies. The short scored quiz that follows your qualifying order creates your entry.</p>
+          <span class="fin-tag">Min 3 g gold · any karat</span>
+        </div>
+        <div class="fin-panel rv rv-d1">
+          <div class="fin-num">2</div>
+          <h3>…or 100 g of silver</h3>
+          <p>One qualifying <b>silver order of 100&nbsp;g or more</b> in the entry window does exactly the same — the same quiz, the same single entry. Silver is a full route, never a consolation.</p>
+          <span class="fin-tag">Min 100 g silver · per order</span>
+        </div>
+        <div class="fin-panel rv rv-d2">
+          <div class="fin-num">3</div>
+          <h3>…or enter free</h3>
+          <p>No purchase needed: the <b>free route</b> uses the same scored quiz and carries the same odds. Buying is optional, never required — and no entry fee of any kind is ever taken.</p>
+          <span class="fin-tag">Free route · same quiz · equal odds</span>
+        </div>
+      </div>
+      <div class="fin-panel rv" style="margin-top:20px">
+        <div class="fin-rule"><span>①</span><p><b>Entry opens early October 2026.</b> The official rules are published before the first entry; all dates and times are IST.</p></div>
+        <div class="fin-rule"><span>②</span><p><b>Qualifying purchases</b> are those placed inside the entry window. However much you buy, every person gets exactly <b>one entry</b> — multiple orders do not multiply entries.</p></div>
+        <div class="fin-rule"><span>③</span><p><b>Entries close ≈ 18–20 Dec 2026</b> (the exact date is published in the rules). The entry ledger then freezes and a SHA-256 fingerprint of it is taken.</p></div>
+        <div class="fin-rule"><span>④</span><p><b>Odds are published, not hidden.</b> They depend on the number of valid entries and are stated with the official rules before entries open.</p></div>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finDates" style="padding-top:10px">
+      <div class="sec-head rv"><span class="label">Dates</span><h2>From announcement to <span class="disp-italic">draw night</span></h2></div>
+      <div class="fin-timeline rv">
+        <div class="fin-tl"><span class="fin-tl-dot">1</span><span class="tl-date">12 Sep</span><b>Announced</b><small>Campaign goes live. The official rules are finalised and published before any entry is taken.</small></div>
+        <div class="fin-tl"><span class="fin-tl-dot">2</span><span class="tl-date">Early Oct</span><b>Entries open</b><small>Free and purchase routes open together, with the scored quiz and published odds.</small></div>
+        <div class="fin-tl"><span class="fin-tl-dot">3</span><span class="tl-date">≈ 18–20 Dec</span><b>Entries close</b><small>Ledger freeze + SHA-256 fingerprint; finalists&rsquo; PAN / KYC checks begin.</small></div>
+        <div class="fin-tl hot"><span class="fin-tl-dot">✦</span><span class="tl-date">31 Dec</span><b>LIVE draw</b><small>CA-witnessed, live-streamed draw. The winner is announced the same night.</small></div>
+        <div class="fin-tl"><span class="fin-tl-dot">5</span><span class="tl-date">Jan 2027</span><b>Handover</b><small>TDS deposited, Form 16A issued, and the insured biscuit is handed to the verified winner.</small></div>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finFair" style="padding-top:0">
+      <div class="sec-head rv"><span class="label">Fair play, by design</span><h2>The draw cannot be <span class="disp-italic">rigged</span></h2></div>
+      <div class="fin-panel rv">
+        <ul class="fin-fair" style="list-style:none;margin:0;padding:0">
+          <li><i>✦</i><span><b>An independent witness.</b> A chartered accountant witnesses the draw; a notarised, unedited recording is retained for 8 years.</span></li>
+          <li><i>✦</i><span><b>A frozen ledger.</b> Entries close, then a SHA-256 fingerprint of the full entry ledger is taken before the draw — the list cannot change afterwards.</span></li>
+          <li><i>✦</i><span><b>A live, public draw.</b> The draw is live-streamed and the result is announced on the same channels, promptly.</span></li>
+          <li><i>✦</i><span><b>Equal odds for free entrants.</b> The free route uses the same quiz and the same draw — odds are never stacked against it.</span></li>
+          <li><i>✦</i><span><b>No insiders.</b> Employees, their relatives, vendors, agencies and their households cannot enter, and no winner is pre-selected.</span></li>
+          <li><i>✦</i><span><b>A published re-draw rule.</b> If a draw is ever disputed, the published re-draw rule governs — nothing is decided behind closed doors.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finRules" style="padding-top:0">
+      <div class="sec-head rv"><span class="label">Eligibility &amp; official rules</span><h2>The fine print, kept <span class="disp-italic">up front</span></h2></div>
+      <div class="fin-terms">
+        <div class="fin-panel rv">
+          <h4>Eligibility &amp; entry</h4>
+          <div class="fin-rule"><span>·</span><p>Open to <b>Indian residents aged 18 and above</b>. All dates and times are IST.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Qualifying order:</b> gold of 3&nbsp;g or more in any karat (18K / 22K / 24K) <i>or</i> silver of 100&nbsp;g or more per order, bought inside the entry window.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>One entry per person</b> across both routes, created by the scored skill quiz. Multiple qualifying orders still mean one entry.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Free entry available</b> — the same quiz with equal odds. We never say &ldquo;no purchase necessary&rdquo;; we say the purchase route is simply optional.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Late entries are void.</b> Entries close ≈ 18–20 Dec 2026; the exact date and time are in the official rules.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Void where prohibited.</b> Residents of Tamil Nadu and West Bengal may not enter; other state rules apply as set out in the official rules.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>No insiders.</b> Employees of Shivaa / Ernate Shine Jewellery Pvt. Ltd., their relatives, vendors, agencies and each of their households are excluded.</p></div>
+        </div>
+        <div class="fin-panel rv">
+          <h4>Prize, tax &amp; conduct</h4>
+          <div class="fin-rule"><span>·</span><p><b>The prize is 100&nbsp;g of certified 24K gold bullion</b> at its current market value on the draw date — announced at ≈ ₹15 lakh at the ≈ ₹15,000/g planning rate. It is never a fixed rupee figure.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Statutory TDS ≈ 31.2%</b> (30% + surcharge + 4% cess, on the CA&rsquo;s computation) is deducted at source before handover and deposited with the government. Form 16A is issued to the winner.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>PAN must be verified before release.</b> Without PAN the higher TDS rate applies as per law. Only statutory TDS may be deducted — never any fee, charge or &ldquo;processing cost&rdquo;.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>The draw is audited:</b> CA witness, SHA-256 ledger freeze, live stream and an unedited recording kept 8 years. A re-draw rule is published in advance.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Results are public and prompt</b>, announced on the same channels where the campaign ran. No winner is pre-selected.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Rules change only prospectively</b> — never for entries already made. Every amendment is announced before it applies.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Grievance desk:</b> every complaint is acknowledged within 48 hours and redressed within 30 days. Write to Support@shivaa.in.</p></div>
+          <div class="fin-note">This page is a plain-language summary. The official rules and full terms &amp; conditions are published before entries open and alone govern the contest — if anything here ever differs from them, the official rules prevail.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="container" style="padding-bottom:96px">
+      <div class="fin-close rv">
+        <span class="fb-kicker" style="justify-content:center"><i>✦</i> The New Year Gold Finale · 2026</span>
+        <h3>The gold is real. <em>The chance is equal.</em></h3>
+        <p>Ask us anything about eligibility, the quiz, the TDS or the draw — our desk replies within 48 hours. And every piece on shivaa.in is live-rate priced with making charges in plain sight, so the gold you buy stays honest.</p>
+        <div class="fb-cta" style="justify-content:center">
+          <a class="btn btn-gold btn-lg" href="#/shop">Shop gold &amp; silver</a>
+          <button type="button" class="btn btn-light btn-lg" onclick="Shivaa.finWa()">Ask on WhatsApp</button>
+        </div>
+        <ul class="fb-chips">
+          <li>CA-witnessed draw · 31 Dec 2026</li>
+          <li>Free entry available — buying optional</li>
+          <li>One entry per person · T&amp;Cs apply</li>
+          <li>Void where prohibited · TN &amp; WB excluded</li>
+        </ul>
+      </div>
+    </section>
+  </div>`;
+}
+
+/* in-page jump (the hash router owns "#"; smooth scroll instead) */
+window.Shivaa.finJump = id => {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+window.Shivaa.finWa = () => {
+  if (window.Shivaa.waOpen) window.Shivaa.waOpen('Namaste Shivaa ✦\n\nI have a question about the New Year Gold Finale: ');
+};
+
 /* ─────────── poster carousel ─────────── */
 function initCarousel() {
   const car = $('#heroCarousel'); if (!car) return;
@@ -919,6 +1181,8 @@ pages.home = async (view) => {
     <div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>
   </section>
 
+  ${finaleHomeBand()}
+
   <div class="catbar-outer">${catBarHTML()}</div>
 
   <section class="carousel-sec">
@@ -1086,6 +1350,8 @@ pages.home = async (view) => {
     </div>
   </section>`;
   bindCountdown($('#wedCd'), Date.now() + 6 * 864e5 + 11 * 36e5);
+  const homeCd = $('#homeFinaleCd');
+  if (homeCd) bindFinaleCd(homeCd);
   initCarousel();
   renderRateStrip();
   // animated reviews marquee
@@ -3896,6 +4162,14 @@ pages.faq = async (view) => {
   if (wa) wa.onclick = () => waOpen('Namaste Shivaa \u2726\n\nI have a question: ');
 };
 
+/* ─────────── NEW YEAR GOLD FINALE · #/finale (time-boxed, auto-expires 1 Jan 2027) ─────────── */
+pages.finale = async (view) => {
+  if (!finaleLive()) { location.hash = '#/'; return; }   // campaign module is off — normal store only
+  view.innerHTML = finaleLanding();
+  const cd = $('#finaleCd');
+  if (cd) bindFinaleCd(cd);
+};
+
 /* ─────────── ROUTER ─────────── */
 const routes = {};
 Object.keys(pages).forEach(k => routes[k] = pages[k]);
@@ -3917,6 +4191,7 @@ function route() {
   while (_scrollLock.n > 0) unlockScroll();
   clearInterval(window._carTimer);
   document.body.dataset.page = page;
+  syncFinaleChrome();   // campaign links/banner switch off by date alone after 31 Dec 2026
   if (routes[page]) {
     const res = routes[page](view, q, seg[1]);
     if (res && res.catch) res.catch(e => { console.error(e); view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Something slipped</h3><p>${esc(e.message)}</p></div>`; });
@@ -4285,6 +4560,9 @@ async function boot(isRedraw) {
   route();
   // poll rates every 60s (server caches 10-min; ticker + prices refresh)
   setInterval(loadRates, 60000);
+  // campaign expiry watchdog: even with the tab left open, the finale
+  // module switches itself off within 30s of 00:00 IST on 1 Jan 2027.
+  setInterval(syncFinaleChrome, 30000);
 }
 // Wait for the following feature/auth/admin scripts to register their routes.
 // A fast cached API must not outrun loading the HUID module on a cold visit.

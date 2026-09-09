@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-08 (v45 in progress — GitHub Actions ring-reset workflow)**
+**Last updated: 2026-09-09 (v43-finale website campaign module on arena branch; v45 ring-reset workflow still pending)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
@@ -22,6 +22,39 @@ Treat any other claim from that chat as unverified until checked on disk/origin.
 
 ---
 
+## 🎯 NEW YEAR GOLD FINALE — WEBSITE MODULE (2026-09-09, arena branch, NOT on main/live)
+
+The approved "New Year Gold Finale" campaign is now built into the real site code as a
+**time-boxed part of the website** (homepage band + dedicated `#/finale` landing page +
+nav/footer links). It lives on the session branch `arena/01a0844a-shivaa-ecom` only —
+**do not treat it as live until merged/PR'd to `main`** (server auto-sync deploys from a
+fixed branch/config, so pushing here does not go live by itself).
+
+What was added (all inside `cms/`):
+- `cms/css/finale.css` (new, `?v=43`) — campaign styles incl. pure-CSS gold-biscuit artwork (no fabricated imagery).
+- `cms/js/app.js` (`?v=43` in index.html) — `pages.finale` (`#/finale`), homepage band via `finaleHomeBand()` in `pages.home`, live countdown to the 31 Dec 2026 draw, `syncFinaleChrome()` in the router + a 30 s boot watchdog, `Shivaa.finJump/finWa`.
+- `cms/index.html` — campaign row in nav/drawer ("Gold Finale") + footer link, both `data-camp class="camp-off"` (JS reveals only while the campaign is live).
+
+**Auto-expiry is date-gated, no flag:** module lives through 31 Dec 2026 (draw day, IST) and
+switches itself off at 00:00 IST 1 Jan 2027 — band/nav/footer/`#/finale` all disappear and
+the site stays a normal jewellery store. Tested via simulated clock (62/62 logic checks green;
+`node --check` clean; `cms/` smoke-served with real `db.json` via the QA shim at
+`/home/user/tools/web_shim.py` — no browser available in this sandbox, so a visual pass on a
+real device is recommended before go-live).
+
+Copy follows the approved deck/playbook exactly: "win a chance" framing (never "lottery"/"100%
+free"/"jackpot"), qualifying purchase = 3 g gold ANY karat OR 100 g silver per order, free
+no-purchase quiz route with equal odds, one entry per person, CA-witnessed live draw
+31 Dec 2026, 100 g certified 24K bullion at current market value (≈₹15L at announcement,
+never a fixed figure), TDS ≈31.2% (PAN → deposit → Form 16A → handover), TN/WB excluded +
+"void where prohibited", insiders excluded, 18+/India/IST. Entry is **explained, not
+collected** — no quiz/entry form or funnel was built (owner's flow message was truncated;
+funnel build awaits explicit approval). Related deck/research assets: `shivaa-offer-research/pitch-deck.pdf` (30-page, Rs 1.5 Cr three-line budget restated).
+
+QA tools (outside repo, `/home/user/tools/`): `qa_finale_logic.js`, `qa_finale_smoke.py`,
+`web_shim.py`.
+
+---
 
 ## 🎯 v45 — GITHUB ACTIONS RING RESET WORKFLOW (2026-09-08)
 
@@ -172,6 +205,13 @@ PGS5059 Kanchan
 ---
 
 ## 📝 SESSION STEP LOG (newest first — append every session)
+
+**2026-09-09 — New Year Gold Finale website module (this session)**
+1. Scope recon (read-only) of `cms/index.html`, `cms/js/app.js`, `cms/css/styles.css`; owner's four scoping answers frozen: build in real `cms/` code · homepage hero/band + dedicated `#/finale` landing in nav · deck-compliant copy · auto-expire after 31 Dec 2026.
+2. Extracted exact compliance wording from `shivaa-offer-research/pitch-deck.pdf` (entries engine p4, compliance pp.18–23) — used as the copy source of truth.
+3. Added `cms/css/finale.css` (campaign styles + CSS gold-biscuit art), campaign module + `pages.finale` + homepage band + countdown + expiry watchdogs in `cms/js/app.js`, nav/footer links + asset `?v=43` in `cms/index.html`.
+4. QA: `node --check` clean; headless module QA 62/62 (copy tokens, no banned words, expiry simulation, route wiring); HTML tag-balance clean; CSS class cross-check clean. Browser unavailable in sandbox → preview via `python3 /home/user/tools/web_shim.py` (serves real `db.json` over /api) on :8090.
+5. Committed + pushed to `arena/01a0844a-shivaa-ecom` (NOT merged to main — not live). Next owner steps: visual review on a real browser; then PR/merge to `main` when ready to go live (12 Sep announcement date in the deck).
 
 **2026-09-07 — v43 batch 1 (this session)**
 1. Read HANDOFF v42; found 26 PGS rings with reference photo only (their `_shot_studio.jpg` was a byte-copy of the raw photo incl. green price tag).
