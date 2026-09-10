@@ -78,13 +78,18 @@ def main():
     if a.only: designs = [d for d in designs if d["sku"] in a.only.split(",")]
     if a.limit: designs = designs[:a.limit]
     ledger = Ledger(work / "ledger_shots.csv", ["id", "sku", "shot", "status", "cost", "stdout", "ts"])
+    spent = sum(float(r.get("cost", 0) or 0) for r in ledger.rows.values() if r.get("status") == "done")
+    cap = float(pcfg.get("budget_cap_usd", 0) or 0)
+    if cap: LOG.info("budget so far $%.2f of $%.2f", spent, cap)
     rl = RateLimit(per_min=pcfg.get("per_min", 60))
     retry = Retry(pcfg.get("retries", 3))
     costs = []
 
     def job(d, shot):
+        nonlocal spent
         rid = f"{d['sku']}::{shot['key']}"
         if ledger.done(rid): return rid, "skip", None
+        if cap and spent >= cap: return rid, "budget-cap", None
         src = d.get("img_path") or d.get("img")
         if not src or not Path(src).exists():
             return rid, "no-source", None
@@ -103,9 +108,14 @@ def main():
             from PIL import Image
             im = Image.open(target).convert("RGB"); im.thumbnail((1500, 1500))
             im.save(target, quality=88)
-            cost = pcfg.get("cost_per_shot", 0.15)
+            if pcfg.get("finalize"):
+                import subprocess
+                fin = Path(__file__).resolve().parent.parent / "tools" / "photoshoot" / "finalize.py"
+                subprocess.run([sys.executable, str(fin), str(target), str(target)], check=True)
+            cost = pcfg.get("cost_per_shot", 0.003)
             ledger.set(rid, sku=d["sku"], shot=shot["key"], status="done", cost=cost, ts=time.time())
             costs.append({"sku": d["sku"], "shot": shot["key"], "cost_usd": cost, "secs": round(time.time() - t0, 1)})
+            spent += cost
             return rid, "ok", str(target)
         except Exception as e:
             ledger.set(rid, sku=d["sku"], shot=shot["key"], status="fail", cost=0, ts=time.time(), stdout=str(e)[:300])

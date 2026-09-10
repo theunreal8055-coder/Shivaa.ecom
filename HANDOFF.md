@@ -463,3 +463,42 @@ literal text, not a string opener. Mode switching is now tracked.
 returns nothing; apt and pip have no network), so `admin-reset.php` has never executed here.
 The owner's first click on `/admin-reset.php` is its real test — and the fatal-error guard
 prints any failure in plain words instead of a blank page.
+
+## v49 — AI disclosure on the product page + pipeline landmines disarmed
+
+**Why:** the 65 ring photos are AI-stylised (every `meta.json` says so) but the
+storefront never rendered `mediaNote` (0 references in `app.js`, 28/65 in db.json).
+At 65 designs that is a loose end; at the owner's planned 10,000-design catalogue it
+would be a misrepresentation exposure. v49 renders the note on the PDP:
+"✦ AI-stylised visualisation of the original design photo. The piece you receive is
+hand-finished by our karigars to this design; exact weight and purity are confirmed
+on your bill." db.json backfilled to 65/65; the ring bridge already forwards
+`mediaNote` from each meta.json, and `api.php` stores/returns it untouched
+(hallmark_product only strips hallmark/huid/bis keys). `app.js` bumped to ?v=49.
+
+**Deploy zip:** `shivaa-update-v49-ai-disclosure.zip` (same 10 files as v48,
+byte-identical to cms/, no db.json). `CLICK-BY-CLICK-STEPS.md` now points at it.
+
+**10k-catalogue pipeline (owner asked "any trick?"):** the answer written for the
+owner = no chat plan does 10k (generate_image is 10/turn here; ChatGPT Pro ₹19,900/mo
+is a different product and still has no batch mode). The route is `pipeline/` on a
+VPS with a Replicate token. Landmines fixed this turn:
+  · config default model `flux-dev` (NON-COMMERCIAL — the handoff itself excludes it)
+    → `flux-schnell` (Apache-2.0); `cost_per_shot` placeholder $0.15 → $0.003;
+    size 1024² → 3:4; workers 4 → 16; `budget_cap_usd` 25 added.
+  · `03_photoshoot.py`: hard budget cap (ledger-tracked spend, stops with
+    "budget-cap"), `finalize` hook runs tools/photoshoot/finalize.py
+    (896×1195 + badge) on every shot — previously the pipeline never applied
+    house geometry.
+  · NEW `pipeline/qa_shots.py`: automated QA gate (tag-green from the proven
+    tag_scan predicate; experimental white-tag scan for the PGS5037 class,
+    central-box only; optional ref-drift). PIL-free predicates so the dev sandbox
+    can unit-test them; image scan runs where Pillow is installed (VPS).
+    Documented limit stands: dark-emerald tags on green velvet are not
+    colour-catchable; visual QA remains the last gate.
+
+**QA:** `qa/qa_v48_static.py` extended → 88 checks, 0 failed (v49 zip integrity,
+PDP disclosure render, 65/65 db.json, pipeline landmines, colour predicates).
+**Unverified:** PDP render not executed in a browser (no browser here) and the
+image scan not run against real shots (no PIL) — both need the owner's live
+preview / a VPS.

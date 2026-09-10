@@ -174,14 +174,15 @@ check('mail.php never throws at the caller', 'catch (\\Throwable' in mail or 'ca
 # ───────────────── index.html cache-busters + zip integrity ─────────────────
 idx = (ROOT / 'cms/index.html').read_text(encoding='utf-8')
 print('\n── cache-busters + deploy zip ──')
-for f in ('app.js', 'auth.js', 'admin.js'):
+for f in ('auth.js', 'admin.js'):
     check(f'index.html loads js/{f}?v=48', f'/js/{f}?v=48' in idx)
+check('index.html loads js/app.js?v=49 (disclosure change)', '/js/app.js?v=49' in idx)
 
-ZIP = ROOT / 'shivaa-update-v48-email-codes.zip'
+ZIP = ROOT / 'shivaa-update-v49-ai-disclosure.zip'
 if ZIP.is_file():
     with zipfile.ZipFile(ZIP) as z:
         names = [n for n in z.namelist() if not n.endswith('/')]
-        check(f'v48 zip has 10 files (got {len(names)})', len(names) == 10)
+        check(f'v49 zip has 10 files (got {len(names)})', len(names) == 10)
         bad = [n for n in names if (ROOT / 'cms' / n).read_bytes() != z.read(n)]
         check(f'every file in the zip matches cms/ byte for byte ({len(bad)} differ)', not bad)
         check('js/ layout preserved inside the zip', 'js/auth.js' in names and 'js/admin.js' in names)
@@ -190,7 +191,7 @@ if ZIP.is_file():
         check('the self-arming admin-reset.php IS in the zip', 'admin-reset.php' in names)
         check('mail.php IS in the zip', 'mail.php' in names)
 else:
-    check('v48 zip exists', False)
+    check('v49 zip exists', False)
 
 # ─────────────── the owner walkthrough matches the real UI ───────────────
 # CLICK-BY-CLICK-STEPS.md tells a non-technical owner what to click. If a
@@ -211,8 +212,50 @@ for rel, labels in LABELS.items():
         in_doc = lab in doc
         check(f'{rel} still shows "{lab}"' + ('' if in_doc else '  [not in the walkthrough!]'),
               lab in body and in_doc)
-check('the walkthrough points at the self-arming zip, not the editing one',
-      'shivaa-update-v48-email-codes.zip' in doc and 'Ignore `shivaa-admin-recovery-FIXED.zip`' in doc)
+check('the walkthrough points at the v49 zip and still ignores the editing one',
+      'shivaa-update-v49-ai-disclosure.zip' in doc and 'Ignore `shivaa-admin-recovery-FIXED.zip`' in doc)
+
+# ─────────────── v49: the AI disclosure must actually reach shoppers ───────────────
+print('\n── v49: AI disclosure on the product page ──')
+app = (ROOT / 'cms/js/app.js').read_text(encoding='utf-8')
+check('app.js renders p.mediaNote on the PDP', 'p.mediaNote' in app and 'hand-finished by our karigars' in app)
+import json as _json
+_db = _json.load(open(ROOT / 'cms/data/db.json', encoding='utf-8'))
+_pgs = [x for x in _db['products'] if str(x.get('sku', '')).startswith('PGS')]
+_missing = sum(1 for x in _pgs if not x.get('mediaNote'))
+check(f'all {len(_pgs)} PGS rings in db.json carry the disclosure ({_missing} missing)', _missing == 0)
+check('disclosure text matches the meta.json wording exactly',
+      all(x['mediaNote'] == 'AI-stylised visualisation of the original design photo.'
+          for x in _pgs if x.get('mediaNote')))
+
+# ─────────────── pipeline landmines disarmed (the 10k route) ───────────────
+print('\n── pipeline: the four landmines are disarmed ──')
+cfg = (ROOT / 'pipeline/config.example.json').read_text(encoding='utf-8')
+check('commercial-safe model is the default (flux-dev gone)', 'flux-schnell' in cfg and 'flux-dev' not in cfg)
+check('real cost per shot (0.003), not the $0.15 placeholder', '"cost_per_shot": 0.003' in cfg)
+check('hard budget cap present', '"budget_cap_usd"' in cfg)
+check('house geometry (finalize) wired on', '"finalize": true' in cfg)
+s3 = (ROOT / 'pipeline/03_photoshoot.py').read_text(encoding='utf-8')
+check('stage 3 stops at the budget cap', 'budget-cap' in s3 and 'budget_cap_usd' in s3)
+check('stage 3 runs finalize.py on every shot', 'finalize.py' in s3)
+import ast as _ast
+for rel in ('pipeline/03_photoshoot.py', 'pipeline/qa_shots.py'):
+    try:
+        _ast.parse((ROOT / rel).read_text(encoding='utf-8')); check(f'{rel} parses', True)
+    except SyntaxError as e:
+        check(f'{rel} parses ({e})', False)
+
+# colour predicates of the QA gate — runnable here, no PIL needed
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location('qa_shots', ROOT / 'pipeline/qa_shots.py')
+_q = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_q)
+check('bright spring-green tag pixel is flagged', _q.is_tag_green(57, 224, 108))
+check('dark emerald editorial tag NOT catchable by colour scan (documented limit)',
+      not _q.is_tag_green(10, 80, 40))
+check('gold metal is not a tag', not _q.is_tag_green(212, 175, 55))
+check('white price-tag pixel (PGS5037 lesson) is flagged', _q.is_tag_white(246, 246, 243))
+check('charcoal house backdrop is not a white tag', not _q.is_tag_white(25, 23, 20))
+check('warm candle bokeh is not a white tag', not _q.is_tag_white(255, 180, 90))
 
 print(f'\n{len(ok)} passed · {len(fail)} failed')
 sys.exit(1 if fail else 0)

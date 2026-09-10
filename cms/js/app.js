@@ -1888,6 +1888,7 @@ pages.product = async (view, q, id) => {
 
         ${window.ShivaaHallmark ? window.ShivaaHallmark.productPanel(p) : '<p class="hm-note">HUID information is temporarily unavailable. No BIS verification has been performed here.</p>'}
         <a class="trust-pdp-link" href="#/trust">Business details &amp; documents →</a>
+        ${p.mediaNote ? `<p style="font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.6">✦ ${esc(p.mediaNote)} The piece you receive is hand-finished by our karigars to this design; exact weight and purity are confirmed on your bill.</p>` : ''}
 
         <div class="opt-label"><span>Check delivery</span></div>
         <div class="pin-row" style="max-width:340px"><input id="pincode" maxlength="6" placeholder="Enter 6-digit pincode"><button class="btn btn-ghost btn-sm" onclick="Shivaa.checkPin()">Check</button></div>

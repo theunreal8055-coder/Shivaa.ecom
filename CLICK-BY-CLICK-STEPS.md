@@ -8,10 +8,10 @@ Everything happens in your hosting **File Manager** and in your **browser**. No 
 
 | # | File | What it does |
 |---|---|---|
-| 1 | **`shivaa-update-v48-email-codes.zip`** | The whole update — **and it already contains the recovery file**, so this is the only upload you need for Parts 1–3 |
+| 1 | **`shivaa-update-v49-ai-disclosure.zip`** | The whole update (everything v48 had) — **and it already contains the recovery file**, so this is the only upload you need for Parts 1–3 |
 | 2 | `shivaa-upload-65-rings.zip` | Part 4 — the 65 rings |
 
-> 🗑 **Ignore `shivaa-admin-recovery-FIXED.zip`** if you downloaded it earlier. That was the version you had to **edit by hand** — the thing that blocked you. It is replaced by the self-arming file inside the v48 zip.
+> 🗑 **Ignore `shivaa-admin-recovery-FIXED.zip`** if you downloaded it earlier. That was the version you had to **edit by hand** — the thing that blocked you. It is replaced by the self-arming file inside the v49 zip. If you downloaded `shivaa-update-v48-email-codes.zip` earlier, use the v49 one instead.
 
 ---
 
@@ -20,7 +20,7 @@ Everything happens in your hosting **File Manager** and in your **browser**. No 
 1. hPanel → **Files** → **File Manager**.
 2. Double-click **`public_html`**. You should see `index.html`, `api.php`, `js`, `data`, `uploads`.
 3. Click **Upload** (↑ arrow, top-right toolbar).
-4. Click **Select File** → choose **`shivaa-update-v48-email-codes.zip`**.
+4. Click **Select File** → choose **`shivaa-update-v49-ai-disclosure.zip`**.
 5. Wait for the bar to finish → **close** the Upload window (X).
 6. **Right-click** the zip in the list → **Extract**.
 7. The destination box shows `/public_html` — leave it → click **Extract**.
@@ -105,6 +105,8 @@ Everything happens in your hosting **File Manager** and in your **browser**. No 
 14. Enter the 6-digit code + your new password → done.
 
 ✅ **Part 3 done. The codes go to the account's email and are never shown on screen again.**
+
+> ✦ **New in this update:** every ring page now shows a small line — *“AI-stylised visualisation of the original design photo. The piece you receive is hand-finished by our karigars to this design; exact weight and purity are confirmed on your bill.”* That line is your honesty shield: the photos are AI-styled, and saying so is what keeps them safe to use.
 
 ---
 
