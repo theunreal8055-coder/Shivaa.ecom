@@ -418,7 +418,7 @@ async function renderAdmin(view, q) {
         <div class="fld full"><label>Announcement ticker (one per line)</label><textarea name="announcements">${esc((S.announcements || []).join('\n'))}</textarea></div>
         <button class="btn btn-primary btn-sm" style="justify-self:start">Save settings</button>
       </form></div>
-      <div class="adm-card"><h3>SMS &amp; OTP delivery <span style="font-size:11px;color:var(--ink-3);font-weight:400">login &amp; KYC codes</span></h3><div id="admSmsCard">Loading gateway status…</div></div>
+      <div class="adm-card"><h3>Code delivery (SMS / email) <span style="font-size:11px;color:var(--ink-3);font-weight:400">codes for sign-in, sign-up, KYC &amp; password reset</span></h3><div id="admSmsCard">Loading gateway status…</div></div>
       <div class="adm-card"><h3>Legal & registrations (read-only)</h3>
         <div class="sum-row"><span>Legal entity</span><b>${esc(S.legalName || 'Ernate Shine Jewellery Private Limited')}</b></div>
         <div class="sum-row"><span>CIN</span><b>${esc(S.cin || '')}</b></div>

@@ -411,3 +411,14 @@ then upload this, then use the dashboard's Send test code.
 
 **Still unverified:** `mail()` has never actually run (no PHP here). Email delivery is the one thing
 only the owner's host can prove; the dashboard card surfaces `db.mail.lastErr` if it fails.
+
+**v48b (owner asked for "steps click by click"):** dashboard card heading changed from
+"SMS &amp; OTP delivery" to **"Code delivery (SMS / email)"** so it matches what the owner is told to
+look for — `cms/js/admin.js`, zip rebuilt + re-verified byte-identical. New owner-facing walkthrough
+`CLICK-BY-CLICK-STEPS.md`: Part 1 get back in (File Manager → upload → extract → Edit → arm
+ENABLED/RECOVERY_KEY → Save Changes → open admin-reset.php → Check → set password → sign in → delete
+the file), Part 2 upload v48 (extract into `public_html`, confirm `mail.php` and `js/` landed right,
+replace on conflict), Part 3 test code delivery from Settings → "Code delivery (SMS / email)" →
+Send test code → then the real "Forgot password?" test in a private window, Part 4 the 65 rings
+(secret folder → extract → SETUP_KEY → 17 taps → Verify → self-destruct). Explicit warning to finish
+Part 1 **before** Part 2, because the v48 zip ships its own disarmed `admin-reset.php`.
