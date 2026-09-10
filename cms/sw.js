@@ -3,7 +3,7 @@
    first and the cache is only a fallback (bad connection / offline).
    GET + same-origin requests only; the API and uploads always go live. */
 'use strict';
-const SHELL = 'shivaa-shell-v54';
+const SHELL = 'shivaa-shell-v55';
 const SHELL_FILES = ['/', '/index.html', '/css/fonts.css?v=42', '/css/styles.css?v=43',
   '/css/hallmark.css?v=42', '/css/trust.css?v=42', '/css/finale.css?v=44', '/css/bot.css?v=52',
   '/js/app.js?v=54', '/js/bot.js?v=53', '/images/icons/icon-512.png'];
@@ -17,11 +17,13 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const r = e.request;
   if (r.method !== 'GET' || new URL(r.url).origin !== self.location.origin) return;
-  if (r.url.includes('/api/') || r.url.includes('/data/') || r.url.includes('/uploads/')) return;
+  const u = new URL(r.url);
+  const offlineApi = u.pathname === '/api/products' || u.pathname === '/api/rates';  // v55: offline catalogue
+  if (!offlineApi && (u.pathname.startsWith('/api/') || u.pathname.startsWith('/data/') || u.pathname.startsWith('/uploads/'))) return;
   e.respondWith(
     fetch(r).then((res) => {
       if (res && res.ok) { const c = res.clone(); caches.open(SHELL).then((x) => x.put(r, c)); }
       return res;
-    }).catch(() => caches.match(r).then((hit) => hit || caches.match('/index.html')))
+    }).catch(() => caches.match(r).then((hit) => hit || (u.pathname.startsWith('/api/') ? Response.error() : caches.match('/index.html'))))
   );
 });

@@ -3914,7 +3914,17 @@
  ],
  "orders": [],
  "partners": [],
- "coupons": [],
+ "coupons": [
+  {
+   "id": "c_bridal",
+   "code": "BRIDALSET",
+   "type": "percent",
+   "value": 10,
+   "minOrder": 25000,
+   "note": "Bridal bundle — 10% off making charges on 2+ bridal pieces",
+   "active": true
+  }
+ ],
  "catalogs": [],
  "reviews": [
   {

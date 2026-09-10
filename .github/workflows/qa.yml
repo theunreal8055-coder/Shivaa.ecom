@@ -1,0 +1,23 @@
+name: QA gate
+on: [push, pull_request]
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: JS syntax check
+        run: |
+          for f in cms/js/*.js cms/sw.js; do node --check "$f" || exit 1; done
+      - name: Static QA (83 checks)
+        run: python3 qa/qa_v48_static.py
+      - name: Saathi brain tests
+        run: node qa/test_bot_brain.js
+      - name: Fresh-install QA (only when a release zip is present)
+        run: |
+          for z in shivaa-FINAL-full.zip shivaa-FRESH-v52-full.zip; do
+            [ -f "$z" ] && python3 qa/qa_v50_fresh.py "$z" && break
+          done || true

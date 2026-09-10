@@ -49,7 +49,7 @@ missing = EXPECT - names
 check(f'zip has all {len(EXPECT)} expected files (missing {len(missing)}: {sorted(missing)[:4]})', not missing)
 extra = names - EXPECT
 if FINAL:
-    extra = {e for e in extra if not e.startswith(('images/', 'docs/', 'uploads/', 'demo65/', 'qa/', 'deploy/')) and e not in ('migrate-repair.php', 'samples-payload.json')}
+    extra = {e for e in extra if not e.startswith(('images/', 'docs/', 'uploads/', 'demo65/', 'qa/', 'deploy/', '.github/')) and e not in ('migrate-repair.php', 'samples-payload.json')}
 check(f'no unexpected files slipped in ({sorted(extra) if extra else "none"})', not extra)
 
 # code files byte-identical to cms/
@@ -77,7 +77,10 @@ check('admin password is a bcrypt hash, not plaintext',
       str(users[0].get('passHash', '')).startswith(('$2b$', '$2y$')))
 _empty_keys = ['orders', 'reviews', 'tokens', 'contactMsgs', 'newsletter',
                'partners', 'coupons', 'finaleEntries', 'securityLog']
-if FINAL: _empty_keys.remove('reviews')   # v53: owner restored the original 767 reviews
+if FINAL:
+    _empty_keys.remove('reviews')   # v53: owner restored the original 767 reviews
+    _empty_keys.remove('coupons')   # v55: BRIDALSET coupon intentionally pre-seeded
+    check('only the seeded BRIDALSET coupon exists', [c.get('code') for c in db.get('coupons', [])] == ['BRIDALSET'])
 empties = [k for k in _empty_keys if db.get(k)]
 check(f'user-generated collections all empty ({empties or "yes"})', not empties)
 
@@ -168,12 +171,31 @@ if FINAL and 'demo65/media' in ''.join(names):
     check('mobile sticky buy bar + tap zoom', 'pdpBuybar' in app and '#pdpBuybar' in cssx and 'zoomed' in cssx)
     check('finale live prize-worth tracker', 'prizeWorth' in app and 'fillPrizeWorth' in app)
     check('Saathi v54: order tracking + rate alerts + share + compare-in-chat', all(k in bot for k in ['track my order', 'ratealert', 'shareResults', 'compare']))
-    check('assets bumped to v54 wiring', '/css/styles.css?v=43' in idx3 and '/js/app.js?v=54' in idx3 and '/js/bot.js?v=53' in idx3)
+    check('assets versioned (v5x wiring)', '/css/styles.css?v=4' in idx3 and '/js/app.js?v=5' in idx3 and '/js/bot.js?v=5' in idx3)
     n65 = sum(1 for x in names if x.startswith('demo65/media/') and not x.endswith('/'))
     import subprocess
     real = int(subprocess.run(['bash', '-c', 'find demo65/media -type f | wc -l'], capture_output=True, text=True).stdout.strip())
     check(f'zip carries ALL AI media provenance ({n65} files == {real} on disk)', n65 == real and real > 300)
     check('zip carries the QA suites + deploy scripts', 'qa/qa_v50_fresh.py' in names and 'deploy/add_legacy_reviews.py' in names)
+
+    print('\n── v55: the big feature drop ──')
+    admx = z.read('js/admin.js').decode()
+    check('API: finale counter + events + carts + order-meta + khata + referral codes',
+          all(k in api for k in ['finale/count', "route === 'ev'", 'carts/abandon', 'admin/order-meta', 'admin/khata', 'referralCode']))
+    check('Admin: Khata tab + order tools + GSTR CSV + nudge + settings fields',
+          all(k in admx for k in ['Khata', 'gstrCSV', 'orderMeta', 'nudgeCart', 'khataPrint', 'drawStreamUrl', 'tierSilver']))
+    check('Storefront: rate pill + ready badges + welcome-back bar + EMI box',
+          all(k in app for k in ['ratePill', 'ready-badge', 'backBar', 'emi-box']))
+    check('Five new pages: bundle, giftcard, refer, videoconsult, pickup',
+          all(('pages.' + k) in app for k in ['bundle', 'giftcard', 'refer', 'videoconsult', 'pickup']))
+    check('Finale: entry counter + draw-night stream + winner announcement',
+          all(k in app for k in ['entryCount', 'drawStreamBtn', 'winnerNote']))
+    check('Funnel analytics + referral capture + abandon capture client-side',
+          all(k in app for k in ['sendEv', 'sh_ref', 'carts/abandon']))
+    check('Offline catalogue in service worker', 'offlineApi' in z.read('sw.js').decode())
+    check('BRIDALSET coupon seeded in fresh db', any(c.get('code') == 'BRIDALSET' for c in db.get('coupons', [])))
+    check('CI quality gate workflow present', '.github/workflows/qa.yml' in names)
+    check('v55 asset wiring', '/js/app.js?v=55' in idx3 and '#/bundle' in idx3 and '#/giftcard' in idx3)
 
 print(f'\n{len(ok)} passed · {len(fail)} failed')
 sys.exit(1 if fail else 0)

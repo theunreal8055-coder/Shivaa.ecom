@@ -616,3 +616,26 @@ QA: qa_v50_fresh.py 29/0 + qa_v48_static.py 83/0. Not executed: no browser/PHP h
   Still gitignored (GitHub 100 MB limit).
 - QA: fresh 63/0 (v54 block, media count self-verifies against disk),
   static 83/0, brain tests 19/0 (priceOf cases added) = 165 checks.
+
+## v55 — the big feature drop (2026-09-10)
+- **api.php**: GET /api/finale/count (public), POST /api/ev (funnel, 240/hr),
+  POST /api/carts/abandon + GET admin/carts, POST admin/order-meta (huid,
+  courier, awb, insuredValue, ewaybill, dispatchNote), GET/POST admin/khata,
+  register assigns referralCode + captures ref, pub_user exposes referralCode,
+  admin/stats gains funnel/referrals/abandonedCarts. New collections:
+  events/carts/khata (all capped).
+- **admin.js**: Khata tab (balances, entries, print statement), orders tools
+  (📱 WA update, ⭐ review ask, 📋 HUID/dispatch/e-way modal, GSTR-1 CSV),
+  overview funnel + abandoned-cart nudge cards, settings fields
+  (drawStreamUrl, winnerNote, tierSilver/Gold/Diamond).
+- **app.js**: global rate pill, funnel event beacons, ?ref= capture, pagehide
+  cart-abandon capture + welcome-back bar, shop ready badges, product EMI box,
+  pages.bundle/giftcard/refer/videoconsult/pickup, finale entry counter +
+  draw-night stream button + winner announcement, register sends ref.
+- **sw.js**: offline catalogue (products+rates cached, network-first).
+- **db**: BRIDALSET coupon seeded (10% making, min ₹25K).
+- **CI**: .github/workflows/qa.yml runs node --check + static QA + brain tests
+  on every push.
+- QA: fresh 74/0, static 83/0, brain 19/0 = 176 checks. Two stale checkers
+  corrected (seeded coupon; version-agnostic wiring check).
+- shivaa-FINAL-full.zip rebuilt: 1,070 files, 228.8 MB (incl. .github/).

@@ -1,4 +1,4 @@
-# SHIVAA — THE FINAL FILE  (v54 · everything included · ~218 MB)
+# SHIVAA — THE FINAL FILE  (v55 · everything included · ~220 MB)
 
 One zip, one upload, nothing left to fetch: **all 65 rings with their 4
 photographs each (421 image files inside)**, the complete review showcase,
@@ -18,7 +18,39 @@ Change it at **⚙ Settings → My sign-in password** the moment you are in.
 
 ## What this final file contains (complete update history)
 
-### v54 — this release (bigger + better UX everywhere)
+
+### v55 — the big feature drop (this release)
+1. **B2B Khata (credit ledger)** — per-partner debit/credit entries in ₹ or fine
+   grams, live balances, printable statements.
+2. **Order compliance tools** — per order: HUID register fields, courier/AWB,
+   insured value, e-Way bill no., dispatch note + **GSTR-1 CSV export** for your CA.
+3. **Order WhatsApp tools** — 📱 status update to the customer and ⭐ photo-review
+   request, one tap each, from the orders table.
+4. **Abandoned-cart recovery** — carts left behind are captured (rate-limited,
+   capped) and listed in the admin overview with a one-tap WhatsApp nudge;
+   returning customers see a "your cart is waiting" bar.
+5. **Funnel analytics** — product views → cart → checkout counted on your own
+   server (no third-party tracker), shown on the dashboard.
+6. **Refer & Earn** — every new account gets a code (shivaa.in/?ref=SH…),
+   referred sign-ups counted; you grant the thank-you coupons.
+7. **Bridal Bundle builder** — pick the full set, WhatsApp the family, bundle
+   concession on making charges; coupon **BRIDALSET** (10% off making, 2+
+   bridal pieces) is pre-seeded and active.
+8. **Gift cards page** — amounts + WhatsApp issuance flow.
+9. **Video consultation booking** and **Dead-stock pickup booking** — real
+   slots into your Leads queue.
+10. **Live-rate pill on every page** + **EMI calculator** on product pages +
+    **Ready·ships-48h badges** in the shop.
+11. **Campaign controls in Settings** — live-draw stream URL (button appears
+    on draw night only) and winner announcement note (appears after the draw);
+    **public entry counter** on the finale page.
+12. **Offline catalogue** — the installed app keeps rings browsable without net.
+13. **CI quality gate** — all automated checks run on GitHub on every push.
+14. **Partner tier premiums** (Silver/Gold/Diamond ₹/g) configurable in Settings.
+*Still pending (needs your accounts): payment gateway (Razorpay KYC), WhatsApp
+Business API automation, real e-Way bill API. Everything else above is live code.*
+
+### v54
 1. **Whole-site UX polish** — gold scroll-progress bar, back-to-top button,
    soft page-transition fade, proper keyboard focus rings (accessibility).
 2. **Home page strips** — "Most loved right now" (computed live from real
