@@ -316,3 +316,48 @@ folders with `meta.json` + 4 shots are present under `demo65/media` on `origin/m
 so the raw fetch resolves; `demo65/media` has no `.mp4`; zip extract-check is byte-identical.
 
 **Not done:** the bridge has never been executed anywhere. First live run is the owner's.
+
+---
+
+## v47b — the admin recovery file was dead on arrival (owner locked out)
+
+**Owner report:** "I can't reset my password on admin portal in website, now what?"
+
+**Root cause (certain, reproduced by reading the shipped file):** `cms/admin-reset.php` had
+`const ENABLED` (line 34) and `const RECOVERY_KEY` (line 35) **before** `declare(strict_types=1)`
+(line 38). PHP requires that declaration to be the very first statement — anything before it,
+including a `const`, is a **compile-time fatal**: "strict_types declaration must be the very first
+statement in the script". So the v46 break-glass file could never render; the owner saw a blank
+page / HTTP 500. The v47 rings bridge had already been corrected for the same mistake before it
+shipped, which is why only this file was affected.
+
+**Fix:** `declare(strict_types=1);` moved directly under the header comment, above both consts.
+
+**Also added to `cms/admin-reset.php`:**
+- a `register_shutdown_function` fatal-error guard, so a future failure prints a readable red box
+  ("tell the developer this text, word for word") instead of a blank page;
+- a key-gated **read-only diagnostic** button ("Check what is wrong") that reports: is the v46
+  update actually deployed (`api.php` contains `auth/reset/start`, `js/auth.js` updated)? are the
+  dashboard password/Security-log routes present? is `data/sms-config.json` configured (and the
+  last SMS attempt/error)? every account with masked mobile, whether it has a *valid* Indian
+  mobile at all, hash format and live session count; plus a plain-language verdict.
+
+**QA:** `devtools/qa_password_reset.py` → **45 passed, 0 failed**. Three new static checks:
+declare-strict_types is the first statement in *every* shipped PHP file; the fatal-error guard
+exists; the diagnostic exists. *(The first version of that ordering check was itself buggy — it
+compared against the last `<?php` and, in the fixed file, matched the string
+`declare(strict_types=1)` quoted inside the header comment. The committed version strips comments
+first and is correct.)*
+
+**Owner-side deliverables:** `shivaa-admin-recovery-FIXED.zip` (single file, upload to
+`public_html`, arm it with ENABLED=true + own RECOVERY_KEY, run it, then delete it) and the rebuilt
+`shivaa-update-v46-password-recovery.zip`. Both extract-checked byte-identical. Note handed over:
+`DEPLOY-v47-ADMIN-RECOVERY-FIX.md`.
+
+**Still open (needs an owner decision, asked in this turn):** with no SMS gateway configured,
+`api.php` returns the OTP itself — `devCode` at lines 426 (`auth/send-otp`), 550
+(`auth/reset/start`), 880 (`kyc/send-otp`), 911 (`sms/test`) — and `cms/js/auth.js` renders it as a
+"Sandbox demo code" chip. `auth/otp-login` then issues a full session token for any account whose
+phone is known, and `auth/register` *requires* a verified OTP. So the hole is an account-takeover
+vector, but disabling it before an SMS/email channel exists would block new customer sign-ups.
+**Do not "fix" it without the owner's choice.**

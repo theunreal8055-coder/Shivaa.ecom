@@ -79,7 +79,7 @@ Log in with your admin email, the setup key you just set, and your **admin passw
 - **Old site badge:** the 65 rings previously showed *"0 left"* because the supplier files carried stock `0`. This setup file corrects that to a real number (`DEFAULT_STOCK`), so the rings show as available instead of sold out.
 - **Rings appear under Men's:** each ring keeps the tags from the supplier record plus the `mens` tag, so the existing Men's Section shows them.
 - **If something looks wrong,** tap Preview and Verify and tell me the numbers — the old products are listed in `deleted_rings.json`, so nothing is unrecoverable.
-- Media on the server: the setup page writes images to `public_html/api/uploads/designs/rings/`, which is where the site already reads product photos from.
+- Media on the server: `api.php` sits at `public_html/api.php`, so the uploaded photos land in `public_html/uploads/designs/rings/` — where the site already reads product photos from.
 
 ---
 
