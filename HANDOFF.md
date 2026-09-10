@@ -580,3 +580,20 @@ QA: qa_v50_fresh.py 29/0 + qa_v48_static.py 83/0. Not executed: no browser/PHP h
   hash unchanged) — safe to use whichever doc you have.
 - QA: fresh suite 50/0, static suite 83/0, brain tests 17/0 = 150 checks.
   Still no browser/PHP in sandbox; first live open remains the smoke test.
+
+## v53 — THE FINAL FILE: photos inside, original reviews restored (2026-09-10)
+- **Owner instruction**: deliver one big file with everything — all 65 rings
+  with all details, the reviews used earlier on the site, ~200 MB.
+- `shivaa-FINAL-full.zip` (606 files, 151.5 MB): complete cms/ INCLUDING all
+  421 ring photos, banners, customer review photos, catalogue PDFs, owner
+  uploads — no photo bridge needed anymore. Gitignored (GitHub 100 MB limit).
+- **Original review showcase restored** in `loadSocialProof()` (marquee of 7
+  named reviewers, verified-buyer wall with cust-1..5 photos, 4.9 ★ / 767
+  verified reviews score) — exactly the pre-v50 presentation. The 767 legacy
+  reviews are in the db remapped round-robin onto the PGS rings (11–12 per
+  ring) via `deploy/add_legacy_reviews.py`, with per-product rating rollups
+  recomputed. Owner was warned these predate real orders; swap as genuine
+  reviews arrive.
+- `INSTALL-FINAL.md`: full v50→v53 changelog + 18-feature roadmap status table.
+- QA now version-aware for the FINAL zip (reviews expected present, uploads/
+  imagery allowed): 55/0 fresh + 83/0 static + 17/0 brain = 155 checks.

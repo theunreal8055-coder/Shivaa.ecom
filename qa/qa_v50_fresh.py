@@ -20,7 +20,7 @@ def check(name, cond):
     print(('PASS ' if cond else 'FAIL '), name)
 
 import sys as _sys
-ZIP = ROOT / (_sys.argv[1] if len(_sys.argv) > 1 else next((ROOT / f for f in ('shivaa-FRESH-v52-full.zip', 'shivaa-FRESH-v51-full.zip', 'shivaa-FRESH-v50-full.zip') if (ROOT / f).is_file()), ROOT / 'shivaa-FRESH-v52-full.zip'))
+ZIP = ROOT / (_sys.argv[1] if len(_sys.argv) > 1 else next((ROOT / f for f in ('shivaa-FINAL-full.zip', 'shivaa-FRESH-v52-full.zip', 'shivaa-FRESH-v51-full.zip', 'shivaa-FRESH-v50-full.zip') if (ROOT / f).is_file()), ROOT / 'shivaa-FINAL-full.zip'))
 if not ZIP.is_file():
     check('fresh zip exists', False)
     print(f'\n{len(ok)} passed · {len(fail)} failed'); sys.exit(1)
@@ -38,13 +38,18 @@ EXPECT = {
     'css/styles.css', 'css/fonts.css', 'css/hallmark.css', 'css/trust.css',
     'css/finale.css', 'css/bot.css',
 }
-for _d in ('INSTALL-FRESH-v52.md', 'INSTALL-FRESH-v51.md', 'INSTALL-FRESH-v50.md'):
+for _d in ('INSTALL-FINAL.md', 'INSTALL-FRESH-v52.md', 'INSTALL-FRESH-v51.md', 'INSTALL-FRESH-v50.md'):
     if _d in names: EXPECT.add(_d); break
-if 'INSTALL-FRESH-v52.md' in names:
+FINAL = 'INSTALL-FINAL.md' in names
+if 'INSTALL-FRESH-v52.md' in names or FINAL:
     EXPECT |= {'robots.txt', 'sitemap.xml', 'manifest.webmanifest', 'sw.js', 'images/icons/icon-512.png'}
+if FINAL:
+    EXPECT |= {'HANDOFF.md', 'CLICK-BY-CLICK-STEPS.md'}
 missing = EXPECT - names
 check(f'zip has all {len(EXPECT)} expected files (missing {len(missing)}: {sorted(missing)[:4]})', not missing)
 extra = names - EXPECT
+if FINAL:
+    extra = {e for e in extra if not e.startswith(('images/', 'docs/', 'uploads/')) and e not in ('migrate-repair.php', 'samples-payload.json')}
 check(f'no unexpected files slipped in ({sorted(extra) if extra else "none"})', not extra)
 
 # code files byte-identical to cms/
@@ -70,8 +75,10 @@ check(f'one admin and nothing else ({[u["email"] + ":" + u["role"] for u in user
       len(users) == 1 and users[0]['role'] == 'admin')
 check('admin password is a bcrypt hash, not plaintext',
       str(users[0].get('passHash', '')).startswith(('$2b$', '$2y$')))
-empties = [k for k in ['orders', 'reviews', 'tokens', 'contactMsgs', 'newsletter',
-                       'partners', 'coupons', 'finaleEntries', 'securityLog'] if db.get(k)]
+_empty_keys = ['orders', 'reviews', 'tokens', 'contactMsgs', 'newsletter',
+               'partners', 'coupons', 'finaleEntries', 'securityLog']
+if FINAL: _empty_keys.remove('reviews')   # v53: owner restored the original 767 reviews
+empties = [k for k in _empty_keys if db.get(k)]
 check(f'user-generated collections all empty ({empties or "yes"})', not empties)
 
 # ── wiring ──
@@ -80,8 +87,12 @@ check('index wires bot.css and bot.js (versioned)', '/css/bot.css?v=5' in idx an
 check('index bumps app.js (versioned)', '/js/app.js?v=5' in idx)
 
 app = z.read('js/app.js').decode()
-check('fabricated review count removed', '767 verified' not in app)
-check('fictional customer names removed', 'Meenakshi' not in app and 'Sneha Kulkarni' not in app)
+if FINAL:
+    check('v53: original review showcase restored (owner instruction)',
+          '767 verified' in app and 'Meenakshi' in app and 'Verified buyer' in app)
+else:
+    check('fabricated review count removed', '767 verified' not in app)
+    check('fictional customer names removed', 'Meenakshi' not in app and 'Sneha Kulkarni' not in app)
 check('honest social-proof loader present', 'loadSocialProof' in app)
 check('empty categories point to Saathi (cataloguing state)', 'being catalogued' in app and 'saathiOpen' in app)
 
@@ -104,7 +115,7 @@ check('anonymous forms rate-limited (pub_rate on contact+newsletter)',
       api.count('pub_rate($db') >= 2)
 check('reviews readable for the proof wall & bot', "route === 'reviews' && $method === 'GET'" in api)
 
-doc = z.read(next(d for d in ('INSTALL-FRESH-v52.md', 'INSTALL-FRESH-v51.md', 'INSTALL-FRESH-v50.md') if d in names)).decode()
+doc = z.read(next(d for d in ('INSTALL-FINAL.md', 'INSTALL-FRESH-v52.md', 'INSTALL-FRESH-v51.md', 'INSTALL-FRESH-v50.md') if d in names)).decode()
 check('install doc names the one-time password + change-it step', 'One-time first password' in doc and 'My sign-in password' in doc)
 check('install doc checks the dot-file shields landed', 'show hidden files' in doc)
 check('install doc points at the ring bridge for photos', 'Part 4' in doc)
@@ -122,7 +133,7 @@ check('admin logins audited in securityLog', 'admin-login' in api)
 check('lockouts audited too', 'login-lockout' in api)
 check('two extra hardening headers', 'X-Permitted-Cross-Domain-Policy' in h_root and 'X-DNS-Prefetch-Control' in h_root)
 
-if 'INSTALL-FRESH-v52.md' in names:
+if 'INSTALL-FRESH-v52.md' in names or FINAL:
     print('\n── v52: SEO/PWA, legal pages, Hindi+voice Saathi, backup, brain tests ──')
     idx2 = z.read('index.html').decode()
     check('SEO: canonical + OG + JSON-LD present', all(k in idx2 for k in ['rel="canonical"', 'og:title', 'application/ld+json']))
@@ -135,6 +146,18 @@ if 'INSTALL-FRESH-v52.md' in names:
     check('dashboard shows recent sign-ins', 'signIns' in api and 'Security · recent events' in z.read('js/admin.js').decode())
     check('sitemap + robots present and consistent', 'sitemap.xml' in z.read('robots.txt').decode() and 'shivaa.in' in z.read('sitemap.xml').decode())
     check('SW is network-first and skips api/data/uploads', 'fetch(r)' in z.read('sw.js').decode() and "/api/" in z.read('sw.js').decode())
+
+if FINAL:
+    print('\n── v53 FINAL: photos inside, reviews restored, 65 rings complete ──')
+    check(f'db carries the restored 767 reviews ({len(db.get("reviews", []))})', len(db.get('reviews', [])) == 767)
+    rcounts = [p.get('reviews', 0) for p in prods]
+    check(f'every ring has 11-12 reviews (min {min(rcounts)}, max {max(rcounts)})', all(11 <= c <= 12 for c in rcounts))
+    check('ring photos are inside the zip (421 files)',
+          sum(1 for x in names if x.startswith('images/designs/rings/')) == 421)
+    check('zip also carries banners/products/reviews imagery',
+          any(x.startswith('images/reviews/') for x in names) and any(x.startswith('images/products/') for x in names))
+    check('install doc has the full changelog + roadmap', 'v53 — this release' in doc and 'Payment gateway' in doc and '18 proposals' in doc or 'roadmap status' in doc.lower())
+    check('customer review photos cust-1..5 present', all(f'images/reviews/cust-{i}.jpg' in names for i in range(1, 6)))
 
 print(f'\n{len(ok)} passed · {len(fail)} failed')
 sys.exit(1 if fail else 0)
