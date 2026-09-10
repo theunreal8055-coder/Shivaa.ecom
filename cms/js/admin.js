@@ -438,7 +438,10 @@ window.ShivaaAdmin.smsCard = async () => {
     const s = await api('/api/sms/status');
     const st = s.stats || {}, live = !!s.configured;
     card.innerHTML = `
-      <div class="sum-row"><span>Mode</span><b style="color:${live ? '#1a7f37' : '#b45309'}">${live ? '● LIVE — real SMS via ' + esc(String(s.provider).toUpperCase()) : '● DEMO — code shown on screen, no SMS sent'}</b></div>
+      <div class="sum-row"><span>Mode</span><b style="color:${live ? '#1a7f37' : '#b45309'}">${live ? '● LIVE — real SMS via ' + esc(String(s.provider).toUpperCase()) : '● EMAIL — codes are emailed to the account address'}</b></div>
+      <div class="sum-row"><span>Email channel</span><b>${esc(String((s.email && s.email.from) || 'no-reply@your-domain'))}${s.email && s.email.file ? ' · data/mail-config.json' : ' · default settings'}</b></div>
+      ${s.email && s.email.stats ? `<div class="sum-row"><span>Emails</span><b>${s.email.stats.ok}/${s.email.stats.sent} accepted${s.email.stats.lastErr ? ' · last error below' : ''}</b></div>` : ''}
+      ${s.email && s.email.stats && s.email.stats.lastErr ? `<div class="sum-row"><span>Email error</span><b style="color:#b42318;font-size:12px">${esc(s.email.stats.lastErr)}</b></div>` : ''}
       <div class="sum-row"><span>Auto-fill</span><b>${s.autofill ? '“@shivaa.in #CODE” — Android auto-fills' : 'off'}</b></div>
       ${st.sent ? `<div class="sum-row"><span>Delivered</span><b>${st.ok}/${st.sent} OK${st.lastAt ? ' · last ' + esc(String(st.lastAt).replace('T', ' ').slice(0, 16)) : ''}</b></div>` : ''}
       ${st.lastErr ? `<div class="sum-row"><span>Last error</span><b style="color:#b42318;font-size:12px">${esc(st.lastErr)}</b></div>` : ''}
@@ -446,9 +449,13 @@ window.ShivaaAdmin.smsCard = async () => {
         <input id="admSmsPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" style="flex:1">
         <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.smsTest(event)">Send test SMS</button>
       </div>
+      <div class="kyc-inline" style="margin-top:8px">
+        <input id="admMailTo" type="email" placeholder="your email — to test code delivery" style="flex:1">
+        <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.mailTest(event)">Send test code</button>
+      </div>
       <p style="font-size:12px;color:var(--ink-3);margin:8px 0 0">${live
         ? 'Send a test to your own mobile first — errors appear above after every send.'
-        : 'To go live: create <b>data/sms-config.json</b> with your gateway keys (see <b>OTP-SETUP-GUIDE.md</b>). Until then codes appear on screen (demo mode).'}</p>`;
+        : 'No SMS gateway yet, so every one-time code is <b>emailed</b> to the account\'s own address. Use <b>Send test code</b> above to confirm email delivery works; to switch on real SMS later, create <b>data/sms-config.json</b> (see <b>OTP-SETUP-GUIDE.md</b>).'}</p>`;
   } catch (e) { card.innerHTML = `<p style="color:var(--ink-3);font-size:13px">SMS status unavailable (${esc(e.message)})</p>`; }
 };
 window.ShivaaAdmin.smsTest = async e => {
@@ -457,10 +464,21 @@ window.ShivaaAdmin.smsTest = async e => {
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   try {
     const r = await api('/api/sms/test', { method: 'POST', body: JSON.stringify({ phone: ph }) });
-    if (r.demoMode) toast('Demo mode — no gateway configured. Code was ' + r.devCode);
-    else if (r.ok) toast('Test SMS sent ✓ — check the phone');
-    else toast('Gateway error: ' + (r.error || 'unknown'), 'err');
+    if (r.ok) toast('Test SMS sent ✓ — check the phone');
+    else toast(r.note || ('Not sent: ' + (r.error || 'no SMS gateway configured')), 'err');
   } catch (err) { toast(err.message, 'err'); }
+  window.ShivaaAdmin.smsCard();
+};
+window.ShivaaAdmin.mailTest = async e => {
+  const btn = e && e.target;
+  const to = ((document.getElementById('admMailTo') || {}).value || '').trim();
+  if (!/^\S+@\S+\.\S+$/.test(to)) return toast('Enter an email address to test', 'err');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const r = await api('/api/mail/test', { method: 'POST', body: JSON.stringify({ email: to }) });
+    toast(r.ok ? ('Test code emailed to ' + r.sentTo + ' ✓ — check inbox and spam') : ('Not sent: ' + (r.error || 'unknown')), r.ok ? '' : 'err');
+  } catch (err) { toast(err.message, 'err'); }
+  if (btn) { btn.disabled = false; btn.textContent = 'Send test code'; }
   window.ShivaaAdmin.smsCard();
 };
 

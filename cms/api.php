@@ -13,6 +13,7 @@ $CAT_DIR = $ROOT . '/uploads/catalogs';
 require_once __DIR__ . '/hallmark.php';
 require_once __DIR__ . '/trust.php';
 require_once __DIR__ . '/sms.php';   // v33 — OTP SMS delivery plug-in (no-op in demo mode)
+require_once __DIR__ . '/mail.php';  // v48 — OTP by email when no SMS gateway exists
 
 /* ───────── helpers ───────── */
 function jout(int $code, $payload): void {
@@ -413,19 +414,85 @@ try {
     $s['lastAt'] = now_iso(); $s['provider'] = $r['provider'] ?? null; $s['mode'] = $r['mode'] ?? null;
     $db['sms'] = $s;
   }
+  /* ── v48 — one-time code delivery ───────────────────────────────────
+     SMS when a gateway is configured and accepts the message, otherwise
+     EMAIL to the account's own address (or, for a new registration, the
+     address the person just typed). The code is NEVER returned to the
+     caller — that was the account-takeover hole of v33…v47.
+     ─────────────────────────────────────────────────────────────────── */
+  function otp_deliver(array &$db, string $phone, string $code, string $email, string $purpose, string $name = ''): array {
+    global $DB_FILE;                       // this runs in function scope
+    $sms = shivaa_sms_send($phone, $code);
+    shivaa_sms_log($db, $sms);
+    if (($sms['mode'] ?? '') === 'live' && !empty($sms['ok'])) {
+      return ['ok' => true, 'channel' => 'sms', 'masked' => '+91 ••••••' . substr($phone, -4)];
+    }
+    /* email fallback — capped per IP so the site cannot be used as a relay */
+    $ip = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?');
+    $ip = trim(explode(',', $ip)[0]);
+    $now = time();
+    $hits = array_values(array_filter($db['mailRate'][$ip] ?? [], fn($t) => (int)$t > $now - 3600));
+    if (count($hits) >= 12) {
+      $db['mailRate'][$ip] = $hits; db_save($DB_FILE, $db);
+      return ['ok' => false, 'channel' => 'none', 'error' => 'too many codes requested from this connection in the last hour'];
+    }
+    $hits[] = $now; $db['mailRate'][$ip] = $hits;
+
+    $m = shivaa_mail_send($email, $code, $purpose === 'reset' ? 'reset' : 'verify', $name);
+    $db['mail'] = $db['mail'] ?? ['sent' => 0, 'ok' => 0, 'lastErr' => null, 'lastAt' => null];
+    $db['mail']['sent'] = (int)$db['mail']['sent'] + 1;
+    if (!empty($m['ok'])) $db['mail']['ok'] = (int)$db['mail']['ok'] + 1;
+    else $db['mail']['lastErr'] = cut500((string)($m['error'] ?? 'unknown'));
+    $db['mail']['lastAt'] = now_iso();
+    $db['mail']['lastTo'] = $m['to'] ?? '';
+
+    if (!empty($m['ok'])) return ['ok' => true, 'channel' => 'email', 'masked' => (string)$m['to'], 'name' => $name];
+    $why = (($sms['mode'] ?? '') === 'live' && empty($sms['ok']))
+      ? 'SMS failed: ' . cut500((string)($sms['error'] ?? 'unknown'))
+      : 'email failed: ' . cut500((string)($m['error'] ?? 'unknown'));
+    return ['ok' => false, 'channel' => 'none', 'error' => $why];
+  }
+  /* the account owner's address for a mobile number ('' when unknown) */
+  function otp_email_for_phone(array $db, string $phone): string {
+    foreach (($db['users'] ?? []) as $u) {
+      if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $phone) {
+        return strtolower(trim((string)($u['email'] ?? '')));
+      }
+    }
+    return '';
+  }
+  function otp_name_for_phone(array $db, string $phone): string {
+    foreach (($db['users'] ?? []) as $u) {
+      if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $phone) return trim((string)($u['name'] ?? ''));
+    }
+    return '';
+  }
+  function otp_dest_hint(array $d): string {
+    return $d['channel'] === 'email' ? ('the email address ' . $d['masked']) : ('the mobile ' . $d['masked']);
+  }
+
   if ($route === 'auth/send-otp' && $method === 'POST') {
-    $phone = substr(preg_replace('/\D/', '', (string)(body_json()['phone'] ?? '')), -10);
+    $b = body_json();
+    $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
+    /* v48 — the code goes to the account's own address; for a brand-new
+       number it goes to the email address typed in the form. */
+    $dest = otp_email_for_phone($db, $phone);
+    $typed = strtolower(trim((string)($b['email'] ?? '')));
+    $toNew = false;
+    if ($dest === '' && filter_var($typed, FILTER_VALIDATE_EMAIL)) { $dest = $typed; $toNew = true; }
+    if ($dest === '') jout(400, ['error' => 'That mobile number is not registered yet — create your account below, or add your email address so we can send the code.', 'hasAccount' => false]);
+
     $code = (string)random_int(100000, 999999);
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => $o['exp'] > time() - 3600));
-    $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false];
-    $sms = shivaa_sms_send($phone, $code);                // v33 — real SMS when data/sms-config.json exists
-    shivaa_sms_log($db, $sms);
+    $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false, 'email' => $dest];
+    $d = otp_deliver($db, $phone, $code, $dest, 'verify', $toNew ? '' : otp_name_for_phone($db, $phone));
     db_save($DB_FILE, $db);
-    if ($sms['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code]);
-    if (!$sms['ok']) jout(502, ['error' => 'Could not send the SMS just now — please try again in a minute']);
-    jout(200, ['ok' => true, 'sent' => true]);
+    if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or WhatsApp +91 89050 05921.']);
+    jout(200, ['ok' => true, 'sent' => true, 'via' => $d['channel'], 'masked' => $d['masked'],
+               'hasAccount' => !$toNew,
+               'message' => 'A 6-digit code is on its way to ' . otp_dest_hint($d) . '.']);
   }
   if ($route === 'auth/otp-login' && $method === 'POST') {
     $b = body_json();
@@ -541,15 +608,15 @@ try {
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => (int)($o['exp'] ?? 0) > $now - 3600));
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => $now + 300,
                      'tries' => 0, 'at' => $now, 'verified' => false, 'purpose' => 'reset', 'email' => $email];
-    $sms = shivaa_sms_send($phone, $code);
-    shivaa_sms_log($db, $sms);
+    $d = otp_deliver($db, $phone, $code, (string)($user['email'] ?? ''), 'reset', (string)($user['name'] ?? ''));
     $db['securityLog'][] = ['at' => now_iso(), 'event' => 'password-reset-requested', 'email' => $email,
-                            'role' => $user['role'] ?? 'customer', 'smsOk' => !empty($sms['ok']),
+                            'role' => $user['role'] ?? 'customer', 'channel' => $d['channel'] ?? 'none',
+                            'sent' => !empty($d['ok']),
                             'ip' => ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?')];
     db_save($DB_FILE, $db);
-    if (($sms['mode'] ?? '') === 'demo') jout(200, array_merge($generic, ['demoMode' => true, 'devCode' => $code]));
-    if (empty($sms['ok'])) jout(502, ['error' => 'The code could not be texted just now — please retry in a minute, or use admin-reset.php. ' . $helpNote]);
-    jout(200, array_merge($generic, ['masked' => '••••••' . substr($phone, -4)]));
+    if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or use admin-reset.php. ' . $helpNote]);
+    jout(200, array_merge($generic, ['masked' => $d['masked'], 'via' => $d['channel'],
+        'message' => 'If that email has a Shivaa account, a 6-digit code is on its way to ' . otp_dest_hint($d) . '.']));
   }
 
   if ($route === 'auth/reset/confirm' && $method === 'POST') {
@@ -868,18 +935,24 @@ try {
     jout(200, ['configured' => true, 'verified' => false, 'note' => 'GST service unreachable — admin will verify manually']);
   }
   if ($route === 'kyc/send-otp' && $method === 'POST') {
-    $phone = substr(preg_replace('/\D/', '', (string)(body_json()['phone'] ?? '')), -10);
+    $b = body_json();
+    $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
     foreach (($db['otps'] ?? []) as $o) if (($o['phone'] ?? '') === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
+    $dest = otp_email_for_phone($db, $phone);
+    $typed = strtolower(trim((string)($b['email'] ?? '')));
+    $toNew = false;
+    if ($dest === '' && filter_var($typed, FILTER_VALIDATE_EMAIL)) { $dest = $typed; $toNew = true; }
+    if ($dest === '') jout(400, ['error' => 'That mobile number is not registered yet — create your account below, or add your email address so we can send the code.', 'hasAccount' => false]);
+
     $code = (string)random_int(100000, 999999);
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => $o['exp'] > time() - 3600));
-    $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false];
-    $sms = shivaa_sms_send($phone, $code);                // v33 — real SMS when data/sms-config.json exists
-    shivaa_sms_log($db, $sms);
+    $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false, 'email' => $dest];
+    $d = otp_deliver($db, $phone, $code, $dest, 'verify', $toNew ? '' : otp_name_for_phone($db, $phone));
     db_save($DB_FILE, $db);
-    if ($sms['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code]);
-    if (!$sms['ok']) jout(502, ['error' => 'Could not send the SMS just now — please try again in a minute']);
-    jout(200, ['ok' => true, 'sent' => true]);
+    if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or WhatsApp +91 89050 05921.']);
+    jout(200, ['ok' => true, 'sent' => true, 'via' => $d['channel'], 'masked' => $d['masked'],
+               'message' => 'A 6-digit code is on its way to ' . otp_dest_hint($d) . '.']);
   }
   if ($route === 'kyc/verify-otp' && $method === 'POST') {
     $b = body_json();
@@ -899,7 +972,10 @@ try {
   if ($route === 'sms/status' && $method === 'GET') {
     need_admin($db);
     $c = shivaa_sms_config();
-    jout(200, ['configured' => (bool)$c, 'provider' => $c['provider'] ?? null, 'autofill' => (bool)($c['autofill'] ?? true), 'stats' => $db['sms'] ?? null]);
+    $mc = shivaa_mail_config();
+    jout(200, ['configured' => (bool)$c, 'provider' => $c['provider'] ?? null, 'autofill' => (bool)($c['autofill'] ?? true), 'stats' => $db['sms'] ?? null,
+               'email' => ['channel' => (bool)$c ? 'sms' : 'email', 'from' => $mc['from'], 'file' => is_file(__DIR__ . '/data/mail-config.json'),
+                           'stats' => $db['mail'] ?? null]]);
   }
   if ($route === 'sms/test' && $method === 'POST') {
     need_admin($db);
@@ -908,8 +984,27 @@ try {
     $code = (string)random_int(100000, 999999);
     $r = shivaa_sms_send($phone, $code);
     shivaa_sms_log($db, $r); db_save($DB_FILE, $db);
-    if ($r['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code, 'note' => 'No data/sms-config.json yet — gateway not configured, demo mode']);
+    if ($r['mode'] === 'demo') jout(200, ['ok' => false, 'configured' => false, 'note' => 'No SMS gateway is configured, so one-time codes are being emailed instead. Use the email test to check that channel.']);
     jout($r['ok'] ? 200 : 502, ['ok' => $r['ok'], 'provider' => $r['provider'], 'error' => $r['error'], 'response' => cut500((string)$r['response']), 'hint' => $r['ok'] ? 'Check the phone for the SMS — if it arrived, you are live.' : 'Fix the error, then test again. See OTP-SETUP-GUIDE.md.']);
+  }
+
+  /* ── v48: send yourself a real code by email (admin only) ── */
+  if ($route === 'mail/test' && $method === 'POST') {
+    need_admin($db);
+    $to = strtolower(trim((string)(body_json()['email'] ?? '')));
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email address']);
+    $code = (string)random_int(100000, 999999);
+    $r = shivaa_mail_send($to, $code, 'verify');
+    $db['mail'] = $db['mail'] ?? ['sent' => 0, 'ok' => 0, 'lastErr' => null, 'lastAt' => null];
+    $db['mail']['sent'] = (int)$db['mail']['sent'] + 1;
+    if (!empty($r['ok'])) $db['mail']['ok'] = (int)$db['mail']['ok'] + 1;
+    else $db['mail']['lastErr'] = cut500((string)($r['error'] ?? 'unknown'));
+    $db['mail']['lastAt'] = now_iso(); $db['mail']['lastTo'] = $r['to'] ?? '';
+    db_save($DB_FILE, $db);
+    jout($r['ok'] ? 200 : 502, ['ok' => (bool)$r['ok'], 'sentTo' => $r['to'], 'from' => $r['from'] ?? '',
+        'error' => $r['ok'] ? null : ($r['error'] ?? 'unknown'),
+        'hint' => $r['ok'] ? 'Check that inbox (and the spam folder). When the mail arrives, codes work for every customer.'
+                           : 'The host refused to hand the message over — see the error above, or set data/mail-config.json.']);
   }
 
   /* ── design selection → metal exchange (zero MC) ── */

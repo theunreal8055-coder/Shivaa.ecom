@@ -193,12 +193,15 @@
       if (!r.ok) { busy(btn, false); if (btn) btn.dataset.label = btn.innerHTML; return showErr(esc(d.error || 'Could not send the code — try again')); }
       if (btn) { btn.disabled = false; btn.dataset && (btn.dataset.label = btn.dataset.label || btn.innerHTML); }
       go('otp');
-      if (d.devCode) {
-        const chip = $('#shvDemo');
-        if (chip) {
+      const chip = $('#shvDemo');
+      if (chip) {
+        if (d.devCode) {                       // dev preview shim only — the live API never sends this
           chip.hidden = false; chip.innerHTML = `Sandbox demo code: <b>${esc(d.devCode)}</b> — tap to fill`;
           chip.style.cursor = 'pointer';
           chip.onclick = () => { if (window.ShivaaOtp) ShivaaOtp.fill(document.getElementById('shvOtp'), String(d.devCode)); };
+        } else if (d.masked) {                 // v48 — emailed code: say which address to check
+          chip.hidden = false;
+          chip.innerHTML = `Code sent to <b>${esc(d.masked)}</b>${d.via === 'sms' ? '' : ' — check the inbox and the spam folder'}`;
         }
       }
       startResend();
@@ -416,15 +419,20 @@
         const d = await r.json().catch(() => ({}));
         busy(btn, false);
         if (!r.ok) return showErr(esc(d.error || 'Could not send the code \u2014 please try again'));
-        resetEmail = em; resetHint = d.masked ? ('the mobile ending ' + esc(d.masked)) : 'the mobile on your account';
+        resetEmail = em;
+        resetHint = d.masked
+          ? ((d.via === 'sms' ? 'the mobile ' : 'the address ') + esc(d.masked))
+          : 'the address on your account';
         if (d.noPhone) {
-          return showErr('That account has no mobile number on file, so an SMS code cannot be sent. Please WhatsApp our desk on <b>+91 89050 05921</b>, or use <b>admin-reset.php</b> in the hosting panel.');
+          return showErr('That account has no mobile number on file, so a code cannot be sent to a phone. Please WhatsApp our desk on <b>+91 89050 05921</b>, or use <b>admin-reset.php</b> in the hosting panel.');
         }
         go('resetNew');
-        if (d.devCode) {
-          const chip = $('#shvDemo');
-          if (chip) { chip.hidden = false; chip.innerHTML = `Sandbox demo code: <b>${esc(d.devCode)}</b> \u2014 tap to fill`; chip.style.cursor = 'pointer';
-            chip.onclick = () => { if (window.ShivaaOtp) ShivaaOtp.fill(document.getElementById('shvRstOtp'), String(d.devCode)); }; }
+        const chip = $('#shvDemo');
+        if (chip && d.devCode) {               // dev preview shim only
+          chip.hidden = false; chip.innerHTML = `Sandbox demo code: <b>${esc(d.devCode)}</b> \u2014 tap to fill`; chip.style.cursor = 'pointer';
+          chip.onclick = () => { if (window.ShivaaOtp) ShivaaOtp.fill(document.getElementById('shvRstOtp'), String(d.devCode)); };
+        } else if (chip && d.masked) {
+          chip.hidden = false; chip.innerHTML = `Code sent to <b>${esc(d.masked)}</b>${d.via === 'sms' ? '' : ' \u2014 check the inbox and the spam folder'}`;
         }
       } catch (err) { busy(btn, false); showErr('No connection \u2014 please check your internet and retry'); }
     });

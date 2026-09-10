@@ -361,3 +361,53 @@ first and is correct.)*
 phone is known, and `auth/register` *requires* a verified OTP. So the hole is an account-takeover
 vector, but disabling it before an SMS/email channel exists would block new customer sign-ups.
 **Do not "fix" it without the owner's choice.**
+
+---
+
+## v48 — one-time codes by email; the code-leak hole is closed
+
+**Owner decision (this turn):** codes go by **email** (`otp_channel=email`), and the v46 update had
+**never been uploaded** (`v46_deployed=no`). So the live site never had the v45/v46 reset feature at
+all — which is the second reason "I can't reset my password" was true.
+
+**Security hole closed.** With no `data/sms-config.json`, `shivaa_sms_send()` returns
+`mode=demo`, and the four senders returned the actual OTP to the caller — `devCode` at
+`auth/send-otp`, `auth/reset/start`, `kyc/send-otp`, `sms/test` — which `cms/js/auth.js` and
+`cms/js/app.js` then rendered as a "Sandbox demo code" chip. `auth/otp-login` turns a valid code
+into a **session token**, and `auth/register` *requires* a verified OTP: so knowing a customer's
+mobile number was enough to sign in as them, and disabling demo mode naively would have blocked
+new sign-ups. Fixed by **changing the channel, not the capability**.
+
+**Implementation**
+- New `cms/mail.php` (declare-first, defensive): `shivaa_mail_config()` (optional
+  `data/mail-config.json`, else `no-reply@<host>`), `shivaa_mail_mask()`, `shivaa_mail_body()`,
+  `shivaa_mail_send()` — `mail()` with `-f` envelope sender, fallback without it, CR/LF stripped
+  from every header value, refuses anything that is not a 6-digit code, never throws.
+- `cms/api.php`: `require_once mail.php`; new `otp_deliver()` — SMS when a gateway is *configured and
+  accepts*, else email to the account's address; stores `db.mail` stats; caps emailed codes at
+  **12/hour per IP** (`db.mailRate`) so the shop cannot be used as a relay. New helpers
+  `otp_email_for_phone()`, `otp_name_for_phone()`, `otp_dest_hint()`. **`devCode` appears nowhere in
+  api.php any more.** New `POST /api/mail/test` (admin). `auth/otp-login`/`auth/register`/confirm
+  logic unchanged. `sms/status` reports the email channel + `db.mail`.
+- Sender routes now take `{phone, email?}`: an account's phone → its own address; Unknown number +
+  typed email → that address (registration/KYC); neither → 400 with `hasAccount:false`.
+- `js/auth.js`, `js/app.js`, `js/admin.js`: destination shown ("Code sent to r•••@example.com"),
+  typed email passed on sign-up, dashboard **Send test code** button, SMS card copy corrected
+  (it used to promise "codes appear on screen"). `index.html` → `?v=48`. The `d.devCode` chips
+  remain **only** as the dev-shim path.
+- `devtools/web_shim.py` mirrors all of it (keeps `devCode` for preview; phone lookup now uses the
+  last 10 digits; adds `/api/kyc/send-otp`, `/api/kyc/verify-otp`, `/api/mail/test`,
+  `/api/sms/status`).
+
+**QA:** `devtools/qa_password_reset.py` → **53 passed, 0 failed** (8 new static checks, incl. "api.php
+never returns the one-time code to the caller"). HTTP smoke on the shim: unknown number → 400 with
+`hasAccount:false`; registered number → emailed + masked destination; registration with typed email
+→ emailed; reset → emailed; `sms/status` + `mail/test` admin-gated (403 unauthenticated).
+
+**Deliverables:** `shivaa-update-v48-email-codes.zip` (10 files incl. `js/`, extract-checked
+byte-identical — deliberately **excludes `data/db.json`** so live orders cannot be overwritten) and
+`DEPLOY-v48-EMAIL-CODES.md`. Order given to the owner: get in with the fixed recovery file **first**,
+then upload this, then use the dashboard's Send test code.
+
+**Still unverified:** `mail()` has never actually run (no PHP here). Email delivery is the one thing
+only the owner's host can prove; the dashboard card surfaces `db.mail.lastErr` if it fails.

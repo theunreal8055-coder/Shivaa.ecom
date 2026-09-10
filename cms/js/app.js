@@ -2749,14 +2749,14 @@ window.Shivaa.kycOtp = async () => {
   const ph = $('#kyPhone').value.replace(/\D/g, '');
   if (ph.length !== 10) return toast('Enter a valid 10-digit mobile', 'err');
   try {
-    const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone: ph }) });
+    const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone: ph, email: ($('#kyEmail') || {}).value || '' }) });
     const st = $('#otpStat');
-    if (r.devCode) {
-      st.innerHTML = 'demo OTP: <b>' + r.devCode + '</b> — tap to fill (live SMS once the gateway is configured)';
+    if (r.devCode) {                                  // dev preview shim only
+      st.innerHTML = 'demo OTP: <b>' + r.devCode + '</b> — tap to fill';
       st.className = 'kyc-status wait'; st.style.cursor = 'pointer';
       st.onclick = () => { const i = $('#kyOtp'); if (i && window.ShivaaOtp) ShivaaOtp.fill(i, String(r.devCode)); };
     }
-    else { st.textContent = 'OTP sent to your mobile'; st.className = 'kyc-status wait'; }
+    else { st.textContent = r.masked ? ('Code sent to ' + r.masked) : 'Code sent'; st.className = 'kyc-status wait'; }
     if (window.ShivaaOtp) ShivaaOtp.watch($('#kyOtp'), () => { if (window.Shivaa.kycOtpVerify) window.Shivaa.kycOtpVerify(); });   // v33 — Android auto-fill
     toast('OTP sent ✓');
   } catch (e) { toast(e.message, 'err'); }
@@ -3238,7 +3238,7 @@ function openLogin(next = '') {
     busyBtn($('#rtOtpSend'), true, 'Sending\u2026');
     try {
       const r = await api('/api/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
-      const head = r.devCode ? 'Demo code: ' + r.devCode : 'Code sent to +91 ' + phone;
+      const head = r.devCode ? 'Demo code: ' + r.devCode : (r.masked ? 'Code sent to ' + r.masked : 'Code sent to +91 ' + phone);
       authStat('#rtOtpStat', r.hasAccount === false ? head + ' \u00b7 no account yet \u2014 create one below' : head, 'wait');
       const first = $('#rtOtpBoxes input'); first && first.focus();
     } catch (e) { toast(e.message, 'err'); }
@@ -3253,8 +3253,8 @@ function openLogin(next = '') {
     $('#regBtn').disabled = true;
     busyBtn($('#rgSend'), true, 'Sending\u2026');
     try {
-      const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
-      authStat('#rgStat', r.devCode ? 'Demo code: ' + r.devCode : 'Code sent to +91 ' + phone, 'wait');
+      const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone, email: $('#rgEmail').value.trim() }) });
+      authStat('#rgStat', r.devCode ? 'Demo code: ' + r.devCode : (r.masked ? 'Code sent to ' + r.masked : 'Code sent to +91 ' + phone), 'wait');
       const first = $('#rgBoxes input'); first && first.focus();
     } catch (e) { toast(e.message, 'err'); }
     busyBtn($('#rgSend'), false);
