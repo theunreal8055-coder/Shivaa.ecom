@@ -574,7 +574,7 @@ function finaleHomeBand() {
       </div>
       <div class="fb-main">
         <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
-        <h2 class="fb-title">Every qualifying order gets a chance to win <em>100&nbsp;g of certified 24K gold</em></h2>
+        <h2 class="fb-title">Every qualifying order gets a chance to win <em>10&nbsp;g of certified 24K gold</em></h2>
         <p class="fb-sub">Buy any gold piece of <b>3&nbsp;g or more in any karat</b> (18K / 22K / 24K) or <b>100&nbsp;g of silver</b> during the campaign window, take the short scored quiz, and you are in the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>. No purchase? The free route enters you with equal odds.</p>
         ${finaleCdHTML('homeFinaleCd')}
         <div class="fb-cta">
@@ -602,7 +602,7 @@ function finaleLanding() {
           <div class="fh-copy">
             <div class="crumbs"><a href="#/">Home</a> / The Bhai Dooj Gold Finale</div>
             <span class="fh-kicker">✦ Bhai Dooj Gold Finale · 2026</span>
-            <h1>One customer will win <em class="fh-gold">100&nbsp;g of certified 24K gold</em></h1>
+            <h1>One customer will win <em class="fh-gold">10&nbsp;g of certified 24K gold</em></h1>
             <p class="fh-sub">A lawful, CA-witnessed contest — every <b>qualifying purchase</b> (any gold piece of 3&nbsp;g or more in any karat, or 100&nbsp;g of silver per order) and every <b>free quiz entry</b> carries an equal chance in the live draw on <b>Bhai Dooj night — 11 November 2026</b>. The prize is the gold itself, at its market value on draw day.</p>
             ${finaleCdHTML()}
             <div class="fb-cta">
@@ -717,7 +717,7 @@ function finaleLanding() {
         </div>
         <div class="fin-panel rv">
           <h4>Prize, tax &amp; conduct</h4>
-          <div class="fin-rule"><span>·</span><p><b>The prize is 100&nbsp;g of certified 24K gold bullion</b> at its current market value on the draw date — announced at ≈ ₹15 lakh at the ≈ ₹15,000/g planning rate. It is never a fixed rupee figure.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>The prize is 10&nbsp;g of certified 24K gold bullion</b> at its current market value on the draw date — announced at ≈ ₹1.5 lakh at the ≈ ₹15,000/g planning rate. It is never a fixed rupee figure.</p></div>
           <div class="fin-rule"><span>·</span><p><b>Statutory TDS ≈ 31.2%</b> (30% + surcharge + 4% cess, on the CA&rsquo;s computation) is deducted at source before handover and deposited with the government. Form 16A is issued to the winner.</p></div>
           <div class="fin-rule"><span>·</span><p><b>PAN must be verified before release.</b> Without PAN the higher TDS rate applies as per law. Only statutory TDS may be deducted — never any fee, charge or &ldquo;processing cost&rdquo;.</p></div>
           <div class="fin-rule"><span>·</span><p><b>The draw is audited:</b> CA witness, SHA-256 ledger freeze, live stream and an unedited recording kept 8 years. A re-draw rule is published in advance.</p></div>
@@ -1930,8 +1930,8 @@ pages.shop = async (view, q) => {
   </div></section>
   <div class="catbar-outer shop-catbar" style="background:var(--white);border-bottom:1px solid var(--line)">${catBarHTML()}</div>
   <div class="fsheet-overlay" id="fsheetOverlay"></div>
-  <aside class="filters" id="filterDrawer" aria-label="Filters">
-    <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" aria-label="Close filters">✕</button></div>
+  <aside class="filters" id="filterDrawer" aria-label="Filters" aria-hidden="true">
+    <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" type="button" aria-label="Close filters">✕</button></div>
       <div class="fgroup"><h4>Category</h4>
         ${Object.entries(CATS).map(([k, c]) => `<label class="fcheck"><input type="checkbox" data-f="cat" value="${k}" ${cat === k ? 'checked' : ''}>${c.name}</label>`).join('')}
       </div>
@@ -1948,7 +1948,10 @@ pages.shop = async (view, q) => {
         <input type="range" id="priceRange" min="10000" max="1500000" step="5000" value="${+q.get('max') || 1500000}" style="width:100%;accent-color:var(--gold)">
         <div class="fmeta"><span>₹10,000</span><span id="priceMaxLbl">${q.get('max') ? fmt(+q.get('max')) : 'Any'}</span></div>
       </div>
-      <button class="btn btn-ghost btn-sm btn-block" id="clearFilters" style="margin-top:14px">Clear all filters</button>
+      <div class="fsheet-acts">
+        <button type="button" class="btn btn-ghost btn-sm" id="clearFilters">Clear all</button>
+        <button type="button" class="btn btn-primary btn-sm" id="applyFilters">Show pieces</button>
+      </div>
     </aside>
   <div class="container shop-main">
       <div class="shop-bar">
@@ -2001,24 +2004,43 @@ pages.shop = async (view, q) => {
     $('#resCount').innerHTML = `<b>${list.length}</b> pieces · prices update with the live rate`;
     bindTilt($('#shopGrid'));
   }
-  const closeSheet = () => { $('#filterDrawer')?.classList.remove('open'); $('#fsheetOverlay')?.classList.remove('open'); unlockScroll(); };
+  const drawer = $('#filterDrawer'), ovl = $('#fsheetOverlay');
+  const closeSheet = () => {
+    drawer?.classList.remove('open'); ovl?.classList.remove('open');
+    if (drawer) drawer.setAttribute('aria-hidden', 'true');
+    unlockScroll();
+    document.removeEventListener('keydown', onSheetKey, true);
+  };
+  const openSheet = () => {
+    drawer?.classList.add('open'); ovl?.classList.add('open');
+    if (drawer) drawer.setAttribute('aria-hidden', 'false');
+    lockScroll();
+    document.addEventListener('keydown', onSheetKey, true);
+  };
+  const onSheetKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeSheet(); } };
   const fBadge = $('#fBadge');
   const syncBadge = () => {
     const n = $$('input[data-f]:checked').length + ($('#priceRange').value < 1500000 ? 0 : 0);
     if (fBadge) { fBadge.hidden = !(n > 0); fBadge.textContent = n; }
   };
   if ($('#filterToggle')) {
-    $('#filterToggle').onclick = () => { $('#filterDrawer').classList.add('open'); $('#fsheetOverlay').classList.add('open'); lockScroll(); };
+    $('#filterToggle').onclick = openSheet;
     $('#fsheetClose').onclick = closeSheet;
-    $('#fsheetOverlay').onclick = closeSheet;
+    $('#applyFilters').onclick = () => { apply(); closeSheet(); };
+    ovl.onclick = closeSheet;
     syncBadge();
     $$('input[data-f]').forEach(i => i.addEventListener('change', syncBadge));
   }
-  $$('input[data-f]').forEach(i => i.onchange = () => { apply(); if (matchMedia('(max-width:768px)').matches) closeSheet(); });
+  /* v56: choosing a checkbox refines live but keeps the sheet open so people
+     can stack filters (the old auto-close made the sheet feel stuck). The
+     sheet closes only via ✕, the scrim, “Show pieces”, or ESC. */
+  $$('input[data-f]').forEach(i => i.onchange = () => { apply(); syncBadge(); });
   $('#priceRange').oninput = e => { $('#priceMaxLbl').textContent = e.target.value >= 1500000 ? 'Any' : fmt(+e.target.value); };
   $('#priceRange').onchange = apply;
   $('#sortSel').onchange = apply;
-  $('#clearFilters').onclick = () => { $$('input[data-f]').forEach(i => i.checked = false); $('#priceRange').value = 1500000; $('#priceMaxLbl').textContent = 'Any'; apply(); };
+  $('#clearFilters').onclick = () => { $$('input[data-f]').forEach(i => i.checked = false); $('#priceRange').value = 1500000; $('#priceMaxLbl').textContent = 'Any'; apply(); syncBadge(); };
+  /* safety: never leave a dead drawer/scrim from a previous render */
+  closeSheet();
   initCatbar();
   await apply();
 };
@@ -2217,14 +2239,9 @@ window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd
   const bbRoute = () => document.body.classList.toggle('pdp-on', (location.hash || '').startsWith('#/product/'));
   addEventListener('hashchange', bbRoute); bbRoute();
 
-  /* v55: live-rate pill on every page */
-  const pill = document.createElement('a'); pill.id = 'ratePill'; pill.href = '#/rates';
-  pill.setAttribute('aria-label', 'Today’s gold rate — open the rates page');
-  document.body.appendChild(pill);
-  const tickPill = () => fetch('/api/rates').then(r => r.json()).then(r => {
-    if (r && r.gold22) pill.innerHTML = '<b>22K</b> ₹' + Math.round(r.gold22).toLocaleString('en-IN') + '/g <span>↻</span>';
-  }).catch(() => {});
-  tickPill(); setInterval(tickPill, 300000);
+  /* v56: the floating 22K-rate pill that sat on every page was removed on
+     request (it followed the shopper everywhere). Live rates still live on
+     #/rates, in the top utility strip and inside the Saathi assistant. */
 
   /* v55: referral capture — shivaa.in/?ref=SH12AB3 */
   try {
@@ -2624,8 +2641,8 @@ pages.account = async (view, q) => {
   const tier = me.loyaltyPoints > 5000 ? 'Gold' : me.loyaltyPoints > 2000 ? 'Silver' : 'Bronze';
   const initials = me.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const prof = me.profile || {};
-  const filled = ['name', 'phone', 'email'].filter(k => me[k]).length + ['dob', 'anniversary', 'gender'].filter(k => prof[k]).length;
-  const profPct = Math.round(filled / 6 * 100);
+  const filled = ['name', 'phone', 'email'].filter(k => me[k]).length + ['dob', 'anniversary', 'gender', 'city'].filter(k => prof[k]).length;
+  const profPct = Math.round(filled / 7 * 100);
   const nAdr = (me.addresses || []).length;
 
   const tiles = [
@@ -2670,6 +2687,7 @@ pages.account = async (view, q) => {
           <option value="">Select…</option>
           ${['Male', 'Female', 'Other'].map(g => `<option ${prof.gender === g ? 'selected' : ''}>${g}</option>`).join('')}
         </select></div>
+        <div class="fld"><label>Place / city</label><input id="pfCity" value="${esc(prof.city || '')}" placeholder="e.g. Nagaur" autocomplete="address-level2"></div>
         <button class="btn btn-primary" style="grid-column:1/-1;justify-self:start">Save My Details</button>
       </form>
       <div class="qty-banner">✦ We remember your big days — birthday &amp; anniversary month brings 2× royalty points and first look at festive designs.</div>
@@ -2745,6 +2763,7 @@ window.Shivaa.saveProfile = async e => {
   try {
     const r = await api('/api/auth/profile', { method: 'PUT', body: JSON.stringify({
       name: $('#pfName').value, dob: $('#pfDob').value, anniversary: $('#pfAnn').value, gender: $('#pfGender').value,
+      city: $('#pfCity') ? $('#pfCity').value : '',
     }) });
     state.user = r.user;
     toast('Profile saved ✦'); location.hash = '#/account?tab=overview';
@@ -2973,34 +2992,44 @@ pages.b2b = async (view) => {
     <div class="b2b-form-card aurora">
       <div class="bf-head"><span class="label">Step 1 &middot; Partner Application</span><h2>Begin your partnership</h2><p>GSTIN is checksum-verified instantly &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
         <div class="b2b-step"><span>1 &middot; Fill this form</span><span>2 &middot; GST &amp; OTP verify</span><span>3 &middot; Approved in 48 h</span><span>4 &middot; Portal opens</span></div></div>
-      <form class="form-grid kyc-form" onsubmit="Shivaa.b2bApply(event)">
-        <div class="fld"><label>Firm name *</label><input id="kyFirm" required placeholder="M/s …"></div>
-        <div class="fld"><label>Contact person</label><input id="kyPerson" placeholder="Owner / manager"></div>
-        <div class="fld full"><label>GSTIN *</label>
+      <form class="form-grid kyc-form" id="b2bForm" onsubmit="Shivaa.b2bApply(event)" novalidate>
+        <div class="fld"><label>Firm name *</label><input id="kyFirm" required autocomplete="organization" placeholder="M/s …" oninput="Shivaa.kycGate()"></div>
+        <div class="fld"><label>Contact person</label><input id="kyPerson" autocomplete="name" placeholder="Owner / manager"></div>
+        <div class="fld full"><label>GSTIN * <small class="kyc-req">(verify with the button — 15 characters)</small></label>
           <div class="kyc-inline">
-            <input id="kyGstin" maxlength="15" placeholder="08AABCU9603R1ZM" style="text-transform:uppercase" required>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycGstin()">Verify GST</button>
+            <input id="kyGstin" maxlength="15" placeholder="08AABCU9603R1ZM" style="text-transform:uppercase" autocomplete="off" required oninput="Shivaa.kycFieldEdit('gstin')">
+            <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycGstin()">✓ Verify GST</button>
             <span class="kyc-status" id="gstStat"></span>
           </div></div>
-        <div class="fld"><label>City</label><input id="kyCity" placeholder="Nagaur, Jodhpur…"></div>
-        <div class="fld"><label>Mobile (OTP verified) *</label>
+        <div class="fld"><label>City *</label><input id="kyCity" placeholder="Nagaur, Jodhpur…" autocomplete="address-level2" oninput="Shivaa.kycGate()"></div>
+        <div class="fld"><label>Owner PAN <small class="kyc-req">(optional)</small></label><input id="kyPan" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase" autocomplete="off"></div>
+        <div class="fld full"><label>Mobile number * <small class="kyc-req">(we text a 6-digit code — any Indian mobile)</small></label>
           <div class="kyc-inline">
-            <input id="kyPhone" maxlength="10" placeholder="10-digit" inputmode="numeric" required>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycOtp()">Send OTP</button>
+            <span class="kyc-cc">+91</span>
+            <input id="kyPhone" maxlength="10" placeholder="10-digit mobile" inputmode="numeric" autocomplete="tel-national" required oninput="Shivaa.kycFieldEdit('otp')">
+            <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycOtp()">Send OTP</button>
           </div></div>
-        <div class="fld full"><label>Enter OTP *</label>
+        <div class="fld full"><label>Enter the 6-digit OTP *</label>
           <div class="kyc-inline">
-            <input id="kyOtp" maxlength="6" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycOtpVerify()">Verify OTP</button>
+            <input id="kyOtp" maxlength="6" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" oninput="Shivaa.kycGate()">
+            <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycOtpVerify()">✓ Verify OTP</button>
             <span class="kyc-status" id="otpStat"></span>
           </div></div>
-        <div class="fld"><label>Email (portal login) *</label><input id="kyEmail" type="email" required></div>
-        <div class="fld"><label>Owner PAN</label><input id="kyPan" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase"></div>
-        <div class="fld full"><label>Choose portal password *</label><input id="kyPass" type="password" minlength="6" required></div>
-        <div class="fld full"><label>What do you stock / need?</label><input id="kyMsg" placeholder="Bridal sets, chains, silver…"></div>
-        <button class="btn btn-primary btn-block" id="kycSubmit" style="grid-column:1/-1" disabled>Complete KYC &amp; Apply →</button>
-        <p class="kyc-note">GSTIN checksum-verified · mobile OTP-verified · admin approval within 48 h</p>
+        <div class="fld"><label>Email <small class="kyc-req">(your portal login)</small> *</label><input id="kyEmail" type="email" autocomplete="email" required oninput="Shivaa.kycGate()"></div>
+        <div class="fld"><label>Choose a portal password *</label><input id="kyPass" type="password" minlength="6" autocomplete="new-password" required oninput="Shivaa.kycGate()"></div>
+        <div class="fld full"><label>What do you stock / need? <small class="kyc-req">(optional)</small></label><input id="kyMsg" placeholder="Bridal sets, chains, silver…"></div>
+        <p class="kyc-note">GSTIN checksum-verified &middot; mobile OTP-verified &middot; approval within 48 h. The button below stays locked until every business detail above is complete and verified.</p>
       </form>
+
+      <!-- always-visible application bar: present from the start, clickable
+           only after all business details + both verifications are done -->
+      <div class="kyc-bar" id="kycBar">
+        <div class="kyc-bar-info">
+          <b id="kycBarTitle">Complete your KYC details</b>
+          <small id="kycBarTodo">Preparing application…</small>
+        </div>
+        <button type="submit" form="b2bForm" class="btn btn-primary btn-lg" id="kycSubmit" disabled>Complete KYC &amp; Apply →</button>
+      </div>
 
       <div class="alt-actions">
         <span class="alt-div"><i></i><b>or</b><i></i></span>
@@ -3051,6 +3080,7 @@ pages.b2b = async (view) => {
     </div>
 
   </div>`;
+  setTimeout(() => { try { window.Shivaa.kycGate(); } catch (e) {} }, 0);
 };
 /* ─────────── SERVICES (D2C) ─────────── */
 window._kyc = { gstin: false, otp: false };
@@ -3107,9 +3137,50 @@ window.Shivaa.partnerLogin = () => {
   if (isPartner()) { location.hash = '#/partner'; return; }
   openLogin('partner');
 };
-window.Shivaa.kycGate = () => { const b = $('#kycSubmit'); if (b) b.disabled = !(window._kyc.gstin && window._kyc.otp); };
+/* editing an already-verified GSTIN / phone invalidates that verification
+   until it is re-verified — the sticky bar updates itself instantly */
+window.Shivaa.kycFieldEdit = (which) => {
+  if (which === 'gstin') {
+    window._kyc.gstin = false;
+    const st = $('#gstStat'); if (st) { st.textContent = ''; st.className = 'kyc-status'; }
+  }
+  if (which === 'otp') {
+    window._kyc.otp = false;
+    const st = $('#otpStat'); if (st) { st.textContent = ''; st.className = 'kyc-status'; }
+    const otp = $('#kyOtp'); if (otp) otp.value = '';
+  }
+  window.Shivaa.kycGate();
+};
+window.Shivaa.kycGate = () => {
+  const b = $('#kycSubmit');
+  if (!b) return;
+  const v = id => ($(id) ? $(id).value.trim() : '');
+  const steps = [
+    { ok: v('#kyFirm').length >= 2, label: 'Firm name' },
+    { ok: v('#kyCity').length >= 2, label: 'City' },
+    { ok: !!window._kyc.gstin, label: 'GST verified' },
+    { ok: !!window._kyc.otp, label: 'Mobile OTP verified' },
+    { ok: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('#kyEmail')), label: 'Valid email' },
+    { ok: v('#kyPass').length >= 6, label: 'Portal password (6+)' },
+  ];
+  const done = steps.filter(s => s.ok);
+  const missing = steps.filter(s => !s.ok).map(s => s.label);
+  const ready = done.length === steps.length;
+  b.disabled = !ready;
+  b.setAttribute('aria-disabled', String(!ready));
+  const title = $('#kycBarTitle'), todo = $('#kycBarTodo');
+  if (title) title.textContent = ready ? 'All set — your application is ready ✦' : 'Complete your KYC details';
+  if (todo) todo.textContent = ready
+    ? 'GSTIN & mobile verified · tap to apply'
+    : done.length + '/' + steps.length + ' done · next: ' + missing.slice(0, 2).join(', ');
+  const bar = $('#kycBar');
+  if (bar) bar.classList.toggle('ready', ready);
+};
 window.Shivaa.b2bApply = async e => {
   e.preventDefault();
+  window.Shivaa.kycGate();
+  const btn = $('#kycSubmit');
+  if (btn && btn.disabled) return toast('Complete every business detail and both verifications first — the button shows what is left.', 'err');
   if (!window._kyc.gstin || !window._kyc.otp) return toast('Complete GST & OTP verification first', 'err');
   try {
     const r = await api('/api/partners/apply', { method: 'POST', body: JSON.stringify({
@@ -3119,7 +3190,7 @@ window.Shivaa.b2bApply = async e => {
     }) });
     if (r.token) { setToken(r.token); state.user = r.user; }
     openModal(`<div class="center"><div style="font-size:48px">✦</div><h3 style="margin:10px 0">KYC Complete — Application Received!</h3><p style="color:var(--ink-2)">GSTIN <b>${esc($('#kyGstin').value.toUpperCase())}</b> verified · mobile OTP verified. Your partner portal account is live — full access once our team approves (usually within 48 hours).</p><a class="btn btn-primary" href="#/partner" style="margin-top:14px">Open Partner Portal</a></div>`);
-    e.target.reset(); window._kyc = { gstin: false, otp: false };
+    e.target.reset(); window._kyc = { gstin: false, otp: false }; window.Shivaa.kycGate();
   } catch (err) { toast(err.message, 'err'); }
 };
 
@@ -5145,7 +5216,10 @@ async function boot(isRedraw) {
   </div>`;
   // open/close behaviour (desktop: full-width panel under header; mobile: inside menu)
   const panel = $('#catMenu'), backdrop = $('#megaBackdrop'), catsBtn = $('#navCats');
-  const closeMega = () => { if (matchMedia('(max-width:680px)').matches) return; panel.hidden = true; backdrop.hidden = true; catsBtn?.setAttribute('aria-expanded', 'false'); document.documentElement.classList.remove('no-scroll'); };
+  /* v56: the mega panel never locks the page itself, so closing it must not
+     strip the scroll-lock owned by another sheet (this used to unlock the
+     background the moment the filter drawer's toggle was tapped). */
+  const closeMega = () => { if (matchMedia('(max-width:680px)').matches) return; if (panel.hidden) return; panel.hidden = true; backdrop.hidden = true; catsBtn?.setAttribute('aria-expanded', 'false'); };
   if (catsBtn && !catsBtn._wired) {
     catsBtn._wired = true;
     catsBtn.onclick = e => {

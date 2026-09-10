@@ -22,7 +22,18 @@
 
   let wrap = null, card = null, step = 'start', aud = 'retail';
   let otpPhone = '', otpTimer = null, resendLeft = 0, verifiedPhone = '';
-  let intent = '';
+  let intent = '', pendingNew = false;
+
+  /* v56: "remember me" — a saved profile gives a one-tap OTP next visit */
+  const SAVE_KEY = 'shv_saved_login';
+  const getSaved = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { return null; } };
+  const saveLogin = (u) => {
+    try {
+      if (!u || !u.phone) return;
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ name: u.name || '', phone: String(u.phone).replace(/\D/g, '').slice(-10) }));
+    } catch (e) {}
+  };
+  const clearSaved = () => { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} };
 
   /* ─────────────────────────── shell ─────────────────────────── */
   function ensureShell() {
@@ -76,12 +87,13 @@
   /* ─────────────────────── step machine ─────────────────────── */
   let resetEmail = '', resetHint = '';
   const HEADS = {
-    start:    ['Welcome to Shivaa', 'Sign in or create your account'],
-    phone:    ['Sign in with your mobile', 'No password needed \u2014 we text you a 6-digit code'],
+    start:    ['Welcome to Shivaa', 'Sign in or create an account with your mobile'],
+    phone:    ['Sign in with your mobile', 'No password needed \u2014 we text a 6-digit code to every number'],
     otp:      ['Enter the 6-digit code', function () { return 'Sent by SMS to +91 ' + esc(digits(otpPhone).slice(-10)); }],
     email:    ['Welcome back', 'Sign in with your email and password'],
     jwl:      ['Jeweller \u00b7 Partner sign-in', 'For approved B2B partners \u2014 bullion, designs & schemes'],
-    register: ['Create your account', 'Takes under a minute \u00b7 you earn 120 welcome points \u2726'],
+    register: ['Your details', 'Takes under a minute \u00b7 you earn 120 welcome points \u2726'],
+    details:  ['Tell us about you', 'One-time details after your mobile is verified'],
     reset:    ['Reset your password', 'We text a 6-digit code to the mobile registered on your account'],
     resetNew: ['Choose a new password', function () { return 'Code sent to the mobile on ' + esc(resetEmail || 'your account'); }],
   };
@@ -96,7 +108,7 @@
     const body = $('#shvBody');
     setHead(HEADS[s] || HEADS.start);
     body.className = 'shv-body aud-' + (aud === 'jwl' && (s === 'start' || s === 'email' || s === 'jwl') ? 'jwl' : 'retail');
-    ({ start, phone, otp, email, jwl, register, reset, resetNew }[s] || start)(body);
+    ({ start, phone, otp, email, jwl, register, details, reset, resetNew }[s] || start)(body);
     const f = body.querySelector('input'); if (f) setTimeout(() => f.focus(), 60);
   }
   const backTo = s => `<button type="button" class="shv-back" id="shvBack" aria-label="Back">&#8249;</button>`;
@@ -111,45 +123,58 @@
     ? `<p class="shv-preview">&#9432; Preview mode: this sandbox blocks browser storage, so sign-ins reset when the page reloads. On shivaa.in you stay signed in.</p>` : '';
   const busy = (btn, on, label) => { if (!btn) return; btn.disabled = on; btn.innerHTML = on ? `<span class="shv-spin"></span>${esc(label || 'One moment\u2026')}` : btn.dataset.label; };
 
-  /* ─────────────────────── STEP · start ─────────────────────── */
+  /* ─────────────────────── STEP · start (v56: mobile OTP for everyone) ───────────────────────
+     Every shopper signs in with a mobile number + one-time SMS code. Codes
+     are sent even to brand-new numbers; after verifying an unknown number
+     we ask for the personal details once. Email/password and the jeweller
+     partner door remain available as quiet secondary links. */
   function start(body) {
+    const saved = getSaved();
     body.innerHTML = `
-      <div class="shv-seg" role="tablist">
-        <button type="button" class="shv-seg-btn ${aud !== 'jwl' ? 'on' : ''}" data-aud="retail">&#128717;&#65039; Shopping</button>
-        <button type="button" class="shv-seg-btn ${aud === 'jwl' ? 'on' : ''}" data-aud="jwl">&#10022; Jeweller &middot; B2B</button>
+      ${saved ? `
+        <button type="button" class="shv-saved" id="shvSavedGo" title="Send a code to this number">
+          <span class="sv-ic">&#128100;</span>
+          <span><b>${esc(saved.name || 'My saved number')}</b><small>+91 ${esc(digits(saved.phone).replace(/(\d{2})(\d{4})(\d{4})/, '$1 $2 $3'))} &middot; tap to get an OTP</small></span>
+          <span class="sv-go">&#8250;</span>
+          <span class="shv-saved-x" id="shvSavedX" role="button" aria-label="Remove saved number" title="Remove">&#10005;</span>
+        </button>` : ''}
+      ${errBox()}
+      <form id="shvStartForm" novalidate>
+        <label class="shv-lbl" for="shvPhoneIn">Mobile number</label>
+        <div class="shv-phone-row">
+          <span class="shv-cc">+91</span>
+          <input id="shvPhoneIn" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="10-digit mobile" required>
+        </div>
+        <button type="submit" class="shv-cta" id="shvPhoneBtn" data-label="&#10148;&nbsp; Send OTP &amp; continue">&#10148;&nbsp; Send OTP &amp; continue</button>
+      </form>
+      <div class="shv-or">or</div>
+      <div class="shv-soft-acts">
+        <button type="button" class="shv-link" id="shvGoEmail" style="text-align:center">&#9993;&#65039; Continue with email &amp; password</button>
+        <button type="button" class="shv-link" id="shvGoJwl" style="text-align:center">&#10022; Jeweller / B2B partner sign-in</button>
       </div>
-      ${aud === 'jwl' ? `
-        <button type="button" class="shv-door" id="shvGoJwl">
-          <span class="sd-ic">&#10022;</span>
-          <span class="sd-tx"><b>Partner sign-in</b><small>Bullion desk &middot; design selection &middot; schemes</small></span>
-          <span class="sd-arrow">&#8250;</span>
-        </button>
-        <button type="button" class="shv-door shv-door-soft" id="shvGoApply">
-          <span class="sd-ic">&#9998;</span>
-          <span class="sd-tx"><b>Apply for partnership</b><small>Free GSTIN-based KYC &middot; approved within 48 h</small></span>
-          <span class="sd-arrow">&#8250;</span>
-        </button>
-        <p class="shv-fine">Approved partners sign in with the email used in the KYC application. Trouble? <a href="javascript:void(0)" id="shvJwlHelp">WhatsApp the B2B desk</a>.</p>
-      ` : `
-        <button type="button" class="shv-door shv-door-gold" id="shvGoPhone">
-          <span class="sd-ic">&#128241;</span>
-          <span class="sd-tx"><b>Continue with mobile</b><small>One-tap code sign-in &middot; no password <em class="shv-rec">Recommended</em></small></span>
-          <span class="sd-arrow">&#8250;</span>
-        </button>
-        <button type="button" class="shv-door" id="shvGoEmail">
-          <span class="sd-ic">&#9993;&#65039;</span>
-          <span class="sd-tx"><b>Continue with email</b><small>Email &amp; password</small></span>
-          <span class="sd-arrow">&#8250;</span>
-        </button>
-        <p class="shv-fine">New to Shivaa? Creating an account takes a minute and earns <b>120 royalty points</b>.</p>
-      `}
+      <p class="shv-fine" style="text-align:center">New number is fine &mdash; we still text the code, then ask your name, date of birth and city once. Creating an account earns <b>120 royalty points</b>.</p>
       ${previewNote()}`;
-    $$('.shv-seg-btn').forEach(b => b.onclick = () => { aud = b.dataset.aud; go('start'); });
-    const gp = $('#shvGoPhone'); if (gp) gp.onclick = () => go('phone');
+    const inp = $('#shvPhoneIn');
+    inp.addEventListener('input', () => { inp.value = digits(inp.value).slice(0, 10); });
+    $('#shvStartForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const ph = digits(inp.value);
+      if (!/^[6-9]\d{9}$/.test(ph)) return showErr('Enter a valid 10-digit Indian mobile number');
+      otpPhone = ph;
+      await sendOtp();
+    });
+    if (saved) {
+      $('#shvSavedGo').onclick = (e) => {
+        if (e.target.closest('#shvSavedX')) return;
+        otpPhone = digits(saved.phone);
+        inp.value = otpPhone;
+        sendOtp();
+      };
+      $('#shvSavedX').onclick = (e) => { e.stopPropagation(); clearSaved(); go('start'); };
+    }
     const ge = $('#shvGoEmail'); if (ge) ge.onclick = () => go('email');
     const gj = $('#shvGoJwl');   if (gj) gj.onclick = () => go('jwl');
-    const ga = $('#shvGoApply'); if (ga) ga.onclick = applyForPartnership;
-    const jh = $('#shvJwlHelp'); if (jh) jh.onclick = () => { if (window.Shivaa && window.Shivaa.waPartnerId) window.Shivaa.waPartnerId(); };
+    setTimeout(() => inp.focus(), 80);
   }
 
   function applyForPartnership() {
@@ -191,6 +216,7 @@
       const r = await fetch('/api/auth/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: otpPhone }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { busy(btn, false); if (btn) btn.dataset.label = btn.innerHTML; return showErr(esc(d.error || 'Could not send the code — try again')); }
+      pendingNew = d.hasAccount === false;          // unknown number → advanced details step after OTP
       if (btn) { btn.disabled = false; btn.dataset && (btn.dataset.label = btn.dataset.label || btn.innerHTML); }
       go('otp');
       const chip = $('#shvDemo');
@@ -223,9 +249,11 @@
   function otp(body) {
     body.innerHTML = `${backTo('phone')}
       ${errBox()}
+      ${pendingNew ? '<p class="shv-new-hi">&#128241; New number detected &#183; the code is on its way. Once it checks out, tell us your name, date of birth and city &#183; no password needed.</p>' : ''}
       <div class="shv-otp" id="shvOtp">${Array.from({ length: 6 }, (_, i) => `<input inputmode="numeric" maxlength="1" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label=" digit ${i + 1}">`).join('')}</div>
       <div class="shv-demo" id="shvDemo" hidden></div>
       <button type="button" class="shv-cta" id="shvOtpBtn" data-label="&#10003;&nbsp; Verify &amp; continue">&#10003;&nbsp; Verify &amp; continue</button>
+      <label class="shv-save"><input type="checkbox" id="shvRemember" checked><span>Remember this number on this device &#183; next time, one tap gets you an OTP</span></label>
       <div class="shv-otp-acts"><button type="button" class="shv-link" id="shvResend">Resend code</button><button type="button" class="shv-link" id="shvChangeNum">Change number</button></div>
       ${previewNote()}`;
     bindBack('phone');
@@ -249,7 +277,7 @@
       });
     });
     $('#shvResend').onclick = () => { if (resendLeft <= 0) sendOtp(); };
-    $('#shvChangeNum').onclick = () => go('phone');
+    $('#shvChangeNum').onclick = () => go(pendingNew ? 'start' : 'phone');
     $('#shvOtpBtn').onclick = () => verifyOtp();
     // v33 — auto-fill: Android reads the “@shivaa.in #code” SMS line by itself
     if (window.ShivaaOtp) ShivaaOtp.watch(document.getElementById('shvOtp'), () => { if (boxes.every(x => x.value)) verifyOtp(); });
@@ -263,10 +291,14 @@
       try {
         const r = await fetch('/api/auth/otp-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: otpPhone, code }) });
         const d = await r.json().catch(() => ({}));
-        if (r.ok && d.token) { land(d); return; }
-        if (r.status === 404) {                       // fresh number → account creation
+        if (r.ok && d.token) {
+          if ($('#shvRemember')?.checked) saveLogin({ name: d.user && d.user.name, phone: otpPhone });
+          else clearSaved();
+          land(d); return;
+        }
+        if (r.status === 404) {                       // fresh number → one-time details form
           verifiedPhone = otpPhone;
-          busy(btn, false); go('register'); return;
+          busy(btn, false); go('details'); return;
         }
         busy(btn, false); verifying = false;
         showErr(esc(d.error || 'Incorrect or expired code'));
@@ -275,7 +307,92 @@
     }
   }
 
-  /* ─────────────────────── STEP · register ─────────────────────── */
+  /* ───────────── STEP · details (new mobile, one-time personal form) ───────────── */
+  function details(body) {
+    const ph = digits(verifiedPhone || otpPhone).slice(-10);
+    body.innerHTML = `${backTo('start')}
+      ${errBox()}
+      <p class="shv-new-hi">&#127881; Your mobile <b>+91 ${esc(ph)}</b> is verified. A few one-time details and your account is ready &#183; future logins need only the OTP.</p>
+      <form id="shvDetForm" novalidate>
+        <label class="shv-lbl" for="shvDetName">Full name *</label>
+        <input id="shvDetName" autocomplete="name" placeholder="e.g. Ravi Sharma" required>
+        <div class="shv-grid2">
+          <div>
+            <label class="shv-lbl" for="shvDetDob">Date of birth *</label>
+            <input id="shvDetDob" type="date" autocomplete="bday" required>
+          </div>
+          <div>
+            <label class="shv-lbl" for="shvDetCity">Place / city *</label>
+            <input id="shvDetCity" autocomplete="address-level2" placeholder="e.g. Nagaur" required>
+          </div>
+          <div>
+            <label class="shv-lbl" for="shvDetGender">Gender</label>
+            <select id="shvDetGender" autocomplete="sex">
+              <option value="">Prefer not to say</option>
+              <option>Male</option><option>Female</option><option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="shv-lbl" for="shvDetAnn">Anniversary <small>(optional)</small></label>
+            <input id="shvDetAnn" type="date" autocomplete="anniversary">
+          </div>
+        </div>
+        <label class="shv-lbl" for="shvDetEmail">Email <small>(optional &#183; for receipts &amp; email sign-in)</small></label>
+        <input id="shvDetEmail" type="email" autocomplete="email" placeholder="you@example.com">
+        <label class="shv-lbl" for="shvDetPw">Password <small>(optional &#183; OTP login works without one)</small></label>
+        <div class="shv-pw"><input id="shvDetPw" type="password" autocomplete="new-password" placeholder="only if you want email sign-in">
+          <button type="button" class="shv-eye" id="shvDetEye" aria-label="Show password">&#128065;&#65039;</button></div>
+        <div class="shv-meter"><i id="shvDetMeter"></i></div>
+        <label class="shv-save"><input type="checkbox" id="shvDetSave" checked><span>Save my details on this device so signing in next time is one tap &#183; no typing</span></label>
+        <button type="submit" class="shv-cta" id="shvDetBtn" data-label="Create my account &#10022;">Create my account &#10022;</button>
+      </form>
+      ${previewNote()}`;
+    bindBack('start');
+    const pw = $('#shvDetPw');
+    $('#shvDetEye').onclick = () => { pw.type = pw.type === 'password' ? 'text' : 'password'; };
+    pw.addEventListener('input', () => {
+      const v = pw.value; let s = 0;
+      if (v.length >= 8) s++; if (/[A-Z]/.test(v) && /[a-z]/.test(v)) s++; if (/\d/.test(v)) s++; if (/[^A-Za-z0-9]/.test(v)) s++;
+      const m = $('#shvDetMeter'); m.style.width = (s * 25) + '%'; m.className = s <= 1 ? 'weak' : s === 2 ? 'ok' : s === 3 ? 'good' : 'strong';
+    });
+    setTimeout(() => $('#shvDetName').focus(), 80);
+    $('#shvDetForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = $('#shvDetName').value.trim();
+      const dob = $('#shvDetDob').value, city = $('#shvDetCity').value.trim();
+      const gender = $('#shvDetGender').value, ann = $('#shvDetAnn').value;
+      const email = $('#shvDetEmail').value.trim(), pass = pw.value;
+      if (name.length < 2) return showErr('Please tell us your full name');
+      if (!dob) return showErr('Your date of birth helps us personalise offers &#183; pick a date');
+      if (city.length < 2) return showErr('Please tell us your place / city');
+      if (email && !/^\S+@\S+\.\S+$/.test(email)) return showErr('That email does not look right &#183; or leave it blank');
+      if (pass && pass.length < 8) return showErr('Password must be at least 8 characters &#183; or leave it blank and use OTP forever');
+      const btn = $('#shvDetBtn'); busy(btn, true, 'Creating\u2026');
+      const profile = {};
+      if (dob) profile.dob = dob;
+      if (ann) profile.anniversary = ann;
+      if (gender) profile.gender = gender;
+      if (city) profile.city = city;
+      const body = { name, phone: ph, profile };
+      if (email) body.email = email;
+      if (pass) body.password = pass;
+      try {
+        const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.token) {
+          if ($('#shvDetSave').checked) saveLogin({ name, phone: ph }); else clearSaved();
+          land(d); return;
+        }
+        busy(btn, false);
+        if (r.status === 409) showErr('That email already has an account. <a href="javascript:void(0)" id="shvToEmail">Sign in with email instead</a>');
+        else if (/phone/i.test(d.error || '')) showErr(esc(d.error) + ' &#183; go back and verify the number again.');
+        else showErr(esc(d.error || 'Could not create the account'));
+        const t = $('#shvToEmail'); if (t) t.onclick = () => go('email');
+      } catch (err) { busy(btn, false); showErr('No connection &#183; please check your internet and retry'); }
+    });
+  }
+
+  /* ─────────────────────── STEP · register (legacy email/password door, kept as fallback) ─────────────────────── */
   function register(body) {
     const phLocked = !!verifiedPhone;
     body.innerHTML = `${backTo(phLocked ? 'start' : 'start')}

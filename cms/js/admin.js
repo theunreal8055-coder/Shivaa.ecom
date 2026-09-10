@@ -722,13 +722,60 @@ window.ShivaaAdmin.editProduct = id => {
         <small style="font-size:10.5px;color:var(--ink-3)">Fine metal = (gross − less) × (1 − wastage%) — jewellers only</small>
       </div>
       <div class="fld"><label>Stock</label><input type="number" value="${p.stock}" name="stock"></div>
-      <div class="fld full"><label>Image</label><select class="sortsel" style="width:100%;border-radius:12px" name="image">${IMG_FILES.map(f => `<option value="/images/products/${f}" ${p.images[0].endsWith(f) ? 'selected' : ''}>${f}</option>`).join('')}</select></div>
+      <div class="fld full"><label>Product pictures ${id ? '· tap the ★ to choose which picture is shown in the list (primary)' : '· pick a picture'}</label>
+        <div class="apg-grid" id="apgGrid"></div>
+        <div class="kyc-inline" style="margin-top:6px">
+          <select class="sortsel" id="apgStock" style="flex:1;min-width:180px;border-radius:12px">${IMG_FILES.map(f => `<option value="/images/products/${f}">${f}</option>`).join('')}</select>
+          <button type="button" class="btn btn-ghost btn-sm" id="apgAdd">+ Add this picture</button>
+        </div>
+        <p class="apg-hint">The picture with the solid gold ★ is the primary picture — it is what shoppers see in the list, the cart and shared links.</p>
+      </div>
       <div class="fld full"><label>Sizes (comma separated)</label><input value="${esc((p.sizes || []).join(', '))}" name="sizes"></div>
       <div class="fld full"><label>Tags (comma: wedding, festive, daily, gifting, mens, new, bestseller)</label><input value="${esc((p.tags || []).join(', '))}" name="tags"></div>
       <div class="fld full"><label>Description</label><textarea name="desc">${esc(p.desc)}</textarea></div>
       <button class="btn btn-primary btn-block">${id ? 'Save changes' : 'Add product'}</button>
     </form>`, 'lg');
   window._ep = p;
+
+  /* v56 primary-image picker — images[0] is the list/primary picture */
+  window._epImages = (p.images || []).slice();
+  const renderImgGrid = () => {
+    const grid = document.getElementById('apgGrid');
+    if (!grid) return;
+    grid.innerHTML = window._epImages.map((src, i) => `
+      <div class="apg-thumb ${i === 0 ? 'primary' : ''}" title="${i === 0 ? 'Primary picture' : 'Tap ★ to make this the primary picture'}">
+        <button type="button" class="apg-star" data-i="${i}" title="Set as primary picture">${i === 0 ? '★' : '☆'}</button>
+        <button type="button" class="apg-x" data-i="${i}" title="Remove this picture">✕</button>
+        <img src="${src}" alt="product picture ${i + 1}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
+        ${i === 0 ? '<span class="apg-tag">Primary</span>' : ''}
+      </div>`).join('');
+    grid.querySelectorAll('.apg-star').forEach(b => b.onclick = () => {
+      const i = +b.dataset.i;
+      const [cur] = window._epImages.splice(i, 1);
+      window._epImages.unshift(cur);
+      renderImgGrid();
+    });
+    grid.querySelectorAll('.apg-x').forEach(b => b.onclick = () => {
+      const i = +b.dataset.i;
+      if (window._epImages.length <= 1) { window.Shivaa.toast('Keep at least one picture, or add one below', 'err'); return; }
+      window._epImages.splice(i, 1);
+      renderImgGrid();
+    });
+  };
+  renderImgGrid();
+  const addBtn = document.getElementById('apgAdd');
+  if (addBtn) addBtn.onclick = () => {
+    const sel = document.getElementById('apgStock');
+    const src = sel.value;
+    if (window._epImages.includes(src)) {
+      window._epImages = window._epImages.filter(x => x !== src);
+      window._epImages.unshift(src);
+    } else {
+      window._epImages.push(src);
+    }
+    renderImgGrid();
+    window.Shivaa.toast('Picture added — tap its ★ to make it primary');
+  };
 };
 window.ShivaaAdmin.saveProduct = async (e, id) => {
   e.preventDefault();
@@ -736,12 +783,16 @@ window.ShivaaAdmin.saveProduct = async (e, id) => {
   const g = n => { const el = f.querySelector(`[name="${n}"]`); return el ? el.value : ''; };
   if (g('mcScheme') === 'percent' && (!g('mcValue') || +g('mcValue') <= 0 || +g('mcValue') > 60)) return toast('Enter making charges % (0-60)', 'err');
   if (!(+g('weightG') > 0)) return toast('Weight must be greater than 0', 'err');
+  /* v56: preserve the full picture set with the admin-chosen primary first */
+  let images = (window._epImages || []).slice();
+  if (!images.length) { const sel = document.getElementById('apgStock'); if (sel && sel.value) images = [sel.value]; }
+  if (!images.length) return toast('Add at least one product picture', 'err');
   const body = {
     name: g('name').trim(), category: g('category'), metal: g('metal'), purity: g('purity'),
     weightG: +g('weightG'), mcScheme: g('mcScheme'), mcValue: +g('mcValue') || 0,
     stoneValue: +g('stoneValue') || 0, stoneType: g('stoneType'), stoneColour: g('stoneColour'),
     stock: +g('stock') || 0, lessWeightG: +g('lessWeightG') || 0, wastagePct: +g('wastagePct') || 0,
-    images: [g('image')],
+    images,
     sizes: g('sizes').split(',').map(s => s.trim()).filter(Boolean),
     tags: g('tags').split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
     desc: g('desc'),

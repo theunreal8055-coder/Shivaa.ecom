@@ -3,10 +3,10 @@
    first and the cache is only a fallback (bad connection / offline).
    GET + same-origin requests only; the API and uploads always go live. */
 'use strict';
-const SHELL = 'shivaa-shell-v55';
-const SHELL_FILES = ['/', '/index.html', '/css/fonts.css?v=42', '/css/styles.css?v=43',
-  '/css/hallmark.css?v=42', '/css/trust.css?v=42', '/css/finale.css?v=44', '/css/bot.css?v=52',
-  '/js/app.js?v=54', '/js/bot.js?v=53', '/images/icons/icon-512.png'];
+const SHELL = 'shivaa-shell-v56';
+const SHELL_FILES = ['/', '/index.html', '/css/fonts.css?v=42', '/css/styles.css?v=56',
+  '/css/hallmark.css?v=42', '/css/trust.css?v=42', '/css/finale.css?v=44', '/css/bot.css?v=56',
+  '/js/app.js?v=56', '/js/bot.js?v=56', '/images/icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES).catch(() => {})).then(() => self.skipWaiting()));

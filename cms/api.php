@@ -439,8 +439,19 @@ try {
     global $DB_FILE;                       // this runs in function scope
     $sms = shivaa_sms_send($phone, $code);
     shivaa_sms_log($db, $sms);
+    /* demo build (no SMS gateway configured): show the code in the API
+       response so on-screen previews work — works for brand-new numbers
+       that have no email on file, exactly like a live SMS would. */
+    if (($sms['mode'] ?? '') === 'demo') {
+      return ['ok' => true, 'channel' => 'sms', 'mode' => 'demo',
+              'devCode' => $code, 'masked' => '+91 ••••••' . substr($phone, -4)];
+    }
     if (($sms['mode'] ?? '') === 'live' && !empty($sms['ok'])) {
-      return ['ok' => true, 'channel' => 'sms', 'masked' => '+91 ••••••' . substr($phone, -4)];
+      return ['ok' => true, 'channel' => 'sms', 'mode' => 'live', 'masked' => '+91 ••••••' . substr($phone, -4)];
+    }
+    if ($email === '') {
+      return ['ok' => false, 'channel' => 'none',
+              'error' => 'SMS failed: ' . cut500((string)($sms['error'] ?? 'unknown')) . ' and no fallback email is on file'];
     }
     /* email fallback — capped per IP so the site cannot be used as a relay */
     $ip = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?');
@@ -491,22 +502,25 @@ try {
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
-    /* v48 — the code goes to the account's own address; for a brand-new
-       number it goes to the email address typed in the form. */
+    /* v56 — OTP goes to EVERY valid mobile number, registered or not.
+       Existing accounts: SMS first, email fallback to the account address.
+       Brand-new numbers: SMS (or the on-screen code in demo builds); after
+       the code verifies, the client collects name / DOB / place once. */
     $dest = otp_email_for_phone($db, $phone);
+    $hasAccount = $dest !== '';
     $typed = strtolower(trim((string)($b['email'] ?? '')));
     $toNew = false;
     if ($dest === '' && filter_var($typed, FILTER_VALIDATE_EMAIL)) { $dest = $typed; $toNew = true; }
-    if ($dest === '') jout(400, ['error' => 'That mobile number is not registered yet — create your account below, or add your email address so we can send the code.', 'hasAccount' => false]);
 
     $code = (string)random_int(100000, 999999);
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => $o['exp'] > time() - 3600));
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false, 'email' => $dest];
-    $d = otp_deliver($db, $phone, $code, $dest, 'verify', $toNew ? '' : otp_name_for_phone($db, $phone));
+    $d = otp_deliver($db, $phone, $code, $dest, 'verify', $hasAccount ? otp_name_for_phone($db, $phone) : '');
     db_save($DB_FILE, $db);
     if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or WhatsApp +91 89050 05921.']);
     jout(200, ['ok' => true, 'sent' => true, 'via' => $d['channel'], 'masked' => $d['masked'],
-               'hasAccount' => !$toNew,
+               'hasAccount' => $hasAccount && !$toNew,
+               'devCode' => $d['devCode'] ?? null,
                'message' => 'A 6-digit code is on its way to ' . otp_dest_hint($d) . '.']);
   }
   if ($route === 'auth/otp-login' && $method === 'POST') {
@@ -529,20 +543,45 @@ try {
   }
   if ($route === 'auth/register' && $method === 'POST') {
     $b = body_json();
-    if (empty($b['name']) || empty($b['email']) || empty($b['password'])) jout(400, ['error' => 'Name, email & password required']);
-    if (strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
+    if (empty($b['name'])) jout(400, ['error' => 'Name is required']);
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Valid 10-digit phone required']);
+    if (!empty($b['password']) && strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
     $otpOk = false;
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && !empty($o['verified']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
-    foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower($b['email'])) jout(409, ['error' => 'Email already registered']);
+    /* one account per mobile — the OTP already proves possession */
+    foreach ($db['users'] as $uE) if (substr(preg_replace('/\D/', '', (string)($uE['phone'] ?? '')), -10) === $phone) {
+      $tk = issue_token($db, $uE); db_save($DB_FILE, $db); jout(200, ['token' => $tk, 'user' => pub_user($uE)]);
+    }
+    /* v56 mobile-first sign-up: email & password are optional. Missing email
+       gets a non-routable synthetic address keyed to the verified number; a
+       missing password becomes a random secret (OTP remains the login door). */
+    $email = strtolower(trim((string)($b['email'] ?? '')));
+    if ($email !== '') {
+      if (!filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'That email does not look valid']);
+      foreach ($db['users'] as $u) if (strtolower($u['email']) === $email) jout(409, ['error' => 'Email already registered']);
+    } else {
+      $email = $phone . '@phone.shivaa.in';
+    }
+    $pass = !empty($b['password']) ? (string)$b['password'] : bin2hex(random_bytes(16));
+    /* one-time personal details (name/DOB/place form) */
+    $profile = is_array($b['profile'] ?? null) ? $b['profile'] : [];
+    foreach (['dob', 'anniversary', 'gender', 'city'] as $pk) {
+      if (isset($b[$pk])) $profile[$pk] = $b[$pk];
+    }
+    foreach ($profile as $pk => $pv) {
+      if (!in_array($pk, ['dob', 'anniversary', 'gender', 'city'], true)) { unset($profile[$pk]); continue; }
+      $profile[$pk] = mb_substr(trim((string)$pv), 0, 40);
+    }
+    $profile = array_filter($profile, fn($v) => $v !== '');
     $ref = strtoupper((string)($b['ref'] ?? ''));
-    $u = ['id' => uid('u'), 'name' => $b['name'], 'email' => strtolower($b['email']), 'phone' => $phone,
-          'passHash' => pw_hash((string)$b['password']), 'role' => 'customer',
+    $u = ['id' => uid('u'), 'name' => cut500(trim((string)$b['name'])), 'email' => strtolower($email), 'phone' => $phone,
+          'passHash' => pw_hash($pass), 'role' => 'customer',
           'loyaltyPoints' => 120, 'wishlist' => [], 'createdAt' => now_iso(),
           'referralCode' => 'SH' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5)),
           'referredBy' => preg_match('/^SH[A-Z0-9]{5}$/', $ref) ? $ref : null];
+    if ($profile) $u['profile'] = $profile;
     $db['users'][] = $u; $tk = issue_token($db, $u);
     db_save($DB_FILE, $db); jout(200, ['token' => $tk, 'user' => pub_user($u)]);
   }
@@ -739,7 +778,7 @@ try {
     $b = body_json();
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
       $uu['profile'] = $uu['profile'] ?? [];
-      foreach (['dob', 'anniversary', 'gender'] as $k) if (isset($b[$k])) $uu['profile'][$k] = mb_substr((string)$b[$k], 0, 20);
+      foreach (['dob', 'anniversary', 'gender', 'city'] as $k) if (isset($b[$k])) $uu['profile'][$k] = mb_substr((string)$b[$k], 0, 40);
       if (!empty($b['name'])) $uu['name'] = cut500(trim((string)$b['name']));
       $u = $uu;
     }
@@ -971,19 +1010,21 @@ try {
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
     foreach (($db['otps'] ?? []) as $o) if (($o['phone'] ?? '') === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
+    /* v56 — like the retail login, any valid mobile number receives a code */
     $dest = otp_email_for_phone($db, $phone);
+    $hasAccount = $dest !== '';
     $typed = strtolower(trim((string)($b['email'] ?? '')));
     $toNew = false;
     if ($dest === '' && filter_var($typed, FILTER_VALIDATE_EMAIL)) { $dest = $typed; $toNew = true; }
-    if ($dest === '') jout(400, ['error' => 'That mobile number is not registered yet — create your account below, or add your email address so we can send the code.', 'hasAccount' => false]);
 
     $code = (string)random_int(100000, 999999);
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => $o['exp'] > time() - 3600));
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false, 'email' => $dest];
-    $d = otp_deliver($db, $phone, $code, $dest, 'verify', $toNew ? '' : otp_name_for_phone($db, $phone));
+    $d = otp_deliver($db, $phone, $code, $dest, 'verify', $hasAccount ? otp_name_for_phone($db, $phone) : '');
     db_save($DB_FILE, $db);
     if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or WhatsApp +91 89050 05921.']);
     jout(200, ['ok' => true, 'sent' => true, 'via' => $d['channel'], 'masked' => $d['masked'],
+               'devCode' => $d['devCode'] ?? null,
                'message' => 'A 6-digit code is on its way to ' . otp_dest_hint($d) . '.']);
   }
   if ($route === 'kyc/verify-otp' && $method === 'POST') {
