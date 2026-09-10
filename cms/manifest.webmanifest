@@ -1,0 +1,15 @@
+{
+  "name": "Shivaa — Fine Jewellery",
+  "short_name": "Shivaa",
+  "description": "Honest purity, live-rate pricing, BIS hallmarked jewellery from Jayal, Rajasthan.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1d0509",
+  "theme_color": "#3d0e15",
+  "categories": ["shopping", "lifestyle"],
+  "icons": [
+    { "src": "/images/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/images/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

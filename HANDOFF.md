@@ -554,3 +554,29 @@ QA: qa_v50_fresh.py 29/0 + qa_v48_static.py 83/0. Not executed: no browser/PHP h
   obsolete — use the v51 doc). Ring photos still come via the Part 4 bridge.
 - QA: `qa_v48_static.py` 83/0, `qa_v50_fresh.py` (now version-aware, prefers v51)
   40/0. No browser/PHP in sandbox — first live open remains the smoke test.
+
+## v52 — SEO/PWA, legal pages, Hindi+voice Saathi, owner power-ups (2026-09-10)
+- **SEO/PWA**: canonical + Open Graph + twitter meta, JewelryStore JSON-LD,
+  `robots.txt`, `sitemap.xml`, `manifest.webmanifest` + gold ✦ icon
+  (`images/icons/icon-512.png`, AI-generated), network-first `sw.js` (skips
+  /api/ /data/ /uploads/ — never stale). Assets bumped to ?v=52.
+- **Legal pages**: `#/terms`, `#/refund`, `#/shipping` (honest, Consumer
+  Protection/E-comm-rules aligned), linked in the footer bottom bar.
+- **Saathi v52**: Hindi/Hinglish detection (Devanagari + roman words),
+  FACTS_HI answers incl. the भाई दूज scheme, Devanagari digits, Devanagari
+  product words mapped to categories; 🎤 voice input (on-device
+  SpeechRecognition, hi-IN/en-IN, hidden when unsupported);
+  `window.Saathi._test` hooks for automated tests.
+- **Admin**: dashboard 🛡 card shows last 6 security events (signIns added to
+  /api/admin/stats); 💾 one-tap DB backup (GET /api/admin/backup strips
+  tokens/loginfails, admin-only) downloading `shivaa-backup-YYYY-MM-DD.json`.
+- **Fixed v51 leftover**: footer link still said "New Year Gold Finale" —
+  now "Bhai Dooj Gold Finale"; QA now asserts no "New Year" in index.html.
+- **New test harness**: `qa/test_bot_brain.js` — loads the real bot.js under a
+  DOM stub, 17 assertions on budget parsing, categories, occasions, Hindi
+  detection, synonym scoring.
+- **Fresh install v52**: `shivaa-FRESH-v52-full.zip` (32 files, 1.6 MB incl.
+  icon) + `INSTALL-FRESH-v52.md`. Same one-time password as v51 (fresh db
+  hash unchanged) — safe to use whichever doc you have.
+- QA: fresh suite 50/0, static suite 83/0, brain tests 17/0 = 150 checks.
+  Still no browser/PHP in sandbox; first live open remains the smoke test.

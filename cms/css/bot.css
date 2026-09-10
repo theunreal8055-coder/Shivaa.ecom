@@ -156,3 +156,13 @@ body.saathi-open #saathiPanel { transform: translateY(0); }
 .sa-fbrow { display: flex; align-items: center; gap: 8px; padding: 0 4px 6px; font-size: 11px; color: var(--ink-3); }
 .sa-fb { border: 0; background: none; cursor: pointer; font-size: 13px; filter: grayscale(1); opacity: .7; }
 .sa-fb:hover { filter: none; opacity: 1; }
+
+/* ─── Saathi v52: voice input ─── */
+#saathiMic {
+  border: 1px solid var(--line); background: var(--white); border-radius: 11px;
+  width: 38px; height: 38px; font-size: 16px; cursor: pointer; flex: 0 0 38px;
+  transition: border-color .2s, background .2s, transform .15s;
+}
+#saathiMic:hover { border-color: var(--gold); background: var(--gold-faint); }
+#saathiMic.live { border-color: var(--maroon); background: var(--gold-faint); animation: saMic 1s infinite; }
+@keyframes saMic { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }

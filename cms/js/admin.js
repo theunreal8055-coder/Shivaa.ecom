@@ -81,6 +81,9 @@ async function renderAdmin(view, q) {
           ${stats.lowStock && stats.lowStock.length ? `<div style="display:grid;gap:8px">${stats.lowStock.map(l => `<div class="sum-row"><span>${esc(l.name)}</span><b style="color:${l.stock === 0 ? 'var(--bad)' : 'var(--warn)'}">${l.stock} left</b></div>`).join('')}</div>` : '<p style="color:var(--ink-3);font-size:13.5px">All pieces healthy (stock > 3).</p>'}</div>
         <div class="adm-card"><h3>Pending service requests <a class="btn btn-ghost btn-sm" href="#/admin?tab=leads">Open →</a></h3>
           <p style="font-size:42px;font-family:var(--ff-disp);color:var(--maroon)">${stats.serviceRequests || 0}</p><span style="font-size:13px;color:var(--ink-3)">bespoke / repair / appointments awaiting first response</span></div>
+        <div class="adm-card"><h3>🛡 Security · recent events</h3>
+          ${(stats.signIns && stats.signIns.length) ? `<div style="display:grid;gap:6px">${stats.signIns.map(e => `<div class="sum-row"><span>${e.event === 'admin-login' ? '✅ Admin sign-in' : e.event === 'login-lockout' ? '🔒 Lockout — 5 failed tries' : esc(e.event)}${e.email ? ' · ' + esc(e.email) : ''}</span><b style="font-weight:500;font-size:12px;color:var(--ink-3)">${esc(String(e.at || '').slice(0,16).replace('T',' '))}</b></div>`).join('')}</div>` : '<p style="color:var(--ink-3);font-size:13.5px">No events yet — admin sign-ins and lockouts appear here automatically.</p>'}
+        </div>
       </div>
       <div class="grid2">
         <div class="adm-card"><h3>🔐 My sign-in password</h3>
@@ -418,6 +421,10 @@ async function renderAdmin(view, q) {
         <div class="fld full"><label>Announcement ticker (one per line)</label><textarea name="announcements">${esc((S.announcements || []).join('\n'))}</textarea></div>
         <button class="btn btn-primary btn-sm" style="justify-self:start">Save settings</button>
       </form></div>
+      <div class="adm-card"><h3>💾 Data backup <span style="font-size:11px;color:var(--ink-3);font-weight:400">one tap, saves the whole database (orders, customers, products) to your device</span></h3>
+        <p style="font-size:13px;color:var(--ink-3);margin-bottom:10px">Download a copy after big days. To restore, the file goes back into <code>data/db.json</code> via File Manager (ask us if unsure — never overwrite blindly).</p>
+        <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.backup()">Download backup now</button>
+      </div>
       <div class="adm-card"><h3>Code delivery (SMS / email) <span style="font-size:11px;color:var(--ink-3);font-weight:400">codes for sign-in, sign-up, KYC &amp; password reset</span></h3><div id="admSmsCard">Loading gateway status…</div></div>
       <div class="adm-card"><h3>Legal & registrations (read-only)</h3>
         <div class="sum-row"><span>Legal entity</span><b>${esc(S.legalName || 'Ernate Shine Jewellery Private Limited')}</b></div>
@@ -495,6 +502,19 @@ window.ShivaaAdmin.login = async e => {
 window.ShivaaAdmin.refreshRates = async () => {
   try { const r = await api('/api/rates/refresh', { method: 'POST' }); toast('Rates refreshed · source: ' + r.source); await window.Shivaa.state; location.reload(); }
   catch (e) { toast(e.message, 'err'); }
+};
+window.ShivaaAdmin.backup = async () => {
+  try {
+    const r = await fetch('/api/admin/backup', { headers: { 'Authorization': 'Bearer ' + token() } });
+    if (!r.ok) throw new Error('backup failed');
+    const j = await r.json();
+    const blob = new Blob([JSON.stringify(j, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'shivaa-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('Backup downloaded — keep it somewhere safe', 'ok');
+  } catch (e) { toast(e.message || 'Could not make the backup', 'err'); }
 };
 window.ShivaaAdmin.setOverride = async e => {
   e.preventDefault();

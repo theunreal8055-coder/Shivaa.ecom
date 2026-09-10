@@ -1312,7 +1312,15 @@ try {
                'pendingPartners' => count(array_filter($db['partners'], fn($x) => $x['status'] === 'pending')),
                'serviceRequests' => count(array_filter($db['serviceRequests'], fn($s) => $s['status'] === 'new')),
                'aov' => count($db['orders']) ? (int)round($rev / count($db['orders'])) : 0,
-               'byDay' => $byDay, 'newsletter' => count($db['newsletter']), 'lowStock' => $low]);
+               'byDay' => $byDay, 'newsletter' => count($db['newsletter']), 'lowStock' => $low,
+               'signIns' => array_reverse(array_slice($db['securityLog'] ?? [], -6))]);
+  }
+  /* v52: one-tap full-database backup for the owner (admin token required;
+     session tokens are stripped so the file can't be used to hijack a login). */
+  if ($route === 'admin/backup' && $method === 'GET') {
+    need_admin($db);
+    $bk = $db; unset($bk['tokens'], $bk['loginfails']);
+    jout(200, ['at' => now_iso(), 'backup' => $bk]);
   }
   if ($route === 'admin/users' && $method === 'GET') {
     need_admin($db);
@@ -1320,7 +1328,7 @@ try {
   }
 
   /* ─────────────────────────────────────────────────────────────
-     NEW YEAR GOLD FINALE · scored quiz entries (deck-compliant)
+     BHAI DOOJ GOLD FINALE · scored quiz entries (deck-compliant)
      One entry per person (the logged-in user) across the purchase
      route and the free no-purchase route. The server owns the
      question bank and re-scores submissions, so a client can never

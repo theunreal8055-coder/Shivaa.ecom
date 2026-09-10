@@ -20,7 +20,7 @@ def check(name, cond):
     print(('PASS ' if cond else 'FAIL '), name)
 
 import sys as _sys
-ZIP = ROOT / (_sys.argv[1] if len(_sys.argv) > 1 else ('shivaa-FRESH-v51-full.zip' if (ROOT / 'shivaa-FRESH-v51-full.zip').is_file() else 'shivaa-FRESH-v50-full.zip'))
+ZIP = ROOT / (_sys.argv[1] if len(_sys.argv) > 1 else next((ROOT / f for f in ('shivaa-FRESH-v52-full.zip', 'shivaa-FRESH-v51-full.zip', 'shivaa-FRESH-v50-full.zip') if (ROOT / f).is_file()), ROOT / 'shivaa-FRESH-v52-full.zip'))
 if not ZIP.is_file():
     check('fresh zip exists', False)
     print(f'\n{len(ok)} passed · {len(fail)} failed'); sys.exit(1)
@@ -38,8 +38,10 @@ EXPECT = {
     'css/styles.css', 'css/fonts.css', 'css/hallmark.css', 'css/trust.css',
     'css/finale.css', 'css/bot.css',
 }
-if 'INSTALL-FRESH-v51.md' in names: EXPECT.add('INSTALL-FRESH-v51.md')
-else: EXPECT.add('INSTALL-FRESH-v50.md')
+for _d in ('INSTALL-FRESH-v52.md', 'INSTALL-FRESH-v51.md', 'INSTALL-FRESH-v50.md'):
+    if _d in names: EXPECT.add(_d); break
+if 'INSTALL-FRESH-v52.md' in names:
+    EXPECT |= {'robots.txt', 'sitemap.xml', 'manifest.webmanifest', 'sw.js', 'images/icons/icon-512.png'}
 missing = EXPECT - names
 check(f'zip has all {len(EXPECT)} expected files (missing {len(missing)}: {sorted(missing)[:4]})', not missing)
 extra = names - EXPECT
@@ -102,7 +104,7 @@ check('anonymous forms rate-limited (pub_rate on contact+newsletter)',
       api.count('pub_rate($db') >= 2)
 check('reviews readable for the proof wall & bot', "route === 'reviews' && $method === 'GET'" in api)
 
-doc = z.read('INSTALL-FRESH-v51.md' if 'INSTALL-FRESH-v51.md' in names else 'INSTALL-FRESH-v50.md').decode()
+doc = z.read(next(d for d in ('INSTALL-FRESH-v52.md', 'INSTALL-FRESH-v51.md', 'INSTALL-FRESH-v50.md') if d in names)).decode()
 check('install doc names the one-time password + change-it step', 'One-time first password' in doc and 'My sign-in password' in doc)
 check('install doc checks the dot-file shields landed', 'show hidden files' in doc)
 check('install doc points at the ring bridge for photos', 'Part 4' in doc)
@@ -119,6 +121,20 @@ check('Saathi live-rate ticker in header', 'saathiTick' in bot)
 check('admin logins audited in securityLog', 'admin-login' in api)
 check('lockouts audited too', 'login-lockout' in api)
 check('two extra hardening headers', 'X-Permitted-Cross-Domain-Policy' in h_root and 'X-DNS-Prefetch-Control' in h_root)
+
+if 'INSTALL-FRESH-v52.md' in names:
+    print('\n── v52: SEO/PWA, legal pages, Hindi+voice Saathi, backup, brain tests ──')
+    idx2 = z.read('index.html').decode()
+    check('SEO: canonical + OG + JSON-LD present', all(k in idx2 for k in ['rel="canonical"', 'og:title', 'application/ld+json']))
+    check('PWA: manifest + SW registration wired', 'manifest.webmanifest' in idx2 and "register('/sw.js')" in idx2)
+    check('footer campaign link says Bhai Dooj, no New Year anywhere in index', 'Bhai Dooj Gold Finale' in idx2 and 'New Year' not in idx2)
+    check('legal pages terms/refund/shipping in app.js + footer links', all(('pages.' + k) in app for k in ('terms', 'refund', 'shipping')) and '#/terms' in idx2 and '#/refund' in idx2 and '#/shipping' in idx2)
+    check('Saathi v52: Hindi engine + voice mic + test hooks', 'FACTS_HI' in bot and 'saathiMic' in bot and '_test' in bot)
+    check('Saathi Hindi facts cover the scheme', 'भाई दूज' in bot and '10 ग्राम' in bot)
+    check('admin backup endpoint + button', "admin/backup" in api and 'ShivaaAdmin.backup' in z.read('js/admin.js').decode())
+    check('dashboard shows recent sign-ins', 'signIns' in api and 'Security · recent events' in z.read('js/admin.js').decode())
+    check('sitemap + robots present and consistent', 'sitemap.xml' in z.read('robots.txt').decode() and 'shivaa.in' in z.read('sitemap.xml').decode())
+    check('SW is network-first and skips api/data/uploads', 'fetch(r)' in z.read('sw.js').decode() and "/api/" in z.read('sw.js').decode())
 
 print(f'\n{len(ok)} passed · {len(fail)} failed')
 sys.exit(1 if fail else 0)

@@ -1482,6 +1482,53 @@ function renderRateStrip() {
 }
 
 /* ─────────── HOME ─────────── */
+/* ── v52 legal pages: terms · refund · shipping (honest, DPDP/E-comm-rules aligned) ── */
+const legalShell = (crumb, title, ital, intro, body) => `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / ${crumb}</div><h1>${title} <em class="disp-italic">${ital}</em></h1>
+  <p>${intro}</p></div></section>
+  <div class="container" style="padding:40px 0 60px;max-width:880px">${body}</div>`;
+const legalCard = (t, b) => `<div class="adm-card" style="margin-bottom:16px"><h3 style="margin-bottom:8px">${t}</h3><div style="font-size:14.5px;line-height:1.75;color:var(--ink-2)">${b}</div></div>`;
+
+pages.terms = async (view) => {
+  view.innerHTML = legalShell('Terms of Sale', 'Buying from Shivaa, ', 'plainly', 'The full agreement between you and Ernate Shine Jewellery Pvt. Ltd. — short, honest, and without traps.',
+    legalCard('1 · Who we are', 'Shivaa Jewellers is the retail brand of <b>Ernate Shine Jewellery Pvt. Ltd.</b>, operating from Jayal, Nagaur, Rajasthan (GST-registered). Support: +91 89050 05921 · Support@shivaa.in · all days 10:00–20:30 IST.') +
+    legalCard('2 · Prices & GST', 'Prices are computed live from weight × the day\u2019s Jaipur rate + a published making charge + stone value where applicable. <b>3% GST</b> is shown in the price table before you order, and every bill carries the full breakup. Prices shown before you place an order are the prices you pay.') +
+    legalCard('3 · Orders & acceptance', 'An order is accepted when we confirm it and begin work/dispatch. If a design is out of stock or a weight varies by more than ±5%, we contact you before proceeding — you may adjust, exchange or cancel with a full refund.') +
+    legalCard('4 · Purity promise', 'Every gold piece is <b>BIS hallmarked</b>; HUID is printed on your bill and verifiable in the BIS Care app. Silver is 925 stamped. If any certified assay ever proves a piece under-purity, we replace it or refund in full.') +
+    legalCard('5 · The Bhai Dooj Gold Finale contest', 'Run under published rules: three equal-odds entry routes (a 3 g+ gold purchase, a 100 g silver order, or the free quiz), one entry per person, purchases never multiply odds, CA-witnessed live draw on Bhai Dooj, 11 November 2026, prize 10 g certified 24K gold, TDS 31.2% where applicable, void in Tamil Nadu and West Bengal. Full rules live on the campaign page.') +
+    legalCard('6 · Disputes', 'We would rather talk than fight — message us first. Failing that, disputes are governed by Indian law with courts at Nagaur, Rajasthan having jurisdiction. Consumer rights under the Consumer Protection Act, 2019 are unaffected.'));
+  bindLegalWa(view);
+};
+
+pages.refund = async (view) => {
+  view.innerHTML = legalShell('Refund & Return Policy', 'Returns without ', 'drama', 'The exact same policy Saathi quotes — now in writing, as e-commerce rules require.',
+    legalCard('7-day easy returns', 'Unworn, unused pieces in original packaging with the bill and hallmark card can be returned within <b>7 days of delivery</b>. No questions, no restocking fee. We arrange pickup or reimburse your courier.') +
+    legalCard('Refund timing', 'Refunds are issued to the original payment method within <b>5–7 working days</b> of the piece reaching us and passing a quick check. UPI/card refunds can take a further 2–3 days on the bank\u2019s side.') +
+    legalCard('Lifetime exchange', 'Beyond 7 days, exchange any piece for life at the <b>live rate by weight and assay</b> — you pay only the difference plus making on the new design.') +
+    legalCard('What cannot be returned', 'Custom/engraved pieces made to your specification, and items visibly damaged by misuse. We will always tell you honestly if a piece falls here — never after you shipped it.') +
+    legalCard('Damaged or wrong delivery', 'If a piece arrives damaged or wrong, photograph it before opening the seal and message us within 48 hours — replacement is on us, both ways insured.'));
+  bindLegalWa(view);
+};
+
+pages.shipping = async (view) => {
+  view.innerHTML = legalShell('Shipping Policy', 'Insured to your ', 'doorstep', 'How your jewellery travels — and what protects it on the way.',
+    legalCard('Dispatch', 'In-stock pieces dispatch within <b>48 hours</b>. Made-to-order and engraved pieces take 5–8 working days; you get the timeline at checkout.') +
+    legalCard('Insurance & tracking', 'Every shipment is <b>fully insured and tamper-sealed</b> at our declared invoice value, anywhere in India. You receive a tracking number by WhatsApp/SMS the moment the courier picks up.') +
+    legalCard('Delivery times', 'Rajasthan: 1–3 days. Metro cities: 2–4 days. Rest of India: 3–6 days. Signature-on-delivery is mandatory — the seal is checked in front of the courier.') +
+    legalCard('Shipping charges', 'Shown transparently at checkout; free above the threshold published in store settings. No hidden fees, ever.') +
+    legalCard('If the seal is broken', 'Do not accept the parcel. Refuse delivery and message us immediately — the insurer and courier handle it, and your replacement/refund starts the same day.'));
+  bindLegalWa(view);
+};
+
+const bindLegalWa = (view) => {
+  const wa = document.createElement('div');
+  wa.style.cssText = 'text-align:center;padding:10px 0 0';
+  wa.innerHTML = '<button class="btn btn-gold btn-sm" id="legalWa">Question? Ask on WhatsApp</button>';
+  view.appendChild(wa);
+  const b = view.querySelector('#legalWa');
+  if (b && window.Shivaa.waOpen) b.onclick = () => window.Shivaa.waOpen('Namaste Shivaa \u2726\n\nI have a question about your policies: ');
+};
+
 pages.home = async (view) => {
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
   const best = [...best0, ...state.productsCache.filter(p => !best0.includes(p))].slice(0, 12);
