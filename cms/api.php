@@ -251,7 +251,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -489,6 +489,148 @@ try {
     }
     jout(401, ['error' => 'Invalid email or password']);
   }
+  /* ── password reset & change (v45) ───────────────────────────────────
+     The site had no way to recover a password: only a signed-in admin
+     could set someone else's, so the owner themselves could get locked
+     out with no way back in. Three doors now exist, in order of what a
+     real person has available:
+
+       1. auth/reset/start + auth/reset/confirm — email → 6-digit OTP to
+          the account's REGISTERED MOBILE (possession factor) → new
+          password. Works for admin accounts too. Never reveals whether
+          an email exists. Every existing session token for that account
+          is revoked on success, so a stolen session cannot survive.
+       2. auth/change-password — signed in already? change it with the
+          current password; other sessions are dropped, this one stays.
+       3. admin-reset.php (shipped as a separate break-glass file) — for
+          when the SIM/SMS is unavailable. One-time, key-gated, deletes
+          itself. Nothing about it lives in this API.
+
+     Every event is written to db['securityLog'] with time, role and IP.
+     ──────────────────────────────────────────────────────────────────── */
+  if ($route === 'auth/reset/start' && $method === 'POST') {
+    if (($db['settings']['otpReset'] ?? true) === false) {
+      jout(403, ['error' => 'Password reset by SMS is switched off on this site — please contact the owner, or use the admin-reset.php recovery file on the server.']);
+    }
+    $email = strtolower(trim((string)(body_json()['email'] ?? '')));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email address']);
+    // The reply is deliberately identical whether or not the account exists.
+    $generic = ['ok' => true, 'sent' => true,
+                'message' => 'If that email has a Shivaa account, a 6-digit code is on its way to the registered mobile number.'];
+    $helpNote = 'No mobile on file, or no SMS arriving? Use the admin-reset.php recovery file in your hosting panel, or WhatsApp +91 89050 05921.';
+
+    $now = time();
+    $hits = array_values(array_filter($db['resetRate'][$email] ?? [], fn($t) => (int)$t > $now - 3600));
+    if (!empty($hits) && $now - (int)end($hits) < 30) jout(429, ['error' => 'Please wait 30 seconds before requesting another code']);
+    if (count($hits) >= 5) jout(429, ['error' => 'Too many reset codes requested for this email — please try again after an hour, or use admin-reset.php.']);
+    $hits[] = $now; $db['resetRate'][$email] = $hits;
+
+    $user = null;
+    foreach ($db['users'] as $u) if (strtolower((string)($u['email'] ?? '')) === $email) { $user = $u; break; }
+    if (!$user) { db_save($DB_FILE, $db); jout(200, $generic); }
+
+    $phone = substr(preg_replace('/\D/', '', (string)($user['phone'] ?? '')), -10);
+    if (!preg_match('#^[6-9]\d{9}$#', $phone)) {
+      $db['securityLog'][] = ['at' => now_iso(), 'event' => 'password-reset-blocked-no-phone', 'email' => $email,
+                              'role' => $user['role'] ?? 'customer', 'ip' => ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?')];
+      db_save($DB_FILE, $db);
+      jout(200, array_merge($generic, ['noPhone' => true, 'message' => 'That account has no mobile number on file, so an SMS code cannot be sent. ' . $helpNote]));
+    }
+
+    $code = (string)random_int(100000, 999999);
+    $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => (int)($o['exp'] ?? 0) > $now - 3600));
+    $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => $now + 300,
+                     'tries' => 0, 'at' => $now, 'verified' => false, 'purpose' => 'reset', 'email' => $email];
+    $sms = shivaa_sms_send($phone, $code);
+    shivaa_sms_log($db, $sms);
+    $db['securityLog'][] = ['at' => now_iso(), 'event' => 'password-reset-requested', 'email' => $email,
+                            'role' => $user['role'] ?? 'customer', 'smsOk' => !empty($sms['ok']),
+                            'ip' => ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?')];
+    db_save($DB_FILE, $db);
+    if (($sms['mode'] ?? '') === 'demo') jout(200, array_merge($generic, ['demoMode' => true, 'devCode' => $code]));
+    if (empty($sms['ok'])) jout(502, ['error' => 'The code could not be texted just now — please retry in a minute, or use admin-reset.php. ' . $helpNote]);
+    jout(200, array_merge($generic, ['masked' => '••••••' . substr($phone, -4)]));
+  }
+
+  if ($route === 'auth/reset/confirm' && $method === 'POST') {
+    $b = body_json();
+    $email = strtolower(trim((string)($b['email'] ?? '')));
+    $code = preg_replace('/\D/', '', (string)($b['code'] ?? ''));
+    $pw = (string)($b['password'] ?? '');
+    if (strlen($pw) < 8) jout(400, ['error' => 'New password must be at least 8 characters']);
+    if (strlen($code) !== 6) jout(400, ['error' => 'Enter the 6-digit code from the SMS']);
+    $idx = null; $user = null;
+    foreach ($db['users'] as $i => $u) if (strtolower((string)($u['email'] ?? '')) === $email) { $idx = $i; $user = $u; break; }
+    if ($idx === null) jout(400, ['error' => 'That code is not valid — request a new one']);
+    $phone = substr(preg_replace('/\D/', '', (string)($user['phone'] ?? '')), -10);
+    $found = null;
+    for ($i = count($db['otps'] ?? []) - 1; $i >= 0; $i--) if (($db['otps'][$i]['phone'] ?? '') === $phone) { $found = $i; break; }
+    if ($found === null) jout(400, ['error' => 'Request a reset code first']);
+    $o = &$db['otps'][$found];
+    if ((int)$o['exp'] < time()) jout(400, ['error' => 'That code has expired — request a new one']);
+    if ((int)$o['tries'] >= 5) jout(429, ['error' => 'Too many attempts on this code — request a new one']);
+    $o['tries'] = (int)$o['tries'] + 1;
+    if (!hash_equals((string)$o['hash'], hash('sha256', 'shv' . $phone . $code))) {
+      db_save($DB_FILE, $db);
+      jout(400, ['error' => 'Incorrect code']);
+    }
+
+    /* ── accepted: rotate the credential, kill every old session ── */
+    $db['users'][$idx]['passHash'] = pw_hash($pw);
+    unset($db['users'][$idx]['salt']);                       // drop any legacy sha256 salt
+    $db['users'][$idx]['passwordChangedAt'] = now_iso();
+    // db['tokens'] is KEYED BY the token string — rebuild it key-for-key so
+    // only this account's sessions are revoked and everyone else stays signed in.
+    $revoked = 0; $keepTokens = [];
+    foreach (($db['tokens'] ?? []) as $tk => $t) {
+      if (($t['userId'] ?? '') === ($user['id'] ?? '')) { $revoked++; continue; }
+      $keepTokens[$tk] = $t;
+    }
+    $db['tokens'] = $keepTokens;
+    foreach (array_keys($db['loginfails'] ?? []) as $k) if (str_contains((string)$k, '|' . $email)) unset($db['loginfails'][$k]);
+    $db['otps'] = array_values(array_filter($db['otps'], fn($o2) => ($o2['phone'] ?? '') !== $phone));
+    $db['securityLog'][] = ['at' => now_iso(), 'event' => 'password-reset-done', 'email' => $email,
+                            'role' => $user['role'] ?? 'customer', 'via' => 'otp-sms', 'sessionsRevoked' => $revoked,
+                            'ip' => ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?')];
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'email' => $email, 'role' => $user['role'] ?? 'customer', 'sessionsRevoked' => $revoked,
+               'message' => 'Password updated. Sign in with your email and the new password.']);
+  }
+
+  if ($route === 'auth/change-password' && $method === 'POST') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $b = body_json();
+    $cur = (string)($b['current'] ?? '');
+    $pw = (string)($b['password'] ?? '');
+    if (strlen($pw) < 8) jout(400, ['error' => 'New password must be at least 8 characters']);
+    if (!pw_verify($u, $cur)) jout(403, ['error' => 'Current password is incorrect']);
+    $mine = '';
+    if (preg_match('#^Bearer (\w+)$#', (string)($_SERVER['HTTP_AUTHORIZATION'] ?? ''), $m)) $mine = $m[1];
+    foreach ($db['users'] as $i => $uu) if ($uu['id'] === $u['id']) {
+      $db['users'][$i]['passHash'] = pw_hash($pw);
+      unset($db['users'][$i]['salt']);
+      $db['users'][$i]['passwordChangedAt'] = now_iso();
+    }
+    // keep the session doing the change; drop this account's other sessions only
+    $keep = []; $revoked = 0;
+    foreach (($db['tokens'] ?? []) as $tk => $t) {
+      if (($t['userId'] ?? '') === $u['id'] && $tk !== $mine) { $revoked++; continue; }
+      $keep[$tk] = $t;
+    }
+    $db['tokens'] = $keep;
+    $db['securityLog'][] = ['at' => now_iso(), 'event' => 'password-changed', 'email' => $u['email'] ?? '',
+                            'role' => $u['role'] ?? 'customer', 'via' => 'signed-in', 'sessionsRevoked' => $revoked,
+                            'ip' => ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?')];
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'sessionsRevoked' => $revoked, 'message' => 'Password changed. Other devices were signed out.']);
+  }
+
+  if ($route === 'admin/security-log' && $method === 'GET') {
+    need_admin($db);
+    jout(200, ['log' => array_slice(array_reverse($db['securityLog'] ?? []), 0, 100),
+               'otpResetEnabled' => (($db['settings']['otpReset'] ?? true) !== false)]);
+  }
+
   if ($route === 'auth/me' && $method === 'GET') {
     $u = req_user($db);
     jout(200, ['user' => $u ? pub_user($u) : null]);
@@ -911,8 +1053,12 @@ try {
     if (!$target) jout(404, ['error' => 'User not found']);
     $db['users'][$ti]['passHash'] = pw_hash((string)$b['password']);
     unset($db['users'][$ti]['salt']);
-    /* kill every live session for that user so the new password takes effect */
-    $db['tokens'] = array_values(array_filter($db['tokens'] ?? [], fn($t) => ($t['userId'] ?? '') !== $m[1]));
+    /* Kill every live session for THAT user so the new password takes effect.
+       db['tokens'] is keyed by the token string, so rebuild it key-for-key —
+       array_values() here would have signed out every other user on the site. */
+    $kept = [];
+    foreach (($db['tokens'] ?? []) as $tk => $t) if (($t['userId'] ?? '') !== $m[1]) $kept[$tk] = $t;
+    $db['tokens'] = $kept;
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'email' => $target['email']]);
   }

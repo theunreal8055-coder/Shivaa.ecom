@@ -243,3 +243,44 @@ PGS5059 Kanchan
 - **Continue ring photoshoots:** new chat → connect repo → "Read HANDOFF.md first, continue the ring photoshoots" (agent follows `tools/photoshoot/SESSION-STATE.md`, 2 rings/turn).
 - **Deploy what's done:** new chat → "Read HANDOFF.md first, deploy" (agent verifies staging, commits, pushes; server cron finishes within ~5 min — or agent gives you the one Path B command if no cron yet).
 - **One-time auto-deploy setup:** follow `deploy/AUTOMATION.md` (5 minutes), then deployment is fully automatic forever.
+
+---
+
+## 🔐 ADMIN PASSWORD RECOVERY — v46 (2026-09-10, arena branch)
+
+**The problem reported:** the owner could not reset the Shivaa admin password at
+all. Cause: the site had **no password recovery anywhere** — only a signed-in
+admin could set another user's password (`PUT /api/admin/users/{id}/password`),
+so losing the admin password meant the dashboard was unreachable with no way back.
+
+**Fix — three doors, in order of what a real person has available:**
+
+1. `auth/reset/start` + `auth/reset/confirm` (api.php) — email → 6-digit SMS code to the
+   account's **registered mobile** → new password. Works for admin/partner/customer.
+   Identical reply for unknown emails (no account discovery); code hashed, 5-min expiry,
+   5-try cap, 1 per 30 s / 5 per hour per email; success **revokes every session** for
+   that account. Surfaced in the UI as **“Forgot password?”** on the Passport login sheet
+   (`js/auth.js` v45, steps `reset` / `resetNew`).
+2. `auth/change-password` (api.php) + **Admin → Overview → 🔐 My sign-in password**
+   (`js/admin.js` v45) — signed-in rotation; other devices out, current one kept.
+3. **`cms/admin-reset.php`** — the break-glass file. Self-contained (no API routing),
+   ships **DISARMED** (`const ENABLED = false`), refuses the placeholder key, one use only
+   (`data/.admin-reset-used`), writes `data/reset-log.txt`, revokes sessions, then the owner
+   deletes it. See `DEPLOY-v46-PASSWORD-RECOVERY.md`.
+
+**Also added:** `admin/security-log` GET (admin-only) + the **Recent security events** card,
+recording every reset/change with role, IP and sessions revoked in `db['securityLog']`.
+Off-switch for SMS resets: `"otpReset": false` in `settings`.
+
+**BUG FIXED (pre-existing, serious):** `PUT /api/admin/users/{id}/password` rebuilt the token
+table with `array_values(array_filter(...))`. Tokens are **keyed by the token string**, so that
+call signed out **every user on the site** and left the map unable to ever match a stored
+session again. It now rebuilds key-for-key — like all three recovery doors — and
+`devtools/qa_password_reset.py` asserts the pattern never returns.
+
+**QA:** `devtools/qa_password_reset.py` 42/42 (static audit of the guards + behavioural run
+against the preview shim). **Update file:** `shivaa-update-v46-password-recovery.zip`
+(index.html, api.php, admin-reset.php, js/auth.js, js/admin.js).
+
+**Dev tooling:** `devtools/` (preview shim `web_shim.py`, QA scripts) is gitignored —
+development only, never part of a deploy zip, not reachable on the live site.

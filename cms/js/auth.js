@@ -74,6 +74,7 @@
   }
 
   /* ─────────────────────── step machine ─────────────────────── */
+  let resetEmail = '', resetHint = '';
   const HEADS = {
     start:    ['Welcome to Shivaa', 'Sign in or create your account'],
     phone:    ['Sign in with your mobile', 'No password needed \u2014 we text you a 6-digit code'],
@@ -81,6 +82,8 @@
     email:    ['Welcome back', 'Sign in with your email and password'],
     jwl:      ['Jeweller \u00b7 Partner sign-in', 'For approved B2B partners \u2014 bullion, designs & schemes'],
     register: ['Create your account', 'Takes under a minute \u00b7 you earn 120 welcome points \u2726'],
+    reset:    ['Reset your password', 'We text a 6-digit code to the mobile registered on your account'],
+    resetNew: ['Choose a new password', function () { return 'Code sent to the mobile on ' + esc(resetEmail || 'your account'); }],
   };
   function setHead([a, b]) {
     $('#shvHeadSub').innerHTML = typeof b === 'function' ? b() : (b || 'One account for everything');
@@ -93,7 +96,7 @@
     const body = $('#shvBody');
     setHead(HEADS[s] || HEADS.start);
     body.className = 'shv-body aud-' + (aud === 'jwl' && (s === 'start' || s === 'email' || s === 'jwl') ? 'jwl' : 'retail');
-    ({ start, phone, otp, email, jwl, register }[s] || start)(body);
+    ({ start, phone, otp, email, jwl, register, reset, resetNew }[s] || start)(body);
     const f = body.querySelector('input'); if (f) setTimeout(() => f.focus(), 60);
   }
   const backTo = s => `<button type="button" class="shv-back" id="shvBack" aria-label="Back">&#8249;</button>`;
@@ -339,7 +342,7 @@
     bindBack('start');
     $('#shvEye2').onclick = () => { const p = $('#shvEmPw'); p.type = p.type === 'password' ? 'text' : 'password'; };
     $('#shvToPhone').onclick = () => go('phone');
-    $('#shvForgot').onclick = help;
+    $('#shvForgot').onclick = () => go('reset');
     $('#shvEmForm').addEventListener('submit', async e => {
       e.preventDefault();
       const em = $('#shvEmIn').value.trim(), pw = $('#shvEmPw').value;
@@ -369,13 +372,114 @@
     bindBack('start');
     $('#shvEye3').onclick = () => { const p = $('#shvJwPw'); p.type = p.type === 'password' ? 'text' : 'password'; };
     $('#shvJwApply').onclick = applyForPartnership;
-    $('#shvJwForgot').onclick = help;
+    $('#shvJwForgot').onclick = () => go('reset');
     $('#shvJwForm').addEventListener('submit', async e => {
       e.preventDefault();
       const em = $('#shvJwEm').value.trim(), pw = $('#shvJwPw').value;
       if (!em || !pw) return showErr('Enter your partner email and password');
       await pwLogin(em, pw, $('#shvJwBtn'), 'Opening portal\u2026', true);
     });
+  }
+
+  /* ═══════════════ STEP · reset (forgot password) ═══════════════
+     Nobody should ever be locked out of their own shop. This is the
+     self-serve door: email → 6-digit code to the REGISTERED MOBILE →
+     new password. Works for the admin account too. The server answers
+     identically whether or not the email exists, so this step can never
+     be used to discover who has an account. */
+  function reset(body) {
+    body.innerHTML = `${backTo('email')}
+      ${errBox()}
+      <p class="shv-fine" style="margin-bottom:14px">Enter the email on your Shivaa account. We text a 6-digit code to the mobile registered with it.</p>
+      <form id="shvResetForm" novalidate>
+        <label class="shv-lbl" for="shvRstEmail">Account email</label>
+        <input id="shvRstEmail" type="email" autocomplete="username" placeholder="you@example.com" value="${esc(resetEmail)}" required>
+        <button type="submit" class="shv-cta" id="shvRstBtn" data-label="&#128241;&nbsp; Send the code">&#128241;&nbsp; Send the code</button>
+      </form>
+      <div class="shv-demo" id="shvDemo" hidden></div>
+      <div class="shv-otp-acts">
+        <button type="button" class="shv-link" id="shvRstToEmail">Back to sign in</button>
+        <button type="button" class="shv-link" id="shvRstHelp">Still stuck? WhatsApp us</button>
+      </div>
+      <p class="shv-fine">No mobile on the account, or no SMS arriving? The owner can use the one-time <b>admin-reset.php</b> recovery file in the hosting panel.</p>
+      ${previewNote()}`;
+    bindBack('email');
+    $('#shvRstToEmail').onclick = () => go('email');
+    $('#shvRstHelp').onclick = help;
+    $('#shvResetForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const em = $('#shvRstEmail').value.trim();
+      if (!/^\S+@\S+\.\S+$/.test(em)) return showErr('That email does not look right');
+      const btn = $('#shvRstBtn'); busy(btn, true, 'Sending\u2026');
+      try {
+        const r = await fetch('/api/auth/reset/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: em }) });
+        const d = await r.json().catch(() => ({}));
+        busy(btn, false);
+        if (!r.ok) return showErr(esc(d.error || 'Could not send the code \u2014 please try again'));
+        resetEmail = em; resetHint = d.masked ? ('the mobile ending ' + esc(d.masked)) : 'the mobile on your account';
+        if (d.noPhone) {
+          return showErr('That account has no mobile number on file, so an SMS code cannot be sent. Please WhatsApp our desk on <b>+91 89050 05921</b>, or use <b>admin-reset.php</b> in the hosting panel.');
+        }
+        go('resetNew');
+        if (d.devCode) {
+          const chip = $('#shvDemo');
+          if (chip) { chip.hidden = false; chip.innerHTML = `Sandbox demo code: <b>${esc(d.devCode)}</b> \u2014 tap to fill`; chip.style.cursor = 'pointer';
+            chip.onclick = () => { if (window.ShivaaOtp) ShivaaOtp.fill(document.getElementById('shvRstOtp'), String(d.devCode)); }; }
+        }
+      } catch (err) { busy(btn, false); showErr('No connection \u2014 please check your internet and retry'); }
+    });
+  }
+
+  function resetNew(body) {
+    body.innerHTML = `${backTo('reset')}
+      ${errBox()}
+      <p class="shv-fine" style="margin-bottom:12px">If <b>${esc(resetEmail)}</b> has an account, a 6-digit code is on its way to ${resetHint}. Enter it below with your new password.</p>
+      <div class="shv-otp" id="shvRstOtp">${Array.from({ length: 6 }, (_, i) => `<input inputmode="numeric" maxlength="1" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="digit ${i + 1}">`).join('')}</div>
+      <label class="shv-lbl" for="shvRstPw">New password</label>
+      <div class="shv-pw"><input id="shvRstPw" type="password" autocomplete="new-password" placeholder="8+ characters" required>
+        <button type="button" class="shv-eye" id="shvRstEye" aria-label="Show password">&#128065;&#65039;</button></div>
+      <div class="shv-meter"><i id="shvRstMeter"></i></div>
+      <label class="shv-lbl" for="shvRstPw2">Type it again</label>
+      <input id="shvRstPw2" type="password" autocomplete="new-password" placeholder="repeat the new password" required>
+      <button type="button" class="shv-cta" id="shvRstGo" data-label="&#10003;&nbsp; Set my new password">&#10003;&nbsp; Set my new password</button>
+      <div class="shv-otp-acts"><button type="button" class="shv-link" id="shvRstAgain">Send a new code</button><button type="button" class="shv-link" id="shvRstHelp2">Need help?</button></div>
+      ${previewNote()}`;
+    bindBack('reset');
+    const boxes = $$('#shvRstOtp input'); boxes[0].focus();
+    boxes.forEach((b, i) => {
+      b.addEventListener('input', () => { b.value = digits(b.value).slice(0, 1); if (b.value && i < 5) boxes[i + 1].focus(); });
+      b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && i > 0) boxes[i - 1].focus(); });
+      b.addEventListener('paste', e => { e.preventDefault(); const t = digits((e.clipboardData || window.clipboardData).getData('text')).slice(0, 6); [...t].forEach((c, j) => { if (boxes[j]) boxes[j].value = c; }); });
+    });
+    $('#shvRstEye').onclick = () => { const p = $('#shvRstPw'); p.type = p.type === 'password' ? 'text' : 'password'; };
+    $('#shvRstPw').addEventListener('input', () => {
+      const v = $('#shvRstPw').value; let s = 0;
+      if (v.length >= 8) s++; if (/[A-Z]/.test(v) && /[a-z]/.test(v)) s++; if (/\d/.test(v)) s++; if (/[^A-Za-z0-9]/.test(v)) s++;
+      const m = $('#shvRstMeter'); m.style.width = (s * 25) + '%'; m.className = s <= 1 ? 'weak' : s === 2 ? 'ok' : s === 3 ? 'good' : 'strong';
+    });
+    $('#shvRstAgain').onclick = () => go('reset');
+    $('#shvRstHelp2').onclick = help;
+    if (window.ShivaaOtp) ShivaaOtp.watch(document.getElementById('shvRstOtp'));
+    $('#shvRstGo').onclick = async () => {
+      const code = boxes.map(b => b.value).join('');
+      const pw = $('#shvRstPw').value, pw2 = $('#shvRstPw2').value;
+      if (code.length !== 6) return showErr('Enter all six digits of the code');
+      if (pw.length < 8) return showErr('New password must be at least 8 characters');
+      if (pw !== pw2) return showErr('The two passwords do not match');
+      const btn = $('#shvRstGo'); busy(btn, true, 'Saving\u2026');
+      try {
+        const r = await fetch('/api/auth/reset/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: resetEmail, code, password: pw }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { busy(btn, false); return showErr(esc(d.error || 'Could not save the new password')); }
+        body.innerHTML = `${errBox()}
+          <div style="text-align:center;padding:8px 0 4px"><div style="font-size:40px">&#10022;</div></div>
+          <h3 style="text-align:center;margin:6px 0 8px;font-family:Georgia,serif">Password updated</h3>
+          <p class="shv-fine" style="text-align:center">Sign in with <b>${esc(d.email || resetEmail)}</b> and your new password now.${d.sessionsRevoked ? ` ${d.sessionsRevoked} older session${d.sessionsRevoked === 1 ? '' : 's'} were signed out.` : ''}</p>
+          <button type="button" class="shv-cta" id="shvRstDone">&#10095;&nbsp; Sign in</button>`;
+        $('#shvRstDone').onclick = () => { const em = resetEmail; go('email'); const f = $('#shvEmIn'); if (f) { f.value = em; $('#shvEmPw').focus(); } };
+      } catch (err) { busy(btn, false); showErr('No connection \u2014 please check your internet and retry'); }
+    };
   }
 
   /* ─────────────────────── shared password login + landing ─────────────────────── */

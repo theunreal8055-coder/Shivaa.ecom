@@ -81,8 +81,31 @@ async function renderAdmin(view, q) {
           ${stats.lowStock && stats.lowStock.length ? `<div style="display:grid;gap:8px">${stats.lowStock.map(l => `<div class="sum-row"><span>${esc(l.name)}</span><b style="color:${l.stock === 0 ? 'var(--bad)' : 'var(--warn)'}">${l.stock} left</b></div>`).join('')}</div>` : '<p style="color:var(--ink-3);font-size:13.5px">All pieces healthy (stock > 3).</p>'}</div>
         <div class="adm-card"><h3>Pending service requests <a class="btn btn-ghost btn-sm" href="#/admin?tab=leads">Open →</a></h3>
           <p style="font-size:42px;font-family:var(--ff-disp);color:var(--maroon)">${stats.serviceRequests || 0}</p><span style="font-size:13px;color:var(--ink-3)">bespoke / repair / appointments awaiting first response</span></div>
+      </div>
+      <div class="grid2">
+        <div class="adm-card"><h3>🔐 My sign-in password</h3>
+          <form class="form-grid" onsubmit="ShivaaAdmin.changePw(event)">
+            <div class="fld full"><label>Current password</label><input id="admPwCur" type="password" autocomplete="current-password" required></div>
+            <div class="fld"><label>New password (8+ characters)</label><input id="admPwNew" type="password" autocomplete="new-password" minlength="8" required></div>
+            <div class="fld"><label>Type it again</label><input id="admPwNew2" type="password" autocomplete="new-password" minlength="8" required></div>
+            <p class="partner-note" style="grid-column:1/-1;font-size:12.5px">Changing it signs your <b>other</b> devices out and keeps this one. Locked out completely? Use <b>“Forgot password?”</b> on the sign-in screen — the code goes to the account's registered mobile — or the one-time <b>admin-reset.php</b> recovery file in your hosting panel.</p>
+            <button class="btn btn-primary" style="justify-self:start">Update my password</button>
+          </form></div>
+        <div class="adm-card"><h3>Recent security events <span id="admOtpState" style="font-size:12px;font-weight:400;color:var(--ink-3)"></span></h3>
+          <div id="admSecLog"><div class="loading-spin"></div></div></div>
       </div>`;
     drawBarChart($('#admChart'), days);
+    (async () => {
+      const box = document.getElementById('admSecLog'); if (!box) return;
+      try {
+        const r = await api('/api/admin/security-log');
+        const st = document.getElementById('admOtpState');
+        if (st) st.textContent = r.otpResetEnabled ? '· SMS reset ON' : '· SMS reset OFF';
+        const L = r.log || [];
+        box.innerHTML = L.length ? `<div style="display:grid;gap:8px">${L.slice(0, 8).map(e => `<div class="sum-row"><span><b>${esc(String(e.event || '').replace(/-/g, ' '))}</b><br><small style="color:var(--ink-3)">${esc(e.email || '—')} · ${esc(e.role || '')}${e.via ? ' · ' + esc(e.via) : ''}${e.sessionsRevoked ? ' · ' + e.sessionsRevoked + ' session(s) signed out' : ''}</small></span><b style="font-size:12px;font-weight:500;white-space:nowrap">${e.at ? new Date(e.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''}</b></div>`).join('')}</div>`
+          : '<p class="partner-note">No password or reset activity yet.</p>';
+      } catch (e) { box.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
+    })();
   }
 
   if (tab === 'products') {
@@ -492,6 +515,19 @@ window.ShivaaAdmin.setOrderStatus = null;
 window.ShivaaAdmin.setStatus = async (id, status) => {
   try { await api('/api/orders/' + id, { method: 'PUT', body: JSON.stringify({ status }) }); toast(`Order ${id} → ${status}`); }
   catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.changePw = async (e) => {
+  e.preventDefault();
+  const cur = document.getElementById('admPwCur').value;
+  const nw = document.getElementById('admPwNew').value;
+  const nw2 = document.getElementById('admPwNew2').value;
+  if (nw.length < 8) return toast('New password must be at least 8 characters', 'err');
+  if (nw !== nw2) return toast('The two new passwords do not match', 'err');
+  try {
+    const r = await api('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ current: cur, password: nw }) });
+    toast('Password updated ✦' + (r.sessionsRevoked ? ' ' + r.sessionsRevoked + ' other device(s) signed out' : ''));
+    e.target.reset();
+  } catch (err) { toast(err.message, 'err'); }
 };
 window.ShivaaAdmin.finaleCSV = async () => {
   try {
