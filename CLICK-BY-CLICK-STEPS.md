@@ -46,7 +46,7 @@ Everything happens in your hosting **File Manager** and in your **browser**. No 
    - **Blank page?** The file did not upload to the right folder — go back to Part 1 step 10 and check `admin-reset.php` sits next to `api.php`.
 
 ### 2. Create the file it asks for
-3. On the page, find the long file name under **Step 1**. It looks like:
+3. On the page, under the heading **“Step 1 — create this file”**, there is a long file name. It looks like:
    **`shivaa-unlock-a1b2c3d4e5f6.txt`**
 4. **Select it and copy it** (you cannot guess it — copy it exactly).
 5. Go back to **File Manager → `public_html` → double-click `data`**.
@@ -75,7 +75,7 @@ Everything happens in your hosting **File Manager** and in your **browser**. No 
 ### 5. Confirm and close the door
 22. Click the **/#/admin** link on that page (or open **`https://shivaa.in/#/admin`**).
 23. Sign in with your email + the **new** password. You should land on the admin Overview.
-24. That page tells you the recovery file **deleted itself**. To be sure: in **File Manager**, look for `admin-reset.php` in `public_html` — if it is still there, **right-click → Delete**.
+24. That page tells you the file **“has deleted itself”**. To be sure: in **File Manager**, look for `admin-reset.php` in `public_html` — if it is still there, **right-click → Delete**.
 
 > **Lost the key?** Open `https://shivaa.in/admin-reset.php` again and click **“Lost the key? Arm it again”** — it hands you a new file name and you repeat from step 5 above.
 

@@ -192,5 +192,27 @@ if ZIP.is_file():
 else:
     check('v48 zip exists', False)
 
+# ─────────────── the owner walkthrough matches the real UI ───────────────
+# CLICK-BY-CLICK-STEPS.md tells a non-technical owner what to click. If a
+# label drifts, the instructions point at a button that does not exist.
+print('\n── CLICK-BY-CLICK-STEPS.md labels exist in the shipped files ──')
+doc = (ROOT / 'CLICK-BY-CLICK-STEPS.md').read_text(encoding='utf-8')
+LABELS = {
+    'cms/admin-reset.php': [
+        'Recovery file — arm it in 2 clicks', 'Step 1 — create this file',
+        'Found it. Now choose your key below', 'Arm this recovery file',
+        'Lost the key? Arm it again', 'Check what is wrong (changes nothing)',
+        'Set the new password', 'Password reset complete', 'has deleted itself'],
+    'cms/js/admin.js': ['Code delivery (SMS / email)', 'Send test code'],
+}
+for rel, labels in LABELS.items():
+    body = (ROOT / rel).read_text(encoding='utf-8')
+    for lab in labels:
+        in_doc = lab in doc
+        check(f'{rel} still shows "{lab}"' + ('' if in_doc else '  [not in the walkthrough!]'),
+              lab in body and in_doc)
+check('the walkthrough points at the self-arming zip, not the editing one',
+      'shivaa-update-v48-email-codes.zip' in doc and 'Ignore `shivaa-admin-recovery-FIXED.zip`' in doc)
+
 print(f'\n{len(ok)} passed · {len(fail)} failed')
 sys.exit(1 if fail else 0)

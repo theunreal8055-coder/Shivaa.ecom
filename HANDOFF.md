@@ -422,3 +422,44 @@ replace on conflict), Part 3 test code delivery from Settings → "Code delivery
 Send test code → then the real "Forgot password?" test in a private window, Part 4 the 65 rings
 (secret folder → extract → SETUP_KEY → 17 taps → Verify → self-destruct). Explicit warning to finish
 Part 1 **before** Part 2, because the v48 zip ships its own disarmed `admin-reset.php`.
+
+## v48c — `admin-reset.php` no longer needs editing (owner blocker)
+
+**Reported:** “The shivaa admin reset php is not editable.” v47 armed itself through
+two `const` lines you had to change in the hosting code editor — and that editor is the
+one part of shared hosting that routinely fails (blank window, “read only”, save that
+silently does nothing). So the recovery door could not be opened at all.
+
+**Fixed by removing the edit step.** Both consts are gone; the switch and the key live in
+`data/admin-recovery.json`, written by the page itself. To arm it you create **one empty
+file** whose random name the page hands you (`shivaa-unlock-<12 hex>.txt`, in `data/` or
+`public_html/` — either is accepted, it is deleted once used, the name expires after 24 h).
+Only the hosting account can write files on the server, so that click is a stronger proof
+of control than a key a scanner could guess. The key is typed on the page (12+ characters,
+twice) and stored as a salted sha256 — never in plain text. **A successful reset now
+`unlink()`s the file itself**, so the door closes without relying on a manual delete.
+Unwritable `data/` prints a plain-words fix (permissions 755) instead of a blank 500, and a
+**“Lost the key? Arm it again”** button issues a fresh challenge.
+
+**Ordering changed:** upload `shivaa-update-v48-email-codes.zip` **once** — it contains the
+recovery file — then arm it from the browser. `shivaa-admin-recovery-v48.zip` (1 file) is
+the standalone spare; `shivaa-admin-recovery-FIXED.zip` is the old editing-based version and
+is flagged as such in the walkthrough.
+
+**`qa/qa_v48_static.py` — new, and TRACKED** (the old checker lived in gitignored `devtools/`
+and did not survive the sandbox rebuild): **71 checks, 0 failed.** String- and
+inline-HTML-aware PHP tokenizer; asserts `declare(strict_types=1)` is first in all 7 shipped
+PHP files, zero `devCode` in `api.php`, 3 delivery sites, masked destinations only, the
+`mail.php` CR/LF + 6-digit guards, the v48 zip byte-identical to `cms/`, and that every
+button label quoted in `CLICK-BY-CLICK-STEPS.md` really exists in the shipped files — that
+last check immediately caught two labels the walkthrough had paraphrased.
+
+**Checker bug found and fixed, not a file bug:** the first tokenizer reported
+`deploy/ring_reset_bridge.php` as having an unterminated string. It uses inline HTML mode
+(`?>` … `<?php endif; ?>`), so the apostrophe in `confirm('Delete this setup file?')` is
+literal text, not a string opener. Mode switching is now tracked.
+
+**Still unrun:** there is no PHP interpreter anywhere in this sandbox (`find /` for `php*`
+returns nothing; apt and pip have no network), so `admin-reset.php` has never executed here.
+The owner's first click on `/admin-reset.php` is its real test — and the fatal-error guard
+prints any failure in plain words instead of a blank page.
