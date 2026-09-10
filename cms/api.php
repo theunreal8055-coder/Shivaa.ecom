@@ -54,6 +54,20 @@ function db_save(string $DB_FILE, array $db): void {
   if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
 }
 function clampn($v, $a, $b) { return max($a, min($b, $v)); }
+/* v50 hardening: per-IP hourly cap on anonymous write routes (contact /
+   newsletter) so the database cannot be flooded by a script. Same shape as
+   the mailed-code cap. */
+function pub_rate(array &$db, string $DB_FILE, string $key, int $cap): void {
+  $ip = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?');
+  $now = time();
+  $hits = array_values(array_filter($db['pubRate'][$key . '|' . $ip] ?? [], fn($t) => (int)$t > $now - 3600));
+  if (count($hits) >= $cap) {
+    $db['pubRate'][$key . '|' . $ip] = $hits; db_save($DB_FILE, $db);
+    jout(429, ['error' => 'Too many submissions from this connection — please try again in an hour.']);
+  }
+  $hits[] = $now; $db['pubRate'][$key . '|' . $ip] = $hits;
+}
+
 function cut500(string $s): string { return function_exists('mb_substr') ? mb_substr($s, 0, 500) : substr($s, 0, 500); }
 function fetch_url(string $url, int $timeout = 4): ?array {
   $ch = curl_init($url);
@@ -252,7 +266,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -1194,16 +1208,22 @@ try {
   }
   if ($route === 'services' && $method === 'GET') { need_admin($db); jout(200, ['requests' => array_reverse($db['serviceRequests'])]); }
   if ($route === 'newsletter' && $method === 'POST') {
+    pub_rate($db, $DB_FILE, 'newsletter', 10);
     $b = body_json();
     if (!filter_var($b['email'] ?? '', FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Valid email required']);
     if (!in_array($b['email'], array_column($db['newsletter'], 'email'))) $db['newsletter'][] = ['email' => $b['email'], 'at' => now_iso()];
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'contact' && $method === 'POST') {
+    pub_rate($db, $DB_FILE, 'contact', 10);
     $b = body_json();
     if (empty($b['name']) || empty($b['message'])) jout(400, ['error' => 'Name & message required']);
     $db['contactMsgs'][] = ['id' => uid('cm'), 'name' => $b['name'], 'phone' => $b['phone'] ?? '', 'email' => $b['email'] ?? '', 'message' => $b['message'], 'at' => now_iso(), 'read' => false];
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+  }
+  if ($route === 'reviews' && $method === 'GET') {
+    /* v50: latest public reviews for the homepage proof wall & Saathi bot */
+    jout(200, ['reviews' => array_slice(array_reverse($db['reviews']), 0, 12)]);
   }
   if ($route === 'reviews' && $method === 'POST') {
     $u = req_user($db);

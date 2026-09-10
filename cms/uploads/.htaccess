@@ -1,0 +1,5 @@
+# v50 — uploads must never execute code, even if a hostile file lands here.
+Options -Indexes -ExecCGI
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phar|pl|py|cgi|sh)$">
+  Require all denied
+</FilesMatch>

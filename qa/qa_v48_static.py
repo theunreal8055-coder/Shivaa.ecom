@@ -176,22 +176,13 @@ idx = (ROOT / 'cms/index.html').read_text(encoding='utf-8')
 print('\n── cache-busters + deploy zip ──')
 for f in ('auth.js', 'admin.js'):
     check(f'index.html loads js/{f}?v=48', f'/js/{f}?v=48' in idx)
-check('index.html loads js/app.js?v=49 (disclosure change)', '/js/app.js?v=49' in idx)
+check('index.html loads js/app.js?v=50 (fresh-install bump)', '/js/app.js?v=50' in idx)
 
 ZIP = ROOT / 'shivaa-update-v49-ai-disclosure.zip'
-if ZIP.is_file():
-    with zipfile.ZipFile(ZIP) as z:
-        names = [n for n in z.namelist() if not n.endswith('/')]
-        check(f'v49 zip has 10 files (got {len(names)})', len(names) == 10)
-        bad = [n for n in names if (ROOT / 'cms' / n).read_bytes() != z.read(n)]
-        check(f'every file in the zip matches cms/ byte for byte ({len(bad)} differ)', not bad)
-        check('js/ layout preserved inside the zip', 'js/auth.js' in names and 'js/admin.js' in names)
-        check('db.json deliberately NOT in the zip (would wipe live data)',
-              not any('db.json' in n for n in names))
-        check('the self-arming admin-reset.php IS in the zip', 'admin-reset.php' in names)
-        check('mail.php IS in the zip', 'mail.php' in names)
-else:
-    check('v49 zip exists', False)
+# v49 was the UPDATE zip for existing sites; the FRESH install (v50) supersedes
+# it. Its byte-identity is verified in qa_v50_fresh.py. Here we only require the
+# retired artifact to still exist for anyone mid-upgrade.
+check('retired v49 update zip still on disk for existing sites', ZIP.is_file())
 
 # ─────────────── the owner walkthrough matches the real UI ───────────────
 # CLICK-BY-CLICK-STEPS.md tells a non-technical owner what to click. If a

@@ -1,0 +1,5625 @@
+{
+ "products": [
+  {
+   "createdAt": "2026-09-04T06:29:33+05:30",
+   "active": true,
+   "rating": 4.6,
+   "reviews": 0,
+   "stock": 10,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "Ring",
+    "gold",
+    "22k",
+    "1.87g",
+    "polki",
+    "handcrafted",
+    "bishallmarked"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5001_shot_studio.jpg",
+    "/images/designs/rings/PGS5001_shot_editorial.jpg",
+    "/images/designs/rings/PGS5001_shot_worn.jpg",
+    "/images/designs/rings/PGS5001_shot_gift.jpg"
+   ],
+   "stoneValue": 0,
+   "name": "Rajkumari Ring PGS5001 | Gold 22K",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.87,
+   "mcScheme": "percent",
+   "mcValue": 12,
+   "stoneDesc": "polki / CZ pavé setting",
+   "stoneType": "White",
+   "stoneColour": "",
+   "desc": "Rajkumari Ring PGS5001 — Gold 22K, 1.87 g with polki / cz pavé setting, hand-finished by our karigars with 12% making charges. Gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0,
+   "seo": {
+    "keywords": [
+     "polki / cz pavé setting ring",
+     "gold 22K ring price",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring with polki / cz pavé setting — Rajkumari Ring PGS5001 | Gold 22K"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "mediaNote": "AI-stylised visualisation of the original design photo.",
+   "sku": "PGS5001",
+   "id": "p_90dacbb0b4d8"
+  },
+  {
+   "id": "p_pgs5002",
+   "sku": "PGS5002",
+   "name": "Suraj Kiran Ring PGS5002",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.8,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5002_shot_studio.jpg",
+    "/images/designs/rings/PGS5002_shot_editorial.jpg",
+    "/images/designs/rings/PGS5002_shot_worn.jpg",
+    "/images/designs/rings/PGS5002_shot_gift.jpg"
+   ],
+   "desc": "Suraj Kiran Ring PGS5002 — Gold 22K, 1.8 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Suraj Kiran Ring PGS5002"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5003",
+   "sku": "PGS5003",
+   "name": "Chandni Ring PGS5003",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.84,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5003_shot_studio.jpg",
+    "/images/designs/rings/PGS5003_shot_editorial.jpg",
+    "/images/designs/rings/PGS5003_shot_worn.jpg",
+    "/images/designs/rings/PGS5003_shot_gift.jpg"
+   ],
+   "desc": "Chandni Ring PGS5003 — Gold 22K, 1.84 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Chandni Ring PGS5003"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "createdAt": "2026-09-04T06:29:33+05:30",
+   "active": true,
+   "rating": 4.6,
+   "reviews": 0,
+   "stock": 10,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "Ring",
+    "gold",
+    "22k",
+    "3.83g",
+    "polki",
+    "handcrafted",
+    "bishallmarked"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5004_shot_studio.jpg",
+    "/images/designs/rings/PGS5004_shot_editorial.jpg",
+    "/images/designs/rings/PGS5004_shot_worn.jpg",
+    "/images/designs/rings/PGS5004_shot_gift.jpg"
+   ],
+   "stoneValue": 0,
+   "name": "Mughal Moti Ring PGS5004 | Gold 22K",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.83,
+   "mcScheme": "percent",
+   "mcValue": 12,
+   "stoneDesc": "polki / CZ pavé setting",
+   "stoneType": "White",
+   "stoneColour": "",
+   "desc": "Mughal Moti Ring PGS5004 — Gold 22K, 3.83 g with polki / cz pavé setting, hand-finished by our karigars with 12% making charges. Gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0,
+   "seo": {
+    "keywords": [
+     "polki / cz pavé setting ring",
+     "gold 22K ring price",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring with polki / cz pavé setting — Mughal Moti Ring PGS5004 | Gold 22K"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "mediaNote": "AI-stylised visualisation of the original design photo.",
+   "sku": "PGS5004",
+   "id": "p_396c38f75085"
+  },
+  {
+   "id": "p_pgs5005",
+   "sku": "PGS5005",
+   "name": "Pichola Ring PGS5005",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.17,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5005_shot_studio.jpg",
+    "/images/designs/rings/PGS5005_shot_editorial.jpg",
+    "/images/designs/rings/PGS5005_shot_worn.jpg",
+    "/images/designs/rings/PGS5005_shot_gift.jpg"
+   ],
+   "desc": "Pichola Ring PGS5005 — Gold 22K, 1.17 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Pichola Ring PGS5005"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5006",
+   "sku": "PGS5006",
+   "name": "Amber Ring PGS5006",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 2.07,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5006_shot_studio.jpg",
+    "/images/designs/rings/PGS5006_shot_editorial.jpg",
+    "/images/designs/rings/PGS5006_shot_worn.jpg",
+    "/images/designs/rings/PGS5006_shot_gift.jpg"
+   ],
+   "desc": "Amber Ring PGS5006 — Gold 22K, 2.07 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Amber Ring PGS5006"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5007",
+   "sku": "PGS5007",
+   "name": "Kesariya Ring PGS5007",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.68,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5007_shot_studio.jpg",
+    "/images/designs/rings/PGS5007_shot_editorial.jpg",
+    "/images/designs/rings/PGS5007_shot_worn.jpg",
+    "/images/designs/rings/PGS5007_shot_gift.jpg"
+   ],
+   "desc": "Kesariya Ring PGS5007 — Gold 22K, 1.68 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Kesariya Ring PGS5007"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5008",
+   "sku": "PGS5008",
+   "name": "Mehndi Ring PGS5008",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.71,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5008_shot_studio.jpg",
+    "/images/designs/rings/PGS5008_shot_editorial.jpg",
+    "/images/designs/rings/PGS5008_shot_worn.jpg",
+    "/images/designs/rings/PGS5008_shot_gift.jpg"
+   ],
+   "desc": "Mehndi Ring PGS5008 — Gold 22K, 1.71 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Mehndi Ring PGS5008"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5009",
+   "sku": "PGS5009",
+   "name": "Jharokha Ring PGS5009",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.34,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5009_shot_studio.jpg",
+    "/images/designs/rings/PGS5009_shot_editorial.jpg",
+    "/images/designs/rings/PGS5009_shot_worn.jpg",
+    "/images/designs/rings/PGS5009_shot_gift.jpg"
+   ],
+   "desc": "Jharokha Ring PGS5009 — Gold 22K, 3.34 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Jharokha Ring PGS5009"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5010",
+   "sku": "PGS5010",
+   "name": "Marudhara Ring PGS5010",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.53,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5010_shot_studio.jpg",
+    "/images/designs/rings/PGS5010_shot_editorial.jpg",
+    "/images/designs/rings/PGS5010_shot_worn.jpg",
+    "/images/designs/rings/PGS5010_shot_gift.jpg"
+   ],
+   "desc": "Marudhara Ring PGS5010 — Gold 22K, 3.53 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Marudhara Ring PGS5010"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5011",
+   "sku": "PGS5011",
+   "name": "Sheesh Mahal Ring PGS5011",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 4.96,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5011_face.jpg",
+    "/images/designs/rings/PGS5011_shot_editorial.jpg",
+    "/images/designs/rings/PGS5011_shot_worn.jpg",
+    "/images/designs/rings/PGS5011_shot_gift.jpg"
+   ],
+   "desc": "Sheesh Mahal Ring PGS5011 — Gold 22K, 4.96 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Sheesh Mahal Ring PGS5011"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5012",
+   "sku": "PGS5012",
+   "name": "Hawa Mahal Ring PGS5012",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.92,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5012_face.jpg",
+    "/images/designs/rings/PGS5012_shot_editorial.jpg",
+    "/images/designs/rings/PGS5012_shot_worn.jpg",
+    "/images/designs/rings/PGS5012_shot_gift.jpg"
+   ],
+   "desc": "Hawa Mahal Ring PGS5012 — Gold 22K, 1.92 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Hawa Mahal Ring PGS5012"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5013",
+   "sku": "PGS5013",
+   "name": "City Palace Ring PGS5013",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.9,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5013_face.jpg",
+    "/images/designs/rings/PGS5013_shot_editorial.jpg",
+    "/images/designs/rings/PGS5013_shot_worn.jpg",
+    "/images/designs/rings/PGS5013_shot_gift.jpg"
+   ],
+   "desc": "City Palace Ring PGS5013 — Gold 22K, 1.9 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — City Palace Ring PGS5013"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5014",
+   "sku": "PGS5014",
+   "name": "Chandra Ring PGS5014",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.81,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5014_shot_studio.jpg",
+    "/images/designs/rings/PGS5014_shot_editorial.jpg",
+    "/images/designs/rings/PGS5014_shot_worn.jpg",
+    "/images/designs/rings/PGS5014_shot_gift.jpg"
+   ],
+   "desc": "Chandra Ring PGS5014 — Gold 22K, 1.81 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Chandra Ring PGS5014"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5015",
+   "sku": "PGS5015",
+   "name": "Surya Ring PGS5015",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.66,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5015_shot_studio.jpg",
+    "/images/designs/rings/PGS5015_shot_editorial.jpg",
+    "/images/designs/rings/PGS5015_shot_worn.jpg",
+    "/images/designs/rings/PGS5015_shot_gift.jpg"
+   ],
+   "desc": "Surya Ring PGS5015 — Gold 22K, 1.66 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Surya Ring PGS5015"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5016",
+   "sku": "PGS5016",
+   "name": "Tara Ring PGS5016",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 2.02,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5016_face.jpg",
+    "/images/designs/rings/PGS5016_shot_editorial.jpg",
+    "/images/designs/rings/PGS5016_shot_worn.jpg",
+    "/images/designs/rings/PGS5016_shot_gift.jpg"
+   ],
+   "desc": "Tara Ring PGS5016 — Gold 22K, 2.02 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Tara Ring PGS5016"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5017",
+   "sku": "PGS5017",
+   "name": "Kiran Ring PGS5017",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.7,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5017_face.jpg",
+    "/images/designs/rings/PGS5017_shot_editorial.jpg",
+    "/images/designs/rings/PGS5017_shot_worn.jpg",
+    "/images/designs/rings/PGS5017_shot_gift.jpg"
+   ],
+   "desc": "Kiran Ring PGS5017 — Gold 22K, 1.7 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Kiran Ring PGS5017"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5018",
+   "sku": "PGS5018",
+   "name": "Moti Ring PGS5018",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.59,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5018_face.jpg",
+    "/images/designs/rings/PGS5018_shot_editorial.jpg",
+    "/images/designs/rings/PGS5018_shot_worn.jpg",
+    "/images/designs/rings/PGS5018_shot_gift.jpg"
+   ],
+   "desc": "Moti Ring PGS5018 — Gold 22K, 1.59 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Moti Ring PGS5018"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5019",
+   "sku": "PGS5019",
+   "name": "Heera Ring PGS5019",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.83,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5019_face.jpg",
+    "/images/designs/rings/PGS5019_shot_editorial.jpg",
+    "/images/designs/rings/PGS5019_shot_worn.jpg",
+    "/images/designs/rings/PGS5019_shot_gift.jpg"
+   ],
+   "desc": "Heera Ring PGS5019 — Gold 22K, 1.83 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Heera Ring PGS5019"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5020",
+   "sku": "PGS5020",
+   "name": "Panna Ring PGS5020",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 2.04,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5020_face.jpg",
+    "/images/designs/rings/PGS5020_shot_editorial.jpg",
+    "/images/designs/rings/PGS5020_shot_worn.jpg",
+    "/images/designs/rings/PGS5020_shot_gift.jpg"
+   ],
+   "desc": "Panna Ring PGS5020 — Gold 22K, 2.04 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Panna Ring PGS5020"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5021",
+   "sku": "PGS5021",
+   "name": "Manik Ring PGS5021",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.94,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5021_face.jpg",
+    "/images/designs/rings/PGS5021_shot_editorial.jpg",
+    "/images/designs/rings/PGS5021_shot_worn.jpg",
+    "/images/designs/rings/PGS5021_shot_gift.jpg"
+   ],
+   "desc": "Manik Ring PGS5021 — Gold 22K, 1.94 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Manik Ring PGS5021"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5022",
+   "sku": "PGS5022",
+   "name": "Pushkar Ring PGS5022",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.91,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5022_shot_studio.jpg",
+    "/images/designs/rings/PGS5022_shot_editorial.jpg",
+    "/images/designs/rings/PGS5022_shot_worn.jpg",
+    "/images/designs/rings/PGS5022_shot_gift.jpg"
+   ],
+   "desc": "Pushkar Ring PGS5022 — Gold 22K, 1.91 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Pushkar Ring PGS5022"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5023",
+   "sku": "PGS5023",
+   "name": "Marwar Ring PGS5023",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 4.13,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5023_shot_studio.jpg",
+    "/images/designs/rings/PGS5023_shot_editorial.jpg",
+    "/images/designs/rings/PGS5023_shot_worn.jpg",
+    "/images/designs/rings/PGS5023_shot_gift.jpg"
+   ],
+   "desc": "Marwar Ring PGS5023 — Gold 22K, 4.13 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Marwar Ring PGS5023"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5024",
+   "sku": "PGS5024",
+   "name": "Mewar Ring PGS5024",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.76,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5024_face.jpg",
+    "/images/designs/rings/PGS5024_shot_editorial.jpg",
+    "/images/designs/rings/PGS5024_shot_worn.jpg",
+    "/images/designs/rings/PGS5024_shot_gift.jpg"
+   ],
+   "desc": "Mewar Ring PGS5024 — Gold 22K, 1.76 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Mewar Ring PGS5024"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5025",
+   "sku": "PGS5025",
+   "name": "Dhola Ring PGS5025",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.77,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5025_shot_studio.jpg",
+    "/images/designs/rings/PGS5025_shot_editorial.jpg",
+    "/images/designs/rings/PGS5025_shot_worn.jpg",
+    "/images/designs/rings/PGS5025_shot_gift.jpg"
+   ],
+   "desc": "Dhola Ring PGS5025 — Gold 22K, 1.77 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Dhola Ring PGS5025"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5026",
+   "sku": "PGS5026",
+   "name": "Gulab Ring PGS5026",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.76,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5026_shot_studio.jpg",
+    "/images/designs/rings/PGS5026_shot_editorial.jpg",
+    "/images/designs/rings/PGS5026_shot_worn.jpg",
+    "/images/designs/rings/PGS5026_shot_gift.jpg"
+   ],
+   "desc": "Gulab Ring PGS5026 — Gold 22K, 1.76 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Gulab Ring PGS5026"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5027",
+   "sku": "PGS5027",
+   "name": "Chambal Ring PGS5027",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.84,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5027_shot_studio.jpg",
+    "/images/designs/rings/PGS5027_shot_editorial.jpg",
+    "/images/designs/rings/PGS5027_shot_worn.jpg",
+    "/images/designs/rings/PGS5027_shot_gift.jpg"
+   ],
+   "desc": "Chambal Ring PGS5027 — Gold 22K, 1.84 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Chambal Ring PGS5027"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5028",
+   "sku": "PGS5028",
+   "name": "Banas Ring PGS5028",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.69,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5028_face.jpg",
+    "/images/designs/rings/PGS5028_shot_editorial.jpg",
+    "/images/designs/rings/PGS5028_shot_worn.jpg",
+    "/images/designs/rings/PGS5028_shot_gift.jpg"
+   ],
+   "desc": "Banas Ring PGS5028 — Gold 22K, 1.69 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Banas Ring PGS5028"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5029",
+   "sku": "PGS5029",
+   "name": "Aravalli Ring PGS5029",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.93,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5029_shot_studio.jpg",
+    "/images/designs/rings/PGS5029_shot_editorial.jpg",
+    "/images/designs/rings/PGS5029_shot_worn.jpg",
+    "/images/designs/rings/PGS5029_shot_gift.jpg"
+   ],
+   "desc": "Aravalli Ring PGS5029 — Gold 22K, 1.93 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Aravalli Ring PGS5029"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5030",
+   "sku": "PGS5030",
+   "name": "Thar Ring PGS5030",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.72,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5030_face.jpg",
+    "/images/designs/rings/PGS5030_shot_editorial.jpg",
+    "/images/designs/rings/PGS5030_shot_worn.jpg",
+    "/images/designs/rings/PGS5030_shot_gift.jpg"
+   ],
+   "desc": "Thar Ring PGS5030 — Gold 22K, 1.72 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Thar Ring PGS5030"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5031",
+   "sku": "PGS5031",
+   "name": "Shekhawati Ring PGS5031",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.4,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5031_face.jpg",
+    "/images/designs/rings/PGS5031_shot_editorial.jpg",
+    "/images/designs/rings/PGS5031_shot_worn.jpg",
+    "/images/designs/rings/PGS5031_shot_gift.jpg"
+   ],
+   "desc": "Shekhawati Ring PGS5031 — Gold 22K, 3.4 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Shekhawati Ring PGS5031"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5032",
+   "sku": "PGS5032",
+   "name": "Bikaner Ring PGS5032",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.77,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5032_shot_studio.jpg",
+    "/images/designs/rings/PGS5032_shot_editorial.jpg",
+    "/images/designs/rings/PGS5032_shot_worn.jpg",
+    "/images/designs/rings/PGS5032_shot_gift.jpg"
+   ],
+   "desc": "Bikaner Ring PGS5032 — Gold 22K, 1.77 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Bikaner Ring PGS5032"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5033",
+   "sku": "PGS5033",
+   "name": "Jodhpur Ring PGS5033",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.89,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5033_shot_studio.jpg",
+    "/images/designs/rings/PGS5033_shot_editorial.jpg",
+    "/images/designs/rings/PGS5033_shot_worn.jpg",
+    "/images/designs/rings/PGS5033_shot_gift.jpg"
+   ],
+   "desc": "Jodhpur Ring PGS5033 — Gold 22K, 1.89 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Jodhpur Ring PGS5033"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5034",
+   "sku": "PGS5034",
+   "name": "Udaipur Ring PGS5034",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.89,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5034_face.jpg",
+    "/images/designs/rings/PGS5034_shot_editorial.jpg",
+    "/images/designs/rings/PGS5034_shot_worn.jpg",
+    "/images/designs/rings/PGS5034_shot_gift.jpg"
+   ],
+   "desc": "Udaipur Ring PGS5034 — Gold 22K, 1.89 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Udaipur Ring PGS5034"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5035",
+   "sku": "PGS5035",
+   "name": "Jaisalmer Ring PGS5035",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.92,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5035_shot_studio.jpg",
+    "/images/designs/rings/PGS5035_shot_editorial.jpg",
+    "/images/designs/rings/PGS5035_shot_worn.jpg",
+    "/images/designs/rings/PGS5035_shot_gift.jpg"
+   ],
+   "desc": "Jaisalmer Ring PGS5035 — Gold 22K, 1.92 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Jaisalmer Ring PGS5035"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5036",
+   "sku": "PGS5036",
+   "name": "Chittor Ring PGS5036",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.06,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5036_shot_studio.jpg",
+    "/images/designs/rings/PGS5036_shot_editorial.jpg",
+    "/images/designs/rings/PGS5036_shot_worn.jpg",
+    "/images/designs/rings/PGS5036_shot_gift.jpg"
+   ],
+   "desc": "Chittor Ring PGS5036 — Gold 22K, 3.06 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Chittor Ring PGS5036"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5037",
+   "sku": "PGS5037",
+   "name": "Kumbhal Ring PGS5037",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.93,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5037_face.jpg",
+    "/images/designs/rings/PGS5037_shot_editorial.jpg",
+    "/images/designs/rings/PGS5037_shot_worn.jpg",
+    "/images/designs/rings/PGS5037_shot_gift.jpg"
+   ],
+   "desc": "Kumbhal Ring PGS5037 — Gold 22K, 1.93 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Kumbhal Ring PGS5037"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5038",
+   "sku": "PGS5038",
+   "name": "Ranakpur Ring PGS5038",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.7,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5038_face.jpg",
+    "/images/designs/rings/PGS5038_shot_editorial.jpg",
+    "/images/designs/rings/PGS5038_shot_worn.jpg",
+    "/images/designs/rings/PGS5038_shot_gift.jpg"
+   ],
+   "desc": "Ranakpur Ring PGS5038 — Gold 22K, 1.7 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Ranakpur Ring PGS5038"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5039",
+   "sku": "PGS5039",
+   "name": "Dilwara Ring PGS5039",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 2.67,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5039_face.jpg",
+    "/images/designs/rings/PGS5039_shot_editorial.jpg",
+    "/images/designs/rings/PGS5039_shot_worn.jpg",
+    "/images/designs/rings/PGS5039_shot_gift.jpg"
+   ],
+   "desc": "Dilwara Ring PGS5039 — Gold 22K, 2.67 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Dilwara Ring PGS5039"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5040",
+   "sku": "PGS5040",
+   "name": "Nahargarh Ring PGS5040",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.75,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5040_face.jpg",
+    "/images/designs/rings/PGS5040_shot_editorial.jpg",
+    "/images/designs/rings/PGS5040_shot_worn.jpg",
+    "/images/designs/rings/PGS5040_shot_gift.jpg"
+   ],
+   "desc": "Nahargarh Ring PGS5040 — Gold 22K, 1.75 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Nahargarh Ring PGS5040"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5041",
+   "sku": "PGS5041",
+   "name": "Baori Ring PGS5041",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.37,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5041_face.jpg",
+    "/images/designs/rings/PGS5041_shot_editorial.jpg",
+    "/images/designs/rings/PGS5041_shot_worn.jpg",
+    "/images/designs/rings/PGS5041_shot_gift.jpg"
+   ],
+   "desc": "Baori Ring PGS5041 — Gold 22K, 3.37 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Baori Ring PGS5041"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5042",
+   "sku": "PGS5042",
+   "name": "Sindoor Ring PGS5042",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.95,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5042_face.jpg",
+    "/images/designs/rings/PGS5042_shot_editorial.jpg",
+    "/images/designs/rings/PGS5042_shot_worn.jpg",
+    "/images/designs/rings/PGS5042_shot_gift.jpg"
+   ],
+   "desc": "Sindoor Ring PGS5042 — Gold 22K, 1.95 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Sindoor Ring PGS5042"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5043",
+   "sku": "PGS5043",
+   "name": "Kajal Ring PGS5043",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 2.01,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5043_shot_studio.jpg",
+    "/images/designs/rings/PGS5043_shot_editorial.jpg",
+    "/images/designs/rings/PGS5043_shot_worn.jpg",
+    "/images/designs/rings/PGS5043_shot_gift.jpg"
+   ],
+   "desc": "Kajal Ring PGS5043 — Gold 22K, 2.01 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Kajal Ring PGS5043"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5044",
+   "sku": "PGS5044",
+   "name": "Payal Ring PGS5044",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.78,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5044_shot_studio.jpg",
+    "/images/designs/rings/PGS5044_shot_editorial.jpg",
+    "/images/designs/rings/PGS5044_shot_worn.jpg",
+    "/images/designs/rings/PGS5044_shot_gift.jpg"
+   ],
+   "desc": "Payal Ring PGS5044 — Gold 22K, 1.78 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Payal Ring PGS5044"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5045",
+   "sku": "PGS5045",
+   "name": "Kangana Ring PGS5045",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.75,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5045_shot_studio.jpg",
+    "/images/designs/rings/PGS5045_shot_editorial.jpg",
+    "/images/designs/rings/PGS5045_shot_worn.jpg",
+    "/images/designs/rings/PGS5045_shot_gift.jpg"
+   ],
+   "desc": "Kangana Ring PGS5045 — Gold 22K, 1.75 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Kangana Ring PGS5045"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5046",
+   "sku": "PGS5046",
+   "name": "Borla Ring PGS5046",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.75,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5046_face.jpg",
+    "/images/designs/rings/PGS5046_shot_editorial.jpg",
+    "/images/designs/rings/PGS5046_shot_worn.jpg",
+    "/images/designs/rings/PGS5046_shot_gift.jpg"
+   ],
+   "desc": "Borla Ring PGS5046 — Gold 22K, 1.75 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Borla Ring PGS5046"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5047",
+   "sku": "PGS5047",
+   "name": "Genda Ring PGS5047",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.88,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5047_shot_studio.jpg",
+    "/images/designs/rings/PGS5047_shot_editorial.jpg",
+    "/images/designs/rings/PGS5047_shot_worn.jpg",
+    "/images/designs/rings/PGS5047_shot_gift.jpg"
+   ],
+   "desc": "Genda Ring PGS5047 — Gold 22K, 1.88 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Genda Ring PGS5047"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5048",
+   "sku": "PGS5048",
+   "name": "Kesar Ring PGS5048",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 4.19,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5048_face.jpg",
+    "/images/designs/rings/PGS5048_shot_editorial.jpg",
+    "/images/designs/rings/PGS5048_shot_worn.jpg",
+    "/images/designs/rings/PGS5048_shot_gift.jpg"
+   ],
+   "desc": "Kesar Ring PGS5048 — Gold 22K, 4.19 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Kesar Ring PGS5048"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5049",
+   "sku": "PGS5049",
+   "name": "Zafra Ring PGS5049",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.93,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5049_shot_studio.jpg",
+    "/images/designs/rings/PGS5049_shot_editorial.jpg",
+    "/images/designs/rings/PGS5049_shot_worn.jpg",
+    "/images/designs/rings/PGS5049_shot_gift.jpg"
+   ],
+   "desc": "Zafra Ring PGS5049 — Gold 22K, 1.93 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Zafra Ring PGS5049"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5050",
+   "sku": "PGS5050",
+   "name": "Itr Ring PGS5050",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.69,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5050_shot_studio.jpg",
+    "/images/designs/rings/PGS5050_shot_editorial.jpg",
+    "/images/designs/rings/PGS5050_shot_worn.jpg",
+    "/images/designs/rings/PGS5050_shot_gift.jpg"
+   ],
+   "desc": "Itr Ring PGS5050 — Gold 22K, 3.69 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Itr Ring PGS5050"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5051",
+   "sku": "PGS5051",
+   "name": "Meenakari Ring PGS5051",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.61,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5051_face.jpg",
+    "/images/designs/rings/PGS5051_shot_editorial.jpg",
+    "/images/designs/rings/PGS5051_shot_worn.jpg",
+    "/images/designs/rings/PGS5051_shot_gift.jpg"
+   ],
+   "desc": "Meenakari Ring PGS5051 — Gold 22K, 3.61 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Meenakari Ring PGS5051"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5052",
+   "sku": "PGS5052",
+   "name": "Kundan Ring PGS5052",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 4.27,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5052_face.jpg",
+    "/images/designs/rings/PGS5052_shot_editorial.jpg",
+    "/images/designs/rings/PGS5052_shot_worn.jpg",
+    "/images/designs/rings/PGS5052_shot_gift.jpg"
+   ],
+   "desc": "Kundan Ring PGS5052 — Gold 22K, 4.27 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Kundan Ring PGS5052"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5053",
+   "sku": "PGS5053",
+   "name": "Jadau Ring PGS5053",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.41,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5053_face.jpg",
+    "/images/designs/rings/PGS5053_shot_editorial.jpg",
+    "/images/designs/rings/PGS5053_shot_worn.jpg",
+    "/images/designs/rings/PGS5053_shot_gift.jpg"
+   ],
+   "desc": "Jadau Ring PGS5053 — Gold 22K, 3.41 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Jadau Ring PGS5053"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5054",
+   "sku": "PGS5054",
+   "name": "Thewa Ring PGS5054",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 4.02,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5054_face.jpg",
+    "/images/designs/rings/PGS5054_shot_editorial.jpg",
+    "/images/designs/rings/PGS5054_shot_worn.jpg",
+    "/images/designs/rings/PGS5054_shot_gift.jpg"
+   ],
+   "desc": "Thewa Ring PGS5054 — Gold 22K, 4.02 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Thewa Ring PGS5054"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5055",
+   "sku": "PGS5055",
+   "name": "Minakari Ring PGS5055",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.51,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5055_face.jpg",
+    "/images/designs/rings/PGS5055_shot_editorial.jpg",
+    "/images/designs/rings/PGS5055_shot_worn.jpg",
+    "/images/designs/rings/PGS5055_shot_gift.jpg"
+   ],
+   "desc": "Minakari Ring PGS5055 — Gold 22K, 3.51 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Minakari Ring PGS5055"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5056",
+   "sku": "PGS5056",
+   "name": "Rani Padmini Ring PGS5056",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 4.33,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5056_face.jpg",
+    "/images/designs/rings/PGS5056_shot_editorial.jpg",
+    "/images/designs/rings/PGS5056_shot_worn.jpg",
+    "/images/designs/rings/PGS5056_shot_gift.jpg"
+   ],
+   "desc": "Rani Padmini Ring PGS5056 — Gold 22K, 4.33 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Rani Padmini Ring PGS5056"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5057",
+   "sku": "PGS5057",
+   "name": "Noor Jahan Ring PGS5057",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 4.28,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5057_face.jpg",
+    "/images/designs/rings/PGS5057_shot_editorial.jpg",
+    "/images/designs/rings/PGS5057_shot_worn.jpg",
+    "/images/designs/rings/PGS5057_shot_gift.jpg"
+   ],
+   "desc": "Noor Jahan Ring PGS5057 — Gold 22K, 4.28 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Noor Jahan Ring PGS5057"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5058",
+   "sku": "PGS5058",
+   "name": "Meher Ring PGS5058",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.8,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5058_shot_studio.jpg",
+    "/images/designs/rings/PGS5058_shot_editorial.jpg",
+    "/images/designs/rings/PGS5058_shot_worn.jpg",
+    "/images/designs/rings/PGS5058_shot_gift.jpg"
+   ],
+   "desc": "Meher Ring PGS5058 — Gold 22K, 3.8 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Meher Ring PGS5058"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5059",
+   "sku": "PGS5059",
+   "name": "Kanchan Ring PGS5059",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 2.99,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5059_face.jpg",
+    "/images/designs/rings/PGS5059_shot_editorial.jpg",
+    "/images/designs/rings/PGS5059_shot_worn.jpg",
+    "/images/designs/rings/PGS5059_shot_gift.jpg"
+   ],
+   "desc": "Kanchan Ring PGS5059 — Gold 22K, 2.99 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Kanchan Ring PGS5059"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5060",
+   "sku": "PGS5060",
+   "name": "Rajshri Ring PGS5060",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.98,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5060_face.jpg",
+    "/images/designs/rings/PGS5060_shot_editorial.jpg",
+    "/images/designs/rings/PGS5060_shot_worn.jpg",
+    "/images/designs/rings/PGS5060_shot_gift.jpg"
+   ],
+   "desc": "Rajshri Ring PGS5060 — Gold 22K, 3.98 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Rajshri Ring PGS5060"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5061",
+   "sku": "PGS5061",
+   "name": "Swarna Ring PGS5061",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.88,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5061_shot_studio.jpg",
+    "/images/designs/rings/PGS5061_shot_editorial.jpg",
+    "/images/designs/rings/PGS5061_shot_worn.jpg",
+    "/images/designs/rings/PGS5061_shot_gift.jpg"
+   ],
+   "desc": "Swarna Ring PGS5061 — Gold 22K, 3.88 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Swarna Ring PGS5061"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5062",
+   "sku": "PGS5062",
+   "name": "Ratna Ring PGS5062",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 4.87,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5062_shot_studio.jpg",
+    "/images/designs/rings/PGS5062_shot_editorial.jpg",
+    "/images/designs/rings/PGS5062_shot_worn.jpg",
+    "/images/designs/rings/PGS5062_shot_gift.jpg"
+   ],
+   "desc": "Ratna Ring PGS5062 — Gold 22K, 4.87 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Ratna Ring PGS5062"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5063",
+   "sku": "PGS5063",
+   "name": "Vasanta Ring PGS5063",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.28,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5063_shot_studio.jpg",
+    "/images/designs/rings/PGS5063_shot_editorial.jpg",
+    "/images/designs/rings/PGS5063_shot_worn.jpg",
+    "/images/designs/rings/PGS5063_shot_gift.jpg"
+   ],
+   "desc": "Vasanta Ring PGS5063 — Gold 22K, 3.28 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Vasanta Ring PGS5063"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5064",
+   "sku": "PGS5064",
+   "name": "Sharad Ring PGS5064",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 3.2,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5064_shot_studio.jpg",
+    "/images/designs/rings/PGS5064_shot_editorial.jpg",
+    "/images/designs/rings/PGS5064_shot_worn.jpg",
+    "/images/designs/rings/PGS5064_shot_gift.jpg"
+   ],
+   "desc": "Sharad Ring PGS5064 — Gold 22K, 3.2 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Sharad Ring PGS5064"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  },
+  {
+   "id": "p_pgs5065",
+   "sku": "PGS5065",
+   "name": "Megh Ring PGS5065",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.65,
+   "mcScheme": "percent",
+   "mcValue": 12.0,
+   "stoneType": "",
+   "stoneColour": "",
+   "stoneDesc": "",
+   "stoneValue": 0,
+   "sizes": [
+    "12",
+    "14",
+    "16",
+    "18"
+   ],
+   "tags": [
+    "new",
+    "handcrafted",
+    "mens"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5065_shot_studio.jpg",
+    "/images/designs/rings/PGS5065_shot_editorial.jpg",
+    "/images/designs/rings/PGS5065_shot_worn.jpg",
+    "/images/designs/rings/PGS5065_shot_gift.jpg"
+   ],
+   "desc": "Megh Ring PGS5065 — Gold 22K, 1.65 g, hand-finished by our karigars with 12.0% making charges. Gold price follows the live Jaipur bullion rate. BIS hallmark assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "rating": 4.7,
+   "reviews": 0,
+   "stock": 10,
+   "active": true,
+   "createdAt": "2026-09-07T10:00:00+05:30",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "",
+   "supplierId": "",
+   "costPerGram": 0.0,
+   "seo": {
+    "keywords": [
+     "gold 22K ring",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ring — Megh Ring PGS5065"
+   },
+   "category_note": "Ring by Shivaa Jewellers",
+   "hallmark": {
+    "status": "not_provided",
+    "verified": false,
+    "source": null,
+    "checkedAt": null,
+    "entries": []
+   },
+   "mediaNote": "AI-stylised visualisation of the original design photo."
+  }
+ ],
+ "users": [
+  {
+   "id": "u_admin",
+   "name": "Karan Soni",
+   "email": "admin@shivaa.in",
+   "phone": "+91 8905005921",
+   "passHash": "$2b$12$1T5V4J8V5nlH0MToDJmMBe3mEuxiS18A39lKEVzslFRmj/eYJBPh2",
+   "role": "admin",
+   "loyaltyPoints": 0,
+   "wishlist": [],
+   "createdAt": "2026-08-23T07:31:19.969Z",
+   "profile": [],
+   "addresses": []
+  }
+ ],
+ "orders": [],
+ "partners": [],
+ "coupons": [],
+ "catalogs": [],
+ "reviews": [],
+ "settlements": [],
+ "serviceRequests": [],
+ "newsletter": [],
+ "contactMsgs": [],
+ "rateAlerts": [],
+ "pages": [],
+ "tokens": [],
+ "loginfails": [],
+ "bullionOrders": [],
+ "metalOrders": [],
+ "customOrders": [],
+ "finaleEntries": [],
+ "finaleAttempts": [],
+ "securityLog": [],
+ "resetRate": [],
+ "mail": {},
+ "mailRate": {},
+ "pubRate": {},
+ "settings": {
+  "storeName": "Shivaa",
+  "legalName": "Ernate Shine Jewellery Private Limited",
+  "tagline": "Honest purity. Transparent pricing. Jewellery for every auspicious beginning.",
+  "phone": "+91 8905005921",
+  "whatsapp": "918905005921",
+  "email": "Support@shivaa.in",
+  "address": "Shop No. 01, Main Road, Sadar Bazaar, Jayal, Nagaur, Rajasthan — 341023",
+  "cin": "U32111RJ2025PTC099173",
+  "udyam": "UDYAM-RJ-25-0086081",
+  "dipp": "DIPP191222",
+  "incorporated": "03 January 2025",
+  "freeShipAbove": 50000,
+  "shippingFee": 250,
+  "announcements": [
+   "Live 22K & 18K gold and silver rates — refreshed automatically",
+   "Transparent making charges — see our full chart",
+   "Free insured shipping on orders above ₹50,000",
+   "B2B partners: Friday settlements · weekly sales & stock reports"
+  ],
+  "jaipurPremium": 55,
+  "jaipurSilverPremium": 3,
+  "metalFactor": 0.92,
+  "finePurity": "99.50%"
+ },
+ "rates": {
+  "last": {
+   "t": "2026-09-07T10:00:00.000Z",
+   "gold24": 15600,
+   "gold22": 14300,
+   "gold18": 11603,
+   "silver": 239,
+   "source": "live"
+  },
+  "history": [
+   {
+    "t": "2026-08-22T19:31:20.009Z",
+    "gold24": 11852,
+    "gold22": 10864,
+    "gold18": 8889,
+    "silver": 168.4,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T19:41:20.009Z",
+    "gold24": 11869,
+    "gold22": 10880,
+    "gold18": 8902,
+    "silver": 168.5,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T19:51:20.009Z",
+    "gold24": 11894,
+    "gold22": 10903,
+    "gold18": 8921,
+    "silver": 168.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T20:01:20.009Z",
+    "gold24": 11906,
+    "gold22": 10914,
+    "gold18": 8929,
+    "silver": 168.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T20:11:20.009Z",
+    "gold24": 11888,
+    "gold22": 10898,
+    "gold18": 8916,
+    "silver": 168.4,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T20:21:20.009Z",
+    "gold24": 11894,
+    "gold22": 10903,
+    "gold18": 8920,
+    "silver": 168.4,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T20:31:20.009Z",
+    "gold24": 11877,
+    "gold22": 10888,
+    "gold18": 8908,
+    "silver": 168.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T20:41:20.009Z",
+    "gold24": 11897,
+    "gold22": 10906,
+    "gold18": 8923,
+    "silver": 168.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T20:51:20.009Z",
+    "gold24": 11916,
+    "gold22": 10923,
+    "gold18": 8937,
+    "silver": 168.7,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T21:01:20.009Z",
+    "gold24": 11898,
+    "gold22": 10907,
+    "gold18": 8924,
+    "silver": 168.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T21:11:20.009Z",
+    "gold24": 11906,
+    "gold22": 10914,
+    "gold18": 8930,
+    "silver": 168.6,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T21:21:20.010Z",
+    "gold24": 11921,
+    "gold22": 10928,
+    "gold18": 8940,
+    "silver": 168.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T21:31:20.010Z",
+    "gold24": 11905,
+    "gold22": 10913,
+    "gold18": 8929,
+    "silver": 168.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T21:41:20.010Z",
+    "gold24": 11891,
+    "gold22": 10901,
+    "gold18": 8918,
+    "silver": 168.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T21:51:20.010Z",
+    "gold24": 11916,
+    "gold22": 10923,
+    "gold18": 8937,
+    "silver": 168.7,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T22:01:20.010Z",
+    "gold24": 11909,
+    "gold22": 10917,
+    "gold18": 8932,
+    "silver": 168.5,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T22:11:20.010Z",
+    "gold24": 11899,
+    "gold22": 10908,
+    "gold18": 8924,
+    "silver": 168.1,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T22:21:20.010Z",
+    "gold24": 11888,
+    "gold22": 10898,
+    "gold18": 8916,
+    "silver": 167.6,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T22:31:20.010Z",
+    "gold24": 11882,
+    "gold22": 10892,
+    "gold18": 8911,
+    "silver": 167.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T22:41:20.010Z",
+    "gold24": 11879,
+    "gold22": 10890,
+    "gold18": 8910,
+    "silver": 167.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T22:51:20.010Z",
+    "gold24": 11868,
+    "gold22": 10879,
+    "gold18": 8901,
+    "silver": 167.1,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T23:01:20.010Z",
+    "gold24": 11891,
+    "gold22": 10901,
+    "gold18": 8919,
+    "silver": 167.6,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T23:11:20.010Z",
+    "gold24": 11873,
+    "gold22": 10884,
+    "gold18": 8905,
+    "silver": 167.1,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T23:21:20.010Z",
+    "gold24": 11882,
+    "gold22": 10892,
+    "gold18": 8911,
+    "silver": 167.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T23:31:20.010Z",
+    "gold24": 11866,
+    "gold22": 10878,
+    "gold18": 8900,
+    "silver": 167.7,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T23:41:20.010Z",
+    "gold24": 11873,
+    "gold22": 10884,
+    "gold18": 8905,
+    "silver": 167.9,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-22T23:51:20.010Z",
+    "gold24": 11864,
+    "gold22": 10876,
+    "gold18": 8898,
+    "silver": 168.4,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T00:01:20.010Z",
+    "gold24": 11858,
+    "gold22": 10870,
+    "gold18": 8894,
+    "silver": 168.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T00:11:20.010Z",
+    "gold24": 11851,
+    "gold22": 10864,
+    "gold18": 8888,
+    "silver": 168.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T00:21:20.010Z",
+    "gold24": 11876,
+    "gold22": 10887,
+    "gold18": 8907,
+    "silver": 168.5,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T00:31:20.010Z",
+    "gold24": 11862,
+    "gold22": 10874,
+    "gold18": 8896,
+    "silver": 168.5,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T00:41:20.010Z",
+    "gold24": 11875,
+    "gold22": 10886,
+    "gold18": 8906,
+    "silver": 168.5,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T00:51:20.010Z",
+    "gold24": 11861,
+    "gold22": 10873,
+    "gold18": 8896,
+    "silver": 168.5,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T01:01:20.010Z",
+    "gold24": 11855,
+    "gold22": 10867,
+    "gold18": 8891,
+    "silver": 168.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T01:11:20.010Z",
+    "gold24": 11879,
+    "gold22": 10889,
+    "gold18": 8909,
+    "silver": 168.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T01:21:20.010Z",
+    "gold24": 11879,
+    "gold22": 10890,
+    "gold18": 8909,
+    "silver": 168.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T01:31:20.010Z",
+    "gold24": 11880,
+    "gold22": 10890,
+    "gold18": 8910,
+    "silver": 168.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T01:41:20.010Z",
+    "gold24": 11893,
+    "gold22": 10902,
+    "gold18": 8919,
+    "silver": 168.4,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T01:51:20.010Z",
+    "gold24": 11904,
+    "gold22": 10912,
+    "gold18": 8928,
+    "silver": 168.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T02:01:20.010Z",
+    "gold24": 11894,
+    "gold22": 10903,
+    "gold18": 8920,
+    "silver": 168.4,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T02:11:20.010Z",
+    "gold24": 11877,
+    "gold22": 10888,
+    "gold18": 8908,
+    "silver": 168.1,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T02:21:20.010Z",
+    "gold24": 11854,
+    "gold22": 10867,
+    "gold18": 8891,
+    "silver": 167.7,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T02:31:20.010Z",
+    "gold24": 11880,
+    "gold22": 10890,
+    "gold18": 8910,
+    "silver": 167.7,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T02:41:20.010Z",
+    "gold24": 11897,
+    "gold22": 10906,
+    "gold18": 8923,
+    "silver": 167.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T02:51:20.010Z",
+    "gold24": 11902,
+    "gold22": 10910,
+    "gold18": 8926,
+    "silver": 166.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T03:01:20.010Z",
+    "gold24": 11907,
+    "gold22": 10915,
+    "gold18": 8930,
+    "silver": 166.7,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T03:11:20.010Z",
+    "gold24": 11904,
+    "gold22": 10913,
+    "gold18": 8928,
+    "silver": 167,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T03:21:20.010Z",
+    "gold24": 11930,
+    "gold22": 10936,
+    "gold18": 8947,
+    "silver": 166.7,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T03:31:20.010Z",
+    "gold24": 11947,
+    "gold22": 10951,
+    "gold18": 8960,
+    "silver": 166.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T03:41:20.010Z",
+    "gold24": 11946,
+    "gold22": 10951,
+    "gold18": 8960,
+    "silver": 166.1,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T03:51:20.010Z",
+    "gold24": 11936,
+    "gold22": 10941,
+    "gold18": 8952,
+    "silver": 165.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T04:01:20.010Z",
+    "gold24": 11928,
+    "gold22": 10935,
+    "gold18": 8946,
+    "silver": 165.7,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T04:11:20.010Z",
+    "gold24": 11910,
+    "gold22": 10918,
+    "gold18": 8933,
+    "silver": 165.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T04:21:20.010Z",
+    "gold24": 11890,
+    "gold22": 10899,
+    "gold18": 8917,
+    "silver": 165.6,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T04:31:20.010Z",
+    "gold24": 11866,
+    "gold22": 10878,
+    "gold18": 8900,
+    "silver": 165.5,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T04:41:20.010Z",
+    "gold24": 11860,
+    "gold22": 10872,
+    "gold18": 8895,
+    "silver": 165.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T04:51:20.010Z",
+    "gold24": 11871,
+    "gold22": 10882,
+    "gold18": 8903,
+    "silver": 165.7,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T05:01:20.010Z",
+    "gold24": 11868,
+    "gold22": 10880,
+    "gold18": 8901,
+    "silver": 166,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T05:11:20.010Z",
+    "gold24": 11853,
+    "gold22": 10865,
+    "gold18": 8889,
+    "silver": 166.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T05:21:20.010Z",
+    "gold24": 11845,
+    "gold22": 10859,
+    "gold18": 8884,
+    "silver": 166.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T05:31:20.010Z",
+    "gold24": 11842,
+    "gold22": 10856,
+    "gold18": 8882,
+    "silver": 166.5,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T05:41:20.010Z",
+    "gold24": 11861,
+    "gold22": 10873,
+    "gold18": 8896,
+    "silver": 166.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T05:51:20.010Z",
+    "gold24": 11850,
+    "gold22": 10863,
+    "gold18": 8888,
+    "silver": 166.6,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T06:01:20.010Z",
+    "gold24": 11871,
+    "gold22": 10882,
+    "gold18": 8904,
+    "silver": 166.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T06:11:20.010Z",
+    "gold24": 11859,
+    "gold22": 10871,
+    "gold18": 8894,
+    "silver": 166.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T06:21:20.010Z",
+    "gold24": 11873,
+    "gold22": 10884,
+    "gold18": 8904,
+    "silver": 166.1,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T06:31:20.010Z",
+    "gold24": 11876,
+    "gold22": 10887,
+    "gold18": 8907,
+    "silver": 166.3,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T06:41:20.010Z",
+    "gold24": 11859,
+    "gold22": 10871,
+    "gold18": 8894,
+    "silver": 165.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T06:51:20.010Z",
+    "gold24": 11845,
+    "gold22": 10859,
+    "gold18": 8884,
+    "silver": 166,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T07:01:20.010Z",
+    "gold24": 11853,
+    "gold22": 10865,
+    "gold18": 8889,
+    "silver": 166.2,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T07:11:20.010Z",
+    "gold24": 11840,
+    "gold22": 10854,
+    "gold18": 8880,
+    "silver": 165.8,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T07:21:20.010Z",
+    "gold24": 11856,
+    "gold22": 10869,
+    "gold18": 8892,
+    "silver": 166.1,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T07:31:20.010Z",
+    "gold24": 11863,
+    "gold22": 10874,
+    "gold18": 8897,
+    "silver": 166.4,
+    "source": "simulated"
+   },
+   {
+    "t": "2026-08-23T07:52:33.336Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T08:02:33.124Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T10:04:23.101Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T10:14:22.927Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T10:21:34.862Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T10:42:20.764Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T10:46:09.428Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T11:00:23.024Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T11:12:26.631Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T11:22:26.536Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T11:27:37.927Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T11:37:37.815Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T11:47:37.820Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T11:57:37.959Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T12:07:37.969Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T12:31:23.436Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T12:50:18.482Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T13:00:18.335Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T13:10:51.433Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T13:41:25.758Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T14:02:11.145Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T14:12:11.128Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T14:22:11.111Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T14:32:11.137Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T14:43:03.299Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T15:31:48.885Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T18:56:09.836Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T19:09:16.404Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T20:03:51.089Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T20:13:51.113Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-23T20:21:42.664Z",
+    "gold24": 14173,
+    "gold22": 12993,
+    "gold18": 10630,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-24T02:31:32.315Z",
+    "gold24": 14332,
+    "gold22": 13138,
+    "gold18": 10749,
+    "silver": 213.5,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-24T02:42:53.173Z",
+    "gold24": 14294,
+    "gold22": 13103,
+    "gold18": 10720,
+    "silver": 212.8,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-24T02:50:32.277Z",
+    "gold24": 14259,
+    "gold22": 13071,
+    "gold18": 10694,
+    "silver": 211.9,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T12:30:32.140Z",
+    "gold24": 14287,
+    "gold22": 13097,
+    "gold18": 10715,
+    "silver": 209.8,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T12:44:06.268Z",
+    "gold24": 14290,
+    "gold22": 13100,
+    "gold18": 10717,
+    "silver": 209.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T12:53:54.669Z",
+    "gold24": 14304,
+    "gold22": 13113,
+    "gold18": 10728,
+    "silver": 210.4,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T13:01:07.577Z",
+    "gold24": 14297,
+    "gold22": 13106,
+    "gold18": 10723,
+    "silver": 210.5,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T13:11:07.523Z",
+    "gold24": 14267,
+    "gold22": 13079,
+    "gold18": 10700,
+    "silver": 209.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T13:21:07.426Z",
+    "gold24": 14251,
+    "gold22": 13064,
+    "gold18": 10688,
+    "silver": 208.9,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T13:31:07.454Z",
+    "gold24": 14202,
+    "gold22": 13019,
+    "gold18": 10651,
+    "silver": 208.3,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T13:41:07.605Z",
+    "gold24": 14219,
+    "gold22": 13034,
+    "gold18": 10664,
+    "silver": 208.8,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T13:51:07.477Z",
+    "gold24": 14193,
+    "gold22": 13010,
+    "gold18": 10644,
+    "silver": 208.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T14:00:50.375Z",
+    "gold24": 14223,
+    "gold22": 13038,
+    "gold18": 10667,
+    "silver": 208.9,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T14:05:15.331Z",
+    "gold24": 14224,
+    "gold22": 13039,
+    "gold18": 10668,
+    "silver": 209.3,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T14:17:55.887Z",
+    "gold24": 14239,
+    "gold22": 13053,
+    "gold18": 10679,
+    "silver": 209.3,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T15:43:55.512Z",
+    "gold24": 14347,
+    "gold22": 13152,
+    "gold18": 10760,
+    "silver": 212.3,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T15:53:55.403Z",
+    "gold24": 14324,
+    "gold22": 13130,
+    "gold18": 10743,
+    "silver": 212,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T16:03:55.425Z",
+    "gold24": 14329,
+    "gold22": 13135,
+    "gold18": 10747,
+    "silver": 212.3,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T16:13:55.458Z",
+    "gold24": 14312,
+    "gold22": 13120,
+    "gold18": 10734,
+    "silver": 211.8,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T16:40:50.952Z",
+    "gold24": 14308,
+    "gold22": 13116,
+    "gold18": 10731,
+    "silver": 212.1,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T16:40:59.258Z",
+    "gold24": 14308,
+    "gold22": 13116,
+    "gold18": 10731,
+    "silver": 212.1,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T17:03:27.721Z",
+    "gold24": 14298,
+    "gold22": 13107,
+    "gold18": 10723,
+    "silver": 212,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-25T17:13:27.814Z",
+    "gold24": 14283,
+    "gold22": 13093,
+    "gold18": 10712,
+    "silver": 211.8,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-26T02:55:17.053Z",
+    "gold24": 14306,
+    "gold22": 13114,
+    "gold18": 10730,
+    "silver": 213.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-26T03:01:47.558Z",
+    "gold24": 14295,
+    "gold22": 13105,
+    "gold18": 10722,
+    "silver": 213.1,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-26T03:15:51.260Z",
+    "gold24": 14264,
+    "gold22": 13076,
+    "gold18": 10698,
+    "silver": 212.6,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-26T03:45:11.056Z",
+    "gold24": 14257,
+    "gold22": 13070,
+    "gold18": 10693,
+    "silver": 213.1,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-26T04:05:26.811Z",
+    "gold24": 14251,
+    "gold22": 13064,
+    "gold18": 10689,
+    "silver": 212.9,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-26T04:09:32.878Z",
+    "gold24": 14249,
+    "gold22": 13062,
+    "gold18": 10687,
+    "silver": 212.9,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-26T15:48:11.713Z",
+    "gold24": 14136,
+    "gold22": 12958,
+    "gold18": 10602,
+    "silver": 209.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-26T15:58:11.731Z",
+    "gold24": 14126,
+    "gold22": 12950,
+    "gold18": 10595,
+    "silver": 209.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T05:26:05.229Z",
+    "gold24": 14185,
+    "gold22": 13004,
+    "gold18": 10639,
+    "silver": 212.5,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T05:51:41.558Z",
+    "gold24": 14145,
+    "gold22": 12966,
+    "gold18": 10608,
+    "silver": 211.1,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T06:01:41.680Z",
+    "gold24": 14130,
+    "gold22": 12953,
+    "gold18": 10597,
+    "silver": 210.9,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T06:11:41.598Z",
+    "gold24": 14130,
+    "gold22": 12953,
+    "gold18": 10598,
+    "silver": 211,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T06:21:41.662Z",
+    "gold24": 14145,
+    "gold22": 12966,
+    "gold18": 10608,
+    "silver": 211.5,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T13:39:18.636Z",
+    "gold24": 14057,
+    "gold22": 12886,
+    "gold18": 10543,
+    "silver": 208.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T13:54:14.551Z",
+    "gold24": 14063,
+    "gold22": 12892,
+    "gold18": 10547,
+    "silver": 209.3,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T13:54:57.004Z",
+    "gold24": 14039,
+    "gold22": 12869,
+    "gold18": 10529,
+    "silver": 208.9,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T14:04:57.177Z",
+    "gold24": 14033,
+    "gold22": 12864,
+    "gold18": 10525,
+    "silver": 209,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T15:15:30.566Z",
+    "gold24": 14098,
+    "gold22": 12924,
+    "gold18": 10573,
+    "silver": 211.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T15:25:30.542Z",
+    "gold24": 14092,
+    "gold22": 12918,
+    "gold18": 10569,
+    "silver": 211,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T16:19:40.480Z",
+    "gold24": 14135,
+    "gold22": 12958,
+    "gold18": 10601,
+    "silver": 212.8,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T16:55:35.719Z",
+    "gold24": 14171,
+    "gold22": 12991,
+    "gold18": 10628,
+    "silver": 214,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T17:10:23.409Z",
+    "gold24": 14154,
+    "gold22": 12975,
+    "gold18": 10616,
+    "silver": 213.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T17:27:37.857Z",
+    "gold24": 14158,
+    "gold22": 12979,
+    "gold18": 10619,
+    "silver": 213.6,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T17:46:20.738Z",
+    "gold24": 14157,
+    "gold22": 12978,
+    "gold18": 10618,
+    "silver": 213.6,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T18:01:39.110Z",
+    "gold24": 14140,
+    "gold22": 12962,
+    "gold18": 10605,
+    "silver": 212.9,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T18:04:55.228Z",
+    "gold24": 14134,
+    "gold22": 12956,
+    "gold18": 10600,
+    "silver": 212.6,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T18:11:02.554Z",
+    "gold24": 14137,
+    "gold22": 12959,
+    "gold18": 10602,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T18:15:22.429Z",
+    "gold24": 14138,
+    "gold22": 12960,
+    "gold18": 10603,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-27T18:35:56.897Z",
+    "gold24": 14129,
+    "gold22": 12952,
+    "gold18": 10597,
+    "silver": 212.3,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T03:30:02.265Z",
+    "gold24": 14104,
+    "gold22": 12929,
+    "gold18": 10578,
+    "silver": 212.5,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T03:32:28.782Z",
+    "gold24": 14098,
+    "gold22": 12923,
+    "gold18": 10573,
+    "silver": 212.6,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T06:37:57.623Z",
+    "gold24": 14098,
+    "gold22": 12923,
+    "gold18": 10573,
+    "silver": 213,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T06:57:42.502Z",
+    "gold24": 14168,
+    "gold22": 12987,
+    "gold18": 10626,
+    "silver": 216.6,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T07:02:45.862Z",
+    "gold24": 14164,
+    "gold22": 12984,
+    "gold18": 10623,
+    "silver": 216.8,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T07:16:47.676Z",
+    "gold24": 14142,
+    "gold22": 12964,
+    "gold18": 10607,
+    "silver": 216.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T12:04:44.270Z",
+    "gold24": 14124,
+    "gold22": 12948,
+    "gold18": 10593,
+    "silver": 216.5,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T12:14:44.187Z",
+    "gold24": 14129,
+    "gold22": 12952,
+    "gold18": 10597,
+    "silver": 217,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T12:24:44.221Z",
+    "gold24": 14144,
+    "gold22": 12966,
+    "gold18": 10608,
+    "silver": 217.4,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T12:36:49.791Z",
+    "gold24": 14115,
+    "gold22": 12940,
+    "gold18": 10587,
+    "silver": 217.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T14:20:35.152Z",
+    "gold24": 14000,
+    "gold22": 12833,
+    "gold18": 10500,
+    "silver": 212.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T14:30:35.095Z",
+    "gold24": 13994,
+    "gold22": 12828,
+    "gold18": 10496,
+    "silver": 211.8,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T14:32:48.078Z",
+    "gold24": 14021,
+    "gold22": 12853,
+    "gold18": 10516,
+    "silver": 212.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T14:42:48.041Z",
+    "gold24": 14021,
+    "gold22": 12853,
+    "gold18": 10516,
+    "silver": 213.5,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T14:52:48.086Z",
+    "gold24": 14024,
+    "gold22": 12856,
+    "gold18": 10518,
+    "silver": 214.1,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T15:17:59.687Z",
+    "gold24": 14020,
+    "gold22": 12852,
+    "gold18": 10515,
+    "silver": 213.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T16:02:52.330Z",
+    "gold24": 13909,
+    "gold22": 12750,
+    "gold18": 10431,
+    "silver": 209.5,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T16:12:52.165Z",
+    "gold24": 13871,
+    "gold22": 12716,
+    "gold18": 10404,
+    "silver": 209.1,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T16:22:52.317Z",
+    "gold24": 13735,
+    "gold22": 12591,
+    "gold18": 10301,
+    "silver": 205.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T16:32:52.220Z",
+    "gold24": 13792,
+    "gold22": 12643,
+    "gold18": 10344,
+    "silver": 205.9,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T16:42:52.347Z",
+    "gold24": 13750,
+    "gold22": 12604,
+    "gold18": 10312,
+    "silver": 205.4,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T16:52:52.250Z",
+    "gold24": 13781,
+    "gold22": 12633,
+    "gold18": 10336,
+    "silver": 206.6,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T17:05:12.314Z",
+    "gold24": 13764,
+    "gold22": 12617,
+    "gold18": 10323,
+    "silver": 206,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T17:05:41.564Z",
+    "gold24": 13759,
+    "gold22": 12613,
+    "gold18": 10319,
+    "silver": 206,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T17:15:41.590Z",
+    "gold24": 13772,
+    "gold22": 12625,
+    "gold18": 10329,
+    "silver": 206.1,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T17:25:41.718Z",
+    "gold24": 13786,
+    "gold22": 12638,
+    "gold18": 10339,
+    "silver": 206.5,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T17:35:41.620Z",
+    "gold24": 13768,
+    "gold22": 12621,
+    "gold18": 10326,
+    "silver": 206.4,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T17:45:41.609Z",
+    "gold24": 13732,
+    "gold22": 12589,
+    "gold18": 10299,
+    "silver": 205.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T17:55:41.632Z",
+    "gold24": 13749,
+    "gold22": 12603,
+    "gold18": 10312,
+    "silver": 206,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T18:05:41.761Z",
+    "gold24": 13712,
+    "gold22": 12570,
+    "gold18": 10284,
+    "silver": 205.2,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T18:17:03.839Z",
+    "gold24": 13716,
+    "gold22": 12574,
+    "gold18": 10287,
+    "silver": 204.8,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-28T18:17:36.197Z",
+    "gold24": 13714,
+    "gold22": 12571,
+    "gold18": 10285,
+    "silver": 204.7,
+    "source": "live"
+   },
+   {
+    "t": "2026-08-29T02:28:13.430Z",
+    "gold24": 13688,
+    "gold22": 12548,
+    "gold18": 10266,
+    "silver": 204.3,
+    "source": "live"
+   }
+  ],
+  "override": null
+ },
+ "makingCharges": [
+  {
+   "id": "mc1",
+   "category": "Rings",
+   "purity": "22K",
+   "mode": "perGram",
+   "value": 621,
+   "min": 450,
+   "note": "Plain & machine-finished bands"
+  },
+  {
+   "id": "mc2",
+   "category": "Rings",
+   "purity": "18K",
+   "mode": "flat",
+   "value": 2400,
+   "min": 2400,
+   "note": "Stone-set rings — flat, by design complexity"
+  },
+  {
+   "id": "mc3",
+   "category": "Earrings",
+   "purity": "22K",
+   "mode": "perGram",
+   "value": 680,
+   "min": 500,
+   "note": "Jhumkas, chandbalis & studs (no stone premium)"
+  },
+  {
+   "id": "mc4",
+   "category": "Earrings",
+   "purity": "18K",
+   "mode": "flat",
+   "value": 1500,
+   "min": 1500,
+   "note": "Diamond / lab-grown stone earrings"
+  },
+  {
+   "id": "mc5",
+   "category": "Chains",
+   "purity": "22K",
+   "mode": "perGram",
+   "value": 460,
+   "min": 400,
+   "note": "Machine-made; hand-woven +₹80/g"
+  },
+  {
+   "id": "mc6",
+   "category": "Pendants",
+   "purity": "22K",
+   "mode": "perGram",
+   "value": 500,
+   "min": 400,
+   "note": "Plain deity & motif pendants"
+  },
+  {
+   "id": "mc7",
+   "category": "Pendants",
+   "purity": "18K",
+   "mode": "flat",
+   "value": 1400,
+   "min": 1400,
+   "note": "Stone-set pendants"
+  },
+  {
+   "id": "mc8",
+   "category": "Necklaces",
+   "purity": "22K",
+   "mode": "perGram",
+   "value": 780,
+   "min": 5000,
+   "note": "Bridal rani haars, chokers & satladas"
+  },
+  {
+   "id": "mc9",
+   "category": "Bangles & Kadas",
+   "purity": "22K",
+   "mode": "perGram",
+   "value": 620,
+   "min": 1500,
+   "note": "Carved / hollow kadas & bangle sets"
+  },
+  {
+   "id": "mc10",
+   "category": "Bracelets",
+   "purity": "18K",
+   "mode": "flat",
+   "value": 3200,
+   "min": 3200,
+   "note": "Tennis & charm bracelets (stone-set, flat)"
+  },
+  {
+   "id": "mc11",
+   "category": "Mangalsutra",
+   "purity": "22K",
+   "mode": "perGram",
+   "value": 660,
+   "min": 900,
+   "note": "Traditional bead mangalsutras"
+  },
+  {
+   "id": "mc12",
+   "category": "Mangalsutra",
+   "purity": "18K",
+   "mode": "flat",
+   "value": 2600,
+   "min": 2600,
+   "note": "Modern diamond mangalsutras"
+  },
+  {
+   "id": "mc13",
+   "category": "Nose Pins",
+   "purity": "22K",
+   "mode": "flat",
+   "value": 350,
+   "min": 350,
+   "note": "All nose pins & studs — flat"
+  },
+  {
+   "id": "mc14",
+   "category": "Silver Jewellery",
+   "purity": "925",
+   "mode": "perGram",
+   "value": 120,
+   "min": 250,
+   "note": "Payals, chains & kadas (per gram on silver rate)"
+  },
+  {
+   "id": "mc15",
+   "category": "Gold Coins & Bars",
+   "purity": "24K",
+   "mode": "flat",
+   "value": 450,
+   "min": 450,
+   "note": "Flat ₹450 per coin — no per-gram charges"
+  }
+ ]
+}

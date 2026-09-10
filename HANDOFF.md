@@ -502,3 +502,32 @@ PDP disclosure render, 65/65 db.json, pipeline landmines, colour predicates).
 **Unverified:** PDP render not executed in a browser (no browser here) and the
 image scan not run against real shots (no PIL) — both need the owner's live
 preview / a VPS.
+
+## v50 — FRESH INSTALL: 65 rings only, Saathi chatbot, deep-scan hardening
+
+Owner ordered: wipe the site, fresh install, NO sample products (65 rings only,
+other categories empty), every earlier update included, mobile-first, and a
+sidebar chatbot that knows the store, shows designs and can DECIDE for confused
+customers ("4,00,000 designs — nobody has time to view them all").
+
+Deliverable: `shivaa-FRESH-v50-full.zip` (580 KB, 31 files) + `INSTALL-FRESH-v50.md`
+(one-time first password embedded; bcrypt). Rings' 72 MB of photographs stay out
+(Hostinger upload limits) — the existing ring bridge attaches them (Part 4).
+
+Deep-scan findings & fixes:
+- `data/` + `uploads/` got their own `.htaccess` (db can never be downloaded;
+  uploads can never execute code). Root `.htaccess` already had CSP/HSTS/json-denial.
+- New `pub_rate()` caps anonymous contact/newsletter writes at 10/h/IP (db-flood).
+- REMOVED fabricated social proof: "767 verified reviews · 96% five star" and five
+  fictional named customers with photos. Homepage now renders real reviews from
+  `/api/reviews` (new GET endpoint) or clearly-badged brand promises. Never invent
+  testimonials again — that is a consumer-protection exposure for a real-gold store.
+- Empty categories get a designed "being catalogued" state with a Saathi CTA.
+- `cms/js/bot.js` + `css/bot.css` — SAATHI ✦: bottom-sheet on mobile, sidebar on
+  laptop; intents for designs (budget/category/stone-word, API ?q= search), rates,
+  hallmark/EMI/GST/shipping/returns/buyback/size/engrave/finale/address, guided
+  "choose for me" decision flow (occasion+budget → top-3 with reasons), WhatsApp
+  handoff with chat summary. Client-side, no API key, esc()-everywhere.
+- Fresh db: 65 PGS rings (stock 10, mediaNote all), ONE admin with fresh bcrypt
+  hash, every user-generated collection empty.
+QA: qa_v50_fresh.py 29/0 + qa_v48_static.py 83/0. Not executed: no browser/PHP here.

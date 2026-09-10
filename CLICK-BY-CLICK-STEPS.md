@@ -1,3 +1,5 @@
+> 🆕 **Wiping the site and starting fresh?** Use **`INSTALL-FRESH-v50.md`** + `shivaa-FRESH-v50-full.zip` instead — it already contains everything below except the ring photographs.
+
 # CLICK-BY-CLICK — do it in this order
 
 Everything happens in your hosting **File Manager** and in your **browser**. No terminal, no code editor, no typing inside files.

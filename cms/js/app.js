@@ -1031,6 +1031,74 @@ function finaleLandingHook() {
 window.Shivaa.fqSyncZones = fqSyncZones;
 
 /* ─────────── poster carousel ─────────── */
+/* v50 - honest social proof. Real reviews come from the store database.
+   While the catalogue is fresh (no reviews yet) the marquee and wall show
+   brand PROMISES badged as promises. Invented customers are gone for good. */
+async function loadSocialProof() {
+  const P = (id) => (state.productsCache || []).find(x => x.id === id) || null;
+  const promises = [
+    ['Shivaa', 'BIS hallmark', 'Every piece is hallmarked - check any HUID in BIS Care before you buy.', 5, '/images/products/ring-kundan.jpg'],
+    ['Shivaa', 'Live pricing', 'The rate on every page is the live Jaipur bullion rate; the bill matches the site to the rupee.', 5, '/images/products/mangalsutra-trad.jpg'],
+    ['Shivaa', 'Insured delivery', 'Tamper-sealed, fully insured shipping anywhere in India, with 7-day easy returns.', 5, '/images/products/earrings-jhumka.jpg'],
+    ['Shivaa', 'Honest tanq', 'Weight, making charges and stone value shown before you ask. Lifetime exchange at the live rate.', 5, '/images/products/necklace-rani.jpg'],
+    ['Shivaa', 'Human on WhatsApp', 'OTP login and live rates online, and a real person on WhatsApp when you want one.', 5, '/images/products/chain-gold.jpg'],
+  ];
+  let items = promises.map(x => ({ name: x[0], city: x[1], text: x[2], rating: x[3], img: x[4], prod: null, promise: true }));
+  let real = [];
+  try {
+    const rr = await api('/api/reviews');
+    real = (rr.reviews || []).slice(0, 8).map(r => ({
+      name: r.userName, city: 'Customer review', text: r.text, rating: r.rating | 0,
+      img: ((P(r.productId) || {}).images || [])[0] || '/images/logo.png',
+      prod: (P(r.productId) || {}).name || 'Shivaa piece', promise: false }));
+  } catch (e) {}
+  if (real.length) items = real;
+  const lbl = $('#ugcLabel'); if (lbl) lbl.innerHTML = real.length ? 'Real customers &middot; real reviews' : 'The Shivaa standard &middot; our promises to you';
+  const track = $('#revTrack');
+  if (track) {
+    const card = r => `<div class="rev-card">
+      <div class="rev-head"><span class="rev-av">${(esc(r.name).split(' ').map(w => w[0]).slice(0, 2).join('')) || '✦'}</span><div><b>${esc(r.name)}</b><small>${esc(r.city)}</small></div><span class="rev-ver">${r.promise ? '✦ Promise' : '✓ Review'}</span></div>
+      <div class="rev-stars">${'<i>★</i>'.repeat(Math.max(1, Math.min(5, r.rating)))}</div>
+      <p>“${esc(r.text)}”</p>
+      <img class="rev-photo" src="${r.img}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
+      <span class="rev-qr">✦</span></div>`;
+    const half = items.map(card).join('');
+    track.innerHTML = half + half;
+  }
+  const wall = $('#ugcWall');
+  if (wall) {
+    wall.innerHTML = items.slice(0, 5).map(r => `<figure class="ugc-card" tabindex="0">
+      <div class="ugc-ph">
+        <img src="${r.img}" alt="${esc(r.prod || 'Shivaa jewellery')}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/logo.png'">
+        <span class="ugc-badge"><i>${r.promise ? '✦' : '&#10003;'}</i> ${r.promise ? 'Our promise' : 'Customer review'}</span>
+        <figcaption class="ugc-cap">
+          <div class="st">${'&#9733;'.repeat(Math.max(1, Math.min(5, r.rating)))}</div>
+          <b>${esc(r.name)}</b><small>${esc(r.city)}</small>
+        </figcaption>
+      </div>
+      <div class="ugc-body">
+        <p>&ldquo;${esc(r.text)}&rdquo;</p>
+        ${r.prod ? `<div class="ugc-prod"><img src="${r.img}" alt="" loading="lazy"><span>Purchased<b>${esc(r.prod)}</b></span></div>` : ''}
+      </div>
+    </figure>`).join('');
+    const io = new IntersectionObserver((es, ob) => es.forEach((e, i) => {
+      if (e.isIntersecting) { setTimeout(() => e.target.classList.add('seen'), i * 90); ob.unobserve(e.target); }
+    }), { threshold: .12, rootMargin: '0px 0px -40px' });
+    $$('.ugc-card', wall).forEach(c => io.observe(c));
+  }
+  const box = $('#ugcScore');
+  if (box) {
+    const prods = state.productsCache || [];
+    const total = prods.reduce((a, q) => a + (q.reviews | 0), 0);
+    if (total > 0) {
+      const avg = prods.reduce((a, q) => a + (q.rating || 0) * (q.reviews | 0), 0) / Math.max(1, total);
+      box.innerHTML = `<div class="big">${avg.toFixed(1)}</div><div><div class="stars-lg">${'&#9733;'.repeat(Math.round(avg))}</div><small>${total} customer review${total === 1 ? '' : 's'} · live from the store</small></div>`;
+    } else {
+      box.innerHTML = `<div class="big">✦</div><div><div class="stars-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</div><small>fresh catalogue — real reviews appear here after your first orders</small></div>`;
+    }
+  }
+}
+
 function initCarousel() {
   const car = $('#heroCarousel'); if (!car) return;
   clearInterval(window._carTimer);
@@ -1268,7 +1336,7 @@ function productCard(p, opts = {}) {
   const compared = isCompared(p.id);
   return `<article class="p-card" data-pid="${p.id}">
     <a href="#/product/${p.id}" class="pc-imgwrap">
-      <img src="${p.images[0]}" alt="${esc(p.name)}" loading="lazy">
+      <img src="${(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
       ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
       <div class="glare"></div>
     </a>
@@ -1583,16 +1651,10 @@ pages.home = async (view) => {
 
     <div class="ugc-head rvl" style="margin-top:38px">
       <div>
-        <span class="label">Real customers &middot; real photos</span>
+        <span class="label" id="ugcLabel">The Shivaa standard</span>
         <h2 style="font-family:var(--ff-disp);font-size:clamp(25px,3.6vw,34px);color:var(--maroon-deep);margin-top:4px">Worn by <span class="disp-italic">you</span></h2>
       </div>
-      <div class="ugc-score">
-        <div class="big">4.9</div>
-        <div>
-          <div class="stars-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <small>767 verified reviews &middot; 96% five star</small>
-        </div>
-      </div>
+      <div class="ugc-score" id="ugcScore"></div>
     </div>
     <div class="ugc-wall" id="ugcWall"></div>
   </section>
@@ -1630,61 +1692,14 @@ pages.home = async (view) => {
   if (homeCd) bindFinaleCd(homeCd);
   initCarousel();
   renderRateStrip();
-  // animated reviews marquee
-  const revs = [
-    ['Meenakshi Rathore', 'Nagaur', 'The kundan ring matched its photos exactly — and the price table told me everything before I asked. That honesty is rare.', 5, 'MR', '/images/products/ring-kundan.jpg'],
-    ['Anita Devi', 'Nagaur', 'Bought my daughter\'s mangalsutra here. Making charges were explained openly and the bill matched the website rate to the rupee.', 5, 'AD', '/images/products/mangalsutra-trad.jpg'],
-    ['Priya Sonthalia', 'Jayal', 'The jhumkas are exactly as pictured. As a jeweller\'s daughter, I can say the tanch is genuinely honest.', 5, 'PS', '/images/products/earrings-jhumka.jpg'],
-    ['Krishna Jewellers', 'Partner · Jayal', 'The bullion desk keeps RTGS rates live and Shivaa updates cash rates instantly — our counter decisions got faster.', 5, 'KJ', '/images/banners/b2b-bullion.jpg'],
-    ['Sneha Kulkarni', 'Jaipur', 'OTP login, live rates on every page, WhatsApp ordering — this is how jewellery buying should feel.', 5, 'SK', '/images/products/ring-floral.jpg'],
-    ['Radhe Jewellers', 'Partner · Nagaur', 'Design selection to fine-metal settlement in minutes. Zero making charges means clean, trusted deals.', 5, 'RJ', '/images/products/necklace-rani.jpg'],
-    ['Kavita Jodha', 'Jodhpur', 'The rani haar is heavier and finer than expected. The festive box made it a gift before the gift.', 5, 'KJ', '/images/products/necklace-choker.jpg'],
-  ];
-  // ── photo review wall (real customers) ──
-  const UGC = [
-    ['Meenakshi Rathore','Nagaur','/images/reviews/cust-1.jpg','The jhumkas are exactly as pictured and the tanch is honest. The price table told me everything before I even asked.',5,'Chandbali Jhumkas','/images/products/earrings-jhumka.jpg'],
-    ['Anita Devi','Jayal','/images/reviews/cust-2.jpg','Bought my daughter&rsquo;s bridal set here. Making charges explained openly &mdash; the bill matched the website to the rupee.',5,'Bridal Rani Haar','/images/products/necklace-rani.jpg'],
-    ['Priya Sonthalia','Jayal','/images/reviews/cust-3.jpg','As a jeweller&rsquo;s daughter I check everything. The kundan work is genuinely fine and the weight is exact.',5,'Kundan Cocktail Ring','/images/products/ring-kundan.jpg'],
-    ['Kavita Jodha','Jodhpur','/images/reviews/cust-4.jpg','My mangalsutra arrived in a festive box that made it a gift before the gift. Insured delivery, zero worry.',5,'Traditional Mangalsutra','/images/products/mangalsutra-trad.jpg'],
-    ['Sneha Kulkarni','Jaipur','/images/reviews/cust-5.jpg','OTP login, live rates on every page, WhatsApp ordering. This is how buying jewellery online should feel.',5,'Layered Gold Chain','/images/products/chain-gold.jpg'],
-  ];
-  const wall = $('#ugcWall');
-  if (wall) {
-    wall.innerHTML = UGC.map(r => `<figure class="ugc-card" tabindex="0">
-      <div class="ugc-ph">
-        <img src="${r[2]}" alt="${esc(r[0])} wearing ${esc(r[5])}" loading="lazy" decoding="async">
-        <span class="ugc-badge"><i>&#10003;</i> Verified buyer</span>
-        <figcaption class="ugc-cap">
-          <div class="st">${'&#9733;'.repeat(r[4])}</div>
-          <b>${esc(r[0])}</b><small>${esc(r[1])}</small>
-        </figcaption>
-      </div>
-      <div class="ugc-body">
-        <p>&ldquo;${r[3]}&rdquo;</p>
-        <div class="ugc-prod"><img src="${r[6]}" alt="" loading="lazy"><span>Purchased<b>${esc(r[5])}</b></span></div>
-      </div>
-    </figure>`).join('');
-    const io = new IntersectionObserver((es, o) => es.forEach((e, i) => {
-      if (e.isIntersecting) { setTimeout(() => e.target.classList.add('seen'), i * 90); o.unobserve(e.target); }
-    }), { threshold: .12, rootMargin: '0px 0px -40px' });
-    $$('.ugc-card', wall).forEach(c => io.observe(c));
-  }
+  loadSocialProof(); // v50: real reviews or badged promises - never invented customers
+
   // pillar draw-in
   const pio = new IntersectionObserver((es, o) => es.forEach(e => {
     if (e.isIntersecting) { e.target.classList.add('seen'); o.unobserve(e.target); }
   }), { threshold: .2 });
   $$('.pillar, .wp-card, .rvl').forEach(el => pio.observe(el));
 
-  const track = $('#revTrack');  if (track) {
-    const card = r => `<div class="rev-card">
-      <div class="rev-head"><span class="rev-av">${r[0].split(' ').map(w => w[0]).slice(0, 2).join('')}</span><div><b>${r[0]}</b><small>${r[1]}</small></div><span class="rev-ver">✓ Verified</span></div>
-      <div class="rev-stars">${'<i>★</i>'.repeat(r[3])}</div>
-      <p>“${r[2]}”</p>
-      <img class="rev-photo" src="${r[5]}" alt="" loading="lazy">
-      <span class="rev-qr">✦</span></div>`;
-    const half = revs.map(card).join('');
-    track.innerHTML = half + half; // seamless loop
-  }
   initHeroStage(); initCatbar();
   // stat count-up
   $$('.hstat b').forEach(el => {
@@ -1780,7 +1795,13 @@ pages.shop = async (view, q) => {
     if (sort === 'rating') list.sort((a, b) => b.rating - a.rating);
     if (sort === 'newest') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const wishSet = state.user ? await wishIds() : [];
-    $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
+    {
+      let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
+      if (!list.length && f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
+        emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile ask <b>Saathi ✦</b> — the store assistant — to choose for you, or browse the signature rings.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><button class="btn btn-gold" onclick="Shivaa.saathiOpen('suggest a piece for me')">✦ Ask Saathi to choose for me</button><a class="btn btn-outline" href="#/shop?category=rings">See the 65 signature rings</a></div></div>`;
+      }
+      $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : emptyHtml;
+    }
     $('#resCount').innerHTML = `<b>${list.length}</b> pieces · prices update with the live rate`;
     bindTilt($('#shopGrid'));
   }
