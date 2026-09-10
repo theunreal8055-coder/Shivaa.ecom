@@ -597,3 +597,22 @@ QA: qa_v50_fresh.py 29/0 + qa_v48_static.py 83/0. Not executed: no browser/PHP h
 - `INSTALL-FINAL.md`: full v50→v53 changelog + 18-feature roadmap status table.
 - QA now version-aware for the FINAL zip (reviews expected present, uploads/
   imagery allowed): 55/0 fresh + 83/0 static + 17/0 brain = 155 checks.
+
+## v54 — site-wide UX upgrades + Saathi superpowers + mega-zip (2026-09-10)
+- **Global UX**: #scrollProg gold progress bar, #backTop button, #view fade-in,
+  :focus-visible rings (styles.css v43, app.js v54).
+- **Home**: renderTrending() (rating×reviews top-6) + renderRecentViewed()
+  strips inserted before the newsletter; product pages record views via
+  Shivaa.recentAdd (localStorage 'sh_recent', private).
+- **Product**: mobile sticky #pdpBuybar (Add/Buy), tap-to-zoom gallery images.
+- **Finale**: #prizeWorth chip values the 10 g prize at the live 24K rate
+  (fillPrizeWorth, /api/rates).
+- **Saathi v54** (bot.js v53): real order tracking via Shivaa.api('/api/orders'),
+  rate-alert setup flow → POST /api/rates/alert, 📤 share picks on WhatsApp,
+  "compare 1 and 2" → toggleCompare + #/compare. priceOf added to _test hooks.
+- **sw.js** shell list bumped to v54 asset versions (network-first unchanged).
+- **shivaa-FINAL-full.zip** now 1,065 files / 228.8 MB: cms/ (421 ring photos),
+  demo65/media provenance (390 files), qa/ suites, deploy/ scripts, docs.
+  Still gitignored (GitHub 100 MB limit).
+- QA: fresh 63/0 (v54 block, media count self-verifies against disk),
+  static 83/0, brain tests 19/0 (priceOf cases added) = 165 checks.

@@ -49,7 +49,7 @@ missing = EXPECT - names
 check(f'zip has all {len(EXPECT)} expected files (missing {len(missing)}: {sorted(missing)[:4]})', not missing)
 extra = names - EXPECT
 if FINAL:
-    extra = {e for e in extra if not e.startswith(('images/', 'docs/', 'uploads/')) and e not in ('migrate-repair.php', 'samples-payload.json')}
+    extra = {e for e in extra if not e.startswith(('images/', 'docs/', 'uploads/', 'demo65/', 'qa/', 'deploy/')) and e not in ('migrate-repair.php', 'samples-payload.json')}
 check(f'no unexpected files slipped in ({sorted(extra) if extra else "none"})', not extra)
 
 # code files byte-identical to cms/
@@ -158,6 +158,22 @@ if FINAL:
           any(x.startswith('images/reviews/') for x in names) and any(x.startswith('images/products/') for x in names))
     check('install doc has the full changelog + roadmap', 'v53 — this release' in doc and 'Payment gateway' in doc and '18 proposals' in doc or 'roadmap status' in doc.lower())
     check('customer review photos cust-1..5 present', all(f'images/reviews/cust-{i}.jpg' in names for i in range(1, 6)))
+
+if FINAL and 'demo65/media' in ''.join(names):
+    print('\n── v54: UX upgrades + chat superpowers + full provenance inside ──')
+    cssx = z.read('css/styles.css').decode()
+    idx3 = z.read('index.html').decode()
+    check('global UX: scroll progress + back-to-top + view fade', all(k in app for k in ['scrollProg', 'backTop']) and '#scrollProg' in cssx and 'viewIn' in cssx)
+    check('home strips: trending + recently viewed', 'renderTrending' in app and 'renderRecentViewed' in app and 'recentAdd' in app)
+    check('mobile sticky buy bar + tap zoom', 'pdpBuybar' in app and '#pdpBuybar' in cssx and 'zoomed' in cssx)
+    check('finale live prize-worth tracker', 'prizeWorth' in app and 'fillPrizeWorth' in app)
+    check('Saathi v54: order tracking + rate alerts + share + compare-in-chat', all(k in bot for k in ['track my order', 'ratealert', 'shareResults', 'compare']))
+    check('assets bumped to v54 wiring', '/css/styles.css?v=43' in idx3 and '/js/app.js?v=54' in idx3 and '/js/bot.js?v=53' in idx3)
+    n65 = sum(1 for x in names if x.startswith('demo65/media/') and not x.endswith('/'))
+    import subprocess
+    real = int(subprocess.run(['bash', '-c', 'find demo65/media -type f | wc -l'], capture_output=True, text=True).stdout.strip())
+    check(f'zip carries ALL AI media provenance ({n65} files == {real} on disk)', n65 == real and real > 300)
+    check('zip carries the QA suites + deploy scripts', 'qa/qa_v50_fresh.py' in names and 'deploy/add_legacy_reviews.py' in names)
 
 print(f'\n{len(ok)} passed · {len(fail)} failed')
 sys.exit(1 if fail else 0)

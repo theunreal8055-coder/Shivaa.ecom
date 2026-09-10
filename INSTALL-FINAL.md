@@ -1,9 +1,10 @@
-# SHIVAA — THE FINAL FILE  (v53 · everything included · ~140 MB)
+# SHIVAA — THE FINAL FILE  (v54 · everything included · ~218 MB)
 
 One zip, one upload, nothing left to fetch: **all 65 rings with their 4
-photographs each (421 image files are inside this zip)**, the complete review
-showcase, every feature built so far, and every security shield. **No bridge
-step this time** — the photos come with the file.
+photographs each (421 image files inside)**, the complete review showcase,
+every feature and UX upgrade built so far, the original design-media
+provenance, the QA suites, and every security shield. **No bridge step** —
+everything comes with the file.
 
 ## FIRST LOGIN (change it immediately after)
 
@@ -17,7 +18,28 @@ Change it at **⚙ Settings → My sign-in password** the moment you are in.
 
 ## What this final file contains (complete update history)
 
-### v53 — this release
+### v54 — this release (bigger + better UX everywhere)
+1. **Whole-site UX polish** — gold scroll-progress bar, back-to-top button,
+   soft page-transition fade, proper keyboard focus rings (accessibility).
+2. **Home page strips** — "Most loved right now" (computed live from real
+   ratings × review counts) and "Recently viewed" (private, stays on the
+   customer's phone — never uploaded).
+3. **Product pages** — sticky Add/Buy bar on mobile, tap-to-zoom gallery
+   photos, every viewed ring feeds the Recently viewed strip.
+4. **Finale page** — live prize-worth tracker: the 10 g prize is valued at
+   THIS moment's 24K rate, updating from the live feed (honesty by design).
+5. **Saathi v54 superpowers** —
+   · "where is my order?" → pulls the REAL order status from the account
+   · "alert me when 22k drops below 9500" → sets a genuine rate alert
+   · 📤 share its picks on WhatsApp in one tap
+   · "compare 1 and 2" → opens the compare tray from inside the chat
+6. **Full provenance inside** — the 66 original AI design-media files
+   (`demo65/media/`), the automated QA suites (`qa/`) and deploy scripts
+   (`deploy/`) ship with the zip, so everything about this build is
+   self-contained and verifiable.
+
+
+### v53
 1. **Full 65 rings WITH photographs inside the zip** — install = upload +
    extract, done. The old Part 4 photo bridge is no longer needed.
 2. **The original review showcase is back** (owner instruction): the 7 named

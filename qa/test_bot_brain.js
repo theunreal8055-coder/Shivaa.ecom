@@ -55,6 +55,8 @@ const fake = { name: 'Kundan Jhumka Earrings', tags: ['jhumka', 'festive'], desc
 t('scoreSearch: typo-free match scores', T.scoreSearch(fake, T.tokens('jhumka')) > 0);
 t('scoreSearch: synonym jhumki→jhumka scores', T.scoreSearch(fake, ['jhumki']) > 0);
 t('scoreSearch: unrelated word scores 0', T.scoreSearch(fake, ['necklace']) === 0);
+t('priceOf: object price', T.priceOf({ price: { total: 12345 } }) === 12345);
+t('priceOf: flat price', T.priceOf({ price: 999 }) === 999);
 
 console.log(`\n${ok} passed · ${fails.length} failed`);
 process.exit(fails.length ? 1 : 0);

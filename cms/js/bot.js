@@ -208,7 +208,17 @@
 
   function bind() {
     $$('.sa-card').forEach((c) => { if (c.dataset.bound) return; c.dataset.bound = 1; c.onclick = () => { location.hash = '#/product/' + c.dataset.pid; if (innerWidth < 1024) close(); }; });
-    $$('.sa-more[data-h]').forEach((b) => { if (b.dataset.bound) return; b.dataset.bound = 1; b.onclick = () => { location.hash = b.dataset.h; if (innerWidth < 1024) close(); }; });
+    $$('.sa-more[data-h]').forEach((b) => {
+      if (b.dataset.bound) return; b.dataset.bound = 1;
+      b.onclick = () => {
+        if (b.dataset.h === '#shareResults') {
+          const picks = ctx.last.slice(0, 3).map((id) => { const pr = products.find((x) => x.id === id); return pr ? '✦ ' + pr.name + ' — ' + inr(priceOf(pr)) : null; }).filter(Boolean).join('\n');
+          window.open((S().waLink ? S().waLink('Look what Saathi at Shivaa picked for me 💛\n' + picks + '\n\nshivaa.in') : 'https://wa.me/918905005921'), '_blank');
+          return;
+        }
+        location.hash = b.dataset.h; if (innerWidth < 1024) close();
+      };
+    });
     $$('.sa-tile').forEach((b) => { if (b.dataset.bound) return; b.dataset.bound = 1; b.onclick = () => userSay(b.dataset.q); });
     $$('.sa-act[data-add]').forEach((b) => { if (b.dataset.bound) return; b.dataset.bound = 1; b.onclick = () => { const fn = S().pdAdd; if (fn) { fn(b.dataset.add); push('bot', 'Added to your cart 🛍 — the cart keeps live prices until checkout.'); } else push('bot', 'Open the piece and use “Add to Cart” — I couldn’t reach the cart from here.'); }; });
     $$('.sa-act[data-cmp]').forEach((b) => { if (b.dataset.bound) return; b.dataset.bound = 1; b.onclick = () => { const fn = S().toggleCompare; if (fn) fn(b.dataset.cmp); push('bot', 'Toggled in your compare tray ⚖ — open “Compare” from the menu to see them side by side.'); }; });
@@ -236,6 +246,20 @@
       const id = ctx.last[n]; if (id && S().pdAdd) { S().pdAdd(id); return push('bot', 'Done — added to your cart 🛍. Prices stay live until checkout.'); }
     }
     if (flow) {
+      if (flow.stage === 'ratealert') {
+        const em = t.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+        const tg = flow.target || parseInt(t.replace(/\D+/g, '').slice(0, 7), 10) || null;
+        if (em && tg && tg > 100) {
+          try {
+            await fetch('/api/rates/alert', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: em[0], metal: flow.metal, target: tg }) });
+            push('bot', 'Done ✦ I’ll email <b class="g">' + esc(em[0]) + '</b> the moment ' + (flow.metal === 'silver' ? 'silver' : '22K gold') + ' touches <b class="g">' + inr(tg) + '/g</b>.');
+          } catch (e) { push('bot', 'That alert didn’t register — try once more, or ask a human to note it.'); }
+          flow = null; return;
+        }
+        push('bot', !em ? 'Which email should the alert go to?' : 'And the target price per gram? (e.g. “9500”)');
+        return;
+      }
       if (flow.stage === 'occasion') { const o = findOcc(t) || (/(any|no idea|don)/.test(t) ? 'gift' : null); if (o) { flow.stage = 'budget'; flow.occ = o; push('bot', 'Lovely. What budget should I respect? Type it — “under 60k”, “1 lakh” — or tap one.'); chips(['Under ₹30K', 'Under ₹60K', 'Under ₹1L', 'No limit']); return; } }
       if (flow.stage === 'budget') { const b = budgetOf(t) || (t.includes('no limit') ? 1e9 : null); if (b) { const o = flow.occ; flow = null; return recommend(o, b); } }
       flow = null;
@@ -250,6 +274,33 @@
       chips(['Rings under ₹50K', 'What moves the price?', 'Choose for me']); return;
     }
     if (t.includes('moves the price')) { push('bot', 'Three honest dials: <b class="g">weight × live rate</b>, a fixed <b class="g">making charge</b> per design, and any <b class="g">stone value</b> — all printed in the price table on every page, with 3% GST shown.'); return; }
+    /* v54: order tracking — real data, real account */
+    if (/(track my order|where is my order|order status|my order|track order)/.test(t)) {
+      const A = S().api;
+      if (!A) { push('bot', 'Sign in on the site first, then ask me again — I’ll pull your live order status right here.'); return; }
+      try {
+        const r = await A('/api/orders');
+        const os = (r && r.orders) || [];
+        if (!os.length) { push('bot', 'No orders on your account yet. When you order, just ask <b class="g">“where is my order?”</b> — I’ll fetch the live status.'); chips(['Choose for me', 'Show the signature rings']); return; }
+        const oo = os[0];
+        push('bot', 'Your latest order <b class="g">' + esc(oo.id || '') + '</b> — status: <b class="g">' + esc(oo.status || 'placed') + '</b>' + (oo.total ? ' · ' + inr(oo.total) : '') + '. Everything ships tamper-sealed and insured; the tracking number reaches you on WhatsApp/SMS the moment the courier picks up.' + moreBtn('#/track', 'Open the full tracker →'));
+      } catch (e) { push('bot', 'I couldn’t reach your orders — are you signed in? The tracker page works too.' + moreBtn('#/track', 'Open the tracker →')); }
+      return;
+    }
+    /* v54: rate alerts — "alert me when 22k drops below 9500" */
+    if (/(alert|notify|remind).*(rate|gold|silver|22k|24k)|(rate|gold|silver).*(alert|drop|fall)/.test(t)) {
+      const digits = parseInt(t.replace(/\D+/g, '').slice(0, 7), 10);
+      flow = { stage: 'ratealert', metal: /silver/.test(t) ? 'silver' : 'gold22', target: (digits > 100 ? digits : null) };
+      push('bot', 'Smart move ✦ I’ll watch the Jaipur feed for you. ' + (flow.target ? 'Target <b class="g">' + inr(flow.target) + '/g</b> — ' : '') + 'which email should the alert go to?');
+      return;
+    }
+    /* v54: compare straight from chat — "compare 1 and 2" */
+    if (/compare/.test(t) && ctx.last.length >= 2) {
+      const TC = S().toggleCompare;
+      if (TC) { TC(ctx.last[0]); TC(ctx.last[1]); location.hash = '#/compare'; if (innerWidth < 1024) close(); }
+      else push('bot', 'Open the two pieces and use ⇄ — the compare tray is in the menu.');
+      return;
+    }
     for (const [key, rx] of [['ship', /(ship|deliver|courier|tracking)/], ['ret', /(return|exchange|refund|cancel)/], ['hallmark', /(hallmark|huid|bis|purity|pure|tanq|assay)/],
       ['emi', /\bemi\b|installment|monthl/], ['gst', /(gst|invoice|bill\b|tax)/], ['buyback', /(buyback|buy back|sell back|old gold)/],
       ['address', /(address|store|shop\b|visit|location|timing|open)/], ['engrave', /(engrav|initials)/], ['size', /(size\b|measure|fit)/]]) {
@@ -324,8 +375,8 @@
     push('bot', 'For a <b class="g">' + occ + '</b> within <b class="g">' + (budget >= 1e9 ? 'any budget' : inr(budget)) + '</b>' + (note ? ' (' + note + ')' : '') + ', I would choose:' +
       top.map((x, i) => '<br><b class="g">' + (i + 1) + '.</b> ' + esc(x.p.name) + ' — ' + inr(x.pr) + ' · ' + reason(x, occ, budget)).join('') +
       '<br><br>🛍 adds to cart, ⇄ compares — or tell me <b class="g">“cheaper”</b> / <b class="g">“more like this”</b>.');
-    push('bot', '', cardRow(top.map((x) => x.p), true) + feedback());
-    chips(['Cheaper', 'More like this', 'Talk to a human', "Today's gold rate"]);
+    push('bot', '', cardRow(top.map((x) => x.p), true) + moreBtn('#shareResults', '📤 Share these picks on WhatsApp') + feedback());
+    chips(['Cheaper', 'More like this', 'Compare 1 and 2', "Today's gold rate"]);
     flow = null;
   }
   function reason(x, occ, budget) {
@@ -336,7 +387,7 @@
     return bits.join(' · ');
   }
 
-  window.Saathi = { open, close, _test: { budgetOf, findCat, findOcc, tokens, scoreSearch, isHi, HI_WORD } };
+  window.Saathi = { open, close, _test: { budgetOf, findCat, findOcc, tokens, scoreSearch, isHi, HI_WORD, priceOf } };
   window.Shivaa = window.Shivaa || {};
   window.Shivaa.saathiOpen = (q) => open(q || '');
   mount();

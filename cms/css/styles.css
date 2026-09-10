@@ -4857,3 +4857,46 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--gold-2);outline-off
 }
 
 /* ── Deadstock page — intentionally untouched (preserved as-is) ── */
+
+/* ─── v54 UX additions ─── */
+#scrollProg {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 4000;
+  background: linear-gradient(90deg, var(--gold), #e7c574); transform-origin: 0 50%;
+  transform: scaleX(0); pointer-events: none;
+}
+#backTop {
+  position: fixed; right: 16px; bottom: 84px; z-index: 3000; width: 42px; height: 42px;
+  border-radius: 50%; border: 1px solid var(--gold-soft); background: var(--maroon-deep);
+  color: var(--gold-soft); font-size: 17px; cursor: pointer; opacity: 0; transform: translateY(10px);
+  transition: opacity .25s var(--ease), transform .25s var(--ease); box-shadow: var(--sh-2);
+}
+#backTop.show { opacity: 1; transform: none; }
+#view > * { animation: viewIn .45s var(--ease) both; }
+@keyframes viewIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+
+/* trending / recently viewed strips */
+.tv-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+.tv-h { font-family: var(--ff-disp); font-size: clamp(22px, 3vw, 30px); color: var(--maroon-deep); margin: 4px 0 0; }
+.tv-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
+.tv-card { background: var(--white); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; transition: transform .18s var(--ease), box-shadow .18s; }
+.tv-card:hover { transform: translateY(-3px); box-shadow: var(--sh-2); }
+.tv-ph { aspect-ratio: 1; background: var(--cream-2); }
+.tv-ph img { width: 100%; height: 100%; object-fit: cover; }
+.tv-b { padding: 9px 11px 12px; display: grid; gap: 2px; }
+.tv-b b { font-size: 12.5px; color: var(--maroon); line-height: 1.3; }
+.tv-b small { font-size: 10.5px; color: var(--ink-3); }
+.tv-b span { font-size: 13px; font-weight: 600; color: var(--maroon-deep); margin-top: 3px; }
+
+/* mobile sticky buy bar on product pages */
+#pdpBuybar {
+  display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 3500;
+  gap: 8px; align-items: center; padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(255,255,255,.96); backdrop-filter: blur(8px); border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 20px rgba(29,5,9,.08);
+}
+body.pdp-on #pdpBuybar { display: flex; }
+@media (min-width: 821px) { #pdpBuybar { display: none !important; } }
+#pdpBuybar .bb-price { font-weight: 700; color: var(--maroon-deep); margin-right: auto; font-size: 15px; }
+.gal-slide img.zoomed { transform: scale(2.1); transition: transform .25s var(--ease); cursor: zoom-out; }
+.gal-slide img { transition: transform .25s var(--ease); }
