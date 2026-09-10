@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED for the recovery file.** `admin-reset.php` v48 no longer needs editing —
+> it arms itself from the browser (create one empty file, then set a key on the page).
+> Follow **`CLICK-BY-CLICK-STEPS.md`** Part 2 instead of the steps below.
+
 # Shivaa — why you could not reset the admin password, and the fix
 
 **File to upload now:** `shivaa-admin-recovery-FIXED.zip` (7.4 KB) → contains one file, `admin-reset.php`.

@@ -1,38 +1,48 @@
 <?php
 /* ═══════════════════════════════════════════════════════════════════════
-   SHIVAA · ADMIN PASSWORD RECOVERY  (break-glass file)        v47
+   SHIVAA · ADMIN PASSWORD RECOVERY  (break-glass file)        v48
    ─────────────────────────────────────────────────────────────────────
    A ONE-TIME recovery door for the day you cannot sign in to the admin
    dashboard AND the SMS/OTP route is unusable (phone lost, SIM changed,
    no SMS gateway configured, wrong number on the account).
 
-   WHAT CHANGED IN v47
-     · FIXED A FATAL ERROR in the v45/v46 file: it declared
-       `declare(strict_types=1)` BELOW the two settings lines. PHP refuses
-       to run a file that does that — the page showed a blank screen or
-       "HTTP 500" instead of the recovery form. That is why the file
-       "did not work". The declaration is now first, as PHP requires.
-     · Added a CHECK button: it tells you exactly why recovery is not
-       working on this server (is the update deployed? is an SMS gateway
-       configured? does your account even have a mobile number on file?)
-       without changing anything.
-     · If something goes wrong, the page now says so instead of going blank.
+   WHAT CHANGED IN v48  — NO FILE EDITING NEEDED
+     · You do NOT have to edit this file any more. v47 asked you to open it
+       in the hosting code editor and change two lines (ENABLED / key).
+       Hosts block that editor surprisingly often — it opens blank, says
+       "read only", or refuses to save. So the switch now lives in the page
+       itself: open this file in a browser and it arms itself.
+     · To arm it you prove you can write files on this server by creating
+       ONE empty file whose exact name the page gives you
+       (File Manager -> + New File -> paste the name -> Create).
+       Nobody outside your hosting account can create files here, so that
+       one click is a stronger key than any password a scanner could guess
+       — and it needs no code editor at all.
+     · v47's fixes are still here: `declare(strict_types=1)` is the very
+       first statement (the v45/v46 file had it below two settings lines,
+       which makes PHP refuse to run the file at all — blank page / 500),
+       and a fatal error now prints in plain words instead of going blank.
+     · There is a CHECK button: it says exactly why recovery is not working
+       on this server (is the update deployed? is an email/SMS channel
+       configured? does your account have a mobile number on file?) without
+       changing anything.
 
-   HOW TO USE  (cPanel → File Manager is enough — no terminal needed)
-     1. Set your key below: change CHANGE-THIS-KEY-123 to any long random
-        text you choose (e.g. shivaa-9f4b-2c71-Jayal).
-     2. Set ENABLED to true. (It ships switched off on purpose.)
-     3. Upload this file into the SAME folder as api.php — that is
-        public_html/ on your hosting.
-     4. Open it in a browser:  https://shivaa.in/admin-reset.php
-        → press “Check what is wrong” first if you want the diagnosis,
-          then set a new password (8+ characters).
-     5. DELETE THIS FILE from the server immediately afterwards.
+   HOW TO USE  (hPanel/cPanel -> File Manager is enough — no terminal)
+     1. Upload this file into the SAME folder as api.php — public_html/.
+     2. Open it in a browser:  https://shivaa.in/admin-reset.php
+     3. It shows one file name to create. In File Manager: + New File,
+        paste that exact name, Create. (Empty file, right folder.)
+     4. Back on the page, type a key of 12+ characters twice, then
+        "Arm this recovery file".
+     5. Enter that key -> "Check what is wrong" -> pick your account (star)
+        -> type a new password (8+ characters) -> Set the new password.
+     6. The file DELETES ITSELF after a successful reset. If your host
+        refuses that, delete it yourself from File Manager.
 
    SAFETY
-     · ⚠ anyone who can read this file can reset the admin password — so
-       set your own key, upload it only while locked out, and delete it
-       the moment you are back in.
+     · The door stays shut until someone proves they can create a file on
+       this server — so an outsider cannot arm it, cannot guess the key and
+       cannot reset your password.
      · One use only, ever. A second visit says "already used".
      · The event is written to data/reset-log.txt and to the database's
        securityLog, with time and IP, so there is a record.
@@ -42,10 +52,33 @@
 
 declare(strict_types=1);
 
-/* ─────────────── settings you control ─────────────── */
-const ENABLED = false;                            // ← set to true to arm it
-const RECOVERY_KEY = 'CHANGE-THIS-KEY-123';       // ← your own key, keep it private
-/* ──────────────────────────────────────────────────── */
+/* ─────────────── how this file gets armed ───────────────
+   NOTHING TO EDIT. The on/off switch and your key live in
+   data/admin-recovery.json, written by this page itself once you prove you
+   can create a file on this server. v47 kept them in two const lines you
+   had to edit by hand; "the file is not editable" turned out to be the
+   real blocker on the owner's host, so that step is gone. */
+$CFG_FILE = $DIR . '/data/admin-recovery.json';
+$KEY_MIN  = 12;
+
+function shv_cfg_read(string $p): array {
+  if (!is_file($p)) return [];
+  $j = json_decode((string)@file_get_contents($p), true);
+  return is_array($j) ? $j : [];
+}
+function shv_cfg_write(string $p, array $c): bool {
+  $ok = @file_put_contents($p, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) !== false;
+  if ($ok) @chmod($p, 0600);
+  return $ok;
+}
+function shv_hash(string $key, string $salt): string { return hash('sha256', $salt . '|' . $key); }
+function shv_rand_hex(int $bytes): string {
+  try { return bin2hex(random_bytes($bytes)); }
+  catch (\Throwable $e) { return substr(md5(uniqid('', true) . mt_rand()), 0, $bytes * 2); }
+}
+function shv_client_ip(): string {
+  return (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?');
+}
 
 date_default_timezone_set('Asia/Kolkata');
 
@@ -114,7 +147,81 @@ function bail(string $title, string $msg, string $cls = 'err'): void {
 /* ── guard rails ── */
 if (!is_file($DB_FILE)) bail('Database not found', 'Could not find <code>data/db.json</code> next to this file. Upload this script into the same folder as <code>api.php</code> — that is <code>public_html/</code>.');
 if (is_file($USED_FILE)) bail('This recovery file has already been used', 'For safety it works exactly once. To use it again, delete <code>data/.admin-reset-used</code> on the server, or reset the password from the admin dashboard.', 'warn');
-if (!ENABLED) bail('Recovery file is switched off', 'Open this file in the hosting File Manager and set <code>ENABLED</code> to <code>true</code>, then reload this page. That deliberate step is what keeps the door shut when it is not needed.', 'warn');
+/* ── ARM THE FILE FROM THE BROWSER (nothing to edit) ───────────────────
+   Unarmed, the page hands you ONE empty file to create in File Manager.
+   Creating a file on this server is something an outsider cannot do, so it
+   is the proof of control — no code editor, no terminal, no guessing. */
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['rearm'])) @unlink($CFG_FILE);
+$CFG   = shv_cfg_read($CFG_FILE);
+$ARMED = !empty($CFG['armed']) && !empty($CFG['keyHash']) && !empty($CFG['salt']);
+$RECOVERY_KEY_HASH = (string)($CFG['keyHash'] ?? '');
+$RECOVERY_SALT     = (string)($CFG['salt'] ?? '');
+
+if (!$ARMED) {
+  $tok = (string)($CFG['token'] ?? '');
+  if ($tok === '' || !preg_match('/^[a-f0-9]{16}$/', $tok) || (time() - (int)($CFG['tokenAt'] ?? 0)) > 86400) {
+    $tok = shv_rand_hex(8);
+    shv_cfg_write($CFG_FILE, ['token' => $tok, 'tokenAt' => time(), 'ip' => shv_client_ip()]);
+  }
+  $fname = 'shivaa-unlock-' . substr($tok, 0, 12) . '.txt';
+  $found = is_file($DIR . '/data/' . $fname) || is_file($DIR . '/' . $fname);
+  $err   = '';
+
+  if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && isset($_POST['arm'])) {
+    $k  = (string)($_POST['newkey'] ?? '');
+    $k2 = (string)($_POST['newkey2'] ?? '');
+    if (!$found) {
+      $err = 'I still cannot find <code>' . h($fname) . '</code>. Create that exact file first — '
+           . 'inside <code>public_html/data/</code> is best, <code>public_html/</code> also works — '
+           . 'leave it empty, then click the button again.';
+    } elseif (strlen($k) < $KEY_MIN) {
+      $err = 'Make the key at least ' . (int)$KEY_MIN . ' characters. It is the only thing standing '
+           . 'between this door and your dashboard.';
+    } elseif ($k !== $k2) {
+      $err = 'The two keys do not match — type the same key in both boxes.';
+    } else {
+      $salt = shv_rand_hex(16);
+      $newCfg = ['armed' => true, 'salt' => $salt, 'keyHash' => shv_hash($k, $salt),
+                 'armedAt' => date('c'), 'ip' => shv_client_ip()];
+      if (!shv_cfg_write($CFG_FILE, $newCfg)) {
+        $err = 'I could not write <code>data/admin-recovery.json</code> — PHP cannot write inside '
+             . '<code>data/</code>. In File Manager set the <code>data</code> folder to permissions '
+             . '<b>755</b> and try again.';
+      } else {
+        @unlink($DIR . '/data/' . $fname);
+        @unlink($DIR . '/' . $fname);
+        @file_put_contents($LOG_FILE, date('c') . "  ARMED  ip=" . shv_client_ip() . PHP_EOL, FILE_APPEND);
+        $ARMED = true; $CFG = $newCfg; $RECOVERY_SALT = $salt; $RECOVERY_KEY_HASH = shv_hash($k, $salt);
+      }
+    }
+  }
+
+  if (!$ARMED) {
+    page_top('Set up the recovery file');
+    echo '<h1>Recovery file — arm it in 2 clicks</h1>'
+       . '<div class="note">Nothing to edit in this file. You prove it is really you by creating '
+       . '<b>one empty file</b> on the server — something nobody outside your hosting account can do.</div>'
+       . '<div class="big">Step 1 — create this file</div>'
+       . '<div class="note warn"><b>File Manager</b> &rarr; open <code>public_html</code> &rarr; open '
+       . '<code>data</code> &rarr; <b>+ New File</b> &rarr; paste this exact name &rarr; <b>Create</b>. '
+       . 'Leave it empty.<br><br><code style="font-size:18px">' . h($fname) . '</code></div>'
+       . ($found
+          ? '<div class="note ok">&#10003; Found it. Now choose your key below.</div>'
+          : '<div class="note">Waiting for that file. Create it, then click the button — this page will see it.</div>')
+       . '<form method="post" autocomplete="off">'
+       . '<div class="big">Step 2 — choose your recovery key</div>'
+       . '<label for="newkey">Recovery key <span>at least ' . (int)$KEY_MIN . ' characters: letters, numbers, dashes</span></label>'
+       . '<input id="newkey" name="newkey" type="text" spellcheck="false" required minlength="' . (int)$KEY_MIN . '" placeholder="e.g. shivaa-9f4b-2c71-jayal">'
+       . '<label for="newkey2">Type it again</label>'
+       . '<input id="newkey2" name="newkey2" type="text" spellcheck="false" required minlength="' . (int)$KEY_MIN . '" placeholder="repeat the key">'
+       . ($err !== '' ? '<div class="note err">' . $err . '</div>' : '')
+       . '<button type="submit" name="arm" value="1">Arm this recovery file</button>'
+       . '</form>'
+       . '<div class="note">Write the key down — you type it on the next screen. Lose it later? '
+       . 'Come back to this page and use the <b>Lost the key?</b> button; it hands you a new file name.</div>';
+    page_bottom(); exit;
+  }
+}
 
 $raw = (string)file_get_contents($DB_FILE);
 $db = json_decode($raw, true);
@@ -220,9 +327,10 @@ if ($posted) {
   $pw  = (string)($_POST['password'] ?? '');
   $pw2 = (string)($_POST['password2'] ?? '');
 
-  if (!hash_equals(RECOVERY_KEY, $key) || RECOVERY_KEY === 'CHANGE-THIS-KEY-123') {
-    $msg = 'That recovery key is not correct. ' . (RECOVERY_KEY === 'CHANGE-THIS-KEY-123'
-        ? 'You are still using the placeholder key — set your own long random key in this file first.' : '');
+  if ($RECOVERY_KEY_HASH === '' || $RECOVERY_SALT === '' || !hash_equals($RECOVERY_KEY_HASH, shv_hash($key, $RECOVERY_SALT))) {
+    $msg = 'That recovery key is not correct — it is the key you typed when you armed this file '
+         . '(12+ characters). Lost it? Reload this page and use the "Lost the key?" button to arm it '
+         . 'again with a new one.';
   } else {
     $authed = true;
 
@@ -263,14 +371,18 @@ if ($posted) {
       @file_put_contents($LOG_FILE, date('c') . "  RESET  " . ($target['email'] ?? '') . "  role=" . ($target['role'] ?? '')
           . "  sessions revoked=" . $revoked . "  ip=" . ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?') . PHP_EOL, FILE_APPEND);
 
+      $selfDeleted = @unlink(__FILE__);
+      @unlink($CFG_FILE);
       page_top('Password reset complete');
       echo '<h1>Password reset complete</h1>'
          . '<div class="note ok"><b>' . h($target['email'] ?? '') . '</b> — the password is now the one you just typed, '
          . 'and ' . (int)$revoked . ' existing session(s) were signed out.</div>'
          . '<div class="note warn"><b>Now do these two things:</b><br>'
          . '1. Sign in at <a href="/#/admin">/#/admin</a> with the new password and confirm you are in.<br>'
-         . '2. <b>Delete this file</b> (<code>admin-reset.php</code>) from the server. It will refuse to run again, '
-         . 'but deleting it removes the door entirely.</div>'
+         . '2. ' . ($selfDeleted
+              ? 'This file <b>has deleted itself</b> from the server — the door is gone. Nothing else to do.'
+              : '<b>Delete this file</b> (<code>admin-reset.php</code>) yourself in File Manager. Your host '
+                . 'would not let it delete itself, but it will refuse to run again either way.') . '</div>'
          . '<div class="note">Signed in already? You can change your password any time from the admin dashboard → '
          . '<b>My sign-in password</b> — that needs no file at all.</div>';
       page_bottom(); exit;
@@ -286,7 +398,7 @@ if ($msg) echo '<div class="note ' . h($cls) . '">' . h($msg) . '</div>';
 echo $diagHtml;
 if (!$admins) echo '<div class="note warn">No account with the <b>admin</b> role was found in the database. The list below shows every account so you can still recover a partner or customer login.</div>';
 echo '<form method="post" autocomplete="off">'
-   . '<label for="key">Recovery key (set by you inside this file)</label>'
+   . '<label for="key">Recovery key (the one you typed when you armed this file)</label>'
    . '<input id="key" name="key" type="password" required placeholder="your private recovery key" value="' . h($keyVal) . '">'
    . '<label for="user">Account</label><select id="user" name="user" required>';
 foreach ($users as $i => $u) {
@@ -302,5 +414,8 @@ echo '</select>'
    . '<input id="password2" name="password2" type="password" required minlength="8" placeholder="repeat the new password">'
    . '<button type="submit">Set the new password</button>'
    . '<button type="submit" name="diag" value="1" class="ghost">Check what is wrong (changes nothing)</button></form>'
-   . '<div class="note warn">This file works <b>once</b>. Afterwards delete <code>admin-reset.php</code> from the server.</div>';
+   . '<div class="note warn">This file works <b>once</b> — after a successful reset it deletes itself. '
+   . 'Armed ' . h((string)($CFG['armedAt'] ?? '')) . ' from ' . h((string)($CFG['ip'] ?? '?')) . '.</div>'
+   . '<form method="post" onsubmit="return confirm(\'Arm this file again with a NEW key? Do this only if you lost the key.\')">'
+   . '<button type="submit" name="rearm" value="1" class="ghost">Lost the key? Arm it again</button></form>';
 page_bottom();

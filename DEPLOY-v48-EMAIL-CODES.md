@@ -1,3 +1,6 @@
+> ⚠️ **`admin-reset.php` in this zip is now v48 (self-arming, nothing to edit).**
+> Steps 1–3 of the recovery install are replaced by **`CLICK-BY-CLICK-STEPS.md`** Part 2.
+
 # Shivaa — codes now go by email (v48)
 
 **Upload:** `shivaa-update-v48-email-codes.zip` (168 KB, 10 files + the `js/` folder) → extract into **`public_html`**, keeping the folder structure.
