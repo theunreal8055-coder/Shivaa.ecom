@@ -51,6 +51,8 @@ AddType application/pdf .pdf
   Header always set X-XSS-Protection "1; mode=block"
   Header always set Cross-Origin-Opener-Policy "same-origin"
   Header always set Cross-Origin-Resource-Policy "same-origin"
+  Header always set X-Permitted-Cross-Domain-Policy "none"
+  Header always set X-DNS-Prefetch-Control "off"
   # HSTS — only meaningful over HTTPS; Hostinger serves SSL
   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
   # CSP — self-hosted assets only; 'unsafe-inline' retained for existing inline handlers

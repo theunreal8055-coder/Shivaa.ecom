@@ -559,11 +559,25 @@ try {
           }
         }
         unset($db['loginfails'][$key]);
+        /* v51 hardening: admin sign-ins are audited so the owner can see
+           every successful admin login (who + when + from where). */
+        if (($u['role'] ?? '') === 'admin') {
+          $db['securityLog'] = $db['securityLog'] ?? [];
+          $db['securityLog'][] = ['at' => now_iso(), 'event' => 'admin-login',
+                                  'email' => $u['email'] ?? '', 'ip' => $ip];
+          if (count($db['securityLog']) > 400) $db['securityLog'] = array_slice($db['securityLog'], -400);
+        }
         $tk = issue_token($db, $u); db_save($DB_FILE, $db);
         jout(200, ['token' => $tk, 'user' => pub_user($u)]);
       }
       $rec['n'] = ($rec['n'] ?? 0) + 1;
-      if ($rec['n'] >= 5) { $rec['until'] = time() + 900; $rec['n'] = 0; }
+      if ($rec['n'] >= 5) {
+        $rec['until'] = time() + 900; $rec['n'] = 0;
+        $db['securityLog'] = $db['securityLog'] ?? [];
+        $db['securityLog'][] = ['at' => now_iso(), 'event' => 'login-lockout',
+                                'email' => strtolower((string)($b['email'] ?? '')), 'ip' => $ip];
+        if (count($db['securityLog']) > 400) $db['securityLog'] = array_slice($db['securityLog'], -400);
+      }
       $db['loginfails'][$key] = $rec;
       db_save($DB_FILE, $db);
       jout(401, ['error' => 'Invalid email or password']);

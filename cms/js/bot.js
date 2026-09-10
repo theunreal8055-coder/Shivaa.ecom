@@ -1,360 +1,304 @@
-/* ─── SAATHI ✦ — the Shivaa store assistant (v50) ─────────────────────────
-   A sidebar chatbot that knows the store: designs, live rates, policies,
-   sizes, EMI, hallmark, buyback — and can *decide*: when a customer is
-   confused it asks occasion + budget and recommends real pieces with reasons.
+/* ─── SAATHI ✦ v2 — the Shivaa store assistant ────────────────────────────
+   v2: more beautiful (live-rate header, action tiles, starred cards,
+   in-bubble actions), more intelligent (synonyms, token-scoring search,
+   "50 thousand"/"half lakh" numbers, context memory + follow-ups like
+   "cheaper", "more like this", "add the first one"), more interactive
+   (Add-to-cart / Compare / WhatsApp straight from the chat, feedback
+   chips, share results).
 
-   Runs fully client-side (no external AI key needed, works offline, instant).
-   Design search uses the store API (?q=) so it scales with the catalogue.
-   All product cards deep-link into the existing shop & product pages.       */
+   Fully client-side: no AI subscription, no key, works offline, instant.
+   Free-text discovery goes through the store API (?q=) so it scales with
+   the 4,00,000-design catalogue. Every render is esc()-escaped.          */
 (function () {
   'use strict';
   if (window.Saathi) return;
 
   const $ = (q) => document.querySelector(q);
+  const $$ = (q) => [...document.querySelectorAll(q)];
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const inr = (n) => '₹' + Math.round(+n || 0).toLocaleString('en-IN');
   const api = (r) => fetch('/api/' + r).then((x) => { if (!x.ok) throw 0; return x.json(); });
+  const S = () => window.Shivaa || {};
 
-  /* ── store knowledge (mirrors the live pages; edit in one place) ── */
+  /* ── knowledge ── */
   const FACTS = {
-    ship: 'Every order ships <b class="g">tamper-sealed and fully insured</b>, anywhere in India. Dispatch within 48 hours of confirmation.',
-    ret: '<b class="g">7-day easy returns</b>, no questions — and <b class="g">lifetime exchange at the live rate</b>. Your gold never loses its gold value here.',
-    hallmark: 'Every piece is <b class="g">BIS hallmarked</b>. You can check any piece’s HUID yourself in the BIS Care app — the guide is under “Hallmark” in the menu. Catalogue data is never a substitute for that check.',
-    emi: '<b class="g">No-cost EMI for 3 months</b>, standard EMI for 6 months on cards & UPI autopay — you’ll see the monthly figure on every product page.',
-    gst: 'Bills carry <b class="g">3% GST</b> with full weight and making-charge breakup — the price table on each page shows it before you order.',
-    buyback: 'Buyback & lifetime exchange settle at the <b class="g">live rate</b>, by weight and assay at our Jayal counter. Indicative values online, firm value at assay.',
-    address: 'Shivaa Jewellers — Ernate Shine Jewellery Pvt. Ltd., <b class="g">Jayal, Nagaur, Rajasthan</b>. Business details & documents are on the Trust page.',
-    engrave: 'Free <b class="g">engraving up to 12 characters</b> on any piece — add it on the product page (R♥S 26 works too).',
-    size: 'Rings come in sizes 12–18. The <b class="g">size guide</b> on any ring page shows how to measure at home with a paper strip.',
-    finale: 'The <b class="g">Gold Finale</b> is our festive draw — one entry per person, a free route as well as a purchase route, equal odds, CA-witnessed draw on 31 December 2026.',
-    catalog: 'Our full catalogue of <b class="g">4,00,000+ designs</b> is being photographed and catalogued right now. Today you can browse and order the 65 signature rings — and I can search or choose for you.',
+    ship: 'Every order ships <b class="g">tamper-sealed and fully insured</b>, anywhere in India — dispatch within 48 hours.',
+    ret: '<b class="g">7-day easy returns</b>, no questions — plus <b class="g">lifetime exchange at the live rate</b>.',
+    hallmark: 'Every piece is <b class="g">BIS hallmarked</b>. Check any HUID yourself in the BIS Care app — the guide is under “Hallmark” in the menu.',
+    emi: '<b class="g">No-cost EMI for 3 months</b>, standard EMI for 6 months on cards & UPI autopay — the monthly figure is on every product page.',
+    gst: 'Bills carry <b class="g">3% GST</b> with the full weight + making-charge breakup, shown before you order.',
+    buyback: 'Buyback & exchange settle at the <b class="g">live rate</b> by weight and assay at our Jayal counter.',
+    address: 'Shivaa Jewellers — Ernate Shine Jewellery Pvt. Ltd., <b class="g">Jayal, Nagaur, Rajasthan</b>. Documents on the Trust page.',
+    engrave: 'Free <b class="g">engraving up to 12 characters</b> — add it on the product page (R♥S 26 works).',
+    size: 'Rings come in sizes 12–18; the <b class="g">size guide</b> on any ring page shows the paper-strip method.',
+    finale: 'Our <b class="g">Bhai Dooj Gold Finale</b>: one customer wins <b class="g">10 g of certified 24K gold</b> in the CA-witnessed live draw on <b class="g">Bhai Dooj, 11 November 2026</b>. Three equal-odds routes — any gold piece of 3 g+, a 100 g silver order, or the free quiz. One entry per person; buying never multiplies odds.',
+    catalog: 'Our full catalogue of <b class="g">4,00,000+ designs</b> is being photographed right now. Today you can order the 65 signature rings — and I can search or choose for you.',
   };
-  const CAT_WORDS = [
+  const SYN = { jhumki: 'jhumka', jhumka: 'jhumka', chandbali: 'chandbali', bali: 'jhumka', haar: 'necklace', kanthi: 'necklace', choker: 'choker', kada: 'bangle', bangal: 'bangle', angoothi: 'ring', mudrika: 'ring', mangalsutra: 'mangalsutra', locket: 'pendant', om: 'om', kundan: 'kundan', polki: 'polki', meenakari: 'minakari', minakari: 'minakari', jadau: 'jadau', thewa: 'thewa', temple: 'temple', floral: 'floral', solitaire: 'solitaire', antique: 'antique', simple: 'simple', heavy: 'heavy' };
+  const CATS = [
     ['rings', ['ring', 'rings', 'mudrika', 'angoothi']],
-    ['bangles', ['bangle', 'kada', 'kada', 'bangal']],
-    ['necklaces', ['necklace', 'haar', 'rani haar', 'choker', 'kanthi', 'set']],
+    ['bangles', ['bangle', 'kada', 'bangles']],
+    ['necklaces', ['necklace', 'haar', 'choker', 'kanthi']],
     ['earrings', ['earring', 'jhumka', 'jhumki', 'chandbali', 'tops', 'bali']],
     ['mangalsutra', ['mangalsutra']],
-    ['chains', ['chain', 'chains']],
+    ['chains', ['chain']],
     ['pendants', ['pendant', 'locket']],
     ['bracelets', ['bracelet']],
-    ['nosepins', ['nose', 'nath', 'nosepin']],
+    ['nosepins', ['nose', 'nath']],
   ];
-  const OCCASIONS = {
-    wedding: { w: ['wedding', 'bridal', 'shaadi', 'bride'], boost: ['kundan', 'rani', 'bridal', 'heavy', 'polki', 'jadau'], cat: ['necklaces', 'earrings', 'bangles', 'mangalsutra'] },
-    festive: { w: ['festive', 'diwali', 'teej', 'festival', 'gangaur'], boost: ['jhumka', 'chandbali', 'festive', 'minakari'], cat: ['earrings', 'pendants', 'rings'] },
-    daily: { w: ['daily', 'office', 'everyday', 'casual', 'simple'], boost: ['minimal', 'daily', 'simple', 'chain'], cat: ['rings', 'chains', 'pendants'] },
-    gift: { w: ['gift', 'present', 'anniversary', 'birthday', 'return gift'], boost: ['gift', 'floral', 'om'], cat: ['pendants', 'rings', 'chains'] },
+  const OCC = {
+    wedding: { w: ['wedding', 'bridal', 'shaadi', 'bride'], boost: ['kundan', 'rani', 'bridal', 'polki', 'jadau'], cat: ['necklaces', 'earrings', 'bangles', 'mangalsutra'] },
+    festive: { w: ['festive', 'diwali', 'bhai dooj', 'bhai dooj', 'teej', 'gangaur', 'festival'], boost: ['jhumka', 'chandbali', 'minakari', 'festive'], cat: ['earrings', 'pendants', 'rings'] },
+    daily: { w: ['daily', 'office', 'everyday', 'casual', 'simple'], boost: ['simple', 'daily', 'chain', 'floral'], cat: ['rings', 'chains', 'pendants'] },
+    gift: { w: ['gift', 'present', 'anniversary', 'birthday', 'sister', 'brother', 'rakhi'], boost: ['gift', 'floral', 'om'], cat: ['pendants', 'rings', 'chains'] },
   };
 
   /* ── state ── */
-  let products = null, rates = null, flow = null; // flow = {stage:'occasion'|'budget', occ}
-  const hist = JSON.parse(localStorage.getItem('saathi_hist') || '[]');
+  let products = null, rates = null, flow = null;
+  const ctx = { cat: null, budget: null, occ: null, last: [] };
+  const hist = JSON.parse(localStorage.getItem('saathi_hist2') || '[]');
 
-  /* ── DOM scaffold ── */
+  /* ── scaffold ── */
   function mount() {
     if ($('#saathiPanel')) return;
     const fab = document.createElement('button');
     fab.id = 'saathiFab';
     fab.setAttribute('aria-label', 'Ask Saathi, the store assistant');
-    fab.innerHTML = '<span class="fab-star">✦</span> Ask Saathi<span class="fab-dot" id="saathiDot"></span>';
-    fab.onclick = () => open();
+    fab.innerHTML = '<span class="fab-star">✦</span> Ask Saathi<span class="fab-dot"></span>';
+    fab.onclick = open;
     const panel = document.createElement('div');
     panel.id = 'saathiPanel';
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Saathi store assistant');
     panel.innerHTML =
-      '<div class="sa-head"><div class="sa-ava">✦</div><div><b>Saathi</b><small>knows this store · live rates · designs · policies</small></div>' +
-      '<span class="sp"></span>' +
-      '<button class="sa-ico" id="saathiClear" title="Start over" aria-label="Start over">↺</button>' +
+      '<div class="sa-head"><div class="sa-ava"><span>✦</span></div>' +
+      '<div><b>Saathi</b><small id="saathiTick">your Shivaa guide · designs · rates · policies</small></div>' +
+      '<span class="sp"></span><button class="sa-ico" id="saathiClear" title="Start over" aria-label="Start over">↺</button>' +
       '<button class="sa-ico" id="saathiClose" title="Close" aria-label="Close">✕</button></div>' +
       '<div class="sa-msgs" id="saathiMsgs"></div>' +
       '<div class="sa-chips" id="saathiChips"></div>' +
-      '<div class="sa-in"><input id="saathiIn" placeholder="Ask anything — “gold rate”, “jhumka under 50k”, “choose for me”…" autocomplete="off" enterkeyhint="send">' +
+      '<div class="sa-in"><input id="saathiIn" placeholder="Try “jhumka under 50k”, “cheaper”, “add the first one”…" autocomplete="off" enterkeyhint="send">' +
       '<button id="saathiSend" aria-label="Send">➤</button></div>' +
       '<div class="sa-foot">Saathi suggests; billing & assay follow the Jayal counter. Prices move with the live rate.</div>';
     document.body.appendChild(fab);
     document.body.appendChild(panel);
     $('#saathiClose').onclick = close;
-    $('#saathiClear').onclick = () => { localStorage.removeItem('saathi_hist'); $('#saathiMsgs').innerHTML = ''; greet(true); };
-    $('#saathiSend').onclick = () => send();
+    $('#saathiClear').onclick = () => { localStorage.removeItem('saathi_hist2'); $('#saathiMsgs').innerHTML = ''; greet(); };
+    $('#saathiSend').onclick = send;
     $('#saathiIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+    tickRates();
+    setInterval(tickRates, 120000);
   }
-
+  function tickRates() {
+    api('rates').then((r) => { rates = r; const el = $('#saathiTick'); if (el && r?.gold22) el.innerHTML = '22K <b class="g">' + inr(r.gold22) + '/g</b> live · designs · policies'; }).catch(() => {});
+  }
   function open(q) {
     mount();
     document.body.classList.add('saathi-open');
     if (!$('#saathiMsgs').children.length) {
-      hist.forEach((h) => push(h.who, h.html, h.row, false));
-      if (!hist.length) greet(false);
+      hist.forEach((h) => push(h.who, h.html, h.row, false, true));
+      if (!hist.length) greet();
     }
-    if (q) { setTimeout(() => userSay(q), 250); }
+    if (q) setTimeout(() => userSay(q), 260);
     setTimeout(() => $('#saathiIn').focus(), 380);
   }
   function close() { document.body.classList.remove('saathi-open'); }
 
-  /* ── message plumbing ── */
-  function push(who, html, rowHtml, save = true) {
-    const m = document.createElement('div');
-    m.className = 'sa-m ' + who;
-    m.innerHTML = html;
-    $('#saathiMsgs').appendChild(m);
-    if (rowHtml) {
-      const wrap = document.createElement('div');
-      wrap.innerHTML = rowHtml;
-      $('#saathiMsgs').appendChild(wrap.firstElementChild);
-    }
+  /* ── messaging ── */
+  function push(who, html, row, save = true, silent) {
+    const wrap = document.createElement('div');
+    wrap.className = 'sa-m ' + who;
+    wrap.innerHTML = html;
+    $('#saathiMsgs').appendChild(wrap);
+    if (row) { const w2 = document.createElement('div'); w2.innerHTML = row; $('#saathiMsgs').appendChild(w2.firstElementChild); }
     $('#saathiMsgs').scrollTop = 1e9;
-    if (save) {
-      hist.push({ who, html, row: rowHtml || null });
-      if (hist.length > 60) hist.shift();
-      localStorage.setItem('saathi_hist', JSON.stringify(hist));
-    }
+    bind();
+    if (save && !silent) { hist.push({ who, html, row: row || null }); if (hist.length > 80) hist.shift(); localStorage.setItem('saathi_hist2', JSON.stringify(hist)); }
   }
-  function typing() {
-    const m = document.createElement('div');
-    m.className = 'sa-m bot typing';
-    m.innerHTML = '<span></span><span></span><span></span>';
-    $('#saathiMsgs').appendChild(m);
-    $('#saathiMsgs').scrollTop = 1e9;
-    return m;
-  }
+  const typing = () => { const m = document.createElement('div'); m.className = 'sa-m bot typing'; m.innerHTML = '<span></span><span></span><span></span>'; $('#saathiMsgs').appendChild(m); $('#saathiMsgs').scrollTop = 1e9; return m; };
   function chips(list) {
-    $('#saathiChips').innerHTML = list.map((c) => '<button class="sa-chip" data-q="' + esc(c) + '">' + esc(c) + '</button>').join('');
-    $$('#saathiChips .sa-chip').forEach((b) => (b.onclick = () => userSay(b.dataset.q)));
+    $('#saathiChips').innerHTML = list.map((c) => '<button class="sa-chip">' + esc(c) + '</button>').join('');
+    $$('#saathiChips .sa-chip').forEach((b) => (b.onclick = () => userSay(b.textContent)));
   }
-  const $$ = (q) => [...document.querySelectorAll(q)];
+  function greet() {
+    push('bot', 'Namaste 🙏 I’m <b class="g">Saathi</b> — your Shivaa guide. I know every design we sell, the live gold rate, and every policy from hallmark to buyback.<br><br>Confused? Say <b class="g">“choose for me”</b> and I’ll decide with you.');
+    push('bot', '', '<div class="sa-tiles">' +
+      [['✦', 'Show designs', 'show rings'], ['↻', 'Gold rate', "today's gold rate"], ['🎁', 'Choose for me', 'choose for me'], ['☎', 'Talk to a human', 'talk to a human']]
+        .map((t) => '<button class="sa-tile" data-q="' + esc(t[2]) + '"><span>' + t[0] + '</span><b>' + esc(t[1]) + '</b></button>').join('') + '</div>');
+    chips(['Jhumka under ₹50K', 'Bhai Dooj gift ideas', 'Hallmark & purity', 'Shipping & returns']);
+  }
+  function userSay(q) { push('user', esc(q)); const t = typing(); setTimeout(() => { t.remove(); respond(q); }, 380 + Math.random() * 360); }
+  function send() { const i = $('#saathiIn'); const q = i.value.trim(); if (!q) return; i.value = ''; userSay(q); }
 
-  function greet(fresh) {
-    push('bot', 'Namaste 🙏 I’m <b class="g">Saathi</b> — your Shivaa guide. I know every design we sell, today’s gold rate, and every policy from hallmark to buyback.<br><br>Confused? Just say <b class="g">“choose for me”</b> and I’ll decide with you.');
-    chips(['Show the signature rings', 'Today’s gold rate', 'Choose for me', 'Jhumka under ₹50K', 'Hallmark & purity', 'Shipping & returns']);
-  }
-
-  function userSay(q) {
-    push('user', esc(q));
-    const t = typing();
-    setTimeout(() => { t.remove(); respond(q); }, 420 + Math.random() * 380);
-  }
-  function send() {
-    const i = $('#saathiIn');
-    const q = i.value.trim();
-    if (!q) return;
-    i.value = '';
-    userSay(q);
-  }
-
-  /* ── data ── */
-  async function boot() {
-    if (!products) products = (await api('products').catch(() => ({ products: [] }))).products || [];
-    if (!rates) rates = await api('rates').catch(() => null);
-    return products;
-  }
+  /* ── data & parsing ── */
+  async function boot() { if (!products) products = (await api('products').catch(() => ({ products: [] }))).products || []; return products; }
   const priceOf = (p) => p.price?.total ?? p.price ?? 0;
+  const hay = (p) => ((p.name || '') + ' ' + (p.tags || []).join(' ') + ' ' + (p.desc || '')).toLowerCase();
 
-  function cardRow(list) {
-    return '<div class="sa-row">' + list.map((p) =>
-      '<button class="sa-card" data-pid="' + esc(p.id) + '"><img src="' + esc(((p.images || [])[0]) || '/images/logo.png') + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'/images/logo.png\'">' +
-      '<div class="b"><div class="t">' + esc(p.category) + '</div><div class="n">' + esc(p.name) + '</div><div class="p">' + inr(priceOf(p)) + '</div></div></button>').join('') + '</div>';
-  }
-  function bindCards(root) {
-    $$('.sa-card').forEach((c) => {
-      if (c.dataset.bound) return;
-      c.dataset.bound = '1';
-      c.onclick = () => { location.hash = '#/product/' + c.dataset.pid; if (window.innerWidth < 1024) close(); };
-    });
-    $$('.sa-more[data-h]').forEach((b) => {
-      if (b.dataset.bound) return;
-      b.dataset.bound = '1';
-      b.onclick = () => { location.hash = b.dataset.h; if (window.innerWidth < 1024) close(); };
-    });
-  }
-  function showList(list, moreHref, moreLabel) {
-    const row = cardRow(list.slice(0, 6)) + (moreHref ? '<button class="sa-more" data-h="' + esc(moreHref) + '">' + esc(moreLabel || ('See all ' + list.length + ' in the shop →')) + '</button>' : '');
-    return row;
-  }
-
-  /* ── intents ── */
-  function findCat(t) {
-    for (const [k, ws] of CAT_WORDS) if (ws.some((w) => t.includes(w))) return k;
-    return null;
-  }
-  function findBudget(t) {
-    let m = t.match(/(?:under|below|upto|up to|max|budget|within|around)?\s*₹\s*([\d,.]+)\s*(k|lakh|lac|l)?/);
-    if (!m) m = t.match(/([\d,.]+)\s*(k|lakh|lac)\b/);
+  function budgetOf(t) {
+    let m = t.match(/([\d.,]+)\s*(lakh|lac|k|thousand|hazar)/);
+    if (!m) m = t.match(/(?:₹|rs\.?\s)([\d.,]+)/);
+    if (!m) m = t.match(/\b(half|1|one|2|two|3|three|4|four|5|five)\s*(lakh|lac|k|thousand)\b/);
     if (!m) return null;
-    let n = parseFloat(m[1].replace(/,/g, ''));
+    const wordN = { half: 0.5, one: 1, 1: 1, two: 2, 2: 2, three: 3, 3: 3, four: 4, 4: 4, five: 5, 5: 5 };
+    let n = parseFloat(m[1]); if (isNaN(n)) n = wordN[m[1].toLowerCase()] ?? NaN;
     const u = (m[2] || '').toLowerCase();
-    if (u === 'k') n *= 1000;
-    if (u === 'lakh' || u === 'lac' || u === 'l') n *= 100000;
+    if (u === 'lakh' || u === 'lac') n *= 100000;
+    if (u === 'k' || u === 'thousand' || u === 'hazar') n *= 1000;
     return n > 0 ? n : null;
   }
-  function findOcc(t) {
-    for (const [k, o] of Object.entries(OCCASIONS)) if (o.w.some((w) => t.includes(w))) return k;
-    return null;
+  function tokens(t) {
+    return t.split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !['the', 'and', 'for', 'with', 'under', 'show', 'please', 'some', 'me', 'you', 'want', 'looking', 'gold', 'silver'].includes(w));
   }
+  function scoreSearch(p, toks) {
+    const h = hay(p); let s = 0;
+    for (const w of toks) { const sw = SYN[w] || w; if (h.includes(sw)) s += 2; else if ([...h.split(/\W+/)].some((x) => x.startsWith(sw.slice(0, 4)))) s += 1; }
+    return s;
+  }
+
+  /* ── rendering ── */
+  function cardRow(list, withActions) {
+    ctx.last = list.slice(0, 8).map((p) => p.id);
+    return '<div class="sa-row">' + list.slice(0, 6).map((p, i) =>
+      '<div class="sa-cardwrap"><button class="sa-card" data-pid="' + esc(p.id) + '"><img src="' + esc((p.images || [])[0] || '/images/logo.png') + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'/images/logo.png\'">' +
+      '<div class="b"><div class="t">' + esc(p.category) + ' · ' + esc(p.purity || '') + '</div><div class="n">' + esc(p.name) + '</div>' +
+      '<div class="p">' + inr(priceOf(p)) + ' <span class="st">★' + (p.rating || '4.6') + '</span></div></div></button>' +
+      (withActions ? '<div class="sa-acts"><button class="sa-act" data-add="' + esc(p.id) + '" title="Add to cart">🛍</button><button class="sa-act" data-cmp="' + esc(p.id) + '" title="Compare">⇄</button><span class="sa-idx">' + (i + 1) + '</span></div>' : '') +
+      '</div>').join('') + '</div>';
+  }
+  const moreBtn = (href, label) => '<button class="sa-more" data-h="' + esc(href) + '">' + esc(label) + '</button>';
+
+  function bind() {
+    $$('.sa-card').forEach((c) => { if (c.dataset.bound) return; c.dataset.bound = 1; c.onclick = () => { location.hash = '#/product/' + c.dataset.pid; if (innerWidth < 1024) close(); }; });
+    $$('.sa-more[data-h]').forEach((b) => { if (b.dataset.bound) return; b.dataset.bound = 1; b.onclick = () => { location.hash = b.dataset.h; if (innerWidth < 1024) close(); }; });
+    $$('.sa-tile').forEach((b) => { if (b.dataset.bound) return; b.dataset.bound = 1; b.onclick = () => userSay(b.dataset.q); });
+    $$('.sa-act[data-add]').forEach((b) => { if (b.dataset.bound) return; b.dataset.bound = 1; b.onclick = () => { const fn = S().pdAdd; if (fn) { fn(b.dataset.add); push('bot', 'Added to your cart 🛍 — the cart keeps live prices until checkout.'); } else push('bot', 'Open the piece and use “Add to Cart” — I couldn’t reach the cart from here.'); }; });
+    $$('.sa-act[data-cmp]').forEach((b) => { if (b.dataset.bound) return; b.dataset.bound = 1; b.onclick = () => { const fn = S().toggleCompare; if (fn) fn(b.dataset.cmp); push('bot', 'Toggled in your compare tray ⚖ — open “Compare” from the menu to see them side by side.'); }; });
+    $$('.sa-fb[data-v]').forEach((b) => { if (b.dataset.bound) return; b.dataset.bound = 1; b.onclick = () => push('bot', b.dataset.v === 'up' ? 'Noted with love ✦ I’ll remember what worked.' : 'Thank you — I’ll aim better next time.'); });
+  }
+  const feedback = () => '<div class="sa-fbrow"><span>Was this helpful?</span><button class="sa-fb" data-v="up"></button><button class="sa-fb" data-v="down">👎</button></div>';
+
+  /* ── intents ── */
+  const findCat = (t) => { for (const [k, ws] of CATS) if (ws.some((w) => t.includes(w))) return k; return null; };
+  const findOcc = (t) => { for (const [k, o] of Object.entries(OCC)) if (o.w.some((w) => t.includes(w))) return k; return null; };
 
   async function respond(raw) {
     const t = raw.toLowerCase().replace(/\s+/g, ' ').trim();
     await boot();
 
-    /* guided decision flow continues */
+    /* follow-ups on the last recommendation */
+    if (/^(cheaper|sasta|lower|less expensive)\b/.test(t) && ctx.last.length) { ctx.budget = Math.round((ctx.budget || 60000) * 0.75); return recommend(ctx.occ || 'gift', ctx.budget, 'lighter on the wallet'); }
+    if (/(more like this|similar|like the first|like #1|aur aisa)/.test(t) && ctx.last.length) { const base = products.find((p) => p.id === ctx.last[0]); if (base) return similar(base); }
+    if (/(show more|next|more options|aur dikhao)/.test(t) && ctx.last.length) { const rest = products.filter((p) => (ctx.cat ? p.category === ctx.cat : true) && !ctx.last.includes(p.id)); push('bot', 'Here are more:'); push('bot', '', cardRow(rest, true) + feedback()); return; }
+    if (/^(add|put) (the )?(first|second|third|1st|2nd|3rd|one|it)\b/.test(t) && ctx.last.length) {
+      const n = { first: 0, '1st': 0, one: 0, it: 0, second: 1, '2nd': 1, third: 2, '3rd': 2 }[t.match(/(first|second|third|1st|2nd|3rd|one|it)/)[1]] ?? 0;
+      const id = ctx.last[n]; if (id && S().pdAdd) { S().pdAdd(id); return push('bot', 'Done — added to your cart 🛍. Prices stay live until checkout.'); }
+    }
     if (flow) {
-      if (flow.stage === 'occasion') {
-        const o = findOcc(t) || (t.includes('don') || t.includes('no idea') || t.includes('any') ? 'gift' : null);
-        if (o) { flow.occ = o; flow.stage = 'budget'; push('bot', 'Lovely. What budget should I respect? You can type it — “under 60k”, “1 lakh” — or tap one.'); chips(['Under ₹30K', 'Under ₹60K', 'Under ₹1L', 'No limit']); return; }
-      }
-      if (flow.stage === 'budget') {
-        const b = findBudget(t) || (t.includes('no limit') ? 1e9 : null);
-        if (b) { const occ = flow.occ; flow = null; return recommend(occ, b); }
-      }
-      flow = null; // fall through to normal parsing
+      if (flow.stage === 'occasion') { const o = findOcc(t) || (/(any|no idea|don)/.test(t) ? 'gift' : null); if (o) { flow.stage = 'budget'; flow.occ = o; push('bot', 'Lovely. What budget should I respect? Type it — “under 60k”, “1 lakh” — or tap one.'); chips(['Under ₹30K', 'Under ₹60K', 'Under ₹1L', 'No limit']); return; } }
+      if (flow.stage === 'budget') { const b = budgetOf(t) || (t.includes('no limit') ? 1e9 : null); if (b) { const o = flow.occ; flow = null; return recommend(o, b); } }
+      flow = null;
     }
 
-    if (/^(hi|hello|hey|namaste|namaskar|good (morning|evening|afternoon))\b/.test(t)) {
-      push('bot', 'Namaste 🙏 Ask me for designs, today’s rate, or “choose for me” and I’ll pick with you.');
-      chips(['Show the signature rings', 'Today’s gold rate', 'Choose for me']); return;
-    }
-    if (t.includes('help') || t.includes('what can you')) {
-      push('bot', 'I can:<br>✦ <b class="g">show designs</b> — “show jhumkas”, “rings under 40k”, “kundan”<br>✦ <b class="g">tell rates & policies</b> — gold rate, hallmark, EMI, returns, buyback, shipping<br>✦ <b class="g">decide with you</b> — “choose for me” and I’ll ask two questions and pick real pieces<br>✦ <b class="g">hand you to a human</b> on WhatsApp whenever you like.');
-      chips(['Choose for me', 'Today’s gold rate', 'EMI', 'Buyback']); return;
-    }
-    if (/(rate|bhav|bhaw|gold price|silver price|today.*price|price of gold)/.test(t)) {
-      const r = rates || {};
-      const g22 = r.gold22 ?? null, g24 = r.gold24 ?? null;
-      push('bot', 'Today at the Jaipur feed:<div class="rate-line"><span>22K gold</span><b class="g">' + (g22 ? inr(g22) + '/g' : 'live on the home page') + '</b></div>' +
-        '<div class="rate-line"><span>24K gold</span><b class="g">' + (g24 ? inr(g24) + '/g' : '—') + '</b></div>' +
-        'Every product price on the site already uses this rate, and your final bill locks it at order time.');
+    if (/^(hi|hello|hey|namaste|namaskar|good (morning|evening|afternoon))\b/.test(t)) { push('bot', 'Namaste 🙏 Ask for designs, the live rate, or say <b class="g">“choose for me”</b>.'); chips(['Show the signature rings', "Today's gold rate", 'Choose for me', 'Bhai Dooj offer']); return; }
+    if (/(bhai ?dooj|bhaiya ?dooj|scheme|offer|contest|draw|finale|quiz|win)/.test(t)) { push('bot', FACTS.finale); chips(['Enter the free route', 'Choose for me', 'Is it lawful?']); return; }
+    if (t.includes('lawful') || t.includes('legal')) { push('bot', 'Yes — it is run as a <b class="g">skill-based, equal-odds contest</b>: a genuine free route, one entry per person, published rules and odds, CA-witnessed draw. Purchases never multiply entries — that is the point that keeps it lawful.'); return; }
+    if (/(rate|bhav|gold price|silver price|today.*price)/.test(t)) {
+      const r = rates || (await api('rates').catch(() => null)) || {};
+      push('bot', 'Right now at the Jaipur feed:<div class="rate-line"><span>22K gold</span><b class="g">' + inr(r.gold22 || 0) + '/g</b></div><div class="rate-line"><span>24K gold</span><b class="g">' + inr(r.gold24 || 0) + '/g</b></div><div class="rate-line"><span>Silver</span><b class="g">' + inr(r.silver || 0) + '/g</b></div>Every product price already uses this rate; your bill locks it at order time.');
       chips(['Rings under ₹50K', 'What moves the price?', 'Choose for me']); return;
     }
-    for (const [key, rx] of [['ship', /(ship|deliver|courier|tracking)/], ['ret', /(return|exchange|refund|cancel)/], ['hallmark', /(hallmark|huid|bis|purity|pure|asay|assay|tanq)/],
+    if (t.includes('moves the price')) { push('bot', 'Three honest dials: <b class="g">weight × live rate</b>, a fixed <b class="g">making charge</b> per design, and any <b class="g">stone value</b> — all printed in the price table on every page, with 3% GST shown.'); return; }
+    for (const [key, rx] of [['ship', /(ship|deliver|courier|tracking)/], ['ret', /(return|exchange|refund|cancel)/], ['hallmark', /(hallmark|huid|bis|purity|pure|tanq|assay)/],
       ['emi', /\bemi\b|installment|monthl/], ['gst', /(gst|invoice|bill\b|tax)/], ['buyback', /(buyback|buy back|sell back|old gold)/],
-      ['address', /(address|store|shop|visit|location|timing|open)/], ['engrave', /(engrav|name on|initials)/], ['size', /(size\b|measure|fit)/],
-      ['finale', /(finale|quiz|draw|contest|lottery|win)/]]) {
-      if (rx.test(t)) { push('bot', FACTS[key]); chips(['Choose for me', 'Show the signature rings', 'Talk to a human']); return; }
+      ['address', /(address|store|shop\b|visit|location|timing|open)/], ['engrave', /(engrav|initials)/], ['size', /(size\b|measure|fit)/]]) {
+      if (rx.test(t)) { push('bot', FACTS[key] + feedback()); chips(['Choose for me', 'Show the signature rings', 'Talk to a human']); return; }
     }
-    if (t.includes('human') || t.includes('whatsapp') || t.includes('talk to')) {
-      push('bot', 'Of course — a human at the Jayal counter will take over. I’ll pre-fill our conversation so you don’t repeat yourself. <br><button class="sa-more" id="saathiWa">Open WhatsApp with my chat summary →</button>');
-      setTimeout(() => { const b = $('#saathiWa'); if (b) b.onclick = () => window.open((window.Shivaa?.waLink ? Shivaa.waLink('Namaste Shivaa ✦ — I was chatting with Saathi:\n' + hist.slice(-6).map((h) => (h.who === 'user' ? 'Me: ' : 'Saathi: ') + h.html.replace(/<[^>]+>/g, ' ')).join('\n')) : 'https://wa.me/918905005921'), '_blank'); }, 0);
+    if (/(human|whatsapp|talk to|call\b)/.test(t)) {
+      push('bot', 'Of course — a human at the Jayal counter takes over, with our chat attached so you never repeat yourself.<br>' + moreBtn('#wa', 'Open WhatsApp with my chat summary →'));
+      setTimeout(() => { const b = $$('.sa-more[data-h="#wa"]')[0]; if (b) b.onclick = () => window.open((S().waLink ? S().waLink('Namaste Shivaa ✦ — my Saathi chat:\n' + hist.slice(-6).map((h) => (h.who === 'user' ? 'Me: ' : 'Saathi: ') + String(h.html).replace(/<[^>]+>/g, ' ')).join('\n')) : 'https://wa.me/918905005921'), '_blank'); }, 0);
       return;
     }
-    if (/(choose|suggest|recommend|confused|decide|which one|what should|gift for|best ring|best piece)/.test(t)) {
-      const occ = findOcc(t);
-      const bud = findBudget(t);
+    if (/(choose|suggest|recommend|confused|decide|which one|what should|gift for|best (ring|piece)|pick)/.test(t)) {
+      const occ = findOcc(t), bud = budgetOf(t);
       if (occ && bud) return recommend(occ, bud);
-      if (occ) { flow = { stage: 'budget', occ }; push('bot', 'Great taste-direction. What budget should I stay within?'); chips(['Under ₹30K', 'Under ₹60K', 'Under ₹1L', 'No limit']); return; }
-      if (bud) { flow = { stage: 'occasion', bud }; return askOcc(bud); }
-      flow = { stage: 'occasion', bud: null };
-      return askOcc(null);
+      if (occ) { flow = { stage: 'budget', occ }; push('bot', 'Great direction. What budget should I stay within?'); chips(['Under ₹30K', 'Under ₹60K', 'Under ₹1L', 'No limit']); return; }
+      if (bud) { flow = { stage: 'occasion', bud }; push('bot', 'Happy to decide with you. What’s the occasion?'); chips(['Wedding / bridal', 'Festive / Bhai Dooj', 'Daily wear', 'A gift']); return; }
+      flow = { stage: 'occasion' }; push('bot', 'Happy to choose with you. First — the occasion?'); chips(['Wedding / bridal', 'Festive / Bhai Dooj', 'Daily wear', 'A gift']); return;
     }
 
-    /* design discovery */
-    const cat = findCat(t);
-    const bud = findBudget(t);
-    const word = (t.match(/(kundan|polki|meenakari|minakari|jadau|thewa|temple|vintage|floral|solitaire|naksha|lac|filigree|antique|modern|simple|heavy)/) || [])[0];
+    /* discovery: category + budget + style in any order */
+    const cat = findCat(t); if (cat) ctx.cat = cat;
+    const bud = budgetOf(t); if (bud) ctx.budget = bud;
+    const toks = tokens(t).filter((w) => !['show', 'rings', 'ring'].includes(w));
     let list = products.slice();
-    if (cat) list = list.filter((p) => p.category === cat);
-    if (bud) list = list.filter((p) => priceOf(p) <= bud * 1.08);
-    if (word) list = list.filter((p) => ((p.name || '') + ' ' + (p.tags || []).join(' ') + ' ' + (p.desc || '')).toLowerCase().includes(word));
-    if ((cat || bud || word) && list.length) {
+    if (ctx.cat) list = list.filter((p) => p.category === ctx.cat);
+    if (ctx.budget) list = list.filter((p) => priceOf(p) <= ctx.budget * 1.08);
+    if (toks.length) { list = list.map((p) => ({ p, s: scoreSearch(p, toks) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.p); }
+    if ((cat || bud || toks.length) && list.length) {
       list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      push('bot', 'I found <b class="g">' + list.length + '</b> piece' + (list.length === 1 ? '' : 's') + (cat ? ' in <b class="g">' + cat + '</b>' : '') + (bud ? ' within <b class="g">' + inr(bud) + '</b>' : '') + (word ? ' with <b class="g">' + word + '</b> work' : '') + '. Tap any to see it live:');
-      push('bot', '', showList(list, '#/shop' + (cat ? '?category=' + cat : '')));
-      bindCards($('#saathiMsgs'));
-      chips(['Choose for me', 'Today’s gold rate', cat !== 'rings' ? 'Show rings' : 'Show necklaces']); return;
+      push('bot', 'Found <b class="g">' + list.length + '</b> piece' + (list.length === 1 ? '' : 's') + (cat ? ' in <b class="g">' + cat + '</b>' : '') + (bud ? ' within <b class="g">' + inr(bud) + '</b>' : '') + '. Tap to view — 🛍 adds straight to cart:');
+      push('bot', '', cardRow(list, true) + moreBtn('#/shop' + (cat ? '?category=' + cat : ''), 'See all in the shop →') + feedback());
+      chips(['Cheaper', 'Show more', 'Choose for me']); return;
     }
-    if ((cat || word) && !list.length) {
-      push('bot', FACTS.catalog + '<br>Meanwhile — shall I pick from the signature rings for you?');
-      chips(['Choose for me', 'Show the signature rings']); return;
-    }
-    if (t.includes('signature') || t.includes('rings') && !cat) {
+    if ((cat || toks.length) && !list.length) { push('bot', FACTS.catalog + '<br>Shall I pick from the signature rings instead?'); chips(['Choose for me', 'Show the signature rings']); return; }
+    if (/signature|all rings/.test(t)) {
       const rings = products.filter((p) => p.category === 'rings');
       push('bot', 'Our <b class="g">65 signature rings</b> — 22K, hallmarked, four photographs each:');
-      push('bot', '', showList(rings, '#/shop?category=rings'));
-      bindCards($('#saathiMsgs'));
-      chips(['Choose for me', 'Rings under ₹40K', 'Today’s gold rate']); return;
+      push('bot', '', cardRow(rings, true) + moreBtn('#/shop?category=rings', 'Open the ring shop →'));
+      chips(['Choose for me', 'Rings under ₹40K', "Today's gold rate"]); return;
     }
 
-    /* free-text search via the API (scales with the catalogue) */
+    /* free-text via API (scales to the 4-lakh catalogue) */
     if (t.length > 3) {
       try {
         const r = await api('products?q=' + encodeURIComponent(raw.slice(0, 40)));
-        const l = (r.products || []).slice(0, 6);
-        if (l.length) {
-          push('bot', 'From the catalogue, closest to “' + esc(raw) + '”:');
-          push('bot', '', showList(l, '#/shop?q=' + encodeURIComponent(raw)));
-          bindCards($('#saathiMsgs'));
-          chips(['Choose for me', 'Talk to a human']); return;
-        }
+        const l = r.products || [];
+        if (l.length) { push('bot', 'Closest to “' + esc(raw) + '”:'); push('bot', '', cardRow(l, true) + moreBtn('#/shop?q=' + encodeURIComponent(raw), 'Search the shop →') + feedback()); return; }
       } catch (e) {}
     }
-    push('bot', 'I want to get this exactly right rather than guess. Try me with: <b class="g">“jhumka under 50k”</b>, <b class="g">“today’s rate”</b>, <b class="g">“choose for me”</b> — or I’ll hand you to a human.');
-    chips(['Choose for me', 'Show the signature rings', 'Talk to a human', 'Hallmark & purity']);
+    push('bot', 'I’d rather get it right than guess. Try <b class="g">“jhumka under 50k”</b>, <b class="g">“cheaper”</b>, <b class="g">“choose for me”</b> — or I’ll hand you to a human.');
+    chips(['Choose for me', 'Show the signature rings', 'Talk to a human']);
   }
 
-  function askOcc(bud) {
-    flow = { stage: 'occasion', bud };
-    push('bot', 'Happy to decide with you. First — what’s the occasion?');
-    chips(['Wedding / bridal', 'Festive', 'Daily wear', 'A gift']);
+  function similar(base) {
+    const bt = (base.tags || []).slice(0, 4);
+    const list = products.filter((p) => p.id !== base.id && (p.category === base.category || (p.tags || []).some((x) => bt.includes(x))));
+    push('bot', 'In the same family as <b class="g">' + esc(base.name) + '</b>:');
+    push('bot', '', cardRow(list, true) + feedback());
   }
 
-  async function recommend(occ, budget) {
-    const O = OCCASIONS[occ] || OCCASIONS.gift;
-    let list = products.slice();
-    if (!list.length) { push('bot', FACTS.catalog); return; }
-    const scored = list.map((p) => {
-      const pr = priceOf(p);
-      let s = (p.rating || 4.5);
-      if (budget < 1e9) {
-        if (pr > budget * 1.08) s -= 50;
-        else s += 2 * (1 - pr / (budget * 1.08));
-      }
+  async function recommend(occ, budget, note) {
+    ctx.occ = occ; ctx.budget = budget;
+    const O = OCC[occ] || OCC.gift;
+    const scored = products.map((p) => {
+      const pr = priceOf(p); let s = (p.rating || 4.5);
+      if (budget < 1e9) { if (pr > budget * 1.08) s -= 50; else s += 2 * (1 - pr / (budget * 1.08)); }
       if (O.cat.includes(p.category)) s += 2;
-      const hay = ((p.name || '') + ' ' + (p.tags || []).join(' ')).toLowerCase();
-      s += O.boost.filter((w) => hay.includes(w)).length * 1.5;
+      const h = hay(p); s += O.boost.filter((w) => h.includes(w)).length * 1.5;
       return { p, pr, s };
     }).sort((a, b) => b.s - a.s);
     const top = scored.slice(0, 3);
-    push('bot', 'For a <b class="g">' + occ + '</b> within <b class="g">' + (budget >= 1e9 ? 'any budget' : inr(budget)) + '</b>, here is what I would choose — and why:' +
-      top.map((x, i) => '<br><b class="g">' + (i + 1) + '.</b> ' + esc(x.p.name) + ' — ' + inr(x.pr) + '. ' + reason(x, occ, budget)).join('') +
-      '<br><br>Tap a card to see it; or say “more” and I’ll show the next three.');
-    push('bot', '', cardRow(top.map((x) => x.p)) + '<button class="sa-more" id="saathiMore">Show me three more →</button>');
-    bindCards($('#saathiMsgs'));
-    let nxt = 3;
-    setTimeout(() => {
-      const b = $('#saathiMore');
-      if (b) b.onclick = () => {
-        b.remove();
-        push('bot', '', cardRow(scored.slice(nxt, nxt + 3).map((x) => x.p)));
-        bindCards($('#saathiMsgs'));
-        nxt += 3;
-      };
-    }, 0);
+    push('bot', 'For a <b class="g">' + occ + '</b> within <b class="g">' + (budget >= 1e9 ? 'any budget' : inr(budget)) + '</b>' + (note ? ' (' + note + ')' : '') + ', I would choose:' +
+      top.map((x, i) => '<br><b class="g">' + (i + 1) + '.</b> ' + esc(x.p.name) + ' — ' + inr(x.pr) + ' · ' + reason(x, occ, budget)).join('') +
+      '<br><br>🛍 adds to cart, ⇄ compares — or tell me <b class="g">“cheaper”</b> / <b class="g">“more like this”</b>.');
+    push('bot', '', cardRow(top.map((x) => x.p), true) + feedback());
+    chips(['Cheaper', 'More like this', 'Talk to a human', "Today's gold rate"]);
     flow = null;
-    chips(['Talk to a human', 'Today’s gold rate', 'Start over']);
   }
   function reason(x, occ, budget) {
-    const bits = [];
-    bits.push(x.p.purity + ' ' + x.p.metal);
-    if (budget < 1e9 && x.pr <= budget) bits.push('fits your budget with ' + inr(budget - x.pr) + ' to spare');
-    if (OCCASIONS[occ].cat.includes(x.p.category)) bits.push('a classic ' + occ + ' choice');
-    bits.push('★ ' + (x.p.rating || '4.6'));
+    const bits = [x.p.purity + ' ' + x.p.metal];
+    if (budget < 1e9 && x.pr <= budget) bits.push(inr(budget - x.pr) + ' under budget');
+    if (OCC[occ].cat.includes(x.p.category)) bits.push('classic ' + occ + ' pick');
+    bits.push('★' + (x.p.rating || '4.6'));
     return bits.join(' · ');
   }
 
-  /* ── public hooks ── */
   window.Saathi = { open, close };
   window.Shivaa = window.Shivaa || {};
   window.Shivaa.saathiOpen = (q) => open(q || '');
-
   mount();
-  /* a gentle first nudge on mobile after 4s, once per session */
-  if (!sessionStorage.getItem('saathi_nudged')) {
-    setTimeout(() => {
-      if (!document.body.classList.contains('saathi-open')) {
-        sessionStorage.setItem('saathi_nudged', '1');
-        const f = $('#saathiFab');
-        if (f) f.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 700, iterations: 2 });
-      }
-    }, 4000);
-  }
+  if (!sessionStorage.getItem('saathi_nudged')) setTimeout(() => {
+    if (!document.body.classList.contains('saathi-open')) { sessionStorage.setItem('saathi_nudged', '1'); $('#saathiFab')?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.1)' }, { transform: 'scale(1)' }], { duration: 700, iterations: 2 }); }
+  }, 4000);
 })();

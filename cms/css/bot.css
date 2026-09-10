@@ -117,3 +117,42 @@ body.saathi-open #saathiPanel { transform: translateY(0); }
   background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #201409;
 }
 .sa-foot { font-size: 10.5px; color: var(--ink-3); text-align: center; padding: 0 12px 8px; background: var(--white); }
+
+/* ─── Saathi v2 additions ─── */
+#saathiFab::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 999px;
+  border: 2px solid rgba(185,138,47,.5); animation: saPing 2.8s var(--ease) infinite;
+}
+@keyframes saPing { 0% { transform: scale(.9); opacity: .8; } 70%,100% { transform: scale(1.25); opacity: 0; } }
+.sa-ava { position: relative; }
+.sa-ava::after { content: ''; position: absolute; right: 1px; bottom: 1px; width: 9px; height: 9px; border-radius: 50%; background: #35c46f; border: 2px solid var(--maroon-deep); }
+.sa-ava span { animation: saathiTwinkle 2.6s infinite; }
+#saathiTick b { color: #ffe9b8; }
+
+/* action tiles */
+.sa-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 2px; }
+.sa-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px;
+  background: linear-gradient(160deg, var(--white), var(--cream-2)); border: 1px solid var(--line);
+  border-radius: 14px; cursor: pointer; font: 600 12px var(--ff-body); color: var(--maroon);
+  transition: transform .18s var(--ease), box-shadow .18s;
+}
+.sa-tile span { font-size: 19px; }
+.sa-tile:hover { transform: translateY(-2px); box-shadow: var(--sh-2); border-color: var(--gold-soft); }
+
+/* cards with actions */
+.sa-cardwrap { flex: 0 0 138px; display: flex; flex-direction: column; gap: 5px; }
+.sa-card { width: 100%; }
+.sa-card .st { color: var(--ink-3); font-weight: 500; font-size: 10.5px; }
+.sa-acts { display: flex; gap: 6px; align-items: center; padding: 0 2px; }
+.sa-act {
+  border: 1px solid var(--line); background: var(--white); border-radius: 9px; cursor: pointer;
+  width: 30px; height: 26px; font-size: 13px; line-height: 1;
+}
+.sa-act:hover { border-color: var(--gold); background: var(--gold-faint); }
+.sa-idx { margin-left: auto; font-size: 10px; color: var(--ink-3); }
+
+/* feedback row */
+.sa-fbrow { display: flex; align-items: center; gap: 8px; padding: 0 4px 6px; font-size: 11px; color: var(--ink-3); }
+.sa-fb { border: 0; background: none; cursor: pointer; font-size: 13px; filter: grayscale(1); opacity: .7; }
+.sa-fb:hover { filter: none; opacity: 1; }

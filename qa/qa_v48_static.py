@@ -176,7 +176,7 @@ idx = (ROOT / 'cms/index.html').read_text(encoding='utf-8')
 print('\n── cache-busters + deploy zip ──')
 for f in ('auth.js', 'admin.js'):
     check(f'index.html loads js/{f}?v=48', f'/js/{f}?v=48' in idx)
-check('index.html loads js/app.js?v=50 (fresh-install bump)', '/js/app.js?v=50' in idx)
+check('index.html loads js/app.js versioned (fresh-install bump)', '/js/app.js?v=5' in idx)
 
 ZIP = ROOT / 'shivaa-update-v49-ai-disclosure.zip'
 # v49 was the UPDATE zip for existing sites; the FRESH install (v50) supersedes

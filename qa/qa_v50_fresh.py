@@ -19,9 +19,11 @@ def check(name, cond):
     (ok if cond else fail).append(name)
     print(('PASS ' if cond else 'FAIL '), name)
 
-ZIP = ROOT / 'shivaa-FRESH-v50-full.zip'
+import sys as _sys
+ZIP = ROOT / (_sys.argv[1] if len(_sys.argv) > 1 else ('shivaa-FRESH-v51-full.zip' if (ROOT / 'shivaa-FRESH-v51-full.zip').is_file() else 'shivaa-FRESH-v50-full.zip'))
 if not ZIP.is_file():
-    check('fresh zip exists', False); print(f'\n{len(ok)} passed · {len(fail)} failed'); sys.exit(1)
+    check('fresh zip exists', False)
+    print(f'\n{len(ok)} passed · {len(fail)} failed'); sys.exit(1)
 
 z = zipfile.ZipFile(ZIP)
 names = set(n for n in z.namelist() if not n.endswith('/'))
@@ -29,13 +31,15 @@ names = set(n for n in z.namelist() if not n.endswith('/'))
 # ── contents ──
 EXPECT = {
     'index.html', 'api.php', 'mail.php', 'sms.php', 'hallmark.php', 'trust.php',
-    'admin-reset.php', '.htaccess', 'INSTALL-FRESH-v50.md',
+    'admin-reset.php', '.htaccess',
     'uploads/.htaccess', 'data/.htaccess', 'data/db.json',
     'js/app.js', 'js/admin.js', 'js/auth.js', 'js/bot.js', 'js/qr.js',
     'js/otp-autofill.js', 'js/hallmark.js', 'js/trust.js', 'js/three-d.js',
     'css/styles.css', 'css/fonts.css', 'css/hallmark.css', 'css/trust.css',
     'css/finale.css', 'css/bot.css',
 }
+if 'INSTALL-FRESH-v51.md' in names: EXPECT.add('INSTALL-FRESH-v51.md')
+else: EXPECT.add('INSTALL-FRESH-v50.md')
 missing = EXPECT - names
 check(f'zip has all {len(EXPECT)} expected files (missing {len(missing)}: {sorted(missing)[:4]})', not missing)
 extra = names - EXPECT
@@ -70,8 +74,8 @@ check(f'user-generated collections all empty ({empties or "yes"})', not empties)
 
 # ── wiring ──
 idx = z.read('index.html').decode()
-check('index wires bot.css and bot.js at v50', '/css/bot.css?v=50' in idx and '/js/bot.js?v=50' in idx)
-check('index bumps app.js to v50', '/js/app.js?v=50' in idx)
+check('index wires bot.css and bot.js (versioned)', '/css/bot.css?v=5' in idx and '/js/bot.js?v=5' in idx)
+check('index bumps app.js (versioned)', '/js/app.js?v=5' in idx)
 
 app = z.read('js/app.js').decode()
 check('fabricated review count removed', '767 verified' not in app)
@@ -98,10 +102,23 @@ check('anonymous forms rate-limited (pub_rate on contact+newsletter)',
       api.count('pub_rate($db') >= 2)
 check('reviews readable for the proof wall & bot', "route === 'reviews' && $method === 'GET'" in api)
 
-doc = z.read('INSTALL-FRESH-v50.md').decode()
+doc = z.read('INSTALL-FRESH-v51.md' if 'INSTALL-FRESH-v51.md' in names else 'INSTALL-FRESH-v50.md').decode()
 check('install doc names the one-time password + change-it step', 'One-time first password' in doc and 'My sign-in password' in doc)
 check('install doc checks the dot-file shields landed', 'show hidden files' in doc)
 check('install doc points at the ring bridge for photos', 'Part 4' in doc)
+
+print('\n── v51: Bhai Dooj scheme, Saathi v2, hardening ──')
+check('campaign renamed to Bhai Dooj', 'Bhai Dooj Gold Finale' in app)
+check('prize is 10 g, no 100 g prize copy left', '10 g' in app and '100 g of certified' not in app and 'New Year Gold Finale' not in app)
+check('draw is Bhai Dooj 11 Nov 2026, no 31 Dec left', '11 November 2026' in app and '31 December 2026' not in app and '31 Dec 2026' not in app)
+check('silver qualifying route untouched (100 g silver stays)', '100 g of silver' in app)
+check('Saathi v2: action tiles + in-chat add/compare', 'sa-tiles' in bot and 'data-add' in bot and 'data-cmp' in bot)
+check('Saathi v2: spoken numbers + follow-ups', 'thousand' in bot and 'cheaper' in bot and 'more like' in bot)
+check('Saathi knows the Bhai Dooj scheme & lawfulness', 'Bhai Dooj' in bot and 'lawful' in bot)
+check('Saathi live-rate ticker in header', 'saathiTick' in bot)
+check('admin logins audited in securityLog', 'admin-login' in api)
+check('lockouts audited too', 'login-lockout' in api)
+check('two extra hardening headers', 'X-Permitted-Cross-Domain-Policy' in h_root and 'X-DNS-Prefetch-Control' in h_root)
 
 print(f'\n{len(ok)} passed · {len(fail)} failed')
 sys.exit(1 if fail else 0)

@@ -493,17 +493,17 @@ function bindCountdown(el, target) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   NEW YEAR GOLD FINALE · 2026 — campaign module
-   Time-boxed: lives through 31 Dec 2026 (IST draw day) and
-   auto-expires at 00:00 IST on 1 Jan 2027 by date check alone — no
+   BHAI DOOJ GOLD FINALE · 2026 — campaign module (Bhai Dooj edition)
+   Time-boxed: lives through Bhai Dooj, 11 Nov 2026 (IST draw night) and
+   auto-expires at 00:00 IST on 1 Dec 2026 by date check alone — no
    flag to flip. Once off, the homepage band, the nav/footer links and
    the #/finale landing page all disappear; the site simply stays a
    normal jewellery store.
    Copy follows the approved pitch-deck wording verbatim:
    "win a chance" framing (never "lottery") · qualifying purchase =
    3 g gold ANY karat OR 100 g silver per order · free no-purchase
-   quiz route with equal odds · CA-witnessed live draw 31 Dec 2026 ·
-   100 g certified 24K bullion at current market value · TN & WB
+   quiz route with equal odds · CA-witnessed live draw on Bhai Dooj
+   (11 Nov 2026) · 10 g certified 24K gold at current market value · TN & WB
    excluded · statutory TDS ≈ 31.2% on the winner. The scored quiz
    funnel (purchase route after a qualifying order + free route on
    the landing page, entries saved server-side in db['finaleEntries'])
@@ -511,12 +511,12 @@ function bindCountdown(el, target) {
    ═══════════════════════════════════════════════════════════════════ */
 const FINALE = {
   route: 'finale',
-  name: 'The New Year Gold Finale',
-  drawLabel: '31 December 2026',
+  name: 'The Bhai Dooj Gold Finale',
+  drawLabel: 'Bhai Dooj · 11 November 2026',
   // last moment of the draw day (local time — site audience is India/IST)
-  drawAt: new Date(2026, 11, 31, 23, 59, 59).getTime(),
-  // the module switches itself off from the first moment of 1 Jan 2027
-  endAt: new Date(2027, 0, 1, 0, 0, 0).getTime(),
+  drawAt: new Date(2026, 10, 11, 23, 59, 59).getTime(),
+  // the module switches itself off from the first moment of 1 Dec 2026
+  endAt: new Date(2026, 11, 1, 0, 0, 0).getTime(),
 };
 const finaleLive = () => Date.now() < FINALE.endAt;
 
@@ -533,7 +533,7 @@ function syncFinaleChrome(force) {
   if (force && window.Shivaa.redraw) window.Shivaa.redraw();
 }
 
-/* countdown chips to the 31 Dec draw (same .fc-cell visual language) */
+/* countdown chips to the Bhai Dooj draw (same .fc-cell visual language) */
 function finaleCdCells() {
   const d = Math.max(0, FINALE.drawAt - Date.now());
   const days = Math.floor(d / 864e5), hrs = Math.floor(d % 864e5 / 36e5),
@@ -557,14 +557,14 @@ function bindFinaleCd(el) {
 
 /* gold-biscuit artwork used on the band + landing hero (pure CSS) */
 function finaleBarArt() {
-  return `<div class="fin-bar" aria-hidden="true"><div class="fin-eng"><small>Shivaa · fine gold</small><em>100 g</em><span>24K · 999.9</span></div></div>`;
+  return `<div class="fin-bar" aria-hidden="true"><div class="fin-eng"><small>Shivaa · fine gold</small><em>10 g</em><span>24K · 999.9</span></div></div>`;
 }
 
 /* homepage campaign band — inserted by pages.home while the campaign is live */
 function finaleHomeBand() {
   if (!finaleLive()) return '';
   return `
-  <section class="finale-band rv" id="homeFinale" data-camp-zone aria-label="The New Year Gold Finale — one customer wins 100 g of certified 24K gold bullion">
+  <section class="finale-band rv" id="homeFinale" data-camp-zone aria-label="The Bhai Dooj Gold Finale — one customer wins 10 g of certified 24K gold">
     <div class="container fb-wrap">
       <div class="fb-art">
         ${finaleBarArt()}
@@ -573,16 +573,16 @@ function finaleHomeBand() {
         <i class="fin-spark" style="top:6%;right:28%;animation-delay:-2.6s;font-size:9px">✦</i>
       </div>
       <div class="fb-main">
-        <span class="fb-kicker"><i>✦</i> The New Year Gold Finale · 2026</span>
+        <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
         <h2 class="fb-title">Every qualifying order gets a chance to win <em>100&nbsp;g of certified 24K gold</em></h2>
-        <p class="fb-sub">Buy any gold piece of <b>3&nbsp;g or more in any karat</b> (18K / 22K / 24K) or <b>100&nbsp;g of silver</b> during the campaign window, take the short scored quiz, and you are in the CA-witnessed live draw on <b>31 December 2026</b>. No purchase? The free route enters you with equal odds.</p>
+        <p class="fb-sub">Buy any gold piece of <b>3&nbsp;g or more in any karat</b> (18K / 22K / 24K) or <b>100&nbsp;g of silver</b> during the campaign window, take the short scored quiz, and you are in the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>. No purchase? The free route enters you with equal odds.</p>
         ${finaleCdHTML('homeFinaleCd')}
         <div class="fb-cta">
           <a class="btn btn-gold btn-lg" href="#/finale">How to enter &amp; full rules</a>
           <a class="btn btn-light btn-lg" href="#/shop">Shop gold &amp; silver</a>
         </div>
         <ul class="fb-chips">
-          <li>CA-witnessed draw · 31 Dec 2026</li>
+          <li>CA-witnessed draw · Bhai Dooj · 11 Nov 2026</li>
           <li>Free entry available — buying optional</li>
           <li>One entry per person · T&amp;Cs apply</li>
           <li>Void where prohibited · TN &amp; WB excluded</li>
@@ -600,16 +600,16 @@ function finaleLanding() {
       <div class="container">
         <div class="fh-in">
           <div class="fh-copy">
-            <div class="crumbs"><a href="#/">Home</a> / The New Year Gold Finale</div>
-            <span class="fh-kicker">✦ New Year Gold Finale · 2026</span>
+            <div class="crumbs"><a href="#/">Home</a> / The Bhai Dooj Gold Finale</div>
+            <span class="fh-kicker">✦ Bhai Dooj Gold Finale · 2026</span>
             <h1>One customer will win <em class="fh-gold">100&nbsp;g of certified 24K gold</em></h1>
-            <p class="fh-sub">A lawful, CA-witnessed contest — every <b>qualifying purchase</b> (any gold piece of 3&nbsp;g or more in any karat, or 100&nbsp;g of silver per order) and every <b>free quiz entry</b> carries an equal chance in the live draw on <b>31 December 2026</b>. The prize is the gold itself, at its market value on draw day.</p>
+            <p class="fh-sub">A lawful, CA-witnessed contest — every <b>qualifying purchase</b> (any gold piece of 3&nbsp;g or more in any karat, or 100&nbsp;g of silver per order) and every <b>free quiz entry</b> carries an equal chance in the live draw on <b>Bhai Dooj night — 11 November 2026</b>. The prize is the gold itself, at its market value on draw day.</p>
             ${finaleCdHTML()}
             <div class="fb-cta">
               <button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.finJump('finRoutes')">See how to enter</button>
               <button type="button" class="btn btn-light btn-lg" onclick="Shivaa.finJump('finRules')">Eligibility &amp; rules</button>
             </div>
-            <div class="ph-trust"><span>✦ CA-witnessed live draw · 31 Dec 2026</span><span>✦ Free entry available</span><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a></div>
+            <div class="ph-trust"><span>✦ CA-witnessed live draw · Bhai Dooj · 11 Nov 2026</span><span>✦ Free entry available</span><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a></div>
           </div>
           <div class="fh-art" aria-hidden="true">
             <div class="fh-stack">
@@ -622,14 +622,14 @@ function finaleLanding() {
     </section>
 
     <section class="sec container fin-sec" id="finPrize">
-      <div class="sec-head rv"><span class="label">The prize</span><h2>One hundred grams. <span class="disp-italic">Certified.</span></h2>
+      <div class="sec-head rv"><span class="label">The prize</span><h2>Ten grams. <span class="disp-italic">Certified.</span></h2>
       <p class="sub">The value follows the gold market — it is never a fixed rupee promise.</p></div>
       <div class="fin-prize rv">
         <div class="fp-in">
           <div>
-            <span class="fp-gold">✦ 100 g · 24K gold bullion biscuit</span>
+            <span class="fp-gold">✦ 10 g · 24K gold bullion biscuit</span>
             <h3>Valued at the live gold price <em>on draw day</em></h3>
-            <p>Not a voucher and not a discount: the winner takes delivery of a 100&nbsp;g certified 24K gold biscuit — worth ≈ ₹15 lakh when the campaign was announced at its ≈ ₹15,000/g planning rate, and worth whatever 100&nbsp;g of 24K gold commands on 31 December 2026. Bought early, insured, and held under two-person custody until the draw.</p>
+            <p>Not a voucher and not a discount: the winner takes delivery of a 10&nbsp;g certified 24K gold biscuit — a Bhai Dooj gift from Shivaa worth ≈ ₹1.5 lakh at the ≈ ₹15,000/g planning rate, and worth whatever 10&nbsp;g of 24K gold commands on Bhai Dooj, 11 November 2026. Bought early, insured, and held under two-person custody until the draw.</p>
             <ul class="fp-ticks">
               <li><i>✓</i><span><b>Certified &amp; insured.</b> Refiner certificate, serial number and purchase invoice are kept on file from the day the biscuit is bought.</span></li>
               <li><i>✓</i><span><b>Only statutory TDS is ever deducted</b> — ≈ 31.2% (30% + surcharge + cess), deposited before handover, with Form 16A issued to the winner. Nothing else is charged.</span></li>
@@ -671,7 +671,7 @@ function finaleLanding() {
       <div class="fin-panel rv" style="margin-top:20px">
         <div class="fin-rule"><span>①</span><p><b>Entry opens early October 2026.</b> The official rules are published before the first entry; all dates and times are IST.</p></div>
         <div class="fin-rule"><span>②</span><p><b>Qualifying purchases</b> are those placed inside the entry window. However much you buy, every person gets exactly <b>one entry</b> — multiple orders do not multiply entries.</p></div>
-        <div class="fin-rule"><span>③</span><p><b>Entries close ≈ 18–20 Dec 2026</b> (the exact date is published in the rules). The entry ledger then freezes and a SHA-256 fingerprint of it is taken.</p></div>
+        <div class="fin-rule"><span>③</span><p><b>Entries close ≈ 7–8 Nov 2026</b> (the exact date is published in the rules). The entry ledger then freezes and a SHA-256 fingerprint of it is taken.</p></div>
         <div class="fin-rule"><span>④</span><p><b>Odds are published, not hidden.</b> They depend on the number of valid entries and are stated with the official rules before entries open.</p></div>
       </div>
     </section>
@@ -681,9 +681,9 @@ function finaleLanding() {
       <div class="fin-timeline rv">
         <div class="fin-tl"><span class="fin-tl-dot">1</span><span class="tl-date">12 Sep</span><b>Announced</b><small>Campaign goes live. The official rules are finalised and published before any entry is taken.</small></div>
         <div class="fin-tl"><span class="fin-tl-dot">2</span><span class="tl-date">Early Oct</span><b>Entries open</b><small>Free and purchase routes open together, with the scored quiz and published odds.</small></div>
-        <div class="fin-tl"><span class="fin-tl-dot">3</span><span class="tl-date">≈ 18–20 Dec</span><b>Entries close</b><small>Ledger freeze + SHA-256 fingerprint; finalists&rsquo; PAN / KYC checks begin.</small></div>
-        <div class="fin-tl hot"><span class="fin-tl-dot">✦</span><span class="tl-date">31 Dec</span><b>LIVE draw</b><small>CA-witnessed, live-streamed draw. The winner is announced the same night.</small></div>
-        <div class="fin-tl"><span class="fin-tl-dot">5</span><span class="tl-date">Jan 2027</span><b>Handover</b><small>TDS deposited, Form 16A issued, and the insured biscuit is handed to the verified winner.</small></div>
+        <div class="fin-tl"><span class="fin-tl-dot">3</span><span class="tl-date">≈ 7–8 Nov</span><b>Entries close</b><small>Ledger freeze + SHA-256 fingerprint; finalists&rsquo; PAN / KYC checks begin.</small></div>
+        <div class="fin-tl hot"><span class="fin-tl-dot">✦</span><span class="tl-date">11 Nov</span><b>LIVE draw · Bhai Dooj</b><small>CA-witnessed, live-streamed draw. The winner is announced the same night.</small></div>
+        <div class="fin-tl"><span class="fin-tl-dot">5</span><span class="tl-date">Nov–Dec 2026</span><b>Handover</b><small>TDS deposited, Form 16A issued, and the insured biscuit is handed to the verified winner.</small></div>
       </div>
     </section>
 
@@ -710,7 +710,7 @@ function finaleLanding() {
           <div class="fin-rule"><span>·</span><p><b>Qualifying order:</b> gold of 3&nbsp;g or more in any karat (18K / 22K / 24K) <i>or</i> silver of 100&nbsp;g or more per order, bought inside the entry window.</p></div>
           <div class="fin-rule"><span>·</span><p><b>One entry per person</b> across both routes, created by the scored skill quiz. Multiple qualifying orders still mean one entry.</p></div>
           <div class="fin-rule"><span>·</span><p><b>Free entry available</b> — the same scored quiz with equal odds. The purchase route is simply optional; an entry never requires a purchase or any fee.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Late entries are void.</b> Entries close ≈ 18–20 Dec 2026; the exact date and time are in the official rules.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Late entries are void.</b> Entries close ≈ 7–8 Nov 2026; the exact date and time are in the official rules.</p></div>
           <div class="fin-rule"><span>·</span><p><b>Void where prohibited.</b> Residents of Tamil Nadu and West Bengal may not enter; other state rules apply as set out in the official rules.</p></div>
           <div class="fin-rule"><span>·</span><p><b>No insiders.</b> Employees of Shivaa / Ernate Shine Jewellery Pvt. Ltd., their relatives, vendors, agencies and each of their households are excluded.</p></div>
         </div>
@@ -730,7 +730,7 @@ function finaleLanding() {
 
     <section class="container" style="padding-bottom:96px">
       <div class="fin-close rv">
-        <span class="fb-kicker" style="justify-content:center"><i>✦</i> The New Year Gold Finale · 2026</span>
+        <span class="fb-kicker" style="justify-content:center"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
         <h3>The gold is real. <em>The chance is equal.</em></h3>
         <p>Ask us anything about eligibility, the quiz, the TDS or the draw — our desk replies within 48 hours. And every piece on shivaa.in is live-rate priced with making charges in plain sight, so the gold you buy stays honest.</p>
         <div class="fb-cta" style="justify-content:center">
@@ -738,7 +738,7 @@ function finaleLanding() {
           <button type="button" class="btn btn-light btn-lg" onclick="Shivaa.finWa()">Ask on WhatsApp</button>
         </div>
         <ul class="fb-chips">
-          <li>CA-witnessed draw · 31 Dec 2026</li>
+          <li>CA-witnessed draw · Bhai Dooj · 11 Nov 2026</li>
           <li>Free entry available — buying optional</li>
           <li>One entry per person · T&amp;Cs apply</li>
           <li>Void where prohibited · TN &amp; WB excluded</li>
@@ -754,7 +754,7 @@ window.Shivaa.finJump = id => {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 window.Shivaa.finWa = () => {
-  if (window.Shivaa.waOpen) window.Shivaa.waOpen('Namaste Shivaa ✦\n\nI have a question about the New Year Gold Finale: ');
+  if (window.Shivaa.waOpen) window.Shivaa.waOpen('Namaste Shivaa ✦\n\nI have a question about the Bhai Dooj Gold Finale: ');
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -794,10 +794,10 @@ function fqShowEntered(entry) {
   try { sessionStorage.removeItem('fqPrompt'); } catch (e) {}
   openModal(`<div class="finq center">
     <div class="finq-big">✦</div>
-    <span class="fb-kicker" style="justify-content:center"><i>✦</i> The New Year Gold Finale · 2026</span>
+    <span class="fb-kicker" style="justify-content:center"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
     <h3 style="font-size:26px;margin:6px 0 8px">You are entered ${entry && entry.id ? '· ' + esc(entry.id) : ''}</h3>
     <p class="finq-sub" style="text-align:center">${entry ? `Scored <b>${entry.score}/${entry.total}</b> · ${entry.route === 'free' ? 'free entry' : 'purchase entry'}` : ''} — one entry per person, equal odds for everyone in the draw.</p>
-    <p class="finq-note" style="text-align:center;max-width:440px;margin:8px auto 0">The CA-witnessed live draw happens <b>31 December 2026</b>. A valid entry needs your order to stay paid &amp; undisputed; the winner&rsquo;s PAN is verified and statutory TDS ≈31.2% is deducted before the gold is handed over.</p>
+    <p class="finq-note" style="text-align:center;max-width:440px;margin:8px auto 0">The CA-witnessed live draw happens <b>Bhai Dooj night — 11 November 2026</b>. A valid entry needs your order to stay paid &amp; undisputed; the winner&rsquo;s PAN is verified and statutory TDS ≈31.2% is deducted before the gold is handed over.</p>
     <button class="btn btn-gold" style="margin-top:14px" onclick="Shivaa.closeModal()">Wonderful ✦</button>
   </div>`, 'finq');
   fqSyncZones();
@@ -808,10 +808,10 @@ function finaleBandHTML(order, entry, gold, silver) {
   const orderId = order.id;
   return `<div class="container fb-wrap fb-wrap-tight">
     <div class="fb-main">
-      <span class="fb-kicker"><i>✦</i> The New Year Gold Finale · 2026</span>
+      <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
       <h2 class="fb-title" style="font-size:clamp(22px,3vw,34px)">${entry ? 'You are entered — see you at the draw' : 'You’re one quiz away from the draw'}</h2>
       <p class="fb-sub" style="margin-top:8px">${entry
-        ? `Your entry <b>${esc(entry.id)}</b> (${entry.score}/${entry.total}) is registered for the CA-witnessed live draw on <b>31 December 2026</b>.`
+        ? `Your entry <b>${esc(entry.id)}</b> (${entry.score}/${entry.total}) is registered for the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>.`
         : `This order qualifies${silver >= 100 ? ` — <b>${(+silver).toFixed(1)} g silver</b>` : ` — <b>${(+gold).toFixed(1)} g gold</b>`}. Take the 5-question scored quiz (4 of 5 to pass) and your entry is in.`}</p>
       <div class="fb-cta">
         ${entry
@@ -820,7 +820,7 @@ function finaleBandHTML(order, entry, gold, silver) {
         <a class="btn btn-light btn-lg" href="#/shop">Shop more</a>
       </div>
       <ul class="fb-chips">
-        <li>CA-witnessed draw · 31 Dec 2026</li>
+        <li>CA-witnessed draw · Bhai Dooj · 11 Nov 2026</li>
         <li>Free entry available — buying optional</li>
         <li>One entry per person · T&amp;Cs apply</li>
       </ul>
@@ -839,7 +839,7 @@ function fqShowClosed(reason) {
     <div class="finq-big" style="color:var(--gold)">✦</div>
     <h3 style="font-size:24px;margin:6px 0 8px">The Gold Finale draw</h3>
     <p class="finq-sub" style="text-align:center">${esc(reason || 'Entries for the Gold Finale are now closed.')}</p>
-    <p class="finq-note" style="text-align:center">Watch this page and your WhatsApp — the winner is announced live on 31 December 2026.</p>
+    <p class="finq-note" style="text-align:center">Watch this page and your WhatsApp — the winner is announced live on Bhai Dooj night, 11 November 2026.</p>
     <button class="btn btn-gold" style="margin-top:14px" onclick="Shivaa.closeModal()">Close</button>
   </div>`, 'finq');
 }
@@ -850,8 +850,8 @@ function fqStepIntro(route, orderId) {
     <span class="fb-kicker"><i>✦</i> Scored quiz · 5 questions · need 4 of 5</span>
     <h3>${purchase ? 'One quiz between you and the draw' : 'Your free entry — same quiz, equal odds'}</h3>
     <p class="finq-sub">${purchase
-      ? 'Your qualifying order is confirmed. Finish the short scored quiz and your entry is registered for the CA-witnessed live draw on <b>31 December 2026</b>.'
-      : 'No purchase needed. Take the same scored quiz as every buyer — a pass gives you an entry with <b>equal odds</b> in the CA-witnessed live draw on <b>31 December 2026</b>.'}</p>
+      ? 'Your qualifying order is confirmed. Finish the short scored quiz and your entry is registered for the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>.'
+      : 'No purchase needed. Take the same scored quiz as every buyer — a pass gives you an entry with <b>equal odds</b> in the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>.'}</p>
     <ul class="finq-steps">
       <li><b>5 questions</b> on gold &amp; jewellery — purity marks, hallmarking, live pricing.</li>
       <li><b>Score 4 of 5</b> to be entered. You may retry today if you fall short (max 5 attempts/day).</li>
@@ -878,7 +878,7 @@ window.Shivaa.fqBegin = () => {
   openModal(`<form class="finq" onsubmit="Shivaa.fqSubmit(event)">
     <div class="finq-head">
       <div>
-        <span class="fb-kicker"><i>✦</i> The New Year Gold Finale · scored quiz</span>
+        <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · scored quiz</span>
         <h3 style="margin:6px 0 2px">Score ${qz.passMark} of ${qz.total} to enter</h3>
       </div>
       <div class="finq-pill">${qz.total} questions</div>
@@ -947,7 +947,7 @@ window.Shivaa.fqRetry = () => {
 
 /* main open: purchase (from an order) or free (from the finale page) */
 async function fqOpen({ route = 'free', orderId = null } = {}) {
-  if (!finaleLive()) { toast('The New Year Gold Finale has ended — thank you for being part of it.', 'err'); return; }
+  if (!finaleLive()) { toast('The Bhai Dooj Gold Finale has ended — thank you for being part of it.', 'err'); return; }
   if (!fqRequireAuth(route, orderId)) return;
   window._fqCtx = { route, orderId };
   FQ.pending = null;   // consumed — resume context now lives in _fqCtx
@@ -1008,8 +1008,8 @@ async function fqSyncZones() {
     catch (e) {}
   }
   zones.forEach(z => {
-    if (entry) z.innerHTML = `<span class="finq-chip ok">✦ You’re entered${entry.id ? ' · ' + esc(entry.id) : ''} — the CA-witnessed draw is 31 December 2026.</span>`;
-    else if (!accepting) z.innerHTML = `<span class="finq-chip">✦ ${esc(reason || 'Entries closed — the draw is 31 December 2026.')}</span>`;
+    if (entry) z.innerHTML = `<span class="finq-chip ok">✦ You’re entered${entry.id ? ' · ' + esc(entry.id) : ''} — the CA-witnessed draw is on Bhai Dooj, 11 November 2026.</span>`;
+    else if (!accepting) z.innerHTML = `<span class="finq-chip">✦ ${esc(reason || 'Entries closed — the draw was on Bhai Dooj, 11 November 2026.')}</span>`;
     else if (!finaleLive()) z.innerHTML = `<span class="finq-chip">✦ The Gold Finale has concluded. Thank you.</span>`;
     else z.innerHTML = `<button type="button" class="btn btn-gold" onclick="Shivaa.fqFree()">Take the quiz — free ✦</button>`;
   });
@@ -4499,7 +4499,7 @@ function route() {
   while (_scrollLock.n > 0) unlockScroll();
   clearInterval(window._carTimer);
   document.body.dataset.page = page;
-  syncFinaleChrome();   // campaign links/banner switch off by date alone after 31 Dec 2026
+  syncFinaleChrome();   // campaign links/banner switch off by date alone after Bhai Dooj (11 Nov 2026)
   if (routes[page]) {
     const res = routes[page](view, q, seg[1]);
     if (res && res.catch) res.catch(e => { console.error(e); view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Something slipped</h3><p>${esc(e.message)}</p></div>`; });

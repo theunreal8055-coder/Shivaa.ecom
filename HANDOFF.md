@@ -531,3 +531,26 @@ Deep-scan findings & fixes:
 - Fresh db: 65 PGS rings (stock 10, mediaNote all), ONE admin with fresh bcrypt
   hash, every user-generated collection empty.
 QA: qa_v50_fresh.py 29/0 + qa_v48_static.py 83/0. Not executed: no browser/PHP here.
+
+## v51 — Bhai Dooj scheme change, Saathi v2, deeper security (2026-09-10)
+- **Scheme updated per owner**: prize is now **10 g certified 24K gold** (was 100 g),
+  drawn live on **Bhai Dooj night, 11 Nov 2026** (was 31 Dec 2026). Every finale
+  string in app.js (banner, campaign page, prize section, timeline, quiz note),
+  index.html nav and Saathi's facts updated; FINALE.drawAt/endAt = 11 Nov / 1 Dec 2026.
+  Entry routes, equal-odds rules, TDS, TN+WB exclusion unchanged. The 100 g SILVER
+  qualifying route stays as-is (it is a qualification, not the prize).
+- **Saathi v2** (`js/bot.js` rewrite + `css/bot.css` additions): live 22K rate ticker
+  in the header, action tiles on greeting, star-rated cards with in-chat 🛍 add /
+  ⇄ compare, feedback row, follow-ups ("cheaper", "more like this", "show more",
+  "add the first one"), spoken budgets ("50 thousand", "half lakh"), synonym
+  matching (jhumki→jhumka, angoothi→ring…), Bhai Dooj scheme + lawfulness answers.
+  Assets bumped to ?v=51.
+- **Security**: admin logins + 5-attempt lockouts now audited into securityLog
+  (visible in admin → Security); two extra hardening headers
+  (X-Permitted-Cross-Domain-Policy, X-DNS-Prefetch-Control). Token expiry (30d)
+  and session revocation on password change already existed and stay.
+- **Fresh install v51**: `shivaa-FRESH-v51-full.zip` (27 files, 568 KB) +
+  `INSTALL-FRESH-v51.md` with a NEW one-time admin password (v50's password is
+  obsolete — use the v51 doc). Ring photos still come via the Part 4 bridge.
+- QA: `qa_v48_static.py` 83/0, `qa_v50_fresh.py` (now version-aware, prefers v51)
+  40/0. No browser/PHP in sandbox — first live open remains the smoke test.
