@@ -284,3 +284,35 @@ against the preview shim). **Update file:** `shivaa-update-v46-password-recovery
 
 **Dev tooling:** `devtools/` (preview shim `web_shim.py`, QA scripts) is gitignored —
 development only, never part of a deploy zip, not reachable on the live site.
+
+---
+
+## v47 — the 65-ring upload file (owner-run, no terminal)
+
+**Owner's ask:** one file they can drop into `public_html` to put the 65 new PGS rings live.
+
+**Delivered:** `shivaa-upload-65-rings.zip` (6.5 KB) → single file `ring_reset_bridge.php`
+(source: `deploy/ring_reset_bridge.php`, v47 rewrite). Owner creates a random secret folder,
+extracts the file into it, sets `SETUP_KEY` inside the file, opens it and taps
+Preview → Delete → Publish (4 per tap, ~17 taps) → Verify → Self-destruct.
+
+**Why v47 rewrote the v44 bridge rather than shipping it as-is:**
+`demo65/media/*/meta.json` carries `"stock": 0`. `api.php` `POST products` merges its own
+defaults only for **absent** keys, so the v44 bridge would have re-published all 65 rings as
+**stock 0 → "Only 0 left"** on the product page. v47 substitutes `DEFAULT_STOCK = 10` when
+`stock` is empty, and adds `mens` to the tags so the rings appear under Men's Section.
+
+**Other v47 changes:** jsDelivr mirror (`cdn.jsdelivr.net/gh/…@main`) after GitHub raw in
+`fetch_raw`, so a host that blocks `raw.githubusercontent.com` still works; Step 2 now clears the
+ledger's `uploaded` map (products are gone, so stale "published" marks would silently skip
+designs on a re-run after an aborted batch); `deleted_rings.json` audit copy of what was deleted;
+`declare(strict_types=1)` moved above the settings consts (it must be the first statement);
+setup key remembered in the session so later taps do not depend on a hidden form field.
+
+**Verified by reading, not running** (no PHP and no browser in the sandbox):
+`products` GET/POST/PUT/DELETE and `media` POST exist in `cms/api.php`; `hallmark_guard_product_write`
+only rejects keys beginning `hallmark|huid|bis`, which `meta.json` contains none of; all 65 SKU
+folders with `meta.json` + 4 shots are present under `demo65/media` on `origin/main` (428 files),
+so the raw fetch resolves; `demo65/media` has no `.mp4`; zip extract-check is byte-identical.
+
+**Not done:** the bridge has never been executed anywhere. First live run is the owner's.
