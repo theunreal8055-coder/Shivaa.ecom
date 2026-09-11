@@ -2208,7 +2208,7 @@ window.ShivaaBullion = {
     <div class="bd-chart-lims"><span class="bd-hitxt">H ${this.num(max)}</span><span class="bd-lowtxt">L ${this.num(min)}</span><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(last - first))}</span></div>`;
   },
 
-  /* v74 — repaint the international spot cards from the ~6 s live spot tick */
+  /* v74/v75 — repaint the international spot cards from the ~2.5 s live spot tick (polled every 1 s) */
   applySpotTick(sp, B) {
     if (this.section !== 'rates') return;
     const flashTxt = (sel, txt, numeric) => {
@@ -2235,7 +2235,7 @@ window.ShivaaBullion = {
       const pc = document.querySelector(`[data-spot="${tag}Pct"]`);
       if (pc) pc.innerHTML = ' ' + (chip(l.pct));
       const sr = document.querySelector(`[data-spot="${tag}Src"]`);
-      if (sr && l.src) sr.textContent = l.src + ' · live 6 s';
+      if (sr && l.src) sr.textContent = l.src + ' · live';
     };
     leg('g', sp.gold, 2, usdFmt);
     leg('s', sp.silver, 3, usdFmt);
@@ -2244,6 +2244,17 @@ window.ShivaaBullion = {
     const xp = document.querySelector('[data-xauperg]'), spg = document.querySelector('[data-xagperg]');
     if (xp && sp.gold && sp.gold.price > 0) xp.textContent = '$' + (sp.gold.price / 31.1034768).toFixed(2);
     if (spg && sp.silver && sp.silver.price > 0) spg.textContent = '$' + (sp.silver.price / 31.1034768).toFixed(2);
+    /* v75 — customs duty cards track the live dollars + FX in real time */
+    if (B?.board?.duty && sp.gold?.price > 0 && sp.inr?.price > 0) {
+      const OZ = 31.1034768, inrFmt2 = v => Math.round(v).toLocaleString('en-IN');
+      const gParity = sp.gold.price * sp.inr.price / OZ * 100;
+      const sParity = sp.silver.price * sp.inr.price / OZ * 1000;
+      const gm = +(B.board.duty.goldMult || 1.553), sm = +(B.board.duty.silverMult || 1.62);
+      flashTxt('[data-duty="gV"]', inrFmt2(gParity * gm), true);
+      flashTxt('[data-duty="gP"]', inrFmt2(gParity), true);
+      flashTxt('[data-duty="sV"]', inrFmt2(sParity * sm), true);
+      flashTxt('[data-duty="sP"]', inrFmt2(sParity), true);
+    }
     if (B) {
       B.board.spot = Object.assign(B.board.spot || {}, {
         goldUsd: sp.gold?.price || 0, silverUsd: sp.silver?.price || 0, inr: sp.inr?.price || 0,
@@ -2384,9 +2395,9 @@ window.ShivaaBullion = {
       ${chgLine(c, p, tag + 'Chg')}
       <div class="bd-stats" data-fut="${tag}Stats">${st && st.atp ? `<small>ATP ${this.num(st.atp)}</small>` : ''}${st && st.oi ? `<small>OI ${compactQty(st.oi)}</small>` : ''}${st && st.vol ? `<small>VOL ${compactQty(st.vol)}</small>` : ''}</div>
       ${st && st.feedTime ? `<small class="bd-feedtime" data-fut="${tag}FT">${this.istTime(st.feedTime)}</small>` : '<small class="bd-feedtime" data-fut="' + tag + 'FT"></small>'}</div>`;
-    const dutyCard = (title, val, parity) => `<div class="bd-card">
-      <div class="bd-card-h">${title}</div><div class="bd-card-v">${this.num(val)}</div>
-      <div class="bd-lhline"><span>parity ${this.num(parity)}</span></div></div>`;
+    const dutyCard = (tag, title, val, parity) => `<div class="bd-card">
+      <div class="bd-card-h">${title}</div><div class="bd-card-v" data-duty="${tag}V">${this.num(val)}</div>
+      <div class="bd-lhline"><span>parity <span data-duty="${tag}P">${this.num(parity)}</span></span></div></div>`;
     host.innerHTML = `
       ${this.summaryHTML(B)}
       ${this.karatHTML(B)}
@@ -2416,8 +2427,8 @@ window.ShivaaBullion = {
         ${futCard('s', 'SILVER FUTURE <small>/kg</small>', fut.silver, fut.silverLow, fut.silverHigh, fut.silverChg, fut.silverChgPct, fut.real, { atp: fut.silverAtp, oi: fut.silverOi, vol: fut.silverVol, feedTime: fut.silverFeedTime })}
       </div>
       <div class="bd-spots bd-duty">
-        ${dutyCard('GOLD CUSTOM DUTY <small>₹/100 g</small>', duty.gold, duty.goldParity)}
-        ${dutyCard('SILVER CUSTOM DUTY <small>₹/kg</small>', duty.silver, duty.silverParity)}
+        ${dutyCard('g', 'GOLD CUSTOM DUTY <small>₹/100 g</small>', duty.gold, duty.goldParity)}
+        ${dutyCard('s', 'SILVER CUSTOM DUTY <small>₹/kg</small>', duty.silver, duty.silverParity)}
       </div>
       <div class="bd-bookbar">
         <a class="btn btn-gold btn-sm" href="tel:+918905005921">📞 Call &amp; book at this rate</a>

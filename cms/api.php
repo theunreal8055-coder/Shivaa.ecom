@@ -952,13 +952,15 @@ function spot_resolve(array &$db, bool $force = false): array {
   return $out;
 }
 
-/* v74 — LIVE international spot, micro-cached ~6 s and shared by every viewer
-   (same flock pattern as the MCX tick). Yahoo near-live XAU/XAG/INR is the
+/* v74/v75 — LIVE international spot, micro-cached ~2.5 s (v75: tightened
+   from 6 s so the dollar cards move almost as fast as the 1 s MCX future)
+   and shared by every viewer via flock. Yahoo near-live XAU/XAG/INR is the
    primary feed (intraday price + day H/L + previous close), gold-api and
    Stooq are parallel fallbacks; below that it walks the 10-minute resolver
    cache, manual owner overrides, and finally the MCX-implied value. Owner
    fine-tune offsets (spotXauAdj / spotXagAdj / spotInrAdj, in the quoted
    unit) are added last so the board can match the reference feed exactly. */
+const SPOT_TICK_TTL = 2.5;
 function spot_tick(array &$db, ?array $mcxTick = null): array {
   $cacheFile = $GLOBALS['ROOT'] . '/data/.spot-tick.json';
   $lockFile = $GLOBALS['ROOT'] . '/data/.spot-tick.lock';
@@ -967,13 +969,13 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
     $c = json_decode((string)@file_get_contents($cacheFile), true);
     return (is_array($c) && !empty($c['at'])) ? $c : null;
   };
-  if (is_file($cacheFile) && (microtime(true) - filemtime($cacheFile)) < 6.0 && ($c = $read())) {
+  if (is_file($cacheFile) && (microtime(true) - filemtime($cacheFile)) < SPOT_TICK_TTL && ($c = $read())) {
     $c['servedFrom'] = 'cache'; return $c;
   }
   $fp = @fopen($lockFile, 'c');
   if ($fp) flock($fp, LOCK_EX);
   try {
-    if (is_file($cacheFile) && (microtime(true) - filemtime($cacheFile)) < 6.0 && ($c = $read())) {
+    if (is_file($cacheFile) && (microtime(true) - filemtime($cacheFile)) < SPOT_TICK_TTL && ($c = $read())) {
       $c['servedFrom'] = 'cache'; return $c;
     }
     $urls = [
@@ -989,7 +991,7 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
       'ss' => 'https://stooq.com/q/l/?s=xagusd&f=sd2t2ohlcv&h&e=csv',
       'si' => 'https://stooq.com/q/l/?s=usdinr&f=sd2t2ohlcv&h&e=csv',
     ];
-    $p = spot_probe_multi($urls, 3);
+    $p = spot_probe_multi($urls, 2);
     $blank = static fn() => ['price' => 0, 'high' => 0, 'low' => 0, 'prev' => 0, 'pct' => 0, 'src' => ''];
     $legs = ['gold' => $blank(), 'silver' => $blank(), 'inr' => $blank()];
     $fill = static function (string $leg, float $price, string $src, int $rank, float $hi = 0, float $lo = 0, float $prev = 0) use (&$legs) {
@@ -2723,7 +2725,7 @@ try {
     jout(200, $out);
   }
   /* v69 — per-second tick (shared server micro-cache, one exchange call/sec).
-     v74 — same response also carries the ~6 s live international spot. */
+     v74 — same response also carries the ~2.5 s live international spot. */
   if ($route === 'bullion/tick' && $method === 'GET') {
     $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
     $t = angel_tick($db);
