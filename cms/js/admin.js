@@ -310,7 +310,10 @@ async function renderAdmin(view, q) {
   if (tab === 'bullion') {
     body.innerHTML = `<div class="adm-card"><h3>🥇 Bullion — CASH rates <span style="font-size:12px;color:var(--ink-3);font-weight:400">— RTGS rows auto-compute from the live feed; only CASH rates need you</span></h3>
       <div id="admBullion"><div class="loading-spin"></div></div>
-      <p class="partner-note" style="margin-top:12px">Saving instantly notifies every logged-in jeweller portal ("📈 Bullion CASH rates updated"). RTGS (TDS Gold 995, Silver Chorsa/Peti) update automatically every 10 min from the international bullion API — no action needed.</p>
+      <p class="partner-note" style="margin-top:12px">Saving instantly notifies every logged-in jeweller portal ("📈 Bullion CASH rates updated"). RTGS (TDS Gold 995, Silver Chorsa/Peti) update automatically every few minutes straight from the MCX feed — no action needed.</p>
+    </div>
+    <div class="adm-card"><h3>🎛 RTGS board calibration <span style="font-size:12px;color:var(--ink-3);font-weight:400">— match your reference screen once; rows then auto-track the exchange future</span></h3>
+      <div id="admRtgs"><div class="loading-spin"></div></div>
     </div>
     <div class="adm-card"><h3>All bullion orders</h3><div id="admBlOrders"></div></div>`;
     (async () => {
@@ -327,6 +330,51 @@ async function renderAdmin(view, q) {
               <div style="display:flex;gap:10px"><input type="number" data-k="${r.key}" data-f="buy" value="${r.buy}" placeholder="Buy ₹/g" style="flex:1"><input type="number" data-k="${r.key}" data-f="sell" value="${r.sell}" placeholder="Sell ₹/g" style="flex:1"></div></div>`).join('')}
             <button class="btn btn-primary btn-block" style="grid-column:1/-1">💾 Save Cash Rates (notifies jewellers)</button>
           </form>`;
+        /* v68 — RTGS factor / premium / spread calibration */
+        (() => {
+          const cfg = B.rtgsConfig || {};
+          const fut = (B.board && B.board.future) || {};
+          const duty = (B.board && B.board.duty) || {};
+          const gA = (fut.gold && fut.gold.ltp) || 0, sA = (fut.silver && fut.silver.ltp) || 0;
+          const meta = [
+            ['tdsGold9999', 'TDS GOLD 9999 RTGS', 'g'], ['tdsGold995', 'TDS GOLD 995 IND', 'g'],
+            ['silverChorsa', 'TDS SIL CHORSA', 's'], ['silverPeti', 'TDS SIL PETI 999.9', 's'],
+            ['silverKachcha', 'REF SIL KACHCHA DHEPA', 's'], ['silverPetiBulk', 'REF SIL CHORSA 98.00', 's'],
+            ['silverGrn999', 'REF SIL GRN 999', 's']];
+          const inp = (name, val, step, extra = '') => `<input name="${name}" type="number" value="${val}" step="${step}" ${extra} style="width:84px;padding:6px">`;
+          const rows = meta.map(([key, label, m]) => {
+            const c = cfg[key] || { factor: 1, prem: 0, spread: 0, side: 'both' };
+            const anchor = m === 'g' ? gA : sA;
+            const unit = m === 'g' ? '₹/10 g' : '₹/kg';
+            const sides = ['both', 'buy', 'sell', 'off'].map(s => `<option value="${s}" ${c.side === s ? 'selected' : ''}>${{ both: 'Buy & sell', buy: 'Buy only', sell: 'Sell only', off: 'Hidden' }[s]}</option>`).join('');
+            return `<tr data-key="${key}" data-anchor="${anchor}" data-metal="${m}">
+              <td><b>${esc(label)}</b><br><small>future ${Number(anchor).toLocaleString('en-IN')} · ${unit}</small></td>
+              <td>${inp('factor', c.factor, '0.0001', 'min="0.5" max="1.2"')}</td>
+              <td>${inp('prem', c.prem, m === 'g' ? '10' : '100')}</td>
+              <td>${inp('spread', c.spread, m === 'g' ? '10' : '100')}</td>
+              <td><select name="side" style="padding:6px">${sides}</select></td>
+              <td class="num"><b class="js-buy" style="color:#1d8a4d">--</b><br><b class="js-sell" style="color:#c0392b">--</b></td>
+              <td><input name="tb" type="number" placeholder="ref BUY" style="width:96px;padding:6px"></td>
+              <td><input name="ts" type="number" placeholder="ref SELL" style="width:96px;padding:6px"></td>
+            </tr>`;
+          }).join('');
+          window.ShivaaAdmin._dutyParity = { gold: duty.goldParity || 0, silver: duty.silverParity || 0 };
+          document.getElementById('admRtgs').innerHTML = `
+            <p class="partner-note">Each RTGS row = <b>live future × factor + premium ± spread</b>. Open your reference bullion app (Liverate/Pride Gold), type its BUY/SELL for a row in the two right-hand boxes, and premium &amp; spread are calculated automatically — then Save. The row follows the future forever after. Leave reference boxes empty to edit premium/spread by hand. Factor is purity (0.98 = 98% silver etc.).</p>
+            <form id="rtgsForm" onsubmit="ShivaaAdmin.saveRtgs(event)" oninput="ShivaaAdmin.rtgsSync(event)">
+              <div class="mc-table-wrap"><table class="mc-table"><thead><tr>
+                <th>Row</th><th>Factor</th><th>Premium</th><th>Spread</th><th>Shown</th><th class="num">Now BUY / SELL</th><th>Ref BUY →</th><th>Ref SELL →</th>
+              </tr></thead><tbody>${rows}</tbody></table></div>
+              <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-top:14px">
+                <div class="fld"><label>Gold customs multiplier <small>(landed duty ÷ import parity · gold card ₹/100 g)</small></label>
+                  <input name="gm" type="number" step="0.001" min="0.8" max="3" value="${duty.goldMult || 1.553}" oninput="ShivaaAdmin.rtgsSync()"><small>Customs card now: <b id="dutyGoldPrev">--</b> (parity ${Number(duty.goldParity || 0).toLocaleString('en-IN')})</small></div>
+                <div class="fld"><label>Silver customs multiplier <small>(silver card ₹/kg)</small></label>
+                  <input name="sm" type="number" step="0.001" min="0.8" max="3" value="${duty.silverMult || 1.62}" oninput="ShivaaAdmin.rtgsSync()"><small>Customs card now: <b id="dutySilverPrev">--</b> (parity ${Number(duty.silverParity || 0).toLocaleString('en-IN')})</small></div>
+              </div>
+              <button class="btn btn-primary btn-block" style="margin-top:12px">💾 Save RTGS calibration</button>
+            </form>`;
+          ShivaaAdmin.rtgsSync();
+        })();
         const { orders } = await api('/api/bullion/orders');
         document.getElementById('admBlOrders').innerHTML = orders.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>ID</th><th>Partner</th><th>Side</th><th>Metal</th><th class="num">Qty</th><th class="num">Value</th><th>When</th><th>Status</th></tr></thead><tbody>${orders.map(o => `<tr><td><b>${o.id}</b></td><td>${esc(o.partnerName)}</td><td>${o.side}</td><td>${o.metal.split('—')[0]}</td><td class="num">${o.qty}${o.unit}</td><td class="num"><b>₹${o.amount.toLocaleString('en-IN')}</b></td><td>${new Date(o.createdAt).toLocaleDateString('en-IN')}</td><td><select onchange="ShivaaAdmin.blStatus('${o.id}',this.value)">${['New','Confirmed','Delivered','Cancelled'].map(s2 => `<option ${o.status === s2 ? 'selected' : ''}>${s2}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No bullion orders yet.</p>';
       } catch (e) { document.getElementById('admBullion').innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
@@ -1036,6 +1084,63 @@ window.ShivaaAdmin.saveBullion = async e => {
   $$('#blCashForm input[data-k]').forEach(i => { cash[i.dataset.k] = cash[i.dataset.k] || {}; cash[i.dataset.k][i.dataset.f] = +i.value; });
   try { await api('/api/bullion/cash', { method: 'PUT', body: JSON.stringify({ cash }) }); toast('Cash rates saved — jewellers notified 📈'); renderAdmin($('#view'), new URLSearchParams('tab=bullion')); }
   catch (err) { toast(err.message, 'err'); }
+};
+/* v68 — RTGS calibration: live preview + reference-screen auto-derive */
+window.ShivaaAdmin.rtgsSync = (e) => {
+  const form = document.getElementById('rtgsForm');
+  if (!form) return;
+  form.querySelectorAll('tr[data-key]').forEach(tr => {
+    const anchor = +tr.dataset.anchor || 0;
+    const factor = +tr.querySelector('[name=factor]').value || 0;
+    let prem = +tr.querySelector('[name=prem]').value || 0;
+    let spread = +tr.querySelector('[name=spread]').value || 0;
+    const side = tr.querySelector('[name=side]').value;
+    const tbEl = tr.querySelector('[name=tb]'), tsEl = tr.querySelector('[name=ts]');
+    if (e && (e.target === tbEl || e.target === tsEl) && (tbEl.value || tsEl.value)) {
+      const base = anchor * factor;
+      const tb = parseFloat(tbEl.value), ts = parseFloat(tsEl.value);
+      if (tb > 0 && ts > 0) { spread = Math.max(0, (ts - tb) / 2); prem = (tb + ts) / 2 - base; }
+      else if (tb > 0) { prem = tb - base + spread; }
+      else if (ts > 0) { prem = ts - base - spread; }
+      tr.querySelector('[name=prem]').value = Math.round(prem * 10) / 10;
+      tr.querySelector('[name=spread]').value = Math.round(spread * 10) / 10;
+    }
+    const base = anchor * factor, mid = base + prem, n = v => Math.round(v).toLocaleString('en-IN');
+    const bEl = tr.querySelector('.js-buy'), sEl = tr.querySelector('.js-sell');
+    if (bEl) bEl.textContent = (side === 'sell' || side === 'off') ? '--' : n(mid - spread);
+    if (sEl) sEl.textContent = (side === 'buy' || side === 'off') ? '--' : n(mid + spread);
+  });
+  const dp = document.getElementById('dutyGoldPrev'), ds = document.getElementById('dutySilverPrev');
+  if (dp) {
+    const f = form.querySelector('[name=gm]');
+    const metaParity = (window.ShivaaAdmin._dutyParity || {}).gold || 0;
+    dp.textContent = '₹' + Math.round(metaParity * +f.value).toLocaleString('en-IN') + ' /100 g';
+  }
+  if (ds) {
+    const f = form.querySelector('[name=sm]');
+    const metaParity = (window.ShivaaAdmin._dutyParity || {}).silver || 0;
+    ds.textContent = '₹' + Math.round(metaParity * +f.value).toLocaleString('en-IN') + ' /kg';
+  }
+};
+window.ShivaaAdmin.saveRtgs = async ev => {
+  ev.preventDefault();
+  const form = ev.target;
+  const rows = {};
+  form.querySelectorAll('tr[data-key]').forEach(tr => {
+    rows[tr.dataset.key] = {
+      factor: +tr.querySelector('[name=factor]').value || 1,
+      prem: +tr.querySelector('[name=prem]').value || 0,
+      spread: +tr.querySelector('[name=spread]').value || 0,
+      side: tr.querySelector('[name=side]').value,
+    };
+  });
+  const payload = { rows, bullionGoldDutyMult: +form.querySelector('[name=gm]').value,
+    bullionSilverDutyMult: +form.querySelector('[name=sm]').value };
+  try {
+    await api('/api/bullion/rtgs', { method: 'PUT', body: JSON.stringify(payload) });
+    toast('RTGS calibration saved — the board auto-tracks these levels 📈');
+    renderAdmin($('#view'), new URLSearchParams('tab=bullion'));
+  } catch (err) { toast(err.message, 'err'); }
 };
 window.ShivaaAdmin.blStatus = async (id, status) => {
   try { await api('/api/bullion/orders/' + id, { method: 'PUT', body: JSON.stringify({ status }) }); toast('Order ' + id + ' → ' + status); } catch (e) { toast(e.message, 'err'); }
@@ -2117,12 +2222,32 @@ window.ShivaaBullion = {
       </div>`;
     }).join('');
     const spot = bd.spot || {}, fut = bd.future || {}, duty = bd.duty || {};
+    /* v68 — international spot cards show DOLLARS with the exchange day band */
+    const usd = (v, d = 2) => v ? '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
+    const fx = (v, d = 2) => v ? Number(v).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
+    const usdCard = (title, val, lo, hi, d = 2) => `<div class="bd-card">
+      <div class="bd-card-h">${title}</div><div class="bd-card-v">${usd(val, d)}</div>
+      <div class="bd-lhline"><span class="bd-lowtxt">L: ${lo ? usd(lo, d) : '--'}</span> <i>|</i> <span class="bd-hitxt">H: ${hi ? usd(hi, d) : '--'}</span></div></div>`;
+    const fxCard = (title, val, lo, hi) => `<div class="bd-card">
+      <div class="bd-card-h">${title}</div><div class="bd-card-v">${fx(val)}</div>
+      <div class="bd-lhline"><span class="bd-lowtxt">L: ${lo ? fx(lo) : '--'}</span> <i>|</i> <span class="bd-hitxt">H: ${hi ? fx(hi) : '--'}</span></div></div>`;
     const card3 = (title, val, lo, hi) => `<div class="bd-card">
       <div class="bd-card-h">${title}</div><div class="bd-card-v">${this.num(val)}</div>
       <div class="bd-lhline"><span>${this.num(lo)}</span> <i>|</i> <span>${this.num(hi)}</span></div></div>`;
-    const futCard = (title, f, lo, hi) => `<div class="bd-card">
-      <div class="bd-card-h">${title}</div><div class="bd-ba"><div><small>BID</small><span class="bd-bid">${this.dash(f && f.bid)}</span></div><div><small>ASK</small><span class="bd-ask">${this.dash(f && f.ask)}</span></div></div>
-      <div class="bd-lhline"><span class="bd-lowtxt">L: ${this.num(lo)}</span> <i>|</i> <span class="bd-hitxt">H: ${this.num(hi)}</span></div></div>`;
+    /* v68 — real exchange BID/ASK, official day L/H and day change vs prev close */
+    const chgLine = (c, p) => {
+      if (!c) return '';
+      const up = c >= 0;
+      return `<div class="bd-lhline"><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(c))}${p ? ' (' + Math.abs(p).toFixed(2) + '%)' : ''}</span></div>`;
+    };
+    const futCard = (title, f, lo, hi, c, p, real) => `<div class="bd-card">
+      <div class="bd-card-h">${title}${real ? ' <small>MCX</small>' : ''}</div>
+      <div class="bd-ba"><div><small>BID</small><span class="bd-bid">${this.dash(f && f.bid)}</span></div><div><small>ASK</small><span class="bd-ask">${this.dash(f && f.ask)}</span></div></div>
+      <div class="bd-lhline"><span class="bd-lowtxt">L: ${this.num(lo)}</span> <i>|</i> <span class="bd-hitxt">H: ${this.num(hi)}</span></div>
+      ${chgLine(c, p)}</div>`;
+    const dutyCard = (title, val, parity) => `<div class="bd-card">
+      <div class="bd-card-h">${title}</div><div class="bd-card-v">${this.num(val)}</div>
+      <div class="bd-lhline"><span>parity ${this.num(parity)}</span></div></div>`;
     host.innerHTML = `
       ${this.summaryHTML(B)}
       ${this.karatHTML(B)}
@@ -2138,20 +2263,18 @@ window.ShivaaBullion = {
       </div>
       <div class="bd-rows">${rows}</div>
       <div class="bd-spots">
-        ${card3('GOLD SPOT <small>/10 g</small>', spot.gold, spot.goldLow, spot.goldHigh)}
-        ${card3('SILVER SPOT <small>/kg</small>', spot.silver, spot.silverLow, spot.silverHigh)}
-        ${card3('INR SPOT <small>USD/INR</small>', spot.inr, spot.inr * 0.999, spot.inr * 1.001)}
+        ${usdCard('GOLD SPOT <small>$/oz LBMA</small>', spot.goldUsd, spot.goldUsdLow, spot.goldUsdHigh)}
+        ${usdCard('SILVER SPOT <small>$/oz LBMA</small>', spot.silverUsd, spot.silverUsdLow, spot.silverUsdHigh)}
+        ${fxCard('INR SPOT <small>USD/INR</small>', spot.inr, spot.inrLow, spot.inrHigh)}
       </div>
       <div class="bd-spots bd-fut">
-        ${futCard('GOLD FUTURE <small>/10 g</small>', fut.gold, fut.goldLow, fut.goldHigh)}
-        ${futCard('SILVER FUTURE <small>/kg</small>', fut.silver, fut.silverLow, fut.silverHigh)}
+        ${futCard('GOLD FUTURE <small>/10 g</small>', fut.gold, fut.goldLow, fut.goldHigh, fut.goldChg, fut.goldChgPct, fut.real)}
+        ${futCard('SILVER FUTURE <small>/kg</small>', fut.silver, fut.silverLow, fut.silverHigh, fut.silverChg, fut.silverChgPct, fut.real)}
       </div>
       <div class="bd-spots bd-duty">
-        ${card3('GOLD CUSTOM DUTY <small>/100 g</small>', duty.gold, duty.gold, duty.gold)}
-        ${card3('SILVER CUSTOM DUTY <small>/kg</small>', duty.silver, duty.silver, duty.silver)}
+        ${dutyCard('GOLD CUSTOM DUTY <small>₹/100 g</small>', duty.gold, duty.goldParity)}
+        ${dutyCard('SILVER CUSTOM DUTY <small>₹/kg</small>', duty.silver, duty.silverParity)}
       </div>
-      <h4 class="bd-sech" style="padding:4px 4px 0">🌍 International spot &amp; USD/INR</h4>
-      ${this.intlHTML(B)}
       <div class="bd-bookbar">
         <a class="btn btn-gold btn-sm" href="tel:+918905005921">📞 Call &amp; book at this rate</a>
         <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${window.Shivaa.waLink('Namaste Shivaa bullion desk ✦ I want to book at the rates shown now — Gold 995 ₹' + (B.rows.find(r => r.key === 'tdsGold995')?.buy || 0) + '/g, Silver Chorsa ₹' + (B.rows.find(r => r.key === 'silverChorsa')?.buy || 0) + '/g. Please confirm.')}">💬 WhatsApp desk</a>

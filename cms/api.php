@@ -507,6 +507,44 @@ function angel_ltp(array &$db): ?array {
   $gold10g = (float)$goldC['ltp'];
   $silverKg = (float)$silC['ltp'];
 
+  /* v68 — one FULL quote on the locked pair: the exchange's own open/high/low,
+     previous-session close (real day change) and best bid/ask market depth. */
+  $fullQuote = function (array $sess, array $tokens) use ($baseHeaders) {
+    $h = $baseHeaders + ['Authorization' => 'Bearer ' . $sess['jwt'], 'X-FeedToken' => $sess['feed'] ?? ''];
+    return angel_http('https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/',
+      'POST', ['mode' => 'FULL', 'exchangeTokens' => ['MCX' => array_values($tokens)]], $h, 10);
+  };
+  $pack = static function (array $it): array {
+    $depth = is_array($it['depth'] ?? null) ? $it['depth'] : [];
+    $buy1 = is_array($depth['buy'][0] ?? null) ? $depth['buy'][0] : [];
+    $sell1 = is_array($depth['sell'][0] ?? null) ? $depth['sell'][0] : [];
+    $f = static fn($x) => (float)($x ?? 0);
+    return [
+      'open' => $f($it['open'] ?? 0), 'high' => $f($it['high'] ?? 0),
+      'low' => $f($it['low'] ?? 0), 'close' => $f($it['close'] ?? 0),
+      'atp' => $f($it['atp'] ?? ($it['averageTradePrice'] ?? 0)),
+      'bid' => $f($buy1['price'] ?? 0), 'ask' => $f($sell1['price'] ?? 0),
+      'bidQty' => (int)($buy1['quantity'] ?? 0), 'askQty' => (int)($sell1['quantity'] ?? 0),
+      'oi' => $f($it['oi'] ?? 0),
+      'feedTime' => (string)($it['exchangeFeedTime'] ?? ($it['feedTime'] ?? ($it['quoteTime'] ?? ''))),
+    ];
+  };
+  $rf = $fullQuote($sess, ['GOLD' => $goldC['token'], 'SILVER' => $silC['token']]);
+  if ($rf['code'] === 401 || $rf['code'] === 400) {
+    $sess2 = $login();
+    if ($sess2) $rf = $fullQuote($sess2, ['GOLD' => $goldC['token'], 'SILVER' => $silC['token']]);
+  }
+  $fq = ['GOLD' => [], 'SILVER' => []];
+  foreach ((is_array($rf['json']) ? ($rf['json']['data']['fetched'] ?? []) : []) as $it) {
+    $tTok = (string)($it['symbolToken'] ?? '');
+    if ($tTok === (string)$goldC['token']) $fq['GOLD'] = $pack($it);
+    if ($tTok === (string)$silC['token']) $fq['SILVER'] = $pack($it);
+  }
+  $gq = $fq['GOLD'] + ['open' => 0, 'high' => 0, 'low' => 0, 'close' => 0, 'bid' => 0, 'ask' => 0, 'bidQty' => 0, 'askQty' => 0, 'oi' => 0, 'feedTime' => ''];
+  $sq = $fq['SILVER'] + ['open' => 0, 'high' => 0, 'low' => 0, 'close' => 0, 'bid' => 0, 'ask' => 0, 'bidQty' => 0, 'askQty' => 0, 'oi' => 0, 'feedTime' => ''];
+  $chg = static fn(float $ltp, float $close) => $close > 0 ? round($ltp - $close, 2) : 0;
+  $pct = static fn(float $ltp, float $close) => $close > 0 ? round(($ltp - $close) / $close * 100, 2) : 0;
+
   if (!empty($db['angelSession']['lastError'])) {
     unset($db['angelSession']['lastError'], $db['angelSession']['errorAt'], $db['angelSession']['debug']);
   }
@@ -515,11 +553,60 @@ function angel_ltp(array &$db): ?array {
     'gold' => [$goldC['exp'], $goldC['token'], $goldC['symbol']],
     'silver' => [$silC['exp'], $silC['token'], $silC['symbol']], 'at' => now_iso(),
   ];
-  return ['goldPerG' => round($gold10g / 10, 2), 'silverPerG' => round($silverKg / 1000, 3),
+  return [
+    'goldPerG' => round($gold10g / 10, 2), 'silverPerG' => round($silverKg / 1000, 3),
     'goldLtp' => $gold10g, 'silverLtp' => $silverKg, 'at' => now_iso(),
     'goldToken' => $goldC['token'], 'silverToken' => $silC['token'],
     'goldSymbol' => $goldC['symbol'], 'silverSymbol' => $silC['symbol'],
-    'autoTokens' => true];
+    'goldOpen' => $gq['open'], 'goldHigh' => $gq['high'], 'goldLow' => $gq['low'], 'goldClose' => $gq['close'],
+    'goldBid' => $gq['bid'], 'goldAsk' => $gq['ask'], 'goldBidQty' => $gq['bidQty'], 'goldAskQty' => $gq['askQty'],
+    'goldOi' => $gq['oi'], 'goldFeedTime' => $gq['feedTime'],
+    'goldChg' => $chg($gold10g, $gq['close']), 'goldChgPct' => $pct($gold10g, $gq['close']),
+    'silverOpen' => $sq['open'], 'silverHigh' => $sq['high'], 'silverLow' => $sq['low'], 'silverClose' => $sq['close'],
+    'silverBid' => $sq['bid'], 'silverAsk' => $sq['ask'], 'silverBidQty' => $sq['bidQty'], 'silverAskQty' => $sq['askQty'],
+    'silverOi' => $sq['oi'], 'silverFeedTime' => $sq['feedTime'],
+    'silverChg' => $chg($silverKg, $sq['close']), 'silverChgPct' => $pct($silverKg, $sq['close']),
+    'fullQuote' => $rf['code'] === 200, 'autoTokens' => true];
+}
+
+/* v68 — international spot OHLC (day high/low/previous close) from Yahoo's
+   public chart API, cached 10 min alongside the rate stamp. Best-effort:
+   any failure leaves the previous cache intact; never blocks a refresh. */
+function intl_ohlc(array &$db): array {
+  $c = $db['rates']['intlOhlc'] ?? null;
+  if (is_array($c) && (time() - (int)($c['fetchedAt'] ?? 0)) < 600) return $c;
+  $ySyms = ['gold' => 'XAUUSD=X', 'silver' => 'XAGUSD=X', 'inr' => 'INR=X'];
+  $sSyms = ['gold' => 'xauusd', 'silver' => 'xagusd', 'inr' => 'usdinr'];
+  $stooq = static function (string $sym): array {
+    $raw = fetch_raw('https://stooq.com/q/l/?s=' . urlencode($sym) . '&f=sd2t2ohlcv&h&e=csv', 6);
+    if (!$raw) return [];
+    foreach (preg_split('/\r?\n/', $raw) as $ln) {
+      $f = str_getcsv($ln);
+      if (is_array($f) && count($f) >= 7 && is_numeric($f[3]) && is_numeric($f[4])
+          && is_numeric($f[5]) && is_numeric($f[6])) {
+        return ['price' => (float)$f[6], 'high' => (float)$f[4], 'low' => (float)$f[5], 'prev' => 0];
+      }
+    }
+    return [];
+  };
+  $out = [];
+  foreach ($ySyms as $k => $sym) {
+    $j = fetch_url('https://query1.finance.yahoo.com/v8/finance/chart/' . rawurlencode($sym) . '?range=1d&interval=5m', 5);
+    $meta = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
+    if (is_array($meta) && (float)($meta['regularMarketPrice'] ?? 0) > 0) {
+      $out[$k] = [
+        'price' => (float)($meta['regularMarketPrice'] ?? 0),
+        'high' => (float)($meta['regularMarketDayHigh'] ?? 0),
+        'low' => (float)($meta['regularMarketDayLow'] ?? 0),
+        'prev' => (float)($meta['chartPreviousClose'] ?? ($meta['previousClose'] ?? 0)),
+      ];
+    } else {
+      $sq = $stooq($sSyms[$k]);   // CSV fallback (open/high/low/close)
+      if ($sq) $out[$k] = $sq;
+    }
+  }
+  if ($out) { $out['fetchedAt'] = time(); $db['rates']['intlOhlc'] = $out; return $out; }
+  return is_array($c) ? $c : [];
 }
 
 /* ───────── rate engine (identical math to Node) ───────── */
@@ -534,22 +621,34 @@ function rates_refresh(array &$db): array {
   $gold = fetch_url('https://api.gold-api.com/price/XAU');
   $silv = fetch_url('https://api.gold-api.com/price/XAG');
   $fx = fetch_url('https://open.er-api.com/v6/latest/USD');
+  $ohlc = intl_ohlc($db);   // v68 — day H/L for the dollar spot cards
   $usdGold = (float)($last['usdGold'] ?? 0); $usdSilver = (float)($last['usdSilver'] ?? 0);
+  $inr = 0.0;
   if ($gold && isset($gold['price']) && $silv && isset($silv['price']) && $fx && isset($fx['rates']['INR'])) {
     $inr = (float)$fx['rates']['INR'];
     $usdGold = (float)$gold['price']; $usdSilver = (float)$silv['price'];
     $gold24 = ($usdGold * $inr) / OZ;
     $silver = ($usdSilver * $inr) / OZ;
     $source = 'live';
+  } elseif (!empty($ohlc['gold']['price']) && !empty($ohlc['silver']['price']) && !empty($ohlc['inr']['price'])) {
+    // v68 — Yahoo spot fallback when gold-api / the FX API is rate-limited
+    $inr = (float)$ohlc['inr']['price'];
+    $usdGold = (float)$ohlc['gold']['price']; $usdSilver = (float)$ohlc['silver']['price'];
+    $gold24 = ($usdGold * $inr) / OZ;
+    $silver = ($usdSilver * $inr) / OZ;
+    $source = 'live';
   } else {
     $gold24 = clampn($gold24 * (1 + (mt_rand(-35, 35) / 10000)), BASE_GOLD * 0.96, BASE_GOLD * 1.04);
     $silver = clampn($silver * (1 + (mt_rand(-50, 50) / 10000)), BASE_SILVER * 0.96, BASE_SILVER * 1.04);
-    // back-derive USD values so the international desk tile keeps moving
-    $inrNow = (float)($db['settings']['usdInr'] ?? 85.4);
-    if ($usdGold <= 0) $usdGold = round($gold24 * OZ / $inrNow, 2);
-    if ($usdSilver <= 0) $usdSilver = round($silver * OZ / $inrNow, 3);
+    // keep the last real USD values rather than inventing them from a simulated tick
+    if ($usdGold <= 0) {
+      $inrNow = (float)($db['settings']['usdInr'] ?? 85.4);
+      $usdGold = round($gold24 * OZ / $inrNow, 2);
+      $usdSilver = round($silver * OZ / $inrNow, 3);
+    }
     $source = ($last['source'] ?? '') === 'live' ? 'cached+sim' : 'simulated';
   }
+  if ($inr <= 0) $inr = (float)($last['usdInr'] ?? ($db['settings']['usdInr'] ?? 85.4));
   /* v61 — official MCX futures (Angel One SmartAPI) override when configured.
      MCX GOLD LTP is quoted per 10 g of 995-fine; SILVER per kg. Fully
      automatic TOTP login; failures fall back to the international feed above. */
@@ -724,49 +823,85 @@ function bullion_rows(array &$db): array {
       'low' => (int)round($loHi[0]), 'high' => (int)round($loHi[1]),
       'editable' => $edit, 'change' => 0];
   };
-  /* RTGS (TDS / refined) rows — track the live feed like a trading board.
-     With the official MCX feed, the near-month Gold future *is* the TDS 995
-     price, so we track it directly; international spot needs the .995 factor. */
-  $mcxOn = ($r['source'] ?? '') === 'live-mcx' && !empty($db['rates']['mcx']);
-  $g995 = $mcxOn ? $fine : ($fine * 0.995 + $gp);
-  /* v64 — dedicated 9999 refined-bar RTGS row: MCX 995 tick + the counter's
-     gold premium (the market convention for physical 99.99% refined bars);
-     on the international feed it is 99.99%-fine value + premium. */
-  $g9999 = $mcxOn ? ($fine + $gp) : ($fine * 0.9999 + $gp);
-  $rows = [
-    $goldRow('tdsGold9999', 'TDS GOLD 9999 RTGS', '9999 · ' . date('d-m'), 'RTGS',
-      $g9999 - 2, $g9999 + 2, [$mcxOn ? ($gLo + $gp - 2) : ($gLo * 0.9999 + $gp - 2), $mcxOn ? ($gHi + $gp + 2) : ($gHi * 0.9999 + $gp + 2)]),
-    $goldRow('tdsGold995', 'TDS GOLD 995 IND', '995 · ' . date('d-m'), 'RTGS',
-      $g995 - 2, $g995 + 2, [$mcxOn ? $gLo : ($gLo * 0.995 + $gp - 2), $mcxOn ? $gHi : ($gHi * 0.995 + $gp + 2)]),
-    ['key' => 'silverChorsa', 'label' => 'TDS SIL CHORSA', 'purity' => '98.00 · ' . date('d-m'), 'mode' => 'RTGS',
-      'buy' => (int)round($sil * 0.98 + 1 - 1), 'sell' => (int)round($sil * 0.98 + 1 + 1),
-      'low' => (int)round($sLo * 0.98), 'high' => (int)round($sHi * 0.98 + 2), 'editable' => false, 'change' => 0],
-    ['key' => 'silverPeti', 'label' => 'TDS SIL PETI 999.9', 'purity' => '999.9 · ' . date('d-m'), 'mode' => 'RTGS',
-      'buy' => (int)round($sil * 0.999 + $sp - 1), 'sell' => (int)round($sil * 0.999 + $sp + 1),
-      'low' => (int)round($sLo * 0.999 + $sp - 1), 'high' => (int)round($sHi * 0.999 + $sp + 1), 'editable' => false, 'change' => 0],
-    $goldRow('goldIndian', 'REF – GOLD 99.50 INDIAN', '99.50 · ' . date('d/m'), 'CASH',
-      $fine * 0.995 + 15, $fine * 0.995 + 55, [$gLo * 0.995 + 15, $gHi * 0.995 + 55], true),
-    $goldRow('goldRef9930', 'REF – GOLD 99.30 LOCAL', '99.30 · ' . date('d/m'), 'CASH',
-      $fine * 0.993, $fine * 0.993 + 40, [$gLo * 0.993, $gHi * 0.993 + 40], true),
-    ['key' => 'silverKachcha', 'label' => 'REF – SIL KACHCHA DHEPA', 'Kachcha · ' . date('d-m'), 'mode' => 'RTGS',
-      'buy' => (int)round($sil * 0.94), 'sell' => 0,
-      'low' => (int)round($sLo * 0.94), 'high' => 0, 'editable' => false, 'change' => 0],
-    ['key' => 'silverPetiBulk', 'label' => 'REF – SIL CHORSA 98.00', '98.00 · ' . date('d-m'), 'mode' => 'RTGS',
-      'buy' => (int)round($sil * 0.98 + $sp * 0.6 - 1), 'sell' => (int)round($sil * 0.98 + $sp * 0.6 + 1),
-      'low' => (int)round($sLo * 0.98 + $sp * 0.6 - 1), 'high' => (int)round($sHi * 0.98 + $sp * 0.6 + 1), 'editable' => false, 'change' => 0],
-    ['key' => 'silverGrn999', 'label' => 'REF – SIL GRN 999', '999 · ' . date('d-m'), 'mode' => 'RTGS',
-      'buy' => (int)round($sil * 0.972), 'sell' => (int)round($sil * 0.972 + 8),
-      'low' => (int)round($sLo * 0.972), 'high' => (int)round($sHi * 0.972 + 8), 'editable' => false, 'change' => 0],
+  /* v68 — uniform board model. Every row is: exchange anchor × purity factor
+     + premium ± spread, with per-row calibration stored in
+     bullion.rtgs (values in DISPLAY units: gold ₹/10 g, silver ₹/kg).
+     Factors/anchors track the official MCX future; L/H and day-change come
+     from the exchange's own FULL quote (real, not tick-to-tick synthetic). */
+  $mcx = is_array($db['rates']['mcx'] ?? null) ? $db['rates']['mcx'] : null;
+  $mcxOn = ($r['source'] ?? '') === 'live-mcx' && $mcx;
+  // per-gram anchors + official day band (₹/g)
+  if ($mcxOn) {
+    $gA = (float)$mcx['goldLtp'] / 10; $sA = (float)$mcx['silverLtp'] / 1000;
+    $gBandLo = (float)$mcx['goldLow'] / 10; $gBandHi = (float)$mcx['goldHigh'] / 10;
+    $sBandLo = (float)$mcx['silverLow'] / 1000; $sBandHi = (float)$mcx['silverHigh'] / 1000;
+    $gChgPG = (float)($mcx['goldChg'] ?? 0) / 10;
+    $sChgPG = (float)($mcx['silverChg'] ?? 0) / 1000;
+  } else {
+    $gA = $fine; $sA = $sil;
+    $gBandLo = $gLo; $gBandHi = $gHi; $sBandLo = $sLo; $sBandHi = $sHi;
+    $gChgPG = null; $sChgPG = null;
+  }
+  /* defaults reproduce the historic board exactly; owner calibration overrides
+     per row. [key, metal, factor(MCX), factor(spot), premDisp, spreadDisp,
+     side, label, purity, mode, editable] */
+  $gp10 = $gp * 10; $spKg = $sp * 1000;
+  $defs = [
+    ['tdsGold9999',  'g', 1.000, 0.9999, $gp10, 20, 'both', 'TDS GOLD 9999 RTGS', '9999 · ' . date('d-m'), 'RTGS', false],
+    ['tdsGold995',   'g', 1.000, 0.9950, 0, 20, 'both', 'TDS GOLD 995 IND', '995 · ' . date('d-m'), 'RTGS', false],
+    ['silverChorsa', 's', 0.980, 0.9800, 1000, 1000, 'both', 'TDS SIL CHORSA', '98.00 · ' . date('d-m'), 'RTGS', false],
+    ['silverPeti',   's', 0.999, 0.9990, $spKg, 1000, 'both', 'TDS SIL PETI 999.9', '999.9 · ' . date('d-m'), 'RTGS', false],
+    ['goldIndian',   'g', 0.995, 0.9950, 350, 200, 'both', 'REF – GOLD 99.50 INDIAN', '99.50 · ' . date('d/m'), 'CASH', true],
+    ['goldRef9930',  'g', 0.993, 0.9930, 200, 200, 'both', 'REF – GOLD 99.30 LOCAL', '99.30 · ' . date('d/m'), 'CASH', true],
+    ['silverKachcha','s', 0.940, 0.9400, 0, 0, 'buy', 'REF – SIL KACHCHA DHEPA', 'Kachcha · ' . date('d-m'), 'RTGS', false],
+    ['silverPetiBulk','s', 0.980, 0.9800, (int)round($spKg * 0.6), 1000, 'both', 'REF – SIL CHORSA 98.00', '98.00 · ' . date('d-m'), 'RTGS', false],
+    ['silverGrn999', 's', 0.972, 0.9720, 4000, 4000, 'both', 'REF – SIL GRN 999', '999 · ' . date('d-m'), 'RTGS', false],
   ];
+  $rtgsOv = is_array($db['bullion']['rtgs'] ?? null) ? $db['bullion']['rtgs'] : [];
+  $rtgsCfg = [];   // effective calibration, echoed for the admin editor (display units)
+  $facMap = [];    // key => factor, for spot-mode tick changes
+  $rows = [];
+  foreach ($defs as $d) {
+    [$key, $metal, $fM, $fS, $dPrem, $dSpread, $dSide, $label, $pur, $mode, $editable] = $d;
+    $o = is_array($rtgsOv[$key] ?? null) ? $rtgsOv[$key] : [];
+    $factor = (float)($o['factor'] ?? ($mcxOn ? $fM : $fS));
+    $premD = (float)($o['prem'] ?? $dPrem);
+    $spreadD = (float)($o['spread'] ?? $dSpread);
+    $side = (string)($o['side'] ?? $dSide);
+    $rtgsCfg[$key] = ['factor' => round($factor, 4), 'prem' => round($premD, 1),
+      'spread' => round($spreadD, 1), 'side' => $side, 'metal' => $metal];
+    if ($side === 'off') continue;
+    $facMap[$key] = $factor;
+    $u = $metal === 'g' ? 10 : 1000;          // display units per gram
+    $premG = $premD / $u; $spreadG = $spreadD / $u;
+    if ($metal === 'g') {
+      $base = $gA * $factor; $lo = $gBandLo * $factor; $hi = $gBandHi * $factor;
+      $chg = $gChgPG !== null ? $gChgPG * $factor : null;
+      $q = static fn($x) => (int)round($x);
+    } else {
+      $base = $sA * $factor; $lo = $sBandLo * $factor; $hi = $sBandHi * $factor;
+      $chg = $sChgPG !== null ? $sChgPG * $factor : null;
+      $q = static fn($x) => round($x, 3);     // keep ₹/kg precision at the gram
+    }
+    $mid = $base + $premG;
+    $rows[] = ['key' => $key, 'label' => $label, 'purity' => $pur, 'mode' => $mode,
+      'buy' => $side === 'sell' ? 0 : $q($mid - $spreadG),
+      'sell' => $side === 'buy' ? 0 : $q($mid + $spreadG),
+      'low' => $side === 'sell' ? 0 : $q($lo + $premG),
+      'high' => $side === 'buy' ? 0 : $q($hi + $premG),
+      'editable' => $editable,
+      'change' => $chg !== null ? $q($chg) : 0];
+  }
 
-  /* CASH rows the counter sets itself (imported 995 only when configured) */
-  $cashDefs = ['goldImport995' => $fine * 0.995, 'goldIndian' => $fine * 0.995 + 15, 'goldRef9930' => $fine * 0.993];
+  /* CASH rows the counter sets itself (values are per gram; imported 995 only when configured) */
   foreach ($db['bullion']['cash'] as $k => $c) {
     if ($k === 'goldImport995') {
       $buy = (int)($c['buy'] ?? 0); $sell = (int)($c['sell'] ?? 0);
       $prev = $db['bullion']['prev'][$k]['buy'] ?? $buy;
       if ($buy > 0 || $sell > 0) {
-        array_splice($rows, 3, 0, [['key' => $k, 'label' => $c['label'], 'purity' => $c['purity'], 'mode' => 'CASH',
+        $at = 0;
+        foreach ($rows as $idx => $rw) { if ($rw['key'] === 'silverPeti') { $at = $idx; break; } }
+        array_splice($rows, $at, 0, [['key' => $k, 'label' => $c['label'], 'purity' => $c['purity'], 'mode' => 'CASH',
           'buy' => $buy, 'sell' => $sell, 'low' => $buy, 'high' => $sell,
           'change' => $buy - $prev, 'editable' => true]]);
       }
@@ -785,39 +920,82 @@ function bullion_rows(array &$db): array {
     }
     unset($rw);
   }
-  /* day change vs the previous feed tick for RTGS rows */
-  if (count($hist) > 1) {
+  /* on the spot fallback feed, day change = move since the previous feed tick */
+  if (!$mcxOn && count($hist) > 1) {
     $y = $hist[count($hist) - 2];
-    $gf = (($r['source'] ?? '') === 'live-mcx') ? 1.0 : 0.995;
-    $chg = ['tdsGold995' => (int)round(($r['gold24'] - $y['gold24']) * $gf),
-            'tdsGold9999' => (int)round(($r['gold24'] - $y['gold24']) * ($mcxOn ? 1.0 : 0.9999)),
-            'silverChorsa' => (int)round(($r['silver'] - $y['silver']) * 0.98),
-            'silverPeti' => (int)round(($r['silver'] - $y['silver']) * 0.999),
-            'silverPetiBulk' => (int)round(($r['silver'] - $y['silver']) * 0.98),
-            'silverGrn999' => (int)round(($r['silver'] - $y['silver']) * 0.972),
-            'silverKachcha' => (int)round(($r['silver'] - $y['silver']) * 0.94)];
-    foreach ($rows as &$row) if (isset($chg[$row['key']]) && $row['mode'] === 'RTGS') $row['change'] = $chg[$row['key']];
+    $dg = (float)$r['gold24'] - (float)$y['gold24'];
+    $ds = (float)$r['silver'] - (float)$y['silver'];
+    foreach ($rows as &$row) {
+      if ($row['mode'] !== 'RTGS') continue;
+      $isG = !preg_match('#sil|silver#i', $row['label']);
+      $row['change'] = $isG ? (int)round($dg * $facMap[$row['key']])
+                            : round($ds * $facMap[$row['key']], 3);
+    }
     unset($row);
   }
   foreach ($rows as &$row) $row['change'] = $row['change'] ?? 0;
   unset($row);
 
-  /* v57 — spot / MCX future / customs cards for the Pride-Gold style board.
+  /* v57/v68 — spot / MCX future / customs cards for the Pride-Gold style
+     board. The spot strip now shows the real international DOLLAR spot with
+     the day's exchange H/L; future bid/ask & band come from the exchange FULL
+     quote; customs = dollar parity × USD/INR × the (editable) duty multiplier.
      Gold shown per 10 g, silver per kg — the way the bullion market quotes. */
   $goldSpot10 = (int)round($fine * 10);
   $silSpotKg = (int)round($sil * 1000);
   $gPrem = (float)($db['settings']['bullionFuturePrem'] ?? 0.0025);
   $sPrem = (float)($db['settings']['silverFuturePrem'] ?? 0.0018);
+  $xau = (float)($r['usdGold'] ?? 0); $xag = (float)($r['usdSilver'] ?? 0);
+  $fxNow = (float)($r['usdInr'] ?? ($db['settings']['usdInr'] ?? 85.4));
+  $oh = is_array($db['rates']['intlOhlc'] ?? null) ? $db['rates']['intlOhlc'] : [];
+  $r2 = static fn($x, $d = 2) => $x > 0 ? round((float)$x, $d) : 0;
+  if ($mcxOn) {
+    $gLtp = (int)$mcx['goldLtp']; $sLtp = (int)$mcx['silverLtp'];
+    $future = [
+      'real' => true,
+      'gold' => ['ltp' => $gLtp,
+        'bid' => (int)round($mcx['goldBid'] ?: $gLtp), 'ask' => (int)round($mcx['goldAsk'] ?: $gLtp)],
+      'silver' => ['ltp' => $sLtp,
+        'bid' => (int)round($mcx['silverBid'] ?: $sLtp), 'ask' => (int)round($mcx['silverAsk'] ?: $sLtp)],
+      'goldLow' => (int)round($mcx['goldLow'] ?: $gLtp), 'goldHigh' => (int)round($mcx['goldHigh'] ?: $gLtp),
+      'silverLow' => (int)round($mcx['silverLow'] ?: $sLtp), 'silverHigh' => (int)round($mcx['silverHigh'] ?: $sLtp),
+      'goldOpen' => (int)round($mcx['goldOpen'] ?? 0), 'goldClose' => (int)round($mcx['goldClose'] ?? 0),
+      'silverOpen' => (int)round($mcx['silverOpen'] ?? 0), 'silverClose' => (int)round($mcx['silverClose'] ?? 0),
+      'goldChg' => (float)($mcx['goldChg'] ?? 0), 'goldChgPct' => (float)($mcx['goldChgPct'] ?? 0),
+      'silverChg' => (float)($mcx['silverChg'] ?? 0), 'silverChgPct' => (float)($mcx['silverChgPct'] ?? 0),
+    ];
+  } else {
+    $future = [
+      'real' => false,
+      'gold' => ['ltp' => $goldSpot10,
+        'bid' => (int)round($goldSpot10 * (1 + $gPrem) - 30), 'ask' => (int)round($goldSpot10 * (1 + $gPrem) + 31)],
+      'silver' => ['ltp' => $silSpotKg,
+        'bid' => (int)round($silSpotKg * (1 + $sPrem) - 40), 'ask' => (int)round($silSpotKg * (1 + $sPrem) + 114)],
+      'goldLow' => (int)round($gLo * 10), 'goldHigh' => (int)round($gHi * 10 * (1 + $gPrem)),
+      'silverLow' => (int)round($sLo * 1000), 'silverHigh' => (int)round($sHi * 1000 * (1 + $sPrem)),
+      'goldOpen' => 0, 'goldClose' => 0, 'silverOpen' => 0, 'silverClose' => 0,
+      'goldChg' => 0, 'goldChgPct' => 0, 'silverChg' => 0, 'silverChgPct' => 0,
+    ];
+  }
+  // landed customs values: import parity (dollar spot × FX × troy-oz conversion)
+  // times the all-in duty multiplier the counter calibrates (settings).
+  $gDutyMult = (float)($db['settings']['bullionGoldDutyMult'] ?? 1.553);
+  $sDutyMult = (float)($db['settings']['bullionSilverDutyMult'] ?? 1.62);
+  $gParity100 = $xau * $fxNow / OZ * 100;       // ₹ per 100 g gold
+  $sParityKg = $xag * $fxNow / OZ * 1000;      // ₹ per kg silver
   $board = [
-    'spot' => ['gold' => $goldSpot10, 'silver' => $silSpotKg,
-               'goldLow' => (int)round($gHi * 10 * 0.9985), 'goldHigh' => (int)round($gHi * 10 * 1.001),
-               'silverLow' => (int)round($sLo * 1000 * 0.999), 'silverHigh' => (int)round($sHi * 1000 * 1.001),
-               'inr' => (float)($db['settings']['usdInr'] ?? 85.4)],
-    'future' => ['gold' => ['bid' => (int)round($goldSpot10 * (1 + $gPrem) - 30), 'ask' => (int)round($goldSpot10 * (1 + $gPrem) + 31)],
-                 'silver' => ['bid' => (int)round($silSpotKg * (1 + $sPrem) - 40), 'ask' => (int)round($silSpotKg * (1 + $sPrem) + 114)],
-                 'goldLow' => (int)round($gLo * 10), 'goldHigh' => (int)round($gHi * 10 * (1 + $gPrem)),
-                 'silverLow' => (int)round($sLo * 1000), 'silverHigh' => (int)round($sHi * 1000 * (1 + $sPrem))],
-    'duty' => ['gold' => (int)round($fine * 100 * 1.15), 'silver' => (int)round($sil * 1000 * 1.10)],
+    'spot' => [
+      'goldUsd' => $r2($xau), 'goldUsdLow' => $r2($oh['gold']['low'] ?? 0), 'goldUsdHigh' => $r2($oh['gold']['high'] ?? 0),
+      'silverUsd' => $r2($xag, 3), 'silverUsdLow' => $r2($oh['silver']['low'] ?? 0, 3), 'silverUsdHigh' => $r2($oh['silver']['high'] ?? 0, 3),
+      'inr' => $r2($fxNow), 'inrLow' => $r2($oh['inr']['low'] ?? 0), 'inrHigh' => $r2($oh['inr']['high'] ?? 0),
+      // legacy rupee keys (per 10 g / per kg), used by older tiles
+      'gold' => $goldSpot10, 'silver' => $silSpotKg,
+      'goldLow' => (int)round($gHi * 10 * 0.9985), 'goldHigh' => (int)round($gHi * 10 * 1.001),
+      'silverLow' => (int)round($sLo * 1000 * 0.999), 'silverHigh' => (int)round($sHi * 1000 * 1.001)],
+    'future' => $future,
+    'duty' => ['gold' => (int)round($gParity100 * $gDutyMult), 'silver' => (int)round($sParityKg * $sDutyMult),
+      'goldParity' => (int)round($gParity100), 'silverParity' => (int)round($sParityKg),
+      'goldMult' => $gDutyMult, 'silverMult' => $sDutyMult],
     /* v61 — international spot (USD/troy oz) + derived karat rates per 10 g */
     'intl' => [
       'xauUsd' => round((float)($r['usdGold'] ?? 0), 2),
@@ -852,7 +1030,8 @@ function bullion_rows(array &$db): array {
     $chart['silverSpot'][] = (int)round((float)$h['silver'] * 1000);
   }
 
-  return ['rows' => $rows, 'board' => $board, 'chart' => $chart, 'updatedAt' => $db['bullion']['updatedAt'], 'date' => date('d M Y')];
+  return ['rows' => $rows, 'board' => $board, 'chart' => $chart, 'rtgsConfig' => $rtgsCfg,
+    'updatedAt' => $db['bullion']['updatedAt'], 'date' => date('d M Y')];
 }
 /* v57 ── personal occasion coupons (birthday / anniversary) ──
    Auto-issued up to 7 days before the date in the shopper's profile; one
@@ -2047,6 +2226,33 @@ try {
     foreach (($b['cash'] ?? []) as $k => $v) if (isset($db['bullion']['cash'][$k])) { $db['bullion']['cash'][$k]['buy'] = (int)$v['buy']; $db['bullion']['cash'][$k]['sell'] = (int)$v['sell']; }
     $db['bullion']['updatedAt'] = now_iso(); $db['bullion']['updatedBy'] = $u['name'];
     audit_log($db, 'bullion.cash-rates-set', ['by' => $u['name']]);
+    db_save($DB_FILE, $db); jout(200, ['ok' => true] + bullion_rows($db));
+  }
+  /* v68 — RTGS board calibration: per-row factor / premium / spread / side */
+  if ($route === 'bullion/rtgs' && $method === 'PUT') {
+    $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
+    $b = body_json();
+    $allowed = ['tdsGold9999', 'tdsGold995', 'silverChorsa', 'silverPeti', 'goldIndian',
+      'goldRef9930', 'silverKachcha', 'silverPetiBulk', 'silverGrn999'];
+    $db['bullion']['rtgs'] = is_array($db['bullion']['rtgs'] ?? null) ? $db['bullion']['rtgs'] : [];
+    foreach (($b['rows'] ?? []) as $k => $v) {
+      if (!in_array($k, $allowed, true) || !is_array($v)) continue;
+      $factor = (float)($v['factor'] ?? 1); if ($factor < 0.5 || $factor > 1.2) continue;
+      $prem = (float)($v['prem'] ?? 0); $spread = (float)($v['spread'] ?? 0);
+      if ($prem < -50000 || $prem > 50000 || $spread < 0 || $spread > 50000) continue;
+      $side = (string)($v['side'] ?? 'both');
+      if (!in_array($side, ['both', 'buy', 'sell', 'off'], true)) $side = 'both';
+      $db['bullion']['rtgs'][$k] = ['factor' => round($factor, 4),
+        'prem' => round($prem, 1), 'spread' => round($spread, 1), 'side' => $side];
+    }
+    foreach (['bullionGoldDutyMult' => [0.8, 3.0], 'bullionSilverDutyMult' => [0.8, 3.0]] as $sk => $lim) {
+      if (isset($b[$sk])) {
+        $mv = (float)$b[$sk];
+        if ($mv >= $lim[0] && $mv <= $lim[1]) $db['settings'][$sk] = round($mv, 4);
+      }
+    }
+    $db['bullion']['updatedAt'] = now_iso();
+    audit_log($db, 'bullion.rtgs-calibration', ['by' => $u['name']]);
     db_save($DB_FILE, $db); jout(200, ['ok' => true] + bullion_rows($db));
   }
   /* v60 — rate alerts & unfix requests from the bullion desk */
