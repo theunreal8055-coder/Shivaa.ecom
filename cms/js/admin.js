@@ -785,10 +785,15 @@ async function renderAdmin(view, q) {
             <div class="fld"><label>TOTP secret (Base32)</label><input name="angelTotpSecret" value="${esc(S.angelTotpSecret || '')}" placeholder="JBSWY3DPEHPK3PXP" autocomplete="off"></div>
             <div class="fld"><label>MCX GOLD token — optional override</label><input name="angelGoldToken" value="${esc(S.angelGoldToken || '')}" placeholder="auto near-month if blank"></div>
             <div class="fld"><label>MCX SILVER token — optional override</label><input name="angelSilverToken" value="${esc(S.angelSilverToken || '')}" placeholder="auto near-month if blank"></div>
+            <div class="fld"><label>Manual USD/INR fallback <small>(used only if every live FX source is blocked)</small></label><input name="manualUsdInr" type="number" step="0.01" min="60" max="120" value="${S.manualUsdInr || ''}" placeholder="e.g. 95.59"></div>
+            <div class="fld"><label>Manual GOLD $/oz fallback <small>(international spot)</small></label><input name="manualXauUsd" type="number" step="0.01" min="100" max="20000" value="${S.manualXauUsd || ''}" placeholder="e.g. 4394"></div>
+            <div class="fld"><label>Manual SILVER $/oz fallback</label><input name="manualXagUsd" type="number" step="0.001" min="1" max="1000" value="${S.manualXagUsd || ''}" placeholder="e.g. 65.06"></div>
             <div class="fld full" id="feedStatus" style="font-size:12.5px;color:var(--ink-3)">Feed status: checking…</div>
+            <div class="fld full" id="netStatus" style="font-size:12.5px"></div>
             <div class="fld full" style="display:flex;gap:10px;flex-wrap:wrap">
               <button class="btn btn-primary btn-sm" style="justify-self:start">Save feed settings</button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.testFeed()">Test connection now</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.testFeed()">Test MCX connection</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.testNet()">Test dollar/FX sources</button>
             </div>
           </div>
         </form></div>
@@ -1411,6 +1416,9 @@ window.ShivaaAdmin.saveFeed = async e => {
     angelTotpSecret: String(fd.get('angelTotpSecret') || '').replace(/\s/g, '').toUpperCase(),
     angelGoldToken: String(fd.get('angelGoldToken') || '').trim(),
     angelSilverToken: String(fd.get('angelSilverToken') || '').trim(),
+    manualUsdInr: parseFloat(fd.get('manualUsdInr')) || 0,
+    manualXauUsd: parseFloat(fd.get('manualXauUsd')) || 0,
+    manualXagUsd: parseFloat(fd.get('manualXagUsd')) || 0,
   };
   // keep already-saved secrets when the owner saves without retyping them
   ['angelMpin', 'angelApiKey', 'angelTotpSecret'].forEach(k => { if (!body[k]) delete body[k]; });
@@ -1445,6 +1453,32 @@ window.ShivaaAdmin.testFeed = async () => {
       }
       if (el) el.innerHTML = '⚠ Feed not connected (' + esc(r.reason || 'unknown') + '). International spot remains active.' + d;
     }
+  } catch (err) { if (el) el.innerHTML = '⚠ ' + esc(err.message); }
+};
+/* v73 — server-side external-source diagnostic (dollars / FX reachability) */
+window.ShivaaAdmin.testNet = async () => {
+  const el = document.getElementById('netStatus');
+  if (el) el.innerHTML = '<span class="live-dot" style="display:inline-block;margin-right:6px"></span> Probing every dollar/FX source from your server (takes ~6 s)…';
+  try {
+    const r = await api('/api/admin/net-test');
+    const names = {
+      jsd: 'jsDelivr CDN (gold+silver+FX)', jsdFast: 'jsDelivr Fastly mirror',
+      gxau: 'gold-api GOLD', gxag: 'gold-api SILVER', er: 'exchangerate API (FX)',
+      yGold: 'Yahoo GOLD', ySilver: 'Yahoo SILVER', yInr: 'Yahoo USD/INR',
+      stGold: 'Stooq GOLD', stSilver: 'Stooq SILVER', stInr: 'Stooq USD/INR',
+      ffDev: 'Frankfurter/ECB (.dev)', ffApp: 'Frankfurter/ECB (.app)' };
+    const rows = Object.entries(r.providers || {}).map(([k, p]) =>
+      `<tr><td>${esc(names[k] || k)}</td><td class="${p.ok ? '' : 'rtgs-bad'}" style="color:${p.ok ? '#1d8a4d' : '#c0392b'}">${p.ok ? '✓ HTTP ' + p.code : '✗ ' + (p.code || 'blocked') + (p.err ? ' · ' + esc(p.err).slice(0, 40) : '')}</td><td class="num">${p.ms} ms</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-3)">${esc(p.sample || '')}</td></tr>`).join('');
+    const v = r.resolved || {};
+    const cell = (label, val, src) => `<div class="bd-kar" style="margin:4px"><small>${label} · ${esc(src || 'none')}</small><b>${val ? Number(val).toLocaleString('en-IN') : '--'}</b></div>`;
+    if (el) el.innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">
+        ${cell('GOLD $/oz', v.goldUsd, v.goldSrc)}${cell('SILVER $/oz', v.silverUsd, v.silverSrc)}${cell('USD/INR', v.usdInr, v.inrSrc)}
+      </div>
+      <details open><summary style="cursor:pointer;font-weight:700;margin:6px 0">Provider reachability from this server${r.curlMulti ? '' : ' ⚠ curl_multi disabled'}</summary>
+      <div class="mc-table-wrap"><table class="mc-table"><thead><tr><th>Source</th><th>Status</th><th class="num">Latency</th><th>Sample reply</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="partner-note" style="margin-top:6px">Outbound IP: <b>${esc(r.outboundIp || 'not detected')}</b> · PHP ${esc(r.php || '?')} · last rate stamp: ${esc(r.lastStamp || 'none')} (${esc(r.stampSource || '?')}) · stamp USD/INR: ${esc(String(r.stampInr ?? '--'))}. Send a screenshot of this table if the dollar cards are blank.</p></details>`;
+    toast(v.goldUsd && v.usdInr ? 'Dollar/FX sources OK ✦' : 'Some sources unreachable — table shows which');
   } catch (err) { if (el) el.innerHTML = '⚠ ' + esc(err.message); }
 };
 

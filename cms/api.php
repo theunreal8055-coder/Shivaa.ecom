@@ -819,6 +819,139 @@ function intl_ohlc(array &$db): array {
   return is_array($c) ? $c : [];
 }
 
+/* v73 — parallel external probe. Returns [key => ['code','ms','body','err']]
+   in roughly the slowest-response time, not the sum. Hosts that block the
+   datacenter IP fail together instead of stacking six timeouts. */
+function spot_probe_multi(array $urls, int $timeout = 5): array {
+  if (!function_exists('curl_multi_init')) return [];
+  $mh = curl_multi_init();
+  $hs = [];
+  foreach ($urls as $k => $u) {
+    $ch = curl_init($u);
+    curl_setopt_array($ch, [
+      CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => $timeout,
+      CURLOPT_SSL_VERIFYPEER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 2,
+      CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
+      CURLOPT_HTTPHEADER => ['Accept: application/json,text/csv,*/*'],
+      CURLOPT_ENCODING => '']);
+    curl_multi_add_handle($mh, $ch);
+    $hs[$k] = ['ch' => $ch, 't0' => microtime(true)];
+  }
+  $running = null;
+  do { $st = curl_multi_exec($mh, $running);
+    if ($running) curl_multi_select($mh, 0.5);
+  } while ($running > 0 && $st === CURLM_OK);
+  $out = [];
+  foreach ($hs as $k => $h) {
+    $body = (string)curl_multi_getcontent($h['ch']);
+    $out[$k] = ['code' => (int)curl_getinfo($h['ch'], CURLINFO_RESPONSE_CODE),
+      'ms' => round((microtime(true) - $h['t0']) * 1000),
+      'body' => $body, 'err' => (string)curl_error($h['ch'])];
+    curl_multi_remove_handle($mh, $h['ch']); curl_close($h['ch']);
+  }
+  curl_multi_close($mh);
+  return $out;
+}
+
+/* v73 — single source of truth for international spot. Probes every provider
+   in parallel and fills gold/silver/FX legs independently, so one blocked
+   host can never blank the dollar cards. jsDelivr (a static CDN carrying the
+   open currency dataset incl. XAU/XAG/INR) is the guaranteed-fill floor.
+   Manual owner overrides win outright. Cached 10 min. */
+function spot_resolve(array &$db, bool $force = false): array {
+  $cached = $db['rates']['spot'] ?? null;
+  if (!$force && is_array($cached) && (time() - (int)($cached['fetchedAt'] ?? 0)) < 600) return $cached;
+  $empty = static fn() => ['price' => 0.0, 'high' => 0.0, 'low' => 0.0, 'prev' => 0.0, 'pct' => 0.0, 'src' => ''];
+  $legs = ['gold' => $empty(), 'silver' => $empty(), 'inr' => $empty()];
+  $urls = [
+    'jsd'      => 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json',
+    'jsdFast'  => 'https://fastly.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json',
+    'gxau'     => 'https://api.gold-api.com/price/XAU',
+    'gxag'     => 'https://api.gold-api.com/price/XAG',
+    'er'       => 'https://open.er-api.com/v6/latest/USD',
+    'yGold'    => 'https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?range=1d&interval=5m',
+    'ySilver'  => 'https://query1.finance.yahoo.com/v8/finance/chart/XAGUSD%3DX?range=1d&interval=5m',
+    'yInr'     => 'https://query1.finance.yahoo.com/v8/finance/chart/INR%3DX?range=1d&interval=5m',
+    'stGold'   => 'https://stooq.com/q/l/?s=xauusd&f=sd2t2ohlcv&h&e=csv',
+    'stSilver' => 'https://stooq.com/q/l/?s=xagusd&f=sd2t2ohlcv&h&e=csv',
+    'stInr'    => 'https://stooq.com/q/l/?s=usdinr&f=sd2t2ohlcv&h&e=csv',
+    'ffDev'    => 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=INR',
+    'ffApp'    => 'https://api.frankfurter.app/latest?from=USD&to=INR',
+  ];
+  $p = spot_probe_multi($urls, 5);
+  $diag = [];
+  foreach ($p as $k => $r) {
+    $diag[$k] = ['code' => $r['code'], 'ms' => $r['ms'],
+      'ok' => $r['code'] >= 200 && $r['code'] < 300 && $r['body'] !== '',
+      'err' => $r['err'] ?: null,
+      'sample' => substr(preg_replace('/\s+/', ' ', $r['body'] ?? ''), 0, 80)];
+  }
+  // rank tiers: jsDelivr daily 1 · Stooq 2 · ECB 2 · exchange-rate 3 · gold-api 3 · Yahoo 4
+  $offer = static function (string $leg, float $price, string $src, int $rank, float $hi = 0, float $lo = 0, float $prev = 0) use (&$legs) {
+    if ($price <= 0) return;
+    if ($legs[$leg]['price'] > 0 && ($legs[$leg]['rank'] ?? 0) >= $rank) return;
+    $legs[$leg] = ['price' => $price, 'high' => $hi ?: $price, 'low' => $lo ?: $price, 'prev' => $prev,
+      'pct' => $prev > 0 ? round(($price - $prev) / $prev * 100, 2) : 0.0, 'src' => $src, 'rank' => $rank];
+  };
+  // jsDelivr currency dataset (static CDN, highest firewall compatibility):
+  // values are units per USD, so XAU price/oz = 1/xau. Daily snapshot = floor.
+  foreach (['jsd', 'jsdFast'] as $jk) {
+    $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
+    $usd = is_array($j) ? ($j['usd'] ?? null) : null;
+    if (is_array($usd)) {
+      if (($v = (float)($usd['xau'] ?? 0)) > 0) $offer('gold', round(1 / $v, 2), 'jsDelivr', 1);
+      if (($v = (float)($usd['xag'] ?? 0)) > 0) $offer('silver', round(1 / $v, 3), 'jsDelivr', 1);
+      if (($v = (float)($usd['inr'] ?? 0)) > 0) $offer('inr', round($v, 2), 'jsDelivr', 1);
+    }
+  }
+  foreach (['stGold' => 'gold', 'stSilver' => 'silver', 'stInr' => 'inr'] as $jk => $leg) {
+    foreach (preg_split('/\r?\n/', (string)($p[$jk]['body'] ?? '')) as $ln) {
+      $f = str_getcsv($ln);
+      if (is_array($f) && count($f) >= 7 && is_numeric($f[3]) && is_numeric($f[6])) {
+        $offer($leg, (float)$f[6], 'stooq', 2, (float)$f[4], (float)$f[5], 0);
+        break;
+      }
+    }
+  }
+  foreach (['ffDev', 'ffApp'] as $jk) {
+    $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
+    if (is_array($j) && (float)($j['rates']['INR'] ?? 0) > 0) $offer('inr', (float)$j['rates']['INR'], 'ECB', 2);
+  }
+  if (isset($p['er'])) { $j = json_decode($p['er']['body'], true); if (is_array($j) && (float)($j['rates']['INR'] ?? 0) > 0) $offer('inr', (float)$j['rates']['INR'], 'exchangerate', 3); }
+  foreach (['gxau' => 'gold', 'gxag' => 'silver'] as $jk => $leg) {
+    $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
+    if (is_array($j) && (float)($j['price'] ?? 0) > 0) $offer($leg, (float)$j['price'], 'gold-api', 3);
+  }
+  foreach (['yGold' => 'gold', 'ySilver' => 'silver', 'yInr' => 'inr'] as $jk => $leg) {
+    $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
+    $m = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
+    if (is_array($m) && (float)($m['regularMarketPrice'] ?? 0) > 0) {
+      // Yahoo is intraday-live with day bands — top tier (rank 4)
+      $pv = (float)($m['chartPreviousClose'] ?? ($m['previousClose'] ?? 0));
+      $price = (float)$m['regularMarketPrice'];
+      $legs[$leg] = ['price' => $price,
+        'high' => (float)($m['regularMarketDayHigh'] ?? 0) ?: $price,
+        'low' => (float)($m['regularMarketDayLow'] ?? 0) ?: $price,
+        'prev' => $pv,
+        'pct' => $pv > 0 ? round(($price - $pv) / $pv * 100, 2) : 0.0, 'src' => 'yahoo', 'rank' => 4];
+    }
+  }
+  // manual owner overrides (absolute priority)
+  $st = $db['settings'] ?? [];
+  foreach (['gold' => 'manualXauUsd', 'silver' => 'manualXagUsd', 'inr' => 'manualUsdInr'] as $leg => $sk) {
+    if ((float)($st[$sk] ?? 0) > 0) $legs[$leg] = ['price' => (float)$st[$sk], 'high' => 0, 'low' => 0, 'prev' => 0, 'pct' => 0, 'src' => 'manual', 'rank' => 9];
+  }
+  $out = array_merge($legs, ['fetchedAt' => time(), 'diag' => $diag]);
+  $db['rates']['spot'] = $out;
+  // keep the legacy intlOhlc cache in the same shape
+  $db['rates']['intlOhlc'] = [
+    'gold' => ['price' => $legs['gold']['price'], 'high' => $legs['gold']['high'], 'low' => $legs['gold']['low'], 'prev' => $legs['gold']['prev'], 'src' => $legs['gold']['src']],
+    'silver' => ['price' => $legs['silver']['price'], 'high' => $legs['silver']['high'], 'low' => $legs['silver']['low'], 'prev' => $legs['silver']['prev'], 'src' => $legs['silver']['src']],
+    'inr' => ['price' => $legs['inr']['price'], 'high' => $legs['inr']['high'], 'low' => $legs['inr']['low'], 'prev' => $legs['inr']['prev'], 'src' => $legs['inr']['src']],
+    'fetchedAt' => time()];
+  return $out;
+}
+
 /* ───────── rate engine (identical math to Node) ───────── */
 const PURITY_22 = 0.9167, PURITY_18 = 0.75, OZ = 31.1034768;
 const BASE_GOLD = 11850.0, BASE_SILVER = 168.0;
@@ -828,24 +961,15 @@ function rates_refresh(array &$db): array {
   $gold24 = $last['gold24'] ?? BASE_GOLD;
   $silver = $last['silver'] ?? BASE_SILVER;
   $source = 'simulated';
-  $gold = fetch_url('https://api.gold-api.com/price/XAU');
-  $silv = fetch_url('https://api.gold-api.com/price/XAG');
-  $fx = fetch_url('https://open.er-api.com/v6/latest/USD');
-  $ohlc = intl_ohlc($db);   // v68+ — day H/L + Yahoo/Stooq/ECB mirror sources
-  $usdGold = (float)($last['usdGold'] ?? 0); $usdSilver = (float)($last['usdSilver'] ?? 0);
-  // v72 — resolve each leg independently across providers (one blocked host
-  // must never blank all three dollar cards)
-  $gUsd = (float)($gold['price'] ?? 0); if ($gUsd <= 0) $gUsd = (float)($ohlc['gold']['price'] ?? 0);
-  $sUsd = (float)($silv['price'] ?? 0); if ($sUsd <= 0) $sUsd = (float)($ohlc['silver']['price'] ?? 0);
-  $inr = (float)($fx['rates']['INR'] ?? 0); if ($inr <= 0) $inr = (float)($ohlc['inr']['price'] ?? 0);
-  $spotSrc = [
-    'gold' => $gold['price'] ?? null ? 'gold-api' : ($ohlc['gold']['src'] ?? ''),
-    'silver' => $silv['price'] ?? null ? 'gold-api' : ($ohlc['silver']['src'] ?? ''),
-    'fx' => $fx['rates']['INR'] ?? null ? 'er-api' : ($ohlc['inr']['src'] ?? ''),
-  ];
+  // v73 — one parallel resolver across all providers (gold/silver/FX)
+  $spot = spot_resolve($db);
+  $gLeg = $spot['gold']; $sLeg = $spot['silver']; $fxLeg = $spot['inr'];
+  $gUsd = (float)$gLeg['price']; $sUsd = (float)$sLeg['price']; $inr = (float)$fxLeg['price'];
+  $usdGold = $gUsd; $usdSilver = $sUsd;
+  $spotSrc = ['gold' => $gLeg['src'], 'silver' => $sLeg['src'], 'fx' => $fxLeg['src']];
   $liveLegs = 0;
-  if ($gUsd > 0 && $inr > 0) { $gold24 = ($gUsd * $inr) / OZ; $liveLegs++; $usdGold = $gUsd; }
-  if ($sUsd > 0 && $inr > 0) { $silver = ($sUsd * $inr) / OZ; $liveLegs++; $usdSilver = $sUsd; }
+  if ($gUsd > 0 && $inr > 0) { $gold24 = ($gUsd * $inr) / OZ; $liveLegs++; }
+  if ($sUsd > 0 && $inr > 0) { $silver = ($sUsd * $inr) / OZ; $liveLegs++; }
   if ($liveLegs < 2) {
     $gold24 = clampn($gold24 * (1 + (mt_rand(-35, 35) / 10000)), BASE_GOLD * 0.96, BASE_GOLD * 1.04);
     $silver = clampn($silver * (1 + (mt_rand(-50, 50) / 10000)), BASE_SILVER * 0.96, BASE_SILVER * 1.04);
@@ -853,16 +977,12 @@ function rates_refresh(array &$db): array {
   } else {
     $source = 'live';
   }
-  if ($inr <= 0) $inr = (float)($last['usdInr'] ?? ($db['settings']['usdInr'] ?? 85.4));
-  // day bands / previous closes for the dollar spot strip
-  $band = static function (?array $o, float $price): array {
-    $hi = (float)($o['high'] ?? 0); $lo = (float)($o['low'] ?? 0); $pv = (float)($o['prev'] ?? 0);
-    if ($hi <= 0) $hi = $price; if ($lo <= 0) $lo = $price;
-    return [$hi, $lo, $pv, $pv > 0 ? round(($price - $pv) / $pv * 100, 2) : 0.0];
-  };
-  [$gUsdHi, $gUsdLo, $gUsdPv, $gUsdPct] = $band($ohlc['gold'] ?? null, $usdGold);
-  [$sUsdHi, $sUsdLo, $sUsdPv, $sUsdPct] = $band($ohlc['silver'] ?? null, $usdSilver);
-  [$fxHi, $fxLo, $fxPv, $fxPct] = $band($ohlc['inr'] ?? null, $inr);
+  if ($inr <= 0) $inr = (float)($last['usdInr'] ?? ($db['settings']['manualUsdInr'] ?? ($db['settings']['usdInr'] ?? 95.5)));
+  $gUsdHi = (float)$gLeg['high'] ?: $gUsd; $gUsdLo = (float)$gLeg['low'] ?: $gUsd;
+  $sUsdHi = (float)$sLeg['high'] ?: $sUsd; $sUsdLo = (float)$sLeg['low'] ?: $sUsd;
+  $fxHi = (float)$fxLeg['high'] ?: $inr; $fxLo = (float)$fxLeg['low'] ?: $inr;
+  $gUsdPct = (float)$gLeg['pct']; $sUsdPct = (float)$sLeg['pct']; $fxPct = (float)$fxLeg['pct'];
+  $spotImplied = false;
   /* v61 — official MCX futures (Angel One SmartAPI) override when configured.
      MCX GOLD LTP is quoted per 10 g of 995-fine; SILVER per kg. Fully
      automatic TOTP login; failures fall back to the international feed above. */
@@ -878,6 +998,17 @@ function rates_refresh(array &$db): array {
       $silver = $mcx['silverPerG'];
       $source = 'live-mcx';
       $db['rates']['mcx'] = $mcx;
+      // v73 — if international providers were unreachable, the dollar cards
+      // still render: derive LBMA-equivalent spot from the live future.
+      if ($usdGold <= 0 || $usdSilver <= 0) {
+        $gImp = (float)($db['settings']['spotImpliedGoldFactor'] ?? 1.1371);
+        $sImp = (float)($db['settings']['spotImpliedSilverFactor'] ?? 1.1838);
+        if ($usdGold <= 0) $usdGold = round($mcx['goldPerG'] * OZ / max(1, $inr) / $gImp, 2);
+        if ($usdSilver <= 0) $usdSilver = round($mcx['silverPerG'] * OZ / max(1, $inr) / $sImp, 3);
+        if (!$gUsd) { $gUsd = $usdGold; $gUsdHi = $gUsdLo = $gUsd; $spotSrc['gold'] = 'mcx-implied'; }
+        if (!$sUsd) { $sUsd = $usdSilver; $sUsdHi = $sUsdLo = $sUsd; $spotSrc['silver'] = 'mcx-implied'; }
+        $spotImplied = true;
+      }
     }
   }
   $stamp = [
@@ -888,11 +1019,12 @@ function rates_refresh(array &$db): array {
     'silver' => round($silver, 1),
     'usdGold' => round($usdGold, 2),
     'usdSilver' => round($usdSilver, 3),
-    'usdInr' => round((float)($inr ?? $db['settings']['usdInr'] ?? 85.4), 2),
+    'usdInr' => round((float)($inr ?? $db['settings']['manualUsdInr'] ?? ($db['settings']['usdInr'] ?? 95.5)), 2),
     'usdGoldHigh' => round($gUsdHi, 2), 'usdGoldLow' => round($gUsdLo, 2), 'usdGoldPct' => $gUsdPct,
     'usdSilverHigh' => round($sUsdHi, 3), 'usdSilverLow' => round($sUsdLo, 3), 'usdSilverPct' => $sUsdPct,
     'usdInrHigh' => round($fxHi, 3), 'usdInrLow' => round($fxLo, 3), 'usdInrPct' => $fxPct,
     'spotSrc' => $spotSrc,
+    'spotKind' => $spotImplied ? 'mcx-implied' : ($liveLegs >= 2 ? 'live' : 'partial'),
     'source' => $source,
   ];
   $db['rates']['last'] = $stamp;
@@ -1168,13 +1300,13 @@ function bullion_rows(array &$db): array {
   $gPrem = (float)($db['settings']['bullionFuturePrem'] ?? 0.0025);
   $sPrem = (float)($db['settings']['silverFuturePrem'] ?? 0.0018);
   $xau = (float)($r['usdGold'] ?? 0); $xag = (float)($r['usdSilver'] ?? 0);
-  $fxNow = (float)($r['usdInr'] ?? ($db['settings']['usdInr'] ?? 85.4));
+  $fxNow = (float)($r['usdInr'] ?? ($db['settings']['manualUsdInr'] ?? ($db['settings']['usdInr'] ?? 95.5)));
   $oh = is_array($db['rates']['intlOhlc'] ?? null) ? $db['rates']['intlOhlc'] : [];
   $r2 = static fn($x, $d = 2) => $x > 0 ? round((float)$x, $d) : 0;
   // v72 — if every dollar provider failed but the MCX future is live, derive
   // the international spot from the future price (editable import factors),
   // so the dollar strip can never be blank while the exchange is open.
-  $spotKind = 'live';
+  $spotKind = (string)($r['spotKind'] ?? 'live');
   if ($xau <= 0 && $mcxOn) {
     $gImp = (float)($db['settings']['spotImpliedGoldFactor'] ?? 1.1371);
     $xau = (float)$mcx['goldLtp'] / 10 * OZ / max(1, $fxNow) / $gImp;
@@ -1252,7 +1384,7 @@ function bullion_rows(array &$db): array {
       'xagUsd' => round((float)($r['usdSilver'] ?? 0), 3),
       'xauUsdPerG' => round(((float)($r['usdGold'] ?? 0)) / OZ, 2),
       'xagUsdPerG' => round(((float)($r['usdSilver'] ?? 0)) / OZ, 3),
-      'inr' => round((float)($r['usdInr'] ?? ($db['settings']['usdInr'] ?? 85.4)), 2),
+      'inr' => round((float)($r['usdInr'] ?? ($db['settings']['manualUsdInr'] ?? ($db['settings']['usdInr'] ?? 95.5))), 2),
     ],
     'karat' => [
       'k24' => (int)round($fine * 10),
@@ -2450,6 +2582,8 @@ try {
   /* ── bullion (jeweller-only) ── */
   if ($route === 'bullion' && $method === 'GET') {
     $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
+    // v73 — opening/polling the desk also keeps the dollar/FX side fresh
+    if (rates_stale($db)) { rates_refresh($db); db_save($DB_FILE, $db); }
     $out = bullion_rows($db);
     /* v60 — attach this jeweller's rate alerts / unfix requests with live reached state */
     $byKey = [];
@@ -3243,6 +3377,37 @@ try {
     if ($mcx) jout(200, ['ok' => true, 'mcx' => $mcx]);
     $err = $db['angelSession']['lastError'] ?? 'login/quote failed (check credentials & market session)';
     jout(200, ['ok' => false, 'reason' => $err, 'debug' => $db['angelSession']['debug'] ?? null]);
+  }
+
+  /* v73 — live external-source diagnostic: probes every dollar/FX provider
+     in parallel from THIS server and reports status per host, so the owner
+     can see exactly what Hostinger's firewall allows. */
+  if ($route === 'admin/net-test' && $method === 'GET') {
+    need_admin($db);
+    $spot = spot_resolve($db, true);
+    // outbound IP for whitelist checks (best-effort, two mirrors)
+    $ipProbe = spot_probe_multi([
+      'ipify' => 'https://api.ipify.org?format=json',
+      'ifconfig' => 'https://ifconfig.me/ip',
+    ], 5);
+    $ip = trim((string)($ipProbe['ipify']['body'] ?? ($ipProbe['ifconfig']['body'] ?? '')));
+    if (strlen($ip) > 64) $ip = substr($ip, 0, 64);
+    db_save($DB_FILE, $db);
+    jout(200, [
+      'ok' => true,
+      'resolved' => [
+        'goldUsd' => $spot['gold']['price'], 'goldSrc' => $spot['gold']['src'],
+        'silverUsd' => $spot['silver']['price'], 'silverSrc' => $spot['silver']['src'],
+        'usdInr' => $spot['inr']['price'], 'inrSrc' => $spot['inr']['src'],
+      ],
+      'providers' => $spot['diag'],
+      'curlMulti' => function_exists('curl_multi_init'),
+      'outboundIp' => $ip,
+      'php' => PHP_VERSION,
+      'lastStamp' => $db['rates']['last']['t'] ?? null,
+      'stampSource' => $db['rates']['last']['source'] ?? null,
+      'stampInr' => $db['rates']['last']['usdInr'] ?? null,
+    ]);
   }
 
   /* ── settings / stats / users ── */
