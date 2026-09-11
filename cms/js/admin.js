@@ -1945,7 +1945,9 @@ window.ShivaaBullion = {
   },
   /* v61 — Laxmi-style summary hero for the two headline rates */
   summaryHTML(B) {
-    const g = B.rows.find(r => r.key === 'tdsGold995');
+    /* v64 — headline the physical 9999 refined-bar RTGS rate when the desk has it */
+    const g = B.rows.find(r => r.key === 'tdsGold9999') || B.rows.find(r => r.key === 'tdsGold995');
+    const gName = g && g.key === 'tdsGold9999' ? 'GOLD 9999 RTGS' : 'GOLD 995 TDS';
     const s = B.rows.find(r => r.key === 'silverChorsa');
     const cell = (dot, name, unit, buy, sell, chg, cls) => {
       const pct = chg ? (Math.abs(chg) / Math.max(1, buy - chg) * 100) : 0;
@@ -1959,7 +1961,7 @@ window.ShivaaBullion = {
     };
     const sc = 10, ss = 1000;
     return `<div class="bd-summary">
-      ${cell('#e9c77a', 'GOLD 995 TDS', '10 g', g ? Math.round(g.buy * sc) : 0, g ? Math.round(g.sell * sc) : 0, g ? g.change * sc : 0, 'gold')}
+      ${cell('#e9c77a', gName, '10 g', g ? Math.round(g.buy * sc) : 0, g ? Math.round(g.sell * sc) : 0, g ? g.change * sc : 0, 'gold')}
       ${cell('#d9d9d9', 'SILVER CHORSA', 'kg', s ? Math.round(s.buy * ss) : 0, s ? Math.round(s.sell * ss) : 0, s ? s.change * ss : 0, 'silver')}
     </div>`;
   },

@@ -576,7 +576,13 @@ function bullion_rows(array &$db): array {
      price, so we track it directly; international spot needs the .995 factor. */
   $mcxOn = ($r['source'] ?? '') === 'live-mcx' && !empty($db['rates']['mcx']);
   $g995 = $mcxOn ? $fine : ($fine * 0.995 + $gp);
+  /* v64 — dedicated 9999 refined-bar RTGS row: MCX 995 tick + the counter's
+     gold premium (the market convention for physical 99.99% refined bars);
+     on the international feed it is 99.99%-fine value + premium. */
+  $g9999 = $mcxOn ? ($fine + $gp) : ($fine * 0.9999 + $gp);
   $rows = [
+    $goldRow('tdsGold9999', 'TDS GOLD 9999 RTGS', '9999 · ' . date('d-m'), 'RTGS',
+      $g9999 - 2, $g9999 + 2, [$mcxOn ? ($gLo + $gp - 2) : ($gLo * 0.9999 + $gp - 2), $mcxOn ? ($gHi + $gp + 2) : ($gHi * 0.9999 + $gp + 2)]),
     $goldRow('tdsGold995', 'TDS GOLD 995 IND', '995 · ' . date('d-m'), 'RTGS',
       $g995 - 2, $g995 + 2, [$mcxOn ? $gLo : ($gLo * 0.995 + $gp - 2), $mcxOn ? $gHi : ($gHi * 0.995 + $gp + 2)]),
     ['key' => 'silverChorsa', 'label' => 'TDS SIL CHORSA', 'purity' => '98.00 · ' . date('d-m'), 'mode' => 'RTGS',
@@ -631,6 +637,7 @@ function bullion_rows(array &$db): array {
     $y = $hist[count($hist) - 2];
     $gf = (($r['source'] ?? '') === 'live-mcx') ? 1.0 : 0.995;
     $chg = ['tdsGold995' => (int)round(($r['gold24'] - $y['gold24']) * $gf),
+            'tdsGold9999' => (int)round(($r['gold24'] - $y['gold24']) * ($mcxOn ? 1.0 : 0.9999)),
             'silverChorsa' => (int)round(($r['silver'] - $y['silver']) * 0.98),
             'silverPeti' => (int)round(($r['silver'] - $y['silver']) * 0.999),
             'silverPetiBulk' => (int)round(($r['silver'] - $y['silver']) * 0.98),
