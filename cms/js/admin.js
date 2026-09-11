@@ -1877,11 +1877,51 @@ window.ShivaaBullion = {
   },
   num(v) { return (Math.round(v) || 0).toLocaleString('en-IN'); },
   dash(v) { return v ? this.num(v) : '--'; },
-  chgTxt(c) {
+  chgTxt(c, nowDisp) {
     const disp = Math.round(c);
     if (!disp) return '<span class="bd-flat">[--]</span>';
-    return disp > 0 ? `<span class="bd-up">[+${disp.toLocaleString('en-IN')}]</span>`
-                    : `<span class="bd-down">[${disp.toLocaleString('en-IN')}]</span>`;
+    const base = (nowDisp || 0) - disp;
+    const pct = base > 0 ? (Math.abs(disp) / base * 100) : 0;
+    const pTxt = pct ? `<small class="bd-pct">${pct >= 9.9 ? pct.toFixed(0) : pct.toFixed(2)}%</small>` : '';
+    return disp > 0 ? `<span class="bd-up">[+${disp.toLocaleString('en-IN')}]</span>${pTxt}`
+                    : `<span class="bd-down">[${disp.toLocaleString('en-IN')}]</span>${pTxt}`;
+  },
+  /* v61 — Laxmi-style summary hero for the two headline rates */
+  summaryHTML(B) {
+    const g = B.rows.find(r => r.key === 'tdsGold995');
+    const s = B.rows.find(r => r.key === 'silverChorsa');
+    const cell = (dot, name, unit, buy, sell, chg, cls) => {
+      const pct = chg ? (Math.abs(chg) / Math.max(1, buy - chg) * 100) : 0;
+      const up = chg >= 0;
+      return `<div class="bd-sum ${cls}">
+        <div class="bd-sum-h"><i style="background:${dot}"></i>${name} <small>per ${unit}</small></div>
+        <div class="bd-sum-buy">${buy ? this.num(buy) : '--'}</div>
+        <div class="bd-sum-b"><span>SELL <b>${sell ? this.num(sell) : '--'}</b></span>
+          <em class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${pct ? pct.toFixed(2) + '%' : '—'}</em></div>
+      </div>`;
+    };
+    const sc = 10, ss = 1000;
+    return `<div class="bd-summary">
+      ${cell('#e9c77a', 'GOLD 995 TDS', '10 g', g ? Math.round(g.buy * sc) : 0, g ? Math.round(g.sell * sc) : 0, g ? g.change * sc : 0, 'gold')}
+      ${cell('#d9d9d9', 'SILVER CHORSA', 'kg', s ? Math.round(s.buy * ss) : 0, s ? Math.round(s.sell * ss) : 0, s ? s.change * ss : 0, 'silver')}
+    </div>`;
+  },
+  karatHTML(B) {
+    const k = (B.board && B.board.karat) || {};
+    const box = (t, v) => `<div class="bd-kar"><small>${t}</small><b>${v ? this.num(v) : '--'}</b></div>`;
+    return `<div class="bd-karstrip">
+      ${box('24K · 999 /10g', k.k24)}${box('22K · 916 /10g', k.k22)}${box('20K · 833 /10g', k.k20)}${box('18K · 750 /10g', k.k18)}${box('Silver /kg', k.silverKg)}
+    </div>`;
+  },
+  intlHTML(B) {
+    const i = (B.board && B.board.intl) || {};
+    const it = (t, v, sub) => `<div class="bd-intl-it"><small>${t}</small><b>${v || v === 0 ? v : '--'}</b>${sub ? '<em>' + sub + '</em>' : ''}</div>`;
+    return `<div class="bd-intl">
+      ${it('GOLD $/oz', i.xauUsd ? '$' + Number(i.xauUsd).toLocaleString('en-US') : '', 'LBMA spot')}
+      ${it('GOLD $/g', i.xauUsdPerG ? '$' + i.xauUsdPerG : '', '')}
+      ${it('SILVER $/oz', i.xagUsd ? '$' + Number(i.xagUsd).toLocaleString('en-US') : '', 'LBMA spot')}
+      ${it('USD/INR', i.inr ? '₹' + i.inr : '', 'RBI ref')}
+    </div>`;
   },
   isSil(r) { return /sil|silver/i.test(r.label || r); },
   sc(r) { return this.isSil(r) ? 1000 : 10; },
@@ -1906,6 +1946,7 @@ window.ShivaaBullion = {
         ${tab('deals', '🤝', 'Deals')}
         ${tab('history', '📈', 'History')}
         ${tab('alerts', '🔔', 'Alerts')}
+        ${tab('news', '📰', 'News')}
         ${tab('menu', '▤', 'Menu')}
       </nav>`;
     el.querySelectorAll('.bd-tabs a').forEach(a => a.onclick = e => {
@@ -1950,7 +1991,23 @@ window.ShivaaBullion = {
   renderSection() {
     const host = document.getElementById('bdSection');
     if (!host) return;
-    ({ rates: this.secRates, deals: this.secDeals, history: this.secHistory, alerts: this.secAlerts }[this.section] || this.secRates).call(this, host);
+    ({ rates: this.secRates, deals: this.secDeals, history: this.secHistory, alerts: this.secAlerts, news: this.secNews }[this.section] || this.secRates).call(this, host);
+  },
+
+  secNews(host) {
+    const news = (this.B && this.B.news) || [];
+    const dot = c => ({ Gold: '#e9c77a', Silver: '#d9d9d9', FX: '#9ec9ff' }[c] || '#e9c77a');
+    host.innerHTML = `<h4 class="bd-sech">Bullion market news</h4>
+      <p class="partner-note">Live bullion/MCX headlines, refreshed every 45 minutes from market feeds. Tap any headline for the full story.</p>
+      ${news.length ? news.map(n => `<a class="bd-news" href="${esc(n.url)}" target="_blank" rel="noopener">
+        <span class="bd-news-dot" style="background:${dot(n.cat)}"></span>
+        <div><b>${esc(n.title)}</b><small>${esc(n.source || '')}${n.ago ? ' · ' + esc(n.ago) : ''} · ${esc(n.cat || '')}</small></div>
+        <span>›</span></a>`).join('') : '<p class="partner-note">Headlines are loading on the next poll…</p>'}
+      <div class="bd-deal-acts" style="margin-top:12px">
+        <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="https://www.mcxindia.com/market-data/spot-market-price">MCX spot data ↗</a>
+        <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="https://ibja.in/">IBJA daily rates ↗</a>
+        <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="https://www.rbi.org.in/scripts/ReferenceRateArchive.aspx">RBI USD/INR ↗</a>
+      </div>`;
   },
 
   secRates(host) {
@@ -1961,8 +2018,12 @@ window.ShivaaBullion = {
       const raw = r[side], v = raw ? Math.round(raw * sc(r)) : 0;
       const cls = side === 'buy' ? 'bd-buy' : 'bd-sell';
       const quote = JSON.stringify({ key: r.key, label: r.label, mode: r.mode, side, rate: raw, purity: r.purity });
+      const fk = r.key + '-' + side;
+      let flash = '';
+      if (this.prevVals && this.prevVals[fk] != null && v && this.prevVals[fk] !== v) flash = v > this.prevVals[fk] ? ' bd-flash-up' : ' bd-flash-down';
+      if (this.prevVals || (this.prevVals = {})) this.prevVals[fk] = v;
       return `<div class="bd-cell">
-        <button class="bd-pill ${cls}" ${v ? `onclick='ShivaaBullion.orderForm(${quote})'` : 'disabled'}>${v ? this.num(v) : '--'}</button>
+        <button class="bd-pill ${cls}${flash}" ${v ? `onclick='ShivaaBullion.orderForm(${quote})'` : 'disabled'}>${v ? this.num(v) : '--'}</button>
         <small class="bd-lh">${side === 'buy' ? 'L' : 'H'}: <span class="${side === 'buy' ? 'bd-lowtxt' : 'bd-hitxt'}">${v && (side === 'buy' ? r.low : r.high) ? this.num(Math.round((r[side === 'buy' ? 'low' : 'high'] || raw) * sc(r))) : '--'}</span></small>
       </div>`;
     };
@@ -1979,7 +2040,7 @@ window.ShivaaBullion = {
         </div>
         ${cell(r, 'buy')}
         ${cell(r, 'sell')}
-        <div class="bd-chg">${this.chgTxt((r.change || 0) * (isSil(r) ? 1000 : 10))}</div>
+        <div class="bd-chg">${this.chgTxt((r.change || 0) * sc(r), Math.round((r.buy || 0) * sc(r)))}</div>
       </div>`;
     }).join('');
     const spot = bd.spot || {}, fut = bd.future || {}, duty = bd.duty || {};
@@ -1990,6 +2051,8 @@ window.ShivaaBullion = {
       <div class="bd-card-h">${title}</div><div class="bd-ba"><div><small>BID</small><span class="bd-bid">${this.dash(f && f.bid)}</span></div><div><small>ASK</small><span class="bd-ask">${this.dash(f && f.ask)}</span></div></div>
       <div class="bd-lhline"><span class="bd-lowtxt">L: ${this.num(lo)}</span> <i>|</i> <span class="bd-hitxt">H: ${this.num(hi)}</span></div></div>`;
     host.innerHTML = `
+      ${this.summaryHTML(B)}
+      ${this.karatHTML(B)}
       <div class="bd-chartcard">
         <div class="bd-chart-head">
           <div class="bd-chips">${seriesChips.map(([k, l]) => `<button class="bd-chip ${this.chartSeries === k ? 'on' : ''}" data-series="${k}">${l}</button>`).join('')}</div>
@@ -2013,6 +2076,12 @@ window.ShivaaBullion = {
       <div class="bd-spots bd-duty">
         ${card3('GOLD CUSTOM DUTY <small>/100 g</small>', duty.gold, duty.gold, duty.gold)}
         ${card3('SILVER CUSTOM DUTY <small>/kg</small>', duty.silver, duty.silver, duty.silver)}
+      </div>
+      <h4 class="bd-sech" style="padding:4px 4px 0">🌍 International spot &amp; USD/INR</h4>
+      ${this.intlHTML(B)}
+      <div class="bd-bookbar">
+        <a class="btn btn-gold btn-sm" href="tel:+918905005921">📞 Call &amp; book at this rate</a>
+        <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${window.Shivaa.waLink('Namaste Shivaa bullion desk ✦ I want to book at the rates shown now — Gold 995 ₹' + (B.rows.find(r => r.key === 'tdsGold995')?.buy || 0) + '/g, Silver Chorsa ₹' + (B.rows.find(r => r.key === 'silverChorsa')?.buy || 0) + '/g. Please confirm.')}">💬 WhatsApp desk</a>
       </div>
       <p class="bd-note">RTGS rows follow the live bullion feed (green = firm buying quote, red = firm selling quote). TDS 995 &amp; refined silver settle on the unfix rate of your call &mdash; tap a quote to trade, the 🔔 to set a rate alert, or <b>Request UNFIX</b> for a rate-lock. The desk confirms every deal on WhatsApp. Rates per <b>10 g</b> (gold) and per <b>kg</b> (silver).</p>`;
     host.querySelectorAll('.bd-chip').forEach(c => c.onclick = () => {

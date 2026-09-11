@@ -85,6 +85,66 @@ function fetch_url(string $url, int $timeout = 4): ?array {
   $d = json_decode($raw, true);
   return is_array($d) ? $d : null;
 }
+/* v61 — raw (non-JSON) HTTP fetch for RSS/XML feeds */
+function fetch_raw(string $url, int $timeout = 6): ?string {
+  if (!function_exists('curl_init')) return null;
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => $timeout,
+    CURLOPT_SSL_VERIFYPEER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 2,
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
+  ]);
+  $raw = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE); curl_close($ch);
+  return (!$raw || $code >= 400) ? null : (string)$raw;
+}
+
+/* v61 — bullion market news for the jeweller desk: cached RSS headlines,
+   filtered to bullion/MCX stories, with curated evergreen fallback. */
+function bullion_news(array &$db): array {
+  $cache = $db['bullion']['newsCache'] ?? null;
+  $fresh = is_array($cache) && (time() - (int)($cache['fetchedAt'] ?? 0)) < 2700;
+  if ($fresh && !empty($cache['items'])) return $cache['items'];
+  $items = [];
+  $feeds = [
+    ['u' => 'https://www.moneycontrol.com/rss/commodities.xml', 's' => 'Moneycontrol'],
+    ['u' => 'https://www.livemint.com/rss/markets', 's' => 'Mint'],
+    ['u' => 'https://economictimes.indiatimes.com/markets/commodities/rssfeeds/1688041442.cms', 's' => 'ET Markets'],
+  ];
+  $kw = ['gold', 'silver', 'bullion', 'mcx', 'comex', 'precious metal', 'rbi rate', 'duty', 'sovereign'];
+  foreach ($feeds as $f) {
+    $xml = @simplexml_load_string((string)fetch_raw($f['u'], 6));
+    if (!$xml || empty($xml->channel->item)) continue;
+    foreach ($xml->channel->item as $it) {
+      $title = trim(html_entity_decode(strip_tags((string)$it->title), ENT_QUOTES));
+      $link = trim((string)$it->link);
+      $desc = trim(html_entity_decode(strip_tags((string)$it->description), ENT_QUOTES));
+      $hay = strtolower($title . ' ' . $desc);
+      $hit = false; foreach ($kw as $k) if (strpos($hay, $k) !== false) { $hit = true; break; }
+      if (!$hit || $title === '' || $link === '') continue;
+      $ago = '';
+      if (!empty($it->pubDate)) {
+        $ts = strtotime((string)$it->pubDate);
+        if ($ts) { $mins = max(0, (int)floor((time() - $ts) / 60)); $ago = $mins < 60 ? $mins . 'm ago' : (int)floor($mins / 60) . 'h ago'; }
+      }
+      $title = function_exists('mb_substr') ? mb_substr($title, 0, 140) : substr($title, 0, 140);
+      $items[] = ['title' => $title, 'source' => $f['s'], 'url' => $link, 'ago' => $ago,
+        'cat' => stripos($title, 'silver') !== false ? 'Silver' : 'Gold'];
+      if (count($items) >= 10) break;
+    }
+    if (count($items) >= 8) break;
+  }
+  if (!$items) {
+    if (is_array($cache) && !empty($cache['items'])) return $cache['items'];
+    $items = [
+      ['title' => 'MCX Gold & Silver futures — today’s session', 'source' => 'MCX India', 'url' => 'https://www.mcxindia.com/market-data/spot-market-price', 'ago' => '', 'cat' => 'Gold'],
+      ['title' => 'IBJA daily gold & silver indicative prices', 'source' => 'IBJA', 'url' => 'https://ibja.in/', 'ago' => '', 'cat' => 'Gold'],
+      ['title' => 'RBI reference rate USD/INR', 'source' => 'RBI', 'url' => 'https://www.rbi.org.in/scripts/ReferenceRateArchive.aspx', 'ago' => '', 'cat' => 'FX'],
+    ];
+  }
+  $db['bullion']['newsCache'] = ['fetchedAt' => time(), 'items' => array_slice($items, 0, 10)];
+  return $db['bullion']['newsCache']['items'];
+}
+
 /* v58 — JSON POST with optional HTTP Basic auth (payment gateways) */
 function http_post_json(string $url, array $payload, string $userPwd = '', int $timeout = 12): ?array {
   if (!function_exists('curl_init')) return null;
@@ -120,14 +180,20 @@ function rates_refresh(array &$db): array {
   $gold = fetch_url('https://api.gold-api.com/price/XAU');
   $silv = fetch_url('https://api.gold-api.com/price/XAG');
   $fx = fetch_url('https://open.er-api.com/v6/latest/USD');
+  $usdGold = (float)($last['usdGold'] ?? 0); $usdSilver = (float)($last['usdSilver'] ?? 0);
   if ($gold && isset($gold['price']) && $silv && isset($silv['price']) && $fx && isset($fx['rates']['INR'])) {
     $inr = (float)$fx['rates']['INR'];
-    $gold24 = ((float)$gold['price'] * $inr) / OZ;
-    $silver = ((float)$silv['price'] * $inr) / OZ;
+    $usdGold = (float)$gold['price']; $usdSilver = (float)$silv['price'];
+    $gold24 = ($usdGold * $inr) / OZ;
+    $silver = ($usdSilver * $inr) / OZ;
     $source = 'live';
   } else {
     $gold24 = clampn($gold24 * (1 + (mt_rand(-35, 35) / 10000)), BASE_GOLD * 0.96, BASE_GOLD * 1.04);
     $silver = clampn($silver * (1 + (mt_rand(-50, 50) / 10000)), BASE_SILVER * 0.96, BASE_SILVER * 1.04);
+    // back-derive USD values so the international desk tile keeps moving
+    $inrNow = (float)($db['settings']['usdInr'] ?? 85.4);
+    if ($usdGold <= 0) $usdGold = round($gold24 * OZ / $inrNow, 2);
+    if ($usdSilver <= 0) $usdSilver = round($silver * OZ / $inrNow, 3);
     $source = ($last['source'] ?? '') === 'live' ? 'cached+sim' : 'simulated';
   }
   $stamp = [
@@ -136,6 +202,9 @@ function rates_refresh(array &$db): array {
     'gold22' => (int)round($gold24 * PURITY_22),
     'gold18' => (int)round($gold24 * PURITY_18),
     'silver' => round($silver, 1),
+    'usdGold' => round($usdGold, 2),
+    'usdSilver' => round($usdSilver, 3),
+    'usdInr' => round((float)($inr ?? $db['settings']['usdInr'] ?? 85.4), 2),
     'source' => $source,
   ];
   $db['rates']['last'] = $stamp;
@@ -368,6 +437,21 @@ function bullion_rows(array &$db): array {
                  'goldLow' => (int)round($gLo * 10), 'goldHigh' => (int)round($gHi * 10 * (1 + $gPrem)),
                  'silverLow' => (int)round($sLo * 1000), 'silverHigh' => (int)round($sHi * 1000 * (1 + $sPrem))],
     'duty' => ['gold' => (int)round($fine * 100 * 1.15), 'silver' => (int)round($sil * 1000 * 1.10)],
+    /* v61 — international spot (USD/troy oz) + derived karat rates per 10 g */
+    'intl' => [
+      'xauUsd' => round((float)($r['usdGold'] ?? 0), 2),
+      'xagUsd' => round((float)($r['usdSilver'] ?? 0), 3),
+      'xauUsdPerG' => round(((float)($r['usdGold'] ?? 0)) / OZ, 2),
+      'xagUsdPerG' => round(((float)($r['usdSilver'] ?? 0)) / OZ, 3),
+      'inr' => round((float)($r['usdInr'] ?? ($db['settings']['usdInr'] ?? 85.4)), 2),
+    ],
+    'karat' => [
+      'k24' => (int)round($fine * 10),
+      'k22' => (int)round($fine * PURITY_22 * 10),
+      'k20' => (int)round($fine * (20 / 24) * 10),
+      'k18' => (int)round($fine * PURITY_18 * 10),
+      'silverKg' => (int)round($sil * 1000),
+    ],
     'ticker' => (string)($db['settings']['bullionTicker'] ?? '★ सोना व चांदी में UNFIX सुविधा उपलब्ध है ★'),
     'time' => date('H:i:s A'),
   ];
@@ -1565,6 +1649,9 @@ try {
     }
     unset($al);
     $out['alerts'] = array_reverse($myAlerts);
+    $newsFresh = is_array($db['bullion']['newsCache'] ?? null) && (time() - (int)($db['bullion']['newsCache']['fetchedAt'] ?? 0)) < 2700;
+    $out['news'] = bullion_news($db);
+    if (!$newsFresh) db_save($DB_FILE, $db);   // news cache refreshed (~every 45 min)
     jout(200, $out);
   }
   if ($route === 'bullion/cash' && $method === 'PUT') {

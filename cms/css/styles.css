@@ -5633,3 +5633,49 @@ html.quote-mode #view{padding-top:0 !important}
 .paymil-bar{position:relative;height:22px;border-radius:99px;background:#eee2cf;overflow:hidden;border:1px solid var(--line)}
 .paymil-bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#b98a2f,#e3c46d);border-radius:99px;transition:width .6s var(--ease)}
 .paymil-bar span{position:relative;display:grid;place-items:center;height:22px;font-size:10.5px;font-weight:800;letter-spacing:.6px;color:#3a2208;text-align:center;width:100%}
+/* ═══════ v61 bullion desk · Laxmi-style port ═══════ */
+.bd-tabs{grid-template-columns:repeat(6,1fr)}
+.bd-tabs a{font-size:8.5px}
+.bd-navcnt{right:14%}
+.bd-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px 2px}
+.bd-sum{border:1px solid rgba(201,162,75,.55);border-radius:14px;padding:11px 13px;
+  background:linear-gradient(160deg,rgba(201,162,75,.16),rgba(201,162,75,.03))}
+.bd-sum.silver{border-color:rgba(220,220,220,.45);background:linear-gradient(160deg,rgba(220,220,220,.13),rgba(220,220,220,.02))}
+.bd-sum-h{font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e9c77a;display:flex;align-items:center;gap:6px;font-weight:800}
+.bd-sum.silver .bd-sum-h{color:#e8e8e8}
+.bd-sum-h i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.bd-sum-h small{text-transform:none;letter-spacing:0;color:rgba(244,232,207,.55);margin-left:auto;font-weight:500}
+.bd-sum-buy{font-family:var(--ff-disp);font-size:25px;color:#fff;font-weight:800;line-height:1.15;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.bd-sum-b{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:rgba(244,232,207,.6)}
+.bd-sum-b b{color:#f4e8cf;font-size:12.5px;font-variant-numeric:tabular-nums;margin-left:5px}
+.bd-sum-b em{font-style:normal;font-size:10.5px;font-weight:800}
+.bd-karstrip{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px 12px 2px}
+.bd-kar{border:1px solid rgba(201,162,75,.35);border-radius:10px;text-align:center;padding:8px 4px;background:rgba(201,162,75,.06)}
+.bd-kar small{display:block;font-size:8px;letter-spacing:.5px;color:rgba(244,232,207,.6);text-transform:uppercase}
+.bd-kar b{display:block;font-size:12.5px;color:#f6ead0;margin-top:3px;font-variant-numeric:tabular-nums}
+.bd-intl{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:6px 12px}
+.bd-intl-it{border:1px solid rgba(201,162,75,.4);border-radius:12px;padding:9px 6px;text-align:center;background:rgba(201,162,75,.07)}
+.bd-intl-it small{display:block;font-size:9px;color:#e9c77a;letter-spacing:.8px;text-transform:uppercase}
+.bd-intl-it b{font-size:14.5px;color:#fff;font-variant-numeric:tabular-nums;display:block;margin-top:3px}
+.bd-intl-it em{font-style:normal;font-size:8.5px;color:rgba(244,232,207,.5)}
+.bd-pct{display:block;font-size:9px;opacity:.85;font-variant-numeric:tabular-nums}
+@keyframes bdFlashUp{0%{background:#13a567;box-shadow:0 0 0 4px rgba(70,220,150,.35)}100%{}}
+@keyframes bdFlashDown{0%{background:#d64553;box-shadow:0 0 0 4px rgba(240,110,120,.35)}100%{}}
+.bd-pill.bd-flash-up{animation:bdFlashUp .9s ease-out}
+.bd-pill.bd-flash-down{animation:bdFlashDown .9s ease-out}
+.bd-bookbar{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;padding:12px 12px 2px}
+.bd-bookbar .btn{color:#f4e8cf}
+.bd-news{display:flex;align-items:center;gap:10px;border:1px solid rgba(201,162,75,.35);border-radius:12px;padding:10px 12px;margin-bottom:8px;
+  background:rgba(201,162,75,.06);text-decoration:none;color:#f4e8cf}
+.bd-news:active{transform:scale(.99)}
+.bd-news-dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+.bd-news div{flex:1;min-width:0}
+.bd-news b{font-size:12.5px;line-height:1.4;font-weight:700;display:block}
+.bd-news small{font-size:10px;color:rgba(244,232,207,.55)}
+.bd-news>span:last-child{color:#e9c77a;font-size:20px}
+@media(max-width:560px){
+  .bd-summary{grid-template-columns:1fr}
+  .bd-karstrip{grid-template-columns:repeat(3,1fr)}
+  .bd-kar:last-child{grid-column:span 3}
+  .bd-intl{grid-template-columns:repeat(2,1fr)}
+}
