@@ -184,6 +184,22 @@ function compute_price(array $p, array $R): array {
           'stoneValue' => $stoneValue, 'subtotal' => $subtotal, 'gst' => $gst, 'total' => $subtotal + $gst];
 }
 
+/* v60 — payment ledger on an order: supports multiple part payments/advances.
+   Mutates the order array and recomputes amountPaid + paymentStatus. */
+function order_add_payment(array &$ord, array $pay): void {
+  $pay['amount'] = (int)round((float)($pay['amount'] ?? $ord['total'] ?? 0));
+  $pay['at'] = $pay['at'] ?? now_iso();
+  $pay['status'] = $pay['status'] ?? 'approved';
+  $ord['payments'] = $ord['payments'] ?? [];
+  $ord['payments'][] = $pay;
+  if ($pay['status'] === 'approved') {
+    $ord['amountPaid'] = array_sum(array_map(fn($p) => $p['status'] === 'approved' ? (int)$p['amount'] : 0, $ord['payments']));
+    $total = (int)($ord['total'] ?? 0);
+    if ($ord['amountPaid'] >= $total && $total > 0) { $ord['paymentStatus'] = 'Paid'; $ord['paidAt'] = $ord['paidAt'] ?? now_iso(); $ord['balance'] = 0; }
+    elseif ($ord['amountPaid'] > 0) { $ord['paymentStatus'] = 'Partially paid'; $ord['balance'] = max(0, $total - $ord['amountPaid']); }
+  }
+}
+
 /* ───────── auth ───────── */
 /* ── password hashing (bcrypt, with transparent upgrade from legacy sha256+salt) ── */
 function pw_hash(string $plain): string { return password_hash($plain, PASSWORD_DEFAULT); }
@@ -357,7 +373,17 @@ function bullion_rows(array &$db): array {
   ];
   if (is_array($db['bullion']['boardOverride'] ?? null)) $board = array_replace_recursive($board, $db['bullion']['boardOverride']);
 
-  return ['rows' => $rows, 'board' => $board, 'updatedAt' => $db['bullion']['updatedAt'], 'date' => date('d M Y')];
+  /* v60 — intraday chart series (display units: gold per 10 g, silver per kg) */
+  $chart = ['t' => [], 'gold995' => [], 'silverChorsa' => [], 'goldSpot' => [], 'silverSpot' => []];
+  foreach (array_slice($hist, -180) as $h) {
+    $chart['t'][] = $h['t'] ?? now_iso();
+    $chart['gold995'][] = (int)round(((float)$h['gold24'] * 0.995 + $gp - 2) * 10);
+    $chart['silverChorsa'][] = (int)round((float)$h['silver'] * 0.98 * 1000);
+    $chart['goldSpot'][] = (int)round((float)$h['gold24'] * 10);
+    $chart['silverSpot'][] = (int)round((float)$h['silver'] * 1000);
+  }
+
+  return ['rows' => $rows, 'board' => $board, 'chart' => $chart, 'updatedAt' => $db['bullion']['updatedAt'], 'date' => date('d M Y')];
 }
 /* v57 ── personal occasion coupons (birthday / anniversary) ──
    Auto-issued up to 7 days before the date in the shopper's profile; one
@@ -427,7 +453,15 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts'] as $__k) $db[$__k] = $db[$__k] ?? [];
+
+/* v60 — lightweight audit trail for money/status actions */
+function audit_log(array &$db, string $what, array $meta = []): void {
+  $u = req_user($db);
+  $db['auditLog'][] = ['id' => uid('al'), 'what' => substr($what, 0, 120), 'meta' => $meta,
+    'by' => $u ? ($u['name'] ?? $u['id']) : 'system', 'at' => now_iso()];
+  if (count($db['auditLog']) > 4000) $db['auditLog'] = array_slice($db['auditLog'], -4000);
+}
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -1064,6 +1098,7 @@ try {
         $pr = compute_price($prod, $R);
         $line = ['productId' => $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null,
                  'qty' => max(1, (int)($it['qty'] ?? 1)), 'weightG' => $prod['weightG'], 'purity' => $prod['purity'], 'metal' => $prod['metal'],
+                 'hsn' => ($prod['metal'] ?? '') === 'Silver' ? '71131110' : '71131910',
                  'unitPrice' => $pr['total'], 'ratePerGram' => $pr['ratePerGram'], 'makingCharge' => $pr['makingCharge'], 'gst' => $pr['gst'],
                  'size' => $it['size'] ?? null, 'engraving' => $it['engraving'] ?? null];
         $subtotal += $line['unitPrice'] * $line['qty'];
@@ -1094,8 +1129,15 @@ try {
     $codFee = ($pm === 'COD' && $codFeePct > 0) ? (int)round($subtotal * $codFeePct / 100) : 0;
     $total = max(0, $subtotal - $discount - $prepaid + $codFee + $shipping);
     $earned = (int)floor($total / 100);
+    /* v60 — sequential financial-year invoice number (GST) */
+    $fy = ((int)date('n') >= 4) ? date('y') . '-' . str_pad(((int)date('y')) + 1, 2, '0', STR_PAD_LEFT)
+                                : str_pad(((int)date('y')) - 1, 2, '0', STR_PAD_LEFT) . '-' . date('y');
+    $seq = (int)($db['settings']['invoiceSeq'] ?? 100) + 1;
+    $db['settings']['invoiceSeq'] = $seq;
+    $invoiceNo = 'SHV/' . $fy . '/' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
     $order = [
-      'id' => 'SHV' . substr((string)time(), -8), 'userId' => $u['id'], 'userName' => $u['name'], 'items' => $items,
+      'id' => 'SHV' . substr((string)time(), -8), 'invoiceNo' => $invoiceNo, 'hsn' => '71131910',
+      'userId' => $u['id'], 'userName' => $u['name'], 'items' => $items,
       'address' => $b['address'] ?? (object)[], 'paymentMethod' => $pm,
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Awaiting payment'),
       'subtotal' => $subtotal, 'discount' => $discount, 'prepaidDiscount' => $prepaid, 'codFee' => $codFee,
@@ -1135,6 +1177,7 @@ try {
         if (!empty($patch['paymentStatus'])) $x['paymentStatus'] = substr((string)$patch['paymentStatus'], 0, 40);
         $o = $x;
       }
+      if (!empty($patch['status']) || !empty($patch['paymentStatus'])) audit_log($db, 'order.updated', ['order' => $m[1], 'status' => $patch['status'] ?? null, 'payment' => $patch['paymentStatus'] ?? null]);
       db_save($DB_FILE, $db); jout(200, $o);
     }
   }
@@ -1173,7 +1216,12 @@ try {
     $b = body_json();
     [$i, $o, $u] = $find_order_owner((string)($b['orderId'] ?? ''));
     $s = $db['settings'];
-    $amountPaise = (int)round(((float)$o['total']) * 100);
+    // v60: charge only the outstanding balance (advances / part payments already made)
+    $already = (int)($o['amountPaid'] ?? 0);
+    if (empty($o['payments']) && ($o['paymentStatus'] ?? '') === 'Paid') $already = max($already, (int)($o['total'] ?? 0));
+    $due = max(0, (int)($o['total'] ?? 0) - $already);
+    if ($due <= 0) jout(400, ['error' => 'This order is already fully paid']);
+    $amountPaise = (int)round($due * 100);
     if (!empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']) && (($s['payProvider'] ?? '') === 'razorpay')) {
       $rzp = http_post_json('https://api.razorpay.com/v1/orders', [
         'amount' => $amountPaise, 'currency' => 'INR', 'receipt' => $o['id'],
@@ -1205,10 +1253,15 @@ try {
     } elseif (strpos($gOrderId, 'demo_') !== 0) {
       jout(400, ['error' => 'Gateway not configured for live payments.']);
     }
+    $gw = (!empty($s['rzpKeyId']) && ($s['payProvider'] ?? '') === 'razorpay') ? 'razorpay' : 'demo';
+    $alreadyNow = array_sum(array_map(fn($p) => ($p['status'] ?? '') === 'approved' ? (int)$p['amount'] : 0, $o['payments'] ?? []));
+    $paidAmt = max(1, (int)($o['total'] ?? 0) - $alreadyNow);
+    order_add_payment($db['orders'][$i], ['amount' => $paidAmt, 'mode' => $gw, 'ref' => $payId ?: $gOrderId, 'at' => now_iso(), 'status' => 'approved']);
     $db['orders'][$i]['paymentStatus'] = 'Paid';
     $db['orders'][$i]['paidAt'] = now_iso();
     $db['orders'][$i]['paymentRef'] = $payId ?: $gOrderId;
-    $db['orders'][$i]['gateway'] = ($s['payProvider'] ?? 'demo') === 'razorpay' && !empty($s['rzpKeyId']) ? 'razorpay' : 'demo';
+    $db['orders'][$i]['gateway'] = $gw;
+    audit_log($db, 'payment.gateway-paid', ['order' => $o['id'], 'amount' => $paidAmt, 'gateway' => $gw]);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
   }
@@ -1230,11 +1283,19 @@ try {
     $name = 'pp_' . $o['id'] . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
     if (!move_uploaded_file($f['tmp_name'], __DIR__ . '/uploads/payproofs/' . $name))
       jout(500, ['error' => 'Could not save the screenshot — check uploads/ permissions (755)']);
-    $db['orders'][$i]['paymentStatus'] = 'Proof submitted';
-    $db['orders'][$i]['payProof'] = ['file' => '/uploads/payproofs/' . $name,
-      'at' => now_iso(), 'amount' => (int)round((float)($_POST['amount'] ?? $o['total'])),
+    $partAmt = (int)round((float)($_POST['amount'] ?? $o['total']));
+    $proof = ['file' => '/uploads/payproofs/' . $name,
+      'at' => now_iso(), 'amount' => $partAmt,
       'ref' => substr(trim((string)($_POST['ref'] ?? '')), 0, 60),
-      'gateway' => 'upi-qr'];
+      'mode' => 'upi-qr', 'status' => 'submitted'];
+    // v60: every proof becomes a ledger line (advances / part payments supported)
+    $db['orders'][$i]['payments'] = $db['orders'][$i]['payments'] ?? [];
+    $db['orders'][$i]['payments'][] = $proof;
+    $alreadyApproved = array_sum(array_map(fn($p) => ($p['status'] ?? '') === 'approved' ? (int)$p['amount'] : 0, $db['orders'][$i]['payments']));
+    $db['orders'][$i]['amountPaid'] = $alreadyApproved;
+    $db['orders'][$i]['balance'] = max(0, (int)$o['total'] - $alreadyApproved);
+    $db['orders'][$i]['paymentStatus'] = 'Proof submitted';
+    $db['orders'][$i]['payProof'] = $proof;   // latest proof, for simple UI
     $db['orders'][$i]['gateway'] = 'upi-qr';
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
@@ -1250,14 +1311,34 @@ try {
     $decision = (string)($b['decision'] ?? '');
     foreach ($db['orders'] as $idx => $ord) if (($ord['id'] ?? '') === (string)($b['orderId'] ?? '')) {
       if ($decision === 'approve') {
-        $db['orders'][$idx]['paymentStatus'] = 'Paid';
-        $db['orders'][$idx]['paidAt'] = now_iso();
+        // approve the latest submitted proof (or an admin-entered manual amount)
+        $manualAmt = isset($b['amount']) ? (int)round((float)$b['amount']) : 0;
+        if ($manualAmt > 0) {
+          order_add_payment($db['orders'][$idx], ['amount' => $manualAmt, 'mode' => substr((string)($b['mode'] ?? 'cash'), 0, 12), 'ref' => substr((string)($b['ref'] ?? ''), 0, 60), 'at' => now_iso(), 'status' => 'approved']);
+        } else {
+          $pays =& $db['orders'][$idx]['payments'];
+          for ($k = count($pays) - 1; $k >= 0; $k--) { if (($pays[$k]['status'] ?? '') === 'submitted') { $pays[$k]['status'] = 'approved'; $pays[$k]['approvedAt'] = now_iso(); break; } }
+          unset($pays);
+          $paid = array_sum(array_map(fn($p) => ($p['status'] ?? '') === 'approved' ? (int)$p['amount'] : 0, $db['orders'][$idx]['payments'] ?? []));
+          $db['orders'][$idx]['amountPaid'] = $paid;
+          $db['orders'][$idx]['balance'] = max(0, (int)$ord['total'] - $paid);
+          $db['orders'][$idx]['paymentStatus'] = $paid >= (int)$ord['total'] ? 'Paid' : ($paid > 0 ? 'Partially paid' : 'Awaiting payment');
+          if ($db['orders'][$idx]['paymentStatus'] === 'Paid') $db['orders'][$idx]['paidAt'] = now_iso();
+        }
         $db['orders'][$idx]['gateway'] = 'upi-qr';
-        if (!empty($db['orders'][$idx]['payProof']['ref'])) $db['orders'][$idx]['paymentRef'] = $db['orders'][$idx]['payProof']['ref'];
+        audit_log($db, 'payment.approved', ['order' => $ord['id'], 'manual' => $manualAmt]);
       } else {
-        $db['orders'][$idx]['paymentStatus'] = 'Awaiting payment';
-        $db['orders'][$idx]['payProof']['rejectedAt'] = now_iso();
-        $db['orders'][$idx]['payProof']['rejectNote'] = substr((string)($b['note'] ?? ''), 0, 200);
+        $pays =& $db['orders'][$idx]['payments'];
+        for ($k = count($pays) - 1; $k >= 0; $k--) { if (($pays[$k]['status'] ?? '') === 'submitted') { $pays[$k]['status'] = 'rejected'; $pays[$k]['rejectNote'] = substr((string)($b['note'] ?? ''), 0, 200); break; } }
+        unset($pays);
+        $paid = array_sum(array_map(fn($p) => ($p['status'] ?? '') === 'approved' ? (int)$p['amount'] : 0, $db['orders'][$idx]['payments'] ?? []));
+        $db['orders'][$idx]['paymentStatus'] = $paid > 0 ? 'Partially paid' : 'Awaiting payment';
+        $db['orders'][$idx]['balance'] = max(0, (int)$ord['total'] - $paid);
+        if (!empty($db['orders'][$idx]['payProof'])) {
+          $db['orders'][$idx]['payProof']['rejectedAt'] = now_iso();
+          $db['orders'][$idx]['payProof']['rejectNote'] = substr((string)($b['note'] ?? ''), 0, 200);
+        }
+        audit_log($db, 'payment.proof-rejected', ['order' => $ord['id']]);
       }
       db_save($DB_FILE, $db);
       jout(200, ['ok' => true, 'order' => $db['orders'][$idx]]);
@@ -1471,7 +1552,20 @@ try {
   /* ── bullion (jeweller-only) ── */
   if ($route === 'bullion' && $method === 'GET') {
     $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
-    jout(200, bullion_rows($db));
+    $out = bullion_rows($db);
+    /* v60 — attach this jeweller's rate alerts / unfix requests with live reached state */
+    $byKey = [];
+    foreach ($out['rows'] as $rr) $byKey[$rr['key']] = $rr;
+    $myAlerts = array_values(array_filter($db['bullionAlerts'] ?? [], fn($a) => ($a['userId'] ?? '') === $u['id'] && empty($a['removed'])));
+    foreach ($myAlerts as &$al) {
+      $rr = $byKey[$al['key']] ?? null;
+      $now = $rr ? (float)($al['side'] === 'buy' ? $rr['buy'] : $rr['sell']) : 0;
+      $al['rateNow'] = $now;
+      $al['reached'] = $now > 0 && ($al['dir'] === 'below' ? $now <= (float)$al['target'] : $now >= (float)$al['target']);
+    }
+    unset($al);
+    $out['alerts'] = array_reverse($myAlerts);
+    jout(200, $out);
   }
   if ($route === 'bullion/cash' && $method === 'PUT') {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
@@ -1480,7 +1574,31 @@ try {
     foreach ($db['bullion']['cash'] as $k => $c) $db['bullion']['prev'][$k] = ['buy' => $c['buy'], 'sell' => $c['sell']];
     foreach (($b['cash'] ?? []) as $k => $v) if (isset($db['bullion']['cash'][$k])) { $db['bullion']['cash'][$k]['buy'] = (int)$v['buy']; $db['bullion']['cash'][$k]['sell'] = (int)$v['sell']; }
     $db['bullion']['updatedAt'] = now_iso(); $db['bullion']['updatedBy'] = $u['name'];
+    audit_log($db, 'bullion.cash-rates-set', ['by' => $u['name']]);
     db_save($DB_FILE, $db); jout(200, ['ok' => true] + bullion_rows($db));
+  }
+  /* v60 — rate alerts & unfix requests from the bullion desk */
+  if ($route === 'bullion/alert' && $method === 'POST') {
+    $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
+    $b = body_json();
+    $kind = ($b['kind'] ?? '') === 'unfix' ? 'unfix' : 'rate';
+    if ($kind === 'rate' && (float)($b['target'] ?? 0) <= 0) jout(400, ['error' => 'Enter a target rate']);
+    if (count(array_filter($db['bullionAlerts'], fn($a) => ($a['userId'] ?? '') === $u['id'] && empty($a['removed']))) >= 25)
+      jout(400, ['error' => 'You already have 25 active alerts — remove one first']);
+    $al = ['id' => uid('ba'), 'userId' => $u['id'], 'partnerName' => $u['name'], 'kind' => $kind,
+      'key' => substr((string)($b['key'] ?? ''), 0, 40), 'label' => substr((string)($b['label'] ?? ''), 0, 80),
+      'side' => ($b['side'] ?? 'buy') === 'sell' ? 'sell' : 'buy',
+      'dir' => ($b['dir'] ?? 'below') === 'above' ? 'above' : 'below',
+      'target' => (float)($b['target'] ?? 0), 'note' => substr((string)($b['note'] ?? ''), 0, 200),
+      'at' => now_iso(), 'removed' => false];
+    $db['bullionAlerts'][] = $al;
+    audit_log($db, 'bullion.alert', ['kind' => $kind, 'label' => $al['label'], 'target' => $al['target'], 'by' => $u['name']]);
+    db_save($DB_FILE, $db); jout(200, $al);
+  }
+  if (preg_match('#^bullion/alert/([\w-]+)/remove$#', $route, $mBAR) && $method === 'POST') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    foreach ($db['bullionAlerts'] as &$a) if ($a['id'] === $mBAR[1] && (($a['userId'] ?? '') === $u['id'] || $u['role'] === 'admin')) $a['removed'] = true;
+    unset($a); db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'bullion/order' && $method === 'POST') {
     $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
@@ -1788,7 +1906,342 @@ try {
     $found = false;
     foreach ($db['cashbook'] as $ci => $r) if (($r['kind'] ?? '') === 'day-close' && substr((string)($r['at'] ?? ''), 0, 10) === $day) { $db['cashbook'][$ci] = ['id' => $r['id'], 'kind' => 'day-close'] + $close; $found = true; }
     if (!$found) $db['cashbook'][] = ['id' => uid('cb'), 'kind' => 'day-close'] + $close;
+    audit_log($db, 'cashbook.day-closed', ['day' => $day]);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v60 · refunds / exchanges / COD confirmation
+     ════════════════════════════════════════════════════════════════ */
+  $find_order_for_routes = function (string $id) use ($db) {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    foreach ($db['orders'] as $idx => $o) if (($o['id'] ?? '') === $id) {
+      if ($o['userId'] !== $u['id'] && ($u['role'] ?? '') !== 'admin') jout(403, ['error' => 'Not your order']);
+      return [$idx, $o, $u];
+    }
+    jout(404, ['error' => 'Order not found']);
+  };
+  if (preg_match('#^orders/([\w-]+)/cod-confirm$#', $route, $mCC) && $method === 'POST') {
+    [$idx] = $find_order_for_routes($mCC[1]);
+    $db['orders'][$idx]['codConfirmed'] = true;
+    $db['orders'][$idx]['codConfirmedAt'] = now_iso();
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'order' => $db['orders'][$idx]]);
+  }
+  if (preg_match('#^orders/([\w-]+)/refund-request$#', $route, $mRR) && $method === 'POST') {
+    $b = body_json();
+    [$idx, $o] = $find_order_for_routes($mRR[1]);
+    $kind = in_array($b['kind'] ?? 'refund', ['refund', 'exchange'], true) ? $b['kind'] : 'refund';
+    if (empty($b['reason'])) jout(400, ['error' => 'Tell us the reason in a line']);
+    $rec = ['id' => uid('rf'), 'orderId' => $o['id'], 'userId' => $o['userId'], 'userName' => $o['userName'],
+      'kind' => $kind, 'reason' => substr((string)$b['reason'], 0, 400),
+      'items' => array_slice((array)($b['items'] ?? []), 0, 20),
+      'status' => 'requested', 'createdAt' => now_iso(), 'history' => [['s' => 'Requested', 't' => now_iso()]]];
+    $db['refundRequests'][] = $rec;
+    audit_log($db, 'refund.requested', ['order' => $o['id'], 'kind' => $kind]);
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $rec]);
+  }
+  if ($route === 'refunds/mine' && $method === 'GET') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    jout(200, ['requests' => array_reverse(array_values(array_filter($db['refundRequests'], fn($r) => $r['userId'] === $u['id'])))]);
+  }
+  if ($route === 'admin/refunds' && $method === 'GET') {
+    need_admin($db);
+    jout(200, ['requests' => array_reverse($db['refundRequests']), 'orders' => $db['orders']]);
+  }
+  if (preg_match('#^admin/refund/([\w-]+)$#', $route, $mRD) && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    foreach ($db['refundRequests'] as $ri => $r) if ($r['id'] === $mRD[1]) {
+      $decision = in_array($b['decision'] ?? '', ['approve', 'reject'], true) ? $b['decision'] : 'reject';
+      $db['refundRequests'][$ri]['status'] = $decision === 'approve' ? ($r['kind'] === 'exchange' ? 'exchanged' : 'refunded') : 'rejected';
+      $db['refundRequests'][$ri]['note'] = substr((string)($b['note'] ?? ''), 0, 300);
+      $db['refundRequests'][$ri]['decidedAt'] = now_iso();
+      $db['refundRequests'][$ri]['history'][] = ['s' => ucfirst($db['refundRequests'][$ri]['status']), 't' => now_iso()];
+      if ($decision === 'approve') {
+        $amt = (int)round((float)($b['amount'] ?? 0));
+        $mode = in_array($b['mode'] ?? '', ['cash', 'upi', 'bank', 'exchange'], true) ? $b['mode'] : 'upi';
+        foreach ($db['orders'] as $oi => $oo) if ($oo['id'] === $r['orderId']) {
+          if ($r['kind'] === 'refund') {
+            $db['orders'][$oi]['paymentStatus'] = 'Refunded';
+            $cnSeq = (int)($db['settings']['creditNoteSeq'] ?? 0) + 1;
+            $db['settings']['creditNoteSeq'] = $cnSeq;
+            $cnNo = 'CN/' . date('y') . '/' . str_pad((string)$cnSeq, 4, '0', STR_PAD_LEFT);
+            $db['orders'][$oi]['creditNote'] = $cnNo;
+            // default the refunded amount to whatever was actually paid
+            if ($amt <= 0) $amt = (int)($oo['amountPaid'] ?? (int)($oo['total'] ?? 0));
+            $db['refundRequests'][$ri]['amount'] = $amt; $db['refundRequests'][$ri]['mode'] = $mode; $db['refundRequests'][$ri]['creditNote'] = $cnNo;
+            if ($amt > 0 && $mode !== 'exchange') {
+              $db['cashbook'][] = ['id' => uid('cb'), 'kind' => 'out', 'head' => 'Refund ' . $oo['id'] . ' (' . $cnNo . ')',
+                'amount' => $amt, 'mode' => $mode, 'at' => now_iso(), 'by' => req_user($db)['name'] ?? ''];
+              if (count($db['cashbook']) > 5000) $db['cashbook'] = array_slice($db['cashbook'], -5000);
+            }
+          } else {
+            $db['orders'][$oi]['exchangedAt'] = now_iso();
+          }
+        }
+      }
+      audit_log($db, 'refund.' . $decision, ['request' => $r['id'], 'order' => $r['orderId']]);
+      db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $db['refundRequests'][$ri]]);
+    }
+    jout(404, ['error' => 'Request not found']);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v60 · reviews with photos, verified-purchase badge, owner replies
+     ════════════════════════════════════════════════════════════════ */
+  if ($route === 'reviews/photo' && $method === 'POST') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    $pid = (string)($_POST['productId'] ?? '');
+    $text = trim((string)($_POST['text'] ?? ''));
+    if ($pid === '' || $text === '') jout(400, ['error' => 'productId & text required']);
+    $photos = [];
+    if (!empty($_FILES['photos'])) {
+      if (!is_dir(__DIR__ . '/uploads/reviews')) @mkdir(__DIR__ . '/uploads/reviews', 0755, true);
+      $files = is_array($_FILES['photos']['name']) ? $_FILES['photos'] : ['name' => [$_FILES['photos']['name']], 'tmp_name' => [$_FILES['photos']['tmp_name']], 'error' => [$_FILES['photos']['error']], 'size' => [$_FILES['photos']['size']]];
+      foreach ($files['name'] as $fi => $fname) {
+        if (($files['error'][$fi] ?? 1) !== UPLOAD_ERR_OK) continue;
+        if (($files['size'][$fi] ?? 0) > 6291456) continue;
+        $ext = strtolower(pathinfo((string)$fname, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) $ext = 'jpg';
+        $head = (string)@file_get_contents($files['tmp_name'][$fi], false, null, 0, 12);
+        $isImage = substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n" || substr($head, 0, 4) === 'RIFF';
+        if (!$isImage) continue;
+        $nm = 'rv_' . bin2hex(random_bytes(5)) . '.' . $ext;
+        if (@move_uploaded_file($files['tmp_name'][$fi], __DIR__ . '/uploads/reviews/' . $nm)) $photos[] = '/uploads/reviews/' . $nm;
+        if (count($photos) >= 3) break;
+      }
+    }
+    // verified purchase: any non-cancelled order containing this product
+    $verified = false;
+    foreach ($db['orders'] as $oo) {
+      if ($oo['userId'] !== $u['id'] || ($oo['status'] ?? '') === 'Cancelled') continue;
+      foreach (($oo['items'] ?? []) as $it) if (($it['productId'] ?? '') === $pid) { $verified = true; break 2; }
+    }
+    $rv = ['id' => uid('rv'), 'productId' => $pid, 'userId' => $u['id'], 'userName' => $u['name'],
+      'verified' => $verified, 'photos' => $photos,
+      'rating' => clampn((int)($_POST['rating'] ?? 5), 1, 5), 'text' => cut500($text), 'createdAt' => now_iso()];
+    $db['reviews'][] = $rv;
+    foreach ($db['products'] as &$pr) if ($pr['id'] === $pid) {
+      $rs = array_values(array_filter($db['reviews'], fn($x) => $x['productId'] === $pr['id']));
+      $pr['rating'] = round(array_sum(array_column($rs, 'rating')) / max(1, count($rs)), 1);
+      $pr['reviews'] = count($rs);
+    }
+    unset($pr);
+    db_save($DB_FILE, $db); jout(200, $rv);
+  }
+  if (preg_match('#^admin/reviews/([\w-]+)/reply$#', $route, $mRV) && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    foreach ($db['reviews'] as $ri => $rv) if ($rv['id'] === $mRV[1]) {
+      $db['reviews'][$ri]['reply'] = substr((string)($b['reply'] ?? ''), 0, 600);
+      $db['reviews'][$ri]['replyAt'] = now_iso();
+      db_save($DB_FILE, $db); jout(200, ['ok' => true, 'review' => $db['reviews'][$ri]]);
+    }
+    jout(404, ['error' => 'Review not found']);
+  }
+  if ($route === 'admin/review-asks' && $method === 'GET') {
+    need_admin($db);
+    $cut = time() - 6 * 86400;   // delivered at least ~6 days ago
+    $reviewedPids = [];
+    foreach ($db['reviews'] as $rv) $reviewedPids[$rv['userId'] . '|' . $rv['productId']] = true;
+    $asks = [];
+    foreach ($db['orders'] as $o) {
+      if (($o['status'] ?? '') !== 'Delivered') continue;
+      if (strtotime((string)($o['createdAt'] ?? 'now')) > $cut) continue;   // needs ~6 days post-delivery
+    
+      $delivAt = $o['createdAt'];
+      foreach (($o['timeline'] ?? []) as $tl) if (($tl['status'] ?? '') === 'Delivered') $delivAt = $tl['at'] ?? $delivAt;
+      if (strtotime((string)$delivAt) > $cut) continue;
+      foreach (($o['items'] ?? []) as $it) {
+        if (empty($reviewedPids[($o['userId'] ?? '') . '|' . ($it['productId'] ?? '')])) {
+          $asks[] = ['orderId' => $o['id'], 'userName' => $o['userName'], 'phone' => ($o['address']['phone'] ?? $o['phone'] ?? ''),
+            'productId' => $it['productId'], 'name' => $it['name'], 'deliveredAt' => $delivAt];
+          $reviewedPids[($o['userId'] ?? '') . '|' . ($it['productId'] ?? '')] = true;
+        }
+      }
+      if (count($asks) >= 40) break;
+    }
+    jout(200, ['asks' => $asks]);
+  }
+
+  if ($route === 'admin/reviews' && $method === 'GET') {
+    need_admin($db);
+    $pmap = [];
+    foreach ($db['products'] as $pr) $pmap[$pr['id']] = $pr['name'] ?? '';
+    $rows = array_map(fn($r) => $r + ['productName' => $pmap[$r['productId']] ?? ''], array_reverse($db['reviews'] ?? []));
+    jout(200, ['reviews' => $rows]);
+  }
+
+  if ($route === 'referrals/stats' && $method === 'GET') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $code = (string)($u['referralCode'] ?? '');
+    $friends = array_values(array_filter($db['users'], fn($x) => ($x['referredBy'] ?? '') === $code));
+    $completed = 0; $reward = 0;
+    foreach ($friends as $f) {
+      $hasOrder = (bool)array_filter($db['orders'], fn($o) => $o['userId'] === $f['id'] && ($o['status'] ?? '') !== 'Cancelled');
+      if ($hasOrder) { $completed++; $reward += (int)($db['settings']['referralReward'] ?? 250); }
+    }
+    jout(200, ['code' => $code, 'signedUp' => count($friends), 'completed' => $completed,
+      'reward' => $reward, 'perFriend' => (int)($db['settings']['referralReward'] ?? 250)]);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v60 · Swarna Nidhi digital passbook
+     ════════════════════════════════════════════════════════════════ */
+  if ($route === 'savings' && $method === 'POST') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $b = body_json();
+    foreach ($db['savingsPlans'] as $p) if ($p['userId'] === $u['id'] && $p['status'] === 'active') jout(400, ['error' => 'You already have an active Swarna Nidhi plan. Close or redeem it before starting another.']);
+    $amt = (int)round((float)($b['monthlyAmount'] ?? 0));
+    if ($amt < 500) jout(400, ['error' => 'Monthly instalment must be at least ₹500']);
+    $plan = ['id' => uid('sp'), 'userId' => $u['id'], 'userName' => $u['name'], 'phone' => $u['phone'] ?? '',
+      'monthlyAmount' => $amt, 'status' => 'active', 'installments' => [],
+      'startedAt' => now_iso(), 'createdAt' => now_iso()];
+    $db['savingsPlans'][] = $plan;
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'plan' => $plan]);
+  }
+  if ($route === 'savings/mine' && $method === 'GET') {
+    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $plans = array_values(array_filter($db['savingsPlans'], fn($p) => $p['userId'] === $u['id']));
+    jout(200, ['plans' => array_reverse($plans)]);
+  }
+  if ($route === 'admin/savings' && $method === 'GET') {
+    need_admin($db);
+    $live = current_rates($db);
+    $plans = array_map(function ($p) use ($live) {
+      $paid = array_sum(array_map(fn($i) => $i['status'] === 'approved' ? (int)$i['amount'] : 0, $p['installments'] ?? []));
+      $months = count(array_filter($p['installments'] ?? [], fn($i) => $i['status'] === 'approved'));
+      $bonus = $months >= 11 ? (int)($p['monthlyAmount'] ?? 0) : 0;
+      $p['paidMonths'] = $months; $p['contributed'] = $paid; $p['bonus'] = $bonus;
+      $p['buyingPower'] = $paid + $bonus;
+      $p['indicativeGrams22'] = $live['gold22'] ? round(($paid + $bonus) / (float)$live['gold22'], 3) : 0;
+      return $p;
+    }, array_reverse($db['savingsPlans']));
+    jout(200, ['plans' => $plans]);
+  }
+  if (preg_match('#^admin/savings/([\w-]+)/(installment|redeem|close)$#', $route, $mSP) && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    foreach ($db['savingsPlans'] as $pi => $p) if ($p['id'] === $mSP[1]) {
+      if ($mSP[2] === 'installment') {
+        if ($p['status'] !== 'active') jout(400, ['error' => 'Plan is not active']);
+        $amt = (int)round((float)($b['amount'] ?? $p['monthlyAmount']));
+        if ($amt <= 0) jout(400, ['error' => 'Enter the instalment amount']);
+        $inst = ['id' => uid('si'), 'amount' => $amt, 'mode' => in_array($b['mode'] ?? '', ['cash', 'upi', 'bank'], true) ? $b['mode'] : 'upi',
+          'at' => !empty($b['at']) ? substr((string)$b['at'], 0, 19) : now_iso(),
+          'rate22' => (float)(current_rates($db)['gold22'] ?? 0), 'status' => 'approved', 'by' => req_user($db)['name'] ?? ''];
+        $db['savingsPlans'][$pi]['installments'][] = $inst;
+        $months = count($db['savingsPlans'][$pi]['installments']);
+        if ($months >= 11) $db['savingsPlans'][$pi]['bonusUnlockedAt'] = now_iso();
+        db_save($DB_FILE, $db); jout(200, ['ok' => true, 'installment' => $inst, 'months' => $months]);
+      }
+      if ($mSP[2] === 'redeem') {
+        $db['savingsPlans'][$pi]['status'] = 'redeemed';
+        $db['savingsPlans'][$pi]['redeemedAt'] = now_iso();
+        $db['savingsPlans'][$pi]['redeemNote'] = substr((string)($b['note'] ?? ''), 0, 300);
+        $db['savingsPlans'][$pi]['redeemOrderId'] = substr((string)($b['orderId'] ?? ''), 0, 24);
+        audit_log($db, 'savings.redeemed', ['plan' => $p['id']]);
+        db_save($DB_FILE, $db); jout(200, ['ok' => true, 'plan' => $db['savingsPlans'][$pi]]);
+      }
+      if ($mSP[2] === 'close') {
+        $db['savingsPlans'][$pi]['status'] = 'closed-refund';
+        $db['savingsPlans'][$pi]['closedAt'] = now_iso();
+        $db['savingsPlans'][$pi]['closeNote'] = substr((string)($b['note'] ?? ''), 0, 300);
+        audit_log($db, 'savings.closed', ['plan' => $p['id']]);
+        db_save($DB_FILE, $db); jout(200, ['ok' => true, 'plan' => $db['savingsPlans'][$pi]]);
+      }
+    }
+    jout(404, ['error' => 'Plan not found']);
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     v60 · reports, audit log, DPDP customer data
+     ════════════════════════════════════════════════════════════════ */
+  if ($route === 'admin/reports' && $method === 'GET') {
+    need_admin($db);
+    $from = substr((string)($_GET['from'] ?? date('Y-m-01')), 0, 10);
+    $to = substr((string)($_GET['to'] ?? date('Y-m-d')), 0, 10);
+    // order timestamps are ISO (…T…); compare as ISO so "today" is never excluded
+    $inRange = fn($t) => $t >= $from . 'T00:00:00' && $t <= $to . 'T23:59:59';
+    $os = array_values(array_filter($db['orders'], fn($o) => $inRange((string)($o['createdAt'] ?? ''))));
+    $valid = array_filter($os, fn($o) => ($o['status'] ?? '') !== 'Cancelled');
+    $orders = count($valid); $revenue = 0; $tax = 0; $metal = 0; $making = 0; $stones = 0; $shipping = 0; $prepaidDisc = 0;
+    $byMethod = []; $bestsellers = [];
+    foreach ($valid as $o) {
+      $revenue += (int)($o['total'] ?? 0);
+      $taxable = round(($o['total'] ?? 0) / 1.03);
+      $tax += (int)round((($o['total'] ?? 0) - $taxable));
+      foreach (($o['items'] ?? []) as $it) {
+        $making += (int)($it['makingCharge'] ?? 0) * (int)($it['qty'] ?? 1);
+        $stones += (int)($it['stoneValue'] ?? 0) * (int)($it['qty'] ?? 1);
+        $metal += ((int)($it['unitPrice'] ?? 0) * (int)($it['qty'] ?? 1)) - (int)($it['makingCharge'] ?? 0) * (int)($it['qty'] ?? 1) - (int)($it['gst'] ?? 0) * (int)($it['qty'] ?? 1);
+        $key = $it['productId'] ?? $it['name'];
+        $bestsellers[$key] = ($bestsellers[$key] ?? ['name' => $it['name'], 'qty' => 0, 'value' => 0]);
+        $bestsellers[$key]['qty'] += (int)($it['qty'] ?? 1);
+        $bestsellers[$key]['value'] += (int)($it['unitPrice'] ?? 0) * (int)($it['qty'] ?? 1);
+      }
+      $shipping += (int)($o['shipping'] ?? 0);
+      $prepaidDisc += (int)($o['prepaidDiscount'] ?? 0);
+      $m = $o['paymentMethod'] ?? 'Other';
+      $byMethod[$m] = $byMethod[$m] ?? ['n' => 0, 'value' => 0];
+      $byMethod[$m]['n']++; $byMethod[$m]['value'] += (int)($o['total'] ?? 0);
+    }
+    uasort($bestsellers, fn($a, $b) => $b['qty'] <=> $a['qty']);
+    $refunds = array_values(array_filter($db['refundRequests'], fn($r) => ($r['status'] ?? '') === 'refunded' && $inRange((string)($r['decidedAt'] ?? ''))));
+    $refundAmt = array_sum(array_map(fn($r) => (int)($r['amount'] ?? 0), $refunds));
+    $goldBuys = array_values(array_filter($db['goldPurchases'], fn($g) => $inRange((string)($g['createdAt'] ?? ''))));
+    $lowStock = array_values(array_map(fn($p) => ['id' => $p['id'], 'name' => $p['name'], 'sku' => $p['sku'] ?? '', 'stock' => $p['stock'] ?? 0, 'weight' => $p['weightG'] ?? null],
+      array_filter($db['products'], fn($p) => (!array_key_exists('active', $p) || !empty($p['active'])) && (int)($p['stock'] ?? 0) <= 3)));
+    // tagged pieces whose real weight was never entered (assumed weights)
+    $assumedWt = count(array_filter($db['products'], fn($p) => empty($p['weightG'])));
+    $metalOutMap = [];
+    foreach ($db['jobWork'] as $j) if (($j['status'] ?? '') !== 'returned' && ($j['status'] ?? '') !== 'cancelled') {
+      $kn = (string)($j['karigarName'] ?? $j['karigar'] ?? 'Karigar');
+      $metalOutMap[$kn] = $metalOutMap[$kn] ?? ['jobs' => 0, 'grams' => 0.0];
+      $metalOutMap[$kn]['jobs']++;
+      $metalOutMap[$kn]['grams'] += max(0, (float)($j['weightOut'] ?? 0) - (float)($j['weightBack'] ?? 0));
+    }
+    $proofPending = count(array_filter($db['orders'], fn($o) => ($o['paymentStatus'] ?? '') === 'Proof submitted'));
+    jout(200, [
+      'range' => [$from, $to], 'orders' => $orders, 'revenue' => $revenue, 'tax' => $tax,
+      'cgst' => intdiv($tax, 2), 'sgst' => $tax - intdiv($tax, 2),
+      'metalValue' => max(0, $metal), 'makingRevenue' => $making, 'stoneValue' => $stones, 'shipping' => $shipping,
+      'prepaidDiscount' => $prepaidDisc, 'byMethod' => $byMethod,
+      'bestsellers' => array_slice(array_values($bestsellers), 0, 12),
+      'refunds' => ['count' => count($refunds), 'amount' => $refundAmt],
+      'oldGold' => ['count' => count($goldBuys), 'amount' => array_sum(array_map(fn($g) => (int)$g['amount'], $goldBuys))],
+      'lowStock' => $lowStock, 'assumedWeights' => $assumedWt, 'metalOutWithKarigars' => $metalOutMap,
+      'proofPending' => $proofPending,
+    ]);
+  }
+  if ($route === 'admin/audit' && $method === 'GET') {
+    need_admin($db);
+    jout(200, ['log' => array_slice(array_reverse($db['auditLog']), 0, 300)]);
+  }
+  if (preg_match('#^admin/user-data/([\w@.\-]+)$#', $route, $mUD) && $method === 'GET') {
+    need_admin($db);
+    $q = $mUD[1];
+    $u = null;
+    foreach ($db['users'] as $x) if ($x['id'] === $q || $x['email'] === $q || ($x['phone'] ?? '') === $q) { $u = $x; break; }
+    if (!$u) jout(404, ['error' => 'Customer not found']);
+    jout(200, ['user' => pub_user($u),
+      'orders' => array_values(array_filter($db['orders'], fn($o) => $o['userId'] === $u['id'])),
+      'reviews' => array_values(array_filter($db['reviews'], fn($r) => ($r['userId'] ?? '') === $u['id'])),
+      'plans' => array_values(array_filter($db['savingsPlans'], fn($p) => $p['userId'] === $u['id'])),
+      'serviceRequests' => array_values(array_filter($db['serviceRequests'], fn($s) => ($s['phone'] ?? '') === ($u['phone'] ?? '')))]);
+  }
+  if (preg_match('#^admin/user-data/([\w@.\-]+)/anonymize$#', $route, $mAN) && $method === 'POST') {
+    need_admin($db);
+    foreach ($db['users'] as $ui => $x) if ($x['id'] === $mAN[1] || ($x['email'] ?? '') === $mAN[1] || ($x['phone'] ?? '') === $mAN[1]) {
+      if (($x['role'] ?? '') === 'admin') jout(400, ['error' => 'Cannot anonymize an admin account']);
+      $db['users'][$ui]['name'] = 'Deleted customer'; $db['users'][$ui]['email'] = 'deleted+' . $x['id'] . '@privacy.local';
+      $db['users'][$ui]['phone'] = ''; $db['users'][$ui]['anonymizedAt'] = now_iso();
+      audit_log($db, 'user.anonymized', ['user' => $x['id']]);
+      db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+    }
+    jout(404, ['error' => 'Customer not found']);
   }
 
   if ($route === 'admin/khata' && $method === 'GET') {
@@ -1852,7 +2305,9 @@ try {
   }
   if ($route === 'settings' && $method === 'PUT') {
     need_admin($db);
-    foreach (body_json() as $k => $v) $db['settings'][$k] = $v;
+    $setBody = body_json();
+    foreach ($setBody as $k => $v) $db['settings'][$k] = $v;
+    audit_log($db, 'settings.updated', ['keys' => implode(',', array_keys($setBody))]);
     db_save($DB_FILE, $db); jout(200, $db['settings']);
   }
   /* ── custom pages (owner-managed) ── */

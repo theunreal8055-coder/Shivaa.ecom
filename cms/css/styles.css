@@ -5518,3 +5518,118 @@ html.quote-mode #view{padding-top:0 !important}
 .cb-tile.out b{color:#b04a4a}
 .cb-close{margin-top:16px;border-top:2px solid var(--maroon-deep);padding-top:14px}
 @media(max-width:860px){.cb-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ═══════════════════════ v60 · payments · refunds · nidhi · reviews ═══════════════════════ */
+.cod-confirm{max-width:640px;margin:14px auto;border:1.5px solid var(--gold);border-radius:16px;padding:16px 20px;
+  background:linear-gradient(135deg,#fffaf0,#f6ead0);text-align:center}
+.cod-confirm h3{margin:0 0 6px;font-family:var(--font-serif);color:var(--maroon-deep);font-size:17px}
+.cod-confirm p{font-size:13px;color:var(--ink-2);margin:0 0 12px}
+.cod-ok{max-width:640px;margin:12px auto;background:#eaf7ef;border:1px solid #b7e2c6;color:#166638;border-radius:12px;padding:10px 16px;font-size:13px;text-align:center}
+.refund-card{max-width:640px;margin:16px auto;border:1px dashed rgba(176,74,74,.55);border-radius:16px;padding:16px 20px;background:#fdf6f3}
+.refund-card h3{margin:0 0 6px;font-family:var(--font-serif);color:#9b3a3a;font-size:16px}
+.refund-card p{font-size:13px;color:var(--ink-2);margin:0 0 12px}
+.verified-badge{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  color:#fff;background:linear-gradient(135deg,#1d7a46,#2e9d5e);border-radius:99px;padding:2px 8px;margin-left:6px;vertical-align:middle}
+.rv-photos{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.rv-photos img{width:78px;height:78px;object-fit:cover;border-radius:10px;border:1px solid var(--line);cursor:zoom-in}
+.rv-reply{margin-top:8px;background:var(--gold-faint);border-left:3px solid var(--gold);border-radius:0 10px 10px 0;padding:8px 12px;font-size:12.5px;color:var(--ink-2)}
+.rv-upload{display:inline-block;font-size:12.5px;color:var(--maroon-deep);border:1.5px dashed var(--gold);border-radius:12px;padding:9px 14px;cursor:pointer;margin:4px 0}
+.rv-upload input{display:block;margin-top:6px;font-size:11.5px;color:var(--ink-3)}
+.ref-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.rs-cell{text-align:center;background:var(--gold-faint);border-radius:14px;padding:14px 8px}
+.rs-cell b{display:block;font-size:26px;font-family:var(--font-serif);color:var(--maroon-deep)}
+.rs-cell small{font-size:11px;color:var(--ink-3);letter-spacing:.4px;text-transform:uppercase}
+/* Swarna Nidhi digital passbook */
+.sv-book{max-width:680px;margin:8px auto 0;border:1.5px solid var(--gold);border-radius:20px;overflow:hidden;background:linear-gradient(160deg,#3a0c14,#5a1420 60%,#3a0c14);color:#f7e9d2}
+.svb-top{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;padding:20px 16px 12px}
+.svb-top small{display:block;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:rgba(247,233,210,.65)}
+.svb-top b{font-family:var(--ff-disp);font-size:21px;color:#f3d27a;display:block;margin-top:5px}
+.svb-bar{height:10px;margin:6px 18px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden}
+.svb-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#d4af5a,#f3d27a)}
+.svb-next{padding:12px 18px 4px;font-size:13px;color:rgba(247,233,210,.85)}
+.svb-list{padding:10px 18px;max-height:280px;overflow:auto}
+.svb-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:9px 0;border-bottom:1px dashed rgba(243,210,122,.25);font-size:13px;align-items:baseline}
+.svb-row b{font-family:var(--ff-disp);color:#f3d27a}.svb-row small{color:rgba(247,233,210,.6);font-size:11px;text-align:right}
+.svb-row.svb-gift{background:rgba(243,210,122,.12);border-radius:10px;padding-left:10px;padding-right:10px;border-bottom:0;margin-top:6px}
+.svb-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding:14px 18px 20px}
+.svb-actions .btn{color:#f7e9d2;border-color:rgba(243,210,122,.55)}
+.svb-redeemed{color:#8fe0b4}.svb-closed-refund{color:#f0a0a8}
+/* admin: reports */
+.rp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:10px}
+.rp-kpi{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:linear-gradient(180deg,#fff,#fdf8ee)}
+.rp-kpi small{display:block;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-3)}
+.rp-kpi b{display:block;font-size:22px;font-family:var(--font-serif);color:var(--maroon-deep);margin-top:3px}
+.rp-kpi em{display:block;font-size:11px;color:var(--ink-2);font-style:normal;margin-top:2px}
+/* admin: refunds queue */
+.ref-row{display:flex;gap:14px;justify-content:space-between;flex-wrap:wrap;border:1px solid var(--line);border-left:4px solid var(--gold);
+  border-radius:14px;padding:14px 16px;background:#fff}
+.rr-main{flex:1;min-width:260px;font-size:13.5px}
+.rr-main p{font-size:13px;color:var(--ink-2)}
+.rr-note{display:block;margin-top:4px;color:var(--ok,#1d7a46)}
+.rr-acts{display:flex;flex-direction:column;gap:7px;align-items:flex-end}
+/* ═══════════════════════ v60 · bullion desk redesign ═══════════════════════ */
+.bd-tabs{grid-template-columns:repeat(5,1fr)}
+.bd-section{padding:10px 12px 4px;min-height:300px}
+.bd-sech{color:#e9c77a;letter-spacing:1.4px;font-size:12px;text-transform:uppercase;margin:6px 4px 10px}
+.bd-chartcard{border:1px solid rgba(201,162,75,.5);border-radius:14px;padding:10px;margin:2px 0 12px;
+  background:linear-gradient(180deg,rgba(201,162,75,.1),rgba(201,162,75,.02))}
+.bd-chart-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.bd-chips{display:flex;gap:6px;flex-wrap:wrap}
+.bd-chip{background:transparent;border:1px solid rgba(201,162,75,.45);color:rgba(244,232,207,.75);border-radius:99px;
+  padding:5px 11px;font-size:10.5px;cursor:pointer;font-family:inherit;letter-spacing:.3px}
+.bd-chip.on{background:linear-gradient(135deg,#c9a24b,#a37e2c);color:#1d1206;font-weight:800;border-color:#e9c77a}
+.bd-unfix{background:radial-gradient(circle at 35% 30%,#e7c878,#b98a2f);color:#241503;border:1px solid rgba(244,232,207,.5);
+  border-radius:99px;padding:6px 13px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit}
+.bd-svg{display:block;width:100%;height:auto;border-radius:8px}
+.bd-chart-lims{display:flex;gap:14px;justify-content:flex-end;font-size:10px;padding:2px 6px 0;font-variant-numeric:tabular-nums}
+.bd-chart-empty{height:120px;display:grid;place-items:center;color:rgba(244,232,207,.5);font-size:12px}
+.bd-bigchart{padding:14px}.bd-bigchart .bd-svg{min-height:200px}
+.bd-bell{float:right;font-size:14px;cursor:pointer;opacity:.75;padding:2px 4px}
+.bd-bell:hover{opacity:1}
+.bd-hstats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.bd-hstat{border:1px solid rgba(201,162,75,.4);border-radius:12px;padding:10px;background:rgba(201,162,75,.06)}
+.bd-hstat small{color:#e9c77a;font-size:10px;letter-spacing:1px;text-transform:uppercase}
+.bd-hstat div{display:flex;flex-wrap:wrap;gap:10px;margin-top:5px;font-size:11px;color:rgba(244,232,207,.8)}
+/* deal cards */
+.bd-deal{border:1px solid rgba(201,162,75,.5);border-radius:14px;padding:12px 14px;margin-bottom:10px;
+  background:linear-gradient(180deg,rgba(201,162,75,.1),rgba(201,162,75,.02))}
+.bd-deal.cancelled{opacity:.55}
+.bd-deal-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.bd-dealid{color:rgba(244,232,207,.55);font-size:10.5px;margin-left:6px}
+.bd-deal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;margin-bottom:10px}
+.bd-deal-grid small{display:block;color:rgba(244,232,207,.55);font-size:9.5px;text-transform:uppercase;letter-spacing:.6px}
+.bd-deal-grid b{font-size:12.5px;color:#f6ead0}
+.bd-track{display:flex;align-items:center;margin:6px 0 8px}
+.bd-track span{flex:1;text-align:center;font-size:9.5px;letter-spacing:.4px;color:rgba(244,232,207,.45);position:relative;z-index:1}
+.bd-track span.done{color:#1d1206;font-weight:800}
+.bd-track span::before{content:'';display:block;width:14px;height:14px;border-radius:50%;background:#241a0e;border:1.5px solid rgba(201,162,75,.6);margin:0 auto 4px}
+.bd-track span.done::before{background:linear-gradient(135deg,#e7c878,#b98a2f);border-color:#f3d27a}
+.bd-track i{flex:0 1 24px;height:2px;background:rgba(201,162,75,.4);margin:0 -6px;margin-bottom:16px}
+.bd-cancelled{color:#ff8b97;font-size:11.5px;margin:4px 0}
+.bd-dealnote{display:block;color:rgba(244,232,207,.55);font-size:11px;margin:4px 0}
+.bd-deal-acts{display:flex;gap:8px;flex-wrap:wrap}
+.bd-deal-acts .btn{color:#f4e8cf}
+/* alerts */
+.bd-alert{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid rgba(201,162,75,.4);
+  border-radius:12px;padding:10px 12px;margin-bottom:8px;background:rgba(201,162,75,.06);font-size:12.5px}
+.bd-alert.reached{border-color:#39d98a;background:rgba(57,217,138,.1)}
+.bd-alert-flag{color:#63e6a4;font-weight:800;font-size:11px;margin-top:5px;letter-spacing:.5px}
+.bd-alert-acts{display:flex;gap:6px;flex-direction:column;align-items:flex-end}
+.bd-navcnt{position:absolute;top:2px;right:18%;background:#d64553;color:#fff;border-radius:99px;font-size:8.5px;
+  font-style:normal;padding:1px 5px;font-weight:800}
+.bd-tabs a{position:relative}
+@media(max-width:560px){
+  .bd-deal-grid{grid-template-columns:repeat(2,1fr)}
+  .bd-hstats{grid-template-columns:1fr}
+}
+/* thermal / receipt print */
+@media print{
+  body *{visibility:hidden}
+  .print-area,.print-area *{visibility:visible}
+  .print-area{position:absolute;inset:0;margin:0;padding:8px}
+}
+@page{margin:10mm}
+/* v60 payment milestone bar */
+.paymil-bar{position:relative;height:22px;border-radius:99px;background:#eee2cf;overflow:hidden;border:1px solid var(--line)}
+.paymil-bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#b98a2f,#e3c46d);border-radius:99px;transition:width .6s var(--ease)}
+.paymil-bar span{position:relative;display:grid;place-items:center;height:22px;font-size:10.5px;font-weight:800;letter-spacing:.6px;color:#3a2208;text-align:center;width:100%}

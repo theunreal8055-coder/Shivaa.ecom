@@ -1692,6 +1692,18 @@ pages.refer = async (view) => {
     </div>`);
   const b = $('#refWa', view);
   if (b) b.onclick = () => waOpen('Shivaa Jewellers — BIS hallmarked, live-rate pricing, insured delivery ✦ Use my code ' + code + ' when you sign up: shivaa.in/?ref=' + code);
+  if (code) {
+    api('/api/referrals/stats').then(d => {
+      if (!d) return;
+      const host = document.querySelector('.adm-card');
+      if (!host) return;
+      host.insertAdjacentHTML('beforeend', `<div class="ref-stats">
+        <div class="rs-cell"><b>${d.signedUp || 0}</b><small>friends joined</small></div>
+        <div class="rs-cell"><b>${d.completed || 0}</b><small>first orders done</small></div>
+        <div class="rs-cell"><b>${fmt(d.reward || 0)}</b><small>coupons earned</small></div>
+      </div><p style="font-size:12px;color:var(--ink-3);margin-top:8px">₹${d.perFriend || 250} coupon per completed friend — credited automatically.</p>`);
+    }).catch(() => {});
+  }
 };
 
 pages.videoconsult = async (view) => {
@@ -2206,10 +2218,14 @@ pages.product = async (view, q, id) => {
         <details class="acc"><summary>Making Charges & Exchange</summary><div class="acc-body">Making charges for this design are shown in the price table above — nothing hidden, nothing category-averaged. Lifetime exchange at the day's live rate with making charges waived on exchanges within 6 months; 90% buy-back of metal value thereafter.</div></details>
         <details class="acc"><summary>Shipping & Returns</summary><div class="acc-body">Free insured shipping above ${fmt(state.settings.freeShipAbove)}; tamper-sealed packaging with signature & OTP delivery. 7-day no-question returns (uncustomised pieces). Engraved pieces are exchangeable, not returnable.</div></details>
         <details class="acc"><summary>Reviews (${data.reviews.length})</summary><div class="acc-body">
-          ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p></div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
-          <form class="review-form" onsubmit="Shivaa.postReview(event,'${p.id}')">
+          ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)} ${r.verified ? '<span class="verified-badge" title="Bought on shivaa.in">✓ verified purchase</span>' : ''}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p>
+            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="review photo" loading="lazy"></a>`).join('')}</div>` : ''}
+            ${r.reply ? `<div class="rv-reply"><b>Shivaa replies:</b> ${esc(r.reply)}</div>` : ''}
+          </div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
+          <form class="review-form" id="revForm" onsubmit="Shivaa.postReview(event,'${p.id}')">
             <div class="rate-pick" id="ratePick">${[1,2,3,4,5].map(i => `<span data-r="${i}" onclick="Shivaa.pickRate(${i})">★</span>`).join('')}</div>
-            <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece…" required></textarea></div>
+            <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece — fit, finish, how it feels…" required></textarea></div>
+            <label class="rv-upload">📷 Add up to 3 photos (optional)<input type="file" id="revPhotos" accept="image/*" multiple capture="environment"></label>
             <button class="btn btn-outline btn-sm" style="justify-self:start">Submit review</button>
           </form>
         </div></details>
@@ -2407,7 +2423,15 @@ window.Shivaa.postReview = async (e, pid) => {
   e.preventDefault();
   if (!state.user) return openLogin();
   try {
-    await api('/api/reviews', { method: 'POST', body: JSON.stringify({ productId: pid, rating: window._rate || 5, text: $('#revText').value }) });
+    const files = [...($('#revPhotos')?.files || [])].slice(0, 3);
+    if (files.length) {
+      const fd = new FormData();
+      fd.append('productId', pid); fd.append('rating', String(window._rate || 5)); fd.append('text', $('#revText').value);
+      files.forEach(f => fd.append('photos[]', f));
+      await api('/api/reviews/photo', { method: 'POST', body: fd });
+    } else {
+      await api('/api/reviews', { method: 'POST', body: JSON.stringify({ productId: pid, rating: window._rate || 5, text: $('#revText').value }) });
+    }
     toast('Thank you! Review posted ✦'); pages.product($('#view'), new URLSearchParams(), pid);
   } catch (err) { toast(err.message, 'err'); }
 };
@@ -3009,7 +3033,11 @@ function npsHTML(o) {
       let msg;
       if (n >= 9) {
         msg = 'Namaste Shivaa ✦ I received order ' + o.id + ' and loved my ' + (first.name || 'jewellery') + ' (' + n + '/10)!';
-        done.innerHTML = 'Dhanyavaad! 💛 Your kind words mean a lot. <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="' + waLink(msg) + '">Share on WhatsApp ⭐</a><a class="btn btn-outline btn-sm" href="#/product/' + (first.productId || '') + '">Write a photo review</a></div>';
+        const gUrl = (state.settings && state.settings.googleReviewUrl) || '';
+        done.innerHTML = 'Dhanyavaad! 💛 Your kind words mean a lot. <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'
+          + (gUrl ? '<a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="' + gUrl + '">⭐ Rate us on Google</a>' : '')
+          + '<a class="btn btn-outline btn-sm" href="#/product/' + (first.productId || '') + '">Write a photo review</a>'
+          + '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="' + waLink(msg) + '">Share on WhatsApp</a></div>';
       } else {
         msg = 'Namaste Shivaa ✦ About my order ' + o.id + ' — my experience was ' + n + '/10. I would like help with:';
         done.innerHTML = 'We are sorry it was not a 10 — tell us what went wrong and the owner will personally make it right. <div style="margin-top:10px"><a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="' + waLink(msg) + '">Tell Shivaa privately on WhatsApp</a></div>';
@@ -3033,6 +3061,73 @@ function careCTAHTML(o) {
   </div>`;
 }
 
+/* ═══════════ v60 · payment ledger, part payments, refunds, COD confirm ═══════════ */
+function paymentLedgerHTML(o) {
+  const pays = o.payments || [];
+  if (!pays.length) return '';
+  const pct = Math.max(4, Math.min(100, Math.round((o.amountPaid || 0) / Math.max(1, o.total) * 100)));
+  return `<div class="paymil" style="max-width:640px;margin:12px auto 0">
+      <div class="paymil-bar"><i style="width:${pct}%"></i><span>${pct}% paid</span></div>
+    </div>
+    <details class="acc" style="max-width:640px;margin:6px auto" open><summary>Payment history (${pays.length})${o.balance > 0 && o.paymentStatus !== 'Refunded' ? ' · balance ' + fmt(o.balance) : ''}</summary><div class="acc-body">
+    ${pays.map(p => `<div class="sum-row"><span>${new Date(p.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(p.mode || p.gateway || 'online')} · <small>${esc(p.status || 'approved')}${p.ref ? ' · ' + esc(p.ref) : ''}</small></span><b>${p.status === 'rejected' ? '—' : fmt(p.amount)}</b></div>`).join('')}
+    ${o.amountPaid ? `<div class="sum-row total"><span>Received</span><b>${fmt(o.amountPaid)}</b></div>` : ''}
+    ${(o.balance > 0 && o.paymentStatus !== 'Refunded') ? `<div class="sum-row" style="color:var(--warn)"><span>Balance due before dispatch</span><b>${fmt(o.balance)}</b></div>` : ''}
+  </div></details>`;
+}
+function refundCardHTML(o, existing) {
+  if (existing) {
+    const st = existing.status;
+    const label = { requested: 'Received — owner is reviewing', approved: 'Approved', refunded: 'Refunded ✓', exchanged: 'Exchanged ✓', rejected: 'Could not be approved' }[st] || st;
+    return `<div class="refund-card" style="${st === 'refunded' ? 'border-color:#1d7a46;background:#f1faf4' : ''}">
+      <h3>${existing.kind === 'exchange' ? 'Exchange' : 'Refund'} request · ${label}</h3>
+      <p>“${esc(existing.reason)}”${existing.creditNote ? ' · credit note <b>' + esc(existing.creditNote) + '</b>' : ''}${existing.note ? '<br>→ ' + esc(existing.note) : ''}</p>
+      <div class="pay-due-btns"><a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${waLink('Namaste ✦ following up on my ' + existing.kind + ' request for order ' + o.id)}">Follow up on WhatsApp</a></div></div>`;
+  }
+  if (['Refunded', 'Exchanged'].includes(o.paymentStatus) || o.status === 'Cancelled') return '';
+  const ageDays = (Date.now() - new Date(o.createdAt).getTime()) / 864e5;
+  if (ageDays > 9) return '';
+  return `<div class="refund-card">
+    <h3>Need to return or exchange?</h3>
+    <p>7-day easy returns &amp; lifetime exchange. Raise it here — pickup is arranged and the credit note follows on WhatsApp.</p>
+    <div class="pay-due-btns">
+      <button class="btn btn-outline btn-sm" onclick="Shivaa.refundForm('${o.id}','refund')">Request refund</button>
+      <button class="btn btn-outline btn-sm" onclick="Shivaa.refundForm('${o.id}','exchange')">Exchange this piece</button>
+    </div></div>`;
+}
+function codConfirmHTML(o) {
+  if (o.paymentMethod !== 'COD' || o.status === 'Cancelled') return '';
+  if (o.codConfirmed) return `<div class="cod-ok">✓ Cash-on-delivery confirmed — please keep ${fmt(o.total)} ready (UPI/cash accepted at handover).</div>`;
+  return `<div class="cod-confirm">
+    <h3>Confirm your COD order</h3>
+    <p>One tap confirms you will receive the parcel and pay <b>${fmt(o.total)}</b> at handover (ID verification for jewellery orders).</p>
+    <button class="btn btn-gold btn-sm" onclick="Shivaa.codConfirm('${o.id}')">✓ Confirm cash on delivery</button>
+  </div>`;
+}
+window.Shivaa.codConfirm = async (id) => {
+  try { await api('/api/orders/' + id + '/cod-confirm', { method: 'POST', body: '{}' });
+    toast('COD confirmed ✦ dispatch team notified'); route();
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.refundForm = (id, kind) => {
+  openModal(`<h3 style="margin-bottom:6px">${kind === 'exchange' ? 'Exchange request' : 'Refund request'}</h3>
+  <p style="font-size:13px;color:var(--ink-2);margin-bottom:12px">Order <b>${id}</b>. Tell us why in a line — the owner sees this directly.</p>
+  <form id="rfForm" class="form-grid" style="grid-template-columns:1fr">
+    <div class="fld"><label>Reason *</label><textarea id="rfReason" required placeholder="${kind === 'exchange' ? 'e.g. ring size 15 needed instead of 14…' : 'e.g. piece does not match the ordered design…'}"></textarea></div>
+    <div class="fld"><label>What you prefer</label><select id="rfMode" class="sortsel" style="width:100%;border-radius:12px">
+      ${kind === 'exchange' ? '<option>Exchange for another piece</option><option>Refund to original payment source</option><option>Credit note / gift card</option>' : '<option>Refund to original payment source</option><option>Credit note / gift card</option><option>Exchange for another piece</option>'}
+    </select></div>
+    <button class="btn btn-gold btn-block btn-lg">Submit ${kind} request</button>
+  </form>`);
+  $('#rfForm').onsubmit = async e => {
+    e.preventDefault();
+    try {
+      await api('/api/orders/' + id + '/refund-request', { method: 'POST', body: JSON.stringify({ kind, reason: $('#rfReason').value }) });
+      closeModal(); toast(kind === 'exchange' ? 'Exchange requested — we arrange pickup ✦' : 'Refund requested — credit note follows on approval ✦'); route();
+    } catch (err) { toast(err.message, 'err'); }
+  };
+};
+
 /* ─────────── ORDER CONFIRMATION ─────────── */
 pages.order = async (view, q, id) => {
   let order;
@@ -3051,6 +3146,7 @@ pages.order = async (view, q, id) => {
       </div>
       <div class="order-card mt-3">
         <div class="order-top"><div class="order-id">${order.id} · ${timeFmt(order.createdAt)}</div><span class="status-pill st-${order.status.toLowerCase()}">${order.status}</span></div>
+        ${order.invoiceNo ? `<div style="font-size:12px;color:var(--ink-3);margin:2px 0 8px">Tax invoice <b>${esc(order.invoiceNo)}</b> · HSN ${esc(order.hsn || (order.items || []).map(i => i.hsn).filter(Boolean)[0] || '7113')}</div>` : ''}
         ${order.items.map(it => `<div class="sum-row"><span>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b>${fmt(it.unitPrice * it.qty)}</b></div>`).join('')}
         <div class="sum-row"><span>Rate locked at</span><b>${fmt(order.rateSnapshot.gold22 || order.rateSnapshot.silver)}/g (${esc(order.rateSnapshot.stampedAt ? timeFmt(order.rateSnapshot.stampedAt) : 'order time')})</b></div>
         <div class="sum-row"><span>Subtotal</span><b>${fmt(order.subtotal)}</b></div>
@@ -3061,11 +3157,13 @@ pages.order = async (view, q, id) => {
       </div>
       ${orderStageHTML(order)}
       ${trackingCardHTML(order)}
-      ${(order.paymentStatus === 'Awaiting payment') ? `<div class="pay-due-card">
-        <h3>⌛ Payment pending</h3>
-        <p>Your piece is reserved &amp; today&rsquo;s rate is held. Complete payment now — UPI QR, cards or net-banking — or switch to WhatsApp.</p>
+      ${paymentLedgerHTML(order)}
+      ${codConfirmHTML(order)}
+      ${(order.paymentStatus === 'Awaiting payment' || order.paymentStatus === 'Partially paid') ? `<div class="pay-due-card">
+        <h3>${order.paymentStatus === 'Partially paid' ? '⌛ Balance payment pending' : '⌛ Payment pending'}</h3>
+        <p>${order.amountPaid ? `<b>${fmt(order.amountPaid)} received</b> · balance <b>${fmt(order.balance || (order.total - order.amountPaid))}</b> · ` : ''}Your piece is reserved &amp; today&rsquo;s rate is held. Complete payment now — UPI QR, cards or net-banking — or switch to WhatsApp.</p>
         <div class="pay-due-btns">
-          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder('${order.id}').then(()=>location.reload())">Pay ${fmt(order.total)} now</button>
+          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder('${order.id}').then(()=>location.reload())">Pay ${fmt(order.balance || (order.amountPaid ? order.total - order.amountPaid : order.total))} now</button>
           <button class="btn btn-outline" onclick="Shivaa.waOpenOrder('${order.id}')">Pay on WhatsApp</button>
         </div></div>` : ''}
       ${order.paymentStatus === 'Proof submitted' ? `<div class="pay-due-card" style="background:linear-gradient(135deg,#eef6ff,#dcecff);border-color:#7fb0e6">
@@ -3075,6 +3173,7 @@ pages.order = async (view, q, id) => {
       ${order.paymentStatus === 'Refunded' ? `<div class="pay-due-card" style="background:#fdeeef;border-color:#e6a0a8"><h3>Refunded</h3><p>The refund for this order is processed to the payment source. Allow 3–5 working days for it to appear.</p></div>` : ''}
       ${order.paymentMethod === 'WhatsApp' && order.paymentStatus !== 'Paid' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Your order is reserved — confirm &amp; pay on WhatsApp to lock today's rate.</div>
       <div class="center" style="margin-bottom:18px"><button class="btn btn-gold btn-lg" onclick="Shivaa.waOpenOrder('${order.id}')">Confirm &amp; Pay on WhatsApp</button></div>` : ''}
+      <div id="refundSlot">${refundCardHTML(order)}</div>
       ${order.status === 'Delivered' ? npsHTML(order) : ''}
       ${order.status === 'Delivered' ? careCTAHTML(order) : ''}
       <div class="center"><a class="btn btn-gold" href="#/certificate/${encodeURIComponent(order.id)}">🛡 View purity certificate</a></div>
@@ -3083,6 +3182,13 @@ pages.order = async (view, q, id) => {
   </div>`;
   confetti();
   finaleAfterOrder(order);   // Gold Finale: quiz prompt for qualifying orders (if campaign live)
+  // v60: surface this order's refund/exchange request if one exists
+  try {
+    const { requests } = await api('/api/refunds/mine');
+    const mine = (requests || []).find(r => r.orderId === order.id);
+    const slot = $('#refundSlot');
+    if (mine && slot) slot.innerHTML = refundCardHTML(order, mine);
+  } catch (e) { /* guests / no requests */ }
 };
 function confetti() {
   const c = document.createElement('canvas');
@@ -3183,7 +3289,8 @@ pages.account = async (view, q) => {
           <a class="btn btn-outline btn-sm" href="#/certificate/${o.id}">🛡 Certificate</a>
           ${o.status === 'Delivered' ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.buyAgain('${o.id}')">↻ Buy again</button>` : ''}
           ${o.status === 'Delivered' ? `<a class="btn btn-outline btn-sm" href="#/care?order=${encodeURIComponent(o.id)}">✦ Care</a>` : ''}
-          ${o.paymentStatus === 'Awaiting payment' ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.payForOrder('${o.id}').then(()=>location.reload())" style="margin-left:auto">⌛ Pay now</button>` : ''}
+          ${(o.paymentStatus === 'Awaiting payment' || o.paymentStatus === 'Partially paid') ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.payForOrder('${o.id}').then(()=>location.reload())" style="margin-left:auto">⌛ Pay ${o.balance ? fmt(o.balance) : 'now'}</button>` : ''}
+          ${o.codConfirmed === false && o.paymentMethod === 'COD' ? `<button class="btn btn-outline btn-sm" onclick="Shivaa.codConfirm('${o.id}')">✓ Confirm COD</button>` : ''}
           ${oq ? `<a class="btn btn-gold btn-sm" href="javascript:Shivaa.fqOpen({route:'purchase',orderId:'${o.id}'})" style="margin-left:auto">✦ Gold Finale — this order qualifies</a>` : ''}
       </div></div>`;
   }).join('') || '<div class="empty"><h3>No orders yet</h3><a class="btn btn-outline" href="#/shop">Start shopping</a></div>' : ''}
@@ -5114,6 +5221,9 @@ pages.savings = async (view) => {
       <div class="mth-rail" id="svMonths"></div>
     </section>
 
+    <!-- ── v60 digital passbook ── -->
+    <section class="rv" id="svPassbookWrap"></section>
+
     <!-- ── rules ── -->
     <section class="rv">
       <div class="sec-head"><h2>The plain rules</h2><p>Read these before you enrol. There is nothing else.</p></div>
@@ -5171,7 +5281,19 @@ pages.savings = async (view) => {
     }).join('');
 
     const msg = `Namaste Shivaa team ✦\n\nI'd like to enrol in the Swarna Nidhi 11+1 gold savings plan.\n\nMonthly instalment: ${fmt(m)}\nI pay 11 months: ${fmt(paid)}\nShivaa adds: ${fmt(gift)}\nTotal buying power: ${fmt(total)}\n\nPlease set this up for me.`;
-    ['#svJoin', '#svWa'].forEach(s => { const e = $(s); if (e) e.onclick = () => waOpen(msg); });
+    const wa = $('#svWa'); if (wa) wa.onclick = () => waOpen(msg);
+    const join = $('#svJoin');
+    if (join) {
+      join.textContent = state.user ? '✦ Enrol & open my passbook' : 'Sign in to enrol ✦';
+      join.onclick = async () => {
+        if (!state.user) { openLogin(); return; }
+        try {
+          await api('/api/savings', { method: 'POST', body: JSON.stringify({ monthlyAmount: m }) });
+          toast('Welcome to Swarna Nidhi ✦ passbook opened'); pages.savings($('#view'));
+          document.getElementById('svPassbookWrap')?.scrollIntoView({ behavior: 'smooth' });
+        } catch (e) { toast(e.message, 'err'); }
+      };
+    }
   };
 
   const amt = $('#svAmt'), rng = $('#svRange');
@@ -5184,6 +5306,47 @@ pages.savings = async (view) => {
     calc();
   }));
   calc();
+
+  /* ---- v60 digital passbook ---- */
+  const loadPassbook = async () => {
+    const wrap = $('#svPassbookWrap');
+    if (!wrap) return;
+    if (!state.user) {
+      wrap.innerHTML = `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>Sign in to see your running plan, receipts and grams accrued.</p></div>
+        <div style="text-align:center"><button class="btn btn-gold btn-lg" onclick="Shivaa.openLogin()">Sign in</button></div>`;
+      return;
+    }
+    try {
+      const data = await api('/api/savings/mine');
+      const plans = data.plans || [];
+      if (!plans.length) {
+        wrap.innerHTML = `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>No active plan yet — set the monthly amount above and tap <b>Enrol</b>.</p></div>`;
+        return;
+      }
+      const p = plans[0];
+      const done = (p.installments || []).length;
+      const contributed = p.contributed || done * p.monthlyAmount;
+      wrap.innerHTML = `<div class="sec-head"><h2>My digital passbook</h2><p>Plan <b>${esc(p.id.toUpperCase())}</b> · ${fmt(p.monthlyAmount)} per month · every receipt is stored here.</p></div>
+        <div class="sv-book">
+          <div class="svb-top">
+            <div><small>Total contributed</small><b>${fmt(contributed)}</b></div>
+            <div><small>Instalments</small><b>${done}/11</b></div>
+            <div><small>Status</small><b class="svb-${p.status}">${esc(p.status)}</b></div>
+          </div>
+          <div class="svb-bar"><i style="width:${Math.min(100, (done / 11) * 100)}%"></i></div>
+          ${p.status === 'active' ? `<div class="svb-next">Next instalment: <b>${fmt(p.monthlyAmount)}</b> — pay at the counter or on WhatsApp; the receipt appears here immediately.</div>` : ''}
+          <div class="svb-list">
+            ${(p.installments || []).map((q, i) => `<div class="svb-row"><span>${i + 1}. ${new Date(q.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span><b>${fmt(q.amount)}</b><small>${q.rate22 ? '@' + fmt(q.rate22) + '/g' : ''} ${esc(q.mode || '')}</small></div>`).join('')}
+            ${done >= 11 ? `<div class="svb-row svb-gift"><span>12. ✦ Shivaa&rsquo;s gift instalment</span><b>${fmt(p.monthlyAmount)}</b></div>` : ''}
+          </div>
+          <div class="svb-actions">
+            <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print / PDF statement</button>
+            <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${waLink('Namaste Shivaa ✦ please share my Swarna Nidhi plan ' + p.id.toUpperCase() + ' statement.')}">WhatsApp statement</a>
+          </div>
+        </div>`;
+    } catch (e) { wrap.innerHTML = ''; }
+  };
+  loadPassbook();
 };
 
 /* ═══════════════════════════════════════════════════════════════════

@@ -57,6 +57,12 @@ async function renderAdmin(view, q) {
   let payProofs = [];
   if (tab === 'orders') { try { payProofs = (await api('/api/admin/pay-proofs')).orders || []; } catch (e) {} }
   const proofPending = payProofs.filter(o => o.paymentStatus === 'Proof submitted').length;
+  let refundsData = { requests: [] };
+  if (tab === 'refunds') { try { refundsData = await api('/api/admin/refunds'); } catch (e) {} }
+  let savingsData = { plans: [] };
+  if (tab === 'nidhi') { try { savingsData = await api('/api/admin/savings'); } catch (e) {} }
+  let reviewAsks = [];
+  if (tab === 'orders') { try { reviewAsks = (await api('/api/admin/review-asks')).asks || []; } catch (e) {} }
   let carts = [];
   if (tab === 'overview') { try { carts = (await api('/api/admin/carts')).carts; } catch (e) {} }
   const P = partnersData.partners || [];
@@ -68,12 +74,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['finale','🎯','Gold Finale'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -152,7 +158,7 @@ async function renderAdmin(view, q) {
             <td>${p.mcScheme === 'percent' ? p.mcValue + '%' : p.mcScheme === 'perGram' ? '₹' + p.mcValue + '/g' : 'flat ' + fmt(p.mcValue)}</td>
             <td class="num"><b style="color:${p.stock <= 3 ? 'var(--warn)' : 'inherit'}">${p.stock}</b></td>
             <td class="num"><b>${fmt(window.Shivaa.price(p).total)}</b></td>
-            <td style="white-space:nowrap"><button type="button" class="btn btn-ghost btn-sm" data-product-id="${esc(p.id)}" onclick="ShivaaHallmark.editRecords(this.dataset.productId)">HUIDs</button> <button class="icon-e" onclick="ShivaaAdmin.printLabelTag('${p.id}')" title="Print tag / barcode label">🏷</button> <button class="icon-e" onclick="ShivaaAdmin.editProduct('${p.id}')">✎</button> <button class="icon-x" onclick="ShivaaAdmin.delProduct('${p.id}')">✕</button></td>
+            <td style="white-space:nowrap"><button type="button" class="btn btn-ghost btn-sm" data-product-id="${esc(p.id)}" onclick="ShivaaHallmark.editRecords(this.dataset.productId)">HUIDs</button> <button class="icon-e" onclick="ShivaaAdmin.printLabelTag('${p.id}')" title="Print tag / barcode label">🏷</button> <button class="icon-e" onclick="ShivaaAdmin.productPoster('${p.id}')" title="Shareable product poster (WhatsApp)">🖼</button> <button class="icon-e" onclick="ShivaaAdmin.editProduct('${p.id}')">✎</button> <button class="icon-x" onclick="ShivaaAdmin.delProduct('${p.id}')">✕</button></td>
           </tr>`).join('')}</tbody>
         </table></div></div>`;
   }
@@ -166,25 +172,95 @@ async function renderAdmin(view, q) {
           <a href="${esc(o.payProof ? o.payProof.file : '')}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-left:8px">📎 View screenshot</a></div>
         <div><button class="btn btn-gold btn-sm" onclick="ShivaaAdmin.proofDecide('${o.id}','approve')">✓ Confirm paid</button>
         <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.proofDecide('${o.id}','reject')">Reject</button></div></div>`).join('')}</div></div>` : '';
-    body.innerHTML = `${proofBanner}<div class="adm-card"><h3>${orders.length} orders <button class="btn btn-ghost btn-sm" style="margin-left:10px" onclick="ShivaaAdmin.gstrCSV()">⬇ GSTR-1 CSV</button></h3>
+    const asksBanner = reviewAsks.length ? `<div class="proof-banner" style="background:linear-gradient(135deg,#fff8e6,#f5e9c8);border-color:var(--gold)">⭐ <b>${reviewAsks.length}</b> delivered piece${reviewAsks.length > 1 ? 's' : ''} waiting on a photo review
+      <div style="margin-top:8px;display:grid;gap:6px">${reviewAsks.slice(0, 12).map(a => `<div class="proof-row"><div><b>${esc(a.name)}</b> · ${esc(a.userName)} · <small>${esc(a.phone)}</small><br><small style="color:var(--ink-3)">Delivered ${new Date(a.deliveredAt).toLocaleDateString('en-IN')} · order ${esc(a.orderId)}</small></div>
+      <div><a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${Shivaa.waLink('Namaste ✦ hope you are loving your ' + a.name + ' from Shivaa. A quick photo review helps other brides & families — takes 30 seconds: ' + location.origin + '/#/product/' + a.productId)}">📱 Ask review</a></div></div>`).join('')}</div></div>` : '';
+    body.innerHTML = `${proofBanner}${asksBanner}<div class="adm-card"><h3>${orders.length} orders <button class="btn btn-ghost btn-sm" style="margin-left:10px" onclick="ShivaaAdmin.gstrCSV()">⬇ GSTR-1 CSV</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.catalogCSV()">⬇ Catalogue CSV</button></h3>
       <div class="adm-table-wrap"><table class="adm-table">
-        <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th class="num">Total</th><th>Payment</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Order / Invoice</th><th>Customer</th><th>Items</th><th class="num">Total</th><th>Payment</th><th>Status</th><th></th></tr></thead>
         <tbody>${orders.map(o => `<tr>
-          <td><b>${o.id}</b><br><small style="color:var(--ink-3)">${new Date(o.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</small></td>
+          <td><b>${o.id}</b>${o.invoiceNo ? `<br><small style="color:var(--maroon-deep)">${esc(o.invoiceNo)}</small>` : ''}<br><small style="color:var(--ink-3)">${new Date(o.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</small></td>
           <td>${esc(o.userName)}</td>
           <td>${o.items.reduce((a, i) => a + i.qty, 0)}</td>
-          <td class="num"><b>${fmt(o.total)}</b>${o.prepaidDiscount ? `<br><small style="color:var(--ok)">−${fmt(o.prepaidDiscount)} online</small>` : ''}</td>
-          <td>${esc(o.paymentMethod)}<br><small style="color:${o.paymentStatus === 'Paid' ? 'var(--ok,#1d7a46)' : 'var(--warn)'}">${o.paymentStatus === 'Paid' ? '✓ ' : '⌛ '}${esc(o.paymentStatus || '—')}${o.gatewayOrderId ? '<br>GW: ' + esc(String(o.gatewayOrderId).slice(0, 16)) : ''}</small></td>
+          <td class="num"><b>${fmt(o.total)}</b>${o.amountPaid ? `<br><small style="color:var(--ok,#1d7a46)">paid ${fmt(o.amountPaid)}</small>${o.balance > 0 ? `<br><small style="color:var(--warn)">bal ${fmt(o.balance)}</small>` : ''}` : ''}${o.prepaidDiscount ? `<br><small style="color:var(--ok)">−${fmt(o.prepaidDiscount)} online</small>` : ''}</td>
+          <td>${esc(o.paymentMethod)}<br><small style="color:${o.paymentStatus === 'Paid' ? 'var(--ok,#1d7a46)' : 'var(--warn)'}">${o.paymentStatus === 'Paid' ? '✓ ' : '⌛ '}${esc(o.paymentStatus || '—')}${o.codConfirmed ? ' · ✓COD' : ''}${o.gatewayOrderId ? '<br>GW: ' + esc(String(o.gatewayOrderId).slice(0, 16)) : ''}</small></td>
           <td><select onchange="ShivaaAdmin.setStatus('${o.id}', this.value)">
             ${['Placed', 'Confirmed', 'Karigari', 'Hallmarking', 'Packed', 'Shipped', 'Delivered', 'Cancelled'].map(s => `<option ${o.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
           <td style="white-space:nowrap"><button class="icon-e" onclick="Shivaa.orderDetail('${o.id}')" title="View">👁</button>
             <button class="icon-e" onclick="ShivaaAdmin.waOrder('${o.id}')" title="Send WhatsApp update">📱</button>
+            <button class="icon-e" onclick="ShivaaAdmin.manualPay('${o.id}')" title="Record manual / advance payment">💰</button>
+            ${o.invoiceNo ? `<button class="icon-e" onclick="ShivaaAdmin.printInvoice('${o.id}')" title="Print GST invoice">🧾</button>` : ''}
             <button class="icon-e" onclick="ShivaaAdmin.reviewAsk('${o.id}')" title="Ask for review">⭐</button>
             <button class="icon-e" onclick="ShivaaAdmin.orderMeta('${o.id}')" title="HUID / dispatch / e-way">📋</button>
-            <button class="icon-e" onclick="ShivaaAdmin.printSlip('${o.id}')" title="Packing slip">🧾</button>
+            <button class="icon-e" onclick="ShivaaAdmin.printSlip('${o.id}')" title="Packing slip">📦</button>
+            <button class="icon-e" onclick="ShivaaAdmin.printReceipt('${o.id}')" title="Thermal receipt (58/80mm)">🖨</button>
             <button class="icon-e" onclick="ShivaaAdmin.printLabel('${o.id}')" title="Shipping label">🏷</button></td>
         </tr>`).join('')}</tbody>
       </table></div></div>`;
+  }
+
+  /* ── v60 REPORTS · GST/CA pack ── */
+  if (tab === 'reports') {
+    const today = new Date(); const monAgo = new Date(Date.now() - 29 * 864e5);
+    const iso = d => d.toLocaleDateString('en-CA');
+    body.innerHTML = `<div class="adm-card">
+      <h3>Reports</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:10px 0">
+        <div class="fld" style="margin:0"><label>From</label><input type="date" id="rpFrom" value="${iso(monAgo)}"></div>
+        <div class="fld" style="margin:0"><label>To</label><input type="date" id="rpTo" value="${iso(today)}"></div>
+        <button class="btn btn-gold btn-sm" id="rpGo">Run report</button>
+        <button class="btn btn-outline btn-sm" id="rpCsv">⬇ Sales CSV (for CA)</button>
+        <button class="btn btn-ghost btn-sm" id="rpAudit">Audit log</button>
+      </div>
+      <div id="rpBody"><p class="partner-note">Choose a range and run — revenue split, GST (CGST+SGST), metal vs making, bestsellers, dead stock, karigar metal out, and payment proofs pending.</p></div>
+    </div>
+    <div class="adm-card" id="auditCard" style="display:none;max-height:70vh;overflow:auto"><h3>Audit log (last 300)</h3><div id="auditBody"></div></div>`;
+    $('#rpGo').onclick = ShivaaAdmin.runReport;
+    $('#rpCsv').onclick = ShivaaAdmin.reportCSV;
+    $('#rpAudit').onclick = ShivaaAdmin.openAudit;
+    ShivaaAdmin.runReport();
+  }
+
+  /* ── v60 REFUNDS / EXCHANGES ── */
+  if (tab === 'refunds') {
+    const reqs = (refundsData.requests || []).slice().reverse();
+    body.innerHTML = `<div class="adm-card"><h3>${reqs.length} refund / exchange requests</h3>
+      ${reqs.length ? `<div style="display:grid;gap:12px;margin-top:10px">${reqs.map(r => `<div class="ref-row">
+        <div class="rr-main"><b>${esc(r.id.toUpperCase())}</b> · <span class="status-pill st-${String(r.status).toLowerCase()}">${esc(r.status)}</span> · ${esc(r.kind || 'refund')}
+          <br><small>${esc(r.userName)} · order <b>${esc(r.orderId)}</b> · ${new Date(r.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</small>
+          <p style="margin:6px 0">“${esc(r.reason)}”</p>
+          ${r.note ? `<small class="rr-note">→ ${esc(r.note)}</small>` : ''}
+          ${r.creditNote ? `<br><small style="color:var(--maroon-deep)"><b>Credit note ${esc(r.creditNote)}</b></small>` : ''}</div>
+        ${r.status === 'requested' ? `<div class="rr-acts">
+          <button class="btn btn-gold btn-sm" onclick="ShivaaAdmin.refundDecide('${r.id}','approve')">✓ Approve</button>
+          <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.refundDecide('${r.id}','reject')">Reject</button>
+          <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${Shivaa.waLink('Namaste ✦ about your ' + r.kind + ' request for order ' + r.orderId + ':')}">📱 WhatsApp</a>
+        </div>` : ''}
+      </div>`).join('')}</div>` : '<p class="partner-note">No refund or exchange requests. Customers raise these from their order page within 7 days of delivery.</p>'}
+    </div>`;
+  }
+
+  /* ── v60 SWARNA NIDHI admin ── */
+  if (tab === 'nidhi') {
+    const plans = (savingsData.plans || []).slice().reverse();
+    body.innerHTML = `<div class="adm-card"><h3>${plans.length} Swarna Nidhi plans</h3>
+      <p class="partner-note">Record each counter/UPI instalment here — the customer&rsquo;s digital passbook and indicative grams update instantly. Shivaa&rsquo;s 12th instalment unlocks after 11 paid months.</p>
+      ${plans.length ? `<div class="adm-table-wrap" style="margin-top:10px"><table class="adm-table">
+        <thead><tr><th>Plan</th><th>Customer</th><th class="num">Monthly</th><th class="num">Paid months</th><th class="num">Contributed</th><th class="num">~22K grams</th><th>Status</th><th></th></tr></thead>
+        <tbody>${plans.map(p => `<tr>
+          <td><b>${esc(p.id.toUpperCase())}</b><br><small>${new Date(p.createdAt).toLocaleDateString('en-IN')}</small></td>
+          <td>${esc(p.userName)}<br><small style="color:var(--ink-3)">${esc(p.phone || '')}</small></td>
+          <td class="num">${fmt(p.monthlyAmount)}</td>
+          <td class="num">${p.paidMonths}/11</td>
+          <td class="num"><b>${fmt(p.contributed)}</b></td>
+          <td class="num">${(p.indicativeGrams22 || 0).toFixed(2)} g</td>
+          <td><span class="status-pill st-${p.status === 'active' ? 'placed' : 'delivered'}">${esc(p.status)}</span></td>
+          <td style="white-space:nowrap">${p.status === 'active' ? `
+            <button class="btn btn-gold btn-sm" onclick="ShivaaAdmin.nidhiPay('${p.id}')">+ Instalment</button>
+            <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.nidhiAct('${p.id}','redeem')">Redeem</button>
+            <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.nidhiAct('${p.id}','close')">Close/refund</button>` : ''}</td>
+        </tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No plans yet. Customers enrol from the Swarna Nidhi page.</p>'}
+    </div>`;
   }
 
   /* ── GOLD FINALE — entry ledger for the CA-witnessed draw ── */
@@ -403,9 +479,14 @@ async function renderAdmin(view, q) {
           <td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td><td>${esc(u.phone || '—')}</td>
           <td><span class="pill ${u.role === 'admin' ? 'pf' : 'pm'}">${u.role}</span></td>
           <td class="num">${u.loyaltyPoints || 0}</td><td>${new Date(u.createdAt).toLocaleDateString('en-IN')}</td>
-          <td>${(u.role !== 'admin' || (state.user && u.id === state.user.id)) ? `<button class="btn btn-ghost btn-sm" data-uid="${u.id}" data-em="${esc(u.email)}" ${u.role === 'admin' ? 'data-admin="1"' : ''} onclick="ShivaaAdmin.setUserPassword(this)" title="Set a new sign-in password">Password</button>` : ''}</td>
+          <td style="white-space:nowrap">${(u.role !== 'admin' || (state.user && u.id === state.user.id)) ? `<button class="btn btn-ghost btn-sm" data-uid="${u.id}" data-em="${esc(u.email)}" ${u.role === 'admin' ? 'data-admin="1"' : ''} onclick="ShivaaAdmin.setUserPassword(this)" title="Set a new sign-in password">Password</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.userData('${u.id}')" title="DPDP data export">📂</button>
+            ${u.role !== 'admin' ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.anonymize('${u.id}')" title="Erase personal data (DPDP)">🪦</button>` : ''}</td>
         </tr>`).join('')}</tbody>
-      </table></div></div>`;
+      </table></div>
+      <div class="adm-card" style="margin-top:14px"><h3>Customer reviews — replies &amp; photos</h3><div id="rvAdmin"><p class="partner-note">Loading…</p></div></div>
+    </div>`;
+    ShivaaAdmin.loadReviews();
   }
 
   /* ── LEADS ── */
@@ -640,6 +721,8 @@ async function renderAdmin(view, q) {
           <div class="fld"><label>Counter UPI ID <small>(QR fallback — works without any gateway)</small></label><input name="upiId" value="${esc(S.upiId || '')}" placeholder="yourshop@okhdfcbank"></div>
           <div class="fld"><label>UPI payee name</label><input name="upiName" value="${esc(S.upiName || 'Shivaa Jewellers')}"></div>
           <div class="fld full"><label>Prepaid-only pincodes (comma-separated; NE &amp; Ladakh prepaid by default)</label><input name="codBlockedPins" value="${esc(S.codBlockedPins || '')}" placeholder="110001, 744101"></div>
+          <div class="fld"><label>Shop GSTIN <small>(printed on tax invoices)</small></label><input name="gstin" value="${esc(S.gstin || '')}" placeholder="08ABCDE1234F1Z5" style="text-transform:uppercase"></div>
+          <div class="fld"><label>Google review link <small>(10/10 reviewers are sent here)</small></label><input name="googleReviewUrl" value="${esc(S.googleReviewUrl || '')}" placeholder="https://maps.app.goo.gl/…"></div>
           <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">No gateway? Fill only the <b>UPI ID</b> — customers scan the QR and upload a payment screenshot; you verify each one under Orders (banner at top). With Razorpay keys, cards/net-banking go fully automatic.</div>
           <button class="btn btn-primary btn-sm" style="justify-self:start">Save payments</button>
         </form></div>
@@ -1183,7 +1266,8 @@ window.ShivaaAdmin.savePay = async e => {
   const body = { payProvider: g('payProvider'), rzpKeyId: g('rzpKeyId').trim(),
                  prepaidPct: Math.max(0, +g('prepaidPct') || 0), codFeePct: Math.max(0, +g('codFeePct') || 0),
                  upiId: g('upiId').trim(), upiName: g('upiName').trim() || 'Shivaa Jewellers',
-                 codBlockedPins: g('codBlockedPins').replace(/[^\d,\s]/g, '').trim() };
+                 codBlockedPins: g('codBlockedPins').replace(/[^\d,\s]/g, '').trim(),
+                 gstin: g('gstin').trim().toUpperCase(), googleReviewUrl: g('googleReviewUrl').trim() };
   if (g('rzpKeySecret')) body.rzpKeySecret = g('rzpKeySecret').trim();
   try {
     const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
@@ -1373,6 +1457,44 @@ function admPrintDoc(o, kind) {
 function escP(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 window.ShivaaAdmin.printSlip = id => admPrintDoc((window._adminOrders || []).find(x => x.id === id), 'slip');
 window.ShivaaAdmin.printLabel = id => admPrintDoc((window._adminOrders || []).find(x => x.id === id), 'label');
+/* v60 — thermal receipt 58/80mm */
+window.ShivaaAdmin.printReceipt = id => {
+  const o = (window._adminOrders || []).find(x => x.id === id);
+  if (!o) return;
+  const S = (state.settings) || {};
+  const paid = o.amountPaid || (o.paymentStatus === 'Paid' ? o.total : 0);
+  const bal = Math.max(0, (o.total || 0) - paid);
+  const w = window.open('', '_blank', 'width=380,height=700');
+  w.document.write(`<!doctype html><html><head><title>Receipt ${o.id}</title><style>
+    @page{size:80mm auto;margin:2mm}
+    body{font-family:'Courier New',monospace;width:76mm;margin:0 auto;color:#000;font-size:11px}
+    h2{text-align:center;font-size:14px;margin:2px 0}.c{text-align:center}.m{font-size:10px;color:#333}
+    table{width:100%;border-collapse:collapse}td{padding:2px 0;vertical-align:top}
+    .ln{border-top:1px dashed #000;margin:6px 0}.r{text-align:right}
+    @media(max-width:60mm){body{width:54mm;font-size:10px}}
+  </style></head><body>
+  <h2>SHIVAA JEWELLERS</h2>
+  <div class="c m">Sadar Bazaar, Jayal, Nagaur (Raj.)<br>+91 89050 05921 · shivaa.in<br>${S.gstin ? 'GSTIN: ' + S.gstin : ''}</div>
+  <div class="ln"></div>
+  <table><tr><td>Receipt</td><td class="r"><b>${o.invoiceNo || o.id}</b></td></tr>
+  <tr><td>Date</td><td class="r">${new Date(o.createdAt).toLocaleString('en-IN')}</td></tr>
+  <tr><td>Customer</td><td class="r">${esc(o.userName || '')}</td></tr></table>
+  <div class="ln"></div>
+  <table>${(o.items || []).map(it => `<tr><td>${it.qty} x ${it.name}${it.size ? ' (' + it.size + ')' : ''}</td><td class="r">${(it.unitPrice * it.qty).toLocaleString('en-IN')}</td></tr>`).join('')}
+  ${o.shipping ? `<tr><td>Shipping</td><td class="r">${o.shipping.toLocaleString('en-IN')}</td></tr>` : ''}
+  ${o.prepaidDiscount ? `<tr><td>Prepaid discount</td><td class="r">-${o.prepaidDiscount.toLocaleString('en-IN')}</td></tr>` : ''}
+  </table>
+  <div class="ln"></div>
+  <table><tr><td><b>TOTAL</b></td><td class="r"><b>Rs.${(o.total || 0).toLocaleString('en-IN')}</b></td></tr>
+  <tr><td>Received</td><td class="r">${paid.toLocaleString('en-IN')}</td></tr>
+  ${bal ? `<tr><td><b>Balance</b></td><td class="r"><b>${bal.toLocaleString('en-IN')}</b></td></tr>` : ''}</table>
+  <div class="ln"></div>
+  <div class="c m">BIS hallmarked · HUID on every gold piece<br>7-day return · lifetime exchange & care<br>Thank you ✦</div>
+  <div class="c" style="margin-top:10px"><button onclick="window.print()" class="noprt" style="padding:6px 18px">🖨 Print</button></div>
+  <script>window.onload=()=>{try{window.print()}catch(e){}}</script>
+  </body></html>`);
+  w.document.close();
+};
 
 function drawBarChart(cv, days) {
   if (!cv || !days.length) { if (cv) cv.parentElement.innerHTML += '<p style="color:var(--ink-3);font-size:13px">Revenue chart appears once orders come in.</p>'; return; }
@@ -1724,45 +1846,117 @@ window.ShivaaCO = {
    BULLION mini-app (partner portal + admin)
    ───────────────────────────────────────────── */
 window.ShivaaBullion = {
+  B: null,
+  section: 'rates',
+  chartSeries: 'gold995',
   lastSeen: null,
-  async refresh(silent = true) {
+  async refresh(/* silent */) {
     try {
       const B = await window.Shivaa.api('/api/bullion');
-      this.lastSeen = this.lastSeen || B.updatedAt;
-      if (!silent && B.updatedAt !== this.lastSeen) {
-        this.lastSeen = B.updatedAt;
-        window.Shivaa.toast('📈 Bullion rates updated — showing fresh prices');
-      } else if (B.updatedAt !== this.lastSeen) {
-        this.lastSeen = B.updatedAt;
-        window.Shivaa.toast('📈 Bullion CASH rates updated by Shivaa');
+      const first = !this.B;
+      const board = document.getElementById('bullionBoard');
+      const mounted = this.mounted && board && board.querySelector('.bd-tabs');
+      this.B = B;
+      if (!first && B.updatedAt !== this.lastSeen && mounted) {
+        window.Shivaa.toast('📈 Bullion rates updated — fresh prices on screen');
       }
-      this.render(B);
-    } catch (e) { const el = document.getElementById('bullionBoard'); if (el) el.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
+      this.lastSeen = B.updatedAt;
+      if (!mounted) { this.mounted = true; this.render(B); }
+      else if (this.section === 'rates' || this.section === 'history' || this.section === 'alerts') {
+        this.renderSection();   // live repaint without resetting the tab
+      }
+      const reached = (B.alerts || []).filter(a => a.reached && !a._pinged);
+      if (!first && reached.length) { reached.forEach(a => a._pinged = true); window.Shivaa.toast('🔔 ' + reached[0].label + ' hit your target ' + this.num(reached[0].target)); }
+    } catch (e) { const el = document.getElementById('bullionBoard'); if (el && !this.mounted) el.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
   },
   render(B) {
-    this.renderBoard(B);
-    this.loadOrders();
+    const el = document.getElementById('bullionBoard');
+    if (!el) return;
+    this.renderShell(B);
+    this.renderSection();
   },
   num(v) { return (Math.round(v) || 0).toLocaleString('en-IN'); },
   dash(v) { return v ? this.num(v) : '--'; },
   chgTxt(c) {
-    // value is already converted to the display unit (per 10 g gold / per kg silver)
     const disp = Math.round(c);
     if (!disp) return '<span class="bd-flat">[--]</span>';
     return disp > 0 ? `<span class="bd-up">[+${disp.toLocaleString('en-IN')}]</span>`
                     : `<span class="bd-down">[${disp.toLocaleString('en-IN')}]</span>`;
   },
-  /* v57 — Pride-Gold style live board (black/gold trading screen) */
-  renderBoard(B) {
-    const door = document.getElementById('bdDoorRate');
-    if (door) door.textContent = ((typeof state !== "undefined" && state.rates && state.rates.gold22) || 0).toLocaleString("en-IN");
+  isSil(r) { return /sil|silver/i.test(r.label || r); },
+  sc(r) { return this.isSil(r) ? 1000 : 10; },
+
+  /* ───────── shell: top bar, marquee, section host, bottom nav ───────── */
+  renderShell(B) {
     const el = document.getElementById('bullionBoard');
-    if (!el || !B) return;
     const bd = B.board || {};
     const ticker = bd.ticker || '✦ Unfix (rate-lock) facility available on gold & silver ✦';
-    // gold quotes display per 10 g, silver per kg — the wholesale convention
-    const isSil = r => /sil|silver/i.test(r.label);
-    const sc = r => isSil(r) ? 1000 : 10;
+    const tab = (id, ic, lb) => `<a href="#" data-sec="${id}" class="${this.section === id ? 'on' : ''}">${ic}<span>${lb}</span>${id === 'alerts' && (B.alerts || []).length ? `<em class="bd-navcnt">${B.alerts.length}</em>` : ''}</a>`;
+    el.innerHTML = `
+      <div class="bd-topbar">
+        <img src="/images/logo.png" alt="Shivaa">
+        <div class="bd-title"><b>SHIVAA BULLION DESK</b><small>TDS · refined · spot · MCX &mdash; for approved jewellers</small></div>
+        <span class="bd-live"><span class="live-dot"></span>LIVE<br><b>${esc(B.date || '')} ${bd.time || ''}</b></span>
+      </div>
+      <div class="bd-marquee"><div class="bd-marq-in">★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} </div></div>
+      <div id="bdSection" class="bd-section"></div>
+      <a class="bd-call-fab" href="${window.Shivaa.waLink('Namaste Shivaa bullion desk ✦ I want an unfix / firm quote.')}" target="_blank" rel="noopener" title="Call the bullion desk">📞</a>
+      <nav class="bd-tabs">
+        ${tab('rates', '▦', 'Rates')}
+        ${tab('deals', '🤝', 'Deals')}
+        ${tab('history', '📈', 'History')}
+        ${tab('alerts', '🔔', 'Alerts')}
+        ${tab('menu', '▤', 'Menu')}
+      </nav>`;
+    el.querySelectorAll('.bd-tabs a').forEach(a => a.onclick = e => {
+      e.preventDefault();
+      if (a.dataset.sec === 'menu') { location.hash = '#/partner'; return; }
+      this.section = a.dataset.sec;
+      this.renderShell(B); this.renderSection();
+    });
+  },
+
+  /* ───────── sparkline (pure SVG, no libraries) ───────── */
+  sparkline(seriesKey, height = 132) {
+    const ch = (this.B && this.B.chart) || null;
+    const vals = ch && ch[seriesKey] ? ch[seriesKey] : [];
+    if (vals.length < 2) return '<div class="bd-chart-empty">Chart builds as live ticks arrive…</div>';
+    const w = 640, h = height, pad = 8;
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const span = (max - min) || 1;
+    const x = i => pad + (i / (vals.length - 1)) * (w - pad * 2);
+    const y = v => h - pad - ((v - min) / span) * (h - pad * 2);
+    const pts = vals.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1));
+    const line = pts.join(' ');
+    const area = `${pad},${h - pad} ${line} ${x(vals.length - 1).toFixed(1)},${h - pad}`;
+    const last = vals[vals.length - 1], first = vals[0];
+    const up = last >= first;
+    const hi = vals.indexOf(max), lo = vals.indexOf(min);
+    return `<svg class="bd-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img">
+      <defs><linearGradient id="bdg" x0="0" y0="0" x1="0" y1="1">
+        <stop offset="0%" stop-color="${up ? '#39d98a' : '#ff6b6b'}" stop-opacity=".35"/>
+        <stop offset="100%" stop-color="${up ? '#39d98a' : '#ff6b6b'}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <polygon points="${area}" fill="url(#bdg)"/>
+      <polyline points="${line}" fill="none" stroke="${up ? '#39d98a' : '#ff6b6b'}" stroke-width="2.2" vector-effect="non-scaling-stroke"/>
+      <circle cx="${x(hi)}" cy="${y(max)}" r="3.2" fill="#39d98a" vector-effect="non-scaling-stroke"/>
+      <circle cx="${x(lo)}" cy="${y(min)}" r="3.2" fill="#ff6b6b" vector-effect="non-scaling-stroke"/>
+      <circle cx="${x(vals.length - 1)}" cy="${y(last)}" r="3.4" fill="#f3d27a" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="bd-chart-lims"><span class="bd-hitxt">H ${this.num(max)}</span><span class="bd-lowtxt">L ${this.num(min)}</span><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(last - first))}</span></div>`;
+  },
+
+  /* ───────── sections ───────── */
+  renderSection() {
+    const host = document.getElementById('bdSection');
+    if (!host) return;
+    ({ rates: this.secRates, deals: this.secDeals, history: this.secHistory, alerts: this.secAlerts }[this.section] || this.secRates).call(this, host);
+  },
+
+  secRates(host) {
+    const B = this.B, bd = B.board || {};
+    const isSil = r => this.isSil(r);
+    const sc = r => this.sc(r);
     const cell = (r, side) => {
       const raw = r[side], v = raw ? Math.round(raw * sc(r)) : 0;
       const cls = side === 'buy' ? 'bd-buy' : 'bd-sell';
@@ -1772,32 +1966,37 @@ window.ShivaaBullion = {
         <small class="bd-lh">${side === 'buy' ? 'L' : 'H'}: <span class="${side === 'buy' ? 'bd-lowtxt' : 'bd-hitxt'}">${v && (side === 'buy' ? r.low : r.high) ? this.num(Math.round((r[side === 'buy' ? 'low' : 'high'] || raw) * sc(r))) : '--'}</span></small>
       </div>`;
     };
-    const rows = B.rows.map(r => `
+    const seriesChips = [['gold995', 'TDS Gold 995'], ['silverChorsa', 'TDS Silver'], ['goldSpot', 'Gold Spot'], ['silverSpot', 'Silver Spot']];
+    const rows = B.rows.map(r => {
+      const chKey = isSil(r) ? 'silverChorsa' : 'gold995';
+      return `
       <div class="bd-row ${r.mode.toLowerCase()}">
         <div class="bd-desc">
           <b>${esc(r.label)}</b>
           <small>${esc(r.purity)}${r.editable ? ' · Shivaa set' : ''}</small>
           <em>Time: ${bd.time || ''}</em>
+          <span class="bd-bell" title="Rate alert / unfix" onclick='ShivaaBullion.alertForm(${JSON.stringify({ key: r.key, label: r.label })})'>🔔</span>
         </div>
         ${cell(r, 'buy')}
         ${cell(r, 'sell')}
-        <div class="bd-chg">${this.chgTxt(r.change * (isSil(r) ? 1000 : 10))}</div>
-      </div>`).join('');
+        <div class="bd-chg">${this.chgTxt((r.change || 0) * (isSil(r) ? 1000 : 10))}</div>
+      </div>`;
+    }).join('');
     const spot = bd.spot || {}, fut = bd.future || {}, duty = bd.duty || {};
     const card3 = (title, val, lo, hi) => `<div class="bd-card">
       <div class="bd-card-h">${title}</div><div class="bd-card-v">${this.num(val)}</div>
       <div class="bd-lhline"><span>${this.num(lo)}</span> <i>|</i> <span>${this.num(hi)}</span></div></div>`;
     const futCard = (title, f, lo, hi) => `<div class="bd-card">
-      <div class="bd-card-h">${title}</div>
-      <div class="bd-ba"><div><small>BID</small><span class="bd-bid">${this.dash(f && f.bid)}</span></div><div><small>ASK</small><span class="bd-ask">${this.dash(f && f.ask)}</span></div></div>
+      <div class="bd-card-h">${title}</div><div class="bd-ba"><div><small>BID</small><span class="bd-bid">${this.dash(f && f.bid)}</span></div><div><small>ASK</small><span class="bd-ask">${this.dash(f && f.ask)}</span></div></div>
       <div class="bd-lhline"><span class="bd-lowtxt">L: ${this.num(lo)}</span> <i>|</i> <span class="bd-hitxt">H: ${this.num(hi)}</span></div></div>`;
-    el.innerHTML = `
-      <div class="bd-topbar">
-        <img src="/images/logo.png" alt="Shivaa">
-        <div class="bd-title"><b>SHIVAA BULLION DESK</b><small>TDS · refined · spot · MCX &mdash; for approved jewellers</small></div>
-        <span class="bd-live"><span class="live-dot"></span>LIVE<br><b>${esc(B.date || '')} ${bd.time || ''}</b></span>
+    host.innerHTML = `
+      <div class="bd-chartcard">
+        <div class="bd-chart-head">
+          <div class="bd-chips">${seriesChips.map(([k, l]) => `<button class="bd-chip ${this.chartSeries === k ? 'on' : ''}" data-series="${k}">${l}</button>`).join('')}</div>
+          <button class="bd-unfix" onclick='ShivaaBullion.alertForm({kind:"unfix"})'>🔒 Request UNFIX</button>
+        </div>
+        <div id="bdChart">${this.sparkline(this.chartSeries)}</div>
       </div>
-      <div class="bd-marquee"><div class="bd-marq-in">★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} </div></div>
       <div class="bd-gridhead">
         <span>DESCRIPTION</span><span class="bd-c-buy">BUY</span><span class="bd-c-sell">SELL</span><span>T-CHANGE</span>
       </div>
@@ -1815,61 +2014,490 @@ window.ShivaaBullion = {
         ${card3('GOLD CUSTOM DUTY <small>/100 g</small>', duty.gold, duty.gold, duty.gold)}
         ${card3('SILVER CUSTOM DUTY <small>/kg</small>', duty.silver, duty.silver, duty.silver)}
       </div>
-      <p class="bd-note">RTGS rows follow the live bullion feed (green = firm buying quote, red = firm selling quote). TDS 995 &amp; refined silver settle on the unfix rate of your call &mdash; tap a quote to place an order and the desk confirms on WhatsApp. Rates are per <b>10 g</b> (gold) and per <b>kg</b> (silver); L/H are the day&rsquo;s low/high.</p>
-      <div class="bd-deals"><h4>My bullion deals</h4><div id="blOrders"></div></div>
-      <a class="bd-call-fab" href="${window.Shivaa.waLink('Namaste Shivaa bullion desk ✦ I want an unfix / firm quote.')}" target="_blank" rel="noopener" title="Call the bullion desk">📞</a>
-      <nav class="bd-tabs">
-        <a href="#/partner?view=bullion" class="on">▦<span>Rates</span></a>
-        <a href="#/partner?view=bullion" id="bdTabDeals">🤝<span>Deals</span></a>
-        <a href="#/partner?view=bullion" id="bdTabHist">🕘<span>History</span></a>
-        <a href="#/partner">▤<span>Menu</span></a>
-      </nav>`;
-    document.getElementById('bdTabDeals').onclick = e => { e.preventDefault(); document.querySelector('.bd-deals')?.scrollIntoView({ behavior: 'smooth' }); };
-    document.getElementById('bdTabHist').onclick = e => { e.preventDefault(); document.querySelector('.bd-deals')?.scrollIntoView({ behavior: 'smooth' }); };
+      <p class="bd-note">RTGS rows follow the live bullion feed (green = firm buying quote, red = firm selling quote). TDS 995 &amp; refined silver settle on the unfix rate of your call &mdash; tap a quote to trade, the 🔔 to set a rate alert, or <b>Request UNFIX</b> for a rate-lock. The desk confirms every deal on WhatsApp. Rates per <b>10 g</b> (gold) and per <b>kg</b> (silver).</p>`;
+    host.querySelectorAll('.bd-chip').forEach(c => c.onclick = () => {
+      this.chartSeries = c.dataset.series;
+      document.getElementById('bdChart').innerHTML = this.sparkline(this.chartSeries);
+      host.querySelectorAll('.bd-chip').forEach(x => x.classList.toggle('on', x === c));
+    });
   },
+
+  secDeals(host) {
+    host.innerHTML = '<div class="loading-spin"></div>';
+    window.Shivaa.api('/api/bullion/orders').then(({ orders }) => {
+      const steps = ['New', 'Confirmed', 'Delivered'];
+      host.innerHTML = `<h4 class="bd-sech">My bullion deals</h4>
+        ${orders.length ? orders.map(o => {
+          const stepIdx = o.status === 'Cancelled' ? -1 : steps.indexOf(o.status);
+          return `<div class="bd-deal ${o.status === 'Cancelled' ? 'cancelled' : ''}">
+            <div class="bd-deal-top">
+              <div><b>${o.side === 'buy' ? 'BUY' : 'SELL'} · ${esc(o.metal)}</b> <span class="bd-dealid">${esc(o.id)}</span></div>
+              <span class="status-pill st-${String(o.status).toLowerCase()}">${esc(o.status)}</span>
+            </div>
+            <div class="bd-deal-grid">
+              <div><small>Qty</small><b>${o.qty} ${o.unit}</b></div>
+              <div><small>Rate ₹/g</small><b>${this.num(o.rate)}</b></div>
+              <div><small>Value</small><b>₹${this.num(o.amount)}</b></div>
+              <div><small>Date</small><b>${new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</b></div>
+            </div>
+            ${stepIdx >= 0 ? `<div class="bd-track">${steps.map((s, i) => `<span class="${i <= stepIdx ? 'done' : ''}">${s}</span>${i < steps.length - 1 ? '<i></i>' : ''}`).join('')}</div>` : '<div class="bd-cancelled">This deal was cancelled.</div>'}
+            ${o.note ? `<small class="bd-dealnote">Note: ${esc(o.note)}</small>` : ''}
+            <div class="bd-deal-acts">
+              <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${window.Shivaa.waLink('About bullion deal ' + o.id + ' (' + o.metal + ', ' + o.qty + o.unit + '):')}">📱 Desk on WhatsApp</a>
+              <button class="btn btn-ghost btn-sm" onclick="ShivaaBullion.receipt('${o.id}')">🧾 Receipt</button>
+            </div>
+          </div>`;
+        }).join('') : '<p class="partner-note">No deals yet — tap BUY/SELL on the Rates tab. Quotes here are firm while the board is live.</p>'}`;
+      window._blOrders = orders;
+    }).catch(e => host.innerHTML = '<p class="partner-note">' + e.message + '</p>');
+  },
+
+  secHistory(host) {
+    const B = this.B;
+    const seriesChips = [['gold995', 'TDS Gold 995 /10 g'], ['silverChorsa', 'TDS Silver /kg'], ['goldSpot', 'Gold Spot /10 g'], ['silverSpot', 'Silver Spot /kg']];
+    const stat = (label, arr) => {
+      const v = arr && arr.length ? arr : [0];
+      const open = v[0], close = v[v.length - 1];
+      return `<div class="bd-hstat"><small>${label}</small>
+        <div><span>Open <b>${this.num(open)}</b></span><span>Now <b>${this.num(close)}</b></span>
+        <span class="bd-hitxt">H ${this.num(Math.max(...v))}</span> <span class="bd-lowtxt">L ${this.num(Math.min(...v))}</span></div>`;
+    };
+    host.innerHTML = `
+      <h4 class="bd-sech">Intraday history</h4>
+      <div class="bd-chips" style="margin-bottom:8px">${seriesChips.map(([k, l]) => `<button class="bd-chip ${this.chartSeries === k ? 'on' : ''}" data-series="${k}">${l}</button>`).join('')}</div>
+      <div class="bd-chartcard bd-bigchart">${this.sparkline(this.chartSeries, 220)}</div>
+      <div class="bd-hstats">
+        ${stat('TDS Gold 995', B.chart.gold995)}
+        ${stat('TDS Silver Chorsa', B.chart.silverChorsa)}
+      </div>
+      <p class="bd-note">Ticks are retained across the trading day (up to 180 points); L/H bands on every rate card use the same intraday feed. For previous-day settlement sheets ask the desk on WhatsApp.</p>`;
+    host.querySelectorAll('.bd-chip').forEach(c => c.onclick = () => {
+      this.chartSeries = c.dataset.series;
+      host.querySelectorAll('.bd-chip').forEach(x => x.classList.toggle('on', x === c));
+      host.querySelector('.bd-bigchart').innerHTML = this.sparkline(this.chartSeries, 220);
+    });
+  },
+
+  secAlerts(host) {
+    const alerts = this.B.alerts || [];
+    const unfix = alerts.filter(a => a.kind === 'unfix');
+    const rates = alerts.filter(a => a.kind !== 'unfix');
+    const item = a => `<div class="bd-alert ${a.reached ? 'reached' : ''}">
+      <div><b>${esc(a.label || 'Unfix request')}</b>${a.kind !== 'unfix' ? ` <small>${a.side} · ${a.dir} ₹${this.num(a.target)}</small>` : ''}
+        <br><small>${new Date(a.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · now <b class="${a.reached ? 'bd-hitxt' : ''}">${a.rateNow ? this.num(a.rateNow) : '—'}</b></small>
+        ${a.note ? `<br><small>“${esc(a.note)}”</small>` : ''}
+        ${a.reached ? '<div class="bd-alert-flag">🔔 TARGET HIT — tap to trade</div>' : ''}</div>
+      <div class="bd-alert-acts">
+        ${a.reached ? `<button class="btn btn-gold btn-sm" onclick="ShivaaBullion.jumpRate('${a.key}')">Trade →</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="ShivaaBullion.removeAlert('${a.id}')">✕</button>
+      </div></div>`;
+    host.innerHTML = `
+      <h4 class="bd-sech">Rate alerts &amp; unfix requests</h4>
+      <p class="partner-note">Get pinged the moment a firm quote crosses your target, or request an unfix (rate-lock) for a planned purchase.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px">
+        <button class="btn btn-gold btn-sm" onclick='ShivaaBullion.alertForm()'>＋ Rate alert</button>
+        <button class="btn btn-outline btn-sm" onclick='ShivaaBullion.alertForm({kind:"unfix"})'>🔒 Request UNFIX</button>
+      </div>
+      ${unfix.length ? '<h5 style="color:var(--gold);margin:8px 0">Unfix requests</h5>' + unfix.map(item).join('') : ''}
+      ${rates.length ? '<h5 style="color:var(--gold);margin:8px 0">Rate alerts</h5>' + rates.map(item).join('') : '<p class="partner-note">No alerts set.</p>'}`;
+  },
+
+  jumpRate(key) { this.section = 'rates'; this.renderShell(this.B); this.renderSection(); },
+
+  /* ───────── forms ───────── */
+  alertForm(preset) {
+    const rows = (this.B && this.B.rows) || [];
+    const p = preset || {};
+    if (p.kind === 'unfix' || (preset && preset.kind === 'unfix')) {
+      window.Shivaa.openModal(`<h3>Request UNFIX (rate-lock)</h3>
+        <p style="font-size:13px;color:var(--ink-3)">Tell us the metal, quantity and settlement day — the desk confirms the unfix on WhatsApp.</p>
+        <form class="form-grid" onsubmit="ShivaaBullion.placeAlert(event,'unfix')">
+          <div class="fld full"><label>Metal / purity</label><input name="label" required placeholder="e.g. TDS Gold 995, 100 g"></div>
+          <div class="fld"><label>Qty</label><input name="qty" placeholder="e.g. 100 g / 5 kg"></div>
+          <div class="fld"><label>Settlement day</label><input name="note" placeholder="e.g. 20th, evening"></div>
+          <button class="btn btn-gold btn-block">Send unfix request</button>
+        </form>`);
+      return;
+    }
+    const opts = rows.map(r => {
+      const cur = r[p.side || 'buy'] ? Math.round(r[p.side || 'buy'] * this.sc(r)) : 0;
+      return `<option value="${r.key}" data-side="${p.side || 'buy'}" ${p.key === r.key ? 'selected' : ''}>${r.label} (now ${cur ? this.num(cur) : '--'})</option>`;
+    }).join('');
+    window.Shivaa.openModal(`<h3>Set a rate alert</h3>
+      <form class="form-grid" onsubmit="ShivaaBullion.placeAlert(event,'rate')">
+        <div class="fld full"><label>Metal</label><select name="key" id="alKey" class="sortsel" style="width:100%;border-radius:12px">${opts}</select></div>
+        <div class="fld"><label>Side</label><select name="side" class="sortsel" style="width:100%;border-radius:12px"><option value="buy" ${p.side === 'buy' ? 'selected' : ''}>BUY rate</option><option value="sell" ${p.side === 'sell' ? 'selected' : ''}>SELL rate</option></select></div>
+        <div class="fld"><label>When rate goes</label><select name="dir" class="sortsel" style="width:100%;border-radius:12px"><option value="below">Below</option><option value="above">Above</option></select></div>
+        <div class="fld full"><label>Target ₹ (display unit — /10 g gold, /kg silver)</label><input name="target" type="number" step="1" required placeholder="e.g. 72500"></div>
+        <button class="btn btn-gold btn-block">Set alert 🔔</button>
+      </form>`);
+    if (p.label) { const k = document.getElementById('alKey'); if (k) [...k.options].forEach(o => { if (o.textContent.includes(p.label.split('–')[0].trim().slice(0, 10))) k.value = o.value; }); }
+  },
+  async placeAlert(e, kind) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const key = fd.get('key') || 'unfix';
+    const row = (this.B.rows || []).find(r => r.key === key) || { label: fd.get('label') || 'Unfix' };
+    try {
+      await window.Shivaa.api('/api/bullion/alert', { method: 'POST', body: JSON.stringify(kind === 'unfix'
+        ? { kind: 'unfix', key: 'unfix', label: fd.get('label'), note: [fd.get('qty'), fd.get('note')].filter(Boolean).join(' · ') }
+        : { kind: 'rate', key, label: row.label, side: fd.get('side'), dir: fd.get('dir'), target: +fd.get('target') }) });
+      window.Shivaa.closeModal();
+      window.Shivaa.toast(kind === 'unfix' ? 'Unfix request sent ✦ desk will WhatsApp you' : 'Alert set 🔔');
+      this.section = 'alerts';
+      await this.refresh(true);
+    } catch (err) { window.Shivaa.toast(err.message, 'err'); }
+  },
+  async removeAlert(id) {
+    try { await window.Shivaa.api('/api/bullion/alert/' + id + '/remove', { method: 'POST', body: '{}' });
+      window.Shivaa.toast('Alert removed'); this.refresh(true);
+    } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+  },
+
+  /* ───────── trade ticket: quantity / amount calculator with TCS ───────── */
   orderForm(o) {
+    const sil = /sil/i.test(o.label);
+    const defUnit = sil ? 'kg' : 'g';
     window.Shivaa.openModal(`
       <h3 style="font-size:22px;margin-bottom:2px">${o.side === 'buy' ? 'Buy' : 'Sell'} — ${o.label}</h3>
-      <div style="font-size:12px;color:var(--ink-3);margin-bottom:14px">${o.purity} · ${o.mode} · rate locked ₹${o.rate.toLocaleString('en-IN')}/g now</div>
+      <div style="font-size:12px;color:var(--ink-3);margin-bottom:14px">${o.purity} · ${o.mode} · firm rate <b>₹${o.rate.toLocaleString('en-IN')}/g</b></div>
       <form class="form-grid" onsubmit="ShivaaBullion.place(event)">
         <input type="hidden" id="boKey" value="${o.key}"><input type="hidden" id="boSide" value="${o.side}">
-        <input type="hidden" id="boMetal" value="${o.label}">
-        <div class="fld"><label>Quantity *</label><input id="boQty" type="number" step="0.01" min="0.01" required placeholder="e.g. 2.5"></div>
-        <div class="fld"><label>Unit</label><select id="boUnit" class="sortsel" style="width:100%;border-radius:12px"><option value="kg">Kg</option><option value="g">Grams</option></select></div>
-        <div class="fld full"><label>Note (optional)</label><input id="boNote" placeholder="delivery date, payment mode…"></div>
-        <div class="fld full" style="background:var(--gold-faint);border-radius:12px;padding:12px 14px;font-size:13px">Est. value: <b id="boEst" style="color:var(--maroon)">—</b> <span style="color:var(--ink-3)">(qty × ₹${o.rate.toLocaleString('en-IN')}/g)</span></div>
+        <input type="hidden" id="boMetal" value="${o.label}"><input type="hidden" id="boRate" value="${o.rate}">
+        <div class="fld"><label>Trade by</label><select id="boMode" class="sortsel" style="width:100%;border-radius:12px"><option value="qty">Quantity</option><option value="amt">Amount (₹)</option></select></div>
+        <div class="fld"><label>Unit</label><select id="boUnit" class="sortsel" style="width:100%;border-radius:12px"><option value="g" ${defUnit === 'g' ? 'selected' : ''}>Grams</option><option value="kg" ${defUnit === 'kg' ? 'selected' : ''}>Kg</option></select></div>
+        <div class="fld full" id="qtyFld"><label>Quantity *</label><input id="boQty" type="number" step="0.001" min="0.001" placeholder="${sil ? 'e.g. 1 (kg)' : 'e.g. 100 (g)'}"></div>
+        <div class="fld full" id="amtFld" style="display:none"><label>Amount ₹ *</label><input id="boAmt" type="number" step="1" placeholder="e.g. 500000"></div>
+        <div class="fld"><label>TCS (0.1%) on buy</label><select id="boTcs" class="sortsel" style="width:100%;border-radius:12px"><option value="0">Not applicable</option><option value="0.001" ${o.side === 'buy' ? 'selected' : ''}>Add 0.1%</option></select></div>
+        <div class="fld"><label>Note</label><input id="boNote" placeholder="settlement day, ref…"></div>
+        <div class="fld full" style="background:var(--gold-faint);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.8">
+          Metal value: <b id="boVal">—</b><br>
+          <span id="boTcsLine" style="display:none">TCS: <b id="boTcsAmt">—</b><br></span>
+          <span style="font-size:15px">Total payable: <b id="boTot" style="color:var(--maroon)">—</b></span>
+          <small id="boQtyEcho" style="display:block;color:var(--ink-3)"></small>
+        </div>
         <button class="btn btn-primary btn-block">Place ${o.side === 'buy' ? 'Buy' : 'Sell'} Order</button>
       </form>`);
-    const est = () => { const q = +document.getElementById('boQty').value || 0; const u = document.getElementById('boUnit').value; document.getElementById('boEst').textContent = '₹' + Math.round(q * o.rate * (u === 'kg' ? 1000 : 1)).toLocaleString('en-IN'); };
-    document.getElementById('boQty').oninput = est; document.getElementById('boUnit').onchange = est;
+    const calc = () => {
+      const mode = document.getElementById('boMode').value;
+      const unit = document.getElementById('boUnit').value;
+      const mult = unit === 'kg' ? 1000 : 1;
+      let qty = 0, amt = 0;
+      if (mode === 'qty') { qty = +document.getElementById('boQty').value || 0; amt = qty * o.rate * mult; }
+      else { amt = +document.getElementById('boAmt').value || 0; qty = o.rate ? amt / (o.rate * mult) : 0; }
+      const tcsPct = +document.getElementById('boTcs').value;
+      const tcs = o.side === 'buy' ? Math.round(amt * tcsPct) : 0;
+      document.getElementById('boVal').textContent = '₹' + Math.round(amt).toLocaleString('en-IN');
+      document.getElementById('boTcsLine').style.display = tcs ? '' : 'none';
+      document.getElementById('boTcsAmt').textContent = '₹' + tcs.toLocaleString('en-IN');
+      document.getElementById('boTot').textContent = '₹' + Math.round(amt + tcs).toLocaleString('en-IN');
+      document.getElementById('boQtyEcho').textContent = qty ? qty.toFixed(3) + ' ' + unit + ' × ₹' + o.rate.toLocaleString('en-IN') + '/g' : '';
+      window._boQty = qty;
+    };
+    ['boMode', 'boUnit', 'boQty', 'boAmt', 'boTcs'].forEach(id => {
+      const e = document.getElementById(id);
+      e.addEventListener('input', calc); e.addEventListener('change', calc);
+    });
+    document.getElementById('boMode').addEventListener('change', () => {
+      const qf = document.getElementById('qtyFld'), af = document.getElementById('amtFld');
+      if (document.getElementById('boMode').value === 'qty') { qf.style.display = ''; af.style.display = 'none'; } else { qf.style.display = 'none'; af.style.display = ''; }
+    });
   },
   async place(e) {
     e.preventDefault();
+    const qty = window._boQty || 0;
+    if (qty <= 0) { window.Shivaa.toast('Enter a quantity or amount', 'err'); return; }
+    const unit = document.getElementById('boUnit').value;
+    const note = document.getElementById('boNote').value;
     try {
       const ord = await window.Shivaa.api('/api/bullion/order', { method: 'POST', body: JSON.stringify({
         side: document.getElementById('boSide').value, metKey: document.getElementById('boKey').value,
-        metal: document.getElementById('boMetal').value, qty: +document.getElementById('boQty').value,
-        unit: document.getElementById('boUnit').value, note: document.getElementById('boNote').value,
+        metal: document.getElementById('boMetal').value, qty: +qty.toFixed(3), unit, note,
       }) });
       window.Shivaa.closeModal();
-      window.Shivaa.toast('Order ' + ord.id + ' placed ✦ our team will confirm on call/WhatsApp');
+      window.Shivaa.toast('Order ' + ord.id + ' placed ✦ desk confirms on WhatsApp');
       const msg = encodeURIComponent('✦ SHIVAA BULLION ORDER ✦\n\n' + (ord.side === 'buy' ? 'BUY' : 'SELL') + ' — ' + ord.metal + '\nQty: ' + ord.qty + ' ' + ord.unit + ' @ ₹' + ord.rate.toLocaleString('en-IN') + '/g\nEst. value: ₹' + ord.amount.toLocaleString('en-IN') + '\nOrder: ' + ord.id + (ord.note ? '\nNote: ' + ord.note : '') + '\n\nPlease confirm.');
       window.Shivaa.openModal(`<div class="center"><div style="font-size:40px">✦</div><h3 style="margin:8px 0">Order ${ord.id} placed!</h3><p style="font-size:13.5px;color:var(--ink-2)">${ord.side === 'buy' ? 'Buying' : 'Selling'} ${ord.qty} ${ord.unit} ${ord.metal} @ ₹${ord.rate.toLocaleString('en-IN')}/g<br>Est. ₹${ord.amount.toLocaleString('en-IN')}</p><a class="btn btn-gold" style="margin-top:14px" target="_blank" rel="noopener" href="https://wa.me/918905005921?text=${msg}">Confirm on WhatsApp →</a></div>`);
-      this.loadOrders();
+      this.section = 'deals'; this.refresh(true);
     } catch (err) { window.Shivaa.toast(err.message, 'err'); }
   },
-  async loadOrders() {
-    const el = document.getElementById('blOrders'); if (!el) return;
-    try {
-      const { orders } = await window.Shivaa.api('/api/bullion/orders');
-      el.innerHTML = orders.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>ID</th><th>Side</th><th>Metal</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Value</th><th>Status</th></tr></thead><tbody>${orders.map(o => `<tr><td><b>${o.id}</b><br><small style="color:var(--ink-3)">${new Date(o.createdAt).toLocaleDateString('en-IN')}</small></td><td><span class="status-pill ${o.side === 'buy' ? 'st-placed' : 'st-packed'}">${o.side}</span></td><td>${o.metal.split('—')[0]}</td><td class="num">${o.qty} ${o.unit}</td><td class="num">₹${o.rate.toLocaleString('en-IN')}</td><td class="num"><b>₹${o.amount.toLocaleString('en-IN')}</b></td><td>${o.status}</td></tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No bullion orders yet — tap BUY/SELL on any rate above.</p>';
-    } catch (e) { el.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
+
+  receipt(id) {
+    const o = (window._blOrders || []).find(x => x.id === id);
+    if (!o) return;
+    const w = window.open('', '_blank');
+    w.document.write(`<!doctype html><html><head><title>Bullion ${o.id}</title><style>
+      body{font-family:Arial,sans-serif;max-width:340px;margin:12px auto;padding:0 10px;font-size:12px;color:#111}
+      h2{font-size:15px;margin:0 0 2px}.r{text-align:right}table{width:100%;border-collapse:collapse;margin-top:8px}
+      td{padding:3px 0;border-bottom:1px dashed #bbb}@media print{@page{size:80mm auto;margin:4mm}}
+    </style></head><body>
+      <h2>Shivaa Bullion Desk</h2><small>Jayal, Nagaur · +91 89050 05921</small>
+      <table>
+      <tr><td><b>${o.id}</b></td><td class="r">${new Date(o.createdAt).toLocaleString('en-IN')}</td></tr>
+      <tr><td>${o.side.toUpperCase()} ${o.metal}</td><td class="r">${o.status}</td></tr>
+      <tr><td>Qty</td><td class="r">${o.qty} ${o.unit}</td></tr>
+      <tr><td>Rate ₹/g</td><td class="r">${o.rate.toLocaleString('en-IN')}</td></tr>
+      <tr><td><b>Value ₹</b></td><td class="r"><b>${o.amount.toLocaleString('en-IN')}</b></td></tr>
+      <tr><td colspan="2">${o.note ? 'Note: ' + o.note : ''}</td></tr>
+      </table>
+      <small style="color:#555">Firm quote confirmed by the Shivaa bullion desk. Settlement via RTGS / unfix as agreed.</small>
+      <script>window.onload=()=>window.print()</script></body></html>`);
+    w.document.close();
   },
+
   startPolling() {
     clearInterval(window._blPoll);
     this.refresh(false);
-    window._blPoll = setInterval(() => this.refresh(false), 45000);
+    window._blPoll = setInterval(() => this.refresh(true), 30000);
   },
+};
+
+/* ═══════════ v60 admin methods ═══════════ */
+window.ShivaaAdmin.manualPay = (id) => {
+  const o = (window._adminOrders || []).find(x => x.id === id);
+  const due = o ? (o.balance != null ? o.balance : o.total) : 0;
+  const amt = prompt('Amount received ₹ (advance or instalment):', String(due || ''));
+  if (amt === null || +amt <= 0) return;
+  const mode = prompt('Mode: cash / upi / bank / card', 'cash'); if (mode === null) return;
+  const ref = prompt('UTR / receipt / note (optional):', '') || '';
+  (async () => {
+    try { await window.Shivaa.api('/api/admin/pay-proof', { method: 'POST', body: JSON.stringify({ orderId: id, decision: 'approve', amount: +amt, mode, ref }) });
+      window.Shivaa.toast('Payment of ₹' + (+amt).toLocaleString('en-IN') + ' recorded ✦ ledger updated');
+      renderAdmin($('#view'), new URLSearchParams('tab=orders'));
+    } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+  })();
+};
+
+window.ShivaaAdmin.refundDecide = async (id, decision) => {
+  let note = '', amount = 0, mode = 'upi';
+  if (decision === 'approve') {
+    mode = prompt('Settlement mode: cash / upi / bank / exchange', 'upi'); if (mode === null) return;
+    note = prompt('Note to customer (credit note / exchange details):', 'Approved — credit note issued') || '';
+  } else {
+    note = prompt('Reason for rejecting:', '') || '';
+  }
+  try {
+    await window.Shivaa.api('/api/admin/refund/' + id, { method: 'POST', body: JSON.stringify({ decision, note, amount, mode }) });
+    window.Shivaa.toast(decision === 'approve' ? 'Approved ✦ credit note + cash book entry created' : 'Request rejected');
+    renderAdmin($('#view'), new URLSearchParams('tab=refunds'));
+  } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+};
+
+window.ShivaaAdmin.nidhiPay = (id) => {
+  const amt = prompt('Instalment received ₹:', '5000'); if (amt === null || +amt <= 0) return;
+  const mode = prompt('Mode: cash / upi / bank', 'cash'); if (mode === null) return;
+  (async () => {
+    try { await window.Shivaa.api('/api/admin/savings/' + id + '/installment', { method: 'POST', body: JSON.stringify({ amount: +amt, mode }) });
+      window.Shivaa.toast('Instalment recorded ✦ passbook updated'); renderAdmin($('#view'), new URLSearchParams('tab=nidhi'));
+    } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+  })();
+};
+window.ShivaaAdmin.nidhiAct = async (id, act) => {
+  const note = prompt(act === 'redeem' ? 'Redeem against which piece / order? (note)' : 'Close / refund note:', '') || '';
+  if (!confirm(act === 'redeem' ? 'Mark plan redeemed into jewellery?' : 'Close this plan and refund contributions?')) return;
+  try { await window.Shivaa.api('/api/admin/savings/' + id + '/' + act, { method: 'POST', body: JSON.stringify({ note }) });
+    window.Shivaa.toast('Plan ' + act + ' ✦'); renderAdmin($('#view'), new URLSearchParams('tab=nidhi'));
+  } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+};
+
+window.ShivaaAdmin.runReport = async () => {
+  const from = document.getElementById('rpFrom')?.value;
+  const to = document.getElementById('rpTo')?.value;
+  const host = document.getElementById('rpBody'); if (!host || !from) return;
+  host.innerHTML = '<p class="partner-note">Running…</p>';
+  try {
+    const r = await window.Shivaa.api('/api/admin/reports?from=' + from + '&to=' + to);
+    window._lastReport = r;
+    const kpi = (l, v, sub) => `<div class="rp-kpi"><small>${l}</small><b>${v}</b>${sub ? '<em>' + sub + '</em>' : ''}</div>`;
+    host.innerHTML = `
+      <div class="rp-grid">
+        ${kpi('Orders', r.orders, '')}
+        ${kpi('Net revenue', '₹' + (r.revenue || 0).toLocaleString('en-IN'), '')}
+        ${kpi('GST collected', '₹' + (r.tax || 0).toLocaleString('en-IN'), 'CGST ₹' + (r.cgst || 0).toLocaleString('en-IN') + ' · SGST ₹' + (r.sgst || 0).toLocaleString('en-IN'))}
+        ${kpi('Metal value', '₹' + (r.metalValue || 0).toLocaleString('en-IN'), '')}
+        ${kpi('Making revenue', '₹' + (r.makingRevenue || 0).toLocaleString('en-IN'), '')}
+        ${kpi('Stone / add-on', '₹' + (r.stoneValue || 0).toLocaleString('en-IN'), '')}
+        ${kpi('Old gold bought', (r.oldGold?.count || 0) + ' buys', '₹' + (r.oldGold?.amount || 0).toLocaleString('en-IN'))}
+        ${kpi('Refunds', (r.refunds?.count || 0), '₹' + (r.refunds?.amount || 0).toLocaleString('en-IN'))}
+        ${kpi('Proofs pending', r.proofPending || 0, '')}
+        ${kpi('Tags with assumed weight', r.assumedWeights || 0, 're-weigh before dispatch')}
+      </div>
+      <h4 style="margin:16px 0 6px">Payment methods</h4>
+      <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Method</th><th class="num">Orders</th><th class="num">Value</th></tr></thead><tbody>
+        ${Object.entries(r.byMethod || {}).map(([m, v]) => `<tr><td>${m}</td><td class="num">${v.n}</td><td class="num">₹${(v.value || 0).toLocaleString('en-IN')}</td></tr>`).join('')}
+      </tbody></table></div>
+      <h4 style="margin:16px 0 6px">Bestsellers (top 12)</h4>
+      <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Piece</th><th class="num">Qty</th><th class="num">Value</th></tr></thead><tbody>
+        ${(r.bestsellers || []).map(b => `<tr><td>${b.name}</td><td class="num">${b.qty}</td><td class="num">₹${(b.value || 0).toLocaleString('en-IN')}</td></tr>`).join('') || '<tr><td colspan="3" class="partner-note">No sales in range.</td></tr>'}
+      </tbody></table></div>
+      <h4 style="margin:16px 0 6px">Low stock (≤3) &amp; tag mismatches</h4>
+      <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Piece</th><th class="num">Stock</th><th>Weight</th></tr></thead><tbody>
+        ${(r.lowStock || []).map(p => `<tr><td>${p.name}</td><td class="num">${p.stock}</td><td class="num">${p.weight ? p.weight + ' g' : '<span style="color:var(--warn)">assumed — re-weigh</span>'}</td></tr>`).join('') || '<tr><td colspan="3">All healthy ✦</td></tr>'}
+      </tbody></table></div>
+      <h4 style="margin:16px 0 6px">Metal out with karigars (job-work open)</h4>
+      <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Karigar</th><th class="num">Open jobs</th><th class="num">Grams out</th></tr></thead><tbody>
+        ${Object.entries(r.metalOutWithKarigars || {}).map(([k, v]) => `<tr><td>${k}</td><td class="num">${v.jobs}</td><td class="num">${(v.grams || 0).toFixed(2)} g</td></tr>`).join('') || '<tr><td colspan="3">Nothing outstanding ✦</td></tr>'}
+      </tbody></table></div>`;
+  } catch (e) { host.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
+};
+window.ShivaaAdmin.reportCSV = () => {
+  const from = document.getElementById('rpFrom')?.value, to = document.getElementById('rpTo')?.value;
+  if (!from) return;
+  window.Shivaa.api('/api/admin/reports?from=' + from + '&to=' + to).then(r => {
+    const rows = [
+      ['Shivaa Jewellers — sales register', from, 'to', to],
+      [],
+      ['Metric', 'Value'],
+      ['Orders', r.orders], ['Net revenue', r.revenue], ['CGST', r.cgst], ['SGST', r.sgst],
+      ['Metal value', r.metalValue], ['Making revenue', r.makingRevenue], ['Stone/add-on', r.stoneValue],
+      ['Shipping', r.shipping], ['Prepaid discounts', r.prepaidDiscount],
+      ['Refunds count', r.refunds?.count || 0], ['Refunds amount', r.refunds?.amount || 0],
+      ['Old gold buys', r.oldGold?.count || 0], ['Old gold value', r.oldGold?.amount || 0],
+      [], ['Payment method', 'Orders', 'Value'],
+      ...Object.entries(r.byMethod || {}).map(([m, v]) => [m, v.n, v.value || 0]),
+      [], ['Bestseller', 'Qty', 'Value'],
+      ...(r.bestsellers || []).map(b => [b.name, b.qty, b.value || 0]),
+      [], ['Low stock piece', 'Stock', 'Weight g'],
+      ...(r.lowStock || []).map(p => [p.name, p.stock, p.weight || 'assumed']),
+    ];
+    ShivaaAdmin._dl(rows, 'shivaa-sales-' + from + '_' + to + '.csv');
+  }).catch(e => window.Shivaa.toast(e.message, 'err'));
+};
+window.ShivaaAdmin.catalogCSV = () => {
+  const rows = [['SKU', 'Name', 'Category', 'Metal', 'Purity', 'Weight g', 'Gross ₹', 'Stock', 'URL']];
+  (state.productsCache || []).forEach(p => {
+    const pr = window.Shivaa.price(p);
+    rows.push([p.sku || p.id, p.name, p.category, p.metal || (p.category === 'silver' ? 'Silver' : 'Gold'), p.purity || (p.category === 'silver' ? '92.5' : '22K'), p.weight || '', pr ? pr.gross : '', p.stock ?? '', location.origin + '/#/product/' + p.id]);
+  });
+  ShivaaAdmin._dl(rows, 'shivaa-catalogue.csv');
+};
+window.ShivaaAdmin.productPoster = (id) => {
+  const p = (state.productsCache || []).find(x => x.id === id);
+  if (!p) return;
+  const pr = window.Shivaa.price(p);
+  const S = state.settings || {};
+  const img = (p.images && p.images[0]) || '/images/logo.png';
+  const w = window.open('', '_blank', 'width=520,height=860');
+  w.document.write(`<!doctype html><html><head><title>Poster ${p.name}</title><style>
+    @page{size:A4;margin:0}
+    body{margin:0;font-family:Georgia,'Times New Roman',serif;background:#2b0a12;color:#f3d27a;display:grid;place-items:center;min-height:100vh}
+    .poster{width:460px;padding:34px 30px;text-align:center;background:linear-gradient(165deg,#3a0c14,#22070d)}
+    .poster img{width:100%;height:430px;object-fit:cover;border-radius:14px;border:1.5px solid rgba(243,210,122,.6)}
+    h1{font-size:25px;margin:18px 0 4px;color:#f7e3ac;line-height:1.25}
+    .sub{font-size:12.5px;letter-spacing:2px;text-transform:uppercase;opacity:.8;font-family:Jost,sans-serif}
+    .price{font-size:38px;color:#fff;margin:14px 0 4px;font-family:'Times New Roman',serif}
+    .small{font-size:12px;opacity:.75;font-family:Jost,sans-serif;line-height:1.7}
+    .br{border-top:1px solid rgba(243,210,122,.4);margin:16px 0 10px;padding-top:12px}
+    .url{font-size:15px;color:#fff;font-family:Jost,sans-serif;letter-spacing:.5px}
+  </style></head><body><div class="poster">
+    <div class="sub">✦ Shivaa Jewellers · Jaipur rates ✦</div>
+    <img src="${location.origin}${img}" onerror="this.src='${location.origin}/images/logo.png'">
+    <h1>${p.name}</h1>
+    <div class="sub">${p.purity || ''} · BIS hallmarked · lifetime exchange</div>
+    <div class="price">₹${pr.gross.toLocaleString('en-IN')}</div>
+    <div class="small">${p.weightG ? 'Approx ' + p.weightG + ' g · ' : ''}transparent metal + making breakdown<br>Insured doorstep delivery · video call on request</div>
+    <div class="br"></div>
+    <div class="url">shivaa.in/#/product/${p.id}</div>
+    <div class="small" style="margin-top:8px">${S.phone || '+91 89050 05921'} · Sadar Bazaar, Jayal, Nagaur</div>
+    <div style="margin-top:18px"><button onclick="window.print()" style="padding:10px 26px;background:#f3d27a;color:#2b0a12;border:0;border-radius:8px;font-weight:700">🖨 Save / share PDF</button></div>
+  </div><script>window.onload=()=>setTimeout(()=>window.print(),400)</script></body></html>`);
+  w.document.close();
+};
+ShivaaAdmin._dl = (rows, name) => {
+  const csv = rows.map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+window.ShivaaAdmin.openAudit = async () => {
+  const card = document.getElementById('auditCard');
+  if (!card) return;
+  card.style.display = card.style.display === 'none' ? '' : 'none';
+  const host = document.getElementById('auditBody');
+  if (card.style.display && host.dataset.loaded) return;
+  try {
+    const d = await window.Shivaa.api('/api/admin/audit');
+    host.innerHTML = (d.log || []).map(l => `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
+      <span style="color:var(--ink-3);white-space:nowrap">${new Date(l.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+      <b style="min-width:150px">${esc(l.what)}</b><span>${esc((l.meta && (l.meta.order || l.meta.user || '')))}</span><small style="margin-left:auto;color:var(--ink-3)">${esc(l.by || '')}</small></div>`).join('');
+    host.dataset.loaded = '1';
+  } catch (e) { host.textContent = e.message; }
+};
+
+/* ── v60 printable GST invoice (thermal/A4) ── */
+window.ShivaaAdmin.printInvoice = (id) => {
+  const o = (window._adminOrders || []).find(x => x.id === id);
+  if (!o) return;
+  const s = state.settings || {};
+  const gstin = s.gstin || 'GSTIN on file';
+  const w = window.open('', '_blank');
+  let subTotal = 0, taxTotal = 0;
+  const rows = (o.items || []).map(it => {
+    const qty = it.qty || 1;
+    const gst = Math.round((it.gst || 0) * qty);
+    const taxable = Math.max(0, Math.round((it.unitPrice || 0) * qty - gst));
+    subTotal += taxable; taxTotal += gst;
+    return `<tr><td>${it.name}${it.size ? ' · ' + it.size : ''}<br><small>HSN ${it.hsn || '71131910'}</small></td><td>${it.purity || ''}</td><td class="r">${it.weightG ? Number(it.weightG).toFixed(2) : ''}</td><td class="r">${qty}</td><td class="r">${taxable.toLocaleString('en-IN')}</td><td class="r">${Math.round(gst / 2).toLocaleString('en-IN')}</td><td class="r">${(gst - Math.round(gst / 2)).toLocaleString('en-IN')}</td><td class="r">${(taxable + gst).toLocaleString('en-IN')}</td></tr>`;
+  }).join('');
+  w.document.write(`<!doctype html><html><head><title>Invoice ${o.invoiceNo || o.id}</title>
+  <style>
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#111;max-width:800px;margin:20px auto;padding:0 14px;font-size:12px}
+    h1{font-size:18px;margin:0}.muted{color:#555;font-size:11px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #999;padding:5px 7px;text-align:left;vertical-align:top}
+    .r{text-align:right}.tot td{font-weight:bold;background:#f6efe0}
+    .flx{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    @media print{@page{margin:8mm}}
+    @media (max-width:64mm){body{font-size:9px;max-width:58mm;margin:0 auto;padding:2mm}th:nth-child(2),td:nth-child(2),th:nth-child(3),td:nth-child(3){display:none}}
+  </style></head><body>
+  <div class="flx"><div><h1>Shivaa Jewellers</h1><div class="muted">Jayal, Nagaur, Rajasthan · ${gstin}<br>Ph. +91 89050 05921 · shivaa.in</div></div>
+  <div style="text-align:right"><b>TAX INVOICE</b><br>${o.invoiceNo || ''}<br><span class="muted">${new Date(o.createdAt).toLocaleDateString('en-IN')}</span></div></div>
+  <div class="flx" style="margin-top:8px"><div><b>Bill to:</b><br>${esc(o.userName || '')}<br><span class="muted">${esc((o.address && (o.address.line1 || o.address.address)) || '')}<br>${esc([o.address && o.address.city, o.address && o.address.state, o.address && o.address.pincode].filter(Boolean).join(', '))}</span><br>${esc((o.address && o.address.phone) || o.phone || '')}</div>
+  <div style="text-align:right"><b>Order:</b> ${o.id}<br><b>Payment:</b> ${esc(o.paymentStatus || '')} (${esc(o.paymentMethod || '')})</div></div>
+  <table><thead><tr><th>Description</th><th>Purity</th><th class="r">Wt g</th><th class="r">Qty</th><th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th><th class="r">Total</th></tr></thead>
+  <tbody>${rows}
+  ${o.shipping ? `<tr><td colspan="4">Insured shipping</td><td class="r">${o.shipping.toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
+  ${o.prepaidDiscount ? `<tr><td colspan="4">Prepaid discount</td><td class="r">−${o.prepaidDiscount.toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
+  <tr class="tot"><td colspan="4">Grand total</td><td colspan="3"></td><td class="r">₹${(o.total || 0).toLocaleString('en-IN')}</td></tr>
+  </tbody></table>
+  <p class="muted" style="margin-top:10px">HSN 71131910 (gold jewellery) / 71131110 (silver). GST 1.5% CGST + 1.5% SGST on making charges. Every gold piece is BIS hallmarked with a unique 6-digit HUID. 7-day return · lifetime exchange · lifetime care.</p>
+  <script>window.onload=()=>{window.print()}</script></body></html>`);
+  w.document.close();
+};
+
+/* ── v60 DPDP: export / anonymize from customers tab ── */
+window.ShivaaAdmin.userData = async (q) => {
+  try {
+    const d = await window.Shivaa.api('/api/admin/user-data/' + encodeURIComponent(q));
+    const w = window.open('', '_blank');
+    w.document.write('<pre style="font:12px monospace;padding:16px;white-space:pre-wrap">' + esc(JSON.stringify(d, null, 2)) + '</pre>');
+    w.document.close();
+  } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+};
+window.ShivaaAdmin.anonymize = async (q) => {
+  if (!confirm('Permanently erase this customer’s personal data (DPDP right to erasure)? Orders are retained with anonymized name. This cannot be undone.')) return;
+  try { await window.Shivaa.api('/api/admin/user-data/' + encodeURIComponent(q) + '/anonymize', { method: 'POST', body: '{}' });
+    window.Shivaa.toast('Personal data erased ✦'); renderAdmin($('#view'), new URLSearchParams('tab=customers'));
+  } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+};
+
+/* ── v60 review replies ── */
+window.ShivaaAdmin.replyReview = async (id) => {
+  const reply = prompt('Your public reply:'); if (reply === null) return;
+  try { await window.Shivaa.api('/api/admin/reviews/' + id + '/reply', { method: 'POST', body: JSON.stringify({ reply }) });
+    window.Shivaa.toast('Reply posted ✦'); ShivaaAdmin.loadReviews();
+  } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+};
+window.ShivaaAdmin.loadReviews = async () => {
+  const host = document.getElementById('rvAdmin'); if (!host) return;
+  try {
+    const d = await window.Shivaa.api('/api/admin/reviews');
+    const list = (d.reviews || []).slice(0, 30);
+    host.innerHTML = list.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Review</th><th>Piece</th><th></th></tr></thead><tbody>
+      ${list.map(r => `<tr><td><b>${esc(r.userName)}</b> ${r.verified ? '<span class="verified-badge">✓ verified</span>' : ''} · ${'★'.repeat(r.rating)}<br>${esc(r.text)}<br>${(r.photos || []).map(p => `<a href="${p}" target="_blank"><img src="${p}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;margin:3px"></a>`).join('')}${r.reply ? '<div class="rv-reply"><b>Reply:</b> ' + esc(r.reply) + '</div>' : ''}</td>
+      <td>${esc(r.productName || r.productId)}</td>
+      <td>${r.reply ? '' : `<button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.replyReview('${r.id}')">Reply</button>`}</td></tr>`).join('')}
+    </tbody></table></div>` : '<p class="partner-note">No reviews yet.</p>';
+  } catch (e) { host.textContent = e.message; }
 };
 
 /* register routes */
