@@ -1,0 +1,14 @@
+{
+  "apiKey": "PASTE_ANGEL_SMARTAPI_KEY",
+  "clientCode": "YOUR_ANGEL_CLIENT_CODE",
+  "mpin": "YOUR_ANGEL_MPIN",
+  "totpSecret": "BASE32_TOTP_SECRET_FROM_ANGEL_PROFILE",
+  "mode": 3,
+  "goldToken": "",
+  "silverToken": "",
+  "host": "127.0.0.1",
+  "port": 8944,
+  "streamKey": "CHANGE_ME_long_random_string",
+  "cacheDir": "../data",
+  "writeCache": true
+}

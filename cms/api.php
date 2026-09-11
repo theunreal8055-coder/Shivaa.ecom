@@ -669,15 +669,47 @@ function angel_tick(array &$db): array {
   // v77 — 1.0 s micro-cache; sub-second age from an in-payload timestamp
   // (filemtime has 1 s resolution, so the old 1.1 s gate actually served
   // stale for 2-3 s between real exchange fetches).
+  // v78 — a push relay (cms/relay) rewrites this file ~10×/second straight
+  // from the official SmartStream WebSocket; serve its snapshots for 2 s.
   $ageOf = static function (?array $c): float { return $c ? microtime(true) - (float)($c['ts'] ?? 0) : 9e9; };
-  if (($c = $readCache()) && $ageOf($c) < 1.0) {
-    $c['servedFrom'] = 'cache'; $c['ageMs'] = (int)($ageOf($c) * 1000); return $c;
+  if (($c = $readCache())) {
+    $age = $ageOf($c);
+    if ((!empty($c['relay']) && $age < 2.0) || (empty($c['relay']) && $age < 1.0)) {
+      $c['servedFrom'] = !empty($c['relay']) ? 'relay-cache' : 'cache';
+      $c['ageMs'] = (int)($age * 1000);
+      return $c;
+    }
   }
   $fp = @fopen($lockFile, 'c');
   if ($fp) flock($fp, LOCK_EX);
   try {
-    if (($c = $readCache()) && $ageOf($c) < 1.0) {
-      $c['servedFrom'] = 'cache'; return $c;   // another viewer fetched within this second
+    if (($c = $readCache())) {
+      $age = $ageOf($c);
+      if ((!empty($c['relay']) && $age < 2.0) || (empty($c['relay']) && $age < 1.0)) {
+        $c['servedFrom'] = !empty($c['relay']) ? 'relay-cache' : 'cache';
+        return $c;   // another viewer refreshed within this window
+      }
+    }
+    // v78 — off-box push relay (relay runs on a free/cheap Node host, not
+    // this shared box): pull its latest snapshot, then behave as if written
+    // locally. The shared flock already coalesces this to one pull/refresh.
+    $relayUrl = trim((string)($db['settings']['angelRelayUrl'] ?? ''));
+    if ($relayUrl !== '' && !preg_match('#^https?://#i', $relayUrl)) $relayUrl = '';
+    if ($relayUrl !== '') {
+      $rKey = trim((string)($db['settings']['angelRelayKey'] ?? ''));
+      $rch = curl_init(rtrim($relayUrl, '/') . '/tick');
+      curl_setopt_array($rch, [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 1, CURLOPT_CONNECTTIMEOUT => 1,
+        CURLOPT_SSL_VERIFYPEER => true, CURLOPT_HTTPHEADER => $rKey !== '' ? ['X-Relay-Key: ' . $rKey] : [],
+      ]);
+      $rj = json_decode((string)curl_exec($rch), true);
+      $rCode = (int)curl_getinfo($rch, CURLINFO_RESPONSE_CODE);
+      curl_close($rch);
+      if ($rCode === 200 && is_array($rj) && !empty($rj['gold']['ltp']) && !empty($rj['silver']['ltp'])) {
+        $rj['ts'] = microtime(true); $rj['relay'] = true; $rj['servedFrom'] = 'relay-http';
+        @file_put_contents($cacheFile, json_encode($rj), LOCK_EX);
+        return $rj;
+      }
     }
     $s = $db['settings'];
     $apiKey = trim((string)($s['angelApiKey'] ?? ''));
@@ -1551,6 +1583,8 @@ function bullion_rows(array &$db): array {
     'ticker' => (string)($db['settings']['bullionTicker'] ?? '★ सोना व चांदी में UNFIX सुविधा उपलब्ध है ★'),
     'time' => date('H:i:s A'),
     'feedSource' => (string)($r['source'] ?? ''),
+    // v78 — browser push endpoint for the Angel SmartStream relay (SSE), when configured
+    'relayStream' => (string)($db['settings']['angelRelayStreamUrl'] ?? ''),
     'mcx' => $db['rates']['mcx'] ?? null,
   ];
   if (is_array($db['bullion']['boardOverride'] ?? null)) $board = array_replace_recursive($board, $db['bullion']['boardOverride']);

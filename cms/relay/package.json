@@ -1,0 +1,17 @@
+{
+  "name": "shivaa-bullion-relay",
+  "version": "78.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Angel One SmartStream v2 push relay for the Shivaa bullion desk",
+  "main": "shivaa-relay.mjs",
+  "scripts": {
+    "start": "node shivaa-relay.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

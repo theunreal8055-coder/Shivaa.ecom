@@ -791,6 +791,10 @@ async function renderAdmin(view, q) {
             <div class="fld"><label>Live spot fine-tune GOLD <small>(± $/oz, nudge to match your ref feed)</small></label><input name="spotXauAdj" type="number" step="0.1" value="${S.spotXauAdj || ''}" placeholder="0"></div>
             <div class="fld"><label>Live spot fine-tune SILVER <small>(± $/oz)</small></label><input name="spotXagAdj" type="number" step="0.01" value="${S.spotXagAdj || ''}" placeholder="0"></div>
             <div class="fld"><label>Live spot fine-tune USD/INR <small>(± ₹)</small></label><input name="spotInrAdj" type="number" step="0.01" value="${S.spotInrAdj || ''}" placeholder="0"></div>
+            <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px"><label><b>⚡ Tick-push relay (optional, sub-second)</b> <small style="color:var(--ink-3)">— run cms/relay for official exchange push; the desk then ticks instantly instead of polling. Fill only if the relay runs on another host; same-box installs need nothing here.</small></label></div>
+            <div class="fld"><label>Relay server URL <small>(server-side, e.g. https://relay.host)</small></label><input name="angelRelayUrl" value="${esc(S.angelRelayUrl || '')}" placeholder="leave blank when relay runs on this box" autocomplete="off"></div>
+            <div class="fld"><label>Relay stream key</label><input name="angelRelayKey" value="${esc(S.angelRelayKey || '')}" placeholder="from relay.config.json streamKey" autocomplete="off"></div>
+            <div class="fld full"><label>Browser push URL <small>(public SSE incl. ?key=…, shown to jewellers' screens)</small></label><input name="angelRelayStreamUrl" value="${esc(S.angelRelayStreamUrl || '')}" placeholder="https://relay.host/stream?key=…" autocomplete="off"></div>
             <div class="fld full" id="feedStatus" style="font-size:12.5px;color:var(--ink-3)">Feed status: checking…</div>
             <div class="fld full" id="netStatus" style="font-size:12.5px"></div>
             <div class="fld full" style="display:flex;gap:10px;flex-wrap:wrap">
@@ -1425,6 +1429,9 @@ window.ShivaaAdmin.saveFeed = async e => {
     spotXauAdj: parseFloat(fd.get('spotXauAdj')) || 0,
     spotXagAdj: parseFloat(fd.get('spotXagAdj')) || 0,
     spotInrAdj: parseFloat(fd.get('spotInrAdj')) || 0,
+    angelRelayUrl: String(fd.get('angelRelayUrl') || '').trim().replace(/\/+$/, ''),
+    angelRelayKey: String(fd.get('angelRelayKey') || '').trim(),
+    angelRelayStreamUrl: String(fd.get('angelRelayStreamUrl') || '').trim(),
   };
   // keep already-saved secrets when the owner saves without retyping them
   ['angelMpin', 'angelApiKey', 'angelTotpSecret'].forEach(k => { if (!body[k]) delete body[k]; });
@@ -2080,6 +2087,7 @@ window.ShivaaBullion = {
         this.renderSection();   // live repaint without resetting the tab
       }
       this.startTick();   // no-ops while the 1 s loop is already alive; revives after navigation
+      this.startRelay(this.B);
       const reached = (B.alerts || []).filter(a => a.reached && !a._pinged);
       if (!first && reached.length) { reached.forEach(a => a._pinged = true); window.Shivaa.toast('🔔 ' + reached[0].label + ' hit your target ' + this.num(reached[0].target)); }
     } catch (e) { const el = document.getElementById('bullionBoard'); if (el && !this.mounted) el.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
@@ -2691,7 +2699,7 @@ window.ShivaaBullion = {
     if (this._tickTimer) return;
     const loop = async () => {
       const board = document.getElementById('bullionBoard');
-      if (!board || !board.querySelector('.bd-tabs') || !this.B) { this._tickTimer = null; return; }
+      if (!board || !board.querySelector('.bd-tabs') || !this.B) { this._tickTimer = null; this.stopRelay(); return; }
       let delay = 800, failed = false;
       if (!document.hidden) {
         try { delay = await this.tick(); }
@@ -2701,11 +2709,40 @@ window.ShivaaBullion = {
         }
       }
       if (failed || (this.tickFails || 0) > 2) delay = Math.max(+delay || 0, 8000);
+      if (this.relayLive) delay = Math.max(+delay || 0, 2500);   // push carries MCX; REST now feeds spot/duty
       this._tickTimer = setTimeout(loop, delay);
     };
     this._tickTimer = setTimeout(loop, 600);
   },
-  stopTick() { if (this._tickTimer) { clearTimeout(this._tickTimer); this._tickTimer = null; } },
+  stopTick() { if (this._tickTimer) { clearTimeout(this._tickTimer); this._tickTimer = null; } this.stopRelay(); },
+  /* v78 — official push relay over Server-Sent Events. When live, MCX rows
+     repaint the instant the exchange tick arrives (no 0.8 s poll wait); the
+     REST loop drops to 2.5 s just to refresh the dollar spot + customs. */
+  startRelay(B) {
+    const url = B?.board?.relayStream || '';
+    if (!url || typeof EventSource === 'undefined') return;
+    if (this._relayUrl === url && this._relayES && this._relayES.readyState <= 1) return;
+    this.stopRelay();
+    let es;
+    try { es = new EventSource(url); } catch (e) { return; }
+    this._relayUrl = url; this._relayES = es; this._relayLive = 0;
+    es.addEventListener('tick', ev => {
+      try {
+        const t = JSON.parse(ev.data);
+        if (!t || !t.gold || !t.silver || !(t.gold.ltp > 0)) return;
+        this._relayLive = Date.now();
+        this.tickFails = 0;
+        this.tickOpen = !!t.open && !t.stale;
+        this.applyTick(t);
+        const clock = this.istTime(t.at);
+        if (t.stale) this.setTickState((t.error || 'market closed') + ' · ' + clock, false);
+        else this.setTickState('live ⚡ push · ' + clock, true);
+      } catch { /* ignore malformed frame */ }
+    });
+    es.onerror = () => { this._relayLive = 0; };
+  },
+  stopRelay() { if (this._relayES) { try { this._relayES.close(); } catch { /* ignore */ } } this._relayES = null; this._relayUrl = ''; this._relayLive = 0; },
+  get relayLive() { return this._relayLive && Date.now() - this._relayLive < 8000; },
   setTickState(txt, ok) {
     const el = document.querySelector('[data-tickstate]');
     if (!el) return;

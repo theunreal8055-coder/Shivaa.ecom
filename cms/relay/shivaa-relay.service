@@ -1,0 +1,20 @@
+[Unit]
+# Shivaa bullion tick relay — copy to /etc/systemd/system/shivaa-relay.service
+# then: sudo systemctl daemon-reload && sudo systemctl enable --now shivaa-relay
+# logs: journalctl -u shivaa-relay -f
+Description=Shivaa Bullion Tick Relay (Angel SmartStream push)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# adjust the user/paths to your setup; relay needs write access to ../data
+User=www-data
+WorkingDirectory=/var/www/shivaa/cms/relay
+ExecStart=/usr/bin/node /var/www/shivaa/cms/relay/shivaa-relay.mjs
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
