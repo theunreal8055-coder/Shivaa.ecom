@@ -76,20 +76,24 @@ function totpNow(base32Secret, whenSec = Math.floor(Date.now() / 1000)) {
    Mirrors api.php angel_search_candidates(): nearest-expiry token
    whose symbol matches GOLDddMMMyyyy / SILVERddMMMyyyy exactly. */
 const MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
+// Angel returns MCX symbols two ways: "GOLD05OCT2026" and the current
+// searchScrip shape "GOLD04DEC26FUT" (2-digit year, FUT/FUTCOM suffix).
 function symExpiry(sym) {
-  const m = /^[A-Z]+(\d{1,2})([A-Z]{3})(\d{2,4})$/.exec(sym || '');
+  const m = /^[A-Z]+?(\d{1,2})([A-Z]{3})(\d{2,4})(?:FUT\w*)?$/.exec((sym || '').toUpperCase().trim());
   if (!m) return 0;
-  const yy = m[3].length === 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10);
+  let yy = parseInt(m[3], 10);
+  if (m[3].length === 2) yy = 2000 + yy;
   return Date.UTC(yy, MONTHS[m[2]] ?? 0, parseInt(m[1], 10)) / 1000;
 }
 function pickContract(rows, metal) {
-  const re = new RegExp(`^${metal}(\\d{1,2})([A-Z]{3})(\\d{2,4})$`);
+  const re = new RegExp(`^${metal}(\\d{1,2})([A-Z]{3})(\\d{2,4})(?:FUT\\w*)?$`);
   const cands = [];
   for (const r of rows || []) {
     const sym = String(r.tradingsymbol || r.tradingSymbol || r.symbol || '').toUpperCase().trim();
     const tok = String(r.symboltoken || r.symbolToken || r.token || '').trim();
-    const m = re.exec(sym);
-    if (!m || !tok) continue;
+    if (!re.test(sym) || !tok) continue;
+    // exclude mini/micro/option variants if the API ever includes them
+    if (/^(GOLDM|GOLDGUINEA|GOLDPETAL|GOLDTEN|SILVERM|SILVERMICRO)/.test(sym)) continue;
     const exp = symExpiry(sym);
     if (exp > Date.now() / 1000 - 3 * 86400) cands.push({ exp, token: tok, symbol: sym });
   }
@@ -207,6 +211,15 @@ class Relay {
   }
 
   async resolveTokens(force = false) {
+    // coalesce overlapping calls (the 5 s watchdog must not stack probes)
+    if (this._resolving) return this._resolving;
+    this._resolving = this._resolveTokensInner(force).finally(() => {
+      setTimeout(() => { this._resolving = null; }, 30000);
+    });
+    return this._resolving;
+  }
+
+  async _resolveTokensInner(force = false) {
     if (!force && this.lastResolve && Date.now() - this.lastResolve < 6 * 3600 * 1000
         && this.pairs.gold?.token && this.pairs.silver?.token) return;
     const auth = { Authorization: 'Bearer ' + this.jwt, 'X-FeedToken': this.feed };
@@ -252,7 +265,7 @@ class Relay {
       'https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json',
     ];
     const re = new RegExp(`\\{[^{}]*?"exch_seg"\\s*:\\s*"MCX"[^{}]*?\\}`, 'g');
-    const symRe = new RegExp(`^${metal}(\\d{1,2})([A-Z]{3})(\\d{2,4})$`);
+    const symRe = new RegExp(`^${metal}(\\d{1,2})([A-Z]{3})(\\d{2,4})(?:FUT\\w*)?$`);
     for (const u of urls) {
       try {
         const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Shivaa/1.0)' } });
