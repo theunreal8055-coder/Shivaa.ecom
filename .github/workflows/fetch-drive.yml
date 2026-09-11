@@ -1,5 +1,8 @@
 name: fetch-drive-assets
 on:
+  push:
+    branches: ['arena/**']
+    paths: ['.github/workflows/fetch-drive.yml']
   workflow_dispatch:
 jobs:
   fetch:
