@@ -269,16 +269,19 @@ function angel_tokens(array &$db): ?array {
     return ['gold' => $gManual, 'silver' => $sManual, 'goldSymbol' => 'manual GOLD', 'silverSymbol' => 'manual SILVER', 'auto' => false];
   }
   $cache = is_array($db['angelTokens'] ?? null) ? $db['angelTokens'] : null;
+  // each cached contract is [expiry-unix, token, trading symbol]
   $fromCache = static function (?array $c): array {
-    return ['gold' => $c['gold'][0], 'silver' => $c['silver'][0],
+    return ['gold' => (string)($c['gold'][1] ?? ''), 'silver' => (string)($c['silver'][1] ?? ''),
+      'goldExp' => (int)($c['gold'][0] ?? 0), 'silverExp' => (int)($c['silver'][0] ?? 0),
       'goldSymbol' => $c['gold'][2] ?? 'GOLD', 'silverSymbol' => $c['silver'][2] ?? 'SILVER', 'auto' => true];
   };
   $cacheFresh = static function () use ($cache): bool {
-    if (!$cache || empty($cache['gold'][0]) || empty($cache['silver'][0]) || empty($cache['at'])) return false;
+    if (!$cache || empty($cache['gold'][1]) || empty($cache['silver'][1]) || empty($cache['at'])) return false;
     $at = strtotime((string)$cache['at']);
     if (!$at || time() - $at > 2 * 86400) return false;
     foreach (['gold', 'silver'] as $m) {
-      $exp = angel_scrip_expiry((string)($cache[$m][1] ?? ''), (string)($cache[$m][2] ?? ''));
+      $exp = (int)($cache[$m][0] ?? 0);
+      if (!$exp) $exp = angel_scrip_expiry('', (string)($cache[$m][2] ?? ''));
       if ($exp && $exp < time() + 2 * 86400) return false;   // rolls ~2 days before expiry
     }
     return true;
@@ -287,7 +290,7 @@ function angel_tokens(array &$db): ?array {
 
   $fail = static function (string $msg) use (&$db, $cache, $fromCache): ?array {
     // a previous resolution stays usable until the contract actually expires
-    if ($cache && !empty($cache['gold'][0]) && !empty($cache['silver'][0])) return $fromCache($cache);
+    if ($cache && !empty($cache['gold'][1]) && !empty($cache['silver'][1])) return $fromCache($cache);
     $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => $msg, 'errorAt' => now_iso()]);
     return null;
   };
@@ -359,6 +362,35 @@ function angel_tokens(array &$db): ?array {
 /* v61 — official MCX futures feed via Angel One SmartAPI (free demat account).
    Fully automatic: TOTP is generated from the secret, so the daily 3:30 AM
    token expiry self-heals on the next poll. Returns null when unconfigured. */
+/* v67 — official token discovery through the authenticated Search Scrip
+   endpoint (same JWT session as quotes). Returns future candidates, nearest
+   expiry first, separately for the 1 kg GOLD and 30 kg SILVER contracts;
+   mini/micro/options cannot match the exact future-symbol pattern. */
+function angel_search_candidates(array $sess, array $baseHeaders): ?array {
+  $h = $baseHeaders + ['Authorization' => 'Bearer ' . $sess['jwt'], 'X-FeedToken' => $sess['feed'] ?? ''];
+  $pat = ['GOLD' => '/^GOLD(\d{1,2})([A-Z]{3})(\d{2,4})$/',
+          'SILVER' => '/^SILVER(\d{1,2})([A-Z]{3})(\d{2,4})$/'];
+  $out = ['GOLD' => [], 'SILVER' => []];
+  foreach (['GOLD', 'SILVER'] as $metal) {
+    $r = angel_http('https://apiconnect.angelbroking.com/rest/secure/angelbroking/order/v1/searchScrip',
+      'POST', ['exchange' => 'MCX', 'searchscrip' => $metal], $h, 12);
+    $j = $r['json'];
+    $rows = (is_array($j) && !empty($j['status']) && is_array($j['data'] ?? null)) ? $j['data'] : [];
+    foreach ($rows as $row) {
+      if (!is_array($row)) continue;
+      $sym = strtoupper(trim((string)($row['tradingsymbol'] ?? $row['tradingSymbol'] ?? $row['symbol'] ?? '')));
+      $tok = trim((string)($row['symboltoken'] ?? $row['symbolToken'] ?? $row['token'] ?? ''));
+      if ($tok === '' || !preg_match($pat[$metal], $sym)) continue;
+      $exp = angel_scrip_expiry('', $sym);
+      if (!$exp || $exp < time() - 3 * 86400) continue;
+      $out[$metal][] = ['exp' => $exp, 'token' => $tok, 'symbol' => $sym];
+    }
+    usort($out[$metal], fn($a, $b) => $a['exp'] <=> $b['exp']);
+    $out[$metal] = array_slice($out[$metal], 0, 6);
+  }
+  return ($out['GOLD'] && $out['SILVER']) ? $out : null;
+}
+
 function angel_ltp(array &$db): ?array {
   $s = $db['settings'];
   if (empty($s['angelEnabled'])) return null;
@@ -367,9 +399,6 @@ function angel_ltp(array &$db): ?array {
   $mpin = (string)($s['angelMpin'] ?? '');
   $totpSecret = trim((string)($s['angelTotpSecret'] ?? ''));
   if ($apiKey === '' || $client === '' || $mpin === '' || $totpSecret === '') return null;
-  $tok = angel_tokens($db);
-  if (!$tok) return null;
-  $gTok = $tok['gold']; $sTok = $tok['silver'];
 
   $baseHeaders = ['X-UserType' => 'USER', 'X-SourceID' => 'WEB', 'X-ClientLocalIP' => '127.0.0.1',
     'X-ClientPublicIP' => '127.0.0.1', 'X-MACAddress' => '00:00:00:00:00:00', 'X-PrivateKey' => $apiKey];
@@ -393,44 +422,104 @@ function angel_ltp(array &$db): ?array {
     return null;
   };
 
-  $quote = function (array $sess) use ($baseHeaders, $gTok, $sTok) {
+  $quoteTokens = function (array $sess, array $tokens) use ($baseHeaders) {
     $h = $baseHeaders + ['Authorization' => 'Bearer ' . $sess['jwt'], 'X-FeedToken' => $sess['feed'] ?? ''];
     return angel_http('https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/',
-      'POST', ['mode' => 'LTP', 'exchangeTokens' => ['MCX' => [$gTok, $sTok]]], $h, 8);
+      'POST', ['mode' => 'LTP', 'exchangeTokens' => ['MCX' => array_values($tokens)]], $h, 10);
   };
 
   $sess = $db['angelSession'] ?? null;
   if (!$sess || empty($sess['jwt'])) $sess = $login();
-  $r = $sess ? $quote($sess) : ['code' => 0, 'json' => null];
-  // token expired (daily 3:30 AM) or rejected — re-login once and retry
-  if ($r['code'] === 401 || $r['code'] === 400 || (is_array($r['json']) && empty($r['json']['status']))) {
-    $sess = $login();
-    if ($sess) $r = $quote($sess);
+  if (!$sess) return null;
+
+  /* v67 — candidate contracts: Search Scrip first, instrument-master file as
+     fallback. Each metal is an expiry-ordered list we probe until a token
+     actually returns a live LTP, so one wrong pick can never stall the feed. */
+  $cands = angel_search_candidates($sess, $baseHeaders);
+  if (!$cands) {
+    $tok = angel_tokens($db);
+    if ($tok) {
+      $cands = ['GOLD' => [['exp' => 0, 'token' => $tok['gold'], 'symbol' => $tok['goldSymbol'] ?? 'GOLD']],
+                'SILVER' => [['exp' => 0, 'token' => $tok['silver'], 'symbol' => $tok['silverSymbol'] ?? 'SILVER']]];
+    }
   }
-  $j = $r['json'];
-  if (!is_array($j) || empty($j['status']) || empty($j['data']['fetched'])) {
-    $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => $j['message'] ?? ('HTTP ' . $r['code']), 'errorAt' => now_iso()]);
+  if (!$cands) {
+    $db['angelSession'] = array_merge($db['angelSession'] ?? [],
+      ['lastError' => 'Could not resolve MCX GOLD/SILVER contracts (Search Scrip and instrument master both unavailable) — tokens can be entered manually.', 'errorAt' => now_iso()]);
     try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
     return null;
   }
-  $gold10g = 0; $silverKg = 0;
-  foreach ($j['data']['fetched'] as $it) {
-    if ((string)($it['symbolToken'] ?? '') === (string)$gTok) $gold10g = (float)($it['ltp'] ?? 0);
-    if ((string)($it['symbolToken'] ?? '') === (string)$sTok) $silverKg = (float)($it['ltp'] ?? 0);
+
+  $recordFailure = function (string $msg, array $debug = []) use (&$db) {
+    $db['angelSession'] = array_merge($db['angelSession'] ?? [],
+      ['lastError' => $msg, 'errorAt' => now_iso(), 'debug' => $debug]);
+    try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
+  };
+
+  $found = [];          // metal => candidate with live ltp
+  $gi = 0; $si = 0;
+  $diag = ['attempts' => [], 'goldCandidates' => array_map(fn($c) => $c['symbol'] . '=' . $c['token'], $cands['GOLD']),
+           'silverCandidates' => array_map(fn($c) => $c['symbol'] . '=' . $c['token'], $cands['SILVER'])];
+  for ($attempt = 0; $attempt < 8; $attempt++) {
+    $want = [];
+    if (!isset($found['GOLD']) && isset($cands['GOLD'][$gi])) $want['GOLD'] = $cands['GOLD'][$gi];
+    if (!isset($found['SILVER']) && isset($cands['SILVER'][$si])) $want['SILVER'] = $cands['SILVER'][$si];
+    if (!$want) break;
+    $byToken = [];
+    foreach ($want as $metal => $c) $byToken[(string)$c['token']] = $metal;
+    $r = $quoteTokens($sess, array_keys($byToken));
+    // session rejected (daily 3:30 AM expiry) — re-login once and retry
+    if ($r['code'] === 401 || $r['code'] === 400 || (is_array($r['json']) && empty($r['json']['status']) && empty($r['json']['data']))) {
+      $sess = $login();
+      if (!$sess) return null;
+      $r = $quoteTokens($sess, array_keys($byToken));
+    }
+    $j = $r['json'];
+    $fetched = (is_array($j) && is_array($j['data']['fetched'] ?? null)) ? $j['data']['fetched'] : [];
+    $unfetched = (is_array($j) && is_array($j['data']['unfetched'] ?? null)) ? $j['data']['unfetched'] : [];
+    $stepDiag = ['tokens' => array_keys($byToken), 'http' => $r['code'], 'fetched' => count($fetched),
+      'rejected' => array_map(fn($u) => ($u['symbolToken'] ?? '?') . ':' . ($u['message'] ?? ($u['errorCode'] ?? 'err')), $unfetched)];
+    $hitTokens = [];
+    foreach ($fetched as $it) {
+      $tTok = (string)($it['symbolToken'] ?? '');
+      $ltp = (float)($it['ltp'] ?? 0);
+      $metal = $byToken[$tTok] ?? null;
+      if ($metal && $ltp > 0 && !isset($found[$metal])) { $found[$metal] = $want[$metal] + ['ltp' => $ltp]; $hitTokens[$tTok] = true; }
+    }
+    foreach ($want as $metal => $c) {
+      if (isset($found[$metal])) continue;
+      $idxKey = $metal === 'GOLD' ? 'gi' : 'si';
+      $$idxKey++;   // advance this metal to its next-nearest contract
+    }
+    $stepDiag['note'] = $j && isset($j['message']) ? (string)$j['message'] : ('HTTP ' . $r['code']);
+    $diag['attempts'][] = $stepDiag;
   }
+
+  $goldC = $found['GOLD'] ?? null;
+  $silC = $found['SILVER'] ?? null;
+  if (!$goldC || !$silC) {
+    $reasons = [];
+    foreach ($diag['attempts'] as $a) foreach ($a['rejected'] as $rr) if ($rr) $reasons[] = $rr;
+    $msg = 'Angel quote returned no live MCX price' . ($reasons ? ' — ' . implode('; ', array_slice(array_unique($reasons), 0, 4)) : ' (market may be closed)');
+    $recordFailure($msg, $diag);
+    return null;
+  }
+  $gold10g = (float)$goldC['ltp'];
+  $silverKg = (float)$silC['ltp'];
+
   if (!empty($db['angelSession']['lastError'])) {
-    unset($db['angelSession']['lastError'], $db['angelSession']['errorAt']);
+    unset($db['angelSession']['lastError'], $db['angelSession']['errorAt'], $db['angelSession']['debug']);
   }
-  if ($gold10g <= 0 || $silverKg <= 0) {
-    $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => 'LTP missing for the GOLD/SILVER contract (market closed or contract rolled — tokens resolve automatically)', 'errorAt' => now_iso()]);
-    try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
-    return null;
-  }
+  // remember the working pair so the file-based fallback always has a token
+  $db['angelTokens'] = [
+    'gold' => [$goldC['exp'], $goldC['token'], $goldC['symbol']],
+    'silver' => [$silC['exp'], $silC['token'], $silC['symbol']], 'at' => now_iso(),
+  ];
   return ['goldPerG' => round($gold10g / 10, 2), 'silverPerG' => round($silverKg / 1000, 3),
     'goldLtp' => $gold10g, 'silverLtp' => $silverKg, 'at' => now_iso(),
-    'goldToken' => $gTok, 'silverToken' => $sTok,
-    'goldSymbol' => $tok['goldSymbol'] ?? 'GOLD', 'silverSymbol' => $tok['silverSymbol'] ?? 'SILVER',
-    'autoTokens' => !empty($tok['auto'])];
+    'goldToken' => $goldC['token'], 'silverToken' => $silC['token'],
+    'goldSymbol' => $goldC['symbol'], 'silverSymbol' => $silC['symbol'],
+    'autoTokens' => true];
 }
 
 /* ───────── rate engine (identical math to Node) ───────── */
@@ -2692,7 +2781,7 @@ try {
     db_save($DB_FILE, $db);
     if ($mcx) jout(200, ['ok' => true, 'mcx' => $mcx]);
     $err = $db['angelSession']['lastError'] ?? 'login/quote failed (check credentials & market session)';
-    jout(200, ['ok' => false, 'reason' => $err]);
+    jout(200, ['ok' => false, 'reason' => $err, 'debug' => $db['angelSession']['debug'] ?? null]);
   }
 
   /* ── settings / stats / users ── */

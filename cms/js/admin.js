@@ -1327,7 +1327,18 @@ window.ShivaaAdmin.testFeed = async () => {
       if (el) el.innerHTML = `✅ <b style="color:var(--ok,#1d7a46)">Live MCX connected</b> — ${cGold} ₹${Number(r.mcx.goldLtp).toLocaleString('en-IN')}/10 g · ${cSil} ₹${Number(r.mcx.silverLtp).toLocaleString('en-IN')}/kg at ${new Date(r.mcx.at).toLocaleTimeString('en-IN')}${r.mcx.autoTokens ? ' <small style="color:var(--ink-3)">(near-month auto-selected)</small>' : ''}`;
       toast('MCX feed live ✦');
     } else {
-      if (el) el.innerHTML = '⚠ Feed not connected (' + esc(r.reason || 'unknown') + '). International spot remains active.';
+      let d = '';
+      if (r.debug) {
+        const g = (r.debug.goldCandidates || []).slice(0, 3).join(', ');
+        const s = (r.debug.silverCandidates || []).slice(0, 3).join(', ');
+        const rej = [];
+        (r.debug.attempts || []).forEach(a => (a.rejected || []).forEach(x => x && rej.push(x)));
+        d = `<br><small style="color:var(--ink-3);display:block;margin-top:4px;line-height:1.5">`
+          + (g ? `Gold candidates: ${esc(g)}<br>` : '') + (s ? `Silver candidates: ${esc(s)}<br>` : '')
+          + (rej.length ? `Exchange replies: ${esc([...new Set(rej)].slice(0, 3).join(' · '))}` : '')
+          + `</small>`;
+      }
+      if (el) el.innerHTML = '⚠ Feed not connected (' + esc(r.reason || 'unknown') + '). International spot remains active.' + d;
     }
   } catch (err) { if (el) el.innerHTML = '⚠ ' + esc(err.message); }
 };
