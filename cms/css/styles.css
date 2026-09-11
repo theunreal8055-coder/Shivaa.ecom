@@ -5679,3 +5679,9 @@ html.quote-mode #view{padding-top:0 !important}
   .bd-kar:last-child{grid-column:span 3}
   .bd-intl{grid-template-columns:repeat(2,1fr)}
 }
+
+/* ── v62 — official MCX feed badge + settings card ── */
+.bd-feed{display:inline-block;margin-top:3px;font-size:10px;font-weight:700;letter-spacing:.4px;color:#c99a35;background:rgba(201,154,53,.1);border:1px solid rgba(201,154,53,.35);border-radius:20px;padding:1px 8px;text-transform:uppercase}
+.bd-feed-mcx{color:#0f8a5f;background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.45);animation:bdLivePulse 2s infinite}
+@keyframes bdLivePulse{0%,100%{opacity:1}50%{opacity:.65}}
+#feedForm .fld.full{grid-column:1/-1}

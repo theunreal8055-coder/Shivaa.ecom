@@ -168,6 +168,124 @@ function http_post_json(string $url, array $payload, string $userPwd = '', int $
   return ($code >= 200 && $code < 300 && is_array($d)) ? $d : null;
 }
 
+/* v61 — generic JSON POST/GET with custom headers (Angel One SmartAPI) */
+function angel_http(string $url, string $method, ?array $payload, array $headers, int $timeout = 8): array {
+  $ret = ['code' => 0, 'json' => null, 'raw' => ''];
+  if (!function_exists('curl_init')) return $ret;
+  $ch = curl_init($url);
+  $h = ['Accept: application/json', 'Content-Type: application/json'];
+  foreach ($headers as $k => $v) $h[] = $k . ': ' . $v;
+  $opts = [
+    CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => $timeout,
+    CURLOPT_SSL_VERIFYPEER => true, CURLOPT_CUSTOMREQUEST => $method, CURLOPT_HTTPHEADER => $h,
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
+  ];
+  if ($payload !== null) $opts[CURLOPT_POSTFIELDS] = json_encode($payload);
+  curl_setopt_array($ch, $opts);
+  $raw = curl_exec($ch);
+  $ret['code'] = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+  curl_close($ch);
+  $ret['raw'] = (string)$raw;
+  $ret['json'] = json_decode((string)$raw, true);
+  return $ret;
+}
+
+/* RFC 6238 TOTP (6 digits, 30 s window) from a Base32 secret — Angel One login */
+function totp_now(string $base32Secret): string {
+  $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  $secret = strtoupper(preg_replace('/[^A-Z2-7]/i', '', $base32Secret));
+  if ($secret === '') return '';
+  $bits = '';
+  foreach (str_split($secret) as $c) {
+    $v = strpos($alphabet, $c);
+    if ($v === false) continue;
+    $bits .= str_pad(decbin($v), 5, '0', STR_PAD_LEFT);
+  }
+  $key = '';
+  foreach (str_split($bits, 8) as $byte) {
+    if (strlen($byte) === 8) $key .= chr(bindec($byte));
+  }
+  $counter = floor(time() / 30);
+  $bin = pack('N*', 0) . pack('N*', $counter);
+  $hash = hash_hmac('sha1', $bin, $key, true);
+  $off = ord($hash[strlen($hash) - 1]) & 0x0F;
+  $num = ((ord($hash[$off]) & 0x7F) << 24) | (ord($hash[$off + 1]) << 16) | (ord($hash[$off + 2]) << 8) | ord($hash[$off + 3]);
+  return str_pad((string)($num % 1000000), 6, '0', STR_PAD_LEFT);
+}
+
+/* v61 — official MCX futures feed via Angel One SmartAPI (free demat account).
+   Fully automatic: TOTP is generated from the secret, so the daily 3:30 AM
+   token expiry self-heals on the next poll. Returns null when unconfigured. */
+function angel_ltp(array &$db): ?array {
+  $s = $db['settings'];
+  if (empty($s['angelEnabled'])) return null;
+  $apiKey = trim((string)($s['angelApiKey'] ?? ''));
+  $client = trim((string)($s['angelClient'] ?? ''));
+  $mpin = (string)($s['angelMpin'] ?? '');
+  $totpSecret = trim((string)($s['angelTotpSecret'] ?? ''));
+  $gTok = trim((string)($s['angelGoldToken'] ?? ''));
+  $sTok = trim((string)($s['angelSilverToken'] ?? ''));
+  if ($apiKey === '' || $client === '' || $mpin === '' || $totpSecret === '' || $gTok === '' || $sTok === '') return null;
+
+  $baseHeaders = ['X-UserType' => 'USER', 'X-SourceID' => 'WEB', 'X-ClientLocalIP' => '127.0.0.1',
+    'X-ClientPublicIP' => '127.0.0.1', 'X-MACAddress' => '00:00:00:00:00:00', 'X-PrivateKey' => $apiKey];
+
+  $login = function () use (&$db, $baseHeaders, $apiKey, $client, $mpin, $totpSecret) {
+    $code = totp_now($totpSecret);
+    if ($code === '') return null;
+    $r = angel_http('https://apiconnect.angelbroking.com/rest/auth/angelbroking/user/v1/loginByPassword',
+      'POST', ['clientcode' => $client, 'password' => $mpin, 'totp' => $code], $baseHeaders, 10);
+    $j = $r['json'];
+    if (is_array($j) && !empty($j['status']) && !empty($j['data']['jwtToken'])) {
+      $db['angelSession'] = ['jwt' => $j['data']['jwtToken'], 'feed' => $j['data']['feedToken'] ?? '',
+        'at' => now_iso(), 'refresh' => $j['data']['refreshToken'] ?? ''];
+      // persist immediately — the daily session must survive even if this
+      // request's rate stamp is unchanged and skips the normal save path
+      try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
+      return $db['angelSession'];
+    }
+    $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => $j['message'] ?? ('HTTP ' . $r['code']), 'errorAt' => now_iso()]);
+    try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
+    return null;
+  };
+
+  $quote = function (array $sess) use ($baseHeaders, $gTok, $sTok) {
+    $h = $baseHeaders + ['Authorization' => 'Bearer ' . $sess['jwt'], 'X-FeedToken' => $sess['feed'] ?? ''];
+    return angel_http('https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/',
+      'POST', ['mode' => 'LTP', 'exchangeTokens' => ['MCX' => [$gTok, $sTok]]], $h, 8);
+  };
+
+  $sess = $db['angelSession'] ?? null;
+  if (!$sess || empty($sess['jwt'])) $sess = $login();
+  $r = $sess ? $quote($sess) : ['code' => 0, 'json' => null];
+  // token expired (daily 3:30 AM) or rejected — re-login once and retry
+  if ($r['code'] === 401 || $r['code'] === 400 || (is_array($r['json']) && empty($r['json']['status']))) {
+    $sess = $login();
+    if ($sess) $r = $quote($sess);
+  }
+  $j = $r['json'];
+  if (!is_array($j) || empty($j['status']) || empty($j['data']['fetched'])) {
+    $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => $j['message'] ?? ('HTTP ' . $r['code']), 'errorAt' => now_iso()]);
+    try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
+    return null;
+  }
+  $gold10g = 0; $silverKg = 0;
+  foreach ($j['data']['fetched'] as $it) {
+    if ((string)($it['symbolToken'] ?? '') === (string)$gTok) $gold10g = (float)($it['ltp'] ?? 0);
+    if ((string)($it['symbolToken'] ?? '') === (string)$sTok) $silverKg = (float)($it['ltp'] ?? 0);
+  }
+  if (!empty($db['angelSession']['lastError'])) {
+    unset($db['angelSession']['lastError'], $db['angelSession']['errorAt']);
+  }
+  if ($gold10g <= 0 || $silverKg <= 0) {
+    $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => 'LTP missing for a configured token (check the near-month GOLD/SILVER token numbers)', 'errorAt' => now_iso()]);
+    try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
+    return null;
+  }
+  return ['goldPerG' => round($gold10g / 10, 2), 'silverPerG' => round($silverKg / 1000, 3),
+    'goldLtp' => $gold10g, 'silverLtp' => $silverKg, 'at' => now_iso()];
+}
+
 /* ───────── rate engine (identical math to Node) ───────── */
 const PURITY_22 = 0.9167, PURITY_18 = 0.75, OZ = 31.1034768;
 const BASE_GOLD = 11850.0, BASE_SILVER = 168.0;
@@ -195,6 +313,21 @@ function rates_refresh(array &$db): array {
     if ($usdGold <= 0) $usdGold = round($gold24 * OZ / $inrNow, 2);
     if ($usdSilver <= 0) $usdSilver = round($silver * OZ / $inrNow, 3);
     $source = ($last['source'] ?? '') === 'live' ? 'cached+sim' : 'simulated';
+  }
+  /* v61 — official MCX futures (Angel One SmartAPI) override when configured.
+     MCX GOLD LTP is quoted per 10 g of 995-fine; SILVER per kg. Fully
+     automatic TOTP login; failures fall back to the international feed above. */
+  $sess0 = $db['angelSession'] ?? null;
+  $errTick = is_array($sess0) ? strtotime((string)($sess0['errorAt'] ?? '')) : false;
+  $cooling = $errTick ? (time() - $errTick < 600) : false;
+  if (!$cooling) {
+    $mcx = angel_ltp($db);
+    if ($mcx) {
+      $gold24 = $mcx['goldPerG'];
+      $silver = $mcx['silverPerG'];
+      $source = 'live-mcx';
+      $db['rates']['mcx'] = $mcx;
+    }
   }
   $stamp = [
     't' => now_iso(),
@@ -355,10 +488,14 @@ function bullion_rows(array &$db): array {
       'low' => (int)round($loHi[0]), 'high' => (int)round($loHi[1]),
       'editable' => $edit, 'change' => 0];
   };
-  /* RTGS (TDS / refined) rows — track the live feed like a trading board */
+  /* RTGS (TDS / refined) rows — track the live feed like a trading board.
+     With the official MCX feed, the near-month Gold future *is* the TDS 995
+     price, so we track it directly; international spot needs the .995 factor. */
+  $mcxOn = ($r['source'] ?? '') === 'live-mcx' && !empty($db['rates']['mcx']);
+  $g995 = $mcxOn ? $fine : ($fine * 0.995 + $gp);
   $rows = [
     $goldRow('tdsGold995', 'TDS GOLD 995 IND', '995 · ' . date('d-m'), 'RTGS',
-      $fine * 0.995 + $gp - 2, $fine * 0.995 + $gp + 2, [$gLo * 0.995 + $gp - 2, $gHi * 0.995 + $gp + 2]),
+      $g995 - 2, $g995 + 2, [$mcxOn ? $gLo : ($gLo * 0.995 + $gp - 2), $mcxOn ? $gHi : ($gHi * 0.995 + $gp + 2)]),
     ['key' => 'silverChorsa', 'label' => 'TDS SIL CHORSA', 'purity' => '98.00 · ' . date('d-m'), 'mode' => 'RTGS',
       'buy' => (int)round($sil * 0.98 + 1 - 1), 'sell' => (int)round($sil * 0.98 + 1 + 1),
       'low' => (int)round($sLo * 0.98), 'high' => (int)round($sHi * 0.98 + 2), 'editable' => false, 'change' => 0],
@@ -409,7 +546,8 @@ function bullion_rows(array &$db): array {
   /* day change vs the previous feed tick for RTGS rows */
   if (count($hist) > 1) {
     $y = $hist[count($hist) - 2];
-    $chg = ['tdsGold995' => (int)round(($r['gold24'] - $y['gold24']) * 0.995),
+    $gf = (($r['source'] ?? '') === 'live-mcx') ? 1.0 : 0.995;
+    $chg = ['tdsGold995' => (int)round(($r['gold24'] - $y['gold24']) * $gf),
             'silverChorsa' => (int)round(($r['silver'] - $y['silver']) * 0.98),
             'silverPeti' => (int)round(($r['silver'] - $y['silver']) * 0.999),
             'silverPetiBulk' => (int)round(($r['silver'] - $y['silver']) * 0.98),
@@ -454,14 +592,18 @@ function bullion_rows(array &$db): array {
     ],
     'ticker' => (string)($db['settings']['bullionTicker'] ?? '★ सोना व चांदी में UNFIX सुविधा उपलब्ध है ★'),
     'time' => date('H:i:s A'),
+    'feedSource' => (string)($r['source'] ?? ''),
+    'mcx' => $db['rates']['mcx'] ?? null,
   ];
   if (is_array($db['bullion']['boardOverride'] ?? null)) $board = array_replace_recursive($board, $db['bullion']['boardOverride']);
 
   /* v60 — intraday chart series (display units: gold per 10 g, silver per kg) */
   $chart = ['t' => [], 'gold995' => [], 'silverChorsa' => [], 'goldSpot' => [], 'silverSpot' => []];
   foreach (array_slice($hist, -180) as $h) {
+    $hf = (($h['source'] ?? '') === 'live-mcx') ? 1.0 : 0.995;
+    $g995Chart = ($hf === 1.0) ? (float)$h['gold24'] : ((float)$h['gold24'] * 0.995 + $gp - 2);
     $chart['t'][] = $h['t'] ?? now_iso();
-    $chart['gold995'][] = (int)round(((float)$h['gold24'] * 0.995 + $gp - 2) * 10);
+    $chart['gold995'][] = (int)round($g995Chart * 10);
     $chart['silverChorsa'][] = (int)round((float)$h['silver'] * 0.98 * 1000);
     $chart['goldSpot'][] = (int)round((float)$h['gold24'] * 10);
     $chart['silverSpot'][] = (int)round((float)$h['silver'] * 1000);
@@ -2380,13 +2522,30 @@ try {
     db_save($DB_FILE, $db); jout(200, $rv);
   }
 
+  /* v61 — test the official MCX (Angel One) connection from admin Settings */
+  if ($route === 'admin/feed-test' && $method === 'GET') {
+    need_admin($db);
+    $s = $db['settings'];
+    $need = ['angelApiKey' => 'SmartAPI key', 'angelClient' => 'client code', 'angelMpin' => 'MPIN',
+      'angelTotpSecret' => 'TOTP secret', 'angelGoldToken' => 'GOLD token', 'angelSilverToken' => 'SILVER token'];
+    $missing = [];
+    foreach ($need as $k => $label) if (empty($s[$k])) $missing[] = $label;
+    if (empty($s['angelEnabled'])) { jout(200, ['ok' => false, 'reason' => 'MCX feed is switched off — tick "Enable official MCX feed"']); }
+    if ($missing) { jout(200, ['ok' => false, 'reason' => 'missing: ' . implode(', ', $missing)]); }
+    $mcx = angel_ltp($db);
+    db_save($DB_FILE, $db);
+    if ($mcx) jout(200, ['ok' => true, 'mcx' => $mcx]);
+    $err = $db['angelSession']['lastError'] ?? 'login/quote failed (check credentials & market session)';
+    jout(200, ['ok' => false, 'reason' => $err]);
+  }
+
   /* ── settings / stats / users ── */
   if ($route === 'settings' && $method === 'GET') {
     $uSet = req_user($db);
     if ($uSet && ($uSet['role'] ?? '') === 'admin') jout(200, $db['settings']);
     // v58: public projection — never expose gateway secrets / API keys
     $pubSettings = array_filter($db['settings'],
-      fn($k) => !preg_match('/secret|token|password|private|apiKey|gstKey/i', $k),
+      fn($k) => !preg_match('/secret|token|password|private|apiKey|gstKey|mpin/i', $k),
       ARRAY_FILTER_USE_KEY);
     jout(200, $pubSettings);
   }

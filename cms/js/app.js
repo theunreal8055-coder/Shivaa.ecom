@@ -178,7 +178,7 @@ function waProductMsg(p, qty, size, engraving) {
   if (pr.stoneValue) L.push('• Listed stone value = ' + fmt(pr.stoneValue));
   L.push('• GST 3% = ' + fmt(pr.gst));
   L.push('');
-  L.push('Rate as on ' + timeFmt(R.t) + ' (' + R.source + ' feed)');
+  L.push('Rate as on ' + timeFmt(R.t) + ' (' + (R.source === 'live-mcx' ? 'official MCX' : R.source) + ' feed)');
   L.push(location.origin + '/#/product/' + p.id);
   L.push('');
   L.push('Namaste Shivaa ✦ I would like to order this piece.');
@@ -1588,7 +1588,7 @@ function renderRateStrip() {
     cell('✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
     cell('Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
     cell('Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
-    `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${esc(R.source)} · every 10 min</span></div>`;
+    `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${R.source === 'live-mcx' ? 'Official MCX' : esc(R.source)} · auto refresh</span></div>`;
 }
 
 /* ─────────── HOME ─────────── */
@@ -3678,7 +3678,7 @@ pages.rates = async (view) => {
   const R = state.rates;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1>
-  <p>The same feed that powers every price on shivaa.in — sourced from the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
+  <p>The same feed that powers every price on shivaa.in — sourced from official MCX futures (when the owner’s exchange feed is connected) or the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
     <div class="jaipur-hero rv">
       <div class="jh-main">
@@ -3700,7 +3700,7 @@ pages.rates = async (view) => {
     </div>
     <div class="chart-wrap mt-3 rv"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
       <h3 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
-      <span class="src-badge ${R.source === 'live' ? 'src-live' : 'src-sim'}">${R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*'}</span></div>
+      <span class="src-badge ${(R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim'}">${R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*')}</span></div>
       <canvas id="rateChart"></canvas></div>
     <div class="grid2 mt-3">
       <div class="adm-card"><h3>Get a rate alert</h3>
@@ -3715,7 +3715,7 @@ pages.rates = async (view) => {
         <div class="sum-row"><span>+ Listed stone value (if any)</span><b>at cost</b></div>
         <div class="sum-row"><span>+ 3% GST</span><b>statutory</b></div>
         <p style="font-size:13px;color:var(--ink-3);margin-top:12px">No "local rate" games — the rate on this page is the rate on your bill. That is our tanch (honest purity) promise.</p>
-        ${R.source !== 'live' ? '<p style="font-size:12px;color:var(--ink-3);margin-top:8px">*Feed shown as simulated when the bullion API is unreachable from the server; values track the last live market feed.</p>' : ''}
+        ${(R.source !== 'live' && R.source !== 'live-mcx') ? '<p style="font-size:12px;color:var(--ink-3);margin-top:8px">*Feed shown as simulated when the bullion API is unreachable from the server; values track the last live market feed.</p>' : ''}
       </div>
     </div>
   </div>`;

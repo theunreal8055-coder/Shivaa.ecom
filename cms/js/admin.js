@@ -80,7 +80,7 @@ async function renderAdmin(view, q) {
     </aside>
     <main class="adm-main">
       <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || tab}</h2>
-        <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
+        <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${(state.rates?.source === 'live' || state.rates?.source === 'live-mcx') ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${state.rates?.source === 'live-mcx' ? 'official MCX' : esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
   </div>`;
@@ -726,6 +726,24 @@ async function renderAdmin(view, q) {
           <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">No gateway? Fill only the <b>UPI ID</b> — customers scan the QR and upload a payment screenshot; you verify each one under Orders (banner at top). With Razorpay keys, cards/net-banking go fully automatic.</div>
           <button class="btn btn-primary btn-sm" style="justify-self:start">Save payments</button>
         </form></div>
+      <div class="adm-card"><h3>📡 Official MCX rate feed <span style="font-size:11px;color:var(--ink-3);font-weight:400">Angel One SmartAPI · free demat · fully automatic TOTP login</span></h3>
+        <form id="feedForm" onsubmit="ShivaaAdmin.saveFeed(event)">
+          <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:10px">When enabled, the Bullion Desk and shop rates come from <b>live MCX Gold &amp; Silver futures</b> (official exchange ticks), not the international spot feed. Get free keys at <b>smartapi.angelbroking.com</b> (requires an Angel One demat): create an app for the API key, set up external TOTP for the secret, and use the near-month <b>MCX GOLD</b> and <b>SILVER</b> instrument tokens (shown in the SmartAPI instrument master; e.g. GOLD 5-digit token). Leave the box unticked to keep today&rsquo;s automatic international feed.</p>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr">
+            <label class="fld full" style="flex-direction:row;align-items:center;gap:8px;display:flex"><input type="checkbox" name="angelEnabled" style="width:auto" ${S.angelEnabled ? 'checked' : ''}> <span><b>Enable official MCX feed</b> <small style="color:var(--ink-3)">— international spot stays as automatic fallback</small></span></label>
+            <div class="fld"><label>Angel client code</label><input name="angelClient" value="${esc(S.angelClient || '')}" placeholder="AB1234" autocomplete="off"></div>
+            <div class="fld"><label>MPIN / login password</label><input name="angelMpin" type="password" value="${esc(S.angelMpin || '')}" autocomplete="new-password" placeholder="••••"></div>
+            <div class="fld"><label>SmartAPI key (X-PrivateKey)</label><input name="angelApiKey" value="${esc(S.angelApiKey || '')}" placeholder="from your SmartAPI app" autocomplete="off"></div>
+            <div class="fld"><label>TOTP secret (Base32)</label><input name="angelTotpSecret" value="${esc(S.angelTotpSecret || '')}" placeholder="JBSWY3DPEHPK3PXP" autocomplete="off"></div>
+            <div class="fld"><label>MCX GOLD token (near month)</label><input name="angelGoldToken" value="${esc(S.angelGoldToken || '')}" placeholder="e.g. 11292"></div>
+            <div class="fld"><label>MCX SILVER token (near month)</label><input name="angelSilverToken" value="${esc(S.angelSilverToken || '')}" placeholder="e.g. 11295"></div>
+            <div class="fld full" id="feedStatus" style="font-size:12.5px;color:var(--ink-3)">Feed status: checking…</div>
+            <div class="fld full" style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" style="justify-self:start">Save feed settings</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.testFeed()">Test connection now</button>
+            </div>
+          </div>
+        </form></div>
       <div class="adm-card"><h3>💾 Data backup <span style="font-size:11px;color:var(--ink-3);font-weight:400">one tap, saves the whole database (orders, customers, products) to your device</span></h3>
         <p style="font-size:13px;color:var(--ink-3);margin-bottom:10px">Download a copy after big days. To restore, the file goes back into <code>data/db.json</code> via File Manager (ask us if unsure — never overwrite blindly).</p>
         <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.backup()">Download backup now</button>
@@ -738,6 +756,7 @@ async function renderAdmin(view, q) {
         <div class="sum-row"><span>Startup India (DIPP)</span><b>${esc(S.dipp || '')}</b></div>
       </div>`;
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.smsCard && window.ShivaaAdmin.smsCard(), 0);   // v33 — SMS status card
+    setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.testFeed && window.ShivaaAdmin.testFeed(), 300);   // v61 — MCX feed status
   }
 }
 window.ShivaaAdmin = {};
@@ -1275,6 +1294,42 @@ window.ShivaaAdmin.savePay = async e => {
     toast(body.payProvider === 'razorpay' && s.rzpKeyId && s.rzpKeySecret ? 'Payments LIVE via Razorpay 🔒' : 'Payment settings saved (demo mode)');
   } catch (err) { toast(err.message, 'err'); }
 };
+/* ── v61 · official MCX (Angel One) feed settings ── */
+window.ShivaaAdmin.saveFeed = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = {
+    angelEnabled: fd.get('angelEnabled') === 'on',
+    angelClient: String(fd.get('angelClient') || '').trim(),
+    angelMpin: String(fd.get('angelMpin') || ''),
+    angelApiKey: String(fd.get('angelApiKey') || '').trim(),
+    angelTotpSecret: String(fd.get('angelTotpSecret') || '').replace(/\s/g, '').toUpperCase(),
+    angelGoldToken: String(fd.get('angelGoldToken') || '').trim(),
+    angelSilverToken: String(fd.get('angelSilverToken') || '').trim(),
+  };
+  // keep already-saved secrets when the owner saves without retyping them
+  ['angelMpin', 'angelApiKey', 'angelTotpSecret'].forEach(k => { if (!body[k]) delete body[k]; });
+  try {
+    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
+    Object.assign(state.settings, s);
+    toast('MCX feed settings saved ✦ testing connection…');
+    setTimeout(() => ShivaaAdmin.testFeed(), 600);
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.testFeed = async () => {
+  const el = document.getElementById('feedStatus');
+  if (el) el.innerHTML = '<span class="live-dot" style="display:inline-block;margin-right:6px"></span> Logging in & fetching MCX LTP…';
+  try {
+    const r = await api('/api/admin/feed-test');
+    if (r.ok) {
+      if (el) el.innerHTML = `✅ <b style="color:var(--ok,#1d7a46)">Live MCX connected</b> — Gold ₹${Number(r.mcx.goldLtp).toLocaleString('en-IN')}/10 g · Silver ₹${Number(r.mcx.silverLtp).toLocaleString('en-IN')}/kg at ${new Date(r.mcx.at).toLocaleTimeString('en-IN')}`;
+      toast('MCX feed live ✦');
+    } else {
+      if (el) el.innerHTML = '⚠ Feed not connected (' + esc(r.reason || 'unknown') + '). International spot remains active.';
+    }
+  } catch (err) { if (el) el.innerHTML = '⚠ ' + esc(err.message); }
+};
+
 /* ── v58 · old gold register entry ── */
 window.ShivaaAdmin.goldBuySave = async e => {
   e.preventDefault();
@@ -1931,11 +1986,14 @@ window.ShivaaBullion = {
     const el = document.getElementById('bullionBoard');
     const bd = B.board || {};
     const ticker = bd.ticker || '✦ Unfix (rate-lock) facility available on gold & silver ✦';
+    const feedBadge = bd.feedSource === 'live-mcx' && bd.mcx
+      ? `<span class="bd-feed bd-feed-mcx" title="Official MCX near-month futures via Angel One SmartAPI">📡 MCX LIVE · ₹${Number(bd.mcx.goldLtp).toLocaleString('en-IN')}/10g · ₹${Number(bd.mcx.silverLtp).toLocaleString('en-IN')}/kg</span>`
+      : `<span class="bd-feed" title="International LBMA spot × USD/INR">🌐 SPOT FX</span>`;
     const tab = (id, ic, lb) => `<a href="#" data-sec="${id}" class="${this.section === id ? 'on' : ''}">${ic}<span>${lb}</span>${id === 'alerts' && (B.alerts || []).length ? `<em class="bd-navcnt">${B.alerts.length}</em>` : ''}</a>`;
     el.innerHTML = `
       <div class="bd-topbar">
         <img src="/images/logo.png" alt="Shivaa">
-        <div class="bd-title"><b>SHIVAA BULLION DESK</b><small>TDS · refined · spot · MCX &mdash; for approved jewellers</small></div>
+        <div class="bd-title"><b>SHIVAA BULLION DESK</b><small>TDS · refined · spot · MCX &mdash; for approved jewellers</small>${feedBadge}</div>
         <span class="bd-live"><span class="live-dot"></span>LIVE<br><b>${esc(B.date || '')} ${bd.time || ''}</b></span>
       </div>
       <div class="bd-marquee"><div class="bd-marq-in">★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} </div></div>
