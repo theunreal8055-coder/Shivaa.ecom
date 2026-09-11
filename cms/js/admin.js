@@ -1464,7 +1464,7 @@ window.ShivaaAdmin.testFeed = async () => {
 /* v73 — server-side external-source diagnostic (dollars / FX reachability) */
 window.ShivaaAdmin.testNet = async () => {
   const el = document.getElementById('netStatus');
-  if (el) el.innerHTML = '<span class="live-dot" style="display:inline-block;margin-right:6px"></span> Probing every dollar/FX source from your server (takes ~6 s)…';
+  if (el) el.innerHTML = '<span class="live-dot" style="display:inline-block;margin-right:6px"></span> Probing every dollar/FX source from your server (takes ~2 s)…';
   try {
     const r = await api('/api/admin/net-test');
     const names = {
@@ -2208,7 +2208,7 @@ window.ShivaaBullion = {
     <div class="bd-chart-lims"><span class="bd-hitxt">H ${this.num(max)}</span><span class="bd-lowtxt">L ${this.num(min)}</span><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(last - first))}</span></div>`;
   },
 
-  /* v74/v75 — repaint the international spot cards from the ~2.5 s live spot tick (polled every 1 s) */
+  /* v74–v76 — repaint the international spot cards from the ~1.5 s live spot tick (polled every 1 s) */
   applySpotTick(sp, B) {
     if (this.section !== 'rates') return;
     const flashTxt = (sel, txt, numeric) => {

@@ -952,15 +952,18 @@ function spot_resolve(array &$db, bool $force = false): array {
   return $out;
 }
 
-/* v74/v75 — LIVE international spot, micro-cached ~2.5 s (v75: tightened
-   from 6 s so the dollar cards move almost as fast as the 1 s MCX future)
-   and shared by every viewer via flock. Yahoo near-live XAU/XAG/INR is the
-   primary feed (intraday price + day H/L + previous close), gold-api and
-   Stooq are parallel fallbacks; below that it walks the 10-minute resolver
-   cache, manual owner overrides, and finally the MCX-implied value. Owner
+/* v74–v76 — LIVE international spot, micro-cached ~1.5 s (v75: 6 s → 2.5 s;
+   v76: 2.5 s → 1.5 s — fastest safe cadence, the dollar cards move with
+   the 1 s MCX future) and shared by every viewer. v76 uses a NON-BLOCKING
+   lock: while one request refreshes from Yahoo, everyone else is served
+   the last value instantly instead of queuing on the lock, so no tick ever
+   waits on the network. Yahoo near-live XAU/XAG/INR is the primary feed
+   (intraday price + day H/L + previous close), gold-api and Stooq are
+   parallel fallbacks; below that it walks the 10-minute resolver cache,
+   manual owner overrides, and finally the MCX-implied value. Owner
    fine-tune offsets (spotXauAdj / spotXagAdj / spotInrAdj, in the quoted
    unit) are added last so the board can match the reference feed exactly. */
-const SPOT_TICK_TTL = 2.5;
+const SPOT_TICK_TTL = 1.5;
 function spot_tick(array &$db, ?array $mcxTick = null): array {
   $cacheFile = $GLOBALS['ROOT'] . '/data/.spot-tick.json';
   $lockFile = $GLOBALS['ROOT'] . '/data/.spot-tick.lock';
@@ -973,7 +976,11 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
     $c['servedFrom'] = 'cache'; return $c;
   }
   $fp = @fopen($lockFile, 'c');
-  if ($fp) flock($fp, LOCK_EX);
+  // v76 — non-blocking: another viewer refreshing? serve the last value now.
+  if ($fp && !flock($fp, LOCK_EX | LOCK_NB)) {
+    if (($c = $read())) { $c['servedFrom'] = 'cache-busy'; fclose($fp); return $c; }
+    flock($fp, LOCK_EX);   // cold cache only: wait for the first refresh
+  }
   try {
     if (is_file($cacheFile) && (microtime(true) - filemtime($cacheFile)) < SPOT_TICK_TTL && ($c = $read())) {
       $c['servedFrom'] = 'cache'; return $c;
@@ -2725,7 +2732,7 @@ try {
     jout(200, $out);
   }
   /* v69 — per-second tick (shared server micro-cache, one exchange call/sec).
-     v74 — same response also carries the ~2.5 s live international spot. */
+     v74 — same response also carries the ~1.5 s live international spot. */
   if ($route === 'bullion/tick' && $method === 'GET') {
     $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
     $t = angel_tick($db);
