@@ -102,24 +102,26 @@ const state = {
   productsCache: [], cacheAt: 0,
 };
 
+/* v57: every category face is the studio photograph the house selected,
+   colour-graded to one warm theme (images/categories/*.jpg) */
 const CATS = {
-  rings: { name: 'Rings', sub: 'Solitaires · Kundan · Bands', img: '/images/products/ring-floral.jpg' },
-  necklaces: { name: 'Necklaces', sub: 'Rani haar · Chokers', img: '/images/products/necklace-rani.jpg' },
-  earrings: { name: 'Earrings', sub: 'Jhumkas · Chandbalis', img: '/images/products/earrings-jhumka.jpg' },
-  bangles: { name: 'Bangles & Kadas', sub: 'Carved · Textured', img: '/images/products/bangle-kada.jpg' },
-  bracelets: { name: 'Bracelets', sub: 'Tennis · Charms', img: '/images/products/bracelet-tennis.jpg' },
-  chains: { name: 'Chains', sub: 'Rope · Box · Sing', img: '/images/products/chain-gold.jpg' },
-  pendants: { name: 'Pendants', sub: 'Om · Diamond · Locket', img: '/images/products/pendant-om.jpg' },
-  mangalsutra: { name: 'Mangalsutra', sub: 'Classic · Modern', img: '/images/products/mangalsutra-trad.jpg' },
-  bajubandh: { name: 'Bajubandh', sub: 'Armbands · Rajputana', img: '/images/products/bangle-kada.jpg' },
-  rakhdi: { name: 'Rakhdi Set', sub: 'Borla · Tikka · Sets', img: '/images/products/earrings-chandbali.jpg' },
-  aad: { name: 'Fancy Aad', sub: 'Hair ornaments · Bridal', img: '/images/products/necklace-choker.jpg' },
-  sheeshphool: { name: 'Sheesh Phool', sub: 'Head ornaments', img: '/images/products/earrings-chandbali.jpg' },
-  hathphool: { name: 'Hathphool', sub: 'Hand harness · Rings', img: '/images/products/ring-couple.jpg' },
-  punach: { name: 'Punach', sub: 'Anklet ornaments', img: '/images/products/silver-anklet.jpg' },
-  bridalanklets: { name: 'Bridal Anklets', sub: 'Payal · Kada pairs', img: '/images/products/silver-anklet.jpg' },
-  nosepins: { name: 'Nose Pins', sub: 'Light · Daily', img: '/images/products/nosepin.jpg' },
-  silver: { name: 'Silver 925', sub: 'Payal · Chains · Kada', img: '/images/products/silver-anklet.jpg' },
+  rings: { name: 'Rings', sub: 'Solitaires · Kundan · Bands', img: '/images/categories/rings.jpg' },
+  necklaces: { name: 'Necklaces', sub: 'Rani haar · Chokers', img: '/images/categories/necklaces.jpg' },
+  earrings: { name: 'Earrings', sub: 'Jhumkas · Chandbalis', img: '/images/categories/earrings.jpg' },
+  bangles: { name: 'Bangles & Kadas', sub: 'Carved · Textured', img: '/images/categories/bangles.jpg' },
+  bracelets: { name: 'Bracelets', sub: 'Tennis · Charms', img: '/images/categories/bracelets.jpg' },
+  chains: { name: 'Chains', sub: 'Rope · Box · Sing', img: '/images/categories/chains.jpg' },
+  pendants: { name: 'Pendants', sub: 'Om · Diamond · Locket', img: '/images/categories/pendants.jpg' },
+  mangalsutra: { name: 'Mangalsutra', sub: 'Classic · Modern', img: '/images/categories/mangalsutra.jpg' },
+  bajubandh: { name: 'Bajubandh', sub: 'Armbands · Rajputana', img: '/images/categories/bajubandh.jpg' },
+  rakhdi: { name: 'Rakhdi Set', sub: 'Borla · Tikka · Sets', img: '/images/categories/rakhdi.jpg' },
+  aad: { name: 'Fancy Aad', sub: 'Bridal chest ornaments', img: '/images/categories/aad.jpg' },
+  sheeshphool: { name: 'Sheesh Phool', sub: 'Head ornaments', img: '/images/categories/sheeshphool.jpg' },
+  hathphool: { name: 'Hathphool', sub: 'Hand harness · Rings', img: '/images/categories/hathphool.jpg' },
+  punach: { name: 'Punach', sub: 'Anklet ornaments', img: '/images/categories/punach.jpg' },
+  bridalanklets: { name: 'Bridal Anklets', sub: 'Payal · Kada pairs', img: '/images/categories/bridalanklets.jpg' },
+  nosepins: { name: 'Nose Pins', sub: 'Light · Daily', img: '/images/categories/nosepins.jpg' },
+  silver: { name: 'Silver 925', sub: 'Payal · Chains · Kada', img: '/images/categories/silver.jpg' },
 };
 
 /* ─────────── WhatsApp integration ─────────── */
@@ -176,7 +178,7 @@ function waProductMsg(p, qty, size, engraving) {
   if (pr.stoneValue) L.push('• Listed stone value = ' + fmt(pr.stoneValue));
   L.push('• GST 3% = ' + fmt(pr.gst));
   L.push('');
-  L.push('Rate as on ' + timeFmt(R.t) + ' (' + R.source + ' feed)');
+  L.push('Rate as on ' + timeFmt(R.t) + ' (' + (R.source === 'live-mcx' ? 'official MCX' : R.source) + ' feed)');
   L.push(location.origin + '/#/product/' + p.id);
   L.push('');
   L.push('Namaste Shivaa ✦ I would like to order this piece.');
@@ -246,6 +248,61 @@ function price(p, R) {
   const subtotal = metalValue + makingCharge + stoneValue;
   const gst = Math.round(subtotal * 0.03);
   return { ratePerGram: Math.round(rate * 100) / 100, metalValue, makingCharge, stoneValue, subtotal, gst, total: subtotal + gst };
+}
+
+/* ─────────── v57 · rich product structured data + share meta (SEO / WhatsApp previews) ─────────── */
+const _metaDefaults = {
+  title: document.title,
+  ogTitle: document.querySelector('meta[property="og:title"]')?.content || '',
+  ogDesc: document.querySelector('meta[property="og:description"]')?.content || '',
+  ogUrl: document.querySelector('meta[property="og:url"]')?.content || '',
+  ogImg: document.querySelector('meta[property="og:image"]')?.content || '',
+};
+let _pdpMeta = false;
+function resetProductMeta() {
+  const old = document.getElementById('ld-product'); if (old) old.remove();
+  if (!_pdpMeta) return;
+  _pdpMeta = false;
+  document.title = _metaDefaults.title;
+  const setMeta = (prop, content) => { const m = document.querySelector(`meta[property="${prop}"]`); if (m && content) m.setAttribute('content', content); };
+  setMeta('og:title', _metaDefaults.ogTitle);
+  setMeta('og:description', _metaDefaults.ogDesc);
+  setMeta('og:url', _metaDefaults.ogUrl);
+  setMeta('og:image', _metaDefaults.ogImg);
+}
+function injectProductLD(p, pr) {
+  resetProductMeta();
+  _pdpMeta = true;
+  const origin = location.origin;
+  const imgs = (p.images || []).map(i => i.startsWith('http') ? i : origin + i);
+  const validUntil = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  const ld = {
+    '@context': 'https://schema.org/', '@type': 'Product',
+    name: p.name, sku: p.sku || undefined, mpn: p.sku || undefined,
+    category: (CATS[p.category] || {}).name || 'Jewellery',
+    description: String(p.description || p.name).replace(/<[^>]+>/g, ' ').slice(0, 500),
+    image: imgs, brand: { '@type': 'Brand', name: 'Shivaa' },
+    material: p.metal === 'Silver' ? 'Sterling Silver 925' : `${p.metal || 'Gold'} ${p.purity || ''}`,
+    aggregateRating: p.reviews ? { '@type': 'AggregateRating', ratingValue: p.rating || '4.8', reviewCount: p.reviews } : undefined,
+    offers: { '@type': 'Offer', url: location.href, priceCurrency: 'INR',
+      price: pr.total, priceValidUntil: validUntil, availability: 'https://schema.org/InStock',
+      seller: { '@type': 'JewelryStore', name: 'Shivaa Jewellers' } },
+  };
+  const crumbs = { '@context': 'https://schema.org/', '@type': 'BreadcrumbList', itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: origin + '/#/' },
+    { '@type': 'ListItem', position: 2, name: (CATS[p.category] || {}).name || 'Shop', item: origin + '/#/shop?category=' + p.category },
+    { '@type': 'ListItem', position: 3, name: p.name },
+  ]};
+  const s = document.createElement('script'); s.type = 'application/ld+json'; s.id = 'ld-product';
+  s.textContent = JSON.stringify([ld, crumbs]);
+  document.head.appendChild(s);
+  // dynamic share/OG tags — WhatsApp & Google pick these up for the piece
+  const setMeta = (prop, content) => { let m = document.querySelector(`meta[property="${prop}"]`); if (!m) { m = document.createElement('meta'); m.setAttribute('property', prop); document.head.appendChild(m); } if (content) m.setAttribute('content', content); };
+  setMeta('og:title', p.name + ' · Shivaa Jewellers');
+  setMeta('og:description', `${p.metal || 'Gold'} ${p.purity || ''} · ${fmt(pr.total)} at today's live rate · BIS hallmarked · Shivaa, Jayal`);
+  setMeta('og:url', location.href);
+  if (imgs[0]) setMeta('og:image', imgs[0]);
+  document.title = p.name + ' · Shivaa Jewellers';
 }
 
 /* ─────────── Feature 13: product compare + shareable shortlist ─────────── */
@@ -574,7 +631,7 @@ function finaleHomeBand() {
       </div>
       <div class="fb-main">
         <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
-        <h2 class="fb-title">Every qualifying order gets a chance to win <em>100&nbsp;g of certified 24K gold</em></h2>
+        <h2 class="fb-title">Every qualifying order gets a chance to win <em>10&nbsp;g of certified 24K gold</em></h2>
         <p class="fb-sub">Buy any gold piece of <b>3&nbsp;g or more in any karat</b> (18K / 22K / 24K) or <b>100&nbsp;g of silver</b> during the campaign window, take the short scored quiz, and you are in the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>. No purchase? The free route enters you with equal odds.</p>
         ${finaleCdHTML('homeFinaleCd')}
         <div class="fb-cta">
@@ -602,7 +659,7 @@ function finaleLanding() {
           <div class="fh-copy">
             <div class="crumbs"><a href="#/">Home</a> / The Bhai Dooj Gold Finale</div>
             <span class="fh-kicker">✦ Bhai Dooj Gold Finale · 2026</span>
-            <h1>One customer will win <em class="fh-gold">100&nbsp;g of certified 24K gold</em></h1>
+            <h1>One customer will win <em class="fh-gold">10&nbsp;g of certified 24K gold</em></h1>
             <p class="fh-sub">A lawful, CA-witnessed contest — every <b>qualifying purchase</b> (any gold piece of 3&nbsp;g or more in any karat, or 100&nbsp;g of silver per order) and every <b>free quiz entry</b> carries an equal chance in the live draw on <b>Bhai Dooj night — 11 November 2026</b>. The prize is the gold itself, at its market value on draw day.</p>
             ${finaleCdHTML()}
             <div class="fb-cta">
@@ -717,7 +774,7 @@ function finaleLanding() {
         </div>
         <div class="fin-panel rv">
           <h4>Prize, tax &amp; conduct</h4>
-          <div class="fin-rule"><span>·</span><p><b>The prize is 100&nbsp;g of certified 24K gold bullion</b> at its current market value on the draw date — announced at ≈ ₹15 lakh at the ≈ ₹15,000/g planning rate. It is never a fixed rupee figure.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>The prize is 10&nbsp;g of certified 24K gold bullion</b> at its current market value on the draw date — announced at ≈ ₹1.5 lakh at the ≈ ₹15,000/g planning rate. It is never a fixed rupee figure.</p></div>
           <div class="fin-rule"><span>·</span><p><b>Statutory TDS ≈ 31.2%</b> (30% + surcharge + 4% cess, on the CA&rsquo;s computation) is deducted at source before handover and deposited with the government. Form 16A is issued to the winner.</p></div>
           <div class="fin-rule"><span>·</span><p><b>PAN must be verified before release.</b> Without PAN the higher TDS rate applies as per law. Only statutory TDS may be deducted — never any fee, charge or &ldquo;processing cost&rdquo;.</p></div>
           <div class="fin-rule"><span>·</span><p><b>The draw is audited:</b> CA witness, SHA-256 ledger freeze, live stream and an unedited recording kept 8 years. A re-draw rule is published in advance.</p></div>
@@ -1531,7 +1588,7 @@ function renderRateStrip() {
     cell('✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
     cell('Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
     cell('Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
-    `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${esc(R.source)} · every 10 min</span></div>`;
+    `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${R.source === 'live-mcx' ? 'Official MCX' : esc(R.source)} · auto refresh</span></div>`;
 }
 
 /* ─────────── HOME ─────────── */
@@ -1635,6 +1692,18 @@ pages.refer = async (view) => {
     </div>`);
   const b = $('#refWa', view);
   if (b) b.onclick = () => waOpen('Shivaa Jewellers — BIS hallmarked, live-rate pricing, insured delivery ✦ Use my code ' + code + ' when you sign up: shivaa.in/?ref=' + code);
+  if (code) {
+    api('/api/referrals/stats').then(d => {
+      if (!d) return;
+      const host = document.querySelector('.adm-card');
+      if (!host) return;
+      host.insertAdjacentHTML('beforeend', `<div class="ref-stats">
+        <div class="rs-cell"><b>${d.signedUp || 0}</b><small>friends joined</small></div>
+        <div class="rs-cell"><b>${d.completed || 0}</b><small>first orders done</small></div>
+        <div class="rs-cell"><b>${fmt(d.reward || 0)}</b><small>coupons earned</small></div>
+      </div><p style="font-size:12px;color:var(--ink-3);margin-top:8px">₹${d.perFriend || 250} coupon per completed friend — credited automatically.</p>`);
+    }).catch(() => {});
+  }
 };
 
 pages.videoconsult = async (view) => {
@@ -1930,8 +1999,8 @@ pages.shop = async (view, q) => {
   </div></section>
   <div class="catbar-outer shop-catbar" style="background:var(--white);border-bottom:1px solid var(--line)">${catBarHTML()}</div>
   <div class="fsheet-overlay" id="fsheetOverlay"></div>
-  <aside class="filters" id="filterDrawer" aria-label="Filters">
-    <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" aria-label="Close filters">✕</button></div>
+  <aside class="filters" id="filterDrawer" aria-label="Filters" aria-hidden="true">
+    <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" type="button" aria-label="Close filters">✕</button></div>
       <div class="fgroup"><h4>Category</h4>
         ${Object.entries(CATS).map(([k, c]) => `<label class="fcheck"><input type="checkbox" data-f="cat" value="${k}" ${cat === k ? 'checked' : ''}>${c.name}</label>`).join('')}
       </div>
@@ -1948,7 +2017,10 @@ pages.shop = async (view, q) => {
         <input type="range" id="priceRange" min="10000" max="1500000" step="5000" value="${+q.get('max') || 1500000}" style="width:100%;accent-color:var(--gold)">
         <div class="fmeta"><span>₹10,000</span><span id="priceMaxLbl">${q.get('max') ? fmt(+q.get('max')) : 'Any'}</span></div>
       </div>
-      <button class="btn btn-ghost btn-sm btn-block" id="clearFilters" style="margin-top:14px">Clear all filters</button>
+      <div class="fsheet-acts">
+        <button type="button" class="btn btn-ghost btn-sm" id="clearFilters">Clear all</button>
+        <button type="button" class="btn btn-primary btn-sm" id="applyFilters">Show pieces</button>
+      </div>
     </aside>
   <div class="container shop-main">
       <div class="shop-bar">
@@ -2001,24 +2073,43 @@ pages.shop = async (view, q) => {
     $('#resCount').innerHTML = `<b>${list.length}</b> pieces · prices update with the live rate`;
     bindTilt($('#shopGrid'));
   }
-  const closeSheet = () => { $('#filterDrawer')?.classList.remove('open'); $('#fsheetOverlay')?.classList.remove('open'); unlockScroll(); };
+  const drawer = $('#filterDrawer'), ovl = $('#fsheetOverlay');
+  const closeSheet = () => {
+    drawer?.classList.remove('open'); ovl?.classList.remove('open');
+    if (drawer) drawer.setAttribute('aria-hidden', 'true');
+    unlockScroll();
+    document.removeEventListener('keydown', onSheetKey, true);
+  };
+  const openSheet = () => {
+    drawer?.classList.add('open'); ovl?.classList.add('open');
+    if (drawer) drawer.setAttribute('aria-hidden', 'false');
+    lockScroll();
+    document.addEventListener('keydown', onSheetKey, true);
+  };
+  const onSheetKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeSheet(); } };
   const fBadge = $('#fBadge');
   const syncBadge = () => {
     const n = $$('input[data-f]:checked').length + ($('#priceRange').value < 1500000 ? 0 : 0);
     if (fBadge) { fBadge.hidden = !(n > 0); fBadge.textContent = n; }
   };
   if ($('#filterToggle')) {
-    $('#filterToggle').onclick = () => { $('#filterDrawer').classList.add('open'); $('#fsheetOverlay').classList.add('open'); lockScroll(); };
+    $('#filterToggle').onclick = openSheet;
     $('#fsheetClose').onclick = closeSheet;
-    $('#fsheetOverlay').onclick = closeSheet;
+    $('#applyFilters').onclick = () => { apply(); closeSheet(); };
+    ovl.onclick = closeSheet;
     syncBadge();
     $$('input[data-f]').forEach(i => i.addEventListener('change', syncBadge));
   }
-  $$('input[data-f]').forEach(i => i.onchange = () => { apply(); if (matchMedia('(max-width:768px)').matches) closeSheet(); });
+  /* v56: choosing a checkbox refines live but keeps the sheet open so people
+     can stack filters (the old auto-close made the sheet feel stuck). The
+     sheet closes only via ✕, the scrim, “Show pieces”, or ESC. */
+  $$('input[data-f]').forEach(i => i.onchange = () => { apply(); syncBadge(); });
   $('#priceRange').oninput = e => { $('#priceMaxLbl').textContent = e.target.value >= 1500000 ? 'Any' : fmt(+e.target.value); };
   $('#priceRange').onchange = apply;
   $('#sortSel').onchange = apply;
-  $('#clearFilters').onclick = () => { $$('input[data-f]').forEach(i => i.checked = false); $('#priceRange').value = 1500000; $('#priceMaxLbl').textContent = 'Any'; apply(); };
+  $('#clearFilters').onclick = () => { $$('input[data-f]').forEach(i => i.checked = false); $('#priceRange').value = 1500000; $('#priceMaxLbl').textContent = 'Any'; apply(); syncBadge(); };
+  /* safety: never leave a dead drawer/scrim from a previous render */
+  closeSheet();
   initCatbar();
   await apply();
 };
@@ -2028,6 +2119,7 @@ pages.product = async (view, q, id) => {
   let data;
   try { data = await api('/api/products/' + id); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
   const p = data.product, pr = price(p), R = data.rates || state.rates;
+  injectProductLD(p, pr);   // v57: schema.org Product JSON-LD + per-piece OG share card
   const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
   const compared = isCompared(p.id);
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
@@ -2088,7 +2180,7 @@ pages.product = async (view, q, id) => {
         </div>
 
         ${p.sizes.length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide()" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide</a></div>
-        <div class="size-row" id="sizeRow">${p.sizes.map((s, i) => `<button class="size-pill ${i === Math.floor(p.sizes.length / 2) ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+        <div class="size-row" id="sizeRow">${p.sizes.map(s => `<button class="size-pill ${String(s) === String(localStorage.getItem('shv_ring_size') || '') ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" title="Find your ring size">📏 Size guide</a></div>` : ''}
 
         <div class="opt-label"><span>Engraving (free, up to 12 characters)</span></div>
         <div class="pin-row" style="max-width:340px"><input id="engrave" maxlength="12" placeholder="e.g. R♥S 26"></div>
@@ -2101,14 +2193,14 @@ pages.product = async (view, q, id) => {
           <button class="btn btn-ghost wa-order" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat to Order</button>
           <button type="button" class="btn btn-outline pd-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">⚖ <span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span></button>
         </div>
-        <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'}">${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</div>
+        <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'};display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</span><a href="javascript:Shivaa.rateAlertModal('${p.id}')" style="font-size:12px">🔔 Alert on price drop</a></div>
 
         ${window.ShivaaHallmark ? window.ShivaaHallmark.productPanel(p) : '<p class="hm-note">HUID information is temporarily unavailable. No BIS verification has been performed here.</p>'}
         <a class="trust-pdp-link" href="#/trust">Business details &amp; documents →</a>
         ${p.mediaNote ? `<p style="font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.6">✦ ${esc(p.mediaNote)} The piece you receive is hand-finished by our karigars to this design; exact weight and purity are confirmed on your bill.</p>` : ''}
 
-        <div class="opt-label"><span>Check delivery</span></div>
-        <div class="pin-row" style="max-width:340px"><input id="pincode" maxlength="6" placeholder="Enter 6-digit pincode"><button class="btn btn-ghost btn-sm" onclick="Shivaa.checkPin()">Check</button></div>
+        <div class="opt-label"><span>Check delivery &amp; COD</span></div>
+        <form class="pin-row" style="max-width:380px" onsubmit="event.preventDefault();Shivaa.checkPin()"><input id="pincode" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit pincode" value="${(localStorage.getItem('shv_pin') || '')}"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
         <div class="pin-msg" id="pinMsg" hidden></div>
 
         <div class="pd-perks">
@@ -2126,10 +2218,14 @@ pages.product = async (view, q, id) => {
         <details class="acc"><summary>Making Charges & Exchange</summary><div class="acc-body">Making charges for this design are shown in the price table above — nothing hidden, nothing category-averaged. Lifetime exchange at the day's live rate with making charges waived on exchanges within 6 months; 90% buy-back of metal value thereafter.</div></details>
         <details class="acc"><summary>Shipping & Returns</summary><div class="acc-body">Free insured shipping above ${fmt(state.settings.freeShipAbove)}; tamper-sealed packaging with signature & OTP delivery. 7-day no-question returns (uncustomised pieces). Engraved pieces are exchangeable, not returnable.</div></details>
         <details class="acc"><summary>Reviews (${data.reviews.length})</summary><div class="acc-body">
-          ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p></div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
-          <form class="review-form" onsubmit="Shivaa.postReview(event,'${p.id}')">
+          ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)} ${r.verified ? '<span class="verified-badge" title="Bought on shivaa.in">✓ verified purchase</span>' : ''}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p>
+            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="review photo" loading="lazy"></a>`).join('')}</div>` : ''}
+            ${r.reply ? `<div class="rv-reply"><b>Shivaa replies:</b> ${esc(r.reply)}</div>` : ''}
+          </div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
+          <form class="review-form" id="revForm" onsubmit="Shivaa.postReview(event,'${p.id}')">
             <div class="rate-pick" id="ratePick">${[1,2,3,4,5].map(i => `<span data-r="${i}" onclick="Shivaa.pickRate(${i})">★</span>`).join('')}</div>
-            <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece…" required></textarea></div>
+            <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece — fit, finish, how it feels…" required></textarea></div>
+            <label class="rv-upload">📷 Add up to 3 photos (optional)<input type="file" id="revPhotos" accept="image/*" multiple capture="environment"></label>
             <button class="btn btn-outline btn-sm" style="justify-self:start">Submit review</button>
           </form>
         </div></details>
@@ -2170,7 +2266,7 @@ pages.product = async (view, q, id) => {
     wrap.addEventListener('pointerdown', () => clearInterval(timer), { once: true });
   })();
   $('#brkBtn').onclick = () => { const b = $('#pdBrk'); b.hidden = !b.hidden; $('#brkBtn').setAttribute('aria-expanded', String(!b.hidden)); };
-  $$('#sizeRow .size-pill').forEach(s => s.onclick = () => { $$('#sizeRow .size-pill').forEach(x => x.classList.remove('on')); s.classList.add('on'); });
+  $$('#sizeRow .size-pill').forEach(s => s.onclick = () => { $$('#sizeRow .size-pill').forEach(x => x.classList.remove('on')); s.classList.add('on'); try { localStorage.setItem('shv_ring_size', s.dataset.size); } catch (e) {} });
   bindTilt(view);
   window._pd = { p, qty: 1 };
   /* v54: remember this piece + mobile sticky buy bar + tap-to-zoom gallery */
@@ -2217,14 +2313,9 @@ window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd
   const bbRoute = () => document.body.classList.toggle('pdp-on', (location.hash || '').startsWith('#/product/'));
   addEventListener('hashchange', bbRoute); bbRoute();
 
-  /* v55: live-rate pill on every page */
-  const pill = document.createElement('a'); pill.id = 'ratePill'; pill.href = '#/rates';
-  pill.setAttribute('aria-label', 'Today’s gold rate — open the rates page');
-  document.body.appendChild(pill);
-  const tickPill = () => fetch('/api/rates').then(r => r.json()).then(r => {
-    if (r && r.gold22) pill.innerHTML = '<b>22K</b> ₹' + Math.round(r.gold22).toLocaleString('en-IN') + '/g <span>↻</span>';
-  }).catch(() => {});
-  tickPill(); setInterval(tickPill, 300000);
+  /* v56: the floating 22K-rate pill that sat on every page was removed on
+     request (it followed the shopper everywhere). Live rates still live on
+     #/rates, in the top utility strip and inside the Saathi assistant. */
 
   /* v55: referral capture — shivaa.in/?ref=SH12AB3 */
   try {
@@ -2293,20 +2384,54 @@ window.Shivaa.pdAdd = id => {
   addToCart(id, window._pd.qty, size, $('#engrave')?.value || null);
 };
 window.Shivaa.pdBuy = async id => { window.Shivaa.pdAdd(id); location.hash = '#/checkout'; };
+/* v59 — honest delivery promise by pincode + COD eligibility */
+function pinPromise(pin) {
+  const d2 = pin.slice(0, 2);
+  const block = String((state.settings || {}).codBlockedPins || '').split(/[\s,]+/).filter(Boolean);
+  const noCODPrefix = ['19', '73', '74', '78', '79'];   // Ladakh, Andamans, NE — insured prepaid only
+  const remote = noCODPrefix.includes(d2) || block.includes(pin);
+  let days;
+  if (pin === '341023') days = [1, 1];
+  else if (['30', '31', '32', '33', '34'].includes(d2)) days = [2, 3];            // Rajasthan + NCR west
+  else if (['11', '12', '20', '24', '25', '22', '23', '26', '27', '28', '38', '39'].includes(d2)) days = [3, 4]; // NCR / Gujarat / UP
+  else if (['40', '41', '42', '44', '50', '56', '57', '60', '62', '70', '71'].includes(d2)) days = [3, 5];        // metros
+  else if (noCODPrefix.includes(d2)) days = [7, 10];
+  else days = [4, 7];
+  const fmtDate = n => new Date(Date.now() + n * 864e5).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  return {
+    cod: !remote,
+    lo: days[0], hi: days[1],
+    by: days[0] === days[1] ? fmtDate(days[0]) : fmtDate(days[0]) + ' – ' + fmtDate(days[1]),
+    home: pin === '341023',
+  };
+}
 window.Shivaa.checkPin = () => {
-  const v = $('#pincode').value.trim(); const m = $('#pinMsg');
-  if (!/^\d{6}$/.test(v)) { m.hidden = false; m.style.color = 'var(--bad)'; m.textContent = 'Please enter a valid 6-digit pincode'; return; }
-  m.hidden = false; m.style.color = 'var(--ok)';
-  if (v === '341023') m.textContent = '✓ Jayal (home turf!) — delivery in 24 hours, free';
-  else if (v.startsWith('34')) m.textContent = '✓ Rajasthan — insured delivery in 2–3 days';
-  else m.textContent = '✓ Rest of India — insured delivery in 4–7 days';
+  const inp = $('#pincode'); const v = inp.value.trim(); const m = $('#pinMsg');
+  if (!/^\d{6}$/.test(v)) { m.hidden = false; m.className = 'pin-msg bad'; m.textContent = 'Please enter a valid 6-digit pincode'; return; }
+  try { localStorage.setItem('shv_pin', v); } catch (e) {}
+  const pr = pinPromise(v);
+  m.hidden = false;
+  m.className = 'pin-msg ok';
+  m.innerHTML = (pr.home ? '✓ <b>Jayal — home turf!</b> ' : '✓ Delivers to <b>' + v + '</b> ')
+    + '· insured handover <b>' + pr.by + '</b><br>'
+    + (pr.cod ? '💵 Cash on Delivery available' : '🔒 This pincode is prepaid-only (insured courier)')
+    + ' · free shipping over ' + fmt((state.settings || {}).freeShipAbove || 50000);
 };
+window.Shivaa.pinPromise = pinPromise;
 window.Shivaa.pickRate = r => { window._rate = r; $$('#ratePick span').forEach((s, i) => { s.style.color = i < r ? 'var(--gold)' : 'var(--line)'; s.classList.toggle('picked', i === r - 1); }); };
 window.Shivaa.postReview = async (e, pid) => {
   e.preventDefault();
   if (!state.user) return openLogin();
   try {
-    await api('/api/reviews', { method: 'POST', body: JSON.stringify({ productId: pid, rating: window._rate || 5, text: $('#revText').value }) });
+    const files = [...($('#revPhotos')?.files || [])].slice(0, 3);
+    if (files.length) {
+      const fd = new FormData();
+      fd.append('productId', pid); fd.append('rating', String(window._rate || 5)); fd.append('text', $('#revText').value);
+      files.forEach(f => fd.append('photos[]', f));
+      await api('/api/reviews/photo', { method: 'POST', body: fd });
+    } else {
+      await api('/api/reviews', { method: 'POST', body: JSON.stringify({ productId: pid, rating: window._rate || 5, text: $('#revText').value }) });
+    }
     toast('Thank you! Review posted ✦'); pages.product($('#view'), new URLSearchParams(), pid);
   } catch (err) { toast(err.message, 'err'); }
 };
@@ -2438,8 +2563,10 @@ pages.cart = async (view) => {
       <div class="sum-row"><span>Shipping (insured)</span>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</div>
       ${shipping > 0 ? `<div class="sum-row" style="font-size:12.5px;color:var(--ink-3)"><span>Add ${fmt(state.settings.freeShipAbove - subtotal)} for free shipping</span><span></span></div>` : ''}
       <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
+      <div class="sum-row" style="color:var(--ok);font-size:13px"><span>✦ Pay online &amp; save</span><b>− ${fmt(Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100))}</b></div>
       <div style="margin:16px 0 6px" class="label" id="ptLbl">Loyalty & offers applied at checkout →</div>
       <a class="btn btn-primary btn-block btn-lg" href="#/checkout">Proceed to Checkout</a>
+      <a class="btn btn-outline btn-block btn-sm mt-2" href="#/quote">📄 Get shareable quotation (48 h rate hold)</a>
       <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.waOpenCart()">Order via WhatsApp chat <span class="mini-wa">${WA_SVG}</span></button>
       <a class="btn btn-ghost btn-block btn-sm mt-2" href="#/shop">Continue shopping</a>
     </div>
@@ -2464,6 +2591,9 @@ pages.checkout = async (view) => {
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
+  /* v58 — payment configuration (demo until Razorpay keys are added) */
+  let payCfg = { mode: 'demo', prepaidPct: 2, keyId: '' };
+  try { payCfg = await api('/api/pay/config'); } catch (e) {}
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/cart">Cart</a> / Checkout</div><h1>Checkout</h1></div></section>
   <div class="container cart-layout" style="padding-top:40px">
@@ -2481,17 +2611,16 @@ pages.checkout = async (view) => {
 
       <div class="sec-title">Payment method</div>
       <div style="display:grid;gap:12px" id="payOpts">
-        <label class="pay-opt on"><input type="radio" name="pay" value="UPI" checked><span><b>UPI — GPay / PhonePe / Paytm</b><small>Instant & secure · earn 2× loyalty points this week</small></span></label>
-        <label class="pay-opt"><input type="radio" name="pay" value="Card"><span><b>Credit / Debit Card</b><small>No-cost EMI available on 3-month tenures</small></span></label>
-        <label class="pay-opt"><input type="radio" name="pay" value="Netbanking"><span><b>Netbanking</b><small>All major banks</small></span></label>
-        <label class="pay-opt"><input type="radio" name="pay" value="COD"><span><b>Cash on Delivery</b><small>Available on orders below ${fmt(50000)} · ID verification at handover</small></span></label>
-        <label class="pay-opt"><input type="radio" name="pay" value="WhatsApp"><span><b>WhatsApp Order</b><small>Our team confirms the order & payment (UPI / bank / card) on chat</small></span></label>
+        <label class="pay-opt on" id="payOptOnline"><input type="radio" name="pay" value="Online" checked><span><b>Pay online · UPI / card / net-banking <em class="pay-badge" id="payBadge">2% off</em></b><small id="payOnlineSub">Razorpay-secured · instant 2% prepaid discount</small></span></label>
+        <label class="pay-opt" id="payOptCod"><input type="radio" name="pay" value="COD"><span><b>Cash on Delivery</b><small id="payCodSub">Available on orders below ${fmt(50000)} · ID verification at handover · full price</small></span></label>
+        <label class="pay-opt"><input type="radio" name="pay" value="WhatsApp"><span><b>WhatsApp Order</b><small>Our team confirms the order &amp; payment (UPI / bank / card) on chat · full price</small></span></label>
       </div>
-      <div class="qty-banner mt-2">🔒 Demo checkout — no real payment is processed. Orders, invoices & inventory are fully functional in this system.</div>
+      <div class="qty-banner mt-2" id="payDemoNote">🔒 Online payments are in <b>demo mode</b> until gateway keys are added in admin — no real charge happens; the order, invoice and inventory all work fully.</div>
     </div>
 
     <div class="summary">
       <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
+      <div class="rate-lock-card" id="rateLockBox" aria-live="polite"></div>
       <h3>Your Order</h3>
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
       <div class="coupon-row"><input id="couponIn" placeholder="Coupon code"><button class="btn btn-ghost btn-sm" onclick="Shivaa.applyCoupon()">Apply</button></div>
@@ -2499,13 +2628,95 @@ pages.checkout = async (view) => {
       ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
       <div class="sum-row"><span>Subtotal</span><b id="coSub">${fmt(subtotal)}</b></div>
       <div class="sum-row" id="coDiscRow" hidden><span>Coupon discount</span><b id="coDisc" style="color:var(--ok)">− ₹0</b></div>
+      <div class="sum-row" id="coPrepaidRow"><span>Prepaid discount <em style="font-style:normal;font-size:11px;color:var(--ok)">pay online</em></span><b id="coPrepaid" style="color:var(--ok)">− ₹0</b></div>
       <div class="sum-row"><span>Shipping</span>${freeShip ? '<span class="free">FREE</span>' : `<b id="coShip">${fmt(state.settings.shippingFee)}</b>`}</div>
-      <div class="sum-row total"><span>Total</span><b id="coTotal">${fmt(subtotal + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
+      <div class="sum-row" id="coCodRow" hidden><span>COD handling fee</span><b id="coCod">+ ₹0</b></div>
+      <div class="sum-row total"><span>Total</span><b id="coTotal">${fmt(Math.round(subtotal * (1 - (((state.settings || {}).prepaidPct) || 2) / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
       <button class="btn btn-gold btn-block btn-lg mt-2" id="placeBtn" onclick="Shivaa.placeOrder()">Place Order ✦</button>
     </div>
   </div>`;
-  window._co = { subtotal, freeShip, coupon: null, disc: 0 };
-  $$('#payOpts input').forEach(r => r.onchange = () => { $$('.pay-opt').forEach(o => o.classList.remove('on')); r.closest('.pay-opt').classList.add('on'); });
+  /* ── v57: 20-minute live-rate lock — your price cannot move while paying ── */
+  const pickRates = () => ({ gold22: state.rates.gold22, gold24: state.rates.gold24, gold18: state.rates.gold18, silver: state.rates.silver });
+  window._co = { subtotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online' };
+  const coRows = () => $$('.summary [data-copid]');
+  function coTotals() {
+    if (!$('#coSub')) { clearInterval(window._co && window._co.lockTimer); return; }   // navigated away from checkout
+    const lock = activeLock();
+    const R = lock ? lock.rates : state.rates;
+    let sub = 0;
+    coRows().forEach(el => {
+      const it = window._co.items.find(x => x.p.id === el.dataset.copid);
+      if (!it) return;
+      const t = price(it.p, R).total * it.qty;
+      el.textContent = fmt(t); sub += t;
+    });
+    window._co.subtotal = sub;
+    window._co.freeShip = sub >= state.settings.freeShipAbove;
+    $('#coSub').textContent = fmt(sub);
+    const shipRow = document.querySelector('.summary .sum-row:nth-last-child(2)'); // "Shipping"
+    window.Shivaa.updateCheckout();
+  }
+  function activeLock() {
+    const l = window._co.rateLock;
+    if (!l) return null;
+    const age = (Date.now() - new Date(l.stampedAt).getTime()) / 1000;
+    return age <= 20 * 60 ? l : null;
+  }
+  function paintLock() {
+    const box = $('#rateLockBox'); if (!box) return;
+    const l = activeLock();
+    if (!l) {
+      box.className = 'rate-lock-card expired';
+      box.innerHTML = `<div class="rl-top"><span class="rl-ic">&#9201;</span><div><b>Rates are live</b><small>Tap below to freeze today&rsquo;s rate for 20 minutes.</small></div></div>
+        <button type="button" class="btn btn-gold btn-sm" id="rlLockBtn">🔒 Lock today&rsquo;s rate · 20 min</button>`;
+      const b = $('#rlLockBtn'); if (b) b.onclick = () => { window._co.rateLock = { rates: pickRates(), stampedAt: new Date().toISOString() }; coTotals(); paintLock(); };
+      return;
+    }
+    const left = Math.max(0, 20 * 60 - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000));
+    box.className = 'rate-lock-card live';
+    box.innerHTML = `<div class="rl-top"><span class="rl-ic locked">&#128274;</span><div><b>Rate locked</b><small>Your price is frozen &mdash; even if the market moves.</small></div><span class="rl-timer" id="rlTimer">${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}</span></div>
+      <div class="rl-rates">22K <b>${fmt(l.rates.gold22)}/g</b> · Silver <b>${fmt2(l.rates.silver)}/g</b></div>`;
+  }
+  function startLockClock() {
+    clearInterval(window._co.lockTimer);
+    window._co.lockTimer = setInterval(() => {
+      const l = activeLock();
+      const t = $('#rlTimer');
+      if (l && t) { const left = Math.max(0, 20 * 60 - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000)); t.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`; }
+      else { clearInterval(window._co.lockTimer); coTotals(); paintLock(); }
+    }, 1000);
+  }
+  window._co.rateLock = { rates: pickRates(), stampedAt: new Date().toISOString() };
+  coTotals(); paintLock(); startLockClock();
+  $$('#payOpts input').forEach(r => r.onchange = () => {
+    $$('.pay-opt').forEach(o => o.classList.remove('on'));
+    r.closest('.pay-opt').classList.add('on');
+    window.Shivaa.updateCheckout();
+  });
+  const onl = $('#payOpts input[value="Online"]'); if (onl) onl.closest('.pay-opt').classList.add('on');
+  // v58 — reflect real gateway state + prepaid percentage in the labels
+  const pct = +(payCfg.prepaidPct || 0);
+  const badge = $('#payBadge'); if (badge) badge.textContent = pct ? pct + '% off' : '';
+  const sub = $('#payOnlineSub');
+  if (sub) sub.textContent = payCfg.mode === 'razorpay'
+    ? 'UPI · cards · net-banking · secured by Razorpay' + (pct ? ' · instant ' + pct + '% off' : '')
+    : 'UPI · cards · net-banking (demo until gateway keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
+  const note = $('#payDemoNote');
+  if (note) note.innerHTML = payCfg.mode === 'razorpay'
+    ? '🔒 Payments are secured by <b>Razorpay</b> (UPI / cards / net-banking). Your card details never touch shivaa.in.'
+    : '🔒 Online payments are in <b>demo mode</b> until gateway keys are added in admin — no real charge happens; the order, invoice and inventory all work fully.';
+  const codPct = +(state.settings.codFeePct || 0);
+  const codSub = $('#payCodSub');
+  if (codSub) {
+    let savedPin = '';
+    try { savedPin = localStorage.getItem('shv_pin') || ''; } catch (e) {}
+    const codBlocked = savedPin && !pinPromise(savedPin).cod;
+    codSub.textContent = codBlocked
+      ? 'Not available at pincode ' + savedPin + ' (insured prepaid courier only)'
+      : 'Available on orders below ' + fmt(50000) + ' · ID verification at handover' + (codPct ? ' · ' + codPct + '% handling fee' : ' · full price');
+    const codRadio = $('#payOpts input[value="COD"]');
+    if (codRadio) codRadio.disabled = !!codBlocked;
+  }
 };
 window.Shivaa.applyCoupon = async () => {
   const code = $('#couponIn').value.trim();
@@ -2523,10 +2734,192 @@ window.Shivaa.updateCheckout = () => {
   if (!window._co) return;
   let disc = window._co.disc;
   if ($('#usePts')?.checked) disc += Math.min(state.user.loyaltyPoints, Math.floor(window._co.subtotal * 0.1));
+  const method = ($('#payOpts input:checked') || {}).value || window._co.payMethod || 'Online';
+  window._co.payMethod = method;
+  const pct = +(state.settings.prepaidPct ?? (window._co.payCfg && window._co.payCfg.prepaidPct) ?? 2);
+  const prepaid = method === 'Online' && pct > 0 ? Math.round(window._co.subtotal * pct / 100) : 0;
+  const codPct = +(state.settings.codFeePct || 0);
+  const codFee = method === 'COD' && codPct > 0 ? Math.round(window._co.subtotal * codPct / 100) : 0;
   const ship = window._co.freeShip ? 0 : state.settings.shippingFee;
   $('#coDiscRow').hidden = !(disc > 0);
   $('#coDisc').textContent = '− ' + fmt(disc);
-  $('#coTotal').textContent = fmt(Math.max(0, window._co.subtotal - disc + ship));
+  const pr = $('#coPrepaidRow'); if (pr) pr.hidden = !(prepaid > 0);
+  const pv = $('#coPrepaid'); if (pv) pv.textContent = '− ' + fmt(prepaid);
+  const cr = $('#coCodRow'); if (cr) cr.hidden = !(codFee > 0);
+  const cv = $('#coCod'); if (cv) cv.textContent = '+ ' + fmt(codFee);
+  window._co.prepaid = prepaid; window._co.codFee = codFee;
+  $('#coTotal').textContent = fmt(Math.max(0, window._co.subtotal - disc - prepaid + codFee + ship));
+};
+/* ═══════════ v59 · price-drop alerts (metal rate moves the price) ═══════════ */
+window.Shivaa.rateAlertModal = (pid) => {
+  const p = pid ? state.productsCache.find(x => x.id === pid) : null;
+  const metalKey = p ? (p.metal === 'Silver' ? 'silver' : 'gold' + String(p.purity || '22K').replace('K', '')) : 'gold22';
+  const cur = Math.round(state.rates[metalKey] || 0);
+  const suggested = Math.round(cur * 0.98 / 10) * 10;
+  openModal(`<h3 style="margin-bottom:6px">🔔 Alert me on a price drop</h3>
+  <p style="color:var(--ink-2);font-size:13.5px;margin-bottom:14px">${p ? 'If <b>' + esc(p.name) + '</b> gets cheaper as the ' : 'If the '}${metalKey === 'silver' ? 'silver' : 'gold'} rate falls, we ping you on WhatsApp/email before anyone else.</p>
+  <form id="raForm" class="form-grid" style="grid-template-columns:1fr">
+    <div class="fld"><label>Alert when ${metalKey === 'silver' ? 'silver' : '22K gold'} rate is at or below ₹/g</label>
+      <input id="raTarget" type="number" value="${suggested}" min="100"></div>
+    <div class="fld"><label>WhatsApp mobile (10 digits)</label><input id="raPhone" type="tel" inputmode="numeric" maxlength="10" value="${esc((state.user && (state.user.phone || '') || '').replace(/\D/g, '').slice(-10))}" placeholder="98765 43210"></div>
+    <div class="fld"><label>or email</label><input id="raEmail" type="email" value="${esc((state.user && state.user.email) || '')}"></div>
+    <button class="btn btn-gold btn-block btn-lg">Set alert ✦</button>
+  </form>`);
+  $('#raForm').onsubmit = async e => {
+    e.preventDefault();
+    const phone = $('#raPhone').value.replace(/\D/g, '').slice(-10);
+    const email = $('#raEmail').value.trim();
+    const target = +$('#raTarget').value;
+    if (!phone && !email) return toast('Give a mobile number or email', 'err');
+    if (!target || target >= cur * 1.5) return toast('Enter a sensible target ₹/g', 'err');
+    try {
+      await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ phone, email, metal: metalKey, target, productId: pid || '' }) });
+      closeModal(); toast('Alert set — we will ping you first ✦');
+    } catch (err) { toast(err.message, 'err'); }
+  };
+};
+window.Shivaa.wishlistAlerts = async (idsArg) => {
+  const wl = idsArg || state.localWish || [];
+  if (!wl || !wl.length) return toast('Save pieces first', 'err');
+  const phone = (state.user && (state.user.phone || '') || '').replace(/\D/g, '').slice(-10);
+  if (!phone && !(state.user && state.user.email)) { openLogin(); return; }
+  const metals = [...new Set(state.productsCache.filter(p => wl.includes(p.id)).map(p => p.metal === 'Silver' ? 'silver' : 'gold' + String(p.purity || '22K').replace('K', '')))];
+  try {
+    for (const m of metals) {
+      const cur = Math.round(state.rates[m] || 0); if (!cur) continue;
+      await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ phone, email: (state.user && state.user.email) || '', metal: m, target: Math.round(cur * 0.98 / 10) * 10 }) });
+    }
+    toast('Drop alerts set for all saved pieces ✦');
+  } catch (e) { toast(e.message, 'err'); }
+};
+
+/* ═══════════ v58 · online payments — Razorpay-ready, demo without keys ═══════════ */
+function loadExternalScript(src) {
+  return new Promise(resolve => {
+    if (document.querySelector(`script[src="${src}"]`)) return res(true);
+    const s = document.createElement('script'); s.src = src;
+    s.onload = () => res(true); s.onerror = () => res(false);
+    document.head.appendChild(s);
+  });
+}
+function upiQRSvg(uri) {
+  try {
+    const qr = window.qrcode ? qrcode(0, 'M') : null;
+    if (!qr) return '';
+    qr.addData(uri); qr.make();
+    return `<div class="ps-qr">${qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}</div>`;
+  } catch (e) { return ''; }
+}
+function upiPaySheet(po, orderId) {
+  return new Promise(resolve => {
+    const amt = (po.amount || 0) / 100;
+    const pa = po.upiId, pn = encodeURIComponent(po.upiName || 'Shivaa Jewellers');
+    const note = encodeURIComponent('Shivaa order ' + orderId);
+    const upiUri = `upi://pay?pa=${encodeURIComponent(pa)}&pn=${pn}&am=${amt.toFixed(2)}&cu=INR&tn=${note}`;
+    openModal(`<div class="pay-sheet">
+      <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Pay by any UPI app</b><small>GPay · PhonePe · Paytm · BHIM</small></div></div>
+      <div class="ps-amt">${fmt(amt)}</div>
+      ${upiQRSvg(upiUri)}
+      <div class="ps-upiid"><span>UPI ID</span><b>${esc(pa)}</b><button type="button" class="btn btn-ghost btn-sm" id="psCopyUpi">⧉ copy</button></div>
+      <a class="btn btn-gold btn-block btn-lg" href="${upiUri}" rel="noopener">Open UPI app &amp; pay ${fmt(amt)}</a>
+      <p class="ps-note" style="text-align:left">After paying, attach the <b>payment screenshot</b> or type the 12-digit UPI reference — we verify within minutes and release your piece. The order stays rate-locked meanwhile.</p>
+      <form id="psProof" class="ps-proof">
+        <label class="ps-upload"><input type="file" id="psFile" accept="image/*" capture="environment" required><span id="psFileName">📎 Choose payment screenshot…</span></label>
+        <input id="psRef" placeholder="UPI ref / Txn ID (optional)">
+        <button class="btn btn-primary btn-block btn-lg" type="submit">I&rsquo;ve paid · submit proof</button>
+      </form>
+      <button class="btn btn-ghost btn-block" id="psLater">Pay later &middot; order stays reserved</button>
+    </div>`);
+    $('#psCopyUpi').onclick = () => {
+      (navigator.clipboard ? navigator.clipboard.writeText(pa) : Promise.reject()).then(() => toast('UPI ID copied')).catch(() => {});
+    };
+    $('#psFile').onchange = e => { const f = e.target.files[0]; if (f) $('#psFileName').textContent = '✓ ' + f.name.slice(0, 40); };
+    $('#psProof').onsubmit = async e => {
+      e.preventDefault();
+      const f = $('#psFile').files[0];
+      if (!f) { toast('Attach the payment screenshot', 'err'); return; }
+      const fd = new FormData();
+      fd.append('orderId', orderId); fd.append('proof', f); fd.append('amount', String(Math.round(amt)));
+      fd.append('ref', $('#psRef').value.trim());
+      const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Uploading…';
+      try {
+        await api('/api/pay/proof', { method: 'POST', body: fd });
+        closeModal(); toast('Proof received — we verify shortly ✦'); resolve(true);
+      } catch (err) { btn.disabled = false; btn.innerHTML = 'I’ve paid · submit proof'; toast(err.message, 'err'); }
+    };
+    $('#psLater').onclick = () => { closeModal(); toast('Order reserved — complete payment from your order page'); resolve(false); };
+  });
+}
+function demoPaySheet(po, orderId) {
+  return new Promise(resolve => {
+    const amt = (po.amount || 0) / 100;
+    const tabs = po.upiId
+      ? `<div class="ps-tabs"><button type="button" class="ps-tab on" data-tab="card">💳 Card / net-banking <small>demo</small></button><button type="button" class="ps-tab" data-tab="upi">⌖ UPI QR <small>real payment</small></button></div>`
+      : '';
+    openModal(`<div class="pay-sheet">
+      <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Shivaa · secure payment</b><small>${po.upiId ? 'UPI QR is live · cards in demo' : 'DEMO GATEWAY — no real charge'}</small></div></div>
+      <div class="ps-amt">${fmt(amt)}</div>
+      ${tabs}
+      <div id="psCardPane">
+      <div class="ps-methods">
+        <button type="button" class="ps-m on">⌖ UPI &middot; GPay / PhonePe / Paytm</button>
+        <button type="button" class="ps-m">💳 Credit / Debit card</button>
+        <button type="button" class="ps-m">🏦 Net-banking</button>
+      </div>
+      <button class="btn btn-gold btn-block btn-lg" id="psPay">Pay ${fmt(amt)} <small>(demo success)</small></button>
+      <p class="ps-note">Card checkout switches to live Razorpay the moment keys are added in admin &rarr; Settings &rarr; Payments.${po.upiId ? ' Need to really pay now? open the <b>UPI QR</b> tab.' : ''}</p>
+      </div>
+      <button class="btn btn-ghost btn-block" id="psLater">Pay later &middot; order stays reserved</button>
+    </div>`);
+    $$('.ps-m').forEach(b => b.onclick = () => { $$('.ps-m').forEach(x => x.classList.remove('on')); b.classList.add('on'); });
+    $$('.ps-tab').forEach(t => t.onclick = () => {
+      $$('.ps-tab').forEach(x => x.classList.remove('on')); t.classList.add('on');
+      if (t.dataset.tab === 'upi') { closeModal(); upiPaySheet(po, orderId).then(resolve); }
+    });
+    const btn = $('#psPay');
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Verifying with bank…';
+      try {
+        await api('/api/pay/verify', { method: 'POST', body: JSON.stringify({
+          orderId, gatewayOrderId: po.gatewayOrder.id,
+          paymentId: (po.gatewayOrder.id || '').replace('demo_', 'pay_demo_') }) });
+        closeModal(); toast('Payment received ✦ thank you'); resolve(true);
+      } catch (e) { btn.disabled = false; btn.innerHTML = 'Pay ' + fmt(amt); toast(e.message, 'err'); resolve(false); }
+    };
+    $('#psLater').onclick = () => { closeModal(); toast('Order reserved — complete payment from your order page'); resolve(false); };
+  });
+}
+window.Shivaa.payForOrder = async (orderId) => {
+  let po;
+  try { po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) }); }
+  catch (e) { toast(e.message, 'err'); return false; }
+  if (po.mode === 'razorpay') {
+    const ready = await loadExternalScript('https://checkout.razorpay.com/v1/checkout.js');
+    if (ready && window.Razorpay) {
+      return new Promise(resolve => {
+        try {
+          const rzp = new window.Razorpay({
+            key: po.keyId, order_id: po.gatewayOrder.id, amount: po.amount, currency: po.gatewayOrder.currency || 'INR',
+            name: 'Shivaa Jewellers', description: 'Order ' + orderId,
+            image: location.origin + '/images/logo.png',
+            prefill: { name: state.user?.name || '', contact: state.user?.phone || '', email: state.user?.email || '' },
+            theme: { color: '#6b1020' },
+            handler: async (resp) => {
+              try {
+                await api('/api/pay/verify', { method: 'POST', body: JSON.stringify({
+                  orderId, gatewayOrderId: resp.razorpay_order_id, paymentId: resp.razorpay_payment_id, signature: resp.razorpay_signature }) });
+                toast('Payment received ✦ thank you'); resolve(true);
+              } catch (e) { toast(e.message, 'err'); resolve(false); }
+            },
+            modal: { ondismiss: () => { toast('Payment pending — reserved for 24 h'); resolve(false); } },
+          });
+          rzp.on('payment.failed', () => { toast('Payment failed — retry from your order page', 'err'); resolve(false); });
+          rzp.open();
+        } catch (e) { demoPaySheet(po, orderId).then(resolve); }
+      });
+    }
+  }
+  return demoPaySheet(po, orderId);
 };
 window.Shivaa.placeOrder = async () => {
   const form = $('#addrForm');
@@ -2544,10 +2937,15 @@ window.Shivaa.placeOrder = async () => {
     const order = await api('/api/orders', { method: 'POST', body: JSON.stringify({
       items: state.cart.map(c => ({ id: c.id, qty: c.qty, size: c.size, engraving: c.engraving })),
       address, paymentMethod, coupon: window._co.coupon, usePoints: !!$('#usePts')?.checked,
+      rateLock: (() => { const age = (Date.now() - new Date((window._co.rateLock || {}).stampedAt || 0).getTime()) / 1000;
+        return age <= 20 * 60 ? window._co.rateLock : null; })(),
     }) });
+    clearInterval(window._co.lockTimer);
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
     if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
     window._lastOrder = order;
+    // v58 — online prepayment (Razorpay live when configured, simulated in demo)
+    if (paymentMethod === 'Online') await Shivaa.payForOrder(order.id, { fromCheckout: true });
     // Gold Finale: remember a qualifying order so the order page can offer the quiz
     try {
       if (finaleLive() && finaleQualifiesItems((order && order.items) || []).ok) sessionStorage.setItem('fqPrompt', order.id);
@@ -2558,6 +2956,176 @@ window.Shivaa.placeOrder = async () => {
     }
     location.hash = '#/order/' + order.id;
   } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = 'Place Order ✦'; }
+};
+
+/* v57 — one-tap reorder from a past order ("Buy again") */
+window.Shivaa.buyAgain = async (id) => {
+  let o = (window.Shivaa._myOrders || []).find(x => x.id === id);
+  if (!o) { try { o = (await api('/api/orders/' + id)).order; } catch (e) {} }
+  if (!o || !Array.isArray(o.items)) { toast('Could not find that order', 'err'); return; }
+  let added = 0;
+  o.items.forEach(it => {
+    const p = state.productsCache.find(x => x.id === it.productId);
+    if (!p) return;
+    const existing = state.cart.find(c => c.id === p.id);
+    if (existing) existing.qty += it.qty || 1;
+    else state.cart.push({ id: p.id, qty: it.qty || 1, size: it.size || null, engraving: it.engraving || '' });
+    added += it.qty || 1;
+  });
+  if (!added) { toast('Those pieces are being re-catalogued — ask Saathi for an equivalent', 'err'); return; }
+  store.set('shv_cart', state.cart); updateBadges();
+  toast(`${added} piece${added === 1 ? '' : 's'} added back to your cart ✦`);
+  location.hash = '#/cart';
+};
+
+/* ═══════════ v58 · workshop stage tracker, courier card, NPS, care plan ═══════════ */
+const ORDER_STAGES = [
+  ['Placed', 'Order placed', '🧾'],
+  ['Confirmed', 'Confirmed with karigar', '🙏'],
+  ['Karigari', 'Karigari — craft in progress', '🔨'],
+  ['Hallmarking', 'BIS hallmarking · HUID', '🛡'],
+  ['Packed', 'Polished & packed', '📦'],
+  ['Shipped', 'Shipped · on its way', '🚚'],
+  ['Delivered', 'Delivered with care', '💛'],
+];
+function orderStageHTML(o) {
+  const tl = {};
+  (o.timeline || []).forEach(t => { if (!tl[t.s]) tl[t.s] = t.t; });
+  if (o.status === 'Cancelled') return `<div class="tracker-wrap"><div class="tracker-cancel">This order was cancelled. Refunds for prepaid orders are returned to the source within 3–5 working days. <a href="javascript:void(0)" onclick="Shivaa.waOpenOrder('${o.id}')">Talk to us →</a></div></div>`;
+  let reached = -1;
+  const steps = ORDER_STAGES.map(([key, label, ic], i) => {
+    const hit = tl[key];
+    if (hit) reached = i;
+    return `<div class="st-step ${hit ? 'done' : ''} ${i === reached ? 'cur' : ''}">
+      <span class="st-ic">${ic}</span>
+      <div><b>${label}</b><small>${hit ? timeFmt(hit) : '—'}</small></div>
+    </div>`;
+  }).join('');
+  return `<div class="tracker-wrap"><div class="tracker-head"><span class="live-dot"></span> Making &amp; delivery tracker</div><div class="stages">${steps}</div></div>`;
+}
+function trackingCardHTML(o) {
+  if (!o.awb && !o.courier) return '';
+  const carriers = {
+    'bluedart': ['BlueDart', 'https://www.bluedart.com/trackdartresult?trackFor=0&trackNo='],
+    'delhivery': ['Delhivery', 'https://www.delhivery.com/track/package/'],
+    'shiprocket': ['Shiprocket', 'https://track.shiprocket.in/'],
+    'dtdc': ['DTDC', 'https://www.dtdc.in/tracking.asp?TrkType=AWB%20No.&TrkNo='],
+    'indiapost': ['India Post', 'https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx'],
+    'sequel': ['Sequel Logistics', 'https://www.sequellogistics.com/track/'],
+  };
+  const key = Object.keys(carriers).find(k => (o.courier || '').toLowerCase().includes(k));
+  const url = key && o.awb ? carriers[key][1] + encodeURIComponent(o.awb) : null;
+  return `<div class="track-card">
+    <div class="tc-ic">🚚</div>
+    <div class="tc-tx"><b>${esc(o.courier || 'Courier')}</b>
+      <small>AWB / tracking no: <b>${esc(o.awb)}</b>${o.dispatchNote ? '<br>' + esc(o.dispatchNote) : ''}</small></div>
+    ${url ? `<a class="btn btn-primary btn-sm" target="_blank" rel="noopener" href="${url}">Track parcel ↗</a>` : ''}
+  </div>`;
+}
+function npsHTML(o) {
+  setTimeout(() => {
+    const box = document.getElementById('npsBox'); if (!box || box._wired) return; box._wired = true;
+    box.querySelectorAll('[data-nps]').forEach(b => b.onclick = () => {
+      const n = +b.dataset.nps;
+      box.querySelector('.nps-q').hidden = true;
+      const done = box.querySelector('.nps-done'); done.hidden = false;
+      const first = (o.items || [])[0] || {};
+      let msg;
+      if (n >= 9) {
+        msg = 'Namaste Shivaa ✦ I received order ' + o.id + ' and loved my ' + (first.name || 'jewellery') + ' (' + n + '/10)!';
+        const gUrl = (state.settings && state.settings.googleReviewUrl) || '';
+        done.innerHTML = 'Dhanyavaad! 💛 Your kind words mean a lot. <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'
+          + (gUrl ? '<a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="' + gUrl + '">⭐ Rate us on Google</a>' : '')
+          + '<a class="btn btn-outline btn-sm" href="#/product/' + (first.productId || '') + '">Write a photo review</a>'
+          + '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="' + waLink(msg) + '">Share on WhatsApp</a></div>';
+      } else {
+        msg = 'Namaste Shivaa ✦ About my order ' + o.id + ' — my experience was ' + n + '/10. I would like help with:';
+        done.innerHTML = 'We are sorry it was not a 10 — tell us what went wrong and the owner will personally make it right. <div style="margin-top:10px"><a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="' + waLink(msg) + '">Tell Shivaa privately on WhatsApp</a></div>';
+      }
+    });
+  }, 60);
+  return `<div class="nps-card" id="npsBox">
+    <h3>How was your Shivaa experience?</h3>
+    <div class="nps-q">Tap a score &middot; 0 (poor) to 10 (loved it)
+      <div class="nps-row">${Array.from({ length: 11 }, (_, i) => `<button type="button" class="nps-n ${i >= 9 ? 'hi' : i >= 7 ? 'mid' : 'lo'}" data-nps="${i}">${i}</button>`).join('')}</div>
+      <small>Scores under 7 go straight to the owner, privately. Nothing is posted without you.</small>
+    </div>
+    <div class="nps-done" hidden></div>
+  </div>`;
+}
+function careCTAHTML(o) {
+  return `<div class="care-cta">
+    <h3>Lifetime care — free, every year</h3>
+    <p>Your piece carries Shivaa&rsquo;s lifetime care: polishing, rhodium renewal, soldering, stone tightening &amp; resizing. Book it in under a minute &mdash; at-home pickup available in Jaipur &amp; Nagaur.</p>
+    <a class="btn btn-outline btn-sm" href="#/care?order=${encodeURIComponent(o.id)}">Book free care for this piece →</a>
+  </div>`;
+}
+
+/* ═══════════ v60 · payment ledger, part payments, refunds, COD confirm ═══════════ */
+function paymentLedgerHTML(o) {
+  const pays = o.payments || [];
+  if (!pays.length) return '';
+  const pct = Math.max(4, Math.min(100, Math.round((o.amountPaid || 0) / Math.max(1, o.total) * 100)));
+  return `<div class="paymil" style="max-width:640px;margin:12px auto 0">
+      <div class="paymil-bar"><i style="width:${pct}%"></i><span>${pct}% paid</span></div>
+    </div>
+    <details class="acc" style="max-width:640px;margin:6px auto" open><summary>Payment history (${pays.length})${o.balance > 0 && o.paymentStatus !== 'Refunded' ? ' · balance ' + fmt(o.balance) : ''}</summary><div class="acc-body">
+    ${pays.map(p => `<div class="sum-row"><span>${new Date(p.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(p.mode || p.gateway || 'online')} · <small>${esc(p.status || 'approved')}${p.ref ? ' · ' + esc(p.ref) : ''}</small></span><b>${p.status === 'rejected' ? '—' : fmt(p.amount)}</b></div>`).join('')}
+    ${o.amountPaid ? `<div class="sum-row total"><span>Received</span><b>${fmt(o.amountPaid)}</b></div>` : ''}
+    ${(o.balance > 0 && o.paymentStatus !== 'Refunded') ? `<div class="sum-row" style="color:var(--warn)"><span>Balance due before dispatch</span><b>${fmt(o.balance)}</b></div>` : ''}
+  </div></details>`;
+}
+function refundCardHTML(o, existing) {
+  if (existing) {
+    const st = existing.status;
+    const label = { requested: 'Received — owner is reviewing', approved: 'Approved', refunded: 'Refunded ✓', exchanged: 'Exchanged ✓', rejected: 'Could not be approved' }[st] || st;
+    return `<div class="refund-card" style="${st === 'refunded' ? 'border-color:#1d7a46;background:#f1faf4' : ''}">
+      <h3>${existing.kind === 'exchange' ? 'Exchange' : 'Refund'} request · ${label}</h3>
+      <p>“${esc(existing.reason)}”${existing.creditNote ? ' · credit note <b>' + esc(existing.creditNote) + '</b>' : ''}${existing.note ? '<br>→ ' + esc(existing.note) : ''}</p>
+      <div class="pay-due-btns"><a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${waLink('Namaste ✦ following up on my ' + existing.kind + ' request for order ' + o.id)}">Follow up on WhatsApp</a></div></div>`;
+  }
+  if (['Refunded', 'Exchanged'].includes(o.paymentStatus) || o.status === 'Cancelled') return '';
+  const ageDays = (Date.now() - new Date(o.createdAt).getTime()) / 864e5;
+  if (ageDays > 9) return '';
+  return `<div class="refund-card">
+    <h3>Need to return or exchange?</h3>
+    <p>7-day easy returns &amp; lifetime exchange. Raise it here — pickup is arranged and the credit note follows on WhatsApp.</p>
+    <div class="pay-due-btns">
+      <button class="btn btn-outline btn-sm" onclick="Shivaa.refundForm('${o.id}','refund')">Request refund</button>
+      <button class="btn btn-outline btn-sm" onclick="Shivaa.refundForm('${o.id}','exchange')">Exchange this piece</button>
+    </div></div>`;
+}
+function codConfirmHTML(o) {
+  if (o.paymentMethod !== 'COD' || o.status === 'Cancelled') return '';
+  if (o.codConfirmed) return `<div class="cod-ok">✓ Cash-on-delivery confirmed — please keep ${fmt(o.total)} ready (UPI/cash accepted at handover).</div>`;
+  return `<div class="cod-confirm">
+    <h3>Confirm your COD order</h3>
+    <p>One tap confirms you will receive the parcel and pay <b>${fmt(o.total)}</b> at handover (ID verification for jewellery orders).</p>
+    <button class="btn btn-gold btn-sm" onclick="Shivaa.codConfirm('${o.id}')">✓ Confirm cash on delivery</button>
+  </div>`;
+}
+window.Shivaa.codConfirm = async (id) => {
+  try { await api('/api/orders/' + id + '/cod-confirm', { method: 'POST', body: '{}' });
+    toast('COD confirmed ✦ dispatch team notified'); route();
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.refundForm = (id, kind) => {
+  openModal(`<h3 style="margin-bottom:6px">${kind === 'exchange' ? 'Exchange request' : 'Refund request'}</h3>
+  <p style="font-size:13px;color:var(--ink-2);margin-bottom:12px">Order <b>${id}</b>. Tell us why in a line — the owner sees this directly.</p>
+  <form id="rfForm" class="form-grid" style="grid-template-columns:1fr">
+    <div class="fld"><label>Reason *</label><textarea id="rfReason" required placeholder="${kind === 'exchange' ? 'e.g. ring size 15 needed instead of 14…' : 'e.g. piece does not match the ordered design…'}"></textarea></div>
+    <div class="fld"><label>What you prefer</label><select id="rfMode" class="sortsel" style="width:100%;border-radius:12px">
+      ${kind === 'exchange' ? '<option>Exchange for another piece</option><option>Refund to original payment source</option><option>Credit note / gift card</option>' : '<option>Refund to original payment source</option><option>Credit note / gift card</option><option>Exchange for another piece</option>'}
+    </select></div>
+    <button class="btn btn-gold btn-block btn-lg">Submit ${kind} request</button>
+  </form>`);
+  $('#rfForm').onsubmit = async e => {
+    e.preventDefault();
+    try {
+      await api('/api/orders/' + id + '/refund-request', { method: 'POST', body: JSON.stringify({ kind, reason: $('#rfReason').value }) });
+      closeModal(); toast(kind === 'exchange' ? 'Exchange requested — we arrange pickup ✦' : 'Refund requested — credit note follows on approval ✦'); route();
+    } catch (err) { toast(err.message, 'err'); }
+  };
 };
 
 /* ─────────── ORDER CONFIRMATION ─────────── */
@@ -2578,21 +3146,49 @@ pages.order = async (view, q, id) => {
       </div>
       <div class="order-card mt-3">
         <div class="order-top"><div class="order-id">${order.id} · ${timeFmt(order.createdAt)}</div><span class="status-pill st-${order.status.toLowerCase()}">${order.status}</span></div>
+        ${order.invoiceNo ? `<div style="font-size:12px;color:var(--ink-3);margin:2px 0 8px">Tax invoice <b>${esc(order.invoiceNo)}</b> · HSN ${esc(order.hsn || (order.items || []).map(i => i.hsn).filter(Boolean)[0] || '7113')}</div>` : ''}
         ${order.items.map(it => `<div class="sum-row"><span>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b>${fmt(it.unitPrice * it.qty)}</b></div>`).join('')}
         <div class="sum-row"><span>Rate locked at</span><b>${fmt(order.rateSnapshot.gold22 || order.rateSnapshot.silver)}/g (${esc(order.rateSnapshot.stampedAt ? timeFmt(order.rateSnapshot.stampedAt) : 'order time')})</b></div>
         <div class="sum-row"><span>Subtotal</span><b>${fmt(order.subtotal)}</b></div>
         ${order.discount ? `<div class="sum-row"><span>Discount${order.coupon ? ' (' + esc(order.coupon) + ')' : ''}${order.pointsUsed ? ' · ' + order.pointsUsed + ' pts' : ''}</span><b style="color:var(--ok)">− ${fmt(order.discount)}</b></div>` : ''}
         <div class="sum-row"><span>Shipping</span>${order.shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(order.shipping)}</b>`}</div>
-        <div class="sum-row total"><span>Paid via ${esc(order.paymentMethod)}</span><b>${fmt(order.total)}</b></div>
-        <div class="timeline mt-2">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${order.timeline.find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
+        ${order.prepaidDiscount ? `<div class="sum-row"><span>Prepaid discount</span><b style="color:var(--ok)">− ${fmt(order.prepaidDiscount)}</b></div>` : ''}
+        <div class="sum-row total"><span>${/paid/i.test(order.paymentStatus || '') ? 'Paid via' : 'Payment'} ${esc(order.paymentMethod)}</span><b>${fmt(order.total)}</b></div>
       </div>
-      ${order.paymentMethod === 'WhatsApp' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Your order is reserved — confirm &amp; pay on WhatsApp to lock today's rate.</div>
+      ${orderStageHTML(order)}
+      ${trackingCardHTML(order)}
+      ${paymentLedgerHTML(order)}
+      ${codConfirmHTML(order)}
+      ${(order.paymentStatus === 'Awaiting payment' || order.paymentStatus === 'Partially paid') ? `<div class="pay-due-card">
+        <h3>${order.paymentStatus === 'Partially paid' ? '⌛ Balance payment pending' : '⌛ Payment pending'}</h3>
+        <p>${order.amountPaid ? `<b>${fmt(order.amountPaid)} received</b> · balance <b>${fmt(order.balance || (order.total - order.amountPaid))}</b> · ` : ''}Your piece is reserved &amp; today&rsquo;s rate is held. Complete payment now — UPI QR, cards or net-banking — or switch to WhatsApp.</p>
+        <div class="pay-due-btns">
+          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder('${order.id}').then(()=>location.reload())">Pay ${fmt(order.balance || (order.amountPaid ? order.total - order.amountPaid : order.total))} now</button>
+          <button class="btn btn-outline" onclick="Shivaa.waOpenOrder('${order.id}')">Pay on WhatsApp</button>
+        </div></div>` : ''}
+      ${order.paymentStatus === 'Proof submitted' ? `<div class="pay-due-card" style="background:linear-gradient(135deg,#eef6ff,#dcecff);border-color:#7fb0e6">
+        <h3>🔎 Payment being verified</h3>
+        <p>We have your payment screenshot (ref <b>${esc((order.payProof && order.payProof.ref) || '—')}</b>). The counter confirms it within minutes — this page updates automatically; your rate stays held.</p>
+        <div class="pay-due-btns"><a class="btn btn-outline btn-sm" href="javascript:Shivaa.waOpenOrder('${order.id}')">Confirm faster on WhatsApp</a></div></div>` : ''}
+      ${order.paymentStatus === 'Refunded' ? `<div class="pay-due-card" style="background:#fdeeef;border-color:#e6a0a8"><h3>Refunded</h3><p>The refund for this order is processed to the payment source. Allow 3–5 working days for it to appear.</p></div>` : ''}
+      ${order.paymentMethod === 'WhatsApp' && order.paymentStatus !== 'Paid' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Your order is reserved — confirm &amp; pay on WhatsApp to lock today's rate.</div>
       <div class="center" style="margin-bottom:18px"><button class="btn btn-gold btn-lg" onclick="Shivaa.waOpenOrder('${order.id}')">Confirm &amp; Pay on WhatsApp</button></div>` : ''}
-      <div class="center"><a class="btn btn-primary" href="#/account?tab=orders">View All Orders</a> <a class="btn btn-ghost" href="#/shop" style="margin-left:10px">Continue Shopping</a></div>
+      <div id="refundSlot">${refundCardHTML(order)}</div>
+      ${order.status === 'Delivered' ? npsHTML(order) : ''}
+      ${order.status === 'Delivered' ? careCTAHTML(order) : ''}
+      <div class="center"><a class="btn btn-gold" href="#/certificate/${encodeURIComponent(order.id)}">🛡 View purity certificate</a></div>
+      <div class="center" style="margin-top:12px"><a class="btn btn-primary" href="#/account?tab=orders">View All Orders</a> <a class="btn btn-ghost" href="#/shop" style="margin-left:10px">Continue Shopping</a></div>
     </div>
   </div>`;
   confetti();
   finaleAfterOrder(order);   // Gold Finale: quiz prompt for qualifying orders (if campaign live)
+  // v60: surface this order's refund/exchange request if one exists
+  try {
+    const { requests } = await api('/api/refunds/mine');
+    const mine = (requests || []).find(r => r.orderId === order.id);
+    const slot = $('#refundSlot');
+    if (mine && slot) slot.innerHTML = refundCardHTML(order, mine);
+  } catch (e) { /* guests / no requests */ }
 };
 function confetti() {
   const c = document.createElement('canvas');
@@ -2617,20 +3213,21 @@ pages.account = async (view, q) => {
   // v31 — a failed fetch must never blank the account page; if the session
   // died (401), api() has already cleared it, so show the login gate.
   let orders = [], wl = [];
-  try { orders = (await api('/api/orders')).orders || []; }
+  try { orders = (await api('/api/orders')).orders || []; window.Shivaa._myOrders = orders; }   // v57: buy-again
   catch (e) { if (!state.user) { openLogin('account'); return; } }
   try { wl = (await api('/api/wishlist')).wishlist || []; }
   catch (e) { if (!state.user) { openLogin('account'); return; } }
   const tier = me.loyaltyPoints > 5000 ? 'Gold' : me.loyaltyPoints > 2000 ? 'Silver' : 'Bronze';
   const initials = me.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const prof = me.profile || {};
-  const filled = ['name', 'phone', 'email'].filter(k => me[k]).length + ['dob', 'anniversary', 'gender'].filter(k => prof[k]).length;
-  const profPct = Math.round(filled / 6 * 100);
+  const filled = ['name', 'phone', 'email'].filter(k => me[k]).length + ['dob', 'anniversary', 'gender', 'city'].filter(k => prof[k]).length;
+  const profPct = Math.round(filled / 7 * 100);
   const nAdr = (me.addresses || []).length;
 
   const tiles = [
     ['overview', '◈', 'Account Overview', 'Your details, occasions & preferences'],
     ['orders', '▦', 'My Orders', orders.length + ' order' + (orders.length === 1 ? '' : 's')],
+    ['certificates', '🛡', 'My Certificates', orders.length ? orders.length + ' digital purity certificate' + (orders.length === 1 ? '' : 's') : 'Issued with your first order'],
     ['addresses', '⌖', 'Manage Addresses', nAdr ? nAdr + ' saved · deliveries & billing' : 'Add delivery addresses'],
     ['loyalty', '✦', 'Royalty Points', me.loyaltyPoints + ' pts · ' + tier + ' tier'],
     ['wishlist', '♡', 'My Wishlist', wl.length + ' saved piece' + (wl.length === 1 ? '' : 's')],
@@ -2651,7 +3248,7 @@ pages.account = async (view, q) => {
 
     <div class="acct-tiles">
       ${isPartner() ? `<a href="#/partner" class="acct-tile portal"><span class="at-ic">✦</span><span class="at-tx"><b>Partner Portal</b><small>bullion desk · design selection · schemes · reports</small></span><span class="at-go">›</span></a>` : ''}
-      ${tiles.map(t => `<a href="#/account?tab=${t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
+      ${tiles.map(t => `<a href="${t[0] === 'certificates' ? '#/certificates' : '#/account?tab=' + t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
       <a href="javascript:Shivaa.logout()" class="acct-tile danger"><span class="at-ic">↩</span><span class="at-tx"><b>Logout</b><small>sign out safely</small></span><span class="at-go">›</span></a>
     </div>
 
@@ -2670,6 +3267,7 @@ pages.account = async (view, q) => {
           <option value="">Select…</option>
           ${['Male', 'Female', 'Other'].map(g => `<option ${prof.gender === g ? 'selected' : ''}>${g}</option>`).join('')}
         </select></div>
+        <div class="fld"><label>Place / city</label><input id="pfCity" value="${esc(prof.city || '')}" placeholder="e.g. Nagaur" autocomplete="address-level2"></div>
         <button class="btn btn-primary" style="grid-column:1/-1;justify-self:start">Save My Details</button>
       </form>
       <div class="qty-banner">✦ We remember your big days — birthday &amp; anniversary month brings 2× royalty points and first look at festive designs.</div>
@@ -2678,12 +3276,21 @@ pages.account = async (view, q) => {
     const oq = finaleLive() && (o.items || []).length && finaleQualifiesItems(o.items).ok;   // Gold Finale: qualifies → quiz reachable from here too
     return `<div class="order-card">
       <div class="order-top"><div><a class="order-id" href="#/order/${o.id}" style="color:var(--maroon-deep);text-decoration:none">${o.id}</a><div style="font-size:12.5px;color:var(--ink-3)">${timeFmt(o.createdAt)} · ${o.items.reduce((a, i) => a + i.qty, 0)} items · ${esc(o.paymentMethod)}</div></div>
-      <div style="text-align:right"><span class="status-pill st-${o.status.toLowerCase()}">${o.status}</span><div style="margin-top:6px"><b>${fmt(o.total)}</b></div></div></div>
-      <div class="timeline">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${o.timeline.find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
+      <div style="text-align:right"><span class="status-pill st-${o.status.toLowerCase()}">${o.status}</span><div style="margin-top:6px"><b>${fmt(o.total)}</b></div>${o.paymentStatus === 'Proof submitted' ? '<div style="font-size:11px;color:#3670b8;margin-top:4px">🔎 Payment verification</div>' : ''}</div></div>
+      ${o.status === 'Cancelled' ? '<div class="tracker-cancel" style="margin:10px 0">Cancelled</div>'
+        : `<div class="mini-stages">${ORDER_STAGES.map(([key, , ic]) => {
+          const hit = (o.timeline || []).find(t => t.s === key);
+          return `<span class="ms-step ${hit ? 'done' : ''}" title="${key}">${ic}</span>`;
+        }).join('')}</div>`}
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
         ${o.items.map(i => `<img src="${i.img}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
-        <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail('${o.id}')">Details</a>
+          <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail('${o.id}')">Details</a>
           <a class="btn btn-outline btn-sm" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
+          <a class="btn btn-outline btn-sm" href="#/certificate/${o.id}">🛡 Certificate</a>
+          ${o.status === 'Delivered' ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.buyAgain('${o.id}')">↻ Buy again</button>` : ''}
+          ${o.status === 'Delivered' ? `<a class="btn btn-outline btn-sm" href="#/care?order=${encodeURIComponent(o.id)}">✦ Care</a>` : ''}
+          ${(o.paymentStatus === 'Awaiting payment' || o.paymentStatus === 'Partially paid') ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.payForOrder('${o.id}').then(()=>location.reload())" style="margin-left:auto">⌛ Pay ${o.balance ? fmt(o.balance) : 'now'}</button>` : ''}
+          ${o.codConfirmed === false && o.paymentMethod === 'COD' ? `<button class="btn btn-outline btn-sm" onclick="Shivaa.codConfirm('${o.id}')">✓ Confirm COD</button>` : ''}
           ${oq ? `<a class="btn btn-gold btn-sm" href="javascript:Shivaa.fqOpen({route:'purchase',orderId:'${o.id}'})" style="margin-left:auto">✦ Gold Finale — this order qualifies</a>` : ''}
       </div></div>`;
   }).join('') || '<div class="empty"><h3>No orders yet</h3><a class="btn btn-outline" href="#/shop">Start shopping</a></div>' : ''}
@@ -2745,6 +3352,7 @@ window.Shivaa.saveProfile = async e => {
   try {
     const r = await api('/api/auth/profile', { method: 'PUT', body: JSON.stringify({
       name: $('#pfName').value, dob: $('#pfDob').value, anniversary: $('#pfAnn').value, gender: $('#pfGender').value,
+      city: $('#pfCity') ? $('#pfCity').value : '',
     }) });
     state.user = r.user;
     toast('Profile saved ✦'); location.hash = '#/account?tab=overview';
@@ -2785,10 +3393,284 @@ pages.wishlist = async (view) => {
   else { wl = state.localWish; items = state.productsCache.filter(p => state.localWish.includes(p.id)); }
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Wishlist</div><h1>Wishlist</h1><p>${items.length} saved piece${items.length === 1 ? '' : 's'}${state.user ? '' : ' · login to sync across devices'}</p></div></section>
-  <div class="container" style="padding:44px 0 90px">
-    ${items.length ? `<div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
+  <div class="container" style="padding:30px 0 90px">
+    ${items.length ? `
+    <div class="registry-bar">
+      <div class="rb-tx"><b>🎁 Turn these into a gift registry</b><small>Share one link with family &mdash; they see your chosen pieces and can gift or contribute, quietly. Perfect for weddings &amp; bridal trousseau.</small></div>
+      <div class="rb-acts">
+        <button class="btn btn-gold" id="rgShare">🔗 Copy share link</button>
+        <button class="btn btn-outline" id="rgWa">Share on WhatsApp</button>
+        <button class="btn btn-ghost btn-sm" id="rgAlert">🔔 Alert me on price drops</button>
+      </div>
+    </div>
+    <div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
     : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Nothing saved yet</h3><p style="margin:10px 0 20px">Tap the heart on any piece to keep it here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
+  if (items.length) {
+    const ids = items.map(p => p.id).join(',');
+    const name = state.user ? state.user.name.split(' ')[0] : '';
+    const link = location.origin + location.pathname + '#/giftlist?ids=' + encodeURIComponent(ids) + (name ? '&by=' + encodeURIComponent(name) : '');
+    const copy = () => {
+      (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).catch(() => {
+        const t = document.createElement('textarea'); t.value = link; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove();
+      });
+      toast('Share link copied ✓');
+    };
+    $('#rgShare').onclick = copy;
+    $('#rgWa').onclick = () => waOpen(`Namaste ✦ Here is my Shivaa gift registry — tap to see the pieces I love:\n${link}`);
+    const rgAlertEl = $('#rgAlert'); if (rgAlertEl) rgAlertEl.onclick = () => Shivaa.wishlistAlerts(wl);
+  }
+};
+
+/* ─────────── v57 · shared gift registry (public, no login needed) ─────────── */
+pages.giftlist = async (view, q) => {
+  const ids = (q.get('ids') || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 60);
+  const by = q.get('by') || '';
+  const occasion = q.get('occasion') || 'Gift registry';
+  let items = ids.map(id => (state.productsCache || []).find(p => p.id === id)).filter(Boolean);
+  if (!items.length && ids.length) { try { const r = await api('/api/products'); items = ids.map(id => (r.products || []).find(p => p.id === id)).filter(Boolean); } catch (e) {} }
+  const total = items.reduce((a, p) => a + price(p).total, 0);
+  view.innerHTML = `
+  <section class="page-hero registry-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="container"><span class="hero-kicker">🎁 ${esc(occasion)}</span><h1>${by ? esc(by) + '&rsquo;s' : 'A'} Shivaa <em class="shimmer foil-txt">wishlist</em></h1>
+    <p class="hero-sub">${items.length} treasured piece${items.length === 1 ? '' : 's'} · wish value <b>${fmt(total)}</b> · family can gift a piece or contribute quietly.</p></div></section>
+  <div class="container" style="padding:34px 0 90px">
+    ${items.length ? `<div class="p-grid">${items.map(p => productCard(p, { wishSet: [] })).join('')}</div>
+      <div class="registry-cta">
+        <h3>Gift one of these pieces?</h3>
+        <p>Our team keeps every contribution confidential from the registry owner until the reveal. You can also buy a <a href="#/giftcard" style="color:var(--gold)">Shivaa gift card</a>.</p>
+        <a class="btn btn-gold btn-lg" target="_blank" rel="noopener" href="${waLink('Namaste Shivaa ✦\n\nI would like to gift a piece from ' + (by || 'a') + '’s Shivaa gift registry: ' + location.href)}">💝 Talk to the wedding &amp; gifting desk</a>
+        <a class="btn btn-ghost" href="#/shop">Create your own registry</a>
+      </div>`
+    : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This registry is empty</h3><p style="margin:10px 0 20px">Its pieces may have moved &mdash; browse the collection instead.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+  </div>`;
+};
+
+/* ─────────── v57 · RING / BANGLE SIZER ─────────── */
+pages.sizer = async view => {
+  const saved = (() => { try { return localStorage.getItem('shv_ring_size') || ''; } catch (e) { return ''; } })();
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Ring Size Guide</div><h1>Find your ring size</h1><p>Two quick methods — no guessing, no size exchanges.</p></div></section>
+  <div class="container sizer-wrap" style="padding:36px 0 90px">
+    <div class="sizer-grid">
+      <div class="adm-card sz-card">
+        <h3>① Match a ring you already own</h3>
+        <p class="partner-note">Calibrate once with any ATM / bank card (exactly <b>85.6 mm</b> wide), then drag until the circle fits the <b>inner edge</b> of your ring.</p>
+        <div class="sz-cal">
+          <label>Calibration — card should line up exactly:</label>
+          <div class="sz-cardrow"><button class="btn btn-ghost btn-sm" id="szCalDown">−</button><div class="sz-bankcard" id="szBank"><span>Bank / ATM card · 85.6 mm</span></div><button class="btn btn-ghost btn-sm" id="szCalUp">+</button></div>
+        </div>
+        <div class="sz-stage" id="szStage"><div class="sz-circle" id="szCircle"><span></span></div></div>
+        <div class="sz-controls">
+          <button class="btn btn-ghost" id="szDown">− Smaller</button>
+          <div class="sz-readout"><b id="szDia">17.0</b><small>mm inner diameter · Indian size <b id="szInd">17</b></small></div>
+          <button class="btn btn-ghost" id="szUp">Bigger +</button>
+        </div>
+        <button class="btn btn-gold btn-block" id="szSave">Save my size · pre-select on every ring</button>
+      </div>
+      <div class="adm-card sz-card">
+        <h3>② Printable paper strip</h3>
+        <p class="partner-note">Wrap snugly around the widest part of the finger (allow for the knuckle). Read the mark that meets the arrow.</p>
+        <div class="sz-strip-wrap">
+          <div class="sz-strip" id="szStrip"></div>
+        </div>
+        <button class="btn btn-outline btn-block" onclick="window.print()">🖨 Print the strip</button>
+        <div class="sz-tips">
+          <b>Good to know</b>
+          <ul><li>Measure at the end of the day when fingers are warm.</li>
+          <li>The band should fit snug but slide over the knuckle.</li>
+          <li>Between two sizes? Pick the larger — fingers swell in summer.</li>
+          <li>Still unsure? Our <a href="#/videoconsult" style="color:var(--gold)">video call</a> measures it with you, free.</li></ul>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  // calibration: pixels per mm, starting at 96dpi/25.4
+  let ppm = 96 / 25.4, dia = 17.0;
+  const card = $('#szBank');
+  const paintCal = () => { card.style.width = (85.6 * ppm).toFixed(1) + 'px'; paint(); };
+  const paint = () => {
+    $('#szCircle').style.width = (dia * ppm).toFixed(1) + 'px';
+    $('#szCircle').style.height = (dia * ppm).toFixed(1) + 'px';
+    $('#szDia').textContent = dia.toFixed(1);
+    const circ = dia * Math.PI, ind = Math.round(circ - 36.5);
+    $('#szInd').textContent = ind;
+  };
+  $('#szCalUp').onclick = () => { ppm *= 1.01; paintCal(); };
+  $('#szCalDown').onclick = () => { ppm /= 1.01; paintCal(); };
+  $('#szUp').onclick = () => { dia = Math.min(23, dia + 0.2); paint(); };
+  $('#szDown').onclick = () => { dia = Math.max(11, dia - 0.2); paint(); };
+  if (saved) { const d = (parseFloat(saved) + 36.5) / Math.PI; if (d >= 11 && d <= 23) dia = Math.round(d * 5) / 5; }
+  paintCal();
+  $('#szSave').onclick = () => {
+    const ind = $('#szInd').textContent;
+    try { localStorage.setItem('shv_ring_size', ind); } catch (e) {}
+    toast('Indian size ' + ind + ' saved ✓ rings open on your size');
+  };
+  // printable strip: 0-70mm with Indian size ticks every π mm
+  const strip = $('#szStrip');
+  let ticks = '';
+  for (let mm = 40; mm <= 70; mm++) {
+    const ind = Math.round(mm - 36.5);
+    ticks += `<span class="tick" style="left:${(mm - 40) * 10}px"><i class="${mm % 5 === 0 ? 'big' : ''}"></i>${mm % 2 === 0 ? `<b>${mm}</b>` : ''}</span>`;
+  }
+  strip.innerHTML = `<span class="sz-arrow">▾ cut &amp; start here (0)</span><div class="sz-ruler">${ticks}</div><small>Sizes shown: circumference mm → Indian size (circ − 36.5). Cut this page at 100% scale, “actual size” in print settings.</small>`;
+};
+
+/* ═══════════ v58 · lifetime care plan bookings ═══════════ */
+const CARE_SERVICES = [
+  ['polish', '✨ Annual polish & shine', 'Gentle ultrasonic + hand polish; stones checked. Free for life on any Shivaa piece.'],
+  ['rhodium', '⚪ Rhodium renewal', 'Fresh white-gold finish on rings, chains & tops that wear daily.'],
+  ['soldering', '🔗 Soldering / chain repair', 'Jump rings, chain joins, posts, clasps — quoted before work starts.'],
+  ['stone', '💎 Stone tightening', 'Prongs inspected & tightened; loose stones listed honestly, no surprise swap.'],
+  ['resize', '📏 Ring / bangle resizing', 'Most rings sized ±2; your saved size pre-fills the form.'],
+  ['clean', '🧽 At-home care kit guidance', 'Free guidance + a small care kit with counter pickup.'],
+];
+pages.care = async (view, q) => {
+  const preOrder = q.get('order') || '';
+  let saved = '';
+  try { saved = localStorage.getItem('shv_ring_size') || ''; } catch (e) {}
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="container"><div class="crumbs"><a href="#/">Home</a> / Lifetime Care</div><h1>Lifetime <em class="shimmer foil-txt">Care Plan</em></h1>
+    <p>Every Shivaa piece is looked after for life — at our counter, by video, or with pickup &amp; drop in Jaipur &amp; Nagaur.</p></div></section>
+  <div class="container care-wrap" style="padding:36px 0 90px">
+    <div class="care-grid">
+      <div>
+        <div class="care-list">
+          ${CARE_SERVICES.map(([k, t, d], i) => `<label class="care-opt ${i === 0 ? 'on' : ''}" data-k="${k}">
+            <input type="radio" name="care" value="${k}" ${i === 0 ? 'checked' : ''}>
+            <span><b>${t}</b><small>${d}</small></span></label>`).join('')}
+        </div>
+        <div class="care-promise adm-card">
+          <h3>The Shivaa care promise</h3>
+          <ul>
+            <li>✦ Weighing in your presence, sealed &amp; photographed.</li>
+            <li>✦ No charge for standard polishing &amp; stone checks on our pieces.</li>
+            <li>✦ Repair cost approved on WhatsApp before any work begins.</li>
+            <li>✦ HUID pieces return with the same HUID recorded on your certificate.</li>
+          </ul>
+        </div>
+      </div>
+      <form class="adm-card care-form" id="careForm">
+        <h3>Book a care visit</h3>
+        <div class="fld"><label>Full name *</label><input name="name" required value="${esc(state.user?.name || '')}"></div>
+        <div class="fld"><label>Mobile *</label><input name="phone" type="tel" inputmode="tel" maxlength="10" required value="${esc((state.user?.phone || '').replace(/\D/g, '').slice(-10))}"></div>
+        <div class="fld"><label>Related order no. (if any)</label><input name="order" value="${esc(preOrder)}" placeholder="SHV…"></div>
+        <div class="fld"><label>Preferred way</label>
+          <select name="mode" class="sortsel" style="width:100%;border-radius:12px">
+            <option>Counter visit — Jayal, Nagaur</option>
+            <option>Pickup &amp; drop (Jaipur / Nagaur)</option>
+            <option>Video call guidance first</option>
+          </select></div>
+        <div class="fld"><label>Preferred date</label><input name="date" type="date"></div>
+        ${saved ? `<div class="qty-banner">📏 Your saved ring size is <b>${esc(saved)}</b></div>` : '<a class="size-guide-link" href="#/sizer" style="display:inline-block;margin:4px 0 10px">📏 Don’t know your ring size?</a>'}
+        <div class="fld"><label>Anything we should know?</label><textarea name="details" placeholder="e.g. one small stone feels loose, chain clasp opens on its own…"></textarea></div>
+        <button class="btn btn-gold btn-block btn-lg">Request booking</button>
+        <p class="partner-note" style="margin-top:10px">Our team confirms the slot on WhatsApp within working hours.</p>
+      </form>
+    </div>
+  </div>`;
+  view.querySelectorAll('.care-opt').forEach(l => l.onclick = () => {
+    view.querySelectorAll('.care-opt').forEach(x => x.classList.remove('on')); l.classList.add('on');
+    l.querySelector('input').checked = true;
+  });
+  view.querySelector('#careForm').onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const chosen = (view.querySelector('input[name="care"]:checked') || {}).value || 'polish';
+    const svc = CARE_SERVICES.find(x => x[0] === chosen) || CARE_SERVICES[0];
+    const orderId = String(f.get('order') || '').trim();
+    const res = await api('/api/services', { method: 'POST', body: JSON.stringify({
+      type: 'care-' + chosen, name: f.get('name'), phone: f.get('phone'), orderId,
+      details: [svc[1].replace(/^[^A-Za-z]+/, ''), 'Order ' + (orderId || '—'), f.get('mode'), f.get('date'), f.get('details')].filter(Boolean).join(' · ').slice(0, 200),
+    }) });
+    e.target.innerHTML = `<div class="center" style="padding:40px 10px"><div style="font-size:44px">✦</div><h3>Booking requested</h3><p style="color:var(--ink-2);margin:8px 0 16px">We will confirm your ${esc(svc[1])} slot on WhatsApp shortly. Your care token is <b>${esc((res.request && res.request.id) || '')}</b> — track it below.</p><button class="btn btn-gold" onclick="location.reload()">See my requests</button> <a class="btn btn-ghost" href="#/">Back home</a></div>`;
+    toast('Care booking sent ✦');
+  };
+  // v59 — live repair-token tracker for signed-in customers
+  (async () => {
+    if (!state.user) return;
+    try {
+      const { requests } = await api('/api/services/mine');
+      const mine = (requests || []).filter(r => String(r.type || '').startsWith('care-'));
+      if (!mine.length) return;
+      const host = document.createElement('div');
+      host.style.gridColumn = '1 / -1';
+      host.innerHTML = careRequestsHTML(mine);
+      view.querySelector('.care-grid').insertAdjacentElement('afterend', host);
+    } catch (e) {}
+  })();
+};
+const CARE_STAGES = ['Booked', 'Confirmed', 'Picked up', 'At karigar', 'Ready', 'Delivered'];
+function careRequestsHTML(mine) {
+  return `<div class="adm-card" style="margin-top:24px"><h3>Your care / repair tokens</h3>
+    ${mine.map(r => {
+      const hist = r.history || [{ s: 'Booked' }];
+      let idx = -1;
+      CARE_STAGES.forEach((s, i) => { if (hist.some(h => h.s === s)) idx = i; });
+      if (idx < 0) idx = 0;
+      return `<div class="care-token">
+        <div class="ct-head"><b>${esc(r.id)}</b><span class="status-pill st-placed">${esc(r.status)}</span></div>
+        <div class="mini-stages" style="margin:10px 0">${CARE_STAGES.map((s, i) => `<span class="ms-step ${i <= idx ? 'done' : ''}" title="${s}">${['📝', '🙏', '🚚', '🔨', '✨', '💛'][i]}</span>`).join('')}</div>
+        <small style="color:var(--ink-3)">${esc(r.details || '')}</small>
+      </div>`;
+    }).join('')}</div>`;
+}
+
+/* ═══════════ v58 · shareable quotation from the cart (48 h rate hold) ═══════════ */
+pages.quote = async view => {
+  const lines = state.cart.map(c => ({ c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+  if (!lines.length) { view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart is empty</h3><p style="margin:10px 0 20px">Add pieces and then generate a quotation.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`; return; }
+  const R = state.rates;
+  const rows = lines.map(({ c, p }) => {
+    const pr = price(p);
+    return { p, c, pr, line: pr.total * c.qty };
+  });
+  const subtotal = rows.reduce((a, r) => a + r.line, 0);
+  const prepaid = Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100);
+  const ship = subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
+  const validTill = new Date(Date.now() + 48 * 3600e3);
+  const qNo = 'Q' + Date.now().toString().slice(-7);
+  view.innerHTML = `
+  <div class="container quote-page" style="padding:34px 0 70px;max-width:880px">
+    <div class="quote-actions inv-no-print">
+      <button class="btn btn-gold btn-lg" onclick="window.print()">⬇ Save PDF / Print</button>
+      <button class="btn btn-outline btn-lg" id="quoteWa">💬 Send on WhatsApp</button>
+      <a class="btn btn-ghost btn-lg" href="#/cart">← Edit cart</a>
+    </div>
+    <div class="quote-sheet" id="quoteSheet">
+      <header class="q-head">
+        <img src="/images/logo.png" alt="Shivaa">
+        <div><b>PRICE QUOTATION</b><small>Quotation no. ${qNo} · valid till ${validTill.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</small></div>
+        <span class="q-stamp">RATE HELD<br>48 HOURS</span>
+      </header>
+      <p class="q-note">Dear family, namaste. Below is your selection priced at Jaipur&rsquo;s <b>live rate of today (${timeFmt(R.t)})</b>. Confirm within 48 hours and the same rate is honoured; after that the day&rsquo;s live rate applies. Every price below includes <b>3% GST</b> and the metal value, making charge and stones are shown on the invoice.</p>
+      <table class="q-tbl">
+        <thead><tr><th>Piece</th><th class="num">Qty</th><th class="num">Approx wt</th><th class="num">Amount</th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td><b>${esc(r.p.name)}</b><br><small>${r.p.metal === 'Silver' ? 'Silver 925' : esc(r.p.purity) + ' gold'} · ${r.p.weightG} g · SKU ${esc(r.p.sku || '')}</small></td>
+          <td class="num">${r.c.qty}${r.c.size ? '<br><small>Size ' + esc(r.c.size) + '</small>' : ''}</td>
+          <td class="num">${(r.p.weightG * r.c.qty).toFixed(3)} g</td>
+          <td class="num"><b>${fmt(r.line)}</b></td></tr>`).join('')}</tbody>
+      </table>
+      <div class="q-tot">
+        <div><span>Subtotal (incl. GST)</span><b>${fmt(subtotal)}</b></div>
+        <div><span>Insured shipping</span><b>${ship === 0 ? 'FREE' : fmt(ship)}</b></div>
+        <div class="ok"><span>Online prepayment discount</span><b>− ${fmt(prepaid)}</b></div>
+        <div class="grand"><span>Pay online by ${validTill.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span><b>${fmt(Math.max(0, subtotal - prepaid + ship))}</b></div>
+      </div>
+      <div class="q-foot">
+        <p><b>✦ 100% written buyback</b> on the pure metal value · every gold piece <b>BIS hallmarked with a unique HUID</b> · final weights confirmed to the milligram before billing.</p>
+        <p>Shivaa Jewellers, Sadar Bazaar, Jayal, Nagaur, Rajasthan · ${esc(state.settings.phone || '+91 89050 05921')} · shivaa.in</p>
+      </div>
+    </div>
+  </div>`;
+  $('#quoteWa').onclick = () => {
+    const list = rows.map(r => '• ' + r.p.name + ' ×' + r.c.qty + ' — ' + fmt(r.line)).join('\n');
+    waOpen('Namaste Shivaa ✦\n\nPlease confirm this quotation (' + qNo + ', valid 48 h):\n' + list + '\n\nOnline total: ' + fmt(Math.max(0, subtotal - prepaid + ship)) + '\nQuotation: ' + location.origin + location.pathname + '#/quote');
+  };
+  document.documentElement.classList.add('quote-mode');
 };
 
 /* ─────────── RATES PAGE ─────────── */
@@ -2796,7 +3678,7 @@ pages.rates = async (view) => {
   const R = state.rates;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1>
-  <p>The same feed that powers every price on shivaa.in — sourced from the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
+  <p>The same feed that powers every price on shivaa.in — sourced from official MCX futures (when the owner’s exchange feed is connected) or the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
     <div class="jaipur-hero rv">
       <div class="jh-main">
@@ -2818,7 +3700,7 @@ pages.rates = async (view) => {
     </div>
     <div class="chart-wrap mt-3 rv"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
       <h3 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
-      <span class="src-badge ${R.source === 'live' ? 'src-live' : 'src-sim'}">${R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*'}</span></div>
+      <span class="src-badge ${(R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim'}">${R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*')}</span></div>
       <canvas id="rateChart"></canvas></div>
     <div class="grid2 mt-3">
       <div class="adm-card"><h3>Get a rate alert</h3>
@@ -2833,7 +3715,7 @@ pages.rates = async (view) => {
         <div class="sum-row"><span>+ Listed stone value (if any)</span><b>at cost</b></div>
         <div class="sum-row"><span>+ 3% GST</span><b>statutory</b></div>
         <p style="font-size:13px;color:var(--ink-3);margin-top:12px">No "local rate" games — the rate on this page is the rate on your bill. That is our tanch (honest purity) promise.</p>
-        ${R.source !== 'live' ? '<p style="font-size:12px;color:var(--ink-3);margin-top:8px">*Feed shown as simulated when the bullion API is unreachable from the server; values track the last live market feed.</p>' : ''}
+        ${(R.source !== 'live' && R.source !== 'live-mcx') ? '<p style="font-size:12px;color:var(--ink-3);margin-top:8px">*Feed shown as simulated when the bullion API is unreachable from the server; values track the last live market feed.</p>' : ''}
       </div>
     </div>
   </div>`;
@@ -2973,34 +3855,44 @@ pages.b2b = async (view) => {
     <div class="b2b-form-card aurora">
       <div class="bf-head"><span class="label">Step 1 &middot; Partner Application</span><h2>Begin your partnership</h2><p>GSTIN is checksum-verified instantly &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
         <div class="b2b-step"><span>1 &middot; Fill this form</span><span>2 &middot; GST &amp; OTP verify</span><span>3 &middot; Approved in 48 h</span><span>4 &middot; Portal opens</span></div></div>
-      <form class="form-grid kyc-form" onsubmit="Shivaa.b2bApply(event)">
-        <div class="fld"><label>Firm name *</label><input id="kyFirm" required placeholder="M/s …"></div>
-        <div class="fld"><label>Contact person</label><input id="kyPerson" placeholder="Owner / manager"></div>
-        <div class="fld full"><label>GSTIN *</label>
+      <form class="form-grid kyc-form" id="b2bForm" onsubmit="Shivaa.b2bApply(event)" novalidate>
+        <div class="fld"><label>Firm name *</label><input id="kyFirm" required autocomplete="organization" placeholder="M/s …" oninput="Shivaa.kycGate()"></div>
+        <div class="fld"><label>Contact person</label><input id="kyPerson" autocomplete="name" placeholder="Owner / manager"></div>
+        <div class="fld full"><label>GSTIN * <small class="kyc-req">(verify with the button — 15 characters)</small></label>
           <div class="kyc-inline">
-            <input id="kyGstin" maxlength="15" placeholder="08AABCU9603R1ZM" style="text-transform:uppercase" required>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycGstin()">Verify GST</button>
+            <input id="kyGstin" maxlength="15" placeholder="08AABCU9603R1ZM" style="text-transform:uppercase" autocomplete="off" required oninput="Shivaa.kycFieldEdit('gstin')">
+            <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycGstin()">✓ Verify GST</button>
             <span class="kyc-status" id="gstStat"></span>
           </div></div>
-        <div class="fld"><label>City</label><input id="kyCity" placeholder="Nagaur, Jodhpur…"></div>
-        <div class="fld"><label>Mobile (OTP verified) *</label>
+        <div class="fld"><label>City *</label><input id="kyCity" placeholder="Nagaur, Jodhpur…" autocomplete="address-level2" oninput="Shivaa.kycGate()"></div>
+        <div class="fld"><label>Owner PAN <small class="kyc-req">(optional)</small></label><input id="kyPan" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase" autocomplete="off"></div>
+        <div class="fld full"><label>Mobile number * <small class="kyc-req">(we text a 4-digit code — any Indian mobile)</small></label>
           <div class="kyc-inline">
-            <input id="kyPhone" maxlength="10" placeholder="10-digit" inputmode="numeric" required>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycOtp()">Send OTP</button>
+            <span class="kyc-cc">+91</span>
+            <input id="kyPhone" maxlength="10" placeholder="10-digit mobile" inputmode="numeric" autocomplete="tel-national" required oninput="Shivaa.kycFieldEdit('otp')">
+            <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycOtp()">Send OTP</button>
           </div></div>
-        <div class="fld full"><label>Enter OTP *</label>
+        <div class="fld full"><label>Enter the 4-digit OTP *</label>
           <div class="kyc-inline">
-            <input id="kyOtp" maxlength="6" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycOtpVerify()">Verify OTP</button>
+            <input id="kyOtp" maxlength="4" placeholder="4-digit code" inputmode="numeric" autocomplete="one-time-code" oninput="this.value=this.value.replace(/\D/g,'').slice(0,4);Shivaa.kycGate()">
+            <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycOtpVerify()">✓ Verify OTP</button>
             <span class="kyc-status" id="otpStat"></span>
           </div></div>
-        <div class="fld"><label>Email (portal login) *</label><input id="kyEmail" type="email" required></div>
-        <div class="fld"><label>Owner PAN</label><input id="kyPan" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase"></div>
-        <div class="fld full"><label>Choose portal password *</label><input id="kyPass" type="password" minlength="6" required></div>
-        <div class="fld full"><label>What do you stock / need?</label><input id="kyMsg" placeholder="Bridal sets, chains, silver…"></div>
-        <button class="btn btn-primary btn-block" id="kycSubmit" style="grid-column:1/-1" disabled>Complete KYC &amp; Apply →</button>
-        <p class="kyc-note">GSTIN checksum-verified · mobile OTP-verified · admin approval within 48 h</p>
+        <div class="fld"><label>Email <small class="kyc-req">(your portal login)</small> *</label><input id="kyEmail" type="email" autocomplete="email" required oninput="Shivaa.kycGate()"></div>
+        <div class="fld"><label>Choose a portal password *</label><input id="kyPass" type="password" minlength="6" autocomplete="new-password" required oninput="Shivaa.kycGate()"></div>
+        <div class="fld full"><label>What do you stock / need? <small class="kyc-req">(optional)</small></label><input id="kyMsg" placeholder="Bridal sets, chains, silver…"></div>
+        <p class="kyc-note">GSTIN checksum-verified &middot; mobile OTP-verified &middot; approval within 48 h. The button below stays locked until every business detail above is complete and verified.</p>
       </form>
+
+      <!-- always-visible application bar: present from the start, clickable
+           only after all business details + both verifications are done -->
+      <div class="kyc-bar" id="kycBar">
+        <div class="kyc-bar-info">
+          <b id="kycBarTitle">Complete your KYC details</b>
+          <small id="kycBarTodo">Preparing application…</small>
+        </div>
+        <button type="submit" form="b2bForm" class="btn btn-primary btn-lg" id="kycSubmit" disabled>Complete KYC &amp; Apply →</button>
+      </div>
 
       <div class="alt-actions">
         <span class="alt-div"><i></i><b>or</b><i></i></span>
@@ -3051,6 +3943,7 @@ pages.b2b = async (view) => {
     </div>
 
   </div>`;
+  setTimeout(() => { try { window.Shivaa.kycGate(); } catch (e) {} }, 0);
 };
 /* ─────────── SERVICES (D2C) ─────────── */
 window._kyc = { gstin: false, otp: false };
@@ -3107,9 +4000,50 @@ window.Shivaa.partnerLogin = () => {
   if (isPartner()) { location.hash = '#/partner'; return; }
   openLogin('partner');
 };
-window.Shivaa.kycGate = () => { const b = $('#kycSubmit'); if (b) b.disabled = !(window._kyc.gstin && window._kyc.otp); };
+/* editing an already-verified GSTIN / phone invalidates that verification
+   until it is re-verified — the sticky bar updates itself instantly */
+window.Shivaa.kycFieldEdit = (which) => {
+  if (which === 'gstin') {
+    window._kyc.gstin = false;
+    const st = $('#gstStat'); if (st) { st.textContent = ''; st.className = 'kyc-status'; }
+  }
+  if (which === 'otp') {
+    window._kyc.otp = false;
+    const st = $('#otpStat'); if (st) { st.textContent = ''; st.className = 'kyc-status'; }
+    const otp = $('#kyOtp'); if (otp) otp.value = '';
+  }
+  window.Shivaa.kycGate();
+};
+window.Shivaa.kycGate = () => {
+  const b = $('#kycSubmit');
+  if (!b) return;
+  const v = id => ($(id) ? $(id).value.trim() : '');
+  const steps = [
+    { ok: v('#kyFirm').length >= 2, label: 'Firm name' },
+    { ok: v('#kyCity').length >= 2, label: 'City' },
+    { ok: !!window._kyc.gstin, label: 'GST verified' },
+    { ok: !!window._kyc.otp, label: 'Mobile OTP verified' },
+    { ok: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('#kyEmail')), label: 'Valid email' },
+    { ok: v('#kyPass').length >= 6, label: 'Portal password (6+)' },
+  ];
+  const done = steps.filter(s => s.ok);
+  const missing = steps.filter(s => !s.ok).map(s => s.label);
+  const ready = done.length === steps.length;
+  b.disabled = !ready;
+  b.setAttribute('aria-disabled', String(!ready));
+  const title = $('#kycBarTitle'), todo = $('#kycBarTodo');
+  if (title) title.textContent = ready ? 'All set — your application is ready ✦' : 'Complete your KYC details';
+  if (todo) todo.textContent = ready
+    ? 'GSTIN & mobile verified · tap to apply'
+    : done.length + '/' + steps.length + ' done · next: ' + missing.slice(0, 2).join(', ');
+  const bar = $('#kycBar');
+  if (bar) bar.classList.toggle('ready', ready);
+};
 window.Shivaa.b2bApply = async e => {
   e.preventDefault();
+  window.Shivaa.kycGate();
+  const btn = $('#kycSubmit');
+  if (btn && btn.disabled) return toast('Complete every business detail and both verifications first — the button shows what is left.', 'err');
   if (!window._kyc.gstin || !window._kyc.otp) return toast('Complete GST & OTP verification first', 'err');
   try {
     const r = await api('/api/partners/apply', { method: 'POST', body: JSON.stringify({
@@ -3119,7 +4053,7 @@ window.Shivaa.b2bApply = async e => {
     }) });
     if (r.token) { setToken(r.token); state.user = r.user; }
     openModal(`<div class="center"><div style="font-size:48px">✦</div><h3 style="margin:10px 0">KYC Complete — Application Received!</h3><p style="color:var(--ink-2)">GSTIN <b>${esc($('#kyGstin').value.toUpperCase())}</b> verified · mobile OTP verified. Your partner portal account is live — full access once our team approves (usually within 48 hours).</p><a class="btn btn-primary" href="#/partner" style="margin-top:14px">Open Partner Portal</a></div>`);
-    e.target.reset(); window._kyc = { gstin: false, otp: false };
+    e.target.reset(); window._kyc = { gstin: false, otp: false }; window.Shivaa.kycGate();
   } catch (err) { toast(err.message, 'err'); }
 };
 
@@ -3340,15 +4274,15 @@ function pwFieldHTML({ id, label = 'Password', ph = '', auto = 'new-password', m
 }
 function otpBoxesHTML(id) {
   let inp = '';
-  for (let i = 0; i < 6; i++) inp += `<input type="text" maxlength="1" inputmode="numeric" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Digit ${i + 1}">`;
-  return `<div class="otp-boxes" id="${id}" role="group" aria-label="6-digit code">${inp}</div>`;
+  for (let i = 0; i < 4; i++) inp += `<input type="text" maxlength="1" inputmode="numeric" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Digit ${i + 1}">`;
+  return `<div class="otp-boxes" id="${id}" role="group" aria-label="4-digit code">${inp}</div>`;
 }
 function bindOtpBoxes(root, onComplete) {
   if (!root) return;
   const boxes = [...root.querySelectorAll('input')];
   const fire = () => {
     const v = boxes.map(b => b.value).join('');
-    if (v.length === 6 && onComplete) onComplete(v);
+    if (v.length === 4 && onComplete) onComplete(v);
   };
   boxes.forEach((inp, i) => {
     inp.addEventListener('input', () => {
@@ -3471,7 +4405,7 @@ function openLogin(next = '') {
               <div class="kyc-inline"><input id="rtOtpPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" autocomplete="tel-national" style="flex:1">
               <button type="button" class="btn btn-ghost btn-sm" id="rtOtpSend">Send code</button></div>
               <span class="auth-stat" id="rtOtpStat"></span></div>
-            <div class="fld"><label>6-digit code</label>
+            <div class="fld"><label>4-digit code</label>
               ${otpBoxesHTML('rtOtpBoxes')}
             </div>
             <button class="btn btn-primary btn-block" id="rtOtpBtn" type="submit">Verify &amp; sign in</button>
@@ -3485,7 +4419,7 @@ function openLogin(next = '') {
             <div class="kyc-inline"><input id="rgPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" autocomplete="tel-national" style="flex:1">
             <button type="button" class="btn btn-ghost btn-sm" id="rgSend">Send code</button></div>
             <span class="auth-stat" id="rgStat"></span></div>
-          <div class="fld"><label>Enter the 6-digit code</label>
+          <div class="fld"><label>Enter the 4-digit code</label>
             ${otpBoxesHTML('rgBoxes')}
           </div>
           <div class="fld"><label>Email</label><input id="rgEmail" type="email" autocomplete="email" placeholder="you@example.com" required></div>
@@ -3554,7 +4488,7 @@ function openLogin(next = '') {
       const phone = authPhone($('#rtOtpPhone').value);
       const code = otpVal('rtOtpBoxes');
       if (!authPhoneOk(phone)) return toast('Enter a valid 10-digit mobile number', 'err');
-      if (code.length !== 6) return toast('Enter the 6-digit code', 'err');
+      if (code.length !== 4) return toast('Enter the 4-digit code', 'err');
       Shivaa.rtOtpLogin(phone, code, $('#rtOtpBtn'));
     } else {
       $('#authErr').hidden = true; if ($('#authErrJ')) $('#authErrJ').hidden = true;
@@ -3671,6 +4605,87 @@ pages.invoice = async (view, q, id) => {
       <tbody>${rows}${totals}</tbody></table>
       <div class="inv-foot">Rate locked at order time · Check the actual piece’s HUID in BIS Care<br><b>Confidential</b> — issued privately to ${esc(state.user.name)}; watermark identifies the holder.</div>
     </div>
+  </div>`;
+};
+
+/* ─────────── v57 DIGITAL CERTIFICATES (purity & price card per order) ─────────── */
+function certificateSheet(o) {
+  const s = state.settings || {};
+  const gross = o.items.reduce((a, it) => a + (Number(it.weightG) || 0) * it.qty, 0);
+  const net = gross;   // listed net weight = gross unless stones; stones are listed separately on the bill
+  const rows = o.items.map(it => `<tr>
+      <td><b>${esc(it.name)}</b>${it.size ? `<br><small>Size ${esc(it.size)}</small>` : ''}</td>
+      <td class="num">${it.qty}</td>
+      <td class="num">${esc(it.metal || '')} · ${esc(it.purity || '')}</td>
+      <td class="num">${(Number(it.weightG) || 0).toFixed(3)} g</td>
+      <td class="num">${fmt(Math.round(it.ratePerGram))}/g</td>
+      <td class="num">${fmt(Math.round(it.makingCharge || 0))}</td>
+      <td class="num">${fmt(Math.round(it.gst || 0))}</td>
+      <td class="num"><b>${fmt(it.unitPrice * it.qty)}</b></td>
+    </tr>`).join('');
+  const R = o.rateSnapshot || {};
+  return `
+  <div class="cert-sheet" id="certSheet">
+    <div class="cert-border">
+      <header class="cert-head">
+        <img src="/images/logo.png" alt="Shivaa">
+        <div><b>CERTIFICATE OF AUTHENTICITY</b><small>Shuddhata praman patra · issued with your order</small></div>
+        <div class="cert-id"><b>${esc(o.id)}</b><small>${new Date(o.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div>
+      </header>
+      <section class="cert-issued">
+        <span>Presented to</span><b>${esc(o.address?.name || o.userName || (state.user && state.user.name) || 'Valued customer')}</b>
+        <span class="cert-place">by <b>${esc(s.legalName || 'Ernate Shine Jewellery Pvt. Ltd.')}</b>, ${esc(s.address || 'Sadar Bazaar, Jayal, Nagaur, Rajasthan')}</span>
+      </section>
+      <table class="cert-tbl"><thead><tr>
+        <th>Piece</th><th>Qty</th><th>Metal · Purity</th><th>Gross wt</th><th>Rate/g</th><th>Making</th><th>GST</th><th>Amount</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <div class="cert-summary">
+        <div><span>Total gross weight</span><b>${gross.toFixed(3)} g</b></div>
+        <div><span>Net gold weight</span><b>${net.toFixed(3)} g</b></div>
+        <div><span>Rate locked (22K / Silver)</span><b>${fmt(Math.round(R.gold22 || 0))} · ${fmt2(R.silver || 0)}/g</b></div>
+        <div><span>Total paid</span><b>${fmt(o.total)}</b></div>
+      </div>
+      <section class="cert-assure">
+        <p><b>✦ Hallmarking.</b> Every gold piece carries its BIS-assigned <b>HUID</b>, physically stamped on the piece and printed on the tax invoice. Scan it anytime in the official <b>BIS Care</b> app. Silver 925 pieces carry the 925 stamp.</p>
+        <p><b>✦ Honest weights.</b> Weights are recorded to the milligram at billing; stones &amp; pearls are valued separately and shown on the invoice.</p>
+        <p><b>✦ Transparent price.</b> Metal value at the day&rsquo;s locked Jaipur rate + listed making charge + 3% GST — nothing hidden, nothing rounded up.</p>
+        <p><b>✦ Lifetime buyback.</b> This certificate accompanies the piece for 100% metal-value buyback under our published policy.</p>
+      </section>
+      <footer class="cert-foot">
+        <div class="cert-sign"><span></span><small>Authorised signatory · for ${esc(s.storeName || 'Shivaa')}</small></div>
+        <div class="cert-verify"><b>Verify anytime</b><small>HUID → BIS Care app · Order ${esc(o.id)} · ${esc(s.phone || '+91 89050 05921')}</small></div>
+      </footer>
+    </div>
+  </div>`;
+}
+pages.certificate = async (view, q, id) => {
+  if (!state.user) { openLogin(); return; }
+  view.innerHTML = '<div class="loading-spin"></div>';
+  document.documentElement.classList.add('cert-mode');
+  let o = null;
+  try { o = (await api('/api/orders/' + id)).order; } catch (e) {}
+  if (!o) { document.documentElement.classList.remove('cert-mode'); view.innerHTML = '<div class="empty"><h3>Certificate not found</h3><a class="btn btn-primary" href="#/certificates">My Certificates</a></div>'; return; }
+  view.innerHTML = `<div class="cert-page">
+    <div class="cert-actions inv-no-print">
+      <button class="btn btn-gold btn-lg" onclick="window.print()">⬇ Save as PDF / Print</button>
+      <a class="btn btn-ghost" href="#/order/${encodeURIComponent(id)}">← Order</a>
+      <a class="btn btn-ghost" href="#/certificates">All certificates</a>
+    </div>${certificateSheet(o)}
+  </div>`;
+};
+pages.certificates = async view => {
+  if (!state.user) { openLogin('account'); return; }
+  document.documentElement.classList.remove('cert-mode');
+  let orders = [];
+  try { orders = (await api('/api/orders')).orders || []; } catch (e) {}
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/account">My Account</a> / Certificates</div><h1>My Certificates</h1><p>Digital purity &amp; price certificates for every Shivaa order — save, print, or show at the counter.</p></div></section>
+  <div class="container" style="padding:36px 0 90px">
+    ${orders.length ? `<div class="cert-locker">${orders.map(o => `<a class="cert-card" href="#/certificate/${encodeURIComponent(o.id)}">
+      <span class="cc-ic">&#127970;</span>
+      <div><b>${esc(o.id)}</b><small>${new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · ${o.items.reduce((a, i) => a + i.qty, 0)} piece(s) · ${fmt(o.total)}</small></div>
+      <span class="cc-go">View &amp; print &#8250;</span></a>`).join('')}</div>`
+      : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No certificates yet</h3><p style="margin:10px 0 18px">Your certificate is issued automatically with your first order.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
 };
 
@@ -3847,7 +4862,7 @@ function partnerGateHTML(title, sub) {
    ═══════════════════════════════════════════════════════════════════ */
 pages.buyback = async (view) => {
   const R = state.rates || {};
-  const g22 = R.gold22 || 0, g18 = R.gold18 || 0, slv = R.silver || 0;
+  const g22 = R.gold22 || 0, g24 = R.gold24 || 0, g18 = R.gold18 || 0, slv = R.silver || 0;
 
   view.innerHTML = `
   <section class="page-hero lux-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -3890,6 +4905,13 @@ pages.buyback = async (view) => {
       <div class="bbc-body">
         <div class="bbc-form">
           <div class="fld">
+            <label>Whose piece is it?</label>
+            <div class="bbc-purity bb-src" id="bbSrc">
+              <button type="button" class="bbp on" data-src="shivaa">Bought from Shivaa <small>100% value</small></button>
+              <button type="button" class="bbp"     data-src="other">Old gold · another jeweller <small>standard deductions</small></button>
+            </div>
+          </div>
+          <div class="fld">
             <label>Weight of your piece</label>
             <div class="bbc-wt">
               <input type="number" id="bbWt" value="10" min="0.1" step="0.1" inputmode="decimal">
@@ -3902,6 +4924,7 @@ pages.buyback = async (view) => {
             <label>Purity stamped on the piece</label>
             <div class="bbc-purity" id="bbPurity">
               <button type="button" class="bbp on"  data-k="g22">22K <small>916</small></button>
+              <button type="button" class="bbp"     data-k="g24">24K <small>995</small></button>
               <button type="button" class="bbp"     data-k="g18">18K <small>750</small></button>
               <button type="button" class="bbp"     data-k="slv">Silver <small>925</small></button>
             </div>
@@ -3920,8 +4943,9 @@ pages.buyback = async (view) => {
           <div class="bbr-rate" id="bbRate">—</div>
           <div class="bbr-split">
             <div><small>Rate applied</small><b id="bbPerG">—</b></div>
-            <div><small>Deduction</small><b class="bbr-zero">₹0 · 0%</b></div>
+            <div><small>Deduction</small><b class="bbr-zero" id="bbDed">₹0 · 0%</b></div>
           </div>
+          <div class="bb-ded-note" id="bbDedNote" hidden></div>
           <a class="btn btn-gold btn-block btn-lg" id="bbWa">Get this valuation confirmed</a>
           <p class="bbr-fine">Indicative estimate at the current live rate. Final value is confirmed by weight and assay at our Jayal counter.</p>
         </div>
@@ -3988,14 +5012,17 @@ pages.buyback = async (view) => {
   </div>`;
 
   /* ---- live calculator ---- */
-  const rates = { g22, g18, slv };
-  const label = { g22: 'Gold 22K', g18: 'Gold 18K', slv: 'Silver 925' };
-  let cur = 'g22';
+  const rates = { g22, g24, g18, slv };
+  const label = { g22: 'Gold 22K', g24: 'Gold 24K', g18: 'Gold 18K', slv: 'Silver 925' };
+  let cur = 'g22', src = 'shivaa';
+  // Industry-standard old-gold exchange math for pieces bought elsewhere:
+  // a one-time melting/wastage charge (3% gold · 5% silver), shown plainly.
+  const deductPct = k => src === 'other' ? (k === 'slv' ? 0.05 : 0.03) : 0;
 
   const calc = () => {
     const wt = Math.max(0, parseFloat($('#bbWt').value) || 0);
     const per = rates[cur] || 0;
-    const total = wt * per;
+    const gross = wt * per, ded = gross * deductPct(cur), total = gross - ded;
     const amtEl = $('#bbAmt');
     if (amtEl) {
       amtEl.textContent = fmt(total);
@@ -4003,7 +5030,23 @@ pages.buyback = async (view) => {
     }
     const rEl = $('#bbRate'); if (rEl) rEl.textContent = `${wt.toLocaleString('en-IN')} g × ${label[cur]}`;
     const pEl = $('#bbPerG'); if (pEl) pEl.textContent = fmt(per) + '/g';
-    const msg = `Namaste Shivaa team ✦\n\nI'd like to confirm a buyback valuation.\n\nMetal: ${label[cur]}\nWeight: ${wt} g\nIndicative value: ${fmt(total)}\n\nPlease confirm.`;
+    const dedEl = $('#bbDed');
+    if (dedEl) {
+      dedEl.textContent = ded > 0 ? `− ${fmt(ded)} · ${Math.round(deductPct(cur) * 100)}%` : '₹0 · 0%';
+      dedEl.classList.toggle('bbr-zero', ded === 0);
+      dedEl.classList.toggle('neg', ded > 0);
+    }
+    const note = $('#bbDedNote');
+    if (note) {
+      if (src === 'other') {
+        note.hidden = false;
+        note.innerHTML = ded > 0
+          ? `Standard one-time <b>melting / wastage ${Math.round(deductPct(cur) * 100)}% = −${fmt(ded)}</b> on old gold from another jeweller. Exchange it against a new Shivaa piece and we waive the making-charge difference too.`
+          : '';
+      } else note.hidden = true;
+    }
+    const origin = src === 'shivaa' ? 'Shivaa piece (written buyback)' : 'Old gold from another jeweller';
+    const msg = `Namaste Shivaa team ✦\n\nI'd like to confirm an exchange valuation.\n\nPiece: ${origin}\nMetal: ${label[cur]}\nWeight: ${wt} g\nIndicative value: ${fmt(total)}${ded ? '\nDeduction shown: ' + fmt(ded) + ' (' + Math.round(deductPct(cur) * 100) + '% melting/wastage)' : ''}\n\nPlease confirm.`;
     const wa1 = $('#bbWa'), wa2 = $('#bbWa2');
     if (wa1) wa1.onclick = () => waOpen(msg);
     if (wa2) wa2.onclick = () => waOpen(msg);
@@ -4015,6 +5058,10 @@ pages.buyback = async (view) => {
   $$('#bbPurity .bbp').forEach(b => b.addEventListener('click', () => {
     $$('#bbPurity .bbp').forEach(x => x.classList.remove('on'));
     b.classList.add('on'); cur = b.dataset.k; calc();
+  }));
+  $$('#bbSrc .bbp').forEach(b => b.addEventListener('click', () => {
+    $$('#bbSrc .bbp').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); src = b.dataset.src; calc();
   }));
   calc();
 };
@@ -4174,6 +5221,9 @@ pages.savings = async (view) => {
       <div class="mth-rail" id="svMonths"></div>
     </section>
 
+    <!-- ── v60 digital passbook ── -->
+    <section class="rv" id="svPassbookWrap"></section>
+
     <!-- ── rules ── -->
     <section class="rv">
       <div class="sec-head"><h2>The plain rules</h2><p>Read these before you enrol. There is nothing else.</p></div>
@@ -4231,7 +5281,19 @@ pages.savings = async (view) => {
     }).join('');
 
     const msg = `Namaste Shivaa team ✦\n\nI'd like to enrol in the Swarna Nidhi 11+1 gold savings plan.\n\nMonthly instalment: ${fmt(m)}\nI pay 11 months: ${fmt(paid)}\nShivaa adds: ${fmt(gift)}\nTotal buying power: ${fmt(total)}\n\nPlease set this up for me.`;
-    ['#svJoin', '#svWa'].forEach(s => { const e = $(s); if (e) e.onclick = () => waOpen(msg); });
+    const wa = $('#svWa'); if (wa) wa.onclick = () => waOpen(msg);
+    const join = $('#svJoin');
+    if (join) {
+      join.textContent = state.user ? '✦ Enrol & open my passbook' : 'Sign in to enrol ✦';
+      join.onclick = async () => {
+        if (!state.user) { openLogin(); return; }
+        try {
+          await api('/api/savings', { method: 'POST', body: JSON.stringify({ monthlyAmount: m }) });
+          toast('Welcome to Swarna Nidhi ✦ passbook opened'); pages.savings($('#view'));
+          document.getElementById('svPassbookWrap')?.scrollIntoView({ behavior: 'smooth' });
+        } catch (e) { toast(e.message, 'err'); }
+      };
+    }
   };
 
   const amt = $('#svAmt'), rng = $('#svRange');
@@ -4244,6 +5306,47 @@ pages.savings = async (view) => {
     calc();
   }));
   calc();
+
+  /* ---- v60 digital passbook ---- */
+  const loadPassbook = async () => {
+    const wrap = $('#svPassbookWrap');
+    if (!wrap) return;
+    if (!state.user) {
+      wrap.innerHTML = `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>Sign in to see your running plan, receipts and grams accrued.</p></div>
+        <div style="text-align:center"><button class="btn btn-gold btn-lg" onclick="Shivaa.openLogin()">Sign in</button></div>`;
+      return;
+    }
+    try {
+      const data = await api('/api/savings/mine');
+      const plans = data.plans || [];
+      if (!plans.length) {
+        wrap.innerHTML = `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>No active plan yet — set the monthly amount above and tap <b>Enrol</b>.</p></div>`;
+        return;
+      }
+      const p = plans[0];
+      const done = (p.installments || []).length;
+      const contributed = p.contributed || done * p.monthlyAmount;
+      wrap.innerHTML = `<div class="sec-head"><h2>My digital passbook</h2><p>Plan <b>${esc(p.id.toUpperCase())}</b> · ${fmt(p.monthlyAmount)} per month · every receipt is stored here.</p></div>
+        <div class="sv-book">
+          <div class="svb-top">
+            <div><small>Total contributed</small><b>${fmt(contributed)}</b></div>
+            <div><small>Instalments</small><b>${done}/11</b></div>
+            <div><small>Status</small><b class="svb-${p.status}">${esc(p.status)}</b></div>
+          </div>
+          <div class="svb-bar"><i style="width:${Math.min(100, (done / 11) * 100)}%"></i></div>
+          ${p.status === 'active' ? `<div class="svb-next">Next instalment: <b>${fmt(p.monthlyAmount)}</b> — pay at the counter or on WhatsApp; the receipt appears here immediately.</div>` : ''}
+          <div class="svb-list">
+            ${(p.installments || []).map((q, i) => `<div class="svb-row"><span>${i + 1}. ${new Date(q.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span><b>${fmt(q.amount)}</b><small>${q.rate22 ? '@' + fmt(q.rate22) + '/g' : ''} ${esc(q.mode || '')}</small></div>`).join('')}
+            ${done >= 11 ? `<div class="svb-row svb-gift"><span>12. ✦ Shivaa&rsquo;s gift instalment</span><b>${fmt(p.monthlyAmount)}</b></div>` : ''}
+          </div>
+          <div class="svb-actions">
+            <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print / PDF statement</button>
+            <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${waLink('Namaste Shivaa ✦ please share my Swarna Nidhi plan ' + p.id.toUpperCase() + ' statement.')}">WhatsApp statement</a>
+          </div>
+        </div>`;
+    } catch (e) { wrap.innerHTML = ''; }
+  };
+  loadPassbook();
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -4816,7 +5919,11 @@ function route() {
   closeModal();
   while (_scrollLock.n > 0) unlockScroll();
   clearInterval(window._carTimer);
+  if (window._co && page !== 'checkout') { clearInterval(window._co.lockTimer); window._co.lockTimer = null; }   // v57: stop the rate-lock clock away from checkout
   document.body.dataset.page = page;
+  if (page !== 'certificate') document.documentElement.classList.remove('cert-mode');
+  if (page !== 'quote') document.documentElement.classList.remove('quote-mode');
+  if (page !== 'product') resetProductMeta();   // v57: per-piece SEO data only lives on the PDP
   syncFinaleChrome();   // campaign links/banner switch off by date alone after Bhai Dooj (11 Nov 2026)
   if (routes[page]) {
     const res = routes[page](view, q, seg[1]);
@@ -5097,6 +6204,29 @@ async function boot(isRedraw) {
     api('/api/catalogs').catch(() => ({ catalogs: [] })),
   ]);
   state.user = me.user; state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
+  state.eventCoupons = me.events || [];
+  /* v57: birthday / anniversary coupon welcome — shown once per code */
+  (state.eventCoupons || []).forEach(c => {
+    try {
+      const seen = JSON.parse(sessionStorage.getItem('shv_ev_seen') || '[]');
+      if (!seen.includes(c.code)) {
+        seen.push(c.code); sessionStorage.setItem('shv_ev_seen', JSON.stringify(seen));
+        setTimeout(() => toast(`${c.kind === 'anniversary' ? '💛' : '🎂'} ${c.title} — code ${c.code} (${c.value}% off) is in your account & checkout`), 1400);
+      }
+    } catch (e) {}
+  });
+  /* v57 fix: Account taps while logged out must ALWAYS reopen the passport,
+     even when the URL hash is already #/account (a plain anchor would not
+     re-fire the route after the sheet was dismissed with the cross). */
+  if (!window._acctWired) {
+    window._acctWired = true;
+    document.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('#acctBtn, [data-login-open]');
+      if (!a || (state && state.user)) return;
+      e.preventDefault();
+      openLogin(a.dataset.loginOpen ? String(a.dataset.loginOpen) : 'account');
+    }, true);
+  }
   state.mcTable = mc.table || [];
   state.productsCache = prods.products || []; state.cacheAt = Date.now();
   state.compare = normalizeCompare(state.compare).filter(id => state.productsCache.some(p => p.id === id));
@@ -5145,7 +6275,10 @@ async function boot(isRedraw) {
   </div>`;
   // open/close behaviour (desktop: full-width panel under header; mobile: inside menu)
   const panel = $('#catMenu'), backdrop = $('#megaBackdrop'), catsBtn = $('#navCats');
-  const closeMega = () => { if (matchMedia('(max-width:680px)').matches) return; panel.hidden = true; backdrop.hidden = true; catsBtn?.setAttribute('aria-expanded', 'false'); document.documentElement.classList.remove('no-scroll'); };
+  /* v56: the mega panel never locks the page itself, so closing it must not
+     strip the scroll-lock owned by another sheet (this used to unlock the
+     background the moment the filter drawer's toggle was tapped). */
+  const closeMega = () => { if (matchMedia('(max-width:680px)').matches) return; if (panel.hidden) return; panel.hidden = true; backdrop.hidden = true; catsBtn?.setAttribute('aria-expanded', 'false'); };
   if (catsBtn && !catsBtn._wired) {
     catsBtn._wired = true;
     catsBtn.onclick = e => {

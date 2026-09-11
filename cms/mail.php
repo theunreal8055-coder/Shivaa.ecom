@@ -90,8 +90,8 @@ function shivaa_mail_send(string $to, string $code, string $purpose = 'verify', 
   if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
     return ['ok' => false, 'to' => '', 'from' => $cfg['from'], 'error' => 'No valid email address to send to'];
   }
-  if (!preg_match('/^\d{6}$/', $code)) {
-    return ['ok' => false, 'to' => shivaa_mail_mask($to), 'from' => $cfg['from'], 'error' => 'Refused: the code was not a 6-digit value'];
+  if (!preg_match('/^\d{4,6}$/', $code)) {
+    return ['ok' => false, 'to' => shivaa_mail_mask($to), 'from' => $cfg['from'], 'error' => 'Refused: the code must be 4-6 digits'];
   }
   // header-injection guard
   $clean = fn(string $s): string => trim(str_replace(["\r", "\n", "%0a", "%0d"], ' ', $s));

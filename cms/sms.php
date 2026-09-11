@@ -122,7 +122,7 @@ function shivaa_sms_send(string $phone10, string $code): array {
   if ($p === 'msg91') {
     if (empty($cfg['authkey']) || empty($cfg['template_id'])) { $err = 'msg91 config needs authkey + template_id'; }
     else {
-      $q = http_build_query(['template_id' => $cfg['template_id'], 'mobile' => $ph, 'otp' => $code, 'otp_length' => 6, 'otp_expiry' => 5]);
+      $q = http_build_query(['template_id' => $cfg['template_id'], 'mobile' => $ph, 'otp' => $code, 'otp_length' => strlen($code), 'otp_expiry' => 5]);
       [$status, $body, $err] = shivaa_sms_http('POST', 'https://control.msg91.com/api/v5/otp?' . $q, ['authkey: ' . $cfg['authkey'], 'Content-Type: application/json'], '{}');
     }
   } elseif ($p === 'fast2sms') {
