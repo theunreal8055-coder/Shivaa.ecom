@@ -12,6 +12,7 @@
   <url><loc>https://shivaa.in/#/savings</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://shivaa.in/#/b2b</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://shivaa.in/#/services</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://shivaa.in/#/care</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://shivaa.in/#/catalogues</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://shivaa.in/#/faq</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://shivaa.in/#/about</loc><changefreq>yearly</changefreq><priority>0.4</priority></url>

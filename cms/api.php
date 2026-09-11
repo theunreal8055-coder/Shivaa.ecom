@@ -85,6 +85,28 @@ function fetch_url(string $url, int $timeout = 4): ?array {
   $d = json_decode($raw, true);
   return is_array($d) ? $d : null;
 }
+/* v58 — JSON POST with optional HTTP Basic auth (payment gateways) */
+function http_post_json(string $url, array $payload, string $userPwd = '', int $timeout = 12): ?array {
+  if (!function_exists('curl_init')) return null;
+  $ch = curl_init($url);
+  $opts = [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT => $timeout,
+    CURLOPT_CONNECTTIMEOUT => $timeout,
+    CURLOPT_SSL_VERIFYPEER => true,
+    CURLOPT_POST => true,
+    CURLOPT_POSTFIELDS => json_encode($payload),
+    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
+  ];
+  if ($userPwd !== '') $opts[CURLOPT_USERPWD] = $userPwd;
+  curl_setopt_array($ch, $opts);
+  $raw = curl_exec($ch);
+  $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+  curl_close($ch);
+  $d = json_decode((string)$raw, true);
+  return ($code >= 200 && $code < 300 && is_array($d)) ? $d : null;
+}
 
 /* ───────── rate engine (identical math to Node) ───────── */
 const PURITY_22 = 0.9167, PURITY_18 = 0.75, OZ = 31.1034768;
@@ -404,7 +426,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -1055,14 +1077,23 @@ try {
     }
     $freeShip = (float)($db['settings']['freeShipAbove'] ?? 50000);
     $shipping = $subtotal >= $freeShip ? 0 : (int)($db['settings']['shippingFee'] ?? 250);
-    $total = max(0, $subtotal - $discount + $shipping);
-    $earned = (int)floor($total / 100);
+    /* v58 — prepaid incentive: online prepayment earns an instant discount
+       (default 2%); COD/WhatsApp orders pay the full total. */
     $pm = $b['paymentMethod'] ?? 'Online';
+    $prepaidPct = (float)($db['settings']['prepaidPct'] ?? 2);
+    $prepaid = 0;
+    if ($pm === 'Online' && $prepaidPct > 0) $prepaid = (int)round($subtotal * $prepaidPct / 100);
+    /* v58 — optional COD handling fee (percentage of subtotal); default 0 */
+    $codFeePct = (float)($db['settings']['codFeePct'] ?? 0);
+    $codFee = ($pm === 'COD' && $codFeePct > 0) ? (int)round($subtotal * $codFeePct / 100) : 0;
+    $total = max(0, $subtotal - $discount - $prepaid + $codFee + $shipping);
+    $earned = (int)floor($total / 100);
     $order = [
       'id' => 'SHV' . substr((string)time(), -8), 'userId' => $u['id'], 'userName' => $u['name'], 'items' => $items,
       'address' => $b['address'] ?? (object)[], 'paymentMethod' => $pm,
-      'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Paid'),
-      'subtotal' => $subtotal, 'discount' => $discount, 'pointsUsed' => $pointsUsed, 'coupon' => $coupon['code'] ?? null,
+      'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Awaiting payment'),
+      'subtotal' => $subtotal, 'discount' => $discount, 'prepaidDiscount' => $prepaid, 'codFee' => $codFee,
+      'pointsUsed' => $pointsUsed, 'coupon' => $coupon['code'] ?? null,
       'shipping' => $shipping, 'total' => $total, 'earnedPoints' => $earned,
       'rateSnapshot' => array_merge($R, ['stampedAt' => now_iso(), 'locked' => $lockedR !== null]),
       'status' => 'Placed', 'createdAt' => now_iso(), 'timeline' => [['s' => 'Placed', 't' => now_iso()]],
@@ -1091,13 +1122,83 @@ try {
     }
     if ($method === 'PUT') {
       need_admin($db);
-      $st = body_json()['status'] ?? null;
+      $patch = body_json();
       foreach ($db['orders'] as &$x) if ($x['id'] === $m[1]) {
+        $st = $patch['status'] ?? null;
         if ($st && $st !== $x['status']) { $x['status'] = $st; $x['timeline'][] = ['s' => $st, 't' => now_iso()]; }
+        if (!empty($patch['paymentStatus'])) $x['paymentStatus'] = substr((string)$patch['paymentStatus'], 0, 40);
         $o = $x;
       }
       db_save($DB_FILE, $db); jout(200, $o);
     }
+  }
+
+  /* ════════ v58 · payments scaffold (Razorpay-ready; demo without keys) ════════
+     No keys needed to operate: in demo mode checkout shows a simulated gateway
+     screen. Paste Razorpay key id + secret in admin Settings → Payments and the
+     same routes create real gateway orders and verify real signatures. */
+  if ($route === 'pay/config' && $method === 'GET') {
+    $s = $db['settings'];
+    $provider = (string)($s['payProvider'] ?? 'demo');
+    $rzpLive = $provider === 'razorpay' && !empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']);
+    jout(200, [
+      'mode' => $rzpLive ? 'razorpay' : 'demo',
+      'provider' => $provider,
+      'keyId' => (string)($s['rzpKeyId'] ?? ''),
+      'prepaidPct' => (float)($s['prepaidPct'] ?? 2),
+      'currency' => 'INR',
+    ]);
+  }
+  $find_order_owner = function (string $id) use ($db) {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Login required']);
+    foreach ($db['orders'] as $i => $o) if ($o['id'] === $id) {
+      if ($o['userId'] !== $u['id'] && ($u['role'] ?? '') !== 'admin') jout(403, ['error' => 'Not your order']);
+      return [$i, $o, $u];
+    }
+    jout(404, ['error' => 'Order not found']);
+  };
+  if ($route === 'pay/order' && $method === 'POST') {
+    $b = body_json();
+    [$i, $o, $u] = $find_order_owner((string)($b['orderId'] ?? ''));
+    $s = $db['settings'];
+    $amountPaise = (int)round(((float)$o['total']) * 100);
+    if (!empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']) && (($s['payProvider'] ?? '') === 'razorpay')) {
+      $rzp = http_post_json('https://api.razorpay.com/v1/orders', [
+        'amount' => $amountPaise, 'currency' => 'INR', 'receipt' => $o['id'],
+        'payment_capture' => 1, 'notes' => ['order' => $o['id'], 'customer' => $o['userName']],
+      ], $s['rzpKeyId'] . ':' . $s['rzpKeySecret']);
+      if (!$rzp || empty($rzp['id'])) jout(502, ['error' => 'Payment gateway could not be reached — choose WhatsApp/COD or retry.']);
+      $db['orders'][$i]['gatewayOrderId'] = $rzp['id'];
+      db_save($DB_FILE, $db);
+      jout(200, ['mode' => 'razorpay', 'keyId' => $s['rzpKeyId'], 'gatewayOrder' => $rzp, 'amount' => $amountPaise, 'orderId' => $o['id']]);
+    }
+    /* demo mode — a fake gateway order id; verify below always succeeds */
+    $ref = 'demo_' . bin2hex(random_bytes(8));
+    $db['orders'][$i]['gatewayOrderId'] = $ref;
+    db_save($DB_FILE, $db);
+    jout(200, ['mode' => 'demo', 'gatewayOrder' => ['id' => $ref, 'amount' => $amountPaise, 'currency' => 'INR'],
+               'amount' => $amountPaise, 'orderId' => $o['id']]);
+  }
+  if ($route === 'pay/verify' && $method === 'POST') {
+    $b = body_json();
+    [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
+    $s = $db['settings'];
+    $gOrderId = (string)($b['gatewayOrderId'] ?? ($o['gatewayOrderId'] ?? ''));
+    $payId = (string)($b['paymentId'] ?? '');
+    $sig = (string)($b['signature'] ?? '');
+    if (!empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']) && (($s['payProvider'] ?? '') === 'razorpay')) {
+      $expect = hash_hmac('sha256', $gOrderId . '|' . $payId, (string)$s['rzpKeySecret']);
+      if (!$payId || !hash_equals($expect, $sig)) jout(400, ['error' => 'Payment verification failed — no charge was completed.']);
+    } elseif (strpos($gOrderId, 'demo_') !== 0) {
+      jout(400, ['error' => 'Gateway not configured for live payments.']);
+    }
+    $db['orders'][$i]['paymentStatus'] = 'Paid';
+    $db['orders'][$i]['paidAt'] = now_iso();
+    $db['orders'][$i]['paymentRef'] = $payId ?: $gOrderId;
+    $db['orders'][$i]['gateway'] = ($s['payProvider'] ?? 'demo') === 'razorpay' && !empty($s['rzpKeyId']) ? 'razorpay' : 'demo';
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
   }
 
   /* ── catalogs (uploads) ── */
@@ -1458,6 +1559,34 @@ try {
     }
     jout(404, ['error' => 'Order not found']);
   }
+  if ($route === 'admin/gold-purchases' && $method === 'GET') {
+    need_admin($db);
+    jout(200, ['purchases' => array_reverse($db['goldPurchases'] ?? [])]);
+  }
+  if ($route === 'admin/gold-purchases' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $wt = (float)($b['weightG'] ?? 0);
+    if ($wt <= 0) jout(400, ['error' => 'Enter the weight in grams']);
+    $rate = (float)($b['ratePerG'] ?? 0);
+    if ($rate <= 0) jout(400, ['error' => 'Enter the rate per gram paid']);
+    $ded = (float)($b['deductions'] ?? 0);
+    $rec = [
+      'id' => uid('gp'), 'createdAt' => now_iso(),
+      'sellerName' => substr(trim((string)($b['sellerName'] ?? '')), 0, 120),
+      'sellerPhone' => substr(preg_replace('/\D/', '', (string)($b['sellerPhone'] ?? '')), -10),
+      'idDoc' => substr(trim((string)($b['idDoc'] ?? '')), 0, 60),
+      'weightG' => round($wt, 3), 'purity' => in_array($b['purity'] ?? '', ['24K','22K','18K','14K','925','other'], true) ? $b['purity'] : '22K',
+      'ratePerG' => round($rate, 2), 'deductions' => round($ded),
+      'amount' => (int)round($wt * $rate - $ded),
+      'settledAs' => in_array($b['settledAs'] ?? '', ['cash','bank','exchange','credit'], true) ? $b['settledAs'] : 'cash',
+      'note' => substr(trim((string)($b['note'] ?? '')), 0, 300),
+    ];
+    if ($rec['sellerName'] === '') jout(400, ['error' => 'Seller name required for the register']);
+    $db['goldPurchases'][] = $rec;
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'purchase' => $rec]);
+  }
   if ($route === 'admin/khata' && $method === 'GET') {
     need_admin($db);
     jout(200, ['partners' => $db['partners'], 'khata' => $db['khata'] ?? []]);
@@ -1508,7 +1637,15 @@ try {
   }
 
   /* ── settings / stats / users ── */
-  if ($route === 'settings' && $method === 'GET') jout(200, $db['settings']);
+  if ($route === 'settings' && $method === 'GET') {
+    $uSet = req_user($db);
+    if ($uSet && ($uSet['role'] ?? '') === 'admin') jout(200, $db['settings']);
+    // v58: public projection — never expose gateway secrets / API keys
+    $pubSettings = array_filter($db['settings'],
+      fn($k) => !preg_match('/secret|token|password|private|apiKey|gstKey/i', $k),
+      ARRAY_FILTER_USE_KEY);
+    jout(200, $pubSettings);
+  }
   if ($route === 'settings' && $method === 'PUT') {
     need_admin($db);
     foreach (body_json() as $k => $v) $db['settings'][$k] = $v;
