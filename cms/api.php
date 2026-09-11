@@ -965,20 +965,22 @@ function bullion_rows(array &$db): array {
     $gBandLo = $gLo; $gBandHi = $gHi; $sBandLo = $sLo; $sBandHi = $sHi;
     $gChgPG = null; $sChgPG = null;
   }
-  /* defaults reproduce the historic board exactly; owner calibration overrides
-     per row. [key, metal, factor(MCX), factor(spot), premDisp, spreadDisp,
-     side, label, purity, mode, editable] */
+  /* v70 — defaults calibrated to the live physical bullion screen (all
+     physical rows track the future 1:1 with a level offset; the reference
+     board's identical T-change per metal confirms factor ≈ 1 for every
+     physical form). Owner calibration in bullion.rtgs overrides per row.
+     [key, metal, factor(MCX), factor(spot), premDisp, spreadDisp, side, label, purity, mode, editable] */
   $gp10 = $gp * 10; $spKg = $sp * 1000;
   $defs = [
-    ['tdsGold9999',  'g', 1.000, 0.9999, $gp10, 20, 'both', 'TDS GOLD 9999 RTGS', '9999 · ' . date('d-m'), 'RTGS', false],
-    ['tdsGold995',   'g', 1.000, 0.9950, 0, 20, 'both', 'TDS GOLD 995 IND', '995 · ' . date('d-m'), 'RTGS', false],
-    ['silverChorsa', 's', 0.980, 0.9800, 1000, 1000, 'both', 'TDS SIL CHORSA', '98.00 · ' . date('d-m'), 'RTGS', false],
-    ['silverPeti',   's', 0.999, 0.9990, $spKg, 1000, 'both', 'TDS SIL PETI 999.9', '999.9 · ' . date('d-m'), 'RTGS', false],
+    ['tdsGold9999',  'g', 1.000, 0.9999, 3680, 810, 'both', 'TDS GOLD 9999 RTGS', '9999 · ' . date('d-m'), 'RTGS', false],
+    ['tdsGold995',   'g', 1.000, 0.9950, 3572, 810, 'both', 'TDS GOLD 995 IND', '995 · ' . date('d-m'), 'RTGS', false],
+    ['silverChorsa', 's', 1.000, 0.9800, -1021, 0, 'sell', 'TDS SIL CHORSA', '98.00 · ' . date('d-m'), 'RTGS', false],
+    ['silverPeti',   's', 1.000, 0.9990, 1510, 1790, 'both', 'TDS SIL PETI 999.9', '999.9 · ' . date('d-m'), 'RTGS', false],
     ['goldIndian',   'g', 0.995, 0.9950, 350, 200, 'both', 'REF – GOLD 99.50 INDIAN', '99.50 · ' . date('d/m'), 'CASH', true],
     ['goldRef9930',  'g', 0.993, 0.9930, 200, 200, 'both', 'REF – GOLD 99.30 LOCAL', '99.30 · ' . date('d/m'), 'CASH', true],
-    ['silverKachcha','s', 0.940, 0.9400, 0, 0, 'buy', 'REF – SIL KACHCHA DHEPA', 'Kachcha · ' . date('d-m'), 'RTGS', false],
-    ['silverPetiBulk','s', 0.980, 0.9800, (int)round($spKg * 0.6), 1000, 'both', 'REF – SIL CHORSA 98.00', '98.00 · ' . date('d-m'), 'RTGS', false],
-    ['silverGrn999', 's', 0.972, 0.9720, 4000, 4000, 'both', 'REF – SIL GRN 999', '999 · ' . date('d-m'), 'RTGS', false],
+    ['silverKachcha','s', 1.000, 0.9400, -8220, 0, 'buy', 'REF – SIL KACHCHA DHEPA', 'Kachcha · ' . date('d-m'), 'RTGS', false],
+    ['silverPetiBulk','s', 1.000, 0.9800, -8899, 4722, 'both', 'REF – SIL CHORSA 98.00', '98.00 · ' . date('d-m'), 'RTGS', false],
+    ['silverGrn999', 's', 1.000, 0.9720, -2473, 2559, 'both', 'REF – SIL GRN 999', '999 · ' . date('d-m'), 'RTGS', false],
   ];
   $rtgsOv = is_array($db['bullion']['rtgs'] ?? null) ? $db['bullion']['rtgs'] : [];
   $rtgsCfg = [];   // effective calibration, echoed for the admin editor (display units)
