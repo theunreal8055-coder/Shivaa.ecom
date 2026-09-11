@@ -1,0 +1,24 @@
+name: fetch-drive-assets
+on:
+  workflow_dispatch:
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -q gdown
+      - name: Download public Drive folder
+        run: |
+          mkdir -p inbound-drive
+          gdown --folder --remaining-ok "https://drive.google.com/drive/folders/1wH2SYhFr92mBXURiG2gH-g_zVDq_IeVc" -O inbound-drive 2>&1 | tail -20 || true
+          find inbound-drive -type f | sort
+      - name: Commit assets back
+        run: |
+          git config user.name "arena-agent"
+          git config user.email "agent@arena.ai"
+          git add -A inbound-drive || true
+          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
+          git commit -m "chore: inbound Drive assets for v57 category slider + bullion UI"
+          git push
