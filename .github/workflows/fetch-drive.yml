@@ -4,31 +4,34 @@ on:
     branches: ['arena/**']
     paths: ['.github/workflows/fetch-drive.yml']
   workflow_dispatch:
+permissions: { contents: write }
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.12' }
-      - run: pip install -q -U gdown
-      - name: Download each Drive file by ID
+      - name: Download each Drive file by ID (direct URL)
+        id: dl
+        continue-on-error: true
         run: |
           set -x
           mkdir -p inbound-drive
           : > inbound-drive/fetch-log.txt
-          get() { # name id ext
-            name="$1"; id="$2"; ext="$3"
+          magic_ok(){ f="$1"; kind="$2"; b=$(head -c4 "$f" | od -An -tx1 | tr -d ' \n');
+            case "$kind:$b" in jpg:ffd8ff*|png:89504e47*) return 0;; *) return 1;; esac; }
+          get(){ name="$1"; id="$2"; ext="$3"
             for try in 1 2 3; do
-              if gdown "$id" -O "inbound-drive/${name}.${ext}" >> inbound-drive/fetch-log.txt 2>&1; then
-                sz=$(stat -c%s "inbound-drive/${name}.${ext}" 2>/dev/null || echo 0)
-                if [ "$sz" -gt 5000 ]; then echo "OK $name ${sz}"; return 0; fi
-              fi
-              sleep 3
+              curl -sSL --retry 2 "https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t" -o "inbound-drive/${name}.${ext}" || true
+              sz=$(stat -c%s "inbound-drive/${name}.${ext}" 2>/dev/null || echo 0)
+              echo "$name try$try size=$sz magic=$(head -c4 inbound-drive/${name}.${ext} | od -An -tx1 | tr -d ' \n')" >> inbound-drive/fetch-log.txt
+              if [ "$sz" -gt 8000 ] && magic_ok "inbound-drive/${name}.${ext}" "$ext"; then echo "OK $name $sz"; return 0; fi
+              sleep 2
             done
-            echo "FAIL $name $id" | tee -a inbound-drive/fetch-log.txt
-            return 0
-          }
+            # gdown fallback
+            pip install -q -U gdown
+            gdown "$id" -O "inbound-drive/${name}.${ext}" >> inbound-drive/fetch-log.txt 2>&1 || true
+            echo "DONE-FALLBACK $name" >> inbound-drive/fetch-log.txt
+            return 0; }
           get bajubandh       1Vv3TNusuTRIrJOuelmmN4Mwz0MUOWP61 jpg
           get hathphool        1t6f60Xpraw7YClUi8sY06Igi7ofsZaQQ jpg
           get pendants         19rIAO_vzp_sQU3Hc1VSm9Iat_gR2X7Nt jpg
@@ -46,9 +49,9 @@ jobs:
           get rakhdi-set       1fT96J6CfdNJ1aFju1DRvOzQm1VTzN_oS jpg
           get mangalsutra      1QRppGfbECyBZVhtzRC013wZSh5bmmE_X jpg
           get bullion-ui       1quEo72Cj73RaAzUtqZnl_moOO-Y1t7Fj png
-          ls -la inbound-drive
-          file inbound-drive/* || true
+          ls -la inbound-drive | tee -a inbound-drive/fetch-log.txt
       - name: Commit assets back
+        if: always()
         run: |
           git config user.name "arena-agent"
           git config user.email "agent@arena.ai"
