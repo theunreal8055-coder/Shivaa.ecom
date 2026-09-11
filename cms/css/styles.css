@@ -5695,6 +5695,7 @@ html.quote-mode #view{padding-top:0 !important}
 .bd-stats small{font-size:8px;color:rgba(244,232,207,.55);letter-spacing:.3px;background:rgba(255,255,255,.05);border-radius:6px;padding:1px 5px}
 .bd-feedtime{display:block;text-align:center;font-size:7.5px;color:rgba(244,232,207,.4);margin-top:3px}
 .bd-live-tag{margin-left:auto;color:#39d98a;font-weight:800;font-size:9px;letter-spacing:.5px}
+.bd-spotsrc{display:block;text-align:center;font-size:7.5px;letter-spacing:.3px;color:rgba(244,232,207,.42);margin-top:3px;text-transform:uppercase}
 .bd-card-fut{min-height:148px}
 .live-dot.beat{animation:bdHeartbeat 1s ease-out}
 @keyframes bdHeartbeat{0%{box-shadow:0 0 0 0 rgba(57,217,138,.7)}100%{box-shadow:0 0 0 9px rgba(57,217,138,0)}}

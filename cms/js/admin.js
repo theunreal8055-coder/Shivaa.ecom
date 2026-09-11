@@ -788,6 +788,9 @@ async function renderAdmin(view, q) {
             <div class="fld"><label>Manual USD/INR fallback <small>(used only if every live FX source is blocked)</small></label><input name="manualUsdInr" type="number" step="0.01" min="60" max="120" value="${S.manualUsdInr || ''}" placeholder="e.g. 95.59"></div>
             <div class="fld"><label>Manual GOLD $/oz fallback <small>(international spot)</small></label><input name="manualXauUsd" type="number" step="0.01" min="100" max="20000" value="${S.manualXauUsd || ''}" placeholder="e.g. 4394"></div>
             <div class="fld"><label>Manual SILVER $/oz fallback</label><input name="manualXagUsd" type="number" step="0.001" min="1" max="1000" value="${S.manualXagUsd || ''}" placeholder="e.g. 65.06"></div>
+            <div class="fld"><label>Live spot fine-tune GOLD <small>(± $/oz, nudge to match your ref feed)</small></label><input name="spotXauAdj" type="number" step="0.1" value="${S.spotXauAdj || ''}" placeholder="0"></div>
+            <div class="fld"><label>Live spot fine-tune SILVER <small>(± $/oz)</small></label><input name="spotXagAdj" type="number" step="0.01" value="${S.spotXagAdj || ''}" placeholder="0"></div>
+            <div class="fld"><label>Live spot fine-tune USD/INR <small>(± ₹)</small></label><input name="spotInrAdj" type="number" step="0.01" value="${S.spotInrAdj || ''}" placeholder="0"></div>
             <div class="fld full" id="feedStatus" style="font-size:12.5px;color:var(--ink-3)">Feed status: checking…</div>
             <div class="fld full" id="netStatus" style="font-size:12.5px"></div>
             <div class="fld full" style="display:flex;gap:10px;flex-wrap:wrap">
@@ -1419,6 +1422,9 @@ window.ShivaaAdmin.saveFeed = async e => {
     manualUsdInr: parseFloat(fd.get('manualUsdInr')) || 0,
     manualXauUsd: parseFloat(fd.get('manualXauUsd')) || 0,
     manualXagUsd: parseFloat(fd.get('manualXagUsd')) || 0,
+    spotXauAdj: parseFloat(fd.get('spotXauAdj')) || 0,
+    spotXagAdj: parseFloat(fd.get('spotXagAdj')) || 0,
+    spotInrAdj: parseFloat(fd.get('spotInrAdj')) || 0,
   };
   // keep already-saved secrets when the owner saves without retyping them
   ['angelMpin', 'angelApiKey', 'angelTotpSecret'].forEach(k => { if (!body[k]) delete body[k]; });
@@ -2202,6 +2208,55 @@ window.ShivaaBullion = {
     <div class="bd-chart-lims"><span class="bd-hitxt">H ${this.num(max)}</span><span class="bd-lowtxt">L ${this.num(min)}</span><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(last - first))}</span></div>`;
   },
 
+  /* v74 — repaint the international spot cards from the ~6 s live spot tick */
+  applySpotTick(sp, B) {
+    if (this.section !== 'rates') return;
+    const flashTxt = (sel, txt, numeric) => {
+      const el = document.querySelector(sel);
+      if (!el || el.textContent === txt) return;
+      const oldN = parseFloat(String(el.textContent).replace(/[^0-9.\-]/g, ''));
+      const newN = parseFloat(String(txt).replace(/[^0-9.\-]/g, ''));
+      el.textContent = txt;
+      if (numeric && isFinite(oldN) && isFinite(newN) && newN !== oldN) {
+        el.classList.remove('bd-flash-up', 'bd-flash-down');
+        void el.offsetWidth;
+        el.classList.add(newN > oldN ? 'bd-flash-up' : 'bd-flash-down');
+        setTimeout(() => el.classList.remove('bd-flash-up', 'bd-flash-down'), 600);
+      }
+    };
+    const usdFmt = (v, d) => v ? '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
+    const inrFmt = v => v ? Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--';
+    const chip = p => (!p && p !== 0) ? '' : `<em class="bd-pctchip ${p >= 0 ? 'bd-hitxt' : 'bd-lowtxt'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p).toFixed(2)}%</em>`;
+    const leg = (tag, l, d, fmt) => {
+      if (!l || !(l.price > 0)) return;
+      flashTxt(`[data-spot="${tag}V"]`, fmt(l.price, d));
+      flashTxt(`[data-spot="${tag}Lo"]`, l.low > 0 ? fmt(l.low, d) : '--');
+      flashTxt(`[data-spot="${tag}Hi"]`, l.high > 0 ? fmt(l.high, d) : '--');
+      const pc = document.querySelector(`[data-spot="${tag}Pct"]`);
+      if (pc) pc.innerHTML = ' ' + (chip(l.pct));
+      const sr = document.querySelector(`[data-spot="${tag}Src"]`);
+      if (sr && l.src) sr.textContent = l.src + ' · live 6 s';
+    };
+    leg('g', sp.gold, 2, usdFmt);
+    leg('s', sp.silver, 3, usdFmt);
+    leg('i', sp.inr, 2, v => inrFmt(v));
+    if (sp.ratio) { const r = document.querySelector('[data-ratio]'); if (r) r.textContent = Number(sp.ratio).toFixed(1); }
+    const xp = document.querySelector('[data-xauperg]'), spg = document.querySelector('[data-xagperg]');
+    if (xp && sp.gold && sp.gold.price > 0) xp.textContent = '$' + (sp.gold.price / 31.1034768).toFixed(2);
+    if (spg && sp.silver && sp.silver.price > 0) spg.textContent = '$' + (sp.silver.price / 31.1034768).toFixed(2);
+    if (B) {
+      B.board.spot = Object.assign(B.board.spot || {}, {
+        goldUsd: sp.gold?.price || 0, silverUsd: sp.silver?.price || 0, inr: sp.inr?.price || 0,
+        goldUsdLow: sp.gold?.low || 0, goldUsdHigh: sp.gold?.high || 0,
+        silverUsdLow: sp.silver?.low || 0, silverUsdHigh: sp.silver?.high || 0,
+        inrLow: sp.inr?.low || 0, inrHigh: sp.inr?.high || 0,
+        goldUsdPct: sp.gold?.pct || 0, silverUsdPct: sp.silver?.pct || 0, inrPct: sp.inr?.pct || 0,
+        ratio: sp.ratio || 0,
+        goldSrc: sp.gold?.src || '', silverSrc: sp.silver?.src || '', inrSrc: sp.inr?.src || '',
+      });
+    }
+  },
+
   /* v72 — live per-second tick chart from the in-memory tick buffer */
   seedLiveBuf() {
     if (this.liveBuf || !this.B) return;
@@ -2296,13 +2351,16 @@ window.ShivaaBullion = {
     const fx = (v, d = 2) => v ? Number(v).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
     const pctChip = p => (p === 0 || p === null || p === undefined || p === '') ? ''
       : `<em class="bd-pctchip ${p >= 0 ? 'bd-hitxt' : 'bd-lowtxt'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p).toFixed(2)}%</em>`;
-    const usdCard = (title, val, lo, hi, d = 2, pct, kind) => `<div class="bd-card bd-card-spot">
-      <div class="bd-card-h">${title}${kind === 'mcx-implied' ? ' <small title="Derived from the MCX future because international feeds were unreachable">~impl</small>' : ''}</div>
-      <div class="bd-card-v">${usd(val, d)} ${pctChip(pct)}</div>
-      <div class="bd-lhline"><span class="bd-lowtxt">L: ${lo ? usd(lo, d) : '--'}</span> <i>|</i> <span class="bd-hitxt">H: ${hi ? usd(hi, d) : '--'}</span></div></div>`;
-    const fxCard = (title, val, lo, hi, pct) => `<div class="bd-card bd-card-spot">
-      <div class="bd-card-h">${title}</div><div class="bd-card-v">${fx(val)} ${pctChip(pct)}</div>
-      <div class="bd-lhline">${lo ? `<span class="bd-lowtxt">L: ${fx(lo)}</span> <i>|</i> <span class="bd-hitxt">H: ${fx(hi)}</span>` : '<span>ECB/RBI ref rate</span>'}</div></div>`;
+    const usdCard = (tag, title, val, lo, hi, d = 2, pct, src) => `<div class="bd-card bd-card-spot">
+      <div class="bd-card-h">${title}${/impl/i.test(src || '') ? ' <small title="Derived from the MCX future because international feeds were unreachable">~impl</small>' : ''}</div>
+      <div class="bd-card-v"><span data-spot="${tag}V">${usd(val, d)}</span><span data-spot="${tag}Pct"> ${pctChip(pct)}</span></div>
+      <div class="bd-lhline"><span class="bd-lowtxt">L: <span data-spot="${tag}Lo">${lo ? usd(lo, d) : '--'}</span></span> <i>|</i> <span class="bd-hitxt">H: <span data-spot="${tag}Hi">${hi ? usd(hi, d) : '--'}</span></span></div>
+      <small class="bd-spotsrc" data-spot="${tag}Src">${esc(src || '')}</small></div>`;
+    const fxCard = (tag, title, val, lo, hi, pct, src) => `<div class="bd-card bd-card-spot">
+      <div class="bd-card-h">${title}</div>
+      <div class="bd-card-v"><span data-spot="${tag}V">${fx(val)}</span><span data-spot="${tag}Pct"> ${pctChip(pct)}</span></div>
+      <div class="bd-lhline">${lo ? `<span class="bd-lowtxt">L: <span data-spot="${tag}Lo">${fx(lo)}</span></span> <i>|</i> <span class="bd-hitxt">H: <span data-spot="${tag}Hi">${fx(hi)}</span></span>` : '<span>live USD/INR</span>'}</div>
+      <small class="bd-spotsrc" data-spot="${tag}Src">${esc(src || '')}</small></div>`;
     const card3 = (title, val, lo, hi) => `<div class="bd-card">
       <div class="bd-card-h">${title}</div><div class="bd-card-v">${this.num(val)}</div>
       <div class="bd-lhline"><span>${this.num(lo)}</span> <i>|</i> <span>${this.num(hi)}</span></div></div>`;
@@ -2344,9 +2402,9 @@ window.ShivaaBullion = {
       </div>
       <div class="bd-rows">${rows}</div>
       <div class="bd-spots">
-        ${usdCard('GOLD SPOT <small>$/oz LBMA</small>', spot.goldUsd, spot.goldUsdLow, spot.goldUsdHigh, 2, spot.goldUsdPct, spot.kind)}
-        ${usdCard('SILVER SPOT <small>$/oz LBMA</small>', spot.silverUsd, spot.silverUsdLow, spot.silverUsdHigh, 3, spot.silverUsdPct, spot.kind)}
-        ${fxCard('INR SPOT <small>USD/INR</small>', spot.inr, spot.inrLow, spot.inrHigh, spot.inrPct)}
+        ${usdCard('g', 'GOLD SPOT <small>$/oz LBMA</small>', spot.goldUsd, spot.goldUsdLow, spot.goldUsdHigh, 2, spot.goldUsdPct, spot.goldSrc || spot.kind)}
+        ${usdCard('s', 'SILVER SPOT <small>$/oz LBMA</small>', spot.silverUsd, spot.silverUsdLow, spot.silverUsdHigh, 3, spot.silverUsdPct, spot.silverSrc || spot.kind)}
+        ${fxCard('i', 'INR SPOT <small>USD/INR</small>', spot.inr, spot.inrLow, spot.inrHigh, spot.inrPct, spot.inrSrc || spot.kind)}
       </div>
       <div class="bd-macrorow">
         <span class="bd-ratio">AU/AG RATIO <b data-ratio>${spot.ratio ? Number(spot.ratio).toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '--'}</b></span>
@@ -2760,9 +2818,11 @@ window.ShivaaBullion = {
         if (ft && q.feedTime) ft.textContent = this.istTime(+q.feedTime || q.feedTime);
       });
       if (this.chartSeries === 'liveG' || this.chartSeries === 'liveS') this.paintChart();
-      /* gold/silver ratio from the futures (oz-equiv; currency cancels out) */
+      /* v74 — live international spot cards (gold/silver $/oz, USD/INR, H/L, %) */
+      if (t.spot) this.applySpotTick(t.spot, B);
+      /* gold/silver ratio: prefer live spot, else futures-implied */
       const ratioEl = document.querySelector('[data-ratio]');
-      if (ratioEl && s.ltp > 0) ratioEl.textContent = ((g.ltp / 10) / (s.ltp / 1000)).toFixed(1);
+      if (ratioEl && s.ltp > 0 && !(t.spot && t.spot.ratio)) ratioEl.textContent = ((g.ltp / 10) / (s.ltp / 1000)).toFixed(1);
       const sumWrap = document.createElement('div');
       sumWrap.innerHTML = this.summaryHTML(B);
       const sum = document.querySelector('.bd-summary');

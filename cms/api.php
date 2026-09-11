@@ -952,6 +952,124 @@ function spot_resolve(array &$db, bool $force = false): array {
   return $out;
 }
 
+/* v74 — LIVE international spot, micro-cached ~6 s and shared by every viewer
+   (same flock pattern as the MCX tick). Yahoo near-live XAU/XAG/INR is the
+   primary feed (intraday price + day H/L + previous close), gold-api and
+   Stooq are parallel fallbacks; below that it walks the 10-minute resolver
+   cache, manual owner overrides, and finally the MCX-implied value. Owner
+   fine-tune offsets (spotXauAdj / spotXagAdj / spotInrAdj, in the quoted
+   unit) are added last so the board can match the reference feed exactly. */
+function spot_tick(array &$db, ?array $mcxTick = null): array {
+  $cacheFile = $GLOBALS['ROOT'] . '/data/.spot-tick.json';
+  $lockFile = $GLOBALS['ROOT'] . '/data/.spot-tick.lock';
+  $read = static function () use ($cacheFile): ?array {
+    if (!is_file($cacheFile)) return null;
+    $c = json_decode((string)@file_get_contents($cacheFile), true);
+    return (is_array($c) && !empty($c['at'])) ? $c : null;
+  };
+  if (is_file($cacheFile) && (microtime(true) - filemtime($cacheFile)) < 6.0 && ($c = $read())) {
+    $c['servedFrom'] = 'cache'; return $c;
+  }
+  $fp = @fopen($lockFile, 'c');
+  if ($fp) flock($fp, LOCK_EX);
+  try {
+    if (is_file($cacheFile) && (microtime(true) - filemtime($cacheFile)) < 6.0 && ($c = $read())) {
+      $c['servedFrom'] = 'cache'; return $c;
+    }
+    $urls = [
+      'yg' => 'https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?range=1d&interval=1m',
+      'yg2' => 'https://query2.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?range=1d&interval=1m',
+      'ys' => 'https://query1.finance.yahoo.com/v8/finance/chart/XAGUSD%3DX?range=1d&interval=1m',
+      'ys2' => 'https://query2.finance.yahoo.com/v8/finance/chart/XAGUSD%3DX?range=1d&interval=1m',
+      'yi' => 'https://query1.finance.yahoo.com/v8/finance/chart/INR%3DX?range=1d&interval=1m',
+      'yi2' => 'https://query2.finance.yahoo.com/v8/finance/chart/INR%3DX?range=1d&interval=1m',
+      'gg' => 'https://api.gold-api.com/price/XAU',
+      'gs' => 'https://api.gold-api.com/price/XAG',
+      'sg' => 'https://stooq.com/q/l/?s=xauusd&f=sd2t2ohlcv&h&e=csv',
+      'ss' => 'https://stooq.com/q/l/?s=xagusd&f=sd2t2ohlcv&h&e=csv',
+      'si' => 'https://stooq.com/q/l/?s=usdinr&f=sd2t2ohlcv&h&e=csv',
+    ];
+    $p = spot_probe_multi($urls, 3);
+    $blank = static fn() => ['price' => 0, 'high' => 0, 'low' => 0, 'prev' => 0, 'pct' => 0, 'src' => ''];
+    $legs = ['gold' => $blank(), 'silver' => $blank(), 'inr' => $blank()];
+    $fill = static function (string $leg, float $price, string $src, int $rank, float $hi = 0, float $lo = 0, float $prev = 0) use (&$legs) {
+      if ($price <= 0) return;
+      if ($legs[$leg]['price'] > 0 && ($legs[$leg]['rank'] ?? 0) >= $rank) return;
+      $legs[$leg] = ['price' => $price, 'high' => $hi ?: $price, 'low' => $lo ?: $price, 'prev' => $prev,
+        'pct' => $prev > 0 ? round(($price - $prev) / $prev * 100, 2) : 0, 'src' => $src, 'rank' => $rank];
+    };
+    foreach (['yg' => ['gold', 2], 'yg2' => ['gold', 1], 'ys' => ['silver', 2], 'ys2' => ['silver', 1],
+              'yi' => ['inr', 2], 'yi2' => ['inr', 1]] as $jk => [$leg, $rank]) {
+      $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
+      $m = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
+      if (is_array($m) && (float)($m['regularMarketPrice'] ?? 0) > 0) {
+        $price = (float)$m['regularMarketPrice']; $pv = (float)($m['chartPreviousClose'] ?? ($m['previousClose'] ?? 0));
+        $fill($leg, $price, 'Yahoo live', $rank,
+          (float)($m['regularMarketDayHigh'] ?? 0), (float)($m['regularMarketDayLow'] ?? 0), $pv);
+      }
+    }
+    foreach (['gg' => ['gold', 'gold-api live'], 'gs' => ['silver', 'gold-api live']] as $jk => [$leg, $name]) {
+      $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
+      if (is_array($j) && (float)($j['price'] ?? 0) > 0) $fill($leg, (float)$j['price'], $name, 3);
+    }
+    foreach (['sg' => 'gold', 'ss' => 'silver', 'si' => 'inr'] as $jk => $leg) {
+      foreach (preg_split('/\r?\n/', (string)($p[$jk]['body'] ?? '')) as $ln) {
+        $f = str_getcsv($ln);
+        if (is_array($f) && count($f) >= 7 && is_numeric($f[3]) && is_numeric($f[6])) {
+          $fill($leg, (float)$f[6], 'Stooq live', 4, (float)$f[4], (float)$f[5], 0);
+          break;
+        }
+      }
+    }
+    // walk fallbacks: 10-min resolver cache → manual override → MCX implied
+    $deep = is_array($db['rates']['spot'] ?? null) ? $db['rates']['spot'] : [];
+    $manual = ['gold' => (float)($db['settings']['manualXauUsd'] ?? 0),
+      'silver' => (float)($db['settings']['manualXagUsd'] ?? 0),
+      'inr' => (float)($db['settings']['manualUsdInr'] ?? 0)];
+    foreach (['gold', 'silver', 'inr'] as $leg) {
+      if ($legs[$leg]['price'] <= 0 && (float)($deep[$leg]['price'] ?? 0) > 0) {
+        $d = $deep[$leg];
+        $legs[$leg] = ['price' => (float)$d['price'], 'high' => (float)($d['high'] ?? 0) ?: (float)$d['price'],
+          'low' => (float)($d['low'] ?? 0) ?: (float)$d['price'], 'prev' => (float)($d['prev'] ?? 0),
+          'pct' => (float)($d['pct'] ?? 0), 'src' => $d['src'] ?? 'cache', 'rank' => 5];
+      }
+    }
+    $fx = $legs['inr']['price'] ?: $manual['inr'] ?: (float)($db['rates']['last']['usdInr'] ?? 95.5);
+    $gImp = (float)($db['settings']['spotImpliedGoldFactor'] ?? 1.1371);
+    $sImp = (float)($db['settings']['spotImpliedSilverFactor'] ?? 1.1838);
+    if ($legs['gold']['price'] <= 0 && $mcxTick && ($mcxTick['gold']['ltp'] ?? 0) > 0 && $fx > 0) {
+      $legs['gold'] = ['price' => round((float)$mcxTick['gold']['ltp'] / 10 * OZ / $fx / $gImp, 2),
+        'high' => 0, 'low' => 0, 'prev' => 0, 'pct' => 0, 'src' => 'MCX ~impl', 'rank' => 6];
+    }
+    if ($legs['silver']['price'] <= 0 && $mcxTick && ($mcxTick['silver']['ltp'] ?? 0) > 0 && $fx > 0) {
+      $legs['silver'] = ['price' => round((float)$mcxTick['silver']['ltp'] / 1000 * OZ / $fx / $sImp, 3),
+        'high' => 0, 'low' => 0, 'prev' => 0, 'pct' => 0, 'src' => 'MCX ~impl', 'rank' => 6];
+    }
+    foreach (['gold', 'silver', 'inr'] as $leg) {
+      if ($legs[$leg]['price'] <= 0 && $manual[$leg] > 0) {
+        $legs[$leg] = array_merge($legs[$leg], ['price' => $manual[$leg], 'src' => 'manual', 'rank' => 9]);
+      }
+    }
+    // owner fine-tune offsets (quoted units: $/oz gold, $/oz silver, ₹ per USD)
+    $adj = ['gold' => (float)($db['settings']['spotXauAdj'] ?? 0),
+      'silver' => (float)($db['settings']['spotXagAdj'] ?? 0),
+      'inr' => (float)($db['settings']['spotInrAdj'] ?? 0)];
+    foreach ($adj as $leg => $a) {
+      if ($legs[$leg]['price'] > 0 && $a != 0.0) {
+        $legs[$leg]['price'] = round($legs[$leg]['price'] + $a, $leg === 'silver' ? 3 : 2);
+        $legs[$leg]['src'] .= ' adj';
+      }
+    }
+    unset($legs['gold']['rank'], $legs['silver']['rank'], $legs['inr']['rank']);
+    $out = ['at' => now_iso(), 'gold' => $legs['gold'], 'silver' => $legs['silver'], 'inr' => $legs['inr'],
+      'ratio' => $legs['silver']['price'] > 0 ? round($legs['gold']['price'] / $legs['silver']['price'], 1) : 0];
+    @file_put_contents($cacheFile, json_encode($out), LOCK_EX);
+    return $out;
+  } finally {
+    if ($fp) { flock($fp, LOCK_UN); fclose($fp); }
+  }
+}
+
 /* ───────── rate engine (identical math to Node) ───────── */
 const PURITY_22 = 0.9167, PURITY_18 = 0.75, OZ = 31.1034768;
 const BASE_GOLD = 11850.0, BASE_SILVER = 168.0;
@@ -1370,6 +1488,8 @@ function bullion_rows(array &$db): array {
       'silverUsd' => $r2($xag, 3), 'silverUsdLow' => $r2($sUsdLo2, 3), 'silverUsdHigh' => $r2($sUsdHi2, 3), 'silverUsdPct' => (float)($r['usdSilverPct'] ?? 0),
       'inr' => $r2($fxNow), 'inrLow' => $r2($fxLo2), 'inrHigh' => $r2($fxHi2), 'inrPct' => (float)($r['usdInrPct'] ?? 0),
       'ratio' => $ratio, 'kind' => $spotKind,
+      'goldSrc' => (string)($r['spotSrc']['gold'] ?? ''), 'silverSrc' => (string)($r['spotSrc']['silver'] ?? ''),
+      'inrSrc' => (string)($r['spotSrc']['fx'] ?? ''),
       // legacy rupee keys (per 10 g / per kg), used by older tiles
       'gold' => $goldSpot10, 'silver' => $silSpotKg,
       'goldLow' => (int)round($gHi * 10 * 0.9985), 'goldHigh' => (int)round($gHi * 10 * 1.001),
@@ -2602,10 +2722,13 @@ try {
     if (!$newsFresh) db_save($DB_FILE, $db);   // news cache refreshed (~every 45 min)
     jout(200, $out);
   }
-  /* v69 — per-second tick (shared server micro-cache, one exchange call/sec) */
+  /* v69 — per-second tick (shared server micro-cache, one exchange call/sec).
+     v74 — same response also carries the ~6 s live international spot. */
   if ($route === 'bullion/tick' && $method === 'GET') {
     $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
-    jout(200, angel_tick($db));
+    $t = angel_tick($db);
+    $t['spot'] = spot_tick($db, $t);
+    jout(200, $t);
   }
   if ($route === 'bullion/cash' && $method === 'PUT') {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
