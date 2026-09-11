@@ -210,27 +210,93 @@ class Relay {
     if (!force && this.lastResolve && Date.now() - this.lastResolve < 6 * 3600 * 1000
         && this.pairs.gold?.token && this.pairs.silver?.token) return;
     const auth = { Authorization: 'Bearer ' + this.jwt, 'X-FeedToken': this.feed };
+    const searchMetal = async (metal) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const { json, code } = await this.http('/rest/secure/angelbroking/order/v1/searchScrip',
+            { exchange: 'MCX', searchscrip: metal }, auth);
+          const rows = Array.isArray(json?.data) ? json.data : null;
+          if (rows) {
+            const pick = pickContract(rows, metal);
+            if (pick) { log('searchScrip', metal, '->', pick.symbol, pick.token); return pick; }
+            log('searchScrip', metal, 'no candidate in', rows.length, 'rows; sample:',
+              rows.slice(0, 4).map(r => r.tradingsymbol || r.tradingSymbol || r.symbol).join(','));
+          } else {
+            log('searchScrip', metal, 'HTTP', code, json?.message || json?.errorcode || 'no data');
+          }
+        } catch (e) { log('searchScrip', metal, 'failed:', e.message); }
+        await new Promise(r => setTimeout(r, 2500));
+      }
+      return this.masterPick(metal);   // instrument-master fallback
+    };
     for (const metal of ['GOLD', 'SILVER']) {
       const key = metal === 'GOLD' ? 'gold' : 'silver';
-      if (this.cfg[key === 'gold' ? 'goldToken' : 'silverToken']) {
-        this.pairs[key] = { token: this.cfg[key === 'gold' ? 'goldToken' : 'silverToken'], symbol: 'manual ' + metal, exp: 0 };
-        continue;
-      }
-      try {
-        const { json } = await this.http('/rest/secure/angelbroking/order/v1/searchScrip',
-          { exchange: 'MCX', searchscrip: metal }, auth);
-        const pick = pickContract(json?.data, metal);
-        if (pick) this.pairs[key] = pick;
-      } catch (e) { log('searchScrip', metal, 'failed:', e.message); }
+      const manual = this.cfg[key === 'gold' ? 'goldToken' : 'silverToken'];
+      if (manual) { this.pairs[key] = { token: manual, symbol: 'manual ' + metal, exp: 0 }; continue; }
+      const pick = await searchMetal(metal);
+      if (pick) this.pairs[key] = pick;
+      // Angel enforces ~1 request/sec even on searchScrip
+      await new Promise(r => setTimeout(r, 1300));
     }
     this.lastResolve = Date.now();
     try { fs.writeFileSync(this.cfg.stateFile, JSON.stringify({ at: new Date().toISOString(), pairs: this.pairs }, null, 2)); } catch { /* ignore */ }
     log('contracts:', this.pairs.gold?.symbol, this.pairs.gold?.token, '/', this.pairs.silver?.symbol, this.pairs.silver?.token);
   }
 
+  /* Instrument-master fallback — same logic as api.php angel_tokens():
+     pull the public scrip master, pull MCX records, keep only the exact
+     near-month GOLDddMMMyyyy / SILVERddMMMyyyy futures. */
+  async masterPick(metal) {
+    const urls = [
+      'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json',
+      'https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json',
+    ];
+    const re = new RegExp(`\\{[^{}]*?"exch_seg"\\s*:\\s*"MCX"[^{}]*?\\}`, 'g');
+    const symRe = new RegExp(`^${metal}(\\d{1,2})([A-Z]{3})(\\d{2,4})$`);
+    for (const u of urls) {
+      try {
+        const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Shivaa/1.0)' } });
+        if (!r.ok) { log('master HTTP', r.status, u); continue; }
+        const raw = await r.text();
+        if (!raw.includes('MCX')) { log('master: no MCX data from', u); continue; }
+        let best = null;
+        for (const m of raw.matchAll(re)) {
+          let rec; try { rec = JSON.parse(m[0]); } catch { continue; }
+          const sym = String(rec.symbol || '').toUpperCase().trim();
+          const name = String(rec.name || '').toUpperCase().trim();
+          const inst = String(rec.instrumenttype || '').toUpperCase().trim();
+          if (!symRe.test(sym)) continue;
+          if (name !== metal) continue;
+          if (inst && inst !== 'FUTCOM') continue;
+          const exp = symExpiry(sym);
+          if (exp < Date.now() / 1000 - 3 * 86400) continue;
+          const tok = String(rec.token || '').trim();
+          if (!tok) continue;
+          if (!best || exp < best.exp) best = { exp, token: tok, symbol: sym };
+        }
+        if (best) { log('master', metal, '->', best.symbol, best.token); return best; }
+        log('master: no', metal, 'future found in scrip master');
+      } catch (e) { log('master fetch failed:', e.message); }
+    }
+    return null;
+  }
+
   async ensureSession() {
     if (!this.jwt || Date.now() - this.lastLogin > 25 * 60 * 1000) await this.login();
     await this.resolveTokens();
+  }
+
+  subscribeAll() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
+    const tokens = [];
+    for (const k of ['gold', 'silver']) if (this.pairs[k]?.token) tokens.push(this.pairs[k].token);
+    if (!tokens.length) { log('no tokens to subscribe yet'); return false; }
+    this.ws.send(JSON.stringify({
+      correlationID: 'shivaa-' + Date.now().toString(36).slice(-8),
+      action: 1, params: { mode: this.cfg.mode, tokenList: [{ exchangeType: 5, tokens }] },
+    }));
+    log('subscribed to', tokens.join(', '));
+    return true;
   }
 
   connect() {
@@ -245,12 +311,7 @@ class Relay {
     ws.on('open', () => {
       this.connected = true;
       log('smart-stream open');
-      const tokens = [];
-      for (const k of ['gold', 'silver']) if (this.pairs[k]?.token) tokens.push(this.pairs[k].token);
-      ws.send(JSON.stringify({
-        correlationID: 'shivaa-' + Date.now().toString(36).slice(-8),
-        action: 1, params: { mode: this.cfg.mode, tokenList: [{ exchangeType: 5, tokens }] },
-      }));
+      this.subscribeAll();
     });
     ws.on('message', (data) => {
       try {
@@ -349,16 +410,15 @@ class Relay {
     }
     setInterval(() => {
       if (this.connected) this.publish();                    // keeps stale flag fresh
+      const missingPair = !this.pairs.gold?.token || !this.pairs.silver?.token;
       // a leg that goes quiet during a session means contract rollover
       const quietLeg = ['gold', 'silver'].some(k => {
         const t = this.legs[k]?.lastTickAt; return t && Date.now() - t > 20 * 60 * 1000;
       });
-      if (quietLeg && Date.now() - (this.lastResolve || 0) > 30 * 60 * 1000) {
-        log('possible contract rollover — re-resolving tokens');
-        this.ensureSession().then(() => {
-          this.ws?.send(JSON.stringify({ action: 1, params: { mode: this.cfg.mode,
-            tokenList: [{ exchangeType: 5, tokens: [this.pairs.gold?.token, this.pairs.silver?.token].filter(Boolean) }] } }));
-        }).catch(() => {});
+      const missingDue = missingPair && Date.now() - (this.lastResolve || 0) > 30 * 1000;
+      if (missingDue || (quietLeg && Date.now() - (this.lastResolve || 0) > 30 * 60 * 1000)) {
+        log(missingDue ? 'tokens missing — re-resolving' : 'possible contract rollover — re-resolving tokens');
+        this.ensureSession().then(() => this.subscribeAll()).catch(() => {});
       }
     }, 5000);
   }
