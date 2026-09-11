@@ -526,7 +526,8 @@ function angel_ltp(array &$db): ?array {
       'bid' => $f($buy1['price'] ?? 0), 'ask' => $f($sell1['price'] ?? 0),
       'bidQty' => (int)($buy1['quantity'] ?? 0), 'askQty' => (int)($sell1['quantity'] ?? 0),
       'oi' => $f($it['oi'] ?? 0),
-      'feedTime' => (string)($it['exchangeFeedTime'] ?? ($it['feedTime'] ?? ($it['quoteTime'] ?? ''))),
+      'vol' => $f($it['tradeVolume'] ?? ($it['volumeTradedToday'] ?? ($it['volume'] ?? 0))),
+      'feedTime' => (string)($it['exchangeFeedTime'] ?? ($it['feedTime'] ?? ($it['quoteTime'] ?? ($it['lastTradeTime'] ?? '')))),
     ];
   };
   $rf = $fullQuote($sess, ['GOLD' => $goldC['token'], 'SILVER' => $silC['token']]);
@@ -540,8 +541,8 @@ function angel_ltp(array &$db): ?array {
     if ($tTok === (string)$goldC['token']) $fq['GOLD'] = $pack($it);
     if ($tTok === (string)$silC['token']) $fq['SILVER'] = $pack($it);
   }
-  $gq = $fq['GOLD'] + ['open' => 0, 'high' => 0, 'low' => 0, 'close' => 0, 'bid' => 0, 'ask' => 0, 'bidQty' => 0, 'askQty' => 0, 'oi' => 0, 'feedTime' => ''];
-  $sq = $fq['SILVER'] + ['open' => 0, 'high' => 0, 'low' => 0, 'close' => 0, 'bid' => 0, 'ask' => 0, 'bidQty' => 0, 'askQty' => 0, 'oi' => 0, 'feedTime' => ''];
+  $gq = $fq['GOLD'] + ['open' => 0, 'high' => 0, 'low' => 0, 'close' => 0, 'bid' => 0, 'ask' => 0, 'bidQty' => 0, 'askQty' => 0, 'oi' => 0, 'atp' => 0, 'vol' => 0, 'feedTime' => ''];
+  $sq = $fq['SILVER'] + ['open' => 0, 'high' => 0, 'low' => 0, 'close' => 0, 'bid' => 0, 'ask' => 0, 'bidQty' => 0, 'askQty' => 0, 'oi' => 0, 'atp' => 0, 'vol' => 0, 'feedTime' => ''];
   $chg = static fn(float $ltp, float $close) => $close > 0 ? round($ltp - $close, 2) : 0;
   $pct = static fn(float $ltp, float $close) => $close > 0 ? round(($ltp - $close) / $close * 100, 2) : 0;
 
@@ -560,11 +561,11 @@ function angel_ltp(array &$db): ?array {
     'goldSymbol' => $goldC['symbol'], 'silverSymbol' => $silC['symbol'],
     'goldOpen' => $gq['open'], 'goldHigh' => $gq['high'], 'goldLow' => $gq['low'], 'goldClose' => $gq['close'],
     'goldBid' => $gq['bid'], 'goldAsk' => $gq['ask'], 'goldBidQty' => $gq['bidQty'], 'goldAskQty' => $gq['askQty'],
-    'goldOi' => $gq['oi'], 'goldFeedTime' => $gq['feedTime'],
+    'goldOi' => $gq['oi'], 'goldAtp' => $gq['atp'], 'goldVol' => $gq['vol'], 'goldFeedTime' => $gq['feedTime'],
     'goldChg' => $chg($gold10g, $gq['close']), 'goldChgPct' => $pct($gold10g, $gq['close']),
     'silverOpen' => $sq['open'], 'silverHigh' => $sq['high'], 'silverLow' => $sq['low'], 'silverClose' => $sq['close'],
     'silverBid' => $sq['bid'], 'silverAsk' => $sq['ask'], 'silverBidQty' => $sq['bidQty'], 'silverAskQty' => $sq['askQty'],
-    'silverOi' => $sq['oi'], 'silverFeedTime' => $sq['feedTime'],
+    'silverOi' => $sq['oi'], 'silverAtp' => $sq['atp'], 'silverVol' => $sq['vol'], 'silverFeedTime' => $sq['feedTime'],
     'silverChg' => $chg($silverKg, $sq['close']), 'silverChgPct' => $pct($silverKg, $sq['close']),
     'fullQuote' => $rf['code'] === 200, 'autoTokens' => true];
 }
@@ -584,9 +585,13 @@ function angel_mcx_from_tick(array $db, int $maxAgeSec = 120): ?array {
   $map = static function (array $q, string $m, string $tok) {
     $out = [];
     foreach (['ltp' => 'Ltp', 'bid' => 'Bid', 'ask' => 'Ask', 'open' => 'Open', 'high' => 'High',
-              'low' => 'Low', 'close' => 'Close', 'chg' => 'Chg', 'chgPct' => 'ChgPct'] as $k => $cap) {
+              'low' => 'Low', 'close' => 'Close', 'chg' => 'Chg', 'chgPct' => 'ChgPct',
+              'oi' => 'Oi', 'atp' => 'Atp', 'vol' => 'Vol'] as $k => $cap) {
       $out[$m . $cap] = (float)($q[$k] ?? 0);
     }
+    $out[$m . 'BidQty'] = (int)($q['bidQty'] ?? 0);
+    $out[$m . 'AskQty'] = (int)($q['askQty'] ?? 0);
+    $out[$m . 'FeedTime'] = (string)($q['feedTime'] ?? '');
     $out[$m . 'Symbol'] = (string)($q['symbol'] ?? '');
     $out[$m . 'Token'] = $tok;
     return $out;
@@ -628,8 +633,11 @@ function angel_tick_from_mcx(array $m): array {
     return [
       'symbol' => (string)($m[$metal . 'Symbol'] ?? ''),
       'ltp' => $ltp, 'bid' => (float)($m[$metal . 'Bid'] ?? 0), 'ask' => (float)($m[$metal . 'Ask'] ?? 0),
+      'bidQty' => (int)($m[$metal . 'BidQty'] ?? 0), 'askQty' => (int)($m[$metal . 'AskQty'] ?? 0),
       'open' => (float)($m[$metal . 'Open'] ?? 0), 'high' => (float)($m[$metal . 'High'] ?? 0),
       'low' => (float)($m[$metal . 'Low'] ?? 0), 'close' => $close,
+      'oi' => (float)($m[$metal . 'Oi'] ?? 0), 'atp' => (float)($m[$metal . 'Atp'] ?? 0),
+      'vol' => (float)($m[$metal . 'Vol'] ?? 0), 'feedTime' => (string)($m[$metal . 'FeedTime'] ?? ''),
       'chg' => (float)($m[$metal . 'Chg'] ?? ($close > 0 ? round($ltp - $close, 2) : 0)),
       'chgPct' => (float)($m[$metal . 'ChgPct'] ?? ($close > 0 ? round(($ltp - $close) / $close * 100, 2) : 0)),
     ];
@@ -724,8 +732,12 @@ function angel_tick(array &$db): array {
       $ltp = $f($it['ltp'] ?? 0); $close = $f($it['close'] ?? 0);
       return ['symbol' => $symbol, 'ltp' => $ltp,
         'bid' => $f($b1['price'] ?? 0), 'ask' => $f($a1['price'] ?? 0),
+        'bidQty' => (int)($b1['quantity'] ?? 0), 'askQty' => (int)($a1['quantity'] ?? 0),
         'open' => $f($it['open'] ?? 0), 'high' => $f($it['high'] ?? 0),
         'low' => $f($it['low'] ?? 0), 'close' => $close,
+        'oi' => $f($it['oi'] ?? 0), 'atp' => $f($it['atp'] ?? ($it['averageTradePrice'] ?? 0)),
+        'vol' => $f($it['tradeVolume'] ?? ($it['volumeTradedToday'] ?? ($it['volume'] ?? 0))),
+        'feedTime' => (string)($it['exchangeFeedTime'] ?? ($it['feedTime'] ?? ($it['lastTradeTime'] ?? ''))),
         'chg' => $close > 0 ? round($ltp - $close, 2) : 0,
         'chgPct' => $close > 0 ? round(($ltp - $close) / $close * 100, 2) : 0];
     };
@@ -755,12 +767,13 @@ function angel_tick(array &$db): array {
   }
 }
 
-/* v68 — international spot OHLC (day high/low/previous close) from Yahoo's
-   public chart API, cached 10 min alongside the rate stamp. Best-effort:
-   any failure leaves the previous cache intact; never blocks a refresh. */
+/* v68/v72 — international spot OHLC with several independent providers so a
+   single host blocking the datacenter IP can never blank the dollar cards:
+   Yahoo (two mirrors), Stooq CSV; FX additionally falls back to Frankfurter
+   (ECB data). Cached 10 min. Any failure leaves the previous cache intact. */
 function intl_ohlc(array &$db): array {
   $c = $db['rates']['intlOhlc'] ?? null;
-  if (is_array($c) && (time() - (int)($c['fetchedAt'] ?? 0)) < 600) return $c;
+  if (is_array($c) && (time() - (int)($c['fetchedAt'] ?? 0)) < 600 && (time() - (int)($c['fetchedAt'] ?? 0)) >= 0) return $c;
   $ySyms = ['gold' => 'XAUUSD=X', 'silver' => 'XAGUSD=X', 'inr' => 'INR=X'];
   $sSyms = ['gold' => 'xauusd', 'silver' => 'xagusd', 'inr' => 'usdinr'];
   $stooq = static function (string $sym): array {
@@ -770,25 +783,36 @@ function intl_ohlc(array &$db): array {
       $f = str_getcsv($ln);
       if (is_array($f) && count($f) >= 7 && is_numeric($f[3]) && is_numeric($f[4])
           && is_numeric($f[5]) && is_numeric($f[6])) {
-        return ['price' => (float)$f[6], 'high' => (float)$f[4], 'low' => (float)$f[5], 'prev' => 0];
+        return ['price' => (float)$f[6], 'high' => (float)$f[4], 'low' => (float)$f[5], 'prev' => 0, 'src' => 'stooq'];
       }
     }
     return [];
   };
   $out = [];
   foreach ($ySyms as $k => $sym) {
-    $j = fetch_url('https://query1.finance.yahoo.com/v8/finance/chart/' . rawurlencode($sym) . '?range=1d&interval=5m', 5);
-    $meta = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
+    $meta = null;
+    foreach (['query1.finance.yahoo.com', 'query2.finance.yahoo.com'] as $yh) {
+      $j = fetch_url('https://' . $yh . '/v8/finance/chart/' . rawurlencode($sym) . '?range=1d&interval=5m', 5);
+      $meta = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
+      if (is_array($meta) && (float)($meta['regularMarketPrice'] ?? 0) > 0) break;
+    }
     if (is_array($meta) && (float)($meta['regularMarketPrice'] ?? 0) > 0) {
       $out[$k] = [
         'price' => (float)($meta['regularMarketPrice'] ?? 0),
         'high' => (float)($meta['regularMarketDayHigh'] ?? 0),
         'low' => (float)($meta['regularMarketDayLow'] ?? 0),
         'prev' => (float)($meta['chartPreviousClose'] ?? ($meta['previousClose'] ?? 0)),
-      ];
+        'src' => 'yahoo'];
     } else {
       $sq = $stooq($sSyms[$k]);   // CSV fallback (open/high/low/close)
       if ($sq) $out[$k] = $sq;
+    }
+  }
+  // FX extra mirror: ECB via Frankfurter (very datacenter-friendly)
+  if (empty($out['inr']['price'])) {
+    $ff = fetch_url('https://api.frankfurter.app/latest?from=USD&to=INR', 6);
+    if (is_array($ff) && (float)($ff['rates']['INR'] ?? 0) > 0) {
+      $out['inr'] = ['price' => (float)$ff['rates']['INR'], 'high' => 0, 'low' => 0, 'prev' => 0, 'src' => 'ecb'];
     }
   }
   if ($out) { $out['fetchedAt'] = time(); $db['rates']['intlOhlc'] = $out; return $out; }
@@ -807,34 +831,38 @@ function rates_refresh(array &$db): array {
   $gold = fetch_url('https://api.gold-api.com/price/XAU');
   $silv = fetch_url('https://api.gold-api.com/price/XAG');
   $fx = fetch_url('https://open.er-api.com/v6/latest/USD');
-  $ohlc = intl_ohlc($db);   // v68 — day H/L for the dollar spot cards
+  $ohlc = intl_ohlc($db);   // v68+ — day H/L + Yahoo/Stooq/ECB mirror sources
   $usdGold = (float)($last['usdGold'] ?? 0); $usdSilver = (float)($last['usdSilver'] ?? 0);
-  $inr = 0.0;
-  if ($gold && isset($gold['price']) && $silv && isset($silv['price']) && $fx && isset($fx['rates']['INR'])) {
-    $inr = (float)$fx['rates']['INR'];
-    $usdGold = (float)$gold['price']; $usdSilver = (float)$silv['price'];
-    $gold24 = ($usdGold * $inr) / OZ;
-    $silver = ($usdSilver * $inr) / OZ;
-    $source = 'live';
-  } elseif (!empty($ohlc['gold']['price']) && !empty($ohlc['silver']['price']) && !empty($ohlc['inr']['price'])) {
-    // v68 — Yahoo spot fallback when gold-api / the FX API is rate-limited
-    $inr = (float)$ohlc['inr']['price'];
-    $usdGold = (float)$ohlc['gold']['price']; $usdSilver = (float)$ohlc['silver']['price'];
-    $gold24 = ($usdGold * $inr) / OZ;
-    $silver = ($usdSilver * $inr) / OZ;
-    $source = 'live';
-  } else {
+  // v72 — resolve each leg independently across providers (one blocked host
+  // must never blank all three dollar cards)
+  $gUsd = (float)($gold['price'] ?? 0); if ($gUsd <= 0) $gUsd = (float)($ohlc['gold']['price'] ?? 0);
+  $sUsd = (float)($silv['price'] ?? 0); if ($sUsd <= 0) $sUsd = (float)($ohlc['silver']['price'] ?? 0);
+  $inr = (float)($fx['rates']['INR'] ?? 0); if ($inr <= 0) $inr = (float)($ohlc['inr']['price'] ?? 0);
+  $spotSrc = [
+    'gold' => $gold['price'] ?? null ? 'gold-api' : ($ohlc['gold']['src'] ?? ''),
+    'silver' => $silv['price'] ?? null ? 'gold-api' : ($ohlc['silver']['src'] ?? ''),
+    'fx' => $fx['rates']['INR'] ?? null ? 'er-api' : ($ohlc['inr']['src'] ?? ''),
+  ];
+  $liveLegs = 0;
+  if ($gUsd > 0 && $inr > 0) { $gold24 = ($gUsd * $inr) / OZ; $liveLegs++; $usdGold = $gUsd; }
+  if ($sUsd > 0 && $inr > 0) { $silver = ($sUsd * $inr) / OZ; $liveLegs++; $usdSilver = $sUsd; }
+  if ($liveLegs < 2) {
     $gold24 = clampn($gold24 * (1 + (mt_rand(-35, 35) / 10000)), BASE_GOLD * 0.96, BASE_GOLD * 1.04);
     $silver = clampn($silver * (1 + (mt_rand(-50, 50) / 10000)), BASE_SILVER * 0.96, BASE_SILVER * 1.04);
-    // keep the last real USD values rather than inventing them from a simulated tick
-    if ($usdGold <= 0) {
-      $inrNow = (float)($db['settings']['usdInr'] ?? 85.4);
-      $usdGold = round($gold24 * OZ / $inrNow, 2);
-      $usdSilver = round($silver * OZ / $inrNow, 3);
-    }
-    $source = ($last['source'] ?? '') === 'live' ? 'cached+sim' : 'simulated';
+    $source = (($last['source'] ?? '') === 'live' || ($last['source'] ?? '') === 'live-mcx') ? 'cached+sim' : 'simulated';
+  } else {
+    $source = 'live';
   }
   if ($inr <= 0) $inr = (float)($last['usdInr'] ?? ($db['settings']['usdInr'] ?? 85.4));
+  // day bands / previous closes for the dollar spot strip
+  $band = static function (?array $o, float $price): array {
+    $hi = (float)($o['high'] ?? 0); $lo = (float)($o['low'] ?? 0); $pv = (float)($o['prev'] ?? 0);
+    if ($hi <= 0) $hi = $price; if ($lo <= 0) $lo = $price;
+    return [$hi, $lo, $pv, $pv > 0 ? round(($price - $pv) / $pv * 100, 2) : 0.0];
+  };
+  [$gUsdHi, $gUsdLo, $gUsdPv, $gUsdPct] = $band($ohlc['gold'] ?? null, $usdGold);
+  [$sUsdHi, $sUsdLo, $sUsdPv, $sUsdPct] = $band($ohlc['silver'] ?? null, $usdSilver);
+  [$fxHi, $fxLo, $fxPv, $fxPct] = $band($ohlc['inr'] ?? null, $inr);
   /* v61 — official MCX futures (Angel One SmartAPI) override when configured.
      MCX GOLD LTP is quoted per 10 g of 995-fine; SILVER per kg. Fully
      automatic TOTP login; failures fall back to the international feed above. */
@@ -861,6 +889,10 @@ function rates_refresh(array &$db): array {
     'usdGold' => round($usdGold, 2),
     'usdSilver' => round($usdSilver, 3),
     'usdInr' => round((float)($inr ?? $db['settings']['usdInr'] ?? 85.4), 2),
+    'usdGoldHigh' => round($gUsdHi, 2), 'usdGoldLow' => round($gUsdLo, 2), 'usdGoldPct' => $gUsdPct,
+    'usdSilverHigh' => round($sUsdHi, 3), 'usdSilverLow' => round($sUsdLo, 3), 'usdSilverPct' => $sUsdPct,
+    'usdInrHigh' => round($fxHi, 3), 'usdInrLow' => round($fxLo, 3), 'usdInrPct' => $fxPct,
+    'spotSrc' => $spotSrc,
     'source' => $source,
   ];
   $db['rates']['last'] = $stamp;
@@ -1139,6 +1171,20 @@ function bullion_rows(array &$db): array {
   $fxNow = (float)($r['usdInr'] ?? ($db['settings']['usdInr'] ?? 85.4));
   $oh = is_array($db['rates']['intlOhlc'] ?? null) ? $db['rates']['intlOhlc'] : [];
   $r2 = static fn($x, $d = 2) => $x > 0 ? round((float)$x, $d) : 0;
+  // v72 — if every dollar provider failed but the MCX future is live, derive
+  // the international spot from the future price (editable import factors),
+  // so the dollar strip can never be blank while the exchange is open.
+  $spotKind = 'live';
+  if ($xau <= 0 && $mcxOn) {
+    $gImp = (float)($db['settings']['spotImpliedGoldFactor'] ?? 1.1371);
+    $xau = (float)$mcx['goldLtp'] / 10 * OZ / max(1, $fxNow) / $gImp;
+    $spotKind = 'mcx-implied';
+  }
+  if ($xag <= 0 && $mcxOn) {
+    $sImp = (float)($db['settings']['spotImpliedSilverFactor'] ?? 1.1838);
+    $xag = (float)$mcx['silverLtp'] / 1000 * OZ / max(1, $fxNow) / $sImp;
+    $spotKind = 'mcx-implied';
+  }
   if ($mcxOn) {
     $gLtp = (int)$mcx['goldLtp']; $sLtp = (int)$mcx['silverLtp'];
     $future = [
@@ -1153,6 +1199,10 @@ function bullion_rows(array &$db): array {
       'silverOpen' => (int)round($mcx['silverOpen'] ?? 0), 'silverClose' => (int)round($mcx['silverClose'] ?? 0),
       'goldChg' => (float)($mcx['goldChg'] ?? 0), 'goldChgPct' => (float)($mcx['goldChgPct'] ?? 0),
       'silverChg' => (float)($mcx['silverChg'] ?? 0), 'silverChgPct' => (float)($mcx['silverChgPct'] ?? 0),
+      'goldOi' => (float)($mcx['goldOi'] ?? 0), 'silverOi' => (float)($mcx['silverOi'] ?? 0),
+      'goldAtp' => (float)($mcx['goldAtp'] ?? 0), 'silverAtp' => (float)($mcx['silverAtp'] ?? 0),
+      'goldVol' => (float)($mcx['goldVol'] ?? 0), 'silverVol' => (float)($mcx['silverVol'] ?? 0),
+      'goldFeedTime' => (string)($mcx['goldFeedTime'] ?? ''), 'silverFeedTime' => (string)($mcx['silverFeedTime'] ?? ''),
     ];
   } else {
     $future = [
@@ -1165,6 +1215,8 @@ function bullion_rows(array &$db): array {
       'silverLow' => (int)round($sLo * 1000), 'silverHigh' => (int)round($sHi * 1000 * (1 + $sPrem)),
       'goldOpen' => 0, 'goldClose' => 0, 'silverOpen' => 0, 'silverClose' => 0,
       'goldChg' => 0, 'goldChgPct' => 0, 'silverChg' => 0, 'silverChgPct' => 0,
+      'goldOi' => 0, 'silverOi' => 0, 'goldAtp' => 0, 'silverAtp' => 0,
+      'goldVol' => 0, 'silverVol' => 0, 'goldFeedTime' => '', 'silverFeedTime' => '',
     ];
   }
   // landed customs values: import parity (dollar spot × FX × troy-oz conversion)
@@ -1173,11 +1225,19 @@ function bullion_rows(array &$db): array {
   $sDutyMult = (float)($db['settings']['bullionSilverDutyMult'] ?? 1.62);
   $gParity100 = $xau * $fxNow / OZ * 100;       // ₹ per 100 g gold
   $sParityKg = $xag * $fxNow / OZ * 1000;      // ₹ per kg silver
+  $gUsdHi2 = (float)($r['usdGoldHigh'] ?? 0) ?: (float)($oh['gold']['high'] ?? 0);
+  $gUsdLo2 = (float)($r['usdGoldLow'] ?? 0) ?: (float)($oh['gold']['low'] ?? 0);
+  $sUsdHi2 = (float)($r['usdSilverHigh'] ?? 0) ?: (float)($oh['silver']['high'] ?? 0);
+  $sUsdLo2 = (float)($r['usdSilverLow'] ?? 0) ?: (float)($oh['silver']['low'] ?? 0);
+  $fxHi2 = (float)($r['usdInrHigh'] ?? 0) ?: (float)($oh['inr']['high'] ?? 0);
+  $fxLo2 = (float)($r['usdInrLow'] ?? 0) ?: (float)($oh['inr']['low'] ?? 0);
+  $ratio = $xag > 0 ? round($xau / $xag, 1) : 0;
   $board = [
     'spot' => [
-      'goldUsd' => $r2($xau), 'goldUsdLow' => $r2($oh['gold']['low'] ?? 0), 'goldUsdHigh' => $r2($oh['gold']['high'] ?? 0),
-      'silverUsd' => $r2($xag, 3), 'silverUsdLow' => $r2($oh['silver']['low'] ?? 0, 3), 'silverUsdHigh' => $r2($oh['silver']['high'] ?? 0, 3),
-      'inr' => $r2($fxNow), 'inrLow' => $r2($oh['inr']['low'] ?? 0), 'inrHigh' => $r2($oh['inr']['high'] ?? 0),
+      'goldUsd' => $r2($xau), 'goldUsdLow' => $r2($gUsdLo2), 'goldUsdHigh' => $r2($gUsdHi2), 'goldUsdPct' => (float)($r['usdGoldPct'] ?? 0),
+      'silverUsd' => $r2($xag, 3), 'silverUsdLow' => $r2($sUsdLo2, 3), 'silverUsdHigh' => $r2($sUsdHi2, 3), 'silverUsdPct' => (float)($r['usdSilverPct'] ?? 0),
+      'inr' => $r2($fxNow), 'inrLow' => $r2($fxLo2), 'inrHigh' => $r2($fxHi2), 'inrPct' => (float)($r['usdInrPct'] ?? 0),
+      'ratio' => $ratio, 'kind' => $spotKind,
       // legacy rupee keys (per 10 g / per kg), used by older tiles
       'gold' => $goldSpot10, 'silver' => $silSpotKg,
       'goldLow' => (int)round($gHi * 10 * 0.9985), 'goldHigh' => (int)round($gHi * 10 * 1.001),
