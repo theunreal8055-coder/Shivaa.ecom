@@ -5684,5 +5684,9 @@ html.quote-mode #view{padding-top:0 !important}
 .bd-feed{display:inline-block;margin-top:3px;font-size:10px;font-weight:700;letter-spacing:.4px;color:#c99a35;background:rgba(201,154,53,.1);border:1px solid rgba(201,154,53,.35);border-radius:20px;padding:1px 8px;text-transform:uppercase}
 .bd-feed-mcx{color:#0f8a5f;background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.45);animation:bdLivePulse 2s infinite}
 .bd-feed-mcx.bd-feed-closed{color:#b7791f;background:rgba(237,189,90,.12);border-color:rgba(237,189,90,.45);animation:none}
+.bd-tickstate{display:block;font-size:8.5px;letter-spacing:.3px;color:#39d98a;margin-top:2px;font-weight:700;white-space:nowrap}
+.bd-tickstate.bad{color:#ff8080}
+.live-dot.beat{animation:bdHeartbeat 1s ease-out}
+@keyframes bdHeartbeat{0%{box-shadow:0 0 0 0 rgba(57,217,138,.7)}100%{box-shadow:0 0 0 9px rgba(57,217,138,0)}}
 @keyframes bdLivePulse{0%,100%{opacity:1}50%{opacity:.65}}
 #feedForm .fld.full{grid-column:1/-1}

@@ -2116,7 +2116,7 @@ window.ShivaaBullion = {
       <div class="bd-topbar">
         <img src="/images/logo.png" alt="Shivaa">
         <div class="bd-title"><b>SHIVAA BULLION DESK</b><small>TDS · refined · spot · MCX &mdash; for approved jewellers</small>${feedBadge}</div>
-        <span class="bd-live"><span class="live-dot"></span><span data-clock-state>LIVE</span><br><b data-clock>${esc(B.date || '')} ${bd.time || ''}</b></span>
+        <span class="bd-live"><span class="live-dot" data-heart></span><span data-clock-state>LIVE</span><br><b data-clock>${esc(B.date || '')} ${bd.time || ''}</b><small data-tickstate class="bd-tickstate">connecting…</small></span>
       </div>
       <div class="bd-marquee"><div class="bd-marq-in">★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} </div></div>
       <div id="bdSection" class="bd-section"></div>
@@ -2528,24 +2528,42 @@ window.ShivaaBullion = {
     const loop = async () => {
       const board = document.getElementById('bullionBoard');
       if (!board || !board.querySelector('.bd-tabs') || !this.B) { this._tickTimer = null; return; }
+      let delay = 1000, failed = false;
       if (!document.hidden) {
-        try { await this.tick(); }
-        catch (e) { this.tickFails = (this.tickFails || 0) + 1; }
+        try { delay = await this.tick(); }
+        catch (e) {
+          this.tickFails = (this.tickFails || 0) + 1; failed = true;
+          this.setTickState('tick error: ' + (e.message || 'network'), false);
+        }
       }
-      const open = this.tickOpen !== false;
-      let delay = open ? 1000 : 10000;
-      if ((this.tickFails || 0) > 2) delay = 8000;
+      if (failed || (this.tickFails || 0) > 2) delay = Math.max(+delay || 0, 8000);
       this._tickTimer = setTimeout(loop, delay);
     };
     this._tickTimer = setTimeout(loop, 600);
   },
   stopTick() { if (this._tickTimer) { clearTimeout(this._tickTimer); this._tickTimer = null; } },
+  setTickState(txt, ok) {
+    const el = document.querySelector('[data-tickstate]');
+    if (!el) return;
+    el.textContent = txt;
+    el.classList.toggle('bad', !ok);
+    const heart = document.querySelector('[data-heart]');
+    if (heart) heart.classList.toggle('beat', !!ok);
+  },
   async tick() {
-    const t = await window.Shivaa.api('/api/bullion/tick');
-    if (!t || !t.gold || !t.silver || !(t.gold.ltp > 0)) { this.tickFails = (this.tickFails || 0) + 1; return; }
+    const t = await window.Shivaa.api('/api/bullion/tick?_=' + Date.now());
+    if (!t || !t.gold || !t.silver || !(t.gold.ltp > 0)) {
+      this.tickFails = (this.tickFails || 0) + 1;
+      this.setTickState(t && t.error ? 'feed: ' + t.error : 'waiting for quote…', false);
+      return (t && t.delayMs) || 8000;
+    }
     this.tickFails = 0;
     this.tickOpen = !!t.open && !t.stale;
     this.applyTick(t);
+    const clock = this.istTime(t.at);
+    if (t.stale) { this.setTickState((t.error ? 'feed: ' + t.error : 'market closed') + ' · ' + clock, false); return t.delayMs || 8000; }
+    this.setTickState((this.tickOpen ? 'live 1 s' : 'market closed · 10 s') + ' · ' + clock, true);
+    return t.delayMs || (this.tickOpen ? 1000 : 10000);
   },
   applyTick(t) {
     const B = this.B; if (!B) return;

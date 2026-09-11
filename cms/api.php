@@ -569,6 +569,40 @@ function angel_ltp(array &$db): ?array {
     'fullQuote' => $rf['code'] === 200, 'autoTokens' => true];
 }
 
+/* v71 — build the rates_refresh mcx pack from a recent tick cache, so the
+   10-minute refresh never repeats the Search-Scrip probe pipeline (which
+   would collide with the 1 rps tick stream). Returns null when no fresh
+   tick exists (caller then falls back to the full angel_ltp() pipeline). */
+function angel_mcx_from_tick(array $db, int $maxAgeSec = 120): ?array {
+  $cacheFile = $GLOBALS['ROOT'] . '/data/.angel-tick.json';
+  if (!is_file($cacheFile)) return null;
+  $t = json_decode((string)@file_get_contents($cacheFile), true);
+  if (!is_array($t) || !empty($t['stale']) || (time() - filemtime($cacheFile)) > $maxAgeSec) return null;
+  $g = $t['gold'] ?? null; $s = $t['silver'] ?? null;
+  if (!is_array($g) || !is_array($s) || ($g['ltp'] ?? 0) <= 0 || ($s['ltp'] ?? 0) <= 0) return null;
+  $pair = angel_locked_pair($db);
+  $map = static function (array $q, string $m, string $tok) {
+    $out = [];
+    foreach (['ltp' => 'Ltp', 'bid' => 'Bid', 'ask' => 'Ask', 'open' => 'Open', 'high' => 'High',
+              'low' => 'Low', 'close' => 'Close', 'chg' => 'Chg', 'chgPct' => 'ChgPct'] as $k => $cap) {
+      $out[$m . $cap] = (float)($q[$k] ?? 0);
+    }
+    $out[$m . 'Symbol'] = (string)($q['symbol'] ?? '');
+    $out[$m . 'Token'] = $tok;
+    return $out;
+  };
+  $out = array_merge(
+    $map($g, 'gold', $pair['g'] ?? ''),
+    $map($s, 'silver', $pair['s'] ?? '')
+  );
+  $out['goldPerG'] = round($out['goldLtp'] / 10, 2);
+  $out['silverPerG'] = round($out['silverLtp'] / 1000, 3);
+  $out['at'] = (string)($t['at'] ?? now_iso());
+  $out['autoTokens'] = true;
+  $out['fullQuote'] = true;
+  return $out;
+}
+
 /* v69 — per-second bullion tick. All viewers share ONE micro-cached exchange
    quote (flock-coalesced) so the board feels real-time while the account
    stays well inside Angel's quote rate limit (1 rps post-2024 change).
@@ -606,17 +640,27 @@ function angel_tick_from_mcx(array $m): array {
     'gold' => $g, 'silver' => $s, 'stale' => false];
 }
 function angel_tick(array &$db): array {
-  global $DB_FILE;
   $cacheFile = $GLOBALS['ROOT'] . '/data/.angel-tick.json';
   $lockFile = $GLOBALS['ROOT'] . '/data/.angel-tick.lock';
+  $bootFile = $GLOBALS['ROOT'] . '/data/.angel-tick.boot';
   $readCache = static function () use ($cacheFile): ?array {
     if (!is_file($cacheFile)) return null;
     $c = json_decode((string)@file_get_contents($cacheFile), true);
     return (is_array($c) && !empty($c['at'])) ? $c : null;
   };
+  $staleOut = static function (?array $c, string $why, int $delayMs) use ($cacheFile) {
+    if ($c) {
+      $c['open'] = $c['open'] ?? false; $c['stale'] = true; $c['error'] = $why;
+      $c['delayMs'] = $delayMs; $c['servedFrom'] = 'stale';
+      // keep serving the last good numbers, but don't rewrite the good cache's age
+      return $c;
+    }
+    return ['at' => now_iso(), 'source' => 'live-mcx', 'open' => false, 'stale' => true,
+      'error' => $why, 'delayMs' => $delayMs, 'gold' => null, 'silver' => null];
+  };
   // 1.1 s micro-cache — single outbound quote/second no matter the audience
   if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < 1.1 && ($c = $readCache())) {
-    $c['servedFrom'] = 'cache'; return $c;
+    $c['servedFrom'] = 'cache'; $c['ageMs'] = (int)((microtime(true) - filemtime($cacheFile)) * 1000); return $c;
   }
   $fp = @fopen($lockFile, 'c');
   if ($fp) flock($fp, LOCK_EX);
@@ -635,24 +679,40 @@ function angel_tick(array &$db): array {
       return angel_http('https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/',
         'POST', ['mode' => 'FULL', 'exchangeTokens' => ['MCX' => [$pair['g'], $pair['s']]]], $h, 8);
     };
-    $bootstrap = static function () use (&$db) {   // expired session / rolled contract → full pipeline once
+    /* v71 — the heavy bootstrap (login + Search Scrip probing + LTP probes)
+       may run AT MOST once per 30 s; otherwise a rejected tick would storm
+       Angel (searchScrip is itself 1 rps) and trip the account throttle. */
+    $bootstrapAllowed = !is_file($bootFile) || (time() - (int)@filemtime($bootFile)) >= 30;
+    $bootstrap = static function () use (&$db, $bootFile, $bootstrapAllowed): ?array {
+      if (!$bootstrapAllowed) return null;
+      @touch($bootFile);
       $m = angel_ltp($db);
-      return $m ? angel_tick_from_mcx($m) : null;
+      if (!$m) return null;
+      // persist the full pack (bid/ask/H/L/chg + locked tokens) for later ticks
+      $db['rates']['mcx'] = $m;
+      try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
+      return angel_tick_from_mcx($m);
     };
-    if (!$apiKey || !$pair || !$sess || empty($sess['jwt'])) {
+    if (!$apiKey) return $staleOut($readCache(), 'Angel API key missing', 30000);
+    if (!$pair || !$sess || empty($sess['jwt'])) {
+      if (!$bootstrapAllowed) return $staleOut($readCache(), 'session warm-up in progress', 5000);
       $boot = $bootstrap();
-      if ($boot) { $pair = angel_locked_pair($db); $sess = $db['angelSession'] ?? null; }
-      else { $stale = $readCache(); if ($stale) { $stale['open'] = false; $stale['stale'] = true; return $stale; }
-        return ['at' => now_iso(), 'source' => 'live-mcx', 'open' => false, 'error' => 'feed offline',
-          'gold' => null, 'silver' => null, 'stale' => true]; }
+      if ($boot) { $pair = angel_locked_pair($db); $sess = $db['angelSession'] ?? null; @file_put_contents($cacheFile, json_encode($boot + ['servedFrom' => 'bootstrap']), LOCK_EX); return $boot; }
+      return $staleOut($readCache(), 'feed offline — login/contract resolution failed', 10000);
     }
     $rf = $fullQuote($sess, $pair);
-    if ($rf['code'] === 401 || $rf['code'] === 400) {
-      $boot = $bootstrap();   // logs in again, re-probes contracts, includes a FULL quote
-      if ($boot) { $pair = angel_locked_pair($db); $sess = $db['angelSession'] ?? null; $rf = $fullQuote($sess, $pair); }
-    }
     $j = $rf['json'];
+    $code = (int)$rf['code'];
+    // session rejected → one re-login+reprobe (rate-limited by the 30 s gate)
+    if ($code === 401 || $code === 400 || $code === 403 || $code === 429
+        || (is_array($j) && empty($j['status']) && empty($j['data']))) {
+      if ($code === 429 || $code === 403) return $staleOut($readCache(), 'Angel rate limit (HTTP ' . $code . ') — backing off', 5000);
+      if (!$bootstrapAllowed) return $staleOut($readCache(), 'session expired — re-login queued', 5000);
+      $boot = $bootstrap();
+      if ($boot) { $pair = angel_locked_pair($db); $sess = $db['angelSession'] ?? null; $rf = $fullQuote($sess, $pair); $j = $rf['json']; $code = (int)$rf['code']; }
+    }
     $fetched = (is_array($j) && is_array($j['data']['fetched'] ?? null)) ? $j['data']['fetched'] : [];
+    $unfetched = (is_array($j) && is_array($j['data']['unfetched'] ?? null)) ? $j['data']['unfetched'] : [];
     $byTok = [];
     foreach ($fetched as $it) $byTok[(string)($it['symbolToken'] ?? '')] = $it;
     $pack = static function (?array $it, string $symbol) {
@@ -670,21 +730,24 @@ function angel_tick(array &$db): array {
         'chgPct' => $close > 0 ? round(($ltp - $close) / $close * 100, 2) : 0];
     };
     $g = $pack($byTok[$pair['g']] ?? null, $pair['gs']);
-    $s = $pack($byTok[$pair['s']] ?? null, $pair['ss']);
-    // contract rolled away (no LTP) → bootstrap through Search-Scrip probing once
-    if ((!$g || (float)$g['ltp'] <= 0) || (!$s || (float)$s['ltp'] <= 0)) {
-      $boot = $bootstrap();
-      if ($boot) { @file_put_contents($cacheFile, json_encode($boot), LOCK_EX); return $boot; }
+    $sv = $pack($byTok[$pair['s']] ?? null, $pair['ss']);
+    // contract rolled away (no LTP) → one rate-limited bootstrap through Search-Scrip probing
+    if ((!$g || (float)$g['ltp'] <= 0) || (!$sv || (float)$sv['ltp'] <= 0)) {
+      $why = 'no live quote (HTTP ' . $code . ')';
+      if ($unfetched) {
+        $msgs = array_map(static fn($u) => (string)($u['message'] ?? ($u['errorCode'] ?? 'token rejected')), array_slice($unfetched, 0, 2));
+        if ($msgs) $why .= ' — ' . implode('; ', array_unique($msgs));
+      }
+      if ($bootstrapAllowed) {
+        $boot = $bootstrap();
+        if ($boot) { $boot['servedFrom'] = 'bootstrap'; @file_put_contents($cacheFile, json_encode($boot), LOCK_EX); return $boot; }
+      }
+      return $staleOut($readCache(), $why, 8000);
     }
-    if (!$g || !$s) {
-      $stale = $readCache();
-      if ($stale) { $stale['open'] = false; $stale['stale'] = true; return $stale; }
-      return ['at' => now_iso(), 'source' => 'live-mcx', 'open' => false, 'error' => 'no quote',
-        'gold' => $g, 'silver' => $s, 'stale' => true];
-    }
-    $tick = ['at' => now_iso(), 'source' => 'live-mcx',
-      'open' => ($g['bid'] > 0 && $g['ask'] > 0 && $s['bid'] > 0 && $s['ask'] > 0),
-      'gold' => $g, 'silver' => $s, 'stale' => false];
+    $tick = ['at' => now_iso(), 'source' => 'live-mcx', 'http' => $code,
+      'open' => ($g['bid'] > 0 && $g['ask'] > 0 && $sv['bid'] > 0 && $sv['ask'] > 0),
+      'gold' => $g, 'silver' => $sv, 'stale' => false, 'error' => '', 'servedFrom' => 'fetch',
+      'delayMs' => 1000];
     @file_put_contents($cacheFile, json_encode($tick), LOCK_EX);
     return $tick;
   } finally {
@@ -779,7 +842,9 @@ function rates_refresh(array &$db): array {
   $errTick = is_array($sess0) ? strtotime((string)($sess0['errorAt'] ?? '')) : false;
   $cooling = $errTick ? (time() - $errTick < 600) : false;
   if (!$cooling) {
-    $mcx = angel_ltp($db);
+    // v71 — reuse the live 1-second tick stream; only run the full probe
+    // pipeline when no fresh tick is available (first boot / after outage)
+    $mcx = angel_mcx_from_tick($db) ?: angel_ltp($db);
     if ($mcx) {
       $gold24 = $mcx['goldPerG'];
       $silver = $mcx['silverPerG'];
