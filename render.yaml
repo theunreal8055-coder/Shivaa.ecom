@@ -1,0 +1,35 @@
+# Render Blueprint for the Shivaa bullion tick relay (free Node host).
+# In Render: New + → Blueprint → pick this GitHub repo → fill the 4 Angel
+# secrets when prompted. See cms/relay/RENDER-SETUP.md for click-by-click steps.
+services:
+  - type: web
+    name: shivaa-bullion-relay
+    runtime: node
+    rootDir: cms/relay
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: SHIVAA_RELAY_HOST
+        value: 0.0.0.0
+      - key: SHIVAA_WRITE_CACHE
+        value: "0"
+      - key: SHIVAA_MODE
+        value: "3"
+      - key: SHIVAA_RELAY_KEY
+        generateValue: true
+      - key: SHIVAA_ANGEL_APIKEY
+        sync: false
+      - key: SHIVAA_ANGEL_CLIENT
+        sync: false
+      - key: SHIVAA_ANGEL_MPIN
+        sync: false
+      - key: SHIVAA_ANGEL_TOTP
+        sync: false
+      # after the first deploy, set this to https://<service>.onrender.com
+      # to stop the free instance sleeping at night (optional while the
+      # bullion desk itself keeps an SSE connection open during use)
+      - key: SHIVAA_PUBLIC_URL
+        sync: false

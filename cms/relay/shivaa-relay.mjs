@@ -43,8 +43,10 @@ function loadConfig() {
     silverToken: env.SHIVAA_SILVER_TOKEN || file.silverToken || '',
     mode: parseInt(env.SHIVAA_MODE || file.mode || '3', 10),       // 1 LTP · 2 Quote · 3 SnapQuote (depth)
     host: env.SHIVAA_RELAY_HOST || file.host || '127.0.0.1',
-    port: parseInt(env.SHIVAA_RELAY_PORT || file.port || '8944', 10),
+    // cloud hosts (Render, Railway…) inject a standard PORT env
+    port: parseInt(env.SHIVAA_RELAY_PORT || env.PORT || file.port || '8944', 10),
     streamKey: env.SHIVAA_RELAY_KEY || file.streamKey || crypto.randomBytes(18).toString('hex'),
+    publicUrl: (env.SHIVAA_PUBLIC_URL || file.publicUrl || '').replace(/\/+$/, ''),
     // when running on the same box as cms/, point this at cms/data
     cacheDir: env.SHIVAA_CACHE_DIR || file.cacheDir || path.resolve(__dirname, '..', 'data'),
     stateFile: env.SHIVAA_STATE_FILE || file.stateFile || path.join(__dirname, '.relay-state.json'),
@@ -339,6 +341,12 @@ class Relay {
 
   /* contract rollover watch + closed-market heartbeat */
   startWatchdogs() {
+    // free cloud hosts sleep after ~15 min without INBOUND traffic; an
+    // occasional self-hit over the public URL keeps the relay warm 24×7
+    if (this.cfg.publicUrl) {
+      const wake = () => fetch(this.cfg.publicUrl + '/healthz').catch(() => {});
+      wake(); setInterval(wake, 10 * 60 * 1000);
+    }
     setInterval(() => {
       if (this.connected) this.publish();                    // keeps stale flag fresh
       // a leg that goes quiet during a session means contract rollover

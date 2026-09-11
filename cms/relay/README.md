@@ -44,7 +44,10 @@ polling — nothing ever goes blank.
 6. Nothing to fill in the admin relay boxes for a same‑box install —
    PHP finds the shared cache file automatically.
 
-## Option B — free/cheap Node cloud host (when the site is on shared hosting)
+## Option B — free Node cloud host (when the site is on shared hosting)
+
+**Full click-by-click: see [RENDER-SETUP.md](./RENDER-SETUP.md)** (free
+Render.com service, no card). Short version:
 
 1. Deploy this folder to Render / Railway / any Node host (start command
    `npm start`). Set the config via environment variables instead of a
