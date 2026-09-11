@@ -666,14 +666,17 @@ function angel_tick(array &$db): array {
     return ['at' => now_iso(), 'source' => 'live-mcx', 'open' => false, 'stale' => true,
       'error' => $why, 'delayMs' => $delayMs, 'gold' => null, 'silver' => null];
   };
-  // 1.1 s micro-cache — single outbound quote/second no matter the audience
-  if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < 1.1 && ($c = $readCache())) {
-    $c['servedFrom'] = 'cache'; $c['ageMs'] = (int)((microtime(true) - filemtime($cacheFile)) * 1000); return $c;
+  // v77 — 1.0 s micro-cache; sub-second age from an in-payload timestamp
+  // (filemtime has 1 s resolution, so the old 1.1 s gate actually served
+  // stale for 2-3 s between real exchange fetches).
+  $ageOf = static function (?array $c): float { return $c ? microtime(true) - (float)($c['ts'] ?? 0) : 9e9; };
+  if (($c = $readCache()) && $ageOf($c) < 1.0) {
+    $c['servedFrom'] = 'cache'; $c['ageMs'] = (int)($ageOf($c) * 1000); return $c;
   }
   $fp = @fopen($lockFile, 'c');
   if ($fp) flock($fp, LOCK_EX);
   try {
-    if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < 1.1 && ($c = $readCache())) {
+    if (($c = $readCache()) && $ageOf($c) < 1.0) {
       $c['servedFrom'] = 'cache'; return $c;   // another viewer fetched within this second
     }
     $s = $db['settings'];
@@ -705,7 +708,7 @@ function angel_tick(array &$db): array {
     if (!$pair || !$sess || empty($sess['jwt'])) {
       if (!$bootstrapAllowed) return $staleOut($readCache(), 'session warm-up in progress', 5000);
       $boot = $bootstrap();
-      if ($boot) { $pair = angel_locked_pair($db); $sess = $db['angelSession'] ?? null; @file_put_contents($cacheFile, json_encode($boot + ['servedFrom' => 'bootstrap']), LOCK_EX); return $boot; }
+      if ($boot) { $pair = angel_locked_pair($db); $sess = $db['angelSession'] ?? null; $boot['ts'] = microtime(true); @file_put_contents($cacheFile, json_encode($boot + ['servedFrom' => 'bootstrap']), LOCK_EX); return $boot; }
       return $staleOut($readCache(), 'feed offline — login/contract resolution failed', 10000);
     }
     $rf = $fullQuote($sess, $pair);
@@ -752,14 +755,14 @@ function angel_tick(array &$db): array {
       }
       if ($bootstrapAllowed) {
         $boot = $bootstrap();
-        if ($boot) { $boot['servedFrom'] = 'bootstrap'; @file_put_contents($cacheFile, json_encode($boot), LOCK_EX); return $boot; }
+        if ($boot) { $boot['ts'] = microtime(true); $boot['servedFrom'] = 'bootstrap'; @file_put_contents($cacheFile, json_encode($boot), LOCK_EX); return $boot; }
       }
       return $staleOut($readCache(), $why, 8000);
     }
     $tick = ['at' => now_iso(), 'source' => 'live-mcx', 'http' => $code,
       'open' => ($g['bid'] > 0 && $g['ask'] > 0 && $sv['bid'] > 0 && $sv['ask'] > 0),
       'gold' => $g, 'silver' => $sv, 'stale' => false, 'error' => '', 'servedFrom' => 'fetch',
-      'delayMs' => 1000];
+      'delayMs' => 800, 'ts' => microtime(true)];
     @file_put_contents($cacheFile, json_encode($tick), LOCK_EX);
     return $tick;
   } finally {
@@ -952,18 +955,18 @@ function spot_resolve(array &$db, bool $force = false): array {
   return $out;
 }
 
-/* v74–v76 — LIVE international spot, micro-cached ~1.5 s (v75: 6 s → 2.5 s;
-   v76: 2.5 s → 1.5 s — fastest safe cadence, the dollar cards move with
-   the 1 s MCX future) and shared by every viewer. v76 uses a NON-BLOCKING
-   lock: while one request refreshes from Yahoo, everyone else is served
-   the last value instantly instead of queuing on the lock, so no tick ever
-   waits on the network. Yahoo near-live XAU/XAG/INR is the primary feed
-   (intraday price + day H/L + previous close), gold-api and Stooq are
-   parallel fallbacks; below that it walks the 10-minute resolver cache,
-   manual owner overrides, and finally the MCX-implied value. Owner
-   fine-tune offsets (spotXauAdj / spotXagAdj / spotInrAdj, in the quoted
-   unit) are added last so the board can match the reference feed exactly. */
-const SPOT_TICK_TTL = 1.5;
+/* v74–v77 — LIVE international spot, micro-cached 1.0 s (v75: 6 s → 2.5 s;
+   v76: 2.5 s → 1.5 s + non-blocking lock; v77: 1.5 s → 1.0 s with sub-second
+   in-payload timestamps and a two-tier probe — the fast lane hits only the
+   query2 Yahoo mirror, the full fallback fan-out runs only for legs it
+   missed, so provider load stays ~3 requests/refresh at a 1 s cadence).
+   Yahoo near-live XAU/XAG/INR is the primary feed (intraday price + day
+   H/L + previous close), gold-api and Stooq are parallel fallbacks; below
+   that it walks the 10-minute resolver cache, manual owner overrides, and
+   finally the MCX-implied value. Owner fine-tune offsets (spotXauAdj /
+   spotXagAdj / spotInrAdj, in the quoted unit) are added last so the board
+   can match the reference feed exactly. */
+const SPOT_TICK_TTL = 1.0;
 function spot_tick(array &$db, ?array $mcxTick = null): array {
   $cacheFile = $GLOBALS['ROOT'] . '/data/.spot-tick.json';
   $lockFile = $GLOBALS['ROOT'] . '/data/.spot-tick.lock';
@@ -972,19 +975,23 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
     $c = json_decode((string)@file_get_contents($cacheFile), true);
     return (is_array($c) && !empty($c['at'])) ? $c : null;
   };
-  if (is_file($cacheFile) && (microtime(true) - filemtime($cacheFile)) < SPOT_TICK_TTL && ($c = $read())) {
-    $c['servedFrom'] = 'cache'; return $c;
-  }
+  // v77 — sub-second age from an in-payload timestamp (filemtime() only has
+  // 1-second resolution, which made sub-2-second TTLs meaningless).
+  $fresh = static function () use ($read, $cacheFile): ?array {
+    $c = $read();
+    if (!$c) return null;
+    $age = microtime(true) - (float)($c['_ts'] ?? @filemtime($cacheFile));
+    return $age < SPOT_TICK_TTL ? $c : null;
+  };
+  if (($c = $fresh())) { $c['servedFrom'] = 'cache'; unset($c['_ts']); return $c; }
   $fp = @fopen($lockFile, 'c');
   // v76 — non-blocking: another viewer refreshing? serve the last value now.
   if ($fp && !flock($fp, LOCK_EX | LOCK_NB)) {
-    if (($c = $read())) { $c['servedFrom'] = 'cache-busy'; fclose($fp); return $c; }
+    if (($c = $fresh())) { $c['servedFrom'] = 'cache-busy'; unset($c['_ts']); fclose($fp); return $c; }
     flock($fp, LOCK_EX);   // cold cache only: wait for the first refresh
   }
   try {
-    if (is_file($cacheFile) && (microtime(true) - filemtime($cacheFile)) < SPOT_TICK_TTL && ($c = $read())) {
-      $c['servedFrom'] = 'cache'; return $c;
-    }
+    if (($c = $fresh())) { $c['servedFrom'] = 'cache'; unset($c['_ts']); return $c; }
     $urls = [
       'yg' => 'https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?range=1d&interval=1m',
       'yg2' => 'https://query2.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?range=1d&interval=1m',
@@ -998,7 +1005,6 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
       'ss' => 'https://stooq.com/q/l/?s=xagusd&f=sd2t2ohlcv&h&e=csv',
       'si' => 'https://stooq.com/q/l/?s=usdinr&f=sd2t2ohlcv&h&e=csv',
     ];
-    $p = spot_probe_multi($urls, 2);
     $blank = static fn() => ['price' => 0, 'high' => 0, 'low' => 0, 'prev' => 0, 'pct' => 0, 'src' => ''];
     $legs = ['gold' => $blank(), 'silver' => $blank(), 'inr' => $blank()];
     $fill = static function (string $leg, float $price, string $src, int $rank, float $hi = 0, float $lo = 0, float $prev = 0) use (&$legs) {
@@ -1007,14 +1013,32 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
       $legs[$leg] = ['price' => $price, 'high' => $hi ?: $price, 'low' => $lo ?: $price, 'prev' => $prev,
         'pct' => $prev > 0 ? round(($price - $prev) / $prev * 100, 2) : 0, 'src' => $src, 'rank' => $rank];
     };
-    foreach (['yg' => ['gold', 2], 'yg2' => ['gold', 1], 'ys' => ['silver', 2], 'ys2' => ['silver', 1],
-              'yi' => ['inr', 2], 'yi2' => ['inr', 1]] as $jk => [$leg, $rank]) {
+    // v77 fast lane — query2 mirror only, ONE parallel 3-request call,
+    // refilled to a true ~1 s cadence. Anything it misses triggers the
+    // wider fallback fan (query1 mirrors + gold-api + Stooq).
+    $p = spot_probe_multi(['yg2' => $urls['yg2'], 'ys2' => $urls['ys2'], 'yi2' => $urls['yi2']], 2);
+    foreach (['yg2' => ['gold', 1], 'ys2' => ['silver', 1], 'yi2' => ['inr', 1]] as $jk => [$leg, $rank]) {
       $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
       $m = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
       if (is_array($m) && (float)($m['regularMarketPrice'] ?? 0) > 0) {
         $price = (float)$m['regularMarketPrice']; $pv = (float)($m['chartPreviousClose'] ?? ($m['previousClose'] ?? 0));
         $fill($leg, $price, 'Yahoo live', $rank,
           (float)($m['regularMarketDayHigh'] ?? 0), (float)($m['regularMarketDayLow'] ?? 0), $pv);
+      }
+    }
+    if ($legs['gold']['price'] <= 0 || $legs['silver']['price'] <= 0 || $legs['inr']['price'] <= 0) {
+      $fb = ['yg' => $urls['yg'], 'ys' => $urls['ys'], 'yi' => $urls['yi'],
+        'gg' => $urls['gg'], 'gs' => $urls['gs'], 'sg' => $urls['sg'],
+        'ss' => $urls['ss'], 'si' => $urls['si']];
+      $p = array_merge(spot_probe_multi($fb, 2), $p);
+      foreach (['yg' => ['gold', 2], 'ys' => ['silver', 2], 'yi' => ['inr', 2]] as $jk => [$leg, $rank]) {
+        $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
+        $m = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
+        if (is_array($m) && (float)($m['regularMarketPrice'] ?? 0) > 0) {
+          $price = (float)$m['regularMarketPrice']; $pv = (float)($m['chartPreviousClose'] ?? ($m['previousClose'] ?? 0));
+          $fill($leg, $price, 'Yahoo live', $rank,
+            (float)($m['regularMarketDayHigh'] ?? 0), (float)($m['regularMarketDayLow'] ?? 0), $pv);
+        }
       }
     }
     foreach (['gg' => ['gold', 'gold-api live'], 'gs' => ['silver', 'gold-api live']] as $jk => [$leg, $name]) {
@@ -1072,7 +1096,9 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
     unset($legs['gold']['rank'], $legs['silver']['rank'], $legs['inr']['rank']);
     $out = ['at' => now_iso(), 'gold' => $legs['gold'], 'silver' => $legs['silver'], 'inr' => $legs['inr'],
       'ratio' => $legs['silver']['price'] > 0 ? round($legs['gold']['price'] / $legs['silver']['price'], 1) : 0];
+    $out['_ts'] = microtime(true);
     @file_put_contents($cacheFile, json_encode($out), LOCK_EX);
+    unset($out['_ts']);
     return $out;
   } finally {
     if ($fp) { flock($fp, LOCK_UN); fclose($fp); }
@@ -2732,7 +2758,7 @@ try {
     jout(200, $out);
   }
   /* v69 — per-second tick (shared server micro-cache, one exchange call/sec).
-     v74 — same response also carries the ~1.5 s live international spot. */
+     v74 — same response also carries the ~1 s live international spot. */
   if ($route === 'bullion/tick' && $method === 'GET') {
     $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
     $t = angel_tick($db);

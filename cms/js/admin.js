@@ -2208,7 +2208,7 @@ window.ShivaaBullion = {
     <div class="bd-chart-lims"><span class="bd-hitxt">H ${this.num(max)}</span><span class="bd-lowtxt">L ${this.num(min)}</span><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(last - first))}</span></div>`;
   },
 
-  /* v74–v76 — repaint the international spot cards from the ~1.5 s live spot tick (polled every 1 s) */
+  /* v74–v77 — repaint the international spot cards from the ~1 s live spot tick (polled every 800 ms) */
   applySpotTick(sp, B) {
     if (this.section !== 'rates') return;
     const flashTxt = (sel, txt, numeric) => {
@@ -2692,7 +2692,7 @@ window.ShivaaBullion = {
     const loop = async () => {
       const board = document.getElementById('bullionBoard');
       if (!board || !board.querySelector('.bd-tabs') || !this.B) { this._tickTimer = null; return; }
-      let delay = 1000, failed = false;
+      let delay = 800, failed = false;
       if (!document.hidden) {
         try { delay = await this.tick(); }
         catch (e) {
@@ -2726,8 +2726,8 @@ window.ShivaaBullion = {
     this.applyTick(t);
     const clock = this.istTime(t.at);
     if (t.stale) { this.setTickState((t.error ? 'feed: ' + t.error : 'market closed') + ' · ' + clock, false); return t.delayMs || 8000; }
-    this.setTickState((this.tickOpen ? 'live 1 s' : 'market closed · 10 s') + ' · ' + clock, true);
-    return t.delayMs || (this.tickOpen ? 1000 : 10000);
+    this.setTickState((this.tickOpen ? 'live <1 s' : 'market closed · 10 s') + ' · ' + clock, true);
+    return t.delayMs || (this.tickOpen ? 800 : 10000);
   },
   applyTick(t) {
     const B = this.B; if (!B) return;
