@@ -3,7 +3,7 @@
    first and the cache is only a fallback (bad connection / offline).
    GET + same-origin requests only; the API and uploads always go live. */
 'use strict';
-const SHELL = 'shivaa-shell-v68';
+const SHELL = 'shivaa-shell-v69';
 const SHELL_FILES = ['/', '/index.html', '/css/fonts.css?v=42', '/css/styles.css?v=59',
   '/css/hallmark.css?v=42', '/css/trust.css?v=42', '/css/finale.css?v=44', '/css/bot.css?v=59',
   '/js/app.js?v=59', '/js/bot.js?v=59', '/images/icons/icon-512.png'];

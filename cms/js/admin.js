@@ -2038,6 +2038,7 @@ window.ShivaaBullion = {
       else if (this.section === 'rates' || this.section === 'history' || this.section === 'alerts') {
         this.renderSection();   // live repaint without resetting the tab
       }
+      this.startTick();   // no-ops while the 1 s loop is already alive; revives after navigation
       const reached = (B.alerts || []).filter(a => a.reached && !a._pinged);
       if (!first && reached.length) { reached.forEach(a => a._pinged = true); window.Shivaa.toast('🔔 ' + reached[0].label + ' hit your target ' + this.num(reached[0].target)); }
     } catch (e) { const el = document.getElementById('bullionBoard'); if (el && !this.mounted) el.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
@@ -2068,11 +2069,12 @@ window.ShivaaBullion = {
     const cell = (dot, name, unit, buy, sell, chg, cls) => {
       const pct = chg ? (Math.abs(chg) / Math.max(1, buy - chg) * 100) : 0;
       const up = chg >= 0;
+      const tag = cls === 'gold' ? 'g' : 's';
       return `<div class="bd-sum ${cls}">
         <div class="bd-sum-h"><i style="background:${dot}"></i>${name} <small>per ${unit}</small></div>
-        <div class="bd-sum-buy">${buy ? this.num(buy) : '--'}</div>
-        <div class="bd-sum-b"><span>SELL <b>${sell ? this.num(sell) : '--'}</b></span>
-          <em class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${pct ? pct.toFixed(2) + '%' : '—'}</em></div>
+        <div class="bd-sum-buy" data-sum="${tag}Buy">${buy ? this.num(buy) : '--'}</div>
+        <div class="bd-sum-b"><span>SELL <b data-sum="${tag}Sell">${sell ? this.num(sell) : '--'}</b></span>
+          <em class="${up ? 'bd-hitxt' : 'bd-lowtxt'}" data-sum="${tag}Arrow">${up ? '▲' : '▼'} ${pct ? pct.toFixed(2) + '%' : '—'}</em></div>
       </div>`;
     };
     const sc = 10, ss = 1000;
@@ -2083,9 +2085,9 @@ window.ShivaaBullion = {
   },
   karatHTML(B) {
     const k = (B.board && B.board.karat) || {};
-    const box = (t, v) => `<div class="bd-kar"><small>${t}</small><b>${v ? this.num(v) : '--'}</b></div>`;
+    const box = (t, v, tag) => `<div class="bd-kar"><small>${t}</small><b data-kar="${tag}">${v ? this.num(v) : '--'}</b></div>`;
     return `<div class="bd-karstrip">
-      ${box('24K · 999 /10g', k.k24)}${box('22K · 916 /10g', k.k22)}${box('20K · 833 /10g', k.k20)}${box('18K · 750 /10g', k.k18)}${box('Silver /kg', k.silverKg)}
+      ${box('24K · 999 /10g', k.k24, 'k24')}${box('22K · 916 /10g', k.k22, 'k22')}${box('20K · 833 /10g', k.k20, 'k20')}${box('18K · 750 /10g', k.k18, 'k18')}${box('Silver /kg', k.silverKg, 'silverKg')}
     </div>`;
   },
   intlHTML(B) {
@@ -2107,14 +2109,14 @@ window.ShivaaBullion = {
     const bd = B.board || {};
     const ticker = bd.ticker || '✦ Unfix (rate-lock) facility available on gold & silver ✦';
     const feedBadge = bd.feedSource === 'live-mcx' && bd.mcx
-      ? `<span class="bd-feed bd-feed-mcx" title="Official MCX futures via Angel One SmartAPI — ${esc(bd.mcx.goldSymbol || 'GOLD')} / ${esc(bd.mcx.silverSymbol || 'SILVER')}${bd.mcx.autoTokens ? ' (near-month auto-selected)' : ''}">📡 ${/^GOLD/i.test(bd.mcx.goldSymbol || '') ? esc(String(bd.mcx.goldSymbol).replace(/^GOLD/i, 'GOLD ')) : 'MCX'} LIVE · ₹${Number(bd.mcx.goldLtp).toLocaleString('en-IN')}/10g · ₹${Number(bd.mcx.silverLtp).toLocaleString('en-IN')}/kg</span>`
+      ? `<span class="bd-feed bd-feed-mcx" id="bdFeedBadge" data-gsym="${esc(bd.mcx.goldSymbol || 'GOLD')}" data-ssym="${esc(bd.mcx.silverSymbol || 'SILVER')}" title="Official MCX futures via Angel One SmartAPI — ${esc(bd.mcx.goldSymbol || 'GOLD')} / ${esc(bd.mcx.silverSymbol || 'SILVER')}${bd.mcx.autoTokens ? ' (near-month auto-selected)' : ''}">📡 <span data-badge="txt">${/^GOLD/i.test(bd.mcx.goldSymbol || '') ? esc(String(bd.mcx.goldSymbol).replace(/^GOLD/i, 'GOLD ')) : 'MCX'} LIVE · ₹${Number(bd.mcx.goldLtp).toLocaleString('en-IN')}/10g · ₹${Number(bd.mcx.silverLtp).toLocaleString('en-IN')}/kg</span></span>`
       : `<span class="bd-feed" title="International LBMA spot × USD/INR">🌐 SPOT FX</span>`;
     const tab = (id, ic, lb) => `<a href="#" data-sec="${id}" class="${this.section === id ? 'on' : ''}">${ic}<span>${lb}</span>${id === 'alerts' && (B.alerts || []).length ? `<em class="bd-navcnt">${B.alerts.length}</em>` : ''}</a>`;
     el.innerHTML = `
       <div class="bd-topbar">
         <img src="/images/logo.png" alt="Shivaa">
         <div class="bd-title"><b>SHIVAA BULLION DESK</b><small>TDS · refined · spot · MCX &mdash; for approved jewellers</small>${feedBadge}</div>
-        <span class="bd-live"><span class="live-dot"></span>LIVE<br><b>${esc(B.date || '')} ${bd.time || ''}</b></span>
+        <span class="bd-live"><span class="live-dot"></span><span data-clock-state>LIVE</span><br><b data-clock>${esc(B.date || '')} ${bd.time || ''}</b></span>
       </div>
       <div class="bd-marquee"><div class="bd-marq-in">★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} </div></div>
       <div id="bdSection" class="bd-section"></div>
@@ -2201,8 +2203,8 @@ window.ShivaaBullion = {
       if (this.prevVals && this.prevVals[fk] != null && v && this.prevVals[fk] !== v) flash = v > this.prevVals[fk] ? ' bd-flash-up' : ' bd-flash-down';
       if (this.prevVals || (this.prevVals = {})) this.prevVals[fk] = v;
       return `<div class="bd-cell">
-        <button class="bd-pill ${cls}${flash}" ${v ? `onclick='ShivaaBullion.orderForm(${quote})'` : 'disabled'}>${v ? this.num(v) : '--'}</button>
-        <small class="bd-lh">${side === 'buy' ? 'L' : 'H'}: <span class="${side === 'buy' ? 'bd-lowtxt' : 'bd-hitxt'}">${v && (side === 'buy' ? r.low : r.high) ? this.num(Math.round((r[side === 'buy' ? 'low' : 'high'] || raw) * sc(r))) : '--'}</span></small>
+        <button class="bd-pill ${cls}${flash}" data-pill="${r.key}:${side}" ${v ? `onclick='ShivaaBullion.orderForm(${quote})'` : 'disabled'}>${v ? this.num(v) : '--'}</button>
+        <small class="bd-lh">${side === 'buy' ? 'L' : 'H'}: <span data-${side === 'buy' ? 'lo' : 'hi'}="${r.key}" class="${side === 'buy' ? 'bd-lowtxt' : 'bd-hitxt'}">${v && (side === 'buy' ? r.low : r.high) ? this.num(Math.round((r[side === 'buy' ? 'low' : 'high'] || raw) * sc(r))) : '--'}</span></small>
       </div>`;
     };
     const seriesChips = [['gold995', 'TDS Gold 995'], ['silverChorsa', 'TDS Silver'], ['goldSpot', 'Gold Spot'], ['silverSpot', 'Silver Spot']];
@@ -2213,12 +2215,12 @@ window.ShivaaBullion = {
         <div class="bd-desc">
           <b>${esc(r.label)}</b>
           <small>${esc(r.purity)}${r.editable ? ' · Shivaa set' : ''}</small>
-          <em>Time: ${bd.time || ''}</em>
+          <em class="bd-time">Time: ${bd.time || ''}</em>
           <span class="bd-bell" title="Rate alert / unfix" onclick='ShivaaBullion.alertForm(${JSON.stringify({ key: r.key, label: r.label })})'>🔔</span>
         </div>
         ${cell(r, 'buy')}
         ${cell(r, 'sell')}
-        <div class="bd-chg">${this.chgTxt((r.change || 0) * sc(r), Math.round((r.buy || 0) * sc(r)))}</div>
+        <div class="bd-chg" data-chg="${r.key}">${this.chgTxt((r.change || 0) * sc(r), Math.round((r.buy || 0) * sc(r)))}</div>
       </div>`;
     }).join('');
     const spot = bd.spot || {}, fut = bd.future || {}, duty = bd.duty || {};
@@ -2235,16 +2237,16 @@ window.ShivaaBullion = {
       <div class="bd-card-h">${title}</div><div class="bd-card-v">${this.num(val)}</div>
       <div class="bd-lhline"><span>${this.num(lo)}</span> <i>|</i> <span>${this.num(hi)}</span></div></div>`;
     /* v68 — real exchange BID/ASK, official day L/H and day change vs prev close */
-    const chgLine = (c, p) => {
+    const chgLine = (c, p, tag) => {
       if (!c) return '';
       const up = c >= 0;
-      return `<div class="bd-lhline"><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(c))}${p ? ' (' + Math.abs(p).toFixed(2) + '%)' : ''}</span></div>`;
+      return `<div class="bd-lhline"${tag ? ` data-futchg="${tag}"` : ''}><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(c))}${p ? ' (' + Math.abs(p).toFixed(2) + '%)' : ''}</span></div>`;
     };
-    const futCard = (title, f, lo, hi, c, p, real) => `<div class="bd-card">
+    const futCard = (tag, title, f, lo, hi, c, p, real) => `<div class="bd-card">
       <div class="bd-card-h">${title}${real ? ' <small>MCX</small>' : ''}</div>
-      <div class="bd-ba"><div><small>BID</small><span class="bd-bid">${this.dash(f && f.bid)}</span></div><div><small>ASK</small><span class="bd-ask">${this.dash(f && f.ask)}</span></div></div>
-      <div class="bd-lhline"><span class="bd-lowtxt">L: ${this.num(lo)}</span> <i>|</i> <span class="bd-hitxt">H: ${this.num(hi)}</span></div>
-      ${chgLine(c, p)}</div>`;
+      <div class="bd-ba"><div><small>BID</small><span class="bd-bid" data-fut="${tag}Bid">${this.dash(f && f.bid)}</span></div><div><small>ASK</small><span class="bd-ask" data-fut="${tag}Ask">${this.dash(f && f.ask)}</span></div></div>
+      <div class="bd-lhline"><span class="bd-lowtxt" data-fut="${tag}Lo">L: ${this.num(lo)}</span> <i>|</i> <span class="bd-hitxt" data-fut="${tag}Hi">H: ${this.num(hi)}</span></div>
+      ${chgLine(c, p, tag + 'Chg')}</div>`;
     const dutyCard = (title, val, parity) => `<div class="bd-card">
       <div class="bd-card-h">${title}</div><div class="bd-card-v">${this.num(val)}</div>
       <div class="bd-lhline"><span>parity ${this.num(parity)}</span></div></div>`;
@@ -2268,8 +2270,8 @@ window.ShivaaBullion = {
         ${fxCard('INR SPOT <small>USD/INR</small>', spot.inr, spot.inrLow, spot.inrHigh)}
       </div>
       <div class="bd-spots bd-fut">
-        ${futCard('GOLD FUTURE <small>/10 g</small>', fut.gold, fut.goldLow, fut.goldHigh, fut.goldChg, fut.goldChgPct, fut.real)}
-        ${futCard('SILVER FUTURE <small>/kg</small>', fut.silver, fut.silverLow, fut.silverHigh, fut.silverChg, fut.silverChgPct, fut.real)}
+        ${futCard('g', 'GOLD FUTURE <small>/10 g</small>', fut.gold, fut.goldLow, fut.goldHigh, fut.goldChg, fut.goldChgPct, fut.real)}
+        ${futCard('s', 'SILVER FUTURE <small>/kg</small>', fut.silver, fut.silverLow, fut.silverHigh, fut.silverChg, fut.silverChgPct, fut.real)}
       </div>
       <div class="bd-spots bd-duty">
         ${dutyCard('GOLD CUSTOM DUTY <small>₹/100 g</small>', duty.gold, duty.goldParity)}
@@ -2508,6 +2510,137 @@ window.ShivaaBullion = {
       <small style="color:#555">Firm quote confirmed by the Shivaa bullion desk. Settlement via RTGS / unfix as agreed.</small>
       <script>window.onload=()=>window.print()</script></body></html>`);
     w.document.close();
+  },
+
+  /* v69 — per-second tick engine. The server micro-caches one FULL exchange
+     quote per second for ALL viewers, so this polls /bullion/tick every 1s
+     while MCX is open (10 s while closed) and paints only the moving numbers.
+     Dollars/customs/news still arrive on the 30 s full refresh. */
+  istTime(iso) {
+    const d = new Date(iso);
+    if (isNaN(+d)) return '';
+    const ist = new Date(+d + 5.5 * 3600 * 1000);   // force IST regardless of the viewer's timezone
+    const p = n => String(n).padStart(2, '0');
+    return `${p(ist.getUTCHours() % 12 || 12)}:${p(ist.getUTCMinutes())}:${p(ist.getUTCSeconds())} ${ist.getUTCHours() >= 12 ? 'PM' : 'AM'}`;
+  },
+  startTick() {
+    if (this._tickTimer) return;
+    const loop = async () => {
+      const board = document.getElementById('bullionBoard');
+      if (!board || !board.querySelector('.bd-tabs') || !this.B) { this._tickTimer = null; return; }
+      if (!document.hidden) {
+        try { await this.tick(); }
+        catch (e) { this.tickFails = (this.tickFails || 0) + 1; }
+      }
+      const open = this.tickOpen !== false;
+      let delay = open ? 1000 : 10000;
+      if ((this.tickFails || 0) > 2) delay = 8000;
+      this._tickTimer = setTimeout(loop, delay);
+    };
+    this._tickTimer = setTimeout(loop, 600);
+  },
+  stopTick() { if (this._tickTimer) { clearTimeout(this._tickTimer); this._tickTimer = null; } },
+  async tick() {
+    const t = await window.Shivaa.api('/api/bullion/tick');
+    if (!t || !t.gold || !t.silver || !(t.gold.ltp > 0)) { this.tickFails = (this.tickFails || 0) + 1; return; }
+    this.tickFails = 0;
+    this.tickOpen = !!t.open && !t.stale;
+    this.applyTick(t);
+  },
+  applyTick(t) {
+    const B = this.B; if (!B) return;
+    B.board = B.board || {};
+    const g = t.gold, s = t.silver;
+    const num = v => this.num(Math.round(v || 0));
+    /* model: future cards + mcx + karat */
+    B.board.future = Object.assign(B.board.future || {}, {
+      real: true,
+      gold: { ltp: g.ltp, bid: g.bid || g.ltp, ask: g.ask || g.ltp },
+      silver: { ltp: s.ltp, bid: s.bid || s.ltp, ask: s.ask || s.ltp },
+      goldLow: g.low, goldHigh: g.high, silverLow: s.low, silverHigh: s.high,
+      goldChg: g.chg, goldChgPct: g.chgPct, silverChg: s.chg, silverChgPct: s.chgPct,
+    });
+    B.board.mcx = Object.assign(B.board.mcx || {}, {
+      goldLtp: g.ltp, silverLtp: s.ltp, goldSymbol: g.symbol, silverSymbol: s.symbol });
+    const k24 = Math.round(g.ltp);
+    B.board.karat = { k24, k22: Math.round(g.ltp * 0.9167), k20: Math.round(g.ltp * 20 / 24),
+      k18: Math.round(g.ltp * 0.75), silverKg: Math.round(s.ltp) };
+    B.board.time = this.istTime(t.at);
+    const flash = (el, v) => {
+      if (!el) return;
+      const old = el.textContent;
+      const oldN = parseInt(String(old).replace(/[^0-9-]/g, ''), 10) || 0;
+      const newN = parseInt(String(v).replace(/[^0-9-]/g, ''), 10) || 0;
+      el.textContent = v;
+      if (old !== v && old !== '--' && old !== '' && newN !== oldN) {
+        el.classList.remove('bd-flash-up', 'bd-flash-down');
+        void el.offsetWidth;
+        el.classList.add(newN > oldN ? 'bd-flash-up' : 'bd-flash-down');
+        setTimeout(() => el.classList.remove('bd-flash-up', 'bd-flash-down'), 600);
+      }
+    };
+    /* rows: RTGS rows re-derive from anchor × factor + premium ± spread
+       (display units: gold ₹/10 g, silver ₹/kg); CASH rows are owner-held. */
+    const cfgAll = B.rtgsConfig || {};
+    const quote = (r, side, rate) => JSON.stringify({ key: r.key, label: r.label, mode: r.mode, side, rate, purity: r.purity });
+    B.rows.forEach((r, i) => {
+      if (r.mode === 'CASH') return;
+      const cfg = cfgAll[r.key];
+      const isG = this.isSil(r) ? false : true;
+      const q = isG ? g : s;
+      if (!cfg) return;
+      const f = +cfg.factor || 1, prem = +cfg.prem || 0, sp = +cfg.spread || 0, side = cfg.side || 'both';
+      const mid = q.ltp * f + prem;
+      const dB = side === 'sell' ? 0 : Math.round(mid - sp);
+      const dS = side === 'buy' ? 0 : Math.round(mid + sp);
+      const dLo = side === 'sell' ? 0 : Math.round(q.low * f + prem);
+      const dHi = side === 'buy' ? 0 : Math.round(q.high * f + prem);
+      const dChg = q.chg * f;
+      // persist per-gram model values used by order forms / full re-renders
+      if (isG) { r.buy = Math.round(dB / 10); r.sell = Math.round(dS / 10); r.low = Math.round(dLo / 10); r.high = Math.round(dHi / 10); }
+      else { r.buy = +(dB / 1000).toFixed(3); r.sell = +(dS / 1000).toFixed(3); r.low = +(dLo / 1000).toFixed(3); r.high = +(dHi / 1000).toFixed(3); }
+      r.change = isG ? Math.round(dChg / 10) : +(dChg / 1000).toFixed(3);
+      if (this.section !== 'rates') return;
+      const bPill = document.querySelector(`[data-pill="${r.key}:buy"]`);
+      const sPill = document.querySelector(`[data-pill="${r.key}:sell"]`);
+      if (bPill) { bPill.disabled = dB <= 0; flash(bPill, dB ? num(dB) : '--'); if (dB > 0) bPill.setAttribute('onclick', `ShivaaBullion.orderForm(${quote(r, 'buy', r.buy)})`); }
+      if (sPill) { sPill.disabled = dS <= 0; flash(sPill, dS ? num(dS) : '--'); if (dS > 0) sPill.setAttribute('onclick', `ShivaaBullion.orderForm(${quote(r, 'sell', r.sell)})`); }
+      const loEl = document.querySelector(`[data-lo="${r.key}"]`), hiEl = document.querySelector(`[data-hi="${r.key}"]`);
+      if (loEl) loEl.textContent = dLo ? num(dLo) : '--';
+      if (hiEl) hiEl.textContent = dHi ? num(dHi) : '--';
+      const chgEl = document.querySelector(`[data-chg="${r.key}"]`);
+      if (chgEl) chgEl.innerHTML = this.chgTxt(isG ? dChg : dChg, dB);
+    });
+    if (this.section === 'rates') {
+      const set = (sel, v) => { const el = document.querySelector(sel); if (el) el.textContent = v; };
+      set('[data-fut="gBid"]', num(g.bid || g.ltp)); set('[data-fut="gAsk"]', num(g.ask || g.ltp));
+      set('[data-fut="gLo"]', num(g.low)); set('[data-fut="gHi"]', num(g.high));
+      set('[data-fut="sBid"]', num(s.bid || s.ltp)); set('[data-fut="sAsk"]', num(s.ask || s.ltp));
+      set('[data-fut="sLo"]', num(s.low)); set('[data-fut="sHi"]', num(s.high));
+      const fc = (tag, c, p) => {
+        const el = document.querySelector(`[data-futchg="${tag}"]`);
+        if (el && c) { const up = c >= 0; el.innerHTML = `<span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${num(Math.abs(c))}${p ? ' (' + Math.abs(p).toFixed(2) + '%)' : ''}</span>`; }
+      };
+      fc('gChg', g.chg, g.chgPct); fc('sChg', s.chg, s.chgPct);
+      [['k24', k24], ['k22', B.board.karat.k22], ['k20', B.board.karat.k20], ['k18', B.board.karat.k18], ['silverKg', B.board.karat.silverKg]]
+        .forEach(([tag, v]) => set(`[data-kar="${tag}"]`, num(v)));
+      const sumWrap = document.createElement('div');
+      sumWrap.innerHTML = this.summaryHTML(B);
+      const sum = document.querySelector('.bd-summary');
+      if (sum && sumWrap.firstElementChild) sum.innerHTML = sumWrap.firstElementChild.innerHTML;
+      document.querySelectorAll('.bd-time').forEach(el => el.textContent = 'Time: ' + B.board.time);
+      const clk = document.querySelector('[data-clock]'); if (clk) clk.textContent = (B.date || '') + ' ' + B.board.time;
+      const stateEl = document.querySelector('[data-clock-state]');
+      if (stateEl) stateEl.textContent = this.tickOpen ? 'LIVE' : 'CLOSED';
+      const badge = document.getElementById('bdFeedBadge');
+      if (badge) {
+        const gs = g.symbol || badge.dataset.gsym || 'GOLD', ss = s.symbol || badge.dataset.ssym || 'SILVER';
+        const pg = /^GOLD/i.test(gs) ? String(gs).replace(/^GOLD/i, 'GOLD ') : gs;
+        const txt = badge.querySelector('[data-badge="txt"]');
+        if (txt) txt.textContent = `${this.tickOpen ? 'LIVE' : 'CLOSED'} · ${pg} ₹${num(g.ltp)}/10g · ${ss} ₹${num(s.ltp)}/kg`;
+        badge.classList.toggle('bd-feed-closed', !this.tickOpen);
+      }
+    }
   },
 
   startPolling() {

@@ -569,6 +569,129 @@ function angel_ltp(array &$db): ?array {
     'fullQuote' => $rf['code'] === 200, 'autoTokens' => true];
 }
 
+/* v69 — per-second bullion tick. All viewers share ONE micro-cached exchange
+   quote (flock-coalesced) so the board feels real-time while the account
+   stays well inside Angel's quote rate limit (1 rps post-2024 change).
+   Never writes db.json during normal ticking; on contract rollover or an
+   expired session it bootstraps once through the full angel_ltp() pipeline. */
+function angel_locked_pair(array $db): ?array {
+  $m = $db['rates']['mcx'] ?? null;
+  if (is_array($m) && !empty($m['goldToken']) && !empty($m['silverToken'])) {
+    return ['g' => (string)$m['goldToken'], 's' => (string)$m['silverToken'],
+      'gs' => (string)($m['goldSymbol'] ?? 'GOLD'), 'ss' => (string)($m['silverSymbol'] ?? 'SILVER')];
+  }
+  $t = $db['angelTokens'] ?? null;
+  if (is_array($t) && !empty($t['gold'][1]) && !empty($t['silver'][1])) {
+    return ['g' => (string)$t['gold'][1], 's' => (string)$t['silver'][1],
+      'gs' => (string)($t['gold'][2] ?? 'GOLD'), 'ss' => (string)($t['silver'][2] ?? 'SILVER')];
+  }
+  return null;
+}
+function angel_tick_from_mcx(array $m): array {
+  $norm = static function (string $metal, array $m) {
+    $ltp = (float)($m[$metal . 'Ltp'] ?? 0);
+    $close = (float)($m[$metal . 'Close'] ?? 0);
+    return [
+      'symbol' => (string)($m[$metal . 'Symbol'] ?? ''),
+      'ltp' => $ltp, 'bid' => (float)($m[$metal . 'Bid'] ?? 0), 'ask' => (float)($m[$metal . 'Ask'] ?? 0),
+      'open' => (float)($m[$metal . 'Open'] ?? 0), 'high' => (float)($m[$metal . 'High'] ?? 0),
+      'low' => (float)($m[$metal . 'Low'] ?? 0), 'close' => $close,
+      'chg' => (float)($m[$metal . 'Chg'] ?? ($close > 0 ? round($ltp - $close, 2) : 0)),
+      'chgPct' => (float)($m[$metal . 'ChgPct'] ?? ($close > 0 ? round(($ltp - $close) / $close * 100, 2) : 0)),
+    ];
+  };
+  $g = $norm('gold', $m); $s = $norm('silver', $m);
+  return ['at' => (string)($m['at'] ?? now_iso()), 'source' => 'live-mcx',
+    'open' => ($g['bid'] > 0 && $g['ask'] > 0 && $s['bid'] > 0 && $s['ask'] > 0),
+    'gold' => $g, 'silver' => $s, 'stale' => false];
+}
+function angel_tick(array &$db): array {
+  global $DB_FILE;
+  $cacheFile = $GLOBALS['ROOT'] . '/data/.angel-tick.json';
+  $lockFile = $GLOBALS['ROOT'] . '/data/.angel-tick.lock';
+  $readCache = static function () use ($cacheFile): ?array {
+    if (!is_file($cacheFile)) return null;
+    $c = json_decode((string)@file_get_contents($cacheFile), true);
+    return (is_array($c) && !empty($c['at'])) ? $c : null;
+  };
+  // 1.1 s micro-cache — single outbound quote/second no matter the audience
+  if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < 1.1 && ($c = $readCache())) {
+    $c['servedFrom'] = 'cache'; return $c;
+  }
+  $fp = @fopen($lockFile, 'c');
+  if ($fp) flock($fp, LOCK_EX);
+  try {
+    if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < 1.1 && ($c = $readCache())) {
+      $c['servedFrom'] = 'cache'; return $c;   // another viewer fetched within this second
+    }
+    $s = $db['settings'];
+    $apiKey = trim((string)($s['angelApiKey'] ?? ''));
+    $pair = angel_locked_pair($db);
+    $sess = is_array($db['angelSession'] ?? null) ? $db['angelSession'] : null;
+    $baseHeaders = ['X-UserType' => 'USER', 'X-SourceID' => 'WEB', 'X-ClientLocalIP' => '127.0.0.1',
+      'X-ClientPublicIP' => '127.0.0.1', 'X-MACAddress' => '00:00:00:00:00:00', 'X-PrivateKey' => $apiKey];
+    $fullQuote = static function (array $sess, array $pair) use ($baseHeaders) {
+      $h = $baseHeaders + ['Authorization' => 'Bearer ' . $sess['jwt'], 'X-FeedToken' => $sess['feed'] ?? ''];
+      return angel_http('https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/',
+        'POST', ['mode' => 'FULL', 'exchangeTokens' => ['MCX' => [$pair['g'], $pair['s']]]], $h, 8);
+    };
+    $bootstrap = static function () use (&$db) {   // expired session / rolled contract → full pipeline once
+      $m = angel_ltp($db);
+      return $m ? angel_tick_from_mcx($m) : null;
+    };
+    if (!$apiKey || !$pair || !$sess || empty($sess['jwt'])) {
+      $boot = $bootstrap();
+      if ($boot) { $pair = angel_locked_pair($db); $sess = $db['angelSession'] ?? null; }
+      else { $stale = $readCache(); if ($stale) { $stale['open'] = false; $stale['stale'] = true; return $stale; }
+        return ['at' => now_iso(), 'source' => 'live-mcx', 'open' => false, 'error' => 'feed offline',
+          'gold' => null, 'silver' => null, 'stale' => true]; }
+    }
+    $rf = $fullQuote($sess, $pair);
+    if ($rf['code'] === 401 || $rf['code'] === 400) {
+      $boot = $bootstrap();   // logs in again, re-probes contracts, includes a FULL quote
+      if ($boot) { $pair = angel_locked_pair($db); $sess = $db['angelSession'] ?? null; $rf = $fullQuote($sess, $pair); }
+    }
+    $j = $rf['json'];
+    $fetched = (is_array($j) && is_array($j['data']['fetched'] ?? null)) ? $j['data']['fetched'] : [];
+    $byTok = [];
+    foreach ($fetched as $it) $byTok[(string)($it['symbolToken'] ?? '')] = $it;
+    $pack = static function (?array $it, string $symbol) {
+      if (!$it) return null;
+      $depth = is_array($it['depth'] ?? null) ? $it['depth'] : [];
+      $b1 = is_array($depth['buy'][0] ?? null) ? $depth['buy'][0] : [];
+      $a1 = is_array($depth['sell'][0] ?? null) ? $depth['sell'][0] : [];
+      $f = static fn($x) => (float)($x ?? 0);
+      $ltp = $f($it['ltp'] ?? 0); $close = $f($it['close'] ?? 0);
+      return ['symbol' => $symbol, 'ltp' => $ltp,
+        'bid' => $f($b1['price'] ?? 0), 'ask' => $f($a1['price'] ?? 0),
+        'open' => $f($it['open'] ?? 0), 'high' => $f($it['high'] ?? 0),
+        'low' => $f($it['low'] ?? 0), 'close' => $close,
+        'chg' => $close > 0 ? round($ltp - $close, 2) : 0,
+        'chgPct' => $close > 0 ? round(($ltp - $close) / $close * 100, 2) : 0];
+    };
+    $g = $pack($byTok[$pair['g']] ?? null, $pair['gs']);
+    $s = $pack($byTok[$pair['s']] ?? null, $pair['ss']);
+    // contract rolled away (no LTP) → bootstrap through Search-Scrip probing once
+    if ((!$g || (float)$g['ltp'] <= 0) || (!$s || (float)$s['ltp'] <= 0)) {
+      $boot = $bootstrap();
+      if ($boot) { @file_put_contents($cacheFile, json_encode($boot), LOCK_EX); return $boot; }
+    }
+    if (!$g || !$s) {
+      $stale = $readCache();
+      if ($stale) { $stale['open'] = false; $stale['stale'] = true; return $stale; }
+      return ['at' => now_iso(), 'source' => 'live-mcx', 'open' => false, 'error' => 'no quote',
+        'gold' => $g, 'silver' => $s, 'stale' => true];
+    }
+    $tick = ['at' => now_iso(), 'source' => 'live-mcx',
+      'open' => ($g['bid'] > 0 && $g['ask'] > 0 && $s['bid'] > 0 && $s['ask'] > 0),
+      'gold' => $g, 'silver' => $s, 'stale' => false];
+    @file_put_contents($cacheFile, json_encode($tick), LOCK_EX);
+    return $tick;
+  } finally {
+    if ($fp) { flock($fp, LOCK_UN); fclose($fp); }
+  }
+}
+
 /* v68 — international spot OHLC (day high/low/previous close) from Yahoo's
    public chart API, cached 10 min alongside the rate stamp. Best-effort:
    any failure leaves the previous cache intact; never blocks a refresh. */
@@ -2217,6 +2340,11 @@ try {
     $out['news'] = bullion_news($db);
     if (!$newsFresh) db_save($DB_FILE, $db);   // news cache refreshed (~every 45 min)
     jout(200, $out);
+  }
+  /* v69 — per-second tick (shared server micro-cache, one exchange call/sec) */
+  if ($route === 'bullion/tick' && $method === 'GET') {
+    $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
+    jout(200, angel_tick($db));
   }
   if ($route === 'bullion/cash' && $method === 'PUT') {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
