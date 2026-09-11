@@ -178,6 +178,7 @@ function angel_http(string $url, string $method, ?array $payload, array $headers
   $opts = [
     CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => $timeout,
     CURLOPT_SSL_VERIFYPEER => true, CURLOPT_CUSTOMREQUEST => $method, CURLOPT_HTTPHEADER => $h,
+    CURLOPT_ENCODING => '', CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 2,
     CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
   ];
   if ($payload !== null) $opts[CURLOPT_POSTFIELDS] = json_encode($payload);
@@ -213,6 +214,84 @@ function totp_now(string $base32Secret): string {
   return str_pad((string)($num % 1000000), 6, '0', STR_PAD_LEFT);
 }
 
+/* v63 — parse an Angel instrument-master expiry ("27NOV2026" / "27NOV26") */
+function angel_scrip_expiry(string $e): int {
+  $e = trim($e);
+  if ($e === '') return 0;
+  foreach (['dMY', 'dMy', 'Y-m-d', 'd-m-Y'] as $f) {
+    $d = DateTime::createFromFormat($f, $e);
+    if ($d && $d->getTimestamp() > 946684800) return $d->getTimestamp();
+  }
+  $ts = strtotime($e);
+  return $ts ?: 0;
+}
+
+/* v63 — resolve near-month MCX GOLD (1 kg, 995) & SILVER (30 kg) tokens.
+   Manual token settings win; otherwise the public Angel instrument master
+   is downloaded (~once per 2 days), MCX records are regex-extracted without
+   decoding the whole multi-MB file, and the nearest non-expired FUTCOM
+   contract of each metal is chosen. Self-rolls on contract expiry. */
+function angel_tokens(array &$db): ?array {
+  $s = $db['settings'] ?? [];
+  $gManual = trim((string)($s['angelGoldToken'] ?? ''));
+  $sManual = trim((string)($s['angelSilverToken'] ?? ''));
+  if ($gManual !== '' && $sManual !== '') {
+    return ['gold' => $gManual, 'silver' => $sManual, 'goldSymbol' => 'manual GOLD', 'silverSymbol' => 'manual SILVER', 'auto' => false];
+  }
+  $cache = is_array($db['angelTokens'] ?? null) ? $db['angelTokens'] : null;
+  $cacheFresh = static function () use ($cache): bool {
+    if (!$cache || empty($cache['gold'][0]) || empty($cache['silver'][0]) || empty($cache['at'])) return false;
+    $at = strtotime((string)$cache['at']);
+    if (!$at || time() - $at > 2 * 86400) return false;
+    foreach (['gold', 'silver'] as $m) {
+      $exp = angel_scrip_expiry((string)($cache[$m][1] ?? ''));
+      if ($exp && $exp < time() + 2 * 86400) return false;   // rolls ~2 days before expiry
+    }
+    return true;
+  };
+  $fromCache = static function (?array $cache): array {
+    return ['gold' => $cache['gold'][0], 'silver' => $cache['silver'][0],
+      'goldSymbol' => $cache['gold'][2] ?? 'GOLD', 'silverSymbol' => $cache['silver'][2] ?? 'SILVER', 'auto' => true];
+  };
+  if ($cacheFresh()) return $fromCache($cache);
+
+  $fail = static function (string $msg) use (&$db, $cache, $fromCache): ?array {
+    // a stale previous resolution is still tradeable until the contract expires
+    if ($cache && !empty($cache['gold'][0]) && !empty($cache['silver'][0])) return $fromCache($cache);
+    $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => $msg, 'errorAt' => now_iso()]);
+    return null;
+  };
+
+  $r = angel_http('https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json',
+    'GET', null, ['Accept' => 'application/json'], 60);
+  $raw = (string)($r['raw'] ?? '');
+  if ($r['code'] !== 200 || strlen($raw) < 100000) return $fail('Could not download the Angel instrument master (HTTP ' . $r['code'] . ') — tokens can be entered manually for now.');
+  if (!preg_match_all('/\{[^{}]*"exch_seg"\s*:\s*"MCX"[^{}]*\}/', $raw, $mm)) return $fail('Angel instrument master format unrecognised — tokens can be entered manually.');
+
+  $pick = ['GOLD' => null, 'SILVER' => null];
+  foreach ($mm[0] as $rec) {
+    $o = json_decode($rec, true);
+    if (!is_array($o)) continue;
+    $name = (string)($o['name'] ?? '');
+    if (!isset($pick[$name])) continue;                          // exact GOLD / SILVER (not GOLDM, SILVERM…)
+    $inst = strtoupper((string)($o['instrumenttype'] ?? ''));
+    if ($inst !== '' && $inst !== 'FUTCOM') continue;            // futures, not options
+    $exp = angel_scrip_expiry((string)($o['expiry'] ?? ''));
+    if ($exp < time() - 3 * 86400) continue;
+    $cand = [$exp, (string)($o['token'] ?? ''), (string)($o['symbol'] ?? $name)];
+    if ($cand[1] === '') continue;
+    if (!$pick[$name] || $cand[0] < $pick[$name][0]) $pick[$name] = $cand;
+  }
+  if (!$pick['GOLD'] || !$pick['SILVER']) {
+    return $fail('Near-month MCX GOLD/SILVER contract not found in the instrument master — tokens can be entered manually.');
+  }
+  $db['angelTokens'] = [
+    'gold' => $pick['GOLD'], 'silver' => $pick['SILVER'], 'at' => now_iso(),
+  ];
+  try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
+  return $fromCache($db['angelTokens']);
+}
+
 /* v61 — official MCX futures feed via Angel One SmartAPI (free demat account).
    Fully automatic: TOTP is generated from the secret, so the daily 3:30 AM
    token expiry self-heals on the next poll. Returns null when unconfigured. */
@@ -223,9 +302,10 @@ function angel_ltp(array &$db): ?array {
   $client = trim((string)($s['angelClient'] ?? ''));
   $mpin = (string)($s['angelMpin'] ?? '');
   $totpSecret = trim((string)($s['angelTotpSecret'] ?? ''));
-  $gTok = trim((string)($s['angelGoldToken'] ?? ''));
-  $sTok = trim((string)($s['angelSilverToken'] ?? ''));
-  if ($apiKey === '' || $client === '' || $mpin === '' || $totpSecret === '' || $gTok === '' || $sTok === '') return null;
+  if ($apiKey === '' || $client === '' || $mpin === '' || $totpSecret === '') return null;
+  $tok = angel_tokens($db);
+  if (!$tok) return null;
+  $gTok = $tok['gold']; $sTok = $tok['silver'];
 
   $baseHeaders = ['X-UserType' => 'USER', 'X-SourceID' => 'WEB', 'X-ClientLocalIP' => '127.0.0.1',
     'X-ClientPublicIP' => '127.0.0.1', 'X-MACAddress' => '00:00:00:00:00:00', 'X-PrivateKey' => $apiKey];
@@ -278,12 +358,15 @@ function angel_ltp(array &$db): ?array {
     unset($db['angelSession']['lastError'], $db['angelSession']['errorAt']);
   }
   if ($gold10g <= 0 || $silverKg <= 0) {
-    $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => 'LTP missing for a configured token (check the near-month GOLD/SILVER token numbers)', 'errorAt' => now_iso()]);
+    $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => 'LTP missing for the GOLD/SILVER contract (market closed or contract rolled — tokens resolve automatically)', 'errorAt' => now_iso()]);
     try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
     return null;
   }
   return ['goldPerG' => round($gold10g / 10, 2), 'silverPerG' => round($silverKg / 1000, 3),
-    'goldLtp' => $gold10g, 'silverLtp' => $silverKg, 'at' => now_iso()];
+    'goldLtp' => $gold10g, 'silverLtp' => $silverKg, 'at' => now_iso(),
+    'goldToken' => $gTok, 'silverToken' => $sTok,
+    'goldSymbol' => $tok['goldSymbol'] ?? 'GOLD', 'silverSymbol' => $tok['silverSymbol'] ?? 'SILVER',
+    'autoTokens' => !empty($tok['auto'])];
 }
 
 /* ───────── rate engine (identical math to Node) ───────── */
@@ -2526,8 +2609,10 @@ try {
   if ($route === 'admin/feed-test' && $method === 'GET') {
     need_admin($db);
     $s = $db['settings'];
+    /* v63 — contract tokens auto-resolve from the instrument master; only
+       the four credentials are strictly required. */
     $need = ['angelApiKey' => 'SmartAPI key', 'angelClient' => 'client code', 'angelMpin' => 'MPIN',
-      'angelTotpSecret' => 'TOTP secret', 'angelGoldToken' => 'GOLD token', 'angelSilverToken' => 'SILVER token'];
+      'angelTotpSecret' => 'TOTP secret'];
     $missing = [];
     foreach ($need as $k => $label) if (empty($s[$k])) $missing[] = $label;
     if (empty($s['angelEnabled'])) { jout(200, ['ok' => false, 'reason' => 'MCX feed is switched off — tick "Enable official MCX feed"']); }

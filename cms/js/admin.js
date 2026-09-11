@@ -728,15 +728,15 @@ async function renderAdmin(view, q) {
         </form></div>
       <div class="adm-card"><h3>📡 Official MCX rate feed <span style="font-size:11px;color:var(--ink-3);font-weight:400">Angel One SmartAPI · free demat · fully automatic TOTP login</span></h3>
         <form id="feedForm" onsubmit="ShivaaAdmin.saveFeed(event)">
-          <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:10px">When enabled, the Bullion Desk and shop rates come from <b>live MCX Gold &amp; Silver futures</b> (official exchange ticks), not the international spot feed. Get free keys at <b>smartapi.angelbroking.com</b> (requires an Angel One demat): create an app for the API key, set up external TOTP for the secret, and use the near-month <b>MCX GOLD</b> and <b>SILVER</b> instrument tokens (shown in the SmartAPI instrument master; e.g. GOLD 5-digit token). Leave the box unticked to keep today&rsquo;s automatic international feed.</p>
+          <p style="font-size:12.5px;color:var(--ink-2);margin-bottom:10px">When enabled, the Bullion Desk and shop rates come from <b>live MCX Gold &amp; Silver futures</b> (official exchange ticks), not the international spot feed. You only need <b>4 values</b> from a free Angel One SmartAPI account (<b>smartapi.angelbroking.com</b>, requires an Angel One demat): client code, MPIN, API key (create an app) and the external TOTP secret. The near-month <b>GOLD (1 kg, 995) &amp; SILVER</b> contract tokens are picked automatically and roll over on expiry &mdash; the two token boxes below are optional overrides only. Unticked = today&rsquo;s automatic international feed continues.</p>
           <div class="form-grid" style="grid-template-columns:1fr 1fr">
             <label class="fld full" style="flex-direction:row;align-items:center;gap:8px;display:flex"><input type="checkbox" name="angelEnabled" style="width:auto" ${S.angelEnabled ? 'checked' : ''}> <span><b>Enable official MCX feed</b> <small style="color:var(--ink-3)">— international spot stays as automatic fallback</small></span></label>
             <div class="fld"><label>Angel client code</label><input name="angelClient" value="${esc(S.angelClient || '')}" placeholder="AB1234" autocomplete="off"></div>
             <div class="fld"><label>MPIN / login password</label><input name="angelMpin" type="password" value="${esc(S.angelMpin || '')}" autocomplete="new-password" placeholder="••••"></div>
             <div class="fld"><label>SmartAPI key (X-PrivateKey)</label><input name="angelApiKey" value="${esc(S.angelApiKey || '')}" placeholder="from your SmartAPI app" autocomplete="off"></div>
             <div class="fld"><label>TOTP secret (Base32)</label><input name="angelTotpSecret" value="${esc(S.angelTotpSecret || '')}" placeholder="JBSWY3DPEHPK3PXP" autocomplete="off"></div>
-            <div class="fld"><label>MCX GOLD token (near month)</label><input name="angelGoldToken" value="${esc(S.angelGoldToken || '')}" placeholder="e.g. 11292"></div>
-            <div class="fld"><label>MCX SILVER token (near month)</label><input name="angelSilverToken" value="${esc(S.angelSilverToken || '')}" placeholder="e.g. 11295"></div>
+            <div class="fld"><label>MCX GOLD token — optional override</label><input name="angelGoldToken" value="${esc(S.angelGoldToken || '')}" placeholder="auto near-month if blank"></div>
+            <div class="fld"><label>MCX SILVER token — optional override</label><input name="angelSilverToken" value="${esc(S.angelSilverToken || '')}" placeholder="auto near-month if blank"></div>
             <div class="fld full" id="feedStatus" style="font-size:12.5px;color:var(--ink-3)">Feed status: checking…</div>
             <div class="fld full" style="display:flex;gap:10px;flex-wrap:wrap">
               <button class="btn btn-primary btn-sm" style="justify-self:start">Save feed settings</button>
@@ -1322,7 +1322,9 @@ window.ShivaaAdmin.testFeed = async () => {
   try {
     const r = await api('/api/admin/feed-test');
     if (r.ok) {
-      if (el) el.innerHTML = `✅ <b style="color:var(--ok,#1d7a46)">Live MCX connected</b> — Gold ₹${Number(r.mcx.goldLtp).toLocaleString('en-IN')}/10 g · Silver ₹${Number(r.mcx.silverLtp).toLocaleString('en-IN')}/kg at ${new Date(r.mcx.at).toLocaleTimeString('en-IN')}`;
+      const cGold = r.mcx.goldSymbol && r.mcx.goldSymbol !== 'manual GOLD' ? esc(String(r.mcx.goldSymbol)) : 'GOLD';
+      const cSil = r.mcx.silverSymbol && r.mcx.silverSymbol !== 'manual SILVER' ? esc(String(r.mcx.silverSymbol)) : 'SILVER';
+      if (el) el.innerHTML = `✅ <b style="color:var(--ok,#1d7a46)">Live MCX connected</b> — ${cGold} ₹${Number(r.mcx.goldLtp).toLocaleString('en-IN')}/10 g · ${cSil} ₹${Number(r.mcx.silverLtp).toLocaleString('en-IN')}/kg at ${new Date(r.mcx.at).toLocaleTimeString('en-IN')}${r.mcx.autoTokens ? ' <small style="color:var(--ink-3)">(near-month auto-selected)</small>' : ''}`;
       toast('MCX feed live ✦');
     } else {
       if (el) el.innerHTML = '⚠ Feed not connected (' + esc(r.reason || 'unknown') + '). International spot remains active.';
@@ -1987,7 +1989,7 @@ window.ShivaaBullion = {
     const bd = B.board || {};
     const ticker = bd.ticker || '✦ Unfix (rate-lock) facility available on gold & silver ✦';
     const feedBadge = bd.feedSource === 'live-mcx' && bd.mcx
-      ? `<span class="bd-feed bd-feed-mcx" title="Official MCX near-month futures via Angel One SmartAPI">📡 MCX LIVE · ₹${Number(bd.mcx.goldLtp).toLocaleString('en-IN')}/10g · ₹${Number(bd.mcx.silverLtp).toLocaleString('en-IN')}/kg</span>`
+      ? `<span class="bd-feed bd-feed-mcx" title="Official MCX futures via Angel One SmartAPI — ${esc(bd.mcx.goldSymbol || 'GOLD')} / ${esc(bd.mcx.silverSymbol || 'SILVER')}${bd.mcx.autoTokens ? ' (near-month auto-selected)' : ''}">📡 ${/^GOLD/i.test(bd.mcx.goldSymbol || '') ? esc(String(bd.mcx.goldSymbol).replace(/^GOLD/i, 'GOLD ')) : 'MCX'} LIVE · ₹${Number(bd.mcx.goldLtp).toLocaleString('en-IN')}/10g · ₹${Number(bd.mcx.silverLtp).toLocaleString('en-IN')}/kg</span>`
       : `<span class="bd-feed" title="International LBMA spot × USD/INR">🌐 SPOT FX</span>`;
     const tab = (id, ic, lb) => `<a href="#" data-sec="${id}" class="${this.section === id ? 'on' : ''}">${ic}<span>${lb}</span>${id === 'alerts' && (B.alerts || []).length ? `<em class="bd-navcnt">${B.alerts.length}</em>` : ''}</a>`;
     el.innerHTML = `
