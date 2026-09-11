@@ -102,24 +102,26 @@ const state = {
   productsCache: [], cacheAt: 0,
 };
 
+/* v57: every category face is the studio photograph the house selected,
+   colour-graded to one warm theme (images/categories/*.jpg) */
 const CATS = {
-  rings: { name: 'Rings', sub: 'Solitaires · Kundan · Bands', img: '/images/products/ring-floral.jpg' },
-  necklaces: { name: 'Necklaces', sub: 'Rani haar · Chokers', img: '/images/products/necklace-rani.jpg' },
-  earrings: { name: 'Earrings', sub: 'Jhumkas · Chandbalis', img: '/images/products/earrings-jhumka.jpg' },
-  bangles: { name: 'Bangles & Kadas', sub: 'Carved · Textured', img: '/images/products/bangle-kada.jpg' },
-  bracelets: { name: 'Bracelets', sub: 'Tennis · Charms', img: '/images/products/bracelet-tennis.jpg' },
-  chains: { name: 'Chains', sub: 'Rope · Box · Sing', img: '/images/products/chain-gold.jpg' },
-  pendants: { name: 'Pendants', sub: 'Om · Diamond · Locket', img: '/images/products/pendant-om.jpg' },
-  mangalsutra: { name: 'Mangalsutra', sub: 'Classic · Modern', img: '/images/products/mangalsutra-trad.jpg' },
-  bajubandh: { name: 'Bajubandh', sub: 'Armbands · Rajputana', img: '/images/products/bangle-kada.jpg' },
-  rakhdi: { name: 'Rakhdi Set', sub: 'Borla · Tikka · Sets', img: '/images/products/earrings-chandbali.jpg' },
-  aad: { name: 'Fancy Aad', sub: 'Hair ornaments · Bridal', img: '/images/products/necklace-choker.jpg' },
-  sheeshphool: { name: 'Sheesh Phool', sub: 'Head ornaments', img: '/images/products/earrings-chandbali.jpg' },
-  hathphool: { name: 'Hathphool', sub: 'Hand harness · Rings', img: '/images/products/ring-couple.jpg' },
-  punach: { name: 'Punach', sub: 'Anklet ornaments', img: '/images/products/silver-anklet.jpg' },
-  bridalanklets: { name: 'Bridal Anklets', sub: 'Payal · Kada pairs', img: '/images/products/silver-anklet.jpg' },
-  nosepins: { name: 'Nose Pins', sub: 'Light · Daily', img: '/images/products/nosepin.jpg' },
-  silver: { name: 'Silver 925', sub: 'Payal · Chains · Kada', img: '/images/products/silver-anklet.jpg' },
+  rings: { name: 'Rings', sub: 'Solitaires · Kundan · Bands', img: '/images/categories/rings.jpg' },
+  necklaces: { name: 'Necklaces', sub: 'Rani haar · Chokers', img: '/images/categories/necklaces.jpg' },
+  earrings: { name: 'Earrings', sub: 'Jhumkas · Chandbalis', img: '/images/categories/earrings.jpg' },
+  bangles: { name: 'Bangles & Kadas', sub: 'Carved · Textured', img: '/images/categories/bangles.jpg' },
+  bracelets: { name: 'Bracelets', sub: 'Tennis · Charms', img: '/images/categories/bracelets.jpg' },
+  chains: { name: 'Chains', sub: 'Rope · Box · Sing', img: '/images/categories/chains.jpg' },
+  pendants: { name: 'Pendants', sub: 'Om · Diamond · Locket', img: '/images/categories/pendants.jpg' },
+  mangalsutra: { name: 'Mangalsutra', sub: 'Classic · Modern', img: '/images/categories/mangalsutra.jpg' },
+  bajubandh: { name: 'Bajubandh', sub: 'Armbands · Rajputana', img: '/images/categories/bajubandh.jpg' },
+  rakhdi: { name: 'Rakhdi Set', sub: 'Borla · Tikka · Sets', img: '/images/categories/rakhdi.jpg' },
+  aad: { name: 'Fancy Aad', sub: 'Bridal chest ornaments', img: '/images/categories/aad.jpg' },
+  sheeshphool: { name: 'Sheesh Phool', sub: 'Head ornaments', img: '/images/categories/sheeshphool.jpg' },
+  hathphool: { name: 'Hathphool', sub: 'Hand harness · Rings', img: '/images/categories/hathphool.jpg' },
+  punach: { name: 'Punach', sub: 'Anklet ornaments', img: '/images/categories/punach.jpg' },
+  bridalanklets: { name: 'Bridal Anklets', sub: 'Payal · Kada pairs', img: '/images/categories/bridalanklets.jpg' },
+  nosepins: { name: 'Nose Pins', sub: 'Light · Daily', img: '/images/categories/nosepins.jpg' },
+  silver: { name: 'Silver 925', sub: 'Payal · Chains · Kada', img: '/images/categories/silver.jpg' },
 };
 
 /* ─────────── WhatsApp integration ─────────── */
@@ -246,6 +248,61 @@ function price(p, R) {
   const subtotal = metalValue + makingCharge + stoneValue;
   const gst = Math.round(subtotal * 0.03);
   return { ratePerGram: Math.round(rate * 100) / 100, metalValue, makingCharge, stoneValue, subtotal, gst, total: subtotal + gst };
+}
+
+/* ─────────── v57 · rich product structured data + share meta (SEO / WhatsApp previews) ─────────── */
+const _metaDefaults = {
+  title: document.title,
+  ogTitle: document.querySelector('meta[property="og:title"]')?.content || '',
+  ogDesc: document.querySelector('meta[property="og:description"]')?.content || '',
+  ogUrl: document.querySelector('meta[property="og:url"]')?.content || '',
+  ogImg: document.querySelector('meta[property="og:image"]')?.content || '',
+};
+let _pdpMeta = false;
+function resetProductMeta() {
+  const old = document.getElementById('ld-product'); if (old) old.remove();
+  if (!_pdpMeta) return;
+  _pdpMeta = false;
+  document.title = _metaDefaults.title;
+  const setMeta = (prop, content) => { const m = document.querySelector(`meta[property="${prop}"]`); if (m && content) m.setAttribute('content', content); };
+  setMeta('og:title', _metaDefaults.ogTitle);
+  setMeta('og:description', _metaDefaults.ogDesc);
+  setMeta('og:url', _metaDefaults.ogUrl);
+  setMeta('og:image', _metaDefaults.ogImg);
+}
+function injectProductLD(p, pr) {
+  resetProductMeta();
+  _pdpMeta = true;
+  const origin = location.origin;
+  const imgs = (p.images || []).map(i => i.startsWith('http') ? i : origin + i);
+  const validUntil = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  const ld = {
+    '@context': 'https://schema.org/', '@type': 'Product',
+    name: p.name, sku: p.sku || undefined, mpn: p.sku || undefined,
+    category: (CATS[p.category] || {}).name || 'Jewellery',
+    description: String(p.description || p.name).replace(/<[^>]+>/g, ' ').slice(0, 500),
+    image: imgs, brand: { '@type': 'Brand', name: 'Shivaa' },
+    material: p.metal === 'Silver' ? 'Sterling Silver 925' : `${p.metal || 'Gold'} ${p.purity || ''}`,
+    aggregateRating: p.reviews ? { '@type': 'AggregateRating', ratingValue: p.rating || '4.8', reviewCount: p.reviews } : undefined,
+    offers: { '@type': 'Offer', url: location.href, priceCurrency: 'INR',
+      price: pr.total, priceValidUntil: validUntil, availability: 'https://schema.org/InStock',
+      seller: { '@type': 'JewelryStore', name: 'Shivaa Jewellers' } },
+  };
+  const crumbs = { '@context': 'https://schema.org/', '@type': 'BreadcrumbList', itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: origin + '/#/' },
+    { '@type': 'ListItem', position: 2, name: (CATS[p.category] || {}).name || 'Shop', item: origin + '/#/shop?category=' + p.category },
+    { '@type': 'ListItem', position: 3, name: p.name },
+  ]};
+  const s = document.createElement('script'); s.type = 'application/ld+json'; s.id = 'ld-product';
+  s.textContent = JSON.stringify([ld, crumbs]);
+  document.head.appendChild(s);
+  // dynamic share/OG tags — WhatsApp & Google pick these up for the piece
+  const setMeta = (prop, content) => { let m = document.querySelector(`meta[property="${prop}"]`); if (!m) { m = document.createElement('meta'); m.setAttribute('property', prop); document.head.appendChild(m); } if (content) m.setAttribute('content', content); };
+  setMeta('og:title', p.name + ' · Shivaa Jewellers');
+  setMeta('og:description', `${p.metal || 'Gold'} ${p.purity || ''} · ${fmt(pr.total)} at today's live rate · BIS hallmarked · Shivaa, Jayal`);
+  setMeta('og:url', location.href);
+  if (imgs[0]) setMeta('og:image', imgs[0]);
+  document.title = p.name + ' · Shivaa Jewellers';
 }
 
 /* ─────────── Feature 13: product compare + shareable shortlist ─────────── */
@@ -2050,6 +2107,7 @@ pages.product = async (view, q, id) => {
   let data;
   try { data = await api('/api/products/' + id); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
   const p = data.product, pr = price(p), R = data.rates || state.rates;
+  injectProductLD(p, pr);   // v57: schema.org Product JSON-LD + per-piece OG share card
   const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
   const compared = isCompared(p.id);
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
@@ -2110,7 +2168,7 @@ pages.product = async (view, q, id) => {
         </div>
 
         ${p.sizes.length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide()" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide</a></div>
-        <div class="size-row" id="sizeRow">${p.sizes.map((s, i) => `<button class="size-pill ${i === Math.floor(p.sizes.length / 2) ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+        <div class="size-row" id="sizeRow">${p.sizes.map(s => `<button class="size-pill ${String(s) === String(localStorage.getItem('shv_ring_size') || '') ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" title="Find your ring size">📏 Size guide</a></div>` : ''}
 
         <div class="opt-label"><span>Engraving (free, up to 12 characters)</span></div>
         <div class="pin-row" style="max-width:340px"><input id="engrave" maxlength="12" placeholder="e.g. R♥S 26"></div>
@@ -2192,7 +2250,7 @@ pages.product = async (view, q, id) => {
     wrap.addEventListener('pointerdown', () => clearInterval(timer), { once: true });
   })();
   $('#brkBtn').onclick = () => { const b = $('#pdBrk'); b.hidden = !b.hidden; $('#brkBtn').setAttribute('aria-expanded', String(!b.hidden)); };
-  $$('#sizeRow .size-pill').forEach(s => s.onclick = () => { $$('#sizeRow .size-pill').forEach(x => x.classList.remove('on')); s.classList.add('on'); });
+  $$('#sizeRow .size-pill').forEach(s => s.onclick = () => { $$('#sizeRow .size-pill').forEach(x => x.classList.remove('on')); s.classList.add('on'); try { localStorage.setItem('shv_ring_size', s.dataset.size); } catch (e) {} });
   bindTilt(view);
   window._pd = { p, qty: 1 };
   /* v54: remember this piece + mobile sticky buy bar + tap-to-zoom gallery */
@@ -2509,6 +2567,7 @@ pages.checkout = async (view) => {
 
     <div class="summary">
       <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
+      <div class="rate-lock-card" id="rateLockBox" aria-live="polite"></div>
       <h3>Your Order</h3>
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
       <div class="coupon-row"><input id="couponIn" placeholder="Coupon code"><button class="btn btn-ghost btn-sm" onclick="Shivaa.applyCoupon()">Apply</button></div>
@@ -2521,7 +2580,59 @@ pages.checkout = async (view) => {
       <button class="btn btn-gold btn-block btn-lg mt-2" id="placeBtn" onclick="Shivaa.placeOrder()">Place Order ✦</button>
     </div>
   </div>`;
-  window._co = { subtotal, freeShip, coupon: null, disc: 0 };
+  /* ── v57: 20-minute live-rate lock — your price cannot move while paying ── */
+  const pickRates = () => ({ gold22: state.rates.gold22, gold24: state.rates.gold24, gold18: state.rates.gold18, silver: state.rates.silver });
+  window._co = { subtotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, disc: 0, items, rateLock: null, lockTimer: null };
+  const coRows = () => $$('.summary [data-copid]');
+  function coTotals() {
+    if (!$('#coSub')) { clearInterval(window._co && window._co.lockTimer); return; }   // navigated away from checkout
+    const lock = activeLock();
+    const R = lock ? lock.rates : state.rates;
+    let sub = 0;
+    coRows().forEach(el => {
+      const it = window._co.items.find(x => x.p.id === el.dataset.copid);
+      if (!it) return;
+      const t = price(it.p, R).total * it.qty;
+      el.textContent = fmt(t); sub += t;
+    });
+    window._co.subtotal = sub;
+    window._co.freeShip = sub >= state.settings.freeShipAbove;
+    $('#coSub').textContent = fmt(sub);
+    const shipRow = document.querySelector('.summary .sum-row:nth-last-child(2)'); // "Shipping"
+    window.Shivaa.updateCheckout();
+  }
+  function activeLock() {
+    const l = window._co.rateLock;
+    if (!l) return null;
+    const age = (Date.now() - new Date(l.stampedAt).getTime()) / 1000;
+    return age <= 20 * 60 ? l : null;
+  }
+  function paintLock() {
+    const box = $('#rateLockBox'); if (!box) return;
+    const l = activeLock();
+    if (!l) {
+      box.className = 'rate-lock-card expired';
+      box.innerHTML = `<div class="rl-top"><span class="rl-ic">&#9201;</span><div><b>Rates are live</b><small>Tap below to freeze today&rsquo;s rate for 20 minutes.</small></div></div>
+        <button type="button" class="btn btn-gold btn-sm" id="rlLockBtn">🔒 Lock today&rsquo;s rate · 20 min</button>`;
+      const b = $('#rlLockBtn'); if (b) b.onclick = () => { window._co.rateLock = { rates: pickRates(), stampedAt: new Date().toISOString() }; coTotals(); paintLock(); };
+      return;
+    }
+    const left = Math.max(0, 20 * 60 - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000));
+    box.className = 'rate-lock-card live';
+    box.innerHTML = `<div class="rl-top"><span class="rl-ic locked">&#128274;</span><div><b>Rate locked</b><small>Your price is frozen &mdash; even if the market moves.</small></div><span class="rl-timer" id="rlTimer">${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}</span></div>
+      <div class="rl-rates">22K <b>${fmt(l.rates.gold22)}/g</b> · Silver <b>${fmt2(l.rates.silver)}/g</b></div>`;
+  }
+  function startLockClock() {
+    clearInterval(window._co.lockTimer);
+    window._co.lockTimer = setInterval(() => {
+      const l = activeLock();
+      const t = $('#rlTimer');
+      if (l && t) { const left = Math.max(0, 20 * 60 - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000)); t.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`; }
+      else { clearInterval(window._co.lockTimer); coTotals(); paintLock(); }
+    }, 1000);
+  }
+  window._co.rateLock = { rates: pickRates(), stampedAt: new Date().toISOString() };
+  coTotals(); paintLock(); startLockClock();
   $$('#payOpts input').forEach(r => r.onchange = () => { $$('.pay-opt').forEach(o => o.classList.remove('on')); r.closest('.pay-opt').classList.add('on'); });
 };
 window.Shivaa.applyCoupon = async () => {
@@ -2561,7 +2672,10 @@ window.Shivaa.placeOrder = async () => {
     const order = await api('/api/orders', { method: 'POST', body: JSON.stringify({
       items: state.cart.map(c => ({ id: c.id, qty: c.qty, size: c.size, engraving: c.engraving })),
       address, paymentMethod, coupon: window._co.coupon, usePoints: !!$('#usePts')?.checked,
+      rateLock: (() => { const age = (Date.now() - new Date((window._co.rateLock || {}).stampedAt || 0).getTime()) / 1000;
+        return age <= 20 * 60 ? window._co.rateLock : null; })(),
     }) });
+    clearInterval(window._co.lockTimer);
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
     if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
     window._lastOrder = order;
@@ -2575,6 +2689,26 @@ window.Shivaa.placeOrder = async () => {
     }
     location.hash = '#/order/' + order.id;
   } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = 'Place Order ✦'; }
+};
+
+/* v57 — one-tap reorder from a past order ("Buy again") */
+window.Shivaa.buyAgain = async (id) => {
+  let o = (window.Shivaa._myOrders || []).find(x => x.id === id);
+  if (!o) { try { o = (await api('/api/orders/' + id)).order; } catch (e) {} }
+  if (!o || !Array.isArray(o.items)) { toast('Could not find that order', 'err'); return; }
+  let added = 0;
+  o.items.forEach(it => {
+    const p = state.productsCache.find(x => x.id === it.productId);
+    if (!p) return;
+    const existing = state.cart.find(c => c.id === p.id);
+    if (existing) existing.qty += it.qty || 1;
+    else state.cart.push({ id: p.id, qty: it.qty || 1, size: it.size || null, engraving: it.engraving || '' });
+    added += it.qty || 1;
+  });
+  if (!added) { toast('Those pieces are being re-catalogued — ask Saathi for an equivalent', 'err'); return; }
+  store.set('shv_cart', state.cart); updateBadges();
+  toast(`${added} piece${added === 1 ? '' : 's'} added back to your cart ✦`);
+  location.hash = '#/cart';
 };
 
 /* ─────────── ORDER CONFIRMATION ─────────── */
@@ -2605,7 +2739,8 @@ pages.order = async (view, q, id) => {
       </div>
       ${order.paymentMethod === 'WhatsApp' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Your order is reserved — confirm &amp; pay on WhatsApp to lock today's rate.</div>
       <div class="center" style="margin-bottom:18px"><button class="btn btn-gold btn-lg" onclick="Shivaa.waOpenOrder('${order.id}')">Confirm &amp; Pay on WhatsApp</button></div>` : ''}
-      <div class="center"><a class="btn btn-primary" href="#/account?tab=orders">View All Orders</a> <a class="btn btn-ghost" href="#/shop" style="margin-left:10px">Continue Shopping</a></div>
+      <div class="center"><a class="btn btn-gold" href="#/certificate/${encodeURIComponent(order.id)}">🛡 View purity certificate</a></div>
+      <div class="center" style="margin-top:12px"><a class="btn btn-primary" href="#/account?tab=orders">View All Orders</a> <a class="btn btn-ghost" href="#/shop" style="margin-left:10px">Continue Shopping</a></div>
     </div>
   </div>`;
   confetti();
@@ -2634,7 +2769,7 @@ pages.account = async (view, q) => {
   // v31 — a failed fetch must never blank the account page; if the session
   // died (401), api() has already cleared it, so show the login gate.
   let orders = [], wl = [];
-  try { orders = (await api('/api/orders')).orders || []; }
+  try { orders = (await api('/api/orders')).orders || []; window.Shivaa._myOrders = orders; }   // v57: buy-again
   catch (e) { if (!state.user) { openLogin('account'); return; } }
   try { wl = (await api('/api/wishlist')).wishlist || []; }
   catch (e) { if (!state.user) { openLogin('account'); return; } }
@@ -2648,6 +2783,7 @@ pages.account = async (view, q) => {
   const tiles = [
     ['overview', '◈', 'Account Overview', 'Your details, occasions & preferences'],
     ['orders', '▦', 'My Orders', orders.length + ' order' + (orders.length === 1 ? '' : 's')],
+    ['certificates', '🛡', 'My Certificates', orders.length ? orders.length + ' digital purity certificate' + (orders.length === 1 ? '' : 's') : 'Issued with your first order'],
     ['addresses', '⌖', 'Manage Addresses', nAdr ? nAdr + ' saved · deliveries & billing' : 'Add delivery addresses'],
     ['loyalty', '✦', 'Royalty Points', me.loyaltyPoints + ' pts · ' + tier + ' tier'],
     ['wishlist', '♡', 'My Wishlist', wl.length + ' saved piece' + (wl.length === 1 ? '' : 's')],
@@ -2668,7 +2804,7 @@ pages.account = async (view, q) => {
 
     <div class="acct-tiles">
       ${isPartner() ? `<a href="#/partner" class="acct-tile portal"><span class="at-ic">✦</span><span class="at-tx"><b>Partner Portal</b><small>bullion desk · design selection · schemes · reports</small></span><span class="at-go">›</span></a>` : ''}
-      ${tiles.map(t => `<a href="#/account?tab=${t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
+      ${tiles.map(t => `<a href="${t[0] === 'certificates' ? '#/certificates' : '#/account?tab=' + t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
       <a href="javascript:Shivaa.logout()" class="acct-tile danger"><span class="at-ic">↩</span><span class="at-tx"><b>Logout</b><small>sign out safely</small></span><span class="at-go">›</span></a>
     </div>
 
@@ -2700,8 +2836,10 @@ pages.account = async (view, q) => {
       <div class="timeline">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${o.timeline.find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
         ${o.items.map(i => `<img src="${i.img}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
-        <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail('${o.id}')">Details</a>
+          <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail('${o.id}')">Details</a>
           <a class="btn btn-outline btn-sm" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
+          <a class="btn btn-outline btn-sm" href="#/certificate/${o.id}">🛡 Certificate</a>
+          ${o.status === 'Delivered' ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.buyAgain('${o.id}')">↻ Buy again</button>` : ''}
           ${oq ? `<a class="btn btn-gold btn-sm" href="javascript:Shivaa.fqOpen({route:'purchase',orderId:'${o.id}'})" style="margin-left:auto">✦ Gold Finale — this order qualifies</a>` : ''}
       </div></div>`;
   }).join('') || '<div class="empty"><h3>No orders yet</h3><a class="btn btn-outline" href="#/shop">Start shopping</a></div>' : ''}
@@ -2804,10 +2942,126 @@ pages.wishlist = async (view) => {
   else { wl = state.localWish; items = state.productsCache.filter(p => state.localWish.includes(p.id)); }
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Wishlist</div><h1>Wishlist</h1><p>${items.length} saved piece${items.length === 1 ? '' : 's'}${state.user ? '' : ' · login to sync across devices'}</p></div></section>
-  <div class="container" style="padding:44px 0 90px">
-    ${items.length ? `<div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
+  <div class="container" style="padding:30px 0 90px">
+    ${items.length ? `
+    <div class="registry-bar">
+      <div class="rb-tx"><b>🎁 Turn these into a gift registry</b><small>Share one link with family &mdash; they see your chosen pieces and can gift or contribute, quietly. Perfect for weddings &amp; bridal trousseau.</small></div>
+      <div class="rb-acts">
+        <button class="btn btn-gold" id="rgShare">🔗 Copy share link</button>
+        <button class="btn btn-outline" id="rgWa">Share on WhatsApp</button>
+      </div>
+    </div>
+    <div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
     : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Nothing saved yet</h3><p style="margin:10px 0 20px">Tap the heart on any piece to keep it here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
+  if (items.length) {
+    const ids = items.map(p => p.id).join(',');
+    const name = state.user ? state.user.name.split(' ')[0] : '';
+    const link = location.origin + location.pathname + '#/giftlist?ids=' + encodeURIComponent(ids) + (name ? '&by=' + encodeURIComponent(name) : '');
+    const copy = () => {
+      (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).catch(() => {
+        const t = document.createElement('textarea'); t.value = link; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove();
+      });
+      toast('Share link copied ✓');
+    };
+    $('#rgShare').onclick = copy;
+    $('#rgWa').onclick = () => waOpen(`Namaste ✦ Here is my Shivaa gift registry — tap to see the pieces I love:\n${link}`);
+  }
+};
+
+/* ─────────── v57 · shared gift registry (public, no login needed) ─────────── */
+pages.giftlist = async (view, q) => {
+  const ids = (q.get('ids') || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 60);
+  const by = q.get('by') || '';
+  const occasion = q.get('occasion') || 'Gift registry';
+  let items = ids.map(id => (state.productsCache || []).find(p => p.id === id)).filter(Boolean);
+  if (!items.length && ids.length) { try { const r = await api('/api/products'); items = ids.map(id => (r.products || []).find(p => p.id === id)).filter(Boolean); } catch (e) {} }
+  const total = items.reduce((a, p) => a + price(p).total, 0);
+  view.innerHTML = `
+  <section class="page-hero registry-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="container"><span class="hero-kicker">🎁 ${esc(occasion)}</span><h1>${by ? esc(by) + '&rsquo;s' : 'A'} Shivaa <em class="shimmer foil-txt">wishlist</em></h1>
+    <p class="hero-sub">${items.length} treasured piece${items.length === 1 ? '' : 's'} · wish value <b>${fmt(total)}</b> · family can gift a piece or contribute quietly.</p></div></section>
+  <div class="container" style="padding:34px 0 90px">
+    ${items.length ? `<div class="p-grid">${items.map(p => productCard(p, { wishSet: [] })).join('')}</div>
+      <div class="registry-cta">
+        <h3>Gift one of these pieces?</h3>
+        <p>Our team keeps every contribution confidential from the registry owner until the reveal. You can also buy a <a href="#/giftcard" style="color:var(--gold)">Shivaa gift card</a>.</p>
+        <a class="btn btn-gold btn-lg" target="_blank" rel="noopener" href="${waLink('Namaste Shivaa ✦\n\nI would like to gift a piece from ' + (by || 'a') + '’s Shivaa gift registry: ' + location.href)}">💝 Talk to the wedding &amp; gifting desk</a>
+        <a class="btn btn-ghost" href="#/shop">Create your own registry</a>
+      </div>`
+    : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This registry is empty</h3><p style="margin:10px 0 20px">Its pieces may have moved &mdash; browse the collection instead.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+  </div>`;
+};
+
+/* ─────────── v57 · RING / BANGLE SIZER ─────────── */
+pages.sizer = async view => {
+  const saved = (() => { try { return localStorage.getItem('shv_ring_size') || ''; } catch (e) { return ''; } })();
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Ring Size Guide</div><h1>Find your ring size</h1><p>Two quick methods — no guessing, no size exchanges.</p></div></section>
+  <div class="container sizer-wrap" style="padding:36px 0 90px">
+    <div class="sizer-grid">
+      <div class="adm-card sz-card">
+        <h3>① Match a ring you already own</h3>
+        <p class="partner-note">Calibrate once with any ATM / bank card (exactly <b>85.6 mm</b> wide), then drag until the circle fits the <b>inner edge</b> of your ring.</p>
+        <div class="sz-cal">
+          <label>Calibration — card should line up exactly:</label>
+          <div class="sz-cardrow"><button class="btn btn-ghost btn-sm" id="szCalDown">−</button><div class="sz-bankcard" id="szBank"><span>Bank / ATM card · 85.6 mm</span></div><button class="btn btn-ghost btn-sm" id="szCalUp">+</button></div>
+        </div>
+        <div class="sz-stage" id="szStage"><div class="sz-circle" id="szCircle"><span></span></div></div>
+        <div class="sz-controls">
+          <button class="btn btn-ghost" id="szDown">− Smaller</button>
+          <div class="sz-readout"><b id="szDia">17.0</b><small>mm inner diameter · Indian size <b id="szInd">17</b></small></div>
+          <button class="btn btn-ghost" id="szUp">Bigger +</button>
+        </div>
+        <button class="btn btn-gold btn-block" id="szSave">Save my size · pre-select on every ring</button>
+      </div>
+      <div class="adm-card sz-card">
+        <h3>② Printable paper strip</h3>
+        <p class="partner-note">Wrap snugly around the widest part of the finger (allow for the knuckle). Read the mark that meets the arrow.</p>
+        <div class="sz-strip-wrap">
+          <div class="sz-strip" id="szStrip"></div>
+        </div>
+        <button class="btn btn-outline btn-block" onclick="window.print()">🖨 Print the strip</button>
+        <div class="sz-tips">
+          <b>Good to know</b>
+          <ul><li>Measure at the end of the day when fingers are warm.</li>
+          <li>The band should fit snug but slide over the knuckle.</li>
+          <li>Between two sizes? Pick the larger — fingers swell in summer.</li>
+          <li>Still unsure? Our <a href="#/videoconsult" style="color:var(--gold)">video call</a> measures it with you, free.</li></ul>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  // calibration: pixels per mm, starting at 96dpi/25.4
+  let ppm = 96 / 25.4, dia = 17.0;
+  const card = $('#szBank');
+  const paintCal = () => { card.style.width = (85.6 * ppm).toFixed(1) + 'px'; paint(); };
+  const paint = () => {
+    $('#szCircle').style.width = (dia * ppm).toFixed(1) + 'px';
+    $('#szCircle').style.height = (dia * ppm).toFixed(1) + 'px';
+    $('#szDia').textContent = dia.toFixed(1);
+    const circ = dia * Math.PI, ind = Math.round(circ - 36.5);
+    $('#szInd').textContent = ind;
+  };
+  $('#szCalUp').onclick = () => { ppm *= 1.01; paintCal(); };
+  $('#szCalDown').onclick = () => { ppm /= 1.01; paintCal(); };
+  $('#szUp').onclick = () => { dia = Math.min(23, dia + 0.2); paint(); };
+  $('#szDown').onclick = () => { dia = Math.max(11, dia - 0.2); paint(); };
+  if (saved) { const d = (parseFloat(saved) + 36.5) / Math.PI; if (d >= 11 && d <= 23) dia = Math.round(d * 5) / 5; }
+  paintCal();
+  $('#szSave').onclick = () => {
+    const ind = $('#szInd').textContent;
+    try { localStorage.setItem('shv_ring_size', ind); } catch (e) {}
+    toast('Indian size ' + ind + ' saved ✓ rings open on your size');
+  };
+  // printable strip: 0-70mm with Indian size ticks every π mm
+  const strip = $('#szStrip');
+  let ticks = '';
+  for (let mm = 40; mm <= 70; mm++) {
+    const ind = Math.round(mm - 36.5);
+    ticks += `<span class="tick" style="left:${(mm - 40) * 10}px"><i class="${mm % 5 === 0 ? 'big' : ''}"></i>${mm % 2 === 0 ? `<b>${mm}</b>` : ''}</span>`;
+  }
+  strip.innerHTML = `<span class="sz-arrow">▾ cut &amp; start here (0)</span><div class="sz-ruler">${ticks}</div><small>Sizes shown: circumference mm → Indian size (circ − 36.5). Cut this page at 100% scale, “actual size” in print settings.</small>`;
 };
 
 /* ─────────── RATES PAGE ─────────── */
@@ -3003,15 +3257,15 @@ pages.b2b = async (view) => {
           </div></div>
         <div class="fld"><label>City *</label><input id="kyCity" placeholder="Nagaur, Jodhpur…" autocomplete="address-level2" oninput="Shivaa.kycGate()"></div>
         <div class="fld"><label>Owner PAN <small class="kyc-req">(optional)</small></label><input id="kyPan" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase" autocomplete="off"></div>
-        <div class="fld full"><label>Mobile number * <small class="kyc-req">(we text a 6-digit code — any Indian mobile)</small></label>
+        <div class="fld full"><label>Mobile number * <small class="kyc-req">(we text a 4-digit code — any Indian mobile)</small></label>
           <div class="kyc-inline">
             <span class="kyc-cc">+91</span>
             <input id="kyPhone" maxlength="10" placeholder="10-digit mobile" inputmode="numeric" autocomplete="tel-national" required oninput="Shivaa.kycFieldEdit('otp')">
             <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycOtp()">Send OTP</button>
           </div></div>
-        <div class="fld full"><label>Enter the 6-digit OTP *</label>
+        <div class="fld full"><label>Enter the 4-digit OTP *</label>
           <div class="kyc-inline">
-            <input id="kyOtp" maxlength="6" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" oninput="Shivaa.kycGate()">
+            <input id="kyOtp" maxlength="4" placeholder="4-digit code" inputmode="numeric" autocomplete="one-time-code" oninput="this.value=this.value.replace(/\D/g,'').slice(0,4);Shivaa.kycGate()">
             <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycOtpVerify()">✓ Verify OTP</button>
             <span class="kyc-status" id="otpStat"></span>
           </div></div>
@@ -3411,15 +3665,15 @@ function pwFieldHTML({ id, label = 'Password', ph = '', auto = 'new-password', m
 }
 function otpBoxesHTML(id) {
   let inp = '';
-  for (let i = 0; i < 6; i++) inp += `<input type="text" maxlength="1" inputmode="numeric" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Digit ${i + 1}">`;
-  return `<div class="otp-boxes" id="${id}" role="group" aria-label="6-digit code">${inp}</div>`;
+  for (let i = 0; i < 4; i++) inp += `<input type="text" maxlength="1" inputmode="numeric" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Digit ${i + 1}">`;
+  return `<div class="otp-boxes" id="${id}" role="group" aria-label="4-digit code">${inp}</div>`;
 }
 function bindOtpBoxes(root, onComplete) {
   if (!root) return;
   const boxes = [...root.querySelectorAll('input')];
   const fire = () => {
     const v = boxes.map(b => b.value).join('');
-    if (v.length === 6 && onComplete) onComplete(v);
+    if (v.length === 4 && onComplete) onComplete(v);
   };
   boxes.forEach((inp, i) => {
     inp.addEventListener('input', () => {
@@ -3542,7 +3796,7 @@ function openLogin(next = '') {
               <div class="kyc-inline"><input id="rtOtpPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" autocomplete="tel-national" style="flex:1">
               <button type="button" class="btn btn-ghost btn-sm" id="rtOtpSend">Send code</button></div>
               <span class="auth-stat" id="rtOtpStat"></span></div>
-            <div class="fld"><label>6-digit code</label>
+            <div class="fld"><label>4-digit code</label>
               ${otpBoxesHTML('rtOtpBoxes')}
             </div>
             <button class="btn btn-primary btn-block" id="rtOtpBtn" type="submit">Verify &amp; sign in</button>
@@ -3556,7 +3810,7 @@ function openLogin(next = '') {
             <div class="kyc-inline"><input id="rgPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" autocomplete="tel-national" style="flex:1">
             <button type="button" class="btn btn-ghost btn-sm" id="rgSend">Send code</button></div>
             <span class="auth-stat" id="rgStat"></span></div>
-          <div class="fld"><label>Enter the 6-digit code</label>
+          <div class="fld"><label>Enter the 4-digit code</label>
             ${otpBoxesHTML('rgBoxes')}
           </div>
           <div class="fld"><label>Email</label><input id="rgEmail" type="email" autocomplete="email" placeholder="you@example.com" required></div>
@@ -3625,7 +3879,7 @@ function openLogin(next = '') {
       const phone = authPhone($('#rtOtpPhone').value);
       const code = otpVal('rtOtpBoxes');
       if (!authPhoneOk(phone)) return toast('Enter a valid 10-digit mobile number', 'err');
-      if (code.length !== 6) return toast('Enter the 6-digit code', 'err');
+      if (code.length !== 4) return toast('Enter the 4-digit code', 'err');
       Shivaa.rtOtpLogin(phone, code, $('#rtOtpBtn'));
     } else {
       $('#authErr').hidden = true; if ($('#authErrJ')) $('#authErrJ').hidden = true;
@@ -3742,6 +3996,87 @@ pages.invoice = async (view, q, id) => {
       <tbody>${rows}${totals}</tbody></table>
       <div class="inv-foot">Rate locked at order time · Check the actual piece’s HUID in BIS Care<br><b>Confidential</b> — issued privately to ${esc(state.user.name)}; watermark identifies the holder.</div>
     </div>
+  </div>`;
+};
+
+/* ─────────── v57 DIGITAL CERTIFICATES (purity & price card per order) ─────────── */
+function certificateSheet(o) {
+  const s = state.settings || {};
+  const gross = o.items.reduce((a, it) => a + (Number(it.weightG) || 0) * it.qty, 0);
+  const net = gross;   // listed net weight = gross unless stones; stones are listed separately on the bill
+  const rows = o.items.map(it => `<tr>
+      <td><b>${esc(it.name)}</b>${it.size ? `<br><small>Size ${esc(it.size)}</small>` : ''}</td>
+      <td class="num">${it.qty}</td>
+      <td class="num">${esc(it.metal || '')} · ${esc(it.purity || '')}</td>
+      <td class="num">${(Number(it.weightG) || 0).toFixed(3)} g</td>
+      <td class="num">${fmt(Math.round(it.ratePerGram))}/g</td>
+      <td class="num">${fmt(Math.round(it.makingCharge || 0))}</td>
+      <td class="num">${fmt(Math.round(it.gst || 0))}</td>
+      <td class="num"><b>${fmt(it.unitPrice * it.qty)}</b></td>
+    </tr>`).join('');
+  const R = o.rateSnapshot || {};
+  return `
+  <div class="cert-sheet" id="certSheet">
+    <div class="cert-border">
+      <header class="cert-head">
+        <img src="/images/logo.png" alt="Shivaa">
+        <div><b>CERTIFICATE OF AUTHENTICITY</b><small>Shuddhata praman patra · issued with your order</small></div>
+        <div class="cert-id"><b>${esc(o.id)}</b><small>${new Date(o.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div>
+      </header>
+      <section class="cert-issued">
+        <span>Presented to</span><b>${esc(o.address?.name || o.userName || (state.user && state.user.name) || 'Valued customer')}</b>
+        <span class="cert-place">by <b>${esc(s.legalName || 'Ernate Shine Jewellery Pvt. Ltd.')}</b>, ${esc(s.address || 'Sadar Bazaar, Jayal, Nagaur, Rajasthan')}</span>
+      </section>
+      <table class="cert-tbl"><thead><tr>
+        <th>Piece</th><th>Qty</th><th>Metal · Purity</th><th>Gross wt</th><th>Rate/g</th><th>Making</th><th>GST</th><th>Amount</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <div class="cert-summary">
+        <div><span>Total gross weight</span><b>${gross.toFixed(3)} g</b></div>
+        <div><span>Net gold weight</span><b>${net.toFixed(3)} g</b></div>
+        <div><span>Rate locked (22K / Silver)</span><b>${fmt(Math.round(R.gold22 || 0))} · ${fmt2(R.silver || 0)}/g</b></div>
+        <div><span>Total paid</span><b>${fmt(o.total)}</b></div>
+      </div>
+      <section class="cert-assure">
+        <p><b>✦ Hallmarking.</b> Every gold piece carries its BIS-assigned <b>HUID</b>, physically stamped on the piece and printed on the tax invoice. Scan it anytime in the official <b>BIS Care</b> app. Silver 925 pieces carry the 925 stamp.</p>
+        <p><b>✦ Honest weights.</b> Weights are recorded to the milligram at billing; stones &amp; pearls are valued separately and shown on the invoice.</p>
+        <p><b>✦ Transparent price.</b> Metal value at the day&rsquo;s locked Jaipur rate + listed making charge + 3% GST — nothing hidden, nothing rounded up.</p>
+        <p><b>✦ Lifetime buyback.</b> This certificate accompanies the piece for 100% metal-value buyback under our published policy.</p>
+      </section>
+      <footer class="cert-foot">
+        <div class="cert-sign"><span></span><small>Authorised signatory · for ${esc(s.storeName || 'Shivaa')}</small></div>
+        <div class="cert-verify"><b>Verify anytime</b><small>HUID → BIS Care app · Order ${esc(o.id)} · ${esc(s.phone || '+91 89050 05921')}</small></div>
+      </footer>
+    </div>
+  </div>`;
+}
+pages.certificate = async (view, q, id) => {
+  if (!state.user) { openLogin(); return; }
+  view.innerHTML = '<div class="loading-spin"></div>';
+  document.documentElement.classList.add('cert-mode');
+  let o = null;
+  try { o = (await api('/api/orders/' + id)).order; } catch (e) {}
+  if (!o) { document.documentElement.classList.remove('cert-mode'); view.innerHTML = '<div class="empty"><h3>Certificate not found</h3><a class="btn btn-primary" href="#/certificates">My Certificates</a></div>'; return; }
+  view.innerHTML = `<div class="cert-page">
+    <div class="cert-actions inv-no-print">
+      <button class="btn btn-gold btn-lg" onclick="window.print()">⬇ Save as PDF / Print</button>
+      <a class="btn btn-ghost" href="#/order/${encodeURIComponent(id)}">← Order</a>
+      <a class="btn btn-ghost" href="#/certificates">All certificates</a>
+    </div>${certificateSheet(o)}
+  </div>`;
+};
+pages.certificates = async view => {
+  if (!state.user) { openLogin('account'); return; }
+  document.documentElement.classList.remove('cert-mode');
+  let orders = [];
+  try { orders = (await api('/api/orders')).orders || []; } catch (e) {}
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/account">My Account</a> / Certificates</div><h1>My Certificates</h1><p>Digital purity &amp; price certificates for every Shivaa order — save, print, or show at the counter.</p></div></section>
+  <div class="container" style="padding:36px 0 90px">
+    ${orders.length ? `<div class="cert-locker">${orders.map(o => `<a class="cert-card" href="#/certificate/${encodeURIComponent(o.id)}">
+      <span class="cc-ic">&#127970;</span>
+      <div><b>${esc(o.id)}</b><small>${new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · ${o.items.reduce((a, i) => a + i.qty, 0)} piece(s) · ${fmt(o.total)}</small></div>
+      <span class="cc-go">View &amp; print &#8250;</span></a>`).join('')}</div>`
+      : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No certificates yet</h3><p style="margin:10px 0 18px">Your certificate is issued automatically with your first order.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
 };
 
@@ -3918,7 +4253,7 @@ function partnerGateHTML(title, sub) {
    ═══════════════════════════════════════════════════════════════════ */
 pages.buyback = async (view) => {
   const R = state.rates || {};
-  const g22 = R.gold22 || 0, g18 = R.gold18 || 0, slv = R.silver || 0;
+  const g22 = R.gold22 || 0, g24 = R.gold24 || 0, g18 = R.gold18 || 0, slv = R.silver || 0;
 
   view.innerHTML = `
   <section class="page-hero lux-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -3961,6 +4296,13 @@ pages.buyback = async (view) => {
       <div class="bbc-body">
         <div class="bbc-form">
           <div class="fld">
+            <label>Whose piece is it?</label>
+            <div class="bbc-purity bb-src" id="bbSrc">
+              <button type="button" class="bbp on" data-src="shivaa">Bought from Shivaa <small>100% value</small></button>
+              <button type="button" class="bbp"     data-src="other">Old gold · another jeweller <small>standard deductions</small></button>
+            </div>
+          </div>
+          <div class="fld">
             <label>Weight of your piece</label>
             <div class="bbc-wt">
               <input type="number" id="bbWt" value="10" min="0.1" step="0.1" inputmode="decimal">
@@ -3973,6 +4315,7 @@ pages.buyback = async (view) => {
             <label>Purity stamped on the piece</label>
             <div class="bbc-purity" id="bbPurity">
               <button type="button" class="bbp on"  data-k="g22">22K <small>916</small></button>
+              <button type="button" class="bbp"     data-k="g24">24K <small>995</small></button>
               <button type="button" class="bbp"     data-k="g18">18K <small>750</small></button>
               <button type="button" class="bbp"     data-k="slv">Silver <small>925</small></button>
             </div>
@@ -3991,8 +4334,9 @@ pages.buyback = async (view) => {
           <div class="bbr-rate" id="bbRate">—</div>
           <div class="bbr-split">
             <div><small>Rate applied</small><b id="bbPerG">—</b></div>
-            <div><small>Deduction</small><b class="bbr-zero">₹0 · 0%</b></div>
+            <div><small>Deduction</small><b class="bbr-zero" id="bbDed">₹0 · 0%</b></div>
           </div>
+          <div class="bb-ded-note" id="bbDedNote" hidden></div>
           <a class="btn btn-gold btn-block btn-lg" id="bbWa">Get this valuation confirmed</a>
           <p class="bbr-fine">Indicative estimate at the current live rate. Final value is confirmed by weight and assay at our Jayal counter.</p>
         </div>
@@ -4059,14 +4403,17 @@ pages.buyback = async (view) => {
   </div>`;
 
   /* ---- live calculator ---- */
-  const rates = { g22, g18, slv };
-  const label = { g22: 'Gold 22K', g18: 'Gold 18K', slv: 'Silver 925' };
-  let cur = 'g22';
+  const rates = { g22, g24, g18, slv };
+  const label = { g22: 'Gold 22K', g24: 'Gold 24K', g18: 'Gold 18K', slv: 'Silver 925' };
+  let cur = 'g22', src = 'shivaa';
+  // Industry-standard old-gold exchange math for pieces bought elsewhere:
+  // a one-time melting/wastage charge (3% gold · 5% silver), shown plainly.
+  const deductPct = k => src === 'other' ? (k === 'slv' ? 0.05 : 0.03) : 0;
 
   const calc = () => {
     const wt = Math.max(0, parseFloat($('#bbWt').value) || 0);
     const per = rates[cur] || 0;
-    const total = wt * per;
+    const gross = wt * per, ded = gross * deductPct(cur), total = gross - ded;
     const amtEl = $('#bbAmt');
     if (amtEl) {
       amtEl.textContent = fmt(total);
@@ -4074,7 +4421,23 @@ pages.buyback = async (view) => {
     }
     const rEl = $('#bbRate'); if (rEl) rEl.textContent = `${wt.toLocaleString('en-IN')} g × ${label[cur]}`;
     const pEl = $('#bbPerG'); if (pEl) pEl.textContent = fmt(per) + '/g';
-    const msg = `Namaste Shivaa team ✦\n\nI'd like to confirm a buyback valuation.\n\nMetal: ${label[cur]}\nWeight: ${wt} g\nIndicative value: ${fmt(total)}\n\nPlease confirm.`;
+    const dedEl = $('#bbDed');
+    if (dedEl) {
+      dedEl.textContent = ded > 0 ? `− ${fmt(ded)} · ${Math.round(deductPct(cur) * 100)}%` : '₹0 · 0%';
+      dedEl.classList.toggle('bbr-zero', ded === 0);
+      dedEl.classList.toggle('neg', ded > 0);
+    }
+    const note = $('#bbDedNote');
+    if (note) {
+      if (src === 'other') {
+        note.hidden = false;
+        note.innerHTML = ded > 0
+          ? `Standard one-time <b>melting / wastage ${Math.round(deductPct(cur) * 100)}% = −${fmt(ded)}</b> on old gold from another jeweller. Exchange it against a new Shivaa piece and we waive the making-charge difference too.`
+          : '';
+      } else note.hidden = true;
+    }
+    const origin = src === 'shivaa' ? 'Shivaa piece (written buyback)' : 'Old gold from another jeweller';
+    const msg = `Namaste Shivaa team ✦\n\nI'd like to confirm an exchange valuation.\n\nPiece: ${origin}\nMetal: ${label[cur]}\nWeight: ${wt} g\nIndicative value: ${fmt(total)}${ded ? '\nDeduction shown: ' + fmt(ded) + ' (' + Math.round(deductPct(cur) * 100) + '% melting/wastage)' : ''}\n\nPlease confirm.`;
     const wa1 = $('#bbWa'), wa2 = $('#bbWa2');
     if (wa1) wa1.onclick = () => waOpen(msg);
     if (wa2) wa2.onclick = () => waOpen(msg);
@@ -4086,6 +4449,10 @@ pages.buyback = async (view) => {
   $$('#bbPurity .bbp').forEach(b => b.addEventListener('click', () => {
     $$('#bbPurity .bbp').forEach(x => x.classList.remove('on'));
     b.classList.add('on'); cur = b.dataset.k; calc();
+  }));
+  $$('#bbSrc .bbp').forEach(b => b.addEventListener('click', () => {
+    $$('#bbSrc .bbp').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); src = b.dataset.src; calc();
   }));
   calc();
 };
@@ -4887,7 +5254,10 @@ function route() {
   closeModal();
   while (_scrollLock.n > 0) unlockScroll();
   clearInterval(window._carTimer);
+  if (window._co && page !== 'checkout') { clearInterval(window._co.lockTimer); window._co.lockTimer = null; }   // v57: stop the rate-lock clock away from checkout
   document.body.dataset.page = page;
+  if (page !== 'certificate') document.documentElement.classList.remove('cert-mode');
+  if (page !== 'product') resetProductMeta();   // v57: per-piece SEO data only lives on the PDP
   syncFinaleChrome();   // campaign links/banner switch off by date alone after Bhai Dooj (11 Nov 2026)
   if (routes[page]) {
     const res = routes[page](view, q, seg[1]);
@@ -5168,6 +5538,29 @@ async function boot(isRedraw) {
     api('/api/catalogs').catch(() => ({ catalogs: [] })),
   ]);
   state.user = me.user; state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
+  state.eventCoupons = me.events || [];
+  /* v57: birthday / anniversary coupon welcome — shown once per code */
+  (state.eventCoupons || []).forEach(c => {
+    try {
+      const seen = JSON.parse(sessionStorage.getItem('shv_ev_seen') || '[]');
+      if (!seen.includes(c.code)) {
+        seen.push(c.code); sessionStorage.setItem('shv_ev_seen', JSON.stringify(seen));
+        setTimeout(() => toast(`${c.kind === 'anniversary' ? '💛' : '🎂'} ${c.title} — code ${c.code} (${c.value}% off) is in your account & checkout`), 1400);
+      }
+    } catch (e) {}
+  });
+  /* v57 fix: Account taps while logged out must ALWAYS reopen the passport,
+     even when the URL hash is already #/account (a plain anchor would not
+     re-fire the route after the sheet was dismissed with the cross). */
+  if (!window._acctWired) {
+    window._acctWired = true;
+    document.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('#acctBtn, [data-login-open]');
+      if (!a || (state && state.user)) return;
+      e.preventDefault();
+      openLogin(a.dataset.loginOpen ? String(a.dataset.loginOpen) : 'account');
+    }, true);
+  }
   state.mcTable = mc.table || [];
   state.productsCache = prods.products || []; state.cacheAt = Date.now();
   state.compare = normalizeCompare(state.compare).filter(id => state.productsCache.some(p => p.id === id));

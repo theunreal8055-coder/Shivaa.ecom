@@ -33,7 +33,7 @@ async function renderAdmin(view, q) {
   let partnersData = { partners: [] };
   if (tab === 'partners') { try { partnersData = await api('/api/partners'); } catch (e) {} }
   let orders = [];
-  if (tab === 'orders') { try { orders = (await api('/api/orders')).orders; } catch (e) {} }
+  if (tab === 'orders') { try { orders = (await api('/api/orders')).orders; window.ShivaaAdmin._orderMap = Object.fromEntries(orders.map(o => [o.id, o])); } catch (e) {} }
   let catalogs = [];
   if (tab === 'catalogs') { try { catalogs = (await api('/api/catalogs')).catalogs; } catch (e) {} }
   let users = [];
@@ -261,6 +261,15 @@ async function renderAdmin(view, q) {
           ${R.override ? '<span style="font-size:12.5px;color:var(--warn);align-self:center">⚠ override is ACTIVE — storefront prices use these values</span>' : ''}</div>
         </form>
       </div>
+      <div class="adm-card poster-card">
+        <h3>📱 Daily rate poster <span style="font-size:12px;color:var(--ink-3);font-weight:400">— one tap to make the WhatsApp status image for today's rates</span></h3>
+        <p style="font-size:13.5px;color:var(--ink-2)">Renders a 1080×1920 (9:16) branded poster using the live rates above. Download it and post on the store's WhatsApp status / groups. The date and time are stamped automatically.</p>
+        <div class="poster-preview"><canvas id="ratePosterCv" width="540" height="960"></canvas></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn btn-gold btn-sm" onclick="ShivaaAdmin.ratePoster()">↻ Regenerate with live rates</button>
+          <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.downloadPoster()">⬇ Download poster (PNG)</button>
+        </div>
+      </div>
       <div class="adm-card"><h3>22K gold — recent history</h3><canvas id="admRateChart"></canvas></div>`;
     window.Shivaa._chart && window.Shivaa._chart();
     const cv = $('#admRateChart');
@@ -279,6 +288,7 @@ async function renderAdmin(view, q) {
       x.beginPath(); data.forEach((v, i) => i ? x.lineTo(X(i), Y(v)) : x.moveTo(X(i), Y(v)));
       x.strokeStyle = '#6e1e2a'; x.lineWidth = 2; x.stroke();
     }
+    window.ShivaaAdmin.ratePoster();
   }
 
   /* ── MAKING CHARGES (now per-product) ── */
@@ -645,6 +655,90 @@ window.ShivaaAdmin.clearOverride = async () => {
   try { await api('/api/rates/override', { method: 'POST', body: JSON.stringify({ clear: true }) }); toast('Override cleared — live feed restored'); location.reload(); }
   catch (err) { toast(err.message, 'err'); }
 };
+/* ── v57 daily WhatsApp rate poster (1080×1920, luxury maroon/gold) ── */
+window.ShivaaAdmin._posterCanvas = null;
+window.ShivaaAdmin._drawPoster = (target, scale) => {
+  const cv = target, x = cv.getContext('2d'); const S = scale;
+  const W = 1080 * S, H = 1920 * S;
+  x.clearRect(0, 0, cv.width, cv.height);
+  // backdrop
+  const g = x.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#3a0c14'); g.addColorStop(0.55, '#5a1420'); g.addColorStop(1, '#2c080f');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  // soft radial glow
+  const rg = x.createRadialGradient(W / 2, 520 * S, 60 * S, W / 2, 560 * S, 760 * S);
+  rg.addColorStop(0, 'rgba(212,175,92,0.20)'); rg.addColorStop(1, 'rgba(212,175,92,0)');
+  x.fillStyle = rg; x.fillRect(0, 0, W, H);
+  // gold frame
+  x.strokeStyle = '#c9a24b'; x.lineWidth = 6 * S; x.strokeRect(34 * S, 34 * S, W - 68 * S, H - 68 * S);
+  x.strokeStyle = 'rgba(212,175,92,0.55)'; x.lineWidth = 2 * S; x.strokeRect(52 * S, 52 * S, W - 104 * S, H - 104 * S);
+  // crest
+  x.beginPath(); x.arc(W / 2, 196 * S, 86 * S, 0, 7); x.fillStyle = '#c9a24b'; x.fill();
+  x.beginPath(); x.arc(W / 2, 196 * S, 74 * S, 0, 7); x.strokeStyle = '#5a1420'; x.lineWidth = 3 * S; x.stroke();
+  x.fillStyle = '#3a0c14'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.font = `bold ${58 * S}px "Noto Serif Devanagari", Georgia, serif`; x.fillText('शिवा', W / 2, 198 * S);
+  x.fillStyle = '#e9c77a'; x.font = `600 ${56 * S}px Jost, Arial, sans-serif`; x.fillText('SHIVAA JEWELLERS', W / 2, 340 * S);
+  x.fillStyle = 'rgba(233,199,122,0.85)'; x.font = `${26 * S}px Jost, Arial`;
+  x.fillText('BIS HALLMARKED · JAIPUR', W / 2, 386 * S);
+  // date strip
+  const now = new Date();
+  const ds = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  x.fillStyle = 'rgba(0,0,0,0.28)'; x.fillRect(150 * S, 438 * S, W - 300 * S, 70 * S);
+  x.strokeStyle = 'rgba(201,162,75,0.7)'; x.lineWidth = 2 * S; x.strokeRect(150 * S, 438 * S, W - 300 * S, 70 * S);
+  x.fillStyle = '#f1dba4'; x.font = `600 ${32 * S}px Jost, Arial`;
+  x.fillText('TODAY\u2019S RATES · ' + ds.toUpperCase(), W / 2, 474 * S);
+  // rate pills
+  const R = state.rates || {};
+  const cards = [
+    ['GOLD 24K', '995', R.gold24], ['GOLD 22K', '916', R.gold22],
+    ['GOLD 18K', '750', R.gold18], ['SILVER', '925', R.silver],
+  ];
+  const cw = 390 * S, ch = 236 * S, gx = 40 * S, x0 = (W - (cw * 2 + gx)) / 2, y0 = 580 * S;
+  cards.forEach((c, i) => {
+    const col = i % 2, row = Math.floor(i / 2);
+    const px = x0 + col * (cw + gx), py = y0 + row * (ch + 36 * S);
+    x.fillStyle = 'rgba(255,244,219,0.06)'; x.fillRect(px, py, cw, ch);
+    x.strokeStyle = '#c9a24b'; x.lineWidth = 2.5 * S; x.strokeRect(px, py, cw, ch);
+    x.fillStyle = '#e9c77a'; x.font = `600 ${30 * S}px Jost, Arial`; x.textAlign = 'center';
+    x.fillText(c[0], px + cw / 2, py + 50 * S);
+    x.fillStyle = 'rgba(233,199,122,0.7)'; x.font = `${22 * S}px Jost, Arial`;
+    x.fillText(c[1] + ' purity', px + cw / 2, py + 84 * S);
+    x.fillStyle = '#fff6df'; x.font = `700 ${58 * S}px Jost, Arial`;
+    x.fillText('₹' + Math.round(c[2] || 0).toLocaleString('en-IN'), px + cw / 2, py + 150 * S);
+    x.fillStyle = 'rgba(233,199,122,0.75)'; x.font = `${22 * S}px Jost, Arial`;
+    x.fillText('per gram', px + cw / 2, py + 196 * S);
+  });
+  // promise block
+  const py2 = y0 + 2 * ch + 36 * S + 60 * S;
+  x.strokeStyle = 'rgba(201,162,75,0.55)'; x.beginPath();
+  x.moveTo(180 * S, py2); x.lineTo(W - 180 * S, py2); x.stroke();
+  x.fillStyle = '#f1dba4'; x.font = `600 ${34 * S}px Jost, Arial`;
+  x.fillText('✦  100% written buyback on every piece', W / 2, py2 + 64 * S);
+  x.fillText('✦  HUID-tagged, BIS-hallmarked gold', W / 2, py2 + 122 * S);
+  x.fillText('✦  Transparent making · no hidden charges', W / 2, py2 + 180 * S);
+  // footer
+  x.fillStyle = '#c9a24b'; x.fillRect(110 * S, H - 232 * S, W - 220 * S, 3 * S);
+  x.fillStyle = '#f1dba4'; x.font = `600 ${40 * S}px Jost, Arial`;
+  x.fillText('Shivaa Jewellers, Jayal, Nagaur · Jaipur', W / 2, H - 166 * S);
+  x.font = `500 ${30 * S}px Jost, Arial`; x.fillStyle = 'rgba(241,219,164,0.85)';
+  x.fillText('WhatsApp your order · shivaa.in', W / 2, H - 112 * S);
+  x.font = `${20 * S}px Jost, Arial`; x.fillStyle = 'rgba(233,199,122,0.6)';
+  x.fillText('Indicative live rates as of ' + now.toLocaleTimeString('en-IN') + ' · final at invoice', W / 2, H - 70 * S);
+};
+window.ShivaaAdmin.ratePoster = () => {
+  const cv = document.getElementById('ratePosterCv'); if (!cv) return;
+  window.ShivaaAdmin._posterCanvas = cv;
+  window.ShivaaAdmin._drawPoster(cv, 0.5);
+};
+window.ShivaaAdmin.downloadPoster = () => {
+  const full = document.createElement('canvas'); full.width = 1080; full.height = 1920;
+  window.ShivaaAdmin._drawPoster(full, 1);
+  const a = document.createElement('a');
+  a.download = 'shivaa-rate-poster-' + new Date().toISOString().slice(0, 10) + '.png';
+  a.href = full.toDataURL('image/png');
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('Poster downloaded — post it on WhatsApp status ✦');
+};
 window.ShivaaAdmin.setWt = async (id, val) => {
   const w = parseFloat(val);
   if (!w || w <= 0 || w > 100) return toast('Enter a sensible weight (0–100 g)', 'err');
@@ -669,7 +763,24 @@ window.ShivaaAdmin.blStatus = async (id, status) => {
 };
 window.ShivaaAdmin.setOrderStatus = null;
 window.ShivaaAdmin.setStatus = async (id, status) => {
-  try { await api('/api/orders/' + id, { method: 'PUT', body: JSON.stringify({ status }) }); toast(`Order ${id} → ${status}`); }
+  try {
+    await api('/api/orders/' + id, { method: 'PUT', body: JSON.stringify({ status }) });
+    toast(`Order ${id} → ${status}`);
+    // v57 — one-tap WhatsApp status update to the customer (full automation arrives with the gateway key)
+    const o = (window.ShivaaAdmin._orderMap || {})[id];
+    const ph = (o && ((o.address && o.address.phone) || o.phone) || '').replace(/\D/g, '').replace(/^0/, '').replace(/^91(?=[1-9])/, '');
+    if (ph) {
+      const msgs = {
+        Confirmed: `Namaste from Shivaa Jewellers ✦\n\nYour order ${id} is *confirmed*. Our karigars are at work — we will share dispatch details next.\n\nThank you for choosing Shivaa.`,
+        Packed: `Namaste from Shivaa Jewellers ✦\n\nYour order ${id} has been *packed* with the HUID-tagged purity certificate and is ready for dispatch. You will hear from us the moment it moves.`,
+        Shipped: `Namaste from Shivaa Jewellers ✦\n\nYour order ${id} has been *shipped* and is on its way. Track it here whenever you like; write back on this number for any help.`,
+        Delivered: `Namaste from Shivaa Jewellers ✦\n\nYour order ${id} has been *delivered*. Thank you for choosing Shivaa.\n\nA gentle reminder: every piece carries our written 100% buyback promise and a digital HUID certificate in your account.`,
+        Cancelled: `Namaste from Shivaa Jewellers ✦\n\nYour order ${id} has been *cancelled* as requested. If this was unexpected, please reply here and we will sort it immediately.`
+      };
+      const msg = msgs[status] || `Namaste from Shivaa Jewellers ✦\n\nUpdate on your order ${id}: its status is now *${status}*. Reply here if you have any questions.`;
+      setTimeout(() => { if (confirm('Open WhatsApp to send this status update to the customer?')) window.open('https://wa.me/91' + ph + '?text=' + encodeURIComponent(msg), '_blank', 'noopener'); }, 250);
+    }
+  }
   catch (err) { toast(err.message, 'err'); }
 };
 window.ShivaaAdmin.changePw = async (e) => {
@@ -1018,13 +1129,22 @@ async function renderPartner(view) {
         <div class="stat"><small>Next payout</small><b>${fmt(totals.nextPayout)}</b><span>settles Friday ✓</span></div>
         <div class="stat"><small>Partner since</small><b style="font-size:22px">${partner?.joined ? new Date(partner.joined).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}</b><span>${esc(partner?.city || '')}</span></div>
       </div>
-      <div class="adm-card bullion-card" data-sec="bullion">
-        <h3>🥇 Bullion Rates <span class="bl-live"><span class="live-dot"></span>LIVE · <span id="blDate"></span></span>
-          <button class="btn btn-ghost btn-sm" onclick="ShivaaBullion.refresh()">↻ Refresh</button></h3>
-        <div id="bullionRows" class="bl-rows"><div class="loading-spin"></div></div>
-        <p class="partner-note" style="margin-top:12px">RTGS rates auto-update from the international bullion feed · CASH rates are set by Shivaa and any change notifies you here instantly. Tap BUY / SELL to place a bullion order.</p>
-        <div class="sec-title" style="margin-top:16px">My bullion orders</div>
-        <div id="blOrders"></div>
+      <!-- v57: the trading board lives behind its own door, never on the dashboard -->
+      <a class="bullion-door" href="#/partner?view=bullion" data-sec="bullion-entry">
+        <div class="bd-glow" aria-hidden="true"></div>
+        <div class="bd-door-ic">🥇</div>
+        <div class="bd-door-tx">
+          <span class="bd-kicker">PARTNERS ONLY · LIVE BULLION DESK</span>
+          <h3>We deal in <em>gold &amp; silver bullion</em></h3>
+          <p>Live TDS / refined rates, spot · MCX futures · customs values, with unfix (rate-lock) on request. Tap to open the trading board.</p>
+          <span class="bd-door-cta">Enter the bullion desk <i>&rarr;</i></span>
+        </div>
+        <div class="bd-door-rate"><span class="live-dot"></span><b id="bdDoorRate">—</b><small>22K /g · live</small></div>
+      </a>
+
+      <div class="bullion-board-wrap" data-sec="bullion">
+        <!-- Pride-Gold style live board rendered by ShivaaBullion.renderBoard -->
+        <div id="bullionBoard" class="bd-board"><div class="loading-spin"></div></div>
       </div>
 
       <div class="pco-prime aurora" data-sec="dash">
@@ -1071,7 +1191,7 @@ async function renderPartner(view) {
   const show = sel => $$('[data-sec]').forEach(el => { el.style.display = sel.includes(el.dataset.sec) ? '' : 'none'; });
   if (vw === 'bullion')      show(['bullion']);
   else if (vw === 'reports') show([]);
-  else                       show(['dash', 'bullion']);
+  else                       show(['dash', 'bullion-entry']);
   $$('.adm-nav a').forEach(x => {
     const h = x.getAttribute('href');
     // #/metal and #/deadstock are their own routes — never lit from ?view=
@@ -1079,7 +1199,7 @@ async function renderPartner(view) {
     x.classList.toggle('on', h === (vw === 'dash' ? '#/partner' : '#/partner?view=' + vw));
   });
   if (vw === 'bullion') {
-    $('.adm-head h2').textContent = 'Bullion Desk';
+    $('.adm-head h2').innerHTML = 'Bullion Desk <a href="#/partner" class="btn btn-ghost btn-sm" style="margin-left:10px">← Dashboard</a>';
   }
   if (vw === 'reports') {
     const main = $('.adm-main');
@@ -1240,23 +1360,95 @@ window.ShivaaBullion = {
         window.Shivaa.toast('📈 Bullion CASH rates updated by Shivaa');
       }
       this.render(B);
-    } catch (e) { const el = document.getElementById('bullionRows'); if (el) el.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
+    } catch (e) { const el = document.getElementById('bullionBoard'); if (el) el.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
   },
   render(B) {
-    const dEl = document.getElementById('blDate'); if (dEl) dEl.textContent = B.date;
-    const el = document.getElementById('bullionRows'); if (!el) return;
-    const chgTxt = c => c > 0 ? `<i class="bl-chg up">▲ +${c}</i>` : c < 0 ? `<i class="bl-chg down">▼ ${c}</i>` : '<i class="bl-chg flat">— 0</i>';
-    el.innerHTML = B.rows.map(r => `
-      <div class="bl-row ${r.mode.toLowerCase()}">
-        <div class="bl-id"><b>${r.label}</b><small>${r.purity} · ${r.mode}${r.editable ? ' <em>(Shivaa set)</em>' : ''} · ${chgTxt(r.change)}</small></div>
-        <div class="bl-btns">
-          <div class="bl-rate"><small>BUY</small><b>₹${r.buy.toLocaleString('en-IN')}</b></div>
-          <button class="bl-buy" onclick='ShivaaBullion.orderForm(${JSON.stringify({ key: r.key, label: r.label, mode: r.mode, side: "buy", rate: r.buy, purity: r.purity })})'>BUY</button>
-          <div class="bl-rate"><small>SELL</small><b>₹${r.sell.toLocaleString('en-IN')}</b></div>
-          <button class="bl-sell" onclick='ShivaaBullion.orderForm(${JSON.stringify({ key: r.key, label: r.label, mode: r.mode, side: "sell", rate: r.sell, purity: r.purity })})'>SELL</button>
-        </div>
-      </div>`).join('');
+    this.renderBoard(B);
     this.loadOrders();
+  },
+  num(v) { return (Math.round(v) || 0).toLocaleString('en-IN'); },
+  dash(v) { return v ? this.num(v) : '--'; },
+  chgTxt(c) {
+    // value is already converted to the display unit (per 10 g gold / per kg silver)
+    const disp = Math.round(c);
+    if (!disp) return '<span class="bd-flat">[--]</span>';
+    return disp > 0 ? `<span class="bd-up">[+${disp.toLocaleString('en-IN')}]</span>`
+                    : `<span class="bd-down">[${disp.toLocaleString('en-IN')}]</span>`;
+  },
+  /* v57 — Pride-Gold style live board (black/gold trading screen) */
+  renderBoard(B) {
+    const door = document.getElementById('bdDoorRate');
+    if (door) door.textContent = ((typeof state !== "undefined" && state.rates && state.rates.gold22) || 0).toLocaleString("en-IN");
+    const el = document.getElementById('bullionBoard');
+    if (!el || !B) return;
+    const bd = B.board || {};
+    const ticker = bd.ticker || '✦ Unfix (rate-lock) facility available on gold & silver ✦';
+    // gold quotes display per 10 g, silver per kg — the wholesale convention
+    const isSil = r => /sil|silver/i.test(r.label);
+    const sc = r => isSil(r) ? 1000 : 10;
+    const cell = (r, side) => {
+      const raw = r[side], v = raw ? Math.round(raw * sc(r)) : 0;
+      const cls = side === 'buy' ? 'bd-buy' : 'bd-sell';
+      const quote = JSON.stringify({ key: r.key, label: r.label, mode: r.mode, side, rate: raw, purity: r.purity });
+      return `<div class="bd-cell">
+        <button class="bd-pill ${cls}" ${v ? `onclick='ShivaaBullion.orderForm(${quote})'` : 'disabled'}>${v ? this.num(v) : '--'}</button>
+        <small class="bd-lh">${side === 'buy' ? 'L' : 'H'}: <span class="${side === 'buy' ? 'bd-lowtxt' : 'bd-hitxt'}">${v && (side === 'buy' ? r.low : r.high) ? this.num(Math.round((r[side === 'buy' ? 'low' : 'high'] || raw) * sc(r))) : '--'}</span></small>
+      </div>`;
+    };
+    const rows = B.rows.map(r => `
+      <div class="bd-row ${r.mode.toLowerCase()}">
+        <div class="bd-desc">
+          <b>${esc(r.label)}</b>
+          <small>${esc(r.purity)}${r.editable ? ' · Shivaa set' : ''}</small>
+          <em>Time: ${bd.time || ''}</em>
+        </div>
+        ${cell(r, 'buy')}
+        ${cell(r, 'sell')}
+        <div class="bd-chg">${this.chgTxt(r.change * (isSil(r) ? 1000 : 10))}</div>
+      </div>`).join('');
+    const spot = bd.spot || {}, fut = bd.future || {}, duty = bd.duty || {};
+    const card3 = (title, val, lo, hi) => `<div class="bd-card">
+      <div class="bd-card-h">${title}</div><div class="bd-card-v">${this.num(val)}</div>
+      <div class="bd-lhline"><span>${this.num(lo)}</span> <i>|</i> <span>${this.num(hi)}</span></div></div>`;
+    const futCard = (title, f, lo, hi) => `<div class="bd-card">
+      <div class="bd-card-h">${title}</div>
+      <div class="bd-ba"><div><small>BID</small><span class="bd-bid">${this.dash(f && f.bid)}</span></div><div><small>ASK</small><span class="bd-ask">${this.dash(f && f.ask)}</span></div></div>
+      <div class="bd-lhline"><span class="bd-lowtxt">L: ${this.num(lo)}</span> <i>|</i> <span class="bd-hitxt">H: ${this.num(hi)}</span></div></div>`;
+    el.innerHTML = `
+      <div class="bd-topbar">
+        <img src="/images/logo.png" alt="Shivaa">
+        <div class="bd-title"><b>SHIVAA BULLION DESK</b><small>TDS · refined · spot · MCX &mdash; for approved jewellers</small></div>
+        <span class="bd-live"><span class="live-dot"></span>LIVE<br><b>${esc(B.date || '')} ${bd.time || ''}</b></span>
+      </div>
+      <div class="bd-marquee"><div class="bd-marq-in">★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} </div></div>
+      <div class="bd-gridhead">
+        <span>DESCRIPTION</span><span class="bd-c-buy">BUY</span><span class="bd-c-sell">SELL</span><span>T-CHANGE</span>
+      </div>
+      <div class="bd-rows">${rows}</div>
+      <div class="bd-spots">
+        ${card3('GOLD SPOT <small>/10 g</small>', spot.gold, spot.goldLow, spot.goldHigh)}
+        ${card3('SILVER SPOT <small>/kg</small>', spot.silver, spot.silverLow, spot.silverHigh)}
+        ${card3('INR SPOT <small>USD/INR</small>', spot.inr, spot.inr * 0.999, spot.inr * 1.001)}
+      </div>
+      <div class="bd-spots bd-fut">
+        ${futCard('GOLD FUTURE <small>/10 g</small>', fut.gold, fut.goldLow, fut.goldHigh)}
+        ${futCard('SILVER FUTURE <small>/kg</small>', fut.silver, fut.silverLow, fut.silverHigh)}
+      </div>
+      <div class="bd-spots bd-duty">
+        ${card3('GOLD CUSTOM DUTY <small>/100 g</small>', duty.gold, duty.gold, duty.gold)}
+        ${card3('SILVER CUSTOM DUTY <small>/kg</small>', duty.silver, duty.silver, duty.silver)}
+      </div>
+      <p class="bd-note">RTGS rows follow the live bullion feed (green = firm buying quote, red = firm selling quote). TDS 995 &amp; refined silver settle on the unfix rate of your call &mdash; tap a quote to place an order and the desk confirms on WhatsApp. Rates are per <b>10 g</b> (gold) and per <b>kg</b> (silver); L/H are the day&rsquo;s low/high.</p>
+      <div class="bd-deals"><h4>My bullion deals</h4><div id="blOrders"></div></div>
+      <a class="bd-call-fab" href="${window.Shivaa.waLink('Namaste Shivaa bullion desk ✦ I want an unfix / firm quote.')}" target="_blank" rel="noopener" title="Call the bullion desk">📞</a>
+      <nav class="bd-tabs">
+        <a href="#/partner?view=bullion" class="on">▦<span>Rates</span></a>
+        <a href="#/partner?view=bullion" id="bdTabDeals">🤝<span>Deals</span></a>
+        <a href="#/partner?view=bullion" id="bdTabHist">🕘<span>History</span></a>
+        <a href="#/partner">▤<span>Menu</span></a>
+      </nav>`;
+    document.getElementById('bdTabDeals').onclick = e => { e.preventDefault(); document.querySelector('.bd-deals')?.scrollIntoView({ behavior: 'smooth' }); };
+    document.getElementById('bdTabHist').onclick = e => { e.preventDefault(); document.querySelector('.bd-deals')?.scrollIntoView({ behavior: 'smooth' }); };
   },
   orderForm(o) {
     window.Shivaa.openModal(`

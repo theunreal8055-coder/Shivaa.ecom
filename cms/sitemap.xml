@@ -7,6 +7,8 @@
   <url><loc>https://shivaa.in/#/hallmark</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://shivaa.in/#/trust</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://shivaa.in/#/buyback</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://shivaa.in/#/sizer</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://shivaa.in/#/wishlist</loc><changefreq>weekly</changefreq><priority>0.4</priority></url>
   <url><loc>https://shivaa.in/#/savings</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://shivaa.in/#/b2b</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://shivaa.in/#/services</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>

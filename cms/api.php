@@ -228,27 +228,164 @@ function bullion_rows(array &$db): array {
   $gp = (int)($db['settings']['bullionGoldPremium'] ?? 10);
   $sp = (int)($db['settings']['bullionSilverPremium'] ?? 2);
   $fine = (float)$r['gold24']; $sil = (float)$r['silver'];
+
+  /* v57 — day's low/high band from the polling history (last 72 ticks) */
+  $hist = $db['rates']['history'] ?? [];
+  $band = static function (string $metal, float $cur): array {
+    global $hist;
+    $vals = array_map(static fn($h) => (float)($h[$metal] ?? $cur), array_slice($hist, -72));
+    if (!$vals) $vals = [$cur];
+    return [(float)min($vals), (float)max($vals)];
+  };
+  [$gLo, $gHi] = $band('gold24', $fine);
+  [$sLo, $sHi] = $band('silver', $sil);
+
+  $goldRow = static function (string $key, string $label, string $purity, string $mode,
+                              float $buyF, float $sellF, array $loHi, bool $edit = false) use ($gLo, $gHi, $fine): array {
+    return ['key' => $key, 'label' => $label, 'purity' => $purity, 'mode' => $mode,
+      'buy' => (int)round($buyF), 'sell' => (int)round($sellF),
+      'low' => (int)round($loHi[0]), 'high' => (int)round($loHi[1]),
+      'editable' => $edit, 'change' => 0];
+  };
+  /* RTGS (TDS / refined) rows — track the live feed like a trading board */
   $rows = [
-    ['key' => 'tdsGold995', 'label' => 'TDS GOLD', 'purity' => '995 (99.50%)', 'mode' => 'RTGS', 'buy' => (int)round($fine * 0.995 + $gp - 2), 'sell' => (int)round($fine * 0.995 + $gp + 2)],
-    ['key' => 'silverChorsa', 'label' => 'SILVER CHORSA', 'purity' => '98.00%', 'mode' => 'RTGS', 'buy' => (int)round($sil * 0.98 + 1 - 1), 'sell' => (int)round($sil * 0.98 + 1 + 1)],
-    ['key' => 'silverPeti', 'label' => 'SILVER BANK PETI', 'purity' => '999 fine (99.9%)', 'mode' => 'RTGS', 'buy' => (int)round($sil * 0.999 + $sp - 1), 'sell' => (int)round($sil * 0.999 + $sp + 1)],
-    ['key' => 'silverPetiBulk', 'label' => 'SILVER PETI — BULK', 'purity' => '999 fine (99.9%)', 'mode' => 'RTGS', 'buy' => (int)round($sil * 0.999 + $sp * 0.6 - 1), 'sell' => (int)round($sil * 0.999 + $sp * 0.6 + 1)],
+    $goldRow('tdsGold995', 'TDS GOLD 995 IND', '995 · ' . date('d-m'), 'RTGS',
+      $fine * 0.995 + $gp - 2, $fine * 0.995 + $gp + 2, [$gLo * 0.995 + $gp - 2, $gHi * 0.995 + $gp + 2]),
+    ['key' => 'silverChorsa', 'label' => 'TDS SIL CHORSA', 'purity' => '98.00 · ' . date('d-m'), 'mode' => 'RTGS',
+      'buy' => (int)round($sil * 0.98 + 1 - 1), 'sell' => (int)round($sil * 0.98 + 1 + 1),
+      'low' => (int)round($sLo * 0.98), 'high' => (int)round($sHi * 0.98 + 2), 'editable' => false, 'change' => 0],
+    ['key' => 'silverPeti', 'label' => 'TDS SIL PETI 999.9', 'purity' => '999.9 · ' . date('d-m'), 'mode' => 'RTGS',
+      'buy' => (int)round($sil * 0.999 + $sp - 1), 'sell' => (int)round($sil * 0.999 + $sp + 1),
+      'low' => (int)round($sLo * 0.999 + $sp - 1), 'high' => (int)round($sHi * 0.999 + $sp + 1), 'editable' => false, 'change' => 0],
+    $goldRow('goldIndian', 'REF – GOLD 99.50 INDIAN', '99.50 · ' . date('d/m'), 'CASH',
+      $fine * 0.995 + 15, $fine * 0.995 + 55, [$gLo * 0.995 + 15, $gHi * 0.995 + 55], true),
+    $goldRow('goldRef9930', 'REF – GOLD 99.30 LOCAL', '99.30 · ' . date('d/m'), 'CASH',
+      $fine * 0.993, $fine * 0.993 + 40, [$gLo * 0.993, $gHi * 0.993 + 40], true),
+    ['key' => 'silverKachcha', 'label' => 'REF – SIL KACHCHA DHEPA', 'Kachcha · ' . date('d-m'), 'mode' => 'RTGS',
+      'buy' => (int)round($sil * 0.94), 'sell' => 0,
+      'low' => (int)round($sLo * 0.94), 'high' => 0, 'editable' => false, 'change' => 0],
+    ['key' => 'silverPetiBulk', 'label' => 'REF – SIL CHORSA 98.00', '98.00 · ' . date('d-m'), 'mode' => 'RTGS',
+      'buy' => (int)round($sil * 0.98 + $sp * 0.6 - 1), 'sell' => (int)round($sil * 0.98 + $sp * 0.6 + 1),
+      'low' => (int)round($sLo * 0.98 + $sp * 0.6 - 1), 'high' => (int)round($sHi * 0.98 + $sp * 0.6 + 1), 'editable' => false, 'change' => 0],
+    ['key' => 'silverGrn999', 'label' => 'REF – SIL GRN 999', '999 · ' . date('d-m'), 'mode' => 'RTGS',
+      'buy' => (int)round($sil * 0.972), 'sell' => (int)round($sil * 0.972 + 8),
+      'low' => (int)round($sLo * 0.972), 'high' => (int)round($sHi * 0.972 + 8), 'editable' => false, 'change' => 0],
   ];
+
+  /* CASH rows the counter sets itself (imported 995 only when configured) */
   $cashDefs = ['goldImport995' => $fine * 0.995, 'goldIndian' => $fine * 0.995 + 15, 'goldRef9930' => $fine * 0.993];
   foreach ($db['bullion']['cash'] as $k => $c) {
-    $buy = $c['buy'] ?: (int)round($cashDefs[$k] ?? 0);
-    $sell = $c['sell'] ?: (int)round(($cashDefs[$k] ?? 0) + 40);
-    $prev = $db['bullion']['prev'][$k]['buy'] ?? $buy;
-    $rows[] = ['key' => $k, 'label' => $c['label'], 'purity' => $c['purity'], 'mode' => 'CASH', 'buy' => $buy, 'sell' => $sell, 'change' => $buy - $prev, 'editable' => true];
+    if ($k === 'goldImport995') {
+      $buy = (int)($c['buy'] ?? 0); $sell = (int)($c['sell'] ?? 0);
+      $prev = $db['bullion']['prev'][$k]['buy'] ?? $buy;
+      if ($buy > 0 || $sell > 0) {
+        array_splice($rows, 3, 0, [['key' => $k, 'label' => $c['label'], 'purity' => $c['purity'], 'mode' => 'CASH',
+          'buy' => $buy, 'sell' => $sell, 'low' => $buy, 'high' => $sell,
+          'change' => $buy - $prev, 'editable' => true]]);
+      }
+      continue;
+    }
+    foreach ($rows as &$rw) {
+      if ($rw['key'] === $k) {
+        $buy = (int)($c['buy'] ?? 0); $sell = (int)($c['sell'] ?? 0);
+        $prev = $db['bullion']['prev'][$k]['buy'] ?? $rw['buy'];
+        if ($buy > 0) $rw['buy'] = $buy;
+        if ($sell > 0) $rw['sell'] = $sell;
+        if ($buy > 0) $rw['low'] = min($rw['low'], $buy);
+        if ($sell > 0) $rw['high'] = max($rw['high'], $sell);
+        $rw['change'] = ($buy ?: $rw['buy']) - $prev;
+      }
+    }
+    unset($rw);
   }
-  $h = $db['rates']['history'] ?? [];
-  if (count($h) > 1) {
-    $y = $h[count($h) - 2];
-    $chg = ['tdsGold995' => (int)round(($r['gold24'] - $y['gold24']) * 0.995), 'silverChorsa' => (int)round(($r['silver'] - $y['silver']) * 0.98), 'silverPeti' => (int)round(($r['silver'] - $y['silver']) * 0.999), 'silverPetiBulk' => (int)round(($r['silver'] - $y['silver']) * 0.999)];
-    foreach ($rows as &$row) if (isset($chg[$row['key']])) $row['change'] = $chg[$row['key']];
+  /* day change vs the previous feed tick for RTGS rows */
+  if (count($hist) > 1) {
+    $y = $hist[count($hist) - 2];
+    $chg = ['tdsGold995' => (int)round(($r['gold24'] - $y['gold24']) * 0.995),
+            'silverChorsa' => (int)round(($r['silver'] - $y['silver']) * 0.98),
+            'silverPeti' => (int)round(($r['silver'] - $y['silver']) * 0.999),
+            'silverPetiBulk' => (int)round(($r['silver'] - $y['silver']) * 0.98),
+            'silverGrn999' => (int)round(($r['silver'] - $y['silver']) * 0.972),
+            'silverKachcha' => (int)round(($r['silver'] - $y['silver']) * 0.94)];
+    foreach ($rows as &$row) if (isset($chg[$row['key']]) && $row['mode'] === 'RTGS') $row['change'] = $chg[$row['key']];
+    unset($row);
   }
   foreach ($rows as &$row) $row['change'] = $row['change'] ?? 0;
-  return ['rows' => $rows, 'updatedAt' => $db['bullion']['updatedAt'], 'date' => date('d M Y')];
+  unset($row);
+
+  /* v57 — spot / MCX future / customs cards for the Pride-Gold style board.
+     Gold shown per 10 g, silver per kg — the way the bullion market quotes. */
+  $goldSpot10 = (int)round($fine * 10);
+  $silSpotKg = (int)round($sil * 1000);
+  $gPrem = (float)($db['settings']['bullionFuturePrem'] ?? 0.0025);
+  $sPrem = (float)($db['settings']['silverFuturePrem'] ?? 0.0018);
+  $board = [
+    'spot' => ['gold' => $goldSpot10, 'silver' => $silSpotKg,
+               'goldLow' => (int)round($gHi * 10 * 0.9985), 'goldHigh' => (int)round($gHi * 10 * 1.001),
+               'silverLow' => (int)round($sLo * 1000 * 0.999), 'silverHigh' => (int)round($sHi * 1000 * 1.001),
+               'inr' => (float)($db['settings']['usdInr'] ?? 85.4)],
+    'future' => ['gold' => ['bid' => (int)round($goldSpot10 * (1 + $gPrem) - 30), 'ask' => (int)round($goldSpot10 * (1 + $gPrem) + 31)],
+                 'silver' => ['bid' => (int)round($silSpotKg * (1 + $sPrem) - 40), 'ask' => (int)round($silSpotKg * (1 + $sPrem) + 114)],
+                 'goldLow' => (int)round($gLo * 10), 'goldHigh' => (int)round($gHi * 10 * (1 + $gPrem)),
+                 'silverLow' => (int)round($sLo * 1000), 'silverHigh' => (int)round($sHi * 1000 * (1 + $sPrem))],
+    'duty' => ['gold' => (int)round($fine * 100 * 1.15), 'silver' => (int)round($sil * 1000 * 1.10)],
+    'ticker' => (string)($db['settings']['bullionTicker'] ?? '★ सोना व चांदी में UNFIX सुविधा उपलब्ध है ★'),
+    'time' => date('H:i:s A'),
+  ];
+  if (is_array($db['bullion']['boardOverride'] ?? null)) $board = array_replace_recursive($board, $db['bullion']['boardOverride']);
+
+  return ['rows' => $rows, 'board' => $board, 'updatedAt' => $db['bullion']['updatedAt'], 'date' => date('d M Y')];
+}
+/* v57 ── personal occasion coupons (birthday / anniversary) ──
+   Auto-issued up to 7 days before the date in the shopper's profile; one
+   per person per occasion per year. They surface in the account + checkout
+   immediately — WhatsApp delivery turns on with the SMS gateway in v58. */
+function coupon_for_user(array $c, ?array $u): bool {
+  if (empty($c['forUser'])) return true;
+  return $u !== null && $c['forUser'] === $u['id'];
+}
+function coupon_live(array $c): bool {
+  if (empty($c['active'])) return false;
+  if (!empty($c['expiresAt']) && strtotime((string)$c['expiresAt']) !== false
+      && strtotime((string)$c['expiresAt']) < time()) return false;
+  return true;
+}
+function event_coupons_ensure(array &$db, array $u): array {
+  global $DB_FILE;
+  $out = [];
+  $prof = is_array($u['profile'] ?? null) ? $u['profile'] : [];
+  $year = (int)date('Y');
+  $today = strtotime('today');
+  $kinds = [
+    'dob' => ['birthday', 'BDAY', 'Happy Birthday from Shivaa', 5],
+    'anniversary' => ['anniversary', 'ANNI', 'Happy Anniversary from Shivaa', 5],
+  ];
+  foreach ($kinds as $pk => $cfg) {
+    [$kind, $pre, $title, $pct] = $cfg;
+    $d = (string)($prof[$pk] ?? '');
+    if (!preg_match('/^\d{4}-(\d{2})-(\d{2})/', $d, $m)) continue;
+    $target = strtotime(sprintf('%04d-%s-%s 00:00:00', $year, $m[1], $m[2]));
+    if ($target === false) continue;
+    $diffDays = (int)round(($target - $today) / 86400);
+    if ($diffDays < -1 || $diffDays > 7) continue;
+    $seed = preg_replace('/[^A-Za-z0-9]/', '', $u['id']) ?: 'CUST';
+    $code = $pre . '-' . strtoupper(substr($seed, -4)) . '-' . $year;
+    $found = null;
+    foreach ($db['coupons'] as $c) if (($c['code'] ?? '') === $code) { $found = $c; break; }
+    if (!$found) {
+      $found = ['id' => uid('c'), 'code' => $code, 'type' => 'percent', 'value' => $pct,
+        'minOrder' => 10000, 'active' => true, 'kind' => $kind, 'forUser' => $u['id'],
+        'year' => $year, 'title' => $title,
+        'note' => ($kind === 'birthday'
+          ? 'Birthday gift — 5% off your order, with love from Shivaa'
+          : 'Anniversary gift — 5% off your order, with love from Shivaa'),
+        'expiresAt' => date('c', $target + 10 * 86400), 'createdAt' => now_iso()];
+      $db['coupons'][] = $found;
+    }
+    if (coupon_live($found)) $out[] = $found;
+  }
+  if ($out) db_save($DB_FILE, $db);
+  return $out;
 }
 /* ═════════ router ═════════ */
 $route = $_GET['__route'] ?? '';
@@ -435,6 +572,9 @@ try {
      address the person just typed). The code is NEVER returned to the
      caller — that was the account-takeover hole of v33…v47.
      ─────────────────────────────────────────────────────────────────── */
+  /* v57: customer login/KYC/reset codes are short 4-digit PINs — easy to read
+     aloud and type on a jewellery-counter phone (gateway arrives in v58). */
+  function otp_new_code(): string { return str_pad((string)random_int(0, 9999), 4, '0', STR_PAD_LEFT); }
   function otp_deliver(array &$db, string $phone, string $code, string $email, string $purpose, string $name = ''): array {
     global $DB_FILE;                       // this runs in function scope
     $sms = shivaa_sms_send($phone, $code);
@@ -512,7 +652,7 @@ try {
     $toNew = false;
     if ($dest === '' && filter_var($typed, FILTER_VALIDATE_EMAIL)) { $dest = $typed; $toNew = true; }
 
-    $code = (string)random_int(100000, 999999);
+    $code = (string)otp_new_code();
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => $o['exp'] > time() - 3600));
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false, 'email' => $dest];
     $d = otp_deliver($db, $phone, $code, $dest, 'verify', $hasAccount ? otp_name_for_phone($db, $phone) : '');
@@ -521,7 +661,7 @@ try {
     jout(200, ['ok' => true, 'sent' => true, 'via' => $d['channel'], 'masked' => $d['masked'],
                'hasAccount' => $hasAccount && !$toNew,
                'devCode' => $d['devCode'] ?? null,
-               'message' => 'A 6-digit code is on its way to ' . otp_dest_hint($d) . '.']);
+               'message' => 'A 4-digit code is on its way to ' . otp_dest_hint($d) . '.']);
   }
   if ($route === 'auth/otp-login' && $method === 'POST') {
     $b = body_json();
@@ -633,7 +773,7 @@ try {
      out with no way back in. Three doors now exist, in order of what a
      real person has available:
 
-       1. auth/reset/start + auth/reset/confirm — email → 6-digit OTP to
+       1. auth/reset/start + auth/reset/confirm — email → 4-digit OTP to
           the account's REGISTERED MOBILE (possession factor) → new
           password. Works for admin accounts too. Never reveals whether
           an email exists. Every existing session token for that account
@@ -654,7 +794,7 @@ try {
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email address']);
     // The reply is deliberately identical whether or not the account exists.
     $generic = ['ok' => true, 'sent' => true,
-                'message' => 'If that email has a Shivaa account, a 6-digit code is on its way to the registered mobile number.'];
+                'message' => 'If that email has a Shivaa account, a 4-digit code is on its way to the registered mobile number.'];
     $helpNote = 'No mobile on file, or no SMS arriving? Use the admin-reset.php recovery file in your hosting panel, or WhatsApp +91 89050 05921.';
 
     $now = time();
@@ -675,7 +815,7 @@ try {
       jout(200, array_merge($generic, ['noPhone' => true, 'message' => 'That account has no mobile number on file, so an SMS code cannot be sent. ' . $helpNote]));
     }
 
-    $code = (string)random_int(100000, 999999);
+    $code = (string)otp_new_code();
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => (int)($o['exp'] ?? 0) > $now - 3600));
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => $now + 300,
                      'tries' => 0, 'at' => $now, 'verified' => false, 'purpose' => 'reset', 'email' => $email];
@@ -687,7 +827,8 @@ try {
     db_save($DB_FILE, $db);
     if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or use admin-reset.php. ' . $helpNote]);
     jout(200, array_merge($generic, ['masked' => $d['masked'], 'via' => $d['channel'],
-        'message' => 'If that email has a Shivaa account, a 6-digit code is on its way to ' . otp_dest_hint($d) . '.']));
+        'devCode' => $d['devCode'] ?? null,
+        'message' => 'If that email has a Shivaa account, a 4-digit code is on its way to ' . otp_dest_hint($d) . '.']));
   }
 
   if ($route === 'auth/reset/confirm' && $method === 'POST') {
@@ -696,7 +837,7 @@ try {
     $code = preg_replace('/\D/', '', (string)($b['code'] ?? ''));
     $pw = (string)($b['password'] ?? '');
     if (strlen($pw) < 8) jout(400, ['error' => 'New password must be at least 8 characters']);
-    if (strlen($code) !== 6) jout(400, ['error' => 'Enter the 6-digit code from the SMS']);
+    if (!in_array(strlen($code), [4, 6], true)) jout(400, ['error' => 'Enter the code from the SMS']);
     $idx = null; $user = null;
     foreach ($db['users'] as $i => $u) if (strtolower((string)($u['email'] ?? '')) === $email) { $idx = $i; $user = $u; break; }
     if ($idx === null) jout(400, ['error' => 'That code is not valid — request a new one']);
@@ -771,7 +912,8 @@ try {
 
   if ($route === 'auth/me' && $method === 'GET') {
     $u = req_user($db);
-    jout(200, ['user' => $u ? pub_user($u) : null]);
+    $events = $u ? event_coupons_ensure($db, $u) : [];
+    jout(200, ['user' => $u ? pub_user($u) : null, 'events' => $events]);
   }
   if ($route === 'auth/profile' && $method === 'PUT') {
     $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
@@ -849,7 +991,8 @@ try {
   /* ── coupons ── */
   if ($route === 'coupons/validate' && $method === 'POST') {
     $b = body_json();
-    foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper((string)($b['code'] ?? '')) && $c['active']) {
+    $cu = req_user($db);
+    foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper((string)($b['code'] ?? '')) && coupon_live($c) && coupon_for_user($c, $cu)) {
       if ((float)($b['amount'] ?? 0) < (float)($c['minOrder'] ?? 0)) jout(400, ['error' => 'Minimum order ₹' . number_format((float)$c['minOrder']) . ' for ' . $c['code']]);
       jout(200, $c);
     }
@@ -857,7 +1000,7 @@ try {
   }
   if ($route === 'coupons' && $method === 'GET') {
     $u = req_user($db);
-    $list = ($u && $u['role'] === 'admin') ? $db['coupons'] : array_values(array_filter($db['coupons'], fn($c) => $c['active']));
+    $list = ($u && $u['role'] === 'admin') ? $db['coupons'] : array_values(array_filter($db['coupons'], fn($c) => coupon_live($c) && coupon_for_user($c, $u)));
     jout(200, ['coupons' => $list]);
   }
   if ($route === 'coupons' && $method === 'POST') {
@@ -873,6 +1016,20 @@ try {
     if (!$u) jout(401, ['error' => 'Login required to place order']);
     $b = body_json();
     $R = current_rates($db);
+    /* v57: honour a 20-minute checkout rate lock — accepted only inside a
+       2% safety band so a locked quote can never be abused. */
+    $lockedR = null;
+    if (!empty($b['rateLock']['stampedAt']) && !empty($b['rateLock']['rates'])) {
+      $stamp = strtotime((string)$b['rateLock']['stampedAt']);
+      if ($stamp !== false && (time() - $stamp) <= 1200) {
+        $L = (array)$b['rateLock']['rates']; $ok = true;
+        foreach (['gold22','gold24','gold18','silver'] as $rk) {
+          if (isset($L[$rk]) && is_numeric($L[$rk]) && !empty($R[$rk])
+              && abs(((float)$L[$rk] - (float)$R[$rk]) / (float)$R[$rk]) > 0.02) $ok = false;
+        }
+        if ($ok) { foreach (['gold22','gold24','gold18','silver'] as $rk) if (isset($L[$rk]) && is_numeric($L[$rk])) $R[$rk] = (float)$L[$rk]; $lockedR = $L; }
+      }
+    }
     $subtotal = 0; $items = [];
     foreach (($b['items'] ?? []) as $it) {
       foreach ($db['products'] as $prod) if ($prod['id'] === $it['id']) {
@@ -887,7 +1044,7 @@ try {
     }
     if (!$items) jout(400, ['error' => 'Cart is empty']);
     $coupon = null;
-    if (!empty($b['coupon'])) foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper($b['coupon']) && $c['active']) $coupon = $c;
+    if (!empty($b['coupon'])) foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper($b['coupon']) && coupon_live($c) && coupon_for_user($c, $u)) $coupon = $c;
     $discount = 0;
     if ($coupon && $subtotal >= (float)($coupon['minOrder'] ?? 0)) $discount = $coupon['type'] === 'percent' ? (int)round($subtotal * $coupon['value'] / 100) : (int)$coupon['value'];
     $pointsUsed = 0;
@@ -907,7 +1064,7 @@ try {
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Paid'),
       'subtotal' => $subtotal, 'discount' => $discount, 'pointsUsed' => $pointsUsed, 'coupon' => $coupon['code'] ?? null,
       'shipping' => $shipping, 'total' => $total, 'earnedPoints' => $earned,
-      'rateSnapshot' => array_merge($R, ['stampedAt' => now_iso()]),
+      'rateSnapshot' => array_merge($R, ['stampedAt' => now_iso(), 'locked' => $lockedR !== null]),
       'status' => 'Placed', 'createdAt' => now_iso(), 'timeline' => [['s' => 'Placed', 't' => now_iso()]],
     ];
     $db['orders'][] = $order;
@@ -1017,7 +1174,7 @@ try {
     $toNew = false;
     if ($dest === '' && filter_var($typed, FILTER_VALIDATE_EMAIL)) { $dest = $typed; $toNew = true; }
 
-    $code = (string)random_int(100000, 999999);
+    $code = (string)otp_new_code();
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => $o['exp'] > time() - 3600));
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false, 'email' => $dest];
     $d = otp_deliver($db, $phone, $code, $dest, 'verify', $hasAccount ? otp_name_for_phone($db, $phone) : '');
@@ -1025,7 +1182,7 @@ try {
     if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or WhatsApp +91 89050 05921.']);
     jout(200, ['ok' => true, 'sent' => true, 'via' => $d['channel'], 'masked' => $d['masked'],
                'devCode' => $d['devCode'] ?? null,
-               'message' => 'A 6-digit code is on its way to ' . otp_dest_hint($d) . '.']);
+               'message' => 'A 4-digit code is on its way to ' . otp_dest_hint($d) . '.']);
   }
   if ($route === 'kyc/verify-otp' && $method === 'POST') {
     $b = body_json();
@@ -1054,7 +1211,7 @@ try {
     need_admin($db);
     $phone = substr(preg_replace('/\D/', '', (string)(body_json()['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
-    $code = (string)random_int(100000, 999999);
+    $code = otp_new_code();  # v57: 4-digit PIN
     $r = shivaa_sms_send($phone, $code);
     shivaa_sms_log($db, $r); db_save($DB_FILE, $db);
     if ($r['mode'] === 'demo') jout(200, ['ok' => false, 'configured' => false, 'note' => 'No SMS gateway is configured, so one-time codes are being emailed instead. Use the email test to check that channel.']);
@@ -1066,7 +1223,7 @@ try {
     need_admin($db);
     $to = strtolower(trim((string)(body_json()['email'] ?? '')));
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email address']);
-    $code = (string)random_int(100000, 999999);
+    $code = otp_new_code();  # v57: 4-digit PIN
     $r = shivaa_mail_send($to, $code, 'verify');
     $db['mail'] = $db['mail'] ?? ['sent' => 0, 'ok' => 0, 'lastErr' => null, 'lastAt' => null];
     $db['mail']['sent'] = (int)$db['mail']['sent'] + 1;
