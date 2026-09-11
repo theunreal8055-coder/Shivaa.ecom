@@ -5488,3 +5488,33 @@ html.quote-mode #view{padding-top:0 !important}
   html.quote-mode #view{max-width:100%}
   .quote-page{padding:0 !important}
 }
+
+/* ═══════════════════════ v59 · UPI QR · pincode · ops ═══════════════════════ */
+.ps-tabs{display:flex;gap:6px;background:var(--cream);border-radius:12px;padding:5px;margin-bottom:14px}
+.ps-tab{flex:1;border:0;background:transparent;border-radius:9px;padding:9px 6px;font:600 12.5px var(--ff-body);color:var(--ink-2);cursor:pointer;line-height:1.3}
+.ps-tab small{display:block;font-weight:400;font-size:10px;opacity:.7}
+.ps-tab.on{background:var(--white);box-shadow:0 2px 8px rgba(29,5,9,.12);color:var(--maroon-deep)}
+.ps-qr{display:flex;justify-content:center;padding:6px 0 10px}
+.ps-qr svg{width:210px;height:210px}
+.ps-upiid{display:flex;align-items:center;gap:8px;justify-content:center;background:var(--gold-faint);border:1px dashed var(--gold);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:13.5px}
+.ps-upiid span{color:var(--ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.ps-proof{display:grid;gap:9px;margin-top:10px}
+.ps-upload{display:block;border:1.5px dashed var(--line);border-radius:10px;padding:11px;text-align:center;font-size:12.5px;color:var(--ink-2);cursor:pointer;background:var(--cream)}
+.ps-upload input{display:none}
+/* pincode promise */
+.pin-msg.ok{color:var(--ok);font-size:12.5px;line-height:1.7;margin-top:8px}
+.pin-msg.bad{color:#b03a3a;font-size:12.5px;margin-top:8px}
+/* care tokens */
+.care-token{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:12px 0;background:var(--white)}
+.ct-head{display:flex;justify-content:space-between;align-items:center}
+/* admin: payment proof banner */
+.proof-banner{background:linear-gradient(135deg,#fff6e6,#ffedc8);border:1.5px solid var(--gold);border-radius:14px;padding:14px 18px;margin-bottom:16px;font-size:13.5px}
+.proof-row{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;background:var(--white);border-radius:10px;padding:9px 12px;border:1px solid var(--line)}
+/* cash book */
+.cb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:8px}
+.cb-tile{background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:14px}
+.cb-tile small{display:block;color:var(--ink-3);font-size:11.5px;margin-bottom:6px}
+.cb-tile b{font-size:20px;color:var(--maroon-deep);font-family:var(--font-serif)}
+.cb-tile.out b{color:#b04a4a}
+.cb-close{margin-top:16px;border-top:2px solid var(--maroon-deep);padding-top:14px}
+@media(max-width:860px){.cb-grid{grid-template-columns:repeat(2,1fr)}}

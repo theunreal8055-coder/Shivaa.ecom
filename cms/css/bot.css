@@ -195,3 +195,6 @@ body.saathi-open #saathiPanel { transform: translateY(0); }
 #saathiMic:hover { border-color: var(--gold); background: var(--gold-faint); }
 #saathiMic.live { border-color: var(--maroon); background: var(--gold-faint); animation: saMic 1s infinite; }
 @keyframes saMic { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
+/* v59 — honest fallback note inside recommendations */
+.sa-honest{display:block;margin-top:6px;font-size:11.5px;color:#8a6d2f}

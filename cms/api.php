@@ -251,10 +251,11 @@ function bullion_rows(array &$db): array {
   $sp = (int)($db['settings']['bullionSilverPremium'] ?? 2);
   $fine = (float)$r['gold24']; $sil = (float)$r['silver'];
 
-  /* v57 — day's low/high band from the polling history (last 72 ticks) */
-  $hist = $db['rates']['history'] ?? [];
-  $band = static function (string $metal, float $cur): array {
-    global $hist;
+  /* v57 — day's low/high band from the polling history (last 72 ticks).
+     v59 fix: capture $hist via `use` — `global $hist` read an unset global (null)
+     and crashed the jeweller Bullion Desk with "array_slice(): Argument #1 must be array". */
+  $hist = is_array($db['rates']['history'] ?? null) ? $db['rates']['history'] : [];
+  $band = static function (string $metal, float $cur) use ($hist): array {
     $vals = array_map(static fn($h) => (float)($h[$metal] ?? $cur), array_slice($hist, -72));
     if (!$vals) $vals = [$cur];
     return [(float)min($vals), (float)max($vals)];
@@ -426,7 +427,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook'] as $__k) $db[$__k] = $db[$__k] ?? [];
 if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   $db['bullion'] = ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -475,7 +476,12 @@ try {
   }
   if ($route === 'rates/alert' && $method === 'POST') {
     $b = body_json();
-    $db['rateAlerts'][] = ['id' => uid('ra'), 'email' => $b['email'] ?? '', 'metal' => $b['metal'] ?? '', 'target' => (float)($b['target'] ?? 0), 'createdAt' => now_iso()];
+    $db['rateAlerts'][] = ['id' => uid('ra'), 'email' => substr((string)($b['email'] ?? ''), 0, 160),
+      'phone' => substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10),
+      'metal' => $b['metal'] ?? '', 'target' => (float)($b['target'] ?? 0),
+      'productId' => substr((string)($b['productId'] ?? ''), 0, 40),
+      'userId' => ($u = req_user($db)) ? $u['id'] : '', 'createdAt' => now_iso()];
+    if (count($db['rateAlerts']) > 2000) $db['rateAlerts'] = array_slice($db['rateAlerts'], -2000);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
 
@@ -1146,6 +1152,11 @@ try {
       'provider' => $provider,
       'keyId' => (string)($s['rzpKeyId'] ?? ''),
       'prepaidPct' => (float)($s['prepaidPct'] ?? 2),
+      'codFeePct' => (float)($s['codFeePct'] ?? 0),
+      /* v59 — UPI QR fallback works with zero gateway keys: customer scans
+         the counter UPI ID, uploads the payment screenshot; admin approves. */
+      'upiId' => (string)($s['upiId'] ?? ''),
+      'upiName' => (string)($s['upiName'] ?? 'Shivaa Jewellers'),
       'currency' => 'INR',
     ]);
   }
@@ -1178,6 +1189,7 @@ try {
     $db['orders'][$i]['gatewayOrderId'] = $ref;
     db_save($DB_FILE, $db);
     jout(200, ['mode' => 'demo', 'gatewayOrder' => ['id' => $ref, 'amount' => $amountPaise, 'currency' => 'INR'],
+               'upiId' => (string)($s['upiId'] ?? ''), 'upiName' => (string)($s['upiName'] ?? 'Shivaa Jewellers'),
                'amount' => $amountPaise, 'orderId' => $o['id']]);
   }
   if ($route === 'pay/verify' && $method === 'POST') {
@@ -1199,6 +1211,58 @@ try {
     $db['orders'][$i]['gateway'] = ($s['payProvider'] ?? 'demo') === 'razorpay' && !empty($s['rzpKeyId']) ? 'razorpay' : 'demo';
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
+  }
+
+  /* ════════ v59 · UPI QR payment proof (works with no gateway keys) ════════
+     Customer scans the counter UPI QR, attaches the payment screenshot.
+     Status becomes "Proof submitted" until the owner approves it in admin. */
+  if ($route === 'pay/proof' && $method === 'POST') {
+    // multipart/form-data: fields arrive in $_POST, screenshot in $_FILES
+    $proofOrderId = (string)($_POST['orderId'] ?? (body_json()['orderId'] ?? ''));
+    [$i, $o] = $find_order_owner($proofOrderId);
+    if (empty($_FILES['proof'])) jout(400, ['error' => 'Attach the payment screenshot']);
+    $f = $_FILES['proof'];
+    if (($f['error'] ?? 1) !== UPLOAD_ERR_OK) jout(400, ['error' => 'Upload failed (code ' . ($f['error'] ?? '?') . ')']);
+    if (($f['size'] ?? 0) > 6291456) jout(400, ['error' => 'Screenshot must be under 6 MB']);
+    $ext = strtolower(pathinfo((string)($f['name'] ?? 'p.jpg'), PATHINFO_EXTENSION));
+    if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) $ext = 'jpg';
+    if (!is_dir(__DIR__ . '/uploads/payproofs')) @mkdir(__DIR__ . '/uploads/payproofs', 0755, true);
+    $name = 'pp_' . $o['id'] . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+    if (!move_uploaded_file($f['tmp_name'], __DIR__ . '/uploads/payproofs/' . $name))
+      jout(500, ['error' => 'Could not save the screenshot — check uploads/ permissions (755)']);
+    $db['orders'][$i]['paymentStatus'] = 'Proof submitted';
+    $db['orders'][$i]['payProof'] = ['file' => '/uploads/payproofs/' . $name,
+      'at' => now_iso(), 'amount' => (int)round((float)($_POST['amount'] ?? $o['total'])),
+      'ref' => substr(trim((string)($_POST['ref'] ?? '')), 0, 60),
+      'gateway' => 'upi-qr'];
+    $db['orders'][$i]['gateway'] = 'upi-qr';
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
+  }
+  if ($route === 'admin/pay-proofs' && $method === 'GET') {
+    need_admin($db);
+    $pend = array_values(array_filter($db['orders'], fn($x) => ($x['paymentStatus'] ?? '') === 'Proof submitted' || !empty($x['payProof'])));
+    jout(200, ['orders' => array_reverse($pend)]);
+  }
+  if ($route === 'admin/pay-proof' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $decision = (string)($b['decision'] ?? '');
+    foreach ($db['orders'] as $idx => $ord) if (($ord['id'] ?? '') === (string)($b['orderId'] ?? '')) {
+      if ($decision === 'approve') {
+        $db['orders'][$idx]['paymentStatus'] = 'Paid';
+        $db['orders'][$idx]['paidAt'] = now_iso();
+        $db['orders'][$idx]['gateway'] = 'upi-qr';
+        if (!empty($db['orders'][$idx]['payProof']['ref'])) $db['orders'][$idx]['paymentRef'] = $db['orders'][$idx]['payProof']['ref'];
+      } else {
+        $db['orders'][$idx]['paymentStatus'] = 'Awaiting payment';
+        $db['orders'][$idx]['payProof']['rejectedAt'] = now_iso();
+        $db['orders'][$idx]['payProof']['rejectNote'] = substr((string)($b['note'] ?? ''), 0, 200);
+      }
+      db_save($DB_FILE, $db);
+      jout(200, ['ok' => true, 'order' => $db['orders'][$idx]]);
+    }
+    jout(404, ['error' => 'Order not found']);
   }
 
   /* ── catalogs (uploads) ── */
@@ -1519,9 +1583,30 @@ try {
   if ($route === 'services' && $method === 'POST') {
     $b = body_json();
     if (empty($b['name']) || empty($b['phone'])) jout(400, ['error' => 'Name & phone required']);
-    $db['serviceRequests'][] = ['id' => uid('sr'), 'type' => $b['type'] ?? '', 'name' => $b['name'], 'phone' => $b['phone'],
-                                'email' => $b['email'] ?? '', 'details' => $b['details'] ?? '', 'budget' => $b['budget'] ?? '', 'status' => 'new', 'createdAt' => now_iso()];
-    db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+    $su = req_user($db);
+    $rec = ['id' => uid('sr'), 'type' => $b['type'] ?? '', 'name' => $b['name'], 'phone' => preg_replace('/\D/', '', (string)$b['phone']),
+            'userId' => $su['id'] ?? '', 'orderId' => substr((string)($b['orderId'] ?? ''), 0, 24),
+            'email' => $b['email'] ?? '', 'details' => $b['details'] ?? '', 'budget' => $b['budget'] ?? '',
+            'status' => 'new', 'history' => [['s' => 'Booked', 't' => now_iso()]], 'createdAt' => now_iso()];
+    $db['serviceRequests'][] = $rec;
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $rec]);
+  }
+  if ($route === 'services/mine' && $method === 'GET') {
+    $su = req_user($db);
+    if (!$su) jout(401, ['error' => 'Login required']);
+    $mine = array_values(array_filter($db['serviceRequests'],
+      fn($r) => ($r['userId'] ?? '') === $su['id'] || substr((string)($r['phone'] ?? ''), -10) === substr((string)($su['phone'] ?? ''), -10)));
+    jout(200, ['requests' => array_reverse($mine)]);
+  }
+  if (preg_match('#^services/([\w-]+)/status$#', $route, $mS)) {
+    need_admin($db);
+    $b = body_json();
+    foreach ($db['serviceRequests'] as $si => $sr) if ($sr['id'] === $mS[1]) {
+      $st = substr((string)($b['status'] ?? ''), 0, 30);
+      if ($st) { $db['serviceRequests'][$si]['status'] = $st; $db['serviceRequests'][$si]['history'][] = ['s' => $st, 't' => now_iso()]; }
+      db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $db['serviceRequests'][$si]]);
+    }
+    jout(404, ['error' => 'Request not found']);
   }
   if ($route === 'services' && $method === 'GET') { need_admin($db); jout(200, ['requests' => array_reverse($db['serviceRequests'])]); }
   if ($route === 'ev' && $method === 'POST') {
@@ -1587,6 +1672,125 @@ try {
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'purchase' => $rec]);
   }
+
+  if ($route === 'admin/rate-alerts' && $method === 'GET') {
+    need_admin($db);
+    $alerts = array_reverse($db['rateAlerts'] ?? []);
+    $live = current_rates($db);
+    // tag alerts whose target has been reached so the counter can act today
+    foreach ($alerts as &$a) {
+      $cur = (float)($live[$a['metal'] ?? 'gold22'] ?? 0);
+      $a['currentRate'] = $cur;
+      $a['reached'] = $cur > 0 && (float)($a['target'] ?? 0) >= $cur ? 1 : 0;
+    }
+    unset($a);
+    jout(200, ['alerts' => array_slice($alerts, 0, 300)]);
+  }
+
+  /* ════════ v59 · karigar (craftsman) job-work book ════════
+     Metal issued by weight/purity is reconciled on return: wastage is
+     agreed up front and the job charge + advances are tracked as a ledger. */
+  if ($route === 'admin/karigars' && $method === 'GET') {
+    need_admin($db);
+    jout(200, ['karigars' => $db['karigars'], 'jobs' => array_reverse($db['jobWork'])]);
+  }
+  if ($route === 'admin/karigars' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $name = trim((string)($b['name'] ?? ''));
+    if ($name === '') jout(400, ['error' => 'Karigar name required']);
+    $rec = ['id' => uid('kg'), 'name' => substr($name, 0, 120),
+            'phone' => substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10),
+            'speciality' => substr(trim((string)($b['speciality'] ?? '')), 0, 120),
+            'note' => substr(trim((string)($b['note'] ?? '')), 0, 300), 'createdAt' => now_iso()];
+    $db['karigars'][] = $rec; db_save($DB_FILE, $db); jout(200, ['ok' => true, 'karigar' => $rec]);
+  }
+  if ($route === 'admin/job-work' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    if (empty($b['karigarId'])) jout(400, ['error' => 'Pick the karigar']);
+    $kg = null; foreach ($db['karigars'] as $k) if ($k['id'] === $b['karigarId']) $kg = $k;
+    if (!$kg) jout(400, ['error' => 'Karigar not found']);
+    $wt = (float)($b['weightOut'] ?? 0);
+    if ($wt <= 0) jout(400, ['error' => 'Enter metal weight issued (g)']);
+    $rec = ['id' => uid('jw'), 'karigarId' => $b['karigarId'], 'karigarName' => $kg['name'],
+      'itemDesc' => substr(trim((string)($b['itemDesc'] ?? 'Job work')), 0, 200),
+      'orderId' => substr(trim((string)($b['orderId'] ?? '')), 0, 24),
+      'weightOut' => round($wt, 3), 'purity' => in_array($b['purity'] ?? '', ['24K', '22K', '18K', '14K', '925'], true) ? $b['purity'] : '22K',
+      'wastagePct' => round((float)($b['wastagePct'] ?? 8), 2),
+      'jobCharge' => (int)round((float)($b['jobCharge'] ?? 0)),
+      'advance' => (int)round((float)($b['advance'] ?? 0)),
+      'dueDate' => substr((string)($b['dueDate'] ?? ''), 0, 10),
+      'note' => substr(trim((string)($b['note'] ?? '')), 0, 300),
+      'weightBack' => null, 'status' => 'with karigar',
+      'createdAt' => now_iso(), 'history' => [['s' => 'Metal issued', 't' => now_iso()]]];
+    $db['jobWork'][] = $rec;
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'job' => $rec]);
+  }
+  if (preg_match('#^admin/job-work/([\w-]+)$#', $route, $mJW) && $method === 'PUT') {
+    need_admin($db);
+    $b = body_json();
+    foreach ($db['jobWork'] as $ji => $j) if ($j['id'] === $mJW[1]) {
+      if (isset($b['weightBack']) && (float)$b['weightBack'] > 0) $db['jobWork'][$ji]['weightBack'] = round((float)$b['weightBack'], 3);
+      if (!empty($b['status'])) { $db['jobWork'][$ji]['status'] = substr((string)$b['status'], 0, 30); $db['jobWork'][$ji]['history'][] = ['s' => $b['status'], 't' => now_iso()]; }
+      if (isset($b['extraCharge'])) $db['jobWork'][$ji]['extraCharge'] = (int)round((float)$b['extraCharge']);
+      if (isset($b['paid'])) {
+        $db['jobWork'][$ji]['advance'] = (int)($db['jobWork'][$ji]['advance'] ?? 0) + (int)round((float)$b['paid']);
+        $db['jobWork'][$ji]['history'][] = ['s' => 'Paid ₹' . (int)round((float)$b['paid']), 't' => now_iso()];
+      }
+      db_save($DB_FILE, $db); jout(200, ['ok' => true, 'job' => $db['jobWork'][$ji]]);
+    }
+    jout(404, ['error' => 'Job not found']);
+  }
+
+  /* ════════ v59 · daily cash book + day-close ════════ */
+  if ($route === 'admin/cashbook' && $method === 'GET') {
+    need_admin($db);
+    $day = substr((string)($_GET['date'] ?? date('Y-m-d')), 0, 10);
+    $rows = array_values(array_filter($db['cashbook'], fn($r) => substr((string)($r['at'] ?? ''), 0, 10) === $day));
+    // system-derived figures: paid orders today, old-gold payouts today
+    $orderSales = 0; $onlineSales = 0; $codSales = 0; $waSales = 0;
+    foreach ($db['orders'] as $o) {
+      if (substr((string)($o['createdAt'] ?? ''), 0, 10) !== $day || ($o['status'] ?? '') === 'Cancelled') continue;
+      $orderSales += (int)($o['total'] ?? 0);
+      if (($o['paymentMethod'] ?? '') === 'COD') $codSales += (int)$o['total'];
+      elseif (($o['paymentMethod'] ?? '') === 'WhatsApp') $waSales += (int)$o['total'];
+      else $onlineSales += (int)$o['total'];
+    }
+    $goldPaid = 0;
+    foreach ($db['goldPurchases'] as $g) if (substr((string)($g['createdAt'] ?? ''), 0, 10) === $day) $goldPaid += (int)$g['amount'];
+    jout(200, ['date' => $day, 'rows' => array_reverse($rows),
+      'orderSales' => $orderSales, 'onlineSales' => $onlineSales, 'codSales' => $codSales, 'waSales' => $waSales,
+      'oldGoldOut' => $goldPaid]);
+  }
+  if ($route === 'admin/cashbook' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $amt = round((float)($b['amount'] ?? 0), 2);
+    if ($amt <= 0) jout(400, ['error' => 'Enter an amount']);
+    $head = substr(trim((string)($b['head'] ?? '')), 0, 120);
+    if ($head === '') jout(400, ['error' => 'Enter a note (head)']);
+    $rec = ['id' => uid('cb'), 'kind' => in_array($b['kind'] ?? '', ['in', 'out'], true) ? $b['kind'] : 'out',
+      'head' => $head, 'amount' => $amt,
+      'mode' => in_array($b['mode'] ?? '', ['cash', 'upi', 'bank'], true) ? $b['mode'] : 'cash',
+      'at' => !empty($b['at']) ? substr((string)$b['at'], 0, 19) : now_iso(),
+      'by' => req_user($db)['name'] ?? ''];
+    $db['cashbook'][] = $rec;
+    if (count($db['cashbook']) > 5000) $db['cashbook'] = array_slice($db['cashbook'], -5000);
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'row' => $rec]);
+  }
+  if ($route === 'admin/cashbook/day-close' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    $day = substr((string)($b['date'] ?? date('Y-m-d')), 0, 10);
+    $close = ['day' => $day, 'openingCash' => (float)($b['openingCash'] ?? 0), 'closingCash' => (float)($b['closingCash'] ?? 0),
+              'note' => substr((string)($b['note'] ?? ''), 0, 400), 'at' => now_iso(), 'by' => req_user($db)['name'] ?? ''];
+    $found = false;
+    foreach ($db['cashbook'] as $ci => $r) if (($r['kind'] ?? '') === 'day-close' && substr((string)($r['at'] ?? ''), 0, 10) === $day) { $db['cashbook'][$ci] = ['id' => $r['id'], 'kind' => 'day-close'] + $close; $found = true; }
+    if (!$found) $db['cashbook'][] = ['id' => uid('cb'), 'kind' => 'day-close'] + $close;
+    db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+  }
+
   if ($route === 'admin/khata' && $method === 'GET') {
     need_admin($db);
     jout(200, ['partners' => $db['partners'], 'khata' => $db['khata'] ?? []]);

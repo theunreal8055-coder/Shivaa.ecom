@@ -232,21 +232,40 @@
   function send() { const i = $('#saathiIn'); const q = i.value.trim(); if (!q) return; i.value = ''; userSay(q); }
 
   /* ── data & parsing ── */
-  async function boot() { if (!products) products = (await api('products').catch(() => ({ products: [] }))).products || []; return products; }
-  const priceOf = (p) => p.price?.total ?? p.price ?? 0;
+  async function boot() {
+    // v59 fix: a failed first fetch used to cache an empty catalogue for the
+    // whole session ("no recommendations"). Retry, and fall back to the app cache.
+    for (let attempt = 0; attempt < 2 && !(products && products.length); attempt++) {
+      const r = await api('products').catch(() => null);
+      if (r && Array.isArray(r.products) && r.products.length) { products = r.products; break; }
+      await new Promise((res) => setTimeout(res, 350));
+    }
+    if (!(products && products.length)) products = ((S().state || {}).productsCache || []).filter((p) => p.active !== false);
+    return products || [];
+  }
+  const priceOf = (p) => p.price?.total ?? p.price ?? (S().price ? S().price(p).total : 0) ?? 0;
   const hay = (p) => ((p.name || '') + ' ' + (p.tags || []).join(' ') + ' ' + (p.desc || '')).toLowerCase();
 
-  function budgetOf(t) {
-    let m = t.match(/([\d.,]+)\s*(lakh|lac|k|thousand|hazar)/);
-    if (!m) m = t.match(/(?:₹|rs\.?\s)([\d.,]+)/);
-    if (!m) m = t.match(/\b(half|1|one|2|two|3|three|4|four|5|five)\s*(lakh|lac|k|thousand)\b/);
+  function budgetOf(tIn) {
+    // v59 fix: chips read "Under ₹30K" (previously parsed as ₹30) and bare
+    // amounts like "under 60000" were not understood at all.
+    const t = String(tIn || '').toLowerCase();
+    let m = t.match(/([\d][\d.,]*)\s*(lakh|lac|k|thousand|hazar)\b/);
+    if (!m) m = t.match(/(?:₹|rs\.?\s?)([\d][\d.,]*)\s*(lakh|lac|k|thousand|hazar)?/);
+    if (!m) m = t.match(/\b(half|one|two|three|four|five)\s*(lakh|lac|k|thousand)\b/);
+    if (!m) {
+      // bare 4+ digit figure ("60000", "1,20,000") reads as rupees
+      const bare = t.match(/\b(\d{1,3}(?:,\d{2,3})+|\d{4,7})\b/);
+      if (bare) m = [bare[0], bare[1].replace(/,/g, ''), ''];
+    }
     if (!m) return null;
-    const wordN = { half: 0.5, one: 1, 1: 1, two: 2, 2: 2, three: 3, 3: 3, four: 4, 4: 4, five: 5, 5: 5 };
-    let n = parseFloat(m[1]); if (isNaN(n)) n = wordN[m[1].toLowerCase()] ?? NaN;
+    const wordN = { half: 0.5, one: 1, two: 2, three: 3, four: 4, five: 5 };
+    let n = parseFloat(String(m[1]).replace(/,/g, ''));
+    if (isNaN(n)) n = wordN[(m[1] || '').toLowerCase()] ?? NaN;
     const u = (m[2] || '').toLowerCase();
     if (u === 'lakh' || u === 'lac') n *= 100000;
     if (u === 'k' || u === 'thousand' || u === 'hazar') n *= 1000;
-    return n > 0 ? n : null;
+    return n >= 100 ? n : null;   // reject implausible fragments like ₹30
   }
   function tokens(t) {
     return t.split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !['the', 'and', 'for', 'with', 'under', 'show', 'please', 'some', 'me', 'you', 'want', 'looking', 'gold', 'silver'].includes(w));
@@ -303,7 +322,12 @@
     /* follow-ups on the last recommendation */
     if (/^(cheaper|sasta|lower|less expensive)\b/.test(t) && ctx.last.length) { ctx.budget = Math.round((ctx.budget || 60000) * 0.75); return recommend(ctx.occ || 'gift', ctx.budget, 'lighter on the wallet'); }
     if (/(more like this|similar|like the first|like #1|aur aisa)/.test(t) && ctx.last.length) { const base = products.find((p) => p.id === ctx.last[0]); if (base) return similar(base); }
-    if (/(show more|next|more options|aur dikhao)/.test(t) && ctx.last.length) { const rest = products.filter((p) => (ctx.cat ? p.category === ctx.cat : true) && !ctx.last.includes(p.id)); push('bot', 'Here are more:'); push('bot', '', cardRow(rest, true) + feedback()); return; }
+    if (/(show more|next|more options|aur dikhao)/.test(t) && ctx.last.length) {
+      const catOk = ctx.cat && products.some((p) => p.category === ctx.cat);
+      const rest = products.filter((p) => (catOk ? p.category === ctx.cat : true) && !ctx.last.includes(p.id)).sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      if (!rest.length) { push('bot', 'That is everything ready to order today — the full 4-lakh catalogue is being photographed. Ask a human on WhatsApp for a specific design 💛'); chips(['Talk to a human', 'Choose for me']); return; }
+      push('bot', 'Here are more:'); push('bot', '', cardRow(rest, true) + feedback()); return;
+    }
     if (/^(add|put) (the )?(first|second|third|1st|2nd|3rd|one|it)\b/.test(t) && ctx.last.length) {
       const n = { first: 0, '1st': 0, one: 0, it: 0, second: 1, '2nd': 1, third: 2, '3rd': 2 }[t.match(/(first|second|third|1st|2nd|3rd|one|it)/)[1]] ?? 0;
       const id = ctx.last[n]; if (id && S().pdAdd) { S().pdAdd(id); return push('bot', 'Done — added to your cart 🛍. Prices stay live until checkout.'); }
@@ -457,18 +481,43 @@
     /* discovery: category + budget + style in any order */
     const cat = findCat(t); if (cat) ctx.cat = cat;
     const bud = budgetOf(t); if (bud) ctx.budget = bud;
-    const toks = tokens(t).filter((w) => !['show', 'rings', 'ring'].includes(w));
+    const toks = tokens(t).filter((w) => !['show', 'rings', 'ring', 'piece', 'pieces'].includes(w));
+    const catExists = cat ? products.some((p) => p.category === cat) : false;
     let list = products.slice();
-    if (ctx.cat) list = list.filter((p) => p.category === ctx.cat);
+    if (ctx.cat && catExists) list = list.filter((p) => p.category === ctx.cat);
     if (ctx.budget) list = list.filter((p) => priceOf(p) <= ctx.budget * 1.08);
     if (toks.length) { list = list.map((p) => ({ p, s: scoreSearch(p, toks) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.p); }
+    // v59: category not photographed yet (e.g. earrings) → search the whole
+    // catalogue by style word, never a dead-end
+    if (!list.length && cat && !catExists) {
+      const synToks = [...new Set([...toks, ...(SYN[Object.keys(SYN).find((k) => t.includes(k))] ? [SYN[Object.keys(SYN).find((k) => t.includes(k))]] : [])])];
+      const hit = products.map((p) => ({ p, s: scoreSearch(p, synToks) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.p);
+      if (hit.length) {
+        push('bot', 'Our <b class="g">' + cat + '</b> are being photographed for the site — meanwhile these are the closest matches in the workshop catalogue:');
+        push('bot', '', cardRow(hit, true) + moreBtn('#/shop', 'See the full shop →') + feedback());
+        chips(['Choose for me', 'Talk to a human', 'Show the signature rings']); return;
+      }
+      const fav = [...products].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      push('bot', FACTS.catalog + '<br>These are today’s most-loved pieces you can order right now:');
+      push('bot', '', cardRow(fav, true) + moreBtn('#/shop', 'See the full shop →') + feedback());
+      chips(['Choose for me', 'Talk to a human']); return;
+    }
     if ((cat || bud || toks.length) && list.length) {
       list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      push('bot', 'Found <b class="g">' + list.length + '</b> piece' + (list.length === 1 ? '' : 's') + (cat ? ' in <b class="g">' + cat + '</b>' : '') + (bud ? ' within <b class="g">' + inr(bud) + '</b>' : '') + '. Tap to view — 🛍 adds straight to cart:');
-      push('bot', '', cardRow(list, true) + moreBtn('#/shop' + (cat ? '?category=' + cat : ''), 'See all in the shop →') + feedback());
+      push('bot', 'Found <b class="g">' + list.length + '</b> piece' + (list.length === 1 ? '' : 's') + (cat && catExists ? ' in <b class="g">' + cat + '</b>' : '') + (bud ? ' within <b class="g">' + inr(bud) + '</b>' : '') + '. Tap to view — 🛍 adds straight to cart:');
+      push('bot', '', cardRow(list, true) + moreBtn('#/shop' + (cat && catExists ? '?category=' + cat : ''), 'See all in the shop →') + feedback());
       chips(['Cheaper', 'Show more', 'Choose for me']); return;
     }
-    if ((cat || toks.length) && !list.length) { push('bot', FACTS.catalog + '<br>Shall I pick from the signature rings instead?'); chips(['Choose for me', 'Show the signature rings']); return; }
+    if ((cat || toks.length) && !list.length) {
+      // asked for a category/style + budget nothing matched → cheapest within category honestly
+      const within = (cat && catExists ? products.filter((p) => p.category === cat) : products).sort((a, b) => priceOf(a) - priceOf(b));
+      if (within.length) {
+        push('bot', 'Nothing sits inside ' + inr(ctx.budget || bud || 0) + ' at the live rate right now — the lightest ' + (cat || 'pieces') + ' start around <b class="g">' + inr(priceOf(within[0])) + '</b>. Here are the closest:');
+        push('bot', '', cardRow(within, true) + feedback());
+        chips(['Cheaper', 'Choose for me', 'Talk to a human']); return;
+      }
+      push('bot', FACTS.catalog + '<br>Shall I pick from the signature rings instead?'); chips(['Choose for me', 'Show the signature rings']); return;
+    }
     if (/signature|all rings/.test(t)) {
       const rings = products.filter((p) => p.category === 'rings');
       push('bot', 'Our <b class="g">65 signature rings</b> — 22K, hallmarked, four photographs each:');
@@ -491,24 +540,48 @@
 
   function similar(base) {
     const bt = (base.tags || []).slice(0, 4);
-    const list = products.filter((p) => p.id !== base.id && (p.category === base.category || (p.tags || []).some((x) => bt.includes(x))));
+    let list = products.filter((p) => p.id !== base.id && (p.category === base.category || (p.tags || []).some((x) => bt.includes(x))));
+    if (!list.length) list = products.filter((p) => p.id !== base.id).sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    if (!list.length) { push('bot', 'The rest of the workshop catalogue is being photographed — say <b class="g">“choose for me”</b> and I’ll pick from today’s ready pieces.'); return; }
     push('bot', 'In the same family as <b class="g">' + esc(base.name) + '</b>:');
     push('bot', '', cardRow(list, true) + feedback());
   }
 
+  function pickTop(scored, n) {
+    // diversify: never show the same design twice in one recommendation row
+    const seenName = new Set(); const out = [];
+    for (const x of scored) {
+      const key = String(x.p.name || '').toLowerCase().replace(/\s+/g, ' ').slice(0, 24);
+      if (seenName.has(key)) continue;
+      seenName.add(key); out.push(x);
+      if (out.length >= n) break;
+    }
+    return out;
+  }
   async function recommend(occ, budget, note) {
+    await boot();
     ctx.occ = occ; ctx.budget = budget;
     const O = OCC[occ] || OCC.gift;
-    const scored = products.map((p) => {
-      const pr = priceOf(p); let s = (p.rating || 4.5);
+    const inStock = products.filter((p) => (p.stock ?? 1) > 0);
+    const pool = inStock.length ? inStock : products;
+    const scored = pool.map((p) => {
+      const pr = priceOf(p); let s = (p.rating || 4.5) + Math.random() * 0.05;
       if (budget < 1e9) { if (pr > budget * 1.08) s -= 50; else s += 2 * (1 - pr / (budget * 1.08)); }
       if (O.cat.includes(p.category)) s += 2;
       const h = hay(p); s += O.boost.filter((w) => h.includes(w)).length * 1.5;
       return { p, pr, s };
     }).sort((a, b) => b.s - a.s);
-    const top = scored.slice(0, 3);
+    let top = pickTop(budget < 1e9 ? scored.filter((x) => x.pr <= budget * 1.08) : scored, 3);
+    let honest = '';
+    if (!top.length) {
+      // nothing within budget: show the three closest (cheapest), say so honestly
+      const byPrice = [...scored].sort((a, b) => a.pr - b.pr);
+      top = pickTop(byPrice, 3);
+      honest = '<br><span class="sa-honest">Most pieces today run a little above ' + inr(budget) + ' at the live rate — these are the closest. Say <b class="g">“cheaper”</b> and I’ll look at lighter weights.</span>';
+    }
+    if (!top.length) { push('bot', FACTS.catalog + ' ' + feedback()); chips(['Show the signature rings', 'Talk to a human']); flow = null; return; }
     push('bot', 'For a <b class="g">' + occ + '</b> within <b class="g">' + (budget >= 1e9 ? 'any budget' : inr(budget)) + '</b>' + (note ? ' (' + note + ')' : '') + ', I would choose:' +
-      top.map((x, i) => '<br><b class="g">' + (i + 1) + '.</b> ' + esc(x.p.name) + ' — ' + inr(x.pr) + ' · ' + reason(x, occ, budget)).join('') +
+      top.map((x, i) => '<br><b class="g">' + (i + 1) + '.</b> ' + esc(x.p.name) + ' — ' + inr(x.pr) + ' · ' + reason(x, occ, budget)).join('') + honest +
       '<br><br>🛍 adds to cart, ⇄ compares — or tell me <b class="g">“cheaper”</b> / <b class="g">“more like this”</b>.');
     push('bot', '', cardRow(top.map((x) => x.p), true) + moreBtn('#shareResults', '📤 Share these picks on WhatsApp') + feedback());
     chips(['Cheaper', 'More like this', 'Compare 1 and 2', "Today's gold rate"]);

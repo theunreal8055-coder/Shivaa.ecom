@@ -2181,14 +2181,14 @@ pages.product = async (view, q, id) => {
           <button class="btn btn-ghost wa-order" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat to Order</button>
           <button type="button" class="btn btn-outline pd-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">⚖ <span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span></button>
         </div>
-        <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'}">${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</div>
+        <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'};display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</span><a href="javascript:Shivaa.rateAlertModal('${p.id}')" style="font-size:12px">🔔 Alert on price drop</a></div>
 
         ${window.ShivaaHallmark ? window.ShivaaHallmark.productPanel(p) : '<p class="hm-note">HUID information is temporarily unavailable. No BIS verification has been performed here.</p>'}
         <a class="trust-pdp-link" href="#/trust">Business details &amp; documents →</a>
         ${p.mediaNote ? `<p style="font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.6">✦ ${esc(p.mediaNote)} The piece you receive is hand-finished by our karigars to this design; exact weight and purity are confirmed on your bill.</p>` : ''}
 
-        <div class="opt-label"><span>Check delivery</span></div>
-        <div class="pin-row" style="max-width:340px"><input id="pincode" maxlength="6" placeholder="Enter 6-digit pincode"><button class="btn btn-ghost btn-sm" onclick="Shivaa.checkPin()">Check</button></div>
+        <div class="opt-label"><span>Check delivery &amp; COD</span></div>
+        <form class="pin-row" style="max-width:380px" onsubmit="event.preventDefault();Shivaa.checkPin()"><input id="pincode" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit pincode" value="${(localStorage.getItem('shv_pin') || '')}"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
         <div class="pin-msg" id="pinMsg" hidden></div>
 
         <div class="pd-perks">
@@ -2368,14 +2368,40 @@ window.Shivaa.pdAdd = id => {
   addToCart(id, window._pd.qty, size, $('#engrave')?.value || null);
 };
 window.Shivaa.pdBuy = async id => { window.Shivaa.pdAdd(id); location.hash = '#/checkout'; };
+/* v59 — honest delivery promise by pincode + COD eligibility */
+function pinPromise(pin) {
+  const d2 = pin.slice(0, 2);
+  const block = String((state.settings || {}).codBlockedPins || '').split(/[\s,]+/).filter(Boolean);
+  const noCODPrefix = ['19', '73', '74', '78', '79'];   // Ladakh, Andamans, NE — insured prepaid only
+  const remote = noCODPrefix.includes(d2) || block.includes(pin);
+  let days;
+  if (pin === '341023') days = [1, 1];
+  else if (['30', '31', '32', '33', '34'].includes(d2)) days = [2, 3];            // Rajasthan + NCR west
+  else if (['11', '12', '20', '24', '25', '22', '23', '26', '27', '28', '38', '39'].includes(d2)) days = [3, 4]; // NCR / Gujarat / UP
+  else if (['40', '41', '42', '44', '50', '56', '57', '60', '62', '70', '71'].includes(d2)) days = [3, 5];        // metros
+  else if (noCODPrefix.includes(d2)) days = [7, 10];
+  else days = [4, 7];
+  const fmtDate = n => new Date(Date.now() + n * 864e5).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  return {
+    cod: !remote,
+    lo: days[0], hi: days[1],
+    by: days[0] === days[1] ? fmtDate(days[0]) : fmtDate(days[0]) + ' – ' + fmtDate(days[1]),
+    home: pin === '341023',
+  };
+}
 window.Shivaa.checkPin = () => {
-  const v = $('#pincode').value.trim(); const m = $('#pinMsg');
-  if (!/^\d{6}$/.test(v)) { m.hidden = false; m.style.color = 'var(--bad)'; m.textContent = 'Please enter a valid 6-digit pincode'; return; }
-  m.hidden = false; m.style.color = 'var(--ok)';
-  if (v === '341023') m.textContent = '✓ Jayal (home turf!) — delivery in 24 hours, free';
-  else if (v.startsWith('34')) m.textContent = '✓ Rajasthan — insured delivery in 2–3 days';
-  else m.textContent = '✓ Rest of India — insured delivery in 4–7 days';
+  const inp = $('#pincode'); const v = inp.value.trim(); const m = $('#pinMsg');
+  if (!/^\d{6}$/.test(v)) { m.hidden = false; m.className = 'pin-msg bad'; m.textContent = 'Please enter a valid 6-digit pincode'; return; }
+  try { localStorage.setItem('shv_pin', v); } catch (e) {}
+  const pr = pinPromise(v);
+  m.hidden = false;
+  m.className = 'pin-msg ok';
+  m.innerHTML = (pr.home ? '✓ <b>Jayal — home turf!</b> ' : '✓ Delivers to <b>' + v + '</b> ')
+    + '· insured handover <b>' + pr.by + '</b><br>'
+    + (pr.cod ? '💵 Cash on Delivery available' : '🔒 This pincode is prepaid-only (insured courier)')
+    + ' · free shipping over ' + fmt((state.settings || {}).freeShipAbove || 50000);
 };
+window.Shivaa.pinPromise = pinPromise;
 window.Shivaa.pickRate = r => { window._rate = r; $$('#ratePick span').forEach((s, i) => { s.style.color = i < r ? 'var(--gold)' : 'var(--line)'; s.classList.toggle('picked', i === r - 1); }); };
 window.Shivaa.postReview = async (e, pid) => {
   e.preventDefault();
@@ -2657,7 +2683,16 @@ pages.checkout = async (view) => {
     : '🔒 Online payments are in <b>demo mode</b> until gateway keys are added in admin — no real charge happens; the order, invoice and inventory all work fully.';
   const codPct = +(state.settings.codFeePct || 0);
   const codSub = $('#payCodSub');
-  if (codSub) codSub.textContent = 'Available on orders below ' + fmt(50000) + ' · ID verification at handover' + (codPct ? ' · ' + codPct + '% handling fee' : ' · full price');
+  if (codSub) {
+    let savedPin = '';
+    try { savedPin = localStorage.getItem('shv_pin') || ''; } catch (e) {}
+    const codBlocked = savedPin && !pinPromise(savedPin).cod;
+    codSub.textContent = codBlocked
+      ? 'Not available at pincode ' + savedPin + ' (insured prepaid courier only)'
+      : 'Available on orders below ' + fmt(50000) + ' · ID verification at handover' + (codPct ? ' · ' + codPct + '% handling fee' : ' · full price');
+    const codRadio = $('#payOpts input[value="COD"]');
+    if (codRadio) codRadio.disabled = !!codBlocked;
+  }
 };
 window.Shivaa.applyCoupon = async () => {
   const code = $('#couponIn').value.trim();
@@ -2691,6 +2726,49 @@ window.Shivaa.updateCheckout = () => {
   window._co.prepaid = prepaid; window._co.codFee = codFee;
   $('#coTotal').textContent = fmt(Math.max(0, window._co.subtotal - disc - prepaid + codFee + ship));
 };
+/* ═══════════ v59 · price-drop alerts (metal rate moves the price) ═══════════ */
+window.Shivaa.rateAlertModal = (pid) => {
+  const p = pid ? state.productsCache.find(x => x.id === pid) : null;
+  const metalKey = p ? (p.metal === 'Silver' ? 'silver' : 'gold' + String(p.purity || '22K').replace('K', '')) : 'gold22';
+  const cur = Math.round(state.rates[metalKey] || 0);
+  const suggested = Math.round(cur * 0.98 / 10) * 10;
+  openModal(`<h3 style="margin-bottom:6px">🔔 Alert me on a price drop</h3>
+  <p style="color:var(--ink-2);font-size:13.5px;margin-bottom:14px">${p ? 'If <b>' + esc(p.name) + '</b> gets cheaper as the ' : 'If the '}${metalKey === 'silver' ? 'silver' : 'gold'} rate falls, we ping you on WhatsApp/email before anyone else.</p>
+  <form id="raForm" class="form-grid" style="grid-template-columns:1fr">
+    <div class="fld"><label>Alert when ${metalKey === 'silver' ? 'silver' : '22K gold'} rate is at or below ₹/g</label>
+      <input id="raTarget" type="number" value="${suggested}" min="100"></div>
+    <div class="fld"><label>WhatsApp mobile (10 digits)</label><input id="raPhone" type="tel" inputmode="numeric" maxlength="10" value="${esc((state.user && (state.user.phone || '') || '').replace(/\D/g, '').slice(-10))}" placeholder="98765 43210"></div>
+    <div class="fld"><label>or email</label><input id="raEmail" type="email" value="${esc((state.user && state.user.email) || '')}"></div>
+    <button class="btn btn-gold btn-block btn-lg">Set alert ✦</button>
+  </form>`);
+  $('#raForm').onsubmit = async e => {
+    e.preventDefault();
+    const phone = $('#raPhone').value.replace(/\D/g, '').slice(-10);
+    const email = $('#raEmail').value.trim();
+    const target = +$('#raTarget').value;
+    if (!phone && !email) return toast('Give a mobile number or email', 'err');
+    if (!target || target >= cur * 1.5) return toast('Enter a sensible target ₹/g', 'err');
+    try {
+      await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ phone, email, metal: metalKey, target, productId: pid || '' }) });
+      closeModal(); toast('Alert set — we will ping you first ✦');
+    } catch (err) { toast(err.message, 'err'); }
+  };
+};
+window.Shivaa.wishlistAlerts = async (idsArg) => {
+  const wl = idsArg || state.localWish || [];
+  if (!wl || !wl.length) return toast('Save pieces first', 'err');
+  const phone = (state.user && (state.user.phone || '') || '').replace(/\D/g, '').slice(-10);
+  if (!phone && !(state.user && state.user.email)) { openLogin(); return; }
+  const metals = [...new Set(state.productsCache.filter(p => wl.includes(p.id)).map(p => p.metal === 'Silver' ? 'silver' : 'gold' + String(p.purity || '22K').replace('K', '')))];
+  try {
+    for (const m of metals) {
+      const cur = Math.round(state.rates[m] || 0); if (!cur) continue;
+      await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ phone, email: (state.user && state.user.email) || '', metal: m, target: Math.round(cur * 0.98 / 10) * 10 }) });
+    }
+    toast('Drop alerts set for all saved pieces ✦');
+  } catch (e) { toast(e.message, 'err'); }
+};
+
 /* ═══════════ v58 · online payments — Razorpay-ready, demo without keys ═══════════ */
 function loadExternalScript(src) {
   return new Promise(resolve => {
@@ -2700,22 +2778,80 @@ function loadExternalScript(src) {
     document.head.appendChild(s);
   });
 }
+function upiQRSvg(uri) {
+  try {
+    const qr = window.qrcode ? qrcode(0, 'M') : null;
+    if (!qr) return '';
+    qr.addData(uri); qr.make();
+    return `<div class="ps-qr">${qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}</div>`;
+  } catch (e) { return ''; }
+}
+function upiPaySheet(po, orderId) {
+  return new Promise(resolve => {
+    const amt = (po.amount || 0) / 100;
+    const pa = po.upiId, pn = encodeURIComponent(po.upiName || 'Shivaa Jewellers');
+    const note = encodeURIComponent('Shivaa order ' + orderId);
+    const upiUri = `upi://pay?pa=${encodeURIComponent(pa)}&pn=${pn}&am=${amt.toFixed(2)}&cu=INR&tn=${note}`;
+    openModal(`<div class="pay-sheet">
+      <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Pay by any UPI app</b><small>GPay · PhonePe · Paytm · BHIM</small></div></div>
+      <div class="ps-amt">${fmt(amt)}</div>
+      ${upiQRSvg(upiUri)}
+      <div class="ps-upiid"><span>UPI ID</span><b>${esc(pa)}</b><button type="button" class="btn btn-ghost btn-sm" id="psCopyUpi">⧉ copy</button></div>
+      <a class="btn btn-gold btn-block btn-lg" href="${upiUri}" rel="noopener">Open UPI app &amp; pay ${fmt(amt)}</a>
+      <p class="ps-note" style="text-align:left">After paying, attach the <b>payment screenshot</b> or type the 12-digit UPI reference — we verify within minutes and release your piece. The order stays rate-locked meanwhile.</p>
+      <form id="psProof" class="ps-proof">
+        <label class="ps-upload"><input type="file" id="psFile" accept="image/*" capture="environment" required><span id="psFileName">📎 Choose payment screenshot…</span></label>
+        <input id="psRef" placeholder="UPI ref / Txn ID (optional)">
+        <button class="btn btn-primary btn-block btn-lg" type="submit">I&rsquo;ve paid · submit proof</button>
+      </form>
+      <button class="btn btn-ghost btn-block" id="psLater">Pay later &middot; order stays reserved</button>
+    </div>`);
+    $('#psCopyUpi').onclick = () => {
+      (navigator.clipboard ? navigator.clipboard.writeText(pa) : Promise.reject()).then(() => toast('UPI ID copied')).catch(() => {});
+    };
+    $('#psFile').onchange = e => { const f = e.target.files[0]; if (f) $('#psFileName').textContent = '✓ ' + f.name.slice(0, 40); };
+    $('#psProof').onsubmit = async e => {
+      e.preventDefault();
+      const f = $('#psFile').files[0];
+      if (!f) { toast('Attach the payment screenshot', 'err'); return; }
+      const fd = new FormData();
+      fd.append('orderId', orderId); fd.append('proof', f); fd.append('amount', String(Math.round(amt)));
+      fd.append('ref', $('#psRef').value.trim());
+      const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Uploading…';
+      try {
+        await api('/api/pay/proof', { method: 'POST', body: fd });
+        closeModal(); toast('Proof received — we verify shortly ✦'); resolve(true);
+      } catch (err) { btn.disabled = false; btn.innerHTML = 'I’ve paid · submit proof'; toast(err.message, 'err'); }
+    };
+    $('#psLater').onclick = () => { closeModal(); toast('Order reserved — complete payment from your order page'); resolve(false); };
+  });
+}
 function demoPaySheet(po, orderId) {
   return new Promise(resolve => {
     const amt = (po.amount || 0) / 100;
+    const tabs = po.upiId
+      ? `<div class="ps-tabs"><button type="button" class="ps-tab on" data-tab="card">💳 Card / net-banking <small>demo</small></button><button type="button" class="ps-tab" data-tab="upi">⌖ UPI QR <small>real payment</small></button></div>`
+      : '';
     openModal(`<div class="pay-sheet">
-      <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Shivaa · secure payment</b><small>DEMO GATEWAY &mdash; no real charge</small></div></div>
+      <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Shivaa · secure payment</b><small>${po.upiId ? 'UPI QR is live · cards in demo' : 'DEMO GATEWAY — no real charge'}</small></div></div>
       <div class="ps-amt">${fmt(amt)}</div>
+      ${tabs}
+      <div id="psCardPane">
       <div class="ps-methods">
         <button type="button" class="ps-m on">⌖ UPI &middot; GPay / PhonePe / Paytm</button>
         <button type="button" class="ps-m">💳 Credit / Debit card</button>
         <button type="button" class="ps-m">🏦 Net-banking</button>
       </div>
       <button class="btn btn-gold btn-block btn-lg" id="psPay">Pay ${fmt(amt)} <small>(demo success)</small></button>
+      <p class="ps-note">Card checkout switches to live Razorpay the moment keys are added in admin &rarr; Settings &rarr; Payments.${po.upiId ? ' Need to really pay now? open the <b>UPI QR</b> tab.' : ''}</p>
+      </div>
       <button class="btn btn-ghost btn-block" id="psLater">Pay later &middot; order stays reserved</button>
-      <p class="ps-note">In production this is the Razorpay/Cashfree checkout screen. The owner pastes gateway keys in admin &rarr; Settings &rarr; Payments and this becomes live with no code change.</p>
     </div>`);
     $$('.ps-m').forEach(b => b.onclick = () => { $$('.ps-m').forEach(x => x.classList.remove('on')); b.classList.add('on'); });
+    $$('.ps-tab').forEach(t => t.onclick = () => {
+      $$('.ps-tab').forEach(x => x.classList.remove('on')); t.classList.add('on');
+      if (t.dataset.tab === 'upi') { closeModal(); upiPaySheet(po, orderId).then(resolve); }
+    });
     const btn = $('#psPay');
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = 'Verifying with bank…';
@@ -2927,11 +3063,16 @@ pages.order = async (view, q, id) => {
       ${trackingCardHTML(order)}
       ${(order.paymentStatus === 'Awaiting payment') ? `<div class="pay-due-card">
         <h3>⌛ Payment pending</h3>
-        <p>Your piece is reserved &amp; today&rsquo;s rate is held. Complete payment now (UPI / card / net-banking) or switch to WhatsApp.</p>
+        <p>Your piece is reserved &amp; today&rsquo;s rate is held. Complete payment now — UPI QR, cards or net-banking — or switch to WhatsApp.</p>
         <div class="pay-due-btns">
           <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder('${order.id}').then(()=>location.reload())">Pay ${fmt(order.total)} now</button>
           <button class="btn btn-outline" onclick="Shivaa.waOpenOrder('${order.id}')">Pay on WhatsApp</button>
         </div></div>` : ''}
+      ${order.paymentStatus === 'Proof submitted' ? `<div class="pay-due-card" style="background:linear-gradient(135deg,#eef6ff,#dcecff);border-color:#7fb0e6">
+        <h3>🔎 Payment being verified</h3>
+        <p>We have your payment screenshot (ref <b>${esc((order.payProof && order.payProof.ref) || '—')}</b>). The counter confirms it within minutes — this page updates automatically; your rate stays held.</p>
+        <div class="pay-due-btns"><a class="btn btn-outline btn-sm" href="javascript:Shivaa.waOpenOrder('${order.id}')">Confirm faster on WhatsApp</a></div></div>` : ''}
+      ${order.paymentStatus === 'Refunded' ? `<div class="pay-due-card" style="background:#fdeeef;border-color:#e6a0a8"><h3>Refunded</h3><p>The refund for this order is processed to the payment source. Allow 3–5 working days for it to appear.</p></div>` : ''}
       ${order.paymentMethod === 'WhatsApp' && order.paymentStatus !== 'Paid' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Your order is reserved — confirm &amp; pay on WhatsApp to lock today's rate.</div>
       <div class="center" style="margin-bottom:18px"><button class="btn btn-gold btn-lg" onclick="Shivaa.waOpenOrder('${order.id}')">Confirm &amp; Pay on WhatsApp</button></div>` : ''}
       ${order.status === 'Delivered' ? npsHTML(order) : ''}
@@ -3029,7 +3170,7 @@ pages.account = async (view, q) => {
     const oq = finaleLive() && (o.items || []).length && finaleQualifiesItems(o.items).ok;   // Gold Finale: qualifies → quiz reachable from here too
     return `<div class="order-card">
       <div class="order-top"><div><a class="order-id" href="#/order/${o.id}" style="color:var(--maroon-deep);text-decoration:none">${o.id}</a><div style="font-size:12.5px;color:var(--ink-3)">${timeFmt(o.createdAt)} · ${o.items.reduce((a, i) => a + i.qty, 0)} items · ${esc(o.paymentMethod)}</div></div>
-      <div style="text-align:right"><span class="status-pill st-${o.status.toLowerCase()}">${o.status}</span><div style="margin-top:6px"><b>${fmt(o.total)}</b></div></div></div>
+      <div style="text-align:right"><span class="status-pill st-${o.status.toLowerCase()}">${o.status}</span><div style="margin-top:6px"><b>${fmt(o.total)}</b></div>${o.paymentStatus === 'Proof submitted' ? '<div style="font-size:11px;color:#3670b8;margin-top:4px">🔎 Payment verification</div>' : ''}</div></div>
       ${o.status === 'Cancelled' ? '<div class="tracker-cancel" style="margin:10px 0">Cancelled</div>'
         : `<div class="mini-stages">${ORDER_STAGES.map(([key, , ic]) => {
           const hit = (o.timeline || []).find(t => t.s === key);
@@ -3152,6 +3293,7 @@ pages.wishlist = async (view) => {
       <div class="rb-acts">
         <button class="btn btn-gold" id="rgShare">🔗 Copy share link</button>
         <button class="btn btn-outline" id="rgWa">Share on WhatsApp</button>
+        <button class="btn btn-ghost btn-sm" id="rgAlert">🔔 Alert me on price drops</button>
       </div>
     </div>
     <div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
@@ -3169,6 +3311,7 @@ pages.wishlist = async (view) => {
     };
     $('#rgShare').onclick = copy;
     $('#rgWa').onclick = () => waOpen(`Namaste ✦ Here is my Shivaa gift registry — tap to see the pieces I love:\n${link}`);
+    const rgAlertEl = $('#rgAlert'); if (rgAlertEl) rgAlertEl.onclick = () => Shivaa.wishlistAlerts(wl);
   }
 };
 
@@ -3330,14 +3473,43 @@ pages.care = async (view, q) => {
     const f = new FormData(e.target);
     const chosen = (view.querySelector('input[name="care"]:checked') || {}).value || 'polish';
     const svc = CARE_SERVICES.find(x => x[0] === chosen) || CARE_SERVICES[0];
-    await api('/api/services', { method: 'POST', body: JSON.stringify({
-      type: 'care-' + chosen, name: f.get('name'), phone: f.get('phone'),
-      details: [svc[1].replace(/^[^A-Za-z]+/, ''), 'Order ' + (f.get('order') || '—'), f.get('mode'), f.get('date'), f.get('details')].filter(Boolean).join(' · ').slice(0, 200),
+    const orderId = String(f.get('order') || '').trim();
+    const res = await api('/api/services', { method: 'POST', body: JSON.stringify({
+      type: 'care-' + chosen, name: f.get('name'), phone: f.get('phone'), orderId,
+      details: [svc[1].replace(/^[^A-Za-z]+/, ''), 'Order ' + (orderId || '—'), f.get('mode'), f.get('date'), f.get('details')].filter(Boolean).join(' · ').slice(0, 200),
     }) });
-    e.target.innerHTML = `<div class="center" style="padding:40px 10px"><div style="font-size:44px">✦</div><h3>Booking requested</h3><p style="color:var(--ink-2);margin:8px 0 16px">We will confirm your ${esc(svc ? svc[1] : 'care')} slot on WhatsApp shortly.</p><a class="btn btn-gold" href="#/">Back home</a></div>`;
+    e.target.innerHTML = `<div class="center" style="padding:40px 10px"><div style="font-size:44px">✦</div><h3>Booking requested</h3><p style="color:var(--ink-2);margin:8px 0 16px">We will confirm your ${esc(svc[1])} slot on WhatsApp shortly. Your care token is <b>${esc((res.request && res.request.id) || '')}</b> — track it below.</p><button class="btn btn-gold" onclick="location.reload()">See my requests</button> <a class="btn btn-ghost" href="#/">Back home</a></div>`;
     toast('Care booking sent ✦');
   };
+  // v59 — live repair-token tracker for signed-in customers
+  (async () => {
+    if (!state.user) return;
+    try {
+      const { requests } = await api('/api/services/mine');
+      const mine = (requests || []).filter(r => String(r.type || '').startsWith('care-'));
+      if (!mine.length) return;
+      const host = document.createElement('div');
+      host.style.gridColumn = '1 / -1';
+      host.innerHTML = careRequestsHTML(mine);
+      view.querySelector('.care-grid').insertAdjacentElement('afterend', host);
+    } catch (e) {}
+  })();
 };
+const CARE_STAGES = ['Booked', 'Confirmed', 'Picked up', 'At karigar', 'Ready', 'Delivered'];
+function careRequestsHTML(mine) {
+  return `<div class="adm-card" style="margin-top:24px"><h3>Your care / repair tokens</h3>
+    ${mine.map(r => {
+      const hist = r.history || [{ s: 'Booked' }];
+      let idx = -1;
+      CARE_STAGES.forEach((s, i) => { if (hist.some(h => h.s === s)) idx = i; });
+      if (idx < 0) idx = 0;
+      return `<div class="care-token">
+        <div class="ct-head"><b>${esc(r.id)}</b><span class="status-pill st-placed">${esc(r.status)}</span></div>
+        <div class="mini-stages" style="margin:10px 0">${CARE_STAGES.map((s, i) => `<span class="ms-step ${i <= idx ? 'done' : ''}" title="${s}">${['📝', '🙏', '🚚', '🔨', '✨', '💛'][i]}</span>`).join('')}</div>
+        <small style="color:var(--ink-3)">${esc(r.details || '')}</small>
+      </div>`;
+    }).join('')}</div>`;
+}
 
 /* ═══════════ v58 · shareable quotation from the cart (48 h rate hold) ═══════════ */
 pages.quote = async view => {

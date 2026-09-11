@@ -40,6 +40,8 @@ async function renderAdmin(view, q) {
   if (tab === 'customers') { try { users = (await api('/api/admin/users')).users; } catch (e) {} }
   let leads = { requests: [] };
   if (tab === 'leads') { try { leads = await api('/api/services'); } catch (e) {} }
+  let rateAlerts = [];
+  if (tab === 'leads') { try { rateAlerts = (await api('/api/admin/rate-alerts')).alerts || []; } catch (e) {} }
   let coupons = [];
   if (tab === 'coupons') { try { coupons = (await api('/api/coupons')).coupons; } catch (e) {} }
   let finaleEntries = [];
@@ -48,6 +50,13 @@ async function renderAdmin(view, q) {
   if (tab === 'khata') { try { khataData = await api('/api/admin/khata'); window._khataCache = khataData.khata || []; } catch (e) {} }
   let goldBuys = [];
   if (tab === 'gold') { try { goldBuys = (await api('/api/admin/gold-purchases')).purchases || []; } catch (e) {} }
+  let karigarData = { karigars: [], jobs: [] };
+  if (tab === 'karigar') { try { karigarData = await api('/api/admin/karigars'); } catch (e) {} }
+  let cashData = null;
+  if (tab === 'cash') { try { cashData = await api('/api/admin/cashbook?date=' + new Date().toLocaleDateString('en-CA')); } catch (e) {} }
+  let payProofs = [];
+  if (tab === 'orders') { try { payProofs = (await api('/api/admin/pay-proofs')).orders || []; } catch (e) {} }
+  const proofPending = payProofs.filter(o => o.paymentStatus === 'Proof submitted').length;
   let carts = [];
   if (tab === 'overview') { try { carts = (await api('/api/admin/carts')).carts; } catch (e) {} }
   const P = partnersData.partners || [];
@@ -59,12 +68,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['finale','🎯','Gold Finale'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['finale','🎯','Gold Finale'],['products','✦','Products'],['orders','▦','Orders'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',settings:'Settings'})[tab] || tab}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${state.rates?.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -143,7 +152,7 @@ async function renderAdmin(view, q) {
             <td>${p.mcScheme === 'percent' ? p.mcValue + '%' : p.mcScheme === 'perGram' ? '₹' + p.mcValue + '/g' : 'flat ' + fmt(p.mcValue)}</td>
             <td class="num"><b style="color:${p.stock <= 3 ? 'var(--warn)' : 'inherit'}">${p.stock}</b></td>
             <td class="num"><b>${fmt(window.Shivaa.price(p).total)}</b></td>
-            <td style="white-space:nowrap"><button type="button" class="btn btn-ghost btn-sm" data-product-id="${esc(p.id)}" onclick="ShivaaHallmark.editRecords(this.dataset.productId)">HUIDs</button> <button class="icon-e" onclick="ShivaaAdmin.editProduct('${p.id}')">✎</button> <button class="icon-x" onclick="ShivaaAdmin.delProduct('${p.id}')">✕</button></td>
+            <td style="white-space:nowrap"><button type="button" class="btn btn-ghost btn-sm" data-product-id="${esc(p.id)}" onclick="ShivaaHallmark.editRecords(this.dataset.productId)">HUIDs</button> <button class="icon-e" onclick="ShivaaAdmin.printLabelTag('${p.id}')" title="Print tag / barcode label">🏷</button> <button class="icon-e" onclick="ShivaaAdmin.editProduct('${p.id}')">✎</button> <button class="icon-x" onclick="ShivaaAdmin.delProduct('${p.id}')">✕</button></td>
           </tr>`).join('')}</tbody>
         </table></div></div>`;
   }
@@ -151,7 +160,13 @@ async function renderAdmin(view, q) {
   /* ── ORDERS ── */
   if (tab === 'orders') {
     window._adminOrders = orders;
-    body.innerHTML = `<div class="adm-card"><h3>${orders.length} orders <button class="btn btn-ghost btn-sm" style="margin-left:10px" onclick="ShivaaAdmin.gstrCSV()">⬇ GSTR-1 CSV</button></h3>
+    const proofBanner = proofPending ? `<div class="proof-banner">🔔 <b>${proofPending}</b> UPI payment screenshot${proofPending > 1 ? 's' : ''} awaiting verification
+      <div style="margin-top:8px;display:grid;gap:8px">${payProofs.filter(o => o.paymentStatus === 'Proof submitted').map(o => `<div class="proof-row">
+        <div><b>${esc(o.id)}</b> · ${esc(o.userName || '')} · <b>${fmt(o.total)}</b>${o.payProof && o.payProof.ref ? ' · ref ' + esc(o.payProof.ref) : ''}
+          <a href="${esc(o.payProof ? o.payProof.file : '')}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-left:8px">📎 View screenshot</a></div>
+        <div><button class="btn btn-gold btn-sm" onclick="ShivaaAdmin.proofDecide('${o.id}','approve')">✓ Confirm paid</button>
+        <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.proofDecide('${o.id}','reject')">Reject</button></div></div>`).join('')}</div></div>` : '';
+    body.innerHTML = `${proofBanner}<div class="adm-card"><h3>${orders.length} orders <button class="btn btn-ghost btn-sm" style="margin-left:10px" onclick="ShivaaAdmin.gstrCSV()">⬇ GSTR-1 CSV</button></h3>
       <div class="adm-table-wrap"><table class="adm-table">
         <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th class="num">Total</th><th>Payment</th><th>Status</th><th></th></tr></thead>
         <tbody>${orders.map(o => `<tr>
@@ -396,15 +411,29 @@ async function renderAdmin(view, q) {
   /* ── LEADS ── */
   if (tab === 'leads') {
     const R = leads.requests || [];
-    body.innerHTML = `<div class="adm-card"><h3>Service requests (${R.length})</h3>
+    const reachedAlerts = rateAlerts.filter(a => a.reached);
+    const alertsCard = `<div class="adm-card"><h3>🔔 Rate-drop alerts (${rateAlerts.length})${reachedAlerts.length ? ` · <span style="color:var(--ok)">${reachedAlerts.length} ready to ping now</span>` : ''}</h3>
+      ${rateAlerts.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Metal</th><th class="num">Target ₹/g</th><th class="num">Now</th><th>Contact</th><th>Watching</th><th></th></tr></thead>
+      <tbody>${rateAlerts.slice(0, 60).map(a => {
+        const contact = a.phone ? 'wa.me/91' + a.phone : a.email;
+        return `<tr style="${a.reached ? 'background:#f2faf4' : ''}"><td>${esc(a.metal)}</td><td class="num"><b>${fmt(a.target)}</b></td><td class="num">${fmt(a.currentRate)}</td>
+        <td>${esc(contact)}</td><td>${a.productId ? '<a href="#/product/' + esc(a.productId) + '">a saved piece</a>' : 'the rate'}</td>
+        <td>${a.phone ? `<a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="https://wa.me/91${esc(a.phone)}?text=${encodeURIComponent('Namaste ✦ your Shivaa rate alert: ' + a.metal + ' is at ₹' + Math.round(a.currentRate) + '/g, near your target of ₹' + Math.round(a.target) + '/g — reply to hold the rate or order.')}">Ping</a>` : ''}</td></tr>`;
+      }).join('')}</tbody></table></div>` : '<p class="partner-note">No alerts yet — customers set these from wishlists & product pages.</p>'}</div>`;
+    body.innerHTML = alertsCard + `<div class="adm-card"><h3>Service &amp; care requests (${R.length})</h3>
       ${R.length ? `<div class="adm-table-wrap"><table class="adm-table">
-        <thead><tr><th>Type</th><th>Name</th><th>Phone</th><th>Email</th><th>Details</th><th>Budget</th><th>When</th><th>Status</th></tr></thead>
-        <tbody>${R.map(r => `<tr>
-          <td><span class="pill pm">${r.type}</span></td><td><b>${esc(r.name)}</b></td><td>${esc(r.phone)}</td><td>${esc(r.email || '—')}</td>
+        <thead><tr><th>Type</th><th>Name</th><th>Phone</th><th>Email</th><th>Details</th><th>Budget</th><th>When</th><th>Status</th><th></th></tr></thead>
+        <tbody>${R.map(r => {
+          const isCare = String(r.type || '').startsWith('care-');
+          const statuses = isCare ? ['new', 'Confirmed', 'Picked up', 'At karigar', 'Ready', 'Delivered', 'closed'] : ['new', 'contacted', 'quoted', 'won', 'closed'];
+          const stNow = isCare && r.status === 'new' ? 'new' : r.status;
+          return `<tr${isCare ? ' style="background:#fffdf5"' : ''}>
+          <td><span class="pill pm">${esc(r.type)}</span>${r.orderId ? '<br><small>order ' + esc(r.orderId) + '</small>' : ''}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.phone)}</td><td>${esc(r.email || '—')}</td>
           <td style="max-width:280px"><small>${esc(r.details || '')}</small></td><td>${esc(r.budget || '—')}</td>
           <td>${new Date(r.createdAt).toLocaleDateString('en-IN')}</td>
-          <td><select onchange="this.dataset.v=this.value" style="border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px">${['new', 'contacted', 'quoted', 'won', 'closed'].map(s => `<option ${r.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-        </tr>`).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3)">No service requests yet — they land here from Bespoke & Care, B2B forms and contact page.</p>'}
+          <td><select onchange="ShivaaAdmin.srStatus('${r.id}', this.value)" style="border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px">${statuses.map(s => `<option ${stNow === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+          <td><button class="icon-e" title="WhatsApp update" onclick="window.open('https://wa.me/91'+String('${esc(r.phone)}').replace(/\\D/g,'').slice(-10)+'?text='+encodeURIComponent('Namaste ${esc(r.name.split(' ')[0])} ✦ update on your Shivaa care token ${r.id}: status is now '+this.closest('tr').querySelector('select').value+'. Thank you — Shivaa Jewellers.'),'_blank')">📱</button></td>
+        </tr>`; }).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3)">No service requests yet — they land here from Bespoke &amp; Care, B2B forms and contact page.</p>'}
     </div>`;
   }
 
@@ -484,6 +513,98 @@ async function renderAdmin(view, q) {
         : '<p class="partner-note">No purchases logged yet.</p>'}</div>`;
   }
 
+  /* ── v59 · KARIGAR JOB-WORK BOOK ── */
+  if (tab === 'karigar') {
+    const K = karigarData.karigars || [], jobs = karigarData.jobs || [];
+    window._jobCache = jobs;
+    const openJobs = jobs.filter(j => j.status !== 'returned' && j.status !== 'cancelled');
+    const kgBal = id => openJobs.filter(j => j.karigarId === id).reduce((a, j) => a + (j.weightOut - (j.weightBack || 0)), 0);
+    const jobDue = id => openJobs.filter(j => j.karigarId === id).reduce((a, j) => a + Math.max(0, (j.jobCharge || 0) + (j.extraCharge || 0) - (j.advance || 0)), 0);
+    body.innerHTML = `<div class="adm-card"><h3>🔨 ${K.length} karigars on the book</h3>
+      <p class="partner-note" style="font-size:12.5px">Metal issued is reconciled by weight on return; job charges and advances form each karigar&rsquo;s running balance. Print a job slip for the workshop.</p>
+      <form class="form-grid" style="grid-template-columns:1.2fr 1fr 1.4fr auto;align-items:end" onsubmit="ShivaaAdmin.kgSave(event)">
+        <div class="fld"><label>Karigar name *</label><input name="name" required></div>
+        <div class="fld"><label>Phone</label><input name="phone" inputmode="numeric" maxlength="10"></div>
+        <div class="fld"><label>Speciality</label><input name="speciality" placeholder="Kundan · meenakari · casting…"></div>
+        <button class="btn btn-primary btn-sm">Add karigar</button>
+      </form>
+      ${K.length ? `<div class="adm-table-wrap" style="margin-top:12px"><table class="adm-table"><thead><tr><th>Karigar</th><th>Speciality</th><th class="num">Metal out (g)</th><th class="num">Job dues ₹</th></tr></thead>
+        <tbody>${K.map(k => `<tr><td><b>${esc(k.name)}</b><br><small style="color:var(--ink-3)">${esc(k.phone || '')}</small></td><td>${esc(k.speciality || '—')}</td>
+        <td class="num"><b style="color:${kgBal(k.id) > 0 ? 'var(--warn)' : 'inherit'}">${kgBal(k.id).toFixed(3)}</b></td>
+        <td class="num">${jobDue(k.id) ? fmt(jobDue(k.id)) : '—'}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="partner-note" style="margin-top:10px">Add your karigars first.</p>'}</div>
+
+      <div class="adm-card"><h3>Issue a job ${K.length ? '' : '(add the karigar first)'}</h3>
+      <form class="form-grid" style="grid-template-columns:1fr 1.6fr 1fr 1fr 1fr 1fr 1fr 1.2fr" onsubmit="ShivaaAdmin.jobSave(event)">
+        <div class="fld"><label>Karigar</label><select name="karigarId" required>${K.map(k => `<option value="${esc(k.id)}">${esc(k.name)}</option>`).join('')}</select></div>
+        <div class="fld"><label>Piece / description</label><input name="itemDesc" required placeholder="Rani haar, 5 pcs set…"></div>
+        <div class="fld"><label>Order link</label><input name="orderId" placeholder="SHV…"></div>
+        <div class="fld"><label>Metal wt out (g)</label><input name="weightOut" type="number" step="0.001" required></div>
+        <div class="fld"><label>Purity</label><select name="purity">${['22K','18K','24K','14K','925'].map(p => `<option ${p==='22K'?'selected':''}>${p}</option>`).join('')}</select></div>
+        <div class="fld"><label>Wastage %</label><input name="wastagePct" type="number" step="0.1" value="8"></div>
+        <div class="fld"><label>Job charge ₹</label><input name="jobCharge" type="number" step="1" value="0"></div>
+        <div class="fld"><label>Advance ₹ / due date</label><div style="display:flex;gap:6px"><input name="advance" type="number" placeholder="0"><input name="dueDate" type="date"></div></div>
+        <button class="btn btn-primary btn-sm" style="grid-column:1/-1;justify-self:start">Issue metal &amp; create job slip</button>
+      </form></div>
+
+      <div class="adm-card"><h3>${jobs.length} job records · ${openJobs.length} open</h3>
+      ${jobs.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Job</th><th>Karigar</th><th>Piece</th><th>Purity</th><th class="num">Wt out g</th><th class="num">Wt back g</th><th class="num">Charge ₹</th><th class="num">Paid ₹</th><th>Status</th><th>Due</th><th></th></tr></thead>
+        <tbody>${jobs.map(j => `<tr>
+          <td><b>${esc(j.id)}</b>${j.orderId ? '<br><small><a href="#/order/' + esc(j.orderId) + '">' + esc(j.orderId) + '</a></small>' : ''}</td>
+          <td>${esc(j.karigarName)}</td><td>${esc(j.itemDesc)}</td><td>${esc(j.purity)}</td>
+          <td class="num">${(j.weightOut||0).toFixed(3)}</td>
+          <td class="num">${j.weightBack ? j.weightBack.toFixed(3) : '—'}</td>
+          <td class="num">${fmt((j.jobCharge||0)+(j.extraCharge||0))}</td>
+          <td class="num">${fmt(j.advance||0)}</td>
+          <td><span class="status-pill ${j.status==='with karigar'?'st-placed':'st-packed'}">${esc(j.status)}</span></td>
+          <td>${j.dueDate || '—'}</td>
+          <td style="white-space:nowrap"><button class="icon-e" onclick="ShivaaAdmin.printJobSlip('${j.id}')" title="Print job slip">🧾</button>
+          <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.jobReceive('${j.id}')">Receive</button>
+          <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.jobPay('${j.id}')">₹ Pay</button></td>
+        </tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No jobs issued yet.</p>'}</div>`;
+  }
+
+  /* ── v59 · DAILY CASH BOOK ── */
+  if (tab === 'cash') {
+    const today = new Date().toLocaleDateString('en-CA');
+    const rows = cashData.rows || [];
+    const cashIn = rows.filter(r => r.kind === 'in' && r.mode === 'cash').reduce((a, r) => a + r.amount, 0);
+    const cashOut = rows.filter(r => r.kind === 'out' && r.mode === 'cash').reduce((a, r) => a + r.amount, 0);
+    const manualNet = cashIn - cashOut;
+    const closed = rows.find(r => r.kind === 'day-close');
+    body.innerHTML = `<div class="adm-card"><h3>💵 Cash book — ${new Date(cashData.date).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</h3>
+      <div class="cb-grid">
+        <div class="cb-tile"><small>Online / prepaid sales</small><b>${fmt(cashData.onlineSales||0)}</b></div>
+        <div class="cb-tile"><small>WhatsApp confirmed</small><b>${fmt(cashData.waSales||0)}</b></div>
+        <div class="cb-tile"><small>COD booked</small><b>${fmt(cashData.codSales||0)}</b></div>
+        <div class="cb-tile out"><small>Old-gold paid out</small><b>−${fmt(cashData.oldGoldOut||0)}</b></div>
+      </div>
+      <form class="form-grid" style="grid-template-columns:.8fr 2fr 1fr 1fr auto;align-items:end;margin-top:14px" onsubmit="ShivaaAdmin.cbAdd(event,'${cashData.date}')">
+        <div class="fld"><label>Type</label><select name="kind"><option value="in">Cash in</option><option value="out">Cash out</option></select></div>
+        <div class="fld"><label>Note (head)</label><input name="head" required placeholder="UPI settlement · expense · advance…"></div>
+        <div class="fld"><label>Amount ₹</label><input name="amount" type="number" step="0.01" required></div>
+        <div class="fld"><label>Mode</label><select name="mode"><option value="cash">Cash</option><option value="upi">UPI</option><option value="bank">Bank</option></select></div>
+        <button class="btn btn-primary btn-sm">Add entry</button>
+      </form>
+      <div class="adm-table-wrap" style="margin-top:12px"><table class="adm-table"><thead><tr><th>Time</th><th>Head</th><th>Mode</th><th class="num">In</th><th class="num">Out</th><th>By</th></tr></thead>
+      <tbody>${rows.filter(r => r.kind !== 'day-close').map(r => `<tr><td>${String(r.at||'').slice(11,16)}</td><td>${esc(r.head)}</td><td>${esc(r.mode)}</td>
+        <td class="num" style="color:var(--ok)">${r.kind==='in'?fmt(r.amount):''}</td><td class="num" style="color:var(--warn,#b04a4a)">${r.kind==='out'?fmt(r.amount):''}</td><td><small>${esc(r.by||'')}</small></td></tr>`).join('')
+        || '<tr><td colspan="6" class="partner-note">No manual entries yet — sales figures above are derived automatically from today’s orders.</td></tr>'}</tbody></table></div>
+      <div class="cb-close">
+        <div><b>Manual cash net: </b>${manualNet >= 0 ? '+' : '−'}₹${Math.abs(manualNet).toLocaleString('en-IN')}</div>
+        <form class="form-grid" style="grid-template-columns:1fr 1fr 2fr auto;align-items:end" onsubmit="ShivaaAdmin.dayClose(event,'${cashData.date}')">
+          <div class="fld"><label>Opening cash ₹</label><input name="openingCash" type="number" value="${closed ? closed.openingCash : ''}"></div>
+          <div class="fld"><label>Closing cash counted ₹</label><input name="closingCash" type="number" value="${closed ? closed.closingCash : ''}"></div>
+          <div class="fld"><label>Note</label><input name="note" value="${esc(closed ? closed.note||'' : '')}"></div>
+          <button class="btn btn-gold btn-sm">${closed ? 'Update' : 'Lock'} day close</button>
+        </form>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.cbPrint('${cashData.date}')">🖨 Print day report</button>
+        <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.cbCSV('${cashData.date}')">⬇ Day CSV</button>
+      </div></div>`;
+  }
+
   if (tab === 'settings') {
     const S = state.settings;
     body.innerHTML = `<div class="adm-card"><h3>Store settings</h3>
@@ -516,7 +637,10 @@ async function renderAdmin(view, q) {
           <div class="fld"><label>Razorpay Key Secret</label><input name="rzpKeySecret" type="password" placeholder="${S.rzpKeySecret ? '•••• saved — leave blank to keep' : 'paste secret (never shown again)'}" autocomplete="new-password"></div>
           <div class="fld"><label>Prepaid discount % <small>(pay online)</small></label><input name="prepaidPct" type="number" step="0.5" min="0" max="10" value="${S.prepaidPct ?? 2}"></div>
           <div class="fld"><label>COD handling fee % <small>(0 = free)</small></label><input name="codFeePct" type="number" step="0.5" min="0" max="10" value="${S.codFeePct ?? 0}"></div>
-          <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">Goes live the instant both keys are saved. Order amounts are created in paise, verified with Razorpay&rsquo;s HMAC signature, and marked Paid only after verification. Cashfree/PayU can be added later with the same switch.</div>
+          <div class="fld"><label>Counter UPI ID <small>(QR fallback — works without any gateway)</small></label><input name="upiId" value="${esc(S.upiId || '')}" placeholder="yourshop@okhdfcbank"></div>
+          <div class="fld"><label>UPI payee name</label><input name="upiName" value="${esc(S.upiName || 'Shivaa Jewellers')}"></div>
+          <div class="fld full"><label>Prepaid-only pincodes (comma-separated; NE &amp; Ladakh prepaid by default)</label><input name="codBlockedPins" value="${esc(S.codBlockedPins || '')}" placeholder="110001, 744101"></div>
+          <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">No gateway? Fill only the <b>UPI ID</b> — customers scan the QR and upload a payment screenshot; you verify each one under Orders (banner at top). With Razorpay keys, cards/net-banking go fully automatic.</div>
           <button class="btn btn-primary btn-sm" style="justify-self:start">Save payments</button>
         </form></div>
       <div class="adm-card"><h3>💾 Data backup <span style="font-size:11px;color:var(--ink-3);font-weight:400">one tap, saves the whole database (orders, customers, products) to your device</span></h3>
@@ -1057,7 +1181,9 @@ window.ShivaaAdmin.savePay = async e => {
   e.preventDefault();
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
   const body = { payProvider: g('payProvider'), rzpKeyId: g('rzpKeyId').trim(),
-                 prepaidPct: Math.max(0, +g('prepaidPct') || 0), codFeePct: Math.max(0, +g('codFeePct') || 0) };
+                 prepaidPct: Math.max(0, +g('prepaidPct') || 0), codFeePct: Math.max(0, +g('codFeePct') || 0),
+                 upiId: g('upiId').trim(), upiName: g('upiName').trim() || 'Shivaa Jewellers',
+                 codBlockedPins: g('codBlockedPins').replace(/[^\d,\s]/g, '').trim() };
   if (g('rzpKeySecret')) body.rzpKeySecret = g('rzpKeySecret').trim();
   try {
     const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
@@ -1078,6 +1204,122 @@ window.ShivaaAdmin.goldBuySave = async e => {
     toast('Purchase entered in register ✦');
     renderAdmin($('#view'), new URLSearchParams('tab=gold'));
   } catch (err) { toast(err.message, 'err'); }
+};
+/* ── v59 · UPI payment proof approvals ── */
+window.ShivaaAdmin.proofDecide = async (id, decision) => {
+  let note = '';
+  if (decision === 'reject') note = prompt('Reason for rejecting (sent internally / on WhatsApp):') || '';
+  try {
+    await api('/api/admin/pay-proof', { method: 'POST', body: JSON.stringify({ orderId: id, decision, note }) });
+    toast(decision === 'approve' ? 'Order ' + id + ' marked PAID ✓' : 'Proof rejected — order back to awaiting payment');
+    renderAdmin($('#view'), new URLSearchParams('tab=orders'));
+  } catch (e) { toast(e.message, 'err'); }
+};
+/* ── v59 · karigar job-work ── */
+window.ShivaaAdmin.kgSave = async e => {
+  e.preventDefault(); const fd = new FormData(e.target); const g = k => String(fd.get(k) || '').trim();
+  try { await api('/api/admin/karigars', { method: 'POST', body: JSON.stringify({ name: g('name'), phone: g('phone'), speciality: g('speciality') }) });
+    toast('Karigar added ✦'); renderAdmin($('#view'), new URLSearchParams('tab=karigar')); }
+  catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.jobSave = async e => {
+  e.preventDefault(); const fd = new FormData(e.target); const g = k => String(fd.get(k) || '').trim();
+  try { const r = await api('/api/admin/job-work', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
+    toast('Job issued & slip ready ✦'); renderAdmin($('#view'), new URLSearchParams('tab=karigar'));
+    setTimeout(() => ShivaaAdmin.printJobSlip((r.job || {}).id), 300);
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.jobReceive = async id => {
+  const wb = prompt('Weight returned by karigar (grams):'); if (wb === null) return;
+  const extra = prompt('Extra charges ₹ (or 0):', '0') || 0;
+  try { await api('/api/admin/job-work/' + id, { method: 'PUT', body: JSON.stringify({ weightBack: +wb, extraCharge: +extra || 0, status: 'returned' }) });
+    toast('Piece received — weight reconciled ✦'); renderAdmin($('#view'), new URLSearchParams('tab=karigar')); }
+  catch (e) { toast(e.message, 'err'); }
+};
+window.ShivaaAdmin.jobPay = async id => {
+  const amt = prompt('Pay karigar ₹ now:', '0'); if (!amt || +amt <= 0) return;
+  try { await api('/api/admin/job-work/' + id, { method: 'PUT', body: JSON.stringify({ paid: +amt }) });
+    toast('Payment recorded ✦'); renderAdmin($('#view'), new URLSearchParams('tab=karigar')); }
+  catch (e) { toast(e.message, 'err'); }
+};
+window.ShivaaAdmin.srStatus = async (id, status) => {
+  try { await api('/api/services/' + id + '/status', { method: 'PUT', body: JSON.stringify({ status }) });
+    toast('Token ' + id + ' → ' + status); renderAdmin($('#view'), new URLSearchParams('tab=leads')); }
+  catch (e) { toast(e.message, 'err'); }
+};
+/* ── v59 · cash book ── */
+window.ShivaaAdmin.cbAdd = async (e, date) => {
+  e.preventDefault(); const fd = new FormData(e.target);
+  try { await api('/api/admin/cashbook', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
+    toast('Entry added ✦'); renderAdmin($('#view'), new URLSearchParams('tab=cash')); }
+  catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.dayClose = async (e, date) => {
+  e.preventDefault(); const fd = new FormData(e.target);
+  try { await api('/api/admin/cashbook/day-close', { method: 'POST', body: JSON.stringify({ date, openingCash: +fd.get('openingCash') || 0, closingCash: +fd.get('closingCash') || 0, note: fd.get('note') }) });
+    toast('Day close locked ✦'); renderAdmin($('#view'), new URLSearchParams('tab=cash')); }
+  catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.cbCSV = (date) => {
+  const rows = [['Time', 'Head', 'Mode', 'In', 'Out', 'By']];
+  document.querySelectorAll('.adm-table tbody tr').forEach(tr => {
+    rows.push([...tr.children].map(td => td.textContent.trim()));
+  });
+  const blob = new Blob([rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cashbook-' + date + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+};
+window.ShivaaAdmin.cbPrint = (date) => {
+  const w = window.open('', '_blank', 'width=820,height=1000');
+  if (!w) return toast('Allow pop-ups to print', 'err');
+  const cards = [...document.querySelectorAll('.cb-tile')].map(t => t.textContent.trim()).join(' · ');
+  const tbl = document.querySelector('.adm-table-wrap .adm-table')?.outerHTML || '';
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Cash book ${date}</title><style>body{font:13px Arial;padding:24px}h1{font-size:20px;color:#6b1020}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #999;padding:7px;text-align:left;font-size:12px}th{background:#f3e9d2}.sum{margin:12px 0;padding:10px;background:#faf6ec}</style>
+  <h1>Shivaa Jewellers — Cash Book · ${date}</h1><div class="sum">${esc(cards)}</div>${tbl}<p style="margin-top:30px">Signature of owner: ____________________</p>`);
+  w.document.close(); setTimeout(() => w.focus(), 200);
+};
+/* ── v59 · printable product tag / barcode labels ── */
+window.ShivaaAdmin.printLabelTag = (pid) => {
+  const p = window.Shivaa.state.productsCache.find(x => x.id === pid);
+  if (!p) return;
+  const pr = window.Shivaa.price(p).total;
+  let qrTag = '';
+  try { const qr = qrcode(0, 'M'); qr.addData(location.origin + '/#/product/' + p.id); qr.make(); qrTag = qr.createSvgTag({ cellSize: 3, margin: 1, scalable: true }); } catch (e) {}
+  const w = window.open('', '_blank', 'width=520,height=360');
+  if (!w) return toast('Allow pop-ups to print', 'err');
+  const labels = Array.from({ length: 1 }).join('') + `<div class="tag">
+    <div class="tag-brand">SHIVAA ✦ JEWELLERS</div><div class="tag-qr">${qrTag}</div>
+    <div class="tag-name">${esc(p.name)}</div>
+    <div class="tag-meta">${esc(p.purity)} ${esc(p.metal)} · ${p.weightG} g · SKU ${esc(p.sku || p.id)}</div>
+    <div class="tag-price">₹${pr.toLocaleString('en-IN')}</div>
+    <div class="tag-note">Price tracks the live rate · BIS hallmarked</div></div>`;
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Tag ${p.sku || p.id}</title><style>
+  body{font-family:Arial,sans-serif;margin:0;padding:14px}.tag{width:340px;border:2px dashed #6b1020;border-radius:12px;padding:14px;text-align:center;page-break-inside:avoid;display:inline-block;margin:6px}
+  .tag-brand{font-weight:800;letter-spacing:2px;color:#6b1020;font-size:13px}.tag-qr svg{width:120px;height:120px;margin:8px auto;display:block}
+  .tag-name{font-weight:700;font-size:13px;min-height:32px}.tag-meta{font-size:11px;color:#555;margin:4px 0}.tag-price{font-size:22px;font-weight:800;color:#6b1020}.tag-note{font-size:9.5px;color:#777;margin-top:5px}
+  @media print{button{display:none}}</style><button onclick="window.print()" style="padding:8px 20px;margin:8px;font-size:14px;background:#6b1020;color:#fff;border:0;border-radius:8px">🖨 Print tag</button><br>${labels}`);
+  w.document.close(); setTimeout(() => w.focus(), 200);
+};
+/* ── v59 · karigar job slip print ── */
+window.ShivaaAdmin.printJobSlip = (id) => {
+  const j = (window._jobCache || []).find(x => x.id === id);
+  if (!j) { api('/api/admin/karigars').then(r => { window._jobCache = r.jobs; ShivaaAdmin.printJobSlip(id); }); return; }
+  const w = window.open('', '_blank', 'width=760,height=960');
+  if (!w) return toast('Allow pop-ups to print', 'err');
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Job ${j.id}</title><style>
+  body{font-family:Arial,sans-serif;padding:26px;font-size:13px}h1{color:#6b1020;font-size:20px;letter-spacing:2px}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #999;padding:8px;text-align:left}th{background:#f3e9d2;width:38%}.box{border:2px solid #111;padding:12px;margin:14px 0}.sig{margin-top:60px;display:flex;justify-content:space-between}.sig div{border-top:1px solid #333;width:30%;text-align:center;padding-top:6px;font-size:11px}</style>
+  <h1>SHIVAA ✦ KARIGAR JOB SLIP</h1>
+  <table>
+  <tr><th>Job no.</th><td><b>${esc(j.id)}</b></td><th>Date</th><td>${new Date(j.createdAt).toLocaleDateString('en-IN')}</td></tr>
+  <tr><th>Karigar</th><td colspan="3"><b>${esc(j.karigarName)}</b>${j.orderId ? ' · Order ' + esc(j.orderId) : ''}</td></tr>
+  <tr><th>Piece</th><td colspan="3">${esc(j.itemDesc)}<br><small>${esc(j.note || '')}</small></td></tr>
+  <tr><th>Purity</th><td>${esc(j.purity)}</td><th>Agreed wastage</th><td>${j.wastagePct}%</td></tr>
+  <tr><th>Metal issued</th><td><b>${(j.weightOut||0).toFixed(3)} g</b></td><th>Due date</th><td>${esc(j.dueDate || '—')}</td></tr>
+  <tr><th>Job charge</th><td>₹${(j.jobCharge||0).toLocaleString('en-IN')}</td><th>Advance paid</th><td>₹${(j.advance||0).toLocaleString('en-IN')}</td></tr></table>
+  <div class="box">Weight returned: __________ g · Received by: __________ · QC notes: __________________________</div>
+  <div class="sig"><div>Issued by</div><div>Karigar signature</div><div>Received back</div></div>
+  <p style="margin-top:30px"><button onclick="window.print()" style="padding:9px 24px;background:#6b1020;color:#fff;border:0;border-radius:8px">🖨 Print</button></p>`);
+  w.document.close(); setTimeout(() => w.focus(), 200);
 };
 /* ── v58 · packing slip & shipping label printing ── */
 function admPrintDoc(o, kind) {
