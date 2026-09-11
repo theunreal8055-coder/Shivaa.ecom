@@ -1,35 +1,23 @@
 /* ─── SAATHI ✦ — the Shivaa store assistant (v50) ───
    Mobile-first: bottom sheet on phones, docked sidebar on laptops. */
 
-/* v56: Saathi opens from the sidebar menu — no floating action button.
-   A soft scrim sits behind the panel so the shop dims while you chat. */
-#saathiScrim {
-  position: fixed; inset: 0; z-index: 9350;
-  background: rgba(20, 5, 9, .45); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
-  opacity: 0; pointer-events: none; transition: opacity .3s var(--ease);
+#saathiFab {
+  position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 9400; display: flex; align-items: center; gap: 9px;
+  padding: 13px 20px 13px 16px; border: 0; border-radius: 999px; cursor: pointer;
+  background: linear-gradient(135deg, var(--gold-2), var(--gold) 55%, #8a6420);
+  color: #201409; font: 600 15px/1 var(--ff-body); letter-spacing: .02em;
+  box-shadow: 0 10px 30px rgba(185,138,47,.45), 0 2px 8px rgba(0,0,0,.25);
+  transition: transform .25s var(--ease), box-shadow .25s;
 }
-body.saathi-open #saathiScrim { opacity: 1; pointer-events: auto; }
-
-/* sidebar entry point (the #navSaathi row rendered in index.html) */
-.dw-saathi {
-  display: flex; align-items: center; gap: 12px; width: calc(100% - 24px);
-  margin: 8px 12px 4px; padding: 12px 14px; text-align: left;
-  border: 1px solid rgba(194,154,69,.55); border-radius: 16px; cursor: pointer;
-  background: linear-gradient(135deg, rgba(194,154,69,.18), rgba(94,21,32,.10));
-  color: var(--maroon-deep); font-family: inherit;
-  transition: transform .18s var(--ease), box-shadow .18s, border-color .18s;
+#saathiFab:hover { transform: translateY(-2px) scale(1.03); }
+#saathiFab .fab-star { font-size: 17px; animation: saathiTwinkle 2.6s infinite; }
+@keyframes saathiTwinkle { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .55; transform: scale(.85) rotate(20deg);} }
+#saathiFab .fab-dot {
+  position: absolute; top: -3px; right: -3px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--emerald-2); border: 2px solid var(--cream);
 }
-.dw-saathi:hover { transform: translateY(-1px); border-color: var(--gold); box-shadow: 0 8px 22px rgba(138,100,32,.22); }
-.dw-saathi .dw-gi {
-  flex: 0 0 38px; width: 38px; height: 38px; display: grid; place-items: center;
-  border-radius: 50%; font-size: 17px; color: #241503;
-  background: radial-gradient(circle at 32% 30%, var(--gold-2), var(--gold) 62%, #8a6420);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
-}
-.dw-saathi .dw-tx { flex: 1; min-width: 0; }
-.dw-saathi .dw-tx b { display: block; font-size: 14.5px; color: var(--maroon-deep); }
-.dw-saathi .dw-tx small { display: block; font-size: 11px; color: var(--ink-3); margin-top: 2px; line-height: 1.35; }
-.dw-saathi .dw-arx { color: var(--gold); font-size: 18px; flex: 0 0 auto; }
+body.saathi-open #saathiFab { transform: scale(0); pointer-events: none; }
 
 #saathiPanel {
   position: fixed; z-index: 9500; display: flex; flex-direction: column;
@@ -130,29 +118,12 @@ body.saathi-open #saathiPanel { transform: translateY(0); }
 }
 .sa-foot { font-size: 10.5px; color: var(--ink-3); text-align: center; padding: 0 12px 8px; background: var(--white); }
 
-/* ─── Saathi v56 additions ─── */
-/* head badge */
-.sa-badge {
-  display: inline-block; font: 700 8.5px/1 var(--ff-body); letter-spacing: .12em;
-  text-transform: uppercase; color: #241503; background: linear-gradient(135deg, var(--gold-2), var(--gold));
-  border-radius: 999px; padding: 3px 7px; margin-left: 5px; vertical-align: 1px;
+/* ─── Saathi v2 additions ─── */
+#saathiFab::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 999px;
+  border: 2px solid rgba(185,138,47,.5); animation: saPing 2.8s var(--ease) infinite;
 }
-/* always-visible tool dock */
-.sa-tools {
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
-  padding: 9px 10px; background: var(--white); border-bottom: 1px solid var(--line);
-}
-.sa-tool {
-  border: 1px solid var(--line); background: var(--cream); border-radius: 11px;
-  padding: 8px 2px; cursor: pointer; font-family: inherit; text-align: center;
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  transition: transform .15s var(--ease), border-color .15s, background .15s;
-}
-.sa-tool:hover { transform: translateY(-2px); border-color: var(--gold); background: var(--gold-faint); }
-.sa-tool span { font-size: 16px; line-height: 1; }
-.sa-tool b { font: 600 9.5px/1.15 var(--ff-body); color: var(--maroon); }
-@media (max-width: 420px) { .sa-tools { grid-template-columns: repeat(6, 1fr); gap: 3px; padding: 8px 6px; } .sa-tool b { font-size: 8.5px; } }
-@keyframes saathiTwinkle { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .55; transform: scale(.85) rotate(20deg);} }
+@keyframes saPing { 0% { transform: scale(.9); opacity: .8; } 70%,100% { transform: scale(1.25); opacity: 0; } }
 .sa-ava { position: relative; }
 .sa-ava::after { content: ''; position: absolute; right: 1px; bottom: 1px; width: 9px; height: 9px; border-radius: 50%; background: #35c46f; border: 2px solid var(--maroon-deep); }
 .sa-ava span { animation: saathiTwinkle 2.6s infinite; }
@@ -195,6 +166,3 @@ body.saathi-open #saathiPanel { transform: translateY(0); }
 #saathiMic:hover { border-color: var(--gold); background: var(--gold-faint); }
 #saathiMic.live { border-color: var(--maroon); background: var(--gold-faint); animation: saMic 1s infinite; }
 @keyframes saMic { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
-
-/* v59 — honest fallback note inside recommendations */
-.sa-honest{display:block;margin-top:6px;font-size:11.5px;color:#8a6d2f}

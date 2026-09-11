@@ -247,7 +247,7 @@ function angel_scrip_expiry(string $e, string $sym = ''): int {
    (GOLDddMMMyyyy future = exact 1 kg contract; GOLDM/GUINEA/PETAL/TEN and
    SILVERM/MICRO are excluded by the symbol pattern itself), tolerates
    whitespace/format quirks in the file, and records diagnostics. */
-function angel_master_fetch(array &$db, string &$diag): ?string {
+function angel_master_fetch(string &$diag): ?string {
   $urls = [
     'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json',
     'https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json',
@@ -292,7 +292,8 @@ function angel_tokens(array &$db): ?array {
     return null;
   };
 
-  $raw = angel_master_fetch($db, $diagLine);
+  $diagLine = '';
+  $raw = angel_master_fetch($diagLine);
   if ($raw === null) return $fail('Could not download the Angel instrument master (' . $diagLine . ') — tokens can be entered manually for now.');
 
   /* raise PCRE limits — the master is tens of MB and the flat-record regex
