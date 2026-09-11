@@ -10,52 +10,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download each Drive file by ID (direct URL)
-        id: dl
-        continue-on-error: true
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -q -U "gdown>=5.2"
+      - name: Dump folder listing and download all
         run: |
-          set -x
-          mkdir -p inbound-drive
-          : > inbound-drive/fetch-log.txt
-          magic_ok(){ f="$1"; kind="$2"; b=$(head -c4 "$f" | od -An -tx1 | tr -d ' \n');
-            case "$kind:$b" in jpg:ffd8ff*|png:89504e47*) return 0;; *) return 1;; esac; }
-          get(){ name="$1"; id="$2"; ext="$3"
-            for try in 1 2 3; do
-              curl -sSL --retry 2 "https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t" -o "inbound-drive/${name}.${ext}" || true
-              sz=$(stat -c%s "inbound-drive/${name}.${ext}" 2>/dev/null || echo 0)
-              echo "$name try$try size=$sz magic=$(head -c4 inbound-drive/${name}.${ext} | od -An -tx1 | tr -d ' \n')" >> inbound-drive/fetch-log.txt
-              if [ "$sz" -gt 8000 ] && magic_ok "inbound-drive/${name}.${ext}" "$ext"; then echo "OK $name $sz"; return 0; fi
-              sleep 2
-            done
-            # gdown fallback
-            pip install -q -U gdown
-            gdown "$id" -O "inbound-drive/${name}.${ext}" >> inbound-drive/fetch-log.txt 2>&1 || true
-            echo "DONE-FALLBACK $name" >> inbound-drive/fetch-log.txt
-            return 0; }
-          get bajubandh       1Vv3TNusuTRIrJOuelmmN4Mwz0MUOWP61 jpg
-          get hathphool        1t6f60Xpraw7YClUi8sY06Igi7ofsZaQQ jpg
-          get pendants         19rIAO_vzp_sQU3Hc1VSm9Iat_gR2X7Nt jpg
-          get bracelets        1mbTFQ7nUYQhJgvPWXtL_ap3Ly3xszWR jpg
-          get bridal-anklets   1Bta_hNbQVE-aQyjAXEGJwfmwf6d9wVQO jpg
-          get earrings         1-iNrU8h0UcAk5KKQOWBEgZyun8MzInpz jpg
-          get chains           1t8xNwzAJ37bzlzPaEnizoq94LAc7hOun jpg
-          get rings            1Un8pnQgBHAlTmA3C8dxNPr4_Z4-ASf6l jpg
-          get nosepins         1wFjVCCc2TC-p5XiahNwJHBq5gXK1Q08a jpg
-          get aad              1Th8TOGhYWjjaVON-ns2txOKx_bYZq1VT jpg
-          get necklace         1I_ibQp22UhdU4fmzQ0ngDbCNA-yErGjw jpg
-          get silver925        1YrsLOPNhJilHJEhBh1lWH_tz3x-JuFYO jpg
-          get sheeshphool      1cPWfmIKfiEnraWMuWltwF6f8UITjwdoE jpg
-          get bangles          1203fZbH7J9S8G8UCKbC97aGWzTDbYDkx jpg
-          get rakhdi-set       1fT96J6CfdNJ1aFju1DRvOzQm1VTzN_oS jpg
-          get mangalsutra      1QRppGfbECyBZVhtzRC013wZSh5bmmE_X jpg
-          get bullion-ui       1quEo72Cj73RaAzUtqZnl_moOO-Y1t7Fj png
-          ls -la inbound-drive | tee -a inbound-drive/fetch-log.txt
-      - name: Commit assets back
+          mkdir -p inbound-drive/folder
+          # verbose folder fetch: gdown prints the google id of each file it pulls
+          gdown --folder --remaining-ok "https://drive.google.com/drive/folders/1wH2SYhFr92mBXURiG2gH-g_zVDq_IeVc" -O inbound-drive/folder 2>&1 | tee inbound-drive/folder-dump.txt || true
+          echo "--- tree ---"; find inbound-drive/folder -type f -printf '%s\t%p\n' | sort -k2
+          # explicit retry of bracelets with both URL shapes
+          for u in \
+            "https://drive.usercontent.google.com/download?id=1mbTFQ7nUYQhJgvPWXtL_ap3Ly3xszWR3&export=download&confirm=t" \
+            "https://drive.google.com/uc?id=1mbTFQ7nUYQhJgvPWXtL_ap3Ly3xszWR3&export=download" ; do
+            curl -sSL "$u" -o inbound-drive/bracelets2.jpg || true
+            b=$(head -c3 inbound-drive/bracelets2.jpg | od -An -tx1 | tr -d ' \n')
+            echo "bracelets via $u -> $(stat -c%s inbound-drive/bracelets2.jpg) magic=$b"
+            [ "$b" = "ffd8ff" ] && break
+          done
+      - name: Commit
         if: always()
         run: |
-          git config user.name "arena-agent"
-          git config user.email "agent@arena.ai"
+          git config user.name "arena-agent"; git config user.email "agent@arena.ai"
           git add -A inbound-drive
-          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
-          git commit -m "chore: inbound Drive assets for v57 category slider + bullion UI"
-          git push
+          if git diff --cached --quiet; then echo none; exit 0; fi
+          git commit -m "chore: full Drive folder dump for v57 assets" && git push
