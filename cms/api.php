@@ -214,23 +214,53 @@ function totp_now(string $base32Secret): string {
   return str_pad((string)($num % 1000000), 6, '0', STR_PAD_LEFT);
 }
 
-/* v63 — parse an Angel instrument-master expiry ("27NOV2026" / "27NOV26") */
-function angel_scrip_expiry(string $e): int {
-  $e = trim($e);
-  if ($e === '') return 0;
-  foreach (['dMY', 'dMy', 'Y-m-d', 'd-m-Y'] as $f) {
-    $d = DateTime::createFromFormat($f, $e);
-    if ($d && $d->getTimestamp() > 946684800) return $d->getTimestamp();
+/* v63 — parse an Angel instrument-master expiry ("27NOV2026" / "27NOV26"
+   / "2026-11-27" / "27-Nov-2026" / "27/11/2026"). Always returns a unix
+   timestamp or 0. Tries the raw field first, then an embedded ddMMMyy group
+   (usually extracted from the trading symbol). */
+function angel_scrip_expiry(string $e, string $sym = ''): int {
+  $candidates = [trim($e)];
+  if (preg_match('/(\d{1,2})[-\s]?([A-Z]{3})[-\s]?(\d{2,4})/i', $sym, $m)) {
+    $candidates[] = sprintf('%02d%s%s', (int)$m[1], strtoupper($m[2]), $m[3]);
   }
-  $ts = strtotime($e);
-  return $ts ?: 0;
+  foreach ($candidates as $c) {
+    if ($c === '') continue;
+    foreach (['dMY', 'dMy', '!dMY', 'Y-m-d', '!Y-m-d', 'd-M-Y', 'd/m/Y', 'd-m-Y'] as $f) {
+      $d = DateTime::createFromFormat($f, $c);
+      $errs = DateTime::getLastErrors();
+      if ($d && (!$errs || empty($errs['warning_count'])) && $d->getTimestamp() > 946684800) return $d->getTimestamp();
+    }
+    if (preg_match('/^(\d{1,2})([A-Z]{3})(\d{2,4})$/i', $c, $m)) {
+      $yy = strlen($m[3]) === 2 ? 2000 + (int)$m[3] : (int)$m[3];
+      $mo = ['JAN'=>1,'FEB'=>2,'MAR'=>3,'APR'=>4,'MAY'=>5,'JUN'=>6,'JUL'=>7,'AUG'=>8,'SEP'=>9,'OCT'=>10,'NOV'=>11,'DEC'=>12][strtoupper($m[2])] ?? 0;
+      if ($mo) { $ts = strtotime(sprintf('%04d-%02d-%02d', $yy, $mo, (int)$m[1])); if ($ts) return $ts; }
+    }
+    $ts = strtotime($c);
+    if ($ts && $ts > 946684800) return $ts;
+  }
+  return 0;
 }
 
-/* v63 — resolve near-month MCX GOLD (1 kg, 995) & SILVER (30 kg) tokens.
+/* v63/v65 — resolve near-month MCX GOLD (1 kg, 995) & SILVER (30 kg) tokens.
    Manual token settings win; otherwise the public Angel instrument master
-   is downloaded (~once per 2 days), MCX records are regex-extracted without
-   decoding the whole multi-MB file, and the nearest non-expired FUTCOM
-   contract of each metal is chosen. Self-rolls on contract expiry. */
+   is downloaded (~once per 2 days). v65 matching is symbol-driven
+   (GOLDddMMMyyyy future = exact 1 kg contract; GOLDM/GUINEA/PETAL/TEN and
+   SILVERM/MICRO are excluded by the symbol pattern itself), tolerates
+   whitespace/format quirks in the file, and records diagnostics. */
+function angel_master_fetch(array &$db, string &$diag): ?string {
+  $urls = [
+    'https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json',
+    'https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json',
+  ];
+  foreach ($urls as $u) {
+    $r = angel_http($u, 'GET', null, ['Accept' => 'application/json'], 90);
+    $raw = (string)($r['raw'] ?? '');
+    $diag = 'HTTP ' . $r['code'] . ' · ' . strlen($raw) . ' bytes from ' . parse_url($u, PHP_URL_HOST);
+    if ($r['code'] === 200 && strlen($raw) >= 100000 && (strpos($raw, 'MCX') !== false)) return $raw;
+  }
+  return null;
+}
+
 function angel_tokens(array &$db): ?array {
   $s = $db['settings'] ?? [];
   $gManual = trim((string)($s['angelGoldToken'] ?? ''));
@@ -239,54 +269,87 @@ function angel_tokens(array &$db): ?array {
     return ['gold' => $gManual, 'silver' => $sManual, 'goldSymbol' => 'manual GOLD', 'silverSymbol' => 'manual SILVER', 'auto' => false];
   }
   $cache = is_array($db['angelTokens'] ?? null) ? $db['angelTokens'] : null;
+  $fromCache = static function (?array $c): array {
+    return ['gold' => $c['gold'][0], 'silver' => $c['silver'][0],
+      'goldSymbol' => $c['gold'][2] ?? 'GOLD', 'silverSymbol' => $c['silver'][2] ?? 'SILVER', 'auto' => true];
+  };
   $cacheFresh = static function () use ($cache): bool {
     if (!$cache || empty($cache['gold'][0]) || empty($cache['silver'][0]) || empty($cache['at'])) return false;
     $at = strtotime((string)$cache['at']);
     if (!$at || time() - $at > 2 * 86400) return false;
     foreach (['gold', 'silver'] as $m) {
-      $exp = angel_scrip_expiry((string)($cache[$m][1] ?? ''));
+      $exp = angel_scrip_expiry((string)($cache[$m][1] ?? ''), (string)($cache[$m][2] ?? ''));
       if ($exp && $exp < time() + 2 * 86400) return false;   // rolls ~2 days before expiry
     }
     return true;
   };
-  $fromCache = static function (?array $cache): array {
-    return ['gold' => $cache['gold'][0], 'silver' => $cache['silver'][0],
-      'goldSymbol' => $cache['gold'][2] ?? 'GOLD', 'silverSymbol' => $cache['silver'][2] ?? 'SILVER', 'auto' => true];
-  };
   if ($cacheFresh()) return $fromCache($cache);
 
   $fail = static function (string $msg) use (&$db, $cache, $fromCache): ?array {
-    // a stale previous resolution is still tradeable until the contract expires
+    // a previous resolution stays usable until the contract actually expires
     if ($cache && !empty($cache['gold'][0]) && !empty($cache['silver'][0])) return $fromCache($cache);
     $db['angelSession'] = array_merge($db['angelSession'] ?? [], ['lastError' => $msg, 'errorAt' => now_iso()]);
     return null;
   };
 
-  $r = angel_http('https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json',
-    'GET', null, ['Accept' => 'application/json'], 60);
-  $raw = (string)($r['raw'] ?? '');
-  if ($r['code'] !== 200 || strlen($raw) < 100000) return $fail('Could not download the Angel instrument master (HTTP ' . $r['code'] . ') — tokens can be entered manually for now.');
-  if (!preg_match_all('/\{[^{}]*"exch_seg"\s*:\s*"MCX"[^{}]*\}/', $raw, $mm)) return $fail('Angel instrument master format unrecognised — tokens can be entered manually.');
+  $raw = angel_master_fetch($db, $diagLine);
+  if ($raw === null) return $fail('Could not download the Angel instrument master (' . $diagLine . ') — tokens can be entered manually for now.');
 
+  /* raise PCRE limits — the master is tens of MB and the flat-record regex
+     walks the whole string */
+  @ini_set('pcre.backtrack_limit', '200000000');
+  @ini_set('pcre.jit', '0');
+  if (!preg_match_all('/\{[^{}]*?"exch_seg"\s*:\s*"MCX"[^{}]*?\}/', $raw, $mm) || empty($mm[0])) {
+    $pe = preg_last_error();
+    return $fail('Angel instrument master unparseable (regex error ' . $pe . '; ' . $diagLine . ') — tokens can be entered manually.');
+  }
+
+  /* future-symbol patterns — these alone identify the 1 kg GOLD / 30 kg
+     SILVER commodity futures; options (…CE/…PE) and mini/micro contracts
+     cannot match */
+  $pat = [
+    'GOLD'   => '/^GOLD(\d{1,2})([A-Z]{3})(\d{2,4})$/',
+    'SILVER' => '/^SILVER(\d{1,2})([A-Z]{3})(\d{2,4})$/',
+  ];
   $pick = ['GOLD' => null, 'SILVER' => null];
+  $mcx = 0; $goldish = [];
   foreach ($mm[0] as $rec) {
     $o = json_decode($rec, true);
     if (!is_array($o)) continue;
-    $name = (string)($o['name'] ?? '');
-    if (!isset($pick[$name])) continue;                          // exact GOLD / SILVER (not GOLDM, SILVERM…)
-    $inst = strtoupper((string)($o['instrumenttype'] ?? ''));
-    if ($inst !== '' && $inst !== 'FUTCOM') continue;            // futures, not options
-    $exp = angel_scrip_expiry((string)($o['expiry'] ?? ''));
-    if ($exp < time() - 3 * 86400) continue;
-    $cand = [$exp, (string)($o['token'] ?? ''), (string)($o['symbol'] ?? $name)];
-    if ($cand[1] === '') continue;
-    if (!$pick[$name] || $cand[0] < $pick[$name][0]) $pick[$name] = $cand;
+    $mcx++;
+    $name = strtoupper(trim((string)($o['name'] ?? '')));
+    $sym = strtoupper(trim((string)($o['symbol'] ?? '')));
+    $inst = strtoupper(trim((string)($o['instrumenttype'] ?? '')));
+    if (count($goldish) < 8 && preg_match('/^(GOLD|SILVER)[A-Z0-9]*$/', $sym)) $goldish[] = $sym;
+    $metal = null;
+    if ($inst === '' || $inst === 'FUTCOM') {
+      if ($name === 'GOLD' || $name === 'SILVER') $metal = $name;
+    }
+    if (!$metal) {
+      foreach ($pat as $mName => $re) {
+        if (preg_match($re, $sym)) {
+          // reject anything with trailing symbol letters (strike/CE/PE…) and
+          // anything not flagged a commodity future
+          $tail = preg_replace($re, '', $sym);
+          if ($tail === '' && ($inst === '' || $inst === 'FUTCOM')) { $metal = $mName; break; }
+        }
+      }
+    }
+    if (!$metal) continue;
+    $exp = angel_scrip_expiry((string)($o['expiry'] ?? ''), $sym);
+    if (!$exp || $exp < time() - 3 * 86400) continue;
+    $tok = trim((string)($o['token'] ?? ''));
+    if ($tok === '') continue;
+    $cand = [$exp, $tok, $sym];
+    if (!$pick[$metal] || $cand[0] < $pick[$metal][0]) $pick[$metal] = $cand;
   }
   if (!$pick['GOLD'] || !$pick['SILVER']) {
-    return $fail('Near-month MCX GOLD/SILVER contract not found in the instrument master — tokens can be entered manually.');
+    return $fail('Near-month MCX GOLD/SILVER not found (' . $diagLine . '; ' . $mcx . ' MCX rows; e.g. '
+      . implode(', ', array_slice(array_unique($goldish), 0, 6)) . ') — paste tokens manually for now.');
   }
   $db['angelTokens'] = [
     'gold' => $pick['GOLD'], 'silver' => $pick['SILVER'], 'at' => now_iso(),
+    'diag' => $diagLine . '; ' . $mcx . ' MCX rows',
   ];
   try { db_save($GLOBALS['DB_FILE'], $db); } catch (Throwable $e) {}
   return $fromCache($db['angelTokens']);
