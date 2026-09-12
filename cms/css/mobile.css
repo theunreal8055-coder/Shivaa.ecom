@@ -573,3 +573,141 @@
   .modal, .nav, .mc-drawer, #saathiPanel, .filters, .mcta-bar, .toast { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   SHIVAA — v96 mobile pass ("Hi-Fi phone")
+   Every rule below was verified against a device-emulated audit
+   (iPhone 390×844, small Android 360×740, iPhone SE 320×568):
+     1· hard guarantee: the document can NEVER pan horizontally
+     2· reviews marquee no longer bleeds past the right edge
+     3· ring-sizer calibration wraps instead of stretching the page
+     4· no readable text below 10px on phones (was 7–9.5px in spots)
+     5· Saathi tool dock: 6 cramped columns @8.5px → 3×2 grid @10.5px
+     6· desktop-only "Esc" chip in search becomes a ✕ pill on touch
+     7· butter: momentum + edge containment on every scroller, GPU
+        hints for marquees, 44px tap-target floor, gallery arrows and
+        filter checkboxes sized for thumbs
+   Nothing is removed — phones only reflow, rescale, reposition.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · overflow insurance (clip ≠ scroll container, sticky survives) ── */
+@supports (overflow: clip) {
+  html, body { overflow-x: clip; }
+}
+
+/* ── 2 · marquee bleed — was margin:0 -4vw (page grew to 406px @390) ── */
+@media (max-width: 768px) {
+  .rev-marquee { margin-inline: -16px; contain: layout paint; }
+  .rev-track { animation-duration: 60s; }  /* calmer pace, easier to read */
+}
+@media (max-width: 380px) {
+  .rev-marquee { margin-inline: -16px; }
+  .rev-card { width: 252px; }
+}
+
+/* ── 3 · ring sizer — calibration card is true-to-life mm, so the
+      buttons wrap under it instead of stretching the row to 463px ── */
+@media (max-width: 768px) {
+  .sz-cardrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sz-cardrow .btn { min-height: 46px; width: 100%; }
+  .sz-bankcard { order: -1; grid-column: 1 / -1; min-width: 0; max-width: 100%; width: 100%; }
+  .sz-controls { flex-wrap: wrap; row-gap: 10px; }
+  .sz-readout { order: -1; flex-basis: 100%; margin-bottom: 2px; }
+  .sz-controls .btn { flex: 1 1 130px; }
+  .sz-ruler .tick b { font-size: 10.5px; }
+}
+
+/* ── 4 · typography floor — nothing below 10px on a phone ── */
+@media (max-width: 768px) {
+  .hero-kicker { font-size: 10px !important; letter-spacing: .2em !important; padding: 8px 14px; }
+  .hstat span { font-size: 10px !important; letter-spacing: .1em !important; line-height: 1.35; white-space: normal; }
+  .hstat b { font-size: clamp(19px, 5.4vw, 24px) !important; }
+  .hero-stats { gap: 16px 22px !important; }
+  .hero-trust { font-size: 10px !important; letter-spacing: .12em !important; flex-wrap: wrap !important; overflow: visible !important; white-space: normal !important; gap: 6px 14px !important; }
+  .hs-tag { font-size: 10px !important; letter-spacing: .08em !important; }
+  .ph-trust { font-size: 10.5px; letter-spacing: .16em; gap: 8px 20px; }
+  .tagx { font-size: 10.5px; letter-spacing: .09em; padding: 6px 12px; }
+  .gal-hint { font-size: 10px; padding: 6px 11px; }
+  .jh-badge { font-size: 10.5px; letter-spacing: .22em; }
+  .seal small { font-size: 10px; max-width: 72px; }
+  .bd-feedtime { font-size: 10px; }
+  .kyc-req { font-size: 11.5px !important; letter-spacing: 0 !important; }
+  .crumbs { font-size: 11px; }
+  .mnav a { font-weight: 600; }
+  .sugg small, .mc-item small { font-size: 11.5px; }
+  .foot-col a { font-size: 13px; }
+  .foot-addr, .foot-hrs { font-size: 12.5px; }
+  .fn-note, .fn-card .label { font-size: 11px; }
+  .dw-tx small { font-size: 11.5px; }
+  .dw-sec { font-size: 10px; }
+  .acc summary { font-size: 14.5px; min-height: 52px; display: flex; align-items: center; }
+  .acc-body { font-size: 13.5px; line-height: 1.65; }
+  .pd-stamp { font-size: 10.5px; letter-spacing: .16em; }
+  .fin-eng small { font-size: 10px; letter-spacing: .38em; }
+  .fin-eng span { font-size: 11px; }
+  .finale-cd .fc-cell span { font-size: 10px; letter-spacing: .16em; }
+  .fh-badge small { font-size: 10px; letter-spacing: .1em; }
+  .fin-panel .fin-tag, .fin-tag { font-size: 10.5px; letter-spacing: .18em; }
+}
+
+/* ── 5 · Saathi — thumb-sized command dock, readable chat ── */
+@media (max-width: 768px) {
+  .sa-tools { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 12px 12px; }
+  .sa-tool { padding: 10px 6px 9px; gap: 5px; border-radius: 13px; }
+  .sa-tool span { font-size: 19px; }
+  .sa-tool b { font-size: 10.5px !important; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; }
+  #saathiPanel { height: min(94dvh, 840px); }
+  .sa-m { font-size: 14.5px; line-height: 1.55; max-width: 92%; }
+  .sa-chip { font-size: 13px; padding: 9px 14px; }
+  .sa-head b { font-size: 16.5px; }
+  .sa-head small { font-size: 12px; }
+  .sa-ico { width: 40px; height: 40px; font-size: 16px; }
+  .sa-in { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .sa-in button { width: 46px; height: 46px; font-size: 18px; }
+  .sa-in input { min-height: 46px; }
+  .sa-foot { font-size: 11px; padding: 0 12px calc(8px + env(safe-area-inset-bottom)); }
+  .sa-card { flex-basis: 148px; }
+}
+
+/* ── 6 · search drawer — "Esc" is a keyboard thing; phones get ✕ ── */
+@media (pointer: coarse) {
+  .s-close { font-size: 0; width: 42px; height: 42px; min-width: 42px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; }
+  .s-close::after { content: '\2715'; font-size: 15px; letter-spacing: 0; }
+  /* landscape phones: same floors without touching the 768 column stack */
+  @media (max-height: 500px) {
+    .fin-eng small { font-size: 10px; letter-spacing: .38em; }
+    .fin-eng span { font-size: 11px; }
+    .gal-hint { font-size: 10px; }
+    .kyc-req { font-size: 11.5px !important; }
+  }
+}
+
+/* ── 7 · butter — fluid scrollers, contained sheets, real tap targets ── */
+@media (pointer: coarse) {
+  /* kill any residual tap delay / highlight anywhere interactive */
+  a, button, [role='button'], label, summary, input, select, textarea { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  /* momentum + stop the chain at the edges of every horizontal strip */
+  .catbar, .catbar2, .sa-row, .sa-chips, .foot-chips, .pay-strip, .sz-strip-wrap,
+  .nav-scroll, .adm-nav, .gal-track, .fl-news, .ub-rates { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  /* sheets own their scroll — the page behind never rubber-bands */
+  .modal, .nav, .filters, .mc-drawer, .search-drawer, #saathiPanel, .sa-msgs, #cartDrawer { overscroll-behavior: contain; }
+  /* marquees & tickers ride the compositor */
+  .rev-track { will-change: transform; backface-visibility: hidden; }
+}
+@media (max-width: 768px) {
+  /* PDP gallery arrows → 44px thumb discs, dots → tappable pills */
+  .gal-nav { width: 44px; height: 44px; font-size: 21px; opacity: .95; }
+  .gal-dots { gap: 9px; bottom: 14px; }
+  .gal-dots button, .gal-dots i, .gal-dots span { min-width: 10px; min-height: 10px; }
+  /* shop filters — checkboxes sized for thumbs (fcheck rows only) */
+  .filters .fcheck { min-height: 44px; }
+  .filters .fcheck input { width: 20px; height: 20px; flex: 0 0 auto; accent-color: var(--maroon); }
+  /* price / size pickers get the 44px floor */
+  .pay-opt, .size-pill, .cat-pill { min-height: 44px; }
+  /* bottom-bar CTAs keep clear of the quick-nav */
+  .mcta-bar { padding-bottom: env(safe-area-inset-bottom); }
+  /* quick-nav labels readable */
+  .mnav a { font-size: 10.5px; }
+  /* route changes snap instantly — animated scroll-to-top reads as lag on phones */
+  html { scroll-behavior: auto; }
+}
