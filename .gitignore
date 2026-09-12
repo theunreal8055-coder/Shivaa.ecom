@@ -19,3 +19,6 @@ shivaa-FINAL-full.zip
 
 # v85: SMS gateway key ships via a separate out-of-band zip, never git
 shivaa-sms-config.zip
+
+# local test harness (jsdom + static suites; regenerable, keeps node_modules out)
+.tests/

@@ -186,7 +186,7 @@ function shv_wants_write_lock(string $route, string $method): bool {
     'auth/send-otp' => 1, 'kyc/send-otp' => 1, 'auth/reset/start' => 1,
     'partners/apply' => 1, 'pay/order' => 1, 'rates/refresh' => 1,
     'sms/test' => 1, 'mail/test' => 1, 'admin/feed-test' => 1,
-    'kyc/gst-lookup' => 1, 'bullion/tick' => 1, // v87: GST lookup waits on apitxt.com
+    'kyc/gst-lookup' => 1, 'admin/gst-reverify' => 1, 'bullion/tick' => 1, // v87/v88: GST calls wait on apitxt.com
   ];
   if (isset($slow[$route])) return false;
   return true;
@@ -1569,6 +1569,70 @@ function gst_live_lookup(array &$db, string $g, bool $useCache = true): array {
   $db['gstCache'][$g] = ['at' => $now, 'result' => $result];
   gst_cache_persist($GLOBALS['DB_FILE'], $g, $result);            // locked merge onto disk
   return ['cached' => false] + $result;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   v88 · official GST certificate PDF (Form GST REG-06) on demand.
+   APITxT's action=download returns binary PDF; it costs a credit, so
+   each certificate is cached to disk for 30 days under data/ (the
+   whole data/ tree is Require-all-denied — PDFs are only ever streamed
+   through the admin-authenticated PHP route, never served directly).
+   ════════════════════════════════════════════════════════════════════ */
+function gst_cert_dir(): string {
+  $d = __DIR__ . '/data/gst-certs';
+  if (!is_dir($d)) @mkdir($d, 0755, true);
+  // defense in depth even if a host stops honouring the parent data/.htaccess
+  if (is_dir($d) && !is_file($d . '/.htaccess')) @file_put_contents($d . '/.htaccess', "# GST certificates are identity documents — PHP streaming only, never direct.\nRequire all denied\nOptions -Indexes\n");
+  return $d;
+}
+/* ['ok'=>true,'pdf'=>bytes,'cached'=>bool] | ['ok'=>false,'error'=>msg] */
+function apitxt_gst_certificate(string $g, bool $useCache = true): array {
+  $file = gst_cert_dir() . '/' . $g . '.pdf';
+  if ($useCache && is_file($file) && filesize($file) > 1000 && (time() - filemtime($file)) < 30 * 86400) {
+    $pdf = (string)@file_get_contents($file);
+    if (substr($pdf, 0, 4) === '%PDF') return ['ok' => true, 'pdf' => $pdf, 'cached' => true];
+  }
+  $key = apitxt_key();
+  if (!$key) return ['ok' => false, 'error' => 'GST verification key is not configured.'];
+  if (!function_exists('curl_init')) return ['ok' => false, 'error' => 'PHP cURL is unavailable on the server.'];
+  $url = 'https://apitxt.com/api/gst/' . rawurlencode($g) . '?authkey=' . urlencode($key) . '&action=download';
+  $ch = curl_init($url);
+  $ct = '';
+  curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT        => 25,
+    CURLOPT_CONNECTTIMEOUT => 10,
+    CURLOPT_SSL_VERIFYPEER => true,
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_MAXREDIRS      => 2,
+    CURLOPT_HEADERFUNCTION => function ($ch2, $line) use (&$ct) {
+      if (preg_match('/^content-type:\s*(.+)$/i', trim($line), $m)) $ct = trim($m[1]);
+      return strlen($line);
+    },
+  ]);
+  $body = curl_exec($ch);
+  $st   = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+  $err  = curl_error($ch);
+  curl_close($ch);
+  if ($body === false || $body === '') return ['ok' => false, 'error' => 'Certificate service could not be reached' . ($err ? ' — ' . $err : '') . '.'];
+  // A real certificate starts with %PDF regardless of the claimed header.
+  if (is_string($body) && substr($body, 0, 4) === '%PDF') {
+    @file_put_contents($file . '.part', $body, LOCK_EX);
+    @rename($file . '.part', $file);            // atomic swap inside the private data tree
+    @chmod($file, 0644);
+    return ['ok' => true, 'pdf' => $body, 'cached' => false];
+  }
+  // Anything else is a JSON error document (inactive GSTIN, wallet, key…).
+  $j = json_decode((string)$body, true);
+  if (is_array($j)) {
+    $code = (string)($j['code'] ?? $j['error_code'] ?? '');
+    $msg  = (string)($j['message'] ?? $j['error'] ?? '');
+    if ($code === '301') return ['ok' => false, 'error' => 'APITxT wallet is out of credit — top up and retry.'];
+    if ($code === '304') return ['ok' => false, 'error' => 'APITxT rejected the key — check it in data/sms-config.json.'];
+    if ($code === '205') return ['ok' => false, 'error' => 'GST certificates are only issued for Active GSTINs (register status: not Active).'];
+    if ($msg !== '') return ['ok' => false, 'error' => 'Certificate not available — ' . mb_substr($msg, 0, 160)];
+  }
+  return ['ok' => false, 'error' => 'The register did not return a certificate for this GSTIN (HTTP ' . $st . ').'];
 }
 
 function compute_price(array $p, array $R): array {
@@ -3722,8 +3786,21 @@ try {
     } else {
       $kycRec['gstinLiveVerified'] = false;   // checksum passed; live service was unreachable → manual review
     }
+    // v88 — keep the registered principal place of business as a top-level
+    // postal address (future invoices/pickup lists read it without digging KYC).
+    $gstPostal = '';
+    if ($gstInfo) {
+      $gstPostal = trim(implode(', ', array_filter([
+        $gstInfo['address'] !== '' ? $gstInfo['address'] : null,
+        $gstInfo['district'] !== '' ? $gstInfo['district'] : null,
+        $gstInfo['state'] !== '' ? $gstInfo['state'] : null,
+        $gstInfo['pincode'] !== '' ? $gstInfo['pincode'] : null,
+      ])), " ,");
+    }
     $pr = ['id' => uid('pt'), 'firm' => mb_substr(trim((string)$b['firm']), 0, 120), 'contactPerson' => mb_substr(trim((string)($b['contactPerson'] ?? '')), 0, 80), 'city' => mb_substr(trim((string)($b['city'] ?? $gst['state'])), 0, 60),
            'phone' => substr(preg_replace('/\D/', '', (string)$b['phone']), -12), 'email' => strtolower((string)$b['email']),
+           'address' => mb_substr($gstPostal, 0, 300),
+           'pincode' => $gstInfo ? mb_substr((string)$gstInfo['pincode'], 0, 10) : '',
            'kyc' => $kycRec,
            'message' => mb_substr(trim((string)($b['message'] ?? '')), 0, 500), 'status' => 'pending', 'appliedAt' => now_iso()];
     $db['partners'][] = $pr;
@@ -3777,6 +3854,76 @@ try {
     }
     db_save($DB_FILE, $db); jout(200, $out ?? ['error' => 'Not found']);
   }
+
+  /* v88 — admin: stream the official GST certificate PDF (Form GST REG-06).
+     GET so the browser can open it directly; it never mutates db.json —
+     the only side effect is a cached PDF inside the private data/ tree.
+     Admin token required; the token is sent via fetch + blob client-side. */
+  if ($route === 'admin/gst-certificate' && $method === 'GET') {
+    need_admin($db);
+    $g = strtoupper(trim((string)($_GET['gstin'] ?? '')));
+    $chk = gstin_check($g);
+    if (!$chk['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $chk['reason']]);
+    $cert = apitxt_gst_certificate($g);
+    if (empty($cert['ok'])) jout(502, ['error' => $cert['error'] ?? 'Certificate unavailable']);
+    // nosniff + private: the PDF is government identity evidence, not public.
+    header_remove('X-Frame-Options');   // allow the admin viewer iframe to embed it
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="GST-REG-06-' . $g . '.pdf"');
+    header('Content-Length: ' . strlen($cert['pdf']));
+    header('Cache-Control: private, max-age=3600');
+    header('X-Content-Type-Options: nosniff');
+    echo $cert['pdf'];
+    exit;
+  }
+
+  /* v88 — admin: force a fresh live re-verification of an application's
+     GSTIN (spends 1 APITxT credit) and refresh the stored KYC snapshot,
+     including applications that originally arrived checksum-only. */
+  if ($route === 'admin/gst-reverify' && $method === 'POST') {
+    $admU = need_admin($db);
+    $b = body_json();
+    $g = strtoupper(trim((string)($b['gstin'] ?? '')));
+    $chk = gstin_check($g);
+    if (!$chk['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $chk['reason']]);
+    rate_block($db, 'gstreverify-u', $admU['id'] ?? '?', 60, 3600);
+    $live = gst_live_lookup($db, $g, false);   // bypass cache → fresh credit-spending call
+    // A cache miss waited on an external HTTP call without the global write
+    // lock — restart from disk so concurrent saves during that wait survive.
+    if (empty($live['cached'])) $db = db_load($DB_FILE);
+    if (($live['active'] ?? null) !== true) {
+      jout(200, ['ok' => false, 'gstin' => $g, 'gstStatus' => $live['status'] ?? null,
+        'note' => $live['note'] ?? ('GSTIN is ' . ($live['status'] ?? 'not Active') . ' in the register.')]);
+    }
+    $info = $live['info'];
+    $snap = [
+      'gstinValid' => true, 'gstinState' => $info['state'] ?: $chk['state'],
+      'gstinLiveVerified' => true, 'gstStatus' => $info['status'],
+      'legalName' => $info['legalName'], 'tradeName' => $info['tradeName'],
+      'businessType' => $info['businessType'], 'registrationDate' => $info['registrationDate'],
+      'gstAddress' => $info['address'], 'gstDistrict' => $info['district'],
+      'gstPincode' => $info['pincode'], 'pan' => $chk['pan'], 'gstVerifiedAt' => now_iso()];
+    $updated = 0;
+    foreach (($db['partners'] ?? []) as &$pRow) {
+      if (strtoupper((string)($pRow['kyc']['gstin'] ?? '')) === $g) {
+        $pRow['kyc'] = array_merge(is_array($pRow['kyc'] ?? null) ? $pRow['kyc'] : ['gstin' => $g, 'otpVerified' => true], $snap);
+        $postal = trim(implode(', ', array_filter([
+          $info['address'] !== '' ? $info['address'] : null,
+          $info['district'] !== '' ? $info['district'] : null,
+          $info['state'] !== '' ? $info['state'] : null,
+          $info['pincode'] !== '' ? $info['pincode'] : null,
+        ])), " ,");
+        if ($postal !== '') $pRow['address'] = mb_substr($postal, 0, 300);
+        if ($info['pincode'] !== '') $pRow['pincode'] = mb_substr((string)$info['pincode'], 0, 10);
+        $updated++;
+      }
+    }
+    unset($pRow);
+    audit_log($db, 'gst.reverify', ['gstin' => $g, 'updated' => $updated, 'by' => $admU['id'] ?? 'admin']);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'gstin' => $g, 'snapshot' => $snap, 'updatedApplications' => $updated]);
+  }
+
   if ($route === 'partners/me' && $method === 'GET') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);

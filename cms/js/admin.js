@@ -495,6 +495,7 @@ async function renderAdmin(view, q) {
   /* ── PARTNERS ── */
   if (tab === 'partners') {
     const P = partnersData.partners || [];
+    window.__partnersList = P;   // v88 — KYC detail modal reads the full records
     body.innerHTML = `
       <div class="stat-grid">
         <div class="stat"><small>Total partners</small><b>${P.length}</b></div>
@@ -516,6 +517,7 @@ async function renderAdmin(view, q) {
             <td>${new Date(p.appliedAt).toLocaleDateString('en-IN')}</td>
             <td><span class="status-pill ${p.status === 'approved' ? 'st-delivered' : p.status === 'pending' ? 'st-placed' : 'st-cancelled'}">${esc(p.status || '—')}</span></td>
             <td style="white-space:nowrap">${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','approved')">Approve</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','rejected')">Reject</button>` : ''}
+              ${p.kyc && p.kyc.gstin ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.gstKycModal('${p.id}')" title="Full GST register details and certificate">KYC details</button>` : ''}
               <button class="btn btn-ghost btn-sm" data-em="${esc(p.email)}" onclick="ShivaaAdmin.setUserPassword(this)" title="Set a new portal password for this partner">Portal password</button></td>
           </tr>`).join('')}</tbody>
         </table></div></div>`;
@@ -1350,6 +1352,113 @@ window.ShivaaAdmin.delCat = async id => {
 window.ShivaaAdmin.setPartner = async (id, status) => {
   try { await api('/api/partners/' + id, { method: 'PUT', body: JSON.stringify({ status }) }); toast(status === 'approved' ? 'Partner approved — portal access granted ✦' : 'Application rejected'); renderAdmin($('#view'), new URLSearchParams('tab=partners')); }
   catch (e) { toast(e.message, 'err'); }
+};
+
+/* ───────── v88 · partner GST KYC detail card + official certificate ───────── */
+window.ShivaaAdmin._partnersCache = () => {
+  // partnersData is the tab-scoped cache; the modal reads live data passed by the row
+  return window.__partnersList || [];
+};
+const gstRow = (label, val) => val ? `<div class="sum-row"><span>${label}</span><b style="font-weight:600;text-align:right;max-width:62%">${esc(String(val))}</b></div>` : '';
+window.ShivaaAdmin.gstKycHtml = (p) => {
+  const k = p.kyc || {};
+  const live = !!k.gstinLiveVerified;
+  const statusPill = live
+    ? `<span class="pill pm" title="Confirmed against the official GST register">✓ ${esc(k.gstStatus || 'Active')} · govt-verified</span>`
+    : `<span class="pill" style="background:#fff3cd;color:#7a5c00" title="Checksum valid, but the register could not be reached when they applied">? checksum only — verify below</span>`;
+  // every register-sourced string is escaped before entering innerHTML
+  const addr = [k.gstAddress, [k.gstDistrict, k.gstState].filter(Boolean).join(', '), k.gstPincode]
+    .filter(Boolean).map(esc).join('<br>');
+  return `
+  <div style="max-width:560px">
+    <h3 style="margin:0 0 4px">${esc(p.firm || 'Partner')}</h3>
+    <div class="muted" style="margin-bottom:10px">${esc(p.city || '')}${k.gstin ? ' · GSTIN ' + esc(k.gstin) : ''}</div>
+    <div style="margin:6px 0 12px">${statusPill}
+      <span class="pill pm" style="margin-left:4px">${k.otpVerified ? 'Mobile OTP ✓' : 'OTP ?'}</span></div>
+    ${live ? `
+    <div class="adm-card" style="padding:12px 14px;margin-bottom:12px">
+      ${gstRow('Registered name', k.legalName)}
+      ${gstRow('Trade name', k.tradeName && k.tradeName !== k.legalName ? k.tradeName : '')}
+      ${gstRow('Constitution', k.businessType)}
+      ${gstRow('Registered on', k.registrationDate)}
+      ${addr ? `<div class="sum-row"><span>Registered address</span><b style="font-weight:600;text-align:right;max-width:62%">${addr}</b></div>` : ''}
+      ${gstRow('PAN (from GSTIN)', k.pan)}
+      ${gstRow('Owner PAN', k.ownerPan)}
+      ${gstRow('State (from number)', k.gstinState)}
+      ${gstRow('Verified by us at', k.gstVerifiedAt ? new Date(k.gstVerifiedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '')}
+    </div>` : `
+    <div class="adm-card" style="padding:12px 14px;margin-bottom:12px;border-left:3px solid #d99700">
+      <p style="margin:0 0 8px">Only the GSTIN format and state were checked at application time. Re-verify live now (costs 1 APITxT credit) before approving, or open the certificate to inspect it manually.</p>
+      ${gstRow('State (from number)', k.gstinState)}
+      ${gstRow('PAN (from GSTIN)', k.pan)}
+      ${gstRow('Owner PAN', k.ownerPan)}
+    </div>`}
+    <div class="kyc-inline" style="gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" data-g="${esc(k.gstin || '')}" onclick="ShivaaAdmin.viewGstCert(this)">📄 View GST certificate (REG-06)</button>
+      <button class="btn btn-outline btn-sm" data-g="${esc(k.gstin || '')}" data-pid="${esc(p.id)}" onclick="ShivaaAdmin.gstReverify(this)">↻ Re-verify live</button>
+    </div>
+    <p style="font-size:12px;color:var(--ink-3);margin:10px 0 0">The certificate is fetched from the GST register via APITxT (1 credit each, cached 30 days). Re-verify refreshes this card with the latest register data.</p>
+    <div id="gstKycExtra" style="margin-top:10px"></div>
+  </div>`;
+};
+window.ShivaaAdmin.gstKycModal = (id) => {
+  const p = (window.__partnersList || []).find(x => x.id === id);
+  if (!p) return toast('Partner data not loaded — reopen the Partners tab', 'err');
+  openModal(window.ShivaaAdmin.gstKycHtml(p), 'gst-kyc-modal');
+};
+window.ShivaaAdmin.gstReverify = async (btn) => {
+  const gstin = btn.getAttribute('data-g');
+  const pid = btn.getAttribute('data-pid');
+  if (!gstin) return;
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Checking register…';
+  try {
+    const r = await api('/api/admin/gst-reverify', { method: 'POST', body: JSON.stringify({ gstin }) });
+    if (!r.ok) { toast(r.note || ('GSTIN is ' + (r.gstStatus || 'not Active')), 'err'); btn.disabled = false; btn.textContent = old; return; }
+    // refresh the cached partner record then re-render the open card
+    const list = window.__partnersList || [];
+    list.forEach((p, i) => {
+      if (String((p.kyc && p.kyc.gstin) || '').toUpperCase() === gstin) {
+        p.kyc = Object.assign({}, p.kyc, r.snapshot);
+        if (r.snapshot.gstAddress) p.address = [r.snapshot.gstAddress, r.snapshot.gstDistrict, r.snapshot.gstState, r.snapshot.gstPincode].filter(Boolean).join(', ');
+        if (r.snapshot.gstPincode) p.pincode = r.snapshot.gstPincode;
+      }
+    });
+    window.__partnersList = list;
+    toast('GST register refreshed ✓');
+    const p = list.find(x => x.id === pid);
+    if (p) openModal(window.ShivaaAdmin.gstKycHtml(p), 'gst-kyc-modal');
+    renderAdmin($('#view'), new URLSearchParams('tab=partners'));
+  } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = old; }
+};
+window.ShivaaAdmin.viewGstCert = async (btn) => {
+  const gstin = btn.getAttribute('data-g');
+  if (!gstin) return;
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Fetching certificate…';
+  try {
+    const res = await fetch('/api/admin/gst-certificate?gstin=' + encodeURIComponent(gstin),
+      { headers: token() ? { Authorization: 'Bearer ' + token() } : {} });
+    const ct = res.headers.get('content-type') || '';
+    if (!res.ok || ct.indexOf('pdf') === -1) {
+      let msg = 'Certificate unavailable';
+      try { const j = await res.json(); msg = j.error || msg; } catch (e) {}
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const extra = document.getElementById('gstKycExtra');
+    if (extra) {
+      extra.innerHTML = `<div class="adm-card" style="padding:10px">
+        <div class="kyc-inline" style="margin-bottom:8px"><b>GST certificate · ${esc(gstin)}</b>
+          <a class="btn btn-outline btn-sm" href="${url}" download="GST-REG-06-${esc(gstin)}.pdf">⬇ Download PDF</a></div>
+        <iframe src="${url}" title="GST certificate ${esc(gstin)}" style="width:100%;height:62vh;border:1px solid var(--line,#ddd);border-radius:10px;background:#fff"></iframe>
+      </div>`;
+      extra.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      const a = document.createElement('a');
+      a.href = url; a.download = 'GST-REG-06-' + gstin + '.pdf'; document.body.appendChild(a); a.click(); a.remove();
+    }
+  } catch (e) { toast(e.message, 'err'); }
+  finally { btn.disabled = false; btn.textContent = old; }
 };
 
 /* ── v30: set/reset any portal password (partners & customers) · v34: admin's own row too ── */
