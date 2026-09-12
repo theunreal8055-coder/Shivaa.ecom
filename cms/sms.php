@@ -24,6 +24,13 @@
    Textlocal:
      { "provider": "textlocal", "key": "KEY", "sender": "SHIVAA" }
 
+   APITxT (apitxt.com — dedicated OTP route; the system default SMS
+   template works with just the key; optional template_id selects a
+   DLT-approved template that carries the Android auto-fill footer):
+     { "provider": "apitxt", "authkey": "KEY" }
+     { "provider": "apitxt", "authkey": "KEY", "template_id": 42,
+       "channel": "sms" }
+
    Twilio:
      { "provider": "twilio", "sid": "ACâ¦", "token": "â¦", "from": "+1â¦" }
 
@@ -94,6 +101,7 @@ function shivaa_sms_ok(string $provider, int $status, string $body): bool {
   $b = is_array($j) ? $j : [];
   switch ($provider) {
     case 'msg91':     return ($b['type'] ?? '') === 'success';
+    case 'apitxt':    return ($b['status'] ?? '') === 'success' || ($b['type'] ?? '') === 'success';
     case 'fast2sms':  return ($b['return'] ?? null) === true;
     case 'textlocal': return ($b['status'] ?? '') === 'success';
     case 'twilio':    return isset($b['sid']);                    // 201 + sid
@@ -142,6 +150,22 @@ function shivaa_sms_send(string $phone10, string $code): array {
     else {
       $f = array_merge(['apikey' => $cfg['key'], 'numbers' => $ph, 'sender' => $cfg['sender'] ?? 'SHIVAA', 'message' => rawurlencode($msg)], (array)($cfg['extra'] ?? []));
       [$status, $body, $err] = shivaa_sms_http('POST', 'https://api.textlocal.in/send/', ['Content-Type: application/x-www-form-urlencoded'], http_build_query($f));
+    }
+  } elseif ($p === 'apitxt') {
+    // APITxT unified OTP API — POST https://apitxt.com/api/sendOTP
+    // System default SMS template works with authkey + mobile + otp only.
+    if (empty($cfg['authkey'])) { $err = 'apitxt config needs authkey'; }
+    else {
+      $f = ['authkey' => (string)$cfg['authkey'], 'mobile' => $ph, 'otp' => $code, 'country' => '91'];
+      $ch = strtolower(trim((string)($cfg['channel'] ?? 'sms')));
+      if (in_array($ch, ['whatsapp', 'voice'], true)) $f['channel'] = $ch;
+      if (!empty($cfg['template_id'])) {
+        $f['template_id'] = (int)$cfg['template_id'];
+        if (!empty($cfg['template_name'])) $f['template_name'] = substr((string)$cfg['template_name'], 0, 80);
+        if (!empty($cfg['project_ref_id'])) $f['project_ref_id'] = substr((string)$cfg['project_ref_id'], 0, 80);
+      }
+      $f = array_merge($f, (array)($cfg['extra'] ?? []));
+      [$status, $body, $err] = shivaa_sms_http('POST', 'https://apitxt.com/api/sendOTP', ['Content-Type' => 'application/x-www-form-urlencoded'], http_build_query($f));
     }
   } elseif ($p === 'twilio') {
     if (empty($cfg['sid']) || empty($cfg['token']) || empty($cfg['from'])) { $err = 'twilio config needs sid + token + from'; }

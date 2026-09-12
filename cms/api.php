@@ -2303,16 +2303,24 @@ try {
     if (!hash_equals((string)$o['hash'], hash('sha256', 'shv' . $phone . (string)($b['code'] ?? '')))) { db_save($DB_FILE, $db); jout(400, ['error' => 'Incorrect OTP']); }
     $o['verified'] = true;
     unset($db['rateLimit']['otp-try-ip|' . client_ip()], $db['rateLimit']['otp-try-phone|' . $phone]);
-    // v82 — single-use: a code cannot be replayed within its 5-minute window.
-    // (Partner KYC and registration accept the verified flag for up to an hour;
-    //  only the login door consumes the record this way.)
-    $o['consumedByLogin'] = true;
-    db_save($DB_FILE, $db);
-    foreach ($db['users'] as $u) if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $phone) {
-      $tk = issue_token($db, $u); db_save($DB_FILE, $db);
-      jout(200, ['token' => $tk, 'user' => pub_user($u)]);
+    // v85 — find the account BEFORE consuming the code. Marking a code
+    // consumed for a brand-new number made /auth/register reject the details
+    // form ("Verify your phone with OTP first") — new customers could never
+    // complete sign-up through the Passport sheet. For an unknown number we
+    // leave the record verified (but unconsumed) so registration can use it
+    // once; the register route burns it and enforces single use.
+    $loginUser = null;
+    foreach ($db['users'] as $uL) if (substr(preg_replace('/\D/', '', (string)($uL['phone'] ?? '')), -10) === $phone) { $loginUser = $uL; break; }
+    if ($loginUser) {
+      // v82 — single-use: a code cannot be replayed within its 5-minute window.
+      $o['consumedByLogin'] = true;
+      $tk = issue_token($db, $loginUser);
+      db_save($DB_FILE, $db);
+      jout(200, ['token' => $tk, 'user' => pub_user($loginUser)]);
     }
-    jout(404, ['error' => 'No account with this number — please register first']);
+    $o['verified'] = true;   // new number: verified, awaiting the one-time details step
+    db_save($DB_FILE, $db);
+    jout(404, ['error' => 'No account with this number — please register first', 'newNumber' => true]);
   }
   if ($route === 'auth/register' && $method === 'POST') {
     $b = body_json();
