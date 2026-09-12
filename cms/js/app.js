@@ -3886,12 +3886,12 @@ pages.b2b = async (view) => {
   <div class="container" style="padding:40px 0 80px;max-width:1140px">
 
     <div class="b2b-form-card aurora">
-      <div class="bf-head"><span class="label">Step 1 &middot; Partner Application</span><h2>Begin your partnership</h2><p>GSTIN is checksum-verified instantly &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
+      <div class="bf-head"><span class="label">Step 1 &middot; Partner Application</span><h2>Begin your partnership</h2><p>GSTIN is verified live against the government GST register &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
         <div class="b2b-step"><span>1 &middot; Fill this form</span><span>2 &middot; GST &amp; OTP verify</span><span>3 &middot; Approved in 48 h</span><span>4 &middot; Portal opens</span></div></div>
       <form class="form-grid kyc-form" id="b2bForm" onsubmit="Shivaa.b2bApply(event)" novalidate>
         <div class="fld"><label>Firm name *</label><input id="kyFirm" required autocomplete="organization" placeholder="M/s …" oninput="Shivaa.kycGate()"></div>
         <div class="fld"><label>Contact person</label><input id="kyPerson" autocomplete="name" placeholder="Owner / manager"></div>
-        <div class="fld full"><label>GSTIN * <small class="kyc-req">(verify with the button — 15 characters)</small></label>
+        <div class="fld full"><label>GSTIN * <small class="kyc-req">(tap Verify GST — checked live, firm name auto-fills)</small></label>
           <div class="kyc-inline">
             <input id="kyGstin" maxlength="15" placeholder="08AABCU9603R1ZM" style="text-transform:uppercase" autocomplete="off" required oninput="Shivaa.kycFieldEdit('gstin')">
             <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycGstin()">✓ Verify GST</button>
@@ -3914,7 +3914,7 @@ pages.b2b = async (view) => {
         <div class="fld"><label>Email <small class="kyc-req">(your portal login)</small> *</label><input id="kyEmail" type="email" autocomplete="email" required oninput="Shivaa.kycGate()"></div>
         <div class="fld"><label>Choose a portal password *</label><input id="kyPass" type="password" minlength="6" autocomplete="new-password" required oninput="Shivaa.kycGate()"></div>
         <div class="fld full"><label>What do you stock / need? <small class="kyc-req">(optional)</small></label><input id="kyMsg" placeholder="Bridal sets, chains, silver…"></div>
-        <p class="kyc-note">GSTIN checksum-verified &middot; mobile OTP-verified &middot; approval within 48 h. The button below stays locked until every business detail above is complete and verified.</p>
+        <p class="kyc-note">GSTIN verified live with the official GST database (firm name &amp; status) &middot; mobile OTP-verified &middot; approval within 48 h. The button below stays locked until every business detail above is complete and verified.</p>
       </form>
 
       <!-- always-visible application bar: present from the start, clickable
@@ -3979,7 +3979,7 @@ pages.b2b = async (view) => {
   setTimeout(() => { try { window.Shivaa.kycGate(); } catch (e) {} }, 0);
 };
 /* ─────────── SERVICES (D2C) ─────────── */
-window._kyc = { gstin: false, otp: false };
+window._kyc = { gstin: false, gstLive: false, otp: false };
 window.Shivaa.kycGstin = async () => {
   const g = $('#kyGstin').value.trim();
   const st = $('#gstStat');
@@ -3989,15 +3989,35 @@ window.Shivaa.kycGstin = async () => {
     const r = await api('/api/kyc/check-gstin', { method: 'POST', body: JSON.stringify({ gstin: g }) });
     if (r.valid) {
       window._kyc.gstin = true;
-      if (!$('#kyCity').value) $('#kyCity').value = r.state === 'Rajasthan' ? '' : r.state;
-      st.textContent = 'checking firm name…'; 
+      st.textContent = 'checking the GST register…';
       try {
         const lg = await api('/api/kyc/gst-lookup', { method: 'POST', body: JSON.stringify({ gstin: g }) });
-        if (lg.configured && lg.verified && lg.legalName) { window._kyc.legalName = lg.legalName; $('#kyFirm').value = lg.legalName; $('#kyFirm').readOnly = true; st.innerHTML = '✓ Firm verified: ' + esc(lg.legalName); }
-        else st.innerHTML = '✓ Valid · ' + esc(r.state) + ' <small>(name verified at approval)</small>';
-      } catch (e) { st.innerHTML = '✓ Valid · ' + esc(r.state); }
+        if (lg.live && lg.verified && lg.legalName) {
+          // v87 — government-record verification: lock the legal name, hint the city
+          window._kyc.gstLive = true; window._kyc.legalName = lg.legalName;
+          $('#kyFirm').value = lg.legalName; $('#kyFirm').readOnly = true;
+          // prefer the registered district over the plain state name for the City field
+          if (!$('#kyCity').value) $('#kyCity').value = lg.district || (r.state && r.state !== 'Rajasthan' ? r.state : '');
+          const trade = lg.tradeName && lg.tradeName !== lg.legalName ? ' <small>· trade name ' + esc(lg.tradeName) + '</small>' : '';
+          st.innerHTML = '✓ Govt-verified: <b>' + esc(lg.legalName) + '</b> · ' + esc(lg.gstStatus || 'Active') + trade;
+          st.title = [lg.businessType, lg.registrationDate ? ('registered ' + lg.registrationDate) : '', lg.address].filter(Boolean).map(esc).join('\n');
+        } else if (lg.live && !lg.verified) {
+          // Register says Cancelled / Suspended / inactive — block the application
+          window._kyc.gstin = false; window._kyc.gstLive = false; $('#kyFirm').readOnly = false;
+          st.textContent = '✗ ' + (lg.note || ('This GSTIN is ' + (lg.gstStatus || 'not Active')));
+          st.className = 'kyc-status bad'; window.Shivaa.kycGate(); return;
+        } else {
+          window._kyc.gstLive = false;
+          if (!$('#kyCity').value && r.state && r.state !== 'Rajasthan') $('#kyCity').value = r.state;
+          st.innerHTML = '✓ Valid number · ' + esc(r.state) + ' <small>(firm name verified when we approve)</small>';
+        }
+      } catch (e) {
+        window._kyc.gstLive = false;
+        if (!$('#kyCity').value && r.state && r.state !== 'Rajasthan') $('#kyCity').value = r.state;
+        st.innerHTML = '✓ Valid number · ' + esc(r.state) + ' <small>(live name service busy — verified at approval)</small>';
+      }
       st.className = 'kyc-status ok';
-    } else { window._kyc.gstin = false; st.textContent = '✗ ' + r.reason; st.className = 'kyc-status bad'; $('#kyFirm').readOnly = false; }
+    } else { window._kyc.gstin = false; window._kyc.gstLive = false; st.textContent = '✗ ' + r.reason; st.className = 'kyc-status bad'; $('#kyFirm').readOnly = false; }
   } catch (e) { st.textContent = '✗ ' + e.message; st.className = 'kyc-status bad'; }
   window.Shivaa.kycGate();
 };
@@ -4037,8 +4057,11 @@ window.Shivaa.partnerLogin = () => {
    until it is re-verified — the sticky bar updates itself instantly */
 window.Shivaa.kycFieldEdit = (which) => {
   if (which === 'gstin') {
-    window._kyc.gstin = false;
-    const st = $('#gstStat'); if (st) { st.textContent = ''; st.className = 'kyc-status'; }
+    const fi = $('#kyFirm');
+    if (fi && fi.readOnly) { fi.value = ''; }              // clear an auto-filled legal name
+    if (fi) fi.readOnly = false;
+    window._kyc.gstin = false; window._kyc.gstLive = false; window._kyc.legalName = '';
+    const st = $('#gstStat'); if (st) { st.textContent = ''; st.className = 'kyc-status'; st.title = ''; }
   }
   if (which === 'otp') {
     window._kyc.otp = false;
@@ -4085,7 +4108,8 @@ window.Shivaa.b2bApply = async e => {
       email: $('#kyEmail').value, ownerPan: $('#kyPan').value, password: $('#kyPass').value, message: $('#kyMsg').value,
     }) });
     if (r.token) { setToken(r.token); state.user = r.user; }
-    openModal(`<div class="center"><div style="font-size:48px">✦</div><h3 style="margin:10px 0">KYC Complete — Application Received!</h3><p style="color:var(--ink-2)">GSTIN <b>${esc($('#kyGstin').value.toUpperCase())}</b> verified · mobile OTP verified. Your partner portal account is live — full access once our team approves (usually within 48 hours).</p><a class="btn btn-primary" href="#/partner" style="margin-top:14px">Open Partner Portal</a></div>`);
+    const gstHow = window._kyc.gstLive ? 'verified live with the government GST register' : 'checked and pending final confirmation';
+    openModal(`<div class="center"><div style="font-size:48px">✦</div><h3 style="margin:10px 0">KYC Complete — Application Received!</h3><p style="color:var(--ink-2)">GSTIN <b>${esc($('#kyGstin').value.toUpperCase())}</b> ${gstHow} · mobile OTP verified. Your partner portal account is live — full access once our team approves (usually within 48 hours).</p><a class="btn btn-primary" href="#/partner" style="margin-top:14px">Open Partner Portal</a></div>`);
     e.target.reset(); window._kyc = { gstin: false, otp: false }; window.Shivaa.kycGate();
   } catch (err) { toast(err.message, 'err'); }
 };

@@ -186,7 +186,7 @@ function shv_wants_write_lock(string $route, string $method): bool {
     'auth/send-otp' => 1, 'kyc/send-otp' => 1, 'auth/reset/start' => 1,
     'partners/apply' => 1, 'pay/order' => 1, 'rates/refresh' => 1,
     'sms/test' => 1, 'mail/test' => 1, 'admin/feed-test' => 1,
-    'kyc/gst-lookup' => 1, 'bullion/tick' => 1,
+    'kyc/gst-lookup' => 1, 'bullion/tick' => 1, // v87: GST lookup waits on apitxt.com
   ];
   if (isset($slow[$route])) return false;
   return true;
@@ -1455,6 +1455,122 @@ function gstin_check(string $g): array {
   if ($g[14] !== $chars[(36 - ($sum % 36)) % 36]) return ['valid' => false, 'reason' => 'Checksum failed — please retype the GSTIN'];
   return ['valid' => true, 'state' => $state, 'pan' => substr($g, 2, 10)];
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   v87 · live GST verification via APITxT (apitxt.com/api/gst/:gstin).
+   The SAME auth key that sends OTP works for verification — no new
+   deploy step. Key lookup order: data/gst-config.json (a future
+   verification-only key), then data/sms-config.json (the live OTP key).
+   Every successful/negative answer is cached in db['gstCache'] so the
+   partner form's lookup and the application's authoritative re-check
+   spend ONE credit total per GSTIN, never two. Transport/auth failures
+   are never cached (they must be retryable).
+   ════════════════════════════════════════════════════════════════════ */
+function apitxt_key(): ?string {
+  static $key = false;                         // false = not looked up yet
+  if ($key === false) {
+    $key = '';
+    foreach ([__DIR__ . '/data/gst-config.json', __DIR__ . '/data/sms-config.json'] as $f) {
+      if (is_readable($f)) {
+        $j = json_decode((string)@file_get_contents($f), true);
+        // sms-config must actually be the apitxt provider; a dedicated
+        // gst-config may use any {"authkey": "..."} document.
+        if (is_array($j) && !empty($j['authkey']) && ($f !== __DIR__ . '/data/sms-config.json' || ($j['provider'] ?? '') === 'apitxt')) {
+          $key = (string)$j['authkey'];
+          break;
+        }
+      }
+    }
+  }
+  return $key !== '' ? $key : null;
+}
+
+/* Normalise APITxT's data block to the handful of fields we store/show. */
+function apitxt_gst_normalize(array $d, string $g): array {
+  $clean = static function ($v, $n = 120) { return is_string($v) ? mb_substr(trim($v), 0, $n) : ''; };
+  return [
+    'gstin'            => strtoupper($clean($d['gstin'] ?? $g, 15) ?: $g),
+    'active'           => !empty($d['verified']) && strcasecmp((string)($d['status'] ?? ''), 'Active') === 0,
+    'status'           => $clean($d['status'] ?? '', 40) ?: 'Unknown',
+    'legalName'        => $clean($d['legal_name'] ?? $d['legalName'] ?? '', 160),
+    'tradeName'        => $clean($d['trade_name'] ?? $d['tradeName'] ?? '', 160),
+    'businessType'     => $clean($d['business_type'] ?? $d['businessType'] ?? '', 120),
+    'registrationDate' => $clean($d['registration_date'] ?? $d['registrationDate'] ?? '', 20),
+    'address'          => $clean($d['address'] ?? '', 300),
+    'state'            => $clean($d['state'] ?? '', 60),
+    'district'         => $clean($d['district'] ?? '', 60),
+    'pincode'          => $clean($d['pincode'] ?? '', 10),
+  ];
+}
+
+/* One network call to APITxT. Returns one of:
+   ['state'=>'ok',    'info'=>normalized]              verified answer (active or not)
+   ['state'=>'dead',  'reason'=>human note, 'retry'=>bool]  transport/key/balance */
+function apitxt_gst_call(string $g): array {
+  $key = apitxt_key();
+  if (!$key) return ['state' => 'dead', 'reason' => 'GST verification is not configured.', 'retry' => false];
+  if (!function_exists('shivaa_sms_http')) return ['state' => 'dead', 'reason' => 'HTTP support unavailable on the server.', 'retry' => true];
+  // Auth key rides the query string exactly as the APITxT docs show; the
+  // GSTIN has already passed the 15-char checksum regex so it is URL-safe.
+  $url = 'https://apitxt.com/api/gst/' . rawurlencode($g) . '?authkey=' . urlencode($key);
+  [$st, $body, $err] = shivaa_sms_http('GET', $url, ['Accept: application/json'], '');
+  $j = $body !== '' ? json_decode($body, true) : null;
+  if (!is_array($j)) return ['state' => 'dead', 'reason' => 'GST service could not be reached — the shop verifies the number manually at approval.', 'retry' => true];
+  $ok = (($j['status'] ?? '') === 'success' || $j['status'] === 200 || $j['status'] === '200') && isset($j['data']) && is_array($j['data']);
+  if ($ok) return ['state' => 'ok', 'info' => apitxt_gst_normalize($j['data'], $g)];
+  // APITxT error codes: 301 = wallet empty, 304 = bad key / IP not allowed.
+  $code = (string)($j['code'] ?? $j['error_code'] ?? '');
+  $msg  = (string)($j['message'] ?? $j['error'] ?? '');
+  if ($code === '301') return ['state' => 'dead', 'reason' => 'The GST verification wallet is out of credit — the shop will top up and verify manually.', 'retry' => false];
+  if ($code === '304') return ['state' => 'dead', 'reason' => 'GST verification key rejected — the shop verifies manually for now.', 'retry' => false];
+  if ($st === 202 || $code === '202') return ['state' => 'ok', 'info' => ['gstin' => $g, 'active' => false, 'status' => 'Invalid format', 'legalName' => '', 'tradeName' => '', 'businessType' => '', 'registrationDate' => '', 'address' => '', 'state' => '', 'district' => '', 'pincode' => '']];
+  return ['state' => 'dead', 'reason' => $msg !== '' ? ('GST service declined the lookup — ' . mb_substr($msg, 0, 140)) : 'GST service could not be reached — the shop verifies the number manually at approval.', 'retry' => true];
+}
+
+/* Persist ONE cache entry with a fresh locked read-merge-write. This runs
+   just after an unprotected HTTP wait (the GST routes skip the global write
+   lock so a slow upstream can't stall the API), so saving the request's
+   in-memory $db would clobber writes that happened during the wait. */
+function gst_cache_persist(string $DB_FILE, string $g, array $result): void {
+  $h = fopen($DB_FILE . '.lock', 'c');
+  if ($h) flock($h, LOCK_EX);
+  $GLOBALS['__shv_lock'] = $h ?: null;   // stop db_load/db_save opening a second handle
+  $fresh = db_load($DB_FILE);
+  $fresh['gstCache'] = $fresh['gstCache'] ?? [];
+  $fresh['gstCache'][$g] = ['at' => time(), 'result' => $result];
+  if (count($fresh['gstCache']) > 500) {                         // bound the table
+    uasort($fresh['gstCache'], fn($a, $b) => ($a['at'] ?? 0) <=> ($b['at'] ?? 0));
+    $fresh['gstCache'] = array_slice($fresh['gstCache'], -400, null, true);
+  }
+  db_save($DB_FILE, $fresh);
+  $GLOBALS['__shv_lock'] = null;
+  if ($h) { flock($h, LOCK_UN); fclose($h); }
+}
+
+/* Cached live lookup used by both the form's verify button and the
+   application submission. Returns:
+   ['active'=>true,  'info'=>..., 'cached'=>bool]
+   ['active'=>false, 'status'=>..., 'cached'=>bool]
+   ['active'=>null,  'note'=>string]   ← service unreachable / unconfigured */
+function gst_live_lookup(array &$db, string $g, bool $useCache = true): array {
+  $now = time();
+  if ($useCache && isset($db['gstCache'][$g]) && is_array($db['gstCache'][$g])) {
+    $c = $db['gstCache'][$g];
+    $ttl = empty($c['result']['active']) ? 86400 : (30 * 86400);  // 1 day if not active, 30 days if active
+    if (($c['at'] ?? 0) > $now - $ttl) return ['cached' => true] + ($c['result'] ?? []);
+  }
+  $r = apitxt_gst_call($g);
+  if ($r['state'] === 'dead') return ['active' => null, 'note' => $r['reason'], 'retry' => $r['retry'] ?? true, 'cached' => false];
+  $info = $r['info'];
+  $result = $info['active']
+    ? ['active' => true, 'info' => $info]
+    : ['active' => false, 'status' => $info['status'] !== '' ? $info['status'] : 'not registered / not Active'];
+  $db['gstCache'] = $db['gstCache'] ?? [];                        // in-memory, for this request only
+  $db['gstCache'][$g] = ['at' => $now, 'result' => $result];
+  gst_cache_persist($GLOBALS['DB_FILE'], $g, $result);            // locked merge onto disk
+  return ['cached' => false] + $result;
+}
+
 function compute_price(array $p, array $R): array {
   $key = $p['metal'] === 'Silver' ? 'silver' : ('gold' . str_replace('K', '', $p['purity']));
   $rate = (float)$R[$key];
@@ -3187,12 +3303,39 @@ try {
     jout(200, gstin_check((string)(body_json()['gstin'] ?? '')));
   }
   if ($route === 'kyc/gst-lookup' && $method === 'POST') {
+    // 1 APITxT credit per real lookup (cached answers are free) — cap spend
+    // per connection well below wallet-busting volume.
     rate_block($db, 'kycgst-ip', client_ip(), 24, 3600);
     $g = strtoupper(trim((string)(body_json()['gstin'] ?? '')));
     $chk = gstin_check($g);
     if (!$chk['valid']) jout(400, ['error' => $chk['reason']]);
+    /* v87 — APITxT live verification first (same auth key as OTP SMS). */
+    if (apitxt_key()) {
+      $live = gst_live_lookup($db, $g);   // fresh answers self-persist via a locked merge
+      if (($live['active'] ?? null) === true) {
+        $info = $live['info'];
+        jout(200, ['configured' => true, 'live' => true, 'verified' => true, 'gstin' => $g,
+          'legalName' => $info['legalName'] ?: null, 'tradeName' => $info['tradeName'] ?: null,
+          'businessType' => $info['businessType'] ?: null, 'registrationDate' => $info['registrationDate'] ?: null,
+          'gstStatus' => $info['status'], 'address' => $info['address'] ?: null,
+          'state' => $info['state'] ?: $chk['state'], 'district' => $info['district'] ?: null,
+          'pincode' => $info['pincode'] ?: null, 'pan' => $chk['pan'], 'cached' => !empty($live['cached'])]);
+      }
+      if (($live['active'] ?? null) === false) {
+        jout(200, ['configured' => true, 'live' => true, 'verified' => false, 'gstin' => $g,
+          'gstStatus' => $live['status'] ?? 'not Active',
+          'note' => 'This GSTIN is not Active in the GST register (' . ($live['status'] ?? 'unknown') . '). The partnership form needs an Active GSTIN.']);
+      }
+      // APITxT unreachable/out of credit — fall through to any legacy admin
+      // key, then to checksum-only with a manual-review note.
+      $apitxtNote = $live['note'] ?? 'GST service unreachable';
+    }
     $cfg = $db['settings']['gstApi'] ?? [];
-    if (empty($cfg['key'])) jout(200, ['configured' => false, 'note' => 'Add a GST API key in Admin → Settings to auto-verify legal names online']);
+    if (empty($cfg['key'])) {
+      jout(200, ['configured' => apitxt_key() ? true : false, 'live' => false, 'verified' => false, 'offline' => true,
+        'gstin' => $g, 'state' => $chk['state'], 'pan' => $chk['pan'],
+        'note' => $apitxtNote ?? 'Add a GST API key in Admin → Settings to auto-verify legal names online; the shop verifies manually at approval.']);
+    }
     // v82 — SSRF guard: a custom endpoint must be an http(s) URL; file://,
     // gopher:// and internal addresses are never fetched with the API key.
     $gstUrl = (string)($cfg['url'] ?? 'https://api.mastersindia.co/v2/gstin/');
@@ -3207,7 +3350,7 @@ try {
     $j = $raw ? json_decode($raw, true) : null;
     $name = $j['legalName'] ?? $j['taxpayerName'] ?? $j['tradeNam'] ?? ($j['data']['legalName'] ?? ($j['data']['tradeNam'] ?? null));
     if ($name) jout(200, ['configured' => true, 'verified' => true, 'legalName' => trim((string)$name), 'gstin' => $g]);
-    jout(200, ['configured' => true, 'verified' => false, 'note' => 'GST service unreachable — admin will verify manually']);
+    jout(200, ['configured' => true, 'verified' => false, 'note' => $apitxtNote ?? 'GST service unreachable — admin will verify manually']);
   }
   if ($route === 'kyc/send-otp' && $method === 'POST') {
     $b = body_json();
@@ -3256,6 +3399,9 @@ try {
     $c = shivaa_sms_config();
     $mc = shivaa_mail_config();
     jout(200, ['configured' => (bool)$c, 'provider' => $c['provider'] ?? null, 'autofill' => (bool)($c['autofill'] ?? true), 'stats' => $db['sms'] ?? null,
+               // v87 — the APITxT key doubles as the GST verification key
+               'gst' => ['ready' => apitxt_key() !== null, 'provider' => 'apitxt',
+                         'cached' => count($db['gstCache'] ?? [])],
                'email' => ['channel' => (bool)$c ? 'sms' : 'email', 'from' => $mc['from'], 'file' => is_file(__DIR__ . '/data/mail-config.json'),
                            'stats' => $db['mail'] ?? null]]);
   }
@@ -3537,8 +3683,22 @@ try {
     $otpOk = false;
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $applyPhone && ($o['purpose'] ?? 'login') !== 'reset' && !empty($o['verified']) && empty($o['consumedByLogin']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
-    $gst = gstin_check((string)$b['gstin'] ?? '');
+    $gstRaw = strtoupper(trim((string)($b['gstin'] ?? '')));
+    $gst = gstin_check($gstRaw);
     if (!$gst['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $gst['reason']]);
+    // v87 — authoritative live re-check (the form verified first, so this is
+    // normally a cache hit and spends no extra credit). A number the GST
+    // register says is not Active can never become a partner application;
+    // if the verification service is down, fall through to manual approval
+    // (applications stay 'pending' until the shop approves anyway).
+    $gstLive = gst_live_lookup($db, $gstRaw);
+    if (($gstLive['active'] ?? null) === false) {
+      jout(400, ['error' => 'This GSTIN is ' . ($gstLive['status'] ?? 'not Active') . ' in the GST register — an Active GSTIN is required for partnership.']);
+    }
+    // A cache miss waited on an external HTTP call without the global write
+    // lock — restart from disk so concurrent saves during that wait survive.
+    if (empty($gstLive['cached'])) $db = db_load($DB_FILE);
+    $gstInfo = ($gstLive['active'] ?? null) === true ? ($gstLive['info'] ?? null) : null;
     foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower((string)$b['email'])) jout(409, ['error' => 'Email already registered — login instead']);
     // v83 — one account per mobile: a second user on the same number would
     // split OTP logins (the login door finds only the first match).
@@ -3546,12 +3706,25 @@ try {
       jout(409, ['error' => 'This mobile is already registered — sign in and ask the shop to upgrade your account to a jeweller partner.']);
     // v83 — one application per GSTIN (a rejected firm must not re-apply silently)
     foreach (($db['partners'] ?? []) as $pExist) {
-      if (strtoupper((string)($pExist['kyc']['gstin'] ?? '')) === strtoupper((string)$b['gstin']))
+      if (strtoupper((string)($pExist['kyc']['gstin'] ?? '')) === $gstRaw)
         jout(409, ['error' => 'An application already exists for this GSTIN.']);
+    }
+    $kycRec = ['gstin' => $gstRaw, 'gstinValid' => true, 'gstinState' => $gst['state'],
+      'pan' => $gst['pan'], 'ownerPan' => strtoupper((string)($b['ownerPan'] ?? '')),
+      'otpVerified' => true, 'at' => now_iso()];
+    if ($gstInfo) {   // v87 — government-record snapshot captured at application time
+      $kycRec += [
+        'gstinLiveVerified' => true, 'gstStatus' => $gstInfo['status'],
+        'legalName' => $gstInfo['legalName'], 'tradeName' => $gstInfo['tradeName'],
+        'businessType' => $gstInfo['businessType'], 'registrationDate' => $gstInfo['registrationDate'],
+        'gstAddress' => $gstInfo['address'], 'gstDistrict' => $gstInfo['district'],
+        'gstPincode' => $gstInfo['pincode'], 'gstVerifiedAt' => now_iso()];
+    } else {
+      $kycRec['gstinLiveVerified'] = false;   // checksum passed; live service was unreachable → manual review
     }
     $pr = ['id' => uid('pt'), 'firm' => mb_substr(trim((string)$b['firm']), 0, 120), 'contactPerson' => mb_substr(trim((string)($b['contactPerson'] ?? '')), 0, 80), 'city' => mb_substr(trim((string)($b['city'] ?? $gst['state'])), 0, 60),
            'phone' => substr(preg_replace('/\D/', '', (string)$b['phone']), -12), 'email' => strtolower((string)$b['email']),
-           'kyc' => ['gstin' => strtoupper((string)$b['gstin']), 'gstinValid' => true, 'gstinState' => $gst['state'], 'pan' => $gst['pan'], 'ownerPan' => strtoupper((string)($b['ownerPan'] ?? '')), 'otpVerified' => true, 'at' => now_iso()],
+           'kyc' => $kycRec,
            'message' => mb_substr(trim((string)($b['message'] ?? '')), 0, 500), 'status' => 'pending', 'appliedAt' => now_iso()];
     $db['partners'][] = $pr;
     $u = ['id' => uid('u'), 'name' => $pr['firm'], 'email' => $pr['email'], 'phone' => $pr['phone'],

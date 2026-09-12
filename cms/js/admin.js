@@ -506,8 +506,11 @@ async function renderAdmin(view, q) {
         <div class="adm-table-wrap"><table class="adm-table">
           <thead><tr><th>Firm</th><th>KYC</th><th>City</th><th>Phone / Email</th><th>Applied</th><th>Status</th><th></th></tr></thead>
           <tbody>${P.map(p => `<tr>
-            <td><b>${esc(p.firm)}</b>${p.kyc ? `<br><small style="color:var(--ink-3)">${esc(p.kyc.gstin)}</small>` : ''}</td>
-            <td>${p.kyc ? `<span class="pill pm">GST ✓</span><br><span class="pill pm" style="margin-top:4px">OTP ✓</span>` : '<span class="pill pf">no kyc</span>'}</td>
+            <td><b>${esc(p.firm)}</b>${p.kyc ? `<br><small style="color:var(--ink-3)">${esc(p.kyc.gstin)}</small>${p.kyc.legalName ? `<br><small style="color:var(--ink-3)">Reg: ${esc(p.kyc.legalName)}</small>` : ''}` : ''}</td>
+            <td>${p.kyc ? (p.kyc.gstinLiveVerified
+                ? `<span class="pill pm" title="${esc('GST register: ' + (p.kyc.gstStatus || 'Active') + (p.kyc.businessType ? ' · ' + p.kyc.businessType : ''))}">GST ✓ live</span><br><span class="pill pm" style="margin-top:4px">OTP ✓</span>`
+                : `<span class="pill" style="background:#fff3cd;color:#7a5c00" title="Checksum valid; government register could not be reached — verify before approving">GST ? check</span><br><span class="pill pm" style="margin-top:4px">OTP ✓</span>`)
+                : '<span class="pill pf">no kyc</span>'}</td>
             <td>${esc(p.contactPerson || '—')}</td><td>${esc(p.city || '—')}</td>
             <td>${esc(p.phone)}<br><small style="color:var(--ink-3)">${esc(p.email)}</small></td>
             <td>${new Date(p.appliedAt).toLocaleDateString('en-IN')}</td>
@@ -746,7 +749,7 @@ async function renderAdmin(view, q) {
         <div class="fld"><label>Shipping fee ₹</label><input name="shippingFee" type="number" value="${S.shippingFee}"></div>
         <div class="fld"><label>Jaipur gold premium ₹/g</label><input name="jaipurPremium" type="number" value="${S.jaipurPremium ?? 55}"></div>
         <div class="fld"><label>Jaipur silver premium ₹/g</label><input name="jaipurSilverPremium" type="number" step="0.5" value="${S.jaipurSilverPremium ?? 3}"></div>
-        <div class="fld full"><label>GST verification API key (auto-fills firm names in B2B KYC)</label><input name="gstKey" placeholder="paste key from your GST API provider — blank = verify manually at approval"></div>
+        <div class="fld full"><label>GST verification API key (optional)</label><input name="gstKey" placeholder="leave blank — the APITxT SMS key already verifies GST automatically; use only for a different provider"></div>
         <div class="fld"><label>Bhai Dooj draw — live stream URL (YouTube/Instagram)</label><input name="drawStreamUrl" value="${esc(S.drawStreamUrl || '')}" placeholder="https://youtube.com/live/…"></div>
         <div class="fld"><label>Winner announcement note (shown after the draw)</label><input name="winnerNote" value="${esc(S.winnerNote || '')}" placeholder="Winner: …, verified by CA …"></div>
         <div class="fld"><label>Tier premium ₹/g — Silver</label><input name="tierSilver" type="number" value="${S.tierSilver ?? 0}"></div>
@@ -830,6 +833,7 @@ window.ShivaaAdmin.smsCard = async () => {
     const st = s.stats || {}, live = !!s.configured;
     card.innerHTML = `
       <div class="sum-row"><span>Mode</span><b style="color:${live ? '#1a7f37' : '#b45309'}">${live ? '● LIVE — real SMS via ' + esc(String(s.provider).toUpperCase()) : '● EMAIL — codes are emailed to the account address'}</b></div>
+      ${s.gst ? `<div class="sum-row"><span>GST verification</span><b style="color:${s.gst.ready ? '#1a7f37' : '#b45309'}">${s.gst.ready ? '● LIVE — ' + esc(String(s.gst.provider).toUpperCase()) + ' reuses this key' + (s.gst.cached ? ' · ' + s.gst.cached + ' cached' : '') : '● not available — checked manually at approval'}</b></div>` : ''}
       <div class="sum-row"><span>Email channel</span><b>${esc(String((s.email && s.email.from) || 'no-reply@your-domain'))}${s.email && s.email.file ? ' · data/mail-config.json' : ' · default settings'}</b></div>
       ${s.email && s.email.stats ? `<div class="sum-row"><span>Emails</span><b>${s.email.stats.ok}/${s.email.stats.sent} accepted${s.email.stats.lastErr ? ' · last error below' : ''}</b></div>` : ''}
       ${s.email && s.email.stats && s.email.stats.lastErr ? `<div class="sum-row"><span>Email error</span><b style="color:#b42318;font-size:12px">${esc(s.email.stats.lastErr)}</b></div>` : ''}
