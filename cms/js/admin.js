@@ -2100,15 +2100,14 @@ window.ShivaaBullion = {
   },
   num(v) { return (Math.round(v) || 0).toLocaleString('en-IN'); },
   dash(v) { return v ? this.num(v) : '--'; },
-  chgTxt(c, nowDisp) {
-    const disp = Math.round(c);
+  /* v79 — Pride-style bracket: plain [382] / [--], no percent clutter */
+  chgBracket(c) {
+    const disp = Math.round(c || 0);
     if (!disp) return '<span class="bd-flat">[--]</span>';
-    const base = (nowDisp || 0) - disp;
-    const pct = base > 0 ? (Math.abs(disp) / base * 100) : 0;
-    const pTxt = pct ? `<small class="bd-pct">${pct >= 9.9 ? pct.toFixed(0) : pct.toFixed(2)}%</small>` : '';
-    return disp > 0 ? `<span class="bd-up">[+${disp.toLocaleString('en-IN')}]</span>${pTxt}`
-                    : `<span class="bd-down">[${disp.toLocaleString('en-IN')}]</span>${pTxt}`;
+    const cls = disp > 0 ? 'bd-up' : 'bd-down';
+    return `<span class="${cls}">[${Math.abs(disp).toLocaleString('en-IN')}]</span>`;
   },
+  chgTxt(c, nowDisp) { return this.chgBracket(c); },
   /* v61 — Laxmi-style summary hero for the two headline rates */
   summaryHTML(B) {
     /* v64 — headline the physical 9999 refined-bar RTGS rate when the desk has it */
@@ -2160,30 +2159,41 @@ window.ShivaaBullion = {
     const feedBadge = bd.feedSource === 'live-mcx' && bd.mcx
       ? `<span class="bd-feed bd-feed-mcx" id="bdFeedBadge" data-gsym="${esc(bd.mcx.goldSymbol || 'GOLD')}" data-ssym="${esc(bd.mcx.silverSymbol || 'SILVER')}" title="Official MCX futures via Angel One SmartAPI — ${esc(bd.mcx.goldSymbol || 'GOLD')} / ${esc(bd.mcx.silverSymbol || 'SILVER')}${bd.mcx.autoTokens ? ' (near-month auto-selected)' : ''}">📡 <span data-badge="txt">${/^GOLD/i.test(bd.mcx.goldSymbol || '') ? esc(String(bd.mcx.goldSymbol).replace(/^GOLD/i, 'GOLD ')) : 'MCX'} LIVE · ₹${Number(bd.mcx.goldLtp).toLocaleString('en-IN')}/10g · ₹${Number(bd.mcx.silverLtp).toLocaleString('en-IN')}/kg</span></span>`
       : `<span class="bd-feed" title="International LBMA spot × USD/INR">🌐 SPOT FX</span>`;
-    const tab = (id, ic, lb) => `<a href="#" data-sec="${id}" class="${this.section === id ? 'on' : ''}">${ic}<span>${lb}</span>${id === 'alerts' && (B.alerts || []).length ? `<em class="bd-navcnt">${B.alerts.length}</em>` : ''}</a>`;
+    /* v79 — 5-slot Pride-style nav (Liverate · Deals · center refresh ·
+       History · Menu); alerts & news now live inside Menu */
+    const alertCnt = (B.alerts || []).length;
+    const navOn = (...ids) => ids.includes(this.section) ? 'on' : '';
     el.innerHTML = `
-      <div class="bd-topbar">
+      <div class="bd-topbar bd-topbar-v79">
         <img src="/images/logo.png" alt="Shivaa">
-        <div class="bd-title"><b>SHIVAA BULLION DESK</b><small>TDS · refined · spot · MCX &mdash; for approved jewellers</small>${feedBadge}</div>
-        <span class="bd-live"><span class="live-dot" data-heart></span><span data-clock-state>LIVE</span><br><b data-clock>${esc(B.date || '')} ${bd.time || ''}</b><small data-tickstate class="bd-tickstate">connecting…</small></span>
+        <b class="bd-brand">SHIVAA BULLION DESK</b>
+        <span class="bd-live v79"><span class="live-dot" data-heart></span><span data-clock-state>LIVE</span>
+          <b data-clock>${esc(B.date || '')} ${bd.time || ''}</b></span>
+        <small class="bd-tickstate" data-tickstate>connecting…</small>
+        ${feedBadge}
       </div>
       <div class="bd-marquee"><div class="bd-marq-in">★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} &nbsp;&nbsp;&nbsp;★ ${esc(ticker)} </div></div>
       <div id="bdSection" class="bd-section"></div>
       <a class="bd-call-fab" href="${window.Shivaa.waLink('Namaste Shivaa bullion desk ✦ I want an unfix / firm quote.')}" target="_blank" rel="noopener" title="Call the bullion desk">📞</a>
-      <nav class="bd-tabs">
-        ${tab('rates', '▦', 'Rates')}
-        ${tab('deals', '🤝', 'Deals')}
-        ${tab('history', '📈', 'History')}
-        ${tab('alerts', '🔔', 'Alerts')}
-        ${tab('news', '📰', 'News')}
-        ${tab('menu', '▤', 'Menu')}
+      <nav class="bd-tabs bd-tabs-v79">
+        <a href="#" data-sec="rates" class="${navOn('rates')}"><i class="bd-ic">📈</i><span>Liverate</span></a>
+        <a href="#" data-sec="deals" class="${navOn('deals')}"><i class="bd-ic">🤝</i><span>Deals</span></a>
+        <button type="button" class="bd-centerbtn" id="bdCenterBtn" title="Refresh rates" aria-label="Refresh rates">▾</button>
+        <a href="#" data-sec="history" class="${navOn('history')}"><i class="bd-ic">🕘</i><span>History</span></a>
+        <a href="#" data-sec="menu" class="${navOn('menu', 'alerts', 'news')}"><i class="bd-ic">▦</i><span>Menu${alertCnt ? `<em class="bd-navcnt">${alertCnt}</em>` : ''}</span></a>
       </nav>`;
     el.querySelectorAll('.bd-tabs a').forEach(a => a.onclick = e => {
       e.preventDefault();
-      if (a.dataset.sec === 'menu') { location.hash = '#/partner'; return; }
       this.section = a.dataset.sec;
       this.renderShell(B); this.renderSection();
+      document.getElementById('bullionBoard')?.scrollIntoView({ block: 'start' });
     });
+    const center = document.getElementById('bdCenterBtn');
+    if (center) center.onclick = () => {
+      center.classList.add('spin'); setTimeout(() => center.classList.remove('spin'), 700);
+      this.refresh(true);
+      window.Shivaa.toast('✦ Rates refreshed');
+    };
   },
 
   /* ───────── sparkline (pure SVG, no libraries) ───────── */
@@ -2232,7 +2242,7 @@ window.ShivaaBullion = {
         setTimeout(() => el.classList.remove('bd-flash-up', 'bd-flash-down'), 600);
       }
     };
-    const usdFmt = (v, d) => v ? '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
+    const usdFmt = (v, d) => v ? Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
     const inrFmt = v => v ? Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--';
     const chip = p => (!p && p !== 0) ? '' : `<em class="bd-pctchip ${p >= 0 ? 'bd-hitxt' : 'bd-lowtxt'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p).toFixed(2)}%</em>`;
     const leg = (tag, l, d, fmt) => {
@@ -2246,7 +2256,7 @@ window.ShivaaBullion = {
       if (sr && l.src) sr.textContent = l.src + ' · live';
     };
     leg('g', sp.gold, 2, usdFmt);
-    leg('s', sp.silver, 3, usdFmt);
+    leg('s', sp.silver, 2, usdFmt);
     leg('i', sp.inr, 2, v => inrFmt(v));
     if (sp.ratio) { const r = document.querySelector('[data-ratio]'); if (r) r.textContent = Number(sp.ratio).toFixed(1); }
     const xp = document.querySelector('[data-xauperg]'), spg = document.querySelector('[data-xagperg]');
@@ -2312,7 +2322,7 @@ window.ShivaaBullion = {
   renderSection() {
     const host = document.getElementById('bdSection');
     if (!host) return;
-    ({ rates: this.secRates, deals: this.secDeals, history: this.secHistory, alerts: this.secAlerts, news: this.secNews }[this.section] || this.secRates).call(this, host);
+    ({ rates: this.secRates, deals: this.secDeals, history: this.secHistory, alerts: this.secAlerts, news: this.secNews, menu: this.secMenu }[this.section] || this.secRates).call(this, host);
   },
 
   secNews(host) {
@@ -2331,127 +2341,104 @@ window.ShivaaBullion = {
       </div>`;
   },
 
+  secMenu(host) {
+    const B = this.B || {};
+    const alertCnt = (B.alerts || []).length;
+    const item = (ic, label, sub, act, badge) => `<button type="button" class="bd-menu-it" onclick='${act}'>
+      <i class="bd-menu-ic">${ic}</i><span><b>${label}${badge ? `<em class="bd-navcnt">${badge}</em>` : ''}</b><small>${sub}</small></span><i class="bd-menu-go">›</i></button>`;
+    const wa = window.Shivaa.waLink('Namaste Shivaa bullion desk ✦ I want an unfix / firm quote.');
+    host.innerHTML = `<h4 class="bd-sech">Menu</h4><div class="bd-menu">
+      ${item('🔔', 'Rate alerts', 'Ping when a quote crosses your target', "ShivaaBullion.menuGo('alerts')", alertCnt)}
+      ${item('🔒', 'Request UNFIX', 'Rate-lock for a planned purchase', "ShivaaBullion.alertForm({kind:'unfix'})")}
+      ${item('📰', 'Bullion news', 'Live MCX / bullion headlines', "ShivaaBullion.menuGo('news')")}
+      ${item('📞', 'Call &amp; book', 'Talk to the Shivaa bullion desk', "window.open('tel:+918905005921','_self')")}
+      ${item('💬', 'WhatsApp desk', 'Confirm deals and unfix on WhatsApp', `window.open(${JSON.stringify(wa)},'_blank','noopener')`)}
+      ${item('◈', 'Partner dashboard', 'Back to your partner portal', "location.hash='#/partner'")}
+    </div>
+    <p class="bd-note" style="text-align:center">Official MCX push via Angel SmartAPI, international spot in USD. Rates per <b>10 g</b> gold / <b>kg</b> silver. If the push relay is ever offline the board falls back to polling automatically.</p>`;
+  },
+  menuGo(sec) { this.section = sec; this.renderShell(this.B); this.renderSection(); },
+
+  /* v79 — Pride-style simple live board: plain white quotes, L (red) /
+     H (green), bracketed T-change, spot strip, future strip, duty strip.
+     All live data hooks (data-pill / data-lo / data-hi / data-chg /
+     data-fut / data-spot / data-duty) are preserved for push ticks. */
   secRates(host) {
     const B = this.B, bd = B.board || {};
     const isSil = r => this.isSil(r);
     const sc = r => this.sc(r);
-    const cell = (r, side) => {
+    const numCell = (r, side) => {
       const raw = r[side], v = raw ? Math.round(raw * sc(r)) : 0;
-      const cls = side === 'buy' ? 'bd-buy' : 'bd-sell';
-      const quote = JSON.stringify({ key: r.key, label: r.label, mode: r.mode, side, rate: raw, purity: r.purity });
       const fk = r.key + '-' + side;
       let flash = '';
       if (this.prevVals && this.prevVals[fk] != null && v && this.prevVals[fk] !== v) flash = v > this.prevVals[fk] ? ' bd-flash-up' : ' bd-flash-down';
       if (this.prevVals || (this.prevVals = {})) this.prevVals[fk] = v;
+      const quote = JSON.stringify({ key: r.key, label: r.label, mode: r.mode, side, rate: raw, purity: r.purity });
+      const bandSide = side === 'buy' ? 'lo' : 'hi';
+      const band = v ? (side === 'buy' ? r.low : r.high) : 0;
+      const bandTxt = band ? this.num(Math.round(band * sc(r))) : '--';
       return `<div class="bd-cell">
-        <button class="bd-pill ${cls}${flash}" data-pill="${r.key}:${side}" ${v ? `onclick='ShivaaBullion.orderForm(${quote})'` : 'disabled'}>${v ? this.num(v) : '--'}</button>
-        <small class="bd-lh">${side === 'buy' ? 'L' : 'H'}: <span data-${side === 'buy' ? 'lo' : 'hi'}="${r.key}" class="${side === 'buy' ? 'bd-lowtxt' : 'bd-hitxt'}">${v && (side === 'buy' ? r.low : r.high) ? this.num(Math.round((r[side === 'buy' ? 'low' : 'high'] || raw) * sc(r))) : '--'}</span></small>
+        <button class="bd-num${flash}" data-pill="${r.key}:${side}" ${v ? `onclick='ShivaaBullion.orderForm(${quote})'` : 'disabled'}>${v ? this.num(v) : '--'}</button>
+        <small class="bd-band ${side === 'buy' ? 'bd-lowtxt' : 'bd-hitxt'}">${side === 'buy' ? 'L' : 'H'} : <span data-${bandSide}="${r.key}">${bandTxt}</span></small>
       </div>`;
     };
-    const seriesChips = [['liveG', '● LIVE GOLD'], ['liveS', '● LIVE SILVER'], ['gold995', 'TDS Gold 995'], ['silverChorsa', 'TDS Silver'], ['goldSpot', 'Gold Spot'], ['silverSpot', 'Silver Spot']];
-    const rows = B.rows.map(r => {
-      const chKey = isSil(r) ? 'silverChorsa' : 'gold995';
-      return `
+    /* Pride layout order; 9999 stays an optional Shivaa row right under 995 */
+    const order = ['tdsGold995', 'tdsGold9999', 'silverChorsa', 'silverPeti', 'goldIndian',
+      'goldRef9930', 'silverKachcha', 'silverPetiBulk', 'silverGrn999', 'goldImport995'];
+    const rows = B.rows.slice().sort((a, b) => {
+      const ia = order.indexOf(a.key), ib = order.indexOf(b.key);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    }).map(r => `
       <div class="bd-row ${r.mode.toLowerCase()}">
         <div class="bd-desc">
           <b>${esc(r.label)}</b>
-          <small>${esc(r.purity)}${r.editable ? ' · Shivaa set' : ''}</small>
-          <em class="bd-time">Time: ${bd.time || ''}</em>
-          <span class="bd-bell" title="Rate alert / unfix" onclick='ShivaaBullion.alertForm(${JSON.stringify({ key: r.key, label: r.label })})'>🔔</span>
+          <small>${esc(r.purity)}${r.mode === 'CASH' ? ' <em class="bd-nfp">(NFP)</em>' : ''}</small>
+          <em class="bd-time">Time: ${esc(bd.time || '')}</em>
         </div>
-        ${cell(r, 'buy')}
-        ${cell(r, 'sell')}
-        <div class="bd-chg" data-chg="${r.key}">${this.chgTxt((r.change || 0) * sc(r), Math.round((r.buy || 0) * sc(r)))}</div>
-      </div>`;
-    }).join('');
+        ${numCell(r, 'buy')}
+        ${numCell(r, 'sell')}
+        <div class="bd-chg" data-chg="${r.key}">${this.chgBracket(r.mode === 'CASH' ? 0 : (r.change || 0) * sc(r))}</div>
+      </div>`).join('');
     const spot = bd.spot || {}, fut = bd.future || {}, duty = bd.duty || {};
-    /* v68 — international spot cards show DOLLARS with the exchange day band */
-    const usd = (v, d = 2) => v ? '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
+    const usd = (v, d = 2) => v ? Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
     const fx = (v, d = 2) => v ? Number(v).toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d }) : '--';
-    const pctChip = p => (p === 0 || p === null || p === undefined || p === '') ? ''
-      : `<em class="bd-pctchip ${p >= 0 ? 'bd-hitxt' : 'bd-lowtxt'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p).toFixed(2)}%</em>`;
-    const usdCard = (tag, title, val, lo, hi, d = 2, pct, src) => `<div class="bd-card bd-card-spot">
-      <div class="bd-card-h">${title}${/impl/i.test(src || '') ? ' <small title="Derived from the MCX future because international feeds were unreachable">~impl</small>' : ''}</div>
-      <div class="bd-card-v"><span data-spot="${tag}V">${usd(val, d)}</span><span data-spot="${tag}Pct"> ${pctChip(pct)}</span></div>
-      <div class="bd-lhline"><span class="bd-lowtxt">L: <span data-spot="${tag}Lo">${lo ? usd(lo, d) : '--'}</span></span> <i>|</i> <span class="bd-hitxt">H: <span data-spot="${tag}Hi">${hi ? usd(hi, d) : '--'}</span></span></div>
-      <small class="bd-spotsrc" data-spot="${tag}Src">${esc(src || '')}</small></div>`;
-    const fxCard = (tag, title, val, lo, hi, pct, src) => `<div class="bd-card bd-card-spot">
-      <div class="bd-card-h">${title}</div>
-      <div class="bd-card-v"><span data-spot="${tag}V">${fx(val)}</span><span data-spot="${tag}Pct"> ${pctChip(pct)}</span></div>
-      <div class="bd-lhline">${lo ? `<span class="bd-lowtxt">L: <span data-spot="${tag}Lo">${fx(lo)}</span></span> <i>|</i> <span class="bd-hitxt">H: <span data-spot="${tag}Hi">${fx(hi)}</span></span>` : '<span>live USD/INR</span>'}</div>
-      <small class="bd-spotsrc" data-spot="${tag}Src">${esc(src || '')}</small></div>`;
-    const card3 = (title, val, lo, hi) => `<div class="bd-card">
-      <div class="bd-card-h">${title}</div><div class="bd-card-v">${this.num(val)}</div>
-      <div class="bd-lhline"><span>${this.num(lo)}</span> <i>|</i> <span>${this.num(hi)}</span></div></div>`;
-    /* v68 — real exchange BID/ASK, official day L/H and day change vs prev close */
-    const chgLine = (c, p, tag) => {
-      if (!c) return '';
-      const up = c >= 0;
-      return `<div class="bd-lhline"${tag ? ` data-futchg="${tag}"` : ''}><span class="${up ? 'bd-hitxt' : 'bd-lowtxt'}">${up ? '▲' : '▼'} ${this.num(Math.abs(c))}${p ? ' (' + Math.abs(p).toFixed(2) + '%)' : ''}</span></div>`;
-    };
-    const compactQty = v => {
-      v = +v || 0;
-      if (v >= 1e7) return (v / 1e7).toFixed(2).replace(/\.00$/, '') + 'Cr';
-      if (v >= 1e5) return (v / 1e5).toFixed(2).replace(/\.00$/, '') + 'L';
-      if (v >= 1e3) return (v / 1e3).toFixed(1).replace(/\.0$/, '') + 'k';
-      return this.num(v);
-    };
-    const futCard = (tag, title, f, lo, hi, c, p, real, st) => `<div class="bd-card bd-card-fut">
-      <div class="bd-card-h">${title}${real ? ' <small>MCX</small>' : ''}</div>
-      <div class="bd-ba"><div><small>BID</small><span class="bd-bid" data-fut="${tag}Bid">${this.dash(f && f.bid)}</span></div><div><small>ASK</small><span class="bd-ask" data-fut="${tag}Ask">${this.dash(f && f.ask)}</span></div></div>
-      <div class="bd-lhline"><span class="bd-lowtxt" data-fut="${tag}Lo">L: ${this.num(lo)}</span> <i>|</i> <span class="bd-hitxt" data-fut="${tag}Hi">H: ${this.num(hi)}</span></div>
-      ${chgLine(c, p, tag + 'Chg')}
-      <div class="bd-stats" data-fut="${tag}Stats">${st && st.atp ? `<small>ATP ${this.num(st.atp)}</small>` : ''}${st && st.oi ? `<small>OI ${compactQty(st.oi)}</small>` : ''}${st && st.vol ? `<small>VOL ${compactQty(st.vol)}</small>` : ''}</div>
-      ${st && st.feedTime ? `<small class="bd-feedtime" data-fut="${tag}FT">${this.istTime(st.feedTime)}</small>` : '<small class="bd-feedtime" data-fut="' + tag + 'FT"></small>'}</div>`;
-    const dutyCard = (tag, title, val, parity) => `<div class="bd-card">
-      <div class="bd-card-h">${title}</div><div class="bd-card-v" data-duty="${tag}V">${this.num(val)}</div>
-      <div class="bd-lhline"><span>parity <span data-duty="${tag}P">${this.num(parity)}</span></span></div></div>`;
-    host.innerHTML = `
-      ${this.summaryHTML(B)}
-      ${this.karatHTML(B)}
-      <div class="bd-chartcard">
-        <div class="bd-chart-head">
-          <div class="bd-chips">${seriesChips.map(([k, l]) => `<button class="bd-chip ${this.chartSeries === k ? 'on' : ''}" data-series="${k}">${l}</button>`).join('')}</div>
-          <button class="bd-unfix" onclick='ShivaaBullion.alertForm({kind:"unfix"})'>🔒 Request UNFIX</button>
-        </div>
-        <div id="bdChart">${(this.chartSeries === 'liveG' || this.chartSeries === 'liveS') ? this.liveSpark(this.chartSeries === 'liveG' ? 'g' : 's') : this.sparkline(this.chartSeries)}</div>
+    const spotCard = (tag, title, val, lo, hi, fmt) => `<div class="bd-card bd-pcard">
+      <div class="bd-pcard-h">${title}</div>
+      <b class="bd-pcard-v" data-spot="${tag}V">${fmt(val)}</b>
+      <div class="bd-pcard-lh"><span class="bd-lowtxt" data-spot="${tag}Lo">${lo ? fmt(lo) : '--'}</span><i>|</i><span class="bd-hitxt" data-spot="${tag}Hi">${hi ? fmt(hi) : '--'}</span></div>
+    </div>`;
+    const futCard = (tag, title, f, lo, hi, unit) => `<div class="bd-card bd-pcard">
+      <div class="bd-pcard-h">${title}</div>
+      <div class="bd-fba">
+        <div><small>BID</small><b data-fut="${tag}Bid">${this.dash(f && f.bid)}</b></div>
+        <div><small>ASK</small><b data-fut="${tag}Ask">${this.dash(f && f.ask)}</b></div>
       </div>
+      <div class="bd-pcard-lh"><span class="bd-lowtxt" data-fut="${tag}Lo">L : ${this.num(lo)}</span><i>|</i><span class="bd-hitxt" data-fut="${tag}Hi">H : ${this.num(hi)}</span></div>
+      <small class="bd-futunit">${unit}</small>
+    </div>`;
+    const dutyCard = (tag, title, unit) => `<div class="bd-card bd-pcard">
+      <div class="bd-pcard-h">${title}</div>
+      <b class="bd-duty-v" data-duty="${tag}V">${this.num((duty || {})[tag === 'g' ? 'gold' : 'silver'])}</b>
+      <small class="bd-futunit">${unit}</small>
+    </div>`;
+    host.innerHTML = `
       <div class="bd-gridhead">
-        <span>DESCRIPTION</span><span class="bd-c-buy">BUY</span><span class="bd-c-sell">SELL</span><span>T-CHANGE</span>
+        <span>DESCRIPTION</span><span>BUY</span><span>SELL</span><span>T-CHANGE</span>
       </div>
       <div class="bd-rows">${rows}</div>
-      <div class="bd-spots">
-        ${usdCard('g', 'GOLD SPOT <small>$/oz LBMA</small>', spot.goldUsd, spot.goldUsdLow, spot.goldUsdHigh, 2, spot.goldUsdPct, spot.goldSrc || spot.kind)}
-        ${usdCard('s', 'SILVER SPOT <small>$/oz LBMA</small>', spot.silverUsd, spot.silverUsdLow, spot.silverUsdHigh, 3, spot.silverUsdPct, spot.silverSrc || spot.kind)}
-        ${fxCard('i', 'INR SPOT <small>USD/INR</small>', spot.inr, spot.inrLow, spot.inrHigh, spot.inrPct, spot.inrSrc || spot.kind)}
+      <div class="bd-pgrid bd-pgrid-3">
+        ${spotCard('g', 'GOLD SPOT', spot.goldUsd, spot.goldUsdLow, spot.goldUsdHigh, v => usd(v, 2))}
+        ${spotCard('s', 'SILVER SPOT', spot.silverUsd, spot.silverUsdLow, spot.silverUsdHigh, v => usd(v, 2))}
+        ${spotCard('i', 'INR SPOT', spot.inr, spot.inrLow, spot.inrHigh, v => fx(v))}
       </div>
-      <div class="bd-macrorow">
-        <span class="bd-ratio">AU/AG RATIO <b data-ratio>${spot.ratio ? Number(spot.ratio).toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '--'}</b></span>
-        <span class="bd-ratio">$ / GRAM <b data-xauperg>—</b></span>
-        <span class="bd-ratio">$ / GRAM AG <b data-xagperg>—</b></span>
+      <div class="bd-pgrid bd-pgrid-2">
+        ${futCard('g', 'GOLD FUTURE', fut.gold, fut.goldLow, fut.goldHigh, '/10 g · MCX')}
+        ${futCard('s', 'SILVER FUTURE', fut.silver, fut.silverLow, fut.silverHigh, '/kg · MCX')}
       </div>
-      <div class="bd-spots bd-fut">
-        ${futCard('g', 'GOLD FUTURE <small>/10 g</small>', fut.gold, fut.goldLow, fut.goldHigh, fut.goldChg, fut.goldChgPct, fut.real, { atp: fut.goldAtp, oi: fut.goldOi, vol: fut.goldVol, feedTime: fut.goldFeedTime })}
-        ${futCard('s', 'SILVER FUTURE <small>/kg</small>', fut.silver, fut.silverLow, fut.silverHigh, fut.silverChg, fut.silverChgPct, fut.real, { atp: fut.silverAtp, oi: fut.silverOi, vol: fut.silverVol, feedTime: fut.silverFeedTime })}
-      </div>
-      <div class="bd-spots bd-duty">
-        ${dutyCard('g', 'GOLD CUSTOM DUTY <small>₹/100 g</small>', duty.gold, duty.goldParity)}
-        ${dutyCard('s', 'SILVER CUSTOM DUTY <small>₹/kg</small>', duty.silver, duty.silverParity)}
-      </div>
-      <div class="bd-bookbar">
-        <a class="btn btn-gold btn-sm" href="tel:+918905005921">📞 Call &amp; book at this rate</a>
-        <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${window.Shivaa.waLink('Namaste Shivaa bullion desk ✦ I want to book at the rates shown now — Gold 995 ₹' + (B.rows.find(r => r.key === 'tdsGold995')?.buy || 0) + '/g, Silver Chorsa ₹' + (B.rows.find(r => r.key === 'silverChorsa')?.buy || 0) + '/g. Please confirm.')}">💬 WhatsApp desk</a>
-      </div>
-      <p class="bd-note">RTGS rows follow the live bullion feed (green = firm buying quote, red = firm selling quote). TDS 995 &amp; refined silver settle on the unfix rate of your call &mdash; tap a quote to trade, the 🔔 to set a rate alert, or <b>Request UNFIX</b> for a rate-lock. The desk confirms every deal on WhatsApp. Rates per <b>10 g</b> (gold) and per <b>kg</b> (silver).</p>`;
-    host.querySelectorAll('.bd-chip').forEach(c => c.onclick = () => {
-      this.chartSeries = c.dataset.series;
-      this.paintChart();
-      host.querySelectorAll('.bd-chip').forEach(x => x.classList.toggle('on', x === c));
-    });
-    const i = bd.intl || {};
-    const xp = host.querySelector('[data-xauperg]'), sp = host.querySelector('[data-xagperg]');
-    if (xp) xp.textContent = i.xauUsdPerG ? '$' + Number(i.xauUsdPerG).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--';
-    if (sp) sp.textContent = i.xagUsdPerG ? '$' + Number(i.xagUsdPerG).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--';
+      <div class="bd-pgrid bd-pgrid-2">
+        ${dutyCard('g', 'GOLD CUSTOM DUTY', 'landed ₹/100 g')}
+        ${dutyCard('s', 'SILVER CUSTOM DUTY', 'landed ₹/kg')}
+      </div>`;
   },
   paintChart() {
     const el = document.getElementById('bdChart');
@@ -2871,10 +2858,6 @@ window.ShivaaBullion = {
       /* gold/silver ratio: prefer live spot, else futures-implied */
       const ratioEl = document.querySelector('[data-ratio]');
       if (ratioEl && s.ltp > 0 && !(t.spot && t.spot.ratio)) ratioEl.textContent = ((g.ltp / 10) / (s.ltp / 1000)).toFixed(1);
-      const sumWrap = document.createElement('div');
-      sumWrap.innerHTML = this.summaryHTML(B);
-      const sum = document.querySelector('.bd-summary');
-      if (sum && sumWrap.firstElementChild) sum.innerHTML = sumWrap.firstElementChild.innerHTML;
       document.querySelectorAll('.bd-time').forEach(el => el.textContent = 'Time: ' + B.board.time);
       const clk = document.querySelector('[data-clock]'); if (clk) clk.textContent = (B.date || '') + ' ' + B.board.time;
       const stateEl = document.querySelector('[data-clock-state]');
