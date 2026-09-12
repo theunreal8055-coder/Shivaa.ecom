@@ -212,17 +212,45 @@
       box.className = 'm-lightbox';
       box.innerHTML = '<img alt="Expanded product view"><button type="button" class="m-lightbox-x" aria-label="Close">✕</button>';
       document.body.appendChild(box);
-      const close = () => { box.classList.remove('open'); document.body.style.overflow = ''; };
+      const close = () => { box.classList.remove('open'); document.body.style.overflow = ''; if (box._trap) { box._trap(); box._trap = null; } };
       box.addEventListener('click', (ev) => { if (ev.target === box || ev.target.closest('.m-lightbox-x')) close(); });
       document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && box.classList.contains('open')) close(); });
     }
     box.querySelector('img').src = src;
     document.body.style.overflow = 'hidden';
     requestAnimationFrame(() => box.classList.add('open'));
+    if (box._trap) box._trap();
+    box._trap = trapFocus(box);
   }, { passive: true });
 
+  /* ── 11. v91 accessible focus trap for drawers/modals/lightbox ────── */
+  function trapFocus(container) {
+    if (!container) return function () {};
+    const prev = document.activeElement;
+    if (!container.hasAttribute('tabindex')) container.setAttribute('tabindex', '-1');
+    const FOC = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    const focusables = () => Array.from(container.querySelectorAll(FOC))
+      .filter(el => !!(el.offsetWidth || el.offsetHeight || el === document.activeElement));
+    requestAnimationFrame(() => { const f = focusables(); (f[0] || container).focus && (f[0] || container).focus(); });
+    const onKey = (e) => {
+      if (e.key !== 'Tab' || !container.isConnected) return;
+      const f = focusables();
+      if (!f.length) { e.preventDefault(); container.focus(); return; }
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !container.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    let released = false;
+    return function release() {
+      if (released) return; released = true;
+      document.removeEventListener('keydown', onKey, true);
+      if (prev && prev.focus && document.contains(prev)) { try { prev.focus(); } catch (e) {} }
+    };
+  }
+
   /* tiny public hook (also used by tests) */
-  window.ShivaaMotion = { playPage, tagStaggers, tagRises, sweepCounts, sweepImages, reduced };
+  window.ShivaaMotion = { playPage, tagStaggers, tagRises, sweepCounts, sweepImages, trapFocus, reduced };
 
   /* ── 8. idle sweeps for late renders ──────────────────────────────── */
   const kick = () => { sweepImages(); sweepCounts(); tagRises(view); };

@@ -62,13 +62,19 @@ function toast(msg, type = 'ok') {
   $('#toastWrap').appendChild(t);
   setTimeout(() => { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(() => t.remove(), 500); }, 3200);
 }
+let _modalTrap = null;
 function openModal(html, cls = '') {
   const box = $('#modalBox');
   box.removeAttribute('aria-labelledby');
   box.className = 'modal ' + cls; box.innerHTML = `<button class="modal-close" onclick="Shivaa.closeModal()">✕</button>` + html;
   $('#modalOverlay').classList.add('open'); lockScroll();
+  if (_modalTrap) { _modalTrap(); _modalTrap = null; }
+  if (window.ShivaaMotion && ShivaaMotion.trapFocus) _modalTrap = ShivaaMotion.trapFocus(box);
 }
-function closeModal() { $('#modalOverlay').classList.remove('open'); unlockScroll(); }
+function closeModal() {
+  $('#modalOverlay').classList.remove('open'); unlockScroll();
+  if (_modalTrap) { _modalTrap(); _modalTrap = null; }
+}
 $('#modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $('#pdfViewer').classList.remove('open'); $('#searchDrawer').classList.remove('open'); } });
 
@@ -513,13 +519,19 @@ function updatePartnerUI() {
 window.Shivaa.updatePartnerUI = updatePartnerUI;
 
 /* ─────────── cart ops ─────────── */
-function addToCart(id, qty = 1, size = null, engraving = null) {
+function addToCart(id, qty = 1, size = null, engraving = null, opts = {}) {
   const key = i => i.id + '|' + (i.size || '');
   const item = { id, qty, size, engraving };
   const ex = state.cart.find(i => key(i) === key(item));
   if (ex) ex.qty += qty; else state.cart.push(item);
   store.set('shv_cart', state.cart);
-  updateBadges(); toast('Added to cart');
+  updateBadges();
+  /* v91 — fly the piece's image into the bag, then glide the mini-bag open */
+  const p = state.productsCache.find(x => x.id === id);
+  const src = p && (p.images && p.images[0]);
+  let fromEl = opts.fromEl || document.querySelector(`.p-card[data-pid="${id}"] .pc-imgwrap img`);
+  if (src) flyToBag(src, fromEl).then(() => { if (!opts.silent) openCart(true); });
+  else if (!opts.silent) openCart(true);
 }
 async function toggleWish(id) {
   if (!state.user) {
@@ -1505,11 +1517,14 @@ function productCard(p, opts = {}) {
   const wished = state.user ? (opts.wishSet || []).includes(p.id) : state.localWish.includes(p.id);
   const compared = isCompared(p.id);
   return `<article class="p-card" data-pid="${p.id}">
-    <a href="#/product/${p.id}" class="pc-imgwrap">
-      <img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
-      ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
-      <div class="glare"></div>
-    </a>
+    <div class="pc-imgwrap">
+      <a href="#/product/${p.id}" class="pc-imglink" aria-label="${esc(p.name)}">
+        <img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
+        ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
+        <div class="glare"></div>
+      </a>
+      <button type="button" class="pc-quick" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.quickView('${p.id}')">✦ Quick view</button>
+    </div>
     <button type="button" class="pc-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg><span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span>
     </button>
@@ -2188,6 +2203,18 @@ pages.shop = async (view, q) => {
 
 /* ─────────── PRODUCT ─────────── */
 pages.product = async (view, q, id) => {
+  /* v91 — luxury skeleton while the piece loads (replaces the blank flash) */
+  view.innerHTML = `<div class="container" style="padding-top:26px"><div class="pd-layout">
+    <div class="pd-gallery"><div class="skeleton" style="aspect-ratio:1/1;border-radius:20px"></div></div>
+    <div class="pd-info">
+      <div class="skeleton" style="height:13px;width:130px;margin-bottom:18px;border-radius:6px"></div>
+      <div class="skeleton" style="height:36px;width:82%;margin-bottom:14px;border-radius:8px"></div>
+      <div class="skeleton" style="height:15px;width:46%;margin-bottom:30px;border-radius:6px"></div>
+      <div class="skeleton" style="height:26px;width:42%;margin-bottom:24px;border-radius:8px"></div>
+      <div class="skeleton" style="height:54px;width:100%;margin-bottom:14px;border-radius:14px"></div>
+      <div class="skeleton" style="height:54px;width:100%;margin-bottom:34px;border-radius:14px"></div>
+      <div class="skeleton" style="height:50px;width:210px;border-radius:40px"></div>
+    </div></div></div>`;
   let data;
   try { data = await api('/api/products/' + id); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
   const p = data.product, pr = price(p), R = data.rates || state.rates;
@@ -2261,7 +2288,7 @@ pages.product = async (view, q, id) => {
         <div class="qty-row"><button onclick="Shivaa.pdQty(-1)">−</button><b id="pdQtyN">1</b><button onclick="Shivaa.pdQty(1)">+</button></div>
         <button class="btn btn-primary btn-lg btn-block miy-btn" onclick="Shivaa.pdBuy('${p.id}')">✦ Make It Yours!</button>
         <div class="pd-cta-row">
-          <button class="btn btn-outline" onclick="Shivaa.pdAdd('${p.id}')">🛍 Add to Cart</button>
+          <button class="btn btn-outline" onclick="Shivaa.pdAdd('${p.id}', event)">🛍 Add to Cart</button>
           <button class="btn btn-ghost wa-order" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat to Order</button>
           <button type="button" class="btn btn-outline pd-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">⚖ <span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span></button>
         </div>
@@ -2310,7 +2337,7 @@ pages.product = async (view, q, id) => {
   </div>
   <div class="pd-stickybar">
     <div class="ps-name">${esc(p.name)}<small class="js-price" data-pid="${p.id}" data-qty="1" data-suffix=" · live">${fmt(pr.total)} · live</small></div>
-    <button class="btn btn-primary" onclick="Shivaa.pdAdd('${p.id}')">Add to Cart</button>
+    <button class="btn btn-primary" onclick="Shivaa.pdAdd('${p.id}', event)">Add to Cart</button>
     <button class="ps-wa" onclick="Shivaa.waProduct('${p.id}')" aria-label="Order on WhatsApp">Chat to order</button>
   </div>`;
   (() => {
@@ -2348,7 +2375,7 @@ pages.product = async (view, q, id) => {
   bb.innerHTML = `<span class="bb-price">${'₹' + Math.round((p.price && p.price.total) || 0).toLocaleString('en-IN')}</span>
     <button class="btn btn-outline btn-sm" id="bbAdd">🛍 Add</button>
     <button class="btn btn-primary btn-sm" id="bbBuy">Buy Now</button>`;
-  $('#bbAdd', bb).onclick = () => window.Shivaa.pdAdd(p.id);
+  $('#bbAdd', bb).onclick = (e) => window.Shivaa.pdAdd(p.id, e);
   $('#bbBuy', bb).onclick = () => window.Shivaa.pdBuy(p.id);
   /* v55: EMI calculator under the price breakdown trigger */
   const _P = (p.price && p.price.total) || 0;
@@ -2455,11 +2482,15 @@ window.Shivaa.recentAdd = (p) => {
     localStorage.setItem('sh_recent', JSON.stringify(l.slice(0, 8)));
   } catch (e) {}
 };
-window.Shivaa.pdAdd = id => {
+window.Shivaa.pdAdd = (id, ev) => {
   const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
-  addToCart(id, window._pd.qty, size, $('#engrave')?.value || null);
+  addToCart(id, window._pd.qty, size, $('#engrave')?.value || null, ev ? { fromEl: ev.currentTarget } : {});
 };
-window.Shivaa.pdBuy = async id => { window.Shivaa.pdAdd(id); location.hash = '#/checkout'; };
+window.Shivaa.pdBuy = async id => {
+  const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
+  addToCart(id, window._pd.qty, size, $('#engrave')?.value || null, { silent: true });
+  location.hash = '#/checkout';
+};
 /* v59 — honest delivery promise by pincode + COD eligibility */
 function pinPromise(pin) {
   const d2 = pin.slice(0, 2);
@@ -2653,11 +2684,181 @@ window.Shivaa.cartQty = (id, size, d) => {
   if (!it) return;
   it.qty += d;
   if (it.qty <= 0) state.cart = state.cart.filter(i => i !== it);
-  store.set('shv_cart', state.cart); updateBadges(); pages.cart($('#view'));
+  store.set('shv_cart', state.cart); updateBadges(); renderMiniCart();
+  if ((location.hash || '').startsWith('#/cart')) pages.cart($('#view'));
 };
 window.Shivaa.cartRemove = (id, size) => {
   state.cart = state.cart.filter(i => !(i.id === id && (i.size || '') === size));
-  store.set('shv_cart', state.cart); updateBadges(); pages.cart($('#view'));
+  store.set('shv_cart', state.cart); updateBadges();
+  if ((location.hash || '') === '#/cart' || (location.hash || '').startsWith('#/cart')) pages.cart($('#view'));
+  renderMiniCart();
+};
+
+/* ═══════════════════ v91 — slide-in mini bag ═══════════════════ */
+let _cartTrap = null;
+function cartLines() {
+  return state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+}
+function cartTotals() {
+  const lines = cartLines();
+  const subtotal = lines.reduce((a, l) => a + price(l.p).total * l.qty, 0);
+  const shipping = !subtotal || subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
+  return { lines, subtotal, shipping, count: cartCount() };
+}
+function flyToBag(src, fromEl) {
+  return new Promise(res => {
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches || typeof document.createElement('i').animate !== 'function') return res();
+    const bag = $('.cart-btn'); if (!bag) return res();
+    const br = bag.getBoundingClientRect();
+    const sr = (fromEl && fromEl.getBoundingClientRect && fromEl.getBoundingClientRect()) || null;
+    const f = document.createElement('img');
+    f.src = src; f.className = 'm-fly';
+    const w = sr ? Math.min(72, sr.width) : 56;
+    Object.assign(f.style, { width: w + 'px', height: w + 'px', left: (sr ? sr.left + sr.width / 2 : innerWidth / 2) - w / 2 + 'px', top: (sr ? sr.top + sr.height / 2 : innerHeight * .6) - w / 2 + 'px' });
+    document.body.appendChild(f);
+    requestAnimationFrame(() => {
+      const dx = br.left + br.width / 2 - (sr ? sr.left + sr.width / 2 : innerWidth / 2);
+      const dy = br.top + br.height / 2 - (sr ? sr.top + sr.height / 2 : innerHeight * .6);
+      const a = f.animate([
+        { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 },
+        { transform: `translate(${dx * .55}px,${dy * .7 - 60}px) scale(.7) rotate(10deg)`, opacity: .92, offset: .55 },
+        { transform: `translate(${dx}px,${dy}px) scale(.12) rotate(-8deg)`, opacity: .7 }
+      ], { duration: 680, easing: 'cubic-bezier(.5,-0.1,.7,.3)' });
+      a.onfinish = () => { f.remove(); bag.classList.remove('bag-jolt'); void bag.offsetWidth; bag.classList.add('bag-jolt'); setTimeout(() => bag.classList.remove('bag-jolt'), 500); res(); };
+      a.oncancel = () => { f.remove(); res(); };
+    });
+  });
+}
+function miniCartHTML() {
+  const { lines, subtotal, shipping, count } = cartTotals();
+  if (!count) return `
+    <div class="mc-empty">
+      <div class="mc-empty-ic">✦</div>
+      <h3>Your bag awaits its sparkle</h3>
+      <p>Handcrafted pieces, priced live with the Jaipur rate.</p>
+      <a class="btn btn-primary" href="#/shop" data-mc-close>Explore Jewellery</a>
+    </div>`;
+  const free = state.settings.freeShipAbove;
+  const pct = Math.max(4, Math.min(100, subtotal / free * 100));
+  const left = free - subtotal;
+  return `
+    <div class="mc-ship">
+      ${left > 0
+        ? `<small>Add <b>${fmt(left)}</b> for free insured shipping</small><div class="mc-ship-bar"><i style="width:${pct}%"></i></div>`
+        : `<small><b>✦ You have free insured shipping</b></small><div class="mc-ship-bar"><i style="width:100%"></i></div>`}
+    </div>
+    <div class="mc-lines">
+      ${lines.map((it, i) => {
+        const pr = price(it.p);
+        return `<div class="mc-line" style="--i:${i}">
+          <a href="#/product/${it.p.id}" data-mc-close><img src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
+          <div class="mc-line-tx">
+            <a href="#/product/${it.p.id}" class="ci-name" data-mc-close>${esc(it.p.name)}</a>
+            <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : it.p.purity + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved' : ''}</div>
+            <div class="mc-line-b">
+              <span class="qty-row"><button aria-label="Decrease" onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},-1)">−</button><b>${it.qty}</b><button aria-label="Increase" onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},1)">+</button></span>
+              <b class="js-price" data-pid="${it.p.id}" data-qty="${it.qty}">${fmt(pr.total * it.qty)}</b>
+            </div>
+          </div>
+          <button class="mc-x" aria-label="Remove" onclick="Shivaa.cartRemove(${jsArg(it.id)},${jsArg(it.size || '')})">✕</button>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="mc-foot">
+      <div class="sum-row"><span>Subtotal · ${count} item${count > 1 ? 's' : ''} (incl. GST)</span><b id="mcSub">${fmt(subtotal)}</b></div>
+      <div class="sum-row"><span>Insured shipping</span>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</div>
+      <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
+      <a class="btn btn-gold btn-block btn-lg" href="#/checkout" data-mc-close>Checkout ✦</a>
+      <div class="mc-foot-alt">
+        <a href="#/cart" data-mc-close>View full bag</a>
+        <button type="button" data-mc-close>Continue shopping</button>
+      </div>
+      <small class="mc-live-note">● Prices re-compute with every live rate tick and lock for 20 minutes at checkout.</small>
+    </div>`;
+}
+function renderMiniCart() {
+  const body = $('#mcBody'); if (!body) return;
+  const { subtotal, shipping, count } = cartTotals();
+  const open = $('#cartDrawer').classList.contains('open');
+  body.innerHTML = miniCartHTML();
+  $('#mcCount').textContent = count ? count : '';
+  if (open) body.querySelectorAll('.mc-line').forEach((el, i) => { el.style.setProperty('--i', i); });
+  return { subtotal, shipping };
+}
+function openCart(bump) {
+  const d = $('#cartDrawer'), sc = $('#cartScrim'); if (!d) return;
+  renderMiniCart();
+  if (!d.classList.contains('open')) {
+    d.classList.add('open'); sc.classList.add('open'); lockScroll();
+    if (window.ShivaaMotion && ShivaaMotion.trapFocus) _cartTrap = ShivaaMotion.trapFocus(d);
+    const first = d.querySelector('a,button'); first && setTimeout(() => first.focus(), 120);
+  }
+}
+function closeCart() {
+  const d = $('#cartDrawer'), sc = $('#cartScrim'); if (!d || !d.classList.contains('open')) return;
+  d.classList.remove('open'); sc.classList.remove('open'); unlockScroll();
+  if (_cartTrap) { _cartTrap(); _cartTrap = null; }
+}
+function initMiniCart() {
+  if ($('#cartDrawer')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'cartDrawer'; wrap.className = 'mc-drawer'; wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-modal', 'true'); wrap.setAttribute('aria-label', 'Your shopping bag');
+  wrap.innerHTML = `
+    <div class="mc-head">
+      <h3>Your Bag <span class="mc-count" id="mcCount"></span></h3>
+      <button class="mc-close" aria-label="Close bag">✕</button>
+    </div>
+    <div class="mc-body" id="mcBody"></div>`;
+  const scrim = document.createElement('div');
+  scrim.id = 'cartScrim'; scrim.className = 'mc-scrim';
+  document.body.append(scrim, wrap);
+  const cartBtn = $('.cart-btn');
+  if (cartBtn) cartBtn.addEventListener('click', e => { e.preventDefault(); openCart(); });
+  scrim.addEventListener('click', closeCart);
+  wrap.querySelector('.mc-close').addEventListener('click', closeCart);
+  wrap.addEventListener('click', e => { if (e.target.closest('[data-mc-close]')) closeCart(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCart(); });
+  document.addEventListener('rates', () => { if (wrap.classList.contains('open')) renderMiniCart(); });
+}
+
+/* ═══════════════════ v91 — quick view from product cards ═══════════════════ */
+window.Shivaa.quickView = (id) => {
+  const p = state.productsCache.find(x => x.id === id); if (!p) { location.hash = '#/product/' + id; return; }
+  const pr = price(p);
+  const wished = state.user ? false : state.localWish.includes(id);
+  openModal(`
+    <div class="qv">
+      <div class="qv-img"><img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}"></div>
+      <div class="qv-tx">
+        <div class="label">${esc(CATS[p.category] ? CATS[p.category].name : (p.category || ''))}</div>
+        <h3>${esc(p.name)}</h3>
+        <div class="pc-rating" style="margin:6px 0 10px">★ ${p.rating} <span style="color:var(--ink-3);font-size:12.5px">· ${p.reviews} reviews · ${p.weightG} g</span></div>
+        <div class="pc-price" style="margin-bottom:6px"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST · live</small></div>
+        ${(p.sizes && p.sizes.length) ? `<div class="opt-label"><span>Size</span></div>
+          <div class="size-row" id="qvSize">${p.sizes.map(s => `<button type="button" class="size-pill" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+        <div class="qty-row" style="margin:14px 0"><button type="button" id="qvMinus">−</button><b id="qvQty">1</b><button type="button" id="qvPlus">+</button></div>
+        <div class="qv-acts">
+          <button type="button" class="btn btn-primary" id="qvAdd">Add to Bag ✦</button>
+          <a class="btn btn-outline" href="#/product/${p.id}" onclick="Shivaa.closeModal()">Full details</a>
+        </div>
+        <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" style="position:absolute;top:0;right:0" aria-label="Wishlist">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
+        </button>
+      </div>
+    </div>`, 'qv-modal');
+  const box = $('#modalBox');
+  let qty = 1;
+  box.querySelectorAll('#qvSize .size-pill').forEach(b => b.onclick = () => {
+    box.querySelectorAll('#qvSize .size-pill').forEach(x => x.classList.remove('on')); b.classList.add('on');
+  });
+  const qtyB = $('#qvQty');
+  $('#qvMinus').onclick = () => { qty = Math.max(1, qty - 1); qtyB.textContent = qty; };
+  $('#qvPlus').onclick = () => { qty = Math.min(9, qty + 1); qtyB.textContent = qty; };
+  $('#qvAdd').onclick = (e) => {
+    const size = $('#qvSize .size-pill.on')?.dataset.size || null;
+    closeModal();
+    addToCart(p.id, qty, size, null, { fromEl: e.currentTarget });
+  };
 };
 
 /* ─────────── CHECKOUT ─────────── */
@@ -6016,6 +6217,7 @@ Object.assign(window.Shivaa, {
   routes, price, fmt, esc, safeUrl, jsArg, productCard, mcTableHTML, openLogin,
   waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
+  openCart, closeCart, renderMiniCart, flyToBag,
 });
 function route() {
   const hash = location.hash.replace(/^#\/?/, '') || '';
@@ -6025,6 +6227,7 @@ function route() {
   const q = new URLSearchParams(qs || '');
   const view = $('#view');
   closeModal();
+  if (typeof closeCart === 'function') closeCart();
   while (_scrollLock.n > 0) unlockScroll();
   clearInterval(window._carTimer);
   if (window._co && page !== 'checkout') { clearInterval(window._co.lockTimer); window._co.lockTimer = null; }   // v57: stop the rate-lock clock away from checkout
@@ -6088,8 +6291,9 @@ function route() {
 addEventListener('hashchange', route);
 
 /* ─────────── SEARCH ─────────── */
-$('#searchBtn').onclick = () => { $('#searchDrawer').classList.add('open'); $('#searchInput').focus(); renderSugg(''); };
-$('#searchClose').onclick = () => $('#searchDrawer').classList.remove('open');
+const closeSearch = () => { $('#searchDrawer').classList.remove('open'); $('#searchSugg').classList.remove('open'); };
+$('#searchBtn').onclick = () => { $('#searchDrawer').classList.add('open'); $('#searchInput').focus(); renderSugg(''); $('#searchSugg').classList.add('open'); };
+$('#searchClose').onclick = closeSearch;
 /* v29 — desktop header search field (mirrors the drawer behaviour) */
 (() => {
   const inp = $('#hdrSearchInput'), clear = $('#hdrSearchClear');
@@ -6098,24 +6302,77 @@ $('#searchClose').onclick = () => $('#searchDrawer').classList.remove('open');
     if (e.key === 'Enter') {
       e.preventDefault();
       const v = inp.value.trim();
-      if (v) location.hash = '#/shop?q=' + encodeURIComponent(v);
+      if (v) runSearch(v);
     }
     if (e.key === 'Escape') inp.blur();
   });
   inp.addEventListener('input', () => { if (clear) clear.hidden = !inp.value; });
   if (clear) clear.onclick = () => { inp.value = ''; clear.hidden = true; inp.focus(); };
 })();
-$('#searchInput').oninput = e => renderSugg(e.target.value);
-$('#searchInput').onkeydown = e => {
-  if (e.key === 'Enter' && e.target.value.trim()) { location.hash = '#/shop?q=' + encodeURIComponent(e.target.value.trim()); $('#searchDrawer').classList.remove('open'); }
+/* v91 — instant search: keyboard navigation, recent + popular queries */
+const recentQueries = () => { try { return JSON.parse(localStorage.getItem('shv_recentq') || '[]'); } catch (e) { return []; } };
+const pushRecentQuery = q => {
+  q = q.trim(); if (!q) return;
+  const l = recentQueries().filter(x => x.toLowerCase() !== q.toLowerCase());
+  l.unshift(q);
+  try { localStorage.setItem('shv_recentq', JSON.stringify(l.slice(0, 6))); } catch (e) {}
 };
+const removeRecentQuery = q => { try { localStorage.setItem('shv_recentq', JSON.stringify(recentQueries().filter(x => x !== q))); } catch (e) {} };
+function runSearch(q) {
+  q = (q || '').trim(); if (!q) return;
+  pushRecentQuery(q);
+  location.hash = '#/shop?q=' + encodeURIComponent(q);
+  closeSearch();
+}
+function activateSugg(row) {
+  if (row.dataset.pid) { location.hash = '#/product/' + row.dataset.pid; closeSearch(); $('#searchInput').value = ''; }
+  else if (row.dataset.q) { $('#searchInput').value = row.dataset.q; runSearch(row.dataset.q); }
+}
+$('#searchInput').oninput = e => { renderSugg(e.target.value); $('#searchSugg').classList.add('open'); };
+$('#searchInput').onkeydown = e => {
+  const box = $('#searchSugg');
+  const rows = $$('.sugg', box);
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && rows.length) {
+    e.preventDefault();
+    let i = rows.findIndex(r => r.classList.contains('sel'));
+    i = e.key === 'ArrowDown' ? (i + 1) % rows.length : (i <= 0 ? rows.length - 1 : i - 1);
+    rows.forEach(r => r.classList.remove('sel'));
+    rows[i].classList.add('sel');
+    rows[i].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const sel = box.querySelector('.sugg.sel');
+    if (sel) activateSugg(sel);
+    else if (e.target.value.trim()) runSearch(e.target.value.trim());
+  } else if (e.key === 'Escape') {
+    closeSearch(); e.target.blur();
+  }
+};
+$('#searchSugg').addEventListener('click', e => {
+  const del = e.target.closest('[data-delq]');
+  if (del) { e.stopPropagation(); removeRecentQuery(del.dataset.delq); renderSugg($('#searchInput').value); $('#searchSugg').classList.add('open'); return; }
+  const row = e.target.closest('.sugg');
+  if (row) activateSugg(row);
+});
+const POPULAR_Q = ['Rings', 'Jhumkas', 'Mangalsutra', 'Bangles', 'Chain', 'Silver'];
 function renderSugg(qs) {
-  const s = qs.toLowerCase();
-  const list = state.productsCache.filter(p => (p.name + p.category).toLowerCase().includes(s)).slice(0, 6);
   const el = $('#searchSugg');
-  el.classList.toggle('open', list.length > 0);
-  el.innerHTML = list.map(p => `<div class="sugg" onclick="location.hash=${jsArg('#/product/' + p.id)};document.getElementById('searchDrawer').classList.remove('open')">
-    <img src="${safeUrl(p.images && p.images[0])}" alt=""><div><b>${esc(p.name)}</b><small>${esc(CATS[p.category]?.name || p.category || '')} · ${fmt(price(p).total)}</small></div></div>`).join('');
+  if (!qs) {
+    const rec = recentQueries();
+    el.innerHTML =
+      (rec.length ? `<div class="sugg-lbl">Recent searches</div>` + rec.map(r =>
+        `<div class="sugg sugg-chip" data-q="${esc(r)}"><span class="sugg-ic">🕘</span><span>${esc(r)}</span><button type="button" class="sugg-d" data-delq="${esc(r)}" aria-label="Remove ${esc(r)}">✕</button></div>`).join('') : '') +
+      `<div class="sugg-lbl">Popular now</div>` +
+      POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('');
+    el.classList.add('open');
+    return;
+  }
+  const s = qs.toLowerCase();
+  const list = state.productsCache.filter(p => (p.name + p.category + (CATS[p.category]?.name || '')).toLowerCase().includes(s)).slice(0, 6);
+  el.innerHTML = list.map(p => `<div class="sugg" data-pid="${p.id}">
+    <img src="${safeUrl(p.images && p.images[0])}" alt=""><div><b>${esc(p.name)}</b><small>${esc(CATS[p.category]?.name || p.category || '')} · ${fmt(price(p).total)}</small></div><span class="sugg-go">›</span></div>`).join('')
+    + `<div class="sugg sugg-all" data-q="${esc(qs)}"><span class="sugg-ic">🔍</span><span>See all pieces for “${esc(qs)}”</span></div>`;
+  el.classList.add('open');
 }
 
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */
@@ -6429,6 +6686,7 @@ async function boot(isRedraw) {
   $('#footCats').innerHTML = Object.entries(CATS).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
   const pl = $('#preloader');
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
+  initMiniCart();   // v91 slide-in bag
   route();
   // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours
   scheduleRatesPoll();
