@@ -60,6 +60,8 @@ AddType application/pdf .pdf
 
 # ─── security headers ───
 <IfModule mod_headers.c>
+  Header always unset X-Powered-By
+  Header always unset Server
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "DENY"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"

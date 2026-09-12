@@ -455,7 +455,7 @@
         const p = d.product;
         push('bot', '<b class="g">' + esc(p.name) + '</b> · ' + esc(p.category) + ' · ' + esc(p.purity || p.metal) + ' · ' + (p.weightG || '?') + ' g<br>' +
           'Price right now: <b class="g">' + inr(priceOf(p)) + '</b> (live rate · ' + (p.mcValue ? 'making ' + esc(p.mcValue) + (p.mcScheme === 'percent' ? '%' : '/g') : 'fixed making') + ').<br>' +
-          ((p.desc || '').slice(0, 180)) + '<br>BIS hallmarked, 7-day returns, lifetime exchange at the live rate.' +
+          esc((p.desc || '').slice(0, 180)) + '<br>BIS hallmarked, 7-day returns, lifetime exchange at the live rate.' +
           moreBtn('#/product/' + id, 'Open the piece →') + feedback());
       } catch (e) { push('bot', 'Open the piece and I can discuss it — or ask “cheaper” / “more like this”.'); }
       chips(['Similar pieces', 'Cheaper', 'Add the first one']); return;

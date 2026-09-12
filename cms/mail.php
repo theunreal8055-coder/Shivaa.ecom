@@ -109,7 +109,7 @@ function shivaa_mail_send(string $to, string $code, string $purpose = 'verify', 
     'From: ' . $name . ' <' . $from . '>',
     'Reply-To: ' . $clean((string)$cfg['replyTo']),
     'Return-Path: ' . $from,
-    'X-Mailer: Shivaa/' . PHP_VERSION,
+    'X-Mailer: Shivaa',
   ];
   $body = shivaa_mail_body($code, $purpose, $clean($toName));
   $ok = false; $err = null;

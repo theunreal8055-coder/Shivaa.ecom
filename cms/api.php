@@ -6,6 +6,11 @@
    ═══════════════════════════════════════════════════════════════ */
 declare(strict_types=1);
 date_default_timezone_set('Asia/Kolkata');
+/* v82 — fatal/warning text must never reach a browser; log it server-side.
+   Also suppress the PHP version banner PHP otherwise sends automatically. */
+@ini_set('display_errors', '0');
+@ini_set('log_errors', '1');
+header_remove('X-Powered-By');
 
 /* v81 — include-only libraries (hallmark/trust/sms/mail) refuse to run when
    requested directly over HTTP, even if .htaccess is missing or ignored. */
@@ -33,6 +38,10 @@ function jout(int $code, $payload): void {
 }
 function now_iso(): string { return date('c'); }
 function uid(string $p = 'id'): string { return $p . '_' . bin2hex(random_bytes(6)); }
+/* v82 — customer-facing business numbers: 8 time digits PLUS 4 random hex
+   digits. Two orders placed in the same second used to get the SAME id, and
+   every route then matched the first one (payments, refunds, status PUTs). */
+function biz_id(string $p): string { return $p . substr((string)time(), -8) . strtoupper(bin2hex(random_bytes(2))); }
 function body_json(): array {
   // v81 — cap request bodies (memory-exhaustion / DoS guard)
   static $checked = false;
@@ -93,13 +102,40 @@ function rate_block(array &$db, string $scope, string $id, int $cap, int $window
   if ($hit === null) { db_save($GLOBALS['DB_FILE'], $db); return; }
   db_save($GLOBALS['DB_FILE'], $db); jout(429, ['error' => $msg, 'retryAfter' => $hit['retry']]);
 }
+/* v82 — serialize full request critical sections. A write request takes an
+   EXCLUSIVE lock before reading the database and keeps it until the response
+   saves, so two concurrent requests can never do read-modify-write on stale
+   copies (lost orders, duplicate invoice numbers, double-spent loyalty points
+   or bypassed per-day attempt/rate counters). Routes that wait on slow
+   external HTTP calls (SMS/email gateways, Razorpay, GST/Angel APIs) are
+   intentionally excluded so one slow upstream cannot stall the whole API. */
+function shv_wants_write_lock(string $route, string $method): bool {
+  if ($method === 'GET' || $method === 'HEAD' || $method === 'OPTIONS') return false;
+  static $slow = [
+    'auth/send-otp' => 1, 'kyc/send-otp' => 1, 'auth/reset/start' => 1,
+    'partners/apply' => 1, 'pay/order' => 1, 'rates/refresh' => 1,
+    'sms/test' => 1, 'mail/test' => 1, 'admin/feed-test' => 1,
+    'kyc/gst-lookup' => 1, 'bullion/tick' => 1,
+  ];
+  if (isset($slow[$route])) return false;
+  return true;
+}
+function shv_acquire_lock(string $DB_FILE, string $route, string $method): void {
+  if (!shv_wants_write_lock($route, $method)) return;
+  $h = fopen($DB_FILE . '.lock', 'c');
+  if ($h) { flock($h, LOCK_EX); $GLOBALS['__shv_lock'] = $h; }
+}
 function db_load(string $DB_FILE): array {
   for ($i = 0; $i < 5; $i++) {
-    $lock = fopen($DB_FILE . '.lock', 'c');
-    if (!$lock) break;
-    flock($lock, LOCK_SH);
-    $raw = file_get_contents($DB_FILE);
-    flock($lock, LOCK_UN); fclose($lock);
+    if (!empty($GLOBALS['__shv_lock'])) {
+      // This request already holds the EX lock — a second handle would
+      // self-deadlock; the file is stable under our own lock.
+      $raw = file_get_contents($DB_FILE);
+    } else {
+      $lock = fopen($DB_FILE . '.lock', 'c');
+      if ($lock) { flock($lock, LOCK_SH); $raw = file_get_contents($DB_FILE); flock($lock, LOCK_UN); fclose($lock); }
+      else $raw = file_get_contents($DB_FILE);
+    }
     $db = json_decode((string)$raw, true);
     if (is_array($db)) return $db;
     usleep(120000);
@@ -107,7 +143,8 @@ function db_load(string $DB_FILE): array {
   jout(500, ['error' => 'Database file unreadable — check data/db.json exists & permissions (755/644)']);
 }
 function db_save(string $DB_FILE, array $db): void {
-  $lock = fopen($DB_FILE . '.lock', 'c');
+  $held = !empty($GLOBALS['__shv_lock']);
+  $lock = $held ? null : fopen($DB_FILE . '.lock', 'c');
   if ($lock) flock($lock, LOCK_EX);
   // v81 — atomic replace: write a temp file in the same directory, fsync,
   // then rename over db.json. A crash/disk-full mid-write can never leave a
@@ -1382,6 +1419,13 @@ function pw_verify(array $u, string $plain, bool &$needsRehash = false): bool {
 function issue_token(array &$db, array $user): string {
   $tk = bin2hex(random_bytes(24));
   $db['tokens'] = $db['tokens'] ?? [];
+  /* v82 — bound session growth: a stolen/abused login loop must not let the
+     token map grow without limit (memory + save cost). Keep 12 newest
+     sessions per account, dropping oldest first. */
+  $mine = [];
+  foreach ($db['tokens'] as $t => $meta) if (($meta['userId'] ?? '') === $user['id']) $mine[] = $t;
+  $over = count($mine) - 11;            // room for the one we are about to add
+  for ($i = 0; $i < $over; $i++) unset($db['tokens'][$mine[$i]]);
   $db['tokens'][$tk] = ['userId' => $user['id'], 'exp' => time() + 30 * 86400];
   return $tk;
 }
@@ -1739,6 +1783,8 @@ function event_coupons_ensure(array &$db, array $u): array {
 $route = $_GET['__route'] ?? '';
 $route = trim((string)$route, '/');
 $method = $_SERVER['REQUEST_METHOD'];
+// v82 — take the global write lock BEFORE the first read for integrity routes
+shv_acquire_lock($DB_FILE, $route, $method);
 hallmark_public_route($route, $method);
 // Feature 2: current allowlisted settings only, before any legacy schema/rate
 // defaults are added. This route is read-only and never queries a registry.
@@ -1769,7 +1815,21 @@ if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   ], 'updatedAt' => now_iso()];
 }
 if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => now_iso(), 'gold24' => 11800, 'gold22' => 10800, 'gold18' => 8850, 'silver' => 95, 'source' => 'bootstrap']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
-foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'jaipurSilverPremium' => 3, 'whatsapp' => '918905005921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
+foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'jaipurSilverPremium' => 3, 'whatsapp' => '91890505921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
+/* v82 — hourly housekeeping so ephemeral collections never grow forever:
+   expired bearer tokens, stale OTPs and old per-IP mail counters. Runs
+   inside a request that already holds the EX write lock, at most once an
+   hour, and saves immediately so no stale snapshot can be written later. */
+$__nowT = time();
+if (!empty($GLOBALS['__shv_lock']) && (int)($db['lastHousekeep'] ?? 0) < $__nowT - 3600) {
+  $db['tokens']  = array_filter($db['tokens']  ?? [], fn($t) => (int)($t['exp'] ?? 0) > $__nowT);
+  $db['otps']    = array_filter($db['otps']    ?? [], fn($o) => (int)($o['exp'] ?? 0) > $__nowT - 3600);
+  if (!empty($db['mailRate'])) foreach ($db['mailRate'] as $ip => $hits)
+    $db['mailRate'][$ip] = array_values(array_filter((array)$hits, fn($t) => (int)$t > $__nowT - 3600));
+  $db['mailRate'] = array_filter($db['mailRate'] ?? [], fn($h) => count((array)$h) > 0);
+  $db['lastHousekeep'] = $__nowT;
+  db_save($DB_FILE, $db);
+}
 $changed = false;
 
 try {
@@ -1859,7 +1919,7 @@ try {
   if (preg_match('#^products/([\w-]+)$#', $route, $m)) {
     $idx = null; foreach ($db['products'] as $i => $x) if ($x['id'] === $m[1]) $idx = $i;
     if ($method === 'GET') {
-      if ($idx === null) jout(404, ['error' => 'Not found']);
+      if ($idx === null) jout(404, ['error' => 'Not found']);   // v82 — never index with null
       $R = current_rates($db);
       $similar = [];
       foreach ($db['products'] as $x) if ($x['category'] === $db['products'][$idx]['category'] && $x['id'] !== $m[1] && !empty($x['active'])) { $y = hallmark_product($x); $y['price'] = compute_price($x, $R); $similar[] = $y; if (count($similar) >= 4) break; }
@@ -1904,7 +1964,7 @@ try {
     $isVid = in_array($ext, ['mp4', 'webm', 'mov']);
     if (!$isImg && !$isVid) jout(400, ['error' => 'Only jpg/png/webp images or mp4/webm videos']);
     $head = (string)@file_get_contents($f['tmp_name'], false, null, 0, 12);
-    $headOk = $isImg ? (substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n" || substr($head, 0, 4) === 'RIFF')
+    $headOk = $isImg ? (substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n" || (substr($head, 0, 4) === 'RIFF' && substr($head, 8, 4) === 'WEBP'))
                      : (substr($head, 4, 4) === 'ftyp');
     if (!$headOk) jout(400, ['error' => 'File content does not match its extension']);
     $cat = preg_replace('/[^a-z0-9_-]/', '', strtolower((string)($_POST['category'] ?? 'general'))) ?: 'general';
@@ -1942,16 +2002,30 @@ try {
   /* v57: customer login/KYC/reset codes are short 4-digit PINs — easy to read
      aloud and type on a jewellery-counter phone (gateway arrives in v58). */
   function otp_new_code(): string { return str_pad((string)random_int(0, 9999), 4, '0', STR_PAD_LEFT); }
+  /* v82 — one-time codes may appear in HTTP responses ONLY on a genuine
+     local/preview build. On a public host (Hostinger) it would let anyone
+     request a code for ANY mobile and read it straight out of the response,
+     then sign in / reset that account — full takeover. A marker file is an
+     explicit owner opt-in; loopback and the CLI/preview are local by nature. */
+  function shv_dev_mode(): bool {
+    if (PHP_SAPI === 'cli') return true;
+    if (is_file(__DIR__ . '/data/.otp-dev-mode')) return true;
+    $ra = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+    return $ra === '127.0.0.1' || $ra === '::1' || $ra === '0.0.0.0';
+  }
   function otp_deliver(array &$db, string $phone, string $code, string $email, string $purpose, string $name = ''): array {
     global $DB_FILE;                       // this runs in function scope
     $sms = shivaa_sms_send($phone, $code);
     shivaa_sms_log($db, $sms);
-    /* demo build (no SMS gateway configured): show the code in the API
-       response so on-screen previews work — works for brand-new numbers
-       that have no email on file, exactly like a live SMS would. */
+    /* No SMS gateway configured ("demo" build). On a LOCAL/preview build the
+       code is returned on screen so previews work. On a PUBLIC host it must
+       fall through to the email fallback (the v48 takeover fix) instead. */
     if (($sms['mode'] ?? '') === 'demo') {
-      return ['ok' => true, 'channel' => 'sms', 'mode' => 'demo',
-              'devCode' => $code, 'masked' => '+91 ••••••' . substr($phone, -4)];
+      if (shv_dev_mode()) {
+        return ['ok' => true, 'channel' => 'sms', 'mode' => 'demo',
+                'devCode' => $code, 'masked' => '+91 ••••••' . substr($phone, -4)];
+      }
+      $sms = ['mode' => 'demo', 'ok' => false, 'error' => 'no SMS gateway configured'];
     }
     if (($sms['mode'] ?? '') === 'live' && !empty($sms['ok'])) {
       return ['ok' => true, 'channel' => 'sms', 'mode' => 'live', 'masked' => '+91 ••••••' . substr($phone, -4)];
@@ -2043,15 +2117,20 @@ try {
       rate_block($db, 'otp-try-phone', $phone, 18, 3600, 900, 'Too many code attempts for this number — request a new code later.');
     } else jout(400, ['error' => 'Enter a valid 10-digit mobile']);
     $found = null;
-    for ($i = count($db['otps'] ?? []) - 1; $i >= 0; $i--) if ($db['otps'][$i]['phone'] === $phone) { $found = $i; break; }
+    for ($i = count($db['otps'] ?? []) - 1; $i >= 0; $i--) if ($db['otps'][$i]['phone'] === $phone && ($db['otps'][$i]['purpose'] ?? 'login') !== 'reset') { $found = $i; break; }
     if ($found === null) jout(400, ['error' => 'Request an OTP first']);
     $o = &$db['otps'][$found];
     if ($o['exp'] < time()) jout(400, ['error' => 'OTP expired — request a new one']);
+    if (!empty($o['consumedByLogin'])) jout(400, ['error' => 'That code was already used — request a new one']);
     if ($o['tries'] >= 5) jout(429, ['error' => 'Too many attempts — request a new OTP']);
     $o['tries']++;
     if (!hash_equals((string)$o['hash'], hash('sha256', 'shv' . $phone . (string)($b['code'] ?? '')))) { db_save($DB_FILE, $db); jout(400, ['error' => 'Incorrect OTP']); }
     $o['verified'] = true;
     unset($db['rateLimit']['otp-try-ip|' . client_ip()], $db['rateLimit']['otp-try-phone|' . $phone]);
+    // v82 — single-use: a code cannot be replayed within its 5-minute window.
+    // (Partner KYC and registration accept the verified flag for up to an hour;
+    //  only the login door consumes the record this way.)
+    $o['consumedByLogin'] = true;
     db_save($DB_FILE, $db);
     foreach ($db['users'] as $u) if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $phone) {
       $tk = issue_token($db, $u); db_save($DB_FILE, $db);
@@ -2067,7 +2146,7 @@ try {
     if (!empty($b['password']) && strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
     if (strlen((string)($b['password'] ?? '')) > 4096) jout(400, ['error' => 'Password is too long']);
     $otpOk = false;
-    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && !empty($o['verified']) && $o['exp'] > time() - 3600) $otpOk = true;
+    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && !empty($o['verified']) && empty($o['consumedByLogin']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
     /* one account per mobile — the OTP already proves possession */
     foreach ($db['users'] as $uE) if (substr(preg_replace('/\D/', '', (string)($uE['phone'] ?? '')), -10) === $phone) {
@@ -2233,11 +2312,16 @@ try {
     foreach ($db['users'] as $i => $u) if (strtolower((string)($u['email'] ?? '')) === $email) { $idx = $i; $user = $u; break; }
     if ($idx === null) jout(400, ['error' => 'That code is not valid — request a new one']);
     $phone = substr(preg_replace('/\D/', '', (string)($user['phone'] ?? '')), -10);
+    // v82 — only a code minted BY the reset flow for THIS email may reset it
+    // (a login/KYC code on the same number must never reset the password).
     $found = null;
-    for ($i = count($db['otps'] ?? []) - 1; $i >= 0; $i--) if (($db['otps'][$i]['phone'] ?? '') === $phone) { $found = $i; break; }
+    for ($i = count($db['otps'] ?? []) - 1; $i >= 0; $i--)
+      if (($db['otps'][$i]['phone'] ?? '') === $phone && ($db['otps'][$i]['purpose'] ?? '') === 'reset'
+          && strtolower((string)($db['otps'][$i]['email'] ?? '')) === $email) { $found = $i; break; }
     if ($found === null) jout(400, ['error' => 'Request a reset code first']);
     $o = &$db['otps'][$found];
     if ((int)$o['exp'] < time()) jout(400, ['error' => 'That code has expired — request a new one']);
+    if (!empty($o['consumedByLogin'])) jout(400, ['error' => 'That code was already used — request a fresh reset code']);
     if ((int)$o['tries'] >= 5) jout(429, ['error' => 'Too many attempts on this code — request a new one']);
     $o['tries'] = (int)$o['tries'] + 1;
     if (!hash_equals((string)$o['hash'], hash('sha256', 'shv' . $phone . $code))) {
@@ -2425,7 +2509,16 @@ try {
   if ($route === 'coupons' && $method === 'POST') {
     need_admin($db);
     $b = body_json();
-    $db['coupons'][] = array_merge(['id' => uid('c'), 'active' => true], $b);
+    // v82 — sanitize coupon definitions (defense in depth for the order math)
+    $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9\-]/', '', (string)($b['code'] ?? '')), 0, 24));
+    if ($code === '') jout(400, ['error' => 'Coupon code required (letters, digits, dash)']);
+    foreach ($db['coupons'] as $cc) if (strtoupper($cc['code']) === $code) jout(409, ['error' => 'That code already exists']);
+    $type = ($b['type'] ?? 'percent') === 'flat' ? 'flat' : 'percent';
+    $value = (float)($b['value'] ?? 0);
+    $value = $type === 'percent' ? max(0, min(100, $value)) : max(0, min(10000000, $value));
+    $clean = array_merge($b, ['code' => $code, 'type' => $type, 'value' => $value,
+      'minOrder' => max(0, min(10000000, (float)($b['minOrder'] ?? 0))), 'active' => true]);
+    $db['coupons'][] = array_merge(['id' => uid('c')], $clean);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
 
@@ -2487,13 +2580,19 @@ try {
     $coupon = null;
     if (!empty($b['coupon'])) foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper($b['coupon']) && coupon_live($c) && coupon_for_user($c, $u)) $coupon = $c;
     $discount = 0;
-    if ($coupon && $subtotal >= (float)($coupon['minOrder'] ?? 0)) $discount = $coupon['type'] === 'percent' ? (int)round($subtotal * $coupon['value'] / 100) : (int)$coupon['value'];
+    if ($coupon && $subtotal >= (float)($coupon['minOrder'] ?? 0)) {
+      // v82 — clamp every coupon into 0…subtotal; a mistyped percent/value
+      // (negative, >100%) must never inflate the total or pay the customer.
+      $raw = $coupon['type'] === 'percent' ? $subtotal * (float)$coupon['value'] / 100 : (float)$coupon['value'];
+      $discount = (int)round(max(0, min($subtotal, $raw)));
+    }
     $pointsUsed = 0;
     if (!empty($b['usePoints'])) {
       $maxPts = (int)min((float)($u['loyaltyPoints'] ?? 0), floor($subtotal * 0.1));
-      $pointsUsed = max(0, (int)min($maxPts, (int)floor($subtotal - $discount)));
+      $pointsUsed = max(0, (int)min($maxPts, (int)floor(max(0, $subtotal - $discount))));
       $discount += $pointsUsed;
     }
+    $discount = min($discount, $subtotal);   // combined discounts never exceed the goods value
     $freeShip = (float)($db['settings']['freeShipAbove'] ?? 50000);
     $shipping = $subtotal >= $freeShip ? 0 : (int)($db['settings']['shippingFee'] ?? 250);
     /* v58 — prepaid incentive: online prepayment earns an instant discount
@@ -2514,7 +2613,7 @@ try {
     $db['settings']['invoiceSeq'] = $seq;
     $invoiceNo = 'SHV/' . $fy . '/' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
     $order = [
-      'id' => 'SHV' . substr((string)time(), -8), 'invoiceNo' => $invoiceNo, 'hsn' => '71131910',
+      'id' => biz_id('SHV'), 'invoiceNo' => $invoiceNo, 'hsn' => '71131910',
       'userId' => $u['id'], 'userName' => $u['name'], 'items' => $items,
       'address' => $b['address'] ?? (object)[], 'paymentMethod' => $pm,
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Awaiting payment'),
@@ -2551,10 +2650,14 @@ try {
       $patch = body_json();
       foreach ($db['orders'] as &$x) if ($x['id'] === $m[1]) {
         $st = $patch['status'] ?? null;
+        if ($st !== null) $st = trim((string)$st);
+        if ($st !== '' && !preg_match('/^[A-Za-z0-9 &\-\/.,()\']{1,40}$/', $st)) jout(400, ['error' => 'Status contains invalid characters']);
         if ($st && $st !== $x['status']) { $x['status'] = $st; $x['timeline'][] = ['s' => $st, 't' => now_iso()]; }
+        if (!empty($patch['paymentStatus']) && !preg_match('/^[A-Za-z0-9 &\-\/.,()]{1,40}$/', (string)$patch['paymentStatus'])) jout(400, ['error' => 'Payment status contains invalid characters']);
         if (!empty($patch['paymentStatus'])) $x['paymentStatus'] = substr((string)$patch['paymentStatus'], 0, 40);
         $o = $x;
       }
+      if (!$o) jout(404, ['error' => 'Order not found']);   // v82 — don't answer 200 null for unknown ids
       if (!empty($patch['status']) || !empty($patch['paymentStatus'])) audit_log($db, 'order.updated', ['order' => $m[1], 'status' => $patch['status'] ?? null, 'payment' => $patch['paymentStatus'] ?? null]);
       db_save($DB_FILE, $db); jout(200, $o);
     }
@@ -2599,6 +2702,7 @@ try {
     if (empty($o['payments']) && ($o['paymentStatus'] ?? '') === 'Paid') $already = max($already, (int)($o['total'] ?? 0));
     $due = max(0, (int)($o['total'] ?? 0) - $already);
     if ($due <= 0) jout(400, ['error' => 'This order is already fully paid']);
+    if ($due > 100000000) jout(400, ['error' => 'Amount above the online limit — pay via WhatsApp / RTGS at the shop.']);  // v82 ₹1 cr ceiling
     $amountPaise = (int)round($due * 100);
     if (!empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']) && (($s['payProvider'] ?? '') === 'razorpay')) {
       $rzp = http_post_json('https://api.razorpay.com/v1/orders', [
@@ -2610,11 +2714,19 @@ try {
       db_save($DB_FILE, $db);
       jout(200, ['mode' => 'razorpay', 'keyId' => $s['rzpKeyId'], 'gatewayOrder' => $rzp, 'amount' => $amountPaise, 'orderId' => $o['id']]);
     }
-    /* demo mode — a fake gateway order id; verify below always succeeds */
-    $ref = 'demo_' . bin2hex(random_bytes(8));
-    $db['orders'][$i]['gatewayOrderId'] = $ref;
-    db_save($DB_FILE, $db);
-    jout(200, ['mode' => 'demo', 'gatewayOrder' => ['id' => $ref, 'amount' => $amountPaise, 'currency' => 'INR'],
+    /* No live gateway keys. A local/preview build gets a fake order id whose
+       "demo success" works on screen; a PUBLIC host must never hand out
+       self-confirmable receipts — send the customer to the real UPI QR +
+       owner-approved screenshot flow instead (v82). */
+    if (shv_dev_mode()) {
+      $ref = 'demo_' . bin2hex(random_bytes(8));
+      $db['orders'][$i]['gatewayOrderId'] = $ref;
+      db_save($DB_FILE, $db);
+      jout(200, ['mode' => 'demo', 'gatewayOrder' => ['id' => $ref, 'amount' => $amountPaise, 'currency' => 'INR'],
+                 'upiId' => (string)($s['upiId'] ?? ''), 'upiName' => (string)($s['upiName'] ?? 'Shivaa Jewellers'),
+                 'amount' => $amountPaise, 'orderId' => $o['id']]);
+    }
+    jout(200, ['mode' => 'upi-proof',
                'upiId' => (string)($s['upiId'] ?? ''), 'upiName' => (string)($s['upiName'] ?? 'Shivaa Jewellers'),
                'amount' => $amountPaise, 'orderId' => $o['id']]);
   }
@@ -2626,9 +2738,20 @@ try {
     $payId = (string)($b['paymentId'] ?? '');
     $sig = (string)($b['signature'] ?? '');
     if (!empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']) && (($s['payProvider'] ?? '') === 'razorpay')) {
+      // v82 — the signed gateway order MUST be the one this server created for
+      // THIS order, or a valid payment for a cheap order could mark any order paid.
+      if ($gOrderId !== (string)($o['gatewayOrderId'] ?? ''))
+        jout(400, ['error' => 'Payment does not belong to this order — use the UPI screenshot option if you paid directly.']);
       $expect = hash_hmac('sha256', $gOrderId . '|' . $payId, (string)$s['rzpKeySecret']);
       if (!$payId || !hash_equals($expect, $sig)) jout(400, ['error' => 'Payment verification failed — no charge was completed.']);
-    } elseif (strpos($gOrderId, 'demo_') !== 0) {
+    } elseif (strpos($gOrderId, 'demo_') === 0) {
+      // v82 — the test gateway only auto-completes on a local/preview build,
+      // and only with the reference this server issued for this order. On a
+      // public host without Razorpay keys, payments go through the
+      // owner-approved UPI screenshot flow — never a self-issued "demo" receipt.
+      if (!shv_dev_mode() || $gOrderId !== (string)($o['gatewayOrderId'] ?? ''))
+        jout(400, ['error' => 'Online card/UPI checkout is not switched on. Please use WhatsApp/COD or attach a payment screenshot — the shop confirms it manually.']);
+    } else {
       jout(400, ['error' => 'Gateway not configured for live payments.']);
     }
     $gw = (!empty($s['rzpKeyId']) && ($s['payProvider'] ?? '') === 'razorpay') ? 'razorpay' : 'demo';
@@ -2662,7 +2785,7 @@ try {
     $head = (string)@file_get_contents($f['tmp_name'], false, null, 0, 12);
     $isImg = substr($head, 0, 3) === "\xFF\xD8\xFF"
           || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n"
-          || substr($head, 0, 4) === 'RIFF';
+          || (substr($head, 0, 4) === 'RIFF' && substr($head, 8, 4) === 'WEBP');
     if (!$isImg) jout(400, ['error' => 'Only real JPG / PNG / WEBP images are accepted']);
     $ext = strtolower(pathinfo((string)($f['name'] ?? 'p.jpg'), PATHINFO_EXTENSION));
     if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) $ext = 'jpg';
@@ -2793,7 +2916,15 @@ try {
     if (!$chk['valid']) jout(400, ['error' => $chk['reason']]);
     $cfg = $db['settings']['gstApi'] ?? [];
     if (empty($cfg['key'])) jout(200, ['configured' => false, 'note' => 'Add a GST API key in Admin → Settings to auto-verify legal names online']);
-    $url = ($cfg['url'] ?? 'https://api.mastersindia.co/v2/gstin/') . '?gstin=' . urlencode($g);
+    // v82 — SSRF guard: a custom endpoint must be an http(s) URL; file://,
+    // gopher:// and internal addresses are never fetched with the API key.
+    $gstUrl = (string)($cfg['url'] ?? 'https://api.mastersindia.co/v2/gstin/');
+    if (!preg_match('#^https?://#i', $gstUrl) || filter_var($gstUrl, FILTER_VALIDATE_URL) === false)
+      $gstUrl = 'https://api.mastersindia.co/v2/gstin/';
+    $host = strtolower(parse_url($gstUrl, PHP_URL_HOST) ?? '');
+    if (preg_match('#(^|\.)(local|internal|localhost)$#', $host) || filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false && filter_var($host, FILTER_VALIDATE_IP))
+      jout(200, ['configured' => true, 'verified' => false, 'note' => 'GST service endpoint not allowed — admin will verify manually']);
+    $url = $gstUrl . '?gstin=' . urlencode($g);
     $ctx = stream_context_create(['http' => ['timeout' => 8, 'header' => 'Authorization: Bearer ' . $cfg['key'] . "\r\n"]]);
     $raw = @file_get_contents($url, false, $ctx);
     $j = $raw ? json_decode($raw, true) : null;
@@ -2832,7 +2963,7 @@ try {
     rate_block($db, 'otp-try-ip', client_ip(), 40, 3600, 900, 'Too many code attempts from this connection — request a new code later.');
     rate_block($db, 'otp-try-phone', $phone, 18, 3600, 900, 'Too many code attempts for this number — request a new code later.');
     $found = null;
-    for ($i = count($db['otps'] ?? []) - 1; $i >= 0; $i--) if ($db['otps'][$i]['phone'] === $phone) { $found = $i; break; }
+    for ($i = count($db['otps'] ?? []) - 1; $i >= 0; $i--) if ($db['otps'][$i]['phone'] === $phone && ($db['otps'][$i]['purpose'] ?? 'login') !== 'reset') { $found = $i; break; }
     if ($found === null) jout(400, ['error' => 'Request an OTP first']);
     $o = &$db['otps'][$found];
     if ($o['exp'] < time()) jout(400, ['error' => 'OTP expired — request a new one']);
@@ -2900,7 +3031,7 @@ try {
       }
     }
     if (!count($items)) jout(400, ['error' => 'No designs selected']);
-    $ord = ['id' => 'MX' . substr((string)time(), -8), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
+    $ord = ['id' => biz_id('MX'), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
             'items' => $items, 'totalWeightG' => round($totalWeight, 3), 'factor' => $factor,
             'fineGrams' => round($totalWeight * $factor, 2), 'purity' => $purity,
             'makingCharges' => 0, 'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 300), 'status' => 'New', 'createdAt' => now_iso()];
@@ -2914,7 +3045,9 @@ try {
   }
   if (preg_match('#^metalexchange/orders/([\w-]+)$#', $route, $mMX) && $method === 'PUT') {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
-    foreach (($db['metalOrders'] ?? []) as &$o) if ($o['id'] === $mMX[1]) { $o['status'] = body_json()['status'] ?? $o['status']; $out = $o; }
+    $mxSt = substr(trim((string)(body_json()['status'] ?? '')), 0, 40);
+    if ($mxSt !== '' && !preg_match('/^[A-Za-z0-9 &\\-\/\.]{1,40}$/', $mxSt)) jout(400, ['error' => 'Invalid status']);
+    foreach (($db['metalOrders'] ?? []) as &$o) if ($o['id'] === $mMX[1]) { if ($mxSt !== '') $o['status'] = $mxSt; $out = $o; }
     if (empty($out)) jout(404, ['error' => 'Order not found']);
     db_save($DB_FILE, $db); jout(200, $out);
   }
@@ -2928,10 +3061,13 @@ try {
     if (!empty($_FILES['design']) && $_FILES['design']['error'] === UPLOAD_ERR_OK && $_FILES['design']['size'] < 8388608) {
       $ext = strtolower(pathinfo($_FILES['design']['name'], PATHINFO_EXTENSION));
       $magic = function(string $path): bool {
+        // v82 — exact magic only; "RIFF" alone also matches WAV/AVI.
         $h = @fopen($path, 'rb'); if (!$h) return false;
         $head = fread($h, 12); fclose($h);
-        $sigs = ["\xFF\xD8\xFF", "\x89PNG", "GIF8", "RIFF"];
-        foreach ($sigs as $s) if (substr($head, 0, strlen($s)) === $s) return true;
+        if (strncmp($head, "\xFF\xD8\xFF", 3) === 0) return true;          // JPEG
+        if (strncmp($head, "\x89PNG\r\n\x1A\n", 8) === 0) return true;     // PNG
+        if (strncmp($head, 'GIF8', 4) === 0) return true;                  // GIF
+        if (strncmp($head, 'RIFF', 4) === 0 && substr($head, 8, 4) === 'WEBP') return true; // WebP
         return false;
       };
       if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif']) && $magic($_FILES['design']['tmp_name'])) {
@@ -2943,7 +3079,7 @@ try {
     if (empty($fields['name']) || empty($fields['weight'])) jout(400, ['error' => 'Product name & weight required']);
     $w = (float)$fields['weight'];
     if ($w <= 0 || $w > 100000 || !is_finite($w)) jout(400, ['error' => 'Weight must be between 0 and 1,00,000 g.']);
-    $ord = ['id' => 'CO' . substr((string)time(), -8), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
+    $ord = ['id' => biz_id('CO'), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
             'name' => cut500($fields['name']), 'weightG' => round($w, 3), 'melting' => max(0, (float)($fields['melting'] ?? 0)),
             'advance' => max(0, (float)($fields['advance'] ?? 0)), 'size' => cut500($fields['size'] ?? ''), 'note' => cut500($fields['note'] ?? ''),
             'designImg' => $file, 'status' => 'New', 'createdAt' => now_iso()];
@@ -3065,7 +3201,7 @@ try {
     $rate = $side === 'buy' ? (float)$br['buy'] : (float)$br['sell'];
     if ($rate <= 0) jout(400, ['error' => 'Rate unavailable for this metal.']);
     $mult = $unit === 'kg' ? 1000 : 1;
-    $ord = ['id' => 'BL' . substr((string)time(), -8), 'side' => $side, 'metKey' => (string)($b['metKey'] ?? ''), 'metal' => mb_substr((string)$b['metal'], 0, 40), 'mode' => $br['mode'] ?? '',
+    $ord = ['id' => biz_id('BL'), 'side' => $side, 'metKey' => (string)($b['metKey'] ?? ''), 'metal' => mb_substr((string)$b['metal'], 0, 40), 'mode' => $br['mode'] ?? '',
             'qty' => round($qty, 3), 'unit' => $unit, 'rate' => $rate,
             'amount' => (int)round($rate * $qty * $mult), 'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 300),
             'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'], 'status' => 'New', 'createdAt' => now_iso()];
@@ -3073,7 +3209,9 @@ try {
   }
   if (preg_match('#^bullion/orders/([\w-]+)$#', $route, $mBLO) && $method === 'PUT') {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
-    foreach (($db['bullionOrders'] ?? []) as &$o) if ($o['id'] === $mBLO[1]) { $o['status'] = body_json()['status'] ?? $o['status']; $out = $o; }
+    $blSt = substr(trim((string)(body_json()['status'] ?? '')), 0, 40);
+    if ($blSt !== '' && !preg_match('/^[A-Za-z0-9 &\\-\/\.]{1,40}$/', $blSt)) jout(400, ['error' => 'Invalid status']);
+    foreach (($db['bullionOrders'] ?? []) as &$o) if ($o['id'] === $mBLO[1]) { if ($blSt !== '') $o['status'] = $blSt; $out = $o; }
     if (empty($out)) jout(404, ['error' => 'Order not found']);
     db_save($DB_FILE, $db); jout(200, $out);
   }
@@ -3093,7 +3231,7 @@ try {
     if (!filter_var((string)$b['email'], FILTER_VALIDATE_EMAIL) || strlen((string)$b['email']) > 190) jout(400, ['error' => 'Enter a valid email']);
     // OTP proof first — never spend the external GST lookup on an unverified caller.
     $otpOk = false;
-    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === substr((string)$b['phone'], -10) && !empty($o['verified']) && $o['exp'] > time() - 3600) $otpOk = true;
+    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === substr((string)$b['phone'], -10) && !empty($o['verified']) && empty($o['consumedByLogin']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
     $gst = gstin_check((string)$b['gstin'] ?? '');
     if (!$gst['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $gst['reason']]);
@@ -3134,6 +3272,9 @@ try {
   if (preg_match('#^partners/([\w-]+)$#', $route, $m) && $method === 'PUT') {
     need_admin($db);
     $st = body_json()['status'] ?? null;
+    // v82 — fixed partner workflow; anything else (markup, typos) is rejected
+    if ($st !== null && !in_array((string)$st, ['pending','approved','rejected','suspended'], true))
+      jout(400, ['error' => 'Unknown partner status']);
     foreach ($db['partners'] as &$pr) if ($pr['id'] === $m[1]) {
       $pr['status'] = $st ?: $pr['status'];
       if ($pr['status'] === 'approved' && empty($pr['joined'])) {
@@ -3189,7 +3330,10 @@ try {
     need_admin($db);
     $b = body_json();
     foreach ($db['serviceRequests'] as $si => $sr) if ($sr['id'] === $mS[1]) {
-      $st = substr((string)($b['status'] ?? ''), 0, 30);
+      $st = trim(substr((string)($b['status'] ?? ''), 0, 30));
+      // v82 — fixed workflow vocabulary; blocks stored markup even from an admin session
+      if ($st !== '' && !in_array($st, ['new','contacted','quoted','won','closed','Confirmed','Picked up','At karigar','Ready','Delivered'], true))
+        jout(400, ['error' => 'Unknown service status']);
       if ($st) { $db['serviceRequests'][$si]['status'] = $st; $db['serviceRequests'][$si]['history'][] = ['s' => $st, 't' => now_iso()]; }
       db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $db['serviceRequests'][$si]]);
     }
@@ -3239,10 +3383,10 @@ try {
     need_admin($db);
     $b = body_json();
     $wt = (float)($b['weightG'] ?? 0);
-    if ($wt <= 0) jout(400, ['error' => 'Enter the weight in grams']);
+    if ($wt <= 0 || $wt > 1000000 || !is_finite($wt)) jout(400, ['error' => 'Enter a valid weight in grams']);
     $rate = (float)($b['ratePerG'] ?? 0);
-    if ($rate <= 0) jout(400, ['error' => 'Enter the rate per gram paid']);
-    $ded = (float)($b['deductions'] ?? 0);
+    if ($rate <= 0 || $rate > 1000000 || !is_finite($rate)) jout(400, ['error' => 'Enter the rate per gram paid']);
+    $ded = max(0, min($wt * $rate, (float)($b['deductions'] ?? 0)));   // v82 — never a negative/overflowing payout
     $rec = [
       'id' => uid('gp'), 'createdAt' => now_iso(),
       'sellerName' => substr(trim((string)($b['sellerName'] ?? '')), 0, 120),
@@ -3354,7 +3498,7 @@ try {
     need_admin($db);
     $b = body_json();
     $amt = round((float)($b['amount'] ?? 0), 2);
-    if ($amt <= 0) jout(400, ['error' => 'Enter an amount']);
+    if ($amt <= 0 || !is_finite($amt) || $amt > 1e9) jout(400, ['error' => 'Enter a valid amount']);
     $head = substr(trim((string)($b['head'] ?? '')), 0, 120);
     if ($head === '') jout(400, ['error' => 'Enter a note (head)']);
     $rec = ['id' => uid('cb'), 'kind' => in_array($b['kind'] ?? '', ['in', 'out'], true) ? $b['kind'] : 'out',
@@ -3441,6 +3585,7 @@ try {
             $db['orders'][$oi]['creditNote'] = $cnNo;
             // default the refunded amount to whatever was actually paid
             if ($amt <= 0) $amt = (int)($oo['amountPaid'] ?? (int)($oo['total'] ?? 0));
+            $amt = max(0, min((int)($oo['total'] ?? 0), $amt));   // v82 — never refund beyond the order value
             $db['refundRequests'][$ri]['amount'] = $amt; $db['refundRequests'][$ri]['mode'] = $mode; $db['refundRequests'][$ri]['creditNote'] = $cnNo;
             if ($amt > 0 && $mode !== 'exchange') {
               $db['cashbook'][] = ['id' => uid('cb'), 'kind' => 'out', 'head' => 'Refund ' . $oo['id'] . ' (' . $cnNo . ')',
@@ -3482,7 +3627,7 @@ try {
         $ext = strtolower(pathinfo((string)$fname, PATHINFO_EXTENSION));
         if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) $ext = 'jpg';
         $head = (string)@file_get_contents($files['tmp_name'][$fi], false, null, 0, 12);
-        $isImage = substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n" || substr($head, 0, 4) === 'RIFF';
+        $isImage = substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n" || (substr($head, 0, 4) === 'RIFF' && substr($head, 8, 4) === 'WEBP');
         if (!$isImage) continue;
         $nm = 'rv_' . bin2hex(random_bytes(5)) . '.' . $ext;
         if (@move_uploaded_file($files['tmp_name'][$fi], __DIR__ . '/uploads/reviews/' . $nm)) $photos[] = '/uploads/reviews/' . $nm;
@@ -3900,6 +4045,19 @@ try {
       $setBody['angelRelayKey'] = trim((string)$setBody['angelRelayKey']);
       if (strlen($setBody['angelRelayKey']) > 128) jout(400, ['error' => 'Relay key too long']);
     }
+    // v82 — every public-facing link setting must be a real http(s) URL, so
+    // a stored javascript:/data: URL can never reach an href on the storefront.
+    foreach (['googleReviewUrl', 'drawStreamUrl'] as $lk) {
+      if (array_key_exists($lk, $setBody)) {
+        $lv = trim((string)$setBody[$lk]);
+        if ($lv !== '' && !preg_match('#^https?://[A-Za-z0-9.\-]+#i', $lv)) jout(400, ['error' => $lk . ' must be a full https:// link']);
+        $setBody[$lk] = mb_substr($lv, 0, 500);
+      }
+    }
+    if (array_key_exists('announcements', $setBody)) {
+      $an = is_array($setBody['announcements']) ? array_slice($setBody['announcements'], 0, 12) : [];
+      $setBody['announcements'] = array_values(array_map(fn($a) => mb_substr(trim((string)$a), 0, 200), $an));
+    }
     foreach ($setBody as $k => $v) $db['settings'][$k] = $v;
     audit_log($db, 'settings.updated', ['keys' => implode(',', array_keys($setBody))]);
     db_save($DB_FILE, $db); jout(200, $db['settings']);
@@ -3986,8 +4144,9 @@ try {
      self-certify an entry. Entries land in db['finaleEntries'] for
      the CA-witnessed draw / admin export.
      ───────────────────────────────────────────────────────────── */
-  if ($route === 'finale/quiz' && $method === 'GET' || $route === 'finale/entry' && $method === 'GET' ||
-      $route === 'finale/entry' && $method === 'POST' || $route === 'finale/entries' && $method === 'GET') {
+  if (($route === 'finale/quiz' && $method === 'GET') || ($route === 'finale/entry' && $method === 'GET') ||
+      ($route === 'finale/entry' && $method === 'POST') || ($route === 'finale/entries' && $method === 'GET') ||
+      ($route === 'finale/count' && $method === 'GET')) {
     $FE_OPEN  = strtotime('2026-09-01T00:00:00+05:30'); // ← set the official entries-open date here before public launch
     $FE_CLOSE = strtotime('2026-12-20T23:59:59+05:30'); // entries close ~18–20 Dec 2026
     $FE_END   = strtotime('2027-01-01T00:00:00+05:30'); // module auto-expiry (1 Jan 2027)
@@ -4091,6 +4250,16 @@ try {
         $ord = null; foreach ($db['orders'] as $o) if ($o['id'] === $order_id) $ord = $o;
         if (!$ord) jout(404, ['error' => 'Order not found.']);
         if (($ord['userId'] ?? '') !== $u['id']) jout(403, ['error' => 'This order does not belong to your account.']);
+        // v82 — a cancelled or unpaid COD order is not a purchase. COD orders
+        // become eligible only after the shop confirms/ships them; prepaid
+        // orders once payment is approved.
+        $ost = (string)($ord['status'] ?? '');
+        $pst = (string)($ord['paymentStatus'] ?? '');
+        if (in_array($ost, ['Cancelled', 'Returned', 'Refunded'], true))
+          jout(400, ['error' => 'Cancelled orders are not eligible for the draw.']);
+        $paid = str_contains($pst, 'Paid') || $pst === 'Proof submitted'
+             || in_array($ost, ['Shipped', 'Delivered', 'Confirmed'], true);
+        if (!$paid) jout(400, ['error' => 'This order can be used once its payment is confirmed. The free quiz route needs no purchase.']);
         if (!finale_qualifies($ord['items'] ?? [])) jout(400, ['error' => 'This order does not qualify — a qualifying order is any gold piece of 3 g or more in any karat, or 100 g or more of silver per order.']);
       }
 
@@ -4099,7 +4268,6 @@ try {
       $a = $db['finaleAttempts'][$u['id']] ?? null;
       $count = (is_array($a) && ($a['day'] ?? '') === $day) ? (int)$a['count'] : 0;
       if ($count >= $FE_DAILY_ATTEMPTS) jout(429, ['error' => 'You have used today’s quiz attempts. Please try again tomorrow.']);
-      $count++;
 
       // server-side scoring against the canonical bank
       $answers = is_array($b['answers'] ?? null) ? $b['answers'] : [];
@@ -4110,7 +4278,9 @@ try {
         if ($got[$qq['id']] === $qq['a']) $score++;
       }
       if ($missing) jout(400, ['error' => 'Please answer every question.']);
-
+      // v82 — count a try only when a full, scored quiz was submitted (a
+      // half-filled form must not silently burn the day's attempts)
+      $count++;
       $db['finaleAttempts'][$u['id']] = ['day' => $day, 'count' => $count];
       $passed = $score >= $FE_PASS;
       $entry = null;
@@ -4146,7 +4316,13 @@ try {
   }
 
   if ($changed) db_save($DB_FILE, $db);
-  jout(404, ['error' => 'Unknown API ' . $method . ' /' . $route]);
+  jout(404, ['error' => 'Unknown API']);
 } catch (Throwable $e) {
-  jout(500, ['error' => 'Server error: ' . $e->getMessage()]);
+  // v82 — never send exception internals (file paths, gateway errors,
+  // credential fragments) to the browser; record them in a server-side log
+  // inside the data/ folder (web-denied) and return a generic message.
+  $line = '[' . date('c') . '] ' . $method . ' /' . $route . ' :: '
+        . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
+  @file_put_contents(__DIR__ . '/data/error-log.txt', $line, FILE_APPEND | LOCK_EX);
+  jout(500, ['error' => 'Something went wrong on our side — please retry in a moment, or WhatsApp +91 89050 05921.']);
 }

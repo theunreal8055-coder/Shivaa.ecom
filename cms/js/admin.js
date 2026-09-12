@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════════ */
 'use strict';
 (function () {
-const { api, state, toast, fmt, esc, openModal, closeModal, token } = window.Shivaa;
+const { api, state, toast, fmt, esc, safeUrl, jsArg, openModal, closeModal, token } = window.Shivaa;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
@@ -105,7 +105,7 @@ async function renderAdmin(view, q) {
           <div class="sum-row"><span>Referred sign-ups</span><b>${stats.referrals || 0}</b></div>
         </div>
         <div class="adm-card"><h3>🛒 Abandoned carts (${carts.length})</h3>
-          ${carts.length ? carts.slice(0, 5).map(c => `<div class="sum-row"><span><b>${esc((c.items || []).map(i => i.n).slice(0, 2).join(', '))}${(c.items || []).length > 2 ? '…' : ''}</b><br><small style="color:var(--ink-3)">${esc(String(c.at || '').slice(0, 16).replace('T', ' '))}${c.phone ? ' · ' + esc(c.phone) : ''}</small></span><span><b>${fmt(c.total || 0)}</b>${c.phone ? ` <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.nudgeCart('${esc(c.phone)}','${esc((c.items || []).map(i => i.n).slice(0, 2).join(', '))}')">Nudge</button>` : ''}</span></div>`).join('') : '<p style="color:var(--ink-3);font-size:13.5px">None yet — carts left behind appear here for a gentle nudge.</p>'}
+          ${carts.length ? carts.slice(0, 5).map(c => `<div class="sum-row"><span><b>${esc((c.items || []).map(i => i.n).slice(0, 2).join(', '))}${(c.items || []).length > 2 ? '…' : ''}</b><br><small style="color:var(--ink-3)">${esc(String(c.at || '').slice(0, 16).replace('T', ' '))}${c.phone ? ' · ' + esc(c.phone) : ''}</small></span><span><b>${fmt(c.total || 0)}</b>${c.phone ? ` <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.nudgeCart(${jsArg(c.phone)},${jsArg((c.items || []).map(i => i.n).slice(0, 2).join(', '))})">Nudge</button>` : ''}</span></div>`).join('') : '<p style="color:var(--ink-3);font-size:13.5px">None yet — carts left behind appear here for a gentle nudge.</p>'}
         </div>
       </div>
       <div class="adm-card"><h3>Daily revenue (last ${days.length || 0} days)</h3><canvas id="admChart"></canvas></div>
@@ -169,7 +169,7 @@ async function renderAdmin(view, q) {
     const proofBanner = proofPending ? `<div class="proof-banner">🔔 <b>${proofPending}</b> UPI payment screenshot${proofPending > 1 ? 's' : ''} awaiting verification
       <div style="margin-top:8px;display:grid;gap:8px">${payProofs.filter(o => o.paymentStatus === 'Proof submitted').map(o => `<div class="proof-row">
         <div><b>${esc(o.id)}</b> · ${esc(o.userName || '')} · <b>${fmt(o.total)}</b>${o.payProof && o.payProof.ref ? ' · ref ' + esc(o.payProof.ref) : ''}
-          <a href="${esc(o.payProof ? o.payProof.file : '')}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-left:8px">📎 View screenshot</a></div>
+          <a href="${safeUrl(o.payProof ? o.payProof.file : '')}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-left:8px">📎 View screenshot</a></div>
         <div><button class="btn btn-gold btn-sm" onclick="ShivaaAdmin.proofDecide('${o.id}','approve')">✓ Confirm paid</button>
         <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.proofDecide('${o.id}','reject')">Reject</button></div></div>`).join('')}</div></div>` : '';
     const asksBanner = reviewAsks.length ? `<div class="proof-banner" style="background:linear-gradient(135deg,#fff8e6,#f5e9c8);border-color:var(--gold)">⭐ <b>${reviewAsks.length}</b> delivered piece${reviewAsks.length > 1 ? 's' : ''} waiting on a photo review
@@ -376,7 +376,7 @@ async function renderAdmin(view, q) {
           ShivaaAdmin.rtgsSync();
         })();
         const { orders } = await api('/api/bullion/orders');
-        document.getElementById('admBlOrders').innerHTML = orders.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>ID</th><th>Partner</th><th>Side</th><th>Metal</th><th class="num">Qty</th><th class="num">Value</th><th>When</th><th>Status</th></tr></thead><tbody>${orders.map(o => `<tr><td><b>${o.id}</b></td><td>${esc(o.partnerName)}</td><td>${o.side}</td><td>${o.metal.split('—')[0]}</td><td class="num">${o.qty}${o.unit}</td><td class="num"><b>₹${o.amount.toLocaleString('en-IN')}</b></td><td>${new Date(o.createdAt).toLocaleDateString('en-IN')}</td><td><select onchange="ShivaaAdmin.blStatus('${o.id}',this.value)">${['New','Confirmed','Delivered','Cancelled'].map(s2 => `<option ${o.status === s2 ? 'selected' : ''}>${s2}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No bullion orders yet.</p>';
+        document.getElementById('admBlOrders').innerHTML = orders.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>ID</th><th>Partner</th><th>Side</th><th>Metal</th><th class="num">Qty</th><th class="num">Value</th><th>When</th><th>Status</th></tr></thead><tbody>${orders.map(o => `<tr><td><b>${esc(o.id || '')}</b></td><td>${esc(o.partnerName || '')}</td><td>${esc(o.side || '')}</td><td>${esc(String(o.metal || '').split('—')[0])}</td><td class="num">${Number(o.qty) || 0}${esc(o.unit || '')}</td><td class="num"><b>₹${o.amount.toLocaleString('en-IN')}</b></td><td>${new Date(o.createdAt).toLocaleDateString('en-IN')}</td><td><select onchange="ShivaaAdmin.blStatus('${o.id}',this.value)">${['New','Confirmed','Delivered','Cancelled'].map(s2 => `<option ${o.status === s2 ? 'selected' : ''}>${s2}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No bullion orders yet.</p>';
       } catch (e) { document.getElementById('admBullion').innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
     })();
   }
@@ -468,7 +468,7 @@ async function renderAdmin(view, q) {
             <td>${esc(c.category)}</td><td class="num">${(c.size / 1048576).toFixed(1)} MB</td><td class="num">${c.downloads}</td>
             <td>${new Date(c.addedAt).toLocaleDateString('en-IN')}</td>
             <td><input type="checkbox" ${c.featured ? 'checked' : ''} onchange="ShivaaAdmin.featCat('${c.id}', this.checked)" style="accent-color:var(--gold)"></td>
-            <td style="white-space:nowrap"><a class="icon-e" href="${c.file}" target="_blank" title="view">👁</a> <button class="icon-x" onclick="ShivaaAdmin.delCat('${c.id}')">✕</button></td>
+            <td style="white-space:nowrap"><a class="icon-e" href="${safeUrl(c.file)}" target="_blank" rel="noopener" title="view">👁</a> <button class="icon-x" onclick="ShivaaAdmin.delCat('${c.id}')">✕</button></td>
           </tr>`).join('')}</tbody>
         </table></div></div>`;
     const dz = $('#dropZone'), fi = $('#catFile');
@@ -561,7 +561,7 @@ async function renderAdmin(view, q) {
           <td style="max-width:280px"><small>${esc(r.details || '')}</small></td><td>${esc(r.budget || '—')}</td>
           <td>${new Date(r.createdAt).toLocaleDateString('en-IN')}</td>
           <td><select onchange="ShivaaAdmin.srStatus('${r.id}', this.value)" style="border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px">${statuses.map(s => `<option ${stNow === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
-          <td><button class="icon-e" title="WhatsApp update" onclick="window.open('https://wa.me/91'+String('${esc(r.phone)}').replace(/\\D/g,'').slice(-10)+'?text='+encodeURIComponent('Namaste ${esc(r.name.split(' ')[0])} ✦ update on your Shivaa care token ${r.id}: status is now '+this.closest('tr').querySelector('select').value+'. Thank you — Shivaa Jewellers.'),'_blank')">📱</button></td>
+          <td><button class="icon-e" title="WhatsApp update" onclick="window.open('https://wa.me/91'+String(${jsArg(r.phone)}).replace(/\\D/g,'').slice(-10)+'?text='+encodeURIComponent('Namaste '+${jsArg((r.name || '').split(' ')[0])}+' ✦ update on your Shivaa care token ${r.id}: status is now '+this.closest('tr').querySelector('select').value+'. Thank you — Shivaa Jewellers.'),'_blank')">📱</button></td>
         </tr>`; }).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3)">No service requests yet — they land here from Bespoke &amp; Care, B2B forms and contact page.</p>'}
     </div>`;
   }
@@ -948,7 +948,7 @@ window.ShivaaAdmin.gstrCSV = () => {
     const taxable = Math.round((o.total || 0) / 1.03);
     rows.push([o.id, String(o.createdAt || '').slice(0, 10), (o.userName || '').replace(/,/g, ' '), taxable, Math.round((o.total - taxable) / 2), Math.round((o.total - taxable) / 2), o.total || 0]);
   });
-  const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' });
+  const blob = new Blob(['﻿' + csvRows(rows)], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'gstr1-' + new Date().toISOString().slice(0, 7) + '.csv';
   document.body.appendChild(a); a.click(); a.remove();
@@ -1202,7 +1202,7 @@ window.ShivaaAdmin.finaleCSV = async () => {
     const head = ['Entry ID', 'Name', 'Phone', 'Email', 'Route', 'Order', 'Score', 'Total', 'Status', 'Date (IST)'];
     const rows = entries.map(e => [e.id, e.name, e.phone, e.email, e.route, e.orderId || '', e.score, e.total, e.status,
       new Date(e.createdAt).toLocaleString('en-IN')]);
-    const csv = '\uFEFF' + [head, ...rows].map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const csv = '\uFEFF' + csvRows([head, ...rows]);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     a.download = 'shivaa-finale-entries-' + new Date().toISOString().slice(0, 10) + '.csv';
@@ -1569,7 +1569,7 @@ window.ShivaaAdmin.cbCSV = (date) => {
   document.querySelectorAll('.adm-table tbody tr').forEach(tr => {
     rows.push([...tr.children].map(td => td.textContent.trim()));
   });
-  const blob = new Blob([rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')], { type: 'text/csv' });
+  const blob = new Blob(['\uFEFF' + csvRows(rows)], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cashbook-' + date + '.csv';
   document.body.appendChild(a); a.click(); a.remove();
 };
@@ -1636,11 +1636,11 @@ function admPrintDoc(o, kind) {
   const css = `body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;margin:0;padding:24px;font-size:13px}h1,h2,h3{margin:0}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #999;padding:7px 9px;text-align:left;font-size:12.5px}th{background:#f3e9d2}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #6b1020;padding-bottom:10px}.brand{font-size:22px;font-weight:800;color:#6b1020;letter-spacing:2px}.sub{color:#555;font-size:11.5px;margin-top:3px}.box{border:2px solid #111;padding:12px;margin:14px 0}.big{font-size:30px;font-weight:800;letter-spacing:3px;font-family:'Courier New',monospace}.label-to{font-size:16px;line-height:1.5}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.sig{margin-top:40px;display:flex;justify-content:space-between}.sig div{border-top:1px solid #333;padding-top:6px;width:30%;text-align:center;font-size:11px}.chk{font-size:12px}.chk li{margin:4px 0}.muted{color:#666;font-size:11px}@media print{.noprt{display:none}}`;
   let body;
   if (kind === 'label') {
-    body = `<div class="hdr"><div><div class="brand">SHIVAA JEWELLERS</div><div class="sub">${S.address || 'Sadar Bazaar, Jayal, Nagaur, Rajasthan'} · ${S.phone || ''}</div></div>
+    body = `<div class="hdr"><div><div class="brand">SHIVAA JEWELLERS</div><div class="sub">${escP(S.address || 'Sadar Bazaar, Jayal, Nagaur, Rajasthan')} · ${escP(S.phone || '')}</div></div>
       <div style="text-align:right"><b>INSURED PARCEL</b><div class="muted">Handle with care · jewellery</div></div></div>
       <div class="grid2">
-        <div><div class="muted">FROM</div><b>Shivaa Jewellers</b><div>${S.address || 'Sadar Bazaar, Jayal, Nagaur (Raj.)'}</div><div>${S.phone || ''}</div></div>
-        <div class="box"><div class="muted">DELIVER TO</div><div class="label-to"><b>${(addr.name || o.userName || '').toUpperCase()}</b><br>${escP(addrLine || '')}<br>📞 ${escP(addr.phone || o.phone || '')}</div></div>
+        <div><div class="muted">FROM</div><b>Shivaa Jewellers</b><div>${escP(S.address || 'Sadar Bazaar, Jayal, Nagaur (Raj.)')}</div><div>${escP(S.phone || '')}</div></div>
+        <div class="box"><div class="muted">DELIVER TO</div><div class="label-to"><b>${escP((addr.name || o.userName || '').toUpperCase())}</b><br>${escP(addrLine || '')}<br>📞 ${escP(addr.phone || o.phone || '')}</div></div>
       </div>
       <div class="box" style="text-align:center"><div class="muted">${escP(o.courier || 'COURIER')} · AWB / TRACKING</div><div class="big">${escP(o.awb || 'AWAITING AWB')}</div></div>
       <div class="grid2">
@@ -1652,9 +1652,9 @@ function admPrintDoc(o, kind) {
       </div>
       <div class="muted" style="margin-top:14px">Customer live tracking: shivaa.in/#/order/${o.id} · HUID certificate in the customer's digital locker</div>`;
   } else {
-    body = `<div class="hdr"><div><div class="brand">SHIVAA JEWELLERS</div><div class="sub">${S.address || 'Sadar Bazaar, Jayal, Nagaur, Rajasthan'} · ${S.phone || ''}</div></div>
+    body = `<div class="hdr"><div><div class="brand">SHIVAA JEWELLERS</div><div class="sub">${escP(S.address || 'Sadar Bazaar, Jayal, Nagaur, Rajasthan')} · ${escP(S.phone || '')}</div></div>
       <div style="text-align:right"><h2>PACKING SLIP</h2><div><b>${o.id}</b> · ${when}</div></div></div>
-      <div class="box"><b>Ship to:</b> ${(addr.name || o.userName || '')} · ${addrLine} · 📞 ${addr.phone || o.phone || ''}${o.dispatchNote ? '<br><b>Note:</b> ' + escP(o.dispatchNote) : ''}</div>
+      <div class="box"><b>Ship to:</b> ${escP(addr.name || o.userName || '')} · ${escP(addrLine || '')} · 📞 ${escP(addr.phone || o.phone || '')}${o.dispatchNote ? '<br><b>Note:</b> ' + escP(o.dispatchNote) : ''}</div>
       <table><thead><tr><th>#</th><th>Piece</th><th>Purity</th><th class="num">Wt (g)</th><th class="num">Qty</th><th>HUID / remark</th></tr></thead><tbody>
       ${(o.items || []).map((it, n) => `<tr><td>${n + 1}</td><td><b>${escP(it.name || '')}</b>${it.size ? '<br><span class="muted">Size ' + escP(it.size) + '</span>' : ''}${it.engraving ? '<br><span class="muted">Engraved</span>' : ''}</td><td>${it.metal === 'Silver' ? '925 Ag' : escP(it.purity || '')}</td><td class="num">${(it.weightG || 0).toFixed(3)}</td><td class="num">${it.qty}</td><td>${n === 0 ? escP(o.huid || '') : ''}</td></tr>`).join('')}
       </tbody></table>
@@ -1675,6 +1675,15 @@ function admPrintDoc(o, kind) {
   setTimeout(() => { try { w.focus(); } catch (e) {} }, 300);
 }
 function escP(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+/* v82 — CSV formula-injection guard: a customer-controlled field starting
+   with = + - @ tab or CR can execute formulas when a CSV opens in Excel/Sheets.
+   Quote every cell and force such values to text with a leading apostrophe. */
+function csvCell(v) {
+  let s = String(v == null ? '' : v);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+function csvRows(rows) { return rows.map(r => r.map(csvCell).join(',')).join('\r\n'); }
 window.ShivaaAdmin.printSlip = id => admPrintDoc((window._adminOrders || []).find(x => x.id === id), 'slip');
 window.ShivaaAdmin.printLabel = id => admPrintDoc((window._adminOrders || []).find(x => x.id === id), 'label');
 /* v60 — thermal receipt 58/80mm */
@@ -1700,7 +1709,7 @@ window.ShivaaAdmin.printReceipt = id => {
   <tr><td>Date</td><td class="r">${new Date(o.createdAt).toLocaleString('en-IN')}</td></tr>
   <tr><td>Customer</td><td class="r">${esc(o.userName || '')}</td></tr></table>
   <div class="ln"></div>
-  <table>${(o.items || []).map(it => `<tr><td>${it.qty} x ${it.name}${it.size ? ' (' + it.size + ')' : ''}</td><td class="r">${(it.unitPrice * it.qty).toLocaleString('en-IN')}</td></tr>`).join('')}
+  <table>${(o.items || []).map(it => `<tr><td>${Number(it.qty) || 0} x ${escP(it.name || '')}${it.size ? ' (' + escP(it.size) + ')' : ''}</td><td class="r">${(Number(it.unitPrice) || 0).toLocaleString('en-IN')}</td></tr>`).join('')}
   ${o.shipping ? `<tr><td>Shipping</td><td class="r">${o.shipping.toLocaleString('en-IN')}</td></tr>` : ''}
   ${o.prepaidDiscount ? `<tr><td>Prepaid discount</td><td class="r">-${o.prepaidDiscount.toLocaleString('en-IN')}</td></tr>` : ''}
   </table>
@@ -2056,9 +2065,9 @@ window.ShivaaCO = {
     try {
       const [mx, co] = await Promise.all([api('/api/metalexchange/orders'), api('/api/customorder')]);
       el.innerHTML =
-        (mx.orders.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>ID</th><th>Designs</th><th class="num">Weight</th><th class="num">Fine @99.50</th><th>MC</th><th>Status</th></tr></thead><tbody>${mx.orders.map(o => `<tr><td><b>${o.id}</b><br><small style="color:var(--ink-3)">${new Date(o.createdAt).toLocaleDateString('en-IN')}</small></td><td>${o.items.length}</td><td class="num">${o.totalWeightG} g</td><td class="num"><b>${o.fineGrams} g</b></td><td>₹0</td><td>${o.status}</td></tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No metal orders — select designs from Catalogues → Design Selection.</p>')
-        + (co.orders.length ? `<div class="sec-title" style="margin-top:16px">Custom orders</div><div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>ID</th><th>Design</th><th class="num">Weight</th><th class="num">Advance</th><th>Size</th><th>Status</th></tr></thead><tbody>${co.orders.map(o => `<tr><td><b>${o.id}</b></td><td>${esc(o.name)}${o.designImg ? ` <a href="${o.designImg}" target="_blank">🖼</a>` : ''}</td><td class="num">${o.weightG} g</td><td class="num">${o.advance ? fmt(o.advance) : '—'}</td><td>${esc(o.size || '—')}</td><td>${o.status}</td></tr>`).join('')}</tbody></table></div>` : '');
-    } catch (e) { el.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
+        (mx.orders.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>ID</th><th>Designs</th><th class="num">Weight</th><th class="num">Fine @99.50</th><th>MC</th><th>Status</th></tr></thead><tbody>${mx.orders.map(o => `<tr><td><b>${esc(o.id)}</b><br><small style="color:var(--ink-3)">${new Date(o.createdAt).toLocaleDateString('en-IN')}</small></td><td>${o.items.length}</td><td class="num">${Number(o.totalWeightG) || 0} g</td><td class="num"><b>${Number(o.fineGrams) || 0} g</b></td><td>₹0</td><td>${esc(o.status || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">No metal orders — select designs from Catalogues → Design Selection.</p>')
+        + (co.orders.length ? `<div class="sec-title" style="margin-top:16px">Custom orders</div><div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>ID</th><th>Design</th><th class="num">Weight</th><th class="num">Advance</th><th>Size</th><th>Status</th></tr></thead><tbody>${co.orders.map(o => `<tr><td><b>${esc(o.id)}</b></td><td>${esc(o.name)}${o.designImg ? ` <a href="${safeUrl(o.designImg)}" target="_blank" rel="noopener">🖼</a>` : ''}</td><td class="num">${Number(o.weightG) || 0} g</td><td class="num">${o.advance ? fmt(o.advance) : '—'}</td><td>${esc(o.size || '—')}</td><td>${esc(o.status || '')}</td></tr>`).join('')}</tbody></table></div>` : '');
+    } catch (e) { el.innerHTML = '<p class="partner-note">' + esc(e.message || 'Could not load') + '</p>'; }
   },
 };
 
@@ -2657,9 +2666,9 @@ window.ShivaaBullion = {
     </style></head><body>
       <h2>Shivaa Bullion Desk</h2><small>Jayal, Nagaur · +91 89050 05921</small>
       <table>
-      <tr><td><b>${o.id}</b></td><td class="r">${new Date(o.createdAt).toLocaleString('en-IN')}</td></tr>
-      <tr><td>${o.side.toUpperCase()} ${o.metal}</td><td class="r">${o.status}</td></tr>
-      <tr><td>Qty</td><td class="r">${o.qty} ${o.unit}</td></tr>
+      <tr><td><b>${esc(o.id || '')}</b></td><td class="r">${new Date(o.createdAt).toLocaleString('en-IN')}</td></tr>
+      <tr><td>${esc(String(o.side || '').toUpperCase())} ${esc(o.metal || '')}</td><td class="r">${esc(o.status || '')}</td></tr>
+      <tr><td>Qty</td><td class="r">${Number(o.qty) || 0} ${esc(o.unit || '')}</td></tr>
       <tr><td>Rate ₹/g</td><td class="r">${o.rate.toLocaleString('en-IN')}</td></tr>
       <tr><td><b>Value ₹</b></td><td class="r"><b>${o.amount.toLocaleString('en-IN')}</b></td></tr>
       <tr><td colspan="2">${o.note ? 'Note: ' + esc(o.note) : ''}</td></tr>
@@ -2956,11 +2965,11 @@ window.ShivaaAdmin.runReport = async () => {
       </tbody></table></div>
       <h4 style="margin:16px 0 6px">Bestsellers (top 12)</h4>
       <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Piece</th><th class="num">Qty</th><th class="num">Value</th></tr></thead><tbody>
-        ${(r.bestsellers || []).map(b => `<tr><td>${b.name}</td><td class="num">${b.qty}</td><td class="num">₹${(b.value || 0).toLocaleString('en-IN')}</td></tr>`).join('') || '<tr><td colspan="3" class="partner-note">No sales in range.</td></tr>'}
+        ${(r.bestsellers || []).map(b => `<tr><td>${esc(b.name)}</td><td class="num">${Number(b.qty) || 0}</td><td class="num">₹${Number(b.value || 0).toLocaleString('en-IN')}</td></tr>`).join('') || '<tr><td colspan="3" class="partner-note">No sales in range.</td></tr>'}
       </tbody></table></div>
       <h4 style="margin:16px 0 6px">Low stock (≤3) &amp; tag mismatches</h4>
       <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Piece</th><th class="num">Stock</th><th>Weight</th></tr></thead><tbody>
-        ${(r.lowStock || []).map(p => `<tr><td>${p.name}</td><td class="num">${p.stock}</td><td class="num">${p.weight ? p.weight + ' g' : '<span style="color:var(--warn)">assumed — re-weigh</span>'}</td></tr>`).join('') || '<tr><td colspan="3">All healthy ✦</td></tr>'}
+        ${(r.lowStock || []).map(p => `<tr><td>${esc(p.name)}</td><td class="num">${Number(p.stock) || 0}</td><td class="num">${p.weight ? Number(p.weight) + ' g' : '<span style="color:var(--warn)">assumed — re-weigh</span>'}</td></tr>`).join('') || '<tr><td colspan="3">All healthy ✦</td></tr>'}
       </tbody></table></div>
       <h4 style="margin:16px 0 6px">Metal out with karigars (job-work open)</h4>
       <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Karigar</th><th class="num">Open jobs</th><th class="num">Grams out</th></tr></thead><tbody>
@@ -3006,7 +3015,7 @@ window.ShivaaAdmin.productPoster = (id) => {
   const S = state.settings || {};
   const img = (p.images && p.images[0]) || '/images/logo.png';
   const w = window.open('', '_blank', 'width=520,height=860');
-  w.document.write(`<!doctype html><html><head><title>Poster ${p.name}</title><style>
+  w.document.write(`<!doctype html><html><head><title>Poster ${esc(p.name || '')}</title><style>
     @page{size:A4;margin:0}
     body{margin:0;font-family:Georgia,'Times New Roman',serif;background:#2b0a12;color:#f3d27a;display:grid;place-items:center;min-height:100vh}
     .poster{width:460px;padding:34px 30px;text-align:center;background:linear-gradient(165deg,#3a0c14,#22070d)}
@@ -3019,20 +3028,20 @@ window.ShivaaAdmin.productPoster = (id) => {
     .url{font-size:15px;color:#fff;font-family:Jost,sans-serif;letter-spacing:.5px}
   </style></head><body><div class="poster">
     <div class="sub">✦ Shivaa Jewellers · Jaipur rates ✦</div>
-    <img src="${location.origin}${img}" onerror="this.src='${location.origin}/images/logo.png'">
-    <h1>${p.name}</h1>
-    <div class="sub">${p.purity || ''} · BIS hallmarked · lifetime exchange</div>
+    <img src="${location.origin}${safeUrl(img)}" onerror="this.src='${location.origin}/images/logo.png'">
+    <h1>${esc(p.name || '')}</h1>
+    <div class="sub">${esc(p.purity || '')} · BIS hallmarked · lifetime exchange</div>
     <div class="price">₹${pr.gross.toLocaleString('en-IN')}</div>
-    <div class="small">${p.weightG ? 'Approx ' + p.weightG + ' g · ' : ''}transparent metal + making breakdown<br>Insured doorstep delivery · video call on request</div>
+    <div class="small">${p.weightG ? 'Approx ' + Number(p.weightG) + ' g · ' : ''}transparent metal + making breakdown<br>Insured doorstep delivery · video call on request</div>
     <div class="br"></div>
-    <div class="url">shivaa.in/#/product/${p.id}</div>
-    <div class="small" style="margin-top:8px">${S.phone || '+91 89050 05921'} · Sadar Bazaar, Jayal, Nagaur</div>
+    <div class="url">shivaa.in/#/product/${encodeURIComponent(p.id || '')}</div>
+    <div class="small" style="margin-top:8px">${esc(S.phone || '+91 89050 05921')} · Sadar Bazaar, Jayal, Nagaur</div>
     <div style="margin-top:18px"><button onclick="window.print()" style="padding:10px 26px;background:#f3d27a;color:#2b0a12;border:0;border-radius:8px;font-weight:700">🖨 Save / share PDF</button></div>
   </div><script>window.onload=()=>setTimeout(()=>window.print(),400)</script></body></html>`);
   w.document.close();
 };
 ShivaaAdmin._dl = (rows, name) => {
-  const csv = rows.map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\n');
+  const csv = '\uFEFF' + csvRows(rows);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
   a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
@@ -3065,7 +3074,7 @@ window.ShivaaAdmin.printInvoice = (id) => {
     const gst = Math.round((it.gst || 0) * qty);
     const taxable = Math.max(0, Math.round((it.unitPrice || 0) * qty - gst));
     subTotal += taxable; taxTotal += gst;
-    return `<tr><td>${it.name}${it.size ? ' · ' + it.size : ''}<br><small>HSN ${it.hsn || '71131910'}</small></td><td>${it.purity || ''}</td><td class="r">${it.weightG ? Number(it.weightG).toFixed(2) : ''}</td><td class="r">${qty}</td><td class="r">${taxable.toLocaleString('en-IN')}</td><td class="r">${Math.round(gst / 2).toLocaleString('en-IN')}</td><td class="r">${(gst - Math.round(gst / 2)).toLocaleString('en-IN')}</td><td class="r">${(taxable + gst).toLocaleString('en-IN')}</td></tr>`;
+    return `<tr><td>${esc(it.name || '')}${it.size ? ' · ' + esc(it.size) : ''}<br><small>HSN ${esc(it.hsn || '71131910')}</small></td><td>${esc(it.purity || '')}</td><td class="r">${it.weightG ? Number(it.weightG).toFixed(2) : ''}</td><td class="r">${qty}</td><td class="r">${taxable.toLocaleString('en-IN')}</td><td class="r">${Math.round(gst / 2).toLocaleString('en-IN')}</td><td class="r">${(gst - Math.round(gst / 2)).toLocaleString('en-IN')}</td><td class="r">${(taxable + gst).toLocaleString('en-IN')}</td></tr>`;
   }).join('');
   w.document.write(`<!doctype html><html><head><title>Invoice ${o.invoiceNo || o.id}</title>
   <style>

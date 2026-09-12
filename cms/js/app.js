@@ -43,6 +43,14 @@ addEventListener('online', () => {
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* v82 — only http(s)/mailto:/tel: URLs may ever land in href/src, so a
+   stored "javascript:" link (e.g. via an admin settings field) cannot run. */
+const safeUrl = s => { const u = String(s ?? '').trim(); return /^(https?:|mailto:|tel:|\/|#|\.\/|\.\.\/)/i.test(u) && !/[\u0000-\u001F\u007F]/.test(u) ? u : '#'; };
+/* v82 — embed a value as a JS string argument inside an inline on* handler.
+   esc() alone is wrong there: the HTML attribute decodes &#39; back to a
+   quote BEFORE the JS runs, so a name containing ' breaks the string.
+   JSON-encode first, then attribute-encode the quotes. */
+const jsArg = s => JSON.stringify(String(s ?? '')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmt2 = n => '₹' + (+n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateFmt = iso => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -1107,7 +1115,7 @@ function finaleLandingHook() {
       const drawNight = new Date().toDateString() === new Date(2026, 10, 11).toDateString();
       if (st.drawStreamUrl && drawNight && !$('#drawStreamBtn')) {
         const b = document.createElement('a'); b.id = 'drawStreamBtn'; b.className = 'btn btn-gold';
-        b.target = '_blank'; b.rel = 'noopener'; b.href = st.drawStreamUrl;
+        b.target = '_blank'; b.rel = 'noopener'; b.href = safeUrl(st.drawStreamUrl);
         b.textContent = '▶ Watch the live draw now';
         b.style.cssText = 'display:block;margin:18px auto;width:max-content';
         const hero = $('#view .fh-hero') || $('#view');
@@ -1459,12 +1467,12 @@ function productCard(p, opts = {}) {
     <button type="button" class="pc-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg><span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span>
     </button>
-    <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${TAGS[t] || t}</span>`).join('')}</div>
+    <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${esc(TAGS[t] || t)}</span>`).join('')}</div>
     <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
     </button>
     <div class="pc-body">
-      <div class="pc-cat">${CATS[p.category] ? CATS[p.category].name : p.category} · ${p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold'}</div>
+      <div class="pc-cat">${esc(CATS[p.category] ? CATS[p.category].name : (p.category || ''))} · ${p.metal === 'Silver' ? 'Silver ' + esc(p.purity || '') : esc(p.purity || '') + ' Gold'}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
       <div class="pc-meta">${p.weightG} g${p.stoneValue ? ' · stone value listed' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
       <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST</small></div>
@@ -1581,7 +1589,7 @@ window.Shivaa.orderDetail = async id => {
   openModal(`<h3 style="font-size:24px;margin-bottom:4px">Order ${o.id}</h3><div style="font-size:13px;color:var(--ink-3);margin-bottom:14px">${timeFmt(o.createdAt)} · ${esc(o.paymentMethod)} · ${esc(o.paymentStatus)}</div>
   ${o.items.map(i => `<div class="sum-row"><span>${esc(i.name)}${i.size ? ' (' + esc(i.size) + ')' : ''} × ${i.qty} <small style="display:block;color:var(--ink-3)">${i.metal === 'Silver' ? 'Silver' : i.purity} ${i.weightG}g · rate ${fmt(i.ratePerGram)}/g · MC ${fmt(i.makingCharge * i.qty)}</small></span><b>${fmt(i.unitPrice * i.qty)}</b></div>`).join('')}
   <div class="sum-row total"><span>Total (incl. GST)</span><b>${fmt(o.total)}</b></div>
-  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address.name || '')}, ${esc(o.address.line || '')}, ${esc(o.address.city || '')} — ${esc(o.address.pincode || '')}<br><b>Timeline:</b> ${o.timeline.map(t => t.s).join(' → ')}</div>`, 'lg');
+  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address.name || '')}, ${esc(o.address.line || '')}, ${esc(o.address.city || '')} — ${esc(o.address.pincode || '')}<br><b>Timeline:</b> ${o.timeline.map(t => esc(t.s)).join(' → ')}</div>`, 'lg');
 };
 window.Shivaa.logout = () => {
   // v80: revoke the bearer token server-side (best-effort), then clear locally
@@ -2229,7 +2237,7 @@ pages.product = async (view, q, id) => {
         <details class="acc"><summary>Shipping & Returns</summary><div class="acc-body">Free insured shipping above ${fmt(state.settings.freeShipAbove)}; tamper-sealed packaging with signature & OTP delivery. 7-day no-question returns (uncustomised pieces). Engraved pieces are exchangeable, not returnable.</div></details>
         <details class="acc"><summary>Reviews (${data.reviews.length})</summary><div class="acc-body">
           ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)} ${r.verified ? '<span class="verified-badge" title="Bought on shivaa.in">✓ verified purchase</span>' : ''}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p>
-            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="review photo" loading="lazy"></a>`).join('')}</div>` : ''}
+            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${safeUrl(src)}" target="_blank" rel="noopener"><img src="${safeUrl(src)}" alt="review photo" loading="lazy"></a>`).join('')}</div>` : ''}
             ${r.reply ? `<div class="rv-reply"><b>Shivaa replies:</b> ${esc(r.reply)}</div>` : ''}
           </div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
           <form class="review-form" id="revForm" onsubmit="Shivaa.postReview(event,'${p.id}')">
@@ -2562,10 +2570,10 @@ pages.cart = async (view) => {
             <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : it.p.purity + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved “' + esc(it.engraving) + '”' : ''}</div>
             <div class="ci-meta js-price" data-pid="${it.p.id}" data-qty="${it.qty}">${fmt(pr.total * it.qty)} <span style="opacity:.6">(live · incl. GST)</span></div>
             <div class="qty-row" style="transform:scale(.86);transform-origin:left">
-              <button onclick="Shivaa.cartQty('${it.id}','${it.size || ''}',-1)">−</button><b>${it.qty}</b><button onclick="Shivaa.cartQty('${it.id}','${it.size || ''}',1)">+</button>
+              <button onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},-1)">−</button><b>${it.qty}</b><button onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},1)">+</button>
             </div>
           </div>
-          <div class="ci-right"><b>${fmt(pr.total * it.qty)}</b><br><a class="ci-remove" href="javascript:Shivaa.cartRemove('${it.id}','${it.size || ''}')">Remove</a></div>
+          <div class="ci-right"><b>${fmt(pr.total * it.qty)}</b><br><a class="ci-remove" href="javascript:Shivaa.cartRemove(${jsArg(it.id)},${jsArg(it.size || '')})">Remove</a></div>
         </div>`).join('')}
       </div>
       <div class="qty-banner">◈ Prices in your cart re-compute automatically with every rate refresh (every ~10 minutes) and are finally locked at checkout.</div>
@@ -2629,7 +2637,7 @@ pages.checkout = async (view) => {
         <label class="pay-opt" id="payOptCod"><input type="radio" name="pay" value="COD"><span><b>Cash on Delivery</b><small id="payCodSub">Available on orders below ${fmt(50000)} · ID verification at handover · full price</small></span></label>
         <label class="pay-opt"><input type="radio" name="pay" value="WhatsApp"><span><b>WhatsApp Order</b><small>Our team confirms the order &amp; payment (UPI / bank / card) on chat · full price</small></span></label>
       </div>
-      <div class="qty-banner mt-2" id="payDemoNote">🔒 Online payments are in <b>demo mode</b> until gateway keys are added in admin — no real charge happens; the order, invoice and inventory all work fully.</div>
+      <div class="qty-banner mt-2" id="payDemoNote">🔒 Card/net-banking checkout switches to <b>live Razorpay</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.</div>
     </div>
 
     <div class="summary">
@@ -2718,7 +2726,7 @@ pages.checkout = async (view) => {
   const note = $('#payDemoNote');
   if (note) note.innerHTML = payCfg.mode === 'razorpay'
     ? '🔒 Payments are secured by <b>Razorpay</b> (UPI / cards / net-banking). Your card details never touch shivaa.in.'
-    : '🔒 Online payments are in <b>demo mode</b> until gateway keys are added in admin — no real charge happens; the order, invoice and inventory all work fully.';
+    : '🔒 Card/net-banking checkout switches to <b>live Razorpay</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
   const codPct = +(state.settings.codFeePct || 0);
   const codSub = $('#payCodSub');
   if (codSub) {
@@ -2907,6 +2915,13 @@ window.Shivaa.payForOrder = async (orderId) => {
   let po;
   try { po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) }); }
   catch (e) { toast(e.message, 'err'); return false; }
+  // v82 — public host with no gateway keys: go straight to the real UPI QR +
+  // owner-approved screenshot flow (the old "demo success" sheet could mark
+  // orders paid on the live site).
+  if (po.mode === 'upi-proof') {
+    if (!po.upiId) { toast('Online gateway is being set up — please choose WhatsApp order or COD, or call the shop.', 'err'); return false; }
+    return upiPaySheet(po, orderId);
+  }
   if (po.mode === 'razorpay') {
     const ready = await loadExternalScript('https://checkout.razorpay.com/v1/checkout.js');
     if (ready && window.Razorpay) {
@@ -3047,9 +3062,10 @@ function npsHTML(o) {
       let msg;
       if (n >= 9) {
         msg = 'Namaste Shivaa ✦ I received order ' + o.id + ' and loved my ' + (first.name || 'jewellery') + ' (' + n + '/10)!';
-        const gUrl = (state.settings && state.settings.googleReviewUrl) || '';
+        const gUrl = safeUrl((state.settings && state.settings.googleReviewUrl) || '');
+        const gSafe = gUrl === '#' ? '' : gUrl;
         done.innerHTML = 'Dhanyavaad! 💛 Your kind words mean a lot. <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'
-          + (gUrl ? '<a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="' + gUrl + '">⭐ Rate us on Google</a>' : '')
+          + (gSafe ? '<a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="' + gSafe + '">⭐ Rate us on Google</a>' : '')
           + '<a class="btn btn-outline btn-sm" href="#/product/' + (first.productId || '') + '">Write a photo review</a>'
           + '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="' + waLink(msg) + '">Share on WhatsApp</a></div>';
       } else {
@@ -5919,7 +5935,7 @@ Object.keys(pages).forEach(k => routes[k] = pages[k]);
 Object.assign(window.Shivaa, {
   api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,
   toggleCompare, removeCompare, clearCompare, copyCompareLink, waCompare, compareLink, compareItems,
-  routes, price, fmt, esc, productCard, mcTableHTML, openLogin,
+  routes, price, fmt, esc, safeUrl, jsArg, productCard, mcTableHTML, openLogin,
   waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
 });
