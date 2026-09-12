@@ -573,3 +573,385 @@
   .modal, .nav, .mc-drawer, #saathiPanel, .filters, .mcta-bar, .toast { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   v96 · MOBILE-FIRST POLISH PASS
+   Everything below is interface-only: gutters, type floor, tap
+   targets, stacking and vertical rhythm. No content is removed.
+   Loaded last ⇒ wins every tie with the layers above.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── 0 · decorative watermarks stay decorative ─────────────────────
+   The motion layer's blur-up reveal (img.img-ok) forced opacity:1 /
+   transform:none on EVERY #view image, which turned the faint hero
+   watermark (.ph-mark) and the corner logo into a giant white slab on
+   every page hero. Restore their intended treatment, all viewports. */
+html.js-motion #view img.ph-mark.img-ok {
+  opacity: .11; transform: translateY(-50%) rotate(-5deg);
+  filter: saturate(1.3) brightness(1.5);
+}
+html.js-motion #view img.hero-logo.img-ok { opacity: .5; transform: none; filter: saturate(.9); }
+html.js-motion .cert-head img.img-ok { opacity: .95; filter: brightness(0) invert(1); }
+html.js-motion .bd-topbar img.img-ok { opacity: .92; filter: brightness(0) invert(1); }
+@media (max-width: 768px) {
+  html.js-motion #view img.ph-mark.img-ok, .ph-mark { height: 46%; max-height: 150px; opacity: .09; }
+}
+
+/* ── 1 · page gutters, restored ─────────────────────────────────────
+   `.sec{padding:46px 0}` (shorthand, later in this file) was resetting
+   the inline padding that `.container` sets, so every `section.sec.
+   container` grid ran edge-to-edge and clipped its outer cards. */
+@media (max-width: 768px) {
+  .sec.container, section.container, .container.sec { padding-inline: 16px; }
+  /* these are meant to kiss the screen edge */
+  .hero > .container, .hero .container, .catbar-outer, .carousel-sec { padding-inline: 0; }
+  .rev-marquee { margin-inline: -16px; }
+}
+@media (max-width: 380px) {
+  .sec.container, section.container, .container.sec { padding-inline: 13px; }
+  .rev-marquee { margin-inline: -13px; }
+}
+
+/* ── 2 · type floor: nothing reads below 11px on a phone ──────────── */
+@media (max-width: 768px) {
+  .utilbar { font-size: 12px; }
+  .hero-trust, .hero-trust a, .hero-trust span { font-size: 11px; letter-spacing: .12em; }
+  .ph-trust, .ph-trust a, .ph-trust span { font-size: 11px; letter-spacing: .14em; }
+  .crumbs, .crumbs a { font-size: 11px; letter-spacing: .12em; }
+  .cb-item b { font-size: 11px; letter-spacing: .08em; }
+  .cp-lb { font-size: 12px; }
+  .mnav a { font-size: 10.5px; letter-spacing: .02em; }
+  .badge { font-size: 10px; min-width: 17px; height: 17px; }
+  .pc-meta, .pc-tag, .pc-cat, .pc-live { font-size: 11px; }
+  .pc-quick { font-size: 10.5px; letter-spacing: .1em; }
+  .tagx { font-size: 9.5px; letter-spacing: .1em; }
+  .hstat span { font-size: 10.5px; letter-spacing: .1em; }
+  .hstat b { font-size: 20px; }
+  .pay-chip { font-size: 10.5px; height: 30px; padding-inline: 11px; }
+  .foot-seals .seal b { font-size: 12px; }
+  .foot-seals .seal small { font-size: 10.5px; }
+  .foot-staff, .foot-staff a, .foot-legal, .foot-legal span { font-size: 11.5px; }
+  .f-motto { font-size: clamp(20px, 6vw, 26px); }
+  .f-wordmark { font-size: clamp(44px, 15vw, 72px); }
+  .label { font-size: 11px; }
+  .see-all { font-size: 12.5px; }
+  .jh-badge { font-size: 11px; }
+  .rev-ver, .rev-card small { font-size: 11px; }
+  .sec-head p.sub { font-size: 13.5px; }
+  .adm-table th { font-size: 10.5px; letter-spacing: .08em; }
+  .ref-stats small, .svb-top small { font-size: 10.5px; }
+  .c-body p { font-size: 13.5px; }
+  .c-body .label { font-size: 10.5px; }
+  .offer-seal span { font-size: 10px; }
+  .pd-stamp { font-size: 10.5px; }
+  .emi-strip { font-size: 11.5px; }
+  .sum-row small { font-size: 11px; }
+}
+
+/* ── 3 · tap targets: 40px floor on everything tappable ──────────── */
+@media (max-width: 768px) {
+  .pc-quick { min-height: 38px; padding: 10px 14px; }
+  .pc-wish { width: 40px; height: 40px; }
+  .pc-compare { height: 40px; min-width: 40px; justify-content: center; padding: 0 10px; right: 54px; }
+  .see-all { display: inline-flex; align-items: center; min-height: 40px; padding: 6px 2px; }
+  .ph-trust a, .hero-trust a { display: inline-flex; align-items: center; min-height: 40px; }
+  .crumbs a { display: inline-flex; align-items: center; min-height: 32px; }
+  .foot-staff a { display: inline-flex; align-items: center; min-height: 34px; }
+  .foot-chips a { min-height: 38px; display: inline-flex; align-items: center; padding-inline: 15px; }
+  .trust-footer-links a { min-height: 40px; display: inline-flex; align-items: center; }
+  .dw-foot a, .dw-call { min-height: 44px; display: inline-flex; align-items: center; }
+  .sugg { min-height: 46px; }
+  .c-arrow { width: 38px; height: 38px; }
+  .shv-save { display: flex; align-items: center; gap: 10px; text-align: left; justify-content: flex-start; min-height: 40px; }
+  .shv-save input { width: 20px; height: 20px; flex: none; margin: 0; }
+  .shv-save span { flex: 1; font-size: 12.5px; line-height: 1.4; }
+  .tab { min-height: 44px; }
+  .acc summary, details summary { min-height: 46px; }
+}
+
+/* ── 4 · product card: badges never collide with the action buttons ─ */
+@media (max-width: 768px) {
+  .pc-tags { right: 98px; gap: 5px; max-width: none; }
+  .pc-tags .tagx:nth-child(n+3) { display: none; }   /* two badges read clean on a 170px card */
+  .pc-imgwrap { aspect-ratio: 1/1.02; }
+}
+
+/* ── 5 · home hero: tighter, calmer, still cinematic ─────────────── */
+@media (max-width: 768px) {
+  .hero { padding: 30px 0 26px; }
+  .hero h1 { font-size: clamp(30px, 8.6vw, 40px); line-height: 1.12; }
+  .hero-sub { font-size: 13.5px; line-height: 1.6; }
+  .hero-kicker { font-size: 10px; padding: 7px 14px; }
+  .hero-stage { height: 236px; margin-top: 16px; }
+  .hero-stats { margin: 16px 0 0; width: 100%; display: flex; }
+  .hstat { flex: 1; padding-left: 10px; }
+  .hstat:first-child { border-left: 0; padding-left: 0; }
+  .hero-cue { display: none; }
+  .hero-trust { margin-top: 14px; row-gap: 0; }
+}
+
+/* ── 6 · category rail: swipe from the gutter, snap, no clipped label ─ */
+@media (max-width: 768px) {
+  .catbar-outer { padding: 14px 0 10px; }
+  .catbar2 { padding: 6px 16px 12px; gap: 16px; scroll-snap-type: x proximity; }
+  .cb-item { min-width: 74px; scroll-snap-align: start; }
+  .cb-item b { max-width: 84px; overflow: hidden; text-overflow: ellipsis; }
+  .cb-img { width: 62px; height: 62px; }
+}
+
+/* ── 7 · heritage carousel: legible over any photograph ──────────── */
+@media (max-width: 768px) {
+  .c-slide { min-height: 400px; }
+  .c-fade { background: linear-gradient(180deg, rgba(24, 4, 8, .34) 0%, rgba(24, 4, 8, .62) 42%, rgba(24, 4, 8, .93) 78%, rgba(24, 4, 8, .97) 100%); }
+  .c-body { padding: 24px 18px 44px; }
+  .c-body h3 { font-size: clamp(22px, 6.6vw, 28px); line-height: 1.14; }
+  .c-body p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .c-cta { gap: 8px; }
+  .c-cta .btn { min-height: 46px; padding: 12px 18px; font-size: 11.5px; }
+  .c-arrow { bottom: 12px; top: auto; opacity: .92; }
+  .c-prev { left: 12px; } .c-next { right: 12px; }
+  .c-dots { bottom: 20px; }
+  .offer-seal b { width: 58px; height: 58px; font-size: 14px; }
+}
+
+/* ── 8 · product-of-the-month: stacked, clamped, no left bleed ────── */
+@media (max-width: 768px) {
+  .sec .grid2 { grid-template-columns: 1fr !important; gap: 16px; }
+  .sec .grid2 > div h2, .sec .grid2 h2[style] { font-size: clamp(21px, 6.2vw, 28px) !important; line-height: 1.16; margin-top: 6px !important; }
+  .sec .grid2 b.js-price { font-size: clamp(22px, 6.4vw, 28px) !important; }
+  .sec .grid2 [style*="align-items:baseline"] { flex-wrap: wrap; gap: 6px 12px; margin: 10px 0 16px !important; }
+  .sec .grid2 .cat-card { height: 250px !important; border-radius: 18px; }
+  .banner { min-height: 230px !important; }
+  .b-body { padding: 20px 18px; }
+  .b-body h3 { font-size: clamp(19px, 5.8vw, 24px); }
+  .b-body p { font-size: 12.5px; -webkit-line-clamp: 3; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+}
+
+/* ── 9 · review marquee: soft edge fades + calmer speed on touch ─── */
+.rev-marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+}
+@media (pointer: coarse) { .rev-track { animation-duration: 64s; } }
+@media (max-width: 768px) {
+  .rev-card { width: 250px; padding: 16px 15px; border-radius: 16px; }
+  .rev-card p { font-size: 13px; }
+  .ugc-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .ugc-wall { gap: 9px; }
+}
+
+/* ── 10 · vertical rhythm: a phone screen should always show "more" ─ */
+@media (max-width: 768px) {
+  .sec { padding: 38px 0; }
+  .sec-head { margin-bottom: 20px; }
+  .sec-head h2 { font-size: clamp(22px, 6.6vw, 29px); }
+  .poster-xl { min-height: 300px; }
+  .poster-side .poster { min-height: 170px; }
+  .cat-mini { gap: 9px; }
+  .cat-mini-card { padding: 10px 4px 9px; }
+  .cat-mini-card img { width: 44px; height: 44px; }
+  .cat-mini-card b { font-size: 10.5px; letter-spacing: .04em; }
+  .p-grid { gap: 10px; }
+  .pillars, .trust-grid { gap: 10px; }
+  .svc, .trust, .testi, .pillar { padding: 16px 13px; border-radius: 16px; }
+  .pillar h3, .trust h3, .svc h3 { font-size: 16px; }
+  .pillar p, .trust p, .svc p { font-size: 12.5px; }
+  .newsletter { padding: 28px 16px; }
+  .empty { padding: 64px 20px !important; }
+  .empty h3 { font-size: 20px; }
+}
+
+/* ── 11 · rate strip & jaipur board: numbers that fit ────────────── */
+@media (max-width: 768px) {
+  .rate-strip-in { gap: 0; }
+  .rs-cell b, .rate-strip b { font-size: clamp(15px, 4.6vw, 19px); }
+  .rs-cell span, .rate-strip span { font-size: 10.5px; letter-spacing: .1em; }
+  .jaipur-hero { padding: 20px 16px; border-radius: 18px; }
+  .jh-val { font-size: clamp(26px, 8vw, 34px); }
+  .jh-row { font-size: 12.5px; padding: 9px 0; }
+}
+
+/* ── 12 · footer: legal lines wrap inside the gutter ─────────────── */
+@media (max-width: 768px) {
+  .foot-legal { padding-inline: 4px; }
+  .foot-staff { line-height: 1.5; display: flex; flex-wrap: wrap; justify-content: center; column-gap: 6px; }
+  .foot-chips { gap: 7px; }
+  .pay-strip { gap: 6px; }
+  .f-cornice { padding-top: 8px; }
+}
+
+/* ── 13 · sheets, drawers & bars: silkier entrances ──────────────── */
+@media (max-width: 768px) {
+  .modal, .mc-drawer, .filters, .mcta-bar, #saathiPanel {
+    transition-timing-function: cubic-bezier(.22, 1, .36, 1);
+  }
+  .toast-wrap { gap: 8px; }
+}
+
+/* ── 14 · scroll performance on long pages ───────────────────────── */
+@media (pointer: coarse) {
+  .p-grid, .cat-mini, .ugc-wall, .pillars { content-visibility: auto; contain-intrinsic-size: auto 620px; }
+  .rev-track, .c-track, .catbar2 { will-change: scroll-position; }
+  img { -webkit-user-drag: none; user-select: none; }
+}
+
+/* ── 15 · v96.1 · gutter + legibility corrections after first audit ── */
+@media (max-width: 768px) {
+  /* ANY padded shorthand elsewhere (shop-main, cart-layout …) must not eat
+     the phone gutter — this rule sits last, so it wins equal-specificity ties */
+  .container { padding-inline: 16px; }
+  .hero > .container, .hero .container { padding-inline: 0; }
+
+  /* page heroes sit on deep maroon: the ink-reveal gradient (dark maroon →
+     gold) disappears into the background, so give it a light foil instead */
+  .page-hero h1 {
+    background: linear-gradient(100deg, #fdf3dd 8%, #f4ddab 46%, #e9c987 58%, #fdf3dd 92%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: #fdf3dd;
+    background-size: 220% 100%; animation: foilPan 7s linear infinite alternate;
+  }
+  .page-hero p { color: rgba(246, 232, 200, .82); }
+
+  /* the watermark is a boxed logo; on a phone it reads as a slab, so keep it
+     a whisper rather than a panel */
+  .ph-mark, html.js-motion #view img.ph-mark.img-ok { opacity: .05; }
+}
+@keyframes foilPan { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+@media (max-width: 380px) { .container { padding-inline: 13px; } }
+
+/* ── 16 · v96.2 · second audit corrections ─────────────────────────── */
+@media (max-width: 768px) {
+  /* snap was eating the rail's left gutter; honour it when snapping */
+  .catbar2 { scroll-padding-inline: 16px; gap: 14px; }
+  .cb-item { min-width: 88px; }
+  .cb-item b { max-width: 88px; }
+
+  /* swipe + dots are the phone idiom; floating arrows only crowd it */
+  @media (pointer: coarse) { .c-arrow { display: none; } }
+
+  /* hero CTAs keep the page gutter instead of kissing the bezel */
+  .hero-cta { padding-inline: 16px; }
+  .hero-trust a, .hero-trust span { min-height: 34px; }
+  .ph-trust a, .ph-trust span { min-height: 32px; }
+
+  /* boxed logo watermark has no place on a 6″ hero — corner marks remain */
+  .ph-mark, html.js-motion #view img.ph-mark.img-ok { display: none; }
+
+  /* one crisp badge per card on phones */
+  .tagx { white-space: nowrap; }
+  .pc-tags .tagx + .tagx { display: none; }
+  .pc-tags { right: 96px; }
+
+  /* campaign countdown: four equal cells, edge to edge of the panel */
+  .fin-cd, .flash-countdown { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+  .fin-cd > div, .flash-countdown > div { width: auto !important; margin: 0 !important; }
+
+  /* live-rate strip: two calm columns that never wrap mid-label */
+  .rate-strip-in { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-block: 12px; }
+  .rate-strip-in span, .rs-cell span { font-size: 10px; letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .rate-strip-in b, .rs-cell b { font-size: clamp(15px, 4.4vw, 18px); }
+}
+
+/* ── 17 · v96.3 · sizer + micro-type corrections ───────────────────── */
+@media (max-width: 768px) {
+  /* the sizer wrapper carries an inline padding shorthand — gutters win */
+  .sizer-wrap { padding-inline: 16px !important; }
+  .sz-card { max-width: 100%; min-width: 0; overflow: hidden; }
+  /* calibration must stay true-to-mm, so give the ± buttons their own row
+     instead of letting them push the card past the bezel */
+  .sz-cardrow { flex-direction: column-reverse; gap: 10px; }
+  .sz-cardrow .btn { min-width: 52px; }
+  .sz-bankcard { max-width: 100%; }
+  .sz-bankcard span { font-size: 11px; padding-inline: 8px; text-align: center; }
+  .sz-stage { height: 280px; }
+  .sz-controls { flex-wrap: wrap; gap: 8px; }
+  .sz-controls .btn { flex: 1; min-height: 44px; }
+  .sz-readout b { font-size: 24px; }
+  .sz-tips { font-size: 12.5px; }
+
+  /* micro-type: the last sub-11px stragglers */
+  .utilbar b { font-size: 12px; }
+  .pay-chip { font-size: 11px; }
+  .foot-seals .seal small { font-size: 11px; }
+  .footer a, .f-col a, .foot-staff a { min-height: 36px; }
+  .partner-note { font-size: 12.5px; }
+  .kyc-req { font-size: 11px; }
+  .bbc-step span, .steps span { font-size: 11px; }
+}
+
+/* ── 18 · v96.4 · tiny-screen ticker + ornament clean-up ───────────── */
+.ph-trust span::before { display: none; }   /* markup already carries the ✦ */
+@media (max-width: 400px) {
+  .ub-live { display: none; }               /* keep both metals, drop the chip */
+  .utilbar-in { gap: 6px; }
+  #utilRates { gap: 10px; font-size: 11.5px; }
+  #utilRates b { font-size: 11.5px; }
+}
+@media (max-width: 768px) {
+  .page-hero { padding: 30px 0 26px; }      /* no dead air under the trust row */
+  .page-hero .ph-trust { margin-top: 16px; }
+}
+
+/* ── 19 · v96.5 · filter sheet owns the screen while open ──────────── */
+@media (max-width: 768px) {
+  /* #view creates a stacking context, so the sheet's z-index loses to the
+     bottom nav; slide the nav away while the sheet is up instead */
+  body:has(.filters.open) .mnav { transform: translateY(110%); transition: transform .3s var(--ease); }
+  .filters { z-index: 98; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  /* 17 categories as a calm two-column checklist, 44px rows */
+  .filters .fgroup { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; align-items: center; }
+  .filters .fgroup > h4, .filters .fgroup > input, .filters .fgroup > .fmeta,
+  .filters .fgroup > div, .filters .fgroup > .btn { grid-column: 1 / -1; }
+  .fcheck { padding: 11px 0; min-height: 44px; font-size: 13.5px; }
+  .fcheck input { width: 19px; height: 19px; flex: none; }
+  .fgroup { padding: 13px 2px; }
+  .fgroup h4 { margin-bottom: 9px; }
+  .fsheet-bar { padding: 12px 4px 10px; }
+  .filters .btn-block, .filters .f-apply { min-height: 50px; }
+}
+
+/* ── 20 · v96.6 · large-phone / small-tablet band (769–900) ─────────── */
+@media (min-width: 769px) and (max-width: 900px) {
+  /* the rate ticker must never shove the quick links off the strip */
+  .utilbar-in { flex-wrap: nowrap; }
+  .ub-rates { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+  .ub-right { flex: none; }
+  .ub-right a { font-size: 12px; }
+
+  .hero-stats { margin: 18px 0 0; width: 100%; display: flex; }
+  .hstat { flex: 1; }
+  .fin-cd, .flash-countdown { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
+  .fin-cd > div, .flash-countdown > div { width: auto !important; margin: 0 !important; }
+  .hero-cta { padding-inline: 8px; }
+  .p-grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .cat-mini { grid-template-columns: repeat(6, 1fr) !important; }
+}
+
+/* ── 21 · v96.7 · 769–900: outrank the ≤820 hero !importants ────────── */
+@media (min-width: 769px) and (max-width: 900px) {
+  .hero-stats {
+    width: 100% !important; margin: 16px 0 0 !important;
+    border-radius: 16px; background: rgba(20, 3, 7, .55);
+  }
+  .hstat span { font-size: 10.5px !important; letter-spacing: .1em; }
+  .hstat b { font-size: 22px; }
+  .hero-trust { font-size: 10.5px !important; flex-wrap: wrap; overflow: visible; }
+  .hero-sub { font-size: 13.5px !important; max-width: 560px; }
+  /* drop the 18K cell so gold + silver + quick links all fit the strip */
+  #utilRates span:nth-child(3) { display: none; }
+}
+
+/* ── 22 · v96.8 · countdown centring ────────────────────────────────── */
+@media (max-width: 900px) {
+  .fin-cd, .flash-countdown { max-width: 460px; margin: 16px auto 0; }
+}
+
+/* ── 23 · v96.9 · PDP declutter: one size-guide affordance on phones ── */
+@media (max-width: 768px) {
+  .size-guide-link { display: none; }   /* the Size label link + #/sizer remain */
+  .size-row { gap: 8px; }
+  .size-pill { flex: 0 0 auto; min-width: 52px; justify-content: center; display: inline-flex; align-items: center; }
+  .opt-label { font-size: 11.5px; }
+  .pd-cta-row { margin-top: 4px; }
+  .pd-stockrow, .pd-stock { font-size: 12px; }
+}
