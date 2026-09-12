@@ -563,6 +563,9 @@
   .mnav { display: none; }
   body { padding-bottom: 16px; }
   .wa-fab, .compare-tray { bottom: 14px; }
+  /* nav is gone in landscape — stick the CTA bar to the screen edge */
+  .mcta-bar { bottom: env(safe-area-inset-bottom); }
+  .cart-layout { padding-bottom: 110px; }
 }
 
 /* ───────────────────── 6 · MOTION SAFETY ───────────────────── */
