@@ -2977,11 +2977,15 @@ pages.checkout = async (view) => {
   const sub = $('#payOnlineSub');
   if (sub) sub.textContent = payCfg.mode === 'razorpay'
     ? 'UPI · cards · net-banking · secured by Razorpay' + (pct ? ' · instant ' + pct + '% off' : '')
+    : payCfg.mode === 'phonepe'
+    ? 'UPI · cards · net-banking · secured by PhonePe' + (pct ? ' · instant ' + pct + '% off' : '')
     : 'UPI · cards · net-banking (demo until gateway keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
   const note = $('#payDemoNote');
   if (note) note.innerHTML = payCfg.mode === 'razorpay'
     ? '🔒 Payments are secured by <b>Razorpay</b> (UPI / cards / net-banking). Your card details never touch shivaa.in.'
-    : '🔒 Card/net-banking checkout switches to <b>live Razorpay</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
+    : payCfg.mode === 'phonepe'
+    ? '🔒 You will be redirected to <b>PhonePe</b> (UPI / cards / net-banking / wallets). Your card details never touch shivaa.in.' + (payCfg.phonepe && payCfg.phonepe.env === 'uat' ? ' <b>Test mode.</b>' : '')
+    : '🔒 Card/net-banking checkout switches to <b>live PhonePe / Razorpay</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
   const codPct = +(state.settings.codFeePct || 0);
   const codSub = $('#payCodSub');
   if (codSub) {
@@ -3166,10 +3170,32 @@ function demoPaySheet(po, orderId) {
     $('#psLater').onclick = () => { closeModal(); toast('Order reserved — complete payment from your order page'); resolve(false); };
   });
 }
+/* v92 — full-page navigation seam (PhonePe redirect). Centralised so tests
+   can capture the target URL instead of crashing jsdom's navigation stub. */
+window.Shivaa.redirectTo = (url) => { window.location.href = url; };
+/* v92 — brief overlay while the browser leaves for the PhonePe checkout */
+function phonepeRedirectSheet() {
+  return new Promise(() => {
+    openModal(`<div style="text-align:center;padding:14px 6px">
+      <div class="pp-spinner" aria-hidden="true"></div>
+      <h3 style="margin:14px 0 6px">Redirecting to PhonePe…</h3>
+      <p style="color:var(--muted);font-size:13px">Do not press back or close this tab. You can pay with any UPI app, card, net-banking or wallet — we&rsquo;ll bring you back when it&rsquo;s done.</p>
+    </div>`);
+  });
+}
 window.Shivaa.payForOrder = async (orderId) => {
   let po;
   try { po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) }); }
   catch (e) { toast(e.message, 'err'); return false; }
+  // v92 — PhonePe Standard Checkout is a full-page redirect (not a modal).
+  // The promise never settles: the tab navigates away, and PhonePe returns
+  // the browser to /api/pay/phonepe/return → the order page (?pp=…).
+  if (po.mode === 'phonepe') {
+    if (!po.redirectUrl) { toast('PhonePe checkout link missing — retry or use the UPI QR tab', 'err'); return false; }
+    toast('Taking you to PhonePe…');
+    setTimeout(() => Shivaa.redirectTo(po.redirectUrl), 350);
+    return phonepeRedirectSheet();
+  }
   // v82 — public host with no gateway keys: go straight to the real UPI QR +
   // owner-approved screenshot flow (the old "demo success" sheet could mark
   // orders paid on the live site).
@@ -3351,12 +3377,15 @@ function paymentLedgerHTML(o) {
   const pays = o.payments || [];
   if (!pays.length) return '';
   const pct = Math.max(4, Math.min(100, Math.round((o.amountPaid || 0) / Math.max(1, o.total) * 100)));
+  const payLabel = { phonepe: 'PhonePe', razorpay: 'Razorpay', 'upi-qr': 'UPI QR', cash: 'Cash', bank: 'Bank transfer', card: 'Card', upi: 'UPI' };
+  const refunds = o.refunds || [];
   return `<div class="paymil" style="max-width:640px;margin:12px auto 0">
       <div class="paymil-bar"><i style="width:${pct}%"></i><span>${pct}% paid</span></div>
     </div>
     <details class="acc" style="max-width:640px;margin:6px auto" open><summary>Payment history (${pays.length})${o.balance > 0 && o.paymentStatus !== 'Refunded' ? ' · balance ' + fmt(o.balance) : ''}</summary><div class="acc-body">
-    ${pays.map(p => `<div class="sum-row"><span>${new Date(p.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(p.mode || p.gateway || 'online')} · <small>${esc(p.status || 'approved')}${p.ref ? ' · ' + esc(p.ref) : ''}</small></span><b>${p.status === 'rejected' ? '—' : fmt(p.amount)}</b></div>`).join('')}
-    ${o.amountPaid ? `<div class="sum-row total"><span>Received</span><b>${fmt(o.amountPaid)}</b></div>` : ''}
+    ${pays.map(p => `<div class="sum-row"><span>${new Date(p.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(payLabel[p.mode] || p.mode || p.gateway || 'online')} · <small>${esc(p.status || 'approved')}${p.ref ? ' · ' + esc(p.ref) : ''}</small></span><b>${p.status === 'rejected' ? '—' : fmt(p.amount)}</b></div>`).join('')}
+    ${refunds.map(r => `<div class="sum-row" style="color:var(--warn)"><span>${new Date(r.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · PhonePe refund · <small>${esc(r.status || 'accepted')} · 5–7 days</small></span><b>− ${fmt(r.amount)}</b></div>`).join('')}
+    ${o.amountPaid && !refunds.length ? `<div class="sum-row total"><span>Received</span><b>${fmt(o.amountPaid)}</b></div>` : ''}
     ${(o.balance > 0 && o.paymentStatus !== 'Refunded') ? `<div class="sum-row" style="color:var(--warn)"><span>Balance due before dispatch</span><b>${fmt(o.balance)}</b></div>` : ''}
   </div></details>`;
 }
@@ -3418,6 +3447,15 @@ pages.order = async (view, q, id) => {
   let order;
   try { order = (await api('/api/orders/' + id)).order; } catch (e) { view.innerHTML = `<div class="empty"><h3>Order not found</h3></div>`; return; }
   window._lastOrder = order;
+  // v92 — returning from the PhonePe redirect (?pp=success|pending|fail)
+  const ppReturn = String(q.get('pp') || '').toLowerCase();
+  const ppBannerHTML = ppReturn === 'success'
+    ? `<div class="pp-banner ok" id="ppBanner"><span class="pp-bi">✓</span><div><b>Payment received</b><small>PhonePe confirmed it — the receipt is shown in the ledger below.</small></div></div>`
+    : ppReturn === 'fail'
+    ? `<div class="pp-banner err" id="ppBanner"><span class="pp-bi">!</span><div><b>Payment was not completed</b><small>If money was debited it is auto-refunded by PhonePe in 5–7 days. Retry with the button below.</small></div></div>`
+    : ppReturn === 'pending'
+    ? `<div class="pp-banner pending" id="ppBanner"><span class="pp-spinner sm" aria-hidden="true"></span><div><b>Confirming your PhonePe payment…</b><small>Hold on a few seconds — do not close this tab.</small></div></div>`
+    : '';
   view.innerHTML = `
   <div style="min-height:70vh;display:flex;align-items:center;padding:60px 0">
     <div class="container" style="max-width:860px">
@@ -3429,6 +3467,7 @@ pages.order = async (view, q, id) => {
         <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed. You earned <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> ✦<br>
         Invoice & rate-lock summary sent to your account. Live tracking below.</p>
       </div>
+      ${ppBannerHTML}
       <div class="order-card mt-3">
         <div class="order-top"><div class="order-id">${order.id} · ${timeFmt(order.createdAt)}</div><span class="status-pill st-${order.status.toLowerCase()}">${order.status}</span></div>
         ${order.invoiceNo ? `<div style="font-size:12px;color:var(--ink-3);margin:2px 0 8px">Tax invoice <b>${esc(order.invoiceNo)}</b> · HSN ${esc(order.hsn || (order.items || []).map(i => i.hsn).filter(Boolean)[0] || '7113')}</div>` : ''}
@@ -3474,12 +3513,44 @@ pages.order = async (view, q, id) => {
     const slot = $('#refundSlot');
     if (mine && slot) slot.innerHTML = refundCardHTML(order, mine);
   } catch (e) { /* guests / no requests */ }
+  // v92 — after a PhonePe redirect return, ask the server to reconcile the
+  // signed status and redraw the moment it flips to Paid (covers the window
+  // where the S2S callback is still in flight).
+  if (ppReturn === 'success' || ppReturn === 'pending') {
+    const pollPP = async (tries) => {
+      if (!document.getElementById('ppBanner')) return;              // navigated away
+      if (tries >= 6) {
+        const b = document.getElementById('ppBanner');
+        if (b) b.querySelector('small').textContent = 'Confirmation is taking longer than usual — reload this page in a minute, or contact the shop if money was debited.';
+        return;
+      }
+      await new Promise(r => setTimeout(r, tries === 0 ? 1200 : 2600));
+      if (!document.getElementById('ppBanner')) return;
+      try {
+        const r = await api('/api/pay/phonepe/status', { method: 'POST', body: JSON.stringify({ orderId: id }) });
+        const o = r.order || {};
+        const ps = String(o.paymentStatus || '');
+        if (/^paid$/i.test(ps) || /partially paid/i.test(ps)) {
+          toast('PhonePe payment confirmed ✦');
+          history.replaceState(null, '', '#/order/' + encodeURIComponent(id));
+          return pages.order(view, new URLSearchParams(), id);
+        }
+        if (/failed/i.test(ps)) {
+          history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + '?pp=fail');
+          return pages.order(view, new URLSearchParams('pp=fail'), id);
+        }
+        return pollPP(tries + 1);
+      } catch (e) { return pollPP(tries + 1); }
+    };
+    pollPP(0);
+  }
 };
 function confetti() {
   const c = document.createElement('canvas');
   Object.assign(c.style, { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 300 });
   document.body.appendChild(c);
   const x = c.getContext('2d');
+  if (!x) { c.remove(); return; }   // v92 — no canvas engine (old webview/tests): skip the burst
   c.width = innerWidth; c.height = innerHeight;
   const ps = Array.from({ length: 130 }, () => ({ x: Math.random() * c.width, y: -20 - Math.random() * c.height * 0.5, v: 2 + Math.random() * 3, s: 4 + Math.random() * 5, r: Math.random() * 7, vr: (Math.random() - .5) * .3, col: ['#b98a2f', '#d4af5a', '#6e1e2a', '#f3dfae'][Math.floor(Math.random() * 4)] }));
   let n = 0;

@@ -189,6 +189,7 @@ async function renderAdmin(view, q) {
           <td style="white-space:nowrap"><button class="icon-e" onclick="Shivaa.orderDetail('${o.id}')" title="View">👁</button>
             <button class="icon-e" onclick="ShivaaAdmin.waOrder('${o.id}')" title="Send WhatsApp update">📱</button>
             <button class="icon-e" onclick="ShivaaAdmin.manualPay('${o.id}')" title="Record manual / advance payment">💰</button>
+            ${o.gateway === 'phonepe' && +o.amountPaid > 0 && !/^refunded$/i.test(o.paymentStatus || '') ? `<button class="icon-e" onclick="ShivaaAdmin.phonepeRefund('${o.id}', ${+o.amountPaid})" title="PhonePe refund">↩️</button>` : ''}
             ${o.invoiceNo ? `<button class="icon-e" onclick="ShivaaAdmin.printInvoice('${o.id}')" title="Print GST invoice">🧾</button>` : ''}
             <button class="icon-e" onclick="ShivaaAdmin.reviewAsk('${o.id}')" title="Ask for review">⭐</button>
             <button class="icon-e" onclick="ShivaaAdmin.orderMeta('${o.id}')" title="HUID / dispatch / e-way">📋</button>
@@ -761,22 +762,56 @@ async function renderAdmin(view, q) {
         <button class="btn btn-primary btn-sm" style="justify-self:start">Save settings</button>
       </form></div>
       <div class="adm-card"><h3>💳 Payments &amp; gateway <span style="font-size:11px;color:var(--ink-3);font-weight:400">runs in demo until live keys are pasted — customers cannot tell the flow is incomplete</span></h3>
-        <form class="form-grid" onsubmit="ShivaaAdmin.savePay(event)">
+        <form class="form-grid" id="payForm" onsubmit="ShivaaAdmin.savePay(event)">
           <div class="fld"><label>Payment provider</label>
             <select name="payProvider" class="sortsel" style="width:100%;border-radius:12px">
               <option value="demo" ${(S.payProvider || 'demo') === 'demo' ? 'selected' : ''}>Demo / simulated gateway (no real charge)</option>
+              <option value="phonepe" ${S.payProvider === 'phonepe' ? 'selected' : ''}>PhonePe (UPI · cards · net-banking · wallets)</option>
               <option value="razorpay" ${S.payProvider === 'razorpay' ? 'selected' : ''}>Razorpay (UPI · cards · net-banking)</option>
             </select></div>
-          <div class="fld"><label>Razorpay Key ID</label><input name="rzpKeyId" value="${esc(S.rzpKeyId || '')}" placeholder="rzp_live_… or rzp_test_…" autocomplete="off"></div>
-          <div class="fld"><label>Razorpay Key Secret</label><input name="rzpKeySecret" type="password" placeholder="${S.rzpKeySecret ? '•••• saved — leave blank to keep' : 'paste secret (never shown again)'}" autocomplete="new-password"></div>
+          <div class="fld"><label>Site base URL <small>(public https address used for PhonePe return/callback)</small></label><input name="siteBaseUrl" value="${esc(S.siteBaseUrl || '')}" placeholder="https://www.shivaa.in"></div>
           <div class="fld"><label>Prepaid discount % <small>(pay online)</small></label><input name="prepaidPct" type="number" step="0.5" min="0" max="10" value="${S.prepaidPct ?? 2}"></div>
           <div class="fld"><label>COD handling fee % <small>(0 = free)</small></label><input name="codFeePct" type="number" step="0.5" min="0" max="10" value="${S.codFeePct ?? 0}"></div>
+
+          <fieldset class="fld full pp-keys" style="border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0">
+            <legend style="padding:0 6px;font-weight:700;font-size:13px">🟣 PhonePe Standard Checkout</legend>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="fld"><label>Merchant ID</label><input name="phonepeMerchantId" value="${esc(S.phonepeMerchantId || '')}" placeholder="e.g. SHIVAAONLINE" autocomplete="off"></div>
+              <div class="fld"><label>Salt key <small>(never shown once saved)</small></label><input name="phonepeSaltKey" type="password" placeholder="${S.phonepeSaltKey ? '•••• saved — leave blank to keep' : 'paste salt key'}" autocomplete="new-password"></div>
+              <div class="fld"><label>Salt index</label><input name="phonepeSaltIndex" type="number" min="1" max="32" value="${S.phonepeSaltIndex ?? 1}"></div>
+              <div class="fld"><label>Environment</label>
+                <select name="phonepeEnv" class="sortsel" style="width:100%;border-radius:12px">
+                  <option value="prod" ${(S.phonepeEnv || 'prod') === 'prod' ? 'selected' : ''}>Production (live money)</option>
+                  <option value="uat" ${S.phonepeEnv === 'uat' ? 'selected' : ''}>UAT / sandbox (test cards &amp; apps)</option>
+                </select></div>
+              <div class="fld full" style="font-size:12px;color:var(--ink-3)">
+                In the PhonePe merchant dashboard set <b>Redirect URL</b> to <code id="ppReturnUrl"></code> and <b>Callback URL</b> to <code id="ppCallbackUrl"></code>. Test in UAT first, then switch Environment to Production after PhonePe activates your live keys.
+              </div>
+              <div class="fld full" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.testPay('phonepe')">Test PhonePe keys</button>
+                <span id="ppTestOut" style="font-size:12.5px"></span>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="fld full rzp-keys" style="border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0">
+            <legend style="padding:0 6px;font-weight:700;font-size:13px">Razorpay <small>(kept as an optional alternative)</small></legend>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="fld"><label>Razorpay Key ID</label><input name="rzpKeyId" value="${esc(S.rzpKeyId || '')}" placeholder="rzp_live_… or rzp_test_…" autocomplete="off"></div>
+              <div class="fld"><label>Razorpay Key Secret</label><input name="rzpKeySecret" type="password" placeholder="${S.rzpKeySecret ? '•••• saved — leave blank to keep' : 'paste secret (never shown again)'}" autocomplete="new-password"></div>
+              <div class="fld full" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.testPay('razorpay')">Test Razorpay keys</button>
+                <span id="rzpTestOut" style="font-size:12.5px"></span>
+              </div>
+            </div>
+          </fieldset>
+
           <div class="fld"><label>Counter UPI ID <small>(QR fallback — works without any gateway)</small></label><input name="upiId" value="${esc(S.upiId || '')}" placeholder="yourshop@okhdfcbank"></div>
           <div class="fld"><label>UPI payee name</label><input name="upiName" value="${esc(S.upiName || 'Shivaa Jewellers')}"></div>
           <div class="fld full"><label>Prepaid-only pincodes (comma-separated; NE &amp; Ladakh prepaid by default)</label><input name="codBlockedPins" value="${esc(S.codBlockedPins || '')}" placeholder="110001, 744101"></div>
           <div class="fld"><label>Shop GSTIN <small>(printed on tax invoices)</small></label><input name="gstin" value="${esc(S.gstin || '')}" placeholder="08ABCDE1234F1Z5" style="text-transform:uppercase"></div>
           <div class="fld"><label>Google review link <small>(10/10 reviewers are sent here)</small></label><input name="googleReviewUrl" value="${esc(S.googleReviewUrl || '')}" placeholder="https://maps.app.goo.gl/…"></div>
-          <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">No gateway? Fill only the <b>UPI ID</b> — customers scan the QR and upload a payment screenshot; you verify each one under Orders (banner at top). With Razorpay keys, cards/net-banking go fully automatic.</div>
+          <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">No gateway? Fill only the <b>UPI ID</b> — customers scan the QR and upload a payment screenshot; you verify each one under Orders (banner at top). With PhonePe/Razorpay keys, cards/net-banking go fully automatic.</div>
           <button class="btn btn-primary btn-sm" style="justify-self:start">Save payments</button>
         </form></div>
       <div class="adm-card"><h3>📡 Official MCX rate feed <span style="font-size:11px;color:var(--ink-3);font-weight:400">Angel One SmartAPI · free demat · fully automatic TOTP login</span></h3>
@@ -822,6 +857,7 @@ async function renderAdmin(view, q) {
       </div>`;
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.smsCard && window.ShivaaAdmin.smsCard(), 0);   // v33 — SMS status card
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.testFeed && window.ShivaaAdmin.testFeed(), 300);   // v61 — MCX feed status
+    setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.wirePayUrls && window.ShivaaAdmin.wirePayUrls(S.siteBaseUrl || ''), 0);   // v92 — PhonePe redirect/callback URLs
   }
 }
 window.ShivaaAdmin = {};
@@ -1516,13 +1552,48 @@ window.ShivaaAdmin.savePay = async e => {
                  prepaidPct: Math.max(0, +g('prepaidPct') || 0), codFeePct: Math.max(0, +g('codFeePct') || 0),
                  upiId: g('upiId').trim(), upiName: g('upiName').trim() || 'Shivaa Jewellers',
                  codBlockedPins: g('codBlockedPins').replace(/[^\d,\s]/g, '').trim(),
-                 gstin: g('gstin').trim().toUpperCase(), googleReviewUrl: g('googleReviewUrl').trim() };
+                 gstin: g('gstin').trim().toUpperCase(), googleReviewUrl: g('googleReviewUrl').trim(),
+                 // v92 — PhonePe
+                 siteBaseUrl: g('siteBaseUrl').trim().replace(/\/+$/, ''),
+                 phonepeMerchantId: g('phonepeMerchantId').trim(),
+                 phonepeSaltIndex: Math.max(1, Math.min(32, parseInt(g('phonepeSaltIndex'), 10) || 1)),
+                 phonepeEnv: g('phonepeEnv') === 'uat' ? 'uat' : 'prod' };
+  // secrets: only send when retyped (server strips them from GETs)
   if (g('rzpKeySecret')) body.rzpKeySecret = g('rzpKeySecret').trim();
+  if (g('phonepeSaltKey')) body.phonepeSaltKey = g('phonepeSaltKey').trim();
   try {
     const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
     Object.assign(state.settings, s);
-    toast(body.payProvider === 'razorpay' && s.rzpKeyId && s.rzpKeySecret ? 'Payments LIVE via Razorpay 🔒' : 'Payment settings saved (demo mode)');
+    ShivaaAdmin.wirePayUrls(s.siteBaseUrl || '');
+    const liveMsg = body.payProvider === 'razorpay' && s.rzpKeyId && s.rzpKeySecret ? 'Payments LIVE via Razorpay 🔒'
+      : body.payProvider === 'phonepe' && s.phonepeMerchantId && (s.phonepeSaltKey || g('phonepeSaltKey'))
+        ? (body.phonepeEnv === 'uat' ? 'PhonePe connected in UAT test mode 🧪' : 'Payments LIVE via PhonePe 🟣')
+      : 'Payment settings saved (demo / UPI-QR mode)';
+    toast(liveMsg);
+    if (body.payProvider === 'phonepe') setTimeout(() => ShivaaAdmin.testPay('phonepe'), 500);
   } catch (err) { toast(err.message, 'err'); }
+};
+/* v92 — show the exact Redirect/Callback URLs to paste into the PhonePe dashboard */
+window.ShivaaAdmin.wirePayUrls = (base) => {
+  const b = (base || '').replace(/\/+$/, '') || ('https://' + (location.hostname || 'www.shivaa.in'));
+  const r = document.getElementById('ppReturnUrl'); const c = document.getElementById('ppCallbackUrl');
+  if (r) r.textContent = b + '/api/pay/phonepe/return';
+  if (c) c.textContent = b + '/api/pay/phonepe/callback';
+};
+window.ShivaaAdmin.testPay = async (provider) => {
+  const out = document.getElementById(provider === 'phonepe' ? 'ppTestOut' : 'rzpTestOut');
+  if (out) out.innerHTML = '<span class="live-dot" style="display:inline-block;margin-right:6px"></span> Checking credentials with ' + (provider === 'phonepe' ? 'PhonePe…' : 'Razorpay…');
+  try {
+    const r = await api('/api/admin/pay-test', { method: 'POST', body: JSON.stringify({ provider }) });
+    if (out) {
+      if (r.ok) {
+        const tail = r.env ? ' <small>(' + esc(r.env) + (r.code ? ', ' + esc(String(r.code)) : '') + ')</small>' : '';
+        out.innerHTML = '✅ <b style="color:var(--ok,#1d7a46)">' + esc(r.detail || 'Credentials accepted') + '</b>' + tail;
+      } else {
+        out.innerHTML = '❌ <b style="color:var(--danger,#b3261e)">' + esc(r.detail || r.error || 'Rejected') + '</b>';
+      }
+    }
+  } catch (err) { if (out) out.innerHTML = '❌ <b style="color:var(--danger,#b3261e)">' + esc(err.message) + '</b>'; }
 };
 /* ── v61 · official MCX (Angel One) feed settings ── */
 window.ShivaaAdmin.saveFeed = async e => {
@@ -3063,6 +3134,24 @@ window.ShivaaAdmin.manualPay = (id) => {
   (async () => {
     try { await window.Shivaa.api('/api/admin/pay-proof', { method: 'POST', body: JSON.stringify({ orderId: id, decision: 'approve', amount: +amt, mode, ref }) });
       window.Shivaa.toast('Payment of ₹' + (+amt).toLocaleString('en-IN') + ' recorded ✦ ledger updated');
+      renderAdmin($('#view'), new URLSearchParams('tab=orders'));
+    } catch (e) { window.Shivaa.toast(e.message, 'err'); }
+  })();
+};
+
+/* v92 — PhonePe gateway refund (full or partial, async settlement) */
+window.ShivaaAdmin.phonepeRefund = (id, maxAmt) => {
+  const already = (window._adminOrders.find(x => x.id === id)?.refunds || [])
+    .reduce((a, r) => a + (r.status === 'accepted' ? +r.amount : 0), 0);
+  const refundable = Math.max(0, +maxAmt - already);
+  const amt = prompt('PhonePe refund amount ₹ (captured balance ₹' + refundable + '):', String(refundable || ''));
+  if (amt === null || +amt <= 0 || +amt > refundable) { if (amt !== null) window.Shivaa.toast('Amount must be between ₹1 and ₹' + refundable, 'err'); return; }
+  const reason = prompt('Reason for the refund:', 'Customer request') || 'Customer refund';
+  if (!confirm('Send ₹' + (+amt).toLocaleString('en-IN') + ' back through PhonePe for ' + id + '? PhonePe settles it in 5–7 working days.')) return;
+  (async () => {
+    try {
+      await window.Shivaa.api('/api/admin/refund', { method: 'POST', body: JSON.stringify({ orderId: id, amount: +amt, reason }) });
+      window.Shivaa.toast('Refund of ₹' + (+amt).toLocaleString('en-IN') + ' accepted by PhonePe ✦ settles in 5–7 days');
       renderAdmin($('#view'), new URLSearchParams('tab=orders'));
     } catch (e) { window.Shivaa.toast(e.message, 'err'); }
   })();
