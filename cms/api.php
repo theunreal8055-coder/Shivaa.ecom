@@ -377,35 +377,43 @@ function http_post_json(string $url, array $payload, string $userPwd = '', int $
   return ($code >= 200 && $code < 300 && is_array($d)) ? $d : null;
 }
 
-/* ═══════════════════ v92 — PhonePe Standard Checkout ═══════════════════
-   Redirect gateway: server creates a signed /pg/v1/pay request, browser is
-   sent to PhonePe, PhonePe redirects back AND posts an S2S callback; every
-   result is confirmed by a signed GET status call (never trust the browser).
-   X-VERIFY = hex_sha256(base64(body) + endpoint + salt) + "###" + saltIndex.
-   Docs: developer.phonepe.com (PG v1, PAY_PAGE instrument). */
+/* ═══════════ v93 — PhonePe Standard Checkout v2 (OAuth / O-Bearer) ═══════════
+   Current PhonePe website gateway: the server mints an OAuth client-credentials
+   token (Client ID + Client Version + Client Secret from Dashboard → Developer
+   Settings), then calls /checkout/v2/pay to obtain a mercury PayPage URL; the
+   browser is sent there via the checkout.js bundle (redirect mode); PhonePe
+   returns the browser to our return URL AND posts HMAC-signed webhooks. Every
+   result is confirmed server-to-server via GET /checkout/v2/order/{id}/status.
+   Sandbox base: api-preprod.phonepe.com/apis/pg-sandbox
+   Prod base:     api.phonepe.com/apis/pg   (token via apis/identity-manager)
+   Docs: developer.phonepe.com → Payment Gateway → Standard Checkout. */
 function phonepe_cfg(array $db): array {
   $s = $db['settings'] ?? [];
-  $env = (($s['phonepeEnv'] ?? 'prod') === 'uat') ? 'uat' : 'prod';
+  $env = (($s['ppEnv'] ?? 'prod') === 'uat') ? 'uat' : 'prod';
   return [
-    'mid'   => trim((string)($s['phonepeMerchantId'] ?? '')),
-    'salt'  => trim((string)($s['phonepeSaltKey'] ?? '')),
-    'idx'   => max(1, min(32, (int)($s['phonepeSaltIndex'] ?? 1))),
-    'env'   => $env,
-    'host'  => $env === 'uat'
-               ? 'https://api-preprod.phonepe.com/apis/pg-sandbox'
-               : 'https://api.phonepe.com/apis/hermes',
+    'clientId'      => trim((string)($s['ppClientId'] ?? '')),
+    'clientSecret'  => trim((string)($s['ppClientSecret'] ?? '')),
+    'clientVersion' => trim((string)($s['ppClientVersion'] ?? '1')) !== '' ? trim((string)$s['ppClientVersion']) : '1',
+    'whSecret'      => trim((string)($s['ppWebhookSecret'] ?? '')),
+    'whUser'        => trim((string)($s['ppWebhookUser'] ?? '')),
+    'whPass'        => trim((string)($s['ppWebhookPass'] ?? '')),
+    'env'           => $env,
+    'host'          => $env === 'uat'
+                       ? 'https://api-preprod.phonepe.com/apis/pg-sandbox'
+                       : 'https://api.phonepe.com/apis/pg',
+    'oauth'         => $env === 'uat'
+                       ? 'https://api-preprod.phonepe.com/apis/pg-sandbox/v1/oauth/token'
+                       : 'https://api.phonepe.com/apis/identity-manager/v1/oauth/token',
+    'bundle'        => $env === 'uat'
+                       ? 'https://mercury-stg.phonepe.com/web/bundle/checkout.js'
+                       : 'https://mercury.phonepe.com/web/bundle/checkout.js',
   ];
 }
 function phonepe_ready(array $db): bool {
   $c = phonepe_cfg($db);
-  return ($db['settings']['payProvider'] ?? 'demo') === 'phonepe' && $c['mid'] !== '' && $c['salt'] !== '';
+  return ($db['settings']['payProvider'] ?? 'demo') === 'phonepe' && $c['clientId'] !== '' && $c['clientSecret'] !== '';
 }
-function phonepe_sign(string $toHash, string $salt, int $idx): string {
-  return hash('sha256', $toHash . $salt) . '###' . $idx;
-}
-/* public base URL PhonePe redirects/calls back to. Admin can pin it
-   (siteBaseUrl); otherwise derive it from the request (Hostinger sets
-   HTTPS on / proxied via X-Forwarded-Proto). */
+/* public base URL PhonePe returns the browser / posts webhooks to. */
 function phonepe_site_base(array $db): string {
   $base = trim((string)($db['settings']['siteBaseUrl'] ?? ''));
   if ($base === '') {
@@ -418,109 +426,192 @@ function phonepe_site_base(array $db): string {
   $base = preg_replace('#/api/?$#', '', $base);
   return rtrim($base, '/');
 }
-/* PhonePe ids allow A-Z a-z 0-9 - _ only, merchantTransactionId ≤ 35 chars */
-function phonepe_sanitize_id(string $v, int $max = 32): string {
+/* PhonePe order/refund ids allow A-Z a-z 0-9 - _ only (order id max 63) */
+function phonepe_sanitize_id(string $v, int $max = 40): string {
   $v = preg_replace('#[^A-Za-z0-9_-]#', '', $v);
   return substr((string)$v, 0, $max);
 }
-/* signed PhonePe call. $method GET (status; $path carries the signed path)
-   or POST (pay/refund; body is encoded and signed). */
-function phonepe_call(array $cfg, string $method, string $path, array $body = null): array {
-  if (!function_exists('curl_init')) return ['code' => 0, 'json' => null, 'raw' => 'curl missing'];
-  $ch = curl_init($cfg['host'] . $path);
-  $headers = ['Accept: application/json', 'Content-Type: application/json'];
-  $opts = [
-    CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_CONNECTTIMEOUT => 10,
-    CURLOPT_SSL_VERIFYPEER => true, CURLOPT_CUSTOMREQUEST => $method,
-    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
-  ];
-  if ($method === 'POST' && $body !== null) {
-    $b64 = base64_encode(json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    $opts[CURLOPT_POSTFIELDS] = json_encode(['request' => $b64]);
-    $headers[] = 'X-VERIFY: ' . phonepe_sign($b64 . $path, $cfg['salt'], $cfg['idx']);
-  } else {
-    // GET status: the path itself is what gets signed, plus the merchant header
-    $headers[] = 'X-VERIFY: ' . phonepe_sign($path, $cfg['salt'], $cfg['idx']);
-    $headers[] = 'X-MERCHANT-ID: ' . $cfg['mid'];
+/* OAuth client-credentials token, cached (in the private data/ dir) until
+   ~5 min before expires_at. A 401/403 forces one refresh. */
+function phonepe_token(array $cfg, bool $force = false): array {
+  $cacheFile = $GLOBALS['ROOT'] . '/data/.pp-token-' . $cfg['env'] . '.json';
+  if (!$force && is_file($cacheFile)) {
+    $c = json_decode((string)@file_get_contents($cacheFile), true);
+    if (is_array($c) && !empty($c['access_token']) && (int)($c['expires_at'] ?? 0) > time() + 300)
+      return ['token' => (string)$c['access_token'], 'cached' => true];
   }
-  curl_setopt_array($ch, $opts + [CURLOPT_HTTPHEADER => $headers]);
-  curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+  if (!function_exists('curl_init')) return ['error' => 'curl missing'];
+  $ch = curl_init($cfg['oauth']);
+  curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_CONNECTTIMEOUT => 10,
+    CURLOPT_SSL_VERIFYPEER => true, CURLOPT_POST => true,
+    CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'],
+    CURLOPT_POSTFIELDS => http_build_query([
+      'client_id' => $cfg['clientId'], 'client_version' => $cfg['clientVersion'],
+      'client_secret' => $cfg['clientSecret'], 'grant_type' => 'client_credentials',
+    ]),
+  ]);
   $raw = (string)curl_exec($ch);
   $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
   $err = (string)curl_error($ch);
   curl_close($ch);
-  return ['code' => $code, 'json' => json_decode($raw, true), 'raw' => $raw, 'err' => $err];
+  $j = json_decode($raw, true);
+  if ($code !== 200 || !is_array($j) || empty($j['access_token']))
+    return ['error' => 'token HTTP ' . $code, 'json' => $j, 'err' => $err];
+  if (is_dir(dirname($cacheFile))) {
+    @file_put_contents($cacheFile . '.tmp', $raw, LOCK_EX);
+    @rename($cacheFile . '.tmp', $cacheFile);
+    @chmod($cacheFile, 0600);
+  }
+  return ['token' => (string)$j['access_token']];
 }
-/* authoritative status for one merchantTransactionId */
-function phonepe_transaction_status(array $cfg, string $mtid): array {
-  $path = '/pg/v1/status/' . rawurlencode($cfg['mid']) . '/' . rawurlencode($mtid);
-  return phonepe_call($cfg, 'GET', $path);
+/* authenticated v2 JSON call; retries once with a fresh token on 401/403 */
+function phonepe_call(array $cfg, string $method, string $path, ?array $body = null): array {
+  if (!function_exists('curl_init')) return ['code' => 0, 'json' => null, 'raw' => 'curl missing'];
+  $attempt = function () use ($cfg, $method, $path, $body) {
+    $t = phonepe_token($cfg);
+    if (!empty($t['error'])) return ['code' => 0, 'json' => null, 'raw' => '', 'err' => 'token: ' . ($t['json']['message'] ?? $t['error'])];
+    $ch = curl_init($cfg['host'] . $path);
+    $headers = ['Accept: application/json', 'Authorization: O-Bearer ' . $t['token']];
+    $opts = [
+      CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 10,
+      CURLOPT_SSL_VERIFYPEER => true, CURLOPT_CUSTOMREQUEST => $method,
+      CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
+    ];
+    if ($method !== 'GET' && $body !== null) {
+      $opts[CURLOPT_POSTFIELDS] = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+      $headers[] = 'Content-Type: application/json';
+    }
+    curl_setopt_array($ch, $opts);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    $raw = (string)curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $err = (string)curl_error($ch);
+    curl_close($ch);
+    return ['code' => $code, 'json' => json_decode($raw, true), 'raw' => $raw, 'err' => $err];
+  };
+  $r = $attempt();
+  if ($r['code'] === 401 || $r['code'] === 403) {
+    $t2 = phonepe_token($cfg, true);
+    if (empty($t2['error'])) $r = $attempt();
+  }
+  return $r;
 }
-/* find the Shivaa order that owns a PhonePe merchantTransactionId */
-function phonepe_find_order_index(array $db, string $mtid): ?int {
+function phonepe_order_status(array $cfg, string $moid): array {
+  return phonepe_call($cfg, 'GET', '/checkout/v2/order/' . rawurlencode($moid) . '/status?details=true');
+}
+/* find the Shivaa order owning a merchantOrderId we sent PhonePe */
+function phonepe_find_order_index(array $db, string $moid): ?int {
   foreach ($db['orders'] ?? [] as $i => $o) {
-    foreach (($o['ppAttempts'] ?? []) as $a) if (($a['mtid'] ?? '') === $mtid) return $i;
+    foreach (($o['ppAttempts'] ?? []) as $a) if (($a['moid'] ?? '') === $moid) return $i;
   }
   return null;
 }
-/* reconcile a status payload into the order ledger. Returns a result array.
-   Safe to call repeatedly (idempotent on the PhonePe transaction id). */
-function phonepe_apply(array &$db, int $i, array $st, string $mtid): array {
-  $cfg = phonepe_cfg($db);
+/* reconcile an Order Status (or signed webhook payload, same shape) into the
+   order ledger. Idempotent on the PhonePe transaction id. Returns a result. */
+function phonepe_apply(array &$db, int $i, array $st, string $moid): array {
   $o = &$db['orders'][$i];
-  $data = is_array($st['data'] ?? null) ? $st['data'] : [];
-  $code = (string)($st['code'] ?? 'UNKNOWN');
-  $state = strtoupper((string)($data['state'] ?? ''));
-  $ppTxn = (string)($data['transactionId'] ?? '');
-  $amtPaise = (int)($data['amount'] ?? 0);
-  $ok = ($st['success'] ?? false) === true && $code === 'PAYMENT_SUCCESS' && $state === 'COMPLETED';
-  // record what PhonePe said on the attempt (for admin diagnostics)
-  foreach (($o['ppAttempts'] ?? []) as &$a) {
-    if (($a['mtid'] ?? '') === $mtid) {
-      $a['lastCode'] = $code; $a['lastState'] = $state; $a['ppTxn'] = $ppTxn; $a['checkedAt'] = now_iso();
-    }
-  }
-  unset($a);
-  $failed = in_array($code, ['PAYMENT_ERROR', 'PAYMENT_DECLINED', 'AUTHORIZATION_FAILED',
-    'INSUFFICIENT_BALANCE', 'TRANSACTION_EXPIRED', 'BAD_REQUEST', 'INTERNAL_SERVER_ERROR'], true)
-            || $state === 'FAILED';
-  if (!$ok) {
-    if ($failed) {
-      // record the decline for admin, but keep "Awaiting payment" so the
-      // customer's Pay-now due card stays visible for a retry
-      $o['ppLastFailure'] = ['mtid' => $mtid, 'code' => $code, 'at' => now_iso()];
-      db_save($GLOBALS['DB_FILE'], $db);
-    }
-    return ['ok' => false, 'code' => $code, 'state' => $state, 'ppTxn' => $ppTxn];
-  }
-  // security: merchant id, currency and exact amount must match this attempt
   $attempt = null;
-  foreach (($o['ppAttempts'] ?? []) as $a) if (($a['mtid'] ?? '') === $mtid) { $attempt = $a; break; }
-  if (!$attempt) return ['ok' => false, 'code' => 'ATTEMPT_NOT_FOUND', 'state' => $state];
-  if ((string)($data['merchantId'] ?? '') !== $cfg['mid'])
-    return ['ok' => false, 'code' => 'MERCHANT_MISMATCH', 'state' => $state];
-  if ($amtPaise !== (int)$attempt['amountPaise'])
-    return ['ok' => false, 'code' => 'AMOUNT_MISMATCH', 'state' => $state, 'expected' => (int)$attempt['amountPaise'], 'got' => $amtPaise];
-  // idempotency: a captured PhonePe transaction credits the ledger exactly once
+  foreach (($o['ppAttempts'] ?? []) as $a) if (($a['moid'] ?? '') === $moid) { $attempt = $a; break; }
+  if (!$attempt) return ['ok' => false, 'code' => 'ATTEMPT_NOT_FOUND'];
+  foreach (($o['ppAttempts'] ?? []) as &$aa) {
+    if (($aa['moid'] ?? '') === $moid) {
+      $aa['lastState'] = strtoupper((string)($st['state'] ?? ''));
+      if (!empty($st['orderId'])) $aa['ppOrderId'] = (string)$st['orderId'];
+      $aa['checkedAt'] = now_iso();
+    }
+  }
+  unset($aa);
+  $state = strtoupper((string)($st['state'] ?? ''));
+  $amtPaise = (int)($st['amount'] ?? 0);
+  $details = is_array($st['paymentDetails'] ?? null) ? $st['paymentDetails'] : [];
+  $good = null;
+  foreach ($details as $d) {
+    if (strtoupper((string)($d['state'] ?? '')) === 'COMPLETED' && (int)($d['amount'] ?? 0) > 0) { $good = $d; break; }
+  }
+  if ($state === 'FAILED') {
+    $o['ppLastFailure'] = ['moid' => $moid, 'code' => (string)($details[0]['errorCode'] ?? 'FAILED'), 'at' => now_iso()];
+    db_save($GLOBALS['DB_FILE'], $db);
+    return ['ok' => false, 'code' => 'FAILED', 'state' => 'FAILED'];
+  }
+  if ($state !== 'COMPLETED' || !$good)
+    return ['ok' => false, 'code' => (string)($st['code'] ?? 'PENDING'), 'state' => $state];
+  // security: the paid amount must equal this attempt exactly
+  $paidPaise = (int)($good['amount'] ?? $amtPaise);
+  if ($paidPaise !== (int)$attempt['amountPaise'] || ($amtPaise !== 0 && $amtPaise !== (int)$attempt['amountPaise']))
+    return ['ok' => false, 'code' => 'AMOUNT_MISMATCH', 'expected' => (int)$attempt['amountPaise'], 'got' => $paidPaise];
+  $ppTxn = (string)($good['transactionId'] ?? '');
   foreach (($o['payments'] ?? []) as $p) {
     if ($ppTxn !== '' && (($p['ref'] ?? '') === $ppTxn || ($p['gatewayPaymentId'] ?? '') === $ppTxn))
-      return ['ok' => true, 'already' => true, 'code' => $code, 'state' => $state];
+      return ['ok' => true, 'already' => true, 'state' => 'COMPLETED'];
   }
-  $ref = $ppTxn !== '' ? $ppTxn : $mtid;
+  // a retried order could already be fully paid by another attempt
+  if ((int)($o['amountPaid'] ?? 0) >= (int)($o['total'] ?? 0) && (int)($o['total'] ?? 0) > 0)
+    return ['ok' => true, 'already' => true, 'state' => 'COMPLETED'];
+  $ref = $ppTxn !== '' ? $ppTxn : $moid;
   order_add_payment($o, [
-    'amount' => max(1, (int)round($amtPaise / 100)), 'mode' => 'phonepe',
+    'amount' => max(1, (int)round($paidPaise / 100)), 'mode' => 'phonepe',
     'ref' => $ref, 'gatewayPaymentId' => $ref, 'at' => now_iso(), 'status' => 'approved',
-    'instrument' => (string)($data['paymentMode'] ?? ''),
+    'instrument' => (string)($good['paymentMode'] ?? ''),
   ]);
   $total = (int)($o['total'] ?? 0);
   $paid = (int)($o['amountPaid'] ?? 0);
   if ($paid >= $total && $total > 0) { $o['paymentStatus'] = 'Paid'; $o['paidAt'] = $o['paidAt'] ?? now_iso(); $o['balance'] = 0; }
   elseif ($paid > 0) { $o['paymentStatus'] = 'Partially paid'; $o['balance'] = max(0, $total - $paid); }
   $o['paymentRef'] = $ref; $o['gateway'] = 'phonepe'; $o['ppTxnId'] = $ref;
-  audit_log($db, 'payment.phonepe-paid', ['order' => $o['id'], 'amount' => (int)round($amtPaise / 100), 'txn' => $ref]);
+  audit_log($db, 'payment.phonepe-paid', ['order' => $o['id'], 'amount' => (int)round($paidPaise / 100), 'txn' => $ref]);
   db_save($GLOBALS['DB_FILE'], $db);
-  return ['ok' => true, 'code' => $code, 'state' => $state, 'ref' => $ref];
+  return ['ok' => true, 'state' => 'COMPLETED', 'ref' => $ref];
 }
+/* refund webhook/result: advance a refund row to its terminal state */
+function phonepe_apply_refund(array &$db, int $i, array $p): array {
+  $o = &$db['orders'][$i];
+  $rfId = (string)($p['merchantRefundId'] ?? '');
+  $state = strtoupper((string)($p['state'] ?? ''));
+  $touched = false;
+  foreach (($o['refunds'] ?? []) as $k => $r) {
+    if (($r['merchantRefundId'] ?? '') === $rfId) {
+      $o['refunds'][$k] = array_merge($r, [
+        'state' => $state, 'ppRefundId' => (string)($p['refundId'] ?? $r['ppRefundId'] ?? ''),
+        'updatedAt' => now_iso(),
+        'status' => $state === 'COMPLETED' ? 'accepted' : ($state === 'FAILED' ? 'failed' : 'pending'),
+      ]);
+      $touched = true;
+    }
+  }
+  if (!$touched) return ['ok' => false, 'code' => 'REFUND_NOT_FOUND'];
+  $refundedDone = array_sum(array_map(fn($r) => ($r['status'] ?? '') === 'accepted' ? (int)($r['amount'] ?? 0) : 0, $o['refunds'] ?? []));
+  $paid = (int)($o['amountPaid'] ?? 0);
+  if ($state === 'COMPLETED') {
+    $o['paymentStatus'] = $refundedDone >= $paid && $paid > 0 ? 'Refunded' : 'Partially refunded';
+    audit_log($db, 'payment.phonepe-refund-done', ['order' => $o['id'], 'refund' => $rfId, 'state' => $state]);
+  } elseif ($state === 'FAILED') {
+    audit_log($db, 'payment.phonepe-refund-failed', ['order' => $o['id'], 'refund' => $rfId]);
+  }
+  db_save($GLOBALS['DB_FILE'], $db);
+  return ['ok' => true, 'state' => $state];
+}
+/* HMAC check for dashboard-configured webhooks. PhonePe signs the raw body
+   with the Checksum Secret Key; compare both hex and base64 encodings since
+   the dashboard does not pin one. Also supports the optional SHA username:
+   password Authorization mode. */
+function phonepe_webhook_verified(array $cfg, string $raw, array $srv): bool {
+  $sig = trim((string)($srv['HTTP_X_PHONEPE_CHECKSUM_SIGNATURE'] ?? ''));
+  if ($sig !== '' && $cfg['whSecret'] !== '') {
+    $bin = hash_hmac('sha256', $raw, $cfg['whSecret'], true);
+    $hex = hash_hmac('sha256', $raw, $cfg['whSecret']);
+    $cands = [$hex, strtolower($hex), base64_encode($bin)];
+    foreach ($cands as $c) if (hash_equals($c, $sig)) return true;
+  }
+  $auth = trim((string)($srv['HTTP_AUTHORIZATION'] ?? ''));
+  if ($auth !== '' && $cfg['whUser'] !== '') {
+    $expect = hash('sha256', $cfg['whUser'] . ':' . $cfg['whPass']);
+    $got = trim(preg_replace('#^(sha256|basic|bearer)\s+#i', '', $auth));
+    if (hash_equals($expect, $got) || hash_equals($expect, strtolower($got))) return true;
+  }
+  return false;
+}
+
 
 /* v61 — generic JSON POST/GET with custom headers (Angel One SmartAPI) */
 function angel_http(string $url, string $method, ?array $payload, array $headers, int $timeout = 8): array {
@@ -3316,9 +3407,9 @@ try {
     $s = $db['settings'];
     $provider = (string)($s['payProvider'] ?? 'demo');
     $rzpLive = $provider === 'razorpay' && !empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']);
-    // v92 — PhonePe redirect gateway: ready once merchant id + salt exist.
+    // v93 — PhonePe Standard Checkout v2: ready once Client ID + Secret exist.
     $ppCfg = phonepe_cfg($db);
-    $ppLive = $provider === 'phonepe' && $ppCfg['mid'] !== '' && $ppCfg['salt'] !== '';
+    $ppLive = phonepe_ready($db);
     jout(200, [
       'mode' => $rzpLive ? 'razorpay' : ($ppLive ? 'phonepe' : 'demo'),
       'provider' => $provider,
@@ -3359,8 +3450,8 @@ try {
     if ($due <= 0) jout(400, ['error' => 'This order is already fully paid']);
     if ($due > 100000000) jout(400, ['error' => 'Amount above the online limit — pay via WhatsApp / RTGS at the shop.']);  // v82 ₹1 cr ceiling
     $amountPaise = (int)round($due * 100);
-    /* v92 — PhonePe Standard Checkout (redirect). Build a signed PAY_PAGE
-       request; answer with the PhonePe URL the browser must redirect to. */
+    /* v93 — PhonePe Standard Checkout v2: OAuth-authenticated /checkout/v2/pay
+       returns the mercury PayPage token URL the browser opens (redirect). */
     if (phonepe_ready($db)) {
       $cfg = phonepe_cfg($db);
       $base = phonepe_site_base($db);
@@ -3369,39 +3460,42 @@ try {
       if ($cfg['env'] === 'prod' && strtolower((string)parse_url($base, PHP_URL_SCHEME)) !== 'https')
         jout(500, ['error' => 'PhonePe live mode needs an https site. Set the https Site URL in Admin → Payments.']);
       $attempts = $db['orders'][$i]['ppAttempts'] ?? [];
-      $mtid = phonepe_sanitize_id($o['id'], 30) . '-' . (count($attempts) + 1);
-      $muid = phonepe_sanitize_id('C' . ($u['id'] ?? 'guest'), 32) ?: ('C' . substr(hash('sha256', $o['id'] . microtime(true)), 0, 10));
+      // each attempt gets a fresh merchantOrderId (PhonePe rejects reuse in a
+      // non-CREATED state); charset [A-Za-z0-9_-], max 63.
+      $moid = phonepe_sanitize_id($o['id'], 48) . '-A' . (count($attempts) + 1);
       $phoneRaw = (string)($o['address']->phone ?? '');
       if ($phoneRaw === '') $phoneRaw = (string)($u['phone'] ?? '');
       $phone = preg_replace('#\D#', '', $phoneRaw);
-      if (substr($phone, 0, 2) !== '91' && strlen($phone) === 10) $phone = '91' . $phone;
+      if (strlen($phone) === 10) $phone = '91' . $phone;
       $payload = [
-        'merchantId' => $cfg['mid'],
-        'merchantTransactionId' => $mtid,
-        'merchantUserId' => substr($muid, 0, 34),
+        'merchantOrderId' => $moid,
         'amount' => $amountPaise,
-        'redirectUrl' => $base . '/api/pay/phonepe/return',
-        'redirectMode' => 'REDIRECT',
-        'callbackUrl' => $base . '/api/pay/phonepe/callback',
-        'merchantOrderId' => $o['id'],
-        'message' => 'Shivaa order ' . $o['id'],
-        'paymentInstrument' => ['type' => 'PAY_PAGE'],
+        'expireAfter' => 1200,
+        'paymentFlow' => [
+          'type' => 'PG_CHECKOUT',
+          'merchantUrls' => ['redirectUrl' => $base . '/api/pay/phonepe/return?co=' . urlencode($o['id'])],
+        ],
+        'disablePaymentRetry' => false,
+        'metaInfo' => ['udf1' => $o['id'], 'udf2' => 'Shivaa order'],
       ];
-      if (strlen($phone) >= 10) $payload['mobileNumber'] = substr($phone, -12);
-      if (!empty($u['email']) && filter_var($u['email'], FILTER_VALIDATE_EMAIL)) $payload['email'] = $u['email'];
-      $res = phonepe_call($cfg, 'POST', '/pg/v1/pay', $payload);
+      if (strlen($phone) >= 10) $payload['prefillUserLoginDetails'] = ['phoneNumber' => '+' . substr($phone, 0, 2) . ' ' . substr($phone, 2)];
+      $res = phonepe_call($cfg, 'POST', '/checkout/v2/pay', $payload);
       $j = $res['json'];
-      $redirectUrl = (string)($j['data']['instrumentResponse']['redirectInfo']['url'] ?? '');
-      if (($j['success'] ?? false) !== true || $redirectUrl === '') {
+      $redirectUrl = is_array($j) ? (string)($j['redirectUrl'] ?? '') : '';
+      if ($res['code'] !== 200 || $redirectUrl === '') {
         audit_log($db, 'payment.phonepe-init-fail', ['order' => $o['id'], 'http' => $res['code'], 'resp' => $j, 'err' => $res['err']]);
         jout(502, ['error' => 'PhonePe could not start this payment — choose WhatsApp/COD, the UPI QR tab, or retry in a moment.',
                    'gatewayCode' => $j['code'] ?? null, 'gatewayMessage' => $j['message'] ?? ($res['err'] ?: null)]);
       }
-      $db['orders'][$i]['ppAttempts'][] = ['mtid' => $mtid, 'amountPaise' => $amountPaise, 'env' => $cfg['env'], 'at' => now_iso(), 'lastCode' => 'INITIATED'];
-      $db['orders'][$i]['gatewayOrderId'] = $mtid;
+      $db['orders'][$i]['ppAttempts'][] = [
+        'moid' => $moid, 'ppOrderId' => (string)($j['orderId'] ?? ''), 'amountPaise' => $amountPaise,
+        'env' => $cfg['env'], 'at' => now_iso(), 'lastState' => (string)($j['state'] ?? 'PENDING'),
+      ];
+      $db['orders'][$i]['gatewayOrderId'] = $moid;
       $db['orders'][$i]['gateway'] = 'phonepe';
       db_save($DB_FILE, $db);
-      jout(200, ['mode' => 'phonepe', 'redirectUrl' => $redirectUrl, 'amount' => $amountPaise, 'orderId' => $o['id'], 'env' => $cfg['env']]);
+      jout(200, ['mode' => 'phonepe', 'redirectUrl' => $redirectUrl, 'bundle' => $cfg['bundle'],
+                 'amount' => $amountPaise, 'orderId' => $o['id'], 'env' => $cfg['env']]);
     }
     if (!empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']) && (($s['payProvider'] ?? '') === 'razorpay')) {
       $rzp = http_post_json('https://api.razorpay.com/v1/orders', [
@@ -3525,33 +3619,38 @@ try {
     jout(200, ['orders' => array_reverse($pend)]);
   }
 
-  /* ════════ v92 · PhonePe redirect return, S2S callback, client poll ════════
-     Browser flow: pay/order → PhonePe → GET return here (we re-query the
-     signed status API, NEVER trust the redirect) → bounce into the SPA.
-     Server flow: PhonePe POSTs a signed callback; verify X-VERIFY over the
-     raw base64 data, then still reconcile via the status API. */
+  /* ════════ v93 · PhonePe v2 redirect return, HMAC webhook, client poll ════════
+     Browser flow: pay/order → mercury PayPage → GET return here (we call the
+     OAuth Order Status API, NEVER trust the redirect) → bounce into the SPA.
+     Server flow: PhonePe POSTs an HMAC-signed webhook (checkout.order.* /
+     pg.refund.*); verify over the RAW body, then reconcile. */
+  $phonepe_reconcile_order = function (int $i, string $moid, array $fallback = null): array {
+    $cfg = phonepe_cfg($db);
+    $st = phonepe_order_status($cfg, $moid);
+    if (is_array($st['json'] ?? null)) return phonepe_apply($db, $i, $st['json'], $moid);
+    audit_log($db, 'payment.phonepe-status-fail', ['order' => $db['orders'][$i]['id'], 'http' => $st['code'], 'err' => $st['err']]);
+    // status API unavailable: trust the already HMAC-verified webhook body
+    if ($fallback !== null) return phonepe_apply($db, $i, $fallback, $moid);
+    return ['ok' => false, 'code' => 'STATUS_UNAVAILABLE'];
+  };
   if ($route === 'pay/phonepe/return' && $method === 'GET') {
-    $dataB64 = (string)($_GET['data'] ?? '');
-    $decoded = $dataB64 !== '' ? json_decode((string)base64_decode(strtr($dataB64, '-_', '+/')), true) : null;
-    $mtid = (string)($decoded['merchantTransactionId'] ?? $_GET['txn'] ?? '');
-    $orderId = '';
+    // PhonePe sends the browser back to paymentFlow.merchantUrls.redirectUrl;
+    // we carry our order id as ?co= and also accept the PhonePe order id.
+    $co = (string)($_GET['co'] ?? '');
+    $orderId = preg_match('/^[A-Za-z0-9_-]{1,48}$/', $co) ? substr($co, 0, 48) : '';
     $result = 'pending';
-    if ($mtid !== '' && phonepe_ready($db)) {
-      $i = phonepe_find_order_index($db, $mtid);
-      if ($i !== null) {
-        $orderId = $db['orders'][$i]['id'];
-        $st = phonepe_transaction_status(phonepe_cfg($db), $mtid);
-        if (is_array($st['json'] ?? null)) {
-          $r = phonepe_apply($db, $i, $st['json'], $mtid);
-          if (!empty($r['ok'])) $result = 'success';
-          elseif (strtoupper((string)($st['json']['data']['state'] ?? $r['state'])) === 'FAILED'
-                  || in_array((string)$r['code'], ['PAYMENT_ERROR','PAYMENT_DECLINED','AUTHORIZATION_FAILED','TRANSACTION_EXPIRED'], true)) $result = 'fail';
-        }
-      } elseif (preg_match('/^(CO[0-9]{8}[A-F0-9]{4})-\d+$/', $mtid, $mm)) {
-        $orderId = $mm[1];
+    if ($orderId !== '' && phonepe_ready($db)) {
+      $idx = null;
+      foreach ($db['orders'] as $ii => $oo) if (($oo['id'] ?? '') === $orderId) { $idx = $ii; break; }
+      if ($idx !== null && !empty($db['orders'][$idx]['ppAttempts'])) {
+        $attempts = $db['orders'][$idx]['ppAttempts'];
+        $last = $attempts[count($attempts) - 1];
+        $r = $phonepe_reconcile_order($idx, (string)$last['moid']);
+        if (!empty($r['ok'])) $result = 'success';
+        elseif (($r['state'] ?? '') === 'FAILED' || ($r['code'] ?? '') === 'FAILED') $result = 'fail';
       }
-    } elseif (preg_match('/^(CO[0-9]{8}[A-F0-9]{4})-\d+$/', $mtid, $mm)) {
-      $orderId = $mm[1];   // gateway disabled mid-flow: still land the customer on their order
+    } elseif ($orderId === '') {
+      $orderId = $co;   // gateway disabled mid-flow: still try to land the customer
     }
     $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?pp=' . $result : '/';
     header('Cache-Control: no-store');
@@ -3560,44 +3659,51 @@ try {
   }
   if ($route === 'pay/phonepe/callback' && $method === 'POST') {
     $raw = (string)file_get_contents('php://input');
-    $post = $_POST;
-    if (empty($post['data']) && $raw !== '') parse_str($raw, $post);
-    $dataB64 = (string)($post['data'] ?? '');
-    $hdr = trim((string)($_SERVER['HTTP_X_VERIFY'] ?? $_SERVER['HTTP_X_VERIFY_HEADER'] ?? ''));
     $cfg = phonepe_cfg($db);
-    // callback checksum = sha256(base64data + salt) ### saltIndex
-    $expect = $dataB64 !== '' && $cfg['salt'] !== '' ? phonepe_sign($dataB64, $cfg['salt'], $cfg['idx']) : '';
-    if ($dataB64 === '' || $hdr === '' || $cfg['mid'] === '' || !hash_equals($expect, $hdr)) {
-      audit_log($db, 'payment.phonepe-callback-bad-sig', ['have' => substr($hdr, 0, 24)]);
+    if (!phonepe_webhook_verified($cfg, $raw, $_SERVER)) {
+      audit_log($db, 'payment.phonepe-callback-bad-sig', ['have' => substr((string)($_SERVER['HTTP_X_PHONEPE_CHECKSUM_SIGNATURE'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? ''), 0, 24)]);
       jout(401, ['success' => false, 'error' => 'bad signature']);
     }
-    $decoded = json_decode((string)base64_decode(strtr($dataB64, '-_', '+/')), true);
-    if (!is_array($decoded)) jout(400, ['success' => false, 'error' => 'bad payload']);
-    // PhonePe wraps some callback versions in {response:{...}}
-    $node = isset($decoded['response']) && is_array($decoded['response']) ? $decoded['response'] : $decoded;
-    $mtid = (string)($node['merchantTransactionId'] ?? '');
-    if ((string)($node['merchantId'] ?? $decoded['merchantId'] ?? '') !== $cfg['mid'])
-      jout(401, ['success' => false, 'error' => 'merchant mismatch']);
-    $i = $mtid !== '' ? phonepe_find_order_index($db, $mtid) : null;
-    if ($i === null) jout(200, ['success' => true, 'note' => 'order not found for ' . $mtid]);
-    // authoritative reconciliation via the status API (PhonePe recommendation)
-    $st = phonepe_transaction_status($cfg, $mtid);
-    if (!is_array($st['json'] ?? null)) {
-      audit_log($db, 'payment.phonepe-callback-status-fail', ['order' => $db['orders'][$i]['id'], 'http' => $st['code']]);
-      jout(502, ['success' => false, 'error' => 'status lookup failed; will retry']);  // PhonePe retries the callback
+    $ev = json_decode($raw, true);
+    if (!is_array($ev)) jout(400, ['success' => false, 'error' => 'bad payload']);
+    $event = (string)($ev['event'] ?? '');
+    $p = is_array($ev['payload'] ?? null) ? $ev['payload'] : [];
+    if (strpos($event, 'checkout.order.') === 0) {
+      $moid = (string)($p['merchantOrderId'] ?? '');
+      $i = $moid !== '' ? phonepe_find_order_index($db, $moid) : null;
+      if ($i === null) jout(200, ['success' => true, 'note' => 'order not found for ' . $moid]);
+      $r = $phonepe_reconcile_order($i, $moid, $p);
+      jout(200, ['success' => true, 'result' => $r]);
+    } elseif (strpos($event, 'pg.refund.') === 0) {
+      $moid = (string)($p['originalMerchantOrderId'] ?? '');
+      $i = $moid !== '' ? phonepe_find_order_index($db, $moid) : null;
+      if ($i === null) jout(200, ['success' => true, 'note' => 'order not found for ' . $moid]);
+      $r = phonepe_apply_refund($db, $i, $p);
+      jout(200, ['success' => true, 'result' => $r]);
     }
-    $r = phonepe_apply($db, $i, $st['json'], $mtid);
-    jout(200, ['success' => true, 'result' => $r]);
+    jout(200, ['success' => true, 'note' => 'ignored event ' . $event]);
   }
   if ($route === 'pay/phonepe/status' && $method === 'POST') {
-    // order page poller: owner asks the server to reconcile PhonePe right now
+    // order page poller: ask the server to reconcile PhonePe right now
     $b = body_json();
     [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
     if (phonepe_ready($db) && !empty($db['orders'][$i]['ppAttempts'])) {
+      $rcfg = phonepe_cfg($db);
       $attempts = $db['orders'][$i]['ppAttempts'];
       $last = $attempts[count($attempts) - 1];
-      $st = phonepe_transaction_status(phonepe_cfg($db), (string)$last['mtid']);
-      if (is_array($st['json'] ?? null)) phonepe_apply($db, $i, $st['json'], (string)$last['mtid']);
+      $st = phonepe_order_status($rcfg, (string)$last['moid']);
+      if (is_array($st['json'] ?? null)) phonepe_apply($db, $i, $st['json'], (string)$last['moid']);
+      // PhonePe mandates tracking refunds via BOTH webhook and Refund Status
+      foreach (($db['orders'][$i]['refunds'] ?? []) as $rf) {
+        if (in_array((string)($rf['state'] ?? ''), ['PENDING', 'CONFIRMED', ''], true) && !empty($rf['merchantRefundId'])) {
+          $rr = phonepe_call($rcfg, 'GET', '/payments/v2/refund/' . rawurlencode((string)$rf['merchantRefundId']) . '/status');
+          if (is_array($rr['json'] ?? null)) {
+            $rp = $rr['json'];
+            if (empty($rp['merchantRefundId'])) $rp['merchantRefundId'] = $rf['merchantRefundId'];
+            phonepe_apply_refund($db, $i, $rp);
+          }
+        }
+      }
     }
     jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
   }
@@ -3642,30 +3748,24 @@ try {
     jout(404, ['error' => 'Order not found']);
   }
 
-  /* v92 — admin "Test keys" for the configured gateway. A signed read-only
-     status call on a fake transaction id: HTTP 401/403 means bad credentials,
-     HTTP 200 with a TRANSACTION_NOT_FOUND-style code means keys are valid. */
+  /* v93 — admin "Test keys" for the configured gateway. For PhonePe v2 this
+     mints a fresh OAuth token: a token back means Client ID/Version/Secret are
+     all accepted (PhonePe answers 401/invalid_client otherwise). */
   if ($route === 'admin/pay-test' && $method === 'POST') {
     need_admin($db);
     $b = body_json();
     $which = (string)($b['provider'] ?? ($db['settings']['payProvider'] ?? 'demo'));
     if ($which === 'phonepe' || (isset($b['provider']) && $b['provider'] === 'phonepe')) {
       $cfg = phonepe_cfg($db);
-      if ($cfg['mid'] === '' || $cfg['salt'] === '') jout(400, ['ok' => false, 'error' => 'Enter PhonePe Merchant ID and Salt Key first.']);
-      $fake = 'TEST' . strtoupper(bin2hex(random_bytes(6)));
-      $st = phonepe_transaction_status($cfg, $fake);
-      $j = $st['json'];
-      $okCreds = $st['code'] === 200 && is_array($j) && array_key_exists('code', $j)
-                 && in_array((string)$j['code'], ['TRANSACTION_NOT_FOUND', 'PAYMENT_PENDING', 'PAYMENT_ERROR', 'BAD_REQUEST', 'INTERNAL_SERVER_ERROR'], true);
-      // PhonePe returns 401/403 + CHECKSUM_ERROR when the salt/index is wrong
-      if ($st['code'] === 0) jout(502, ['ok' => false, 'error' => 'Could not reach PhonePe from this server (' . $st['err'] . ').']);
-      jout(200, [
-        'ok' => $okCreds || ($st['code'] === 200),
-        'http' => $st['code'], 'env' => $cfg['env'],
-        'code' => $j['code'] ?? null, 'message' => $j['message'] ?? null,
-        'detail' => $okCreds ? 'Credentials accepted by PhonePe (' . $cfg['env'] . '). A not-found result for the test id is expected.'
-                            : 'PhonePe rejected the signed request — check Salt Key and Salt Index (most common mismatch).',
+      if ($cfg['clientId'] === '' || $cfg['clientSecret'] === '') jout(400, ['ok' => false, 'error' => 'Enter PhonePe Client ID and Client Secret first.']);
+      $t = phonepe_token($cfg, true);
+      if (!empty($t['token'])) jout(200, [
+        'ok' => true, 'env' => $cfg['env'],
+        'detail' => 'Credentials accepted by PhonePe (' . $cfg['env'] . ') — OAuth token issued. Remember to create + verify the HMAC webhook too.',
       ]);
+      $msg = $t['json']['message'] ?? $t['json']['error'] ?? ($t['err'] ?? 'rejected');
+      $hint = stripos($msg, 'invalid') !== false ? ' — check Client ID, Client Version and Client Secret (most common mismatch).' : '';
+      jout(200, ['ok' => false, 'env' => $cfg['env'], 'detail' => 'PhonePe rejected the credentials: ' . $msg . $hint]);
     }
     if ($which === 'razorpay') {
       $s = $db['settings'];
@@ -3682,9 +3782,9 @@ try {
     jout(400, ['ok' => false, 'error' => 'No live gateway is selected.']);
   }
 
-  /* v92 — PhonePe refund (admin-initiated). Maps a captured ledger payment to
-     the gateway's originalTransactionId; PhonePe credits it back asynchronously
-     and later confirms via the signed callback / status reconciliation. */
+  /* v93 — PhonePe v2 refund (admin-initiated). POST /payments/v2/refund with
+     our merchantOrderId; PhonePe settles asynchronously and confirms through
+     the pg.refund.* webhook (status moves PENDING → CONFIRMED → COMPLETED). */
   if ($route === 'admin/refund' && $method === 'POST') {
     $u = need_admin($db);
     $b = body_json();
@@ -3694,42 +3794,46 @@ try {
     $ord = &$db['orders'][$idx];
     if (($ord['gateway'] ?? '') !== 'phonepe' || !phonepe_ready($db))
       jout(400, ['error' => 'This order was not paid through PhonePe.']);
-    $approved = array_values(array_filter($ord['payments'] ?? [], fn($p) => ($p['status'] ?? '') === 'approved' && (int)($p['amount'] ?? 0) > 0));
-    if (!$approved) jout(400, ['error' => 'No captured PhonePe payment to refund on this order.']);
-    $refundedBefore = array_sum(array_map(fn($r) => ($r['status'] ?? '') === 'accepted' ? (int)$r['amount'] : 0, $ord['refunds'] ?? []));
     $paid = (int)($ord['amountPaid'] ?? 0);
-    $refundable = max(0, $paid - $refundedBefore);
+    if ($paid <= 0) jout(400, ['error' => 'No captured PhonePe payment to refund on this order.']);
+    // money already committed to refunds (completed OR still settling)
+    $committed = array_sum(array_map(fn($r) => ($r['state'] ?? '') === 'FAILED' ? 0 : (int)($r['amount'] ?? 0), $ord['refunds'] ?? []));
+    foreach ($ord['refunds'] ?? [] as $r) {
+      if (in_array((string)($r['state'] ?? $r['status'] ?? ''), ['PENDING', 'CONFIRMED', 'pending'], true))
+        jout(400, ['error' => 'A refund for this order is still processing — wait for it to complete before starting another.']);
+    }
+    $refundable = max(0, $paid - $committed);
     $want = isset($b['amount']) ? max(1, (int)round((float)$b['amount'])) : $refundable;
     if ($want > $refundable || $refundable <= 0) jout(400, ['error' => 'Refund amount exceeds the captured amount (' . $refundable . ').']);
-    // the PhonePe transaction id of the last approved payment on this order
-    $lastPay = $approved[count($approved) - 1];
-    $originalTxn = (string)($lastPay['gatewayPaymentId'] ?? $lastPay['ref'] ?? '');
-    if ($originalTxn === '') jout(400, ['error' => 'Original PhonePe transaction id missing.']);
+    // PhonePe refunds key off the merchantOrderId WE sent: the latest completed attempt
+    $moid = '';
+    foreach (array_reverse($ord['ppAttempts'] ?? []) as $a) { if (($a['lastState'] ?? '') === 'COMPLETED') { $moid = (string)$a['moid']; break; } }
+    if ($moid === '') {
+      $all = $ord['ppAttempts'] ?? [];
+      if ($all) $moid = (string)end($all)['moid'];
+    }
+    if ($moid === '') jout(400, ['error' => 'Original PhonePe order id missing.']);
     $cfg = phonepe_cfg($db);
     $n = count($ord['refunds'] ?? []) + 1;
-    $rfMtid = phonepe_sanitize_id($ord['id'], 26) . '-RF' . $n;
-    $base = phonepe_site_base($db);
-    $payload = [
-      'merchantId' => $cfg['mid'],
-      'merchantTransactionId' => $rfMtid,
-      'originalTransactionId' => $originalTxn,
+    $rfId = phonepe_sanitize_id($ord['id'], 40) . '-RF' . $n;
+    $res = phonepe_call($cfg, 'POST', '/payments/v2/refund', [
+      'merchantRefundId' => $rfId,
+      'originalMerchantOrderId' => $moid,
       'amount' => (int)round($want * 100),
-      'callbackUrl' => $base . '/api/pay/phonepe/callback',
-    ];
-    $res = phonepe_call($cfg, 'POST', '/pg/v1/refund', $payload);
+    ]);
     $j = $res['json'];
-    if (($j['success'] ?? false) !== true) {
-      audit_log($db, 'payment.phonepe-refund-fail', ['order' => $ord['id'], 'resp' => $j]);
+    if ($res['code'] !== 200 || !is_array($j) || empty($j['refundId'])) {
+      audit_log($db, 'payment.phonepe-refund-fail', ['order' => $ord['id'], 'http' => $res['code'], 'resp' => $j, 'err' => $res['err']]);
       jout(502, ['error' => 'PhonePe did not accept the refund: ' . ($j['message'] ?? ('HTTP ' . $res['code']))]);
     }
     $ord['refunds'][] = [
-      'mtid' => $rfMtid, 'originalTransactionId' => $originalTxn,
-      'amount' => $want, 'reason' => substr((string)($b['reason'] ?? 'Customer refund'), 0, 160),
-      'at' => now_iso(), 'status' => 'accepted', 'by' => ($u['name'] ?? 'admin'),
+      'merchantRefundId' => $rfId, 'ppRefundId' => (string)($j['refundId'] ?? ''),
+      'originalMoid' => $moid, 'amount' => $want,
+      'reason' => substr((string)($b['reason'] ?? 'Customer refund'), 0, 160),
+      'at' => now_iso(), 'state' => (string)($j['state'] ?? 'PENDING'), 'status' => 'pending',
+      'by' => ($u['name'] ?? 'admin'),
     ];
-    $totalRefunded = $refundedBefore + $want;
-    $ord['paymentStatus'] = $totalRefunded >= $paid ? 'Refunded' : 'Partially refunded';
-    audit_log($db, 'payment.phonepe-refund', ['order' => $ord['id'], 'amount' => $want, 'mtid' => $rfMtid]);
+    audit_log($db, 'payment.phonepe-refund', ['order' => $ord['id'], 'amount' => $want, 'refundId' => $rfId]);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'order' => $ord]);
   }
@@ -5170,7 +5274,7 @@ try {
     // cannot leak by accident.
     $blockedSubs = ['secret', 'password', 'passwd', 'private', 'apikey', 'mpin',
       'relaykey', 'smskey', 'otpkey', 'authkey', 'clientsecret', 'accesstoken', 'gstapi', 'gstkey',
-      'token', 'credential', 'webhooksecret', 'saltkey', 'salt'];
+      'token', 'credential', 'webhooksecret', 'saltkey', 'salt', 'webhookpass', 'clientsecret'];
     $isSecretKey = static function ($k) use ($blockedSubs): bool {
       $k = strtolower((string)$k);
       foreach ($blockedSubs as $b) if (strpos($k, $b) !== false) return true;
@@ -5281,28 +5385,44 @@ try {
     foreach (['upiName', 'shopName', 'address', 'finePurity', 'payProvider'] as $sk) {
       if (array_key_exists($sk, $setBody) && !is_scalar($setBody[$sk])) jout(400, ['error' => $sk . ' must be text']);
     }
-    // v92 — PhonePe credential validation (charsets per PhonePe dashboard)
+    // v93 — PhonePe Standard Checkout v2 credential validation
     if (array_key_exists('payProvider', $setBody) && !in_array((string)$setBody['payProvider'], ['demo', 'razorpay', 'phonepe'], true))
       jout(400, ['error' => 'Unknown payment provider']);
-    if (array_key_exists('phonepeMerchantId', $setBody)) {
-      $v = trim((string)$setBody['phonepeMerchantId']);
-      if ($v !== '' && !preg_match('/^[A-Za-z0-9_-]{4,30}$/', $v))
-        jout(400, ['error' => 'PhonePe Merchant ID looks invalid (4–30 letters/numbers, dash or underscore).']);
-      $setBody['phonepeMerchantId'] = $v;
+    if (array_key_exists('ppClientId', $setBody)) {
+      $v = trim((string)$setBody['ppClientId']);
+      if ($v !== '' && !preg_match('/^[A-Za-z0-9_\-]{3,64}$/', $v))
+        jout(400, ['error' => 'PhonePe Client ID looks invalid (Developer Settings → API keys).']);
+      $setBody['ppClientId'] = $v;
     }
-    if (array_key_exists('phonepeSaltKey', $setBody)) {
-      $v = trim((string)$setBody['phonepeSaltKey']);
-      if ($v === '') { unset($setBody['phonepeSaltKey']); }   // blank never wipes a saved key
-      elseif (!preg_match('/^[A-Za-z0-9\-]{16,80}$/', $v))
-        jout(400, ['error' => 'PhonePe Salt Key looks invalid (paste the full key from the dashboard).']);
-      else $setBody['phonepeSaltKey'] = $v;
+    if (array_key_exists('ppClientSecret', $setBody)) {
+      $v = trim((string)$setBody['ppClientSecret']);
+      if ($v === '') { unset($setBody['ppClientSecret']); }   // blank never wipes the saved secret
+      elseif (!preg_match('/^[A-Za-z0-9_\-]{16,160}$/', $v))
+        jout(400, ['error' => 'PhonePe Client Secret looks invalid (paste the full secret from Developer Settings).']);
+      else $setBody['ppClientSecret'] = $v;
     }
-    if (array_key_exists('phonepeSaltIndex', $setBody)) {
-      $ix = (int)$setBody['phonepeSaltIndex'];
-      if ($ix < 1 || $ix > 32) jout(400, ['error' => 'PhonePe salt index must be between 1 and 32.']);
-      $setBody['phonepeSaltIndex'] = $ix;
+    if (array_key_exists('ppClientVersion', $setBody)) {
+      $v = trim((string)$setBody['ppClientVersion']);
+      if ($v !== '' && !preg_match('/^[A-Za-z0-9._\-]{1,12}$/', $v))
+        jout(400, ['error' => 'PhonePe Client Version looks invalid (usually just 1).']);
+      $setBody['ppClientVersion'] = $v === '' ? '1' : $v;
     }
-    if (array_key_exists('phonepeEnv', $setBody) && !in_array((string)$setBody['phonepeEnv'], ['uat', 'prod'], true))
+    if (array_key_exists('ppWebhookSecret', $setBody)) {
+      $v = trim((string)$setBody['ppWebhookSecret']);
+      if ($v === '') { unset($setBody['ppWebhookSecret']); }
+      elseif (strlen($v) < 8 || strlen($v) > 160 || !preg_match('/^[A-Za-z0-9_\-\.]+$/', $v))
+        jout(400, ['error' => 'PhonePe webhook Checksum Secret looks invalid.']);
+      else $setBody['ppWebhookSecret'] = $v;
+    }
+    foreach (['ppWebhookUser', 'ppWebhookPass'] as $wk) {
+      if (array_key_exists($wk, $setBody)) {
+        $v = trim((string)$setBody[$wk]);
+        if ($v === '') unset($setBody[$wk]);
+        elseif (!preg_match('/^[A-Za-z0-9_\-\.@:]{1,80}$/', $v)) jout(400, ['error' => 'Webhook credentials contain unsupported characters.']);
+        else $setBody[$wk] = $v;
+      }
+    }
+    if (array_key_exists('ppEnv', $setBody) && !in_array((string)$setBody['ppEnv'], ['uat', 'prod'], true))
       jout(400, ['error' => 'PhonePe environment must be uat or prod.']);
     if (array_key_exists('siteBaseUrl', $setBody)) {
       $v = rtrim(trim((string)$setBody['siteBaseUrl']), '/');

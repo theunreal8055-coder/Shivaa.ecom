@@ -774,21 +774,26 @@ async function renderAdmin(view, q) {
           <div class="fld"><label>COD handling fee % <small>(0 = free)</small></label><input name="codFeePct" type="number" step="0.5" min="0" max="10" value="${S.codFeePct ?? 0}"></div>
 
           <fieldset class="fld full pp-keys" style="border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0">
-            <legend style="padding:0 6px;font-weight:700;font-size:13px">🟣 PhonePe Standard Checkout</legend>
+            <legend style="padding:0 6px;font-weight:700;font-size:13px">🟣 PhonePe Standard Checkout <small>(Developer Settings → API keys)</small></legend>
             <div class="form-grid" style="grid-template-columns:1fr 1fr">
-              <div class="fld"><label>Merchant ID</label><input name="phonepeMerchantId" value="${esc(S.phonepeMerchantId || '')}" placeholder="e.g. SHIVAAONLINE" autocomplete="off"></div>
-              <div class="fld"><label>Salt key <small>(never shown once saved)</small></label><input name="phonepeSaltKey" type="password" placeholder="${S.phonepeSaltKey ? '•••• saved — leave blank to keep' : 'paste salt key'}" autocomplete="new-password"></div>
-              <div class="fld"><label>Salt index</label><input name="phonepeSaltIndex" type="number" min="1" max="32" value="${S.phonepeSaltIndex ?? 1}"></div>
+              <div class="fld"><label>Client ID</label><input name="ppClientId" value="${esc(S.ppClientId || '')}" placeholder="from PhonePe dashboard → Developer Settings" autocomplete="off"></div>
+              <div class="fld"><label>Client Secret <small>(never shown once saved)</small></label><input name="ppClientSecret" type="password" placeholder="${S.ppClientSecret ? '•••• saved — leave blank to keep' : 'paste client secret'}" autocomplete="new-password"></div>
+              <div class="fld"><label>Client Version <small>(usually 1)</small></label><input name="ppClientVersion" value="${esc(S.ppClientVersion || '1')}" placeholder="1" autocomplete="off"></div>
               <div class="fld"><label>Environment</label>
-                <select name="phonepeEnv" class="sortsel" style="width:100%;border-radius:12px">
-                  <option value="prod" ${(S.phonepeEnv || 'prod') === 'prod' ? 'selected' : ''}>Production (live money)</option>
-                  <option value="uat" ${S.phonepeEnv === 'uat' ? 'selected' : ''}>UAT / sandbox (test cards &amp; apps)</option>
+                <select name="ppEnv" class="sortsel" style="width:100%;border-radius:12px">
+                  <option value="prod" ${(S.ppEnv || 'prod') === 'prod' ? 'selected' : ''}>Production (live money)</option>
+                  <option value="uat" ${S.ppEnv === 'uat' ? 'selected' : ''}>UAT / sandbox (Test Mode ON)</option>
                 </select></div>
-              <div class="fld full" style="font-size:12px;color:var(--ink-3)">
-                In the PhonePe merchant dashboard set <b>Redirect URL</b> to <code id="ppReturnUrl"></code> and <b>Callback URL</b> to <code id="ppCallbackUrl"></code>. Test in UAT first, then switch Environment to Production after PhonePe activates your live keys.
+              <div class="fld full" style="font-size:12px;color:var(--ink-3);border-top:1px dashed var(--line);padding-top:8px">
+                Then create an <b>HMAC webhook</b> (Developer Settings → Webhook → Create) for events
+                <code>checkout.order.completed</code>, <code>checkout.order.failed</code>,
+                <code>pg.refund.completed</code>, <code>pg.refund.failed</code> at URL
+                <code id="ppCallbackUrl"></code> and paste the generated <b>Checksum Secret</b> below.
+                Customer return URL (auto-sent with every payment): <code id="ppReturnUrl"></code>
               </div>
+              <div class="fld"><label>Webhook Checksum Secret</label><input name="ppWebhookSecret" type="password" placeholder="${S.ppWebhookSecret ? '•••• saved — leave blank to keep' : 'from the webhook you created'}" autocomplete="new-password"></div>
               <div class="fld full" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.testPay('phonepe')">Test PhonePe keys</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.testPay('phonepe')">Test PhonePe credentials</button>
                 <span id="ppTestOut" style="font-size:12.5px"></span>
               </div>
             </div>
@@ -1553,21 +1558,22 @@ window.ShivaaAdmin.savePay = async e => {
                  upiId: g('upiId').trim(), upiName: g('upiName').trim() || 'Shivaa Jewellers',
                  codBlockedPins: g('codBlockedPins').replace(/[^\d,\s]/g, '').trim(),
                  gstin: g('gstin').trim().toUpperCase(), googleReviewUrl: g('googleReviewUrl').trim(),
-                 // v92 — PhonePe
+                 // v93 — PhonePe Standard Checkout v2 (OAuth)
                  siteBaseUrl: g('siteBaseUrl').trim().replace(/\/+$/, ''),
-                 phonepeMerchantId: g('phonepeMerchantId').trim(),
-                 phonepeSaltIndex: Math.max(1, Math.min(32, parseInt(g('phonepeSaltIndex'), 10) || 1)),
-                 phonepeEnv: g('phonepeEnv') === 'uat' ? 'uat' : 'prod' };
+                 ppClientId: g('ppClientId').trim(),
+                 ppClientVersion: g('ppClientVersion').trim() || '1',
+                 ppEnv: g('ppEnv') === 'uat' ? 'uat' : 'prod' };
   // secrets: only send when retyped (server strips them from GETs)
   if (g('rzpKeySecret')) body.rzpKeySecret = g('rzpKeySecret').trim();
-  if (g('phonepeSaltKey')) body.phonepeSaltKey = g('phonepeSaltKey').trim();
+  if (g('ppClientSecret')) body.ppClientSecret = g('ppClientSecret').trim();
+  if (g('ppWebhookSecret')) body.ppWebhookSecret = g('ppWebhookSecret').trim();
   try {
     const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
     Object.assign(state.settings, s);
     ShivaaAdmin.wirePayUrls(s.siteBaseUrl || '');
     const liveMsg = body.payProvider === 'razorpay' && s.rzpKeyId && s.rzpKeySecret ? 'Payments LIVE via Razorpay 🔒'
-      : body.payProvider === 'phonepe' && s.phonepeMerchantId && (s.phonepeSaltKey || g('phonepeSaltKey'))
-        ? (body.phonepeEnv === 'uat' ? 'PhonePe connected in UAT test mode 🧪' : 'Payments LIVE via PhonePe 🟣')
+      : body.payProvider === 'phonepe' && body.ppClientId && (s.ppClientSecret || g('ppClientSecret'))
+        ? (body.ppEnv === 'uat' ? 'PhonePe connected in UAT test mode 🧪' : 'Payments LIVE via PhonePe 🟣')
       : 'Payment settings saved (demo / UPI-QR mode)';
     toast(liveMsg);
     if (body.payProvider === 'phonepe') setTimeout(() => ShivaaAdmin.testPay('phonepe'), 500);

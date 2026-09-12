@@ -74,6 +74,7 @@ AddType application/pdf .pdf
   Header always set X-DNS-Prefetch-Control "off"
   # HSTS — only meaningful over HTTPS; Hostinger serves SSL
   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
-  # CSP — self-hosted assets; v58 allows the Razorpay checkout only (script/frame/connect), everything else stays first-party
-  Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://*.razorpay.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com; font-src 'self' data:; connect-src 'self' https://*.razorpay.com https://*.onrender.com; frame-src https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self'"
+  # CSP — self-hosted assets; v58 allows the Razorpay checkout, v93 the PhonePe
+  # Standard Checkout bundle/mercury hosts (script/frame/connect/form), rest first-party
+  Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://*.razorpay.com https://*.phonepe.com; style-src 'self' 'unsafe-inline' https://*.phonepe.com; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com https://mercury.phonepe.com https://mercury-stg.phonepe.com https://mercury-uat.phonepe.com; font-src 'self' data:; connect-src 'self' https://*.razorpay.com https://*.onrender.com https://*.phonepe.com; frame-src https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com https://mercury.phonepe.com https://mercury-stg.phonepe.com https://mercury-uat.phonepe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://*.phonepe.com; object-src 'none'; worker-src 'self'"
 </IfModule>

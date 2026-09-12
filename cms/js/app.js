@@ -3077,9 +3077,9 @@ window.Shivaa.wishlistAlerts = async (idsArg) => {
 /* ═══════════ v58 · online payments — Razorpay-ready, demo without keys ═══════════ */
 function loadExternalScript(src) {
   return new Promise(resolve => {
-    if (document.querySelector(`script[src="${src}"]`)) return res(true);
+    if (document.querySelector(`script[src="${src}"]`)) return resolve(true);
     const s = document.createElement('script'); s.src = src;
-    s.onload = () => res(true); s.onerror = () => res(false);
+    s.onload = () => resolve(true); s.onerror = () => resolve(false);
     document.head.appendChild(s);
   });
 }
@@ -3187,13 +3187,29 @@ window.Shivaa.payForOrder = async (orderId) => {
   let po;
   try { po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) }); }
   catch (e) { toast(e.message, 'err'); return false; }
-  // v92 — PhonePe Standard Checkout is a full-page redirect (not a modal).
-  // The promise never settles: the tab navigates away, and PhonePe returns
-  // the browser to /api/pay/phonepe/return → the order page (?pp=…).
+  // v93 — PhonePe Standard Checkout v2: open the mercury PayPage from the
+  // token URL using PhonePe's checkout.js (redirect mode); direct navigation
+  // is the fallback if the bundle cannot load. The tab leaves the site and
+  // PhonePe returns it to /api/pay/phonepe/return → order page (?pp=…).
   if (po.mode === 'phonepe') {
     if (!po.redirectUrl) { toast('PhonePe checkout link missing — retry or use the UPI QR tab', 'err'); return false; }
     toast('Taking you to PhonePe…');
-    setTimeout(() => Shivaa.redirectTo(po.redirectUrl), 350);
+    const launch = () => {
+      try {
+        if (window.PhonePeCheckout && typeof window.PhonePeCheckout.transact === 'function')
+          window.PhonePeCheckout.transact({ tokenUrl: po.redirectUrl });
+        else Shivaa.redirectTo(po.redirectUrl);
+      } catch (e) { Shivaa.redirectTo(po.redirectUrl); }
+    };
+    if (window.PhonePeCheckout && typeof window.PhonePeCheckout.transact === 'function') {
+      setTimeout(launch, 300);
+    } else if (po.bundle) {
+      loadExternalScript(po.bundle).then(ok => { if (ok) launch(); else Shivaa.redirectTo(po.redirectUrl); });
+      // hard fallback: if PhonePe's bundle never initialised, navigate directly
+      setTimeout(() => { if (!window.PhonePeCheckout) Shivaa.redirectTo(po.redirectUrl); }, 5000);
+    } else {
+      setTimeout(launch, 300);
+    }
     return phonepeRedirectSheet();
   }
   // v82 — public host with no gateway keys: go straight to the real UPI QR +
