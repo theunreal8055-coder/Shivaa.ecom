@@ -8,6 +8,9 @@
  */
 declare(strict_types=1);
 
+// v81 direct-access guard — this file is an include library, never a URL entry point.
+if (!defined('SHV_RUN')) { http_response_code(403); header('Content-Type: text/plain; charset=utf-8'); echo '403 Forbidden'; exit; }
+
 final class HallmarkProblem extends RuntimeException {
   public int $httpStatus;
   public function __construct(int $status, string $message) {
@@ -65,7 +68,7 @@ function hallmark_request_body(int $limit): array {
 function hallmark_lookup(array $body): array {
   if (array_keys($body) !== ['huid']) throw new HallmarkProblem(400, 'Send only the huid field as text.');
   $huid = hallmark_huid($body['huid']);
-  if ($huid === null) throw new HallmarkProblem(422, 'Enter exactly six letters (A–Z) or numbers (0–9), with no spaces or punctuation inside the HUID. This checks format only.');
+  if ($huid === null) throw new HallmarkProblem(422, 'Enter exactly six letters (AâZ) or numbers (0â9), with no spaces or punctuation inside the HUID. This checks format only.');
   return array_merge(hallmark_status(), [
     'status' => 'unavailable',
     'huid' => $huid,

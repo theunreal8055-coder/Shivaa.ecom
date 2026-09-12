@@ -82,6 +82,11 @@ function shv_client_ip(): string {
 
 date_default_timezone_set('Asia/Kolkata');
 
+/* v81 — this page must never be cached by a browser or shared proxy */
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('X-Robots-Tag: noindex, nofollow');
+
 $DIR = __DIR__;
 $DB_FILE = $DIR . '/data/db.json';
 $USED_FILE = $DIR . '/data/.admin-reset-used';
@@ -320,6 +325,15 @@ function diagnose(string $DIR, array $db, array $users, string $DB_FILE): string
 $msg = ''; $cls = 'err'; $authed = false; $diagHtml = ''; $keyVal = '';
 $posted = ($_SERVER['REQUEST_METHOD'] === 'POST');
 
+/* v81 — throttle recovery-key guessing: 6 wrong tries locks this page for
+   30 minutes (the arming flow already requires file-write proof; this closes
+   the last online brute-force window once armed). */
+$lockUntil = (int)($CFG['lockUntil'] ?? 0);
+if ($ARMED && $posted && $lockUntil > time()) {
+  bail('Recovery locked — try later', 'Too many incorrect recovery keys. This page is locked for '
+      . max(1, (int)ceil(($lockUntil - time()) / 60)) . ' more minute(s).', 'warn');
+}
+
 if ($posted) {
   $key = (string)($_POST['key'] ?? '');
   $keyVal = $key;
@@ -328,6 +342,11 @@ if ($posted) {
   $pw2 = (string)($_POST['password2'] ?? '');
 
   if ($RECOVERY_KEY_HASH === '' || $RECOVERY_SALT === '' || !hash_equals($RECOVERY_KEY_HASH, shv_hash($key, $RECOVERY_SALT))) {
+    if ($ARMED) {
+      $CFG['keyFails'] = (int)($CFG['keyFails'] ?? 0) + 1;
+      if ($CFG['keyFails'] >= 6) { $CFG['keyFails'] = 0; $CFG['lockUntil'] = time() + 1800; }
+      shv_cfg_write($CFG_FILE, $CFG);
+    }
     $msg = 'That recovery key is not correct — it is the key you typed when you armed this file '
          . '(12+ characters). Lost it? Reload this page and use the "Lost the key?" button to arm it '
          . 'again with a new one.';

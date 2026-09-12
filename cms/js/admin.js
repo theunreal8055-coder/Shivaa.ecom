@@ -79,7 +79,7 @@ async function renderAdmin(view, q) {
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || tab}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${(state.rates?.source === 'live' || state.rates?.source === 'live-mcx') ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${state.rates?.source === 'live-mcx' ? 'official MCX' : esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -965,8 +965,8 @@ window.ShivaaAdmin.khataAdd = async (e, pid) => {
 window.ShivaaAdmin.khataPrint = (pid) => {
   const K = (window._khataCache || []).filter(k => k.partnerId === pid);
   const w = window.open('', '_blank');
-  w.document.write('<h2>Shivaa Jewellers — Khata Statement</h2><p>Partner: ' + pid + ' · Generated ' + new Date().toLocaleString('en-IN') + '</p><table border="1" cellpadding="6" style="border-collapse:collapse;font:13px sans-serif"><tr><th>Date</th><th>Type</th><th>Note</th><th>Amount</th></tr>' +
-    K.map(k => '<tr><td>' + String(k.at || '').slice(0, 16).replace('T', ' ') + '</td><td>' + k.type + '</td><td>' + (k.note || '') + '</td><td>' + (k.amt ? (k.unit === 'g' ? k.amt + ' g' : '₹' + k.amt) : '—') + '</td></tr>').join('') +
+  w.document.write('<h2>Shivaa Jewellers — Khata Statement</h2><p>Partner: ' + esc(pid) + ' · Generated ' + new Date().toLocaleString('en-IN') + '</p><table border="1" cellpadding="6" style="border-collapse:collapse;font:13px sans-serif"><tr><th>Date</th><th>Type</th><th>Note</th><th>Amount</th></tr>' +
+    K.map(k => '<tr><td>' + esc(String(k.at || '').slice(0, 16).replace('T', ' ')) + '</td><td>' + esc(k.type || '') + '</td><td>' + esc(k.note || '') + '</td><td>' + (k.amt ? (k.unit === 'g' ? k.amt + ' g' : '₹' + k.amt) : '—') + '</td></tr>').join('') +
     '</table><script>window.print()</' + 'script>');
   w.document.close();
 };
@@ -2662,7 +2662,7 @@ window.ShivaaBullion = {
       <tr><td>Qty</td><td class="r">${o.qty} ${o.unit}</td></tr>
       <tr><td>Rate ₹/g</td><td class="r">${o.rate.toLocaleString('en-IN')}</td></tr>
       <tr><td><b>Value ₹</b></td><td class="r"><b>${o.amount.toLocaleString('en-IN')}</b></td></tr>
-      <tr><td colspan="2">${o.note ? 'Note: ' + o.note : ''}</td></tr>
+      <tr><td colspan="2">${o.note ? 'Note: ' + esc(o.note) : ''}</td></tr>
       </table>
       <small style="color:#555">Firm quote confirmed by the Shivaa bullion desk. Settlement via RTGS / unfix as agreed.</small>
       <script>window.onload=()=>window.print()</script></body></html>`);

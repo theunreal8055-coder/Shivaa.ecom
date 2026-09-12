@@ -1,14 +1,14 @@
 <?php
-/* ═══════════════════════════════════════════════════════════════
-   SHIVAA · SMS gateway plug-in (v33)
-   ─────────────────────────────────────────────────────────────
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   SHIVAA Â· SMS gateway plug-in (v33)
+   âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    Sends OTP codes by real SMS when data/sms-config.json exists.
-   NO config file → the site stays in DEMO mode exactly as before
+   NO config file â the site stays in DEMO mode exactly as before
    (the code is shown on screen). Deleting the config file is the
    instant rollback. The config is blocked from the web by .htaccess
-   (*.json → Require all denied), so keys are never exposed.
+   (*.json â Require all denied), so keys are never exposed.
 
-   data/sms-config.json — create it in Hostinger File Manager.
+   data/sms-config.json â create it in Hostinger File Manager.
    Pick ONE provider (see OTP-SETUP-GUIDE.md for full steps):
 
    MSG91 (recommended, needs DLT template):
@@ -25,18 +25,21 @@
      { "provider": "textlocal", "key": "KEY", "sender": "SHIVAA" }
 
    Twilio:
-     { "provider": "twilio", "sid": "AC…", "token": "…", "from": "+1…" }
+     { "provider": "twilio", "sid": "ACâ¦", "token": "â¦", "from": "+1â¦" }
 
-   Any other gateway ("custom" — URL may contain {phone} {code} {msg}):
+   Any other gateway ("custom" â URL may contain {phone} {code} {msg}):
      { "provider": "custom", "method": "POST",
        "url": "https://your-gateway/send?to={phone}&text={msg}",
        "headers": { "Authorization": "Bearer xyz" }, "body": { "pin": "{code}" } }
 
-   Optional keys: "message" ("…{code}…" custom text), "domain"
-   (default shivaa.in), "autofill" (default true — appends the
-   “@shivaa.in #CODE” line Android Chrome reads to auto-fill).
-   ═══════════════════════════════════════════════════════════════ */
+   Optional keys: "message" ("â¦{code}â¦" custom text), "domain"
+   (default shivaa.in), "autofill" (default true â appends the
+   â@shivaa.in #CODEâ line Android Chrome reads to auto-fill).
+   âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 declare(strict_types=1);
+
+// v81 direct-access guard — this file is an include library, never a URL entry point.
+if (!defined('SHV_RUN')) { http_response_code(403); header('Content-Type: text/plain; charset=utf-8'); echo '403 Forbidden'; exit; }
 
 /* Cached config, or null when not configured / unreadable. */
 function shivaa_sms_config(): ?array {
@@ -105,10 +108,10 @@ function shivaa_sms_err(string $provider, int $status, string $body, string $cur
   $m = is_array($j) ? ($j['message'] ?? ($j['error'] ?? '')) : '';
   if (!$m && is_array($j) && $j['errors']) $m = json_encode($j['errors']);
   if (!$m) $m = $body;
-  return strtoupper($provider) . ' HTTP ' . $status . ' — ' . cut500((string)$m);
+  return strtoupper($provider) . ' HTTP ' . $status . ' â ' . cut500((string)$m);
 }
 
-/* ── THE one function api.php calls ─────────────────────────────
+/* ââ THE one function api.php calls âââââââââââââââââââââââââââââ
    Returns ['ok'=>bool, 'mode'=>'live'|'demo', 'provider'=>string,
             'error'=>?string, 'response'=>raw provider reply].   */
 function shivaa_sms_send(string $phone10, string $code): array {
@@ -127,7 +130,7 @@ function shivaa_sms_send(string $phone10, string $code): array {
     }
   } elseif ($p === 'fast2sms') {
     if (empty($cfg['key'])) { $err = 'fast2sms config needs key'; }
-    elseif (!empty($cfg['template_id'])) {                 // own DLT template → full text incl. auto-fill line
+    elseif (!empty($cfg['template_id'])) {                 // own DLT template â full text incl. auto-fill line
       $f = array_merge(['route' => 'dlt', 'sender_id' => $cfg['sender_id'] ?? '', 'template_id' => $cfg['template_id'], 'entity_id' => $cfg['entity_id'] ?? '', 'message' => $msg, 'numbers' => $phone10], (array)($cfg['extra'] ?? []));
       [$status, $body, $err] = shivaa_sms_http('POST', 'https://www.fast2sms.com/dev/bulkV2', ['authorization: ' . $cfg['key'], 'Content-Type: application/x-www-form-urlencoded'], http_build_query($f));
     } else {                                               // generic OTP route (their pre-approved template)

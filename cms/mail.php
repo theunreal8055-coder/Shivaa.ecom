@@ -1,7 +1,7 @@
 <?php
-/* ═══════════════════════════════════════════════════════════════════════
-   SHIVAA · EMAIL DELIVERY FOR ONE-TIME CODES                    v48
-   ─────────────────────────────────────────────────────────────────────
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   SHIVAA Â· EMAIL DELIVERY FOR ONE-TIME CODES                    v48
+   âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    The shop's channel for OTP codes when no SMS gateway is configured.
 
    Why this exists: without an SMS provider the site used to hand the code
@@ -11,7 +11,7 @@
    the person just typed) and is never returned to the browser.
 
    Configuration is optional. Without data/mail-config.json the module
-   sends from no-reply@<your-domain> using PHP's mail() — which works on
+   sends from no-reply@<your-domain> using PHP's mail() â which works on
    Hostinger shared hosting. To customise, create data/mail-config.json:
 
      {
@@ -22,11 +22,14 @@
      }
 
    Everything is defensive: a missing config, a refused send or a bad
-   address returns ok=false with a reason — never an exception, and never
+   address returns ok=false with a reason â never an exception, and never
    the code itself.
-   ═══════════════════════════════════════════════════════════════════════ */
+   âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 
 declare(strict_types=1);
+
+// v81 direct-access guard — this file is an include library, never a URL entry point.
+if (!defined('SHV_RUN')) { http_response_code(403); header('Content-Type: text/plain; charset=utf-8'); echo '403 Forbidden'; exit; }
 
 /** From/subject settings, with safe defaults derived from the site's own host. */
 function shivaa_mail_config(): array {
@@ -52,14 +55,14 @@ function shivaa_mail_config(): array {
   return $c;
 }
 
-/** a•••@gmail.com — safe to show on screen, useless to an attacker. */
+/** aâ¢â¢â¢@gmail.com â safe to show on screen, useless to an attacker. */
 function shivaa_mail_mask(string $email): string {
   $at = strrpos($email, '@');
-  if ($at === false || $at < 1) return '•••';
+  if ($at === false || $at < 1) return 'â¢â¢â¢';
   $user = substr($email, 0, $at);
   $dom  = substr($email, $at);
   $keep = substr($user, 0, 1);
-  return $keep . str_repeat('•', max(3, min(6, strlen($user) - 1))) . $dom;
+  return $keep . str_repeat('â¢', max(3, min(6, strlen($user) - 1))) . $dom;
 }
 
 /** The plain-text body. Deliberately short, with the code alone on its line. */
@@ -72,11 +75,11 @@ function shivaa_mail_body(string $code, string $purpose, string $name = ''): str
        . $why . "\n\n"
        . "    Your code:  " . $code . "\n\n"
        . "It is valid for 5 minutes and can be used once. "
-       . "If you did not ask for this, you can ignore this email — nothing has changed "
+       . "If you did not ask for this, you can ignore this email â nothing has changed "
        . "and your password stays as it was.\n\n"
        . "Never share this code with anyone. Nobody at Shivaa will ever ask you for it.\n\n"
-       . "— Shivaa Jewellers\n"
-       . "Ernate Shine Jewellery Pvt. Ltd., Jayal — Nagaur, Rajasthan\n"
+       . "â Shivaa Jewellers\n"
+       . "Ernate Shine Jewellery Pvt. Ltd., Jayal â Nagaur, Rajasthan\n"
        . "WhatsApp +91 89050 05921\n";
 }
 

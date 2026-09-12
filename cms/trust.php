@@ -1,6 +1,6 @@
 <?php
 /**
- * Feature 2 — Why Trust Shivaa: a read-only, allowlisted business profile.
+ * Feature 2 â Why Trust Shivaa: a read-only, allowlisted business profile.
  *
  * The owner confirmed the existing CIN, UDYAM and address for this feature.
  * Values come from the current store settings, never constants/demo fallbacks.
@@ -8,6 +8,9 @@
  * request, verification timestamp, trust score or certificate is manufactured.
  */
 declare(strict_types=1);
+
+// v81 direct-access guard — this file is an include library, never a URL entry point.
+if (!defined('SHV_RUN')) { http_response_code(403); header('Content-Type: text/plain; charset=utf-8'); echo '403 Forbidden'; exit; }
 
 function trust_identifier($value, string $pattern): ?string {
   if (!is_string($value)) return null;

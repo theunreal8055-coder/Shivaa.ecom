@@ -2,6 +2,12 @@
 Options -Indexes
 RewriteEngine On
 
+# v81 — block path-level exposure before anything else
+RewriteRule (^|/)\.git(?:/|$) - [F,NC]
+RewriteRule (^|/)node_modules/ - [F,NC]
+RewriteRule ^relay/ - [F,NC,L]
+RewriteRule (^|/)\.env - [F,NC]
+
 # API: /api/...  →  api.php
 RewriteRule ^api/(.*)$ api.php?__route=$1 [QSA,L]
 
@@ -34,7 +40,17 @@ AddType application/pdf .pdf
 <FilesMatch "\.(json|lock|md|sh|py)$">
   Require all denied
 </FilesMatch>
-<FilesMatch "^(server\.js|api\.php\.bak|package\.json|db\.json.*|router-dev\.php|samples-payload\.json)$">
+<FilesMatch "^(server\.js|api\.php\.bak|package\.json|composer\.(json|lock)|db\.json.*|router-dev\.php|samples-payload\.json)$">
+  Require all denied
+</FilesMatch>
+# v81 — include-only PHP libraries have no direct URL entry point
+<FilesMatch "^(sms|mail|trust|hallmark)\.php$">
+  Require all denied
+</FilesMatch>
+# v81 — one-shot maintenance/repair tool (password-gated but unthrottled);
+# blocked at the edge. If ever genuinely needed, temporarily rename it to a
+# secret name in File Manager, run it, delete it.
+<FilesMatch "^migrate-repair\.php$">
   Require all denied
 </FilesMatch>
 # backups / editor leftovers must never be served

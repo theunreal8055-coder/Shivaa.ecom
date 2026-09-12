@@ -7,6 +7,10 @@
 declare(strict_types=1);
 date_default_timezone_set('Asia/Kolkata');
 
+/* v81 — include-only libraries (hallmark/trust/sms/mail) refuse to run when
+   requested directly over HTTP, even if .htaccess is missing or ignored. */
+define('SHV_RUN', true);
+
 $ROOT = __DIR__;
 $DB_FILE = $ROOT . '/data/db.json';
 $CAT_DIR = $ROOT . '/uploads/catalogs';
@@ -30,9 +34,64 @@ function jout(int $code, $payload): void {
 function now_iso(): string { return date('c'); }
 function uid(string $p = 'id'): string { return $p . '_' . bin2hex(random_bytes(6)); }
 function body_json(): array {
-  $raw = file_get_contents('php://input');
+  // v81 — cap request bodies (memory-exhaustion / DoS guard)
+  static $checked = false;
+  if (!$checked) {
+    $len = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($len > 3 * 1024 * 1024) jout(413, ['error' => 'Request too large']);
+    $checked = true;
+  }
+  $raw = file_get_contents('php://input', false, null, 0, 3 * 1024 * 1024 + 1);
+  if (strlen((string)$raw) > 3 * 1024 * 1024) jout(413, ['error' => 'Request too large']);
   $d = json_decode($raw ?: '{}', true);
   return is_array($d) ? $d : [];
+}
+/* v81 — real client IP. X-Forwarded-For is a client-controlled header, so it
+   is trusted ONLY when the TCP peer is a local/known proxy (e.g. a VPS with
+   nginx in front). On shared hosting REMOTE_ADDR is the true client address;
+   honouring XFF there let attackers forge their IP to bypass every per-IP
+   lockout and rate limit. */
+function client_ip(): string {
+  $remote = (string)($_SERVER['REMOTE_ADDR'] ?? '?');
+  if ($remote !== '?' && filter_var($remote, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+    return $remote;
+  }
+  $xff = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '');
+  if ($xff !== '') {
+    $first = trim(explode(',', $xff)[0]);
+    if (filter_var($first, FILTER_VALIDATE_IP)) return $first;
+  }
+  $ri = (string)($_SERVER['HTTP_CF_CONNECTING_IP'] ?? '');
+  if (filter_var($ri, FILTER_VALIDATE_IP)) return $ri;
+  return $remote;
+}
+/* v81 — generic sliding-window limiter stored in the DB. $scope names the
+   door, $id the bucket (IP, phone, email), $cap hits per $windowSec. */
+function rate_hit(array &$db, string $scope, string $id, int $cap, int $windowSec = 3600, int $blockSec = 900): ?array {
+  $key = $scope . '|' . $id;
+  $now = time();
+  $rec = $db['rateLimit'][$key] ?? ['hits' => [], 'until' => 0];
+  if (($rec['until'] ?? 0) > $now) return ['blocked' => true, 'retry' => $rec['until'] - $now];
+  $hits = array_values(array_filter($rec['hits'] ?? [], fn($t) => (int)$t > $now - $windowSec));
+  if (count($hits) >= $cap) {
+    $hits[] = $now;
+    $db['rateLimit'][$key] = ['hits' => $hits, 'until' => $now + $blockSec];
+    return ['blocked' => true, 'retry' => $blockSec];
+  }
+  $hits[] = $now;
+  $db['rateLimit'][$key] = ['hits' => $hits, 'until' => 0];
+  if (count($db['rateLimit'] ?? []) > 4000) {
+    $db['rateLimit'] = array_slice($db['rateLimit'] ?? [], -3000, null, true);
+  }
+  return null;
+}
+function rate_block(array &$db, string $scope, string $id, int $cap, int $windowSec = 3600, int $blockSec = 900, string $msg = 'Too many attempts — please wait a few minutes.'): void {
+  $hit = rate_hit($db, $scope, $id, $cap, $windowSec, $blockSec);
+  // Persist the sliding window even when the route itself never saves
+  // (e.g. read-only validation); later route saves simply overwrite with
+  // the same counters, which were mutated in $db by reference.
+  if ($hit === null) { db_save($GLOBALS['DB_FILE'], $db); return; }
+  db_save($GLOBALS['DB_FILE'], $db); jout(429, ['error' => $msg, 'retryAfter' => $hit['retry']]);
 }
 function db_load(string $DB_FILE): array {
   for ($i = 0; $i < 5; $i++) {
@@ -50,7 +109,19 @@ function db_load(string $DB_FILE): array {
 function db_save(string $DB_FILE, array $db): void {
   $lock = fopen($DB_FILE . '.lock', 'c');
   if ($lock) flock($lock, LOCK_EX);
-  file_put_contents($DB_FILE, json_encode($db, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+  // v81 — atomic replace: write a temp file in the same directory, fsync,
+  // then rename over db.json. A crash/disk-full mid-write can never leave a
+  // truncated/zero-byte database (the old file stays intact until rename).
+  $json = json_encode($db, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+  $tmp = $DB_FILE . '.tmp-' . bin2hex(random_bytes(4));
+  $w = fopen($tmp, 'wb');
+  if ($w) {
+    fwrite($w, $json); fflush($w); fclose($w);
+    @chmod($tmp, 0644);
+    rename($tmp, $DB_FILE);
+  } else {
+    file_put_contents($DB_FILE, $json);   // read-only hosts: legacy fallback
+  }
   if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
 }
 function clampn($v, $a, $b) { return max($a, min($b, $v)); }
@@ -58,7 +129,7 @@ function clampn($v, $a, $b) { return max($a, min($b, $v)); }
    newsletter) so the database cannot be flooded by a script. Same shape as
    the mailed-code cap. */
 function pub_rate(array &$db, string $DB_FILE, string $key, int $cap): void {
-  $ip = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?');
+  $ip = client_ip();   // v81: spoof-proof (was attacker-controllable XFF)
   $now = time();
   $hits = array_values(array_filter($db['pubRate'][$key . '|' . $ip] ?? [], fn($t) => (int)$t > $now - 3600));
   if (count($hits) >= $cap) {
@@ -66,6 +137,15 @@ function pub_rate(array &$db, string $DB_FILE, string $key, int $cap): void {
     jout(429, ['error' => 'Too many submissions from this connection — please try again in an hour.']);
   }
   $hits[] = $now; $db['pubRate'][$key . '|' . $ip] = $hits;
+  // v81 — bound the collection itself (one key per IP × action, forever)
+  if (count($db['pubRate'] ?? []) > 4000) {
+    // Drop the oldest-touched keys, keep the 3000 freshest.
+    $age = [];
+    foreach ($db['pubRate'] as $k2 => $hs) $age[$k2] = max((array)$hs);
+    arsort($age);
+    $keep = array_slice(array_keys($age), 0, 3000, true);
+    $db['pubRate'] = array_intersect_key($db['pubRate'], array_flip($keep));
+  }
 }
 
 function cut500(string $s): string { return function_exists('mb_substr') ? mb_substr($s, 0, 500) : substr($s, 0, 500); }
@@ -1672,7 +1752,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit'] as $__k) $db[$__k] = $db[$__k] ?? [];
 
 /* v60 — lightweight audit trail for money/status actions */
 function audit_log(array &$db, string $what, array $meta = []): void {
@@ -1728,10 +1808,16 @@ try {
     jout(200, ['ok' => true, 'override' => $db['rates']['override']]);
   }
   if ($route === 'rates/alert' && $method === 'POST') {
+    pub_rate($db, $DB_FILE, 'ratealert', 30);
     $b = body_json();
-    $db['rateAlerts'][] = ['id' => uid('ra'), 'email' => substr((string)($b['email'] ?? ''), 0, 160),
-      'phone' => substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10),
-      'metal' => $b['metal'] ?? '', 'target' => (float)($b['target'] ?? 0),
+    $target = (float)($b['target'] ?? 0);
+    if ($target <= 0 || $target > 100000000) jout(400, ['error' => 'Enter a valid target rate']);
+    $email = filter_var((string)($b['email'] ?? ''), FILTER_VALIDATE_EMAIL) ? substr((string)$b['email'], 0, 160) : '';
+    $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    if ($email === '' && strlen($phone) !== 10) jout(400, ['error' => 'A valid email or 10-digit mobile is required']);
+    $db['rateAlerts'][] = ['id' => uid('ra'), 'email' => $email,
+      'phone' => $phone,
+      'metal' => substr((string)($b['metal'] ?? ''), 0, 20), 'target' => $target,
       'productId' => substr((string)($b['productId'] ?? ''), 0, 40),
       'userId' => ($u = req_user($db)) ? $u['id'] : '', 'createdAt' => now_iso()];
     if (count($db['rateAlerts']) > 2000) $db['rateAlerts'] = array_slice($db['rateAlerts'], -2000);
@@ -1875,7 +1961,7 @@ try {
               'error' => 'SMS failed: ' . cut500((string)($sms['error'] ?? 'unknown')) . ' and no fallback email is on file'];
     }
     /* email fallback — capped per IP so the site cannot be used as a relay */
-    $ip = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?');
+    $ip = client_ip();
     $ip = trim(explode(',', $ip)[0]);
     $now = time();
     $hits = array_values(array_filter($db['mailRate'][$ip] ?? [], fn($t) => (int)$t > $now - 3600));
@@ -1922,6 +2008,10 @@ try {
     $b = body_json();
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
+    // v81 — per-connection SMS cap: without this, a script could request
+    // codes for thousands of different numbers (SMS cost / spam bombing).
+    rate_block($db, 'otp-send-ip', client_ip(), 14, 3600, 1800, 'Too many OTP requests from this connection — try again later.');
+    rate_block($db, 'otp-send-phone', $phone, 8, 3600, 1800, 'Too many OTP requests for this number — try again in 30 minutes.');
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
     /* v56 — OTP goes to EVERY valid mobile number, registered or not.
        Existing accounts: SMS first, email fallback to the account address.
@@ -1947,6 +2037,11 @@ try {
   if ($route === 'auth/otp-login' && $method === 'POST') {
     $b = body_json();
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    if (preg_match('#^[6-9]\d{9}$#', $phone)) {
+      // v81 — throttle code guessing across OTPs and connections
+      rate_block($db, 'otp-try-ip', client_ip(), 40, 3600, 900, 'Too many code attempts from this connection — request a new code later.');
+      rate_block($db, 'otp-try-phone', $phone, 18, 3600, 900, 'Too many code attempts for this number — request a new code later.');
+    } else jout(400, ['error' => 'Enter a valid 10-digit mobile']);
     $found = null;
     for ($i = count($db['otps'] ?? []) - 1; $i >= 0; $i--) if ($db['otps'][$i]['phone'] === $phone) { $found = $i; break; }
     if ($found === null) jout(400, ['error' => 'Request an OTP first']);
@@ -1954,8 +2049,10 @@ try {
     if ($o['exp'] < time()) jout(400, ['error' => 'OTP expired — request a new one']);
     if ($o['tries'] >= 5) jout(429, ['error' => 'Too many attempts — request a new OTP']);
     $o['tries']++;
-    if ($o['hash'] !== hash('sha256', 'shv' . $phone . (string)($b['code'] ?? ''))) { db_save($DB_FILE, $db); jout(400, ['error' => 'Incorrect OTP']); }
-    $o['verified'] = true; db_save($DB_FILE, $db);
+    if (!hash_equals((string)$o['hash'], hash('sha256', 'shv' . $phone . (string)($b['code'] ?? '')))) { db_save($DB_FILE, $db); jout(400, ['error' => 'Incorrect OTP']); }
+    $o['verified'] = true;
+    unset($db['rateLimit']['otp-try-ip|' . client_ip()], $db['rateLimit']['otp-try-phone|' . $phone]);
+    db_save($DB_FILE, $db);
     foreach ($db['users'] as $u) if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $phone) {
       $tk = issue_token($db, $u); db_save($DB_FILE, $db);
       jout(200, ['token' => $tk, 'user' => pub_user($u)]);
@@ -1968,6 +2065,7 @@ try {
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Valid 10-digit phone required']);
     if (!empty($b['password']) && strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
+    if (strlen((string)($b['password'] ?? '')) > 4096) jout(400, ['error' => 'Password is too long']);
     $otpOk = false;
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && !empty($o['verified']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
@@ -2008,44 +2106,53 @@ try {
   }
   if ($route === 'auth/login' && $method === 'POST') {
     $b = body_json();
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?';
-    $key = $ip . '|' . strtolower((string)($b['email'] ?? ''));
-    $db['loginfails'] = $db['loginfails'] ?? [];
-    $rec = $db['loginfails'][$key] ?? ['n' => 0, 'until' => 0];
-    if (($rec['until'] ?? 0) > time()) jout(429, ['error' => 'Too many attempts — try again in 15 minutes']);
-    foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower((string)($b['email'] ?? ''))) {
-      $__rehash = false;
-      if (pw_verify($u, (string)($b['password'] ?? ''), $__rehash)) {
-        if ($__rehash) {
-          foreach ($db['users'] as $__i => $__uu) if ($__uu['id'] === $u['id']) {
-            $db['users'][$__i]['passHash'] = pw_hash((string)($b['password'] ?? ''));
-            unset($db['users'][$__i]['salt']);
-          }
+    $ip = client_ip();
+    $email = strtolower(trim((string)($b['email'] ?? '')));
+    // v81 — two independent doors: a per-connection cap (stops password spray
+    // against many / non-existent accounts) and an account cap (stops
+    // guessing from rotating IPs/VPNs).
+    rate_block($db, 'login-ip', $ip, 20, 900, 900, 'Too many sign-in attempts from this connection — wait 15 minutes.');
+    $acctRec = $db['loginfails']['acct|' . $email] ?? ['n' => 0, 'until' => 0];
+    if (($acctRec['until'] ?? 0) > time()) jout(429, ['error' => 'Too many attempts — try again in 15 minutes']);
+    $matched = null;
+    foreach ($db['users'] as $u) if (strtolower($u['email']) === $email) { $matched = $u; break; }
+    $__rehash = false;
+    if ($matched && pw_verify($matched, (string)($b['password'] ?? ''), $__rehash)) {
+      $u = $matched;
+      if ($__rehash) {
+        foreach ($db['users'] as $__i => $__uu) if ($__uu['id'] === $u['id']) {
+          $db['users'][$__i]['passHash'] = pw_hash((string)($b['password'] ?? ''));
+          unset($db['users'][$__i]['salt']);
         }
-        unset($db['loginfails'][$key]);
-        /* v51 hardening: admin sign-ins are audited so the owner can see
-           every successful admin login (who + when + from where). */
-        if (($u['role'] ?? '') === 'admin') {
-          $db['securityLog'] = $db['securityLog'] ?? [];
-          $db['securityLog'][] = ['at' => now_iso(), 'event' => 'admin-login',
-                                  'email' => $u['email'] ?? '', 'ip' => $ip];
-          if (count($db['securityLog']) > 400) $db['securityLog'] = array_slice($db['securityLog'], -400);
-        }
-        $tk = issue_token($db, $u); db_save($DB_FILE, $db);
-        jout(200, ['token' => $tk, 'user' => pub_user($u)]);
       }
-      $rec['n'] = ($rec['n'] ?? 0) + 1;
-      if ($rec['n'] >= 5) {
-        $rec['until'] = time() + 900; $rec['n'] = 0;
+      unset($db['loginfails']['acct|' . $email]);
+      // v81: deliberately keep the IP sliding window on success — clearing it
+      // would let an attacker reset their own spray budget with one good login.
+      /* v51 hardening: admin sign-ins are audited so the owner can see
+         every successful admin login (who + when + from where). */
+      if (($u['role'] ?? '') === 'admin') {
         $db['securityLog'] = $db['securityLog'] ?? [];
-        $db['securityLog'][] = ['at' => now_iso(), 'event' => 'login-lockout',
-                                'email' => strtolower((string)($b['email'] ?? '')), 'ip' => $ip];
+        $db['securityLog'][] = ['at' => now_iso(), 'event' => 'admin-login',
+                                'email' => $u['email'] ?? '', 'ip' => $ip];
         if (count($db['securityLog']) > 400) $db['securityLog'] = array_slice($db['securityLog'], -400);
       }
-      $db['loginfails'][$key] = $rec;
-      db_save($DB_FILE, $db);
-      jout(401, ['error' => 'Invalid email or password']);
+      $tk = issue_token($db, $u); db_save($DB_FILE, $db);
+      jout(200, ['token' => $tk, 'user' => pub_user($u)]);
     }
+    // failed: account counter only for accounts that exist (don't create
+    // lockout rows for random addresses); IP counter always ticks
+    if ($matched) {
+      $acctRec['n'] = ($acctRec['n'] ?? 0) + 1;
+      if ($acctRec['n'] >= 8) {
+        $acctRec['until'] = time() + 900; $acctRec['n'] = 0;
+        $db['securityLog'] = $db['securityLog'] ?? [];
+        $db['securityLog'][] = ['at' => now_iso(), 'event' => 'login-lockout', 'email' => $email, 'ip' => $ip];
+        if (count($db['securityLog']) > 400) $db['securityLog'] = array_slice($db['securityLog'], -400);
+      }
+      $db['loginfails']['acct|' . $email] = $acctRec;
+    }
+    db_save($DB_FILE, $db);
+    // identical response whether or not the email exists (no enumeration)
     jout(401, ['error' => 'Invalid email or password']);
   }
   /* ── password reset & change (v45) ───────────────────────────────────
@@ -2073,6 +2180,7 @@ try {
     }
     $email = strtolower(trim((string)(body_json()['email'] ?? '')));
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email address']);
+    rate_block($db, 'reset-ip', client_ip(), 15, 3600, 1800, 'Too many reset requests from this connection — try again later.');
     // The reply is deliberately identical whether or not the account exists.
     $generic = ['ok' => true, 'sent' => true,
                 'message' => 'If that email has a Shivaa account, a 4-digit code is on its way to the registered mobile number.'];
@@ -2091,7 +2199,7 @@ try {
     $phone = substr(preg_replace('/\D/', '', (string)($user['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) {
       $db['securityLog'][] = ['at' => now_iso(), 'event' => 'password-reset-blocked-no-phone', 'email' => $email,
-                              'role' => $user['role'] ?? 'customer', 'ip' => ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?')];
+                              'role' => $user['role'] ?? 'customer', 'ip' => client_ip()];
       db_save($DB_FILE, $db);
       jout(200, array_merge($generic, ['noPhone' => true, 'message' => 'That account has no mobile number on file, so an SMS code cannot be sent. ' . $helpNote]));
     }
@@ -2104,7 +2212,7 @@ try {
     $db['securityLog'][] = ['at' => now_iso(), 'event' => 'password-reset-requested', 'email' => $email,
                             'role' => $user['role'] ?? 'customer', 'channel' => $d['channel'] ?? 'none',
                             'sent' => !empty($d['ok']),
-                            'ip' => ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?')];
+                            'ip' => client_ip()];
     db_save($DB_FILE, $db);
     if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or use admin-reset.php. ' . $helpNote]);
     jout(200, array_merge($generic, ['masked' => $d['masked'], 'via' => $d['channel'],
@@ -2118,7 +2226,9 @@ try {
     $code = preg_replace('/\D/', '', (string)($b['code'] ?? ''));
     $pw = (string)($b['password'] ?? '');
     if (strlen($pw) < 8) jout(400, ['error' => 'New password must be at least 8 characters']);
+    if (strlen($pw) > 4096) jout(400, ['error' => 'Password is too long']);
     if (!in_array(strlen($code), [4, 6], true)) jout(400, ['error' => 'Enter the code from the SMS']);
+    rate_block($db, 'otp-try-ip', client_ip(), 40, 3600, 900, 'Too many code attempts from this connection — request a new code later.');
     $idx = null; $user = null;
     foreach ($db['users'] as $i => $u) if (strtolower((string)($u['email'] ?? '')) === $email) { $idx = $i; $user = $u; break; }
     if ($idx === null) jout(400, ['error' => 'That code is not valid — request a new one']);
@@ -2151,7 +2261,7 @@ try {
     $db['otps'] = array_values(array_filter($db['otps'], fn($o2) => ($o2['phone'] ?? '') !== $phone));
     $db['securityLog'][] = ['at' => now_iso(), 'event' => 'password-reset-done', 'email' => $email,
                             'role' => $user['role'] ?? 'customer', 'via' => 'otp-sms', 'sessionsRevoked' => $revoked,
-                            'ip' => ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?')];
+                            'ip' => client_ip()];
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'email' => $email, 'role' => $user['role'] ?? 'customer', 'sessionsRevoked' => $revoked,
                'message' => 'Password updated. Sign in with your email and the new password.']);
@@ -2163,6 +2273,7 @@ try {
     $cur = (string)($b['current'] ?? '');
     $pw = (string)($b['password'] ?? '');
     if (strlen($pw) < 8) jout(400, ['error' => 'New password must be at least 8 characters']);
+    if (strlen($pw) > 4096) jout(400, ['error' => 'Password is too long']);
     if (!pw_verify($u, $cur)) jout(403, ['error' => 'Current password is incorrect']);
     $mine = '';
     if (preg_match('#^Bearer (\w+)$#', (string)($_SERVER['HTTP_AUTHORIZATION'] ?? ''), $m)) $mine = $m[1];
@@ -2180,7 +2291,7 @@ try {
     $db['tokens'] = $keep;
     $db['securityLog'][] = ['at' => now_iso(), 'event' => 'password-changed', 'email' => $u['email'] ?? '',
                             'role' => $u['role'] ?? 'customer', 'via' => 'signed-in', 'sessionsRevoked' => $revoked,
-                            'ip' => ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '?')];
+                            'ip' => client_ip()];
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'sessionsRevoked' => $revoked, 'message' => 'Password changed. Other devices were signed out.']);
   }
@@ -2231,8 +2342,14 @@ try {
     if (!preg_match('#^\d{6}$#', (string)$b['pincode'])) jout(400, ['error' => 'Pincode must be 6 digits']);
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
       $uu['addresses'] = $uu['addresses'] ?? [];
-      $addr = ['id' => uid('ad'), 'label' => $b['label'] ?? 'Home', 'name' => trim((string)$b['name']), 'phone' => substr(preg_replace('/\D/', '', (string)$b['phone']), -10),
-               'line' => trim((string)$b['line']), 'city' => trim((string)$b['city']), 'state' => (string)($b['state'] ?? 'Rajasthan'), 'pincode' => (string)$b['pincode']];
+      if (count($uu['addresses']) >= 10) jout(400, ['error' => 'Address book is full (max 10) — delete one first.']);
+      $label = in_array($b['label'] ?? '', ['Home', 'Work', 'Other'], true) ? $b['label'] : 'Home';
+      $addr = ['id' => uid('ad'), 'label' => $label,
+               'name' => mb_substr(trim((string)$b['name']), 0, 80),
+               'phone' => substr(preg_replace('/\D/', '', (string)$b['phone']), -10),
+               'line' => mb_substr(trim((string)$b['line']), 0, 160),
+               'city' => mb_substr(trim((string)$b['city']), 0, 60),
+               'state' => mb_substr((string)($b['state'] ?? 'Rajasthan'), 0, 60), 'pincode' => (string)$b['pincode']];
       if (!empty($b['isDefault']) || !count($uu['addresses'])) { foreach ($uu['addresses'] as &$a) $a['isDefault'] = false; $addr['isDefault'] = true; }
       $uu['addresses'][] = $addr;
       $out = $uu;
@@ -2250,7 +2367,9 @@ try {
           $b = body_json();
           if (!empty($b['setDefault'])) { foreach ($uu['addresses'] as &$a2) $a2['isDefault'] = false; $uu['addresses'][$i]['isDefault'] = true; }
           else {
-            foreach (['label', 'name', 'phone', 'line', 'city', 'state', 'pincode'] as $k) if (isset($b[$k])) $uu['addresses'][$i][$k] = trim((string)$b[$k]);
+            $alims = ['label' => 20, 'name' => 80, 'phone' => 15, 'line' => 160, 'city' => 60, 'state' => 60, 'pincode' => 10];
+            foreach ($alims as $k => $al) if (isset($b[$k])) $uu['addresses'][$i][$k] = mb_substr(trim((string)$b[$k]), 0, $al);
+            if (!empty($uu['addresses'][$i]['pincode']) && !preg_match('#^\d{6}$#', $uu['addresses'][$i]['pincode'])) jout(400, ['error' => 'Pincode must be 6 digits']);
             if (!empty($b['isDefault'])) { foreach ($uu['addresses'] as &$a2) $a2['isDefault'] = false; $uu['addresses'][$i]['isDefault'] = true; }
           }
         } elseif ($method === 'DELETE') { array_splice($uu['addresses'], $i, 1); }
@@ -2273,10 +2392,14 @@ try {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
     $b = body_json();
+    $wid = (string)($b['id'] ?? '');
+    if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $wid)) jout(400, ['error' => 'Invalid product.']);
+    $prodExists = false; foreach ($db['products'] as $pe) if (($pe['id'] ?? '') === $wid) { $prodExists = true; break; }
+    if (!$prodExists) jout(404, ['error' => 'Product not found.']);
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
-      $uu['wishlist'] = $uu['wishlist'] ?? [];
-      if (!empty($b['add']) && !in_array($b['id'], $uu['wishlist'])) $uu['wishlist'][] = $b['id'];
-      if (empty($b['add'])) $uu['wishlist'] = array_values(array_filter($uu['wishlist'], fn($x) => $x !== $b['id']));
+      $uu['wishlist'] = array_slice($uu['wishlist'] ?? [], -199);
+      if (!empty($b['add']) && !in_array($wid, $uu['wishlist'])) $uu['wishlist'][] = $wid;
+      if (empty($b['add'])) $uu['wishlist'] = array_values(array_filter($uu['wishlist'], fn($x) => $x !== $wid));
       $w = $uu['wishlist'];
     }
     db_save($DB_FILE, $db); jout(200, ['wishlist' => $w ?? []]);
@@ -2286,6 +2409,8 @@ try {
   if ($route === 'coupons/validate' && $method === 'POST') {
     $b = body_json();
     $cu = req_user($db);
+    rate_block($db, 'coupon-ip', client_ip(), 80, 3600);
+    if ($cu) rate_block($db, 'coupon-u', $cu['id'] ?? '?', 120, 3600);
     foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper((string)($b['code'] ?? '')) && coupon_live($c) && coupon_for_user($c, $cu)) {
       if ((float)($b['amount'] ?? 0) < (float)($c['minOrder'] ?? 0)) jout(400, ['error' => 'Minimum order ₹' . number_format((float)$c['minOrder']) . ' for ' . $c['code']]);
       jout(200, $c);
@@ -2308,7 +2433,24 @@ try {
   if ($route === 'orders' && $method === 'POST') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required to place order']);
+    rate_block($db, 'order-ip', client_ip(), 60, 3600);
+    rate_block($db, 'order-u', $u['id'] ?? '?', 40, 3600);
     $b = body_json();
+    if (!is_array($b['items'] ?? null) || !count($b['items'])) jout(400, ['error' => 'Cart is empty']);
+    if (count($b['items']) > 100) jout(400, ['error' => 'Too many cart items (max 100 per order).']);
+    $pm = (string)($b['paymentMethod'] ?? 'Online');
+    if (!in_array($pm, ['Online', 'COD', 'WhatsApp'], true)) jout(400, ['error' => 'Unknown payment method.']);
+    $b['paymentMethod'] = $pm;
+    // Bound free-text checkout fields before they are stored/printed on invoices.
+    if (is_array($b['address'] ?? null)) {
+      $af = [];
+      foreach ($b['address'] as $ak => $av) {
+        if (count($af) >= 20) break;
+        if (!preg_match('/^[A-Za-z0-9_]{1,30}$/', (string)$ak)) continue;
+        if (is_scalar($av)) $af[$ak] = mb_substr(trim((string)$av), 0, 160);
+      }
+      $b['address'] = $af;
+    } else $b['address'] = [];
     $R = current_rates($db);
     /* v57: honour a 20-minute checkout rate lock — accepted only inside a
        2% safety band so a locked quote can never be abused. */
@@ -2326,13 +2468,17 @@ try {
     }
     $subtotal = 0; $items = [];
     foreach (($b['items'] ?? []) as $it) {
-      foreach ($db['products'] as $prod) if ($prod['id'] === $it['id']) {
+      if (!is_array($it)) continue;
+      $qty = (int)($it['qty'] ?? 1);
+      if ($qty < 1) $qty = 1; elseif ($qty > 99) $qty = 99;
+      foreach ($db['products'] as $prod) if ($prod['id'] === ($it['id'] ?? null)) {
         $pr = compute_price($prod, $R);
         $line = ['productId' => $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null,
-                 'qty' => max(1, (int)($it['qty'] ?? 1)), 'weightG' => $prod['weightG'], 'purity' => $prod['purity'], 'metal' => $prod['metal'],
+                 'qty' => $qty, 'weightG' => $prod['weightG'], 'purity' => $prod['purity'], 'metal' => $prod['metal'],
                  'hsn' => ($prod['metal'] ?? '') === 'Silver' ? '71131110' : '71131910',
                  'unitPrice' => $pr['total'], 'ratePerGram' => $pr['ratePerGram'], 'makingCharge' => $pr['makingCharge'], 'gst' => $pr['gst'],
-                 'size' => $it['size'] ?? null, 'engraving' => $it['engraving'] ?? null];
+                 'size' => isset($it['size']) ? mb_substr(trim((string)$it['size']), 0, 30) : null,
+                 'engraving' => isset($it['engraving']) ? mb_substr(trim((string)$it['engraving']), 0, 80) : null];
         $subtotal += $line['unitPrice'] * $line['qty'];
         $items[] = $line; break;
       }
@@ -2505,17 +2651,28 @@ try {
     // multipart/form-data: fields arrive in $_POST, screenshot in $_FILES
     $proofOrderId = (string)($_POST['orderId'] ?? (body_json()['orderId'] ?? ''));
     [$i, $o] = $find_order_owner($proofOrderId);
+    rate_block($db, 'payproof-ip', client_ip(), 40, 3600);
+    rate_block($db, 'payproof-u', $o['userId'] ?? '?', 30, 3600);
+    if (count($db['orders'][$i]['payments'] ?? []) >= 12) jout(400, ['error' => 'Too many payment submissions for this order — contact the shop.']);
     if (empty($_FILES['proof'])) jout(400, ['error' => 'Attach the payment screenshot']);
     $f = $_FILES['proof'];
     if (($f['error'] ?? 1) !== UPLOAD_ERR_OK) jout(400, ['error' => 'Upload failed (code ' . ($f['error'] ?? '?') . ')']);
     if (($f['size'] ?? 0) > 6291456) jout(400, ['error' => 'Screenshot must be under 6 MB']);
+    // v81 — verify the bytes really are an image (never trust the filename)
+    $head = (string)@file_get_contents($f['tmp_name'], false, null, 0, 12);
+    $isImg = substr($head, 0, 3) === "\xFF\xD8\xFF"
+          || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n"
+          || substr($head, 0, 4) === 'RIFF';
+    if (!$isImg) jout(400, ['error' => 'Only real JPG / PNG / WEBP images are accepted']);
     $ext = strtolower(pathinfo((string)($f['name'] ?? 'p.jpg'), PATHINFO_EXTENSION));
     if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) $ext = 'jpg';
     if (!is_dir(__DIR__ . '/uploads/payproofs')) @mkdir(__DIR__ . '/uploads/payproofs', 0755, true);
     $name = 'pp_' . $o['id'] . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
     if (!move_uploaded_file($f['tmp_name'], __DIR__ . '/uploads/payproofs/' . $name))
       jout(500, ['error' => 'Could not save the screenshot — check uploads/ permissions (755)']);
-    $partAmt = (int)round((float)($_POST['amount'] ?? $o['total']));
+    // Never trust the claimed amount — keep it inside 1…order total; the
+    // owner still manually approves before it counts as paid.
+    $partAmt = max(1, min((int)$o['total'], (int)round((float)($_POST['amount'] ?? $o['total']))));
     $proof = ['file' => '/uploads/payproofs/' . $name,
       'at' => now_iso(), 'amount' => $partAmt,
       'ref' => substr(trim((string)($_POST['ref'] ?? '')), 0, 60),
@@ -2625,8 +2782,12 @@ try {
   }
 
   /* ── KYC ── */
-  if ($route === 'kyc/check-gstin' && $method === 'POST') jout(200, gstin_check((string)(body_json()['gstin'] ?? '')));
+  if ($route === 'kyc/check-gstin' && $method === 'POST') {
+    rate_block($db, 'kycgst-ip', client_ip(), 24, 3600);
+    jout(200, gstin_check((string)(body_json()['gstin'] ?? '')));
+  }
   if ($route === 'kyc/gst-lookup' && $method === 'POST') {
+    rate_block($db, 'kycgst-ip', client_ip(), 24, 3600);
     $g = strtoupper(trim((string)(body_json()['gstin'] ?? '')));
     $chk = gstin_check($g);
     if (!$chk['valid']) jout(400, ['error' => $chk['reason']]);
@@ -2644,6 +2805,8 @@ try {
     $b = body_json();
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
+    rate_block($db, 'otp-send-ip', client_ip(), 14, 3600, 1800, 'Too many OTP requests from this connection — try again later.');
+    rate_block($db, 'otp-send-phone', $phone, 8, 3600, 1800, 'Too many OTP requests for this number — try again in 30 minutes.');
     foreach (($db['otps'] ?? []) as $o) if (($o['phone'] ?? '') === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
     /* v56 — like the retail login, any valid mobile number receives a code */
     $dest = otp_email_for_phone($db, $phone);
@@ -2665,6 +2828,9 @@ try {
   if ($route === 'kyc/verify-otp' && $method === 'POST') {
     $b = body_json();
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
+    rate_block($db, 'otp-try-ip', client_ip(), 40, 3600, 900, 'Too many code attempts from this connection — request a new code later.');
+    rate_block($db, 'otp-try-phone', $phone, 18, 3600, 900, 'Too many code attempts for this number — request a new code later.');
     $found = null;
     for ($i = count($db['otps'] ?? []) - 1; $i >= 0; $i--) if ($db['otps'][$i]['phone'] === $phone) { $found = $i; break; }
     if ($found === null) jout(400, ['error' => 'Request an OTP first']);
@@ -2672,7 +2838,7 @@ try {
     if ($o['exp'] < time()) jout(400, ['error' => 'OTP expired — request a new one']);
     if ($o['tries'] >= 5) jout(429, ['error' => 'Too many attempts — request a new OTP']);
     $o['tries']++;
-    if ($o['hash'] !== hash('sha256', 'shv' . $phone . (string)($b['code'] ?? ''))) { db_save($DB_FILE, $db); jout(400, ['error' => 'Incorrect OTP']); }
+    if (!hash_equals((string)$o['hash'], hash('sha256', 'shv' . $phone . (string)($b['code'] ?? '')))) { db_save($DB_FILE, $db); jout(400, ['error' => 'Incorrect OTP']); }
     $o['verified'] = true; db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
 
@@ -2718,13 +2884,17 @@ try {
   /* ── design selection → metal exchange (zero MC) ── */
   if ($route === 'metalexchange/order' && $method === 'POST') {
     $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']); if ($u['role'] !== 'partner' && $u['role'] !== 'admin') jout(403, ['error' => 'Jeweller partners only — apply on the For Jewellers page']);
+    rate_block($db, 'mxorder-ip', client_ip(), 120, 3600);
+    rate_block($db, 'mxorder-u', $u['id'] ?? '?', 120, 3600);
     $b = body_json();
+    if (!is_array($b['items'] ?? null) || count($b['items']) > 100) jout(400, ['error' => 'Too many items (max 100).']);
     $factor = (float)($db['settings']['metalFactor'] ?? 0.92);
     $purity = $db['settings']['finePurity'] ?? '99.50%';
     $totalWeight = 0; $items = [];
     foreach (($b['items'] ?? []) as $it) {
-      foreach ($db['products'] as $prod) if ($prod['id'] === $it['id'] && !empty($prod['active'])) {
-        $qty = max(1, (int)($it['qty'] ?? 1));
+      if (!is_array($it)) continue;
+      foreach ($db['products'] as $prod) if ($prod['id'] === ($it['id'] ?? null) && !empty($prod['active'])) {
+        $qty = (int)($it['qty'] ?? 1); if ($qty < 1) $qty = 1; elseif ($qty > 999) $qty = 999;
         $totalWeight += $prod['weightG'] * $qty;
         $items[] = ['productId' => $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null, 'qty' => $qty, 'weightG' => $prod['weightG'], 'lineWeight' => round($prod['weightG'] * $qty, 3)];
       }
@@ -2733,7 +2903,7 @@ try {
     $ord = ['id' => 'MX' . substr((string)time(), -8), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
             'items' => $items, 'totalWeightG' => round($totalWeight, 3), 'factor' => $factor,
             'fineGrams' => round($totalWeight * $factor, 2), 'purity' => $purity,
-            'makingCharges' => 0, 'note' => $b['note'] ?? '', 'status' => 'New', 'createdAt' => now_iso()];
+            'makingCharges' => 0, 'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 300), 'status' => 'New', 'createdAt' => now_iso()];
     $db['metalOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
   }
   if ($route === 'metalexchange/orders' && $method === 'GET') {
@@ -2751,6 +2921,9 @@ try {
   /* ── custom design orders (image upload) ── */
   if ($route === 'customorder' && $method === 'POST') {
     $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    if ($u['role'] !== 'partner' && $u['role'] !== 'admin') jout(403, ['error' => 'Jeweller partners only — apply on the For Jewellers page']);
+    rate_block($db, 'custom-ip', client_ip(), 60, 3600);
+    rate_block($db, 'custom-u', $u['id'] ?? '?', 60, 3600);
     $fields = $_POST; $file = null;
     if (!empty($_FILES['design']) && $_FILES['design']['error'] === UPLOAD_ERR_OK && $_FILES['design']['size'] < 8388608) {
       $ext = strtolower(pathinfo($_FILES['design']['name'], PATHINFO_EXTENSION));
@@ -2768,9 +2941,11 @@ try {
       }
     }
     if (empty($fields['name']) || empty($fields['weight'])) jout(400, ['error' => 'Product name & weight required']);
+    $w = (float)$fields['weight'];
+    if ($w <= 0 || $w > 100000 || !is_finite($w)) jout(400, ['error' => 'Weight must be between 0 and 1,00,000 g.']);
     $ord = ['id' => 'CO' . substr((string)time(), -8), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
-            'name' => cut500($fields['name']), 'weightG' => (float)$fields['weight'], 'melting' => (float)($fields['melting'] ?? 0),
-            'advance' => (float)($fields['advance'] ?? 0), 'size' => cut500($fields['size'] ?? ''), 'note' => cut500($fields['note'] ?? ''),
+            'name' => cut500($fields['name']), 'weightG' => round($w, 3), 'melting' => max(0, (float)($fields['melting'] ?? 0)),
+            'advance' => max(0, (float)($fields['advance'] ?? 0)), 'size' => cut500($fields['size'] ?? ''), 'note' => cut500($fields['note'] ?? ''),
             'designImg' => $file, 'status' => 'New', 'createdAt' => now_iso()];
     $db['customOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
   }
@@ -2874,15 +3049,25 @@ try {
   }
   if ($route === 'bullion/order' && $method === 'POST') {
     $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
+    rate_block($db, 'bullionorder-ip', client_ip(), 120, 3600);
+    rate_block($db, 'bullionorder-u', $u['id'] ?? '?', 120, 3600);
     $b = body_json();
-    if (empty($b['side']) || empty($b['metal']) || empty($b['qty'])) jout(400, ['error' => 'side, metal & qty required']);
+    $side = $b['side'] === 'buy' || $b['side'] === 'sell' ? $b['side'] : '';
+    $unit = ($b['unit'] ?? 'kg') === 'g' ? 'g' : 'kg';
+    $qty  = is_numeric($b['qty'] ?? null) ? (float)$b['qty'] : 0.0;
+    if (!$side || empty($b['metal'])) jout(400, ['error' => 'side, metal & qty required']);
+    if ($qty <= 0 || $qty > 1000 || !is_finite($qty)) jout(400, ['error' => 'Quantity must be between 0 and 1000 ' . $unit]);
     $rows = bullion_rows($db)['rows'];
     $br = null; foreach ($rows as $r0) if ($r0['key'] === ($b['metKey'] ?? '')) $br = $r0;
-    $rate = $br ? ($b['side'] === 'buy' ? $br['buy'] : $br['sell']) : 0;
-    $mult = ($b['unit'] ?? 'kg') === 'kg' ? 1000 : 1;
-    $ord = ['id' => 'BL' . substr((string)time(), -8), 'side' => $b['side'], 'metKey' => $b['metKey'] ?? '', 'metal' => $b['metal'], 'mode' => $br['mode'] ?? '',
-            'qty' => (float)$b['qty'], 'unit' => $b['unit'] ?? 'kg', 'rate' => $rate,
-            'amount' => (int)round($rate * (float)$b['qty'] * $mult), 'note' => $b['note'] ?? '',
+    // Server-authoritative: unknown board row or a non-tradable (zero/missing)
+    // rate can never produce an order at 0 or at a client-supplied price.
+    if (!$br || empty($br['buy']) || empty($br['sell'])) jout(400, ['error' => 'This metal is not quoting right now — please refresh the board.']);
+    $rate = $side === 'buy' ? (float)$br['buy'] : (float)$br['sell'];
+    if ($rate <= 0) jout(400, ['error' => 'Rate unavailable for this metal.']);
+    $mult = $unit === 'kg' ? 1000 : 1;
+    $ord = ['id' => 'BL' . substr((string)time(), -8), 'side' => $side, 'metKey' => (string)($b['metKey'] ?? ''), 'metal' => mb_substr((string)$b['metal'], 0, 40), 'mode' => $br['mode'] ?? '',
+            'qty' => round($qty, 3), 'unit' => $unit, 'rate' => $rate,
+            'amount' => (int)round($rate * $qty * $mult), 'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 300),
             'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'], 'status' => 'New', 'createdAt' => now_iso()];
     $db['bullionOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
   }
@@ -2902,19 +3087,23 @@ try {
   /* ── partners (full KYC) ── */
   if ($route === 'partners/apply' && $method === 'POST') {
     $b = body_json();
+    rate_block($db, 'partnerapply-ip', client_ip(), 10, 3600);
     if (empty($b['firm']) || empty($b['email']) || empty($b['phone']) || empty($b['password'])) jout(400, ['error' => 'Firm, email, phone & password required']);
-    $gst = gstin_check((string)($b['gstin'] ?? ''));
-    if (!$gst['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $gst['reason']]);
+    if (strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
+    if (!filter_var((string)$b['email'], FILTER_VALIDATE_EMAIL) || strlen((string)$b['email']) > 190) jout(400, ['error' => 'Enter a valid email']);
+    // OTP proof first — never spend the external GST lookup on an unverified caller.
     $otpOk = false;
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === substr((string)$b['phone'], -10) && !empty($o['verified']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
+    $gst = gstin_check((string)$b['gstin'] ?? '');
+    if (!$gst['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $gst['reason']]);
     foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower((string)$b['email'])) jout(409, ['error' => 'Email already registered — login instead']);
-    $pr = ['id' => uid('pt'), 'firm' => $b['firm'], 'contactPerson' => $b['contactPerson'] ?? '', 'city' => $b['city'] ?? $gst['state'],
-           'phone' => $b['phone'], 'email' => strtolower($b['email']),
+    $pr = ['id' => uid('pt'), 'firm' => mb_substr(trim((string)$b['firm']), 0, 120), 'contactPerson' => mb_substr(trim((string)($b['contactPerson'] ?? '')), 0, 80), 'city' => mb_substr(trim((string)($b['city'] ?? $gst['state'])), 0, 60),
+           'phone' => substr(preg_replace('/\D/', '', (string)$b['phone']), -12), 'email' => strtolower((string)$b['email']),
            'kyc' => ['gstin' => strtoupper((string)$b['gstin']), 'gstinValid' => true, 'gstinState' => $gst['state'], 'pan' => $gst['pan'], 'ownerPan' => strtoupper((string)($b['ownerPan'] ?? '')), 'otpVerified' => true, 'at' => now_iso()],
-           'message' => $b['message'] ?? '', 'status' => 'pending', 'appliedAt' => now_iso()];
+           'message' => mb_substr(trim((string)($b['message'] ?? '')), 0, 500), 'status' => 'pending', 'appliedAt' => now_iso()];
     $db['partners'][] = $pr;
-    $u = ['id' => uid('u'), 'name' => $b['firm'], 'email' => strtolower($b['email']), 'phone' => $b['phone'],
+    $u = ['id' => uid('u'), 'name' => $pr['firm'], 'email' => $pr['email'], 'phone' => $pr['phone'],
           'passHash' => pw_hash((string)$b['password']), 'role' => 'partner', 'partnerId' => $pr['id'],
           'loyaltyPoints' => 0, 'wishlist' => [], 'createdAt' => now_iso()];
     $db['users'][] = $u;
@@ -2963,7 +3152,10 @@ try {
   if ($route === 'partners/me' && $method === 'GET') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
-    $pid = $u['partnerId'] ?? ($db['partners'][0]['id'] ?? '');
+    // v81 — never fall back to the first partner record: a non-partner
+    // account must not inherit another jeweller's profile/settlements.
+    if (($u['role'] ?? '') !== 'partner' && ($u['role'] ?? '') !== 'admin') jout(403, ['error' => 'Jeweller partners only']);
+    $pid = $u['partnerId'] ?? '';
     $pr = null; foreach ($db['partners'] as $x) if ($x['id'] === $pid) $pr = $x;
     $set = array_values(array_filter($db['settlements'], fn($s) => $s['partnerId'] === $pid));
     jout(200, ['partner' => $pr, 'settlements' => $set]);
@@ -2971,12 +3163,17 @@ try {
 
   /* ── leads / services / misc ── */
   if ($route === 'services' && $method === 'POST') {
+    rate_block($db, 'service-ip', client_ip(), 30, 3600);
     $b = body_json();
     if (empty($b['name']) || empty($b['phone'])) jout(400, ['error' => 'Name & phone required']);
+    if (!is_string($b['name'] ?? null) || mb_strlen(trim((string)$b['name'])) > 80) jout(400, ['error' => 'Name too long']);
+    $phone = preg_replace('/\D/', '', (string)$b['phone']);
+    if (strlen($phone) < 10 || strlen($phone) > 12) jout(400, ['error' => 'Enter a valid phone number']);
     $su = req_user($db);
-    $rec = ['id' => uid('sr'), 'type' => $b['type'] ?? '', 'name' => $b['name'], 'phone' => preg_replace('/\D/', '', (string)$b['phone']),
+    if ($su) rate_block($db, 'service-u', $su['id'] ?? '?', 30, 3600);
+    $rec = ['id' => uid('sr'), 'type' => mb_substr(trim((string)($b['type'] ?? '')), 0, 40), 'name' => mb_substr(trim((string)$b['name']), 0, 80), 'phone' => $phone,
             'userId' => $su['id'] ?? '', 'orderId' => substr((string)($b['orderId'] ?? ''), 0, 24),
-            'email' => $b['email'] ?? '', 'details' => $b['details'] ?? '', 'budget' => $b['budget'] ?? '',
+            'email' => mb_substr(trim((string)($b['email'] ?? '')), 0, 120), 'details' => mb_substr(trim((string)($b['details'] ?? '')), 0, 1000), 'budget' => mb_substr(trim((string)($b['budget'] ?? '')), 0, 30),
             'status' => 'new', 'history' => [['s' => 'Booked', 't' => now_iso()]], 'createdAt' => now_iso()];
     $db['serviceRequests'][] = $rec;
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $rec]);
@@ -3205,6 +3402,8 @@ try {
     [$idx, $o] = $find_order_for_routes($mRR[1]);
     $kind = in_array($b['kind'] ?? 'refund', ['refund', 'exchange'], true) ? $b['kind'] : 'refund';
     if (empty($b['reason'])) jout(400, ['error' => 'Tell us the reason in a line']);
+    foreach ($db['refundRequests'] ?? [] as $rr) if (($rr['orderId'] ?? '') === $o['id'] && in_array($rr['status'] ?? '', ['requested', 'approved'], true))
+      jout(400, ['error' => 'A request for this order is already open — the shop will respond shortly.']);
     $rec = ['id' => uid('rf'), 'orderId' => $o['id'], 'userId' => $o['userId'], 'userName' => $o['userName'],
       'kind' => $kind, 'reason' => substr((string)$b['reason'], 0, 400),
       'items' => array_slice((array)($b['items'] ?? []), 0, 20),
@@ -3265,9 +3464,14 @@ try {
   if ($route === 'reviews/photo' && $method === 'POST') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
+    rate_block($db, 'review-ip', client_ip(), 40, 3600);
+    rate_block($db, 'review-u', $u['id'] ?? '?', 20, 3600);
     $pid = (string)($_POST['productId'] ?? '');
     $text = trim((string)($_POST['text'] ?? ''));
     if ($pid === '' || $text === '') jout(400, ['error' => 'productId & text required']);
+    if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $pid)) jout(400, ['error' => 'Invalid product.']);
+    $prodExists = false; foreach ($db['products'] as $pe) if (($pe['id'] ?? '') === $pid) { $prodExists = true; break; }
+    if (!$prodExists) jout(404, ['error' => 'Product not found.']);
     $photos = [];
     if (!empty($_FILES['photos'])) {
       if (!is_dir(__DIR__ . '/uploads/reviews')) @mkdir(__DIR__ . '/uploads/reviews', 0755, true);
@@ -3294,7 +3498,14 @@ try {
     $rv = ['id' => uid('rv'), 'productId' => $pid, 'userId' => $u['id'], 'userName' => $u['name'],
       'verified' => $verified, 'photos' => $photos,
       'rating' => clampn((int)($_POST['rating'] ?? 5), 1, 5), 'text' => cut500($text), 'createdAt' => now_iso()];
-    $db['reviews'][] = $rv;
+    // Replace (not stack) this customer's earlier review of the same product.
+    $replaced = false;
+    foreach ($db['reviews'] as $ri => $ro) if (($ro['userId'] ?? '') === $u['id'] && ($ro['productId'] ?? '') === $pid) {
+      $rv['id'] = $ro['id']; $rv['createdAt'] = $ro['createdAt'] ?? now_iso();
+      $rv['photos'] = $photos ?: ($ro['photos'] ?? []); $rv['verified'] = $verified || ($ro['verified'] ?? false);
+      $db['reviews'][$ri] = $rv; $replaced = true; break;
+    }
+    if (!$replaced) $db['reviews'][] = $rv;
     foreach ($db['products'] as &$pr) if ($pr['id'] === $pid) {
       $rs = array_values(array_filter($db['reviews'], fn($x) => $x['productId'] === $pr['id']));
       $pr['rating'] = round(array_sum(array_column($rs, 'rating')) / max(1, count($rs)), 1);
@@ -3368,6 +3579,7 @@ try {
     foreach ($db['savingsPlans'] as $p) if ($p['userId'] === $u['id'] && $p['status'] === 'active') jout(400, ['error' => 'You already have an active Swarna Nidhi plan. Close or redeem it before starting another.']);
     $amt = (int)round((float)($b['monthlyAmount'] ?? 0));
     if ($amt < 500) jout(400, ['error' => 'Monthly instalment must be at least ₹500']);
+    if ($amt > 1000000) jout(400, ['error' => 'Monthly instalment is above the ₹10,00,000 online limit — set this up at the shop.']);
     $plan = ['id' => uid('sp'), 'userId' => $u['id'], 'userName' => $u['name'], 'phone' => $u['phone'] ?? '',
       'monthlyAmount' => $amt, 'status' => 'active', 'installments' => [],
       'startedAt' => now_iso(), 'createdAt' => now_iso()];
@@ -3534,15 +3746,22 @@ try {
   if ($route === 'newsletter' && $method === 'POST') {
     pub_rate($db, $DB_FILE, 'newsletter', 10);
     $b = body_json();
-    if (!filter_var($b['email'] ?? '', FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Valid email required']);
-    if (!in_array($b['email'], array_column($db['newsletter'], 'email'))) $db['newsletter'][] = ['email' => $b['email'], 'at' => now_iso()];
+    $nlEmail = strtolower(trim((string)($b['email'] ?? '')));
+    if (!filter_var($nlEmail, FILTER_VALIDATE_EMAIL) || strlen($nlEmail) > 190) jout(400, ['error' => 'Valid email required']);
+    if (!in_array($nlEmail, array_column($db['newsletter'], 'email'))) $db['newsletter'][] = ['email' => $nlEmail, 'at' => now_iso()];
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'contact' && $method === 'POST') {
     pub_rate($db, $DB_FILE, 'contact', 10);
     $b = body_json();
     if (empty($b['name']) || empty($b['message'])) jout(400, ['error' => 'Name & message required']);
-    $db['contactMsgs'][] = ['id' => uid('cm'), 'name' => $b['name'], 'phone' => $b['phone'] ?? '', 'email' => $b['email'] ?? '', 'message' => $b['message'], 'at' => now_iso(), 'read' => false];
+    $cName = trim((string)$b['name']); $cMsg = trim((string)$b['message']);
+    if (mb_strlen($cName) > 80) jout(400, ['error' => 'Name too long']);
+    if (mb_strlen($cMsg) < 2 || mb_strlen($cMsg) > 3000) jout(400, ['error' => 'Message must be 2–3000 characters']);
+    $cEmail = !empty($b['email']) && filter_var((string)$b['email'], FILTER_VALIDATE_EMAIL) ? mb_substr(strtolower(trim((string)$b['email'])), 0, 190) : '';
+    $db['contactMsgs'][] = ['id' => uid('cm'), 'name' => mb_substr($cName, 0, 80),
+      'phone' => substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -12),
+      'email' => $cEmail, 'message' => mb_substr($cMsg, 0, 3000), 'at' => now_iso(), 'read' => false];
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'reviews' && $method === 'GET') {
@@ -3552,12 +3771,24 @@ try {
   if ($route === 'reviews' && $method === 'POST') {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
+    rate_block($db, 'review-ip', client_ip(), 40, 3600);
+    rate_block($db, 'review-u', $u['id'] ?? '?', 20, 3600);
     $b = body_json();
-    if (empty($b['productId']) || empty($b['text'])) jout(400, ['error' => 'productId & text required']);
-    $rv = ['id' => uid('rv'), 'productId' => $b['productId'], 'userName' => $u['name'],
+    if (empty($b['productId']) || trim((string)($b['text'] ?? '')) === '') jout(400, ['error' => 'productId & text required']);
+    $pid = (string)$b['productId'];
+    if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $pid)) jout(400, ['error' => 'Invalid product.']);
+    $prodExists = false; foreach ($db['products'] as $pe) if (($pe['id'] ?? '') === $pid) { $prodExists = true; break; }
+    if (!$prodExists) jout(404, ['error' => 'Product not found.']);
+    $rv = ['id' => uid('rv'), 'productId' => $pid, 'userId' => $u['id'], 'userName' => $u['name'],
            'rating' => clampn((int)($b['rating'] ?? 5), 1, 5), 'text' => cut500((string)$b['text']), 'createdAt' => now_iso()];
-    $db['reviews'][] = $rv;
-    foreach ($db['products'] as &$pr) if ($pr['id'] === $b['productId']) {
+    // One review per customer per product — a repeat post replaces the old one.
+    $replaced = false;
+    foreach ($db['reviews'] as $ri => $ro) if (($ro['userId'] ?? '') === $u['id'] && ($ro['productId'] ?? '') === $pid) {
+      $rv['id'] = $ro['id']; $rv['createdAt'] = $ro['createdAt'] ?? now_iso(); $rv['verified'] = $ro['verified'] ?? false; $rv['photos'] = $ro['photos'] ?? [];
+      $db['reviews'][$ri] = $rv; $replaced = true; break;
+    }
+    if (!$replaced) $db['reviews'][] = $rv;
+    foreach ($db['products'] as &$pr) if ($pr['id'] === $pid) {
       $rs = array_values(array_filter($db['reviews'], fn($r) => $r['productId'] === $pr['id']));
       $pr['rating'] = round(array_sum(array_column($rs, 'rating')) / max(1, count($rs)), 1);
       $pr['reviews'] = count($rs);
@@ -3619,12 +3850,35 @@ try {
   if ($route === 'settings' && $method === 'GET') {
     $uSet = req_user($db);
     if ($uSet && ($uSet['role'] ?? '') === 'admin') jout(200, $db['settings']);
-    // v58: public projection — never expose gateway secrets / API keys
-    // v80: also hides the tick-relay shared key (angelRelayKey) and the key
-    // embedded in the public SSE URL (angelRelayStreamUrl ?key=…)
-    $pubSettings = array_filter($db['settings'],
-      fn($k) => !preg_match('/secret|token|password|private|apiKey|gstKey|mpin|relayKey|smsKey|otpKey/i', $k),
-      ARRAY_FILTER_USE_KEY);
+    // v58/v81: public projection — never expose gateway secrets / API keys.
+    // Recursive: also strips secrets nested inside objects (gstApi.key) and
+    // keys whose whole subtree is a credential, so a future nested setting
+    // cannot leak by accident.
+    $blockedSubs = ['secret', 'password', 'passwd', 'private', 'apikey', 'mpin',
+      'relaykey', 'smskey', 'otpkey', 'authkey', 'clientsecret', 'accesstoken', 'gstapi', 'gstkey',
+      'token', 'credential', 'webhooksecret'];
+    $isSecretKey = static function ($k) use ($blockedSubs): bool {
+      $k = strtolower((string)$k);
+      foreach ($blockedSubs as $b) if (strpos($k, $b) !== false) return true;
+      return false;
+    };
+    $sanitize = function ($v, $kk = null) use (&$sanitize, $isSecretKey) {
+      if (is_array($v)) {
+        $out = [];
+        foreach ($v as $k2 => $vv) {
+          if ($isSecretKey($k2)) continue;   // drop whole subtree
+          $out[$k2] = $sanitize($vv, $k2);
+        }
+        return $out;
+      }
+      // Any URL-shaped setting loses embedded ?key=/&token= credentials.
+      if (is_string($v) && $kk !== null && stripos((string)$kk, 'url') !== false && preg_match('/[?&](key|token|secret)=/i', $v)) {
+        $v = (string)preg_replace('/([?&])(key|token|secret)=[^&#]*/i', '$1$2=', $v);
+      }
+      return $v;
+    };
+    $pubSettings = $sanitize($db['settings']);
+    // the public SSE URL must not carry the ?key= credential for anonymous eyes
     if (!empty($pubSettings['angelRelayStreamUrl'])) {
       $pubSettings['angelRelayStreamUrl'] = (string)preg_replace(
         '/([?&])key=[^&#]*/i', '$1key=', (string)$pubSettings['angelRelayStreamUrl']);
