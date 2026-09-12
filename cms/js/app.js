@@ -2677,6 +2677,10 @@ pages.cart = async (view) => {
       <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.waOpenCart()">Order via WhatsApp chat <span class="mini-wa">${WA_SVG}</span></button>
       <a class="btn btn-ghost btn-block btn-sm mt-2" href="#/shop">Continue shopping</a>
     </div>
+  </div>
+  <div class="mcta-bar" aria-hidden="false">
+    <div class="mcta-total"><small>${cartCount()} item${cartCount() > 1 ? 's' : ''} · total</small><b>${fmt(subtotal + shipping)}</b></div>
+    <a class="btn btn-gold" href="#/checkout">Proceed to Checkout ✦</a>
   </div>`;
 };
 window.Shivaa.cartQty = (id, size, d) => {
@@ -2911,6 +2915,10 @@ pages.checkout = async (view) => {
       <div class="sum-row total"><span>Total</span><b id="coTotal">${fmt(Math.round(subtotal * (1 - (((state.settings || {}).prepaidPct) || 2) / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
       <button class="btn btn-gold btn-block btn-lg mt-2" id="placeBtn" onclick="Shivaa.placeOrder()">Place Order ✦</button>
     </div>
+  </div>
+  <div class="mcta-bar">
+    <div class="mcta-total"><small>Total · 20-min rate locked</small><b id="coMobileTotal">${fmt(Math.round(subtotal * (1 - (((state.settings || {}).prepaidPct) || 2) / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
+    <button class="btn btn-gold" type="button" onclick="Shivaa.placeOrder()">Place Order ✦</button>
   </div>`;
   /* ── v57: 20-minute live-rate lock — your price cannot move while paying ── */
   const pickRates = () => ({ gold22: state.rates.gold22, gold24: state.rates.gold24, gold18: state.rates.gold18, silver: state.rates.silver });
@@ -3025,7 +3033,9 @@ window.Shivaa.updateCheckout = () => {
   const cr = $('#coCodRow'); if (cr) cr.hidden = !(codFee > 0);
   const cv = $('#coCod'); if (cv) cv.textContent = '+ ' + fmt(codFee);
   window._co.prepaid = prepaid; window._co.codFee = codFee;
-  $('#coTotal').textContent = fmt(Math.max(0, window._co.subtotal - disc - prepaid + codFee + ship));
+  const coFinal = Math.max(0, window._co.subtotal - disc - prepaid + codFee + ship);
+  $('#coTotal').textContent = fmt(coFinal);
+  const mt = $('#coMobileTotal'); if (mt) mt.textContent = fmt(coFinal);   // v95 sticky phone bar
 };
 /* ═══════════ v59 · price-drop alerts (metal rate moves the price) ═══════════ */
 window.Shivaa.rateAlertModal = (pid) => {
@@ -3218,13 +3228,14 @@ window.Shivaa.placeOrder = async () => {
   const form = $('#addrForm');
   if (!form.reportValidity()) return;
   const btn = $('#placeBtn'); btn.disabled = true; btn.textContent = 'Placing order…';
+  const btnM = document.querySelector('.mcta-bar .btn-gold'); if (btnM) { btnM.disabled = true; }
   // read by field name — positional indexing breaks the moment a field is added
   const fd = new FormData(form);
   const g = k => String(fd.get(k) || '').trim();
   const address = { name: g('name'), phone: g('phone'), line: g('line'), city: g('city'),
                     state: g('state'), pincode: g('pincode'), country: g('country') || 'India' };
   const payEl = $('#payOpts input:checked');
-  if (!payEl) { toast('Please choose a payment method', 'err'); btn.disabled = false; btn.textContent = 'Place Order \u2726'; return; }
+  if (!payEl) { toast('Please choose a payment method', 'err'); btn.disabled = false; btn.textContent = 'Place Order ✦'; if (btnM) btnM.disabled = false; return; }
   const paymentMethod = payEl.value;
   try {
     const order = await api('/api/orders', { method: 'POST', body: JSON.stringify({
@@ -3248,7 +3259,7 @@ window.Shivaa.placeOrder = async () => {
       if (!w) toast('Popup blocked — use the "Confirm & Pay on WhatsApp" button on your order page', 'err');
     }
     location.hash = '#/order/' + order.id;
-  } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = 'Place Order ✦'; }
+  } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = 'Place Order ✦'; if (btnM) btnM.disabled = false; }
 };
 
 /* v57 — one-tap reorder from a past order ("Buy again") */
