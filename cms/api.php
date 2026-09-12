@@ -2734,8 +2734,18 @@ try {
     $clean = ['code' => $code, 'type' => $type, 'value' => $value,
       'minOrder' => max(0, min(10000000, (float)($b['minOrder'] ?? 0))),
       'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 140),
-      'active' => true];
-    foreach (['expiresAt', 'oncePerUser', 'forNewUsers'] as $ck) if (array_key_exists($ck, $b)) $clean[$ck] = $b[$ck];
+      // v86 — real booleans; a string "false" used to be truthy under !empty()
+      'active' => array_key_exists('active', $b) ? in_array($b['active'], [true, 'true', '1', 1], true) : true,
+      'oncePerUser' => in_array($b['oncePerUser'] ?? false, [true, 'true', '1', 1], true),
+      'forNewUsers' => in_array($b['forNewUsers'] ?? false, [true, 'true', '1', 1], true)];
+    // v86 — expiry must be a real ISO/date string (a corrupt expiry otherwise
+    // makes strtotime() return false and the coupon never expires)
+    if (array_key_exists('expiresAt', $b) && trim((string)$b['expiresAt']) !== '') {
+      $ex = trim((string)$b['expiresAt']);
+      if (strtotime($ex) === false) jout(400, ['error' => 'Coupon expiry must be a valid date']);
+      $clean['expiresAt'] = mb_substr($ex, 0, 40);
+    }
+    if (!empty($b['forUser']) && is_string($b['forUser'])) $clean['forUser'] = mb_substr($b['forUser'], 0, 40);
     $db['coupons'][] = array_merge(['id' => uid('c')], $clean);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
@@ -2942,6 +2952,12 @@ try {
   if ($route === 'pay/order' && $method === 'POST') {
     $b = body_json();
     [$i, $o, $u] = $find_order_owner((string)($b['orderId'] ?? ''));
+    // v86 — a cancelled order must never create a gateway charge (a customer
+    // replaying a stale checkout could otherwise pay for a dead order).
+    if (($o['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled — please place a new order.']);
+    // v86 — cap payment-order creation so a scripted checkout can't flood the
+    // gateway (Razorpay orders) or the manual proof queue.
+    rate_block($db, 'payorder-u', $u['id'] ?? '?', 60, 3600);
     $s = $db['settings'];
     // v60: charge only the outstanding balance (advances / part payments already made)
     $already = (int)($o['amountPaid'] ?? 0);
@@ -2980,6 +2996,7 @@ try {
     $b = body_json();
     [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
     $s = $db['settings'];
+    if (($o['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled — no payment can be applied to it.']);  // v86
     $gOrderId = (string)($b['gatewayOrderId'] ?? ($o['gatewayOrderId'] ?? ''));
     $payId = (string)($b['paymentId'] ?? '');
     $sig = (string)($b['signature'] ?? '');
@@ -3026,6 +3043,7 @@ try {
     // multipart/form-data: fields arrive in $_POST, screenshot in $_FILES
     $proofOrderId = (string)($_POST['orderId'] ?? (body_json()['orderId'] ?? ''));
     [$i, $o] = $find_order_owner($proofOrderId);
+    if (($o['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled — no payment proof can be attached.']);  // v86
     rate_block($db, 'payproof-ip', client_ip(), 40, 3600);
     rate_block($db, 'payproof-u', $o['userId'] ?? '?', 30, 3600);
     if (count($db['orders'][$i]['payments'] ?? []) >= 12) jout(400, ['error' => 'Too many payment submissions for this order — contact the shop.']);
@@ -4234,8 +4252,18 @@ try {
     need_admin($db);
     foreach ($db['users'] as $ui => $x) if ($x['id'] === $mAN[1] || ($x['email'] ?? '') === $mAN[1] || ($x['phone'] ?? '') === $mAN[1]) {
       if (($x['role'] ?? '') === 'admin') jout(400, ['error' => 'Cannot anonymize an admin account']);
+      if (($x['role'] ?? '') === 'partner') jout(400, ['error' => 'Suspend the partner in the B2B screen instead of anonymising the account.']);  // v86
       $db['users'][$ui]['name'] = 'Deleted customer'; $db['users'][$ui]['email'] = 'deleted+' . $x['id'] . '@privacy.local';
       $db['users'][$ui]['phone'] = ''; $db['users'][$ui]['anonymizedAt'] = now_iso();
+      // v86 — DPDP erasure must also clear direct identifiers, not just name/phone
+      $db['users'][$ui]['addresses'] = [];
+      $db['users'][$ui]['profile'] = ['erased' => true];
+      $db['users'][$ui]['wishlist'] = [];
+      unset($db['users'][$ui]['referralCode'], $db['users'][$ui]['referredBy']);
+      // drop any saved one-tap login for this device-agnostic account (tokens keyed by token)
+      $keptT = [];
+      foreach (($db['tokens'] ?? []) as $tk => $t) if (($t['userId'] ?? '') !== $x['id']) $keptT[$tk] = $t;
+      $db['tokens'] = $keptT;
       audit_log($db, 'user.anonymized', ['user' => $x['id']]);
       db_save($DB_FILE, $db); jout(200, ['ok' => true]);
     }
@@ -4530,9 +4558,11 @@ try {
 
   if ($route === 'admin/stats' && $method === 'GET') {
     need_admin($db);
-    $rev = array_sum(array_column($db['orders'], 'total'));
+    // v86 — cancelled orders are not revenue and must not inflate the dashboard
+    $liveOrders = array_values(array_filter($db['orders'], fn($o) => ($o['status'] ?? '') !== 'Cancelled'));
+    $rev = array_sum(array_column($liveOrders, 'total'));
     $byDay = [];
-    foreach ($db['orders'] as $o) { $d = substr($o['createdAt'], 0, 10); $byDay[$d] = ($byDay[$d] ?? 0) + $o['total']; }
+    foreach ($liveOrders as $o) { $d = substr($o['createdAt'], 0, 10); $byDay[$d] = ($byDay[$d] ?? 0) + $o['total']; }
     $low = [];
     foreach ($db['products'] as $p) if (($p['stock'] ?? 0) <= 3) $low[] = ['name' => $p['name'], 'stock' => $p['stock']];
     $customers = count(array_filter($db['users'], fn($u) => $u['role'] === 'customer'));
@@ -4541,7 +4571,7 @@ try {
                'partners' => count(array_filter($db['partners'], fn($x) => $x['status'] === 'approved')),
                'pendingPartners' => count(array_filter($db['partners'], fn($x) => $x['status'] === 'pending')),
                'serviceRequests' => count(array_filter($db['serviceRequests'], fn($s) => $s['status'] === 'new')),
-               'aov' => count($db['orders']) ? (int)round($rev / count($db['orders'])) : 0,
+               'aov' => count($liveOrders) ? (int)round($rev / count($liveOrders)) : 0,
                'byDay' => $byDay, 'newsletter' => count($db['newsletter']), 'lowStock' => $low,
                'signIns' => array_reverse(array_slice($db['securityLog'] ?? [], -6)),
                'referrals' => count(array_filter($db['users'], fn($u) => !empty($u['referredBy']))),
