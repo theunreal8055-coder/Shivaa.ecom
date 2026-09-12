@@ -1354,12 +1354,46 @@ function startRing3D(canvas) {
 }
 
 /* ─────────── live rates ─────────── */
+let _lastRatesAt = 0;
 async function loadRates() {
   try {
     const r = await api('/api/rates');
     state.rates = { ...r, ...(r.jaipur || {}) };  // storefront prices = Jaipur market rates
-    renderTicker(); document.dispatchEvent(new CustomEvent('rates'));
+    _lastRatesAt = Date.now();
+    renderTicker(); renderRateStrip(); document.dispatchEvent(new CustomEvent('rates'));
   } catch (e) {}
+}
+/* v90 — while the official MCX feed is live the shop polls every 15 s so
+   every price tracks the exchange; off-hours it relaxes to 60 s. A tab
+   returning to the foreground refreshes immediately if its quote is stale. */
+let _ratesTimer = null;
+function scheduleRatesPoll() {
+  clearTimeout(_ratesTimer);
+  const live = !!(state.rates && state.rates.live);
+  const delay = live ? 15000 : 60000;
+  _ratesTimer = setTimeout(async () => { await loadRates(); scheduleRatesPoll(); }, delay);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !_lastRatesAt) return;
+  const maxAge = state.rates && state.rates.live ? 20000 : 90000;
+  if (Date.now() - _lastRatesAt > maxAge) { loadRates(); scheduleRatesPoll(); }
+}, { passive: true });
+/* flash a numeric element green/red when the market moves it */
+function flashMove(el, text, dir) {
+  if (!el) return;
+  el.textContent = text;
+  if (!dir) return;
+  el.classList.remove('m-flash-up', 'm-flash-down');
+  void el.offsetWidth;
+  el.classList.add(dir > 0 ? 'm-flash-up' : 'm-flash-down');
+  setTimeout(() => el.classList.remove('m-flash-up', 'm-flash-down'), 900);
+}
+function rateAgeLabel(R) {
+  if (R.live && R.liveAgeMs != null) {
+    const s = Math.max(1, Math.round((R.liveAgeMs + Math.max(0, Date.now() - _lastRatesAt)) / 1000));
+    return { txt: 'MCX live · ' + s + 's ago', live: true };
+  }
+  return { txt: (R.source === 'live-mcx' ? 'MCX' : R.source === 'live' ? 'Live spot' : esc(R.source)) + ' · ' + timeFmt(R.t), live: false };
 }
 function renderTicker() {
   const R = state.rates; if (!R) return;
@@ -1371,11 +1405,20 @@ function renderTicker() {
     const d = a - b;
     return `<i class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'}${Math.abs(d) >= 10 ? Math.round(Math.abs(d)) : Math.abs(d).toFixed(1)}</i>`;
   };
+  const liveTxt = R.live ? 'MCX LIVE' : 'JAIPUR LIVE';
   el.innerHTML =
-    `<span class="ub-live"><span class="live-dot"></span>JAIPUR LIVE</span>` +
-    `<span>Gold 22K <b>${fmt(R.gold22)}/g</b> ${chg(R.gold22, prev && prev.gold22)}</span>` +
-    `<span class="hide-sm">Gold 18K <b>${fmt(R.gold18)}/g</b> ${chg(R.gold18, prev && prev.gold18)}</span>` +
-    `<span>Silver <b>${fmt2(R.silver)}/g</b> ${chg(R.silver, prev && prev.silver)}</span>`;
+    `<span class="ub-live${R.live ? ' is-live' : ''}"><span class="live-dot"></span>${liveTxt}</span>` +
+    `<span>Gold 22K <b data-rt="gold22">${fmt(R.gold22)}/g</b> ${chg(R.gold22, prev && prev.gold22)}</span>` +
+    `<span class="hide-sm">Gold 18K <b data-rt="gold18">${fmt(R.gold18)}/g</b> ${chg(R.gold18, prev && prev.gold18)}</span>` +
+    `<span>Silver <b data-rt="silver">${fmt2(R.silver)}/g</b> ${chg(R.silver, prev && prev.silver)}</span>`;
+  // v90 — tick-flash only the value that moved, against the previous poll
+  if (state._lastRt) {
+    [['gold22', fmt(R.gold22) + '/g'], ['gold18', fmt(R.gold18) + '/g'], ['silver', fmt2(R.silver) + '/g']].forEach(([k, txt]) => {
+      const old = state._lastRt[k];
+      if (old != null && old !== txt) flashMove(el.querySelector(`[data-rt="${k}"]`), txt, parseFloat(txt.replace(/[^0-9.]/g, '')) > parseFloat(String(old).replace(/[^0-9.]/g, '')) ? 1 : -1);
+    });
+  }
+  state._lastRt = { gold22: fmt(R.gold22) + '/g', gold18: fmt(R.gold18) + '/g', silver: fmt2(R.silver) + '/g' };
 }
 
 /* ─────────── category slider v2 (image cards, Tanishq-inspired) ─────────── */
@@ -1602,14 +1645,22 @@ window.Shivaa.logout = () => {
 
 function renderRateStrip() {
   const R = state.rates; if (!R || !$('#rateStrip')) return;
-  const cell = (name, val, unit, chg) => `<div class="rscell"><small>${name}</small><b>${val}</b><span class="chg ${chg >= 0 ? 'up' : 'down'}">${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg).toFixed(0)} ${unit}</span></div>`;
+  const cell = (key, name, val, unit, chg) => `<div class="rscell"><small>${name}</small><b data-rsh="${key}">${val}</b><span class="chg ${chg >= 0 ? 'up' : 'down'}">${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg).toFixed(0)} ${unit}</span></div>`;
   const h = R.history || [];
   const prev = h.length > 1 ? h[h.length - 2] : R;
+  const age = rateAgeLabel(R);
   $('#rateStrip').innerHTML =
-    cell('✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
-    cell('Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
-    cell('Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
-    `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${R.source === 'live-mcx' ? 'Official MCX' : esc(R.source)} · auto refresh</span></div>`;
+    cell('gold22', '✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
+    cell('gold18', 'Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
+    cell('silver', 'Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
+    `<div class="rscell"><small>${R.live ? 'Live now' : 'Updated'}</small><b style="font-size:17px">${R.live ? '⦿ LIVE' : timeFmt(R.t)}</b><span class="${age.live ? 'rs-live' : ''}"${age.live ? ' data-rate-age' : ''}><span class="live-dot"></span>${age.txt}</span></div>`;
+  if (state._lastRsh) {
+    [['gold22', fmt(R.gold22)], ['gold18', fmt(R.gold18)], ['silver', fmt2(R.silver)]].forEach(([k, txt]) => {
+      const old = state._lastRsh[k];
+      if (old != null && old !== txt) flashMove($('#rateStrip').querySelector(`[data-rsh="${k}"]`), txt, parseFloat(txt.replace(/[^0-9.]/g, '')) > parseFloat(String(old).replace(/[^0-9.]/g, '')) ? 1 : -1);
+    });
+  }
+  state._lastRsh = { gold22: fmt(R.gold22), gold18: fmt(R.gold18), silver: fmt2(R.silver) };
 }
 
 /* ─────────── HOME ─────────── */
@@ -6379,8 +6430,13 @@ async function boot(isRedraw) {
   const pl = $('#preloader');
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
   route();
-  // poll rates every 60s (server caches 10-min; ticker + prices refresh)
-  setInterval(loadRates, 60000);
+  // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours
+  scheduleRatesPoll();
+  setInterval(() => {
+    const R = state.rates; if (!R || !R.live) return;
+    const s = Math.max(1, Math.round((R.liveAgeMs + Math.max(0, Date.now() - _lastRatesAt)) / 1000));
+    document.querySelectorAll('[data-rate-age]').forEach(el => { el.lastChild.textContent = 'MCX live · ' + s + 's ago'; });
+  }, 1000);
   // campaign expiry watchdog: even with the tab left open, the finale
   // module switches itself off within 30s of 00:00 IST on 1 Jan 2027.
   setInterval(syncFinaleChrome, 30000);

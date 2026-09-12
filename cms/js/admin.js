@@ -2394,6 +2394,18 @@ window.ShivaaBullion = {
       flashTxt('[data-duty="gP"]', inrFmt2(gParity), true);
       flashTxt('[data-duty="sV"]', inrFmt2(sParity * sm), true);
       flashTxt('[data-duty="sP"]', inrFmt2(sParity), true);
+      /* v90 — keep the import-parity basis chips moving with $ spot + FX */
+      const basis = (tag, ltp, usd) => {
+        const el = document.querySelector(`[data-basis="${tag}"]`);
+        if (!el || !(ltp > 0) || !(usd > 0)) return;
+        const parity = tag === 'g' ? usd * sp.inr.price / OZ * 10 : usd * sp.inr.price / OZ * 1000;
+        if (!(parity > 0)) return;
+        const b = (ltp / parity - 1) * 100;
+        el.textContent = 'vs import parity ' + (b >= 0 ? '+' : '') + b.toFixed(2) + '%';
+        el.classList.toggle('bd-basis-hi', b >= 0);
+      };
+      basis('g', B?.board?.future?.gold?.ltp, sp.gold?.price);
+      basis('s', B?.board?.future?.silver?.ltp, sp.silver?.price);
     }
     if (B) {
       B.board.spot = Object.assign(B.board.spot || {}, {
@@ -2530,7 +2542,7 @@ window.ShivaaBullion = {
       <div class="bd-pcard-lh"><span class="bd-lowtxt" data-spot="${tag}Lo">${lo ? fmt(lo) : '--'}</span><i>|</i><span class="bd-hitxt" data-spot="${tag}Hi">${hi ? fmt(hi) : '--'}</span></div>
     </div>`;
     const futCard = (tag, title, f, lo, hi, unit) => `<div class="bd-card bd-pcard">
-      <div class="bd-pcard-h">${title}</div>
+      <div class="bd-pcard-h">${title}<em class="bd-basis" data-basis="${tag}">—</em></div>
       <div class="bd-fba">
         <div><small>BID</small><b data-fut="${tag}Bid">${this.dash(f && f.bid)}</b></div>
         <div><small>ASK</small><b data-fut="${tag}Ask">${this.dash(f && f.ask)}</b></div>
@@ -2538,12 +2550,30 @@ window.ShivaaBullion = {
       <div class="bd-pcard-lh"><span class="bd-lowtxt" data-fut="${tag}Lo">L : ${this.num(lo)}</span><i>|</i><span class="bd-hitxt" data-fut="${tag}Hi">H : ${this.num(hi)}</span></div>
       <small class="bd-futunit">${unit}</small>
     </div>`;
+    /* v90 — import-parity basis: MCX future premium over landed $ spot parity
+       (gold: ₹/10 g, silver: ₹/kg). The desk can see domestic strength vs the
+       world price at a glance; it ticks live with the spot feed. */
+    const OZ = 31.1034768;
+    const paintBasis = (tag, ltp, spotGold, spotSil, fx) => {
+      const el = host.querySelector(`[data-basis="${tag}"]`);
+      if (!el || !(ltp > 0)) return;
+      const dParity = tag === 'g' ? ((duty.goldParity || 0) / 10) : (duty.silverParity || 0);
+      const parity = (fx > 0 && ((tag === 'g' && spotGold > 0) || (tag === 's' && spotSil > 0)))
+        ? (tag === 'g' ? spotGold * fx / OZ * 10 : spotSil * fx / OZ * 1000)
+        : dParity;   // before the live $ tick arrives, use the server's customs parity
+      if (!(parity > 0)) { el.textContent = 'parity —'; return; }
+      const b = (ltp / parity - 1) * 100;
+      el.textContent = 'vs import parity ' + (b >= 0 ? '+' : '') + b.toFixed(2) + '%';
+      el.classList.toggle('bd-basis-hi', b >= 0);
+    };
     const dutyCard = (tag, title, unit) => `<div class="bd-card bd-pcard">
       <div class="bd-pcard-h">${title}</div>
       <b class="bd-duty-v" data-duty="${tag}V">${this.num((duty || {})[tag === 'g' ? 'gold' : 'silver'])}</b>
       <small class="bd-futunit">${unit}</small>
     </div>`;
     host.innerHTML = `
+      ${this.summaryHTML(B)}
+      ${this.karatHTML(B)}
       <div class="bd-gridhead">
         <span>DESCRIPTION</span><span>BUY</span><span>SELL</span><span>T-CHANGE</span>
       </div>
@@ -2561,6 +2591,8 @@ window.ShivaaBullion = {
         ${dutyCard('g', 'GOLD CUSTOM DUTY', 'landed ₹/100 g')}
         ${dutyCard('s', 'SILVER CUSTOM DUTY', 'landed ₹/kg')}
       </div>`;
+    paintBasis('g', fut.gold && fut.gold.ltp, (spot.goldUsd || 0), 0, (spot.inr || 0));
+    paintBasis('s', fut.silver && fut.silver.ltp, 0, (spot.silverUsd || 0), (spot.inr || 0));
   },
   paintChart() {
     const el = document.getElementById('bdChart');
@@ -2872,7 +2904,8 @@ window.ShivaaBullion = {
     this.applyTick(t);
     const clock = this.istTime(t.at);
     if (t.stale) { this.setTickState((t.error ? 'feed: ' + t.error : 'market closed') + ' · ' + clock, false); return t.delayMs || 8000; }
-    this.setTickState((this.tickOpen ? 'live <1 s' : 'market closed · 10 s') + ' · ' + clock, true);
+    const ageTxt = t.ageMs != null ? (t.ageMs / 1000).toFixed(1) + 's' : '<1s';   // v90 real feed latency
+    this.setTickState((this.tickOpen ? 'live · ' + ageTxt : 'market closed · 10 s') + ' · ' + clock, true);
     return t.delayMs || (this.tickOpen ? 800 : 10000);
   },
   applyTick(t) {
@@ -2960,6 +2993,23 @@ window.ShivaaBullion = {
       fc('gChg', g.chg, g.chgPct); fc('sChg', s.chg, s.chgPct);
       [['k24', k24], ['k22', B.board.karat.k22], ['k20', B.board.karat.k20], ['k18', B.board.karat.k18], ['silverKg', B.board.karat.silverKg]]
         .forEach(([tag, v]) => set(`[data-kar="${tag}"]`, num(v)));
+      /* v90 — the two hero rates now tick with every exchange frame (they
+         used to freeze until the 30 s full refresh) */
+      const hero = (key, tags, mult) => {
+        const r = B.rows.find(x => x.key === key); if (!r) return;
+        const bv = r.buy ? Math.round(r.buy * mult) : 0, sv = r.sell ? Math.round(r.sell * mult) : 0;
+        flash(document.querySelector(`[data-sum="${tags[0]}"]`), bv ? num(bv) : '--');
+        flash(document.querySelector(`[data-sum="${tags[1]}"]`), sv ? num(sv) : '--');
+        const ar = document.querySelector(`[data-sum="${tags[2]}"]`);
+        if (ar) {
+          const c = (r.change || 0) * mult, base = tags[2][0] === 'g' ? bv : sv;
+          const pct = c ? Math.abs(c) / Math.max(1, base - c) * 100 : 0;
+          ar.className = c >= 0 ? 'bd-hitxt' : 'bd-lowtxt';
+          ar.textContent = (c >= 0 ? '▲' : '▼') + ' ' + (pct ? pct.toFixed(2) + '%' : '—');
+        }
+      };
+      hero('tdsGold9999', ['gBuy', 'gSell', 'gArrow'], 10);
+      hero('silverChorsa', ['sBuy', 'sSell', 'sArrow'], 1000);
       /* v72 exchange stats: ATP · OI · VOL + feed timestamp */
       const cq = v => {
         v = +v || 0;

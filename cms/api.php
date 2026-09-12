@@ -817,6 +817,42 @@ function angel_mcx_from_tick(array $db, int $maxAgeSec = 120): ?array {
   return $out;
 }
 
+/* v90 — zero-cost LIVE quote for the STOREFRONT. Reads the shared tick
+   snapshot the relay/1 s loop already maintains: no HTTP, no Angel quota,
+   no db.json write. Freshness uses the payload microtimestamp (the relay
+   pushes ~10 frames/s), so shopper prices can track the official MCX
+   future in near real time instead of waiting for the ~10 min refresh. */
+function live_tick_quote(array $db, float $maxAgeSec = 12.0): ?array {
+  $cacheFile = $GLOBALS['ROOT'] . '/data/.angel-tick.json';
+  if (!is_file($cacheFile)) return null;
+  $t = json_decode((string)@file_get_contents($cacheFile), true);
+  if (!is_array($t) || !empty($t['stale'])) return null;
+  $g = $t['gold'] ?? null; $s = $t['silver'] ?? null;
+  if (!is_array($g) || !is_array($s) || (float)($g['ltp'] ?? 0) <= 0 || (float)($s['ltp'] ?? 0) <= 0) return null;
+  $ts = (float)($t['ts'] ?? 0);
+  $age = $ts > 0 ? max(0.0, microtime(true) - $ts)
+                 : max(0.0, microtime(true) - (float)@filemtime($cacheFile));
+  if ($age > $maxAgeSec) return null;
+  return [
+    'goldPerG'    => round((float)$g['ltp'] / 10, 2),
+    'silverPerG'  => round((float)$s['ltp'] / 1000, 3),
+    'ageMs'       => (int)round($age * 1000),
+    'at'          => (string)($t['at'] ?? now_iso()),
+    'open'        => !empty($t['open']) && (float)($g['bid'] ?? 0) > 0 && (float)($g['ask'] ?? 0) > 0,
+    'source'      => !empty($t['relay']) ? 'mcx-relay' : 'mcx-live',
+    'servedFrom'  => (string)($t['servedFrom'] ?? ''),
+    'goldChgPct'  => (float)($g['chgPct'] ?? 0),
+    'silverChgPct' => (float)($s['chgPct'] ?? 0),
+  ];
+}
+/* MCX bullion-futures session hint (exchange clock is IST, set globally).
+   The tick snapshot remains the source of truth; this only labels the
+   "market hours" chip. Mon–Fri 09:00–23:40 IST. */
+function mcx_hours_open(): bool {
+  $d = (int)date('N'); $hm = (int)date('Hi');
+  return $d >= 1 && $d <= 5 && $hm >= 900 && $hm <= 2340;
+}
+
 /* v69 — per-second bullion tick. All viewers share ONE micro-cached exchange
    quote (flock-coalesced) so the board feels real-time while the account
    stays well inside Angel's quote rate limit (1 rps post-2024 change).
@@ -1438,6 +1474,17 @@ function current_rates(array $db): array {
   $gp = (int)($db['settings']['jaipurPremium'] ?? 55); $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
   return ['gold24' => (int)$l['gold24'] + $gp, 'gold22' => (int)$l['gold22'] + $gp,
           'gold18' => (int)$l['gold18'] + (int)round($gp * 0.75), 'silver' => round((double)$l['silver'] + $sp, 1)];
+}
+/* v90 — same Jaipur premium math as current_rates(), but anchored to the
+   fresh MCX tick per-gram price instead of the ~10 min persisted stamp. */
+function jaipur_live_from_tick(array $db, array $lv): array {
+  $gp = (int)($db['settings']['jaipurPremium'] ?? 55);
+  $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
+  $g24 = (float)$lv['goldPerG']; $sil = (float)$lv['silverPerG'];
+  return ['gold24' => (int)round($g24) + $gp,
+          'gold22' => (int)round($g24 * PURITY_22) + $gp,
+          'gold18' => (int)round($g24 * PURITY_18) + (int)round($gp * 0.75),
+          'silver' => round($sil + $sp, 1)];
 }
 function gstin_check(string $g): array {
   $g = strtoupper(trim($g));
@@ -2140,14 +2187,31 @@ try {
     $last = $db['rates']['last'];
     $base = $last;
     if (!empty($db['rates']['override'])) { $base = array_merge($base, $db['rates']['override'], ['source' => 'override (admin)', 't' => now_iso()]); }
+    /* v90 — storefront prices track the live MCX future: when a fresh tick
+       snapshot exists (relay push or the 1 s shared tick), overlay the Jaipur
+       rates the shop prices from. The persisted 10 min stamp + history are
+       untouched, so day bands/charts keep their cadence. An admin override
+       always wins and disables the overlay. */
+    $jaipur = current_rates($db);
+    $liveMeta = ['live' => false, 'marketHours' => mcx_hours_open()];
+    if (empty($db['rates']['override'])) {
+      $lv = live_tick_quote($db);
+      if ($lv) {
+        $jaipur = jaipur_live_from_tick($db, $lv);
+        $liveMeta = ['live' => true, 'liveAt' => $lv['at'], 'liveAgeMs' => $lv['ageMs'],
+          'liveSource' => $lv['source'], 'marketOpen' => $lv['open'],
+          'marketHours' => mcx_hours_open(),
+          'liveChg' => ['goldPct' => $lv['goldChgPct'], 'silverPct' => $lv['silverChgPct']]];
+      }
+    } else { $liveMeta['override'] = true; }
     jout(200, array_merge($base, [
       'spot' => ['gold24' => $last['gold24'], 'gold22' => $last['gold22'], 'gold18' => $last['gold18'], 'silver' => $last['silver']],
-      'jaipur' => current_rates($db),
+      'jaipur' => $jaipur,
       'premium' => ['gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
       'override' => $db['rates']['override'] ?? null,
       'history' => array_slice($db['rates']['history'] ?? [], -120),
       'nextUpdateIn' => 60,
-    ]));
+    ], $liveMeta));
   }
   if ($route === 'rates/refresh' && $method === 'POST') {
     need_admin($db);
@@ -3585,7 +3649,24 @@ try {
     $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     // v73 — opening/polling the desk also keeps the dollar/FX side fresh
     if (rates_stale($db)) { rates_refresh($db); db_save($DB_FILE, $db); }
+    // v90 — the desk must open ALREADY in sync with the market: shadow-anchor
+    // bullion_rows to the freshest tick snapshot (≤10 s old) without waiting
+    // for the ~10 min rates refresh. In-memory only unless news refresh saves.
+    $market = ['live' => false, 'hours' => mcx_hours_open(), 'at' => null, 'ageMs' => null];
+    $lvTick = live_tick_quote($db, 10.0);
+    if ($lvTick) {
+      $mcxFresh = angel_mcx_from_tick($db, 10);
+      if ($mcxFresh) {
+        $db['rates']['mcx'] = $mcxFresh;
+        $db['rates']['last']['source'] = 'live-mcx';
+        $db['rates']['last']['gold24'] = (int)round($mcxFresh['goldPerG']);
+        $db['rates']['last']['silver'] = round((float)$mcxFresh['silverPerG'], 1);
+        $market = ['live' => true, 'hours' => mcx_hours_open(), 'at' => $lvTick['at'],
+          'ageMs' => $lvTick['ageMs'], 'open' => $lvTick['open'], 'source' => $lvTick['source']];
+      }
+    }
     $out = bullion_rows($db);
+    $out['market'] = $market;
     /* v60 — attach this jeweller's rate alerts / unfix requests with live reached state */
     $byKey = [];
     foreach ($out['rows'] as $rr) $byKey[$rr['key']] = $rr;
@@ -3609,6 +3690,8 @@ try {
     $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     $t = angel_tick($db);
     $t['spot'] = spot_tick($db, $t);
+    if (!isset($t['ageMs']) && !empty($t['ts'])) $t['ageMs'] = (int)round((microtime(true) - (float)$t['ts']) * 1000);  // v90 feed latency
+    $t['marketHours'] = mcx_hours_open();
     jout(200, $t);
   }
   if ($route === 'bullion/cash' && $method === 'PUT') {

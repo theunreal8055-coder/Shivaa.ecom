@@ -58,6 +58,7 @@
     view.classList.add('pg');
     Array.from(view.children).slice(0, 10).forEach((c, i) => c.style.setProperty('--i', i));
     tagStaggers(view);
+    tagRises(view);
     requestAnimationFrame(() => { sweepCounts(); sweepImages(); });
   }
   if (view && 'MutationObserver' in window) {
@@ -183,15 +184,52 @@
     if (e.target && e.target.classList) e.target.classList.remove('invalid');
   }, { passive: true, capture: true });
 
+  /* ── 9. v90 structural blocks rise as they enter the viewport ─────── */
+  /* Curated to blocks NOT already covered by grid staggers/hero entrances,
+     so nothing ever double-animates. Opacity is owned by this file only. */
+  const RISE_SEL = '.sec-head,.bg-steps,.finq-steps,.tracker-wrap,' +
+    '.pd-gallery,.pd-info,.contact-grid > *,.bd-sech,.partner-hero';
+  const riseIO = (!reduced && 'IntersectionObserver' in window)
+    ? new IntersectionObserver((es) => es.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('in'); riseIO.unobserve(e.target); }
+      }), { threshold: 0.1, rootMargin: '0px 0px -6% 0px' })
+    : null;
+  function tagRises(scope) {
+    if (!riseIO) return;
+    $$(RISE_SEL, scope).forEach(el => { if (!el.classList.contains('m-rise')) { el.classList.add('m-rise'); riseIO.observe(el); } });
+  }
+
+  /* ── 10. v90 product-detail gallery lightbox (click any photo) ────── */
+  document.addEventListener('click', (e) => {
+    const img = e.target && e.target.closest && e.target.closest('#galTrack .gal-slide img');
+    if (!img) return;
+    const src = img.currentSrc || img.src;
+    if (!src) return;
+    let box = $('#mLightbox');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'mLightbox';
+      box.className = 'm-lightbox';
+      box.innerHTML = '<img alt="Expanded product view"><button type="button" class="m-lightbox-x" aria-label="Close">✕</button>';
+      document.body.appendChild(box);
+      const close = () => { box.classList.remove('open'); document.body.style.overflow = ''; };
+      box.addEventListener('click', (ev) => { if (ev.target === box || ev.target.closest('.m-lightbox-x')) close(); });
+      document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && box.classList.contains('open')) close(); });
+    }
+    box.querySelector('img').src = src;
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => box.classList.add('open'));
+  }, { passive: true });
+
   /* tiny public hook (also used by tests) */
-  window.ShivaaMotion = { playPage, tagStaggers, sweepCounts, sweepImages, reduced };
+  window.ShivaaMotion = { playPage, tagStaggers, tagRises, sweepCounts, sweepImages, reduced };
 
   /* ── 8. idle sweeps for late renders ──────────────────────────────── */
-  const kick = () => { sweepImages(); sweepCounts(); };
+  const kick = () => { sweepImages(); sweepCounts(); tagRises(view); };
   setTimeout(kick, 400); setTimeout(kick, 1400);
   if (!reduced && view) {
     // re-tag staggers once images/lists arrive late (async tab data)
-    const t = setInterval(() => { tagStaggers(view); }, 1200);
+    const t = setInterval(() => { tagStaggers(view); tagRises(view); }, 1200);
     setTimeout(() => clearInterval(t), 8000);
   }
 })();
