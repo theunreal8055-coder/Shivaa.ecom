@@ -79,6 +79,12 @@ async function api(path, opts = {}) {
     e.isNetwork = true; throw e;
   }
   const data = await res.json().catch(() => ({}));
+  // v80: a successful call proves connectivity — dismiss a stale offline
+  // banner even if the browser never fired the flaky 'online' event
+  if (document.body.classList.contains('is-offline')) {
+    document.body.classList.remove('is-offline');
+    document.getElementById('offlineBar')?.classList.remove('show');
+  }
   if (!res.ok) {
     // v31 — self-healing sessions: if the server says our token is dead,
     // drop it immediately so every page shows its login gate instead of
@@ -1577,7 +1583,11 @@ window.Shivaa.orderDetail = async id => {
   <div class="sum-row total"><span>Total (incl. GST)</span><b>${fmt(o.total)}</b></div>
   <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address.name || '')}, ${esc(o.address.line || '')}, ${esc(o.address.city || '')} — ${esc(o.address.pincode || '')}<br><b>Timeline:</b> ${o.timeline.map(t => t.s).join(' → ')}</div>`, 'lg');
 };
-window.Shivaa.logout = () => { setToken(null); state.user = null; toast('Logged out'); location.hash = '#/'; boot(true); };
+window.Shivaa.logout = () => {
+  // v80: revoke the bearer token server-side (best-effort), then clear locally
+  try { const t = token(); if (t) fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, keepalive: true }).catch(() => {}); } catch (e) {}
+  setToken(null); state.user = null; toast('Logged out'); location.hash = '#/'; boot(true);
+};
 
 function renderRateStrip() {
   const R = state.rates; if (!R || !$('#rateStrip')) return;
@@ -2298,7 +2308,11 @@ window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd
 
 /* ─────────── v54 GLOBAL UX: scroll progress · back-to-top · buy-bar routing ─────────── */
 (function () {
-  const bar = document.createElement('div'); bar.id = 'scrollProg'; bar.setAttribute('aria-hidden', 'true');
+  // v80: index.html already ships #scrollProg — reuse it instead of creating
+  // a duplicate-id second bar (the old width-vs-transform fight caused extra
+  // layout work on every scroll frame)
+  let bar = document.getElementById('scrollProg');
+  if (!bar) { bar = document.createElement('div'); bar.id = 'scrollProg'; bar.setAttribute('aria-hidden', 'true'); document.body.appendChild(bar); }
   const top = document.createElement('button'); top.id = 'backTop'; top.type = 'button';
   top.setAttribute('aria-label', 'Back to top'); top.innerHTML = '↑';
   document.body.appendChild(bar); document.body.appendChild(top);
@@ -6066,18 +6080,23 @@ function refreshCheckoutTotals() {
 
 /* ─────────── header behaviours + premium chrome ─────────── */
 addEventListener('scroll', (() => {
-  // v42: throttled scroll handler — prevents jank on Android Chrome
-  let _scrollTicking = false;
+  // v42: throttled scroll handler; v80: hysteresis bands so mobile
+  // rubber-banding / sub-pixel jitter at the threshold can't oscillate
+  // the header classes (that oscillation + the blurred sticky header's
+  // height animation was the visible header flicker on scroll).
+  let _scrollTicking = false, _scrolled = false, _compact = false;
+  const apply = (y) => {
+    const wantScrolled = _scrolled ? y > 4 : y > 14;
+    const wantCompact  = _compact  ? y > 150 : y > 200;
+    const hdr = $('#header');
+    if (hdr && wantScrolled !== _scrolled) { hdr.classList.toggle('scrolled', wantScrolled); _scrolled = wantScrolled; }
+    if (hdr && wantCompact !== _compact) { hdr.classList.toggle('compact', wantCompact); _compact = wantCompact; }
+  };
   return () => {
     if (_scrollTicking) return;
     _scrollTicking = true;
     requestAnimationFrame(() => {
-      const hdr = $('#header');
-      if (hdr) hdr.classList.toggle('scrolled', scrollY > 8);
-      hdr && hdr.classList.toggle('compact', scrollY > 170);
-      const d = document.documentElement;
-      const pct = scrollY / Math.max(1, d.scrollHeight - innerHeight) * 100;
-      const sp = $('#scrollProg'); if (sp) sp.style.width = pct + '%';
+      apply(scrollY);
       _scrollTicking = false;
     });
   };

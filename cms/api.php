@@ -2196,6 +2196,19 @@ try {
     $events = $u ? event_coupons_ensure($db, $u) : [];
     jout(200, ['user' => $u ? pub_user($u) : null, 'events' => $events]);
   }
+  /* v80 — real sign-out: revoke the presented bearer token server-side so a
+     token left on a shared/lost phone stops working immediately */
+  if ($route === 'auth/logout' && $method === 'POST') {
+    if (preg_match('#^Bearer (\w+)$#', $_SERVER['HTTP_AUTHORIZATION'] ?? '', $lm)
+        && isset($db['tokens'][$lm[1]])) {
+      unset($db['tokens'][$lm[1]]);
+      // opportunistically prune expired tokens too
+      $nowT = time();
+      $db['tokens'] = array_filter($db['tokens'] ?? [], fn($tk) => ($tk['exp'] ?? 0) > $nowT);
+      db_save($DB_FILE, $db);
+    }
+    jout(200, ['ok' => true]);
+  }
   if ($route === 'auth/profile' && $method === 'PUT') {
     $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
     $b = body_json();
@@ -3607,14 +3620,32 @@ try {
     $uSet = req_user($db);
     if ($uSet && ($uSet['role'] ?? '') === 'admin') jout(200, $db['settings']);
     // v58: public projection — never expose gateway secrets / API keys
+    // v80: also hides the tick-relay shared key (angelRelayKey) and the key
+    // embedded in the public SSE URL (angelRelayStreamUrl ?key=…)
     $pubSettings = array_filter($db['settings'],
-      fn($k) => !preg_match('/secret|token|password|private|apiKey|gstKey|mpin/i', $k),
+      fn($k) => !preg_match('/secret|token|password|private|apiKey|gstKey|mpin|relayKey|smsKey|otpKey/i', $k),
       ARRAY_FILTER_USE_KEY);
+    if (!empty($pubSettings['angelRelayStreamUrl'])) {
+      $pubSettings['angelRelayStreamUrl'] = (string)preg_replace(
+        '/([?&])key=[^&#]*/i', '$1key=', (string)$pubSettings['angelRelayStreamUrl']);
+    }
     jout(200, $pubSettings);
   }
   if ($route === 'settings' && $method === 'PUT') {
     need_admin($db);
     $setBody = body_json();
+    // v80: validate relay URL fields (must be http/https; prevents stored junk)
+    foreach (['angelRelayUrl', 'angelRelayStreamUrl'] as $rk) {
+      if (array_key_exists($rk, $setBody)) {
+        $rv = trim((string)$setBody[$rk]);
+        if ($rv !== '' && !preg_match('#^https?://#i', $rv)) jout(400, ['error' => $rk . ' must start with https://']);
+        $setBody[$rk] = $rv;
+      }
+    }
+    if (array_key_exists('angelRelayKey', $setBody)) {
+      $setBody['angelRelayKey'] = trim((string)$setBody['angelRelayKey']);
+      if (strlen($setBody['angelRelayKey']) > 128) jout(400, ['error' => 'Relay key too long']);
+    }
     foreach ($setBody as $k => $v) $db['settings'][$k] = $v;
     audit_log($db, 'settings.updated', ['keys' => implode(',', array_keys($setBody))]);
     db_save($DB_FILE, $db); jout(200, $db['settings']);
