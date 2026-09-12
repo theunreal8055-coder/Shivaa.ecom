@@ -67,6 +67,52 @@ function shv_sanitize_product_media(array &$p): void {
     $p['video'] = $u ?? '';
   }
 }
+/* v84 — product catalogue writes are admin-only, but a fat-fingered or
+   corrupted write used to flow straight into server-side price maths
+   (negative weight → negative price, NaN making charges, 100k-sized stock).
+   Whitelist the catalogue fields, type them and clamp them. Hallmark data
+   has its own staff editor and is intentionally NOT in this list. */
+function shv_sanitize_product_fields(array $b, array $existing = []): array {
+  $out = $existing;
+  $texts = ['name' => 200, 'category' => 60, 'metal' => 20, 'purity' => 20,
+            'stoneType' => 40, 'stoneColour' => 40, 'stoneDesc' => 300,
+            'sku' => 60, 'desc' => 20000, 'mediaNote' => 300];
+  foreach ($texts as $tk => $lim) {
+    if (array_key_exists($tk, $b))
+      $out[$tk] = is_scalar($b[$tk]) ? mb_substr(trim((string)$b[$tk]), 0, $lim) : '';
+  }
+  $num = function ($k, $lo, $hi, $default, $round = 3) use ($b, $out) {
+    $v = array_key_exists($k, $b) ? $b[$k] : ($out[$k] ?? $default);
+    if (!is_numeric($v) || !is_finite((float)$v)) $v = $default;
+    return max($lo, min($hi, $round === 0 ? (int)round((float)$v) : round((float)$v, $round)));
+  };
+  $out['weightG']     = $num('weightG', 0.001, 1000000, $existing['weightG'] ?? 1);
+  $out['lessWeightG'] = $num('lessWeightG', 0, (float)$out['weightG'], $existing['lessWeightG'] ?? 0);
+  $out['wastagePct']  = $num('wastagePct', 0, 100, $existing['wastagePct'] ?? 0, 2);
+  $out['stock']       = $num('stock', 0, 10000000, $existing['stock'] ?? 0, 0);
+  $out['stoneValue']  = $num('stoneValue', 0, 1000000000, $existing['stoneValue'] ?? 0, 0);
+  $mcScheme = in_array($b['mcScheme'] ?? ($existing['mcScheme'] ?? 'fixed'), ['fixed', 'percent', 'perGram'], true)
+            ? ($b['mcScheme'] ?? $existing['mcScheme'] ?? 'fixed') : 'fixed';
+  $out['mcScheme'] = $mcScheme;
+  $mcHi = $mcScheme === 'percent' ? 100 : ($mcScheme === 'perGram' ? 1000000 : 1000000000);
+  $out['mcValue'] = $num('mcValue', 0, $mcHi, $existing['mcValue'] ?? 0, 2);
+  if (array_key_exists('active', $b)) {
+    $av = $b['active'];
+    $out['active'] = is_bool($av) ? $av : in_array(strtolower(trim((string)$av)), ['1', 'true', 'on', 'yes'], true);
+  }
+  // media arrays arrive already through shv_sanitize_product_media()
+  if (array_key_exists('images', $b)) $out['images'] = is_array($b['images']) ? array_slice(array_values($b['images']), 0, 12) : [];
+  if (array_key_exists('video', $b)) $out['video'] = is_scalar($b['video']) ? (string)$b['video'] : '';
+  foreach (['sizes' => [20, 30], 'tags' => [30, 30]] as $ak => [$maxN, $maxLen]) {
+    if (array_key_exists($ak, $b)) {
+      $arr = is_array($b[$ak]) ? array_slice($b[$ak], 0, $maxN) : [];
+      $clean = [];
+      foreach ($arr as $av) if (is_scalar($av)) $clean[] = mb_substr(trim((string)$av), 0, $maxLen);
+      $out[$ak] = $ak === 'tags' ? array_map('strtolower', array_values(array_unique($clean))) : $clean;
+    }
+  }
+  return $out;
+}
 function body_json(): array {
   // v81 — cap request bodies (memory-exhaustion / DoS guard)
   static $checked = false;
@@ -175,14 +221,34 @@ function db_save(string $DB_FILE, array $db): void {
   // then rename over db.json. A crash/disk-full mid-write can never leave a
   // truncated/zero-byte database (the old file stays intact until rename).
   $json = json_encode($db, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+  // v84 — fail closed: a failed encode (false, e.g. invalid UTF-8) or an
+  // empty/short temp write must NOT rename over the live database. Log it
+  // and leave the previous file untouched rather than blanking every record.
+  if ($json === false || $json === '') {
+    @error_log('Shivaa db_save: json_encode failed (' . json_last_error_msg() . ') — keeping previous db.json');
+    if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+    jout(500, ['error' => 'Could not save data safely — please retry; the previous data was kept.']);
+  }
   $tmp = $DB_FILE . '.tmp-' . bin2hex(random_bytes(4));
   $w = fopen($tmp, 'wb');
   if ($w) {
-    fwrite($w, $json); fflush($w); fclose($w);
+    $written = fwrite($w, $json);
+    fflush($w); fclose($w);
+    if ($written !== strlen($json)) {
+      @unlink($tmp);
+      @error_log('Shivaa db_save: short write — keeping previous db.json');
+      if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+      jout(500, ['error' => 'Could not save all data (disk full?) — previous data was kept.']);
+    }
     @chmod($tmp, 0644);
-    rename($tmp, $DB_FILE);
+    if (!@rename($tmp, $DB_FILE)) {
+      @unlink($tmp);
+      if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+      jout(500, ['error' => 'Could not finalise the save — please retry.']);
+    }
   } else {
-    file_put_contents($DB_FILE, $json);   // read-only hosts: legacy fallback
+    // read-only hosts: legacy fallback, but only when the encode is non-empty
+    @file_put_contents($DB_FILE, $json);
   }
   if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
 }
@@ -1407,6 +1473,14 @@ function order_add_payment(array &$ord, array $pay): void {
   $pay['amount'] = (int)round((float)($pay['amount'] ?? $ord['total'] ?? 0));
   $pay['at'] = $pay['at'] ?? now_iso();
   $pay['status'] = $pay['status'] ?? 'approved';
+  // v84 — a payment ledger line can never be negative or push money received
+  // past the order total (a mistyped manual amount used to inflate revenue
+  // reports and the amountPaid figure that refund clamping relies on).
+  if (($pay['status'] ?? '') === 'approved') {
+    $already = array_sum(array_map(fn($p) => ($p['status'] ?? '') === 'approved' ? (int)($p['amount'] ?? 0) : 0, $ord['payments'] ?? []));
+    $room = max(0, (int)($ord['total'] ?? 0) - $already);
+    $pay['amount'] = max(0, min($pay['amount'], $room));
+  }
   $ord['payments'] = $ord['payments'] ?? [];
   $ord['payments'][] = $pay;
   if ($pay['status'] === 'approved') {
@@ -1925,9 +1999,9 @@ try {
     if ($target <= 0 || $target > 100000000) jout(400, ['error' => 'Enter a valid target rate']);
     $email = filter_var((string)($b['email'] ?? ''), FILTER_VALIDATE_EMAIL) ? substr((string)$b['email'], 0, 160) : '';
     $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
-    if ($email === '' && strlen($phone) !== 10) jout(400, ['error' => 'A valid email or 10-digit mobile is required']);
+    if ($email === '' && !preg_match('/^[6-9]\d{9}$/', $phone)) jout(400, ['error' => 'A valid email or 10-digit mobile is required']);  // v84
     $db['rateAlerts'][] = ['id' => uid('ra'), 'email' => $email,
-      'phone' => $phone,
+      'phone' => preg_match('/^[6-9]\d{9}$/', $phone) ? $phone : '',
       'metal' => substr((string)($b['metal'] ?? ''), 0, 20), 'target' => $target,
       'productId' => substr((string)($b['productId'] ?? ''), 0, 40),
       'userId' => ($u = req_user($db)) ? $u['id'] : '', 'createdAt' => now_iso()];
@@ -1938,6 +2012,8 @@ try {
   /* ── Feature 1: staff-entered piece HUIDs (never BIS verification) ── */
   if (preg_match('#^admin/products/([\w-]+)/hallmark$#', $route, $hm)) {
     need_admin($db);
+    // v84 — only GET/PUT are understood here
+    if (!in_array($method, ['GET', 'PUT'], true)) { header('Allow: GET, PUT'); jout(405, ['error' => 'Method not allowed']); }
     try {
       if ($method === 'GET') {
         foreach ($db['products'] as $p) if ($p['id'] === $hm[1]) {
@@ -1988,7 +2064,8 @@ try {
       // v83 — identity/timestamps are server-owned; a PUT must never re-key
       // the row (two products sharing an id collapse every later lookup).
       unset($b['id'], $b['createdAt']);
-      foreach ($b as $k => $v) $db['products'][$idx][$k] = $v;
+      // v84 — only typed/clamped catalogue fields merge; unknown keys dropped
+      $db['products'][$idx] = shv_sanitize_product_fields($b, $db['products'][$idx]);
       db_save($DB_FILE, $db); jout(200, hallmark_product($db['products'][$idx]));
     }
     if ($method === 'DELETE') {
@@ -2004,7 +2081,14 @@ try {
     catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
     shv_sanitize_product_media($b);   // v83 — strip attribute-breaking media URLs
     unset($b['id'], $b['createdAt']);  // v83 — identity is server-minted
-    $prod = array_merge(['createdAt' => now_iso(), 'active' => true, 'rating' => 4.6, 'reviews' => 0, 'stock' => 10, 'sizes' => [], 'tags' => [], 'images' => [], 'stoneValue' => 0], $b);
+    $prod = shv_sanitize_product_fields($b);   // v84 — typed/clamped catalogue fields
+    if (trim((string)($b['name'] ?? '')) === '') jout(400, ['error' => 'Product name required']);
+    if (!isset($b['weightG']) || !is_numeric($b['weightG']) || (float)$b['weightG'] <= 0) jout(400, ['error' => 'Weight must be greater than 0']);
+    if (empty($prod['images'])) jout(400, ['error' => 'Add at least one product picture']);
+    $prod['createdAt'] = now_iso();
+    $prod['active'] = $prod['active'] ?? true;
+    $prod['rating'] = (float)($prod['rating'] ?? 4.6);
+    $prod['reviews'] = (int)($prod['reviews'] ?? 0);
     $prod['id'] = uid('p');
     $db['products'][] = $prod; db_save($DB_FILE, $db); jout(200, hallmark_product($prod));
   }
@@ -2037,7 +2121,29 @@ try {
   if ($route === 'making-charges' && $method === 'GET') jout(200, ['table' => $db['makingCharges'], 'gst' => 3]);
   if ($route === 'making-charges' && $method === 'PUT') {
     need_admin($db);
-    $db['makingCharges'] = body_json()['table'] ?? [];
+    // v84 — the chart is displayed to B2B partners; validate its shape so a
+    // corrupt/hostile body can't push nested objects or NaN into the board.
+    $in = body_json()['table'] ?? [];
+    if (!is_array($in)) jout(400, ['error' => 'table must be a list']);
+    if (count($in) > 100) jout(400, ['error' => 'Too many rows (max 100)']);
+    $cleanTable = [];
+    foreach ($in as $row) {
+      if (!is_array($row)) continue;
+      $cr = [];
+      foreach ($row as $k => $v) {
+        $k = preg_replace('/[^\w-]/', '', (string)$k);
+        if ($k === '' || strlen($k) > 24) continue;
+        if (is_string($v)) $cr[$k] = mb_substr(trim($v), 0, 60);
+        elseif (is_bool($v)) $cr[$k] = $v;
+        elseif (is_numeric($v)) {
+          $nv = (float)$v;
+          if (!is_finite($nv) || $nv < -1000000 || $nv > 100000000) jout(400, ['error' => 'A charge value is out of range']);
+          $cr[$k] = $nv;
+        }
+      }
+      $cleanTable[] = $cr;
+    }
+    $db['makingCharges'] = $cleanTable;
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
 
@@ -2506,13 +2612,16 @@ try {
     $b = body_json();
     if (empty($b['name']) || empty($b['phone']) || empty($b['line']) || empty($b['city']) || empty($b['pincode'])) jout(400, ['error' => 'Name, phone, address, city & pincode required']);
     if (!preg_match('#^\d{6}$#', (string)$b['pincode'])) jout(400, ['error' => 'Pincode must be 6 digits']);
+    // v84 — delivery phone must resolve to a usable 10-digit Indian mobile
+    $aPhone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    if (!preg_match('#^[6-9]\d{9}$#', $aPhone)) jout(400, ['error' => 'Enter a valid 10-digit delivery mobile']);
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
       $uu['addresses'] = $uu['addresses'] ?? [];
       if (count($uu['addresses']) >= 10) jout(400, ['error' => 'Address book is full (max 10) — delete one first.']);
       $label = in_array($b['label'] ?? '', ['Home', 'Work', 'Other'], true) ? $b['label'] : 'Home';
       $addr = ['id' => uid('ad'), 'label' => $label,
                'name' => mb_substr(trim((string)$b['name']), 0, 80),
-               'phone' => substr(preg_replace('/\D/', '', (string)$b['phone']), -10),
+               'phone' => $aPhone,
                'line' => mb_substr(trim((string)$b['line']), 0, 160),
                'city' => mb_substr(trim((string)$b['city']), 0, 60),
                'state' => mb_substr((string)($b['state'] ?? 'Rajasthan'), 0, 60), 'pincode' => (string)$b['pincode']];
@@ -2524,26 +2633,33 @@ try {
   }
   if (preg_match('#^addresses/([\w-]+)$#', $route, $mAD)) {
     $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
-    $found = false;
+    // v84 — only PUT/DELETE touch the address book; GET never rewrites db.json
+    if (!in_array($method, ['GET', 'PUT', 'DELETE'], true)) { header('Allow: GET, PUT, DELETE'); jout(405, ['error' => 'Method not allowed']); }
+    $found = false; $mutated = false;
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
       $uu['addresses'] = $uu['addresses'] ?? [];
       foreach ($uu['addresses'] as $i => $a) if ($a['id'] === $mAD[1]) {
         $found = true;
         if ($method === 'PUT') {
+          $mutated = true;
           $b = body_json();
           if (!empty($b['setDefault'])) { foreach ($uu['addresses'] as &$a2) $a2['isDefault'] = false; $uu['addresses'][$i]['isDefault'] = true; }
           else {
             $alims = ['label' => 20, 'name' => 80, 'phone' => 15, 'line' => 160, 'city' => 60, 'state' => 60, 'pincode' => 10];
             foreach ($alims as $k => $al) if (isset($b[$k])) $uu['addresses'][$i][$k] = mb_substr(trim((string)$b[$k]), 0, $al);
+            if (array_key_exists('phone', $b)) { $ePhone = substr(preg_replace('/\D/', '', (string)$b['phone']), -10);
+              if (!preg_match('#^[6-9]\d{9}$#', $ePhone)) jout(400, ['error' => 'Enter a valid 10-digit delivery mobile']);
+              $uu['addresses'][$i]['phone'] = $ePhone; }
             if (!empty($uu['addresses'][$i]['pincode']) && !preg_match('#^\d{6}$#', $uu['addresses'][$i]['pincode'])) jout(400, ['error' => 'Pincode must be 6 digits']);
             if (!empty($b['isDefault'])) { foreach ($uu['addresses'] as &$a2) $a2['isDefault'] = false; $uu['addresses'][$i]['isDefault'] = true; }
           }
-        } elseif ($method === 'DELETE') { array_splice($uu['addresses'], $i, 1); }
+        } elseif ($method === 'DELETE') { array_splice($uu['addresses'], $i, 1); $mutated = true; }
       }
       $out = $uu;
     }
     if (!$found) jout(404, ['error' => 'Address not found']);
-    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'addresses' => $out['addresses'] ?? []]);
+    if ($mutated) db_save($DB_FILE, $db);   // v84 — GET never rewrites the database
+    jout(200, ['ok' => true, 'addresses' => $out['addresses'] ?? []]);
   }
 
   /* ── wishlist ── */
@@ -2579,6 +2695,13 @@ try {
     if ($cu) rate_block($db, 'coupon-u', $cu['id'] ?? '?', 120, 3600);
     foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper((string)($b['code'] ?? '')) && coupon_live($c) && coupon_for_user($c, $cu)) {
       if ((float)($b['amount'] ?? 0) < (float)($c['minOrder'] ?? 0)) jout(400, ['error' => 'Minimum order ₹' . number_format((float)$c['minOrder']) . ' for ' . $c['code']]);
+      // v84 — same server-side flags the order route enforces
+      if ($cu && !empty($c['oncePerUser'])) {
+        foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $cu['id'] && (($__o['coupon'] ?? '') === $c['code'])) jout(400, ['error' => 'You have already used ' . $c['code'] . '.']);
+      }
+      if ($cu && !empty($c['forNewUsers'])) {
+        foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $cu['id'] && ($__o['status'] ?? '') !== 'Cancelled') jout(400, ['error' => $c['code'] . ' is for first orders only.']);
+      }
       jout(200, $c);
     }
     jout(404, ['error' => 'Invalid coupon code']);
@@ -2630,7 +2753,24 @@ try {
         if (is_scalar($av)) $af[$ak] = mb_substr(trim((string)$av), 0, 160);
       }
       $b['address'] = $af;
+      // v84 — the invoice/shipper phone & pincode must be real even when the
+      // order doesn't reference a saved address (same grammar as address book)
+      if (!empty($af['phone'])) {
+        $oPhone = substr(preg_replace('/\D/', '', (string)$af['phone']), -10);
+        if (!preg_match('/^[6-9]\d{9}$/', $oPhone)) jout(400, ['error' => 'Enter a valid 10-digit delivery mobile']);
+        $af['phone'] = $oPhone;
+      }
+      if (!empty($af['pincode']) && !preg_match('/^\d{6}$/', (string)$af['pincode'])) jout(400, ['error' => 'Pincode must be 6 digits']);
     } else $b['address'] = [];
+    // v84 — jewellery is a physical good: the API used to accept orders with
+    // NO delivery address at all (a crafted request, or a broken client),
+    // which then sat unshippable in the admin queue. Require the same fields
+    // the checkout form collects.
+    $af = $b['address'];
+    foreach (['name', 'phone', 'line', 'city', 'pincode'] as $ak) {
+      if (!isset($af[$ak]) || trim((string)$af[$ak]) === '')
+        jout(400, ['error' => 'Complete delivery address required (name, mobile, address, city, pincode).']);
+    }
     $R = current_rates($db);
     /* v57: honour a 20-minute checkout rate lock — accepted only inside a
        2% safety band so a locked quote can never be abused. */
@@ -2669,6 +2809,14 @@ try {
     if ($subtotal <= 0) jout(503, ['error' => 'Live pricing is temporarily unavailable — please retry in a minute, or order on WhatsApp.']);
     $coupon = null;
     if (!empty($b['coupon'])) foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper($b['coupon']) && coupon_live($c) && coupon_for_user($c, $u)) $coupon = $c;
+    // v84 — honour the admin's "once per customer" / "new customers only"
+    // flags server-side (the checkout UI only hid the code; the API used it).
+    if ($coupon && !empty($coupon['oncePerUser'])) {
+      foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $u['id'] && (($__o['coupon'] ?? '') === $coupon['code'])) { $coupon = null; break; }
+    }
+    if ($coupon && !empty($coupon['forNewUsers'])) {
+      foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $u['id'] && ($__o['status'] ?? '') !== 'Cancelled') { $coupon = null; break; }
+    }
     $discount = 0;
     if ($coupon && $subtotal >= (float)($coupon['minOrder'] ?? 0)) {
       // v82 — clamp every coupon into 0…subtotal; a mistyped percent/value
@@ -3181,9 +3329,11 @@ try {
     if (empty($fields['name']) || empty($fields['weight'])) jout(400, ['error' => 'Product name & weight required']);
     $w = (float)$fields['weight'];
     if ($w <= 0 || $w > 100000 || !is_finite($w)) jout(400, ['error' => 'Weight must be between 0 and 1,00,000 g.']);
+    $melt = (float)($fields['melting'] ?? 0); $adv = (float)($fields['advance'] ?? 0);   // v84 — bounded
+    if (!is_finite($melt) || $melt < 0 || $melt > 100000000 || !is_finite($adv) || $adv < 0 || $adv > 100000000) jout(400, ['error' => 'Melting/advance amounts out of range']);
     $ord = ['id' => biz_id('CO'), 'partnerId' => $u['partnerId'] ?? '', 'partnerName' => $u['name'],
-            'name' => cut500($fields['name']), 'weightG' => round($w, 3), 'melting' => max(0, (float)($fields['melting'] ?? 0)),
-            'advance' => max(0, (float)($fields['advance'] ?? 0)), 'size' => cut500($fields['size'] ?? ''), 'note' => cut500($fields['note'] ?? ''),
+            'name' => cut500($fields['name']), 'weightG' => round($w, 3), 'melting' => (int)round(max(0, $melt)),
+            'advance' => (int)round(max(0, $adv)), 'size' => cut500($fields['size'] ?? ''), 'note' => cut500($fields['note'] ?? ''),
             'designImg' => $file, 'status' => 'New', 'createdAt' => now_iso()];
     $db['customOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
   }
@@ -3230,7 +3380,18 @@ try {
     $b = body_json();
     if (!isset($db['bullion']['cash'])) $db['bullion'] = bullion_defaults();
     foreach ($db['bullion']['cash'] as $k => $c) $db['bullion']['prev'][$k] = ['buy' => $c['buy'], 'sell' => $c['sell']];
-    foreach (($b['cash'] ?? []) as $k => $v) if (isset($db['bullion']['cash'][$k])) { $db['bullion']['cash'][$k]['buy'] = (int)$v['buy']; $db['bullion']['cash'][$k]['sell'] = (int)$v['sell']; }
+    foreach (($b['cash'] ?? []) as $k => $v) if (isset($db['bullion']['cash'][$k])) {
+      // v84 — board prices drive B2B orders directly; a typo'd/negative/zero
+      // digit quote must never reach the board (0 means "not quoting" and is
+      // the only allowed non-positive value). Gold cash rows are ₹ per 10 g.
+      foreach (['buy', 'sell'] as $__side) {
+        $__v = (int)($v[$__side] ?? 0);
+        if ($__v !== 0 && ($__v < 10000 || $__v > 50000000))
+          jout(400, ['error' => 'Cash gold quote ₹' . $__v . ' is outside the sane range (₹10,000–₹5,00,00,000 per 10 g; 0 = closed)']);
+      }
+      $db['bullion']['cash'][$k]['buy'] = (int)($v['buy'] ?? 0);
+      $db['bullion']['cash'][$k]['sell'] = (int)($v['sell'] ?? 0);
+    }
     $db['bullion']['updatedAt'] = now_iso(); $db['bullion']['updatedBy'] = $u['name'];
     audit_log($db, 'bullion.cash-rates-set', ['by' => $u['name']]);
     db_save($DB_FILE, $db); jout(200, ['ok' => true] + bullion_rows($db));
@@ -3267,14 +3428,21 @@ try {
     $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     $b = body_json();
     $kind = ($b['kind'] ?? '') === 'unfix' ? 'unfix' : 'rate';
-    if ($kind === 'rate' && (float)($b['target'] ?? 0) <= 0) jout(400, ['error' => 'Enter a target rate']);
+    // v84 — targets are per-gram board rates; bound them so a slip like
+    // 700000 (one extra zero, per-10 g typing) can't render as "target hit".
+    $tgt = (float)($b['target'] ?? 0);
+    if ($kind === 'rate') {
+      if ($tgt <= 0 || !is_finite($tgt)) jout(400, ['error' => 'Enter a target rate']);
+      $tSilver = stripos((string)($b['key'] ?? ''), 'silver') !== false;
+      if ($tgt < ($tSilver ? 10 : 100) || $tgt > ($tSilver ? 50000 : 500000)) jout(400, ['error' => 'Target rate is outside a sane per-gram range']);
+    }
     if (count(array_filter($db['bullionAlerts'], fn($a) => ($a['userId'] ?? '') === $u['id'] && empty($a['removed']))) >= 25)
       jout(400, ['error' => 'You already have 25 active alerts — remove one first']);
     $al = ['id' => uid('ba'), 'userId' => $u['id'], 'partnerName' => $u['name'], 'kind' => $kind,
       'key' => substr((string)($b['key'] ?? ''), 0, 40), 'label' => substr((string)($b['label'] ?? ''), 0, 80),
       'side' => ($b['side'] ?? 'buy') === 'sell' ? 'sell' : 'buy',
       'dir' => ($b['dir'] ?? 'below') === 'above' ? 'above' : 'below',
-      'target' => (float)($b['target'] ?? 0), 'note' => substr((string)($b['note'] ?? ''), 0, 200),
+      'target' => $kind === 'rate' ? $tgt : 0.0, 'note' => substr((string)($b['note'] ?? ''), 0, 200),
       'at' => now_iso(), 'removed' => false];
     $db['bullionAlerts'][] = $al;
     audit_log($db, 'bullion.alert', ['kind' => $kind, 'label' => $al['label'], 'target' => $al['target'], 'by' => $u['name']]);
@@ -3302,6 +3470,13 @@ try {
     if (!$br || empty($br['buy']) || empty($br['sell'])) jout(400, ['error' => 'This metal is not quoting right now — please refresh the board.']);
     $rate = $side === 'buy' ? (float)$br['buy'] : (float)$br['sell'];
     if ($rate <= 0) jout(400, ['error' => 'Rate unavailable for this metal.']);
+    // v84 — plausibility band as well as >0: a corrupted/mistyped board quote
+    // (e.g. ₹1 per gram) must never become a binding bullion order. Board
+    // rows are quoted per gram; bands widen as the metal market moves.
+    $isSilverRow = stripos((string)($br['key'] ?? ''), 'silver') !== false;
+    $rLo = $isSilverRow ? 10 : 100;     // silver ≥₹10/g, gold ≥₹100/g
+    $rHi = $isSilverRow ? 50000 : 500000;  // absurd-upper guards only
+    if ($rate < $rLo || $rate > $rHi) jout(400, ['error' => 'The quoted rate is outside a sane market range — refresh the board and retry, or confirm with the desk.']);
     $mult = $unit === 'kg' ? 1000 : 1;
     $ord = ['id' => biz_id('BL'), 'side' => $side, 'metKey' => (string)($b['metKey'] ?? ''), 'metal' => mb_substr((string)$b['metal'], 0, 40), 'mode' => $br['mode'] ?? '',
             'qty' => round($qty, 3), 'unit' => $unit, 'rate' => $rate,
@@ -3421,13 +3596,18 @@ try {
     $b = body_json();
     if (empty($b['name']) || empty($b['phone'])) jout(400, ['error' => 'Name & phone required']);
     if (!is_string($b['name'] ?? null) || mb_strlen(trim((string)$b['name'])) > 80) jout(400, ['error' => 'Name too long']);
-    $phone = preg_replace('/\D/', '', (string)$b['phone']);
-    if (strlen($phone) < 10 || strlen($phone) > 12) jout(400, ['error' => 'Enter a valid phone number']);
+    $phoneRaw = preg_replace('/\D/', '', (string)$b['phone']);
+    // v84 — same mobile-number grammar as checkout addresses (Indian mobile)
+    if (strlen($phoneRaw) > 10 && in_array(substr($phoneRaw, 0, strlen($phoneRaw) - 10), ['91', '0', '0091'], true)) $phoneRaw = substr($phoneRaw, -10);
+    if (!preg_match('/^[6-9]\d{9}$/', $phoneRaw)) jout(400, ['error' => 'Enter a valid 10-digit mobile number']);
+    $phone = $phoneRaw;
     $su = req_user($db);
     if ($su) rate_block($db, 'service-u', $su['id'] ?? '?', 30, 3600);
+    $sEmail = trim((string)($b['email'] ?? ''));
+    if ($sEmail !== '' && !filter_var($sEmail, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email address']);
     $rec = ['id' => uid('sr'), 'type' => mb_substr(trim((string)($b['type'] ?? '')), 0, 40), 'name' => mb_substr(trim((string)$b['name']), 0, 80), 'phone' => $phone,
             'userId' => $su['id'] ?? '', 'orderId' => substr((string)($b['orderId'] ?? ''), 0, 24),
-            'email' => mb_substr(trim((string)($b['email'] ?? '')), 0, 120), 'details' => mb_substr(trim((string)($b['details'] ?? '')), 0, 1000), 'budget' => mb_substr(trim((string)($b['budget'] ?? '')), 0, 30),
+            'email' => mb_substr($sEmail, 0, 120), 'details' => mb_substr(trim((string)($b['details'] ?? '')), 0, 1000), 'budget' => mb_substr(trim((string)($b['budget'] ?? '')), 0, 30),
             'status' => 'new', 'history' => [['s' => 'Booked', 't' => now_iso()]], 'createdAt' => now_iso()];
     $db['serviceRequests'][] = $rec;
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $rec]);
@@ -3435,11 +3615,22 @@ try {
   if ($route === 'services/mine' && $method === 'GET') {
     $su = req_user($db);
     if (!$su) jout(401, ['error' => 'Login required']);
-    $mine = array_values(array_filter($db['serviceRequests'],
-      fn($r) => ($r['userId'] ?? '') === $su['id'] || substr((string)($r['phone'] ?? ''), -10) === substr((string)($su['phone'] ?? ''), -10)));
+    // v84 — phone fallback is an exact 10-digit match only, and only when
+    // BOTH sides actually have a phone ('' === '' used to leak every
+    // no-phone request to every no-phone account).
+    $myPhone = substr(preg_replace('/\D/', '', (string)($su['phone'] ?? '')), -10);
+    $mine = array_values(array_filter($db['serviceRequests'], function ($r) use ($su, $myPhone) {
+      if (($r['userId'] ?? '') === $su['id']) return true;
+      if ($myPhone === '') return false;
+      $rPhone = substr(preg_replace('/\D/', '', (string)($r['phone'] ?? '')), -10);
+      return $rPhone !== '' && $rPhone === $myPhone;
+    }));
     jout(200, ['requests' => array_reverse($mine)]);
   }
   if (preg_match('#^services/([\w-]+)/status$#', $route, $mS)) {
+    // v84 — state changes never happen on GET (a shared link / prefetch
+    // could otherwise advance a care request's workflow).
+    if ($method !== 'PUT') { header('Allow: PUT'); jout(405, ['error' => 'Method not allowed']); }
     need_admin($db);
     $b = body_json();
     foreach ($db['serviceRequests'] as $si => $sr) if ($sr['id'] === $mS[1]) {
@@ -3469,8 +3660,10 @@ try {
     $b = body_json();
     $items = array_slice(array_map(fn($i) => ['n' => substr((string)($i['n'] ?? ''), 0, 60), 'q' => max(1, (int)($i['q'] ?? 1))], (array)($b['items'] ?? [])), 0, 12);
     if (!$items) jout(400, ['error' => 'empty cart']);
-    $db['carts'][] = ['id' => uid('ac'), 'items' => $items, 'total' => (float)($b['total'] ?? 0),
-                      'phone' => substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10), 'at' => now_iso()];
+    $acPhone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);   // v84 — valid mobiles only
+    $db['carts'][] = ['id' => uid('ac'), 'items' => $items,
+                      'total' => max(0, min(1000000000, (float)($b['total'] ?? 0))),
+                      'phone' => preg_match('/^[6-9]\d{9}$/', $acPhone) ? $acPhone : '', 'at' => now_iso()];
     if (count($db['carts']) > 200) $db['carts'] = array_slice($db['carts'], -200);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
@@ -3556,15 +3749,24 @@ try {
     $kg = null; foreach ($db['karigars'] as $k) if ($k['id'] === $b['karigarId']) $kg = $k;
     if (!$kg) jout(400, ['error' => 'Karigar not found']);
     $wt = (float)($b['weightOut'] ?? 0);
-    if ($wt <= 0) jout(400, ['error' => 'Enter metal weight issued (g)']);
+    if ($wt <= 0 || $wt > 1000000 || !is_finite($wt)) jout(400, ['error' => 'Enter metal weight issued (g)']);
+    // v84 — bounded money/percent inputs (a typo used to land ₹1e300 in the ledger)
+    $wp = (float)($b['wastagePct'] ?? 8);
+    if (!is_finite($wp) || $wp < 0 || $wp > 100) jout(400, ['error' => 'Wastage % must be between 0 and 100']);
+    $jc = (int)round((float)($b['jobCharge'] ?? 0));
+    if ($jc < 0 || $jc > 100000000) jout(400, ['error' => 'Job charge out of range']);
+    $adv = (int)round((float)($b['advance'] ?? 0));
+    if ($adv < 0 || $adv > 100000000) jout(400, ['error' => 'Advance out of range']);
+    $due = substr((string)($b['dueDate'] ?? ''), 0, 10);
+    if ($due !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due)) jout(400, ['error' => 'Invalid due date']);
     $rec = ['id' => uid('jw'), 'karigarId' => $b['karigarId'], 'karigarName' => $kg['name'],
       'itemDesc' => substr(trim((string)($b['itemDesc'] ?? 'Job work')), 0, 200),
       'orderId' => substr(trim((string)($b['orderId'] ?? '')), 0, 24),
       'weightOut' => round($wt, 3), 'purity' => in_array($b['purity'] ?? '', ['24K', '22K', '18K', '14K', '925'], true) ? $b['purity'] : '22K',
-      'wastagePct' => round((float)($b['wastagePct'] ?? 8), 2),
-      'jobCharge' => (int)round((float)($b['jobCharge'] ?? 0)),
-      'advance' => (int)round((float)($b['advance'] ?? 0)),
-      'dueDate' => substr((string)($b['dueDate'] ?? ''), 0, 10),
+      'wastagePct' => round($wp, 2),
+      'jobCharge' => $jc,
+      'advance' => $adv,
+      'dueDate' => $due,
       'note' => substr(trim((string)($b['note'] ?? '')), 0, 300),
       'weightBack' => null, 'status' => 'with karigar',
       'createdAt' => now_iso(), 'history' => [['s' => 'Metal issued', 't' => now_iso()]]];
@@ -3575,12 +3777,26 @@ try {
     need_admin($db);
     $b = body_json();
     foreach ($db['jobWork'] as $ji => $j) if ($j['id'] === $mJW[1]) {
-      if (isset($b['weightBack']) && (float)$b['weightBack'] > 0) $db['jobWork'][$ji]['weightBack'] = round((float)$b['weightBack'], 3);
-      if (!empty($b['status'])) { $db['jobWork'][$ji]['status'] = substr((string)$b['status'], 0, 30); $db['jobWork'][$ji]['history'][] = ['s' => $b['status'], 't' => now_iso()]; }
-      if (isset($b['extraCharge'])) $db['jobWork'][$ji]['extraCharge'] = (int)round((float)$b['extraCharge']);
+      if (isset($b['weightBack'])) {
+        $wb = (float)$b['weightBack'];
+        if (!is_finite($wb) || $wb < 0 || $wb > 1000000) jout(400, ['error' => 'Returned weight out of range']);
+        if ($wb > 0) $db['jobWork'][$ji]['weightBack'] = round($wb, 3);
+      }
+      if (!empty($b['status'])) {
+        $jst = substr(trim((string)$b['status']), 0, 30);
+        if (!preg_match('/^[A-Za-z0-9 &\-\.\/]{1,30}$/', $jst)) jout(400, ['error' => 'Invalid status']);
+        $db['jobWork'][$ji]['status'] = $jst; $db['jobWork'][$ji]['history'][] = ['s' => $jst, 't' => now_iso()];
+      }
+      if (isset($b['extraCharge'])) {
+        $ec = (int)round((float)$b['extraCharge']);
+        if ($ec < -100000000 || $ec > 100000000) jout(400, ['error' => 'Extra charge out of range']);
+        $db['jobWork'][$ji]['extraCharge'] = $ec;
+      }
       if (isset($b['paid'])) {
-        $db['jobWork'][$ji]['advance'] = (int)($db['jobWork'][$ji]['advance'] ?? 0) + (int)round((float)$b['paid']);
-        $db['jobWork'][$ji]['history'][] = ['s' => 'Paid ₹' . (int)round((float)$b['paid']), 't' => now_iso()];
+        $pd = (int)round((float)$b['paid']);
+        if (!is_finite((float)$b['paid']) || $pd < -100000000 || $pd > 100000000) jout(400, ['error' => 'Payment out of range']);
+        $db['jobWork'][$ji]['advance'] = (int)($db['jobWork'][$ji]['advance'] ?? 0) + $pd;
+        $db['jobWork'][$ji]['history'][] = ['s' => 'Paid ₹' . $pd, 't' => now_iso()];
       }
       db_save($DB_FILE, $db); jout(200, ['ok' => true, 'job' => $db['jobWork'][$ji]]);
     }
@@ -3615,10 +3831,16 @@ try {
     if ($amt <= 0 || !is_finite($amt) || $amt > 1e9) jout(400, ['error' => 'Enter a valid amount']);
     $head = substr(trim((string)($b['head'] ?? '')), 0, 120);
     if ($head === '') jout(400, ['error' => 'Enter a note (head)']);
+    $cbAt = now_iso();   // v84 — back-date allowed, but only as a real timestamp
+    if (!empty($b['at'])) {
+      $cbAtRaw = substr(trim((string)$b['at']), 0, 19);
+      if (preg_match('/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/', $cbAtRaw)) $cbAt = $cbAtRaw;
+      else jout(400, ['error' => 'Entry time must be YYYY-MM-DD']);
+    }
     $rec = ['id' => uid('cb'), 'kind' => in_array($b['kind'] ?? '', ['in', 'out'], true) ? $b['kind'] : 'out',
       'head' => $head, 'amount' => $amt,
       'mode' => in_array($b['mode'] ?? '', ['cash', 'upi', 'bank'], true) ? $b['mode'] : 'cash',
-      'at' => !empty($b['at']) ? substr((string)$b['at'], 0, 19) : now_iso(),
+      'at' => $cbAt,
       'by' => req_user($db)['name'] ?? ''];
     $db['cashbook'][] = $rec;
     if (count($db['cashbook']) > 5000) $db['cashbook'] = array_slice($db['cashbook'], -5000);
@@ -3629,7 +3851,10 @@ try {
     $b = body_json();
     $day = substr((string)($b['date'] ?? date('Y-m-d')), 0, 10);
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) jout(400, ['error' => 'Invalid date']);
-    $close = ['day' => $day, 'openingCash' => (float)($b['openingCash'] ?? 0), 'closingCash' => (float)($b['closingCash'] ?? 0),
+    $openCash = (float)($b['openingCash'] ?? 0); $closeCash = (float)($b['closingCash'] ?? 0);   // v84
+    if (!is_finite($openCash) || !is_finite($closeCash) || $openCash < 0 || $closeCash < 0 || $openCash > 1e12 || $closeCash > 1e12)
+      jout(400, ['error' => 'Cash counts must be between ₹0 and ₹100 crore']);
+    $close = ['day' => $day, 'openingCash' => $openCash, 'closingCash' => $closeCash,
               'note' => substr((string)($b['note'] ?? ''), 0, 400), 'at' => now_iso(), 'by' => req_user($db)['name'] ?? ''];
     $found = false;
     foreach ($db['cashbook'] as $ci => $r) if (($r['kind'] ?? '') === 'day-close' && substr((string)($r['at'] ?? ''), 0, 10) === $day) { $db['cashbook'][$ci] = ['id' => $r['id'], 'kind' => 'day-close'] + $close; $found = true; }
@@ -3651,7 +3876,11 @@ try {
     jout(404, ['error' => 'Order not found']);
   };
   if (preg_match('#^orders/([\w-]+)/cod-confirm$#', $route, $mCC) && $method === 'POST') {
-    [$idx] = $find_order_for_routes($mCC[1]);
+    [$idx, $ccO] = $find_order_for_routes($mCC[1]);
+    // v84 — the COD promise is meaningless (and misleading in the cashbook)
+    // for an online-paid or cancelled order.
+    if (($ccO['paymentMethod'] ?? '') !== 'COD') jout(400, ['error' => 'This order is not cash-on-delivery.']);
+    if (($ccO['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled.']);
     $db['orders'][$idx]['codConfirmed'] = true;
     $db['orders'][$idx]['codConfirmedAt'] = now_iso();
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'order' => $db['orders'][$idx]]);
@@ -3699,8 +3928,13 @@ try {
             $cnNo = 'CN/' . date('y') . '/' . str_pad((string)$cnSeq, 4, '0', STR_PAD_LEFT);
             $db['orders'][$oi]['creditNote'] = $cnNo;
             // default the refunded amount to whatever was actually paid
-            if ($amt <= 0) $amt = (int)($oo['amountPaid'] ?? (int)($oo['total'] ?? 0));
-            $amt = max(0, min((int)($oo['total'] ?? 0), $amt));   // v82 — never refund beyond the order value
+            $paidCap = (int)($oo['amountPaid'] ?? 0);
+            if ($amt <= 0) $amt = $paidCap;
+            // v82 — never refund beyond order value; v84 — a CASH refund can
+            // never exceed money actually received (a COD order that was
+            // never paid must not generate a cashbook outflow).
+            $amt = max(0, min((int)($oo['total'] ?? 0), $amt));
+            if ($mode !== 'exchange' && $amt > $paidCap) $amt = $paidCap;
             $db['refundRequests'][$ri]['amount'] = $amt; $db['refundRequests'][$ri]['mode'] = $mode; $db['refundRequests'][$ri]['creditNote'] = $cnNo;
             if ($amt > 0 && $mode !== 'exchange') {
               $db['cashbook'][] = ['id' => uid('cb'), 'kind' => 'out', 'head' => 'Refund ' . $oo['id'] . ' (' . $cnNo . ')',
@@ -3874,8 +4108,16 @@ try {
         $amt = (int)round((float)($b['amount'] ?? $p['monthlyAmount']));
         if ($amt <= 0) jout(400, ['error' => 'Enter the instalment amount']);
         if ($amt > 10000000 || !is_finite((float)($b['amount'] ?? $p['monthlyAmount']))) jout(400, ['error' => 'Instalment amount is outside the allowed range (max ₹10,00,000).']);
+        $atIso = now_iso();
+        if (!empty($b['at'])) {
+          $atRaw = substr(trim((string)$b['at']), 0, 19);
+          // v84 — back-date is allowed for shop-bookkeeping, but it has to be
+          // a real calendar timestamp (never arbitrary stored text).
+          if (preg_match('/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/', $atRaw)) $atIso = $atRaw;
+          else jout(400, ['error' => 'Installment date must be YYYY-MM-DD']);
+        }
         $inst = ['id' => uid('si'), 'amount' => $amt, 'mode' => in_array($b['mode'] ?? '', ['cash', 'upi', 'bank'], true) ? $b['mode'] : 'upi',
-          'at' => !empty($b['at']) ? substr((string)$b['at'], 0, 19) : now_iso(),
+          'at' => $atIso,
           'rate22' => (float)(current_rates($db)['gold22'] ?? 0), 'status' => 'approved', 'by' => req_user($db)['name'] ?? ''];
         $db['savingsPlans'][$pi]['installments'][] = $inst;
         $months = count($db['savingsPlans'][$pi]['installments']);
@@ -4000,9 +4242,15 @@ try {
     need_admin($db);
     $b = body_json();
     if (empty($b['partnerId'])) jout(400, ['error' => 'partnerId required']);
+    $khPartner = null; foreach (($db['partners'] ?? []) as $__kp) if (($__kp['id'] ?? '') === (string)$b['partnerId']) $khPartner = $__kp;
+    if (!$khPartner) jout(400, ['error' => 'Unknown partner']);   // v84 — no orphan ledger rows
+    $khUnit = ($b['unit'] ?? 'rs') === 'g' ? 'g' : 'rs';
+    $khAmt = (float)($b['amt'] ?? 0);
+    $khCap = $khUnit === 'g' ? 1000000 : 100000000000;   // 1 t gold / ₹100 cr per line
+    if (!is_finite($khAmt) || abs($khAmt) > $khCap) jout(400, ['error' => 'Amount out of range']);
     $db['khata'][] = ['id' => uid('kh'), 'partnerId' => (string)$b['partnerId'],
                       'type' => in_array($b['type'] ?? '', ['debit', 'credit', 'note'], true) ? $b['type'] : 'note',
-                      'amt' => (float)($b['amt'] ?? 0), 'unit' => ($b['unit'] ?? 'rs') === 'g' ? 'g' : 'rs',
+                      'amt' => $khUnit === 'g' ? round($khAmt, 3) : (int)round($khAmt), 'unit' => $khUnit,
                       'note' => substr((string)($b['note'] ?? ''), 0, 140), 'at' => now_iso()];
     if (count($db['khata']) > 3000) $db['khata'] = array_slice($db['khata'], -3000);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
@@ -4023,8 +4271,9 @@ try {
     if (mb_strlen($cName) > 80) jout(400, ['error' => 'Name too long']);
     if (mb_strlen($cMsg) < 2 || mb_strlen($cMsg) > 3000) jout(400, ['error' => 'Message must be 2–3000 characters']);
     $cEmail = !empty($b['email']) && filter_var((string)$b['email'], FILTER_VALIDATE_EMAIL) ? mb_substr(strtolower(trim((string)$b['email'])), 0, 190) : '';
+    $cPhone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
     $db['contactMsgs'][] = ['id' => uid('cm'), 'name' => mb_substr($cName, 0, 80),
-      'phone' => substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -12),
+      'phone' => preg_match('/^[6-9]\d{9}$/', $cPhone) ? $cPhone : '',   // v84 — only real mobiles are stored
       'email' => $cEmail, 'message' => mb_substr($cMsg, 0, 3000), 'at' => now_iso(), 'read' => false];
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
@@ -4201,6 +4450,35 @@ try {
     if (array_key_exists('announcements', $setBody)) {
       $an = is_array($setBody['announcements']) ? array_slice($setBody['announcements'], 0, 12) : [];
       $setBody['announcements'] = array_values(array_map(fn($a) => mb_substr(trim((string)$a), 0, 200), $an));
+    }
+    // v84 — money/percent settings feed order totals and board maths. Cast
+    // them to numbers inside sane bands (a mistyped "1OO"/null/array used to
+    // silently zero shipping or inflate discounts through PHP's type juggling).
+    $numRules = [
+      'shippingFee' => [0, 100000, 'int'], 'freeShipAbove' => [0, 100000000, 'int'],
+      'prepaidPct' => [0, 50, 'float'], 'codFeePct' => [0, 50, 'float'],
+      'referralReward' => [0, 1000000, 'int'], 'bullionGoldPremium' => [0, 100000, 'int'],
+      'bullionSilverPremium' => [0, 100000, 'int'], 'metalFactor' => [0.5, 1.2, 'float'],
+    ];
+    foreach ($numRules as $nk => [$lo, $hi, $cast]) {
+      if (array_key_exists($nk, $setBody)) {
+        $nv = $setBody[$nk];
+        if (is_array($nv) || (is_string($nv) && !is_numeric(trim($nv))) || !is_numeric($nv))
+          jout(400, ['error' => $nk . ' must be a number']);
+        $nv = (float)$nv;
+        if (!is_finite($nv) || $nv < $lo || $nv > $hi) jout(400, ['error' => $nk . ' is outside its allowed range (' . $lo . '–' . $hi . ')']);
+        $setBody[$nk] = $cast === 'int' ? (int)round($nv) : round($nv, 4);
+      }
+    }
+    if (array_key_exists('invoiceSeq', $setBody)) {
+      if (!is_numeric($setBody['invoiceSeq']) || (int)$setBody['invoiceSeq'] < 0)
+        jout(400, ['error' => 'invoiceSeq must be a non-negative whole number']);
+      $setBody['invoiceSeq'] = (int)$setBody['invoiceSeq'];
+    }
+    // scalar-only keys must never silently accept arrays/objects (they feed
+    // string contexts: UPI URIs, invoice lines, SMS messages)
+    foreach (['upiName', 'shopName', 'address', 'finePurity', 'payProvider'] as $sk) {
+      if (array_key_exists($sk, $setBody) && !is_scalar($setBody[$sk])) jout(400, ['error' => $sk . ' must be text']);
     }
     foreach ($setBody as $k => $v) $db['settings'][$k] = $v;
     audit_log($db, 'settings.updated', ['keys' => implode(',', array_keys($setBody))]);

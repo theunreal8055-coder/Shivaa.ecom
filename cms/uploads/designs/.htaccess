@@ -1,8 +1,13 @@
-# v82 — no code execution / no directory listing in upload trees
+# v82/v84 — no code execution, no active documents, no directory listing in upload trees
 Options -Indexes -ExecCGI
-<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|phar|pl|py|cgi|sh|asp|aspx|jsp|htaccess)$">
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|phar|pl|py|cgi|sh|asp|aspx|jsp|html?|shtml|svg|svgz|xml|xsl|js|mjs|htaccess)$">
   Require all denied
 </FilesMatch>
 <FilesMatch "^\.">
   Require all denied
 </FilesMatch>
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "default-src 'none'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
