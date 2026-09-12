@@ -1,0 +1,288 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SHIVAA · v89 premium motion + polish layer
+   Loaded LAST so it refines the base system without rewriting it.
+   GPU-friendly properties only (transform / opacity / filter / shadow).
+   Every entrance is gated by a class the JS adds (js-motion / .pg),
+   so the site is fully visible with JS off or under reduced-motion.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --m-spring:cubic-bezier(.34,1.42,.44,1);      /* gentle overshoot — pops, sheets, icons */
+  --m-out:cubic-bezier(.22,1,.32,1);            /* expo-out — entrances settle like silk */
+  --m-inout:cubic-bezier(.72,0,.22,1);          /* symmetrical — drawers, overlays */
+  --m-fast:.24s; --m-med:.42s; --m-slow:.7s;
+  --m-shadow-lift:0 30px 64px -24px rgba(61,14,21,.30),0 12px 26px -14px rgba(61,14,21,.20),0 2px 6px rgba(61,14,21,.06);
+  --m-shadow-card:0 6px 22px -12px rgba(61,14,21,.20),0 1px 2px rgba(61,14,21,.05);
+  --m-gold-ring:rgba(185,138,47,.16);
+}
+html{scroll-behavior:smooth;scroll-padding-top:96px}
+body{text-rendering:optimizeLegibility}
+::selection{background:rgba(185,138,47,.28)}
+:focus-visible{outline:2.5px solid var(--gold);outline-offset:2.5px;border-radius:6px;transition:outline-offset .15s var(--m-out)}
+
+/* ───────────────────────── page-to-page entrance ─────────────────────────
+   JS replays .pg whenever #view's DIRECT children are replaced (a route
+   change). Nested updates (filtering, price ticks) never re-fade the page. */
+#view{animation:none}
+#view.pg{animation:mViewFade .3s var(--m-out) both}
+#view.pg > *{animation:mChildIn .62s var(--m-out) both;animation-delay:calc(var(--i,0) * 55ms)}
+/* grids & tables inside the new view cascade in, capped by JS at ~18 items */
+#view.pg .m-stagger > *{animation:mPop .55s var(--m-out) both;animation-delay:calc(var(--i,0) * 30ms)}
+/* later, surgically replaced lists (shop filters, admin refreshes) */
+#view .m-stagger > .m-in{animation:mPop .5s var(--m-out) both;animation-delay:calc(var(--i,0) * 26ms)}
+@keyframes mViewFade{from{opacity:0}to{opacity:1}}
+@keyframes mChildIn{from{opacity:0;transform:translate3d(0,26px,0)}to{opacity:1;transform:none}}
+@keyframes mPop{from{opacity:0;transform:translate3d(0,18px,0) scale(.985)}to{opacity:1;transform:none}}
+
+/* hero copy leads the page it lives on */
+#view.pg .page-hero .container,
+#view.pg .hero .hero-in{animation:mHeroIn .8s var(--m-out) both .05s}
+@keyframes mHeroIn{from{opacity:0;transform:translate3d(0,30px,0)}to{opacity:1;transform:none}}
+
+/* ───────────────────────── buttons: spring press + ripple ───────────────── */
+.btn{transition:transform .35s var(--m-spring),box-shadow .35s var(--m-out),
+     background-color .28s var(--m-out),border-color .28s var(--m-out),color .28s var(--m-out),filter .28s;
+  -webkit-tap-highlight-color:transparent;will-change:transform}
+.btn:hover{transform:translateY(-2.5px)}
+.btn-primary:hover,.btn-gold:hover{box-shadow:0 16px 36px -10px rgba(110,30,42,.5),0 6px 16px -6px rgba(185,138,47,.45)}
+.btn-gold:hover{box-shadow:0 16px 36px -10px rgba(158,116,28,.55)}
+.btn:active{transform:translateY(1px) scale(.965)}
+.btn .rip{position:absolute;border-radius:50%;transform:scale(0);pointer-events:none;z-index:0;
+  background:radial-gradient(circle,rgba(255,248,228,.55),rgba(255,248,228,.18) 55%,transparent 70%);
+  animation:mRipple .65s var(--m-out) forwards}
+.btn-outline .rip,.btn-ghost .rip,.btn-light .rip{background:radial-gradient(circle,rgba(110,30,42,.16),rgba(110,30,42,.06) 60%,transparent 72%)}
+@keyframes mRipple{to{transform:scale(2.8);opacity:0}}
+/* small pressables get a tactile pop */
+.ds-qty button,.qty button,.pc-wish,.pc-compare,.chip,.size-pill,.dw-tile,.mnav a,.ps-tab,
+.kyc-verify-btn[class],.icon-btn{transition:transform .25s var(--m-spring),background-color .25s,color .25s,box-shadow .25s,border-color .25s}
+.ds-qty button:active,.qty button:active,.chip:active,.size-pill:active,.pc-wish:active,.pc-compare:active{transform:scale(.86)}
+.pc-wish.on svg,.pc-compare.on svg{animation:mHeart .5s var(--m-spring)}
+@keyframes mHeart{0%{transform:scale(.4)}55%{transform:scale(1.35)}100%{transform:scale(1)}}
+
+/* ───────────────────────── cards: layered depth + springy lift ──────────── */
+.p-card{box-shadow:var(--m-shadow-card);transition:transform .5s var(--m-out),box-shadow .45s var(--m-out),border-color .3s}
+.p-card:hover{box-shadow:var(--m-shadow-lift);border-color:rgba(212,175,90,.55)}
+.pc-imgwrap img{transition:transform 1.1s var(--m-out)}
+.catlog,.cat-card,.testi,.poster,.acct-tile,.addr-card,.cat-mini-card{transition:transform .45s var(--m-out),box-shadow .45s var(--m-out),border-color .3s}
+.catlog:hover,.cat-card:hover,.testi:hover,.poster:hover{transform:translateY(-6px);box-shadow:var(--m-shadow-lift)}
+.acct-tile,.addr-card{box-shadow:var(--m-shadow-card)}
+.acct-tile:hover{transform:translateY(-5px)!important;box-shadow:var(--m-shadow-lift)}
+.stat{transition:transform .4s var(--m-out),box-shadow .4s var(--m-out),border-color .3s}
+.stat:hover{transform:translateY(-4px);box-shadow:var(--sh-2);border-color:var(--gold-soft)}
+.adm-card{transition:box-shadow .35s var(--m-out)}
+.adm-card:hover{box-shadow:var(--sh-2)}
+.rte-card,.svc-card,.vault-card,.plan-card{transition:transform .45s var(--m-out),box-shadow .45s var(--m-out),border-color .3s}
+.rte-card:hover,.svc-card:hover,.vault-card:hover,.plan-card:hover{transform:translateY(-5px);box-shadow:var(--m-shadow-lift)}
+
+/* ───────────────────────── photography: soft blur-up reveal ─────────────── */
+html.js-motion #view .pc-imgwrap img,
+html.js-motion #view .catlog img,html.js-motion #view .cat-card img,
+html.js-motion #view .cat-mini-card img,html.js-motion #view .poster img,
+html.js-motion #view .testi img,html.js-motion #view .acct-tile img,
+html.js-motion #view [class*="gallery"] img,html.js-motion #view [class*="slider"] img,
+html.js-motion #view [class*="thumb"] img,html.js-motion #view .ph-img,
+html.js-motion #view .ds-card img,html.js-motion #view .rv-media img,
+html.js-motion #view .cat-thumb img{
+  opacity:0;transform:scale(1.06);filter:blur(6px);
+  transition:opacity .75s var(--m-out),transform 1.2s var(--m-out),filter .75s var(--m-out)}
+html.js-motion #view img.img-ok{opacity:1;transform:none;filter:blur(0)}
+
+/* ───────────────────────── forms: living focus + validation ─────────────── */
+.fld input,.fld select,.fld textarea,.b2b-form-card input{
+  transition:border-color .28s var(--m-out),box-shadow .28s var(--m-out),background-color .28s,transform .28s var(--m-out)}
+.fld input:focus,.fld select:focus,.fld textarea:focus{
+  border-color:var(--gold);box-shadow:0 0 0 4px var(--m-gold-ring),0 10px 24px -14px rgba(185,138,47,.6);background:#fff}
+.fld.shake{animation:mShake .42s var(--m-inout)}
+.fld.shake input,.fld.shake select,.fld.shake textarea{border-color:var(--bad);box-shadow:0 0 0 4px rgba(163,38,56,.12)}
+input.invalid,select.invalid,textarea.invalid{border-color:var(--bad)!important;box-shadow:0 0 0 4px rgba(163,38,56,.12)!important}
+@keyframes mShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+.kyc-status{transition:color .3s,background-color .3s}
+
+/* ───────────────────────── modal: spring sheet + staggered content ──────── */
+.modal-overlay.open{background:rgba(29,5,9,.62);backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15);animation:mFade .32s var(--m-out)}
+.modal-overlay.open .modal{animation:mModal .55s var(--m-spring) both;
+  box-shadow:0 50px 110px -30px rgba(0,0,0,.6),0 0 0 1px rgba(212,175,90,.22),var(--sh-3)}
+.modal-overlay.open .modal > *{animation:mChildIn .5s var(--m-out) both}
+.modal-overlay.open .modal > *:nth-child(2){animation-delay:.06s}
+.modal-overlay.open .modal > *:nth-child(3){animation-delay:.11s}
+.modal-overlay.open .modal > *:nth-child(4){animation-delay:.16s}
+.modal-overlay.open .modal > *:nth-child(5){animation-delay:.21s}
+.modal-overlay.open .modal > *:nth-child(n+6){animation-delay:.25s}
+.modal-close{transition:transform .35s var(--m-spring),background-color .25s,color .25s}
+.modal-close:hover{transform:rotate(90deg) scale(1.08)}
+@keyframes mFade{from{opacity:0}to{opacity:1}}
+@keyframes mModal{from{opacity:0;transform:translateY(28px) scale(.94)}to{opacity:1;transform:none}}
+@media(max-width:680px){
+  .modal-overlay.open .modal{animation:mSheet .58s var(--m-spring) both}
+  @keyframes mSheet{from{transform:translateY(60px) scale(.99)}to{transform:none}}
+}
+
+/* ───────────────────────── drawers & panels ────────────────────────────── */
+.search-drawer{transition:transform .48s var(--m-spring),visibility .48s,box-shadow .4s}
+.nav{transition:transform .5s var(--m-spring),visibility .5s,box-shadow .4s}
+.drawer-scrim{transition:opacity .4s var(--m-inout),visibility .4s}
+.pdf-viewer{transition:opacity .35s var(--m-out)}
+.pdf-viewer.open{animation:mFade .3s var(--m-out)}
+.pdf-close,.dw-close{transition:transform .35s var(--m-spring),background-color .25s}
+
+/* ───────────────────────── toasts: confident spring notifications ──────── */
+.toast-wrap .toast{
+  animation:mToastIn .55s var(--m-spring) both;
+  border-radius:16px;padding:13px 20px 13px 14px;
+  background:linear-gradient(135deg,#2a1218,#1d0a0f);
+  box-shadow:0 24px 50px -16px rgba(0,0,0,.6),inset 0 1px 0 rgba(246,232,200,.16);
+  transform-origin:bottom right}
+.toast-wrap .toast .tic{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+  font-size:13px;font-weight:700;font-family:var(--ff-body);transform:scale(.6);opacity:0;
+  animation:mTic .5s var(--m-spring) .12s forwards}
+.toast-wrap .toast .tic.ok{background:linear-gradient(135deg,#2e9d63,#17795c);color:#fff;box-shadow:0 6px 16px -4px rgba(23,121,92,.7)}
+.toast-wrap .toast .tic.bad{background:linear-gradient(135deg,#c3374a,#8f2030);color:#fff;box-shadow:0 6px 16px -4px rgba(163,38,56,.7)}
+@keyframes mToastIn{from{opacity:0;transform:translateX(50px) scale(.9)}70%{transform:translateX(-4px) scale(1.01)}to{opacity:1;transform:none}}
+@keyframes mTic{to{transform:scale(1);opacity:1}}
+
+/* ───────────────────────── tables: gliding rows ────────────────────────── */
+.adm-table tbody tr,.mc-table tbody tr,.order-card{transition:background-color .22s var(--m-out),box-shadow .3s,transform .3s var(--m-out)}
+.adm-table tbody tr:hover,.mc-table tbody tr:hover{background:linear-gradient(90deg,var(--gold-faint),rgba(247,238,216,.35))}
+.status-pill,.pill,.tagx{transition:transform .3s var(--m-spring),background-color .25s,color .25s,box-shadow .25s}
+.adm-table tbody tr:hover .status-pill{transform:scale(1.05)}
+
+/* ───────────────────────── header: finer glass while scrolled ──────────── */
+.header{transition:box-shadow .4s var(--m-out),background-color .4s,backdrop-filter .4s}
+.header.scrolled{box-shadow:0 10px 34px -16px rgba(61,14,21,.28);
+  background:rgba(250,246,239,.86);backdrop-filter:blur(20px) saturate(1.25);-webkit-backdrop-filter:blur(20px) saturate(1.25);
+  border-bottom-color:rgba(185,138,47,.3)}
+.brand{transition:transform .4s var(--m-spring),box-shadow .3s}
+.brand:hover{transform:translateY(-2px) rotate(-.6deg)}
+.nav a,.ub-right a,.mnav a{transition:color .25s,background-color .25s,transform .3s var(--m-spring)}
+.nav a:hover{transform:translateY(-1px)}
+#backTop{transition:opacity .35s var(--m-out),transform .4s var(--m-spring),box-shadow .3s}
+#backTop.show{transform:none}
+#backTop:hover{transform:translateY(-3px) scale(1.08)}
+#backTop:active{transform:scale(.92)}
+
+/* ───────────────────────── progress + preloader polish ─────────────────── */
+.scroll-progress{box-shadow:0 0 14px rgba(212,175,90,.75),0 0 4px rgba(212,175,90,.9)}
+.preloader .pl-in img{animation:mPlLogo 1s var(--m-spring) both}
+.preloader .pl-line i{animation-timing-function:var(--m-inout)}
+.preloader .pl-txt{background:linear-gradient(100deg,#c9b079 20%,#fbeecb 50%,#c9b079 80%);background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:mPlShimmer 1.6s linear infinite}
+@keyframes mPlLogo{from{opacity:0;transform:translateY(16px) scale(.92) rotate(-3deg)}to{opacity:1;transform:none}}
+@keyframes mPlShimmer{to{background-position:-200% 0}}
+
+/* cart / wish counters pop when values change */
+.badge{transition:transform .3s var(--m-spring)}
+.badge.bump{animation:mBump .55s var(--m-spring)}
+@keyframes mBump{0%{transform:scale(.7)}45%{transform:scale(1.5)}70%{transform:scale(.92)}100%{transform:scale(1)}}
+
+/* tab pills / segmented controls glide on activation */
+.ps-tab,.acct-tab,.tab-btn{transition:transform .25s var(--m-spring),background-color .25s,color .25s,box-shadow .25s}
+.ps-tab:active,.acct-tab:active,.tab-btn:active{transform:scale(.95)}
+
+/* admin sidebar — springy, living navigation */
+.adm-nav a{transition:transform .35s var(--m-spring),background-color .3s var(--m-out),color .3s}
+.adm-nav a:hover{transform:translateX(4px)}
+.adm-nav a.on{transform:translateX(2px);box-shadow:inset 3px 0 0 var(--gold-2)}
+
+/* cart / checkout lines settle in */
+.cart-item{animation-name:mPop;animation-duration:.5s;animation-timing-function:var(--m-out);animation-fill-mode:both;animation-delay:calc(var(--i,0) * 45ms)}
+.cart-item:hover{box-shadow:var(--sh-1)}
+#view.pg .catbar2 > *{animation:mChildIn .55s var(--m-out) both;animation-delay:calc(var(--i,0) * 28ms)}
+
+/* WhatsApp float — gentle living presence */
+.wa-fab{transition:transform .4s var(--m-spring),box-shadow .4s}
+.wa-fab:hover{transform:translateY(-4px) scale(1.06);box-shadow:0 20px 40px -10px rgba(18,140,78,.6)}
+.wa-fab:active{transform:scale(.92)}
+
+/* shimmering skeleton utility for async content */
+@keyframes mSkeleton{to{background-position:-200% 0}}
+.skeleton{border-radius:12px;background:linear-gradient(100deg,#efe6d4 30%,#faf5e8 50%,#efe6d4 70%);
+  background-size:200% 100%;animation:mSkeleton 1.35s linear infinite}
+
+/* hero scroll cue already exists — soften its timing */
+.hero-cue svg{transition:transform .3s var(--m-out)}
+
+/* ───────────────────────── Passport (login sheet) + Saathi chat ───────────────────────── */
+@media(min-width:721px){.shv-card{animation:mModal .55s var(--m-spring) both!important}}
+.shv-pane{animation:mPop .45s var(--m-out) both}
+.shv-body input{transition:border-color .28s var(--m-out),box-shadow .28s var(--m-out),background-color .28s}
+.shv-body input:focus{border-color:var(--gold);box-shadow:0 0 0 4px var(--m-gold-ring);outline:none}
+.shv-otp input{transition:transform .25s var(--m-spring),border-color .25s,box-shadow .25s}
+.shv-otp input:focus{transform:translateY(-2px) scale(1.06)}
+.shv-backdrop{animation:mFade .32s var(--m-out);backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15)}
+.shv-x{transition:transform .35s var(--m-spring),background-color .25s}
+.shv-x:hover{transform:rotate(90deg) scale(1.08)}
+.shv-cta,.shv-body button[type=submit]{transition:transform .3s var(--m-spring),box-shadow .3s,background-color .25s}
+.shv-cta:active,.shv-body button[type=submit]:active{transform:scale(.965)}
+#saathiPanel{transition:transform .52s var(--m-spring),box-shadow .4s!important}
+#saathiScrim{transition:opacity .4s var(--m-inout)}
+.sa-m{animation:mChatIn .42s var(--m-spring) both}
+@keyframes mChatIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+.sa-chip{transition:transform .25s var(--m-spring),background-color .25s,border-color .25s}
+.sa-chip:hover{background:var(--gold-faint)}
+.sa-chip:active{transform:scale(.92)}
+.sa-card{transition:transform .35s var(--m-out),box-shadow .35s}
+.sa-in button{transition:transform .25s var(--m-spring),box-shadow .25s}
+.sa-in button:active{transform:scale(.88)}
+.sa-ico{transition:transform .3s var(--m-spring),background-color .25s}
+.sa-ico:active{transform:scale(.9)}
+
+/* ───────── search: springy drawer + cascading suggestions ──────────────── */
+.s-close{transition:transform .25s var(--m-spring),background-color .25s,color .25s}
+.s-close:active{transform:scale(.9)}
+.search-sugg .sugg{animation:mPop .4s var(--m-out) both;
+  animation-delay:calc(var(--i,0) * 45ms);transition:border-color .25s,background-color .25s,transform .25s var(--m-spring)}
+.search-sugg .sugg:hover{transform:translateX(4px)}
+.search-sugg .sugg:active{transform:scale(.985)}
+.search-sugg .sugg img{transition:transform .5s var(--m-out)}
+.search-sugg .sugg:hover img{transform:scale(1.08)}
+
+/* ───────── accordions (FAQ, policy, product details) ───────────────────── */
+.acc summary,.priv-sec summary{transition:background-color .25s var(--m-out)}
+.acc summary:hover,.priv-sec summary:hover{background:var(--gold-faint)}
+.acc summary::after,.priv-sec summary::after{display:inline-block;transition:transform .3s var(--m-spring),color .25s}
+.acc summary:hover::after,.priv-sec summary:hover::after{color:var(--maroon);transform:scale(1.15)}
+.acc[open] summary::after,.priv-sec[open] summary::after{animation:mAccCh .38s var(--m-spring)}
+.acc[open] .acc-body,.priv-sec[open] .ps-body{animation:mChildIn .38s var(--m-out) both}
+@keyframes mAccCh{0%{transform:scale(.3) rotate(-100deg)}100%{transform:scale(1) rotate(0)}}
+
+/* ───────── empty states + order-success moment ─────────────────────────── */
+#view.pg .empty{animation:mPop .55s var(--m-out) both}
+.empty-logo{animation:mEmptyLogo .8s var(--m-spring) both}
+@keyframes mEmptyLogo{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}
+.order-logo{animation:mOrderSeal .9s var(--m-spring) both}
+.center[style*="min-height"] > .container > div:first-child,
+.order-logo + div{animation:mStarPop .7s var(--m-spring) .25s both}
+@keyframes mOrderSeal{from{opacity:0;transform:translateY(18px) scale(.86)}60%{transform:scale(1.04)}to{opacity:1;transform:none}}
+@keyframes mStarPop{0%{opacity:0;transform:scale(0) rotate(-60deg)}70%{transform:scale(1.3) rotate(8deg)}100%{opacity:1;transform:none}}
+
+/* ───────── trust, hallmark & finale surfaces ───────────────────────────── */
+.trust-card,.hm-card,.hm-result,.fin-panel,.fin-fair,.hm-error{transition:transform .45s var(--m-out),box-shadow .45s var(--m-out),border-color .3s}
+.trust-card:hover,.hm-card:hover,.fin-panel:hover{transform:translateY(-5px);box-shadow:var(--m-shadow-lift)}
+#view.pg .trust-grid > *,#view.pg .hm-grid > *,#view.pg .fin-grid > *{
+  animation:mPop .55s var(--m-out) both;animation-delay:calc(var(--i,0) * 45ms)}
+.hm-badge,.trust-badge{transition:transform .3s var(--m-spring),box-shadow .3s}
+.hm-badge:active,.trust-badge:active{transform:scale(.94)}
+.hm-copy-row,.trust-copy{transition:transform .25s var(--m-spring),background-color .25s,border-color .25s}
+.hm-copy-row:active,.trust-copy:active{transform:scale(.97)}
+.hm-info-mark{animation:mStarPop .6s var(--m-spring) both}
+
+/* ───────── quotation stamp + footer micro-motion ───────────────────────── */
+.q-stamp{animation:mStamp .7s var(--m-spring) both;transform-origin:center}
+@keyframes mStamp{0%{opacity:0;transform:scale(2.2) rotate(-12deg)}60%{opacity:1;transform:scale(.92) rotate(3deg)}100%{transform:none}}
+.footer a,.foot a{transition:color .25s var(--m-out),transform .25s var(--m-spring);display:inline-block}
+.footer a:hover,.foot a:hover{transform:translateX(3px)}
+.footer .brand:hover,.foot .brand:hover{transform:none}
+
+/* reveal-on-scroll keeps its class but settles on the spring curve */
+.rv{transition:opacity .9s var(--m-out),transform .9s var(--m-out)!important}
+.rv-d1{transition-delay:.07s}.rv-d2{transition-delay:.14s}.rv-d3{transition-delay:.21s}.rv-d4{transition-delay:.28s}
+
+/* ───────────────────────── reduced motion: all flair, zero cost ────────── */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important}
+  html.js-motion #view img{opacity:1!important;transform:none!important;filter:none!important}
+  #view.pg,#view.pg > *,#view.pg .m-stagger > *{animation:none!important}
+  .modal-overlay.open .modal,.modal-overlay.open .modal > *{animation:none!important}
+  .preloader{animation:none}
+}
