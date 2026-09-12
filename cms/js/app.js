@@ -2888,11 +2888,11 @@ pages.checkout = async (view) => {
 
       <div class="sec-title">Payment method</div>
       <div style="display:grid;gap:12px" id="payOpts">
-        <label class="pay-opt on" id="payOptOnline"><input type="radio" name="pay" value="Online" checked><span><b>Pay online · UPI / card / net-banking <em class="pay-badge" id="payBadge">2% off</em></b><small id="payOnlineSub">Razorpay-secured · instant 2% prepaid discount</small></span></label>
+        <label class="pay-opt on" id="payOptOnline"><input type="radio" name="pay" value="Online" checked><span><b>Pay online · UPI / card / net-banking <em class="pay-badge" id="payBadge">2% off</em></b><small id="payOnlineSub">secured by PayU · instant 2% prepaid discount</small></span></label>
         <label class="pay-opt" id="payOptCod"><input type="radio" name="pay" value="COD"><span><b>Cash on Delivery</b><small id="payCodSub">Available on orders below ${fmt(50000)} · ID verification at handover · full price</small></span></label>
         <label class="pay-opt"><input type="radio" name="pay" value="WhatsApp"><span><b>WhatsApp Order</b><small>Our team confirms the order &amp; payment (UPI / bank / card) on chat · full price</small></span></label>
       </div>
-      <div class="qty-banner mt-2" id="payDemoNote">🔒 Card/net-banking checkout switches to <b>live Razorpay</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.</div>
+      <div class="qty-banner mt-2" id="payDemoNote">🔒 Card/net-banking checkout switches to <b>live PayU</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.</div>
     </div>
 
     <div class="summary">
@@ -2975,17 +2975,13 @@ pages.checkout = async (view) => {
   const pct = +(payCfg.prepaidPct || 0);
   const badge = $('#payBadge'); if (badge) badge.textContent = pct ? pct + '% off' : '';
   const sub = $('#payOnlineSub');
-  if (sub) sub.textContent = payCfg.mode === 'razorpay'
-    ? 'UPI · cards · net-banking · secured by Razorpay' + (pct ? ' · instant ' + pct + '% off' : '')
-    : payCfg.mode === 'phonepe'
-    ? 'UPI · cards · net-banking · secured by PhonePe' + (pct ? ' · instant ' + pct + '% off' : '')
-    : 'UPI · cards · net-banking (demo until gateway keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
+  if (sub) sub.textContent = payCfg.mode === 'payu'
+    ? 'UPI · cards · net-banking · wallets · secured by PayU' + (pct ? ' · instant ' + pct + '% off' : '')
+    : 'UPI · cards · net-banking (demo until PayU keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
   const note = $('#payDemoNote');
-  if (note) note.innerHTML = payCfg.mode === 'razorpay'
-    ? '🔒 Payments are secured by <b>Razorpay</b> (UPI / cards / net-banking). Your card details never touch shivaa.in.'
-    : payCfg.mode === 'phonepe'
-    ? '🔒 You will be redirected to <b>PhonePe</b> (UPI / cards / net-banking / wallets). Your card details never touch shivaa.in.' + (payCfg.phonepe && payCfg.phonepe.env === 'uat' ? ' <b>Test mode.</b>' : '')
-    : '🔒 Card/net-banking checkout switches to <b>live PhonePe / Razorpay</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
+  if (note) note.innerHTML = payCfg.mode === 'payu'
+    ? '🔒 You will be redirected to the secure <b>PayU</b> payment page (UPI / cards / net-banking / wallets). Your card details never touch shivaa.in.' + (payCfg.payu && payCfg.payu.env === 'test' ? ' <b>Test mode.</b>' : '')
+    : '🔒 Card/net-banking checkout switches <b>live on PayU</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
   const codPct = +(state.settings.codFeePct || 0);
   const codSub = $('#payCodSub');
   if (codSub) {
@@ -3148,7 +3144,7 @@ function demoPaySheet(po, orderId) {
         <button type="button" class="ps-m">🏦 Net-banking</button>
       </div>
       <button class="btn btn-gold btn-block btn-lg" id="psPay">Pay ${fmt(amt)} <small>(demo success)</small></button>
-      <p class="ps-note">Card checkout switches to live Razorpay the moment keys are added in admin &rarr; Settings &rarr; Payments.${po.upiId ? ' Need to really pay now? open the <b>UPI QR</b> tab.' : ''}</p>
+      <p class="ps-note">Card checkout switches to live PayU the moment keys are added in admin &rarr; Settings &rarr; Payments.${po.upiId ? ' Need to really pay now? open the <b>UPI QR</b> tab.' : ''}</p>
       </div>
       <button class="btn btn-ghost btn-block" id="psLater">Pay later &middot; order stays reserved</button>
     </div>`);
@@ -3170,47 +3166,44 @@ function demoPaySheet(po, orderId) {
     $('#psLater').onclick = () => { closeModal(); toast('Order reserved — complete payment from your order page'); resolve(false); };
   });
 }
-/* v92 — full-page navigation seam (PhonePe redirect). Centralised so tests
-   can capture the target URL instead of crashing jsdom's navigation stub. */
+/* v94 — full-page navigation seam (tests capture instead of navigating). */
 window.Shivaa.redirectTo = (url) => { window.location.href = url; };
-/* v92 — brief overlay while the browser leaves for the PhonePe checkout */
-function phonepeRedirectSheet() {
+/* v94 — brief overlay while the browser leaves for the PayU payment page */
+function payuRedirectSheet() {
   return new Promise(() => {
     openModal(`<div style="text-align:center;padding:14px 6px">
       <div class="pp-spinner" aria-hidden="true"></div>
-      <h3 style="margin:14px 0 6px">Redirecting to PhonePe…</h3>
+      <h3 style="margin:14px 0 6px">Redirecting to PayU…</h3>
       <p style="color:var(--muted);font-size:13px">Do not press back or close this tab. You can pay with any UPI app, card, net-banking or wallet — we&rsquo;ll bring you back when it&rsquo;s done.</p>
     </div>`);
   });
 }
+/* v94 — PayU hosted checkout: the server signs and returns the form fields;
+   we auto-submit a full-page POST to secure.payu.in / test.payu.in. */
+window.Shivaa.payuSubmit = (action, fields) => {
+  const f = document.createElement('form');
+  f.method = 'POST'; f.action = action; f.style.display = 'none';
+  for (const [k, v] of Object.entries(fields || {})) {
+    const i = document.createElement('input');
+    i.type = 'hidden'; i.name = k; i.value = String(v ?? '');
+    f.appendChild(i);
+  }
+  document.body.appendChild(f);
+  f.submit();
+};
 window.Shivaa.payForOrder = async (orderId) => {
   let po;
   try { po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) }); }
   catch (e) { toast(e.message, 'err'); return false; }
-  // v93 — PhonePe Standard Checkout v2: open the mercury PayPage from the
-  // token URL using PhonePe's checkout.js (redirect mode); direct navigation
-  // is the fallback if the bundle cannot load. The tab leaves the site and
-  // PhonePe returns it to /api/pay/phonepe/return → order page (?pp=…).
-  if (po.mode === 'phonepe') {
-    if (!po.redirectUrl) { toast('PhonePe checkout link missing — retry or use the UPI QR tab', 'err'); return false; }
-    toast('Taking you to PhonePe…');
-    const launch = () => {
-      try {
-        if (window.PhonePeCheckout && typeof window.PhonePeCheckout.transact === 'function')
-          window.PhonePeCheckout.transact({ tokenUrl: po.redirectUrl });
-        else Shivaa.redirectTo(po.redirectUrl);
-      } catch (e) { Shivaa.redirectTo(po.redirectUrl); }
-    };
-    if (window.PhonePeCheckout && typeof window.PhonePeCheckout.transact === 'function') {
-      setTimeout(launch, 300);
-    } else if (po.bundle) {
-      loadExternalScript(po.bundle).then(ok => { if (ok) launch(); else Shivaa.redirectTo(po.redirectUrl); });
-      // hard fallback: if PhonePe's bundle never initialised, navigate directly
-      setTimeout(() => { if (!window.PhonePeCheckout) Shivaa.redirectTo(po.redirectUrl); }, 5000);
-    } else {
-      setTimeout(launch, 300);
+  // v94 — PayU: signed form POST redirect; PayU returns the browser to
+  // /api/pay/payu/return → order page (?pu=…), server verifies via verify_payment.
+  if (po.mode === 'payu') {
+    if (!po.action || !po.fields || !po.fields.hash) {
+      toast('PayU checkout could not start — retry or use the UPI QR tab', 'err'); return false;
     }
-    return phonepeRedirectSheet();
+    toast('Taking you to PayU…');
+    setTimeout(() => Shivaa.payuSubmit(po.action, po.fields), 300);
+    return payuRedirectSheet();
   }
   // v82 — public host with no gateway keys: go straight to the real UPI QR +
   // owner-approved screenshot flow (the old "demo success" sheet could mark
@@ -3218,32 +3211,6 @@ window.Shivaa.payForOrder = async (orderId) => {
   if (po.mode === 'upi-proof') {
     if (!po.upiId) { toast('Online gateway is being set up — please choose WhatsApp order or COD, or call the shop.', 'err'); return false; }
     return upiPaySheet(po, orderId);
-  }
-  if (po.mode === 'razorpay') {
-    const ready = await loadExternalScript('https://checkout.razorpay.com/v1/checkout.js');
-    if (ready && window.Razorpay) {
-      return new Promise(resolve => {
-        try {
-          const rzp = new window.Razorpay({
-            key: po.keyId, order_id: po.gatewayOrder.id, amount: po.amount, currency: po.gatewayOrder.currency || 'INR',
-            name: 'Shivaa Jewellers', description: 'Order ' + orderId,
-            image: location.origin + '/images/logo.png',
-            prefill: { name: state.user?.name || '', contact: state.user?.phone || '', email: state.user?.email || '' },
-            theme: { color: '#6b1020' },
-            handler: async (resp) => {
-              try {
-                await api('/api/pay/verify', { method: 'POST', body: JSON.stringify({
-                  orderId, gatewayOrderId: resp.razorpay_order_id, paymentId: resp.razorpay_payment_id, signature: resp.razorpay_signature }) });
-                toast('Payment received ✦ thank you'); resolve(true);
-              } catch (e) { toast(e.message, 'err'); resolve(false); }
-            },
-            modal: { ondismiss: () => { toast('Payment pending — reserved for 24 h'); resolve(false); } },
-          });
-          rzp.on('payment.failed', () => { toast('Payment failed — retry from your order page', 'err'); resolve(false); });
-          rzp.open();
-        } catch (e) { demoPaySheet(po, orderId).then(resolve); }
-      });
-    }
   }
   return demoPaySheet(po, orderId);
 };
@@ -3393,14 +3360,14 @@ function paymentLedgerHTML(o) {
   const pays = o.payments || [];
   if (!pays.length) return '';
   const pct = Math.max(4, Math.min(100, Math.round((o.amountPaid || 0) / Math.max(1, o.total) * 100)));
-  const payLabel = { phonepe: 'PhonePe', razorpay: 'Razorpay', 'upi-qr': 'UPI QR', cash: 'Cash', bank: 'Bank transfer', card: 'Card', upi: 'UPI' };
+  const payLabel = { payu: 'PayU', phonepe: 'PhonePe', razorpay: 'Razorpay', 'upi-qr': 'UPI QR', cash: 'Cash', bank: 'Bank transfer', card: 'Card', upi: 'UPI' };
   const refunds = o.refunds || [];
   return `<div class="paymil" style="max-width:640px;margin:12px auto 0">
       <div class="paymil-bar"><i style="width:${pct}%"></i><span>${pct}% paid</span></div>
     </div>
     <details class="acc" style="max-width:640px;margin:6px auto" open><summary>Payment history (${pays.length})${o.balance > 0 && o.paymentStatus !== 'Refunded' ? ' · balance ' + fmt(o.balance) : ''}</summary><div class="acc-body">
     ${pays.map(p => `<div class="sum-row"><span>${new Date(p.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(payLabel[p.mode] || p.mode || p.gateway || 'online')} · <small>${esc(p.status || 'approved')}${p.ref ? ' · ' + esc(p.ref) : ''}</small></span><b>${p.status === 'rejected' ? '—' : fmt(p.amount)}</b></div>`).join('')}
-    ${refunds.map(r => `<div class="sum-row" style="color:var(--warn)"><span>${new Date(r.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · PhonePe refund · <small>${esc(r.status || 'accepted')} · 5–7 days</small></span><b>− ${fmt(r.amount)}</b></div>`).join('')}
+    ${refunds.map(r => `<div class="sum-row" style="color:var(--warn)"><span>${new Date(r.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(({ payu: 'PayU', phonepe: 'PhonePe', razorpay: 'Razorpay' })[String(o.gateway || '').toLowerCase()] || 'Gateway')} refund · <small>${esc(r.status || 'pending')} · 5–7 days</small></span><b>− ${fmt(r.amount)}</b></div>`).join('')}
     ${o.amountPaid && !refunds.length ? `<div class="sum-row total"><span>Received</span><b>${fmt(o.amountPaid)}</b></div>` : ''}
     ${(o.balance > 0 && o.paymentStatus !== 'Refunded') ? `<div class="sum-row" style="color:var(--warn)"><span>Balance due before dispatch</span><b>${fmt(o.balance)}</b></div>` : ''}
   </div></details>`;
@@ -3463,14 +3430,14 @@ pages.order = async (view, q, id) => {
   let order;
   try { order = (await api('/api/orders/' + id)).order; } catch (e) { view.innerHTML = `<div class="empty"><h3>Order not found</h3></div>`; return; }
   window._lastOrder = order;
-  // v92 — returning from the PhonePe redirect (?pp=success|pending|fail)
-  const ppReturn = String(q.get('pp') || '').toLowerCase();
+  // v94 — returning from the PayU hosted page (?pu=success|pending|fail)
+  const ppReturn = String(q.get('pu') || q.get('pp') || '').toLowerCase();
   const ppBannerHTML = ppReturn === 'success'
-    ? `<div class="pp-banner ok" id="ppBanner"><span class="pp-bi">✓</span><div><b>Payment received</b><small>PhonePe confirmed it — the receipt is shown in the ledger below.</small></div></div>`
+    ? `<div class="pp-banner ok" id="ppBanner"><span class="pp-bi">✓</span><div><b>Payment received</b><small>PayU confirmed it — the receipt is shown in the ledger below.</small></div></div>`
     : ppReturn === 'fail'
-    ? `<div class="pp-banner err" id="ppBanner"><span class="pp-bi">!</span><div><b>Payment was not completed</b><small>If money was debited it is auto-refunded by PhonePe in 5–7 days. Retry with the button below.</small></div></div>`
+    ? `<div class="pp-banner err" id="ppBanner"><span class="pp-bi">!</span><div><b>Payment was not completed</b><small>If money was debited, PayU reverses it automatically in 5–7 working days. Retry with the button below.</small></div></div>`
     : ppReturn === 'pending'
-    ? `<div class="pp-banner pending" id="ppBanner"><span class="pp-spinner sm" aria-hidden="true"></span><div><b>Confirming your PhonePe payment…</b><small>Hold on a few seconds — do not close this tab.</small></div></div>`
+    ? `<div class="pp-banner pending" id="ppBanner"><span class="pp-spinner sm" aria-hidden="true"></span><div><b>Confirming your PayU payment…</b><small>Hold on a few seconds — do not close this tab.</small></div></div>`
     : '';
   view.innerHTML = `
   <div style="min-height:70vh;display:flex;align-items:center;padding:60px 0">
@@ -3529,9 +3496,8 @@ pages.order = async (view, q, id) => {
     const slot = $('#refundSlot');
     if (mine && slot) slot.innerHTML = refundCardHTML(order, mine);
   } catch (e) { /* guests / no requests */ }
-  // v92 — after a PhonePe redirect return, ask the server to reconcile the
-  // signed status and redraw the moment it flips to Paid (covers the window
-  // where the S2S callback is still in flight).
+  // v94 — after a PayU redirect return, ask the server to run verify_payment
+  // (and refund status) and redraw the moment the order flips to Paid.
   if (ppReturn === 'success' || ppReturn === 'pending') {
     const pollPP = async (tries) => {
       if (!document.getElementById('ppBanner')) return;              // navigated away
@@ -3543,17 +3509,17 @@ pages.order = async (view, q, id) => {
       await new Promise(r => setTimeout(r, tries === 0 ? 1200 : 2600));
       if (!document.getElementById('ppBanner')) return;
       try {
-        const r = await api('/api/pay/phonepe/status', { method: 'POST', body: JSON.stringify({ orderId: id }) });
+        const r = await api('/api/pay/payu/status', { method: 'POST', body: JSON.stringify({ orderId: id }) });
         const o = r.order || {};
         const ps = String(o.paymentStatus || '');
         if (/^paid$/i.test(ps) || /partially paid/i.test(ps)) {
-          toast('PhonePe payment confirmed ✦');
+          toast('PayU payment confirmed ✦');
           history.replaceState(null, '', '#/order/' + encodeURIComponent(id));
           return pages.order(view, new URLSearchParams(), id);
         }
         if (/failed/i.test(ps)) {
-          history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + '?pp=fail');
-          return pages.order(view, new URLSearchParams('pp=fail'), id);
+          history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + '?pu=fail');
+          return pages.order(view, new URLSearchParams('pu=fail'), id);
         }
         return pollPP(tries + 1);
       } catch (e) { return pollPP(tries + 1); }
