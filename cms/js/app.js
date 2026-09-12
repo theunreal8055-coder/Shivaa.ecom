@@ -140,7 +140,10 @@ const CATS = {
 
 /* ─────────── WhatsApp integration ─────────── */
 const WA_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.9a8.1 8.1 0 0 0-6.9 12.3L4 20.2l4.1-1.05A8.1 8.1 0 1 0 12 3.9zm0 1.8a6.3 6.3 0 1 1-3.24 11.7l-.3-.18-2.42.62.64-2.35-.2-.32A6.3 6.3 0 0 1 12 5.7zM9.44 8.6c-.16 0-.42.06-.64.3-.22.24-.86.84-.86 2.05s.88 2.38 1 2.54c.12.16 1.72 2.65 4.18 3.6 2.06.8 2.48.65 2.93.6.45-.04 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28-.24-.12-1.44-.71-1.66-.79-.22-.08-.38-.12-.55.12-.16.24-.63.79-.77.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.42-1.34-1.66-.14-.24-.02-.37.1-.49.1-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.32-.75-1.8-.2-.47-.4-.4-.55-.41-.15-.01-.31-.01-.47-.01z"/></svg>';
-function waNum() { return (state.settings && state.settings.whatsapp) || '918905005921'; }
+function waNum() {  // v83 — digits only; a setting can never break out of an href
+  const n = String((state.settings && state.settings.whatsapp) || '918905005921').replace(/\D/g, '');
+  return n || '918905005921';
+}
 function waLink(text) { return 'https://wa.me/' + waNum() + '?text=' + encodeURIComponent(String(text).slice(0, 1800)); }
 function waOpen(text) {
   const url = waLink(text);
@@ -405,7 +408,7 @@ function updateCompareUI() {
   if (!n || document.body.dataset.page === 'compare') { tray.hidden = true; return; }
   const thumbs = items.map(p => `
     <span class="ct-thumb">
-      <a href="#/product/${p.id}" aria-label="Open ${esc(p.name)}"><img src="${p.images[0]}" alt=""></a>
+      <a href="#/product/${p.id}" aria-label="Open ${esc(p.name)}"><img src="${safeUrl(p.images && p.images[0])}" alt=""></a>
       <button type="button" onclick="Shivaa.removeCompare('${p.id}')" aria-label="Remove ${esc(p.name)} from compare">×</button>
     </span>`).join('');
   tray.innerHTML = `
@@ -888,7 +891,7 @@ function finaleBandHTML(order, entry, gold, silver) {
       <div class="fb-cta">
         ${entry
           ? '<a class="btn btn-gold btn-lg" href="#/finale">See the campaign page</a>'
-          : `<button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.fqOpen({route:'purchase',orderId:'${orderId}'})">Take the quiz — it takes ~1 minute</button>`}
+          : `<button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.fqOpen({route:'purchase',orderId:${jsArg(orderId)}})">Take the quiz — it takes ~1 minute</button>`}
         <a class="btn btn-light btn-lg" href="#/shop">Shop more</a>
       </div>
       <ul class="fb-chips">
@@ -1196,7 +1199,7 @@ async function loadSocialProof() {
 
 /* ─────────── v54 HOME STRIPS: trending + recently viewed ─────────── */
 const tvCard = (x) => `<a class="tv-card" href="#/product/${esc(x.id)}">
-  <div class="tv-ph"><img src="${esc(x.img || ((x.images || [])[0]) || '/images/logo.png')}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'"></div>
+  <div class="tv-ph"><img src="${safeUrl(x.img || ((x.images || [])[0])) || '/images/logo.png'}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'"></div>
   <div class="tv-b"><b>${esc(x.name)}</b><small>${esc(x.category || '')}${x.rating ? ' · ★' + x.rating : ''}</small><span>${'₹' + Math.round(x.price || 0).toLocaleString('en-IN')}</span></div></a>`;
 function tvSection(id, label, sub, items) {
   if (!items.length) return null;
@@ -1460,7 +1463,7 @@ function productCard(p, opts = {}) {
   const compared = isCompared(p.id);
   return `<article class="p-card" data-pid="${p.id}">
     <a href="#/product/${p.id}" class="pc-imgwrap">
-      <img src="${(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
+      <img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
       ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
       <div class="glare"></div>
     </a>
@@ -1894,7 +1897,7 @@ pages.home = async (view) => {
         </div>
         <a class="btn btn-primary" href="#/product/${spot.id}">View the Piece</a>
       </div>
-      <a href="#/product/${spot.id}" class="cat-card rv" style="aspect-ratio:auto;height:360px"><img src="${spot.images[0]}" style="height:100%" alt="${esc(spot.name)}"><div class="glare"></div></a>
+      <a href="#/product/${spot.id}" class="cat-card rv" style="aspect-ratio:auto;height:360px"><img src="${safeUrl(spot.images && spot.images[0])}" style="height:100%" alt="${esc(spot.name)}"><div class="glare"></div></a>
     </div>
   </section>` : `
   <section class="sec container" style="padding-top:0">
@@ -2148,7 +2151,7 @@ pages.product = async (view, q, id) => {
       <div class="pd-gallery">
         <div class="gal-wrap" id="galWrap">
           <div class="gal-track" id="galTrack">
-            ${(p.video ? [`<div class="gal-slide gal-vid on"><video src="${esc(p.video)}" controls playsinline preload="metadata" poster="${p.images && p.images[0] ? p.images[0] : ''}"></video><span class="gal-vid-tag">▶ 360° film</span></div>`] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${im}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`)).join('')}
+            ${(p.video ? [`<div class="gal-slide gal-vid on"><video src="${safeUrl(p.video) || ''}" controls playsinline preload="metadata" poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}"></video><span class="gal-vid-tag">▶ 360° film</span></div>`] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${safeUrl(im) || ''}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`)).join('')}
           </div>
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
           <button class="gal-nav gal-next" aria-label="Next">›</button>
@@ -2211,7 +2214,7 @@ pages.product = async (view, q, id) => {
           <button class="btn btn-ghost wa-order" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat to Order</button>
           <button type="button" class="btn btn-outline pd-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">⚖ <span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span></button>
         </div>
-        <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'};display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</span><a href="javascript:Shivaa.rateAlertModal('${p.id}')" style="font-size:12px">🔔 Alert on price drop</a></div>
+        <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'};display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</span><a href="javascript:Shivaa.rateAlertModal(${jsArg(p.id)})" style="font-size:12px">🔔 Alert on price drop</a></div>
 
         ${window.ShivaaHallmark ? window.ShivaaHallmark.productPanel(p) : '<p class="hm-note">HUID information is temporarily unavailable. No BIS verification has been performed here.</p>'}
         <a class="trust-pdp-link" href="#/trust">Business details &amp; documents →</a>
@@ -2240,7 +2243,7 @@ pages.product = async (view, q, id) => {
             ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${safeUrl(src)}" target="_blank" rel="noopener"><img src="${safeUrl(src)}" alt="review photo" loading="lazy"></a>`).join('')}</div>` : ''}
             ${r.reply ? `<div class="rv-reply"><b>Shivaa replies:</b> ${esc(r.reply)}</div>` : ''}
           </div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
-          <form class="review-form" id="revForm" onsubmit="Shivaa.postReview(event,'${p.id}')">
+          <form class="review-form" id="revForm" onsubmit="Shivaa.postReview(event,${jsArg(p.id)})">
             <div class="rate-pick" id="ratePick">${[1,2,3,4,5].map(i => `<span data-r="${i}" onclick="Shivaa.pickRate(${i})">★</span>`).join('')}</div>
             <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece — fit, finish, how it feels…" required></textarea></div>
             <label class="rv-upload">📷 Add up to 3 photos (optional)<input type="file" id="revPhotos" accept="image/*" multiple capture="environment"></label>
@@ -2507,7 +2510,7 @@ pages.compare = async (view, q) => {
     <div class="pcmp-grid" role="list">
       ${items.map(p => { const pr = price(p); return `<article class="pcmp-card" role="listitem">
         <button type="button" class="pcmp-remove" onclick="Shivaa.removeCompare('${p.id}')" aria-label="Remove ${esc(p.name)} from compare">×</button>
-        <a href="#/product/${p.id}" class="pcmp-img"><img src="${p.images[0]}" alt="${esc(p.name)}"></a>
+        <a href="#/product/${p.id}" class="pcmp-img"><img src="${safeUrl(p.images && p.images[0])}" alt="${esc(p.name)}"></a>
         <div class="pcmp-card-body">
           <span class="label">${esc(CATS[p.category]?.name || p.category)}</span>
           <h3><a href="#/product/${p.id}">${esc(p.name)}</a></h3>
@@ -2564,7 +2567,7 @@ pages.cart = async (view) => {
       <div class="cart-items">
         ${lines.map(({ it, pr }) => `
         <div class="cart-item">
-          <a href="#/product/${it.p.id}"><img src="${it.p.images[0]}" alt=""></a>
+          <a href="#/product/${it.p.id}"><img src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
           <div>
             <a href="#/product/${it.p.id}" class="ci-name">${esc(it.p.name)}</a>
             <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : it.p.purity + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved “' + esc(it.engraving) + '”' : ''}</div>
@@ -3193,16 +3196,16 @@ pages.order = async (view, q, id) => {
         <h3>${order.paymentStatus === 'Partially paid' ? '⌛ Balance payment pending' : '⌛ Payment pending'}</h3>
         <p>${order.amountPaid ? `<b>${fmt(order.amountPaid)} received</b> · balance <b>${fmt(order.balance || (order.total - order.amountPaid))}</b> · ` : ''}Your piece is reserved &amp; today&rsquo;s rate is held. Complete payment now — UPI QR, cards or net-banking — or switch to WhatsApp.</p>
         <div class="pay-due-btns">
-          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder('${order.id}').then(()=>location.reload())">Pay ${fmt(order.balance || (order.amountPaid ? order.total - order.amountPaid : order.total))} now</button>
-          <button class="btn btn-outline" onclick="Shivaa.waOpenOrder('${order.id}')">Pay on WhatsApp</button>
+          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder(${jsArg(order.id)}).then(()=>location.reload())">Pay ${fmt(order.balance || (order.amountPaid ? order.total - order.amountPaid : order.total))} now</button>
+          <button class="btn btn-outline" onclick="Shivaa.waOpenOrder(${jsArg(order.id)})">Pay on WhatsApp</button>
         </div></div>` : ''}
       ${order.paymentStatus === 'Proof submitted' ? `<div class="pay-due-card" style="background:linear-gradient(135deg,#eef6ff,#dcecff);border-color:#7fb0e6">
         <h3>🔎 Payment being verified</h3>
         <p>We have your payment screenshot (ref <b>${esc((order.payProof && order.payProof.ref) || '—')}</b>). The counter confirms it within minutes — this page updates automatically; your rate stays held.</p>
-        <div class="pay-due-btns"><a class="btn btn-outline btn-sm" href="javascript:Shivaa.waOpenOrder('${order.id}')">Confirm faster on WhatsApp</a></div></div>` : ''}
+        <div class="pay-due-btns"><a class="btn btn-outline btn-sm" href="javascript:Shivaa.waOpenOrder(${jsArg(order.id)})">Confirm faster on WhatsApp</a></div></div>` : ''}
       ${order.paymentStatus === 'Refunded' ? `<div class="pay-due-card" style="background:#fdeeef;border-color:#e6a0a8"><h3>Refunded</h3><p>The refund for this order is processed to the payment source. Allow 3–5 working days for it to appear.</p></div>` : ''}
       ${order.paymentMethod === 'WhatsApp' && order.paymentStatus !== 'Paid' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Your order is reserved — confirm &amp; pay on WhatsApp to lock today's rate.</div>
-      <div class="center" style="margin-bottom:18px"><button class="btn btn-gold btn-lg" onclick="Shivaa.waOpenOrder('${order.id}')">Confirm &amp; Pay on WhatsApp</button></div>` : ''}
+      <div class="center" style="margin-bottom:18px"><button class="btn btn-gold btn-lg" onclick="Shivaa.waOpenOrder(${jsArg(order.id)})">Confirm &amp; Pay on WhatsApp</button></div>` : ''}
       <div id="refundSlot">${refundCardHTML(order)}</div>
       ${order.status === 'Delivered' ? npsHTML(order) : ''}
       ${order.status === 'Delivered' ? careCTAHTML(order) : ''}
@@ -3313,15 +3316,15 @@ pages.account = async (view, q) => {
           return `<span class="ms-step ${hit ? 'done' : ''}" title="${key}">${ic}</span>`;
         }).join('')}</div>`}
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
-        ${o.items.map(i => `<img src="${i.img}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
-          <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail('${o.id}')">Details</a>
+        ${o.items.map(i => `<img src="${safeUrl(i.img)}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
+          <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail(${jsArg(o.id)})">Details</a>
           <a class="btn btn-outline btn-sm" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
           <a class="btn btn-outline btn-sm" href="#/certificate/${o.id}">🛡 Certificate</a>
           ${o.status === 'Delivered' ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.buyAgain('${o.id}')">↻ Buy again</button>` : ''}
           ${o.status === 'Delivered' ? `<a class="btn btn-outline btn-sm" href="#/care?order=${encodeURIComponent(o.id)}">✦ Care</a>` : ''}
           ${(o.paymentStatus === 'Awaiting payment' || o.paymentStatus === 'Partially paid') ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.payForOrder('${o.id}').then(()=>location.reload())" style="margin-left:auto">⌛ Pay ${o.balance ? fmt(o.balance) : 'now'}</button>` : ''}
           ${o.codConfirmed === false && o.paymentMethod === 'COD' ? `<button class="btn btn-outline btn-sm" onclick="Shivaa.codConfirm('${o.id}')">✓ Confirm COD</button>` : ''}
-          ${oq ? `<a class="btn btn-gold btn-sm" href="javascript:Shivaa.fqOpen({route:'purchase',orderId:'${o.id}'})" style="margin-left:auto">✦ Gold Finale — this order qualifies</a>` : ''}
+          ${oq ? `<a class="btn btn-gold btn-sm" href="javascript:Shivaa.fqOpen({route:'purchase',orderId:${jsArg(o.id)}})" style="margin-left:auto">✦ Gold Finale — this order qualifies</a>` : ''}
       </div></div>`;
   }).join('') || '<div class="empty"><h3>No orders yet</h3><a class="btn btn-outline" href="#/shop">Start shopping</a></div>' : ''}
   ${tab === 'addresses' ? `
@@ -3850,10 +3853,10 @@ pages.catalogues = async (view) => {
       </div>
     </div>
     <div class="ds-grid" id="dsGrid">
-      ${rings.map(p => `<div class="ds-card" id="ds-${p.id}" data-cat="${p.category}" data-w="${p.weightG}" data-stone="${(p.stoneType || 'Plain')}" data-colour="${(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${p.purity}">
-        <div class="ds-img"><img src="${p.images[0]}" loading="lazy" alt="${esc(p.name)}"><span class="ds-wt">${p.weightG} g</span></div>
+      ${rings.map(p => `<div class="ds-card" id="ds-${p.id}" data-cat="${esc(p.category)}" data-w="${esc(p.weightG)}" data-stone="${esc(p.stoneType || 'Plain')}" data-colour="${esc(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${esc(p.purity)}">
+        <div class="ds-img"><img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" loading="lazy" alt="${esc(p.name)}"><span class="ds-wt">${p.weightG} g</span></div>
         <b>${esc(p.name.replace('Shivaa Ring Design', 'Design'))}</b>
-        <small>${p.sku} · ${p.weightG} g · ${p.purity}</small>
+        <small>${esc(p.sku)} · ${p.weightG} g · ${esc(p.purity)}</small>
         <div class="ds-qty">
           <button onclick="ShivaaDS.qty('${p.id}',-1)">−</button><span>${window._sel[p.id] || 0}</span><button onclick="ShivaaDS.qty('${p.id}',1)">+</button>
         </div>
@@ -4838,8 +4841,8 @@ window.ShivaaDS = {
       window._sel = {};
       closeModal();
       openModal(`<div class="center"><div style="font-size:40px">✦</div><h3 style="margin:8px 0">Metal Order ${ord.id} placed</h3>
-        <p style="font-size:14px;color:var(--ink-2)">${ord.totalWeightG} g selected → <b>${ord.fineGrams} g fine metal @ ${ord.purity}</b><br>Making charges: ₹0 · Status: ${ord.status}</p>
-        <a class="btn btn-gold" style="margin-top:12px" target="_blank" rel="noopener" href="https://wa.me/918905005921?text=${encodeURIComponent('✦ SHIVAA METAL ORDER ✦\n\nOrder: ' + ord.id + '\nTotal weight: ' + ord.totalWeightG + ' g\n× ' + ord.factor + ' = ' + ord.fineGrams + ' g fine @ ' + ord.purity + '\nMaking charges: ZERO\n\nPlease confirm.')}">Confirm on WhatsApp →</a></div>`);
+        <p style="font-size:14px;color:var(--ink-2)">${ord.totalWeightG} g selected → <b>${ord.fineGrams} g fine metal @ ${ord.purity}</b><br>Making charges: ₹0 · Status: ${esc(ord.status || 'New')}</p>
+        <a class="btn btn-gold" style="margin-top:12px" target="_blank" rel="noopener" href="https://wa.me/${waNum()}?text=${encodeURIComponent('✦ SHIVAA METAL ORDER ✦\n\nOrder: ' + ord.id + '\nTotal weight: ' + ord.totalWeightG + ' g\n× ' + ord.factor + ' = ' + ord.fineGrams + ' g fine @ ' + ord.purity + '\nMaking charges: ZERO\n\nPlease confirm.')}">Confirm on WhatsApp →</a></div>`);
       toast('Metal order ' + ord.id + ' placed ✦');
     } catch (e) { toast(e.message, 'err'); }
   },
@@ -6036,8 +6039,8 @@ function renderSugg(qs) {
   const list = state.productsCache.filter(p => (p.name + p.category).toLowerCase().includes(s)).slice(0, 6);
   const el = $('#searchSugg');
   el.classList.toggle('open', list.length > 0);
-  el.innerHTML = list.map(p => `<div class="sugg" onclick="location.hash='#/product/${p.id}';document.getElementById('searchDrawer').classList.remove('open')">
-    <img src="${p.images[0]}" alt=""><div><b>${esc(p.name)}</b><small>${CATS[p.category]?.name} · ${fmt(price(p).total)}</small></div></div>`).join('');
+  el.innerHTML = list.map(p => `<div class="sugg" onclick="location.hash=${jsArg('#/product/' + p.id)};document.getElementById('searchDrawer').classList.remove('open')">
+    <img src="${safeUrl(p.images && p.images[0])}" alt=""><div><b>${esc(p.name)}</b><small>${esc(CATS[p.category]?.name || p.category || '')} · ${fmt(price(p).total)}</small></div></div>`).join('');
 }
 
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */

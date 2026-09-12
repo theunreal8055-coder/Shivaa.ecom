@@ -47,9 +47,10 @@ AddType application/pdf .pdf
 <FilesMatch "^(sms|mail|trust|hallmark)\.php$">
   Require all denied
 </FilesMatch>
-# v81 — one-shot maintenance/repair tool (password-gated but unthrottled);
-# blocked at the edge. If ever genuinely needed, temporarily rename it to a
-# secret name in File Manager, run it, delete it.
+# v81/v83 — one-shot maintenance/repair tool (password-gated AND
+# brute-force-throttled since v83); still blocked at the edge. If ever
+# genuinely needed, temporarily rename it to a secret name in File
+# Manager, run it, delete it.
 <FilesMatch "^migrate-repair\.php$">
   Require all denied
 </FilesMatch>

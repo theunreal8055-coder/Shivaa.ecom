@@ -150,7 +150,7 @@ async function renderAdmin(view, q) {
         <div class="adm-table-wrap"><table class="adm-table">
           <thead><tr><th></th><th>Name</th><th>Category</th><th>Metal</th><th class="num">Weight</th><th>Making</th><th class="num">Stock</th><th class="num">Price (live)</th><th></th></tr></thead>
           <tbody>${state.productsCache.map(p => `<tr>
-            <td><img src="${p.images[0]}" alt=""></td>
+            <td><img src="${safeUrl(p.images && p.images[0])}" alt=""></td>
             <td><b>${esc(p.name)}</b><br><small style="color:var(--ink-3)">${p.sku} · ★${p.rating}</small></td>
             <td>${CATS[p.category] || p.category}</td>
             <td>${p.metal === 'Silver' ? 'Silver 925' : p.purity}</td>
@@ -296,7 +296,7 @@ async function renderAdmin(view, q) {
       <span style="font-size:12px;color:var(--ink-3);font-weight:400">${assumed} assumed · type the real tag weight & press Enter</span></h3>
       <div class="wt-grid">
         ${rings.map(p => `<div class="wt-card ${p.weightAssumed ? 'assumed' : ''}">
-          <img src="${p.images[0]}" loading="lazy" alt="${p.sku}">
+          <img src="${safeUrl(p.images && p.images[0])}" loading="lazy" alt="${esc(p.sku || '')}">
           <div class="wt-tx"><b>${p.sku}</b>
             <input type="number" step="0.001" min="0.5" value="${p.weightG}" data-id="${p.id}"
               placeholder="tag weight (g)" onchange="ShivaaAdmin.setWt('${p.id}', this.value)">
@@ -511,7 +511,7 @@ async function renderAdmin(view, q) {
             <td>${esc(p.contactPerson || '—')}</td><td>${esc(p.city || '—')}</td>
             <td>${esc(p.phone)}<br><small style="color:var(--ink-3)">${esc(p.email)}</small></td>
             <td>${new Date(p.appliedAt).toLocaleDateString('en-IN')}</td>
-            <td><span class="status-pill ${p.status === 'approved' ? 'st-delivered' : p.status === 'pending' ? 'st-placed' : 'st-cancelled'}">${p.status}</span></td>
+            <td><span class="status-pill ${p.status === 'approved' ? 'st-delivered' : p.status === 'pending' ? 'st-placed' : 'st-cancelled'}">${esc(p.status || '—')}</span></td>
             <td style="white-space:nowrap">${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','approved')">Approve</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','rejected')">Reject</button>` : ''}
               <button class="btn btn-ghost btn-sm" data-em="${esc(p.email)}" onclick="ShivaaAdmin.setUserPassword(this)" title="Set a new portal password for this partner">Portal password</button></td>
           </tr>`).join('')}</tbody>
@@ -708,7 +708,7 @@ async function renderAdmin(view, q) {
         <div class="cb-tile"><small>COD booked</small><b>${fmt(cashData.codSales||0)}</b></div>
         <div class="cb-tile out"><small>Old-gold paid out</small><b>−${fmt(cashData.oldGoldOut||0)}</b></div>
       </div>
-      <form class="form-grid" style="grid-template-columns:.8fr 2fr 1fr 1fr auto;align-items:end;margin-top:14px" onsubmit="ShivaaAdmin.cbAdd(event,'${cashData.date}')">
+      <form class="form-grid" style="grid-template-columns:.8fr 2fr 1fr 1fr auto;align-items:end;margin-top:14px" onsubmit="ShivaaAdmin.cbAdd(event,${jsArg(cashData.date)})">
         <div class="fld"><label>Type</label><select name="kind"><option value="in">Cash in</option><option value="out">Cash out</option></select></div>
         <div class="fld"><label>Note (head)</label><input name="head" required placeholder="UPI settlement · expense · advance…"></div>
         <div class="fld"><label>Amount ₹</label><input name="amount" type="number" step="0.01" required></div>
@@ -721,7 +721,7 @@ async function renderAdmin(view, q) {
         || '<tr><td colspan="6" class="partner-note">No manual entries yet — sales figures above are derived automatically from today’s orders.</td></tr>'}</tbody></table></div>
       <div class="cb-close">
         <div><b>Manual cash net: </b>${manualNet >= 0 ? '+' : '−'}₹${Math.abs(manualNet).toLocaleString('en-IN')}</div>
-        <form class="form-grid" style="grid-template-columns:1fr 1fr 2fr auto;align-items:end" onsubmit="ShivaaAdmin.dayClose(event,'${cashData.date}')">
+        <form class="form-grid" style="grid-template-columns:1fr 1fr 2fr auto;align-items:end" onsubmit="ShivaaAdmin.dayClose(event,${jsArg(cashData.date)})">
           <div class="fld"><label>Opening cash ₹</label><input name="openingCash" type="number" value="${closed ? closed.openingCash : ''}"></div>
           <div class="fld"><label>Closing cash counted ₹</label><input name="closingCash" type="number" value="${closed ? closed.closingCash : ''}"></div>
           <div class="fld"><label>Note</label><input name="note" value="${esc(closed ? closed.note||'' : '')}"></div>
@@ -729,8 +729,8 @@ async function renderAdmin(view, q) {
         </form>
       </div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
-        <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.cbPrint('${cashData.date}')">🖨 Print day report</button>
-        <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.cbCSV('${cashData.date}')">⬇ Day CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.cbPrint(${jsArg(cashData.date)})">🖨 Print day report</button>
+        <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.cbCSV(${jsArg(cashData.date)})">⬇ Day CSV</button>
       </div></div>`;
   }
 
@@ -1256,7 +1256,7 @@ window.ShivaaAdmin.editProduct = id => {
       <div class="apg-thumb ${i === 0 ? 'primary' : ''}" title="${i === 0 ? 'Primary picture' : 'Tap ★ to make this the primary picture'}">
         <button type="button" class="apg-star" data-i="${i}" title="Set as primary picture">${i === 0 ? '★' : '☆'}</button>
         <button type="button" class="apg-x" data-i="${i}" title="Remove this picture">✕</button>
-        <img src="${src}" alt="product picture ${i + 1}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
+        <img src="${safeUrl(src) || '/images/logo.png'}" alt="product picture ${i + 1}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
         ${i === 0 ? '<span class="apg-tag">Primary</span>' : ''}
       </div>`).join('');
     grid.querySelectorAll('.apg-star').forEach(b => b.onclick = () => {
@@ -2339,7 +2339,7 @@ window.ShivaaBullion = {
     const dot = c => ({ Gold: '#e9c77a', Silver: '#d9d9d9', FX: '#9ec9ff' }[c] || '#e9c77a');
     host.innerHTML = `<h4 class="bd-sech">Bullion market news</h4>
       <p class="partner-note">Live bullion/MCX headlines, refreshed every 45 minutes from market feeds. Tap any headline for the full story.</p>
-      ${news.length ? news.map(n => `<a class="bd-news" href="${esc(n.url)}" target="_blank" rel="noopener">
+      ${news.length ? news.map(n => `<a class="bd-news" href="${safeUrl(n.url)}" target="_blank" rel="noopener">
         <span class="bd-news-dot" style="background:${dot(n.cat)}"></span>
         <div><b>${esc(n.title)}</b><small>${esc(n.source || '')}${n.ago ? ' · ' + esc(n.ago) : ''} · ${esc(n.cat || '')}</small></div>
         <span>›</span></a>`).join('') : '<p class="partner-note">Headlines are loading on the next poll…</p>'}
@@ -2650,7 +2650,7 @@ window.ShivaaBullion = {
       window.Shivaa.closeModal();
       window.Shivaa.toast('Order ' + ord.id + ' placed ✦ desk confirms on WhatsApp');
       const msg = encodeURIComponent('✦ SHIVAA BULLION ORDER ✦\n\n' + (ord.side === 'buy' ? 'BUY' : 'SELL') + ' — ' + ord.metal + '\nQty: ' + ord.qty + ' ' + ord.unit + ' @ ₹' + ord.rate.toLocaleString('en-IN') + '/g\nEst. value: ₹' + ord.amount.toLocaleString('en-IN') + '\nOrder: ' + ord.id + (ord.note ? '\nNote: ' + ord.note : '') + '\n\nPlease confirm.');
-      window.Shivaa.openModal(`<div class="center"><div style="font-size:40px">✦</div><h3 style="margin:8px 0">Order ${ord.id} placed!</h3><p style="font-size:13.5px;color:var(--ink-2)">${ord.side === 'buy' ? 'Buying' : 'Selling'} ${ord.qty} ${ord.unit} ${ord.metal} @ ₹${ord.rate.toLocaleString('en-IN')}/g<br>Est. ₹${ord.amount.toLocaleString('en-IN')}</p><a class="btn btn-gold" style="margin-top:14px" target="_blank" rel="noopener" href="https://wa.me/918905005921?text=${msg}">Confirm on WhatsApp →</a></div>`);
+      window.Shivaa.openModal(`<div class="center"><div style="font-size:40px">✦</div><h3 style="margin:8px 0">Order ${ord.id} placed!</h3><p style="font-size:13.5px;color:var(--ink-2)">${ord.side === 'buy' ? 'Buying' : 'Selling'} ${ord.qty} ${ord.unit} ${ord.metal} @ ₹${ord.rate.toLocaleString('en-IN')}/g<br>Est. ₹${ord.amount.toLocaleString('en-IN')}</p><a class="btn btn-gold" style="margin-top:14px" target="_blank" rel="noopener" href="${window.Shivaa.waLink(decodeURIComponent(msg))}">Confirm on WhatsApp →</a></div>`);
       this.section = 'deals'; this.refresh(true);
     } catch (err) { window.Shivaa.toast(err.message, 'err'); }
   },
@@ -3130,7 +3130,7 @@ window.ShivaaAdmin.loadReviews = async () => {
     const d = await window.Shivaa.api('/api/admin/reviews');
     const list = (d.reviews || []).slice(0, 30);
     host.innerHTML = list.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Review</th><th>Piece</th><th></th></tr></thead><tbody>
-      ${list.map(r => `<tr><td><b>${esc(r.userName)}</b> ${r.verified ? '<span class="verified-badge">✓ verified</span>' : ''} · ${'★'.repeat(r.rating)}<br>${esc(r.text)}<br>${(r.photos || []).map(p => `<a href="${p}" target="_blank"><img src="${p}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;margin:3px"></a>`).join('')}${r.reply ? '<div class="rv-reply"><b>Reply:</b> ' + esc(r.reply) + '</div>' : ''}</td>
+      ${list.map(r => `<tr><td><b>${esc(r.userName)}</b> ${r.verified ? '<span class="verified-badge">✓ verified</span>' : ''} · ${'★'.repeat(r.rating)}<br>${esc(r.text)}<br>${(r.photos || []).map(p => `<a href="${safeUrl(p)}" target="_blank" rel="noopener"><img src="${safeUrl(p)}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;margin:3px"></a>`).join('')}${r.reply ? '<div class="rv-reply"><b>Reply:</b> ' + esc(r.reply) + '</div>' : ''}</td>
       <td>${esc(r.productName || r.productId)}</td>
       <td>${r.reply ? '' : `<button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.replyReview('${r.id}')">Reply</button>`}</td></tr>`).join('')}
     </tbody></table></div>` : '<p class="partner-note">No reviews yet.</p>';

@@ -145,6 +145,16 @@ function hallmark_product(array $product): array {
   foreach (array_keys($product) as $key) {
     if (preg_match('/\A(?:hallmark|huid|bis)/i', (string)$key)) unset($product[$key]);
   }
+  // v83 — legacy rows can predate the media-URL write sanitizer; re-filter
+  // image/video URLs on every public response (attribute-safe chars only).
+  if (function_exists('shv_safe_media_url')) {
+    if (isset($product['images']) && is_array($product['images'])) {
+      $ok = [];
+      foreach (array_slice($product['images'], 0, 12) as $im) { $u = shv_safe_media_url($im); if ($u !== null) $ok[] = $u; }
+      $product['images'] = $ok;
+    }
+    if (array_key_exists('video', $product)) $product['video'] = shv_safe_media_url($product['video']) ?? '';
+  }
   $product['hallmark'] = [
     'status' => $entries ? 'recorded_unverified' : 'not_provided',
     'verified' => false,

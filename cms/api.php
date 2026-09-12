@@ -42,6 +42,31 @@ function uid(string $p = 'id'): string { return $p . '_' . bin2hex(random_bytes(
    digits. Two orders placed in the same second used to get the SAME id, and
    every route then matched the first one (payments, refunds, status PUTs). */
 function biz_id(string $p): string { return $p . substr((string)time(), -8) . strtoupper(bin2hex(random_bytes(2))); }
+/* v83 — media URLs on products are rendered in <img src>/<video src>. Even an
+   admin-only writer must not be able to store an attribute-breaking value
+   (x" onerror=…) that later executes in every visitor's browser. Relative
+   site paths and http(s) URLs only; no quotes, angle brackets or control
+   characters, max 300 chars. */
+function shv_safe_media_url($v): ?string {
+  if (!is_scalar($v)) return null;
+  $u = trim((string)$v);
+  if ($u === '' || strlen($u) > 300) return null;
+  if (preg_match('#[<>"\'`\x00-\x20\x7F]#u', $u)) return null;
+  if (preg_match('#^(?:/|https?://)#i', $u)) return $u;
+  return null;
+}
+function shv_sanitize_product_media(array &$p): void {
+  if (array_key_exists('images', $p)) {
+    $imgs = is_array($p['images']) ? array_slice($p['images'], 0, 12) : [];
+    $out = [];
+    foreach ($imgs as $im) { $u = shv_safe_media_url($im); if ($u !== null) $out[] = $u; }
+    $p['images'] = $out;
+  }
+  if (array_key_exists('video', $p)) {
+    $u = shv_safe_media_url($p['video']);
+    $p['video'] = $u ?? '';
+  }
+}
 function body_json(): array {
   // v81 — cap request bodies (memory-exhaustion / DoS guard)
   static $checked = false;
@@ -237,7 +262,8 @@ function bullion_news(array &$db): array {
       $desc = trim(html_entity_decode(strip_tags((string)$it->description), ENT_QUOTES));
       $hay = strtolower($title . ' ' . $desc);
       $hit = false; foreach ($kw as $k) if (strpos($hay, $k) !== false) { $hit = true; break; }
-      if (!$hit || $title === '' || $link === '') continue;
+      // v83 — only real web links ever leave the RSS parser (no javascript:/relative bait)
+      if (!$hit || $title === '' || $link === '' || !preg_match('#^https?://[A-Za-z0-9.\-]+#i', $link)) continue;
       $ago = '';
       if (!empty($it->pubDate)) {
         $ts = strtotime((string)$it->pubDate);
@@ -1448,6 +1474,27 @@ function need_admin(array $db): array {
   if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
   return $u;
 }
+/* v83 — the bullion desk / fine-metal exchange / partner catalogues are for
+   APPROVED jeweller partners only. The partner-apply route used to issue a
+   full partner session immediately (application status stayed "pending"),
+   so an applicant could trade before the shop approved them. */
+function require_partner_approved(array $db, ?array $u): array {
+  if (!$u) jout(401, ['error' => 'Login required']);
+  if (($u['role'] ?? '') === 'admin') return $u;
+  if (($u['role'] ?? '') !== 'partner') jout(403, ['error' => 'Jeweller partners only — apply on the For Jewellers page']);
+  if (partner_is_approved($db, $u)) return $u;
+  jout(403, ['error' => 'Your jeweller application is still pending approval — the trade desk opens after Shivaa approves your GST KYC.']);
+}
+function partner_is_approved(array $db, ?array $u): bool {
+  if (!$u) return false;
+  if (($u['role'] ?? '') === 'admin') return true;
+  if (($u['role'] ?? '') !== 'partner') return false;
+  $pid = (string)($u['partnerId'] ?? '');
+  foreach (($db['partners'] ?? []) as $pr) {
+    if (($pr['id'] ?? '') === $pid && ($pr['status'] ?? '') === 'approved') return true;
+  }
+  return false;
+}
 
 function bullion_defaults(): array {
   return ['cash' => [
@@ -1860,9 +1907,13 @@ try {
     $b = body_json();
     if (!empty($b['clear'])) $db['rates']['override'] = null;
     else {
-      $g24 = (float)$b['gold24'];
+      $g24 = (float)$b['gold24']; $sil = (float)$b['silver'];
+      // v83 — a mistyped/zero override used to flow straight into pricing;
+      // bounds are ₹/10 g gold and ₹/kg silver, wide enough for any real market.
+      if (!is_finite($g24) || $g24 < 10000 || $g24 > 5000000) jout(400, ['error' => 'Gold 24K rate is outside a sane range (₹10,000–50,00,000 per 10 g)']);
+      if (!is_finite($sil) || $sil < 1000 || $sil > 50000000) jout(400, ['error' => 'Silver rate is outside a sane range (₹1,000–5,00,00,000 per kg)']);
       $db['rates']['override'] = ['gold24' => (int)round($g24), 'gold22' => (int)round($g24 * PURITY_22),
-                                  'gold18' => (int)round($g24 * PURITY_18), 'silver' => (float)$b['silver']];
+                                  'gold18' => (int)round($g24 * PURITY_18), 'silver' => $sil];
     }
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'override' => $db['rates']['override']]);
@@ -1933,6 +1984,10 @@ try {
       $b = body_json();
       try { hallmark_guard_product_write($b); }
       catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
+      shv_sanitize_product_media($b);   // v83 — strip attribute-breaking media URLs
+      // v83 — identity/timestamps are server-owned; a PUT must never re-key
+      // the row (two products sharing an id collapse every later lookup).
+      unset($b['id'], $b['createdAt']);
       foreach ($b as $k => $v) $db['products'][$idx][$k] = $v;
       db_save($DB_FILE, $db); jout(200, hallmark_product($db['products'][$idx]));
     }
@@ -1947,6 +2002,8 @@ try {
     $b = body_json();
     try { hallmark_guard_product_write($b); }
     catch (HallmarkProblem $e) { jout($e->httpStatus, ['error' => $e->getMessage()]); }
+    shv_sanitize_product_media($b);   // v83 — strip attribute-breaking media URLs
+    unset($b['id'], $b['createdAt']);  // v83 — identity is server-minted
     $prod = array_merge(['createdAt' => now_iso(), 'active' => true, 'rating' => 4.6, 'reviews' => 0, 'stock' => 10, 'sizes' => [], 'tags' => [], 'images' => [], 'stoneValue' => 0], $b);
     $prod['id'] = uid('p');
     $db['products'][] = $prod; db_save($DB_FILE, $db); jout(200, hallmark_product($prod));
@@ -2074,6 +2131,19 @@ try {
     }
     return '';
   }
+  /* v83 — a phone-verification code is single-use: the moment registration,
+     partner KYC application or the existing-account auto-sign-in accepts it,
+     it is burned. Previously the same verified code stayed valid for an hour
+     and could be replayed against register, the login door and partner apply. */
+  function otp_consume_verified(array &$db, string $phone): void {
+    foreach (($db['otps'] ?? []) as &$oRec) {
+      if (($oRec['phone'] ?? '') === $phone && ($oRec['purpose'] ?? 'login') !== 'reset'
+          && !empty($oRec['verified']) && empty($oRec['consumedByLogin'])) {
+        $oRec['consumedByLogin'] = true;
+      }
+    }
+    unset($oRec);
+  }
   function otp_dest_hint(array $d): string {
     return $d['channel'] === 'email' ? ('the email address ' . $d['masked']) : ('the mobile ' . $d['masked']);
   }
@@ -2146,10 +2216,11 @@ try {
     if (!empty($b['password']) && strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
     if (strlen((string)($b['password'] ?? '')) > 4096) jout(400, ['error' => 'Password is too long']);
     $otpOk = false;
-    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && !empty($o['verified']) && empty($o['consumedByLogin']) && $o['exp'] > time() - 3600) $otpOk = true;
+    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && ($o['purpose'] ?? 'login') !== 'reset' && !empty($o['verified']) && empty($o['consumedByLogin']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
     /* one account per mobile — the OTP already proves possession */
     foreach ($db['users'] as $uE) if (substr(preg_replace('/\D/', '', (string)($uE['phone'] ?? '')), -10) === $phone) {
+      otp_consume_verified($db, $phone);   // v83 — burn the code on use
       $tk = issue_token($db, $uE); db_save($DB_FILE, $db); jout(200, ['token' => $tk, 'user' => pub_user($uE)]);
     }
     /* v56 mobile-first sign-up: email & password are optional. Missing email
@@ -2180,7 +2251,9 @@ try {
           'referralCode' => 'SH' . strtoupper(substr(bin2hex(random_bytes(3)), 0, 5)),
           'referredBy' => preg_match('/^SH[A-Z0-9]{5}$/', $ref) ? $ref : null];
     if ($profile) $u['profile'] = $profile;
-    $db['users'][] = $u; $tk = issue_token($db, $u);
+    $db['users'][] = $u;
+    otp_consume_verified($db, $phone);   // v83 — burn the code on use
+    $tk = issue_token($db, $u);
     db_save($DB_FILE, $db); jout(200, ['token' => $tk, 'user' => pub_user($u)]);
   }
   if ($route === 'auth/login' && $method === 'POST') {
@@ -2196,6 +2269,11 @@ try {
     $matched = null;
     foreach ($db['users'] as $u) if (strtolower($u['email']) === $email) { $matched = $u; break; }
     $__rehash = false;
+    // v83 — spend a bcrypt comparison even when the account does not exist,
+    // so response timing cannot be used to enumerate registered emails.
+    if (!$matched) {
+      password_verify((string)($b['password'] ?? ''), '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
+    }
     if ($matched && pw_verify($matched, (string)($b['password'] ?? ''), $__rehash)) {
       $u = $matched;
       if ($__rehash) {
@@ -2294,8 +2372,12 @@ try {
                             'ip' => client_ip()];
     db_save($DB_FILE, $db);
     if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or use admin-reset.php. ' . $helpNote]);
+    // v83 CRITICAL — a password-reset code is a credential that changes the
+    // password. Demo builds hand login/registration codes back to the browser
+    // for testing; that shortcut must NEVER exist for a reset code, or anyone
+    // could reset any customer's — and the admin's — password.
     jout(200, array_merge($generic, ['masked' => $d['masked'], 'via' => $d['channel'],
-        'devCode' => $d['devCode'] ?? null,
+        'devCode' => null,
         'message' => 'If that email has a Shivaa account, a 4-digit code is on its way to ' . otp_dest_hint($d) . '.']));
   }
 
@@ -2516,8 +2598,13 @@ try {
     $type = ($b['type'] ?? 'percent') === 'flat' ? 'flat' : 'percent';
     $value = (float)($b['value'] ?? 0);
     $value = $type === 'percent' ? max(0, min(100, $value)) : max(0, min(10000000, $value));
-    $clean = array_merge($b, ['code' => $code, 'type' => $type, 'value' => $value,
-      'minOrder' => max(0, min(10000000, (float)($b['minOrder'] ?? 0))), 'active' => true]);
+    // v83 — whitelist coupon fields (array_merge($b, …) used to store every
+    // raw body key) and bound the customer-visible note.
+    $clean = ['code' => $code, 'type' => $type, 'value' => $value,
+      'minOrder' => max(0, min(10000000, (float)($b['minOrder'] ?? 0))),
+      'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 140),
+      'active' => true];
+    foreach (['expiresAt', 'oncePerUser', 'forNewUsers'] as $ck) if (array_key_exists($ck, $b)) $clean[$ck] = $b[$ck];
     $db['coupons'][] = array_merge(['id' => uid('c')], $clean);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
@@ -2577,6 +2664,9 @@ try {
       }
     }
     if (!$items) jout(400, ['error' => 'Cart is empty']);
+    // v83 — fail closed: never accept an order priced against a dead/zero rate
+    // feed (metal value would collapse to ₹0 + stones).
+    if ($subtotal <= 0) jout(503, ['error' => 'Live pricing is temporarily unavailable — please retry in a minute, or order on WhatsApp.']);
     $coupon = null;
     if (!empty($b['coupon'])) foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper($b['coupon']) && coupon_live($c) && coupon_for_user($c, $u)) $coupon = $c;
     $discount = 0;
@@ -2755,6 +2845,12 @@ try {
       jout(400, ['error' => 'Gateway not configured for live payments.']);
     }
     $gw = (!empty($s['rzpKeyId']) && ($s['payProvider'] ?? '') === 'razorpay') ? 'razorpay' : 'demo';
+    // v83 — idempotency: a captured gateway payment id must credit the order
+    // exactly once (a replayed verify call used to add another ₹1+ line).
+    foreach (($o['payments'] ?? []) as $__p) {
+      if ($payId !== '' && (($__p['ref'] ?? '') === $payId || ($__p['gatewayPaymentId'] ?? '') === $payId))
+        jout(200, ['ok' => true, 'already' => true, 'orderId' => $o['id']]);
+    }
     $alreadyNow = array_sum(array_map(fn($p) => ($p['status'] ?? '') === 'approved' ? (int)$p['amount'] : 0, $o['payments'] ?? []));
     $paidAmt = max(1, (int)($o['total'] ?? 0) - $alreadyNow);
     order_add_payment($db['orders'][$i], ['amount' => $paidAmt, 'mode' => $gw, 'ref' => $payId ?: $gOrderId, 'at' => now_iso(), 'status' => 'approved']);
@@ -2861,7 +2957,7 @@ try {
   /* ── catalogs (uploads) ── */
   if ($route === 'catalogs' && $method === 'GET') {
     $u0 = req_user($db);
-    if (!$u0 || ($u0['role'] !== 'partner' && $u0['role'] !== 'admin')) jout(200, ['catalogs' => [], 'gated' => true]);
+    if (!partner_is_approved($db, $u0)) jout(200, ['catalogs' => [], 'gated' => true]);   // v83 — pending applicants stay gated
     $list = $db['catalogs'];
     usort($list, fn($a, $b) => ($b['featured'] ? 1 : 0) - ($a['featured'] ? 1 : 0) ?: strcmp($b['addedAt'], $a['addedAt']));
     jout(200, ['catalogs' => $list]);
@@ -2878,8 +2974,11 @@ try {
     $name = 'cat_' . bin2hex(random_bytes(4)) . '_' . $safe;
     if (!is_dir($CAT_DIR)) mkdir($CAT_DIR, 0755, true);
     if (!move_uploaded_file($f['tmp_name'], $CAT_DIR . '/' . $name)) jout(500, ['error' => 'Could not save file — check uploads/catalogs permissions (755)']);
-    $cat = ['id' => uid('cat'), 'title' => $_POST['title'] ?? $safe, 'desc' => $_POST['desc'] ?? '',
-            'category' => $_POST['category'] ?? 'General', 'featured' => in_array(($_POST['featured'] ?? ''), ['true', 'on', '1']),
+    $cat = ['id' => uid('cat'),
+            'title' => mb_substr(trim((string)($_POST['title'] ?? $safe)), 0, 120) ?: 'Catalogue',
+            'desc' => mb_substr(trim((string)($_POST['desc'] ?? '')), 0, 600),
+            'category' => mb_substr(trim((string)($_POST['category'] ?? 'General')), 0, 40),
+            'featured' => in_array(($_POST['featured'] ?? ''), ['true', 'on', '1'], true),
             'file' => '/uploads/catalogs/' . $name, 'size' => (int)$f['size'], 'addedAt' => now_iso(), 'downloads' => 0];
     $db['catalogs'][] = $cat; db_save($DB_FILE, $db);
     jout(200, $cat);
@@ -2889,7 +2988,11 @@ try {
       need_admin($db);
       $b = body_json();
       foreach ($db['catalogs'] as &$c) if ($c['id'] === $m[1]) {
-        foreach (['title', 'desc', 'category', 'featured'] as $k) if (array_key_exists($k, $b)) $c[$k] = $b[$k];
+        // v83 — bound text fields + a real boolean at the catalog edit door
+        if (array_key_exists('title', $b)) $c['title'] = mb_substr(trim((string)$b['title']), 0, 120) ?: ($c['title'] ?? 'Catalogue');
+        if (array_key_exists('desc', $b)) $c['desc'] = mb_substr(trim((string)$b['desc']), 0, 600);
+        if (array_key_exists('category', $b)) $c['category'] = mb_substr(trim((string)$b['category']), 0, 40);
+        if (array_key_exists('featured', $b)) $c['featured'] = in_array($b['featured'], [true, 'true', 'on', '1', 1], true);
         $cat = $c;
       }
       db_save($DB_FILE, $db); jout(200, $cat ?? ['error' => 'Not found']);
@@ -3014,7 +3117,7 @@ try {
 
   /* ── design selection → metal exchange (zero MC) ── */
   if ($route === 'metalexchange/order' && $method === 'POST') {
-    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']); if ($u['role'] !== 'partner' && $u['role'] !== 'admin') jout(403, ['error' => 'Jeweller partners only — apply on the For Jewellers page']);
+    $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     rate_block($db, 'mxorder-ip', client_ip(), 120, 3600);
     rate_block($db, 'mxorder-u', $u['id'] ?? '?', 120, 3600);
     $b = body_json();
@@ -3038,7 +3141,7 @@ try {
     $db['metalOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
   }
   if ($route === 'metalexchange/orders' && $method === 'GET') {
-    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']); if ($u['role'] !== 'partner' && $u['role'] !== 'admin') jout(403, ['error' => 'Jeweller partners only — apply on the For Jewellers page']);
+    $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     $list = $db['metalOrders'] ?? [];
     if ($u['role'] !== 'admin') $list = array_values(array_filter($list, fn($o) => ($o['partnerId'] ?? '') === ($u['partnerId'] ?? '')));
     jout(200, ['orders' => array_reverse($list)]);
@@ -3046,15 +3149,14 @@ try {
   if (preg_match('#^metalexchange/orders/([\w-]+)$#', $route, $mMX) && $method === 'PUT') {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
     $mxSt = substr(trim((string)(body_json()['status'] ?? '')), 0, 40);
-    if ($mxSt !== '' && !preg_match('/^[A-Za-z0-9 &\\-\/\.]{1,40}$/', $mxSt)) jout(400, ['error' => 'Invalid status']);
+    if ($mxSt !== '' && !preg_match('/^[A-Za-z0-9 &\-\/\.]{1,40}$/', $mxSt)) jout(400, ['error' => 'Invalid status']);
     foreach (($db['metalOrders'] ?? []) as &$o) if ($o['id'] === $mMX[1]) { if ($mxSt !== '') $o['status'] = $mxSt; $out = $o; }
     if (empty($out)) jout(404, ['error' => 'Order not found']);
     db_save($DB_FILE, $db); jout(200, $out);
   }
   /* ── custom design orders (image upload) ── */
   if ($route === 'customorder' && $method === 'POST') {
-    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
-    if ($u['role'] !== 'partner' && $u['role'] !== 'admin') jout(403, ['error' => 'Jeweller partners only — apply on the For Jewellers page']);
+    $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     rate_block($db, 'custom-ip', client_ip(), 60, 3600);
     rate_block($db, 'custom-u', $u['id'] ?? '?', 60, 3600);
     $fields = $_POST; $file = null;
@@ -3086,7 +3188,7 @@ try {
     $db['customOrders'][] = $ord; db_save($DB_FILE, $db); jout(200, $ord);
   }
   if ($route === 'customorder' && $method === 'GET') {
-    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
+    $u = require_partner_approved($db, req_user($db));
     $list = $db['customOrders'] ?? [];
     if ($u['role'] !== 'admin') $list = array_values(array_filter($list, fn($o) => ($o['partnerId'] ?? '') === ($u['partnerId'] ?? '')));
     jout(200, ['orders' => array_reverse($list)]);
@@ -3094,7 +3196,7 @@ try {
 
   /* ── bullion (jeweller-only) ── */
   if ($route === 'bullion' && $method === 'GET') {
-    $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
+    $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     // v73 — opening/polling the desk also keeps the dollar/FX side fresh
     if (rates_stale($db)) { rates_refresh($db); db_save($DB_FILE, $db); }
     $out = bullion_rows($db);
@@ -3118,7 +3220,7 @@ try {
   /* v69 — per-second tick (shared server micro-cache, one exchange call/sec).
      v74 — same response also carries the ~1 s live international spot. */
   if ($route === 'bullion/tick' && $method === 'GET') {
-    $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
+    $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     $t = angel_tick($db);
     $t['spot'] = spot_tick($db, $t);
     jout(200, $t);
@@ -3162,7 +3264,7 @@ try {
   }
   /* v60 — rate alerts & unfix requests from the bullion desk */
   if ($route === 'bullion/alert' && $method === 'POST') {
-    $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
+    $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     $b = body_json();
     $kind = ($b['kind'] ?? '') === 'unfix' ? 'unfix' : 'rate';
     if ($kind === 'rate' && (float)($b['target'] ?? 0) <= 0) jout(400, ['error' => 'Enter a target rate']);
@@ -3184,7 +3286,7 @@ try {
     unset($a); db_save($DB_FILE, $db); jout(200, ['ok' => true]);
   }
   if ($route === 'bullion/order' && $method === 'POST') {
-    $u = req_user($db); if (!$u || ($u['role'] !== 'partner' && $u['role'] !== 'admin')) jout(403, ['error' => 'Jeweller access only']);
+    $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     rate_block($db, 'bullionorder-ip', client_ip(), 120, 3600);
     rate_block($db, 'bullionorder-u', $u['id'] ?? '?', 120, 3600);
     $b = body_json();
@@ -3210,13 +3312,13 @@ try {
   if (preg_match('#^bullion/orders/([\w-]+)$#', $route, $mBLO) && $method === 'PUT') {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
     $blSt = substr(trim((string)(body_json()['status'] ?? '')), 0, 40);
-    if ($blSt !== '' && !preg_match('/^[A-Za-z0-9 &\\-\/\.]{1,40}$/', $blSt)) jout(400, ['error' => 'Invalid status']);
+    if ($blSt !== '' && !preg_match('/^[A-Za-z0-9 &\-\/\.]{1,40}$/', $blSt)) jout(400, ['error' => 'Invalid status']);
     foreach (($db['bullionOrders'] ?? []) as &$o) if ($o['id'] === $mBLO[1]) { if ($blSt !== '') $o['status'] = $blSt; $out = $o; }
     if (empty($out)) jout(404, ['error' => 'Order not found']);
     db_save($DB_FILE, $db); jout(200, $out);
   }
   if ($route === 'bullion/orders' && $method === 'GET') {
-    $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']); if ($u['role'] !== 'partner' && $u['role'] !== 'admin') jout(403, ['error' => 'Jeweller partners only — apply on the For Jewellers page']);
+    $u = require_partner_approved($db, req_user($db));   // v83 — approved partners only
     $list = $db['bullionOrders'] ?? [];
     if ($u['role'] !== 'admin') $list = array_values(array_filter($list, fn($o) => ($o['partnerId'] ?? '') === ($u['partnerId'] ?? '')));
     jout(200, ['orders' => array_reverse($list)]);
@@ -3230,12 +3332,22 @@ try {
     if (strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
     if (!filter_var((string)$b['email'], FILTER_VALIDATE_EMAIL) || strlen((string)$b['email']) > 190) jout(400, ['error' => 'Enter a valid email']);
     // OTP proof first — never spend the external GST lookup on an unverified caller.
+    $applyPhone = substr(preg_replace('/\D/', '', (string)$b['phone']), -10);
     $otpOk = false;
-    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === substr((string)$b['phone'], -10) && !empty($o['verified']) && empty($o['consumedByLogin']) && $o['exp'] > time() - 3600) $otpOk = true;
+    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $applyPhone && ($o['purpose'] ?? 'login') !== 'reset' && !empty($o['verified']) && empty($o['consumedByLogin']) && $o['exp'] > time() - 3600) $otpOk = true;
     if (!$otpOk) jout(400, ['error' => 'Verify your phone with OTP first']);
     $gst = gstin_check((string)$b['gstin'] ?? '');
     if (!$gst['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $gst['reason']]);
     foreach ($db['users'] as $u) if (strtolower($u['email']) === strtolower((string)$b['email'])) jout(409, ['error' => 'Email already registered — login instead']);
+    // v83 — one account per mobile: a second user on the same number would
+    // split OTP logins (the login door finds only the first match).
+    foreach ($db['users'] as $u) if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $applyPhone)
+      jout(409, ['error' => 'This mobile is already registered — sign in and ask the shop to upgrade your account to a jeweller partner.']);
+    // v83 — one application per GSTIN (a rejected firm must not re-apply silently)
+    foreach (($db['partners'] ?? []) as $pExist) {
+      if (strtoupper((string)($pExist['kyc']['gstin'] ?? '')) === strtoupper((string)$b['gstin']))
+        jout(409, ['error' => 'An application already exists for this GSTIN.']);
+    }
     $pr = ['id' => uid('pt'), 'firm' => mb_substr(trim((string)$b['firm']), 0, 120), 'contactPerson' => mb_substr(trim((string)($b['contactPerson'] ?? '')), 0, 80), 'city' => mb_substr(trim((string)($b['city'] ?? $gst['state'])), 0, 60),
            'phone' => substr(preg_replace('/\D/', '', (string)$b['phone']), -12), 'email' => strtolower((string)$b['email']),
            'kyc' => ['gstin' => strtoupper((string)$b['gstin']), 'gstinValid' => true, 'gstinState' => $gst['state'], 'pan' => $gst['pan'], 'ownerPan' => strtoupper((string)($b['ownerPan'] ?? '')), 'otpVerified' => true, 'at' => now_iso()],
@@ -3245,6 +3357,7 @@ try {
           'passHash' => pw_hash((string)$b['password']), 'role' => 'partner', 'partnerId' => $pr['id'],
           'loyaltyPoints' => 0, 'wishlist' => [], 'createdAt' => now_iso()];
     $db['users'][] = $u;
+    otp_consume_verified($db, $applyPhone);   // v83 — burn the verification code
     $tk = issue_token($db, $u);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'id' => $pr['id'], 'token' => $tk, 'user' => pub_user($u)]);
@@ -3478,6 +3591,7 @@ try {
   if ($route === 'admin/cashbook' && $method === 'GET') {
     need_admin($db);
     $day = substr((string)($_GET['date'] ?? date('Y-m-d')), 0, 10);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) jout(400, ['error' => 'Invalid date']);
     $rows = array_values(array_filter($db['cashbook'], fn($r) => substr((string)($r['at'] ?? ''), 0, 10) === $day));
     // system-derived figures: paid orders today, old-gold payouts today
     $orderSales = 0; $onlineSales = 0; $codSales = 0; $waSales = 0;
@@ -3514,6 +3628,7 @@ try {
     need_admin($db);
     $b = body_json();
     $day = substr((string)($b['date'] ?? date('Y-m-d')), 0, 10);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) jout(400, ['error' => 'Invalid date']);
     $close = ['day' => $day, 'openingCash' => (float)($b['openingCash'] ?? 0), 'closingCash' => (float)($b['closingCash'] ?? 0),
               'note' => substr((string)($b['note'] ?? ''), 0, 400), 'at' => now_iso(), 'by' => req_user($db)['name'] ?? ''];
     $found = false;
@@ -3758,6 +3873,7 @@ try {
         if ($p['status'] !== 'active') jout(400, ['error' => 'Plan is not active']);
         $amt = (int)round((float)($b['amount'] ?? $p['monthlyAmount']));
         if ($amt <= 0) jout(400, ['error' => 'Enter the instalment amount']);
+        if ($amt > 10000000 || !is_finite((float)($b['amount'] ?? $p['monthlyAmount']))) jout(400, ['error' => 'Instalment amount is outside the allowed range (max ₹10,00,000).']);
         $inst = ['id' => uid('si'), 'amount' => $amt, 'mode' => in_array($b['mode'] ?? '', ['cash', 'upi', 'bank'], true) ? $b['mode'] : 'upi',
           'at' => !empty($b['at']) ? substr((string)$b['at'], 0, 19) : now_iso(),
           'rate22' => (float)(current_rates($db)['gold22'] ?? 0), 'status' => 'approved', 'by' => req_user($db)['name'] ?? ''];
@@ -3792,6 +3908,9 @@ try {
     need_admin($db);
     $from = substr((string)($_GET['from'] ?? date('Y-m-01')), 0, 10);
     $to = substr((string)($_GET['to'] ?? date('Y-m-d')), 0, 10);
+    // v83 — strict calendar-shaped range (values flow into CSV/print output)
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)
+      || !strtotime($from) || !strtotime($to)) jout(400, ['error' => 'Invalid date range']);
     // order timestamps are ISO (…T…); compare as ISO so "today" is never excluded
     $inRange = fn($t) => $t >= $from . 'T00:00:00' && $t <= $to . 'T23:59:59';
     $os = array_values(array_filter($db['orders'], fn($o) => $inRange((string)($o['createdAt'] ?? ''))));
@@ -4053,6 +4172,31 @@ try {
         if ($lv !== '' && !preg_match('#^https?://[A-Za-z0-9.\-]+#i', $lv)) jout(400, ['error' => $lk . ' must be a full https:// link']);
         $setBody[$lk] = mb_substr($lv, 0, 500);
       }
+    }
+    // v83 — contact/payment identifiers must keep a safe charset; they get
+    // concatenated into wa.me / upi:// URIs and printed on invoices, so a
+    // quote, space-URL payload or markup there is either rejected or stripped.
+    if (array_key_exists('whatsapp', $setBody)) {
+      $waDigits = preg_replace('/\D/', '', (string)$setBody['whatsapp']);
+      if (strlen($waDigits) > 15) jout(400, ['error' => 'WhatsApp number must be digits with optional country code']);
+      $setBody['whatsapp'] = $waDigits;   // concatenated into wa.me URLs — digits only
+    }
+    if (array_key_exists('phone', $setBody)) {
+      // display number: allow phone punctuation but never quotes/markup
+      $ph = trim((string)$setBody['phone']);
+      if ($ph !== '' && !preg_match('#^[0-9 +()\-]{7,20}$#', $ph)) jout(400, ['error' => 'Phone contains invalid characters']);
+      $setBody['phone'] = $ph;
+    }
+    if (array_key_exists('upiId', $setBody)) {
+      $upi = trim((string)$setBody['upiId']);
+      if ($upi !== '' && !preg_match('/^[A-Za-z0-9._-]{2,40}@[A-Za-z0-9]{2,20}$/', $upi))
+        jout(400, ['error' => 'UPI ID looks like name@bank — letters, digits, dot, dash only']);
+      $setBody['upiId'] = $upi;
+    }
+    if (array_key_exists('gstin', $setBody)) {
+      $g = strtoupper(trim((string)$setBody['gstin']));
+      if ($g !== '' && !gstin_check($g)['valid']) jout(400, ['error' => 'Shop GSTIN is not a valid 15-character GSTIN']);
+      $setBody['gstin'] = $g;
     }
     if (array_key_exists('announcements', $setBody)) {
       $an = is_array($setBody['announcements']) ? array_slice($setBody['announcements'], 0, 12) : [];
@@ -4323,6 +4467,12 @@ try {
   // inside the data/ folder (web-denied) and return a generic message.
   $line = '[' . date('c') . '] ' . $method . ' /' . $route . ' :: '
         . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n";
-  @file_put_contents(__DIR__ . '/data/error-log.txt', $line, FILE_APPEND | LOCK_EX);
+  $logFile = __DIR__ . '/data/error-log.txt';
+  // v83 — bound the log at ~256 KB: a flood of failures must not fill the disk.
+  if (is_file($logFile) && @filesize($logFile) > 262144) {
+    @file_put_contents($logFile, substr((string)@file_get_contents($logFile), -131072) . $line, LOCK_EX);
+  } else {
+    @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+  }
   jout(500, ['error' => 'Something went wrong on our side — please retry in a moment, or WhatsApp +91 89050 05921.']);
 }
