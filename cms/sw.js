@@ -7,24 +7,41 @@
    v104: shell/media bumped; a SKIP_WAITING message lets the in-app banner
    activate a freshly downloaded release the moment the shopper approves. */
 'use strict';
-const SHELL = 'shivaa-shell-v104';
-const MEDIA = 'shivaa-media-v104';
+const SHELL = 'shivaa-shell-v107';
+const MEDIA = 'shivaa-media-v107';
 const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
 const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
 /* v99: bot.css/bot.js dropped from the shell (Saathi removed ahead of Gemini).
    admin.js + qr.js are deliberately NOT precached — they are fetched on demand
    by loadStaffBundle() in app.js, and a shopper should never pay for them. */
-const SHELL_FILES = ['/', '/index.html', '/css/fonts.css?v=42', '/css/styles.css?v=99',
-  '/css/hallmark.css?v=42', '/css/trust.css?v=42', '/css/finale.css?v=44',
-  '/css/motion.css?v=104', '/css/mobile.css?v=104', '/css/aurum.css?v=104',
-  '/js/app.js?v=104', '/js/motion.js?v=104', '/js/aurum.js?v=104',
-  '/js/hallmark.js?v=104', '/js/trust.js?v=104', '/images/icons/icon-512.png'];
+/* v107 — the list now matches index.html exactly (it drifted in v99–v104:
+   auth.js/otp-autofill.js were never precached and icon-512.png did not even
+   exist, so addAll() rejected and the install handler swallowed it). */
+const SHELL_FILES = ['/', '/index.html',
+  '/css/fonts.css?v=107', '/css/styles.css?v=107', '/css/hallmark.css?v=107',
+  '/css/trust.css?v=107', '/css/finale.css?v=107', '/css/motion.css?v=107',
+  '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
+  '/js/otp-autofill.js?v=107', '/js/app.js?v=107', '/js/hallmark.js?v=107',
+  '/js/trust.js?v=107', '/js/auth.js?v=107', '/js/motion.js?v=107',
+  '/js/aurum.js?v=107', '/js/v107.js?v=107',
+  '/manifest.webmanifest', '/offline.html',
+  '/images/icons/icon-192.png', '/images/icons/icon-512.png',
+  '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];
 
 self.addEventListener('message', (e) => {
-  if (e.data === 'SKIP_WAITING') self.skipWaiting();
+  // v107 — accept both the legacy string and the {type} object form
+  if (e.data === 'SKIP_WAITING' || (e.data && e.data.type === 'SKIP_WAITING')) self.skipWaiting();
 });
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES).catch(() => {})).then(() => self.skipWaiting()));
+  /* v107 — per-file precache. addAll() is all-or-nothing: one 404 in the list
+     (which is exactly what the missing icon was) zeroed the WHOLE shell cache
+     and .catch(()=>{}) hid it. Now each file is fetched and stored on its own;
+     a single failure degrades to network-first for that one file. */
+  e.waitUntil(caches.open(SHELL).then((c) => Promise.allSettled(SHELL_FILES.map((u) =>
+    fetch(u, { cache: 'reload', credentials: 'same-origin' })
+      .then((r) => { if (r && r.ok) return c.put(u, r); })
+      .catch(() => {})
+  ))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(

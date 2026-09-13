@@ -252,7 +252,12 @@
     try {
       const r = await fetch('/api/auth/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: otpPhone }) });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) { busy(btn, false); return showErr(esc(d.error || 'Could not send the code — try again')); }
+      if (!r.ok) {
+        busy(btn, false);
+        // v107 — throttles must say how long, not look like a dead gateway
+        const wait = Number(d.retryAfter || 0);
+        return showErr(esc(d.error || 'Could not send the code — try again') + (wait > 0 ? ` — retry in ${Math.ceil(wait)}s` : ''));
+      }
       pendingNew = d.hasAccount === false;
       busy(btn, false);
       go('otp');
@@ -264,7 +269,7 @@
           chip.onclick = () => { if (window.ShivaaOtp) ShivaaOtp.fill(document.getElementById('shvOtp'), String(d.devCode)); };
         } else if (d.masked) {
           chip.hidden = false;
-          chip.innerHTML = `Code sent to <b>${esc(d.masked)}</b>${d.via === 'sms' ? '' : ' — check the inbox and the spam folder'}`;
+          chip.innerHTML = `Code sent to <b>${esc(d.masked)}</b>${d.via === 'sms' ? ' by SMS — it lands in ~10 seconds' : ' by email (SMS gateway off) — check inbox & spam'}`;
         }
       }
       startResend();

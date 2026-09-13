@@ -425,7 +425,18 @@ class Handler(SimpleHTTPRequestHandler):
         if route in ("rates/alert", "addresses", "auth/profile"):
             return self._json(200, {"ok": True, "preview": True,
                                     "message": "Preview shim accepted this in memory — nothing was stored."})
-        return False
+        # ── v107 audit extras (POST) ──
+        if route == "pay/order":
+            return self._json(200, {"ok": True, "orderId": "TST107", "amount": 8200000,
+                                    "upiId": "shivaa@ybl", "upiName": "Shivaa Jewellers"})
+        if route in ("pay/verify", "pay/proof"):
+            return self._json(200, {"ok": True, "status": "pending"})
+        if route == "refunds":
+            return self._json(200, {"ok": True, "id": "RF1"})
+        if route in ("sms/config", "sms/test", "mail/test"):
+            return self._json(401, {"error": "admin only"})
+        print("  [shim] generic POST /%s" % route)
+        return self._json(200, {"ok": True, "note": "shim generic accept"})
 
     def do_PUT(self, *a):
         route = urlparse(self.path).path[len("/api/"):] if self.path.startswith("/api/") else ""
@@ -573,7 +584,55 @@ class Handler(SimpleHTTPRequestHandler):
                 pr = DEV["partners"].get(u["id"])
             setl = [x for x in d.get("settlements", []) if x.get("partnerId") == pid]
             return self._json(200, {"partner": pr, "settlements": setl})
-        return self._json(404, {"error": f"Unknown API GET /{route}"})
+        # ── v107 audit extras ─────────────────────────────────────────────
+        if route == "auth/delivery":
+            return self._json(200, {"channel": "email", "configured": False, "provider": None})
+        if route == "sms/config" or route == "sms/status" or route.startswith("admin/"):
+            return self._json(401, {"error": "admin only"})
+        if route == "pay/config":
+            return self._json(200, {"mode": "demo", "provider": "payu",
+                "payu": {"ready": False, "env": "test"}, "prepaidPct": 2, "codFeePct": 0,
+                "upiId": "shivaa@ybl", "upiName": "Shivaa Jewellers", "lockMinutes": 20})
+        if route == "services":
+            return self._json(200, {"services": []})
+        if route == "finale/count":
+            return self._json(200, {"count": 1284, "entries": 1284})
+        if route == "finale/entry":
+            return self._json(200, {"entry": None})
+        if route == "finale/quiz":
+            return self._json(200, {"questions": [], "best": None})
+        if route == "reviews":
+            return self._json(200, {"reviews": [], "avg": 0, "count": 0})
+        if route == "referrals/stats":
+            return self._json(200, {"referrals": 0, "earned": 0, "code": ""})
+        if route == "refunds/mine":
+            return self._json(401, {"error": "login required"})
+        if route == "coupons":
+            return self._json(200, {"coupons": []})
+        if route.startswith("orders/"):
+            oid = route.split("/", 1)[1]
+            prods = d.get("products", [])[:1]
+            p0 = prods[0] if prods else {"id": "x", "name": "Test", "metal": "Gold",
+                 "purity": "22K", "weightG": 5, "mcScheme": "flat", "mcValue": 1000,
+                 "stoneValue": 0, "images": [], "sizes": []}
+            _ord = {"id": oid, "status": "Confirmed",
+                "createdAt": "2026-09-01T10:00:00+05:30", "total": 82000,
+                "amountPaid": 82000, "balance": 0, "paymentStatus": "Paid", "gateway": "upi-qr",
+                "payments": [{"at": "2026-09-01T10:05:00+05:30", "mode": "upi-qr",
+                              "status": "approved", "amount": 82000, "ref": "UPI123"}],
+                "refunds": [], "items": [{"p": p0, "name": p0.get("name", "Test"), "qty": 1, "size": "14", "unitPrice": 82000, "hsn": "7113"}], "rateSnapshot": {"gold22": 14300, "gold24": 15600, "gold18": 11603, "silver": 239, "stampedAt": "2026-09-01T09:50:00+05:30"}, "subtotal": 80000, "discount": 0,
+                "rateLock": {"stampedAt": "2026-09-01T09:50:00+05:30", "rates": {"gold22": 14300, "gold24": 15600, "gold18": 11603, "silver": 239}},
+                "invoiceNo": "INV-" + oid, "userName": "Test Guest",
+                "earnedPoints": 82, "phone": "9876543210", "email": "t@t.in",
+                "address": {"name": "Test Guest", "phone": "9876543210",
+                            "line1": "1 Test Lane", "city": "Jaipur",
+                            "state": "Rajasthan", "pin": "302001"}}
+            return self._json(200, {"order": _ord})
+        if route == "wishlist":
+            return self._json(200, {"ids": []})
+        print("  [shim] generic GET /%s" % route)
+        return self._json(200, {})
+
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

@@ -679,9 +679,9 @@ const FINALE = {
   name: 'The Bhai Dooj Gold Finale',
   drawLabel: 'Bhai Dooj · 11 November 2026',
   // last moment of the draw day (local time — site audience is India/IST)
-  drawAt: new Date(2026, 10, 11, 23, 59, 59).getTime(),
+  drawAt: Date.parse('2026-11-11T23:59:59+05:30'),   // v107 — IST-absolute instants (host-TZ-proof)
   // the module switches itself off from the first moment of 1 Dec 2026
-  endAt: new Date(2026, 11, 1, 0, 0, 0).getTime(),
+  endAt: Date.parse('2026-12-01T00:00:00+05:30'),
 };
 const finaleLive = () => Date.now() < FINALE.endAt;
 
@@ -1554,6 +1554,7 @@ function heroDust(canvasId) {
   }
   cv._dust = true;
   const ctx = cv.getContext('2d');
+  if (!ctx) return;                       // v107 — canvas blocked (privacy modes, jsdom): skip the dust
   let W, H;
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const size = () => { const r = cv.parentElement.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
@@ -3441,7 +3442,21 @@ pages.checkout = async (view) => {
   </div>`;
   /* ── v57: 20-minute live-rate lock — your price cannot move while paying ── */
   const pickRates = () => ({ gold22: state.rates.gold22, gold24: state.rates.gold24, gold18: state.rates.gold18, silver: state.rates.silver });
-  window._co = { subtotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online' };
+  /* v107 - the lock window is server-owned (pay/config lockMinutes) and a lock
+     in flight survives a refresh via localStorage. The server still enforces
+     the +/-2% band at submit, so a stale or hand-edited lock can never make
+     the shop sell below the band. */
+  const LOCKSEC = () => Math.max(300, Math.min(3600, ((window._co && window._co.lockMinutes) || 20) * 60));
+  window._co = { subtotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online', lockMinutes: (payCfg && payCfg.lockMinutes) || 20 };
+  try {
+    const savedLock = JSON.parse(localStorage.getItem('shv_rate_lock') || 'null');
+    if (savedLock && savedLock.stampedAt && savedLock.rates &&
+        (Date.now() - new Date(savedLock.stampedAt).getTime()) / 1000 <= LOCKSEC()) window._co.rateLock = savedLock;
+  } catch (e) {}
+  const setLock = () => {
+    window._co.rateLock = { rates: pickRates(), stampedAt: new Date().toISOString() };
+    try { localStorage.setItem('shv_rate_lock', JSON.stringify(window._co.rateLock)); } catch (e) {}
+  };
   const coRows = () => $$('.summary [data-copid]');
   function coTotals() {
     if (!$('#coSub')) { clearInterval(window._co && window._co.lockTimer); return; }   // navigated away from checkout
@@ -3464,7 +3479,7 @@ pages.checkout = async (view) => {
     const l = window._co.rateLock;
     if (!l) return null;
     const age = (Date.now() - new Date(l.stampedAt).getTime()) / 1000;
-    return age <= 20 * 60 ? l : null;
+    return age <= LOCKSEC() ? l : null;
   }
   function paintLock() {
     const box = $('#rateLockBox'); if (!box) return;
@@ -3472,11 +3487,11 @@ pages.checkout = async (view) => {
     if (!l) {
       box.className = 'rate-lock-card expired';
       box.innerHTML = `<div class="rl-top"><span class="rl-ic">&#9201;</span><div><b>Rates are live</b><small>Tap below to freeze today&rsquo;s rate for 20 minutes.</small></div></div>
-        <button type="button" class="btn btn-gold btn-sm" id="rlLockBtn">🔒 Lock today&rsquo;s rate · 20 min</button>`;
-      const b = $('#rlLockBtn'); if (b) b.onclick = () => { window._co.rateLock = { rates: pickRates(), stampedAt: new Date().toISOString() }; coTotals(); paintLock(); };
+        <button type="button" class="btn btn-gold btn-sm" id="rlLockBtn">🔒 Lock today&rsquo;s rate · ${LOCKSEC() / 60} min</button>`;
+      const b = $('#rlLockBtn'); if (b) b.onclick = () => { setLock(); coTotals(); paintLock(); };
       return;
     }
-    const left = Math.max(0, 20 * 60 - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000));
+    const left = Math.max(0, LOCKSEC() - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000));
     box.className = 'rate-lock-card live';
     box.innerHTML = `<div class="rl-top"><span class="rl-ic locked">&#128274;</span><div><b>Rate locked</b><small>Your price is frozen &mdash; even if the market moves.</small></div><span class="rl-timer" id="rlTimer">${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}</span></div>
       <div class="rl-rates">22K <b>${fmt(l.rates.gold22)}/g</b> · Silver <b>${fmt2(l.rates.silver)}/g</b></div>`;
@@ -3486,11 +3501,11 @@ pages.checkout = async (view) => {
     window._co.lockTimer = setInterval(() => {
       const l = activeLock();
       const t = $('#rlTimer');
-      if (l && t) { const left = Math.max(0, 20 * 60 - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000)); t.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`; }
+      if (l && t) { const left = Math.max(0, LOCKSEC() - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000)); t.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`; }
       else { clearInterval(window._co.lockTimer); coTotals(); paintLock(); }
     }, 1000);
   }
-  window._co.rateLock = { rates: pickRates(), stampedAt: new Date().toISOString() };
+  if (!window._co.rateLock) setLock();        // v107 — auto-arm (restored lock wins)
   coTotals(); paintLock(); startLockClock();
   $$('#payOpts input').forEach(r => r.onchange = () => {
     $$('.pay-opt').forEach(o => o.classList.remove('on'));
@@ -3649,14 +3664,14 @@ function upiPaySheet(po, orderId) {
     const amt = (po.amount || 0) / 100;
     const pa = po.upiId, pn = encodeURIComponent(po.upiName || 'Shivaa Jewellers');
     const note = encodeURIComponent('Shivaa order ' + orderId);
-    const upiUri = `upi://pay?pa=${encodeURIComponent(pa)}&pn=${pn}&am=${amt.toFixed(2)}&cu=INR&tn=${note}`;
+    const upiUri = `upi://pay?pa=${encodeURIComponent(pa)}&pn=${pn}&am=${amt.toFixed(2)}&cu=INR&tn=${note}&tr=${encodeURIComponent(orderId)}`;   // v107 — merchant txn ref, UPI apps echo it back
     openModal(`<div class="pay-sheet">
       <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Pay by any UPI app</b><small>GPay · PhonePe · Paytm · BHIM</small></div></div>
       <div class="ps-amt">${fmt(amt)}</div>
       ${upiQRSvg(upiUri)}
       <div class="ps-upiid"><span>UPI ID</span><b>${esc(pa)}</b><button type="button" class="btn btn-ghost btn-sm" id="psCopyUpi">⧉ copy</button></div>
       <a class="btn btn-gold btn-block btn-lg" href="${upiUri}" rel="noopener">Open UPI app &amp; pay ${fmt(amt)}</a>
-      <p class="ps-note" style="text-align:left">After paying, attach the <b>payment screenshot</b> or type the 12-digit UPI reference — we verify within minutes and release your piece. The order stays rate-locked meanwhile.</p>
+      <p class="ps-note" style="text-align:left">After paying, attach the <b>payment screenshot</b> or type the 12-digit UPI reference — we verify within minutes and release your piece. The order stays rate-locked meanwhile.<br><small>This code is stamped to order <b>${esc(orderId)}</b> for exactly <b>${fmt(amt)}</b> — if your UPI app shows a different amount, close this sheet and reopen it to mint a fresh code.</small></p>
       <form id="psProof" class="ps-proof">
         <label class="ps-upload"><input type="file" id="psFile" accept="image/*" capture="environment" required><span id="psFileName">📎 Choose payment screenshot…</span></label>
         <input id="psRef" placeholder="UPI ref / Txn ID (optional)">
@@ -4687,7 +4702,8 @@ pages.rates = async (view) => {
 };
 function drawRateChart(cv, hist) {
   if (!cv || !hist.length) return;
-  const x = cv.getContext('2d'), dpr = Math.min(devicePixelRatio || 1, 2);
+  const x = cv.getContext('2d'); if (!x) return;   // v107 — canvas can be unavailable; chart is progressive enhancement
+  const dpr = Math.min(devicePixelRatio || 1, 2);
   const w = cv.parentElement.clientWidth - 0, h = 300;
   cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + 'px';
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -7170,15 +7186,17 @@ function route() {
       });
     return;
   }
+  clearInterval(window._v107Redir);                     // v107 — any new navigation cancels a pending unknown-route redirect
   if (routes[page]) {
     const res = routes[page](view, q, seg[1]);
     if (res && res.catch) res.catch(e => { console.error(e); view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Something slipped</h3><p>${esc(e.message)}</p></div>`; });
   } else {
     view.innerHTML = `<div class="empty" style="padding:120px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This page has slipped its clasp</h3><p style="color:var(--ink-3);margin:10px 0 20px">Redirecting you home in <b id="redirN">3</b>…</p><a class="btn btn-primary" href="#/">Take me home ✦</a></div>`;
     let n = 3;
-    const iv = setInterval(() => {
+    clearInterval(window._v107Redir);
+    window._v107Redir = setInterval(() => {
       n--; const el = $('#redirN'); if (el) el.textContent = n;
-      if (n <= 0) { clearInterval(iv); location.hash = '#/'; }
+      if (n <= 0) { clearInterval(window._v107Redir); window._v107Redir = null; location.hash = '#/'; }
     }, 1000);
   }
   window.scrollTo({ top: 0 });

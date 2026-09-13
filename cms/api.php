@@ -2908,7 +2908,7 @@ try {
     // codes for thousands of different numbers (SMS cost / spam bombing).
     rate_block($db, 'otp-send-ip', client_ip(), 14, 3600, 1800, 'Too many OTP requests from this connection — try again later.');
     rate_block($db, 'otp-send-phone', $phone, 8, 3600, 1800, 'Too many OTP requests for this number — try again in 30 minutes.');
-    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
+    foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests', 'retryAfter' => 30 - (time() - $o['at'])]);
     /* v56 — OTP goes to EVERY valid mobile number, registered or not.
        Existing accounts: SMS first, email fallback to the account address.
        Brand-new numbers: SMS (or the on-screen code in demo builds); after
@@ -2924,7 +2924,7 @@ try {
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false, 'email' => $dest];
     $d = otp_deliver($db, $phone, $code, $dest, 'verify', $hasAccount ? otp_name_for_phone($db, $phone) : '');
     db_save($DB_FILE, $db);
-    if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or WhatsApp +91 89050 05921.']);
+    if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or WhatsApp +91 89050 05921.', 'channel' => $d['channel'] ?? 'none', 'configured' => (bool)shivaa_sms_config()]);
     jout(200, ['ok' => true, 'sent' => true, 'via' => $d['channel'], 'masked' => $d['masked'],
                'hasAccount' => $hasAccount && !$toNew,
                'devCode' => $d['devCode'] ?? null,
@@ -3581,6 +3581,8 @@ try {
       'provider' => $provider,
       'payu' => ['ready' => $puLive, 'env' => $puCfg['env']],
       'prepaidPct' => (float)($s['prepaidPct'] ?? 2),
+      /* v107 — checkout reads the rate-lock window from here (was hardcoded) */
+      'lockMinutes' => (int)($s['rateLockMinutes'] ?? 20),
       'codFeePct' => (float)($s['codFeePct'] ?? 0),
       /* v59 — UPI QR fallback works with zero gateway keys: customer scans
          the counter UPI ID, uploads the payment screenshot; admin approves. */
@@ -4322,7 +4324,7 @@ try {
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false, 'email' => $dest];
     $d = otp_deliver($db, $phone, $code, $dest, 'verify', $hasAccount ? otp_name_for_phone($db, $phone) : '');
     db_save($DB_FILE, $db);
-    if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or WhatsApp +91 89050 05921.']);
+    if (empty($d['ok'])) jout(502, ['error' => 'The code could not be sent just now — please retry in a minute, or WhatsApp +91 89050 05921.', 'channel' => $d['channel'] ?? 'none', 'configured' => (bool)shivaa_sms_config()]);
     jout(200, ['ok' => true, 'sent' => true, 'via' => $d['channel'], 'masked' => $d['masked'],
                'devCode' => $d['devCode'] ?? null,
                'message' => 'A 4-digit code is on its way to ' . otp_dest_hint($d) . '.']);
@@ -6119,6 +6121,85 @@ try {
                 'createdAt' => $e['createdAt']];
       }, $list), 'entered' => count(array_filter($db['finaleEntries'], fn($e) => ($e['status'] ?? '') === 'Entered'))]);
     }
+  }
+
+  /* ── v107 · honest delivery channel for the Passport sheet (public, tiny) ── */
+  if ($route === 'auth/delivery' && $method === 'GET') {
+    rate_block($db, 'delivery', client_ip(), 120, 3600);
+    $c = shivaa_sms_config();
+    jout(200, ['channel' => $c ? 'sms' : 'email', 'configured' => (bool)$c, 'provider' => $c['provider'] ?? null]);
+  }
+
+  /* ── v107 · SMS gateway wizard: read (masked) / write data/sms-config.json ──
+     Admin-only. GET never returns a full key; PUT validates, writes 0600 and
+     is the ONLY supported writer besides File Manager. Deleting = provider "". */
+  if ($route === 'sms/config' && $method === 'GET') {
+    need_admin($db);
+    $file = __DIR__ . '/data/sms-config.json';
+    $raw = is_file($file) ? json_decode((string)file_get_contents($file), true) : null;
+    $mask = function ($v) { $v = (string)$v; return $v === '' ? '' : (strlen($v) <= 4 ? str_repeat('•', strlen($v)) : str_repeat('•', strlen($v) - 4) . substr($v, -4)); };
+    $keyOf = is_array($raw) ? ($raw['authkey'] ?? $raw['key'] ?? $raw['token'] ?? '') : '';
+    jout(200, [
+      'exists' => is_array($raw),
+      'writable' => is_writable(dirname($file)),
+      'config' => is_array($raw) ? [
+        'provider' => (string)($raw['provider'] ?? ''),
+        'key' => $mask($keyOf),
+        'sender' => (string)($raw['sender_id'] ?? $raw['sender'] ?? $raw['from'] ?? ''),
+        'entityId' => (string)($raw['entity_id'] ?? ''),
+        'templateId' => (string)($raw['template_id'] ?? ''),
+        'domain' => (string)($raw['domain'] ?? 'shivaa.in'),
+        'autofill' => (bool)($raw['autofill'] ?? true),
+        'message' => (string)($raw['message'] ?? ''),
+        'url' => (string)($raw['url'] ?? ''),
+        'method' => (string)($raw['method'] ?? ''),
+      ] : null,
+      'stats' => $db['sms'] ?? null,
+      'devMarker' => is_file(__DIR__ . '/data/.otp-dev-mode'),
+      'providers' => ['msg91', 'fast2sms', 'apitxt', 'textlocal', 'custom'],
+    ]);
+  }
+  if ($route === 'sms/config' && $method === 'PUT') {
+    need_admin($db);
+    $b = body_json();
+    $provider = strtolower(trim((string)($b['provider'] ?? '')));
+    if (!in_array($provider, ['msg91', 'fast2sms', 'apitxt', 'textlocal', 'custom', ''], true)) {
+      jout(400, ['error' => 'Unknown provider — pick one from the list']);
+    }
+    $file = __DIR__ . '/data/sms-config.json';
+    if ($provider === '') {
+      if (is_file($file)) @unlink($file);
+      jout(200, ['ok' => true, 'exists' => false, 'note' => 'Gateway removed — codes fall back to email until you add one.']);
+    }
+    $key = trim((string)($b['key'] ?? ''));
+    if (strpos($key, '•') !== false) $key = '';      // masked echo → refuse
+    if (strlen($key) < 8) jout(400, ['error' => 'Paste the full API key from your gateway dashboard (the saved one is masked on purpose)']);
+    $cfg = ['provider' => $provider];
+    $keyField  = ['msg91' => 'authkey', 'fast2sms' => 'key', 'apitxt' => 'authkey', 'textlocal' => 'key', 'custom' => ''];
+    $sendField = ['fast2sms' => 'sender_id', 'textlocal' => 'sender', 'msg91' => 'sender_id'];
+    if ($keyField[$provider] !== '') $cfg[$keyField[$provider]] = substr($key, 0, 128);
+    $sender = substr(preg_replace('/[^A-Za-z0-9+ ]/', '', (string)($b['sender'] ?? '')), 0, 16);
+    if ($sender !== '' && isset($sendField[$provider])) $cfg[$sendField[$provider]] = $sender;
+    $tpl = preg_replace('/[^A-Za-z0-9]/', '', (string)($b['templateId'] ?? ''));
+    if ($tpl !== '') $cfg['template_id'] = $tpl;
+    $ent = preg_replace('/[^A-Za-z0-9]/', '', (string)($b['entityId'] ?? ''));
+    if ($ent !== '') $cfg['entity_id'] = $ent;
+    $dom = preg_replace('/[^a-z0-9.\-]/', '', strtolower((string)($b['domain'] ?? 'shivaa.in')));
+    $cfg['domain'] = $dom !== '' ? substr($dom, 0, 60) : 'shivaa.in';
+    $cfg['autofill'] = (bool)($b['autofill'] ?? true);
+    $msg = trim((string)($b['message'] ?? ''));
+    if ($msg !== '') $cfg['message'] = substr($msg, 0, 160);
+    if ($provider === 'custom') {
+      $url = filter_var((string)($b['url'] ?? ''), FILTER_VALIDATE_URL);
+      if (!$url) jout(400, ['error' => 'Custom provider needs a full https:// URL with {phone} and {msg} placeholders']);
+      $cfg['url'] = substr($url, 0, 300);
+      $cfg['method'] = strtoupper((string)($b['method'] ?? 'POST')) === 'GET' ? 'GET' : 'POST';
+    }
+    if (!is_writable(dirname($file))) jout(500, ['error' => 'data/ is not writable by PHP — set the folder to 755 in File Manager, then retry']);
+    $ok = @file_put_contents($file, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n", LOCK_EX);
+    if ($ok === false) jout(500, ['error' => 'Could not write data/sms-config.json']);
+    @chmod($file, 0600);
+    jout(200, ['ok' => true, 'exists' => true, 'note' => 'Saved. Now send a test SMS to your own mobile — the raw gateway reply appears under the form.']);
   }
 
   if ($changed) db_save($DB_FILE, $db);

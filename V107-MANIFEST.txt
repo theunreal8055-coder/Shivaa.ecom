@@ -1,0 +1,70 @@
+SHIVAA v107 UPDATE - per-file SHA-256 manifest
+built 2026-09-13 - base = live v104 zip (57 entries) - 56 deployable files
+status: unchanged = byte-identical to v104 - MODIFIED = surgical v107 edit - NEW = added by v107
+
+path                                         bytes  status     sha256
+.htaccess                                     3855  MODIFIED   5c6b619a8c4de6c45eae5a384d30ce072c8fce89a81e933b6f2a9bf2aa1b75fd
+admin-reset.php                              27379  unchanged  1ff2ba1191d6805129f40bb22f964312050e7aa765537d9d99385c8815389d4d
+api.php                                     378108  MODIFIED   3e98c3b56cef9f26751c93b6dfe5bf6cae13191a89c2e8143b33519bdb90d95d
+css/aurum.css                                75010  unchanged  d2137c45172fc68e5c89c49d5274a0af80fdc33460c1fe028f6fb56c20c3ce5f
+css/bot.css                                  11193  unchanged  fc149956b124a48962e04171de6a11426c6b01e2d7307e8bf639cec65a68bdcd
+css/finale.css                               22854  MODIFIED   a8c734af7244e7fa3bf6a57bf4e0110941cdc2dcad6b099cab0ce4a3566427c0
+css/fonts.css                               363157  unchanged  5494256d705a563f1391ca236b551bce47a0a82b2a55be5c374ef205afccc86f
+css/hallmark.css                              6361  unchanged  23e758df6fb742d28719a726d341aea231f0c2492d36c853f9145e4b7be0caee
+css/mobile.css                               64560  unchanged  87decc0cbd25d0f26a051080b57fd7a5982a858e5a94cd852706383d3c3cca97
+css/motion.css                               37421  unchanged  454a4522c29369ef30aed63e19c4f3d95e61e84eb49b64dd1d773e6bbfb22f13
+css/styles.css                              395303  unchanged  acabb7876fde1727d8f6e490ff124fcf91759d90445d61d1a8fda1cdf94b4e16
+css/trust.css                                 7754  unchanged  a4304bb7397a5f6f6028d35aa363ff43a511f45571866887fc89f758402c4e0c
+css/v107.css                                 13916  NEW        e5a294b433010e19c5221d43d61d374a2869b35066723f131dbf6d7ca448cd9c
+hallmark.php                                 11374  unchanged  462b4ccc5546f532e3ff847aa733a728ea4ab2f3b5b4c7424260b433104a2146
+images/icons/apple-touch-icon.png            18595  NEW        20066df5db1e7ac3cc789480496c1a05b3d60d1ad145b62d17b25cd16f668bea
+images/icons/favicon-32.png                   2367  NEW        b388111cd22c8765dc5c452c57cac7b412db1b75084eda098c3568e1e94769ef
+images/icons/icon-192.png                    20839  NEW        2c6a94dd6f1031a44decdb48429e8d92799d96eb9ced610eaded278d4bab1435
+images/icons/icon-512.png                    34773  NEW        60926dfbd8d77064653c78957886e2fc30a62dcc583d475c31fa056a57f10e02
+images/icons/icon-maskable-512.png           26027  NEW        807385a81109ec7e0478654aa282334d5380b7a5e4dab25de41a20713f982d51
+index.html                                   22794  MODIFIED   ed27035ba2c9eac05444b27d36466416576560f68aa554b643f42f60a73bee14
+js/admin.js                                 281613  MODIFIED   90cde794056d5e5f08bf9f05b66df7f7ac338cf7bb685192037cfb80a4c6f14d
+js/app.js                                   511930  MODIFIED   fe846ee0ecab09ec632d828a52b0ed2151e790625b8c8e86c6dc7576c99a862b
+js/aurum.js                                  44045  unchanged  50a48b5b5aea9ec3fda99556b887aea340b25fcb44dd67808588a8651f4e5fe3
+js/auth.js                                   39891  MODIFIED   4541d893169708a219ecc9c7d308dafaad3c6254a5b01f4629da6191e2caf322
+js/bot.js                                    51010  unchanged  4c729c14a1783d7e5113b1e3d75793b2aec2e2d1c4564cd641b4a5a8b1a3d4db
+js/hallmark.js                               16424  unchanged  214b1657247d15ff36ced8eb77654cab337e7120527466257d7fa6d5085af7d3
+js/motion.js                                 13254  unchanged  4ee02481a3413d11154f7445b0d364fb9c83d564f52aa4e07ed4585781559aae
+js/otp-autofill.js                            2995  unchanged  b72ed30f89ad365f0b2fd1b0d782e56f77b6a9d1a586901e70b274fc2be0f084
+js/qr.js                                     56694  unchanged  79ec86f82856005b1c887905cfccfcfbec3821ca61c7fd5a952faa5f778f791c
+js/three-d.js                                13458  unchanged  1399f10042f580da15cbd45783fb538971d158b3705f3c7ff2d86a4f0d940213
+js/trust.js                                  16713  unchanged  ab9c084f352b2e150ac6c64a5d360d25da68d76f14ce13ae9301caa6a9a5ec94
+js/v107.js                                   34487  NEW        5adbf542a87e9ba55ce2cb32aba294d594fcf6e7032ea149f77219bebf49b000
+mail.php                                      6987  unchanged  8663cd4e5babe709159642777f8dee4953338ee4e11e36a4cc40df487282a5fc
+manifest.webmanifest                          1187  MODIFIED   86f2b0a2b123c47874875ce21e54636f3dc912aaa10b7ea2399640eec1dcb7fb
+migrate-repair.php                           11915  unchanged  0acae48d20a5f320e881ab8a708754de74227e5704d550ecc079437ca21aa7e6
+offline.html                                  2437  NEW        2e1013a21d7e5c9a16f2e7421e3f2a870c48deb811e922d80698c934d5bec345
+robots.txt                                     191  unchanged  31a3085a5b19ba3374a75ea8a7bf022de91531d4fa1e62fde53d63571abf7642
+sitemap.php                                   4773  NEW        125a380e194dc3e941787f2ccd70c4de53a8a0678ec53952ba9277d2158b8389
+sms.php                                      11799  unchanged  69372649bef4c590a6355f27e65f2d66030e77021da6730277683faca11b1640
+sw.js                                         4958  MODIFIED   587613207a01ae19cfd2e1cc7604af3c703b91e4f2f928dd2351a5ae059f69a5
+trust.php                                     4301  unchanged  76b42b8b18a71a838aeaa0ba9f3cb1a267bc3fcf308680526ce31b3497a29c3d
+uploads/.htaccess                              980  unchanged  d7063a29bde74922714958b046c7c779a997352a72a62544a814f59243c1558a
+uploads/catalogs/.gitkeep                        0  unchanged  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+uploads/catalogs/.htaccess                     702  unchanged  c423e982d776865d09c71a9420c8f261e6f539a742165622b789649daccf3ac3
+uploads/designs/.gitkeep                         0  unchanged  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+uploads/designs/.htaccess                      702  unchanged  c423e982d776865d09c71a9420c8f261e6f539a742165622b789649daccf3ac3
+uploads/kyc/.gitkeep                             0  unchanged  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+uploads/kyc/.htaccess                          702  unchanged  c423e982d776865d09c71a9420c8f261e6f539a742165622b789649daccf3ac3
+uploads/payproofs/.gitkeep                       0  unchanged  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+uploads/payproofs/.htaccess                    702  unchanged  c423e982d776865d09c71a9420c8f261e6f539a742165622b789649daccf3ac3
+uploads/reviews/.gitkeep                         0  unchanged  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+uploads/reviews/.htaccess                      702  unchanged  c423e982d776865d09c71a9420c8f261e6f539a742165622b789649daccf3ac3
+uploads/trust/.gitkeep                           0  unchanged  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+uploads/trust/.htaccess                        702  unchanged  c423e982d776865d09c71a9420c8f261e6f539a742165622b789649daccf3ac3
+uploads/videos/.gitkeep                          0  unchanged  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+uploads/videos/.htaccess                       702  unchanged  c423e982d776865d09c71a9420c8f261e6f539a742165622b789649daccf3ac3
+
+docs bundled at zip root:
+  READ-ME-FIRST.txt   deploy / rollback / SMS-wizard instructions
+  V107-MANIFEST.txt   this file
+
+NOT in this zip (by design, same rule as v104): data/* (live catalogue,
+sms-config), images/** except the new images/icons/**, uploads/** content
+(only the .htaccess guards ship, exactly as v104 carried them), docs/*,
+samples-payload.json, qa/**, make_icons.py.

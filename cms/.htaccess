@@ -11,6 +11,13 @@ RewriteRule (^|/)\.env - [F,NC]
 # API: /api/...  →  api.php
 RewriteRule ^api/(.*)$ api.php?__route=$1 [QSA,L]
 
+# v107 — robots.txt has advertised /sitemap.xml forever; generate it from db.json
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
+# v107 — the data/ folder is server-state only (db.json, sms-config.json,
+# error logs). *.json was already denied; this closes .txt/.log gaps too.
+RewriteRule ^data/ - [F,NC,L]
+
 # Existing files & folders served as-is
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

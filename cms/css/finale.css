@@ -2,12 +2,14 @@
    NEW YEAR GOLD FINALE · 2026 — campaign module styles
    ───────────────────────────────────────────────────────────────────
    Shows only while the campaign is live (date-gated in app.js; the
-   module auto-expires at 00:00 IST on 1 Jan 2027 — no flag to flip).
-   All customer-facing copy follows the approved pitch-deck wording:
+   module auto-expires at 00:00 IST on 1 Dec 2026 — no flag to flip).
+   v107: comment realigned with the live config (it still described the
+   superseded New-Year edition). Current approved wording:
    "win a chance" framing · qualifying purchase 3 g gold ANY karat OR
    100 g silver per order · free no-purchase quiz route with equal
-   odds · CA-witnessed live draw 31 Dec 2026 · TN & WB excluded ·
-   prize = 100 g certified 24K bullion at current market value.
+   odds · CA-witnessed live draw on Bhai Dooj, 11 Nov 2026 (IST-absolute
+   instants in app.js) · TN & WB excluded ·
+   prize = 10 g certified 24K bullion at current market value.
    ═══════════════════════════════════════════════════════════════════ */
 
 /* every campaign presence is hidden until JS confirms the date gate */

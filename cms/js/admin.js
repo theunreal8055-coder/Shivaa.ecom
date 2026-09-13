@@ -862,6 +862,60 @@ async function renderAdmin(view, q) {
 }
 window.ShivaaAdmin = {};
 
+/* ── v107 · SMS gateway configuration wizard (Settings → Code delivery) ──
+   Writes data/sms-config.json through the API (admin-only, keys never
+   echoed back in full). Replaces the "create the file in File Manager"
+   instruction that made OTP look broken for anyone without FTP access. */
+window.ShivaaAdmin.v107WizHTML = s => {
+  const c = (window._v107sms && window._v107sms.config) || {};
+  const providers = (window._v107sms && window._v107sms.providers) || ['msg91', 'fast2sms', 'apitxt', 'textlocal', 'custom'];
+  return `
+  <div class="v107-wiz">
+    <h4>Gateway setup wizard ${window._v107sms && window._v107sms.exists ? '· <span style="color:#1a7f37">config file present</span>' : '· <span style="color:#b45309">no config file yet</span>'}</h4>
+    <div class="grid">
+      <div><label>Provider</label><select id="wizProvider">${providers.map(p => `<option value="${p}" ${c.provider === p ? 'selected' : ''}>${p}</option>`).join('')}<option value="">— switch off (email only) —</option></select></div>
+      <div><label>API key / auth key</label><input id="wizKey" type="password" autocomplete="off" placeholder="${c.key ? 'saved: ' + c.key : 'paste from gateway dashboard'}"></div>
+      <div><label>Sender ID / SID</label><input id="wizSender" value="${esc(c.sender || '')}" placeholder="SHIVAA"></div>
+      <div><label>DLT entity ID (optional)</label><input id="wizEntity" value="${esc(c.entityId || '')}"></div>
+      <div><label>DLT template ID (optional)</label><input id="wizTemplate" value="${esc(c.templateId || '')}"></div>
+      <div><label>WebOTP domain</label><input id="wizDomain" value="${esc(c.domain || 'shivaa.in')}"></div>
+    </div>
+    <div style="margin-top:8px"><label>Message text ({code} is replaced)</label><input id="wizMsg" value="${esc(c.message || '')}" placeholder="{code} is your Shivaa Jewellers verification code…"></div>
+    <div class="grid" style="margin-top:8px">
+      <div><label>Custom gateway URL (provider = custom)</label><input id="wizUrl" value="${esc(c.url || '')}" placeholder="https://gateway/send?to={phone}&text={msg}"></div>
+      <div><label>Custom method</label><select id="wizMethod"><option ${c.method === 'GET' ? 'selected' : ''}>GET</option><option ${c.method !== 'GET' ? 'selected' : ''}>POST</option></select></div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px"><input type="checkbox" id="wizAutofill" ${c.autofill === false ? '' : 'checked'} style="width:auto"> Android auto-fill footer (“@shivaa.in #CODE”)</label>
+    <div class="kyc-inline" style="margin-top:10px">
+      <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.smsSave(event)">Save gateway config</button>
+      <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.smsReload(event)">Reload saved values</button>
+    </div>
+    <div id="wizRaw" class="raw" hidden></div>
+    <p class="hint">Keys are stored in <b>data/sms-config.json</b> (0600, web-denied by .htaccess). Saving never prints the full key back — only the last four characters. After saving, send yourself a test SMS above: the gateway's raw reply is printed here so a DLT or balance problem is visible in one click.</p>
+  </div>`;
+};
+window.ShivaaAdmin.smsReload = async e => {
+  if (e) e.preventDefault();
+  try { window._v107sms = await api('/api/sms/config'); window.ShivaaAdmin.smsCard(); toast('Gateway config reloaded'); }
+  catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.smsSave = async e => {
+  if (e) e.preventDefault();
+  const g = id => (document.getElementById(id) || {}).value || '';
+  const body = {
+    provider: g('wizProvider'), key: g('wizKey'), sender: g('wizSender'),
+    entityId: g('wizEntity'), templateId: g('wizTemplate'), domain: g('wizDomain'),
+    message: g('wizMsg'), url: g('wizUrl'), method: g('wizMethod'),
+    autofill: !!((document.getElementById('wizAutofill') || {}).checked),
+  };
+  if (body.key && body.key.indexOf('•') >= 0) delete body.key;   // untouched masked value
+  try {
+    const r = await api('/api/sms/config', { method: 'PUT', body: JSON.stringify(body) });
+    toast(r.note || 'Saved');
+    await window.ShivaaAdmin.smsReload();
+  } catch (err) { toast(err.message, 'err'); }
+};
+
 /* ── v33 · SMS gateway status + test sender (Settings tab) ── */
 window.ShivaaAdmin.smsCard = async () => {
   const card = document.getElementById('admSmsCard');
@@ -869,6 +923,8 @@ window.ShivaaAdmin.smsCard = async () => {
   try {
     const s = await api('/api/sms/status');
     const st = s.stats || {}, live = !!s.configured;
+    // v107 — feed the wizard (masked values only)
+    try { window._v107sms = await api('/api/sms/config'); } catch (e2) { window._v107sms = null; }
     card.innerHTML = `
       <div class="sum-row"><span>Mode</span><b style="color:${live ? '#1a7f37' : '#b45309'}">${live ? '● LIVE — real SMS via ' + esc(String(s.provider).toUpperCase()) : '● EMAIL — codes are emailed to the account address'}</b></div>
       ${s.gst ? `<div class="sum-row"><span>GST verification</span><b style="color:${s.gst.ready ? '#1a7f37' : '#b45309'}">${s.gst.ready ? '● LIVE — ' + esc(String(s.gst.provider).toUpperCase()) + ' reuses this key' + (s.gst.cached ? ' · ' + s.gst.cached + ' cached' : '') : '● not available — checked manually at approval'}</b></div>` : ''}
@@ -888,7 +944,7 @@ window.ShivaaAdmin.smsCard = async () => {
       </div>
       <p style="font-size:12px;color:var(--ink-3);margin:8px 0 0">${live
         ? 'Send a test to your own mobile first — errors appear above after every send.'
-        : 'No SMS gateway yet, so every one-time code is <b>emailed</b> to the account\'s own address. Use <b>Send test code</b> above to confirm email delivery works; to switch on real SMS later, create <b>data/sms-config.json</b> (see <b>OTP-SETUP-GUIDE.md</b>).'}</p>`;
+        : 'No SMS gateway yet, so every one-time code is <b>emailed</b> to the account\'s own address. Use <b>Send test code</b> above to confirm email delivery works; to switch on real SMS later, create <b>data/sms-config.json</b> (see <b>OTP-SETUP-GUIDE.md</b>).'}</p>` + window.ShivaaAdmin.v107WizHTML(s);
   } catch (e) { card.innerHTML = `<p style="color:var(--ink-3);font-size:13px">SMS status unavailable (${esc(e.message)})</p>`; }
 };
 window.ShivaaAdmin.smsTest = async e => {
@@ -899,6 +955,14 @@ window.ShivaaAdmin.smsTest = async e => {
     const r = await api('/api/sms/test', { method: 'POST', body: JSON.stringify({ phone: ph }) });
     if (r.ok) toast('Test SMS sent ✓ — check the phone');
     else toast(r.note || ('Not sent: ' + (r.error || 'no SMS gateway configured')), 'err');
+    // v107 — surface the gateway's RAW reply so DLT/balance/key faults are visible
+    const raw = document.getElementById('wizRaw');
+    if (raw) {
+      raw.hidden = false;
+      raw.textContent = 'gateway reply (' + (r.provider || 'none') + '): ' +
+        (r.response ? String(r.response).slice(0, 600) : (r.error || r.note || 'no reply — check keys & DLT template')) +
+        (r.hint ? '\nhint: ' + r.hint : '');
+    }
   } catch (err) { toast(err.message, 'err'); }
   window.ShivaaAdmin.smsCard();
 };
