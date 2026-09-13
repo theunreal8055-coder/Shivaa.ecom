@@ -519,6 +519,7 @@ async function renderAdmin(view, q) {
             <td><span class="status-pill ${p.status === 'approved' ? 'st-delivered' : p.status === 'pending' ? 'st-placed' : 'st-cancelled'}">${esc(p.status || '—')}</span></td>
             <td style="white-space:nowrap">${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','approved')">Approve</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','rejected')">Reject</button>` : ''}
               ${p.kyc && p.kyc.gstin ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.gstKycModal('${p.id}')" title="Full GST register details and certificate">KYC details</button>` : ''}
+              ${p.kyc && p.kyc.businessCard ? `<a class="btn btn-ghost btn-sm" href="${safeUrl(p.kyc.businessCard)}" target="_blank" rel="noopener" title="Business card uploaded with the application">Business card</a>` : ''}
               <button class="btn btn-ghost btn-sm" data-em="${esc(p.email)}" onclick="ShivaaAdmin.setUserPassword(this)" title="Set a new portal password for this partner">Portal password</button></td>
           </tr>`).join('')}</tbody>
         </table></div></div>`;
@@ -1416,6 +1417,12 @@ window.ShivaaAdmin.gstKycHtml = (p) => {
       ${gstRow('PAN (from GSTIN)', k.pan)}
       ${gstRow('Owner PAN', k.ownerPan)}
     </div>`}
+    ${k.businessCard ? `<div class="adm-card" style="padding:12px 14px;margin-bottom:12px">
+      <b style="display:block;margin-bottom:8px">Business card uploaded with the application</b>
+      ${/\.(jpe?g|png|webp|gif)$/i.test(k.businessCard)
+        ? `<a href="${safeUrl(k.businessCard)}" target="_blank" rel="noopener"><img src="${safeUrl(k.businessCard)}" alt="Business card" style="display:block;max-height:230px;max-width:100%;border-radius:10px;border:1px solid var(--line,#ead9c0)"></a>`
+        : `<a class="btn btn-outline btn-sm" href="${safeUrl(k.businessCard)}" target="_blank" rel="noopener">📇 Open the business card (PDF) ↗</a>`}
+    </div>` : ''}
     <div class="kyc-inline" style="gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" data-g="${esc(k.gstin || '')}" onclick="ShivaaAdmin.viewGstCert(this)">📄 View GST certificate (REG-06)</button>
       <button class="btn btn-outline btn-sm" data-g="${esc(k.gstin || '')}" data-pid="${esc(p.id)}" onclick="ShivaaAdmin.gstReverify(this)">↻ Re-verify live</button>
@@ -1894,8 +1901,10 @@ window.ShivaaAdmin.printReceipt = id => {
 
 function drawBarChart(cv, days) {
   if (!cv || !days.length) { if (cv) cv.parentElement.innerHTML += '<p style="color:var(--ink-3);font-size:13px">Revenue chart appears once orders come in.</p>'; return; }
-  const x = cv.getContext('2d'), dpr = Math.min(devicePixelRatio || 1, 2);
-  const w = cv.parentElement.clientWidth, h = 260;
+  const x = cv.getContext && cv.getContext('2d');
+  if (!x) return;   // no canvas 2D support (or jsdom) — the table still renders
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const w = cv.parentElement.clientWidth || 320, h = 260;
   cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + 'px'; x.setTransform(dpr, 0, 0, dpr, 0, 0);
   const pad = { l: 60, r: 10, t: 10, b: 40 };
   const max = Math.max(...days.map(d => d[1])) * 1.15 || 1;
@@ -1931,6 +1940,17 @@ async function renderPartner(view) {
         </form>
         <p style="font-size:12.5px;color:var(--ink-3);margin-top:12px;text-align:center">New here? <a href="#/b2b" style="color:var(--gold)">Apply for partnership →</a></p>
       </div></div>`;
+    window._partnerShell = null;   // v101 — next sign-in rebuilds the shell
+    return;
+  }
+  // v101 — switching Bullion / Dashboard / Reports must NOT rebuild the
+  // portal: the live board keeps polling, and scroll, form and deal state
+  // survive. A genuine departure (other routes, logout) drops the shell
+  // from the DOM, so the next visit is a fresh bullion-first build.
+  const wantView = (new URLSearchParams(location.hash.split('?')[1] || '')).get('view') || 'bullion';
+  if (window._partnerShell && document.body.contains(window._partnerShell) && window.ShivaaAdmin._partnerSwitch) {
+    if (location.hash === '#/partner') history.replaceState(null, '', '#/partner?view=bullion');
+    window.ShivaaAdmin._partnerSwitch(location.hash === '#/partner' ? 'bullion' : wantView);
     return;
   }
   let data;
@@ -1954,12 +1974,12 @@ async function renderPartner(view) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">${esc(partner?.firm || 'Partner')}</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">PARTNER PORTAL</small></div></div>
       <nav class="adm-nav">
-        <a href="#/partner" class="on">&#9672; Dashboard</a>
+        <a href="#/partner?view=bullion" class="on" data-bd-nav="bullion">&#129351; Bullion Desk</a>
+        <a href="#/partner?view=dash" data-bd-nav="dash">&#9672; Dashboard</a>
         <a href="#/metal" class="nav-mtl">&#9670; Metal Investment</a>
         <a href="#/catalogues" class="nav-ds">&#10022; Design Selection</a>
-        <a href="#/partner?view=bullion">&#129351; Bullion Desk</a>
         <a href="#/deadstock">&#9634; Dead Stock Purchase</a>
-        <a href="#/partner?view=reports">&#9646; Reports</a>
+        <a href="#/partner?view=reports" data-bd-nav="reports">&#9646; Reports</a>
         <a href="#/" style="margin-top:14px">&larr; Storefront</a>
       </nav>
     </aside>
@@ -2012,8 +2032,8 @@ async function renderPartner(view) {
       <a class="ds-second" href="#/deadstock" data-sec="dash">
         <span class="dsx-ic" aria-hidden="true">&#9634;</span>
         <span class="dsx-tx">
-          <b>Dead Stock Purchase &mdash; 22K in, fine metal out</b>
-          <small>Hand over slow-moving 22K jewellery at one wastage; half your making charges come back as melting-loss protection.</small>
+          <b>Dead Stock Purchase &mdash; all karats &amp; silver</b>
+          <small>Hand over slow-moving gold (24K&ndash;14K) or silver at one wastage; half your making charges come back as melting-loss protection.</small>
         </span>
         <span class="dsx-go" aria-hidden="true">&rarr;</span>
       </a>
@@ -2042,12 +2062,14 @@ async function renderPartner(view) {
         <div id="bullionBoard" class="bd-board"><div class="loading-spin"></div></div>
       </div>
 
-      <div class="pco-prime aurora" data-sec="dash">
-        <div class="pco-head">
+      <div class="pco-prime aurora pco-collapsed" data-sec="dash" id="pcoPrime">
+        <button type="button" class="pco-head pco-toggle" id="pcoToggle" aria-expanded="false" aria-controls="coFormWrap">
           <div><span class="pco-kicker">Signature Desk</span><h3>✦ Place Customer Order</h3>
-          <p>Order a bespoke piece for your walk-in customer — design photo, melting &amp; advance in one privileged form.</p></div>
-          <div class="pco-orn">✦</div>
-        </div>
+          <p class="pco-sub-collapsed">Bespoke piece for a walk-in customer — design photo, melting &amp; advance in one form. <u>Tap to expand</u>.</p>
+          <p class="pco-sub-open">Order a bespoke piece for your walk-in customer — design photo, melting &amp; advance in one privileged form.</p></div>
+          <span class="pco-chevron" aria-hidden="true">▾</span>
+        </button>
+        <div class="pco-body" id="coFormWrap">
         <form id="coForm" class="form-grid" onsubmit="ShivaaCO.place(event)">
           <div class="fld"><label>Product name *</label><input id="coName" required placeholder="e.g. Kundan cocktail ring"></div>
           <div class="fld"><label>Weight wanted (grams) *</label><input id="coWeight" type="number" step="0.01" min="0.5" required placeholder="e.g. 6.5"></div>
@@ -2063,8 +2085,12 @@ async function renderPartner(view) {
               <input type="file" id="coFile" accept="image/*" hidden>
             </div>
           </div>
-          <button class="btn btn-primary" style="grid-column:1/-1;justify-self:start">Place Custom Order</button>
+          <div class="pco-actions">
+            <button class="btn btn-primary">Place Custom Order</button>
+            <button type="button" class="btn btn-ghost" id="pcoHide">▴ Hide form</button>
+          </div>
         </form>
+        </div>
       </div>
       <div class="adm-card" data-sec="dash"><h3>My metal orders (design selection)</h3><div id="mxOrders"><div class="loading-spin"></div></div></div>
       <div class="grid2" data-sec="dash">
@@ -2078,27 +2104,24 @@ async function renderPartner(view) {
           <div class="benefit"><div class="bic">&#10022;</div><div><b>Daily designs on WhatsApp</b><p>New designs every morning &mdash; then select and bill them in <a href="#/catalogues" style="color:var(--gold)">Design Selection</a>.</p></div></div>
         </div>
       </div>
+      <!-- v101 — reports view renders in-place into this host -->
+      <div id="ptReports" data-sec="reports" hidden></div>
     </main>
   </div>`;
-  // ── view switching: dashboard | bullion | reports ──
-  const q = new URLSearchParams(location.hash.split('?')[1] || '');
-  const vw = q.get('view') || 'dash';
-  const show = sel => $$('[data-sec]').forEach(el => { el.style.display = sel.includes(el.dataset.sec) ? '' : 'none'; });
-  if (vw === 'bullion')      show(['bullion']);
-  else if (vw === 'reports') show([]);
-  else                       show(['dash', 'bullion-entry']);
-  $$('.adm-nav a').forEach(x => {
-    const h = x.getAttribute('href');
-    // #/metal and #/deadstock are their own routes — never lit from ?view=
-    if (h && h.indexOf('#/partner') !== 0) { x.classList.remove('on'); return; }
-    x.classList.toggle('on', h === (vw === 'dash' ? '#/partner' : '#/partner?view=' + vw));
-  });
-  if (vw === 'bullion') {
-    $('.adm-head h2').innerHTML = 'Bullion Desk <a href="#/partner" class="btn btn-ghost btn-sm" style="margin-left:10px">← Dashboard</a>';
-  }
-  if (vw === 'reports') {
-    const main = $('.adm-main');
-    main.insertAdjacentHTML('beforeend', `
+  // ── v101 view switching: bullion is the jeweller's home EVERY open;
+  // Bullion / Dashboard / Reports swap IN PLACE so the live MCX board keeps
+  // ticking and scroll + form state survive every tab change ──
+  const head = $('.adm-head h2');
+  const headDash = 'Namaste, ' + esc(partner?.contactPerson || partner?.firm || 'Partner');
+  // DIRECT children of .adm-main only — the bullion board's own tabs reuse
+  // data-sec names (rates/deals/…) and must never be hidden by view switches.
+  const show = sel => $$('.adm-main > [data-sec]').forEach(el => { el.style.display = sel.includes(el.dataset.sec) ? '' : 'none'; });
+  let reportsBuilt = false;
+  const buildReports = () => {
+    if (reportsBuilt) return;
+    reportsBuilt = true;
+    $('#ptReports').hidden = false;
+    $('#ptReports').innerHTML = `
       <div class="adm-card"><h3>&#9646; Weekly Sales</h3><canvas id="ptChart"></canvas></div>
       <div class="adm-card"><h3>Payment settlements <span style="font-size:12px;color:var(--ink-3);font-weight:400">— every Friday with the sales report</span></h3>
         <div class="adm-table-wrap"><table class="adm-table settle-table">
@@ -2108,12 +2131,53 @@ async function renderPartner(view) {
             <td class="num"><b>${fmt(s.sales)}</b></td><td class="num">${fmt(s.payout)}</td>
             <td><span class="status-pill ${s.status === 'Paid' ? 'st-delivered' : 'st-packed'}">${esc(s.status)}</span></td>
           </tr>`).join('')}</tbody>
-        </table></div></div>`);
+        </table></div></div>`;
+    drawBarChart($('#ptChart'), settlements.map(s => [s.weekEnding.slice(5), s.sales]));
+  };
+  const switchView = vw => {
+    if (vw === 'bullion')      { show(['bullion']); }
+    else if (vw === 'reports') { show(['reports']); buildReports(); }
+    else                       { show(['dash', 'bullion-entry']); }
+    $('#ptReports').hidden = vw !== 'reports';
+    $$('.adm-nav a').forEach(x => {
+      const h = x.getAttribute('href');
+      // #/metal and #/deadstock are their own routes — never lit from ?view=
+      if (h && h.indexOf('#/partner') !== 0) { x.classList.remove('on'); return; }
+      x.classList.toggle('on', h === '#/partner?view=' + vw);
+    });
+    head.innerHTML = vw === 'bullion'
+      ? 'Bullion Desk <a href="#/partner?view=dash" class="btn btn-ghost btn-sm" style="margin-left:10px">← Dashboard</a>'
+      : headDash;
+    if (vw === 'bullion' && window.ShivaaBullion) ShivaaBullion.startPolling();
+  };
+  window.ShivaaAdmin._partnerSwitch = switchView;
+  window._partnerShell = view.querySelector('.admin-shell');
+  // bare "#/partner" (portal pill, fresh login) ALWAYS lands on bullion —
+  // including repeat opens and new sessions.
+  const barePartner = location.hash === '#/partner';
+  const q = new URLSearchParams(location.hash.split('?')[1] || '');
+  let vw = q.get('view') || 'bullion';
+  if (barePartner) {
+    vw = 'bullion';
+    history.replaceState(null, '', '#/partner?view=bullion');
   }
-  const cv = $('#ptChart');
-  if (cv) drawBarChart(cv, settlements.map(s => [s.weekEnding.slice(5), s.sales]));
+  switchView(vw);
   if (window.ShivaaBullion) ShivaaBullion.startPolling();
   if (window.ShivaaCO) { ShivaaCO.init(); ShivaaCO.loadMine(); }
+  // v101 — custom-order form stays collapsed to its title until requested
+  const pco = view.querySelector('#pcoPrime');
+  if (pco && !pco._wired) {
+    pco._wired = true;
+    const tog = pco.querySelector('#pcoToggle');
+    const setOpen = open => {
+      pco.classList.toggle('pco-collapsed', !open);
+      pco.classList.toggle('pco-open', open);
+      if (tog) tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    tog?.addEventListener('click', () => setOpen(pco.classList.contains('pco-collapsed')));
+    pco.querySelector('#pcoHide')?.addEventListener('click', () => { setOpen(false); pco.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
+    window.ShivaaCO._setCollapsed = () => setOpen(false);
+  }
 }
 window.ShivaaAdmin.partnerLogin = async e => {
   e.preventDefault();
@@ -2121,7 +2185,10 @@ window.ShivaaAdmin.partnerLogin = async e => {
     const fd = new FormData(e.target);
     const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: String(fd.get('email') || '').trim(), password: String(fd.get('password') || '') }) });
     window.Shivaa.setToken(r.token); state.user = r.user;
-    toast('Welcome, ' + r.user.name); renderPartner($('#view'));
+    toast('Welcome, ' + r.user.name);
+    // v101 — jewellers land on live bullion rates EVERY time they sign in
+    if (location.hash === '#/partner?view=bullion') renderPartner($('#view'));
+    else location.hash = '#/partner?view=bullion';
   } catch (err) { toast(err.message, 'err'); }
 };
 window.ShivaaPartner = {
@@ -2224,6 +2291,7 @@ window.ShivaaCO = {
       if (!res.ok) throw new Error(data.error || 'Failed');
       toast('Custom order ' + data.id + ' placed ✦');
       e.target.reset(); this.file = null; document.getElementById('coDropTxt').textContent = 'Tap to choose design photo';
+      if (typeof this._setCollapsed === 'function') this._setCollapsed();   // v101 re-collapse on success
       this.loadMine();
     } catch (err) { toast(err.message, 'err'); }
   },
@@ -2541,7 +2609,7 @@ window.ShivaaBullion = {
       ${item('📰', 'Bullion news', 'Live MCX / bullion headlines', "ShivaaBullion.menuGo('news')")}
       ${item('📞', 'Call &amp; book', 'Talk to the Shivaa bullion desk', "window.open('tel:+918905005921','_self')")}
       ${item('💬', 'WhatsApp desk', 'Confirm deals and unfix on WhatsApp', `window.open(${JSON.stringify(wa)},'_blank','noopener')`)}
-      ${item('◈', 'Partner dashboard', 'Back to your partner portal', "location.hash='#/partner'")}
+      ${item('◈', 'Partner dashboard', 'Back to your partner portal', "location.hash='#/partner?view=dash'")}
     </div>
     <p class="bd-note" style="text-align:center">Official MCX push via Angel SmartAPI, international spot in USD. Rates per <b>10 g</b> gold / <b>kg</b> silver. If the push relay is ever offline the board falls back to polling automatically.</p>`;
   },
@@ -3103,6 +3171,20 @@ window.ShivaaBullion = {
     clearInterval(window._blPoll);
     this.refresh(false);
     window._blPoll = setInterval(() => this.refresh(true), 30000);
+    // v101 — re-sync the INSTANT the jeweller comes back to the tab or the
+    // network returns (mobile browsers starve timers while backgrounded), so
+    // the desk always shows market-fresh rates, not a stale throttled quote.
+    if (!this._resyncWired) {
+      this._resyncWired = true;
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && document.getElementById('bullionBoard')) {
+          this.tickFails = 0; this.refresh(true);
+        }
+      });
+      window.addEventListener('online', () => {
+        if (document.getElementById('bullionBoard')) { this.tickFails = 0; this.refresh(true); }
+      });
+    }
   },
 };
 

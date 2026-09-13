@@ -4643,7 +4643,26 @@ try {
 
   /* ── partners (full KYC) ── */
   if ($route === 'partners/apply' && $method === 'POST') {
-    $b = body_json();
+    // v101 — multipart submissions carry the optional business-card upload;
+    // JSON submissions (no card) keep working unchanged.
+    $b = !empty($_POST) ? $_POST : body_json();
+    $businessCard = null;
+    if (!empty($_FILES['businessCard']) && ($_FILES['businessCard']['error'] ?? 1) === UPLOAD_ERR_OK) {
+      $cf = $_FILES['businessCard'];
+      if (($cf['size'] ?? 0) > 8388608) jout(400, ['error' => 'Business card must be under 8 MB']);
+      $head = (string)@file_get_contents($cf['tmp_name'], false, null, 0, 12);
+      $isImg = strncmp($head, "\xFF\xD8\xFF", 3) === 0
+            || strncmp($head, "\x89PNG\r\n\x1a\n", 8) === 0
+            || (strncmp($head, 'RIFF', 4) === 0 && substr($head, 8, 4) === 'WEBP')
+            || strncmp($head, 'GIF8', 4) === 0;
+      $isPdf = strncmp($head, '%PDF-', 5) === 0;
+      if (!$isImg && !$isPdf) jout(400, ['error' => 'Business card must be a real JPG / PNG / WEBP image or PDF']);
+      $ext = $isPdf ? 'pdf' : strtolower(pathinfo((string)($cf['name'] ?? 'card.jpg'), PATHINFO_EXTENSION));
+      if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'], true)) $ext = $isPdf ? 'pdf' : 'jpg';
+      if (!is_dir(__DIR__ . '/uploads/kyc')) @mkdir(__DIR__ . '/uploads/kyc', 0755, true);
+      $cardName = 'card_' . bin2hex(random_bytes(5)) . '.' . $ext;
+      if (move_uploaded_file($cf['tmp_name'], __DIR__ . '/uploads/kyc/' . $cardName)) $businessCard = '/uploads/kyc/' . $cardName;
+    }
     rate_block($db, 'partnerapply-ip', client_ip(), 10, 3600);
     if (empty($b['firm']) || empty($b['email']) || empty($b['phone']) || empty($b['password'])) jout(400, ['error' => 'Firm, email, phone & password required']);
     if (strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
@@ -4682,6 +4701,7 @@ try {
     $kycRec = ['gstin' => $gstRaw, 'gstinValid' => true, 'gstinState' => $gst['state'],
       'pan' => $gst['pan'], 'ownerPan' => strtoupper((string)($b['ownerPan'] ?? '')),
       'otpVerified' => true, 'at' => now_iso()];
+    if ($businessCard) $kycRec['businessCard'] = $businessCard;   // v101 optional KYC document
     if ($gstInfo) {   // v87 — government-record snapshot captured at application time
       $kycRec += [
         'gstinLiveVerified' => true, 'gstStatus' => $gstInfo['status'],

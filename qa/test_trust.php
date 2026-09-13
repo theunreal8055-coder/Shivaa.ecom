@@ -16,20 +16,24 @@ $db = json_decode($before, true, 512, JSON_THROW_ON_ERROR);
 $original = $db;
 $profile = trust_profile($db);
 trust_check($profile['schemaVersion'] === 1 && $profile['source'] === 'store_settings', 'explicit source and schema');
-foreach (['cin', 'udyam', 'address'] as $key) {
-  trust_check($profile['business'][$key] === $db['settings'][$key], 'confirmed ' . $key . ' is used verbatim');
+foreach (['legalName', 'brand', 'cin', 'udyam', 'address'] as $key) {
+  trust_check($profile['business'][$key] === ($db['settings'][$key] ?? null), 'confirmed ' . $key . ' is used verbatim');
 }
-trust_check(array_keys($profile['business']) === ['cin', 'udyam', 'address'], 'business-field allowlist');
+trust_check(array_keys($profile['business']) === ['legalName', 'brand', 'cin', 'udyam', 'address'], 'business-field allowlist');
 trust_check(array_keys($profile) === ['schemaVersion', 'source', 'business', 'gstin', 'certificates', 'registryVerification'], 'public payload contains no unrelated business/analytics fields');
-trust_check($profile['gstin'] === null && $profile['certificates'] === [], 'GSTIN and certificates remain empty');
+trust_check($profile['certificates'] === [], 'certificates remain empty');
+trust_check($profile['gstin'] === ($db['settings']['gstin'] ?? null), 'owner-supplied GSTIN is published when present');
+trust_check(trust_profile(['settings' => ['gstin' => '08aaice5666r1zp']])['gstin'] === '08AAICE5666R1ZP', 'lowercase GSTIN normalised to uppercase');
+trust_check(trust_profile(['settings' => ['gstin' => 'UNCONFIRMED_QA_ONLY']])['gstin'] === null, 'malformed GSTIN becomes missing data');
 trust_check($profile['registryVerification'] === ['performed' => false, 'checkedAt' => null], 'no invented government check or timestamp');
 trust_check($db === $original, 'projection does not mutate source data');
 foreach ([[], ['settings' => null], ['settings' => false], ['settings' => 'invalid'], ['settings' => []]] as $badDb) {
-  trust_check(trust_profile($badDb)['business'] === ['cin' => null, 'udyam' => null, 'address' => null], 'missing settings never use hard-coded defaults');
+  trust_check(trust_profile($badDb)['business'] === ['legalName' => null, 'brand' => null, 'cin' => null, 'udyam' => null, 'address' => null], 'missing settings never use hard-coded defaults');
 }
 foreach (['', 'unknown', '<svg/>', 123456, false, [], (object)[], "\0"] as $value) {
-  $bad = ['settings' => ['cin' => $value, 'udyam' => $value]];
-  trust_check(trust_profile($bad)['business']['cin'] === null && trust_profile($bad)['business']['udyam'] === null, 'invalid identifier types/shapes become missing: ' . json_encode($value));
+  $bad = ['settings' => ['cin' => $value, 'udyam' => $value, 'legalName' => $value, 'brand' => $value]];
+  $bp = trust_profile($bad)['business'];
+  trust_check($bp['cin'] === null && $bp['udyam'] === null && $bp['legalName'] === null && $bp['brand'] === null, 'invalid identifier types/shapes become missing: ' . json_encode($value));
 }
 foreach (['cin', 'udyam'] as $key) {
   $modified = $db;
@@ -53,6 +57,9 @@ $polluted['settings'] = array_merge($polluted['settings'], [
   'cinVerified' => true, 'udyamVerified' => true,
   'trustScore' => 100, 'checkedAt' => 'QA_NOT_A_REAL_CHECK_TIME',
 ]);
-trust_check(trust_profile($polluted) === $profile, 'unapproved identifiers/documents, credentials and verification flags cannot affect the profile');
+$pollutedProfile = trust_profile($polluted);
+$expectedPolluted = $profile; $expectedPolluted['gstin'] = null;  // malformed GSTIN dropped, not echoed
+trust_check($pollutedProfile === $expectedPolluted, 'unapproved identifiers/documents, credentials and verification flags cannot affect the profile');
+trust_check(strpos(json_encode($pollutedProfile), 'QA_PRIVATE_MARKER') === false && strpos(json_encode($pollutedProfile), 'example.invalid') === false, 'credentials and forged document URLs never serialise');
 trust_check(file_get_contents($dbFile) === $before, 'tracked catalogue is byte-for-byte unchanged');
 echo "\n$count trust unit checks passed. No registrations queried or data created.\n";

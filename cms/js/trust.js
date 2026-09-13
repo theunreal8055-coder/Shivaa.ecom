@@ -5,6 +5,7 @@
   const LINKS = Object.freeze({
     mca: 'https://www.mca.gov.in/',
     udyam: 'https://www.udyamregistration.gov.in/Udyam_Verify.aspx',
+    gst: 'https://services.gst.gov.in/services/searchtp',
   });
   const external = 'target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"';
   const icon = paths => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
@@ -16,26 +17,32 @@
   function parseProfile(data) {
     const b = data?.business;
     const id = (value, pattern) => value === null || (typeof value === 'string' && value === value.trim() && pattern.test(value));
+    const name = value => value === null || (typeof value === 'string' && value === value.trim() && value.length >= 2 && value.length <= 160 && /^[\p{L}\p{N}&.,()'’\-/ ]{2,}$/u.test(value));
     const address = b?.address;
     if (data?.schemaVersion !== 1 || data?.source !== 'store_settings' || !b || Array.isArray(b) ||
+        !name(b.legalName) || !name(b.brand) ||
         !id(b.cin, /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/) ||
         !id(b.udyam, /^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/) ||
         !(address === null || (typeof address === 'string' && address.trim() && [...address].length <= 500 && !/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(address))) ||
-        data.gstin !== null || !Array.isArray(data.certificates) || data.certificates.length !== 0 ||
+        !id(data.gstin, /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/) ||
+        !Array.isArray(data.certificates) || data.certificates.length !== 0 ||
         data.registryVerification?.performed !== false || data.registryVerification?.checkedAt !== null) {
       throw new Error('Unrecognised business profile');
     }
     // Allowlist values; no arbitrary URLs, credentials, legal flags or trust scores.
-    return Object.freeze({ cin: b.cin, udyam: b.udyam, address: b.address });
+    return Object.freeze({
+      legalName: b.legalName, brand: b.brand, gstin: data.gstin,
+      cin: b.cin, udyam: b.udyam, address: b.address,
+    });
   }
 
   function syncFooter(profile) {
     const identity = document.getElementById('trustFooterIdentity');
     const address = document.getElementById('trustFooterAddress');
     if (identity) {
-      const parts = ['© 2026 Shivaa'];
-      if (profile?.cin) parts.push('CIN ' + profile.cin);
-      if (profile?.udyam) parts.push(profile.udyam);
+      const parts = ['© 2026 ' + (profile?.brand || 'Shivaa Jewels')];
+      if (profile?.legalName) parts.push(profile.legalName);
+      if (profile?.gstin) parts.push('GSTIN ' + profile.gstin);
       identity.textContent = parts.join(' · ');
     }
     if (address) address.textContent = profile ? (profile.address || 'Store address not provided') : 'Store address temporarily unavailable';
@@ -61,14 +68,22 @@
     return `<div class="trust-id-row"><dt><b>${title}</b><span>${description}</span></dt>
       <dd>${value ? `<code id="trustValue-${key}" tabindex="0">${esc(value)}</code><div class="trust-row-actions"><button type="button" class="trust-copy" data-trust-copy="${key}">Copy ${title}</button><a href="${link}" ${external}>${linkLabel} ↗</a></div>` : '<span class="trust-missing">Not provided</span>'}</dd></div>`;
   }
+  function nameRow(title, value, description) {
+    if (!value) return '';
+    return `<div class="trust-id-row trust-name-row"><dt><b>${title}</b><span>${description}</span></dt>
+      <dd><b class="trust-name-val">${esc(value)}</b></dd></div>`;
+  }
 
   function profileHTML(profile) {
     return `<div class="trust-grid">
       <section class="trust-card trust-identity" aria-labelledby="trustBusinessTitle">
         <div class="trust-card-top"><span class="trust-icon">${building}</span><span class="trust-badge">Provided by Shivaa</span></div>
         <h2 id="trustBusinessTitle">Business identity</h2>
-        <p>Identifiers you can take to the official sources for your own checks.</p>
+        <p>${profile.brand ? `<b>${esc(profile.brand)}</b> is the jewellery brand of ${profile.legalName ? `<b>${esc(profile.legalName)}</b>` : 'our registered company'}. ` : ''}Identifiers below can be taken to the official sources for your own checks.</p>
         <dl class="trust-records">
+          ${nameRow('Registered company', profile.legalName, 'Legal entity operating shivaa.in & the Shivaa Jewels showrooms')}
+          ${nameRow('Brand', profile.brand, 'The public trade name on our bills and storefront')}
+          ${identityRow('gstin', 'GSTIN', profile.gstin, 'Goods & Services Tax Identification Number', LINKS.gst, 'GST taxpayer search')}
           ${identityRow('cin', 'CIN', profile.cin, 'Corporate Identification Number', LINKS.mca, 'MCA website')}
           ${identityRow('udyam', 'UDYAM', profile.udyam, 'UDYAM registration number', LINKS.udyam, 'Official UDYAM portal')}
         </dl>
@@ -85,7 +100,11 @@
       <section class="trust-card trust-documents" aria-labelledby="trustDocumentsTitle">
         <div class="trust-docs-intro"><span class="trust-icon">${documentIcon}</span><div><span class="label">What is not on record</span><h2 id="trustDocumentsTitle">Documents, without assumptions</h2><p>Missing information stays visibly missing. We do not generate a registration number or substitute an unrelated PDF.</p></div></div>
         <div class="trust-document-grid">
-          <div class="trust-document" data-trust-gstin><div><h3>GSTIN</h3><span class="trust-missing">Not provided</span></div><p>No GSTIN is published in this feature. A real number must be supplied and reviewed before it appears here.</p></div>
+          <div class="trust-document" data-trust-gstin><div><h3>GSTIN</h3>${profile.gstin
+            ? `<code class="trust-provided">${esc(profile.gstin)}</code><span class="trust-provided-note">Published with the application · verify it independently on the GST portal</span>`
+            : '<span class="trust-missing">Not provided</span>'}</div><p>${profile.gstin
+            ? 'The store’s GSTIN appears in the Business identity card above with a Copy action and a link to the official GST taxpayer search. Displaying it here is not a live verification result.'
+            : 'No GSTIN is published in this feature. A real number must be supplied and reviewed before it appears here.'}</p></div>
           <div class="trust-document" data-trust-certificates><div><h3>Certificate files</h3><span class="trust-missing">Not provided</span></div><p>No certificate files have been provided for this page. There are no sample certificates, generated seals or placeholder downloads.</p></div>
         </div>
         <p class="trust-note">“Not provided” describes what is published here. It is not a finding about the business’s registration or legal status.</p>
@@ -134,7 +153,7 @@
       <section class="trust-help" aria-label="Understanding these details">
         <details class="acc"><summary>Are these live government verification results?</summary><div class="acc-body">No. CIN, UDYAM and the address are supplied business details. Use the official websites for an independent check. No government lookup, verification date or trust score is created by this page.</div></details>
         <details class="acc"><summary>Does a company identifier verify my jewellery?</summary><div class="acc-body">No item-level assurance is inferred here from a business identifier. Match the HUID on your actual piece and use the official BIS Care app. The <a href="#/hallmark">HUID check guide</a> explains the process; automatic live BIS verification is not connected on this site.</div></details>
-        <details class="acc"><summary>Why are GSTIN and certificate downloads empty?</summary><div class="acc-body">Real details and files need to be supplied before publication. We do not fill those gaps with sample numbers, unrelated documents or generated certificates. An empty section is not a government finding.</div></details>
+        <details class="acc"><summary>How do I independently verify the GSTIN?</summary><div class="acc-body">Open the official GST taxpayer search (services.gst.gov.in → Search Taxpayer), enter <b>08AAICE5666R1ZP</b> when published, and confirm the legal name <b>Ernate Shine Jewellery Private Limited</b> matches your bill. A number displayed on this page is a business detail on record, not a live government result. Certificate files are not published because none have been supplied for this page — we do not substitute sample documents.</div></details>
       </section>
       <section class="trust-next"><div><span class="label">Before you choose</span><h2>Take a closer look.</h2><p>Compare the listed details of your shortlisted pieces, or read how to check the actual piece’s HUID.</p></div><div><a class="btn btn-primary" href="#/compare">Compare your shortlist</a><a class="btn btn-ghost" href="#/hallmark">BIS Care / HUID guide</a><a class="trust-contact" href="#/contact">Ask Shivaa a question →</a></div></section>
     </div>`;

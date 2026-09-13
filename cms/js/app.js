@@ -150,6 +150,29 @@ function waNum() {  // v83 — digits only; a setting can never break out of an 
   const n = String((state.settings && state.settings.whatsapp) || '918905005921').replace(/\D/g, '');
   return n || '918905005921';
 }
+/* v101 · item 14 — the brand's three official channels, single source of
+   truth so every social slot on the site stays in sync with the footer. */
+const SOCIAL = {
+  ig: 'https://www.instagram.com/shivaa.jewels?stkn=NG54eWNnM3Z6N2Q2',
+  fb: 'https://www.facebook.com/share/1F8m9hgpCR/',
+  wa: 'https://wa.me/message/FM7UIQRLPIYHB1',
+};
+/* social icon row (same glyph set as the v101 footer). cls 'fv-social--light'
+   adapts the circles for light cards (contact page, etc.). */
+function socialRowHTML(cls = '') {
+  return `<nav class="fv-social ${cls}" aria-label="Follow Shivaa Jewels">
+    <a href="${SOCIAL.ig}" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>
+    </a>
+    <a href="${SOCIAL.fb}" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M14.5 8.5H17V5h-2.5C12.6 5 11 6.6 11 8.5V11H8.5v3.4H11V21h3.5v-6.6H17l.5-3.4h-3V9c0-.3.2-.5.5-.5z"/></svg>
+    </a>
+    <a href="${SOCIAL.wa}" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.8a8.2 8.2 0 0 0-7 12.4L4 20l3.9-1a8.2 8.2 0 1 0 4.1-15.2z"/><path d="M9.3 8.6c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.5s.7 1.6.7 1.7c.1.2.1.3 0 .5l-.4.6c-.1.2-.2.3-.1.5.2.3.8 1.2 1.6 1.7 1 .6 1.4.7 1.7.6.2-.1.6-.6.8-.9.2-.3.4-.2.7-.1l1.6.8c.3.1.4.2.4.4 0 .5-.4 1.6-2 2-1.6.4-3.4-.3-5.1-1.9-1.4-1.3-2.3-2.9-2.4-4.2 0-.9.2-1.6.7-2.1z" fill="currentColor" stroke="none"/></svg>
+    </a>
+  </nav>`;
+}
+window.Shivaa.socialRowHTML = socialRowHTML;
 function waLink(text) { return 'https://wa.me/' + waNum() + '?text=' + encodeURIComponent(String(text).slice(0, 1800)); }
 function waOpen(text) {
   const url = waLink(text);
@@ -2450,14 +2473,30 @@ window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd
     } catch (e) {}
   });
 
-  /* v55: welcome-back bar when a saved cart is waiting */
+  /* v55 / v101: welcome-back bar when a saved cart is waiting — mobile-first
+     compact card with piece count + value and a full-width Resume button */
   setTimeout(() => {
     try {
+      if (sessionStorage.getItem('sh_backbar_off')) return;
       if (localStorage.getItem('sh_abandoned') && state.cart.length && !document.getElementById('backBar')) {
+        const pieces = state.cart.reduce((a, i) => a + (i.qty || 1), 0);
+        const value = state.cart.reduce((a, c) => {
+          const pr = state.productsCache.find(x => x.id === c.id);
+          return a + (pr && typeof price === 'function' ? price(pr).total * (c.qty || 1) : 0);
+        }, 0);
         const bar = document.createElement('div'); bar.id = 'backBar';
-        bar.innerHTML = '<span>✦ Your cart is waiting — ' + state.cart.reduce((a, i) => a + (i.qty || 1), 0) + ' piece(s)</span><div><a class="btn btn-primary btn-sm" href="#/cart">Resume</a><button class="btn btn-ghost btn-sm" id="backBarX">✕</button></div>';
+        bar.setAttribute('role', 'dialog'); bar.setAttribute('aria-label', 'Saved cart');
+        bar.innerHTML =
+          '<div class="bb-ic">✦</div>'
+          + '<div class="bb-tx"><b>Your cart is waiting</b>'
+          + '<small>' + pieces + ' piece' + (pieces === 1 ? '' : 's') + (value ? ' · ' + fmt(value) : '') + ' · ready to check out</small></div>'
+          + '<button class="bb-x" id="backBarX" aria-label="Dismiss">✕</button>'
+          + '<a class="btn btn-primary btn-block bb-go" href="#/cart">Resume order →</a>';
         document.body.appendChild(bar);
-        document.getElementById('backBarX').onclick = () => bar.remove();
+        document.getElementById('backBarX').onclick = () => {
+          bar.remove();
+          try { sessionStorage.setItem('sh_backbar_off', '1'); } catch (e) {}
+        };
       }
     } catch (e) {}
   }, 2200);
@@ -2826,38 +2865,99 @@ function initMiniCart() {
 }
 
 /* ═══════════════════ v91 — quick view from product cards ═══════════════════ */
+/* v101 — press-and-hold continuous stepper.
+   One immediate step on press, then accelerating repeat while held;
+   keyboard users get single steps (and native OS key-repeat on hold). */
+window.Shivaa.holdRepeat = (el, step, opts = {}) => {
+  if (!el || el._holdWired) return;
+  el._holdWired = true;
+  el.classList.add('hold-btn');
+  const FIRST = opts.firstDelay ?? 340, R0 = opts.repeatStart ?? 95, RMIN = opts.repeatMin ?? 32;
+  let t1 = null, t2 = null, rep = R0, alive = false;
+  const clear = () => { clearTimeout(t1); clearTimeout(t2); t1 = t2 = null; alive = false; };
+  const tick = () => { step(); rep = Math.max(RMIN, Math.round(rep * 0.86)); t2 = setTimeout(tick, rep); };
+  el.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    clear(); alive = true; rep = R0;
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    step();
+    t1 = setTimeout(tick, FIRST);
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => el.addEventListener(ev, clear));
+  el.addEventListener('pointerleave', () => { if (!el.hasPointerCapture?.(el._pid)) clear(); });
+  el.addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if (!e.repeat) step();
+    }
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) clear(); });
+};
+
 window.Shivaa.quickView = (id) => {
   const p = state.productsCache.find(x => x.id === id); if (!p) { location.hash = '#/product/' + id; return; }
   const pr = price(p);
   const wished = state.user ? false : state.localWish.includes(id);
+  const imgs = (p.images || []).map(safeUrl).filter(Boolean);
+  const shots = imgs.length ? imgs : ['/images/logo.png'];
   openModal(`
     <div class="qv">
-      <div class="qv-img"><img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}"></div>
-      <div class="qv-tx">
-        <div class="label">${esc(CATS[p.category] ? CATS[p.category].name : (p.category || ''))}</div>
-        <h3>${esc(p.name)}</h3>
-        <div class="pc-rating" style="margin:6px 0 10px">★ ${p.rating} <span style="color:var(--ink-3);font-size:12.5px">· ${p.reviews} reviews · ${p.weightG} g</span></div>
-        <div class="pc-price" style="margin-bottom:6px"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST · live</small></div>
-        ${(p.sizes && p.sizes.length) ? `<div class="opt-label"><span>Size</span></div>
-          <div class="size-row" id="qvSize">${p.sizes.map(s => `<button type="button" class="size-pill" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
-        <div class="qty-row" style="margin:14px 0"><button type="button" id="qvMinus">−</button><b id="qvQty">1</b><button type="button" id="qvPlus">+</button></div>
-        <div class="qv-acts">
-          <button type="button" class="btn btn-primary" id="qvAdd">Add to Bag ✦</button>
-          <a class="btn btn-outline" href="#/product/${p.id}" onclick="Shivaa.closeModal()">Full details</a>
-        </div>
-        <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" style="position:absolute;top:0;right:0" aria-label="Wishlist">
+      <div class="qv-media">
+        <img class="qv-photo" id="qvPhoto" src="${shots[0]}" alt="${esc(p.name)}">
+        ${shots.length > 1 ? `
+          <button type="button" class="qv-nav qv-prev" id="qvPrev" aria-label="Previous photo">‹</button>
+          <button type="button" class="qv-nav qv-next" id="qvNext" aria-label="Next photo">›</button>
+          <div class="qv-dots" id="qvDots">${shots.map((_, i) => `<button type="button" class="qv-dot ${i === 0 ? 'on' : ''}" data-i="${i}" aria-label="Photo ${i + 1}"></button>`).join('')}</div>` : ''}
+        <button class="pc-wish qv-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
         </button>
       </div>
+      <div class="qv-body">
+        <div class="qv-scroll">
+          <div class="label">${esc(CATS[p.category] ? CATS[p.category].name : (p.category || ''))}</div>
+          <h3>${esc(p.name)}</h3>
+          <div class="pc-rating" style="margin:6px 0 10px">★ ${p.rating} <span style="color:var(--ink-3);font-size:12.5px">· ${p.reviews} reviews · ${p.weightG} g</span></div>
+          <div class="pc-price" style="margin-bottom:6px"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST · live</small></div>
+          ${(p.sizes && p.sizes.length) ? `<div class="opt-label"><span>Size</span></div>
+            <div class="size-row" id="qvSize">${p.sizes.map(s => `<button type="button" class="size-pill" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+          <div class="qty-row qv-qty" style="margin:14px 0 4px"><button type="button" id="qvMinus" aria-label="Decrease quantity">−</button><b id="qvQty">1</b><button type="button" id="qvPlus" aria-label="Increase quantity">+</button></div>
+        </div>
+        <div class="qv-foot">
+          <a class="btn btn-outline qv-detail" href="#/product/${p.id}" onclick="Shivaa.closeModal()">Full details</a>
+          <button type="button" class="btn btn-primary qv-add" id="qvAdd">Add to Bag ✦</button>
+        </div>
+      </div>
     </div>`, 'qv-modal');
   const box = $('#modalBox');
-  let qty = 1;
+  let qty = 1, shot = 0;
+  const photo = $('#qvPhoto');
+  const showShot = i => {
+    shot = (i + shots.length) % shots.length;
+    photo.classList.remove('qv-swap'); void photo.offsetWidth;
+    photo.src = shots[shot]; photo.classList.add('qv-swap');
+    box.querySelectorAll('#qvDots .qv-dot').forEach((d, di) => d.classList.toggle('on', di === shot));
+  };
+  if (shots.length > 1) {
+    $('#qvPrev').onclick = () => showShot(shot - 1);
+    $('#qvNext').onclick = () => showShot(shot + 1);
+    box.querySelectorAll('#qvDots .qv-dot').forEach(d => d.onclick = () => showShot(+d.dataset.i));
+    // swipe the photo on touch screens
+    let sx = null;
+    photo.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+    photo.addEventListener('touchend', e => {
+      if (sx == null) return;
+      const dx = e.changedTouches[0].clientX - sx; sx = null;
+      if (Math.abs(dx) > 36) showShot(shot + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+  }
   box.querySelectorAll('#qvSize .size-pill').forEach(b => b.onclick = () => {
     box.querySelectorAll('#qvSize .size-pill').forEach(x => x.classList.remove('on')); b.classList.add('on');
   });
   const qtyB = $('#qvQty');
-  $('#qvMinus').onclick = () => { qty = Math.max(1, qty - 1); qtyB.textContent = qty; };
-  $('#qvPlus').onclick = () => { qty = Math.min(9, qty + 1); qtyB.textContent = qty; };
+  const setQty = v => { qty = Math.max(1, Math.min(9, v)); qtyB.textContent = qty; };
+  window.Shivaa.holdRepeat($('#qvMinus'), () => setQty(qty - 1));
+  window.Shivaa.holdRepeat($('#qvPlus'), () => setQty(qty + 1));
   $('#qvAdd').onclick = (e) => {
     const size = $('#qvSize .size-pill.on')?.dataset.size || null;
     closeModal();
@@ -3795,31 +3895,42 @@ pages.giftlist = async (view, q) => {
   </div>`;
 };
 
-/* ─────────── v57 · RING / BANGLE SIZER ─────────── */
+/* ─────────── v57 · RING / BANGLE SIZER (v101: Indian standard BIS-style
+   chart — Indian size = inner circumference mm − 38; press-&-hold steppers) ─ */
+const IND_SIZE_OFFSET = 38;   // Indian ring size = circumference (mm) − 38
+const indSizeFromDia = dia => Math.round(dia * Math.PI - IND_SIZE_OFFSET);
+const INDIAN_RING_CHART = (() => {
+  const rows = [];
+  for (let size = 8; size <= 30; size++) {
+    const circ = size + IND_SIZE_OFFSET;
+    rows.push({ size, circ, dia: Math.round(circ / Math.PI * 10) / 10 });
+  }
+  return rows;
+})();
 pages.sizer = async view => {
   const saved = (() => { try { return localStorage.getItem('shv_ring_size') || ''; } catch (e) { return ''; } })();
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Ring Size Guide</div><h1>Find your ring size</h1><p>Two quick methods — no guessing, no size exchanges.</p></div></section>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Ring Size Guide</div><h1>Find your ring size</h1><p>Indian standard sizes — two quick methods, no guessing, no size exchanges. Tip: <b>press &amp; hold</b> the − / + buttons.</p></div></section>
   <div class="container sizer-wrap" style="padding:36px 0 90px">
     <div class="sizer-grid">
       <div class="adm-card sz-card">
         <h3>① Match a ring you already own</h3>
-        <p class="partner-note">Calibrate once with any ATM / bank card (exactly <b>85.6 mm</b> wide), then drag until the circle fits the <b>inner edge</b> of your ring.</p>
+        <p class="partner-note">Calibrate once with any ATM / bank card (exactly <b>85.6 mm</b> wide), then resize until the circle fits the <b>inner edge</b> of your ring. Press &amp; hold any − / + button to move continuously.</p>
         <div class="sz-cal">
           <label>Calibration — card should line up exactly:</label>
-          <div class="sz-cardrow"><button class="btn btn-ghost btn-sm" id="szCalDown">−</button><div class="sz-bankcard" id="szBank"><span>Bank / ATM card · 85.6 mm</span></div><button class="btn btn-ghost btn-sm" id="szCalUp">+</button></div>
+          <div class="sz-cardrow"><button class="btn btn-ghost btn-sm" id="szCalDown" aria-label="Calibrate smaller">−</button><div class="sz-bankcard" id="szBank"><span>Bank / ATM card · 85.6 mm</span></div><button class="btn btn-ghost btn-sm" id="szCalUp" aria-label="Calibrate bigger">+</button></div>
         </div>
         <div class="sz-stage" id="szStage"><div class="sz-circle" id="szCircle"><span></span></div></div>
         <div class="sz-controls">
           <button class="btn btn-ghost" id="szDown">− Smaller</button>
-          <div class="sz-readout"><b id="szDia">17.0</b><small>mm inner diameter · Indian size <b id="szInd">17</b></small></div>
+          <div class="sz-readout"><b id="szDia">17.0</b><small>mm inner diameter · Indian size <b id="szInd">15</b></small></div>
           <button class="btn btn-ghost" id="szUp">Bigger +</button>
         </div>
         <button class="btn btn-gold btn-block" id="szSave">Save my size · pre-select on every ring</button>
       </div>
       <div class="adm-card sz-card">
         <h3>② Printable paper strip</h3>
-        <p class="partner-note">Wrap snugly around the widest part of the finger (allow for the knuckle). Read the mark that meets the arrow.</p>
+        <p class="partner-note">Wrap snugly around the widest part of the finger (allow for the knuckle). The number at the arrow is your <b>Indian size</b>.</p>
         <div class="sz-strip-wrap">
           <div class="sz-strip" id="szStrip"></div>
         </div>
@@ -3833,6 +3944,11 @@ pages.sizer = async view => {
         </div>
       </div>
     </div>
+    <div class="adm-card sz-chart-card">
+      <h3>③ Indian ring size chart <small>inner diameter &amp; circumference, mm</small></h3>
+      <p class="partner-note">Standard Indian numbering used across Indian jewellers: <b>Indian size = inner circumference (mm) − 38</b>. Measure the finger's circumference with the strip above and read across.</p>
+      <div class="sz-chart" id="szChart"></div>
+    </div>
   </div>`;
   // calibration: pixels per mm, starting at 96dpi/25.4
   let ppm = 96 / 25.4, dia = 17.0;
@@ -3842,28 +3958,33 @@ pages.sizer = async view => {
     $('#szCircle').style.width = (dia * ppm).toFixed(1) + 'px';
     $('#szCircle').style.height = (dia * ppm).toFixed(1) + 'px';
     $('#szDia').textContent = dia.toFixed(1);
-    const circ = dia * Math.PI, ind = Math.round(circ - 36.5);
-    $('#szInd').textContent = ind;
+    $('#szInd').textContent = indSizeFromDia(dia);
   };
-  $('#szCalUp').onclick = () => { ppm *= 1.01; paintCal(); };
-  $('#szCalDown').onclick = () => { ppm /= 1.01; paintCal(); };
-  $('#szUp').onclick = () => { dia = Math.min(23, dia + 0.2); paint(); };
-  $('#szDown').onclick = () => { dia = Math.max(11, dia - 0.2); paint(); };
-  if (saved) { const d = (parseFloat(saved) + 36.5) / Math.PI; if (d >= 11 && d <= 23) dia = Math.round(d * 5) / 5; }
+  // v101 — continuous press-and-hold on every stepper (calibration + size)
+  window.Shivaa.holdRepeat($('#szCalUp'), () => { ppm *= 1.006; paintCal(); }, { repeatStart: 60, repeatMin: 18 });
+  window.Shivaa.holdRepeat($('#szCalDown'), () => { ppm /= 1.006; paintCal(); }, { repeatStart: 60, repeatMin: 18 });
+  window.Shivaa.holdRepeat($('#szUp'), () => { dia = Math.min(23, Math.round((dia + 0.1) * 10) / 10); paint(); }, { repeatStart: 120, repeatMin: 45 });
+  window.Shivaa.holdRepeat($('#szDown'), () => { dia = Math.max(12, Math.round((dia - 0.1) * 10) / 10); paint(); }, { repeatStart: 120, repeatMin: 45 });
+  if (saved) { const d = (parseFloat(saved) + IND_SIZE_OFFSET) / Math.PI; if (d >= 12 && d <= 23) dia = Math.round(d * 10) / 10; }
   paintCal();
   $('#szSave').onclick = () => {
     const ind = $('#szInd').textContent;
     try { localStorage.setItem('shv_ring_size', ind); } catch (e) {}
     toast('Indian size ' + ind + ' saved ✓ rings open on your size');
   };
-  // printable strip: 0-70mm with Indian size ticks every π mm
+  // Indian standard reference chart
+  $('#szChart').innerHTML = '<table class="sz-table"><thead><tr><th>India</th><th>Dia mm</th><th>Circ mm</th></tr></thead><tbody>'
+    + INDIAN_RING_CHART.map(r => `<tr${String(saved) === String(r.size) ? ' class="on"' : ''}><td><b>${r.size}</b></td><td>${r.dia.toFixed(1)}</td><td>${r.circ}.0</td></tr>`).join('')
+    + '</tbody></table>';
+  // printable strip: circumference mm with Indian size ticks (size = mm − 38)
   const strip = $('#szStrip');
   let ticks = '';
   for (let mm = 40; mm <= 70; mm++) {
-    const ind = Math.round(mm - 36.5);
-    ticks += `<span class="tick" style="left:${(mm - 40) * 10}px"><i class="${mm % 5 === 0 ? 'big' : ''}"></i>${mm % 2 === 0 ? `<b>${mm}</b>` : ''}</span>`;
+    const ind = mm - IND_SIZE_OFFSET;
+    const big = mm % 5 === 0;
+    ticks += `<span class="tick" style="left:${(mm - 40) * 10}px"><i class="${big ? 'big' : ''}"></i><b class="tk-ind">${ind}</b>${big ? `<small>${mm}mm</small>` : ''}</span>`;
   }
-  strip.innerHTML = `<span class="sz-arrow">▾ cut &amp; start here (0)</span><div class="sz-ruler">${ticks}</div><small>Sizes shown: circumference mm → Indian size (circ − 36.5). Cut this page at 100% scale, “actual size” in print settings.</small>`;
+  strip.innerHTML = `<span class="sz-arrow">▾ cut &amp; wrap from here</span><div class="sz-ruler">${ticks}</div><small>Bold numbers are Indian sizes (circumference − 38). Print at 100% scale — choose “actual size” in print settings.</small>`;
 };
 
 /* ═══════════ v58 · lifetime care plan bookings ═══════════ */
@@ -4169,18 +4290,65 @@ pages.catalogues = async (view) => {
       </div>
     </div>
     <div class="ds-grid" id="dsGrid">
-      ${rings.map(p => `<div class="ds-card" id="ds-${p.id}" data-cat="${esc(p.category)}" data-w="${esc(p.weightG)}" data-stone="${esc(p.stoneType || 'Plain')}" data-colour="${esc(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${esc(p.purity)}">
-        <div class="ds-img"><img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" loading="lazy" alt="${esc(p.name)}"><span class="ds-wt">${p.weightG} g</span></div>
-        <b>${esc(p.name.replace('Shivaa Ring Design', 'Design'))}</b>
-        <small>${esc(p.sku)} · ${p.weightG} g · ${esc(p.purity)}</small>
+      ${rings.map(p => {
+        const shots = (p.images || []).map(safeUrl).filter(Boolean);
+        const imgs = shots.length ? shots : ['/images/logo.png'];
+        const name = esc(p.name.replace('Shivaa Ring Design', 'Design'));
+        return `<div class="ds-card ${window._sel[p.id] ? 'on' : ''}" id="ds-${p.id}" data-cat="${esc(p.category)}" data-w="${esc(p.weightG)}" data-stone="${esc(p.stoneType || 'Plain')}" data-colour="${esc(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${esc(p.purity)}">
+        <a class="ds-img ds-slider ${imgs.length > 1 ? 'has-multi' : ''}" href="#/product/${encodeURIComponent(p.id)}" aria-label="View ${name}">
+          <span class="ds-track">${imgs.map((src, i) => `<img src="${src}" loading="lazy" alt="${i === 0 ? name : ''}" draggable="false">`).join('')}</span>
+          <span class="ds-wt">${p.weightG} g</span>
+          ${imgs.length > 1 ? `<span class="ds-count">📷 ${imgs.length}</span>
+            <button type="button" class="ds-arrow ds-prev" data-dir="-1" aria-label="Previous photo">‹</button>
+            <button type="button" class="ds-arrow ds-next" data-dir="1" aria-label="Next photo">›</button>
+            <span class="ds-dots">${imgs.map((_, i) => `<button type="button" class="ds-dot ${i === 0 ? 'on' : ''}" data-go="${i}" aria-label="Photo ${i + 1}"></button>`).join('')}</span>` : ''}
+        </a>
+        <a class="ds-meta" href="#/product/${encodeURIComponent(p.id)}">
+          <b>${name}</b>
+          <small>${esc(p.sku)} · ${p.weightG} g · ${esc(p.purity)}</small>
+        </a>
         <div class="ds-qty">
-          <button onclick="ShivaaDS.qty('${p.id}',-1)">−</button><span>${window._sel[p.id] || 0}</span><button onclick="ShivaaDS.qty('${p.id}',1)">+</button>
+          <button aria-label="Remove one" onclick="ShivaaDS.qty('${p.id}',-1)">−</button><span>${window._sel[p.id] || 0}</span><button aria-label="Add one" onclick="ShivaaDS.qty('${p.id}',1)">+</button>
         </div>
-      </div>`).join('')}
+      </div>`; }).join('')}
     </div>
     <div class="qty-banner" style="margin-top:18px">◈ Example: select 25 g of designs → bill = 25 × ${(state.settings.metalFactor || 0.92)} = <b>23 g fine metal @ ${(state.settings.finePurity || '99.50%')}</b> — zero making charges, pure metal settlement.</div>
   </div>
   </div>`;
+
+  /* v101 — per-design 4-photo slider (swipe / arrows / dots). Tapping the
+     photo or name goes to the product page (the anchor's default); only the
+     slider controls are intercepted. */
+  const grid = $('#dsGrid');
+  if (grid) {
+    const go = (slider, i) => {
+      const dots = slider.querySelectorAll('.ds-dot');
+      const n = dots.length; if (!n) return;
+      i = (i + n) % n; slider.dataset.i = i;
+      const track = slider.querySelector('.ds-track');
+      if (track) track.style.transform = `translateX(-${i * 100}%)`;
+      dots.forEach((d, di) => d.classList.toggle('on', di === i));
+    };
+    grid.addEventListener('click', e => {
+      const arrow = e.target.closest('.ds-arrow'), dot = e.target.closest('.ds-dot');
+      if (!arrow && !dot) return;
+      e.preventDefault(); e.stopPropagation();
+      const slider = e.target.closest('.ds-slider'); if (!slider) return;
+      if (arrow) go(slider, (+slider.dataset.i || 0) + (+arrow.dataset.dir));
+      else go(slider, +dot.dataset.go);
+    });
+    let sx = null, active = null;
+    grid.addEventListener('touchstart', e => {
+      active = e.target.closest('.ds-slider.has-multi');
+      sx = active ? e.touches[0].clientX : null;
+    }, { passive: true });
+    grid.addEventListener('touchend', e => {
+      if (!active || sx == null) { sx = null; active = null; return; }
+      const dx = e.changedTouches[0].clientX - sx;
+      if (Math.abs(dx) > 34) go(active, (+active.dataset.i || 0) + (dx < 0 ? 1 : -1));
+      sx = null; active = null;
+    }, { passive: true });
+  }
 };
 let catCache = [];
 document.addEventListener('catalogs:change', () => { if (location.hash.startsWith('#/catalogues')) pages.catalogues($('#view')); });
@@ -4230,6 +4398,13 @@ pages.b2b = async (view) => {
         <div class="fld"><label>Email <small class="kyc-req">(your portal login)</small> *</label><input id="kyEmail" type="email" autocomplete="email" required oninput="Shivaa.kycGate()"></div>
         <div class="fld"><label>Choose a portal password *</label><input id="kyPass" type="password" minlength="6" autocomplete="new-password" required oninput="Shivaa.kycGate()"></div>
         <div class="fld full"><label>What do you stock / need? <small class="kyc-req">(optional)</small></label><input id="kyMsg" placeholder="Bridal sets, chains, silver…"></div>
+        <div class="fld full"><label>Your business card <small class="kyc-req">(optional — a photo or PDF speeds approval up)</small></label>
+          <div class="drop-zone kyc-card" id="kyCard">
+            <div style="font-size:26px;margin-bottom:4px">📇</div>
+            <b id="kyCardTxt">Tap to attach your business card</b><br><small>JPG / PNG / PDF up to 8 MB · optional</small>
+            <input type="file" id="kyCardFile" accept="image/*,application/pdf" hidden>
+          </div>
+        </div>
         <p class="kyc-note">GSTIN verified live with the official GST database (firm name &amp; status) &middot; mobile OTP-verified &middot; approval within 48 h. The button below stays locked until every business detail above is complete and verified.</p>
       </form>
 
@@ -4292,7 +4467,29 @@ pages.b2b = async (view) => {
     </div>
 
   </div>`;
-  setTimeout(() => { try { window.Shivaa.kycGate(); } catch (e) {} }, 0);
+  setTimeout(() => {
+    try { window.Shivaa.kycGate(); } catch (e) {}
+    // v101 — optional business-card upload
+    window._kycCard = null;
+    const dz = $('#kyCard'), fi = $('#kyCardFile'), tx = $('#kyCardTxt');
+    if (dz && fi) {
+      // v101 — JPG/PNG/WEBP/GIF/PDF ≤ 8 MB; type checked by MIME or extension
+      // (some browsers report an empty file.type), the server re-checks magic bytes.
+      const cardOK = f => f && f.size <= 8 * 1024 * 1024
+        && (/^(image\/(jpeg|png|webp|gif)|application\/pdf)$/.test(f.type)
+            || /\.(jpe?g|png|webp|gif|pdf)$/i.test(f.name));
+      const setCard = f => {
+        if (cardOK(f)) { window._kycCard = f; if (tx) { tx.textContent = '✓ ' + f.name; tx.classList.add('ok'); } }
+        else { toast('Please choose a JPG, PNG, WEBP, GIF image or PDF under 8 MB', 'err'); fi.value = ''; window._kycCard = null; }
+      };
+      dz.onclick = () => fi.click();
+      fi.onchange = () => { if (fi.files[0]) setCard(fi.files[0]); };
+      ['dragover', 'dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
+        e.preventDefault(); dz.classList.toggle('drag', ev === 'dragover');
+        if (ev === 'drop' && e.dataTransfer.files[0]) setCard(e.dataTransfer.files[0]);
+      }));
+    }
+  }, 0);
 };
 /* ─────────── SERVICES (D2C) ─────────── */
 window._kyc = { gstin: false, gstLive: false, otp: false };
@@ -4418,15 +4615,28 @@ window.Shivaa.b2bApply = async e => {
   if (btn && btn.disabled) return toast('Complete every business detail and both verifications first — the button shows what is left.', 'err');
   if (!window._kyc.gstin || !window._kyc.otp) return toast('Complete GST & OTP verification first', 'err');
   try {
-    const r = await api('/api/partners/apply', { method: 'POST', body: JSON.stringify({
+    const fields = {
       firm: $('#kyFirm').value, contactPerson: $('#kyPerson').value, city: $('#kyCity').value,
       gstin: $('#kyGstin').value.trim().toUpperCase(), phone: $('#kyPhone').value.replace(/\D/g, ''),
       email: $('#kyEmail').value, ownerPan: $('#kyPan').value, password: $('#kyPass').value, message: $('#kyMsg').value,
-    }) });
+    };
+    // v101 — optional business card: multipart upload when attached, JSON otherwise
+    let opts;
+    if (window._kycCard) {
+      const fd = new FormData();
+      Object.entries(fields).forEach(([k, v]) => fd.append(k, v == null ? '' : v));
+      fd.append('businessCard', window._kycCard);
+      opts = { method: 'POST', body: fd };
+    } else {
+      opts = { method: 'POST', body: JSON.stringify(fields) };
+    }
+    const r = await api('/api/partners/apply', opts);
     if (r.token) { setToken(r.token); state.user = r.user; }
     const gstHow = window._kyc.gstLive ? 'verified live with the government GST register' : 'checked and pending final confirmation';
-    openModal(`<div class="center"><div style="font-size:48px">✦</div><h3 style="margin:10px 0">KYC Complete — Application Received!</h3><p style="color:var(--ink-2)">GSTIN <b>${esc($('#kyGstin').value.toUpperCase())}</b> ${gstHow} · mobile OTP verified. Your partner portal account is live — full access once our team approves (usually within 48 hours).</p><a class="btn btn-primary" href="#/partner" style="margin-top:14px">Open Partner Portal</a></div>`);
-    e.target.reset(); window._kyc = { gstin: false, otp: false }; window.Shivaa.kycGate();
+    openModal(`<div class="center"><div style="font-size:48px">✦</div><h3 style="margin:10px 0">KYC Complete — Application Received!</h3><p style="color:var(--ink-2)">GSTIN <b>${esc($('#kyGstin').value.toUpperCase())}</b> ${gstHow} · mobile OTP verified${window._kycCard ? ' · business card attached' : ''}. Your partner portal account is live — full access once our team approves (usually within 48 hours).</p><a class="btn btn-primary" href="#/partner" style="margin-top:14px">Open Partner Portal</a></div>`);
+    e.target.reset(); window._kyc = { gstin: false, otp: false }; window._kycCard = null;
+    const kct = $('#kyCardTxt'); if (kct) kct.textContent = 'Tap to attach your business card';
+    window.Shivaa.kycGate();
   } catch (err) { toast(err.message, 'err'); }
 };
 
@@ -4520,6 +4730,8 @@ pages.contact = async (view) => {
           <div><b>Write to us</b><a href="mailto:${esc(state.settings.email)}">${esc(state.settings.email)}</a></div></div>
         <div class="info-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>
           <div><b>Store hours</b><p>All days · 10:00 – 20:30 IST<br>Online support: 9:00 – 21:00</p></div></div>
+        <div class="info-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>
+          <div style="flex:1"><b>Follow Shivaa Jewels</b><p style="margin-bottom:0">New designs, festive live rates &amp; bullion updates — on our official channels.</p>${socialRowHTML('fv-social--light')}</div></div>
         <div class="adm-card mt-2"><h3>Find us</h3>
           <div style="border-radius:14px;overflow:hidden;border:1px solid var(--line)">
           <svg viewBox="0 0 400 240" style="display:block;width:100%"><rect width="400" height="240" fill="#f4ecdd"/><path d="M0 60 Q100 45 200 62 T400 55 L400 75 Q300 88 200 72 T0 80Z" fill="#e7dcc4"/><path d="M0 190 Q120 175 240 192 T400 185 L400 240 L0 240Z" fill="#e7dcc4"/><path d="M30 30 L110 30 M30 46 L90 46 M310 215 L390 215 M320 200 L370 200" stroke="#d8c9a8" stroke-width="3" stroke-linecap="round"/><path d="M60 210 C 90 160, 200 150, 250 110 S 340 70, 360 40" stroke="#c9b586" stroke-width="5" fill="none" stroke-dasharray="2 9" stroke-linecap="round"/><circle cx="250" cy="110" r="26" fill="rgba(185,138,47,.16)"/><path d="M250 84 c-11 0 -19 8 -19 18 c0 13 19 30 19 30 s19 -17 19 -30 c0 -10 -8 -18 -19 -18z" fill="#6e1e2a"/><circle cx="250" cy="102" r="6.5" fill="#faf6ef"/><text x="250" y="150" text-anchor="middle" font-family="Georgia" font-size="15" fill="#6e1e2a">Shivaa · Sadar Bazaar, Jayal</text><text x="250" y="168" text-anchor="middle" font-family="Arial" font-size="11" fill="#8a7d6c">Nagaur, Rajasthan 341023</text></svg>
@@ -5953,6 +6165,16 @@ pages.metal = async (view) => {
    is melting-loss protection — it exists so melting never wins — not
    a payment for the making charges themselves.
    ═══════════════════════════════════════════════════════════════════ */
+/* v101 — every gold karat + silver is purchasable under the dead-stock desk */
+const DS_METALS = [
+  { id: 'g24', tag: '24K', stand: '995 gold', metal: 'gold', fine: 0.995 },
+  { id: 'g22', tag: '22K', stand: '916 gold', metal: 'gold', fine: 0.916 },
+  { id: 'g20', tag: '20K', stand: '833 gold', metal: 'gold', fine: 0.833 },
+  { id: 'g18', tag: '18K', stand: '750 gold', metal: 'gold', fine: 0.75 },
+  { id: 'g14', tag: '14K', stand: '585 gold', metal: 'gold', fine: 0.585 },
+  { id: 's925', tag: '925', stand: 'Sterling silver', metal: 'silver', fine: 0.925 },
+  { id: 's990', tag: '990', stand: 'Fine silver', metal: 'silver', fine: 0.99 },
+];
 pages.deadstock = async (view) => {
   if (!isPartner()) { view.innerHTML = partnerGateHTML('Dead Stock Purchase',
     'Turn slow-moving counter stock into fine metal. A private facility for GST-verified jeweller partners.'); return; }
@@ -5966,7 +6188,7 @@ pages.deadstock = async (view) => {
       <div class="crumbs"><a href="#/">Home</a> / <a href="#/partner">Partner Portal</a> / Dead Stock</div>
       <span class="lux-badge">&#9670; PARTNERS ONLY</span>
       <h1 class="ink-reveal">Dead Stock <em class="shimmer foil-txt">Purchase</em></h1>
-      <p>Your slow-moving 22K jewellery, bought at one wastage and settled as fine 99.999 metal value &mdash; with half your making charges credited back so melting never wins.</p>
+      <p>Slow-moving stock in <b>every gold karat — 24K, 22K, 20K, 18K, 14K — and silver (925 &amp; 990)</b>, bought at one wastage and settled as fine-metal value, with half your making charges credited back so melting never wins.</p>
     </div>
   </section>
 
@@ -5975,9 +6197,9 @@ pages.deadstock = async (view) => {
     <!-- ── the offer ── -->
     <div class="vault-grid rv">
       <div class="vault-card">
-        <span class="vc-num">22<small>K</small></span>
-        <b>Plain 22K jewellery only</b>
-        <p>Bangles, chains, rings, plain sets &mdash; any design, any age. One wastage, no grading arguments, no per-piece haggling.</p>
+        <span class="vc-num">All<small>karats</small></span>
+        <b>Every gold karat &amp; silver</b>
+        <p>24K, 22K, 20K, 18K, 14K gold and 925 / 990 silver &mdash; bangles, chains, rings, sets, any design, any age. One wastage per metal, no per-piece haggling.</p>
       </div>
       <div class="vault-card vc-emerald">
         <span class="vc-num">50<small>%</small></span>
@@ -5995,16 +6217,17 @@ pages.deadstock = async (view) => {
     <section class="sv-calc rv" id="dsCalc">
       <div class="bbc-head">
         <span class="bbc-live"><i></i> LIVE ESTIMATE</span>
-        <h2>What your 22K stock is <em class="shimmer foil-txt">actually worth</em></h2>
-        <p>Today's Jaipur rates &mdash; 22K gold <b>${fmt(g22)}/g</b> &middot; fine 24K <b>${fmt(g24)}/g</b>.</p>
+        <h2>What your old stock is <em class="shimmer foil-txt">actually worth</em></h2>
+        <p>Today's Jaipur rates &mdash; fine 24K <b>${fmt(g24)}/g</b> &middot; 22K <b>${fmt(g22)}/g</b> &middot; fine silver <b>${fmt(Math.max(R?.silver || 0, (R?.jaipur?.silver || 0) / 1000))}/g</b>.</p>
       </div>
 
       <div class="svc-body">
         <div class="svc-form">
           <div class="fld">
-            <label>Category we purchase</label>
-            <div class="purity-lock emerald"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>the only category on this desk</span></div>
+            <label>Metal &amp; purity we purchase</label>
+            <div class="ds-metals" id="dsMetals" role="radiogroup" aria-label="Metal and purity">
+              ${DS_METALS.map((m, i) => `<button type="button" class="ds-metal ${i === 1 ? 'on' : ''}" data-m="${m.id}" role="radio" aria-checked="${i === 1}"><b>${m.tag}</b><small>${m.stand}</small></button>`).join('')}
+            </div>
           </div>
 
           <div class="fld">
@@ -6033,7 +6256,7 @@ pages.deadstock = async (view) => {
           <div class="bbr-rate" id="dsSub">&mdash;</div>
 
           <div class="ds-split">
-            <div class="dss-row dss-fine"><span>Fine 99.999 metal you receive</span><b id="dsFine">&mdash;</b></div>
+            <div class="dss-row dss-fine"><span id="dsFineLbl">Fine metal you receive</span><b id="dsFine">&mdash;</b></div>
             <div class="dss-row"><span>Metal value at one wastage</span><b id="dsMetalVal">&mdash;</b></div>
             <div class="dss-row dss-credit"><span>Melting-loss protection &middot; 50% of MC</span><b id="dsCredit">&mdash;</b></div>
             <div class="dss-row dss-vs"><span>If you melted it instead</span><b id="dsMelt">&mdash;</b></div>
@@ -6055,9 +6278,10 @@ pages.deadstock = async (view) => {
           <div class="fld"><label>Contact person *</label><input name="person" required placeholder="Your name"></div>
           <div class="fld"><label>Mobile *</label><input name="phone" required pattern="[6-9][0-9]{9}" maxlength="10" inputmode="numeric" placeholder="10-digit mobile"></div>
           <div class="fld"><label>City *</label><input name="city" required placeholder="e.g. Nagaur"></div>
-          <div class="fld"><label>Category</label>
-            <div class="purity-lock emerald ds-lock-sm"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>22 karat only</span></div>
+          <div class="fld"><label>Metal &amp; purity *</label>
+            <select name="category" required>
+              ${DS_METALS.map((m, i) => `<option ${i === 1 ? 'selected' : ''}>${m.tag} · ${m.stand}</option>`).join('')}
+            </select>
           </div>
           <div class="fld"><label>Approx. total weight (g) *</label><input name="weight" type="number" step="0.1" min="1" required placeholder="e.g. 250"></div>
           <div class="fld"><label>Approx. making charges paid (&#8377;)</label><input name="mc" type="number" min="0" step="500" placeholder="e.g. 60000"></div>
@@ -6083,7 +6307,7 @@ pages.deadstock = async (view) => {
         <div class="step-item"><span class="si-n">01</span><b>Send the list</b><p>Fill the form above or send photos on WhatsApp. Approximate weights are fine at this stage.</p></div>
         <div class="step-item"><span class="si-n">02</span><b>Firm quote in 48 h</b><p>We confirm the one-wastage metal value and your melting-loss credit in writing before anything moves.</p></div>
         <div class="step-item"><span class="si-n">03</span><b>Insured pickup</b><p>Our carrier collects from your counter, fully insured in transit. You keep the signed receipt.</p></div>
-        <div class="step-item"><span class="si-n">04</span><b>Fine-metal settlement</b><p>The 22K content is converted to fine-metal value against your next order; the 50% credit sits on your account with no expiry.</p></div>
+        <div class="step-item"><span class="si-n">04</span><b>Fine-metal settlement</b><p>The fine gold or silver content is converted to fine-metal value against your next order; the 50% credit sits on your account with no expiry.</p></div>
       </div>
     </section>
 
@@ -6091,10 +6315,10 @@ pages.deadstock = async (view) => {
     <section class="rv">
       <div class="sec-head"><h2>The terms, plainly</h2><p>Nothing hidden. Ask the bullion desk if anything here is unclear.</p></div>
       <div class="fine-grid">
-        <div class="fine-card"><b>What we take</b><p>Plain 22K gold jewellery in sellable condition &mdash; bangles, chains, rings, plain sets. Any design, any age.</p></div>
-        <div class="fine-card"><b>What we cannot take here</b><p>Heavily stone-set, enamelled or damaged pieces are quoted case by case. 18K and silver are handled separately by the bullion desk.</p></div>
+        <div class="fine-card"><b>What we take</b><p>Gold jewellery in <b>24K, 22K, 20K, 18K and 14K</b>, plus <b>925 and 990 silver</b> &mdash; bangles, chains, rings, sets, payal. Any design, any age.</p></div>
+        <div class="fine-card"><b>What we quote separately</b><p>Heavily stone-set, kundan/polki, enamelled or damaged pieces are quoted case by case after assay. Loose stones &amp; solitaires are valued separately.</p></div>
         <div class="fine-card"><b>Why 50% of the making charges</b><p>It is not a payment for craftsmanship &mdash; it is calibrated so you never recover less than melting. The credit applies against future Shivaa purchases and never expires.</p></div>
-        <div class="fine-card"><b>Minimum lot</b><p>100 g of 22K gold. Active partners can send smaller lots &mdash; message the desk first.</p></div>
+        <div class="fine-card"><b>Minimum lot</b><p>100 g of gold or 1 kg of silver. Active partners can send smaller lots &mdash; message the desk first.</p></div>
       </div>
     </section>
 
@@ -6108,27 +6332,40 @@ pages.deadstock = async (view) => {
     </div>
   </div>`;
 
-  /* ---- live estimator: 22K → fine metal + melting-loss protection ---- */
-  const FINE = 0.916;   // 22K = 91.6% fine content
-  const WAST = 0.99;    // bought at one wastage
+  /* ---- live estimator: every gold karat + silver → fine metal ---- */
+  const WAST = 0.99;    // bought at one wastage, any metal
   const MELT = 0.92;    // typical melting route loses ~8%
+  // v101 — all jewellery karats and silver, each settled on its fine content
+  const goldKarats = { g24: R['gold24'], g22: R['gold22'], g20: R['gold20'], g18: R['gold18'], g14: R['gold14'] };
+  const fineGoldRate = g24 || (g22 ? g22 / DS_METALS.find(m => m.id === 'g22').fine : 0);
+  const fineSilverRate = (R.jaipur && R.jaipur.silver > 200) ? R.jaipur.silver / 1000
+    : (R.silver ? R.silver / DS_METALS.find(m => m.id === 's925').fine : 0);
+  let cur = DS_METALS[1];
 
   const calc = () => {
     const wt = Math.max(0, parseFloat($('#dsWt').value) || 0);
     const mc = Math.max(0, parseFloat($('#dsMc').value) || 0);
-    const fineG = wt * FINE * WAST;          // fine grams after one wastage
-    const metalVal = g24 > 0 ? fineG * g24 : wt * g22 * WAST;
-    const credit = mc * 0.5;                 // melting-loss protection
+    const isSilver = cur.metal === 'silver';
+    const fineRate = isSilver ? fineSilverRate : fineGoldRate;
+    const fineG = wt * cur.fine * WAST;          // fine grams after one wastage
+    const metalVal = fineG * fineRate;
+    const credit = mc * 0.5;                     // melting-loss protection
     const total = metalVal + credit;
-    const melted = wt * g22 * MELT;          // melting: 8% loss, MC gone
+    // the local melting-yard comparison buys the article at its alloy rate
+    const alloyRate = isSilver
+      ? (cur.id === 's925' ? (R.silver || fineSilverRate * cur.fine) : fineSilverRate * cur.fine)
+      : (goldKarats[cur.id] || fineGoldRate * cur.fine);
+    const melted = wt * alloyRate * MELT;
     const gain = total - melted;
 
     const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+    const fineName = isSilver ? 'fine silver' : 'fine gold';
+    const fl = $('#dsFineLbl'); if (fl) fl.textContent = `Fine ${isSilver ? '990 silver' : '99.99% gold'} you receive`;
     set('#dsFine', `${fineG.toLocaleString('en-IN', { maximumFractionDigits: 1 })} g \u2248 ${fmt(metalVal)}`);
     set('#dsMetalVal', fmt(metalVal));
     set('#dsCredit', '+ ' + fmt(credit));
     set('#dsMelt', fmt(melted));
-    set('#dsSub', `${wt.toLocaleString('en-IN')} g of 22K jewellery \u00b7 one wastage \u00b7 settled as fine metal`);
+    set('#dsSub', `${wt.toLocaleString('en-IN')} g of ${cur.tag} ${cur.stand} \u00b7 one wastage \u00b7 settled as ${fineName}`);
 
     const gEl = $('#dsGain');
     if (gEl) gEl.innerHTML = gain >= 0
@@ -6141,9 +6378,16 @@ pages.deadstock = async (view) => {
       tEl.classList.remove('bbr-pop'); void tEl.offsetWidth; tEl.classList.add('bbr-pop');
     }
 
-    const msg = `Namaste Shivaa bullion desk \u2726\n\nI'd like to sell dead stock under the 1-wastage scheme.\n\nCategory: 22K plain gold jewellery\nWeight: ${wt} g\nMaking charges paid: ${fmt(mc)}\n\nIndicative fine-metal value: ${fmt(metalVal)}\nMelting-loss protection (50% of MC): ${fmt(credit)}\nTotal recovery: ${fmt(total)}\n\nFirm name: \nCity: \n\nPlease arrange a pickup.`;
+    const msg = `Namaste Shivaa bullion desk \u2726\n\nI'd like to sell dead stock under the 1-wastage scheme.\n\nMetal: ${cur.tag} · ${cur.stand}\nWeight: ${wt} g\nMaking charges paid: ${fmt(mc)}\n\nIndicative fine-metal value: ${fmt(metalVal)}\nMelting-loss protection (50% of MC): ${fmt(credit)}\nTotal recovery: ${fmt(total)}\n\nFirm name: \nCity: \n\nPlease arrange a pickup.`;
     ['#dsWa', '#dsWa2'].forEach(sel => { const e = $(sel); if (e) e.onclick = () => waOpen(msg); });
   };
+  $$('#dsMetals .ds-metal').forEach(btn => btn.onclick = () => {
+    cur = DS_METALS.find(m => m.id === btn.dataset.m) || cur;
+    $$('#dsMetals .ds-metal').forEach(b => {
+      const on = b === btn; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    calc();
+  });
 
   const wt = $('#dsWt'), rng = $('#dsRange'), mc = $('#dsMc');
   if (wt) wt.addEventListener('input', () => { if (rng) rng.value = Math.min(5000, Math.max(10, parseFloat(wt.value) || 10)); calc(); });
@@ -6162,7 +6406,7 @@ window.Shivaa.dsSubmit = (e) => {
   if (!/^[6-9][0-9]{9}$/.test(phone)) { toast('Please enter a valid 10-digit mobile number'); return; }
   const msg = `Namaste Shivaa bullion desk \u2726\n\nDEAD STOCK PURCHASE ENQUIRY\n\n`
     + `Firm: ${g('firm')}\nContact: ${g('person')}\nMobile: ${phone}\nCity: ${g('city')}\n\n`
-    + `Category: 22K plain gold jewellery\nApprox weight: ${g('weight')} g\n`
+    + `Metal & purity: ${g('category') || '22K · 916 gold'}\nApprox weight: ${g('weight')} g\n`
     + `Making charges paid: ${g('mc') ? '\u20b9' + g('mc') : 'not stated'}\n`
     + `Age of stock: ${g('age')}\n`
     + `Lot contains: ${g('items') || 'not stated'}\n`
@@ -6312,7 +6556,7 @@ function loadStaffBundle() {
   if (!_staffBundle) {
     _staffBundle = injectScript('/js/qr.js?v=99')
       .catch(() => { /* QR tags degrade gracefully; the panel must still open */ })
-      .then(() => injectScript('/js/admin.js?v=99'))
+      .then(() => injectScript('/js/admin.js?v=101'))
       .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
   }
   return _staffBundle;
@@ -6375,7 +6619,10 @@ function route() {
     try {
     $$('.page-hero:not(.lg-done)').forEach(ph => {
       ph.classList.add('lg-done');
-      if (!ph.querySelector('.ph-mark')) ph.insertAdjacentHTML('beforeend', '<img src="/images/logo.png" class="ph-mark" alt="">');
+      // v101 — the navy-on-white logo PNG read as an opaque white card on dark
+      // banners. Watermark is now a gold-foil MASK of the logo (transparent bg),
+      // so it can never paint a white rectangle over the headline.
+      if (!ph.querySelector('.ph-mark')) ph.insertAdjacentHTML('beforeend', '<span class="ph-mark" aria-hidden="true"></span>');
       if (!ph.querySelector('.ph-trust')) ph.insertAdjacentHTML('beforeend', '<div class="ph-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>');
     });
     const heroEl = $('#view .hero');
@@ -6407,9 +6654,13 @@ function route() {
 addEventListener('hashchange', route);
 
 /* ─────────── SEARCH ─────────── */
-const closeSearch = () => { $('#searchDrawer').classList.remove('open'); $('#searchSugg').classList.remove('open'); };
+const closeSearch = () => {
+  $('#searchDrawer').classList.remove('open');
+  $('#searchSugg').classList.remove('open');
+};
 $('#searchBtn').onclick = () => { $('#searchDrawer').classList.add('open'); $('#searchInput').focus(); renderSugg(''); $('#searchSugg').classList.add('open'); };
 $('#searchClose').onclick = closeSearch;
+$('#searchScrim').onclick = closeSearch;   // v101 — tap the frosted backdrop to dismiss
 /* v29 — desktop header search field (mirrors the drawer behaviour) */
 (() => {
   const inp = $('#hdrSearchInput'), clear = $('#hdrSearchClear');
@@ -6467,6 +6718,8 @@ $('#searchInput').onkeydown = e => {
 $('#searchSugg').addEventListener('click', e => {
   const del = e.target.closest('[data-delq]');
   if (del) { e.stopPropagation(); removeRecentQuery(del.dataset.delq); renderSugg($('#searchInput').value); $('#searchSugg').classList.add('open'); return; }
+  const cat = e.target.closest('a.sugg-cat');
+  if (cat) { closeSearch(); return; }   // native anchor navigates; just dismiss the palette
   const row = e.target.closest('.sugg');
   if (row) activateSugg(row);
 });
@@ -6478,8 +6731,10 @@ function renderSugg(qs) {
     el.innerHTML =
       (rec.length ? `<div class="sugg-lbl">Recent searches</div>` + rec.map(r =>
         `<div class="sugg sugg-chip" data-q="${esc(r)}"><span class="sugg-ic">🕘</span><span>${esc(r)}</span><button type="button" class="sugg-d" data-delq="${esc(r)}" aria-label="Remove ${esc(r)}">✕</button></div>`).join('') : '') +
-      `<div class="sugg-lbl">Popular now</div>` +
-      POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('');
+      `<div class="sugg-lbl">Popular searches</div>` +
+      POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
+      + `<div class="sugg-lbl">Shop by category</div>`
+      + Object.entries(CATS).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -6730,17 +6985,17 @@ async function boot(isRedraw) {
   try {
     const { pages: cps } = await api('/api/pages');
     if (cps && cps.length) {
-      const col = document.querySelector('.footer .foot-col:nth-child(2)');
+      const col = document.getElementById('footCustomPages');
       if (col && !document.getElementById('customPageLinks')) {
         const div = document.createElement('div');
         div.id = 'customPageLinks';
+        div.className = 'fv-custom';
         cps.slice(0, 5).forEach(pg => div.insertAdjacentHTML('beforeend', `<a href="#/p/${pg.slug}">${esc(pg.title)}</a>`));
         col.appendChild(div);
       }
     }
   } catch (e) {}
-  const fw = $('#footWa');
-  if (fw) { fw.target = '_blank'; fw.rel = 'noopener'; fw.href = waLink('Namaste Shivaa ✦'); }
+  // v101 — footer WhatsApp slot points at the official wa.me/message channel
   // populate nav + footer category menus
   $('#catMenu').innerHTML = `
   <div class="mega-in">
