@@ -6597,6 +6597,13 @@ function route() {
   if (typeof closeCart === 'function') closeCart();
   while (_scrollLock.n > 0) unlockScroll();
   clearInterval(window._carTimer);
+  // v101 — the bullion board's 30s poll lives only while the portal is open;
+  // in-place Bullion/Dashboard/Reports switches keep it running (fresh rates
+  // the instant you return), while leaving the portal stops the fetches.
+  if (page !== 'partner' && window._blPoll) {
+    clearInterval(window._blPoll); window._blPoll = null;
+    if (window.ShivaaBullion) ShivaaBullion.mounted = false;
+  }
   if (window._co && page !== 'checkout') { clearInterval(window._co.lockTimer); window._co.lockTimer = null; }   // v57: stop the rate-lock clock away from checkout
   document.body.dataset.page = page;
   if (page !== 'certificate') document.documentElement.classList.remove('cert-mode');
