@@ -18630,7 +18630,10 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5072.jpg"
+        "/images/designs/rings/PGS5072_shot_studio.jpg",
+        "/images/designs/rings/PGS5072_shot_editorial.jpg",
+        "/images/designs/rings/PGS5072_shot_worn.jpg",
+        "/images/designs/rings/PGS5072_shot_gift.jpg"
       ],
       "stoneValue": 0,
       "name": "Kota Ring PGS5072 | Gold 22K",
@@ -18659,8 +18662,8 @@
         "alt": "Gold 22K ring with polki / CZ pav\u00e9 plate \u2014 Kota Ring PGS5072 | Gold 22K"
       },
       "category_note": "Ring by Shivaa Jewellers",
-      "mediaNote": "Catalogue reference photo shown; full 4-shot e-commerce set (macro, model, 2 detail) in progress \u2014 batch-2 ledger in HANDOFF.md.",
-      "photoStatus": "pending-4shot",
+      "mediaNote": "AI-stylised visualisation of the original design photo.",
+      "photoStatus": "complete",
       "supplierTag": "PGS 16",
       "sku": "PGS5072",
       "id": "p_c8f747ec47fb"
@@ -18688,7 +18691,10 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5073.jpg"
+        "/images/designs/rings/PGS5073_shot_studio.jpg",
+        "/images/designs/rings/PGS5073_shot_editorial.jpg",
+        "/images/designs/rings/PGS5073_shot_worn.jpg",
+        "/images/designs/rings/PGS5073_shot_gift.jpg"
       ],
       "stoneValue": 0,
       "name": "Alwar Ring PGS5073 | Gold 22K",
@@ -18717,8 +18723,8 @@
         "alt": "Gold 22K ring with polki / CZ pav\u00e9 plate \u2014 Alwar Ring PGS5073 | Gold 22K"
       },
       "category_note": "Ring by Shivaa Jewellers",
-      "mediaNote": "Catalogue reference photo shown; full 4-shot e-commerce set (macro, model, 2 detail) in progress \u2014 batch-2 ledger in HANDOFF.md.",
-      "photoStatus": "pending-4shot",
+      "mediaNote": "AI-stylised visualisation of the original design photo.",
+      "photoStatus": "complete",
       "supplierTag": "PGS 10",
       "sku": "PGS5073",
       "id": "p_053ee64e19f8"

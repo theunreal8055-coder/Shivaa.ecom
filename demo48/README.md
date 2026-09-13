@@ -16,4 +16,4 @@ References (tag-inpainted) live in `cms/images/designs/rings/{SKU}.jpg`.
 db tooling: `tools/photoshoot/batch2_db.py` (create / wire) · `tools/photoshoot/batch2_stage.py`.
 Live deploy (ADD-ONLY, tablet): `deploy/batch2_upload_bridge.php` after merge to `main`.
 
-Status: 2/48 shot (PGS5066, PGS5067) — ledger in HANDOFF.md "v45" section.
+Status: 8/48 shot (PGS5066–PGS5073) — ledger in HANDOFF.md "v45" section.

@@ -8,8 +8,8 @@ FOUR e-commerce photos each = model (worn) + macro (studio) + detail (editorial)
   they are style codes; weight is the truth, read from the attached tag).
 - Refs DONE for all 48 (salmon tag inpainted): `cms/images/designs/rings/{SKU}.jpg`.
 - db entries DONE for all 48 (453 products); `photoStatus` flips pending-4shot → complete on wire.
-- SHOT + WIRED + STAGED: **PGS5066, PGS5067, PGS5068, PGS5069, PGS5070, PGS5071** ✅ (6/48)
-- NEXT: **PGS5072 + PGS5073**, then page order. 2 rings/turn (8 gens, 10-gen cap).
+- SHOT + WIRED + STAGED: **PGS5066…PGS5073** ✅ (8/48)
+- NEXT: **PGS5074 + PGS5075**, then page order. 2 rings/turn (8 gens, 10-gen cap).
 - Per ring: make_refs → VIEW tight ref → write {DESC} → 8 gens → QA sheet → finalize →
   `batch2_db.py wire` → `batch2_stage.py` → update HANDOFF ledger + here → commit + push.
 - NO videos for batch 2 (owner order + v44 rule). Deploy = `deploy/batch2_upload_bridge.php`
@@ -21,6 +21,8 @@ PGS5068 Sher Singh: wide band, stepped horizontal groove rows (ladder pattern) o
 PGS5069 Maharana: smooth polished wide tapering shoulders with engraved outline panel, square white CZ pavé plate framed by milgrain beaded-dot gold border ✅ (studio re-rolled once for the beaded border)
 PGS5070 Ajmer: wide flat band, long diagonal V-shaped engraved grooves on shoulders, rectangular white CZ pavé plate across the top face in polished rails ✅
 PGS5071 Bundi: sunburst fluted fan ridges radiating around small square white CZ pavé plate, three rounded bead bumps per shoulder, angular faceted band edges ✅ (gift re-rolled: first pass printed brand text on box lid)
+PGS5072 Kota: wide band, cross-hatch diamond-lattice cut shoulders below vertical notched ridges, large trapezoid white CZ pavé plate over the whole front face ✅
+PGS5073 Alwar: wide flat band, three horizontal groove rows on shoulders, square white CZ pavé plate flush at centre front in polished frame ✅ (ref bar removed by hard crop at ring's right edge)
 # NOTE: gift prompts MUST carry the no-text clause ("Plain unbranded jewellery box: no logos,
 # no brand names, no letters or monograms anywhere in the image") — 5071 gift proved it.
 # NOTE 13 Sep 2026: refs re-ingested with harmonic Jacobi inpaint (ingest_refs48_v4) — the v3

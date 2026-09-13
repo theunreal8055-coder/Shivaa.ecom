@@ -84,9 +84,10 @@ one with the model, one macro shoot, two detail photos** — exactly like the ex
    `deploy/batch2_upload_bridge.php` (ADD-ONLY tablet bridge — deletes nothing).
 
 ### Batch-2 photoshoot ledger (48)
-**✅ complete (6):** PGS5066 Veerendra 3.100g · PGS5067 Ranveer 3.260g · PGS5068 Sher Singh 3.520g ·
-PGS5069 Maharana 3.260g · PGS5070 Ajmer 4.390g · PGS5071 Bundi 3.950g
-**⏳ pending 4-shot (42):** PGS5072 3.580 · PGS5073 3.430 · PGS5074 3.210 · PGS5075 3.620 · PGS5076 2.770 · PGS5077 3.460 ·
+**✅ complete (8):** PGS5066 Veerendra 3.100g · PGS5067 Ranveer 3.260g · PGS5068 Sher Singh 3.520g ·
+PGS5069 Maharana 3.260g · PGS5070 Ajmer 4.390g · PGS5071 Bundi 3.950g · PGS5072 Kota 3.580g ·
+PGS5073 Alwar 3.430g
+**⏳ pending 4-shot (40):** PGS5074 3.210 · PGS5075 3.620 · PGS5076 2.770 · PGS5077 3.460 ·
 PGS5078 3.270 · PGS5079 4.000 · PGS5080 4.040 · PGS5081 3.750 · PGS5082 4.030 · PGS5083 3.580 ·
 PGS5084 3.490 · PGS5085 3.660 · PGS5086 3.660 · PGS5087 4.160 · PGS5088 3.950 · PGS5089 3.540 ·
 PGS5090 4.280 · PGS5091 3.590 · PGS5092 3.610 · PGS5093 3.900 · PGS5094 3.670 · PGS5095 2.990 ·
@@ -180,7 +181,7 @@ cron deploys it within ~5 min (or run Path B manually if no cron).
 ### Product counts (453 total in db.json — was 405 until batch 2; do not trim)
 | Category | Count | Status |
 |----------|-------|--------|
-| Rings | 133 = 65 PGS batch 1 + 48 PGS batch 2 + 20 original | batch 1: 65/65 full photoshoot · batch 2: 6/48 shot, 42 pending (products + refs already live in db) |
+| Rings | 133 = 65 PGS batch 1 + 48 PGS batch 2 + 20 original | batch 1: 65/65 full photoshoot · batch 2: 8/48 shot, 40 pending (products + refs already live in db) |
 | Necklaces, Earrings, Bangles, Bracelets, Pendants, Mangalsutra, Nosepins, Silver, Bajubandh, Rakhdi, Aad, Sheeshphool, Hathphool, Punach, Bridal Anklets, Chains | 16 × 20 = 320 | Untouched, live |
 
 ### PGS RING LEDGER (all 65 — agent: keep this exact table current)
@@ -250,6 +251,11 @@ PGS5059 Kanchan
     refs re-ingested once more. +2 rings shot/wired/staged: **PGS5070 Ajmer, PGS5071 Bundi**
     (5071 gift re-rolled: first pass printed "AUREA LUXURY" on the box lid — no-text rule).
     **6/48 complete — next: PGS5072 + PGS5073.**
+11. (turn 4) horizontal strap-smear cutter added (fix_wings4, jump-detector; a first row-edge
+    variant was rejected — it shaved the ring's widest rows — refs were restored from the PDF and
+    only conservative cuts re-applied; PGS5073's pale bar removed by a hard crop at the ring's
+    true right edge). +2 rings shot/wired/staged: **PGS5072 Kota, PGS5073 Alwar**.
+    **8/48 complete — next: PGS5074 + PGS5075.**
 
 **2026-09-07 — v43 batch 1 (this session)**
 1. Read HANDOFF v42; found 26 PGS rings with reference photo only (their `_shot_studio.jpg` was a byte-copy of the raw photo incl. green price tag).
