@@ -2071,8 +2071,8 @@ pages.home = async (view) => {
       <img src="/images/logo.png" class="news-logo" alt="Shivaa">
       <h3>First look at new designs</h3>
       <p>Join the Shivaa circle — new collections, festive rate alerts and partner offers.</p>
-      <form class="nl-form" onsubmit="ShivaiNL(event)">
-        <input type="email" placeholder="Your email address" required>
+      <form class="nl-form" onsubmit="Shivaa.subscribeNewsletter(event)">
+        <input type="email" aria-label="Email address" placeholder="Your email address" required autocomplete="email">
         <button type="submit">Subscribe</button>
       </form>
     </div>
@@ -2181,7 +2181,10 @@ pages.shop = async (view, q) => {
     if (f.metals.length) list = list.filter(p => f.metals.includes(p.metal));
     if (f.purities.length) list = list.filter(p => f.purities.includes(p.purity));
     if (f.tags.length) list = list.filter(p => f.tags.some(t => (p.tags || []).includes(t)));
-    if (search) list = list.filter(p => (p.name + p.category + (p.desc || '')).toLowerCase().includes(search.toLowerCase()));
+    if (search) { /* v102 — same weighted ranking as the palette */
+      const hits = new Set(window.Shivaa.searchProducts(search, Infinity).map(p => p.id));
+      list = list.filter(p => hits.has(p.id));
+    }
     list = list.filter(p => price(p).total <= f.max);
     const sort = $('#sortSel').value;
     if (sort === 'price-asc') list.sort((a, b) => price(a).total - price(b).total);
@@ -2509,10 +2512,40 @@ window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd
           + '<button class="bb-x" id="backBarX" aria-label="Dismiss">✕</button>'
           + '<a class="btn btn-primary btn-block bb-go" href="#/cart">Resume order →</a>';
         document.body.appendChild(bar);
-        document.getElementById('backBarX').onclick = () => {
-          bar.remove();
+        const dismissBar = () => {
+          if (bar.classList.contains('bb-out')) return;
+          bar.classList.add('bb-out');
+          try { navigator.vibrate?.(8); } catch (e) {}
+          setTimeout(() => bar.remove(), 260);
           try { sessionStorage.setItem('sh_backbar_off', '1'); } catch (e) {}
         };
+        document.getElementById('backBarX').onclick = dismissBar;
+        // v102 — swipe the card right (or far left) to dismiss it
+        let bx = null, bdx = 0, bdy = 0, dragging = false;
+        bar.addEventListener('touchstart', e => {
+          bx = e.touches[0].clientX; bdy = e.touches[0].clientY; bdx = 0; dragging = false;
+          bar.style.transition = 'none';
+        }, { passive: true });
+        bar.addEventListener('touchmove', e => {
+          if (bx == null) return;
+          bdx = e.touches[0].clientX - bx;
+          const dy = e.touches[0].clientY - bdy;
+          if (Math.abs(bdx) > 10 && Math.abs(bdx) > Math.abs(dy)) dragging = true;
+          if (dragging) {
+            const follow = Math.sign(bdx) * Math.min(Math.abs(bdx), 220);
+            bar.style.transform = 'translateX(' + follow + 'px)';
+          }
+        }, { passive: true });
+        bar.addEventListener('touchend', () => {
+          bar.style.transition = '';
+          if (dragging && (bdx > 88 || bdx < -150)) { dismissBar(); }
+          else bar.style.transform = '';
+          bx = null; dragging = false;
+        }, { passive: true });
+        // remove the card once the customer actually resumes
+        bar.querySelector('.bb-go').addEventListener('click', () => {
+          bar.classList.add('bb-out'); setTimeout(() => bar.remove(), 260);
+        });
       }
     } catch (e) {}
   }, 2200);
@@ -2917,17 +2950,26 @@ window.Shivaa.quickView = (id) => {
   const wished = state.user ? false : state.localWish.includes(id);
   const imgs = (p.images || []).map(safeUrl).filter(Boolean);
   const shots = imgs.length ? imgs : ['/images/logo.png'];
+  /* v102 — preload the gallery so swiping never shows a blank frame */
+  shots.slice(1).forEach(u => { const im = new Image(); im.src = u; });
+  /* v102 — preselect the size the customer saved from the ring sizer */
+  let savedSize = '';
+  try { savedSize = localStorage.getItem('shv_ring_size') || ''; } catch (e) {}
   openModal(`
     <div class="qv">
       <div class="qv-media">
-        <img class="qv-photo" id="qvPhoto" src="${shots[0]}" alt="${esc(p.name)}">
+        <img class="qv-photo" id="qvPhoto" src="${shots[0]}" alt="${esc(p.name)}" draggable="false">
         ${shots.length > 1 ? `
           <button type="button" class="qv-nav qv-prev" id="qvPrev" aria-label="Previous photo">‹</button>
           <button type="button" class="qv-nav qv-next" id="qvNext" aria-label="Next photo">›</button>
-          <div class="qv-dots" id="qvDots">${shots.map((_, i) => `<button type="button" class="qv-dot ${i === 0 ? 'on' : ''}" data-i="${i}" aria-label="Photo ${i + 1}"></button>`).join('')}</div>` : ''}
+          <div class="qv-dots" id="qvDots">${shots.map((_, i) => `<button type="button" class="qv-dot ${i === 0 ? 'on' : ''}" data-i="${i}" aria-label="Photo ${i + 1}"></button>`).join('')}<span class="qv-count" id="qvCount" aria-live="polite">1 / ${shots.length}</span></div>` : ''}
+        <button class="pc-wish qv-share" id="qvShare" aria-label="Share this piece">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3"/></svg>
+        </button>
         <button class="pc-wish qv-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
         </button>
+        <span class="qv-zoom-hint" id="qvZoomHint">Double-tap to zoom</span>
       </div>
       <div class="qv-body">
         <div class="qv-scroll">
@@ -2935,8 +2977,8 @@ window.Shivaa.quickView = (id) => {
           <h3>${esc(p.name)}</h3>
           <div class="pc-rating" style="margin:6px 0 10px">★ ${p.rating} <span style="color:var(--ink-3);font-size:12.5px">· ${p.reviews} reviews · ${p.weightG} g</span></div>
           <div class="pc-price" style="margin-bottom:6px"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST · live</small></div>
-          ${(p.sizes && p.sizes.length) ? `<div class="opt-label"><span>Size</span></div>
-            <div class="size-row" id="qvSize">${p.sizes.map(s => `<button type="button" class="size-pill" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+          ${(p.sizes && p.sizes.length) ? `<div class="opt-label"><span>Size ${savedSize ? '· your saved size ' + esc(savedSize) + ' is selected' : ''}</span></div>
+            <div class="size-row" id="qvSize">${p.sizes.map(s => `<button type="button" class="size-pill ${String(s) === String(savedSize) ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" onclick="Shivaa.closeModal()">📏 Size guide</a></div>` : ''}
           <div class="qty-row qv-qty" style="margin:14px 0 4px"><button type="button" id="qvMinus" aria-label="Decrease quantity">−</button><b id="qvQty">1</b><button type="button" id="qvPlus" aria-label="Increase quantity">+</button></div>
         </div>
         <div class="qv-foot">
@@ -2948,34 +2990,110 @@ window.Shivaa.quickView = (id) => {
   const box = $('#modalBox');
   let qty = 1, shot = 0;
   const photo = $('#qvPhoto');
+  const haptic = ms => { try { navigator.vibrate?.(ms); } catch (e) {} };
   const showShot = i => {
-    shot = (i + shots.length) % shots.length;
+    const next = (i + shots.length) % shots.length;
+    if (next === shot) return;
+    shot = next;
     photo.classList.remove('qv-swap'); void photo.offsetWidth;
     photo.src = shots[shot]; photo.classList.add('qv-swap');
     box.querySelectorAll('#qvDots .qv-dot').forEach((d, di) => d.classList.toggle('on', di === shot));
+    const cnt = $('#qvCount'); if (cnt) cnt.textContent = (shot + 1) + ' / ' + shots.length;
+    haptic(8);
   };
   if (shots.length > 1) {
     $('#qvPrev').onclick = () => showShot(shot - 1);
     $('#qvNext').onclick = () => showShot(shot + 1);
     box.querySelectorAll('#qvDots .qv-dot').forEach(d => d.onclick = () => showShot(+d.dataset.i));
-    // swipe the photo on touch screens
-    let sx = null;
-    photo.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+    // v102 — hardware keyboard arrows flip photos while the sheet is open
+    const onKey = e => {
+      if (!document.body.contains($('#qvPhoto'))) { document.removeEventListener('keydown', onKey); return; }
+      if (e.defaultPrevented) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); if (!zoomed) showShot(shot + 1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); if (!zoomed) showShot(shot - 1); }
+    };
+    document.addEventListener('keydown', onKey);
+    // swipe the photo on touch screens (disabled while zoomed — the finger pans)
+    let sx = null, moved = false;
+    photo.addEventListener('touchstart', e => {
+      if (zoomed && e.touches.length === 1) { panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, px: pan.x, py: pan.y }; return; }
+      sx = e.touches[0].clientX; moved = false;
+    }, { passive: true });
+    photo.addEventListener('touchmove', e => {
+      if (zoomed && panStart && e.touches.length === 1) {
+        pan.x = Math.max(-110, Math.min(110, panStart.px + e.touches[0].clientX - panStart.x));
+        pan.y = Math.max(-130, Math.min(130, panStart.py + e.touches[0].clientY - panStart.y));
+        applyZoom(); moved = true; return;
+      }
+      if (sx != null && Math.abs(e.touches[0].clientX - sx) > 12) moved = true;
+    }, { passive: true });
     photo.addEventListener('touchend', e => {
+      if (zoomed) {
+        if (!moved && panStart) { // double-tap detection while zoomed = zoom back out
+          const now = Date.now();
+          if (now - lastTap < 300) setZoom(false);
+        }
+        lastTap = Date.now(); panStart = null; return;
+      }
       if (sx == null) return;
-      const dx = e.changedTouches[0].clientX - sx; sx = null;
+      const dx = e.changedTouches[0].clientX - sx; const wasMoved = moved; sx = null;
+      if (!wasMoved) { // double-tap to zoom in
+        const now = Date.now();
+        if (now - lastTap < 300) setZoom(true);
+        lastTap = now;
+        return;
+      }
       if (Math.abs(dx) > 36) showShot(shot + (dx < 0 ? 1 : -1));
     }, { passive: true });
   }
+  // v102 — double-click zoom for mouse users + drag to pan
+  let zoomed = false;
+  let pan = { x: 0, y: 0 }, panStart = null, lastTap = 0;
+  const applyZoom = () => {
+    photo.classList.toggle('qv-zoom', zoomed);
+    photo.style.transform = zoomed ? `translate(${pan.x}px, ${pan.y}px) scale(1.9)` : '';
+    const hint = $('#qvZoomHint'); if (hint) hint.style.opacity = zoomed ? '0' : '';
+  };
+  const setZoom = on => { zoomed = on; if (!on) pan = { x: 0, y: 0 }; applyZoom(); };
+  photo.addEventListener('dblclick', e => { setZoom(!zoomed); });
+  photo.addEventListener('pointerdown', e => {
+    if (!zoomed || e.pointerType !== 'mouse') return;
+    panStart = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+  });
+  window.addEventListener('pointermove', e => {
+    if (!panStart) return;
+    pan.x = Math.max(-110, Math.min(110, panStart.px + e.clientX - panStart.x));
+    pan.y = Math.max(-130, Math.min(130, panStart.py + e.clientY - panStart.y));
+    applyZoom();
+  });
+  window.addEventListener('pointerup', () => { panStart = null; });
   box.querySelectorAll('#qvSize .size-pill').forEach(b => b.onclick = () => {
     box.querySelectorAll('#qvSize .size-pill').forEach(x => x.classList.remove('on')); b.classList.add('on');
+    try { localStorage.setItem('shv_ring_size', b.dataset.size); } catch (e) {}
   });
   const qtyB = $('#qvQty');
   const setQty = v => { qty = Math.max(1, Math.min(9, v)); qtyB.textContent = qty; };
   window.Shivaa.holdRepeat($('#qvMinus'), () => setQty(qty - 1));
   window.Shivaa.holdRepeat($('#qvPlus'), () => setQty(qty + 1));
+  // v102 — native share sheet on phones, copy-link fallback on desktop
+  $('#qvShare').onclick = async () => {
+    const shareUrl = location.origin + location.pathname + '#/product/' + p.id;
+    const data = { title: p.name + ' · Shivaa Jewels', text: p.name + ' — BIS hallmarked, priced on the live rate.', url: shareUrl };
+    if (navigator.share) { try { await navigator.share(data); } catch (e) {} return; }
+    try { await navigator.clipboard.writeText(shareUrl); toast('Piece link copied ✦'); }
+    catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = shareUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast('Piece link copied ✦'); } catch (_) { toast('Copy this page’s link to share', ''); }
+      ta.remove();
+    }
+  };
   $('#qvAdd').onclick = (e) => {
     const size = $('#qvSize .size-pill.on')?.dataset.size || null;
+    haptic(12);
     closeModal();
     addToCart(p.id, qty, size, null, { fromEl: e.currentTarget });
   };
@@ -3935,7 +4053,7 @@ pages.sizer = async view => {
         <h3>① Match a ring you already own</h3>
         <p class="partner-note">Calibrate once with any ATM / bank card (exactly <b>85.6 mm</b> wide), then resize until the circle fits the <b>inner edge</b> of your ring. Press &amp; hold any − / + button to move continuously.</p>
         <div class="sz-cal">
-          <label>Calibration — card should line up exactly:</label>
+          <label>Calibration — card should line up exactly: <button type="button" class="sz-reset" id="szCalReset">reset</button></label>
           <div class="sz-cardrow"><button class="btn btn-ghost btn-sm" id="szCalDown" aria-label="Calibrate smaller">−</button><div class="sz-bankcard" id="szBank"><span>Bank / ATM card · 85.6 mm</span></div><button class="btn btn-ghost btn-sm" id="szCalUp" aria-label="Calibrate bigger">+</button></div>
         </div>
         <div class="sz-stage" id="szStage"><div class="sz-circle" id="szCircle"><span></span></div></div>
@@ -3968,32 +4086,60 @@ pages.sizer = async view => {
       <div class="sz-chart" id="szChart"></div>
     </div>
   </div>`;
-  // calibration: pixels per mm, starting at 96dpi/25.4
+  // calibration: pixels per mm. v102 — the calibration persists on this
+  // device so customers calibrate once, not on every visit.
   let ppm = 96 / 25.4, dia = 17.0;
+  try { const v = parseFloat(localStorage.getItem('shv_sizer_ppm') || ''); if (v >= 2 && v <= 8) ppm = v; } catch (e) {}
   const card = $('#szBank');
-  const paintCal = () => { card.style.width = (85.6 * ppm).toFixed(1) + 'px'; paint(); };
+  const haptic = ms => { try { navigator.vibrate?.(ms); } catch (e) {} };
+  const DEFAULT_PPM = 96 / 25.4;
+  const paintCal = () => {
+    card.style.width = (85.6 * ppm).toFixed(1) + 'px'; paint();
+    try {
+      if (Math.abs(ppm - DEFAULT_PPM) < 0.0006) localStorage.removeItem('shv_sizer_ppm');
+      else localStorage.setItem('shv_sizer_ppm', ppm.toFixed(4));
+    } catch (e) {}
+  };
   const paint = () => {
     $('#szCircle').style.width = (dia * ppm).toFixed(1) + 'px';
     $('#szCircle').style.height = (dia * ppm).toFixed(1) + 'px';
     $('#szDia').textContent = dia.toFixed(1);
-    $('#szInd').textContent = indSizeFromDia(dia);
+    const ind = indSizeFromDia(dia);
+    const indEl = $('#szInd');
+    if (indEl.textContent !== String(ind)) { indEl.textContent = ind; haptic(5); }
   };
   // v101 — continuous press-and-hold on every stepper (calibration + size)
   window.Shivaa.holdRepeat($('#szCalUp'), () => { ppm *= 1.006; paintCal(); }, { repeatStart: 60, repeatMin: 18 });
   window.Shivaa.holdRepeat($('#szCalDown'), () => { ppm /= 1.006; paintCal(); }, { repeatStart: 60, repeatMin: 18 });
   window.Shivaa.holdRepeat($('#szUp'), () => { dia = Math.min(23, Math.round((dia + 0.1) * 10) / 10); paint(); }, { repeatStart: 120, repeatMin: 45 });
   window.Shivaa.holdRepeat($('#szDown'), () => { dia = Math.max(12, Math.round((dia - 0.1) * 10) / 10); paint(); }, { repeatStart: 120, repeatMin: 45 });
+  $('#szCalReset').onclick = () => {
+    ppm = 96 / 25.4; paintCal(); haptic(8);
+    try { localStorage.removeItem('shv_sizer_ppm'); } catch (e) {}
+    toast('Calibration reset');
+  };
   if (saved) { const d = (parseFloat(saved) + IND_SIZE_OFFSET) / Math.PI; if (d >= 12 && d <= 23) dia = Math.round(d * 10) / 10; }
   paintCal();
-  $('#szSave').onclick = () => {
+  const saveBtn = $('#szSave');
+  if (saved) saveBtn.innerHTML = '✓ Saved size ' + esc(saved) + ' · tap to update';
+  saveBtn.onclick = () => {
     const ind = $('#szInd').textContent;
     try { localStorage.setItem('shv_ring_size', ind); } catch (e) {}
+    haptic(15);
+    saveBtn.innerHTML = '✓ Saved size ' + esc(ind) + ' · tap to update';
+    $$('#szChart tr').forEach(tr => tr.classList.toggle('on', tr.dataset.size === ind));
     toast('Indian size ' + ind + ' saved ✓ rings open on your size');
   };
-  // Indian standard reference chart
+  // Indian standard reference chart (v102 — tap a row to set the circle)
   $('#szChart').innerHTML = '<table class="sz-table"><thead><tr><th>India</th><th>Dia mm</th><th>Circ mm</th></tr></thead><tbody>'
-    + INDIAN_RING_CHART.map(r => `<tr${String(saved) === String(r.size) ? ' class="on"' : ''}><td><b>${r.size}</b></td><td>${r.dia.toFixed(1)}</td><td>${r.circ}.0</td></tr>`).join('')
+    + INDIAN_RING_CHART.map(r => `<tr data-size="${r.size}" data-dia="${r.dia.toFixed(1)}"${String(saved) === String(r.size) ? ' class="on"' : ''} title="Set circle to size ${r.size}"><td><b>${r.size}</b></td><td>${r.dia.toFixed(1)}</td><td>${r.circ}.0</td></tr>`).join('')
     + '</tbody></table>';
+  $$('#szChart tbody tr').forEach(tr => tr.addEventListener('click', () => {
+    dia = Math.max(12, Math.min(23, parseFloat(tr.dataset.dia)));
+    paint(); haptic(8);
+    $$('#szChart tr').forEach(x => x.classList.toggle('on', x === tr));
+    $('#szStage').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }));
   // printable strip: circumference mm with Indian size ticks (size = mm − 40).
   // Covers Indian sizes 8–32 (circ 48–72 mm) — the full chart range.
   const strip = $('#szStrip');
@@ -4318,7 +4464,7 @@ pages.catalogues = async (view) => {
         <a class="ds-img ds-slider ${imgs.length > 1 ? 'has-multi' : ''}" href="#/product/${encodeURIComponent(p.id)}" aria-label="View ${name}">
           <span class="ds-track">${imgs.map((src, i) => `<img src="${src}" loading="lazy" alt="${i === 0 ? name : ''}" draggable="false">`).join('')}</span>
           <span class="ds-wt">${p.weightG} g</span>
-          ${imgs.length > 1 ? `<span class="ds-count">📷 ${imgs.length}</span>
+          ${imgs.length > 1 ? `<span class="ds-count" data-count>1/${imgs.length}</span>
             <button type="button" class="ds-arrow ds-prev" data-dir="-1" aria-label="Previous photo">‹</button>
             <button type="button" class="ds-arrow ds-next" data-dir="1" aria-label="Next photo">›</button>
             <span class="ds-dots">${imgs.map((_, i) => `<button type="button" class="ds-dot ${i === 0 ? 'on' : ''}" data-go="${i}" aria-label="Photo ${i + 1}"></button>`).join('')}</span>` : ''}
@@ -4344,11 +4490,18 @@ pages.catalogues = async (view) => {
     const go = (slider, i) => {
       const dots = slider.querySelectorAll('.ds-dot');
       const n = dots.length; if (!n) return;
-      i = (i + n) % n; slider.dataset.i = i;
+      i = (i + n) % n;
+      if (+slider.dataset.i === i) return;
+      slider.dataset.i = i;
       const track = slider.querySelector('.ds-track');
       if (track) track.style.transform = `translateX(-${i * 100}%)`;
       dots.forEach((d, di) => d.classList.toggle('on', di === i));
+      const cnt = slider.querySelector('[data-count]');
+      if (cnt) cnt.textContent = (i + 1) + '/' + n;
+      try { navigator.vibrate?.(6); } catch (e) {}
     };
+    /* v102 — eager-load the second shot so the first swipe is instant */
+    grid.querySelectorAll('.ds-slider.has-multi img:nth-child(2)').forEach(im => { im.setAttribute('loading', 'eager'); if (im.dataset.src) im.src = im.dataset.src; });
     grid.addEventListener('click', e => {
       const arrow = e.target.closest('.ds-arrow'), dot = e.target.closest('.ds-dot');
       if (!arrow && !dot) return;
@@ -4420,8 +4573,15 @@ pages.b2b = async (view) => {
         <div class="fld full"><label>What do you stock / need? <small class="kyc-req">(optional)</small></label><input id="kyMsg" placeholder="Bridal sets, chains, silver…"></div>
         <div class="fld full"><label>Your business card <small class="kyc-req">(optional — a photo or PDF speeds approval up)</small></label>
           <div class="drop-zone kyc-card" id="kyCard">
-            <div style="font-size:26px;margin-bottom:4px">📇</div>
-            <b id="kyCardTxt">Tap to attach your business card</b><br><small>JPG / PNG / PDF up to 8 MB · optional</small>
+            <div class="dz-idle" id="kyCardIdle">
+              <div class="dz-ic" style="font-size:26px;margin-bottom:4px">📇</div>
+              <b id="kyCardTxt">Tap to attach your business card</b><br><small>JPG / PNG / WEBP / GIF / PDF up to 8 MB · optional</small>
+            </div>
+            <div class="dz-set" id="kyCardSet" hidden>
+              <span class="dz-prev" id="kyCardPrev">📄</span>
+              <span class="dz-meta"><b id="kyCardName"></b><small id="kyCardSize"></small></span>
+              <button type="button" class="dz-x" id="kyCardClear" aria-label="Remove attached file">✕</button>
+            </div>
             <input type="file" id="kyCardFile" accept="image/*,application/pdf" hidden>
           </div>
         </div>
@@ -4498,16 +4658,43 @@ pages.b2b = async (view) => {
       const cardOK = f => f && f.size <= 8 * 1024 * 1024
         && (/^(image\/(jpeg|png|webp|gif)|application\/pdf)$/.test(f.type)
             || /\.(jpe?g|png|webp|gif|pdf)$/i.test(f.name));
-      const setCard = f => {
-        if (cardOK(f)) { window._kycCard = f; if (tx) { tx.textContent = '✓ ' + f.name; tx.classList.add('ok'); } }
-        else { toast('Please choose a JPG, PNG, WEBP, GIF image or PDF under 8 MB', 'err'); fi.value = ''; window._kycCard = null; }
+      const idle = $('#kyCardIdle'), set = $('#kyCardSet'), prev = $('#kyCardPrev'),
+            nameEl = $('#kyCardName'), sizeEl = $('#kyCardSize'), clearBtn = $('#kyCardClear');
+      let objUrl = null;
+      const fmtSize = n => n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+      const clearCard = () => {
+        window._kycCard = null; fi.value = '';
+        if (objUrl) { try { URL.revokeObjectURL(objUrl); } catch (e) {} objUrl = null; }
+        if (idle) idle.hidden = false;
+        if (set) set.hidden = true;
+        if (tx) { tx.textContent = 'Tap to attach your business card'; tx.classList.remove('ok'); }
       };
-      dz.onclick = () => fi.click();
+      const setCard = f => {
+        if (!cardOK(f)) { toast('Please choose a JPG, PNG, WEBP, GIF image or PDF under 8 MB', 'err'); clearCard(); return; }
+        window._kycCard = f;
+        if (tx) { tx.textContent = '✓ ' + f.name; tx.classList.add('ok'); }
+        if (idle) idle.hidden = true;
+        if (set) set.hidden = false;
+        if (nameEl) nameEl.textContent = f.name;
+        if (sizeEl) sizeEl.textContent = fmtSize(f.size) + ' · tap to replace';
+        if (prev) {
+          if (objUrl) { try { URL.revokeObjectURL(objUrl); } catch (e) {} }
+          if (window.URL && URL.createObjectURL && (/^image\//.test(f.type) || /\.(jpe?g|png|webp|gif)$/i.test(f.name))) {
+            objUrl = URL.createObjectURL(f);
+            prev.innerHTML = '<img src="' + objUrl + '" alt="Business card preview">';
+          } else prev.textContent = '📄';
+        }
+        try { navigator.vibrate?.(8); } catch (e) {}
+      };
+      dz.onclick = e => { if (e.target.closest('.dz-x')) return; fi.click(); };
+      if (clearBtn) clearBtn.onclick = e => { e.stopPropagation(); clearCard(); };
       fi.onchange = () => { if (fi.files[0]) setCard(fi.files[0]); };
       ['dragover', 'dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
         e.preventDefault(); dz.classList.toggle('drag', ev === 'dragover');
         if (ev === 'drop' && e.dataTransfer.files[0]) setCard(e.dataTransfer.files[0]);
       }));
+      const kycForm = fi.closest('form');
+      if (kycForm) kycForm.addEventListener('reset', clearCard);
     }
   }, 0);
 };
@@ -4775,6 +4962,38 @@ window.Shivaa.contactForm = async e => {
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
   try { await api('/api/contact', { method: 'POST', body: JSON.stringify({ name: g('name'), phone: g('phone'), email: g('email'), message: g('message') }) }); toast('Message sent ✦ we will reach out soon'); e.target.reset(); }
   catch (err) { toast(err.message, 'err'); }
+};
+/* v102 — newsletter signup used to reference an undefined inline handler;
+   now posts to /api/newsletter with an optimistic inline success state,
+   remembers the email, and degrades gracefully if the API is unreachable. */
+window.Shivaa.subscribeNewsletter = async e => {
+  e.preventDefault();
+  const form = e.target;
+  const input = form.querySelector('input[type="email"]');
+  const email = String(input?.value || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { toast('Please enter a valid email address', 'err'); input?.focus(); return; }
+  const btn = form.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.dataset.old = btn.textContent; btn.textContent = 'Joining…'; }
+  try {
+    try { await api('/api/newsletter', { method: 'POST', body: JSON.stringify({ email }) }); }
+    catch (err) { /* preview/offline: keep the local confirmation */ }
+    try { localStorage.setItem('shv_nl', email); } catch (e) {}
+    form.classList.add('nl-done');
+    form.innerHTML = '<p class="nl-thanks" role="status">✦ You are in — first looks &amp; festive live rates will reach <b>' + esc(email) + '</b>.</p>';
+    toast('Welcome to the Shivaa Circle ✦');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.old || 'Subscribe'; }
+  }
+};
+/* v102 — returning visitors who already joined see a confirmation, not a form */
+window.Shivaa.paintNewsletterState = () => {
+  let email = '';
+  try { email = localStorage.getItem('shv_nl') || ''; } catch (e) {}
+  if (!email) return;
+  $$('.nl-form:not(.nl-done)').forEach(f => {
+    f.classList.add('nl-done');
+    f.innerHTML = '<p class="nl-thanks" role="status">✦ You are on the Shivaa Circle list as <b>' + esc(email) + '</b>.</p>';
+  });
 };
 
 /* ─────────── LOGIN ─────────── */
@@ -6576,7 +6795,7 @@ function loadStaffBundle() {
   if (!_staffBundle) {
     _staffBundle = injectScript('/js/qr.js?v=99')
       .catch(() => { /* QR tags degrade gracefully; the panel must still open */ })
-      .then(() => injectScript('/js/admin.js?v=101'))
+      .then(() => injectScript('/js/admin.js?v=102'))
       .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
   }
   return _staffBundle;
@@ -6676,9 +6895,11 @@ function route() {
     try { bindV23Reveal(); } catch(e) {}
     try { updateCompareUI(); } catch(e) {}
     try { updatePartnerUI(); } catch(e) {}
+    try { window.Shivaa.paintNewsletterState(); } catch(e) {}
   });
 }
 addEventListener('hashchange', route);
+try { window.Shivaa.paintNewsletterState(); } catch(e) {}
 
 /* ─────────── SEARCH ─────────── */
 const closeSearch = () => {
@@ -6722,7 +6943,21 @@ function activateSugg(row) {
   if (row.dataset.pid) { location.hash = '#/product/' + row.dataset.pid; closeSearch(); $('#searchInput').value = ''; }
   else if (row.dataset.q) { $('#searchInput').value = row.dataset.q; runSearch(row.dataset.q); }
 }
-$('#searchInput').oninput = e => { renderSugg(e.target.value); $('#searchSugg').classList.add('open'); };
+/* v102 — debounced input so fast typing doesn't thrash the palette */
+let _searchDebounce = null;
+$('#searchInput').oninput = e => {
+  clearTimeout(_searchDebounce);
+  const v = e.target.value;
+  _searchDebounce = setTimeout(() => { renderSugg(v); $('#searchSugg').classList.add('open'); }, 90);
+};
+/* v102 — "/" opens search from anywhere (never while typing in a field) */
+document.addEventListener('keydown', e => {
+  if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  e.preventDefault();
+  $('#searchBtn').click();
+});
 $('#searchInput').onkeydown = e => {
   const box = $('#searchSugg');
   const rows = $$('.sugg', box);
@@ -6745,18 +6980,54 @@ $('#searchInput').onkeydown = e => {
 $('#searchSugg').addEventListener('click', e => {
   const del = e.target.closest('[data-delq]');
   if (del) { e.stopPropagation(); removeRecentQuery(del.dataset.delq); renderSugg($('#searchInput').value); $('#searchSugg').classList.add('open'); return; }
+  const clearAll = e.target.closest('[data-clearall]');
+  if (clearAll) { e.stopPropagation(); try { localStorage.removeItem('shv_recentq'); } catch (err) {} renderSugg($('#searchInput').value); $('#searchSugg').classList.add('open'); return; }
   const cat = e.target.closest('a.sugg-cat');
   if (cat) { closeSearch(); return; }   // native anchor navigates; just dismiss the palette
   const row = e.target.closest('.sugg');
   if (row) activateSugg(row);
 });
 const POPULAR_Q = ['Rings', 'Jhumkas', 'Mangalsutra', 'Bangles', 'Chain', 'Silver'];
+/* v102 — weighted multi-token search across name, SKU, category, tags,
+   stones, purity & metal; every token must match (AND), best match first. */
+function productSearchText(p) {
+  return [p.name, p.sku || '', CATS[p.category]?.name || p.category || '',
+    (p.tags || []).map(t => TAGS[t] || t).join(' '), p.stoneType || '', p.stoneDesc || '',
+    p.purity || '', p.metal || '', p.color || ''].join(' ').toLowerCase();
+}
+window.Shivaa.searchProducts = function (query, limit = 8) {
+  const tokens = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length || !state.productsCache.length) return [];
+  const out = [];
+  state.productsCache.forEach(p => {
+    const name = p.name.toLowerCase(), sku = String(p.sku || '').toLowerCase(), hay = productSearchText(p);
+    let score = 0;
+    for (const t of tokens) {
+      if (name.startsWith(t)) score += 100;
+      else if (name.includes(t)) score += 55;
+      else if (sku && sku.includes(t)) score += 45;
+      else if ((CATS[p.category]?.name || '').toLowerCase().includes(t)) score += 35;
+      else if (hay.includes(t)) score += 15;
+      else return; /* a token matched nowhere → exclude */
+    }
+    score += (+p.rating || 0) + Math.log10((+p.reviews || 0) + 1) * 0.5;
+    out.push({ p, score });
+  });
+  return out.sort((a, b) => b.score - a.score).slice(0, limit).map(x => x.p);
+};
+function productSearchSub(p) {
+  const bits = [CATS[p.category]?.name || p.category || ''];
+  if (p.sku) bits.push('SKU ' + p.sku);
+  if (p.stoneType) bits.push(p.stoneType);
+  bits.push(fmt(price(p).total));
+  return bits.filter(Boolean).join(' · ');
+}
 function renderSugg(qs) {
   const el = $('#searchSugg');
   if (!qs) {
     const rec = recentQueries();
     el.innerHTML =
-      (rec.length ? `<div class="sugg-lbl">Recent searches</div>` + rec.map(r =>
+      (rec.length ? `<div class="sugg-lbl"><span>Recent searches</span><button type="button" class="sugg-clearall" data-clearall>Clear</button></div>` + rec.map(r =>
         `<div class="sugg sugg-chip" data-q="${esc(r)}"><span class="sugg-ic">🕘</span><span>${esc(r)}</span><button type="button" class="sugg-d" data-delq="${esc(r)}" aria-label="Remove ${esc(r)}">✕</button></div>`).join('') : '') +
       `<div class="sugg-lbl">Popular searches</div>` +
       POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
@@ -6765,11 +7036,23 @@ function renderSugg(qs) {
     el.classList.add('open');
     return;
   }
-  const s = qs.toLowerCase();
-  const list = state.productsCache.filter(p => (p.name + p.category + (CATS[p.category]?.name || '')).toLowerCase().includes(s)).slice(0, 6);
-  el.innerHTML = list.map(p => `<div class="sugg" data-pid="${p.id}">
-    <img src="${safeUrl(p.images && p.images[0])}" alt=""><div><b>${esc(p.name)}</b><small>${esc(CATS[p.category]?.name || p.category || '')} · ${fmt(price(p).total)}</small></div><span class="sugg-go">›</span></div>`).join('')
-    + `<div class="sugg sugg-all" data-q="${esc(qs)}"><span class="sugg-ic">🔍</span><span>See all pieces for “${esc(qs)}”</span></div>`;
+  const all = window.Shivaa.searchProducts(qs, Infinity);
+  const list = all.slice(0, 8);
+  if (!list.length) {
+    el.innerHTML =
+      `<div class="sugg-none"><b>No pieces for “${esc(qs)}”</b><span>Check the spelling, or try a broader term like ring, gold or silver.</span></div>`
+      + `<div class="sugg-lbl">Try</div>`
+      + POPULAR_Q.slice(0, 4).map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
+      + `<div class="sugg-lbl">Shop by category</div>`
+      + Object.entries(CATS).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+    el.classList.add('open');
+    return;
+  }
+  el.innerHTML =
+    `<div class="sugg-lbl"><span>Pieces · ${all.length > 8 ? '8+' : all.length}</span></div>`
+    + list.map(p => `<div class="sugg" data-pid="${p.id}">
+    <img src="${safeUrl(p.images && p.images[0])}" alt="" loading="lazy"><div><b>${esc(p.name)}</b><small>${esc(productSearchSub(p))}</small></div><span class="sugg-go">›</span></div>`).join('')
+    + `<div class="sugg sugg-all" data-q="${esc(qs)}"><span class="sugg-ic">🔍</span><span>See all ${all.length} pieces for “${esc(qs)}”</span></div>`;
   el.classList.add('open');
 }
 

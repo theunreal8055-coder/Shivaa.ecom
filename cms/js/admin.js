@@ -2322,6 +2322,9 @@ window.ShivaaBullion = {
       const board = document.getElementById('bullionBoard');
       const mounted = this.mounted && board && board.querySelector('.bd-tabs');
       this.B = B;
+      /* v102 — keep the last good board so the desk opens on flaky mobile
+         networks showing saved rates with an OFFLINE flag instead of an error */
+      try { localStorage.setItem('shv_bullion_last', JSON.stringify({ B, at: Date.now() })); } catch (e) {}
       if (!first && B.updatedAt !== this.lastSeen && mounted) {
         window.Shivaa.toast('📈 Bullion rates updated — fresh prices on screen');
       }
@@ -2334,7 +2337,20 @@ window.ShivaaBullion = {
       this.startRelay(this.B);
       const reached = (B.alerts || []).filter(a => a.reached && !a._pinged);
       if (!first && reached.length) { reached.forEach(a => a._pinged = true); window.Shivaa.toast('🔔 ' + reached[0].label + ' hit your target ' + this.num(reached[0].target)); }
-    } catch (e) { const el = document.getElementById('bullionBoard'); if (el && !this.mounted) el.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
+    } catch (e) {
+      /* v102 — offline fallback: paint the last saved board, clearly flagged */
+      const el = document.getElementById('bullionBoard');
+      let snap = null;
+      try { snap = JSON.parse(localStorage.getItem('shv_bullion_last') || 'null'); } catch (err) {}
+      if (el && !this.mounted && snap && snap.B) {
+        this.B = snap.B; this.mounted = true; this.render(snap.B);
+        const ago = Math.max(0, Math.round((Date.now() - snap.at) / 1000));
+        const when = new Date(snap.at).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' });
+        this.setTickState('offline · saved rates from ' + when + ' (' + (ago < 60 ? ago + 's ago' : Math.round(ago / 60) + 'm ago') + ') — reconnecting…', false);
+      } else if (el && !this.mounted) {
+        el.innerHTML = '<p class="partner-note">' + (e.message || 'Could not load the bullion desk') + '<br><small>Pull to retry once your connection is back.</small></p>';
+      }
+    }
   },
   render(B) {
     const el = document.getElementById('bullionBoard');

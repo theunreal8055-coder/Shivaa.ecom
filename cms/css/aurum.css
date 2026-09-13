@@ -1019,3 +1019,76 @@ code.trust-provided {
   padding: 5px 12px; border-radius: 9px; margin-bottom: 6px;
 }
 .trust-provided-note { display: block; font-size: 11.5px; color: var(--ink-3); }
+
+/* ════════════════════════════════════════════════════════════════════
+   v102 — smarter refinements over the v101 surfaces (mobile-first)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Newsletter — working signup, inline thanks, remembered state */
+.nl-thanks { margin: 0; font-size: 13.5px; line-height: 1.55; color: #f1e2bf; }
+.nl-thanks b { color: #ffd98a; word-break: break-all; }
+.nl-form button:disabled { opacity: .65; }
+
+/* Search palette — label rows with Clear, no-results state, "/" hint */
+.sugg-lbl { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sugg-clearall { border: 0; background: none; padding: 2px 4px; font: inherit; font-size: 11.5px;
+  color: var(--ink-3, #8a7d6c); text-decoration: underline; cursor: pointer; }
+.sugg-clearall:hover { color: var(--maroon, #6e1423); }
+.sugg-none { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px 8px; }
+.sugg-none b { color: var(--maroon-deep, #4a0e1a); font-size: 14.5px; }
+.sugg-none span { font-size: 12.5px; color: var(--ink-3, #8a7d6c); }
+.search-panel .sugg small { overflow: hidden; text-overflow: ellipsis; }
+
+/* Quick View — share button, photo counter, zoom hint, zoomed photo */
+.qv-share { position: absolute; z-index: 5; top: 14px; right: 14px; left: auto; width: 42px; height: 42px;
+  border-radius: 50%; background: rgba(255,252,244,.92); display: grid; place-items: center;
+  box-shadow: 0 6px 18px rgba(61,14,21,.22); border: 0; cursor: pointer; color: var(--maroon-deep); }
+.qv-share svg { width: 19px; height: 19px; }
+.qv-share:active { transform: scale(.9); }
+.qv-count { position: absolute; right: 2px; bottom: -2px; margin-left: auto;
+  background: rgba(40,10,16,.72); color: #ffe9bd; font-size: 10px; font-weight: 600;
+  letter-spacing: .08em; padding: 3px 8px; border-radius: 999px; backdrop-filter: blur(4px);
+  font-variant-numeric: tabular-nums; pointer-events: none; }
+.qv-dots { align-items: center; }
+.qv-zoom-hint { position: absolute; top: 62px; left: 50%; transform: translateX(-50%); z-index: 4;
+  background: rgba(40,10,16,.62); color: #ffe9bd; font-size: 10.5px; letter-spacing: .04em;
+  padding: 4px 11px; border-radius: 999px; pointer-events: none; white-space: nowrap;
+  animation: qvHintFade .5s ease 3.2s forwards; }
+@keyframes qvHintFade { to { opacity: 0; visibility: hidden; } }
+.qv-photo { transition: transform .22s var(--au-out, ease); cursor: zoom-in; }
+.qv-photo.qv-zoom { cursor: zoom-out; object-fit: contain; background: #1c090e; }
+@media (max-width: 680px) {
+  .qv-share { top: calc(10px + env(safe-area-inset-top)); }
+}
+
+/* Welcome-back cart bar — swipe-to-dismiss */
+#backBar { transition: transform .26s var(--au-spring, cubic-bezier(.22,1,.36,1)), opacity .26s; will-change: transform; }
+#backBar.bb-out { transform: translateX(calc(100% + 28px)) !important; opacity: 0; pointer-events: none; }
+
+/* Ring sizer — persisted calibration reset, tappable chart rows */
+.sz-reset { border: 0; background: none; padding: 0 0 0 6px; font: inherit; font-size: 12px;
+  color: var(--gold, #b98a2f); text-decoration: underline; cursor: pointer; }
+#szChart tbody tr { cursor: pointer; transition: background .15s; }
+#szChart tbody tr:hover td { background: rgba(185,138,47,.12); }
+
+/* KYC business card — attached-file state with thumbnail */
+.drop-zone.kyc-card { flex-direction: column; }
+.dz-idle { text-align: center; }
+.dz-set { display: none; align-items: center; gap: 12px; width: 100%; text-align: left; }
+.dz-set:not([hidden]) { display: flex; }
+.dz-prev { width: 58px; height: 58px; flex: 0 0 auto; border-radius: 12px; overflow: hidden;
+  display: grid; place-items: center; background: #fff; border: 1px solid var(--line, #ead9c0); font-size: 26px; }
+.dz-prev img { width: 100%; height: 100%; object-fit: cover; }
+.dz-meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dz-meta b { font-size: 13.5px; color: var(--maroon-deep, #4a0e1a); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.dz-meta small { font-size: 11.5px; color: var(--ink-3, #8a7d6c); }
+.dz-x { width: 36px; height: 36px; flex: 0 0 auto; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--cream-2, #f4ecdd); color: var(--ink-3, #8a7d6c); font-size: 13px; }
+.dz-x:active { transform: scale(.9); }
+
+/* Reduced-motion: never animate the zoom hint or transforms */
+@media (prefers-reduced-motion: reduce) {
+  .qv-zoom-hint { animation: none; }
+  .qv-photo, #backBar { transition: none !important; }
+}
