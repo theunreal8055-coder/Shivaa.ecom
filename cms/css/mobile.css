@@ -25,11 +25,11 @@
   .ds-form-card input, .ds-form-card select, .ds-form-card textarea,
   .bbc-form input, .bbc-form select, .svc-form input, .svc-form select,
   .shv-card input, .shv-card select,
-  #saathiIn, #couponIn, #hdrSearchInput, #searchInput { font-size: 16px; }
+  #couponIn, #hdrSearchInput, #searchInput { font-size: 16px; }
   /* kill the 300 ms tap delay + grey flash, everywhere tappable */
   a, button, .btn, .tab, .chip, .size-pill, .pay-opt, .icon-btn,
   .cat-pill, .cat-mini-card, .p-card, .cat-card, .acct-tile,
-  .sa-tool, .sa-chip, .mnav a, .dw-row, .dw-tile, .adm-nav a,
+  .mnav a, .dw-row, .dw-tile, .adm-nav a,
   .qty-row button, .summary label, details summary {
     -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   }
@@ -44,7 +44,7 @@
     transform: scale(.98) !important;
   }
   .btn:active, button:active, .icon-btn:active, .pay-opt:active, .chip:active,
-  .size-pill:active, .cat-pill:active, .sa-tool:active, .tab:active,
+  .size-pill:active, .cat-pill:active, .tab:active,
   .mnav a:active, .adm-nav a:active, .dw-tile:active, .dw-row:active {
     transform: scale(.96) !important;
   }
@@ -480,17 +480,6 @@
   .mc-line img { width: 58px; height: 58px; }
   .mc-foot { padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); }
 
-  /* ── Saathi AI sheet (already bottom-sheet; refine) ── */
-  #saathiPanel { height: 92dvh; height: 100dvh; border-radius: 24px 24px 0 0; }
-  .sa-head { padding: 13px 14px; }
-  .sa-msgs { padding: 14px; }
-  .sa-m { font-size: 14px; }
-  .sa-in { padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); }
-  .sa-in input { min-height: 46px; font-size: 16px; }
-  .sa-tools { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  .sa-tools::-webkit-scrollbar { display: none; }
-  .sa-tool { flex: 0 0 auto; }
-
   /* pdf / catalogue viewer */
   .pdf-bar { padding: 10px 14px calc(10px + env(safe-area-inset-top)); flex-wrap: wrap; gap: 8px; }
   .pdf-title { font-size: 17px; }
@@ -557,7 +546,6 @@
 @media (max-width: 920px) and (max-height: 500px) and (orientation: landscape) {
   .modal { max-height: 96dvh; border-radius: 18px; }
   .modal::before { display: none; }
-  #saathiPanel { height: 96dvh; }
   .hero { min-height: auto; padding: 28px 0; }
   .hero-stage { display: none; }
   .mnav { display: none; }
@@ -570,7 +558,7 @@
 
 /* ───────────────────── 6 · MOTION SAFETY ───────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .modal, .nav, .mc-drawer, #saathiPanel, .filters, .mcta-bar, .toast { animation: none !important; transition: none !important; }
+  .modal, .nav, .mc-drawer, .filters, .mcta-bar, .toast { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
 
@@ -765,9 +753,6 @@
   .bd-tabs a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bd-centerbtn { width: 50px; height: 50px; margin-top: -18px; }
 
-  /* Saathi — the AI assistant's quick-tool rail */
-  .sa-tool b { font-size: 10.5px; }
-  .sa-card .t, .sa-idx { font-size: 10.5px; }
   .fin-panel .fin-tag, .fh-badge small, .fb-chips li, .fin-eng small,
   .finale-cd .fc-cell span, .fc-cell span, .finq-pill, .finq-chip,
   .finq-decl-t, .fp-chip, .fin-prize .fp-gold, .fh-badge { font-size: 10.5px; }
@@ -842,22 +827,6 @@
   /* ─────────────── §5 · RIGID GRIDS → PHONE TRACKS ───────────────
      Each of these was proven (qa/css_why.py) to WIN at 320px with a track
      count that leaves no room for its own content. */
-
-  /* Saathi quick tools: bot.css sets repeat(6,1fr) inside @420, which defeated
-     v95's `overflow-x:auto` — 6 equal tracks never overflow, so they just
-     squashed to ~50px with 8.5px labels. Make it a real scroll rail. */
-  .sa-tools {
-    display: grid !important;
-    grid-auto-flow: column !important;
-    grid-auto-columns: max-content !important;
-    grid-template-columns: none !important;
-    gap: 7px; padding: 9px 12px;
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity; scrollbar-width: none;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent);
-  }
-  .sa-tools::-webkit-scrollbar { display: none; }
-  .sa-tool { min-width: 62px; padding: 8px 10px; scroll-snap-align: start; }
 
   /* bullion board rows: the ≤560 winner was 1.45fr .82fr .82fr .78fr, i.e. four
      fractional tracks with an `auto` minimum — a long rate string stretches the
@@ -1030,7 +999,6 @@
   .bd-centerbtn { width: 46px; height: 46px; margin-top: -16px; font-size: 19px; }
   .otp-boxes { gap: 4px; }
   .otp-boxes input { font-size: 17px; border-radius: 10px; }
-  .sa-tool { min-width: 58px; }
   .ref-stats b, .svb-top b, .b2b-stat b { font-size: 15px; }
   .dw-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 4px 13px 2px; }
   .mth-rail { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
@@ -1078,5 +1046,96 @@
   .bd-pctchip, .bd-tickstate {
     min-width: 0; max-width: 100%;
     overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   §15 · v99 TOUCH & COMPOSITOR PASS
+   ────────────────────────────────────────────────────────────────────────
+   Scoped to `(pointer: coarse)` — touch devices — and deliberately NOT to a
+   width band. v97's mistake was declaring phone rules at ≤900px, which sat on
+   top of v95's 601–900px tablet band and silently rewrote it. A pointer query
+   cannot collide with any width band at all, so nothing here can reproduce
+   that failure.
+
+   Nothing in this section moves a single pixel of layout. It changes three
+   things: who owns a gesture, what the compositor pays for the frosted chrome,
+   and how a multi-line heading breaks.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@media (pointer: coarse) {
+
+  /* ── 15.1 · GESTURE OWNERSHIP ──────────────────────────────────────────
+     (a) HORIZONTAL RAILS. Swiping a category rail that starts near the screen
+         edge can be hijacked by the browser's back/forward swipe, so the
+         shopper leaves the page instead of moving along the rail.
+         `overscroll-behavior-x: contain` makes the rail own the gesture.
+         The `-x` suffix is the whole point: it cannot influence vertical
+         scrolling under any circumstances, so there is no mechanism by which
+         this could recreate the v97 "page will not scroll" failure.
+
+     (b) OPEN SHEETS. While a sheet or drawer is open the page behind it is
+         already scroll-locked (html.no-scroll / body.drawer-open / _scrollLock
+         in app.js), so containing the gesture costs the shopper nothing and
+         stops the rubber-band from leaking into the locked page — the sheet
+         feels like a surface sitting on top of the app rather than a hole in
+         it. */
+
+  /* (a) rails, strips and table scrollers — horizontal axis only */
+  .hscroll, .catbar, .catbar2, .tabs, .stages, .acct-nav, .adm-nav,
+  .sz-strip-wrap, .tracker-wrap, .compare-tray-thumbs,
+  .adm-table-wrap, .mc-table-wrap, .pcmp-table-wrap, .inv-tbl,
+  .ps-body > table, .ps-body table.priv-table {
+    overscroll-behavior-x: contain;
+  }
+
+  /* (b) sheets and drawers — the page behind these is already locked */
+  .modal, .filters, .search-drawer, .mega-panel, .auth-panel, .shv-card,
+  .mc-body, .qv-tx, .svb-list, .adm-side {
+    overscroll-behavior: contain;
+  }
+
+  /* ── 15.2 · FROSTED CHROME THAT v80 DID NOT ALREADY COVER ──────────────
+     backdrop-filter re-blurs everything behind an element on every frame of a
+     scroll, on the GPU. Surfaces pinned to the viewport pay that continuously.
+
+     styles.css already has a `@media (max-width:820px)` "Scroll jank
+     prevention" block (v80) that handles the three expensive ones with
+     !important — `.header` goes fully solid with no blur at all, `.mnav` is
+     cut to blur(8px), `.modal-overlay` to blur(3px) — so v99 deliberately does
+     NOT touch those. Overriding a considered !important to save 4px of blur on
+     a bar that is already 97% opaque is not a trade worth making.
+
+     Two pinned surfaces were missed by that block and are fixed here:
+
+         .utilbar       rgba(29,5,9,.92)      + blur(8px)   (styles.css:1105)
+         .pd-stickybar  rgba(250,246,239,.97) + blur(12px)  (styles.css:703)
+
+     At .92–.97 opacity only 3–8% of the backdrop is visible, so the blur is
+     doing almost nothing visually while costing full price — .pd-stickybar
+     blurs 12px behind 97% opaque paint, which is indistinguishable from no
+     blur. Only the radius is reduced; both background colours are left exactly
+     as they are, so there is no visible change to find.
+
+     Overlays that do not move during a scroll (.drawer-scrim, .fsheet-overlay,
+     .shv-backdrop) are left alone: their blur is computed once while the page
+     is scroll-locked, so it costs nothing. */
+  .utilbar {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .pd-stickybar {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  /* ── 15.3 · DISPLAY TYPE ───────────────────────────────────────────────
+     `text-wrap: balance` evens out the line lengths of a multi-line heading so
+     the last line is not left as a two-word stub — the difference between a
+     heading that looks set and one that looks wrapped. Purely progressive:
+     a browser that does not support it ignores the declaration and renders
+     exactly as it does today, so this cannot break anything. */
+  .hero h1, .page-hero h1, .sec-head h2 {
+    text-wrap: balance;
   }
 }

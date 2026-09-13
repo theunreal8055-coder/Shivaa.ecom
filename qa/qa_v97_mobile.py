@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CMS = ROOT / "cms"
-ZIP = ROOT / "shivaa-update-v98.zip"
+ZIP = ROOT / "shivaa-update-v99.zip"
 
 ok, fail = [], []
 
@@ -50,10 +50,10 @@ check("mobile.css is still the last stylesheet (wins ties)",
       idx.rstrip().index("mobile.css") > idx.rstrip().index("motion.css"))
 
 # ── 1 · version wiring ──────────────────────────────────────────────────────
-check("index.html loads /css/mobile.css?v=98", "/css/mobile.css?v=98" in idx)
-check("index.html loads /css/styles.css?v=98", "/css/styles.css?v=98" in idx)
-check("sw.js SHELL bumped to shivaa-shell-v98", "shivaa-shell-v98" in sw)
-check("sw.js shell list points at mobile.css?v=98", "/css/mobile.css?v=98" in sw)
+check("index.html loads /css/mobile.css?v=99", "/css/mobile.css?v=99" in idx)
+check("index.html loads /css/styles.css?v=99", "/css/styles.css?v=99" in idx)
+check("sw.js SHELL bumped to shivaa-shell-v99", "shivaa-shell-v99" in sw)
+check("sw.js shell list points at mobile.css?v=99", "/css/mobile.css?v=99" in sw)
 
 # ── 2 · §1 dead-selector repairs (v95 rules that matched nothing) ───────────
 for dead, real in [(".shop-head", ".shop-bar"), (".shop-toolbar", ".shop-catbar"),
@@ -91,7 +91,7 @@ check("minmax(0,1fr) still used where a column count IS being declared",
 
 # ── 5 · §3 legibility floor ─────────────────────────────────────────────────
 check(".hstat span lifted off 7.0px", ".hstat span" in mob)
-check(".sa-tool b lifted off 8.5px", ".sa-tool b" in mob)
+# v99: .sa-tool no longer exists (Saathi removed) — assertion retired
 check(".bd-tabs labels lifted off 8.5px", ".bd-tabs.bd-tabs-v79 a" in mob)
 check(".mnav a (most-tapped control) lifted off 9.5px",
       re.search(r"\.mnav a\s*\{[^}]*font-size:\s*10\.5px", mob) is not None)
@@ -107,9 +107,10 @@ check("v95's transform:scale() on .qty-row is undone (blurry + sub-44px)",
 check("v95's transform:scale() on .flash-countdown is undone",
       re.search(r"\.poster \.flash-countdown\s*\{[^}]*transform:\s*none", mob) is not None)
 
-# ── 7 · §5 Saathi tool rail is a real scroller, not 6 squashed tracks ───────
-check(".sa-tools becomes a horizontal max-content rail",
-      re.search(r"\.sa-tools\s*\{[^}]*grid-auto-flow:\s*column", mob) is not None)
+# ── 7 · (retired in v99) §5 Saathi tool rail ────────────────────────────────
+# Saathi was removed from the site entirely ahead of a Gemini chatbot, so the
+# .sa-tools scroller assertion no longer has a subject. Kept as a marker so the
+# section numbering of this file still lines up with mobile.css.
 
 # ── 8 · §9 the privacy table gets its own scroller ──────────────────────────
 check(".ps-body table scrolls instead of widening the page",
@@ -129,9 +130,9 @@ if ZIP.is_file():
     zmob = z.read("css/mobile.css").decode("utf-8", "replace")
     check("v97 zip exists and contains css/mobile.css", "css/mobile.css" in names)
     check("zip's mobile.css is byte-identical to cms/", zmob == mob)
-    check("zip's index.html is versioned v98",
-          b"/css/mobile.css?v=98" in z.read("index.html"))
-    check("zip's sw.js shell is v98", b"shivaa-shell-v98" in z.read("sw.js"))
+    check("zip's index.html is versioned v99",
+          b"/css/mobile.css?v=99" in z.read("index.html"))
+    check("zip's sw.js shell is v99", b"shivaa-shell-v99" in z.read("sw.js"))
     v95 = zipfile.ZipFile(ROOT / "shivaa-update-v95.zip")
     m95 = {n for n in v95.namelist() if not n.endswith("/")}
     check("zip manifest matches the v95 manifest (drop-in update)", names == m95)

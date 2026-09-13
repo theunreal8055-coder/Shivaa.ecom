@@ -1698,7 +1698,7 @@ pages.terms = async (view) => {
 };
 
 pages.refund = async (view) => {
-  view.innerHTML = legalShell('Refund & Return Policy', 'Returns without ', 'drama', 'The exact same policy Saathi quotes — now in writing, as e-commerce rules require.',
+  view.innerHTML = legalShell('Refund & Return Policy', 'Returns without ', 'drama', 'The exact same policy our team quotes on the phone — now in writing, as e-commerce rules require.',
     legalCard('7-day easy returns', 'Unworn, unused pieces in original packaging with the bill and hallmark card can be returned within <b>7 days of delivery</b>. No questions, no restocking fee. We arrange pickup or reimburse your courier.') +
     legalCard('Refund timing', 'Refunds are issued to the original payment method within <b>5–7 working days</b> of the piece reaching us and passing a quick check. UPI/card refunds can take a further 2–3 days on the bank\u2019s side.') +
     legalCard('Lifetime exchange', 'Beyond 7 days, exchange any piece for life at the <b>live rate by weight and assay</b> — you pay only the difference plus making on the new design.') +
@@ -2153,7 +2153,7 @@ pages.shop = async (view, q) => {
     {
       let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
       if (!list.length && f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
-        emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile ask <b>Saathi ✦</b> — the store assistant — to choose for you, or browse the signature rings.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><button class="btn btn-gold" onclick="Shivaa.saathiOpen('suggest a piece for me')">✦ Ask Saathi to choose for me</button><a class="btn btn-outline" href="#/shop?category=rings">See the 65 signature rings</a></div></div>`;
+        emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 65 signature rings</a></div></div>`;
       }
       $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : emptyHtml;
     }
@@ -2418,7 +2418,7 @@ window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd
 
   /* v56: the floating 22K-rate pill that sat on every page was removed on
      request (it followed the shopper everywhere). Live rates still live on
-     #/rates, in the top utility strip and inside the Saathi assistant. */
+     #/rates and in the top utility strip. */
 
   /* v55: referral capture — shivaa.in/?ref=SH12AB3 */
   try {
@@ -3276,7 +3276,7 @@ window.Shivaa.buyAgain = async (id) => {
     else state.cart.push({ id: p.id, qty: it.qty || 1, size: it.size || null, engraving: it.engraving || '' });
     added += it.qty || 1;
   });
-  if (!added) { toast('Those pieces are being re-catalogued — ask Saathi for an equivalent', 'err'); return; }
+  if (!added) { toast('Those pieces are being re-catalogued — browse the signature rings for an equivalent', 'err'); return; }
   store.set('shv_cart', state.cart); updateBadges();
   toast(`${added} piece${added === 1 ? '' : 's'} added back to your cart ✦`);
   location.hash = '#/cart';
@@ -6283,6 +6283,45 @@ Object.assign(window.Shivaa, {
   redraw: () => route(true),
   openCart, closeCart, renderMiniCart, flyToBag,
 });
+/* ─────────── v99 · STAFF-ONLY BUNDLE, LOADED ON DEMAND ───────────
+   admin.js (261KB) + qr.js (55KB) power #/admin and #/partner and nothing
+   else. Verified before moving them out of index.html:
+     · all 235 references to ShivaaAdmin / ShivaaPartner / ShivaaBullion /
+       ShivaaPages / ShivaaCO live inside admin.js itself;
+     · the single consumer of qr.js's global `qrcode()` is admin.js:1758, and
+       it is already wrapped in try/catch;
+     · no script, template or route gate reads them from outside.
+   So a shopper no longer downloads, parses or executes 316KB of staff tooling —
+   on a mid-range handset that is the difference between a janky first scroll
+   and a smooth one. admin.js registers its own routes at load time
+   (Shivaa.routes.admin / .partner), so the route simply replays once the bundle
+   lands. qr.js is injected first because admin.js calls its global. */
+const STAFF_PAGES = { admin: 1, partner: 1 };
+let _staffBundle = null;
+function injectScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = false;          // keep insertion order deterministic
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('script failed: ' + src));
+    document.body.appendChild(s);
+  });
+}
+function loadStaffBundle() {
+  if (window.ShivaaAdmin) return Promise.resolve();
+  if (!_staffBundle) {
+    _staffBundle = injectScript('/js/qr.js?v=99')
+      .catch(() => { /* QR tags degrade gracefully; the panel must still open */ })
+      .then(() => injectScript('/js/admin.js?v=99'))
+      .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
+  }
+  return _staffBundle;
+}
+const _staffEmpty = (h, p, retry) => `<div class="empty" style="padding:120px 20px">` +
+  `<img src="/images/logo.png" class="empty-logo" alt=""><h3>${h}</h3><p>${p}</p>` +
+  (retry ? `<button type="button" class="btn" style="margin-top:14px" onclick="Shivaa.redraw()">Retry</button>` : '') +
+  `</div>`;
+
 function route() {
   const hash = location.hash.replace(/^#\/?/, '') || '';
   const [pathPart, qs] = hash.split('?');
@@ -6300,6 +6339,19 @@ function route() {
   if (page !== 'quote') document.documentElement.classList.remove('quote-mode');
   if (page !== 'product') resetProductMeta();   // v57: per-piece SEO data only lives on the PDP
   syncFinaleChrome();   // campaign links/banner switch off by date alone after Bhai Dooj (11 Nov 2026)
+  /* v99 · staff routes are lazy: fetch the bundle, then replay this route */
+  if (STAFF_PAGES[page] && !routes[page]) {
+    view.innerHTML = _staffEmpty('Opening the staff panel…', 'Loading the admin workspace — this happens once per session.', false);
+    loadStaffBundle()
+      .then(() => {
+        // replay only if the visitor is still on the staff route
+        if ((location.hash.replace(/^#\/?/, '').split('/')[0] || 'home') === page) route();
+      })
+      .catch(() => {
+        view.innerHTML = _staffEmpty('The staff panel did not load', 'Check your connection, then retry.', true);
+      });
+    return;
+  }
   if (routes[page]) {
     const res = routes[page](view, q, seg[1]);
     if (res && res.catch) res.catch(e => { console.error(e); view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Something slipped</h3><p>${esc(e.message)}</p></div>`; });

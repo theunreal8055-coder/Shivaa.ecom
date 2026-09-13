@@ -200,7 +200,7 @@ input.invalid,select.invalid,textarea.invalid{border-color:var(--bad)!important;
 /* hero scroll cue already exists — soften its timing */
 .hero-cue svg{transition:transform .3s var(--m-out)}
 
-/* ───────────────────────── Passport (login sheet) + Saathi chat ───────────────────────── */
+/* ───────────────────────── Passport (login sheet) ───────────────────────── */
 @media(min-width:721px){.shv-card{animation:mModal .55s var(--m-spring) both!important}}
 .shv-pane{animation:mPop .45s var(--m-out) both}
 .shv-body input{transition:border-color .28s var(--m-out),box-shadow .28s var(--m-out),background-color .28s}
@@ -212,18 +212,7 @@ input.invalid,select.invalid,textarea.invalid{border-color:var(--bad)!important;
 .shv-x:hover{transform:rotate(90deg) scale(1.08)}
 .shv-cta,.shv-body button[type=submit]{transition:transform .3s var(--m-spring),box-shadow .3s,background-color .25s}
 .shv-cta:active,.shv-body button[type=submit]:active{transform:scale(.965)}
-#saathiPanel{transition:transform .52s var(--m-spring),box-shadow .4s!important}
-#saathiScrim{transition:opacity .4s var(--m-inout)}
-.sa-m{animation:mChatIn .42s var(--m-spring) both}
-@keyframes mChatIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
-.sa-chip{transition:transform .25s var(--m-spring),background-color .25s,border-color .25s}
-.sa-chip:hover{background:var(--gold-faint)}
-.sa-chip:active{transform:scale(.92)}
-.sa-card{transition:transform .35s var(--m-out),box-shadow .35s}
-.sa-in button{transition:transform .25s var(--m-spring),box-shadow .25s}
-.sa-in button:active{transform:scale(.88)}
-.sa-ico{transition:transform .3s var(--m-spring),background-color .25s}
-.sa-ico:active{transform:scale(.9)}
+/* v99: Saathi chat motion removed with the feature (Gemini will bring its own). */
 
 /* ───────── search: springy drawer + cascading suggestions ──────────────── */
 .s-close{transition:transform .25s var(--m-spring),background-color .25s,color .25s}

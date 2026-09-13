@@ -21,13 +21,12 @@
 {"@context":"https://schema.org","@type":"JewelryStore","name":"Shivaa Jewellers","url":"https://shivaa.in/","image":"https://shivaa.in/images/icons/icon-512.png","telephone":"+918905005921","email":"Support@shivaa.in","address":{"@type":"PostalAddress","addressLocality":"Jayal","addressRegion":"Rajasthan","addressCountry":"IN"},"openingHours":"Mo-Su 10:00-20:30","priceRange":"₹₹"}
 </script>
 <link rel="stylesheet" href="/css/fonts.css?v=42">
-<link rel="stylesheet" href="/css/styles.css?v=98">
+<link rel="stylesheet" href="/css/styles.css?v=99">
 <link rel="stylesheet" href="/css/hallmark.css?v=42">
 <link rel="stylesheet" href="/css/trust.css?v=42">
 <link rel="stylesheet" href="/css/finale.css?v=44">
-  <link rel="stylesheet" href="/css/bot.css?v=85">
-<link rel="stylesheet" href="/css/motion.css?v=94">
-<link rel="stylesheet" href="/css/mobile.css?v=98">
+<link rel="stylesheet" href="/css/motion.css?v=99">
+<link rel="stylesheet" href="/css/mobile.css?v=99">
 </head>
 <body>
 
@@ -114,12 +113,6 @@
         </div>
         <button class="nav-cats dw-more" id="navCats" aria-haspopup="true" aria-expanded="false"><span class="dw-more-lbl">All 17 categories</span><span class="dt-more-lbl">Categories</span><svg class="dw-ar" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg></button>
 
-        <button type="button" class="dw-saathi" id="navSaathi" aria-label="Ask Saathi, the AI store assistant">
-          <span class="dw-gi">✦</span>
-          <span class="dw-tx"><b>Ask Saathi — AI guide</b><small>designs · live gold rate · track order · policies</small></span>
-          <span class="dw-arx" aria-hidden="true">›</span>
-        </button>
-
         <div class="dw-sec">Explore</div>
         <a href="#/rates" data-nav="rates" class="dw-row dw-lite"><span class="dw-gi">&#9878;</span><span class="dw-tx"><b>Live Rates</b><small>Jaipur gold &amp; silver, live</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
         <a href="#/buyback" data-nav="buyback" class="dw-row dw-lite"><span class="dw-gi">&#9670;</span><span class="dw-tx"><b>Gold Buyback</b><small>100% value, zero deduction</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
@@ -188,7 +181,6 @@
       <div class="f-cols">
         <div class="foot-col"><h4>Shop</h4><div id="footCats"></div></div>
         <div class="foot-col"><h4>Company</h4>
-          <a href="#/" data-saathi>Ask Saathi ✦ <small style="opacity:.7">(AI guide)</small></a>
           <a href="#/about">About Shivaa</a>
           <a href="#/trust">Why Trust Shivaa</a>
           <a href="#/privacy">Privacy Policy 🔒</a>
@@ -262,15 +254,21 @@
   <iframe id="pdfFrame" title="Catalogue PDF"></iframe>
 </div>
 
-<script src="/js/qr.js?v=42"></script>
-<script src="/js/otp-autofill.js?v=58"></script>
-<script src="/js/app.js?v=95"></script>
-<script src="/js/hallmark.js?v=42"></script>
-<script src="/js/trust.js?v=42"></script>
-<script src="/js/auth.js?v=58"></script>
-<script src="/js/admin.js?v=94"></script>
-<script src="/js/bot.js?v=85"></script>
-<script src="/js/motion.js?v=91"></script>
+<!-- v99 · Saathi removed ahead of the Gemini chatbot.
+     bot.js/bot.css are no longer loaded; both files stay on disk so the panel
+     shell can be reused when Gemini is wired in.
+     qr.js (55KB) + admin.js (261KB) are OUT of the shopper's critical path —
+     every reference to ShivaaAdmin/Partner/Bullion/Pages/CO and to QRCode lives
+     inside admin.js itself, so app.js fetches them on demand the first time
+     #/admin or #/partner is opened (loadStaffBundle, in the ROUTER section).
+     That is 366KB of parse+execute a shopper never needed.
+     `defer` keeps execution order and guarantees a fully parsed DOM. -->
+<script src="/js/otp-autofill.js?v=58" defer></script>
+<script src="/js/app.js?v=99" defer></script>
+<script src="/js/hallmark.js?v=42" defer></script>
+<script src="/js/trust.js?v=42" defer></script>
+<script src="/js/auth.js?v=58" defer></script>
+<script src="/js/motion.js?v=91" defer></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

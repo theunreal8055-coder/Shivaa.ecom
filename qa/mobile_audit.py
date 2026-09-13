@@ -23,9 +23,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CMS = ROOT / "cms"
 # MUST match the <link> order in cms/index.html — source order decides ties.
+# v99: bot.css / bot.js are no longer loaded (Saathi removed ahead of Gemini).
+# admin.js + qr.js stay in JS_FILES even though they are lazy now — admin.js
+# still renders real markup at runtime, so its class names are genuinely "used"
+# and dropping it would inflate the dead-selector count with false positives.
 CSS_FILES = ["styles.css", "hallmark.css", "trust.css", "finale.css",
-             "bot.css", "motion.css", "mobile.css"]
-JS_FILES = ["app.js", "admin.js", "bot.js", "auth.js", "motion.js",
+             "motion.css", "mobile.css"]
+JS_FILES = ["app.js", "admin.js", "auth.js", "motion.js",
             "hallmark.js", "trust.js", "qr.js"]
 
 # ------------------------------------------------------------------ CSS parse

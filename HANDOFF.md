@@ -934,3 +934,188 @@ the source, but **the first live open on a real handset is the actual test.**
 Check in this order: (1) does the home page scroll at all, (2) laptop home page
 junctions, (3) carousel dots, (4) product grid on a tablet, (5) the privacy
 table.
+
+## v99 — Saathi removed, 370KB off the critical path (2026-09-13)
+
+Two requests: *"completely remove the Saathi button, we will add a Gemini
+chatbot later"*, and make the site smoother / more mobile-first / better
+animated. Removing a feature is the dangerous kind of change — the markup goes
+away easily, the references to it do not.
+
+### Saathi removal
+
+Both entry points are gone: the `#navSaathi` drawer button (`index.html:117`)
+and the `[data-saathi]` footer link (`index.html:191`). `bot.css` and `bot.js`
+are no longer loaded, and are out of the service-worker precache list.
+
+Before removing `bot.css` I checked what else lived in it — that is the v97
+lesson. It is **100% Saathi-specific**: 92 rules, all `.sa-*`, `.dw-saathi`,
+`#saathi*` or the `saIn`/`saTy`/`saMic` keyframes. Every shared drawer class
+(`.dw-row`, `.dw-gi`, `.dw-close`, `.dw-tiles`, `.dw-tx`, `.dw-ar`, `.dw-lite`)
+is styled in `styles.css`/`mobile.css`/`finale.css`/`motion.css`. The one
+apparent exception, `.dw-panel`, turned out to be a dead selector matching no
+markup at all.
+
+**The bug this nearly shipped:** the empty-category state in `app.js:2156`
+rendered a button calling `Shivaa.saathiOpen(...)`, and that function is defined
+in `bot.js:600`. With `bot.js` unloaded it would have thrown
+`TypeError: Shivaa.saathiOpen is not a function` the first time a shopper opened
+an uncatalogued category — the exact moment you least want an error. Found by
+grepping for callers of every global bot.js exports, not by removing the markup.
+
+Four user-facing strings also advertised the bot and were rewritten: the refund
+policy subtitle, the empty-category state, the "pieces are being re-catalogued"
+toast, and a stale comment. `app.js` now has **zero** occurrences of "saathi".
+
+`bot.js` and `bot.css` are deliberately **left on disk and in the zip** so the
+Gemini integration can reuse the panel shell, and so a rollback is one line.
+
+### 370KB off the shopper's critical path
+
+Measured before anything was changed: **1,775KB** of render-blocking CSS+JS, all
+`<script>` tags synchronous. After: **1,405KB** (−370KB, −20.9%).
+
+| removed from the critical path | size | why it is safe |
+|---|---|---|
+| `admin.js` | 261KB | staff-only; now lazy-loaded |
+| `qr.js` | 55KB | its only consumer is `admin.js:1758` |
+| `bot.js` | 50KB | Saathi removed |
+| `bot.css` | 11KB | Saathi removed |
+
+`admin.js` was loading for **every shopper** to render a page only staff can
+reach. Verified before moving it: all 235 references to `ShivaaAdmin`,
+`ShivaaPartner`, `ShivaaBullion`, `ShivaaPages` and `ShivaaCO` live inside
+`admin.js` itself; the single `QRCode` consumer is `admin.js:1758` and is
+already wrapped in `try/catch`; nothing gates on `routes.admin` existing.
+
+`app.js` now has `loadStaffBundle()` in the ROUTER section. `#/admin` and
+`#/partner` render a branded "Opening the staff panel…" state, fetch `qr.js`
+then `admin.js` (in that order — `admin.js` calls `qr.js`'s global), and replay
+the route. `admin.js` registers its own routes at load time
+(`Shivaa.routes.admin`), so the replay just works. A failed fetch shows a Retry
+button and resets the promise so the retry can actually run.
+
+All six remaining scripts are now `defer`. That is safe here specifically
+because `app.js:6768` already had a `document.readyState` boot guard, the only
+inline script just registers the service worker inside a `load` listener, and
+the ten `document.write` calls are all `w.document.write` into newly-opened
+print windows. `defer` also guarantees a fully parsed DOM, which is strictly
+safer than the old end-of-body synchronous execution.
+
+### Compositor cost (new auditor: `qa/mobile_smooth.py`)
+
+Written for this pass, because "make it smoother" needs measuring rather than
+eyeballing. It reports layout-triggering animations, `transition: all`,
+`backdrop-filter` cost, `will-change` discipline, reduced-motion coverage.
+
+**Fixed:**
+- **3 explicit `transition: all`** (`.btn`, `.btn-outline/.btn-ghost/.btn-light`,
+  `.pf-chip`) → named properties. Measured which properties actually change on
+  their states first: `transform`, `box-shadow`, `background-color`, `color`,
+  `border-color`, `filter`. `outline`/`outline-offset`/`border-radius` change
+  only on `:focus-visible` and are deliberately left to snap — an animated focus
+  ring is an accessibility regression.
+- **`.mnav a{transition:.25s}`** — the fixed bottom nav, the most-tapped element
+  on the site, was an *implicit* `all`. Now names its properties.
+- **`.btn{will-change:transform}` and the icon-button equivalent** were
+  top-level, so every button on the page pinned a permanent GPU layer. Now
+  scoped to `@media (hover:hover)`. Browsers already promote an element for the
+  duration of a transform transition, so touch loses nothing and desktop is
+  unchanged.
+
+**Measured and deliberately NOT changed: 86 implicit `transition: all`.**
+`transition: .25s` with no property named is legal CSS and means `all`; grepping
+for the word "all" finds none of them (84 in `styles.css`, 2 in `finale.css`).
+Each one needs its own property list derived from its own state rules. Rewriting
+86 declarations with no browser to verify is precisely the v97 mistake, so they
+are now visible in the audit and left as documented debt.
+
+**The v80 discovery.** `styles.css:4794` already has a
+`@media (max-width:820px)` "Scroll jank prevention" block that makes `.header`
+fully solid with `backdrop-filter:none !important`, cuts `.mnav` to `blur(8px)`
+and `.modal-overlay` to `blur(3px)`. My first draft of §15 re-styled the header
+glass and lost to that `!important` — dead code that contradicted a deliberate
+existing optimisation. Caught by resolving the real cascade at 390×844 with
+`pointer:coarse` rather than assuming. Those rules were removed; §15 now only
+covers the two pinned surfaces v80 missed (`.utilbar` blur 8→4px,
+`.pd-stickybar` blur 12→4px — both already ≥92% opaque, so the blur was
+invisible while costing full price). Backgrounds untouched, so there is no
+visual change to find.
+
+### §15 · touch & compositor pass
+
+Appended to `mobile.css`, scoped to **`(pointer: coarse)`** rather than a width
+band. That is a deliberate choice: v97 broke tablets by declaring phone rules at
+`≤900px`, which landed on top of v95's `601–900px` band. A pointer query cannot
+collide with any width band at all.
+
+- **Gesture ownership.** Horizontal rails (`.catbar`, `.hscroll`, `.tabs`,
+  `.stages`, table scrollers…) get `overscroll-behavior-x: contain` so a swipe
+  along a rail near the screen edge is not hijacked by the browser's
+  back/forward gesture. The `-x` suffix is the whole safety argument: it cannot
+  influence vertical scrolling under any circumstances, so there is no mechanism
+  by which it could recreate the v97 "page will not scroll" failure. Open sheets
+  (`.modal`, `.filters`, `.search-drawer`, `.auth-panel`, `.mc-body`…) get full
+  `contain`, which is free because the page behind them is already scroll-locked
+  by `html.no-scroll` / `body.drawer-open` / `_scrollLock`.
+- **`text-wrap: balance`** on `.hero h1`, `.page-hero h1`, `.sec-head h2` so a
+  multi-line heading is not left with a two-word stub. Purely progressive —
+  unsupported browsers ignore it.
+
+28 scrolling containers were classified by axis before any of this was written;
+`.modal`/`.filters`/`.svb-list`/`.adm-side` and friends were checked
+individually rather than assumed.
+
+### QA
+
+New **`qa/qa_v99_saathi_perf.py` — 68 checks, 0 failed.** Five sections: Saathi
+is gone and nothing still calls it; the staff bundle is off the critical path;
+critical path and script loading; compositor cost; files parse, versions move,
+zip is a drop-in.
+
+Three bugs were found in the QA scripts themselves while writing them, all of
+which made checks pass *vacuously* — worth recording because a green gate that
+measures nothing is worse than no gate:
+1. `re.findall(r'<script[^>]+src="(/js/[^"?]+)"')` — the trailing `"` can never
+   match, because the URLs carry `?v=99`. It returned zero scripts, so
+   `js_bytes` summed to 0 and "critical path under 1500KB" passed at **0KB**.
+2. `Path("cms") / "/css/styles.css"` resolves to `/css/styles.css` — pathlib
+   discards the left operand when the right is absolute. Same vacuous pass.
+   Both are fixed, and the total is now *required* to be >500KB so it can never
+   silently measure nothing again.
+3. Three guards matched their own explanatory comments (mobile.css §0 quotes the
+   reverted `overflow-x: clip`; sw.js and §15 mention `bot.js`/`.mnav`). Guards
+   now run against comment-stripped source.
+
+`qa/mobile_audit.py`'s `CSS_FILES`/`JS_FILES` were updated to match what
+`index.html` actually loads — `bot.css`/`bot.js` removed, `admin.js` kept
+(it is lazy but still renders real markup, so its class names are genuinely
+used and dropping it would inflate the dead-selector count with false
+positives). This mattered: with `bot.css` still in the list the structural score
+read 49 instead of the true 48.
+
+Two stale assertions demanding the removed Saathi tool rail were retired.
+
+| metric | v95 | v98 | v99 |
+|---|---|---|---|
+| critical path (CSS+JS) | — | 1,775KB | **1,405KB** |
+| risky winning declarations | 88 | 48 | **48** |
+| winning `font-size` < 10px | 30 | 1 | **1** |
+| interactive boxes < 40px | 13 | 7 | **7** |
+| explicit `transition: all` | 3 | 3 | **0** |
+| permanent `will-change` on touch | 2 rules | 2 rules | **0** (hover-only) |
+| QA checks | 42 | 51 | **117** (49 + 68) |
+
+**Deliverable:** `shivaa-update-v99.zip` (808KB, 40 files) — manifest identical
+to `shivaa-update-v95.zip`, drop-in. Six files changed content
+(`index.html`, `sw.js`, `css/styles.css`, `css/mobile.css`, `css/motion.css`,
+`js/app.js`); everything else is byte-identical. `js/admin.js` and `js/qr.js`
+**must still be uploaded** — they are lazy-loaded, not deleted, and the admin
+panel 404s without them.
+
+**Unverified:** still no browser and no PHP in the sandbox. The two changes that
+static analysis genuinely cannot prove are (1) that the lazy staff bundle
+renders the admin panel on a real device, and (2) that `defer` did not disturb
+boot ordering. Check those first: log in as admin and open `#/admin`, then
+confirm the storefront boots normally. Everything else is CSS the cascade
+simulator resolved winner-by-winner.
