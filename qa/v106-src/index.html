@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shivaa — Fine Jewellery | Live Gold Rates | HUID Check Guide</title>
+<meta name="description" content="Shivaa — honest purity, transparent making charges and live gold-rate pricing. Rings, necklaces, earrings, bangles, mangalsutra & silver. B2B jewellery supply across Rajasthan.">
+<link rel="icon" type="image/png" href="/images/favicon.png">
+<meta name="theme-color" content="#1d0509">
+<link rel="apple-touch-icon" href="/images/logo.png">
+<link rel="stylesheet" href="/css/fonts.css?v=106">
+<link rel="stylesheet" href="/css/styles.css?v=106">
+<link rel="stylesheet" href="/css/hallmark.css?v=106">
+<link rel="stylesheet" href="/css/trust.css?v=106">
+<link rel="stylesheet" href="/css/v105.css?v=106">
+</head>
+<body>
+
+<!-- ══════════ PRELOADER ══════════ -->
+<div class="preloader" id="preloader" aria-hidden="true">
+  <div class="pl-in">
+    <img src="/images/logo.png" alt="Shivaa">
+    <div class="pl-line"><i></i></div>
+    <span class="pl-txt">Curating your experience</span>
+  </div>
+</div>
+<div class="scroll-progress" id="scrollProg"></div>
+<div class="cursor-glow" id="cursorGlow"></div>
+
+<!-- ══════════ UTILITY STRIP (contact · live rates · quick links) ══════════ -->
+<div class="utilbar" id="utilbar">
+  <div class="container utilbar-in">
+    <div class="ub-left">
+      <a href="tel:+918905005921" class="ub-contact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>+91 89050 05921</a>
+      <a href="mailto:Support@shivaa.in" class="ub-contact hide-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/></svg>Support@shivaa.in</a>
+    </div>
+    <div class="ub-rates" id="utilRates"></div>
+    <div class="ub-right">
+      <a href="#/account?tab=orders" class="hide-sm">Track Order</a>
+      <a href="#/contact" class="hide-sm">Our Store</a>
+      <a href="#/b2b" class="ub-jwl">For Jewellers <span>✦</span></a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ HEADER ══════════ -->
+<header class="header" id="header">
+  <div class="container header-in header-top">
+    <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+    <a href="#/" class="brand" aria-label="Shivaa home">
+      <img src="/images/logo.png" alt="Shivaa" class="brand-logo">
+    </a>
+    <div class="hdr-search-wrap" id="hdrSearchWrap">
+      <form class="hdr-search" id="hdrSearch" role="search" autocomplete="off">
+        <span class="hs-glow" aria-hidden="true"></span>
+        <svg class="hs-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="hdrSearchInput" type="search" placeholder="Search rings, chains, mangalsutra&hellip;" aria-label="Search jewellery"
+               role="combobox" aria-expanded="false" aria-controls="hsPanel" aria-autocomplete="list" autocomplete="off" spellcheck="false">
+        <kbd class="hs-kbd" id="hsKbd" aria-hidden="true">/</kbd>
+        <button type="button" class="hs-clear" id="hdrSearchClear" aria-label="Clear search" hidden>&#10005;</button>
+        <span class="hs-shine" aria-hidden="true"></span>
+      </form>
+      <div class="hs-panel" id="hsPanel" hidden>
+        <div class="hs-chips" id="hsChips" aria-label="Popular searches &amp; categories"></div>
+        <div class="hs-results" id="hsResults" role="listbox" aria-label="Matching pieces"></div>
+        <div class="hs-foot">
+          <span class="hs-count" id="hsCount" role="status" aria-live="polite"></span>
+          <a class="hs-all" id="hsAll" href="#/shop">See all matches <span aria-hidden="true">&rarr;</span></a>
+        </div>
+        <span class="hs-motes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn search-btn" id="searchBtn" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      </button>
+      <a class="icon-btn" href="#/account?tab=profile" id="acctBtn" aria-label="Account">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+      </a>
+      <a class="portal-pill" href="#/partner" id="portalPill" hidden title="Open the B2B partner portal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3 4 9l8 12 8-12-8-6z"/><path d="M4 9h16"/><path d="M9 9l3 12M15 9l-3 12"/></svg>
+        <span>B2B Portal</span>
+      </a>
+      <a class="icon-btn" href="#/wishlist" aria-label="Wishlist" id="wishBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
+        <span class="badge" id="wishCount" hidden></span>
+      </a>
+      <a class="icon-btn compare-btn" href="#/compare" aria-label="Compare shortlist" id="cmpBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg>
+        <span class="badge" id="cmpCount" hidden></span>
+      </a>
+      <a class="icon-btn cart-btn" href="#/cart" aria-label="Cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 7h12l1.2 12.2a1.6 1.6 0 0 1-1.6 1.8H6.4a1.6 1.6 0 0 1-1.6-1.8L6 7z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
+        <span class="badge" id="cartCount" hidden></span>
+      </a>
+    </div>
+  </div>
+      <nav class="nav" id="mainNav" aria-label="Main menu">
+      <div class="nav-scroll">
+        <div class="dw-head">
+          <img src="/images/logo.png" alt="Shivaa">
+          <b>Shivaa</b>
+          <small>Jayal &middot; Nagaur &middot; Since 2025</small>
+          <button type="button" class="dw-close" id="dwClose" aria-label="Close menu">&#10005;</button>
+        </div>
+        <div class="dw-sec">Shop</div>
+        <a href="#/shop" data-nav="shop" class="dw-row dw-hero-row"><span class="dw-ic"><img src="/images/products/necklace-rani.jpg" alt="" loading="lazy"></span><span class="dw-tx"><b>All Jewellery</b><small>Browse jewellery designs</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
+
+        <div class="dw-tiles">
+          <a href="#/shop?category=rings" class="dw-tile"><img src="/images/products/ring-kundan.jpg" alt="" loading="lazy"><span>Rings</span></a>
+          <a href="#/shop?category=earrings" class="dw-tile"><img src="/images/products/earrings-jhumka.jpg" alt="" loading="lazy"><span>Earrings</span></a>
+          <a href="#/shop?category=necklaces" class="dw-tile"><img src="/images/products/necklace-rani.jpg" alt="" loading="lazy"><span>Necklaces</span></a>
+          <a href="#/shop?category=bangles" class="dw-tile"><img src="/images/products/bangle-kada.jpg" alt="" loading="lazy"><span>Bangles</span></a>
+        </div>
+        <button class="nav-cats dw-more" id="navCats" aria-haspopup="true" aria-expanded="false"><span class="dw-more-lbl">All 17 categories</span><span class="dt-more-lbl">Categories</span><svg class="dw-ar" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg></button>
+
+        <div class="dw-sec">Explore</div>
+        <a href="#/rates" data-nav="rates" class="dw-row dw-lite"><span class="dw-gi">&#9878;</span><span class="dw-tx"><b>Live Rates</b><small>Jaipur gold &amp; silver, live</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
+        <a href="#/buyback" data-nav="buyback" class="dw-row dw-lite"><span class="dw-gi">&#9670;</span><span class="dw-tx"><b>Gold Buyback</b><small>100% value, zero deduction</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
+        <a href="#/savings" data-nav="savings" class="dw-row dw-lite"><span class="dw-gi">&#10022;</span><span class="dw-tx"><b>Swarna Nidhi</b><small>11 + 1 monthly gold plan</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
+        <a href="#/services" data-nav="services" class="dw-row dw-lite"><span class="dw-gi">&#10022;</span><span class="dw-tx"><b>Bespoke &amp; Care</b><small>Custom orders &middot; polish &middot; exchange</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
+        <a href="#/catalogues" data-nav="catalogues" class="dw-row dw-lite"><span class="dw-gi">&#9670;</span><span class="dw-tx"><b>Design Selection</b><small>Order designs in fine metal</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
+
+        <a href="#/b2b" data-nav="b2b" class="nav-jwl"><span class="dw-gi njl-gem" aria-hidden="true">&#9670;</span><span class="dw-tx"><b>For Jewellers</b><small>GST partnership &middot; bullion desk &middot; schemes</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
+
+        <div class="dw-foot">
+          <div class="dw-flinks">
+            <a href="#/account?tab=orders">My Orders</a>
+            <a href="#/about">Our Story</a>
+            <a href="#/contact">Contact</a>
+          </div>
+          <a class="dw-call" href="tel:+918905005921">&#9742; +91 89050 05921</a>
+        </div>
+        </div>
+    </nav>
+  <div class="drawer-scrim" id="drawerScrim"></div>
+  <div class="mega-backdrop" id="megaBackdrop" hidden></div>
+  <div class="mega-panel" id="catMenu" role="menu" hidden></div>
+  <div class="search-drawer" id="searchDrawer">
+    <div class="container search-in">
+      <svg class="s-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="searchInput" type="text" placeholder="Search rings, jhumkas, mangalsutra, silver…" autocomplete="off">
+      <button class="s-close" id="searchClose">Esc</button>
+    </div>
+    <div class="container search-sugg" id="searchSugg"></div>
+  </div>
+</header>
+
+<!-- ══════════ VIEW ══════════ -->
+<main id="view"></main>
+
+<!-- ══════════ FOOTER — palatial couture edition ══════════ -->
+<footer class="footer" id="footer">
+  <div class="f-wave" aria-hidden="true">
+    <svg viewBox="0 0 1440 96" preserveAspectRatio="none">
+      <path class="fw fw1" d="M0,54 C180,86 320,10 520,32 C720,54 820,92 1010,70 C1200,48 1320,16 1440,40 L1440,96 L0,96 Z"></path>
+      <path class="fw fw2" d="M0,66 C160,40 340,88 540,70 C740,52 880,20 1080,44 C1260,66 1360,80 1440,64 L1440,96 L0,96 Z"></path>
+      <path class="fw fw3" d="M0,78 C220,60 380,96 600,84 C820,72 980,44 1180,62 C1320,74 1400,86 1440,80 L1440,96 L0,96 Z"></path>
+    </svg>
+    <span class="f-wave-beam"></span>
+  </div>
+  <div class="f-aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="f-cornice" aria-hidden="true"><i></i><b>✦</b><i></i></div>
+  <div class="f-sparks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  <div class="container">
+    <div class="f-crest">
+      <div class="f-emblem"><i class="ring-a"></i><i class="ring-b"></i><img src="/images/logo.png" alt="Shivaa"></div>
+      <h2 class="f-motto">Where every <em>auspicious beginning</em> finds its gold</h2>
+      <div class="f-ticker" id="footRateTicker" aria-label="Live Jaipur metal rates"></div>
+      <div class="f-gst" id="footGstin"></div>
+      <nav class="trust-footer-links" aria-label="Business information">
+        <a href="#/trust">Why Trust Shivaa</a>
+        <a href="#/hallmark">BIS Care / HUID guide</a>
+        <a href="#/size-guide">Ring Size Guide</a>
+        <a href="#/compare">Compare your shortlist</a>
+        <a href="#/contact">Contact Shivaa</a>
+      </nav>
+    </div>
+    <div class="f-body">
+      <div class="f-brand-col">
+        <p class="f-brand-tag">Honest purity (tanch) · transparent making charges · gold &amp; silver jewellery — from Sadar Bazaar, Jayal to every doorstep in India.</p>
+        <div class="foot-social">
+          <a href="#/" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg></a>
+          <a href="#/" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14.5 8.5H17V5h-2.5C12.6 5 11 6.6 11 8.5V11H8.5v3.4H11V21h3.5v-6.6H17l.5-3.4h-3V9c0-.3.2-.5.5-.5z" stroke-linejoin="round"/></svg></a>
+          <a href="#/" aria-label="WhatsApp" id="footWa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3.8a8.2 8.2 0 0 0-7 12.4L4 20l3.9-1a8.2 8.2 0 1 0 4.1-15.2z"/><path d="M9.3 8.6c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.5s.7 1.6.7 1.7c.1.2.1.3 0 .5l-.4.6c-.1.2-.2.3-.1.5.2.3.8 1.2 1.6 1.7 1 .6 1.4.7 1.7.6.2-.1.6-.6.8-.9.2-.3.4-.2.7-.1l1.6.8c.3.1.4.2.4.4 0 .5-.4 1.6-2 2-1.6.4-3.4-.3-5.1-1.9-1.4-1.3-2.3-2.9-2.4-4.2 0-.9.2-1.6.7-2.1z" fill="currentColor" stroke="none"/></svg></a>
+        </div>
+        <div class="foot-seals">
+          <a class="seal" href="#/hallmark"><b>HUID</b><small>Check guide</small></a>
+
+        </div>
+        <p class="trust-footer-note"><a href="#/trust">View the business details and document availability →</a></p>
+      </div>
+      <div class="f-cols">
+        <div class="foot-col"><h4>Shop</h4><div id="footCats"></div></div>
+        <div class="foot-col"><h4>Company</h4>
+          <a href="#/about">About Shivaa</a>
+          <a href="#/trust">Why Trust Shivaa</a>
+          <a href="#/privacy">Privacy Policy 🔒</a>
+          <a href="#/b2b">B2B for Jewellers</a>
+          <a href="#/services">Bespoke &amp; Repair</a>
+          <a href="#/rates">Jaipur Live Rates</a>
+          <a href="#/size-guide">Ring Size Guide</a>
+          <a href="#/catalogues">Design Selection</a>
+          <a href="#/buyback">100% Gold Buyback</a>
+          <a href="#/savings">Gold Savings Plan</a>
+          <a href="#/track">Track Your Order</a>
+          <a href="#/hallmark">BIS hallmark / HUID check</a>
+          <a href="#/faq">FAQs</a>
+        </div>
+        <div class="foot-col"><h4>Reach Us</h4>
+          <p class="foot-addr" id="trustFooterAddress">Loading store address…</p>
+          <a href="tel:+918905005921">☎ +91 89050 05921</a>
+          <a href="mailto:Support@shivaa.in">✉ Support@shivaa.in</a>
+          <p class="foot-hrs">All days · 10:00 – 20:30 IST</p>
+        </div>
+      </div>
+      <div class="fl-news">
+        <div class="fn-card">
+          <span class="label">The Shivaa Circle</span>
+          <h4>First look at new designs &amp; festive rates</h4>
+          <form class="nl-form" onsubmit="ShivaiNL(event)">
+            <input type="email" placeholder="Your email address" required>
+            <button type="submit">Join</button>
+          </form>
+          <p class="fn-note">✦ Royalty members get early access to festive collections</p>
+        </div>
+      </div>
+    </div>
+    <div class="f-wordmark" aria-hidden="true">SHIVAA</div>
+    <div class="foot-chips">
+      <a href="#/shop">All Jewellery</a><a href="#/shop?category=rings">Rings</a><a href="#/shop?category=earrings">Earrings</a><a href="#/shop?category=necklaces">Necklaces</a><a href="#/shop?category=bangles">Bangles</a><a href="#/shop?category=mangalsutra">Mangalsutra</a><a href="#/shop?category=silver">Silver 925</a><a href="#/shop?max=50000">Under ₹50K</a><a href="#/shop?tag=daily">Daily Wear</a><a href="#/rates">Live Rates</a><a href="#/rates">Live Rates</a><a href="#/catalogues">Design Selection</a>
+    </div>
+    <div class="pay-strip" aria-label="We accept">
+      <span class="pay-chip">UPI</span><span class="pay-chip">GOOGLE PAY</span><span class="pay-chip">PHONEPE</span><span class="pay-chip">VISA</span><span class="pay-chip">MASTERCARD</span><span class="pay-chip">RUPAY</span><span class="pay-chip">NETBANKING</span><span class="pay-chip">COD</span><span class="pay-chip">WHATSAPP PAY</span>
+    </div>
+    <div class="foot-legal">
+      <span id="trustFooterIdentity">© 2026 Shivaa</span>
+      <span class="foot-staff"><a href="#/privacy">Privacy Policy</a> · <a href="#/admin">Admin</a> · <a href="#/partner">Partner Portal</a></span>
+    </div>
+  </div>
+</footer>
+
+<!-- ══════════ MODALS / OVERLAYS ══════════ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox" role="dialog" aria-modal="true"></div>
+</div>
+<nav class="mnav" id="mnav" aria-label="Quick navigation">
+  <a href="#/" data-m="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 11l8-7 8 7v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M9.5 20.5v-6h5v6"/></svg><span>Home</span></a>
+  <a href="#/shop" data-m="shop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span>Shop</span></a>
+  <a href="#/rates" data-m="rates"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 14l4-5 4 3 4-7 6 9"/><path d="M3 20h18"/></svg><span>Rates</span></a>
+  <a href="#/wishlist" data-m="wishlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg><span>Wishlist</span></a>
+  <a href="#/account" data-m="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span>Account</span></a>
+</nav>
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="pdf-viewer" id="pdfViewer">
+  <div class="pdf-bar">
+    <div class="pdf-ttl-wrap"><img src="/images/logo.png" class="pdf-logo" alt=""><div class="pdf-title" id="pdfTitle">Catalogue</div></div>
+    <div class="pdf-actions">
+      <a class="btn btn-ghost btn-sm" id="pdfDownload" download>Download PDF</a>
+      <button class="pdf-close" id="pdfClose" aria-label="Close">✕</button>
+    </div>
+  </div>
+  <iframe id="pdfFrame" title="Catalogue PDF"></iframe>
+</div>
+
+<script src="/js/qr.js?v=106"></script>
+<script src="/js/otp-autofill.js?v=106"></script>
+<script src="/js/app.js?v=106"></script>
+<script src="/js/hallmark.js?v=106"></script>
+<script src="/js/trust.js?v=106"></script>
+<script src="/js/auth.js?v=106"></script>
+<script src="/js/admin.js?v=106"></script>
+<script src="/js/v105.js?v=106"></script>
+</body>
+</html>

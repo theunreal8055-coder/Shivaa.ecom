@@ -8,9 +8,6 @@
  */
 declare(strict_types=1);
 
-// v81 direct-access guard — this file is an include library, never a URL entry point.
-if (!defined('SHV_RUN')) { http_response_code(403); header('Content-Type: text/plain; charset=utf-8'); echo '403 Forbidden'; exit; }
-
 final class HallmarkProblem extends RuntimeException {
   public int $httpStatus;
   public function __construct(int $status, string $message) {
@@ -68,7 +65,7 @@ function hallmark_request_body(int $limit): array {
 function hallmark_lookup(array $body): array {
   if (array_keys($body) !== ['huid']) throw new HallmarkProblem(400, 'Send only the huid field as text.');
   $huid = hallmark_huid($body['huid']);
-  if ($huid === null) throw new HallmarkProblem(422, 'Enter exactly six letters (AâZ) or numbers (0â9), with no spaces or punctuation inside the HUID. This checks format only.');
+  if ($huid === null) throw new HallmarkProblem(422, 'Enter exactly six letters (A–Z) or numbers (0–9), with no spaces or punctuation inside the HUID. This checks format only.');
   return array_merge(hallmark_status(), [
     'status' => 'unavailable',
     'huid' => $huid,
@@ -144,16 +141,6 @@ function hallmark_product(array $product): array {
   // IDs must not leak via list/detail/similar/wishlist product responses.
   foreach (array_keys($product) as $key) {
     if (preg_match('/\A(?:hallmark|huid|bis)/i', (string)$key)) unset($product[$key]);
-  }
-  // v83 — legacy rows can predate the media-URL write sanitizer; re-filter
-  // image/video URLs on every public response (attribute-safe chars only).
-  if (function_exists('shv_safe_media_url')) {
-    if (isset($product['images']) && is_array($product['images'])) {
-      $ok = [];
-      foreach (array_slice($product['images'], 0, 12) as $im) { $u = shv_safe_media_url($im); if ($u !== null) $ok[] = $u; }
-      $product['images'] = $ok;
-    }
-    if (array_key_exists('video', $product)) $product['video'] = shv_safe_media_url($product['video']) ?? '';
   }
   $product['hallmark'] = [
     'status' => $entries ? 'recorded_unverified' : 'not_provided',
