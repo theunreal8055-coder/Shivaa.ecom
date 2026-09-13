@@ -18386,7 +18386,10 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5068.jpg"
+        "/images/designs/rings/PGS5068_shot_studio.jpg",
+        "/images/designs/rings/PGS5068_shot_editorial.jpg",
+        "/images/designs/rings/PGS5068_shot_worn.jpg",
+        "/images/designs/rings/PGS5068_shot_gift.jpg"
       ],
       "stoneValue": 0,
       "name": "Sher Singh Ring PGS5068 | Gold 22K",
@@ -18415,8 +18418,8 @@
         "alt": "Gold 22K ring with polki / CZ pav\u00e9 plate \u2014 Sher Singh Ring PGS5068 | Gold 22K"
       },
       "category_note": "Ring by Shivaa Jewellers",
-      "mediaNote": "Catalogue reference photo shown; full 4-shot e-commerce set (macro, model, 2 detail) in progress \u2014 batch-2 ledger in HANDOFF.md.",
-      "photoStatus": "pending-4shot",
+      "mediaNote": "AI-stylised visualisation of the original design photo.",
+      "photoStatus": "complete",
       "supplierTag": "PGS 10",
       "sku": "PGS5068",
       "id": "p_5a25827dac17"
@@ -18444,7 +18447,10 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5069.jpg"
+        "/images/designs/rings/PGS5069_shot_studio.jpg",
+        "/images/designs/rings/PGS5069_shot_editorial.jpg",
+        "/images/designs/rings/PGS5069_shot_worn.jpg",
+        "/images/designs/rings/PGS5069_shot_gift.jpg"
       ],
       "stoneValue": 0,
       "name": "Maharana Ring PGS5069 | Gold 22K",
@@ -18473,8 +18479,8 @@
         "alt": "Gold 22K ring with polki / CZ pav\u00e9 plate \u2014 Maharana Ring PGS5069 | Gold 22K"
       },
       "category_note": "Ring by Shivaa Jewellers",
-      "mediaNote": "Catalogue reference photo shown; full 4-shot e-commerce set (macro, model, 2 detail) in progress \u2014 batch-2 ledger in HANDOFF.md.",
-      "photoStatus": "pending-4shot",
+      "mediaNote": "AI-stylised visualisation of the original design photo.",
+      "photoStatus": "complete",
       "supplierTag": "PGS 10",
       "sku": "PGS5069",
       "id": "p_09ebc817ee45"

@@ -84,8 +84,9 @@ one with the model, one macro shoot, two detail photos** — exactly like the ex
    `deploy/batch2_upload_bridge.php` (ADD-ONLY tablet bridge — deletes nothing).
 
 ### Batch-2 photoshoot ledger (48)
-**✅ complete (2):** PGS5066 Veerendra 3.100g · PGS5067 Ranveer 3.260g
-**⏳ pending 4-shot (46):** PGS5068 3.520 · PGS5069 3.260 · PGS5070 4.390 · PGS5071 3.950 ·
+**✅ complete (4):** PGS5066 Veerendra 3.100g · PGS5067 Ranveer 3.260g · PGS5068 Sher Singh 3.520g ·
+PGS5069 Maharana 3.260g
+**⏳ pending 4-shot (44):** PGS5070 4.390 · PGS5071 3.950 ·
 PGS5072 3.580 · PGS5073 3.430 · PGS5074 3.210 · PGS5075 3.620 · PGS5076 2.770 · PGS5077 3.460 ·
 PGS5078 3.270 · PGS5079 4.000 · PGS5080 4.040 · PGS5081 3.750 · PGS5082 4.030 · PGS5083 3.580 ·
 PGS5084 3.490 · PGS5085 3.660 · PGS5086 3.660 · PGS5087 4.160 · PGS5088 3.950 · PGS5089 3.540 ·
@@ -180,7 +181,7 @@ cron deploys it within ~5 min (or run Path B manually if no cron).
 ### Product counts (453 total in db.json — was 405 until batch 2; do not trim)
 | Category | Count | Status |
 |----------|-------|--------|
-| Rings | 133 = 65 PGS batch 1 + 48 PGS batch 2 + 20 original | batch 1: 65/65 full photoshoot · batch 2: 2/48 shot, 46 pending (products + refs already live in db) |
+| Rings | 133 = 65 PGS batch 1 + 48 PGS batch 2 + 20 original | batch 1: 65/65 full photoshoot · batch 2: 4/48 shot, 44 pending (products + refs already live in db) |
 | Necklaces, Earrings, Bangles, Bracelets, Pendants, Mangalsutra, Nosepins, Silver, Bajubandh, Rakhdi, Aad, Sheeshphool, Hathphool, Punach, Bridal Anklets, Chains | 16 × 20 = 320 | Untouched, live |
 
 ### PGS RING LEDGER (all 65 — agent: keep this exact table current)
@@ -242,6 +243,10 @@ PGS5059 Kanchan
 7. HANDOFF + SESSION-STATE updated with the batch-2 ledger (2/48 shot) and continue recipe.
 8. Committed + pushed to `arena/01a09ab7-shivaa-ecom`. **Remaining: 46 rings × 4 shots
    (≈ 2 rings/turn at the 10-gen cap) — next: PGS5068 + PGS5069.**
+9. (same day, turn 2) refs re-ingested with harmonic (Jacobi) inpaint — killed the gold "wick"
+   flaps the v3 fill left where the strap crossed the shank (9 refs needed a wing-cut afterwards).
+   +2 rings shot/wired/staged: **PGS5068 Sher Singh, PGS5069 Maharana** (5069 studio re-rolled once
+   for the milgrain beaded border). **4/48 complete — next: PGS5070 + PGS5071.**
 
 **2026-09-07 — v43 batch 1 (this session)**
 1. Read HANDOFF v42; found 26 PGS rings with reference photo only (their `_shot_studio.jpg` was a byte-copy of the raw photo incl. green price tag).
