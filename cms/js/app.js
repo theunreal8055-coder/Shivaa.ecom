@@ -62,7 +62,7 @@ function openModal(html, cls = '') {
 }
 function closeModal() { $('#modalOverlay').classList.remove('open'); unlockScroll(); }
 $('#modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeModal(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $('#pdfViewer').classList.remove('open'); $('#searchDrawer').classList.remove('open'); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $('#pdfViewer').classList.remove('open'); $('#searchDrawer').classList.remove('open'); if (window.Shivaa && Shivaa.closeCart) Shivaa.closeCart(); if (window._closeFilterSheet) window._closeFilterSheet(); } });
 
 /* ─────────── API client ─────────── */
 async function api(path, opts = {}) {
@@ -233,7 +233,72 @@ window.Shivaa.waProduct = id => {
   waOpen(waProductMsg(p, onPdp ? (pd.qty || 1) : 1, size, onPdp ? ($('#engrave')?.value || null) : null));
 };
 
+/* ─────────── v106 · 20-minute checkout rate lock ─────────── */
+let RATE_LOCK_MIN = 20;
+function lockedRates() { const L = window._rateLock; return (L && L.rates) ? L.rates : (state.rates || {}); }
+function rlCountdown() {
+  const L = window._rateLock; if (!L || !L.expiresAt) return '';
+  const s = Math.max(0, Math.round((L.expiresAt - Date.now()) / 1000));
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+function rlExpired() { const L = window._rateLock; return !L || !L.expiresAt || Date.now() >= L.expiresAt; }
+function ensureRateLock(force) {
+  const R = state.rates;
+  if (!R || !R.gold22) return window._rateLock || null;
+  if (!force && window._rateLock && !rlExpired()) return window._rateLock;
+  const now = Date.now();
+  const snap = { gold24: R.gold24, gold22: R.gold22, gold18: R.gold18, silver: R.silver };
+  window._rateLock = { rates: snap, at: new Date(now).toISOString(), atMs: now, expiresAt: now + RATE_LOCK_MIN * 60000 };
+  try { store.set('shv_rate_lock', window._rateLock); } catch (e) {}
+  return window._rateLock;
+}
+function restoreRateLock() {
+  try {
+    const L = store.get('shv_rate_lock');
+    if (L && L.expiresAt && L.rates && Date.now() < L.expiresAt) { window._rateLock = L; RATE_LOCK_MIN = Math.max(1, Math.round((L.expiresAt - L.atMs) / 60000)); }
+  } catch (e) {}
+}
+function rateLockHTML() {
+  const L = ensureRateLock(); if (!L) return '';
+  const r = L.rates;
+  return `<div class="rate-lock" id="rateLock" role="status" aria-live="polite">
+    <span class="rl-ic" aria-hidden="true">⏱</span>
+    <div><b>Rate locked for <span class="rl-t" id="rlT">${rlCountdown()}</span></b>
+      <small id="rlMsg">Gold &amp; silver prices cannot move while you finish this order.</small></div>
+    <div class="rl-rates"><span>22K <b>${fmt(r.gold22)}</b>/g</span><span>18K <b>${fmt(r.gold18)}</b>/g</span><span>Silver <b>${fmt2(r.silver)}</b>/g</span></div>
+    <button type="button" class="rl-btn" id="rlRefresh" title="Discard the lock and re-price at the latest rate">Use latest rate</button>
+  </div>`;
+}
+let _rlTimer = null;
+function startRateLockTicker() {
+  stopRateLockTicker();
+  _rlTimer = setInterval(() => {
+    const el = $('#rlT'); if (!el) { stopRateLockTicker(); return; }
+    if (rlExpired()) {
+      const before = JSON.stringify((window._rateLock || {}).rates || {});
+      ensureRateLock(true);
+      const after = JSON.stringify((window._rateLock || {}).rates || {});
+      renderRateLock();
+      refreshCheckoutTotals();
+      toast(before === after ? 'Rate lock renewed for 20 minutes' : 'Rate lock expired — prices refreshed to the latest rate', before === after ? 'ok' : 'err');
+      return;
+    }
+    el.textContent = rlCountdown();
+    const box = $('#rateLock');
+    if (box) box.classList.toggle('warn', (window._rateLock.expiresAt - Date.now()) < 120000);
+  }, 1000);
+}
+function stopRateLockTicker() { if (_rlTimer) { clearInterval(_rlTimer); _rlTimer = null; } }
+function renderRateLock() { const host = $('#rateLock'); if (host) host.outerHTML = rateLockHTML(); bindRateLockBtn(); }
+function bindRateLockBtn() {
+  const b = $('#rlRefresh'); if (!b || b._bound) return; b._bound = true;
+  b.onclick = () => { ensureRateLock(true); renderRateLock(); refreshCheckoutTotals(); toast('Re-priced at the latest live rate'); };
+}
+
 /* ─────────── page component registry ─────────── */
+/* v106 — the site's OTP length, in one place. api.php returns `digits` with
+   every send-otp call; 4 is the deployed truth and the safe fallback. */
+const OTP_LEN = 4;
 const TAGS = { wedding: 'Wedding', festive: 'Festive', daily: 'Everyday', gifting: 'Gifting', mens: "Men's", heritage: 'Heritage', luxe: 'Luxe', new: 'New In', bestseller: 'Bestsellers' };
 
 /* price computation — mirrors the server exactly */
@@ -407,12 +472,15 @@ function waCompare() { const msg = waCompareMsg(); if (msg) waOpen(msg); }
 function updateBadges() {
   const n = state.cart.reduce((a, i) => a + i.qty, 0);
   const cc = $('#cartCount'); if (cc) { cc.textContent = n; cc.hidden = !n; }
+  if ($('#cartDrawer') && $('#cartDrawer').classList.contains('open')) renderCartDrawer();   // v106
   refreshWishBadge();
   updateCompareUI();
 }
 async function refreshWishBadge() {
-  let wl = state.localWish;
-  if (state.user) { try { const r = await api('/api/wishlist'); wl = r.wishlist; } catch (e) {} }
+  let wl = Array.isArray(state.localWish) ? state.localWish : [];
+  // v105 — an unexpected payload (proxy page, partial JSON, shape change) must
+  // never take the header badge down with it: fall back to the local list.
+  if (state.user) { try { const r = await api('/api/wishlist'); if (r && Array.isArray(r.wishlist)) wl = r.wishlist; } catch (e) {} }
   const wc = $('#wishCount'); if (wc) { wc.textContent = wl.length; wc.hidden = !wl.length; }
 }
 function cartCount() { return state.cart.reduce((a, i) => a + i.qty, 0); }
@@ -439,14 +507,159 @@ function updatePartnerUI() {
 window.Shivaa.updatePartnerUI = updatePartnerUI;
 
 /* ─────────── cart ops ─────────── */
-function addToCart(id, qty = 1, size = null, engraving = null) {
+function addToCart(id, qty = 1, size = null, engraving = null, origin = null) {
   const key = i => i.id + '|' + (i.size || '');
   const item = { id, qty, size, engraving };
   const ex = state.cart.find(i => key(i) === key(item));
   if (ex) ex.qty += qty; else state.cart.push(item);
   store.set('shv_cart', state.cart);
-  updateBadges(); toast('Added to cart');
+  updateBadges();
+  /* v106 — the piece flies into the bag and the mini-cart slides in with its
+     checkout button, exactly like the reference jewellery apps. Falls back to
+     the old toast when motion is reduced or the origin image is unknown. */
+  const flew = flyToCart(id, origin);
+  if (openCartDrawer(id)) { if (!flew) toast('Added to cart'); }
+  else toast('Added to cart');
 }
+
+/* ─────────── v106 · fly-to-bag + mini-cart drawer ─────────── */
+function cartIconEl() { return $('.cart-btn') || ($('#cartCount') && $('#cartCount').closest('a')); }
+function flyToCart(id, origin) {
+  try {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    const dest = cartIconEl(); if (!dest) return false;
+    const src = origin && origin.getBoundingClientRect ? origin
+      : ($(`.qv-slide.on img`) || $(`#qvStage img`) || $(`.p-card[data-pid="${id}"] img`) || $(`.pd-media img`) || $(`.pd-thumbs img.on`));
+    if (!src) return false;
+    const a = src.getBoundingClientRect(), b = dest.getBoundingClientRect();
+    if (!a.width || !a.height || !b.width) return false;
+    const g = document.createElement('div');
+    g.className = 'fly-ghost'; g.setAttribute('aria-hidden', 'true');
+    g.style.left = a.left + 'px'; g.style.top = a.top + 'px';
+    g.style.width = a.width + 'px'; g.style.height = a.height + 'px';
+    const img = document.createElement('img');
+    img.src = src.currentSrc || src.src || ''; img.alt = '';
+    g.appendChild(img); document.body.appendChild(g);
+    const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      g.style.transform = `translate(${dx}px, ${dy}px) scale(.07) rotate(10deg)`;
+      g.style.opacity = '.2';
+    }));
+    setTimeout(() => {
+      g.remove();
+      dest.classList.remove('landed'); void dest.offsetWidth; dest.classList.add('landed');
+      const badge = $('#cartCount');
+      if (badge) { badge.classList.remove('bump'); void badge.offsetWidth; badge.classList.add('bump'); }
+      const burst = document.createElement('span');
+      burst.className = 'fly-burst';
+      burst.style.left = (b.left + b.width / 2 - 7) + 'px'; burst.style.top = (b.top + b.height / 2 - 7) + 'px';
+      document.body.appendChild(burst); setTimeout(() => burst.remove(), 640);
+    }, 730);
+    return true;
+  } catch (e) { return false; }
+}
+
+function ensureCartDrawer() {
+  if ($('#cartDrawer')) return $('#cartDrawer');
+  const scrim = document.createElement('div');
+  scrim.className = 'cart-scrim'; scrim.id = 'cartScrim';
+  const d = document.createElement('aside');
+  d.className = 'cart-drawer'; d.id = 'cartDrawer'; d.setAttribute('aria-label', 'Your bag');
+  d.innerHTML = `
+    <div class="cd-bar"><h3>Your bag</h3><span class="cd-n" id="cdN">0 items</span>
+      <button type="button" class="cd-x" id="cdX" aria-label="Close bag">✕</button></div>
+    <div class="cd-body" id="cdBody"></div>
+    <div class="cd-foot" id="cdFoot"></div>`;
+  document.body.appendChild(scrim); document.body.appendChild(d);
+  $('#cdX').onclick = closeCartDrawer;
+  scrim.onclick = closeCartDrawer;
+  /* swipe / drag down to dismiss on phones */
+  let y0 = null;
+  const bar = $('.cd-bar', d);
+  const start = e => { y0 = (e.touches ? e.touches[0].clientY : e.clientY); d.classList.add('dragging'); };
+  const move = e => {
+    if (y0 === null) return;
+    const dy = (e.touches ? e.touches[0].clientY : e.clientY) - y0;
+    if (dy > 0) d.style.transform = 'translateY(' + dy + 'px)';
+  };
+  const end = e => {
+    if (y0 === null) return;
+    const dy = ((e.changedTouches ? e.changedTouches[0].clientY : e.clientY) || 0) - y0;
+    d.classList.remove('dragging'); d.style.transform = '';
+    if (dy > 90) closeCartDrawer();
+    y0 = null;
+  };
+  bar.addEventListener('touchstart', start, { passive: true });
+  bar.addEventListener('touchmove', move, { passive: true });
+  bar.addEventListener('touchend', end, { passive: true });
+  return d;
+}
+function renderCartDrawer(focusId) {
+  const d = $('#cartDrawer'); if (!d) return;
+  const body = $('#cdBody'), foot = $('#cdFoot');
+  const mLabel = x => x.metal === 'Silver' ? 'Silver ' + (x.purity || '925') : (x.purity || '') + ' Gold';
+  const rows = state.cart.map(i => ({ i, p: state.productsCache.find(x => x.id === i.id) })).filter(r => r.p);
+  const n = state.cart.reduce((a, i) => a + i.qty, 0);
+  $('#cdN').textContent = n + (n === 1 ? ' item' : ' items');
+  if (!rows.length) {
+    body.innerHTML = `<div class="cd-empty">✦<br><br>Your bag is empty.<br><a href="#/shop" onclick="Shivaa.closeCart()" style="color:var(--maroon);text-decoration:underline">Browse the collection →</a></div>`;
+    foot.innerHTML = '';
+    return;
+  }
+  const S = state.settings || {};
+  const freeAbove = +S.freeShipAbove || 0, shipFee = +S.shippingFee || 0;
+  let sub = 0;
+  body.innerHTML = rows.map(({ i, p }) => {
+    const pr = price(p); const line = pr.total * i.qty; sub += line;
+    const img = (p.images && p.images[0]) || '/images/logo.png';
+    return `<div class="cd-row"${focusId === p.id ? ' style="background:var(--gold-faint);border-radius:12px"' : ''}>
+      <img src="${esc(img)}" alt="" loading="lazy">
+      <div><b>${esc(p.name)}</b><small>${esc(mLabel(p))} · ${esc(String(p.weightG))} g${i.size ? ' · size ' + esc(String(i.size)) : ''}${i.engraving ? ' · “' + esc(i.engraving) + '”' : ''}</small>
+        <span class="cd-rowctl"><span class="cd-qty"><button type="button" class="cd-minus" onclick="Shivaa.cartQty('${p.id}','${esc(String(i.size || ''))}',-1)" aria-label="One less">−</button><b>${i.qty}</b><button type="button" class="cd-plus" onclick="Shivaa.cartQty('${p.id}','${esc(String(i.size || ''))}',1)" aria-label="One more">+</button></span>
+        <button type="button" class="cd-rm" onclick="Shivaa.cartRemove('${p.id}','${esc(String(i.size || ''))}')">remove</button></span></div>
+      <span class="cd-p">${fmt(line)}</span></div>`;
+  }).join('');
+  const toFree = freeAbove ? Math.max(0, freeAbove - sub) : 0;
+  const ship = sub >= freeAbove || !freeAbove ? 0 : shipFee;
+  foot.innerHTML = `
+    ${freeAbove ? `<div class="cd-note">${toFree > 0 ? `Add <b>${fmt(toFree)}</b> more for free insured delivery` : '✓ Free insured delivery unlocked'}</div>` : ''}
+    <div class="cd-sum"><span>Subtotal <small style="color:var(--ink-3)">(incl. 3% GST)</small></span><b>${fmt(sub)}</b></div>
+    <div class="cd-note">${ship ? `Delivery ${fmt(ship)} · ` : ''}priced at today's live Jaipur rate${window._rateLock ? ' — locked ' + rlCountdown() : ''}</div>
+    <div class="cd-acts">
+      <a class="btn btn-primary" href="#/checkout" onclick="Shivaa.closeCart()">Checkout securely →</a>
+      <a class="btn btn-ghost" href="#/cart" onclick="Shivaa.closeCart()">View full cart</a>
+    </div>`;
+}
+function openCartDrawer(focusId) {
+  const d = ensureCartDrawer(); if (!d) return false;
+  renderCartDrawer(focusId);
+  d.classList.add('open'); $('#cartScrim').classList.add('open');
+  lockScroll();
+  setTimeout(() => { const x = $('#cdX'); x && x.focus({ preventScroll: true }); }, 260);
+  return true;
+}
+function closeCartDrawer() {
+  const d = $('#cartDrawer'); if (!d || !d.classList.contains('open')) return;
+  d.classList.remove('open'); $('#cartScrim').classList.remove('open');
+  d.style.transform = ''; unlockScroll();
+}
+function cartQty(id, size, delta) {
+  const it = state.cart.find(i => i.id === id && String(i.size || '') === String(size || ''));
+  if (!it) return;
+  it.qty += delta;
+  if (it.qty <= 0) state.cart = state.cart.filter(x => x !== it);
+  store.set('shv_cart', state.cart); updateBadges(); renderCartDrawer();
+  if (location.hash.startsWith('#/cart')) pages.cart($('#view'));
+  if (location.hash.startsWith('#/checkout')) refreshCheckoutTotals();
+}
+function cartRemove(id, size) { cartQty(id, size, -99); toast('Removed from bag'); }
+/* the header bag opens the drawer instead of a full page load */
+document.addEventListener('click', e => {
+  const btn = e.target.closest && e.target.closest('.cart-btn');
+  if (!btn || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  e.preventDefault(); openCartDrawer();
+});
 async function toggleWish(id) {
   if (!state.user) {
     state.localWish = state.localWish.includes(id) ? state.localWish.filter(x => x !== id) : [...state.localWish, id];
@@ -492,51 +705,152 @@ function bindCountdown(el, target) {
   const iv = setInterval(tick, 1000); tick();
 }
 
-/* ─────────── poster carousel ─────────── */
+/* ─────────── poster carousel ───────────
+   v105 rebuild — the 4 home banners now crossfade on a stacked grid (frame
+   height is always the tallest slide, so nothing collapses or jumps), with
+   progress-filled dots, a slide counter and self-healing autoplay:
+   every pause reason (hover, focus, touch, off-screen, hidden tab, swipe)
+   is tracked, so the slider can never get stuck stopped again.           */
+let _carCtl = null;
 function initCarousel() {
-  const car = $('#heroCarousel'); if (!car) return;
-  clearInterval(window._carTimer);
-  const track = $('#cTrack'), slides = $$('.c-slide', car), n = slides.length;
-  const dots = $('#cDots');
-  dots.innerHTML = slides.map((_, i) => `<span class="c-dot ${i === 0 ? 'on' : ''}" data-i="${i}"></span>`).join('');
-  let idx = 0;
-  const go = i => {
-    idx = (i + n) % n;
-    track.style.transform = `translateX(-${idx * 100}%)`;
-    $$('.c-dot', dots).forEach((d, j) => d.classList.toggle('on', j === idx));
-    // mark the visible slide so its Ken-Burns zoom + copy reveal run only there
+  const car = $('#heroCarousel');
+  if (_carCtl) { try { _carCtl.destroy(); } catch (e) {} _carCtl = null; }
+  clearInterval(window._carTimer); window._carTimer = null;
+  if (!car) return;
+  const track = $('#cTrack'), dotsBox = $('#cDots');
+  const slides = $$('.c-slide', car), n = slides.length;
+  if (!track || !n) return;
+
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isMob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
+  const DUR = reduce ? 0 : (isMob ? 9000 : 6200);   // v42 tuning kept: slower on touch
+
+  car.classList.add('xfade');
+  track.style.transform = '';
+  if (dotsBox) dotsBox.innerHTML = slides.map((_, i) =>
+    `<button type="button" class="c-dot${i === 0 ? ' on' : ''}" data-i="${i}" aria-label="Show poster ${i + 1} of ${n}"><i></i></button>`).join('');
+  const dots = dotsBox ? $$('.c-dot', dotsBox) : [];
+  if (!car.querySelector('.c-prog'))  car.insertAdjacentHTML('beforeend', '<div class="c-prog" aria-hidden="true"><i></i></div>');
+  if (!car.querySelector('.c-count')) car.insertAdjacentHTML('beforeend', `<div class="c-count" aria-hidden="true"><b>01</b><span>/ ${String(n).padStart(2, '0')}</span></div>`);
+  if (!car.querySelector('.c-live'))  car.insertAdjacentHTML('beforeend', '<p class="c-live" role="status" aria-live="polite"></p>');
+  const prog = $('.c-prog i', car), countB = $('.c-count b', car), liveEl = $('.c-live', car);
+
+  let idx = 0, timer = null, remaining = DUR, startedAt = 0, running = false, alive = true;
+  const holds = new Set();
+  const _off = [];
+  const on = (el, ev, fn, opt) => { if (!el) return; el.addEventListener(ev, fn, opt); _off.push(() => el.removeEventListener(ev, fn, opt)); };
+  const dotBar = i => (dots[i] ? $('i', dots[i]) : null);
+
+  const barTo = (el, ms) => {
+    if (!el || !ms) return;
+    el.style.transition = 'none'; el.style.transform = 'scaleX(0)'; void el.offsetWidth;
+    el.style.transition = `transform ${ms}ms linear`; el.style.transform = 'scaleX(1)';
+  };
+  const barFreeze = el => {
+    if (!el) return;
+    let s = 1;
+    try { s = new DOMMatrixReadOnly(getComputedStyle(el).transform).a; } catch (e) {}
+    el.style.transition = 'none'; el.style.transform = `scaleX(${Math.max(0, Math.min(1, s || 0))})`;
+  };
+  const barStop = el => { if (el) { el.style.transition = 'none'; el.style.transform = 'scaleX(0)'; } };
+
+  const paint = () => {
     slides.forEach((sl, j) => {
       sl.classList.toggle('on', j === idx);
       sl.setAttribute('aria-hidden', j === idx ? 'false' : 'true');
+      try { sl.inert = (j !== idx); } catch (e) {}
     });
+    dots.forEach((d, j) => { d.classList.toggle('on', j === idx); d.setAttribute('aria-current', j === idx ? 'true' : 'false'); });
+    if (countB) countB.textContent = String(idx + 1).padStart(2, '0');
+    if (liveEl) liveEl.textContent = `Poster ${idx + 1} of ${n}`;
   };
-  go(0);
+  const schedule = () => {
+    clearTimeout(timer); window._carTimer = null;
+    if (!DUR) { barStop(prog); dots.forEach((d, j) => barStop(dotBar(j))); return; }
+    startedAt = performance.now();
+    timer = setTimeout(() => { if (alive) go(idx + 1); }, remaining);
+    window._carTimer = timer;
+    dots.forEach((d, j) => barStop(dotBar(j)));
+    barTo(prog, remaining); barTo(dotBar(idx), remaining);
+  };
+  const stopRun = () => {
+    if (!running) return;
+    running = false; car.classList.add('c-paused');
+    clearTimeout(timer); window._carTimer = null;
+    remaining = Math.max(600, remaining - (performance.now() - startedAt));
+    barFreeze(prog); barFreeze(dotBar(idx));
+  };
+  const startRun = () => {
+    if (running || !alive) return;
+    running = true; car.classList.remove('c-paused');
+    schedule();
+  };
+  const hold = r => { holds.add(r); stopRun(); };
+  const release = r => { holds.delete(r); if (!holds.size) startRun(); };
+  const go = i => {
+    if (!alive) return;
+    idx = ((i % n) + n) % n;
+    paint();
+    remaining = DUR;
+    if (running) schedule(); else { barStop(prog); dots.forEach((d, j) => barStop(dotBar(j))); }
+  };
   const next = () => go(idx + 1), prev = () => go(idx - 1);
-  $('.c-next', car).onclick = next; $('.c-prev', car).onclick = prev;
-  $$('.c-dot', dots).forEach(d => d.onclick = () => go(+d.dataset.i));
-  const start = () => {
-    // v42: slower auto-advance on mobile (12s vs 5.5s desktop) so it glides, not jumps
-    const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
-    const interval = _mob ? 12000 : 5500;
-    window._carTimer = setInterval(next, interval);
-  };
-  const stop = () => clearInterval(window._carTimer);
-  car.addEventListener('mouseenter', stop);
-  car.addEventListener('mouseleave', start);
-  let sx = null;
-  car.addEventListener('pointerdown', e => { sx = e.clientX; stop(); });
-  car.addEventListener('pointerup', e => {
-    if (sx == null) return;
-    const dx = e.clientX - sx;
-    if (Math.abs(dx) > 42) (dx < 0 ? next : prev)();
-    sx = null; start();
+
+  paint();
+  on($('.c-next', car), 'click', e => { e.preventDefault(); next(); });
+  on($('.c-prev', car), 'click', e => { e.preventDefault(); prev(); });
+  dots.forEach(d => on(d, 'click', e => { e.preventDefault(); go(+d.dataset.i); }));
+  on(car, 'mouseenter', () => hold('hover'));
+  on(car, 'mouseleave', () => release('hover'));
+  on(car, 'focusin', () => hold('focus'));
+  on(car, 'focusout', () => release('focus'));
+  on(car, 'keydown', e => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
   });
-  start();
+  let sx = null, sy = null, swiping = false;
+  on(car, 'pointerdown', e => { sx = e.clientX; sy = e.clientY; swiping = false; hold('touch'); });
+  on(car, 'pointermove', e => {
+    if (sx == null || swiping) return;
+    if (Math.abs(e.clientX - sx) > 10 && Math.abs(e.clientX - sx) > Math.abs(e.clientY - sy)) swiping = true;
+  });
+  const endSwipe = e => {
+    if (sx == null) { release('touch'); return; }
+    const dx = (e && typeof e.clientX === 'number') ? e.clientX - sx : 0;
+    if (Math.abs(dx) > 42) (dx < 0 ? next : prev)();
+    sx = null; sy = null; swiping = false;
+    release('touch');
+  };
+  on(car, 'pointerup', endSwipe);
+  on(car, 'pointercancel', endSwipe);      // v105 fix: a cancelled touch used to kill autoplay forever
+  on(car, 'pointerleave', endSwipe);
+  on(document, 'visibilitychange', () => { document.hidden ? hold('hidden') : release('hidden'); });
+  let io = null;
+  if ('IntersectionObserver' in window) {
+    io = new IntersectionObserver(es => es.forEach(en => en.isIntersecting ? release('offscreen') : hold('offscreen')),
+      { threshold: 0.08 });
+    io.observe(car);
+  }
+  if (DUR) startRun();
+
+  _carCtl = {
+    go, next, prev,
+    destroy() {
+      alive = false; running = false;
+      clearTimeout(timer); window._carTimer = null;
+      if (io) { try { io.disconnect(); } catch (e) {} io = null; }
+      _off.forEach(fn => { try { fn(); } catch (e) {} });
+      car.classList.remove('xfade', 'c-paused');
+      barStop(prog); dots.forEach((d, j) => barStop(dotBar(j)));
+    },
+  };
+  window.Shivaa.carousel = _carCtl;
 }
 
 /* ─────────── 3D gold ring (hero canvas) ─────────── */
 function startRing3D(canvas) {
   const ctx = canvas.getContext('2d');
+  if (!ctx) return;                       // no 2D canvas (old webviews) — skip the ring
   let W = 0, H = 0, dpr = Math.min(devicePixelRatio || 1, 2);
   function size() {
     const r = canvas.parentElement.getBoundingClientRect();
@@ -625,6 +939,7 @@ async function loadRates() {
   try {
     const r = await api('/api/rates');
     state.rates = { ...r, ...(r.jaipur || {}) };  // storefront prices = Jaipur market rates
+    if (+r.lockMinutes > 0) RATE_LOCK_MIN = +r.lockMinutes;   // v106 — checkout lock window
     renderTicker(); document.dispatchEvent(new CustomEvent('rates'));
   } catch (e) {}
 }
@@ -634,15 +949,37 @@ function renderTicker() {
   const h = R.history || [];
   const prev = h.length > 1 ? h[h.length - 2] : null;
   const chg = (a, b) => {
-    if (prev == null) return '';
+    if (prev == null || b == null) return '';
     const d = a - b;
     return `<i class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'}${Math.abs(d) >= 10 ? Math.round(Math.abs(d)) : Math.abs(d).toFixed(1)}</i>`;
   };
+  /* v106 — ONE snapshot feeds the header, the footer and the home strip, so the
+     three can never disagree. The footer also states its basis (spot + premium)
+     because that is the number people compare against the bullion desk. */
+  const CELLS = [
+    { k: '24K', label: 'Gold 24K', v: fmt(R.gold24), raw: R.gold24, prev: prev && prev.gold24 },
+    { k: '22K', label: 'Gold 22K', v: fmt(R.gold22), raw: R.gold22, prev: prev && prev.gold22, hideSm: false },
+    { k: '18K', label: 'Gold 18K', v: fmt(R.gold18), raw: R.gold18, prev: prev && prev.gold18, hideSm: true },
+    { k: 'Silver', label: 'Silver 925', v: fmt2(R.silver), raw: R.silver, prev: prev && prev.silver },
+  ];
   el.innerHTML =
     `<span class="ub-live"><span class="live-dot"></span>JAIPUR LIVE</span>` +
-    `<span>Gold 22K <b>${fmt(R.gold22)}/g</b> ${chg(R.gold22, prev && prev.gold22)}</span>` +
-    `<span class="hide-sm">Gold 18K <b>${fmt(R.gold18)}/g</b> ${chg(R.gold18, prev && prev.gold18)}</span>` +
-    `<span>Silver <b>${fmt2(R.silver)}/g</b> ${chg(R.silver, prev && prev.silver)}</span>`;
+    CELLS.filter(c => c.k !== '24K').map(c =>
+      `<span${c.hideSm ? ' class="hide-sm"' : ''}>${c.label} <b>${c.v}/g</b> ${chg(c.raw, c.prev)}</span>`).join('');
+  // v105 — the footer carries the same live ticker (with its own glow treatment)
+  const f = $('#footRateTicker');
+  if (f) {
+    const stamp = R.t ? timeFmt(R.t) : '';
+    const SP = R.spot || {};
+    const prem = (R.premium && R.premium.gold) || (state.settings && state.settings.jaipurPremium) || 0;
+    const oldTxt = f.textContent;
+    f.innerHTML =
+      `<span class="frt-live"><span class="live-dot"></span>Jaipur live${stamp ? ' · ' + esc(stamp) : ''}</span>` +
+      CELLS.map(c => `<span class="frt-cell" title="${esc(c.label)} per gram, Jaipur retail"><small>${c.k}</small><b>${c.v}</b>${chg(c.raw, c.prev)}</span>`).join('') +
+      (SP.gold22 ? `<span class="frt-basis">spot 22K ${fmt(SP.gold22)}/g + ${fmt(prem)}/g Jaipur premium · refreshed every 10 min</span>` : '') +
+      `<a class="frt-go" href="#/rates">Rate chart →</a>`;
+    if (f.textContent !== oldTxt) { f.classList.remove('pulse'); void f.offsetWidth; f.classList.add('pulse'); }
+  }
 }
 
 /* ─────────── category slider v2 (image cards, Tanishq-inspired) ─────────── */
@@ -663,11 +1000,14 @@ function initCatbar() {
     const bar = $('.catbar2', wrap);
     const prev = $('.cb-prev', wrap), next = $('.cb-next', wrap);
     const step = () => Math.min(bar.clientWidth * 0.8, 640);
-    prev.onclick = () => bar.scrollBy({ left: -step(), behavior: 'smooth' });
-    next.onclick = () => bar.scrollBy({ left: step(), behavior: 'smooth' });
+    /* v106 — scrollBy is missing in a few embedded/old webviews: fall back to
+       scrollLeft so the arrows can never throw at the customer. */
+    const nudge = d => { try { bar.scrollBy({ left: d, behavior: 'smooth' }); } catch (e) { bar.scrollLeft += d; } };
+    prev.onclick = () => nudge(-step());
+    next.onclick = () => nudge(step());
     let sx = null;
     bar.addEventListener('pointerdown', e => sx = e.clientX);
-    bar.addEventListener('pointerup', e => { if (sx != null) { const d = e.clientX - sx; if (Math.abs(d) > 30) bar.scrollBy({ left: -d * 2, behavior: 'smooth' }); sx = null; } });
+    bar.addEventListener('pointerup', e => { if (sx != null) { const d = e.clientX - sx; if (Math.abs(d) > 30) { try { bar.scrollBy({ left: -d * 2, behavior: 'smooth' }); } catch (e2) { bar.scrollLeft -= d * 2; } } sx = null; } });
     const upd = () => { prev.disabled = bar.scrollLeft < 8; next.disabled = bar.scrollLeft > bar.scrollWidth - bar.clientWidth - 8; };
     bar.addEventListener('scroll', upd, { passive: true });
     addEventListener('resize', upd); upd();
@@ -685,6 +1025,7 @@ function heroDust(canvasId) {
   }
   cv._dust = true;
   const ctx = cv.getContext('2d');
+  if (!ctx) return;                       // no 2D canvas → no dust, no crash
   let W, H;
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const size = () => { const r = cv.parentElement.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
@@ -729,11 +1070,16 @@ function productCard(p, opts = {}) {
   const wished = state.user ? (opts.wishSet || []).includes(p.id) : state.localWish.includes(p.id);
   const compared = isCompared(p.id);
   return `<article class="p-card" data-pid="${p.id}">
+    <div class="pc-media">
     <a href="#/product/${p.id}" class="pc-imgwrap">
       <img src="${p.images[0]}" alt="${esc(p.name)}" loading="lazy">
       ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
       <div class="glare"></div>
     </a>
+    <button type="button" class="pc-qv" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.quickView('${p.id}')" aria-label="Quick view ${esc(p.name)}" title="Quick view — no page change">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.7"/></svg><span>Quick view</span>
+    </button>
+    </div>
     <button type="button" class="pc-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg><span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span>
     </button>
@@ -763,6 +1109,136 @@ function mcTableHTML(rows, editable = false) {
   </table></div>
   <div class="gst-note">◈ Every price = live metal rate × weight + making charge (as above) + listed stone value, then 3% GST. No hidden charges, ever. Live rates on this site update automatically — <a href="#/rates" style="text-decoration:underline">see current rates</a>.</div>`;
 }
+
+/* ─────────── QUICK VIEW (v105) ───────────
+   A real modal: gallery + variants + live price + add-to-cart.
+   It never navigates — the product page is one explicit tap away. */
+window.Shivaa.quickView = async id => {
+  let p = state.productsCache.find(x => String(x.id) === String(id));
+  if (!p) { try { p = (await api('/api/products/' + id)).product; } catch (e) {} }
+  if (!p) { toast('That piece could not be loaded just now', 'err'); return; }
+  const pr = price(p);
+  const imgs = (p.images && p.images.length) ? p.images.slice() : ['/images/logo.png'];
+  const media = (p.video ? [{ v: p.video, poster: imgs[0] }] : []).concat(imgs.map(im => ({ im })));
+  const sizes = p.sizes || [];
+  const wished = state.user ? null : state.localWish.includes(p.id);
+  window._qv = { id: p.id, qty: 1, i: 0, size: sizes.length ? sizes[Math.min(1, sizes.length - 1)] : null };
+  const q = window._qv;
+
+  openModal(`
+  <div class="qv" data-pid="${p.id}">
+    <div class="qv-media">
+      <div class="qv-stage" id="qvStage">
+        ${media.map((m, i) => m.v
+          ? `<div class="qv-slide${i === 0 ? ' on' : ''}" data-i="${i}"><video src="${esc(m.v)}" controls playsinline preload="none" poster="${esc(m.poster || '')}"></video><span class="qv-film">▶ film</span></div>`
+          : `<div class="qv-slide${i === 0 ? ' on' : ''}" data-i="${i}"><img src="${esc(m.im)}" alt="${esc(p.name)} — view ${i + 1}" draggable="false"></div>`).join('')}
+        <button type="button" class="qv-nav qv-prev" id="qvPrev" aria-label="Previous image">‹</button>
+        <button type="button" class="qv-nav qv-next" id="qvNext" aria-label="Next image">›</button>
+        <span class="qv-count" id="qvCount">1 / ${media.length}</span>
+        ${p.mediaNote ? `<span class="qv-note" title="${esc(p.mediaNote)}">✦ ${esc(p.mediaNote)}</span>` : ''}
+      </div>
+      ${media.length > 1 ? `<div class="qv-thumbs" id="qvThumbs">${media.map((m, i) =>
+        `<button type="button" class="qv-thumb${i === 0 ? ' on' : ''}" data-i="${i}" aria-label="View ${i + 1}"><img src="${esc(m.poster || m.im)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+      <div class="qv-perks">
+        <span>✦ Live-rate pricing</span><span>✦ Insured delivery</span><span>✦ 7-day returns</span>
+      </div>
+    </div>
+
+    <div class="qv-info">
+      <span class="label">${CATS[p.category] ? esc(CATS[p.category].name) : esc(p.category)} · SKU ${esc(p.sku || p.id)}</span>
+      <h3 class="qv-name">${esc(p.name)}</h3>
+      <div class="qv-rate">★ ${p.rating} <span>· ${p.reviews} reviews · ${esc(String(p.weightG))} g · ${p.metal === 'Silver' ? 'Silver ' + esc(p.purity) : esc(p.purity) + ' Gold'}</span></div>
+
+      <div class="qv-price">
+        <b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b>
+        <small><span class="live-dot"></span>live · incl. 3% GST</small>
+        <button type="button" class="qv-brk-btn" id="qvBrkBtn" aria-expanded="false">Price details ⌄</button>
+      </div>
+      <div class="qv-brk" id="qvBrk" hidden>
+        <table class="tanq-table">
+          <tr><td>Metal</td><td>${esc(String(p.weightG))} g × ${fmt(pr.ratePerGram)}/g</td><td>${fmt(pr.metalValue)}</td></tr>
+          <tr><td>Making charges</td><td>this design</td><td>${fmt(pr.makingCharge)}</td></tr>
+          ${p.stoneValue ? `<tr><td>Stones</td><td>${esc(p.stoneDesc || 'as listed')}</td><td>${fmt(pr.stoneValue)}</td></tr>` : ''}
+          <tr><td>GST</td><td>3%</td><td>${fmt(pr.gst)}</td></tr>
+          <tr class="total"><td>Total</td><td></td><td>${fmt(pr.total)}</td></tr>
+        </table>
+      </div>
+
+      ${sizes.length ? `
+      <div class="qv-opt"><span>Size</span><a href="javascript:Shivaa.sizeGuide()">Size guide</a></div>
+      <div class="size-row qv-sizes" id="qvSizes">${sizes.map(s =>
+        `<button type="button" class="size-pill${q.size === s ? ' on' : ''}" data-size="${esc(String(s))}">${esc(String(s))}</button>`).join('')}</div>` : ''}
+
+      <div class="qv-opt"><span>Quantity</span><span class="qv-stock">${p.stock > 3 ? '● in stock' : '● only ' + p.stock + ' left'}</span></div>
+      <div class="qty-row qv-qty"><button type="button" id="qvMinus" aria-label="One less">−</button><b id="qvQtyN">1</b><button type="button" id="qvPlus" aria-label="One more">+</button></div>
+
+      <div class="qv-opt"><span>Engraving (free · 12 characters)</span></div>
+      <input class="qv-engrave" id="qvEngrave" maxlength="12" placeholder="e.g. R♥S 26">
+
+      <div class="qv-acts">
+        <button type="button" class="btn btn-primary btn-lg" id="qvAdd">🛍 Add to Cart</button>
+        <button type="button" class="btn btn-ghost wa-order" id="qvWa">${WA_SVG} Chat</button>
+        <button type="button" class="pc-wish qv-wish${wished ? ' on' : ''}" data-pid="${p.id}" id="qvWish" aria-label="Wishlist">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
+        </button>
+      </div>
+      <div class="qv-added" id="qvAdded" hidden>✓ Added to your cart · <a href="#/cart" onclick="Shivaa.closeModal()">go to cart</a> or <a href="#/checkout" onclick="Shivaa.closeModal()">checkout</a></div>
+      <a class="qv-full" href="#/product/${p.id}" onclick="Shivaa.closeModal()">Open the full product page →</a>
+    </div>
+  </div>`);
+
+  const box = $('#modalBox'); box.classList.add('qv-modal');
+  box.setAttribute('aria-label', 'Quick view — ' + p.name);
+  /* v106 — reset both scroll containers and focus the close button: the modal
+     is scrollable now, so it must never open mid-scroll or trap the keyboard. */
+  ['.qv', '.qv-info', '.qv-media'].forEach(sel => { const el = box.querySelector(sel); if (el) el.scrollTop = 0; });
+  setTimeout(() => { const c = box.querySelector('.modal-close'); if (c) c.focus({ preventScroll: true }); }, 80);
+
+  /* gallery */
+  const slides = $$('.qv-slide', box), thumbs = $$('.qv-thumb', box);
+  const show = i => {
+    q.i = (i + media.length) % media.length;
+    slides.forEach((sl, j) => {
+      sl.classList.toggle('on', j === q.i);
+      const vid = sl.querySelector('video'); if (vid && j !== q.i) { try { vid.pause(); } catch (e) {} }
+    });
+    thumbs.forEach((t, j) => t.classList.toggle('on', j === q.i));
+    const c = $('#qvCount'); if (c) c.textContent = (q.i + 1) + ' / ' + media.length;
+  };
+  $('#qvPrev') && ($('#qvPrev').onclick = () => show(q.i - 1));
+  $('#qvNext') && ($('#qvNext').onclick = () => show(q.i + 1));
+  thumbs.forEach(t => t.onclick = () => show(+t.dataset.i));
+  if (media.length > 1) {
+    let auto = setInterval(() => { if (document.getElementById('modalOverlay').classList.contains('open')) show(q.i + 1); else clearInterval(auto); }, 4200);
+    const st = $('#qvStage');
+    st.addEventListener('mouseenter', () => clearInterval(auto));
+    st.addEventListener('pointerdown', () => clearInterval(auto));   // a touch takes over the gallery
+  }
+  /* variants */
+  $$('#qvSizes .size-pill').forEach(b => b.onclick = () => {
+    $$('#qvSizes .size-pill').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); q.size = b.dataset.size;
+  });
+  const setQty = d => { q.qty = Math.max(1, Math.min(9, q.qty + d)); $('#qvQtyN').textContent = q.qty; };
+  $('#qvMinus').onclick = () => setQty(-1);
+  $('#qvPlus').onclick = () => setQty(1);
+  /* price breakdown */
+  $('#qvBrkBtn').onclick = () => {
+    const b = $('#qvBrk'), open = b.hidden;
+    b.hidden = !open; $('#qvBrkBtn').setAttribute('aria-expanded', String(open));
+    $('#qvBrkBtn').classList.toggle('on', open);
+  };
+  /* actions — no navigation, ever */
+  $('#qvAdd').onclick = () => {
+    addToCart(p.id, q.qty, q.size, ($('#qvEngrave') && $('#qvEngrave').value.trim()) || null);
+    $('#qvAdded').hidden = false;
+    const b = $('#qvAdd'); b.classList.add('done'); b.innerHTML = '✓ Added to Cart';
+    setTimeout(() => { b.classList.remove('done'); b.innerHTML = '🛍 Add to Cart'; }, 2400);
+  };
+  $('#qvWa').onclick = () => window.Shivaa.waProduct(p.id);
+  $('#qvWish').onclick = () => toggleWish(p.id);
+  $$('.qv-slide img', box).forEach(im => im.addEventListener('dragstart', e => e.preventDefault()));
+};
 
 /* ═══════════════════ PAGES ═══════════════════ */
 const pages = {};
@@ -1167,8 +1643,41 @@ pages.home = async (view) => {
 /* ─────────── SHOP ─────────── */
 pages.shop = async (view, q) => {
   const cat = q.get('category') || '', tag = q.get('tag') || '', search = q.get('q') || '';
-  const metals = new Set(), purities = new Set();
-  state.productsCache.forEach(p => { metals.add(p.metal); purities.add(p.purity); });
+
+  /* ── v105 advanced filters: facets + counts derived from the live catalogue ── */
+  const inSearch = p => !search || (p.name + ' ' + p.category + ' ' + (p.desc || '') + ' ' + (p.tags || []).join(' ')).toLowerCase().includes(search.toLowerCase());
+  const universe = () => state.productsCache.filter(inSearch);
+  const facetDefs = (() => {
+    const metals = new Set(), purities = new Set(), stones = new Set();
+    state.productsCache.forEach(p => { metals.add(p.metal); purities.add(p.purity); if (p.stoneType) stones.add(p.stoneType); });
+    return { metals: [...metals], purities: [...purities], stones: [...stones] };
+  })();
+  const allPrices = state.productsCache.map(p => price(p).total).filter(n => n > 0);
+  const PMIN = allPrices.length ? Math.max(0, Math.floor(Math.min(...allPrices) / 1000) * 1000) : 1000;
+  const PMAX = allPrices.length ? Math.ceil(Math.max(...allPrices) / 1000) * 1000 : 1500000;
+  const PSTEP = PMAX > 400000 ? 5000 : 1000;
+  const qMax = +q.get('max') || 0, qMin = +q.get('min') || 0;
+  const initMin = qMin ? Math.max(PMIN, Math.min(qMin, PMAX)) : PMIN;
+  const initMax = qMax ? Math.max(PMIN, Math.min(qMax, PMAX)) : PMAX;
+
+  const GROUPS = [
+    ['cat', 'Category', Object.entries(CATS).map(([k, c]) => [k, c.name]), cat ? [cat] : []],
+    ['metal', 'Metal', facetDefs.metals.map(m => [m, m === 'Gold' ? 'Gold' : 'Silver 925']), []],
+    ['purity', 'Purity', facetDefs.purities.map(x => [x, x === '925' ? 'Silver 925' : x + ' Gold']), []],
+    ['tag', 'Occasion', Object.entries(TAGS), tag ? [tag] : []],
+    ['stone', 'Stone', facetDefs.stones.slice(0, 10).map(x => [x, x]), []],
+  ];
+  const accHTML = (key, title, opts, pre) => `
+    <div class="fgroup facc open" data-g="${key}">
+      <button type="button" class="fg-head" aria-expanded="true" aria-controls="fg-${key}">
+        <span>${title}</span><em class="fg-n" data-fn="${key}"></em><i class="fg-chev" aria-hidden="true">⌄</i>
+      </button>
+      <div class="fg-body" id="fg-${key}"><div class="fg-in">
+        ${opts.map(([v, label]) => `<label class="fcheck"><input type="checkbox" data-f="${key}" value="${esc(String(v))}" ${pre.includes(String(v)) ? 'checked' : ''}><span class="fc-box" aria-hidden="true"></span><span class="fc-tx">${esc(String(label))}</span><b class="fc-n" data-count="${key}:${esc(String(v))}">0</b></label>`).join('')}
+        ${opts.length ? '' : '<p class="f-none">Nothing to filter here yet.</p>'}
+      </div></div>
+    </div>`;
+
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container">
     <div class="crumbs"><a href="#/">Home</a> / Shop</div>
@@ -1177,38 +1686,59 @@ pages.shop = async (view, q) => {
   </div></section>
   <div class="catbar-outer shop-catbar" style="background:var(--white);border-bottom:1px solid var(--line)">${catBarHTML()}</div>
   <div class="fsheet-overlay" id="fsheetOverlay"></div>
-  <aside class="filters" id="filterDrawer" aria-label="Filters">
-    <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" aria-label="Close filters">✕</button></div>
-      <div class="fgroup"><h4>Category</h4>
-        ${Object.entries(CATS).map(([k, c]) => `<label class="fcheck"><input type="checkbox" data-f="cat" value="${k}" ${cat === k ? 'checked' : ''}>${c.name}</label>`).join('')}
-      </div>
-      <div class="fgroup"><h4>Metal</h4>
-        ${[...metals].map(m => `<label class="fcheck"><input type="checkbox" data-f="metal" value="${m}">${m === 'Gold' ? 'Gold' : 'Silver 925'}</label>`).join('')}
-      </div>
-      <div class="fgroup"><h4>Purity</h4>
-        ${[...purities].map(p => `<label class="fcheck"><input type="checkbox" data-f="purity" value="${p}">${p === '925' ? 'Silver 925' : p + ' Gold'}</label>`).join('')}
-      </div>
-      <div class="fgroup"><h4>Occasion</h4>
-        ${Object.entries(TAGS).map(([k, v]) => `<label class="fcheck"><input type="checkbox" data-f="tag" value="${k}" ${tag === k ? 'checked' : ''}>${v}</label>`).join('')}
-      </div>
-      <div class="fgroup"><h4>Max price</h4>
-        <input type="range" id="priceRange" min="10000" max="1500000" step="5000" value="${+q.get('max') || 1500000}" style="width:100%;accent-color:var(--gold)">
-        <div class="fmeta"><span>₹10,000</span><span id="priceMaxLbl">${q.get('max') ? fmt(+q.get('max')) : 'Any'}</span></div>
-      </div>
-      <button class="btn btn-ghost btn-sm btn-block" id="clearFilters" style="margin-top:14px">Clear all filters</button>
-    </aside>
+  <aside class="filters f-adv" id="filterDrawer" aria-label="Filters">
+    <div class="fsheet-bar"><b>Refine pieces</b><span class="f-live" id="fLive" aria-hidden="true">—</span><button id="fsheetClose" aria-label="Close filters">✕</button></div>
+    <div class="f-head2">
+      <div class="f-countbox"><b id="fCount">0</b><span>pieces match<br>your filters</span></div>
+      <button type="button" class="f-reset" id="clearFilters">Reset all</button>
+    </div>
+    <div class="f-pills" id="fPills"></div>
+
+    <div class="fgroup facc open" data-g="price">
+      <button type="button" class="fg-head" aria-expanded="true" aria-controls="fg-price"><span>Price</span><em class="fg-n" id="fgPriceN"></em><i class="fg-chev" aria-hidden="true">⌄</i></button>
+      <div class="fg-body" id="fg-price"><div class="fg-in">
+        <div class="dual-vals"><b id="pMinLbl">${fmt(initMin)}</b><span>to</span><b id="pMaxLbl">${initMax >= PMAX ? 'Any' : fmt(initMax)}</b></div>
+        <div class="dual" id="priceDual">
+          <div class="dual-track"><i class="dual-fill" id="dualFill"></i></div>
+          <input type="range" id="priceMin" min="${PMIN}" max="${PMAX}" step="${PSTEP}" value="${initMin}" aria-label="Minimum price">
+          <input type="range" id="priceMax" min="${PMIN}" max="${PMAX}" step="${PSTEP}" value="${initMax}" aria-label="Maximum price">
+        </div>
+        <div class="f-presets">
+          ${[['Under ' + fmt(25000), PMIN, 25000], [fmt(25000) + ' – ' + fmt(50000), 25000, 50000], [fmt(50000) + ' – ' + fmt(150000), 50000, 150000], ['Above ' + fmt(150000), 150000, PMAX]]
+            .filter(x => x[2] <= PMAX).map(x => `<button type="button" class="f-pre" data-lo="${x[1]}" data-hi="${Math.min(x[2], PMAX)}">${x[0]}</button>`).join('')}
+        </div>
+      </div></div>
+    </div>
+
+    ${GROUPS.map(g => accHTML(g[0], g[1], g[2], g[3])).join('')}
+
+    <div class="fgroup facc" data-g="more">
+      <button type="button" class="fg-head" aria-expanded="false" aria-controls="fg-more"><span>More refinements</span><em class="fg-n" data-fn="more"></em><i class="fg-chev" aria-hidden="true">⌄</i></button>
+      <div class="fg-body" id="fg-more"><div class="fg-in">
+        <label class="fcheck"><input type="checkbox" data-f="rating" value="4.5"><span class="fc-box" aria-hidden="true"></span><span class="fc-tx">Rated 4.5★ &amp; above</span><b class="fc-n" data-count="rating:4.5">0</b></label>
+        <label class="fcheck"><input type="checkbox" data-f="rating" value="4"><span class="fc-box" aria-hidden="true"></span><span class="fc-tx">Rated 4★ &amp; above</span><b class="fc-n" data-count="rating:4">0</b></label>
+        <label class="fcheck"><input type="checkbox" data-f="stock" value="in"><span class="fc-box" aria-hidden="true"></span><span class="fc-tx">Ready to ship (in stock)</span><b class="fc-n" data-count="stock:in">0</b></label>
+        <label class="fcheck"><input type="checkbox" data-f="film" value="1"><span class="fc-box" aria-hidden="true"></span><span class="fc-tx">Has a 360° film</span><b class="fc-n" data-count="film:1">0</b></label>
+      </div></div>
+    </div>
+
+    <button class="btn btn-primary btn-block f-apply" id="fApply">Show <span id="fApplyN">0</span> pieces</button>
+  </aside>
+
   <div class="container shop-main">
-      <div class="shop-bar">
-        <div class="res" id="resCount"></div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <button class="btn btn-outline btn-sm f-toggle" id="filterToggle">⚙ Filters <span class="fbadge" id="fBadge" hidden></span></button>
+      <div class="shop-bar f-sortbar">
+        <div class="res" id="resCount" role="status" aria-live="polite"></div>
+        <div class="shop-tools">
+          <button class="btn btn-outline btn-sm f-toggle" id="filterToggle" aria-expanded="false" aria-controls="filterDrawer">⚙ Filters <span class="fbadge" id="fBadge" hidden></span></button>
+          <label class="sort-wrap"><span>Sort</span>
           <select class="sortsel" id="sortSel">
-            <option value="featured">Sort · Featured</option>
+            <option value="featured">Featured</option>
             <option value="price-asc">Price · Low to High</option>
             <option value="price-desc">Price · High to Low</option>
+            <option value="weight">Weight · Light to Heavy</option>
             <option value="rating">Top Rated</option>
             <option value="newest">Newest</option>
-          </select>
+          </select></label>
         </div>
       </div>
       <div class="chipbar" id="chipbar"></div>
@@ -1216,51 +1746,218 @@ pages.shop = async (view, q) => {
     </div>
   </div>`;
 
-  const filters = () => ({
-    cats: $$('input[data-f=cat]:checked').map(i => i.value),
-    metals: $$('input[data-f=metal]:checked').map(i => i.value),
-    purities: $$('input[data-f=purity]:checked').map(i => i.value),
-    tags: $$('input[data-f=tag]:checked').map(i => i.value),
-    max: +$('#priceRange').value,
+  const g = id => document.getElementById(id);
+  const state_ = {
+    min: initMin, max: initMax,
+    sel: { cat: cat ? [cat] : [], metal: [], purity: [], tag: tag ? [tag] : [], stone: [], rating: [], stock: [], film: [] },
+  };
+  const readChecks = () => {
+    Object.keys(state_.sel).forEach(k => { state_.sel[k] = $$('input[data-f="' + k + '"]:checked').map(i => i.value); });
+  };
+  const matchFacet = (p, k, v) =>
+    k === 'cat' ? p.category === v :
+    k === 'metal' ? p.metal === v :
+    k === 'purity' ? p.purity === v :
+    k === 'tag' ? (p.tags || []).includes(v) :
+    k === 'stone' ? p.stoneType === v :
+    k === 'rating' ? p.rating >= +v :
+    k === 'stock' ? (p.stock || 0) > 0 :
+    k === 'film' ? !!p.video : false;
+  const passFacets = (p, sel, skip) => Object.keys(sel).every(k => k === skip || !sel[k].length || sel[k].some(v => matchFacet(p, k, v)));
+  const passPrice = p => { const t = price(p).total; return t >= state_.min && t <= state_.max; };
+
+  function runList(skip) {
+    const sel = { ...state_.sel };
+    return universe().filter(p => passFacets(p, sel, skip) && (skip === 'price' || passPrice(p)));
+  }
+  const LABEL = {};
+  GROUPS.forEach(([k, , opts]) => opts.forEach(([v, l]) => { LABEL[k + ':' + v] = l; }));
+  LABEL['rating:4.5'] = '4.5★ & up'; LABEL['rating:4'] = '4★ & up'; LABEL['stock:in'] = 'In stock'; LABEL['film:1'] = 'With film';
+
+  /* ── dual-thumb price slider ── */
+  const minIn = g('priceMin'), maxIn = g('priceMax'), fill = g('dualFill');
+  const paintDual = () => {
+    const lo = Math.min(state_.min, state_.max), hi = Math.max(state_.min, state_.max);
+    const a = (lo - PMIN) / (PMAX - PMIN) * 100, b = (hi - PMIN) / (PMAX - PMIN) * 100;
+    if (fill) { fill.style.left = a + '%'; fill.style.width = Math.max(0, b - a) + '%'; }
+    g('pMinLbl').textContent = fmt(lo);
+    g('pMaxLbl').textContent = hi >= PMAX ? 'Any' : fmt(hi);
+    const pn = g('fgPriceN'); if (pn) pn.textContent = (lo > PMIN || hi < PMAX) ? fmt(lo) + ' – ' + (hi >= PMAX ? 'any' : fmt(hi)) : '';
+  };
+  const onSlide = e => {
+    const who = e.target.id;
+    let lo = +minIn.value, hi = +maxIn.value;
+    if (who === 'priceMin' && lo > hi - PSTEP) { lo = Math.max(PMIN, hi - PSTEP); minIn.value = lo; }
+    if (who === 'priceMax' && hi < lo + PSTEP) { hi = Math.min(PMAX, lo + PSTEP); maxIn.value = hi; }
+    state_.min = lo; state_.max = hi;
+    paintDual(); liveCount();
+  };
+  minIn.addEventListener('input', onSlide); maxIn.addEventListener('input', onSlide);
+  minIn.addEventListener('change', () => apply()); maxIn.addEventListener('change', () => apply());
+  $$('.f-pre').forEach(b => b.onclick = () => {
+    state_.min = Math.max(PMIN, +b.dataset.lo); state_.max = Math.min(PMAX, +b.dataset.hi);
+    minIn.value = state_.min; maxIn.value = state_.max;
+    paintDual(); apply();
   });
+
+  /* ── accordions (animated collapse) ── */
+  $$('.facc .fg-head').forEach(h => h.onclick = () => {
+    const grp = h.closest('.facc'), open = !grp.classList.contains('open');
+    grp.classList.toggle('open', open); h.setAttribute('aria-expanded', String(open));
+  });
+
+  /* ── live "n results" counter (on canvas + inside the drawer) ── */
+  let lastN = null;
+  const bump = (el, n) => {
+    if (!el) return;
+    const from = lastN == null ? n : lastN;
+    if (from === n) { el.textContent = n; return; }
+    const t0 = performance.now(), dur = 420;
+    el.classList.add('tick');
+    (function step(t) {
+      const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(from + (n - from) * e);
+      if (k < 1) requestAnimationFrame(step); else el.classList.remove('tick');
+    })(t0);
+  };
+  function liveCount() {
+    readChecks();
+    const n = runList().length;
+    bump(g('fCount'), n);
+    const ap = g('fApplyN'); if (ap) ap.textContent = n;
+    const lv = g('fLive'); if (lv) lv.textContent = n + ' results';
+    paintCounts(); paintPills(); syncBadge();
+  }
+  function paintCounts() {
+    $$('[data-count]').forEach(el => {
+      const [k, v] = el.dataset.count.split(':');
+      const n = runList(k).filter(p => matchFacet(p, k, v)).length;
+      el.textContent = n;
+      el.closest('.fcheck').classList.toggle('zero', n === 0);
+    });
+    GROUPS.forEach(([k]) => {
+      const badge = document.querySelector('[data-fn="' + k + '"]');
+      if (badge) badge.textContent = state_.sel[k].length ? state_.sel[k].length + ' selected' : '';
+    });
+    const more = document.querySelector('[data-fn="more"]');
+    if (more) { const n = ['rating', 'stock', 'film'].reduce((a, k) => a + state_.sel[k].length, 0); more.textContent = n ? n + ' selected' : ''; }
+  }
+  function activePills() {
+    const out = [];
+    Object.keys(state_.sel).forEach(k => state_.sel[k].forEach(v => out.push({ k, v, label: LABEL[k + ':' + v] || v })));
+    if (state_.min > PMIN || state_.max < PMAX) out.push({ k: 'price', v: '', label: fmt(state_.min) + ' – ' + (state_.max >= PMAX ? 'any' : fmt(state_.max)) });
+    if (search) out.push({ k: 'search', v: '', label: '“' + search + '”' });
+    return out;
+  }
+  function paintPills() {
+    const pills = activePills();
+    const html = pills.length
+      ? pills.map(p => `<button type="button" class="fpill" data-k="${p.k}" data-v="${esc(p.v)}">${esc(p.label)}<i aria-hidden="true">✕</i></button>`).join('') +
+        `<button type="button" class="fpill fpill-all" data-k="all">Clear all<i aria-hidden="true">✕</i></button>`
+      : '';
+    ['#chipbar', '#fPills'].forEach(sel => { const el = document.querySelector(sel); if (el) el.innerHTML = html; });
+    $$('.fpill').forEach(b => b.onclick = () => {
+      const k = b.dataset.k;
+      if (k === 'all') return clearAll();
+      if (k === 'price') { state_.min = PMIN; state_.max = PMAX; minIn.value = PMIN; maxIn.value = PMAX; paintDual(); }
+      else if (k === 'search') { location.hash = '#/shop'; return; }
+      else {
+        state_.sel[k] = state_.sel[k].filter(v => v !== b.dataset.v);
+        const cb = document.querySelector('input[data-f="' + k + '"][value="' + CSS.escape(b.dataset.v) + '"]');
+        if (cb) cb.checked = false;
+      }
+      apply();
+    });
+  }
+  const nActive = () => activePills().filter(p => p.k !== 'search').length;
+  function syncBadge() {
+    const n = nActive(), b = g('fBadge');
+    if (b) { b.hidden = !n; b.textContent = n; }
+    const t = g('filterToggle'); if (t) t.classList.toggle('has', !!n);
+  }
+  function clearAll() {
+    Object.keys(state_.sel).forEach(k => { state_.sel[k] = []; });
+    $$('input[data-f]').forEach(i => i.checked = false);
+    state_.min = PMIN; state_.max = PMAX; minIn.value = PMIN; maxIn.value = PMAX;
+    paintDual(); apply();
+  }
+
+  let rafPending = false;
   async function apply() {
-    const f = filters();
-    let list = state.productsCache.slice();
-    if (f.cats.length) list = list.filter(p => f.cats.includes(p.category));
-    if (f.metals.length) list = list.filter(p => f.metals.includes(p.metal));
-    if (f.purities.length) list = list.filter(p => f.purities.includes(p.purity));
-    if (f.tags.length) list = list.filter(p => f.tags.some(t => (p.tags || []).includes(t)));
-    if (search) list = list.filter(p => (p.name + p.category + (p.desc || '')).toLowerCase().includes(search.toLowerCase()));
-    list = list.filter(p => price(p).total <= f.max);
-    const sort = $('#sortSel').value;
+    if (rafPending) return;
+    rafPending = true;
+    await new Promise(r => requestAnimationFrame(() => r()));
+    rafPending = false;
+    readChecks();
+    let list = runList();
+    const sort = g('sortSel').value;
     if (sort === 'price-asc') list.sort((a, b) => price(a).total - price(b).total);
     if (sort === 'price-desc') list.sort((a, b) => price(b).total - price(a).total);
+    if (sort === 'weight') list.sort((a, b) => (+a.weightG || 0) - (+b.weightG || 0));
     if (sort === 'rating') list.sort((a, b) => b.rating - a.rating);
-    if (sort === 'newest') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (sort === 'newest') list.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     const wishSet = state.user ? await wishIds() : [];
-    $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
-    $('#resCount').innerHTML = `<b>${list.length}</b> pieces · prices update with the live rate`;
-    bindTilt($('#shopGrid'));
+    g('shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>${activePills().length ? 'Try removing a filter or two —' : 'Try widening the filters.'} every Shivaa piece is priced at today's live rate.</p><button class="btn btn-outline btn-sm" onclick="document.getElementById('clearFilters').click()">Reset all filters</button></div>`;
+    lastN = list.length;
+    bump(g('fCount'), list.length);
+    g('resCount').innerHTML = `<b>${list.length}</b> piece${list.length === 1 ? '' : 's'}${list.length ? ' · from ' + fmt(price(list.reduce((a, b) => price(a).total <= price(b).total ? a : b)).total) : ''} <span class="res-note">prices update with the live rate</span>`;
+    const ap = g('fApplyN'); if (ap) ap.textContent = list.length;
+    const lv = g('fLive'); if (lv) lv.textContent = list.length + ' results';
+    paintCounts(); paintPills(); syncBadge();
+    bindTilt(g('shopGrid'));
+    if (window.Shivaa && window.Shivaa.v105 && window.Shivaa.v105.afterRender) window.Shivaa.v105.afterRender(g('shopGrid'));
   }
-  const closeSheet = () => { $('#filterDrawer')?.classList.remove('open'); $('#fsheetOverlay')?.classList.remove('open'); unlockScroll(); };
-  const fBadge = $('#fBadge');
-  const syncBadge = () => {
-    const n = $$('input[data-f]:checked').length + ($('#priceRange').value < 1500000 ? 0 : 0);
-    if (fBadge) { fBadge.hidden = !(n > 0); fBadge.textContent = n; }
-  };
-  if ($('#filterToggle')) {
-    $('#filterToggle').onclick = () => { $('#filterDrawer').classList.add('open'); $('#fsheetOverlay').classList.add('open'); lockScroll(); };
-    $('#fsheetClose').onclick = closeSheet;
-    $('#fsheetOverlay').onclick = closeSheet;
-    syncBadge();
-    $$('input[data-f]').forEach(i => i.addEventListener('change', syncBadge));
+
+  const closeSheet = () => { g('filterDrawer')?.classList.remove('open'); g('fsheetOverlay')?.classList.remove('open'); g('filterToggle')?.setAttribute('aria-expanded', 'false'); unlockScroll(); };
+  let openSheet = () => { g('filterDrawer').classList.add('open'); g('fsheetOverlay').classList.add('open'); g('filterToggle')?.setAttribute('aria-expanded', 'true'); lockScroll(); };
+  if (g('filterToggle')) {
+    g('filterToggle').onclick = () => g('filterDrawer').classList.contains('open') ? closeSheet() : openSheet();
+    g('fsheetClose').onclick = closeSheet;
+    g('fsheetOverlay').onclick = closeSheet;
+    g('fApply').onclick = () => { apply(); closeSheet(); };
+
+    /* v106 — a sheet you can only close with the ✕ feels broken on a phone.
+       Drag the handle down (or swipe down from the top of the list) to slide
+       back to the product grid; the list itself scrolls independently. */
+    const sheet = g('filterDrawer');
+    let y0 = null;
+    const mob = () => matchMedia('(max-width:768px)').matches;
+    sheet.addEventListener('touchstart', e => {
+      if (!mob() || !sheet.classList.contains('open')) return;
+      if (!e.target.closest('.fsheet-bar') && sheet.scrollTop > 4) return;
+      y0 = e.touches[0].clientY;
+    }, { passive: true });
+    sheet.addEventListener('touchmove', e => {
+      if (y0 === null) return;
+      const dy = e.touches[0].clientY - y0;
+      if (dy > 4) { sheet.classList.add('dragging'); sheet.style.transform = 'translateY(' + dy + 'px)'; }
+    }, { passive: true });
+    const endDrag = e => {
+      if (y0 === null) return;
+      const dy = ((e.changedTouches && e.changedTouches[0]) || e).clientY - y0;
+      sheet.classList.remove('dragging'); sheet.style.transform = '';
+      if (dy > 84) closeSheet();
+      y0 = null;
+    };
+    sheet.addEventListener('touchend', endDrag, { passive: true });
+    sheet.addEventListener('touchcancel', endDrag, { passive: true });
+    window._closeFilterSheet = closeSheet;
+
+    const _openSheet = openSheet;
+    openSheet = () => { _openSheet(); sheet.scrollTop = 0; setTimeout(() => { const x = g('fsheetClose'); x && x.focus({ preventScroll: true }); }, 300); };
+    g('filterToggle').onclick = () => sheet.classList.contains('open') ? closeSheet() : openSheet();
   }
-  $$('input[data-f]').forEach(i => i.onchange = () => { apply(); if (matchMedia('(max-width:768px)').matches) closeSheet(); });
-  $('#priceRange').oninput = e => { $('#priceMaxLbl').textContent = e.target.value >= 1500000 ? 'Any' : fmt(+e.target.value); };
-  $('#priceRange').onchange = apply;
-  $('#sortSel').onchange = apply;
-  $('#clearFilters').onclick = () => { $$('input[data-f]').forEach(i => i.checked = false); $('#priceRange').value = 1500000; $('#priceMaxLbl').textContent = 'Any'; apply(); };
+  $$('input[data-f]').forEach(i => i.addEventListener('change', () => {
+    readChecks(); liveCount();
+    const mob = matchMedia('(max-width:768px)').matches;
+    if (mob) { /* keep the sheet open — the live count + Apply button drive it */ }
+    else apply();
+  }));
+  g('sortSel').onchange = () => apply();
+  if (q.get('sort')) { g('sortSel').value = q.get('sort'); }
+  g('clearFilters').onclick = clearAll;
   initCatbar();
+  paintDual();
   await apply();
 };
 
@@ -1328,7 +2025,7 @@ pages.product = async (view, q, id) => {
           <div class="emi-strip">◈ <span><b>No-cost EMI from <span id="pdEmi3">${fmt(emi3)}</span>/mo</b> (3 months) · standard EMI <span id="pdEmi6">${fmt(emi6)}</span>/mo (6 months) on cards & UPI-autopay</span></div>
         </div>
 
-        ${p.sizes.length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide()" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide</a></div>
+        ${p.sizes.length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide(document.querySelector('#sizeRow .size-pill.on')?.dataset.size)" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide · see it to scale</a></div>
         <div class="size-row" id="sizeRow">${p.sizes.map((s, i) => `<button class="size-pill ${i === Math.floor(p.sizes.length / 2) ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
 
         <div class="opt-label"><span>Engraving (free, up to 12 characters)</span></div>
@@ -1422,7 +2119,9 @@ window.Shivaa.pdAdd = id => {
 };
 window.Shivaa.pdBuy = async id => { window.Shivaa.pdAdd(id); location.hash = '#/checkout'; };
 window.Shivaa.checkPin = () => {
-  const v = $('#pincode').value.trim(); const m = $('#pinMsg');
+  const pi = $('#pincode'), m = $('#pinMsg');
+  if (!pi || !m) return;                  // v106 — guard: the pin checker only exists on its own page
+  const v = pi.value.trim();
   if (!/^\d{6}$/.test(v)) { m.hidden = false; m.style.color = 'var(--bad)'; m.textContent = 'Please enter a valid 6-digit pincode'; return; }
   m.hidden = false; m.style.color = 'var(--ok)';
   if (v === '341023') m.textContent = '✓ Jayal (home turf!) — delivery in 24 hours, free';
@@ -1438,13 +2137,154 @@ window.Shivaa.postReview = async (e, pid) => {
     toast('Thank you! Review posted ✦'); pages.product($('#view'), new URLSearchParams(), pid);
   } catch (err) { toast(err.message, 'err'); }
 };
-window.Shivaa.sizeGuide = () => openModal(`
-  <h3 style="font-size:24px;margin-bottom:10px">Ring size guide</h3>
-  <p style="color:var(--ink-2);font-size:14px;margin-bottom:14px">Cut a strip of paper, wrap it around the finger, mark the overlap and measure in mm:</p>
-  <div class="mc-table-wrap"><table class="mc-table"><thead><tr><th>Indian size</th><th>Diameter (mm)</th><th>Circumference (mm)</th></tr></thead><tbody>
-  ${[['10', 14.0, 44.0], ['12', 14.9, 46.8], ['14', 15.7, 49.3], ['16', 16.5, 51.9], ['18', 17.3, 54.4], ['20', 18.1, 56.9], ['22', 19.0, 59.7]].map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}
-  </tbody></table></div>
-  <p style="font-size:12.5px;color:var(--ink-3);margin-top:12px">Between sizes? Take the larger — we resize free within 30 days. Bangles: size 2.4 ≈ 2¼" internal diameter.</p>`);
+/* ─────────── RING SIZE GUIDE (v105) ───────────
+   Interactive + true-to-scale: the ring drawing uses ONE fixed mm→px scale for
+   every size, so even the largest selection renders correctly proportioned
+   (the old static table gave no visual at all, and scaled art mismatched). */
+const RING_SIZES = [
+  ['8', 13.2, 41.5], ['10', 14.0, 44.0], ['12', 14.9, 46.8], ['14', 15.7, 49.3],
+  ['16', 16.5, 51.9], ['18', 17.3, 54.4], ['20', 18.1, 56.9], ['22', 19.0, 59.7],
+  ['24', 19.8, 62.2], ['26', 20.7, 65.0],
+];
+window.Shivaa.ringSizes = RING_SIZES;
+window.Shivaa.sizeGuide = (preset, host) => {
+  const SC = 6.4;                                  // px per mm — one fixed scale for every size
+  const C = 128;                                   // svg centre (viewBox 256)
+  const sizes = RING_SIZES;
+  const stock = (window._pd && window._pd.p && window._pd.p.sizes && window._pd.p.sizes.length) ? window._pd.p.sizes : null;
+  const startIdx = Math.max(0, sizes.findIndex(r => String(r[0]) === String(preset || (stock ? stock[Math.min(1, stock.length - 1)] : '14'))));
+  const sgHTML = `
+  <div class="sg">
+    <div class="sg-head">
+      <div>
+        <span class="label">Fit finder</span>
+        <h3>Ring size guide</h3>
+        <p>Pick a size and the ring below is drawn <b>true to scale</b> — the same millimetres as the metal. Between sizes? Take the larger; we resize free within 30 days.</p>
+      </div>
+      <div class="sg-stage">
+        <svg viewBox="0 0 256 256" class="sg-svg" role="img" aria-label="Ring drawn to scale">
+          <defs>
+            <linearGradient id="sgGold" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#fff3d2"/><stop offset="38%" stop-color="#d4af5a"/>
+              <stop offset="62%" stop-color="#9c7222"/><stop offset="100%" stop-color="#f0dca8"/>
+            </linearGradient>
+            <radialGradient id="sgShine" cx="34%" cy="26%" r="62%">
+              <stop offset="0%" stop-color="#fffdf4" stop-opacity=".85"/><stop offset="100%" stop-color="#fffdf4" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle class="sg-ghost sg-ghost-min" cx="${C}" cy="${C}" r="${13.2 / 2 * SC}"></circle>
+          <circle class="sg-ghost sg-ghost-max" cx="${C}" cy="${C}" r="${20.7 / 2 * SC}"></circle>
+          <circle class="sg-band" id="sgBand" cx="${C}" cy="${C}" r="${sizes[startIdx][1] / 2 * SC}" stroke-width="9"></circle>
+          <circle class="sg-shine" id="sgShine" cx="${C}" cy="${C}" r="${sizes[startIdx][1] / 2 * SC}"></circle>
+          <g class="sg-dim" id="sgDim">
+            <line id="sgDimA" x1="0" y1="${C}" x2="0" y2="${C}"></line>
+            <text id="sgDimT" x="${C}" y="${C + 4}" text-anchor="middle"></text>
+          </g>
+        </svg>
+        <div class="sg-read"><b id="sgDia">—</b><span>mm inner diameter</span><em id="sgCirc">—</em></div>
+      </div>
+    </div>
+
+    <div class="sg-sizes" id="sgSizes" role="group" aria-label="Choose an Indian ring size">
+      ${sizes.map((r, i) => `<button type="button" class="sg-pill${i === startIdx ? ' on' : ''}" data-i="${i}" data-size="${r[0]}"
+        ${stock && !stock.includes(String(r[0])) ? 'data-oos="1" title="Not stocked for the piece you are viewing"' : ''}>${r[0]}</button>`).join('')}
+    </div>
+    ${stock ? `<p class="sg-stock">Sizes in stock for this piece: <b>${stock.map(esc).join(' · ')}</b> — other sizes are made to order in 10–14 days.</p>` : ''}
+
+    <div class="sg-tools">
+      <div class="sg-measure">
+        <span class="label">Already know the diameter?</span>
+        <div class="sg-mrow">
+          <input type="number" id="sgMm" step="0.1" min="10" max="26" placeholder="e.g. 16.5" inputmode="decimal" aria-label="Inner diameter in millimetres">
+          <span class="sg-unit">mm</span>
+          <button type="button" class="btn btn-outline btn-sm" id="sgFind">Find my size</button>
+        </div>
+        <p class="sg-hint" id="sgHint">Measure the inner diameter of a ring that already fits, or wrap a paper strip and read the circumference below.</p>
+      </div>
+      <div class="sg-ruler-wrap">
+        <span class="label">True-scale ruler <small>(print at 100%)</small></span>
+        <div class="sg-ruler" id="sgRuler" aria-hidden="true"></div>
+        <div class="sg-paper">Paper strip: wrap it round the finger, mark the overlap, lay it on the ruler and match the millimetres to the circumference column.</div>
+      </div>
+    </div>
+
+    <div class="mc-table-wrap sg-table-wrap"><table class="mc-table sg-table"><thead><tr><th>Indian size</th><th>Diameter (mm)</th><th>Circumference (mm)</th><th></th></tr></thead><tbody>
+      ${sizes.map((r, i) => `<tr data-i="${i}"><td><b>${r[0]}</b></td><td>${r[1].toFixed(1)}</td><td>${r[2].toFixed(1)}</td><td class="sg-go"><button type="button" class="sg-view" data-i="${i}">see to scale</button></td></tr>`).join('')}
+    </tbody></table></div>
+
+    <div class="sg-faq">
+      <div><b>Bangles &amp; kada</b><span>Size 2.4 ≈ 2¼&quot; internal diameter. Measure across the widest point of a bangle that fits.</span></div>
+      <div><b>Knuckles</b><span>If your knuckle is much wider than the finger base, size for the knuckle and ask us for a snug-fit inner band.</span></div>
+      <div><b>Temperature</b><span>Fingers swell in heat and after a long day — measure at room temperature, in the afternoon, for the truest fit.</span></div>
+    </div>
+  </div>`;
+
+  /* v106 — the guide is a page in its own right (#/size-guide, linked from the
+     footer) as well as the modal the product pages open. Same markup, either host. */
+  let box;
+  if (host && host.nodeType === 1) { host.innerHTML = sgHTML; host.classList.add('sg-inline'); box = host; }
+  else { openModal(sgHTML); box = $('#modalBox'); box.classList.add('sg-modal'); }
+  const band = $('#sgBand'), shine = $('#sgShine'), dimA = $('#sgDimA'), dimT = $('#sgDimT');
+  let cur = startIdx, anim = null;
+
+  /* true-scale ruler: 1 mm ticks, 10 mm labels, real CSS millimetres */
+  const ruler = $('#sgRuler');
+  if (ruler) {
+    let ticks = '';
+    for (let mm = 0; mm <= 120; mm++) {
+      const big = mm % 10 === 0, mid = mm % 5 === 0;
+      ticks += `<i class="sg-t${big ? ' big' : mid ? ' mid' : ''}" style="left:${mm}mm">${big ? `<u>${mm}</u>` : ''}</i>`;
+    }
+    ruler.innerHTML = ticks;
+  }
+
+  const setRing = (i, animate) => {
+    /* v106 — the guide can be closed (or the page navigated) mid-animation:
+       bail out instead of throwing at a node that is no longer there. */
+    if (!box.isConnected || !$('#sgDia')) return;
+    cur = i;
+    const [size, dia, circ] = sizes[i];
+    const target = dia / 2 * SC;
+    $$('#sgSizes .sg-pill').forEach(p => p.classList.toggle('on', +p.dataset.i === i));
+    $$('.sg-table tbody tr').forEach(tr => tr.classList.toggle('on', +tr.dataset.i === i));
+    $('#sgDia').textContent = dia.toFixed(1);
+    $('#sgCirc').textContent = circ.toFixed(1) + ' mm around';
+    dimT.textContent = `size ${size} · ⌀ ${dia.toFixed(1)} mm`;
+    dimA.setAttribute('x1', C - target); dimA.setAttribute('x2', C + target);
+    if (anim) cancelAnimationFrame(anim);
+    if (!animate || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      band.setAttribute('r', target); shine.setAttribute('r', target - 4.5); return;
+    }
+    const from = parseFloat(band.getAttribute('r')) || target, t0 = performance.now();
+    (function step(t) {
+      const k = Math.min(1, (t - t0) / 460), e = 1 - Math.pow(1 - k, 3);
+      const r = from + (target - from) * e;
+      band.setAttribute('r', r); shine.setAttribute('r', Math.max(2, r - 4.5));
+      if (k < 1) anim = requestAnimationFrame(step);
+    })(t0);
+  };
+
+  $$('#sgSizes .sg-pill').forEach(p => p.onclick = () => setRing(+p.dataset.i, true));
+  $$('.sg-view').forEach(b => b.onclick = () => { setRing(+b.dataset.i, true); box.scrollTop = 0; });
+  $('#sgFind').onclick = () => {
+    const mm = parseFloat($('#sgMm').value);
+    const hint = $('#sgHint');
+    if (!mm || mm < 10 || mm > 26) { hint.textContent = 'Enter a diameter between 10 and 26 mm (that covers every Indian size we make).'; hint.className = 'sg-hint bad'; return; }
+    let best = 0, bd = Infinity;
+    sizes.forEach((r, i) => { const d = Math.abs(r[1] - mm); if (d < bd) { bd = d; best = i; } });
+    const up = sizes[Math.min(sizes.length - 1, best + (mm > sizes[best][1] ? 1 : 0))];
+    setRing(best, true);
+    hint.className = 'sg-hint ok';
+    hint.innerHTML = `⌀ ${mm.toFixed(1)} mm is closest to <b>Indian size ${sizes[best][0]}</b> (⌀ ${sizes[best][1].toFixed(1)} mm). ` +
+      (bd > 0.25 ? `If it feels tight, take size ${up[0]} — we resize free within 30 days.` : 'That is a direct match.');
+  };
+  $('#sgMm').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#sgFind').click(); } });
+  box.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); setRing(Math.min(sizes.length - 1, cur + 1), true); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); setRing(Math.max(0, cur - 1), true); }
+  });
+  setRing(startIdx, false);
+};
 
 /* ─────────── COMPARE / SHORTLIST ─────────── */
 pages.compare = async (view, q) => {
@@ -1590,7 +2430,8 @@ pages.checkout = async (view) => {
   if (!state.cart.length) { location.hash = '#/cart'; return; }
   if (!state.user) { openLogin('checkout'); return; }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
-  const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
+  const LR = lockedRates();                                        // v106 — the frozen rate
+  const subtotal = items.reduce((a, it) => a + price(it.p, LR).total * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/cart">Cart</a> / Checkout</div><h1>Checkout</h1></div></section>
@@ -1621,7 +2462,8 @@ pages.checkout = async (view) => {
     <div class="summary">
       <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
       <h3>Your Order</h3>
-      ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
+      ${rateLockHTML()}
+      ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p, LR).total * it.qty)}</b></div>`).join('')}
       <div class="coupon-row"><input id="couponIn" placeholder="Coupon code"><button class="btn btn-ghost btn-sm" onclick="Shivaa.applyCoupon()">Apply</button></div>
       <div id="couponMsg" style="font-size:12.5px;min-height:18px"></div>
       ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
@@ -1634,10 +2476,12 @@ pages.checkout = async (view) => {
   </div>`;
   window._co = { subtotal, freeShip, coupon: null, disc: 0 };
   $$('#payOpts input').forEach(r => r.onchange = () => { $$('.pay-opt').forEach(o => o.classList.remove('on')); r.closest('.pay-opt').classList.add('on'); });
+  bindRateLockBtn(); startRateLockTicker();                          // v106 — the countdown runs while they fill the form
 };
 window.Shivaa.applyCoupon = async () => {
-  const code = $('#couponIn').value.trim();
-  const msg = $('#couponMsg');
+  const ci = $('#couponIn'), msg = $('#couponMsg');
+  if (!ci || !msg || !window._co) return;  // v106 — no checkout on screen → nothing to apply a coupon to
+  const code = ci.value.trim();
   if (!code) return;
   try {
     const c = await api('/api/coupons/validate', { method: 'POST', body: JSON.stringify({ code, amount: window._co.subtotal }) });
@@ -1648,12 +2492,12 @@ window.Shivaa.applyCoupon = async () => {
   window.Shivaa.updateCheckout();
 };
 window.Shivaa.updateCheckout = () => {
-  if (!window._co) return;
+  if (!window._co || !$('#coTotal')) return;   // v106 — the summary is gone (navigated away)
   let disc = window._co.disc;
-  if ($('#usePts')?.checked) disc += Math.min(state.user.loyaltyPoints, Math.floor(window._co.subtotal * 0.1));
+  if ($('#usePts')?.checked) disc += Math.min((state.user && state.user.loyaltyPoints) || 0, Math.floor(window._co.subtotal * 0.1));
   const ship = window._co.freeShip ? 0 : state.settings.shippingFee;
-  $('#coDiscRow').hidden = !(disc > 0);
-  $('#coDisc').textContent = '− ' + fmt(disc);
+  const dr = $('#coDiscRow'); if (dr) dr.hidden = !(disc > 0);
+  const dd = $('#coDisc'); if (dd) dd.textContent = '− ' + fmt(disc);
   $('#coTotal').textContent = fmt(Math.max(0, window._co.subtotal - disc + ship));
 };
 window.Shivaa.placeOrder = async () => {
@@ -1672,6 +2516,10 @@ window.Shivaa.placeOrder = async () => {
     const order = await api('/api/orders', { method: 'POST', body: JSON.stringify({
       items: state.cart.map(c => ({ id: c.id, qty: c.qty, size: c.size, engraving: c.engraving })),
       address, paymentMethod, coupon: window._co.coupon, usePoints: !!$('#usePts')?.checked,
+      // v106 — the frozen rates the customer actually saw; api.php re-checks the
+      // age (<=20 min) and the sanity band before honouring them.
+      rateLock: (window._rateLock && !rlExpired())
+        ? Object.assign({ at: window._rateLock.at }, window._rateLock.rates) : null,
     }) });
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
     if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
@@ -1722,6 +2570,7 @@ function confetti() {
   Object.assign(c.style, { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 300 });
   document.body.appendChild(c);
   const x = c.getContext('2d');
+  if (!x) { c.remove(); return; }         // no 2D canvas → skip the confetti
   c.width = innerWidth; c.height = innerHeight;
   const ps = Array.from({ length: 130 }, () => ({ x: Math.random() * c.width, y: -20 - Math.random() * c.height * 0.5, v: 2 + Math.random() * 3, s: 4 + Math.random() * 5, r: Math.random() * 7, vr: (Math.random() - .5) * .3, col: ['#b98a2f', '#d4af5a', '#6e1e2a', '#f3dfae'][Math.floor(Math.random() * 4)] }));
   let n = 0;
@@ -1961,6 +2810,7 @@ pages.rates = async (view) => {
 function drawRateChart(cv, hist) {
   if (!cv || !hist.length) return;
   const x = cv.getContext('2d'), dpr = Math.min(devicePixelRatio || 1, 2);
+  if (!x) return;                         // no 2D canvas → skip the chart
   const w = cv.parentElement.clientWidth - 0, h = 300;
   cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + 'px';
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2057,14 +2907,26 @@ pages.catalogues = async (view) => {
       </div>
     </div>
     <div class="ds-grid" id="dsGrid">
-      ${rings.map(p => `<div class="ds-card" id="ds-${p.id}" data-cat="${p.category}" data-w="${p.weightG}" data-stone="${(p.stoneType || 'Plain')}" data-colour="${(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${p.purity}">
-        <div class="ds-img"><img src="${p.images[0]}" loading="lazy" alt="${esc(p.name)}"><span class="ds-wt">${p.weightG} g</span></div>
+      ${rings.map(p => {
+        /* v106 — every design card carries the manufacturer's own photos as a
+           slider (one <img>, swapped on demand: 405 cards × 4 images would be
+           1,600 nodes and the grid would crawl) plus a door to the full detail. */
+        const ims = (p.images && p.images.length) ? p.images : ['/images/logo.png'];
+        return `<div class="ds-card${window._sel[p.id] ? ' on' : ''}" id="ds-${p.id}" data-cat="${p.category}" data-w="${p.weightG}" data-stone="${(p.stoneType || 'Plain')}" data-colour="${(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${p.purity}">
+        <div class="ds-img bp-gal" data-pid="${esc(p.id)}" data-imgs="${esc(ims.join('|'))}" data-i="0">
+          <img src="${esc(ims[0])}" loading="lazy" class="on" alt="${esc(p.name)}">
+          ${ims.length > 1 ? `<button type="button" class="bp-nav bp-prev" data-d="-1" aria-label="Previous photo">‹</button><button type="button" class="bp-nav bp-next" data-d="1" aria-label="Next photo">›</button>
+          <div class="bp-dots">${ims.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>
+          <span class="ds-gal-n">${ims.length} photos</span>` : ''}
+          <span class="ds-wt">${p.weightG} g</span>
+          <button type="button" class="ds-detail" data-pid="${esc(p.id)}">ⓘ full details</button>
+        </div>
         <b>${esc(p.name.replace('Shivaa Ring Design', 'Design'))}</b>
-        <small>${p.sku} · ${p.weightG} g · ${p.purity}</small>
+        <small>${esc(p.sku)} · ${p.weightG} g · ${esc(p.purity)}${p.stoneType ? ' · ' + esc(p.stoneType) : ''}</small>
         <div class="ds-qty">
           <button onclick="ShivaaDS.qty('${p.id}',-1)">−</button><span>${window._sel[p.id] || 0}</span><button onclick="ShivaaDS.qty('${p.id}',1)">+</button>
         </div>
-      </div>`).join('')}
+      </div>`; }).join('')}
     </div>
     <div class="qty-banner" style="margin-top:18px">◈ Example: select 25 g of designs → bill = 25 × ${(state.settings.metalFactor || 0.92)} = <b>23 g fine metal @ ${(state.settings.finePurity || '99.50%')}</b> — zero making charges, pure metal settlement.</div>
   </div>
@@ -2103,16 +2965,19 @@ pages.b2b = async (view) => {
           </div></div>
         <div class="fld"><label>City</label><input id="kyCity" placeholder="Nagaur, Jodhpur…"></div>
         <div class="fld"><label>Mobile (OTP verified) *</label>
-          <div class="kyc-inline">
-            <input id="kyPhone" maxlength="10" placeholder="10-digit" inputmode="numeric" required>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycOtp()">Send OTP</button>
-          </div></div>
-        <div class="fld full"><label>Enter OTP *</label>
-          <div class="kyc-inline">
-            <input id="kyOtp" maxlength="6" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycOtpVerify()">Verify OTP</button>
-            <span class="kyc-status" id="otpStat"></span>
-          </div></div>
+          <div class="kyc-inline kyc-phone">
+            <span class="kyc-cc" aria-hidden="true">+91</span>
+            <input id="kyPhone" maxlength="10" placeholder="10-digit mobile" inputmode="numeric" autocomplete="tel-national" required aria-describedby="phStat">
+            <button type="button" class="btn btn-ghost btn-sm" id="kyOtpSend" onclick="Shivaa.kycOtp()">Send OTP</button>
+          </div>
+          <span class="kyc-autohint" id="phStat">Type all 10 digits — the code sends itself.</span></div>
+        <div class="fld full"><label>Enter the ${OTP_LEN}-digit code *</label>
+          <div class="kyc-otp-row">
+            ${otpBoxesHTML('kyOtpBoxes', OTP_LEN, 'OTP code')}
+            <button type="button" class="btn btn-ghost btn-sm kyc-reverify" id="kyOtpVerify" onclick="Shivaa.kycOtpVerify()">Verify</button>
+            <span class="kyc-vbadge" id="kycVerified" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5.2 5.2L20 7"/></svg> Verified</span>
+          </div>
+          <span class="kyc-status" id="otpStat"></span></div>
         <div class="fld"><label>Email (portal login) *</label><input id="kyEmail" type="email" required></div>
         <div class="fld"><label>Owner PAN</label><input id="kyPan" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase"></div>
         <div class="fld full"><label>Choose portal password *</label><input id="kyPass" type="password" minlength="6" required></div>
@@ -2170,60 +3035,166 @@ pages.b2b = async (view) => {
     </div>
 
   </div>`;
+  initKycAuto();
 };
+
+/* ─────────── KYC auto-flow (v105) ───────────
+   Jeweller form: 10 digits typed → the OTP sends itself.
+   6 digits typed (or pasted, or read from the SMS) → it verifies itself and
+   the green "✓ Verified" badge stays for that number, even across pages. */
+function initKycAuto() {
+  const ph = $('#kyPhone'), boxes = $('#kyOtpBoxes');
+  if (!ph) return;
+  const saved = store.get('shv_kyc_v', '');
+  if (saved && saved === ph.value.replace(/\D/g, '')) markVerified(saved, true);
+  ph.addEventListener('input', () => {
+    ph.value = ph.value.replace(/\D/g, '').slice(0, 10);
+    const v = ph.value, hint = $('#phStat');
+    if (window._kycVerifiedPhone && window._kycVerifiedPhone !== v) unmarkVerified();
+    if (v.length === 10) {
+      if (window._kycVerifiedPhone === v) { markVerified(v, true); if (hint) hint.innerHTML = '✓ This number is already verified'; return; }
+      if (window._kycAutoSent === v) return;
+      window._kycAutoSent = v;
+      if (hint) hint.innerHTML = '✓ 10 digits — sending your code…';
+      window.Shivaa.kycOtp({ auto: true });
+    } else if (hint) {
+      hint.textContent = v.length ? `${10 - v.length} more digit${10 - v.length === 1 ? '' : 's'} — the code sends itself` : 'Type all 10 digits — the code sends itself.';
+    }
+  });
+  ph.addEventListener('paste', () => setTimeout(() => ph.dispatchEvent(new Event('input')), 0));
+  if (boxes) bindOtpBoxes(boxes, code => window.Shivaa.kycOtpVerify(code));
+
+  // v105 — the GSTIN checks itself too: 15 valid characters typed → the
+  // checksum gate runs without anyone hunting for the Verify button.
+  const g = $('#kyGstin');
+  if (g) {
+    const autoGst = () => {
+      const v = g.value.trim().toUpperCase();
+      if (v.length !== 15) { if (window._kyc.gstin && v !== ($('#gstStat') || {}).dataset.ok) { /* keep the last good state */ } return; }
+      if (window._kycGstinAuto === v || window._kycGstinBusy) return;
+      window._kycGstinAuto = v;
+      window.Shivaa.kycGstin();
+    };
+    g.addEventListener('input', () => {
+      const caret = g.selectionStart;
+      const cleaned = g.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15);
+      if (cleaned !== g.value) { g.value = cleaned; try { g.setSelectionRange(caret, caret); } catch (e) {} }
+      if (window._kycGstinAuto && cleaned !== window._kycGstinAuto) { window._kycGstinAuto = ''; window._kyc.gstin = false; window.Shivaa.kycGate(); }
+      autoGst();
+    });
+    g.addEventListener('paste', () => setTimeout(() => g.dispatchEvent(new Event('input')), 0));
+    g.addEventListener('blur', autoGst);
+  }
+}
+function markVerified(phone, silent) {
+  window._kyc.otp = true;
+  window._kycVerifiedPhone = phone;
+  store.set('shv_kyc_v', phone);
+  const badge = $('#kycVerified'), boxes = $('#kyOtpBoxes'), st = $('#otpStat'), hint = $('#phStat');
+  if (badge) badge.hidden = false;
+  if (boxes) { boxes.classList.add('verified'); $$('input', boxes).forEach(i => i.setAttribute('readonly', 'readonly')); }
+  if (st) { st.textContent = '✓ Mobile verified · ' + phone; st.className = 'kyc-status ok'; }
+  if (hint) { hint.innerHTML = '✓ OTP verified on this number'; hint.className = 'kyc-autohint ok'; }
+  const vr = $('#kyOtpVerify'); if (vr) vr.hidden = true;
+  window.Shivaa.kycGate();
+  if (!silent) toast('Mobile verified ✓');
+}
+function unmarkVerified() {
+  window._kyc.otp = false;
+  window._kycVerifiedPhone = '';
+  store.set('shv_kyc_v', '');
+  const badge = $('#kycVerified'), boxes = $('#kyOtpBoxes'), vr = $('#kyOtpVerify');
+  if (badge) badge.hidden = true;
+  if (boxes) { boxes.classList.remove('verified'); $$('input', boxes).forEach(i => i.removeAttribute('readonly')); if (boxes._otp) boxes._otp.reset(); }
+  if (vr) vr.hidden = false;
+  window._kycAutoSent = '';
+  window.Shivaa.kycGate();
+}
+window.Shivaa.kycMarkVerified = markVerified;
 /* ─────────── SERVICES (D2C) ─────────── */
 window._kyc = { gstin: false, otp: false };
 window.Shivaa.kycGstin = async () => {
-  const g = $('#kyGstin').value.trim();
-  const st = $('#gstStat');
-  if (!st) return;
+  const gi = $('#kyGstin'), st = $('#gstStat');
+  if (!gi || !st) return;                 // v106 — the form is not on screen: do nothing, never throw
+  const g = gi.value.trim();
+  if (window._kycGstinBusy) return;                 // v105 — one check in flight at a time
+  window._kycGstinBusy = true;
   st.textContent = 'checking…'; st.className = 'kyc-status wait';
   try {
     const r = await api('/api/kyc/check-gstin', { method: 'POST', body: JSON.stringify({ gstin: g }) });
     if (r.valid) {
       window._kyc.gstin = true;
-      if (!$('#kyCity').value) $('#kyCity').value = r.state === 'Rajasthan' ? '' : r.state;
+      const city = $('#kyCity'); if (city && !city.value) city.value = r.state === 'Rajasthan' ? '' : r.state;
       st.textContent = 'checking firm name…'; 
       try {
         const lg = await api('/api/kyc/gst-lookup', { method: 'POST', body: JSON.stringify({ gstin: g }) });
-        if (lg.configured && lg.verified && lg.legalName) { window._kyc.legalName = lg.legalName; $('#kyFirm').value = lg.legalName; $('#kyFirm').readOnly = true; st.innerHTML = '✓ Firm verified: ' + esc(lg.legalName); }
+        if (lg.configured && lg.verified && lg.legalName) { window._kyc.legalName = lg.legalName; const f = $('#kyFirm'); if (f) { f.value = lg.legalName; f.readOnly = true; } st.innerHTML = '✓ Firm verified: ' + esc(lg.legalName); }
         else st.innerHTML = '✓ Valid · ' + esc(r.state) + ' <small>(name verified at approval)</small>';
       } catch (e) { st.innerHTML = '✓ Valid · ' + esc(r.state); }
       st.className = 'kyc-status ok';
-    } else { window._kyc.gstin = false; st.textContent = '✗ ' + r.reason; st.className = 'kyc-status bad'; $('#kyFirm').readOnly = false; }
+    } else { window._kyc.gstin = false; st.textContent = '✗ ' + r.reason; st.className = 'kyc-status bad'; const f = $('#kyFirm'); if (f) f.readOnly = false; }
   } catch (e) { st.textContent = '✗ ' + e.message; st.className = 'kyc-status bad'; }
+  window._kycGstinBusy = false;
   window.Shivaa.kycGate();
 };
-window.Shivaa.kycOtp = async () => {
-  const ph = $('#kyPhone').value.replace(/\D/g, '');
-  if (ph.length !== 10) return toast('Enter a valid 10-digit mobile', 'err');
+window.Shivaa.kycOtp = async (opt) => {
+  const auto = !!(opt && opt.auto);
+  const phEl = $('#kyPhone'); if (!phEl) return;
+  const ph = phEl.value.replace(/\D/g, '');
+  const st = $('#otpStat'), hint = $('#phStat'), btn = $('#kyOtpSend');
+  if (ph.length !== 10) { if (!auto) toast('Enter a valid 10-digit mobile', 'err'); return; }
+  if (window._kycVerifiedPhone === ph) { markVerified(ph, true); return; }
+  if (btn) busyBtn(btn, true, 'Sending\u2026');
+  if (st) { st.textContent = 'sending your code…'; st.className = 'kyc-status wait'; }
   try {
     const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone: ph }) });
-    const st = $('#otpStat');
+    const boxes = $('#kyOtpBoxes');
+    if (boxes && boxes._otp) { boxes._otp.reset(); boxes._otp.focus(); }
     if (r.devCode) {
-      st.innerHTML = 'demo OTP: <b>' + r.devCode + '</b> — tap to fill (live SMS once the gateway is configured)';
-      st.className = 'kyc-status wait'; st.style.cursor = 'pointer';
-      st.onclick = () => { const i = $('#kyOtp'); if (i && window.ShivaaOtp) ShivaaOtp.fill(i, String(r.devCode)); };
-    }
-    else { st.textContent = 'OTP sent to your mobile'; st.className = 'kyc-status wait'; }
-    if (window.ShivaaOtp) ShivaaOtp.watch($('#kyOtp'), () => { if (window.Shivaa.kycOtpVerify) window.Shivaa.kycOtpVerify(); });   // v33 — Android auto-fill
-    toast('OTP sent ✓');
-  } catch (e) { toast(e.message, 'err'); }
+      if (st) {
+        st.innerHTML = 'demo OTP: <b>' + esc(r.devCode) + '</b> — tap to fill (live SMS once the gateway is configured)';
+        st.className = 'kyc-status wait'; st.style.cursor = 'pointer';
+        st.onclick = () => { if (boxes && window.ShivaaOtp) ShivaaOtp.fill(boxes, String(r.devCode)); };
+      }
+    } else if (st) { st.textContent = '✓ Code sent to +91 ' + ph + ' — it verifies itself'; st.className = 'kyc-status wait'; st.style.cursor = ''; st.onclick = null; }
+    if (hint) { hint.innerHTML = '✓ Code sent — type or paste it, verification is automatic'; hint.className = 'kyc-autohint ok'; }
+    if (window.ShivaaOtp) ShivaaOtp.watch(boxes, code => window.Shivaa.kycOtpVerify(code));   // Android SMS autofill
+    if (!auto) toast('OTP sent ✓');
+  } catch (e) {
+    window._kycAutoSent = '';                       // let the owner retry immediately
+    if (st) { st.textContent = '✗ ' + e.message; st.className = 'kyc-status bad'; }
+    if (hint) { hint.textContent = 'Could not send just now — tap Send OTP to retry.'; hint.className = 'kyc-autohint bad'; }
+    if (!auto || /30 seconds/i.test(e.message)) toast(e.message, 'err');
+  }
+  if (btn) busyBtn(btn, false);
 };
-window.Shivaa.kycOtpVerify = async () => {
+window.Shivaa.kycOtpVerify = async (code) => {
+  const boxes = $('#kyOtpBoxes'), st = $('#otpStat');
+  const ph = ($('#kyPhone') ? $('#kyPhone').value : '').replace(/\D/g, '');
+  const c = String(code || (boxes && boxes._otp ? boxes._otp.value() : otpVal('kyOtpBoxes'))).replace(/\D/g, '');
+  if (c.length !== OTP_LEN) { if (code === undefined && st) { st.textContent = 'Enter all ' + OTP_LEN + ' digits'; st.className = 'kyc-status bad'; } return; }
+  if (ph.length !== 10) { toast('Enter the 10-digit mobile first', 'err'); return; }
+  if (window._kycVerifyBusy) return;
+  window._kycVerifyBusy = true;
+  if (st) { st.textContent = 'verifying…'; st.className = 'kyc-status wait'; }
   try {
-    await api('/api/kyc/verify-otp', { method: 'POST', body: JSON.stringify({ phone: $('#kyPhone').value.replace(/\D/g, ''), code: $('#kyOtp').value.trim() }) });
-    window._kyc.otp = true;
-    const st = $('#otpStat'); st.textContent = '✓ Mobile verified'; st.className = 'kyc-status ok';
+    await api('/api/kyc/verify-otp', { method: 'POST', body: JSON.stringify({ phone: ph, code: c }) });
+    markVerified(ph);
+  } catch (e) {
+    window._kyc.otp = false;
+    if (boxes && boxes._otp) { boxes._otp.fail(); boxes._otp.reset(); }
+    if (st) { st.textContent = '✗ ' + (e.message || 'That code did not match'); st.className = 'kyc-status bad'; }
+    toast(e.message || 'That code did not match', 'err');
     window.Shivaa.kycGate();
-  } catch (e) { toast(e.message, 'err'); }
+  }
+  window._kycVerifyBusy = false;
 };
 window.Shivaa.gotoJeweller = () => { closeModal(); location.hash = '#/b2b'; };
 window.Shivaa.waPartnerId = () => {
   waOpen("Namaste Shivaa team \u2726\n\nI'd like a partner portal ID and password without filling the online form.\n\nFirm name: \nCity: \nGSTIN: \n\nPlease help me get started.");
 };
 window.Shivaa.partnerLogin = () => {
-  if (isPartner()) { location.hash = '#/partner'; return; }
+  if (isPartner()) { location.hash = '#/partner?view=bullion'; return; }
   openLogin('partner');
 };
 window.Shivaa.kycGate = () => { const b = $('#kycSubmit'); if (b) b.disabled = !(window._kyc.gstin && window._kyc.otp); };
@@ -2393,13 +3364,13 @@ function afterLogin(r, opts = {}) {
     // "Already a partner?" — approved partners go to the portal, everyone else
     // lands back on the application page rather than a 403 dead end —
     // and is told exactly why (v30: no more silent dead ends).
-    : next === 'partner'  ? (isPartner() ? '#/partner' : '#/b2b')
+    : next === 'partner'  ? (isPartner() ? '#/partner?view=bullion' : '#/b2b')
     : next.startsWith('#') ? next
     : '#/' + String(next).replace(/^\/+/, '');
 
   // staff go to their own consoles rather than the storefront checkout
   const role = (state.user && state.user.role) || 'customer';
-  const staffDest = role === 'admin' ? '#/admin' : role === 'partner' ? '#/partner' : null;
+  const staffDest = role === 'admin' ? '#/admin' : role === 'partner' ? '#/partner?view=bullion' : null;   // v106
   const finalDest = (staffDest && (next === 'home')) ? staffDest : dest;
 
   // v30 — if someone used the jeweller door without a partner account, say so plainly
@@ -2457,37 +3428,31 @@ function pwFieldHTML({ id, label = 'Password', ph = '', auto = 'new-password', m
     <button type="button" class="pw-eye" data-eye="${id}" aria-label="Show or hide password">${EYE_ON}${EYE_OFF}</button></div>
     ${meter ? `<div class="pw-meter" id="${id}Meter" data-s="0"><i></i><span>Use 8+ characters with a mix of letters, numbers &amp; symbols</span></div>` : ''}</div>`;
 }
-function otpBoxesHTML(id) {
+function otpBoxesHTML(id, n = OTP_LEN, label = '') {
   let inp = '';
-  for (let i = 0; i < 6; i++) inp += `<input type="text" maxlength="1" inputmode="numeric" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Digit ${i + 1}">`;
-  return `<div class="otp-boxes" id="${id}" role="group" aria-label="6-digit code">${inp}</div>`;
+  for (let i = 0; i < n; i++) inp += `<input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" placeholder=" " autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Digit ${i + 1}">`;
+  return `<div class="otp-boxes" id="${id}" data-otp-len="${n}" role="group" aria-label="${label || (n + '-digit code')}">${inp}
+    <span class="otp-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.2 5.2L20 7"/></svg></span></div>`;
 }
-function bindOtpBoxes(root, onComplete) {
-  if (!root) return;
-  const boxes = [...root.querySelectorAll('input')];
-  const fire = () => {
-    const v = boxes.map(b => b.value).join('');
-    if (v.length === 6 && onComplete) onComplete(v);
-  };
+/* v105 — one shared implementation (paste auto-split, auto-advance,
+   backspace-back, auto-fire once) lives in js/otp-autofill.js so the login
+   sheet, the registration form and the jeweller KYC all behave identically. */
+function bindOtpBoxes(root, onComplete, opts = {}) {
+  if (!root) return null;
+  if (window.ShivaaOtp && window.ShivaaOtp.enhance) return window.ShivaaOtp.enhance(root, { onComplete, ...opts });
+  const boxes = [...root.querySelectorAll('input')];      // fallback if the module is missing
+  const fire = () => { const v = boxes.map(b => b.value).join(''); if (v.length === boxes.length && onComplete) onComplete(v); };
   boxes.forEach((inp, i) => {
-    inp.addEventListener('input', () => {
-      inp.value = inp.value.replace(/\D/g, '').slice(-1);
-      if (inp.value && i < 5) boxes[i + 1].focus();
-      fire();
-    });
-    inp.addEventListener('keydown', e => {
-      if (e.key === 'Backspace' && !inp.value && i > 0) { boxes[i - 1].focus(); boxes[i - 1].value = ''; }
-      if (e.key === 'ArrowLeft' && i > 0) boxes[i - 1].focus();
-      if (e.key === 'ArrowRight' && i < 5) boxes[i + 1].focus();
-    });
+    inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(-1); if (inp.value && i < boxes.length - 1) boxes[i + 1].focus(); fire(); });
+    inp.addEventListener('keydown', e => { if (e.key === 'Backspace' && !inp.value && i > 0) { boxes[i - 1].focus(); boxes[i - 1].value = ''; } });
     inp.addEventListener('paste', e => {
       e.preventDefault();
-      const digits = ((e.clipboardData || window.clipboardData).getData('text').match(/\d/g) || []).slice(0, 6);
+      const digits = ((e.clipboardData || window.clipboardData).getData('text').match(/\d/g) || []).slice(0, boxes.length);
       digits.forEach((d, j) => { if (boxes[j]) boxes[j].value = d; });
-      boxes[Math.min(digits.length, 5)].focus();
-      fire();
+      boxes[Math.min(digits.length, boxes.length - 1)].focus(); fire();
     });
   });
+  return root;
 }
 const otpVal = id => { const r = document.getElementById(id); return r ? [...r.querySelectorAll('input')].map(i => i.value).join('') : ''; };
 function bindEyes(scope = document) {
@@ -2590,7 +3555,7 @@ function openLogin(next = '') {
               <div class="kyc-inline"><input id="rtOtpPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" autocomplete="tel-national" style="flex:1">
               <button type="button" class="btn btn-ghost btn-sm" id="rtOtpSend">Send code</button></div>
               <span class="auth-stat" id="rtOtpStat"></span></div>
-            <div class="fld"><label>6-digit code</label>
+            <div class="fld"><label>${OTP_LEN}-digit code</label>
               ${otpBoxesHTML('rtOtpBoxes')}
             </div>
             <button class="btn btn-primary btn-block" id="rtOtpBtn" type="submit">Verify &amp; sign in</button>
@@ -2604,7 +3569,7 @@ function openLogin(next = '') {
             <div class="kyc-inline"><input id="rgPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" autocomplete="tel-national" style="flex:1">
             <button type="button" class="btn btn-ghost btn-sm" id="rgSend">Send code</button></div>
             <span class="auth-stat" id="rgStat"></span></div>
-          <div class="fld"><label>Enter the 6-digit code</label>
+          <div class="fld"><label>Enter the ${OTP_LEN}-digit code</label>
             ${otpBoxesHTML('rgBoxes')}
           </div>
           <div class="fld"><label>Email</label><input id="rgEmail" type="email" autocomplete="email" placeholder="you@example.com" required></div>
@@ -2661,7 +3626,12 @@ function openLogin(next = '') {
   });
 
   window._regOtp = false;
-  bindOtpBoxes($('#rtOtpBoxes'));
+  /* v105 — the code verifies itself: no button press once all digits are in */
+  bindOtpBoxes($('#rtOtpBoxes'), code => {
+    const phone = authPhone($('#rtOtpPhone').value);
+    if (!authPhoneOk(phone)) return;
+    Shivaa.rtOtpLogin(phone, code, $('#rtOtpBtn'));
+  });
   bindOtpBoxes($('#rgBoxes'), code => { if (!window._regOtp) Shivaa._rgVerify(code); });
   bindEyes($('#modalBox'));
   bindMeter('rgPass');
@@ -2673,7 +3643,7 @@ function openLogin(next = '') {
       const phone = authPhone($('#rtOtpPhone').value);
       const code = otpVal('rtOtpBoxes');
       if (!authPhoneOk(phone)) return toast('Enter a valid 10-digit mobile number', 'err');
-      if (code.length !== 6) return toast('Enter the 6-digit code', 'err');
+      if (code.length !== OTP_LEN) return toast('Enter the ' + OTP_LEN + '-digit code', 'err');
       Shivaa.rtOtpLogin(phone, code, $('#rtOtpBtn'));
     } else {
       $('#authErr').hidden = true; if ($('#authErrJ')) $('#authErrJ').hidden = true;
@@ -2846,6 +3816,42 @@ function initDsfilters(attempt = 0) {
   ['dsfCat', 'dsfStone', 'dsfColour', 'dsfPurity', 'dsfWMin', 'dsfWMax'].forEach(id => {
     const el = g(id); if (!el) return; el.oninput = apply; el.onchange = apply;
   });
+
+  /* v106 — manufacturer photo slider + full-detail sheet, delegated once for
+     the whole grid (405 cards, so no per-card listeners). */
+  grid.classList.add('cv-auto');
+  if (!grid._gal) {
+    grid._gal = true;
+    grid.addEventListener('click', e => {
+      const nav = e.target.closest('.bp-nav');
+      const det = e.target.closest('.ds-detail');
+      if (nav) { e.preventDefault(); e.stopPropagation(); ShivaaDS.galStep(nav.closest('.bp-gal'), +nav.dataset.d); return; }
+      if (det) { e.preventDefault(); e.stopPropagation(); ShivaaDS.detail(det.dataset.pid); return; }
+      if (e.target.closest('.ds-qty')) return;
+      const gal = e.target.closest('.bp-gal');
+      if (gal) { e.preventDefault(); ShivaaDS.detail(gal.dataset.pid); }
+    });
+    /* swipe through the photos on touch */
+    let gx = null, gEl = null;
+    grid.addEventListener('touchstart', e => { const gal = e.target.closest('.bp-gal'); if (gal) { gEl = gal; gx = e.touches[0].clientX; } }, { passive: true });
+    grid.addEventListener('touchend', e => {
+      if (gx === null || !gEl) return;
+      const dx = ((e.changedTouches && e.changedTouches[0]) || e).clientX - gx;
+      if (Math.abs(dx) > 34) ShivaaDS.galStep(gEl, dx < 0 ? 1 : -1);
+      gx = null; gEl = null;
+    }, { passive: true });
+    /* desktop: hover cycles the manufacturer shots, one shared timer */
+    if (!matchMedia('(hover: none)').matches) {
+      let hoverGal = null, hoverT = null;
+      grid.addEventListener('mouseover', e => {
+        const gal = e.target.closest('.bp-gal');
+        if (!gal || gal === hoverGal || gal.dataset.i === undefined) return;
+        hoverGal = gal; clearInterval(hoverT);
+        if ((gal.dataset.imgs || '').split('|').length > 1) hoverT = setInterval(() => ShivaaDS.galStep(hoverGal, 1), 1500);
+      });
+      grid.addEventListener('mouseleave', () => { clearInterval(hoverT); hoverGal = null; });
+    }
+  }
   const quick = g('dsfQuick');
   if (quick) quick.querySelectorAll('.pf-chip').forEach(ch => {
     ch.onclick = () => {
@@ -2865,6 +3871,102 @@ function initDsfilters(attempt = 0) {
   apply();
 }
 window.ShivaaDS = {
+  /* v106 — advance one card's manufacturer gallery (single <img>, src swap) */
+  galStep(gal, dir) {
+    if (!gal) return;
+    const list = (gal.dataset.imgs || '').split('|').filter(Boolean);
+    if (list.length < 2) return;
+    let i = (+gal.dataset.i || 0) + (dir || 1);
+    i = (i + list.length) % list.length;
+    gal.dataset.i = String(i);
+    const img = gal.querySelector('img');
+    if (img && img.getAttribute('src') !== list[i]) { img.src = list[i]; img.classList.add('on'); }
+    gal.querySelectorAll('.bp-dots i').forEach((d, j) => d.classList.toggle('on', j === i));
+  },
+  /* v106 — the full manufacturing detail sheet for one design */
+  detail(pid) {
+    const p = state.productsCache.find(x => String(x.id) === String(pid));
+    if (!p) { toast('That design could not be loaded', 'err'); return; }
+    const R = state.rates || {};
+    const ims = (p.images && p.images.length) ? p.images : ['/images/logo.png'];
+    const key = p.metal === 'Silver' ? 'silver' : ('gold' + String(p.purity).replace('K', ''));
+    const rate = +R[key] || 0;
+    const factor = +(state.settings.metalFactor || 0.92);
+    const w = +p.weightG || 0, less = +p.lessWeightG || 0;
+    const netW = Math.max(0, w - less);
+    const fine = netW * factor;
+    const sel = (window._sel && window._sel[p.id]) || 0;
+    const catName = (CATS[p.category] || {}).name || p.category;
+    const spec = (k, v) => v === undefined || v === null || v === '' ? '' : `<tr><td>${k}</td><td>${v}</td></tr>`;
+    openModal(`
+    <div class="bd-scroll"><div class="bd-grid">
+      <div>
+        <div class="bd-gal" id="bdGal" data-i="0">
+          ${ims.map((im, i) => `<img src="${esc(im)}" class="${i ? '' : 'on'}" alt="${esc(p.name)} — photo ${i + 1}">`).join('')}
+          ${ims.length > 1 ? `<button type="button" class="bp-nav bp-prev" id="bdPrev" aria-label="Previous photo">‹</button><button type="button" class="bp-nav bp-next" id="bdNext" aria-label="Next photo">›</button>` : ''}
+        </div>
+        ${ims.length > 1 ? `<div class="bd-thumbs" id="bdThumbs">${ims.map((im, i) => `<button type="button" data-i="${i}" class="${i ? '' : 'on'}"><img src="${esc(im)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+      </div>
+      <div class="bd-info">
+        <span class="label">${esc(catName)} · SKU ${esc(p.sku || p.id)}</span>
+        <h3>${esc(p.name)}</h3>
+        <p class="bd-desc">${esc(p.desc || 'No description was recorded for this design.')}</p>
+        <table class="bd-specs">
+          ${spec('Metal', esc(p.metal === 'Silver' ? 'Silver ' + (p.purity || '925') : (p.purity || '') + ' gold'))}
+          ${spec('Gross weight', (+w).toFixed(3) + ' g')}
+          ${spec('Less weight', less ? less.toFixed(3) + ' g' : 'none')}
+          ${spec('Net metal', netW.toFixed(3) + ' g')}
+          ${spec('Wastage', p.wastagePct ? esc(String(p.wastagePct)) + '%' : '—')}
+          ${spec('Stone', [p.stoneType, p.stoneColour].filter(Boolean).map(esc).join(' · ') || 'plain — no stones')}
+          ${spec('Stone detail', p.stoneDesc ? esc(p.stoneDesc) : '')}
+          ${spec('Sizes', (p.sizes && p.sizes.length) ? p.sizes.map(esc).join(', ') : 'one size')}
+          ${spec('Barcode', p.barcode ? esc(p.barcode) : '')}
+          ${spec('Retail MC', p.mcScheme === 'percent' ? esc(String(p.mcValue)) + '% of metal value' : p.mcScheme === 'perGram' ? '₹' + esc(String(p.mcValue)) + '/g' : '₹' + esc(String(p.mcValue)))}
+          ${spec('Live rate basis', rate ? `${esc(p.metal === 'Silver' ? 'Silver' : String(p.purity))} · ${fmt(rate)}/g (Jaipur)` : 'rate loading…')}
+        </table>
+        <div class="rate-lock" style="margin:0 0 14px">
+          <span class="rl-ic" aria-hidden="true">✦</span>
+          <div><b>Partner settlement</b>
+            <small>Zero making charges · billed in fine metal at ${esc(String(state.settings.finePurity || '99.50%'))}</small></div>
+          <div class="rl-rates"><span>Net ${netW.toFixed(2)} g</span><span>× ${factor}</span><span><b>${fine.toFixed(2)} g fine</b></span></div>
+        </div>
+        <div class="cd-qty" style="margin-bottom:12px"><button type="button" id="bdMinus" aria-label="One less">−</button><b id="bdQtyN">${sel}</b><button type="button" id="bdPlus" aria-label="One more">+</button><span style="font-size:12px;color:var(--ink-3);margin-left:8px">in your selection</span></div>
+        <div class="cd-acts">
+          <button type="button" class="btn btn-primary" id="bdClose">Done — back to the desk</button>
+          <button type="button" class="btn btn-ghost" id="bdWa">Ask about this design on WhatsApp</button>
+        </div>
+      </div>
+    </div></div>`, 'b2b-detail');
+    const box = $('#modalBox');
+    /* gallery */
+    const gal = $('#bdGal');
+    const showI = i => {
+      i = (i + ims.length) % ims.length;
+      gal.dataset.i = String(i);
+      gal.querySelectorAll('img').forEach((im, j) => im.classList.toggle('on', j === i));
+      const th = $('#bdThumbs'); if (th) th.querySelectorAll('button').forEach((b, j) => b.classList.toggle('on', j === i));
+    };
+    if ($('#bdPrev')) $('#bdPrev').onclick = () => showI(+gal.dataset.i - 1);
+    if ($('#bdNext')) $('#bdNext').onclick = () => showI(+gal.dataset.i + 1);
+    if ($('#bdThumbs')) $('#bdThumbs').querySelectorAll('button').forEach(b => b.onclick = () => showI(+b.dataset.i));
+    if (ims.length > 1) {
+      const t = setInterval(() => { if (!box.classList.contains('b2b-detail') || !$('#bdGal')) clearInterval(t); else showI(+gal.dataset.i + 1); }, 4200);
+      gal.addEventListener('pointerdown', () => clearInterval(t));
+    }
+    /* selection stays in step with the grid behind the sheet */
+    const sync = () => {
+      const n = (window._sel && window._sel[p.id]) || 0;
+      const q = $('#bdQtyN'); if (q) q.textContent = n;
+      const card = document.getElementById('ds-' + p.id);
+      if (card) { card.classList.toggle('on', n > 0); const sp = card.querySelector('.ds-qty span'); if (sp) sp.textContent = n; }
+      if (window.ShivaaDS.updateBar) window.ShivaaDS.updateBar();
+    };
+    $('#bdMinus').onclick = () => { window.ShivaaDS.qty(p.id, -1); sync(); };
+    $('#bdPlus').onclick = () => { window.ShivaaDS.qty(p.id, 1); sync(); };
+    $('#bdClose').onclick = () => closeModal();
+    $('#bdWa').onclick = () => waOpen(`Namaste Shivaa bullion desk ✦\n\nI want to order this design under fine-metal settlement:\n${p.name} (SKU ${p.sku || p.id})\n${p.purity} ${p.metal === 'Silver' ? 'silver' : 'gold'} · ${w} g gross / ${netW.toFixed(2)} g net\n≈ ${fine.toFixed(2)} g fine at ${factor} factor\nQuantity: ${((window._sel || {})[p.id] || 0)}\n\nFirm name: \nPlease confirm availability.`);
+    const sc = box.querySelector('.bd-scroll'); if (sc) sc.scrollTop = 0;
+  },
   qty(pid, d) {
     window._sel[pid] = Math.max(0, (window._sel[pid] || 0) + d);
     const card = document.getElementById('ds-' + pid);
@@ -3011,10 +4113,11 @@ pages.buyback = async (view) => {
           <div class="fld">
             <label>Weight of your piece</label>
             <div class="bbc-wt">
-              <input type="number" id="bbWt" value="10" min="0.1" step="0.1" inputmode="decimal">
+              <input type="number" id="bbWt" value="10" min="0.1" step="0.1" inputmode="decimal" placeholder="10" aria-describedby="bbWtHint">
               <span class="bbc-unit">grams</span>
             </div>
-            <input type="range" id="bbRange" class="bbc-range" min="1" max="100" value="10" step="0.5">
+            <input type="range" id="bbRange" class="bbc-range" min="1" max="100" value="10" step="0.5" aria-label="Weight slider">
+            <span class="calc-hint" id="bbWtHint">Cleared the box? Type any weight in grams, e.g. 10 — the valuation updates as you type.</span>
           </div>
 
           <div class="fld">
@@ -3219,9 +4322,10 @@ pages.savings = async (view) => {
             <label>Your monthly instalment</label>
             <div class="svc-amt-row">
               <span class="svc-rs">₹</span>
-              <input type="number" id="svAmt" value="5000" min="500" step="500" inputmode="numeric">
+              <input type="number" id="svAmt" value="5000" min="500" step="500" inputmode="numeric" placeholder="5000" aria-describedby="svAmtHint">
             </div>
-            <input type="range" id="svRange" class="bbc-range" min="500" max="50000" step="500" value="5000">
+            <input type="range" id="svRange" class="bbc-range" min="500" max="50000" step="500" value="5000" aria-label="Monthly instalment slider">
+            <span class="calc-hint" id="svAmtHint">Cleared the box? Type any monthly amount between &#8377;500 and &#8377;50,000 — the projection updates as you type.</span>
             <div class="svc-chips" id="svChips">
               <button type="button" data-v="2000">₹2,000</button>
               <button type="button" data-v="5000" class="on">₹5,000</button>
@@ -3439,7 +4543,7 @@ pages.metal = async (view) => {
           <div class="fld">
             <label>Weight you would deposit</label>
             <div class="bbc-wt">
-              <input type="number" id="mtWt" value="100" min="1" step="1" inputmode="decimal">
+              <input type="number" id="mtWt" value="100" min="1" step="1" inputmode="decimal" placeholder="100">
               <span class="bbc-unit">grams</span>
             </div>
             <input type="range" id="mtRange" class="bbc-range" min="10" max="2000" step="10" value="100">
@@ -3609,7 +4713,7 @@ pages.deadstock = async (view) => {
       <div class="crumbs"><a href="#/">Home</a> / <a href="#/partner">Partner Portal</a> / Dead Stock</div>
       <span class="lux-badge">&#9670; PARTNERS ONLY</span>
       <h1 class="ink-reveal">Dead Stock <em class="shimmer foil-txt">Purchase</em></h1>
-      <p>Your slow-moving 22K jewellery, bought at one wastage and settled as fine 99.999 metal value &mdash; with half your making charges credited back so melting never wins.</p>
+      <p>Every category of slow-moving stock &mdash; plain, CZ or studded, 18K, 22K, 24K fine and silver 925 &mdash; bought at one wastage, settled at fine-metal value, with half your making charges credited back so melting never wins.</p>
     </div>
   </section>
 
@@ -3618,9 +4722,9 @@ pages.deadstock = async (view) => {
     <!-- ── the offer ── -->
     <div class="vault-grid rv">
       <div class="vault-card">
-        <span class="vc-num">22<small>K</small></span>
-        <b>Plain 22K jewellery only</b>
-        <p>Bangles, chains, rings, plain sets &mdash; any design, any age. One wastage, no grading arguments, no per-piece haggling.</p>
+        <span class="vc-num">All</span>
+        <b>Every category welcome</b>
+        <p>Plain, CZ and studded gold, 18K, 22K, 24K fine and silver 925 &mdash; bangles, chains, rings, sets. Any design, any age. One wastage, no grading arguments, no per-piece haggling.</p>
       </div>
       <div class="vault-card vc-emerald">
         <span class="vc-num">50<small>%</small></span>
@@ -3645,9 +4749,23 @@ pages.deadstock = async (view) => {
       <div class="svc-body">
         <div class="svc-form">
           <div class="fld">
-            <label>Category we purchase</label>
-            <div class="purity-lock emerald"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>the only category on this desk</span></div>
+            <label>What are you selling?</label>
+            <select id="dsMetal" class="sortsel">
+              <option value="g22">22K gold jewellery &mdash; plain</option>
+              <option value="cz">CZ / studded gold jewellery</option>
+              <option value="g18">18K gold jewellery</option>
+              <option value="g24">24K fine gold &mdash; coins, bars, biscuits</option>
+              <option value="sil">Silver 925 jewellery</option>
+            </select>
+            <div class="ds-mc-hint" id="dsCatNote">We purchase every category &mdash; plain, CZ, studded, 18K, 22K, 24K and silver. Pick the closest match and the estimate follows the right live rate.</div>
+          </div>
+          <div class="fld" id="dsStoneFld" hidden>
+            <label>Stone weight in the lot (g)</label>
+            <div class="bbc-wt">
+              <input type="number" id="dsStone" value="0" min="0" step="0.5" inputmode="decimal">
+              <span class="bbc-unit">grams</span>
+            </div>
+            <div class="ds-mc-hint">Stones are never bought as metal. We deduct this weight at assay &mdash; or hand the stones back to you &mdash; and value the metal in full.</div>
           </div>
 
           <div class="fld">
@@ -3676,7 +4794,7 @@ pages.deadstock = async (view) => {
           <div class="bbr-rate" id="dsSub">&mdash;</div>
 
           <div class="ds-split">
-            <div class="dss-row dss-fine"><span>Fine 99.999 metal you receive</span><b id="dsFine">&mdash;</b></div>
+            <div class="dss-row dss-fine"><span id="dsFineLbl">Fine 99.999 metal you receive</span><b id="dsFine">&mdash;</b></div>
             <div class="dss-row"><span>Metal value at one wastage</span><b id="dsMetalVal">&mdash;</b></div>
             <div class="dss-row dss-credit"><span>Melting-loss protection &middot; 50% of MC</span><b id="dsCredit">&mdash;</b></div>
             <div class="dss-row dss-vs"><span>If you melted it instead</span><b id="dsMelt">&mdash;</b></div>
@@ -3698,9 +4816,11 @@ pages.deadstock = async (view) => {
           <div class="fld"><label>Contact person *</label><input name="person" required placeholder="Your name"></div>
           <div class="fld"><label>Mobile *</label><input name="phone" required pattern="[6-9][0-9]{9}" maxlength="10" inputmode="numeric" placeholder="10-digit mobile"></div>
           <div class="fld"><label>City *</label><input name="city" required placeholder="e.g. Nagaur"></div>
+          <div class="fld"><label>Metal / purity *</label>
+            <select name="metal" required class="sortsel"><option>22K gold</option><option>18K gold</option><option>24K fine gold</option><option>CZ / studded gold</option><option>Silver 925</option><option>Mixed lot</option></select>
+          </div>
           <div class="fld"><label>Category</label>
-            <div class="purity-lock emerald ds-lock-sm"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>22 karat only</span></div>
+            <select name="category" class="sortsel"><option value="">Mixed / assorted</option>${Object.entries(CATS).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('')}</select>
           </div>
           <div class="fld"><label>Approx. total weight (g) *</label><input name="weight" type="number" step="0.1" min="1" required placeholder="e.g. 250"></div>
           <div class="fld"><label>Approx. making charges paid (&#8377;)</label><input name="mc" type="number" min="0" step="500" placeholder="e.g. 60000"></div>
@@ -3726,7 +4846,7 @@ pages.deadstock = async (view) => {
         <div class="step-item"><span class="si-n">01</span><b>Send the list</b><p>Fill the form above or send photos on WhatsApp. Approximate weights are fine at this stage.</p></div>
         <div class="step-item"><span class="si-n">02</span><b>Firm quote in 48 h</b><p>We confirm the one-wastage metal value and your melting-loss credit in writing before anything moves.</p></div>
         <div class="step-item"><span class="si-n">03</span><b>Insured pickup</b><p>Our carrier collects from your counter, fully insured in transit. You keep the signed receipt.</p></div>
-        <div class="step-item"><span class="si-n">04</span><b>Fine-metal settlement</b><p>The 22K content is converted to fine-metal value against your next order; the 50% credit sits on your account with no expiry.</p></div>
+        <div class="step-item"><span class="si-n">04</span><b>Fine-metal settlement</b><p>The metal content is converted to fine-metal value against your next order; the 50% credit sits on your account with no expiry.</p></div>
       </div>
     </section>
 
@@ -3734,10 +4854,10 @@ pages.deadstock = async (view) => {
     <section class="rv">
       <div class="sec-head"><h2>The terms, plainly</h2><p>Nothing hidden. Ask the bullion desk if anything here is unclear.</p></div>
       <div class="fine-grid">
-        <div class="fine-card"><b>What we take</b><p>Plain 22K gold jewellery in sellable condition &mdash; bangles, chains, rings, plain sets. Any design, any age.</p></div>
-        <div class="fine-card"><b>What we cannot take here</b><p>Heavily stone-set, enamelled or damaged pieces are quoted case by case. 18K and silver are handled separately by the bullion desk.</p></div>
+        <div class="fine-card"><b>What we take</b><p>Everything on the dead tray &mdash; plain 22K and 18K gold, CZ and studded pieces, 24K coins and bars, and silver 925. Any design, any age, sellable or not.</p></div>
+        <div class="fine-card"><b>How stones are handled</b><p>CZ, lab-grown and natural stones are not bought as metal: we deduct the stone weight at assay, or return the stones to you, and pay the metal content in full. Heavily enamelled pieces are quoted case by case.</p></div>
         <div class="fine-card"><b>Why 50% of the making charges</b><p>It is not a payment for craftsmanship &mdash; it is calibrated so you never recover less than melting. The credit applies against future Shivaa purchases and never expires.</p></div>
-        <div class="fine-card"><b>Minimum lot</b><p>100 g of 22K gold. Active partners can send smaller lots &mdash; message the desk first.</p></div>
+        <div class="fine-card"><b>Minimum lot</b><p>100 g of gold in any karat, or 1 kg of silver. Active partners can send smaller lots &mdash; message the desk first.</p></div>
       </div>
     </section>
 
@@ -3751,27 +4871,41 @@ pages.deadstock = async (view) => {
     </div>
   </div>`;
 
-  /* ---- live estimator: 22K → fine metal + melting-loss protection ---- */
-  const FINE = 0.916;   // 22K = 91.6% fine content
+  /* ---- live estimator: any category → fine metal + melting-loss protection ----
+     v106 — the desk buys everything, so the maths follows the selected metal:
+     each row carries its own fine content, the live rate it settles against and
+     what the melting route would realistically return for that metal. */
+  const g18 = R.gold18 || 0, sil = R.silver || 0;
+  const DS_CATS = {
+    g22: { label: '22K gold jewellery', fine: 0.916,  live: g22, fineRate: g24, melt: 0.92,  fineLbl: 'Fine 99.999 metal you receive' },
+    cz:  { label: 'CZ / studded gold',  fine: 0.916,  live: g22, fineRate: g24, melt: 0.90,  fineLbl: 'Fine 99.999 metal you receive', stones: true },
+    g18: { label: '18K gold jewellery', fine: 0.75,   live: g18, fineRate: g24, melt: 0.92,  fineLbl: 'Fine 99.999 metal you receive' },
+    g24: { label: '24K fine gold',      fine: 0.9999, live: g24, fineRate: g24, melt: 0.985, fineLbl: 'Fine 99.999 metal you receive' },
+    sil: { label: 'Silver 925',         fine: 0.925,  live: sil, fineRate: sil, melt: 0.93,  fineLbl: 'Fine 999 silver you receive' },
+  };
   const WAST = 0.99;    // bought at one wastage
-  const MELT = 0.92;    // typical melting route loses ~8%
 
   const calc = () => {
-    const wt = Math.max(0, parseFloat($('#dsWt').value) || 0);
+    const C = DS_CATS[($('#dsMetal') || {}).value] || DS_CATS.g22;
+    const gross = Math.max(0, parseFloat($('#dsWt').value) || 0);
+    const stoneW = C.stones ? Math.max(0, parseFloat(($('#dsStone') || {}).value) || 0) : 0;
+    const wt = Math.max(0, gross - stoneW);   // metal only — stones are never bought as metal
     const mc = Math.max(0, parseFloat($('#dsMc').value) || 0);
-    const fineG = wt * FINE * WAST;          // fine grams after one wastage
-    const metalVal = g24 > 0 ? fineG * g24 : wt * g22 * WAST;
-    const credit = mc * 0.5;                 // melting-loss protection
+    const fineG = wt * C.fine * WAST;         // fine grams after one wastage
+    const metalVal = C.fineRate > 0 ? fineG * C.fineRate : wt * C.live * WAST;
+    const credit = mc * 0.5;                  // melting-loss protection
     const total = metalVal + credit;
-    const melted = wt * g22 * MELT;          // melting: 8% loss, MC gone
+    const melted = wt * C.live * C.melt;      // the melting route for this metal
     const gain = total - melted;
+    const sf = $('#dsStoneFld'); if (sf) sf.hidden = !C.stones;
 
     const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+    set('#dsFineLbl', C.fineLbl);
     set('#dsFine', `${fineG.toLocaleString('en-IN', { maximumFractionDigits: 1 })} g \u2248 ${fmt(metalVal)}`);
     set('#dsMetalVal', fmt(metalVal));
     set('#dsCredit', '+ ' + fmt(credit));
     set('#dsMelt', fmt(melted));
-    set('#dsSub', `${wt.toLocaleString('en-IN')} g of 22K jewellery \u00b7 one wastage \u00b7 settled as fine metal`);
+    set('#dsSub', `${gross.toLocaleString('en-IN')} g of ${C.label}${stoneW ? ` (less ${stoneW} g stones)` : ''} \u00b7 one wastage \u00b7 settled as fine metal`);
 
     const gEl = $('#dsGain');
     if (gEl) gEl.innerHTML = gain >= 0
@@ -3784,7 +4918,7 @@ pages.deadstock = async (view) => {
       tEl.classList.remove('bbr-pop'); void tEl.offsetWidth; tEl.classList.add('bbr-pop');
     }
 
-    const msg = `Namaste Shivaa bullion desk \u2726\n\nI'd like to sell dead stock under the 1-wastage scheme.\n\nCategory: 22K plain gold jewellery\nWeight: ${wt} g\nMaking charges paid: ${fmt(mc)}\n\nIndicative fine-metal value: ${fmt(metalVal)}\nMelting-loss protection (50% of MC): ${fmt(credit)}\nTotal recovery: ${fmt(total)}\n\nFirm name: \nCity: \n\nPlease arrange a pickup.`;
+    const msg = `Namaste Shivaa bullion desk \u2726\n\nI'd like to sell dead stock under the 1-wastage scheme.\n\nCategory: ${C.label}${stoneW ? `\nStone weight: ${stoneW} g (deducted)` : ''}\nGross weight: ${gross} g\nMetal weight: ${wt} g\nMaking charges paid: ${fmt(mc)}\n\nIndicative fine-metal value: ${fmt(metalVal)}\nMelting-loss protection (50% of MC): ${fmt(credit)}\nTotal recovery: ${fmt(total)}\n\nFirm name: \nCity: \n\nPlease arrange a pickup.`;
     ['#dsWa', '#dsWa2'].forEach(sel => { const e = $(sel); if (e) e.onclick = () => waOpen(msg); });
   };
 
@@ -3792,12 +4926,15 @@ pages.deadstock = async (view) => {
   if (wt) wt.addEventListener('input', () => { if (rng) rng.value = Math.min(5000, Math.max(10, parseFloat(wt.value) || 10)); calc(); });
   if (rng) rng.addEventListener('input', () => { if (wt) wt.value = rng.value; calc(); });
   if (mc) mc.addEventListener('input', calc);
+  const met = $('#dsMetal'); if (met) met.addEventListener('change', calc);
+  const stn = $('#dsStone'); if (stn) stn.addEventListener('input', calc);
   calc();
 };
 
 /* Dead-stock enquiry — read by NAME (never by index) and sent to WhatsApp,
    so the lot is logged in a channel the bullion desk already watches. */
 window.Shivaa.dsSubmit = (e) => {
+  if (!e || !e.target) return;            // v106 — never throw on a stray call
   e.preventDefault();
   const f = new FormData(e.target);
   const g = k => String(f.get(k) || '').trim();
@@ -3805,7 +4942,7 @@ window.Shivaa.dsSubmit = (e) => {
   if (!/^[6-9][0-9]{9}$/.test(phone)) { toast('Please enter a valid 10-digit mobile number'); return; }
   const msg = `Namaste Shivaa bullion desk \u2726\n\nDEAD STOCK PURCHASE ENQUIRY\n\n`
     + `Firm: ${g('firm')}\nContact: ${g('person')}\nMobile: ${phone}\nCity: ${g('city')}\n\n`
-    + `Category: 22K plain gold jewellery\nApprox weight: ${g('weight')} g\n`
+    + `Metal / purity: ${g('metal') || '22K gold'}\nCategory: ${(CATS[g('category')] || {}).name || g('category') || 'Mixed / assorted'}\nApprox weight: ${g('weight')} g\n`
     + `Making charges paid: ${g('mc') ? '\u20b9' + g('mc') : 'not stated'}\n`
     + `Age of stock: ${g('age')}\n`
     + `Lot contains: ${g('items') || 'not stated'}\n`
@@ -3897,15 +5034,75 @@ pages.faq = async (view) => {
 };
 
 /* ─────────── ROUTER ─────────── */
+/* v106 — a linkable ring size guide (the footer points here) */
+pages.sizeguide = async (view, q) => {
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container">
+    <div class="crumbs"><a href="#/">Home</a> / Ring Size Guide</div>
+    <h1>Ring size guide</h1>
+    <p>Every ring below is drawn to the millimetre, so what you see is the metal you get. Free resizing within 30 days.</p>
+  </div></section>
+  <div class="container sg-page"><div id="sgHost"></div>
+    <p style="text-align:center;margin:18px 0 60px"><a class="btn btn-ghost" href="#/shop?category=rings">Shop rings →</a></p>
+  </div>`;
+  window.Shivaa.sizeGuide(q.get('size') || null, $('#sgHost'));
+};
+
 const routes = {};
 Object.keys(pages).forEach(k => routes[k] = pages[k]);
+routes['size-guide'] = pages.sizeguide;      // v106 — the footer link uses the hyphenated slug
+routes['sizeguide'] = pages.sizeguide;
 Object.assign(window.Shivaa, {
-  api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,
+  api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart, otpDigits: OTP_LEN,
+  openCart: openCartDrawer, closeCart: closeCartDrawer, cartQty, cartRemove, flyToCart,
+  ensureRateLock, lockedRates, rlCountdown, stopRateLockTicker,
   toggleCompare, removeCompare, clearCompare, copyCompareLink, waCompare, compareLink, compareItems,
   routes, price, fmt, esc, productCard, mcTableHTML, openLogin,
   waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
 });
+/* v106 — a button that cannot do its job must say so, not silently break the
+   page. Every handler reachable from an inline onclick is wrapped: a missing
+   element or a rejected promise is logged (and toasted once) instead of
+   escaping into the click, which used to leave the SPA half-dead. */
+(function hardenHandlers() {
+  let lastMsg = 0;
+  const report = (name, e) => {
+    console.error('[Shivaa] ' + name + '() failed:', (e && e.message) || e);
+    const now = Date.now();
+    if (now - lastMsg > 4000) { lastMsg = now; try { toast('That control needs the page to finish loading — please try again', 'err'); } catch (_) {} }
+  };
+  /* Programmatic exports are NOT wrapped: other modules await them inside their
+     own try/catch, and swallowing a rejection there would hand back `undefined`
+     (that is exactly how a 401 used to turn into a destructure crash). */
+  const PASSTHROUGH = new Set(['api', 'price', 'fmt', 'fmt2', 'esc', 'token', 'setToken', 'store',
+    'productCard', 'mcTableHTML', 'compareItems', 'compareLink', 'waLink', 'waProductMsg', 'waCartMsg',
+    'waOrderMsg', 'waCompareMsg', 'lockedRates', 'rlCountdown', 'ensureRateLock', 'stopRateLockTicker',
+    'flyToCart', 'catCache', 'v105', 'carousel', 'otpDigits', 'state', 'routes']);
+  const harden = obj => {
+    if (!obj || obj.__hardened) return obj;
+    Object.keys(obj).forEach(k => {
+      const fn = obj[k];
+      if (typeof fn !== 'function' || k.charAt(0) === '_' || fn.__hardened || PASSTHROUGH.has(k)) return;
+      const wrapped = function (...args) {
+        try {
+          const r = fn.apply(this, args);
+          if (r && typeof r.then === 'function') return r.catch(e => { report(k, e); });
+          return r;
+        } catch (e) { report(k, e); }
+      };
+      wrapped.__hardened = true;
+      try { Object.defineProperty(wrapped, 'name', { value: k }); } catch (e) {}
+      obj[k] = wrapped;
+    });
+    try { obj.__hardened = true; } catch (e) {}
+    return obj;
+  };
+  harden(window.Shivaa);
+  if (window.ShivaaDS) harden(window.ShivaaDS);
+  if (window.ShivaaAdmin) harden(window.ShivaaAdmin);
+})();
+
 function route() {
   const hash = location.hash.replace(/^#\/?/, '') || '';
   const [pathPart, qs] = hash.split('?');
@@ -3914,8 +5111,20 @@ function route() {
   const q = new URLSearchParams(qs || '');
   const view = $('#view');
   closeModal();
+  /* v106 — leaving a page must release every overlay and timer it owned:
+     the mini-cart, the filter sheet, the checkout rate-lock countdown. */
+  try { closeCartDrawer(); } catch (e) {}
+  clearInterval(window._redirIv); window._redirIv = null;   // a dead route's countdown dies with it
+  document.querySelectorAll('.filters.open, .fsheet-overlay.open').forEach(el => el.classList.remove('open'));
+  window._closeFilterSheet = null;
+  stopRateLockTicker();
   while (_scrollLock.n > 0) unlockScroll();
-  clearInterval(window._carTimer);
+  // v105 — full carousel teardown on every route change: kills the pending
+  // timeout, the progress bars, the IntersectionObserver and the listeners,
+  // so a slider can never keep ticking against a detached node.
+  if (window.Shivaa && window.Shivaa.carousel) { try { window.Shivaa.carousel.destroy(); } catch (e) {} }
+  window.Shivaa.carousel = null;
+  clearInterval(window._carTimer); window._carTimer = null;
   document.body.dataset.page = page;
   if (routes[page]) {
     const res = routes[page](view, q, seg[1]);
@@ -3923,9 +5132,13 @@ function route() {
   } else {
     view.innerHTML = `<div class="empty" style="padding:120px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This page has slipped its clasp</h3><p style="color:var(--ink-3);margin:10px 0 20px">Redirecting you home in <b id="redirN">3</b>…</p><a class="btn btn-primary" href="#/">Take me home ✦</a></div>`;
     let n = 3;
-    const iv = setInterval(() => {
+    /* the countdown must never outlive the page that started it: a stale timer
+       would otherwise yank a shopper home three seconds after they had already
+       navigated somewhere valid. */
+    clearInterval(window._redirIv);
+    window._redirIv = setInterval(() => {
       n--; const el = $('#redirN'); if (el) el.textContent = n;
-      if (n <= 0) { clearInterval(iv); location.hash = '#/'; }
+      if (n <= 0) { clearInterval(window._redirIv); window._redirIv = null; location.hash = '#/'; }
     }, 1000);
   }
   window.scrollTo({ top: 0 });
@@ -3974,11 +5187,18 @@ addEventListener('hashchange', route);
 /* ─────────── SEARCH ─────────── */
 $('#searchBtn').onclick = () => { $('#searchDrawer').classList.add('open'); $('#searchInput').focus(); renderSugg(''); };
 $('#searchClose').onclick = () => $('#searchDrawer').classList.remove('open');
-/* v29 — desktop header search field (mirrors the drawer behaviour) */
+/* v29 — desktop header search field (mirrors the drawer behaviour).
+   v105 ships a full suggestion engine for this same field; when v105.js is
+   present it owns Enter/Escape/clear, so this fallback stands down instead of
+   double-handling the keypress (which used to navigate twice). */
 (() => {
   const inp = $('#hdrSearchInput'), clear = $('#hdrSearchClear');
   if (!inp) return;
+  // decided at event time, not at parse time: v105.js loads after app.js, so a
+  // parse-time check would always see "no v105" and both handlers would fire.
+  const v105owns = () => !!window.ShivaaV105;
   inp.addEventListener('keydown', e => {
+    if (v105owns()) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       const v = inp.value.trim();
@@ -3986,25 +5206,63 @@ $('#searchClose').onclick = () => $('#searchDrawer').classList.remove('open');
     }
     if (e.key === 'Escape') inp.blur();
   });
-  inp.addEventListener('input', () => { if (clear) clear.hidden = !inp.value; });
-  if (clear) clear.onclick = () => { inp.value = ''; clear.hidden = true; inp.focus(); };
+  inp.addEventListener('input', () => { if (!v105owns() && clear) clear.hidden = !inp.value; });
+  if (clear) clear.onclick = () => { if (v105owns()) return; inp.value = ''; clear.hidden = true; inp.focus(); };
 })();
 $('#searchInput').oninput = e => renderSugg(e.target.value);
 $('#searchInput').onkeydown = e => {
   if (e.key === 'Enter' && e.target.value.trim()) { location.hash = '#/shop?q=' + encodeURIComponent(e.target.value.trim()); $('#searchDrawer').classList.remove('open'); }
 };
+/* v105 — the drawer now answers like the desktop capsule: matched terms are
+   highlighted, every row carries weight + live price, an empty query offers
+   popular searches, and the tail row shows how many pieces matched in total. */
+function suggMark(text, terms) {
+  let out = esc(text);
+  (terms || []).forEach(t => {
+    if (!t) return;
+    out = out.replace(new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'), '<mark>$1</mark>');
+  });
+  return out;
+}
 function renderSugg(qs) {
-  const s = qs.toLowerCase();
-  const list = state.productsCache.filter(p => (p.name + p.category).toLowerCase().includes(s)).slice(0, 6);
   const el = $('#searchSugg');
-  el.classList.toggle('open', list.length > 0);
-  el.innerHTML = list.map(p => `<div class="sugg" onclick="location.hash='#/product/${p.id}';document.getElementById('searchDrawer').classList.remove('open')">
-    <img src="${p.images[0]}" alt=""><div><b>${esc(p.name)}</b><small>${CATS[p.category]?.name} · ${fmt(price(p).total)}</small></div></div>`).join('');
+  if (!el) return;
+  const s = String(qs || '').trim();
+  const low = s.toLowerCase();
+  const terms = low.split(/\s+/).filter(Boolean);
+  const hay = p => (p.name + ' ' + p.category + ' ' + (p.sku || '') + ' ' + (p.desc || '') + ' ' + (p.tags || []).join(' ')).toLowerCase();
+  const hits = terms.length
+    ? state.productsCache.filter(p => terms.every(t => hay(p).includes(t)))
+    : state.productsCache.slice().sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  const shown = hits.slice(0, 6);
+  const closeDrawer = () => { const d = $('#searchDrawer'); if (d) d.classList.remove('open'); };
+  el.classList.add('open');
+  el.innerHTML =
+    (terms.length
+      ? `<div class="sugg-n"><b>${hits.length}</b> piece${hits.length === 1 ? '' : 's'} match “${esc(s)}”</div>`
+      : `<div class="sugg-chips">${['mangalsutra', 'jhumka', 'kundan', 'rani haar', 'silver payal', 'bridal set']
+          .map(t => `<button type="button" class="sugg-chip" data-q="${esc(t)}">✦ ${esc(t)}</button>`).join('')}</div>`)
+    + (shown.length
+      ? shown.map(p => `<div class="sugg" data-id="${esc(p.id)}">
+          <img src="${esc((p.images && p.images[0]) || '/images/logo.png')}" alt="" loading="lazy">
+          <div><b>${suggMark(p.name, terms)}</b><small>${esc(CATS[p.category] ? CATS[p.category].name : p.category)} · ${esc(String(p.weightG))} g · ${fmt(price(p).total)}</small></div>
+        </div>`).join('')
+      : `<div class="sugg-n sugg-none">Nothing matches “${esc(s)}” — try <b>mangalsutra</b> or browse everything.</div>`)
+    + (hits.length > shown.length
+      ? `<a class="sugg-all" href="#/shop?q=${encodeURIComponent(s)}">See all ${hits.length} matches →</a>`
+      : (terms.length ? '' : `<a class="sugg-all" href="#/shop">Browse the full collection →</a>`));
+  $$('.sugg', el).forEach(row => row.onclick = () => { location.hash = '#/product/' + row.dataset.id; closeDrawer(); });
+  $$('.sugg-chip', el).forEach(c => c.onclick = () => {
+    const i = $('#searchInput'); if (!i) return;
+    i.value = c.dataset.q; renderSugg(c.dataset.q); i.focus();
+  });
+  const all = $('.sugg-all', el); if (all) all.addEventListener('click', closeDrawer);
 }
 
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */
 document.addEventListener('rates', () => {
   if (typeof renderRateStrip === 'function') renderRateStrip();
+  if (window._rateLock && !rlExpired()) { const m = $('#rlMsg'); if (m) m.textContent = 'The live rate moved — your price stays locked until the timer ends.'; }
   $$('.js-price').forEach(el => {
     const p = state.productsCache.find(x => x.id === el.dataset.pid);
     if (!p) return;
@@ -4038,13 +5296,14 @@ function refreshPdLive() {
 }
 function refreshCheckoutTotals() {
   if (!$('#coSub') || !window._co) return;
+  const LR = lockedRates();                                          // v106 — honour the 20-minute lock
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
-  const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
+  const subtotal = items.reduce((a, it) => a + price(it.p, LR).total * it.qty, 0);
   window._co.subtotal = subtotal;
   window._co.freeShip = subtotal >= state.settings.freeShipAbove;
   $$('.summary [data-copid]').forEach(el => {
     const it = items.find(x => x.p.id === el.dataset.copid && +x.qty === +el.dataset.qty);
-    if (it) { const v = price(it.p).total * it.qty; if (el.dataset.last !== String(v)) { el.dataset.last = v; el.textContent = fmt(v); el.classList.remove('flash-price'); void el.offsetWidth; el.classList.add('flash-price'); } }
+    if (it) { const v = price(it.p, LR).total * it.qty; if (el.dataset.last !== String(v)) { el.dataset.last = v; el.textContent = fmt(v); el.classList.remove('flash-price'); void el.offsetWidth; el.classList.add('flash-price'); } }
   });
   let disc = window._co.disc || 0;
   if ($('#usePts')?.checked) disc += Math.min(state.user?.loyaltyPoints || 0, Math.floor(subtotal * 0.1));
@@ -4187,6 +5446,7 @@ async function wishIds() {
   try { return (await api('/api/wishlist')).wishlist; } catch (e) { return []; }
 }
 async function boot(isRedraw) {
+  restoreRateLock();          // v106 — a refresh inside the 20 minutes keeps the same locked price
   // parallel initial fetches
   const [me, settings, mc, prods, cats] = await Promise.all([
     token() ? api('/api/auth/me').catch(() => ({ user: null })) : Promise.resolve({ user: null }),

@@ -15,6 +15,10 @@
   if (window.ShivaaAuth) return;                       // idempotent
 
   /* ── tiny local helpers (no closures shared with app.js) ── */
+  /* v106 — app.js keeps OTP_LEN inside its own IIFE, so read the exported
+     length instead of assuming it: the Passport sheet always renders exactly
+     as many boxes as the server sends digits. */
+  const OTP_LEN = (window.Shivaa && window.Shivaa.otpDigits) || 4;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $  = sel => document.querySelector(sel);
   const $$ = sel => [...document.querySelectorAll(sel)];
@@ -76,8 +80,8 @@
   /* ─────────────────────── step machine ─────────────────────── */
   const HEADS = {
     start:    ['Welcome to Shivaa', 'Sign in or create your account'],
-    phone:    ['Sign in with your mobile', 'No password needed \u2014 we text you a 6-digit code'],
-    otp:      ['Enter the 6-digit code', function () { return 'Sent by SMS to +91 ' + esc(digits(otpPhone).slice(-10)); }],
+    phone:    ['Sign in with your mobile', 'No password needed \u2014 we text you a ' + OTP_LEN + '-digit code'],
+    otp:      ['Enter the ' + OTP_LEN + '-digit code', function () { return 'Sent by SMS to +91 ' + esc(digits(otpPhone).slice(-10)); }],
     email:    ['Welcome back', 'Sign in with your email and password'],
     jwl:      ['Jeweller \u00b7 Partner sign-in', 'For approved B2B partners \u2014 bullion, designs & schemes'],
     register: ['Create your account', 'Takes under a minute \u00b7 you earn 120 welcome points \u2726'],
@@ -167,7 +171,7 @@
         </div>
         <button type="submit" class="shv-cta" id="shvPhoneBtn" data-label="&#10148;&nbsp; Send my code">&#10148;&nbsp; Send my code</button>
       </form>
-      <p class="shv-fine">We text a 6-digit code by SMS. New number? We'll create your account after the code &mdash; nothing extra to do.</p>
+      <p class="shv-fine">We text a ${OTP_LEN}-digit code by SMS. New number? We'll create your account after the code &mdash; nothing extra to do.</p>
       ${previewNote()}`;
     bindBack('start');
     const inp = $('#shvPhoneIn');
@@ -217,31 +221,39 @@
   function otp(body) {
     body.innerHTML = `${backTo('phone')}
       ${errBox()}
-      <div class="shv-otp" id="shvOtp">${Array.from({ length: 6 }, (_, i) => `<input inputmode="numeric" maxlength="1" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label=" digit ${i + 1}">`).join('')}</div>
+      <div class="shv-otp" id="shvOtp">${Array.from({ length: OTP_LEN }, (_, i) => `<input inputmode="numeric" maxlength="1" placeholder=" " autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label=" digit ${i + 1}">`).join('')}</div>
       <div class="shv-demo" id="shvDemo" hidden></div>
       <button type="button" class="shv-cta" id="shvOtpBtn" data-label="&#10003;&nbsp; Verify &amp; continue">&#10003;&nbsp; Verify &amp; continue</button>
       <div class="shv-otp-acts"><button type="button" class="shv-link" id="shvResend">Resend code</button><button type="button" class="shv-link" id="shvChangeNum">Change number</button></div>
       ${previewNote()}`;
     bindBack('phone');
+    const el = document.getElementById('shvOtp');
     const boxes = $$('#shvOtp input');
     boxes[0].focus();
     let verifying = false;                    // v32 fix: one verify per complete code —
                                               // multiple triggers used to burn the server's
                                               // 5-try limit and lock the OTP
-    boxes.forEach((b, i) => {
-      b.addEventListener('input', () => {
-        b.value = digits(b.value).slice(0, 1);
-        if (b.value && i < 5) boxes[i + 1].focus();
-        if (i === 5 && boxes.every(x => x.value)) verifyOtp();
+    if (window.ShivaaOtp && window.ShivaaOtp.enhance) {
+      // v105 — shared behaviour: paste/autofill auto-splits across the boxes,
+      // typing auto-advances, backspace walks back, and a complete code fires
+      // exactly one verify (the server allows only 5 tries per OTP).
+      window.ShivaaOtp.enhance(document.getElementById('shvOtp'), { onComplete: () => verifyOtp() });
+    } else {
+      boxes.forEach((b, i) => {
+        b.addEventListener('input', () => {
+          b.value = digits(b.value).slice(0, 1);
+          if (b.value && i < OTP_LEN - 1) boxes[i + 1].focus();
+          if (i === OTP_LEN - 1 && boxes.every(x => x.value)) verifyOtp();
+        });
+        b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && i > 0) boxes[i - 1].focus(); });
+        b.addEventListener('paste', e => {
+          e.preventDefault();
+          const t = digits((e.clipboardData || window.clipboardData).getData('text')).slice(0, 6);
+          [...t].forEach((c, j) => { if (boxes[j]) boxes[j].value = c; });
+          if (t.length === OTP_LEN) verifyOtp();
+        });
       });
-      b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && i > 0) boxes[i - 1].focus(); });
-      b.addEventListener('paste', e => {
-        e.preventDefault();
-        const t = digits((e.clipboardData || window.clipboardData).getData('text')).slice(0, 6);
-        [...t].forEach((c, j) => { if (boxes[j]) boxes[j].value = c; });
-        if (t.length === 6) verifyOtp();
-      });
-    });
+    }
     $('#shvResend').onclick = () => { if (resendLeft <= 0) sendOtp(); };
     $('#shvChangeNum').onclick = () => go('phone');
     $('#shvOtpBtn').onclick = () => verifyOtp();
@@ -251,20 +263,22 @@
     async function verifyOtp() {
       if (verifying) return;
       const code = boxes.map(b => b.value).join('');
-      if (code.length !== 6) return showErr('Enter all six digits of the code');
+      if (code.length !== OTP_LEN) return showErr('Enter all ' + OTP_LEN + ' digits of the code');
       verifying = true;
       const btn = $('#shvOtpBtn'); busy(btn, true, 'Verifying\u2026');
       try {
         const r = await fetch('/api/auth/otp-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: otpPhone, code }) });
         const d = await r.json().catch(() => ({}));
-        if (r.ok && d.token) { land(d); return; }
+        if (r.ok && d.token) { if (el._otp) el._otp.verified(); land(d); return; }
         if (r.status === 404) {                       // fresh number → account creation
+          if (el._otp) el._otp.verified();            // the code was right, the account is new
           verifiedPhone = otpPhone;
           busy(btn, false); go('register'); return;
         }
         busy(btn, false); verifying = false;
         showErr(esc(d.error || 'Incorrect or expired code'));
-        boxes.forEach(b => b.value = ''); boxes[0].focus();
+        if (el._otp) { el._otp.fail(); el._otp.reset(); }
+        else { boxes.forEach(b => b.value = ''); boxes[0].focus(); }
       } catch (e) { busy(btn, false); showErr('No connection — please check your internet and retry'); }
     }
   }

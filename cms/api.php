@@ -75,6 +75,20 @@ function fetch_url(string $url, int $timeout = 4): ?array {
 const PURITY_22 = 0.9167, PURITY_18 = 0.75, OZ = 31.1034768;
 const BASE_GOLD = 11850.0, BASE_SILVER = 168.0;
 
+/* v106 — every OTP on the site is 4 digits (customer login, registration and
+   the jeweller KYC form). One constant + one generator so the length can never
+   drift away from the number of boxes the front-end renders. */
+const OTP_DIGITS = 4;
+
+/* v106 — checkout freezes the rates it showed the customer for 20 minutes, so
+   a rate tick mid-checkout can never change the price they agreed to. */
+const RATE_LOCK_SECONDS = 1200;
+const RATE_LOCK_TOLERANCE = 0.03;   // a posted snapshot must still be sane
+function otp_code(int $digits = OTP_DIGITS): string {
+  $digits = max(4, min(8, $digits));
+  return (string)random_int((int)pow(10, $digits - 1), (int)pow(10, $digits) - 1);
+}
+
 function rates_refresh(array &$db): array {
   $last = $db['rates']['last'] ?? null;
   $gold24 = $last['gold24'] ?? BASE_GOLD;
@@ -274,6 +288,7 @@ try {
       'spot' => ['gold24' => $last['gold24'], 'gold22' => $last['gold22'], 'gold18' => $last['gold18'], 'silver' => $last['silver']],
       'jaipur' => current_rates($db),
       'premium' => ['gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
+      'lockMinutes' => (int)round(RATE_LOCK_SECONDS / 60),   // v106 — checkout rate-lock window
       'override' => $db['rates']['override'] ?? null,
       'history' => array_slice($db['rates']['history'] ?? [], -120),
       'nextUpdateIn' => 60,
@@ -417,15 +432,15 @@ try {
     $phone = substr(preg_replace('/\D/', '', (string)(body_json()['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
     foreach (($db['otps'] ?? []) as $o) if ($o['phone'] === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
-    $code = (string)random_int(100000, 999999);
+    $code = otp_code();
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => $o['exp'] > time() - 3600));
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false];
     $sms = shivaa_sms_send($phone, $code);                // v33 — real SMS when data/sms-config.json exists
     shivaa_sms_log($db, $sms);
     db_save($DB_FILE, $db);
-    if ($sms['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code]);
+    if ($sms['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code, 'digits' => OTP_DIGITS]);
     if (!$sms['ok']) jout(502, ['error' => 'Could not send the SMS just now — please try again in a minute']);
-    jout(200, ['ok' => true, 'sent' => true]);
+    jout(200, ['ok' => true, 'sent' => true, 'digits' => OTP_DIGITS]);
   }
   if ($route === 'auth/otp-login' && $method === 'POST') {
     $b = body_json();
@@ -592,7 +607,32 @@ try {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required to place order']);
     $b = body_json();
-    $R = current_rates($db);
+    $liveR = current_rates($db);
+    $R = $liveR;
+    /* v106 — honour a fresh 20-minute rate lock from the checkout page.
+       Rejected (silently falling back to live rates) if it is stale, malformed,
+       or more than RATE_LOCK_TOLERANCE away from the live rate — a customer can
+       freeze a price, never invent one. */
+    $rateLock = null;
+    if (!empty($b['rateLock']) && is_array($b['rateLock'])) {
+      $at = strtotime((string)($b['rateLock']['at'] ?? ''));
+      $age = $at ? time() - $at : PHP_INT_MAX;
+      if ($at && $age >= 0 && $age <= RATE_LOCK_SECONDS) {
+        $L = []; $ok = true;
+        foreach (['gold24', 'gold22', 'gold18', 'silver'] as $k) {
+          $v = (float)($b['rateLock'][$k] ?? 0); $live = (float)($liveR[$k] ?? 0);
+          if ($v <= 0 || $live <= 0 || abs($v - $live) / $live > RATE_LOCK_TOLERANCE) { $ok = false; break; }
+          $L[$k] = $k === 'silver' ? round($v, 1) : (int)round($v);
+        }
+        if ($ok) {
+          $rateLock = array_merge($L, [
+            'at' => date('c', $at), 'expiresAt' => date('c', $at + RATE_LOCK_SECONDS),
+            'secondsLeft' => max(0, RATE_LOCK_SECONDS - $age), 'minutes' => (int)round(RATE_LOCK_SECONDS / 60),
+          ]);
+          $R = $L;
+        }
+      }
+    }
     $subtotal = 0; $items = [];
     foreach (($b['items'] ?? []) as $it) {
       foreach ($db['products'] as $prod) if ($prod['id'] === $it['id']) {
@@ -627,7 +667,8 @@ try {
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Paid'),
       'subtotal' => $subtotal, 'discount' => $discount, 'pointsUsed' => $pointsUsed, 'coupon' => $coupon['code'] ?? null,
       'shipping' => $shipping, 'total' => $total, 'earnedPoints' => $earned,
-      'rateSnapshot' => array_merge($R, ['stampedAt' => now_iso()]),
+      'rateSnapshot' => array_merge($liveR, ['stampedAt' => now_iso()]),
+      'rateLock' => $rateLock,
       'status' => 'Placed', 'createdAt' => now_iso(), 'timeline' => [['s' => 'Placed', 't' => now_iso()]],
     ];
     $db['orders'][] = $order;
@@ -729,15 +770,15 @@ try {
     $phone = substr(preg_replace('/\D/', '', (string)(body_json()['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
     foreach (($db['otps'] ?? []) as $o) if (($o['phone'] ?? '') === $phone && time() - $o['at'] < 30) jout(429, ['error' => 'Wait 30 seconds between OTP requests']);
-    $code = (string)random_int(100000, 999999);
+    $code = otp_code();
     $db['otps'] = array_values(array_filter($db['otps'] ?? [], fn($o) => $o['exp'] > time() - 3600));
     $db['otps'][] = ['phone' => $phone, 'hash' => hash('sha256', 'shv' . $phone . $code), 'exp' => time() + 300, 'tries' => 0, 'at' => time(), 'verified' => false];
     $sms = shivaa_sms_send($phone, $code);                // v33 — real SMS when data/sms-config.json exists
     shivaa_sms_log($db, $sms);
     db_save($DB_FILE, $db);
-    if ($sms['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code]);
+    if ($sms['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code, 'digits' => OTP_DIGITS]);
     if (!$sms['ok']) jout(502, ['error' => 'Could not send the SMS just now — please try again in a minute']);
-    jout(200, ['ok' => true, 'sent' => true]);
+    jout(200, ['ok' => true, 'sent' => true, 'digits' => OTP_DIGITS]);
   }
   if ($route === 'kyc/verify-otp' && $method === 'POST') {
     $b = body_json();
@@ -763,7 +804,7 @@ try {
     need_admin($db);
     $phone = substr(preg_replace('/\D/', '', (string)(body_json()['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter a valid 10-digit Indian mobile']);
-    $code = (string)random_int(100000, 999999);
+    $code = otp_code();
     $r = shivaa_sms_send($phone, $code);
     shivaa_sms_log($db, $r); db_save($DB_FILE, $db);
     if ($r['mode'] === 'demo') jout(200, ['ok' => true, 'demoMode' => true, 'devCode' => $code, 'note' => 'No data/sms-config.json yet — gateway not configured, demo mode']);
