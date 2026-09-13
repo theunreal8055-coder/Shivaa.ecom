@@ -573,3 +573,468 @@
   .modal, .nav, .mc-drawer, #saathiPanel, .filters, .mcta-bar, .toast { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v97 — THE UNICORN PASS
+   Nothing below was guessed. Every rule repairs a defect that was proved by
+   simulating the *real* CSS cascade at 320 / 360 / 390 / 430 px
+   (qa/mobile_audit.py + qa/mobile_legibility.py + qa/css_why.py), which
+   evaluates specificity, source order, !important and @media exactly like a
+   browser does. Four families of defect were found:
+
+     A · CASCADE DEFEATS  — a v95 phone rule existed but LOST (a later
+                            !important in styles.css beat it), so the fix
+                            never rendered.            → §2
+     B · DEAD SELECTORS   — a v95 phone rule targeted a class name that does
+                            not exist in the app, so it matched nothing.
+                                                     → §1
+     C · LEGIBILITY       — micro-type that WINS on a phone: 7.0–9.6px.
+                            A jewellery storefront must be readable.   → §3
+     D · GEOMETRY         — rigid multi-track grids, oversized display type,
+                            60–120px desktop gutters, and `1fr` tracks whose
+                            implicit `auto` minimum lets a long price blow the
+                            grid wider than the screen.               → §5–§9
+
+   Plus a tap-target floor (§4), an overflow guard (§0) and scroll-cost
+   containment (§10). Nothing is hidden, removed or de-featured — the same
+   content, rescaled for a thumb.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────── §0 · OVERFLOW GUARD & SCROLL FEEL ───────────────
+   The single most common "site is not mobile friendly" symptom is a page that
+   pans sideways. `overflow-x: clip` stops that WITHOUT creating a scroll
+   container — unlike `hidden`, it leaves `position: sticky` working, and the
+   @supports gate means old Safari simply keeps today's behaviour. */
+@media (max-width: 900px) {
+  @supports (overflow-x: clip) {
+    html { overflow-x: clip; }
+  }
+  /* an image can never be the thing that widens the page */
+  #view img, .footer img, .modal img { max-width: 100%; }
+  /* `1fr` == `minmax(auto,1fr)`: an unbreakable price or HUID can stretch the
+     track past the viewport. Every phone grid gets an explicit zero minimum. */
+  .p-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cat-mini { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .acct-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .priv-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pd-perks { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .search-sugg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+
+  /* ─────────────── §1 · DEAD-SELECTOR REPAIRS ───────────────
+     These v95 rules were written against class names the app does not use, so
+     they matched zero elements. Re-pointed at the real names found in
+     index.html / js/app.js. */
+  .shop-bar, .shop-catbar { flex-wrap: wrap; gap: 10px; }   /* was .shop-head/.shop-toolbar */
+  .shop-bar { margin-bottom: 14px; }
+  .shop-bar .res { font-size: 13px; width: 100%; }
+  .shop-bar .res b { font-size: 15.5px; }
+  .pc-tags { gap: 5px; }                                     /* was .pc-tag */
+  .pc-tags .tagx, .pc-tags .pill { font-size: 10px; padding: 4px 9px; }
+  .rev-photo img, .rv-photos img { width: 100%; height: auto; }  /* was .review-media */
+  .footer h4, .foot-col h4 { font-size: 13px; }              /* was .f-col */
+  .footer a, .foot-col a {
+    font-size: 12.5px; padding: 5px 0; min-height: 34px;
+    display: inline-flex; align-items: center;
+  }
+  .finale-hero h1 { font-size: clamp(26px, 8vw, 36px); }     /* was .fin-hero */
+  .finale-hero { padding: 40px 0 34px; }
+  /* OTP: 6 boxes must stay ≥44px wide and keep a legible digit */
+  .otp-boxes { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  .otp-boxes input { font-size: 19px; border-radius: 11px; aspect-ratio: .78; }
+
+  /* ─────────────── §2 · CASCADE-DEFEAT REPAIRS ───────────────
+     Proven with qa/css_why.py: styles.css declares
+       .page-hero{padding:clamp(52px,7vw,86px) 0 clamp(48px,6vw,74px)!important}
+     at source order 2159. v95's `.page-hero{padding:38px 0 34px}` (order 4553)
+     has no !important, so it LOST — all 14 page banners were burning ~100px of
+     a phone's vertical budget on empty maroon. */
+  .page-hero { padding: 34px 0 30px !important; }
+  .page-hero::before, .page-hero::after { width: 30px; height: 30px; }
+
+  /* The home hero: styles.css pins .hero-in to min(86svh,700px) with a 34svh
+     top pad, then v95 added 40px+34px of section padding on top — ≈1.15 screens
+     of hero. Trim the OUTER padding so the photo panel lands flush under the
+     sticky header and the next section peeks in to invite the scroll. */
+  .hero { padding: 0 0 20px !important; }
+  .hero-in { min-height: min(84svh, 660px) !important; }
+  @supports not (height: 1svh) { .hero-in { min-height: min(84vh, 660px) !important; } }
+
+  /* v95's admin inline-grid overrides were written WITH a space after the
+     colon (`grid-template-columns: 2.2fr`) but admin.js emits them WITHOUT one
+     (`grid-template-columns:2.2fr 1fr 1fr .7fr auto`), so 3 of the 6 hostile
+     5–8-track grids never collapsed. Match both spellings. */
+  .admin-shell [style*="grid-template-columns:1.2fr"],
+  .admin-shell [style*="grid-template-columns: 1.2fr"],
+  .admin-shell [style*="grid-template-columns:1fr 1.6fr"],
+  .admin-shell [style*="grid-template-columns: 1fr 1.6fr"],
+  .admin-shell [style*="grid-template-columns:2.2fr"],
+  .admin-shell [style*="grid-template-columns: 2.2fr"],
+  .admin-shell [style*="grid-template-columns:.8fr"],
+  .admin-shell [style*="grid-template-columns: .8fr"],
+  .admin-shell [style*="grid-template-columns:1fr 1fr 2fr"],
+  .admin-shell [style*="grid-template-columns: 1fr 1fr 2fr"],
+  .admin-shell [style*="grid-template-columns"][style*="auto"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px;
+  }
+  /* a 2-track inline row is still pleasant side-by-side on a phone */
+  .admin-shell [style*="grid-template-columns:1fr 1fr;"],
+  .admin-shell [style*="grid-template-columns: 1fr 1fr;"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* ─────────────── §3 · LEGIBILITY FLOOR ───────────────
+     157 sub-10.5px font-size declarations exist; these are the ones that
+     actually WIN at 360px. Floor: 10px for letterspaced micro-labels, 10.5px
+     for anything a customer needs to read, 11px for prices and numbers.
+     Letter-spacing is trimmed in step so the longer strings still fit. */
+
+  /* home hero — the first thing anyone sees. `.hstat span` was winning at 7.0px
+     (styles.css @680) and `.hs-tag` at 7.5px: physically unreadable. */
+  .hstat span { font-size: 10px !important; letter-spacing: .05em; line-height: 1.35; }
+  .hstat b { font-size: 19px; }
+  .hs-tag { font-size: 10px !important; letter-spacing: .06em; }
+  .hero-trust { font-size: 10px; letter-spacing: .1em; }
+  .hero-kicker { font-size: 10px; letter-spacing: .18em; }
+
+  /* bottom navigation — the most-tapped control on the entire site */
+  .mnav a { font-size: 10.5px; letter-spacing: .01em; }
+  .mnav a svg { width: 22px; height: 22px; }
+  .badge { font-size: 10px; min-width: 17px; height: 17px; padding: 0 4px; }
+
+  /* nav drawer */
+  .dw-sec { font-size: 10px; letter-spacing: .18em; }
+  .dw-tile span { font-size: 10.5px; }
+  .dw-head small { font-size: 10.5px; }
+
+  /* shop rail + product cards */
+  .cat-mini-card b { font-size: 10px; line-height: 1.25; }
+  .pc-tags .tagx { font-size: 10px; }
+  .pc-quick { font-size: 10.5px; }
+  .gal-hint { font-size: 10px; }
+
+  /* footer */
+  .seal small, .seal-medallion small, .seal-medallion span { font-size: 10px; letter-spacing: .04em; }
+  .pay-chip { font-size: 10px; height: 30px; }
+  .ub-jwl span { font-size: 10px; }
+
+  /* trust / social proof */
+  .rev-ver, .rte-badge, .ugc-badge, .verified-badge, .apg-tag {
+    font-size: 10px; letter-spacing: .05em;
+  }
+  .cmp-tag, .mp-kicker, .pco-kicker, .ds-hero .k, .mp-ring-tx > small { font-size: 10.5px; }
+
+  /* bullion desk — a dense trading board, but 7.5px is not a density excuse */
+  .bd-feedtime, .bd-spotsrc { font-size: 10px; }
+  .bd-kar small, .bd-stats small, .bd-ba small, .bd-fba small,
+  .bd-intl-it em, .bd-intl-it small, .bd-ratio, .bd-futunit, .mm-cat b,
+  .mp-chip span { font-size: 10px; }
+  .bd-basis, .bd-navcnt, .bd-tickstate, .bd-band, .bd-card-h, .bd-lh,
+  .bd-lhline, .bd-pct, .bd-pctchip, .bd-live, .bd-live-tag, .bd-sum-h,
+  .bd-sum-b, .bd-track span, .bd-deal-grid small, .bd-desc em, .bd-desc small,
+  .bd-gridhead, .bd-kicker, .bd-news small, .bd-hstat small, .bd-pcard-h,
+  .bd-pcard-lh, .bd-chart-lims, .bd-feed, .bd-topbar-v79 .bd-feed,
+  .bd-topbar-v79 .bd-live.v79, .bd-desc em.bd-time {
+    font-size: 10.5px;
+  }
+  .bd-tabs a, .bd-tabs-v79 a { font-size: 10.5px; letter-spacing: 0; }
+  .bd-tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .bd-tabs a { min-width: 0; }
+  .bd-tabs a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bd-centerbtn { width: 50px; height: 50px; margin-top: -18px; }
+
+  /* Saathi — the AI assistant's quick-tool rail */
+  .sa-tool b { font-size: 10.5px; }
+  .sa-card .t, .sa-idx { font-size: 10.5px; }
+  .fin-panel .fin-tag, .fh-badge small, .fb-chips li, .fin-eng small,
+  .finale-cd .fc-cell span, .fc-cell span, .finq-pill, .finq-chip,
+  .finq-decl-t, .fp-chip, .fin-prize .fp-gold, .fh-badge { font-size: 10.5px; }
+
+  /* hallmark / trust / policies / misc */
+  .hm-card .label, .trust-docs-intro .label, .ac-label, .ah-tier, .atl-hint,
+  .bbr-label, .bbr-split small, .dsf-label, .dsf-w small, .f-stats span,
+  .hero-3d-hint, .hero-cue, .jh-badge, .kyc-badge, .lux-badge, .mc-stamp .mc-ver,
+  .mp-num span, .pd-stamp, .ph-trust, .ps-tab small, .rte-tag, .sd-tx em.shv-rec,
+  .st-step small, .sum-logo span, .sz-ruler .tick b, .tagx, .ub-live,
+  .svb-top small, .mth-cell small, .pf-f > label, .bl-rate small,
+  .catlog-cover .feat, .hs-badge small, .offer-seal span, .offer-seal b small,
+  .c-body .label, .adm-table th {
+    font-size: 10.5px;
+  }
+  .st-step b { font-size: 11px; }
+  .ref-stats small, .svb-top small { font-size: 10.5px; }
+  .shv-aud-btn .au-tx small { font-size: 10.5px; }
+  .mt-bars i span { font-size: 10.5px; }
+
+  /* ─────────────── §4 · TAP-TARGET FLOOR (44px) ───────────────
+     Real controls that were winning below 40px. Decorative pseudo-elements
+     (dots, rules, glows) are deliberately left alone. */
+  .dw-close, .mc-close, .pdf-close, .modal-close { width: 44px; height: 44px; }
+  .cb-arrow { width: 44px; height: 44px; }
+  .gal-nav { width: 44px; height: 44px; }
+  .hm-text-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .pf-chip { min-height: 40px; display: inline-flex; align-items: center; }
+  /* carousel dots: 9px of paint, 44px of finger — the hit area is a pseudo
+     overlay so the visual design is untouched */
+  .c-dot { position: relative; }
+  .c-dot::after { content: ''; position: absolute; inset: -16px -13px; }
+  /* v95 shrank these with transform:scale(), which (a) takes the +/- buttons
+     under the 44px floor and (b) renders the glyphs blurry on Android because
+     a scaled layer is rasterised once. Real sizes instead of a scale. */
+  .qty-row { transform: none !important; gap: 8px; }
+  .qty-row button { min-width: 44px; min-height: 44px; font-size: 18px; }
+  .qty-row b { min-width: 40px; font-size: 15px; text-align: center; }
+  /* motion.css scales the mini-cart's stepper to 84% and app.js inlines
+     scale(.86) on the cart's — both take the +/- buttons to ~34px (under the
+     44px floor) and rasterise the glyphs at a fractional size, so they render
+     soft on Android. The !important above defeats the inline one; this defeats
+     the (0,2,0) descendant rule in motion.css. */
+  .mc-line-b .qty-row { transform: none !important; }
+  .mc-line-b .qty-row button { min-width: 42px; min-height: 42px; font-size: 17px; }
+  .mc-line-b .qty-row b { min-width: 34px; font-size: 14.5px; }
+  .poster .flash-countdown { transform: none !important; }
+  .flash-countdown .fc-cell { padding: 8px 6px; }
+  .flash-countdown .fc-cell b { font-size: 15px; }
+
+  /* ─────────────── §5 · RIGID GRIDS → PHONE TRACKS ───────────────
+     Each of these was proven (qa/css_why.py) to WIN at 320px with a track
+     count that leaves no room for its own content. */
+
+  /* Saathi quick tools: bot.css sets repeat(6,1fr) inside @420, which defeated
+     v95's `overflow-x:auto` — 6 equal tracks never overflow, so they just
+     squashed to ~50px with 8.5px labels. Make it a real scroll rail. */
+  .sa-tools {
+    display: grid !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: max-content !important;
+    grid-template-columns: none !important;
+    gap: 7px; padding: 9px 12px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+  }
+  .sa-tools::-webkit-scrollbar { display: none; }
+  .sa-tool { min-width: 62px; padding: 8px 10px; scroll-snap-align: start; }
+
+  /* bullion board rows: the ≤560 winner was 1.45fr .82fr .82fr .78fr, i.e. four
+     fractional tracks with an `auto` minimum — a long rate string stretches the
+     whole board past the screen. Zero-minimum tracks + tighter numerals. */
+  .bd-gridhead, .bd-row {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, .85fr) minmax(0, .85fr) minmax(0, .8fr) !important;
+    gap: 4px;
+  }
+  .bd-gridhead { font-size: 10px; }
+  .bd-row { font-variant-numeric: tabular-nums; }
+  .bd-karstrip, .bd-pgrid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 7px; }
+  .bd-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* 3-up stat rows: keep three columns (they are single numbers) but give the
+     tracks a zero minimum and let long values shrink instead of overflowing */
+  .ref-stats, .svb-top, .b2b-stats { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 7px; }
+  .ref-stats b, .svb-top b, .b2b-stat b { font-size: 16px; overflow-wrap: anywhere; }
+  .svb-row { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
+
+  /* certificate locker: minmax(280px,…) leaves 14px of slack on a 320px phone */
+  .cert-locker { grid-template-columns: minmax(0, 1fr) !important; }
+  .fine-grid { grid-template-columns: minmax(0, 1fr) !important; }
+
+  /* nav drawer category tiles: 4 square tiles is right, they just need a
+     zero minimum so a long category name cannot stretch the drawer */
+  .dw-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; padding: 4px 16px 2px; }
+
+  .mth-rail { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px; }
+  .rate-strip-in { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mega-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* ─────────────── §6 · FLUID DISPLAY TYPE ───────────────
+     Desktop display sizes that resolve far too large on a phone. Each keeps
+     its decorative presence but is re-clamped against vw so it scales with the
+     device instead of against it. */
+  .ms-big { font-size: clamp(38px, 11vw, 52px); }
+  .vc-num { font-size: clamp(36px, 10.5vw, 50px); }
+  .sn-num, .s-band .sn-num { font-size: clamp(34px, 10vw, 48px) !important; }
+  .c-wm { font-size: clamp(40px, 13vw, 64px); }
+  .nd-num { font-size: clamp(30px, 9vw, 42px); }
+  .bbr-amt, .svr-gold { font-size: clamp(28px, 8.4vw, 40px); }
+  .jh-val { font-size: clamp(26px, 8vw, 34px); }
+  .finq-big { font-size: clamp(26px, 8vw, 34px); }
+  .pco-orn { font-size: 40px; }
+  .bg-orn { font-size: 34px; }
+  .pd-total b { font-size: clamp(26px, 7.6vw, 32px); }
+  .mp-num b { font-size: clamp(30px, 9vw, 44px); }
+  .price-lock b { font-size: clamp(30px, 9vw, 44px); }
+  .si-n { font-size: 28px; }
+  .ugc-score .big, .empty .big { font-size: 32px; }
+  .inv-wm { font-size: 26px; }
+  .newsletter h3 { font-size: clamp(22px, 6.6vw, 28px); }
+  .hm-card h2 { font-size: clamp(23px, 7vw, 30px); }
+  .hm-hero h1 { font-size: clamp(26px, 8vw, 36px); }
+  .trust-hero h1 { font-size: clamp(27px, 8.2vw, 38px); }
+  .trust-next h2 { font-size: clamp(22px, 6.6vw, 28px); }
+  .lux-hero h1 { font-size: clamp(26px, 8vw, 36px); }
+  .mtl-prime h3 { font-size: clamp(22px, 6.6vw, 28px); }
+  .ph-left h2 { font-size: clamp(23px, 7vw, 30px); }
+  .pcmp-toolbar h2 { font-size: clamp(22px, 6.6vw, 28px); }
+  .bbc-head h2 { font-size: clamp(21px, 6.4vw, 27px); }
+  .fb-title { font-size: clamp(22px, 6.6vw, 28px); }
+  .fin-eng em { font-size: clamp(23px, 7vw, 30px); }
+  .fin-close h3 { font-size: clamp(21px, 6.4vw, 27px); }
+
+  /* ─────────────── §7 · VERTICAL RHYTHM ───────────────
+     60–120px desktop gutters, re-scaled. Less dead space = fewer scrolls to
+     the thing the customer actually came for. */
+  .lux-wrap { padding: 34px 0 56px; }
+  .lux-cta { padding: clamp(26px, 7vw, 34px); }
+  .pcmp-empty { padding: 56px 20px 64px; }
+  .hm-page { padding: 20px 0 44px; }
+  .trust-page { padding: 22px 0 44px; }
+  .trust-loading { padding: 44px 20px; }
+  .cert-page { padding: 20px 0 44px; }
+  .mc-empty { padding: 44px 20px; }
+  .dw-foot { padding: 18px 18px calc(88px + env(safe-area-inset-bottom, 0px)); }
+  .f-cornice { padding: 22px 16px 0; }
+  .trust-hero-grid { gap: 26px; }
+  .fin-close { padding: clamp(28px, 8vw, 38px) 18px; }
+  .fin-tl { padding-left: 40px; }
+  .finale-hero .fh-in { gap: clamp(20px, 5.6vw, 30px); }
+  .fb-wrap { gap: clamp(18px, 5vw, 26px); }
+  .fin-prize .fp-in { gap: clamp(18px, 5vw, 26px); }
+  .mtl-stats, .vault-grid { margin-bottom: clamp(32px, 9vw, 48px); }
+
+  /* ─────────────── §8 · OVERFLOW-SAFE FLEX CHILDREN ───────────────
+     `white-space:nowrap` on a flex/grid child is only safe when that child can
+     shrink. Without `min-width:0` the child refuses to shrink below its
+     content and pushes the whole row wider than the screen. These pairs were
+     all proven to win at 320px. */
+  .ub-rates {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    gap: 12px; font-size: 11.5px;
+  }
+  .utilbar-in { min-width: 0; }
+  .ub-left, .ub-right { min-width: 0; flex: 0 1 auto; }
+  .pd-stickybar { min-width: 0; }
+  .pd-stickybar .ps-name {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; flex: 0 1 auto;
+  }
+  .ps-wa { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .see-all { min-width: 0; flex: 0 0 auto; }
+  .sec-head { min-width: 0; }
+  .sec-head > div, .sec-head h2, .sec-head .sub { min-width: 0; }
+  .pc-quick { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .mc-line-tx, .mc-line-tx .ci-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .portal-pill { min-width: 0; max-width: 116px; overflow: hidden; }
+  .portal-pill span { overflow: hidden; text-overflow: ellipsis; }
+  .pf-count, .cc-go, .ph-right .cs-cap, .rev-ver, .rte-badge, .bbc-unit,
+  .kyc-status, .kyc-verify-btn, .finq-pill, .prof-meter b, .svl-row b,
+  .cb-item b, .dss-row b, .cmp-card li b, .bd-live b {
+    min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cert-tbl td.num, .q-tbl .num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  /* ─────────────── §9 · TABLES WITH NO SCROLL WRAPPER ───────────────
+     `.pcmp-table`, `.adm-table` and `.mc-table` sit inside an `overflow:auto`
+     wrapper, so their min-width is a feature. But the privacy page renders
+     `<table class="mc-table priv-table">` DIRECTLY inside `.ps-body` — with
+     min-width 420–680px and no scroller, that single table was enough to make
+     the whole page pan sideways. Give any unwrapped table its own scroller. */
+  .ps-body { overflow: hidden; }
+  .ps-body table, .priv-table, .cert-tbl, .q-tbl, .inv-tbl {
+    display: block; width: 100%; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .ps-body table::-webkit-scrollbar, .priv-table::-webkit-scrollbar,
+  .cert-tbl::-webkit-scrollbar, .q-tbl::-webkit-scrollbar { display: none; }
+  .priv-table { min-width: 460px; font-size: 12.5px; }
+  .priv-table th, .priv-table td { padding: 10px 11px; }
+  /* a scroll affordance so the customer knows the table continues */
+  .ps-body { position: relative; }
+
+  /* ─────────────── §10 · SCROLL COST ───────────────
+     Two of the heaviest continuously-animating regions are below the fold on
+     every page: the 46s infinite review marquee and the palatial footer (7
+     spark spans + a 240px wordmark). `content-visibility:auto` lets the engine
+     skip rendering AND animation for them while they are off-screen — the
+     single largest scroll-smoothness win available without touching markup.
+     `contain-intrinsic-size: auto …` remembers the real height after first
+     paint, so the scrollbar never jumps. Neither subtree contains a
+     position:fixed element, so nothing gets trapped by the containment. */
+  .rev-marquee, .footer {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 620px;
+  }
+  /* `backdrop-filter` is one of the most expensive things a mobile GPU does,
+     and it is invisible here: .mcta-bar already paints a .97-opaque backdrop. */
+  .mcta-bar { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* ─────────────── §11 · SMALL PHONES ≤380 ─────────────── */
+@media (max-width: 380px) {
+  .page-hero { padding: 28px 0 24px !important; }
+  .page-hero h1 { font-size: clamp(22px, 6.8vw, 27px); }
+  .hstat span { font-size: 9.5px !important; letter-spacing: .03em; }
+  .hstat b { font-size: 17px; }
+  .mnav a { font-size: 10px; padding: 6px 4px; }
+  .mnav a svg { width: 20px; height: 20px; }
+  .bd-gridhead, .bd-row {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, .8fr) minmax(0, .8fr) minmax(0, .75fr) !important;
+    font-size: 11px;
+  }
+  .bd-tabs a, .bd-tabs-v79 a { font-size: 10px; }
+  .bd-centerbtn { width: 46px; height: 46px; margin-top: -16px; font-size: 19px; }
+  .otp-boxes { gap: 4px; }
+  .otp-boxes input { font-size: 17px; border-radius: 10px; }
+  .sa-tool { min-width: 58px; }
+  .ref-stats b, .svb-top b, .b2b-stat b { font-size: 15px; }
+  .dw-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 4px 13px 2px; }
+  .mth-rail { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .qty-row button { min-width: 42px; min-height: 42px; }
+  .cat-mini-card b { font-size: 9.5px; }
+}
+
+/* ─────────────── §12 · SHORT / LANDSCAPE PHONES ───────────────
+   A 360×640-ish landscape viewport has very little height; the hero's 84svh
+   minimum would leave nothing for the content below it. */
+@media (max-width: 920px) and (max-height: 480px) and (orientation: landscape) {
+  .hero { padding: 0 0 14px !important; }
+  .hero-in { min-height: 0 !important; padding-top: 24px !important; }
+  .page-hero { padding: 22px 0 20px !important; }
+  .fin-timeline { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .bd-tabs a span { font-size: 10px; }
+}
+
+/* ─────────────── §13 · SPECIFICITY REPAIRS ───────────────
+   The v97 rules above are last in source order, but four of them still lost
+   because the desktop rule carries MORE specificity, not merely a later
+   position. Re-declared at matching specificity so they actually win.
+   Verified with: python3 qa/css_why.py <class> <prop> 320 */
+@media (max-width: 768px) {
+  /* .bd-tabs.bd-tabs-v79 (0,2,0) beat .bd-tabs (0,1,0) */
+  .bd-tabs.bd-tabs-v79 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .bd-tabs.bd-tabs-v79 a { font-size: 10.5px; letter-spacing: 0; }
+  /* .bd-topbar-v79 .bd-tickstate (0,2,0) beat .bd-tickstate (0,1,0) */
+  .bd-topbar-v79 .bd-tickstate, .bd-topbar-v79 .bd-live.v79 b { font-size: 10.5px; }
+  /* .mega-panel .mega-grid (0,2,0) beat .mega-grid (0,1,0). The panel is
+     display:none under 680px, so this is correctness rather than appearance. */
+  .mega-panel .mega-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* longhand → shorthand, so nothing can re-assert the 66px desktop gutter */
+  .fin-tl { padding: 0 0 0 40px; }
+  /* the footer wordmark is decorative but must never be the widest thing on
+     the page; .footer{overflow:hidden} contains it, this keeps it composed */
+  .f-wordmark { font-size: clamp(50px, 15vw, 88px); letter-spacing: .1em; }
+}
+
+/* ─────────────── §14 · LAST TWO UNGUARDED nowrap BOXES ───────────────
+   The only remaining `white-space:nowrap` winners with no shrink guard. Both
+   are bullion-topbar chips, so they get the same clip-and-ellipsize treatment
+   §8 gives every other row. */
+@media (max-width: 768px) {
+  .bd-pctchip, .bd-tickstate {
+    min-width: 0; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+}

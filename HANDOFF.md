@@ -639,3 +639,135 @@ QA: qa_v50_fresh.py 29/0 + qa_v48_static.py 83/0. Not executed: no browser/PHP h
 - QA: fresh 74/0, static 83/0, brain 19/0 = 176 checks. Two stale checkers
   corrected (seeded coupon; version-agnostic wiring check).
 - shivaa-FINAL-full.zip rebuilt: 1,070 files, 228.8 MB (incl. .github/).
+
+## v97 — the mobile pass, measured not eyeballed (2026-09-12)
+
+**Owner instruction:** the site is not mobile-friendly; make *every* interface
+look optimised for a phone, smooth like butter, like a modern quick-commerce
+app. Interface / font sizes / graphic sizes may change; nothing may be deleted
+or de-featured.
+
+**No browser and no PHP exist in this sandbox**, so instead of eyeballing the
+layout three tools were written to *prove* defects from the source, by doing
+what a browser does — parse every stylesheet with its `@media` stack, then
+resolve specificity + source order + `!important` to find the declaration that
+actually WINS at a given viewport:
+
+- `qa/mobile_audit.py` — cascade simulator. Evaluates 320/360/390/430 px and
+  reports, per class, the winning declaration that is still risky on a phone
+  (rigid grid tracks, `nowrap` that cannot shrink, oversized display type,
+  desktop gutters, fixed px widths). Also audits inline `style="…"` from the JS
+  templates, which bypass the stylesheets entirely.
+- `qa/mobile_legibility.py` — winning `font-size` below a legibility floor, and
+  interactive boxes below a tap-target floor.
+- `qa/css_why.py` — prints the full cascade for one class+property so a
+  suspected defect can be confirmed and its cause named.
+
+Two bugs in the *auditor itself* were found and fixed before its output was
+trusted, because both produced confident nonsense: `@media` blocks preceded by
+whitespace were swallowed whole (3313 blocks parsed instead of 4888), and the
+source-order counter restarted per file, so `mobile.css` — which is linked LAST
+and must win ties — was scored as losing every tie. Anyone re-reading these
+numbers later should know they are only meaningful post-fix.
+
+### What the measurement found (all four verified, none guessed)
+
+1. **Cascade defeats.** `styles.css` declares
+   `.page-hero{padding:clamp(52px,7vw,86px) 0 clamp(48px,6vw,74px) !important}`.
+   v95's `.page-hero{padding:38px 0 34px}` had no `!important`, so it LOST —
+   all **14 page banners** were burning ~100px of a phone's vertical budget on
+   empty maroon. Same story for the hero's outer padding.
+2. **Dead selectors.** 8 v95 phone rules targeted class names the app does not
+   use, so they matched **zero elements**: `.shop-head`/`.shop-toolbar` (real:
+   `.shop-bar`/`.shop-catbar`), `.pc-tag` (`.pc-tags`), `.review-media`
+   (`.rev-photo`/`.rv-photos`), `.f-col` (`.foot-col`), `.fin-hero`
+   (`.finale-hero`), `.otp-row` (`.otp-boxes`). Every one was a mobile fix that
+   looked done and never rendered.
+3. **Attribute-selector typo.** v95's admin overrides were written
+   `[style*="grid-template-columns: 2.2fr"]` *with* a space after the colon,
+   but `admin.js` emits `grid-template-columns:2.2fr…` *without* one — so 3 of
+   the 6 hostile 5–8-track inline grids never collapsed.
+4. **Legibility.** 157 sub-10.5px `font-size` declarations exist; 30 of them
+   WIN at 360px. The worst is `.hstat span` at **7.0px** — the caption under
+   each stat in the home hero, the first thing any customer sees. `.hs-tag`
+   7.5px, `.sa-tool b` 8.5px, `.bd-tabs a` 8.5px, `.mnav a` 9.5px (the
+   most-tapped control on the site).
+5. **Self-inflicted blur.** v95 shrank steppers with `transform:scale(.92)`,
+   `motion.css` with `scale(.84)` and `app.js` inlines `scale(.86)` — which
+   both drops the ± buttons to ~34px (under the 44px floor) and rasterises the
+   glyphs at a fractional size, so they render soft on Android. Replaced with
+   real sizes.
+6. **An uncontained table.** `.pcmp-table`/`.adm-table`/`.mc-table` sit in
+   `overflow:auto` wrappers, so their `min-width` is a feature. But the privacy
+   page renders `<table class="mc-table priv-table">` **directly inside
+   `.ps-body`** with `min-width:420–680px` and no scroller — one table was
+   enough to make the whole page pan sideways.
+7. **`1fr` is not `minmax(0,1fr)`.** A `1fr` track's automatic minimum is
+   `auto`, so one long unbreakable price or HUID stretches the track past the
+   viewport. Every phone grid now declares an explicit zero minimum.
+
+### What v97 changes (`cms/css/mobile.css`, §0–§14, appended after v95)
+
+Nothing is hidden, removed or de-featured — the same content, rescaled for a
+thumb. §0 overflow guard (`html{overflow-x:clip}`, `@supports`-gated so old
+Safari keeps today's behaviour, and unlike `hidden` it does **not** create a
+scroll container so `position:sticky` survives) · §1 dead-selector repairs ·
+§2 cascade-defeat repairs · §3 legibility floor (10px micro-labels, 10.5px
+readable text, 11px numbers) · §4 44px tap-target floor, incl. a pseudo-element
+hit area on the 9px carousel dots so the visual design is untouched · §5 rigid
+grids → zero-minimum phone tracks (Saathi's tool rail becomes a real
+`max-content` scroll rail instead of 6 squashed columns) · §6 oversized display
+type re-clamped against `vw` · §7 60–120px desktop gutters rescaled · §8
+`nowrap` children given `min-width:0` + ellipsis so they shrink instead of
+widening the page · §9 unwrapped tables get their own scroller · §10 scroll cost
+(`content-visibility:auto` on the footer and the 46s infinite review marquee,
+which stops the engine animating them off-screen; `backdrop-filter` dropped from
+`.mcta-bar`, whose backdrop is already .97-opaque so the blur was pure GPU
+cost) · §11 ≤380px · §12 short/landscape · §13 four rules that needed matching
+specificity, not merely later source order · §14 the last two unguarded
+`nowrap` boxes.
+
+**Deliberately NOT done:** `css/fonts.css` is 9 base64 `@font-face` rules =
+**275 KB of the 385 KB gzipped CSS**, render-blocking, and it is the single
+largest mobile cost left. It was left alone because the only real fix (loading
+it non-render-blocking) trades a slower first paint for a visible FOUT on a
+luxury storefront, and with no browser here that trade cannot be verified.
+Recommend the owner A/B it on a real handset.
+
+### Measured result (same tools, same widths, before → after)
+
+| metric | v95 | v97 |
+|---|---|---|
+| risky winning declarations (structure) | 88 | **48** |
+| winning `font-size` below 10px | 30 | **1** |
+| interactive boxes under 40px | 13 | **8** |
+| dead `mobile.css` selectors | 8 | **8** (re-pointed, legacy left in place) |
+
+The 48 remaining structural findings were read individually: they are the
+intended v97 rules (zero-minimum 3-up stat rows, 6 OTP boxes, decorative
+`clamp()` display type), bottom padding that reserves room for the sticky bars,
+and table `min-width`s that now live inside a scroller. The 8 remaining small
+boxes are decorative pseudo-elements (2px step rules, 8–10px status dots) plus
+`.pay-chip`/`.pf-chip`/`.dw-gi`, which are not themselves clickable.
+
+**QA:** new `qa/qa_v97_mobile.py` — 42 checks, 0 failed. It asserts each
+specific repair is present AND re-runs the simulators, failing if the scores
+regress past the v95 baseline, so a future edit cannot silently undo this.
+Pre-existing suites unchanged: `qa_v48_static.py` 77/6 and `qa_v50_fresh.py`
+48/2 **identical before and after** (verified by `git stash`) — the failures are
+stale v48/v52-era assertions about `?v=48` script tags and a fresh-zip that
+predates v95, not regressions. `node --check` passes on all 10 JS files;
+`test_bot_brain.js` fails at baseline too (its DOM stub predates
+`document.addEventListener` in `bot.js`).
+
+**Deliverable:** `shivaa-update-v97.zip` (803 KB, 39 files) — manifest verified
+byte-for-byte identical to `shivaa-update-v95.zip`, so it is a drop-in update.
+Only `css/mobile.css` changed content; `index.html` and `sw.js` changed one
+version string each (`?v=97`, `shivaa-shell-v97` — the shell name MUST move or
+returning visitors keep the cached v95 sheet).
+
+**Unverified:** still no browser and no PHP in the sandbox. The cascade was
+simulated, not rendered. First live open on a real handset remains the smoke
+test — check the home hero, one page banner, the cart stepper, the privacy
+table and the Saathi tool rail first, since those are the five repairs with the
+largest visual delta.
