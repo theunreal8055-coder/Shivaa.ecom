@@ -45,8 +45,30 @@ function trust_name($value, int $max = 160): ?string {
   return preg_match('/\A[\p{L}\p{N}&.,()’\'\-\/ ]{2,}\z/u', $value) === 1 ? $value : null;
 }
 
+// v103 — the one document the Trust page can publish: the owner-uploaded GST
+// registration certificate, stored under uploads/trust. Format/path grammar
+// only — it remains a self-supplied business document, not a live registry
+// result. Anything else (other types, URLs, legacy fields) is dropped.
+function trust_certificate($value): ?array {
+  if (!is_array($value)) return null;
+  if (($value['type'] ?? '') !== 'gst-registration') return null;
+  $file = (string)($value['file'] ?? '');
+  if (!preg_match('#\A/uploads/trust/[A-Za-z0-9._-]{1,90}\z#', $file)) return null;
+  if (!preg_match('#\.(pdf|jpe?g|png|webp)\z#i', $file)) return null;
+  $at = (string)($value['at'] ?? '');
+  if (!preg_match('/\A20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}/', $at)) return null;
+  return [
+    'type' => 'gst-registration',
+    'label' => 'GST registration certificate',
+    'file' => $file,
+    'uploadedAt' => $at,
+  ];
+}
+
 function trust_profile(array $db): array {
   $settings = is_array($db['settings'] ?? null) ? $db['settings'] : [];
+  // v103 — at most one allowlisted certificate is ever published.
+  $gstCert = trust_certificate($settings['gstCert'] ?? null);
   return [
     'schemaVersion' => 1,
     'source' => 'store_settings',
@@ -58,10 +80,10 @@ function trust_profile(array $db): array {
       'address' => trust_address($settings['address'] ?? null),
     ],
     // v101 — the owner supplied the store's GSTIN; still a self-declared
-    // business detail, never presented as a live registry result. Certificate
-    // files and arbitrary legacy fields stay ignored.
+    // business detail, never presented as a live registry result. v103 adds
+    // the owner-uploaded GST certificate through a strict allowlist.
     'gstin' => trust_gstin($settings['gstin'] ?? null),
-    'certificates' => [],
+    'certificates' => $gstCert ? [$gstCert] : [],
     'registryVerification' => ['performed' => false, 'checkedAt' => null],
   ];
 }

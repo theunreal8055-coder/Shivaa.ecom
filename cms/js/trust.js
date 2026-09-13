@@ -14,18 +14,30 @@
   const documentIcon = icon('<path d="M14 3H5v18h14V8l-5-5zM14 3v5h5M8 12h8M8 16h5"/>');
   let pending = null;
 
+  /* v103 — exactly one certificate type is allowlisted, stored at a fixed
+     path shape; anything else (other types, URLs, legacy fields) is rejected
+     wholesale so the page never publishes a document it cannot account for. */
+  function parseCertificate(c) {
+    if (!c || typeof c !== 'object' || Array.isArray(c)) return null;
+    if (c.type !== 'gst-registration') return null;
+    if (typeof c.file !== 'string' || !/^\/uploads\/trust\/[A-Za-z0-9._-]{1,90}\.(pdf|jpe?g|png|webp)$/i.test(c.file)) return null;
+    if (c.label !== undefined && c.label !== 'GST registration certificate') return null;
+    if (typeof c.uploadedAt !== 'string' || !/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}/.test(c.uploadedAt)) return null;
+    return Object.freeze({ type: 'gst-registration', label: 'GST registration certificate', file: c.file, uploadedAt: c.uploadedAt });
+  }
   function parseProfile(data) {
     const b = data?.business;
     const id = (value, pattern) => value === null || (typeof value === 'string' && value === value.trim() && pattern.test(value));
     const name = value => value === null || (typeof value === 'string' && value === value.trim() && value.length >= 2 && value.length <= 160 && /^[\p{L}\p{N}&.,()'’\-/ ]{2,}$/u.test(value));
     const address = b?.address;
+    const certificates = Array.isArray(data?.certificates) ? data.certificates.map(parseCertificate) : null;
     if (data?.schemaVersion !== 1 || data?.source !== 'store_settings' || !b || Array.isArray(b) ||
         !name(b.legalName) || !name(b.brand) ||
         !id(b.cin, /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/) ||
         !id(b.udyam, /^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/) ||
         !(address === null || (typeof address === 'string' && address.trim() && [...address].length <= 500 && !/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(address))) ||
         !id(data.gstin, /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/) ||
-        !Array.isArray(data.certificates) || data.certificates.length !== 0 ||
+        certificates === null || certificates.length > 1 || certificates.some(c => !c) ||
         data.registryVerification?.performed !== false || data.registryVerification?.checkedAt !== null) {
       throw new Error('Unrecognised business profile');
     }
@@ -33,6 +45,7 @@
     return Object.freeze({
       legalName: b.legalName, brand: b.brand, gstin: data.gstin,
       cin: b.cin, udyam: b.udyam, address: b.address,
+      certificates,
     });
   }
 
@@ -75,6 +88,7 @@
   }
 
   function profileHTML(profile) {
+    const cert = profile.certificates && profile.certificates[0];
     return `<div class="trust-grid">
       <section class="trust-card trust-identity" aria-labelledby="trustBusinessTitle">
         <div class="trust-card-top"><span class="trust-icon">${building}</span><span class="trust-badge">Provided by Shivaa</span></div>
@@ -105,7 +119,14 @@
             : '<span class="trust-missing">Not provided</span>'}</div><p>${profile.gstin
             ? 'The store’s GSTIN appears in the Business identity card above with a Copy action and a link to the official GST taxpayer search. Displaying it here is not a live verification result.'
             : 'No GSTIN is published in this feature. A real number must be supplied and reviewed before it appears here.'}</p></div>
-          <div class="trust-document" data-trust-certificates><div><h3>Certificate files</h3><span class="trust-missing">Not provided</span></div><p>No certificate files have been provided for this page. There are no sample certificates, generated seals or placeholder downloads.</p></div>
+          ${cert ? `<div class="trust-document" data-trust-certificates><div><h3>GST registration certificate</h3>
+            <a class="trust-cert-link" href="${cert.file}" ${external}>
+              <span class="trust-cert-ic">${/\.pdf$/i.test(cert.file) ? '📄' : '🖼'}</span>
+              <span><b>View GST certificate ${/\.pdf$/i.test(cert.file) ? '(PDF ↗)' : '(image ↗)'}</b>
+              <small>Uploaded by Shivaa · ${new Date(cert.uploadedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</small></span>
+            </a></div>
+            <p>The owner supplied this document for this page. It is business evidence on record, not a live GST-portal result — confirm it yourself with the official Search Taxpayer link alongside the GSTIN above.</p></div>`
+          : `<div class="trust-document" data-trust-certificates><div><h3>Certificate files</h3><span class="trust-missing">Not provided</span></div><p>No certificate files have been provided for this page. There are no sample certificates, generated seals or placeholder downloads.</p></div>`}
         </div>
         <p class="trust-note">“Not provided” describes what is published here. It is not a finding about the business’s registration or legal status.</p>
       </section>

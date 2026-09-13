@@ -832,6 +832,17 @@ async function renderAdmin(view, q) {
             </div>
           </div>
         </form></div>
+      <div class="adm-card"><h3>📜 Trust page — GST certificate <span style="font-size:11px;color:var(--ink-3);font-weight:400">public document upload</span></h3>
+        <p style="font-size:12.5px;color:var(--ink-3);margin-bottom:10px">Shown on the public <a href="#/trust">Why Trust Shivaa</a> page next to the GSTIN. Use the official GST registration certificate (PDF or a clear photo, ≤8 MB). It is labelled as supplied by Shivaa — it is never presented as a live government verification.</p>
+        <div id="gstCertBox" class="gst-cert-admin">
+          ${S.gstCert && S.gstCert.file ? `<div class="gst-cert-current"><span>📎</span><div><b>Certificate published</b><small>${esc(S.gstCert.file)} · ${S.gstCert.at ? new Date(S.gstCert.at).toLocaleDateString('en-IN') : ''}</small></div>
+              <a class="btn btn-outline btn-sm" href="${esc(S.gstCert.file)}" target="_blank" rel="noopener">View</a>
+              <button type="button" class="btn btn-ghost btn-sm" id="gstCertRemove">Remove</button></div>`
+            : '<p class="partner-note">No certificate published yet — the Trust page honestly shows “Not provided” until you upload one.</p>'}
+        </div>
+        <label class="ps-upload gst-cert-pick"><input type="file" id="gstCertFile" accept="application/pdf,image/png,image/jpeg,image/webp" hidden><span>📎 Choose GST certificate (PDF / JPG / PNG / WEBP · max 8 MB)</span></label>
+        <div id="gstCertMsg" style="font-size:12.5px;margin-top:8px"></div>
+      </div>
       <div class="adm-card"><h3>💾 Data backup <span style="font-size:11px;color:var(--ink-3);font-weight:400">one tap, saves the whole database (orders, customers, products) to your device</span></h3>
         <p style="font-size:13px;color:var(--ink-3);margin-bottom:10px">Download a copy after big days. To restore, the file goes back into <code>data/db.json</code> via File Manager (ask us if unsure — never overwrite blindly).</p>
         <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.backup()">Download backup now</button>
@@ -843,6 +854,7 @@ async function renderAdmin(view, q) {
         <div class="sum-row"><span>UDYAM</span><b>${esc(S.udyam || '')}</b></div>
         <div class="sum-row"><span>Startup India (DIPP)</span><b>${esc(S.dipp || '')}</b></div>
       </div>`;
+    setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.bindGstCert && window.ShivaaAdmin.bindGstCert(), 0);   // v103 — GST certificate
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.smsCard && window.ShivaaAdmin.smsCard(), 0);   // v33 — SMS status card
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.testFeed && window.ShivaaAdmin.testFeed(), 300);   // v61 — MCX feed status
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.wirePayUrls && window.ShivaaAdmin.wirePayUrls(S.siteBaseUrl || ''), 0);   // v92 — PhonePe redirect/callback URLs
@@ -1529,6 +1541,37 @@ window.ShivaaAdmin.addCoupon = async e => {
   try { await api('/api/coupons', { method: 'POST', body: JSON.stringify({ code: g('code').toUpperCase(), type: g('type'), value: +g('value'), minOrder: +g('minOrder'), note: g('note') }) }); toast('Coupon created'); renderAdmin($('#view'), new URLSearchParams('tab=coupons')); }
   catch (err) { toast(err.message, 'err'); }
 };
+/* v103 — GST registration certificate for the public Trust page */
+window.ShivaaAdmin.bindGstCert = () => {
+  const fi = document.getElementById('gstCertFile');
+  if (!fi || fi._bound) return; fi._bound = true;
+  const msg = document.getElementById('gstCertMsg');
+  const say = (t, bad) => { if (msg) { msg.textContent = t; msg.style.color = bad ? 'var(--bad)' : 'var(--ok)'; } };
+  fi.onchange = async () => {
+    const f = fi.files && fi.files[0]; if (!f) return;
+    if (f.size > 8 * 1024 * 1024) { say('File is over 8 MB', true); fi.value = ''; return; }
+    const okType = /^(application\/pdf|image\/(jpeg|png|webp))$/.test(f.type) || /\.(pdf|jpe?g|png|webp)$/i.test(f.name);
+    if (!okType) { say('Use a PDF, JPG, PNG or WEBP file', true); fi.value = ''; return; }
+    say('Uploading…', false);
+    const fd = new FormData(); fd.append('file', f);
+    try {
+      const r = await api('/api/admin/trust-certificate', { method: 'POST', body: fd });
+      state.settings.gstCert = r.cert;
+      say('✓ Certificate published to the Trust page');
+      renderAdmin(document.getElementById("view"), new URLSearchParams("tab=settings"));
+    } catch (e) { say(e.message || 'Upload failed', true); }
+  };
+  const rm = document.getElementById('gstCertRemove');
+  if (rm) rm.onclick = async () => {
+    if (!confirm('Remove the GST certificate from the public Trust page?')) return;
+    try {
+      await api('/api/admin/trust-certificate', { method: 'DELETE' });
+      delete state.settings.gstCert;
+      renderAdmin(document.getElementById("view"), new URLSearchParams("tab=settings"));
+    } catch (e) { say(e.message, true); }
+  };
+};
+
 window.ShivaaAdmin.saveSettings = async e => {
   e.preventDefault();
   // read by name — positional indexing silently corrupts settings if a field moves

@@ -1272,7 +1272,9 @@ function renderRecentViewed() {
   let items = [];
   try { items = JSON.parse(localStorage.getItem('sh_recent') || '[]'); } catch (e) {}
   if (!items.length) return;
-  const sec = tvSection('recentSec', 'Pick up where you left off', 'Recently <span class="disp-italic">viewed</span>', items.slice(0, 6));
+  const sec = document.createElement('section');   // v103 — recent cards carry live rate-trend hints
+  sec.className = 'sec container'; sec.id = 'recentSec';
+  sec.innerHTML = `<div class="tv-head"><div><span class="label">Pick up where you left off</span><h2 class="tv-h">Recently <span class="disp-italic">viewed</span></h2></div></div><div class="tv-row">${items.slice(0, 6).map(recentCard).join('')}</div>`;
   const anchor = document.querySelector('#trendSec') || document.querySelector('#view .newsletter');
   if (sec && anchor) (anchor.closest('section') || anchor).insertAdjacentElement('beforebegin', sec);
 }
@@ -1551,15 +1553,19 @@ function initHeroStage() {
 }
 
 /* ─────────── page components ─────────── */
+function savedRingSize() { try { return localStorage.getItem('shv_ring_size') || ''; } catch (e) { return ''; } }
 function productCard(p, opts = {}) {
   const pr = price(p);
   const wished = state.user ? (opts.wishSet || []).includes(p.id) : state.localWish.includes(p.id);
   const compared = isCompared(p.id);
+  const mySize = savedRingSize();
+  const fitsSize = mySize && p.category === 'rings' && (p.sizes || []).map(String).includes(String(mySize));
   return `<article class="p-card" data-pid="${p.id}">
     <div class="pc-imgwrap">
       <a href="#/product/${p.id}" class="pc-imglink" aria-label="${esc(p.name)}">
         <img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
         ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
+        ${fitsSize ? `<span class="pc-your-size" title="Made in your saved size ${esc(mySize)}">✓ your size ${esc(mySize)}</span>` : ''}
         <div class="glare"></div>
       </a>
       <button type="button" class="pc-quick" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.quickView('${p.id}')">✦ Quick view</button>
@@ -2151,7 +2157,8 @@ pages.shop = async (view, q) => {
   <div class="container shop-main">
       <div class="shop-bar">
         <div class="res" id="resCount"></div>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          ${savedRingSize() ? `<button type="button" class="size-match-chip" id="sizeMatchChip" aria-pressed="false">📏 rings in your size ${esc(savedRingSize())}</button>` : ''}
           <button class="btn btn-outline btn-sm f-toggle" id="filterToggle">⚙ Filters <span class="fbadge" id="fBadge" hidden></span></button>
           <select class="sortsel" id="sortSel">
             <option value="featured">Sort · Featured</option>
@@ -2184,6 +2191,12 @@ pages.shop = async (view, q) => {
     if (search) { /* v102 — same weighted ranking as the palette */
       const hits = new Set(window.Shivaa.searchProducts(search, Infinity).map(p => p.id));
       list = list.filter(p => hits.has(p.id));
+    }
+    /* v103 — one-tap "rings in your saved size" */
+    const sizeChip = $('#sizeMatchChip');
+    if (sizeChip && sizeChip.classList.contains('on')) {
+      const want = savedRingSize();
+      list = list.filter(p => p.category === 'rings' && (p.sizes || []).map(String).includes(String(want)));
     }
     list = list.filter(p => price(p).total <= f.max);
     const sort = $('#sortSel').value;
@@ -2236,7 +2249,15 @@ pages.shop = async (view, q) => {
   $('#priceRange').oninput = e => { $('#priceMaxLbl').textContent = e.target.value >= 1500000 ? 'Any' : fmt(+e.target.value); };
   $('#priceRange').onchange = apply;
   $('#sortSel').onchange = apply;
-  $('#clearFilters').onclick = () => { $$('input[data-f]').forEach(i => i.checked = false); $('#priceRange').value = 1500000; $('#priceMaxLbl').textContent = 'Any'; apply(); syncBadge(); };
+  /* v103 — one-tap "rings in your size" personal filter */
+  const sizeChip = $('#sizeMatchChip');
+  if (sizeChip) sizeChip.onclick = () => {
+    sizeChip.classList.toggle('on');
+    sizeChip.setAttribute('aria-pressed', sizeChip.classList.contains('on') ? 'true' : 'false');
+    apply();
+    $('#shopGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  $('#clearFilters').onclick = () => { $$('input[data-f]').forEach(i => i.checked = false); $('#priceRange').value = 1500000; $('#priceMaxLbl').textContent = 'Any'; if (sizeChip) { sizeChip.classList.remove('on'); sizeChip.setAttribute('aria-pressed', 'false'); } apply(); syncBadge(); };
   /* safety: never leave a dead drawer/scrim from a previous render */
   closeSheet();
   initCatbar();
@@ -2271,7 +2292,10 @@ pages.product = async (view, q, id) => {
       <div class="pd-gallery">
         <div class="gal-wrap" id="galWrap">
           <div class="gal-track" id="galTrack">
-            ${(p.video ? [`<div class="gal-slide gal-vid on"><video src="${safeUrl(p.video) || ''}" controls playsinline preload="metadata" poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}"></video><span class="gal-vid-tag">▶ 360° film</span></div>`] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${safeUrl(im) || ''}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`)).join('')}
+            ${(p.video ? [videoCanAutoload()
+                ? `<div class="gal-slide gal-vid on"><video src="${safeUrl(p.video) || ''}" controls playsinline preload="metadata" poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}"></video><span class="gal-vid-tag">▶ 360° film</span></div>`
+                : `<div class="gal-slide gal-vid on"><button type="button" class="gal-vid-load" data-video="${safeUrl(p.video) || ''}" data-poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}" aria-label="Play the 360-degree film"><img src="${safeUrl(p.images && p.images[0]) || ''}" alt="" draggable="false"><span class="gal-vid-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="gal-vid-tag">▶ Tap to load 360° film · saves mobile data<small class="gal-vid-always" role="button" tabindex="0" onclick="event.stopPropagation();Shivaa.setVideoAutoload(true);this.closest('.gal-vid-load').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Always load films automatically</small></span></button></div>`
+              ] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${safeUrl(im) || ''}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`)).join('')}
           </div>
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
           <button class="gal-nav gal-next" aria-label="Next">›</button>
@@ -2341,8 +2365,8 @@ pages.product = async (view, q, id) => {
         ${p.mediaNote ? `<p style="font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.6">✦ ${esc(p.mediaNote)} The piece you receive is hand-finished by our karigars to this design; exact weight and purity are confirmed on your bill.</p>` : ''}
 
         <div class="opt-label"><span>Check delivery &amp; COD</span></div>
-        <form class="pin-row" style="max-width:380px" onsubmit="event.preventDefault();Shivaa.checkPin()"><input id="pincode" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit pincode" value="${(localStorage.getItem('shv_pin') || '')}"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
-        <div class="pin-msg" id="pinMsg" hidden></div>
+        <form class="pin-row" data-delivery style="max-width:380px"><input data-pin id="pincode" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit pincode" value="${(() => { try { return localStorage.getItem('shv_pin') || ''; } catch (e) { return ''; } })()}"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
+        <div class="pin-msg" data-pin-msg hidden></div>
 
         <div class="pd-perks">
           ${[['<a href="#/hallmark">HUID check guide</a>', '<path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3z"/>'],
@@ -2385,6 +2409,18 @@ pages.product = async (view, q, id) => {
   (() => {
     const wrap = $('#galWrap'), track = $('#galTrack'); if (!wrap || !track) return;
     const n = $$('.gal-slide', track).length;   // v36: counts video slide too
+    /* v103 — data-saver: films stay poster frames on cellular / save-data
+       until tapped; Wi-Fi & 4G/5g autoload only the lightweight metadata. */
+    wrap.addEventListener('click', e => {
+      const b = e.target.closest && e.target.closest('.gal-vid-load');
+      if (!b) return;
+      const src = b.dataset.video, poster = b.dataset.poster || '';
+      b.replaceWith(Object.assign(document.createElement('video'), {
+        src, controls: true, playsInline: true, preload: 'auto', poster,
+      }));
+      const v = track.querySelector('video');
+      if (v && v.play) { try { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} }
+    });
     let idx = 0, sx = null, dx = 0;
     const go = i => {
       idx = (i + n) % n;
@@ -2408,10 +2444,11 @@ pages.product = async (view, q, id) => {
   })();
   $('#brkBtn').onclick = () => { const b = $('#pdBrk'); b.hidden = !b.hidden; $('#brkBtn').setAttribute('aria-expanded', String(!b.hidden)); };
   $$('#sizeRow .size-pill').forEach(s => s.onclick = () => { $$('#sizeRow .size-pill').forEach(x => x.classList.remove('on')); s.classList.add('on'); try { localStorage.setItem('shv_ring_size', s.dataset.size); } catch (e) {} });
+  window.Shivaa.bindDelivery(view);   // v103 — auto-runs when a pin is remembered
   bindTilt(view);
   window._pd = { p, qty: 1 };
   /* v54: remember this piece + mobile sticky buy bar + tap-to-zoom gallery */
-  window.Shivaa.recentAdd(p);
+  window.Shivaa.recentAdd(p, pr);   // v103 — snapshot price + rate for the home trend hint
   let bb = $('#pdpBuybar');
   if (!bb) { bb = document.createElement('div'); bb.id = 'pdpBuybar'; document.body.appendChild(bb); }
   bb.innerHTML = `<span class="bb-price">${'₹' + Math.round((p.price && p.price.total) || 0).toLocaleString('en-IN')}</span>
@@ -2561,15 +2598,41 @@ window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd
   });
 })();
 
-/* v54: recently viewed rings (local, private, never uploaded) */
-window.Shivaa.recentAdd = (p) => {
+/* v54: recently viewed rings (local, private, never uploaded).
+   v103 — also remembers the price + rate at view time so the home strip
+   can honestly show how the piece has moved with the bullion rate. */
+window.Shivaa.recentAdd = (p, pr) => {
   try {
     const l = JSON.parse(localStorage.getItem('sh_recent') || '[]').filter(x => x && x.id !== p.id);
+    pr = pr || price(p);
     l.unshift({ id: p.id, name: p.name, img: (p.images || [])[0] || '/images/logo.png',
-                price: (p.price && p.price.total) || p.price || 0, category: p.category });
+                price: (p.price && p.price.total) || p.price || 0, category: p.category,
+                at: Date.now(), thenTotal: pr && pr.total, thenRate: pr && pr.ratePerGram,
+                weightG: p.weightG, metal: p.metal, purity: p.purity });
     localStorage.setItem('sh_recent', JSON.stringify(l.slice(0, 8)));
   } catch (e) {}
 };
+/* v103 — build the recent strip's rate-trend hint for one remembered piece */
+function recentHint(x) {
+  if (!x || !x.at || !x.thenTotal) return '';
+  const days = Math.round((Date.now() - x.at) / 86400000);
+  const when = days <= 0 ? 'viewed today' : days === 1 ? 'viewed yesterday' : `viewed ${days} day${days > 1 ? 's' : ''} ago`;
+  const live = (state.productsCache || []).find(c => c.id === x.id);
+  if (!live || !state.rates) return `<span class="tv-when">${when}</span>`;
+  const d = price(live).total - x.thenTotal;
+  if (Math.abs(d) < 50) return `<span class="tv-when">${when} · steady with the rate</span>`;
+  const word = d < 0
+    ? `<span class="tv-hint down">↓ ₹${Math.abs(d).toLocaleString('en-IN')} cheaper since you looked</span>`
+    : `<span class="tv-hint up">↑ ₹${Math.abs(d).toLocaleString('en-IN')} more with the gold rate</span>`;
+  return `${word}<span class="tv-when">${when}</span>`;
+}
+function recentCard(x) {
+  const live = (state.productsCache || []).find(c => c.id === x.id);
+  const nowPrice = live ? price(live).total : (x.price || 0);
+  return `<a class="tv-card" href="#/product/${esc(x.id)}">
+  <div class="tv-ph"><img src="${safeUrl(x.img) || '/images/logo.png'}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'"></div>
+  <div class="tv-b"><b>${esc(x.name)}</b><small>${esc(x.category || '')}${x.rating ? ' · ★' + x.rating : ''}</small><span>${'₹' + Math.round(nowPrice).toLocaleString('en-IN')}</span>${recentHint(x)}</div></a>`;
+}
 window.Shivaa.pdAdd = (id, ev) => {
   const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
   addToCart(id, window._pd.qty, size, $('#engrave')?.value || null, ev ? { fromEl: ev.currentTarget } : {});
@@ -2579,7 +2642,93 @@ window.Shivaa.pdBuy = async id => {
   addToCart(id, window._pd.qty, size, $('#engrave')?.value || null, { silent: true });
   location.hash = '#/checkout';
 };
-/* v59 — honest delivery promise by pincode + COD eligibility */
+/* v103 — data-saver for the 65 product films (142 MB of media). Films
+   autoload only on fast/uncapped connections; on 2G/3G/save-data they stay
+   as poster frames and load on tap. The visitor can force either mode. */
+function videoCanAutoload() {
+  try {
+    const forced = localStorage.getItem('shv_autovideo');
+    if (forced === '0') return false;
+    if (forced === '1') return true;
+    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (c && (c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || ''))) return false;
+  } catch (e) {}
+  return true;
+}
+window.Shivaa.setVideoAutoload = on => {
+  try { localStorage.setItem('shv_autovideo', on ? '1' : '0'); } catch (e) {}
+  toast(on ? 'Films will now play automatically when you open a piece' : 'Films will wait for a tap — mobile data saved');
+};
+
+/* v59 / v103 — honest delivery promise by pincode + COD eligibility.
+   v103: one source of truth for PDP, cart and checkout; region label,
+   state autofill and an estimated handover date, fully client-side so it
+   works even when the connection drops. */
+function pinRegion(pin) {
+  const d2 = pin.slice(0, 2), d3 = pin.slice(0, 3);
+  if (pin === '341023') return 'Jayal · Nagaur (our home town)';
+  if (['30', '31', '32', '33', '34'].includes(d2)) return 'Rajasthan';
+  if (['36', '37', '38', '39'].includes(d2)) return 'Gujarat';
+  if (['11'].includes(d2)) return 'Delhi NCR';
+  if (['12', '13', '14', '15', '16', '17', '20', '21', '22', '23', '25', '26', '27', '28'].includes(d2)) return 'North India';
+  if (['40', '41', '42', '43', '44'].includes(d2)) return 'Maharashtra & Goa';
+  if (['45', '46', '47', '48'].includes(d2)) return 'Madhya Pradesh';
+  if (['49'].includes(d2)) return 'Chhattisgarh';
+  if (['50', '51', '52', '53'].includes(d2)) return 'Telangana & Andhra Pradesh';
+  if (['56', '57', '58', '59'].includes(d2)) return 'Karnataka';
+  if (['60', '61', '62', '63', '64', '65', '66'].includes(d2)) return 'Tamil Nadu & Puducherry';
+  if (['67', '68', '69'].includes(d2)) return 'Kerala & Lakshadweep';
+  if (['70', '71', '72', '73', '74'].includes(d2)) return 'West Bengal, Sikkim & Andamans';
+  if (['75', '76', '77'].includes(d2)) return 'Odisha';
+  if (['80', '81', '82', '83', '84', '85'].includes(d2)) return 'Bihar & Jharkhand';
+  if (d2 === '78' || d2 === '79') return 'North-East India';
+  if (['18', '19'].includes(d2)) return 'Jammu, Kashmir & Ladakh';
+  void d3;
+  return 'India';
+}
+/* Conservative pincode → state autofill. Returns '' when a prefix straddles
+   state lines; the customer then types it (we never guess into an address). */
+function pinState(pin) {
+  const d2 = pin.slice(0, 2), d3 = pin.slice(0, 3);
+  const table = {
+    '11': 'Delhi', '12': 'Haryana', '13': 'Haryana', '14': 'Punjab', '15': 'Punjab',
+    '16': 'Chandigarh', '17': 'Himachal Pradesh', '18': 'Jammu & Kashmir',
+    '20': 'Uttar Pradesh', '21': 'Uttar Pradesh', '22': 'Uttar Pradesh', '23': 'Uttar Pradesh',
+    '25': 'Uttar Pradesh', '26': 'Uttar Pradesh', '27': 'Uttar Pradesh', '28': 'Uttar Pradesh',
+    '30': 'Rajasthan', '31': 'Rajasthan', '32': 'Rajasthan', '33': 'Rajasthan', '34': 'Rajasthan',
+    '36': 'Gujarat', '37': 'Gujarat', '38': 'Gujarat', '39': 'Gujarat',
+    '40': 'Maharashtra', '41': 'Maharashtra', '42': 'Maharashtra', '43': 'Maharashtra', '44': 'Maharashtra',
+    '45': 'Madhya Pradesh', '46': 'Madhya Pradesh', '47': 'Madhya Pradesh', '48': 'Madhya Pradesh',
+    '49': 'Chhattisgarh',
+    '50': 'Telangana', '51': 'Andhra Pradesh', '52': 'Andhra Pradesh', '53': 'Andhra Pradesh',
+    '56': 'Karnataka', '57': 'Karnataka', '58': 'Karnataka', '59': 'Karnataka',
+    '60': 'Tamil Nadu', '61': 'Tamil Nadu', '62': 'Tamil Nadu', '63': 'Tamil Nadu',
+    '64': 'Tamil Nadu', '65': 'Tamil Nadu', '66': 'Puducherry',
+    '67': 'Kerala', '68': 'Kerala', '69': 'Kerala',
+    '70': 'West Bengal', '71': 'West Bengal', '72': 'West Bengal',
+    '75': 'Odisha', '76': 'Odisha', '77': 'Odisha',
+    '78': 'Assam',
+    '80': 'Bihar', '81': 'Bihar', '84': 'Bihar', '85': 'Bihar',
+    '82': 'Jharkhand', '83': 'Jharkhand',
+  };
+  if (d3 === '244' || d3 === '246' || d3 === '247' || d3 === '248' || d3 === '249') return 'Uttarakhand';
+  if (d2 === '24') return 'Uttar Pradesh';
+  if (d3 === '737') return 'Sikkim';
+  if (d2 === '73') return 'West Bengal';
+  if (d3 === '744') return 'Andaman & Nicobar Islands';
+  if (d2 === '74') return 'West Bengal';
+  if (d3 === '790') return 'Arunachal Pradesh';
+  if (d3 === '795') return 'Manipur';
+  if (d3 === '796') return 'Mizoram';
+  if (d3 === '797') return 'Nagaland';
+  if (d3 === '793' || d3 === '794') return 'Meghalaya';
+  if (d3 === '799') return 'Tripura';
+  if (d3 === '791' || d3 === '792') return 'Arunachal Pradesh';
+  if (d2 === '79') return 'Assam';
+  if (d3 === '194') return 'Ladakh';
+  if (d2 === '19') return 'Jammu & Kashmir';
+  return table[d2] || '';
+}
 function pinPromise(pin) {
   const d2 = pin.slice(0, 2);
   const block = String((state.settings || {}).codBlockedPins || '').split(/[\s,]+/).filter(Boolean);
@@ -2587,9 +2736,9 @@ function pinPromise(pin) {
   const remote = noCODPrefix.includes(d2) || block.includes(pin);
   let days;
   if (pin === '341023') days = [1, 1];
-  else if (['30', '31', '32', '33', '34'].includes(d2)) days = [2, 3];            // Rajasthan + NCR west
-  else if (['11', '12', '20', '24', '25', '22', '23', '26', '27', '28', '38', '39'].includes(d2)) days = [3, 4]; // NCR / Gujarat / UP
-  else if (['40', '41', '42', '44', '50', '56', '57', '60', '62', '70', '71'].includes(d2)) days = [3, 5];        // metros
+  else if (['30', '31', '32', '33', '34'].includes(d2)) days = [2, 3];            // Rajasthan
+  else if (['11', '12', '13', '14', '15', '16', '20', '21', '22', '23', '24', '25', '26', '27', '28', '36', '37', '38', '39'].includes(d2)) days = [3, 4]; // NCR / Gujarat / UP / north
+  else if (['40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '56', '57', '70', '71'].includes(d2)) days = [3, 5];        // metros / west / Bengaluru
   else if (noCODPrefix.includes(d2)) days = [7, 10];
   else days = [4, 7];
   const fmtDate = n => new Date(Date.now() + n * 864e5).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -2597,22 +2746,57 @@ function pinPromise(pin) {
     cod: !remote,
     lo: days[0], hi: days[1],
     by: days[0] === days[1] ? fmtDate(days[0]) : fmtDate(days[0]) + ' – ' + fmtDate(days[1]),
+    region: pinRegion(pin),
+    state: pinState(pin),
     home: pin === '341023',
   };
 }
+/* Shared delivery result renderer for PDP + cart widgets. */
+function deliveryHTML(pin) {
+  if (!/^\d{6}$/.test(pin)) return { ok: false, html: 'Please enter a valid 6-digit pincode' };
+  const pr = pinPromise(pin);
+  return {
+    ok: true, pr,
+    html: (pr.home ? '✓ <b>Jayal — home turf!</b> ' : '✓ Delivers to <b>' + pin + '</b> · ' + esc(pr.region) + ' ')
+      + '· insured handover <b>' + pr.by + '</b><br>'
+      + (pr.cod ? '💵 Cash on Delivery available' : '🔒 This pincode is prepaid-only (insured courier)')
+      + ' · free shipping over ' + fmt((state.settings || {}).freeShipAbove || 50000),
+  };
+}
+/* v103 — bind every [data-delivery] widget (PDP + cart share this). */
+window.Shivaa.bindDelivery = root => {
+  $$('[data-delivery]', root || document).forEach(form => {
+    if (form._bound) return; form._bound = true;
+    const inp = form.querySelector('input[data-pin]');
+    // the message sits beside (not inside) the form on PDP + cart
+    const msg = form.querySelector('[data-pin-msg]') || form.parentElement?.querySelector('[data-pin-msg]');
+    const run = () => {
+      if (!msg) return;
+      const v = inp.value.trim();
+      const r = deliveryHTML(v);
+      msg.hidden = false;
+      msg.className = 'pin-msg ' + (r.ok ? 'ok' : 'bad');
+      msg.innerHTML = r.html;
+      if (r.ok) {
+        try { localStorage.setItem('shv_pin', v); } catch (e) {}
+        form.dispatchEvent(new CustomEvent('pinchecked', { bubbles: true, detail: { pin: v, ...r.pr } }));
+      }
+    };
+    form.addEventListener('submit', e => { e.preventDefault(); inp.value = inp.value.replace(/\D/g, '').slice(0, 6); run(); });
+    inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 6); });
+    let saved = '';
+    try { saved = localStorage.getItem('shv_pin') || ''; } catch (e) {}
+    // auto-answer on both surfaces: the PDP input is pre-rendered with the
+    // remembered pin, the cart input starts empty
+    if (saved && /^\d{6}$/.test(saved)) { if (!inp.value) inp.value = saved; setTimeout(run, 0); }
+  });
+};
 window.Shivaa.checkPin = () => {
-  const inp = $('#pincode'); const v = inp.value.trim(); const m = $('#pinMsg');
-  if (!/^\d{6}$/.test(v)) { m.hidden = false; m.className = 'pin-msg bad'; m.textContent = 'Please enter a valid 6-digit pincode'; return; }
-  try { localStorage.setItem('shv_pin', v); } catch (e) {}
-  const pr = pinPromise(v);
-  m.hidden = false;
-  m.className = 'pin-msg ok';
-  m.innerHTML = (pr.home ? '✓ <b>Jayal — home turf!</b> ' : '✓ Delivers to <b>' + v + '</b> ')
-    + '· insured handover <b>' + pr.by + '</b><br>'
-    + (pr.cod ? '💵 Cash on Delivery available' : '🔒 This pincode is prepaid-only (insured courier)')
-    + ' · free shipping over ' + fmt((state.settings || {}).freeShipAbove || 50000);
+  const form = $('#pincode')?.closest('[data-delivery]');
+  if (form) form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 };
 window.Shivaa.pinPromise = pinPromise;
+window.Shivaa.pinState = pinState;
 window.Shivaa.pickRate = r => { window._rate = r; $$('#ratePick span').forEach((s, i) => { s.style.color = i < r ? 'var(--gold)' : 'var(--line)'; s.classList.toggle('picked', i === r - 1); }); };
 window.Shivaa.postReview = async (e, pid) => {
   e.preventDefault();
@@ -2720,9 +2904,59 @@ pages.compare = async (view, q) => {
 };
 
 /* ─────────── CART ─────────── */
+/* v103 — saved-for-later (private, local like the cart) */
+const getLater = () => { try { return JSON.parse(localStorage.getItem('shv_later') || '[]'); } catch (e) { return []; } };
+const setLater = l => { try { localStorage.setItem('shv_later', JSON.stringify(l.slice(0, 50))); } catch (e) {} };
+window.Shivaa.cartSaveLater = (id, size) => {
+  const i = state.cart.findIndex(x => x.id === id && (x.size || '') === (size || ''));
+  if (i < 0) return;
+  const it = state.cart[i];
+  state.cart = state.cart.filter(x => x !== it);
+  const l = getLater().filter(x => !(x.id === id && (x.size || '') === (size || '')));
+  l.unshift({ id, qty: it.qty || 1, size: it.size || null, engraving: it.engraving || '' });
+  setLater(l);
+  store.set('shv_cart', state.cart); updateBadges(); renderMiniCart();
+  toast('Saved for later ✦');
+  pages.cart($('#view'));
+};
+window.Shivaa.cartMoveBack = (id, size) => {
+  const l = getLater();
+  const it = l.find(x => x.id === id && (x.size || '') === (size || ''));
+  if (!it) return;
+  setLater(l.filter(x => x !== it));
+  const existing = state.cart.find(x => x.id === id && (x.size || '') === (x.size || ''));
+  if (existing) existing.qty += it.qty;
+  else state.cart.push({ id, qty: it.qty, size: it.size || null, engraving: it.engraving || '' });
+  store.set('shv_cart', state.cart); updateBadges(); renderMiniCart();
+  toast('Moved back to your bag ✦');
+  pages.cart($('#view'));
+};
+window.Shivaa.cartRemoveLater = (id, size) => {
+  setLater(getLater().filter(x => !(x.id === id && (x.size || '') === (size || ''))));
+  pages.cart($('#view'));
+};
+function laterSectionHTML() {
+  const l = getLater().map(x => ({ ...x, p: state.productsCache.find(p => p.id === x.id) })).filter(x => x.p);
+  if (!l.length) return '';
+  return `<section class="later-sec">
+    <div class="sec-title" style="margin:22px 0 10px">Saved for later · ${l.length}</div>
+    <div class="cart-items">${l.map(({ p, size, qty }) => `
+      <div class="cart-item">
+        <a href="#/product/${p.id}"><img src="${safeUrl(p.images && p.images[0])}" alt=""></a>
+        <div>
+          <a href="#/product/${p.id}" class="ci-name">${esc(p.name)}</a>
+          <div class="ci-meta">${p.metal === 'Silver' ? 'Silver 925' : p.purity + ' gold'} · ${p.weightG} g${size ? ' · size ' + esc(size) : ''} · qty ${qty}</div>
+          <div class="ci-meta js-price" data-pid="${p.id}" data-qty="${qty}">${fmt(price(p).total * qty)}</div>
+        </div>
+        <div class="ci-right"><a class="ci-remove" href="javascript:Shivaa.cartMoveBack(${jsArg(p.id)},${jsArg(size || '')})">Move to bag</a><br><a class="ci-remove" href="javascript:Shivaa.cartRemoveLater(${jsArg(p.id)},${jsArg(size || '')})">Remove</a></div>
+      </div>`).join('')}
+    </div>
+  </section>`;
+}
 pages.cart = async (view) => {
+  const laterHTML = laterSectionHTML();
   if (!state.cart.length) {
-    view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart awaits its sparkle</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`;
+    view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart awaits its sparkle</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>` + laterHTML;
     return;
   }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
@@ -2746,10 +2980,16 @@ pages.cart = async (view) => {
               <button onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},-1)">−</button><b>${it.qty}</b><button onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},1)">+</button>
             </div>
           </div>
-          <div class="ci-right"><b>${fmt(pr.total * it.qty)}</b><br><a class="ci-remove" href="javascript:Shivaa.cartRemove(${jsArg(it.id)},${jsArg(it.size || '')})">Remove</a></div>
+          <div class="ci-right"><b>${fmt(pr.total * it.qty)}</b><br><a class="ci-remove" href="javascript:Shivaa.cartSaveLater(${jsArg(it.id)},${jsArg(it.size || '')})">Save for later</a><br><a class="ci-remove" href="javascript:Shivaa.cartRemove(${jsArg(it.id)},${jsArg(it.size || '')})">Remove</a></div>
         </div>`).join('')}
       </div>
       <div class="qty-banner">◈ Prices in your cart re-compute automatically with every rate refresh (every ~10 minutes) and are finally locked at checkout.</div>
+      <div class="cart-delivery adm-card">
+        <div class="cd-head"><b>📮 Check delivery &amp; COD</b><small>Estimates before you pay — no account needed</small></div>
+        <form class="pin-row" data-delivery style="max-width:420px"><input data-pin inputmode="numeric" maxlength="6" placeholder="Enter 6-digit pincode"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
+        <div class="pin-msg" data-pin-msg hidden></div>
+      </div>
+      ${laterHTML}
     </div>
     <div class="summary">
       <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
@@ -2770,6 +3010,7 @@ pages.cart = async (view) => {
     <div class="mcta-total"><small>${cartCount()} item${cartCount() > 1 ? 's' : ''} · total</small><b>${fmt(subtotal + shipping)}</b></div>
     <a class="btn btn-gold" href="#/checkout">Proceed to Checkout ✦</a>
   </div>`;
+  window.Shivaa.bindDelivery(view);   // v103 — remembered pincode answers immediately
 };
 window.Shivaa.cartQty = (id, size, d) => {
   const it = state.cart.find(i => i.id === id && (i.size || '') === size);
@@ -3120,7 +3361,7 @@ pages.checkout = async (view) => {
         <div class="fld full"><label for="adLine">Address (house, street, landmark)</label><input id="adLine" name="line" autocomplete="street-address" required placeholder="House no, street, landmark"></div>
         <div class="fld"><label for="adCity">City</label><input id="adCity" name="city" autocomplete="address-level2" required></div>
         <div class="fld"><label for="adState">State</label><input id="adState" name="state" autocomplete="address-level1" required value="Rajasthan"></div>
-        <div class="fld"><label for="adPin">Pincode</label><input id="adPin" name="pincode" inputmode="numeric" autocomplete="postal-code" required maxlength="6" pattern="\\d{6}" placeholder="341023"></div>
+        <div class="fld"><label for="adPin">Pincode</label><input id="adPin" name="pincode" inputmode="numeric" autocomplete="postal-code" required maxlength="6" pattern="\\d{6}" placeholder="341023"><small class="pin-note" id="adPinMsg" hidden></small></div>
         <div class="fld"><label for="adCountry">Country</label><input id="adCountry" name="country" value="India" readonly></div>
       </form>
 
@@ -3235,6 +3476,34 @@ pages.checkout = async (view) => {
       : 'Available on orders below ' + fmt(50000) + ' · ID verification at handover' + (codPct ? ' · ' + codPct + '% handling fee' : ' · full price');
     const codRadio = $('#payOpts input[value="COD"]');
     if (codRadio) codRadio.disabled = !!codBlocked;
+  }
+  /* v103 — pincode autofills the state and answers delivery/COD before submit */
+  const adPin = $('#adPin'), adState = $('#adState'), adCity = $('#adCity'), adMsg = $('#adPinMsg');
+  if (adPin) {
+    const onPin = () => {
+      const v = adPin.value.replace(/\D/g, '').slice(0, 6);
+      if (adPin.value !== v) adPin.value = v;
+      if (!/^\d{6}$/.test(v)) { if (adMsg) adMsg.hidden = true; return; }
+      const pr = pinPromise(v);
+      const st = pinState(v);
+      if (st && adState && (!adState.value || adState.value === 'Rajasthan')) adState.value = st;
+      try { localStorage.setItem('shv_pin', v); } catch (e) {}
+      if (adMsg) {
+        adMsg.hidden = false;
+        adMsg.className = 'pin-note ok';
+        adMsg.innerHTML = '✓ ' + esc(pr.region) + ' · handover <b>' + pr.by + '</b> · ' + (pr.cod ? 'COD available' : 'prepaid-only');
+      }
+      const codRadio = $('#payOpts input[value="COD"]');
+      if (codRadio) {
+        codRadio.disabled = !pr.cod;
+        if (!pr.cod && codRadio.checked) { const onl = $('#payOpts input[value="Online"]'); if (onl) onl.checked = true; onl?.dispatchEvent(new Event('change')); }
+      }
+      void adCity;
+    };
+    adPin.addEventListener('input', onPin);
+    let memPin = '';
+    try { memPin = localStorage.getItem('shv_pin') || ''; } catch (e) {}
+    if (memPin && /^\d{6}$/.test(memPin)) { adPin.value = memPin; onPin(); }
   }
 };
 window.Shivaa.applyCoupon = async () => {
@@ -3539,8 +3808,23 @@ function orderStageHTML(o) {
       <div><b>${label}</b><small>${hit ? timeFmt(hit) : '—'}</small></div>
     </div>`;
   }).join('');
-  return `<div class="tracker-wrap"><div class="tracker-head"><span class="live-dot"></span> Making &amp; delivery tracker</div><div class="stages">${steps}</div></div>`;
+  /* v103 — honest ETA line: handcrafted gold is 4–7 working days from order;
+     once the parcel ships the courier card below carries the live link. */
+  let etaLine = '';
+  if (reached >= 0 && reached < 5 && o.createdAt) {
+    const d = new Date(o.createdAt);
+    const fmt = n => new Date(+d + n * 864e5).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    const day = n => new Date(+d + n * 864e5);
+    const addWorkdays = (date, n) => { const x = new Date(+date); let added = 0; while (added < n) { x.setDate(x.getDate() + 1); const k = x.getDay(); if (k !== 0) added++; } return x; };
+    const fmt2 = x => x.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    etaLine = `<div class="tracker-eta">✦ Handcrafted to order — estimated handover <b>${fmt2(addWorkdays(d, 4))} – ${fmt2(addWorkdays(d, 7))}</b> · we WhatsApp you at every stage</div>`;
+    void fmt; void day;
+  } else if (reached === 5) {
+    etaLine = '<div class="tracker-eta">🚚 On its way — courier tracking appears below the moment the parcel is dispatched.</div>';
+  }
+  return `<div class="tracker-wrap"><div class="tracker-head"><span class="live-dot"></span> Making &amp; delivery tracker</div>${etaLine}<div class="stages">${steps}</div></div>`;
 }
+window.Shivaa.orderStageHTML = orderStageHTML;
 function trackingCardHTML(o) {
   if (!o.awb && !o.courier) return '';
   const carriers = {
@@ -6795,7 +7079,7 @@ function loadStaffBundle() {
   if (!_staffBundle) {
     _staffBundle = injectScript('/js/qr.js?v=99')
       .catch(() => { /* QR tags degrade gracefully; the panel must still open */ })
-      .then(() => injectScript('/js/admin.js?v=102'))
+      .then(() => injectScript('/js/admin.js?v=103'))
       .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
   }
   return _staffBundle;
@@ -7243,7 +7527,7 @@ function decorate5D() {
 /* ─────────── boot ─────────── */
 async function wishIds() {
   if (!state.user) return [];
-  try { return (await api('/api/wishlist')).wishlist; } catch (e) { return []; }
+  try { return (await api('/api/wishlist')).wishlist || []; } catch (e) { return []; }   // v103 — never let an odd response break the PDP render
 }
 async function boot(isRedraw) {
   // parallel initial fetches

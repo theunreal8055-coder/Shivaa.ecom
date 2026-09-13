@@ -5680,6 +5680,45 @@ try {
     }
     jout(200, $pubSettings);
   }
+  /* v103 — owner-supplied GST registration certificate shown on the Trust
+     page. Admin-only multipart upload with magic-byte validation; the public
+     /api/trust endpoint allowlists exactly one document of this one type. */
+  if ($route === 'admin/trust-certificate' && $method === 'POST') {
+    need_admin($db);
+    if (empty($_FILES['file'])) jout(400, ['error' => 'No file']);
+    $cf = $_FILES['file'];
+    if (($cf['error'] ?? 1) !== UPLOAD_ERR_OK) jout(400, ['error' => 'Upload failed (code ' . (int)($cf['error'] ?? 1) . ')']);
+    if (($cf['size'] ?? 0) > 8388608) jout(400, ['error' => 'Certificate must be under 8 MB']);
+    $head = (string)@file_get_contents($cf['tmp_name'], false, null, 0, 12);
+    $isPdf = strncmp($head, '%PDF-', 5) === 0;
+    $isJpg = strncmp($head, "\xFF\xD8\xFF", 3) === 0;
+    $isPng = strncmp($head, "\x89PNG\r\n\x1a\n", 8) === 0;
+    $isWebp = strncmp($head, 'RIFF', 4) === 0 && substr($head, 8, 4) === 'WEBP';
+    if (!$isPdf && !$isJpg && !$isPng && !$isWebp) jout(400, ['error' => 'Certificate must be a real PDF, JPG, PNG or WEBP file']);
+    $extMap = ['pdf' => 'pdf', 'jpg' => 'jpg', 'jpeg' => 'jpg', 'png' => 'png', 'webp' => 'webp'];
+    if ($isPdf) $ext = 'pdf';
+    elseif ($isJpg) $ext = 'jpg';
+    elseif ($isPng) $ext = 'png';
+    else $ext = 'webp';
+    // remove the previous certificate first
+    $old = $db['settings']['gstCert']['file'] ?? null;
+    if (is_string($old) && preg_match('#\A/uploads/trust/[A-Za-z0-9._-]{1,90}\z#', $old) && is_file(__DIR__ . $old)) @unlink(__DIR__ . $old);
+    if (!is_dir(__DIR__ . '/uploads/trust')) @mkdir(__DIR__ . '/uploads/trust', 0755, true);
+    $name = 'gst_' . bin2hex(random_bytes(5)) . '.' . $ext;
+    if (!move_uploaded_file($cf['tmp_name'], __DIR__ . '/uploads/trust/' . $name)) jout(500, ['error' => 'Could not save — check uploads/trust permissions (755)']);
+    $db['settings']['gstCert'] = ['type' => 'gst-registration', 'file' => '/uploads/trust/' . $name, 'at' => now_iso()];
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'cert' => $db['settings']['gstCert']]);
+  }
+  if ($route === 'admin/trust-certificate' && $method === 'DELETE') {
+    need_admin($db);
+    $old = $db['settings']['gstCert']['file'] ?? null;
+    if (is_string($old) && preg_match('#\A/uploads/trust/[A-Za-z0-9._-]{1,90}\z#', $old) && is_file(__DIR__ . $old)) @unlink(__DIR__ . $old);
+    unset($db['settings']['gstCert']);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true]);
+  }
+
   if ($route === 'settings' && $method === 'PUT') {
     need_admin($db);
     $setBody = body_json();

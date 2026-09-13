@@ -1092,3 +1092,95 @@ code.trust-provided {
   .qv-zoom-hint { animation: none; }
   .qv-photo, #backBar { transition: none !important; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   v103 — confidence & speed: delivery, data-saver, personal memory, trust
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── delivery promise (PDP + cart + checkout) ── */
+.cart-delivery { margin-top: 16px; padding: 16px 18px; border-radius: 16px; }
+.cd-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.cd-head b { font-size: 14.5px; color: var(--maroon-deep, #4a0e1a); }
+.cd-head small { font-size: 12px; color: var(--ink-3, #8a7d6c); }
+.cart-delivery .pin-row { max-width: 420px; }
+.pin-note { display: block; font-size: 12px; margin-top: 6px; line-height: 1.55; }
+.pin-note.ok { color: var(--ok, #2e7d4f); }
+.pin-note.bad { color: var(--bad, #b04a4a); }
+
+/* ── data-saver film gate in the PDP gallery ── */
+.gal-vid-load { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; padding: 0;
+  background: #000; cursor: pointer; display: grid; place-items: center; }
+.gal-vid-load img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .78; }
+.gal-vid-play { position: relative; width: 76px; height: 76px; border-radius: 50%;
+  background: rgba(255, 252, 244, .94); display: grid; place-items: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35); transition: transform .2s var(--au-spring, ease); }
+.gal-vid-play svg { width: 30px; height: 30px; margin-left: 4px; color: var(--maroon-deep, #4a0e1a); }
+.gal-vid-load:active .gal-vid-play { transform: scale(.92); }
+.gal-vid-load .gal-vid-tag { pointer-events: none; position: absolute; left: 14px; bottom: 14px; z-index: 2;
+  display: inline-flex; flex-direction: column; align-items: flex-start; gap: 5px; background: rgba(12, 40, 28, .82); color: #fff;
+  font: 600 11px/1 var(--ff-body, sans-serif); letter-spacing: .06em; padding: 8px 12px; border-radius: 14px; }
+.gal-vid-always { pointer-events: auto; text-decoration: underline;
+  text-underline-offset: 2px; font: 600 9px/1.2 var(--ff-body, sans-serif); letter-spacing: .03em;
+  text-transform: none; opacity: .88; cursor: pointer; }
+.gal-vid-always:hover, .gal-vid-always:focus-visible { opacity: 1; }
+
+/* ── saved-size personalization ── */
+.pc-your-size { position: absolute; top: 10px; right: 10px; z-index: 3;
+  background: linear-gradient(135deg, #e7c978, #b98a2f); color: #2a0a12;
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 999px; box-shadow: 0 4px 12px rgba(61, 14, 21, .25); }
+.size-match-chip { border: 1px solid rgba(185, 138, 47, .55); background: var(--gold-faint, rgba(185,138,47,.1));
+  color: var(--maroon-deep, #4a0e1a); font: inherit; font-size: 12.5px; font-weight: 600;
+  padding: 8px 14px; border-radius: 999px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+.size-match-chip.on { background: linear-gradient(135deg, #e7c978, #b98a2f); border-color: transparent; color: #2a0a12; }
+.size-match-chip:active { transform: scale(.96); }
+
+/* ── saved for later ── */
+.later-sec .cart-item { opacity: .92; }
+
+/* ── order tracker ETA ── */
+.tracker-eta { margin: 8px 0 4px; padding: 10px 14px; border-radius: 12px;
+  background: var(--gold-faint, rgba(185,138,47,.1)); border: 1px solid rgba(185,138,47,.3);
+  font-size: 13px; color: var(--maroon-deep, #4a0e1a); }
+.tracker-eta b { color: var(--maroon, #6e1423); }
+
+/* ── trust certificate (public page + admin) ── */
+.trust-cert-link { display: flex; align-items: center; gap: 14px; margin-top: 10px;
+  padding: 14px 16px; border: 1.5px solid rgba(185,138,47,.5); border-radius: 14px;
+  background: var(--gold-faint, rgba(185,138,47,.08)); text-decoration: none; color: inherit;
+  transition: transform .2s var(--au-spring, ease), border-color .2s; }
+.trust-cert-link:hover { border-color: var(--gold, #b98a2f); }
+.trust-cert-link:active { transform: scale(.985); }
+.trust-cert-ic { width: 46px; height: 46px; flex: 0 0 auto; border-radius: 12px; display: grid; place-items: center;
+  background: #fff; border: 1px solid var(--line, #ead9c0); font-size: 22px; }
+.trust-cert-link b { display: block; color: var(--maroon-deep, #4a0e1a); font-size: 14px; }
+.trust-cert-link small { display: block; color: var(--ink-3, #8a7d6c); font-size: 12px; margin-top: 2px; }
+.gst-cert-admin .gst-cert-current { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px; border: 1px solid var(--line, #ead9c0); border-radius: 14px; margin-bottom: 12px; background: var(--cream, #faf6ef); }
+.gst-cert-current b { display: block; font-size: 13.5px; color: var(--maroon-deep, #4a0e1a); }
+.gst-cert-current small { display: block; font-size: 11.5px; color: var(--ink-3, #8a7d6c); word-break: break-all; }
+.gst-cert-current .btn { margin-left: auto; }
+.gst-cert-pick { margin-top: 4px; }
+
+@media (max-width: 680px) {
+  .gst-cert-current .btn { margin-left: 0; }
+  .gal-vid-play { width: 64px; height: 64px; }
+}
+
+/* ── v103 skeleton shimmer behind catalogue photos while they load
+      (JS-off users keep the plain cream backdrop; reduced-motion gets a
+      static warm wash instead of the sweep) ── */
+html.js-motion .pc-imgwrap,
+html.js-motion .tv-ph { background-color: #f1e8d6; }
+html.js-motion .pc-imgwrap:not(.img-ok),
+html.js-motion .tv-ph:not(.img-ok) {
+  background-image: linear-gradient(100deg, #efe6d4 30%, #faf5e8 50%, #efe6d4 70%);
+  background-size: 200% 100%; animation: mSkeleton 1.35s linear infinite; }
+html.js-motion .pc-imgwrap.img-ok,
+html.js-motion .tv-ph.img-ok { background-image: none; }
+
+/* ── v103 smarter recently-viewed: live rate-trend hint ── */
+.tv-hint { display: block; font-size: 10.5px; font-weight: 600; line-height: 1.35; margin-top: 2px; }
+.tv-hint.down { color: #1f7a45; }
+.tv-hint.up { color: #9a5a16; }
+.tv-when { display: block; font-size: 10px; color: var(--ink-3, #8a7d6c); margin-top: 1px; }

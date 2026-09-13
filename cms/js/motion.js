@@ -86,7 +86,12 @@
   }
 
   /* ── 3. photography blur-up ───────────────────────────────────────── */
-  function revealImg(t) { t.classList.add('img-ok'); }
+  function revealImg(t) {
+    t.classList.add('img-ok');
+    // v103 — retire the shimmer placeholder behind the now-loaded photo
+    const ph = t.closest && t.closest('.pc-imgwrap, .tv-ph');
+    if (ph) ph.classList.add('img-ok');
+  }
   document.addEventListener('load', (e) => {
     const t = e.target;
     if (t && t.tagName === 'IMG' && t.closest && t.closest('#view')) revealImg(t);
