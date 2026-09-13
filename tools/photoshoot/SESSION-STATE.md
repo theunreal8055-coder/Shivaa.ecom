@@ -1,6 +1,23 @@
 # RING PHOTOSHOOT — SESSION STATE
 # (This file lives INSIDE the repo so it survives sandbox resets.)
 
+## Mission B (v45, from 13 Sep 2026) — PGS BATCH 2, 48 rings PGS5066–PGS5113
+Owner order: every product of PGS.pdf (main) uploaded with title/description/weight/12% MC and
+FOUR e-commerce photos each = model (worn) + macro (studio) + detail (editorial) + detail (gift).
+- Ledger (page, supplier tag, weight, name): `demo48/work/batch2_ledger.json` (tag numbers repeat —
+  they are style codes; weight is the truth, read from the attached tag).
+- Refs DONE for all 48 (salmon tag inpainted): `cms/images/designs/rings/{SKU}.jpg`.
+- db entries DONE for all 48 (453 products); `photoStatus` flips pending-4shot → complete on wire.
+- SHOT + WIRED + STAGED: **PGS5066, PGS5067** ✅ (2/48)
+- NEXT: **PGS5068 + PGS5069**, then page order. 2 rings/turn (8 gens, 10-gen cap).
+- Per ring: make_refs → VIEW tight ref → write {DESC} → 8 gens → QA sheet → finalize →
+  `batch2_db.py wire` → `batch2_stage.py` → update HANDOFF ledger + here → commit + push.
+- NO videos for batch 2 (owner order + v44 rule). Deploy = `deploy/batch2_upload_bridge.php`
+  (ADD-ONLY) after the branch is merged to main.
+### {DESC} notes for batch 2 (verify vs ref_tight before firing)
+PGS5066 Veerendra: broad flat band, three horizontal engraved groove lines per shoulder, square white CZ pavé plate (3x3) flush at centre in polished frame ✅
+PGS5067 Ranveer: wide angular band, faceted chevron-cut polished shoulders, rotated-square (diamond-oriented) white CZ pavé plate at centre, mill-grain band edges ✅
+
 ## Mission
 Complete AI photoshoots for the remaining PGS rings. Per ring: 4 AI shots
 (studio/editorial/worn/gift) + ken-burns video + db.json wiring (images[], video, mediaNote).

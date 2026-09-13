@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-08 (v44 in progress — creamy-white face pass, branch `arena/01a07e8c-shivaa-ecom`)**
+**Last updated: 2026-09-13 (v45 — PGS batch 2 upload, branch `arena/01a09ab7-shivaa-ecom`)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
@@ -54,6 +54,64 @@ Plan approved by the owner (do NOT re-ask):
 - batch 4 (8, `ba45553`): PGS5046 5048 5051 5052 5054 5055 5056 5059
 - final (3, this commit): PGS5053 (re-rolled: first gen broke the shank), PGS5057
   (re-rolled: pavé bars offset), PGS5060
+
+---
+
+## 🆕 v45 — PGS BATCH 2 (48 NEW rings PGS5066–PGS5113) — IN PROGRESS
+
+**Owner order (13 Sep 2026):** upload every product in `PGS.pdf` (GitHub `main`, 48 pages) with
+title, description, weight, **making charges 12% standard**, and **four e-commerce photos each —
+one with the model, one macro shoot, two detail photos** — exactly like the existing catalogue.
+
+### What batch 2 is
+- `PGS.pdf` = 48 pages, one men's ring photo per page with a **salmon supplier tag**
+  ("PGS nn / Wt : x.xxx"). Tag numbers REPEAT (style codes, not IDs) — the **weight is per
+  attached tag** and was read visually page-by-page (contact sheets, both orientations).
+- SKUs continue the house sequence: **page order → PGS5066…PGS5113** (batch 1 ended PGS5065).
+- Ground-truth ledger (page, supplier tag, weight, name): `demo48/work/batch2_ledger.json`.
+
+### Done this session (13 Sep 2026)
+1. ✅ 48 clean reference photos: salmon tag + strap inpainted (neighbour-propagation, gold
+   protected) → `cms/images/designs/rings/{SKU}.jpg` (house ref geometry 1653×2205).
+2. ✅ 48 db.json products created (405 → **453**, rings 85 → **133**): title, house description,
+   tag weight, `mcScheme percent / mcValue 12`, sizes 12-18, SEO, tags. Interim cover = cleaned
+   ref, `photoStatus: "pending-4shot"`; zero pre-existing products modified (verified by diff).
+3. ✅ Full 4-shot photoshoots for **PGS5066 Veerendra + PGS5067 Ranveer** (studio macro cover,
+   editorial detail, worn/model, gift detail = owner's macro + model + 2 details), QA'd against
+   refs, finalized 896×1195 + badge, db-wired (`photoStatus: "complete"`, **no video** per v44),
+   staged `demo48/media/{SKU}/` (4 shots + meta.json).
+4. ✅ Tooling: `tools/photoshoot/batch2_db.py` (create / wire), `tools/photoshoot/batch2_stage.py`,
+   `deploy/batch2_upload_bridge.php` (ADD-ONLY tablet bridge — deletes nothing).
+
+### Batch-2 photoshoot ledger (48)
+**✅ complete (2):** PGS5066 Veerendra 3.100g · PGS5067 Ranveer 3.260g
+**⏳ pending 4-shot (46):** PGS5068 3.520 · PGS5069 3.260 · PGS5070 4.390 · PGS5071 3.950 ·
+PGS5072 3.580 · PGS5073 3.430 · PGS5074 3.210 · PGS5075 3.620 · PGS5076 2.770 · PGS5077 3.460 ·
+PGS5078 3.270 · PGS5079 4.000 · PGS5080 4.040 · PGS5081 3.750 · PGS5082 4.030 · PGS5083 3.580 ·
+PGS5084 3.490 · PGS5085 3.660 · PGS5086 3.660 · PGS5087 4.160 · PGS5088 3.950 · PGS5089 3.540 ·
+PGS5090 4.280 · PGS5091 3.590 · PGS5092 3.610 · PGS5093 3.900 · PGS5094 3.670 · PGS5095 2.990 ·
+PGS5096 3.740 · PGS5097 4.090 · PGS5098 3.160 · PGS5099 4.030 · PGS5100 4.630 · PGS5101 4.330 ·
+PGS5102 3.540 · PGS5103 4.000 · PGS5104 3.010 · PGS5105 3.490 · PGS5106 3.350 · PGS5107 4.130 ·
+PGS5108 2.970 · PGS5109 3.210 · PGS5110 3.220 · PGS5111 4.270 · PGS5112 4.190 · PGS5113 3.460
+(weights in grams; names in `demo48/work/batch2_ledger.json`)
+
+### Continue recipe (2 rings = 8 gens per turn, 10-gen cap)
+1. `python3 tools/photoshoot/make_refs.py SKU1 SKU2` → view `_ref_tight.jpg`, write a `{DESC}`
+   of what you SEE (image wins over text).
+2. 8 × generate_image (house prompts in `tools/photoshoot/SESSION-STATE.md`, refs = tight refs)
+   → `/home/user/work_shots/gen/{SKU}_shot_{studio,editorial,worn,gift}.jpg`.
+3. QA labelled contact sheet → re-roll off-design shots.
+4. `finalize.py` ×8 into `cms/images/designs/rings/` → `batch2_db.py wire SKU1 SKU2`
+   → `batch2_stage.py SKU1 SKU2` → update ledger here + SESSION-STATE → commit + push.
+
+### Deploy batch 2 (ADD-ONLY — never deletes)
+- **Tablet:** merge this branch to `main` (bridge fetches media from raw.githubusercontent `main`),
+  then `deploy/batch2_upload_bridge.php` exactly like the v44 bridge: secret folder → login →
+  Step 1 Upload (~12 taps, 4 rings/tap) → Step 2 Verify (48 batch-2 rings, 4 images, 0 videos,
+  113 rings total) → SELF-DESTRUCT.
+- `auto_sync.php` cron will SKIP batch-2 designs (it requires `video.mp4`; batch 2 is no-video by
+  owner order) — the bridge (or a future no-video uploader) is the correct path.
+- `cms/data/db.json` (453 products + batch-2 media) deploys with the normal cms code push.
 
 ---
 
@@ -117,12 +175,12 @@ cron deploys it within ~5 min (or run Path B manually if no cron).
 
 ---
 
-## ✅ CURRENT STATE (v43 COMPLETE — 65/65 full photoshoots)
+## ✅ CURRENT STATE (v45 — batch 2 in progress; v43/v44 complete)
 
-### Product counts (405 total in db.json — MUST stay 405 unless owner orders otherwise)
+### Product counts (453 total in db.json — was 405 until batch 2; do not trim)
 | Category | Count | Status |
 |----------|-------|--------|
-| Rings | 85 = 65 PGS + 20 original | ✅ ALL 65 PGS full photoshoot (4 shots + film each) |
+| Rings | 133 = 65 PGS batch 1 + 48 PGS batch 2 + 20 original | batch 1: 65/65 full photoshoot · batch 2: 2/48 shot, 46 pending (products + refs already live in db) |
 | Necklaces, Earrings, Bangles, Bracelets, Pendants, Mangalsutra, Nosepins, Silver, Bajubandh, Rakhdi, Aad, Sheeshphool, Hathphool, Punach, Bridal Anklets, Chains | 16 × 20 = 320 | Untouched, live |
 
 ### PGS RING LEDGER (all 65 — agent: keep this exact table current)
@@ -152,6 +210,10 @@ PGS5059 Kanchan
 | `cms/images/designs/rings/` | All ring media (refs + shots + videos) |
 | `tools/photoshoot/` | make_refs.py · finalize.py · video.py · db_update.py · badge assets · SESSION-STATE.md |
 | `demo65/` | Batch-1 staging: `work/designs.json` (65 designs) + `media/{SKU}/` for the uploader |
+| `demo48/` | **Batch-2 staging: `work/batch2_ledger.json` (48 tags/weights/names) + `work/designs.json` + `media/{SKU}/` (4 shots + meta.json, no video)** |
+| `tools/photoshoot/batch2_db.py` | batch-2 db tool: `create` (48 entries, 12% MC) / `wire SKU…` (4-shot set, no video) |
+| `tools/photoshoot/batch2_stage.py` | stages finished batch-2 shots + meta.json into `demo48/media/{SKU}/` |
+| `deploy/batch2_upload_bridge.php` | ADD-ONLY tablet bridge: uploads PGS5066–5113 (4 images, no video), deletes nothing |
 | `deploy/auto_sync.php` | Server cron worker (pull + deploy + upload). Setup: `deploy/AUTOMATION.md` |
 | `pipeline/06_upload.py` | Manual API uploader (Path B) |
 | `DEPLOY-v43-RINGS-BATCH1.md` | Batch-1 deploy instructions (zip + API paths) |
@@ -161,6 +223,25 @@ PGS5059 Kanchan
 ---
 
 ## 📝 SESSION STEP LOG (newest first — append every session)
+
+**2026-09-13 — v45 PGS batch 2 (this session, branch `arena/01a09ab7-shivaa-ecom`)**
+1. Owner order: upload every product of `PGS.pdf` (main) — title, description, weight, 12% making
+   charges, four e-commerce photos each (model / macro / detail / detail).
+2. Fetched `PGS.pdf` from `origin/main` (48 pages, image-only). Built salmon-tag extractor
+   (colour mask → PCA deskew → contact sheets, upright + 180° passes) and read all 48 tags
+   visually: supplier numbers repeat (style codes); weights captured per page.
+3. Ingested 48 clean refs: salmon tag + strap inpainted with multiscale neighbour propagation
+   (gold protected; pink haze neutralised) → `cms/images/designs/rings/PGS5066…5113.jpg`.
+4. Created 48 db.json products (405 → 453): names (Veerendra…Sagar), house descriptions, tag
+   weights, `percent/12` making charges, sizes, SEO; interim cover = cleaned ref,
+   `photoStatus: pending-4shot`. Diff-verified: no pre-existing product or db key touched.
+5. Photoshoot PGS5066 + PGS5067 (8 gens): studio macro, editorial detail, worn/model, gift
+   detail — QA sheet clean, finalized + badged, db-wired (no video), staged `demo48/media/`.
+6. Tooling committed: `batch2_db.py`, `batch2_stage.py`, `deploy/batch2_upload_bridge.php`
+   (ADD-ONLY), `demo48/work/{batch2_ledger,designs}.json`.
+7. HANDOFF + SESSION-STATE updated with the batch-2 ledger (2/48 shot) and continue recipe.
+8. Committed + pushed to `arena/01a09ab7-shivaa-ecom`. **Remaining: 46 rings × 4 shots
+   (≈ 2 rings/turn at the 10-gen cap) — next: PGS5068 + PGS5069.**
 
 **2026-09-07 — v43 batch 1 (this session)**
 1. Read HANDOFF v42; found 26 PGS rings with reference photo only (their `_shot_studio.jpg` was a byte-copy of the raw photo incl. green price tag).
