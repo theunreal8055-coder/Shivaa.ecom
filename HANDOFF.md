@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-08 (v44 in progress — creamy-white face pass, branch `arena/01a07e8c-shivaa-ecom`)**
+**Last updated: 2026-09-08 (v45 in progress — GitHub Actions ring-reset workflow)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
@@ -19,6 +19,17 @@ What IS true (all verified against origin):
   (5001-5010, 5014, 5015, 5022, 5023, 5025-5027, 5029, 5032, 5033, 5035, 5036, 5043-5045,
   5047, 5049, 5050, 5058, 5061-5065) and **31 were still dark** at the start of this pass.
 Treat any other claim from that chat as unverified until checked on disk/origin.
+
+---
+
+
+## 🎯 v45 — GITHUB ACTIONS RING RESET WORKFLOW (2026-09-08)
+
+Owner requested a repo-secret based workflow so the live ring reset can run from GitHub Actions instead of tablet/Hostinger steps. Added `.github/workflows/ring-reset.yml` on the current Arena branch and will merge it to `main` before running. The workflow:
+- requires manual `workflow_dispatch` input `live=YES` before it performs live writes; any other value is a dry-run,
+- uses repo secret `SHIVAA_ADMIN_PASSWORD` with admin email `admin@shivaa.in`,
+- runs `deploy/ring_reset.py --live` to delete live rings and upload the staged 65 PGS rings,
+- independently verifies the live catalogue has exactly 65 PGS rings and 0 ring videos.
 
 ---
 
