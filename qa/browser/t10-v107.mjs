@@ -74,6 +74,13 @@ console.log('\n── C · v107 features ──');
   window.close();
 }
 {
+  const { window, doc } = await boot('#/hallmark');
+  await wait(700);
+  ok(!!doc.getElementById('v107hmFaq'), 'hallmark page carries the honesty FAQ accordion');
+  ok((doc.getElementById('v107hmFaq') || { textContent: '' }).textContent.includes('BIS'), 'FAQ names BIS guidance + privacy note');
+  window.close();
+}
+{
   const { window, doc } = await boot('#/size-guide');
   await wait(600);
   const picks = doc.querySelectorAll('.v107-sg-pick');

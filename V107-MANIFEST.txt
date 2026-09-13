@@ -1,5 +1,5 @@
 SHIVAA v107 UPDATE - per-file SHA-256 manifest
-built 2026-09-13 - base = live v104 zip (57 entries) - 56 deployable files
+built 2026-09-13 - base = live v104 zip - 56 deployable files
 status: unchanged = byte-identical to v104 - MODIFIED = surgical v107 edit - NEW = added by v107
 
 path                                         bytes  status     sha256
@@ -34,7 +34,7 @@ js/otp-autofill.js                            2995  unchanged  b72ed30f89ad365f0
 js/qr.js                                     56694  unchanged  79ec86f82856005b1c887905cfccfcfbec3821ca61c7fd5a952faa5f778f791c
 js/three-d.js                                13458  unchanged  1399f10042f580da15cbd45783fb538971d158b3705f3c7ff2d86a4f0d940213
 js/trust.js                                  16713  unchanged  ab9c084f352b2e150ac6c64a5d360d25da68d76f14ce13ae9301caa6a9a5ec94
-js/v107.js                                   34487  NEW        5adbf542a87e9ba55ce2cb32aba294d594fcf6e7032ea149f77219bebf49b000
+js/v107.js                                   36670  NEW        0b4cd0c00fde0ea0cd6408c44b28f9a0252cd6d7990dc026ef3d95009c495e4b
 mail.php                                      6987  unchanged  8663cd4e5babe709159642777f8dee4953338ee4e11e36a4cc40df487282a5fc
 manifest.webmanifest                          1187  MODIFIED   86f2b0a2b123c47874875ce21e54636f3dc912aaa10b7ea2399640eec1dcb7fb
 migrate-repair.php                           11915  unchanged  0acae48d20a5f320e881ab8a708754de74227e5704d550ecc079437ca21aa7e6
@@ -60,11 +60,4 @@ uploads/trust/.htaccess                        702  unchanged  c423e982d776865d0
 uploads/videos/.gitkeep                          0  unchanged  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 uploads/videos/.htaccess                       702  unchanged  c423e982d776865d09c71a9420c8f261e6f539a742165622b789649daccf3ac3
 
-docs bundled at zip root:
-  READ-ME-FIRST.txt   deploy / rollback / SMS-wizard instructions
-  V107-MANIFEST.txt   this file
-
-NOT in this zip (by design, same rule as v104): data/* (live catalogue,
-sms-config), images/** except the new images/icons/**, uploads/** content
-(only the .htaccess guards ship, exactly as v104 carried them), docs/*,
-samples-payload.json, qa/**, make_icons.py.
+docs at zip root: READ-ME-FIRST.txt · V107-MANIFEST.txt · FEATURE-LINEAGE.md

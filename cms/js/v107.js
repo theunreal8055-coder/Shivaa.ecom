@@ -610,6 +610,22 @@
     wrapRoute('invoice', invoiceGST);
     wrapRoute('checkout', checkoutDecor);
     wrapRoute('account', refundTracker);
+    /* v107 lineage port (from the v106 prototype, additive only): the HUID
+       page keeps the live v104 per-piece panel; we append the honesty FAQ
+       accordion + privacy/source notes that prototype authored. */
+    wrapRoute('hallmark', view => {
+      if (!view || $('#v107hmFaq', view)) return;
+      const box = document.createElement('div');
+      box.id = 'v107hmFaq';
+      box.className = 'container';
+      box.style.margin = '26px auto 0';
+      box.innerHTML = `
+        <details class="acc"><summary>Does an accepted format mean a genuine hallmark?</summary><div class="acc-body">No. Any six letters or numbers can pass a format check. Only the official lookup can show the BIS record, and you still need to compare its details with your actual piece. This website does not assay metal or issue a certificate.</div></details>
+        <details class="acc"><summary>What if there is no HUID, no result or a mismatch?</summary><div class="acc-body">A missing code on this website does not prove a piece is unhallmarked or counterfeit. If a stamp is unreadable, BIS Care returns no result, or details differ, recheck the code and ask BIS or the jeweller for clarification. A service outage is not a “not found” result.</div></details>
+        <details class="acc"><summary>What about pairs, detachable parts or silver?</summary><div class="acc-body">Do not reuse a design’s code across multiple pieces or parts. Check the stamp on each actual article and follow the current BIS guidance for its metal and hallmarking scheme. Do not substitute an older hallmark identifier for a six-character HUID.</div></details>
+        <p class="hm-source">This tool does not save lookup history or add your code to a URL. The format check sends it to Shivaa’s server, not to BIS. Only “Copy” writes it to your clipboard. · Guidance: <a href="https://www.bis.gov.in/hallmarking-overview/hallmarking-faqs/hallmarking-faq/?lang=en" target="_blank" rel="noopener noreferrer">BIS hallmarking FAQs ↗</a> · <a href="https://www.bis.gov.in/bis-apps/?lang=en" target="_blank" rel="noopener noreferrer">BIS Care information ↗</a></p>`;
+      view.appendChild(box);
+    });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
