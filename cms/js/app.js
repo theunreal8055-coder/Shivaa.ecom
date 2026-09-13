@@ -3911,9 +3911,11 @@ pages.giftlist = async (view, q) => {
   </div>`;
 };
 
-/* ─────────── v57 · RING / BANGLE SIZER (v101: Indian standard BIS-style
-   chart — Indian size = inner circumference mm − 38; press-&-hold steppers) ─ */
-const IND_SIZE_OFFSET = 38;   // Indian ring size = circumference (mm) − 38
+/* ─────────── v57 · RING / BANGLE SIZER (v101: Indian showroom-standard
+   numbering — Indian size = inner circumference mm − 40, matching the
+   printed strips used by Indian jewellers (17.0 mm dia → size 13);
+   press-&-hold steppers) ─ */
+const IND_SIZE_OFFSET = 40;   // Indian ring size = circumference (mm) − 40
 const indSizeFromDia = dia => Math.round(dia * Math.PI - IND_SIZE_OFFSET);
 const INDIAN_RING_CHART = (() => {
   const rows = [];
@@ -3939,7 +3941,7 @@ pages.sizer = async view => {
         <div class="sz-stage" id="szStage"><div class="sz-circle" id="szCircle"><span></span></div></div>
         <div class="sz-controls">
           <button class="btn btn-ghost" id="szDown">− Smaller</button>
-          <div class="sz-readout"><b id="szDia">17.0</b><small>mm inner diameter · Indian size <b id="szInd">15</b></small></div>
+          <div class="sz-readout"><b id="szDia">17.0</b><small>mm inner diameter · Indian size <b id="szInd">13</b></small></div>
           <button class="btn btn-ghost" id="szUp">Bigger +</button>
         </div>
         <button class="btn btn-gold btn-block" id="szSave">Save my size · pre-select on every ring</button>
@@ -3962,7 +3964,7 @@ pages.sizer = async view => {
     </div>
     <div class="adm-card sz-chart-card">
       <h3>③ Indian ring size chart <small>inner diameter &amp; circumference, mm</small></h3>
-      <p class="partner-note">Standard Indian numbering used across Indian jewellers: <b>Indian size = inner circumference (mm) − 38</b>. Measure the finger's circumference with the strip above and read across.</p>
+      <p class="partner-note">Standard Indian numbering used across Indian jewellers: <b>Indian size = inner circumference (mm) − 40</b>. Measure the finger's circumference with the strip above and read across.</p>
       <div class="sz-chart" id="szChart"></div>
     </div>
   </div>`;
@@ -3992,15 +3994,17 @@ pages.sizer = async view => {
   $('#szChart').innerHTML = '<table class="sz-table"><thead><tr><th>India</th><th>Dia mm</th><th>Circ mm</th></tr></thead><tbody>'
     + INDIAN_RING_CHART.map(r => `<tr${String(saved) === String(r.size) ? ' class="on"' : ''}><td><b>${r.size}</b></td><td>${r.dia.toFixed(1)}</td><td>${r.circ}.0</td></tr>`).join('')
     + '</tbody></table>';
-  // printable strip: circumference mm with Indian size ticks (size = mm − 38)
+  // printable strip: circumference mm with Indian size ticks (size = mm − 40).
+  // Covers Indian sizes 8–32 (circ 48–72 mm) — the full chart range.
   const strip = $('#szStrip');
   let ticks = '';
-  for (let mm = 40; mm <= 70; mm++) {
+  const MM_MIN = 48, MM_MAX = 72;
+  for (let mm = MM_MIN; mm <= MM_MAX; mm++) {
     const ind = mm - IND_SIZE_OFFSET;
     const big = mm % 5 === 0;
-    ticks += `<span class="tick" style="left:${(mm - 40) * 10}px"><i class="${big ? 'big' : ''}"></i><b class="tk-ind">${ind}</b>${big ? `<small>${mm}mm</small>` : ''}</span>`;
+    ticks += `<span class="tick" style="left:${(mm - MM_MIN) * 10}px"><i class="${big ? 'big' : ''}"></i><b class="tk-ind">${ind}</b>${big ? `<small>${mm}mm</small>` : ''}</span>`;
   }
-  strip.innerHTML = `<span class="sz-arrow">▾ cut &amp; wrap from here</span><div class="sz-ruler">${ticks}</div><small>Bold numbers are Indian sizes (circumference − 38). Print at 100% scale — choose “actual size” in print settings.</small>`;
+  strip.innerHTML = `<span class="sz-arrow">▾ cut &amp; wrap from here</span><div class="sz-ruler">${ticks}</div><small>Bold numbers are Indian sizes (circumference − 40). Print at 100% scale — choose “actual size” in print settings.</small>`;
 };
 
 /* ═══════════ v58 · lifetime care plan bookings ═══════════ */
