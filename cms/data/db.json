@@ -18508,7 +18508,10 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5070.jpg"
+        "/images/designs/rings/PGS5070_shot_studio.jpg",
+        "/images/designs/rings/PGS5070_shot_editorial.jpg",
+        "/images/designs/rings/PGS5070_shot_worn.jpg",
+        "/images/designs/rings/PGS5070_shot_gift.jpg"
       ],
       "stoneValue": 0,
       "name": "Ajmer Ring PGS5070 | Gold 22K",
@@ -18537,8 +18540,8 @@
         "alt": "Gold 22K ring with polki / CZ pav\u00e9 plate \u2014 Ajmer Ring PGS5070 | Gold 22K"
       },
       "category_note": "Ring by Shivaa Jewellers",
-      "mediaNote": "Catalogue reference photo shown; full 4-shot e-commerce set (macro, model, 2 detail) in progress \u2014 batch-2 ledger in HANDOFF.md.",
-      "photoStatus": "pending-4shot",
+      "mediaNote": "AI-stylised visualisation of the original design photo.",
+      "photoStatus": "complete",
       "supplierTag": "PGS 20",
       "sku": "PGS5070",
       "id": "p_41e46bf85c35"
@@ -18566,7 +18569,10 @@
         "mens"
       ],
       "images": [
-        "/images/designs/rings/PGS5071.jpg"
+        "/images/designs/rings/PGS5071_shot_studio.jpg",
+        "/images/designs/rings/PGS5071_shot_editorial.jpg",
+        "/images/designs/rings/PGS5071_shot_worn.jpg",
+        "/images/designs/rings/PGS5071_shot_gift.jpg"
       ],
       "stoneValue": 0,
       "name": "Bundi Ring PGS5071 | Gold 22K",
@@ -18595,8 +18601,8 @@
         "alt": "Gold 22K ring with polki / CZ pav\u00e9 plate \u2014 Bundi Ring PGS5071 | Gold 22K"
       },
       "category_note": "Ring by Shivaa Jewellers",
-      "mediaNote": "Catalogue reference photo shown; full 4-shot e-commerce set (macro, model, 2 detail) in progress \u2014 batch-2 ledger in HANDOFF.md.",
-      "photoStatus": "pending-4shot",
+      "mediaNote": "AI-stylised visualisation of the original design photo.",
+      "photoStatus": "complete",
       "supplierTag": "PGS 09",
       "sku": "PGS5071",
       "id": "p_a498602f2cef"
