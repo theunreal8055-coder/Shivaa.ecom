@@ -3,6 +3,7 @@
   "short_name": "Shivaa",
   "description": "Honest purity, live-rate pricing, BIS hallmarked jewellery from Jayal, Rajasthan.",
   "start_url": "/",
+  "id": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#1d0509",

@@ -27,12 +27,12 @@ function unlockScroll() {
   _scrollLock.n = Math.max(0, _scrollLock.n - 1);
   if (_scrollLock.n === 0) document.documentElement.classList.remove('no-scroll');
 }
-/* ── offline awareness ── */
+/* ── offline awareness (v104 — honest, app-style connectivity chrome) ── */
 function ensureOfflineBar() {
   if (document.getElementById('offlineBar')) return document.getElementById('offlineBar');
   const d = document.createElement('div');
   d.id = 'offlineBar'; d.className = 'offline-bar';
-  d.textContent = '⚠ You are offline — browsing paused. Reconnecting automatically…';
+  d.innerHTML = '<span class="ob-dot" aria-hidden="true"></span><span>You’re offline — saved pieces and the saved catalogue still work. We’ll reconnect you automatically.</span>';
   document.body.appendChild(d); return d;
 }
 addEventListener('offline', () => { ensureOfflineBar().classList.add('show'); document.body.classList.add('is-offline'); });
@@ -40,6 +40,46 @@ addEventListener('online', () => {
   ensureOfflineBar().classList.remove('show'); document.body.classList.remove('is-offline');
   toast('Back online ✦ refreshing rates…'); loadRates();
 });
+/* v104 — when a freshly downloaded service worker is installed while this
+   tab is open, offer one tap to move to the new release (then reload on the
+   controller change) instead of silently running half-old half-new code. */
+(function serviceWorkerUpdateWatch() {
+  if (!('serviceWorker' in navigator)) return;
+  let banner = null, prompted = false;
+  const showUpdateBanner = (worker) => {
+    if (prompted) return; prompted = true;
+    banner = document.getElementById('swUpdate');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'swUpdate'; banner.className = 'sw-update'; banner.setAttribute('role', 'alert');
+      banner.innerHTML = '<span class="swu-ic" aria-hidden="true">✦</span><span class="swu-tx"><b>A newer, better Shivaa is ready</b><small>Performance & polish updates — takes a second</small></span><button type="button" class="swu-go">Update now</button>';
+      document.body.appendChild(banner);
+    }
+    requestAnimationFrame(() => banner.classList.add('show'));
+    banner.querySelector('.swu-go').onclick = () => {
+      try { worker && worker.postMessage('SKIP_WAITING'); } catch (e) {}
+      try { location.reload(); } catch (e) {}   // covers workers that already activated via skipWaiting
+    };
+  };
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return; reloading = true;
+    try { location.reload(); } catch (e) {}
+  });
+  navigator.serviceWorker.getRegistration().then(reg => {
+    if (!reg) return;
+    const track = w => {
+      if (!w) return;
+      w.addEventListener('statechange', () => {
+        if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(w);
+      });
+      if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(w);
+    };
+    track(reg.installing);
+    if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+    reg.addEventListener('updatefound', () => track(reg.installing));
+  }).catch(() => {});
+})();
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -2300,6 +2340,7 @@ pages.product = async (view, q, id) => {
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
           <button class="gal-nav gal-next" aria-label="Next">›</button>
           <div class="gal-dots" id="galDots">${(p.video ? 1 : 0) + (p.images || []).length > 1 ? Array.from({length: (p.video ? 1 : 0) + (p.images || []).length}, (_, i) => `<span class="${i === 0 ? 'on' : ''}"></span>`).join('') : ''}</div>
+          <span class="gal-count" id="galCount" aria-hidden="true"></span>
           <a class="pd-stamp" href="#/hallmark?product=${encodeURIComponent(p.id)}">HUID check guide →</a>
           <span class="gal-hint">swipe / drag</span>
         </div>
@@ -2365,7 +2406,7 @@ pages.product = async (view, q, id) => {
         ${p.mediaNote ? `<p style="font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.6">✦ ${esc(p.mediaNote)} The piece you receive is hand-finished by our karigars to this design; exact weight and purity are confirmed on your bill.</p>` : ''}
 
         <div class="opt-label"><span>Check delivery &amp; COD</span></div>
-        <form class="pin-row" data-delivery style="max-width:380px"><input data-pin id="pincode" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit pincode" value="${(() => { try { return localStorage.getItem('shv_pin') || ''; } catch (e) { return ''; } })()}"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
+        <form class="pin-row" data-delivery style="max-width:380px"><input data-pin id="pincode" inputmode="numeric" autocomplete="postal-code" enterkeyhint="go" maxlength="6" placeholder="Enter 6-digit pincode" value="${(() => { try { return localStorage.getItem('shv_pin') || ''; } catch (e) { return ''; } })()}"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
         <div class="pin-msg" data-pin-msg hidden></div>
 
         <div class="pd-perks">
@@ -2422,12 +2463,15 @@ pages.product = async (view, q, id) => {
       if (v && v.play) { try { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} }
     });
     let idx = 0, sx = null, dx = 0;
+    const gc = $('#galCount');   // v104 — phone photo counter pill
     const go = i => {
       idx = (i + n) % n;
       track.style.transform = `translateX(-${idx * 100}%)`;
       $$('.gal-slide', track).forEach((s, i2) => s.classList.toggle('on', i2 === idx));
       $$('#galDots span').forEach((d, i2) => d.classList.toggle('on', i2 === idx));
+      if (gc) gc.textContent = `${idx + 1} / ${n}`;
     };
+    if (gc) gc.textContent = `1 / ${n}`;
     $('.gal-next', wrap).onclick = () => go(idx + 1);
     $('.gal-prev', wrap).onclick = () => go(idx - 1);
     $$('#galDots span').forEach((d, i2) => d.onclick = () => go(i2));
@@ -2986,7 +3030,7 @@ pages.cart = async (view) => {
       <div class="qty-banner">◈ Prices in your cart re-compute automatically with every rate refresh (every ~10 minutes) and are finally locked at checkout.</div>
       <div class="cart-delivery adm-card">
         <div class="cd-head"><b>📮 Check delivery &amp; COD</b><small>Estimates before you pay — no account needed</small></div>
-        <form class="pin-row" data-delivery style="max-width:420px"><input data-pin inputmode="numeric" maxlength="6" placeholder="Enter 6-digit pincode"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
+        <form class="pin-row" data-delivery style="max-width:420px"><input data-pin inputmode="numeric" autocomplete="postal-code" enterkeyhint="go" maxlength="6" placeholder="Enter 6-digit pincode"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
         <div class="pin-msg" data-pin-msg hidden></div>
       </div>
       ${laterHTML}
@@ -4168,11 +4212,11 @@ pages.account = async (view, q) => {
         <form class="form-grid" onsubmit="Shivaa.addrSave(event)">
           <input type="hidden" id="adId">
           <div class="fld"><label>Label</label><select id="adLabel" class="sortsel" style="width:100%;border-radius:12px">${['Home', 'Work', 'Other'].map(l => `<option>${l}</option>`).join('')}</select></div>
-          <div class="fld"><label>Full name *</label><input id="adName" required></div>
-          <div class="fld"><label>Phone *</label><input id="adPhone" maxlength="10" inputmode="numeric" required></div>
-          <div class="fld"><label>Pincode *</label><input id="adPin" maxlength="6" inputmode="numeric" required></div>
-          <div class="fld full"><label>Address (house, street, landmark) *</label><input id="adLine" required></div>
-          <div class="fld"><label>City *</label><input id="adCity" required></div>
+          <div class="fld"><label>Full name *</label><input id="adName" autocomplete="name" required></div>
+          <div class="fld"><label>Phone *</label><input id="adPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="10" required></div>
+          <div class="fld"><label>Pincode *</label><input id="adPin" inputmode="numeric" autocomplete="postal-code" maxlength="6" required></div>
+          <div class="fld full"><label>Address (house, street, landmark) *</label><input id="adLine" autocomplete="street-address" required></div>
+          <div class="fld"><label>City *</label><input id="adCity" autocomplete="address-level2" required></div>
           <div class="fld"><label>State</label><input id="adState" value="Rajasthan"></div>
           <div class="fld full" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="adDef" style="accent-color:var(--gold);width:17px;height:17px"><label style="margin:0" for="adDef">Make this my default address</label></div>
           <div style="display:flex;gap:10px;grid-column:1/-1">

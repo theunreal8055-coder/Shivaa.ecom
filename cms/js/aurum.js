@@ -915,6 +915,120 @@
     if (++idleN > 20) clearInterval(idle);
   }, 8000);
 
+  /* ═══════════════════════════════════════════════════════════════════
+     v104 · COUTURE TOUCH — flagship mobile interaction layer
+     15 · gold route-progress bar (native-app navigation feedback)
+     16 · haptic map for the controls people tap all day
+     17 · quantity stepper value-pop
+     18 · bag rows spring in when a piece is added
+     All transform/opacity, passive, fully gated by reduced-motion/au-lite.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* ── 15 · route progress ───────────────────────────────────────────── */
+  (function routeBar() {
+    var bar = $('#routeBar');
+    var view = $('#view');
+    if (!bar || !view) return;
+    var busy = false, doneTimer = null, hangTimer = null;
+    function set(p) { bar.style.transform = 'scaleX(' + p + ')'; }
+    function start() {
+      clearTimeout(doneTimer); clearTimeout(hangTimer);
+      busy = true;
+      bar.classList.remove('done');
+      void bar.offsetWidth;
+      bar.classList.add('on');
+      bar.style.transition = 'none';
+      if (reduced) { set(1); return finish(60); }
+      set(0);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          bar.style.transition = 'transform .62s cubic-bezier(.22,.9,.3,1)';
+          set(.78);
+        });
+      });
+      hangTimer = setTimeout(finish, 5000);   /* never strand the bar */
+    }
+    function finish(delay) {
+      if (!busy) return;
+      busy = false;
+      clearTimeout(hangTimer);
+      if (reduced) {
+        bar.classList.remove('on'); set(0); bar.style.transition = '';
+        return;
+      }
+      bar.style.transition = 'transform .3s ease-out';
+      set(1);
+      doneTimer = setTimeout(function () {
+        bar.classList.add('done');
+        doneTimer = setTimeout(function () {
+          bar.classList.remove('on', 'done');
+          bar.style.transition = ''; set(0);
+        }, 360);
+      }, delay == null ? 130 : delay);
+    }
+    window.addEventListener('hashchange', start, true);
+    window.addEventListener('popstate', start, true);
+    document.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t && t.closest && t.closest('a[href^="#"], [data-route]')) start();
+    }, true);
+    if ('MutationObserver' in window) {
+      /* a skeleton swap must not count as "arrived" — wait for the real
+         page, exactly like the page-transition arm in §1 */
+      new MutationObserver(function () {
+        if (!busy) return;
+        if (view.querySelector && view.querySelector('.skeleton')) return;
+        finish();
+      }).observe(view, { childList: true });
+    }
+  })();
+
+  /* ── 16 · haptic map (capture so it never blocks real handlers) ─────── */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('.mnav a')) { haptic(11); return; }
+    if (t.closest('#galDots span, .gal-nav, .c-dot, .c-arrow')) { haptic(5); return; }
+    if (t.closest('.qty-row button')) { haptic(6); qtyPop(t); return; }
+    if (t.closest('.size-pill, .size-match-chip, .cat-pill, .chip, .am2, .pay-opt, .fcheck, .ds-metal')) { haptic(7); return; }
+  }, { passive: true, capture: true });
+
+  function qtyPop(btn) {
+    if (reduced) return;
+    var row = btn.closest && btn.closest('.qty-row');
+    if (!row) return;
+    var b = row.querySelector('b');
+    if (!b) return;
+    b.classList.remove('au-qpop');
+    void b.offsetWidth;
+    b.classList.add('au-qpop');
+    setTimeout(function () { b.classList.remove('au-qpop'); }, 400);
+  }
+  window.ShivaaAurum = window.ShivaaAurum || {};
+  window.ShivaaAurum.qtyPop = qtyPop;
+
+  /* ── 17 · bag rows spring in (cart page + mini-cart drawer) ─────────── */
+  (function bagEntrances() {
+    if (reduced || !('MutationObserver' in window)) return;
+    const SPRING = 'au-line-in';
+    const tag = n => {
+      if (!n || n.nodeType !== 1 || !n.classList) return;
+      /* direct rows (a cart page adding a line) get the spring; descendant
+         scans are limited to the mini-cart so a full #view swap never fights
+         motion.js's grid stagger on the cart page */
+      const rows = [];
+      if (n.classList.contains('cart-item') || n.classList.contains('mc-line')) rows.push(n);
+      if (n.querySelectorAll) Array.prototype.push.apply(rows, n.querySelectorAll('.mc-line'));
+      rows.forEach(r => { r.classList.add(SPRING); setTimeout(() => r.classList.remove(SPRING), 650); });
+    };
+    new MutationObserver(function (muts) {
+      muts.forEach(function (m) {
+        Array.prototype.forEach.call(m.addedNodes, tag);
+      });
+    }).observe(document.body, { childList: true, subtree: true });
+  })();
+
   /* expose for admin/debug */
-  window.ShivaaAurum = { confetti: confetti, burst: burst, haptic: haptic, sweep: sweep };
+  window.ShivaaAurum = Object.assign(window.ShivaaAurum || {},
+    { confetti: confetti, burst: burst, haptic: haptic, sweep: sweep });
 })();

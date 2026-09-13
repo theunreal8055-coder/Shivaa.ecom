@@ -1184,3 +1184,223 @@ html.js-motion .tv-ph.img-ok { background-image: none; }
 .tv-hint.down { color: #1f7a45; }
 .tv-hint.up { color: #9a5a16; }
 .tv-when { display: block; font-size: 10px; color: var(--ink-3, #8a7d6c); margin-top: 1px; }
+
+/* ════════════════════════════════════════════════════════════════════
+   v104 · COUTURE TOUCH — flagship mobile motion & platform chrome
+   Every effect is transform/opacity, gated by js-aurum + pointer:coarse,
+   silent under au-lite / prefers-reduced-motion, and invisible with JS
+   off (the elements simply rest in their static design).
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · gold route-progress bar (native-app navigation feedback) ── */
+.route-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 4100;
+  background: linear-gradient(90deg, #8a6a24 0%, #d4af5a 45%, #ffe9bd 75%, #d4af5a 100%);
+  box-shadow: 0 0 12px rgba(212, 175, 90, .8);
+  transform: scaleX(0); transform-origin: 0 50%;
+  opacity: 0; pointer-events: none; will-change: transform;
+}
+.route-bar.on { opacity: 1; }
+.route-bar.done { opacity: 0; transition: opacity .35s var(--au-out); }
+@media (prefers-reduced-motion: reduce) {
+  .route-bar { transition: none !important; box-shadow: none; }
+}
+
+/* ── 2 · offline / update chrome (replaces the plain red strip) ── */
+.offline-bar {
+  display: flex; align-items: center; gap: 10px;
+  z-index: 1400; padding: calc(9px + env(safe-area-inset-top)) 16px 10px;
+  background: linear-gradient(135deg, #4a0d18, #5c1420);
+  color: #ffe1e3; font-size: 12px; line-height: 1.4; letter-spacing: .01em;
+  box-shadow: 0 10px 30px rgba(20, 2, 6, .4);
+  transform: translate3d(0, -130%, 0);
+  transition: transform .5s var(--au-spring);
+}
+.offline-bar.show { transform: translate3d(0, 0, 0); }
+.ob-dot { width: 9px; height: 9px; border-radius: 50%; flex: none;
+  background: #ff7d85; box-shadow: 0 0 0 0 rgba(255, 125, 133, .55);
+  animation: obPulse 1.5s ease-out infinite; }
+@keyframes obPulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 125, 133, .5); }
+  70% { box-shadow: 0 0 0 9px rgba(255, 125, 133, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 125, 133, 0); }
+}
+.sw-update {
+  position: fixed; left: 12px; right: 12px; z-index: 1400;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 18px;
+  background: linear-gradient(135deg, #2a0a12 0%, #3d0e15 70%, #4a1620 100%);
+  border: 1px solid rgba(212, 175, 90, .55);
+  color: #f7ead0; box-shadow: 0 22px 55px rgba(10, 2, 5, .55), inset 0 1px 0 rgba(255, 240, 200, .12);
+  transform: translate3d(0, 150%, 0); opacity: 0;
+  transition: transform .55s var(--au-spring), opacity .3s;
+}
+.sw-update.show { transform: translate3d(0, 0, 0); opacity: 1; }
+body[data-page="product"] .sw-update,
+body[data-page="admin"] .sw-update,
+body[data-page="partner"] .sw-update,
+body[data-page="cart"] .sw-update,
+body[data-page="checkout"] .sw-update { bottom: calc(132px + env(safe-area-inset-bottom)); }
+.swu-ic { flex: none; width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 17px; color: #3d0e15;
+  background: linear-gradient(135deg, #f3dfae, #d4af5a 60%, #b98a2f);
+  box-shadow: 0 6px 16px rgba(212, 175, 90, .4); animation: swuSpin 4.5s linear infinite; }
+.swu-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.swu-tx b { font-size: 13px; color: #ffe9bd; }
+.swu-tx small { font-size: 11px; color: rgba(247, 234, 208, .72); }
+.swu-go { flex: none; border: 0; cursor: pointer; border-radius: 999px;
+  min-height: 40px; padding: 9px 16px; font: 700 12px/1 var(--ff-body, sans-serif);
+  letter-spacing: .06em; color: #3d0e15;
+  background: linear-gradient(135deg, #f3dfae, #d4af5a 60%, #b98a2f);
+  box-shadow: 0 6px 16px rgba(212, 175, 90, .35); }
+.swu-go:active { transform: scale(.95); }
+@keyframes swuSpin {
+  0%, 82%, 100% { transform: rotate(0); }
+  88% { transform: rotate(180deg); }
+  94% { transform: rotate(300deg); }
+}
+@media (min-width: 769px) { .sw-update { left: auto; max-width: 420px; right: 22px; bottom: 22px; } }
+
+/* ── 3 · touch — the remaining tactile surfaces (press feedback) ── */
+@media (pointer: coarse) {
+  html.js-aurum .pc-wish:active,
+  html.js-aurum .gal-nav:active,
+  html.js-aurum .c-arrow:active,
+  html.js-aurum .pd-thumb:active,
+  html.js-aurum .size-match-chip:active,
+  html.js-aurum .gal-vid-load .gal-vid-play:active { transform: scale(.9); }
+  html.js-aurum .pc-wish:active { transform: scale(.88); }
+  html.js-aurum .sw-update, html.js-aurum .offline-bar { -webkit-tap-highlight-color: transparent; }
+  /* no iOS long-press sheet over app chrome / imagery */
+  .mnav, .mnav a, .p-card, .pc-imgwrap img, .gal-wrap, .gal-slide img,
+  .cat-pill, .cp-ic, .hero-stage { -webkit-touch-callout: none; }
+}
+
+/* ── 4 · wishlist heart springs on (CSS only, class already toggles) ── */
+@keyframes auHeart {
+  0% { transform: scale(.55); }
+  45% { transform: scale(1.35); }
+  70% { transform: scale(.92); }
+  100% { transform: scale(1); }
+}
+html.js-aurum .pc-wish.on svg { animation: auHeart .52s var(--au-spring); }
+
+/* ── 5 · quantity number pops when it changes ── */
+@keyframes auQpop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.45); color: var(--gold, #b98a2f); }
+  100% { transform: scale(1); }
+}
+html.js-aurum .qty-row b.au-qpop { animation: auQpop .4s var(--au-spring); display: inline-block; }
+
+/* ── 6 · bag rows spring in when a piece lands ── */
+@keyframes auLineIn {
+  from { opacity: 0; transform: translate3d(26px, 0, 0) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+html.js-aurum .au-line-in { animation: auLineIn .5s var(--au-out); }
+
+/* ── 7 · tracker — the current stage breathes; done stages glow ── */
+@keyframes auStagePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(61, 14, 21, .35); }
+  50% { box-shadow: 0 0 0 7px rgba(212, 175, 90, .14); }
+}
+.tracker-wrap .st-step.cur .st-ic { animation: auStagePulse 2.1s ease-in-out infinite; }
+.tracker-wrap .st-step.done .st-ic { transition: transform .4s var(--au-spring); }
+.tracker-wrap .st-step.done .st-ic { transform: scale(1.06); }
+
+/* ── 8 · hero primary CTA carries a living gold halo on phones
+        (the v99 perf block already frees both pseudo-elements on touch) ── */
+@media (pointer: coarse) {
+  html.js-aurum:not(.au-lite) .hero-cta .btn-gold { animation: auHalo 2.6s ease-in-out infinite; }
+  @keyframes auHalo {
+    0%, 100% { box-shadow: 0 8px 22px rgba(185, 138, 47, .3), 0 0 0 0 rgba(212, 175, 90, .32); }
+    50% { box-shadow: 0 10px 30px rgba(185, 138, 47, .45), 0 0 0 9px rgba(212, 175, 90, 0); }
+  }
+}
+
+/* ── 9 · PDP photo counter pill (phones; hidden on desktop & in lite) ── */
+.gal-count { display: none; }
+@media (max-width: 768px) {
+  .gal-count {
+    display: inline-block; position: absolute; top: 12px; right: 12px; z-index: 4;
+    padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    letter-spacing: .08em; font-variant-numeric: tabular-nums;
+    color: #fff8ea; background: rgba(20, 8, 10, .52);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
+    opacity: 0; transform: translateY(-4px);
+    transition: opacity .35s var(--au-out), transform .35s var(--au-out);
+  }
+  .gal-count:not(:empty) { opacity: 1; transform: none; }
+  /* dots keep their place; the counter rides the corner */
+  .gal-dots { bottom: 12px; }
+}
+
+/* ── 10 · bottom-sheets arrive on a springier, native curve ── */
+@media (max-width: 768px) {
+  .modal { animation-duration: .5s; animation-timing-function: cubic-bezier(.32, .72, 0, 1); }
+  .filters { transition: transform .48s cubic-bezier(.32, .72, 0, 1); }
+  .mc-drawer { transition: transform .46s cubic-bezier(.32, .72, 0, 1); }
+}
+
+/* ── 11 · reduced motion — every v104 loop/entrance stands down ── */
+@media (prefers-reduced-motion: reduce) {
+  .ob-dot, .swu-ic, .tracker-wrap .st-step.cur .st-ic,
+  html.js-aurum:not(.au-lite) .hero-cta .btn-gold { animation: none !important; }
+  html.js-aurum .pc-wish.on svg,
+  html.js-aurum .qty-row b.au-qpop,
+  html.js-aurum .au-line-in { animation: none !important; }
+  .offline-bar, .sw-update, .gal-count { transition: none !important; }
+}
+
+/* ── 12 · accessible, jewellery-grade keyboard focus ──
+   Touch taps never show it (:focus-visible only fires for keyboard focus);
+   inputs keep their own border focus, so the ring is scoped to controls. */
+.js-aurum a:focus-visible,
+.js-aurum button:focus-visible,
+.js-aurum summary:focus-visible,
+.js-aurum [role="button"]:focus-visible,
+.js-aurum .mnav a:focus-visible {
+  outline: 2px solid rgba(212, 175, 90, .95);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+.js-aurum .mnav a:focus-visible { border-radius: 16px; }
+@media (pointer: coarse) {
+  /* after a tap, browsers on some Androids keep a focus ring on buttons —
+     remove only that case; keyboard focus (e.g. external keyboard) keeps it */
+  .js-aurum button:focus:not(:focus-visible),
+  .js-aurum a:focus:not(:focus-visible) { outline: none; }
+}
+
+/* ── 13 · hero stage — compositor-only float restored for phones ──
+   v42 killed the old hsFloat because it animated margin-top (layout, jank).
+   v104 restores the life with pure translate3d on already-promoted layers,
+   strictly gated: no JS (static), au-lite budget hardware (static),
+   reduced-motion (static). */
+@keyframes auFloatA { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -10px, 0); } }
+@keyframes auFloatB { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, 8px, 0); } }
+@keyframes auFloatC { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -7px, 0); } }
+@media (pointer: coarse) and (max-width: 820px) {
+  html.js-aurum:not(.au-lite) .hs-main { animation: auFloatA 7s ease-in-out infinite !important; will-change: transform; }
+  html.js-aurum:not(.au-lite) .hs-a { animation: auFloatB 8.5s ease-in-out -2s infinite !important; will-change: transform; }
+  html.js-aurum:not(.au-lite) .hs-b { animation: auFloatC 9.5s ease-in-out -4s infinite !important; will-change: transform; }
+  html.js-aurum.au-lite .hs-card { transform: none !important; }
+  @media (prefers-reduced-motion: reduce) {
+    html.js-aurum .hs-main, html.js-aurum .hs-a, html.js-aurum .hs-b { animation: none !important; }
+  }
+}
+
+/* ── 14 · heritage carousel — slow transform Ken-Burns on the slide
+        showing (transform/opacity only; the v42 ban covered a heavier
+        implementation). One visible layer animates at a time. ── */
+@keyframes auKen { 0% { transform: scale(1.04); } 100% { transform: scale(1.12); } }
+@media (pointer: coarse) {
+  html.js-aurum:not(.au-lite) .c-slide img { transform: scale(1.04); }
+  html.js-aurum:not(.au-lite) .c-slide.on img { animation: auKen 7.5s ease-out both !important; }
+  @media (prefers-reduced-motion: reduce) {
+    html.js-aurum .c-slide.on img { animation: none !important; }
+  }
+}
