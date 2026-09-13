@@ -38,8 +38,8 @@ python3 ../pipeline/06_upload.py --all                          # then live
   confirmed. **Automatic BIS verification is not connected**. The guide at
   `#/hallmark` hands off to official BIS Care; recorded references stay unverified.
 - **Feature 2 — Why Trust Shivaa:** implemented at `#/trust`, using the existing
-  owner-confirmed CIN, UDYAM and address. **GSTIN and certificate files remain
-  empty.** Its business profile is not a government-verification result.
+  owner-confirmed CIN, UDYAM and address — plus, since **v105**, the GSTIN the
+  owner supplied. **Certificate files remain empty.** Its business profile is not a government-verification result.
   Released through PR #6; the live profile and v40 JS/CSS assets are confirmed.
 
 See [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md),

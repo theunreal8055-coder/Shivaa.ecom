@@ -217,31 +217,39 @@
   function otp(body) {
     body.innerHTML = `${backTo('phone')}
       ${errBox()}
-      <div class="shv-otp" id="shvOtp">${Array.from({ length: 6 }, (_, i) => `<input inputmode="numeric" maxlength="1" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label=" digit ${i + 1}">`).join('')}</div>
+      <div class="shv-otp" id="shvOtp">${Array.from({ length: 6 }, (_, i) => `<input inputmode="numeric" maxlength="1" placeholder=" " autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label=" digit ${i + 1}">`).join('')}</div>
       <div class="shv-demo" id="shvDemo" hidden></div>
       <button type="button" class="shv-cta" id="shvOtpBtn" data-label="&#10003;&nbsp; Verify &amp; continue">&#10003;&nbsp; Verify &amp; continue</button>
       <div class="shv-otp-acts"><button type="button" class="shv-link" id="shvResend">Resend code</button><button type="button" class="shv-link" id="shvChangeNum">Change number</button></div>
       ${previewNote()}`;
     bindBack('phone');
+    const el = document.getElementById('shvOtp');
     const boxes = $$('#shvOtp input');
     boxes[0].focus();
     let verifying = false;                    // v32 fix: one verify per complete code —
                                               // multiple triggers used to burn the server's
                                               // 5-try limit and lock the OTP
-    boxes.forEach((b, i) => {
-      b.addEventListener('input', () => {
-        b.value = digits(b.value).slice(0, 1);
-        if (b.value && i < 5) boxes[i + 1].focus();
-        if (i === 5 && boxes.every(x => x.value)) verifyOtp();
+    if (window.ShivaaOtp && window.ShivaaOtp.enhance) {
+      // v105 — shared behaviour: paste/autofill auto-splits across the boxes,
+      // typing auto-advances, backspace walks back, and a complete code fires
+      // exactly one verify (the server allows only 5 tries per OTP).
+      window.ShivaaOtp.enhance(document.getElementById('shvOtp'), { onComplete: () => verifyOtp() });
+    } else {
+      boxes.forEach((b, i) => {
+        b.addEventListener('input', () => {
+          b.value = digits(b.value).slice(0, 1);
+          if (b.value && i < 5) boxes[i + 1].focus();
+          if (i === 5 && boxes.every(x => x.value)) verifyOtp();
+        });
+        b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && i > 0) boxes[i - 1].focus(); });
+        b.addEventListener('paste', e => {
+          e.preventDefault();
+          const t = digits((e.clipboardData || window.clipboardData).getData('text')).slice(0, 6);
+          [...t].forEach((c, j) => { if (boxes[j]) boxes[j].value = c; });
+          if (t.length === 6) verifyOtp();
+        });
       });
-      b.addEventListener('keydown', e => { if (e.key === 'Backspace' && !b.value && i > 0) boxes[i - 1].focus(); });
-      b.addEventListener('paste', e => {
-        e.preventDefault();
-        const t = digits((e.clipboardData || window.clipboardData).getData('text')).slice(0, 6);
-        [...t].forEach((c, j) => { if (boxes[j]) boxes[j].value = c; });
-        if (t.length === 6) verifyOtp();
-      });
-    });
+    }
     $('#shvResend').onclick = () => { if (resendLeft <= 0) sendOtp(); };
     $('#shvChangeNum').onclick = () => go('phone');
     $('#shvOtpBtn').onclick = () => verifyOtp();
@@ -257,14 +265,16 @@
       try {
         const r = await fetch('/api/auth/otp-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: otpPhone, code }) });
         const d = await r.json().catch(() => ({}));
-        if (r.ok && d.token) { land(d); return; }
+        if (r.ok && d.token) { if (el._otp) el._otp.verified(); land(d); return; }
         if (r.status === 404) {                       // fresh number → account creation
+          if (el._otp) el._otp.verified();            // the code was right, the account is new
           verifiedPhone = otpPhone;
           busy(btn, false); go('register'); return;
         }
         busy(btn, false); verifying = false;
         showErr(esc(d.error || 'Incorrect or expired code'));
-        boxes.forEach(b => b.value = ''); boxes[0].focus();
+        if (el._otp) { el._otp.fail(); el._otp.reset(); }
+        else { boxes.forEach(b => b.value = ''); boxes[0].focus(); }
       } catch (e) { busy(btn, false); showErr('No connection — please check your internet and retry'); }
     }
   }

@@ -8,10 +8,11 @@
 <link rel="icon" type="image/png" href="/images/favicon.png">
 <meta name="theme-color" content="#1d0509">
 <link rel="apple-touch-icon" href="/images/logo.png">
-<link rel="stylesheet" href="/css/fonts.css?v=42">
-<link rel="stylesheet" href="/css/styles.css?v=42">
-<link rel="stylesheet" href="/css/hallmark.css?v=42">
-<link rel="stylesheet" href="/css/trust.css?v=42">
+<link rel="stylesheet" href="/css/fonts.css?v=105">
+<link rel="stylesheet" href="/css/styles.css?v=105">
+<link rel="stylesheet" href="/css/hallmark.css?v=105">
+<link rel="stylesheet" href="/css/trust.css?v=105">
+<link rel="stylesheet" href="/css/v105.css?v=105">
 </head>
 <body>
 
@@ -49,11 +50,26 @@
     <a href="#/" class="brand" aria-label="Shivaa home">
       <img src="/images/logo.png" alt="Shivaa" class="brand-logo">
     </a>
-    <form class="hdr-search" id="hdrSearch" role="search" autocomplete="off">
-      <svg class="hs-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="hdrSearchInput" type="search" placeholder="Search rings, chains, mangalsutra&hellip;" aria-label="Search jewellery">
-      <button type="button" class="hs-clear" id="hdrSearchClear" aria-label="Clear search" hidden>&#10005;</button>
-    </form>
+    <div class="hdr-search-wrap" id="hdrSearchWrap">
+      <form class="hdr-search" id="hdrSearch" role="search" autocomplete="off">
+        <span class="hs-glow" aria-hidden="true"></span>
+        <svg class="hs-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="hdrSearchInput" type="search" placeholder="Search rings, chains, mangalsutra&hellip;" aria-label="Search jewellery"
+               role="combobox" aria-expanded="false" aria-controls="hsPanel" aria-autocomplete="list" autocomplete="off" spellcheck="false">
+        <kbd class="hs-kbd" id="hsKbd" aria-hidden="true">/</kbd>
+        <button type="button" class="hs-clear" id="hdrSearchClear" aria-label="Clear search" hidden>&#10005;</button>
+        <span class="hs-shine" aria-hidden="true"></span>
+      </form>
+      <div class="hs-panel" id="hsPanel" hidden>
+        <div class="hs-chips" id="hsChips" aria-label="Popular searches &amp; categories"></div>
+        <div class="hs-results" id="hsResults" role="listbox" aria-label="Matching pieces"></div>
+        <div class="hs-foot">
+          <span class="hs-count" id="hsCount" role="status" aria-live="polite"></span>
+          <a class="hs-all" id="hsAll" href="#/shop">See all matches <span aria-hidden="true">&rarr;</span></a>
+        </div>
+        <span class="hs-motes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      </div>
+    </div>
     <div class="header-actions">
       <button class="icon-btn search-btn" id="searchBtn" aria-label="Search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -134,13 +150,24 @@
 <main id="view"></main>
 
 <!-- ══════════ FOOTER — palatial couture edition ══════════ -->
-<footer class="footer">
+<footer class="footer" id="footer">
+  <div class="f-wave" aria-hidden="true">
+    <svg viewBox="0 0 1440 96" preserveAspectRatio="none">
+      <path class="fw fw1" d="M0,54 C180,86 320,10 520,32 C720,54 820,92 1010,70 C1200,48 1320,16 1440,40 L1440,96 L0,96 Z"></path>
+      <path class="fw fw2" d="M0,66 C160,40 340,88 540,70 C740,52 880,20 1080,44 C1260,66 1360,80 1440,64 L1440,96 L0,96 Z"></path>
+      <path class="fw fw3" d="M0,78 C220,60 380,96 600,84 C820,72 980,44 1180,62 C1320,74 1400,86 1440,80 L1440,96 L0,96 Z"></path>
+    </svg>
+    <span class="f-wave-beam"></span>
+  </div>
+  <div class="f-aurora" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="f-cornice" aria-hidden="true"><i></i><b>✦</b><i></i></div>
   <div class="f-sparks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
   <div class="container">
     <div class="f-crest">
       <div class="f-emblem"><i class="ring-a"></i><i class="ring-b"></i><img src="/images/logo.png" alt="Shivaa"></div>
       <h2 class="f-motto">Where every <em>auspicious beginning</em> finds its gold</h2>
+      <div class="f-ticker" id="footRateTicker" aria-label="Live Jaipur metal rates"></div>
+      <div class="f-gst" id="footGstin"></div>
       <nav class="trust-footer-links" aria-label="Business information">
         <a href="#/trust">Why Trust Shivaa</a>
         <a href="#/hallmark">BIS Care / HUID guide</a>
@@ -234,12 +261,13 @@
   <iframe id="pdfFrame" title="Catalogue PDF"></iframe>
 </div>
 
-<script src="/js/qr.js?v=42"></script>
-<script src="/js/otp-autofill.js?v=42"></script>
-<script src="/js/app.js?v=42"></script>
-<script src="/js/hallmark.js?v=42"></script>
-<script src="/js/trust.js?v=42"></script>
-<script src="/js/auth.js?v=42"></script>
-<script src="/js/admin.js?v=42"></script>
+<script src="/js/qr.js?v=105"></script>
+<script src="/js/otp-autofill.js?v=105"></script>
+<script src="/js/app.js?v=105"></script>
+<script src="/js/hallmark.js?v=105"></script>
+<script src="/js/trust.js?v=105"></script>
+<script src="/js/auth.js?v=105"></script>
+<script src="/js/admin.js?v=105"></script>
+<script src="/js/v105.js?v=105"></script>
 </body>
 </html>

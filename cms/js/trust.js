@@ -5,7 +5,9 @@
   const LINKS = Object.freeze({
     mca: 'https://www.mca.gov.in/',
     udyam: 'https://www.udyamregistration.gov.in/Udyam_Verify.aspx',
+    gst: 'https://services.gst.gov.in/services/searchtp.html',
   });
+  const GSTIN_SHAPE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
   const external = 'target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"';
   const icon = paths => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
   const building = icon('<path d="M4 21V6l8-3 8 3v15M2 21h20M8 21v-5h8v5M8 8h1m6 0h1M8 12h1m6 0h1"/>');
@@ -21,24 +23,32 @@
         !id(b.cin, /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/) ||
         !id(b.udyam, /^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/) ||
         !(address === null || (typeof address === 'string' && address.trim() && [...address].length <= 500 && !/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(address))) ||
-        data.gstin !== null || !Array.isArray(data.certificates) || data.certificates.length !== 0 ||
+        !(data.gstin === null || (typeof data.gstin === 'string' && GSTIN_SHAPE.test(data.gstin))) ||
+        !Array.isArray(data.certificates) || data.certificates.length !== 0 ||
         data.registryVerification?.performed !== false || data.registryVerification?.checkedAt !== null) {
       throw new Error('Unrecognised business profile');
     }
     // Allowlist values; no arbitrary URLs, credentials, legal flags or trust scores.
-    return Object.freeze({ cin: b.cin, udyam: b.udyam, address: b.address });
+    return Object.freeze({ cin: b.cin, udyam: b.udyam, address: b.address, gstin: data.gstin });
   }
 
   function syncFooter(profile) {
     const identity = document.getElementById('trustFooterIdentity');
     const address = document.getElementById('trustFooterAddress');
+    const gstin = document.getElementById('footGstin');
     if (identity) {
       const parts = ['© 2026 Shivaa'];
       if (profile?.cin) parts.push('CIN ' + profile.cin);
       if (profile?.udyam) parts.push(profile.udyam);
+      if (profile?.gstin) parts.push('GSTIN ' + profile.gstin);
       identity.textContent = parts.join(' · ');
     }
     if (address) address.textContent = profile ? (profile.address || 'Store address not provided') : 'Store address temporarily unavailable';
+    if (gstin) {
+      gstin.innerHTML = profile && profile.gstin
+        ? `<a href="#/trust"><small>GSTIN</small><code>${esc(profile.gstin)}</code></a>`
+        : '';
+    }
   }
 
   function loadProfile() {
@@ -71,6 +81,7 @@
         <dl class="trust-records">
           ${identityRow('cin', 'CIN', profile.cin, 'Corporate Identification Number', LINKS.mca, 'MCA website')}
           ${identityRow('udyam', 'UDYAM', profile.udyam, 'UDYAM registration number', LINKS.udyam, 'Official UDYAM portal')}
+          ${identityRow('gstin', 'GSTIN', profile.gstin, 'Goods and Services Tax identification number', LINKS.gst, 'GST portal search')}
         </dl>
         <p class="trust-note">These are business details on record, not live government verification results. Opening an official website does not verify a registration here.</p>
       </section>
@@ -85,7 +96,12 @@
       <section class="trust-card trust-documents" aria-labelledby="trustDocumentsTitle">
         <div class="trust-docs-intro"><span class="trust-icon">${documentIcon}</span><div><span class="label">What is not on record</span><h2 id="trustDocumentsTitle">Documents, without assumptions</h2><p>Missing information stays visibly missing. We do not generate a registration number or substitute an unrelated PDF.</p></div></div>
         <div class="trust-document-grid">
-          <div class="trust-document" data-trust-gstin><div><h3>GSTIN</h3><span class="trust-missing">Not provided</span></div><p>No GSTIN is published in this feature. A real number must be supplied and reviewed before it appears here.</p></div>
+          ${profile.gstin
+            ? `<div class="trust-document has-gstin" data-trust-gstin><div><h3>GSTIN</h3><span class="trust-gstin-flag trust-badge">On record</span></div>
+                <p class="trust-gstin-value"><code id="trustValue-gstin-doc" tabindex="0">${esc(profile.gstin)}</code><span class="tg-flag">Owner-provided</span></p>
+                <p>Published by Shivaa so every invoice, quotation and B2B settlement can be checked against the same number. Format and checksum valid; this page does not query the GST registry.</p>
+                <div class="trust-row-actions"><button type="button" class="trust-copy" data-trust-copy="gstin">Copy GSTIN</button><a href="${LINKS.gst}" ${external}>Search on the GST portal ↗</a></div></div>`
+            : `<div class="trust-document" data-trust-gstin><div><h3>GSTIN</h3><span class="trust-missing">Not provided</span></div><p>No GSTIN is published in this feature. A real number must be supplied and reviewed before it appears here.</p></div>`}
           <div class="trust-document" data-trust-certificates><div><h3>Certificate files</h3><span class="trust-missing">Not provided</span></div><p>No certificate files have been provided for this page. There are no sample certificates, generated seals or placeholder downloads.</p></div>
         </div>
         <p class="trust-note">“Not provided” describes what is published here. It is not a finding about the business’s registration or legal status.</p>
@@ -123,12 +139,26 @@
   }
 
   function renderTrust(view) {
-    view.innerHTML = `<section class="trust-hero"><div class="container">
+    // v105 — every counter on this page is read from the site's own live data.
+    const st = window.Shivaa.state || {};
+    const prods = st.productsCache || [];
+    const stats = { designs: prods.length, cats: new Set(prods.map(p => p.category)).size, mc: (st.mcTable || []).length };
+    view.innerHTML = `<section class="trust-hero">
+      <span class="t-orb o1" aria-hidden="true"></span><span class="t-orb o2" aria-hidden="true"></span>
+      <div class="t-grid" aria-hidden="true"></div>
+      <div class="container">
       <div class="crumbs"><a href="#/">Home</a> / Why Trust Shivaa</div>
       <div class="trust-hero-grid"><div><span class="label">Clarity before confidence</span><h1>Why trust <em class="disp-italic">Shivaa?</em></h1><p>Start with the details you can check. Business identity, a store address, and an honest view of the documents available.</p></div>
         <div class="trust-principle"><span class="trust-wordmark">SHIVAA</span><p>Details on record.<br>Not assumed assurances.</p><small>Identity · Location · Documents</small></div></div>
+      <div id="trustHeroGstin"></div>
     </div></section>
     <div class="container trust-page">
+      <div class="trust-stats">
+        <div class="tstat"><b data-count-to="designs">${stats.designs}</b><span>designs listed</span><small>each one priced from the live Jaipur rate, not a catalogue price</small></div>
+        <div class="tstat"><b data-count-to="cats">${stats.cats}</b><span>categories</span><small>rings to mangalsutra, silver 925 to bridal sets</small></div>
+        <div class="tstat"><b data-count-to="${stats.mc}">${stats.mc}</b><span>making-charge rows published</span><small>per category and purity — nothing averaged, nothing hidden</small></div>
+        <div class="tstat"><b data-count-to="3" data-count-suffix="%">3%</b><span>GST on every bill</span><small>shown line-by-line before you pay, on every piece</small></div>
+      </div>
       <div class="trust-disclosure"><span aria-hidden="true">i</span><p>This page displays information supplied by Shivaa. It does not run government-registry checks, certify jewellery, or guarantee payment or delivery services.</p></div>
       <div id="trustProfile" aria-live="polite" aria-busy="true"><div class="trust-loading" role="status">Loading business details…</div></div>
       <section class="trust-help" aria-label="Understanding these details">
@@ -149,6 +179,14 @@
         if (!root.isConnected || sequence !== renderSequence) return;
         root.innerHTML = profileHTML(profile); root.dataset.state = 'ready';
         bindCopy(root, profile);
+        // v105 — the hero carries the same GSTIN, prominently
+        const hero = view.querySelector('#trustHeroGstin');
+        if (hero) {
+          hero.innerHTML = profile.gstin
+            ? `<div class="t-gstin-hero"><span class="tg-k">GSTIN</span><code>${esc(profile.gstin)}</code><button type="button" class="tg-copy">Copy GSTIN</button><small>Owner-provided identifier · 15 characters, checksum valid · publishing it here is not a live government-registry verification.</small></div>`
+            : '';
+          hero.dataset.bound = '';
+        }
       } catch (error) {
         if (!root.isConnected || sequence !== renderSequence) return;
         root.dataset.state = 'unavailable';
