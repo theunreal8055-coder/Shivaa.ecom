@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CMS = ROOT / "cms"
-ZIP = ROOT / "shivaa-update-v97.zip"
+ZIP = ROOT / "shivaa-update-v98.zip"
 
 ok, fail = [], []
 
@@ -50,9 +50,10 @@ check("mobile.css is still the last stylesheet (wins ties)",
       idx.rstrip().index("mobile.css") > idx.rstrip().index("motion.css"))
 
 # ── 1 · version wiring ──────────────────────────────────────────────────────
-check("index.html loads /css/mobile.css?v=97", "/css/mobile.css?v=97" in idx)
-check("sw.js SHELL bumped to shivaa-shell-v97", "shivaa-shell-v97" in sw)
-check("sw.js shell list points at mobile.css?v=97", "/css/mobile.css?v=97" in sw)
+check("index.html loads /css/mobile.css?v=98", "/css/mobile.css?v=98" in idx)
+check("index.html loads /css/styles.css?v=98", "/css/styles.css?v=98" in idx)
+check("sw.js SHELL bumped to shivaa-shell-v98", "shivaa-shell-v98" in sw)
+check("sw.js shell list points at mobile.css?v=98", "/css/mobile.css?v=98" in sw)
 
 # ── 2 · §1 dead-selector repairs (v95 rules that matched nothing) ───────────
 for dead, real in [(".shop-head", ".shop-bar"), (".shop-toolbar", ".shop-catbar"),
@@ -69,13 +70,24 @@ check("admin inline-grid selectors match the NO-SPACE spelling admin.js emits",
 check("admin inline-grid selectors still match the spaced spelling",
       '[style*="grid-template-columns: 1.2fr"]' in mob)
 
-# ── 4 · §0 overflow guard + zero-minimum tracks ─────────────────────────────
-check("html overflow-x:clip guard present (no sideways page pan)",
-      "overflow-x: clip" in mob)
-check("overflow guard is @supports-gated (old Safari keeps working)",
-      re.search(r"@supports\s*\(overflow-x:\s*clip\)", mob) is not None)
-check("grids use minmax(0,1fr) so a long price cannot blow the track out",
-      mob.count("minmax(0, 1fr)") + mob.count("minmax(0,1fr)") >= 10)
+# ── 4 · §0 overflow prevention (v98 mechanism) ──────────────────────────────
+# Live code only — mobile.css §0 contains a comment that quotes the reverted
+# `html { overflow-x: clip }` rule to explain why it was removed, so every
+# assertion in this section runs against comment-stripped source.
+mob_live = re.sub(r"/\*.*?\*/", "", mob, flags=re.S)
+check("no root-level overflow clip in live CSS (the v97 scroll-killer)",
+      "overflow-x: clip" not in mob_live and "overflow-x:clip" not in mob_live)
+check("grid ITEMS get min-width:0 — band-agnostic anti-blowout (v98 approach)",
+      re.search(r"\.p-grid > \*[^}]*min-width:\s*0", mob_live, re.S) is not None)
+_raw = mob.split("\n")
+_a = next(k for k, l in enumerate(_raw) if "§0 · OVERFLOW GUARD" in l)
+_b = next(k for k, l in enumerate(_raw) if "§1 · DEAD-SELECTOR" in l)
+sec0 = re.sub(r"/\*.*?\*/", "", "\n".join(_raw[_a:_b]), flags=re.S)
+check("§0 slice is bounded, not the whole file", 0 < len(sec0) < 3000)
+check("v98 §0 does not re-declare .p-grid columns (would clobber v95 bands)",
+      not re.search(r"\.p-grid\s*\{[^}]*grid-template-columns", sec0))
+check("minmax(0,1fr) still used where a column count IS being declared",
+      mob_live.count("minmax(0, 1fr)") + mob_live.count("minmax(0,1fr)") >= 10)
 
 # ── 5 · §3 legibility floor ─────────────────────────────────────────────────
 check(".hstat span lifted off 7.0px", ".hstat span" in mob)
@@ -104,8 +116,9 @@ check(".ps-body table scrolls instead of widening the page",
       re.search(r"\.ps-body table[^{]*\{[^}]*overflow-x:\s*auto", mob) is not None)
 
 # ── 9 · §10 scroll-cost containment ─────────────────────────────────────────
-check("footer/marquee use content-visibility:auto with an intrinsic size",
-      "content-visibility: auto" in mob and "contain-intrinsic-size" in mob)
+# NOTE: v97 asserted here that .footer/.rev-marquee use content-visibility:auto.
+# v98 reverted that — the reserved intrinsic size was a guess and produced a real
+# empty band on the laptop home page. Guard (b) below now forbids it outright.
 check("the near-opaque .mcta-bar drops its expensive backdrop-filter",
       re.search(r"\.mcta-bar\s*\{[^}]*backdrop-filter:\s*none", mob) is not None)
 
@@ -116,9 +129,9 @@ if ZIP.is_file():
     zmob = z.read("css/mobile.css").decode("utf-8", "replace")
     check("v97 zip exists and contains css/mobile.css", "css/mobile.css" in names)
     check("zip's mobile.css is byte-identical to cms/", zmob == mob)
-    check("zip's index.html is versioned v97",
-          b"/css/mobile.css?v=97" in z.read("index.html"))
-    check("zip's sw.js shell is v97", b"shivaa-shell-v97" in z.read("sw.js"))
+    check("zip's index.html is versioned v98",
+          b"/css/mobile.css?v=98" in z.read("index.html"))
+    check("zip's sw.js shell is v98", b"shivaa-shell-v98" in z.read("sw.js"))
     v95 = zipfile.ZipFile(ROOT / "shivaa-update-v95.zip")
     m95 = {n for n in v95.namelist() if not n.endswith("/")}
     check("zip manifest matches the v95 manifest (drop-in update)", names == m95)
@@ -155,6 +168,85 @@ dead = [c for c in sorted(mobcls)
         if not any(re.search(r"(?<![\w-])" + re.escape(c) + r"(?![\w-])", t) for t in corpus)]
 check(f"dead mobile.css selectors ≤ 8 baseline (now {len(dead)}: {dead})",
       len(dead) <= 8)
+
+# ── 12 · v98 REGRESSION GUARDS ──────────────────────────────────────────────
+# Each of these encodes a defect v97 actually shipped and the owner hit on a
+# real device. They are deliberately blunt: if a future "optimisation"
+# reintroduces the pattern, the build fails and says why.
+styles = (CMS / "css" / "styles.css").read_text(encoding="utf-8", errors="replace")
+both = mob + "\n" + styles
+
+# (a) the scroll-killer: clipping the root element. html's overflow propagates
+#     to the viewport, and v95 already sets html{height:100%} on phones.
+# Bare-root overflow is the dangerous form: it propagates to the viewport and
+# interacts with v95's html{height:100%}. Class-scoped state (html.no-scroll,
+# body.drawer-open) and the pre-existing body{overflow-x:hidden} baseline in
+# styles.css are legitimate and are NOT what broke scrolling in v97.
+bare_root = re.findall(r"(?<![.\w#-])(html|body)\s*\{[^}]*overflow[^}]*?:\s*(clip|hidden)", re.sub(r"/\*.*?\*/", "", both, flags=re.S))
+check(f"html never gets overflow clip/hidden on a bare selector (got: {bare_root or 'none'})",
+      not any(m[0] == "html" for m in bare_root))
+
+# (b) the gap-maker: content-visibility reserves contain-intrinsic-size as a
+#     placeholder while off-screen, and that size was guessed, not measured.
+check("no content-visibility (guessed intrinsic size caused the home-page gap)",
+      "content-visibility" not in re.sub(r"/\*.*?\*/", "", both, flags=re.S))
+
+# (c) the tablet clobber: v97 declared phone grids at <=900px, which is later in
+#     the file than v95's 601-900px tablet band, so it silently won that band
+#     and dropped tablets from 3 product columns to 2. Verified by re-resolving
+#     the real cascade at 700px, which is inside the tablet band.
+sys.path.insert(0, str(ROOT / "qa"))
+import mobile_audit as M
+seq = [0]
+_rules = []
+for f in M.CSS_FILES:
+    fp = CMS / "css" / f
+    if fp.exists():
+        for sel, body_, stack, order in M.parse_blocks(
+                M.strip_comments(fp.read_text(encoding="utf-8", errors="replace")), (), seq):
+            _rules.append((f, order, sel, M.decls(body_), stack))
+
+def winner_at(cls, prop, W, H=900):
+    best = None
+    for f, order, sel, d, stack in _rules:
+        if not all(M.media_matches(pre, W, H, "fine") for k, pre in stack if k == "media"):
+            continue
+        if ":hover" in sel:
+            continue
+        for s in M.split_selectors(sel):
+            subj = M.subject(s)
+            if subj and cls in set(re.findall(r"\.([_a-zA-Z][\w-]*)", subj)) and prop in d:
+                key = (1 if d[prop][1] else 0, M.specificity(s), order)
+                if best is None or key > best[0]:
+                    best = (key, d[prop][0])
+    return best[1] if best else None
+
+pg700 = winner_at("p-grid", "grid-template-columns", 700) or ""
+check(f"tablet band intact: .p-grid is 3 columns at 700px (got: {pg700})",
+      "repeat(3" in pg700.replace(" ", ""))
+pg360 = winner_at("p-grid", "grid-template-columns", 360) or ""
+check(f"phone band intact: .p-grid is 2 columns at 360px (got: {pg360})",
+      "repeat(2" in pg360.replace(" ", ""))
+
+# (d) the mis-tap: a dot's ::after hit area must not exceed the dot pitch, or
+#     neighbouring targets overlap and a tap fires the wrong slide.
+gap = re.search(r"\.c-dots\s*\{[^}]*gap:\s*([\d.]+)px", both)
+dotw = re.search(r"\.c-dot\s*\{[^}]*width:\s*([\d.]+)px", both)
+inset = re.search(r"\.c-dot::after\s*\{[^}]*inset:\s*-?([\d.]+)px", both)
+if gap and dotw and inset:
+    g, w, n = float(gap.group(1)), float(dotw.group(1)), float(inset.group(1))
+    pitch, hit = w + g, w + 2 * n
+    check(f"carousel dot hit area ({hit:.0f}px) does not exceed its pitch ({pitch:.0f}px)",
+          hit <= pitch + 0.5)
+else:
+    check("carousel dot metrics found (gap/width/inset)", False)
+
+# (e) the desktop rhythm fix must be provably unable to touch phones
+check("desktop rhythm block is min-width scoped (cannot leak to <=768px)",
+      re.search(r"@media\s*\(min-width:\s*769px\)\s*\{[^}]*\.sec \+ \.sec", styles, re.S) is not None)
+check("hero min-height uses the measured 124px chrome, not the stale 118px",
+      "calc(100dvh - 124px)" in styles and "calc(100dvh - 118px)" not in styles.split("v98")[-1])
+
 
 print(f"\n{len(ok)} passed · {len(fail)} failed")
 print(f"measured — structural {n_struct}/88 · tiny-type {n_tiny}/30 · "

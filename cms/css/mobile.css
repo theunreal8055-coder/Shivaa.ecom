@@ -602,24 +602,42 @@
 
 /* ─────────────── §0 · OVERFLOW GUARD & SCROLL FEEL ───────────────
    The single most common "site is not mobile friendly" symptom is a page that
-   pans sideways. `overflow-x: clip` stops that WITHOUT creating a scroll
-   container — unlike `hidden`, it leaves `position: sticky` working, and the
-   @supports gate means old Safari simply keeps today's behaviour. */
-@media (max-width: 900px) {
-  @supports (overflow-x: clip) {
-    html { overflow-x: clip; }
-  }
+   pans sideways. v97 tried to stop that with one root-level `overflow-x: clip`.
+   That was the wrong lever: the fix belongs on the element that overflows, not
+   on the scrollport that contains it. v98 keeps the goal and changes the
+   mechanism — shrink the offenders, never clip the page. */
+/* v98 REVERTED — `html { overflow-x: clip }` was removed.
+   The root element's overflow propagates to the viewport, and v95 already sets
+   `html { height: 100% }` on phones; putting a clip there broke vertical
+   scrolling on the handset. Horizontal overflow is instead prevented at its
+   source: §8 gives every nowrap flex/grid child `min-width:0` + ellipsis so it
+   shrinks, §9 gives unwrapped tables their own scroller, and the image guard
+   below stays. That covers the real causes without touching the scrollport. */
+@media (max-width: 768px) {
   /* an image can never be the thing that widens the page */
   #view img, .footer img, .modal img { max-width: 100%; }
-  /* `1fr` == `minmax(auto,1fr)`: an unbreakable price or HUID can stretch the
-     track past the viewport. Every phone grid gets an explicit zero minimum. */
-  .p-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cat-mini { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
-  .acct-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .priv-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pd-perks { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-  .search-sugg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* `1fr` == `minmax(auto,1fr)`: an unbreakable price or HUID can stretch a
+     track past the viewport.
+
+     v98 CHANGED APPROACH. v97 re-declared `grid-template-columns` with
+     `minmax(0,1fr)` — but a grid-template-columns declaration cannot be
+     scoped to "phones" without colliding with the bands this file already
+     owns: at ≤768 it clobbered v95's 601–900px tablet band (3 product
+     columns became 2), and at ≤380 it clobbered v95's small-phone band
+     (.cat-mini 3→4, .acct-tiles 1→2, .stat-grid 1→2). Two regressions from
+     one well-intentioned rule.
+
+     `min-width: 0` on the grid ITEMS fixes the identical blowout without
+     naming a column count at all, so it composes with every band instead of
+     fighting them. A grid item's automatic minimum is `auto`; zeroing it lets
+     the item shrink and lets the track honour whatever column count the
+     winning band asked for. */
+  .p-grid > *, .cat-mini > *, .acct-tiles > *, .stat-grid > *,
+  .priv-facts > *, .pd-perks > *, .search-sugg > *, .mth-rail > *,
+  .bd-gridhead > *, .bd-row > *, .ref-stats > *, .svb-top > *,
+  .b2b-stats > *, .dw-tiles > *, .otp-boxes > *, .rate-strip-in > * {
+    min-width: 0;
+  }
 }
 
 @media (max-width: 768px) {
@@ -777,11 +795,32 @@
   .cb-arrow { width: 44px; height: 44px; }
   .gal-nav { width: 44px; height: 44px; }
   .hm-text-link { min-height: 44px; display: inline-flex; align-items: center; }
-  .pf-chip { min-height: 40px; display: inline-flex; align-items: center; }
-  /* carousel dots: 9px of paint, 44px of finger — the hit area is a pseudo
-     overlay so the visual design is untouched */
+  /* styles.css ships its own `@media (max-width:680px)` block that SHRINKS the
+     portal/design filter bar with !important — .pf-chip down to 34px, .ds-qty
+     buttons to 40px, .pf-f inputs to 40px @ 11px. Those beat a plain
+     declaration here, so this needs !important too. mobile.css is the last
+     stylesheet in index.html, so at equal specificity + equal importance the
+     later file wins. 44px is the floor for anything a thumb must hit; 16px on
+     inputs stops iOS Safari zooming the whole page on focus. */
+  .pf-chip {
+    min-height: 44px !important; padding: 10px 15px !important;
+    font-size: 12.5px !important; letter-spacing: .02em !important;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .ds-qty button { min-width: 44px !important; min-height: 44px !important; }
+  .ds-qty { min-height: 44px !important; }
+  .pf-f select, .pf-f input, .ds-filters select, .dsf-w input {
+    min-height: 44px !important; font-size: 16px !important;
+  }
+  /* carousel dots: 9px of paint, a real finger target — but the hit area must
+     NOT exceed the dot pitch or neighbouring dots overlap and a tap fires the
+     wrong slide. v97 used inset:-16px -13px (a 35px box) against a 9px gap =
+     an 18px pitch, so hit areas overlapped by ~17px each side and the carousel
+     felt broken. v98 widens the gap to 26px so pitch == hit box == 35px: the
+     targets tile exactly, with zero overlap. The visible dot stays 9px. */
+  .c-dots { gap: 26px; }
   .c-dot { position: relative; }
-  .c-dot::after { content: ''; position: absolute; inset: -16px -13px; }
+  .c-dot::after { content: ''; position: absolute; inset: -13px; }
   /* v95 shrank these with transform:scale(), which (a) takes the +/- buttons
      under the 44px floor and (b) renders the glyphs blurry on Android because
      a scaled layer is rasterised once. Real sizes instead of a scale. */
@@ -942,31 +981,34 @@
      `<table class="mc-table priv-table">` DIRECTLY inside `.ps-body` — with
      min-width 420–680px and no scroller, that single table was enough to make
      the whole page pan sideways. Give any unwrapped table its own scroller. */
-  .ps-body { overflow: hidden; }
-  .ps-body table, .priv-table, .cert-tbl, .q-tbl, .inv-tbl {
+  .ps-body { min-width: 0; }
+  /* v98 narrowed: v97 also forced `display:block` on .cert-tbl / .q-tbl /
+     .inv-tbl. .inv-tbl already had that from v95, and the other two sit in
+     wrappers that scroll, so re-declaring them only risked changing tables
+     that already worked. This now targets the ONE table proven to be
+     unwrapped: `<table class="mc-table priv-table">` inside `.ps-body`. */
+  .ps-body > table, .ps-body table.priv-table {
     display: block; width: 100%; overflow-x: auto;
     -webkit-overflow-scrolling: touch; scrollbar-width: none;
   }
-  .ps-body table::-webkit-scrollbar, .priv-table::-webkit-scrollbar,
-  .cert-tbl::-webkit-scrollbar, .q-tbl::-webkit-scrollbar { display: none; }
+  .ps-body > table::-webkit-scrollbar,
+  .ps-body table.priv-table::-webkit-scrollbar { display: none; }
   .priv-table { min-width: 460px; font-size: 12.5px; }
   .priv-table th, .priv-table td { padding: 10px 11px; }
-  /* a scroll affordance so the customer knows the table continues */
-  .ps-body { position: relative; }
 
   /* ─────────────── §10 · SCROLL COST ───────────────
-     Two of the heaviest continuously-animating regions are below the fold on
-     every page: the 46s infinite review marquee and the palatial footer (7
-     spark spans + a 240px wordmark). `content-visibility:auto` lets the engine
-     skip rendering AND animation for them while they are off-screen — the
-     single largest scroll-smoothness win available without touching markup.
-     `contain-intrinsic-size: auto …` remembers the real height after first
-     paint, so the scrollbar never jumps. Neither subtree contains a
-     position:fixed element, so nothing gets trapped by the containment. */
-  .rev-marquee, .footer {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 620px;
-  }
+     v98 REVERTED — `content-visibility:auto` was removed from `.rev-marquee`
+     and `.footer`. It caused the reported gap on the home page: an off-screen
+     element is not rendered, so the browser substitutes
+     `contain-intrinsic-size` as a placeholder, and I had guessed 620px for
+     both. The review marquee is really ~270px tall (so ~350px of empty band
+     appeared where it sits on the home page) and the palatial footer is far
+     TALLER than 620px (so it reserved too little and jumped the scrollbar).
+     `auto 620px` only self-corrects AFTER an element has rendered once, which
+     does not help the first paint — exactly when a gap is most visible.
+     Guessing an intrinsic size without a browser to measure it is not a trade
+     worth making; the animation cost is better addressed once it can be
+     measured on a real device. */
   /* `backdrop-filter` is one of the most expensive things a mobile GPU does,
      and it is invisible here: .mcta-bar already paints a .97-opaque backdrop. */
   .mcta-bar { backdrop-filter: none; -webkit-backdrop-filter: none; }

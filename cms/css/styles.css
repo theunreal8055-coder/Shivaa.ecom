@@ -5828,3 +5828,36 @@ html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 .ci-name, .deal-id, td, .partner-note, .bd-dealid{ overflow-wrap:anywhere; }
 /* make taps feel instant on the live board without removing hover states */
 .bd-num, .bd-menu-it, .bd-tabs-v79 a{ -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v98 — DESKTOP VERTICAL RHYTHM (owner report: "gaps in the home page")
+   Measured with qa/desktop_rhythm.py at 1440×900, not eyeballed.
+   Scoped to min-width:769px so it provably cannot affect the phone layout
+   (mobile.css is linked after this file and owns ≤768px).
+
+   The home page renders EIGHT `<section class="sec container">` blocks and
+   seven of them sit directly adjacent. `.sec{padding:88px 0}` therefore puts
+   88px of bottom padding against the next section's 88px of top padding =
+   176px of empty cream at every junction — ~1,230px of the home page is
+   inter-section blank space. That is the "gap".
+
+   Fix: collapse the doubling at the junction only. The first section keeps
+   its full 88px of top padding and the last keeps its 88px of bottom, so the
+   page's outer rhythm is untouched; only the seven internal junctions tighten
+   from 176px to 112px, recovering ~450px of dead scroll.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 769px) {
+  .sec + .sec { padding-top: 24px; }
+  /* heading → content: 58px was set at a wider desktop; 44px is the base value
+     this file already uses and reads tighter without crowding */
+  .sec-head { margin-bottom: 44px; }
+  /* The hero assumed 118px of chrome. Real scroll-0 chrome is 124px
+     (.utilbar-in{height:42px} + .header-in.header-top{height:82px}), so the
+     hero was 6px taller than the space beneath the sticky header and its
+     "scroll" cue at bottom:24px fell just under the fold. Exact value, and
+     deliberately NOT var(--headerH): setHeaderH() reads a position:sticky
+     header, so that variable is 140px at scroll-0 but 98px once scrolled —
+     it would make the hero resize while the user scrolls. */
+  .hero { min-height: calc(100vh - 124px); }
+  @supports (height: 100dvh) { .hero { min-height: calc(100dvh - 124px); } }
+}

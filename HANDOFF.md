@@ -771,3 +771,166 @@ simulated, not rendered. First live open on a real handset remains the smoke
 test — check the home hero, one page banner, the cart stepper, the privacy
 table and the Saathi tool rail first, since those are the five repairs with the
 largest visual delta.
+
+## v98 — v97 broke the live site; this is the repair (2026-09-13)
+
+v97 was deployed and **broke it**. Two reports from the owner: *"in mobile I
+can't even scroll now, nothing works"* and *"laptop version has gaps in the home
+page."* Both were real, both were caused by v97, and neither was caught by the
+QA gate — because the gate simulates the cascade and there is no browser in the
+sandbox, so nothing ever *scrolled*. Five defects, all fixed here.
+
+### Bug 1 — the scroll-killer (the "nothing works" report)
+
+v97 §0 added `html { overflow-x: clip }` inside `@supports (overflow-x: clip)`
+to stop sideways page pan. **The root element's overflow propagates to the
+viewport.** v95 already sets `html { height: 100% }` on phones, so the clip made
+`html` itself the scroll container at a fixed 100% height — and `body` was
+already a second scroll container via the pre-existing
+`body { overflow-x: hidden }` in `styles.css:25`. Two nested scrollers, neither
+able to grow: touch scrolling died.
+
+Worse, the rule was **redundant** — `body { overflow-x: hidden }` had been
+containing horizontal overflow since before v95.
+
+**Fix:** removed entirely. Horizontal overflow is now prevented at its source
+(`min-width: 0` + ellipsis on nowrap children, dedicated scrollers for tables,
+`max-width: 100%` on images) instead of by clipping the scrollport.
+
+> ⛔ **Never put `overflow-x: clip` or `hidden` on `html` or `body`.** This is
+> now an automated guard, not a comment.
+
+### Bug 2 — the laptop gaps
+
+v97 §10 added `content-visibility: auto` + `contain-intrinsic-size: auto 620px`
+to `.rev-marquee` and `.footer` as a scroll-cost win. `content-visibility`
+replaces an off-screen element with its `contain-intrinsic-size` placeholder —
+and **620px was a guess**. `.rev-marquee` really renders ~270px, so every scroll
+position where it was off-screen reserved ~350px of empty band. The footer
+(~900–1400px) was wrong the same way. The `auto` keyword only self-corrects
+*after* first render, which is too late to prevent the visible jump.
+
+**Fix:** removed both declarations. Kept `.mcta-bar { backdrop-filter: none }`,
+which was the genuinely free part of that section.
+
+> ⛔ **Never use `content-visibility` with a guessed intrinsic size.** Guarded.
+
+### Bug 3 — the tablet clobber (found while fixing bug 1)
+
+v97 declared its phone grids at `@media (max-width: 900px)`. v95 owns a
+`601–900px` **tablet** band that deliberately wants 3 product columns. v97's
+rules sit later in the file, so at equal specificity they won that whole band:
+tablets silently dropped `.p-grid` 3 → 2 and `.acct-tiles` 3 → 2.
+
+The first repair attempt (re-scoping to ≤768px) was **still wrong** — 601–768px
+is inside the tablet band, and it also clobbered v95's ≤380px small-phone band
+(`.cat-mini` 3→4, `.acct-tiles` 1→2, `.stat-grid` 1→2).
+
+**Fix — changed approach, not just scope.** A `grid-template-columns`
+declaration cannot be scoped to "phones" without colliding with bands the file
+already owns. So §0 no longer names a column count at all; it puts
+`min-width: 0` on the grid **items**:
+
+```css
+.p-grid > *, .cat-mini > *, .acct-tiles > *, .stat-grid > *,
+.priv-facts > *, .pd-perks > *, .search-sugg > *, .mth-rail > *,
+.bd-gridhead > *, .bd-row > *, .ref-stats > *, .svb-top > *,
+.b2b-stats > *, .dw-tiles > *, .otp-boxes > *, .rate-strip-in > * { min-width: 0; }
+```
+
+A grid item's automatic minimum is `auto`; zeroing it lets the item shrink so
+the track honours whatever column count the winning band asked for. This fixes
+the identical blowout and **composes with every band instead of fighting them**.
+Verified by re-resolving the real cascade: `.p-grid` is 3 columns at 700px and 2
+at 360px. Both are now guarded assertions.
+
+### Bug 4 — carousel dots fired the wrong slide
+
+v97 §4 enlarged the 9px carousel dot's hit area with `.c-dot::after { inset:
+-16px -13px }` (a 35px box) but left `.c-dots { gap: 9px }`. That gives an 18px
+**pitch** with a 35px **hit box** — neighbouring targets overlapped by ~17px on
+each side, so tapping one dot routinely fired its neighbour. The carousel felt
+random.
+
+**Fix:** `.c-dots { gap: 26px }` + `inset: -13px` → 35px hit box on a 35px
+pitch. The targets tile exactly, zero overlap, and the visible dot stays 9px.
+The invariant `hit_width ≤ element_width + gap` is now an automated check.
+
+### Bug 5 — a table rule that clipped its own content
+
+v97 §7 set `.ps-body { overflow: hidden }` and applied `display: block` to
+`.cert-tbl, .q-tbl, .inv-tbl`. `.ps-body` is a grid/flex child; `overflow:
+hidden` on it truncates rather than scrolls, and `.cert-tbl`/`.q-tbl` already
+live inside scroller wrappers, so `display: block` there removed their table
+layout for nothing.
+
+**Fix:** `.ps-body { min-width: 0 }` (shrink, don't clip) and the `display:
+block` rule narrowed to `.ps-body > table, .ps-body table.priv-table` only.
+
+### Also fixed: the desktop home-page rhythm
+
+Independent of the regressions, this is what the owner was actually seeing as
+"gaps". The home page renders 8 `<section class="sec container">` blocks, 7 of
+them adjacent, and `.sec { padding: 88px 0 }` puts **176px of blank space at
+every junction** — roughly 1,230px of the home page was inter-section
+whitespace. New block appended to the end of `styles.css`, scoped
+`@media (min-width: 769px)` so it provably cannot touch a phone:
+
+| | before | after |
+|---|---|---|
+| `.sec + .sec` junction | 176px | **112px** (`padding-top: 24px`) |
+| `.sec-head` bottom margin | 58px | **44px** |
+| `.hero` min-height | `calc(100dvh - 118px)` | **`calc(100dvh - 124px)`** |
+
+~450px of dead scroll removed from the laptop home page. The hero used 118px
+because that was the old chrome; the real chrome measures **124px**
+(`.utilbar-in` 42px + `.header-in.header-top` 82px). It is deliberately *not*
+`var(--headerH)`: `setHeaderH()` reads a `position: sticky` header, so that
+variable flips between 140px and 98px depending on scroll position and cannot
+be used for static layout sizing.
+
+### Also fixed: `.pf-chip`, a real button at 34px
+
+`styles.css` ships its own `@media (max-width: 680px)` block that *shrinks* the
+portal filter bar with `!important` — `.pf-chip` to 34px, `.ds-qty` buttons to
+40px, `.pf-f` inputs to 40px @ 11px. `.pf-chip` is a genuine `<button>`.
+`mobile.css` is the last stylesheet, so §4 now answers with `!important` at 44px
+and sets filter inputs to 16px (which also stops iOS Safari zooming the page on
+focus). Small tap targets: 8 → **7**, and all 7 remaining are confirmed
+non-interactive (step-connector pseudo-elements, status dots, the `.c-dot`
+visual, the static `.pay-chip` header badge, `.dw-gi` inside an anchor).
+
+### QA tooling
+
+`qa/qa_v97_mobile.py` is now **51 checks, 0 failed** (was 42). Nine new
+regression guards encode each defect above so a future "optimisation" cannot
+reintroduce it: no root-level overflow clip in live CSS, no `content-visibility`
+anywhere, `.p-grid` re-resolved to 3 columns at 700px *and* 2 at 360px, dot hit
+area ≤ pitch, the desktop block provably `min-width`-scoped, hero on 124px.
+
+Three stale v97 assertions that *demanded* the reverted behaviour were removed,
+and two guards were corrected after they produced false positives: they must run
+against comment-stripped source (mobile.css §0 quotes the removed
+`overflow-x: clip` rule to explain why it went), and section boundaries have to
+be found by line number because the `§n` headers *are* comments.
+
+`qa/desktop_rhythm.py` (new in this pass) resolves the winning box model at
+desktop widths to find empty vertical bands. It had a real bug, now fixed: its
+length parser required a unit, so `margin: 0 -4vw` parsed to `[-57.6]` instead
+of `[0.0, -57.6]`. Losing a token corrupts shorthand *position*, which made a
+zero vertical margin report as −58px and raise a bogus warning. `vw` was also
+hardcoded to a 1440px viewport.
+
+**Deliverable:** `shivaa-update-v98.zip` (805 KB, 40 files) — manifest verified
+identical to `shivaa-update-v95.zip`, drop-in. Four files changed:
+`css/mobile.css`, `css/styles.css`, and one version string each in `index.html`
+and `sw.js` (`?v=98`, `shivaa-shell-v98` — the shell name MUST move or returning
+visitors keep the cached v97 sheet).
+
+**Unverified:** still no browser and no PHP in the sandbox. That is exactly why
+v97 shipped broken — every defect above is invisible to static cascade analysis
+except in hindsight. The fixes are reasoned from the CSS spec and measured from
+the source, but **the first live open on a real handset is the actual test.**
+Check in this order: (1) does the home page scroll at all, (2) laptop home page
+junctions, (3) carousel dots, (4) product grid on a tablet, (5) the privacy
+table.
