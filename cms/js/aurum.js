@@ -296,9 +296,10 @@
   })();
 
   (function scrollHub() {
-    var bt = $('#backTop'), q = false;
+    var bt = $('#backTop'), q = false;   /* app.js injects #backTop; resolve lazily */
     function frame() {
       q = false;
+      if (!bt) bt = $('#backTop');
       var doc = document.documentElement;
       var max = Math.max(1, doc.scrollHeight - window.innerHeight);
       var p = Math.min(1, Math.max(0, window.scrollY / max));
@@ -781,19 +782,6 @@
       if (f.classList.contains('open')) arm();
       else if (f._auDragReset) f._auDragReset(false);
     }).observe(f, { attributes: true, attributeFilter: ['class'] });
-  })();
-
-  /* Saathi panel — created later by bot.js */
-  (function saathiDrag() {
-    new MutationObserver(function () {
-      var p = $('#saathiPanel');
-      if (p && !p._auDragSheet && window.matchMedia('(max-width: 768px)').matches) {
-        p._auDragSheet = 1;
-        dragSheet({ sheet: p, axis: 'y', handle: '.sa-head',
-          overlay: $('#saathiScrim') || null,
-          close: function () { var b = $('#saathiClose'); if (b) b.click(); } });
-      }
-    }).observe(document.body, { childList: true });
   })();
 
   /* mini-cart — drag from the left screen edge on touch devices */

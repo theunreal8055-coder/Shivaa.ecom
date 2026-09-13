@@ -3,12 +3,14 @@
    first and the cache is only a fallback (bad connection / offline).
    GET + same-origin requests only; the API and uploads always go live. */
 'use strict';
-const SHELL = 'shivaa-shell-v96';
-const SHELL_FILES = ['/', '/index.html', '/css/fonts.css?v=42', '/css/styles.css?v=84',
-  '/css/hallmark.css?v=42', '/css/trust.css?v=42', '/css/finale.css?v=44', '/css/bot.css?v=85',
-  '/css/motion.css?v=94', '/css/mobile.css?v=95', '/css/aurum.css?v=96',
-  '/js/app.js?v=95', '/js/bot.js?v=85', '/js/motion.js?v=91', '/js/aurum.js?v=96',
-  '/images/icons/icon-512.png'];
+const SHELL = 'shivaa-shell-v100';
+/* v99: bot.css/bot.js dropped from the shell (Saathi removed ahead of Gemini).
+   admin.js + qr.js are deliberately NOT precached — they are fetched on demand
+   by loadStaffBundle() in app.js, and a shopper should never pay for them. */
+const SHELL_FILES = ['/', '/index.html', '/css/fonts.css?v=42', '/css/styles.css?v=99',
+  '/css/hallmark.css?v=42', '/css/trust.css?v=42', '/css/finale.css?v=44',
+  '/css/motion.css?v=99', '/css/mobile.css?v=99', '/css/aurum.css?v=100',
+  '/js/app.js?v=99', '/js/motion.js?v=91', '/js/aurum.js?v=100', '/images/icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_FILES).catch(() => {})).then(() => self.skipWaiting()));

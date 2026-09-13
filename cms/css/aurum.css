@@ -173,7 +173,7 @@ html.js-aurum .pc-compare.on svg { animation: auHeartPop .5s var(--au-spring); }
 /* ═══ 5 · buttons ═══════════════════════════════════════════════════════ */
 html.js-aurum .btn {
   transition: transform .35s var(--au-spring), box-shadow .3s var(--au-soft),
-              background .3s, color .3s, border-color .3s, opacity .3s;
+              background .3s, color .3s, border-color .3s, filter .3s, opacity .3s;
 }
 html.js-aurum:not(.au-lite) .mc-drawer.open .mc-foot .btn-gold,
 html.js-aurum:not(.au-lite) .mcta-bar .btn-primary {
@@ -248,7 +248,7 @@ html.js-aurum #backTop.show { transform: none; }
   transform-origin: left; transform: scaleX(1);
   background: linear-gradient(90deg, var(--gold, #b98a2f), var(--au-gold-hi));
   animation: auTBar 3.2s linear forwards;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 14px 14px;
 }
 .toast.ok .au-tbar  { background: linear-gradient(90deg, #15a05a, #5ee09a); }
 .toast.err .au-tbar { background: linear-gradient(90deg, #c6283e, #ff8fa0); }
@@ -275,7 +275,7 @@ html.js-aurum .mc-ship.is-full small { color: #128c4e; }
 html.js-aurum .mc-ship.is-full small b { animation: auHeartPop .6s var(--au-spring); display: inline-block; }
 
 /* drag state for bottom sheets */
-.modal.au-drag, .filters.au-drag, #saathiPanel.au-drag, #cartDrawer.au-drag {
+.modal.au-drag, .filters.au-drag, #cartDrawer.au-drag {
   transition: none !important;
 }
 .modal-au-snap { transition: transform .5s var(--au-spring) !important; }
@@ -287,12 +287,9 @@ html.js-aurum .mc-ship.is-full small b { animation: auHeartPop .6s var(--au-spri
 .mc-scrim.open {
   background: rgba(24, 6, 10, calc(.55 * var(--au-o, 1)));
 }
-body.saathi-open #saathiScrim {
-  background: rgba(20, 5, 9, calc(.45 * var(--au-o, 1)));
-}
 
 /* touch routing for sheet gestures: grab zones own the touch axis */
-.fsheet-bar, .sa-head { touch-action: none; user-select: none; -webkit-user-select: none; }
+.fsheet-bar { touch-action: none; user-select: none; -webkit-user-select: none; }
 #cartDrawer { touch-action: pan-y; }
 /* keep native pinch-zoom; only vertical single-finger swipes are ours */
 #mLightbox.open img { touch-action: pan-x pinch-zoom; }
@@ -303,13 +300,10 @@ body.saathi-open #saathiScrim {
 .au-grab:active { cursor: grabbing; }
 .modal-close { position: relative; z-index: 6; }
 @media (min-width: 769px) { .au-grab { display: none; } }
-@media (min-width: 821px) {
-  .modal-overlay.open { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
-}
 
 /* scroll containment inside overlays (no chain-bounce on iOS) */
-.modal, .mc-drawer, .filters, #saathiPanel { overscroll-behavior: contain; }
-.sa-msgs, .modal { -webkit-overflow-scrolling: touch; }
+.modal, .mc-drawer, .filters { overscroll-behavior: contain; }
+.modal { -webkit-overflow-scrolling: touch; }
 
 /* PDP / checkout sticky buy bars slide in on mount */
 html.js-aurum body.pdp-on #pdpBuybar { animation: auBarIn .55s var(--au-spring) both; }
@@ -462,7 +456,6 @@ html.js-aurum .gal-track { will-change: transform; }
   .cb-arrow { width: 42px; height: 42px; }
   .fsheet-bar button { min-width: 42px; min-height: 42px; }
   .m-lightbox-x { width: 44px; height: 44px; }
-  .sa-ico { min-width: 42px; min-height: 42px; }
 
   /* back-to-top clears the bottom nav + safe area */
   #backTop { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); right: 14px; }
@@ -482,24 +475,17 @@ html.js-aurum .gal-track { will-change: transform; }
     background: rgba(185, 138, 47, .55);
   }
   .modal.au-drag::before { width: 58px; background: var(--gold, #b98a2f); }
-
-  /* dynamic viewport units: no sheet is ever hidden behind iOS chrome */
-  .modal-overlay.open .modal { max-height: 92vh; max-height: 92dvh; }
-  .filters { max-height: 74vh; max-height: 76dvh; }
-  .filters.open { max-height: 76vh; max-height: 76dvh; }
+  /* (v99 already gives sheets their dvh heights — not duplicated here) */
 
   /* kill double-tap zoom / callouts on tappables */
   .mnav a, .cb-arrow, .c-arrow, .gal-nav, .pc-wish, .pc-compare, .pc-quick,
-  .icon-btn, .chip, .size-pill, .btn, .cat-pill, .fsheet-bar, .sa-head {
+  .icon-btn, .chip, .size-pill, .btn, .cat-pill, .fsheet-bar {
     touch-action: manipulation;
     -webkit-touch-callout: none;
   }
   /* gallery & sheets reclaim the pan axis they need */
   .gal-wrap { touch-action: pan-y; }
-  .fsheet-bar, .sa-head, .au-grab { touch-action: none; }
-
-  /* mini-cart & filters & saathi: honour safe-area on the handle side */
-  .fsheet-bar { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+  .fsheet-bar, .au-grab { touch-action: none; }
 
   /* WhatsApp fab clears landscape notches */
   body[data-page="product"] .wa-fab { left: max(16px, env(safe-area-inset-left, 0px)); }
@@ -516,7 +502,7 @@ html.js-aurum .gal-track { will-change: transform; }
 }
 
 /* short landscape phones: back-to-top hugs the edge */
-@media (max-height: 480px) and (pointer: coarse) {
+@media (max-height: 500px) and (pointer: coarse) {
   #backTop { bottom: 18px; }
 }
 
