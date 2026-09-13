@@ -1,0 +1,559 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   AURUM · v96 — god-tier smoothness & mobile refinement layer
+   -------------------------------------------------------------------------
+   Loaded LAST (after mobile.css). Rules:
+     · animation touches only transform / opacity / filter / box-shadow
+     · every entrance has a JS-off + reduced-motion safe state
+     · html.au-lite (save-data / low-core devices) kills ambient motion
+     · html.js-aurum is added by js/aurum.js — nothing hides without JS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --au-spring: cubic-bezier(.34, 1.56, .64, 1);   /* overshoot spring   */
+  --au-out:    cubic-bezier(.22, 1, .36, 1);     /* expo ease-out       */
+  --au-soft:   cubic-bezier(.25, .46, .45, .94); /* gentle standard     */
+  --au-gold:   #d4af5a;
+  --au-gold-hi: #ffe9bd;
+}
+
+/* ── global smoothness guards ─────────────────────────────────────────── */
+body { overflow-x: clip; }             /* body-only: keeps sticky header intact on old Safari */
+
+html.js-aurum body { text-rendering: optimizeLegibility; }
+
+html.js-aurum .footer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+/* silky image zoom on media hovers (desktop only) */
+@media (hover: hover) and (pointer: fine) {
+  html.js-aurum .pc-imgwrap img { transition: transform .9s var(--au-out); }
+  html.js-aurum .poster img { transition: transform 1.1s var(--au-out); }
+  html.js-aurum .cat-card img { transition: transform .9s var(--au-out); }
+}
+
+/* ═══ 1 · PAGE TRANSITIONS (synchronous snapshot crossfade, JS-driven) ═══
+   js/aurum.js clones the outgoing #view into .au-vt, swaps the live DOM
+   synchronously (so app binding keeps working), then crossfades the
+   snapshot. Works in every modern browser, not just Chromium. */
+.au-vt {
+  position: fixed; top: 0; left: 0; right: 0; height: 100%;
+  height: 100dvh;
+  z-index: 40; /* below sticky header (50) & topbar (60); chrome persists */
+  overflow: hidden; pointer-events: none;
+  background: var(--cream, #faf6ef);
+}
+
+.au-vt-in {
+  position: absolute; top: 0; left: 0; width: 100%;
+  transform: translate3d(0, var(--au-sy, 0px), 0);
+  will-change: transform, opacity, filter;
+}
+/* the frozen snapshot never replays entrance animations */
+.au-vt .au-vt-in,
+.au-vt .au-vt-in *,
+.au-vt .au-vt-in *::before,
+.au-vt .au-vt-in *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) { .au-vt { display: none; } }
+
+/* ═══ 2 · HERO choreography upgrades ════════════════════════════════════ */
+/* word-by-word heading rise */
+html.js-aurum .hero h1 .au-w {
+  display: inline-block;
+  opacity: 0;
+  transform: translate3d(0, 1.08em, 0) rotate(5deg);
+  animation: auWord .78s var(--au-out) both;
+  animation-delay: calc(.26s + var(--i, 0) * 28ms);
+  will-change: transform, opacity;
+}
+html.js-aurum .hero h1 em.shimmer .au-w,
+html.js-aurum .hero h1 em.foil-txt .au-w {
+  background: linear-gradient(100deg, #e8c877 10%, #fff3d0 35%, #e8c877 60%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  animation: auWord .78s var(--au-out) both, shimText 6s linear infinite;
+  animation-delay: calc(.26s + var(--i, 0) * 28ms), calc(1.2s + var(--i, 0) * 60ms);
+}
+@keyframes auWord { to { opacity: 1; transform: none; } }
+
+/* warm breathing glow behind the hero stage */
+html.js-aurum:not(.au-lite) .hero-stage::before {
+  content: '';
+  position: absolute; z-index: 0; pointer-events: none;
+  width: 62%; aspect-ratio: 1; right: 4%; top: 10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212, 175, 90, .30), rgba(212, 175, 90, .08) 55%, transparent 70%);
+  filter: blur(24px);
+  animation: auGlowPulse 5.2s ease-in-out infinite;
+}
+html.js-aurum .hero-stage .hs-card { z-index: 1; }
+@keyframes auGlowPulse { 0%, 100% { opacity: .55; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.05); } }
+
+/* ambient gold breathing on the hero CTA */
+html.js-aurum:not(.au-lite) .hero-cta .btn-gold {
+  animation: auCtaGlow 3.2s ease-in-out 1.6s infinite;
+}
+@keyframes auCtaGlow {
+  0%, 100% { box-shadow: 0 8px 22px rgba(61, 14, 21, .24); }
+  50%      { box-shadow: 0 12px 36px rgba(212, 175, 90, .55), 0 0 0 1px rgba(247, 230, 180, .35); }
+}
+
+/* ═══ 3 · scroll reveal system (.au-rise, IO adds .in) ═════════════════ */
+html.js-aurum .au-rise {
+  opacity: 0;
+  transform: translate3d(0, 30px, 0) scale(.985);
+  transition: opacity .7s var(--au-out), transform .8s var(--au-out);
+  transition-delay: calc(var(--i, 0) * 52ms);
+  will-change: opacity, transform;
+}
+html.js-aurum .au-rise.in { opacity: 1; transform: none; }
+
+/* section-head gold underline draws only when scrolled into view */
+html.js-aurum .sec-head h2::after {
+  animation: none;
+  transform: translateX(-50%) scaleX(0);
+}
+html.js-aurum .sec-head.rv.in h2::after,
+html.js-aurum .sec-head.au-hl h2::after {
+  animation: auLineDraw .85s var(--au-out) .15s both;
+}
+@keyframes auLineDraw {
+  from { transform: translateX(-50%) scaleX(0); }
+  to   { transform: translateX(-50%) scaleX(1); }
+}
+
+/* ═══ 4 · product / category card richness (fine pointers) ═════════════ */
+@media (hover: hover) and (pointer: fine) {
+  /* pointer-tracked light across the product image */
+  html.js-aurum .p-card .pc-imgwrap::after {
+    content: '';
+    position: absolute; inset: 0; z-index: 3; pointer-events: none;
+    opacity: 0; transition: opacity .35s var(--au-soft);
+    background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 20%),
+      rgba(255, 240, 200, .30), rgba(212, 175, 90, .08) 45%, transparent 68%);
+  }
+  html.js-aurum .p-card:hover .pc-imgwrap::after { opacity: 1; }
+
+  /* travelling gold border trace (only where CSS mask compositing works) */
+  @supports ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+    html.js-aurum .p-card::after {
+      content: '';
+      position: absolute; inset: 0; z-index: 6; pointer-events: none;
+      border-radius: inherit; padding: 1.6px;
+      background: conic-gradient(from var(--au-ang, 0deg),
+        transparent 0 68%, rgba(247, 230, 180, .95) 82%,
+        rgba(212, 175, 90, .9) 86%, transparent 100%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      opacity: 0; transition: opacity .3s var(--au-soft);
+    }
+    html.js-aurum .p-card:hover::after { opacity: 1; animation: auAng 2.6s linear infinite; }
+  }
+
+  /* silkier quick-view bar */
+  html.js-aurum .pc-quick { transition: transform .42s var(--au-spring), opacity .3s; }
+}
+@property --au-ang { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes auAng { to { --au-ang: 360deg; } }
+
+/* wishlist heart spring + compare pop */
+html.js-aurum .pc-wish.on svg { animation: auHeartPop .5s var(--au-spring); }
+html.js-aurum .pc-compare.on svg { animation: auHeartPop .5s var(--au-spring); }
+@keyframes auHeartPop {
+  0% { transform: scale(.6); } 45% { transform: scale(1.35); } 70% { transform: scale(.92); } 100% { transform: scale(1); }
+}
+
+/* ═══ 5 · buttons ═══════════════════════════════════════════════════════ */
+html.js-aurum .btn {
+  transition: transform .35s var(--au-spring), box-shadow .3s var(--au-soft),
+              background .3s, color .3s, border-color .3s, opacity .3s;
+}
+html.js-aurum:not(.au-lite) .mc-drawer.open .mc-foot .btn-gold,
+html.js-aurum:not(.au-lite) .mcta-bar .btn-primary {
+  animation: auCtaGlow 3s ease-in-out 1s infinite;
+}
+/* generic micro-ripple for small controls */
+.au-rip-host { position: relative; overflow: hidden; }
+.au-rip {
+  position: absolute; z-index: 5; border-radius: 50%; pointer-events: none;
+  width: 10px; height: 10px;
+  background: radial-gradient(circle, rgba(212, 175, 90, .5), rgba(212, 175, 90, .12) 55%, transparent 70%);
+  transform: translate(-50%, -50%) scale(0);
+  animation: auRip .6s var(--au-soft) forwards;
+}
+@keyframes auRip { to { transform: translate(-50%, -50%) scale(26); opacity: 0; } }
+
+/* cursor glow swells over interactive elements (desktop) */
+.cursor-glow { transition: width .3s var(--au-soft), height .3s var(--au-soft), opacity .3s; }
+body.cursor-hot .cursor-glow.on { width: 460px; height: 460px; }
+
+/* ═══ 6 · bottom mobile nav — sliding indicator + smart autohide ═══════ */
+.mnav { transition: transform .42s var(--au-out); }
+.mnav-ind {
+  position: absolute; top: 5px;
+  bottom: calc(5px + env(safe-area-inset-bottom, 0px));
+  width: var(--au-iw, 56px);
+  transform: translateX(var(--au-ix, 0));
+  border-radius: 16px; pointer-events: none; z-index: 0;
+  background: linear-gradient(180deg, rgba(212, 175, 90, .22), rgba(212, 175, 90, .05));
+  border: 1px solid rgba(212, 175, 90, .32);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .28), 0 6px 16px rgba(0, 0, 0, .35);
+  opacity: 0;
+  transition: transform .5s var(--au-spring), width .5s var(--au-spring), opacity .35s;
+}
+.mnav.has-ind .mnav-ind { opacity: 1; }
+.mnav a { z-index: 1; }
+.mnav a:active svg { transform: scale(1.28) translateY(-2px); }
+.mnav a.au-tab svg { animation: auTabPop .48s var(--au-spring); }
+@keyframes auTabPop {
+  0% { transform: scale(.65) translateY(4px); }
+  55% { transform: scale(1.32) translateY(-3px); }
+  100% { transform: none; }
+}
+body.nav-hide .mnav { transform: translate3d(0, calc(100% + 10px), 0); }
+@media (min-width: 769px) { body.nav-hide .mnav { transform: none; } }
+
+/* ═══ 7 · scroll progress + back-to-top ════════════════════════════════ */
+html.js-aurum #scrollProg {
+  background: linear-gradient(90deg, #8a6a24, #d4af5a, #ffe9bd, #d4af5a);
+  background-size: 200% 100%;
+  animation: auProg 2.4s linear infinite;
+}
+@keyframes auProg { to { background-position: -200% 0; } }
+
+html.js-aurum #backTop {
+  border-color: transparent;
+  background:
+    radial-gradient(circle at center, var(--maroon-deep, #3d0e15) 56%, transparent 66%),
+    conic-gradient(var(--au-gold-hi) calc(var(--au-p, 0) * 1turn),
+      rgba(212, 175, 90, .22) 0);
+  transition: opacity .3s var(--au-soft), transform .45s var(--au-spring);
+}
+html.js-aurum #backTop.show { transform: none; }
+
+/* ═══ 8 · toasts — countdown bar + swipe affordance ════════════════════ */
+.toast-wrap .toast {
+  touch-action: pan-y;
+  transition: opacity .32s var(--au-soft), transform .38s var(--au-spring), box-shadow .3s;
+}
+.au-tbar {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+  transform-origin: left; transform: scaleX(1);
+  background: linear-gradient(90deg, var(--gold, #b98a2f), var(--au-gold-hi));
+  animation: auTBar 3.2s linear forwards;
+  border-radius: 0 0 12px 12px;
+}
+.toast.ok .au-tbar  { background: linear-gradient(90deg, #15a05a, #5ee09a); }
+.toast.err .au-tbar { background: linear-gradient(90deg, #c6283e, #ff8fa0); }
+@keyframes auTBar { to { transform: scaleX(0); } }
+
+/* ═══ 9 · drawer / sheet / cart polish ═════════════════════════════════ */
+/* main drawer rows spring in, staggered (JS tags [data-au-nav] with --i) */
+html.js-aurum .nav.open [data-au-nav] {
+  animation: auNavRow .52s var(--au-spring) both;
+  animation-delay: calc(.07s + var(--i, 0) * 38ms);
+}
+@keyframes auNavRow {
+  from { opacity: 0; transform: translate3d(34px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* mini-cart shipping meter */
+html.js-aurum .mc-ship-bar i { transition: width .8s var(--au-out); }
+html.js-aurum .mc-ship.is-full .mc-ship-bar i {
+  background: linear-gradient(90deg, #15a05a, #54d88f) !important;
+  box-shadow: 0 0 14px rgba(29, 185, 110, .55);
+}
+html.js-aurum .mc-ship.is-full small { color: #128c4e; }
+html.js-aurum .mc-ship.is-full small b { animation: auHeartPop .6s var(--au-spring); display: inline-block; }
+
+/* drag state for bottom sheets */
+.modal.au-drag, .filters.au-drag, #saathiPanel.au-drag, #cartDrawer.au-drag {
+  transition: none !important;
+}
+.modal-au-snap { transition: transform .5s var(--au-spring) !important; }
+
+/* scrims dim while a sheet is dragged down (var set by JS) */
+.modal-overlay.open {
+  background: rgba(29, 5, 9, calc(.62 * var(--au-o, 1)));
+}
+.mc-scrim.open {
+  background: rgba(24, 6, 10, calc(.55 * var(--au-o, 1)));
+}
+body.saathi-open #saathiScrim {
+  background: rgba(20, 5, 9, calc(.45 * var(--au-o, 1)));
+}
+
+/* touch routing for sheet gestures: grab zones own the touch axis */
+.fsheet-bar, .sa-head { touch-action: none; user-select: none; -webkit-user-select: none; }
+#cartDrawer { touch-action: pan-y; }
+/* keep native pinch-zoom; only vertical single-finger swipes are ours */
+#mLightbox.open img { touch-action: pan-x pinch-zoom; }
+.au-grab {
+  position: absolute; top: 0; left: 0; right: 0; height: 30px;
+  z-index: 4; cursor: grab; touch-action: none;
+}
+.au-grab:active { cursor: grabbing; }
+.modal-close { position: relative; z-index: 6; }
+@media (min-width: 769px) { .au-grab { display: none; } }
+@media (min-width: 821px) {
+  .modal-overlay.open { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+}
+
+/* scroll containment inside overlays (no chain-bounce on iOS) */
+.modal, .mc-drawer, .filters, #saathiPanel { overscroll-behavior: contain; }
+.sa-msgs, .modal { -webkit-overflow-scrolling: touch; }
+
+/* PDP / checkout sticky buy bars slide in on mount */
+html.js-aurum body.pdp-on #pdpBuybar { animation: auBarIn .55s var(--au-spring) both; }
+@keyframes auBarIn { from { transform: translate3d(0, 110%, 0); } to { transform: none; } }
+
+/* ═══ 10 · forms — sliders, checks, payment cards ══════════════════════ */
+html.js-aurum input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 24px; background: transparent; cursor: pointer;
+}
+html.js-aurum input[type="range"]::-webkit-slider-runnable-track {
+  height: 5px; border-radius: 99px;
+  background: linear-gradient(90deg, var(--au-gold) var(--fill, 100%),
+    rgba(185, 138, 47, .18) var(--fill, 100%));
+}
+html.js-aurum input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 19px; height: 19px; margin-top: -7px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6da, var(--au-gold) 70%);
+  border: 1px solid #8a6a24;
+  box-shadow: 0 2px 8px rgba(61, 14, 21, .35);
+  transition: transform .2s var(--au-spring);
+}
+html.js-aurum input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.25); }
+html.js-aurum input[type="range"]::-moz-range-track {
+  height: 5px; border-radius: 99px; background: rgba(185, 138, 47, .2);
+}
+html.js-aurum input[type="range"]::-moz-range-progress {
+  height: 5px; border-radius: 99px; background: var(--au-gold);
+}
+html.js-aurum input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6da, var(--au-gold) 70%);
+  border: 1px solid #8a6a24;
+}
+/* selected payment / radio cards settle with a spring + glow */
+html.js-aurum .pay-opt:has(input:checked) {
+  border-color: var(--gold, #b98a2f);
+  background: var(--gold-faint, rgba(185, 138, 47, .08));
+  box-shadow: 0 10px 26px rgba(139, 100, 24, .14);
+  transform: translateY(-2px);
+}
+html.js-aurum .finq-opt input:checked ~ i { animation: auCheckPop .5s var(--au-spring); }
+@keyframes auCheckPop {
+  0% { transform: scale(.5) rotate(-12deg); } 50% { transform: scale(1.3) rotate(6deg); } 100% { transform: scale(1); }
+}
+
+/* ═══ 11 · loading & empty states ══════════════════════════════════════ */
+html.js-aurum .loading-spin {
+  position: relative;
+  border-color: rgba(185, 138, 47, .16) !important;
+  border-top-color: var(--gold, #b98a2f) !important;
+  border-right-color: var(--au-gold) !important;
+}
+html.js-aurum .loading-spin::after {
+  content: ''; position: absolute; inset: 7px; border-radius: 50%;
+  border: 2px dashed rgba(185, 138, 47, .4);
+  border-top-color: transparent; border-left-color: transparent;
+  animation: auSpin 2.6s linear infinite reverse;
+}
+@keyframes auSpin { to { transform: rotate(360deg); } }
+
+html.js-aurum:not(.au-lite) .empty .big,
+html.js-aurum:not(.au-lite) .mc-empty-ic {
+  animation: auFloatY 3.4s ease-in-out infinite;
+}
+@keyframes auFloatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+/* ═══ 12 · parallax media (desktop, JS-scoped) ═════════════════════════ */
+html.js-aurum .au-px {
+  transform: scale(1.14) translate3d(0, var(--au-py, 0px), 0) !important;
+  transition: transform .14s ease-out;
+  will-change: transform;
+}
+
+/* ═══ 13 · particles & confetti ════════════════════════════════════════ */
+.au-p {
+  position: fixed; z-index: 4000; pointer-events: none; line-height: 1;
+  font-size: var(--au-s, 12px); color: var(--au-gold);
+  text-shadow: 0 0 8px rgba(212, 175, 90, .7);
+  will-change: transform, opacity;
+}
+.au-confetti {
+  position: fixed; top: -16px; z-index: 4001; pointer-events: none;
+  width: 8px; height: 13px; border-radius: 2px;
+  will-change: transform; opacity: .96;
+}
+
+/* ═══ 14 · order success seal ══════════════════════════════════════════ */
+html.js-aurum #view .order-logo {
+  animation: auSealIn .95s var(--au-spring) both;
+}
+@keyframes auSealIn {
+  0% { opacity: 0; transform: scale(.3) rotate(-14deg); }
+  60% { opacity: 1; transform: scale(1.1) rotate(4deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+/* ═══ 15 · footer + misc ambient shine ═════════════════════════════════ */
+html.js-aurum:not(.au-lite) .f-wordmark {
+  background: linear-gradient(100deg, #5e4620 0%, #b98a2f 28%, #ffe9bd 50%, #b98a2f 72%, #5e4620 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  animation: auShine 7.5s linear infinite;
+}
+@keyframes auShine { to { background-position: -200% 0; } }
+
+html.js-aurum .see-all { transition: letter-spacing .3s var(--au-soft), color .3s; }
+html.js-aurum .see-all:hover { letter-spacing: .04em; }
+
+/* badge bump (wishlist / compare counts) */
+@keyframes auBump {
+  0% { transform: scale(1); } 40% { transform: scale(1.45); } 70% { transform: scale(.85); } 100% { transform: scale(1); }
+}
+.au-bump { animation: auBump .5s var(--au-spring); }
+
+/* count-up numbers stay tabular */
+html.js-aurum .au-num { font-variant-numeric: tabular-nums; }
+
+/* ═══ 16 · gallery (PDP) touch affordances ═════════════════════════════ */
+html.js-aurum .gal-wrap { cursor: grab; touch-action: pan-y; }
+html.js-aurum .gal-wrap:active { cursor: grabbing; }
+html.js-aurum .gal-track { will-change: transform; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOBILE BAND (≤768px) — snappier, safer thumbs, safe-area aware
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  html.js-aurum * { -webkit-tap-highlight-color: transparent; }
+
+  /* shorter, tighter reveals on phones */
+  html.js-aurum .au-rise {
+    transform: translate3d(0, 22px, 0);
+    transition-duration: .55s, .6s;
+    transition-delay: calc(var(--i, 0) * 28ms);
+  }
+  html.js-aurum .hero h1 .au-w {
+    animation-duration: .62s;
+    animation-delay: calc(.18s + var(--i, 0) * 20ms);
+  }
+  html.js-aurum .hero h1 em.shimmer .au-w,
+  html.js-aurum .hero h1 em.foil-txt .au-w {
+    animation-duration: .62s, 6s;
+    animation-delay: calc(.18s + var(--i, 0) * 20ms), calc(.9s + var(--i, 0) * 50ms);
+  }
+
+  /* 42px+ touch targets for rail / gallery / sheet controls */
+  .c-arrow, .cb-arrow, .gal-nav { width: 42px; height: 42px; }
+  .cb-arrow { width: 42px; height: 42px; }
+  .fsheet-bar button { min-width: 42px; min-height: 42px; }
+  .m-lightbox-x { width: 44px; height: 44px; }
+  .sa-ico { min-width: 42px; min-height: 42px; }
+
+  /* back-to-top clears the bottom nav + safe area */
+  #backTop { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); right: 14px; }
+
+  /* toasts clear notch edges in landscape */
+  .toast-wrap {
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  /* press feedback on extra card types */
+  .cat-mini-card:active, .tv-card:active, .cert-card:active, .fine-card:active { transform: scale(.97); }
+
+  /* fatter grab handle while sheets are open */
+  .modal-overlay.open .modal::before {
+    width: 46px; height: 5px; top: 8px;
+    background: rgba(185, 138, 47, .55);
+  }
+  .modal.au-drag::before { width: 58px; background: var(--gold, #b98a2f); }
+
+  /* dynamic viewport units: no sheet is ever hidden behind iOS chrome */
+  .modal-overlay.open .modal { max-height: 92vh; max-height: 92dvh; }
+  .filters { max-height: 74vh; max-height: 76dvh; }
+  .filters.open { max-height: 76vh; max-height: 76dvh; }
+
+  /* kill double-tap zoom / callouts on tappables */
+  .mnav a, .cb-arrow, .c-arrow, .gal-nav, .pc-wish, .pc-compare, .pc-quick,
+  .icon-btn, .chip, .size-pill, .btn, .cat-pill, .fsheet-bar, .sa-head {
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+  }
+  /* gallery & sheets reclaim the pan axis they need */
+  .gal-wrap { touch-action: pan-y; }
+  .fsheet-bar, .sa-head, .au-grab { touch-action: none; }
+
+  /* mini-cart & filters & saathi: honour safe-area on the handle side */
+  .fsheet-bar { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+
+  /* WhatsApp fab clears landscape notches */
+  body[data-page="product"] .wa-fab { left: max(16px, env(safe-area-inset-left, 0px)); }
+}
+
+/* small phones */
+@media (max-width: 380px) {
+  html.js-aurum .hero h1 .au-w { animation-delay: calc(.14s + var(--i, 0) * 15ms); }
+  html.js-aurum .hero h1 em.shimmer .au-w,
+  html.js-aurum .hero h1 em.foil-txt .au-w {
+    animation-delay: calc(.14s + var(--i, 0) * 15ms), calc(.8s + var(--i, 0) * 40ms);
+  }
+  html.js-aurum .au-rise { transition-delay: calc(var(--i, 0) * 18ms); }
+}
+
+/* short landscape phones: back-to-top hugs the edge */
+@media (max-height: 480px) and (pointer: coarse) {
+  #backTop { bottom: 18px; }
+}
+
+/* ═══ low-power devices (save-data / ≤4 cores / ≤2GB) ══════════════════ */
+html.au-lite .hero-stage::before,
+html.au-lite .hero-cta .btn-gold,
+html.au-lite .mc-drawer.open .mc-foot .btn-gold,
+html.au-lite .mcta-bar .btn-primary,
+html.au-lite .f-wordmark,
+html.au-lite .empty .big,
+html.au-lite .mc-empty-ic,
+html.au-lite .hs-main, html.au-lite .hs-a, html.au-lite .hs-b, html.au-lite .hs-badge,
+html.au-lite .wa-fab::before,
+html.au-lite .loading-spin::after,
+html.au-lite .p-card::after { animation: none !important; }
+html.au-lite .au-px { transform: none !important; }
+html.au-lite .footer { content-visibility: visible; }
+
+/* ═══ reduced motion — total safety net ════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  html.js-aurum *,
+  html.js-aurum *::before,
+  html.js-aurum *::after {
+    animation-duration: .001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001s !important;
+    scroll-behavior: auto !important;
+  }
+  html.js-aurum .au-rise { opacity: 1 !important; transform: none !important; }
+  html.js-aurum .hero h1 .au-w { opacity: 1 !important; transform: none !important; }
+  html.js-aurum .sec-head h2::after { transform: translateX(-50%) scaleX(1) !important; animation: none !important; }
+  html.js-aurum .p-card::after,
+  html.js-aurum .p-card .pc-imgwrap::after,
+  html.js-aurum .hero-stage::before,
+  html.js-aurum .au-p,
+  html.js-aurum .au-confetti,
+  html.js-aurum .au-tbar { display: none !important; }
+  html.js-aurum .au-px { transform: none !important; }
+  html.js-aurum body { scroll-behavior: auto; }
+}
