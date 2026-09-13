@@ -1,0 +1,58 @@
+# ─── SHIVAA — Apache/LiteSpeed rules (Hostinger shared hosting) ───
+Options -Indexes
+RewriteEngine On
+
+# API: /api/...  →  api.php
+RewriteRule ^api/(.*)$ api.php?__route=$1 [QSA,L]
+
+# Existing files & folders served as-is
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# SPA fallback → index.html
+RewriteRule ^ index.html [L]
+
+# ─── performance ───
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType font/woff2 "access plus 365 days"
+  ExpiresByType application/pdf "access plus 7 days"
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+AddType font/woff2 .woff2
+AddType application/pdf .pdf
+
+# ─── hardening ───
+<FilesMatch "\.(json|lock|md|sh|py)$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "^(server\.js|api\.php\.bak|package\.json|db\.json.*|router-dev\.php|samples-payload\.json)$">
+  Require all denied
+</FilesMatch>
+# backups / editor leftovers must never be served
+<FilesMatch "\.(bak|old|orig|save|swp|tmp|log|ini|sql|zip|tar|gz)$">
+  Require all denied
+</FilesMatch>
+
+# ─── security headers ───
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set X-XSS-Protection "1; mode=block"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Resource-Policy "same-origin"
+  # HSTS — only meaningful over HTTPS; Hostinger serves SSL
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+  # CSP — self-hosted assets only; 'unsafe-inline' retained for existing inline handlers
+  Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+</IfModule>

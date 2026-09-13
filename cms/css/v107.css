@@ -1,0 +1,237 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SHIVAA v107 · enhancement layer
+   Loaded LAST, after aurum.css. Every rule is namespaced (v107-, #v107)
+   so it can only ever ADD chrome — it never re-declares a v104 selector,
+   which is how the layer stays removable: delete the two asset tags in
+   index.html and the shop is byte-for-byte v104 again.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · footer rate ticker + honesty basis line ───────────────────────── */
+#v107FootTicker {
+  border-top: 1px solid var(--line, rgba(212,175,90,.18));
+  margin-top: 18px; padding: 14px 4px 4px;
+}
+.v107-tick {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch; padding-bottom: 4px;
+}
+.v107-tick::-webkit-scrollbar { display: none; }
+.v107-tick .v107-cell {
+  flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 14px; border-radius: 12px;
+  background: var(--gold-faint, rgba(212,175,90,.08));
+  border: 1px solid var(--line, rgba(212,175,90,.18));
+  font-variant-numeric: tabular-nums;
+}
+.v107-tick .v107-cell small { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3, #9b8672); }
+.v107-tick .v107-cell b { font-size: 14px; color: var(--gold-hi, #f0d9a6); font-weight: 600; }
+.v107-tick .v107-cell i { font-style: normal; font-size: 10.5px; }
+.v107-tick .up i   { color: #4ea06b; }
+.v107-tick .down i { color: #c4685f; }
+.v107-tick .flat i { color: var(--ink-3, #9b8672); }
+.v107-basis .live-dot::before, .v107-tick .v107-cell.live-dot::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: #4ea06b; margin-right: 6px; vertical-align: 1px;
+  animation: v107-pulse 2.4s ease-in-out infinite;
+}
+@keyframes v107-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.v107-basis {
+  margin: 8px 2px 0; font-size: 11px; color: var(--ink-3, #9b8672); line-height: 1.5;
+}
+.v107-basis b { color: var(--gold, #d4af5a); font-weight: 600; }
+
+/* ── 2 · tap-reactive glow: the footer chips anticipate your next page ─── */
+.v107-tabglow {
+  position: relative; isolation: isolate;
+}
+.v107-tabglow::after {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(212,175,90,.55), 0 0 18px -2px rgba(212,175,90,.45);
+  opacity: 0; transition: opacity .45s ease;
+}
+.v107-tabglow.tab-ahead::after { opacity: 1; }
+.v107-tabglow.tab-ahead { animation: v107-breathe 2.6s ease-in-out infinite; }
+@keyframes v107-breathe { 0%,100% { filter: none; } 50% { filter: brightness(1.18); } }
+/* press feedback on every tappable chip/card — tactile, 120ms, no layout shift */
+.v107-press { transition: transform .12s ease, filter .12s ease; }
+.v107-press:active { transform: scale(.965); filter: brightness(1.12); }
+/* discipline: nothing animates while the tab is hidden or the user prefers calm */
+body.is-hidden .v107-tabglow, body.is-hidden .v107-basis .live-dot::before { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .v107-tabglow::after, .v107-press { transition: none; }
+  .v107-tabglow.tab-ahead, .v107-tick .live-dot::before { animation: none; }
+}
+
+/* ── 3 · full design detail sheet (Design Desk cards get a "ⓘ" door) ───── */
+.v107-dds-btn {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line, rgba(212,175,90,.35));
+  background: rgba(26,8,12,.72); color: var(--gold-hi, #f0d9a6);
+  font-size: 13px; line-height: 1; display: grid; place-items: center; cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.v107-dds-btn:hover { background: rgba(212,175,90,.25); }
+.ds-card { position: relative; }
+.v107-dds { display: grid; gap: 0; }
+.v107-dds .row {
+  display: flex; justify-content: space-between; gap: 14px;
+  padding: 9px 2px; border-bottom: 1px dashed var(--line, rgba(212,175,90,.2));
+  font-size: 13px;
+}
+.v107-dds .row:last-child { border-bottom: 0; }
+.v107-dds .row span { color: var(--ink-3, #9b8672); }
+.v107-dds .row b { color: var(--ink, #2a1a10); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.v107-dds .row.total b { color: var(--maroon-deep, #6d1b26); font-size: 15px; }
+.v107-qty { display: inline-flex; align-items: center; gap: 10px; }
+.v107-qty button {
+  width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--line, rgba(212,175,90,.35));
+  background: var(--cream, #faf6ef); color: var(--maroon-deep, #6d1b26); font-size: 16px; cursor: pointer;
+}
+.v107-qty b { min-width: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* ── 4 · ring size guide with TRUE-SCALE circles ───────────────────────── */
+.v107-sg-hero { text-align: center; padding: 8px 0 18px; }
+.v107-sg-hero svg { max-width: 260px; width: 70vw; height: auto; }
+.v107-sg-hero .note { font-size: 12px; color: var(--ink-3, #9b8672); margin-top: 6px; }
+.v107-sg-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 10px; margin: 14px 0 6px;
+}
+.v107-sg-pick {
+  border: 1.5px solid var(--line, rgba(212,175,90,.3)); border-radius: 14px;
+  background: var(--cream, #faf6ef); padding: 10px 6px 8px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .12s ease;
+}
+.v107-sg-pick:active { transform: scale(.96); }
+.v107-sg-pick svg { display: block; }
+.v107-sg-pick b { font-size: 12.5px; color: var(--maroon-deep, #6d1b26); }
+.v107-sg-pick small { font-size: 10px; color: var(--ink-3, #9b8672); font-variant-numeric: tabular-nums; }
+.v107-sg-pick.on {
+  border-color: var(--gold, #d4af5a); background: var(--gold-faint, rgba(212,175,90,.12));
+  box-shadow: 0 0 0 3px rgba(212,175,90,.22);
+}
+.v107-sg-find { display: flex; gap: 10px; align-items: center; margin: 12px 0 4px; flex-wrap: wrap; }
+.v107-sg-find input {
+  flex: 1; min-width: 130px; padding: 10px 12px; border-radius: 11px;
+  border: 1px solid var(--line, rgba(212,175,90,.35)); background: var(--cream, #faf6ef);
+  color: var(--ink, #2a1a10); font-size: 14px;
+}
+.v107-sg-find .res { font-size: 13px; color: var(--maroon-deep, #6d1b26); }
+.v107-sg-saved {
+  margin-top: 14px; padding: 10px 14px; border-radius: 12px; font-size: 13px;
+  background: var(--gold-faint, rgba(212,175,90,.12)); color: var(--maroon-deep, #6d1b26);
+  border: 1px solid rgba(212,175,90,.35);
+}
+
+/* ── 5 · payment / refund timeline (order + account + refund pages) ────── */
+.v107-tl { position: relative; margin: 14px 0 4px; padding-left: 22px; }
+.v107-tl::before {
+  content: ""; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 2px;
+  background: linear-gradient(var(--gold, #d4af5a) 0 var(--v107-prog, 0%), var(--line, rgba(212,175,90,.25)) var(--v107-prog, 0%) 100%);
+  border-radius: 2px;
+}
+.v107-tl .v107-step { position: relative; padding: 0 0 16px 4px; }
+.v107-tl .v107-step:last-child { padding-bottom: 2px; }
+.v107-tl .v107-step::before {
+  content: ""; position: absolute; left: -20px; top: 3px; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--cream, #faf6ef);
+  border: 2px solid var(--line, rgba(212,175,90,.4));
+}
+.v107-tl .v107-step.done::before { background: var(--gold, #d4af5a); border-color: var(--gold, #d4af5a); }
+.v107-tl .v107-step.now::before {
+  background: var(--cream, #faf6ef); border-color: var(--gold, #d4af5a);
+  box-shadow: 0 0 0 4px rgba(212,175,90,.25); animation: v107-pulse 2s ease-in-out infinite;
+}
+.v107-tl .v107-step.fail::before { background: #c4685f; border-color: #c4685f; }
+.v107-tl .v107-step b { display: block; font-size: 13.5px; color: var(--ink, #2a1a10); }
+.v107-tl .v107-step small { display: block; font-size: 11.5px; color: var(--ink-3, #9b8672); margin-top: 2px; }
+.v107-tl .v107-step .amt { font-variant-numeric: tabular-nums; }
+.v107-tl-note {
+  margin: 10px 0 0; padding: 10px 12px; border-radius: 11px; font-size: 12.5px;
+  background: var(--gold-faint, rgba(212,175,90,.1)); color: var(--ink-2, #5b4636);
+  border: 1px solid rgba(212,175,90,.28); line-height: 1.55;
+}
+.v107-tl-note.err { background: rgba(196,104,95,.1); border-color: rgba(196,104,95,.4); color: #8d3c34; }
+.v107-tl-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+/* ── 6 · honest OTP / code-delivery chrome ─────────────────────────────── */
+.v107-chan {
+  display: block; margin-top: 6px; font-size: 11.5px; line-height: 1.5; color: var(--ink-3, #9b8672);
+}
+.v107-chan.warn { color: #a06a12; }
+.v107-chan.err  { color: #a3372e; }
+.v107-chan b { font-weight: 600; }
+.v107-throttle { font-variant-numeric: tabular-nums; }
+
+/* ── 7 · admin SMS gateway wizard ──────────────────────────────────────── */
+.v107-wiz { margin-top: 12px; border-top: 1px dashed var(--line, rgba(212,175,90,.25)); padding-top: 12px; }
+.v107-wiz h4 { font-size: 13px; margin: 0 0 8px; color: var(--maroon-deep, #6d1b26); }
+.v107-wiz .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.v107-wiz label { display: block; font-size: 11px; color: var(--ink-3, #9b8672); margin-bottom: 3px; }
+.v107-wiz input, .v107-wiz select {
+  width: 100%; padding: 8px 10px; border-radius: 9px; font-size: 13px;
+  border: 1px solid var(--line, rgba(212,175,90,.35)); background: var(--cream, #fff);
+  color: var(--ink, #2a1a10);
+}
+.v107-wiz .hint { font-size: 11px; color: var(--ink-3, #9b8672); margin: 8px 0 0; line-height: 1.5; }
+.v107-wiz .raw {
+  margin-top: 8px; padding: 8px 10px; border-radius: 9px; font: 11px/1.5 ui-monospace, monospace;
+  background: rgba(0,0,0,.06); color: var(--ink-2, #5b4636); white-space: pre-wrap; word-break: break-all;
+  max-height: 150px; overflow: auto;
+}
+
+/* ── 8 · PWA update bar + offline banner ───────────────────────────────── */
+#v107Upd, #v107Offline {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 1200;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  max-width: min(430px, calc(100vw - 24px));
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  border-radius: 14px; font-size: 13px; color: var(--ink, #2a1a10);
+  background: rgba(250,246,239,.97); border: 1px solid rgba(212,175,90,.45);
+  box-shadow: 0 12px 34px -10px rgba(20,3,6,.45); backdrop-filter: blur(8px);
+  animation: v107-rise .35s ease;
+}
+#v107Offline { bottom: auto; top: calc(10px + env(safe-area-inset-top, 0px)); }
+@keyframes v107-rise { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+#v107Upd button, #v107Offline button {
+  margin-left: auto; border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer;
+  background: linear-gradient(135deg, #f6e3b4, #d9af63); color: #2a0a10; font-weight: 700; font-size: 12.5px;
+}
+#v107Upd .x, #v107Offline .x {
+  margin-left: 0; background: none; color: var(--ink-3, #9b8672); font-size: 15px; padding: 4px 6px;
+}
+
+/* ── 9 · GST invoice block + print ─────────────────────────────────────── */
+.v107-gst { margin-top: 14px; border-top: 2px solid var(--line, rgba(212,175,90,.3)); padding-top: 12px; }
+.v107-gst table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.v107-gst td { padding: 5px 4px; border-bottom: 1px dashed var(--line, rgba(212,175,90,.25)); vertical-align: top; }
+.v107-gst td:first-child { color: var(--ink-3, #9b8672); width: 44%; }
+.v107-gst td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink, #2a1a10); }
+.v107-gst .hsn { font: 11px/1.4 ui-monospace, monospace; color: var(--ink-2, #5b4636); }
+@media print {
+  #v107Upd, #v107Offline, #v107FootTicker, .v107-dds-btn { display: none !important; }
+  .v107-gst { break-inside: avoid; }
+}
+
+/* ── 10 · Quick View operability guards (v106 lesson, live markup) ─────── */
+/* the live sheet is a modal; guarantee its body scrolls and never strands
+   the buy row below the fold on short phones */
+.qv { max-height: min(86vh, 780px); display: flex; flex-direction: column; }
+.qv-media, .qv-info { overflow-y: auto; overscroll-behavior: contain; }
+.qv:focus, .qv *:focus { outline-color: var(--gold, #d4af5a); }
+.v107-skip {
+  position: absolute; left: 8px; top: 8px; z-index: 5; transform: translateY(-200%);
+  padding: 6px 12px; border-radius: 999px; font-size: 12px;
+  background: var(--gold, #d4af5a); color: #2a0a10; text-decoration: none;
+}
+.v107-skip:focus { transform: none; }
+
+/* ── 11 · rate-lock strip inside checkout ─────────────────────────────── */
+.v107-lock-hint { font-size: 11.5px; color: var(--ink-3, #9b8672); margin-top: 6px; line-height: 1.5; }
+.v107-lock-hint b { color: var(--maroon-deep, #6d1b26); font-variant-numeric: tabular-nums; }
+.v107-lock-hint.warn b { color: #a06a12; }
+
+/* ── 12 · fees line in the payment-method picker ───────────────────────── */
+.v107-fee { display: block; font-size: 10.5px; color: var(--ink-3, #9b8672); margin-top: 2px; font-weight: 400; }
+.v107-fee.ok { color: #2f7d4f; }
