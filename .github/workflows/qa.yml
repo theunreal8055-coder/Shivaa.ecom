@@ -16,6 +16,8 @@ jobs:
         run: python3 qa/qa_v48_static.py
       - name: Saathi brain tests
         run: node qa/test_bot_brain.js
+      - name: Mobile cascade QA (v97 — 42 checks + regression scores)
+        run: python3 qa/qa_v97_mobile.py
       - name: Fresh-install QA (only when a release zip is present)
         run: |
           for z in shivaa-FINAL-full.zip shivaa-FRESH-v52-full.zip; do

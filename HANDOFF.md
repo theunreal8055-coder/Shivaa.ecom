@@ -639,3 +639,483 @@ QA: qa_v50_fresh.py 29/0 + qa_v48_static.py 83/0. Not executed: no browser/PHP h
 - QA: fresh 74/0, static 83/0, brain 19/0 = 176 checks. Two stale checkers
   corrected (seeded coupon; version-agnostic wiring check).
 - shivaa-FINAL-full.zip rebuilt: 1,070 files, 228.8 MB (incl. .github/).
+
+## v97 — the mobile pass, measured not eyeballed (2026-09-12)
+
+**Owner instruction:** the site is not mobile-friendly; make *every* interface
+look optimised for a phone, smooth like butter, like a modern quick-commerce
+app. Interface / font sizes / graphic sizes may change; nothing may be deleted
+or de-featured.
+
+**No browser and no PHP exist in this sandbox**, so instead of eyeballing the
+layout three tools were written to *prove* defects from the source, by doing
+what a browser does — parse every stylesheet with its `@media` stack, then
+resolve specificity + source order + `!important` to find the declaration that
+actually WINS at a given viewport:
+
+- `qa/mobile_audit.py` — cascade simulator. Evaluates 320/360/390/430 px and
+  reports, per class, the winning declaration that is still risky on a phone
+  (rigid grid tracks, `nowrap` that cannot shrink, oversized display type,
+  desktop gutters, fixed px widths). Also audits inline `style="…"` from the JS
+  templates, which bypass the stylesheets entirely.
+- `qa/mobile_legibility.py` — winning `font-size` below a legibility floor, and
+  interactive boxes below a tap-target floor.
+- `qa/css_why.py` — prints the full cascade for one class+property so a
+  suspected defect can be confirmed and its cause named.
+
+Two bugs in the *auditor itself* were found and fixed before its output was
+trusted, because both produced confident nonsense: `@media` blocks preceded by
+whitespace were swallowed whole (3313 blocks parsed instead of 4888), and the
+source-order counter restarted per file, so `mobile.css` — which is linked LAST
+and must win ties — was scored as losing every tie. Anyone re-reading these
+numbers later should know they are only meaningful post-fix.
+
+### What the measurement found (all four verified, none guessed)
+
+1. **Cascade defeats.** `styles.css` declares
+   `.page-hero{padding:clamp(52px,7vw,86px) 0 clamp(48px,6vw,74px) !important}`.
+   v95's `.page-hero{padding:38px 0 34px}` had no `!important`, so it LOST —
+   all **14 page banners** were burning ~100px of a phone's vertical budget on
+   empty maroon. Same story for the hero's outer padding.
+2. **Dead selectors.** 8 v95 phone rules targeted class names the app does not
+   use, so they matched **zero elements**: `.shop-head`/`.shop-toolbar` (real:
+   `.shop-bar`/`.shop-catbar`), `.pc-tag` (`.pc-tags`), `.review-media`
+   (`.rev-photo`/`.rv-photos`), `.f-col` (`.foot-col`), `.fin-hero`
+   (`.finale-hero`), `.otp-row` (`.otp-boxes`). Every one was a mobile fix that
+   looked done and never rendered.
+3. **Attribute-selector typo.** v95's admin overrides were written
+   `[style*="grid-template-columns: 2.2fr"]` *with* a space after the colon,
+   but `admin.js` emits `grid-template-columns:2.2fr…` *without* one — so 3 of
+   the 6 hostile 5–8-track inline grids never collapsed.
+4. **Legibility.** 157 sub-10.5px `font-size` declarations exist; 30 of them
+   WIN at 360px. The worst is `.hstat span` at **7.0px** — the caption under
+   each stat in the home hero, the first thing any customer sees. `.hs-tag`
+   7.5px, `.sa-tool b` 8.5px, `.bd-tabs a` 8.5px, `.mnav a` 9.5px (the
+   most-tapped control on the site).
+5. **Self-inflicted blur.** v95 shrank steppers with `transform:scale(.92)`,
+   `motion.css` with `scale(.84)` and `app.js` inlines `scale(.86)` — which
+   both drops the ± buttons to ~34px (under the 44px floor) and rasterises the
+   glyphs at a fractional size, so they render soft on Android. Replaced with
+   real sizes.
+6. **An uncontained table.** `.pcmp-table`/`.adm-table`/`.mc-table` sit in
+   `overflow:auto` wrappers, so their `min-width` is a feature. But the privacy
+   page renders `<table class="mc-table priv-table">` **directly inside
+   `.ps-body`** with `min-width:420–680px` and no scroller — one table was
+   enough to make the whole page pan sideways.
+7. **`1fr` is not `minmax(0,1fr)`.** A `1fr` track's automatic minimum is
+   `auto`, so one long unbreakable price or HUID stretches the track past the
+   viewport. Every phone grid now declares an explicit zero minimum.
+
+### What v97 changes (`cms/css/mobile.css`, §0–§14, appended after v95)
+
+Nothing is hidden, removed or de-featured — the same content, rescaled for a
+thumb. §0 overflow guard (`html{overflow-x:clip}`, `@supports`-gated so old
+Safari keeps today's behaviour, and unlike `hidden` it does **not** create a
+scroll container so `position:sticky` survives) · §1 dead-selector repairs ·
+§2 cascade-defeat repairs · §3 legibility floor (10px micro-labels, 10.5px
+readable text, 11px numbers) · §4 44px tap-target floor, incl. a pseudo-element
+hit area on the 9px carousel dots so the visual design is untouched · §5 rigid
+grids → zero-minimum phone tracks (Saathi's tool rail becomes a real
+`max-content` scroll rail instead of 6 squashed columns) · §6 oversized display
+type re-clamped against `vw` · §7 60–120px desktop gutters rescaled · §8
+`nowrap` children given `min-width:0` + ellipsis so they shrink instead of
+widening the page · §9 unwrapped tables get their own scroller · §10 scroll cost
+(`content-visibility:auto` on the footer and the 46s infinite review marquee,
+which stops the engine animating them off-screen; `backdrop-filter` dropped from
+`.mcta-bar`, whose backdrop is already .97-opaque so the blur was pure GPU
+cost) · §11 ≤380px · §12 short/landscape · §13 four rules that needed matching
+specificity, not merely later source order · §14 the last two unguarded
+`nowrap` boxes.
+
+**Deliberately NOT done:** `css/fonts.css` is 9 base64 `@font-face` rules =
+**275 KB of the 385 KB gzipped CSS**, render-blocking, and it is the single
+largest mobile cost left. It was left alone because the only real fix (loading
+it non-render-blocking) trades a slower first paint for a visible FOUT on a
+luxury storefront, and with no browser here that trade cannot be verified.
+Recommend the owner A/B it on a real handset.
+
+### Measured result (same tools, same widths, before → after)
+
+| metric | v95 | v97 |
+|---|---|---|
+| risky winning declarations (structure) | 88 | **48** |
+| winning `font-size` below 10px | 30 | **1** |
+| interactive boxes under 40px | 13 | **8** |
+| dead `mobile.css` selectors | 8 | **8** (re-pointed, legacy left in place) |
+
+The 48 remaining structural findings were read individually: they are the
+intended v97 rules (zero-minimum 3-up stat rows, 6 OTP boxes, decorative
+`clamp()` display type), bottom padding that reserves room for the sticky bars,
+and table `min-width`s that now live inside a scroller. The 8 remaining small
+boxes are decorative pseudo-elements (2px step rules, 8–10px status dots) plus
+`.pay-chip`/`.pf-chip`/`.dw-gi`, which are not themselves clickable.
+
+**QA:** new `qa/qa_v97_mobile.py` — 42 checks, 0 failed. It asserts each
+specific repair is present AND re-runs the simulators, failing if the scores
+regress past the v95 baseline, so a future edit cannot silently undo this.
+Pre-existing suites unchanged: `qa_v48_static.py` 77/6 and `qa_v50_fresh.py`
+48/2 **identical before and after** (verified by `git stash`) — the failures are
+stale v48/v52-era assertions about `?v=48` script tags and a fresh-zip that
+predates v95, not regressions. `node --check` passes on all 10 JS files;
+`test_bot_brain.js` fails at baseline too (its DOM stub predates
+`document.addEventListener` in `bot.js`).
+
+**Deliverable:** `shivaa-update-v97.zip` (803 KB, 39 files) — manifest verified
+byte-for-byte identical to `shivaa-update-v95.zip`, so it is a drop-in update.
+Only `css/mobile.css` changed content; `index.html` and `sw.js` changed one
+version string each (`?v=97`, `shivaa-shell-v97` — the shell name MUST move or
+returning visitors keep the cached v95 sheet).
+
+**Unverified:** still no browser and no PHP in the sandbox. The cascade was
+simulated, not rendered. First live open on a real handset remains the smoke
+test — check the home hero, one page banner, the cart stepper, the privacy
+table and the Saathi tool rail first, since those are the five repairs with the
+largest visual delta.
+
+## v98 — v97 broke the live site; this is the repair (2026-09-13)
+
+v97 was deployed and **broke it**. Two reports from the owner: *"in mobile I
+can't even scroll now, nothing works"* and *"laptop version has gaps in the home
+page."* Both were real, both were caused by v97, and neither was caught by the
+QA gate — because the gate simulates the cascade and there is no browser in the
+sandbox, so nothing ever *scrolled*. Five defects, all fixed here.
+
+### Bug 1 — the scroll-killer (the "nothing works" report)
+
+v97 §0 added `html { overflow-x: clip }` inside `@supports (overflow-x: clip)`
+to stop sideways page pan. **The root element's overflow propagates to the
+viewport.** v95 already sets `html { height: 100% }` on phones, so the clip made
+`html` itself the scroll container at a fixed 100% height — and `body` was
+already a second scroll container via the pre-existing
+`body { overflow-x: hidden }` in `styles.css:25`. Two nested scrollers, neither
+able to grow: touch scrolling died.
+
+Worse, the rule was **redundant** — `body { overflow-x: hidden }` had been
+containing horizontal overflow since before v95.
+
+**Fix:** removed entirely. Horizontal overflow is now prevented at its source
+(`min-width: 0` + ellipsis on nowrap children, dedicated scrollers for tables,
+`max-width: 100%` on images) instead of by clipping the scrollport.
+
+> ⛔ **Never put `overflow-x: clip` or `hidden` on `html` or `body`.** This is
+> now an automated guard, not a comment.
+
+### Bug 2 — the laptop gaps
+
+v97 §10 added `content-visibility: auto` + `contain-intrinsic-size: auto 620px`
+to `.rev-marquee` and `.footer` as a scroll-cost win. `content-visibility`
+replaces an off-screen element with its `contain-intrinsic-size` placeholder —
+and **620px was a guess**. `.rev-marquee` really renders ~270px, so every scroll
+position where it was off-screen reserved ~350px of empty band. The footer
+(~900–1400px) was wrong the same way. The `auto` keyword only self-corrects
+*after* first render, which is too late to prevent the visible jump.
+
+**Fix:** removed both declarations. Kept `.mcta-bar { backdrop-filter: none }`,
+which was the genuinely free part of that section.
+
+> ⛔ **Never use `content-visibility` with a guessed intrinsic size.** Guarded.
+
+### Bug 3 — the tablet clobber (found while fixing bug 1)
+
+v97 declared its phone grids at `@media (max-width: 900px)`. v95 owns a
+`601–900px` **tablet** band that deliberately wants 3 product columns. v97's
+rules sit later in the file, so at equal specificity they won that whole band:
+tablets silently dropped `.p-grid` 3 → 2 and `.acct-tiles` 3 → 2.
+
+The first repair attempt (re-scoping to ≤768px) was **still wrong** — 601–768px
+is inside the tablet band, and it also clobbered v95's ≤380px small-phone band
+(`.cat-mini` 3→4, `.acct-tiles` 1→2, `.stat-grid` 1→2).
+
+**Fix — changed approach, not just scope.** A `grid-template-columns`
+declaration cannot be scoped to "phones" without colliding with bands the file
+already owns. So §0 no longer names a column count at all; it puts
+`min-width: 0` on the grid **items**:
+
+```css
+.p-grid > *, .cat-mini > *, .acct-tiles > *, .stat-grid > *,
+.priv-facts > *, .pd-perks > *, .search-sugg > *, .mth-rail > *,
+.bd-gridhead > *, .bd-row > *, .ref-stats > *, .svb-top > *,
+.b2b-stats > *, .dw-tiles > *, .otp-boxes > *, .rate-strip-in > * { min-width: 0; }
+```
+
+A grid item's automatic minimum is `auto`; zeroing it lets the item shrink so
+the track honours whatever column count the winning band asked for. This fixes
+the identical blowout and **composes with every band instead of fighting them**.
+Verified by re-resolving the real cascade: `.p-grid` is 3 columns at 700px and 2
+at 360px. Both are now guarded assertions.
+
+### Bug 4 — carousel dots fired the wrong slide
+
+v97 §4 enlarged the 9px carousel dot's hit area with `.c-dot::after { inset:
+-16px -13px }` (a 35px box) but left `.c-dots { gap: 9px }`. That gives an 18px
+**pitch** with a 35px **hit box** — neighbouring targets overlapped by ~17px on
+each side, so tapping one dot routinely fired its neighbour. The carousel felt
+random.
+
+**Fix:** `.c-dots { gap: 26px }` + `inset: -13px` → 35px hit box on a 35px
+pitch. The targets tile exactly, zero overlap, and the visible dot stays 9px.
+The invariant `hit_width ≤ element_width + gap` is now an automated check.
+
+### Bug 5 — a table rule that clipped its own content
+
+v97 §7 set `.ps-body { overflow: hidden }` and applied `display: block` to
+`.cert-tbl, .q-tbl, .inv-tbl`. `.ps-body` is a grid/flex child; `overflow:
+hidden` on it truncates rather than scrolls, and `.cert-tbl`/`.q-tbl` already
+live inside scroller wrappers, so `display: block` there removed their table
+layout for nothing.
+
+**Fix:** `.ps-body { min-width: 0 }` (shrink, don't clip) and the `display:
+block` rule narrowed to `.ps-body > table, .ps-body table.priv-table` only.
+
+### Also fixed: the desktop home-page rhythm
+
+Independent of the regressions, this is what the owner was actually seeing as
+"gaps". The home page renders 8 `<section class="sec container">` blocks, 7 of
+them adjacent, and `.sec { padding: 88px 0 }` puts **176px of blank space at
+every junction** — roughly 1,230px of the home page was inter-section
+whitespace. New block appended to the end of `styles.css`, scoped
+`@media (min-width: 769px)` so it provably cannot touch a phone:
+
+| | before | after |
+|---|---|---|
+| `.sec + .sec` junction | 176px | **112px** (`padding-top: 24px`) |
+| `.sec-head` bottom margin | 58px | **44px** |
+| `.hero` min-height | `calc(100dvh - 118px)` | **`calc(100dvh - 124px)`** |
+
+~450px of dead scroll removed from the laptop home page. The hero used 118px
+because that was the old chrome; the real chrome measures **124px**
+(`.utilbar-in` 42px + `.header-in.header-top` 82px). It is deliberately *not*
+`var(--headerH)`: `setHeaderH()` reads a `position: sticky` header, so that
+variable flips between 140px and 98px depending on scroll position and cannot
+be used for static layout sizing.
+
+### Also fixed: `.pf-chip`, a real button at 34px
+
+`styles.css` ships its own `@media (max-width: 680px)` block that *shrinks* the
+portal filter bar with `!important` — `.pf-chip` to 34px, `.ds-qty` buttons to
+40px, `.pf-f` inputs to 40px @ 11px. `.pf-chip` is a genuine `<button>`.
+`mobile.css` is the last stylesheet, so §4 now answers with `!important` at 44px
+and sets filter inputs to 16px (which also stops iOS Safari zooming the page on
+focus). Small tap targets: 8 → **7**, and all 7 remaining are confirmed
+non-interactive (step-connector pseudo-elements, status dots, the `.c-dot`
+visual, the static `.pay-chip` header badge, `.dw-gi` inside an anchor).
+
+### QA tooling
+
+`qa/qa_v97_mobile.py` is now **51 checks, 0 failed** (was 42). Nine new
+regression guards encode each defect above so a future "optimisation" cannot
+reintroduce it: no root-level overflow clip in live CSS, no `content-visibility`
+anywhere, `.p-grid` re-resolved to 3 columns at 700px *and* 2 at 360px, dot hit
+area ≤ pitch, the desktop block provably `min-width`-scoped, hero on 124px.
+
+Three stale v97 assertions that *demanded* the reverted behaviour were removed,
+and two guards were corrected after they produced false positives: they must run
+against comment-stripped source (mobile.css §0 quotes the removed
+`overflow-x: clip` rule to explain why it went), and section boundaries have to
+be found by line number because the `§n` headers *are* comments.
+
+`qa/desktop_rhythm.py` (new in this pass) resolves the winning box model at
+desktop widths to find empty vertical bands. It had a real bug, now fixed: its
+length parser required a unit, so `margin: 0 -4vw` parsed to `[-57.6]` instead
+of `[0.0, -57.6]`. Losing a token corrupts shorthand *position*, which made a
+zero vertical margin report as −58px and raise a bogus warning. `vw` was also
+hardcoded to a 1440px viewport.
+
+**Deliverable:** `shivaa-update-v98.zip` (805 KB, 40 files) — manifest verified
+identical to `shivaa-update-v95.zip`, drop-in. Four files changed:
+`css/mobile.css`, `css/styles.css`, and one version string each in `index.html`
+and `sw.js` (`?v=98`, `shivaa-shell-v98` — the shell name MUST move or returning
+visitors keep the cached v97 sheet).
+
+**Unverified:** still no browser and no PHP in the sandbox. That is exactly why
+v97 shipped broken — every defect above is invisible to static cascade analysis
+except in hindsight. The fixes are reasoned from the CSS spec and measured from
+the source, but **the first live open on a real handset is the actual test.**
+Check in this order: (1) does the home page scroll at all, (2) laptop home page
+junctions, (3) carousel dots, (4) product grid on a tablet, (5) the privacy
+table.
+
+## v99 — Saathi removed, 370KB off the critical path (2026-09-13)
+
+Two requests: *"completely remove the Saathi button, we will add a Gemini
+chatbot later"*, and make the site smoother / more mobile-first / better
+animated. Removing a feature is the dangerous kind of change — the markup goes
+away easily, the references to it do not.
+
+### Saathi removal
+
+Both entry points are gone: the `#navSaathi` drawer button (`index.html:117`)
+and the `[data-saathi]` footer link (`index.html:191`). `bot.css` and `bot.js`
+are no longer loaded, and are out of the service-worker precache list.
+
+Before removing `bot.css` I checked what else lived in it — that is the v97
+lesson. It is **100% Saathi-specific**: 92 rules, all `.sa-*`, `.dw-saathi`,
+`#saathi*` or the `saIn`/`saTy`/`saMic` keyframes. Every shared drawer class
+(`.dw-row`, `.dw-gi`, `.dw-close`, `.dw-tiles`, `.dw-tx`, `.dw-ar`, `.dw-lite`)
+is styled in `styles.css`/`mobile.css`/`finale.css`/`motion.css`. The one
+apparent exception, `.dw-panel`, turned out to be a dead selector matching no
+markup at all.
+
+**The bug this nearly shipped:** the empty-category state in `app.js:2156`
+rendered a button calling `Shivaa.saathiOpen(...)`, and that function is defined
+in `bot.js:600`. With `bot.js` unloaded it would have thrown
+`TypeError: Shivaa.saathiOpen is not a function` the first time a shopper opened
+an uncatalogued category — the exact moment you least want an error. Found by
+grepping for callers of every global bot.js exports, not by removing the markup.
+
+Four user-facing strings also advertised the bot and were rewritten: the refund
+policy subtitle, the empty-category state, the "pieces are being re-catalogued"
+toast, and a stale comment. `app.js` now has **zero** occurrences of "saathi".
+
+`bot.js` and `bot.css` are deliberately **left on disk and in the zip** so the
+Gemini integration can reuse the panel shell, and so a rollback is one line.
+
+### 370KB off the shopper's critical path
+
+Measured before anything was changed: **1,775KB** of render-blocking CSS+JS, all
+`<script>` tags synchronous. After: **1,405KB** (−370KB, −20.9%).
+
+| removed from the critical path | size | why it is safe |
+|---|---|---|
+| `admin.js` | 261KB | staff-only; now lazy-loaded |
+| `qr.js` | 55KB | its only consumer is `admin.js:1758` |
+| `bot.js` | 50KB | Saathi removed |
+| `bot.css` | 11KB | Saathi removed |
+
+`admin.js` was loading for **every shopper** to render a page only staff can
+reach. Verified before moving it: all 235 references to `ShivaaAdmin`,
+`ShivaaPartner`, `ShivaaBullion`, `ShivaaPages` and `ShivaaCO` live inside
+`admin.js` itself; the single `QRCode` consumer is `admin.js:1758` and is
+already wrapped in `try/catch`; nothing gates on `routes.admin` existing.
+
+`app.js` now has `loadStaffBundle()` in the ROUTER section. `#/admin` and
+`#/partner` render a branded "Opening the staff panel…" state, fetch `qr.js`
+then `admin.js` (in that order — `admin.js` calls `qr.js`'s global), and replay
+the route. `admin.js` registers its own routes at load time
+(`Shivaa.routes.admin`), so the replay just works. A failed fetch shows a Retry
+button and resets the promise so the retry can actually run.
+
+All six remaining scripts are now `defer`. That is safe here specifically
+because `app.js:6768` already had a `document.readyState` boot guard, the only
+inline script just registers the service worker inside a `load` listener, and
+the ten `document.write` calls are all `w.document.write` into newly-opened
+print windows. `defer` also guarantees a fully parsed DOM, which is strictly
+safer than the old end-of-body synchronous execution.
+
+### Compositor cost (new auditor: `qa/mobile_smooth.py`)
+
+Written for this pass, because "make it smoother" needs measuring rather than
+eyeballing. It reports layout-triggering animations, `transition: all`,
+`backdrop-filter` cost, `will-change` discipline, reduced-motion coverage.
+
+**Fixed:**
+- **3 explicit `transition: all`** (`.btn`, `.btn-outline/.btn-ghost/.btn-light`,
+  `.pf-chip`) → named properties. Measured which properties actually change on
+  their states first: `transform`, `box-shadow`, `background-color`, `color`,
+  `border-color`, `filter`. `outline`/`outline-offset`/`border-radius` change
+  only on `:focus-visible` and are deliberately left to snap — an animated focus
+  ring is an accessibility regression.
+- **`.mnav a{transition:.25s}`** — the fixed bottom nav, the most-tapped element
+  on the site, was an *implicit* `all`. Now names its properties.
+- **`.btn{will-change:transform}` and the icon-button equivalent** were
+  top-level, so every button on the page pinned a permanent GPU layer. Now
+  scoped to `@media (hover:hover)`. Browsers already promote an element for the
+  duration of a transform transition, so touch loses nothing and desktop is
+  unchanged.
+
+**Measured and deliberately NOT changed: 86 implicit `transition: all`.**
+`transition: .25s` with no property named is legal CSS and means `all`; grepping
+for the word "all" finds none of them (84 in `styles.css`, 2 in `finale.css`).
+Each one needs its own property list derived from its own state rules. Rewriting
+86 declarations with no browser to verify is precisely the v97 mistake, so they
+are now visible in the audit and left as documented debt.
+
+**The v80 discovery.** `styles.css:4794` already has a
+`@media (max-width:820px)` "Scroll jank prevention" block that makes `.header`
+fully solid with `backdrop-filter:none !important`, cuts `.mnav` to `blur(8px)`
+and `.modal-overlay` to `blur(3px)`. My first draft of §15 re-styled the header
+glass and lost to that `!important` — dead code that contradicted a deliberate
+existing optimisation. Caught by resolving the real cascade at 390×844 with
+`pointer:coarse` rather than assuming. Those rules were removed; §15 now only
+covers the two pinned surfaces v80 missed (`.utilbar` blur 8→4px,
+`.pd-stickybar` blur 12→4px — both already ≥92% opaque, so the blur was
+invisible while costing full price). Backgrounds untouched, so there is no
+visual change to find.
+
+### §15 · touch & compositor pass
+
+Appended to `mobile.css`, scoped to **`(pointer: coarse)`** rather than a width
+band. That is a deliberate choice: v97 broke tablets by declaring phone rules at
+`≤900px`, which landed on top of v95's `601–900px` band. A pointer query cannot
+collide with any width band at all.
+
+- **Gesture ownership.** Horizontal rails (`.catbar`, `.hscroll`, `.tabs`,
+  `.stages`, table scrollers…) get `overscroll-behavior-x: contain` so a swipe
+  along a rail near the screen edge is not hijacked by the browser's
+  back/forward gesture. The `-x` suffix is the whole safety argument: it cannot
+  influence vertical scrolling under any circumstances, so there is no mechanism
+  by which it could recreate the v97 "page will not scroll" failure. Open sheets
+  (`.modal`, `.filters`, `.search-drawer`, `.auth-panel`, `.mc-body`…) get full
+  `contain`, which is free because the page behind them is already scroll-locked
+  by `html.no-scroll` / `body.drawer-open` / `_scrollLock`.
+- **`text-wrap: balance`** on `.hero h1`, `.page-hero h1`, `.sec-head h2` so a
+  multi-line heading is not left with a two-word stub. Purely progressive —
+  unsupported browsers ignore it.
+
+28 scrolling containers were classified by axis before any of this was written;
+`.modal`/`.filters`/`.svb-list`/`.adm-side` and friends were checked
+individually rather than assumed.
+
+### QA
+
+New **`qa/qa_v99_saathi_perf.py` — 68 checks, 0 failed.** Five sections: Saathi
+is gone and nothing still calls it; the staff bundle is off the critical path;
+critical path and script loading; compositor cost; files parse, versions move,
+zip is a drop-in.
+
+Three bugs were found in the QA scripts themselves while writing them, all of
+which made checks pass *vacuously* — worth recording because a green gate that
+measures nothing is worse than no gate:
+1. `re.findall(r'<script[^>]+src="(/js/[^"?]+)"')` — the trailing `"` can never
+   match, because the URLs carry `?v=99`. It returned zero scripts, so
+   `js_bytes` summed to 0 and "critical path under 1500KB" passed at **0KB**.
+2. `Path("cms") / "/css/styles.css"` resolves to `/css/styles.css` — pathlib
+   discards the left operand when the right is absolute. Same vacuous pass.
+   Both are fixed, and the total is now *required* to be >500KB so it can never
+   silently measure nothing again.
+3. Three guards matched their own explanatory comments (mobile.css §0 quotes the
+   reverted `overflow-x: clip`; sw.js and §15 mention `bot.js`/`.mnav`). Guards
+   now run against comment-stripped source.
+
+`qa/mobile_audit.py`'s `CSS_FILES`/`JS_FILES` were updated to match what
+`index.html` actually loads — `bot.css`/`bot.js` removed, `admin.js` kept
+(it is lazy but still renders real markup, so its class names are genuinely
+used and dropping it would inflate the dead-selector count with false
+positives). This mattered: with `bot.css` still in the list the structural score
+read 49 instead of the true 48.
+
+Two stale assertions demanding the removed Saathi tool rail were retired.
+
+| metric | v95 | v98 | v99 |
+|---|---|---|---|
+| critical path (CSS+JS) | — | 1,775KB | **1,405KB** |
+| risky winning declarations | 88 | 48 | **48** |
+| winning `font-size` < 10px | 30 | 1 | **1** |
+| interactive boxes < 40px | 13 | 7 | **7** |
+| explicit `transition: all` | 3 | 3 | **0** |
+| permanent `will-change` on touch | 2 rules | 2 rules | **0** (hover-only) |
+| QA checks | 42 | 51 | **117** (49 + 68) |
+
+**Deliverable:** `shivaa-update-v99.zip` (808KB, 40 files) — manifest identical
+to `shivaa-update-v95.zip`, drop-in. Six files changed content
+(`index.html`, `sw.js`, `css/styles.css`, `css/mobile.css`, `css/motion.css`,
+`js/app.js`); everything else is byte-identical. `js/admin.js` and `js/qr.js`
+**must still be uploaded** — they are lazy-loaded, not deleted, and the admin
+panel 404s without them.
+
+**Unverified:** still no browser and no PHP in the sandbox. The two changes that
+static analysis genuinely cannot prove are (1) that the lazy staff bundle
+renders the admin panel on a real device, and (2) that `defer` did not disturb
+boot ordering. Check those first: log in as admin and open `#/admin`, then
+confirm the storefront boots normally. Everything else is CSS the cascade
+simulator resolved winner-by-winner.
