@@ -69,7 +69,7 @@
 
   function renderLookup(view, query) {
     view.innerHTML = `<section class="hm-hero"><div class="container">
-      <div class="crumbs"><a href="#/">Home</a> / Hallmark &amp; HUID</div>
+      <div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Hallmark &amp; HUID</span></div>
       <span class="label">Know the piece. Check the source.</span>
       <h1>BIS hallmark <em class="disp-italic">&amp; HUID check</em></h1>
       <p>A six-character code is a starting point, not proof. Check the format here, then use BIS Care for the official lookup.</p>

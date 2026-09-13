@@ -573,3 +573,860 @@
   .modal, .nav, .mc-drawer, #saathiPanel, .filters, .mcta-bar, .toast { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   v96 · MOBILE-FIRST POLISH PASS
+   Everything below is interface-only: gutters, type floor, tap
+   targets, stacking and vertical rhythm. No content is removed.
+   Loaded last ⇒ wins every tie with the layers above.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── 0 · decorative watermarks stay decorative ─────────────────────
+   The motion layer's blur-up reveal (img.img-ok) forced opacity:1 /
+   transform:none on EVERY #view image, which turned the faint hero
+   watermark (.ph-mark) and the corner logo into a giant white slab on
+   every page hero. Restore their intended treatment, all viewports. */
+html.js-motion #view img.ph-mark.img-ok {
+  opacity: .11; transform: translateY(-50%) rotate(-5deg);
+  filter: saturate(1.3) brightness(1.5);
+}
+html.js-motion #view img.hero-logo.img-ok { opacity: .5; transform: none; filter: saturate(.9); }
+html.js-motion .cert-head img.img-ok { opacity: .95; filter: brightness(0) invert(1); }
+html.js-motion .bd-topbar img.img-ok { opacity: .92; filter: brightness(0) invert(1); }
+@media (max-width: 768px) {
+  html.js-motion #view img.ph-mark.img-ok, .ph-mark { height: 46%; max-height: 150px; opacity: .09; }
+}
+
+/* ── 1 · page gutters, restored ─────────────────────────────────────
+   `.sec{padding:46px 0}` (shorthand, later in this file) was resetting
+   the inline padding that `.container` sets, so every `section.sec.
+   container` grid ran edge-to-edge and clipped its outer cards. */
+@media (max-width: 768px) {
+  .sec.container, section.container, .container.sec { padding-inline: 16px; }
+  /* these are meant to kiss the screen edge */
+  .hero > .container, .hero .container, .catbar-outer, .carousel-sec { padding-inline: 0; }
+  .rev-marquee { margin-inline: -16px; }
+}
+@media (max-width: 380px) {
+  .sec.container, section.container, .container.sec { padding-inline: 13px; }
+  .rev-marquee { margin-inline: -13px; }
+}
+
+/* ── 2 · type floor: nothing reads below 11px on a phone ──────────── */
+@media (max-width: 768px) {
+  .utilbar { font-size: 12px; }
+  .hero-trust, .hero-trust a, .hero-trust span { font-size: 11px; letter-spacing: .12em; }
+  .ph-trust, .ph-trust a, .ph-trust span { font-size: 11px; letter-spacing: .14em; }
+  .crumbs, .crumbs a { font-size: 11px; letter-spacing: .12em; }
+  .cb-item b { font-size: 11px; letter-spacing: .08em; }
+  .cp-lb { font-size: 12px; }
+  .mnav a { font-size: 10.5px; letter-spacing: .02em; }
+  .badge { font-size: 10px; min-width: 17px; height: 17px; }
+  .pc-meta, .pc-tag, .pc-cat, .pc-live { font-size: 11px; }
+  .pc-quick { font-size: 10.5px; letter-spacing: .1em; }
+  .tagx { font-size: 9.5px; letter-spacing: .1em; }
+  .hstat span { font-size: 10.5px; letter-spacing: .1em; }
+  .hstat b { font-size: 20px; }
+  .pay-chip { font-size: 10.5px; height: 30px; padding-inline: 11px; }
+  .foot-seals .seal b { font-size: 12px; }
+  .foot-seals .seal small { font-size: 10.5px; }
+  .foot-staff, .foot-staff a, .foot-legal, .foot-legal span { font-size: 11.5px; }
+  .f-motto { font-size: clamp(20px, 6vw, 26px); }
+  .f-wordmark { font-size: clamp(44px, 15vw, 72px); }
+  .label { font-size: 11px; }
+  .see-all { font-size: 12.5px; }
+  .jh-badge { font-size: 11px; }
+  .rev-ver, .rev-card small { font-size: 11px; }
+  .sec-head p.sub { font-size: 13.5px; }
+  .adm-table th { font-size: 10.5px; letter-spacing: .08em; }
+  .ref-stats small, .svb-top small { font-size: 10.5px; }
+  .c-body p { font-size: 13.5px; }
+  .c-body .label { font-size: 10.5px; }
+  .offer-seal span { font-size: 10px; }
+  .pd-stamp { font-size: 10.5px; }
+  .emi-strip { font-size: 11.5px; }
+  .sum-row small { font-size: 11px; }
+}
+
+/* ── 3 · tap targets: 40px floor on everything tappable ──────────── */
+@media (max-width: 768px) {
+  .pc-quick { min-height: 38px; padding: 10px 14px; }
+  .pc-wish { width: 40px; height: 40px; }
+  .pc-compare { height: 40px; min-width: 40px; justify-content: center; padding: 0 10px; right: 54px; }
+  .see-all { display: inline-flex; align-items: center; min-height: 40px; padding: 6px 2px; }
+  .ph-trust a, .hero-trust a { display: inline-flex; align-items: center; min-height: 40px; }
+  .crumbs a { display: inline-flex; align-items: center; min-height: 32px; }
+  .foot-staff a { display: inline-flex; align-items: center; min-height: 34px; }
+  .foot-chips a { min-height: 38px; display: inline-flex; align-items: center; padding-inline: 15px; }
+  .trust-footer-links a { min-height: 40px; display: inline-flex; align-items: center; }
+  .dw-foot a, .dw-call { min-height: 44px; display: inline-flex; align-items: center; }
+  .sugg { min-height: 46px; }
+  .c-arrow { width: 38px; height: 38px; }
+  .shv-save { display: flex; align-items: center; gap: 10px; text-align: left; justify-content: flex-start; min-height: 40px; }
+  .shv-save input { width: 20px; height: 20px; flex: none; margin: 0; }
+  .shv-save span { flex: 1; font-size: 12.5px; line-height: 1.4; }
+  .tab { min-height: 44px; }
+  .acc summary, details summary { min-height: 46px; }
+}
+
+/* ── 4 · product card: badges never collide with the action buttons ─ */
+@media (max-width: 768px) {
+  .pc-tags { right: 98px; gap: 5px; max-width: none; }
+  .pc-tags .tagx:nth-child(n+3) { display: none; }   /* two badges read clean on a 170px card */
+  .pc-imgwrap { aspect-ratio: 1/1.02; }
+}
+
+/* ── 5 · home hero: tighter, calmer, still cinematic ─────────────── */
+@media (max-width: 768px) {
+  .hero { padding: 30px 0 26px; }
+  .hero h1 { font-size: clamp(30px, 8.6vw, 40px); line-height: 1.12; }
+  .hero-sub { font-size: 13.5px; line-height: 1.6; }
+  .hero-kicker { font-size: 10px; padding: 7px 14px; }
+  .hero-stage { height: 236px; margin-top: 16px; }
+  .hero-stats { margin: 16px 0 0; width: 100%; display: flex; }
+  .hstat { flex: 1; padding-left: 10px; }
+  .hstat:first-child { border-left: 0; padding-left: 0; }
+  .hero-cue { display: none; }
+  .hero-trust { margin-top: 14px; row-gap: 0; }
+}
+
+/* ── 6 · category rail: swipe from the gutter, snap, no clipped label ─ */
+@media (max-width: 768px) {
+  .catbar-outer { padding: 14px 0 10px; }
+  .catbar2 { padding: 6px 16px 12px; gap: 16px; scroll-snap-type: x proximity; }
+  .cb-item { min-width: 74px; scroll-snap-align: start; }
+  .cb-item b { max-width: 84px; overflow: hidden; text-overflow: ellipsis; }
+  .cb-img { width: 62px; height: 62px; }
+}
+
+/* ── 7 · heritage carousel: legible over any photograph ──────────── */
+@media (max-width: 768px) {
+  .c-slide { min-height: 400px; }
+  .c-fade { background: linear-gradient(180deg, rgba(24, 4, 8, .34) 0%, rgba(24, 4, 8, .62) 42%, rgba(24, 4, 8, .93) 78%, rgba(24, 4, 8, .97) 100%); }
+  .c-body { padding: 24px 18px 44px; }
+  .c-body h3 { font-size: clamp(22px, 6.6vw, 28px); line-height: 1.14; }
+  .c-body p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .c-cta { gap: 8px; }
+  .c-cta .btn { min-height: 46px; padding: 12px 18px; font-size: 11.5px; }
+  .c-arrow { bottom: 12px; top: auto; opacity: .92; }
+  .c-prev { left: 12px; } .c-next { right: 12px; }
+  .c-dots { bottom: 20px; }
+  .offer-seal b { width: 58px; height: 58px; font-size: 14px; }
+}
+
+/* ── 8 · product-of-the-month: stacked, clamped, no left bleed ────── */
+@media (max-width: 768px) {
+  .sec .grid2 { grid-template-columns: 1fr !important; gap: 16px; }
+  .sec .grid2 > div h2, .sec .grid2 h2[style] { font-size: clamp(21px, 6.2vw, 28px) !important; line-height: 1.16; margin-top: 6px !important; }
+  .sec .grid2 b.js-price { font-size: clamp(22px, 6.4vw, 28px) !important; }
+  .sec .grid2 [style*="align-items:baseline"] { flex-wrap: wrap; gap: 6px 12px; margin: 10px 0 16px !important; }
+  .sec .grid2 .cat-card { height: 250px !important; border-radius: 18px; }
+  .banner { min-height: 230px !important; }
+  .b-body { padding: 20px 18px; }
+  .b-body h3 { font-size: clamp(19px, 5.8vw, 24px); }
+  .b-body p { font-size: 12.5px; -webkit-line-clamp: 3; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+}
+
+/* ── 9 · review marquee: soft edge fades + calmer speed on touch ─── */
+.rev-marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+}
+@media (pointer: coarse) { .rev-track { animation-duration: 64s; } }
+@media (max-width: 768px) {
+  .rev-card { width: 250px; padding: 16px 15px; border-radius: 16px; }
+  .rev-card p { font-size: 13px; }
+  .ugc-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .ugc-wall { gap: 9px; }
+}
+
+/* ── 10 · vertical rhythm: a phone screen should always show "more" ─ */
+@media (max-width: 768px) {
+  .sec { padding: 38px 0; }
+  .sec-head { margin-bottom: 20px; }
+  .sec-head h2 { font-size: clamp(22px, 6.6vw, 29px); }
+  .poster-xl { min-height: 300px; }
+  .poster-side .poster { min-height: 170px; }
+  .cat-mini { gap: 9px; }
+  .cat-mini-card { padding: 10px 4px 9px; }
+  .cat-mini-card img { width: 44px; height: 44px; }
+  .cat-mini-card b { font-size: 10.5px; letter-spacing: .04em; }
+  .p-grid { gap: 10px; }
+  .pillars, .trust-grid { gap: 10px; }
+  .svc, .trust, .testi, .pillar { padding: 16px 13px; border-radius: 16px; }
+  .pillar h3, .trust h3, .svc h3 { font-size: 16px; }
+  .pillar p, .trust p, .svc p { font-size: 12.5px; }
+  .newsletter { padding: 28px 16px; }
+  .empty { padding: 64px 20px !important; }
+  .empty h3 { font-size: 20px; }
+}
+
+/* ── 11 · rate strip & jaipur board: numbers that fit ────────────── */
+@media (max-width: 768px) {
+  .rate-strip-in { gap: 0; }
+  .rs-cell b, .rate-strip b { font-size: clamp(15px, 4.6vw, 19px); }
+  .rs-cell span, .rate-strip span { font-size: 10.5px; letter-spacing: .1em; }
+  .jaipur-hero { padding: 20px 16px; border-radius: 18px; }
+  .jh-val { font-size: clamp(26px, 8vw, 34px); }
+  .jh-row { font-size: 12.5px; padding: 9px 0; }
+}
+
+/* ── 12 · footer: legal lines wrap inside the gutter ─────────────── */
+@media (max-width: 768px) {
+  .foot-legal { padding-inline: 4px; }
+  .foot-staff { line-height: 1.5; display: flex; flex-wrap: wrap; justify-content: center; column-gap: 6px; }
+  .foot-chips { gap: 7px; }
+  .pay-strip { gap: 6px; }
+  .f-cornice { padding-top: 8px; }
+}
+
+/* ── 13 · sheets, drawers & bars: silkier entrances ──────────────── */
+@media (max-width: 768px) {
+  .modal, .mc-drawer, .filters, .mcta-bar, #saathiPanel {
+    transition-timing-function: cubic-bezier(.22, 1, .36, 1);
+  }
+  .toast-wrap { gap: 8px; }
+}
+
+/* ── 14 · scroll performance on long pages ───────────────────────── */
+@media (pointer: coarse) {
+  .p-grid, .cat-mini, .ugc-wall, .pillars { content-visibility: auto; contain-intrinsic-size: auto 620px; }
+  .rev-track, .c-track, .catbar2 { will-change: scroll-position; }
+  img { -webkit-user-drag: none; user-select: none; }
+}
+
+/* ── 15 · v96.1 · gutter + legibility corrections after first audit ── */
+@media (max-width: 768px) {
+  /* ANY padded shorthand elsewhere (shop-main, cart-layout …) must not eat
+     the phone gutter — this rule sits last, so it wins equal-specificity ties */
+  .container { padding-inline: 16px; }
+  .hero > .container, .hero .container { padding-inline: 0; }
+
+  /* page heroes sit on deep maroon: the ink-reveal gradient (dark maroon →
+     gold) disappears into the background, so give it a light foil instead */
+  .page-hero h1 {
+    background: linear-gradient(100deg, #fdf3dd 8%, #f4ddab 46%, #e9c987 58%, #fdf3dd 92%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: #fdf3dd;
+    background-size: 220% 100%; animation: foilPan 7s linear infinite alternate;
+  }
+  .page-hero p { color: rgba(246, 232, 200, .82); }
+
+  /* the watermark is a boxed logo; on a phone it reads as a slab, so keep it
+     a whisper rather than a panel */
+  .ph-mark, html.js-motion #view img.ph-mark.img-ok { opacity: .05; }
+}
+@keyframes foilPan { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+@media (max-width: 380px) { .container { padding-inline: 13px; } }
+
+/* ── 16 · v96.2 · second audit corrections ─────────────────────────── */
+@media (max-width: 768px) {
+  /* snap was eating the rail's left gutter; honour it when snapping */
+  .catbar2 { scroll-padding-inline: 16px; gap: 14px; }
+  .cb-item { min-width: 88px; }
+  .cb-item b { max-width: 88px; }
+
+  /* swipe + dots are the phone idiom; floating arrows only crowd it */
+  @media (pointer: coarse) { .c-arrow { display: none; } }
+
+  /* hero CTAs keep the page gutter instead of kissing the bezel */
+  .hero-cta { padding-inline: 16px; }
+  .hero-trust a, .hero-trust span { min-height: 34px; }
+  .ph-trust a, .ph-trust span { min-height: 32px; }
+
+  /* boxed logo watermark has no place on a 6″ hero — corner marks remain */
+  .ph-mark, html.js-motion #view img.ph-mark.img-ok { display: none; }
+
+  /* one crisp badge per card on phones */
+  .tagx { white-space: nowrap; }
+  .pc-tags .tagx + .tagx { display: none; }
+  .pc-tags { right: 96px; }
+
+  /* campaign countdown: four equal cells, edge to edge of the panel */
+  .fin-cd, .flash-countdown { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+  .fin-cd > div, .flash-countdown > div { width: auto !important; margin: 0 !important; }
+
+  /* live-rate strip: two calm columns that never wrap mid-label */
+  .rate-strip-in { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-block: 12px; }
+  .rate-strip-in span, .rs-cell span { font-size: 10px; letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .rate-strip-in b, .rs-cell b { font-size: clamp(15px, 4.4vw, 18px); }
+}
+
+/* ── 17 · v96.3 · sizer + micro-type corrections ───────────────────── */
+@media (max-width: 768px) {
+  /* the sizer wrapper carries an inline padding shorthand — gutters win */
+  .sizer-wrap { padding-inline: 16px !important; }
+  .sz-card { max-width: 100%; min-width: 0; overflow: hidden; }
+  /* calibration must stay true-to-mm, so give the ± buttons their own row
+     instead of letting them push the card past the bezel */
+  .sz-cardrow { flex-direction: column-reverse; gap: 10px; }
+  .sz-cardrow .btn { min-width: 52px; }
+  .sz-bankcard { max-width: 100%; }
+  .sz-bankcard span { font-size: 11px; padding-inline: 8px; text-align: center; }
+  .sz-stage { height: 280px; }
+  .sz-controls { flex-wrap: wrap; gap: 8px; }
+  .sz-controls .btn { flex: 1; min-height: 44px; }
+  .sz-readout b { font-size: 24px; }
+  .sz-tips { font-size: 12.5px; }
+
+  /* micro-type: the last sub-11px stragglers */
+  .utilbar b { font-size: 12px; }
+  .pay-chip { font-size: 11px; }
+  .foot-seals .seal small { font-size: 11px; }
+  .footer a, .f-col a, .foot-staff a { min-height: 36px; }
+  .partner-note { font-size: 12.5px; }
+  .kyc-req { font-size: 11px; }
+  .bbc-step span, .steps span { font-size: 11px; }
+}
+
+/* ── 18 · v96.4 · tiny-screen ticker + ornament clean-up ───────────── */
+.ph-trust span::before { display: none; }   /* markup already carries the ✦ */
+@media (max-width: 400px) {
+  .ub-live { display: none; }               /* keep both metals, drop the chip */
+  .utilbar-in { gap: 6px; }
+  #utilRates { gap: 10px; font-size: 11.5px; }
+  #utilRates b { font-size: 11.5px; }
+}
+@media (max-width: 768px) {
+  .page-hero { padding: 30px 0 26px; }      /* no dead air under the trust row */
+  .page-hero .ph-trust { margin-top: 16px; }
+}
+
+/* ── 19 · v96.5 · filter sheet owns the screen while open ──────────── */
+@media (max-width: 768px) {
+  /* #view creates a stacking context, so the sheet's z-index loses to the
+     bottom nav; slide the nav away while the sheet is up instead */
+  body:has(.filters.open) .mnav { transform: translateY(110%); transition: transform .3s var(--ease); }
+  .filters { z-index: 98; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  /* 17 categories as a calm two-column checklist, 44px rows */
+  .filters .fgroup { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; align-items: center; }
+  .filters .fgroup > h4, .filters .fgroup > input, .filters .fgroup > .fmeta,
+  .filters .fgroup > div, .filters .fgroup > .btn { grid-column: 1 / -1; }
+  .fcheck { padding: 11px 0; min-height: 44px; font-size: 13.5px; }
+  .fcheck input { width: 19px; height: 19px; flex: none; }
+  .fgroup { padding: 13px 2px; }
+  .fgroup h4 { margin-bottom: 9px; }
+  .fsheet-bar { padding: 12px 4px 10px; }
+  .filters .btn-block, .filters .f-apply { min-height: 50px; }
+}
+
+/* ── 20 · v96.6 · large-phone / small-tablet band (769–900) ─────────── */
+@media (min-width: 769px) and (max-width: 900px) {
+  /* the rate ticker must never shove the quick links off the strip */
+  .utilbar-in { flex-wrap: nowrap; }
+  .ub-rates { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+  .ub-right { flex: none; }
+  .ub-right a { font-size: 12px; }
+
+  .hero-stats { margin: 18px 0 0; width: 100%; display: flex; }
+  .hstat { flex: 1; }
+  .fin-cd, .flash-countdown { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
+  .fin-cd > div, .flash-countdown > div { width: auto !important; margin: 0 !important; }
+  .hero-cta { padding-inline: 8px; }
+  .p-grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .cat-mini { grid-template-columns: repeat(6, 1fr) !important; }
+}
+
+/* ── 21 · v96.7 · 769–900: outrank the ≤820 hero !importants ────────── */
+@media (min-width: 769px) and (max-width: 900px) {
+  .hero-stats {
+    width: 100% !important; margin: 16px 0 0 !important;
+    border-radius: 16px; background: rgba(20, 3, 7, .55);
+  }
+  .hstat span { font-size: 10.5px !important; letter-spacing: .1em; }
+  .hstat b { font-size: 22px; }
+  .hero-trust { font-size: 10.5px !important; flex-wrap: wrap; overflow: visible; }
+  .hero-sub { font-size: 13.5px !important; max-width: 560px; }
+  /* drop the 18K cell so gold + silver + quick links all fit the strip */
+  #utilRates span:nth-child(3) { display: none; }
+}
+
+/* ── 22 · v96.8 · countdown centring ────────────────────────────────── */
+@media (max-width: 900px) {
+  .fin-cd, .flash-countdown { max-width: 460px; margin: 16px auto 0; }
+}
+
+/* ── 23 · v96.9 · PDP declutter: one size-guide affordance on phones ── */
+@media (max-width: 768px) {
+  .size-guide-link { display: none; }   /* the Size label link + #/sizer remain */
+  .size-row { gap: 8px; }
+  .size-pill { flex: 0 0 auto; min-width: 52px; justify-content: center; display: inline-flex; align-items: center; }
+  .opt-label { font-size: 11.5px; }
+  .pd-cta-row { margin-top: 4px; }
+  .pd-stockrow, .pd-stock { font-size: 12px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   24 · v97 · TYPE FLOOR — nothing a customer must read sits under
+        10 px; micro-labels keep their jewellery-boutique tracking
+        but gain a legible size and a calmer line-height.
+   ════════════════════════════════════════════════════════════════ */
+.sa-head .sa-badge { font-size: 10px; letter-spacing: .14em; padding: 3px 8px; }
+.sa-tool b { font-size: 11px; line-height: 1.2; }
+.sa-foot { font-size: 11px; line-height: 1.45; }
+#mnav a > span { font-size: 11px; letter-spacing: .04em; }
+.fin-eng small, .fh-stack .fin-eng small { font-size: 10px; letter-spacing: .18em; }
+.fin-eng span { font-size: 11px; }
+.fc-cell span { font-size: 10px; letter-spacing: .12em; }
+.fc-lbl { font-size: 11px !important; line-height: 1.4; }
+.fb-chips li { font-size: 10.5px; letter-spacing: .1em; }
+.offer-seal b small { font-size: 10px; letter-spacing: .12em; }
+.offer-seal > span, .offer-seal.alt > span { font-size: 10.5px; line-height: 1.35; }
+.rscell .chg, .rscell .rs-live { font-size: 10.5px; }
+.tv-b small { font-size: 11px; }
+.pc-tags .tagx { font-size: 10px; letter-spacing: .1em; padding: 5px 10px; }
+.sz-ruler .tick b { font-size: 10px; }
+#szStrip > small, .sz-tips li { font-size: 11px; }
+.hm-card .label, .page-hero .label { font-size: 10.5px; }
+.team-card small { font-size: 11px; letter-spacing: .12em; }
+.shv-aud-btn .au-tx small { font-size: 10.5px; }
+.ready-badge { font-size: 11px; }
+.hero-kicker, .fh-kicker { font-size: 10.5px; letter-spacing: .2em; }
+.crumbs { font-size: 11px; }
+.c-body .label { font-size: 10px; letter-spacing: .2em; }
+.foot-seals .seal small { font-size: 11px; }
+.utilbar, .ub-rates, #utilRates { font-size: 12px; }
+#utilRates b { font-size: 12px; }
+
+/* ════════════════════════════════════════════════════════════════
+   25 · v97 · CRUMB TRAIL — separators are drawn by CSS between
+        crumb items, so a wrapped line can never strand a "/" at
+        its end; only the final (long) crumb is allowed to wrap.
+   ════════════════════════════════════════════════════════════════ */
+.crumbs .cr-i { white-space: nowrap; }
+.crumbs .cr-i:last-child { white-space: normal; overflow-wrap: anywhere; }
+.crumbs .cr-i + .cr-i::before { content: '/'; margin: 0 .5em; opacity: .5; }
+.crumbs a { display: inline-flex; align-items: center; min-height: 28px; }
+
+/* ════════════════════════════════════════════════════════════════
+   26 · v97 · TOUCH MATRIX — real controls ≥44 px, inline text
+        links ≥40 px, icon buttons square, checkboxes fat-finger
+        safe. Nothing changes position; only the hit geometry.
+   ════════════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  /* icon buttons & sheet controls */
+  .sa-ico { width: 42px; height: 42px; border-radius: 12px; font-size: 16px; }
+  #saathiMic { width: 44px; height: 44px; flex: none; }
+  .sa-in button[type="submit"], .sa-in .sa-send { width: 46px; height: 46px; flex: none; }
+  .sa-in input { height: 46px; }
+  .s-close { min-width: 44px; min-height: 40px; }
+  .hs-clear { width: 40px; height: 40px; }
+  .pdf-close { width: 44px; height: 44px; }
+  .dw-close { width: 44px; height: 44px; }
+  .modal-close { width: 44px; height: 44px; }
+  /* carousel dots: tiny visual, generous hit area */
+  .c-dot { position: relative; width: 10px; height: 10px; }
+  .c-dot::after { content: ''; position: absolute; inset: -13px -8px; }
+  /* checkboxes & radios */
+  input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; flex: none; }
+  /* inline text links */
+  .crumbs a, .ph-trust a, .hm-text-link, .size-guide-link, #shvHelp,
+  .info-tile a, .wa-inline, .hm-app-links a, .hm-source a, .acc-body a,
+  .dpo-row p a, .adm-card p a, .pillar b a, .sz-tips li a {
+    min-height: 40px; display: inline-flex; align-items: center;
+  }
+  /* footer: every row a comfortable 44 */
+  .footer a, .f-col a, .foot-staff a, .foot-chips a,
+  .trust-footer-links a, .trust-footer-note a { min-height: 44px; }
+  .foot-social a { width: 44px; height: 44px; }
+  .foot-social a svg { width: 21px; height: 21px; }
+  /* product card quick-view: slimmer, frosted, out of the jewel's face */
+  .pc-quick {
+    min-height: 32px; padding: 7px 14px; font-size: 10px; letter-spacing: .12em;
+    background: rgba(250, 246, 239, .88);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 14px rgba(29, 5, 9, .18);
+    bottom: 8px;
+  }
+  /* utilbar strip: 40 px so the rate line is tappable, not decorative */
+  .utilbar a, .ub-contact { min-height: 36px; display: inline-flex; align-items: center; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   27 · v97 · HERO & PAGE-HERO — the promise line is never
+        truncated mid-word again; spacing tuned for thumb reach.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .hero-sub {
+    -webkit-line-clamp: unset; display: block; overflow: visible;
+    font-size: 13.5px; line-height: 1.62; max-width: 44ch;
+    margin: 14px auto 22px;
+  }
+  .hero h1 { font-size: clamp(26px, 7.8vw, 36px); line-height: 1.1; }
+  .hero-in { padding: 44px 0 40px; }
+  .hero-kicker { padding: 7px 14px; min-height: 30px; display: inline-flex; align-items: center; }
+  .page-hero { padding: 34px 0 30px; }
+  .page-hero h1 { font-size: clamp(24px, 7.4vw, 32px); }
+  .page-hero p { font-size: 13px; line-height: 1.6; }
+  .crumbs { margin-bottom: 10px; line-height: 1.7; }
+  /* carousel copy stays crisp over bright jewellery */
+  .c-body p, .c-body h3 { text-shadow: 0 1px 2px rgba(20, 4, 8, .8), 0 0 18px rgba(20, 4, 8, .55); }
+  .c-body p { -webkit-line-clamp: 3; font-size: 13px; line-height: 1.55; }
+  .c-dots { bottom: 14px; gap: 10px; }
+  /* hero stat band: even columns, no orphan words */
+  .hero-stats { gap: 0; }
+  .hstat { padding-left: 12px; }
+  .hstat b { font-size: 24px; }
+  .hstat span { font-size: 10px; letter-spacing: .1em; line-height: 1.35; display: block; margin-top: 3px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   28 · v97 · RATE STRIP — four equal tiles; the label band is a
+        fixed two-line box so prices sit on one optical line.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .rate-strip-in { display: grid !important; grid-template-columns: 1fr 1fr; gap: 1px; }
+  .rate-strip-in .rscell {
+    padding: 14px 10px 15px; min-height: 104px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .rscell small {
+    font-size: 10px; letter-spacing: .14em; line-height: 1.4;
+    min-height: 2.8em; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 4px;
+  }
+  .rscell b { font-size: 22px; }
+  .rscell span { font-size: 10.5px; margin-top: 5px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   29 · v97 · PRODUCT CARDS — titles keep two lines everywhere so
+        prices align across the row; taps land on the whole card.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .p-grid { gap: 12px; }
+  .p-card .pc-name, .p-card h3 {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; min-height: 2.6em; line-height: 1.3; font-size: 13px;
+  }
+  .pc-meta, .p-card .pc-sub { font-size: 11px; }
+  .pc-price b, .p-card .pc-price { font-size: 15px; }
+  .pc-price small, .pc-price .pc-gst { font-size: 10.5px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   30 · v97 · RAILS — horizontal scrollers get momentum, snap and
+        no visible scrollbar (the jewellery glides, the chrome
+        doesn't).
+   ════════════════════════════════════════════════════════════════ */
+.catbar, .catbar2, .cb-wrap, .p-rail, .tv-row, .sa-tools, .sa-chips,
+.sz-rail, .cmp-rail, .catbar-outer {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.catbar::-webkit-scrollbar, .catbar2::-webkit-scrollbar, .cb-wrap::-webkit-scrollbar,
+.p-rail::-webkit-scrollbar, .tv-row::-webkit-scrollbar, .sa-tools::-webkit-scrollbar,
+.sa-chips::-webkit-scrollbar, .sz-rail::-webkit-scrollbar, .cmp-rail::-webkit-scrollbar,
+.catbar-outer::-webkit-scrollbar { display: none; }
+@media (pointer: coarse) {
+  .cb-wrap, .catbar2 { scroll-snap-type: x proximity; }
+  .cb-item { scroll-snap-align: center; }
+  .sa-chips, .tv-row { scroll-snap-type: x proximity; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   31 · v97 · SAATHI SHEET — the assistant reads like a native
+        messaging app: tidy header, one-line tool rail, no stray
+        bubbles, composer clear of the home indicator.
+   ════════════════════════════════════════════════════════════════ */
+.sa-m:empty { display: none; }
+@media (max-width: 768px) {
+  .sa-head { padding: 12px 14px calc(12px + env(safe-area-inset-top) * 0); }
+  .sa-ava { width: 40px; height: 40px; font-size: 18px; }
+  .sa-head b { font-size: 15.5px; }
+  .sa-head small { font-size: 11px; }
+  .sa-tools { padding: 10px 10px; gap: 8px; }
+  .sa-tool { min-height: 62px; border-radius: 14px; padding: 10px 6px; }
+  .sa-tool span { font-size: 17px; }
+  .sa-m { font-size: 13.5px; max-width: 88%; }
+  .sa-chip { min-height: 38px; display: inline-flex; align-items: center; font-size: 12px; }
+  .sa-in { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  #saathiIn { font-size: 16px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   32 · v97 · SHEETS & SMALL PHONES (≤430) — modals, filters and
+        the passport card breathe inside 14 px gutters.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 430px) {
+  .container { padding-inline: 14px; }
+  .modal { padding: 22px 15px calc(20px + env(safe-area-inset-bottom)); }
+  .modal h3 { font-size: 19px; }
+  .pay-sheet, .pay-grid { grid-template-columns: 1fr !important; }
+  .btn { padding: 13px 18px; font-size: 11.5px; }
+  .btn-lg { padding: 15px 20px; font-size: 12.5px; }
+  .cat-mini { grid-template-columns: repeat(3, 1fr) !important; gap: 10px; }
+  .hstat b { font-size: 21px; }
+  .rscell b { font-size: 20px; }
+  #mnav a > span { font-size: 10px; }
+  .foot-chips a { padding-inline: 12px; }
+  .c-body h3 { font-size: clamp(22px, 7vw, 28px); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   33 · v97 · BUTTER — scroll/paint budget for phones:
+        · frosted glass becomes solid tint (backdrop-filter is the
+          single most expensive mobile compositor effect)
+        · below-fold sections paint on demand
+        · rails & sheets keep GPU-friendly momentum
+        · keyboard/switch users get a visible focus ring
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .mnav {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background: rgba(24, 4, 7, .985);
+  }
+  .pd-stickybar {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background: rgba(250, 246, 239, .99);
+  }
+  .header.scrolled, .header.is-stuck {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background: rgba(250, 246, 239, .985);
+  }
+  .mcta-bar {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background: rgba(250, 246, 239, .99);
+  }
+  /* on-demand painting for the long marketing pages */
+  .sec, .rate-strip, .pillars, .cat-mini, .footer .f-body, .fb-wrap, .tv-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 640px;
+  }
+  img { -webkit-user-drag: none; user-select: none; }
+}
+:focus-visible {
+  outline: 2px solid var(--gold, #c29a45);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .c-slide, .ken-on, .ken-on * { animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   34 · v97 · LANDSCAPE PHONES — short viewport: compress the
+        hero, keep the action bar reachable, never trap content
+        behind the notch.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-height: 480px) and (orientation: landscape) {
+  .hero { min-height: auto; }
+  .hero-in { padding: 26px 0; }
+  .hero-sub { margin: 10px auto 14px; }
+  .page-hero { padding: 24px 0 20px; }
+  .mnav { padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
+  .mnav a { min-height: 46px; }
+  .modal { max-height: 94dvh; }
+  #saathiPanel { height: 96dvh; }
+  .pd-stickybar, .mcta-bar { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .c-slide { min-height: 340px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   35 · v97 · SAFE-AREA AUDIT — every pinned surface clears the
+        home indicator and the bottom nav exactly once.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .toast-wrap { bottom: calc(74px + env(safe-area-inset-bottom)); left: 10px; right: 10px; }
+  .filters .fsheet-bar { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .sa-foot { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  body:not([data-page="product"]) .pd-stickybar { bottom: calc(58px + env(safe-area-inset-bottom)); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   36 · v97.1 · REFINEMENTS FROM THE 320 px AUDIT
+   ════════════════════════════════════════════════════════════════ */
+/* badge/tag text must ellipsize, never spill out of its pill */
+.pc-tags .tagx {
+  min-width: 0; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 0 1 auto;
+}
+.pc-tags { gap: 6px; }
+
+/* the ring-size ruler becomes a swipeable rail on narrow phones */
+#szStrip { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+#szStrip::-webkit-scrollbar { display: none; }
+#szStrip .sz-ruler { min-width: 300px; }
+@media (pointer: coarse) { #szStrip { scroll-snap-type: x proximity; } }
+
+/* medallion seals fit their slide on small phones */
+@media (max-width: 430px) {
+  .offer-seal { gap: 10px; }
+  .offer-seal b { width: 62px; height: 62px; font-size: 15px; }
+  .offer-seal b small { font-size: 9.5px; letter-spacing: .2em; }
+  .offer-seal span { max-width: 112px; font-size: 10.5px; letter-spacing: .16em; }
+}
+
+/* raise the last 10 px decorative caps to a readable 10.5–11 px */
+#mnav a > span { font-size: 10.5px; }
+.hstat span { font-size: 10.5px; }
+.fc-cell span { font-size: 10.5px; }
+.c-body .label { font-size: 10.5px; }
+.offer-seal b small { font-size: 10.5px; }
+.offer-seal > span, .offer-seal.alt > span { font-size: 11px; }
+.sz-ruler .tick b { font-size: 10.5px; }
+.sa-head .sa-badge { font-size: 10.5px; }
+.hero-kicker, .fh-kicker { font-size: 11px; }
+.fin-eng small { font-size: 10.5px; }
+
+/* ════════════════════════════════════════════════════════════════
+   37 · v97.2 · SECOND AUDIT SWEEP — id-level specificity where
+        finale.css / motion.css own the selector, plus the last
+        undersized controls.
+   ════════════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  .brand { min-height: 44px; display: inline-flex; align-items: center; }
+  .hero-trust a { min-height: 40px; display: inline-flex; align-items: center; }
+  .pc-quick { min-height: 40px; font-size: 10.5px; }
+  .pc-body > a, .pc-body h3 a { min-height: 40px; }
+  #saathiSend { width: 46px !important; min-width: 46px; height: 46px; flex: none !important; }
+}
+.pc-tags .tagx { font-size: 10.5px; }
+.pc-price small, .pc-price .pc-gst { font-size: 11px; }
+#finaleCd .fc-cell span, #homeFinaleCd .fc-cell span, #wedCd .fc-cell span { font-size: 10.5px; }
+.fh-badge small, .fh-badge > small { font-size: 10.5px; letter-spacing: .14em; }
+.fp-gold, .fp-chip { font-size: 11px; }
+#prizeWorth, #prizeWorth b { font-size: 13px; }
+.fin-bar .fin-eng small, .fh-stack .fin-eng small { font-size: 10.5px; }
+.fin-close .fb-chips li, .fb-chips li { font-size: 11px; }
+@media (min-width: 361px) { #mnav a > span { font-size: 11px; } }
+
+/* the bottom nav reads as a tab bar: label + icon optical balance */
+@media (max-width: 768px) {
+  .mnav a { gap: 5px; padding: 8px 10px 7px; }
+  .mnav a svg { width: 22px; height: 22px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   38 · v97.3 · specificity closures (finale.css owns these)
+   ════════════════════════════════════════════════════════════════ */
+#finPrize .fp-gold, .fin-prize .fp-gold, #finPrize .fp-chip, .fin-prize .fp-chip { font-size: 11px; }
+.pc-body > a { display: block; }
+@media (pointer: coarse) { .pc-body > a { min-height: 40px; } }
+
+/* ════════════════════════════════════════════════════════════════
+   39 · v97.4 · CARD & GALLERY MICRO-FIXES FROM VISUAL REVIEW
+   ════════════════════════════════════════════════════════════════ */
+/* badge pills keep their full word on a 176 px card */
+.pc-tags .tagx { padding: 5px 8px; letter-spacing: .06em; font-size: 10px; }
+@media (max-width: 430px) { .pc-tags { right: 92px; } }
+
+/* the live-price line stays on one line, elegantly truncated if ever needed */
+.pc-live { font-size: 10.5px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* quick-view: a quiet frosted hint, not a billboard */
+@media (pointer: coarse) {
+  .pc-quick { padding: 6px 12px; font-size: 10px; letter-spacing: .1em; opacity: .96; }
+  /* product gallery: swipe + dots are the mobile language */
+  .gal-nav { display: none; }
+  /* the HUID stamp moves to the top corner, clear of the dots */
+  .pd-stamp { top: 12px; bottom: auto; left: 12px; font-size: 9.5px; padding: 6px 12px 6px 7px; }
+  .pd-stamp img { height: 20px; }
+}
+
+/* carousel dots get their own lane under the CTAs */
+@media (max-width: 768px) {
+  .c-body { padding-bottom: 46px; }
+  .c-dots { bottom: 12px; }
+}
+
+/* a wrapped final crumb balances instead of stranding a pipe */
+.crumbs .cr-i:last-child { text-wrap: balance; }
+
+/* ════════════════════════════════════════════════════════════════
+   40 · v97.5 · FILTER SHEET FOOT — the sticky action bar must kiss
+        the viewport edge; the sheet's own bottom padding used to
+        leave a 20 px slit of scrolling content beneath it.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .filters { padding-bottom: 0 !important; }
+  .fsheet-acts {
+    bottom: 0;
+    box-shadow: 0 -10px 26px rgba(31, 4, 9, .08);
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}
+/* final crumb balances as a block so a long piece name wraps evenly */
+.crumbs .cr-i:last-child { display: inline-block; text-wrap: balance; }
+
+/* ════════════════════════════════════════════════════════════════
+   41 · v97.6 · HERO LEGIBILITY ON SMALL PHONES — the horizontal
+        fade was designed for a two-column desktop hero; centred
+        phone copy needs a vertical scrim over bright jewellery.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .hero-fade {
+    background:
+      linear-gradient(180deg, rgba(43, 9, 14, .30) 0%, rgba(43, 9, 14, .62) 46%, rgba(43, 9, 14, .82) 100%),
+      linear-gradient(90deg, rgba(43, 9, 14, .55), rgba(43, 9, 14, .12) 70%);
+  }
+  .hero-sub { color: rgba(246, 232, 200, .88); }
+  .hero-trust { color: rgba(246, 232, 200, .8); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   42 · v97.7 · FINAL SWEEP — form labels & result captions are
+        reading text, not ornament: 11 px floor. Checkboxes get
+        id-level muscle past .fld overrides. Wide ledger tables
+        scroll inside their card instead of bleeding off-screen.
+   ════════════════════════════════════════════════════════════════ */
+.fld > label, .bbc-form .fld label, .svc-form .fld label, .ds-form-card .fld label,
+.bbr-label, .rte-card .rt, .mth-cell small, .cmp-card .cp-h, .cmp-card > b,
+.bbp small, .ph-k, .cs-cap small, .hm-card .label, .b2b-step span, .alt-div b,
+.shv-aud-btn .au-tx small, .rte-win .rt-badge, .svc-result .bbr-label {
+  font-size: 11px;
+}
+.cs-cap b sup { font-size: 10.5px; }
+@media (pointer: coarse) {
+  label.fld input[type="checkbox"], .shv-aud input[type="checkbox"],
+  .fld input[type="checkbox"], input[type="checkbox"] {
+    width: 22px !important; height: 22px !important;
+  }
+}
+@media (max-width: 768px) {
+  .ps-body, .priv-sec .ps-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.mc-table { min-width: 340px; }
+  .ps-body::-webkit-scrollbar { display: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   43 · v97.8 · 320 px COMPOSER & STAT BAND — the Saathi input row
+        and the hero stat card must fit the narrowest iPhone.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 360px) {
+  .sa-in { gap: 6px; padding-inline: 8px; }
+  .sa-in input { min-width: 0; flex: 1 1 auto; }
+  #saathiMic { width: 40px; height: 40px; }
+  #saathiSend { width: 42px !important; min-width: 42px; height: 42px; }
+  .hero-stats { margin-inline: 0 !important; width: 100% !important; }
+  .hstat { padding-left: 10px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   44 · v97.9 · HERO SCRIM (outranks the !important mobile fade in
+        styles.css) — on phones the copy block fills most of the
+        hero, so the scrim must start higher and hold a floor of
+        ~65% opacity behind every line of type.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .hero-fade {
+    background: linear-gradient(180deg,
+      rgba(29, 5, 9, .66) 0%,
+      rgba(29, 5, 9, .52) 20%,
+      rgba(29, 5, 9, .68) 38%,
+      rgba(29, 5, 9, .82) 54%,
+      rgba(20, 3, 7, .93) 72%,
+      #140306 100%) !important;
+  }
+  .hero-in::before {
+    height: 82%;
+    background: linear-gradient(180deg, rgba(16, 3, 6, .38), rgba(16, 3, 6, .8) 42%, rgba(16, 3, 6, .96));
+  }
+  .hero h1, .hero-sub, .hero-kicker { text-shadow: 0 1px 3px rgba(16, 3, 6, .55), 0 0 22px rgba(16, 3, 6, .45); }
+}
+@media (max-width: 430px) {
+  .hero-sub { max-width: 36ch; margin-inline: auto; }
+}

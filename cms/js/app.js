@@ -115,7 +115,12 @@ async function api(path, opts = {}) {
 
 /* ─────────── app state ─────────── */
 const state = {
-  user: null, rates: null, settings: null, mcTable: [],
+  /* v97 — settings/rates start as safe placeholders so a cold deep-link
+     (#/contact, #/rates) can never render into a null deref while the
+     boot fetches are still in flight; boot overwrites both. */
+  user: null, rates: null,
+  settings: { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '' },
+  mcTable: [],
   cart: store.get('shv_cart', []),            // [{id, qty, size, engraving}]
   localWish: store.get('shv_wish', []),
   compare: store.get('shv_compare', []),      // product ids, max 4 — local shortlist only
@@ -686,7 +691,7 @@ function finaleLanding() {
       <div class="container">
         <div class="fh-in">
           <div class="fh-copy">
-            <div class="crumbs"><a href="#/">Home</a> / The Bhai Dooj Gold Finale</div>
+            <div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">The Bhai Dooj Gold Finale</span></div>
             <span class="fh-kicker">✦ Bhai Dooj Gold Finale · 2026</span>
             <h1>One customer will win <em class="fh-gold">10&nbsp;g of certified 24K gold</em></h1>
             <p class="fh-sub">A lawful, CA-witnessed contest — every <b>qualifying purchase</b> (any gold piece of 3&nbsp;g or more in any karat, or 100&nbsp;g of silver per order) and every <b>free quiz entry</b> carries an equal chance in the live draw on <b>Bhai Dooj night — 11 November 2026</b>. The prize is the gold itself, at its market value on draw day.</p>
@@ -1562,7 +1567,7 @@ const pages = {};
 pages.login = async () => { openLogin(); };
 pages.privacy = async (view) => {
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Privacy Policy</div><h1>Your Data, Our <em class="disp-italic">Aman</em></h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Privacy Policy</span></div><h1>Your Data, Our <em class="disp-italic">Aman</em></h1>
   <p>The complete privacy & data-protection framework of Shivaa — Ernate Shine Jewellery Pvt. Ltd. — crafted under the Digital Personal Data Protection Act, 2023.</p></div></section>
 
   <div class="container" style="padding:40px 0 20px;max-width:1000px">
@@ -1681,7 +1686,7 @@ function renderRateStrip() {
 /* ─────────── HOME ─────────── */
 /* ── v52 legal pages: terms · refund · shipping (honest, DPDP/E-comm-rules aligned) ── */
 const legalShell = (crumb, title, ital, intro, body) => `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / ${crumb}</div><h1>${title} <em class="disp-italic">${ital}</em></h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">${crumb}</span></div><h1>${title} <em class="disp-italic">${ital}</em></h1>
   <p>${intro}</p></div></section>
   <div class="container" style="padding:40px 0 60px;max-width:880px">${body}</div>`;
 const legalCard = (t, b) => `<div class="adm-card" style="margin-bottom:16px"><h3 style="margin-bottom:8px">${t}</h3><div style="font-size:14.5px;line-height:1.75;color:var(--ink-2)">${b}</div></div>`;
@@ -1728,7 +1733,7 @@ const bindLegalWa = (view) => {
 
 /* ─────────── v55 pages: bridal bundle · gift cards · refer · video consult · dead-stock pickup ─────────── */
 const v55Shell = (crumb, title, ital, intro, bodyHtml) => `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / ${crumb}</div><h1>${title} <em class="disp-italic">${ital}</em></h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">${crumb}</span></div><h1>${title} <em class="disp-italic">${ital}</em></h1>
   <p>${intro}</p></div></section>
   <div class="container" style="padding:40px 0 60px;max-width:760px">${bodyHtml}</div>`;
 
@@ -2080,7 +2085,7 @@ pages.shop = async (view, q) => {
   state.productsCache.forEach(p => { metals.add(p.metal); purities.add(p.purity); });
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container">
-    <div class="crumbs"><a href="#/">Home</a> / Shop</div>
+    <div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Shop</span></div>
     <h1>${search ? `“${esc(search)}”` : cat ? CATS[cat].name : 'All Jewellery'}${tag ? ' · ' + (TAGS[tag] || tag) : ''}</h1>
     <p>Every price below follows the live Jaipur gold & silver rate and our published making-charge chart — automatically.</p>
   </div></section>
@@ -2224,7 +2229,7 @@ pages.product = async (view, q, id) => {
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
   view.innerHTML = `
   <div class="container" style="padding-top:26px">
-    <div class="crumbs" style="color:var(--ink-3)"><a href="#/">Home</a> / <a href="#/shop">Shop</a> / <a href="#/shop?category=${p.category}">${CATS[p.category]?.name}</a> / <span style="color:var(--gold)">${esc(p.name)}</span></div>
+    <div class="crumbs" style="color:var(--ink-3)"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i"><a href="#/shop">Shop</a></span><span class="cr-i"><a href="#/shop?category=${p.category}">${CATS[p.category]?.name}</a></span><span class="cr-i"><span style="color:var(--gold)">${esc(p.name)}</span></span></div>
     <div class="pd-layout">
       <div class="pd-gallery">
         <div class="gal-wrap" id="galWrap">
@@ -2561,7 +2566,7 @@ pages.compare = async (view, q) => {
   const items = compareItems();
   if (!items.length) {
     view.innerHTML = `
-    <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Compare</div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
+    <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Compare</span></div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
       <p>Add up to four pieces from product cards or product pages. The comparison uses only live prices and product details already shown on Shivaa.</p></div></section>
     <div class="empty pcmp-empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your compare tray is empty</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Tap “Compare” on any piece to build a private shortlist on this device.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`;
     updateCompareUI();
@@ -2572,7 +2577,7 @@ pages.compare = async (view, q) => {
   const row = (label, fn, cls = '') => `<tr class="${cls}"><th scope="row">${label}</th>${items.map(p => `<td>${fn(p)}</td>`).join('')}</tr>`;
   const metalLabel = p => p.metal === 'Silver' ? 'Silver 925' : p.purity + ' Gold';
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Compare</div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Compare</span></div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
     <p>${items.length} of ${COMPARE_MAX} pieces selected · prices recalculate from the current Jaipur live rate and product making-charge data.</p></div></section>
 
   <section class="sec container pcmp-page">
@@ -2642,7 +2647,7 @@ pages.cart = async (view) => {
   const subtotal = lines.reduce((a, l) => a + l.pr.total * l.it.qty, 0);
   const shipping = subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Cart</div><h1>Your Cart</h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Cart</span></div><h1>Your Cart</h1>
   <p>${lines.length} piece${lines.length > 1 ? 's' : ''} · priced at the live Jaipur rate of ${timeFmt(state.rates.t)}</p></div></section>
   <div class="container cart-layout">
     <div>
@@ -2876,7 +2881,7 @@ pages.checkout = async (view) => {
   let payCfg = { mode: 'demo', prepaidPct: 2, keyId: '' };
   try { payCfg = await api('/api/pay/config'); } catch (e) {}
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/cart">Cart</a> / Checkout</div><h1>Checkout</h1></div></section>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/cart">Cart</a></span><span class="cr-i">Checkout</span></div><h1>Checkout</h1></div></section>
   <div class="container cart-layout" style="padding-top:40px">
     <div>
       <div class="sec-title">Delivery address</div>
@@ -3583,7 +3588,7 @@ pages.account = async (view, q) => {
   ];
 
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / My Account</div><h1>Namaste, ${esc(me.name.split(' ')[0])}</h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">My Account</span></div><h1>Namaste, ${esc(me.name.split(' ')[0])}</h1>
   <p>Your Shivaa world — orders, occasions, addresses and royalty, in one place.</p></div></section>
   <div class="container acct-wrap">
     <div class="acct-hero">
@@ -3741,7 +3746,7 @@ pages.wishlist = async (view) => {
   if (state.user) { const r = await api('/api/wishlist'); wl = r.wishlist; items = r.items; }
   else { wl = state.localWish; items = state.productsCache.filter(p => state.localWish.includes(p.id)); }
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Wishlist</div><h1>Wishlist</h1><p>${items.length} saved piece${items.length === 1 ? '' : 's'}${state.user ? '' : ' · login to sync across devices'}</p></div></section>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Wishlist</span></div><h1>Wishlist</h1><p>${items.length} saved piece${items.length === 1 ? '' : 's'}${state.user ? '' : ' · login to sync across devices'}</p></div></section>
   <div class="container" style="padding:30px 0 90px">
     ${items.length ? `
     <div class="registry-bar">
@@ -3799,7 +3804,7 @@ pages.giftlist = async (view, q) => {
 pages.sizer = async view => {
   const saved = (() => { try { return localStorage.getItem('shv_ring_size') || ''; } catch (e) { return ''; } })();
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Ring Size Guide</div><h1>Find your ring size</h1><p>Two quick methods — no guessing, no size exchanges.</p></div></section>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Ring Size Guide</span></div><h1>Find your ring size</h1><p>Two quick methods — no guessing, no size exchanges.</p></div></section>
   <div class="container sizer-wrap" style="padding:36px 0 90px">
     <div class="sizer-grid">
       <div class="adm-card sz-card">
@@ -3881,7 +3886,7 @@ pages.care = async (view, q) => {
   try { saved = localStorage.getItem('shv_ring_size') || ''; } catch (e) {}
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="container"><div class="crumbs"><a href="#/">Home</a> / Lifetime Care</div><h1>Lifetime <em class="shimmer foil-txt">Care Plan</em></h1>
+    <div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Lifetime Care</span></div><h1>Lifetime <em class="shimmer foil-txt">Care Plan</em></h1>
     <p>Every Shivaa piece is looked after for life — at our counter, by video, or with pickup &amp; drop in Jaipur &amp; Nagaur.</p></div></section>
   <div class="container care-wrap" style="padding:36px 0 90px">
     <div class="care-grid">
@@ -4024,9 +4029,17 @@ pages.quote = async view => {
 
 /* ─────────── RATES PAGE ─────────── */
 pages.rates = async (view) => {
+  /* v97 — a cold deep-link (#/rates opened in a fresh tab) could paint
+     before the first rates fetch resolved; wait for it, and fail soft. */
+  if (!state.rates) { try { await loadRates(); } catch (e) {} }
   const R = state.rates;
+  if (!R || R.gold22 == null) {
+    view.innerHTML = `<section class="page-hero"><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Live Rates</span></div><h1>Today's Gold & Silver Rates</h1></div></section>
+    <div class="container" style="padding:44px 0 90px"><div class="empty"><div class="big">✦</div><h3>Rates are waking up</h3><p>We could not reach the live rate feed just now.</p><button class="btn btn-gold" onclick="location.reload()">Try again</button></div></div>`;
+    return;
+  }
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Live Rates</span></div><h1>Today's Gold & Silver Rates</h1>
   <p>The same feed that powers every price on shivaa.in — sourced from official MCX futures (when the owner’s exchange feed is connected) or the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
     <div class="jaipur-hero rv">
@@ -4110,7 +4123,7 @@ window.Shivaa.rateAlert = async e => {
 pages.catalogues = async (view) => {
   if (!isPartner()) {
     view.innerHTML = `
-    <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / B2B Catalogues</div><h1>Jeweller Catalogues</h1>
+    <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">B2B Catalogues</span></div><h1>Jeweller Catalogues</h1>
     <p>This desk is exclusively for verified jeweller partners — GST-verified access only.</p></div></section>
     <div class="container" style="padding:44px 0 90px;max-width:760px">
       <div class="b2b-gate aurora">
@@ -4130,7 +4143,7 @@ pages.catalogues = async (view) => {
   window._sel = window._sel || {};
   const stoneTypes = ['Plain', 'CZ', 'Lab-Grown Diamond', 'Natural Diamond', 'Colour Stone', 'Kundan/Polki'];
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Design Selection</div><h1>Design Selection</h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Design Selection</span></div><h1>Design Selection</h1>
   <p>The live design desk our B2B partners order from — filter by category, weight, purity and stone, select what your counter needs, and settle in <b>fine metal grams</b> with zero making charges.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
 
@@ -4197,7 +4210,7 @@ $('#pdfClose').onclick = () => { $('#pdfViewer').classList.remove('open'); $('#p
 /* ─────────── B2B PAGE ─────────── */
 pages.b2b = async (view) => {
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / For Jewellers</div><h1>Shivaa for Jewellers</h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">For Jewellers</span></div><h1>Shivaa for Jewellers</h1>
   <p>Start with your details below &mdash; approval typically within 48 hours. Everything the partnership opens up is explained underneath the form.</p></div></section>
   <div class="container" style="padding:40px 0 80px;max-width:1140px">
 
@@ -4432,7 +4445,7 @@ window.Shivaa.b2bApply = async e => {
 
 pages.services = async (view) => {
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Bespoke & Care</div><h1>Bespoke & Care Studio</h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Bespoke & Care</span></div><h1>Bespoke & Care Studio</h1>
   <p>Custom designs, repair & restoration, and personal shopping assistance — the D2C services our family has always offered, now bookable online.</p></div></section>
   <div class="container" style="padding:50px 0 90px">
     <div class="svc-grid" style="margin-bottom:44px">
@@ -4478,7 +4491,7 @@ window.Shivaa.svcForm = async e => {
 /* ─────────── ABOUT ─────────── */
 pages.about = async (view) => {
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / About</div><h1>The House of Shivaa</h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">About</span></div><h1>The House of Shivaa</h1>
   <p>From Sadar Bazaar, Jayal — 30 years of karigari, one promise: honest purity and honest prices, now on shivaa.in.</p></div></section>
   <div class="container" style="padding:54px 0 90px">
     <div class="story-grid">
@@ -4508,7 +4521,7 @@ pages.about = async (view) => {
 /* ─────────── CONTACT ─────────── */
 pages.contact = async (view) => {
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Contact</div><h1>Talk to the Family</h1></div></section>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Contact</span></div><h1>Talk to the Family</h1></div></section>
   <div class="container" style="padding:50px 0 90px">
     <div class="contact-grid">
       <div>
@@ -5052,7 +5065,7 @@ pages.certificates = async view => {
   let orders = [];
   try { orders = (await api('/api/orders')).orders || []; } catch (e) {}
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/account">My Account</a> / Certificates</div><h1>My Certificates</h1><p>Digital purity &amp; price certificates for every Shivaa order — save, print, or show at the counter.</p></div></section>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/account">My Account</a></span><span class="cr-i">Certificates</span></div><h1>My Certificates</h1><p>Digital purity &amp; price certificates for every Shivaa order — save, print, or show at the counter.</p></div></section>
   <div class="container" style="padding:36px 0 90px">
     ${orders.length ? `<div class="cert-locker">${orders.map(o => `<a class="cert-card" href="#/certificate/${encodeURIComponent(o.id)}">
       <span class="cc-ic">&#127970;</span>
@@ -5072,7 +5085,7 @@ pages.p = async (view, q, slug) => {
     .map(par => '<p>' + par.replace(/\n/g, '<br>') + '</p>')
     .join('');
   view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / ${esc(pg.title)}</div><h1>${esc(pg.title)}</h1>
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">${esc(pg.title)}</span></div><h1>${esc(pg.title)}</h1>
   <p>Updated ${dateFmt(pg.updatedAt)}</p></div></section>
   <div class="container" style="padding:44px 0 90px;max-width:820px">
     <div class="adm-card custom-page">${safe}</div>
@@ -5213,7 +5226,7 @@ window.bindV23Reveal = function bindV23Reveal() {
 function partnerGateHTML(title, sub) {
   return `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="container"><div class="crumbs"><a href="#/">Home</a> / <a href="#/b2b">For Jewellers</a> / ${esc(title)}</div>
+    <div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i"><a href="#/b2b">For Jewellers</a></span><span class="cr-i">${esc(title)}</span></div>
     <h1>${esc(title)}</h1><p>${esc(sub)}</p></div></section>
   <div class="container" style="padding:44px 0 90px;max-width:760px">
     <div class="b2b-gate aurora">
@@ -5240,7 +5253,7 @@ pages.buyback = async (view) => {
   view.innerHTML = `
   <section class="page-hero lux-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container">
-      <div class="crumbs"><a href="#/">Home</a> / Gold Buyback</div>
+      <div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Gold Buyback</span></div>
       <h1 class="ink-reveal">100% Gold <em class="shimmer foil-txt">Buyback</em></h1>
       <p>Zero deduction on the pure gold value of any Shivaa piece — the promise in writing on every invoice we issue.</p>
     </div>
@@ -5450,7 +5463,7 @@ pages.savings = async (view) => {
   view.innerHTML = `
   <section class="page-hero lux-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container">
-      <div class="crumbs"><a href="#/">Home</a> / Gold Savings Plan</div>
+      <div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Gold Savings Plan</span></div>
       <h1 class="ink-reveal">Swarna <em class="shimmer foil-txt">Nidhi</em></h1>
       <p>Save a fixed amount for eleven months. We pay the twelfth. Then take it in gold, at the rate of the day you buy.</p>
     </div>
@@ -5742,7 +5755,7 @@ pages.metal = async (view) => {
   view.innerHTML = `
   <section class="page-hero lux-hero mtl-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container">
-      <div class="crumbs"><a href="#/">Home</a> / <a href="#/b2b">For Jewellers</a> / Metal Scheme</div>
+      <div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i"><a href="#/b2b">For Jewellers</a></span><span class="cr-i">Metal Scheme</span></div>
       <h1 class="ink-reveal">Metal Investment <em class="shimmer foil-txt">Scheme</em></h1>
       <p>Deposit pure 24K &mdash; 99.999 &mdash; fine gold. Earn a fixed 12% a year in interest while your gold itself grows, modelled at 12% a year in the calculator below.</p>
     </div>
@@ -5963,7 +5976,7 @@ pages.deadstock = async (view) => {
   view.innerHTML = `
   <section class="page-hero lux-hero ds-hero-bg"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container">
-      <div class="crumbs"><a href="#/">Home</a> / <a href="#/partner">Partner Portal</a> / Dead Stock</div>
+      <div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i"><a href="#/partner">Partner Portal</a></span><span class="cr-i">Dead Stock</span></div>
       <span class="lux-badge">&#9670; PARTNERS ONLY</span>
       <h1 class="ink-reveal">Dead Stock <em class="shimmer foil-txt">Purchase</em></h1>
       <p>Your slow-moving 22K jewellery, bought at one wastage and settled as fine 99.999 metal value &mdash; with half your making charges credited back so melting never wins.</p>
@@ -6180,7 +6193,7 @@ pages.track = async (view) => {
   if (!state.user) { openLogin('track'); return; }
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="container"><div class="crumbs"><a href="#/">Home</a> / Track Order</div>
+    <div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Track Order</span></div>
     <h1 class="ink-reveal">Track Your <em class="shimmer foil-txt">Order</em></h1>
     <p>Every shipment is insured, tamper-sealed and signature + OTP verified on delivery.</p></div>
   </section>
@@ -6220,7 +6233,7 @@ pages.track = async (view) => {
 pages.faq = async (view) => {
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="container"><div class="crumbs"><a href="#/">Home</a> / FAQ</div>
+    <div class="container"><div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">FAQ</span></div>
     <h1 class="ink-reveal">Questions, <em class="shimmer foil-txt">answered</em></h1>
     <p>The things families ask us most — purity, pricing, delivery and buyback. Anything else, we are one WhatsApp away.</p></div>
   </section>

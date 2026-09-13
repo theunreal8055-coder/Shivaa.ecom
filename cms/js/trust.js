@@ -124,7 +124,7 @@
 
   function renderTrust(view) {
     view.innerHTML = `<section class="trust-hero"><div class="container">
-      <div class="crumbs"><a href="#/">Home</a> / Why Trust Shivaa</div>
+      <div class="crumbs"><span class="cr-i"><a href="#/">Home</a></span><span class="cr-i">Why Trust Shivaa</span></div>
       <div class="trust-hero-grid"><div><span class="label">Clarity before confidence</span><h1>Why trust <em class="disp-italic">Shivaa?</em></h1><p>Start with the details you can check. Business identity, a store address, and an honest view of the documents available.</p></div>
         <div class="trust-principle"><span class="trust-wordmark">SHIVAA</span><p>Details on record.<br>Not assumed assurances.</p><small>Identity · Location · Documents</small></div></div>
     </div></section>
