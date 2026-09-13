@@ -541,6 +541,22 @@ function updatePartnerUI() {
 }
 window.Shivaa.updatePartnerUI = updatePartnerUI;
 
+/* v101 · item 11 — jewellers land on the live Bullion Desk every fresh app
+   open (the bare portal route then redirects to ?view=bullion). Deep links
+   and in-session storefront navigation are respected; a sessionStorage flag
+   means a new tab / next day's open lands on bullion again, including
+   persistent logins. Returns true when it redirected. */
+function partnerLanding(user) {
+  let already = false;
+  try { already = !!sessionStorage.getItem('shv_partner_landed'); } catch (e) {}
+  if (already) return false;
+  try { sessionStorage.setItem('shv_partner_landed', '1'); } catch (e) {}
+  const bareHome = !location.hash || location.hash === '#/' || location.hash === '#/home';
+  if (user && user.role === 'partner' && bareHome) { location.hash = '#/partner'; return true; }
+  return false;
+}
+window.Shivaa.partnerLanding = partnerLanding;
+
 /* ─────────── cart ops ─────────── */
 function addToCart(id, qty = 1, size = null, engraving = null, opts = {}) {
   const key = i => i.id + '|' + (i.size || '');
@@ -7057,6 +7073,13 @@ async function boot(isRedraw) {
   $('#footCats').innerHTML = Object.entries(CATS).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
   const pl = $('#preloader');
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
+  /* v101 · item 11 — a jeweller's every fresh app open starts at the live
+     Bullion Desk (bare #/partner redirects to ?view=bullion). Deep links
+     (shared piece, cart link) are honoured, and once they navigate into the
+     storefront within this tab session we never yank them back. The flag
+     lives in sessionStorage, so a new tab / next day's open lands on bullion
+     again — including repeat opens and persistent sessions. */
+  partnerLanding(state.user);
   initMiniCart();   // v91 slide-in bag
   route();
   // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours
