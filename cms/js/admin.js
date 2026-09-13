@@ -367,19 +367,56 @@ async function renderAdmin(view, q) {
         <div class="fld"><label>Jaipur silver premium ₹/g</label><input name="jaipurSilverPremium" type="number" step="0.5" value="${S.jaipurSilverPremium ?? 3}"></div>
         <div class="fld full"><label>GST verification API key (auto-fills firm names in B2B KYC)</label><input name="gstKey" placeholder="paste key from your GST API provider — blank = verify manually at approval"></div>
         <div class="fld full"><label>Announcement ticker (one per line)</label><textarea name="announcements">${esc((S.announcements || []).join('\n'))}</textarea></div>
+
+        <div class="fld full"><h4 style="margin:6px 0 2px">Legal &amp; registrations <span style="font-size:11px;color:var(--ink-3);font-weight:400">published on Why Trust Shivaa + the footer — validated, never guessed</span></h4></div>
+        <div class="fld"><label>CIN</label><input name="cin" value="${esc(S.cin || '')}" placeholder="U32111RJ2025PTC099173" maxlength="21" spellcheck="false"></div>
+        <div class="fld"><label>UDYAM</label><input name="udyam" value="${esc(S.udyam || '')}" placeholder="UDYAM-RJ-25-0086081" maxlength="19" spellcheck="false"></div>
+        <div class="fld full"><label>GSTIN (15 characters)</label>
+          <input name="gstin" id="admGstin" value="${esc(S.gstin || '')}" placeholder="08AAICE5666R1ZP" maxlength="15" spellcheck="false" autocomplete="off"
+                 style="text-transform:uppercase;letter-spacing:.08em;font-family:ui-monospace,monospace">
+          <small id="admGstinHint" style="font-size:11.5px;color:var(--ink-3)">Blank = the site honestly shows “Not provided”. An invalid number is never published.</small></div>
+
         <button class="btn btn-primary btn-sm" style="justify-self:start">Save settings</button>
       </form></div>
       <div class="adm-card"><h3>SMS &amp; OTP delivery <span style="font-size:11px;color:var(--ink-3);font-weight:400">login &amp; KYC codes</span></h3><div id="admSmsCard">Loading gateway status…</div></div>
-      <div class="adm-card"><h3>Legal & registrations (read-only)</h3>
+      <div class="adm-card"><h3>Other registrations (read-only)</h3>
         <div class="sum-row"><span>Legal entity</span><b>${esc(S.legalName || 'Ernate Shine Jewellery Private Limited')}</b></div>
-        <div class="sum-row"><span>CIN</span><b>${esc(S.cin || '')}</b></div>
-        <div class="sum-row"><span>UDYAM</span><b>${esc(S.udyam || '')}</b></div>
         <div class="sum-row"><span>Startup India (DIPP)</span><b>${esc(S.dipp || '')}</b></div>
+        <div class="sum-row"><span>Published live on</span><b><a href="#/trust">#/trust — Why Trust Shivaa</a></b></div>
       </div>`;
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.smsCard && window.ShivaaAdmin.smsCard(), 0);   // v33 — SMS status card
+    const gi = $('#admGstin');
+    if (gi) gi.addEventListener('input', () => {
+      gi.value = gi.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15);
+      const hint = $('#admGstinHint'); if (!hint) return;
+      const v = gi.value.trim();
+      if (!v) { hint.textContent = 'Blank = the site honestly shows “Not provided”. An invalid number is never published.'; hint.style.color = 'var(--ink-3)'; return; }
+      const r = ShivaaAdmin.gstinCheck(v);
+      hint.innerHTML = r.ok ? `✓ Valid GSTIN · ${esc(r.state || '')} · PAN ${esc(r.pan || '')} — publishes on save` : `✗ ${esc(r.reason)} — stays “Not provided” until it passes`;
+      hint.style.color = r.ok ? '#1f7a44' : '#b3261e';
+    });
   }
 }
 window.ShivaaAdmin = {};
+/* v105 — client-side mirror of gstin_check() in api.php, for instant feedback.
+   The server (cms/trust.php) re-validates before anything is published. */
+window.ShivaaAdmin.gstinCheck = (raw) => {
+  const g = String(raw || '').trim().toUpperCase();
+  const STATES = { '08': 'Rajasthan', '27': 'Maharashtra', '29': 'Karnataka', '24': 'Gujarat', '07': 'Delhi', '09': 'UP', '33': 'Tamil Nadu', '36': 'Telangana', '19': 'West Bengal', '23': 'Madhya Pradesh', '32': 'Kerala', '06': 'Haryana', '03': 'Punjab', '05': 'Uttarakhand', '30': 'Goa', '37': 'Andhra Pradesh' };
+  if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/.test(g)) return { ok: false, reason: 'Format must be 15 characters, e.g. 08AABCU9603R1ZM' };
+  const state = STATES[g.slice(0, 2)];
+  if (!state) return { ok: false, reason: 'Unknown state code ' + g.slice(0, 2) };
+  const CH = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let sum = 0;
+  for (let i = 0; i < 14; i++) {
+    const n0 = CH.indexOf(g[i]);
+    if (n0 < 0) return { ok: false, reason: 'Illegal character' };
+    const n = n0 * (i % 2 === 0 ? 1 : 2);
+    sum += Math.floor(n / 36) + (n % 36);
+  }
+  if (g[14] !== CH[(36 - (sum % 36)) % 36]) return { ok: false, reason: 'Checksum failed — please retype it' };
+  return { ok: true, state, pan: g.slice(2, 12) };
+};
 
 /* ── v33 · SMS gateway status + test sender (Settings tab) ── */
 window.ShivaaAdmin.smsCard = async () => {
@@ -597,7 +634,10 @@ window.ShivaaAdmin.saveSettings = async e => {
   // read by name — positional indexing silently corrupts settings if a field moves
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
   try {
-    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), jaipurPremium: +g('jaipurPremium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: g('gstKey').trim() }, announcements: g('announcements').split('\n').filter(Boolean) }) });
+    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), jaipurPremium: +g('jaipurPremium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: g('gstKey').trim() }, announcements: g('announcements').split('\n').filter(Boolean),
+      // v105 — legal identifiers are owner-editable now. trust.php re-validates on
+      // the way out, so a typo renders as “Not provided” instead of a fake record.
+      cin: g('cin').trim().toUpperCase(), udyam: g('udyam').trim().toUpperCase(), gstin: g('gstin').trim().toUpperCase() }) });
     Object.assign(state.settings, s); toast('Settings saved');
   } catch (err) { toast(err.message, 'err'); }
 };

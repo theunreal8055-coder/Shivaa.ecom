@@ -27,9 +27,17 @@ _lock = threading.Lock()
 
 PURITY_KEY = {"24K": "gold24", "22K": "gold22", "18K": "gold18"}
 
+# in-memory admin edits (PUT /api/settings) — applied on read, never written to
+# db.json, so the Admin panel can be previewed without touching real data.
+DEV_SETTINGS = {}
+
+
 def db():
     with _lock:
-        return json.load(open(DB_FILE, encoding="utf-8"))
+        d = json.load(open(DB_FILE, encoding="utf-8"))
+    if DEV_SETTINGS:
+        d.setdefault("settings", {}).update(DEV_SETTINGS)
+    return d
 
 def current_rates(d):
     ov = d["rates"].get("override")
@@ -417,7 +425,23 @@ class Handler(SimpleHTTPRequestHandler):
                                     "message": "Preview shim accepted this in memory — nothing was stored."})
         return False
 
-    def do_PUT(self, *a):   self._json(405, {"error": "Preview shim is read-only"})
+    def do_PUT(self, *a):
+        route = urlparse(self.path).path[len("/api/"):] if self.path.startswith("/api/") else ""
+        if route == "settings":
+            u = dev_token(self)
+            if not u or u.get("role") != "admin":
+                return self._json(403, {"error": "Admin access required"})
+            try:
+                length = int(self.headers.get("Content-Length", 0) or 0)
+                body = json.loads(self.rfile.read(length) or b"{}") if length else {}
+            except ValueError:
+                body = {}
+            if not isinstance(body, dict):
+                return self._json(400, {"error": "Invalid payload"})
+            # mirror api.php: merge keys, keep everything else (incl. cin/udyam/gstin)
+            DEV_SETTINGS.update({k: v for k, v in body.items()})
+            return self._json(200, db()["settings"])
+        return self._json(405, {"error": "Preview shim is read-only"})
     def do_DELETE(self, *a):self._json(405, {"error": "Preview shim is read-only"})
 
     def _serve_static(self):
