@@ -1604,7 +1604,8 @@ function productCard(p, opts = {}) {
   return `<article class="p-card" data-pid="${p.id}">
     <div class="pc-imgwrap">
       <a href="#/product/${p.id}" class="pc-imglink" aria-label="${esc(p.name)}">
-        <img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
+        <img class="pc-img-a" src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/logo.png'">
+        ${p.images && p.images[1] ? `<img class="pc-img-b" src="${safeUrl(p.images[1])}" alt="" loading="lazy" decoding="async" aria-hidden="true" onerror="this.remove()">` : ''}
         ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
         ${fitsSize ? `<span class="pc-your-size" title="Made in your saved size ${esc(mySize)}">✓ your size ${esc(mySize)}</span>` : ''}
         <div class="glare"></div>
