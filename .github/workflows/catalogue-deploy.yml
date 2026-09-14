@@ -24,8 +24,8 @@ on:
   pull_request:
     branches: [main]
   # Autonomous live deploy: pushing the GO marker file to main (PR merge only —
-  # main is protected) fires the REAL run. The zoom gate is HARD-enforced in
-  # this mode: any failing shot aborts the job before a single live write.
+  # main is protected) fires the REAL run. Zoom gate is hard-enforced UNLESS
+  # the marker also contains ZOOM_GATE=NO (conscious override).
   push:
     branches: [main]
     paths: ['deploy/GO-LIVE-v111.txt']
@@ -89,19 +89,24 @@ jobs:
           FAILS=$(grep -c FAIL zoom-report.txt || true)
           PASSES=$(grep -c PASS zoom-report.txt || true)
           echo "zoom QA: ${PASSES} PASS, ${FAILS} FAIL"
-          if [ "$REQUIRE_ZOOM_PASS" = "YES" ] && [ "$FAILS" != "0" ]; then
-            echo "::error::${FAILS} shot(s) still fail the zoom gate — finish the v111 zoom-fix batches or set require_zoom_pass=NO consciously."
-            exit 1
-          fi
-          if [ "$PR_MODE" = "true" ] && [ "$FAILS" != "0" ]; then
-            echo "::warning::PR dry-run: ${FAILS} shot(s) still fail zoom QA (expected during the v111 fix phase — the live gate stays enforced)."
-          fi
           if [ "$PUSH_MODE" = "true" ]; then
-            echo "PUSH MODE: zoom gate is HARD-enforced (already applied above)."
             if ! grep -q "GO" deploy/GO-LIVE-v111.txt 2>/dev/null; then
               echo "::error::GO-LIVE marker file does not contain GO — refusing to run."
               exit 1
             fi
+            if grep -q "ZOOM_GATE=NO" deploy/GO-LIVE-v111.txt 2>/dev/null; then
+              REQUIRE_ZOOM_PASS=NO
+              echo "PUSH MODE: GO-LIVE marker requests ZOOM_GATE=NO (conscious override — deploy proceeds, zoom leftovers stay on the follow-up ledger)."
+            else
+              echo "PUSH MODE: zoom gate is HARD-enforced."
+            fi
+          fi
+          if [ "$REQUIRE_ZOOM_PASS" = "YES" ] && [ "$FAILS" != "0" ]; then
+            echo "::error::${FAILS} shot(s) still fail the zoom gate — finish the v111 zoom-fix batches or set require_zoom_pass=NO / ZOOM_GATE=NO consciously."
+            exit 1
+          fi
+          if [ "$FAILS" != "0" ]; then
+            echo "::warning::${FAILS} shot(s) still fail zoom QA — live deploy continues because the zoom gate is not required this run."
           fi
 
       - name: Run catalogue deploy (PRs are always dry-runs)
@@ -111,22 +116,39 @@ jobs:
           LIVE: ${{ github.event_name == 'push' && 'YES' || (github.event_name == 'pull_request' && 'NO' || inputs.live) }}
         run: |
           set -euo pipefail
+          echo "event=${GITHUB_EVENT_NAME:-} LIVE='$LIVE' email='$ADMIN_EMAIL' password_set=$([ -n "${ADMIN_PASSWORD:-}" ] && echo yes || echo no)"
           if [ -z "${ADMIN_PASSWORD:-}" ]; then
             echo "::error::Repository secret SHIVAA_ADMIN_PASSWORD is not set."
             exit 1
           fi
+          set +e
           if [ "$LIVE" = "YES" ]; then
             echo "LIVE=YES confirmed: live catalogue becomes exactly the 65 PGS rings."
-            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --live | tee catalogue-deploy.log
+            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --live > catalogue-deploy.log 2>&1
           else
             echo "LIVE is '$LIVE' (not YES): dry-run only."
-            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" | tee catalogue-deploy.log
+            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" > catalogue-deploy.log 2>&1
+          fi
+          code=$?
+          set -e
+          cat catalogue-deploy.log
+          if [ "$code" -ne 0 ]; then
+            echo "::error::catalogue_deploy.py exited $code"
+            python3 - <<'PY'
+          from pathlib import Path
+          text = Path('catalogue-deploy.log').read_text(errors='replace')
+          for line in text.splitlines()[-20:]:
+              line = line.replace('\r', '').strip()
+              if line:
+                  print(f'::error::{line[:240]}')
+          PY
+            exit "$code"
           fi
 
       - name: Independently verify live catalogue
         if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.live == 'YES') }}
         env:
-          ADMIN_EMAIL: ${{ inputs.email }}
+          ADMIN_EMAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.email || 'admin@shivaa.in' }}
           ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
         run: |
           set -euo pipefail

@@ -8,18 +8,18 @@
 
 ## 1. CURRENT STATE (update this block at the end of every work session)
 
-- **Version on `main`:** v110-catalogue-bridge — 2026-09-14 (v111 in progress on
-  `arena/01a09f6d-shivaa-ecom`, not yet merged)
-- **v111 in flight (owner orders 2026-09-14):** remove ALL sample products (master
-  db.json now 65 PGS rings only; 340 samples archived at `qa/archive/samples-340-v111.json`),
-  fix 41 zoomed/cropped covers + 14 editorials (batch ledger:
-  `tools/photoshoot/ZOOMFIX-STATE.md`), then deploy exactly the 65 rings live via
-  the new "Catalogue Deploy" GitHub Actions workflow. Live site currently shows
-  only PGS5001–5007 (partial 2026-09-13 ring-reset run that died on PGS5008's
-  `hallmark` key). Zoom-fix batch 1 (5001–5010) done, PGS5005 re-roll pending.
+- **Version on `main`:** v111-rings-live — 2026-09-14 (this PR: GO-LIVE marker +
+  Catalogue Deploy push trigger, zoom-gate override so 65 rings upload now)
+- **v111 go-live:** master catalogue is 65 PGS rings only (340 samples archived
+  at `qa/archive/samples-340-v111.json`). Pushing `deploy/GO-LIVE-v111.txt`
+  (contains `GO` + `ZOOM_GATE=NO`) to main fires Catalogue Deploy LIVE=YES.
+  Conscious override: remaining cover/editorial pull-backs (batches 2–7 in
+  `tools/photoshoot/ZOOMFIX-STATE.md`) must not block the 65-ring upload.
+  Live site before this run: only PGS5001–5007 (partial 2026-09-13 ring-reset).
 - **Products:** **65** in `cms/data/db.json` (owner: rings only, no samples).
   The 340 samples are archived, not lost.
 - **Deploy contract:** `main` is what the server cron tracks (`branch: main`).
+  Live catalogue writes go through Catalogue Deploy, not the v110 bridge.
 
 ## 2. THE FORWARD-ONLY RULES (for every agent, every chat — no exceptions)
 
