@@ -183,6 +183,16 @@ const CATS = {
   nosepins: { name: 'Nose Pins', sub: 'Light · Daily', img: '/images/categories/nosepins.jpg' },
   silver: { name: 'Silver 925', sub: 'Payal · Chains · Kada', img: '/images/categories/silver.jpg' },
 };
+/* v111: menus/filters show only categories that actually have products in the
+   loaded catalogue (owner: samples removed — live shop is rings-only for now).
+   Falls back to the full CATS map while the catalogue is still loading. */
+function LIVE_CATS() {
+  const have = new Set((state.productsCache || []).map(p => p && p.category).filter(Boolean));
+  if (!have.size) return CATS;
+  const out = {};
+  for (const [k, c] of Object.entries(CATS)) if (have.has(k)) out[k] = c;
+  return Object.keys(out).length ? out : CATS;
+}
 
 /* ─────────── WhatsApp integration ─────────── */
 const WA_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.9a8.1 8.1 0 0 0-6.9 12.3L4 20.2l4.1-1.05A8.1 8.1 0 1 0 12 3.9zm0 1.8a6.3 6.3 0 1 1-3.24 11.7l-.3-.18-2.42.62.64-2.35-.2-.32A6.3 6.3 0 0 1 12 5.7zM9.44 8.6c-.16 0-.42.06-.64.3-.22.24-.86.84-.86 2.05s.88 2.38 1 2.54c.12.16 1.72 2.65 4.18 3.6 2.06.8 2.48.65 2.93.6.45-.04 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28-.24-.12-1.44-.71-1.66-.79-.22-.08-.38-.12-.55.12-.16.24-.63.79-.77.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.42-1.34-1.66-.14-.24-.02-.37.1-.49.1-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.32-.75-1.8-.2-.47-.4-.4-.55-.41-.15-.01-.31-.01-.47-.01z"/></svg>';
@@ -1515,15 +1525,15 @@ function renderTicker() {
 }
 
 /* ─────────── category slider v2 (image cards, Tanishq-inspired) ─────────── */
-const CATBAR = [
+const catBarItems = () => [
   { label: 'All Jewellery', href: '#/shop', img: '/images/products/ring-floral.jpg' },
-  ...Object.entries(CATS).map(([k, c]) => ({ label: c.name, href: '#/shop?category=' + k, img: c.img })),
+  ...Object.entries(LIVE_CATS()).map(([k, c]) => ({ label: c.name, href: '#/shop?category=' + k, img: c.img })),
   { label: 'Under ₹50K', href: '#/shop?max=50000', img: '/images/products/pendant-om.jpg' },
   { label: 'New In', href: '#/shop?tag=new', img: '/images/products/mangalsutra-modern.jpg' },
 ];
 function catBarHTML() {
   return `<div class="cb-wrap"><button class="cb-arrow cb-prev" aria-label="Previous">‹</button><div class="catbar2">` +
-    CATBAR.map(c => `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${c.img}" alt="${c.label}" loading="lazy"><i class="cb-ring"></i></span><b>${c.label}</b></a>`).join('') +
+    catBarItems().map(c => `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${c.img}" alt="${c.label}" loading="lazy"><i class="cb-ring"></i></span><b>${c.label}</b></a>`).join('') +
     `</div><button class="cb-arrow cb-next" aria-label="Next">›</button></div>`;
 }
 function initCatbar() {
@@ -2028,7 +2038,7 @@ pages.home = async (view) => {
   <section class="sec container" style="padding-bottom:26px">
     <div class="sec-head rv" style="margin-bottom:22px"><span class="label">Shop by category</span><h2>Find your <span class="disp-italic">forever</span></h2></div>
     <div class="cat-mini">
-      ${Object.entries(CATS).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}" alt="${c.name}" loading="lazy"><b>${c.name}</b></a>`).join('')}
+      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}" alt="${c.name}" loading="lazy"><b>${c.name}</b></a>`).join('')}
     </div>
   </section>
 
@@ -2176,7 +2186,7 @@ pages.shop = async (view, q) => {
   <aside class="filters" id="filterDrawer" aria-label="Filters" aria-hidden="true">
     <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" type="button" aria-label="Close filters">✕</button></div>
       <div class="fgroup"><h4>Category</h4>
-        ${Object.entries(CATS).map(([k, c]) => `<label class="fcheck"><input type="checkbox" data-f="cat" value="${k}" ${cat === k ? 'checked' : ''}>${c.name}</label>`).join('')}
+        ${Object.entries(LIVE_CATS()).map(([k, c]) => `<label class="fcheck"><input type="checkbox" data-f="cat" value="${k}" ${cat === k ? 'checked' : ''}>${c.name}</label>`).join('')}
       </div>
       <div class="fgroup"><h4>Metal</h4>
         ${[...metals].map(m => `<label class="fcheck"><input type="checkbox" data-f="metal" value="${m}">${m === 'Gold' ? 'Gold' : 'Silver 925'}</label>`).join('')}
@@ -4769,7 +4779,7 @@ pages.catalogues = async (view) => {
   <div class="ds-wrap" id="dsWrap">
     <div class="pf-bar">
       <div class="pf-f"><label>Category</label>
-        <select id="dsfCat" class="sortsel"><option value="">All categories</option>${Object.entries(CATS).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('')}</select></div>
+        <select id="dsfCat" class="sortsel"><option value="">All categories</option>${Object.entries(LIVE_CATS()).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('')}</select></div>
       <div class="pf-f"><label>Stone type</label>
         <select id="dsfStone" class="sortsel"><option value="">All stones</option>${stoneTypes.map(s => `<option>${s}</option>`).join('')}</select></div>
       <div class="pf-f"><label>Stone colour</label>
@@ -7379,7 +7389,7 @@ function renderSugg(qs) {
       `<div class="sugg-lbl">Popular searches</div>` +
       POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(CATS).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -7391,7 +7401,7 @@ function renderSugg(qs) {
       + `<div class="sugg-lbl">Try</div>`
       + POPULAR_Q.slice(0, 4).map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(CATS).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -7656,7 +7666,7 @@ async function boot(isRedraw) {
   // populate nav + footer category menus
   $('#catMenu').innerHTML = `
   <div class="mega-in">
-    <div class="mega-grid">${Object.entries(CATS).map(([k, c]) => `
+    <div class="mega-grid">${Object.entries(LIVE_CATS()).map(([k, c]) => `
       <a class="mega-tile" href="#/shop?category=${k}">
         <span class="mt-img"><img src="${c.img}" alt="${c.name}" loading="lazy"></span>
         <span class="mt-tx"><b>${c.name}</b><small>${c.sub}</small></span>
@@ -7687,7 +7697,7 @@ async function boot(isRedraw) {
         if (!list) {
           list = document.createElement('div');
           list.id = 'dwCatList'; list.className = 'dw-catlist';
-          list.innerHTML = Object.entries(CATS).map(([k, c]) =>
+          list.innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) =>
             `<a href="#/shop?category=${k}"><img src="${c.img}" alt="" loading="lazy"><span>${esc(c.name)}</span></a>`).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }
@@ -7711,7 +7721,7 @@ async function boot(isRedraw) {
   // The drawer's own tile grid + "All 17 categories" pill replace the old
   // stacked mm-grid / mm-feats / mcat-list blocks (they duplicated the same
   // destinations three times and made the drawer ~860px taller than the phone).
-  $('#footCats').innerHTML = Object.entries(CATS).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
+  $('#footCats').innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
   const pl = $('#preloader');
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
   /* v101 · item 11 — a jeweller's every fresh app open starts at the live

@@ -1,0 +1,140 @@
+name: Catalogue Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      live:
+        description: "Type YES to make the live catalogue exactly the 65 PGS rings (delete non-PGS, upload photos + records). Anything else runs a dry-run."
+        required: true
+        default: "NO"
+        type: string
+      email:
+        description: "Shivaa admin email"
+        required: true
+        default: "admin@shivaa.in"
+        type: string
+      require_zoom_pass:
+        description: "YES = refuse to deploy while any cover/editorial still fails the zoom QA gate. NO = deploy regardless (emergency use only)."
+        required: false
+        default: "YES"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shivaa-catalogue-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-catalogue:
+    name: Make live catalogue exactly the 65 PGS rings
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install image QA deps
+        run: python3 -m pip install --quiet pillow numpy scipy
+
+      - name: Preflight master catalogue + zoom QA gate
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, sys
+          from pathlib import Path
+          db = json.loads(Path('cms/data/db.json').read_text())
+          prods = db['products']
+          errors = []
+          if len(prods) != 65:
+              errors.append(f'expected exactly 65 products in master db.json, found {len(prods)}')
+          for p in prods:
+              if not str(p.get('sku', '')).startswith('PGS'):
+                  errors.append(f"non-PGS product in master: {p.get('sku')}")
+              if p.get('video'):
+                  errors.append(f"{p.get('sku')}: still has video key")
+              if len(p.get('images', [])) < 4:
+                  errors.append(f"{p.get('sku')}: fewer than 4 images")
+              for im in p['images'][:4]:
+                  if not (Path('cms') / im.lstrip('/')).is_file():
+                      errors.append(f"{p.get('sku')}: missing file {im}")
+          if errors:
+              for e in errors:
+                  print(f'::error::{e}')
+              sys.exit(1)
+          print('preflight OK: 65 PGS products, 4 shots each, all files present, no videos')
+          PY
+          echo "--- zoom QA on all 65 covers + editorials ---"
+          python3 tools/photoshoot/zoom_check.py --sku \
+            $(python3 -c "import json;print(' '.join(p['sku'] for p in json.load(open('cms/data/db.json'))['products']))") \
+            > zoom-report.txt 2>&1 || true
+          cat zoom-report.txt
+          FAILS=$(grep -c FAIL zoom-report.txt || true)
+          PASSES=$(grep -c PASS zoom-report.txt || true)
+          echo "zoom QA: ${PASSES} PASS, ${FAILS} FAIL"
+          if [ "${{ inputs.require_zoom_pass }}" = "YES" ] && [ "$FAILS" != "0" ]; then
+            echo "::error::${FAILS} shot(s) still fail the zoom gate — finish the v111 zoom-fix batches or set require_zoom_pass=NO consciously."
+            exit 1
+          fi
+
+      - name: Run catalogue deploy
+        env:
+          ADMIN_EMAIL: ${{ inputs.email }}
+          ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
+          LIVE: ${{ inputs.live }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ADMIN_PASSWORD:-}" ]; then
+            echo "::error::Repository secret SHIVAA_ADMIN_PASSWORD is not set."
+            exit 1
+          fi
+          if [ "$LIVE" = "YES" ]; then
+            echo "LIVE=YES confirmed: live catalogue becomes exactly the 65 PGS rings."
+            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --live | tee catalogue-deploy.log
+          else
+            echo "LIVE is '$LIVE' (not YES): dry-run only."
+            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" | tee catalogue-deploy.log
+          fi
+
+      - name: Independently verify live catalogue
+        if: ${{ inputs.live == 'YES' }}
+        env:
+          ADMIN_EMAIL: ${{ inputs.email }}
+          ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, sys, urllib.request, urllib.error
+          BASE = 'https://shivaa.in'
+          def api(route, method='GET', token=None, body=None, timeout=180):
+              data = json.dumps(body).encode() if body is not None else None
+              req = urllib.request.Request(BASE + route, data=data, method=method,
+                  headers={'Content-Type': 'application/json'} if data else {})
+              if token: req.add_header('Authorization', f'Bearer {token}')
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as r:
+                      payload = r.read().decode()
+                      return r.status, json.loads(payload) if payload else {}
+              except urllib.error.HTTPError as e:
+                  payload = e.read().decode()
+                  try: return e.code, json.loads(payload) if payload else {}
+                  except Exception: return e.code, {'error': payload or str(e)}
+          st, login = api('/api/auth/login', 'POST', body={'email': os.environ['ADMIN_EMAIL'], 'password': os.environ['ADMIN_PASSWORD']})
+          if st != 200 or not login.get('token'):
+              print(f'::error::verification login failed ({st}): {login}'); sys.exit(1)
+          st, products = api('/api/products', token=login['token'])
+          if st != 200:
+              print(f'::error::verification GET /api/products failed ({st}): {products}'); sys.exit(1)
+          live = products.get('products', [])
+          pgs = [p for p in live if str(p.get('sku', '')).startswith('PGS')]
+          non_pgs = [p for p in live if not str(p.get('sku', '')).startswith('PGS')]
+          with_video = [p for p in live if p.get('video')]
+          undershot = [p.get('sku') for p in pgs if len(p.get('images', [])) < 4]
+          print(f'Live verification: total={len(live)}, pgs_rings={len(pgs)}, non_pgs={len(non_pgs)}, videos={len(with_video)}, under_4_shot={undershot}')
+          ok = len(live) == 65 and len(pgs) == 65 and not non_pgs and not with_video and not undershot
+          if not ok:
+              print('::error::live catalogue does not match the 65-PGS-ring contract'); sys.exit(1)
+          print('VERIFY OK: live site shows exactly the 65 PGS rings, 4 shots each, no videos, zero sample products ✅')
+          PY

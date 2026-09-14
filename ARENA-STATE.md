@@ -8,15 +8,17 @@
 
 ## 1. CURRENT STATE (update this block at the end of every work session)
 
-- **Version on `main`:** v110-catalogue-bridge — 2026-09-14
-- **Contains:** v109-consolidated (v107.4 line · v108-MEGA · v109-line) **+ v110**:
-  one-file `deploy/catalogue_sync_bridge.php` (tablet bridge that delivers the full
-  405-product master catalogue + missing photos into the live server's locked
-  `data/db.json`; runbook `deploy/CATALOGUE-SYNC-BRIDGE.md`). Also main-guard
-  GitHub Actions watchdog (backup tag + backward-move/file-loss alarm).
-- **Products:** 405 in `cms/data/db.json` (65 PGS rings with full photoshoots).
-  ⚠️ As of 2026-09-14 the LIVE site showed only ~7 products: code auto-sync never
-  touches live `data/`, so the master list must be pushed once via the v110 bridge.
+- **Version on `main`:** v110-catalogue-bridge — 2026-09-14 (v111 in progress on
+  `arena/01a09f6d-shivaa-ecom`, not yet merged)
+- **v111 in flight (owner orders 2026-09-14):** remove ALL sample products (master
+  db.json now 65 PGS rings only; 340 samples archived at `qa/archive/samples-340-v111.json`),
+  fix 41 zoomed/cropped covers + 14 editorials (batch ledger:
+  `tools/photoshoot/ZOOMFIX-STATE.md`), then deploy exactly the 65 rings live via
+  the new "Catalogue Deploy" GitHub Actions workflow. Live site currently shows
+  only PGS5001–5007 (partial 2026-09-13 ring-reset run that died on PGS5008's
+  `hallmark` key). Zoom-fix batch 1 (5001–5010) done, PGS5005 re-roll pending.
+- **Products:** **65** in `cms/data/db.json` (owner: rings only, no samples).
+  The 340 samples are archived, not lost.
 - **Deploy contract:** `main` is what the server cron tracks (`branch: main`).
 
 ## 2. THE FORWARD-ONLY RULES (for every agent, every chat — no exceptions)
