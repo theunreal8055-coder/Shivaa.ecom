@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '../../..');
-const CMS = path.join(ROOT, 'cms');
+const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const html = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8');
 
 const jsdom = new JSDOM(html, {
@@ -135,4 +135,12 @@ async function runChecks(w, errors) {
   await wait(2500);
   const pgheroAbsent = !view.querySelector('[data-boost="pghero"]');
   console.log('  home has no page-hero (correct):', pgheroAbsent);
+
+  // page-hero banner on a non-home page (rates)
+  w.location.hash = '#/rates';
+  await wait(2500);
+  const ph = view.querySelector('[data-boost="pghero"]');
+  if (!ph) errors.push('missing: page-hero on #/rates');
+  console.log('  #/rates page-hero:', ph ? 'present' : 'MISSING');
+  w.location.hash = '#/';
 }
