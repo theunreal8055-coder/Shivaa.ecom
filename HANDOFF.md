@@ -1,12 +1,70 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-14 (v110 — full-catalogue delivery bridge)**
+**Last updated: 2026-09-14 (v111 — samples removed, ring zoom fix in progress)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
 ---
 
-## 🚨 v110 — LIVE SITE SHOWED ONLY ~7 PRODUCTS (2026-09-14); full-catalogue bridge built
+## 🚨 v111 — OWNER ORDERS (2026-09-14): no sample products · fix zoomed ring photos · 65 rings live
+
+**What the owner asked (verbatim intent):** "I don't need any kind of sample
+products. I just need 65 rings perfect photoshoots, visible in the ring
+section. Some rings are too zoomed in — people cannot even see the ring design
+perfectly. Fix that and post and upload all the 65 rings into my website."
+
+**Ground truth discovered this session:**
+1. The 2026-09-13 "Ring Reset" GitHub Actions run (looked failed) actually
+   PARTIALLY worked: it deleted the old live rings and uploaded PGS5001–5007
+   (that's why the live shop shows 7 products), then died on PGS5008 because
+   its staged meta.json carried a `hallmark` key the API rejects
+   (`hallmark_guard_product_write`). Connectivity GitHub-runner → shivaa.in and
+   the `SHIVAA_ADMIN_PASSWORD` secret are BOTH proven working.
+2. Programmatic zoom audit (`tools/photoshoot/zoom_check.py`, gold-blob margin
+   analysis): **41 of 65 covers were cropped** (ring spanned 100% of the frame
+   width, cut at both side edges) + **14 editorials** cropped. Root cause:
+   `finalize.py` centre-crops generated (often 2:3) images to 896×1195, cutting
+   wide ring shots at the sides.
+3. Live state is readable from the sandbox via `fetch_page` on
+   `https://shivaa.in/api/products` (bash/curl is TLS-blocked; the page fetcher
+   is not). Use this to verify live state any time.
+
+**Done this session (branch `arena/01a09f6d-shivaa-ecom`):**
+- Master `cms/data/db.json`: 405 → **65 products (PGS rings only)**. The 340
+  sample products are archived verbatim at `qa/archive/samples-340-v111.json`
+  (restore = merge `products` back). Diff is pure deletion; byte-faithful
+  round-trip preserved (indent=1, ensure_ascii=False).
+- `cms/js/app.js`: new `LIVE_CATS()` — all category menus/filters/sliders
+  (nav mega-menu, mobile menu, footer, home mini-cards, shop checkboxes,
+  search suggestions, B2B select) now render only categories that have
+  products, so nothing links to empty shops.
+- New tools: `tools/photoshoot/unbadge.py` (strips the baked-in Shivaa INC.
+  badge before regen) and `tools/photoshoot/zoom_check.py` (zoom/crop QA gate;
+  PASS = margins ≥3% each side, ring span ≤88% width).
+- Zoom-fix batch 1 DONE: covers PGS5001–5010 regenerated (pulled-back camera,
+  full ring visible, badge re-applied), installed to `cms/images/designs/rings/`
+  + `demo65/media/*/shot_studio.jpg`. 9/10 PASS zoom QA; PGS5005 needs one
+  re-roll. Batch ledger + per-turn instructions: `tools/photoshoot/ZOOMFIX-STATE.md`.
+- New deploy path: `deploy/catalogue_deploy.py` + `.github/workflows/catalogue-deploy.yml`
+  — makes the live catalogue EXACTLY the 65 PGS rings (deletes non-PGS strays,
+  uploads 4 photos per ring via `/api/media`, PUT-updates existing SKUs in
+  place / POSTs new ones, strips the API-rejected `id`/`createdAt`/`hallmark*`
+  keys — the exact bug that killed the 2026-09-13 run — plus retries + resumable
+  ledger + independent verify step). Zoom-QA gate blocks `live=YES` until all
+  130 cover/editorial checks PASS (override input exists for emergencies).
+
+**⏳ REMAINING (next turns, 10 generate_image calls per turn — hard cap):**
+batches 2–6 per `tools/photoshoot/ZOOMFIX-STATE.md` (31 covers + 14 editorials +
+1 re-roll), then merge PR to main, then dispatch "Catalogue Deploy" `live=YES`,
+then verify live (65 PGS, 0 samples) and update this file.
+
+**v110 bridge (`deploy/catalogue_sync_bridge.php`) is now SUPERSEDED by the
+Catalogue Deploy workflow** — the live catalogue will be exactly the 65 rings,
+not 405. Do not run the v110 bridge.
+
+---
+
+## 🎯 v110 — (2026-09-14) full-catalogue delivery bridge — SUPERSEDED by v111
 
 **Owner reported:** opening shivaa.in's product section shows only seven products.
 **Root cause (verified in code):** the storefront loads products from the LIVE
@@ -28,9 +86,10 @@ re-verified today), so delivery must run server-side, exactly like the v44 ring 
 - Pre-flight verified: all 405 records have name + weightG>0 + sku + ≥1 image;
   all 334 unique referenced photos exist in `cms/images` (zero missing; 91.6 MB tree).
 
-**⏳ PENDING (owner action, ~10 min on the tablet):** run the bridge per
-`deploy/CATALOGUE-SYNC-BRIDGE.md`, then delete its folder + rotate the admin
-password. Until then the live shop keeps showing ~7 products.
+**⏳ PENDING (owner action, ~10 min on the tablet):** ~~run the bridge~~ **CANCELLED
+by v111** — the owner ordered samples removed, so the live catalogue will be the
+65 rings only, delivered by the v111 Catalogue Deploy workflow instead. Do NOT
+run this bridge.
 
 **Known cosmetic follow-up (NOT changed without owner approval):** 340 products
 (all 20 × 16 non-ring categories + the 20 original rings) carry tag `sample`,
