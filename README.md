@@ -16,6 +16,9 @@ demo65/     the 65-ring batch (razor-thin demo of the pipeline, real data):
             media/designs/*.jpg (65 crops), media/PGS5xxx/ (4 AI shots + film +
             meta.json per design), status.py
 qa/         qa_v36.py (API regression) · smoke_media.py (upload smoke test)
+            preview_shim.py (PHP-shaped API for headless tests) ·
+            browser/ (jsdom suites: t7 route+button audit, t8 v106 features,
+            t9 mobile viewport)
 ```
 
 ## Quick start
@@ -38,8 +41,8 @@ python3 ../pipeline/06_upload.py --all                          # then live
   confirmed. **Automatic BIS verification is not connected**. The guide at
   `#/hallmark` hands off to official BIS Care; recorded references stay unverified.
 - **Feature 2 — Why Trust Shivaa:** implemented at `#/trust`, using the existing
-  owner-confirmed CIN, UDYAM and address. **GSTIN and certificate files remain
-  empty.** Its business profile is not a government-verification result.
+  owner-confirmed CIN, UDYAM and address — plus, since **v105**, the GSTIN the
+  owner supplied. **Certificate files remain empty.** Its business profile is not a government-verification result.
   Released through PR #6; the live profile and v40 JS/CSS assets are confirmed.
 
 See [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md),
@@ -47,6 +50,33 @@ See [`docs/FEATURE-ROADMAP.md`](docs/FEATURE-ROADMAP.md),
 [`docs/FEATURE-02-TRUST.md`](docs/FEATURE-02-TRUST.md). UI assets are now v40;
 no catalogue, supplier, registration or certificate data was generated or seeded
 by these features. Work stops after Feature 2 until the next original spec.
+
+## UI releases
+
+- **v105** — the 12-item UI/UX pass (search redesign, Quick View, hero slider,
+  advanced filters, OTP paste/auto-verify, footer motion, Why Trust Shivaa +
+  GSTIN, B2B tilt cards, calculator fix, ring-size scale, rates-tab glow,
+  auto-verify badge). Deploy notes: [`DEPLOY-v105.md`](DEPLOY-v105.md).
+- **v106** — the operability pass: every v105 defect fixed (Quick View
+  scroll/click, filter bottom sheet + drag-to-dismiss, footer/header rate parity
+  with a stated basis, tap-reactive glow), plus 4-digit OTP everywhere with
+  auto-send/auto-verify, fly-to-cart and a mini-cart sheet with a Checkout
+  button, `#/size-guide` as a page, the partner portal opening on the Bullion
+  Desk, B2B purchasing in every category, manufacturer photo sliders with a
+  full detail sheet, a 20-minute checkout rate lock (validated server-side),
+  and a repo-wide route/button audit. Deploy notes:
+  [`DEPLOY-v106.md`](DEPLOY-v106.md); package: `shivaa-update-v106.zip`
+  (public_html-relative, excludes `data/` + `uploads/` + `images/`).
+
+Headless coverage for v106 (jsdom against `qa/preview_shim.py`, no browser):
+`t7-audit` **PASS 4/4** (46 routes, 151 buttons, 0 uncaught errors) ·
+`t8-v106` **PASS 78/78** (13 feature groups) ·
+`t9-mobile` **PASS 49/49** (390×780 touch viewport).
+
+```bash
+cd qa && python3 preview_shim.py &                 # :8090
+cd browser && npm i jsdom && node t7-audit.mjs && node t8-v106.mjs && node t9-mobile.mjs
+```
 
 ## Docs
 `docs/DEPLOY-v37.md` (update + fresh-install steps) ·
