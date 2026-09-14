@@ -1,6 +1,9 @@
 # Feature 2 — Why Trust Shivaa
 
 Updated: 6 September 2026 · Introduced in UI asset version **40**.
+Amended: 13 September 2026 · UI asset version **105** — the owner supplied the
+company GSTIN, so it is now published alongside CIN/UDYAM/address (validated,
+still never presented as a government-registry result).
 
 **Released and live:** [PR #6](https://github.com/theunreal8055-coder/Shivaa.ecom/pull/6),
 merge `fad5aca`, after the separate Feature 1 release. On 6 September 2026,
@@ -17,6 +20,11 @@ verification or production data-entry tests.
 > Feature 2 — Why Trust Shivaa. Use existing verified CIN, UDYAM, address.
 > Leave GSTIN/certificates empty until you provide real files/details.
 
+**v105 amendment (13 September 2026).** The owner provided the GSTIN
+`08AAICE5666R1ZP` and asked for it to be shown prominently, so the "leave GSTIN
+empty" instruction is now satisfied and superseded: the GSTIN is published from
+`settings.gstin`. Certificate files remain empty — no real files were supplied.
+
 This is a separate release after Feature 1, not an implementation of the
 remaining roadmap. The owner's confirmation is the provenance for using the
 existing business details; **no government-registry verification is performed
@@ -27,6 +35,8 @@ Owner-confirmed values already in the repository at implementation:
 - CIN: `U32111RJ2025PTC099173`
 - UDYAM: `UDYAM-RJ-25-0086081`
 - Address: Shop No. 01, Main Road, Sadar Bazaar, Jayal, Nagaur, Rajasthan — 341023
+- GSTIN: `08AAICE5666R1ZP` (supplied by the owner on 13 September 2026; state
+  code 08 = Rajasthan, PAN `AAICE5666R`, mod-36 checksum valid)
 
 These are a record of the supplied baseline, **not runtime fallbacks**. Runtime
 values are read from the current store settings. Missing/malformed fields remain
@@ -41,9 +51,14 @@ missing; a failed request never substitutes these documented values.
 - Current store address, with a Google Maps **address search** using only that
   supplied text. No guessed coordinates, location verification, hours or courier
   serviceability are added to the profile.
-- **GSTIN: not provided. Certificate files: not provided.** Values remain
-  `null` / `[]`; no dummy IDs, generated files, seals or disabled fake downloads.
-  Existing privacy/catalogue PDFs are not repurposed as certificates.
+- **GSTIN: published (v105). Certificate files: still not provided.** The GSTIN
+  comes from `settings.gstin` and is published only when it passes the same
+  15-character shape + mod-36 checksum the KYC gate uses; anything else stays
+  `null`. It appears in the hero plaque (with a copy action), the identity card
+  and the documents card, each labelled *owner-provided* and each repeating that
+  this page performs no registry lookup. Certificates remain `[]`; no dummy IDs,
+  generated files, seals or disabled fake downloads. Existing privacy/catalogue
+  PDFs are not repurposed as certificates.
 - Clear separation of provided details, missing fields and unavailable service.
   None of those states is a finding about business registration or legal status.
 - Footer CIN/UDYAM/address use the same allowlisted API, with no hard-coded
@@ -79,7 +94,8 @@ stored. A link-review date is not a business verification date.
 - `schemaVersion: 1`
 - `source: store_settings`
 - `business`: `cin`, `udyam`, `address` (each a string or `null`)
-- `gstin: null`
+- `gstin`: the owner-confirmed GSTIN as a string, or `null` when settings carry
+  no shape- and checksum-valid value
 - `certificates: []`
 - `registryVerification: { performed: false, checkedAt: null }`
 
@@ -95,13 +111,16 @@ Identifier shapes are sanity checks only. Addresses preserve punctuation and
 line breaks, reject control bytes/invalid encoding/overlong/all-blank text, and
 are rendered as escaped text. The address limit is 500 Unicode characters.
 
-Private configuration, API keys, arbitrary URLs, legacy GSTIN/certificate fields,
+Private configuration, API keys, arbitrary URLs, legacy certificate fields,
 verification flags, dates, ratings and scores are never copied into the response.
+The only GSTIN source is `settings.gstin`, filtered through `trust_gstin()`; an
+unapproved GSTIN string anywhere else in settings is ignored.
 
 ## Browser handling
 
 `cms/js/trust.js` accepts only the expected profile contract. Unexpected schemas,
-nonempty unapproved GSTIN/certificates, forged verification flags, HTML responses,
+a GSTIN that fails the 15-character shape, nonempty certificates, forged
+verification flags, HTML responses,
 network errors and an eight-second timeout all produce an **unavailable** state.
 The footer clears previously displayed identifiers after a failed fetch.
 
@@ -114,11 +133,16 @@ manual copying rather than claiming success. External links are fixed to the
 known official domains (Maps has an encoded text query), use `noopener
 noreferrer` / `no-referrer`, and do not submit a CIN or UDYAM automatically.
 
-## Adding GSTIN or certificate files later
+## Adding certificate files later (the GSTIN shipped in v105)
 
-This release deliberately has no publication toggle, generic document-URL
-setting or placeholder certificate uploader. Keep the fields empty until the
-owner supplies actual details/files and explicitly approves publication.
+The GSTIN is live: `settings.gstin` → `trust_gstin()` → `/api/trust` → hero
+plaque, identity row and documents card, plus the shared footer plaque
+(`#footGstin`). Changing it is a settings edit; an invalid value renders the
+honest "Not provided" state instead of guessing.
+
+Certificates still have no publication toggle, generic document-URL setting or
+placeholder uploader. Keep that field empty until the owner supplies actual
+files and explicitly approves publication.
 
 A later reviewed change must establish provenance, confirm the exact identifier
 and document purpose, protect private data, validate file types/storage/URLs,
@@ -163,7 +187,8 @@ main, followed by the existing Hostinger auto-sync, which excludes live `data/`
 and `uploads/`. If copying manually, install helpers/assets before entrypoints.
 
 Before declaring this release live, confirm `/api/trust` returns the actual
-business details with `gstin: null`, `certificates: []` and no registry check;
+business details with the owner's `gstin` (or `null` when settings lack a valid
+one), `certificates: []` and no registry check;
 confirm the new JS/CSS assets are served; and retain the Feature 1 availability
 limits. Production rollout confirmation is recorded in the release PR and
 roadmap ledger, not inferred from merging alone.

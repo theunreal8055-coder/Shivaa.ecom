@@ -1,0 +1,126 @@
+{
+ "films": [
+  [
+   "rings-studio",
+   "The Ring Atelier — Studio",
+   "real pieces · studio light"
+  ],
+  [
+   "rings-worn",
+   "Worn on You",
+   "real hands · real shine"
+  ],
+  [
+   "rings-editorial",
+   "The Editorial Film",
+   "the catalogue look"
+  ],
+  [
+   "bridal",
+   "The Bridal Film",
+   "trousseau in motion"
+  ],
+  [
+   "gold-flow",
+   "The Gold Room — Motion",
+   "live gold · flowing light"
+  ],
+  [
+   "heritage",
+   "Heritage Reel",
+   "the house · the craft"
+  ],
+  [
+   "bridal-lux",
+   "Bridal Cinema",
+   "the trousseau in light"
+  ],
+  [
+   "b2b-dark",
+   "The Bullion Desk",
+   "partners · stock · settlement"
+  ]
+ ],
+ "pageVideos": {
+  "rates": "gold-flow",
+  "metal": "gold-flow",
+  "about": "heritage",
+  "services": "heritage",
+  "hallmark": "heritage",
+  "trust": "heritage",
+  "savings": "bridal-lux",
+  "catalogues": "bridal-lux",
+  "b2b": "b2b-dark",
+  "partner": "b2b-dark",
+  "buyback": "b2b-dark",
+  "contact": "b2b-dark",
+  "deadstock": "b2b-dark",
+  "track": "b2b-dark"
+ },
+ "carousel": {
+  "s-left": "heritage",
+  "s-center": "bridal-lux",
+  "s-right": "rings-worn",
+  "s-band": "gold-flow"
+ },
+ "lookbook": [
+  [
+   "/images/designs/rings/PGS5001_shot_editorial.jpg",
+   "Rings",
+   "The PGS Edit"
+  ],
+  [
+   "/images/designs/rings/PGS5002_shot_worn.jpg",
+   "Rings",
+   "Worn Today"
+  ],
+  [
+   "/images/banners/poster-bridal.jpg",
+   "Bridal",
+   "The Complete Trousseau"
+  ],
+  [
+   "/images/designs/rings/PGS5003_shot_studio.jpg",
+   "Rings",
+   "Studio Light"
+  ],
+  [
+   "/images/banners/poster-heritage.jpg",
+   "Karigari",
+   "Hands of the House"
+  ],
+  [
+   "/images/designs/rings/PGS5004_shot_gift.jpg",
+   "Rings",
+   "Gift Ready"
+  ],
+  [
+   "/images/banners/gen-hero-2030.jpg",
+   "2026 Edit",
+   "Modern Classic"
+  ],
+  [
+   "/images/designs/rings/PGS5005_shot_editorial.jpg",
+   "Rings",
+   "Editorial"
+  ],
+  [
+   "/images/banners/wedding.jpg",
+   "Wedding 2026",
+   "Book the Bridal Desk"
+  ],
+  [
+   "/images/banners/gen-page-b2b.jpg",
+   "Partners",
+   "The Bullion Desk"
+  ]
+ ],
+ "insta": [
+  "/images/designs/rings/PGS5001_shot_studio.jpg",
+  "/images/designs/rings/PGS5002_shot_worn.jpg",
+  "/images/banners/gen-hero-2030.jpg",
+  "/images/designs/rings/PGS5003_shot_editorial.jpg",
+  "/images/banners/poster-bridal.jpg",
+  "/images/designs/rings/PGS5004_shot_gift.jpg"
+ ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Shivaa — Honest Jewellery",
+  "short_name": "Shivaa",
+  "description": "Gold & silver jewellery at live Jaipur rates. HUID guide, Swarna Nidhi, B2B and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1d0509",
+  "theme_color": "#1d0509",
+  "icons": [
+    { "src": "/images/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

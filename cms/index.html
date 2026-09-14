@@ -2,16 +2,40 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Shivaa — Fine Jewellery | Live Gold Rates | HUID Check Guide</title>
 <meta name="description" content="Shivaa — honest purity, transparent making charges and live gold-rate pricing. Rings, necklaces, earrings, bangles, mangalsutra & silver. B2B jewellery supply across Rajasthan.">
 <link rel="icon" type="image/png" href="/images/favicon.png">
 <meta name="theme-color" content="#1d0509">
-<link rel="apple-touch-icon" href="/images/logo.png">
-<link rel="stylesheet" href="/css/fonts.css?v=42">
-<link rel="stylesheet" href="/css/styles.css?v=42">
-<link rel="stylesheet" href="/css/hallmark.css?v=42">
-<link rel="stylesheet" href="/css/trust.css?v=42">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fdf8ef">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Shivaa">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="canonical" href="https://shivaa.in/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Shivaa Jewellers">
+<meta property="og:title" content="Shivaa — Fine Jewellery | BIS Hallmarked | Live Gold Rates">
+<meta property="og:description" content="Honest purity, transparent making charges, live-rate pricing from Jayal, Rajasthan. Win 10 g certified 24K gold in the Bhai Dooj Gold Finale — draw 11 Nov 2026.">
+<meta property="og:url" content="https://shivaa.in/">
+<meta property="og:image" content="https://shivaa.in/images/icons/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"JewelryStore","name":"Shivaa Jewellers","url":"https://shivaa.in/","image":"https://shivaa.in/images/icons/icon-512.png","telephone":"+918905005921","email":"Support@shivaa.in","address":{"@type":"PostalAddress","addressLocality":"Jayal","addressRegion":"Rajasthan","addressCountry":"IN"},"openingHours":"Mo-Su 10:00-20:30","priceRange":"₹₹"}
+</script>
+<link rel="icon" type="image/png" sizes="32x32" href="/images/icons/favicon-32.png?v=107">
+<link rel="apple-touch-icon" href="/images/icons/apple-touch-icon.png?v=107">
+<link rel="stylesheet" href="/css/fonts.css?v=107">
+<link rel="stylesheet" href="/css/styles.css?v=107">
+<link rel="stylesheet" href="/css/hallmark.css?v=107">
+<link rel="stylesheet" href="/css/trust.css?v=107">
+<link rel="stylesheet" href="/css/finale.css?v=107">
+<link rel="stylesheet" href="/css/boost.css?v=46">
+<link rel="stylesheet" href="/css/motion.css?v=107">
+<link rel="stylesheet" href="/css/mobile.css?v=107">
+<link rel="stylesheet" href="/css/aurum.css?v=107">
+<link rel="stylesheet" href="/css/v107.css?v=107">
 </head>
 <body>
 
@@ -24,6 +48,7 @@
   </div>
 </div>
 <div class="scroll-progress" id="scrollProg"></div>
+<div class="route-bar" id="routeBar" aria-hidden="true"></div>
 <div class="cursor-glow" id="cursorGlow"></div>
 
 <!-- ══════════ UTILITY STRIP (contact · live rates · quick links) ══════════ -->
@@ -104,6 +129,7 @@
         <a href="#/savings" data-nav="savings" class="dw-row dw-lite"><span class="dw-gi">&#10022;</span><span class="dw-tx"><b>Swarna Nidhi</b><small>11 + 1 monthly gold plan</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
         <a href="#/services" data-nav="services" class="dw-row dw-lite"><span class="dw-gi">&#10022;</span><span class="dw-tx"><b>Bespoke &amp; Care</b><small>Custom orders &middot; polish &middot; exchange</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
         <a href="#/catalogues" data-nav="catalogues" class="dw-row dw-lite"><span class="dw-gi">&#9670;</span><span class="dw-tx"><b>Design Selection</b><small>Order designs in fine metal</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
+        <a href="#/finale" data-nav="finale" data-camp class="dw-row dw-lite finale-nav-link camp-off"><span class="dw-gi">&#10022;</span><span class="dw-tx"><b>Gold Finale</b><small>Win 10 g 24K gold · draw Bhai Dooj · 11 Nov</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
 
         <a href="#/b2b" data-nav="b2b" class="nav-jwl"><span class="dw-gi njl-gem" aria-hidden="true">&#9670;</span><span class="dw-tx"><b>For Jewellers</b><small>GST partnership &middot; bullion desk &middot; schemes</small></span><svg class="dw-ar" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6l6 6-6 6"/></svg></a>
 
@@ -120,94 +146,136 @@
   <div class="drawer-scrim" id="drawerScrim"></div>
   <div class="mega-backdrop" id="megaBackdrop" hidden></div>
   <div class="mega-panel" id="catMenu" role="menu" hidden></div>
-  <div class="search-drawer" id="searchDrawer">
-    <div class="container search-in">
-      <svg class="s-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="searchInput" type="text" placeholder="Search rings, jhumkas, mangalsutra, silver…" autocomplete="off">
-      <button class="s-close" id="searchClose">Esc</button>
-    </div>
-    <div class="container search-sugg" id="searchSugg"></div>
-  </div>
 </header>
+
+<!-- v101 command-palette search lives OUTSIDE the header (backdrop-filter containment) -->
+  <div class="search-drawer" id="searchDrawer">
+    <button class="search-scrim" id="searchScrim" aria-label="Close search" tabindex="-1"></button>
+    <div class="search-panel">
+      <div class="container">
+        <div class="search-in">
+          <svg class="s-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="searchInput" type="search" placeholder="Search rings, jhumkas, mangalsutra, silver…" autocomplete="off" aria-label="Search Shivaa Jewels">
+          <button class="s-close" id="searchClose">Cancel</button>
+        </div>
+        <div class="search-sugg" id="searchSugg"></div>
+        <div class="search-khint"><span><kbd>↑</kbd><kbd>↓</kbd> to move</span><span><kbd>↵</kbd> to open</span><span><kbd>esc</kbd> to close</span></div>
+      </div>
+    </div>
+  </div>
 
 <!-- ══════════ VIEW ══════════ -->
 <main id="view"></main>
 
-<!-- ══════════ FOOTER — palatial couture edition ══════════ -->
-<footer class="footer">
-  <div class="f-cornice" aria-hidden="true"><i></i><b>✦</b><i></i></div>
-  <div class="f-sparks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-  <div class="container">
-    <div class="f-crest">
-      <div class="f-emblem"><i class="ring-a"></i><i class="ring-b"></i><img src="/images/logo.png" alt="Shivaa"></div>
-      <h2 class="f-motto">Where every <em>auspicious beginning</em> finds its gold</h2>
-      <nav class="trust-footer-links" aria-label="Business information">
-        <a href="#/trust">Why Trust Shivaa</a>
-        <a href="#/hallmark">BIS Care / HUID guide</a>
-        <a href="#/compare">Compare your shortlist</a>
-        <a href="#/contact">Contact Shivaa</a>
-      </nav>
-    </div>
-    <div class="f-body">
-      <div class="f-brand-col">
-        <p class="f-brand-tag">Honest purity (tanch) · transparent making charges · gold &amp; silver jewellery — from Sadar Bazaar, Jayal to every doorstep in India.</p>
-        <div class="foot-social">
-          <a href="#/" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg></a>
-          <a href="#/" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14.5 8.5H17V5h-2.5C12.6 5 11 6.6 11 8.5V11H8.5v3.4H11V21h3.5v-6.6H17l.5-3.4h-3V9c0-.3.2-.5.5-.5z" stroke-linejoin="round"/></svg></a>
-          <a href="#/" aria-label="WhatsApp" id="footWa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3.8a8.2 8.2 0 0 0-7 12.4L4 20l3.9-1a8.2 8.2 0 1 0 4.1-15.2z"/><path d="M9.3 8.6c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.5s.7 1.6.7 1.7c.1.2.1.3 0 .5l-.4.6c-.1.2-.2.3-.1.5.2.3.8 1.2 1.6 1.7 1 .6 1.4.7 1.7.6.2-.1.6-.6.8-.9.2-.3.4-.2.7-.1l1.6.8c.3.1.4.2.4.4 0 .5-.4 1.6-2 2-1.6.4-3.4-.3-5.1-1.9-1.4-1.3-2.3-2.9-2.4-4.2 0-.9.2-1.6.7-2.1z" fill="currentColor" stroke="none"/></svg></a>
-        </div>
-        <div class="foot-seals">
-          <a class="seal" href="#/hallmark"><b>HUID</b><small>Check guide</small></a>
+<!-- ══════════ FOOTER · v101 — the house signature ══════════ -->
+<footer class="footer fv101">
+  <div class="fv-grain" aria-hidden="true"></div>
+  <div class="container fv-in">
 
-        </div>
-        <p class="trust-footer-note"><a href="#/trust">View the business details and document availability →</a></p>
+    <div class="fv-top">
+      <div class="fv-brand">
+        <div class="fv-mark"><img src="/images/logo.png" alt="Shivaa Jewels"></div>
+        <p class="fv-name">Shivaa <em>Jewels</em></p>
+        <span class="fv-legalname">Ernate Shine Jewellery Private Limited</span>
+        <p class="fv-tagline">Honest purity (tanch) · transparent making charges · gold &amp; silver jewellery &mdash; from Sadar Bazaar, Jayal to every doorstep in India.</p>
+        <nav class="fv-social" aria-label="Follow Shivaa Jewels">
+          <a href="https://www.instagram.com/shivaa.jewels?stkn=NG54eWNnM3Z6N2Q2" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>
+          </a>
+          <a href="https://www.facebook.com/share/1F8m9hgpCR/" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M14.5 8.5H17V5h-2.5C12.6 5 11 6.6 11 8.5V11H8.5v3.4H11V21h3.5v-6.6H17l.5-3.4h-3V9c0-.3.2-.5.5-.5z"/></svg>
+          </a>
+          <a href="https://wa.me/message/FM7UIQRLPIYHB1" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.8a8.2 8.2 0 0 0-7 12.4L4 20l3.9-1a8.2 8.2 0 1 0 4.1-15.2z"/><path d="M9.3 8.6c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.5s.7 1.6.7 1.7c.1.2.1.3 0 .5l-.4.6c-.1.2-.2.3-.1.5.2.3.8 1.2 1.6 1.7 1 .6 1.4.7 1.7.6.2-.1.6-.6.8-.9.2-.3.4-.2.7-.1l1.6.8c.3.1.4.2.4.4 0 .5-.4 1.6-2 2-1.6.4-3.4-.3-5.1-1.9-1.4-1.3-2.3-2.9-2.4-4.2 0-.9.2-1.6.7-2.1z" fill="currentColor" stroke="none"/></svg>
+          </a>
+        </nav>
       </div>
-      <div class="f-cols">
-        <div class="foot-col"><h4>Shop</h4><div id="footCats"></div></div>
-        <div class="foot-col"><h4>Company</h4>
-          <a href="#/about">About Shivaa</a>
-          <a href="#/trust">Why Trust Shivaa</a>
-          <a href="#/privacy">Privacy Policy 🔒</a>
-          <a href="#/b2b">B2B for Jewellers</a>
-          <a href="#/services">Bespoke &amp; Repair</a>
-          <a href="#/rates">Jaipur Live Rates</a>
+
+      <div class="fv-news">
+        <span class="label">The Shivaa Circle</span>
+        <h4>First look at new designs &amp; festive live rates</h4>
+        <form class="nl-form" onsubmit="Shivaa.subscribeNewsletter(event)">
+          <input type="email" placeholder="Your email address" required aria-label="Email address" autocomplete="email">
+          <button type="submit">Join</button>
+        </form>
+        <p class="fv-news-note">✦ Royalty members get early access to festive collections &mdash; no spam, ever.</p>
+        <a class="fv-b2b" href="#/b2b"><span class="fv-b2b-ic">✦</span> For Jewellers &mdash; B2B Partner Portal <b>&rarr;</b></a>
+      </div>
+    </div>
+
+    <div class="fv-rule" aria-hidden="true"><i></i><b>✦</b><i></i></div>
+
+    <nav class="fv-cols" aria-label="Footer">
+      <div class="fv-col">
+        <h5>Shop jewellery</h5>
+        <div id="footCats"></div>
+        <div class="foot-chips fv-chips">
+          <a href="#/shop?max=50000">Under ₹50K</a>
+          <a href="#/shop?tag=daily">Daily Wear</a>
+          <a href="#/shop?tag=heritage">Heritage Edit</a>
+          <a href="#/rates">Live Rates</a>
           <a href="#/catalogues">Design Selection</a>
-          <a href="#/buyback">100% Gold Buyback</a>
-          <a href="#/savings">Gold Savings Plan</a>
-          <a href="#/track">Track Your Order</a>
-          <a href="#/hallmark">BIS hallmark / HUID check</a>
-          <a href="#/faq">FAQs</a>
-        </div>
-        <div class="foot-col"><h4>Reach Us</h4>
-          <p class="foot-addr" id="trustFooterAddress">Loading store address…</p>
-          <a href="tel:+918905005921">☎ +91 89050 05921</a>
-          <a href="mailto:Support@shivaa.in">✉ Support@shivaa.in</a>
-          <p class="foot-hrs">All days · 10:00 – 20:30 IST</p>
         </div>
       </div>
-      <div class="fl-news">
-        <div class="fn-card">
-          <span class="label">The Shivaa Circle</span>
-          <h4>First look at new designs &amp; festive rates</h4>
-          <form class="nl-form" onsubmit="ShivaiNL(event)">
-            <input type="email" placeholder="Your email address" required>
-            <button type="submit">Join</button>
-          </form>
-          <p class="fn-note">✦ Royalty members get early access to festive collections</p>
-        </div>
+      <div class="fv-col">
+        <h5>The house</h5>
+        <a href="#/about">About Shivaa</a>
+        <a href="#/trust">Why Trust Shivaa</a>
+        <a href="#/b2b">B2B for Jewellers</a>
+        <a href="#/services">Bespoke &amp; Repair</a>
+        <a href="#/care">Lifetime Care Plan</a>
+        <a href="#/buyback">100% Gold Buyback</a>
+        <a href="#/savings">Gold Savings Plan</a>
+        <a href="#/finale" data-camp class="camp-off">Bhai Dooj Gold Finale ✦</a>
+        <div id="footCustomPages"></div>
+      </div>
+      <div class="fv-col">
+        <h5>Help &amp; trust</h5>
+        <a href="#/track">Track Your Order</a>
+        <a href="#/hallmark">BIS Care / HUID guide</a>
+        <a href="#/sizer">Ring Size Guide</a>
+        <a href="#/compare">Compare Shortlist</a>
+        <a href="#/wishlist">My Wishlist</a>
+        <a href="#/faq">FAQs</a>
+        <a href="#/privacy">Privacy Policy</a>
+        <a href="#/terms">Terms of Sale</a>
+        <a href="#/refund">Returns &amp; Refunds</a>
+        <a href="#/shipping">Shipping</a>
+      </div>
+      <div class="fv-col fv-reach">
+        <h5>Reach the family</h5>
+        <address class="fv-addr" id="trustFooterAddress">Loading store address…</address>
+        <a class="fv-contact" href="tel:+918905005921"><span>&#9742;</span> +91 89050 05921</a>
+        <a class="fv-contact" href="mailto:Support@shivaa.in"><span>&#9993;</span> Support@shivaa.in</a>
+        <p class="fv-hours">All days · 10:00 &ndash; 20:30 IST</p>
+        <a class="btn btn-outline btn-sm fv-contact-btn" href="#/contact">Visit / Contact us &rarr;</a>
+      </div>
+    </nav>
+
+    <div class="fv-trust">
+      <div class="fvt-id">
+        <a href="#/trust" class="fvt-trustlink">View business identity, GSTIN &amp; document availability &rarr;</a>
+        <span id="trustFooterIdentity">© 2026 Shivaa Jewels</span>
+      </div>
+      <div class="pay-strip fv-pay" aria-label="We accept">
+        <span class="pay-chip">UPI</span><span class="pay-chip">GOOGLE PAY</span><span class="pay-chip">PHONEPE</span><span class="pay-chip">VISA</span><span class="pay-chip">MASTERCARD</span><span class="pay-chip">RUPAY</span><span class="pay-chip">NETBANKING</span><span class="pay-chip">COD</span><span class="pay-chip">WHATSAPP PAY</span>
       </div>
     </div>
-    <div class="f-wordmark" aria-hidden="true">SHIVAA</div>
-    <div class="foot-chips">
-      <a href="#/shop">All Jewellery</a><a href="#/shop?category=rings">Rings</a><a href="#/shop?category=earrings">Earrings</a><a href="#/shop?category=necklaces">Necklaces</a><a href="#/shop?category=bangles">Bangles</a><a href="#/shop?category=mangalsutra">Mangalsutra</a><a href="#/shop?category=silver">Silver 925</a><a href="#/shop?max=50000">Under ₹50K</a><a href="#/shop?tag=daily">Daily Wear</a><a href="#/rates">Live Rates</a><a href="#/rates">Live Rates</a><a href="#/catalogues">Design Selection</a>
+
+    <div class="fv-base">
+      <span class="fv-copy">© 2026 Shivaa Jewels · Ernate Shine Jewellery Private Limited · Handcrafted in Jayal, Nagaur, Rajasthan 🇮🇳</span>
+      <span class="fv-base-links">
+        <a href="#/giftcard">Gift Cards</a>
+        <a href="#/refer">Refer &amp; Earn</a>
+        <a href="#/videoconsult">Video Consult</a>
+        <a href="#/pickup">Dead-Stock Pickup</a>
+        <a href="#/bundle">Bridal Bundle</a>
+        <a href="#/admin">Admin</a>
+        <a href="#/partner">Partner Portal</a>
+      </span>
     </div>
-    <div class="pay-strip" aria-label="We accept">
-      <span class="pay-chip">UPI</span><span class="pay-chip">GOOGLE PAY</span><span class="pay-chip">PHONEPE</span><span class="pay-chip">VISA</span><span class="pay-chip">MASTERCARD</span><span class="pay-chip">RUPAY</span><span class="pay-chip">NETBANKING</span><span class="pay-chip">COD</span><span class="pay-chip">WHATSAPP PAY</span>
-    </div>
-    <div class="foot-legal">
-      <span id="trustFooterIdentity">© 2026 Shivaa</span>
-      <span class="foot-staff"><a href="#/privacy">Privacy Policy</a> · <a href="#/admin">Admin</a> · <a href="#/partner">Partner Portal</a></span>
-    </div>
+
+    <div class="fv-wordmark" aria-hidden="true">SHIVAA</div>
   </div>
 </footer>
 
@@ -234,12 +302,30 @@
   <iframe id="pdfFrame" title="Catalogue PDF"></iframe>
 </div>
 
-<script src="/js/qr.js?v=42"></script>
-<script src="/js/otp-autofill.js?v=42"></script>
-<script src="/js/app.js?v=42"></script>
-<script src="/js/hallmark.js?v=42"></script>
-<script src="/js/trust.js?v=42"></script>
-<script src="/js/auth.js?v=42"></script>
-<script src="/js/admin.js?v=42"></script>
+<!-- v99 · Saathi removed ahead of the Gemini chatbot.
+     bot.js/bot.css are no longer loaded; both files stay on disk so the panel
+     shell can be reused when Gemini is wired in.
+     qr.js (55KB) + admin.js (261KB) are OUT of the shopper's critical path —
+     every reference to ShivaaAdmin/Partner/Bullion/Pages/CO and to QRCode lives
+     inside admin.js itself, so app.js fetches them on demand the first time
+     #/admin or #/partner is opened (loadStaffBundle, in the ROUTER section).
+     That is 366KB of parse+execute a shopper never needed.
+     `defer` keeps execution order and guarantees a fully parsed DOM. -->
+<script src="/js/otp-autofill.js?v=107" defer></script>
+<script src="/js/app.js?v=107" defer></script>
+<script src="/js/hallmark.js?v=107" defer></script>
+<script src="/js/trust.js?v=107" defer></script>
+<script src="/js/auth.js?v=107" defer></script>
+<script src="/js/motion.js?v=107" defer></script>
+<script src="/js/aurum.js?v=107" defer></script>
+<script src="/js/v107.js?v=107" defer></script>
+<script src="/js/boost.js?v=46" defer></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () { /* offline shell is a bonus, never required */ });
+  });
+}
+</script>
 </body>
 </html>
