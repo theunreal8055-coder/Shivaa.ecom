@@ -8,19 +8,19 @@
 
 ## 1. CURRENT STATE (update this block at the end of every work session)
 
-- **Version on `main`:** v110-catalogue-bridge — 2026-09-14 (v111 in progress on
-  `arena/01a09f6d-shivaa-ecom`, not yet merged) + **v112 PayU+Bullion hotfixes on `arena/01a0a030-shivaa-ecom` (2026-09-14, ready to merge)**
-- **v111 in flight (owner orders 2026-09-14):** remove ALL sample products (master
-  db.json now 65 PGS rings only; 340 samples archived at `qa/archive/samples-340-v111.json`),
-  fix 41 zoomed/cropped covers + 14 editorials (batch ledger:
-  `tools/photoshoot/ZOOMFIX-STATE.md`), then deploy exactly the 65 rings live via
-  the new "Catalogue Deploy" GitHub Actions workflow. Live site currently shows
-  only PGS5001–5007 (partial 2026-09-13 ring-reset run that died on PGS5008's
-  `hallmark` key). Zoom-fix batch 1 (5001–5010) done, PGS5005 re-roll pending.
-- **v112 HOTFIXES (2026-09-14, branch `arena/01a0a030-shivaa-ecom`):** PayU gateway fixed (address `->`→`[]`, key/salt regex, strict reconcile, probe), bullion 1s poll + 60fps millisecond smooth, rate-drift investigation (Jaipur premium + rounding), live-rates panel CONNECTED to bullion panel (current_rates() now reads `.angel-tick.json` directly). Zips: `payu-update-20260914.zip`, `bullion-update-20260914.zip`, `connect-rates-bullion-20260914.zip`. Live `api.php` is at `public_html/api.php` (not `cms/api.php`) on Hostinger — see HANDOFF § v112.
+- **Version on `main`:** v111-rings-live — 2026-09-14 ✅ LIVE + **v112 PayU+Bullion hotfixes (merged 2026-09-14)**
+- **v111 go-live VERIFIED:** Catalogue Deploy run
+  https://github.com/theunreal8055-coder/Shivaa.ecom/actions/runs/34861781402
+  succeeded (16m, independent verify green). Live `/api/products` is exactly
+  65 PGS rings, 4 shots each, 0 samples, 0 videos. Master db matches.
+  340 samples remain archived at `qa/archive/samples-340-v111.json`.
+- **v112 HOTFIXES (2026-09-14, ex-branch `arena/01a0a030-shivaa-ecom` now on `main`):** PayU gateway fixed (address `->`→`[]`, key/salt regex, strict reconcile, probe), bullion 1s poll + 60fps millisecond smooth, rate-drift root-cause (Jaipur premium +55), live-rates panel CONNECTED to bullion panel (`current_rates()` now reads bullion `.angel-tick.json` directly). Zips: `payu-update-20260914.zip`, `bullion-update-20260914.zip`, `connect-rates-bullion-20260914.zip`. Live `api.php` is at `public_html/api.php` on Hostinger — see HANDOFF § v112 and `MEMORY.md`.
+- **Follow-up (not blocking live):** zoom-fix batches 2–7 in
+  `tools/photoshoot/ZOOMFIX-STATE.md` (34 covers + 18 editorials). After they
+  PASS, re-run Catalogue Deploy to refresh photos.
 - **Products:** **65** in `cms/data/db.json` (owner: rings only, no samples).
-  The 340 samples are archived, not lost.
-- **Deploy contract:** `main` is what the server cron tracks (`branch: main`). To make v112 live, merge `arena/01a0a030-shivaa-ecom` → `main` (PR) — or just upload the 3 zips to `public_html/` as owner already did.
+- **Deploy contract:** `main` is what the server cron tracks (`branch: main`).
+  Live catalogue writes go through Catalogue Deploy, not the v110 bridge.
 
 ## 2. THE FORWARD-ONLY RULES (for every agent, every chat — no exceptions)
 

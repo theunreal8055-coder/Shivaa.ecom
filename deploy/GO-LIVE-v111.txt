@@ -1,0 +1,9 @@
+GO
+ZOOM_GATE=NO
+# retrigger 2026-09-14T15:22Z — multipart upload used str '\\r\\n' (TypeError on first /api/media)
+
+Owner go-live 2026-09-14: make the live catalogue exactly the 65 PGS rings.
+ZOOM_GATE=NO is the conscious override so remaining cover/editorial pull-backs
+(batches 2–7 in tools/photoshoot/ZOOMFIX-STATE.md) do not block the upload.
+Those photos stay on the follow-up ledger and can be refreshed in a later
+catalogue deploy once they PASS zoom QA.

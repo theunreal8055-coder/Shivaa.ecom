@@ -65,7 +65,12 @@ when the first pull-back isn't enough, e.g. PGS5005.)
 ## After the LAST batch
 1. `python3 tools/photoshoot/zoom_check.py --sku <all 65>` → 130/130 PASS.
 2. Merge session branch to main via PR (ARENA-STATE rule 3), update HANDOFF.
-3. Deploy: GitHub Actions "Catalogue Deploy" workflow, `live=YES` from main
-   (secret SHIVAA_ADMIN_PASSWORD already works — proven by the 2026-09-13 run).
+3. Re-run Catalogue Deploy (refresh photos on the already-live 65 rings).
 4. Verify via https://shivaa.in/api/products (fetch_page works from sandbox):
    exactly 65 PGS products, 4 shots each, no videos, no samples.
+
+## GO-LIVE note (2026-09-14, this session)
+Owner ordered the 65 rings live **now**. `deploy/GO-LIVE-v111.txt` contains
+`GO` + `ZOOM_GATE=NO` so Catalogue Deploy does not wait on batches 2–7.
+Continue the batches above; they are photo-quality follow-up, not a catalogue
+blocker.
