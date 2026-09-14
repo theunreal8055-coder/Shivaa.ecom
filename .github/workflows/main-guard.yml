@@ -53,14 +53,3 @@ jobs:
           TAG="${BACKUP_TAG:-unknown - see Actions log}"
           BODY="The main-guard watchdog detected a problem with the latest push to main. Commit: ${{ github.sha }} (before: ${{ github.event.before }}). A backup tag was saved BEFORE the checks ran: $TAG. Recovery: in a fresh clone run: git fetch origin --tags, then inspect the tag. Do NOT merge anything else until this is resolved."
           gh issue create --title "ALARM: main moved backward or lost files" --body "$BODY"
-        if: failure()
-        env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}, TAG: ${{ env.BACKUP_TAG }} }
-        run: |
-          gh issue create --title "⚠️ ALARM: main moved backward or lost files" --body "$(cat <<EOF
-          The main-guard watchdog detected a problem with the latest push to main.
-          Commit: ${{ github.sha }} (before: ${{ github.event.before }})
-          A backup tag was saved BEFORE the checks ran: ${TAG:-unknown - see Actions log}
-          Recovery (run in any fresh clone): git fetch origin --tags && git reset --hard <backup-tag> && inspect, then force-restore main ONLY after confirming.
-          Do NOT merge anything else until this is resolved.
-          EOF
-          )"
