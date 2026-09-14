@@ -8,11 +8,15 @@
 
 ## 1. CURRENT STATE (update this block at the end of every work session)
 
-- **Version on `main`:** v109-consolidated (v108-MEGA ∪ v109-line) — 2026-09-14
-- **Contains:** full v107.4 line (PR #21: v105/v106/v107 UI + operability) ·
-  v108-MEGA (boost layer, cinematic films, banners, owner media/zips v56–v92) ·
-  v109-line (shopper polish `v108.css/v108.js` + 100-feature pack `v109.js`)
-- **Products:** 405 in `cms/data/db.json` (65 PGS rings with full photoshoots)
+- **Version on `main`:** v110-catalogue-bridge — 2026-09-14
+- **Contains:** v109-consolidated (v107.4 line · v108-MEGA · v109-line) **+ v110**:
+  one-file `deploy/catalogue_sync_bridge.php` (tablet bridge that delivers the full
+  405-product master catalogue + missing photos into the live server's locked
+  `data/db.json`; runbook `deploy/CATALOGUE-SYNC-BRIDGE.md`). Also main-guard
+  GitHub Actions watchdog (backup tag + backward-move/file-loss alarm).
+- **Products:** 405 in `cms/data/db.json` (65 PGS rings with full photoshoots).
+  ⚠️ As of 2026-09-14 the LIVE site showed only ~7 products: code auto-sync never
+  touches live `data/`, so the master list must be pushed once via the v110 bridge.
 - **Deploy contract:** `main` is what the server cron tracks (`branch: main`).
 
 ## 2. THE FORWARD-ONLY RULES (for every agent, every chat — no exceptions)
