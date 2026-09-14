@@ -21,7 +21,7 @@
   function fill(target, code) {
     var el = typeof target === 'string' ? document.getElementById(target) : target;
     if (!el || !code) return false;
-    if (el.classList && el.classList.contains('otp-boxes')) {
+    if (el.classList && (el.classList.contains('otp-boxes') || el.classList.contains('shv-otp'))) {
       var boxes = el.querySelectorAll('input'), i = 0;
       boxes.forEach(function (b) { b.value = code[i++] || ''; });
       if (boxes.length) { boxes[Math.min(code.length, boxes.length) - 1].focus(); }
@@ -40,8 +40,11 @@
     try {
       var cred = await navigator.credentials.get({ otp: { transport: 'sms' }, signal: ctl.signal });
       if (!cred || !cred.code) return;
-      var code = String(cred.code).replace(/\D/g, '').slice(-6);
-      if (code.length !== 6 || !fill(target, code)) return;
+      var raw = String(cred.code).replace(/\D/g, '');
+      var boxes = target && target.querySelectorAll ? target.querySelectorAll('input') : [];
+      var want = boxes.length || 4;
+      var code = raw.slice(-Math.min(raw.length, want === 6 ? 6 : 4));
+      if (![4, 6].includes(code.length) || !fill(target, code)) return;
       if (typeof onCode === 'function') onCode(code);
     } catch (e) { /* dismissed or aborted — silent */ }
   }
