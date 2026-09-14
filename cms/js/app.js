@@ -1466,21 +1466,44 @@ async function loadRates() {
     renderTicker(); renderRateStrip(); document.dispatchEvent(new CustomEvent('rates'));
   } catch (e) {}
 }
-/* v90 — while the official MCX feed is live the shop polls every 15 s so
-   every price tracks the exchange; off-hours it relaxes to 60 s. A tab
-   returning to the foreground refreshes immediately if its quote is stale. */
+/* v90 — while the official MCX feed is live the shop polls every 1 s (was 15 s) so
+   every price tracks the exchange every second; off-hours it relaxes to 5 s. A tab
+   returning to the foreground refreshes immediately if its quote is stale.
+   Millisecond smooth animation is handled by renderTicker's interpolation (see below). */
 let _ratesTimer = null;
 function scheduleRatesPoll() {
   clearTimeout(_ratesTimer);
   const live = !!(state.rates && state.rates.live);
-  const delay = live ? 15000 : 60000;
+  const delay = live ? 1000 : 5000;
   _ratesTimer = setTimeout(async () => { await loadRates(); scheduleRatesPoll(); }, delay);
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || !_lastRatesAt) return;
-  const maxAge = state.rates && state.rates.live ? 20000 : 90000;
+  const maxAge = state.rates && state.rates.live ? 3000 : 10000;
   if (Date.now() - _lastRatesAt > maxAge) { loadRates(); scheduleRatesPoll(); }
 }, { passive: true });
+// v2026-09-14 — bullion millisecond smooth: 60fps interpolation so the ticker *looks* like it moves every millisecond
+// Real MCX tick is still 1/sec (exchange limit), but the display lerps between ticks so customers see smooth motion.
+let _msGold = null, _msTargetGold = null, _msSilver = null, _msTargetSilver = null, _msRaf = null;
+function _msTick() {
+  if (_msTargetGold != null && state.rates) {
+    if (_msGold == null) { _msGold = _msTargetGold; _msSilver = _msTargetSilver; }
+    _msGold += (_msTargetGold - _msGold) * 0.14;
+    _msSilver += (_msTargetSilver - _msSilver) * 0.14;
+    const gEl = document.querySelector('[data-rt="gold22"]');
+    if (gEl && Math.abs(_msGold - _msTargetGold) > 0.01) gEl.textContent = '₹' + Math.round(_msGold).toLocaleString('en-IN') + '/g';
+    const sEl = document.querySelector('[data-rt="silver"]');
+    if (sEl && Math.abs(_msSilver - _msTargetSilver) > 0.001) sEl.textContent = '₹' + _msSilver.toFixed(2).replace(/\.00$/,'') + '/g';
+  }
+  _msRaf = requestAnimationFrame(_msTick);
+}
+_msTick();
+document.addEventListener('rates', () => {
+  if (!state.rates) return;
+  _msTargetGold = state.rates.gold22;
+  _msTargetSilver = state.rates.silver;
+  if (_msGold == null) { _msGold = _msTargetGold; _msSilver = _msTargetSilver; }
+});
 /* flash a numeric element green/red when the market moves it */
 function flashMove(el, text, dir) {
   if (!el) return;
