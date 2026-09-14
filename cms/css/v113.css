@@ -1,0 +1,206 @@
+/* ══════════════════════════════════════════════════════════════════════
+   SHIVAA · v113  —  "2030" layer + the fixes this release carries
+   Loaded LAST (after aurum.css) so every rule here wins the cascade.
+   Everything decorative is switched off under prefers-reduced-motion.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────────
+   1 · CALCULATOR SLIDER — the white-line bug.
+   aurum.css paints `html.js-aurum input[type="range"]` at 24px tall while
+   .bbc-range paints its gradient straight onto the input box, so WebKit drew
+   a 24px gold block with the thumb hanging ~9px BELOW a 5px track — the
+   thumb's 2px white border read as a stray white hairline under the bar.
+   Fixed properly: transparent input, a real 6px track pseudo-element and a
+   thumb centred on it (margin-top = (6 − 24) / 2 = −9px).
+   ───────────────────────────────────────────────────────────────────── */
+html input[type="range"].bbc-range,
+html.js-aurum input[type="range"].bbc-range {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 24px; margin-top: 12px; padding: 0;
+  background: transparent !important;   /* kill the 24px gradient block */
+  border: 0; outline: 0; cursor: pointer;
+}
+html input[type="range"].bbc-range::-webkit-slider-runnable-track,
+html.js-aurum input[type="range"].bbc-range::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 99px; border: 0;
+  background: linear-gradient(90deg, var(--gold-2, #e9ce94), rgba(233, 206, 148, .22));
+}
+html input[type="range"].bbc-range::-webkit-slider-thumb,
+html.js-aurum input[type="range"].bbc-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 24px; height: 24px; margin-top: -9px;   /* ← the centring that was missing */
+  border-radius: 50%; cursor: grab;
+  background: radial-gradient(circle at 34% 30%, #fff6dd, var(--gold, #d4af5a) 70%);
+  border: 2px solid #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .4), 0 0 0 0 rgba(212, 175, 90, .5);
+  transition: transform .2s var(--ease, ease), box-shadow .25s ease;
+}
+html input[type="range"].bbc-range::-webkit-slider-thumb:active,
+html.js-aurum input[type="range"].bbc-range::-webkit-slider-thumb:active {
+  cursor: grabbing; transform: scale(1.14);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .45), 0 0 0 8px rgba(212, 175, 90, .16);
+}
+html input[type="range"].bbc-range::-moz-range-track {
+  height: 6px; border-radius: 99px; border: 0;
+  background: linear-gradient(90deg, var(--gold-2, #e9ce94), rgba(233, 206, 148, .22));
+}
+html input[type="range"].bbc-range::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%; cursor: grab;
+  background: radial-gradient(circle at 34% 30%, #fff6dd, var(--gold, #d4af5a) 70%);
+  border: 2px solid #fff; box-shadow: 0 4px 14px rgba(0, 0, 0, .4);
+}
+html input[type="range"].bbc-range:focus-visible {
+  outline: 2px solid var(--gold, #d4af5a); outline-offset: 6px; border-radius: 99px;
+}
+/* gold caret in the grams box so the cursor is visible on the dark field */
+#bbWt, #dsWt, #dsMc { caret-color: var(--gold, #d4af5a); }
+
+/* ─────────────────────────────────────────────────────────────────────
+   2 · RATE STRIP — six cells now (Jaipur ×3, RTGS bullion ×2, live clock)
+   ───────────────────────────────────────────────────────────────────── */
+.rate-strip-in { grid-template-columns: repeat(6, 1fr); }
+@media (max-width: 1080px) { .rate-strip-in { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 560px)  { .rate-strip-in { grid-template-columns: repeat(2, 1fr); } }
+
+.rscell.rs-rtgs { background: linear-gradient(180deg, #350d14, #24070c); }
+.rscell.rs-rtgs small { color: rgba(243, 223, 174, .72); letter-spacing: .18em; }
+.rscell.rs-rtgs small em { font-style: normal; opacity: .6; letter-spacing: .08em; text-transform: none; }
+.rscell.rs-rtgs b {
+  background: linear-gradient(96deg, #fff2cd 8%, #e6c276 34%, #fff8e4 52%, #d9b464 70%, #fff2cd 92%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: #ffe9bd;
+  animation: v113Sheen 7s linear infinite;
+}
+.rscell .chg.flat { color: rgba(243, 223, 174, .55); font-weight: 500; }
+@keyframes v113Sheen { to { background-position: -220% 0; } }
+
+/* the strip breathes like a live board */
+.rate-strip::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 38%, rgba(255, 240, 200, .10) 50%, transparent 62%);
+  background-size: 260% 100%; background-position: 130% 0;
+  animation: v113Sweep 9s ease-in-out infinite;
+}
+.rate-strip { position: relative; }
+@keyframes v113Sweep { 0% { background-position: 130% 0; } 60%, 100% { background-position: -60% 0; } }
+
+/* ─────────────────────────────────────────────────────────────────────
+   3 · QUICK VIEW — grab handle + a sheet that can actually be scrolled
+   ───────────────────────────────────────────────────────────────────── */
+.qv-grab {
+  display: block; width: 100%; padding: 6px 0 2px; margin: -10px 0 6px;
+  cursor: grab; touch-action: none; text-align: center; border-radius: 14px 14px 0 0;
+}
+.qv-grab i {
+  display: block; width: 46px; height: 4px; margin: 0 auto; border-radius: 99px;
+  background: linear-gradient(90deg, rgba(212, 175, 90, .25), var(--gold, #d4af5a), rgba(212, 175, 90, .25));
+  box-shadow: 0 0 12px rgba(212, 175, 90, .45);
+}
+.qv-grab:active { cursor: grabbing; }
+.qv-grab:active i { transform: scaleY(1.25); }
+.qv-dragging { transition: none !important; animation: none !important; }
+
+.modal.qv-modal {
+  max-height: 92vh; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 26px 26px 22px 22px;
+  background: linear-gradient(180deg, #fffdf7, #fbf4e6);
+  box-shadow: 0 -6px 46px rgba(45, 8, 15, .34), 0 0 0 1px rgba(212, 175, 90, .38),
+              0 0 60px rgba(212, 175, 90, .16);
+  scrollbar-color: var(--gold, #d4af5a) rgba(212, 175, 90, .14);
+  scrollbar-width: thin;
+}
+.modal.qv-modal::-webkit-scrollbar { width: 8px; }
+.modal.qv-modal::-webkit-scrollbar-track { background: rgba(212, 175, 90, .10); border-radius: 99px; }
+.modal.qv-modal::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #f0d69a, var(--gold, #d4af5a));
+  border-radius: 99px; border: 2px solid rgba(255, 253, 247, .9);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   4 · CAROUSEL — a keyboard focus ring (the deck is now arrow-key driven)
+   ───────────────────────────────────────────────────────────────────── */
+.carousel:focus-visible { outline: 2px solid var(--gold, #d4af5a); outline-offset: 4px; }
+.carousel:focus:not(:focus-visible) { outline: none; }
+
+/* ─────────────────────────────────────────────────────────────────────
+   5 · THE 2030 LAYER — ambient light, not decoration for its own sake
+   ───────────────────────────────────────────────────────────────────── */
+
+/* 5a · aurora drifting behind the hero */
+.hero::after {
+  content: ''; position: absolute; inset: -22%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(46% 34% at 22% 26%, rgba(212, 175, 90, .20), transparent 62%),
+    radial-gradient(40% 30% at 78% 68%, rgba(160, 40, 62, .26), transparent 64%),
+    radial-gradient(34% 26% at 58% 12%, rgba(255, 236, 190, .12), transparent 60%);
+  filter: blur(28px);
+  animation: v113Aurora 26s ease-in-out infinite alternate;
+}
+.hero > .container, .hero .hs-stack, .hero .hero-cue { position: relative; z-index: 1; }
+@keyframes v113Aurora {
+  0%   { transform: translate3d(0, 0, 0) scale(1);   opacity: .78; }
+  50%  { transform: translate3d(2%, -2%, 0) scale(1.07); opacity: 1; }
+  100% { transform: translate3d(-2%, 2%, 0) scale(1.03); opacity: .84; }
+}
+
+/* 5b · the CTA breathes — a single soft pulse, never a strobe */
+.hero .btn-gold, .c-cta .btn-gold {
+  position: relative; overflow: visible;
+  animation: v113Pulse 3.6s ease-in-out infinite;
+}
+@keyframes v113Pulse {
+  0%, 100% { box-shadow: 0 8px 24px rgba(45, 8, 15, .30), 0 0 0 0 rgba(212, 175, 90, .34); }
+  50%      { box-shadow: 0 10px 30px rgba(45, 8, 15, .34), 0 0 0 12px rgba(212, 175, 90, 0); }
+}
+
+/* 5c · holographic lift on product cards */
+.p-card { transition: transform .45s cubic-bezier(.19, 1, .22, 1), box-shadow .45s ease, border-color .45s ease; }
+.p-card:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 22px 48px rgba(45, 8, 15, .20), 0 0 0 1px rgba(212, 175, 90, .42),
+              0 0 34px rgba(212, 175, 90, .16);
+}
+.p-card::before {
+  content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  border-radius: inherit; opacity: 0; transition: opacity .45s ease;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 244, 214, .26) 50%, transparent 60%);
+  background-size: 250% 100%; background-position: 120% 0;
+}
+.p-card:hover::before { opacity: 1; animation: v113Holo 1.5s ease-out; }
+@keyframes v113Holo { from { background-position: 120% 0; } to { background-position: -40% 0; } }
+
+/* 5d · the customer-order desk gets a living aurora border */
+.adm-card.custom-page {
+  position: relative; isolation: isolate;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--white, #fff), var(--white, #fff)) padding-box,
+    linear-gradient(120deg, rgba(212, 175, 90, .85), rgba(160, 40, 62, .55), rgba(212, 175, 90, .35), rgba(212, 175, 90, .9)) border-box;
+  background-size: 100% 100%, 300% 300%;
+  animation: v113Border 11s ease-in-out infinite;
+}
+@keyframes v113Border { 0%, 100% { background-position: 0 0, 0% 50%; } 50% { background-position: 0 0, 100% 50%; } }
+
+/* 5e · section headings get the gold underline a little more life */
+.sec-head h2 { text-wrap: balance; }
+
+/* 5f · design-desk cards: a selected design reads as selected from across the room */
+.ds-card.on { box-shadow: 0 0 0 2px var(--gold, #d4af5a), 0 12px 30px rgba(212, 175, 90, .22); }
+
+/* ─────────────────────────────────────────────────────────────────────
+   6 · ONE SWITCH FOR ALL OF IT
+   ───────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .hero::after,
+  .hero .btn-gold, .c-cta .btn-gold,
+  .rate-strip::before,
+  .rscell.rs-rtgs b,
+  .adm-card.custom-page,
+  .p-card::before { animation: none !important; }
+  .p-card { transition: none; }
+  .p-card:hover { transform: none; }
+  .p-card:hover::before { opacity: 0; }
+  .qv-dragging { transition: none !important; }
+}

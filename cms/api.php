@@ -1864,6 +1864,18 @@ function current_rates(array $db): array {
   // If a fresh bullion tick exists (even up to 120s old), jaipur rates are derived from it — interface unchanged
   $lv = live_tick_quote($db, 120.0);
   if ($lv) return jaipur_live_from_tick($db, $lv);
+  /* v113 — retail and the B2B bullion desk now quote the SAME anchor.
+     Before this, retail fell back to international spot + ₹55 whenever the
+     Angel tick file was older than 120 s, while bullion_rows() kept pricing
+     off $db['rates']['mcx'] (the exchange future) for as long as
+     source === 'live-mcx'. Between 2 min and 11 min of tick age the two
+     screens showed different gold — exactly the discrepancy the owner saw,
+     and retail could read BELOW the B2B RTGS board. Re-anchoring retail to
+     the identical future removes the window entirely. */
+  $anc = bullion_anchors($db);
+  if ($anc['mcxOn'] && $anc['gA'] > 0 && $anc['sA'] > 0) {
+    return jaipur_live_from_tick($db, ['goldPerG' => $anc['gA'], 'silverPerG' => $anc['sA']]);
+  }
   $l = $db['rates']['last'];
   $gp = (int)($db['settings']['jaipurPremium'] ?? 55); $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
   return ['gold24' => (int)$l['gold24'] + $gp, 'gold22' => (int)$l['gold22'] + $gp,
@@ -2191,6 +2203,89 @@ function partner_is_approved(array $db, ?array $u): bool {
   return false;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   v113 · ONE anchor for every metal screen.
+   bullion_rows() (the B2B desk) and rtgs_strip() (the retail rate strip)
+   and current_rates() (storefront pricing) all call this, so a customer
+   and a jeweller looking at the same minute see the same per-gram future.
+   $fb supplies the spot-fallback values bullion_rows() already computed.
+   ════════════════════════════════════════════════════════════════════ */
+function bullion_anchors(array $db, ?array $fb = null): array {
+  $r = is_array($db['rates']['last'] ?? null) ? $db['rates']['last'] : [];
+  $mcx = is_array($db['rates']['mcx'] ?? null) ? $db['rates']['mcx'] : null;
+  $mcxOn = (($r['source'] ?? '') === 'live-mcx') && $mcx;
+  if ($mcxOn) {
+    return ['mcxOn' => true,
+      'gA' => (float)$mcx['goldLtp'] / 10, 'sA' => (float)$mcx['silverLtp'] / 1000,
+      'gBandLo' => (float)$mcx['goldLow'] / 10, 'gBandHi' => (float)$mcx['goldHigh'] / 10,
+      'sBandLo' => (float)$mcx['silverLow'] / 1000, 'sBandHi' => (float)$mcx['silverHigh'] / 1000,
+      'gChgPG' => (float)($mcx['goldChg'] ?? 0) / 10,
+      'sChgPG' => (float)($mcx['silverChg'] ?? 0) / 1000];
+  }
+  $f = is_array($fb) ? $fb : [];
+  return ['mcxOn' => false,
+    'gA' => (float)($f['fine'] ?? ($r['gold24'] ?? 0)),
+    'sA' => (float)($f['sil'] ?? ($r['silver'] ?? 0)),
+    'gBandLo' => (float)($f['gLo'] ?? ($r['gold24'] ?? 0)), 'gBandHi' => (float)($f['gHi'] ?? ($r['gold24'] ?? 0)),
+    'sBandLo' => (float)($f['sLo'] ?? ($r['silver'] ?? 0)), 'sBandHi' => (float)($f['sHi'] ?? ($r['silver'] ?? 0)),
+    'gChgPG' => null, 'sChgPG' => null];
+}
+/* v70 row table — shared by the desk and the retail strip so the factors and
+   the owner's calibration apply identically everywhere.
+   [key, metal, factor(MCX), factor(spot), premDisp, spreadDisp, side, label, purity, mode, editable] */
+function bullion_defs(): array {
+  return [
+    ['tdsGold9999',  'g', 1.000, 0.9999, 3680, 810, 'both', 'TDS GOLD 9999 RTGS', '9999 · ' . date('d-m'), 'RTGS', false],
+    ['tdsGold995',   'g', 1.000, 0.9950, 3572, 810, 'both', 'TDS GOLD 995 IND', '995 · ' . date('d-m'), 'RTGS', false],
+    ['silverChorsa', 's', 1.000, 0.9800, -1021, 0, 'sell', 'TDS SIL CHORSA', '98.00 · ' . date('d-m'), 'RTGS', false],
+    ['silverPeti',   's', 1.000, 0.9990, 1510, 1790, 'both', 'TDS SIL PETI 999.9', '999.9 · ' . date('d-m'), 'RTGS', false],
+    ['goldIndian',   'g', 0.995, 0.9950, 350, 200, 'both', 'REF – GOLD 99.50 INDIAN', '99.50 · ' . date('d/m'), 'CASH', true],
+    ['goldRef9930',  'g', 0.993, 0.9930, 200, 200, 'both', 'REF – GOLD 99.30 LOCAL', '99.30 · ' . date('d/m'), 'CASH', true],
+    ['silverKachcha','s', 1.000, 0.9400, -8220, 0, 'buy', 'REF – SIL KACHCHA DHEPA', 'Kachcha · ' . date('d-m'), 'RTGS', false],
+    ['silverPetiBulk','s', 1.000, 0.9800, -8899, 4722, 'both', 'REF – SIL CHORSA 98.00', '98.00 · ' . date('d-m'), 'RTGS', false],
+    ['silverGrn999', 's', 1.000, 0.9720, -2473, 2559, 'both', 'REF – SIL GRN 999', '999 · ' . date('d-m'), 'RTGS', false],
+  ];
+}
+/* v113 · the four headline RTGS quotes, cheap enough to ride along on the
+   1-second retail /api/rates poll (no chart pass, no history scan).
+   Values are in DISPLAY units exactly like the desk: gold ₹/10 g, silver ₹/kg. */
+function rtgs_strip(array $db): array {
+  $an = bullion_anchors($db);
+  if ($an['gA'] <= 0 && $an['sA'] <= 0) return [];
+  $ov = is_array($db['bullion']['rtgs'] ?? null) ? $db['bullion']['rtgs'] : [];
+  $want = ['tdsGold9999' => 'RTGS Gold 9999', 'tdsGold995' => 'RTGS Gold 995',
+           'silverPeti' => 'RTGS Silver 999.9', 'silverChorsa' => 'RTGS Silver 98.0'];
+  $out = [];
+  foreach (bullion_defs() as $d) {
+    [$key, $metal, $fM, $fS, $dPrem, $dSpread, $dSide, $label, $pur, $mode] = $d;
+    if (!isset($want[$key]) || $mode !== 'RTGS') continue;
+    $o = is_array($ov[$key] ?? null) ? $ov[$key] : [];
+    $factor = (float)($o['factor'] ?? ($an['mcxOn'] ? $fM : $fS));
+    $premD = (float)($o['prem'] ?? $dPrem);
+    $spreadD = (float)($o['spread'] ?? $dSpread);
+    $side = (string)($o['side'] ?? $dSide);
+    if ($side === 'off') continue;
+    $u = $metal === 'g' ? 10 : 1000;          // display units per gram
+    $premG = $premD / $u; $spreadG = $spreadD / $u;
+    if ($metal === 'g') {
+      $base = $an['gA'] * $factor;
+      $chg = $an['gChgPG'] !== null ? $an['gChgPG'] * $factor : null;
+      $q = static fn($x) => (int)round($x);
+    } else {
+      $base = $an['sA'] * $factor;
+      $chg = $an['sChgPG'] !== null ? $an['sChgPG'] * $factor : null;
+      $q = static fn($x) => round($x, 3);
+    }
+    $mid = $base + $premG;
+    $out[$key] = ['key' => $key, 'label' => $want[$key], 'purity' => $pur, 'unit' => $metal === 'g' ? '₹/10 g' : '₹/kg',
+      'buy' => $side === 'sell' ? 0 : $q($mid - $spreadG),
+      'sell' => $side === 'buy' ? 0 : $q($mid + $spreadG),
+      'mid' => $q($mid),
+      'change' => $chg !== null ? $q($chg) : 0];
+  }
+  return $out ? ['rows' => $out, 'anchor' => $an['mcxOn'] ? 'mcx-future' : 'spot',
+                 'updatedAt' => now_iso()] : [];
+}
 function bullion_defaults(): array {
   return ['cash' => [
     'goldImport995' => ['label' => 'Imported Gold 995 — CASH', 'purity' => '99.50%', 'buy' => 0, 'sell' => 0],
@@ -2233,35 +2328,21 @@ function bullion_rows(array &$db): array {
      from the exchange's own FULL quote (real, not tick-to-tick synthetic). */
   $mcx = is_array($db['rates']['mcx'] ?? null) ? $db['rates']['mcx'] : null;
   $mcxOn = ($r['source'] ?? '') === 'live-mcx' && $mcx;
-  // per-gram anchors + official day band (₹/g)
-  if ($mcxOn) {
-    $gA = (float)$mcx['goldLtp'] / 10; $sA = (float)$mcx['silverLtp'] / 1000;
-    $gBandLo = (float)$mcx['goldLow'] / 10; $gBandHi = (float)$mcx['goldHigh'] / 10;
-    $sBandLo = (float)$mcx['silverLow'] / 1000; $sBandHi = (float)$mcx['silverHigh'] / 1000;
-    $gChgPG = (float)($mcx['goldChg'] ?? 0) / 10;
-    $sChgPG = (float)($mcx['silverChg'] ?? 0) / 1000;
-  } else {
-    $gA = $fine; $sA = $sil;
-    $gBandLo = $gLo; $gBandHi = $gHi; $sBandLo = $sLo; $sBandHi = $sHi;
-    $gChgPG = null; $sChgPG = null;
-  }
+  /* v113 — anchors moved into bullion_anchors() so the retail rate strip and
+     the B2B desk are guaranteed to start from the identical per-gram number. */
+  $an = bullion_anchors($db, ['fine' => $fine, 'sil' => $sil,
+    'gLo' => $gLo, 'gHi' => $gHi, 'sLo' => $sLo, 'sHi' => $sHi]);
+  $gA = $an['gA']; $sA = $an['sA'];
+  $gBandLo = $an['gBandLo']; $gBandHi = $an['gBandHi'];
+  $sBandLo = $an['sBandLo']; $sBandHi = $an['sBandHi'];
+  $gChgPG = $an['gChgPG']; $sChgPG = $an['sChgPG'];
   /* v70 — defaults calibrated to the live physical bullion screen (all
      physical rows track the future 1:1 with a level offset; the reference
      board's identical T-change per metal confirms factor ≈ 1 for every
      physical form). Owner calibration in bullion.rtgs overrides per row.
      [key, metal, factor(MCX), factor(spot), premDisp, spreadDisp, side, label, purity, mode, editable] */
   $gp10 = $gp * 10; $spKg = $sp * 1000;
-  $defs = [
-    ['tdsGold9999',  'g', 1.000, 0.9999, 3680, 810, 'both', 'TDS GOLD 9999 RTGS', '9999 · ' . date('d-m'), 'RTGS', false],
-    ['tdsGold995',   'g', 1.000, 0.9950, 3572, 810, 'both', 'TDS GOLD 995 IND', '995 · ' . date('d-m'), 'RTGS', false],
-    ['silverChorsa', 's', 1.000, 0.9800, -1021, 0, 'sell', 'TDS SIL CHORSA', '98.00 · ' . date('d-m'), 'RTGS', false],
-    ['silverPeti',   's', 1.000, 0.9990, 1510, 1790, 'both', 'TDS SIL PETI 999.9', '999.9 · ' . date('d-m'), 'RTGS', false],
-    ['goldIndian',   'g', 0.995, 0.9950, 350, 200, 'both', 'REF – GOLD 99.50 INDIAN', '99.50 · ' . date('d/m'), 'CASH', true],
-    ['goldRef9930',  'g', 0.993, 0.9930, 200, 200, 'both', 'REF – GOLD 99.30 LOCAL', '99.30 · ' . date('d/m'), 'CASH', true],
-    ['silverKachcha','s', 1.000, 0.9400, -8220, 0, 'buy', 'REF – SIL KACHCHA DHEPA', 'Kachcha · ' . date('d-m'), 'RTGS', false],
-    ['silverPetiBulk','s', 1.000, 0.9800, -8899, 4722, 'both', 'REF – SIL CHORSA 98.00', '98.00 · ' . date('d-m'), 'RTGS', false],
-    ['silverGrn999', 's', 1.000, 0.9720, -2473, 2559, 'both', 'REF – SIL GRN 999', '999 · ' . date('d-m'), 'RTGS', false],
-  ];
+  $defs = bullion_defs();   // v113 — single source of truth, shared with rtgs_strip()
   $rtgsOv = is_array($db['bullion']['rtgs'] ?? null) ? $db['bullion']['rtgs'] : [];
   $rtgsCfg = [];   // effective calibration, echoed for the admin editor (display units)
   $facMap = [];    // key => factor, for spot-mode tick changes
@@ -2601,6 +2682,10 @@ try {
     jout(200, array_merge($base, [
       'spot' => ['gold24' => $last['gold24'], 'gold22' => $last['gold22'], 'gold18' => $last['gold18'], 'silver' => $last['silver']],
       'jaipur' => $jaipur,
+      /* v113 — the B2B RTGS quotes ride along with the retail feed so the
+         customer strip can show the bullion desk's own numbers (same anchor,
+         same factors, same owner calibration — computed by rtgs_strip()). */
+      'rtgs' => rtgs_strip($db),
       'premium' => ['gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
       'override' => $db['rates']['override'] ?? null,
       'history' => array_slice($db['rates']['history'] ?? [], -120),
