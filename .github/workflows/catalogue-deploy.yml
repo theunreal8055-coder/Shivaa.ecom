@@ -116,16 +116,33 @@ jobs:
           LIVE: ${{ github.event_name == 'push' && 'YES' || (github.event_name == 'pull_request' && 'NO' || inputs.live) }}
         run: |
           set -euo pipefail
+          echo "event=${GITHUB_EVENT_NAME:-} LIVE='$LIVE' email='$ADMIN_EMAIL' password_set=$([ -n "${ADMIN_PASSWORD:-}" ] && echo yes || echo no)"
           if [ -z "${ADMIN_PASSWORD:-}" ]; then
             echo "::error::Repository secret SHIVAA_ADMIN_PASSWORD is not set."
             exit 1
           fi
+          set +e
           if [ "$LIVE" = "YES" ]; then
             echo "LIVE=YES confirmed: live catalogue becomes exactly the 65 PGS rings."
-            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --live | tee catalogue-deploy.log
+            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --live > catalogue-deploy.log 2>&1
           else
             echo "LIVE is '$LIVE' (not YES): dry-run only."
-            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" | tee catalogue-deploy.log
+            python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" > catalogue-deploy.log 2>&1
+          fi
+          code=$?
+          set -e
+          cat catalogue-deploy.log
+          if [ "$code" -ne 0 ]; then
+            echo "::error::catalogue_deploy.py exited $code"
+            python3 - <<'PY'
+          from pathlib import Path
+          text = Path('catalogue-deploy.log').read_text(errors='replace')
+          for line in text.splitlines()[-20:]:
+              line = line.replace('\r', '').strip()
+              if line:
+                  print(f'::error::{line[:240]}')
+          PY
+            exit "$code"
           fi
 
       - name: Independently verify live catalogue
