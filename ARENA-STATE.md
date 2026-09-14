@@ -9,6 +9,10 @@
 ## 1. CURRENT STATE (update this block at the end of every work session)
 
 - **Version on `main`:** v111-rings-live — 2026-09-14 ✅ LIVE + **v112 PayU+Bullion hotfixes (merged 2026-09-14)**
+- **Live catalogue re-verified 2026-09-14 ~16:25Z (full end-to-end read of
+  `/api/products`, all chunks):** exactly 65 products = SKUs PGS5001–PGS5065,
+  zero duplicates, zero non-PGS/samples, 4 images each. Batch-2 photo refresh
+  run 34868057801 (same 65 SKUs, photos only) fired by PR #32 merge.
 - **v111 go-live VERIFIED:** Catalogue Deploy run
   https://github.com/theunreal8055-coder/Shivaa.ecom/actions/runs/34861781402
   succeeded (16m, independent verify green). Live `/api/products` is exactly

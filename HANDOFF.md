@@ -113,11 +113,14 @@ perfectly. Fix that and post and upload all the 65 rings into my website."
   Actions run: https://shivaa.in/api/products → 65 PGS, 0 samples, 0 videos.
 
 **⏳ FOLLOW-UP (does not block live): zoom batches 2–7** per
-`tools/photoshoot/ZOOMFIX-STATE.md`. **Batch 2 DONE** (session arena/01a0a0a6:
+`tools/photoshoot/ZOOMFIX-STATE.md`. **Batch 2 DONE** (session arena/01a0a0a6, PR #32 → main `1a98b6c`:
 covers 5005 re-roll + 5011–5020, editorial 5003 — all PASS, installed to cms +
-demo65; GO-LIVE marker re-bumped so the merge refreshes live photos). Remaining:
-25 covers + 17 editorials (batches 3–7). Lost commit 0a2b3f5 was verified
-unrecoverable (GitHub API 422 — it was never pushed) and re-done from scratch.
+demo65; GO-LIVE marker re-bumped so the merge fired Catalogue Deploy run
+34868057801 to refresh live photos). Remaining: 25 covers + 17 editorials
+(batches 3–7). Lost commit 0a2b3f5 was verified unrecoverable (GitHub API 422 —
+it was never pushed) and re-done from scratch. **Live catalogue re-verified by
+full read of `/api/products` (~16:25Z): exactly 65 products, SKUs PGS5001–5065,
+0 samples, 4 shots each.** Owner next wants app changes (list pending).
 
 **v110 bridge (`deploy/catalogue_sync_bridge.php`) is SUPERSEDED by the
 Catalogue Deploy workflow** — the live catalogue is the 65 rings, not 405.
