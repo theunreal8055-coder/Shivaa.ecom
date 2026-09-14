@@ -45,7 +45,14 @@ jobs:
             test "$NEW" -ge $(( OLD * 9 / 10 )) || { echo "::error::File count collapsed ($OLD -> $NEW)!"; exit 1; }
           fi
           echo "OK: state file present, file count healthy."
-      - name: Open recovery Issue on failure
+            - name: Open recovery Issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${BACKUP_TAG:-unknown - see Actions log}"
+          BODY="The main-guard watchdog detected a problem with the latest push to main. Commit: ${{ github.sha }} (before: ${{ github.event.before }}). A backup tag was saved BEFORE the checks ran: $TAG. Recovery: in a fresh clone run: git fetch origin --tags, then inspect the tag. Do NOT merge anything else until this is resolved."
+          gh issue create --title "ALARM: main moved backward or lost files" --body "$BODY"
         if: failure()
         env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}, TAG: ${{ env.BACKUP_TAG }} }
         run: |
