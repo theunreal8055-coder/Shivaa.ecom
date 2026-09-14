@@ -1359,14 +1359,48 @@ function initCarousel() {
   const stop = () => clearInterval(window._carTimer);
   car.addEventListener('mouseenter', stop);
   car.addEventListener('mouseleave', start);
-  let sx = null;
-  car.addEventListener('pointerdown', e => { sx = e.clientX; stop(); });
-  car.addEventListener('pointerup', e => {
-    if (sx == null) return;
-    const dx = e.clientX - sx;
-    if (Math.abs(dx) > 42) (dx < 0 ? next : prev)();
-    sx = null; start();
+  /* v113 — swipe engine rebuilt.
+     The old code only listened for pointerdown/pointerup. Mobile browsers fire
+     **pointercancel** (never pointerup) the instant a vertical page scroll
+     starts on the carousel, so one scroll left `sx` set and the autoplay dead:
+     the poster looked frozen and every later swipe was ignored. Now:
+       • pointer capture keeps the gesture stream on the carousel;
+       • cancel / leave / lostcapture all reset and restart autoplay;
+       • a gesture whose dominant axis is vertical is a page scroll, not a swipe;
+       • keyboard ←/→ and a pause while the tab is hidden. */
+  let sx = null, sy = null, st = 0, pid = null, vertical = false;
+  const reset = () => { sx = sy = st = pid = null; vertical = false; start(); };
+  car.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    sx = e.clientX; sy = e.clientY; st = Date.now(); pid = e.pointerId; vertical = false;
+    stop();
+    try { car.setPointerCapture(pid); } catch (_) {}
   });
+  car.addEventListener('pointermove', e => {
+    if (sx == null || e.pointerId !== pid || vertical) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    // once the finger is clearly travelling vertically it is a page scroll
+    if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx) * 1.15) vertical = true;
+  });
+  car.addEventListener('pointerup', e => {
+    if (sx == null || e.pointerId !== pid) return;
+    if (!vertical) {
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      const fast = Date.now() - st < 600;
+      if (Math.abs(dx) > (fast ? 30 : 42) && Math.abs(dx) > Math.abs(dy)) (dx < 0 ? next : prev)();
+    }
+    reset();
+  });
+  ['pointercancel', 'lostpointercapture'].forEach(ev => car.addEventListener(ev, e => {
+    if (sx == null || e.pointerId !== pid) return;
+    reset();
+  }));
+  car.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); reset(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); next(); reset(); }
+  });
+  // a hidden tab must not burn through the deck; resume when it comes back
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else if (location.hash === '#/' || location.hash === '' || location.hash === '#') start(); });
   start();
 }
 
@@ -1784,10 +1818,26 @@ function renderRateStrip() {
   const h = R.history || [];
   const prev = h.length > 1 ? h[h.length - 2] : R;
   const age = rateAgeLabel(R);
+  /* v113 — RTGS · bullion desk cells. Same numbers the jeweller portal shows
+     (rtgs_strip() on the server), so the customer section can never quote
+     below the B2B board again. A flat move reads "—" rather than a
+     misleading "▲ 0". */
+  const rtgsCell = (k, row) => {
+    if (!row) return '';
+    const val = row.unit === '₹/kg' ? Number(row.mid).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : Number(row.mid).toLocaleString('en-IN');
+    const ch = Number(row.change || 0);
+    const cls = ch > 0 ? 'up' : (ch < 0 ? 'down' : 'flat');
+    const arrow = ch > 0 ? '▲' : (ch < 0 ? '▼' : '—');
+    const mag = row.unit === '₹/kg' ? ch.toFixed(0) : Math.abs(ch).toFixed(0);
+    return `<div class="rscell rs-rtgs"><small>◈ ${row.label} <em>${row.unit}</em></small><b data-rsh="${k}">${val}</b><span class="chg ${cls}">${arrow} ${ch === 0 ? 'steady' : mag}</span></div>`;
+  };
+  const rt = (R.rtgs && R.rtgs.rows) || {};
   $('#rateStrip').innerHTML =
     cell('gold22', '✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
     cell('gold18', 'Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
     cell('silver', 'Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
+    rtgsCell('rtgsG9999', rt.tdsGold9999) +
+    rtgsCell('rtgsS9999', rt.silverPeti) +
     `<div class="rscell"><small>${R.live ? 'Live now' : 'Updated'}</small><b style="font-size:17px">${R.live ? '⦿ LIVE' : timeFmt(R.t)}</b><span class="${age.live ? 'rs-live' : ''}"${age.live ? ' data-rate-age' : ''}><span class="live-dot"></span>${age.txt}</span></div>`;
   if (state._lastRsh) {
     [['gold22', fmt(R.gold22)], ['gold18', fmt(R.gold18)], ['silver', fmt2(R.silver)]].forEach(([k, txt]) => {
@@ -2001,7 +2051,7 @@ pages.home = async (view) => {
   <div class="catbar-outer">${catBarHTML()}</div>
 
   <section class="carousel-sec">
-    <div class="carousel" id="heroCarousel" aria-roledescription="carousel">
+    <div class="carousel" id="heroCarousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Featured Shivaa campaigns — use the left and right arrow keys">
       <div class="c-track" id="cTrack">
         <div class="c-slide s-left">
           <img src="/images/banners/poster-heritage.jpg" alt="Shivaa fine gold craftsmanship" fetchpriority="high">
@@ -3264,8 +3314,19 @@ window.Shivaa.holdRepeat = (el, step, opts = {}) => {
   document.addEventListener('visibilitychange', () => { if (document.hidden) clear(); });
 };
 
-window.Shivaa.quickView = (id) => {
-  const p = state.productsCache.find(x => x.id === id); if (!p) { location.hash = '#/product/' + id; return; }
+window.Shivaa.quickView = async (id) => {
+  /* v113 — a cold cache used to throw the shopper onto the full product page,
+     which reads as "quick view is broken". Now the single piece is fetched
+     and the sheet still opens where they were. */
+  let p = state.productsCache.find(x => x.id === id);
+  if (!p) {
+    try {
+      const r = await api('/api/products/' + encodeURIComponent(id));
+      p = r && r.product;
+      if (p && !state.productsCache.some(x => x.id === p.id)) state.productsCache.push(p);
+    } catch (e) { p = null; }
+    if (!p) { toast('Could not load that piece just now — opening its page', 'err'); location.hash = '#/product/' + id; return; }
+  }
   const pr = price(p);
   const wished = state.user ? false : state.localWish.includes(id);
   const imgs = (p.images || []).map(safeUrl).filter(Boolean);
@@ -3277,6 +3338,7 @@ window.Shivaa.quickView = (id) => {
   try { savedSize = localStorage.getItem('shv_ring_size') || ''; } catch (e) {}
   openModal(`
     <div class="qv">
+      <div class="qv-grab" id="qvGrab" title="Drag down or press Escape to close"><i></i></div>
       <div class="qv-media">
         <img class="qv-photo" id="qvPhoto" src="${shots[0]}" alt="${esc(p.name)}" draggable="false">
         ${shots.length > 1 ? `
@@ -3417,6 +3479,51 @@ window.Shivaa.quickView = (id) => {
     closeModal();
     addToCart(p.id, qty, size, null, { fromEl: e.currentTarget });
   };
+  /* v113 — slide the sheet down to dismiss, the gesture phones expect.
+     Drag from the grab handle (or the sheet's top edge); a short pull
+     springs back, a committed pull or a fast flick closes. */
+  (function wireSheetDismiss() {
+    const grab = $('#qvGrab'); if (!grab) return;
+    const DISMISS = 130, FLICK = 0.55;   // px, or px/ms
+    let y0 = null, t0 = 0, pid = null, dragging = false;
+    grab.addEventListener('pointerdown', e => {
+      if (zoomed) return;
+      y0 = e.clientY; t0 = Date.now(); pid = e.pointerId; dragging = true;
+      box.classList.add('qv-dragging');
+      try { grab.setPointerCapture(pid); } catch (_) {}
+    });
+    const move = e => {
+      if (!dragging || e.pointerId !== pid) return;
+      const dy = Math.max(0, e.clientY - y0);
+      box.style.transform = `translateY(${dy}px)`;
+      box.style.opacity = String(Math.max(0.45, 1 - dy / 620));
+    };
+    const end = e => {
+      if (!dragging || (pid != null && e.pointerId !== pid)) return;
+      dragging = false;
+      box.classList.remove('qv-dragging');
+      box.style.transform = ''; box.style.opacity = '';
+      const dy = Math.max(0, e.clientY - y0);
+      const v = dy / Math.max(1, Date.now() - t0);
+      if (dy > DISMISS || v > FLICK) { haptic(10); closeModal(); }
+      y0 = pid = null;
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    // tidy up if the sheet is closed some other way while a drag is live
+    const obs = new MutationObserver(() => {
+      if (!$('#modalOverlay').classList.contains('open')) {
+        box.style.transform = ''; box.style.opacity = '';
+        box.classList.remove('qv-dragging');
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', end);
+        window.removeEventListener('pointercancel', end);
+        obs.disconnect();
+      }
+    });
+    obs.observe($('#modalOverlay'), { attributes: true, attributeFilter: ['class'] });
+  })();
 };
 
 /* ─────────── CHECKOUT ─────────── */
@@ -4792,7 +4899,7 @@ pages.catalogues = async (view) => {
     return;
   }
   const rings = state.productsCache;  // every design selectable for fine-metal billing
-  window._sel = window._sel || {};
+  window._sel = window._sel || dsLoadSel();   // v113 — restore the bill the partner already built
   const stoneTypes = ['Plain', 'CZ', 'Lab-Grown Diamond', 'Natural Diamond', 'Colour Stone', 'Kundan/Polki'];
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Design Selection</div><h1>Design Selection</h1>
@@ -5027,6 +5134,40 @@ pages.b2b = async (view) => {
   </div>`;
   setTimeout(() => {
     try { window.Shivaa.kycGate(); } catch (e) {}
+    /* v113 — ZERO-DISCOMFORT verification.
+       The partner never has to hunt for a button: the GSTIN checks itself the
+       moment the 15th character lands, the code sends itself on the 10th
+       digit, and the code verifies itself on the 4th digit. Each value is
+       auto-acted on exactly ONCE (tracked below) so a paste, a slow typer or
+       a backspace can never spam the SMS/GST gateway — the manual buttons
+       stay there and always work. */
+    const gst = $('#kyGstin'), ph = $('#kyPhone'), otpIn = $('#kyOtp');
+    const GST_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
+    let autoGst = '', autoPhone = '', autoCode = '', tG = 0, tP = 0, tO = 0;
+    if (gst) gst.addEventListener('input', () => {
+      clearTimeout(tG);
+      const v = gst.value.trim().toUpperCase();
+      if (v.length !== 15 || !GST_RE.test(v) || v === autoGst) return;
+      tG = setTimeout(() => { if (gst.value.trim().toUpperCase() === v) { autoGst = v; window.Shivaa.kycGstin(); } }, 320);
+    });
+    if (ph) ph.addEventListener('input', () => {
+      clearTimeout(tP);
+      const v = ph.value.replace(/\D/g, '');
+      if (v.length !== 10 || v === autoPhone) return;
+      tP = setTimeout(() => {
+        if (ph.value.replace(/\D/g, '') !== v) return;
+        autoPhone = v;
+        window._kycOtpSent = '';
+        window.Shivaa.kycOtp();
+      }, 320);
+    });
+    if (otpIn) otpIn.addEventListener('input', () => {
+      clearTimeout(tO);
+      const v = otpIn.value.replace(/\D/g, '').slice(0, 4);
+      if (v.length !== 4 || v === autoCode || window._kyc.otp) return;
+      if (!window._kycOtpSent) return;            // nothing to verify yet
+      tO = setTimeout(() => { if (otpIn.value.replace(/\D/g, '').slice(0, 4) === v) { autoCode = v; window.Shivaa.kycOtpVerify(); } }, 260);
+    });
     // v101 — optional business-card upload
     window._kycCard = null;
     const dz = $('#kyCard'), fi = $('#kyCardFile'), tx = $('#kyCardTxt');
@@ -5082,6 +5223,14 @@ window.Shivaa.kycGstin = async () => {
   const g = $('#kyGstin').value.trim();
   const st = $('#gstStat');
   if (!st) return;
+  /* v113 — the GSTIN now self-checks at 15 characters; the guard keeps the
+     auto-check and a manual tap from spending two GST-register credits. */
+  if (window._kycGstBusy) return;
+  if (window._kyc.gstin && window._kycGstFor === g) return;
+  window._kycGstBusy = true; window._kycGstFor = g;
+  try { await window.__kycGstinRun(g, st); } finally { window._kycGstBusy = false; }
+};
+window.__kycGstinRun = async (g, st) => {
   st.textContent = 'checking…'; st.className = 'kyc-status wait';
   try {
     const r = await api('/api/kyc/check-gstin', { method: 'POST', body: JSON.stringify({ gstin: g }) });
@@ -5122,8 +5271,13 @@ window.Shivaa.kycGstin = async () => {
 window.Shivaa.kycOtp = async () => {
   const ph = $('#kyPhone').value.replace(/\D/g, '');
   if (ph.length !== 10) return toast('Enter a valid 10-digit mobile', 'err');
+  /* v113 — one send in flight at a time: the auto-send on the 10th digit and
+     a partner tapping the button must never both reach the SMS gateway. */
+  if (window._kycOtpBusy) return;
+  window._kycOtpBusy = true;
   try {
     const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone: ph, email: ($('#kyEmail') || {}).value || '' }) });
+    window._kycOtpSent = ph;                          // the auto-verifier may now act
     const st = $('#otpStat');
     if (r.devCode) {                                  // dev preview shim only
       st.innerHTML = 'demo OTP: <b>' + r.devCode + '</b> — tap to fill';
@@ -5134,14 +5288,21 @@ window.Shivaa.kycOtp = async () => {
     if (window.ShivaaOtp) ShivaaOtp.watch($('#kyOtp'), () => { if (window.Shivaa.kycOtpVerify) window.Shivaa.kycOtpVerify(); });   // v33 — Android auto-fill
     toast('OTP sent ✓');
   } catch (e) { toast(e.message, 'err'); }
+  finally { window._kycOtpBusy = false; }
 };
 window.Shivaa.kycOtpVerify = async () => {
+  const phone = $('#kyPhone').value.replace(/\D/g, '');
+  const code = $('#kyOtp').value.trim();
+  if (phone.length !== 10 || code.length !== 4) return;      // v113 — never fire half-typed
+  if (window._kyc.otp || window._kycOtpVerifying) return;    // v113 — one attempt per code
+  window._kycOtpVerifying = true;
   try {
-    await api('/api/kyc/verify-otp', { method: 'POST', body: JSON.stringify({ phone: $('#kyPhone').value.replace(/\D/g, ''), code: $('#kyOtp').value.trim() }) });
+    await api('/api/kyc/verify-otp', { method: 'POST', body: JSON.stringify({ phone, code }) });
     window._kyc.otp = true;
     const st = $('#otpStat'); st.textContent = '✓ Mobile verified'; st.className = 'kyc-status ok';
     window.Shivaa.kycGate();
   } catch (e) { toast(e.message, 'err'); }
+  finally { window._kycOtpVerifying = false; }
 };
 window.Shivaa.gotoJeweller = () => { closeModal(); location.hash = '#/b2b'; };
 window.Shivaa.waPartnerId = () => {
@@ -5909,6 +6070,24 @@ pages.p = async (view, q, slug) => {
 };
 
 /* ─────────── design selection (jeweller metal exchange) ─────────── */
+/* v113 — the jeweller desk used to keep its selections only on `window`,
+   and its filters only in the DOM. Opening a design to check a photo and
+   coming back — or any reload — wiped the bill the partner had built.
+   Selections AND filters now live in localStorage; they are cleared only
+   when an order is actually placed. */
+const DS_SEL_KEY = 'shv_ds_sel', DS_FIL_KEY = 'shv_ds_filters';
+function dsLoadSel() {
+  try {
+    const o = JSON.parse(localStorage.getItem(DS_SEL_KEY) || '{}');
+    const clean = {};
+    Object.entries(o || {}).forEach(([k, v]) => { const q = parseInt(v, 10); if (q > 0) clean[k] = Math.min(99, q); });
+    return clean;
+  } catch (e) { return {}; }
+}
+function dsSaveSel() { try { localStorage.setItem(DS_SEL_KEY, JSON.stringify(window._sel || {})); } catch (e) {} }
+function dsLoadFilters() { try { return JSON.parse(localStorage.getItem(DS_FIL_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function dsSaveFilters(f) { try { localStorage.setItem(DS_FIL_KEY, JSON.stringify(f)); } catch (e) {} }
+function dsClearSaved() { try { localStorage.removeItem(DS_SEL_KEY); localStorage.removeItem(DS_FIL_KEY); } catch (e) {} }
 function initDsfilters(attempt = 0) {
   const grid = document.getElementById('dsGrid');
   if (!grid) { if (attempt < 20) setTimeout(() => initDsfilters(attempt + 1), 300); return; }
@@ -5941,34 +6120,59 @@ function initDsfilters(attempt = 0) {
       e.style.display = '';
     } else { const e = g('dsEmpty'); if (e) e.style.display = 'none'; }
   };
-  ['dsfCat', 'dsfStone', 'dsfColour', 'dsfPurity', 'dsfWMin', 'dsfWMax'].forEach(id => {
-    const el = g(id); if (!el) return; el.oninput = apply; el.onchange = apply;
-  });
+  const FIDS = ['dsfCat', 'dsfStone', 'dsfColour', 'dsfPurity', 'dsfWMin', 'dsfWMax'];
   const quick = g('dsfQuick');
+  /* v113 — put yesterday's filters back before the first pass, and remember
+     every change. Restoring a quick-weight chip too, so the bar reads true. */
+  const saved = dsLoadFilters();
+  const paintChip = () => {
+    if (!quick) return;
+    const lo = g('dsfWMin') ? g('dsfWMin').value : '', hi = g('dsfWMax') ? g('dsfWMax').value : '';
+    quick.querySelectorAll('.pf-chip').forEach(ch => {
+      ch.classList.toggle('on', ch.dataset.min === lo && ch.dataset.max === hi);
+    });
+  };
+  FIDS.forEach(id => { const el = g(id); if (el && saved[id] != null) el.value = saved[id]; });
+  paintChip();
+  const remember = () => {
+    const f = {}; FIDS.forEach(id => { const el = g(id); if (el && el.value !== '') f[id] = el.value; });
+    dsSaveFilters(f);
+  };
+  FIDS.forEach(id => {
+    const el = g(id); if (!el) return;
+    el.oninput = () => { remember(); paintChip(); apply(); };
+    el.onchange = () => { remember(); paintChip(); apply(); };
+  });
   if (quick) quick.querySelectorAll('.pf-chip').forEach(ch => {
     ch.onclick = () => {
       const on = ch.classList.contains('on');
       quick.querySelectorAll('.pf-chip').forEach(x => x.classList.remove('on'));
       if (!on) { ch.classList.add('on'); g('dsfWMin').value = ch.dataset.min || ''; g('dsfWMax').value = ch.dataset.max || ''; }
       else { g('dsfWMin').value = ''; g('dsfWMax').value = ''; }
-      apply();
+      remember(); apply();
     };
   });
   const rst = g('dsfReset');
   if (rst) rst.onclick = () => {
-    ['dsfCat', 'dsfStone', 'dsfColour', 'dsfPurity', 'dsfWMin', 'dsfWMax'].forEach(id => { const el = g(id); if (el) el.value = ''; });
+    FIDS.forEach(id => { const el = g(id); if (el) el.value = ''; });
     quick && quick.querySelectorAll('.pf-chip').forEach(x => x.classList.remove('on'));
-    apply();
+    dsSaveFilters({}); apply();
   };
   apply();
+  /* the summary bar is rendered at 0 before any interaction — reconcile it
+     with the selections restored from storage so a returning partner sees
+     the bill they already built. */
+  try { window.ShivaaDS && window.ShivaaDS.updateBar(); } catch (e) {}
 }
 window.ShivaaDS = {
   qty(pid, d) {
     window._sel[pid] = Math.max(0, (window._sel[pid] || 0) + d);
+    if (window._sel[pid] === 0) delete window._sel[pid];
+    dsSaveSel();                                   // v113 — survive navigation & reload
     const card = document.getElementById('ds-' + pid);
     if (card) {
       card.classList.toggle('on', window._sel[pid] > 0);
-      card.querySelector('.ds-qty span').textContent = window._sel[pid];
+      card.querySelector('.ds-qty span').textContent = window._sel[pid] || 0;
     }
     this.updateBar();
   },
@@ -5989,8 +6193,14 @@ window.ShivaaDS = {
     if (!state.user) { openLogin(); return toast('Login as a jeweller to place the billing order', 'err'); }
     const items = this.selected();
     if (!items.length) return toast('Select designs first (tap +)', 'err');
+    /* v113 — a restored bill can name a design that has since left the
+       catalogue; drop those instead of crashing on an undefined product. */
+    const rows = [];
+    items.forEach(it => { const p = state.productsCache.find(x => x.id === it.id); if (p) rows.push({ p, qty: it.qty }); else delete window._sel[it.id]; });
+    dsSaveSel();
+    if (!rows.length) { this.updateBar(); return toast('Those designs are no longer in the catalogue — please pick again', 'err'); }
     let g = 0;
-    const rows = items.map(it => { const p = state.productsCache.find(x => x.id === it.id); g += p.weightG * it.qty; return { p, qty: it.qty }; });
+    rows.forEach(r => { g += r.p.weightG * r.qty; });
     const factor = +state.settings.metalFactor || 0.92;
     const fine = (g * factor).toFixed(2);
     openModal(`
@@ -6008,6 +6218,7 @@ window.ShivaaDS = {
     try {
       const ord = await api('/api/metalexchange/order', { method: 'POST', body: JSON.stringify({ items: this.selected() }) });
       window._sel = {};
+      dsClearSaved();   // v113 — the bill is placed, so the saved selection goes with it
       closeModal();
       openModal(`<div class="center"><div style="font-size:40px">✦</div><h3 style="margin:8px 0">Metal Order ${ord.id} placed</h3>
         <p style="font-size:14px;color:var(--ink-2)">${ord.totalWeightG} g selected → <b>${ord.fineGrams} g fine metal @ ${ord.purity}</b><br>Making charges: ₹0 · Status: ${esc(ord.status || 'New')}</p>

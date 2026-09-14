@@ -210,7 +210,24 @@
 
     /* retail */
     const inp = $('#shvPhoneIn');
-    inp.addEventListener('input', () => { inp.value = digits(inp.value).slice(0, 10); });
+    /* v113 — zero-discomfort door: the moment the 10th digit lands, the code
+       sends itself and the sheet steps forward. It fires once per number
+       (autoSent) so a paste, a slow typer or a corrected digit can never put
+       a second SMS on the gateway; the Send button still works exactly as
+       before for anyone who prefers to tap it. */
+    let autoSent = '', autoT = 0;
+    inp.addEventListener('input', () => {
+      inp.value = digits(inp.value).slice(0, 10);
+      clearTimeout(autoT);
+      const ph = inp.value;
+      if (ph.length !== 10 || ph === autoSent || !/^[6-9]\d{9}$/.test(ph)) return;
+      autoT = setTimeout(async () => {
+        if (inp.value !== ph) return;
+        autoSent = ph; otpPhone = ph;
+        const e0 = $('#shvErr'); if (e0) e0.hidden = true;
+        await sendOtp();
+      }, 260);
+    });
     $('#shvStartForm').addEventListener('submit', async e => {
       e.preventDefault();
       const ph = digits(inp.value);
