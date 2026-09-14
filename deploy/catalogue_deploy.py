@@ -35,7 +35,7 @@ LEDGER = Path(__file__).resolve().parent / 'catalogue_deploy_ledger.json'
 BASE = 'https://shivaa.in'
 STRIP_KEYS = ('id', 'createdAt')          # server-owned
 STRIP_PREFIXES = ('hallmark',)            # v110 lesson: API rejects hallmark payloads
-RETRIES, BACKOFF = 3, 8
+RETRIES, BACKOFF = 5, 15
 
 
 def api(route, method='GET', token=None, json_body=None, file=None, fields=None, timeout=180):
