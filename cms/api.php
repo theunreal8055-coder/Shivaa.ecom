@@ -1860,6 +1860,10 @@ function rates_stale(array $db): bool {
 function current_rates(array $db): array {
   $ov = $db['rates']['override'] ?? null;
   if ($ov) return ['gold24' => (int)$ov['gold24'], 'gold22' => (int)$ov['gold22'], 'gold18' => (int)$ov['gold18'], 'silver' => (double)$ov['silver']];
+  // v2026-09-14 — CONNECTED: live rates panel now takes data DIRECTLY from bullion panel's MCX tick
+  // If a fresh bullion tick exists (even up to 120s old), jaipur rates are derived from it — interface unchanged
+  $lv = live_tick_quote($db, 120.0);
+  if ($lv) return jaipur_live_from_tick($db, $lv);
   $l = $db['rates']['last'];
   $gp = (int)($db['settings']['jaipurPremium'] ?? 55); $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
   return ['gold24' => (int)$l['gold24'] + $gp, 'gold22' => (int)$l['gold22'] + $gp,
