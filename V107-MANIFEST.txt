@@ -5,7 +5,7 @@ status: unchanged = byte-identical to v104 - MODIFIED = surgical v107 edit - NEW
 path                                         bytes  status     sha256
 .htaccess                                     3855  MODIFIED   5c6b619a8c4de6c45eae5a384d30ce072c8fce89a81e933b6f2a9bf2aa1b75fd
 admin-reset.php                              27379  unchanged  1ff2ba1191d6805129f40bb22f964312050e7aa765537d9d99385c8815389d4d
-api.php                                     377706  MODIFIED   d1c5c5d80d1cf6a16ddfde0d73d5102d450d62ee317e5be3aa8cf78060b0c2b5
+api.php                                     378812  MODIFIED   b5172f807bdf3df9d36b988c91962b2f92658a2f86a8a5ec3559e97add1e82ad
 css/aurum.css                                75010  unchanged  d2137c45172fc68e5c89c49d5274a0af80fdc33460c1fe028f6fb56c20c3ce5f
 css/bot.css                                  11193  unchanged  fc149956b124a48962e04171de6a11426c6b01e2d7307e8bf639cec65a68bdcd
 css/finale.css                               22854  MODIFIED   a8c734af7244e7fa3bf6a57bf4e0110941cdc2dcad6b099cab0ce4a3566427c0

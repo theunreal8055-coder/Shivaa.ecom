@@ -1529,10 +1529,12 @@ function spot_probe_multi(array $urls, int $timeout = 5): array {
    in parallel and fills gold/silver/FX legs independently, so one blocked
    host can never blank the dollar cards. jsDelivr (a static CDN carrying the
    open currency dataset incl. XAU/XAG/INR) is the guaranteed-fill floor.
-   Manual owner overrides win outright. Cached 10 min. */
+   Manual owner overrides win outright. v107.4: cached 30 s (was 10 min — the
+   shop polls every 15 s, so the server cache must be shorter than the poll
+   or prices move in stale ten-minute jumps). */
 function spot_resolve(array &$db, bool $force = false): array {
   $cached = $db['rates']['spot'] ?? null;
-  if (!$force && is_array($cached) && (time() - (int)($cached['fetchedAt'] ?? 0)) < 600) return $cached;
+  if (!$force && is_array($cached) && (time() - (int)($cached['fetchedAt'] ?? 0)) < 30) return $cached;
   $empty = static fn() => ['price' => 0.0, 'high' => 0.0, 'low' => 0.0, 'prev' => 0.0, 'pct' => 0.0, 'src' => ''];
   $legs = ['gold' => $empty(), 'silver' => $empty(), 'inr' => $empty()];
   $urls = [
@@ -1555,7 +1557,7 @@ function spot_resolve(array &$db, bool $force = false): array {
       'err' => $r['err'] ?: null,
       'sample' => substr(preg_replace('/\s+/', ' ', $r['body'] ?? ''), 0, 80)];
   }
-  // rank tiers: jsDelivr daily 1 · gold-api 2 · ECB 2 · exchange-rate 3 · Yahoo 4  (v107.3: Stooq retired)
+  // rank tiers (v107.4): jsDelivr daily 1 · ECB 2 · exchange-rate 3 · Yahoo futures 3 · gold-api spot 4 · Yahoo INR 4
   $offer = static function (string $leg, float $price, string $src, int $rank, float $hi = 0, float $lo = 0, float $prev = 0) use (&$legs) {
     if ($price <= 0) return;
     if ($legs[$leg]['price'] > 0 && ($legs[$leg]['rank'] ?? 0) >= $rank) return;
@@ -1580,20 +1582,24 @@ function spot_resolve(array &$db, bool $force = false): array {
   if (isset($p['er'])) { $j = json_decode($p['er']['body'], true); if (is_array($j) && (float)($j['rates']['INR'] ?? 0) > 0) $offer('inr', (float)$j['rates']['INR'], 'exchangerate', 3); }
   foreach (['gxau' => 'gold', 'gxag' => 'silver'] as $jk => $leg) {
     $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
-    if (is_array($j) && (float)($j['price'] ?? 0) > 0) $offer($leg, (float)$j['price'], 'gold-api', 2);   // v107.3 promoted after Stooq retirement
+    if (is_array($j) && (float)($j['price'] ?? 0) > 0) $offer($leg, (float)$j['price'], 'gold-api', 4);   // v107.4 — true spot outranks futures premium for metals
   }
   foreach (['yGold' => 'gold', 'ySilver' => 'silver', 'yInr' => 'inr'] as $jk => $leg) {
     $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
     $m = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
     if (is_array($m) && (float)($m['regularMarketPrice'] ?? 0) > 0) {
-      // Yahoo is intraday-live with day bands — top tier (rank 4)
+      // v107.4 — Yahoo GC=F/SI=F are FUTURES (small premium over spot): backup
+      // tier 3 for metals so gold-api spot stays the consistent winner; INR=X
+      // is genuine live FX and keeps top tier 4.
+      $rank = $leg === 'inr' ? 4 : 3;
+      if ($legs[$leg]['price'] > 0 && ($legs[$leg]['rank'] ?? 0) >= $rank) continue;
       $pv = (float)($m['chartPreviousClose'] ?? ($m['previousClose'] ?? 0));
       $price = (float)$m['regularMarketPrice'];
       $legs[$leg] = ['price' => $price,
         'high' => (float)($m['regularMarketDayHigh'] ?? 0) ?: $price,
         'low' => (float)($m['regularMarketDayLow'] ?? 0) ?: $price,
         'prev' => $pv,
-        'pct' => $pv > 0 ? round(($price - $pv) / $pv * 100, 2) : 0.0, 'src' => 'yahoo', 'rank' => 4];
+        'pct' => $pv > 0 ? round(($price - $pv) / $pv * 100, 2) : 0.0, 'src' => 'yahoo', 'rank' => $rank];
     }
   }
   // manual owner overrides (absolute priority)
@@ -1614,15 +1620,16 @@ function spot_resolve(array &$db, bool $force = false): array {
 
 /* v74–v77 — LIVE international spot, micro-cached 1.0 s (v75: 6 s → 2.5 s;
    v76: 2.5 s → 1.5 s + non-blocking lock; v77: 1.5 s → 1.0 s with sub-second
-   in-payload timestamps and a two-tier probe — the fast lane hits only the
-   query2 Yahoo mirror, the full fallback fan-out runs only for legs it
-   missed, so provider load stays ~3 requests/refresh at a 1 s cadence).
-   Yahoo near-live XAU/XAG/INR is the primary feed (intraday price + day
-   H/L + previous close), gold-api and Stooq are parallel fallbacks; below
-   that it walks the 10-minute resolver cache, manual owner overrides, and
-   finally the MCX-implied value. Owner fine-tune offsets (spotXauAdj /
-   spotXagAdj / spotInrAdj, in the quoted unit) are added last so the board
-   can match the reference feed exactly. */
+   in-payload timestamps and a two-tier probe). v107.4 retuned the tiers: the
+   fast lane is gold-api true spot XAU/XAG + Yahoo INR (3 requests, all
+   verified green on the live host); the wide fan (Yahoo COMEX futures
+   GC=F/SI=F mirrors, INR query1, jsDelivr daily floor) fires only into legs
+   the fast lane missed, so provider load stays ~3 requests/refresh at a 1 s
+   cadence and the board never hops between price bases. Below that it walks
+   the 30-second resolver cache, manual owner overrides, and finally the
+   MCX-implied value. Owner fine-tune offsets (spotXauAdj / spotXagAdj /
+   spotInrAdj, in the quoted unit) are added last so the board can match the
+   reference feed exactly. */
 const SPOT_TICK_TTL = 1.0;
 function spot_tick(array &$db, ?array $mcxTick = null): array {
   $cacheFile = $GLOBALS['ROOT'] . '/data/.spot-tick.json';
@@ -1649,18 +1656,22 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
   }
   try {
     if (($c = $fresh())) { $c['servedFrom'] = 'cache'; unset($c['_ts']); return $c; }
+    /* v107.4 — the old fast lane probed XAUUSD=X / XAGUSD=X, which Yahoo
+       retired (Not Found), so EVERY tick fell through to the wide fan and the
+       board flip-flopped between sources quoting different prices (spot vs
+       daily snapshot vs futures premium) — the "sometimes up, sometimes down"
+       symptom. Fast lane is now only feeds verified green on the live host:
+       gold-api true spot + Yahoo INR. Stooq removed (service retired). */
     $urls = [
-      'yg' => 'https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?range=1d&interval=1m',
-      'yg2' => 'https://query2.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?range=1d&interval=1m',
-      'ys' => 'https://query1.finance.yahoo.com/v8/finance/chart/XAGUSD%3DX?range=1d&interval=1m',
-      'ys2' => 'https://query2.finance.yahoo.com/v8/finance/chart/XAGUSD%3DX?range=1d&interval=1m',
-      'yi' => 'https://query1.finance.yahoo.com/v8/finance/chart/INR%3DX?range=1d&interval=1m',
-      'yi2' => 'https://query2.finance.yahoo.com/v8/finance/chart/INR%3DX?range=1d&interval=1m',
       'gg' => 'https://api.gold-api.com/price/XAU',
       'gs' => 'https://api.gold-api.com/price/XAG',
-      'sg' => 'https://stooq.com/q/l/?s=xauusd&f=sd2t2ohlcv&h&e=csv',
-      'ss' => 'https://stooq.com/q/l/?s=xagusd&f=sd2t2ohlcv&h&e=csv',
-      'si' => 'https://stooq.com/q/l/?s=usdinr&f=sd2t2ohlcv&h&e=csv',
+      'yi' => 'https://query1.finance.yahoo.com/v8/finance/chart/INR%3DX?range=1d&interval=1m',
+      'yi2' => 'https://query2.finance.yahoo.com/v8/finance/chart/INR%3DX?range=1d&interval=1m',
+      'yg' => 'https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?range=1d&interval=1m',
+      'yg2' => 'https://query2.finance.yahoo.com/v8/finance/chart/GC%3DF?range=1d&interval=1m',
+      'ys' => 'https://query1.finance.yahoo.com/v8/finance/chart/SI%3DF?range=1d&interval=1m',
+      'ys2' => 'https://query2.finance.yahoo.com/v8/finance/chart/SI%3DF?range=1d&interval=1m',
+      'jsd' => 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json',
     ];
     $blank = static fn() => ['price' => 0, 'high' => 0, 'low' => 0, 'prev' => 0, 'pct' => 0, 'src' => ''];
     $legs = ['gold' => $blank(), 'silver' => $blank(), 'inr' => $blank()];
@@ -1670,45 +1681,44 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
       $legs[$leg] = ['price' => $price, 'high' => $hi ?: $price, 'low' => $lo ?: $price, 'prev' => $prev,
         'pct' => $prev > 0 ? round(($price - $prev) / $prev * 100, 2) : 0, 'src' => $src, 'rank' => $rank];
     };
-    // v77 fast lane — query2 mirror only, ONE parallel 3-request call,
-    // refilled to a true ~1 s cadence. Anything it misses triggers the
-    // wider fallback fan (query1 mirrors + gold-api + Stooq).
-    $p = spot_probe_multi(['yg2' => $urls['yg2'], 'ys2' => $urls['ys2'], 'yi2' => $urls['yi2']], 2);
-    foreach (['yg2' => ['gold', 1], 'ys2' => ['silver', 1], 'yi2' => ['inr', 1]] as $jk => [$leg, $rank]) {
+    // v107.4 fast lane — ONE parallel 3-request call: gold-api spot XAU/XAG
+    // (true $/oz market price, no futures premium) + Yahoo INR query2.
+    $p = spot_probe_multi(['gg' => $urls['gg'], 'gs' => $urls['gs'], 'yi2' => $urls['yi2']], 2);
+    foreach (['gg' => 'gold', 'gs' => 'silver'] as $jk => $leg) {
       $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
-      $m = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
-      if (is_array($m) && (float)($m['regularMarketPrice'] ?? 0) > 0) {
-        $price = (float)$m['regularMarketPrice']; $pv = (float)($m['chartPreviousClose'] ?? ($m['previousClose'] ?? 0));
-        $fill($leg, $price, 'Yahoo live', $rank,
-          (float)($m['regularMarketDayHigh'] ?? 0), (float)($m['regularMarketDayLow'] ?? 0), $pv);
-      }
+      if (is_array($j) && (float)($j['price'] ?? 0) > 0) $fill($leg, (float)$j['price'], 'gold-api live', 1);
+    }
+    $j = isset($p['yi2']) ? json_decode($p['yi2']['body'], true) : null;
+    $m = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
+    if (is_array($m) && (float)($m['regularMarketPrice'] ?? 0) > 0) {
+      $price = (float)$m['regularMarketPrice']; $pv = (float)($m['chartPreviousClose'] ?? ($m['previousClose'] ?? 0));
+      $fill('inr', $price, 'Yahoo live', 1,
+        (float)($m['regularMarketDayHigh'] ?? 0), (float)($m['regularMarketDayLow'] ?? 0), $pv);
     }
     if ($legs['gold']['price'] <= 0 || $legs['silver']['price'] <= 0 || $legs['inr']['price'] <= 0) {
-      $fb = ['yg' => $urls['yg'], 'ys' => $urls['ys'], 'yi' => $urls['yi'],
-        'gg' => $urls['gg'], 'gs' => $urls['gs'], 'sg' => $urls['sg'],
-        'ss' => $urls['ss'], 'si' => $urls['si']];
+      $fb = ['yg' => $urls['yg'], 'yg2' => $urls['yg2'], 'ys' => $urls['ys'], 'ys2' => $urls['ys2'],
+        'yi' => $urls['yi'], 'jsd' => $urls['jsd']];
       $p = array_merge(spot_probe_multi($fb, 2), $p);
-      foreach (['yg' => ['gold', 2], 'ys' => ['silver', 2], 'yi' => ['inr', 2]] as $jk => [$leg, $rank]) {
+      // COMEX futures (GC=F/SI=F) carry a small premium over spot — backup
+      // tier only, and ONLY into legs the fast lane left empty so the board
+      // never hops between two price bases within one session.
+      foreach (['yg' => 'gold', 'yg2' => 'gold', 'ys' => 'silver', 'ys2' => 'silver', 'yi' => 'inr'] as $jk => $leg) {
+        if ($legs[$leg]['price'] > 0) continue;
         $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
         $m = is_array($j) ? ($j['chart']['result'][0]['meta'] ?? null) : null;
         if (is_array($m) && (float)($m['regularMarketPrice'] ?? 0) > 0) {
           $price = (float)$m['regularMarketPrice']; $pv = (float)($m['chartPreviousClose'] ?? ($m['previousClose'] ?? 0));
-          $fill($leg, $price, 'Yahoo live', $rank,
+          $fill($leg, $price, 'Yahoo futures', 2,
             (float)($m['regularMarketDayHigh'] ?? 0), (float)($m['regularMarketDayLow'] ?? 0), $pv);
         }
       }
-    }
-    foreach (['gg' => ['gold', 'gold-api live'], 'gs' => ['silver', 'gold-api live']] as $jk => [$leg, $name]) {
-      $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
-      if (is_array($j) && (float)($j['price'] ?? 0) > 0) $fill($leg, (float)$j['price'], $name, 3);
-    }
-    foreach (['sg' => 'gold', 'ss' => 'silver', 'si' => 'inr'] as $jk => $leg) {
-      foreach (preg_split('/\r?\n/', (string)($p[$jk]['body'] ?? '')) as $ln) {
-        $f = str_getcsv($ln);
-        if (is_array($f) && count($f) >= 7 && is_numeric($f[3]) && is_numeric($f[6])) {
-          $fill($leg, (float)$f[6], 'Stooq live', 4, (float)$f[4], (float)$f[5], 0);
-          break;
-        }
+      // jsDelivr daily snapshot — last-resort floor so a leg is never blank.
+      $j = isset($p['jsd']) ? json_decode($p['jsd']['body'], true) : null;
+      $usd = is_array($j) ? ($j['usd'] ?? null) : null;
+      if (is_array($usd)) {
+        if ($legs['gold']['price'] <= 0 && ($v = (float)($usd['xau'] ?? 0)) > 0) $fill('gold', round(1 / $v, 2), 'jsDelivr floor', 5);
+        if ($legs['silver']['price'] <= 0 && ($v = (float)($usd['xag'] ?? 0)) > 0) $fill('silver', round(1 / $v, 3), 'jsDelivr floor', 5);
+        if ($legs['inr']['price'] <= 0 && ($v = (float)($usd['inr'] ?? 0)) > 0) $fill('inr', round($v, 2), 'jsDelivr floor', 5);
       }
     }
     // walk fallbacks: 10-min resolver cache → manual override → MCX implied
