@@ -89,4 +89,7 @@ truth). Never commit API keys — the pipeline reads them from env vars. Generat
 media lives in `demo65/media/` (never a folder named `out/`).
 
 ## New chat? Start here
-Read [`docs/AGENT-HANDOFF.md`](docs/AGENT-HANDOFF.md) — architecture, automation, rules, first-message template.
+Read [`ARENA-STATE.md`](ARENA-STATE.md) first (the continuity contract — current
+version on `main`, forward-only rules), then [`HANDOFF.md`](HANDOFF.md) (the work
+log), then [`docs/AGENT-HANDOFF.md`](docs/AGENT-HANDOFF.md) (architecture,
+automation, rules, first-message template). Current: **v109-consolidated on `main`**.

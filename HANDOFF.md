@@ -6,6 +6,27 @@
 
 ---
 
+## 🎯 CONSOLIDATION (2026-09-14) — the "never start from zero again" merge
+
+**Problem the owner reported:** new chats branched from a stale `main` while the
+newest work (v105–v109) lived only on side branches — every few sessions it felt
+like work was lost and had to restart from 0.
+**Fix (this merge, `arena/01a09f25-shivaa-ecom` → `main`):**
+- Base = v108-MEGA tree (`arena/01a09dc4` @ `60b6c8d`): full v107.4 line
+  (PR #21) + boost layer + cinematic films + banners + owner zips v56–v92.
+  Verified a strict superset of `main` (zero main-only files, trees identical).
+- Layered on top = v109 line (`arena/01a09edc` @ `931ff72`): shopper polish
+  (`v108.css`/`v108.js`, 2nd card photo, WhatsApp chat, share) + 100-feature
+  pack (`v109.js`). 3-way merge vs v107.4: 3 files taken from v109 (`app.js`,
+  `sw.js`, HANDOFF), 1 hand-merged (`index.html` keeps boost AND v108/v109
+  wiring), `db.json` kept from v108, 3 new files added, 98 v108-only files kept.
+- 1-line fix: precache `/js/v109.js` in `sw.js` (the pack forgot its own entry).
+- PRs #21, #11, #15, #19 closed as contained-in-main; their branches stay on
+  GitHub as archives. `main` is now the single source of truth — see
+  [`ARENA-STATE.md`](ARENA-STATE.md) for the forward-only rules every chat follows.
+
+---
+
 ## 🎯 v108 — SHOPPER POLISH (2026-09-14)
 
 Additive layer on v107.4. Catalogue, weights, prices untouched (405 products).
