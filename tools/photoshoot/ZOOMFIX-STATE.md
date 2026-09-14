@@ -12,24 +12,26 @@ gold touching the left+right edges) + **14 editorials** cropped. Good house
 covers measure 40–62% ring width; the QA gate demands margins ≥3% per side and
 span ≤88% width.
 
-## Per-SKU fix lists
-COVERS (41): PGS5001 5002 5003 5004 5005 5006 5007 5008 5009 5010 5011 5012 5013
-5016 5017 5018 5019 5020 5021 5024 5028 5030 5031 5034 5037 5038 5039 5040 5041
-5042 5046 5048 5051 5052 5053 5054 5056 5057 5059 5060 5061
-EDITORIALS (14): PGS5003 5008 5011 5016 5017 5018 5019 5020 5021 5034 5041 5042
-5048 5055
+## Per-SKU fix lists (REVISED 2026-09-14 after lenient-editorial recalibration)
+COVERS — strict gate (margins ≥3%, span ≤88%) — 43 total, 9 done:
+PGS5001 5002 5003 5004 5006 5007 5008 5009 5010 ✅ done (batch 1)
+PGS5005⚠(re-roll: span 91%) 5011 5012 5013 5016 5017 5018 5019 5020 5021 5024
+5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5046 5048 5051 5052 5053
+5054 5055 5056 5057 5059 5060 5061 5063 ⬜ remaining (34, incl. the 5005 re-roll)
+EDITORIALS — lenient crop-only gate (span ≤95%, no deep-gold cut at edge) — 18:
+PGS5003 5008 5011 5013 5016 5017 5018 5019 5020 5021 5030 5034 5037 5041 5042
+5048 5051 5055 ⬜ all remaining
 
 ## Progress
-- ✅ Batch 1 (2026-09-14, branch arena/01a09f6d-shivaa-ecom): covers PGS5001–5010
-  regenerated, finalized (badge), installed to cms + demo65 staging.
-  QA: 5001 5002 5003 5004 5006 5007 5008 5009 5010 PASS.
-  ⚠️ PGS5005 still too big in frame (span 91%) — RE-ROLL with the "no more than
-  60% of image width" prompt variant (see below).
-- ⬜ Batch 2: covers 5011 5012 5013 5016 5017 5018 5019 5020 (8) + PGS5005 re-roll + PGS5003 editorial (10 gens)
+- ✅ Batch 1 (2026-09-14, PR #25 merged): covers PGS5001–5010 regenerated,
+  finalized (badge), installed to cms + demo65 staging. QA: 9 PASS; PGS5005
+  needs the "no more than 60% of image width" re-roll prompt.
+- ⬜ Batch 2: covers 5005(re-roll) 5011 5012 5013 5016 5017 5018 5019 5020 + editorial 5003 (10)
 - ⬜ Batch 3: covers 5021 5024 5028 5030 5031 5034 5037 5038 + editorials 5008 5011 (10)
 - ⬜ Batch 4: covers 5039 5040 5041 5042 5046 5048 5051 5052 + editorials 5016 5017 (10)
-- ⬜ Batch 5: covers 5053 5054 5056 5057 5059 5060 5061 + editorials 5018 5019 5020 (10)
-- ⬜ Batch 6: editorials 5021 5034 5041 5042 5048 5055 (6) + any re-rolls (≤4)
+- ⬜ Batch 5: covers 5053 5054 5055 5056 5057 5059 5060 5061 + editorials 5018 5019 (10)
+- ⬜ Batch 6: cover 5063 + editorials 5020 5021 5030 5034 5037 5041 5042 5048 5051 (10)
+- ⬜ Batch 7: editorial 5055 + re-rolls (≤9 spare budget)
 
 ## Per-batch workflow (10 generate_image calls MAX per turn — hard cap)
 1. `python3 - <<'EOF'` with tools/photoshoot/unbadge.unbadge(cover, /home/user/work_shots/unbadged/SKU.jpg)
