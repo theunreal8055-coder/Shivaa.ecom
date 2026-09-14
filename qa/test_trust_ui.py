@@ -23,7 +23,9 @@ def check(condition, name):
 
 
 async def run(server):
-    expected = {key: server.fixture['settings'][key] for key in ('cin', 'udyam', 'address')}
+    # v105 — the owner confirmed the GSTIN, so it is published like the other
+    # identifiers (validated by shape + mod-36 checksum in cms/trust.php).
+    expected = {key: server.fixture['settings'][key] for key in ('cin', 'udyam', 'address', 'gstin')}
     async with async_playwright() as pw:
         opts = {'args': ['--no-sandbox', '--disable-dev-shm-usage']}
         if os.environ.get('BROWSER_BIN'):
@@ -40,9 +42,16 @@ async def run(server):
         for key, value in expected.items():
             check(await page.locator('#trustValue-' + key).inner_text() == value, 'only the existing ' + key + ' is displayed')
         check('UNCONFIRMED_QA_ONLY' not in await page.locator('#view').inner_text(), 'URL parameters cannot inject business details')
-        await expect(page.locator('[data-trust-gstin]')).to_contain_text('Not provided')
+        await expect(page.locator('[data-trust-gstin]')).to_contain_text(expected['gstin'])
+        await expect(page.locator('[data-trust-gstin]')).to_contain_text('On record')
         await expect(page.locator('[data-trust-certificates]')).to_contain_text('Not provided')
-        check(await page.locator('.trust-documents a, .trust-documents input, .trust-documents img').count() == 0, 'no invented GSTIN field, certificate image or placeholder download')
+        check(await page.locator('.trust-documents input, .trust-documents img, .trust-documents [download]').count() == 0, 'no invented certificate image, upload field or placeholder download')
+        doc_links = await page.locator('.trust-documents a[target="_blank"]').all()
+        check(all(urlparse(await link.get_attribute('href')).netloc == 'services.gst.gov.in' for link in doc_links), 'the only external document link is the official GST portal search')
+        check(await page.locator('#trustHeroGstin code').inner_text() == expected['gstin'], 'GSTIN is published prominently in the hero')
+        check('not a live government-registry verification' in await page.locator('#trustHeroGstin').inner_text(), 'the hero GSTIN keeps the owner-provided disclosure')
+        check(await page.locator('#footGstin code').inner_text() == expected['gstin'], 'the same GSTIN reaches the shared footer')
+        check('Owner-provided' in await page.locator('[data-trust-gstin]').inner_text(), 'the GSTIN is labelled owner-provided, not registry-verified')
         check('not live government verification results' in await page.locator('.trust-identity').inner_text(), 'provided identifiers are not labelled government-verified')
         check(await page.locator('.footer .f-stats').count() == 0, 'shared footer no longer presents hard-coded trust counters')
         check('Startup India' not in await page.locator('.footer').inner_text(), 'unprovided registration seal is absent from footer')
@@ -87,11 +96,14 @@ async def run(server):
         db = copy.deepcopy(server.fixture)
         db['settings'].pop('udyam')
         db['settings'].pop('address')
+        db['settings'].pop('gstin')
         server.db_file.write_text(json.dumps(db))
         await page.reload(wait_until='networkidle')
         await expect(page.locator('#trustProfile')).to_have_attribute('data-state', 'ready')
         check(await page.locator('#trustValue-cin').inner_text() == expected['cin'] and await page.locator('[data-trust-copy]').count() == 1, 'partial data remains partial without invented completion')
         check(expected['udyam'] not in await page.locator('.footer').inner_text() and expected['address'] not in await page.locator('.footer').inner_text(), 'footer drops details missing from current settings')
+        check(expected['gstin'] not in await page.locator('.footer').inner_text() and await page.locator('#footGstin').inner_text() == '', 'footer drops the GSTIN when settings no longer carry it')
+        check(await page.locator('[data-trust-gstin]').inner_text().count('Not provided') == 1, 'a missing GSTIN shows the honest empty state')
         db['settings'].pop('cin')
         server.db_file.write_text(json.dumps(db))
         await page.reload(wait_until='networkidle')

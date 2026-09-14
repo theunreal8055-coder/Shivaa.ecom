@@ -1,0 +1,17 @@
+# v50/v84 — uploads must never execute code or serve active documents,
+# even if a hostile file lands here through some future route.
+Options -Indexes -ExecCGI
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|phar|pl|py|cgi|sh|asp|aspx|jsp|html?|shtml|svg|svgz|xml|xsl|js|mjs|htaccess)$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+# v84 — when an uploaded image/video/PDF is opened DIRECTLY as a document,
+# give it no script/network/origin capabilities. The storefront embeds these
+# same-origin (frame-ancestors 'self' keeps the catalogue PDF viewer working).
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "default-src 'none'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

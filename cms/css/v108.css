@@ -1,0 +1,124 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SHIVAA v108 · shopper polish
+   Loaded LAST, after v107.css. Namespaced (v108-, #v108) so it only ADDS
+   chrome. Delete the two v108 tags in index.html to roll back to v107.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── skip to jewellery (keyboard / screen-reader) ─────────────────────── */
+.v108-skip {
+  position: absolute; left: 10px; top: 10px; z-index: 5000;
+  transform: translateY(-160%);
+  padding: 10px 16px; border-radius: 999px;
+  background: linear-gradient(135deg, #d4af5a, #b98a2f); color: #2a0a10;
+  font: 700 13px/1 var(--ff-body, inherit); letter-spacing: .04em;
+  text-decoration: none; box-shadow: 0 10px 28px rgba(61,14,21,.28);
+}
+.v108-skip:focus { transform: none; outline: 2px solid #fff; outline-offset: 3px; }
+
+/* ── product card: second photo on hover (all 405 pieces have 2+ shots) ─ */
+.pc-imgwrap { position: relative; }
+.pc-imgwrap .pc-img-a,
+.pc-imgwrap .pc-img-b {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.pc-imgwrap .pc-img-b {
+  position: absolute; inset: 0; opacity: 0;
+  transition: opacity .35s ease;
+  pointer-events: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .p-card:hover .pc-img-b { opacity: 1; }
+}
+.p-card.show-b .pc-img-b { opacity: 1; }
+.v108-flip {
+  position: absolute; right: 10px; bottom: 10px; z-index: 4;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid rgba(255,253,249,.7);
+  background: rgba(29,5,9,.55); color: #f6e8c8;
+  font-size: 11px; line-height: 1; display: grid; place-items: center;
+  backdrop-filter: blur(6px); cursor: pointer; z-index: 6;
+}
+.v108-flip[hidden] { display: none !important; }
+@media (hover: hover) and (pointer: fine) {
+  .v108-flip { display: none; }
+}
+
+/* image fade-in so cards don't pop */
+.pc-imgwrap img { background: var(--cream-2, #f4ecdd); }
+.pc-imgwrap img.v108-ready { animation: v108-fade .4s ease; }
+@keyframes v108-fade { from { opacity: .35; } to { opacity: 1; } }
+
+/* ── WhatsApp enquire (the live .wa-fab is display:none !important) ───── */
+#v108Wa {
+  position: fixed; left: 18px; bottom: 22px; z-index: 95;
+  width: 56px; height: 56px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #25d366, #128c7e);
+  color: #fff; text-decoration: none;
+  box-shadow: 0 12px 30px rgba(18,140,74,.42);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+#v108Wa:hover { transform: translateY(-3px) scale(1.05); }
+#v108Wa:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+#v108Wa svg { width: 28px; height: 28px; }
+#v108Wa .v108-wa-tip {
+  position: absolute; left: 64px; white-space: nowrap;
+  background: #128c7e; color: #fff; font-size: 12px; font-weight: 600;
+  padding: 7px 12px; border-radius: 10px;
+  opacity: 0; pointer-events: none; transform: translateX(-6px);
+  transition: opacity .2s, transform .2s;
+}
+#v108Wa:hover .v108-wa-tip,
+#v108Wa:focus .v108-wa-tip { opacity: 1; transform: none; }
+@media (max-width: 768px) {
+  #v108Wa {
+    left: 14px;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    width: 50px; height: 50px;
+  }
+  #v108Wa svg { width: 24px; height: 24px; }
+  #v108Wa .v108-wa-tip { display: none; }
+  body[data-page="product"] #v108Wa {
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  body[data-page="admin"] #v108Wa,
+  body[data-page="partner"] #v108Wa { display: none; }
+}
+
+/* ── home: snap-scroll bestsellers on the phone ───────────────────────── */
+@media (max-width: 680px) {
+  .v108-hscroll {
+    display: flex; gap: 14px; overflow-x: auto;
+    padding: 4px 2px 18px; scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .v108-hscroll::-webkit-scrollbar { display: none; }
+  .v108-hscroll .p-card {
+    flex: 0 0 min(72vw, 260px); scroll-snap-align: start;
+  }
+}
+
+/* ── category count chip ──────────────────────────────────────────────── */
+.cat-mini-card { position: relative; }
+.v108-n {
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(29,5,9,.78); color: #f3dfae;
+  font-size: 10px; letter-spacing: .06em; font-weight: 700;
+  padding: 3px 8px; border-radius: 999px;
+}
+
+/* ── PDP share ────────────────────────────────────────────────────────── */
+.v108-share {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 1.5px solid var(--line, #e6d9c0); background: var(--white, #fff);
+  color: var(--maroon, #6e1e2a); display: grid; place-items: center; cursor: pointer;
+}
+.v108-share:hover { border-color: var(--gold, #b98a2f); background: var(--gold-faint, #f7eed8); }
+.v108-share svg { width: 20px; height: 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-imgwrap .pc-img-b, #v108Wa, .pc-imgwrap img.v108-ready { transition: none; animation: none; }
+}
+@media print {
+  #v108Wa, .v108-skip, .v108-flip { display: none !important; }
+}
