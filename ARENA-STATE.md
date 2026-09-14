@@ -8,16 +8,16 @@
 
 ## 1. CURRENT STATE (update this block at the end of every work session)
 
-- **Version on `main`:** v111-rings-live — 2026-09-14 (this PR: GO-LIVE marker +
-  Catalogue Deploy push trigger, zoom-gate override so 65 rings upload now)
-- **v111 go-live:** master catalogue is 65 PGS rings only (340 samples archived
-  at `qa/archive/samples-340-v111.json`). Pushing `deploy/GO-LIVE-v111.txt`
-  (contains `GO` + `ZOOM_GATE=NO`) to main fires Catalogue Deploy LIVE=YES.
-  Conscious override: remaining cover/editorial pull-backs (batches 2–7 in
-  `tools/photoshoot/ZOOMFIX-STATE.md`) must not block the 65-ring upload.
-  Live site before this run: only PGS5001–5007 (partial 2026-09-13 ring-reset).
+- **Version on `main`:** v111-rings-live — 2026-09-14 ✅ LIVE
+- **v111 go-live VERIFIED:** Catalogue Deploy run
+  https://github.com/theunreal8055-coder/Shivaa.ecom/actions/runs/34861781402
+  succeeded (16m, independent verify green). Live `/api/products` is exactly
+  65 PGS rings, 4 shots each, 0 samples, 0 videos. Master db matches.
+  340 samples remain archived at `qa/archive/samples-340-v111.json`.
+- **Follow-up (not blocking live):** zoom-fix batches 2–7 in
+  `tools/photoshoot/ZOOMFIX-STATE.md` (34 covers + 18 editorials). After they
+  PASS, re-run Catalogue Deploy to refresh photos.
 - **Products:** **65** in `cms/data/db.json` (owner: rings only, no samples).
-  The 340 samples are archived, not lost.
 - **Deploy contract:** `main` is what the server cron tracks (`branch: main`).
   Live catalogue writes go through Catalogue Deploy, not the v110 bridge.
 

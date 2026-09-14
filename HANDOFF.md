@@ -325,10 +325,12 @@ PGS5059 Kanchan
 2. Live `/api/products` still only PGS5001–5007. Catalogue Deploy never ran as
    a `main` push: the GO-LIVE marker file was deliberately not committed until
    zoom batches 2–7 passed; Arena token cannot workflow_dispatch (403).
-3. Owner this turn: push finished v111 and go live. Committed
-   `deploy/GO-LIVE-v111.txt` (`GO` + `ZOOM_GATE=NO` override), fixed verify-step
-   email on push, updated continuity docs. Merge to main fires LIVE=YES.
-4. Zoom batches 2–7 remain as photo follow-up (not a catalogue blocker).
+3. Owner this turn: push finished v111 and go live. PR #28: GO-LIVE marker
+   (`GO` + `ZOOM_GATE=NO`) + verify-step email fix. First live run logged in
+   then crashed on `POST /api/media` (`bytes + str`). PR #29 fixed multipart
+   to `b'\\r\\n'` (same as ring_reset.py) and retriggered.
+4. Catalogue Deploy 34861781402 SUCCESS (16m). Independent verify + fetch_page:
+   65 PGS, 4 shots, 0 samples, 0 videos. Zoom batches 2–7 remain photo follow-up.
 
 **2026-09-14 — v110 full-catalogue bridge (branch arena/01a09f4b-shivaa-ecom)**
 1. Read ARENA-STATE/HANDOFF; verified session branch = origin/main tip (6d8b1f9,
