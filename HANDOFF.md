@@ -1,8 +1,45 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-14 (v108 shopper polish on the v107.4 line)**
+**Last updated: 2026-09-14 (v110 — full-catalogue delivery bridge)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
+
+---
+
+## 🚨 v110 — LIVE SITE SHOWED ONLY ~7 PRODUCTS (2026-09-14); full-catalogue bridge built
+
+**Owner reported:** opening shivaa.in's product section shows only seven products.
+**Root cause (verified in code):** the storefront loads products from the LIVE
+server's `public_html/data/db.json` via `/api/products`. The auto-sync cron deploys
+`cms/` CODE (including all `/images/...` photos) but is hard-forbidden from touching
+live `data/` + `uploads/` (protects live orders). The 405-product master
+(`cms/data/db.json`) therefore never reached the live database — only ~7 old items
+were in it. The sandbox still cannot reach shivaa.in directly (`SSL_ERROR_SYSCALL`,
+re-verified today), so delivery must run server-side, exactly like the v44 ring reset.
+
+**Fix built (owner-approved path = tablet bridge, keep existing live items):**
+- `deploy/catalogue_sync_bridge.php` — one file, same proven pattern as
+  `ring_reset_bridge.php`. Steps: login → (1) download master db.json from GitHub
+  main + show plan (adds/refreshes/kept/photos) → (2) upsert products 30/tap
+  (POST new / PUT existing by SKU, ledger-resumable, strips the API-rejected
+  `hallmark*`/`id`/`createdAt` keys, NEVER deletes) → (3) fetch any missing
+  `/images/...` photos 25/tap → (4) verify per-category counts (want 405) →
+  (5) self-destruct. Runbook: `deploy/CATALOGUE-SYNC-BRIDGE.md`.
+- Pre-flight verified: all 405 records have name + weightG>0 + sku + ≥1 image;
+  all 334 unique referenced photos exist in `cms/images` (zero missing; 91.6 MB tree).
+
+**⏳ PENDING (owner action, ~10 min on the tablet):** run the bridge per
+`deploy/CATALOGUE-SYNC-BRIDGE.md`, then delete its folder + rotate the admin
+password. Until then the live shop keeps showing ~7 products.
+
+**Known cosmetic follow-up (NOT changed without owner approval):** 340 products
+(all 20 × 16 non-ring categories + the 20 original rings) carry tag `sample`,
+which the card renders as a literal "sample" badge (`app.js` TAGS has no mapping).
+The 65 PGS rings do not. Ask the owner before stripping the tag in master + live.
+
+**Do NOT merge stale PR #23** (`arena/01a06a7a…`, auto-titled "Arena/01a06a7a"):
+it predates consolidation, contains only **342 products**, and merging would delete
+~83k lines / 1,000+ files. Close it without merging (branch stays archived).
 
 ---
 
@@ -204,6 +241,23 @@ PGS5059 Kanchan
 ---
 
 ## 📝 SESSION STEP LOG (newest first — append every session)
+
+**2026-09-14 — v110 full-catalogue bridge (branch arena/01a09f4b-shivaa-ecom)**
+1. Read ARENA-STATE/HANDOFF; verified session branch = origin/main tip (6d8b1f9,
+   main-guard workflow green; backup tag `backup/main-20260914-093342-6d8b1f9`).
+2. Diagnosed owner report "live shop shows 7 products": live API serves the
+   server's own data/db.json, which auto-sync never overwrites; master 405-product
+   db had never been delivered to live. All 940 image refs are `/images/...`
+   (code-deployed), so only the catalogue data was missing.
+3. Built + bracket-linted `deploy/catalogue_sync_bridge.php` (login → fetch master
+   from GitHub → SKU upserts 30/tap, resumable, no deletes, strips hallmark*/id
+   keys → missing-photo fetch 25/tap → per-category verify → self-destruct) and
+   `deploy/CATALOGUE-SYNC-BRIDGE.md`. Owner chose: keep existing live products.
+4. Preflight: 405/405 valid records (63 carry `hallmark` key — stripped on write);
+   334/334 referenced photos present in repo.
+5. Flagged (unchanged, awaiting owner OK): 340 products display a literal "sample"
+   tag chip; stale PR #23 (342 products) must be closed, not merged.
+6. Pending owner: run bridge on tablet → verify 405 → self-destruct → rotate pw.
 
 **2026-09-07 — v43 batch 1 (this session)**
 1. Read HANDOFF v42; found 26 PGS rings with reference photo only (their `_shot_studio.jpg` was a byte-copy of the raw photo incl. green price tag).
