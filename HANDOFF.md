@@ -6,6 +6,46 @@
 
 ---
 
+## 🚀 v112 — PayU + Bullion LIVE FIXES (2026-09-14, branch `arena/01a0a030-shivaa-ecom` — READY TO MERGE)
+
+**Owner tasks (one chat, 4 fixes):**
+1. **PayU payment gateway broken** — "Merchant Key and Salt not matching" + checkout fell back to 9999999999/Customer
+2. **Bullion app every-millisecond** — rates updated every 15 sec, wanted smooth ms motion
+3. **Rate drift** — silver $63.01 vs $63.10, gold $4277.80 vs $4279, Jaipur 154890 vs 155500 (≈200₹ low)
+4. **Connect live rates panel to bullion panel** — take data from bullion, leave interface as is
+
+**What was done — PayU (cms/api.php + isolated file):**
+- **B1 CRITICAL** `pay/order` used `($o['address']->phone ?? '')` on ARRAY-stored address → always null, fell back to placeholder + PHP Warning. Fixed to `['phone']`/`['name']` (also PhonePe dormant block).
+- **B2/B3** `payuKey` regex `^[A-Za-z0-9]{4,32}$` and `payuSalt` `^[A-Za-z0-9]{8,80}$` rejected real salts with `_/-`. Relaxed to `^[A-Za-z0-9_\-]{4,40}$` and `^[^\s|]{8,128}$` — the "not matching" was local validation, not PayU.
+- **B4** `payu_reconcile` fallback `array_key_first` could credit WRONG txn — removed, strict `$details[$txnid] ?? null` only.
+- **B5** `admin/pay-test` probe looked for `"not exist"` but PayU returns `"No Transaction Found"` → valid test creds always said rejected. Now checks `invalid key/hash/auth` absence and treats 200 JSON as valid.
+- Files: `cms/api.php` (4 hunks), isolated `cms/payu.gateway.fixed.php` (260 lines, `if (!function_exists)` drop-in + `payu_validate_settings` helper), `cms/PAYU_BUGFIX_REPORT.md`, `payu-update-20260914.zip` (payu.gateway.fixed.php + report + cms_api_fixed.php + README).
+
+**Bullion millisecond:**
+- `cms/js/app.js` `scheduleRatesPoll` 15s→1s live, 60s→5s off-hours; `visibility` maxAge 20/90s→3/10s.
+- Added 60fps `requestAnimationFrame` lerp (`_msTick`) between 1-sec MCX ticks so ticker LOOKS like every ms (real MCX is 1/sec exchange limit).
+- Files: `bullion-update-20260914.zip` (app.js + README), committed to branch.
+
+**Rate drift investigation (no code, settings fix):**
+- Root causes: source mix (MCX future vs Yahoo spot vs gold-api spot → 1-2$ diff), FX provider mix (Yahoo vs ECB → 63.10 vs 63.01), Jaipur premium `+55` vs real Jaipur ~+200, rounding `int(round())` vs exact decimals, 10-min DB vs 1-sec tick cache.
+- Fix: fill Angel tokens/relay → `source=live-mcx`; adjust `jaipurPremium`/`jaipurSilverPremium` in Admin Settings to add 200₹ diff; keep decimals if needed.
+
+**Connect live rates ↔ bullion (2026-09-14 afternoon):**
+- `current_rates()` now checks `live_tick_quote($db,120)` first → `jaipur_live_from_tick()` — so storefront ticker/product/cart/checkout ALWAYS show same gold/silver as bullion panel (`.angel-tick.json`). Interface unchanged, only data wired.
+- Fallback to `db['rates']['last']` only if bullion stale >120s.
+- Zip: `connect-rates-bullion-20260914.zip` (cms_api_connected.php + README).
+
+**Live deployment reality (Hostinger):**
+- Owner found `api.php` directly in `public_html/` (not `public_html/cms/`). That IS the live API — deploy = overwrite `public_html/api.php` (and `public_html/js/app.js` or `public_html/cms/js/app.js` — search for `app.js` to find).
+- Owner already uploaded `payu-update-20260914.zip` → `public_html/api.php` replaced correctly.
+- Next uploads: `bullion-update-20260914.zip` → `app.js` at found path; `connect-rates-bullion-20260914.zip` → `api.php` again (or just keep last api.php which already includes both fixes if merged).
+
+**Branch state:**
+- All v112 work on `arena/01a0a030-shivaa-ecom` (4 commits: PayU, bullion, connect, zips). Pushed, not yet merged to `main` — **to make persistent for ANY new Arena account, merge this branch → main via PR** (see ARENA-STATE.md §2 rule 3).
+
+
+---
+
 ## 🚨 v111 — OWNER ORDERS (2026-09-14): no sample products · fix zoomed ring photos · 65 rings live
 
 **What the owner asked (verbatim intent):** "I don't need any kind of sample
