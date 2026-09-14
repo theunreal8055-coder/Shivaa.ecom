@@ -33,7 +33,8 @@ MAX_SPAN_FRAC = 0.88
 def ring_metrics(path):
     a = np.array(Image.open(path).convert('RGB'))
     h, w, _ = a.shape
-    m = GOLD(a[..., 0].astype(int), a[..., 1].astype(int), a[..., 2].astype(int))
+    r, g, b = a[..., 0].astype(int), a[..., 1].astype(int), a[..., 2].astype(int)
+    m = GOLD(r, g, b)
     if not m.any():
         return None
     lab, n = ndimage.label(m)
@@ -43,22 +44,39 @@ def ring_metrics(path):
     ys, xs = np.where(lab == int(np.argmax(sizes)) + 1)
     x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
     prof = {}
+    deep = {}
     for side, mm in (('L', m[:, :6]), ('R', m[:, -6:]), ('T', m[:6, :]), ('B', m[-6:, :])):
         prof[side] = round(float(mm.mean() * 100), 1)
+        if side == 'L': rr, bb = r[:, :6], b[:, :6]
+        elif side == 'R': rr, bb = r[:, -6:], b[:, -6:]
+        elif side == 'T': rr, bb = r[:6, :], b[:6, :]
+        else: rr, bb = r[-6:, :], b[-6:, :]
+        deep[side] = round(float(((rr - bb) > 85)[mm].mean() * 100), 1) if mm.any() else 0.0
     return dict(w=w, h=h, span_w=round((x1 - x0 + 1) / w, 3), span_h=round((y1 - y0 + 1) / h, 3),
                 mL=round(int(x0) / w, 3), mR=round((w - 1 - int(x1)) / w, 3),
-                mT=round(int(y0) / h, 3), mB=round((h - 1 - int(y1)) / h, 3), edge=prof)
+                mT=round(int(y0) / h, 3), mB=round((h - 1 - int(y1)) / h, 3),
+                edge=prof, deep=deep)
 
 
-def verdict(mt):
+def verdict(mt, lenient=False):
+    """strict (covers): full ring framed with real margins.
+    lenient (editorials): fail only on an actual CUT (deep saturated gold at the
+    frame edge = ring pixels sliced off) or the ring spanning >=95% of width."""
     if mt is None:
         return 'FAIL', 'no gold ring found'
     bad = []
-    for k in ('mL', 'mR', 'mT', 'mB'):
-        if mt[k] < MIN_MARGIN_FRAC:
-            bad.append(f'{k}={mt[k]}')
-    if mt['span_w'] > MAX_SPAN_FRAC:
-        bad.append(f'span_w={mt["span_w"]}')
+    if not lenient:
+        for k in ('mL', 'mR', 'mT', 'mB'):
+            if mt[k] < MIN_MARGIN_FRAC:
+                bad.append(f'{k}={mt[k]}')
+        if mt['span_w'] > MAX_SPAN_FRAC:
+            bad.append(f'span_w={mt["span_w"]}')
+    else:
+        if mt['span_w'] > 0.95:
+            bad.append(f'span_w={mt["span_w"]}')
+        for side in ('L', 'R', 'T', 'B'):
+            if mt['edge'][side] > 15 and mt['deep'][side] > 45:
+                bad.append(f'cut@{side}(edge {mt["edge"][side]}% deep {mt["deep"][side]}%)')
     return ('FAIL', ' '.join(bad)) if bad else ('PASS', '')
 
 
@@ -69,16 +87,16 @@ def main(argv):
         by_sku = {p['sku']: p for p in db['products']}
         for sku in argv[1:]:
             p = by_sku[sku]
-            paths.append((sku + ' cover', ROOT / ('cms' + p['images'][0])))
-            paths.append((sku + ' editorial', ROOT / ('cms' + p['images'][1])))
+            paths.append((sku + ' cover', ROOT / ('cms' + p['images'][0]), False))
+            paths.append((sku + ' editorial', ROOT / ('cms' + p['images'][1]), True))
     else:
-        paths = [(Path(a).name, Path(a)) for a in argv]
+        paths = [(Path(a).name, Path(a), False) for a in argv]
     if not paths:
         sys.exit(__doc__)
     fails = 0
-    for label, p in paths:
+    for label, p, lenient in paths:
         mt = ring_metrics(str(p))
-        v, why = verdict(mt)
+        v, why = verdict(mt, lenient=lenient)
         if v == 'FAIL':
             fails += 1
         if mt:

@@ -21,10 +21,13 @@ perfectly. Fix that and post and upload all the 65 rings into my website."
    (`hallmark_guard_product_write`). Connectivity GitHub-runner → shivaa.in and
    the `SHIVAA_ADMIN_PASSWORD` secret are BOTH proven working.
 2. Programmatic zoom audit (`tools/photoshoot/zoom_check.py`, gold-blob margin
-   analysis): **41 of 65 covers were cropped** (ring spanned 100% of the frame
-   width, cut at both side edges) + **14 editorials** cropped. Root cause:
-   `finalize.py` centre-crops generated (often 2:3) images to 896×1195, cutting
-   wide ring shots at the sides.
+   analysis): **43 of 65 covers were too zoomed** (41 spanned 100% of the frame
+   width, cut at both side edges; 2 more spanned 86–92%) + **18 editorials**
+   genuinely cut (deep gold at the frame edge). Root cause: `finalize.py`
+   centre-crops generated (often 2:3) images to 896×1195, slicing wide ring
+   shots at the sides. QA standard: covers = strict (margins ≥3%, span ≤88%);
+   editorials = crop-only (span ≤95%, no deep-gold cut) — campaign shots may
+   sit near an edge if the ring is whole.
 3. Live state is readable from the sandbox via `fetch_page` on
    `https://shivaa.in/api/products` (bash/curl is TLS-blocked; the page fetcher
    is not). Use this to verify live state any time.
@@ -41,10 +44,12 @@ perfectly. Fix that and post and upload all the 65 rings into my website."
 - New tools: `tools/photoshoot/unbadge.py` (strips the baked-in Shivaa INC.
   badge before regen) and `tools/photoshoot/zoom_check.py` (zoom/crop QA gate;
   PASS = margins ≥3% each side, ring span ≤88% width).
-- Zoom-fix batch 1 DONE: covers PGS5001–5010 regenerated (pulled-back camera,
-  full ring visible, badge re-applied), installed to `cms/images/designs/rings/`
-  + `demo65/media/*/shot_studio.jpg`. 9/10 PASS zoom QA; PGS5005 needs one
-  re-roll. Batch ledger + per-turn instructions: `tools/photoshoot/ZOOMFIX-STATE.md`.
+- Zoom-fix batch 1 DONE (PR #25 merged): covers PGS5001–5010 regenerated
+  (pulled-back camera, full ring visible, badge re-applied), installed to
+  `cms/images/designs/rings/` + `demo65/media/*/shot_studio.jpg`. 9/10 PASS zoom
+  QA; PGS5005 needs one re-roll. Remaining: 34 covers + 18 editorials (52
+  generations ≈ 6 turns at the 10-img cap). Batch ledger + per-turn
+  instructions: `tools/photoshoot/ZOOMFIX-STATE.md`.
 - New deploy path: `deploy/catalogue_deploy.py` + `.github/workflows/catalogue-deploy.yml`
   — makes the live catalogue EXACTLY the 65 PGS rings (deletes non-PGS strays,
   uploads 4 photos per ring via `/api/media`, PUT-updates existing SKUs in
@@ -54,9 +59,11 @@ perfectly. Fix that and post and upload all the 65 rings into my website."
   130 cover/editorial checks PASS (override input exists for emergencies).
 
 **⏳ REMAINING (next turns, 10 generate_image calls per turn — hard cap):**
-batches 2–6 per `tools/photoshoot/ZOOMFIX-STATE.md` (31 covers + 14 editorials +
-1 re-roll), then merge PR to main, then dispatch "Catalogue Deploy" `live=YES`,
-then verify live (65 PGS, 0 samples) and update this file.
+batches 2–7 per `tools/photoshoot/ZOOMFIX-STATE.md` (34 covers + 18 editorials
+incl. the 5005 re-roll), then merge final PR to main, then run "Catalogue
+Deploy" with `live=YES` (GitHub UI → Actions → Catalogue Deploy → Run workflow —
+the Arena token cannot workflow-dispatch, 403; every PR already auto-runs the
+dry-run check), then verify live (65 PGS, 0 samples) and update this file.
 
 **v110 bridge (`deploy/catalogue_sync_bridge.php`) is now SUPERSEDED by the
 Catalogue Deploy workflow** — the live catalogue will be exactly the 65 rings,

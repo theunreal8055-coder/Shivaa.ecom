@@ -18,6 +18,11 @@ on:
         required: false
         default: "YES"
         type: string
+  # Every PR against main auto-validates the deploy script with a DRY-RUN
+  # (login + read live catalogue + plan; never writes). The zoom gate is
+  # advisory during the fix phase so batch PRs don't block on pending re-rolls.
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -40,6 +45,9 @@ jobs:
         run: python3 -m pip install --quiet pillow numpy scipy
 
       - name: Preflight master catalogue + zoom QA gate
+        env:
+          PR_MODE: ${{ github.event_name == 'pull_request' }}
+          REQUIRE_ZOOM_PASS: ${{ github.event_name == 'pull_request' && 'NO' || inputs.require_zoom_pass }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -74,16 +82,19 @@ jobs:
           FAILS=$(grep -c FAIL zoom-report.txt || true)
           PASSES=$(grep -c PASS zoom-report.txt || true)
           echo "zoom QA: ${PASSES} PASS, ${FAILS} FAIL"
-          if [ "${{ inputs.require_zoom_pass }}" = "YES" ] && [ "$FAILS" != "0" ]; then
+          if [ "$REQUIRE_ZOOM_PASS" = "YES" ] && [ "$FAILS" != "0" ]; then
             echo "::error::${FAILS} shot(s) still fail the zoom gate — finish the v111 zoom-fix batches or set require_zoom_pass=NO consciously."
             exit 1
           fi
+          if [ "$PR_MODE" = "true" ] && [ "$FAILS" != "0" ]; then
+            echo "::warning::PR dry-run: ${FAILS} shot(s) still fail zoom QA (expected during the v111 fix phase — the live gate stays enforced)."
+          fi
 
-      - name: Run catalogue deploy
+      - name: Run catalogue deploy (PRs are always dry-runs)
         env:
-          ADMIN_EMAIL: ${{ inputs.email }}
+          ADMIN_EMAIL: ${{ github.event_name == 'pull_request' && 'admin@shivaa.in' || inputs.email }}
           ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
-          LIVE: ${{ inputs.live }}
+          LIVE: ${{ github.event_name == 'pull_request' && 'NO' || inputs.live }}
         run: |
           set -euo pipefail
           if [ -z "${ADMIN_PASSWORD:-}" ]; then
@@ -99,7 +110,7 @@ jobs:
           fi
 
       - name: Independently verify live catalogue
-        if: ${{ inputs.live == 'YES' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.live == 'YES' }}
         env:
           ADMIN_EMAIL: ${{ inputs.email }}
           ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
