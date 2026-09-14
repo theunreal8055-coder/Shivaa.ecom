@@ -1759,7 +1759,6 @@ window.ShivaaAdmin.testNet = async () => {
       jsd: 'jsDelivr CDN (gold+silver+FX)', jsdFast: 'jsDelivr Fastly mirror',
       gxau: 'gold-api GOLD', gxag: 'gold-api SILVER', er: 'exchangerate API (FX)',
       yGold: 'Yahoo GOLD', ySilver: 'Yahoo SILVER', yInr: 'Yahoo USD/INR',
-      stGold: 'Stooq GOLD', stSilver: 'Stooq SILVER', stInr: 'Stooq USD/INR',
       ffDev: 'Frankfurter/ECB (.dev)', ffApp: 'Frankfurter/ECB (.app)' };
     const rows = Object.entries(r.providers || {}).map(([k, p]) =>
       `<tr><td>${esc(names[k] || k)}</td><td class="${p.ok ? '' : 'rtgs-bad'}" style="color:${p.ok ? '#1d8a4d' : '#c0392b'}">${p.ok ? '✓ HTTP ' + p.code : '✗ ' + (p.code || 'blocked') + (p.err ? ' · ' + esc(p.err).slice(0, 40) : '')}</td><td class="num">${p.ms} ms</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-3)">${esc(p.sample || '')}</td></tr>`).join('');

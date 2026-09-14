@@ -1451,25 +1451,18 @@ function angel_tick(array &$db): array {
 
 /* v68/v72 — international spot OHLC with several independent providers so a
    single host blocking the datacenter IP can never blank the dollar cards:
-   Yahoo (two mirrors), Stooq CSV; FX additionally falls back to Frankfurter
+   Yahoo COMEX futures (two mirrors); FX additionally falls back to Frankfurter
+   (v107.3: Stooq's CSV quote service was retired by stooq - removed)
    (ECB data). Cached 10 min. Any failure leaves the previous cache intact. */
 function intl_ohlc(array &$db): array {
   $c = $db['rates']['intlOhlc'] ?? null;
   if (is_array($c) && (time() - (int)($c['fetchedAt'] ?? 0)) < 600 && (time() - (int)($c['fetchedAt'] ?? 0)) >= 0) return $c;
-  $ySyms = ['gold' => 'XAUUSD=X', 'silver' => 'XAGUSD=X', 'inr' => 'INR=X'];
-  $sSyms = ['gold' => 'xauusd', 'silver' => 'xagusd', 'inr' => 'usdinr'];
-  $stooq = static function (string $sym): array {
-    $raw = fetch_raw('https://stooq.com/q/l/?s=' . urlencode($sym) . '&f=sd2t2ohlcv&h&e=csv', 6);
-    if (!$raw) return [];
-    foreach (preg_split('/\r?\n/', $raw) as $ln) {
-      $f = str_getcsv($ln);
-      if (is_array($f) && count($f) >= 7 && is_numeric($f[3]) && is_numeric($f[4])
-          && is_numeric($f[5]) && is_numeric($f[6])) {
-        return ['price' => (float)$f[6], 'high' => (float)$f[4], 'low' => (float)$f[5], 'prev' => 0, 'src' => 'stooq'];
-      }
-    }
-    return [];
-  };
+  /* v107.3 - Yahoo retired the XAUUSD=X / XAGUSD=X spot symbols (the chart API
+     answers Not Found for them, which is the 404 row owners saw). The COMEX
+     futures symbols are the supported ones - verified live: GC=F / SI=F return
+     regularMarketPrice plus day bands. Stooq's /q/l/ CSV service was retired by
+     stooq itself (404 on every host and URL variant), so its fallback is gone. */
+  $ySyms = ['gold' => 'GC=F', 'silver' => 'SI=F', 'inr' => 'INR=X'];
   $out = [];
   foreach ($ySyms as $k => $sym) {
     $meta = null;
@@ -1485,9 +1478,6 @@ function intl_ohlc(array &$db): array {
         'low' => (float)($meta['regularMarketDayLow'] ?? 0),
         'prev' => (float)($meta['chartPreviousClose'] ?? ($meta['previousClose'] ?? 0)),
         'src' => 'yahoo'];
-    } else {
-      $sq = $stooq($sSyms[$k]);   // CSV fallback (open/high/low/close)
-      if ($sq) $out[$k] = $sq;
     }
   }
   // FX extra mirror: ECB via Frankfurter (very datacenter-friendly)
@@ -1551,12 +1541,9 @@ function spot_resolve(array &$db, bool $force = false): array {
     'gxau'     => 'https://api.gold-api.com/price/XAU',
     'gxag'     => 'https://api.gold-api.com/price/XAG',
     'er'       => 'https://open.er-api.com/v6/latest/USD',
-    'yGold'    => 'https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD%3DX?range=1d&interval=5m',
-    'ySilver'  => 'https://query1.finance.yahoo.com/v8/finance/chart/XAGUSD%3DX?range=1d&interval=5m',
+    'yGold'    => 'https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?range=1d&interval=5m',
+    'ySilver'  => 'https://query1.finance.yahoo.com/v8/finance/chart/SI%3DF?range=1d&interval=5m',
     'yInr'     => 'https://query1.finance.yahoo.com/v8/finance/chart/INR%3DX?range=1d&interval=5m',
-    'stGold'   => 'https://stooq.com/q/l/?s=xauusd&f=sd2t2ohlcv&h&e=csv',
-    'stSilver' => 'https://stooq.com/q/l/?s=xagusd&f=sd2t2ohlcv&h&e=csv',
-    'stInr'    => 'https://stooq.com/q/l/?s=usdinr&f=sd2t2ohlcv&h&e=csv',
     'ffDev'    => 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=INR',
     'ffApp'    => 'https://api.frankfurter.app/latest?from=USD&to=INR',
   ];
@@ -1568,7 +1555,7 @@ function spot_resolve(array &$db, bool $force = false): array {
       'err' => $r['err'] ?: null,
       'sample' => substr(preg_replace('/\s+/', ' ', $r['body'] ?? ''), 0, 80)];
   }
-  // rank tiers: jsDelivr daily 1 · Stooq 2 · ECB 2 · exchange-rate 3 · gold-api 3 · Yahoo 4
+  // rank tiers: jsDelivr daily 1 · gold-api 2 · ECB 2 · exchange-rate 3 · Yahoo 4  (v107.3: Stooq retired)
   $offer = static function (string $leg, float $price, string $src, int $rank, float $hi = 0, float $lo = 0, float $prev = 0) use (&$legs) {
     if ($price <= 0) return;
     if ($legs[$leg]['price'] > 0 && ($legs[$leg]['rank'] ?? 0) >= $rank) return;
@@ -1586,15 +1573,6 @@ function spot_resolve(array &$db, bool $force = false): array {
       if (($v = (float)($usd['inr'] ?? 0)) > 0) $offer('inr', round($v, 2), 'jsDelivr', 1);
     }
   }
-  foreach (['stGold' => 'gold', 'stSilver' => 'silver', 'stInr' => 'inr'] as $jk => $leg) {
-    foreach (preg_split('/\r?\n/', (string)($p[$jk]['body'] ?? '')) as $ln) {
-      $f = str_getcsv($ln);
-      if (is_array($f) && count($f) >= 7 && is_numeric($f[3]) && is_numeric($f[6])) {
-        $offer($leg, (float)$f[6], 'stooq', 2, (float)$f[4], (float)$f[5], 0);
-        break;
-      }
-    }
-  }
   foreach (['ffDev', 'ffApp'] as $jk) {
     $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
     if (is_array($j) && (float)($j['rates']['INR'] ?? 0) > 0) $offer('inr', (float)$j['rates']['INR'], 'ECB', 2);
@@ -1602,7 +1580,7 @@ function spot_resolve(array &$db, bool $force = false): array {
   if (isset($p['er'])) { $j = json_decode($p['er']['body'], true); if (is_array($j) && (float)($j['rates']['INR'] ?? 0) > 0) $offer('inr', (float)$j['rates']['INR'], 'exchangerate', 3); }
   foreach (['gxau' => 'gold', 'gxag' => 'silver'] as $jk => $leg) {
     $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;
-    if (is_array($j) && (float)($j['price'] ?? 0) > 0) $offer($leg, (float)$j['price'], 'gold-api', 3);
+    if (is_array($j) && (float)($j['price'] ?? 0) > 0) $offer($leg, (float)$j['price'], 'gold-api', 2);   // v107.3 promoted after Stooq retirement
   }
   foreach (['yGold' => 'gold', 'ySilver' => 'silver', 'yInr' => 'inr'] as $jk => $leg) {
     $j = isset($p[$jk]) ? json_decode($p[$jk]['body'], true) : null;

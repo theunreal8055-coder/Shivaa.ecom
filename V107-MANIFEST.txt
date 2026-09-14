@@ -5,7 +5,7 @@ status: unchanged = byte-identical to v104 - MODIFIED = surgical v107 edit - NEW
 path                                         bytes  status     sha256
 .htaccess                                     3855  MODIFIED   5c6b619a8c4de6c45eae5a384d30ce072c8fce89a81e933b6f2a9bf2aa1b75fd
 admin-reset.php                              27379  unchanged  1ff2ba1191d6805129f40bb22f964312050e7aa765537d9d99385c8815389d4d
-api.php                                     378543  MODIFIED   3a9ff73d505f5af74fae64b6aa9bb00e07a9b120fe0195688fe34ee879081f91
+api.php                                     377706  MODIFIED   d1c5c5d80d1cf6a16ddfde0d73d5102d450d62ee317e5be3aa8cf78060b0c2b5
 css/aurum.css                                75010  unchanged  d2137c45172fc68e5c89c49d5274a0af80fdc33460c1fe028f6fb56c20c3ce5f
 css/bot.css                                  11193  unchanged  fc149956b124a48962e04171de6a11426c6b01e2d7307e8bf639cec65a68bdcd
 css/finale.css                               22854  MODIFIED   a8c734af7244e7fa3bf6a57bf4e0110941cdc2dcad6b099cab0ce4a3566427c0
@@ -23,7 +23,7 @@ images/icons/icon-192.png                    20839  NEW        2c6a94dd6f1031a44
 images/icons/icon-512.png                    34773  NEW        60926dfbd8d77064653c78957886e2fc30a62dcc583d475c31fa056a57f10e02
 images/icons/icon-maskable-512.png           26027  NEW        807385a81109ec7e0478654aa282334d5380b7a5e4dab25de41a20713f982d51
 index.html                                   22794  MODIFIED   ed27035ba2c9eac05444b27d36466416576560f68aa554b643f42f60a73bee14
-js/admin.js                                 282229  MODIFIED   6a66ada9d223f0cff2b8cc37e96467c553a5d0c69e390f13450bad693c85b4d9
+js/admin.js                                 282151  MODIFIED   4862af4c129bbb56d5e2b9f01ab7bb31246b258d9f9236e93b8a8cd7af43899f
 js/app.js                                   511930  MODIFIED   fe846ee0ecab09ec632d828a52b0ed2151e790625b8c8e86c6dc7576c99a862b
 js/aurum.js                                  44045  unchanged  50a48b5b5aea9ec3fda99556b887aea340b25fcb44dd67808588a8651f4e5fe3
 js/auth.js                                   39891  MODIFIED   4541d893169708a219ecc9c7d308dafaad3c6254a5b01f4629da6191e2caf322
