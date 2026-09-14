@@ -1860,6 +1860,10 @@ function rates_stale(array $db): bool {
 function current_rates(array $db): array {
   $ov = $db['rates']['override'] ?? null;
   if ($ov) return ['gold24' => (int)$ov['gold24'], 'gold22' => (int)$ov['gold22'], 'gold18' => (int)$ov['gold18'], 'silver' => (double)$ov['silver']];
+  // v2026-09-14 — CONNECTED: live rates panel now takes data DIRECTLY from bullion panel's MCX tick
+  // If a fresh bullion tick exists (even up to 120s old), jaipur rates are derived from it — interface unchanged
+  $lv = live_tick_quote($db, 120.0);
+  if ($lv) return jaipur_live_from_tick($db, $lv);
   $l = $db['rates']['last'];
   $gp = (int)($db['settings']['jaipurPremium'] ?? 55); $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
   return ['gold24' => (int)$l['gold24'] + $gp, 'gold22' => (int)$l['gold22'] + $gp,
@@ -3618,9 +3622,9 @@ try {
       $attempts = $db['orders'][$i]['payuAttempts'] ?? [];
       $txnid = payu_sanitize_txn($o['id'], 22) . '-A' . (count($attempts) + 1);
       if (strlen($txnid) > 30) $txnid = substr($txnid, 0, 30);
-      $phoneRaw = (string)(($o['address']->phone ?? '') ?: ($u['phone'] ?? ''));
+      $phoneRaw = (string)(($o['address']['phone'] ?? '') ?: ($u['phone'] ?? ''));
       $phone = preg_replace('#\D#', '', $phoneRaw);
-      $name = trim((string)(($o['address']->name ?? '') ?: ($u['name'] ?? '')));
+      $name = trim((string)(($o['address']['name'] ?? '') ?: ($u['name'] ?? '')));
       $name = substr(preg_replace('#[|<>]#', '', $name) ?: 'Customer', 0, 60);
       $email = trim((string)($u['email'] ?? $o['email'] ?? ''));
       if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -3664,7 +3668,7 @@ try {
       // each attempt gets a fresh merchantOrderId (PhonePe rejects reuse in a
       // non-CREATED state); charset [A-Za-z0-9_-], max 63.
       $moid = phonepe_sanitize_id($o['id'], 48) . '-A' . (count($attempts) + 1);
-      $phoneRaw = (string)($o['address']->phone ?? '');
+      $phoneRaw = (string)($o['address']['phone'] ?? '');
       if ($phoneRaw === '') $phoneRaw = (string)($u['phone'] ?? '');
       $phone = preg_replace('#\D#', '', $phoneRaw);
       if (strlen($phone) === 10) $phone = '91' . $phone;
@@ -3830,7 +3834,7 @@ try {
     $v = payu_verify_txn($cfg, $txnid);
     $details = $v['json']['transaction_details'] ?? null;
     if (is_array($details)) {
-      $t = $details[$txnid] ?? (is_string(array_key_first($details)) ? ($details[array_key_first($details)] ?? null) : null);
+      $t = $details[$txnid] ?? null;
       if (is_array($t)) return payu_apply($db, $i, $t, $txnid);
     }
     audit_log($db, 'payment.payu-verify-fail', ['order' => $db['orders'][$i]['id'] ?? '?', 'txnid' => $txnid,
@@ -4038,12 +4042,14 @@ try {
     if ($which === 'payu' || (isset($b['provider']) && $b['provider'] === 'payu')) {
       $cfg = payu_cfg($db);
       if ($cfg['key'] === '' || $cfg['salt'] === '') jout(400, ['ok' => false, 'error' => 'Enter PayU Merchant Key and Salt first.']);
-      // A never-used txnid with VALID creds returns "Transaction not exists";
-      // bad key/salt returns "Invalid key"/"Invalid hash".
+      // Probe: a never-used txnid with VALID creds returns JSON with status/msg
+      // like "No Transaction Found" or empty transaction_details; bad key/salt
+      // returns "Invalid key" / "Invalid hash" / "Authentication failed".
       $probe = 'SHVPROBE' . substr((string)time(), -6) . bin2hex(random_bytes(2));
       $v = payu_verify_txn($cfg, substr($probe, 0, 30));
-      $blob = strtolower((string)($v['raw'] ?? '') . ' ' . (is_array($v['json']) ? ($v['json']['msg'] ?? '') : ''));
-      $okCreds = is_array($v['json'] ?? null) && (strpos($blob, 'not exist') !== false || strpos($blob, 'transaction details') !== false || ($v['json']['status'] ?? 0) === 1);
+      $blob = strtolower((string)($v['raw'] ?? '') . ' ' . (is_array($v['json']) ? (($v['json']['msg'] ?? '') . ' ' . ($v['json']['error'] ?? '')) : ''));
+      $hasInvalid = strpos($blob, 'invalid key') !== false || strpos($blob, 'invalid hash') !== false || strpos($blob, 'authentication failed') !== false || strpos($blob, 'merchant key') !== false;
+      $okCreds = is_array($v['json'] ?? null) && !$hasInvalid && ($v['code'] === 200 || $v['code'] === 0 || isset($v['json']['status']));
       if ($okCreds) jout(200, ['ok' => true, 'env' => $cfg['env'],
         'detail' => 'Credentials accepted by PayU (' . $cfg['env'] . ') — merchant key recognised. Remember to set the Success/Failure URLs in the PayU dashboard.']);
       jout(200, ['ok' => false, 'env' => $cfg['env'],
@@ -5797,15 +5803,15 @@ try {
       jout(400, ['error' => 'Unknown payment provider']);
     if (array_key_exists('payuKey', $setBody)) {
       $v = trim((string)$setBody['payuKey']);
-      if ($v !== '' && !preg_match('/^[A-Za-z0-9]{4,32}$/', $v))
-        jout(400, ['error' => 'PayU Merchant Key looks invalid (4–32 letters/numbers, from the PayU dashboard).']);
+      if ($v !== '' && !preg_match('/^[A-Za-z0-9_\-]{4,40}$/', $v))
+        jout(400, ['error' => 'PayU Merchant Key looks invalid (4–40 letters/numbers/_/- — copy exactly from the PayU dashboard; whitespace trimmed).']);
       $setBody['payuKey'] = $v;
     }
     if (array_key_exists('payuSalt', $setBody)) {
       $v = trim((string)$setBody['payuSalt']);
       if ($v === '') { unset($setBody['payuSalt']); }   // blank never wipes the saved salt
-      elseif (!preg_match('/^[A-Za-z0-9]{8,80}$/', $v))
-        jout(400, ['error' => 'PayU Salt looks invalid (paste the full salt from the PayU dashboard).']);
+      elseif (!preg_match('/^[^\s\|]{8,128}$/', $v))
+        jout(400, ['error' => 'PayU Salt looks invalid (paste the full salt from the PayU dashboard — 8–128 non-space characters, no |).']);
       else $setBody['payuSalt'] = $v;
     }
     if (array_key_exists('payuEnv', $setBody) && !in_array((string)$setBody['payuEnv'], ['test', 'prod'], true))

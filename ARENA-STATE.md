@@ -8,12 +8,13 @@
 
 ## 1. CURRENT STATE (update this block at the end of every work session)
 
-- **Version on `main`:** v111-rings-live — 2026-09-14 ✅ LIVE
+- **Version on `main`:** v111-rings-live — 2026-09-14 ✅ LIVE + **v112 PayU+Bullion hotfixes (merged 2026-09-14)**
 - **v111 go-live VERIFIED:** Catalogue Deploy run
   https://github.com/theunreal8055-coder/Shivaa.ecom/actions/runs/34861781402
   succeeded (16m, independent verify green). Live `/api/products` is exactly
   65 PGS rings, 4 shots each, 0 samples, 0 videos. Master db matches.
   340 samples remain archived at `qa/archive/samples-340-v111.json`.
+- **v112 HOTFIXES (2026-09-14, ex-branch `arena/01a0a030-shivaa-ecom` now on `main`):** PayU gateway fixed (address `->`→`[]`, key/salt regex, strict reconcile, probe), bullion 1s poll + 60fps millisecond smooth, rate-drift root-cause (Jaipur premium +55), live-rates panel CONNECTED to bullion panel (`current_rates()` now reads bullion `.angel-tick.json` directly). Zips: `payu-update-20260914.zip`, `bullion-update-20260914.zip`, `connect-rates-bullion-20260914.zip`. Live `api.php` is at `public_html/api.php` on Hostinger — see HANDOFF § v112 and `MEMORY.md`.
 - **Follow-up (not blocking live):** zoom-fix batches 2–7 in
   `tools/photoshoot/ZOOMFIX-STATE.md` (34 covers + 18 editorials). After they
   PASS, re-run Catalogue Deploy to refresh photos.
