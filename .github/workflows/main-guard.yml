@@ -1,0 +1,59 @@
+# main-guard: free safety net for the forward-only system.
+# On EVERY push to main: (1) saves a backup tag for one-click recovery,
+# (2) fails loudly + opens an Issue if history was rewritten (backward move),
+# (3) fails loudly if ARENA-STATE.md vanished or the file count collapsed.
+name: main-guard (backup + backward-move alarm)
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  issues: write
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Backup tag for this push
+        run: |
+          TAG="backup/main-$(date -u +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "BACKUP_TAG=$TAG" >> "$GITHUB_ENV"
+      - name: Detect history rewrite (force push / backward move)
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push; skipping rewrite check."; exit 0
+          fi
+          if git merge-base --is-ancestor "$BEFORE" "$AFTER"; then
+            echo "OK: forward move ($BEFORE is ancestor of $AFTER)."
+          else
+            echo "::error::BACKWARD MOVE! Old main $BEFORE is NOT in new history $AFTER."
+            exit 1
+          fi
+      - name: Check ARENA-STATE.md + file count
+        run: |
+          test -f ARENA-STATE.md || { echo "::error::ARENA-STATE.md MISSING from main!"; exit 1; }
+          BEFORE="${{ github.event.before }}"
+          if [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            OLD=$(git ls-tree -r --name-only "$BEFORE" | wc -l)
+            NEW=$(git ls-tree -r --name-only HEAD | wc -l)
+            echo "files before=$OLD after=$NEW"
+            test "$NEW" -ge $(( OLD * 9 / 10 )) || { echo "::error::File count collapsed ($OLD -> $NEW)!"; exit 1; }
+          fi
+          echo "OK: state file present, file count healthy."
+      - name: Open recovery Issue on failure
+        if: failure()
+        env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}, TAG: ${{ env.BACKUP_TAG }} }
+        run: |
+          gh issue create --title "⚠️ ALARM: main moved backward or lost files" --body "$(cat <<EOF
+          The main-guard watchdog detected a problem with the latest push to main.
+          Commit: ${{ github.sha }} (before: ${{ github.event.before }})
+          A backup tag was saved BEFORE the checks ran: ${TAG:-unknown - see Actions log}
+          Recovery (run in any fresh clone): git fetch origin --tags && git reset --hard <backup-tag> && inspect, then force-restore main ONLY after confirming.
+          Do NOT merge anything else until this is resolved.
+          EOF
+          )"
