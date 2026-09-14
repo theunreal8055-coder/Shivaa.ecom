@@ -21,7 +21,17 @@ foreach (['cin', 'udyam', 'address'] as $key) {
 }
 trust_check(array_keys($profile['business']) === ['cin', 'udyam', 'address'], 'business-field allowlist');
 trust_check(array_keys($profile) === ['schemaVersion', 'source', 'business', 'gstin', 'certificates', 'registryVerification'], 'public payload contains no unrelated business/analytics fields');
-trust_check($profile['gstin'] === null && $profile['certificates'] === [], 'GSTIN and certificates remain empty');
+trust_check($profile['gstin'] === $db['settings']['gstin'], 'owner-confirmed GSTIN is published verbatim');
+trust_check($profile['certificates'] === [], 'certificates remain empty until real files are provided');
+foreach ([null, '', 'unknown', 'UNCONFIRMED_QA_ONLY', '08AAICE5666R1Z', '08AAICE5666R1ZPZ', '08AAICE5666R1ZZ', 123456, false, [], (object)[]] as $badGst) {
+  // 08AAICE5666R1ZZ has the right shape but a wrong checksum — still rejected
+  trust_check(trust_profile(['settings' => ['gstin' => $badGst]])['gstin'] === null, 'invalid GSTIN is never published: ' . json_encode($badGst));
+}
+foreach ([[], ['settings' => null], ['settings' => []]] as $badDb) {
+  trust_check(trust_profile($badDb)['gstin'] === null, 'missing settings never fall back to a hard-coded GSTIN');
+}
+trust_check(trust_gstin(" \t" . $db['settings']['gstin'] . "\r\n") === $db['settings']['gstin'], 'only outer ASCII whitespace trimmed for gstin');
+trust_check(trust_gstin(strtolower($db['settings']['gstin'])) === $db['settings']['gstin'], 'gstin case is normalised, matching the KYC gate in api.php');
 trust_check($profile['registryVerification'] === ['performed' => false, 'checkedAt' => null], 'no invented government check or timestamp');
 trust_check($db === $original, 'projection does not mutate source data');
 foreach ([[], ['settings' => null], ['settings' => false], ['settings' => 'invalid'], ['settings' => []]] as $badDb) {
@@ -53,6 +63,10 @@ $polluted['settings'] = array_merge($polluted['settings'], [
   'cinVerified' => true, 'udyamVerified' => true,
   'trustScore' => 100, 'checkedAt' => 'QA_NOT_A_REAL_CHECK_TIME',
 ]);
-trust_check(trust_profile($polluted) === $profile, 'unapproved identifiers/documents, credentials and verification flags cannot affect the profile');
+$pollutedProfile = trust_profile($polluted);
+trust_check($pollutedProfile['gstin'] === null, 'an unapproved GSTIN string is never published');
+$pollutedClean = $pollutedProfile; $expectedClean = $profile;
+unset($pollutedClean['gstin'], $expectedClean['gstin']);
+trust_check($pollutedClean === $expectedClean, 'unapproved identifiers/documents, credentials and verification flags cannot affect the profile');
 trust_check(file_get_contents($dbFile) === $before, 'tracked catalogue is byte-for-byte unchanged');
 echo "\n$count trust unit checks passed. No registrations queried or data created.\n";

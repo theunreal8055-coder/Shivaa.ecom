@@ -19,6 +19,40 @@ $fail = false;
   foreach ([__DIR__ . '/data/db.json', __DIR__ . '/public_html/data/db.json'] as $c) if (file_exists($c)) { $dbf = $c; break; }
   $supplied = (string)($_GET['key'] ?? $_POST['key'] ?? '');
   $ok = false;
+  /* v83 — this gate used to allow unlimited password guesses. Throttle by
+     connection: max 8 attempts / 15 min, persisted in data/ (private dir). */
+  $rip = (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+  $rip = preg_replace('/[^0-9a-fA-F:.]+/', '', $rip);
+  $tf = __DIR__ . '/data/.repair-throttle.json';
+  $now = time();
+  $tfh = @fopen($tf, 'c+');
+  if ($tfh && flock($tfh, LOCK_EX)) {
+    $tj = json_decode((string)stream_get_contents($tfh), true);
+    if (!is_array($tj)) $tj = [];
+    $rec = $tj[$rip] ?? ['n' => 0, 'reset' => 0];
+    if (($rec['reset'] ?? 0) <= $now) { $rec = ['n' => 0, 'reset' => $now + 900]; }
+    if ($supplied !== '') {
+      $rec['n'] = (int)($rec['n'] ?? 0) + 1;
+      $tj[$rip] = $rec;
+      // garbage-collect other expired buckets, cap file growth
+      foreach (array_keys($tj) as $k) if (($tj[$k]['reset'] ?? 0) <= $now) unset($tj[$k]);
+      if (count($tj) > 200) $tj = array_slice($tj, -200, null, true);
+      ftruncate($tfh, 0); rewind($tfh);
+      fwrite($tfh, json_encode($tj)); fflush($tfh);
+    }
+    $lockedOut = $rec['n'] > 8;
+    flock($tfh, LOCK_UN); fclose($tfh);
+  } else {
+    $lockedOut = false;
+    if ($tfh) fclose($tfh);
+  }
+  if (!empty($lockedOut)) {
+    header('Content-Type: text/html; charset=utf-8');
+    http_response_code(429);
+    echo '<h1 style="font-family:Georgia;color:#6e1e2a;text-align:center;margin-top:80px">Too many attempts</h1>'
+       . '<p style="text-align:center;font-family:Georgia">Wait 15 minutes and try again.</p>';
+    exit;
+  }
   if ($dbf && $supplied !== '') {
     $d = json_decode((string)file_get_contents($dbf), true);
     foreach (($d['users'] ?? []) as $u) {

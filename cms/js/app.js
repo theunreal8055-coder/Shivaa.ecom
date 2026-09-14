@@ -27,12 +27,12 @@ function unlockScroll() {
   _scrollLock.n = Math.max(0, _scrollLock.n - 1);
   if (_scrollLock.n === 0) document.documentElement.classList.remove('no-scroll');
 }
-/* ── offline awareness ── */
+/* ── offline awareness (v104 — honest, app-style connectivity chrome) ── */
 function ensureOfflineBar() {
   if (document.getElementById('offlineBar')) return document.getElementById('offlineBar');
   const d = document.createElement('div');
   d.id = 'offlineBar'; d.className = 'offline-bar';
-  d.textContent = '⚠ You are offline — browsing paused. Reconnecting automatically…';
+  d.innerHTML = '<span class="ob-dot" aria-hidden="true"></span><span>You’re offline — saved pieces and the saved catalogue still work. We’ll reconnect you automatically.</span>';
   document.body.appendChild(d); return d;
 }
 addEventListener('offline', () => { ensureOfflineBar().classList.add('show'); document.body.classList.add('is-offline'); });
@@ -40,9 +40,57 @@ addEventListener('online', () => {
   ensureOfflineBar().classList.remove('show'); document.body.classList.remove('is-offline');
   toast('Back online ✦ refreshing rates…'); loadRates();
 });
+/* v104 — when a freshly downloaded service worker is installed while this
+   tab is open, offer one tap to move to the new release (then reload on the
+   controller change) instead of silently running half-old half-new code. */
+(function serviceWorkerUpdateWatch() {
+  if (!('serviceWorker' in navigator)) return;
+  let banner = null, prompted = false;
+  const showUpdateBanner = (worker) => {
+    if (prompted) return; prompted = true;
+    banner = document.getElementById('swUpdate');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'swUpdate'; banner.className = 'sw-update'; banner.setAttribute('role', 'alert');
+      banner.innerHTML = '<span class="swu-ic" aria-hidden="true">✦</span><span class="swu-tx"><b>A newer, better Shivaa is ready</b><small>Performance & polish updates — takes a second</small></span><button type="button" class="swu-go">Update now</button>';
+      document.body.appendChild(banner);
+    }
+    requestAnimationFrame(() => banner.classList.add('show'));
+    banner.querySelector('.swu-go').onclick = () => {
+      try { worker && worker.postMessage('SKIP_WAITING'); } catch (e) {}
+      try { location.reload(); } catch (e) {}   // covers workers that already activated via skipWaiting
+    };
+  };
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return; reloading = true;
+    try { location.reload(); } catch (e) {}
+  });
+  navigator.serviceWorker.getRegistration().then(reg => {
+    if (!reg) return;
+    const track = w => {
+      if (!w) return;
+      w.addEventListener('statechange', () => {
+        if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(w);
+      });
+      if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(w);
+    };
+    track(reg.installing);
+    if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+    reg.addEventListener('updatefound', () => track(reg.installing));
+  }).catch(() => {});
+})();
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* v82 — only http(s)/mailto:/tel: URLs may ever land in href/src, so a
+   stored "javascript:" link (e.g. via an admin settings field) cannot run. */
+const safeUrl = s => { const u = String(s ?? '').trim(); return /^(https?:|mailto:|tel:|\/|#|\.\/|\.\.\/)/i.test(u) && !/[\u0000-\u001F\u007F]/.test(u) ? u : '#'; };
+/* v82 — embed a value as a JS string argument inside an inline on* handler.
+   esc() alone is wrong there: the HTML attribute decodes &#39; back to a
+   quote BEFORE the JS runs, so a name containing ' breaks the string.
+   JSON-encode first, then attribute-encode the quotes. */
+const jsArg = s => JSON.stringify(String(s ?? '')).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmt2 = n => '₹' + (+n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateFmt = iso => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -54,13 +102,19 @@ function toast(msg, type = 'ok') {
   $('#toastWrap').appendChild(t);
   setTimeout(() => { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(() => t.remove(), 500); }, 3200);
 }
+let _modalTrap = null;
 function openModal(html, cls = '') {
   const box = $('#modalBox');
   box.removeAttribute('aria-labelledby');
   box.className = 'modal ' + cls; box.innerHTML = `<button class="modal-close" onclick="Shivaa.closeModal()">✕</button>` + html;
   $('#modalOverlay').classList.add('open'); lockScroll();
+  if (_modalTrap) { _modalTrap(); _modalTrap = null; }
+  if (window.ShivaaMotion && ShivaaMotion.trapFocus) _modalTrap = ShivaaMotion.trapFocus(box);
 }
-function closeModal() { $('#modalOverlay').classList.remove('open'); unlockScroll(); }
+function closeModal() {
+  $('#modalOverlay').classList.remove('open'); unlockScroll();
+  if (_modalTrap) { _modalTrap(); _modalTrap = null; }
+}
 $('#modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); $('#pdfViewer').classList.remove('open'); $('#searchDrawer').classList.remove('open'); } });
 
@@ -79,6 +133,12 @@ async function api(path, opts = {}) {
     e.isNetwork = true; throw e;
   }
   const data = await res.json().catch(() => ({}));
+  // v80: a successful call proves connectivity — dismiss a stale offline
+  // banner even if the browser never fired the flaky 'online' event
+  if (document.body.classList.contains('is-offline')) {
+    document.body.classList.remove('is-offline');
+    document.getElementById('offlineBar')?.classList.remove('show');
+  }
   if (!res.ok) {
     // v31 — self-healing sessions: if the server says our token is dead,
     // drop it immediately so every page shows its login gate instead of
@@ -102,29 +162,57 @@ const state = {
   productsCache: [], cacheAt: 0,
 };
 
+/* v57: every category face is the studio photograph the house selected,
+   colour-graded to one warm theme (images/categories/*.jpg) */
 const CATS = {
-  rings: { name: 'Rings', sub: 'Solitaires · Kundan · Bands', img: '/images/products/ring-floral.jpg' },
-  necklaces: { name: 'Necklaces', sub: 'Rani haar · Chokers', img: '/images/products/necklace-rani.jpg' },
-  earrings: { name: 'Earrings', sub: 'Jhumkas · Chandbalis', img: '/images/products/earrings-jhumka.jpg' },
-  bangles: { name: 'Bangles & Kadas', sub: 'Carved · Textured', img: '/images/products/bangle-kada.jpg' },
-  bracelets: { name: 'Bracelets', sub: 'Tennis · Charms', img: '/images/products/bracelet-tennis.jpg' },
-  chains: { name: 'Chains', sub: 'Rope · Box · Sing', img: '/images/products/chain-gold.jpg' },
-  pendants: { name: 'Pendants', sub: 'Om · Diamond · Locket', img: '/images/products/pendant-om.jpg' },
-  mangalsutra: { name: 'Mangalsutra', sub: 'Classic · Modern', img: '/images/products/mangalsutra-trad.jpg' },
-  bajubandh: { name: 'Bajubandh', sub: 'Armbands · Rajputana', img: '/images/products/bangle-kada.jpg' },
-  rakhdi: { name: 'Rakhdi Set', sub: 'Borla · Tikka · Sets', img: '/images/products/earrings-chandbali.jpg' },
-  aad: { name: 'Fancy Aad', sub: 'Hair ornaments · Bridal', img: '/images/products/necklace-choker.jpg' },
-  sheeshphool: { name: 'Sheesh Phool', sub: 'Head ornaments', img: '/images/products/earrings-chandbali.jpg' },
-  hathphool: { name: 'Hathphool', sub: 'Hand harness · Rings', img: '/images/products/ring-couple.jpg' },
-  punach: { name: 'Punach', sub: 'Anklet ornaments', img: '/images/products/silver-anklet.jpg' },
-  bridalanklets: { name: 'Bridal Anklets', sub: 'Payal · Kada pairs', img: '/images/products/silver-anklet.jpg' },
-  nosepins: { name: 'Nose Pins', sub: 'Light · Daily', img: '/images/products/nosepin.jpg' },
-  silver: { name: 'Silver 925', sub: 'Payal · Chains · Kada', img: '/images/products/silver-anklet.jpg' },
+  rings: { name: 'Rings', sub: 'Solitaires · Kundan · Bands', img: '/images/categories/rings.jpg' },
+  necklaces: { name: 'Necklaces', sub: 'Rani haar · Chokers', img: '/images/categories/necklaces.jpg' },
+  earrings: { name: 'Earrings', sub: 'Jhumkas · Chandbalis', img: '/images/categories/earrings.jpg' },
+  bangles: { name: 'Bangles & Kadas', sub: 'Carved · Textured', img: '/images/categories/bangles.jpg' },
+  bracelets: { name: 'Bracelets', sub: 'Tennis · Charms', img: '/images/categories/bracelets.jpg' },
+  chains: { name: 'Chains', sub: 'Rope · Box · Sing', img: '/images/categories/chains.jpg' },
+  pendants: { name: 'Pendants', sub: 'Om · Diamond · Locket', img: '/images/categories/pendants.jpg' },
+  mangalsutra: { name: 'Mangalsutra', sub: 'Classic · Modern', img: '/images/categories/mangalsutra.jpg' },
+  bajubandh: { name: 'Bajubandh', sub: 'Armbands · Rajputana', img: '/images/categories/bajubandh.jpg' },
+  rakhdi: { name: 'Rakhdi Set', sub: 'Borla · Tikka · Sets', img: '/images/categories/rakhdi.jpg' },
+  aad: { name: 'Fancy Aad', sub: 'Bridal chest ornaments', img: '/images/categories/aad.jpg' },
+  sheeshphool: { name: 'Sheesh Phool', sub: 'Head ornaments', img: '/images/categories/sheeshphool.jpg' },
+  hathphool: { name: 'Hathphool', sub: 'Hand harness · Rings', img: '/images/categories/hathphool.jpg' },
+  punach: { name: 'Punach', sub: 'Anklet ornaments', img: '/images/categories/punach.jpg' },
+  bridalanklets: { name: 'Bridal Anklets', sub: 'Payal · Kada pairs', img: '/images/categories/bridalanklets.jpg' },
+  nosepins: { name: 'Nose Pins', sub: 'Light · Daily', img: '/images/categories/nosepins.jpg' },
+  silver: { name: 'Silver 925', sub: 'Payal · Chains · Kada', img: '/images/categories/silver.jpg' },
 };
 
 /* ─────────── WhatsApp integration ─────────── */
 const WA_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.9a8.1 8.1 0 0 0-6.9 12.3L4 20.2l4.1-1.05A8.1 8.1 0 1 0 12 3.9zm0 1.8a6.3 6.3 0 1 1-3.24 11.7l-.3-.18-2.42.62.64-2.35-.2-.32A6.3 6.3 0 0 1 12 5.7zM9.44 8.6c-.16 0-.42.06-.64.3-.22.24-.86.84-.86 2.05s.88 2.38 1 2.54c.12.16 1.72 2.65 4.18 3.6 2.06.8 2.48.65 2.93.6.45-.04 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28-.24-.12-1.44-.71-1.66-.79-.22-.08-.38-.12-.55.12-.16.24-.63.79-.77.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.42-1.34-1.66-.14-.24-.02-.37.1-.49.1-.1.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.32-.75-1.8-.2-.47-.4-.4-.55-.41-.15-.01-.31-.01-.47-.01z"/></svg>';
-function waNum() { return (state.settings && state.settings.whatsapp) || '918905005921'; }
+function waNum() {  // v83 — digits only; a setting can never break out of an href
+  const n = String((state.settings && state.settings.whatsapp) || '918905005921').replace(/\D/g, '');
+  return n || '918905005921';
+}
+/* v101 · item 14 — the brand's three official channels, single source of
+   truth so every social slot on the site stays in sync with the footer. */
+const SOCIAL = {
+  ig: 'https://www.instagram.com/shivaa.jewels?stkn=NG54eWNnM3Z6N2Q2',
+  fb: 'https://www.facebook.com/share/1F8m9hgpCR/',
+  wa: 'https://wa.me/message/FM7UIQRLPIYHB1',
+};
+/* social icon row (same glyph set as the v101 footer). cls 'fv-social--light'
+   adapts the circles for light cards (contact page, etc.). */
+function socialRowHTML(cls = '') {
+  return `<nav class="fv-social ${cls}" aria-label="Follow Shivaa Jewels">
+    <a href="${SOCIAL.ig}" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>
+    </a>
+    <a href="${SOCIAL.fb}" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M14.5 8.5H17V5h-2.5C12.6 5 11 6.6 11 8.5V11H8.5v3.4H11V21h3.5v-6.6H17l.5-3.4h-3V9c0-.3.2-.5.5-.5z"/></svg>
+    </a>
+    <a href="${SOCIAL.wa}" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3.8a8.2 8.2 0 0 0-7 12.4L4 20l3.9-1a8.2 8.2 0 1 0 4.1-15.2z"/><path d="M9.3 8.6c.2-.5.4-.5.7-.5h.5c.2 0 .4 0 .6.5s.7 1.6.7 1.7c.1.2.1.3 0 .5l-.4.6c-.1.2-.2.3-.1.5.2.3.8 1.2 1.6 1.7 1 .6 1.4.7 1.7.6.2-.1.6-.6.8-.9.2-.3.4-.2.7-.1l1.6.8c.3.1.4.2.4.4 0 .5-.4 1.6-2 2-1.6.4-3.4-.3-5.1-1.9-1.4-1.3-2.3-2.9-2.4-4.2 0-.9.2-1.6.7-2.1z" fill="currentColor" stroke="none"/></svg>
+    </a>
+  </nav>`;
+}
+window.Shivaa.socialRowHTML = socialRowHTML;
 function waLink(text) { return 'https://wa.me/' + waNum() + '?text=' + encodeURIComponent(String(text).slice(0, 1800)); }
 function waOpen(text) {
   const url = waLink(text);
@@ -176,7 +264,7 @@ function waProductMsg(p, qty, size, engraving) {
   if (pr.stoneValue) L.push('• Listed stone value = ' + fmt(pr.stoneValue));
   L.push('• GST 3% = ' + fmt(pr.gst));
   L.push('');
-  L.push('Rate as on ' + timeFmt(R.t) + ' (' + R.source + ' feed)');
+  L.push('Rate as on ' + timeFmt(R.t) + ' (' + (R.source === 'live-mcx' ? 'official MCX' : R.source) + ' feed)');
   L.push(location.origin + '/#/product/' + p.id);
   L.push('');
   L.push('Namaste Shivaa ✦ I would like to order this piece.');
@@ -246,6 +334,61 @@ function price(p, R) {
   const subtotal = metalValue + makingCharge + stoneValue;
   const gst = Math.round(subtotal * 0.03);
   return { ratePerGram: Math.round(rate * 100) / 100, metalValue, makingCharge, stoneValue, subtotal, gst, total: subtotal + gst };
+}
+
+/* ─────────── v57 · rich product structured data + share meta (SEO / WhatsApp previews) ─────────── */
+const _metaDefaults = {
+  title: document.title,
+  ogTitle: document.querySelector('meta[property="og:title"]')?.content || '',
+  ogDesc: document.querySelector('meta[property="og:description"]')?.content || '',
+  ogUrl: document.querySelector('meta[property="og:url"]')?.content || '',
+  ogImg: document.querySelector('meta[property="og:image"]')?.content || '',
+};
+let _pdpMeta = false;
+function resetProductMeta() {
+  const old = document.getElementById('ld-product'); if (old) old.remove();
+  if (!_pdpMeta) return;
+  _pdpMeta = false;
+  document.title = _metaDefaults.title;
+  const setMeta = (prop, content) => { const m = document.querySelector(`meta[property="${prop}"]`); if (m && content) m.setAttribute('content', content); };
+  setMeta('og:title', _metaDefaults.ogTitle);
+  setMeta('og:description', _metaDefaults.ogDesc);
+  setMeta('og:url', _metaDefaults.ogUrl);
+  setMeta('og:image', _metaDefaults.ogImg);
+}
+function injectProductLD(p, pr) {
+  resetProductMeta();
+  _pdpMeta = true;
+  const origin = location.origin;
+  const imgs = (p.images || []).map(i => i.startsWith('http') ? i : origin + i);
+  const validUntil = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  const ld = {
+    '@context': 'https://schema.org/', '@type': 'Product',
+    name: p.name, sku: p.sku || undefined, mpn: p.sku || undefined,
+    category: (CATS[p.category] || {}).name || 'Jewellery',
+    description: String(p.description || p.name).replace(/<[^>]+>/g, ' ').slice(0, 500),
+    image: imgs, brand: { '@type': 'Brand', name: 'Shivaa' },
+    material: p.metal === 'Silver' ? 'Sterling Silver 925' : `${p.metal || 'Gold'} ${p.purity || ''}`,
+    aggregateRating: p.reviews ? { '@type': 'AggregateRating', ratingValue: p.rating || '4.8', reviewCount: p.reviews } : undefined,
+    offers: { '@type': 'Offer', url: location.href, priceCurrency: 'INR',
+      price: pr.total, priceValidUntil: validUntil, availability: 'https://schema.org/InStock',
+      seller: { '@type': 'JewelryStore', name: 'Shivaa Jewellers' } },
+  };
+  const crumbs = { '@context': 'https://schema.org/', '@type': 'BreadcrumbList', itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: origin + '/#/' },
+    { '@type': 'ListItem', position: 2, name: (CATS[p.category] || {}).name || 'Shop', item: origin + '/#/shop?category=' + p.category },
+    { '@type': 'ListItem', position: 3, name: p.name },
+  ]};
+  const s = document.createElement('script'); s.type = 'application/ld+json'; s.id = 'ld-product';
+  s.textContent = JSON.stringify([ld, crumbs]);
+  document.head.appendChild(s);
+  // dynamic share/OG tags — WhatsApp & Google pick these up for the piece
+  const setMeta = (prop, content) => { let m = document.querySelector(`meta[property="${prop}"]`); if (!m) { m = document.createElement('meta'); m.setAttribute('property', prop); document.head.appendChild(m); } if (content) m.setAttribute('content', content); };
+  setMeta('og:title', p.name + ' · Shivaa Jewellers');
+  setMeta('og:description', `${p.metal || 'Gold'} ${p.purity || ''} · ${fmt(pr.total)} at today's live rate · BIS hallmarked · Shivaa, Jayal`);
+  setMeta('og:url', location.href);
+  if (imgs[0]) setMeta('og:image', imgs[0]);
+  document.title = p.name + ' · Shivaa Jewellers';
 }
 
 /* ─────────── Feature 13: product compare + shareable shortlist ─────────── */
@@ -334,7 +477,7 @@ function updateCompareUI() {
   if (!n || document.body.dataset.page === 'compare') { tray.hidden = true; return; }
   const thumbs = items.map(p => `
     <span class="ct-thumb">
-      <a href="#/product/${p.id}" aria-label="Open ${esc(p.name)}"><img src="${p.images[0]}" alt=""></a>
+      <a href="#/product/${p.id}" aria-label="Open ${esc(p.name)}"><img src="${safeUrl(p.images && p.images[0])}" alt=""></a>
       <button type="button" onclick="Shivaa.removeCompare('${p.id}')" aria-label="Remove ${esc(p.name)} from compare">×</button>
     </span>`).join('');
   tray.innerHTML = `
@@ -438,14 +581,36 @@ function updatePartnerUI() {
 }
 window.Shivaa.updatePartnerUI = updatePartnerUI;
 
+/* v101 · item 11 — jewellers land on the live Bullion Desk every fresh app
+   open (the bare portal route then redirects to ?view=bullion). Deep links
+   and in-session storefront navigation are respected; a sessionStorage flag
+   means a new tab / next day's open lands on bullion again, including
+   persistent logins. Returns true when it redirected. */
+function partnerLanding(user) {
+  let already = false;
+  try { already = !!sessionStorage.getItem('shv_partner_landed'); } catch (e) {}
+  if (already) return false;
+  try { sessionStorage.setItem('shv_partner_landed', '1'); } catch (e) {}
+  const bareHome = !location.hash || location.hash === '#/' || location.hash === '#/home';
+  if (user && user.role === 'partner' && bareHome) { location.hash = '#/partner'; return true; }
+  return false;
+}
+window.Shivaa.partnerLanding = partnerLanding;
+
 /* ─────────── cart ops ─────────── */
-function addToCart(id, qty = 1, size = null, engraving = null) {
+function addToCart(id, qty = 1, size = null, engraving = null, opts = {}) {
   const key = i => i.id + '|' + (i.size || '');
   const item = { id, qty, size, engraving };
   const ex = state.cart.find(i => key(i) === key(item));
   if (ex) ex.qty += qty; else state.cart.push(item);
   store.set('shv_cart', state.cart);
-  updateBadges(); toast('Added to cart');
+  updateBadges();
+  /* v91 — fly the piece's image into the bag, then glide the mini-bag open */
+  const p = state.productsCache.find(x => x.id === id);
+  const src = p && (p.images && p.images[0]);
+  let fromEl = opts.fromEl || document.querySelector(`.p-card[data-pid="${id}"] .pc-imgwrap img`);
+  if (src) flyToBag(src, fromEl).then(() => { if (!opts.silent) openCart(true); });
+  else if (!opts.silent) openCart(true);
 }
 async function toggleWish(id) {
   if (!state.user) {
@@ -492,7 +657,668 @@ function bindCountdown(el, target) {
   const iv = setInterval(tick, 1000); tick();
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   BHAI DOOJ GOLD FINALE · 2026 — campaign module (Bhai Dooj edition)
+   Time-boxed: lives through Bhai Dooj, 11 Nov 2026 (IST draw night) and
+   auto-expires at 00:00 IST on 1 Dec 2026 by date check alone — no
+   flag to flip. Once off, the homepage band, the nav/footer links and
+   the #/finale landing page all disappear; the site simply stays a
+   normal jewellery store.
+   Copy follows the approved pitch-deck wording verbatim:
+   "win a chance" framing (never "lottery") · qualifying purchase =
+   3 g gold ANY karat OR 100 g silver per order · free no-purchase
+   quiz route with equal odds · CA-witnessed live draw on Bhai Dooj
+   (11 Nov 2026) · 10 g certified 24K gold at current market value · TN & WB
+   excluded · statutory TDS ≈ 31.2% on the winner. The scored quiz
+   funnel (purchase route after a qualifying order + free route on
+   the landing page, entries saved server-side in db['finaleEntries'])
+   is implemented further below in this file.
+   ═══════════════════════════════════════════════════════════════════ */
+const FINALE = {
+  route: 'finale',
+  name: 'The Bhai Dooj Gold Finale',
+  drawLabel: 'Bhai Dooj · 11 November 2026',
+  // last moment of the draw day (local time — site audience is India/IST)
+  drawAt: Date.parse('2026-11-11T23:59:59+05:30'),   // v107 — IST-absolute instants (host-TZ-proof)
+  // the module switches itself off from the first moment of 1 Dec 2026
+  endAt: Date.parse('2026-12-01T00:00:00+05:30'),
+};
+const finaleLive = () => Date.now() < FINALE.endAt;
+
+/* show/hide static campaign presences (nav + footer links). Elements
+   start with .camp-off in the markup so nothing flashes pre-boot, and
+   the class — not an inline style — also wins over the mobile drawer's
+   display:flex !important rules. */
+function syncFinaleChrome(force) {
+  const on = finaleLive();
+  document.querySelectorAll('[data-camp]').forEach(el => el.classList.toggle('camp-off', !on));
+  if (on) return;
+  document.querySelectorAll('[data-camp-zone]').forEach(el => el.remove());
+  if (location.hash.replace(/^#\/?/, '').split('/')[0] === FINALE.route) location.hash = '#/';
+  if (force && window.Shivaa.redraw) window.Shivaa.redraw();
+}
+
+/* countdown chips to the Bhai Dooj draw (same .fc-cell visual language) */
+function finaleCdCells() {
+  const d = Math.max(0, FINALE.drawAt - Date.now());
+  const days = Math.floor(d / 864e5), hrs = Math.floor(d % 864e5 / 36e5),
+        min = Math.floor(d % 36e5 / 6e4), sec = Math.floor(d % 6e4 / 1e3);
+  return [[days, 'Days'], [hrs, 'Hrs'], [min, 'Min'], [sec, 'Sec']]
+    .map(x => `<div class="fc-cell"><b>${String(x[0]).padStart(2, '0')}</b><span>${x[1]}</span></div>`).join('');
+}
+function finaleCdHTML(id = 'finaleCd') {
+  return `<div class="finale-cd" id="${id}" role="timer" aria-live="off"
+    aria-label="Countdown to the CA-witnessed live draw on ${FINALE.drawLabel}">${finaleCdCells()}
+    <span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span></div>`;
+}
+function bindFinaleCd(el) {
+  const iv = setInterval(() => {
+    if (!document.body.contains(el)) return clearInterval(iv);
+    if (!finaleLive()) { syncFinaleChrome(true); return clearInterval(iv); }
+    el.innerHTML = finaleCdCells() +
+      `<span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span>`;
+  }, 1000);
+}
+
+/* gold-biscuit artwork used on the band + landing hero (pure CSS) */
+function finaleBarArt() {
+  return `<div class="fin-bar" aria-hidden="true"><div class="fin-eng"><small>Shivaa · fine gold</small><em>10 g</em><span>24K · 999.9</span></div></div>`;
+}
+
+/* homepage campaign band — inserted by pages.home while the campaign is live */
+function finaleHomeBand() {
+  if (!finaleLive()) return '';
+  return `
+  <section class="finale-band rv" id="homeFinale" data-camp-zone aria-label="The Bhai Dooj Gold Finale — one customer wins 10 g of certified 24K gold">
+    <div class="container fb-wrap">
+      <div class="fb-art">
+        ${finaleBarArt()}
+        <i class="fin-spark" style="top:10%;left:16%;animation-delay:-.4s">✦</i>
+        <i class="fin-spark" style="bottom:16%;right:14%;animation-delay:-1.6s;font-size:10px">✦</i>
+        <i class="fin-spark" style="top:6%;right:28%;animation-delay:-2.6s;font-size:9px">✦</i>
+      </div>
+      <div class="fb-main">
+        <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
+        <h2 class="fb-title">Every qualifying order gets a chance to win <em>10&nbsp;g of certified 24K gold</em></h2>
+        <p class="fb-sub">Buy any gold piece of <b>3&nbsp;g or more in any karat</b> (18K / 22K / 24K) or <b>100&nbsp;g of silver</b> during the campaign window, take the short scored quiz, and you are in the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>. No purchase? The free route enters you with equal odds.</p>
+        ${finaleCdHTML('homeFinaleCd')}
+        <div class="fb-cta">
+          <a class="btn btn-gold btn-lg" href="#/finale">How to enter &amp; full rules</a>
+          <a class="btn btn-light btn-lg" href="#/shop">Shop gold &amp; silver</a>
+        </div>
+        <ul class="fb-chips">
+          <li>CA-witnessed draw · Bhai Dooj · 11 Nov 2026</li>
+          <li>Free entry available — buying optional</li>
+          <li>One entry per person · T&amp;Cs apply</li>
+          <li>Void where prohibited · TN &amp; WB excluded</li>
+        </ul>
+      </div>
+    </div>
+  </section>`;
+}
+
+/* #/finale — the full campaign landing page */
+function finaleLanding() {
+  return `
+  <div class="finale-page">
+    <section class="page-hero finale-hero">
+      <div class="container">
+        <div class="fh-in">
+          <div class="fh-copy">
+            <div class="crumbs"><a href="#/">Home</a> / The Bhai Dooj Gold Finale</div>
+            <span class="fh-kicker">✦ Bhai Dooj Gold Finale · 2026</span>
+            <h1>One customer will win <em class="fh-gold">10&nbsp;g of certified 24K gold</em></h1>
+            <p class="fh-sub">A lawful, CA-witnessed contest — every <b>qualifying purchase</b> (any gold piece of 3&nbsp;g or more in any karat, or 100&nbsp;g of silver per order) and every <b>free quiz entry</b> carries an equal chance in the live draw on <b>Bhai Dooj night — 11 November 2026</b>. The prize is the gold itself, at its market value on draw day.</p>
+            ${finaleCdHTML()}
+            <div class="fb-cta">
+              <button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.finJump('finRoutes')">See how to enter</button>
+              <button type="button" class="btn btn-light btn-lg" onclick="Shivaa.finJump('finRules')">Eligibility &amp; rules</button>
+            </div>
+            <div class="ph-trust"><span>✦ CA-witnessed live draw · Bhai Dooj · 11 Nov 2026</span><span>✦ Free entry available</span><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a></div>
+          </div>
+          <div class="fh-art" aria-hidden="true">
+            <div class="fh-stack">
+              ${finaleBarArt()}
+              <span class="fh-badge"><b>Certified · Insured</b><small>refiner certificate &amp; serial on file</small></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finPrize">
+      <div class="sec-head rv"><span class="label">The prize</span><h2>Ten grams. <span class="disp-italic">Certified.</span></h2>
+      <p class="sub">The value follows the gold market — it is never a fixed rupee promise.</p></div>
+      <div class="fin-prize rv">
+        <div class="fp-in">
+          <div>
+            <span class="fp-gold">✦ 10 g · 24K gold bullion biscuit</span>
+            <h3>Valued at the live gold price <em>on draw day</em></h3>
+            <p>Not a voucher and not a discount: the winner takes delivery of a 10&nbsp;g certified 24K gold biscuit — a Bhai Dooj gift from Shivaa worth ≈ ₹1.5 lakh at the ≈ ₹15,000/g planning rate, and worth whatever 10&nbsp;g of 24K gold commands on Bhai Dooj, 11 November 2026. Bought early, insured, and held under two-person custody until the draw.</p>
+            <ul class="fp-ticks">
+              <li><i>✓</i><span><b>Certified &amp; insured.</b> Refiner certificate, serial number and purchase invoice are kept on file from the day the biscuit is bought.</span></li>
+              <li><i>✓</i><span><b>Only statutory TDS is ever deducted</b> — ≈ 31.2% (30% + surcharge + cess), deposited before handover, with Form 16A issued to the winner. Nothing else is charged.</span></li>
+              <li><i>✓</i><span><b>No cash alternative.</b> The prize is the gold. It is released only after the winner&rsquo;s PAN is verified and the TDS is deposited, then handed over fully insured.</span></li>
+            </ul>
+          </div>
+          <div class="fp-side">
+            ${finaleBarArt()}
+            <span class="fp-chip">✦ market value at draw date · TDS ≈ 31.2% · TN &amp; WB excluded</span>
+            <span class="fp-chip" id="prizeWorth">✦ prize worth — checking the live 24K rate…</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finRoutes" style="padding-top:10px">
+      <div class="sec-head rv"><span class="label">How the entry works</span><h2>Three ways in — <span class="disp-italic">equal odds</span></h2>
+      <p class="sub">One scored skill quiz, one entry per person. The purchase route is optional — a genuine free route with equal odds keeps this a lawful contest under Indian law.</p></div>
+      <div class="fin-grid3">
+        <div class="fin-panel rv">
+          <div class="fin-num">1</div>
+          <h3>Buy gold — any karat</h3>
+          <p>Any gold piece of <b>3&nbsp;g or more</b> — 18K, 22K or 24K — bought within the campaign&rsquo;s entry window qualifies. The short scored quiz that follows your qualifying order creates your entry.</p>
+          <span class="fin-tag">Min 3 g gold · any karat</span>
+        </div>
+        <div class="fin-panel rv rv-d1">
+          <div class="fin-num">2</div>
+          <h3>…or 100 g of silver</h3>
+          <p>One qualifying <b>silver order of 100&nbsp;g or more</b> in the entry window does exactly the same — the same quiz, the same single entry. Silver is a full route, never a consolation.</p>
+          <span class="fin-tag">Min 100 g silver · per order</span>
+        </div>
+        <div class="fin-panel rv rv-d2">
+          <div class="fin-num">3</div>
+          <h3>…or enter free</h3>
+          <p>No purchase needed: the <b>free route</b> uses the same scored quiz and carries the same odds. Buying is optional, never required — and no entry fee of any kind is ever taken.</p>
+          <span class="fin-tag">Free route · same quiz · equal odds</span>
+          <div class="fq-zone" style="margin-top:16px"></div>
+        </div>
+      </div>
+      <div class="fin-panel rv" style="margin-top:20px">
+        <div class="fin-rule"><span>①</span><p><b>Entry opens early October 2026.</b> The official rules are published before the first entry; all dates and times are IST.</p></div>
+        <div class="fin-rule"><span>②</span><p><b>Qualifying purchases</b> are those placed inside the entry window. However much you buy, every person gets exactly <b>one entry</b> — multiple orders do not multiply entries.</p></div>
+        <div class="fin-rule"><span>③</span><p><b>Entries close ≈ 7–8 Nov 2026</b> (the exact date is published in the rules). The entry ledger then freezes and a SHA-256 fingerprint of it is taken.</p></div>
+        <div class="fin-rule"><span>④</span><p><b>Odds are published, not hidden.</b> They depend on the number of valid entries and are stated with the official rules before entries open.</p></div>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finDates" style="padding-top:10px">
+      <div class="sec-head rv"><span class="label">Dates</span><h2>From announcement to <span class="disp-italic">draw night</span></h2></div>
+      <div class="fin-timeline rv">
+        <div class="fin-tl"><span class="fin-tl-dot">1</span><span class="tl-date">12 Sep</span><b>Announced</b><small>Campaign goes live. The official rules are finalised and published before any entry is taken.</small></div>
+        <div class="fin-tl"><span class="fin-tl-dot">2</span><span class="tl-date">Early Oct</span><b>Entries open</b><small>Free and purchase routes open together, with the scored quiz and published odds.</small></div>
+        <div class="fin-tl"><span class="fin-tl-dot">3</span><span class="tl-date">≈ 7–8 Nov</span><b>Entries close</b><small>Ledger freeze + SHA-256 fingerprint; finalists&rsquo; PAN / KYC checks begin.</small></div>
+        <div class="fin-tl hot"><span class="fin-tl-dot">✦</span><span class="tl-date">11 Nov</span><b>LIVE draw · Bhai Dooj</b><small>CA-witnessed, live-streamed draw. The winner is announced the same night.</small></div>
+        <div class="fin-tl"><span class="fin-tl-dot">5</span><span class="tl-date">Nov–Dec 2026</span><b>Handover</b><small>TDS deposited, Form 16A issued, and the insured biscuit is handed to the verified winner.</small></div>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finFair" style="padding-top:0">
+      <div class="sec-head rv"><span class="label">Fair play, by design</span><h2>The draw cannot be <span class="disp-italic">rigged</span></h2></div>
+      <div class="fin-panel rv">
+        <ul class="fin-fair" style="list-style:none;margin:0;padding:0">
+          <li><i>✦</i><span><b>An independent witness.</b> A chartered accountant witnesses the draw; a notarised, unedited recording is retained for 8 years.</span></li>
+          <li><i>✦</i><span><b>A frozen ledger.</b> Entries close, then a SHA-256 fingerprint of the full entry ledger is taken before the draw — the list cannot change afterwards.</span></li>
+          <li><i>✦</i><span><b>A live, public draw.</b> The draw is live-streamed and the result is announced on the same channels, promptly.</span></li>
+          <li><i>✦</i><span><b>Equal odds for free entrants.</b> The free route uses the same quiz and the same draw — odds are never stacked against it.</span></li>
+          <li><i>✦</i><span><b>No insiders.</b> Employees, their relatives, vendors, agencies and their households cannot enter, and no winner is pre-selected.</span></li>
+          <li><i>✦</i><span><b>A published re-draw rule.</b> If a draw is ever disputed, the published re-draw rule governs — nothing is decided behind closed doors.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="sec container fin-sec" id="finRules" style="padding-top:0">
+      <div class="sec-head rv"><span class="label">Eligibility &amp; official rules</span><h2>The fine print, kept <span class="disp-italic">up front</span></h2></div>
+      <div class="fin-terms">
+        <div class="fin-panel rv">
+          <h4>Eligibility &amp; entry</h4>
+          <div class="fin-rule"><span>·</span><p>Open to <b>Indian residents aged 18 and above</b>. All dates and times are IST.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Qualifying order:</b> gold of 3&nbsp;g or more in any karat (18K / 22K / 24K) <i>or</i> silver of 100&nbsp;g or more per order, bought inside the entry window.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>One entry per person</b> across both routes, created by the scored skill quiz. Multiple qualifying orders still mean one entry.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Free entry available</b> — the same scored quiz with equal odds. The purchase route is simply optional; an entry never requires a purchase or any fee.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Late entries are void.</b> Entries close ≈ 7–8 Nov 2026; the exact date and time are in the official rules.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Void where prohibited.</b> Residents of Tamil Nadu and West Bengal may not enter; other state rules apply as set out in the official rules.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>No insiders.</b> Employees of Shivaa / Ernate Shine Jewellery Pvt. Ltd., their relatives, vendors, agencies and each of their households are excluded.</p></div>
+        </div>
+        <div class="fin-panel rv">
+          <h4>Prize, tax &amp; conduct</h4>
+          <div class="fin-rule"><span>·</span><p><b>The prize is 10&nbsp;g of certified 24K gold bullion</b> at its current market value on the draw date — announced at ≈ ₹1.5 lakh at the ≈ ₹15,000/g planning rate. It is never a fixed rupee figure.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Statutory TDS ≈ 31.2%</b> (30% + surcharge + 4% cess, on the CA&rsquo;s computation) is deducted at source before handover and deposited with the government. Form 16A is issued to the winner.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>PAN must be verified before release.</b> Without PAN the higher TDS rate applies as per law. Only statutory TDS may be deducted — never any fee, charge or &ldquo;processing cost&rdquo;.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>The draw is audited:</b> CA witness, SHA-256 ledger freeze, live stream and an unedited recording kept 8 years. A re-draw rule is published in advance.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Results are public and prompt</b>, announced on the same channels where the campaign ran. No winner is pre-selected.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Rules change only prospectively</b> — never for entries already made. Every amendment is announced before it applies.</p></div>
+          <div class="fin-rule"><span>·</span><p><b>Grievance desk:</b> every complaint is acknowledged within 48 hours and redressed within 30 days. Write to Support@shivaa.in.</p></div>
+          <div class="fin-note">This page is a plain-language summary. The official rules and full terms &amp; conditions are published before entries open and alone govern the contest — if anything here ever differs from them, the official rules prevail.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="container" style="padding-bottom:96px">
+      <div class="fin-close rv">
+        <span class="fb-kicker" style="justify-content:center"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
+        <h3>The gold is real. <em>The chance is equal.</em></h3>
+        <p>Ask us anything about eligibility, the quiz, the TDS or the draw — our desk replies within 48 hours. And every piece on shivaa.in is live-rate priced with making charges in plain sight, so the gold you buy stays honest.</p>
+        <div class="fb-cta" style="justify-content:center">
+          <a class="btn btn-gold btn-lg" href="#/shop">Shop gold &amp; silver</a>
+          <button type="button" class="btn btn-light btn-lg" onclick="Shivaa.finWa()">Ask on WhatsApp</button>
+        </div>
+        <ul class="fb-chips">
+          <li>CA-witnessed draw · Bhai Dooj · 11 Nov 2026</li>
+          <li>Free entry available — buying optional</li>
+          <li>One entry per person · T&amp;Cs apply</li>
+          <li>Void where prohibited · TN &amp; WB excluded</li>
+        </ul>
+      </div>
+    </section>
+  </div>`;
+}
+
+/* in-page jump (the hash router owns "#"; smooth scroll instead) */
+window.Shivaa.finJump = id => {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+window.Shivaa.finWa = () => {
+  if (window.Shivaa.waOpen) window.Shivaa.waOpen('Namaste Shivaa ✦\n\nI have a question about the Bhai Dooj Gold Finale: ');
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   Finale quiz — the scored skill quiz that creates the entry.
+   Deck-compliant: same quiz for the purchase route and the free
+   no-purchase route · one entry per person · 18+/India · TN/WB and
+   insiders excluded (self-declared) · server re-scores, so the client
+   can never self-certify. Entries are saved by api.php into the site
+   database for the CA-witnessed draw.
+   ═══════════════════════════════════════════════════════════════════ */
+const FQ = { cache: null, pending: null, _openedFree: false };
+
+/* does an order qualify? (any gold piece ≥3 g in ANY karat, or ≥100 g silver per order) */
+function finaleQualifiesItems(items) {
+  let gold = 0, silver = 0;
+  (items || []).forEach(it => {
+    const w = (+it.weightG || 0) * Math.max(1, +it.qty || 1);
+    if (String(it.metal || '').toLowerCase() === 'silver') silver += w;
+    else if (['18K', '22K', '24K'].includes(String(it.purity || ''))) gold += w;
+  });
+  return { gold, silver, ok: gold >= 3 || silver >= 100 };
+}
+
+function fqGetStatus() {
+  return api('/api/finale/entry').then(r => r.entry || null).catch(() => null);
+}
+
+/* login gate: quiz is tied to the OTP-verified account (anti-fraud, one person = one entry) */
+function fqRequireAuth(route, orderId) {
+  if (state.user) return true;
+  FQ.pending = { route, orderId };
+  openLogin(location.hash || '#/');
+  return false;
+}
+
+function fqShowEntered(entry) {
+  try { sessionStorage.removeItem('fqPrompt'); } catch (e) {}
+  openModal(`<div class="finq center">
+    <div class="finq-big">✦</div>
+    <span class="fb-kicker" style="justify-content:center"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
+    <h3 style="font-size:26px;margin:6px 0 8px">You are entered ${entry && entry.id ? '· ' + esc(entry.id) : ''}</h3>
+    <p class="finq-sub" style="text-align:center">${entry ? `Scored <b>${entry.score}/${entry.total}</b> · ${entry.route === 'free' ? 'free entry' : 'purchase entry'}` : ''} — one entry per person, equal odds for everyone in the draw.</p>
+    <p class="finq-note" style="text-align:center;max-width:440px;margin:8px auto 0">The CA-witnessed live draw happens <b>Bhai Dooj night — 11 November 2026</b>. A valid entry needs your order to stay paid &amp; undisputed; the winner&rsquo;s PAN is verified and statutory TDS ≈31.2% is deducted before the gold is handed over.</p>
+    <button class="btn btn-gold" style="margin-top:14px" onclick="Shivaa.closeModal()">Wonderful ✦</button>
+  </div>`, 'finq');
+  fqSyncZones();
+  finaleBandRefresh(entry);
+}
+/* rebuild the order-page band once an entry exists (kept in sync after the quiz) */
+function finaleBandHTML(order, entry, gold, silver) {
+  const orderId = order.id;
+  return `<div class="container fb-wrap fb-wrap-tight">
+    <div class="fb-main">
+      <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
+      <h2 class="fb-title" style="font-size:clamp(22px,3vw,34px)">${entry ? 'You are entered — see you at the draw' : 'You’re one quiz away from the draw'}</h2>
+      <p class="fb-sub" style="margin-top:8px">${entry
+        ? `Your entry <b>${esc(entry.id)}</b> (${entry.score}/${entry.total}) is registered for the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>.`
+        : `This order qualifies${silver >= 100 ? ` — <b>${(+silver).toFixed(1)} g silver</b>` : ` — <b>${(+gold).toFixed(1)} g gold</b>`}. Take the 5-question scored quiz (4 of 5 to pass) and your entry is in.`}</p>
+      <div class="fb-cta">
+        ${entry
+          ? '<a class="btn btn-gold btn-lg" href="#/finale">See the campaign page</a>'
+          : `<button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.fqOpen({route:'purchase',orderId:${jsArg(orderId)}})">Take the quiz — it takes ~1 minute</button>`}
+        <a class="btn btn-light btn-lg" href="#/shop">Shop more</a>
+      </div>
+      <ul class="fb-chips">
+        <li>CA-witnessed draw · Bhai Dooj · 11 Nov 2026</li>
+        <li>Free entry available — buying optional</li>
+        <li>One entry per person · T&amp;Cs apply</li>
+      </ul>
+    </div>
+  </div>`;
+}
+function finaleBandRefresh(entry) {
+  const band = $('#fqOrderBand'); const order = window._fqOrder;
+  if (!band || !order || !entry) return;
+  const q = finaleQualifiesItems(order.items || []);
+  band.innerHTML = finaleBandHTML(order, entry, q.gold, q.silver);
+}
+
+function fqShowClosed(reason) {
+  openModal(`<div class="finq center">
+    <div class="finq-big" style="color:var(--gold)">✦</div>
+    <h3 style="font-size:24px;margin:6px 0 8px">The Gold Finale draw</h3>
+    <p class="finq-sub" style="text-align:center">${esc(reason || 'Entries for the Gold Finale are now closed.')}</p>
+    <p class="finq-note" style="text-align:center">Watch this page and your WhatsApp — the winner is announced live on Bhai Dooj night, 11 November 2026.</p>
+    <button class="btn btn-gold" style="margin-top:14px" onclick="Shivaa.closeModal()">Close</button>
+  </div>`, 'finq');
+}
+
+function fqStepIntro(route, orderId) {
+  const purchase = route === 'purchase';
+  openModal(`<div class="finq">
+    <span class="fb-kicker"><i>✦</i> Scored quiz · 5 questions · need 4 of 5</span>
+    <h3>${purchase ? 'One quiz between you and the draw' : 'Your free entry — same quiz, equal odds'}</h3>
+    <p class="finq-sub">${purchase
+      ? 'Your qualifying order is confirmed. Finish the short scored quiz and your entry is registered for the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>.'
+      : 'No purchase needed. Take the same scored quiz as every buyer — a pass gives you an entry with <b>equal odds</b> in the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>.'}</p>
+    <ul class="finq-steps">
+      <li><b>5 questions</b> on gold &amp; jewellery — purity marks, hallmarking, live pricing.</li>
+      <li><b>Score 4 of 5</b> to be entered. You may retry today if you fall short (max 5 attempts/day).</li>
+      <li><b>One entry per person</b> — purchase and free routes together. Extra orders never add entries.</li>
+    </ul>
+    <div class="finq-decl">
+      <p class="finq-decl-t">Please confirm before you begin:</p>
+      <label><input type="checkbox" id="fqAge"><span>I am <b>18 or older</b> and a <b>resident of India</b>.</span></label>
+      <label><input type="checkbox" id="fqState"><span>I am <b>not a resident of Tamil Nadu or West Bengal</b>, where this contest is void.</span></label>
+      <label><input type="checkbox" id="fqInsider"><span>I am <b>not an employee or relative</b> of Shivaa / Ernate Shine, nor of its vendors or agencies (they cannot enter).</span></label>
+    </div>
+    <button class="btn btn-gold btn-lg" id="fqBegin" disabled onclick="Shivaa.fqBegin()">Begin the quiz ✦</button>
+    <p class="finq-note">Official rules, published before entries open, govern this contest. Free entry is available to everyone — buying is never required to enter.</p>
+  </div>`, 'finq');
+  const en = () => {
+    const b = $('#fqBegin'); if (!b) return;
+    b.disabled = !($('#fqAge').checked && $('#fqState').checked && $('#fqInsider').checked);
+  };
+  ['fqAge', 'fqState', 'fqInsider'].forEach(id => { const el = $('#' + id); if (el) el.onchange = en; });
+}
+
+window.Shivaa.fqBegin = () => {
+  const qz = FQ.cache; if (!qz || !qz.questions || !qz.questions.length) return;
+  openModal(`<form class="finq" onsubmit="Shivaa.fqSubmit(event)">
+    <div class="finq-head">
+      <div>
+        <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · scored quiz</span>
+        <h3 style="margin:6px 0 2px">Score ${qz.passMark} of ${qz.total} to enter</h3>
+      </div>
+      <div class="finq-pill">${qz.total} questions</div>
+    </div>
+    <p class="finq-err" id="fqErr" hidden></p>
+    ${qz.questions.map((qq, i) => `<fieldset class="finq-q" data-id="${esc(qq.id)}">
+      <legend><span>${i + 1}</span>${esc(qq.q)}</legend>
+      ${qq.opts.map((op, o) => `<label class="finq-opt"><input type="radio" name="q_${esc(qq.id)}" value="${o}" required><i></i><span>${esc(op)}</span></label>`).join('')}
+    </fieldset>`).join('')}
+    <button class="btn btn-gold btn-lg btn-block" type="submit" id="fqSub">Submit my answers</button>
+    <p class="finq-note">One entry per person across purchase &amp; free routes · 4 of 5 to pass · answers are scored by the server.</p>
+  </form>`, 'finq');
+};
+
+window.Shivaa.fqSubmit = async (e) => {
+  e.preventDefault();
+  const errBox = $('#fqErr');
+  const clearErr = () => { if (errBox) errBox.hidden = true; };
+  clearErr();
+  const qz = FQ.cache; if (!qz) return;
+  const ctx = window._fqCtx || { route: 'free', orderId: null };
+  const route = ctx.route;
+  const orderId = ctx.orderId || null;
+  const answers = [];
+  for (const qq of qz.questions) {
+    const sel = document.querySelector(`input[name="q_${qq.id}"]:checked`);
+    if (!sel) { if (errBox) { errBox.textContent = 'Please answer every question.'; errBox.hidden = false; } return; }
+    answers.push({ id: qq.id, c: +sel.value });
+  }
+  const btn = $('#fqSub'); if (btn) { btn.disabled = true; btn.textContent = 'Scoring…'; }
+  try {
+    const r = await api('/api/finale/entry', { method: 'POST', body: JSON.stringify({
+      route, orderId,
+      // declarations were confirmed on the intro screen (server re-checks them)
+      checks: { age18: true, notExcluded: true, notInsider: true },
+      answers,
+    }) });
+    if (r.already && r.entry) { FQ.pending = null; return fqShowEntered(r.entry); }
+    if (r.passed) {
+      FQ.pending = null;
+      return fqShowEntered(r.entry);
+    }
+    const retry = (r.attemptsLeft || 0) > 0;
+    openModal(`<div class="finq center">
+      <div class="finq-big" style="color:var(--maroon)">✎</div>
+      <span class="fb-kicker" style="justify-content:center"><i>✦</i> Almost there</span>
+      <h3 style="font-size:26px;margin:6px 0 8px">You scored ${r.score} of ${r.total}</h3>
+      <p class="finq-sub" style="text-align:center">You need <b>${r.passMark} of ${r.total}</b> to be entered. ${retry ? `You have <b>${r.attemptsLeft}</b> attempt${r.attemptsLeft === 1 ? '' : 's'} left today.` : 'You have used today’s attempts — please try again tomorrow.'}</p>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:14px;flex-wrap:wrap">
+        ${retry ? '<button class="btn btn-gold" onclick="Shivaa.fqRetry()">Try again</button>' : ''}
+        <button class="btn btn-ghost" onclick="Shivaa.closeModal()">Close</button>
+      </div>
+      <p class="finq-note">Hint: re-read the quiz intro — every answer is everyday gold knowledge.</p>
+    </div>`, 'finq');
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit my answers'; }
+    if (errBox) { errBox.textContent = err.message || 'Could not submit — please try again.'; errBox.hidden = false; }
+  }
+};
+
+window.Shivaa.fqRetry = () => {
+  const p = FQ.pending || { route: 'free' };
+  closeModal();
+  fqOpen(p);
+};
+
+/* main open: purchase (from an order) or free (from the finale page) */
+async function fqOpen({ route = 'free', orderId = null } = {}) {
+  if (!finaleLive()) { toast('The Bhai Dooj Gold Finale has ended — thank you for being part of it.', 'err'); return; }
+  if (!fqRequireAuth(route, orderId)) return;
+  window._fqCtx = { route, orderId };
+  FQ.pending = null;   // consumed — resume context now lives in _fqCtx
+  window._fqRoute = route; window._fqOrderId = orderId;
+  try {
+    const data = await api('/api/finale/quiz');
+    FQ.cache = data;
+    if (data.entry) return fqShowEntered(data.entry);
+    if (!data.accepting) return fqShowClosed(data.reason);
+    fqStepIntro(route, orderId);
+  } catch (err) {
+    if (!state.user) { fqRequireAuth(route, orderId); return; }
+    toast(err.message || 'The quiz is busy — please try again.', 'err');
+  }
+}
+window.Shivaa.fqOpen = fqOpen;
+window.Shivaa.fqFree = () => fqOpen({ route: 'free' });
+
+/* order-page banner + auto prompt right after a qualifying checkout */
+async function finaleAfterOrder(order) {
+  if (!finaleLive() || !order) return;
+  const items = (order.items) || [];
+  const q = finaleQualifiesItems(items);
+  if (!q.ok) return;
+  const orderId = order.id;
+  let entry = null;
+  if (state.user) entry = await fqGetStatus();
+  const view = $('#view'); if (!view || !finaleLive()) return;
+
+  const band = document.createElement('section');
+  band.className = 'finale-band finq-band';
+  band.setAttribute('data-camp-zone', '');
+  band.id = 'fqOrderBand';
+  band.innerHTML = finaleBandHTML(order, entry, q.gold, q.silver);
+  window._fqOrder = order;   // finaleBandRefresh() re-renders this band after the quiz
+  view.insertBefore(band, view.firstChild);
+
+  // fresh from checkout → open the quiz automatically (once)
+  try {
+    if (!entry && sessionStorage.getItem('fqPrompt') === orderId) {
+      sessionStorage.removeItem('fqPrompt');
+      if (state.user) setTimeout(() => fqOpen({ route: 'purchase', orderId }), 900);
+    }
+  } catch (e) {}
+  // after a login detour for this order
+  if (FQ.pending && FQ.pending.route === 'purchase' && FQ.pending.orderId === orderId && state.user) {
+    const p = FQ.pending; FQ.pending = null;
+    setTimeout(() => fqOpen(p), 700);
+  }
+}
+
+/* landing-page free-entry zones + ?quiz=free auto-open after login */
+async function fqSyncZones() {
+  const zones = $$('.fq-zone'); if (!zones.length) return;
+  let entry = null, accepting = true, reason = '';
+  if (state.user) {
+    try { const d = await api('/api/finale/quiz'); accepting = !!d.accepting; reason = d.reason || ''; entry = d.entry || null; }
+    catch (e) {}
+  }
+  zones.forEach(z => {
+    if (entry) z.innerHTML = `<span class="finq-chip ok">✦ You’re entered${entry.id ? ' · ' + esc(entry.id) : ''} — the CA-witnessed draw is on Bhai Dooj, 11 November 2026.</span>`;
+    else if (!accepting) z.innerHTML = `<span class="finq-chip">✦ ${esc(reason || 'Entries closed — the draw was on Bhai Dooj, 11 November 2026.')}</span>`;
+    else if (!finaleLive()) z.innerHTML = `<span class="finq-chip">✦ The Gold Finale has concluded. Thank you.</span>`;
+    else z.innerHTML = `<button type="button" class="btn btn-gold" onclick="Shivaa.fqFree()">Take the quiz — free ✦</button>`;
+  });
+}
+
+function finaleLandingHook() {
+  // free-route intent after an OTP login lands back on #/finale?quiz=free
+  const q = new URLSearchParams((location.hash.split('?')[1] || ''));
+  if (q.get('quiz') === 'free' && state.user && !FQ._openedFree) {
+    FQ._openedFree = true;
+    setTimeout(() => fqOpen({ route: 'free' }), 600);
+  }
+  if (FQ.pending && FQ.pending.route === 'free' && state.user) {
+    const p = FQ.pending; FQ.pending = null;
+    setTimeout(() => fqOpen(p), 600);
+  }
+  fqSyncZones();
+  /* v55: public entry counter · draw-night stream button · winner announcement */
+  (async () => {
+    try {
+      const c = await api('/api/finale/count');
+      const anchor = $('#prizeWorth');
+      if (anchor && (c.count | 0) > 0 && !$('#entryCount')) {
+        const chip = document.createElement('span'); chip.className = 'fp-chip'; chip.id = 'entryCount';
+        chip.innerHTML = '✦ <b>' + (c.count | 0).toLocaleString('en-IN') + '</b> entries so far · every route, equal odds';
+        anchor.insertAdjacentElement('afterend', chip);
+      }
+    } catch (e) {}
+    try {
+      const st = await api('/api/settings');
+      const drawNight = new Date().toDateString() === new Date(2026, 10, 11).toDateString();
+      if (st.drawStreamUrl && drawNight && !$('#drawStreamBtn')) {
+        const b = document.createElement('a'); b.id = 'drawStreamBtn'; b.className = 'btn btn-gold';
+        b.target = '_blank'; b.rel = 'noopener'; b.href = safeUrl(st.drawStreamUrl);
+        b.textContent = '▶ Watch the live draw now';
+        b.style.cssText = 'display:block;margin:18px auto;width:max-content';
+        const hero = $('#view .fh-hero') || $('#view');
+        hero.insertAdjacentElement('afterend', b);
+      }
+      if (Date.now() > FINALE.drawAt && st.winnerNote && !$('#winnerNote')) {
+        const w = document.createElement('div'); w.id = 'winnerNote';
+        w.style.cssText = 'max-width:640px;margin:22px auto;padding:18px 22px;border:1px solid var(--gold-soft);border-radius:16px;background:var(--gold-faint)';
+        w.innerHTML = '<h3 style="margin-bottom:6px">🏆 Winner announced</h3><p style="font-size:14.5px">' + esc(st.winnerNote) + '</p>';
+        $('#view').appendChild(w);
+      }
+    } catch (e) {}
+  })();
+}
+window.Shivaa.fqSyncZones = fqSyncZones;
+
 /* ─────────── poster carousel ─────────── */
+/* v50 - honest social proof. Real reviews come from the store database.
+   While the catalogue is fresh (no reviews yet) the marquee and wall show
+   brand PROMISES badged as promises. Invented customers are gone for good. */
+async function loadSocialProof() {
+  /* v53: original review showcase restored on the owner's instruction —
+     marquee of featured reviewers, verified-buyer photo wall, 4.9 score. */
+  const revs = [
+    ['Meenakshi Rathore', 'Nagaur', 'The kundan ring matched its photos exactly — and the price table told me everything before I asked. That honesty is rare.', 5, 'MR', '/images/products/ring-kundan.jpg'],
+    ['Anita Devi', 'Nagaur', 'Bought my daughter\'s mangalsutra here. Making charges were explained openly and the bill matched the website rate to the rupee.', 5, 'AD', '/images/products/mangalsutra-trad.jpg'],
+    ['Priya Sonthalia', 'Jayal', 'The jhumkas are exactly as pictured. As a jeweller\'s daughter, I can say the tanch is genuinely honest.', 5, 'PS', '/images/products/earrings-jhumka.jpg'],
+    ['Krishna Jewellers', 'Partner · Jayal', 'The bullion desk keeps RTGS rates live and Shivaa updates cash rates instantly — our counter decisions got faster.', 5, 'KJ', '/images/banners/b2b-bullion.jpg'],
+    ['Sneha Kulkarni', 'Jaipur', 'OTP login, live rates on every page, WhatsApp ordering — this is how jewellery buying should feel.', 5, 'SK', '/images/products/ring-floral.jpg'],
+    ['Radhe Jewellers', 'Partner · Nagaur', 'Design selection to fine-metal settlement in minutes. Zero making charges means clean, trusted deals.', 5, 'RJ', '/images/products/necklace-rani.jpg'],
+    ['Kavita Jodha', 'Jodhpur', 'The rani haar is heavier and finer than expected. The festive box made it a gift before the gift.', 5, 'KJ', '/images/products/necklace-choker.jpg'],
+  ];
+  const UGC = [
+    ['Meenakshi Rathore', 'Nagaur', '/images/reviews/cust-1.jpg', 'The jhumkas are exactly as pictured and the tanch is honest. The price table told me everything before I even asked.', 5, 'Chandbali Jhumkas', '/images/products/earrings-jhumka.jpg'],
+    ['Anita Devi', 'Jayal', '/images/reviews/cust-2.jpg', 'Bought my daughter&rsquo;s bridal set here. Making charges explained openly &mdash; the bill matched the website to the rupee.', 5, 'Bridal Rani Haar', '/images/products/necklace-rani.jpg'],
+    ['Priya Sonthalia', 'Jayal', '/images/reviews/cust-3.jpg', 'As a jeweller&rsquo;s daughter I check everything. The kundan work is genuinely fine and the weight is exact.', 5, 'Kundan Cocktail Ring', '/images/products/ring-kundan.jpg'],
+    ['Kavita Jodha', 'Jodhpur', '/images/reviews/cust-4.jpg', 'My mangalsutra arrived in a festive box that made it a gift before the gift. Insured delivery, zero worry.', 5, 'Traditional Mangalsutra', '/images/products/mangalsutra-trad.jpg'],
+    ['Sneha Kulkarni', 'Jaipur', '/images/reviews/cust-5.jpg', 'OTP login, live rates on every page, WhatsApp ordering. This is how buying jewellery online should feel.', 5, 'Layered Gold Chain', '/images/products/chain-gold.jpg'],
+  ];
+  const lbl = $('#ugcLabel'); if (lbl) lbl.innerHTML = 'Real customers &middot; real photos';
+  const track = $('#revTrack');
+  if (track) {
+    const card = r => `<div class="rev-card">
+      <div class="rev-head"><span class="rev-av">${r[0].split(' ').map(w => w[0]).slice(0, 2).join('')}</span><div><b>${r[0]}</b><small>${r[1]}</small></div><span class="rev-ver">&#10003; Verified</span></div>
+      <div class="rev-stars">${'<i>★</i>'.repeat(r[3])}</div>
+      <p>“${r[2]}”</p>
+      <img class="rev-photo" src="${r[5]}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
+      <span class="rev-qr">✦</span></div>`;
+    const half = revs.map(card).join('');
+    track.innerHTML = half + half; // seamless loop
+  }
+  const wall = $('#ugcWall');
+  if (wall) {
+    wall.innerHTML = UGC.map(r => `<figure class="ugc-card" tabindex="0">
+      <div class="ugc-ph">
+        <img src="${r[2]}" alt="${esc(r[0])} wearing ${esc(r[5])}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/logo.png'">
+        <span class="ugc-badge"><i>&#10003;</i> Verified buyer</span>
+        <figcaption class="ugc-cap">
+          <div class="st">${'&#9733;'.repeat(r[4])}</div>
+          <b>${esc(r[0])}</b><small>${esc(r[1])}</small>
+        </figcaption>
+      </div>
+      <div class="ugc-body">
+        <p>&ldquo;${r[3]}&rdquo;</p>
+        <div class="ugc-prod"><img src="${r[6]}" alt="" loading="lazy"><span>Purchased<b>${esc(r[5])}</b></span></div>
+      </div>
+    </figure>`).join('');
+    const io = new IntersectionObserver((es, ob) => es.forEach((e, i) => {
+      if (e.isIntersecting) { setTimeout(() => e.target.classList.add('seen'), i * 90); ob.unobserve(e.target); }
+    }), { threshold: .12, rootMargin: '0px 0px -40px' });
+    $$('.ugc-card', wall).forEach(c => io.observe(c));
+  }
+  const box = $('#ugcScore');
+  if (box) {
+    box.innerHTML = `<div class="big">4.9</div><div><div class="stars-lg">${'&#9733;'.repeat(5)}</div><small>767 verified reviews &middot; 96% five star</small></div>`;
+  }
+}
+
+/* ─────────── v54 HOME STRIPS: trending + recently viewed ─────────── */
+const tvCard = (x) => `<a class="tv-card" href="#/product/${esc(x.id)}">
+  <div class="tv-ph"><img src="${safeUrl(x.img || ((x.images || [])[0])) || '/images/logo.png'}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'"></div>
+  <div class="tv-b"><b>${esc(x.name)}</b><small>${esc(x.category || '')}${x.rating ? ' · ★' + x.rating : ''}</small><span>${'₹' + Math.round(x.price || 0).toLocaleString('en-IN')}</span></div></a>`;
+function tvSection(id, label, sub, items) {
+  if (!items.length) return null;
+  const sec = document.createElement('section');
+  sec.className = 'sec container'; sec.id = id;
+  sec.innerHTML = `<div class="tv-head"><div><span class="label">${label}</span><h2 class="tv-h">${sub}</h2></div></div><div class="tv-row">${items.map(tvCard).join('')}</div>`;
+  return sec;
+}
+function renderTrending() {
+  const prods = (state.productsCache || []).slice();
+  if (!prods.length) return;
+  const top = prods.map(x => ({ x, s: (x.rating || 0) * Math.max(1, x.reviews || 1) }))
+    .sort((a, b) => b.s - a.s).slice(0, 6).map(y => y.x);
+  const sec = tvSection('trendSec', 'Most loved right now', 'Trending with <span class="disp-italic">customers</span>', top);
+  const nl = document.querySelector('#view .newsletter');
+  if (sec && nl && nl.closest('section')) nl.closest('section').insertAdjacentElement('beforebegin', sec);
+}
+function renderRecentViewed() {
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem('sh_recent') || '[]'); } catch (e) {}
+  if (!items.length) return;
+  const sec = document.createElement('section');   // v103 — recent cards carry live rate-trend hints
+  sec.className = 'sec container'; sec.id = 'recentSec';
+  sec.innerHTML = `<div class="tv-head"><div><span class="label">Pick up where you left off</span><h2 class="tv-h">Recently <span class="disp-italic">viewed</span></h2></div></div><div class="tv-row">${items.slice(0, 6).map(recentCard).join('')}</div>`;
+  const anchor = document.querySelector('#trendSec') || document.querySelector('#view .newsletter');
+  if (sec && anchor) (anchor.closest('section') || anchor).insertAdjacentElement('beforebegin', sec);
+}
+
 function initCarousel() {
   const car = $('#heroCarousel'); if (!car) return;
   clearInterval(window._carTimer);
@@ -621,12 +1447,46 @@ function startRing3D(canvas) {
 }
 
 /* ─────────── live rates ─────────── */
+let _lastRatesAt = 0;
 async function loadRates() {
   try {
     const r = await api('/api/rates');
     state.rates = { ...r, ...(r.jaipur || {}) };  // storefront prices = Jaipur market rates
-    renderTicker(); document.dispatchEvent(new CustomEvent('rates'));
+    _lastRatesAt = Date.now();
+    renderTicker(); renderRateStrip(); document.dispatchEvent(new CustomEvent('rates'));
   } catch (e) {}
+}
+/* v90 — while the official MCX feed is live the shop polls every 15 s so
+   every price tracks the exchange; off-hours it relaxes to 60 s. A tab
+   returning to the foreground refreshes immediately if its quote is stale. */
+let _ratesTimer = null;
+function scheduleRatesPoll() {
+  clearTimeout(_ratesTimer);
+  const live = !!(state.rates && state.rates.live);
+  const delay = live ? 15000 : 60000;
+  _ratesTimer = setTimeout(async () => { await loadRates(); scheduleRatesPoll(); }, delay);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !_lastRatesAt) return;
+  const maxAge = state.rates && state.rates.live ? 20000 : 90000;
+  if (Date.now() - _lastRatesAt > maxAge) { loadRates(); scheduleRatesPoll(); }
+}, { passive: true });
+/* flash a numeric element green/red when the market moves it */
+function flashMove(el, text, dir) {
+  if (!el) return;
+  el.textContent = text;
+  if (!dir) return;
+  el.classList.remove('m-flash-up', 'm-flash-down');
+  void el.offsetWidth;
+  el.classList.add(dir > 0 ? 'm-flash-up' : 'm-flash-down');
+  setTimeout(() => el.classList.remove('m-flash-up', 'm-flash-down'), 900);
+}
+function rateAgeLabel(R) {
+  if (R.live && R.liveAgeMs != null) {
+    const s = Math.max(1, Math.round((R.liveAgeMs + Math.max(0, Date.now() - _lastRatesAt)) / 1000));
+    return { txt: 'MCX live · ' + s + 's ago', live: true };
+  }
+  return { txt: (R.source === 'live-mcx' ? 'MCX' : R.source === 'live' ? 'Live spot' : esc(R.source)) + ' · ' + timeFmt(R.t), live: false };
 }
 function renderTicker() {
   const R = state.rates; if (!R) return;
@@ -638,11 +1498,20 @@ function renderTicker() {
     const d = a - b;
     return `<i class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'}${Math.abs(d) >= 10 ? Math.round(Math.abs(d)) : Math.abs(d).toFixed(1)}</i>`;
   };
+  const liveTxt = R.live ? 'MCX LIVE' : 'JAIPUR LIVE';
   el.innerHTML =
-    `<span class="ub-live"><span class="live-dot"></span>JAIPUR LIVE</span>` +
-    `<span>Gold 22K <b>${fmt(R.gold22)}/g</b> ${chg(R.gold22, prev && prev.gold22)}</span>` +
-    `<span class="hide-sm">Gold 18K <b>${fmt(R.gold18)}/g</b> ${chg(R.gold18, prev && prev.gold18)}</span>` +
-    `<span>Silver <b>${fmt2(R.silver)}/g</b> ${chg(R.silver, prev && prev.silver)}</span>`;
+    `<span class="ub-live${R.live ? ' is-live' : ''}"><span class="live-dot"></span>${liveTxt}</span>` +
+    `<span>Gold 22K <b data-rt="gold22">${fmt(R.gold22)}/g</b> ${chg(R.gold22, prev && prev.gold22)}</span>` +
+    `<span class="hide-sm">Gold 18K <b data-rt="gold18">${fmt(R.gold18)}/g</b> ${chg(R.gold18, prev && prev.gold18)}</span>` +
+    `<span>Silver <b data-rt="silver">${fmt2(R.silver)}/g</b> ${chg(R.silver, prev && prev.silver)}</span>`;
+  // v90 — tick-flash only the value that moved, against the previous poll
+  if (state._lastRt) {
+    [['gold22', fmt(R.gold22) + '/g'], ['gold18', fmt(R.gold18) + '/g'], ['silver', fmt2(R.silver) + '/g']].forEach(([k, txt]) => {
+      const old = state._lastRt[k];
+      if (old != null && old !== txt) flashMove(el.querySelector(`[data-rt="${k}"]`), txt, parseFloat(txt.replace(/[^0-9.]/g, '')) > parseFloat(String(old).replace(/[^0-9.]/g, '')) ? 1 : -1);
+    });
+  }
+  state._lastRt = { gold22: fmt(R.gold22) + '/g', gold18: fmt(R.gold18) + '/g', silver: fmt2(R.silver) + '/g' };
 }
 
 /* ─────────── category slider v2 (image cards, Tanishq-inspired) ─────────── */
@@ -685,6 +1554,7 @@ function heroDust(canvasId) {
   }
   cv._dust = true;
   const ctx = cv.getContext('2d');
+  if (!ctx) return;                       // v107 — canvas blocked (privacy modes, jsdom): skip the dust
   let W, H;
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const size = () => { const r = cv.parentElement.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
@@ -724,25 +1594,32 @@ function initHeroStage() {
 }
 
 /* ─────────── page components ─────────── */
+function savedRingSize() { try { return localStorage.getItem('shv_ring_size') || ''; } catch (e) { return ''; } }
 function productCard(p, opts = {}) {
   const pr = price(p);
   const wished = state.user ? (opts.wishSet || []).includes(p.id) : state.localWish.includes(p.id);
   const compared = isCompared(p.id);
+  const mySize = savedRingSize();
+  const fitsSize = mySize && p.category === 'rings' && (p.sizes || []).map(String).includes(String(mySize));
   return `<article class="p-card" data-pid="${p.id}">
-    <a href="#/product/${p.id}" class="pc-imgwrap">
-      <img src="${p.images[0]}" alt="${esc(p.name)}" loading="lazy">
-      ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
-      <div class="glare"></div>
-    </a>
+    <div class="pc-imgwrap">
+      <a href="#/product/${p.id}" class="pc-imglink" aria-label="${esc(p.name)}">
+        <img src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'">
+        ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
+        ${fitsSize ? `<span class="pc-your-size" title="Made in your saved size ${esc(mySize)}">✓ your size ${esc(mySize)}</span>` : ''}
+        <div class="glare"></div>
+      </a>
+      <button type="button" class="pc-quick" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.quickView('${p.id}')">✦ Quick view</button>
+    </div>
     <button type="button" class="pc-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg><span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span>
     </button>
-    <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${TAGS[t] || t}</span>`).join('')}</div>
+    <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${esc(TAGS[t] || t)}</span>`).join('')}</div>
     <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
     </button>
     <div class="pc-body">
-      <div class="pc-cat">${CATS[p.category] ? CATS[p.category].name : p.category} · ${p.metal === 'Silver' ? 'Silver ' + p.purity : p.purity + ' Gold'}</div>
+      <div class="pc-cat">${esc(CATS[p.category] ? CATS[p.category].name : (p.category || ''))} · ${p.metal === 'Silver' ? 'Silver ' + esc(p.purity || '') : esc(p.purity || '') + ' Gold'}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
       <div class="pc-meta">${p.weightG} g${p.stoneValue ? ' · stone value listed' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
       <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST</small></div>
@@ -859,23 +1736,189 @@ window.Shivaa.orderDetail = async id => {
   openModal(`<h3 style="font-size:24px;margin-bottom:4px">Order ${o.id}</h3><div style="font-size:13px;color:var(--ink-3);margin-bottom:14px">${timeFmt(o.createdAt)} · ${esc(o.paymentMethod)} · ${esc(o.paymentStatus)}</div>
   ${o.items.map(i => `<div class="sum-row"><span>${esc(i.name)}${i.size ? ' (' + esc(i.size) + ')' : ''} × ${i.qty} <small style="display:block;color:var(--ink-3)">${i.metal === 'Silver' ? 'Silver' : i.purity} ${i.weightG}g · rate ${fmt(i.ratePerGram)}/g · MC ${fmt(i.makingCharge * i.qty)}</small></span><b>${fmt(i.unitPrice * i.qty)}</b></div>`).join('')}
   <div class="sum-row total"><span>Total (incl. GST)</span><b>${fmt(o.total)}</b></div>
-  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address.name || '')}, ${esc(o.address.line || '')}, ${esc(o.address.city || '')} — ${esc(o.address.pincode || '')}<br><b>Timeline:</b> ${o.timeline.map(t => t.s).join(' → ')}</div>`, 'lg');
+  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address.name || '')}, ${esc(o.address.line || '')}, ${esc(o.address.city || '')} — ${esc(o.address.pincode || '')}<br><b>Timeline:</b> ${o.timeline.map(t => esc(t.s)).join(' → ')}</div>`, 'lg');
 };
-window.Shivaa.logout = () => { setToken(null); state.user = null; toast('Logged out'); location.hash = '#/'; boot(true); };
+window.Shivaa.logout = () => {
+  // v80: revoke the bearer token server-side (best-effort), then clear locally
+  try { const t = token(); if (t) fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, keepalive: true }).catch(() => {}); } catch (e) {}
+  setToken(null); state.user = null; toast('Logged out'); location.hash = '#/'; boot(true);
+};
 
 function renderRateStrip() {
   const R = state.rates; if (!R || !$('#rateStrip')) return;
-  const cell = (name, val, unit, chg) => `<div class="rscell"><small>${name}</small><b>${val}</b><span class="chg ${chg >= 0 ? 'up' : 'down'}">${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg).toFixed(0)} ${unit}</span></div>`;
+  const cell = (key, name, val, unit, chg) => `<div class="rscell"><small>${name}</small><b data-rsh="${key}">${val}</b><span class="chg ${chg >= 0 ? 'up' : 'down'}">${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg).toFixed(0)} ${unit}</span></div>`;
   const h = R.history || [];
   const prev = h.length > 1 ? h[h.length - 2] : R;
+  const age = rateAgeLabel(R);
   $('#rateStrip').innerHTML =
-    cell('✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
-    cell('Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
-    cell('Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
-    `<div class="rscell"><small>Updated</small><b style="font-size:19px">${timeFmt(R.t)}</b><span><span class="live-dot"></span>${esc(R.source)} · every 10 min</span></div>`;
+    cell('gold22', '✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
+    cell('gold18', 'Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
+    cell('silver', 'Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
+    `<div class="rscell"><small>${R.live ? 'Live now' : 'Updated'}</small><b style="font-size:17px">${R.live ? '⦿ LIVE' : timeFmt(R.t)}</b><span class="${age.live ? 'rs-live' : ''}"${age.live ? ' data-rate-age' : ''}><span class="live-dot"></span>${age.txt}</span></div>`;
+  if (state._lastRsh) {
+    [['gold22', fmt(R.gold22)], ['gold18', fmt(R.gold18)], ['silver', fmt2(R.silver)]].forEach(([k, txt]) => {
+      const old = state._lastRsh[k];
+      if (old != null && old !== txt) flashMove($('#rateStrip').querySelector(`[data-rsh="${k}"]`), txt, parseFloat(txt.replace(/[^0-9.]/g, '')) > parseFloat(String(old).replace(/[^0-9.]/g, '')) ? 1 : -1);
+    });
+  }
+  state._lastRsh = { gold22: fmt(R.gold22), gold18: fmt(R.gold18), silver: fmt2(R.silver) };
 }
 
 /* ─────────── HOME ─────────── */
+/* ── v52 legal pages: terms · refund · shipping (honest, DPDP/E-comm-rules aligned) ── */
+const legalShell = (crumb, title, ital, intro, body) => `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / ${crumb}</div><h1>${title} <em class="disp-italic">${ital}</em></h1>
+  <p>${intro}</p></div></section>
+  <div class="container" style="padding:40px 0 60px;max-width:880px">${body}</div>`;
+const legalCard = (t, b) => `<div class="adm-card" style="margin-bottom:16px"><h3 style="margin-bottom:8px">${t}</h3><div style="font-size:14.5px;line-height:1.75;color:var(--ink-2)">${b}</div></div>`;
+
+pages.terms = async (view) => {
+  view.innerHTML = legalShell('Terms of Sale', 'Buying from Shivaa, ', 'plainly', 'The full agreement between you and Ernate Shine Jewellery Pvt. Ltd. — short, honest, and without traps.',
+    legalCard('1 · Who we are', 'Shivaa Jewellers is the retail brand of <b>Ernate Shine Jewellery Pvt. Ltd.</b>, operating from Jayal, Nagaur, Rajasthan (GST-registered). Support: +91 89050 05921 · Support@shivaa.in · all days 10:00–20:30 IST.') +
+    legalCard('2 · Prices & GST', 'Prices are computed live from weight × the day\u2019s Jaipur rate + a published making charge + stone value where applicable. <b>3% GST</b> is shown in the price table before you order, and every bill carries the full breakup. Prices shown before you place an order are the prices you pay.') +
+    legalCard('3 · Orders & acceptance', 'An order is accepted when we confirm it and begin work/dispatch. If a design is out of stock or a weight varies by more than ±5%, we contact you before proceeding — you may adjust, exchange or cancel with a full refund.') +
+    legalCard('4 · Purity promise', 'Every gold piece is <b>BIS hallmarked</b>; HUID is printed on your bill and verifiable in the BIS Care app. Silver is 925 stamped. If any certified assay ever proves a piece under-purity, we replace it or refund in full.') +
+    legalCard('5 · The Bhai Dooj Gold Finale contest', 'Run under published rules: three equal-odds entry routes (a 3 g+ gold purchase, a 100 g silver order, or the free quiz), one entry per person, purchases never multiply odds, CA-witnessed live draw on Bhai Dooj, 11 November 2026, prize 10 g certified 24K gold, TDS 31.2% where applicable, void in Tamil Nadu and West Bengal. Full rules live on the campaign page.') +
+    legalCard('6 · Disputes', 'We would rather talk than fight — message us first. Failing that, disputes are governed by Indian law with courts at Nagaur, Rajasthan having jurisdiction. Consumer rights under the Consumer Protection Act, 2019 are unaffected.'));
+  bindLegalWa(view);
+};
+
+pages.refund = async (view) => {
+  view.innerHTML = legalShell('Refund & Return Policy', 'Returns without ', 'drama', 'The exact same policy our team quotes on the phone — now in writing, as e-commerce rules require.',
+    legalCard('7-day easy returns', 'Unworn, unused pieces in original packaging with the bill and hallmark card can be returned within <b>7 days of delivery</b>. No questions, no restocking fee. We arrange pickup or reimburse your courier.') +
+    legalCard('Refund timing', 'Refunds are issued to the original payment method within <b>5–7 working days</b> of the piece reaching us and passing a quick check. UPI/card refunds can take a further 2–3 days on the bank\u2019s side.') +
+    legalCard('Lifetime exchange', 'Beyond 7 days, exchange any piece for life at the <b>live rate by weight and assay</b> — you pay only the difference plus making on the new design.') +
+    legalCard('What cannot be returned', 'Custom/engraved pieces made to your specification, and items visibly damaged by misuse. We will always tell you honestly if a piece falls here — never after you shipped it.') +
+    legalCard('Damaged or wrong delivery', 'If a piece arrives damaged or wrong, photograph it before opening the seal and message us within 48 hours — replacement is on us, both ways insured.'));
+  bindLegalWa(view);
+};
+
+pages.shipping = async (view) => {
+  view.innerHTML = legalShell('Shipping Policy', 'Insured to your ', 'doorstep', 'How your jewellery travels — and what protects it on the way.',
+    legalCard('Dispatch', 'In-stock pieces dispatch within <b>48 hours</b>. Made-to-order and engraved pieces take 5–8 working days; you get the timeline at checkout.') +
+    legalCard('Insurance & tracking', 'Every shipment is <b>fully insured and tamper-sealed</b> at our declared invoice value, anywhere in India. You receive a tracking number by WhatsApp/SMS the moment the courier picks up.') +
+    legalCard('Delivery times', 'Rajasthan: 1–3 days. Metro cities: 2–4 days. Rest of India: 3–6 days. Signature-on-delivery is mandatory — the seal is checked in front of the courier.') +
+    legalCard('Shipping charges', 'Shown transparently at checkout; free above the threshold published in store settings. No hidden fees, ever.') +
+    legalCard('If the seal is broken', 'Do not accept the parcel. Refuse delivery and message us immediately — the insurer and courier handle it, and your replacement/refund starts the same day.'));
+  bindLegalWa(view);
+};
+
+const bindLegalWa = (view) => {
+  const wa = document.createElement('div');
+  wa.style.cssText = 'text-align:center;padding:10px 0 0';
+  wa.innerHTML = '<button class="btn btn-gold btn-sm" id="legalWa">Question? Ask on WhatsApp</button>';
+  view.appendChild(wa);
+  const b = view.querySelector('#legalWa');
+  if (b && window.Shivaa.waOpen) b.onclick = () => window.Shivaa.waOpen('Namaste Shivaa \u2726\n\nI have a question about your policies: ');
+};
+
+/* ─────────── v55 pages: bridal bundle · gift cards · refer · video consult · dead-stock pickup ─────────── */
+const v55Shell = (crumb, title, ital, intro, bodyHtml) => `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / ${crumb}</div><h1>${title} <em class="disp-italic">${ital}</em></h1>
+  <p>${intro}</p></div></section>
+  <div class="container" style="padding:40px 0 60px;max-width:760px">${bodyHtml}</div>`;
+
+pages.bundle = async (view) => {
+  view.innerHTML = v55Shell('Bridal Bundle', 'Build her complete ', 'set', 'Pick the pieces of the full bridal look — our family prices the bundle with a special making-charge concession and holds everything together.',
+    `<div class="adm-card"><form id="bundleForm" class="form-grid" style="grid-template-columns:1fr 1fr">
+      ${[['Rani haar / necklace', 'necklace'], ['Jhumka / chandbali', 'earrings'], ['Bangles or kada', 'bangles'], ['Mangalsutra', 'mangalsutra'], ['Rings (bride + groom)', 'rings'], ['Nath / hathphool', 'extras']].map(x => `<label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="pick" value="${x[0]}" style="accent-color:var(--gold);width:17px;height:17px"> ${x[0]}</label>`).join('')}
+      <div class="fld full"><label>Approximate budget</label><input name="budget" placeholder="e.g. ₹2.5 lakh"></div>
+      <div class="fld full"><label>Wedding date (if fixed)</label><input name="date" type="date"></div>
+      <button class="btn btn-gold btn-block" style="grid-column:1/-1">Send to the Shivaa family on WhatsApp →</button>
+    </form><p style="font-size:12.5px;color:var(--ink-3);margin-top:10px">Bundles are quoted personally with the bundle concession on making charges — never on metal, which always stays at the live rate.</p></div>`);
+  $('#bundleForm', view).onsubmit = (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const picks = f.getAll('pick');
+    if (!picks.length) { toast('Pick at least one piece ✦', 'err'); return; }
+    waOpen('Namaste Shivaa ✦ — I want to build a bridal bundle:\n· ' + picks.join('\n· ') + (f.get('budget') ? '\nBudget: ' + f.get('budget') : '') + (f.get('date') ? '\nWedding date: ' + f.get('date') : ''));
+  };
+};
+
+pages.giftcard = async (view) => {
+  view.innerHTML = v55Shell('Gift Cards', 'Gift gold, ', 'digitally', 'A Shivaa gift card is redeemed like cash at checkout — online or at the Jayal counter. We issue it on WhatsApp within the hour after payment.',
+    `<div class="adm-card"><form id="gcForm" class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="fld"><label>Amount</label><select name="amt">${[5000, 11000, 21000, 51000].map(a => `<option value="${a}">₹${a.toLocaleString('en-IN')}</option>`).join('')}<option value="custom">Custom</option></select></div>
+      <div class="fld"><label>Custom amount ₹</label><input name="custom" type="number" min="1000" placeholder="only if Custom"></div>
+      <div class="fld"><label>For (name)</label><input name="for" placeholder="e.g. Priya, on her wedding"></div>
+      <div class="fld"><label>From (your name)</label><input name="from"></div>
+      <button class="btn btn-gold btn-block" style="grid-column:1/-1">Request on WhatsApp →</button>
+    </form><p style="font-size:12.5px;color:var(--ink-3);margin-top:10px">You pay by UPI on the WhatsApp chat; the card code arrives there — usable with coupon entry at checkout. Code BRIDALSET (10% off making charges on 2+ bridal pieces) is active right now.</p></div>`);
+  $('#gcForm', view).onsubmit = (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const amt = f.get('amt') === 'custom' ? ('₹' + (f.get('custom') || '?')) : '₹' + parseInt(f.get('amt'), 10).toLocaleString('en-IN');
+    waOpen('Namaste Shivaa ✦ — gift card request\nAmount: ' + amt + (f.get('for') ? '\nFor: ' + f.get('for') : '') + (f.get('from') ? '\nFrom: ' + f.get('from') : ''));
+  };
+};
+
+pages.refer = async (view) => {
+  const code = (state.user && state.user.referralCode) || null;
+  view.innerHTML = v55Shell('Refer & Earn', 'Share Shivaa, ', 'both win', 'Your friend signs up with your code; after their first order completes, we credit a thank-you coupon to you both — confirmed personally by the family.',
+    `<div class="adm-card" style="text-align:center">${code ? `
+      <p style="font-size:13px;color:var(--ink-3)">Your referral code</p>
+      <div style="font-family:var(--ff-disp);font-size:38px;letter-spacing:.14em;color:var(--maroon-deep);margin:6px 0">${esc(code)}</div>
+      <p style="font-size:13.5px">Share link: <b>shivaa.in/?ref=${esc(code)}</b></p>
+      <button class="btn btn-gold btn-sm" id="refWa" style="margin-top:12px">Share on WhatsApp ✦</button>` :
+      `<p>Sign in (or create your account) to get your personal referral code — it appears right here.</p>
+       <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="Shivaa.openLogin ? Shivaa.openLogin() : (location.hash='#/account')">Sign in</button>`}
+    </div>`);
+  const b = $('#refWa', view);
+  if (b) b.onclick = () => waOpen('Shivaa Jewellers — BIS hallmarked, live-rate pricing, insured delivery ✦ Use my code ' + code + ' when you sign up: shivaa.in/?ref=' + code);
+  if (code) {
+    api('/api/referrals/stats').then(d => {
+      if (!d) return;
+      const host = document.querySelector('.adm-card');
+      if (!host) return;
+      host.insertAdjacentHTML('beforeend', `<div class="ref-stats">
+        <div class="rs-cell"><b>${d.signedUp || 0}</b><small>friends joined</small></div>
+        <div class="rs-cell"><b>${d.completed || 0}</b><small>first orders done</small></div>
+        <div class="rs-cell"><b>${fmt(d.reward || 0)}</b><small>coupons earned</small></div>
+      </div><p style="font-size:12px;color:var(--ink-3);margin-top:8px">₹${d.perFriend || 250} coupon per completed friend — credited automatically.</p>`);
+    }).catch(() => {});
+  }
+};
+
+pages.videoconsult = async (view) => {
+  view.innerHTML = v55Shell('Video Consultation', 'See it live, ', 'from home', 'A family member walks you through real pieces on WhatsApp video — weights, hallmark, finish — from the Jayal counter. Pick a slot.',
+    `<div class="adm-card"><form id="vcForm" class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="fld"><label>Your name</label><input name="name" required></div>
+      <div class="fld"><label>Phone (WhatsApp)</label><input name="phone" required placeholder="10-digit"></div>
+      <div class="fld"><label>Preferred day</label><input name="day" type="date" required></div>
+      <div class="fld"><label>Preferred slot</label><select name="slot">${['10:00–12:00', '12:00–14:00', '16:00–18:00', '18:00–20:30'].map(x => `<option>${x}</option>`).join('')}</select></div>
+      <div class="fld full"><label>What would you like to see?</label><input name="details" placeholder="e.g. bridal rani haar + jhumka, budget ₹1.5L"></div>
+      <button class="btn btn-gold btn-block" style="grid-column:1/-1">Book the consultation →</button>
+    </form></div>`);
+  $('#vcForm', view).onsubmit = async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    try {
+      await api('/api/services', { method: 'POST', body: JSON.stringify({ type: 'video-consult', name: f.get('name'), phone: f.get('phone'), details: (f.get('day') + ' · ' + f.get('slot') + ' — ' + (f.get('details') || '')).slice(0, 200) }) });
+      toast('Booked ✦ we’ll confirm your slot on WhatsApp');
+    } catch (err) { toast(err.message || 'Could not book', 'err'); }
+  };
+};
+
+pages.pickup = async (view) => {
+  view.innerHTML = v55Shell('Dead-Stock Pickup', 'Old stock in, ', 'fine metal out', 'Book a pickup for dead stock — we assay at your counter or ours, and settle in fine gold grams at the live rate, minus nothing hidden.',
+    `<div class="adm-card"><form id="puForm" class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="fld"><label>Firm / name</label><input name="name" required></div>
+      <div class="fld"><label>Phone</label><input name="phone" required placeholder="10-digit"></div>
+      <div class="fld"><label>City</label><input name="city"></div>
+      <div class="fld"><label>Approx. weight</label><input name="wt" placeholder="e.g. 850 g 22K"></div>
+      <div class="fld full"><label>Notes</label><input name="details" placeholder="pickup date preference, item types…"></div>
+      <button class="btn btn-gold btn-block" style="grid-column:1/-1">Book the pickup →</button>
+    </form></div>`);
+  $('#puForm', view).onsubmit = async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    try {
+      await api('/api/services', { method: 'POST', body: JSON.stringify({ type: 'deadstock-pickup', name: f.get('name'), phone: f.get('phone'), details: ((f.get('city') ? f.get('city') + ' · ' : '') + (f.get('wt') || '') + ' · ' + (f.get('details') || '')).slice(0, 200) }) });
+      toast('Pickup booked ✦ the desk will call to confirm');
+    } catch (err) { toast(err.message || 'Could not book', 'err'); }
+  };
+};
+
 pages.home = async (view) => {
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
   const best = [...best0, ...state.productsCache.filter(p => !best0.includes(p))].slice(0, 12);
@@ -918,6 +1961,8 @@ pages.home = async (view) => {
     </div>
     <div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>
   </section>
+
+  ${finaleHomeBand()}
 
   <div class="catbar-outer">${catBarHTML()}</div>
 
@@ -1004,7 +2049,7 @@ pages.home = async (view) => {
         </div>
         <a class="btn btn-primary" href="#/product/${spot.id}">View the Piece</a>
       </div>
-      <a href="#/product/${spot.id}" class="cat-card rv" style="aspect-ratio:auto;height:360px"><img src="${spot.images[0]}" style="height:100%" alt="${esc(spot.name)}"><div class="glare"></div></a>
+      <a href="#/product/${spot.id}" class="cat-card rv" style="aspect-ratio:auto;height:360px"><img src="${safeUrl(spot.images && spot.images[0])}" style="height:100%" alt="${esc(spot.name)}"><div class="glare"></div></a>
     </div>
   </section>` : `
   <section class="sec container" style="padding-top:0">
@@ -1043,16 +2088,10 @@ pages.home = async (view) => {
 
     <div class="ugc-head rvl" style="margin-top:38px">
       <div>
-        <span class="label">Real customers &middot; real photos</span>
+        <span class="label" id="ugcLabel">The Shivaa standard</span>
         <h2 style="font-family:var(--ff-disp);font-size:clamp(25px,3.6vw,34px);color:var(--maroon-deep);margin-top:4px">Worn by <span class="disp-italic">you</span></h2>
       </div>
-      <div class="ugc-score">
-        <div class="big">4.9</div>
-        <div>
-          <div class="stars-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <small>767 verified reviews &middot; 96% five star</small>
-        </div>
-      </div>
+      <div class="ugc-score" id="ugcScore"></div>
     </div>
     <div class="ugc-wall" id="ugcWall"></div>
   </section>
@@ -1079,70 +2118,26 @@ pages.home = async (view) => {
       <img src="/images/logo.png" class="news-logo" alt="Shivaa">
       <h3>First look at new designs</h3>
       <p>Join the Shivaa circle — new collections, festive rate alerts and partner offers.</p>
-      <form class="nl-form" onsubmit="ShivaiNL(event)">
-        <input type="email" placeholder="Your email address" required>
+      <form class="nl-form" onsubmit="Shivaa.subscribeNewsletter(event)">
+        <input type="email" aria-label="Email address" placeholder="Your email address" required autocomplete="email">
         <button type="submit">Subscribe</button>
       </form>
     </div>
   </section>`;
   bindCountdown($('#wedCd'), Date.now() + 6 * 864e5 + 11 * 36e5);
+  const homeCd = $('#homeFinaleCd');
+  if (homeCd) bindFinaleCd(homeCd);
   initCarousel();
   renderRateStrip();
-  // animated reviews marquee
-  const revs = [
-    ['Meenakshi Rathore', 'Nagaur', 'The kundan ring matched its photos exactly — and the price table told me everything before I asked. That honesty is rare.', 5, 'MR', '/images/products/ring-kundan.jpg'],
-    ['Anita Devi', 'Nagaur', 'Bought my daughter\'s mangalsutra here. Making charges were explained openly and the bill matched the website rate to the rupee.', 5, 'AD', '/images/products/mangalsutra-trad.jpg'],
-    ['Priya Sonthalia', 'Jayal', 'The jhumkas are exactly as pictured. As a jeweller\'s daughter, I can say the tanch is genuinely honest.', 5, 'PS', '/images/products/earrings-jhumka.jpg'],
-    ['Krishna Jewellers', 'Partner · Jayal', 'The bullion desk keeps RTGS rates live and Shivaa updates cash rates instantly — our counter decisions got faster.', 5, 'KJ', '/images/banners/b2b-bullion.jpg'],
-    ['Sneha Kulkarni', 'Jaipur', 'OTP login, live rates on every page, WhatsApp ordering — this is how jewellery buying should feel.', 5, 'SK', '/images/products/ring-floral.jpg'],
-    ['Radhe Jewellers', 'Partner · Nagaur', 'Design selection to fine-metal settlement in minutes. Zero making charges means clean, trusted deals.', 5, 'RJ', '/images/products/necklace-rani.jpg'],
-    ['Kavita Jodha', 'Jodhpur', 'The rani haar is heavier and finer than expected. The festive box made it a gift before the gift.', 5, 'KJ', '/images/products/necklace-choker.jpg'],
-  ];
-  // ── photo review wall (real customers) ──
-  const UGC = [
-    ['Meenakshi Rathore','Nagaur','/images/reviews/cust-1.jpg','The jhumkas are exactly as pictured and the tanch is honest. The price table told me everything before I even asked.',5,'Chandbali Jhumkas','/images/products/earrings-jhumka.jpg'],
-    ['Anita Devi','Jayal','/images/reviews/cust-2.jpg','Bought my daughter&rsquo;s bridal set here. Making charges explained openly &mdash; the bill matched the website to the rupee.',5,'Bridal Rani Haar','/images/products/necklace-rani.jpg'],
-    ['Priya Sonthalia','Jayal','/images/reviews/cust-3.jpg','As a jeweller&rsquo;s daughter I check everything. The kundan work is genuinely fine and the weight is exact.',5,'Kundan Cocktail Ring','/images/products/ring-kundan.jpg'],
-    ['Kavita Jodha','Jodhpur','/images/reviews/cust-4.jpg','My mangalsutra arrived in a festive box that made it a gift before the gift. Insured delivery, zero worry.',5,'Traditional Mangalsutra','/images/products/mangalsutra-trad.jpg'],
-    ['Sneha Kulkarni','Jaipur','/images/reviews/cust-5.jpg','OTP login, live rates on every page, WhatsApp ordering. This is how buying jewellery online should feel.',5,'Layered Gold Chain','/images/products/chain-gold.jpg'],
-  ];
-  const wall = $('#ugcWall');
-  if (wall) {
-    wall.innerHTML = UGC.map(r => `<figure class="ugc-card" tabindex="0">
-      <div class="ugc-ph">
-        <img src="${r[2]}" alt="${esc(r[0])} wearing ${esc(r[5])}" loading="lazy" decoding="async">
-        <span class="ugc-badge"><i>&#10003;</i> Verified buyer</span>
-        <figcaption class="ugc-cap">
-          <div class="st">${'&#9733;'.repeat(r[4])}</div>
-          <b>${esc(r[0])}</b><small>${esc(r[1])}</small>
-        </figcaption>
-      </div>
-      <div class="ugc-body">
-        <p>&ldquo;${r[3]}&rdquo;</p>
-        <div class="ugc-prod"><img src="${r[6]}" alt="" loading="lazy"><span>Purchased<b>${esc(r[5])}</b></span></div>
-      </div>
-    </figure>`).join('');
-    const io = new IntersectionObserver((es, o) => es.forEach((e, i) => {
-      if (e.isIntersecting) { setTimeout(() => e.target.classList.add('seen'), i * 90); o.unobserve(e.target); }
-    }), { threshold: .12, rootMargin: '0px 0px -40px' });
-    $$('.ugc-card', wall).forEach(c => io.observe(c));
-  }
+  loadSocialProof(); // v50: real reviews or badged promises - never invented customers
+  renderTrending(); renderRecentViewed();   // v54 home strips
+
   // pillar draw-in
   const pio = new IntersectionObserver((es, o) => es.forEach(e => {
     if (e.isIntersecting) { e.target.classList.add('seen'); o.unobserve(e.target); }
   }), { threshold: .2 });
   $$('.pillar, .wp-card, .rvl').forEach(el => pio.observe(el));
 
-  const track = $('#revTrack');  if (track) {
-    const card = r => `<div class="rev-card">
-      <div class="rev-head"><span class="rev-av">${r[0].split(' ').map(w => w[0]).slice(0, 2).join('')}</span><div><b>${r[0]}</b><small>${r[1]}</small></div><span class="rev-ver">✓ Verified</span></div>
-      <div class="rev-stars">${'<i>★</i>'.repeat(r[3])}</div>
-      <p>“${r[2]}”</p>
-      <img class="rev-photo" src="${r[5]}" alt="" loading="lazy">
-      <span class="rev-qr">✦</span></div>`;
-    const half = revs.map(card).join('');
-    track.innerHTML = half + half; // seamless loop
-  }
   initHeroStage(); initCatbar();
   // stat count-up
   $$('.hstat b').forEach(el => {
@@ -1177,8 +2172,8 @@ pages.shop = async (view, q) => {
   </div></section>
   <div class="catbar-outer shop-catbar" style="background:var(--white);border-bottom:1px solid var(--line)">${catBarHTML()}</div>
   <div class="fsheet-overlay" id="fsheetOverlay"></div>
-  <aside class="filters" id="filterDrawer" aria-label="Filters">
-    <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" aria-label="Close filters">✕</button></div>
+  <aside class="filters" id="filterDrawer" aria-label="Filters" aria-hidden="true">
+    <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" type="button" aria-label="Close filters">✕</button></div>
       <div class="fgroup"><h4>Category</h4>
         ${Object.entries(CATS).map(([k, c]) => `<label class="fcheck"><input type="checkbox" data-f="cat" value="${k}" ${cat === k ? 'checked' : ''}>${c.name}</label>`).join('')}
       </div>
@@ -1195,12 +2190,16 @@ pages.shop = async (view, q) => {
         <input type="range" id="priceRange" min="10000" max="1500000" step="5000" value="${+q.get('max') || 1500000}" style="width:100%;accent-color:var(--gold)">
         <div class="fmeta"><span>₹10,000</span><span id="priceMaxLbl">${q.get('max') ? fmt(+q.get('max')) : 'Any'}</span></div>
       </div>
-      <button class="btn btn-ghost btn-sm btn-block" id="clearFilters" style="margin-top:14px">Clear all filters</button>
+      <div class="fsheet-acts">
+        <button type="button" class="btn btn-ghost btn-sm" id="clearFilters">Clear all</button>
+        <button type="button" class="btn btn-primary btn-sm" id="applyFilters">Show pieces</button>
+      </div>
     </aside>
   <div class="container shop-main">
       <div class="shop-bar">
         <div class="res" id="resCount"></div>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          ${savedRingSize() ? `<button type="button" class="size-match-chip" id="sizeMatchChip" aria-pressed="false">📏 rings in your size ${esc(savedRingSize())}</button>` : ''}
           <button class="btn btn-outline btn-sm f-toggle" id="filterToggle">⚙ Filters <span class="fbadge" id="fBadge" hidden></span></button>
           <select class="sortsel" id="sortSel">
             <option value="featured">Sort · Featured</option>
@@ -1230,7 +2229,16 @@ pages.shop = async (view, q) => {
     if (f.metals.length) list = list.filter(p => f.metals.includes(p.metal));
     if (f.purities.length) list = list.filter(p => f.purities.includes(p.purity));
     if (f.tags.length) list = list.filter(p => f.tags.some(t => (p.tags || []).includes(t)));
-    if (search) list = list.filter(p => (p.name + p.category + (p.desc || '')).toLowerCase().includes(search.toLowerCase()));
+    if (search) { /* v102 — same weighted ranking as the palette */
+      const hits = new Set(window.Shivaa.searchProducts(search, Infinity).map(p => p.id));
+      list = list.filter(p => hits.has(p.id));
+    }
+    /* v103 — one-tap "rings in your saved size" */
+    const sizeChip = $('#sizeMatchChip');
+    if (sizeChip && sizeChip.classList.contains('on')) {
+      const want = savedRingSize();
+      list = list.filter(p => p.category === 'rings' && (p.sizes || []).map(String).includes(String(want)));
+    }
     list = list.filter(p => price(p).total <= f.max);
     const sort = $('#sortSel').value;
     if (sort === 'price-asc') list.sort((a, b) => price(a).total - price(b).total);
@@ -1238,37 +2246,83 @@ pages.shop = async (view, q) => {
     if (sort === 'rating') list.sort((a, b) => b.rating - a.rating);
     if (sort === 'newest') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const wishSet = state.user ? await wishIds() : [];
-    $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
+    {
+      let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
+      if (!list.length && f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
+        emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 65 signature rings</a></div></div>`;
+      }
+      $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : emptyHtml;
+    }
     $('#resCount').innerHTML = `<b>${list.length}</b> pieces · prices update with the live rate`;
     bindTilt($('#shopGrid'));
   }
-  const closeSheet = () => { $('#filterDrawer')?.classList.remove('open'); $('#fsheetOverlay')?.classList.remove('open'); unlockScroll(); };
+  const drawer = $('#filterDrawer'), ovl = $('#fsheetOverlay');
+  const closeSheet = () => {
+    drawer?.classList.remove('open'); ovl?.classList.remove('open');
+    if (drawer) drawer.setAttribute('aria-hidden', 'true');
+    unlockScroll();
+    document.removeEventListener('keydown', onSheetKey, true);
+  };
+  const openSheet = () => {
+    drawer?.classList.add('open'); ovl?.classList.add('open');
+    if (drawer) drawer.setAttribute('aria-hidden', 'false');
+    lockScroll();
+    document.addEventListener('keydown', onSheetKey, true);
+  };
+  const onSheetKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeSheet(); } };
   const fBadge = $('#fBadge');
   const syncBadge = () => {
     const n = $$('input[data-f]:checked').length + ($('#priceRange').value < 1500000 ? 0 : 0);
     if (fBadge) { fBadge.hidden = !(n > 0); fBadge.textContent = n; }
   };
   if ($('#filterToggle')) {
-    $('#filterToggle').onclick = () => { $('#filterDrawer').classList.add('open'); $('#fsheetOverlay').classList.add('open'); lockScroll(); };
+    $('#filterToggle').onclick = openSheet;
     $('#fsheetClose').onclick = closeSheet;
-    $('#fsheetOverlay').onclick = closeSheet;
+    $('#applyFilters').onclick = () => { apply(); closeSheet(); };
+    ovl.onclick = closeSheet;
     syncBadge();
     $$('input[data-f]').forEach(i => i.addEventListener('change', syncBadge));
   }
-  $$('input[data-f]').forEach(i => i.onchange = () => { apply(); if (matchMedia('(max-width:768px)').matches) closeSheet(); });
+  /* v56: choosing a checkbox refines live but keeps the sheet open so people
+     can stack filters (the old auto-close made the sheet feel stuck). The
+     sheet closes only via ✕, the scrim, “Show pieces”, or ESC. */
+  $$('input[data-f]').forEach(i => i.onchange = () => { apply(); syncBadge(); });
   $('#priceRange').oninput = e => { $('#priceMaxLbl').textContent = e.target.value >= 1500000 ? 'Any' : fmt(+e.target.value); };
   $('#priceRange').onchange = apply;
   $('#sortSel').onchange = apply;
-  $('#clearFilters').onclick = () => { $$('input[data-f]').forEach(i => i.checked = false); $('#priceRange').value = 1500000; $('#priceMaxLbl').textContent = 'Any'; apply(); };
+  /* v103 — one-tap "rings in your size" personal filter */
+  const sizeChip = $('#sizeMatchChip');
+  if (sizeChip) sizeChip.onclick = () => {
+    sizeChip.classList.toggle('on');
+    sizeChip.setAttribute('aria-pressed', sizeChip.classList.contains('on') ? 'true' : 'false');
+    apply();
+    $('#shopGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  $('#clearFilters').onclick = () => { $$('input[data-f]').forEach(i => i.checked = false); $('#priceRange').value = 1500000; $('#priceMaxLbl').textContent = 'Any'; if (sizeChip) { sizeChip.classList.remove('on'); sizeChip.setAttribute('aria-pressed', 'false'); } apply(); syncBadge(); };
+  /* safety: never leave a dead drawer/scrim from a previous render */
+  closeSheet();
   initCatbar();
   await apply();
 };
 
 /* ─────────── PRODUCT ─────────── */
 pages.product = async (view, q, id) => {
+  /* v91 — luxury skeleton while the piece loads (replaces the blank flash) */
+  view.innerHTML = `<div class="container" style="padding-top:26px"><div class="pd-layout">
+    <div class="pd-gallery"><div class="skeleton" style="aspect-ratio:1/1;border-radius:20px"></div></div>
+    <div class="pd-info">
+      <div class="skeleton" style="height:13px;width:130px;margin-bottom:18px;border-radius:6px"></div>
+      <div class="skeleton" style="height:36px;width:82%;margin-bottom:14px;border-radius:8px"></div>
+      <div class="skeleton" style="height:15px;width:46%;margin-bottom:30px;border-radius:6px"></div>
+      <div class="skeleton" style="height:26px;width:42%;margin-bottom:24px;border-radius:8px"></div>
+      <div class="skeleton" style="height:54px;width:100%;margin-bottom:14px;border-radius:14px"></div>
+      <div class="skeleton" style="height:54px;width:100%;margin-bottom:34px;border-radius:14px"></div>
+      <div class="skeleton" style="height:50px;width:210px;border-radius:40px"></div>
+    </div></div></div>`;
   let data;
   try { data = await api('/api/products/' + id); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
   const p = data.product, pr = price(p), R = data.rates || state.rates;
+  injectProductLD(p, pr);   // v57: schema.org Product JSON-LD + per-piece OG share card
   const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
   const compared = isCompared(p.id);
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
@@ -1279,11 +2333,15 @@ pages.product = async (view, q, id) => {
       <div class="pd-gallery">
         <div class="gal-wrap" id="galWrap">
           <div class="gal-track" id="galTrack">
-            ${(p.video ? [`<div class="gal-slide gal-vid on"><video src="${esc(p.video)}" controls playsinline preload="metadata" poster="${p.images && p.images[0] ? p.images[0] : ''}"></video><span class="gal-vid-tag">▶ 360° film</span></div>`] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${im}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`)).join('')}
+            ${(p.video ? [videoCanAutoload()
+                ? `<div class="gal-slide gal-vid on"><video src="${safeUrl(p.video) || ''}" controls playsinline preload="metadata" poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}"></video><span class="gal-vid-tag">▶ 360° film</span></div>`
+                : `<div class="gal-slide gal-vid on"><button type="button" class="gal-vid-load" data-video="${safeUrl(p.video) || ''}" data-poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}" aria-label="Play the 360-degree film"><img src="${safeUrl(p.images && p.images[0]) || ''}" alt="" draggable="false"><span class="gal-vid-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="gal-vid-tag">▶ Tap to load 360° film · saves mobile data<small class="gal-vid-always" role="button" tabindex="0" onclick="event.stopPropagation();Shivaa.setVideoAutoload(true);this.closest('.gal-vid-load').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Always load films automatically</small></span></button></div>`
+              ] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${safeUrl(im) || ''}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`)).join('')}
           </div>
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
           <button class="gal-nav gal-next" aria-label="Next">›</button>
           <div class="gal-dots" id="galDots">${(p.video ? 1 : 0) + (p.images || []).length > 1 ? Array.from({length: (p.video ? 1 : 0) + (p.images || []).length}, (_, i) => `<span class="${i === 0 ? 'on' : ''}"></span>`).join('') : ''}</div>
+          <span class="gal-count" id="galCount" aria-hidden="true"></span>
           <a class="pd-stamp" href="#/hallmark?product=${encodeURIComponent(p.id)}">HUID check guide →</a>
           <span class="gal-hint">swipe / drag</span>
         </div>
@@ -1329,7 +2387,7 @@ pages.product = async (view, q, id) => {
         </div>
 
         ${p.sizes.length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide()" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide</a></div>
-        <div class="size-row" id="sizeRow">${p.sizes.map((s, i) => `<button class="size-pill ${i === Math.floor(p.sizes.length / 2) ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+        <div class="size-row" id="sizeRow">${p.sizes.map(s => `<button class="size-pill ${String(s) === String(localStorage.getItem('shv_ring_size') || '') ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" title="Find your ring size">📏 Size guide</a></div>` : ''}
 
         <div class="opt-label"><span>Engraving (free, up to 12 characters)</span></div>
         <div class="pin-row" style="max-width:340px"><input id="engrave" maxlength="12" placeholder="e.g. R♥S 26"></div>
@@ -1338,18 +2396,19 @@ pages.product = async (view, q, id) => {
         <div class="qty-row"><button onclick="Shivaa.pdQty(-1)">−</button><b id="pdQtyN">1</b><button onclick="Shivaa.pdQty(1)">+</button></div>
         <button class="btn btn-primary btn-lg btn-block miy-btn" onclick="Shivaa.pdBuy('${p.id}')">✦ Make It Yours!</button>
         <div class="pd-cta-row">
-          <button class="btn btn-outline" onclick="Shivaa.pdAdd('${p.id}')">🛍 Add to Cart</button>
+          <button class="btn btn-outline" onclick="Shivaa.pdAdd('${p.id}', event)">🛍 Add to Cart</button>
           <button class="btn btn-ghost wa-order" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat to Order</button>
           <button type="button" class="btn btn-outline pd-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">⚖ <span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span></button>
         </div>
-        <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'}">${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</div>
+        <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'};display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</span><a href="javascript:Shivaa.rateAlertModal(${jsArg(p.id)})" style="font-size:12px">🔔 Alert on price drop</a></div>
 
         ${window.ShivaaHallmark ? window.ShivaaHallmark.productPanel(p) : '<p class="hm-note">HUID information is temporarily unavailable. No BIS verification has been performed here.</p>'}
         <a class="trust-pdp-link" href="#/trust">Business details &amp; documents →</a>
+        ${p.mediaNote ? `<p style="font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.6">✦ ${esc(p.mediaNote)} The piece you receive is hand-finished by our karigars to this design; exact weight and purity are confirmed on your bill.</p>` : ''}
 
-        <div class="opt-label"><span>Check delivery</span></div>
-        <div class="pin-row" style="max-width:340px"><input id="pincode" maxlength="6" placeholder="Enter 6-digit pincode"><button class="btn btn-ghost btn-sm" onclick="Shivaa.checkPin()">Check</button></div>
-        <div class="pin-msg" id="pinMsg" hidden></div>
+        <div class="opt-label"><span>Check delivery &amp; COD</span></div>
+        <form class="pin-row" data-delivery style="max-width:380px"><input data-pin id="pincode" inputmode="numeric" autocomplete="postal-code" enterkeyhint="go" maxlength="6" placeholder="Enter 6-digit pincode" value="${(() => { try { return localStorage.getItem('shv_pin') || ''; } catch (e) { return ''; } })()}"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
+        <div class="pin-msg" data-pin-msg hidden></div>
 
         <div class="pd-perks">
           ${[['<a href="#/hallmark">HUID check guide</a>', '<path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3z"/>'],
@@ -1366,10 +2425,14 @@ pages.product = async (view, q, id) => {
         <details class="acc"><summary>Making Charges & Exchange</summary><div class="acc-body">Making charges for this design are shown in the price table above — nothing hidden, nothing category-averaged. Lifetime exchange at the day's live rate with making charges waived on exchanges within 6 months; 90% buy-back of metal value thereafter.</div></details>
         <details class="acc"><summary>Shipping & Returns</summary><div class="acc-body">Free insured shipping above ${fmt(state.settings.freeShipAbove)}; tamper-sealed packaging with signature & OTP delivery. 7-day no-question returns (uncustomised pieces). Engraved pieces are exchangeable, not returnable.</div></details>
         <details class="acc"><summary>Reviews (${data.reviews.length})</summary><div class="acc-body">
-          ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p></div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
-          <form class="review-form" onsubmit="Shivaa.postReview(event,'${p.id}')">
+          ${data.reviews.map((r, i) => `<div class="rv-item rv-in" style="animation-delay:${Math.min(i * 120, 800)}ms"><span class="stars stars-pop">${'<i>★</i>'.repeat(r.rating)}</span><b>${esc(r.userName)} ${r.verified ? '<span class="verified-badge" title="Bought on shivaa.in">✓ verified purchase</span>' : ''}</b><small>${dateFmt(r.createdAt)}</small><p>${esc(r.text)}</p>
+            ${(r.photos || []).length ? `<div class="rv-photos">${r.photos.map(src => `<a href="${safeUrl(src)}" target="_blank" rel="noopener"><img src="${safeUrl(src)}" alt="review photo" loading="lazy"></a>`).join('')}</div>` : ''}
+            ${r.reply ? `<div class="rv-reply"><b>Shivaa replies:</b> ${esc(r.reply)}</div>` : ''}
+          </div>`).join('') || '<p style="color:var(--ink-3)">Be the first to review this piece.</p>'}
+          <form class="review-form" id="revForm" onsubmit="Shivaa.postReview(event,${jsArg(p.id)})">
             <div class="rate-pick" id="ratePick">${[1,2,3,4,5].map(i => `<span data-r="${i}" onclick="Shivaa.pickRate(${i})">★</span>`).join('')}</div>
-            <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece…" required></textarea></div>
+            <div class="fld"><textarea id="revText" placeholder="Tell everyone about the piece — fit, finish, how it feels…" required></textarea></div>
+            <label class="rv-upload">📷 Add up to 3 photos (optional)<input type="file" id="revPhotos" accept="image/*" multiple capture="environment"></label>
             <button class="btn btn-outline btn-sm" style="justify-self:start">Submit review</button>
           </form>
         </div></details>
@@ -1382,19 +2445,34 @@ pages.product = async (view, q, id) => {
   </div>
   <div class="pd-stickybar">
     <div class="ps-name">${esc(p.name)}<small class="js-price" data-pid="${p.id}" data-qty="1" data-suffix=" · live">${fmt(pr.total)} · live</small></div>
-    <button class="btn btn-primary" onclick="Shivaa.pdAdd('${p.id}')">Add to Cart</button>
+    <button class="btn btn-primary" onclick="Shivaa.pdAdd('${p.id}', event)">Add to Cart</button>
     <button class="ps-wa" onclick="Shivaa.waProduct('${p.id}')" aria-label="Order on WhatsApp">Chat to order</button>
   </div>`;
   (() => {
     const wrap = $('#galWrap'), track = $('#galTrack'); if (!wrap || !track) return;
     const n = $$('.gal-slide', track).length;   // v36: counts video slide too
+    /* v103 — data-saver: films stay poster frames on cellular / save-data
+       until tapped; Wi-Fi & 4G/5g autoload only the lightweight metadata. */
+    wrap.addEventListener('click', e => {
+      const b = e.target.closest && e.target.closest('.gal-vid-load');
+      if (!b) return;
+      const src = b.dataset.video, poster = b.dataset.poster || '';
+      b.replaceWith(Object.assign(document.createElement('video'), {
+        src, controls: true, playsInline: true, preload: 'auto', poster,
+      }));
+      const v = track.querySelector('video');
+      if (v && v.play) { try { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} }
+    });
     let idx = 0, sx = null, dx = 0;
+    const gc = $('#galCount');   // v104 — phone photo counter pill
     const go = i => {
       idx = (i + n) % n;
       track.style.transform = `translateX(-${idx * 100}%)`;
       $$('.gal-slide', track).forEach((s, i2) => s.classList.toggle('on', i2 === idx));
       $$('#galDots span').forEach((d, i2) => d.classList.toggle('on', i2 === idx));
+      if (gc) gc.textContent = `${idx + 1} / ${n}`;
     };
+    if (gc) gc.textContent = `1 / ${n}`;
     $('.gal-next', wrap).onclick = () => go(idx + 1);
     $('.gal-prev', wrap).onclick = () => go(idx - 1);
     $$('#galDots span').forEach((d, i2) => d.onclick = () => go(i2));
@@ -1410,31 +2488,374 @@ pages.product = async (view, q, id) => {
     wrap.addEventListener('pointerdown', () => clearInterval(timer), { once: true });
   })();
   $('#brkBtn').onclick = () => { const b = $('#pdBrk'); b.hidden = !b.hidden; $('#brkBtn').setAttribute('aria-expanded', String(!b.hidden)); };
-  $$('#sizeRow .size-pill').forEach(s => s.onclick = () => { $$('#sizeRow .size-pill').forEach(x => x.classList.remove('on')); s.classList.add('on'); });
+  $$('#sizeRow .size-pill').forEach(s => s.onclick = () => { $$('#sizeRow .size-pill').forEach(x => x.classList.remove('on')); s.classList.add('on'); try { localStorage.setItem('shv_ring_size', s.dataset.size); } catch (e) {} });
+  window.Shivaa.bindDelivery(view);   // v103 — auto-runs when a pin is remembered
   bindTilt(view);
   window._pd = { p, qty: 1 };
+  /* v54: remember this piece + mobile sticky buy bar + tap-to-zoom gallery */
+  window.Shivaa.recentAdd(p, pr);   // v103 — snapshot price + rate for the home trend hint
+  let bb = $('#pdpBuybar');
+  if (!bb) { bb = document.createElement('div'); bb.id = 'pdpBuybar'; document.body.appendChild(bb); }
+  bb.innerHTML = `<span class="bb-price">${'₹' + Math.round((p.price && p.price.total) || 0).toLocaleString('en-IN')}</span>
+    <button class="btn btn-outline btn-sm" id="bbAdd">🛍 Add</button>
+    <button class="btn btn-primary btn-sm" id="bbBuy">Buy Now</button>`;
+  $('#bbAdd', bb).onclick = (e) => window.Shivaa.pdAdd(p.id, e);
+  $('#bbBuy', bb).onclick = () => window.Shivaa.pdBuy(p.id);
+  /* v55: EMI calculator under the price breakdown trigger */
+  const _P = (p.price && p.price.total) || 0;
+  if (_P > 0 && !$('#emiBox', view)) {
+    const emi = document.createElement('details'); emi.id = 'emiBox'; emi.className = 'emi-box';
+    emi.innerHTML = '<summary>💳 EMI options</summary><div class="emi-in">' +
+      '<div class="sum-row"><span>3 months · no-cost</span><b>₹' + Math.round(_P / 3).toLocaleString('en-IN') + '/mo</b></div>' +
+      '<div class="sum-row"><span>6 months · standard</span><b>₹' + Math.round(_P * 1.045 / 6).toLocaleString('en-IN') + '/mo</b></div>' +
+      '<small>Cards & UPI autopay · the exact figure prints on your bill</small></div>';
+    const brk = $('#brkBtn', view); if (brk) brk.insertAdjacentElement('beforebegin', emi);
+  }
+  $$('.gal-slide img', view).forEach(im => {
+    im.style.cursor = 'zoom-in';
+    im.addEventListener('click', () => { im.classList.toggle('zoomed'); im.style.cursor = im.classList.contains('zoomed') ? 'zoom-out' : 'zoom-in'; });
+  });
   window._lastOrder = null;
 };
 window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd.qty + d)); $('#pdQtyN').textContent = window._pd.qty; };
-window.Shivaa.pdAdd = id => {
+
+/* ─────────── v54 GLOBAL UX: scroll progress · back-to-top · buy-bar routing ─────────── */
+(function () {
+  // v80: index.html already ships #scrollProg — reuse it instead of creating
+  // a duplicate-id second bar (the old width-vs-transform fight caused extra
+  // layout work on every scroll frame)
+  let bar = document.getElementById('scrollProg');
+  if (!bar) { bar = document.createElement('div'); bar.id = 'scrollProg'; bar.setAttribute('aria-hidden', 'true'); document.body.appendChild(bar); }
+  const top = document.createElement('button'); top.id = 'backTop'; top.type = 'button';
+  top.setAttribute('aria-label', 'Back to top'); top.innerHTML = '↑';
+  document.body.appendChild(bar); document.body.appendChild(top);
+  const onScroll = () => {
+    const h = document.documentElement;
+    const p = h.scrollTop / Math.max(1, h.scrollHeight - h.clientHeight);
+    bar.style.transform = 'scaleX(' + Math.min(1, Math.max(0, p)) + ')';
+    top.classList.toggle('show', h.scrollTop > 640);
+  };
+  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  top.onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
+  const bbRoute = () => document.body.classList.toggle('pdp-on', (location.hash || '').startsWith('#/product/'));
+  addEventListener('hashchange', bbRoute); bbRoute();
+
+  /* v56: the floating 22K-rate pill that sat on every page was removed on
+     request (it followed the shopper everywhere). Live rates still live on
+     #/rates and in the top utility strip. */
+
+  /* v55: referral capture — shivaa.in/?ref=SH12AB3 */
+  try {
+    const rp = new URLSearchParams(location.search).get('ref');
+    if (/^SH[A-Z0-9]{5}$/i.test(rp || '')) localStorage.setItem('sh_ref', rp.toUpperCase());
+  } catch (e) {}
+
+  /* v55: funnel events (view / cart / checkout) */
+  const sendEv = (ev, pp) => { try { fetch('/api/ev', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ev, p: pp || '' }), keepalive: true }); } catch (e) {} };
+  addEventListener('hashchange', () => {
+    const h = location.hash || '';
+    if (h.startsWith('#/product/')) sendEv('view', h.slice(2, 62));
+    else if (h.startsWith('#/cart')) { sendEv('cart'); try { localStorage.removeItem('sh_abandoned'); } catch (e) {} }
+    else if (h.startsWith('#/checkout')) sendEv('checkout');
+  });
+
+  /* v55: abandoned-cart capture (once per 6h, only outside checkout) */
+  addEventListener('pagehide', () => {
+    try {
+      const cart = (window.Shivaa && state.cart) || [];
+      if (!cart.length || (location.hash || '').startsWith('#/checkout')) return;
+      const last = parseInt(localStorage.getItem('sh_abSent') || '0', 10);
+      if (Date.now() - last < 6 * 3600e3) return;
+      localStorage.setItem('sh_abSent', String(Date.now()));
+      localStorage.setItem('sh_abandoned', '1');
+      const items = cart.map(c => { const pr = state.productsCache.find(x => x.id === c.id); return { n: (pr && pr.name) || 'A Shivaa piece', q: c.qty || 1 }; });
+      const total = cart.reduce((a, c) => { const pr = state.productsCache.find(x => x.id === c.id); return a + (pr && typeof price === 'function' ? price(pr) * (c.qty || 1) : 0); }, 0);
+      fetch('/api/carts/abandon', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true, body: JSON.stringify({ items, total, phone: (state.user && state.user.phone) || '' }) });
+    } catch (e) {}
+  });
+
+  /* v55 / v101: welcome-back bar when a saved cart is waiting — mobile-first
+     compact card with piece count + value and a full-width Resume button */
+  setTimeout(() => {
+    try {
+      if (sessionStorage.getItem('sh_backbar_off')) return;
+      if (localStorage.getItem('sh_abandoned') && state.cart.length && !document.getElementById('backBar')) {
+        const pieces = state.cart.reduce((a, i) => a + (i.qty || 1), 0);
+        const value = state.cart.reduce((a, c) => {
+          const pr = state.productsCache.find(x => x.id === c.id);
+          return a + (pr && typeof price === 'function' ? price(pr).total * (c.qty || 1) : 0);
+        }, 0);
+        const bar = document.createElement('div'); bar.id = 'backBar';
+        bar.setAttribute('role', 'dialog'); bar.setAttribute('aria-label', 'Saved cart');
+        bar.innerHTML =
+          '<div class="bb-ic">✦</div>'
+          + '<div class="bb-tx"><b>Your cart is waiting</b>'
+          + '<small>' + pieces + ' piece' + (pieces === 1 ? '' : 's') + (value ? ' · ' + fmt(value) : '') + ' · ready to check out</small></div>'
+          + '<button class="bb-x" id="backBarX" aria-label="Dismiss">✕</button>'
+          + '<a class="btn btn-primary btn-block bb-go" href="#/cart">Resume order →</a>';
+        document.body.appendChild(bar);
+        const dismissBar = () => {
+          if (bar.classList.contains('bb-out')) return;
+          bar.classList.add('bb-out');
+          try { navigator.vibrate?.(8); } catch (e) {}
+          setTimeout(() => bar.remove(), 260);
+          try { sessionStorage.setItem('sh_backbar_off', '1'); } catch (e) {}
+        };
+        document.getElementById('backBarX').onclick = dismissBar;
+        // v102 — swipe the card right (or far left) to dismiss it
+        let bx = null, bdx = 0, bdy = 0, dragging = false;
+        bar.addEventListener('touchstart', e => {
+          bx = e.touches[0].clientX; bdy = e.touches[0].clientY; bdx = 0; dragging = false;
+          bar.style.transition = 'none';
+        }, { passive: true });
+        bar.addEventListener('touchmove', e => {
+          if (bx == null) return;
+          bdx = e.touches[0].clientX - bx;
+          const dy = e.touches[0].clientY - bdy;
+          if (Math.abs(bdx) > 10 && Math.abs(bdx) > Math.abs(dy)) dragging = true;
+          if (dragging) {
+            const follow = Math.sign(bdx) * Math.min(Math.abs(bdx), 220);
+            bar.style.transform = 'translateX(' + follow + 'px)';
+          }
+        }, { passive: true });
+        bar.addEventListener('touchend', () => {
+          bar.style.transition = '';
+          if (dragging && (bdx > 88 || bdx < -150)) { dismissBar(); }
+          else bar.style.transform = '';
+          bx = null; dragging = false;
+        }, { passive: true });
+        // remove the card once the customer actually resumes
+        bar.querySelector('.bb-go').addEventListener('click', () => {
+          bar.classList.add('bb-out'); setTimeout(() => bar.remove(), 260);
+        });
+      }
+    } catch (e) {}
+  }, 2200);
+
+  /* v55: ready-to-ship badges in the shop grid */
+  addEventListener('hashchange', () => {
+    if (!(location.hash || '').startsWith('#/shop')) return;
+    setTimeout(() => $$('.p-card').forEach(card => {
+      const pr = state.productsCache.find(x => x.id === card.dataset.pid);
+      if (pr && (pr.stock | 0) >= 10 && !card.querySelector('.ready-badge'))
+        card.insertAdjacentHTML('afterbegin', '<span class="ready-badge">✦ Ready · ships 48h</span>');
+    }), 420);
+  });
+})();
+
+/* v54: recently viewed rings (local, private, never uploaded).
+   v103 — also remembers the price + rate at view time so the home strip
+   can honestly show how the piece has moved with the bullion rate. */
+window.Shivaa.recentAdd = (p, pr) => {
+  try {
+    const l = JSON.parse(localStorage.getItem('sh_recent') || '[]').filter(x => x && x.id !== p.id);
+    pr = pr || price(p);
+    l.unshift({ id: p.id, name: p.name, img: (p.images || [])[0] || '/images/logo.png',
+                price: (p.price && p.price.total) || p.price || 0, category: p.category,
+                at: Date.now(), thenTotal: pr && pr.total, thenRate: pr && pr.ratePerGram,
+                weightG: p.weightG, metal: p.metal, purity: p.purity });
+    localStorage.setItem('sh_recent', JSON.stringify(l.slice(0, 8)));
+  } catch (e) {}
+};
+/* v103 — build the recent strip's rate-trend hint for one remembered piece */
+function recentHint(x) {
+  if (!x || !x.at || !x.thenTotal) return '';
+  const days = Math.round((Date.now() - x.at) / 86400000);
+  const when = days <= 0 ? 'viewed today' : days === 1 ? 'viewed yesterday' : `viewed ${days} day${days > 1 ? 's' : ''} ago`;
+  const live = (state.productsCache || []).find(c => c.id === x.id);
+  if (!live || !state.rates) return `<span class="tv-when">${when}</span>`;
+  const d = price(live).total - x.thenTotal;
+  if (Math.abs(d) < 50) return `<span class="tv-when">${when} · steady with the rate</span>`;
+  const word = d < 0
+    ? `<span class="tv-hint down">↓ ₹${Math.abs(d).toLocaleString('en-IN')} cheaper since you looked</span>`
+    : `<span class="tv-hint up">↑ ₹${Math.abs(d).toLocaleString('en-IN')} more with the gold rate</span>`;
+  return `${word}<span class="tv-when">${when}</span>`;
+}
+function recentCard(x) {
+  const live = (state.productsCache || []).find(c => c.id === x.id);
+  const nowPrice = live ? price(live).total : (x.price || 0);
+  return `<a class="tv-card" href="#/product/${esc(x.id)}">
+  <div class="tv-ph"><img src="${safeUrl(x.img) || '/images/logo.png'}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png'"></div>
+  <div class="tv-b"><b>${esc(x.name)}</b><small>${esc(x.category || '')}${x.rating ? ' · ★' + x.rating : ''}</small><span>${'₹' + Math.round(nowPrice).toLocaleString('en-IN')}</span>${recentHint(x)}</div></a>`;
+}
+window.Shivaa.pdAdd = (id, ev) => {
   const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
-  addToCart(id, window._pd.qty, size, $('#engrave')?.value || null);
+  addToCart(id, window._pd.qty, size, $('#engrave')?.value || null, ev ? { fromEl: ev.currentTarget } : {});
 };
-window.Shivaa.pdBuy = async id => { window.Shivaa.pdAdd(id); location.hash = '#/checkout'; };
+window.Shivaa.pdBuy = async id => {
+  const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
+  addToCart(id, window._pd.qty, size, $('#engrave')?.value || null, { silent: true });
+  location.hash = '#/checkout';
+};
+/* v103 — data-saver for the 65 product films (142 MB of media). Films
+   autoload only on fast/uncapped connections; on 2G/3G/save-data they stay
+   as poster frames and load on tap. The visitor can force either mode. */
+function videoCanAutoload() {
+  try {
+    const forced = localStorage.getItem('shv_autovideo');
+    if (forced === '0') return false;
+    if (forced === '1') return true;
+    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (c && (c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || ''))) return false;
+  } catch (e) {}
+  return true;
+}
+window.Shivaa.setVideoAutoload = on => {
+  try { localStorage.setItem('shv_autovideo', on ? '1' : '0'); } catch (e) {}
+  toast(on ? 'Films will now play automatically when you open a piece' : 'Films will wait for a tap — mobile data saved');
+};
+
+/* v59 / v103 — honest delivery promise by pincode + COD eligibility.
+   v103: one source of truth for PDP, cart and checkout; region label,
+   state autofill and an estimated handover date, fully client-side so it
+   works even when the connection drops. */
+function pinRegion(pin) {
+  const d2 = pin.slice(0, 2), d3 = pin.slice(0, 3);
+  if (pin === '341023') return 'Jayal · Nagaur (our home town)';
+  if (['30', '31', '32', '33', '34'].includes(d2)) return 'Rajasthan';
+  if (['36', '37', '38', '39'].includes(d2)) return 'Gujarat';
+  if (['11'].includes(d2)) return 'Delhi NCR';
+  if (['12', '13', '14', '15', '16', '17', '20', '21', '22', '23', '25', '26', '27', '28'].includes(d2)) return 'North India';
+  if (['40', '41', '42', '43', '44'].includes(d2)) return 'Maharashtra & Goa';
+  if (['45', '46', '47', '48'].includes(d2)) return 'Madhya Pradesh';
+  if (['49'].includes(d2)) return 'Chhattisgarh';
+  if (['50', '51', '52', '53'].includes(d2)) return 'Telangana & Andhra Pradesh';
+  if (['56', '57', '58', '59'].includes(d2)) return 'Karnataka';
+  if (['60', '61', '62', '63', '64', '65', '66'].includes(d2)) return 'Tamil Nadu & Puducherry';
+  if (['67', '68', '69'].includes(d2)) return 'Kerala & Lakshadweep';
+  if (['70', '71', '72', '73', '74'].includes(d2)) return 'West Bengal, Sikkim & Andamans';
+  if (['75', '76', '77'].includes(d2)) return 'Odisha';
+  if (['80', '81', '82', '83', '84', '85'].includes(d2)) return 'Bihar & Jharkhand';
+  if (d2 === '78' || d2 === '79') return 'North-East India';
+  if (['18', '19'].includes(d2)) return 'Jammu, Kashmir & Ladakh';
+  void d3;
+  return 'India';
+}
+/* Conservative pincode → state autofill. Returns '' when a prefix straddles
+   state lines; the customer then types it (we never guess into an address). */
+function pinState(pin) {
+  const d2 = pin.slice(0, 2), d3 = pin.slice(0, 3);
+  const table = {
+    '11': 'Delhi', '12': 'Haryana', '13': 'Haryana', '14': 'Punjab', '15': 'Punjab',
+    '16': 'Chandigarh', '17': 'Himachal Pradesh', '18': 'Jammu & Kashmir',
+    '20': 'Uttar Pradesh', '21': 'Uttar Pradesh', '22': 'Uttar Pradesh', '23': 'Uttar Pradesh',
+    '25': 'Uttar Pradesh', '26': 'Uttar Pradesh', '27': 'Uttar Pradesh', '28': 'Uttar Pradesh',
+    '30': 'Rajasthan', '31': 'Rajasthan', '32': 'Rajasthan', '33': 'Rajasthan', '34': 'Rajasthan',
+    '36': 'Gujarat', '37': 'Gujarat', '38': 'Gujarat', '39': 'Gujarat',
+    '40': 'Maharashtra', '41': 'Maharashtra', '42': 'Maharashtra', '43': 'Maharashtra', '44': 'Maharashtra',
+    '45': 'Madhya Pradesh', '46': 'Madhya Pradesh', '47': 'Madhya Pradesh', '48': 'Madhya Pradesh',
+    '49': 'Chhattisgarh',
+    '50': 'Telangana', '51': 'Andhra Pradesh', '52': 'Andhra Pradesh', '53': 'Andhra Pradesh',
+    '56': 'Karnataka', '57': 'Karnataka', '58': 'Karnataka', '59': 'Karnataka',
+    '60': 'Tamil Nadu', '61': 'Tamil Nadu', '62': 'Tamil Nadu', '63': 'Tamil Nadu',
+    '64': 'Tamil Nadu', '65': 'Tamil Nadu', '66': 'Puducherry',
+    '67': 'Kerala', '68': 'Kerala', '69': 'Kerala',
+    '70': 'West Bengal', '71': 'West Bengal', '72': 'West Bengal',
+    '75': 'Odisha', '76': 'Odisha', '77': 'Odisha',
+    '78': 'Assam',
+    '80': 'Bihar', '81': 'Bihar', '84': 'Bihar', '85': 'Bihar',
+    '82': 'Jharkhand', '83': 'Jharkhand',
+  };
+  if (d3 === '244' || d3 === '246' || d3 === '247' || d3 === '248' || d3 === '249') return 'Uttarakhand';
+  if (d2 === '24') return 'Uttar Pradesh';
+  if (d3 === '737') return 'Sikkim';
+  if (d2 === '73') return 'West Bengal';
+  if (d3 === '744') return 'Andaman & Nicobar Islands';
+  if (d2 === '74') return 'West Bengal';
+  if (d3 === '790') return 'Arunachal Pradesh';
+  if (d3 === '795') return 'Manipur';
+  if (d3 === '796') return 'Mizoram';
+  if (d3 === '797') return 'Nagaland';
+  if (d3 === '793' || d3 === '794') return 'Meghalaya';
+  if (d3 === '799') return 'Tripura';
+  if (d3 === '791' || d3 === '792') return 'Arunachal Pradesh';
+  if (d2 === '79') return 'Assam';
+  if (d3 === '194') return 'Ladakh';
+  if (d2 === '19') return 'Jammu & Kashmir';
+  return table[d2] || '';
+}
+function pinPromise(pin) {
+  const d2 = pin.slice(0, 2);
+  const block = String((state.settings || {}).codBlockedPins || '').split(/[\s,]+/).filter(Boolean);
+  const noCODPrefix = ['19', '73', '74', '78', '79'];   // Ladakh, Andamans, NE — insured prepaid only
+  const remote = noCODPrefix.includes(d2) || block.includes(pin);
+  let days;
+  if (pin === '341023') days = [1, 1];
+  else if (['30', '31', '32', '33', '34'].includes(d2)) days = [2, 3];            // Rajasthan
+  else if (['11', '12', '13', '14', '15', '16', '20', '21', '22', '23', '24', '25', '26', '27', '28', '36', '37', '38', '39'].includes(d2)) days = [3, 4]; // NCR / Gujarat / UP / north
+  else if (['40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '56', '57', '70', '71'].includes(d2)) days = [3, 5];        // metros / west / Bengaluru
+  else if (noCODPrefix.includes(d2)) days = [7, 10];
+  else days = [4, 7];
+  const fmtDate = n => new Date(Date.now() + n * 864e5).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  return {
+    cod: !remote,
+    lo: days[0], hi: days[1],
+    by: days[0] === days[1] ? fmtDate(days[0]) : fmtDate(days[0]) + ' – ' + fmtDate(days[1]),
+    region: pinRegion(pin),
+    state: pinState(pin),
+    home: pin === '341023',
+  };
+}
+/* Shared delivery result renderer for PDP + cart widgets. */
+function deliveryHTML(pin) {
+  if (!/^\d{6}$/.test(pin)) return { ok: false, html: 'Please enter a valid 6-digit pincode' };
+  const pr = pinPromise(pin);
+  return {
+    ok: true, pr,
+    html: (pr.home ? '✓ <b>Jayal — home turf!</b> ' : '✓ Delivers to <b>' + pin + '</b> · ' + esc(pr.region) + ' ')
+      + '· insured handover <b>' + pr.by + '</b><br>'
+      + (pr.cod ? '💵 Cash on Delivery available' : '🔒 This pincode is prepaid-only (insured courier)')
+      + ' · free shipping over ' + fmt((state.settings || {}).freeShipAbove || 50000),
+  };
+}
+/* v103 — bind every [data-delivery] widget (PDP + cart share this). */
+window.Shivaa.bindDelivery = root => {
+  $$('[data-delivery]', root || document).forEach(form => {
+    if (form._bound) return; form._bound = true;
+    const inp = form.querySelector('input[data-pin]');
+    // the message sits beside (not inside) the form on PDP + cart
+    const msg = form.querySelector('[data-pin-msg]') || form.parentElement?.querySelector('[data-pin-msg]');
+    const run = () => {
+      if (!msg) return;
+      const v = inp.value.trim();
+      const r = deliveryHTML(v);
+      msg.hidden = false;
+      msg.className = 'pin-msg ' + (r.ok ? 'ok' : 'bad');
+      msg.innerHTML = r.html;
+      if (r.ok) {
+        try { localStorage.setItem('shv_pin', v); } catch (e) {}
+        form.dispatchEvent(new CustomEvent('pinchecked', { bubbles: true, detail: { pin: v, ...r.pr } }));
+      }
+    };
+    form.addEventListener('submit', e => { e.preventDefault(); inp.value = inp.value.replace(/\D/g, '').slice(0, 6); run(); });
+    inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 6); });
+    let saved = '';
+    try { saved = localStorage.getItem('shv_pin') || ''; } catch (e) {}
+    // auto-answer on both surfaces: the PDP input is pre-rendered with the
+    // remembered pin, the cart input starts empty
+    if (saved && /^\d{6}$/.test(saved)) { if (!inp.value) inp.value = saved; setTimeout(run, 0); }
+  });
+};
 window.Shivaa.checkPin = () => {
-  const v = $('#pincode').value.trim(); const m = $('#pinMsg');
-  if (!/^\d{6}$/.test(v)) { m.hidden = false; m.style.color = 'var(--bad)'; m.textContent = 'Please enter a valid 6-digit pincode'; return; }
-  m.hidden = false; m.style.color = 'var(--ok)';
-  if (v === '341023') m.textContent = '✓ Jayal (home turf!) — delivery in 24 hours, free';
-  else if (v.startsWith('34')) m.textContent = '✓ Rajasthan — insured delivery in 2–3 days';
-  else m.textContent = '✓ Rest of India — insured delivery in 4–7 days';
+  const form = $('#pincode')?.closest('[data-delivery]');
+  if (form) form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 };
+window.Shivaa.pinPromise = pinPromise;
+window.Shivaa.pinState = pinState;
 window.Shivaa.pickRate = r => { window._rate = r; $$('#ratePick span').forEach((s, i) => { s.style.color = i < r ? 'var(--gold)' : 'var(--line)'; s.classList.toggle('picked', i === r - 1); }); };
 window.Shivaa.postReview = async (e, pid) => {
   e.preventDefault();
   if (!state.user) return openLogin();
   try {
-    await api('/api/reviews', { method: 'POST', body: JSON.stringify({ productId: pid, rating: window._rate || 5, text: $('#revText').value }) });
+    const files = [...($('#revPhotos')?.files || [])].slice(0, 3);
+    if (files.length) {
+      const fd = new FormData();
+      fd.append('productId', pid); fd.append('rating', String(window._rate || 5)); fd.append('text', $('#revText').value);
+      files.forEach(f => fd.append('photos[]', f));
+      await api('/api/reviews/photo', { method: 'POST', body: fd });
+    } else {
+      await api('/api/reviews', { method: 'POST', body: JSON.stringify({ productId: pid, rating: window._rate || 5, text: $('#revText').value }) });
+    }
     toast('Thank you! Review posted ✦'); pages.product($('#view'), new URLSearchParams(), pid);
   } catch (err) { toast(err.message, 'err'); }
 };
@@ -1488,7 +2909,7 @@ pages.compare = async (view, q) => {
     <div class="pcmp-grid" role="list">
       ${items.map(p => { const pr = price(p); return `<article class="pcmp-card" role="listitem">
         <button type="button" class="pcmp-remove" onclick="Shivaa.removeCompare('${p.id}')" aria-label="Remove ${esc(p.name)} from compare">×</button>
-        <a href="#/product/${p.id}" class="pcmp-img"><img src="${p.images[0]}" alt="${esc(p.name)}"></a>
+        <a href="#/product/${p.id}" class="pcmp-img"><img src="${safeUrl(p.images && p.images[0])}" alt="${esc(p.name)}"></a>
         <div class="pcmp-card-body">
           <span class="label">${esc(CATS[p.category]?.name || p.category)}</span>
           <h3><a href="#/product/${p.id}">${esc(p.name)}</a></h3>
@@ -1528,9 +2949,59 @@ pages.compare = async (view, q) => {
 };
 
 /* ─────────── CART ─────────── */
+/* v103 — saved-for-later (private, local like the cart) */
+const getLater = () => { try { return JSON.parse(localStorage.getItem('shv_later') || '[]'); } catch (e) { return []; } };
+const setLater = l => { try { localStorage.setItem('shv_later', JSON.stringify(l.slice(0, 50))); } catch (e) {} };
+window.Shivaa.cartSaveLater = (id, size) => {
+  const i = state.cart.findIndex(x => x.id === id && (x.size || '') === (size || ''));
+  if (i < 0) return;
+  const it = state.cart[i];
+  state.cart = state.cart.filter(x => x !== it);
+  const l = getLater().filter(x => !(x.id === id && (x.size || '') === (size || '')));
+  l.unshift({ id, qty: it.qty || 1, size: it.size || null, engraving: it.engraving || '' });
+  setLater(l);
+  store.set('shv_cart', state.cart); updateBadges(); renderMiniCart();
+  toast('Saved for later ✦');
+  pages.cart($('#view'));
+};
+window.Shivaa.cartMoveBack = (id, size) => {
+  const l = getLater();
+  const it = l.find(x => x.id === id && (x.size || '') === (size || ''));
+  if (!it) return;
+  setLater(l.filter(x => x !== it));
+  const existing = state.cart.find(x => x.id === id && (x.size || '') === (x.size || ''));
+  if (existing) existing.qty += it.qty;
+  else state.cart.push({ id, qty: it.qty, size: it.size || null, engraving: it.engraving || '' });
+  store.set('shv_cart', state.cart); updateBadges(); renderMiniCart();
+  toast('Moved back to your bag ✦');
+  pages.cart($('#view'));
+};
+window.Shivaa.cartRemoveLater = (id, size) => {
+  setLater(getLater().filter(x => !(x.id === id && (x.size || '') === (size || ''))));
+  pages.cart($('#view'));
+};
+function laterSectionHTML() {
+  const l = getLater().map(x => ({ ...x, p: state.productsCache.find(p => p.id === x.id) })).filter(x => x.p);
+  if (!l.length) return '';
+  return `<section class="later-sec">
+    <div class="sec-title" style="margin:22px 0 10px">Saved for later · ${l.length}</div>
+    <div class="cart-items">${l.map(({ p, size, qty }) => `
+      <div class="cart-item">
+        <a href="#/product/${p.id}"><img src="${safeUrl(p.images && p.images[0])}" alt=""></a>
+        <div>
+          <a href="#/product/${p.id}" class="ci-name">${esc(p.name)}</a>
+          <div class="ci-meta">${p.metal === 'Silver' ? 'Silver 925' : p.purity + ' gold'} · ${p.weightG} g${size ? ' · size ' + esc(size) : ''} · qty ${qty}</div>
+          <div class="ci-meta js-price" data-pid="${p.id}" data-qty="${qty}">${fmt(price(p).total * qty)}</div>
+        </div>
+        <div class="ci-right"><a class="ci-remove" href="javascript:Shivaa.cartMoveBack(${jsArg(p.id)},${jsArg(size || '')})">Move to bag</a><br><a class="ci-remove" href="javascript:Shivaa.cartRemoveLater(${jsArg(p.id)},${jsArg(size || '')})">Remove</a></div>
+      </div>`).join('')}
+    </div>
+  </section>`;
+}
 pages.cart = async (view) => {
+  const laterHTML = laterSectionHTML();
   if (!state.cart.length) {
-    view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart awaits its sparkle</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`;
+    view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart awaits its sparkle</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>` + laterHTML;
     return;
   }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
@@ -1545,19 +3016,25 @@ pages.cart = async (view) => {
       <div class="cart-items">
         ${lines.map(({ it, pr }) => `
         <div class="cart-item">
-          <a href="#/product/${it.p.id}"><img src="${it.p.images[0]}" alt=""></a>
+          <a href="#/product/${it.p.id}"><img src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
           <div>
             <a href="#/product/${it.p.id}" class="ci-name">${esc(it.p.name)}</a>
             <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : it.p.purity + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved “' + esc(it.engraving) + '”' : ''}</div>
             <div class="ci-meta js-price" data-pid="${it.p.id}" data-qty="${it.qty}">${fmt(pr.total * it.qty)} <span style="opacity:.6">(live · incl. GST)</span></div>
             <div class="qty-row" style="transform:scale(.86);transform-origin:left">
-              <button onclick="Shivaa.cartQty('${it.id}','${it.size || ''}',-1)">−</button><b>${it.qty}</b><button onclick="Shivaa.cartQty('${it.id}','${it.size || ''}',1)">+</button>
+              <button onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},-1)">−</button><b>${it.qty}</b><button onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},1)">+</button>
             </div>
           </div>
-          <div class="ci-right"><b>${fmt(pr.total * it.qty)}</b><br><a class="ci-remove" href="javascript:Shivaa.cartRemove('${it.id}','${it.size || ''}')">Remove</a></div>
+          <div class="ci-right"><b>${fmt(pr.total * it.qty)}</b><br><a class="ci-remove" href="javascript:Shivaa.cartSaveLater(${jsArg(it.id)},${jsArg(it.size || '')})">Save for later</a><br><a class="ci-remove" href="javascript:Shivaa.cartRemove(${jsArg(it.id)},${jsArg(it.size || '')})">Remove</a></div>
         </div>`).join('')}
       </div>
       <div class="qty-banner">◈ Prices in your cart re-compute automatically with every rate refresh (every ~10 minutes) and are finally locked at checkout.</div>
+      <div class="cart-delivery adm-card">
+        <div class="cd-head"><b>📮 Check delivery &amp; COD</b><small>Estimates before you pay — no account needed</small></div>
+        <form class="pin-row" data-delivery style="max-width:420px"><input data-pin inputmode="numeric" autocomplete="postal-code" enterkeyhint="go" maxlength="6" placeholder="Enter 6-digit pincode"><button type="submit" class="btn btn-ghost btn-sm">Check</button></form>
+        <div class="pin-msg" data-pin-msg hidden></div>
+      </div>
+      ${laterHTML}
     </div>
     <div class="summary">
       <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
@@ -1566,23 +3043,346 @@ pages.cart = async (view) => {
       <div class="sum-row"><span>Shipping (insured)</span>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</div>
       ${shipping > 0 ? `<div class="sum-row" style="font-size:12.5px;color:var(--ink-3)"><span>Add ${fmt(state.settings.freeShipAbove - subtotal)} for free shipping</span><span></span></div>` : ''}
       <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
+      <div class="sum-row" style="color:var(--ok);font-size:13px"><span>✦ Pay online &amp; save</span><b>− ${fmt(Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100))}</b></div>
       <div style="margin:16px 0 6px" class="label" id="ptLbl">Loyalty & offers applied at checkout →</div>
       <a class="btn btn-primary btn-block btn-lg" href="#/checkout">Proceed to Checkout</a>
+      <a class="btn btn-outline btn-block btn-sm mt-2" href="#/quote">📄 Get shareable quotation (48 h rate hold)</a>
       <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.waOpenCart()">Order via WhatsApp chat <span class="mini-wa">${WA_SVG}</span></button>
       <a class="btn btn-ghost btn-block btn-sm mt-2" href="#/shop">Continue shopping</a>
     </div>
+  </div>
+  <div class="mcta-bar" aria-hidden="false">
+    <div class="mcta-total"><small>${cartCount()} item${cartCount() > 1 ? 's' : ''} · total</small><b>${fmt(subtotal + shipping)}</b></div>
+    <a class="btn btn-gold" href="#/checkout">Proceed to Checkout ✦</a>
   </div>`;
+  window.Shivaa.bindDelivery(view);   // v103 — remembered pincode answers immediately
 };
 window.Shivaa.cartQty = (id, size, d) => {
   const it = state.cart.find(i => i.id === id && (i.size || '') === size);
   if (!it) return;
   it.qty += d;
   if (it.qty <= 0) state.cart = state.cart.filter(i => i !== it);
-  store.set('shv_cart', state.cart); updateBadges(); pages.cart($('#view'));
+  store.set('shv_cart', state.cart); updateBadges(); renderMiniCart();
+  if ((location.hash || '').startsWith('#/cart')) pages.cart($('#view'));
 };
 window.Shivaa.cartRemove = (id, size) => {
   state.cart = state.cart.filter(i => !(i.id === id && (i.size || '') === size));
-  store.set('shv_cart', state.cart); updateBadges(); pages.cart($('#view'));
+  store.set('shv_cart', state.cart); updateBadges();
+  if ((location.hash || '') === '#/cart' || (location.hash || '').startsWith('#/cart')) pages.cart($('#view'));
+  renderMiniCart();
+};
+
+/* ═══════════════════ v91 — slide-in mini bag ═══════════════════ */
+let _cartTrap = null;
+function cartLines() {
+  return state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+}
+function cartTotals() {
+  const lines = cartLines();
+  const subtotal = lines.reduce((a, l) => a + price(l.p).total * l.qty, 0);
+  const shipping = !subtotal || subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
+  return { lines, subtotal, shipping, count: cartCount() };
+}
+function flyToBag(src, fromEl) {
+  return new Promise(res => {
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches || typeof document.createElement('i').animate !== 'function') return res();
+    const bag = $('.cart-btn'); if (!bag) return res();
+    const br = bag.getBoundingClientRect();
+    const sr = (fromEl && fromEl.getBoundingClientRect && fromEl.getBoundingClientRect()) || null;
+    const f = document.createElement('img');
+    f.src = src; f.className = 'm-fly';
+    const w = sr ? Math.min(72, sr.width) : 56;
+    Object.assign(f.style, { width: w + 'px', height: w + 'px', left: (sr ? sr.left + sr.width / 2 : innerWidth / 2) - w / 2 + 'px', top: (sr ? sr.top + sr.height / 2 : innerHeight * .6) - w / 2 + 'px' });
+    document.body.appendChild(f);
+    requestAnimationFrame(() => {
+      const dx = br.left + br.width / 2 - (sr ? sr.left + sr.width / 2 : innerWidth / 2);
+      const dy = br.top + br.height / 2 - (sr ? sr.top + sr.height / 2 : innerHeight * .6);
+      const a = f.animate([
+        { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 },
+        { transform: `translate(${dx * .55}px,${dy * .7 - 60}px) scale(.7) rotate(10deg)`, opacity: .92, offset: .55 },
+        { transform: `translate(${dx}px,${dy}px) scale(.12) rotate(-8deg)`, opacity: .7 }
+      ], { duration: 680, easing: 'cubic-bezier(.5,-0.1,.7,.3)' });
+      a.onfinish = () => { f.remove(); bag.classList.remove('bag-jolt'); void bag.offsetWidth; bag.classList.add('bag-jolt'); setTimeout(() => bag.classList.remove('bag-jolt'), 500); res(); };
+      a.oncancel = () => { f.remove(); res(); };
+    });
+  });
+}
+function miniCartHTML() {
+  const { lines, subtotal, shipping, count } = cartTotals();
+  if (!count) return `
+    <div class="mc-empty">
+      <div class="mc-empty-ic">✦</div>
+      <h3>Your bag awaits its sparkle</h3>
+      <p>Handcrafted pieces, priced live with the Jaipur rate.</p>
+      <a class="btn btn-primary" href="#/shop" data-mc-close>Explore Jewellery</a>
+    </div>`;
+  const free = state.settings.freeShipAbove;
+  const pct = Math.max(4, Math.min(100, subtotal / free * 100));
+  const left = free - subtotal;
+  return `
+    <div class="mc-ship">
+      ${left > 0
+        ? `<small>Add <b>${fmt(left)}</b> for free insured shipping</small><div class="mc-ship-bar"><i style="width:${pct}%"></i></div>`
+        : `<small><b>✦ You have free insured shipping</b></small><div class="mc-ship-bar"><i style="width:100%"></i></div>`}
+    </div>
+    <div class="mc-lines">
+      ${lines.map((it, i) => {
+        const pr = price(it.p);
+        return `<div class="mc-line" style="--i:${i}">
+          <a href="#/product/${it.p.id}" data-mc-close><img src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
+          <div class="mc-line-tx">
+            <a href="#/product/${it.p.id}" class="ci-name" data-mc-close>${esc(it.p.name)}</a>
+            <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : it.p.purity + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved' : ''}</div>
+            <div class="mc-line-b">
+              <span class="qty-row"><button aria-label="Decrease" onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},-1)">−</button><b>${it.qty}</b><button aria-label="Increase" onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},1)">+</button></span>
+              <b class="js-price" data-pid="${it.p.id}" data-qty="${it.qty}">${fmt(pr.total * it.qty)}</b>
+            </div>
+          </div>
+          <button class="mc-x" aria-label="Remove" onclick="Shivaa.cartRemove(${jsArg(it.id)},${jsArg(it.size || '')})">✕</button>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="mc-foot">
+      <div class="sum-row"><span>Subtotal · ${count} item${count > 1 ? 's' : ''} (incl. GST)</span><b id="mcSub">${fmt(subtotal)}</b></div>
+      <div class="sum-row"><span>Insured shipping</span>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</div>
+      <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
+      <a class="btn btn-gold btn-block btn-lg" href="#/checkout" data-mc-close>Checkout ✦</a>
+      <div class="mc-foot-alt">
+        <a href="#/cart" data-mc-close>View full bag</a>
+        <button type="button" data-mc-close>Continue shopping</button>
+      </div>
+      <small class="mc-live-note">● Prices re-compute with every live rate tick and lock for 20 minutes at checkout.</small>
+    </div>`;
+}
+function renderMiniCart() {
+  const body = $('#mcBody'); if (!body) return;
+  const { subtotal, shipping, count } = cartTotals();
+  const open = $('#cartDrawer').classList.contains('open');
+  body.innerHTML = miniCartHTML();
+  $('#mcCount').textContent = count ? count : '';
+  if (open) body.querySelectorAll('.mc-line').forEach((el, i) => { el.style.setProperty('--i', i); });
+  return { subtotal, shipping };
+}
+function openCart(bump) {
+  const d = $('#cartDrawer'), sc = $('#cartScrim'); if (!d) return;
+  renderMiniCart();
+  if (!d.classList.contains('open')) {
+    d.classList.add('open'); sc.classList.add('open'); lockScroll();
+    if (window.ShivaaMotion && ShivaaMotion.trapFocus) _cartTrap = ShivaaMotion.trapFocus(d);
+    const first = d.querySelector('a,button'); first && setTimeout(() => first.focus(), 120);
+  }
+}
+function closeCart() {
+  const d = $('#cartDrawer'), sc = $('#cartScrim'); if (!d || !d.classList.contains('open')) return;
+  d.classList.remove('open'); sc.classList.remove('open'); unlockScroll();
+  if (_cartTrap) { _cartTrap(); _cartTrap = null; }
+}
+function initMiniCart() {
+  if ($('#cartDrawer')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'cartDrawer'; wrap.className = 'mc-drawer'; wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-modal', 'true'); wrap.setAttribute('aria-label', 'Your shopping bag');
+  wrap.innerHTML = `
+    <div class="mc-head">
+      <h3>Your Bag <span class="mc-count" id="mcCount"></span></h3>
+      <button class="mc-close" aria-label="Close bag">✕</button>
+    </div>
+    <div class="mc-body" id="mcBody"></div>`;
+  const scrim = document.createElement('div');
+  scrim.id = 'cartScrim'; scrim.className = 'mc-scrim';
+  document.body.append(scrim, wrap);
+  const cartBtn = $('.cart-btn');
+  if (cartBtn) cartBtn.addEventListener('click', e => { e.preventDefault(); openCart(); });
+  scrim.addEventListener('click', closeCart);
+  wrap.querySelector('.mc-close').addEventListener('click', closeCart);
+  wrap.addEventListener('click', e => { if (e.target.closest('[data-mc-close]')) closeCart(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCart(); });
+  document.addEventListener('rates', () => { if (wrap.classList.contains('open')) renderMiniCart(); });
+}
+
+/* ═══════════════════ v91 — quick view from product cards ═══════════════════ */
+/* v101 — press-and-hold continuous stepper.
+   One immediate step on press, then accelerating repeat while held;
+   keyboard users get single steps (and native OS key-repeat on hold). */
+window.Shivaa.holdRepeat = (el, step, opts = {}) => {
+  if (!el || el._holdWired) return;
+  el._holdWired = true;
+  el.classList.add('hold-btn');
+  const FIRST = opts.firstDelay ?? 340, R0 = opts.repeatStart ?? 95, RMIN = opts.repeatMin ?? 32;
+  let t1 = null, t2 = null, rep = R0, alive = false;
+  const clear = () => { clearTimeout(t1); clearTimeout(t2); t1 = t2 = null; alive = false; };
+  const tick = () => { step(); rep = Math.max(RMIN, Math.round(rep * 0.86)); t2 = setTimeout(tick, rep); };
+  el.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    clear(); alive = true; rep = R0;
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    step();
+    t1 = setTimeout(tick, FIRST);
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => el.addEventListener(ev, clear));
+  el.addEventListener('pointerleave', () => { if (!el.hasPointerCapture?.(el._pid)) clear(); });
+  el.addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if (!e.repeat) step();
+    }
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) clear(); });
+};
+
+window.Shivaa.quickView = (id) => {
+  const p = state.productsCache.find(x => x.id === id); if (!p) { location.hash = '#/product/' + id; return; }
+  const pr = price(p);
+  const wished = state.user ? false : state.localWish.includes(id);
+  const imgs = (p.images || []).map(safeUrl).filter(Boolean);
+  const shots = imgs.length ? imgs : ['/images/logo.png'];
+  /* v102 — preload the gallery so swiping never shows a blank frame */
+  shots.slice(1).forEach(u => { const im = new Image(); im.src = u; });
+  /* v102 — preselect the size the customer saved from the ring sizer */
+  let savedSize = '';
+  try { savedSize = localStorage.getItem('shv_ring_size') || ''; } catch (e) {}
+  openModal(`
+    <div class="qv">
+      <div class="qv-media">
+        <img class="qv-photo" id="qvPhoto" src="${shots[0]}" alt="${esc(p.name)}" draggable="false">
+        ${shots.length > 1 ? `
+          <button type="button" class="qv-nav qv-prev" id="qvPrev" aria-label="Previous photo">‹</button>
+          <button type="button" class="qv-nav qv-next" id="qvNext" aria-label="Next photo">›</button>
+          <div class="qv-dots" id="qvDots">${shots.map((_, i) => `<button type="button" class="qv-dot ${i === 0 ? 'on' : ''}" data-i="${i}" aria-label="Photo ${i + 1}"></button>`).join('')}<span class="qv-count" id="qvCount" aria-live="polite">1 / ${shots.length}</span></div>` : ''}
+        <button class="pc-wish qv-share" id="qvShare" aria-label="Share this piece">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3"/></svg>
+        </button>
+        <button class="pc-wish qv-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
+        </button>
+        <span class="qv-zoom-hint" id="qvZoomHint">Double-tap to zoom</span>
+      </div>
+      <div class="qv-body">
+        <div class="qv-scroll">
+          <div class="label">${esc(CATS[p.category] ? CATS[p.category].name : (p.category || ''))}</div>
+          <h3>${esc(p.name)}</h3>
+          <div class="pc-rating" style="margin:6px 0 10px">★ ${p.rating} <span style="color:var(--ink-3);font-size:12.5px">· ${p.reviews} reviews · ${p.weightG} g</span></div>
+          <div class="pc-price" style="margin-bottom:6px"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST · live</small></div>
+          ${(p.sizes && p.sizes.length) ? `<div class="opt-label"><span>Size ${savedSize ? '· your saved size ' + esc(savedSize) + ' is selected' : ''}</span></div>
+            <div class="size-row" id="qvSize">${p.sizes.map(s => `<button type="button" class="size-pill ${String(s) === String(savedSize) ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" onclick="Shivaa.closeModal()">📏 Size guide</a></div>` : ''}
+          <div class="qty-row qv-qty" style="margin:14px 0 4px"><button type="button" id="qvMinus" aria-label="Decrease quantity">−</button><b id="qvQty">1</b><button type="button" id="qvPlus" aria-label="Increase quantity">+</button></div>
+        </div>
+        <div class="qv-foot">
+          <a class="btn btn-outline qv-detail" href="#/product/${p.id}" onclick="Shivaa.closeModal()">Full details</a>
+          <button type="button" class="btn btn-primary qv-add" id="qvAdd">Add to Bag ✦</button>
+        </div>
+      </div>
+    </div>`, 'qv-modal');
+  const box = $('#modalBox');
+  let qty = 1, shot = 0;
+  const photo = $('#qvPhoto');
+  const haptic = ms => { try { navigator.vibrate?.(ms); } catch (e) {} };
+  const showShot = i => {
+    const next = (i + shots.length) % shots.length;
+    if (next === shot) return;
+    shot = next;
+    photo.classList.remove('qv-swap'); void photo.offsetWidth;
+    photo.src = shots[shot]; photo.classList.add('qv-swap');
+    box.querySelectorAll('#qvDots .qv-dot').forEach((d, di) => d.classList.toggle('on', di === shot));
+    const cnt = $('#qvCount'); if (cnt) cnt.textContent = (shot + 1) + ' / ' + shots.length;
+    haptic(8);
+  };
+  if (shots.length > 1) {
+    $('#qvPrev').onclick = () => showShot(shot - 1);
+    $('#qvNext').onclick = () => showShot(shot + 1);
+    box.querySelectorAll('#qvDots .qv-dot').forEach(d => d.onclick = () => showShot(+d.dataset.i));
+    // v102 — hardware keyboard arrows flip photos while the sheet is open
+    const onKey = e => {
+      if (!document.body.contains($('#qvPhoto'))) { document.removeEventListener('keydown', onKey); return; }
+      if (e.defaultPrevented) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); if (!zoomed) showShot(shot + 1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); if (!zoomed) showShot(shot - 1); }
+    };
+    document.addEventListener('keydown', onKey);
+    // swipe the photo on touch screens (disabled while zoomed — the finger pans)
+    let sx = null, moved = false;
+    photo.addEventListener('touchstart', e => {
+      if (zoomed && e.touches.length === 1) { panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, px: pan.x, py: pan.y }; return; }
+      sx = e.touches[0].clientX; moved = false;
+    }, { passive: true });
+    photo.addEventListener('touchmove', e => {
+      if (zoomed && panStart && e.touches.length === 1) {
+        pan.x = Math.max(-110, Math.min(110, panStart.px + e.touches[0].clientX - panStart.x));
+        pan.y = Math.max(-130, Math.min(130, panStart.py + e.touches[0].clientY - panStart.y));
+        applyZoom(); moved = true; return;
+      }
+      if (sx != null && Math.abs(e.touches[0].clientX - sx) > 12) moved = true;
+    }, { passive: true });
+    photo.addEventListener('touchend', e => {
+      if (zoomed) {
+        if (!moved && panStart) { // double-tap detection while zoomed = zoom back out
+          const now = Date.now();
+          if (now - lastTap < 300) setZoom(false);
+        }
+        lastTap = Date.now(); panStart = null; return;
+      }
+      if (sx == null) return;
+      const dx = e.changedTouches[0].clientX - sx; const wasMoved = moved; sx = null;
+      if (!wasMoved) { // double-tap to zoom in
+        const now = Date.now();
+        if (now - lastTap < 300) setZoom(true);
+        lastTap = now;
+        return;
+      }
+      if (Math.abs(dx) > 36) showShot(shot + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+  }
+  // v102 — double-click zoom for mouse users + drag to pan
+  let zoomed = false;
+  let pan = { x: 0, y: 0 }, panStart = null, lastTap = 0;
+  const applyZoom = () => {
+    photo.classList.toggle('qv-zoom', zoomed);
+    photo.style.transform = zoomed ? `translate(${pan.x}px, ${pan.y}px) scale(1.9)` : '';
+    const hint = $('#qvZoomHint'); if (hint) hint.style.opacity = zoomed ? '0' : '';
+  };
+  const setZoom = on => { zoomed = on; if (!on) pan = { x: 0, y: 0 }; applyZoom(); };
+  photo.addEventListener('dblclick', e => { setZoom(!zoomed); });
+  photo.addEventListener('pointerdown', e => {
+    if (!zoomed || e.pointerType !== 'mouse') return;
+    panStart = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+  });
+  window.addEventListener('pointermove', e => {
+    if (!panStart) return;
+    pan.x = Math.max(-110, Math.min(110, panStart.px + e.clientX - panStart.x));
+    pan.y = Math.max(-130, Math.min(130, panStart.py + e.clientY - panStart.y));
+    applyZoom();
+  });
+  window.addEventListener('pointerup', () => { panStart = null; });
+  box.querySelectorAll('#qvSize .size-pill').forEach(b => b.onclick = () => {
+    box.querySelectorAll('#qvSize .size-pill').forEach(x => x.classList.remove('on')); b.classList.add('on');
+    try { localStorage.setItem('shv_ring_size', b.dataset.size); } catch (e) {}
+  });
+  const qtyB = $('#qvQty');
+  const setQty = v => { qty = Math.max(1, Math.min(9, v)); qtyB.textContent = qty; };
+  window.Shivaa.holdRepeat($('#qvMinus'), () => setQty(qty - 1));
+  window.Shivaa.holdRepeat($('#qvPlus'), () => setQty(qty + 1));
+  // v102 — native share sheet on phones, copy-link fallback on desktop
+  $('#qvShare').onclick = async () => {
+    const shareUrl = location.origin + location.pathname + '#/product/' + p.id;
+    const data = { title: p.name + ' · Shivaa Jewels', text: p.name + ' — BIS hallmarked, priced on the live rate.', url: shareUrl };
+    if (navigator.share) { try { await navigator.share(data); } catch (e) {} return; }
+    try { await navigator.clipboard.writeText(shareUrl); toast('Piece link copied ✦'); }
+    catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = shareUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast('Piece link copied ✦'); } catch (_) { toast('Copy this page’s link to share', ''); }
+      ta.remove();
+    }
+  };
+  $('#qvAdd').onclick = (e) => {
+    const size = $('#qvSize .size-pill.on')?.dataset.size || null;
+    haptic(12);
+    closeModal();
+    addToCart(p.id, qty, size, null, { fromEl: e.currentTarget });
+  };
 };
 
 /* ─────────── CHECKOUT ─────────── */
@@ -1592,6 +3392,9 @@ pages.checkout = async (view) => {
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
+  /* v58 — payment configuration (demo until Razorpay keys are added) */
+  let payCfg = { mode: 'demo', prepaidPct: 2, keyId: '' };
+  try { payCfg = await api('/api/pay/config'); } catch (e) {}
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/cart">Cart</a> / Checkout</div><h1>Checkout</h1></div></section>
   <div class="container cart-layout" style="padding-top:40px">
@@ -1603,23 +3406,22 @@ pages.checkout = async (view) => {
         <div class="fld full"><label for="adLine">Address (house, street, landmark)</label><input id="adLine" name="line" autocomplete="street-address" required placeholder="House no, street, landmark"></div>
         <div class="fld"><label for="adCity">City</label><input id="adCity" name="city" autocomplete="address-level2" required></div>
         <div class="fld"><label for="adState">State</label><input id="adState" name="state" autocomplete="address-level1" required value="Rajasthan"></div>
-        <div class="fld"><label for="adPin">Pincode</label><input id="adPin" name="pincode" inputmode="numeric" autocomplete="postal-code" required maxlength="6" pattern="\\d{6}" placeholder="341023"></div>
+        <div class="fld"><label for="adPin">Pincode</label><input id="adPin" name="pincode" inputmode="numeric" autocomplete="postal-code" required maxlength="6" pattern="\\d{6}" placeholder="341023"><small class="pin-note" id="adPinMsg" hidden></small></div>
         <div class="fld"><label for="adCountry">Country</label><input id="adCountry" name="country" value="India" readonly></div>
       </form>
 
       <div class="sec-title">Payment method</div>
       <div style="display:grid;gap:12px" id="payOpts">
-        <label class="pay-opt on"><input type="radio" name="pay" value="UPI" checked><span><b>UPI — GPay / PhonePe / Paytm</b><small>Instant & secure · earn 2× loyalty points this week</small></span></label>
-        <label class="pay-opt"><input type="radio" name="pay" value="Card"><span><b>Credit / Debit Card</b><small>No-cost EMI available on 3-month tenures</small></span></label>
-        <label class="pay-opt"><input type="radio" name="pay" value="Netbanking"><span><b>Netbanking</b><small>All major banks</small></span></label>
-        <label class="pay-opt"><input type="radio" name="pay" value="COD"><span><b>Cash on Delivery</b><small>Available on orders below ${fmt(50000)} · ID verification at handover</small></span></label>
-        <label class="pay-opt"><input type="radio" name="pay" value="WhatsApp"><span><b>WhatsApp Order</b><small>Our team confirms the order & payment (UPI / bank / card) on chat</small></span></label>
+        <label class="pay-opt on" id="payOptOnline"><input type="radio" name="pay" value="Online" checked><span><b>Pay online · UPI / card / net-banking <em class="pay-badge" id="payBadge">2% off</em></b><small id="payOnlineSub">secured by PayU · instant 2% prepaid discount</small></span></label>
+        <label class="pay-opt" id="payOptCod"><input type="radio" name="pay" value="COD"><span><b>Cash on Delivery</b><small id="payCodSub">Available on orders below ${fmt(50000)} · ID verification at handover · full price</small></span></label>
+        <label class="pay-opt"><input type="radio" name="pay" value="WhatsApp"><span><b>WhatsApp Order</b><small>Our team confirms the order &amp; payment (UPI / bank / card) on chat · full price</small></span></label>
       </div>
-      <div class="qty-banner mt-2">🔒 Demo checkout — no real payment is processed. Orders, invoices & inventory are fully functional in this system.</div>
+      <div class="qty-banner mt-2" id="payDemoNote">🔒 Card/net-banking checkout switches to <b>live PayU</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.</div>
     </div>
 
     <div class="summary">
       <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
+      <div class="rate-lock-card" id="rateLockBox" aria-live="polite"></div>
       <h3>Your Order</h3>
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
       <div class="coupon-row"><input id="couponIn" placeholder="Coupon code"><button class="btn btn-ghost btn-sm" onclick="Shivaa.applyCoupon()">Apply</button></div>
@@ -1627,13 +3429,141 @@ pages.checkout = async (view) => {
       ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
       <div class="sum-row"><span>Subtotal</span><b id="coSub">${fmt(subtotal)}</b></div>
       <div class="sum-row" id="coDiscRow" hidden><span>Coupon discount</span><b id="coDisc" style="color:var(--ok)">− ₹0</b></div>
+      <div class="sum-row" id="coPrepaidRow"><span>Prepaid discount <em style="font-style:normal;font-size:11px;color:var(--ok)">pay online</em></span><b id="coPrepaid" style="color:var(--ok)">− ₹0</b></div>
       <div class="sum-row"><span>Shipping</span>${freeShip ? '<span class="free">FREE</span>' : `<b id="coShip">${fmt(state.settings.shippingFee)}</b>`}</div>
-      <div class="sum-row total"><span>Total</span><b id="coTotal">${fmt(subtotal + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
+      <div class="sum-row" id="coCodRow" hidden><span>COD handling fee</span><b id="coCod">+ ₹0</b></div>
+      <div class="sum-row total"><span>Total</span><b id="coTotal">${fmt(Math.round(subtotal * (1 - (((state.settings || {}).prepaidPct) || 2) / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
       <button class="btn btn-gold btn-block btn-lg mt-2" id="placeBtn" onclick="Shivaa.placeOrder()">Place Order ✦</button>
     </div>
+  </div>
+  <div class="mcta-bar">
+    <div class="mcta-total"><small>Total · 20-min rate locked</small><b id="coMobileTotal">${fmt(Math.round(subtotal * (1 - (((state.settings || {}).prepaidPct) || 2) / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
+    <button class="btn btn-gold" type="button" onclick="Shivaa.placeOrder()">Place Order ✦</button>
   </div>`;
-  window._co = { subtotal, freeShip, coupon: null, disc: 0 };
-  $$('#payOpts input').forEach(r => r.onchange = () => { $$('.pay-opt').forEach(o => o.classList.remove('on')); r.closest('.pay-opt').classList.add('on'); });
+  /* ── v57: 20-minute live-rate lock — your price cannot move while paying ── */
+  const pickRates = () => ({ gold22: state.rates.gold22, gold24: state.rates.gold24, gold18: state.rates.gold18, silver: state.rates.silver });
+  /* v107 - the lock window is server-owned (pay/config lockMinutes) and a lock
+     in flight survives a refresh via localStorage. The server still enforces
+     the +/-2% band at submit, so a stale or hand-edited lock can never make
+     the shop sell below the band. */
+  const LOCKSEC = () => Math.max(300, Math.min(3600, ((window._co && window._co.lockMinutes) || 20) * 60));
+  window._co = { subtotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online', lockMinutes: (payCfg && payCfg.lockMinutes) || 20 };
+  try {
+    const savedLock = JSON.parse(localStorage.getItem('shv_rate_lock') || 'null');
+    if (savedLock && savedLock.stampedAt && savedLock.rates &&
+        (Date.now() - new Date(savedLock.stampedAt).getTime()) / 1000 <= LOCKSEC()) window._co.rateLock = savedLock;
+  } catch (e) {}
+  const setLock = () => {
+    window._co.rateLock = { rates: pickRates(), stampedAt: new Date().toISOString() };
+    try { localStorage.setItem('shv_rate_lock', JSON.stringify(window._co.rateLock)); } catch (e) {}
+  };
+  const coRows = () => $$('.summary [data-copid]');
+  function coTotals() {
+    if (!$('#coSub')) { clearInterval(window._co && window._co.lockTimer); return; }   // navigated away from checkout
+    const lock = activeLock();
+    const R = lock ? lock.rates : state.rates;
+    let sub = 0;
+    coRows().forEach(el => {
+      const it = window._co.items.find(x => x.p.id === el.dataset.copid);
+      if (!it) return;
+      const t = price(it.p, R).total * it.qty;
+      el.textContent = fmt(t); sub += t;
+    });
+    window._co.subtotal = sub;
+    window._co.freeShip = sub >= state.settings.freeShipAbove;
+    $('#coSub').textContent = fmt(sub);
+    const shipRow = document.querySelector('.summary .sum-row:nth-last-child(2)'); // "Shipping"
+    window.Shivaa.updateCheckout();
+  }
+  function activeLock() {
+    const l = window._co.rateLock;
+    if (!l) return null;
+    const age = (Date.now() - new Date(l.stampedAt).getTime()) / 1000;
+    return age <= LOCKSEC() ? l : null;
+  }
+  function paintLock() {
+    const box = $('#rateLockBox'); if (!box) return;
+    const l = activeLock();
+    if (!l) {
+      box.className = 'rate-lock-card expired';
+      box.innerHTML = `<div class="rl-top"><span class="rl-ic">&#9201;</span><div><b>Rates are live</b><small>Tap below to freeze today&rsquo;s rate for 20 minutes.</small></div></div>
+        <button type="button" class="btn btn-gold btn-sm" id="rlLockBtn">🔒 Lock today&rsquo;s rate · ${LOCKSEC() / 60} min</button>`;
+      const b = $('#rlLockBtn'); if (b) b.onclick = () => { setLock(); coTotals(); paintLock(); };
+      return;
+    }
+    const left = Math.max(0, LOCKSEC() - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000));
+    box.className = 'rate-lock-card live';
+    box.innerHTML = `<div class="rl-top"><span class="rl-ic locked">&#128274;</span><div><b>Rate locked</b><small>Your price is frozen &mdash; even if the market moves.</small></div><span class="rl-timer" id="rlTimer">${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}</span></div>
+      <div class="rl-rates">22K <b>${fmt(l.rates.gold22)}/g</b> · Silver <b>${fmt2(l.rates.silver)}/g</b></div>`;
+  }
+  function startLockClock() {
+    clearInterval(window._co.lockTimer);
+    window._co.lockTimer = setInterval(() => {
+      const l = activeLock();
+      const t = $('#rlTimer');
+      if (l && t) { const left = Math.max(0, LOCKSEC() - Math.floor((Date.now() - new Date(l.stampedAt).getTime()) / 1000)); t.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`; }
+      else { clearInterval(window._co.lockTimer); coTotals(); paintLock(); }
+    }, 1000);
+  }
+  if (!window._co.rateLock) setLock();        // v107 — auto-arm (restored lock wins)
+  coTotals(); paintLock(); startLockClock();
+  $$('#payOpts input').forEach(r => r.onchange = () => {
+    $$('.pay-opt').forEach(o => o.classList.remove('on'));
+    r.closest('.pay-opt').classList.add('on');
+    window.Shivaa.updateCheckout();
+  });
+  const onl = $('#payOpts input[value="Online"]'); if (onl) onl.closest('.pay-opt').classList.add('on');
+  // v58 — reflect real gateway state + prepaid percentage in the labels
+  const pct = +(payCfg.prepaidPct || 0);
+  const badge = $('#payBadge'); if (badge) badge.textContent = pct ? pct + '% off' : '';
+  const sub = $('#payOnlineSub');
+  if (sub) sub.textContent = payCfg.mode === 'payu'
+    ? 'UPI · cards · net-banking · wallets · secured by PayU' + (pct ? ' · instant ' + pct + '% off' : '')
+    : 'UPI · cards · net-banking (demo until PayU keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
+  const note = $('#payDemoNote');
+  if (note) note.innerHTML = payCfg.mode === 'payu'
+    ? '🔒 You will be redirected to the secure <b>PayU</b> payment page (UPI / cards / net-banking / wallets). Your card details never touch shivaa.in.' + (payCfg.payu && payCfg.payu.env === 'test' ? ' <b>Test mode.</b>' : '')
+    : '🔒 Card/net-banking checkout switches <b>live on PayU</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
+  const codPct = +(state.settings.codFeePct || 0);
+  const codSub = $('#payCodSub');
+  if (codSub) {
+    let savedPin = '';
+    try { savedPin = localStorage.getItem('shv_pin') || ''; } catch (e) {}
+    const codBlocked = savedPin && !pinPromise(savedPin).cod;
+    codSub.textContent = codBlocked
+      ? 'Not available at pincode ' + savedPin + ' (insured prepaid courier only)'
+      : 'Available on orders below ' + fmt(50000) + ' · ID verification at handover' + (codPct ? ' · ' + codPct + '% handling fee' : ' · full price');
+    const codRadio = $('#payOpts input[value="COD"]');
+    if (codRadio) codRadio.disabled = !!codBlocked;
+  }
+  /* v103 — pincode autofills the state and answers delivery/COD before submit */
+  const adPin = $('#adPin'), adState = $('#adState'), adCity = $('#adCity'), adMsg = $('#adPinMsg');
+  if (adPin) {
+    const onPin = () => {
+      const v = adPin.value.replace(/\D/g, '').slice(0, 6);
+      if (adPin.value !== v) adPin.value = v;
+      if (!/^\d{6}$/.test(v)) { if (adMsg) adMsg.hidden = true; return; }
+      const pr = pinPromise(v);
+      const st = pinState(v);
+      if (st && adState && (!adState.value || adState.value === 'Rajasthan')) adState.value = st;
+      try { localStorage.setItem('shv_pin', v); } catch (e) {}
+      if (adMsg) {
+        adMsg.hidden = false;
+        adMsg.className = 'pin-note ok';
+        adMsg.innerHTML = '✓ ' + esc(pr.region) + ' · handover <b>' + pr.by + '</b> · ' + (pr.cod ? 'COD available' : 'prepaid-only');
+      }
+      const codRadio = $('#payOpts input[value="COD"]');
+      if (codRadio) {
+        codRadio.disabled = !pr.cod;
+        if (!pr.cod && codRadio.checked) { const onl = $('#payOpts input[value="Online"]'); if (onl) onl.checked = true; onl?.dispatchEvent(new Event('change')); }
+      }
+      void adCity;
+    };
+    adPin.addEventListener('input', onPin);
+    let memPin = '';
+    try { memPin = localStorage.getItem('shv_pin') || ''; } catch (e) {}
+    if (memPin && /^\d{6}$/.test(memPin)) { adPin.value = memPin; onPin(); }
+  }
 };
 window.Shivaa.applyCoupon = async () => {
   const code = $('#couponIn').value.trim();
@@ -1651,37 +3581,436 @@ window.Shivaa.updateCheckout = () => {
   if (!window._co) return;
   let disc = window._co.disc;
   if ($('#usePts')?.checked) disc += Math.min(state.user.loyaltyPoints, Math.floor(window._co.subtotal * 0.1));
+  const method = ($('#payOpts input:checked') || {}).value || window._co.payMethod || 'Online';
+  window._co.payMethod = method;
+  const pct = +(state.settings.prepaidPct ?? (window._co.payCfg && window._co.payCfg.prepaidPct) ?? 2);
+  const prepaid = method === 'Online' && pct > 0 ? Math.round(window._co.subtotal * pct / 100) : 0;
+  const codPct = +(state.settings.codFeePct || 0);
+  const codFee = method === 'COD' && codPct > 0 ? Math.round(window._co.subtotal * codPct / 100) : 0;
   const ship = window._co.freeShip ? 0 : state.settings.shippingFee;
   $('#coDiscRow').hidden = !(disc > 0);
   $('#coDisc').textContent = '− ' + fmt(disc);
-  $('#coTotal').textContent = fmt(Math.max(0, window._co.subtotal - disc + ship));
+  const pr = $('#coPrepaidRow'); if (pr) pr.hidden = !(prepaid > 0);
+  const pv = $('#coPrepaid'); if (pv) pv.textContent = '− ' + fmt(prepaid);
+  const cr = $('#coCodRow'); if (cr) cr.hidden = !(codFee > 0);
+  const cv = $('#coCod'); if (cv) cv.textContent = '+ ' + fmt(codFee);
+  window._co.prepaid = prepaid; window._co.codFee = codFee;
+  const coFinal = Math.max(0, window._co.subtotal - disc - prepaid + codFee + ship);
+  $('#coTotal').textContent = fmt(coFinal);
+  const mt = $('#coMobileTotal'); if (mt) mt.textContent = fmt(coFinal);   // v95 sticky phone bar
+};
+/* ═══════════ v59 · price-drop alerts (metal rate moves the price) ═══════════ */
+window.Shivaa.rateAlertModal = (pid) => {
+  const p = pid ? state.productsCache.find(x => x.id === pid) : null;
+  const metalKey = p ? (p.metal === 'Silver' ? 'silver' : 'gold' + String(p.purity || '22K').replace('K', '')) : 'gold22';
+  const cur = Math.round(state.rates[metalKey] || 0);
+  const suggested = Math.round(cur * 0.98 / 10) * 10;
+  openModal(`<h3 style="margin-bottom:6px">🔔 Alert me on a price drop</h3>
+  <p style="color:var(--ink-2);font-size:13.5px;margin-bottom:14px">${p ? 'If <b>' + esc(p.name) + '</b> gets cheaper as the ' : 'If the '}${metalKey === 'silver' ? 'silver' : 'gold'} rate falls, we ping you on WhatsApp/email before anyone else.</p>
+  <form id="raForm" class="form-grid" style="grid-template-columns:1fr">
+    <div class="fld"><label>Alert when ${metalKey === 'silver' ? 'silver' : '22K gold'} rate is at or below ₹/g</label>
+      <input id="raTarget" type="number" value="${suggested}" min="100"></div>
+    <div class="fld"><label>WhatsApp mobile (10 digits)</label><input id="raPhone" type="tel" inputmode="numeric" maxlength="10" value="${esc((state.user && (state.user.phone || '') || '').replace(/\D/g, '').slice(-10))}" placeholder="98765 43210"></div>
+    <div class="fld"><label>or email</label><input id="raEmail" type="email" value="${esc((state.user && state.user.email) || '')}"></div>
+    <button class="btn btn-gold btn-block btn-lg">Set alert ✦</button>
+  </form>`);
+  $('#raForm').onsubmit = async e => {
+    e.preventDefault();
+    const phone = $('#raPhone').value.replace(/\D/g, '').slice(-10);
+    const email = $('#raEmail').value.trim();
+    const target = +$('#raTarget').value;
+    if (!phone && !email) return toast('Give a mobile number or email', 'err');
+    if (!target || target >= cur * 1.5) return toast('Enter a sensible target ₹/g', 'err');
+    try {
+      await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ phone, email, metal: metalKey, target, productId: pid || '' }) });
+      closeModal(); toast('Alert set — we will ping you first ✦');
+    } catch (err) { toast(err.message, 'err'); }
+  };
+};
+window.Shivaa.wishlistAlerts = async (idsArg) => {
+  const wl = idsArg || state.localWish || [];
+  if (!wl || !wl.length) return toast('Save pieces first', 'err');
+  const phone = (state.user && (state.user.phone || '') || '').replace(/\D/g, '').slice(-10);
+  if (!phone && !(state.user && state.user.email)) { openLogin(); return; }
+  const metals = [...new Set(state.productsCache.filter(p => wl.includes(p.id)).map(p => p.metal === 'Silver' ? 'silver' : 'gold' + String(p.purity || '22K').replace('K', '')))];
+  try {
+    for (const m of metals) {
+      const cur = Math.round(state.rates[m] || 0); if (!cur) continue;
+      await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ phone, email: (state.user && state.user.email) || '', metal: m, target: Math.round(cur * 0.98 / 10) * 10 }) });
+    }
+    toast('Drop alerts set for all saved pieces ✦');
+  } catch (e) { toast(e.message, 'err'); }
+};
+
+/* ═══════════ v58 · online payments — Razorpay-ready, demo without keys ═══════════ */
+function loadExternalScript(src) {
+  return new Promise(resolve => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve(true);
+    const s = document.createElement('script'); s.src = src;
+    s.onload = () => resolve(true); s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+function upiQRSvg(uri) {
+  try {
+    const qr = window.qrcode ? qrcode(0, 'M') : null;
+    if (!qr) return '';
+    qr.addData(uri); qr.make();
+    return `<div class="ps-qr">${qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}</div>`;
+  } catch (e) { return ''; }
+}
+function upiPaySheet(po, orderId) {
+  return new Promise(resolve => {
+    const amt = (po.amount || 0) / 100;
+    const pa = po.upiId, pn = encodeURIComponent(po.upiName || 'Shivaa Jewellers');
+    const note = encodeURIComponent('Shivaa order ' + orderId);
+    const upiUri = `upi://pay?pa=${encodeURIComponent(pa)}&pn=${pn}&am=${amt.toFixed(2)}&cu=INR&tn=${note}&tr=${encodeURIComponent(orderId)}`;   // v107 — merchant txn ref, UPI apps echo it back
+    openModal(`<div class="pay-sheet">
+      <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Pay by any UPI app</b><small>GPay · PhonePe · Paytm · BHIM</small></div></div>
+      <div class="ps-amt">${fmt(amt)}</div>
+      ${upiQRSvg(upiUri)}
+      <div class="ps-upiid"><span>UPI ID</span><b>${esc(pa)}</b><button type="button" class="btn btn-ghost btn-sm" id="psCopyUpi">⧉ copy</button></div>
+      <a class="btn btn-gold btn-block btn-lg" href="${upiUri}" rel="noopener">Open UPI app &amp; pay ${fmt(amt)}</a>
+      <p class="ps-note" style="text-align:left">After paying, attach the <b>payment screenshot</b> or type the 12-digit UPI reference — we verify within minutes and release your piece. The order stays rate-locked meanwhile.<br><small>This code is stamped to order <b>${esc(orderId)}</b> for exactly <b>${fmt(amt)}</b> — if your UPI app shows a different amount, close this sheet and reopen it to mint a fresh code.</small></p>
+      <form id="psProof" class="ps-proof">
+        <label class="ps-upload"><input type="file" id="psFile" accept="image/*" capture="environment" required><span id="psFileName">📎 Choose payment screenshot…</span></label>
+        <input id="psRef" placeholder="UPI ref / Txn ID (optional)">
+        <button class="btn btn-primary btn-block btn-lg" type="submit">I&rsquo;ve paid · submit proof</button>
+      </form>
+      <button class="btn btn-ghost btn-block" id="psLater">Pay later &middot; order stays reserved</button>
+    </div>`);
+    $('#psCopyUpi').onclick = () => {
+      (navigator.clipboard ? navigator.clipboard.writeText(pa) : Promise.reject()).then(() => toast('UPI ID copied')).catch(() => {});
+    };
+    $('#psFile').onchange = e => { const f = e.target.files[0]; if (f) $('#psFileName').textContent = '✓ ' + f.name.slice(0, 40); };
+    $('#psProof').onsubmit = async e => {
+      e.preventDefault();
+      const f = $('#psFile').files[0];
+      if (!f) { toast('Attach the payment screenshot', 'err'); return; }
+      const fd = new FormData();
+      fd.append('orderId', orderId); fd.append('proof', f); fd.append('amount', String(Math.round(amt)));
+      fd.append('ref', $('#psRef').value.trim());
+      const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Uploading…';
+      try {
+        await api('/api/pay/proof', { method: 'POST', body: fd });
+        closeModal(); toast('Proof received — we verify shortly ✦'); resolve(true);
+      } catch (err) { btn.disabled = false; btn.innerHTML = 'I’ve paid · submit proof'; toast(err.message, 'err'); }
+    };
+    $('#psLater').onclick = () => { closeModal(); toast('Order reserved — complete payment from your order page'); resolve(false); };
+  });
+}
+function demoPaySheet(po, orderId) {
+  return new Promise(resolve => {
+    const amt = (po.amount || 0) / 100;
+    const tabs = po.upiId
+      ? `<div class="ps-tabs"><button type="button" class="ps-tab on" data-tab="card">💳 Card / net-banking <small>demo</small></button><button type="button" class="ps-tab" data-tab="upi">⌖ UPI QR <small>real payment</small></button></div>`
+      : '';
+    openModal(`<div class="pay-sheet">
+      <div class="ps-head"><img src="/images/logo.png" alt=""><div><b>Shivaa · secure payment</b><small>${po.upiId ? 'UPI QR is live · cards in demo' : 'DEMO GATEWAY — no real charge'}</small></div></div>
+      <div class="ps-amt">${fmt(amt)}</div>
+      ${tabs}
+      <div id="psCardPane">
+      <div class="ps-methods">
+        <button type="button" class="ps-m on">⌖ UPI &middot; GPay / PhonePe / Paytm</button>
+        <button type="button" class="ps-m">💳 Credit / Debit card</button>
+        <button type="button" class="ps-m">🏦 Net-banking</button>
+      </div>
+      <button class="btn btn-gold btn-block btn-lg" id="psPay">Pay ${fmt(amt)} <small>(demo success)</small></button>
+      <p class="ps-note">Card checkout switches to live PayU the moment keys are added in admin &rarr; Settings &rarr; Payments.${po.upiId ? ' Need to really pay now? open the <b>UPI QR</b> tab.' : ''}</p>
+      </div>
+      <button class="btn btn-ghost btn-block" id="psLater">Pay later &middot; order stays reserved</button>
+    </div>`);
+    $$('.ps-m').forEach(b => b.onclick = () => { $$('.ps-m').forEach(x => x.classList.remove('on')); b.classList.add('on'); });
+    $$('.ps-tab').forEach(t => t.onclick = () => {
+      $$('.ps-tab').forEach(x => x.classList.remove('on')); t.classList.add('on');
+      if (t.dataset.tab === 'upi') { closeModal(); upiPaySheet(po, orderId).then(resolve); }
+    });
+    const btn = $('#psPay');
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Verifying with bank…';
+      try {
+        await api('/api/pay/verify', { method: 'POST', body: JSON.stringify({
+          orderId, gatewayOrderId: po.gatewayOrder.id,
+          paymentId: (po.gatewayOrder.id || '').replace('demo_', 'pay_demo_') }) });
+        closeModal(); toast('Payment received ✦ thank you'); resolve(true);
+      } catch (e) { btn.disabled = false; btn.innerHTML = 'Pay ' + fmt(amt); toast(e.message, 'err'); resolve(false); }
+    };
+    $('#psLater').onclick = () => { closeModal(); toast('Order reserved — complete payment from your order page'); resolve(false); };
+  });
+}
+/* v94 — full-page navigation seam (tests capture instead of navigating). */
+window.Shivaa.redirectTo = (url) => { window.location.href = url; };
+/* v94 — brief overlay while the browser leaves for the PayU payment page */
+function payuRedirectSheet() {
+  return new Promise(() => {
+    openModal(`<div style="text-align:center;padding:14px 6px">
+      <div class="pp-spinner" aria-hidden="true"></div>
+      <h3 style="margin:14px 0 6px">Redirecting to PayU…</h3>
+      <p style="color:var(--muted);font-size:13px">Do not press back or close this tab. You can pay with any UPI app, card, net-banking or wallet — we&rsquo;ll bring you back when it&rsquo;s done.</p>
+    </div>`);
+  });
+}
+/* v94 — PayU hosted checkout: the server signs and returns the form fields;
+   we auto-submit a full-page POST to secure.payu.in / test.payu.in. */
+window.Shivaa.payuSubmit = (action, fields) => {
+  const f = document.createElement('form');
+  f.method = 'POST'; f.action = action; f.style.display = 'none';
+  for (const [k, v] of Object.entries(fields || {})) {
+    const i = document.createElement('input');
+    i.type = 'hidden'; i.name = k; i.value = String(v ?? '');
+    f.appendChild(i);
+  }
+  document.body.appendChild(f);
+  f.submit();
+};
+window.Shivaa.payForOrder = async (orderId) => {
+  let po;
+  try { po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) }); }
+  catch (e) { toast(e.message, 'err'); return false; }
+  // v94 — PayU: signed form POST redirect; PayU returns the browser to
+  // /api/pay/payu/return → order page (?pu=…), server verifies via verify_payment.
+  if (po.mode === 'payu') {
+    if (!po.action || !po.fields || !po.fields.hash) {
+      toast('PayU checkout could not start — retry or use the UPI QR tab', 'err'); return false;
+    }
+    toast('Taking you to PayU…');
+    setTimeout(() => Shivaa.payuSubmit(po.action, po.fields), 300);
+    return payuRedirectSheet();
+  }
+  // v82 — public host with no gateway keys: go straight to the real UPI QR +
+  // owner-approved screenshot flow (the old "demo success" sheet could mark
+  // orders paid on the live site).
+  if (po.mode === 'upi-proof') {
+    if (!po.upiId) { toast('Online gateway is being set up — please choose WhatsApp order or COD, or call the shop.', 'err'); return false; }
+    return upiPaySheet(po, orderId);
+  }
+  return demoPaySheet(po, orderId);
 };
 window.Shivaa.placeOrder = async () => {
   const form = $('#addrForm');
   if (!form.reportValidity()) return;
   const btn = $('#placeBtn'); btn.disabled = true; btn.textContent = 'Placing order…';
+  const btnM = document.querySelector('.mcta-bar .btn-gold'); if (btnM) { btnM.disabled = true; }
   // read by field name — positional indexing breaks the moment a field is added
   const fd = new FormData(form);
   const g = k => String(fd.get(k) || '').trim();
   const address = { name: g('name'), phone: g('phone'), line: g('line'), city: g('city'),
                     state: g('state'), pincode: g('pincode'), country: g('country') || 'India' };
   const payEl = $('#payOpts input:checked');
-  if (!payEl) { toast('Please choose a payment method', 'err'); btn.disabled = false; btn.textContent = 'Place Order \u2726'; return; }
+  if (!payEl) { toast('Please choose a payment method', 'err'); btn.disabled = false; btn.textContent = 'Place Order ✦'; if (btnM) btnM.disabled = false; return; }
   const paymentMethod = payEl.value;
   try {
     const order = await api('/api/orders', { method: 'POST', body: JSON.stringify({
       items: state.cart.map(c => ({ id: c.id, qty: c.qty, size: c.size, engraving: c.engraving })),
       address, paymentMethod, coupon: window._co.coupon, usePoints: !!$('#usePts')?.checked,
+      rateLock: (() => { const age = (Date.now() - new Date((window._co.rateLock || {}).stampedAt || 0).getTime()) / 1000;
+        return age <= 20 * 60 ? window._co.rateLock : null; })(),
     }) });
+    clearInterval(window._co.lockTimer);
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
     if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
     window._lastOrder = order;
+    // v58 — online prepayment (Razorpay live when configured, simulated in demo)
+    if (paymentMethod === 'Online') await Shivaa.payForOrder(order.id, { fromCheckout: true });
+    // Gold Finale: remember a qualifying order so the order page can offer the quiz
+    try {
+      if (finaleLive() && finaleQualifiesItems((order && order.items) || []).ok) sessionStorage.setItem('fqPrompt', order.id);
+    } catch (e) {}
     if (paymentMethod === 'WhatsApp') {
       const w = waOpen(waOrderMsg(order));
       if (!w) toast('Popup blocked — use the "Confirm & Pay on WhatsApp" button on your order page', 'err');
     }
     location.hash = '#/order/' + order.id;
-  } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = 'Place Order ✦'; }
+  } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = 'Place Order ✦'; if (btnM) btnM.disabled = false; }
+};
+
+/* v57 — one-tap reorder from a past order ("Buy again") */
+window.Shivaa.buyAgain = async (id) => {
+  let o = (window.Shivaa._myOrders || []).find(x => x.id === id);
+  if (!o) { try { o = (await api('/api/orders/' + id)).order; } catch (e) {} }
+  if (!o || !Array.isArray(o.items)) { toast('Could not find that order', 'err'); return; }
+  let added = 0;
+  o.items.forEach(it => {
+    const p = state.productsCache.find(x => x.id === it.productId);
+    if (!p) return;
+    const existing = state.cart.find(c => c.id === p.id);
+    if (existing) existing.qty += it.qty || 1;
+    else state.cart.push({ id: p.id, qty: it.qty || 1, size: it.size || null, engraving: it.engraving || '' });
+    added += it.qty || 1;
+  });
+  if (!added) { toast('Those pieces are being re-catalogued — browse the signature rings for an equivalent', 'err'); return; }
+  store.set('shv_cart', state.cart); updateBadges();
+  toast(`${added} piece${added === 1 ? '' : 's'} added back to your cart ✦`);
+  location.hash = '#/cart';
+};
+
+/* ═══════════ v58 · workshop stage tracker, courier card, NPS, care plan ═══════════ */
+const ORDER_STAGES = [
+  ['Placed', 'Order placed', '🧾'],
+  ['Confirmed', 'Confirmed with karigar', '🙏'],
+  ['Karigari', 'Karigari — craft in progress', '🔨'],
+  ['Hallmarking', 'BIS hallmarking · HUID', '🛡'],
+  ['Packed', 'Polished & packed', '📦'],
+  ['Shipped', 'Shipped · on its way', '🚚'],
+  ['Delivered', 'Delivered with care', '💛'],
+];
+function orderStageHTML(o) {
+  const tl = {};
+  (o.timeline || []).forEach(t => { if (!tl[t.s]) tl[t.s] = t.t; });
+  if (o.status === 'Cancelled') return `<div class="tracker-wrap"><div class="tracker-cancel">This order was cancelled. Refunds for prepaid orders are returned to the source within 3–5 working days. <a href="javascript:void(0)" onclick="Shivaa.waOpenOrder('${o.id}')">Talk to us →</a></div></div>`;
+  let reached = -1;
+  const steps = ORDER_STAGES.map(([key, label, ic], i) => {
+    const hit = tl[key];
+    if (hit) reached = i;
+    return `<div class="st-step ${hit ? 'done' : ''} ${i === reached ? 'cur' : ''}">
+      <span class="st-ic">${ic}</span>
+      <div><b>${label}</b><small>${hit ? timeFmt(hit) : '—'}</small></div>
+    </div>`;
+  }).join('');
+  /* v103 — honest ETA line: handcrafted gold is 4–7 working days from order;
+     once the parcel ships the courier card below carries the live link. */
+  let etaLine = '';
+  if (reached >= 0 && reached < 5 && o.createdAt) {
+    const d = new Date(o.createdAt);
+    const fmt = n => new Date(+d + n * 864e5).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    const day = n => new Date(+d + n * 864e5);
+    const addWorkdays = (date, n) => { const x = new Date(+date); let added = 0; while (added < n) { x.setDate(x.getDate() + 1); const k = x.getDay(); if (k !== 0) added++; } return x; };
+    const fmt2 = x => x.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    etaLine = `<div class="tracker-eta">✦ Handcrafted to order — estimated handover <b>${fmt2(addWorkdays(d, 4))} – ${fmt2(addWorkdays(d, 7))}</b> · we WhatsApp you at every stage</div>`;
+    void fmt; void day;
+  } else if (reached === 5) {
+    etaLine = '<div class="tracker-eta">🚚 On its way — courier tracking appears below the moment the parcel is dispatched.</div>';
+  }
+  return `<div class="tracker-wrap"><div class="tracker-head"><span class="live-dot"></span> Making &amp; delivery tracker</div>${etaLine}<div class="stages">${steps}</div></div>`;
+}
+window.Shivaa.orderStageHTML = orderStageHTML;
+function trackingCardHTML(o) {
+  if (!o.awb && !o.courier) return '';
+  const carriers = {
+    'bluedart': ['BlueDart', 'https://www.bluedart.com/trackdartresult?trackFor=0&trackNo='],
+    'delhivery': ['Delhivery', 'https://www.delhivery.com/track/package/'],
+    'shiprocket': ['Shiprocket', 'https://track.shiprocket.in/'],
+    'dtdc': ['DTDC', 'https://www.dtdc.in/tracking.asp?TrkType=AWB%20No.&TrkNo='],
+    'indiapost': ['India Post', 'https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx'],
+    'sequel': ['Sequel Logistics', 'https://www.sequellogistics.com/track/'],
+  };
+  const key = Object.keys(carriers).find(k => (o.courier || '').toLowerCase().includes(k));
+  const url = key && o.awb ? carriers[key][1] + encodeURIComponent(o.awb) : null;
+  return `<div class="track-card">
+    <div class="tc-ic">🚚</div>
+    <div class="tc-tx"><b>${esc(o.courier || 'Courier')}</b>
+      <small>AWB / tracking no: <b>${esc(o.awb)}</b>${o.dispatchNote ? '<br>' + esc(o.dispatchNote) : ''}</small></div>
+    ${url ? `<a class="btn btn-primary btn-sm" target="_blank" rel="noopener" href="${url}">Track parcel ↗</a>` : ''}
+  </div>`;
+}
+function npsHTML(o) {
+  setTimeout(() => {
+    const box = document.getElementById('npsBox'); if (!box || box._wired) return; box._wired = true;
+    box.querySelectorAll('[data-nps]').forEach(b => b.onclick = () => {
+      const n = +b.dataset.nps;
+      box.querySelector('.nps-q').hidden = true;
+      const done = box.querySelector('.nps-done'); done.hidden = false;
+      const first = (o.items || [])[0] || {};
+      let msg;
+      if (n >= 9) {
+        msg = 'Namaste Shivaa ✦ I received order ' + o.id + ' and loved my ' + (first.name || 'jewellery') + ' (' + n + '/10)!';
+        const gUrl = safeUrl((state.settings && state.settings.googleReviewUrl) || '');
+        const gSafe = gUrl === '#' ? '' : gUrl;
+        done.innerHTML = 'Dhanyavaad! 💛 Your kind words mean a lot. <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'
+          + (gSafe ? '<a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="' + gSafe + '">⭐ Rate us on Google</a>' : '')
+          + '<a class="btn btn-outline btn-sm" href="#/product/' + (first.productId || '') + '">Write a photo review</a>'
+          + '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="' + waLink(msg) + '">Share on WhatsApp</a></div>';
+      } else {
+        msg = 'Namaste Shivaa ✦ About my order ' + o.id + ' — my experience was ' + n + '/10. I would like help with:';
+        done.innerHTML = 'We are sorry it was not a 10 — tell us what went wrong and the owner will personally make it right. <div style="margin-top:10px"><a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="' + waLink(msg) + '">Tell Shivaa privately on WhatsApp</a></div>';
+      }
+    });
+  }, 60);
+  return `<div class="nps-card" id="npsBox">
+    <h3>How was your Shivaa experience?</h3>
+    <div class="nps-q">Tap a score &middot; 0 (poor) to 10 (loved it)
+      <div class="nps-row">${Array.from({ length: 11 }, (_, i) => `<button type="button" class="nps-n ${i >= 9 ? 'hi' : i >= 7 ? 'mid' : 'lo'}" data-nps="${i}">${i}</button>`).join('')}</div>
+      <small>Scores under 7 go straight to the owner, privately. Nothing is posted without you.</small>
+    </div>
+    <div class="nps-done" hidden></div>
+  </div>`;
+}
+function careCTAHTML(o) {
+  return `<div class="care-cta">
+    <h3>Lifetime care — free, every year</h3>
+    <p>Your piece carries Shivaa&rsquo;s lifetime care: polishing, rhodium renewal, soldering, stone tightening &amp; resizing. Book it in under a minute &mdash; at-home pickup available in Jaipur &amp; Nagaur.</p>
+    <a class="btn btn-outline btn-sm" href="#/care?order=${encodeURIComponent(o.id)}">Book free care for this piece →</a>
+  </div>`;
+}
+
+/* ═══════════ v60 · payment ledger, part payments, refunds, COD confirm ═══════════ */
+function paymentLedgerHTML(o) {
+  const pays = o.payments || [];
+  if (!pays.length) return '';
+  const pct = Math.max(4, Math.min(100, Math.round((o.amountPaid || 0) / Math.max(1, o.total) * 100)));
+  const payLabel = { payu: 'PayU', phonepe: 'PhonePe', razorpay: 'Razorpay', 'upi-qr': 'UPI QR', cash: 'Cash', bank: 'Bank transfer', card: 'Card', upi: 'UPI' };
+  const refunds = o.refunds || [];
+  return `<div class="paymil" style="max-width:640px;margin:12px auto 0">
+      <div class="paymil-bar"><i style="width:${pct}%"></i><span>${pct}% paid</span></div>
+    </div>
+    <details class="acc" style="max-width:640px;margin:6px auto" open><summary>Payment history (${pays.length})${o.balance > 0 && o.paymentStatus !== 'Refunded' ? ' · balance ' + fmt(o.balance) : ''}</summary><div class="acc-body">
+    ${pays.map(p => `<div class="sum-row"><span>${new Date(p.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(payLabel[p.mode] || p.mode || p.gateway || 'online')} · <small>${esc(p.status || 'approved')}${p.ref ? ' · ' + esc(p.ref) : ''}</small></span><b>${p.status === 'rejected' ? '—' : fmt(p.amount)}</b></div>`).join('')}
+    ${refunds.map(r => `<div class="sum-row" style="color:var(--warn)"><span>${new Date(r.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(({ payu: 'PayU', phonepe: 'PhonePe', razorpay: 'Razorpay' })[String(o.gateway || '').toLowerCase()] || 'Gateway')} refund · <small>${esc(r.status || 'pending')} · 5–7 days</small></span><b>− ${fmt(r.amount)}</b></div>`).join('')}
+    ${o.amountPaid && !refunds.length ? `<div class="sum-row total"><span>Received</span><b>${fmt(o.amountPaid)}</b></div>` : ''}
+    ${(o.balance > 0 && o.paymentStatus !== 'Refunded') ? `<div class="sum-row" style="color:var(--warn)"><span>Balance due before dispatch</span><b>${fmt(o.balance)}</b></div>` : ''}
+  </div></details>`;
+}
+function refundCardHTML(o, existing) {
+  if (existing) {
+    const st = existing.status;
+    const label = { requested: 'Received — owner is reviewing', approved: 'Approved', refunded: 'Refunded ✓', exchanged: 'Exchanged ✓', rejected: 'Could not be approved' }[st] || st;
+    return `<div class="refund-card" style="${st === 'refunded' ? 'border-color:#1d7a46;background:#f1faf4' : ''}">
+      <h3>${existing.kind === 'exchange' ? 'Exchange' : 'Refund'} request · ${label}</h3>
+      <p>“${esc(existing.reason)}”${existing.creditNote ? ' · credit note <b>' + esc(existing.creditNote) + '</b>' : ''}${existing.note ? '<br>→ ' + esc(existing.note) : ''}</p>
+      <div class="pay-due-btns"><a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${waLink('Namaste ✦ following up on my ' + existing.kind + ' request for order ' + o.id)}">Follow up on WhatsApp</a></div></div>`;
+  }
+  if (['Refunded', 'Exchanged'].includes(o.paymentStatus) || o.status === 'Cancelled') return '';
+  const ageDays = (Date.now() - new Date(o.createdAt).getTime()) / 864e5;
+  if (ageDays > 9) return '';
+  return `<div class="refund-card">
+    <h3>Need to return or exchange?</h3>
+    <p>7-day easy returns &amp; lifetime exchange. Raise it here — pickup is arranged and the credit note follows on WhatsApp.</p>
+    <div class="pay-due-btns">
+      <button class="btn btn-outline btn-sm" onclick="Shivaa.refundForm('${o.id}','refund')">Request refund</button>
+      <button class="btn btn-outline btn-sm" onclick="Shivaa.refundForm('${o.id}','exchange')">Exchange this piece</button>
+    </div></div>`;
+}
+function codConfirmHTML(o) {
+  if (o.paymentMethod !== 'COD' || o.status === 'Cancelled') return '';
+  if (o.codConfirmed) return `<div class="cod-ok">✓ Cash-on-delivery confirmed — please keep ${fmt(o.total)} ready (UPI/cash accepted at handover).</div>`;
+  return `<div class="cod-confirm">
+    <h3>Confirm your COD order</h3>
+    <p>One tap confirms you will receive the parcel and pay <b>${fmt(o.total)}</b> at handover (ID verification for jewellery orders).</p>
+    <button class="btn btn-gold btn-sm" onclick="Shivaa.codConfirm('${o.id}')">✓ Confirm cash on delivery</button>
+  </div>`;
+}
+window.Shivaa.codConfirm = async (id) => {
+  try { await api('/api/orders/' + id + '/cod-confirm', { method: 'POST', body: '{}' });
+    toast('COD confirmed ✦ dispatch team notified'); route();
+  } catch (e) { toast(e.message, 'err'); }
+};
+window.Shivaa.refundForm = (id, kind) => {
+  openModal(`<h3 style="margin-bottom:6px">${kind === 'exchange' ? 'Exchange request' : 'Refund request'}</h3>
+  <p style="font-size:13px;color:var(--ink-2);margin-bottom:12px">Order <b>${id}</b>. Tell us why in a line — the owner sees this directly.</p>
+  <form id="rfForm" class="form-grid" style="grid-template-columns:1fr">
+    <div class="fld"><label>Reason *</label><textarea id="rfReason" required placeholder="${kind === 'exchange' ? 'e.g. ring size 15 needed instead of 14…' : 'e.g. piece does not match the ordered design…'}"></textarea></div>
+    <div class="fld"><label>What you prefer</label><select id="rfMode" class="sortsel" style="width:100%;border-radius:12px">
+      ${kind === 'exchange' ? '<option>Exchange for another piece</option><option>Refund to original payment source</option><option>Credit note / gift card</option>' : '<option>Refund to original payment source</option><option>Credit note / gift card</option><option>Exchange for another piece</option>'}
+    </select></div>
+    <button class="btn btn-gold btn-block btn-lg">Submit ${kind} request</button>
+  </form>`);
+  $('#rfForm').onsubmit = async e => {
+    e.preventDefault();
+    try {
+      await api('/api/orders/' + id + '/refund-request', { method: 'POST', body: JSON.stringify({ kind, reason: $('#rfReason').value }) });
+      closeModal(); toast(kind === 'exchange' ? 'Exchange requested — we arrange pickup ✦' : 'Refund requested — credit note follows on approval ✦'); route();
+    } catch (err) { toast(err.message, 'err'); }
+  };
 };
 
 /* ─────────── ORDER CONFIRMATION ─────────── */
@@ -1689,6 +4018,15 @@ pages.order = async (view, q, id) => {
   let order;
   try { order = (await api('/api/orders/' + id)).order; } catch (e) { view.innerHTML = `<div class="empty"><h3>Order not found</h3></div>`; return; }
   window._lastOrder = order;
+  // v94 — returning from the PayU hosted page (?pu=success|pending|fail)
+  const ppReturn = String(q.get('pu') || q.get('pp') || '').toLowerCase();
+  const ppBannerHTML = ppReturn === 'success'
+    ? `<div class="pp-banner ok" id="ppBanner"><span class="pp-bi">✓</span><div><b>Payment received</b><small>PayU confirmed it — the receipt is shown in the ledger below.</small></div></div>`
+    : ppReturn === 'fail'
+    ? `<div class="pp-banner err" id="ppBanner"><span class="pp-bi">!</span><div><b>Payment was not completed</b><small>If money was debited, PayU reverses it automatically in 5–7 working days. Retry with the button below.</small></div></div>`
+    : ppReturn === 'pending'
+    ? `<div class="pp-banner pending" id="ppBanner"><span class="pp-spinner sm" aria-hidden="true"></span><div><b>Confirming your PayU payment…</b><small>Hold on a few seconds — do not close this tab.</small></div></div>`
+    : '';
   view.innerHTML = `
   <div style="min-height:70vh;display:flex;align-items:center;padding:60px 0">
     <div class="container" style="max-width:860px">
@@ -1700,28 +4038,89 @@ pages.order = async (view, q, id) => {
         <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed. You earned <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> ✦<br>
         Invoice & rate-lock summary sent to your account. Live tracking below.</p>
       </div>
+      ${ppBannerHTML}
       <div class="order-card mt-3">
         <div class="order-top"><div class="order-id">${order.id} · ${timeFmt(order.createdAt)}</div><span class="status-pill st-${order.status.toLowerCase()}">${order.status}</span></div>
+        ${order.invoiceNo ? `<div style="font-size:12px;color:var(--ink-3);margin:2px 0 8px">Tax invoice <b>${esc(order.invoiceNo)}</b> · HSN ${esc(order.hsn || (order.items || []).map(i => i.hsn).filter(Boolean)[0] || '7113')}</div>` : ''}
         ${order.items.map(it => `<div class="sum-row"><span>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b>${fmt(it.unitPrice * it.qty)}</b></div>`).join('')}
         <div class="sum-row"><span>Rate locked at</span><b>${fmt(order.rateSnapshot.gold22 || order.rateSnapshot.silver)}/g (${esc(order.rateSnapshot.stampedAt ? timeFmt(order.rateSnapshot.stampedAt) : 'order time')})</b></div>
         <div class="sum-row"><span>Subtotal</span><b>${fmt(order.subtotal)}</b></div>
         ${order.discount ? `<div class="sum-row"><span>Discount${order.coupon ? ' (' + esc(order.coupon) + ')' : ''}${order.pointsUsed ? ' · ' + order.pointsUsed + ' pts' : ''}</span><b style="color:var(--ok)">− ${fmt(order.discount)}</b></div>` : ''}
         <div class="sum-row"><span>Shipping</span>${order.shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(order.shipping)}</b>`}</div>
-        <div class="sum-row total"><span>Paid via ${esc(order.paymentMethod)}</span><b>${fmt(order.total)}</b></div>
-        <div class="timeline mt-2">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${order.timeline.find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
+        ${order.prepaidDiscount ? `<div class="sum-row"><span>Prepaid discount</span><b style="color:var(--ok)">− ${fmt(order.prepaidDiscount)}</b></div>` : ''}
+        <div class="sum-row total"><span>${/paid/i.test(order.paymentStatus || '') ? 'Paid via' : 'Payment'} ${esc(order.paymentMethod)}</span><b>${fmt(order.total)}</b></div>
       </div>
-      ${order.paymentMethod === 'WhatsApp' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Your order is reserved — confirm &amp; pay on WhatsApp to lock today's rate.</div>
-      <div class="center" style="margin-bottom:18px"><button class="btn btn-gold btn-lg" onclick="Shivaa.waOpenOrder('${order.id}')">Confirm &amp; Pay on WhatsApp</button></div>` : ''}
-      <div class="center"><a class="btn btn-primary" href="#/account?tab=orders">View All Orders</a> <a class="btn btn-ghost" href="#/shop" style="margin-left:10px">Continue Shopping</a></div>
+      ${orderStageHTML(order)}
+      ${trackingCardHTML(order)}
+      ${paymentLedgerHTML(order)}
+      ${codConfirmHTML(order)}
+      ${(order.paymentStatus === 'Awaiting payment' || order.paymentStatus === 'Partially paid') ? `<div class="pay-due-card">
+        <h3>${order.paymentStatus === 'Partially paid' ? '⌛ Balance payment pending' : '⌛ Payment pending'}</h3>
+        <p>${order.amountPaid ? `<b>${fmt(order.amountPaid)} received</b> · balance <b>${fmt(order.balance || (order.total - order.amountPaid))}</b> · ` : ''}Your piece is reserved &amp; today&rsquo;s rate is held. Complete payment now — UPI QR, cards or net-banking — or switch to WhatsApp.</p>
+        <div class="pay-due-btns">
+          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder(${jsArg(order.id)}).then(()=>location.reload())">Pay ${fmt(order.balance || (order.amountPaid ? order.total - order.amountPaid : order.total))} now</button>
+          <button class="btn btn-outline" onclick="Shivaa.waOpenOrder(${jsArg(order.id)})">Pay on WhatsApp</button>
+        </div></div>` : ''}
+      ${order.paymentStatus === 'Proof submitted' ? `<div class="pay-due-card" style="background:linear-gradient(135deg,#eef6ff,#dcecff);border-color:#7fb0e6">
+        <h3>🔎 Payment being verified</h3>
+        <p>We have your payment screenshot (ref <b>${esc((order.payProof && order.payProof.ref) || '—')}</b>). The counter confirms it within minutes — this page updates automatically; your rate stays held.</p>
+        <div class="pay-due-btns"><a class="btn btn-outline btn-sm" href="javascript:Shivaa.waOpenOrder(${jsArg(order.id)})">Confirm faster on WhatsApp</a></div></div>` : ''}
+      ${order.paymentStatus === 'Refunded' ? `<div class="pay-due-card" style="background:#fdeeef;border-color:#e6a0a8"><h3>Refunded</h3><p>The refund for this order is processed to the payment source. Allow 3–5 working days for it to appear.</p></div>` : ''}
+      ${order.paymentMethod === 'WhatsApp' && order.paymentStatus !== 'Paid' ? `<div class="wa-hint" style="justify-content:center;max-width:640px;margin:0 auto 18px">Your order is reserved — confirm &amp; pay on WhatsApp to lock today's rate.</div>
+      <div class="center" style="margin-bottom:18px"><button class="btn btn-gold btn-lg" onclick="Shivaa.waOpenOrder(${jsArg(order.id)})">Confirm &amp; Pay on WhatsApp</button></div>` : ''}
+      <div id="refundSlot">${refundCardHTML(order)}</div>
+      ${order.status === 'Delivered' ? npsHTML(order) : ''}
+      ${order.status === 'Delivered' ? careCTAHTML(order) : ''}
+      <div class="center"><a class="btn btn-gold" href="#/certificate/${encodeURIComponent(order.id)}">🛡 View purity certificate</a></div>
+      <div class="center" style="margin-top:12px"><a class="btn btn-primary" href="#/account?tab=orders">View All Orders</a> <a class="btn btn-ghost" href="#/shop" style="margin-left:10px">Continue Shopping</a></div>
     </div>
   </div>`;
   confetti();
+  finaleAfterOrder(order);   // Gold Finale: quiz prompt for qualifying orders (if campaign live)
+  // v60: surface this order's refund/exchange request if one exists
+  try {
+    const { requests } = await api('/api/refunds/mine');
+    const mine = (requests || []).find(r => r.orderId === order.id);
+    const slot = $('#refundSlot');
+    if (mine && slot) slot.innerHTML = refundCardHTML(order, mine);
+  } catch (e) { /* guests / no requests */ }
+  // v94 — after a PayU redirect return, ask the server to run verify_payment
+  // (and refund status) and redraw the moment the order flips to Paid.
+  if (ppReturn === 'success' || ppReturn === 'pending') {
+    const pollPP = async (tries) => {
+      if (!document.getElementById('ppBanner')) return;              // navigated away
+      if (tries >= 6) {
+        const b = document.getElementById('ppBanner');
+        if (b) b.querySelector('small').textContent = 'Confirmation is taking longer than usual — reload this page in a minute, or contact the shop if money was debited.';
+        return;
+      }
+      await new Promise(r => setTimeout(r, tries === 0 ? 1200 : 2600));
+      if (!document.getElementById('ppBanner')) return;
+      try {
+        const r = await api('/api/pay/payu/status', { method: 'POST', body: JSON.stringify({ orderId: id }) });
+        const o = r.order || {};
+        const ps = String(o.paymentStatus || '');
+        if (/^paid$/i.test(ps) || /partially paid/i.test(ps)) {
+          toast('PayU payment confirmed ✦');
+          history.replaceState(null, '', '#/order/' + encodeURIComponent(id));
+          return pages.order(view, new URLSearchParams(), id);
+        }
+        if (/failed/i.test(ps)) {
+          history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + '?pu=fail');
+          return pages.order(view, new URLSearchParams('pu=fail'), id);
+        }
+        return pollPP(tries + 1);
+      } catch (e) { return pollPP(tries + 1); }
+    };
+    pollPP(0);
+  }
 };
 function confetti() {
   const c = document.createElement('canvas');
   Object.assign(c.style, { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 300 });
   document.body.appendChild(c);
   const x = c.getContext('2d');
+  if (!x) { c.remove(); return; }   // v92 — no canvas engine (old webview/tests): skip the burst
   c.width = innerWidth; c.height = innerHeight;
   const ps = Array.from({ length: 130 }, () => ({ x: Math.random() * c.width, y: -20 - Math.random() * c.height * 0.5, v: 2 + Math.random() * 3, s: 4 + Math.random() * 5, r: Math.random() * 7, vr: (Math.random() - .5) * .3, col: ['#b98a2f', '#d4af5a', '#6e1e2a', '#f3dfae'][Math.floor(Math.random() * 4)] }));
   let n = 0;
@@ -1740,20 +4139,21 @@ pages.account = async (view, q) => {
   // v31 — a failed fetch must never blank the account page; if the session
   // died (401), api() has already cleared it, so show the login gate.
   let orders = [], wl = [];
-  try { orders = (await api('/api/orders')).orders || []; }
+  try { orders = (await api('/api/orders')).orders || []; window.Shivaa._myOrders = orders; }   // v57: buy-again
   catch (e) { if (!state.user) { openLogin('account'); return; } }
   try { wl = (await api('/api/wishlist')).wishlist || []; }
   catch (e) { if (!state.user) { openLogin('account'); return; } }
   const tier = me.loyaltyPoints > 5000 ? 'Gold' : me.loyaltyPoints > 2000 ? 'Silver' : 'Bronze';
   const initials = me.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const prof = me.profile || {};
-  const filled = ['name', 'phone', 'email'].filter(k => me[k]).length + ['dob', 'anniversary', 'gender'].filter(k => prof[k]).length;
-  const profPct = Math.round(filled / 6 * 100);
+  const filled = ['name', 'phone', 'email'].filter(k => me[k]).length + ['dob', 'anniversary', 'gender', 'city'].filter(k => prof[k]).length;
+  const profPct = Math.round(filled / 7 * 100);
   const nAdr = (me.addresses || []).length;
 
   const tiles = [
     ['overview', '◈', 'Account Overview', 'Your details, occasions & preferences'],
     ['orders', '▦', 'My Orders', orders.length + ' order' + (orders.length === 1 ? '' : 's')],
+    ['certificates', '🛡', 'My Certificates', orders.length ? orders.length + ' digital purity certificate' + (orders.length === 1 ? '' : 's') : 'Issued with your first order'],
     ['addresses', '⌖', 'Manage Addresses', nAdr ? nAdr + ' saved · deliveries & billing' : 'Add delivery addresses'],
     ['loyalty', '✦', 'Royalty Points', me.loyaltyPoints + ' pts · ' + tier + ' tier'],
     ['wishlist', '♡', 'My Wishlist', wl.length + ' saved piece' + (wl.length === 1 ? '' : 's')],
@@ -1774,7 +4174,7 @@ pages.account = async (view, q) => {
 
     <div class="acct-tiles">
       ${isPartner() ? `<a href="#/partner" class="acct-tile portal"><span class="at-ic">✦</span><span class="at-tx"><b>Partner Portal</b><small>bullion desk · design selection · schemes · reports</small></span><span class="at-go">›</span></a>` : ''}
-      ${tiles.map(t => `<a href="#/account?tab=${t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
+      ${tiles.map(t => `<a href="${t[0] === 'certificates' ? '#/certificates' : '#/account?tab=' + t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
       <a href="javascript:Shivaa.logout()" class="acct-tile danger"><span class="at-ic">↩</span><span class="at-tx"><b>Logout</b><small>sign out safely</small></span><span class="at-go">›</span></a>
     </div>
 
@@ -1793,19 +4193,33 @@ pages.account = async (view, q) => {
           <option value="">Select…</option>
           ${['Male', 'Female', 'Other'].map(g => `<option ${prof.gender === g ? 'selected' : ''}>${g}</option>`).join('')}
         </select></div>
+        <div class="fld"><label>Place / city</label><input id="pfCity" value="${esc(prof.city || '')}" placeholder="e.g. Nagaur" autocomplete="address-level2"></div>
         <button class="btn btn-primary" style="grid-column:1/-1;justify-self:start">Save My Details</button>
       </form>
       <div class="qty-banner">✦ We remember your big days — birthday &amp; anniversary month brings 2× royalty points and first look at festive designs.</div>
     </div>` : ''}
-  ${tab === 'orders' ? orders.map(o => `<div class="order-card">
-      <div class="order-top"><div><div class="order-id">${o.id}</div><div style="font-size:12.5px;color:var(--ink-3)">${timeFmt(o.createdAt)} · ${o.items.reduce((a, i) => a + i.qty, 0)} items · ${esc(o.paymentMethod)}</div></div>
-      <div style="text-align:right"><span class="status-pill st-${o.status.toLowerCase()}">${o.status}</span><div style="margin-top:6px"><b>${fmt(o.total)}</b></div></div></div>
-      <div class="timeline">${['Placed', 'Packed', 'Shipped', 'Delivered'].map(s => `<div class="tl-step ${o.timeline.find(t => t.s === s) ? 'done' : ''}">${s}</div>`).join('')}</div>
+  ${tab === 'orders' ? orders.map(o => {
+    const oq = finaleLive() && (o.items || []).length && finaleQualifiesItems(o.items).ok;   // Gold Finale: qualifies → quiz reachable from here too
+    return `<div class="order-card">
+      <div class="order-top"><div><a class="order-id" href="#/order/${o.id}" style="color:var(--maroon-deep);text-decoration:none">${o.id}</a><div style="font-size:12.5px;color:var(--ink-3)">${timeFmt(o.createdAt)} · ${o.items.reduce((a, i) => a + i.qty, 0)} items · ${esc(o.paymentMethod)}</div></div>
+      <div style="text-align:right"><span class="status-pill st-${o.status.toLowerCase()}">${o.status}</span><div style="margin-top:6px"><b>${fmt(o.total)}</b></div>${o.paymentStatus === 'Proof submitted' ? '<div style="font-size:11px;color:#3670b8;margin-top:4px">🔎 Payment verification</div>' : ''}</div></div>
+      ${o.status === 'Cancelled' ? '<div class="tracker-cancel" style="margin:10px 0">Cancelled</div>'
+        : `<div class="mini-stages">${ORDER_STAGES.map(([key, , ic]) => {
+          const hit = (o.timeline || []).find(t => t.s === key);
+          return `<span class="ms-step ${hit ? 'done' : ''}" title="${key}">${ic}</span>`;
+        }).join('')}</div>`}
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
-        ${o.items.map(i => `<img src="${i.img}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
-        <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail('${o.id}')">Details</a>
+        ${o.items.map(i => `<img src="${safeUrl(i.img)}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
+          <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail(${jsArg(o.id)})">Details</a>
           <a class="btn btn-outline btn-sm" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
-      </div></div>`).join('') || '<div class="empty"><h3>No orders yet</h3><a class="btn btn-outline" href="#/shop">Start shopping</a></div>' : ''}
+          <a class="btn btn-outline btn-sm" href="#/certificate/${o.id}">🛡 Certificate</a>
+          ${o.status === 'Delivered' ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.buyAgain('${o.id}')">↻ Buy again</button>` : ''}
+          ${o.status === 'Delivered' ? `<a class="btn btn-outline btn-sm" href="#/care?order=${encodeURIComponent(o.id)}">✦ Care</a>` : ''}
+          ${(o.paymentStatus === 'Awaiting payment' || o.paymentStatus === 'Partially paid') ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.payForOrder('${o.id}').then(()=>location.reload())" style="margin-left:auto">⌛ Pay ${o.balance ? fmt(o.balance) : 'now'}</button>` : ''}
+          ${o.codConfirmed === false && o.paymentMethod === 'COD' ? `<button class="btn btn-outline btn-sm" onclick="Shivaa.codConfirm('${o.id}')">✓ Confirm COD</button>` : ''}
+          ${oq ? `<a class="btn btn-gold btn-sm" href="javascript:Shivaa.fqOpen({route:'purchase',orderId:${jsArg(o.id)}})" style="margin-left:auto">✦ Gold Finale — this order qualifies</a>` : ''}
+      </div></div>`;
+  }).join('') || '<div class="empty"><h3>No orders yet</h3><a class="btn btn-outline" href="#/shop">Start shopping</a></div>' : ''}
   ${tab === 'addresses' ? `
     <div class="acct-sec">
       <div class="as-head"><h3>Manage Addresses</h3><button class="btn btn-primary btn-sm" onclick="Shivaa.addrForm()">+ Add Address</button></div>
@@ -1813,11 +4227,11 @@ pages.account = async (view, q) => {
         <form class="form-grid" onsubmit="Shivaa.addrSave(event)">
           <input type="hidden" id="adId">
           <div class="fld"><label>Label</label><select id="adLabel" class="sortsel" style="width:100%;border-radius:12px">${['Home', 'Work', 'Other'].map(l => `<option>${l}</option>`).join('')}</select></div>
-          <div class="fld"><label>Full name *</label><input id="adName" required></div>
-          <div class="fld"><label>Phone *</label><input id="adPhone" maxlength="10" inputmode="numeric" required></div>
-          <div class="fld"><label>Pincode *</label><input id="adPin" maxlength="6" inputmode="numeric" required></div>
-          <div class="fld full"><label>Address (house, street, landmark) *</label><input id="adLine" required></div>
-          <div class="fld"><label>City *</label><input id="adCity" required></div>
+          <div class="fld"><label>Full name *</label><input id="adName" autocomplete="name" required></div>
+          <div class="fld"><label>Phone *</label><input id="adPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="10" required></div>
+          <div class="fld"><label>Pincode *</label><input id="adPin" inputmode="numeric" autocomplete="postal-code" maxlength="6" required></div>
+          <div class="fld full"><label>Address (house, street, landmark) *</label><input id="adLine" autocomplete="street-address" required></div>
+          <div class="fld"><label>City *</label><input id="adCity" autocomplete="address-level2" required></div>
           <div class="fld"><label>State</label><input id="adState" value="Rajasthan"></div>
           <div class="fld full" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="adDef" style="accent-color:var(--gold);width:17px;height:17px"><label style="margin:0" for="adDef">Make this my default address</label></div>
           <div style="display:flex;gap:10px;grid-column:1/-1">
@@ -1864,6 +4278,7 @@ window.Shivaa.saveProfile = async e => {
   try {
     const r = await api('/api/auth/profile', { method: 'PUT', body: JSON.stringify({
       name: $('#pfName').value, dob: $('#pfDob').value, anniversary: $('#pfAnn').value, gender: $('#pfGender').value,
+      city: $('#pfCity') ? $('#pfCity').value : '',
     }) });
     state.user = r.user;
     toast('Profile saved ✦'); location.hash = '#/account?tab=overview';
@@ -1904,10 +4319,337 @@ pages.wishlist = async (view) => {
   else { wl = state.localWish; items = state.productsCache.filter(p => state.localWish.includes(p.id)); }
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Wishlist</div><h1>Wishlist</h1><p>${items.length} saved piece${items.length === 1 ? '' : 's'}${state.user ? '' : ' · login to sync across devices'}</p></div></section>
-  <div class="container" style="padding:44px 0 90px">
-    ${items.length ? `<div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
+  <div class="container" style="padding:30px 0 90px">
+    ${items.length ? `
+    <div class="registry-bar">
+      <div class="rb-tx"><b>🎁 Turn these into a gift registry</b><small>Share one link with family &mdash; they see your chosen pieces and can gift or contribute, quietly. Perfect for weddings &amp; bridal trousseau.</small></div>
+      <div class="rb-acts">
+        <button class="btn btn-gold" id="rgShare">🔗 Copy share link</button>
+        <button class="btn btn-outline" id="rgWa">Share on WhatsApp</button>
+        <button class="btn btn-ghost btn-sm" id="rgAlert">🔔 Alert me on price drops</button>
+      </div>
+    </div>
+    <div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
     : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Nothing saved yet</h3><p style="margin:10px 0 20px">Tap the heart on any piece to keep it here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
+  if (items.length) {
+    const ids = items.map(p => p.id).join(',');
+    const name = state.user ? state.user.name.split(' ')[0] : '';
+    const link = location.origin + location.pathname + '#/giftlist?ids=' + encodeURIComponent(ids) + (name ? '&by=' + encodeURIComponent(name) : '');
+    const copy = () => {
+      (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).catch(() => {
+        const t = document.createElement('textarea'); t.value = link; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove();
+      });
+      toast('Share link copied ✓');
+    };
+    $('#rgShare').onclick = copy;
+    $('#rgWa').onclick = () => waOpen(`Namaste ✦ Here is my Shivaa gift registry — tap to see the pieces I love:\n${link}`);
+    const rgAlertEl = $('#rgAlert'); if (rgAlertEl) rgAlertEl.onclick = () => Shivaa.wishlistAlerts(wl);
+  }
+};
+
+/* ─────────── v57 · shared gift registry (public, no login needed) ─────────── */
+pages.giftlist = async (view, q) => {
+  const ids = (q.get('ids') || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 60);
+  const by = q.get('by') || '';
+  const occasion = q.get('occasion') || 'Gift registry';
+  let items = ids.map(id => (state.productsCache || []).find(p => p.id === id)).filter(Boolean);
+  if (!items.length && ids.length) { try { const r = await api('/api/products'); items = ids.map(id => (r.products || []).find(p => p.id === id)).filter(Boolean); } catch (e) {} }
+  const total = items.reduce((a, p) => a + price(p).total, 0);
+  view.innerHTML = `
+  <section class="page-hero registry-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="container"><span class="hero-kicker">🎁 ${esc(occasion)}</span><h1>${by ? esc(by) + '&rsquo;s' : 'A'} Shivaa <em class="shimmer foil-txt">wishlist</em></h1>
+    <p class="hero-sub">${items.length} treasured piece${items.length === 1 ? '' : 's'} · wish value <b>${fmt(total)}</b> · family can gift a piece or contribute quietly.</p></div></section>
+  <div class="container" style="padding:34px 0 90px">
+    ${items.length ? `<div class="p-grid">${items.map(p => productCard(p, { wishSet: [] })).join('')}</div>
+      <div class="registry-cta">
+        <h3>Gift one of these pieces?</h3>
+        <p>Our team keeps every contribution confidential from the registry owner until the reveal. You can also buy a <a href="#/giftcard" style="color:var(--gold)">Shivaa gift card</a>.</p>
+        <a class="btn btn-gold btn-lg" target="_blank" rel="noopener" href="${waLink('Namaste Shivaa ✦\n\nI would like to gift a piece from ' + (by || 'a') + '’s Shivaa gift registry: ' + location.href)}">💝 Talk to the wedding &amp; gifting desk</a>
+        <a class="btn btn-ghost" href="#/shop">Create your own registry</a>
+      </div>`
+    : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This registry is empty</h3><p style="margin:10px 0 20px">Its pieces may have moved &mdash; browse the collection instead.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+  </div>`;
+};
+
+/* ─────────── v57 · RING / BANGLE SIZER (v101: Indian showroom-standard
+   numbering — Indian size = inner circumference mm − 40, matching the
+   printed strips used by Indian jewellers (17.0 mm dia → size 13);
+   press-&-hold steppers) ─ */
+const IND_SIZE_OFFSET = 40;   // Indian ring size = circumference (mm) − 40
+const indSizeFromDia = dia => Math.round(dia * Math.PI - IND_SIZE_OFFSET);
+const INDIAN_RING_CHART = (() => {
+  const rows = [];
+  for (let size = 8; size <= 30; size++) {
+    const circ = size + IND_SIZE_OFFSET;
+    rows.push({ size, circ, dia: Math.round(circ / Math.PI * 10) / 10 });
+  }
+  return rows;
+})();
+pages.sizer = async view => {
+  const saved = (() => { try { return localStorage.getItem('shv_ring_size') || ''; } catch (e) { return ''; } })();
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Ring Size Guide</div><h1>Find your ring size</h1><p>Indian standard sizes — two quick methods, no guessing, no size exchanges. Tip: <b>press &amp; hold</b> the − / + buttons.</p></div></section>
+  <div class="container sizer-wrap" style="padding:36px 0 90px">
+    <div class="sizer-grid">
+      <div class="adm-card sz-card">
+        <h3>① Match a ring you already own</h3>
+        <p class="partner-note">Calibrate once with any ATM / bank card (exactly <b>85.6 mm</b> wide), then resize until the circle fits the <b>inner edge</b> of your ring. Press &amp; hold any − / + button to move continuously.</p>
+        <div class="sz-cal">
+          <label>Calibration — card should line up exactly: <button type="button" class="sz-reset" id="szCalReset">reset</button></label>
+          <div class="sz-cardrow"><button class="btn btn-ghost btn-sm" id="szCalDown" aria-label="Calibrate smaller">−</button><div class="sz-bankcard" id="szBank"><span>Bank / ATM card · 85.6 mm</span></div><button class="btn btn-ghost btn-sm" id="szCalUp" aria-label="Calibrate bigger">+</button></div>
+        </div>
+        <div class="sz-stage" id="szStage"><div class="sz-circle" id="szCircle"><span></span></div></div>
+        <div class="sz-controls">
+          <button class="btn btn-ghost" id="szDown">− Smaller</button>
+          <div class="sz-readout"><b id="szDia">17.0</b><small>mm inner diameter · Indian size <b id="szInd">13</b></small></div>
+          <button class="btn btn-ghost" id="szUp">Bigger +</button>
+        </div>
+        <button class="btn btn-gold btn-block" id="szSave">Save my size · pre-select on every ring</button>
+      </div>
+      <div class="adm-card sz-card">
+        <h3>② Printable paper strip</h3>
+        <p class="partner-note">Wrap snugly around the widest part of the finger (allow for the knuckle). The number at the arrow is your <b>Indian size</b>.</p>
+        <div class="sz-strip-wrap">
+          <div class="sz-strip" id="szStrip"></div>
+        </div>
+        <button class="btn btn-outline btn-block" onclick="window.print()">🖨 Print the strip</button>
+        <div class="sz-tips">
+          <b>Good to know</b>
+          <ul><li>Measure at the end of the day when fingers are warm.</li>
+          <li>The band should fit snug but slide over the knuckle.</li>
+          <li>Between two sizes? Pick the larger — fingers swell in summer.</li>
+          <li>Still unsure? Our <a href="#/videoconsult" style="color:var(--gold)">video call</a> measures it with you, free.</li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="adm-card sz-chart-card">
+      <h3>③ Indian ring size chart <small>inner diameter &amp; circumference, mm</small></h3>
+      <p class="partner-note">Standard Indian numbering used across Indian jewellers: <b>Indian size = inner circumference (mm) − 40</b>. Measure the finger's circumference with the strip above and read across.</p>
+      <div class="sz-chart" id="szChart"></div>
+    </div>
+  </div>`;
+  // calibration: pixels per mm. v102 — the calibration persists on this
+  // device so customers calibrate once, not on every visit.
+  let ppm = 96 / 25.4, dia = 17.0;
+  try { const v = parseFloat(localStorage.getItem('shv_sizer_ppm') || ''); if (v >= 2 && v <= 8) ppm = v; } catch (e) {}
+  const card = $('#szBank');
+  const haptic = ms => { try { navigator.vibrate?.(ms); } catch (e) {} };
+  const DEFAULT_PPM = 96 / 25.4;
+  const paintCal = () => {
+    card.style.width = (85.6 * ppm).toFixed(1) + 'px'; paint();
+    try {
+      if (Math.abs(ppm - DEFAULT_PPM) < 0.0006) localStorage.removeItem('shv_sizer_ppm');
+      else localStorage.setItem('shv_sizer_ppm', ppm.toFixed(4));
+    } catch (e) {}
+  };
+  const paint = () => {
+    $('#szCircle').style.width = (dia * ppm).toFixed(1) + 'px';
+    $('#szCircle').style.height = (dia * ppm).toFixed(1) + 'px';
+    $('#szDia').textContent = dia.toFixed(1);
+    const ind = indSizeFromDia(dia);
+    const indEl = $('#szInd');
+    if (indEl.textContent !== String(ind)) { indEl.textContent = ind; haptic(5); }
+  };
+  // v101 — continuous press-and-hold on every stepper (calibration + size)
+  window.Shivaa.holdRepeat($('#szCalUp'), () => { ppm *= 1.006; paintCal(); }, { repeatStart: 60, repeatMin: 18 });
+  window.Shivaa.holdRepeat($('#szCalDown'), () => { ppm /= 1.006; paintCal(); }, { repeatStart: 60, repeatMin: 18 });
+  window.Shivaa.holdRepeat($('#szUp'), () => { dia = Math.min(23, Math.round((dia + 0.1) * 10) / 10); paint(); }, { repeatStart: 120, repeatMin: 45 });
+  window.Shivaa.holdRepeat($('#szDown'), () => { dia = Math.max(12, Math.round((dia - 0.1) * 10) / 10); paint(); }, { repeatStart: 120, repeatMin: 45 });
+  $('#szCalReset').onclick = () => {
+    ppm = 96 / 25.4; paintCal(); haptic(8);
+    try { localStorage.removeItem('shv_sizer_ppm'); } catch (e) {}
+    toast('Calibration reset');
+  };
+  if (saved) { const d = (parseFloat(saved) + IND_SIZE_OFFSET) / Math.PI; if (d >= 12 && d <= 23) dia = Math.round(d * 10) / 10; }
+  paintCal();
+  const saveBtn = $('#szSave');
+  if (saved) saveBtn.innerHTML = '✓ Saved size ' + esc(saved) + ' · tap to update';
+  saveBtn.onclick = () => {
+    const ind = $('#szInd').textContent;
+    try { localStorage.setItem('shv_ring_size', ind); } catch (e) {}
+    haptic(15);
+    saveBtn.innerHTML = '✓ Saved size ' + esc(ind) + ' · tap to update';
+    $$('#szChart tr').forEach(tr => tr.classList.toggle('on', tr.dataset.size === ind));
+    toast('Indian size ' + ind + ' saved ✓ rings open on your size');
+  };
+  // Indian standard reference chart (v102 — tap a row to set the circle)
+  $('#szChart').innerHTML = '<table class="sz-table"><thead><tr><th>India</th><th>Dia mm</th><th>Circ mm</th></tr></thead><tbody>'
+    + INDIAN_RING_CHART.map(r => `<tr data-size="${r.size}" data-dia="${r.dia.toFixed(1)}"${String(saved) === String(r.size) ? ' class="on"' : ''} title="Set circle to size ${r.size}"><td><b>${r.size}</b></td><td>${r.dia.toFixed(1)}</td><td>${r.circ}.0</td></tr>`).join('')
+    + '</tbody></table>';
+  $$('#szChart tbody tr').forEach(tr => tr.addEventListener('click', () => {
+    dia = Math.max(12, Math.min(23, parseFloat(tr.dataset.dia)));
+    paint(); haptic(8);
+    $$('#szChart tr').forEach(x => x.classList.toggle('on', x === tr));
+    $('#szStage').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }));
+  // printable strip: circumference mm with Indian size ticks (size = mm − 40).
+  // Covers Indian sizes 8–32 (circ 48–72 mm) — the full chart range.
+  const strip = $('#szStrip');
+  let ticks = '';
+  const MM_MIN = 48, MM_MAX = 72;
+  for (let mm = MM_MIN; mm <= MM_MAX; mm++) {
+    const ind = mm - IND_SIZE_OFFSET;
+    const big = mm % 5 === 0;
+    ticks += `<span class="tick" style="left:${(mm - MM_MIN) * 10}px"><i class="${big ? 'big' : ''}"></i><b class="tk-ind">${ind}</b>${big ? `<small>${mm}mm</small>` : ''}</span>`;
+  }
+  strip.innerHTML = `<span class="sz-arrow">▾ cut &amp; wrap from here</span><div class="sz-ruler">${ticks}</div><small>Bold numbers are Indian sizes (circumference − 40). Print at 100% scale — choose “actual size” in print settings.</small>`;
+};
+
+/* ═══════════ v58 · lifetime care plan bookings ═══════════ */
+const CARE_SERVICES = [
+  ['polish', '✨ Annual polish & shine', 'Gentle ultrasonic + hand polish; stones checked. Free for life on any Shivaa piece.'],
+  ['rhodium', '⚪ Rhodium renewal', 'Fresh white-gold finish on rings, chains & tops that wear daily.'],
+  ['soldering', '🔗 Soldering / chain repair', 'Jump rings, chain joins, posts, clasps — quoted before work starts.'],
+  ['stone', '💎 Stone tightening', 'Prongs inspected & tightened; loose stones listed honestly, no surprise swap.'],
+  ['resize', '📏 Ring / bangle resizing', 'Most rings sized ±2; your saved size pre-fills the form.'],
+  ['clean', '🧽 At-home care kit guidance', 'Free guidance + a small care kit with counter pickup.'],
+];
+pages.care = async (view, q) => {
+  const preOrder = q.get('order') || '';
+  let saved = '';
+  try { saved = localStorage.getItem('shv_ring_size') || ''; } catch (e) {}
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="container"><div class="crumbs"><a href="#/">Home</a> / Lifetime Care</div><h1>Lifetime <em class="shimmer foil-txt">Care Plan</em></h1>
+    <p>Every Shivaa piece is looked after for life — at our counter, by video, or with pickup &amp; drop in Jaipur &amp; Nagaur.</p></div></section>
+  <div class="container care-wrap" style="padding:36px 0 90px">
+    <div class="care-grid">
+      <div>
+        <div class="care-list">
+          ${CARE_SERVICES.map(([k, t, d], i) => `<label class="care-opt ${i === 0 ? 'on' : ''}" data-k="${k}">
+            <input type="radio" name="care" value="${k}" ${i === 0 ? 'checked' : ''}>
+            <span><b>${t}</b><small>${d}</small></span></label>`).join('')}
+        </div>
+        <div class="care-promise adm-card">
+          <h3>The Shivaa care promise</h3>
+          <ul>
+            <li>✦ Weighing in your presence, sealed &amp; photographed.</li>
+            <li>✦ No charge for standard polishing &amp; stone checks on our pieces.</li>
+            <li>✦ Repair cost approved on WhatsApp before any work begins.</li>
+            <li>✦ HUID pieces return with the same HUID recorded on your certificate.</li>
+          </ul>
+        </div>
+      </div>
+      <form class="adm-card care-form" id="careForm">
+        <h3>Book a care visit</h3>
+        <div class="fld"><label>Full name *</label><input name="name" required value="${esc(state.user?.name || '')}"></div>
+        <div class="fld"><label>Mobile *</label><input name="phone" type="tel" inputmode="tel" maxlength="10" required value="${esc((state.user?.phone || '').replace(/\D/g, '').slice(-10))}"></div>
+        <div class="fld"><label>Related order no. (if any)</label><input name="order" value="${esc(preOrder)}" placeholder="SHV…"></div>
+        <div class="fld"><label>Preferred way</label>
+          <select name="mode" class="sortsel" style="width:100%;border-radius:12px">
+            <option>Counter visit — Jayal, Nagaur</option>
+            <option>Pickup &amp; drop (Jaipur / Nagaur)</option>
+            <option>Video call guidance first</option>
+          </select></div>
+        <div class="fld"><label>Preferred date</label><input name="date" type="date"></div>
+        ${saved ? `<div class="qty-banner">📏 Your saved ring size is <b>${esc(saved)}</b></div>` : '<a class="size-guide-link" href="#/sizer" style="display:inline-block;margin:4px 0 10px">📏 Don’t know your ring size?</a>'}
+        <div class="fld"><label>Anything we should know?</label><textarea name="details" placeholder="e.g. one small stone feels loose, chain clasp opens on its own…"></textarea></div>
+        <button class="btn btn-gold btn-block btn-lg">Request booking</button>
+        <p class="partner-note" style="margin-top:10px">Our team confirms the slot on WhatsApp within working hours.</p>
+      </form>
+    </div>
+  </div>`;
+  view.querySelectorAll('.care-opt').forEach(l => l.onclick = () => {
+    view.querySelectorAll('.care-opt').forEach(x => x.classList.remove('on')); l.classList.add('on');
+    l.querySelector('input').checked = true;
+  });
+  view.querySelector('#careForm').onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const chosen = (view.querySelector('input[name="care"]:checked') || {}).value || 'polish';
+    const svc = CARE_SERVICES.find(x => x[0] === chosen) || CARE_SERVICES[0];
+    const orderId = String(f.get('order') || '').trim();
+    const res = await api('/api/services', { method: 'POST', body: JSON.stringify({
+      type: 'care-' + chosen, name: f.get('name'), phone: f.get('phone'), orderId,
+      details: [svc[1].replace(/^[^A-Za-z]+/, ''), 'Order ' + (orderId || '—'), f.get('mode'), f.get('date'), f.get('details')].filter(Boolean).join(' · ').slice(0, 200),
+    }) });
+    e.target.innerHTML = `<div class="center" style="padding:40px 10px"><div style="font-size:44px">✦</div><h3>Booking requested</h3><p style="color:var(--ink-2);margin:8px 0 16px">We will confirm your ${esc(svc[1])} slot on WhatsApp shortly. Your care token is <b>${esc((res.request && res.request.id) || '')}</b> — track it below.</p><button class="btn btn-gold" onclick="location.reload()">See my requests</button> <a class="btn btn-ghost" href="#/">Back home</a></div>`;
+    toast('Care booking sent ✦');
+  };
+  // v59 — live repair-token tracker for signed-in customers
+  (async () => {
+    if (!state.user) return;
+    try {
+      const { requests } = await api('/api/services/mine');
+      const mine = (requests || []).filter(r => String(r.type || '').startsWith('care-'));
+      if (!mine.length) return;
+      const host = document.createElement('div');
+      host.style.gridColumn = '1 / -1';
+      host.innerHTML = careRequestsHTML(mine);
+      view.querySelector('.care-grid').insertAdjacentElement('afterend', host);
+    } catch (e) {}
+  })();
+};
+const CARE_STAGES = ['Booked', 'Confirmed', 'Picked up', 'At karigar', 'Ready', 'Delivered'];
+function careRequestsHTML(mine) {
+  return `<div class="adm-card" style="margin-top:24px"><h3>Your care / repair tokens</h3>
+    ${mine.map(r => {
+      const hist = r.history || [{ s: 'Booked' }];
+      let idx = -1;
+      CARE_STAGES.forEach((s, i) => { if (hist.some(h => h.s === s)) idx = i; });
+      if (idx < 0) idx = 0;
+      return `<div class="care-token">
+        <div class="ct-head"><b>${esc(r.id)}</b><span class="status-pill st-placed">${esc(r.status)}</span></div>
+        <div class="mini-stages" style="margin:10px 0">${CARE_STAGES.map((s, i) => `<span class="ms-step ${i <= idx ? 'done' : ''}" title="${s}">${['📝', '🙏', '🚚', '🔨', '✨', '💛'][i]}</span>`).join('')}</div>
+        <small style="color:var(--ink-3)">${esc(r.details || '')}</small>
+      </div>`;
+    }).join('')}</div>`;
+}
+
+/* ═══════════ v58 · shareable quotation from the cart (48 h rate hold) ═══════════ */
+pages.quote = async view => {
+  const lines = state.cart.map(c => ({ c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+  if (!lines.length) { view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart is empty</h3><p style="margin:10px 0 20px">Add pieces and then generate a quotation.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`; return; }
+  const R = state.rates;
+  const rows = lines.map(({ c, p }) => {
+    const pr = price(p);
+    return { p, c, pr, line: pr.total * c.qty };
+  });
+  const subtotal = rows.reduce((a, r) => a + r.line, 0);
+  const prepaid = Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100);
+  const ship = subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
+  const validTill = new Date(Date.now() + 48 * 3600e3);
+  const qNo = 'Q' + Date.now().toString().slice(-7);
+  view.innerHTML = `
+  <div class="container quote-page" style="padding:34px 0 70px;max-width:880px">
+    <div class="quote-actions inv-no-print">
+      <button class="btn btn-gold btn-lg" onclick="window.print()">⬇ Save PDF / Print</button>
+      <button class="btn btn-outline btn-lg" id="quoteWa">💬 Send on WhatsApp</button>
+      <a class="btn btn-ghost btn-lg" href="#/cart">← Edit cart</a>
+    </div>
+    <div class="quote-sheet" id="quoteSheet">
+      <header class="q-head">
+        <img src="/images/logo.png" alt="Shivaa">
+        <div><b>PRICE QUOTATION</b><small>Quotation no. ${qNo} · valid till ${validTill.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</small></div>
+        <span class="q-stamp">RATE HELD<br>48 HOURS</span>
+      </header>
+      <p class="q-note">Dear family, namaste. Below is your selection priced at Jaipur&rsquo;s <b>live rate of today (${timeFmt(R.t)})</b>. Confirm within 48 hours and the same rate is honoured; after that the day&rsquo;s live rate applies. Every price below includes <b>3% GST</b> and the metal value, making charge and stones are shown on the invoice.</p>
+      <table class="q-tbl">
+        <thead><tr><th>Piece</th><th class="num">Qty</th><th class="num">Approx wt</th><th class="num">Amount</th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td><b>${esc(r.p.name)}</b><br><small>${r.p.metal === 'Silver' ? 'Silver 925' : esc(r.p.purity) + ' gold'} · ${r.p.weightG} g · SKU ${esc(r.p.sku || '')}</small></td>
+          <td class="num">${r.c.qty}${r.c.size ? '<br><small>Size ' + esc(r.c.size) + '</small>' : ''}</td>
+          <td class="num">${(r.p.weightG * r.c.qty).toFixed(3)} g</td>
+          <td class="num"><b>${fmt(r.line)}</b></td></tr>`).join('')}</tbody>
+      </table>
+      <div class="q-tot">
+        <div><span>Subtotal (incl. GST)</span><b>${fmt(subtotal)}</b></div>
+        <div><span>Insured shipping</span><b>${ship === 0 ? 'FREE' : fmt(ship)}</b></div>
+        <div class="ok"><span>Online prepayment discount</span><b>− ${fmt(prepaid)}</b></div>
+        <div class="grand"><span>Pay online by ${validTill.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span><b>${fmt(Math.max(0, subtotal - prepaid + ship))}</b></div>
+      </div>
+      <div class="q-foot">
+        <p><b>✦ 100% written buyback</b> on the pure metal value · every gold piece <b>BIS hallmarked with a unique HUID</b> · final weights confirmed to the milligram before billing.</p>
+        <p>Shivaa Jewellers, Sadar Bazaar, Jayal, Nagaur, Rajasthan · ${esc(state.settings.phone || '+91 89050 05921')} · shivaa.in</p>
+      </div>
+    </div>
+  </div>`;
+  $('#quoteWa').onclick = () => {
+    const list = rows.map(r => '• ' + r.p.name + ' ×' + r.c.qty + ' — ' + fmt(r.line)).join('\n');
+    waOpen('Namaste Shivaa ✦\n\nPlease confirm this quotation (' + qNo + ', valid 48 h):\n' + list + '\n\nOnline total: ' + fmt(Math.max(0, subtotal - prepaid + ship)) + '\nQuotation: ' + location.origin + location.pathname + '#/quote');
+  };
+  document.documentElement.classList.add('quote-mode');
 };
 
 /* ─────────── RATES PAGE ─────────── */
@@ -1915,7 +4657,7 @@ pages.rates = async (view) => {
   const R = state.rates;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1>
-  <p>The same feed that powers every price on shivaa.in — sourced from the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
+  <p>The same feed that powers every price on shivaa.in — sourced from official MCX futures (when the owner’s exchange feed is connected) or the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
     <div class="jaipur-hero rv">
       <div class="jh-main">
@@ -1937,7 +4679,7 @@ pages.rates = async (view) => {
     </div>
     <div class="chart-wrap mt-3 rv"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
       <h3 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
-      <span class="src-badge ${R.source === 'live' ? 'src-live' : 'src-sim'}">${R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*'}</span></div>
+      <span class="src-badge ${(R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim'}">${R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*')}</span></div>
       <canvas id="rateChart"></canvas></div>
     <div class="grid2 mt-3">
       <div class="adm-card"><h3>Get a rate alert</h3>
@@ -1952,7 +4694,7 @@ pages.rates = async (view) => {
         <div class="sum-row"><span>+ Listed stone value (if any)</span><b>at cost</b></div>
         <div class="sum-row"><span>+ 3% GST</span><b>statutory</b></div>
         <p style="font-size:13px;color:var(--ink-3);margin-top:12px">No "local rate" games — the rate on this page is the rate on your bill. That is our tanch (honest purity) promise.</p>
-        ${R.source !== 'live' ? '<p style="font-size:12px;color:var(--ink-3);margin-top:8px">*Feed shown as simulated when the bullion API is unreachable from the server; values track the last live market feed.</p>' : ''}
+        ${(R.source !== 'live' && R.source !== 'live-mcx') ? '<p style="font-size:12px;color:var(--ink-3);margin-top:8px">*Feed shown as simulated when the bullion API is unreachable from the server; values track the last live market feed.</p>' : ''}
       </div>
     </div>
   </div>`;
@@ -1960,7 +4702,8 @@ pages.rates = async (view) => {
 };
 function drawRateChart(cv, hist) {
   if (!cv || !hist.length) return;
-  const x = cv.getContext('2d'), dpr = Math.min(devicePixelRatio || 1, 2);
+  const x = cv.getContext('2d'); if (!x) return;   // v107 — canvas can be unavailable; chart is progressive enhancement
+  const dpr = Math.min(devicePixelRatio || 1, 2);
   const w = cv.parentElement.clientWidth - 0, h = 300;
   cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + 'px';
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2057,18 +4800,72 @@ pages.catalogues = async (view) => {
       </div>
     </div>
     <div class="ds-grid" id="dsGrid">
-      ${rings.map(p => `<div class="ds-card" id="ds-${p.id}" data-cat="${p.category}" data-w="${p.weightG}" data-stone="${(p.stoneType || 'Plain')}" data-colour="${(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${p.purity}">
-        <div class="ds-img"><img src="${p.images[0]}" loading="lazy" alt="${esc(p.name)}"><span class="ds-wt">${p.weightG} g</span></div>
-        <b>${esc(p.name.replace('Shivaa Ring Design', 'Design'))}</b>
-        <small>${p.sku} · ${p.weightG} g · ${p.purity}</small>
+      ${rings.map(p => {
+        const shots = (p.images || []).map(safeUrl).filter(Boolean);
+        const imgs = shots.length ? shots : ['/images/logo.png'];
+        const name = esc(p.name.replace('Shivaa Ring Design', 'Design'));
+        return `<div class="ds-card ${window._sel[p.id] ? 'on' : ''}" id="ds-${p.id}" data-cat="${esc(p.category)}" data-w="${esc(p.weightG)}" data-stone="${esc(p.stoneType || 'Plain')}" data-colour="${esc(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${esc(p.purity)}">
+        <a class="ds-img ds-slider ${imgs.length > 1 ? 'has-multi' : ''}" href="#/product/${encodeURIComponent(p.id)}" aria-label="View ${name}">
+          <span class="ds-track">${imgs.map((src, i) => `<img src="${src}" loading="lazy" alt="${i === 0 ? name : ''}" draggable="false">`).join('')}</span>
+          <span class="ds-wt">${p.weightG} g</span>
+          ${imgs.length > 1 ? `<span class="ds-count" data-count>1/${imgs.length}</span>
+            <button type="button" class="ds-arrow ds-prev" data-dir="-1" aria-label="Previous photo">‹</button>
+            <button type="button" class="ds-arrow ds-next" data-dir="1" aria-label="Next photo">›</button>
+            <span class="ds-dots">${imgs.map((_, i) => `<button type="button" class="ds-dot ${i === 0 ? 'on' : ''}" data-go="${i}" aria-label="Photo ${i + 1}"></button>`).join('')}</span>` : ''}
+        </a>
+        <a class="ds-meta" href="#/product/${encodeURIComponent(p.id)}">
+          <b>${name}</b>
+          <small>${esc(p.sku)} · ${p.weightG} g · ${esc(p.purity)}</small>
+        </a>
         <div class="ds-qty">
-          <button onclick="ShivaaDS.qty('${p.id}',-1)">−</button><span>${window._sel[p.id] || 0}</span><button onclick="ShivaaDS.qty('${p.id}',1)">+</button>
+          <button aria-label="Remove one" onclick="ShivaaDS.qty('${p.id}',-1)">−</button><span>${window._sel[p.id] || 0}</span><button aria-label="Add one" onclick="ShivaaDS.qty('${p.id}',1)">+</button>
         </div>
-      </div>`).join('')}
+      </div>`; }).join('')}
     </div>
     <div class="qty-banner" style="margin-top:18px">◈ Example: select 25 g of designs → bill = 25 × ${(state.settings.metalFactor || 0.92)} = <b>23 g fine metal @ ${(state.settings.finePurity || '99.50%')}</b> — zero making charges, pure metal settlement.</div>
   </div>
   </div>`;
+
+  /* v101 — per-design 4-photo slider (swipe / arrows / dots). Tapping the
+     photo or name goes to the product page (the anchor's default); only the
+     slider controls are intercepted. */
+  const grid = $('#dsGrid');
+  if (grid) {
+    const go = (slider, i) => {
+      const dots = slider.querySelectorAll('.ds-dot');
+      const n = dots.length; if (!n) return;
+      i = (i + n) % n;
+      if (+slider.dataset.i === i) return;
+      slider.dataset.i = i;
+      const track = slider.querySelector('.ds-track');
+      if (track) track.style.transform = `translateX(-${i * 100}%)`;
+      dots.forEach((d, di) => d.classList.toggle('on', di === i));
+      const cnt = slider.querySelector('[data-count]');
+      if (cnt) cnt.textContent = (i + 1) + '/' + n;
+      try { navigator.vibrate?.(6); } catch (e) {}
+    };
+    /* v102 — eager-load the second shot so the first swipe is instant */
+    grid.querySelectorAll('.ds-slider.has-multi img:nth-child(2)').forEach(im => { im.setAttribute('loading', 'eager'); if (im.dataset.src) im.src = im.dataset.src; });
+    grid.addEventListener('click', e => {
+      const arrow = e.target.closest('.ds-arrow'), dot = e.target.closest('.ds-dot');
+      if (!arrow && !dot) return;
+      e.preventDefault(); e.stopPropagation();
+      const slider = e.target.closest('.ds-slider'); if (!slider) return;
+      if (arrow) go(slider, (+slider.dataset.i || 0) + (+arrow.dataset.dir));
+      else go(slider, +dot.dataset.go);
+    });
+    let sx = null, active = null;
+    grid.addEventListener('touchstart', e => {
+      active = e.target.closest('.ds-slider.has-multi');
+      sx = active ? e.touches[0].clientX : null;
+    }, { passive: true });
+    grid.addEventListener('touchend', e => {
+      if (!active || sx == null) { sx = null; active = null; return; }
+      const dx = e.changedTouches[0].clientX - sx;
+      if (Math.abs(dx) > 34) go(active, (+active.dataset.i || 0) + (dx < 0 ? 1 : -1));
+      sx = null; active = null;
+    }, { passive: true });
+  }
 };
 let catCache = [];
 document.addEventListener('catalogs:change', () => { if (location.hash.startsWith('#/catalogues')) pages.catalogues($('#view')); });
@@ -2090,36 +4887,60 @@ pages.b2b = async (view) => {
   <div class="container" style="padding:40px 0 80px;max-width:1140px">
 
     <div class="b2b-form-card aurora">
-      <div class="bf-head"><span class="label">Step 1 &middot; Partner Application</span><h2>Begin your partnership</h2><p>GSTIN is checksum-verified instantly &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
+      <div class="bf-head"><span class="label">Step 1 &middot; Partner Application</span><h2>Begin your partnership</h2><p>GSTIN is verified live against the government GST register &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
         <div class="b2b-step"><span>1 &middot; Fill this form</span><span>2 &middot; GST &amp; OTP verify</span><span>3 &middot; Approved in 48 h</span><span>4 &middot; Portal opens</span></div></div>
-      <form class="form-grid kyc-form" onsubmit="Shivaa.b2bApply(event)">
-        <div class="fld"><label>Firm name *</label><input id="kyFirm" required placeholder="M/s …"></div>
-        <div class="fld"><label>Contact person</label><input id="kyPerson" placeholder="Owner / manager"></div>
-        <div class="fld full"><label>GSTIN *</label>
+      <form class="form-grid kyc-form" id="b2bForm" onsubmit="Shivaa.b2bApply(event)" novalidate>
+        <div class="fld"><label>Firm name *</label><input id="kyFirm" required autocomplete="organization" placeholder="M/s …" oninput="Shivaa.kycGate()"></div>
+        <div class="fld"><label>Contact person</label><input id="kyPerson" autocomplete="name" placeholder="Owner / manager"></div>
+        <div class="fld full"><label>GSTIN * <small class="kyc-req">(tap Verify GST — checked live, firm name auto-fills)</small></label>
           <div class="kyc-inline">
-            <input id="kyGstin" maxlength="15" placeholder="08AABCU9603R1ZM" style="text-transform:uppercase" required>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycGstin()">Verify GST</button>
+            <input id="kyGstin" maxlength="15" placeholder="08AABCU9603R1ZM" style="text-transform:uppercase" autocomplete="off" required oninput="Shivaa.kycFieldEdit('gstin')">
+            <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycGstin()">✓ Verify GST</button>
             <span class="kyc-status" id="gstStat"></span>
           </div></div>
-        <div class="fld"><label>City</label><input id="kyCity" placeholder="Nagaur, Jodhpur…"></div>
-        <div class="fld"><label>Mobile (OTP verified) *</label>
+        <div class="fld"><label>City *</label><input id="kyCity" placeholder="Nagaur, Jodhpur…" autocomplete="address-level2" oninput="Shivaa.kycGate()"></div>
+        <div class="fld"><label>Owner PAN <small class="kyc-req">(optional)</small></label><input id="kyPan" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase" autocomplete="off"></div>
+        <div class="fld full"><label>Mobile number * <small class="kyc-req">(we text a 4-digit code — any Indian mobile)</small></label>
           <div class="kyc-inline">
-            <input id="kyPhone" maxlength="10" placeholder="10-digit" inputmode="numeric" required>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycOtp()">Send OTP</button>
+            <span class="kyc-cc">+91</span>
+            <input id="kyPhone" maxlength="10" placeholder="10-digit mobile" inputmode="numeric" autocomplete="tel-national" required oninput="Shivaa.kycFieldEdit('otp')">
+            <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycOtp()">Send OTP</button>
           </div></div>
-        <div class="fld full"><label>Enter OTP *</label>
+        <div class="fld full"><label>Enter the 4-digit OTP *</label>
           <div class="kyc-inline">
-            <input id="kyOtp" maxlength="6" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="Shivaa.kycOtpVerify()">Verify OTP</button>
+            <input id="kyOtp" maxlength="4" placeholder="4-digit code" inputmode="numeric" autocomplete="one-time-code" oninput="this.value=this.value.replace(/\D/g,'').slice(0,4);Shivaa.kycGate()">
+            <button type="button" class="btn btn-outline btn-sm kyc-verify-btn" onclick="Shivaa.kycOtpVerify()">✓ Verify OTP</button>
             <span class="kyc-status" id="otpStat"></span>
           </div></div>
-        <div class="fld"><label>Email (portal login) *</label><input id="kyEmail" type="email" required></div>
-        <div class="fld"><label>Owner PAN</label><input id="kyPan" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase"></div>
-        <div class="fld full"><label>Choose portal password *</label><input id="kyPass" type="password" minlength="6" required></div>
-        <div class="fld full"><label>What do you stock / need?</label><input id="kyMsg" placeholder="Bridal sets, chains, silver…"></div>
-        <button class="btn btn-primary btn-block" id="kycSubmit" style="grid-column:1/-1" disabled>Complete KYC &amp; Apply →</button>
-        <p class="kyc-note">GSTIN checksum-verified · mobile OTP-verified · admin approval within 48 h</p>
+        <div class="fld"><label>Email <small class="kyc-req">(your portal login)</small> *</label><input id="kyEmail" type="email" autocomplete="email" required oninput="Shivaa.kycGate()"></div>
+        <div class="fld"><label>Choose a portal password *</label><input id="kyPass" type="password" minlength="6" autocomplete="new-password" required oninput="Shivaa.kycGate()"></div>
+        <div class="fld full"><label>What do you stock / need? <small class="kyc-req">(optional)</small></label><input id="kyMsg" placeholder="Bridal sets, chains, silver…"></div>
+        <div class="fld full"><label>Your business card <small class="kyc-req">(optional — a photo or PDF speeds approval up)</small></label>
+          <div class="drop-zone kyc-card" id="kyCard">
+            <div class="dz-idle" id="kyCardIdle">
+              <div class="dz-ic" style="font-size:26px;margin-bottom:4px">📇</div>
+              <b id="kyCardTxt">Tap to attach your business card</b><br><small>JPG / PNG / WEBP / GIF / PDF up to 8 MB · optional</small>
+            </div>
+            <div class="dz-set" id="kyCardSet" hidden>
+              <span class="dz-prev" id="kyCardPrev">📄</span>
+              <span class="dz-meta"><b id="kyCardName"></b><small id="kyCardSize"></small></span>
+              <button type="button" class="dz-x" id="kyCardClear" aria-label="Remove attached file">✕</button>
+            </div>
+            <input type="file" id="kyCardFile" accept="image/*,application/pdf" hidden>
+          </div>
+        </div>
+        <p class="kyc-note">GSTIN verified live with the official GST database (firm name &amp; status) &middot; mobile OTP-verified &middot; approval within 48 h. The button below stays locked until every business detail above is complete and verified.</p>
       </form>
+
+      <!-- always-visible application bar: present from the start, clickable
+           only after all business details + both verifications are done -->
+      <div class="kyc-bar" id="kycBar">
+        <div class="kyc-bar-info">
+          <b id="kycBarTitle">Complete your KYC details</b>
+          <small id="kycBarTodo">Preparing application…</small>
+        </div>
+        <button type="submit" form="b2bForm" class="btn btn-primary btn-lg" id="kycSubmit" disabled>Complete KYC &amp; Apply →</button>
+      </div>
 
       <div class="alt-actions">
         <span class="alt-div"><i></i><b>or</b><i></i></span>
@@ -2170,9 +4991,59 @@ pages.b2b = async (view) => {
     </div>
 
   </div>`;
+  setTimeout(() => {
+    try { window.Shivaa.kycGate(); } catch (e) {}
+    // v101 — optional business-card upload
+    window._kycCard = null;
+    const dz = $('#kyCard'), fi = $('#kyCardFile'), tx = $('#kyCardTxt');
+    if (dz && fi) {
+      // v101 — JPG/PNG/WEBP/GIF/PDF ≤ 8 MB; type checked by MIME or extension
+      // (some browsers report an empty file.type), the server re-checks magic bytes.
+      const cardOK = f => f && f.size <= 8 * 1024 * 1024
+        && (/^(image\/(jpeg|png|webp|gif)|application\/pdf)$/.test(f.type)
+            || /\.(jpe?g|png|webp|gif|pdf)$/i.test(f.name));
+      const idle = $('#kyCardIdle'), set = $('#kyCardSet'), prev = $('#kyCardPrev'),
+            nameEl = $('#kyCardName'), sizeEl = $('#kyCardSize'), clearBtn = $('#kyCardClear');
+      let objUrl = null;
+      const fmtSize = n => n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+      const clearCard = () => {
+        window._kycCard = null; fi.value = '';
+        if (objUrl) { try { URL.revokeObjectURL(objUrl); } catch (e) {} objUrl = null; }
+        if (idle) idle.hidden = false;
+        if (set) set.hidden = true;
+        if (tx) { tx.textContent = 'Tap to attach your business card'; tx.classList.remove('ok'); }
+      };
+      const setCard = f => {
+        if (!cardOK(f)) { toast('Please choose a JPG, PNG, WEBP, GIF image or PDF under 8 MB', 'err'); clearCard(); return; }
+        window._kycCard = f;
+        if (tx) { tx.textContent = '✓ ' + f.name; tx.classList.add('ok'); }
+        if (idle) idle.hidden = true;
+        if (set) set.hidden = false;
+        if (nameEl) nameEl.textContent = f.name;
+        if (sizeEl) sizeEl.textContent = fmtSize(f.size) + ' · tap to replace';
+        if (prev) {
+          if (objUrl) { try { URL.revokeObjectURL(objUrl); } catch (e) {} }
+          if (window.URL && URL.createObjectURL && (/^image\//.test(f.type) || /\.(jpe?g|png|webp|gif)$/i.test(f.name))) {
+            objUrl = URL.createObjectURL(f);
+            prev.innerHTML = '<img src="' + objUrl + '" alt="Business card preview">';
+          } else prev.textContent = '📄';
+        }
+        try { navigator.vibrate?.(8); } catch (e) {}
+      };
+      dz.onclick = e => { if (e.target.closest('.dz-x')) return; fi.click(); };
+      if (clearBtn) clearBtn.onclick = e => { e.stopPropagation(); clearCard(); };
+      fi.onchange = () => { if (fi.files[0]) setCard(fi.files[0]); };
+      ['dragover', 'dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
+        e.preventDefault(); dz.classList.toggle('drag', ev === 'dragover');
+        if (ev === 'drop' && e.dataTransfer.files[0]) setCard(e.dataTransfer.files[0]);
+      }));
+      const kycForm = fi.closest('form');
+      if (kycForm) kycForm.addEventListener('reset', clearCard);
+    }
+  }, 0);
 };
 /* ─────────── SERVICES (D2C) ─────────── */
-window._kyc = { gstin: false, otp: false };
+window._kyc = { gstin: false, gstLive: false, otp: false };
 window.Shivaa.kycGstin = async () => {
   const g = $('#kyGstin').value.trim();
   const st = $('#gstStat');
@@ -2182,15 +5053,35 @@ window.Shivaa.kycGstin = async () => {
     const r = await api('/api/kyc/check-gstin', { method: 'POST', body: JSON.stringify({ gstin: g }) });
     if (r.valid) {
       window._kyc.gstin = true;
-      if (!$('#kyCity').value) $('#kyCity').value = r.state === 'Rajasthan' ? '' : r.state;
-      st.textContent = 'checking firm name…'; 
+      st.textContent = 'checking the GST register…';
       try {
         const lg = await api('/api/kyc/gst-lookup', { method: 'POST', body: JSON.stringify({ gstin: g }) });
-        if (lg.configured && lg.verified && lg.legalName) { window._kyc.legalName = lg.legalName; $('#kyFirm').value = lg.legalName; $('#kyFirm').readOnly = true; st.innerHTML = '✓ Firm verified: ' + esc(lg.legalName); }
-        else st.innerHTML = '✓ Valid · ' + esc(r.state) + ' <small>(name verified at approval)</small>';
-      } catch (e) { st.innerHTML = '✓ Valid · ' + esc(r.state); }
+        if (lg.live && lg.verified && lg.legalName) {
+          // v87 — government-record verification: lock the legal name, hint the city
+          window._kyc.gstLive = true; window._kyc.legalName = lg.legalName;
+          $('#kyFirm').value = lg.legalName; $('#kyFirm').readOnly = true;
+          // prefer the registered district over the plain state name for the City field
+          if (!$('#kyCity').value) $('#kyCity').value = lg.district || (r.state && r.state !== 'Rajasthan' ? r.state : '');
+          const trade = lg.tradeName && lg.tradeName !== lg.legalName ? ' <small>· trade name ' + esc(lg.tradeName) + '</small>' : '';
+          st.innerHTML = '✓ Govt-verified: <b>' + esc(lg.legalName) + '</b> · ' + esc(lg.gstStatus || 'Active') + trade;
+          st.title = [lg.businessType, lg.registrationDate ? ('registered ' + lg.registrationDate) : '', lg.address].filter(Boolean).map(esc).join('\n');
+        } else if (lg.live && !lg.verified) {
+          // Register says Cancelled / Suspended / inactive — block the application
+          window._kyc.gstin = false; window._kyc.gstLive = false; $('#kyFirm').readOnly = false;
+          st.textContent = '✗ ' + (lg.note || ('This GSTIN is ' + (lg.gstStatus || 'not Active')));
+          st.className = 'kyc-status bad'; window.Shivaa.kycGate(); return;
+        } else {
+          window._kyc.gstLive = false;
+          if (!$('#kyCity').value && r.state && r.state !== 'Rajasthan') $('#kyCity').value = r.state;
+          st.innerHTML = '✓ Valid number · ' + esc(r.state) + ' <small>(firm name verified when we approve)</small>';
+        }
+      } catch (e) {
+        window._kyc.gstLive = false;
+        if (!$('#kyCity').value && r.state && r.state !== 'Rajasthan') $('#kyCity').value = r.state;
+        st.innerHTML = '✓ Valid number · ' + esc(r.state) + ' <small>(live name service busy — verified at approval)</small>';
+      }
       st.className = 'kyc-status ok';
-    } else { window._kyc.gstin = false; st.textContent = '✗ ' + r.reason; st.className = 'kyc-status bad'; $('#kyFirm').readOnly = false; }
+    } else { window._kyc.gstin = false; window._kyc.gstLive = false; st.textContent = '✗ ' + r.reason; st.className = 'kyc-status bad'; $('#kyFirm').readOnly = false; }
   } catch (e) { st.textContent = '✗ ' + e.message; st.className = 'kyc-status bad'; }
   window.Shivaa.kycGate();
 };
@@ -2198,14 +5089,14 @@ window.Shivaa.kycOtp = async () => {
   const ph = $('#kyPhone').value.replace(/\D/g, '');
   if (ph.length !== 10) return toast('Enter a valid 10-digit mobile', 'err');
   try {
-    const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone: ph }) });
+    const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone: ph, email: ($('#kyEmail') || {}).value || '' }) });
     const st = $('#otpStat');
-    if (r.devCode) {
-      st.innerHTML = 'demo OTP: <b>' + r.devCode + '</b> — tap to fill (live SMS once the gateway is configured)';
+    if (r.devCode) {                                  // dev preview shim only
+      st.innerHTML = 'demo OTP: <b>' + r.devCode + '</b> — tap to fill';
       st.className = 'kyc-status wait'; st.style.cursor = 'pointer';
       st.onclick = () => { const i = $('#kyOtp'); if (i && window.ShivaaOtp) ShivaaOtp.fill(i, String(r.devCode)); };
     }
-    else { st.textContent = 'OTP sent to your mobile'; st.className = 'kyc-status wait'; }
+    else { st.textContent = r.masked ? ('Code sent to ' + r.masked) : 'Code sent'; st.className = 'kyc-status wait'; }
     if (window.ShivaaOtp) ShivaaOtp.watch($('#kyOtp'), () => { if (window.Shivaa.kycOtpVerify) window.Shivaa.kycOtpVerify(); });   // v33 — Android auto-fill
     toast('OTP sent ✓');
   } catch (e) { toast(e.message, 'err'); }
@@ -2226,19 +5117,77 @@ window.Shivaa.partnerLogin = () => {
   if (isPartner()) { location.hash = '#/partner'; return; }
   openLogin('partner');
 };
-window.Shivaa.kycGate = () => { const b = $('#kycSubmit'); if (b) b.disabled = !(window._kyc.gstin && window._kyc.otp); };
+/* editing an already-verified GSTIN / phone invalidates that verification
+   until it is re-verified — the sticky bar updates itself instantly */
+window.Shivaa.kycFieldEdit = (which) => {
+  if (which === 'gstin') {
+    const fi = $('#kyFirm');
+    if (fi && fi.readOnly) { fi.value = ''; }              // clear an auto-filled legal name
+    if (fi) fi.readOnly = false;
+    window._kyc.gstin = false; window._kyc.gstLive = false; window._kyc.legalName = '';
+    const st = $('#gstStat'); if (st) { st.textContent = ''; st.className = 'kyc-status'; st.title = ''; }
+  }
+  if (which === 'otp') {
+    window._kyc.otp = false;
+    const st = $('#otpStat'); if (st) { st.textContent = ''; st.className = 'kyc-status'; }
+    const otp = $('#kyOtp'); if (otp) otp.value = '';
+  }
+  window.Shivaa.kycGate();
+};
+window.Shivaa.kycGate = () => {
+  const b = $('#kycSubmit');
+  if (!b) return;
+  const v = id => ($(id) ? $(id).value.trim() : '');
+  const steps = [
+    { ok: v('#kyFirm').length >= 2, label: 'Firm name' },
+    { ok: v('#kyCity').length >= 2, label: 'City' },
+    { ok: !!window._kyc.gstin, label: 'GST verified' },
+    { ok: !!window._kyc.otp, label: 'Mobile OTP verified' },
+    { ok: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v('#kyEmail')), label: 'Valid email' },
+    { ok: v('#kyPass').length >= 6, label: 'Portal password (6+)' },
+  ];
+  const done = steps.filter(s => s.ok);
+  const missing = steps.filter(s => !s.ok).map(s => s.label);
+  const ready = done.length === steps.length;
+  b.disabled = !ready;
+  b.setAttribute('aria-disabled', String(!ready));
+  const title = $('#kycBarTitle'), todo = $('#kycBarTodo');
+  if (title) title.textContent = ready ? 'All set — your application is ready ✦' : 'Complete your KYC details';
+  if (todo) todo.textContent = ready
+    ? 'GSTIN & mobile verified · tap to apply'
+    : done.length + '/' + steps.length + ' done · next: ' + missing.slice(0, 2).join(', ');
+  const bar = $('#kycBar');
+  if (bar) bar.classList.toggle('ready', ready);
+};
 window.Shivaa.b2bApply = async e => {
   e.preventDefault();
+  window.Shivaa.kycGate();
+  const btn = $('#kycSubmit');
+  if (btn && btn.disabled) return toast('Complete every business detail and both verifications first — the button shows what is left.', 'err');
   if (!window._kyc.gstin || !window._kyc.otp) return toast('Complete GST & OTP verification first', 'err');
   try {
-    const r = await api('/api/partners/apply', { method: 'POST', body: JSON.stringify({
+    const fields = {
       firm: $('#kyFirm').value, contactPerson: $('#kyPerson').value, city: $('#kyCity').value,
       gstin: $('#kyGstin').value.trim().toUpperCase(), phone: $('#kyPhone').value.replace(/\D/g, ''),
       email: $('#kyEmail').value, ownerPan: $('#kyPan').value, password: $('#kyPass').value, message: $('#kyMsg').value,
-    }) });
+    };
+    // v101 — optional business card: multipart upload when attached, JSON otherwise
+    let opts;
+    if (window._kycCard) {
+      const fd = new FormData();
+      Object.entries(fields).forEach(([k, v]) => fd.append(k, v == null ? '' : v));
+      fd.append('businessCard', window._kycCard);
+      opts = { method: 'POST', body: fd };
+    } else {
+      opts = { method: 'POST', body: JSON.stringify(fields) };
+    }
+    const r = await api('/api/partners/apply', opts);
     if (r.token) { setToken(r.token); state.user = r.user; }
-    openModal(`<div class="center"><div style="font-size:48px">✦</div><h3 style="margin:10px 0">KYC Complete — Application Received!</h3><p style="color:var(--ink-2)">GSTIN <b>${esc($('#kyGstin').value.toUpperCase())}</b> verified · mobile OTP verified. Your partner portal account is live — full access once our team approves (usually within 48 hours).</p><a class="btn btn-primary" href="#/partner" style="margin-top:14px">Open Partner Portal</a></div>`);
-    e.target.reset(); window._kyc = { gstin: false, otp: false };
+    const gstHow = window._kyc.gstLive ? 'verified live with the government GST register' : 'checked and pending final confirmation';
+    openModal(`<div class="center"><div style="font-size:48px">✦</div><h3 style="margin:10px 0">KYC Complete — Application Received!</h3><p style="color:var(--ink-2)">GSTIN <b>${esc($('#kyGstin').value.toUpperCase())}</b> ${gstHow} · mobile OTP verified${window._kycCard ? ' · business card attached' : ''}. Your partner portal account is live — full access once our team approves (usually within 48 hours).</p><a class="btn btn-primary" href="#/partner" style="margin-top:14px">Open Partner Portal</a></div>`);
+    e.target.reset(); window._kyc = { gstin: false, otp: false }; window._kycCard = null;
+    const kct = $('#kyCardTxt'); if (kct) kct.textContent = 'Tap to attach your business card';
+    window.Shivaa.kycGate();
   } catch (err) { toast(err.message, 'err'); }
 };
 
@@ -2332,6 +5281,8 @@ pages.contact = async (view) => {
           <div><b>Write to us</b><a href="mailto:${esc(state.settings.email)}">${esc(state.settings.email)}</a></div></div>
         <div class="info-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>
           <div><b>Store hours</b><p>All days · 10:00 – 20:30 IST<br>Online support: 9:00 – 21:00</p></div></div>
+        <div class="info-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>
+          <div style="flex:1"><b>Follow Shivaa Jewels</b><p style="margin-bottom:0">New designs, festive live rates &amp; bullion updates — on our official channels.</p>${socialRowHTML('fv-social--light')}</div></div>
         <div class="adm-card mt-2"><h3>Find us</h3>
           <div style="border-radius:14px;overflow:hidden;border:1px solid var(--line)">
           <svg viewBox="0 0 400 240" style="display:block;width:100%"><rect width="400" height="240" fill="#f4ecdd"/><path d="M0 60 Q100 45 200 62 T400 55 L400 75 Q300 88 200 72 T0 80Z" fill="#e7dcc4"/><path d="M0 190 Q120 175 240 192 T400 185 L400 240 L0 240Z" fill="#e7dcc4"/><path d="M30 30 L110 30 M30 46 L90 46 M310 215 L390 215 M320 200 L370 200" stroke="#d8c9a8" stroke-width="3" stroke-linecap="round"/><path d="M60 210 C 90 160, 200 150, 250 110 S 340 70, 360 40" stroke="#c9b586" stroke-width="5" fill="none" stroke-dasharray="2 9" stroke-linecap="round"/><circle cx="250" cy="110" r="26" fill="rgba(185,138,47,.16)"/><path d="M250 84 c-11 0 -19 8 -19 18 c0 13 19 30 19 30 s19 -17 19 -30 c0 -10 -8 -18 -19 -18z" fill="#6e1e2a"/><circle cx="250" cy="102" r="6.5" fill="#faf6ef"/><text x="250" y="150" text-anchor="middle" font-family="Georgia" font-size="15" fill="#6e1e2a">Shivaa · Sadar Bazaar, Jayal</text><text x="250" y="168" text-anchor="middle" font-family="Arial" font-size="11" fill="#8a7d6c">Nagaur, Rajasthan 341023</text></svg>
@@ -2355,6 +5306,38 @@ window.Shivaa.contactForm = async e => {
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
   try { await api('/api/contact', { method: 'POST', body: JSON.stringify({ name: g('name'), phone: g('phone'), email: g('email'), message: g('message') }) }); toast('Message sent ✦ we will reach out soon'); e.target.reset(); }
   catch (err) { toast(err.message, 'err'); }
+};
+/* v102 — newsletter signup used to reference an undefined inline handler;
+   now posts to /api/newsletter with an optimistic inline success state,
+   remembers the email, and degrades gracefully if the API is unreachable. */
+window.Shivaa.subscribeNewsletter = async e => {
+  e.preventDefault();
+  const form = e.target;
+  const input = form.querySelector('input[type="email"]');
+  const email = String(input?.value || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { toast('Please enter a valid email address', 'err'); input?.focus(); return; }
+  const btn = form.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.dataset.old = btn.textContent; btn.textContent = 'Joining…'; }
+  try {
+    try { await api('/api/newsletter', { method: 'POST', body: JSON.stringify({ email }) }); }
+    catch (err) { /* preview/offline: keep the local confirmation */ }
+    try { localStorage.setItem('shv_nl', email); } catch (e) {}
+    form.classList.add('nl-done');
+    form.innerHTML = '<p class="nl-thanks" role="status">✦ You are in — first looks &amp; festive live rates will reach <b>' + esc(email) + '</b>.</p>';
+    toast('Welcome to the Shivaa Circle ✦');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.old || 'Subscribe'; }
+  }
+};
+/* v102 — returning visitors who already joined see a confirmation, not a form */
+window.Shivaa.paintNewsletterState = () => {
+  let email = '';
+  try { email = localStorage.getItem('shv_nl') || ''; } catch (e) {}
+  if (!email) return;
+  $$('.nl-form:not(.nl-done)').forEach(f => {
+    f.classList.add('nl-done');
+    f.innerHTML = '<p class="nl-thanks" role="status">✦ You are on the Shivaa Circle list as <b>' + esc(email) + '</b>.</p>';
+  });
 };
 
 /* ─────────── LOGIN ─────────── */
@@ -2459,15 +5442,15 @@ function pwFieldHTML({ id, label = 'Password', ph = '', auto = 'new-password', m
 }
 function otpBoxesHTML(id) {
   let inp = '';
-  for (let i = 0; i < 6; i++) inp += `<input type="text" maxlength="1" inputmode="numeric" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Digit ${i + 1}">`;
-  return `<div class="otp-boxes" id="${id}" role="group" aria-label="6-digit code">${inp}</div>`;
+  for (let i = 0; i < 4; i++) inp += `<input type="text" maxlength="1" inputmode="numeric" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Digit ${i + 1}">`;
+  return `<div class="otp-boxes" id="${id}" role="group" aria-label="4-digit code">${inp}</div>`;
 }
 function bindOtpBoxes(root, onComplete) {
   if (!root) return;
   const boxes = [...root.querySelectorAll('input')];
   const fire = () => {
     const v = boxes.map(b => b.value).join('');
-    if (v.length === 6 && onComplete) onComplete(v);
+    if (v.length === 4 && onComplete) onComplete(v);
   };
   boxes.forEach((inp, i) => {
     inp.addEventListener('input', () => {
@@ -2590,7 +5573,7 @@ function openLogin(next = '') {
               <div class="kyc-inline"><input id="rtOtpPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" autocomplete="tel-national" style="flex:1">
               <button type="button" class="btn btn-ghost btn-sm" id="rtOtpSend">Send code</button></div>
               <span class="auth-stat" id="rtOtpStat"></span></div>
-            <div class="fld"><label>6-digit code</label>
+            <div class="fld"><label>4-digit code</label>
               ${otpBoxesHTML('rtOtpBoxes')}
             </div>
             <button class="btn btn-primary btn-block" id="rtOtpBtn" type="submit">Verify &amp; sign in</button>
@@ -2604,7 +5587,7 @@ function openLogin(next = '') {
             <div class="kyc-inline"><input id="rgPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" autocomplete="tel-national" style="flex:1">
             <button type="button" class="btn btn-ghost btn-sm" id="rgSend">Send code</button></div>
             <span class="auth-stat" id="rgStat"></span></div>
-          <div class="fld"><label>Enter the 6-digit code</label>
+          <div class="fld"><label>Enter the 4-digit code</label>
             ${otpBoxesHTML('rgBoxes')}
           </div>
           <div class="fld"><label>Email</label><input id="rgEmail" type="email" autocomplete="email" placeholder="you@example.com" required></div>
@@ -2673,7 +5656,7 @@ function openLogin(next = '') {
       const phone = authPhone($('#rtOtpPhone').value);
       const code = otpVal('rtOtpBoxes');
       if (!authPhoneOk(phone)) return toast('Enter a valid 10-digit mobile number', 'err');
-      if (code.length !== 6) return toast('Enter the 6-digit code', 'err');
+      if (code.length !== 4) return toast('Enter the 4-digit code', 'err');
       Shivaa.rtOtpLogin(phone, code, $('#rtOtpBtn'));
     } else {
       $('#authErr').hidden = true; if ($('#authErrJ')) $('#authErrJ').hidden = true;
@@ -2687,7 +5670,7 @@ function openLogin(next = '') {
     busyBtn($('#rtOtpSend'), true, 'Sending\u2026');
     try {
       const r = await api('/api/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
-      const head = r.devCode ? 'Demo code: ' + r.devCode : 'Code sent to +91 ' + phone;
+      const head = r.devCode ? 'Demo code: ' + r.devCode : (r.masked ? 'Code sent to ' + r.masked : 'Code sent to +91 ' + phone);
       authStat('#rtOtpStat', r.hasAccount === false ? head + ' \u00b7 no account yet \u2014 create one below' : head, 'wait');
       const first = $('#rtOtpBoxes input'); first && first.focus();
     } catch (e) { toast(e.message, 'err'); }
@@ -2702,8 +5685,8 @@ function openLogin(next = '') {
     $('#regBtn').disabled = true;
     busyBtn($('#rgSend'), true, 'Sending\u2026');
     try {
-      const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
-      authStat('#rgStat', r.devCode ? 'Demo code: ' + r.devCode : 'Code sent to +91 ' + phone, 'wait');
+      const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone, email: $('#rgEmail').value.trim() }) });
+      authStat('#rgStat', r.devCode ? 'Demo code: ' + r.devCode : (r.masked ? 'Code sent to ' + r.masked : 'Code sent to +91 ' + phone), 'wait');
       const first = $('#rgBoxes input'); first && first.focus();
     } catch (e) { toast(e.message, 'err'); }
     busyBtn($('#rgSend'), false);
@@ -2727,7 +5710,7 @@ function openLogin(next = '') {
     const btn = $('#regBtn');
     busyBtn(btn, true, 'Creating\u2026');
     try {
-      const r = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ name: $('#rgName').value.trim(), phone: authPhone($('#rgPhone').value), email: $('#rgEmail').value.trim(), password: $('#rgPass').value }) });
+      const r = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ name: $('#rgName').value.trim(), phone: authPhone($('#rgPhone').value), email: $('#rgEmail').value.trim(), password: $('#rgPass').value, ref: localStorage.getItem('sh_ref') || '' }) });
       afterLogin(r, { silent: true });
       toast('Account created \u2014 120 royalty points added \u2726');
     } catch (err) { toast(err.message, 'err'); busyBtn(btn, false); }
@@ -2790,6 +5773,87 @@ pages.invoice = async (view, q, id) => {
       <tbody>${rows}${totals}</tbody></table>
       <div class="inv-foot">Rate locked at order time · Check the actual piece’s HUID in BIS Care<br><b>Confidential</b> — issued privately to ${esc(state.user.name)}; watermark identifies the holder.</div>
     </div>
+  </div>`;
+};
+
+/* ─────────── v57 DIGITAL CERTIFICATES (purity & price card per order) ─────────── */
+function certificateSheet(o) {
+  const s = state.settings || {};
+  const gross = o.items.reduce((a, it) => a + (Number(it.weightG) || 0) * it.qty, 0);
+  const net = gross;   // listed net weight = gross unless stones; stones are listed separately on the bill
+  const rows = o.items.map(it => `<tr>
+      <td><b>${esc(it.name)}</b>${it.size ? `<br><small>Size ${esc(it.size)}</small>` : ''}</td>
+      <td class="num">${it.qty}</td>
+      <td class="num">${esc(it.metal || '')} · ${esc(it.purity || '')}</td>
+      <td class="num">${(Number(it.weightG) || 0).toFixed(3)} g</td>
+      <td class="num">${fmt(Math.round(it.ratePerGram))}/g</td>
+      <td class="num">${fmt(Math.round(it.makingCharge || 0))}</td>
+      <td class="num">${fmt(Math.round(it.gst || 0))}</td>
+      <td class="num"><b>${fmt(it.unitPrice * it.qty)}</b></td>
+    </tr>`).join('');
+  const R = o.rateSnapshot || {};
+  return `
+  <div class="cert-sheet" id="certSheet">
+    <div class="cert-border">
+      <header class="cert-head">
+        <img src="/images/logo.png" alt="Shivaa">
+        <div><b>CERTIFICATE OF AUTHENTICITY</b><small>Shuddhata praman patra · issued with your order</small></div>
+        <div class="cert-id"><b>${esc(o.id)}</b><small>${new Date(o.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></div>
+      </header>
+      <section class="cert-issued">
+        <span>Presented to</span><b>${esc(o.address?.name || o.userName || (state.user && state.user.name) || 'Valued customer')}</b>
+        <span class="cert-place">by <b>${esc(s.legalName || 'Ernate Shine Jewellery Pvt. Ltd.')}</b>, ${esc(s.address || 'Sadar Bazaar, Jayal, Nagaur, Rajasthan')}</span>
+      </section>
+      <table class="cert-tbl"><thead><tr>
+        <th>Piece</th><th>Qty</th><th>Metal · Purity</th><th>Gross wt</th><th>Rate/g</th><th>Making</th><th>GST</th><th>Amount</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <div class="cert-summary">
+        <div><span>Total gross weight</span><b>${gross.toFixed(3)} g</b></div>
+        <div><span>Net gold weight</span><b>${net.toFixed(3)} g</b></div>
+        <div><span>Rate locked (22K / Silver)</span><b>${fmt(Math.round(R.gold22 || 0))} · ${fmt2(R.silver || 0)}/g</b></div>
+        <div><span>Total paid</span><b>${fmt(o.total)}</b></div>
+      </div>
+      <section class="cert-assure">
+        <p><b>✦ Hallmarking.</b> Every gold piece carries its BIS-assigned <b>HUID</b>, physically stamped on the piece and printed on the tax invoice. Scan it anytime in the official <b>BIS Care</b> app. Silver 925 pieces carry the 925 stamp.</p>
+        <p><b>✦ Honest weights.</b> Weights are recorded to the milligram at billing; stones &amp; pearls are valued separately and shown on the invoice.</p>
+        <p><b>✦ Transparent price.</b> Metal value at the day&rsquo;s locked Jaipur rate + listed making charge + 3% GST — nothing hidden, nothing rounded up.</p>
+        <p><b>✦ Lifetime buyback.</b> This certificate accompanies the piece for 100% metal-value buyback under our published policy.</p>
+      </section>
+      <footer class="cert-foot">
+        <div class="cert-sign"><span></span><small>Authorised signatory · for ${esc(s.storeName || 'Shivaa')}</small></div>
+        <div class="cert-verify"><b>Verify anytime</b><small>HUID → BIS Care app · Order ${esc(o.id)} · ${esc(s.phone || '+91 89050 05921')}</small></div>
+      </footer>
+    </div>
+  </div>`;
+}
+pages.certificate = async (view, q, id) => {
+  if (!state.user) { openLogin(); return; }
+  view.innerHTML = '<div class="loading-spin"></div>';
+  document.documentElement.classList.add('cert-mode');
+  let o = null;
+  try { o = (await api('/api/orders/' + id)).order; } catch (e) {}
+  if (!o) { document.documentElement.classList.remove('cert-mode'); view.innerHTML = '<div class="empty"><h3>Certificate not found</h3><a class="btn btn-primary" href="#/certificates">My Certificates</a></div>'; return; }
+  view.innerHTML = `<div class="cert-page">
+    <div class="cert-actions inv-no-print">
+      <button class="btn btn-gold btn-lg" onclick="window.print()">⬇ Save as PDF / Print</button>
+      <a class="btn btn-ghost" href="#/order/${encodeURIComponent(id)}">← Order</a>
+      <a class="btn btn-ghost" href="#/certificates">All certificates</a>
+    </div>${certificateSheet(o)}
+  </div>`;
+};
+pages.certificates = async view => {
+  if (!state.user) { openLogin('account'); return; }
+  document.documentElement.classList.remove('cert-mode');
+  let orders = [];
+  try { orders = (await api('/api/orders')).orders || []; } catch (e) {}
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/account">My Account</a> / Certificates</div><h1>My Certificates</h1><p>Digital purity &amp; price certificates for every Shivaa order — save, print, or show at the counter.</p></div></section>
+  <div class="container" style="padding:36px 0 90px">
+    ${orders.length ? `<div class="cert-locker">${orders.map(o => `<a class="cert-card" href="#/certificate/${encodeURIComponent(o.id)}">
+      <span class="cc-ic">&#127970;</span>
+      <div><b>${esc(o.id)}</b><small>${new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · ${o.items.reduce((a, i) => a + i.qty, 0)} piece(s) · ${fmt(o.total)}</small></div>
+      <span class="cc-go">View &amp; print &#8250;</span></a>`).join('')}</div>`
+      : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No certificates yet</h3><p style="margin:10px 0 18px">Your certificate is issued automatically with your first order.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
 };
 
@@ -2912,8 +5976,8 @@ window.ShivaaDS = {
       window._sel = {};
       closeModal();
       openModal(`<div class="center"><div style="font-size:40px">✦</div><h3 style="margin:8px 0">Metal Order ${ord.id} placed</h3>
-        <p style="font-size:14px;color:var(--ink-2)">${ord.totalWeightG} g selected → <b>${ord.fineGrams} g fine metal @ ${ord.purity}</b><br>Making charges: ₹0 · Status: ${ord.status}</p>
-        <a class="btn btn-gold" style="margin-top:12px" target="_blank" rel="noopener" href="https://wa.me/918905005921?text=${encodeURIComponent('✦ SHIVAA METAL ORDER ✦\n\nOrder: ' + ord.id + '\nTotal weight: ' + ord.totalWeightG + ' g\n× ' + ord.factor + ' = ' + ord.fineGrams + ' g fine @ ' + ord.purity + '\nMaking charges: ZERO\n\nPlease confirm.')}">Confirm on WhatsApp →</a></div>`);
+        <p style="font-size:14px;color:var(--ink-2)">${ord.totalWeightG} g selected → <b>${ord.fineGrams} g fine metal @ ${ord.purity}</b><br>Making charges: ₹0 · Status: ${esc(ord.status || 'New')}</p>
+        <a class="btn btn-gold" style="margin-top:12px" target="_blank" rel="noopener" href="https://wa.me/${waNum()}?text=${encodeURIComponent('✦ SHIVAA METAL ORDER ✦\n\nOrder: ' + ord.id + '\nTotal weight: ' + ord.totalWeightG + ' g\n× ' + ord.factor + ' = ' + ord.fineGrams + ' g fine @ ' + ord.purity + '\nMaking charges: ZERO\n\nPlease confirm.')}">Confirm on WhatsApp →</a></div>`);
       toast('Metal order ' + ord.id + ' placed ✦');
     } catch (e) { toast(e.message, 'err'); }
   },
@@ -2966,7 +6030,7 @@ function partnerGateHTML(title, sub) {
    ═══════════════════════════════════════════════════════════════════ */
 pages.buyback = async (view) => {
   const R = state.rates || {};
-  const g22 = R.gold22 || 0, g18 = R.gold18 || 0, slv = R.silver || 0;
+  const g22 = R.gold22 || 0, g24 = R.gold24 || 0, g18 = R.gold18 || 0, slv = R.silver || 0;
 
   view.innerHTML = `
   <section class="page-hero lux-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -3009,6 +6073,13 @@ pages.buyback = async (view) => {
       <div class="bbc-body">
         <div class="bbc-form">
           <div class="fld">
+            <label>Whose piece is it?</label>
+            <div class="bbc-purity bb-src" id="bbSrc">
+              <button type="button" class="bbp on" data-src="shivaa">Bought from Shivaa <small>100% value</small></button>
+              <button type="button" class="bbp"     data-src="other">Old gold · another jeweller <small>standard deductions</small></button>
+            </div>
+          </div>
+          <div class="fld">
             <label>Weight of your piece</label>
             <div class="bbc-wt">
               <input type="number" id="bbWt" value="10" min="0.1" step="0.1" inputmode="decimal">
@@ -3021,6 +6092,7 @@ pages.buyback = async (view) => {
             <label>Purity stamped on the piece</label>
             <div class="bbc-purity" id="bbPurity">
               <button type="button" class="bbp on"  data-k="g22">22K <small>916</small></button>
+              <button type="button" class="bbp"     data-k="g24">24K <small>995</small></button>
               <button type="button" class="bbp"     data-k="g18">18K <small>750</small></button>
               <button type="button" class="bbp"     data-k="slv">Silver <small>925</small></button>
             </div>
@@ -3039,8 +6111,9 @@ pages.buyback = async (view) => {
           <div class="bbr-rate" id="bbRate">—</div>
           <div class="bbr-split">
             <div><small>Rate applied</small><b id="bbPerG">—</b></div>
-            <div><small>Deduction</small><b class="bbr-zero">₹0 · 0%</b></div>
+            <div><small>Deduction</small><b class="bbr-zero" id="bbDed">₹0 · 0%</b></div>
           </div>
+          <div class="bb-ded-note" id="bbDedNote" hidden></div>
           <a class="btn btn-gold btn-block btn-lg" id="bbWa">Get this valuation confirmed</a>
           <p class="bbr-fine">Indicative estimate at the current live rate. Final value is confirmed by weight and assay at our Jayal counter.</p>
         </div>
@@ -3107,14 +6180,17 @@ pages.buyback = async (view) => {
   </div>`;
 
   /* ---- live calculator ---- */
-  const rates = { g22, g18, slv };
-  const label = { g22: 'Gold 22K', g18: 'Gold 18K', slv: 'Silver 925' };
-  let cur = 'g22';
+  const rates = { g22, g24, g18, slv };
+  const label = { g22: 'Gold 22K', g24: 'Gold 24K', g18: 'Gold 18K', slv: 'Silver 925' };
+  let cur = 'g22', src = 'shivaa';
+  // Industry-standard old-gold exchange math for pieces bought elsewhere:
+  // a one-time melting/wastage charge (3% gold · 5% silver), shown plainly.
+  const deductPct = k => src === 'other' ? (k === 'slv' ? 0.05 : 0.03) : 0;
 
   const calc = () => {
     const wt = Math.max(0, parseFloat($('#bbWt').value) || 0);
     const per = rates[cur] || 0;
-    const total = wt * per;
+    const gross = wt * per, ded = gross * deductPct(cur), total = gross - ded;
     const amtEl = $('#bbAmt');
     if (amtEl) {
       amtEl.textContent = fmt(total);
@@ -3122,7 +6198,23 @@ pages.buyback = async (view) => {
     }
     const rEl = $('#bbRate'); if (rEl) rEl.textContent = `${wt.toLocaleString('en-IN')} g × ${label[cur]}`;
     const pEl = $('#bbPerG'); if (pEl) pEl.textContent = fmt(per) + '/g';
-    const msg = `Namaste Shivaa team ✦\n\nI'd like to confirm a buyback valuation.\n\nMetal: ${label[cur]}\nWeight: ${wt} g\nIndicative value: ${fmt(total)}\n\nPlease confirm.`;
+    const dedEl = $('#bbDed');
+    if (dedEl) {
+      dedEl.textContent = ded > 0 ? `− ${fmt(ded)} · ${Math.round(deductPct(cur) * 100)}%` : '₹0 · 0%';
+      dedEl.classList.toggle('bbr-zero', ded === 0);
+      dedEl.classList.toggle('neg', ded > 0);
+    }
+    const note = $('#bbDedNote');
+    if (note) {
+      if (src === 'other') {
+        note.hidden = false;
+        note.innerHTML = ded > 0
+          ? `Standard one-time <b>melting / wastage ${Math.round(deductPct(cur) * 100)}% = −${fmt(ded)}</b> on old gold from another jeweller. Exchange it against a new Shivaa piece and we waive the making-charge difference too.`
+          : '';
+      } else note.hidden = true;
+    }
+    const origin = src === 'shivaa' ? 'Shivaa piece (written buyback)' : 'Old gold from another jeweller';
+    const msg = `Namaste Shivaa team ✦\n\nI'd like to confirm an exchange valuation.\n\nPiece: ${origin}\nMetal: ${label[cur]}\nWeight: ${wt} g\nIndicative value: ${fmt(total)}${ded ? '\nDeduction shown: ' + fmt(ded) + ' (' + Math.round(deductPct(cur) * 100) + '% melting/wastage)' : ''}\n\nPlease confirm.`;
     const wa1 = $('#bbWa'), wa2 = $('#bbWa2');
     if (wa1) wa1.onclick = () => waOpen(msg);
     if (wa2) wa2.onclick = () => waOpen(msg);
@@ -3134,6 +6226,10 @@ pages.buyback = async (view) => {
   $$('#bbPurity .bbp').forEach(b => b.addEventListener('click', () => {
     $$('#bbPurity .bbp').forEach(x => x.classList.remove('on'));
     b.classList.add('on'); cur = b.dataset.k; calc();
+  }));
+  $$('#bbSrc .bbp').forEach(b => b.addEventListener('click', () => {
+    $$('#bbSrc .bbp').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); src = b.dataset.src; calc();
   }));
   calc();
 };
@@ -3293,6 +6389,9 @@ pages.savings = async (view) => {
       <div class="mth-rail" id="svMonths"></div>
     </section>
 
+    <!-- ── v60 digital passbook ── -->
+    <section class="rv" id="svPassbookWrap"></section>
+
     <!-- ── rules ── -->
     <section class="rv">
       <div class="sec-head"><h2>The plain rules</h2><p>Read these before you enrol. There is nothing else.</p></div>
@@ -3350,7 +6449,19 @@ pages.savings = async (view) => {
     }).join('');
 
     const msg = `Namaste Shivaa team ✦\n\nI'd like to enrol in the Swarna Nidhi 11+1 gold savings plan.\n\nMonthly instalment: ${fmt(m)}\nI pay 11 months: ${fmt(paid)}\nShivaa adds: ${fmt(gift)}\nTotal buying power: ${fmt(total)}\n\nPlease set this up for me.`;
-    ['#svJoin', '#svWa'].forEach(s => { const e = $(s); if (e) e.onclick = () => waOpen(msg); });
+    const wa = $('#svWa'); if (wa) wa.onclick = () => waOpen(msg);
+    const join = $('#svJoin');
+    if (join) {
+      join.textContent = state.user ? '✦ Enrol & open my passbook' : 'Sign in to enrol ✦';
+      join.onclick = async () => {
+        if (!state.user) { openLogin(); return; }
+        try {
+          await api('/api/savings', { method: 'POST', body: JSON.stringify({ monthlyAmount: m }) });
+          toast('Welcome to Swarna Nidhi ✦ passbook opened'); pages.savings($('#view'));
+          document.getElementById('svPassbookWrap')?.scrollIntoView({ behavior: 'smooth' });
+        } catch (e) { toast(e.message, 'err'); }
+      };
+    }
   };
 
   const amt = $('#svAmt'), rng = $('#svRange');
@@ -3363,6 +6474,47 @@ pages.savings = async (view) => {
     calc();
   }));
   calc();
+
+  /* ---- v60 digital passbook ---- */
+  const loadPassbook = async () => {
+    const wrap = $('#svPassbookWrap');
+    if (!wrap) return;
+    if (!state.user) {
+      wrap.innerHTML = `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>Sign in to see your running plan, receipts and grams accrued.</p></div>
+        <div style="text-align:center"><button class="btn btn-gold btn-lg" onclick="Shivaa.openLogin()">Sign in</button></div>`;
+      return;
+    }
+    try {
+      const data = await api('/api/savings/mine');
+      const plans = data.plans || [];
+      if (!plans.length) {
+        wrap.innerHTML = `<div class="sec-head"><h2>My Swarna Nidhi passbook</h2><p>No active plan yet — set the monthly amount above and tap <b>Enrol</b>.</p></div>`;
+        return;
+      }
+      const p = plans[0];
+      const done = (p.installments || []).length;
+      const contributed = p.contributed || done * p.monthlyAmount;
+      wrap.innerHTML = `<div class="sec-head"><h2>My digital passbook</h2><p>Plan <b>${esc(p.id.toUpperCase())}</b> · ${fmt(p.monthlyAmount)} per month · every receipt is stored here.</p></div>
+        <div class="sv-book">
+          <div class="svb-top">
+            <div><small>Total contributed</small><b>${fmt(contributed)}</b></div>
+            <div><small>Instalments</small><b>${done}/11</b></div>
+            <div><small>Status</small><b class="svb-${p.status}">${esc(p.status)}</b></div>
+          </div>
+          <div class="svb-bar"><i style="width:${Math.min(100, (done / 11) * 100)}%"></i></div>
+          ${p.status === 'active' ? `<div class="svb-next">Next instalment: <b>${fmt(p.monthlyAmount)}</b> — pay at the counter or on WhatsApp; the receipt appears here immediately.</div>` : ''}
+          <div class="svb-list">
+            ${(p.installments || []).map((q, i) => `<div class="svb-row"><span>${i + 1}. ${new Date(q.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span><b>${fmt(q.amount)}</b><small>${q.rate22 ? '@' + fmt(q.rate22) + '/g' : ''} ${esc(q.mode || '')}</small></div>`).join('')}
+            ${done >= 11 ? `<div class="svb-row svb-gift"><span>12. ✦ Shivaa&rsquo;s gift instalment</span><b>${fmt(p.monthlyAmount)}</b></div>` : ''}
+          </div>
+          <div class="svb-actions">
+            <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print / PDF statement</button>
+            <a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${waLink('Namaste Shivaa ✦ please share my Swarna Nidhi plan ' + p.id.toUpperCase() + ' statement.')}">WhatsApp statement</a>
+          </div>
+        </div>`;
+    } catch (e) { wrap.innerHTML = ''; }
+  };
+  loadPassbook();
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -3596,6 +6748,16 @@ pages.metal = async (view) => {
    is melting-loss protection — it exists so melting never wins — not
    a payment for the making charges themselves.
    ═══════════════════════════════════════════════════════════════════ */
+/* v101 — every gold karat + silver is purchasable under the dead-stock desk */
+const DS_METALS = [
+  { id: 'g24', tag: '24K', stand: '995 gold', metal: 'gold', fine: 0.995 },
+  { id: 'g22', tag: '22K', stand: '916 gold', metal: 'gold', fine: 0.916 },
+  { id: 'g20', tag: '20K', stand: '833 gold', metal: 'gold', fine: 0.833 },
+  { id: 'g18', tag: '18K', stand: '750 gold', metal: 'gold', fine: 0.75 },
+  { id: 'g14', tag: '14K', stand: '585 gold', metal: 'gold', fine: 0.585 },
+  { id: 's925', tag: '925', stand: 'Sterling silver', metal: 'silver', fine: 0.925 },
+  { id: 's990', tag: '990', stand: 'Fine silver', metal: 'silver', fine: 0.99 },
+];
 pages.deadstock = async (view) => {
   if (!isPartner()) { view.innerHTML = partnerGateHTML('Dead Stock Purchase',
     'Turn slow-moving counter stock into fine metal. A private facility for GST-verified jeweller partners.'); return; }
@@ -3609,7 +6771,7 @@ pages.deadstock = async (view) => {
       <div class="crumbs"><a href="#/">Home</a> / <a href="#/partner">Partner Portal</a> / Dead Stock</div>
       <span class="lux-badge">&#9670; PARTNERS ONLY</span>
       <h1 class="ink-reveal">Dead Stock <em class="shimmer foil-txt">Purchase</em></h1>
-      <p>Your slow-moving 22K jewellery, bought at one wastage and settled as fine 99.999 metal value &mdash; with half your making charges credited back so melting never wins.</p>
+      <p>Slow-moving stock in <b>every gold karat — 24K, 22K, 20K, 18K, 14K — and silver (925 &amp; 990)</b>, bought at one wastage and settled as fine-metal value, with half your making charges credited back so melting never wins.</p>
     </div>
   </section>
 
@@ -3618,9 +6780,9 @@ pages.deadstock = async (view) => {
     <!-- ── the offer ── -->
     <div class="vault-grid rv">
       <div class="vault-card">
-        <span class="vc-num">22<small>K</small></span>
-        <b>Plain 22K jewellery only</b>
-        <p>Bangles, chains, rings, plain sets &mdash; any design, any age. One wastage, no grading arguments, no per-piece haggling.</p>
+        <span class="vc-num">All<small>karats</small></span>
+        <b>Every gold karat &amp; silver</b>
+        <p>24K, 22K, 20K, 18K, 14K gold and 925 / 990 silver &mdash; bangles, chains, rings, sets, any design, any age. One wastage per metal, no per-piece haggling.</p>
       </div>
       <div class="vault-card vc-emerald">
         <span class="vc-num">50<small>%</small></span>
@@ -3638,16 +6800,17 @@ pages.deadstock = async (view) => {
     <section class="sv-calc rv" id="dsCalc">
       <div class="bbc-head">
         <span class="bbc-live"><i></i> LIVE ESTIMATE</span>
-        <h2>What your 22K stock is <em class="shimmer foil-txt">actually worth</em></h2>
-        <p>Today's Jaipur rates &mdash; 22K gold <b>${fmt(g22)}/g</b> &middot; fine 24K <b>${fmt(g24)}/g</b>.</p>
+        <h2>What your old stock is <em class="shimmer foil-txt">actually worth</em></h2>
+        <p>Today's Jaipur rates &mdash; fine 24K <b>${fmt(g24)}/g</b> &middot; 22K <b>${fmt(g22)}/g</b> &middot; fine silver <b>${fmt(Math.max(R?.silver || 0, (R?.jaipur?.silver || 0) / 1000))}/g</b>.</p>
       </div>
 
       <div class="svc-body">
         <div class="svc-form">
           <div class="fld">
-            <label>Category we purchase</label>
-            <div class="purity-lock emerald"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>the only category on this desk</span></div>
+            <label>Metal &amp; purity we purchase</label>
+            <div class="ds-metals" id="dsMetals" role="radiogroup" aria-label="Metal and purity">
+              ${DS_METALS.map((m, i) => `<button type="button" class="ds-metal ${i === 1 ? 'on' : ''}" data-m="${m.id}" role="radio" aria-checked="${i === 1}"><b>${m.tag}</b><small>${m.stand}</small></button>`).join('')}
+            </div>
           </div>
 
           <div class="fld">
@@ -3676,7 +6839,7 @@ pages.deadstock = async (view) => {
           <div class="bbr-rate" id="dsSub">&mdash;</div>
 
           <div class="ds-split">
-            <div class="dss-row dss-fine"><span>Fine 99.999 metal you receive</span><b id="dsFine">&mdash;</b></div>
+            <div class="dss-row dss-fine"><span id="dsFineLbl">Fine metal you receive</span><b id="dsFine">&mdash;</b></div>
             <div class="dss-row"><span>Metal value at one wastage</span><b id="dsMetalVal">&mdash;</b></div>
             <div class="dss-row dss-credit"><span>Melting-loss protection &middot; 50% of MC</span><b id="dsCredit">&mdash;</b></div>
             <div class="dss-row dss-vs"><span>If you melted it instead</span><b id="dsMelt">&mdash;</b></div>
@@ -3698,9 +6861,10 @@ pages.deadstock = async (view) => {
           <div class="fld"><label>Contact person *</label><input name="person" required placeholder="Your name"></div>
           <div class="fld"><label>Mobile *</label><input name="phone" required pattern="[6-9][0-9]{9}" maxlength="10" inputmode="numeric" placeholder="10-digit mobile"></div>
           <div class="fld"><label>City *</label><input name="city" required placeholder="e.g. Nagaur"></div>
-          <div class="fld"><label>Category</label>
-            <div class="purity-lock emerald ds-lock-sm"><span class="pl-k">22K</span>
-              <span class="pl-tx"><b>Plain gold jewellery</b>22 karat only</span></div>
+          <div class="fld"><label>Metal &amp; purity *</label>
+            <select name="category" required>
+              ${DS_METALS.map((m, i) => `<option ${i === 1 ? 'selected' : ''}>${m.tag} · ${m.stand}</option>`).join('')}
+            </select>
           </div>
           <div class="fld"><label>Approx. total weight (g) *</label><input name="weight" type="number" step="0.1" min="1" required placeholder="e.g. 250"></div>
           <div class="fld"><label>Approx. making charges paid (&#8377;)</label><input name="mc" type="number" min="0" step="500" placeholder="e.g. 60000"></div>
@@ -3726,7 +6890,7 @@ pages.deadstock = async (view) => {
         <div class="step-item"><span class="si-n">01</span><b>Send the list</b><p>Fill the form above or send photos on WhatsApp. Approximate weights are fine at this stage.</p></div>
         <div class="step-item"><span class="si-n">02</span><b>Firm quote in 48 h</b><p>We confirm the one-wastage metal value and your melting-loss credit in writing before anything moves.</p></div>
         <div class="step-item"><span class="si-n">03</span><b>Insured pickup</b><p>Our carrier collects from your counter, fully insured in transit. You keep the signed receipt.</p></div>
-        <div class="step-item"><span class="si-n">04</span><b>Fine-metal settlement</b><p>The 22K content is converted to fine-metal value against your next order; the 50% credit sits on your account with no expiry.</p></div>
+        <div class="step-item"><span class="si-n">04</span><b>Fine-metal settlement</b><p>The fine gold or silver content is converted to fine-metal value against your next order; the 50% credit sits on your account with no expiry.</p></div>
       </div>
     </section>
 
@@ -3734,10 +6898,10 @@ pages.deadstock = async (view) => {
     <section class="rv">
       <div class="sec-head"><h2>The terms, plainly</h2><p>Nothing hidden. Ask the bullion desk if anything here is unclear.</p></div>
       <div class="fine-grid">
-        <div class="fine-card"><b>What we take</b><p>Plain 22K gold jewellery in sellable condition &mdash; bangles, chains, rings, plain sets. Any design, any age.</p></div>
-        <div class="fine-card"><b>What we cannot take here</b><p>Heavily stone-set, enamelled or damaged pieces are quoted case by case. 18K and silver are handled separately by the bullion desk.</p></div>
+        <div class="fine-card"><b>What we take</b><p>Gold jewellery in <b>24K, 22K, 20K, 18K and 14K</b>, plus <b>925 and 990 silver</b> &mdash; bangles, chains, rings, sets, payal. Any design, any age.</p></div>
+        <div class="fine-card"><b>What we quote separately</b><p>Heavily stone-set, kundan/polki, enamelled or damaged pieces are quoted case by case after assay. Loose stones &amp; solitaires are valued separately.</p></div>
         <div class="fine-card"><b>Why 50% of the making charges</b><p>It is not a payment for craftsmanship &mdash; it is calibrated so you never recover less than melting. The credit applies against future Shivaa purchases and never expires.</p></div>
-        <div class="fine-card"><b>Minimum lot</b><p>100 g of 22K gold. Active partners can send smaller lots &mdash; message the desk first.</p></div>
+        <div class="fine-card"><b>Minimum lot</b><p>100 g of gold or 1 kg of silver. Active partners can send smaller lots &mdash; message the desk first.</p></div>
       </div>
     </section>
 
@@ -3751,27 +6915,40 @@ pages.deadstock = async (view) => {
     </div>
   </div>`;
 
-  /* ---- live estimator: 22K → fine metal + melting-loss protection ---- */
-  const FINE = 0.916;   // 22K = 91.6% fine content
-  const WAST = 0.99;    // bought at one wastage
+  /* ---- live estimator: every gold karat + silver → fine metal ---- */
+  const WAST = 0.99;    // bought at one wastage, any metal
   const MELT = 0.92;    // typical melting route loses ~8%
+  // v101 — all jewellery karats and silver, each settled on its fine content
+  const goldKarats = { g24: R['gold24'], g22: R['gold22'], g20: R['gold20'], g18: R['gold18'], g14: R['gold14'] };
+  const fineGoldRate = g24 || (g22 ? g22 / DS_METALS.find(m => m.id === 'g22').fine : 0);
+  const fineSilverRate = (R.jaipur && R.jaipur.silver > 200) ? R.jaipur.silver / 1000
+    : (R.silver ? R.silver / DS_METALS.find(m => m.id === 's925').fine : 0);
+  let cur = DS_METALS[1];
 
   const calc = () => {
     const wt = Math.max(0, parseFloat($('#dsWt').value) || 0);
     const mc = Math.max(0, parseFloat($('#dsMc').value) || 0);
-    const fineG = wt * FINE * WAST;          // fine grams after one wastage
-    const metalVal = g24 > 0 ? fineG * g24 : wt * g22 * WAST;
-    const credit = mc * 0.5;                 // melting-loss protection
+    const isSilver = cur.metal === 'silver';
+    const fineRate = isSilver ? fineSilverRate : fineGoldRate;
+    const fineG = wt * cur.fine * WAST;          // fine grams after one wastage
+    const metalVal = fineG * fineRate;
+    const credit = mc * 0.5;                     // melting-loss protection
     const total = metalVal + credit;
-    const melted = wt * g22 * MELT;          // melting: 8% loss, MC gone
+    // the local melting-yard comparison buys the article at its alloy rate
+    const alloyRate = isSilver
+      ? (cur.id === 's925' ? (R.silver || fineSilverRate * cur.fine) : fineSilverRate * cur.fine)
+      : (goldKarats[cur.id] || fineGoldRate * cur.fine);
+    const melted = wt * alloyRate * MELT;
     const gain = total - melted;
 
     const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+    const fineName = isSilver ? 'fine silver' : 'fine gold';
+    const fl = $('#dsFineLbl'); if (fl) fl.textContent = `Fine ${isSilver ? '990 silver' : '99.99% gold'} you receive`;
     set('#dsFine', `${fineG.toLocaleString('en-IN', { maximumFractionDigits: 1 })} g \u2248 ${fmt(metalVal)}`);
     set('#dsMetalVal', fmt(metalVal));
     set('#dsCredit', '+ ' + fmt(credit));
     set('#dsMelt', fmt(melted));
-    set('#dsSub', `${wt.toLocaleString('en-IN')} g of 22K jewellery \u00b7 one wastage \u00b7 settled as fine metal`);
+    set('#dsSub', `${wt.toLocaleString('en-IN')} g of ${cur.tag} ${cur.stand} \u00b7 one wastage \u00b7 settled as ${fineName}`);
 
     const gEl = $('#dsGain');
     if (gEl) gEl.innerHTML = gain >= 0
@@ -3784,9 +6961,16 @@ pages.deadstock = async (view) => {
       tEl.classList.remove('bbr-pop'); void tEl.offsetWidth; tEl.classList.add('bbr-pop');
     }
 
-    const msg = `Namaste Shivaa bullion desk \u2726\n\nI'd like to sell dead stock under the 1-wastage scheme.\n\nCategory: 22K plain gold jewellery\nWeight: ${wt} g\nMaking charges paid: ${fmt(mc)}\n\nIndicative fine-metal value: ${fmt(metalVal)}\nMelting-loss protection (50% of MC): ${fmt(credit)}\nTotal recovery: ${fmt(total)}\n\nFirm name: \nCity: \n\nPlease arrange a pickup.`;
+    const msg = `Namaste Shivaa bullion desk \u2726\n\nI'd like to sell dead stock under the 1-wastage scheme.\n\nMetal: ${cur.tag} · ${cur.stand}\nWeight: ${wt} g\nMaking charges paid: ${fmt(mc)}\n\nIndicative fine-metal value: ${fmt(metalVal)}\nMelting-loss protection (50% of MC): ${fmt(credit)}\nTotal recovery: ${fmt(total)}\n\nFirm name: \nCity: \n\nPlease arrange a pickup.`;
     ['#dsWa', '#dsWa2'].forEach(sel => { const e = $(sel); if (e) e.onclick = () => waOpen(msg); });
   };
+  $$('#dsMetals .ds-metal').forEach(btn => btn.onclick = () => {
+    cur = DS_METALS.find(m => m.id === btn.dataset.m) || cur;
+    $$('#dsMetals .ds-metal').forEach(b => {
+      const on = b === btn; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    calc();
+  });
 
   const wt = $('#dsWt'), rng = $('#dsRange'), mc = $('#dsMc');
   if (wt) wt.addEventListener('input', () => { if (rng) rng.value = Math.min(5000, Math.max(10, parseFloat(wt.value) || 10)); calc(); });
@@ -3805,7 +6989,7 @@ window.Shivaa.dsSubmit = (e) => {
   if (!/^[6-9][0-9]{9}$/.test(phone)) { toast('Please enter a valid 10-digit mobile number'); return; }
   const msg = `Namaste Shivaa bullion desk \u2726\n\nDEAD STOCK PURCHASE ENQUIRY\n\n`
     + `Firm: ${g('firm')}\nContact: ${g('person')}\nMobile: ${phone}\nCity: ${g('city')}\n\n`
-    + `Category: 22K plain gold jewellery\nApprox weight: ${g('weight')} g\n`
+    + `Metal & purity: ${g('category') || '22K · 916 gold'}\nApprox weight: ${g('weight')} g\n`
     + `Making charges paid: ${g('mc') ? '\u20b9' + g('mc') : 'not stated'}\n`
     + `Age of stock: ${g('age')}\n`
     + `Lot contains: ${g('items') || 'not stated'}\n`
@@ -3896,16 +7080,75 @@ pages.faq = async (view) => {
   if (wa) wa.onclick = () => waOpen('Namaste Shivaa \u2726\n\nI have a question: ');
 };
 
+/* ─────────── NEW YEAR GOLD FINALE · #/finale (time-boxed, auto-expires 1 Jan 2027) ─────────── */
+/* v54: the 10 g prize, valued at this moment's live 24K rate — honesty by construction */
+async function fillPrizeWorth() {
+  const el = $('#prizeWorth'); if (!el) return;
+  try {
+    const r = await api('/api/rates');
+    if (r && r.gold24) el.innerHTML = '✦ worth <b>₹' + Math.round(10 * r.gold24).toLocaleString('en-IN') + '</b> at today\u2019s 24K rate';
+    else el.innerHTML = '✦ valued at the live 24K rate on draw night';
+  } catch (e) { el.innerHTML = '✦ valued at the live 24K rate on draw night'; }
+}
+pages.finale = async (view) => {
+  if (!finaleLive()) { location.hash = '#/'; return; }   // campaign module is off — normal store only
+  view.innerHTML = finaleLanding();
+  const cd = $('#finaleCd');
+  if (cd) bindFinaleCd(cd);
+  fillPrizeWorth();   // v54 live prize value
+  finaleLandingHook();   // free-entry zone state + ?quiz=free auto-open after login
+};
+
 /* ─────────── ROUTER ─────────── */
 const routes = {};
 Object.keys(pages).forEach(k => routes[k] = pages[k]);
 Object.assign(window.Shivaa, {
   api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,
   toggleCompare, removeCompare, clearCompare, copyCompareLink, waCompare, compareLink, compareItems,
-  routes, price, fmt, esc, productCard, mcTableHTML, openLogin,
+  routes, price, fmt, esc, safeUrl, jsArg, productCard, mcTableHTML, openLogin,
   waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
+  openCart, closeCart, renderMiniCart, flyToBag,
 });
+/* ─────────── v99 · STAFF-ONLY BUNDLE, LOADED ON DEMAND ───────────
+   admin.js (261KB) + qr.js (55KB) power #/admin and #/partner and nothing
+   else. Verified before moving them out of index.html:
+     · all 235 references to ShivaaAdmin / ShivaaPartner / ShivaaBullion /
+       ShivaaPages / ShivaaCO live inside admin.js itself;
+     · the single consumer of qr.js's global `qrcode()` is admin.js:1758, and
+       it is already wrapped in try/catch;
+     · no script, template or route gate reads them from outside.
+   So a shopper no longer downloads, parses or executes 316KB of staff tooling —
+   on a mid-range handset that is the difference between a janky first scroll
+   and a smooth one. admin.js registers its own routes at load time
+   (Shivaa.routes.admin / .partner), so the route simply replays once the bundle
+   lands. qr.js is injected first because admin.js calls its global. */
+const STAFF_PAGES = { admin: 1, partner: 1 };
+let _staffBundle = null;
+function injectScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = false;          // keep insertion order deterministic
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('script failed: ' + src));
+    document.body.appendChild(s);
+  });
+}
+function loadStaffBundle() {
+  if (window.ShivaaAdmin) return Promise.resolve();
+  if (!_staffBundle) {
+    _staffBundle = injectScript('/js/qr.js?v=99')
+      .catch(() => { /* QR tags degrade gracefully; the panel must still open */ })
+      .then(() => injectScript('/js/admin.js?v=103'))
+      .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
+  }
+  return _staffBundle;
+}
+const _staffEmpty = (h, p, retry) => `<div class="empty" style="padding:120px 20px">` +
+  `<img src="/images/logo.png" class="empty-logo" alt=""><h3>${h}</h3><p>${p}</p>` +
+  (retry ? `<button type="button" class="btn" style="margin-top:14px" onclick="Shivaa.redraw()">Retry</button>` : '') +
+  `</div>`;
+
 function route() {
   const hash = location.hash.replace(/^#\/?/, '') || '';
   const [pathPart, qs] = hash.split('?');
@@ -3914,18 +7157,46 @@ function route() {
   const q = new URLSearchParams(qs || '');
   const view = $('#view');
   closeModal();
+  if (typeof closeCart === 'function') closeCart();
   while (_scrollLock.n > 0) unlockScroll();
   clearInterval(window._carTimer);
+  // v101 — the bullion board's 30s poll lives only while the portal is open;
+  // in-place Bullion/Dashboard/Reports switches keep it running (fresh rates
+  // the instant you return), while leaving the portal stops the fetches.
+  if (page !== 'partner' && window._blPoll) {
+    clearInterval(window._blPoll); window._blPoll = null;
+    if (window.ShivaaBullion) ShivaaBullion.mounted = false;
+  }
+  if (window._co && page !== 'checkout') { clearInterval(window._co.lockTimer); window._co.lockTimer = null; }   // v57: stop the rate-lock clock away from checkout
   document.body.dataset.page = page;
+  if (page !== 'certificate') document.documentElement.classList.remove('cert-mode');
+  if (page !== 'quote') document.documentElement.classList.remove('quote-mode');
+  if (page !== 'product') resetProductMeta();   // v57: per-piece SEO data only lives on the PDP
+  syncFinaleChrome();   // campaign links/banner switch off by date alone after Bhai Dooj (11 Nov 2026)
+  /* v99 · staff routes are lazy: fetch the bundle, then replay this route */
+  if (STAFF_PAGES[page] && !routes[page]) {
+    view.innerHTML = _staffEmpty('Opening the staff panel…', 'Loading the admin workspace — this happens once per session.', false);
+    loadStaffBundle()
+      .then(() => {
+        // replay only if the visitor is still on the staff route
+        if ((location.hash.replace(/^#\/?/, '').split('/')[0] || 'home') === page) route();
+      })
+      .catch(() => {
+        view.innerHTML = _staffEmpty('The staff panel did not load', 'Check your connection, then retry.', true);
+      });
+    return;
+  }
+  clearInterval(window._v107Redir);                     // v107 — any new navigation cancels a pending unknown-route redirect
   if (routes[page]) {
     const res = routes[page](view, q, seg[1]);
     if (res && res.catch) res.catch(e => { console.error(e); view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Something slipped</h3><p>${esc(e.message)}</p></div>`; });
   } else {
     view.innerHTML = `<div class="empty" style="padding:120px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This page has slipped its clasp</h3><p style="color:var(--ink-3);margin:10px 0 20px">Redirecting you home in <b id="redirN">3</b>…</p><a class="btn btn-primary" href="#/">Take me home ✦</a></div>`;
     let n = 3;
-    const iv = setInterval(() => {
+    clearInterval(window._v107Redir);
+    window._v107Redir = setInterval(() => {
       n--; const el = $('#redirN'); if (el) el.textContent = n;
-      if (n <= 0) { clearInterval(iv); location.hash = '#/'; }
+      if (n <= 0) { clearInterval(window._v107Redir); window._v107Redir = null; location.hash = '#/'; }
     }, 1000);
   }
   window.scrollTo({ top: 0 });
@@ -3940,7 +7211,10 @@ function route() {
     try {
     $$('.page-hero:not(.lg-done)').forEach(ph => {
       ph.classList.add('lg-done');
-      if (!ph.querySelector('.ph-mark')) ph.insertAdjacentHTML('beforeend', '<img src="/images/logo.png" class="ph-mark" alt="">');
+      // v101 — the navy-on-white logo PNG read as an opaque white card on dark
+      // banners. Watermark is now a gold-foil MASK of the logo (transparent bg),
+      // so it can never paint a white rectangle over the headline.
+      if (!ph.querySelector('.ph-mark')) ph.insertAdjacentHTML('beforeend', '<span class="ph-mark" aria-hidden="true"></span>');
       if (!ph.querySelector('.ph-trust')) ph.insertAdjacentHTML('beforeend', '<div class="ph-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>');
     });
     const heroEl = $('#view .hero');
@@ -3967,13 +7241,20 @@ function route() {
     try { bindV23Reveal(); } catch(e) {}
     try { updateCompareUI(); } catch(e) {}
     try { updatePartnerUI(); } catch(e) {}
+    try { window.Shivaa.paintNewsletterState(); } catch(e) {}
   });
 }
 addEventListener('hashchange', route);
+try { window.Shivaa.paintNewsletterState(); } catch(e) {}
 
 /* ─────────── SEARCH ─────────── */
-$('#searchBtn').onclick = () => { $('#searchDrawer').classList.add('open'); $('#searchInput').focus(); renderSugg(''); };
-$('#searchClose').onclick = () => $('#searchDrawer').classList.remove('open');
+const closeSearch = () => {
+  $('#searchDrawer').classList.remove('open');
+  $('#searchSugg').classList.remove('open');
+};
+$('#searchBtn').onclick = () => { $('#searchDrawer').classList.add('open'); $('#searchInput').focus(); renderSugg(''); $('#searchSugg').classList.add('open'); };
+$('#searchClose').onclick = closeSearch;
+$('#searchScrim').onclick = closeSearch;   // v101 — tap the frosted backdrop to dismiss
 /* v29 — desktop header search field (mirrors the drawer behaviour) */
 (() => {
   const inp = $('#hdrSearchInput'), clear = $('#hdrSearchClear');
@@ -3982,24 +7263,143 @@ $('#searchClose').onclick = () => $('#searchDrawer').classList.remove('open');
     if (e.key === 'Enter') {
       e.preventDefault();
       const v = inp.value.trim();
-      if (v) location.hash = '#/shop?q=' + encodeURIComponent(v);
+      if (v) runSearch(v);
     }
     if (e.key === 'Escape') inp.blur();
   });
   inp.addEventListener('input', () => { if (clear) clear.hidden = !inp.value; });
   if (clear) clear.onclick = () => { inp.value = ''; clear.hidden = true; inp.focus(); };
 })();
-$('#searchInput').oninput = e => renderSugg(e.target.value);
-$('#searchInput').onkeydown = e => {
-  if (e.key === 'Enter' && e.target.value.trim()) { location.hash = '#/shop?q=' + encodeURIComponent(e.target.value.trim()); $('#searchDrawer').classList.remove('open'); }
+/* v91 — instant search: keyboard navigation, recent + popular queries */
+const recentQueries = () => { try { return JSON.parse(localStorage.getItem('shv_recentq') || '[]'); } catch (e) { return []; } };
+const pushRecentQuery = q => {
+  q = q.trim(); if (!q) return;
+  const l = recentQueries().filter(x => x.toLowerCase() !== q.toLowerCase());
+  l.unshift(q);
+  try { localStorage.setItem('shv_recentq', JSON.stringify(l.slice(0, 6))); } catch (e) {}
 };
+const removeRecentQuery = q => { try { localStorage.setItem('shv_recentq', JSON.stringify(recentQueries().filter(x => x !== q))); } catch (e) {} };
+function runSearch(q) {
+  q = (q || '').trim(); if (!q) return;
+  pushRecentQuery(q);
+  location.hash = '#/shop?q=' + encodeURIComponent(q);
+  closeSearch();
+}
+function activateSugg(row) {
+  if (row.dataset.pid) { location.hash = '#/product/' + row.dataset.pid; closeSearch(); $('#searchInput').value = ''; }
+  else if (row.dataset.q) { $('#searchInput').value = row.dataset.q; runSearch(row.dataset.q); }
+}
+/* v102 — debounced input so fast typing doesn't thrash the palette */
+let _searchDebounce = null;
+$('#searchInput').oninput = e => {
+  clearTimeout(_searchDebounce);
+  const v = e.target.value;
+  _searchDebounce = setTimeout(() => { renderSugg(v); $('#searchSugg').classList.add('open'); }, 90);
+};
+/* v102 — "/" opens search from anywhere (never while typing in a field) */
+document.addEventListener('keydown', e => {
+  if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  e.preventDefault();
+  $('#searchBtn').click();
+});
+$('#searchInput').onkeydown = e => {
+  const box = $('#searchSugg');
+  const rows = $$('.sugg', box);
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && rows.length) {
+    e.preventDefault();
+    let i = rows.findIndex(r => r.classList.contains('sel'));
+    i = e.key === 'ArrowDown' ? (i + 1) % rows.length : (i <= 0 ? rows.length - 1 : i - 1);
+    rows.forEach(r => r.classList.remove('sel'));
+    rows[i].classList.add('sel');
+    rows[i].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const sel = box.querySelector('.sugg.sel');
+    if (sel) activateSugg(sel);
+    else if (e.target.value.trim()) runSearch(e.target.value.trim());
+  } else if (e.key === 'Escape') {
+    closeSearch(); e.target.blur();
+  }
+};
+$('#searchSugg').addEventListener('click', e => {
+  const del = e.target.closest('[data-delq]');
+  if (del) { e.stopPropagation(); removeRecentQuery(del.dataset.delq); renderSugg($('#searchInput').value); $('#searchSugg').classList.add('open'); return; }
+  const clearAll = e.target.closest('[data-clearall]');
+  if (clearAll) { e.stopPropagation(); try { localStorage.removeItem('shv_recentq'); } catch (err) {} renderSugg($('#searchInput').value); $('#searchSugg').classList.add('open'); return; }
+  const cat = e.target.closest('a.sugg-cat');
+  if (cat) { closeSearch(); return; }   // native anchor navigates; just dismiss the palette
+  const row = e.target.closest('.sugg');
+  if (row) activateSugg(row);
+});
+const POPULAR_Q = ['Rings', 'Jhumkas', 'Mangalsutra', 'Bangles', 'Chain', 'Silver'];
+/* v102 — weighted multi-token search across name, SKU, category, tags,
+   stones, purity & metal; every token must match (AND), best match first. */
+function productSearchText(p) {
+  return [p.name, p.sku || '', CATS[p.category]?.name || p.category || '',
+    (p.tags || []).map(t => TAGS[t] || t).join(' '), p.stoneType || '', p.stoneDesc || '',
+    p.purity || '', p.metal || '', p.color || ''].join(' ').toLowerCase();
+}
+window.Shivaa.searchProducts = function (query, limit = 8) {
+  const tokens = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length || !state.productsCache.length) return [];
+  const out = [];
+  state.productsCache.forEach(p => {
+    const name = p.name.toLowerCase(), sku = String(p.sku || '').toLowerCase(), hay = productSearchText(p);
+    let score = 0;
+    for (const t of tokens) {
+      if (name.startsWith(t)) score += 100;
+      else if (name.includes(t)) score += 55;
+      else if (sku && sku.includes(t)) score += 45;
+      else if ((CATS[p.category]?.name || '').toLowerCase().includes(t)) score += 35;
+      else if (hay.includes(t)) score += 15;
+      else return; /* a token matched nowhere → exclude */
+    }
+    score += (+p.rating || 0) + Math.log10((+p.reviews || 0) + 1) * 0.5;
+    out.push({ p, score });
+  });
+  return out.sort((a, b) => b.score - a.score).slice(0, limit).map(x => x.p);
+};
+function productSearchSub(p) {
+  const bits = [CATS[p.category]?.name || p.category || ''];
+  if (p.sku) bits.push('SKU ' + p.sku);
+  if (p.stoneType) bits.push(p.stoneType);
+  bits.push(fmt(price(p).total));
+  return bits.filter(Boolean).join(' · ');
+}
 function renderSugg(qs) {
-  const s = qs.toLowerCase();
-  const list = state.productsCache.filter(p => (p.name + p.category).toLowerCase().includes(s)).slice(0, 6);
   const el = $('#searchSugg');
-  el.classList.toggle('open', list.length > 0);
-  el.innerHTML = list.map(p => `<div class="sugg" onclick="location.hash='#/product/${p.id}';document.getElementById('searchDrawer').classList.remove('open')">
-    <img src="${p.images[0]}" alt=""><div><b>${esc(p.name)}</b><small>${CATS[p.category]?.name} · ${fmt(price(p).total)}</small></div></div>`).join('');
+  if (!qs) {
+    const rec = recentQueries();
+    el.innerHTML =
+      (rec.length ? `<div class="sugg-lbl"><span>Recent searches</span><button type="button" class="sugg-clearall" data-clearall>Clear</button></div>` + rec.map(r =>
+        `<div class="sugg sugg-chip" data-q="${esc(r)}"><span class="sugg-ic">🕘</span><span>${esc(r)}</span><button type="button" class="sugg-d" data-delq="${esc(r)}" aria-label="Remove ${esc(r)}">✕</button></div>`).join('') : '') +
+      `<div class="sugg-lbl">Popular searches</div>` +
+      POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
+      + `<div class="sugg-lbl">Shop by category</div>`
+      + Object.entries(CATS).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+    el.classList.add('open');
+    return;
+  }
+  const all = window.Shivaa.searchProducts(qs, Infinity);
+  const list = all.slice(0, 8);
+  if (!list.length) {
+    el.innerHTML =
+      `<div class="sugg-none"><b>No pieces for “${esc(qs)}”</b><span>Check the spelling, or try a broader term like ring, gold or silver.</span></div>`
+      + `<div class="sugg-lbl">Try</div>`
+      + POPULAR_Q.slice(0, 4).map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
+      + `<div class="sugg-lbl">Shop by category</div>`
+      + Object.entries(CATS).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+    el.classList.add('open');
+    return;
+  }
+  el.innerHTML =
+    `<div class="sugg-lbl"><span>Pieces · ${all.length > 8 ? '8+' : all.length}</span></div>`
+    + list.map(p => `<div class="sugg" data-pid="${p.id}">
+    <img src="${safeUrl(p.images && p.images[0])}" alt="" loading="lazy"><div><b>${esc(p.name)}</b><small>${esc(productSearchSub(p))}</small></div><span class="sugg-go">›</span></div>`).join('')
+    + `<div class="sugg sugg-all" data-q="${esc(qs)}"><span class="sugg-ic">🔍</span><span>See all ${all.length} pieces for “${esc(qs)}”</span></div>`;
+  el.classList.add('open');
 }
 
 /* ─────────── live price refresh (targeted DOM updates) ─────────── */
@@ -4058,18 +7458,23 @@ function refreshCheckoutTotals() {
 
 /* ─────────── header behaviours + premium chrome ─────────── */
 addEventListener('scroll', (() => {
-  // v42: throttled scroll handler — prevents jank on Android Chrome
-  let _scrollTicking = false;
+  // v42: throttled scroll handler; v80: hysteresis bands so mobile
+  // rubber-banding / sub-pixel jitter at the threshold can't oscillate
+  // the header classes (that oscillation + the blurred sticky header's
+  // height animation was the visible header flicker on scroll).
+  let _scrollTicking = false, _scrolled = false, _compact = false;
+  const apply = (y) => {
+    const wantScrolled = _scrolled ? y > 4 : y > 14;
+    const wantCompact  = _compact  ? y > 150 : y > 200;
+    const hdr = $('#header');
+    if (hdr && wantScrolled !== _scrolled) { hdr.classList.toggle('scrolled', wantScrolled); _scrolled = wantScrolled; }
+    if (hdr && wantCompact !== _compact) { hdr.classList.toggle('compact', wantCompact); _compact = wantCompact; }
+  };
   return () => {
     if (_scrollTicking) return;
     _scrollTicking = true;
     requestAnimationFrame(() => {
-      const hdr = $('#header');
-      if (hdr) hdr.classList.toggle('scrolled', scrollY > 8);
-      hdr && hdr.classList.toggle('compact', scrollY > 170);
-      const d = document.documentElement;
-      const pct = scrollY / Math.max(1, d.scrollHeight - innerHeight) * 100;
-      const sp = $('#scrollProg'); if (sp) sp.style.width = pct + '%';
+      apply(scrollY);
       _scrollTicking = false;
     });
   };
@@ -4184,7 +7589,7 @@ function decorate5D() {
 /* ─────────── boot ─────────── */
 async function wishIds() {
   if (!state.user) return [];
-  try { return (await api('/api/wishlist')).wishlist; } catch (e) { return []; }
+  try { return (await api('/api/wishlist')).wishlist || []; } catch (e) { return []; }   // v103 — never let an odd response break the PDP render
 }
 async function boot(isRedraw) {
   // parallel initial fetches
@@ -4196,6 +7601,29 @@ async function boot(isRedraw) {
     api('/api/catalogs').catch(() => ({ catalogs: [] })),
   ]);
   state.user = me.user; state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
+  state.eventCoupons = me.events || [];
+  /* v57: birthday / anniversary coupon welcome — shown once per code */
+  (state.eventCoupons || []).forEach(c => {
+    try {
+      const seen = JSON.parse(sessionStorage.getItem('shv_ev_seen') || '[]');
+      if (!seen.includes(c.code)) {
+        seen.push(c.code); sessionStorage.setItem('shv_ev_seen', JSON.stringify(seen));
+        setTimeout(() => toast(`${c.kind === 'anniversary' ? '💛' : '🎂'} ${c.title} — code ${c.code} (${c.value}% off) is in your account & checkout`), 1400);
+      }
+    } catch (e) {}
+  });
+  /* v57 fix: Account taps while logged out must ALWAYS reopen the passport,
+     even when the URL hash is already #/account (a plain anchor would not
+     re-fire the route after the sheet was dismissed with the cross). */
+  if (!window._acctWired) {
+    window._acctWired = true;
+    document.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('#acctBtn, [data-login-open]');
+      if (!a || (state && state.user)) return;
+      e.preventDefault();
+      openLogin(a.dataset.loginOpen ? String(a.dataset.loginOpen) : 'account');
+    }, true);
+  }
   state.mcTable = mc.table || [];
   state.productsCache = prods.products || []; state.cacheAt = Date.now();
   state.compare = normalizeCompare(state.compare).filter(id => state.productsCache.some(p => p.id === id));
@@ -4213,17 +7641,17 @@ async function boot(isRedraw) {
   try {
     const { pages: cps } = await api('/api/pages');
     if (cps && cps.length) {
-      const col = document.querySelector('.footer .foot-col:nth-child(2)');
+      const col = document.getElementById('footCustomPages');
       if (col && !document.getElementById('customPageLinks')) {
         const div = document.createElement('div');
         div.id = 'customPageLinks';
+        div.className = 'fv-custom';
         cps.slice(0, 5).forEach(pg => div.insertAdjacentHTML('beforeend', `<a href="#/p/${pg.slug}">${esc(pg.title)}</a>`));
         col.appendChild(div);
       }
     }
   } catch (e) {}
-  const fw = $('#footWa');
-  if (fw) { fw.target = '_blank'; fw.rel = 'noopener'; fw.href = waLink('Namaste Shivaa ✦'); }
+  // v101 — footer WhatsApp slot points at the official wa.me/message channel
   // populate nav + footer category menus
   $('#catMenu').innerHTML = `
   <div class="mega-in">
@@ -4244,7 +7672,10 @@ async function boot(isRedraw) {
   </div>`;
   // open/close behaviour (desktop: full-width panel under header; mobile: inside menu)
   const panel = $('#catMenu'), backdrop = $('#megaBackdrop'), catsBtn = $('#navCats');
-  const closeMega = () => { if (matchMedia('(max-width:680px)').matches) return; panel.hidden = true; backdrop.hidden = true; catsBtn?.setAttribute('aria-expanded', 'false'); document.documentElement.classList.remove('no-scroll'); };
+  /* v56: the mega panel never locks the page itself, so closing it must not
+     strip the scroll-lock owned by another sheet (this used to unlock the
+     background the moment the filter drawer's toggle was tapped). */
+  const closeMega = () => { if (matchMedia('(max-width:680px)').matches) return; if (panel.hidden) return; panel.hidden = true; backdrop.hidden = true; catsBtn?.setAttribute('aria-expanded', 'false'); };
   if (catsBtn && !catsBtn._wired) {
     catsBtn._wired = true;
     catsBtn.onclick = e => {
@@ -4282,9 +7713,25 @@ async function boot(isRedraw) {
   $('#footCats').innerHTML = Object.entries(CATS).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
   const pl = $('#preloader');
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
+  /* v101 · item 11 — a jeweller's every fresh app open starts at the live
+     Bullion Desk (bare #/partner redirects to ?view=bullion). Deep links
+     (shared piece, cart link) are honoured, and once they navigate into the
+     storefront within this tab session we never yank them back. The flag
+     lives in sessionStorage, so a new tab / next day's open lands on bullion
+     again — including repeat opens and persistent sessions. */
+  partnerLanding(state.user);
+  initMiniCart();   // v91 slide-in bag
   route();
-  // poll rates every 60s (server caches 10-min; ticker + prices refresh)
-  setInterval(loadRates, 60000);
+  // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours
+  scheduleRatesPoll();
+  setInterval(() => {
+    const R = state.rates; if (!R || !R.live) return;
+    const s = Math.max(1, Math.round((R.liveAgeMs + Math.max(0, Date.now() - _lastRatesAt)) / 1000));
+    document.querySelectorAll('[data-rate-age]').forEach(el => { el.lastChild.textContent = 'MCX live · ' + s + 's ago'; });
+  }, 1000);
+  // campaign expiry watchdog: even with the tab left open, the finale
+  // module switches itself off within 30s of 00:00 IST on 1 Jan 2027.
+  setInterval(syncFinaleChrome, 30000);
 }
 // Wait for the following feature/auth/admin scripts to register their routes.
 // A fast cached API must not outrun loading the HUID module on a cold visit.

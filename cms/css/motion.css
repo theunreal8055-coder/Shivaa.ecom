@@ -1,0 +1,485 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SHIVAA · v89 premium motion + polish layer
+   Loaded LAST so it refines the base system without rewriting it.
+   GPU-friendly properties only (transform / opacity / filter / shadow).
+   Every entrance is gated by a class the JS adds (js-motion / .pg),
+   so the site is fully visible with JS off or under reduced-motion.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --m-spring:cubic-bezier(.34,1.42,.44,1);      /* gentle overshoot — pops, sheets, icons */
+  --m-out:cubic-bezier(.22,1,.32,1);            /* expo-out — entrances settle like silk */
+  --m-inout:cubic-bezier(.72,0,.22,1);          /* symmetrical — drawers, overlays */
+  --m-fast:.24s; --m-med:.42s; --m-slow:.7s;
+  --m-shadow-lift:0 30px 64px -24px rgba(61,14,21,.30),0 12px 26px -14px rgba(61,14,21,.20),0 2px 6px rgba(61,14,21,.06);
+  --m-shadow-card:0 6px 22px -12px rgba(61,14,21,.20),0 1px 2px rgba(61,14,21,.05);
+  --m-gold-ring:rgba(185,138,47,.16);
+}
+html{scroll-behavior:smooth;scroll-padding-top:96px}
+body{text-rendering:optimizeLegibility}
+::selection{background:rgba(185,138,47,.28)}
+:focus-visible{outline:2.5px solid var(--gold);outline-offset:2.5px;border-radius:6px;transition:outline-offset .15s var(--m-out)}
+
+/* ───────────────────────── page-to-page entrance ─────────────────────────
+   JS replays .pg whenever #view's DIRECT children are replaced (a route
+   change). Nested updates (filtering, price ticks) never re-fade the page. */
+#view{animation:none}
+#view.pg{animation:mViewFade .3s var(--m-out) both}
+#view.pg > *{animation:mChildIn .62s var(--m-out) both;animation-delay:calc(var(--i,0) * 55ms)}
+/* grids & tables inside the new view cascade in, capped by JS at ~18 items */
+#view.pg .m-stagger > *{animation:mPop .55s var(--m-out) both;animation-delay:calc(var(--i,0) * 30ms)}
+/* later, surgically replaced lists (shop filters, admin refreshes) */
+#view .m-stagger > .m-in{animation:mPop .5s var(--m-out) both;animation-delay:calc(var(--i,0) * 26ms)}
+@keyframes mViewFade{from{opacity:0}to{opacity:1}}
+@keyframes mChildIn{from{opacity:0;transform:translate3d(0,26px,0)}to{opacity:1;transform:none}}
+@keyframes mPop{from{opacity:0;transform:translate3d(0,18px,0) scale(.985)}to{opacity:1;transform:none}}
+
+/* hero copy leads the page it lives on */
+#view.pg .page-hero .container,
+#view.pg .hero .hero-in{animation:mHeroIn .8s var(--m-out) both .05s}
+@keyframes mHeroIn{from{opacity:0;transform:translate3d(0,30px,0)}to{opacity:1;transform:none}}
+
+/* ───────────────────────── buttons: spring press + ripple ───────────────── */
+.btn{transition:transform .35s var(--m-spring),box-shadow .35s var(--m-out),
+     background-color .28s var(--m-out),border-color .28s var(--m-out),color .28s var(--m-out),filter .28s;
+  -webkit-tap-highlight-color:transparent;will-change:transform}
+.btn:hover{transform:translateY(-2.5px)}
+.btn-primary:hover,.btn-gold:hover{box-shadow:0 16px 36px -10px rgba(110,30,42,.5),0 6px 16px -6px rgba(185,138,47,.45)}
+.btn-gold:hover{box-shadow:0 16px 36px -10px rgba(158,116,28,.55)}
+.btn:active{transform:translateY(1px) scale(.965)}
+.btn .rip{position:absolute;border-radius:50%;transform:scale(0);pointer-events:none;z-index:0;
+  background:radial-gradient(circle,rgba(255,248,228,.55),rgba(255,248,228,.18) 55%,transparent 70%);
+  animation:mRipple .65s var(--m-out) forwards}
+.btn-outline .rip,.btn-ghost .rip,.btn-light .rip{background:radial-gradient(circle,rgba(110,30,42,.16),rgba(110,30,42,.06) 60%,transparent 72%)}
+@keyframes mRipple{to{transform:scale(2.8);opacity:0}}
+/* small pressables get a tactile pop */
+.ds-qty button,.qty button,.pc-wish,.pc-compare,.chip,.size-pill,.dw-tile,.mnav a,.ps-tab,
+.kyc-verify-btn[class],.icon-btn{transition:transform .25s var(--m-spring),background-color .25s,color .25s,box-shadow .25s,border-color .25s}
+.ds-qty button:active,.qty button:active,.chip:active,.size-pill:active,.pc-wish:active,.pc-compare:active{transform:scale(.86)}
+.pc-wish.on svg,.pc-compare.on svg{animation:mHeart .5s var(--m-spring)}
+@keyframes mHeart{0%{transform:scale(.4)}55%{transform:scale(1.35)}100%{transform:scale(1)}}
+
+/* ───────────────────────── cards: layered depth + springy lift ──────────── */
+.p-card{box-shadow:var(--m-shadow-card);transition:transform .5s var(--m-out),box-shadow .45s var(--m-out),border-color .3s}
+.p-card:hover{box-shadow:var(--m-shadow-lift);border-color:rgba(212,175,90,.55)}
+.pc-imgwrap img{transition:transform 1.1s var(--m-out)}
+.catlog,.cat-card,.testi,.poster,.acct-tile,.addr-card,.cat-mini-card{transition:transform .45s var(--m-out),box-shadow .45s var(--m-out),border-color .3s}
+.catlog:hover,.cat-card:hover,.testi:hover,.poster:hover{transform:translateY(-6px);box-shadow:var(--m-shadow-lift)}
+.acct-tile,.addr-card{box-shadow:var(--m-shadow-card)}
+.acct-tile:hover{transform:translateY(-5px)!important;box-shadow:var(--m-shadow-lift)}
+.stat{transition:transform .4s var(--m-out),box-shadow .4s var(--m-out),border-color .3s}
+.stat:hover{transform:translateY(-4px);box-shadow:var(--sh-2);border-color:var(--gold-soft)}
+.adm-card{transition:box-shadow .35s var(--m-out)}
+.adm-card:hover{box-shadow:var(--sh-2)}
+.rte-card,.svc-card,.vault-card,.plan-card{transition:transform .45s var(--m-out),box-shadow .45s var(--m-out),border-color .3s}
+.rte-card:hover,.svc-card:hover,.vault-card:hover,.plan-card:hover{transform:translateY(-5px);box-shadow:var(--m-shadow-lift)}
+
+/* ───────────────────────── photography: soft blur-up reveal ─────────────── */
+html.js-motion #view .pc-imgwrap img,
+html.js-motion #view .catlog img,html.js-motion #view .cat-card img,
+html.js-motion #view .cat-mini-card img,html.js-motion #view .poster img,
+html.js-motion #view .testi img,html.js-motion #view .acct-tile img,
+html.js-motion #view [class*="gallery"] img,html.js-motion #view [class*="slider"] img,
+html.js-motion #view [class*="thumb"] img,html.js-motion #view .ph-img,
+html.js-motion #view .ds-card img,html.js-motion #view .rv-media img,
+html.js-motion #view .cat-thumb img{
+  opacity:0;transform:scale(1.06);filter:blur(6px);
+  transition:opacity .75s var(--m-out),transform 1.2s var(--m-out),filter .75s var(--m-out)}
+html.js-motion #view img.img-ok{opacity:1;transform:none;filter:blur(0)}
+
+/* ───────────────────────── forms: living focus + validation ─────────────── */
+.fld input,.fld select,.fld textarea,.b2b-form-card input{
+  transition:border-color .28s var(--m-out),box-shadow .28s var(--m-out),background-color .28s,transform .28s var(--m-out)}
+.fld input:focus,.fld select:focus,.fld textarea:focus{
+  border-color:var(--gold);box-shadow:0 0 0 4px var(--m-gold-ring),0 10px 24px -14px rgba(185,138,47,.6);background:#fff}
+.fld.shake{animation:mShake .42s var(--m-inout)}
+.fld.shake input,.fld.shake select,.fld.shake textarea{border-color:var(--bad);box-shadow:0 0 0 4px rgba(163,38,56,.12)}
+input.invalid,select.invalid,textarea.invalid{border-color:var(--bad)!important;box-shadow:0 0 0 4px rgba(163,38,56,.12)!important}
+@keyframes mShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+.kyc-status{transition:color .3s,background-color .3s}
+
+/* ───────────────────────── modal: spring sheet + staggered content ──────── */
+.modal-overlay.open{background:rgba(29,5,9,.62);backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15);animation:mFade .32s var(--m-out)}
+.modal-overlay.open .modal{animation:mModal .55s var(--m-spring) both;
+  box-shadow:0 50px 110px -30px rgba(0,0,0,.6),0 0 0 1px rgba(212,175,90,.22),var(--sh-3)}
+.modal-overlay.open .modal > *{animation:mChildIn .5s var(--m-out) both}
+.modal-overlay.open .modal > *:nth-child(2){animation-delay:.06s}
+.modal-overlay.open .modal > *:nth-child(3){animation-delay:.11s}
+.modal-overlay.open .modal > *:nth-child(4){animation-delay:.16s}
+.modal-overlay.open .modal > *:nth-child(5){animation-delay:.21s}
+.modal-overlay.open .modal > *:nth-child(n+6){animation-delay:.25s}
+.modal-close{transition:transform .35s var(--m-spring),background-color .25s,color .25s}
+.modal-close:hover{transform:rotate(90deg) scale(1.08)}
+@keyframes mFade{from{opacity:0}to{opacity:1}}
+@keyframes mModal{from{opacity:0;transform:translateY(28px) scale(.94)}to{opacity:1;transform:none}}
+@media(max-width:680px){
+  .modal-overlay.open .modal{animation:mSheet .58s var(--m-spring) both}
+  @keyframes mSheet{from{transform:translateY(60px) scale(.99)}to{transform:none}}
+}
+
+/* ───────────────────────── drawers & panels ────────────────────────────── */
+.search-drawer{transition:transform .48s var(--m-spring),visibility .48s,box-shadow .4s}
+.nav{transition:transform .5s var(--m-spring),visibility .5s,box-shadow .4s}
+.drawer-scrim{transition:opacity .4s var(--m-inout),visibility .4s}
+.pdf-viewer{transition:opacity .35s var(--m-out)}
+.pdf-viewer.open{animation:mFade .3s var(--m-out)}
+.pdf-close,.dw-close{transition:transform .35s var(--m-spring),background-color .25s}
+
+/* ───────────────────────── toasts: confident spring notifications ──────── */
+.toast-wrap .toast{
+  animation:mToastIn .55s var(--m-spring) both;
+  border-radius:16px;padding:13px 20px 13px 14px;
+  background:linear-gradient(135deg,#2a1218,#1d0a0f);
+  box-shadow:0 24px 50px -16px rgba(0,0,0,.6),inset 0 1px 0 rgba(246,232,200,.16);
+  transform-origin:bottom right}
+.toast-wrap .toast .tic{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+  font-size:13px;font-weight:700;font-family:var(--ff-body);transform:scale(.6);opacity:0;
+  animation:mTic .5s var(--m-spring) .12s forwards}
+.toast-wrap .toast .tic.ok{background:linear-gradient(135deg,#2e9d63,#17795c);color:#fff;box-shadow:0 6px 16px -4px rgba(23,121,92,.7)}
+.toast-wrap .toast .tic.bad{background:linear-gradient(135deg,#c3374a,#8f2030);color:#fff;box-shadow:0 6px 16px -4px rgba(163,38,56,.7)}
+@keyframes mToastIn{from{opacity:0;transform:translateX(50px) scale(.9)}70%{transform:translateX(-4px) scale(1.01)}to{opacity:1;transform:none}}
+@keyframes mTic{to{transform:scale(1);opacity:1}}
+
+/* ───────────────────────── tables: gliding rows ────────────────────────── */
+.adm-table tbody tr,.mc-table tbody tr,.order-card{transition:background-color .22s var(--m-out),box-shadow .3s,transform .3s var(--m-out)}
+.adm-table tbody tr:hover,.mc-table tbody tr:hover{background:linear-gradient(90deg,var(--gold-faint),rgba(247,238,216,.35))}
+.status-pill,.pill,.tagx{transition:transform .3s var(--m-spring),background-color .25s,color .25s,box-shadow .25s}
+.adm-table tbody tr:hover .status-pill{transform:scale(1.05)}
+
+/* ───────────────────────── header: finer glass while scrolled ──────────── */
+.header{transition:box-shadow .4s var(--m-out),background-color .4s,backdrop-filter .4s}
+.header.scrolled{box-shadow:0 10px 34px -16px rgba(61,14,21,.28);
+  background:rgba(250,246,239,.86);backdrop-filter:blur(20px) saturate(1.25);-webkit-backdrop-filter:blur(20px) saturate(1.25);
+  border-bottom-color:rgba(185,138,47,.3)}
+.brand{transition:transform .4s var(--m-spring),box-shadow .3s}
+.brand:hover{transform:translateY(-2px) rotate(-.6deg)}
+.nav a,.ub-right a,.mnav a{transition:color .25s,background-color .25s,transform .3s var(--m-spring)}
+.nav a:hover{transform:translateY(-1px)}
+#backTop{transition:opacity .35s var(--m-out),transform .4s var(--m-spring),box-shadow .3s}
+#backTop.show{transform:none}
+#backTop:hover{transform:translateY(-3px) scale(1.08)}
+#backTop:active{transform:scale(.92)}
+
+/* ───────────────────────── progress + preloader polish ─────────────────── */
+.scroll-progress{box-shadow:0 0 14px rgba(212,175,90,.75),0 0 4px rgba(212,175,90,.9)}
+.preloader .pl-in img{animation:mPlLogo 1s var(--m-spring) both}
+.preloader .pl-line i{animation-timing-function:var(--m-inout)}
+.preloader .pl-txt{background:linear-gradient(100deg,#c9b079 20%,#fbeecb 50%,#c9b079 80%);background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:mPlShimmer 1.6s linear infinite}
+@keyframes mPlLogo{from{opacity:0;transform:translateY(16px) scale(.92) rotate(-3deg)}to{opacity:1;transform:none}}
+@keyframes mPlShimmer{to{background-position:-200% 0}}
+
+/* cart / wish counters pop when values change */
+.badge{transition:transform .3s var(--m-spring)}
+.badge.bump{animation:mBump .55s var(--m-spring)}
+@keyframes mBump{0%{transform:scale(.7)}45%{transform:scale(1.5)}70%{transform:scale(.92)}100%{transform:scale(1)}}
+
+/* tab pills / segmented controls glide on activation */
+.ps-tab,.acct-tab,.tab-btn{transition:transform .25s var(--m-spring),background-color .25s,color .25s,box-shadow .25s}
+.ps-tab:active,.acct-tab:active,.tab-btn:active{transform:scale(.95)}
+
+/* admin sidebar — springy, living navigation */
+.adm-nav a{transition:transform .35s var(--m-spring),background-color .3s var(--m-out),color .3s}
+.adm-nav a:hover{transform:translateX(4px)}
+.adm-nav a.on{transform:translateX(2px);box-shadow:inset 3px 0 0 var(--gold-2)}
+
+/* cart / checkout lines settle in */
+.cart-item{animation-name:mPop;animation-duration:.5s;animation-timing-function:var(--m-out);animation-fill-mode:both;animation-delay:calc(var(--i,0) * 45ms)}
+.cart-item:hover{box-shadow:var(--sh-1)}
+#view.pg .catbar2 > *{animation:mChildIn .55s var(--m-out) both;animation-delay:calc(var(--i,0) * 28ms)}
+
+/* WhatsApp float — gentle living presence */
+.wa-fab{transition:transform .4s var(--m-spring),box-shadow .4s}
+.wa-fab:hover{transform:translateY(-4px) scale(1.06);box-shadow:0 20px 40px -10px rgba(18,140,78,.6)}
+.wa-fab:active{transform:scale(.92)}
+
+/* shimmering skeleton utility for async content */
+@keyframes mSkeleton{to{background-position:-200% 0}}
+.skeleton{border-radius:12px;background:linear-gradient(100deg,#efe6d4 30%,#faf5e8 50%,#efe6d4 70%);
+  background-size:200% 100%;animation:mSkeleton 1.35s linear infinite}
+
+/* hero scroll cue already exists — soften its timing */
+.hero-cue svg{transition:transform .3s var(--m-out)}
+
+/* ───────────────────────── Passport (login sheet) ───────────────────────── */
+@media(min-width:721px){.shv-card{animation:mModal .55s var(--m-spring) both!important}}
+.shv-pane{animation:mPop .45s var(--m-out) both}
+.shv-body input{transition:border-color .28s var(--m-out),box-shadow .28s var(--m-out),background-color .28s}
+.shv-body input:focus{border-color:var(--gold);box-shadow:0 0 0 4px var(--m-gold-ring);outline:none}
+.shv-otp input{transition:transform .25s var(--m-spring),border-color .25s,box-shadow .25s}
+.shv-otp input:focus{transform:translateY(-2px) scale(1.06)}
+.shv-backdrop{animation:mFade .32s var(--m-out);backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15)}
+.shv-x{transition:transform .35s var(--m-spring),background-color .25s}
+.shv-x:hover{transform:rotate(90deg) scale(1.08)}
+.shv-cta,.shv-body button[type=submit]{transition:transform .3s var(--m-spring),box-shadow .3s,background-color .25s}
+.shv-cta:active,.shv-body button[type=submit]:active{transform:scale(.965)}
+/* v99: Saathi chat motion removed with the feature (Gemini will bring its own). */
+
+/* ───────── search: springy drawer + cascading suggestions ──────────────── */
+.s-close{transition:transform .25s var(--m-spring),background-color .25s,color .25s}
+.s-close:active{transform:scale(.9)}
+.search-sugg .sugg{animation:mPop .4s var(--m-out) both;
+  animation-delay:calc(var(--i,0) * 45ms);transition:border-color .25s,background-color .25s,transform .25s var(--m-spring)}
+.search-sugg .sugg:hover{transform:translateX(4px)}
+.search-sugg .sugg:active{transform:scale(.985)}
+.search-sugg .sugg img{transition:transform .5s var(--m-out)}
+.search-sugg .sugg:hover img{transform:scale(1.08)}
+
+/* ───────── accordions (FAQ, policy, product details) ───────────────────── */
+.acc summary,.priv-sec summary{transition:background-color .25s var(--m-out)}
+.acc summary:hover,.priv-sec summary:hover{background:var(--gold-faint)}
+.acc summary::after,.priv-sec summary::after{display:inline-block;transition:transform .3s var(--m-spring),color .25s}
+.acc summary:hover::after,.priv-sec summary:hover::after{color:var(--maroon);transform:scale(1.15)}
+.acc[open] summary::after,.priv-sec[open] summary::after{animation:mAccCh .38s var(--m-spring)}
+.acc[open] .acc-body,.priv-sec[open] .ps-body{animation:mChildIn .38s var(--m-out) both}
+@keyframes mAccCh{0%{transform:scale(.3) rotate(-100deg)}100%{transform:scale(1) rotate(0)}}
+
+/* ───────── empty states + order-success moment ─────────────────────────── */
+#view.pg .empty{animation:mPop .55s var(--m-out) both}
+.empty-logo{animation:mEmptyLogo .8s var(--m-spring) both}
+@keyframes mEmptyLogo{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}
+.order-logo{animation:mOrderSeal .9s var(--m-spring) both}
+.center[style*="min-height"] > .container > div:first-child,
+.order-logo + div{animation:mStarPop .7s var(--m-spring) .25s both}
+@keyframes mOrderSeal{from{opacity:0;transform:translateY(18px) scale(.86)}60%{transform:scale(1.04)}to{opacity:1;transform:none}}
+@keyframes mStarPop{0%{opacity:0;transform:scale(0) rotate(-60deg)}70%{transform:scale(1.3) rotate(8deg)}100%{opacity:1;transform:none}}
+
+/* ───────── trust, hallmark & finale surfaces ───────────────────────────── */
+.trust-card,.hm-card,.hm-result,.fin-panel,.fin-fair,.hm-error{transition:transform .45s var(--m-out),box-shadow .45s var(--m-out),border-color .3s}
+.trust-card:hover,.hm-card:hover,.fin-panel:hover{transform:translateY(-5px);box-shadow:var(--m-shadow-lift)}
+#view.pg .trust-grid > *,#view.pg .hm-grid > *,#view.pg .fin-grid > *{
+  animation:mPop .55s var(--m-out) both;animation-delay:calc(var(--i,0) * 45ms)}
+.hm-badge,.trust-badge{transition:transform .3s var(--m-spring),box-shadow .3s}
+.hm-badge:active,.trust-badge:active{transform:scale(.94)}
+.hm-copy-row,.trust-copy{transition:transform .25s var(--m-spring),background-color .25s,border-color .25s}
+.hm-copy-row:active,.trust-copy:active{transform:scale(.97)}
+.hm-info-mark{animation:mStarPop .6s var(--m-spring) both}
+
+/* ───────── quotation stamp + footer micro-motion ───────────────────────── */
+.q-stamp{animation:mStamp .7s var(--m-spring) both;transform-origin:center}
+@keyframes mStamp{0%{opacity:0;transform:scale(2.2) rotate(-12deg)}60%{opacity:1;transform:scale(.92) rotate(3deg)}100%{transform:none}}
+.footer a,.foot a{transition:color .25s var(--m-out),transform .25s var(--m-spring);display:inline-block}
+.footer a:hover,.foot a:hover{transform:translateX(3px)}
+.footer .brand:hover,.foot .brand:hover{transform:none}
+
+/* ═══════════════════════ v90 luxury layer ═══════════════════════════ */
+
+/* ───────── gold sheen sweep on primary actions (transform only) ────────── */
+.btn-primary::after,.btn-gold::after{content:'';position:absolute;top:0;bottom:0;left:0;width:38%;
+  background:linear-gradient(105deg,transparent,rgba(255,252,240,.42),transparent);
+  transform:translateX(-260%) skewX(-18deg);pointer-events:none}
+.btn-primary:hover::after,.btn-gold:hover::after{animation:mSheen .9s var(--m-out)}
+@keyframes mSheen{to{transform:translateX(430%) skewX(-18deg)}}
+
+/* ───────── gradient-cast display headings ──────────────────────────────── */
+.page-hero h1{background:linear-gradient(100deg,#3d0e15 12%,#7d5c26 48%,#b08a44 55%,#3d0e15 92%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  background-size:180% 100%}
+.sec-head h2{text-wrap:balance}
+.sec-head p{text-wrap:pretty}
+
+/* ───────── refined luxury scrollbars ───────────────────────────────────── */
+html{scrollbar-width:thin;scrollbar-color:#c9a24b transparent}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#d9b76a,#a8812f);border-radius:20px}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#e3c47e,#b89138)}
+
+/* ───────── market-tick flashes (opacity overlay — no paint on geometry) ── */
+.m-flash-up,.m-flash-down{position:relative;border-radius:6px}
+.m-flash-up::after,.m-flash-down::after{content:'';position:absolute;inset:0;border-radius:6px;
+  opacity:0;pointer-events:none}
+.m-flash-up::after{background:rgba(46,157,99,.22);animation:mFlashBg .9s var(--m-out)}
+.m-flash-down::after{background:rgba(195,55,74,.20);animation:mFlashBg .9s var(--m-out)}
+@keyframes mFlashBg{0%{opacity:1}100%{opacity:0}}
+.ub-live.is-live .live-dot{animation-duration:.9s}
+.rscell .rs-live{color:#17795c}
+.rscell .rs-live .live-dot{background:#2e9d63;box-shadow:0 0 10px #2e9d63}
+
+/* ───────── structural blocks rise on scroll ────────────────────────────── */
+html.js-motion .m-rise{opacity:0;transform:translate3d(0,30px,0);
+  transition:opacity .8s var(--m-out),transform .8s var(--m-out)}
+html.js-motion .m-rise.in{opacity:1;transform:none}
+/* delivery tracker / onboarding steps cascade */
+#view.pg .stages > *,#view.pg .bg-steps > *,#view.pg .finq-steps > *{
+  animation:mPop .5s var(--m-out) both}
+#view.pg .stages > *:nth-child(2),#view.pg .bg-steps > *:nth-child(2),#view.pg .finq-steps > *:nth-child(2){animation-delay:.08s}
+#view.pg .stages > *:nth-child(3),#view.pg .bg-steps > *:nth-child(3),#view.pg .finq-steps > *:nth-child(3){animation-delay:.16s}
+#view.pg .stages > *:nth-child(4),#view.pg .bg-steps > *:nth-child(4),#view.pg .finq-steps > *:nth-child(4){animation-delay:.24s}
+#view.pg .stages > *:nth-child(5),#view.pg .bg-steps > *:nth-child(5),#view.pg .finq-steps > *:nth-child(5){animation-delay:.32s}
+#view.pg .stages > *:nth-child(6),#view.pg .bg-steps > *:nth-child(6),#view.pg .finq-steps > *:nth-child(6){animation-delay:.40s}
+
+/* ───────── filter drawer + sheets spring ───────────────────────────────── */
+.filters.open{transition:transform .52s var(--m-spring),box-shadow .5s!important}
+.fsheet-overlay{transition:opacity .42s var(--m-inout)!important}
+.fsheet-overlay.open{backdrop-filter:blur(9px) saturate(1.1);-webkit-backdrop-filter:blur(9px) saturate(1.1)}
+
+/* ───────── PDP: zoomable gallery + lightbox ────────────────────────────── */
+#galTrack .gal-slide img{cursor:zoom-in}
+.m-lightbox{position:fixed;inset:0;z-index:120;background:rgba(20,5,9,.84);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;padding:5vmin;
+  opacity:0;visibility:hidden;transition:opacity .34s var(--m-out),visibility .34s;cursor:zoom-out}
+.m-lightbox.open{opacity:1;visibility:visible}
+.m-lightbox img{max-width:92vw;max-height:88vh;border-radius:16px;cursor:default;
+  box-shadow:0 50px 120px -30px rgba(0,0,0,.75),0 0 0 1px rgba(212,175,90,.4);
+  transform:scale(.92);transition:transform .46s var(--m-spring)}
+.m-lightbox.open img{transform:none}
+.m-lightbox-x{position:fixed;top:18px;right:22px;width:44px;height:44px;border-radius:50%;
+  border:1px solid rgba(212,175,90,.55);background:rgba(30,10,14,.72);color:#f4e8cf;
+  font-size:16px;cursor:pointer;transition:transform .3s var(--m-spring),background-color .25s}
+.m-lightbox-x:hover{transform:rotate(90deg) scale(1.08);background:rgba(60,20,28,.9)}
+
+/* ───────── bullion desk: import-parity basis chip ──────────────────────── */
+.bd-pcard-h{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap}
+.bd-basis{display:inline-block;margin-left:auto;font-style:normal;font-size:8.5px;letter-spacing:.2px;
+  background:rgba(29,18,6,.14);border:1px solid rgba(29,18,6,.3);border-radius:20px;padding:1px 7px;
+  text-transform:none;font-weight:700}
+.bd-basis-hi{background:rgba(20,83,45,.22);border-color:rgba(20,83,45,.5)}
+
+/* ───────── gold hairline between major sections (subtle depth) ─────────── */
+.footer{border-top:1px solid transparent;border-image:linear-gradient(90deg,transparent,rgba(212,175,90,.55),transparent) 1}
+
+/* ═══════════════════════ v91 fluid commerce ═══════════════════════ */
+
+/* ───────── slide-in mini bag ───────────────────────────────────────────── */
+.mc-scrim{position:fixed;inset:0;z-index:98;background:rgba(24,6,10,.55);
+  backdrop-filter:blur(10px) saturate(1.1);-webkit-backdrop-filter:blur(10px) saturate(1.1);
+  opacity:0;visibility:hidden;transition:opacity .4s var(--m-inout),visibility .4s}
+.mc-scrim.open{opacity:1;visibility:visible}
+.mc-drawer{position:fixed;top:0;right:0;bottom:0;width:min(420px,94vw);z-index:99;
+  background:linear-gradient(180deg,#fbf7ef,#f7f0e2);
+  box-shadow:-30px 0 80px -20px rgba(40,8,14,.5);border-left:1px solid rgba(185,138,47,.35);
+  display:flex;flex-direction:column;transform:translateX(104%);
+  transition:transform .55s var(--m-spring);visibility:hidden}
+.mc-drawer.open{transform:none;visibility:visible}
+.mc-head{display:flex;align-items:center;justify-content:space-between;flex:none;
+  padding:20px 22px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.55)}
+.mc-head h3{font-family:var(--ff-disp);font-size:21px;color:var(--maroon-deep);display:flex;gap:10px;align-items:center}
+.mc-count{font-family:var(--ff-body);font-size:12px;font-weight:700;background:var(--gold-soft);color:var(--maroon-deep);
+  border-radius:20px;padding:2px 10px;letter-spacing:.04em}
+.mc-close{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--white);
+  color:var(--ink-2);cursor:pointer;transition:transform .3s var(--m-spring),background-color .25s}
+.mc-close:hover{transform:rotate(90deg) scale(1.06);background:var(--gold-faint)}
+.mc-body{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:14px 18px}
+.mc-ship{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:11px 13px;margin-bottom:12px}
+.mc-ship small{display:block;margin-bottom:8px;color:var(--ink-2)}
+.mc-ship-bar{height:6px;border-radius:10px;background:var(--cream-2);overflow:hidden}
+.mc-ship-bar i{display:block;height:100%;border-radius:10px;background:linear-gradient(90deg,var(--gold),var(--gold-2));
+  transition:width .7s var(--m-out)}
+.mc-line{display:grid;grid-template-columns:64px 1fr 26px;gap:12px;align-items:center;
+  background:var(--white);border:1px solid var(--line);border-radius:16px;padding:10px;margin-bottom:10px;
+  animation:mPop .45s var(--m-out) both;animation-delay:calc(var(--i,0) * 45ms);
+  transition:box-shadow .3s var(--m-out),border-color .3s}
+.mc-line:hover{box-shadow:var(--m-shadow-card);border-color:rgba(212,175,90,.45)}
+.mc-line img{width:64px;height:64px;object-fit:cover;border-radius:11px}
+.mc-line-tx{min-width:0}
+.mc-line-tx .ci-name{font-size:13.5px;font-weight:600;color:var(--maroon-deep);display:block;line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc-line-tx .ci-meta{font-size:11.5px;color:var(--ink-3);margin:2px 0 6px}
+.mc-line-b{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mc-line-b .qty-row{transform:scale(.84);transform-origin:left}
+.mc-line-b > b{font-size:14px;font-variant-numeric:tabular-nums}
+.mc-x{width:24px;height:24px;border-radius:50%;border:none;background:transparent;color:var(--ink-3);
+  cursor:pointer;align-self:start;transition:transform .25s var(--m-spring),background-color .25s,color .25s}
+.mc-x:hover{background:rgba(163,38,56,.1);color:var(--bad);transform:rotate(90deg)}
+.mc-foot{flex:none;border-top:1px solid var(--line);background:rgba(255,255,255,.75);padding:14px 18px calc(16px + env(safe-area-inset-bottom))}
+.mc-foot-alt{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12.5px}
+.mc-foot-alt a,.mc-foot-alt button{background:none;border:none;color:var(--maroon);font-weight:600;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px}
+.mc-live-note{display:block;text-align:center;margin-top:10px;font-size:10.5px;color:var(--ink-3)}
+.mc-empty{text-align:center;padding:70px 26px}
+.mc-empty-ic{width:76px;height:76px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;font-size:30px;
+  background:radial-gradient(circle,rgba(212,175,90,.28),rgba(212,175,90,.06));
+  border:1px solid var(--gold-soft);animation:mEmptyLogo 1s var(--m-spring) both}
+.mc-empty h3{font-family:var(--ff-disp);color:var(--maroon-deep);margin-bottom:8px}
+.mc-empty p{color:var(--ink-3);font-size:13.5px;margin-bottom:22px}
+.cart-btn.bag-jolt{animation:mBagJolt .55s var(--m-spring)}
+@keyframes mBagJolt{0%{transform:scale(1)}35%{transform:scale(1.28) rotate(-9deg)}70%{transform:scale(.92) rotate(4deg)}100%{transform:scale(1)}}
+
+/* fly-to-bag thumbnail */
+.m-fly{position:fixed;z-index:1200;object-fit:cover;border-radius:12px;pointer-events:none;
+  box-shadow:0 16px 40px -10px rgba(61,14,21,.55),0 0 0 2px rgba(212,175,90,.6)}
+
+/* ───────── quick view on product cards ─────────────────────────────────── */
+.pc-imgwrap .pc-imglink{display:block;width:100%;height:100%;position:relative;z-index:2}
+.pc-quick{position:absolute;left:50%;bottom:12px;z-index:4;transform:translate(-50%,12px);
+  background:rgba(255,252,244,.96);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  color:var(--maroon-deep);border:1px solid rgba(185,138,47,.6);border-radius:30px;
+  font-family:var(--ff-label);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+  padding:9px 18px;cursor:pointer;opacity:0;pointer-events:none;white-space:nowrap;z-index:5;
+  box-shadow:0 10px 26px -10px rgba(61,14,21,.5);transition:opacity .3s var(--m-out),transform .35s var(--m-spring)}
+@media (hover:hover){
+  .p-card:hover .pc-quick{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+  .pc-quick:hover{background:var(--maroon);color:#f6e8c8;border-color:var(--maroon)}
+}
+@media (hover:none){ .pc-quick{opacity:1;pointer-events:auto;transform:translate(-50%,0);padding:7px 13px;font-size:9.5px} }
+.qv{display:grid;grid-template-columns:1fr 1.15fr;gap:0;position:relative;max-height:min(78vh,620px)}
+.qv-img{background:var(--cream-2);min-height:300px;position:relative;overflow:hidden;border-radius:18px 0 0 18px}
+.qv-img img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.qv-tx{padding:26px 26px 22px;position:relative;overflow-y:auto}
+.qv-tx h3{font-family:var(--ff-disp);font-size:24px;color:var(--maroon-deep);line-height:1.2}
+.qv-acts{display:flex;flex-direction:column;gap:9px;margin-top:8px}
+.qv-modal .modal{max-width:820px;padding:0;overflow:hidden}
+@media(max-width:640px){
+  .qv{grid-template-columns:1fr;max-height:84vh;overflow-y:auto}
+  .qv-img{min-height:230px;position:relative}
+  .qv-img img{position:relative}
+  .qv-tx{padding:20px 20px calc(20px + env(safe-area-inset-bottom))}
+}
+
+/* ───────── instant search: recents, popular, keyboard ──────────────────── */
+.search-sugg.open{display:flex;flex-direction:column;gap:4px;max-height:62vh;overflow-y:auto;
+  grid-template-columns:none;padding-bottom:18px}
+.search-sugg .sugg{animation:mPop .35s var(--m-out) both;animation-delay:calc(var(--i,0) * 28ms)}
+.search-sugg .sugg.sel,.search-sugg .sugg:hover{border-color:rgba(185,138,47,.6);background:var(--gold-faint)}
+.sugg-lbl{font-family:var(--ff-label);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-3);padding:10px 10px 4px}
+.sugg-chip{justify-content:flex-start;gap:10px}
+.sugg-chip .sugg-ic{width:30px;height:30px;flex:none;border-radius:50%;display:grid;place-items:center;
+  background:var(--gold-faint);color:var(--maroon);font-style:normal;font-size:13px}
+.sugg-d{margin-left:auto;width:26px;height:26px;border-radius:50%;border:none;background:transparent;
+  color:var(--ink-3);cursor:pointer;font-size:11px;opacity:0;transition:opacity .2s,background-color .25s}
+.sugg-chip:hover .sugg-d,.sugg-chip.sel .sugg-d{opacity:1}
+.sugg-d:hover{background:rgba(163,38,56,.12);color:var(--bad)}
+.sugg-go{margin-left:auto;color:var(--gold);font-size:18px;transition:transform .25s var(--m-spring)}
+.sugg.sel .sugg-go{transform:translateX(4px)}
+.sugg-all{font-weight:600;color:var(--maroon)}
+
+/* ───────── PDP skeleton shimmer is richer than a spinner ───────────────── */
+#view.pg:has(.skeleton){animation:none}
+#view.pg:has(.skeleton) > *{animation:none}
+
+/* reveal-on-scroll keeps its class but settles on the spring curve */
+.rv{transition:opacity .9s var(--m-out),transform .9s var(--m-out)!important}
+.rv-d1{transition-delay:.07s}.rv-d2{transition-delay:.14s}.rv-d3{transition-delay:.21s}.rv-d4{transition-delay:.28s}
+
+/* ───────────────────────── reduced motion: all flair, zero cost ────────── */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important}
+  html.js-motion #view img{opacity:1!important;transform:none!important;filter:none!important}
+  html.js-motion .m-rise{opacity:1!important;transform:none!important}
+  .m-lightbox{transition:none}
+  #view.pg,#view.pg > *,#view.pg .m-stagger > *,#view.pg .stages > *,#view.pg .bg-steps > *,#view.pg .finq-steps > *{animation:none!important}
+  .modal-overlay.open .modal,.modal-overlay.open .modal > *{animation:none!important}
+  .preloader{animation:none}
+}
+
+/* ═══════════ v92 — PhonePe redirect spinner + return banners ═══════════ */
+.pp-spinner{width:42px;height:42px;border-radius:50%;margin:0 auto;border:3px solid rgba(107,16,32,.15);border-top-color:#5f259f;animation:pp-spin .8s linear infinite}
+.pp-spinner.sm{width:17px;height:17px;border-width:2px;flex:none;margin:2px 0 0}
+@keyframes pp-spin{to{transform:rotate(360deg)}}
+.pp-banner{max-width:860px;margin:14px auto 0;border-radius:16px;padding:14px 18px;display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);animation:pp-fade .45s ease both}
+@keyframes pp-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.pp-banner .pp-bi{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;flex:none;font-size:15px}
+.pp-banner b{display:block;font-size:14.5px}
+.pp-banner small{color:var(--ink-3);font-size:12.5px}
+.pp-banner.ok{background:#f1faf4;border-color:#bfe6cf}
+.pp-banner.ok .pp-bi{background:#1d7a46}
+.pp-banner.err{background:#fdf2f0;border-color:#f0c7c0}
+.pp-banner.err .pp-bi{background:#b3261e}
+.pp-banner.pending{background:#f7f3fc;border-color:#d9c9f0}
+.pp-banner.pending .pp-bi{background:#5f259f}
+.pp-banner.pending .pp-spinner.sm{border-color:rgba(95,37,159,.22);border-top-color:#5f259f}
+#ppReturnUrl,#ppCallbackUrl{display:inline-block;background:rgba(95,37,159,.07);border:1px solid rgba(95,37,159,.18);border-radius:8px;padding:1px 7px;font-size:11.5px;word-break:break-all}
