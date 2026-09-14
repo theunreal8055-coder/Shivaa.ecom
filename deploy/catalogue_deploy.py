@@ -48,7 +48,7 @@ def api(route, method='GET', token=None, json_body=None, file=None, fields=None,
         fn = Path(file).name
         ct = mimetypes.guess_type(fn)[0] or 'application/octet-stream'
         body += (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{fn}"\r\n'
-                 f'Content-Type: {ct}\r\n\r\n').encode() + Path(file).read_bytes() + '\r\n'
+                 f'Content-Type: {ct}\r\n\r\n').encode() + Path(file).read_bytes() + b'\r\n'
         body += f'--{boundary}--\r\n'.encode()
         req = urllib.request.Request(url, data=body, method='POST')
         req.add_header('Content-Type', f'multipart/form-data; boundary={boundary}')
@@ -65,9 +65,14 @@ def api(route, method='GET', token=None, json_body=None, file=None, fields=None,
                 return r.status, json.loads(r.read().decode() or '{}')
         except urllib.error.HTTPError as e:
             try:
-                return e.code, json.loads(e.read().decode())
+                payload = json.loads(e.read().decode())
             except Exception:
-                return e.code, {'error': str(e)}
+                payload = {'error': str(e)}
+            if e.code >= 500 and attempt < RETRIES:
+                last = (e.code, payload)
+                time.sleep(BACKOFF * attempt)
+                continue
+            return e.code, payload
         except Exception as e:
             last = (0, {'error': f'connection: {str(e)[:150]}'})
             if attempt < RETRIES:
