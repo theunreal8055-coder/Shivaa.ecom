@@ -23,6 +23,12 @@ on:
   # advisory during the fix phase so batch PRs don't block on pending re-rolls.
   pull_request:
     branches: [main]
+  # Autonomous live deploy: pushing the GO marker file to main (PR merge only —
+  # main is protected) fires the REAL run. The zoom gate is HARD-enforced in
+  # this mode: any failing shot aborts the job before a single live write.
+  push:
+    branches: [main]
+    paths: ['deploy/GO-LIVE-v111.txt']
 
 permissions:
   contents: read
@@ -47,7 +53,8 @@ jobs:
       - name: Preflight master catalogue + zoom QA gate
         env:
           PR_MODE: ${{ github.event_name == 'pull_request' }}
-          REQUIRE_ZOOM_PASS: ${{ github.event_name == 'pull_request' && 'NO' || inputs.require_zoom_pass }}
+          PUSH_MODE: ${{ github.event_name == 'push' }}
+          REQUIRE_ZOOM_PASS: ${{ github.event_name == 'push' && 'YES' || (github.event_name == 'pull_request' && 'NO' || inputs.require_zoom_pass) }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -89,12 +96,19 @@ jobs:
           if [ "$PR_MODE" = "true" ] && [ "$FAILS" != "0" ]; then
             echo "::warning::PR dry-run: ${FAILS} shot(s) still fail zoom QA (expected during the v111 fix phase — the live gate stays enforced)."
           fi
+          if [ "$PUSH_MODE" = "true" ]; then
+            echo "PUSH MODE: zoom gate is HARD-enforced (already applied above)."
+            if ! grep -q "GO" deploy/GO-LIVE-v111.txt 2>/dev/null; then
+              echo "::error::GO-LIVE marker file does not contain GO — refusing to run."
+              exit 1
+            fi
+          fi
 
       - name: Run catalogue deploy (PRs are always dry-runs)
         env:
-          ADMIN_EMAIL: ${{ github.event_name == 'pull_request' && 'admin@shivaa.in' || inputs.email }}
+          ADMIN_EMAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.email || 'admin@shivaa.in' }}
           ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
-          LIVE: ${{ github.event_name == 'pull_request' && 'NO' || inputs.live }}
+          LIVE: ${{ github.event_name == 'push' && 'YES' || (github.event_name == 'pull_request' && 'NO' || inputs.live) }}
         run: |
           set -euo pipefail
           if [ -z "${ADMIN_PASSWORD:-}" ]; then
@@ -110,7 +124,7 @@ jobs:
           fi
 
       - name: Independently verify live catalogue
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.live == 'YES' }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.live == 'YES') }}
         env:
           ADMIN_EMAIL: ${{ inputs.email }}
           ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
