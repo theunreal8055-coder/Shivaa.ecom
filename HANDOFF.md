@@ -1,8 +1,19 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-08 (v45 in progress — GitHub Actions ring-reset workflow)**
+**Last updated: 2026-09-14 (v108 shopper polish on the v107.4 line)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
+
+---
+
+## 🎯 v108 — SHOPPER POLISH (2026-09-14)
+
+Additive layer on v107.4. Catalogue, weights, prices untouched (405 products).
+- Second photo on every product card (all 405 have 2+ images) — hover on desktop, flip chip on phone
+- WhatsApp chat button (the old `.wa-fab` was `display:none !important` and never injected)
+- Skip-to-jewellery, share on the product page, category counts, phone snap-scroll on bestsellers
+- Files: `cms/css/v108.css`, `cms/js/v108.js` (removable). `app.js` productCard only. SW shell `shivaa-shell-v108`.
+- Rollback: delete the two v108 tags in `cms/index.html`.
 
 ---
 

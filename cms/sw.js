@@ -7,7 +7,7 @@
    v104: shell/media bumped; a SKIP_WAITING message lets the in-app banner
    activate a freshly downloaded release the moment the shopper approves. */
 'use strict';
-const SHELL = 'shivaa-shell-v107';
+const SHELL = 'shivaa-shell-v108';
 const MEDIA = 'shivaa-media-v107';
 const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
 const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
@@ -20,10 +20,10 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
 const SHELL_FILES = ['/', '/index.html',
   '/css/fonts.css?v=107', '/css/styles.css?v=107', '/css/hallmark.css?v=107',
   '/css/trust.css?v=107', '/css/finale.css?v=107', '/css/motion.css?v=107',
-  '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
-  '/js/otp-autofill.js?v=107', '/js/app.js?v=107', '/js/hallmark.js?v=107',
+  '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107', '/css/v108.css?v=108',
+  '/js/otp-autofill.js?v=107', '/js/app.js?v=108', '/js/hallmark.js?v=107',
   '/js/trust.js?v=107', '/js/auth.js?v=107', '/js/motion.js?v=107',
-  '/js/aurum.js?v=107', '/js/v107.js?v=107',
+  '/js/aurum.js?v=107', '/js/v107.js?v=107', '/js/v108.js?v=108',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];
