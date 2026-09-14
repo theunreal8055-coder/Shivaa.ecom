@@ -12,7 +12,3 @@ demo65/work/run.log
 
 # keep ground truth + provenance in git:
 #   demo65/work/designs.json · demo65/suppliers/*.csv · demo65/config.json · demo65/status.py
-
-# mega build artifacts (regenerable)
-shivaa-mega-v45.zip
-cms/media/

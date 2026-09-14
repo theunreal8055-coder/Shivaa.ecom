@@ -87,13 +87,39 @@ def main():
                                 "wedding.jpg")]
     series("bridal", bridal, "1080x1080")
 
+    # ── v108 cinematic background films (page heroes, carousel, CTA) ──
+    bg_films = {
+        "gold-flow": ["gen-hero-2030.jpg", "gen-page-rates.jpg", "hero-main.jpg"],
+        "heritage": ["poster-heritage.jpg", "gen-page-about.jpg", "gen-page-hallmark.jpg"],
+        "bridal-lux": ["poster-bridal.jpg", "gen-page-savings.jpg", "wedding.jpg"],
+        "b2b-dark": ["gen-page-b2b.jpg", "gen-page-buyback.jpg", "gen-page-contact.jpg"],
+    }
+    for name, files in bg_films.items():
+        shots = [BAN / f for f in files]
+        series(name, shots, "1920x1080", dur=4.8, crf=30, fade=1.0)
+
     data = {
         "films": [
             ["rings-studio", "The Ring Atelier — Studio", "real pieces · studio light"],
             ["rings-worn", "Worn on You", "real hands · real shine"],
             ["rings-editorial", "The Editorial Film", "the catalogue look"],
             ["bridal", "The Bridal Film", "trousseau in motion"],
+            ["gold-flow", "The Gold Room — Motion", "live gold · flowing light"],
+            ["heritage", "Heritage Reel", "the house · the craft"],
+            ["bridal-lux", "Bridal Cinema", "the trousseau in light"],
+            ["b2b-dark", "The Bullion Desk", "partners · stock · settlement"],
         ],
+        "pageVideos": {
+            "rates": "gold-flow", "metal": "gold-flow",
+            "about": "heritage", "services": "heritage", "hallmark": "heritage", "trust": "heritage",
+            "savings": "bridal-lux", "catalogues": "bridal-lux",
+            "b2b": "b2b-dark", "partner": "b2b-dark", "buyback": "b2b-dark",
+            "contact": "b2b-dark", "deadstock": "b2b-dark", "track": "b2b-dark",
+        },
+        "carousel": {
+            "s-left": "heritage", "s-center": "bridal-lux",
+            "s-right": "rings-worn", "s-band": "gold-flow",
+        },
         "lookbook": [
             ["/images/designs/rings/PGS5001_shot_editorial.jpg", "Rings", "The PGS Edit"],
             ["/images/designs/rings/PGS5002_shot_worn.jpg", "Rings", "Worn Today"],

@@ -23,7 +23,18 @@
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
   let BOOST = null;
-  fetch('/js/boost-data.json').then(r => r.ok ? r.json() : null).then(d => { BOOST = d || null; }).catch(() => {});
+  fetch('/js/boost-data.json').then(r => r.ok ? r.json() : null).then(d => {
+    BOOST = d || null;
+    if (!onHome()) ensurePageHero();   // add video layer once the manifest lands
+  }).catch(() => {});
+
+  const CINEMA = {
+    pageVideos: { rates: 'gold-flow', metal: 'gold-flow', about: 'heritage', services: 'heritage',
+      hallmark: 'heritage', trust: 'heritage', savings: 'bridal-lux', catalogues: 'bridal-lux',
+      b2b: 'b2b-dark', partner: 'b2b-dark', buyback: 'b2b-dark', contact: 'b2b-dark',
+      deadstock: 'b2b-dark', track: 'b2b-dark' },
+    carousel: { 's-left': 'heritage', 's-center': 'bridal-lux', 's-right': 'rings-worn', 's-band': 'gold-flow' },
+  };
 
   const RING_SHOTS = [
     '/images/designs/rings/PGS5001_shot_studio.jpg',
@@ -110,6 +121,17 @@
     const view = $('#view');
     if (!view || view.querySelector('[data-boost="pghero"]') || !view.firstElementChild) return;
     view.insertAdjacentHTML('afterbegin', pageHeroHTML(PAGE_HERO[page]));
+    // ── cinematic video background (text floats on the film) ──
+    const pv = (BOOST && BOOST.pageVideos) || CINEMA.pageVideos;
+    if (!pv[page]) return;
+    const ph = view.querySelector('[data-boost="pghero"]');
+    const v = document.createElement('video');
+    v.className = 'ph-vid';
+    v.src = '/images/films/' + pv[page] + '.mp4';
+    v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
+    v.setAttribute('aria-hidden', 'true');
+    v.onerror = () => { v.remove(); const bg = ph && ph.querySelector('.ph-bg'); if (bg) bg.style.opacity = ''; };
+    if (ph) ph.insertBefore(v, ph.firstChild);
   }
 
   /* ═══════════ 02 THEMES ═══════════ */
@@ -363,7 +385,8 @@
 
   /* ═══════════ 07 MARKET PULSE CHART ═══════════ */
   function drawPulse(cv, series, key) {
-    const ctx = cv.getContext('2d');
+    const ctx = cv.getContext && cv.getContext('2d');
+    if (!ctx) return;
     const W = cv.width = cv.clientWidth * 2, H = cv.height = cv.clientHeight * 2;
     const pts = series.filter(p => p[key] != null).slice(-90);
     if (pts.length < 2) return;
@@ -569,7 +592,7 @@
   </section>`;
   const secCta = () => `<section class="sec container boost-cta" data-boost="cta">
     <div class="cta-in" data-reveal="zoom">
-      <div class="cta-img"><img src="/images/banners/poster-bridal.jpg" alt="The Bridal House" loading="lazy"></div>
+      <div class="cta-img"><img src="/images/banners/poster-bridal.jpg" alt="The Bridal House" loading="lazy"><video class="cta-vid" src="/images/films/bridal-lux.mp4" autoplay muted loop playsinline onerror="this.remove()"></video></div>
       <div class="cta-body">
         <span class="label">✦ The Bridal House</span>
         <h2>The complete <em style="color:var(--gold-2)">trousseau</em>, made to inherit</h2>
@@ -597,6 +620,23 @@
       wrap.innerHTML = `<video src="/images/films/hero.mp4" poster="/images/banners/gen-hero-2030.jpg" autoplay muted loop playsinline onerror="this.closest('.boost-hero-film').remove()"></video><div class="film-vignette"></div>`;
       hero.prepend(wrap);
     }
+
+    // ── cinematic: carousel slides become live video backgrounds (text floats on film) ──
+    const cMap = (BOOST && BOOST.carousel) || CINEMA.carousel;
+    Object.entries(cMap).forEach(([cls, film]) => {
+      const slide = view.querySelector('.c-slide.' + cls);
+      if (!slide || slide.querySelector('video.c-vid')) return;
+      const v = document.createElement('video');
+      v.className = 'c-vid';
+      v.src = '/images/films/' + film + '.mp4';
+      v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
+      v.setAttribute('aria-hidden', 'true');
+      v.onerror = () => v.remove();
+      const fade = slide.querySelector('.c-fade');
+      slide.insertBefore(v, fade || slide.firstChild);
+    });
+
+    // (bridal CTA film lives inside secCta itself — nothing to patch here)
     const after = (sel, html) => {
       const anchor = view.querySelector(sel);
       if (!anchor) return;
@@ -752,7 +792,11 @@
   /* ═══════════ ROUTER-AWARE TICK ═══════════ */
   let lastPage = null;
   function tick() {
-    patchCart(); mkTop(); initTheme(); chatEnsure(); initVoice(); initPWA();
+    patchCart(); mkTop(); initTheme(); chatEnsure();
+    // register the try-on route FIRST — nothing may block it
+    const app = window.Shivaa;
+    if (app && app.routes && !app.routes.tryon) app.routes.tryon = tryonPage;
+    try { initVoice(); initPWA(); } catch (e) {}
     const view = $('#view');
     if (!view) return;
     const page = pageName();
@@ -760,23 +804,23 @@
       lastPage = page;
       view.classList.remove('pg-anim'); void view.offsetWidth; view.classList.add('pg-anim');
     }
-    if (onHome()) {
-      if (view.querySelector('.hero')) enhanceHome();
-      else {
-        const mo = new MutationObserver(() => {
-          if ($('#view')?.querySelector('.hero')) { mo.disconnect(); enhanceHome(); injectRecs(); }
-        });
-        mo.observe(view, { childList: true, subtree: true });
-        setTimeout(() => mo.disconnect(), 12000);
+    try {
+      if (onHome()) {
+        if (view.querySelector('.hero')) enhanceHome();
+        else {
+          const mo = new MutationObserver(() => {
+            if ($('#view')?.querySelector('.hero')) { mo.disconnect(); enhanceHome(); injectRecs(); }
+          });
+          mo.observe(view, { childList: true, subtree: true });
+          setTimeout(() => mo.disconnect(), 12000);
+        }
+        injectRecs();
+      } else {
+        view.dataset.boost = '';
+        ensurePageHero();
+        injectRecs();
       }
-      injectRecs();
-    } else {
-      view.dataset.boost = '';
-      ensurePageHero();
-      injectRecs();
-    }
-    const app = window.Shivaa;
-    if (app && app.routes && !app.routes.tryon) app.routes.tryon = tryonPage;
+    } catch (e) { /* an enhancement must never break routing */ }
   }
   addEventListener('hashchange', () => setTimeout(tick, 70));
 

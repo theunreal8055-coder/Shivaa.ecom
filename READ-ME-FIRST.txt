@@ -1,0 +1,73 @@
+SHIVAA v107 — COMPLETE STRATEGIC UPDATE  (built 2026-09-13)
+=========================================================
+One zip, extracted straight into public_html. Carries the live v104 line
+forward byte-for-byte where untouched, and adds everything built from v94
+to v106 that the live line did not already have. No database migration,
+no config to edit, no build step.
+
+WHAT IS NEW / FIXED IN v107
+ 1  Payments & checkout UX bundle
+    · rate lock auto-arms, survives a refresh (localStorage), window now
+      server-owned (pay/config lockMinutes; server still enforces ±2% band)
+    · UPI QR carries tr=<orderId>; sheet states amount/order stamping
+    · order page: fulfilment + payment TIMELINE (placed → paid → packed →
+      shipped → delivered, refunds inline) with balance-due warning
+    · invoice page: GST block (supplier GSTIN, place of supply, HSN 7113,
+      taxable value, CGST+SGST split, invoice no.) — print-safe
+    · checkout method picker shows fee lines (UPI no fee / COD handling)
+ 2  OTP delivery honesty (the "OTP is broken" fix)
+    · root cause was never the code path: no data/sms-config.json on the
+      host → demo mode → on a public host codes silently fall to EMAIL
+    · Admin → Settings → "Code delivery" now has a GATEWAY WIZARD:
+      pick provider (MSG91 / Fast2SMS / APITxT / Textlocal / custom URL),
+      paste key, save — it writes data/sms-config.json (0600, web-denied)
+    · test SMS prints the gateway's RAW reply under the form (DLT/balance
+      faults visible in one click); throttles now say how long to wait
+    · shoppers see an honest line on the Passport: SMS or email channel
+ 3  Merchandising / UX layer (js/v107.js + css/v107.css, removable)
+    · footer live-rate ticker + honest basis line ("spot + ₹55/g Jaipur
+      premium", from settings.jaipurPremium — never invented)
+    · tap-reactive glow: footer chips pre-glow two steps ahead; press
+      feedback; all of it pauses in hidden tabs & reduced-motion
+    · Quick View: scroll reset, focus trap, skip-to-buy link
+    · Design Desk cards get a ⓘ full-details sheet (gross/less/net,
+      fine-metal content, stones, making, GST, qty stepper)
+    · NEW #/size-guide: true-scale ring circles (Indian sizes 8–26),
+      50 mm ruler check, mm finder; saving a size pre-selects it in
+      Quick View (writes the shv_ring_size key v104 already reads)
+    · unknown-route redirect can no longer yank a shopper who already
+      navigated away (route-scoped timer)
+ 4  Two silent defects fixed
+    · PWA: precache was addAll().catch(()=>{}) — one 404 (the missing
+      icon-512.png) zeroed the WHOLE shell cache silently. Now per-file
+      precache; real icons generated (192/512/maskable/apple/32);
+      offline.html fallback; update-ready banner with one-tap activate
+    · sitemap.xml: robots.txt advertised it for months; it 404'd. Now
+      generated from db.json (products, categories, pages) via sitemap.php
+ 5  Finale housekeeping: draw/end instants are IST-absolute
+    (Date.parse with +05:30) so a UTC host cannot shift the campaign;
+    stale finale.css comment (31 Dec draw / 100 g prize) realigned.
+
+DEPLOY
+ 1  Back up: download public_html as a zip from Hostinger first.
+ 2  Extract THIS zip into public_html (overwrite when asked).
+    Nothing in data/ or uploads/ or images/ is touched — the zip
+    deliberately contains none of your live catalogue or photos.
+ 3  Done. Caches: index.html and every asset carry ?v=107, and the
+    service worker shell renamed to shivaa-shell-v107, so returning
+    shoppers pick it up automatically (a banner offers one-tap update).
+ 4  OTP: open #/admin → Settings → "Code delivery (SMS / email)" →
+    wizard → save your gateway key → Send test SMS to your own mobile.
+    Until a gateway is saved the site honestly emails codes instead.
+
+ROLLBACK
+    Extract shivaa-update-v104.zip over the top (it is the exact live
+    baseline), or just delete the two v107 layer tags in index.html
+    (<link …/css/v107.css> and <script …/js/v107.js>) to drop the UX
+    layer while keeping the server-side fixes.
+
+VERIFIED
+    node --check on every js file · PHP brace/string balance on every
+    php file · jsdom audit t10: 28 routes boot clean, 8 click-sweeps,
+    24 feature asserts (qa/browser/t10-v107.mjs) · every SHELL_FILES
+    entry exists on disk · manifest JSON valid.

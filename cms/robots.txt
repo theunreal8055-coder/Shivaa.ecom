@@ -1,7 +1,10 @@
 User-agent: *
 Allow: /
-Disallow: /api/
 Disallow: /data/
-Disallow: /uploads/videos/
+Disallow: /uploads/
+Disallow: /api/
 
-Sitemap: /sitemap.xml
+Sitemap: https://shivaa.in/sitemap.xml
+Disallow: /admin-reset.php
+Disallow: /migrate-repair.php
+Disallow: /relay/

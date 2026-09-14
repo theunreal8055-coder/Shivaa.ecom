@@ -1,40 +1,95 @@
-/* ═══════════════════════════════════════════════════════════
-   SHIVAA v45-MEGA — service worker (offline + speed)
-   Cache-first for static assets, network-first for /api/*.
-   ═══════════════════════════════════════════════════════════ */
-const CACHE = 'shivaa-v45-mega';
-const CORE = [
-  '/',
-  '/index.html',
-  '/css/fonts.css', '/css/styles.css', '/css/hallmark.css', '/css/trust.css', '/css/boost.css',
-  '/js/app.js', '/js/auth.js', '/js/admin.js', '/js/qr.js', '/js/otp-autofill.js',
-  '/js/hallmark.js', '/js/trust.js', '/js/three-d.js', '/js/boost.js', '/js/boost-data.json',
-  '/images/logo.png', '/images/favicon.png',
-  '/images/banners/hero-main.jpg', '/images/banners/poster-bridal.jpg',
-];
+/* Shivaa service worker — network-first shell + bounded media cache.
+   Never serves stale code while online: the network is always tried first
+   for the shell; images get a capped cache-first store for fast repeat
+   visits on slow phones; videos/API/uploads always go to the network.
+   v103: media moved into its own quota-aware cache (the v102 single cache
+   grew without limit and would eventually exhaust storage on cheap devices).
+   v104: shell/media bumped; a SKIP_WAITING message lets the in-app banner
+   activate a freshly downloaded release the moment the shopper approves. */
+'use strict';
+const SHELL = 'shivaa-shell-v107';
+const MEDIA = 'shivaa-media-v107';
+const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
+const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
+/* v99: bot.css/bot.js dropped from the shell (Saathi removed ahead of Gemini).
+   admin.js + qr.js are deliberately NOT precached — they are fetched on demand
+   by loadStaffBundle() in app.js, and a shopper should never pay for them. */
+/* v107 — the list now matches index.html exactly (it drifted in v99–v104:
+   auth.js/otp-autofill.js were never precached and icon-512.png did not even
+   exist, so addAll() rejected and the install handler swallowed it). */
+const SHELL_FILES = ['/', '/index.html',
+  '/css/fonts.css?v=107', '/css/styles.css?v=107', '/css/hallmark.css?v=107',
+  '/css/trust.css?v=107', '/css/finale.css?v=107', '/css/motion.css?v=107',
+  '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
+  '/js/otp-autofill.js?v=107', '/js/app.js?v=107', '/js/hallmark.js?v=107',
+  '/js/trust.js?v=107', '/js/auth.js?v=107', '/js/motion.js?v=107',
+  '/js/aurum.js?v=107', '/js/v107.js?v=107',
+  '/manifest.webmanifest', '/offline.html',
+  '/images/icons/icon-192.png', '/images/icons/icon-512.png',
+  '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+self.addEventListener('message', (e) => {
+  // v107 — accept both the legacy string and the {type} object form
+  if (e.data === 'SKIP_WAITING' || (e.data && e.data.type === 'SKIP_WAITING')) self.skipWaiting();
 });
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-  ).then(() => self.clients.claim()));
+self.addEventListener('install', (e) => {
+  /* v107 — per-file precache. addAll() is all-or-nothing: one 404 in the list
+     (which is exactly what the missing icon was) zeroed the WHOLE shell cache
+     and .catch(()=>{}) hid it. Now each file is fetched and stored on its own;
+     a single failure degrades to network-first for that one file. */
+  e.waitUntil(caches.open(SHELL).then((c) => Promise.allSettled(SHELL_FILES.map((u) =>
+    fetch(u, { cache: 'reload', credentials: 'same-origin' })
+      .then((r) => { if (r && r.ok) return c.put(u, r); })
+      .catch(() => {})
+  ))).then(() => self.skipWaiting()));
 });
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  if (url.pathname.startsWith('/api/')) return;           // always network
-  e.respondWith(
-    caches.match(e.request).then(hit => {
-      const fetchPromise = fetch(e.request).then(res => {
-        if (res && res.ok && !url.pathname.startsWith('/images/films/')) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((ks) => Promise.all(
+    ks.filter((k) => k !== SHELL && k !== MEDIA).map((k) => caches.delete(k))
+  )).then(() => self.clients.claim()));
+});
+
+/* Cap the media cache: drop the oldest entries past MEDIA_MAX. */
+async function trimMedia() {
+  const c = await caches.open(MEDIA);
+  const keys = await c.keys();
+  if (keys.length <= MEDIA_MAX) return;
+  for (let i = 0; i < keys.length - MEDIA_MAX; i++) await c.delete(keys[i]);
+}
+function isImage(u) {
+  return /\.(?:png|jpe?g|webp|gif|svg|avif|ico)(?:\?|$)/i.test(u.pathname);
+}
+
+self.addEventListener('fetch', (e) => {
+  const r = e.request;
+  if (r.method !== 'GET' || new URL(r.url).origin !== self.location.origin) return;
+  const u = new URL(r.url);
+  const offlineApi = u.pathname === '/api/products' || u.pathname === '/api/rates';  // v55: offline catalogue
+
+  // Films (142 MB library) never touch the cache — always streamed live.
+  if (/\.(?:mp4|webm|mov|m4v)(?:\?|$)/i.test(u.pathname)) return;
+
+  // v103 — cache-first for product photos, background-refresh; cached photo
+  // shows instantly on 2G/3G and the freshest copy is revalidated silently.
+  if (isImage(u) && !u.pathname.startsWith('/uploads/reviews/')) {
+    e.respondWith((async () => {
+      const mediaCache = await caches.open(MEDIA);
+      const hit = await mediaCache.match(r);
+      const fetchAndCache = fetch(r).then(async (res) => {
+        if (res && res.ok) { mediaCache.put(r, res.clone()).then(trimMedia); }
         return res;
-      }).catch(() => hit);
-      return hit || fetchPromise;
-    })
+      }).catch(() => null);
+      if (hit) { fetchAndCache.catch(() => {}); return hit; }   // stale-while-revalidate
+      return (await fetchAndCache) || Response.error();
+    })());
+    return;
+  }
+
+  if (!offlineApi && (u.pathname.startsWith('/api/') || u.pathname.startsWith('/data/') || u.pathname.startsWith('/uploads/'))) return;
+  e.respondWith(
+    fetch(r).then((res) => {
+      if (res && res.ok) { const c = res.clone(); caches.open(SHELL).then((x) => x.put(r, c)); }
+      return res;
+    }).catch(() => caches.match(r).then((hit) => hit || (u.pathname.startsWith('/api/') ? Response.error() : caches.match('/index.html'))))
   );
 });

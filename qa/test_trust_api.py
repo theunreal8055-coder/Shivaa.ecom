@@ -23,6 +23,7 @@ class TrustAPI(unittest.TestCase):
     def setUp(self):
         self.server.reset()
         self.expected = {key: self.server.fixture['settings'][key] for key in ('cin', 'udyam', 'address')}
+        self.expected_gstin = self.server.fixture['settings']['gstin']
 
     def test_public_read_only_allowlist_uses_existing_data(self):
         before = self.server.db_file.read_bytes()
@@ -31,13 +32,32 @@ class TrustAPI(unittest.TestCase):
         self.assertEqual(data['business'], self.expected)
         self.assertEqual(data['schemaVersion'], 1)
         self.assertEqual(data['source'], 'store_settings')
-        self.assertEqual(data['gstin'], None)
+        self.assertEqual(data['gstin'], self.expected_gstin)   # owner-confirmed since v105
         self.assertEqual(data['certificates'], [])
         self.assertEqual(data['registryVerification'], {'performed': False, 'checkedAt': None})
         self.assertEqual(set(data), {'schemaVersion', 'source', 'business', 'gstin', 'certificates', 'registryVerification'})
         self.assertEqual(headers['Cache-Control'], 'no-store')
         self.assertEqual(headers['X-Content-Type-Options'], 'nosniff')
         self.assertEqual(before, self.server.db_file.read_bytes())
+
+    def test_gstin_is_validated_not_assumed(self):
+        for bad in (None, '', 'UNCONFIRMED_QA_ONLY', '08AAICE5666R1Z', '08AAICE5666R1ZPZ',
+                    '08AAICE5666R1ZZ', 123456, [], {'gstin': '08AAICE5666R1ZP'}):
+            with self.subTest(gstin=bad):
+                db = copy.deepcopy(self.server.fixture)
+                db['settings']['gstin'] = bad
+                self.server.db_file.write_text(json.dumps(db))
+                status, data, _ = self.server.request('trust')
+                self.assertEqual(status, 200)
+                # 08AAICE5666R1ZZ keeps the shape but fails the mod-36 checksum
+                self.assertIsNone(data['gstin'])
+                self.assertEqual(data['business'], self.expected)
+        db = copy.deepcopy(self.server.fixture)
+        db['settings']['gstin'] = '  ' + self.expected_gstin.lower() + '\n'
+        self.server.db_file.write_text(json.dumps(db))
+        status, data, _ = self.server.request('trust')
+        self.assertEqual(status, 200)
+        self.assertEqual(data['gstin'], self.expected_gstin, 'trimmed/upper-cased like the KYC gate, never rewritten')
 
     def test_missing_and_malformed_details_do_not_use_fallbacks(self):
         for settings in ({}, None, False, {'cin': [], 'udyam': 'UNCONFIRMED_QA_ONLY', 'address': 123}):

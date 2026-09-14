@@ -9,6 +9,7 @@
   "address": "Shop No. 01, Main Road, Sadar Bazaar, Jayal, Nagaur, Rajasthan — 341023",
   "cin": "U32111RJ2025PTC099173",
   "udyam": "UDYAM-RJ-25-0086081",
+  "gstin": "08AAICE5666R1ZP",
   "dipp": "DIPP191222",
   "incorporated": "03 January 2025",
   "freeShipAbove": 50000,
@@ -23,7 +24,7 @@
   "jaipurSilverPremium": 3,
   "metalFactor": 0.92,
   "finePurity": "99.50%",
-  "release": "v45-mega"
+  "release": "v108-mega"
  },
  "rates": {
   "last": {

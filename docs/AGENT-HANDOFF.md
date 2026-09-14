@@ -20,8 +20,8 @@ Read [`FEATURE-ROADMAP.md`](FEATURE-ROADMAP.md),
   connected**. Accepted format and staff references never mean BIS verified.
 - **Feature 2 is live**, released via PR #6 (`fad5aca`), with the live API and
   v40 JS/CSS confirmed on 6 Sep 2026. Why Trust Shivaa uses only the existing
-  owner-confirmed CIN, UDYAM and address. GSTIN/certificates stay empty pending
-  real details/files. The profile is not a government registry result or product
+  owner-confirmed CIN, UDYAM, address and GSTIN (published in v105).
+  Certificates stay empty pending real files. The profile is not a government registry result or product
   certificate.
 - Stop after Feature 2. The rest of the original owner list
   is not in this checkout; ask for the exact Feature 3 specification.

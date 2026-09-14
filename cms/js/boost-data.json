@@ -19,8 +19,50 @@
    "bridal",
    "The Bridal Film",
    "trousseau in motion"
+  ],
+  [
+   "gold-flow",
+   "The Gold Room — Motion",
+   "live gold · flowing light"
+  ],
+  [
+   "heritage",
+   "Heritage Reel",
+   "the house · the craft"
+  ],
+  [
+   "bridal-lux",
+   "Bridal Cinema",
+   "the trousseau in light"
+  ],
+  [
+   "b2b-dark",
+   "The Bullion Desk",
+   "partners · stock · settlement"
   ]
  ],
+ "pageVideos": {
+  "rates": "gold-flow",
+  "metal": "gold-flow",
+  "about": "heritage",
+  "services": "heritage",
+  "hallmark": "heritage",
+  "trust": "heritage",
+  "savings": "bridal-lux",
+  "catalogues": "bridal-lux",
+  "b2b": "b2b-dark",
+  "partner": "b2b-dark",
+  "buyback": "b2b-dark",
+  "contact": "b2b-dark",
+  "deadstock": "b2b-dark",
+  "track": "b2b-dark"
+ },
+ "carousel": {
+  "s-left": "heritage",
+  "s-center": "bridal-lux",
+  "s-right": "rings-worn",
+  "s-band": "gold-flow"
+ },
  "lookbook": [
   [
    "/images/designs/rings/PGS5001_shot_editorial.jpg",
@@ -63,14 +105,14 @@
    "Editorial"
   ],
   [
-   "/images/banners/poster-heritage.jpg",
-   "Heritage",
-   "Since the Family"
-  ],
-  [
    "/images/banners/wedding.jpg",
    "Wedding 2026",
    "Book the Bridal Desk"
+  ],
+  [
+   "/images/banners/gen-page-b2b.jpg",
+   "Partners",
+   "The Bullion Desk"
   ]
  ],
  "insta": [

@@ -15,7 +15,9 @@ Do not advance to another feature in the same implementation pass.
 | --- | --- | --- |
 | **1** | **Live BIS hallmark / HUID lookup** | Released through [PR #5](https://github.com/theunreal8055-coder/Shivaa.ecom/pull/5), merge `77d5069`. Live API, entrypoint and HUID JS confirmed on 6 Sep 2026. **Automatic live BIS verification remains disconnected**; the live feature is the safe official handoff/recording workflow. See [Feature 1 details](FEATURE-01-HUID.md). |
 | **13** | **Product Compare + Shareable Shortlist** | Live per owner; present at base commit `cc6d88b`. Preserved and regression-tested during Feature 1. |
-| **2** | **Why Trust Shivaa** | Released separately through [PR #6](https://github.com/theunreal8055-coder/Shivaa.ecom/pull/6), merge `fad5aca`. **Live API and v40 JS/CSS confirmed on 6 Sep 2026.** Existing CIN, UDYAM and address only; GSTIN remains `null`, certificates `[]`, registry verification not performed. See [Feature 2 details](FEATURE-02-TRUST.md). |
+| **2** | **Why Trust Shivaa** | Released separately through [PR #6](https://github.com/theunreal8055-coder/Shivaa.ecom/pull/6), merge `fad5aca`. **Live API and v40 JS/CSS confirmed on 6 Sep 2026.** Existing CIN, UDYAM and address; **v105 (13 Sep 2026) added the owner-supplied
+  GSTIN `08AAICE5666R1ZP`**, certificates remain `[]`, registry verification not
+  performed. See [Feature 2 details](FEATURE-02-TRUST.md). |
 | 3–12, 14–21 | Original owner wording not present in this checkout | Not implemented in this pass. Obtain the original specification before starting another numbered feature; do not invent the missing list or treat old UI placeholders as completed integrations. |
 
 ## Next handoff

@@ -27,7 +27,10 @@ const jsdom = new JSDOM(html, {
         if (u.startsWith('/api/')) {
           const db = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
           if (u.includes('/api/settings')) body = JSON.stringify({ settings: db.settings });
-          else if (u.includes('/api/rates')) body = JSON.stringify({ rates: { ...db.rates.last, history: db.rates.history } });
+          else if (u.includes('/api/rates')) {
+            const r = db.rates.last || {};
+            body = JSON.stringify({ ...r, t: r.t || new Date().toISOString(), spot: { gold24: 15200, gold22: 13930, silver: 137 }, premium: { gold: 55, silver: 3 }, history: db.rates.history || [] });
+          }
           else if (u.includes('/api/products/')) {
             const id = u.split('/').pop();
             const p = db.products.find(x => x.id === id) || db.products[0];
@@ -97,6 +100,8 @@ async function runChecks(w, errors) {
     ['theme button', !!d.getElementById('boostTheme')],
     ['back to top', !!d.getElementById('boostTop')],
     ['tryon route registered', !!(w.Shivaa.routes && w.Shivaa.routes.tryon)],
+    ['carousel cinematic videos', !!view.querySelector('.c-slide video.c-vid')],
+    ['cta cinematic video', !!view.querySelector('.boost-cta .cta-img video')],
   ];
   for (const [name, ok] of checks) {
     console.log((ok ? '  ✓ ' : '  ✗ ') + name);
@@ -141,6 +146,7 @@ async function runChecks(w, errors) {
   await wait(2500);
   const ph = view.querySelector('[data-boost="pghero"]');
   if (!ph) errors.push('missing: page-hero on #/rates');
-  console.log('  #/rates page-hero:', ph ? 'present' : 'MISSING');
+  if (ph && !ph.querySelector('video.ph-vid')) errors.push('missing: page-hero VIDEO background');
+  console.log('  #/rates page-hero:', ph ? 'present' : 'MISSING', '| video bg:', !!(ph && ph.querySelector('video.ph-vid')));
   w.location.hash = '#/';
 }

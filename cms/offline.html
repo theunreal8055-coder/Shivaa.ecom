@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shivaa Jewels — you are offline</title>
+<meta name="theme-color" content="#2a0a10">
+<!-- v107 · offline fallback served by sw.js when the network is gone and the
+     page is not cached. Fully self-contained on purpose: no fonts, no CDN,
+     no API — it must render inside a dead tunnel. -->
+<style>
+  :root { --gold:#d9af63; --gold-hi:#f6e3b4; --ink:#f7efe4; --ink-3:#c9b394; --maroon:#2a0a10; }
+  * { box-sizing:border-box; margin:0; }
+  html,body { height:100%; }
+  body {
+    background: radial-gradient(120% 90% at 50% -10%, #5a1620 0%, var(--maroon) 55%, #16030600 100%), var(--maroon);
+    color:var(--ink); font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display:flex; align-items:center; justify-content:center; padding:28px; text-align:center;
+  }
+  .card { max-width:420px; }
+  .gem { width:64px; height:64px; margin:0 auto 18px; display:block; }
+  h1 { font-size:22px; letter-spacing:.02em; color:var(--gold-hi); font-weight:600; }
+  p  { color:var(--ink-3); margin:10px 0 22px; }
+  .btn {
+    display:inline-block; padding:12px 26px; border-radius:999px; text-decoration:none;
+    background:linear-gradient(135deg,var(--gold-hi),var(--gold)); color:#2a0a10; font-weight:700;
+    box-shadow:0 8px 24px -8px rgba(217,175,99,.55);
+  }
+  .wa { display:block; margin-top:14px; color:var(--ink-3); font-size:13px; text-decoration:underline; }
+  .wa b { color:var(--gold); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <svg class="gem" viewBox="0 0 64 64" aria-hidden="true">
+      <polygon points="20,14 44,14 52,26 32,54 12,26" fill="none" stroke="#d9af63" stroke-width="2.5" stroke-linejoin="round"/>
+      <polyline points="12,26 52,26" stroke="#d9af63" stroke-width="1.4" opacity=".8"/>
+      <polyline points="20,14 26,26 32,54 38,26 44,14" fill="none" stroke="#d9af63" stroke-width="1.1" opacity=".65"/>
+    </svg>
+    <h1>No signal — but your sparkle is saved</h1>
+    <p>Your bag, wishlist and the last gold rates are still on this device.
+       Reconnect and we will pick up exactly where you left off.</p>
+    <a class="btn" href="javascript:location.reload()">Try again</a>
+    <a class="wa" href="https://wa.me/918905005921">Or reach us on WhatsApp <b>+91 89050 05921</b></a>
+  </div>
+</body>
+</html>
