@@ -13,20 +13,26 @@ covers measure 40–62% ring width; the QA gate demands margins ≥3% per side a
 span ≤88% width.
 
 ## Per-SKU fix lists (REVISED 2026-09-14 after lenient-editorial recalibration)
-COVERS — strict gate (margins ≥3%, span ≤88%) — 43 total, 9 done:
+COVERS — strict gate (margins ≥3%, span ≤88%) — 43 total, 19 done:
 PGS5001 5002 5003 5004 5006 5007 5008 5009 5010 ✅ done (batch 1)
-PGS5005⚠(re-roll: span 91%) 5011 5012 5013 5016 5017 5018 5019 5020 5021 5024
-5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5046 5048 5051 5052 5053
-5054 5055 5056 5057 5059 5060 5061 5063 ⬜ remaining (34, incl. the 5005 re-roll)
-EDITORIALS — lenient crop-only gate (span ≤95%, no deep-gold cut at edge) — 18:
-PGS5003 5008 5011 5013 5016 5017 5018 5019 5020 5021 5030 5034 5037 5041 5042
-5048 5051 5055 ⬜ all remaining
+PGS5005 5011 5012 5013 5016 5017 5018 5019 5020 ✅ done (batch 2, incl. 5005 re-roll)
+5021 5024 5028 5030 5031 5034 5037 5038 5039 5040 5041 5042 5046 5048 5051 5052
+5053 5054 5055 5056 5057 5059 5060 5061 5063 ⬜ remaining (25)
+EDITORIALS — lenient crop-only gate (span ≤95%, no deep-gold cut at edge) — 18, 1 done:
+PGS5003 ✅ done (batch 2 — needed two re-rolls: first re-roll drew the pavé plate
+as a QR-code artifact + warm edge bokeh; second re-roll clean)
+5008 5011 5013 5016 5017 5018 5019 5020 5021 5030 5034 5037 5041 5042
+5048 5051 5055 ⬜ remaining (17)
 
 ## Progress
 - ✅ Batch 1 (2026-09-14, PR #25 merged): covers PGS5001–5010 regenerated,
   finalized (badge), installed to cms + demo65 staging. QA: 9 PASS; PGS5005
   needs the "no more than 60% of image width" re-roll prompt.
-- ⬜ Batch 2: covers 5005(re-roll) 5011 5012 5013 5016 5017 5018 5019 5020 + editorial 5003 (10)
+- ✅ Batch 2 (2026-09-14, session arena/01a0a0a6): covers 5005(re-roll) 5011 5012
+  5013 5016 5017 5018 5019 5020 + editorial 5003 — all 10 PASS (5011/5018 needed a
+  stricter ≤60%-width re-roll; 5003 editorial two re-rolls). Installed to cms +
+  demo65 staging. NOTE: lost commit 0a2b3f5 (never pushed to GitHub — API 422, no
+  ref, no on-disk leftovers) was RE-DONE here from scratch.
 - ⬜ Batch 3: covers 5021 5024 5028 5030 5031 5034 5037 5038 + editorials 5008 5011 (10)
 - ⬜ Batch 4: covers 5039 5040 5041 5042 5046 5048 5051 5052 + editorials 5016 5017 (10)
 - ⬜ Batch 5: covers 5053 5054 5055 5056 5057 5059 5060 5061 + editorials 5018 5019 (10)

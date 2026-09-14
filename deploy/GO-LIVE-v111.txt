@@ -7,3 +7,4 @@ ZOOM_GATE=NO is the conscious override so remaining cover/editorial pull-backs
 (batches 2–7 in tools/photoshoot/ZOOMFIX-STATE.md) do not block the upload.
 Those photos stay on the follow-up ledger and can be refreshed in a later
 catalogue deploy once they PASS zoom QA.
+# retrigger 2026-09-14T16:18Z — batch-2 zoom-fix photos installed (covers 5005,5011-5020 + editorial 5003); refresh live photos

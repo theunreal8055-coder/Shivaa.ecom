@@ -15,9 +15,12 @@
   65 PGS rings, 4 shots each, 0 samples, 0 videos. Master db matches.
   340 samples remain archived at `qa/archive/samples-340-v111.json`.
 - **v112 HOTFIXES (2026-09-14, ex-branch `arena/01a0a030-shivaa-ecom` now on `main`):** PayU gateway fixed (address `->`→`[]`, key/salt regex, strict reconcile, probe), bullion 1s poll + 60fps millisecond smooth, rate-drift root-cause (Jaipur premium +55), live-rates panel CONNECTED to bullion panel (`current_rates()` now reads bullion `.angel-tick.json` directly). Zips: `payu-update-20260914.zip`, `bullion-update-20260914.zip`, `connect-rates-bullion-20260914.zip`. Live `api.php` is at `public_html/api.php` on Hostinger — see HANDOFF § v112 and `MEMORY.md`.
-- **Follow-up (not blocking live):** zoom-fix batches 2–7 in
-  `tools/photoshoot/ZOOMFIX-STATE.md` (34 covers + 18 editorials). After they
-  PASS, re-run Catalogue Deploy to refresh photos.
+- **Follow-up (not blocking live):** zoom-fix **batch 2 DONE** (session
+  arena/01a0a0a6: 9 covers incl. 5005 re-roll + 5003 editorial, all PASS,
+  installed to cms + demo65; GO-LIVE marker re-bumped so Catalogue Deploy
+  refreshes live photos on merge). Batches 3–7 remain in
+  `tools/photoshoot/ZOOMFIX-STATE.md` (25 covers + 17 editorials). Lost commit
+  0a2b3f5 was verified unrecoverable (never on GitHub) and re-done from scratch.
 - **Products:** **65** in `cms/data/db.json` (owner: rings only, no samples).
 - **Deploy contract:** `main` is what the server cron tracks (`branch: main`).
   Live catalogue writes go through Catalogue Deploy, not the v110 bridge.
