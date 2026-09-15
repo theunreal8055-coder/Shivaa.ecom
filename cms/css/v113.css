@@ -1,7 +1,13 @@
 /* ══════════════════════════════════════════════════════════════════════
-   SHIVAA · v113  —  "2030" layer + the fixes this release carries
+   SHIVAA · v113 / v113b  —  "2030" layer + the fixes this release carries
    Loaded LAST (after aurum.css) so every rule here wins the cascade.
    Everything decorative is switched off under prefers-reduced-motion.
+
+   v113b notes (all additive, nothing removed):
+     · the rate-strip grid now degrades to 3 columns when the server sends no
+       RTGS rows, so an inactive bullion feed can never leave a gap;
+     · the range-thumb fix is re-asserted for the 2030 skins that repaint
+       inputs (aurum/motion) — the un-centred white thumb was the "white line".
    ══════════════════════════════════════════════════════════════════════ */
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -56,9 +62,12 @@ html input[type="range"].bbc-range:focus-visible {
 #bbWt, #dsWt, #dsMc { caret-color: var(--gold, #d4af5a); }
 
 /* ─────────────────────────────────────────────────────────────────────
-   2 · RATE STRIP — six cells now (Jaipur ×3, RTGS bullion ×2, live clock)
+   2 · RATE STRIP — six cells when the server sends the RTGS block
+   (Jaipur ×3, RTGS bullion ×2, live clock), three when it does not — so a
+   feed where no RTGS row is active can never leave a hole in the grid.
    ───────────────────────────────────────────────────────────────────── */
 .rate-strip-in { grid-template-columns: repeat(6, 1fr); }
+.rate-strip-in:not(:has(.rs-rtgs)) { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 1080px) { .rate-strip-in { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 560px)  { .rate-strip-in { grid-template-columns: repeat(2, 1fr); } }
 
@@ -188,6 +197,25 @@ html input[type="range"].bbc-range:focus-visible {
 
 /* 5f · design-desk cards: a selected design reads as selected from across the room */
 .ds-card.on { box-shadow: 0 0 0 2px var(--gold, #d4af5a), 0 12px 30px rgba(212, 175, 90, .22); }
+
+/* ─────────────────────────────────────────────────────────────────────
+   5g · v113b — the slider thumb stays centred even when a 2030 skin
+   re-declares the input (motion.css/aurum.css both restyle inputs, and the
+   thumb rule loses to a later `input[type=range]` height). Restated here,
+   last, so the grams slider can never show that stray white hairline again.
+   ───────────────────────────────────────────────────────────────────── */
+html input[type="range"].bbc-range::-webkit-slider-runnable-track {
+  height: 6px !important; border-radius: 99px;
+  background: linear-gradient(90deg, var(--gold-2, #e9ce94), rgba(233, 206, 148, .22)) !important;
+}
+html input[type="range"].bbc-range::-webkit-slider-thumb {
+  width: 24px !important; height: 24px !important;
+  margin-top: -9px !important;                 /* (6 − 24) / 2 */
+  border-radius: 50% !important;
+  background: radial-gradient(circle at 34% 30%, #fff6dd, var(--gold, #d4af5a) 70%) !important;
+  border: 2px solid #fff !important;
+}
+html input[type="range"].bbc-range:focus-visible { outline-offset: 5px; }
 
 /* ─────────────────────────────────────────────────────────────────────
    6 · ONE SWITCH FOR ALL OF IT

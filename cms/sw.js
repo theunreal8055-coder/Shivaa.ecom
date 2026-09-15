@@ -5,9 +5,14 @@
    v103: media moved into its own quota-aware cache (the v102 single cache
    grew without limit and would eventually exhaust storage on cheap devices).
    v104: shell/media bumped; a SKIP_WAITING message lets the in-app banner
-   activate a freshly downloaded release the moment the shopper approves. */
+   activate a freshly downloaded release the moment the shopper approves.
+   v113b: the precache list finally matches index.html — it had been pinning
+   app.js?v=108 and auth.js?v=107 (v108.js/v109.js are not loaded by the page
+   at all) and was missing boost.css/boost.js and the whole v113 layer, so a
+   returning phone kept a stale shell on its first paint. The offline fallback
+   also stopped answering a missing IMAGE with index.html. */
 'use strict';
-const SHELL = 'shivaa-shell-v108';
+const SHELL = 'shivaa-shell-v113b';
 const MEDIA = 'shivaa-media-v107';
 const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
 const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
@@ -20,11 +25,11 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
 const SHELL_FILES = ['/', '/index.html',
   '/css/fonts.css?v=107', '/css/styles.css?v=107', '/css/hallmark.css?v=107',
   '/css/trust.css?v=107', '/css/finale.css?v=107', '/css/motion.css?v=107',
-  '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107', '/css/v108.css?v=108',
-  '/js/otp-autofill.js?v=107', '/js/app.js?v=108', '/js/hallmark.js?v=107',
-  '/js/trust.js?v=107', '/js/auth.js?v=107', '/js/motion.js?v=107',
-  '/js/aurum.js?v=107', '/js/v107.js?v=107', '/js/v108.js?v=108',
-  '/js/v109.js?v=109', // consolidation: v109-pack forgot its own precache entry (v108.js pattern)
+  '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
+  '/css/boost.css?v=46', '/css/v113.css?v=113b',
+  '/js/otp-autofill.js?v=107', '/js/app.js?v=113b', '/js/hallmark.js?v=107',
+  '/js/trust.js?v=107', '/js/auth.js?v=113b', '/js/motion.js?v=107',
+  '/js/aurum.js?v=107', '/js/v107.js?v=107', '/js/boost.js?v=46',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];
@@ -91,6 +96,15 @@ self.addEventListener('fetch', (e) => {
     fetch(r).then((res) => {
       if (res && res.ok) { const c = res.clone(); caches.open(SHELL).then((x) => x.put(r, c)); }
       return res;
-    }).catch(() => caches.match(r).then((hit) => hit || (u.pathname.startsWith('/api/') ? Response.error() : caches.match('/index.html'))))
+    }).catch(() => caches.match(r).then((hit) => {
+      if (hit) return hit;
+      /* v113b - only a navigation may fall back to the app shell. A missing
+         image used to be answered with index.html (an HTML body for an <img>),
+         which the browser reports as a broken image and the console logs as a
+         MIME error; a failed API call must fail loudly, never render. */
+      if (u.pathname.startsWith('/api/')) return Response.error();
+      const wantsDoc = r.mode === 'navigate' || (r.headers.get('accept') || '').indexOf('text/html') >= 0;
+      return wantsDoc ? caches.match('/index.html') : Response.error();
+    }))
   );
 });

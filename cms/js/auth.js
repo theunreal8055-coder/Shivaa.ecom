@@ -27,6 +27,10 @@
 
   let wrap = null, card = null, step = 'start';
   let otpPhone = '', otpTimer = null, resendLeft = 0, verifiedPhone = '';
+  /* v113b - the retail door auto-sends on the 10th digit. These two flags keep
+     that auto-send and a tapped Send button/resend from reaching the SMS
+     gateway twice for the same number. */
+  let otpSentFor = '', otpInFlight = false;
   let intent = '', pendingNew = false, explicitNext = '';
 
   /* remember-me stores (retail number / jeweller partner ID) */
@@ -220,10 +224,12 @@
       inp.value = digits(inp.value).slice(0, 10);
       clearTimeout(autoT);
       const ph = inp.value;
+      if (ph !== otpSentFor) otpSentFor = '';      // v113b - edited number, no live code
       if (ph.length !== 10 || ph === autoSent || !/^[6-9]\d{9}$/.test(ph)) return;
       autoT = setTimeout(async () => {
         if (inp.value !== ph) return;
         autoSent = ph; otpPhone = ph;
+        if (otpInFlight || otpSentFor === ph) return;   // v113b - one SMS per number
         const e0 = $('#shvErr'); if (e0) e0.hidden = true;
         await sendOtp();
       }, 260);
@@ -264,7 +270,9 @@
   }
 
   async function sendOtp() {
+    if (otpInFlight) return;                       // v113b - one send in flight, ever
     const btn = $('#shvPhoneBtn') || $('#shvResend');
+    otpInFlight = true;
     if (btn) busy(btn, true, 'Sending\u2026');
     try {
       const r = await fetch('/api/auth/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: otpPhone }) });
@@ -276,6 +284,7 @@
         return showErr(esc(d.error || 'Could not send the code — try again') + (wait > 0 ? ` — retry in ${Math.ceil(wait)}s` : ''));
       }
       pendingNew = d.hasAccount === false;
+      otpSentFor = otpPhone;                       // v113b - this number has a live code
       busy(btn, false);
       go('otp');
       const chip = $('#shvDemo');
@@ -291,6 +300,7 @@
       }
       startResend();
     } catch (e) { busy(btn, false); showErr('No connection — please check your internet and retry'); }
+    finally { otpInFlight = false; }        // v113b - released on success, error and early return
   }
 
   function startResend() {
