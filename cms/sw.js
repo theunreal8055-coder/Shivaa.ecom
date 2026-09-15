@@ -17,7 +17,10 @@
  was served — a device can no longer run a fresh shell on a stale script. */
 'use strict';
 const SHELL = 'shivaa-shell-v119';
-const MEDIA = 'shivaa-media-v107';
+/* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
+   that 404'd into the SPA fallback were cached AS images for 30 days) and any
+   other stale art. Old caches auto-delete on activate; phones re-fetch once. */
+const MEDIA = 'shivaa-media-v120';
 const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
 const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
 /* v99: bot.css/bot.js dropped from the shell (Saathi removed ahead of Gemini).
@@ -36,7 +39,7 @@ const SHELL_FILES = ['/', '/index.html',
   '/css/trust.css?v=107', '/css/finale.css?v=107', '/css/motion.css?v=107',
   '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
   '/css/boost.css?v=46', '/css/v113.css?v=113b', '/css/v115.css?v=115',
-  '/css/v116.css?v=116', '/css/v117.css?v=117', '/css/v118.css?v=118', '/css/v119.css?v=119',
+  '/css/v116.css?v=116', '/css/v117.css?v=117', '/css/v118.css?v=118', '/css/v119.css?v=119', '/css/v120.css?v=120',
   '/js/otp-autofill.js?v=107', '/js/app.js?v=119', '/js/hallmark.js?v=107',
   '/js/trust.js?v=107', '/js/auth.js?v=113b', '/js/motion.js?v=107',
   '/js/aurum.js?v=107', '/js/v107.js?v=107', '/js/boost.js?v=46',

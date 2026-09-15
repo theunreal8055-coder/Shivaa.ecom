@@ -1,0 +1,17 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIVAA v120 — category tile never-blank face (Bug B hardening).
+   Additive: only strengthens the existing tile; no live rule is overridden.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* A branded monogram sits UNDER every category tile photo. If the photo (and
+   its logo fallback) both fail on a phone, the tile still shows the house ✦
+   on maroon — it can never degrade to bare alt-text again. The <img> rides
+   above (z-index 1) and the gold ring stays on top (z-index 2). */
+.cb-img { background: radial-gradient(circle at 50% 32%, #5a1626 0%, #2b080f 78%); }
+.cb-img::after {
+  content: '✦'; position: absolute; inset: 0; z-index: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #d4af5a; font-size: 30px; line-height: 1; opacity: .9; pointer-events: none;
+}
+.cb-img img { position: relative; z-index: 1; }
+.cb-img .cb-ring { z-index: 2; }

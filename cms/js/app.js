@@ -1664,7 +1664,10 @@ const catBarItems = () => [
 ];
 function catBarHTML() {
   return `<div class="cb-wrap"><button class="cb-arrow cb-prev" aria-label="Previous">‹</button><div class="catbar2">` +
-    catBarItems().map(c => `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${safeUrl(c.img) || '/images/logo.png'}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='/images/logo.png'"><i class="cb-ring"></i></span><b>${c.label}</b></a>`).join('') +
+    /* v120 — Bug B: tile photos carry ?v=120 (busts poisoned pre-v113 SW entries) and a
+       two-stage fallback — house logo, then hide to reveal the monogram underlay in
+       css/v120.css — so a tile can never degrade to bare alt-text again. */
+    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&v=120' : '?v=120'); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="this.onerror=null;if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
     `</div><button class="cb-arrow cb-next" aria-label="Next">›</button></div>`;
 }
 function initCatbar() {
@@ -5027,44 +5030,85 @@ pages.quote = async view => {
 };
 
 /* ─────────── RATES PAGE ─────────── */
+/* v120 — Bug A fix: the rates page used to re-render WHOLESALE on every poll
+   tick, which (a) stranded every rate card invisible (.rv starts opacity:0 and
+   bindReveal() only runs at navigation, never after a poll) and (b) wiped the
+   rate-alert form while the customer typed. Polls now patch values in place via
+   refreshRatesPage(); a full render happens only at navigation (or when the
+   nodes are missing). Live data is deliberately never reveal-gated. */
+function ratesAnchorTxt(R) {
+  const AL = R.anchorLevel || null;
+  if (!AL) return '—';
+  /* v120 — fmt() already prefixes ₹ (v119 printed ₹₹ here). */
+  if (AL.mode === 'mcx-future') return `MCX future · ${fmt(AL.goldPerG)}/g`;
+  if (AL.mode === 'override') return 'Admin override (pinned)';
+  return `International spot · ${fmt(AL.goldPerG)}/g`;
+}
+function refreshRatesPage(R) {
+  if (!R || !location.hash.startsWith('#/rates')) return false;
+  if (!document.querySelector('[data-rr="g22"]')) return false;   // nodes gone — caller re-renders
+  try {
+    const set = (k, v) => { const el = document.querySelector(`[data-rr="${k}"]`); if (el) el.textContent = v; };
+    const setHTML = (k, v) => { const el = document.querySelector(`[data-rr="${k}"]`); if (el) el.innerHTML = v; };
+    const prem22 = R.premium ? (R.premium.gold22 !== undefined ? R.premium.gold22 : R.premium.gold) : 398;
+    setHTML('g22', fmt(R.gold22) + '<small>/gram</small>');
+    setHTML('g22sub', '₹' + Math.round(R.gold22 * 10).toLocaleString('en-IN') + ' per 10 g · updated ' + timeFmt(R.t));
+    set('spot22', fmt(R.spot.gold22) + '/g');
+    set('prem22', '+₹' + prem22 + '/g');
+    set('anchor', ratesAnchorTxt(R));
+    set('silv', fmt2(R.silver) + '/g');
+    ['gold24', 'gold22', 'gold18', 'silver'].forEach(k => {
+      set('rc-' + k, k === 'silver' ? fmt2(R[k]) : fmt(R[k]));
+      set('rc10-' + k, k === 'silver' ? fmt2(R[k] * 10) : fmt(R[k] * 10));
+    });
+    const badge = document.querySelector('[data-rr="srcbadge"]');
+    if (badge) {
+      badge.className = 'src-badge ' + ((R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim');
+      badge.innerHTML = R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*');
+    }
+    drawRateChart($('#rateChart'), R.history || []);
+    return true;
+  } catch (e) { return false; }
+}
 pages.rates = async (view) => {
   const R = state.rates;
+  /* v120 — Bug A: never crash on a cold open. If the rates batch has not
+     landed yet, show an honest loader; the next poll renders for real. */
+  if (!R) {
+    view.innerHTML = `<section class="page-hero"><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1><p>Fetching the live Jaipur feed…</p></div></section><div class="container" style="padding:60px 0 90px;text-align:center;color:var(--ink-3)"><span class="pp-spinner" aria-hidden="true"></span><p style="margin-top:14px">Weighing the market — one moment ✦</p></div>`;
+    return;
+  }
   /* v119 — the card is built from the SAME anchor the shop prices from:
      22K rate = round(anchorLevel.goldPerG × 0.9167) + premium.gold22 (₹398/g,
      desk physical). premium.gold stays the 24K line for older payloads. */
-  const AL = R.anchorLevel || null;
   const prem22 = R.premium ? (R.premium.gold22 !== undefined ? R.premium.gold22 : R.premium.gold) : 398;
-  const anchorTxt = AL
-    ? (AL.mode === 'mcx-future' ? `MCX future · ₹${fmt(AL.goldPerG)}/g`
-      : AL.mode === 'override' ? 'Admin override (pinned)'
-      : `International spot · ₹${fmt(AL.goldPerG)}/g`)
-    : '—';
+  const anchorTxt = ratesAnchorTxt(R);
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1>
   <p>The same feed that powers every price on shivaa.in — sourced from official MCX futures (when the owner’s exchange feed is connected) or the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
-    <div class="jaipur-hero rv">
+    <div class="jaipur-hero">
       <div class="jh-main">
         <span class="jh-badge">✦ JAIPUR MARKET RATE</span>
         <div class="jh-name">Gold 22K <small>(91.67)</small></div>
-        <div class="jh-val">${fmt(R.gold22)}<small>/gram</small></div>
-        <div class="jh-sub">₹${Math.round(R.gold22 * 10).toLocaleString('en-IN')} per 10 g · updated ${timeFmt(R.t)}</div>
+        <div class="jh-val" data-rr="g22">${fmt(R.gold22)}<small>/gram</small></div>
+        <div class="jh-sub" data-rr="g22sub">₹${Math.round(R.gold22 * 10).toLocaleString('en-IN')} per 10 g · updated ${timeFmt(R.t)}</div>
       </div>
       <div class="jh-side">
-        <div class="jh-row"><span>International spot (22K)</span><b>${fmt(R.spot.gold22)}/g</b></div>
-        <div class="jh-row"><span>22K Jaipur premium <small style="color:var(--ink-3)">desk physical</small></span><b>+₹${prem22}/g</b></div>
-        <div class="jh-row"><span>Rate anchor</span><b>${anchorTxt}</b></div>
-        <div class="jh-row"><span>Silver (Jaipur 925)</span><b>${fmt2(R.silver)}/g</b></div>
+        <div class="jh-row"><span>International spot (22K)</span><b data-rr="spot22">${fmt(R.spot.gold22)}/g</b></div>
+        <div class="jh-row"><span>22K Jaipur premium <small style="color:var(--ink-3)">desk physical</small></span><b data-rr="prem22">+₹${prem22}/g</b></div>
+        <div class="jh-row"><span>Rate anchor</span><b data-rr="anchor">${anchorTxt}</b></div>
+        <div class="jh-row"><span>Silver (Jaipur 925)</span><b data-rr="silv">${fmt2(R.silver)}/g</b></div>
         <div class="jh-note">These Jaipur rates power every price on shivaa.in — your bill matches this card to the rupee.</div>
       </div>
     </div>
     <div class="rate-cards">
       ${[['GOLD 24K · JAIPUR', 'gold24', '99.99% fine — reference'], ['GOLD 22K · JAIPUR', 'gold22', '91.67% — jewellery grade'], ['GOLD 18K · JAIPUR', 'gold18', '75.0% — contemporary'], ['SILVER 925 · JAIPUR', 'silver', 'sterling — jewellery grade']]
-        .map(c => `<div class="rate-card ${c[0].includes('GOLD') ? 'gold' : ''} rv"><div class="rc-name">${c[0]}</div><div class="rc-val">${c[1] === 'silver' ? fmt2(R[c[1]]) : fmt(R[c[1]])}</div><small>per gram · ${c[2]}</small><div style="margin-top:10px;font-size:12px;color:var(--ink-3)">per 10 g: <b>${c[1] === 'silver' ? fmt2(R[c[1]] * 10) : fmt(R[c[1]] * 10)}</b></div></div>`).join('')}
+        .map(c => `<div class="rate-card ${c[0].includes('GOLD') ? 'gold' : ''}"><div class="rc-name">${c[0]}</div><div class="rc-val" data-rr="rc-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]]) : fmt(R[c[1]])}</div><small>per gram · ${c[2]}</small><div style="margin-top:10px;font-size:12px;color:var(--ink-3)">per 10 g: <b data-rr="rc10-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]] * 10) : fmt(R[c[1]] * 10)}</b></div></div>`).join('')}
     </div>
-    <div class="chart-wrap mt-3 rv"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+    <div class="chart-wrap mt-3"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
       <h3 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
-      <span class="src-badge ${(R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim'}">${R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*')}</span></div>
+      <span data-rr="srcbadge" class="src-badge ${(R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim'}">${R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*')}</span></div>
       <canvas id="rateChart"></canvas></div>
     <div class="grid2 mt-3">
       <div class="adm-card"><h3>Get a rate alert</h3>
@@ -7892,7 +7936,7 @@ function renderSugg(qs) {
       `<div class="sugg-lbl">Popular searches</div>` +
       POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=120" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -7904,7 +7948,7 @@ function renderSugg(qs) {
       + `<div class="sugg-lbl">Try</div>`
       + POPULAR_Q.slice(0, 4).map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=120" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -7932,7 +7976,11 @@ document.addEventListener('rates', () => {
   });
   refreshPdLive();
   refreshCheckoutTotals();
-  if (location.hash.startsWith('#/rates')) pages.rates($('#view'));
+  /* v120 — Bug A: polls patch the rates page in place (a wholesale re-render
+     blanked the cards and wiped the alert form). Full render is the fallback. */
+  if (location.hash.startsWith('#/rates')) {
+    if (!refreshRatesPage(state.rates)) { try { const _rr = pages.rates($('#view')); if (_rr && _rr.catch) _rr.catch(() => {}); } catch (e) {} }
+  }
   if (location.hash.startsWith('#/cart')) pages.cart($('#view'));
   if (location.hash.startsWith('#/compare')) pages.compare($('#view'), new URLSearchParams());
 });
