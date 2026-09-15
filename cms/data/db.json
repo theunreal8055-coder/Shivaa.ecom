@@ -6025,6 +6025,116 @@
    "mediaNote": "AI-stylised visualisation of the supplier design photo.",
    "sku": "PGS5073",
    "id": "p_cb82745d6c15"
+  },
+  {
+   "createdAt": "2026-09-15T22:14:43+05:30",
+   "active": true,
+   "rating": 4.6,
+   "reviews": 0,
+   "stock": 10,
+   "sizes": [
+    "10",
+    "12",
+    "14",
+    "16"
+   ],
+   "tags": [
+    "Ring",
+    "gold",
+    "ladies",
+    "plain"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5074_1_hero.jpg",
+    "/images/designs/rings/PGS5074_2_macro.jpg",
+    "/images/designs/rings/PGS5074_3_model.jpg",
+    "/images/designs/rings/PGS5074_4_lifestyle.jpg"
+   ],
+   "stoneValue": 0,
+   "name": "Soni Ladies Ring PGS5074 | Gold 22K",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.468,
+   "mcScheme": "percent",
+   "mcValue": 12,
+   "stoneDesc": "plain gold — no stones",
+   "stoneType": "None",
+   "stoneColour": "",
+   "desc": "Soni — ladies' plain 22K yellow gold ring, 1.468 g, slim polished band with a stepped twin-triangle notch crest. Making charges 12% + 3% GST; gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "Hitesh bhai — ladies plain lot (67, Sep 2026)",
+   "supplierId": "ladies67-2026",
+   "costPerGram": 0,
+   "seo": {
+    "keywords": [
+     "slim polished band with a stepped twin-triangle notch crest ladies gold ring",
+     "ladies plain 22K gold ring price",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ladies plain ring — Soni (slim polished band with a stepped twin-triangle notch crest) | PGS5074"
+   },
+   "category_note": "Ladies plain ring by Shivaa Jewellers",
+   "mediaNote": "AI-stylised visualisation of the supplier design photo.",
+   "sku": "PGS5074",
+   "id": "p_d16ea2010735"
+  },
+  {
+   "createdAt": "2026-09-15T22:14:43+05:30",
+   "active": true,
+   "rating": 4.6,
+   "reviews": 0,
+   "stock": 10,
+   "sizes": [
+    "10",
+    "12",
+    "14",
+    "16"
+   ],
+   "tags": [
+    "Ring",
+    "gold",
+    "ladies",
+    "plain"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5075_1_hero.jpg",
+    "/images/designs/rings/PGS5075_2_macro.jpg",
+    "/images/designs/rings/PGS5075_3_model.jpg",
+    "/images/designs/rings/PGS5075_4_lifestyle.jpg"
+   ],
+   "stoneValue": 0,
+   "name": "Kairi Ladies Ring PGS5075 | Gold 22K",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.291,
+   "mcScheme": "percent",
+   "mcValue": 12,
+   "stoneDesc": "plain gold — no stones",
+   "stoneType": "None",
+   "stoneColour": "",
+   "desc": "Kairi — ladies' plain 22K yellow gold ring, 1.291 g, leaf-and-bud (kairi) wrap band. Making charges 12% + 3% GST; gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "Hitesh bhai — ladies plain lot (67, Sep 2026)",
+   "supplierId": "ladies67-2026",
+   "costPerGram": 0,
+   "seo": {
+    "keywords": [
+     "leaf-and-bud (kairi) wrap band ladies gold ring",
+     "ladies plain 22K gold ring price",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ladies plain ring — Kairi (leaf-and-bud (kairi) wrap band) | PGS5075"
+   },
+   "category_note": "Ladies plain ring by Shivaa Jewellers",
+   "mediaNote": "AI-stylised visualisation of the supplier design photo.",
+   "sku": "PGS5075",
+   "id": "p_10a86f27ccf5"
   }
  ],
  "users": [
