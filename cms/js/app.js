@@ -2060,7 +2060,7 @@ pages.videoconsult = async (view) => {
   view.innerHTML = v55Shell('Video Consultation', 'See it live, ', 'from home', 'A family member walks you through real pieces on WhatsApp video — weights, hallmark, finish — from the Jayal counter. Pick a slot.',
     `<div class="adm-card"><form id="vcForm" class="form-grid" style="grid-template-columns:1fr 1fr">
       <div class="fld"><label>Your name</label><input name="name" required></div>
-      <div class="fld"><label>Phone (WhatsApp)</label><input name="phone" required placeholder="10-digit"></div>
+      <div class="fld"><label>Phone (WhatsApp)</label><input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="10" required placeholder="10-digit"></div>
       <div class="fld"><label>Preferred day</label><input name="day" type="date" required></div>
       <div class="fld"><label>Preferred slot</label><select name="slot">${['10:00–12:00', '12:00–14:00', '16:00–18:00', '18:00–20:30'].map(x => `<option>${x}</option>`).join('')}</select></div>
       <div class="fld full"><label>What would you like to see?</label><input name="details" placeholder="e.g. bridal rani haar + jhumka, budget ₹1.5L"></div>
@@ -2080,7 +2080,7 @@ pages.pickup = async (view) => {
   view.innerHTML = v55Shell('Dead-Stock Pickup', 'Old stock in, ', 'fine metal out', 'Book a pickup for dead stock — we assay at your counter or ours, and settle in fine gold grams at the live rate, minus nothing hidden.',
     `<div class="adm-card"><form id="puForm" class="form-grid" style="grid-template-columns:1fr 1fr">
       <div class="fld"><label>Firm / name</label><input name="name" required></div>
-      <div class="fld"><label>Phone</label><input name="phone" required placeholder="10-digit"></div>
+      <div class="fld"><label>Phone</label><input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="10" required placeholder="10-digit"></div>
       <div class="fld"><label>City</label><input name="city"></div>
       <div class="fld"><label>Approx. weight</label><input name="wt" placeholder="e.g. 850 g 22K"></div>
       <div class="fld full"><label>Notes</label><input name="details" placeholder="pickup date preference, item types…"></div>
