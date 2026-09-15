@@ -93,9 +93,11 @@
     const r = st.rates, set = st.settings || {};
     const cells = tickCells(r);
     tickPrev = { '24K': Number(r.gold24), '22K': Number(r.gold22), '18K': Number(r.gold18), 'Silver': Number(r.silver) };
-    const premG = Number(set.jaipurPremium), premS = Number(set.jaipurSilverPremium);
+    /* v119 — the 22K premium (₹398/g, desk physical) is its own setting; the
+       24K jaipurPremium is only a fallback for an older payload. */
+    const premG = Number(set.gold22Premium !== undefined ? set.gold22Premium : set.jaipurPremium), premS = Number(set.jaipurSilverPremium);
     const basis = (isFinite(premG) && isFinite(premS))
-      ? `How this price is built: live bullion spot <b>${fmt2(r.gold22)}/g (22K)</b> + <b>${fmt2(premG)}/g</b> Jaipur making &amp; freight premium (silver +${fmt2(premS)}/g) · GST extra at checkout · rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''}.`
+      ? `How this price is built: live bullion spot <b>${fmt2(r.gold22)}/g (22K)</b> + <b>${fmt2(premG)}/g</b> 22K Jaipur premium — desk physical (silver +${fmt2(premS)}/g) · GST extra at checkout · rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''}.`
       : `Rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''} · GST extra at checkout.`;
     host.innerHTML =
       `<div class="v107-tick" role="list" aria-label="Today's metal rates per gram">${cells}</div>` +

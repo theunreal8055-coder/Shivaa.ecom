@@ -1,0 +1,74 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIVAA v119 — first-paint skeleton · install chip · honest HUID chip ·
+   pinch-zoom polish.  Purely additive: nothing here overrides a live rule
+   unless the element is a v119 element (every selector is v119-scoped).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · SKELETON (index.html ships it inside <main id="view">, so there is a
+   real first paint before app.js boots — the router replaces it wholesale) ── */
+.shv-skeleton { display: block; padding: 12px; animation: sk-fade-in .18s ease-out both; }
+.shv-skeleton .sk-hero {
+  height: 300px; border-radius: 18px; margin: 6px 6px 16px;
+  background: linear-gradient(100deg, #f3ece2 30%, #faf6f0 50%, #f3ece2 70%);
+  background-size: 220% 100%; animation: sk-shimmer 1.5s linear infinite;
+}
+.shv-skeleton .sk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 6px; }
+.shv-skeleton .sk-card {
+  height: 190px; border-radius: 14px;
+  background: linear-gradient(100deg, #f3ece2 30%, #faf6f0 50%, #f3ece2 70%);
+  background-size: 220% 100%; animation: sk-shimmer 1.5s linear infinite;
+}
+@keyframes sk-shimmer { from { background-position: 130% 0; } to { background-position: -30% 0; } }
+@keyframes sk-fade-in { from { opacity: 0; } to { opacity: 1; } }
+body.shv-ready .shv-skeleton { display: none !important; }
+.shv-slow { text-align: center; padding: 14px 16px 4px; color: var(--ink-3, #7a736a); font-size: 13px; }
+.shv-slow button {
+  margin-top: 8px; border: 1px solid var(--line, #e6ddd0); background: var(--white, #fff);
+  color: inherit; border-radius: 999px; padding: 9px 18px; font: inherit; cursor: pointer;
+}
+@media (max-width: 820px) {
+  .shv-skeleton .sk-hero { height: 210px; }
+  .shv-skeleton .sk-grid { grid-template-columns: repeat(2, 1fr); }
+  .shv-skeleton .sk-card { height: 150px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shv-skeleton .sk-hero, .shv-skeleton .sk-card { animation: none; background: #f4eee5; }
+}
+
+/* ── 2 · INSTALL CHIP — appears on the SECOND visit, only when the browser
+   actually offers an install prompt (never nagged on a first impression) ── */
+#shvInstallChip {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; z-index: 940;
+  display: flex; align-items: center; gap: 10px; max-width: min(92vw, 430px);
+  padding: 10px 12px; border-radius: 16px; border: 1px solid var(--line, #e6ddd0);
+  background: var(--white, #fff); box-shadow: 0 12px 30px rgba(60, 45, 20, .18);
+  font-size: 13px; line-height: 1.35; animation: shv-chip-in .28s ease-out both;
+}
+@keyframes shv-chip-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+#shvInstallChip .shv-ic-title { font-weight: 600; }
+#shvInstallChip .shv-ic-sub { color: var(--ink-3, #7a736a); font-size: 12px; }
+#shvInstallChip .shv-ic-go {
+  border: 0; border-radius: 999px; padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer;
+  background: var(--gold, #b8860b); color: #fff; white-space: nowrap;
+}
+#shvInstallChip .shv-ic-x {
+  border: 0; background: transparent; color: var(--ink-3, #7a736a); font-size: 17px; line-height: 1;
+  cursor: pointer; padding: 4px 6px;
+}
+@media (display-mode: standalone) { #shvInstallChip { display: none !important; } }
+
+/* ── 3 · HUID CHIP on the product page — a GUIDE unless the catalogue really
+   carries a HUID (then the number is printed verbatim, never invented) ── */
+.pd-huid-chip {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  margin: 8px 0 14px; padding: 9px 13px; border-radius: 12px;
+  border: 1px dashed var(--line, #e6ddd0); background: #fdfaf4;
+  font-size: 12.5px; line-height: 1.4;
+}
+.pd-huid-chip b { color: #8a5a1a; letter-spacing: .02em; }
+.pd-huid-chip a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.pd-huid-chip.is-real { border-style: solid; border-color: #d9c08a; background: #fbf4e4; }
+
+/* ── 4 · PINCH-ZOOM polish for the Quick View photo ── */
+#qvPhoto.qv-zoom { cursor: grab; touch-action: none; will-change: transform; }
+#qvPhoto.qv-zoom:active { cursor: grabbing; }

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 118;
+const APP_REL = 119;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -2386,6 +2386,7 @@ pages.shop = async (view, q) => {
       </div>
       <div class="chipbar" id="chipbar"></div>
       <div id="shopGrid" class="p-grid"></div>
+      <div id="shopSentinel" aria-hidden="true" style="height:1px"></div>
     </div>
   </div>`;
 
@@ -2396,6 +2397,38 @@ pages.shop = async (view, q) => {
     tags: $$('input[data-f=tag]:checked').map(i => i.value),
     max: +$('#priceRange').value,
   });
+  /* v119 — the grid renders in SLICES of 20 as the shopper scrolls. The list
+     is still filtered and sorted whole in memory; only the DOM is windowed,
+     so a 3-lakh-piece catalogue can never block the first paint. */
+  function shopSlice() {
+    const grid = $('#shopGrid'); const SHOP = state.shop;
+    if (!grid || !SHOP || !SHOP.list.length) return;
+    const next = SHOP.list.slice(SHOP.rendered, SHOP.rendered + SHOP.chunk);
+    if (!next.length) return;
+    grid.insertAdjacentHTML('beforeend', next.map(p => productCard(p, { wishSet: SHOP.wishSet })).join(''));
+    SHOP.rendered += next.length;
+    bindTilt(grid);
+    if (SHOP.rendered >= SHOP.list.length && SHOP.observer) {
+      try { SHOP.observer.disconnect(); } catch (e) {}
+      SHOP.observer = null;
+    }
+  }
+  window.Shivaa.shopLoadMore = () => shopSlice();
+  function shopSentinelWatch() {
+    const s = $('#shopSentinel'); const SHOP = state.shop;
+    if (!s || !SHOP) return;
+    if (SHOP.observer) { try { SHOP.observer.disconnect(); } catch (e) {} SHOP.observer = null; }
+    if (typeof IntersectionObserver !== 'function') {   // no observer → never hide pieces
+      while (SHOP.rendered < SHOP.list.length) shopSlice();
+      return;
+    }
+    SHOP.observer = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (en.isIntersecting && state.shop.rendered < state.shop.list.length) shopSlice();
+      });
+    }, { rootMargin: '400px' });
+    SHOP.observer.observe(s);
+  }
   async function apply() {
     const f = filters();
     let list = state.productsCache.slice();
@@ -2420,15 +2453,24 @@ pages.shop = async (view, q) => {
     if (sort === 'rating') list.sort((a, b) => b.rating - a.rating);
     if (sort === 'newest') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const wishSet = state.user ? await wishIds() : [];
+    state.shop = state.shop || { list: [], wishSet: [], rendered: 0, chunk: 20, observer: null };
+    state.shop.list = list; state.shop.wishSet = wishSet; state.shop.rendered = 0;
     {
-      let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
-      if (!list.length && f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
-        emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 65 signature rings</a></div></div>`;
+      const grid = $('#shopGrid');
+      if (list.length) {
+        if (grid) grid.innerHTML = '';
+        shopSlice();               /* v119 — first slice now, the rest as the shopper scrolls */
+        shopSentinelWatch();
+      } else {
+        let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
+        if (f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
+          emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 65 signature rings</a></div></div>`;
+        }
+        if (state.shop.observer) { try { state.shop.observer.disconnect(); } catch (e) {} state.shop.observer = null; }
+        if (grid) grid.innerHTML = emptyHtml;
       }
-      $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : emptyHtml;
     }
     $('#resCount').innerHTML = `<b>${list.length}</b> pieces · prices update with the live rate`;
-    bindTilt($('#shopGrid'));
   }
   const drawer = $('#filterDrawer'), ovl = $('#fsheetOverlay');
   const closeSheet = () => {
@@ -2687,6 +2729,28 @@ pages.product = async (view, q, id) => {
   window.Shivaa.bindDelivery(view);   // v103 — auto-runs when a pin is remembered
   bindTilt(view);
   window._pd = { p, qty: 1 };
+  /* v119 — HUID chip on the product page. Honest by construction: it prints a
+     HUID ONLY when the catalogue actually carries one (p.huid or
+     hallmark.entries[].huid). With no HUID on file it is a check guide that
+     links to the BIS Care app walkthrough — never a claim that this piece is
+     hallmarked (owner rule, docs/AGENT-HANDOFF.md). */
+  try {
+    if (!view.querySelector('.pd-huid-chip')) {
+      const hh = p.hallmark || {};
+      const entry = (Array.isArray(hh.entries) ? hh.entries : []).find(e => e && (e.huid || e.HUID));
+      const real = String(p.huid || (entry && (entry.huid || entry.HUID)) || '').trim();
+      const hasReal = /^[A-Za-z0-9]{4,12}$/.test(real);
+      const chip = document.createElement('div');
+      chip.className = 'pd-huid-chip' + (hasReal ? ' is-real' : '');
+      const guide = `#/hallmark?product=${encodeURIComponent(p.id)}`;
+      chip.innerHTML = hasReal
+        ? `<b>✦ HUID ${esc(real)}</b><span><a href="${guide}">Verify this HUID in the BIS Care app →</a></span>`
+        : `<b>✦ HUID check</b><span><a href="${guide}">How to verify a hallmark in the BIS Care app →</a></span>`;
+      const h1 = view.querySelector('.pd-info h1');
+      if (h1) h1.insertAdjacentElement('afterend', chip);
+      else { const info = view.querySelector('.pd-info'); if (info) info.prepend(chip); }
+    }
+  } catch (e) {}
   /* v54: remember this piece + mobile sticky buy bar + tap-to-zoom gallery */
   window.Shivaa.recentAdd(p, pr);   // v103 — snapshot price + rate for the home trend hint
   let bb = $('#pdpBuybar');
@@ -3523,10 +3587,12 @@ window.Shivaa.quickView = async (id) => {
     // swipe the photo on touch screens (disabled while zoomed — the finger pans)
     let sx = null, moved = false;
     photo.addEventListener('touchstart', e => {
+      if (e.touches.length > 1) { sx = null; return; }   /* v119 — two fingers are a pinch, not a swipe */
       if (zoomed && e.touches.length === 1) { panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, px: pan.x, py: pan.y }; return; }
       sx = e.touches[0].clientX; moved = false;
     }, { passive: true });
     photo.addEventListener('touchmove', e => {
+      if (pinch) return;                                  /* v119 — a pinch is in progress */
       if (zoomed && panStart && e.touches.length === 1) {
         pan.x = Math.max(-110, Math.min(110, panStart.px + e.touches[0].clientX - panStart.x));
         pan.y = Math.max(-130, Math.min(130, panStart.py + e.touches[0].clientY - panStart.y));
@@ -3535,6 +3601,7 @@ window.Shivaa.quickView = async (id) => {
       if (sx != null && Math.abs(e.touches[0].clientX - sx) > 12) moved = true;
     }, { passive: true });
     photo.addEventListener('touchend', e => {
+      if (pinch) return;                                  /* v119 — let the pinch handler settle the scale */
       if (zoomed) {
         if (!moved && panStart) { // double-tap detection while zoomed = zoom back out
           const now = Date.now();
@@ -3554,15 +3621,39 @@ window.Shivaa.quickView = async (id) => {
     }, { passive: true });
   }
   // v102 — double-click zoom for mouse users + drag to pan
+  // v119 — pinch (two fingers) zooms 1×–4×; double-tap still toggles cleanly.
   let zoomed = false;
+  let pinchScale = 1.9;
   let pan = { x: 0, y: 0 }, panStart = null, lastTap = 0;
   const applyZoom = () => {
     photo.classList.toggle('qv-zoom', zoomed);
-    photo.style.transform = zoomed ? `translate(${pan.x}px, ${pan.y}px) scale(1.9)` : '';
+    photo.style.transform = zoomed ? `translate(${pan.x}px, ${pan.y}px) scale(${pinchScale})` : '';
     const hint = $('#qvZoomHint'); if (hint) hint.style.opacity = zoomed ? '0' : '';
   };
-  const setZoom = on => { zoomed = on; if (!on) pan = { x: 0, y: 0 }; applyZoom(); };
+  const setZoom = on => { zoomed = on; if (on) pinchScale = 1.9; if (!on) pan = { x: 0, y: 0 }; applyZoom(); };
   photo.addEventListener('dblclick', e => { setZoom(!zoomed); });
+  /* v119 — pinch to zoom. A pinch never swipes to the next shot, and letting
+     go near 1× snaps straight back to the unzoomed view. */
+  let pinch = null;
+  const tDist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  photo.addEventListener('touchstart', e => {
+    if (e.touches.length !== 2) return;
+    pinch = { d: Math.max(1, tDist(e.touches[0], e.touches[1])), s: zoomed ? pinchScale : 1.9 };
+    pinchScale = pinch.s; zoomed = true; pan = { x: 0, y: 0 }; applyZoom();
+  }, { passive: true });
+  photo.addEventListener('touchmove', e => {
+    if (!pinch || e.touches.length < 2) return;
+    pinchScale = Math.max(1, Math.min(4, pinch.s * (tDist(e.touches[0], e.touches[1]) / pinch.d)));
+    zoomed = pinchScale > 1.05;
+    applyZoom();
+  }, { passive: true });
+  photo.addEventListener('touchend', e => {
+    if (!pinch) return;
+    if (e.touches.length >= 2) return;
+    pinch = null;
+    if (pinchScale <= 1.05) { pinchScale = 1.9; setZoom(false); }
+    else { pan = { x: 0, y: 0 }; zoomed = true; applyZoom(); }
+  }, { passive: true });
   photo.addEventListener('pointerdown', e => {
     if (!zoomed || e.pointerType !== 'mouse') return;
     panStart = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
@@ -4938,6 +5029,16 @@ pages.quote = async view => {
 /* ─────────── RATES PAGE ─────────── */
 pages.rates = async (view) => {
   const R = state.rates;
+  /* v119 — the card is built from the SAME anchor the shop prices from:
+     22K rate = round(anchorLevel.goldPerG × 0.9167) + premium.gold22 (₹398/g,
+     desk physical). premium.gold stays the 24K line for older payloads. */
+  const AL = R.anchorLevel || null;
+  const prem22 = R.premium ? (R.premium.gold22 !== undefined ? R.premium.gold22 : R.premium.gold) : 398;
+  const anchorTxt = AL
+    ? (AL.mode === 'mcx-future' ? `MCX future · ₹${fmt(AL.goldPerG)}/g`
+      : AL.mode === 'override' ? 'Admin override (pinned)'
+      : `International spot · ₹${fmt(AL.goldPerG)}/g`)
+    : '—';
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1>
   <p>The same feed that powers every price on shivaa.in — sourced from official MCX futures (when the owner’s exchange feed is connected) or the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
@@ -4951,7 +5052,8 @@ pages.rates = async (view) => {
       </div>
       <div class="jh-side">
         <div class="jh-row"><span>International spot (22K)</span><b>${fmt(R.spot.gold22)}/g</b></div>
-        <div class="jh-row"><span>Jaipur market premium</span><b>+₹${R.premium.gold}/g</b></div>
+        <div class="jh-row"><span>22K Jaipur premium <small style="color:var(--ink-3)">desk physical</small></span><b>+₹${prem22}/g</b></div>
+        <div class="jh-row"><span>Rate anchor</span><b>${anchorTxt}</b></div>
         <div class="jh-row"><span>Silver (Jaipur 925)</span><b>${fmt2(R.silver)}/g</b></div>
         <div class="jh-note">These Jaipur rates power every price on shivaa.in — your bill matches this card to the rupee.</div>
       </div>

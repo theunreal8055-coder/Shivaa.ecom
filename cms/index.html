@@ -45,6 +45,7 @@
 <link rel="stylesheet" href="/css/v116.css?v=116">
 <link rel="stylesheet" href="/css/v117.css?v=117">
 <link rel="stylesheet" href="/css/v118.css?v=118">
+<link rel="stylesheet" href="/css/v119.css?v=119">
 <link rel="preload" as="style" href="/css/hallmark.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
 <link rel="preload" as="style" href="/css/trust.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
 <link rel="preload" as="style" href="/css/motion.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
@@ -59,10 +60,13 @@
   <link rel="stylesheet" href="/css/v107.css?v=107">
   <link rel="stylesheet" href="/css/boost.css?v=46">
 </noscript>
-<!-- v118 · release stamp: app.js compares this against its own APP_REL and
+<!-- v119 · release stamp: app.js compares this against its own APP_REL and
      reloads once if the paired script is older — a phone can no longer sit on
      a fresh shell with a stale script ("the update changed nothing"). -->
-<script>window.__SHIVAA_REL=118;</script>
+<script>window.__SHIVAA_REL=119;</script>
+<!-- v119 · hero LCP: the first banner is the biggest paint, so it preloads
+     with high priority instead of waiting for the router to inject it. -->
+<link rel="preload" as="image" href="/images/products/ring-floral.jpg" fetchpriority="high">
 </head>
 <body>
 
@@ -103,7 +107,7 @@
     </a>
     <form class="hdr-search" id="hdrSearch" role="search" autocomplete="off">
       <svg class="hs-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="hdrSearchInput" type="search" placeholder="Search rings, chains, mangalsutra&hellip;" aria-label="Search jewellery">
+      <input id="hdrSearchInput" type="search" placeholder="Search rings, chains, mangalsutra&hellip;" aria-label="Search jewellery" enterkeyhint="search">
       <button type="button" class="hs-clear" id="hdrSearchClear" aria-label="Clear search" hidden>&#10005;</button>
     </form>
     <div class="header-actions">
@@ -182,7 +186,7 @@
       <div class="container">
         <div class="search-in">
           <svg class="s-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input id="searchInput" type="search" placeholder="Search rings, jhumkas, mangalsutra, silver…" autocomplete="off" aria-label="Search Shivaa Jewels">
+          <input id="searchInput" type="search" placeholder="Search rings, jhumkas, mangalsutra, silver…" autocomplete="off" aria-label="Search Shivaa Jewels" enterkeyhint="search">
           <button class="s-close" id="searchClose">Cancel</button>
         </div>
         <div class="search-sugg" id="searchSugg"></div>
@@ -191,8 +195,8 @@
     </div>
   </div>
 
-<!-- ══════════ VIEW ══════════ -->
-<main id="view"></main>
+<!-- ══════════ VIEW · v119 skeleton — a real first paint before app.js runs ══════════ -->
+<main id="view"><div class="shv-skeleton" aria-hidden="true"><div class="sk-hero"></div><div class="sk-grid"><div class="sk-card"></div><div class="sk-card"></div><div class="sk-card"></div><div class="sk-card"></div></div></div></main>
 
 <!-- ══════════ FOOTER · v101 — the house signature ══════════ -->
 <footer class="footer fv101">
@@ -344,7 +348,7 @@
      paint never waits for.
      `defer` keeps execution order and guarantees a fully parsed DOM. -->
 <script src="/js/otp-autofill.js?v=107" defer></script>
-<script src="/js/app.js?v=118" defer></script>
+<script src="/js/app.js?v=119" defer></script>
 <script src="/js/hallmark.js?v=107" defer></script>
 <script src="/js/trust.js?v=107" defer></script>
 <script src="/js/auth.js?v=113b" defer></script>
@@ -352,6 +356,7 @@
 <script src="/js/v116.js?v=118" defer></script>
 <script src="/js/v117.js?v=117" defer></script>
 <script src="/js/v118.js?v=118" defer></script>
+<script src="/js/v119.js?v=119" defer></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
