@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 117;
+const APP_REL = 118;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1664,7 +1664,7 @@ const catBarItems = () => [
 ];
 function catBarHTML() {
   return `<div class="cb-wrap"><button class="cb-arrow cb-prev" aria-label="Previous">‹</button><div class="catbar2">` +
-    catBarItems().map(c => `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${c.img}" alt="${c.label}" loading="lazy"><i class="cb-ring"></i></span><b>${c.label}</b></a>`).join('') +
+    catBarItems().map(c => `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${safeUrl(c.img) || '/images/logo.png'}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='/images/logo.png'"><i class="cb-ring"></i></span><b>${c.label}</b></a>`).join('') +
     `</div><button class="cb-arrow cb-next" aria-label="Next">›</button></div>`;
 }
 function initCatbar() {
@@ -2341,7 +2341,7 @@ pages.shop = async (view, q) => {
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container">
     <div class="crumbs"><a href="#/">Home</a> / Shop</div>
-    <h1>${search ? `“${esc(search)}”` : cat ? CATS[cat].name : 'All Jewellery'}${tag ? ' · ' + (TAGS[tag] || tag) : ''}</h1>
+    <h1>${search ? `“${esc(search)}”` : cat ? esc((CATS[cat] && CATS[cat].name) || 'Jewellery') : 'All Jewellery'}${tag ? ' · ' + esc(TAGS[tag] || tag) : ''}</h1>
     <p>Every price below follows the live Jaipur gold & silver rate and our published making-charge chart — automatically.</p>
   </div></section>
   <div class="catbar-outer shop-catbar" style="background:var(--white);border-bottom:1px solid var(--line)">${catBarHTML()}</div>
@@ -2514,7 +2514,7 @@ pages.product = async (view, q, id) => {
           </div>
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
           <button class="gal-nav gal-next" aria-label="Next">›</button>
-          <div class="gal-dots" id="galDots">${(p.video ? 1 : 0) + (p.images || []).length > 1 ? Array.from({length: (p.video ? 1 : 0) + (p.images || []).length}, (_, i) => `<span class="${i === 0 ? 'on' : ''}"></span>`).join('') : ''}</div>
+          <div class="gal-dots" id="galDots">${(p.video ? 1 : 0) + (p.images || []).length > 1 ? Array.from({length: (p.video ? 1 : 0) + (p.images || []).length}, (_, i) => `<button type="button" class="${i === 0 ? 'on' : ''}" data-i="${i}" aria-label="Show ${p.video && i === 0 ? 'film' : 'photo ' + (i + (p.video ? 0 : 1))}"></button>`).join('') : ''}</div>
           <span class="gal-count" id="galCount" aria-hidden="true"></span>
           <a class="pd-stamp" href="#/hallmark?product=${encodeURIComponent(p.id)}">HUID check guide →</a>
           <span class="gal-hint">swipe / drag</span>
@@ -2641,19 +2641,40 @@ pages.product = async (view, q, id) => {
     const gc = $('#galCount');   // v104 — phone photo counter pill
     const go = i => {
       idx = (i + n) % n;
-      track.style.transform = `translateX(-${idx * 100}%)`;
+      track.style.transform = `translate3d(-${idx * 100}%,0,0)`;
       $$('.gal-slide', track).forEach((s, i2) => s.classList.toggle('on', i2 === idx));
-      $$('#galDots span').forEach((d, i2) => d.classList.toggle('on', i2 === idx));
+      $$('#galDots button').forEach((d, i2) => { d.classList.toggle('on', i2 === idx); d.setAttribute('aria-current', i2 === idx ? 'true' : 'false'); });
       if (gc) gc.textContent = `${idx + 1} / ${n}`;
     };
     if (gc) gc.textContent = `1 / ${n}`;
     $('.gal-next', wrap).onclick = () => go(idx + 1);
     $('.gal-prev', wrap).onclick = () => go(idx - 1);
-    $$('#galDots span').forEach((d, i2) => d.onclick = () => go(i2));
-    wrap.addEventListener('pointerdown', e => { sx = e.clientX; dx = 0; track.style.transition = 'none'; });
-    wrap.addEventListener('pointermove', e => { if (sx == null) return; dx = e.clientX - sx; track.style.transform = `translateX(calc(-${idx * 100}% + ${dx}px))`; });
-    const end = () => { if (sx == null) return; track.style.transition = ''; if (Math.abs(dx) > 42) go(idx + (dx < 0 ? 1 : -1)); else go(idx); sx = null; };
+    $$('#galDots button').forEach((d, i2) => d.onclick = e => { e.preventDefault(); e.stopPropagation(); go(i2); });
+    /* v118 — reliable gallery gestures. Pointer capture keeps the drag alive
+       when a thumb leaves the square; vertical intent is handed back to page
+       scrolling, while horizontal intent moves exactly one photo. */
+    let sy = null, dragging = false;
+    wrap.addEventListener('pointerdown', e => {
+      if (e.target.closest && e.target.closest('button, a, video')) return;
+      sx = e.clientX; sy = e.clientY; dx = 0; dragging = false;
+      try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    wrap.addEventListener('pointermove', e => {
+      if (sx == null) return;
+      const dy = e.clientY - sy; dx = e.clientX - sx;
+      if (!dragging && Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (!dragging && Math.abs(dy) > Math.abs(dx) * 1.25) { sx = sy = null; return; }
+      dragging = true; track.style.transition = 'none';
+      track.style.transform = `translate3d(calc(-${idx * 100}% + ${dx}px),0,0)`;
+    });
+    const end = () => {
+      if (sx == null) return;
+      track.style.transition = '';
+      if (dragging && Math.abs(dx) > 36) go(idx + (dx < 0 ? 1 : -1)); else go(idx);
+      sx = sy = null; dx = 0; dragging = false;
+    };
     wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
+    wrap.addEventListener('lostpointercapture', end);
     const _mobGal = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
     const _galInterval = _mobGal ? 10000 : 5200; // v42: slower on mobile, still advances
     const timer = setInterval(() => {
@@ -3984,27 +4005,39 @@ function demoPaySheet(po, orderId) {
 /* v94 — full-page navigation seam (tests capture instead of navigating). */
 window.Shivaa.redirectTo = (url) => { window.location.href = url; };
 /* v94 — brief overlay while the browser leaves for the PayU payment page */
-function payuRedirectSheet() {
-  return new Promise(() => {
-    openModal(`<div style="text-align:center;padding:14px 6px">
+function payuRedirectSheet(retry) {
+  return new Promise(resolve => {
+  openModal(`<div style="text-align:center;padding:14px 6px" id="payuHandoff">
       <div class="pp-spinner" aria-hidden="true"></div>
-      <h3 style="margin:14px 0 6px">Redirecting to PayU…</h3>
-      <p style="color:var(--muted);font-size:13px">Do not press back or close this tab. You can pay with any UPI app, card, net-banking or wallet — we&rsquo;ll bring you back when it&rsquo;s done.</p>
+      <h3 style="margin:14px 0 6px">Opening secure PayU…</h3>
+      <p style="color:var(--muted);font-size:13px">Keep this tab open. If PayU does not open automatically, use the button below.</p>
+      <button type="button" class="btn btn-gold btn-block" id="payuContinue" style="margin-top:14px">Continue to PayU</button>
+      <button type="button" class="btn btn-ghost btn-block" id="payuCancel" style="margin-top:8px">Return to my order</button>
     </div>`);
+  const go = $('#payuContinue');
+  if (go) go.onclick = () => { go.disabled = true; go.textContent = 'Opening PayU…'; retry(); setTimeout(() => { if (document.body.contains(go)) { go.disabled = false; go.textContent = 'Try PayU again'; } }, 5000); };
+  const cancel = $('#payuCancel'); if (cancel) cancel.onclick = () => { closeModal(); resolve(false); };
   });
 }
 /* v94 — PayU hosted checkout: the server signs and returns the form fields;
    we auto-submit a full-page POST to secure.payu.in / test.payu.in. */
 window.Shivaa.payuSubmit = (action, fields) => {
+  /* v118 — never leave a customer behind an endless spinner. Use the native
+     prototype (immune to fields named submit), validate PayU's host, and
+     return a real success/failure signal so the handoff can offer a retry. */
+  let u;
+  try { u = new URL(action, location.href); } catch (_) { throw new Error('Invalid PayU payment address'); }
+  if (!/^https:$/.test(u.protocol) || !/(^|\.)payu\.in$/i.test(u.hostname)) throw new Error('Unsafe PayU payment address');
   const f = document.createElement('form');
-  f.method = 'POST'; f.action = action; f.style.display = 'none';
+  f.method = 'POST'; f.action = u.href; f.style.display = 'none'; f.target = '_self';
   for (const [k, v] of Object.entries(fields || {})) {
     const i = document.createElement('input');
     i.type = 'hidden'; i.name = k; i.value = String(v ?? '');
     f.appendChild(i);
   }
   document.body.appendChild(f);
-  f.submit();
+  HTMLFormElement.prototype.submit.call(f);
+  return true;
 };
 window.Shivaa.payForOrder = async (orderId) => {
   let po;
@@ -4017,8 +4050,15 @@ window.Shivaa.payForOrder = async (orderId) => {
       toast('PayU checkout could not start — retry or use the UPI QR tab', 'err'); return false;
     }
     toast('Taking you to PayU…');
-    setTimeout(() => Shivaa.payuSubmit(po.action, po.fields), 300);
-    return payuRedirectSheet();
+    const handoff = () => {
+      try { Shivaa.payuSubmit(po.action, po.fields); }
+      catch (e) { toast(e.message || 'PayU could not open — tap Try PayU again', 'err'); }
+    };
+    const waiting = payuRedirectSheet(handoff);
+    /* Submit immediately after the handoff UI is painted. The visible button
+       remains as a user-gesture fallback for strict mobile browsers. */
+    setTimeout(handoff, 50);
+    return waiting;
   }
   // v82 — public host with no gateway keys: go straight to the real UPI QR +
   // owner-approved screenshot flow (the old "demo success" sheet could mark
