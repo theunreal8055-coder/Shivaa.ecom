@@ -3585,9 +3585,11 @@ try {
     $codFee = ($pm === 'COD' && $codFeePct > 0) ? (int)round($subtotal * $codFeePct / 100) : 0;
     $total = max(0, $subtotal - $discount - $prepaid + $codFee + $shipping);
     $earned = (int)floor($total / 100);
-    /* v60 — sequential financial-year invoice number (GST) */
-    $fy = ((int)date('n') >= 4) ? date('y') . '-' . str_pad(((int)date('y')) + 1, 2, '0', STR_PAD_LEFT)
-                                : str_pad(((int)date('y')) - 1, 2, '0', STR_PAD_LEFT) . '-' . date('y');
+    /* v114 — sequential financial-year invoice number (GST, Apr–Mar IST).
+       str_pad() is string-typed under declare(strict_types=1); passing an int
+       (the old `((int)date('y')) ± 1`) TypeError'd the whole checkout. */
+    $fyStart = ((int)date('n') >= 4) ? (int)date('y') : (int)date('y') - 1;
+    $fy = str_pad((string)$fyStart, 2, '0', STR_PAD_LEFT) . '-' . str_pad((string)($fyStart + 1), 2, '0', STR_PAD_LEFT);
     $seq = (int)($db['settings']['invoiceSeq'] ?? 100) + 1;
     $db['settings']['invoiceSeq'] = $seq;
     $invoiceNo = 'SHV/' . $fy . '/' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
