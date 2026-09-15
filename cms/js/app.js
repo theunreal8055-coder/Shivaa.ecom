@@ -580,7 +580,7 @@ function updateBadges() {
 }
 async function refreshWishBadge() {
   let wl = state.localWish;
-  if (state.user) { try { const r = await api('/api/wishlist'); wl = r.wishlist; } catch (e) {} }
+  if (state.user) { try { const r = await api('/api/wishlist'); wl = r.wishlist || []; } catch (e) {} }
   const wc = $('#wishCount'); if (wc) { wc.textContent = wl.length; wc.hidden = !wl.length; }
 }
 function cartCount() { return state.cart.reduce((a, i) => a + i.qty, 0); }
@@ -5193,11 +5193,13 @@ pages.catalogues = async (view) => {
   const stoneTypes = ['Plain', 'CZ', 'Lab-Grown Diamond', 'Natural Diamond', 'Colour Stone', 'Kundan/Polki'];
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Design Selection</div><h1>Design Selection</h1>
-  <p>The live design desk our B2B partners order from — filter by category, weight, purity and stone, select what your counter needs, and settle in <b>fine metal grams</b> with zero making charges.</p></div></section>
+  <p>The live design desk our B2B partners order from — filter by category, weight, purity and stone, search by name or SKU, sort the desk your way, select what your counter needs, and settle in <b>fine metal grams</b> with zero making charges.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
 
   <div class="ds-wrap" id="dsWrap">
     <div class="pf-bar">
+      <div class="pf-f"><label>Search designs</label>
+        <input id="dsfSearch" type="search" enterkeyhint="search" autocomplete="off" maxlength="60" placeholder="Name or SKU…"></div>
       <div class="pf-f"><label>Category</label>
         <select id="dsfCat" class="sortsel"><option value="">All categories</option>${Object.entries(LIVE_CATS()).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('')}</select></div>
       <div class="pf-f"><label>Stone type</label>
@@ -5206,6 +5208,8 @@ pages.catalogues = async (view) => {
         <select id="dsfColour" class="sortsel"><option value="">Any</option><option>White</option><option>Colour</option></select></div>
       <div class="pf-f"><label>Purity</label>
         <select id="dsfPurity" class="sortsel"><option value="">Any</option><option>22K</option><option>18K</option><option>925</option></select></div>
+      <div class="pf-f"><label>Sort by</label>
+        <select id="dsfSort" class="sortsel"><option value="">Featured</option><option value="sel">Selected first</option><option value="wasc">Weight: light first</option><option value="wdesc">Weight: heavy first</option><option value="az">Name A–Z</option></select></div>
       <div class="pf-f"><label>Weight range (g)</label>
         <div class="pf-w"><input id="dsfWMin" type="number" step="0.1" min="0" placeholder="min" inputmode="decimal"><span>&ndash;</span><input id="dsfWMax" type="number" step="0.1" min="0" placeholder="max" inputmode="decimal"></div></div>
       <div class="pf-f" style="flex:1 1 100%">
@@ -5235,9 +5239,9 @@ pages.catalogues = async (view) => {
         const shots = (p.images || []).map(safeUrl).filter(Boolean);
         const imgs = shots.length ? shots : ['/images/logo.png'];
         const name = esc(p.name.replace('Shivaa Ring Design', 'Design'));
-        return `<div class="ds-card ${window._sel[p.id] ? 'on' : ''}" id="ds-${p.id}" data-cat="${esc(p.category)}" data-w="${esc(p.weightG)}" data-stone="${esc(p.stoneType || 'Plain')}" data-colour="${esc(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${esc(p.purity)}">
+        return `<div class="ds-card ${window._sel[p.id] ? 'on' : ''}" id="ds-${p.id}" data-cat="${esc(p.category)}" data-w="${esc(p.weightG)}" data-stone="${esc(p.stoneType || 'Plain')}" data-colour="${esc(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${esc(p.purity)}" data-name="${esc(p.name)}" data-sku="${esc(p.sku)}">
         <a class="ds-img ds-slider ${imgs.length > 1 ? 'has-multi' : ''}" href="#/product/${encodeURIComponent(p.id)}" aria-label="View ${name}">
-          <span class="ds-track">${imgs.map((src, i) => `<img src="${src}" loading="lazy" alt="${i === 0 ? name : ''}" draggable="false">`).join('')}</span>
+          <span class="ds-track">${imgs.map((src, i) => `<img src="${src}" decoding="async" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png?v=122'" alt="${i === 0 ? name : ''}" draggable="false">`).join('')}</span>
           <span class="ds-wt">${p.weightG} g</span>
           ${imgs.length > 1 ? `<span class="ds-count" data-count>1/${imgs.length}</span>
             <button type="button" class="ds-arrow ds-prev" data-dir="-1" aria-label="Previous photo">‹</button>
@@ -5275,8 +5279,18 @@ pages.catalogues = async (view) => {
       if (cnt) cnt.textContent = (i + 1) + '/' + n;
       try { navigator.vibrate?.(6); } catch (e) {}
     };
-    /* v102 — eager-load the second shot so the first swipe is instant */
-    grid.querySelectorAll('.ds-slider.has-multi img:nth-child(2)').forEach(im => { im.setAttribute('loading', 'eager'); if (im.dataset.src) im.src = im.dataset.src; });
+    /* v122 — eager-load the second shot only as its card nears the viewport,
+       so the first swipe stays instant without fetching 65 spare photos. */
+    const _dsEager = ('IntersectionObserver' in window) ? new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting) return;
+      const im = e.target.querySelector('img:nth-child(2)');
+      if (im) { im.setAttribute('loading', 'eager'); if (im.dataset.src) im.src = im.dataset.src; }
+      _dsEager.unobserve(e.target);
+    }), { rootMargin: '300px' }) : null;
+    grid.querySelectorAll('.ds-slider.has-multi').forEach(s => {
+      if (_dsEager) _dsEager.observe(s);
+      else { const im = s.querySelector('img:nth-child(2)'); if (im) im.setAttribute('loading', 'eager'); }
+    });
     grid.addEventListener('click', e => {
       const arrow = e.target.closest('.ds-arrow'), dot = e.target.closest('.ds-dot');
       if (!arrow && !dot) return;
@@ -6403,6 +6417,26 @@ function dsSaveSel() { try { localStorage.setItem(DS_SEL_KEY, JSON.stringify(win
 function dsLoadFilters() { try { return JSON.parse(localStorage.getItem(DS_FIL_KEY) || '{}') || {}; } catch (e) { return {}; } }
 function dsSaveFilters(f) { try { localStorage.setItem(DS_FIL_KEY, JSON.stringify(f)); } catch (e) {} }
 function dsClearSaved() { try { localStorage.removeItem(DS_SEL_KEY); localStorage.removeItem(DS_FIL_KEY); } catch (e) {} }
+/* v122 — desk sort. Featured is the catalogue order it arrived in (kept on
+   first use); Selected-first floats the running bill to the top for review. */
+function dsSort() {
+  const grid = document.getElementById('dsGrid'); if (!grid) return;
+  const sel = document.getElementById('dsfSort');
+  const mode = sel ? sel.value : '';
+  const cards = [...grid.querySelectorAll('.ds-card')];
+  if (!cards.length) return;
+  if (cards[0]._dsi == null) cards.forEach((c, i) => { c._dsi = i; });
+  const picked = window._sel || {};
+  const idOf = c => (c.id || '').replace(/^ds-/, '');
+  const by = {
+    sel: (a, b) => (((picked[idOf(b)] || 0) > 0) - ((picked[idOf(a)] || 0) > 0)) || (a._dsi - b._dsi),
+    wasc: (a, b) => (+a.dataset.w - +b.dataset.w) || (a._dsi - b._dsi),
+    wdesc: (a, b) => (+b.dataset.w - +a.dataset.w) || (a._dsi - b._dsi),
+    az: (a, b) => String(a.dataset.name || '').localeCompare(String(b.dataset.name || '')) || (a._dsi - b._dsi),
+  }[mode] || ((a, b) => a._dsi - b._dsi);
+  cards.sort(by).forEach(c => grid.appendChild(c));
+  const e = document.getElementById('dsEmpty'); if (e) grid.appendChild(e);
+}
 function initDsfilters(attempt = 0) {
   const grid = document.getElementById('dsGrid');
   if (!grid) { if (attempt < 20) setTimeout(() => initDsfilters(attempt + 1), 300); return; }
@@ -6415,6 +6449,15 @@ function initDsfilters(attempt = 0) {
     const purity = g('dsfPurity') ? g('dsfPurity').value : '';
     const wmin = parseFloat(g('dsfWMin') && g('dsfWMin').value) || 0;
     const wmax = parseFloat(g('dsfWMax') && g('dsfWMax').value) || Infinity;
+    const q = (g('dsfSearch') ? g('dsfSearch').value : '').trim().toLowerCase();
+    if (!grid.querySelector('.ds-card')) {
+      let e0 = g('dsEmpty');
+      if (!e0) { e0 = document.createElement('div'); e0.id = 'dsEmpty'; e0.className = 'empty'; e0.style.cssText = 'grid-column:1/-1;padding:44px 20px;text-align:center'; grid.appendChild(e0); }
+      e0.innerHTML = '<div class="big">&#10022;</div><h3>The designs could not load</h3><p style="color:var(--ink-3);margin-top:6px">Check your connection and pull to refresh — your saved bill is safe.</p>';
+      e0.style.display = '';
+      ['dsShown', 'dsShown2'].forEach(id => { const el = g(id); if (el) el.textContent = ''; });
+      return;
+    }
     let shown = 0;
     grid.querySelectorAll('.ds-card').forEach(c => {
       const w = +c.dataset.w;
@@ -6422,11 +6465,12 @@ function initDsfilters(attempt = 0) {
         && (!stone || c.dataset.stone === stone)
         && (!colour || (c.dataset.colour || '') === colour)
         && (!purity || (c.dataset.purity || '') === purity)
-        && w >= wmin && w <= wmax;
+        && w >= wmin && w <= wmax && (!q || (c.dataset.name || '').toLowerCase().includes(q) || (c.dataset.sku || '').toLowerCase().includes(q));
       c.style.display = ok ? '' : 'none'; if (ok) shown++;
     });
     const txt = shown + ' design' + (shown === 1 ? '' : 's') + ' shown';
     ['dsShown', 'dsShown2'].forEach(id => { const el = g(id); if (el) el.textContent = txt; });
+    dsSort();
     if (!shown) {
       let e = g('dsEmpty');
       if (!e) { e = document.createElement('div'); e.id = 'dsEmpty'; e.className = 'empty'; e.style.cssText = 'grid-column:1/-1;padding:44px 20px;text-align:center';
@@ -6435,7 +6479,7 @@ function initDsfilters(attempt = 0) {
       e.style.display = '';
     } else { const e = g('dsEmpty'); if (e) e.style.display = 'none'; }
   };
-  const FIDS = ['dsfCat', 'dsfStone', 'dsfColour', 'dsfPurity', 'dsfWMin', 'dsfWMax'];
+  const FIDS = ['dsfSearch', 'dsfCat', 'dsfStone', 'dsfColour', 'dsfPurity', 'dsfWMin', 'dsfWMax', 'dsfSort'];
   const quick = g('dsfQuick');
   /* v113 — put yesterday's filters back before the first pass, and remember
      every change. Restoring a quick-weight chip too, so the bar reads true. */
@@ -6453,8 +6497,14 @@ function initDsfilters(attempt = 0) {
     const f = {}; FIDS.forEach(id => { const el = g(id); if (el && el.value !== '') f[id] = el.value; });
     dsSaveFilters(f);
   };
+  let _dsSearchT = 0;
   FIDS.forEach(id => {
     const el = g(id); if (!el) return;
+    if (id === 'dsfSearch') {
+      el.oninput = () => { clearTimeout(_dsSearchT); _dsSearchT = setTimeout(() => { remember(); apply(); }, 120); };
+      el.onchange = () => { clearTimeout(_dsSearchT); remember(); apply(); };
+      return;
+    }
     el.oninput = () => { remember(); paintChip(); apply(); };
     el.onchange = () => { remember(); paintChip(); apply(); };
   });
@@ -6484,6 +6534,7 @@ window.ShivaaDS = {
     window._sel[pid] = Math.max(0, (window._sel[pid] || 0) + d);
     if (window._sel[pid] === 0) delete window._sel[pid];
     dsSaveSel();                                   // v113 — survive navigation & reload
+    try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
     const card = document.getElementById('ds-' + pid);
     if (card) {
       card.classList.toggle('on', window._sel[pid] > 0);
