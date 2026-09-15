@@ -636,6 +636,31 @@ async function toggleWish(id) {
 }
 const isWished = id => state.user ? null : state.localWish.includes(id); // null = unknown(server), handled in card
 
+/* ── v113b · the broken-image net ─────────────────────────────────────────
+   Any <img> whose file is missing — a category photo that was never shot, a
+   product image pulled from the CDN, a stale cached URL — used to show the
+   browser's torn-page icon in the middle of the collection grid. Now it
+   degrades to the house monogram. One capture listener covers every image on
+   every page, including ones rendered later, so no render path can forget it.
+   Images that carry their own inline onerror (the product cards, which swap in
+   the logo) are left to their own handler. */
+(function brokenImageNet() {
+  const FB = 'data:image/svg+xml,' + encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'>" +
+    "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>" +
+    "<stop offset='0' stop-color='#4a1220'/><stop offset='1' stop-color='#26070d'/></linearGradient></defs>" +
+    "<rect width='180' height='180' fill='url(#g)'/>" +
+    "<path d='M90 52l11 15-11 15-11-15z' fill='#d4af5a' fill-opacity='.9'/>" +
+    "<path d='M62 106h56' stroke='#d4af5a' stroke-opacity='.34' stroke-width='2'/>" +
+    "<path d='M74 118h32' stroke='#d4af5a' stroke-opacity='.18' stroke-width='2'/></svg>");
+  window.addEventListener('error', (e) => {
+    const t = e.target;
+    if (!t || t.tagName !== 'IMG' || t.dataset.imgFb || t.hasAttribute('onerror')) return;
+    t.dataset.imgFb = '1';
+    t.src = FB;
+  }, true);
+})();
+
 /* ─────────── 3D + motion helpers ─────────── */
 function bindTilt(scope = document) {
   // v42: skip tilt on mobile/touch — causes vibration, flicker, scroll-jank
@@ -1351,12 +1376,17 @@ function initCarousel() {
   $('.c-next', car).onclick = next; $('.c-prev', car).onclick = prev;
   $$('.c-dot', dots).forEach(d => d.onclick = () => go(+d.dataset.i));
   const start = () => {
+    /* v113b - never stack intervals. Every pointercancel / lostpointercapture /
+       visibilitychange used to add another timer on top of the running one, so
+       after a scroll or a tab switch the deck advanced two, three, four slides
+       per tick. clearInterval first makes start() idempotent. */
+    clearInterval(window._carTimer);
     // v42: slower auto-advance on mobile (12s vs 5.5s desktop) so it glides, not jumps
     const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
     const interval = _mob ? 12000 : 5500;
     window._carTimer = setInterval(next, interval);
   };
-  const stop = () => clearInterval(window._carTimer);
+  const stop = () => { clearInterval(window._carTimer); window._carTimer = null; };
   car.addEventListener('mouseenter', stop);
   car.addEventListener('mouseleave', start);
   /* v113 — swipe engine rebuilt.
@@ -1814,7 +1844,15 @@ window.Shivaa.logout = () => {
 
 function renderRateStrip() {
   const R = state.rates; if (!R || !$('#rateStrip')) return;
-  const cell = (key, name, val, unit, chg) => `<div class="rscell"><small>${name}</small><b data-rsh="${key}">${val}</b><span class="chg ${chg >= 0 ? 'up' : 'down'}">${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg).toFixed(0)} ${unit}</span></div>`;
+  /* v113b — a flat move reads "— steady" on every cell, Jaipur included.
+     "▲ 0 ₹/g vs prev" looked like a broken counter, not a calm market. */
+  const cell = (key, name, val, unit, chg) => {
+    const flat = Math.abs(chg) < 0.05;
+    const cls = flat ? 'flat' : (chg > 0 ? 'up' : 'down');
+    const arrow = flat ? '—' : (chg > 0 ? '▲' : '▼');
+    const mag = flat ? 'steady' : `${Math.abs(chg).toFixed(0)} ${unit}`;
+    return `<div class="rscell"><small>${name}</small><b data-rsh="${key}">${val}</b><span class="chg ${cls}">${arrow} ${mag}</span></div>`;
+  };
   const h = R.history || [];
   const prev = h.length > 1 ? h[h.length - 2] : R;
   const age = rateAgeLabel(R);
@@ -1822,16 +1860,24 @@ function renderRateStrip() {
      (rtgs_strip() on the server), so the customer section can never quote
      below the B2B board again. A flat move reads "—" rather than a
      misleading "▲ 0". */
+  /* v113b — the rtgs mid is always a whole rupee: gold ₹/10 g, silver ₹/kg.
+     The magnitude prints as an absolute value, so a fall reads "▼ 1,240" and
+     never the double-negative "▼ -1,240" the first cut produced. */
+  const rtgsVal = row => Number(row.mid).toLocaleString('en-IN', { maximumFractionDigits: 0 });
   const rtgsCell = (k, row) => {
     if (!row) return '';
-    const val = row.unit === '₹/kg' ? Number(row.mid).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : Number(row.mid).toLocaleString('en-IN');
     const ch = Number(row.change || 0);
     const cls = ch > 0 ? 'up' : (ch < 0 ? 'down' : 'flat');
     const arrow = ch > 0 ? '▲' : (ch < 0 ? '▼' : '—');
-    const mag = row.unit === '₹/kg' ? ch.toFixed(0) : Math.abs(ch).toFixed(0);
-    return `<div class="rscell rs-rtgs"><small>◈ ${row.label} <em>${row.unit}</em></small><b data-rsh="${k}">${val}</b><span class="chg ${cls}">${arrow} ${ch === 0 ? 'steady' : mag}</span></div>`;
+    const mag = Math.abs(ch).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    return `<div class="rscell rs-rtgs"><small>◈ ${row.label} <em>${row.unit}</em></small><b data-rsh="${k}">${rtgsVal(row)}</b><span class="chg ${cls}">${arrow} ${ch === 0 ? 'steady' : mag}</span></div>`;
   };
   const rt = (R.rtgs && R.rtgs.rows) || {};
+  /* v113b — the RTGS cells are part of the strip's own move-flash now, so the
+     bullion numbers pulse exactly like the Jaipur ones when the feed ticks. */
+  const shows = [['gold22', fmt(R.gold22)], ['gold18', fmt(R.gold18)], ['silver', fmt2(R.silver)]];
+  if (rt.tdsGold9999) shows.push(['rtgsG9999', rtgsVal(rt.tdsGold9999)]);
+  if (rt.silverPeti) shows.push(['rtgsS9999', rtgsVal(rt.silverPeti)]);
   $('#rateStrip').innerHTML =
     cell('gold22', '✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
     cell('gold18', 'Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
@@ -1840,12 +1886,12 @@ function renderRateStrip() {
     rtgsCell('rtgsS9999', rt.silverPeti) +
     `<div class="rscell"><small>${R.live ? 'Live now' : 'Updated'}</small><b style="font-size:17px">${R.live ? '⦿ LIVE' : timeFmt(R.t)}</b><span class="${age.live ? 'rs-live' : ''}"${age.live ? ' data-rate-age' : ''}><span class="live-dot"></span>${age.txt}</span></div>`;
   if (state._lastRsh) {
-    [['gold22', fmt(R.gold22)], ['gold18', fmt(R.gold18)], ['silver', fmt2(R.silver)]].forEach(([k, txt]) => {
+    shows.forEach(([k, txt]) => {
       const old = state._lastRsh[k];
       if (old != null && old !== txt) flashMove($('#rateStrip').querySelector(`[data-rsh="${k}"]`), txt, parseFloat(txt.replace(/[^0-9.]/g, '')) > parseFloat(String(old).replace(/[^0-9.]/g, '')) ? 1 : -1);
     });
   }
-  state._lastRsh = { gold22: fmt(R.gold22), gold18: fmt(R.gold18), silver: fmt2(R.silver) };
+  state._lastRsh = Object.fromEntries(shows);
 }
 
 /* ─────────── HOME ─────────── */
@@ -5164,8 +5210,14 @@ pages.b2b = async (view) => {
     if (otpIn) otpIn.addEventListener('input', () => {
       clearTimeout(tO);
       const v = otpIn.value.replace(/\D/g, '').slice(0, 4);
-      if (v.length !== 4 || v === autoCode || window._kyc.otp) return;
-      if (!window._kycOtpSent) return;            // nothing to verify yet
+      if (v.length !== 4 || window._kyc.otp) return;
+      /* v113b - the code must belong to the number currently typed, and a code
+         that FAILED must be retryable: only one that already succeeded (or is
+         in flight) is skipped. Before this a mistyped digit left the partner
+         looking at a silent form with no way forward but a reload. */
+      const now = $('#kyPhone') ? $('#kyPhone').value.replace(/\D/g, '') : '';
+      if (!window._kycOtpSent || window._kycOtpSent !== now) return;   // nothing to verify yet
+      if (v === autoCode && window._kycOtpFailed !== v) return;
       tO = setTimeout(() => { if (otpIn.value.replace(/\D/g, '').slice(0, 4) === v) { autoCode = v; window.Shivaa.kycOtpVerify(); } }, 260);
     });
     // v101 — optional business-card upload
@@ -5299,9 +5351,19 @@ window.Shivaa.kycOtpVerify = async () => {
   try {
     await api('/api/kyc/verify-otp', { method: 'POST', body: JSON.stringify({ phone, code }) });
     window._kyc.otp = true;
+    window._kycOtpFailed = '';                                 // v113b - nothing pending
     const st = $('#otpStat'); st.textContent = '✓ Mobile verified'; st.className = 'kyc-status ok';
     window.Shivaa.kycGate();
-  } catch (e) { toast(e.message, 'err'); }
+  } catch (e) {
+    /* v113b - remember the rejected code so the auto-verifier lets the same
+       digits be submitted again, clear the field so the retry starts clean, and
+       say WHY on the form itself (a toast is easy to miss mid-form). */
+    window._kycOtpFailed = code;
+    autoCode = '';
+    try { $('#kyOtp').value = ''; } catch (err) {}
+    const st = $('#otpStat'); if (st) { st.textContent = '✗ ' + e.message; st.className = 'kyc-status bad'; }
+    toast(e.message, 'err');
+  }
   finally { window._kycOtpVerifying = false; }
 };
 window.Shivaa.gotoJeweller = () => { closeModal(); location.hash = '#/b2b'; };
@@ -5324,6 +5386,15 @@ window.Shivaa.kycFieldEdit = (which) => {
   }
   if (which === 'otp') {
     window._kyc.otp = false;
+    /* v113b - a code already sent belongs to the number it went to. This runs
+       on EVERY keystroke in the phone field (its inline oninput), so it may
+       only forget the code when the digits really changed - re-typing or
+       re-pasting the same number must not silently disable auto-verify. */
+    const ph = $('#kyPhone') ? $('#kyPhone').value.replace(/\D/g, '') : '';
+    if (window._kycOtpSent && window._kycOtpSent !== ph) {
+      window._kycOtpSent = '';
+      window._kycOtpFailed = '';
+    }
     const st = $('#otpStat'); if (st) { st.textContent = ''; st.className = 'kyc-status'; }
     const otp = $('#kyOtp'); if (otp) otp.value = '';
   }
