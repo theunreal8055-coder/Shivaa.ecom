@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-14 (v111 GO-LIVE — 65 PGS rings to production)**
+**Last updated: 2026-09-15 (v117 "butter" — hero slider tap-jump fix + speed/mobile pass)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
@@ -364,6 +364,17 @@ PGS5059 Kanchan
 ---
 
 ## 📝 SESSION STEP LOG (newest first — append every session)
+
+**2026-09-15 — v117 "butter" (branch arena/01a0a44f-shivaa-ecom)**
+1. Owner: "website very slow — make it fast and butter; hero banner button sliders are out of place: whenever we click them they shift to the bottom of the page." Read ARENA-STATE/HANDOFF/MEMORY; branch verified at tip of main (d52d1bc, v116).
+2. Diagnosed the tap-jump **without a browser repro** (sandbox has no Chrome — downloads blocked): root cause = **focus scroll**. `.carousel` is `tabindex=0`; arrows are real `<button>`s; dot taps delegate focus to the carousel; the browser scrolls the page to fully reveal the 430–600 px deck ⇒ "buttons shift to the bottom of the page on click". Proven live in the new `tools/mega/smoke/v117-check.js` (jsdom: pointerdown on the carousel is defaultPrevented; dot/arrow taps still drive the deck). Also fixed `aurum.css`'s `.c-arrow:active{transform:scale(.9)}` which REPLACED `translateY(-50%)` while pressed (arrow dropped mid-tap); `css/v117.css` keeps the translate + adds squash (scoped `#heroCarousel`, `!important`). Track moved to GPU `translate3d`.
+3. Speed pass (all in boot/render path, no data touched): boot = ONE parallel API batch (rates in the batch, footer `/api/pages` backgrounded; was 3 serial rounds before the preloader lifted) + 6 s hard cap with quiet re-paint on late batches + independent 6.5 s splash cap in new `js/v117.js`.
+4. Fonts: `css/fonts.css` was 354 KB of render-blocking base64 — only 3 UNIQUE fonts duplicated per weight. Extracted to `/fonts/{jost,cormorant-garamond,marcellus-400}.woff2` (78 KB) via new `tools/fonts/extract_fonts.py` (idempotent, re-runnable); fonts.css now 2 KB; all 3 preloaded; swap; rendering byte-identical.
+5. Deferred ~200 KB CSS (hallmark/trust/motion/aurum/v107/boost via preload-swap + noscript) and ~110 KB JS (aurum/motion/boost now injected post-paint by js/v117.js, same order, `async=false`; none register routes, all self-guarding). Mobile: `content-visibility:auto` on sections ≥5 + footer; phone GPU trims. SW → `shivaa-shell-v117`, precache one-for-one with the new shell.
+6. Gates: v113b smoke **32/32** + new v117-check **27/27**, both re-run PASS on the built zip overlay (`SMOKE_CMS=<dir>`). Deliverables: `shivaa-update-v117.zip` (10 files) + `cms/DEPLOY-v117.md`.
+7. Docs updated (this log, ARENA-STATE §1, MEMORY.md). PR → main follows the forward-only rules.
+
+
 
 **2026-09-14 — v111 GO-LIVE (branch arena/01a0a077-shivaa-ecom)**
 1. Read ARENA-STATE/HANDOFF. Session branch = origin/main tip (`93b5180`, the
