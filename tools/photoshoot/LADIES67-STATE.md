@@ -111,6 +111,8 @@ product records, byte-faithful db round-trip) → update this table → commit+p
 2. Smoke gates: `node tools/mega/smoke/v113b-check.js` + `v117/v118/v119-check.js`
    (db grew → shop slicing must still pass) + php-sweep.
 3. PR `arena/01a0a5c8-shivaa-ecom` → `main`; the merge fires **Catalogue Deploy**
+   (script + workflow generalized 2026-09-15 from "exactly 65" to "exactly the
+   master PGS set"; zoom QA step scoped to PGS5001–5065, this lot uses contact-sheet QA)
    (marker `deploy/GO-LIVE-v111.txt` already `GO`) which pushes db + photos live;
    verify `https://shivaa.in/api/products` shows 132 PGS products, 4 shots each.
 4. Update ARENA-STATE.md §1 + HANDOFF.md in the same PR (house rule 3).

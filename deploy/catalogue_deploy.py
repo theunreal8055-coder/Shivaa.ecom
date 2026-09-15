@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
-"""CATALOGUE DEPLOY (v111) — make the LIVE catalogue exactly the 65 PGS rings
-from cms/data/db.json (the master), with photos uploaded from cms/images/.
+"""CATALOGUE DEPLOY (v111, generalized 2026-09-15) — make the LIVE catalogue
+exactly the PGS rings in cms/data/db.json (the master), with photos uploaded
+from cms/images/.
 
-Owner order (2026-09-14): no sample products — the shop shows ONLY the 65 PGS
-rings. This script is idempotent and resumable:
+Owner order (2026-09-14): no sample products — the shop shows ONLY PGS rings.
+Generalized 2026-09-15 for the ladies-67 lot (owner: "upload 12 designs on
+live website"): the master count is DYNAMIC (was hard-asserted 65); the
+contract is now "live == every PGS record in master db.json".
+This script is idempotent and resumable:
   1. login -> token
   2. GET /api/products -> live catalogue
-  3. [--live] DELETE every live product whose sku is NOT one of the 65 PGS SKUs
-     (currently none — future-proof; nothing ring-PGS is ever deleted)
-  4. for each of the 65 master records, in SKU order:
-       - POST /api/media x4 (cover first, then editorial, worn, gift)
+  3. [--live] DELETE every live product whose sku is NOT in the master PGS set
+     (future-proof; nothing in master is ever deleted)
+  4. for each master record, in SKU order:
+       - POST /api/media x4 (images[] order)
        - PUT  /api/products/{id}  if the SKU already exists live (update in
          place — no catalogue gap), else POST /api/products
        - body = master record minus id/createdAt/hallmark*  (v110 lesson: the
          API rejects hallmark payloads; identity keys are server-owned)
-  5. verify: exactly 65 live products, 65 PGS rings, 0 videos, all 4 images
+  5. verify: live product set == master PGS set, 0 videos, all 4 images
 
 Usage:
     python3 deploy/catalogue_deploy.py --email admin@shivaa.in --password '***'        # dry-run
@@ -96,14 +100,15 @@ def main():
 
     db = json.loads(DB.read_text())
     master = [p for p in db['products'] if str(p.get('sku', '')).startswith('PGS')]
-    assert len(master) == 65, f'expected 65 PGS rings in master db.json, found {len(master)}'
+    assert master, 'no PGS rings in master db.json'
+    assert len(master) == len(db['products']), 'non-PGS product in master db.json'
     for p in master:  # preflight media on disk
         assert p.get('name') and float(p.get('weightG', 0)) > 0, f"{p['sku']}: bad record"
         for im in p['images'][:4]:
             assert (IMG_ROOT / im.lstrip('/')).is_file(), f"{p['sku']}: missing {im}"
     skus = [p['sku'] for p in master]
-    assert len(set(skus)) == 65
-    print('preflight OK: 65 PGS master records, all 4 shots on disk, no videos')
+    assert len(set(skus)) == len(master), 'duplicate SKUs in master db.json'
+    print(f'preflight OK: {len(master)} PGS master records, all 4 shots on disk, no videos')
 
     ledger = {'refreshed': []}
     if LEDGER.exists() and a.live:
@@ -150,7 +155,7 @@ def main():
             sys.exit(f"DELETE {p['id']} failed ({st}): {r} — re-run to resume")
         time.sleep(0.2)
 
-    # 2) upsert the 65
+    # 2) upsert the master set
     for rec in master:
         sku = rec['sku']
         if sku in ledger.get('refreshed', []):
@@ -187,8 +192,11 @@ def main():
     pgs = [p for p in live if str(p.get('sku', '')).startswith('PGS')]
     with_video = [p for p in live if p.get('video')]
     four = all(len(p.get('images', [])) >= 4 for p in pgs)
-    ok = len(live) == 65 and len(pgs) == 65 and not with_video and four
-    print(f'\nVERIFY: {len(live)} products live (want 65); PGS {len(pgs)} (want 65); '
+    want = set(skus)
+    got = {str(p.get('sku', '')) for p in pgs}
+    ok = got == want and len(live) == len(want) and not with_video and four
+    print(f'\nVERIFY: {len(live)} products live (want {len(want)}); PGS {len(pgs)} (want {len(want)}); '
+          f'missing={sorted(want - got)[:5]} extra={sorted(got - want)[:5]}; '
           f'videos {len(with_video)} (want 0); all 4-shot: {four}. '
           + ('OK ✅' if ok else 'MISMATCH ⚠️ — investigate before re-running'))
     if ok:
