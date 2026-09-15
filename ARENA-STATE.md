@@ -8,6 +8,16 @@
 
 ## 1. CURRENT STATE (update this block at the end of every work session)
 
+- **Ladies-67 campaign (2026-09-15, branch `arena/01a0a5c8-shivaa-ecom`, PR #46):** owner lot
+  `67 rings ladies plain hitesh bhai_compressed.pdf` (67 scale photos, weights read off the LCDs)
+  → owner's 4-shot prompt set (hero/macro/model/lifestyle + Global Lock), MC 12% + GST 3% (GST
+  already house-wide in `price()`), SKUs PGS5066–5132. Ledgers:
+  `tools/photoshoot/LADIES67-STATE.md` + `ladies67-manifest.json`; cropper `ladies67_crop.py`;
+  db upsert `ladies67_db.py`. **Tranche 1 (12 designs, PGS5066–5077) merged to `main` with a
+  GO-LIVE marker retrigger → Catalogue Deploy makes live = master PGS set (77).** Deploy script +
+  workflow generalized from "exactly 65" to "exactly the master PGS set" in the same merge; zoom
+  QA step scoped to PGS5001–5065 (this lot uses contact-sheet QA). Batches B7–B34 continue on the
+  session branch; each later tranche = its own PR + marker bump. Old zoom-fix batches 3–7 parked.
 - **Version on `main`:** **v119 — 2026-09-15 — MERGED (PR #45 `e2a4dd5`, 19:31 IST) + LIVE-VERIFIED (20:48 IST)** (22K premium ₹398 desk-physical + published rate anchor + first-paint/mobile pack). Live reads: `premium.gold22=398`, `anchorLevel.mode=mcx-future`, `jaipur.gold22=14200`=round(15056×0.9167)+398 (+₹343/g vs v118); PGS5004 (3.83 g)=₹62,877; `shivaa-shell-v119`; zip in `public_html` ROOT. Cron did NOT auto-deploy PR #45 (manual zip) — investigate before trusting push-to-deploy. Main tip `82dc23b` adds only the owner-uploaded `67 rings ladies plain hitesh bhai_compressed.pdf` (next batch intake, zero cms/ changes). PRs #43/#38 closed unmerged. Deliverable `shivaa-update-v119.zip` (10 files, root layout) + `cms/DEPLOY-v119.md`. Owner decision (LOCKED — do not change the numbers): `/api/rates` publishes `premium.gold22 = 398` and `anchorLevel {mode, goldPerG, silverPerG, source, at}`, and `jaipur.gold22 = round(anchorLevel.goldPerG × 0.9167) + 398`; the 24K/18K lines keep `jaipurPremium` (55) and an admin override still wins. Every 22K piece is **₹343/g** up on v118.
   - **Ownership:** implemented on session branch `arena/01a0a548-shivaa-ecom` (this chat) after the previous session's v119 was found to have never been pushed — the earlier branch (`arena/01a0a512-…`) was only the v118 Step-0 landing (PR #44). Rebuilt from the documented spec, not from PR #43 (which is pre-v118 and must NOT be merged: it reverts v118's category guards, gallery pointer capture and `aria-current`).
   - **Rates:** new `settings.gold22Premium` (default 398, admin-editable under Settings → *22K gold premium ₹/g (desk physical)*, PUT-whitelisted 0–100 000). `gold22_premium()` / `jaipur_from_anchor()` / `anchor_level()` in `api.php`; `/api/rates` derives jaipur from the ONE anchor block, and the storefront rate card shows the 22K premium + a *Rate anchor* row (MCX future / spot / override). Master `cms/data/db.json` carries `gold22Premium: 398`; `migrate-repair.php` seeds it for older DBs.
