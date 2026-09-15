@@ -1,0 +1,1101 @@
+{
+ "source": "67 rings ladies plain hitesh bhai_compressed.pdf (repo root, 67 pages, 1 photo/page)",
+ "extracted": "2026-09-15",
+ "sku_scheme": "PGS5066..PGS5132 in page order (ASSUMPTION — rename-friendly until upload)",
+ "category": "rings",
+ "metal": "Gold",
+ "purity": "22K",
+ "tags": [
+  "Ring",
+  "gold",
+  "ladies",
+  "plain"
+ ],
+ "sizes": [
+  "10",
+  "12",
+  "14",
+  "16"
+ ],
+ "mc": {
+  "mcScheme": "percent",
+  "mcValue": 12
+ },
+ "gstPct": 3,
+ "stock": 10,
+ "promptSet": "owner 2026-09-15: Global Lock + hero/macro/model/lifestyle (see LADIES67-STATE.md)",
+ "designs": [
+  {
+   "page": 1,
+   "sku": "PGS5066",
+   "name": "Phoolwati",
+   "motif": "wide band with floral cross-flower crest and milgrain edges",
+   "weightG": 1.8,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p01_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5066_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5066_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5066_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5066_4_lifestyle.jpg"
+   },
+   "status": "shots-QA-db done (B1, 2026-09-15)"
+  },
+  {
+   "page": 2,
+   "sku": "PGS5067",
+   "name": "Jaali",
+   "motif": "tall barrel lattice band with square grid cut-outs",
+   "weightG": 2.592,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p02_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5067_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5067_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5067_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5067_4_lifestyle.jpg"
+   },
+   "status": "shots-QA-db done (B1, 2026-09-15)"
+  },
+  {
+   "page": 3,
+   "sku": "PGS5068",
+   "name": "Patli Phool",
+   "motif": "slim band with a leafy flower crest",
+   "weightG": 1.145,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p03_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5068_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5068_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5068_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5068_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 4,
+   "sku": "PGS5069",
+   "name": "Bel Patra",
+   "motif": "leaf-and-vine wrap band",
+   "weightG": 3.335,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p04_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5069_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5069_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5069_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5069_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 5,
+   "sku": "PGS5070",
+   "name": "Do Patli",
+   "motif": "twin-leaf wrap with a marquise centre",
+   "weightG": 1.82,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p05_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5070_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5070_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5070_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5070_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 6,
+   "sku": "PGS5071",
+   "name": "Kali",
+   "motif": "thin band with a small flower-bud crest",
+   "weightG": 1.155,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p06_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5071_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5071_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5071_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5071_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 7,
+   "sku": "PGS5072",
+   "name": "Gulabi",
+   "motif": "swirl-knot centre on a thin band",
+   "weightG": 1.89,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p07_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5072_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5072_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5072_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5072_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 8,
+   "sku": "PGS5073",
+   "name": "Pankhudi",
+   "motif": "feather-textured leaf wide band",
+   "weightG": 1.885,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p08_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5073_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5073_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5073_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5073_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 9,
+   "sku": "PGS5074",
+   "name": "Soni",
+   "motif": "slim polished band with a stepped twin-triangle notch crest",
+   "weightG": 1.468,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p09_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5074_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5074_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5074_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5074_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 10,
+   "sku": "PGS5075",
+   "name": "Kairi",
+   "motif": "leaf-and-bud (kairi) wrap band",
+   "weightG": 1.291,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p10_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5075_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5075_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5075_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5075_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 11,
+   "sku": "PGS5076",
+   "name": "Leher",
+   "motif": "S-swirl scroll slim band",
+   "weightG": 1.254,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p11_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5076_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5076_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5076_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5076_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 12,
+   "sku": "PGS5077",
+   "name": "Chhabi",
+   "motif": "flower-and-disc charm cluster band",
+   "weightG": 1.358,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p12_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5077_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5077_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5077_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5077_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 13,
+   "sku": "PGS5078",
+   "name": "Mor Pankh",
+   "motif": "feather-textured wide dome band",
+   "weightG": 1.845,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p13_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5078_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5078_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5078_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5078_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 14,
+   "sku": "PGS5079",
+   "name": "Titli",
+   "motif": "broad band with a butterfly-flower crest",
+   "weightG": 1.591,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p14_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5079_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5079_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5079_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5079_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 15,
+   "sku": "PGS5080",
+   "name": "Chandra",
+   "motif": "chunky polished wrap with a disc centre",
+   "weightG": 2.838,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p15_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5080_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5080_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5080_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5080_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 16,
+   "sku": "PGS5081",
+   "name": "Suman",
+   "motif": "flower medallion on a slim band",
+   "weightG": 1.927,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p16_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5081_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5081_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5081_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5081_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 17,
+   "sku": "PGS5082",
+   "name": "Bel Buti",
+   "motif": "wide band with floral vine scrolls",
+   "weightG": 2.922,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p17_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5082_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5082_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5082_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5082_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 18,
+   "sku": "PGS5083",
+   "name": "Meera",
+   "motif": "flower-and-swirl openwork band",
+   "weightG": 1.978,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p18_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5083_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5083_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5083_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5083_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 19,
+   "sku": "PGS5084",
+   "name": "Padmini",
+   "motif": "marquise lozenge filigree plate ring",
+   "weightG": 2.369,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p19_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5084_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5084_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5084_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5084_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 20,
+   "sku": "PGS5085",
+   "name": "Shankha",
+   "motif": "ribbed shell-wrap double band",
+   "weightG": 3.334,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p20_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5085_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5085_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5085_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5085_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 21,
+   "sku": "PGS5086",
+   "name": "Parijat",
+   "motif": "slim band with a leaf-spray crest",
+   "weightG": 1.319,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p21_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5086_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5086_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5086_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5086_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 22,
+   "sku": "PGS5087",
+   "name": "Kusum",
+   "motif": "split double-wire band holding a diamond lozenge filigree plate",
+   "weightG": 1.482,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p22_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5087_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5087_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5087_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5087_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 23,
+   "sku": "PGS5088",
+   "name": "Bunavat",
+   "motif": "woven multi-wire barrel band",
+   "weightG": 3.23,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p23_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5088_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5088_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5088_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5088_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 24,
+   "sku": "PGS5089",
+   "name": "Kiran",
+   "motif": "crown zigzag cutwork wide band",
+   "weightG": 2.489,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p24_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5089_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5089_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5089_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5089_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 25,
+   "sku": "PGS5090",
+   "name": "Gulmohar",
+   "motif": "round flower-scroll medallion band",
+   "weightG": 1.923,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p25_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5090_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5090_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5090_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5090_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 26,
+   "sku": "PGS5091",
+   "name": "Chaar Phool",
+   "motif": "slim band with a four-petal crest",
+   "weightG": 1.286,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p26_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5091_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5091_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5091_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5091_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 27,
+   "sku": "PGS5092",
+   "name": "Chakra",
+   "motif": "wide band with a concentric-circle motif",
+   "weightG": 3.944,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p27_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5092_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5092_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5092_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5092_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 28,
+   "sku": "PGS5093",
+   "name": "Bela",
+   "motif": "wide openwork band of S-scrolls and beads",
+   "weightG": 2.013,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p28_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5093_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5093_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5093_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5093_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 29,
+   "sku": "PGS5094",
+   "name": "Jharokha",
+   "motif": "marquise openwork leaf plate ring",
+   "weightG": 2.552,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p29_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5094_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5094_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5094_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5094_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 30,
+   "sku": "PGS5095",
+   "name": "Tamanna",
+   "motif": "openwork double-scroll band with bead dots",
+   "weightG": 2.566,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p30_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5095_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5095_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5095_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5095_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 31,
+   "sku": "PGS5096",
+   "name": "Uljan",
+   "motif": "chunky polished swirl-knot ring",
+   "weightG": 2.816,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p31_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5096_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5096_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5096_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5096_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 32,
+   "sku": "PGS5097",
+   "name": "Kota Jaali",
+   "motif": "rectangular grid lattice wide band",
+   "weightG": 2.518,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p32_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5097_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5097_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5097_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5097_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 33,
+   "sku": "PGS5098",
+   "name": "Chandrika",
+   "motif": "crescent-moon wrap band",
+   "weightG": 2.08,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p33_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5098_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5098_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5098_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5098_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 34,
+   "sku": "PGS5099",
+   "name": "Panchi",
+   "motif": "five-petal flower crest band",
+   "weightG": 1.637,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p34_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5099_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5099_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5099_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5099_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 35,
+   "sku": "PGS5100",
+   "name": "Hriday",
+   "motif": "filigree heart-flower shield band",
+   "weightG": 1.235,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p35_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5100_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5100_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5100_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5100_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 36,
+   "sku": "PGS5101",
+   "name": "Pankha",
+   "motif": "fluted fan wrap ring",
+   "weightG": 2.739,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p36_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5101_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5101_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5101_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5101_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 37,
+   "sku": "PGS5102",
+   "name": "Sonpha",
+   "motif": "slim band with a marquise lozenge filigree crest",
+   "weightG": 1.437,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p37_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5102_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5102_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5102_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5102_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 38,
+   "sku": "PGS5103",
+   "name": "Bhramar",
+   "motif": "ribbed coil dome band",
+   "weightG": 4.362,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p38_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5103_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5103_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5103_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5103_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 39,
+   "sku": "PGS5104",
+   "name": "Jaali Patra",
+   "motif": "leaf lattice wide band",
+   "weightG": 2.683,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p39_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5104_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5104_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5104_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5104_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 40,
+   "sku": "PGS5105",
+   "name": "Alaknanda",
+   "motif": "wave lattice wide band",
+   "weightG": 1.948,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p40_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5105_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5105_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5105_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5105_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 41,
+   "sku": "PGS5106",
+   "name": "Kamini",
+   "motif": "openwork scroll slim band",
+   "weightG": 2.539,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p41_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5106_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5106_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5106_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5106_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 42,
+   "sku": "PGS5107",
+   "name": "Rimjhim",
+   "motif": "slim band with a leaf-and-tendril scroll crest",
+   "weightG": 1.63,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p42_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5107_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5107_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5107_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5107_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 43,
+   "sku": "PGS5108",
+   "name": "Seedhi",
+   "motif": "textured wide band with stepped edges",
+   "weightG": 2.656,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p43_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5108_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5108_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5108_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5108_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 44,
+   "sku": "PGS5109",
+   "name": "Kamalini",
+   "motif": "lily flower spray band",
+   "weightG": 1.189,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p44_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5109_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5109_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5109_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5109_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 45,
+   "sku": "PGS5110",
+   "name": "Milan",
+   "motif": "interlocked knot band",
+   "weightG": 1.465,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p45_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5110_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5110_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5110_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5110_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 46,
+   "sku": "PGS5111",
+   "name": "Mahal",
+   "motif": "marquise filigree shield plate ring",
+   "weightG": 2.226,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p46_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5111_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5111_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5111_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5111_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 47,
+   "sku": "PGS5112",
+   "name": "Madhukari",
+   "motif": "honeycomb cutwork wide band",
+   "weightG": 2.35,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p47_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5112_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5112_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5112_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5112_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 48,
+   "sku": "PGS5113",
+   "name": "Bindu",
+   "motif": "polished shield with a four-dot crest",
+   "weightG": 1.788,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p48_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5113_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5113_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5113_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5113_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 49,
+   "sku": "PGS5114",
+   "name": "Meenakshi",
+   "motif": "scalloped medallion band",
+   "weightG": 3.111,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p49_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5114_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5114_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5114_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5114_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 50,
+   "sku": "PGS5115",
+   "name": "Preet",
+   "motif": "heart shield on a slim band",
+   "weightG": 1.484,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p50_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5115_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5115_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5115_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5115_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 51,
+   "sku": "PGS5116",
+   "name": "Do Patra",
+   "motif": "twin-leaf openwork band",
+   "weightG": 1.436,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p51_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5116_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5116_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5116_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5116_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 52,
+   "sku": "PGS5117",
+   "name": "Vajra",
+   "motif": "angular polished knot ring",
+   "weightG": 2.086,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p52_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5117_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5117_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5117_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5117_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 53,
+   "sku": "PGS5118",
+   "name": "Nukta",
+   "motif": "slim band with a diamond crest",
+   "weightG": 1.569,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p53_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5118_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5118_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5118_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5118_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 54,
+   "sku": "PGS5119",
+   "name": "Komal",
+   "motif": "leaf-and-stem spray band",
+   "weightG": 1.036,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p54_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5119_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5119_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5119_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5119_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 55,
+   "sku": "PGS5120",
+   "name": "Tara",
+   "motif": "flower-star crest band",
+   "weightG": 1.85,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p55_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5120_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5120_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5120_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5120_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 56,
+   "sku": "PGS5121",
+   "name": "Dor",
+   "motif": "twisted rope double band",
+   "weightG": 1.749,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p56_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5121_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5121_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5121_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5121_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 57,
+   "sku": "PGS5122",
+   "name": "Phulwari",
+   "motif": "floral cutwork band",
+   "weightG": 1.579,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p57_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5122_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5122_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5122_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5122_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 58,
+   "sku": "PGS5123",
+   "name": "Rajmahal",
+   "motif": "filigree scroll wide band",
+   "weightG": 2.806,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p58_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5123_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5123_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5123_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5123_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 59,
+   "sku": "PGS5124",
+   "name": "Sargam",
+   "motif": "S-scroll slim band",
+   "weightG": 1.6,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p59_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5124_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5124_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5124_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5124_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 60,
+   "sku": "PGS5125",
+   "name": "Bunaai",
+   "motif": "lattice weave wide band",
+   "weightG": 3.113,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p60_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5125_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5125_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5125_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5125_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 61,
+   "sku": "PGS5126",
+   "name": "Ghummat",
+   "motif": "polished dome with a bead crest",
+   "weightG": 1.967,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p61_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5126_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5126_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5126_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5126_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 62,
+   "sku": "PGS5127",
+   "name": "Surya",
+   "motif": "daisy flower cross band",
+   "weightG": 2.334,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p62_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5127_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5127_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5127_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5127_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 63,
+   "sku": "PGS5128",
+   "name": "Guchha",
+   "motif": "beaded cluster V band",
+   "weightG": 2.611,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p63_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5128_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5128_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5128_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5128_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 64,
+   "sku": "PGS5129",
+   "name": "Ravi",
+   "motif": "sunburst fan plate ring",
+   "weightG": 3.31,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p64_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5129_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5129_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5129_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5129_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 65,
+   "sku": "PGS5130",
+   "name": "Kamla",
+   "motif": "twin-leaf wrap shell band",
+   "weightG": 2.295,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p65_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5130_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5130_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5130_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5130_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 66,
+   "sku": "PGS5131",
+   "name": "Abha",
+   "motif": "slim band with a diamond filigree crest",
+   "weightG": 1.463,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p66_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5131_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5131_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5131_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5131_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  },
+  {
+   "page": 67,
+   "sku": "PGS5132",
+   "name": "Pallavi",
+   "motif": "polished swirl spiral with a five-petal flower fan",
+   "weightG": 2.52,
+   "weightRead": "visual-7seg-lcd",
+   "ref": "/home/user/work_shots/ladies67/refs/L67_p67_ref.jpg",
+   "shots": {
+    "hero": "/images/designs/rings/PGS5132_1_hero.jpg",
+    "macro": "/images/designs/rings/PGS5132_2_macro.jpg",
+    "model": "/images/designs/rings/PGS5132_3_model.jpg",
+    "lifestyle": "/images/designs/rings/PGS5132_4_lifestyle.jpg"
+   },
+   "status": "pending"
+  }
+ ]
+}
