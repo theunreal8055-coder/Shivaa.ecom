@@ -166,9 +166,9 @@ function env_rows(): array {
   };
   [$t, $s] = $writable($DATA);
   $rows[] = ['data/ (database + locks)', $t, $s === 'ok' ? 'ok' : 'stop', 'the installer writes db.json here'];
-  foreach (['uploads', 'uploads/catalogs', 'uploads/kyc', 'uploads/payproofs', 'uploads/reviews', 'uploads/trust', 'uploads/videos'] as $u) {
+  foreach (['uploads', 'uploads/catalogs', 'uploads/kyc', 'uploads/payproofs', 'uploads/reviews', 'uploads/trust', 'uploads/videos', 'uploads/designs'] as $u) {
     [$t, $s] = $writable($ROOT . '/' . $u);
-    $rows[] = [$u . '/', $t, $s, $s === 'ok' ? '' : 'order paperwork lands here'];
+    $rows[] = [$u . '/', $t, $s, $s === 'ok' ? '' : 'order paperwork + customer uploads land here'];
   }
   $rows[] = ['data/db.seed.json', is_file($SEED_FILE) ? number_format(filesize($SEED_FILE) / 1024) . ' KB' : 'MISSING',
              is_file($SEED_FILE) ? 'ok' : 'stop', $installed ? 'not needed (db.json exists)' : 'the catalogue seed'];
