@@ -178,6 +178,15 @@ def main() -> int:
     need(r.returncode == 0, "php-semantics (scope + call graph) on the extracted installer")
     php = (core_dir / "install.php").read_text()
     need("password_hash(" in php and "PASSWORD_DEFAULT" in php, "admin password stored with password_hash(PASSWORD_DEFAULT) — api.php's own scheme")
+    # v115-FI: the media pack used to carry the upload locks, so a core-only install
+    # created uploads/kyc etc. with NO guard — the exact folder that holds ID proofs.
+    guards = [n for n in core_names if n.startswith("uploads/") and n.endswith("/.htaccess")]
+    need(len(guards) >= 8, f"every upload folder ships its v82/v84 lock in CORE, not the media pack · {len(guards)} guards")
+    need("Options -Indexes -ExecCGI" in (core_dir / "uploads" / "kyc" / ".htaccess").read_text(),
+         "an upload guard actually denies execution and active documents")
+    need("$guard = <<<'GUARD'" in php, "installer re-writes any upload guard the host is missing")
+    need(not any(n.startswith("images/reviews/") for n in core_names),
+         "no customer review photos in a bundle whose seed carries no reviews")
     need("--confirm=RESEED" in php, "re-seeding an installed store needs SSH + an explicit RESEED word")
     # ── G5 ──────────────────────────────────────────────────────────────────
     gate("G5 every shipped script parses")

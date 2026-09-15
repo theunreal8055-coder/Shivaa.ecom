@@ -5,9 +5,10 @@ blank host becomes a live shop in one extraction and one visit to `/install.php`
 patch, not an overlay: nothing prior has to exist for this to work.
 
 **Built:** 2026-09-15 · from `cms/` at the v115 tip · branch `arena/01a0a32d-shivaa-ecom`
-**Bundles:** `shivaa-FRESH-INSTALL-v115.zip` (core, 36.8 MB, 226 entries) — committed at the repo root —
-and `dist/shivaa-FRESH-MEDIA-v115.zip` (media, 184.9 MB, 382 entries — workspace only, past GitHub's
-100 MB per-file wall). Core sha256: `47872fe76cb8f825d543a4f934e3b51c3d3b0fbeb9bbbd573036547ceda48fb7`
+**Bundles:** `shivaa-FRESH-INSTALL-v115.zip` (core, 35.1 MB, 234 files) — committed at the repo root —
+and `dist/shivaa-FRESH-MEDIA-v115.zip` (media, 186.6 MB, 373 files — workspace only, past GitHub's
+100 MB per-file wall). Integrity: every bundle carries `MANIFEST.txt` (sha1 + byte count per file, re-verified by
+`verify.py` G1); `dist/SHA256SUMS.txt` holds the sha256 of both bundles as built.
 
 ---
 
@@ -49,6 +50,15 @@ The audit diffs every archive against the tree; these are the findings that need
    `cms/js/gift-concierge.js` (rewritten against the current shell, reading `Shivaa.state.productsCache`
    and pricing through `Shivaa.price`). Proven by `qa/browser/t11-gift-concierge.mjs` → **31/31**.
 
+4. **The upload folders' edge locks were riding in the wrong pack.** `uploads/*/.htaccess`
+   (v82/v84 — no execution, no active documents, no listing) sits next to real upload content,
+   so a tiered pack put them in the **media** zip: extract the core bundle, run the installer, and
+   `uploads/kyc/` — where customer ID proofs land — had no guard at all. The nine lock files now
+   ship with the **core** bundle (`make-seed`/`tier_of` rule: a folder's `.htaccess` is a lock, not
+   content), `install.php` writes any guard a host is missing, and `verify.py` G4 fails the release
+   if either stops being true. Same sweep moved `cms/make_icons.py` out of the web bundle and kept
+   customer review photos out of a bundle whose seed carries no reviews.
+
 Deliberately *not* restored (each with its reason in `tools/fresh-install/lineage-adjudications.json`):
 `css/home-v43.css` + `css/hallmark-v43.css` (the v43 prototypes on a stale base, re-homed by v44),
 `css/v105.css` + `js/v105.js` (mined into the v107 layer, as `FEATURE-LINEAGE.md` records).
@@ -56,21 +66,27 @@ Deliberately *not* restored (each with its reason in `tools/fresh-install/lineag
 ## 3 · What ships inside
 
 ```
-core (shivaa-FRESH-INSTALL-v115.zip)      226 entries · 36.8 MB
-  index.html  api.php  install.php  admin-reset.php  sw.js  offline.html
-  .htaccess  manifest.webmanifest  robots.txt  sitemap.php  hallmark.php  trust.php
-  sms.php  mail.php  payu.gateway.fixed.php  migrate-repair.php*  admin-reset.php
-  css/ (fonts styles hallmark trust finale boost motion mobile aurum v107 v113 v115 gift-concierge)
-  js/  (app auth admin* otp-autofill hallmark trust qr motion aurum boost bot v107 v108 v109
-        gift-concierge)                                   (* admin.js/qr.js load on demand, not precached)
-  images/  logo · favicon · icons (192/512/maskable/apple) · 17 category faces · 17 banners · 65 ring covers
-  data/db.seed.json + data/.htaccess + data/install-open
-  uploads/  .htaccess + the 7 folders the store writes into
-  INSTALL.txt · MANIFEST.txt (sha1 per file) · FRESH-INSTALL-v115.md · VERSION-LINEAGE-v1-v115.md
+core (shivaa-FRESH-INSTALL-v115.zip)      234 files · 35.1 MB
+  index.html · api.php · install.php · admin-reset.php · sw.js · offline.html · .htaccess
+  manifest.json · manifest.webmanifest · robots.txt · sitemap.php · sitemap.xml
+  hallmark.php · trust.php · sms.php · mail.php · payu.gateway.fixed.php
+  css/  15 files — fonts styles hallmark trust finale boost motion aurum mobile
+              v107 v108 v113 v115 bot gift-concierge
+  js/   17 files — app auth admin bot qr otp-autofill hallmark trust motion aurum boost
+              boost-data.json three-d v107 v108 v109 gift-concierge
+              (admin.js + qr.js load on demand, so they are not in the SW precache list)
+  data/ db.seed.json · .htaccess (Require all denied) · install-open (the once-only fuse)
+  images/ 162 — logo · favicon · 5 PWA icons · 17 category faces · 17 banners
+              · 24 product shots · the 65 ring covers (one per design)
+  uploads/ 15 — the nine .htaccess locks + .gitkeep per folder; install.php mkdirs the rest
+  docs/OTP-SETUP-GUIDE.md · INSTALL.txt · MANIFEST.txt (sha1 + bytes per file)
+  FRESH-INSTALL-v115.md · VERSION-LINEAGE-v1-v115.md (the audit, so the box ships its proof)
 
-media (shivaa-FRESH-MEDIA-v115.zip)       382 entries · ≈185 MB
-  260 ring gallery shots · 65 ring films + 9 site films · 17 B2B catalogue PDFs
-  review photos · exemplar uploads · cms/docs (OTP setup guide, privacy policy)
+media (shivaa-FRESH-MEDIA-v115.zip)       373 files · 186.6 MB
+  images/designs 325 — 260 four-shot gallery frames + 65 ring films
+  images/films 9 — hero, craft and story films · images/reviews 6 (real customer photos)
+  uploads/ 30 — exemplar catalogue/kyc/trust content
+  docs/shivaa-privacy-policy.pdf · INSTALL.txt · MANIFEST.txt
   NO index.html, NO api.php, NO js/, NO css/, NO data/  →  it cannot overwrite an install
 ```
 
@@ -109,8 +125,8 @@ invented: no synthetic customers, no demo orders, no filler reviews.
 4. Sign in at `#/admin`. Then delete `install.php` from the server (belt to the braces).
 5. Admin → Settings: PayU key + salt, UPI ID, the SMS gateway wizard (v107). Admin → Bullion
    Desk: Angel tokens for live MCX (relay deploy: `relay/RENDER-SETUP.md`).
-6. Extract the **media** zip into the same folder when you want the 4-shot galleries, the films
-   and the catalogue PDFs. The store is fully usable before that: a missing photo falls back to
+6. Extract the **media** zip into the same folder when you want the 4-shot galleries, the films,
+   the real review photos and the catalogue PDFs. The store is fully usable before that: a missing photo falls back to
    the house monogram and a missing film shows its poster frame (asserted by the behaviour harness).
 
 **SSH instead of a browser** (identical result, no web exposure at all):

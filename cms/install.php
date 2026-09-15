@@ -312,6 +312,29 @@ function install(array $opts): array {
     if (!is_dir($dir)) { @mkdir($dir, 0755, true); $log[] = "created {$u}/"; }
   }
 
+  // 2b · an upload folder without its lock is an execution risk: v82/v84 wrote
+  // these guards, and a bundle that shipped them in the media pack would leave a
+  // core-only install with bare folders. So the installer writes any that are absent.
+  $guard = <<<'GUARD'
+# no code execution, no active documents, no directory listing in upload trees
+Options -Indexes -ExecCGI
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|phar|pl|py|cgi|sh|asp|aspx|jsp|html?|shtml|svg|svgz|xml|xsl|js|mjs|htaccess)$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+</IfModule>
+GUARD;
+  foreach (['uploads', 'uploads/catalogs', 'uploads/kyc', 'uploads/payproofs', 'uploads/reviews', 'uploads/trust', 'uploads/videos', 'uploads/designs'] as $u) {
+    $g = $GLOBALS['ROOT'] . '/' . $u . '/.htaccess';
+    if (is_dir($GLOBALS['ROOT'] . '/' . $u) && !is_file($g)) {
+      @file_put_contents($g, $guard); $log[] = "wrote {$u}/.htaccess (deny execution + active documents)";
+    }
+  }
+
   // 3 · the nested DB lock (root .htaccess already denies ^data/, v107)
   $deny = "# v50 / v115-FI — the database folder is private. Everything denied, always.\n"
         . "# Written by install.php when the bundle did not carry it, so a subfolder\n"

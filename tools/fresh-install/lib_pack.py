@@ -45,7 +45,16 @@ DEAD_NAMES = ("samples-payload.json", "migrate-repair.php", "PAYU_BUGFIX_REPORT.
 # Never in ANY bundle: the dev host's live database. A fresh install starts from
 # data/db.seed.json (clean store) and install.php writes the host's own db.json.
 # Shipping the master copy here would hand a new host yesterday's customers.
-EXCLUDE_FROM_BUNDLE = {"data/db.json"}
+# .htaccess / .gitkeep inside an uploads folder are the folder's LOCK, not its
+# content: they must ship with the core bundle even when the media pack is not
+# extracted (v82/v84 edge guards — no execution, no active documents).
+GUARD_NAMES = {".htaccess", ".gitkeep"}
+
+EXCLUDE_FROM_BUNDLE = {
+    "data/db.json",
+    "make_icons.py",   # dev icon generator; .htaccess blocks *.py at the edge,
+                       # but a fresh web root has no business carrying it
+}
 
 # the installer needs its seed next to the db it writes
 SEED_REL = "data/db.seed.json"
@@ -78,14 +87,17 @@ def tier_of(rel: str) -> str:
         return "media"
     if GALLERY_RE.search(rel):
         return "media"
-    if rel.startswith("uploads/"):
+    if rel.startswith("uploads/") and Path(rel).name not in GUARD_NAMES:
         return "media"          # exemplar uploads ride with the heavy pack
+    if Path(rel).name in GUARD_NAMES and rel.count("/") > 0 and not rel.startswith("data/"):
+        return "core"           # the folder locks ship with the CODE, always
+    if rel.startswith("images/reviews/"):
+        return "media"          # review photos ride with review DATA, and the seed ships
+                                # none — so they must not sit in a clean-store bundle
     if rel.startswith("images/designs/"):
         return "core"           # covers + faces only (shots already matched media)
     if rel.startswith(("images/categories/", "images/banners/", "images/icons/", "images/")):
         return "core"
-    if rel.startswith("images/reviews/"):
-        return "media"          # review photos belong to review data (cleared in the seed)
     if rel.startswith("docs/"):
         return "core"           # OTP setup guide + privacy policy travel WITH the installer
     return "core"
