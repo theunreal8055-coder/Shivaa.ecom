@@ -1,8 +1,15 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
 > This file lives on `main` so ANY new Arena chat (any account, any device) starts with full history.
-> Updated: 2026-09-15 — branch `arena/01a0a44f-shivaa-ecom` (v117 "butter" — slider tap-jump fix + speed)
+> Updated: 2026-09-15 — branch `arena/01a0a48d-shivaa-ecom` (v118 — gallery/Quick View/categories/PayU recovery)
 > **Owner magic phrase for next chat:** `Read ARENA-STATE.md and HANDOFF.md and MEMORY.md first, then continue.`
+
+## Session 2026-09-15 #4 (arena/01a0a48d) — v118 storefront repair
+- Fixed the four-photo PDP gallery with pointer capture, horizontal/vertical intent handling, GPU transforms, and real button dots.
+- Fixed Android Quick View navigation: opening on `pointerup` allowed the synthetic click to hit the product link; it now opens on captured final `click` and stays in the modal.
+- Category rails eagerly load all image thumbnails on phones with logo fallback; category headings are guarded; tapping the already-current category redraws; empty categories keep the honest cataloguing state (catalogue remains rings-only).
+- PayU handoff now uses `HTMLFormElement.prototype.submit.call`, accepts HTTPS `*.payu.in` only, and exposes Continue/Try again/Return controls so no shopper is trapped behind an endless spinner.
+- Zip: `shivaa-update-v118.zip` (7 files). Gates: 32/32 + 27/27 + 18/18; PHP sweep 211/0. No data changes.
 
 ## Session 2026-09-15 #3 (arena/01a0a44f) — v117: "slow site + hero buttons jump to the bottom of the page"
 - **Slider tap-jump = FOCUS SCROLL (root cause, verified in the v117 harness):** carousel is `tabindex=0`, arrows are real `<button>`s, dots delegate focus up — every tap made the browser scroll the page until the whole 430–600 px deck was in view. Fix: `pointerdown` → `preventDefault()` in `initCarousel()` (taps/clicks/swipes unaffected; Tab-focus still scrolls). Second: `aurum.css`'s `.c-arrow:active{transform:scale(.9)}` was REPLACING the arrow's `translateY(-50%)` while pressed (arrow visibly dropped); `css/v117.css` keeps the translate and adds the squash on top. Track now `translate3d` (GPU).

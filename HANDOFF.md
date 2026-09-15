@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-15 (v117 "butter" — hero slider tap-jump fix + speed/mobile pass)**
+**Last updated: 2026-09-15 (v118 — product gallery, Quick View, categories and PayU recovery)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
@@ -364,6 +364,11 @@ PGS5059 Kanchan
 ---
 
 ## 📝 SESSION STEP LOG (newest first — append every session)
+
+**2026-09-15 — v118 storefront repair (branch arena/01a0a48d-shivaa-ecom)**
+1. Owner reported: four PDP photos would not slide; Quick View navigated to product; category links vanished; category thumbnails missing on phones; Place Order stuck forever before PayU.
+2. Fixed PDP gallery pointer capture/intent/buttons; moved Quick View interception from premature pointerup to final click; hardened category navigation and eager mobile thumbnail loading; replaced the unrecoverable PayU spinner with native HTTPS PayU form submission plus visible retry/return controls.
+3. Catalogue unchanged: 65 PGS products, four images each. Zip `shivaa-update-v118.zip` (7 files). Gates: v113b 32/32, v117 27/27, v118 18/18, PHP 211/0.
 
 **2026-09-15 — v117 "butter" (branch arena/01a0a44f-shivaa-ecom)**
 1. Owner: "website very slow — make it fast and butter; hero banner button sliders are out of place: whenever we click them they shift to the bottom of the page." Read ARENA-STATE/HANDOFF/MEMORY; branch verified at tip of main (d52d1bc, v116).

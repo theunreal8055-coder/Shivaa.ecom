@@ -1,0 +1,42 @@
+/* SHIVAA v118 — product gallery · quick view · categories · PayU recovery */
+
+/* Category pictures are primary navigation, not optional decoration. Keep
+   them painted on phones even while deferred ambience styles are arriving. */
+.cb-img,
+.cb-img img,
+.dw-catlist img,
+.mega-tile img,
+.cat-mini-card img {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.cb-img img { display:block; width:100%; height:100%; object-fit:cover; }
+
+/* Product gallery controls remain above zoom/lightbox layers and are large
+   enough for a thumb. Dots are real buttons in v118. */
+.gal-wrap { touch-action: pan-y; overscroll-behavior-x: contain; }
+.gal-track { transform:translate3d(0,0,0); will-change:transform; }
+.gal-nav { z-index:8; min-width:44px; min-height:44px; touch-action:manipulation; }
+.gal-dots { z-index:8; align-items:center; }
+.gal-dots button {
+  display:block; padding:0; border:0; width:9px; height:9px;
+  border-radius:99px; background:rgba(250,246,239,.62);
+  box-shadow:0 1px 5px rgba(0,0,0,.24); cursor:pointer;
+  transition:width .25s ease, background .25s ease;
+  touch-action:manipulation;
+}
+.gal-dots button.on { width:26px; background:var(--gold-2,#e6c66f); }
+
+/* v116 briefly made this relative before motion.css arrived; that enlarged
+   the card layout and exposed the image link under the tap on slow phones. */
+.pc-quick { position:absolute !important; left:50%; bottom:12px; transform:translate(-50%,0); }
+
+#payuHandoff #payuContinue { min-height:50px; }
+
+@media(max-width:680px){
+  .cb-item { min-width:78px; }
+  .cb-img { display:block !important; width:66px; height:66px; background:#f4ead7; }
+  .cb-img img { min-width:100%; min-height:100%; }
+  .gal-dots button { min-width:10px; min-height:10px; }
+  .gal-dots button.on { width:30px; }
+}

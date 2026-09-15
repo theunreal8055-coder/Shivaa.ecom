@@ -114,12 +114,13 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 })();
 
 /* ─────────── 3. QUICK VIEW + CARD BUTTONS: DELEGATED CLICK FIX ───────────
-   On some Android browsers, the onclick attribute on a button inside
-   an <a> tag doesn't fire. A capture-phase delegated listener catches it. */
+   Open on the final click — never on pointerup. Opening a modal during
+   pointerup can make Android retarget the synthetic click to the product link
+   underneath, which navigates away instead of keeping Quick View open. */
 (function fixCardButtons() {
   let lastTap = 0;
   
-  document.addEventListener('pointerup', function(e) {
+  document.addEventListener('click', function(e) {
     // Quick view button
     const quickBtn = e.target.closest('.pc-quick');
     if (quickBtn) {
