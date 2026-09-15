@@ -68,7 +68,7 @@ set replaces the v43 finisher); media stays out of git until installed to
 | B3 | p05→5070, p06→5071 | ⬜ | ⬜ | ⬜ |  |
 | B4 | p07→5072, p08→5073 | ✅ 8/8 first-pass | ✅ | ✅ | ⬜ |
 | B5 | p09→5074, p10→5075 | ✅ 8/8 first-pass | ✅ | ✅ | ⬜ |
-| B6 | p11→5076, p12→5077 | ⬜ | ⬜ |  |  |
+| B6 | p11→5076, p12→5077 | ✅ 8/8 (1 hero re-roll: empty response) | ✅ | ✅ | ⬜ |
 | B7 | p13→5078, p14→5079 | ⬜ | ⬜ |  |  |
 | B8 | p15→5080, p16→5081 | ⬜ | ⬜ |  |  |
 | B9 | p17→5082, p18→5083 | ⬜ | ⬜ |  |  |

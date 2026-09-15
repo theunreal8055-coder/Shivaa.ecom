@@ -6135,6 +6135,116 @@
    "mediaNote": "AI-stylised visualisation of the supplier design photo.",
    "sku": "PGS5075",
    "id": "p_10a86f27ccf5"
+  },
+  {
+   "createdAt": "2026-09-15T22:23:57+05:30",
+   "active": true,
+   "rating": 4.6,
+   "reviews": 0,
+   "stock": 10,
+   "sizes": [
+    "10",
+    "12",
+    "14",
+    "16"
+   ],
+   "tags": [
+    "Ring",
+    "gold",
+    "ladies",
+    "plain"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5076_1_hero.jpg",
+    "/images/designs/rings/PGS5076_2_macro.jpg",
+    "/images/designs/rings/PGS5076_3_model.jpg",
+    "/images/designs/rings/PGS5076_4_lifestyle.jpg"
+   ],
+   "stoneValue": 0,
+   "name": "Leher Ladies Ring PGS5076 | Gold 22K",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.254,
+   "mcScheme": "percent",
+   "mcValue": 12,
+   "stoneDesc": "plain gold — no stones",
+   "stoneType": "None",
+   "stoneColour": "",
+   "desc": "Leher — ladies' plain 22K yellow gold ring, 1.254 g, S-swirl scroll slim band. Making charges 12% + 3% GST; gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "Hitesh bhai — ladies plain lot (67, Sep 2026)",
+   "supplierId": "ladies67-2026",
+   "costPerGram": 0,
+   "seo": {
+    "keywords": [
+     "S-swirl scroll slim band ladies gold ring",
+     "ladies plain 22K gold ring price",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ladies plain ring — Leher (S-swirl scroll slim band) | PGS5076"
+   },
+   "category_note": "Ladies plain ring by Shivaa Jewellers",
+   "mediaNote": "AI-stylised visualisation of the supplier design photo.",
+   "sku": "PGS5076",
+   "id": "p_d68b976e2353"
+  },
+  {
+   "createdAt": "2026-09-15T22:23:57+05:30",
+   "active": true,
+   "rating": 4.6,
+   "reviews": 0,
+   "stock": 10,
+   "sizes": [
+    "10",
+    "12",
+    "14",
+    "16"
+   ],
+   "tags": [
+    "Ring",
+    "gold",
+    "ladies",
+    "plain"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5077_1_hero.jpg",
+    "/images/designs/rings/PGS5077_2_macro.jpg",
+    "/images/designs/rings/PGS5077_3_model.jpg",
+    "/images/designs/rings/PGS5077_4_lifestyle.jpg"
+   ],
+   "stoneValue": 0,
+   "name": "Chhabi Ladies Ring PGS5077 | Gold 22K",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.358,
+   "mcScheme": "percent",
+   "mcValue": 12,
+   "stoneDesc": "plain gold — no stones",
+   "stoneType": "None",
+   "stoneColour": "",
+   "desc": "Chhabi — ladies' plain 22K yellow gold ring, 1.358 g, flower-and-disc charm cluster band. Making charges 12% + 3% GST; gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "Hitesh bhai — ladies plain lot (67, Sep 2026)",
+   "supplierId": "ladies67-2026",
+   "costPerGram": 0,
+   "seo": {
+    "keywords": [
+     "flower-and-disc charm cluster band ladies gold ring",
+     "ladies plain 22K gold ring price",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ladies plain ring — Chhabi (flower-and-disc charm cluster band) | PGS5077"
+   },
+   "category_note": "Ladies plain ring by Shivaa Jewellers",
+   "mediaNote": "AI-stylised visualisation of the supplier design photo.",
+   "sku": "PGS5077",
+   "id": "p_74b0d0d4d3a1"
   }
  ],
  "users": [
