@@ -48,6 +48,21 @@
   this release that no static review had. `SMOKE_CMS=<dir>` points it at any
   copy of the site (used to verify the shipped zip).
 - **Products:** **65** in `cms/data/db.json` (owner: rings only, no samples).
+- **Open plan — v118 MOBILE (15 Sep 2026, branch `arena/01a0a4a8-shivaa-ecom`,
+  docs only, NO code changed, nothing deployed):** `MOBILE-EXPERIENCE-v118.md` at
+  the repo root — owner brief + ready-to-paste customer copy + backlog **M1–M14**
+  with measured evidence and acceptance gates + a decision menu. Headlines:
+  critical path ≈ **316 KB gzip** before the first product paints (113 KB blocking
+  CSS + 196 KB critical JS); **zero** `srcset`/`<picture>`/WebP/AVIF and `cms/images`
+  = **215 MB** (one 65-card shop page ≈ 13 MB of photos); `<main id="view">` ships
+  empty (LCP is script-gated, hero not preloaded, the only `fetchpriority="high"`
+  is below the fold); `beforeinstallprompt` is never listened for although the
+  manifest/icons/shortcuts are complete; the shop grid writes the whole filtered
+  list in one `innerHTML` (blocks the 3-lakh catalogue); 8 × `100vh` left; no
+  `prefers-reduced-data`; no offline mutation queue; `.htaccess` has deflate but
+  no brotli and no `immutable` on `?v=` assets. **Awaiting the owner's pick**
+  (A fast comfort pack / B A+install+scale / C all / D doc only) before any v118
+  code is written.
 - **Deploy contract:** `main` is what the server cron tracks (`branch: main`).
   Live catalogue writes go through Catalogue Deploy, not the v110 bridge.
 
