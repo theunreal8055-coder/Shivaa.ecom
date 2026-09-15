@@ -1857,6 +1857,50 @@ function rates_stale(array $db): bool {
   if (!$t) return true;
   return (time() - strtotime($t)) > 11 * 60;
 }
+/* ─── v119 · Task-2 owner decision (LOCKED) ──────────────────────────────
+   The 22K retail premium is its own explicit number — ₹398/g on the
+   desk-physical basis. It rides the SAME anchor as every other line, so
+   `jaipur.gold22` is always round(anchorLevel.goldPerG × 0.9167) + 398.
+   The 24K/18K lines keep `jaipurPremium` untouched, and an admin override
+   still wins over everything. */
+function gold22_premium(array $db): int {
+  $v = $db['settings']['gold22Premium'] ?? 398;
+  return is_numeric($v) ? (int)round((float)$v) : 398;
+}
+/* v119 — one derivation for the whole shop: anchor → Jaipur retail. */
+function jaipur_from_anchor(array $db, array $anchor): array {
+  $gp   = (int)($db['settings']['jaipurPremium'] ?? 55);
+  $gp22 = gold22_premium($db);
+  $sp   = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
+  $g24  = (float)($anchor['goldPerG'] ?? 0);
+  $sil  = (float)($anchor['silverPerG'] ?? 0);
+  return ['gold24' => (int)round($g24) + $gp,
+          'gold22' => (int)round($g24 * PURITY_22) + $gp22,
+          'gold18' => (int)round($g24 * PURITY_18) + (int)round($gp * 0.75),
+          'silver' => round($sil + $sp, 1)];
+}
+/* v119 — the anchor block /api/rates publishes. `mode` is what the rate card
+   shows: the MCX future whenever the exchange feed is the live source,
+   'spot' when it is not, 'override' while an admin rate override is pinned. */
+function anchor_level(array $db): array {
+  $anc = bullion_anchors($db);
+  $lv  = live_tick_quote($db, 120.0);
+  if ($lv) {
+    return ['mode' => $anc['mcxOn'] ? 'mcx-future' : 'spot', 'source' => (string)$lv['source'],
+            'goldPerG' => (float)$lv['goldPerG'], 'silverPerG' => (float)$lv['silverPerG'],
+            'at' => (string)$lv['at'], 'ageMs' => (int)$lv['ageMs']];
+  }
+  if ($anc['mcxOn']) {
+    $mcx = is_array($db['rates']['mcx'] ?? null) ? $db['rates']['mcx'] : [];
+    return ['mode' => 'mcx-future', 'source' => 'mcx-future',
+            'goldPerG' => (float)$anc['gA'], 'silverPerG' => (float)$anc['sA'],
+            'at' => (string)($mcx['at'] ?? ($db['rates']['last']['t'] ?? '')), 'ageMs' => null];
+  }
+  $r = is_array($db['rates']['last'] ?? null) ? $db['rates']['last'] : [];
+  return ['mode' => 'spot', 'source' => (string)($r['source'] ?? 'spot'),
+          'goldPerG' => (float)($r['gold24'] ?? 0), 'silverPerG' => (float)($r['silver'] ?? 0),
+          'at' => (string)($r['t'] ?? ''), 'ageMs' => null];
+}
 function current_rates(array $db): array {
   $ov = $db['rates']['override'] ?? null;
   if ($ov) return ['gold24' => (int)$ov['gold24'], 'gold22' => (int)$ov['gold22'], 'gold18' => (int)$ov['gold18'], 'silver' => (double)$ov['silver']];
@@ -1878,19 +1922,16 @@ function current_rates(array $db): array {
   }
   $l = $db['rates']['last'];
   $gp = (int)($db['settings']['jaipurPremium'] ?? 55); $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
-  return ['gold24' => (int)$l['gold24'] + $gp, 'gold22' => (int)$l['gold22'] + $gp,
+  return ['gold24' => (int)$l['gold24'] + $gp, 'gold22' => (int)$l['gold22'] + gold22_premium($db),
           'gold18' => (int)$l['gold18'] + (int)round($gp * 0.75), 'silver' => round((double)$l['silver'] + $sp, 1)];
 }
 /* v90 — same Jaipur premium math as current_rates(), but anchored to the
-   fresh MCX tick per-gram price instead of the ~10 min persisted stamp. */
+   fresh MCX tick per-gram price instead of the ~10 min persisted stamp.
+   v119 — gold22 now carries the 22K premium (₹398/g) through the one shared
+   derivation, so the tick path and the rate card can never disagree. */
 function jaipur_live_from_tick(array $db, array $lv): array {
-  $gp = (int)($db['settings']['jaipurPremium'] ?? 55);
-  $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
-  $g24 = (float)$lv['goldPerG']; $sil = (float)$lv['silverPerG'];
-  return ['gold24' => (int)round($g24) + $gp,
-          'gold22' => (int)round($g24 * PURITY_22) + $gp,
-          'gold18' => (int)round($g24 * PURITY_18) + (int)round($gp * 0.75),
-          'silver' => round($sil + $sp, 1)];
+  return jaipur_from_anchor($db, ['goldPerG' => (float)($lv['goldPerG'] ?? 0),
+                                  'silverPerG' => (float)($lv['silverPerG'] ?? 0)]);
 }
 function gstin_check(string $g): array {
   $g = strtoupper(trim($g));
@@ -2645,7 +2686,7 @@ if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   ], 'updatedAt' => now_iso()];
 }
 if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => now_iso(), 'gold24' => 11800, 'gold22' => 10800, 'gold18' => 8850, 'silver' => 95, 'source' => 'bootstrap']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
-foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'jaipurSilverPremium' => 3, 'whatsapp' => '91890505921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
+foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'gold22Premium' => 398, 'jaipurSilverPremium' => 3, 'whatsapp' => '91890505921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
 /* v82 — hourly housekeeping so ephemeral collections never grow forever:
    expired bearer tokens, stale OTPs and old per-IP mail counters. Runs
    inside a request that already holds the EX write lock, at most once an
@@ -2674,12 +2715,17 @@ try {
        rates the shop prices from. The persisted 10 min stamp + history are
        untouched, so day bands/charts keep their cadence. An admin override
        always wins and disables the overlay. */
-    $jaipur = current_rates($db);
+    /* v119 — the rate card and every shop price are DERIVED from one anchor
+       block: jaipur.gold22 = round(anchorLevel.goldPerG × 0.9167) + 398 and
+       the same anchor drives gold24/gold18/silver. An admin override still
+       wins and is labelled as such. */
+    $ancLevel = anchor_level($db);
+    if (empty($db['rates']['override'])) $jaipur = jaipur_from_anchor($db, $ancLevel);
+    else { $jaipur = current_rates($db); $ancLevel['mode'] = 'override'; }
     $liveMeta = ['live' => false, 'marketHours' => mcx_hours_open()];
     if (empty($db['rates']['override'])) {
       $lv = live_tick_quote($db);
       if ($lv) {
-        $jaipur = jaipur_live_from_tick($db, $lv);
         $liveMeta = ['live' => true, 'liveAt' => $lv['at'], 'liveAgeMs' => $lv['ageMs'],
           'liveSource' => $lv['source'], 'marketOpen' => $lv['open'],
           'marketHours' => mcx_hours_open(),
@@ -2689,11 +2735,16 @@ try {
     jout(200, array_merge($base, [
       'spot' => ['gold24' => $last['gold24'], 'gold22' => $last['gold22'], 'gold18' => $last['gold18'], 'silver' => $last['silver']],
       'jaipur' => $jaipur,
+      /* v119 — the anchor every figure above was derived from, published so
+         the rate card (and anyone auditing it) can re-derive the numbers. */
+      'anchorLevel' => $ancLevel,
       /* v113 — the B2B RTGS quotes ride along with the retail feed so the
          customer strip can show the bullion desk's own numbers (same anchor,
          same factors, same owner calibration — computed by rtgs_strip()). */
       'rtgs' => rtgs_strip($db),
-      'premium' => ['gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
+      /* v119 — premium.gold22 is the 22K retail premium (₹398/g, Task-2 owner
+         decision). premium.gold stays the 24K line so nothing older breaks. */
+      'premium' => ['gold22' => gold22_premium($db), 'gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
       'override' => $db['rates']['override'] ?? null,
       'history' => array_slice($db['rates']['history'] ?? [], -120),
       'nextUpdateIn' => 60,
@@ -5870,6 +5921,8 @@ try {
       'prepaidPct' => [0, 50, 'float'], 'codFeePct' => [0, 50, 'float'],
       'referralReward' => [0, 1000000, 'int'], 'bullionGoldPremium' => [0, 100000, 'int'],
       'bullionSilverPremium' => [0, 100000, 'int'], 'metalFactor' => [0.5, 1.2, 'float'],
+      /* v119 — the 22K retail premium the whole rate card is built on */
+      'gold22Premium' => [0, 100000, 'int'], 'jaipurPremium' => [0, 100000, 'int'],
     ];
     foreach ($numRules as $nk => [$lo, $hi, $cast]) {
       if (array_key_exists($nk, $setBody)) {
