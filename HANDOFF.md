@@ -8,6 +8,24 @@
 
 ## 🚀 v119 — 22K PREMIUM ₹398 (desk physical) + PUBLISHED RATE ANCHOR + FIRST-PAINT PACK (2026-09-15)
 
+**✅ LIVE ON shivaa.in — VERIFIED FROM THE LIVE SITE (15 Sep 2026, 20:48 IST, reads not assumptions; re-confirmed 20:54 IST).**
+Merged to `main` via PR #45 (merge `e2a4dd5`, 19:31 IST). `/api/rates` → `premium.gold22 = 398`,
+`anchorLevel.mode = mcx-future`, `jaipur.gold22 = 14200` = `round(15056 × 0.9167) + 398`.
+Every 22K piece is **+₹343/g** over v118. `/api/products` → all 22K rings ≈ ₹14,231/g;
+PGS5004 (3.83 g) = ₹62,877. `/sw.js` → `SHELL = 'shivaa-shell-v119'`; `/js/v119.js` served as
+real JS → the zip landed in the `public_html` ROOT (not a sub-folder). Re-check 20:54 IST:
+anchor goldPerG 15040 → jaipur.gold22 14185 = `round(15040 × 0.9167) + 398` ✓ (formula holds
+as the tick moves). **Rate factors LOCKED — never change a premium or the anchor formula
+without an explicit owner instruction.**
+**Deploy warning:** the server's main-tracking auto-sync cron did NOT fire for PR #45 (live
+still read v118 ~50 min after the merge); the release shipped by manual zip upload.
+Investigate the cron (config branch value, GitHub PAT expiry, cron logs) before trusting
+push-to-deploy for any future release. Post-merge, the owner uploaded
+`67 rings ladies plain hitesh bhai_compressed.pdf` to `main` (`82dc23b`, zero `cms/`
+changes — v119 code intact): next catalogue batch intake (ladies' plain rings, supplier
+Hitesh). **PR #43 (pre-v118 Feather) and PR #38 (stale hero/Quick View) were closed
+UNMERGED on 15 Sep 2026 — never merge them.**
+
 **Owner decision implemented (Task 2, LOCKED — do not change the numbers):** the 22K
 retail premium is **₹398/g on the desk-physical basis**. `/api/rates` now publishes
 `premium.gold22` and an `anchorLevel` block, and `jaipur.gold22` is derived from that

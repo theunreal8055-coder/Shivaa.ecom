@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 119;
+const APP_REL = 122;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -580,7 +580,7 @@ function updateBadges() {
 }
 async function refreshWishBadge() {
   let wl = state.localWish;
-  if (state.user) { try { const r = await api('/api/wishlist'); wl = r.wishlist; } catch (e) {} }
+  if (state.user) { try { const r = await api('/api/wishlist'); wl = r.wishlist || []; } catch (e) {} }
   const wc = $('#wishCount'); if (wc) { wc.textContent = wl.length; wc.hidden = !wl.length; }
 }
 function cartCount() { return state.cart.reduce((a, i) => a + i.qty, 0); }
@@ -699,6 +699,7 @@ function bindReveal(scope = document) {
 }
 function bindCountdown(el, target) {
   const tick = () => {
+    if (document.hidden) return;
     const d = Math.max(0, target - Date.now());
     const days = Math.floor(d / 864e5), hrs = Math.floor(d % 864e5 / 36e5), min = Math.floor(d % 36e5 / 6e4), sec = Math.floor(d % 6e4 / 1e3);
     if (!document.body.contains(el)) return clearInterval(iv);
@@ -764,6 +765,7 @@ function finaleCdHTML(id = 'finaleCd') {
 function bindFinaleCd(el) {
   const iv = setInterval(() => {
     if (!document.body.contains(el)) return clearInterval(iv);
+    if (document.hidden) return;
     if (!finaleLive()) { syncFinaleChrome(true); return clearInterval(iv); }
     el.innerHTML = finaleCdCells() +
       `<span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span>`;
@@ -1664,7 +1666,10 @@ const catBarItems = () => [
 ];
 function catBarHTML() {
   return `<div class="cb-wrap"><button class="cb-arrow cb-prev" aria-label="Previous">‹</button><div class="catbar2">` +
-    catBarItems().map(c => `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${safeUrl(c.img) || '/images/logo.png'}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='/images/logo.png'"><i class="cb-ring"></i></span><b>${c.label}</b></a>`).join('') +
+    /* v120 — Bug B: tile photos carry ?v=120 (busts poisoned pre-v113 SW entries) and a
+       two-stage fallback — house logo, then hide to reveal the monogram underlay in
+       css/v120.css — so a tile can never degrade to bare alt-text again. */
+    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&v=120' : '?v=120'); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
     `</div><button class="cb-arrow cb-next" aria-label="Next">›</button></div>`;
 }
 function initCatbar() {
@@ -2057,7 +2062,7 @@ pages.videoconsult = async (view) => {
   view.innerHTML = v55Shell('Video Consultation', 'See it live, ', 'from home', 'A family member walks you through real pieces on WhatsApp video — weights, hallmark, finish — from the Jayal counter. Pick a slot.',
     `<div class="adm-card"><form id="vcForm" class="form-grid" style="grid-template-columns:1fr 1fr">
       <div class="fld"><label>Your name</label><input name="name" required></div>
-      <div class="fld"><label>Phone (WhatsApp)</label><input name="phone" required placeholder="10-digit"></div>
+      <div class="fld"><label>Phone (WhatsApp)</label><input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="10" required placeholder="10-digit"></div>
       <div class="fld"><label>Preferred day</label><input name="day" type="date" required></div>
       <div class="fld"><label>Preferred slot</label><select name="slot">${['10:00–12:00', '12:00–14:00', '16:00–18:00', '18:00–20:30'].map(x => `<option>${x}</option>`).join('')}</select></div>
       <div class="fld full"><label>What would you like to see?</label><input name="details" placeholder="e.g. bridal rani haar + jhumka, budget ₹1.5L"></div>
@@ -2077,7 +2082,7 @@ pages.pickup = async (view) => {
   view.innerHTML = v55Shell('Dead-Stock Pickup', 'Old stock in, ', 'fine metal out', 'Book a pickup for dead stock — we assay at your counter or ours, and settle in fine gold grams at the live rate, minus nothing hidden.',
     `<div class="adm-card"><form id="puForm" class="form-grid" style="grid-template-columns:1fr 1fr">
       <div class="fld"><label>Firm / name</label><input name="name" required></div>
-      <div class="fld"><label>Phone</label><input name="phone" required placeholder="10-digit"></div>
+      <div class="fld"><label>Phone</label><input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="10" required placeholder="10-digit"></div>
       <div class="fld"><label>City</label><input name="city"></div>
       <div class="fld"><label>Approx. weight</label><input name="wt" placeholder="e.g. 850 g 22K"></div>
       <div class="fld full"><label>Notes</label><input name="details" placeholder="pickup date preference, item types…"></div>
@@ -2144,7 +2149,7 @@ pages.home = async (view) => {
     <div class="carousel" id="heroCarousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Featured Shivaa campaigns — use the left and right arrow keys">
       <div class="c-track" id="cTrack">
         <div class="c-slide s-left">
-          <img src="/images/banners/poster-heritage.jpg" alt="Shivaa fine gold craftsmanship" draggable="false" fetchpriority="high">
+          <img src="/images/banners/poster-heritage.jpg" srcset="/images/banners/poster-heritage-m.jpg 800w, /images/banners/poster-heritage.jpg 1584w" sizes="100vw" alt="Shivaa fine gold craftsmanship" draggable="false" decoding="async" fetchpriority="high">
           <div class="c-fade"></div>
           <span class="c-frame" aria-hidden="true"><i class="cf-c c1"></i><i class="cf-c c2"></i><i class="cf-c c3"></i><i class="cf-c c4"></i></span>
           <span class="c-wm" aria-hidden="true">99&middot;999</span>
@@ -2157,7 +2162,7 @@ pages.home = async (view) => {
           </div>
         </div>
         <div class="c-slide s-center">
-          <img src="/images/banners/poster-bridal.jpg" alt="Bridal collection" draggable="false" loading="lazy">
+          <img src="/images/banners/poster-bridal.jpg" alt="Bridal collection" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade fade-c"></div>
           <div class="c-body">
             <span class="label">&#10022; The bridal edit &middot; Jayal to your city</span>
@@ -2168,7 +2173,7 @@ pages.home = async (view) => {
           </div>
         </div>
         <div class="c-slide s-right">
-          <img src="/images/banners/poster-everyday.jpg" alt="Everyday edit under 50000" draggable="false" loading="lazy">
+          <img src="/images/banners/poster-everyday.jpg" alt="Everyday edit under 50000" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade fade-r"></div>
           <div class="c-body">
             <span class="label">&#10022; The everyday edit</span>
@@ -2179,7 +2184,7 @@ pages.home = async (view) => {
           </div>
         </div>
         <div class="c-slide s-band">
-          <img src="/images/banners/wedding.jpg" alt="Swarna Nidhi gold savings plan" draggable="false" loading="lazy">
+          <img src="/images/banners/wedding.jpg" alt="Swarna Nidhi gold savings plan" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade"></div>
           <div class="c-panel">
             <span class="label">&#10022; Swarna Nidhi &middot; the gold savings plan</span>
@@ -2201,7 +2206,7 @@ pages.home = async (view) => {
   <section class="sec container" style="padding-bottom:26px">
     <div class="sec-head rv" style="margin-bottom:22px"><span class="label">Shop by category</span><h2>Find your <span class="disp-italic">forever</span></h2></div>
     <div class="cat-mini">
-      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}" alt="${c.name}" loading="lazy"><b>${c.name}</b></a>`).join('')}
+      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}?v=120" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"><b>${c.name}</b></a>`).join('')}
     </div>
   </section>
 
@@ -2464,7 +2469,7 @@ pages.shop = async (view, q) => {
       } else {
         let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
         if (f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
-          emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 65 signature rings</a></div></div>`;
+          emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 77 signature rings</a></div></div>`;
         }
         if (state.shop.observer) { try { state.shop.observer.disconnect(); } catch (e) {} state.shop.observer = null; }
         if (grid) grid.innerHTML = emptyHtml;
@@ -5027,44 +5032,85 @@ pages.quote = async view => {
 };
 
 /* ─────────── RATES PAGE ─────────── */
+/* v120 — Bug A fix: the rates page used to re-render WHOLESALE on every poll
+   tick, which (a) stranded every rate card invisible (.rv starts opacity:0 and
+   bindReveal() only runs at navigation, never after a poll) and (b) wiped the
+   rate-alert form while the customer typed. Polls now patch values in place via
+   refreshRatesPage(); a full render happens only at navigation (or when the
+   nodes are missing). Live data is deliberately never reveal-gated. */
+function ratesAnchorTxt(R) {
+  const AL = R.anchorLevel || null;
+  if (!AL) return '—';
+  /* v120 — fmt() already prefixes ₹ (v119 printed ₹₹ here). */
+  if (AL.mode === 'mcx-future') return `MCX future · ${fmt(AL.goldPerG)}/g`;
+  if (AL.mode === 'override') return 'Admin override (pinned)';
+  return `International spot · ${fmt(AL.goldPerG)}/g`;
+}
+function refreshRatesPage(R) {
+  if (!R || !location.hash.startsWith('#/rates')) return false;
+  if (!document.querySelector('[data-rr="g22"]')) return false;   // nodes gone — caller re-renders
+  try {
+    const set = (k, v) => { const el = document.querySelector(`[data-rr="${k}"]`); if (el) el.textContent = v; };
+    const setHTML = (k, v) => { const el = document.querySelector(`[data-rr="${k}"]`); if (el) el.innerHTML = v; };
+    const prem22 = R.premium ? (R.premium.gold22 !== undefined ? R.premium.gold22 : R.premium.gold) : 398;
+    setHTML('g22', fmt(R.gold22) + '<small>/gram</small>');
+    setHTML('g22sub', '₹' + Math.round(R.gold22 * 10).toLocaleString('en-IN') + ' per 10 g · updated ' + timeFmt(R.t));
+    set('spot22', fmt(R.spot.gold22) + '/g');
+    set('prem22', '+₹' + prem22 + '/g');
+    set('anchor', ratesAnchorTxt(R));
+    set('silv', fmt2(R.silver) + '/g');
+    ['gold24', 'gold22', 'gold18', 'silver'].forEach(k => {
+      set('rc-' + k, k === 'silver' ? fmt2(R[k]) : fmt(R[k]));
+      set('rc10-' + k, k === 'silver' ? fmt2(R[k] * 10) : fmt(R[k] * 10));
+    });
+    const badge = document.querySelector('[data-rr="srcbadge"]');
+    if (badge) {
+      badge.className = 'src-badge ' + ((R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim');
+      badge.innerHTML = R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*');
+    }
+    drawRateChart($('#rateChart'), R.history || []);
+    return true;
+  } catch (e) { return false; }
+}
 pages.rates = async (view) => {
   const R = state.rates;
+  /* v120 — Bug A: never crash on a cold open. If the rates batch has not
+     landed yet, show an honest loader; the next poll renders for real. */
+  if (!R) {
+    view.innerHTML = `<section class="page-hero"><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1><p>Fetching the live Jaipur feed…</p></div></section><div class="container" style="padding:60px 0 90px;text-align:center;color:var(--ink-3)"><span class="pp-spinner" aria-hidden="true"></span><p style="margin-top:14px">Weighing the market — one moment ✦</p></div>`;
+    return;
+  }
   /* v119 — the card is built from the SAME anchor the shop prices from:
      22K rate = round(anchorLevel.goldPerG × 0.9167) + premium.gold22 (₹398/g,
      desk physical). premium.gold stays the 24K line for older payloads. */
-  const AL = R.anchorLevel || null;
   const prem22 = R.premium ? (R.premium.gold22 !== undefined ? R.premium.gold22 : R.premium.gold) : 398;
-  const anchorTxt = AL
-    ? (AL.mode === 'mcx-future' ? `MCX future · ₹${fmt(AL.goldPerG)}/g`
-      : AL.mode === 'override' ? 'Admin override (pinned)'
-      : `International spot · ₹${fmt(AL.goldPerG)}/g`)
-    : '—';
+  const anchorTxt = ratesAnchorTxt(R);
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1>
   <p>The same feed that powers every price on shivaa.in — sourced from official MCX futures (when the owner’s exchange feed is connected) or the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
-    <div class="jaipur-hero rv">
+    <div class="jaipur-hero">
       <div class="jh-main">
         <span class="jh-badge">✦ JAIPUR MARKET RATE</span>
         <div class="jh-name">Gold 22K <small>(91.67)</small></div>
-        <div class="jh-val">${fmt(R.gold22)}<small>/gram</small></div>
-        <div class="jh-sub">₹${Math.round(R.gold22 * 10).toLocaleString('en-IN')} per 10 g · updated ${timeFmt(R.t)}</div>
+        <div class="jh-val" data-rr="g22">${fmt(R.gold22)}<small>/gram</small></div>
+        <div class="jh-sub" data-rr="g22sub">₹${Math.round(R.gold22 * 10).toLocaleString('en-IN')} per 10 g · updated ${timeFmt(R.t)}</div>
       </div>
       <div class="jh-side">
-        <div class="jh-row"><span>International spot (22K)</span><b>${fmt(R.spot.gold22)}/g</b></div>
-        <div class="jh-row"><span>22K Jaipur premium <small style="color:var(--ink-3)">desk physical</small></span><b>+₹${prem22}/g</b></div>
-        <div class="jh-row"><span>Rate anchor</span><b>${anchorTxt}</b></div>
-        <div class="jh-row"><span>Silver (Jaipur 925)</span><b>${fmt2(R.silver)}/g</b></div>
+        <div class="jh-row"><span>International spot (22K)</span><b data-rr="spot22">${fmt(R.spot.gold22)}/g</b></div>
+        <div class="jh-row"><span>22K Jaipur premium <small style="color:var(--ink-3)">desk physical</small></span><b data-rr="prem22">+₹${prem22}/g</b></div>
+        <div class="jh-row"><span>Rate anchor</span><b data-rr="anchor">${anchorTxt}</b></div>
+        <div class="jh-row"><span>Silver (Jaipur 925)</span><b data-rr="silv">${fmt2(R.silver)}/g</b></div>
         <div class="jh-note">These Jaipur rates power every price on shivaa.in — your bill matches this card to the rupee.</div>
       </div>
     </div>
     <div class="rate-cards">
       ${[['GOLD 24K · JAIPUR', 'gold24', '99.99% fine — reference'], ['GOLD 22K · JAIPUR', 'gold22', '91.67% — jewellery grade'], ['GOLD 18K · JAIPUR', 'gold18', '75.0% — contemporary'], ['SILVER 925 · JAIPUR', 'silver', 'sterling — jewellery grade']]
-        .map(c => `<div class="rate-card ${c[0].includes('GOLD') ? 'gold' : ''} rv"><div class="rc-name">${c[0]}</div><div class="rc-val">${c[1] === 'silver' ? fmt2(R[c[1]]) : fmt(R[c[1]])}</div><small>per gram · ${c[2]}</small><div style="margin-top:10px;font-size:12px;color:var(--ink-3)">per 10 g: <b>${c[1] === 'silver' ? fmt2(R[c[1]] * 10) : fmt(R[c[1]] * 10)}</b></div></div>`).join('')}
+        .map(c => `<div class="rate-card ${c[0].includes('GOLD') ? 'gold' : ''}"><div class="rc-name">${c[0]}</div><div class="rc-val" data-rr="rc-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]]) : fmt(R[c[1]])}</div><small>per gram · ${c[2]}</small><div style="margin-top:10px;font-size:12px;color:var(--ink-3)">per 10 g: <b data-rr="rc10-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]] * 10) : fmt(R[c[1]] * 10)}</b></div></div>`).join('')}
     </div>
-    <div class="chart-wrap mt-3 rv"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+    <div class="chart-wrap mt-3"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
       <h3 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
-      <span class="src-badge ${(R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim'}">${R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*')}</span></div>
+      <span data-rr="srcbadge" class="src-badge ${(R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim'}">${R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*')}</span></div>
       <canvas id="rateChart"></canvas></div>
     <div class="grid2 mt-3">
       <div class="adm-card"><h3>Get a rate alert</h3>
@@ -5147,11 +5193,13 @@ pages.catalogues = async (view) => {
   const stoneTypes = ['Plain', 'CZ', 'Lab-Grown Diamond', 'Natural Diamond', 'Colour Stone', 'Kundan/Polki'];
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Design Selection</div><h1>Design Selection</h1>
-  <p>The live design desk our B2B partners order from — filter by category, weight, purity and stone, select what your counter needs, and settle in <b>fine metal grams</b> with zero making charges.</p></div></section>
+  <p>The live design desk our B2B partners order from — filter by category, weight, purity and stone, search by name or SKU, sort the desk your way, select what your counter needs, and settle in <b>fine metal grams</b> with zero making charges.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
 
   <div class="ds-wrap" id="dsWrap">
     <div class="pf-bar">
+      <div class="pf-f"><label>Search designs</label>
+        <input id="dsfSearch" type="search" enterkeyhint="search" autocomplete="off" maxlength="60" placeholder="Name or SKU…"></div>
       <div class="pf-f"><label>Category</label>
         <select id="dsfCat" class="sortsel"><option value="">All categories</option>${Object.entries(LIVE_CATS()).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('')}</select></div>
       <div class="pf-f"><label>Stone type</label>
@@ -5160,6 +5208,8 @@ pages.catalogues = async (view) => {
         <select id="dsfColour" class="sortsel"><option value="">Any</option><option>White</option><option>Colour</option></select></div>
       <div class="pf-f"><label>Purity</label>
         <select id="dsfPurity" class="sortsel"><option value="">Any</option><option>22K</option><option>18K</option><option>925</option></select></div>
+      <div class="pf-f"><label>Sort by</label>
+        <select id="dsfSort" class="sortsel"><option value="">Featured</option><option value="sel">Selected first</option><option value="wasc">Weight: light first</option><option value="wdesc">Weight: heavy first</option><option value="az">Name A–Z</option></select></div>
       <div class="pf-f"><label>Weight range (g)</label>
         <div class="pf-w"><input id="dsfWMin" type="number" step="0.1" min="0" placeholder="min" inputmode="decimal"><span>&ndash;</span><input id="dsfWMax" type="number" step="0.1" min="0" placeholder="max" inputmode="decimal"></div></div>
       <div class="pf-f" style="flex:1 1 100%">
@@ -5189,9 +5239,9 @@ pages.catalogues = async (view) => {
         const shots = (p.images || []).map(safeUrl).filter(Boolean);
         const imgs = shots.length ? shots : ['/images/logo.png'];
         const name = esc(p.name.replace('Shivaa Ring Design', 'Design'));
-        return `<div class="ds-card ${window._sel[p.id] ? 'on' : ''}" id="ds-${p.id}" data-cat="${esc(p.category)}" data-w="${esc(p.weightG)}" data-stone="${esc(p.stoneType || 'Plain')}" data-colour="${esc(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${esc(p.purity)}">
+        return `<div class="ds-card ${window._sel[p.id] ? 'on' : ''}" id="ds-${p.id}" data-cat="${esc(p.category)}" data-w="${esc(p.weightG)}" data-stone="${esc(p.stoneType || 'Plain')}" data-colour="${esc(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${esc(p.purity)}" data-name="${esc(p.name)}" data-sku="${esc(p.sku)}">
         <a class="ds-img ds-slider ${imgs.length > 1 ? 'has-multi' : ''}" href="#/product/${encodeURIComponent(p.id)}" aria-label="View ${name}">
-          <span class="ds-track">${imgs.map((src, i) => `<img src="${src}" loading="lazy" alt="${i === 0 ? name : ''}" draggable="false">`).join('')}</span>
+          <span class="ds-track">${imgs.map((src, i) => `<img src="${src}" decoding="async" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png?v=122'" alt="${i === 0 ? name : ''}" draggable="false">`).join('')}</span>
           <span class="ds-wt">${p.weightG} g</span>
           ${imgs.length > 1 ? `<span class="ds-count" data-count>1/${imgs.length}</span>
             <button type="button" class="ds-arrow ds-prev" data-dir="-1" aria-label="Previous photo">‹</button>
@@ -5229,8 +5279,18 @@ pages.catalogues = async (view) => {
       if (cnt) cnt.textContent = (i + 1) + '/' + n;
       try { navigator.vibrate?.(6); } catch (e) {}
     };
-    /* v102 — eager-load the second shot so the first swipe is instant */
-    grid.querySelectorAll('.ds-slider.has-multi img:nth-child(2)').forEach(im => { im.setAttribute('loading', 'eager'); if (im.dataset.src) im.src = im.dataset.src; });
+    /* v122 — eager-load the second shot only as its card nears the viewport,
+       so the first swipe stays instant without fetching 65 spare photos. */
+    const _dsEager = ('IntersectionObserver' in window) ? new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting) return;
+      const im = e.target.querySelector('img:nth-child(2)');
+      if (im) { im.setAttribute('loading', 'eager'); if (im.dataset.src) im.src = im.dataset.src; }
+      _dsEager.unobserve(e.target);
+    }), { rootMargin: '300px' }) : null;
+    grid.querySelectorAll('.ds-slider.has-multi').forEach(s => {
+      if (_dsEager) _dsEager.observe(s);
+      else { const im = s.querySelector('img:nth-child(2)'); if (im) im.setAttribute('loading', 'eager'); }
+    });
     grid.addEventListener('click', e => {
       const arrow = e.target.closest('.ds-arrow'), dot = e.target.closest('.ds-dot');
       if (!arrow && !dot) return;
@@ -6357,6 +6417,26 @@ function dsSaveSel() { try { localStorage.setItem(DS_SEL_KEY, JSON.stringify(win
 function dsLoadFilters() { try { return JSON.parse(localStorage.getItem(DS_FIL_KEY) || '{}') || {}; } catch (e) { return {}; } }
 function dsSaveFilters(f) { try { localStorage.setItem(DS_FIL_KEY, JSON.stringify(f)); } catch (e) {} }
 function dsClearSaved() { try { localStorage.removeItem(DS_SEL_KEY); localStorage.removeItem(DS_FIL_KEY); } catch (e) {} }
+/* v122 — desk sort. Featured is the catalogue order it arrived in (kept on
+   first use); Selected-first floats the running bill to the top for review. */
+function dsSort() {
+  const grid = document.getElementById('dsGrid'); if (!grid) return;
+  const sel = document.getElementById('dsfSort');
+  const mode = sel ? sel.value : '';
+  const cards = [...grid.querySelectorAll('.ds-card')];
+  if (!cards.length) return;
+  if (cards[0]._dsi == null) cards.forEach((c, i) => { c._dsi = i; });
+  const picked = window._sel || {};
+  const idOf = c => (c.id || '').replace(/^ds-/, '');
+  const by = {
+    sel: (a, b) => (((picked[idOf(b)] || 0) > 0) - ((picked[idOf(a)] || 0) > 0)) || (a._dsi - b._dsi),
+    wasc: (a, b) => (+a.dataset.w - +b.dataset.w) || (a._dsi - b._dsi),
+    wdesc: (a, b) => (+b.dataset.w - +a.dataset.w) || (a._dsi - b._dsi),
+    az: (a, b) => String(a.dataset.name || '').localeCompare(String(b.dataset.name || '')) || (a._dsi - b._dsi),
+  }[mode] || ((a, b) => a._dsi - b._dsi);
+  cards.sort(by).forEach(c => grid.appendChild(c));
+  const e = document.getElementById('dsEmpty'); if (e) grid.appendChild(e);
+}
 function initDsfilters(attempt = 0) {
   const grid = document.getElementById('dsGrid');
   if (!grid) { if (attempt < 20) setTimeout(() => initDsfilters(attempt + 1), 300); return; }
@@ -6369,6 +6449,15 @@ function initDsfilters(attempt = 0) {
     const purity = g('dsfPurity') ? g('dsfPurity').value : '';
     const wmin = parseFloat(g('dsfWMin') && g('dsfWMin').value) || 0;
     const wmax = parseFloat(g('dsfWMax') && g('dsfWMax').value) || Infinity;
+    const q = (g('dsfSearch') ? g('dsfSearch').value : '').trim().toLowerCase();
+    if (!grid.querySelector('.ds-card')) {
+      let e0 = g('dsEmpty');
+      if (!e0) { e0 = document.createElement('div'); e0.id = 'dsEmpty'; e0.className = 'empty'; e0.style.cssText = 'grid-column:1/-1;padding:44px 20px;text-align:center'; grid.appendChild(e0); }
+      e0.innerHTML = '<div class="big">&#10022;</div><h3>The designs could not load</h3><p style="color:var(--ink-3);margin-top:6px">Check your connection and pull to refresh — your saved bill is safe.</p>';
+      e0.style.display = '';
+      ['dsShown', 'dsShown2'].forEach(id => { const el = g(id); if (el) el.textContent = ''; });
+      return;
+    }
     let shown = 0;
     grid.querySelectorAll('.ds-card').forEach(c => {
       const w = +c.dataset.w;
@@ -6376,11 +6465,12 @@ function initDsfilters(attempt = 0) {
         && (!stone || c.dataset.stone === stone)
         && (!colour || (c.dataset.colour || '') === colour)
         && (!purity || (c.dataset.purity || '') === purity)
-        && w >= wmin && w <= wmax;
+        && w >= wmin && w <= wmax && (!q || (c.dataset.name || '').toLowerCase().includes(q) || (c.dataset.sku || '').toLowerCase().includes(q));
       c.style.display = ok ? '' : 'none'; if (ok) shown++;
     });
     const txt = shown + ' design' + (shown === 1 ? '' : 's') + ' shown';
     ['dsShown', 'dsShown2'].forEach(id => { const el = g(id); if (el) el.textContent = txt; });
+    dsSort();
     if (!shown) {
       let e = g('dsEmpty');
       if (!e) { e = document.createElement('div'); e.id = 'dsEmpty'; e.className = 'empty'; e.style.cssText = 'grid-column:1/-1;padding:44px 20px;text-align:center';
@@ -6389,7 +6479,7 @@ function initDsfilters(attempt = 0) {
       e.style.display = '';
     } else { const e = g('dsEmpty'); if (e) e.style.display = 'none'; }
   };
-  const FIDS = ['dsfCat', 'dsfStone', 'dsfColour', 'dsfPurity', 'dsfWMin', 'dsfWMax'];
+  const FIDS = ['dsfSearch', 'dsfCat', 'dsfStone', 'dsfColour', 'dsfPurity', 'dsfWMin', 'dsfWMax', 'dsfSort'];
   const quick = g('dsfQuick');
   /* v113 — put yesterday's filters back before the first pass, and remember
      every change. Restoring a quick-weight chip too, so the bar reads true. */
@@ -6407,8 +6497,14 @@ function initDsfilters(attempt = 0) {
     const f = {}; FIDS.forEach(id => { const el = g(id); if (el && el.value !== '') f[id] = el.value; });
     dsSaveFilters(f);
   };
+  let _dsSearchT = 0;
   FIDS.forEach(id => {
     const el = g(id); if (!el) return;
+    if (id === 'dsfSearch') {
+      el.oninput = () => { clearTimeout(_dsSearchT); _dsSearchT = setTimeout(() => { remember(); apply(); }, 120); };
+      el.onchange = () => { clearTimeout(_dsSearchT); remember(); apply(); };
+      return;
+    }
     el.oninput = () => { remember(); paintChip(); apply(); };
     el.onchange = () => { remember(); paintChip(); apply(); };
   });
@@ -6438,6 +6534,7 @@ window.ShivaaDS = {
     window._sel[pid] = Math.max(0, (window._sel[pid] || 0) + d);
     if (window._sel[pid] === 0) delete window._sel[pid];
     dsSaveSel();                                   // v113 — survive navigation & reload
+    try { navigator.vibrate && navigator.vibrate(8); } catch (e) {}
     const card = document.getElementById('ds-' + pid);
     if (card) {
       card.classList.toggle('on', window._sel[pid] > 0);
@@ -7892,7 +7989,7 @@ function renderSugg(qs) {
       `<div class="sugg-lbl">Popular searches</div>` +
       POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=120" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -7904,7 +8001,7 @@ function renderSugg(qs) {
       + `<div class="sugg-lbl">Try</div>`
       + POPULAR_Q.slice(0, 4).map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=120" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -7932,7 +8029,11 @@ document.addEventListener('rates', () => {
   });
   refreshPdLive();
   refreshCheckoutTotals();
-  if (location.hash.startsWith('#/rates')) pages.rates($('#view'));
+  /* v120 — Bug A: polls patch the rates page in place (a wholesale re-render
+     blanked the cards and wiped the alert form). Full render is the fallback. */
+  if (location.hash.startsWith('#/rates')) {
+    if (!refreshRatesPage(state.rates)) { try { const _rr = pages.rates($('#view')); if (_rr && _rr.catch) _rr.catch(() => {}); } catch (e) {} }
+  }
   if (location.hash.startsWith('#/cart')) pages.cart($('#view'));
   if (location.hash.startsWith('#/compare')) pages.compare($('#view'), new URLSearchParams());
 });
@@ -8193,7 +8294,7 @@ async function boot(isRedraw) {
   <div class="mega-in">
     <div class="mega-grid">${Object.entries(LIVE_CATS()).map(([k, c]) => `
       <a class="mega-tile" href="#/shop?category=${k}">
-        <span class="mt-img"><img src="${c.img}" alt="${c.name}" loading="lazy"></span>
+        <span class="mt-img"><img src="${c.img}?v=120" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"></span>
         <span class="mt-tx"><b>${c.name}</b><small>${c.sub}</small></span>
       </a>`).join('')}
     </div>
@@ -8223,7 +8324,7 @@ async function boot(isRedraw) {
           list = document.createElement('div');
           list.id = 'dwCatList'; list.className = 'dw-catlist';
           list.innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) =>
-            `<a href="#/shop?category=${k}"><img src="${c.img}" alt="" loading="lazy"><span>${esc(c.name)}</span></a>`).join('');
+            `<a href="#/shop?category=${k}"><img src="${c.img}?v=120" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }
         const open = !list.classList.contains('open');

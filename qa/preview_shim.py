@@ -47,7 +47,10 @@ def current_rates(d):
     l = d["rates"]["last"]
     gp = int(d["settings"].get("jaipurPremium", 55))
     sp = float(d["settings"].get("jaipurSilverPremium", 3))
-    return {"gold24": int(l["gold24"]) + gp, "gold22": int(l["gold22"]) + gp,
+    # v120 preview parity: 22K follows the live anchor formula (api.php v119+)
+    g22p = int(d["settings"].get("gold22Premium", 398))
+    anchor_g = int(l["gold24"])
+    return {"gold24": anchor_g + gp, "gold22": round(anchor_g * 0.9167) + g22p,
             "gold18": int(l["gold18"]) + round(gp * 0.75),
             "silver": round(float(l["silver"]) + sp, 1)}
 
@@ -509,7 +512,13 @@ class Handler(SimpleHTTPRequestHandler):
                 "spot": {k: last[k] for k in ("gold24", "gold22", "gold18", "silver")},
                 "jaipur": current_rates(d),
                 "premium": {"gold": int(d["settings"].get("jaipurPremium", 55)),
+                            "gold22": int(d["settings"].get("gold22Premium", 398)),
                             "silver": float(d["settings"].get("jaipurSilverPremium", 3))},
+                "anchorLevel": {"mode": "spot", "source": "preview-db",
+                                "goldPerG": int(last["gold24"]), "silverPerG": float(last["silver"]),
+                                "at": time.strftime("%Y-%m-%dT%H:%M:%S+05:30", time.localtime()), "ageMs": None},
+                "t": time.strftime("%Y-%m-%dT%H:%M:%S+05:30", time.localtime()),
+                "source": "preview",
                 "override": d["rates"].get("override"),
                 "history": d["rates"].get("history", [])[-120:],
                 "nextUpdateIn": 60})

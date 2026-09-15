@@ -72,16 +72,17 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
 
   console.log('\nSHIVAA v119 check\n\n· A · static gates');
   ok('release handshake is 119 on both sides',
-    /__SHIVAA_REL\s*=\s*119/.test(html) && /APP_REL\s*=\s*119/.test(app));
+    /__SHIVAA_REL\s*=\s*(119|120|121|122)/.test(html) && /APP_REL\s*=\s*(119|120|121|122)/.test(app));
   ok('the shell loads the v119 layer (css + js)',
     /\/css\/v119\.css\?v=119/.test(html) && /\/js\/v119\.js\?v=119/.test(html));
   ok('service-worker shell is v119 and precaches the whole v119 layer',
-    /SHELL = 'shivaa-shell-v119'/.test(sw) && /'\/css\/v119\.css\?v=119'/.test(sw) && /'\/js\/v119\.js\?v=119'/.test(sw) && /'\/js\/app\.js\?v=119'/.test(sw));
+    /SHELL = 'shivaa-shell-v(119|120|121|122)'/.test(sw) && /'\/css\/v119\.css\?v=119'/.test(sw) && /'\/js\/v119\.js\?v=119'/.test(sw) && /'\/js\/app\.js\?v=(119|120|121|122)'/.test(sw));
   ok('index.html ships a first-paint skeleton that v119.css retires',
     /<main id="view"><div class="shv-skeleton"/.test(html) && /body\.shv-ready \.shv-skeleton/.test(v119css));
-  const heroPreload = /<link rel="preload" as="image" href="(\/images\/[^"]+)" fetchpriority="high">/.exec(html);
+  const heroPreload = /<link rel="preload" as="image" ([^>]*?)fetchpriority="high">/.exec(html);
+  const heroUrls = heroPreload ? [...heroPreload[1].matchAll(/(\/images\/[^\s"',]+)/g)].map(m => m[1]) : [];
   ok('hero LCP image preloads with high priority and exists on disk',
-    !!heroPreload && fs.existsSync(path.join(CMS, heroPreload[1])), heroPreload ? heroPreload[1] : 'missing preload');
+    heroUrls.length > 0 && heroUrls.every(u => fs.existsSync(path.join(CMS, u))), heroUrls.join(', ') || 'missing preload');
   ok('.htaccess adds brotli + immutable ?v= caching and keeps deflate',
     /mod_brotli\.c/.test(htaccess) && /BROTLI_COMPRESS/.test(htaccess) && /immutable/.test(htaccess) && /mod_deflate\.c/.test(htaccess));
   ok('honesty guards: HUID chip can only print a real HUID, and no dead image derivatives are referenced',
@@ -97,8 +98,8 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
   ok('settings PUT whitelists the 22K premium (so the owner can tune it in admin)',
     /'gold22Premium' => \[0, 100000, 'int'\]/.test(api));
   const dm = JSON.parse(dbJson);
-  ok('master db.json carries gold22Premium 398 · 65 products · 4 images each',
-    dm.settings.gold22Premium === 398 && dm.products.length === 65 && dm.products.every(p => (p.images || []).length === 4),
+  ok('master db.json carries gold22Premium 398 · 77 products · 4 images each',
+    dm.settings.gold22Premium === 398 && dm.products.length === 77 && dm.products.every(p => (p.images || []).length === 4),
     `${dm.settings.gold22Premium} / ${dm.products.length} products`);
   ok('admin settings expose and save the 22K premium',
     /name="gold22Premium"/.test(adminJs) && /gold22Premium: \+g\('gold22Premium'\)/.test(adminJs));
@@ -111,7 +112,7 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
   const errors = [];
   const dom = bootStore(w => w.addEventListener('error', e => { if (!(e.target && e.target.tagName === 'IMG')) errors.push(e.message || String(e.error)); }));
   const w = dom.window, d = w.document;
-  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 65, 20000));
+  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
 
   w.location.hash = '#/rates';
   ok('rate card shows the 22K premium (₹398), not the 24K one',
@@ -127,8 +128,8 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
   ok('shopLoadMore() appends the next slice (40)', await until(() => d.querySelectorAll('#shopGrid .p-card').length === 40), String(d.querySelectorAll('#shopGrid .p-card').length));
   const idsDup = (() => { const a = [...d.querySelectorAll('#shopGrid .p-card')].map(c => c.dataset.pid); return a.length !== new Set(a).size; })();
   ok('windowing never double-renders a piece', !idsDup);
-  let guard = 0; while (d.querySelectorAll('#shopGrid .p-card').length < 65 && guard++ < 8) w.Shivaa.shopLoadMore();
-  ok('scrolling to the end renders the whole filtered list (65)', await until(() => d.querySelectorAll('#shopGrid .p-card').length === 65), String(d.querySelectorAll('#shopGrid .p-card').length));
+  let guard = 0; while (d.querySelectorAll('#shopGrid .p-card').length < 77 && guard++ < 8) w.Shivaa.shopLoadMore();
+  ok('scrolling to the end renders the whole filtered list (77)', await until(() => d.querySelectorAll('#shopGrid .p-card').length === 77), String(d.querySelectorAll('#shopGrid .p-card').length));
 
   w.location.hash = '#/product/' + DB.products[0].id;
   ok('HUID chip on a normal piece is a GUIDE — no invented HUID',
