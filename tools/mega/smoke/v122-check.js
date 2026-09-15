@@ -1,10 +1,11 @@
 /* ══════════════════════════════════════════════════════════════════════════
    SHIVAA v122 check — B2B design-desk gates (partner-booted).
 
-   A · static  (11) v122 wiring, desk search/sort markup + logic, IO-gated
-                    second shots, billing math untouched, partner gate
-                    intact, sticky-bar layer (js + css), qty haptic
-   B · live     (9) jsdom as a partner: desk renders, sort orders, search
+   A · static  (12) v122 wiring, 122 handshake, desk search/sort markup +
+                    logic, IO-gated second shots, billing math untouched,
+                    partner gate intact, sticky-bar layer (js + css),
+                    qty haptic
+   B · live    (10) jsdom as a partner: desk renders, sort orders, search
                     filters, reset restores, sticky bar follows the bill,
                     bill modal maths, slider alive, zero page errors
    ══════════════════════════════════════════════════════════════════════════ */
@@ -77,6 +78,10 @@ function bootStore(extra = '') {
   ok('release stamps stay a consistent triple (shell = script = worker)',
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
+  ok('release handshake is 122 on both sides (shell v122, script key v122)',
+    /__SHIVAA_REL\s*=\s*122/.test(html) && /APP_REL\s*=\s*122/.test(app) &&
+    /SHELL = 'shivaa-shell-v122'/.test(sw) && /\/js\/app\.js\?v=122/.test(html) &&
+    /'\/js\/app\.js\?v=122'/.test(sw));
   ok('desk markup: search box, 5-way sort, matchable name + SKU on cards',
     /id="dsfSearch" type="search" enterkeyhint="search"/.test(app) &&
     /id="dsfSort"[\s\S]{0,400}value="sel"[\s\S]{0,200}value="wasc"[\s\S]{0,200}value="wdesc"[\s\S]{0,200}value="az"/.test(app) &&
