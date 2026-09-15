@@ -1,0 +1,20 @@
+/* ═══════════════════════════════════════════════════════════
+   SHIVAA v115 — release layer (categories back · carousel touch ·
+   RTGS strip units are fixed server-side in api.php)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Hero carousel — the container itself pins touch-action:pan-y. The slides
+   already carried it, but a finger that lands on the arrow buttons, the dots
+   bar or the seam between slides was still free for Android to claim as a
+   native scroll, which fires pointercancel and kills the swipe mid-gesture.
+   pan-y everywhere on the deck = horizontal swipes always reach the JS
+   engine, vertical scrolls always page normally. */
+#heroCarousel { touch-action: pan-y; }
+
+/* Long-pressing a banner image starts a native image drag on Android, which
+   also cancels the pointer stream. Dragging is never meaningful here. */
+#heroCarousel .c-slide img { -webkit-user-drag: none; user-drag: none; }
+
+/* The category grid shows all 17 house faces again (v115 · LIVE_CATS reverts
+   to the full map). No layout change is needed — the auto-fill grid simply
+   gets its rows back; this note documents why the count changed. */

@@ -37,6 +37,11 @@
 <link rel="stylesheet" href="/css/aurum.css?v=107">
 <link rel="stylesheet" href="/css/v107.css?v=107">
 <link rel="stylesheet" href="/css/v113.css?v=113b">
+<link rel="stylesheet" href="/css/v115.css?v=115">
+<!-- v115 · release stamp: app.js compares this against its own APP_REL and
+     reloads once if the paired script is older — a phone can no longer sit on
+     a fresh shell with a stale script ("the update changed nothing"). -->
+<script>window.__SHIVAA_REL=115;</script>
 </head>
 <body>
 
@@ -313,7 +318,7 @@
      That is 366KB of parse+execute a shopper never needed.
      `defer` keeps execution order and guarantees a fully parsed DOM. -->
 <script src="/js/otp-autofill.js?v=107" defer></script>
-<script src="/js/app.js?v=113b" defer></script>
+<script src="/js/app.js?v=115" defer></script>
 <script src="/js/hallmark.js?v=107" defer></script>
 <script src="/js/trust.js?v=107" defer></script>
 <script src="/js/auth.js?v=113b" defer></script>

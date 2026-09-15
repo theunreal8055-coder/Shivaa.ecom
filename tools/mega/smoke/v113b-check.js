@@ -289,6 +289,13 @@ async function session({ origin, partner = false }) {
   ok('a missing image degrades to the house monogram', /^data:image\/svg\+xml/.test(img.getAttribute('src') || ''),
     img.getAttribute('src'));
 
+  /* v115 — every house category shows again. The v111 filter hid categories
+     with no products, which collapsed the rings-only catalogue to one tile
+     and read to the owner as "the update deleted my categories". */
+  await S.go('#/', () => S.$$('.cat-mini-card').length, 12000);
+  ok('the home grid shows all 17 category faces', S.$$('.cat-mini-card').length === 17,
+    `${S.$$('.cat-mini-card').length} tiles`);
+
   const pass1Errors = S.pageErrors();
   ok('no unhandled page errors in the shopper session', pass1Errors.length === 0, pass1Errors.join(' | '));
 
