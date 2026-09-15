@@ -59,6 +59,7 @@ function bootStore(extra = '') {
   const sw = fs.readFileSync(path.join(CMS, 'sw.js'), 'utf8');
   const v120css = fs.readFileSync(path.join(CMS, 'css/v120.css'), 'utf8');
   const v120js = fs.readFileSync(path.join(CMS, 'js/v120.js'), 'utf8');
+  const v116src = fs.readFileSync(path.join(CMS, 'js/v116.js'), 'utf8');
 
   console.log('\nSHIVAA v120 check\n\n· A · static gates');
   ok('the shell loads the v120 layer (css + js, after the v119 layer)',
@@ -82,6 +83,12 @@ function bootStore(extra = '') {
     /loading="eager" decoding="async" fetchpriority="low"/.test(app));
   ok('Bug B: the tile monogram underlay can never be bare text',
     /\.cb-img::after/.test(v120css) && /content: '✦'/.test(v120css) && /\.cb-img img \{ position: relative; z-index: 1/.test(v120css));
+  ok('Bug B: every category render site carries a versioned photo URL (v116 key re-stamped)',
+    /cat-mini-card"><img src="\$\{c\.img\}\?v=120"/.test(app) &&
+    /mt-img"><img src="\$\{c\.img\}\?v=120"/.test(app) &&
+    /dwCatList/.test(app) && /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=120"/.test(app) &&
+    /c\.img \+ '\?v=120"/.test(v116src) &&
+    /\/js\/v116\.js\?v=120/.test(html) && /'\/js\/v116\.js\?v=120'/.test(sw));
   ok('mobile pack JS: haptics + back-button overlays, self-guarded',
     /Shivaa\.haptic/.test(v120js) && /_shvHaptic/.test(v120js) && /wrapTap\('addToCart', 20\)/.test(v120js) &&
     /wrapTap\('toggleWish', 12\)/.test(v120js) && /shvOverlay/.test(v120js) && /popstate/.test(v120js) &&
@@ -124,6 +131,13 @@ function bootStore(extra = '') {
   w.location.hash = '#/';
   ok('home category tiles carry versioned photo URLs',
     await until(() => [...d.querySelectorAll('.cb-img img')].length > 0 && [...d.querySelectorAll('.cb-img img')].every(i => i.src.includes('?v=120'))));
+  const tileImg = d.querySelector('.cb-img img');
+  tileImg.dispatchEvent(new w.Event('error'));
+  ok('tile fallback stage 1: a failed photo swaps to the house logo',
+    tileImg.src.includes('/images/logo.png?v=120'));
+  tileImg.dispatchEvent(new w.Event('error'));
+  ok('tile fallback stage 2: a failed logo hides to the monogram underlay, never bare text',
+    tileImg.style.display === 'none');
 
   const h0 = w.history.length;
   d.querySelector('#searchBtn').click();

@@ -1667,7 +1667,7 @@ function catBarHTML() {
     /* v120 — Bug B: tile photos carry ?v=120 (busts poisoned pre-v113 SW entries) and a
        two-stage fallback — house logo, then hide to reveal the monogram underlay in
        css/v120.css — so a tile can never degrade to bare alt-text again. */
-    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&v=120' : '?v=120'); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="this.onerror=null;if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
+    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&v=120' : '?v=120'); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
     `</div><button class="cb-arrow cb-next" aria-label="Next">›</button></div>`;
 }
 function initCatbar() {
@@ -2204,7 +2204,7 @@ pages.home = async (view) => {
   <section class="sec container" style="padding-bottom:26px">
     <div class="sec-head rv" style="margin-bottom:22px"><span class="label">Shop by category</span><h2>Find your <span class="disp-italic">forever</span></h2></div>
     <div class="cat-mini">
-      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}" alt="${c.name}" loading="lazy"><b>${c.name}</b></a>`).join('')}
+      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}?v=120" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"><b>${c.name}</b></a>`).join('')}
     </div>
   </section>
 
@@ -7936,7 +7936,7 @@ function renderSugg(qs) {
       `<div class="sugg-lbl">Popular searches</div>` +
       POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=120" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=120" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -7948,7 +7948,7 @@ function renderSugg(qs) {
       + `<div class="sugg-lbl">Try</div>`
       + POPULAR_Q.slice(0, 4).map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=120" alt=""><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=120" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -8241,7 +8241,7 @@ async function boot(isRedraw) {
   <div class="mega-in">
     <div class="mega-grid">${Object.entries(LIVE_CATS()).map(([k, c]) => `
       <a class="mega-tile" href="#/shop?category=${k}">
-        <span class="mt-img"><img src="${c.img}" alt="${c.name}" loading="lazy"></span>
+        <span class="mt-img"><img src="${c.img}?v=120" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"></span>
         <span class="mt-tx"><b>${c.name}</b><small>${c.sub}</small></span>
       </a>`).join('')}
     </div>
@@ -8271,7 +8271,7 @@ async function boot(isRedraw) {
           list = document.createElement('div');
           list.id = 'dwCatList'; list.className = 'dw-catlist';
           list.innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) =>
-            `<a href="#/shop?category=${k}"><img src="${c.img}" alt="" loading="lazy"><span>${esc(c.name)}</span></a>`).join('');
+            `<a href="#/shop?category=${k}"><img src="${c.img}?v=120" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=120';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }
         const open = !list.classList.contains('open');
