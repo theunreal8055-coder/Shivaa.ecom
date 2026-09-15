@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 116;
+const APP_REL = 117;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1379,7 +1379,8 @@ function initCarousel() {
 
   let idx = Math.max(0, slides.findIndex(sl => sl.classList.contains('on')));
   if (idx < 0) idx = 0;
-  let timer = null, paused = false, sx = null, sy = null, st = 0, pid = null, vertical = false;
+  let timer = null, paused = false;
+  let sx = null, sy = null, st = 0, pointerId = null, vertical = false;
   const bindings = [];
   const on = (target, type, fn, opts) => {
     target.addEventListener(type, fn, opts);
@@ -1389,14 +1390,27 @@ function initCarousel() {
     const mobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || innerWidth <= 820;
     return mobile ? 12000 : 5500;
   };
-  const stop = () => { paused = true; clearTimeout(timer); timer = null; window._carTimer = null; };
+  const pause = () => {
+    paused = true;
+    clearTimeout(timer);
+    timer = null;
+    window._carTimer = null;
+  };
   const schedule = () => {
-    clearTimeout(timer); timer = null; window._carTimer = null;
+    clearTimeout(timer);
+    timer = null;
+    window._carTimer = null;
     if (paused || document.hidden || !document.contains(car)) return;
-    timer = setTimeout(() => { go(idx + 1); schedule(); }, interval());
+    timer = setTimeout(() => {
+      go(idx + 1);
+      schedule();
+    }, interval());
     window._carTimer = timer;
   };
-  const start = () => { paused = false; schedule(); };
+  const resume = () => {
+    paused = false;
+    schedule();
+  };
   const go = i => {
     idx = (i + n) % n;
     track.style.transform = `translate3d(-${idx * 100}%,0,0)`;
@@ -1419,50 +1433,68 @@ function initCarousel() {
 
   const next = () => go(idx + 1), prev = () => go(idx - 1);
   const prevBtn = $('.c-prev', car), nextBtn = $('.c-next', car);
-  if (prevBtn) on(prevBtn, 'click', e => { e.preventDefault(); prev(); start(); });
-  if (nextBtn) on(nextBtn, 'click', e => { e.preventDefault(); next(); start(); });
-  $$('.c-dot', dots).forEach(d => on(d, 'click', () => { go(+d.dataset.i); start(); }));
+  if (prevBtn) on(prevBtn, 'click', e => { e.preventDefault(); prev(); resume(); });
+  if (nextBtn) on(nextBtn, 'click', e => { e.preventDefault(); next(); resume(); });
+  $$('.c-dot', dots).forEach(d => on(d, 'click', e => { e.preventDefault(); go(+d.dataset.i); resume(); }));
 
-  // Keep the pointer gesture deliberately small and self-resetting. A vertical
-  // drag belongs to the page; a horizontal drag changes exactly one poster.
-  const reset = () => { sx = sy = st = pid = null; vertical = false; start(); };
-  on(car, 'mouseenter', stop);
-  on(car, 'mouseleave', start);
-  on(car, 'focusin', stop);
-  on(car, 'focusout', e => { if (!car.contains(e.relatedTarget)) start(); });
+  // Do not pause autoplay merely because a desktop pointer rests over the
+  // banner. That made the carousel look dead in normal use. Pause only while
+  // the shopper is actively dragging or keyboard-focusing the deck.
+  on(car, 'focusin', pause);
+  on(car, 'focusout', e => { if (!car.contains(e.relatedTarget)) resume(); });
+
+  const isControl = target => !!(target && target.closest && target.closest('button, a'));
+  const pointerMatches = e => pointerId == null || e.pointerId == null || e.pointerId === pointerId;
+  const resetPointer = () => {
+    sx = sy = st = pointerId = null;
+    vertical = false;
+  };
+  const finishPointer = e => {
+    if (sx == null || !pointerMatches(e)) return;
+    const dx = (e.clientX ?? sx) - sx;
+    const dy = (e.clientY ?? sy) - sy;
+    const fast = Date.now() - st < 600;
+    if (!vertical && Math.abs(dx) > (fast ? 30 : 42) && Math.abs(dx) > Math.abs(dy)) {
+      (dx < 0 ? next : prev)();
+    }
+    resetPointer();
+    resume();
+  };
   on(car, 'pointerdown', e => {
+    // Controls have their own click handlers. Keeping them out of the swipe
+    // state prevents a pointer capture from swallowing an arrow/dot tap.
+    if (isControl(e.target)) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    sx = e.clientX; sy = e.clientY; st = Date.now(); pid = e.pointerId; vertical = false; stop();
-    try { car.setPointerCapture(pid); } catch (_) {}
+    sx = e.clientX; sy = e.clientY; st = Date.now();
+    pointerId = e.pointerId == null ? null : e.pointerId;
+    vertical = false;
+    pause();
+    try { if (pointerId != null) car.setPointerCapture(pointerId); } catch (_) {}
   });
   on(car, 'pointermove', e => {
-    if (sx == null || e.pointerId !== pid || vertical) return;
+    if (sx == null || !pointerMatches(e) || vertical) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
     if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.35) vertical = true;
   });
-  on(car, 'pointerup', e => {
-    if (sx == null || e.pointerId !== pid) return;
-    if (!vertical) {
-      const dx = e.clientX - sx, dy = e.clientY - sy;
-      const fast = Date.now() - st < 600;
-      if (Math.abs(dx) > (fast ? 30 : 42) && Math.abs(dx) > Math.abs(dy)) (dx < 0 ? next : prev)();
-    }
-    reset();
+  // Listen on window as well as the deck: a finger/mouse can finish just
+  // outside the banner, and the old implementation then stayed paused.
+  on(window, 'pointerup', finishPointer);
+  on(window, 'pointercancel', e => {
+    if (sx != null && pointerMatches(e)) { resetPointer(); resume(); }
   });
-  ['pointercancel', 'lostpointercapture'].forEach(type => on(car, type, e => {
-    if (sx != null && e.pointerId === pid) reset();
-  }));
   on(car, 'keydown', e => {
-    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); start(); }
-    if (e.key === 'ArrowRight') { e.preventDefault(); next(); start(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); resume(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); next(); resume(); }
   });
-  const onVisibility = () => { if (document.hidden) stop(); else if (document.contains(car)) start(); };
+  const onVisibility = () => { if (document.hidden) pause(); else if (document.contains(car)) resume(); };
   on(document, 'visibilitychange', onVisibility);
   window._carDestroy = () => {
-    stop(); bindings.splice(0).forEach(off => { try { off(); } catch (e) {} });
-    if (window._carDestroy) window._carDestroy = null;
+    pause();
+    resetPointer();
+    bindings.splice(0).forEach(off => { try { off(); } catch (e) {} });
+    window._carDestroy = null;
   };
-  start();
+  resume();
 }
 
 /* ─────────── 3D gold ring (hero canvas) ─────────── */

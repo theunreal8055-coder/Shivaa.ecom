@@ -1,19 +1,20 @@
-# Shivaa v116 — performance, carousel, Quick View and PayU
+# Shivaa v117 — Quick View and carousel hotfix · PayU remains v116
 
-This release fixes four storefront issues without changing the COD, WhatsApp, UPI-proof, cart, or SPA route contracts.
+This hotfix fixes the two reported storefront interactions on top of v116 without changing the COD, WhatsApp, UPI-proof, cart, or SPA route contracts.
 
 ## 1. Deploy the code
 
 Upload these files to the existing `cms/` installation, preserving `data/`, `uploads/`, and the existing media library:
 
-- `api.php`
 - `index.html`
 - `js/app.js`
 - `js/boost.js`
 - `css/v115.css`
 - `sw.js`
 
-The shell now uses the v116 cache/query stamps. A registered service worker should update itself; if a device still shows the old shell, reload once after the in-app update prompt appears.
+The PayU/API file is unchanged by this hotfix; keep the v116 `api.php` already deployed (or upload it together with the same release bundle).
+
+The shell now uses v117 cache/query stamps. A registered service worker should update itself; if a device still shows the old shell, reload once after the in-app update prompt appears.
 
 ## 2. Confirm the performance change
 
@@ -27,10 +28,10 @@ The shell now uses the v116 cache/query stamps. A registered service worker shou
 
 On the home page:
 
-1. Wait 5.5 seconds on desktop (12 seconds on touch/mobile) and confirm the poster advances.
+1. Wait 5.5 seconds on desktop (12 seconds on touch/mobile) and confirm the poster advances, even while the pointer is resting over the banner.
 2. Use the left/right arrows, dot buttons, keyboard arrows, and a horizontal swipe.
-3. Hovering or focusing the deck pauses autoplay; leaving it resumes autoplay.
-4. On `/shop`, click **Quick view**. The button is delegated, so it survives SPA re-renders and does not depend on inline `event` handling. Confirm the modal opens without changing the hash, then test gallery, quantity, size, and Add to Bag.
+3. Resting the pointer over the deck does not pause autoplay; keyboard focus and an active drag pause it briefly, then autoplay resumes.
+4. On `/shop`, **Quick view** is intentionally visible and clickable without requiring a hover. Confirm it opens without changing the hash, then test gallery, quantity, size, and Add to Bag.
 
 ## 4. Configure PayU — real credentials are required
 
@@ -65,6 +66,6 @@ After a successful test transaction, inspect the order ledger for `gateway: payu
 
 ## 6. Validation notes
 
-- JavaScript syntax and current jsdom smoke checks pass.
+- JavaScript syntax, pointer/swipe checks, Quick View Add-to-Bag checks, and current jsdom smoke checks pass.
 - The local sandbox does not have PHP or a live PayU account, so PHP linting and an actual hosted transaction must be completed on the PHP host with test credentials.
 - Never use the browser's `?pu=success` value or a client payment promise as proof of payment; the server verification step is authoritative.

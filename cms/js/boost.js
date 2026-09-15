@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   SHIVAA v47-MEGA — boost.js (2030 enhancement engine)
+   SHIVAA v48-MEGA — boost.js (2030 enhancement engine)
    Loaded AFTER app.js. Idempotent, degrades gracefully.
 
    01 page-hero banners on every page   02 light/noir/gold themes

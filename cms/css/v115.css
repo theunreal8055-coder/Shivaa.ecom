@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   SHIVAA v116 — release layer (categories back · carousel touch ·
+   SHIVAA v117 — release layer (categories back · carousel touch ·
    RTGS strip units are fixed server-side in api.php)
    ═══════════════════════════════════════════════════════════ */
 
@@ -32,4 +32,50 @@
 #heroCarousel .c-arrow:focus-visible {
   outline: 2px solid #ffe9bd;
   outline-offset: 3px;
+}
+
+/* v117 — the two user-facing controls must remain reachable even when a
+   browser reports a desktop-style hover on a touch webview. The old hover-only
+   opacity/pointer-events rule made Quick View look present but untappable. */
+.p-card .pc-imgwrap .pc-quick {
+  opacity: .98;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The class is applied to the modal element itself by openModal(). The older
+   selectors targeted a child `.modal`, so some browsers received the default
+   34px modal padding and the sheet looked clipped or unresponsive. */
+.modal.qv-modal {
+  padding: 0 !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-width: 880px;
+  max-height: min(86vh, 680px);
+}
+.modal.qv-modal .qv {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Video is decoration only; it must never sit above the poster controls or
+   steal a touch stream from the deck. */
+#heroCarousel video.c-vid {
+  pointer-events: none;
+}
+#heroCarousel .c-arrow,
+#heroCarousel .c-dots {
+  pointer-events: auto;
+}
+
+@media (max-width: 680px) {
+  .modal.qv-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 94dvh;
+    border-radius: 22px 22px 0 0;
+  }
 }
