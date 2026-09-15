@@ -56,7 +56,7 @@ On the site (log in as a partner, open **Design Selection**):
 
 ## 4 · Owner phone pass (5 minutes, partner login)
 
-1. **Desk** — all 65 designs load; scroll fast: smooth, photos appear as cards near the screen.
+1. **Desk** — all 77 designs load; scroll fast: smooth, photos appear as cards near the screen.
 2. **Search + filter** — search "polki", add a weight chip: only matching designs show; Reset restores all.
 3. **Sort** — switch to heavy-first: the heaviest designs come first; back to Featured restores catalogue order.
 4. **Bill bar** — add 3 designs, scroll to the bottom: the bar shows count + fine grams; Proceed opens the bill.

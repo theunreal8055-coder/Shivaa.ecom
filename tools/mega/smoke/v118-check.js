@@ -42,7 +42,7 @@ const server=http.createServer((req,res)=>{let u=decodeURIComponent(req.url.spli
   };
  }});
  const w=dom.window,d=w.document;
- ok('storefront boots',await until(()=>w.Shivaa&&w.Shivaa.state.productsCache.length===65,20000));
+ ok('storefront boots',await until(()=>w.Shivaa&&w.Shivaa.state.productsCache.length===77,20000));
  w.location.hash='#/shop?category=rings';
  ok('a populated category opens its product grid',await until(()=>d.querySelectorAll('#shopGrid .p-card').length>0),d.body.textContent.slice(0,200));
  const catImgs=[...d.querySelectorAll('.shop-catbar .cb-img img')];

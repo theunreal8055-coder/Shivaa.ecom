@@ -117,29 +117,29 @@ function bootStore(extra = '') {
   const errors = [];
   const dom = bootStore(w => w.addEventListener('error', e => { if (!(e.target && e.target.tagName === 'IMG')) errors.push(e.message || String(e.error)); }));
   const w = dom.window, d = w.document;
-  ok('storefront boots as a partner', await until(() => w.Shivaa && w.Shivaa.state.user && w.Shivaa.state.user.role === 'partner' && w.Shivaa.state.productsCache.length === 65, 20000));
+  ok('storefront boots as a partner', await until(() => w.Shivaa && w.Shivaa.state.user && w.Shivaa.state.user.role === 'partner' && w.Shivaa.state.productsCache.length === 77, 20000));
 
   w.location.hash = '#/catalogues';
   const vis = () => [...d.querySelectorAll('#dsGrid .ds-card')].filter(c => c.style.display !== 'none');
-  ok('the desk renders: 65 cards, search, sort, bill total',
-    await until(() => d.querySelectorAll('#dsGrid .ds-card').length === 65 && d.querySelector('#dsfSearch') && d.querySelector('#dsfSort') && d.querySelector('#dsFine')));
+  ok('the desk renders: 77 cards, search, sort, bill total',
+    await until(() => d.querySelectorAll('#dsGrid .ds-card').length === 77 && d.querySelector('#dsfSearch') && d.querySelector('#dsfSort') && d.querySelector('#dsFine')));
 
   d.querySelector('#dsfSort').value = 'wasc';
   d.querySelector('#dsfSort').dispatchEvent(new w.Event('change', { bubbles: true }));
   await sleep(200);
   const wts = vis().map(c => +c.dataset.w);
-  ok('weight sort orders the desk light-first', wts.length === 65 && wts[0] <= wts[wts.length - 1] && wts.every((x, i) => i === 0 || wts[i - 1] <= x),
+  ok('weight sort orders the desk light-first', wts.length === 77 && wts[0] <= wts[wts.length - 1] && wts.every((x, i) => i === 0 || wts[i - 1] <= x),
     wts.slice(0, 3).join(',') + ' … ' + wts.slice(-3).join(','));
 
   const sku = d.querySelector('#dsGrid .ds-card').dataset.sku;
   d.querySelector('#dsfSearch').value = sku;
   d.querySelector('#dsfSearch').dispatchEvent(new w.Event('input', { bubbles: true }));
   ok('search narrows to name/SKU matches and the count reads true',
-    await until(() => { const v = vis(); return v.length > 0 && v.length < 65 && v.every(c => (c.dataset.name + ' ' + c.dataset.sku).toLowerCase().includes(sku.toLowerCase())) && /shown/.test(d.querySelector('#dsShown').textContent); }),
+    await until(() => { const v = vis(); return v.length > 0 && v.length < 77 && v.every(c => (c.dataset.name + ' ' + c.dataset.sku).toLowerCase().includes(sku.toLowerCase())) && /shown/.test(d.querySelector('#dsShown').textContent); }),
     `query: ${sku}`);
 
   d.querySelector('#dsfReset').click();
-  ok('reset restores the full desk', await until(() => d.querySelector('#dsfSearch').value === '' && d.querySelector('#dsfSort').value === '' && vis().length === 65));
+  ok('reset restores the full desk', await until(() => d.querySelector('#dsfSearch').value === '' && d.querySelector('#dsfSort').value === '' && vis().length === 77));
 
   const pid = d.querySelector('#dsGrid .ds-card').id.replace(/^ds-/, '');
   w.ShivaaDS.qty(pid, 1);

@@ -103,7 +103,7 @@ function bootStore(extra = '') {
   const errors = [];
   const dom = bootStore(w => w.addEventListener('error', e => { if (!(e.target && e.target.tagName === 'IMG')) errors.push(e.message || String(e.error)); }));
   const w = dom.window, d = w.document;
-  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 65, 20000));
+  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
 
   w.location.hash = '#/';
   ok('home shows exactly one visible slide carrying the phone srcset',

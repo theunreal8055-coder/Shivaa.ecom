@@ -2469,7 +2469,7 @@ pages.shop = async (view, q) => {
       } else {
         let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
         if (f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
-          emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 65 signature rings</a></div></div>`;
+          emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 77 signature rings</a></div></div>`;
         }
         if (state.shop.observer) { try { state.shop.observer.disconnect(); } catch (e) {} state.shop.observer = null; }
         if (grid) grid.innerHTML = emptyHtml;
