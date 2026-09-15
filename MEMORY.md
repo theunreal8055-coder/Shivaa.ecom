@@ -1,8 +1,12 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
 > This file lives on `main` so ANY new Arena chat (any account, any device) starts with full history.
-> Updated: 2026-09-14 — branch `arena/01a0a0a6-shivaa-ecom` (v111 zoom batch 2 + live verify + memory persist)
+> Updated: 2026-09-15 — branch `arena/01a0a2e9-shivaa-ecom` (v114 checkout invoice FY TypeError)
 > **Owner magic phrase for next chat:** `Read ARENA-STATE.md and HANDOFF.md and MEMORY.md first, then continue.`
+
+## Session 2026-09-15 (arena/01a0a2e9) — v114 invoice FY
+- Checkout 500: `str_pad(((int)date('y')) ± 1, …)` TypeError under `strict_types=1`. Fixed with `$fyStart` (Apr–Mar IST) + `(string)` `str_pad`. Invoice still `SHV/{fy}/{seq}`.
+- Zip: `shivaa-update-v114.zip` → overwrite `public_html/api.php`. Gate: `node tools/mega/php-sweep/sweep.mjs` → `211 routes · 0 exceptions`.
 
 ## Session 2026-09-14 #2 (arena/01a0a0a6) — zoom batch 2, live verify, docs persist
 - **Lost commit 0a2b3f5 = UNRECOVERABLE (verified, not assumed).** It was never pushed anywhere: GitHub API `GET /commits/0a2b3f5` → HTTP 422 "No commit found"; no `refs/heads/*`, `refs/pull/*` or tag contains it; not in 60-commit deepened main history; no on-disk leftovers (`/home/user/work_shots` absent). Its supposed content — the 8 pulled-back covers PGS5011–5020 — was **re-done from scratch** this session.
