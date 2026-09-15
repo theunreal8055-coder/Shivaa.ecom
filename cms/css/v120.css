@@ -9,7 +9,7 @@
    above (z-index 1) and the gold ring stays on top (z-index 2). */
 .cb-img { background: radial-gradient(circle at 50% 32%, #5a1626 0%, #2b080f 78%); }
 .cb-img::after {
-  content: '✦'; position: absolute; inset: 0; z-index: 0;
+  content: '✦'; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 0;
   display: flex; align-items: center; justify-content: center;
   color: #d4af5a; font-size: 30px; line-height: 1; opacity: .9; pointer-events: none;
 }
