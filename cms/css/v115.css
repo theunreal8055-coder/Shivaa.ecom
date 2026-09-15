@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   SHIVAA v117 — release layer (categories back · carousel touch ·
+   SHIVAA v120 — release layer (categories back · carousel touch ·
    RTGS strip units are fixed server-side in api.php)
    ═══════════════════════════════════════════════════════════ */
 
@@ -70,6 +70,16 @@
 #heroCarousel .c-dots {
   pointer-events: auto;
 }
+#heroCarousel .c-slide { pointer-events: none; }
+#heroCarousel .c-slide.on { pointer-events: auto; }
+#heroCarousel .c-slide.on .c-body,
+#heroCarousel .c-slide.on .c-cta,
+#heroCarousel .c-slide.on .c-cta a {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+#heroCarousel .c-slide .c-fade { pointer-events: none; }
 
 @media (max-width: 680px) {
   .modal.qv-modal {

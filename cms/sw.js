@@ -11,12 +11,12 @@
  at all) and was missing boost.css/boost.js and the whole v113 layer, so a
  returning phone kept a stale shell on its first paint. The offline fallback
  also stopped answering a missing IMAGE with index.html.
- v118: shell bumped for the touch-event fallback for the categories-back release (app.js?v=118 +
+ v120: shell bumped for CTA activation and Quick View touch guards for the categories-back release (app.js?v=120 +
  the v115 css layer). index.html now also stamps window.__SHIVAA_REL, and
  app.js reloads itself once if the paired script is older than the shell it
  was served — a device can no longer run a fresh shell on a stale script. */
 'use strict';
-const SHELL = 'shivaa-shell-v118';
+const SHELL = 'shivaa-shell-v120';
 const MEDIA = 'shivaa-media-v107';
 const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
 const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
@@ -30,8 +30,8 @@ const SHELL_FILES = ['/', '/index.html',
   '/css/fonts.css?v=107', '/css/styles.css?v=107', '/css/hallmark.css?v=107',
   '/css/trust.css?v=107', '/css/finale.css?v=107', '/css/motion.css?v=107',
   '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
-  '/css/boost.css?v=46', '/css/v113.css?v=113b', '/css/v115.css?v=117',
-  '/js/otp-autofill.js?v=107', '/js/app.js?v=118', '/js/hallmark.js?v=107',
+  '/css/boost.css?v=46', '/css/v113.css?v=113b', '/css/v115.css?v=120',
+  '/js/otp-autofill.js?v=107', '/js/app.js?v=120', '/js/hallmark.js?v=107',
   '/js/trust.js?v=107', '/js/auth.js?v=113b', '/js/motion.js?v=107',
   '/js/aurum.js?v=107', '/js/v107.js?v=107', '/js/boost.js?v=48',
   '/manifest.webmanifest', '/offline.html',

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 118;
+const APP_REL = 120;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1432,6 +1432,29 @@ function initCarousel() {
   ).join('');
   go(idx);
 
+  // Own the CTA activation at the deck boundary. This keeps the first
+  // poster's links usable even when a touch webview gives the moving track a
+  // synthetic click target during its first paint or omits that click after a
+  // tap. The pending flag prevents pointerup + touchend + click duplicates.
+  if (!car._ctaWired) {
+    car._ctaWired = true;
+    const navigateCta = (e, a) => {
+      if (!a || !car.contains(a) || a.dataset.ctaPending === '1') return;
+      const href = a.getAttribute('href') || '';
+      if (!href.startsWith('#/')) return;
+      e.preventDefault(); e.stopPropagation();
+      a.dataset.ctaPending = '1';
+      if (location.hash === href) route();
+      else location.hash = href;
+      setTimeout(() => { if (a.isConnected) delete a.dataset.ctaPending; }, 700);
+    };
+    const ctaTarget = e => e.target.closest && e.target.closest('.c-cta a');
+    on(car, 'pointerup', e => {
+      if (e.pointerType === 'touch') navigateCta(e, ctaTarget(e));
+    }, true);
+    on(car, 'touchend', e => navigateCta(e, ctaTarget(e)), { passive: false });
+    on(car, 'click', e => navigateCta(e, ctaTarget(e)), true);
+  }
   const next = () => go(idx + 1), prev = () => go(idx - 1);
   const prevBtn = $('.c-prev', car), nextBtn = $('.c-next', car);
   if (prevBtn) on(prevBtn, 'click', e => { e.preventDefault(); prev(); resume(); });
@@ -3472,14 +3495,32 @@ window.Shivaa.holdRepeat = (el, step, opts = {}) => {
 
 // A delegated listener survives every SPA re-render and does not depend on
 // inline `event`/CSP behaviour. Product cards are created in several routes.
+// Touch webviews sometimes omit the synthetic click after a tap, so the same
+// guarded action also listens to touch pointerup. The pending flag prevents a
+// browser that emits both events from opening two sheets.
 if (!window._quickViewClickWired) {
   window._quickViewClickWired = true;
+  const triggerQuickView = (e, btn) => {
+    if (!btn || btn.dataset.qvPending === '1') return;
+    const id = btn.dataset.pid || btn.closest('.p-card')?.dataset.pid;
+    if (!id || typeof window.Shivaa.quickView !== 'function') return;
+    e.preventDefault(); e.stopPropagation();
+    btn.dataset.qvPending = '1';
+    btn.setAttribute('aria-busy', 'true');
+    Promise.resolve(window.Shivaa.quickView(id)).finally(() => setTimeout(() => {
+      if (!btn.isConnected) return;
+      delete btn.dataset.qvPending;
+      btn.removeAttribute('aria-busy');
+    }, 500));
+  };
+  document.addEventListener('pointerup', e => {
+    if (e.pointerType !== 'touch') return;
+    const btn = e.target.closest && e.target.closest('.pc-quick');
+    if (btn) triggerQuickView(e, btn);
+  }, true);
   document.addEventListener('click', e => {
     const btn = e.target.closest && e.target.closest('.pc-quick');
-    if (!btn) return;
-    e.preventDefault(); e.stopPropagation();
-    const id = btn.dataset.pid || btn.closest('.p-card')?.dataset.pid;
-    if (id && window.Shivaa.quickView) window.Shivaa.quickView(id);
+    if (btn) triggerQuickView(e, btn);
   }, true);
 }
 window.Shivaa.quickView = async (id) => {
