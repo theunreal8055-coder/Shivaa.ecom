@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 115;
+const APP_REL = 116;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1449,7 +1449,17 @@ function initCarousel() {
     if (e.key === 'ArrowRight') { e.preventDefault(); next(); reset(); }
   });
   // a hidden tab must not burn through the deck; resume when it comes back
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else if (location.hash === '#/' || location.hash === '' || location.hash === '#') start(); });
+  // v116: deduplicate — only one visibility listener for the carousel ever
+  if (!window._carVisBound) {
+    window._carVisBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { clearInterval(window._carTimer); window._carTimer = null; }
+      else if (location.hash === '#/' || location.hash === '' || location.hash === '#') {
+        const c = $('#heroCarousel');
+        if (c) { clearInterval(window._carTimer); start(); }
+      }
+    });
+  }
   start();
 }
 

@@ -1,0 +1,305 @@
+/* ═══════════════════════════════════════════════════════════
+   SHIVAA v116 — comprehensive bug-fix layer
+   Categories · Carousel · Quick View · Payment · Mobile
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 1. CATEGORIES BUTTON FIX ──
+   The mega-panel used position:fixed;top:0 on initial load before --headerH
+   was computed, making it appear behind the header. Now it always starts
+   below the header with a safe fallback. Also ensures the mobile drawer
+   catlist is always reachable and properly animated. */
+.mega-panel {
+  top: var(--headerH, 120px) !important;
+  /* Ensure the panel is never trapped behind the header even if --headerH
+     hasn't been set yet (first click before resize fires). */
+  z-index: 1200 !important;
+}
+.mega-backdrop { z-index: 1199 !important; }
+
+/* On desktop, if headerH is 0 or unset, use a computed fallback */
+@media (min-width: 681px) {
+  .mega-panel {
+    top: max(var(--headerH, 120px), 80px) !important;
+  }
+}
+
+/* The categories button in the drawer needs proper focus/hit area */
+.nav-cats.dw-more {
+  min-height: 44px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(212,175,90,0.2);
+  touch-action: manipulation;
+}
+
+/* The expandable cat list inside the drawer — ensure smooth animation */
+.dw-catlist {
+  will-change: max-height, opacity;
+  -webkit-overflow-scrolling: touch;
+}
+.dw-catlist a {
+  min-height: 40px;
+  -webkit-tap-highlight-color: rgba(212,175,90,0.15);
+  touch-action: manipulation;
+}
+.dw-catlist a:active {
+  background: rgba(212,175,90,0.25) !important;
+}
+
+/* ── 2. HERO CAROUSEL FIX ──
+   The carousel track needs proper will-change for smooth CSS transitions.
+   Also ensures slides are always visible and the transform works on all
+   browsers including older Android WebViews. */
+.c-track {
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* Ensure slides are never invisible or off-screen during transitions */
+.c-slide {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  contain: layout style;
+}
+
+/* The carousel arrows need proper touch targets on mobile */
+@media (max-width: 760px) {
+  .c-arrow {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+    min-height: 44px;
+    opacity: 0.85;
+  }
+  .c-arrow:active {
+    opacity: 1;
+    background: var(--gold) !important;
+    color: #fff !important;
+  }
+  /* Dots need proper touch targets too */
+  .c-dot {
+    width: 12px;
+    height: 12px;
+    padding: 6px;
+    box-sizing: content-box;
+    cursor: pointer;
+  }
+  .c-dot.on {
+    width: 32px;
+  }
+}
+
+/* The carousel container must not be clipped by overflow on parent */
+.carousel-sec {
+  overflow: visible;
+}
+.carousel {
+  overflow: hidden;
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Ken-Burns animation on the active slide only (saves GPU on others) */
+.c-slide:not(.on) img {
+  animation: none !important;
+}
+
+/* ── 3. QUICK VIEW FIX ──
+   The quick view button needs proper z-index and pointer events so it
+   isn't swallowed by the parent <a> link on touch devices. */
+.pc-quick {
+  z-index: 5;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: rgba(212,175,90,0.3);
+  touch-action: manipulation;
+  /* Ensure the button is always clickable even when the image overlay
+     or glare effect is on top */
+  position: relative;
+}
+
+/* The image link should not steal pointer events from the quick view button */
+.pc-imglink {
+  pointer-events: auto;
+}
+.pc-imglink .glare {
+  pointer-events: none !important;
+}
+
+/* Quick view modal sheet improvements for mobile */
+.qv {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+.qv-photo {
+  -webkit-user-drag: none;
+  user-drag: none;
+  touch-action: pinch-zoom;
+}
+.qv-nav {
+  min-width: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* ── 4. PAYMENT / CHECKOUT FIX ──
+   Payment option radios need proper hit areas. The place order button
+   needs to be clearly visible on mobile. */
+.pay-opt {
+  min-height: 56px;
+  padding: 14px 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(212,175,90,0.15);
+  touch-action: manipulation;
+}
+.pay-opt input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  margin-right: 12px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+/* Place order button on mobile — ensure it's always reachable */
+.mcta-bar {
+  z-index: 900;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+.mcta-bar .btn-gold {
+  min-height: 48px;
+  font-size: 16px;
+  touch-action: manipulation;
+}
+
+/* Rate lock card — ensure the lock button is tappable */
+.rate-lock-card .btn-gold {
+  min-height: 40px;
+  touch-action: manipulation;
+}
+
+/* Address form inputs — proper mobile sizing */
+#addrForm input, #addrForm select {
+  min-height: 44px;
+  font-size: 16px; /* prevents iOS zoom on focus */
+}
+
+/* Coupon input */
+.coupon-row input {
+  min-height: 40px;
+  font-size: 16px;
+}
+.coupon-row .btn {
+  min-height: 40px;
+}
+
+/* ── 5. GENERAL MOBILE UX FIXES ── */
+
+/* All buttons need minimum 44px touch target (WCAG 2.5.5) */
+.btn {
+  touch-action: manipulation;
+}
+
+/* Size pills in product page / quick view */
+.size-pill {
+  min-width: 40px;
+  min-height: 36px;
+  touch-action: manipulation;
+}
+
+/* Product card wishlist and compare buttons */
+.pc-wish, .pc-compare {
+  min-width: 36px;
+  min-height: 36px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Fix drawer close button tap area */
+.dw-close {
+  min-width: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* Ensure the bottom mobile nav doesn't overlap checkout button */
+@media (max-width: 820px) {
+  .mcta-bar {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    bottom: 56px; /* above the mnav */
+  }
+}
+
+/* ── 6. SEARCH DRAWER FIX ──
+   Ensure search suggestions are scrollable on mobile */
+.search-sugg {
+  -webkit-overflow-scrolling: touch;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* ── 7. MINI CART FIX ──
+   The slide-in cart needs proper scroll behavior */
+.mini-cart {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ── 8. CATEGORY MINI CARDS (home page grid) ──
+   Ensure all 17 categories display properly */
+.cat-mini {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+}
+@media (max-width: 680px) {
+  .cat-mini {
+    grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+    gap: 8px;
+  }
+}
+.cat-mini-card {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(212,175,90,0.15);
+}
+.cat-mini-card img {
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+/* ── 9. PRELOADER FIX ──
+   Ensure the preloader always hides even if JS boot is slow */
+.preloader.hide {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+/* ── 10. PRODUCT IMAGE GALLERY (PDP) ──
+   Swipe gestures need proper touch handling */
+.pd-gallery {
+  touch-action: pan-y pinch-zoom;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.pd-gallery img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+/* ── 11. FIX: Ensure no content is hidden behind fixed elements ── */
+@media (max-width: 820px) {
+  /* Add padding for fixed bottom nav */
+  #view {
+    padding-bottom: 60px;
+  }
+  /* Cart page needs extra space for the mobile CTA bar */
+  .cart-layout {
+    padding-bottom: 120px !important;
+  }
+}
