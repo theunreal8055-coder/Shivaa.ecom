@@ -1,8 +1,16 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
 > This file lives on `main` so ANY new Arena chat (any account, any device) starts with full history.
-> Updated: 2026-09-15 — branch `arena/01a0a310-shivaa-ecom` (v115 categories-back + phone self-heal)
+> Updated: 2026-09-15 — branch `arena/01a0a44f-shivaa-ecom` (v117 "butter" — slider tap-jump fix + speed)
 > **Owner magic phrase for next chat:** `Read ARENA-STATE.md and HANDOFF.md and MEMORY.md first, then continue.`
+
+## Session 2026-09-15 #3 (arena/01a0a44f) — v117: "slow site + hero buttons jump to the bottom of the page"
+- **Slider tap-jump = FOCUS SCROLL (root cause, verified in the v117 harness):** carousel is `tabindex=0`, arrows are real `<button>`s, dots delegate focus up — every tap made the browser scroll the page until the whole 430–600 px deck was in view. Fix: `pointerdown` → `preventDefault()` in `initCarousel()` (taps/clicks/swipes unaffected; Tab-focus still scrolls). Second: `aurum.css`'s `.c-arrow:active{transform:scale(.9)}` was REPLACING the arrow's `translateY(-50%)` while pressed (arrow visibly dropped); `css/v117.css` keeps the translate and adds the squash on top. Track now `translate3d` (GPU).
+- **Speed boot-crit:** first paint was held by THREE serial network rounds (batch → `await loadRates()` → `await /api/pages`). Now ONE parallel batch, footer pages backgrounded, 6 s hard cap (quiet re-paint when a slow batch lands) + `js/v117.js` splash cap 6.5 s.
+- **Fonts were the silent killer:** `css/fonts.css` = 354 KB render-blocking base64… and only THREE unique fonts (same woff2 embedded per declared weight). Now `/fonts/jost.woff2` (26 KB), `cormorant-garamond.woff2` (37 KB), `marcellus-400.woff2` (14 KB), file-based 2 KB fonts.css, all preloaded, swap. Regenerate: `python3 tools/fonts/extract_fonts.py`.
+- **Defer layers:** hallmark/trust/motion/aurum/v107/boost CSS → preload-swap (+noscript); aurum/motion/boost JS → `js/v117.js` injects post-paint in order (`async=false`). ~310 KB of blocking front-end moved out of the first screen's way.
+- **Mobile scroll:** `content-visibility:auto` on sections ≥5th + footer; phone GPU trims.
+- Gates: v113b smoke 32/32 + new `tools/mega/smoke/v117-check.js` 27/27, both re-run on the built zip overlay. Zip: `shivaa-update-v117.zip` (10 files). SW → `shivaa-shell-v117`.
 
 ## Session 2026-09-15 #2 (arena/01a0a310) — v115: "v113 deleted my categories"
 - **Owner complaint:** after extracting v113 all product categories "removed"; quick view still bounced; hero swipes still dead on Android Chrome.

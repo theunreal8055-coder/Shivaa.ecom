@@ -1,0 +1,76 @@
+/* ═══════════════════════════════════════════════════════════
+   SHIVAA v117 — "butter" release layer
+   1 · carousel controls STOP moving when tapped (the owner's
+       "banner buttons shift to the bottom of the page" report)
+   2 · mobile first-paint & scroll performance
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 1 · CAROUSEL CONTROLS — glued in place ──────────────────
+   Two mechanisms were pushing the banner's controls around on tap:
+
+   a) FOCUS SCROLL (fixed in js/app.js initCarousel — pointerdown
+      preventDefault): tapping a dot delegates focus to the tabindex=0
+      carousel; tapping an arrow focuses the <button>. The browser then
+      scrolls the page until the whole 430–600 px deck is in view —
+      which is exactly "the slider buttons shift down the page when we
+      click them". The CSS below cannot stop a focus scroll, but it
+      makes the remaining visual states stable.
+
+   b) PRESS-SQUASH JUMP: aurum.css's press feedback reads
+      `html.js-aurum .c-arrow:active { transform: scale(.9) }` — that
+      REPLACES the arrow's base `transform: translateY(-50%)`, so for
+      the whole duration of a thumb press the arrow literally drops by
+      half its own height. We keep the vertical centring and add the
+      squash on top. */
+#heroCarousel .c-arrow:active {
+  transform: translateY(-50%) scale(.92) !important;
+  opacity: 1;
+}
+#heroCarousel .c-arrow:hover {
+  /* keep the centred anchor when a touch browser leaves :hover stuck
+     after the tap ends (sticky-hover) */
+  transform: translateY(-50%) scale(1.06);
+}
+/* no text-selection / native highlights while swiping or tapping */
+#heroCarousel, #heroCarousel .c-slide, #heroCarousel .c-dots {
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* The dots/arrows sit in front of the slide overlays at every viewport
+   (the slide ::after grain layer is z-index:3) */
+#heroCarousel .c-dots { z-index: 5; }
+#heroCarousel .c-arrow { z-index: 5; }
+
+/* ── 2 · MOBILE RENDERING — skip off-screen work ─────────────
+   content-visibility:auto lets the browser defer layout+paint of
+   below-the-fold sections until the shopper scrolls near them. The
+   intrinsic-size placeholder keeps the scrollbar geometry stable so
+   anchors/jumps don't shift. Only sections AFTER the fourth (the hero,
+   finale band, category bar and poster carousel are always rendered),
+   and only on smaller screens where render time is precious. */
+@media (max-width: 920px) {
+  #view > section:nth-of-type(n+5) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 680px;
+  }
+  footer.footer {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 860px;
+  }
+}
+
+/* ── 3 · CHEAPER SCROLL ON LOW-END PHONES ──────────────────── */
+@media (max-width: 920px) {
+  /* the fixed scroll-progress bar + cursor glow are composited, but the
+     glow blur is expensive on Mali-class GPUs; it is desktop chrome
+     anyway (no cursor on touch) */
+  .cursor-glow { display: none; }
+  /* long pages: let the browser drop the footer grain texture layer */
+  .fv-grain { display: none; }
+}
+
+/* ── 4 · REDUCED MOTION RESPECT (perf + a11y share the win) ── */
+@media (prefers-reduced-motion: reduce) {
+  .c-slide.on img { animation: none !important; }
+  .hero-orbs .orb, .dust i { animation: none !important; }
+}

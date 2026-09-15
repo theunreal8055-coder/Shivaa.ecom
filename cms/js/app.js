@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 116;
+const APP_REL = 117;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1378,7 +1378,10 @@ function initCarousel() {
   let idx = 0;
   const go = i => {
     idx = (i + n) % n;
-    track.style.transform = `translateX(-${idx * 100}%)`;
+    /* v117 — translate3d keeps the deck on the GPU compositor (paired with
+       will-change:transform in css) so slide changes stay butter-smooth on
+       low-end Android instead of repainting a full-width layer. */
+    track.style.transform = `translate3d(-${idx * 100}%,0,0)`;
     $$('.c-dot', dots).forEach((d, j) => d.classList.toggle('on', j === idx));
     // mark the visible slide so its Ken-Burns zoom + copy reveal run only there
     slides.forEach((sl, j) => {
@@ -1416,6 +1419,18 @@ function initCarousel() {
   let sx = null, sy = null, st = 0, pid = null, vertical = false;
   const reset = () => { sx = sy = st = pid = null; vertical = false; start(); };
   car.addEventListener('pointerdown', e => {
+    /* v117 — the "buttons slide down the page when clicked" fix.
+       The deck is focusable (tabindex=0) and the ‹ › controls are real
+       <button>s, so every tap — on a dot (delegates focus to the carousel),
+       an arrow (focuses the button) or a slide — triggered the browser's
+       focus-into-view scroll. Because the 430–600 px tall deck rarely fits
+       above the fold, Chrome dragged the PAGE down to reveal it whole: the
+       owner saw the banner and its controls "shift to the bottom of the
+       page" on every click. preventDefault() refuses the focus hand-off
+       while leaving the tap itself intact (click, swipe and link navigation
+       all still fire; keyboards still reach the deck with Tab, where a
+       scroll-into-view is correct). */
+    e.preventDefault();
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     sx = e.clientX; sy = e.clientY; st = Date.now(); pid = e.pointerId; vertical = false;
     stop();
@@ -7949,14 +7964,32 @@ async function wishIds() {
   try { return (await api('/api/wishlist')).wishlist || []; } catch (e) { return []; }   // v103 — never let an odd response break the PDP render
 }
 async function boot(isRedraw) {
-  // parallel initial fetches
-  const [me, settings, mc, prods, cats] = await Promise.all([
+  /* v117 — first paint was held hostage by THREE serial network rounds:
+     the five-call batch → a serial rates fetch → a serial pages fetch. On a
+     slow 4G that was 4–8 s of "Curating your experience" before anything showed.
+     Now every boot fetch (rates included) rides ONE parallel batch, the
+     footer page-links hydrate in the background, and a hard 6 s cap (15 s on
+     redraws) lifts the preloader and paints whatever has landed; if the cap
+     beat a slow batch, the shop quietly re-paints the moment it arrives. */
+  const _firstBatch = Promise.all([
     token() ? api('/api/auth/me').catch(() => ({ user: null })) : Promise.resolve({ user: null }),
     api('/api/settings').catch(() => ({})),
     api('/api/making-charges').catch(() => ({ table: [] })),
     api('/api/products').catch(() => ({ products: [] })),
     api('/api/catalogs').catch(() => ({ catalogs: [] })),
+    loadRates(),   // v117 — used to be a second serial await below
   ]);
+  const _capMs = isRedraw ? 15000 : 6000;
+  const _packed = await Promise.race([
+    _firstBatch,
+    new Promise(res => setTimeout(() => res(null), _capMs)),
+  ]);
+  if (!_packed) {
+    /* the cap beat the batch — paint degraded now, adopt + re-render when
+       the slow network finally answers (never park on the preloader). */
+    _firstBatch.then(() => { if (document.visibilityState !== 'hidden') boot(true); }).catch(() => {});
+  }
+  const [me = { user: null }, settings = {}, mc = { table: [] }, prods = { products: [] }, cats = { catalogs: [] }] = _packed || [];
   state.user = me.user; state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
   state.eventCoupons = me.events || [];
   /* v57: birthday / anniversary coupon welcome — shown once per code */
@@ -7986,7 +8019,8 @@ async function boot(isRedraw) {
   state.compare = normalizeCompare(state.compare).filter(id => state.productsCache.some(p => p.id === id));
   store.set('shv_compare', state.compare);
   window.Shivaa.catCache = cats.catalogs || []; catCache = window.Shivaa.catCache;
-  await loadRates();
+  // v117 — rates already rode the parallel boot batch above (loadRates());
+  // no serial second round-trip here anymore.
   updateBadges();
   // Catalogues link: jewellers only (GST-verified partners)
   // gate the wholesale design desk with a class, not inline display —
@@ -7994,20 +8028,23 @@ async function boot(isRedraw) {
   document.querySelectorAll('a[href="#/catalogues"]').forEach(a => { a.classList.toggle('b2b-only-hide', !isPartner()); a.style.display = ''; });
   document.querySelectorAll('.foot-chips a[href="#/catalogues"]').forEach(a => a.classList.toggle('b2b-only-hide', !isPartner()));
   // footer social WhatsApp link (subtle)
-  // custom pages in footer
-  try {
-    const { pages: cps } = await api('/api/pages');
-    if (cps && cps.length) {
-      const col = document.getElementById('footCustomPages');
-      if (col && !document.getElementById('customPageLinks')) {
-        const div = document.createElement('div');
-        div.id = 'customPageLinks';
-        div.className = 'fv-custom';
-        cps.slice(0, 5).forEach(pg => div.insertAdjacentHTML('beforeend', `<a href="#/p/${pg.slug}">${esc(pg.title)}</a>`));
-        col.appendChild(div);
+  // custom pages in footer — v117: BACKGROUND fetch (was a third serial
+  // network round blocking the preloader); the links materialise after
+  // first paint whenever the call lands.
+  api('/api/pages').then(({ pages: cps } = {}) => {
+    try {
+      if (cps && cps.length) {
+        const col = document.getElementById('footCustomPages');
+        if (col && !document.getElementById('customPageLinks')) {
+          const div = document.createElement('div');
+          div.id = 'customPageLinks';
+          div.className = 'fv-custom';
+          cps.slice(0, 5).forEach(pg => div.insertAdjacentHTML('beforeend', `<a href="#/p/${pg.slug}">${esc(pg.title)}</a>`));
+          col.appendChild(div);
+        }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }).catch(() => {});
   // v101 — footer WhatsApp slot points at the official wa.me/message channel
   // populate nav + footer category menus
   $('#catMenu').innerHTML = `

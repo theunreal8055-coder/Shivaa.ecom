@@ -26,23 +26,42 @@
 </script>
 <link rel="icon" type="image/png" sizes="32x32" href="/images/icons/favicon-32.png?v=107">
 <link rel="apple-touch-icon" href="/images/icons/apple-touch-icon.png?v=107">
-<link rel="stylesheet" href="/css/fonts.css?v=107">
+<!-- v117 · the three webfonts as real files (the old 354 KB base64
+     stylesheet is now a 2 KB file-based one). Preloading them here starts
+     the fetch in parallel with — not after — the render-blocking CSS. -->
+<link rel="preload" href="/fonts/jost.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/cormorant-garamond.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/marcellus-400.woff2" as="font" type="font/woff2" crossorigin>
+<!-- v117 · render-blocking = only what the shell + first screen needs.
+     Route-scoped and JS-gated layers load below via the non-blocking
+     preload-swap pattern so first paint no longer waits on ~200 KB of
+     CSS the opening screen never uses. -->
+<link rel="stylesheet" href="/css/fonts.css?v=117">
 <link rel="stylesheet" href="/css/styles.css?v=107">
-<link rel="stylesheet" href="/css/hallmark.css?v=107">
-<link rel="stylesheet" href="/css/trust.css?v=107">
 <link rel="stylesheet" href="/css/finale.css?v=107">
-<link rel="stylesheet" href="/css/boost.css?v=46">
-<link rel="stylesheet" href="/css/motion.css?v=107">
 <link rel="stylesheet" href="/css/mobile.css?v=107">
-<link rel="stylesheet" href="/css/aurum.css?v=107">
-<link rel="stylesheet" href="/css/v107.css?v=107">
 <link rel="stylesheet" href="/css/v113.css?v=113b">
 <link rel="stylesheet" href="/css/v115.css?v=115">
 <link rel="stylesheet" href="/css/v116.css?v=116">
-<!-- v116 · release stamp: app.js compares this against its own APP_REL and
+<link rel="stylesheet" href="/css/v117.css?v=117">
+<link rel="preload" as="style" href="/css/hallmark.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="/css/trust.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="/css/motion.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="/css/aurum.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="/css/v107.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="/css/boost.css?v=46" onload="this.onload=null;this.rel='stylesheet'">
+<noscript>
+  <link rel="stylesheet" href="/css/hallmark.css?v=107">
+  <link rel="stylesheet" href="/css/trust.css?v=107">
+  <link rel="stylesheet" href="/css/motion.css?v=107">
+  <link rel="stylesheet" href="/css/aurum.css?v=107">
+  <link rel="stylesheet" href="/css/v107.css?v=107">
+  <link rel="stylesheet" href="/css/boost.css?v=46">
+</noscript>
+<!-- v117 · release stamp: app.js compares this against its own APP_REL and
      reloads once if the paired script is older — a phone can no longer sit on
      a fresh shell with a stale script ("the update changed nothing"). -->
-<script>window.__SHIVAA_REL=116;</script>
+<script>window.__SHIVAA_REL=117;</script>
 </head>
 <body>
 
@@ -317,17 +336,20 @@
      inside admin.js itself, so app.js fetches them on demand the first time
      #/admin or #/partner is opened (loadStaffBundle, in the ROUTER section).
      That is 366KB of parse+execute a shopper never needed.
+     v117 · aurum.js (43KB) + motion.js (13KB) + boost.js (51KB) leave the
+     critical path too: v117.js injects them AFTER first paint, in this
+     same order, async=false. They are self-guarding (no JS = fully
+     visible) and register no routes. ~110KB of parse the shopper's first
+     paint never waits for.
      `defer` keeps execution order and guarantees a fully parsed DOM. -->
 <script src="/js/otp-autofill.js?v=107" defer></script>
-<script src="/js/app.js?v=116" defer></script>
+<script src="/js/app.js?v=117" defer></script>
 <script src="/js/hallmark.js?v=107" defer></script>
 <script src="/js/trust.js?v=107" defer></script>
 <script src="/js/auth.js?v=113b" defer></script>
-<script src="/js/motion.js?v=107" defer></script>
-<script src="/js/aurum.js?v=107" defer></script>
 <script src="/js/v107.js?v=107" defer></script>
-<script src="/js/boost.js?v=46" defer></script>
 <script src="/js/v116.js?v=116" defer></script>
+<script src="/js/v117.js?v=117" defer></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
