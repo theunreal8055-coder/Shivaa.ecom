@@ -63,12 +63,12 @@ set replaces the v43 finisher); media stays out of git until installed to
 
 | batch | designs (page → SKU) | shots | QA | db | pushed |
 |---|---|---|---|---|---|
-| B1 | p01→PGS5066, p02→PGS5067 | ⬜ |  | ⬜ | ⬜ |
-| B2 | p03→5068, p04→5069 | ⬜ | ⬜ | ⬜ | ⬜ |
-| B3 | p05→5070, p06→5071 | ⬜ | ⬜ | ⬜ |  |
-| B4 | p07→5072, p08→5073 | ✅ 8/8 first-pass | ✅ | ✅ | ⬜ |
-| B5 | p09→5074, p10→5075 | ✅ 8/8 first-pass | ✅ | ✅ | ⬜ |
-| B6 | p11→5076, p12→5077 | ✅ 8/8 (1 hero re-roll: empty response) | ✅ | ✅ | ⬜ |
+| B1 | p01→PGS5066, p02→PGS5067 | ✅ 8/8 + 2 re-rolls | ✅ | ✅ | ✅ LIVE |
+| B2 | p03→5068, p04→5069 | ✅ 8/8 first-pass | ✅ | ✅ | ✅ LIVE |
+| B3 | p05→5070, p06→5071 | ✅ 8/8 first-pass | ✅ | ✅ | ✅ LIVE |
+| B4 | p07→5072, p08→5073 | ✅ 8/8 first-pass | ✅ | ✅ | ✅ LIVE |
+| B5 | p09→5074, p10→5075 | ✅ 8/8 first-pass | ✅ | ✅ | ✅ LIVE |
+| B6 | p11→5076, p12→5077 | ✅ 8/8 (1 hero re-roll) | ✅ | ✅ | ✅ LIVE |
 | B7 | p13→5078, p14→5079 | ⬜ | ⬜ |  |  |
 | B8 | p15→5080, p16→5081 | ⬜ | ⬜ |  |  |
 | B9 | p17→5082, p18→5083 | ⬜ | ⬜ |  |  |
@@ -103,7 +103,18 @@ shots to `cms/images/designs/rings/<SKU>_{1..4}_*.jpg` →
 `python3 tools/photoshoot/ladies67_db.py PGSxxxx PGSyyyy` (upserts the two
 product records, byte-faithful db round-trip) → update this table → commit+push.
 
-## 3. UPLOAD / GO-LIVE PLAN (after B34, or earlier in tranches if owner prefers)
+## 3. UPLOAD / GO-LIVE PLAN (tranche mode — owner: "upload 12 now", 2026-09-15)
+
+**TRANCHE 1 LIVE ✅ 2026-09-15:** PR #46 merged to `main` (`967341d`) with the
+GO-LIVE marker retrigger → Catalogue Deploy run **34998897891** succeeded in
+5m56s (all steps green incl. independent live verify). Live `/api/products`
+now serves **77 PGS products** (12 chunks; PGS5066–5077 present, 4 uploaded
+shots each, MC 12% + GST 3% visible in the price breakup). Deploy script +
+workflow generalized in the same merge from "exactly 65" to "exactly the
+master PGS set"; zoom QA step scoped to PGS5001–5065. Next tranches: same
+recipe (merge + marker bump).
+
+Remaining plan for the final merge:
 
 1. `ladies67_db.py --verify` → 132 products (65 old + 67 new), every new record
    has 4 existing image paths, weight > 0, mc 12%, sizes, seo, desc mentioning
