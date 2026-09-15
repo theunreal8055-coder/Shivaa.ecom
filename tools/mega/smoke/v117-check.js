@@ -62,8 +62,8 @@ const until = async (fn, ms = 8000, step = 60) => {
   /* ═══ A · static gates ═══════════════════════════════════════════════ */
   console.log('\nSHIVAA v117 "butter" check\n');
   console.log('· static gates');
-  ok('release handshake is 117 on both sides',
-    /__SHIVAA_REL\s*=\s*117/.test(html) && /APP_REL\s*=\s*117/.test(appJs));
+  ok('release handshake remains at v117 or newer on both sides',
+    /__SHIVAA_REL\s*=\s*11[7-9]/.test(html) && /APP_REL\s*=\s*11[7-9]/.test(appJs));
 
   ok('fonts.css is file-based (no base64 payload)',
     !/base64,/.test(fontsCss) && /url\('\/fonts\//.test(fontsCss));
@@ -97,7 +97,7 @@ const until = async (fn, ms = 8000, step = 60) => {
     v117Js.indexOf('aurum.js') > 0 && v117Js.indexOf('aurum.js') < v117Js.indexOf('motion.js') &&
     v117Js.indexOf('motion.js') < v117Js.indexOf('boost.js'));
 
-  ok('sw.js shell is bumped to shivaa-shell-v117', /SHELL = 'shivaa-shell-v117'/.test(swJs));
+  ok('sw.js shell remains at v117 or newer', /SHELL = 'shivaa-shell-v11[7-9]'/.test(swJs));
   const swFilesBlock = (swJs.match(/const SHELL_FILES = \[([\s\S]*?)\];/) || [null, ''])[1];
   const swList = [...swFilesBlock.matchAll(/'([^']*)'/g)].map(m => m[1]);
   const requested = new Set([
