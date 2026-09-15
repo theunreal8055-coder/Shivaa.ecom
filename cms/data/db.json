@@ -5805,6 +5805,116 @@
    "mediaNote": "AI-stylised visualisation of the supplier design photo.",
    "sku": "PGS5069",
    "id": "p_e4b84c25fb6e"
+  },
+  {
+   "createdAt": "2026-09-15T22:00:35+05:30",
+   "active": true,
+   "rating": 4.6,
+   "reviews": 0,
+   "stock": 10,
+   "sizes": [
+    "10",
+    "12",
+    "14",
+    "16"
+   ],
+   "tags": [
+    "Ring",
+    "gold",
+    "ladies",
+    "plain"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5070_1_hero.jpg",
+    "/images/designs/rings/PGS5070_2_macro.jpg",
+    "/images/designs/rings/PGS5070_3_model.jpg",
+    "/images/designs/rings/PGS5070_4_lifestyle.jpg"
+   ],
+   "stoneValue": 0,
+   "name": "Do Patli Ladies Ring PGS5070 | Gold 22K",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.82,
+   "mcScheme": "percent",
+   "mcValue": 12,
+   "stoneDesc": "plain gold — no stones",
+   "stoneType": "None",
+   "stoneColour": "",
+   "desc": "Do Patli — ladies' plain 22K yellow gold ring, 1.82 g, twin-leaf wrap with a marquise centre. Making charges 12% + 3% GST; gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "Hitesh bhai — ladies plain lot (67, Sep 2026)",
+   "supplierId": "ladies67-2026",
+   "costPerGram": 0,
+   "seo": {
+    "keywords": [
+     "twin-leaf wrap with a marquise centre ladies gold ring",
+     "ladies plain 22K gold ring price",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ladies plain ring — Do Patli (twin-leaf wrap with a marquise centre) | PGS5070"
+   },
+   "category_note": "Ladies plain ring by Shivaa Jewellers",
+   "mediaNote": "AI-stylised visualisation of the supplier design photo.",
+   "sku": "PGS5070",
+   "id": "p_e311d1c95e3d"
+  },
+  {
+   "createdAt": "2026-09-15T22:00:35+05:30",
+   "active": true,
+   "rating": 4.6,
+   "reviews": 0,
+   "stock": 10,
+   "sizes": [
+    "10",
+    "12",
+    "14",
+    "16"
+   ],
+   "tags": [
+    "Ring",
+    "gold",
+    "ladies",
+    "plain"
+   ],
+   "images": [
+    "/images/designs/rings/PGS5071_1_hero.jpg",
+    "/images/designs/rings/PGS5071_2_macro.jpg",
+    "/images/designs/rings/PGS5071_3_model.jpg",
+    "/images/designs/rings/PGS5071_4_lifestyle.jpg"
+   ],
+   "stoneValue": 0,
+   "name": "Kali Ladies Ring PGS5071 | Gold 22K",
+   "category": "rings",
+   "metal": "Gold",
+   "purity": "22K",
+   "weightG": 1.155,
+   "mcScheme": "percent",
+   "mcValue": 12,
+   "stoneDesc": "plain gold — no stones",
+   "stoneType": "None",
+   "stoneColour": "",
+   "desc": "Kali — ladies' plain 22K yellow gold ring, 1.155 g, thin band with a small flower-bud crest. Making charges 12% + 3% GST; gold price follows the live Jaipur bullion rate of the day. BIS hallmark & purity assured by Shivaa Jewellers, Jayal — Nagaur, Rajasthan.",
+   "lessWeightG": 0,
+   "wastagePct": 8,
+   "barcode": "",
+   "supplier": "Hitesh bhai — ladies plain lot (67, Sep 2026)",
+   "supplierId": "ladies67-2026",
+   "costPerGram": 0,
+   "seo": {
+    "keywords": [
+     "thin band with a small flower-bud crest ladies gold ring",
+     "ladies plain 22K gold ring price",
+     "shivaa jewellers ring"
+    ],
+    "alt": "Gold 22K ladies plain ring — Kali (thin band with a small flower-bud crest) | PGS5071"
+   },
+   "category_note": "Ladies plain ring by Shivaa Jewellers",
+   "mediaNote": "AI-stylised visualisation of the supplier design photo.",
+   "sku": "PGS5071",
+   "id": "p_ff7e48bc72be"
   }
  ],
  "users": [
