@@ -1,0 +1,35 @@
+/* ═══════════════════════════════════════════════════════════════════
+   SHIVAA v121 — mobile smoothness pack (additive; no visual change)
+   · phones stop paying for a permanent GPU layer per product card
+   · off-screen cards skip layout+paint until the scroll nears them
+   · the banner light-sweep paints on the visible slide only
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* B · every .p-card carries will-change:transform from the base sheet, which
+   pins a GPU layer per card even on touch devices where tilt never runs
+   (tilt is desktop-only since v42). On coarse pointers that is pure memory
+   and compositing cost during scroll — release it. Desktop keeps the old
+   behaviour untouched. */
+@media (pointer: coarse) {
+  .p-card { will-change: auto; }
+}
+
+/* D · sheetSweep animates background-position (a repaint every frame) on all
+   four carousel slides, including the three nobody can see. On coarse
+   pointers only the visible (.on) slide keeps the sweep — the hidden ones
+   sit still. Same pixels on screen, a quarter of the paint. */
+@media (pointer: coarse) {
+  .c-slide::after { animation: none; }
+  .c-slide.on::after { animation: sheetSweep 6.5s var(--ease) infinite; }
+}
+
+/* C · long grids (shop, rails) skip layout+paint for off-screen cards. Cards
+   have aspect-ratio image boxes so no shift; the `auto` keyword remembers
+   each card's real height after its first render, so the 320px estimate only
+   shapes the scrollbar on the very first pass. Same v117-sections pattern. */
+@media (max-width: 920px) {
+  .p-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
+  }
+}

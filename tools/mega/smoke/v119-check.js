@@ -79,9 +79,10 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
     /SHELL = 'shivaa-shell-v(119|120)'/.test(sw) && /'\/css\/v119\.css\?v=119'/.test(sw) && /'\/js\/v119\.js\?v=119'/.test(sw) && /'\/js\/app\.js\?v=(119|120)'/.test(sw));
   ok('index.html ships a first-paint skeleton that v119.css retires',
     /<main id="view"><div class="shv-skeleton"/.test(html) && /body\.shv-ready \.shv-skeleton/.test(v119css));
-  const heroPreload = /<link rel="preload" as="image" href="(\/images\/[^"]+)" fetchpriority="high">/.exec(html);
+  const heroPreload = /<link rel="preload" as="image" ([^>]*?)fetchpriority="high">/.exec(html);
+  const heroUrls = heroPreload ? [...heroPreload[1].matchAll(/(\/images\/[^\s"',]+)/g)].map(m => m[1]) : [];
   ok('hero LCP image preloads with high priority and exists on disk',
-    !!heroPreload && fs.existsSync(path.join(CMS, heroPreload[1])), heroPreload ? heroPreload[1] : 'missing preload');
+    heroUrls.length > 0 && heroUrls.every(u => fs.existsSync(path.join(CMS, u))), heroUrls.join(', ') || 'missing preload');
   ok('.htaccess adds brotli + immutable ?v= caching and keeps deflate',
     /mod_brotli\.c/.test(htaccess) && /BROTLI_COMPRESS/.test(htaccess) && /immutable/.test(htaccess) && /mod_deflate\.c/.test(htaccess));
   ok('honesty guards: HUID chip can only print a real HUID, and no dead image derivatives are referenced',

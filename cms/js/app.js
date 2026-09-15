@@ -699,6 +699,7 @@ function bindReveal(scope = document) {
 }
 function bindCountdown(el, target) {
   const tick = () => {
+    if (document.hidden) return;
     const d = Math.max(0, target - Date.now());
     const days = Math.floor(d / 864e5), hrs = Math.floor(d % 864e5 / 36e5), min = Math.floor(d % 36e5 / 6e4), sec = Math.floor(d % 6e4 / 1e3);
     if (!document.body.contains(el)) return clearInterval(iv);
@@ -764,6 +765,7 @@ function finaleCdHTML(id = 'finaleCd') {
 function bindFinaleCd(el) {
   const iv = setInterval(() => {
     if (!document.body.contains(el)) return clearInterval(iv);
+    if (document.hidden) return;
     if (!finaleLive()) { syncFinaleChrome(true); return clearInterval(iv); }
     el.innerHTML = finaleCdCells() +
       `<span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span>`;
@@ -2147,7 +2149,7 @@ pages.home = async (view) => {
     <div class="carousel" id="heroCarousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Featured Shivaa campaigns — use the left and right arrow keys">
       <div class="c-track" id="cTrack">
         <div class="c-slide s-left">
-          <img src="/images/banners/poster-heritage.jpg" alt="Shivaa fine gold craftsmanship" draggable="false" fetchpriority="high">
+          <img src="/images/banners/poster-heritage.jpg" srcset="/images/banners/poster-heritage-m.jpg 800w, /images/banners/poster-heritage.jpg 1584w" sizes="100vw" alt="Shivaa fine gold craftsmanship" draggable="false" decoding="async" fetchpriority="high">
           <div class="c-fade"></div>
           <span class="c-frame" aria-hidden="true"><i class="cf-c c1"></i><i class="cf-c c2"></i><i class="cf-c c3"></i><i class="cf-c c4"></i></span>
           <span class="c-wm" aria-hidden="true">99&middot;999</span>
@@ -2160,7 +2162,7 @@ pages.home = async (view) => {
           </div>
         </div>
         <div class="c-slide s-center">
-          <img src="/images/banners/poster-bridal.jpg" alt="Bridal collection" draggable="false" loading="lazy">
+          <img src="/images/banners/poster-bridal.jpg" alt="Bridal collection" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade fade-c"></div>
           <div class="c-body">
             <span class="label">&#10022; The bridal edit &middot; Jayal to your city</span>
@@ -2171,7 +2173,7 @@ pages.home = async (view) => {
           </div>
         </div>
         <div class="c-slide s-right">
-          <img src="/images/banners/poster-everyday.jpg" alt="Everyday edit under 50000" draggable="false" loading="lazy">
+          <img src="/images/banners/poster-everyday.jpg" alt="Everyday edit under 50000" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade fade-r"></div>
           <div class="c-body">
             <span class="label">&#10022; The everyday edit</span>
@@ -2182,7 +2184,7 @@ pages.home = async (view) => {
           </div>
         </div>
         <div class="c-slide s-band">
-          <img src="/images/banners/wedding.jpg" alt="Swarna Nidhi gold savings plan" draggable="false" loading="lazy">
+          <img src="/images/banners/wedding.jpg" alt="Swarna Nidhi gold savings plan" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade"></div>
           <div class="c-panel">
             <span class="label">&#10022; Swarna Nidhi &middot; the gold savings plan</span>

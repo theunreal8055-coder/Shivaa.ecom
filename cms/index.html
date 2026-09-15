@@ -47,6 +47,7 @@
 <link rel="stylesheet" href="/css/v118.css?v=118">
 <link rel="stylesheet" href="/css/v119.css?v=119">
 <link rel="stylesheet" href="/css/v120.css?v=120">
+<link rel="stylesheet" href="/css/v121.css?v=121">
 <link rel="preload" as="style" href="/css/hallmark.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
 <link rel="preload" as="style" href="/css/trust.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
 <link rel="preload" as="style" href="/css/motion.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
@@ -65,9 +66,10 @@
      reloads once if the paired script is older — a phone can no longer sit on
      a fresh shell with a stale script ("the update changed nothing"). -->
 <script>window.__SHIVAA_REL=120;</script>
-<!-- v119 · hero LCP: the first banner is the biggest paint, so it preloads
-     with high priority instead of waiting for the router to inject it. -->
-<link rel="preload" as="image" href="/images/products/ring-floral.jpg" fetchpriority="high">
+<!-- v121 · hero LCP: the first banner is the biggest paint, and the router injects
+     it after boot — so it preloads here with the same srcset the slide uses,
+     and phones fetch the 37KB 800px variant instead of the 172KB file. -->
+<link rel="preload" as="image" imagesrcset="/images/banners/poster-heritage-m.jpg 800w, /images/banners/poster-heritage.jpg 1584w" imagesizes="100vw" fetchpriority="high">
 </head>
 <body>
 
