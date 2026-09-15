@@ -1,0 +1,113 @@
+/* ═══════════════════════════════════════════════════════════
+   SHIVAA v118 — "Feather" mobile release
+   Product gallery · Quick View · Categories · PayU · Feather perf
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 1 · Category rail — always visible on phones ────────── */
+.cb-img,
+.cb-img img,
+.dw-catlist img,
+.mega-tile img,
+.cat-mini-card img {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.cb-img img { display:block; width:100%; height:100%; object-fit:cover; }
+.cb-img { display:block !important; width:66px; height:66px; background:#f4ead7; }
+.shop-catbar .cb-img img { loading: eager; }
+.cb-item { min-width:78px; }
+
+/* ── 2 · Product gallery — Feather controls ──────────────── */
+.gal-wrap { touch-action: pan-y; overscroll-behavior-x: contain; }
+.gal-track { transform:translate3d(0,0,0); will-change:transform; }
+.gal-nav { z-index:8; min-width:44px; min-height:44px; touch-action:manipulation; }
+.gal-dots { z-index:8; align-items:center; display:flex; gap:8px; justify-content:center; }
+.gal-dots button {
+  display:block; padding:0; border:0; width:9px; height:9px;
+  border-radius:99px; background:rgba(250,246,239,.62);
+  box-shadow:0 1px 5px rgba(0,0,0,.24); cursor:pointer;
+  transition:width .25s ease, background .25s ease;
+  touch-action:manipulation;
+}
+.gal-dots button.on { width:26px; background:var(--gold-2,#e6c66f); }
+
+/* ── 3 · Quick View — absolute, no layout jump ──────────── */
+.pc-quick { position:absolute !important; left:50%; bottom:12px; transform:translate(-50%,0); }
+
+/* ── 4 · PayU handoff — visible controls ─────────────────── */
+#payuHandoff #payuContinue { min-height:50px; }
+
+/* ── 5 · Feather — dvh units (M9) ────────────────────────── */
+.hero, .page-hero, .carousel, .mnav, .search-drawer, .modal-overlay {
+  min-height: 100vh; /* fallback */
+  min-height: 100dvh;
+  min-height: 100svh;
+}
+@supports (height: 100dvh) {
+  .hero { min-height: 100dvh; }
+}
+
+/* ── 6 · Bottom nav legibility (M11) ─────────────────────── */
+.mnav a { font-size: 11px !important; }
+.mnav a span { font-size: 11px !important; }
+
+/* ── 7 · Skeleton — first paint without JS (M2) ──────────── */
+.shv-skeleton { display:block; padding: 12px; }
+.shv-skeleton .sk-hero {
+  height: 420px;
+  background: linear-gradient(90deg, #f4ead7 25%, #fdf8ef 50%, #f4ead7 75%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.2s infinite;
+  border-radius: 12px;
+}
+.shv-skeleton .sk-grid {
+  display:grid; grid-template-columns: repeat(2,1fr); gap:12px; margin-top:16px;
+}
+.shv-skeleton .sk-card {
+  height: 220px; background:#f4ead7; border-radius:12px;
+  background: linear-gradient(90deg, #f4ead7 25%, #fdf8ef 50%, #f4ead7 75%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.2s infinite;
+}
+@keyframes sk-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* ── 8 · Install chip (M4) ───────────────────────────────── */
+#shvInstallChip {
+  position:fixed; bottom:84px; left:50%; transform:translateX(-50%);
+  background:#1d0509; color:#fdf8ef; border:1px solid #e6c66f;
+  border-radius: 999px; padding:10px 18px; font-size:13px;
+  display:flex; align-items:center; gap:10px; z-index: 60;
+  box-shadow: 0 8px 24px rgba(0,0,0,.24);
+}
+#shvInstallChip[hidden] { display:none !important; }
+#shvInstallChip button { background:transparent; border:0; color:#e6c66f; cursor:pointer; font-size:16px; }
+
+/* ── 9 · HUID chip on PDP (M13) ──────────────────────────── */
+.pd-huid-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  background:#fdf8ef; border:1px solid #e6c66f; border-radius:999px;
+  padding:6px 12px; font-size:12px; color:#1d0509; margin-top:8px;
+}
+.pd-huid-chip b { color:#8a5a1a; }
+
+/* ── 10 · Lite mode (M7) ─────────────────────────────────── */
+html[data-lite="1"] .hero-orbs, html[data-lite="1"] .dust, html[data-lite="1"] .fv-grain,
+html[data-lite="1"] .cursor-glow { display:none !important; }
+html[data-lite="1"] .pc-img-b { display:none !important; }
+
+/* ── 11 · Content-visibility for mobile scroll (v117 + v118) ─ */
+@media (max-width: 920px) {
+  #view > section:nth-of-type(n+5) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 680px;
+  }
+}
+
+/* ── 12 · Search keyboard hint area ──────────────────────── */
+.search-in input[enterkeyhint="search"] { -webkit-appearance: none; }
+
+/* ── 13 · PayU handoff visibility ────────────────────────── */
+#payuHandoff { padding: 24px; text-align:center; }
+
+/* ── 14 · Responsive images — ensure cards keep layout ───── */
+.pc-imgwrap img { width:100%; height:auto; display:block; }

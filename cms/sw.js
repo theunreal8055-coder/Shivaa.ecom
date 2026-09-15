@@ -16,7 +16,7 @@
  app.js reloads itself once if the paired script is older than the shell it
  was served — a device can no longer run a fresh shell on a stale script. */
 'use strict';
-const SHELL = 'shivaa-shell-v117';
+const SHELL = 'shivaa-shell-v118';
 const MEDIA = 'shivaa-media-v107';
 const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
 const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
@@ -36,11 +36,11 @@ const SHELL_FILES = ['/', '/index.html',
   '/css/trust.css?v=107', '/css/finale.css?v=107', '/css/motion.css?v=107',
   '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
   '/css/boost.css?v=46', '/css/v113.css?v=113b', '/css/v115.css?v=115',
-  '/css/v116.css?v=116', '/css/v117.css?v=117',
-  '/js/otp-autofill.js?v=107', '/js/app.js?v=117', '/js/hallmark.js?v=107',
+  '/css/v116.css?v=116', '/css/v117.css?v=117', '/css/v118.css?v=118',
+  '/js/otp-autofill.js?v=107', '/js/app.js?v=118', '/js/hallmark.js?v=107',
   '/js/trust.js?v=107', '/js/auth.js?v=113b', '/js/motion.js?v=107',
   '/js/aurum.js?v=107', '/js/v107.js?v=107', '/js/boost.js?v=46',
-  '/js/v116.js?v=116', '/js/v117.js?v=117',
+  '/js/v116.js?v=116', '/js/v117.js?v=117', '/js/v118.js?v=118',
   '/fonts/jost.woff2', '/fonts/cormorant-garamond.woff2', '/fonts/marcellus-400.woff2',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',

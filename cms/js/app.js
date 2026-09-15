@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 117;
+const APP_REL = 118;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1745,7 +1745,7 @@ function productCard(p, opts = {}) {
   return `<article class="p-card" data-pid="${p.id}">
     <div class="pc-imgwrap">
       <a href="#/product/${p.id}" class="pc-imglink" aria-label="${esc(p.name)}">
-        <img class="pc-img-a" src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" alt="${esc(p.name)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/logo.png'">
+        <img class="pc-img-a" src="${safeUrl(p.images && p.images[0]) || '/images/logo.png'}" srcset="${(() => { const s = p.images && p.images[0] || ''; if (!s) return ''; const d = s.lastIndexOf('.'); if (d === -1) return s; const b = s.slice(0,d), e = s.slice(d); return `${b}-400${e} 400w, ${b}-800${e} 800w, ${s} 1200w`; })()}" sizes="(max-width:600px) 50vw, 25vw" alt="${esc(p.name)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/logo.png'">
         ${p.images && p.images[1] ? `<img class="pc-img-b" src="${safeUrl(p.images[1])}" alt="" loading="lazy" decoding="async" aria-hidden="true" onerror="this.remove()">` : ''}
         ${p.video ? `<span class="pc-vid-badge"><svg viewBox="0 0 10 10"><path d="M1 1l8 4-8 4z"/></svg>FILM</span>` : ''}
         ${fitsSize ? `<span class="pc-your-size" title="Made in your saved size ${esc(mySize)}">✓ your size ${esc(mySize)}</span>` : ''}
@@ -2386,6 +2386,7 @@ pages.shop = async (view, q) => {
       </div>
       <div class="chipbar" id="chipbar"></div>
       <div id="shopGrid" class="p-grid"></div>
+      <div id="shopSentinel" aria-hidden="true" style="height:1px"></div>
     </div>
   </div>`;
 
@@ -2396,6 +2397,31 @@ pages.shop = async (view, q) => {
     tags: $$('input[data-f=tag]:checked').map(i => i.value),
     max: +$('#priceRange').value,
   });
+  // v118 · windowing state + sentinel observer (M8)
+  window._shop = window._shop || { list: [], wishSet: [], rendered: 0, chunk: 20, observer: null };
+  function renderChunk() {
+    const grid = $('#shopGrid');
+    if (!grid || !window._shop.list.length) return;
+    const next = window._shop.list.slice(window._shop.rendered, window._shop.rendered + window._shop.chunk);
+    if (!next.length) return;
+    grid.insertAdjacentHTML('beforeend', next.map(p => productCard(p, { wishSet: window._shop.wishSet })).join(''));
+    window._shop.rendered += next.length;
+    bindTilt(grid);
+  }
+  window.Shivaa.shopLoadMore = () => renderChunk();
+  function setupSentinel() {
+    const sentinel = $('#shopSentinel');
+    if (!sentinel) return;
+    if (window._shop.observer) { try { window._shop.observer.disconnect(); } catch (e) {} }
+    window._shop.observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        if (window._shop.rendered < window._shop.list.length) renderChunk();
+      });
+    }, { rootMargin: '400px' });
+    window._shop.observer.observe(sentinel);
+  }
+
   async function apply() {
     const f = filters();
     let list = state.productsCache.slice();
@@ -2403,11 +2429,10 @@ pages.shop = async (view, q) => {
     if (f.metals.length) list = list.filter(p => f.metals.includes(p.metal));
     if (f.purities.length) list = list.filter(p => f.purities.includes(p.purity));
     if (f.tags.length) list = list.filter(p => f.tags.some(t => (p.tags || []).includes(t)));
-    if (search) { /* v102 — same weighted ranking as the palette */
+    if (search) {
       const hits = new Set(window.Shivaa.searchProducts(search, Infinity).map(p => p.id));
       list = list.filter(p => hits.has(p.id));
     }
-    /* v103 — one-tap "rings in your saved size" */
     const sizeChip = $('#sizeMatchChip');
     if (sizeChip && sizeChip.classList.contains('on')) {
       const want = savedRingSize();
@@ -2420,15 +2445,22 @@ pages.shop = async (view, q) => {
     if (sort === 'rating') list.sort((a, b) => b.rating - a.rating);
     if (sort === 'newest') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     const wishSet = state.user ? await wishIds() : [];
-    {
-      let emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
-      if (!list.length && f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
-        emptyHtml = `<div class="empty" style="grid-column:1/-1"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px"><a class="btn btn-gold" href="#/shop?category=rings">See the 65 signature rings</a></div></div>`;
+    window._shop.list = list;
+    window._shop.wishSet = wishSet;
+    window._shop.rendered = 0;
+    const grid = $('#shopGrid');
+    if (grid) grid.innerHTML = '';
+    if (!list.length) {
+      let emptyHtml = `<div class='empty' style='grid-column:1/-1'><img src='/images/logo.png' class='empty-logo' alt=''><h3>No pieces match</h3><p>Try widening the filters.</p></div>`;
+      if (f.cats.length === 1 && !(state.productsCache || []).some(p => p.category === f.cats[0])) {
+        emptyHtml = `<div class='empty' style='grid-column:1/-1'><img src='/images/logo.png' class='empty-logo' alt=''><h3>This category is being catalogued</h3><p>4,00,000+ designs are on their way to Shivaa. Meanwhile, browse the signature rings — every piece is hallmarked and ready to ship.</p><div style='display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px'><a class='btn btn-gold' href='#/shop?category=rings'>See the 65 signature rings</a></div></div>`;
       }
-      $('#shopGrid').innerHTML = list.length ? list.map(p => productCard(p, { wishSet })).join('') : emptyHtml;
+      if (grid) grid.innerHTML = emptyHtml;
+    } else {
+      renderChunk();
+      setupSentinel();
     }
     $('#resCount').innerHTML = `<b>${list.length}</b> pieces · prices update with the live rate`;
-    bindTilt($('#shopGrid'));
   }
   const drawer = $('#filterDrawer'), ovl = $('#fsheetOverlay');
   const closeSheet = () => {
@@ -2514,7 +2546,7 @@ pages.product = async (view, q, id) => {
           </div>
           <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
           <button class="gal-nav gal-next" aria-label="Next">›</button>
-          <div class="gal-dots" id="galDots">${(p.video ? 1 : 0) + (p.images || []).length > 1 ? Array.from({length: (p.video ? 1 : 0) + (p.images || []).length}, (_, i) => `<span class="${i === 0 ? 'on' : ''}"></span>`).join('') : ''}</div>
+          <div class="gal-dots" id="galDots">${(p.video ? 1 : 0) + (p.images || []).length > 1 ? Array.from({length: (p.video ? 1 : 0) + (p.images || []).length}, (_, i) => `<button type="button" class="${i === 0 ? 'on' : ''}" data-i="${i}" aria-label="Go to slide ${i+1}"></button>`).join('') : ''}</div>
           <span class="gal-count" id="galCount" aria-hidden="true"></span>
           <a class="pd-stamp" href="#/hallmark?product=${encodeURIComponent(p.id)}">HUID check guide →</a>
           <span class="gal-hint">swipe / drag</span>
@@ -2641,19 +2673,23 @@ pages.product = async (view, q, id) => {
     const gc = $('#galCount');   // v104 — phone photo counter pill
     const go = i => {
       idx = (i + n) % n;
-      track.style.transform = `translateX(-${idx * 100}%)`;
+      track.style.transform = `translate3d(-${idx * 100}%,0,0)`;
       $$('.gal-slide', track).forEach((s, i2) => s.classList.toggle('on', i2 === idx));
-      $$('#galDots span').forEach((d, i2) => d.classList.toggle('on', i2 === idx));
+      $$('#galDots button, #galDots span').forEach((d, i2) => d.classList.toggle('on', i2 === idx));
       if (gc) gc.textContent = `${idx + 1} / ${n}`;
     };
     if (gc) gc.textContent = `1 / ${n}`;
     $('.gal-next', wrap).onclick = () => go(idx + 1);
     $('.gal-prev', wrap).onclick = () => go(idx - 1);
-    $$('#galDots span').forEach((d, i2) => d.onclick = () => go(i2));
-    wrap.addEventListener('pointerdown', e => { sx = e.clientX; dx = 0; track.style.transition = 'none'; });
-    wrap.addEventListener('pointermove', e => { if (sx == null) return; dx = e.clientX - sx; track.style.transform = `translateX(calc(-${idx * 100}% + ${dx}px))`; });
+    $$('#galDots button, #galDots span').forEach((d, i2) => d.onclick = () => go(i2));
+    wrap.addEventListener('pointerdown', e => {
+      sx = e.clientX; dx = 0; track.style.transition = 'none';
+      try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    wrap.addEventListener('pointermove', e => { if (sx == null) return; dx = e.clientX - sx; track.style.transform = `translate3d(calc(-${idx * 100}% + ${dx}px),0,0)`; });
     const end = () => { if (sx == null) return; track.style.transition = ''; if (Math.abs(dx) > 42) go(idx + (dx < 0 ? 1 : -1)); else go(idx); sx = null; };
     wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
+    wrap.addEventListener('lostpointercapture', end);
     const _mobGal = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
     const _galInterval = _mobGal ? 10000 : 5200; // v42: slower on mobile, still advances
     const timer = setInterval(() => {
@@ -2666,6 +2702,17 @@ pages.product = async (view, q, id) => {
   window.Shivaa.bindDelivery(view);   // v103 — auto-runs when a pin is remembered
   bindTilt(view);
   window._pd = { p, qty: 1 };
+  /* v118 · HUID chip on PDP (M13) */
+  try {
+    if (!view.querySelector('.pd-huid-chip')) {
+      const chip = document.createElement('div');
+      chip.className = 'pd-huid-chip';
+      chip.innerHTML = '<b>✦ HUID</b><span>Check in BIS Care app</span>';
+      const h1 = view.querySelector('.pd-info h1');
+      if (h1) h1.insertAdjacentElement('afterend', chip);
+      else view.querySelector('.pd-info')?.prepend(chip);
+    }
+  } catch (e) {}
   /* v54: remember this piece + mobile sticky buy bar + tap-to-zoom gallery */
   window.Shivaa.recentAdd(p, pr);   // v103 — snapshot price + rate for the home trend hint
   let bb = $('#pdpBuybar');
@@ -3996,15 +4043,26 @@ function payuRedirectSheet() {
 /* v94 — PayU hosted checkout: the server signs and returns the form fields;
    we auto-submit a full-page POST to secure.payu.in / test.payu.in. */
 window.Shivaa.payuSubmit = (action, fields) => {
+  // v118 · PayU destination is restricted to HTTPS payu.in only
+  if (!/^https:\/\//i.test(action) || !/payu\.in/i.test(action)) {
+    throw new Error('Blocked non-PayU destination: ' + action);
+  }
   const f = document.createElement('form');
   f.method = 'POST'; f.action = action; f.style.display = 'none';
+  f.id = 'payuForm';
   for (const [k, v] of Object.entries(fields || {})) {
     const i = document.createElement('input');
     i.type = 'hidden'; i.name = k; i.value = String(v ?? '');
     f.appendChild(i);
   }
+  // retry/cancel controls for handoff visibility (M4)
+  const handoff = document.createElement('div');
+  handoff.id = 'payuHandoff';
+  handoff.innerHTML = '<button type=\"button\" id=\"payuContinue\" class=\"btn btn-primary\">Continue to PayU</button><button type=\"button\" id=\"payuCancel\" class=\"btn btn-ghost\">Cancel</button>';
+  f.appendChild(handoff);
   document.body.appendChild(f);
-  f.submit();
+  // native submit bypasses any overridden prototype
+  HTMLFormElement.prototype.submit.call(f);
 };
 window.Shivaa.payForOrder = async (orderId) => {
   let po;
