@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 117;
+const APP_REL = 118;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1381,6 +1381,7 @@ function initCarousel() {
   if (idx < 0) idx = 0;
   let timer = null, paused = false;
   let sx = null, sy = null, st = 0, pointerId = null, vertical = false;
+  let touching = false, pointerTouchSeen = false;
   const bindings = [];
   const on = (target, type, fn, opts) => {
     target.addEventListener(type, fn, opts);
@@ -1449,10 +1450,10 @@ function initCarousel() {
     sx = sy = st = pointerId = null;
     vertical = false;
   };
-  const finishPointer = e => {
-    if (sx == null || !pointerMatches(e)) return;
-    const dx = (e.clientX ?? sx) - sx;
-    const dy = (e.clientY ?? sy) - sy;
+  const finishGesture = (x, y) => {
+    if (sx == null) return;
+    const dx = (x ?? sx) - sx;
+    const dy = (y ?? sy) - sy;
     const fast = Date.now() - st < 600;
     if (!vertical && Math.abs(dx) > (fast ? 30 : 42) && Math.abs(dx) > Math.abs(dy)) {
       (dx < 0 ? next : prev)();
@@ -1460,27 +1461,72 @@ function initCarousel() {
     resetPointer();
     resume();
   };
+  const finishPointer = e => {
+    if (touching || sx == null || !pointerMatches(e)) return;
+    finishGesture(e.clientX, e.clientY);
+    if (e.pointerType === 'touch') pointerTouchSeen = false;
+  };
   on(car, 'pointerdown', e => {
     // Controls have their own click handlers. Keeping them out of the swipe
     // state prevents a pointer capture from swallowing an arrow/dot tap.
     if (isControl(e.target)) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // A touch-capable browser may emit both touch* and pointer* events. Use
+    // whichever stream arrives first, never both, or one swipe can advance
+    // two posters.
+    if (e.pointerType === 'touch') {
+      if (touching) return;
+      pointerTouchSeen = true;
+    }
     sx = e.clientX; sy = e.clientY; st = Date.now();
     pointerId = e.pointerId == null ? null : e.pointerId;
     vertical = false;
     pause();
-    try { if (pointerId != null) car.setPointerCapture(pointerId); } catch (_) {}
+    // Window-level pointerup below keeps the gesture alive if the finger
+    // leaves the banner. Do not request pointer capture here: several mobile
+    // webviews implement capture inconsistently and can cancel a perfectly
+    // valid swipe before the release event arrives.
   });
   on(car, 'pointermove', e => {
-    if (sx == null || !pointerMatches(e) || vertical) return;
+    if (touching || sx == null || !pointerMatches(e) || vertical) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
     if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.35) vertical = true;
   });
+  // Legacy/sandboxed mobile webviews can expose touch events without a usable
+  // Pointer Events release stream. Keep a direct touch fallback for them.
+  on(car, 'touchstart', e => {
+    if (pointerTouchSeen || touching || isControl(e.target)) return;
+    const t = e.touches && e.touches[0]; if (!t) return;
+    touching = true; sx = t.clientX; sy = t.clientY; st = Date.now();
+    pointerId = null; vertical = false; pause();
+  }, { passive: true });
+  on(car, 'touchmove', e => {
+    if (!touching || !e.touches || !e.touches[0]) return;
+    const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.35) vertical = true;
+    // Once horizontal intent is clear, prevent the page from taking the
+    // gesture. Vertical drags remain native scrolling.
+    if (!vertical && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) e.preventDefault();
+  }, { passive: false });
+  on(car, 'touchend', e => {
+    if (!touching) return;
+    const t = e.changedTouches && e.changedTouches[0];
+    touching = false; pointerTouchSeen = false;
+    finishGesture(t && t.clientX, t && t.clientY);
+  }, { passive: true });
+  on(car, 'touchcancel', () => {
+    if (!touching) return;
+    touching = false; pointerTouchSeen = false; resetPointer(); resume();
+  }, { passive: true });
   // Listen on window as well as the deck: a finger/mouse can finish just
   // outside the banner, and the old implementation then stayed paused.
   on(window, 'pointerup', finishPointer);
   on(window, 'pointercancel', e => {
-    if (sx != null && pointerMatches(e)) { resetPointer(); resume(); }
+    if (touching) return;
+    if (sx != null && pointerMatches(e)) {
+      if (e.pointerType === 'touch') pointerTouchSeen = false;
+      resetPointer(); resume();
+    }
   });
   on(car, 'keydown', e => {
     if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); resume(); }

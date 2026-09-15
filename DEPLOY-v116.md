@@ -1,4 +1,4 @@
-# Shivaa v117 — Quick View and carousel hotfix · PayU remains v116
+# Shivaa v118 — Quick View and carousel touch hotfix · PayU remains v116
 
 This hotfix fixes the two reported storefront interactions on top of v116 without changing the COD, WhatsApp, UPI-proof, cart, or SPA route contracts.
 
@@ -14,7 +14,7 @@ Upload these files to the existing `cms/` installation, preserving `data/`, `upl
 
 The PayU/API file is unchanged by this hotfix; keep the v116 `api.php` already deployed (or upload it together with the same release bundle).
 
-The shell now uses v117 cache/query stamps. A registered service worker should update itself; if a device still shows the old shell, reload once after the in-app update prompt appears.
+The shell now uses v118 cache/query stamps. A registered service worker should update itself; if a device still shows the old shell, reload once after the in-app update prompt appears.
 
 ## 2. Confirm the performance change
 
