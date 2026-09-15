@@ -4,12 +4,17 @@
 > Updated: 2026-09-15 — branch `arena/01a0a48d-shivaa-ecom` (v118 — gallery/Quick View/categories/PayU recovery)
 > **Owner magic phrase for next chat:** `Read ARENA-STATE.md and HANDOFF.md and MEMORY.md first, then continue.`
 
-## Session 2026-09-15 #4 (arena/01a0a48d) — v118 storefront repair
-- Fixed the four-photo PDP gallery with pointer capture, horizontal/vertical intent handling, GPU transforms, and real button dots.
-- Fixed Android Quick View navigation: opening on `pointerup` allowed the synthetic click to hit the product link; it now opens on captured final `click` and stays in the modal.
-- Category rails eagerly load all image thumbnails on phones with logo fallback; category headings are guarded; tapping the already-current category redraws; empty categories keep the honest cataloguing state (catalogue remains rings-only).
-- PayU handoff now uses `HTMLFormElement.prototype.submit.call`, accepts HTTPS `*.payu.in` only, and exposes Continue/Try again/Return controls so no shopper is trapped behind an endless spinner.
-- Zip: `shivaa-update-v118.zip` (7 files). Gates: 32/32 + 27/27 + 18/18; PHP sweep 211/0. No data changes.
+## Session 2026-09-15 #4 (arena/01a0a48d) — v118 storefront repair — OWNER CONFIRMED WORKING
+- **Request:** fix all four-photo product-page navigation; Quick View opening the full product page; category clicks producing a vanished/blank page; missing category thumbnails on phones; and Place Order leaving an endless PayU loading screen. Owner explicitly required reading handoff/memory first; done before editing.
+- **PDP gallery:** retained every photo and replaced inert dot spans with accessible buttons. Added arrow/dot state, `aria-current`, pointer capture, lost-capture cleanup, vertical-vs-horizontal gesture intent, one-slide swipe threshold, GPU `translate3d`, 44px controls and stacking above zoom/lightbox layers. Vertical page scroll remains available.
+- **Quick View root cause/fix:** v116 opened Quick View on `pointerup`; Android could deliver its synthetic final click to the product anchor beneath the newly opened overlay. Delegation now runs on captured final `click`, cancels navigation/propagation and debounces repeat taps. Existing API/list cache fallback remains.
+- **Categories:** guarded stale/unknown category keys; validated category-link keys; same-current-hash taps call redraw explicitly. Populated categories render products; empty categories render the honest cataloguing state and route to available rings. No fake inventory was added. Category rail images use safe URL + eager load + async decode + logo fallback, with explicit phone visibility/sizing CSS.
+- **PayU:** replaced fragile `form.submit()` with the native prototype call, current-tab target and HTTPS `*.payu.in` allowlist. The handoff no longer offers only a permanent spinner: it has Continue, five-second Try again recovery, and Return to my order. PayU server signing/verification, merchant configuration and financial data were untouched.
+- **Version/cache:** release handshake 118; changed scripts cache-busted to 118; new `v118.css/js`; SW `shivaa-shell-v118` with exact precache parity.
+- **Safety:** `db.json` unchanged; 65 PGS products preserved; all have four images; no weights/prices/customers/orders/uploads/credentials changed.
+- **QA:** v113b 32/32, v117 27/27, v118 18/18; repeated against ZIP overlay; PHP 211/0; JS syntax and diff checks clean.
+- **Delivery:** commit `0f699f8`, pushed branch `arena/01a0a48d-shivaa-ecom`; PR #41 opened; `shivaa-update-v118.zip` supplied with root-layout deploy files and `cms/DEPLOY-v118.md`.
+- **Owner verification:** owner subsequently reported, “all the updates are very good and fixed.” Treat v118 as the forward baseline. Never revert these fixes in a later release.
 
 ## Session 2026-09-15 #3 (arena/01a0a44f) — v117: "slow site + hero buttons jump to the bottom of the page"
 - **Slider tap-jump = FOCUS SCROLL (root cause, verified in the v117 harness):** carousel is `tabindex=0`, arrows are real `<button>`s, dots delegate focus up — every tap made the browser scroll the page until the whole 430–600 px deck was in view. Fix: `pointerdown` → `preventDefault()` in `initCarousel()` (taps/clicks/swipes unaffected; Tab-focus still scrolls). Second: `aurum.css`'s `.c-arrow:active{transform:scale(.9)}` was REPLACING the arrow's `translateY(-50%)` while pressed (arrow visibly dropped); `css/v117.css` keeps the translate and adds the squash on top. Track now `translate3d` (GPU).

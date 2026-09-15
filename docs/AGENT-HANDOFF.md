@@ -1,9 +1,22 @@
-# AGENT HANDOFF — read this first, every new chat (updated 6 Sep 2026)
+# AGENT HANDOFF — read this first, every new chat (updated 15 Sep 2026)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
+
+## CURRENT FORWARD BASELINE — v118 (15 Sep 2026)
+
+The storefront baseline is **v118**, branch `arena/01a0a48d-shivaa-ecom`, commit `0f699f8`, PR #41, deliverable `shivaa-update-v118.zip`. The owner installed/tested it and reported all fixes working. Preserve it in every future change.
+
+- Product pages reliably navigate all four photos by arrows, button dots and horizontal swipe/drag; pointer capture and vertical-intent handling must remain.
+- Quick View opens on captured final `click`, never `pointerup`, and must stay in its modal rather than navigate.
+- Category links are key-guarded, same-hash taps redraw, empty categories show the honest cataloguing page, and phone category thumbnails eagerly load with fallback.
+- PayU submits only to HTTPS `*.payu.in` through the native form prototype and always retains visible Continue/Try again/Return recovery controls.
+- Release handshake and SW shell are 118. Catalogue remains exactly 65 PGS rings with four images each; v118 changed no DB/API/payment keys/orders/customer data.
+- Required gates before any later UI release: `v113b-check.js` (32), `v117-check.js` (27), `v118-check.js` (18), PHP sweep (211/0), catalogue 65 + four images each.
+
+**Forward-only law:** do not revert any v118 mechanism, overwrite it with an older ZIP/file, or branch future work from pre-v118 code. Check `ARENA-STATE.md`, `HANDOFF.md`, and `MEMORY.md` for the detailed ledger before starting.
 
 ## Current feature work (6 Sep 2026)
 
