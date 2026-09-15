@@ -637,9 +637,17 @@ function payu_active_provider(array $db): string {
   $p = (string)($db['settings']['payProvider'] ?? 'demo');
   return in_array($p, ['demo', 'payu'], true) ? $p : 'demo';
 }
+function payu_base_ready(array $db): bool {
+  $base = trim((string)($db['settings']['siteBaseUrl'] ?? ''));
+  if ($base === '' || !filter_var($base, FILTER_VALIDATE_URL)) return false;
+  $scheme = strtolower((string)parse_url($base, PHP_URL_SCHEME));
+  $host = (string)parse_url($base, PHP_URL_HOST);
+  if ($host === '' || !in_array($scheme, ['http', 'https'], true)) return false;
+  return (($db['settings']['payuEnv'] ?? 'test') !== 'prod' || $scheme === 'https');
+}
 function payu_ready(array $db): bool {
   $c = payu_cfg($db);
-  return payu_active_provider($db) === 'payu' && $c['key'] !== '' && $c['salt'] !== '';
+  return payu_active_provider($db) === 'payu' && $c['key'] !== '' && $c['salt'] !== '' && payu_base_ready($db);
 }
 /* PayU txnid: A-Za-z0-9-_ safe, max 30 chars, unique per attempt. */
 function payu_sanitize_txn(string $v, int $max = 22): string {
@@ -3662,10 +3670,19 @@ try {
     // and Razorpay code is dormant and unreachable (no selectable provider).
     $puCfg = payu_cfg($db);
     $puLive = payu_ready($db);
+    $puReason = null;
+    if ($provider === 'payu' && !$puLive) {
+      $missing = [];
+      if ($puCfg['key'] === '') $missing[] = 'Merchant Key';
+      if ($puCfg['salt'] === '') $missing[] = 'Merchant Salt';
+      if (trim((string)($s['siteBaseUrl'] ?? '')) === '') $missing[] = 'public Site base URL';
+      if ($missing) $puReason = 'PayU setup is incomplete — add ' . implode(', ', $missing) . ' in Admin → Payments.';
+      elseif (!payu_base_ready($db)) $puReason = 'PayU Site base URL is invalid or not HTTPS for live mode.';
+    }
     jout(200, [
       'mode' => $puLive ? 'payu' : 'demo',
       'provider' => $provider,
-      'payu' => ['ready' => $puLive, 'env' => $puCfg['env']],
+      'payu' => ['ready' => $puLive, 'env' => $puCfg['env'], 'reason' => $puReason],
       'prepaidPct' => (float)($s['prepaidPct'] ?? 2),
       /* v107 — checkout reads the rate-lock window from here (was hardcoded) */
       'lockMinutes' => (int)($s['rateLockMinutes'] ?? 20),
@@ -3923,7 +3940,7 @@ try {
      browser back to surl/furl here. We verify the reverse hash AND call
      verify_payment server-to-server before crediting; the redirect is never
      trusted on its own. */
-  $payu_reconcile = function (int $i, string $txnid, ?array $hint = null): array {
+  $payu_reconcile = function (int $i, string $txnid, ?array $hint = null) use (&$db): array {
     $cfg = payu_cfg($db);
     $v = payu_verify_txn($cfg, $txnid);
     $details = $v['json']['transaction_details'] ?? null;
@@ -3933,11 +3950,9 @@ try {
     }
     audit_log($db, 'payment.payu-verify-fail', ['order' => $db['orders'][$i]['id'] ?? '?', 'txnid' => $txnid,
       'http' => $v['code'], 'raw' => substr((string)$v['raw'], 0, 300)]);
-    // verify API unavailable: accept the hash-verified redirect hint (status
-    // success only; the customer poller retries verify_payment afterward).
-    if ($hint !== null && strtolower((string)($hint['status'] ?? '')) === 'success')
-      return payu_apply($db, $i, ['status' => 'success', 'mihpayid' => $hint['mihpayid'] ?? '',
-        'net_amount_debit' => $hint['amount'] ?? 0, 'mode' => $hint['mode'] ?? ''], $txnid);
+    // A browser return, even with a valid reverse hash, is only a hint. Never
+    // credit the ledger until PayU's server-to-server verify_payment response
+    // supplies the matching transaction and amount. The client poller can retry.
     return ['ok' => false, 'code' => 'VERIFY_UNAVAILABLE'];
   };
   if ($route === 'pay/payu/return') {
@@ -3948,6 +3963,7 @@ try {
     $result = 'pending';
     $cfg = payu_cfg($db);
     $sigOk = !empty($p['hash']) && !empty($p['key']) && !empty($p['txnid'])
+          && hash_equals($cfg['key'], trim((string)$p['key']))
           && hash_equals(payu_response_hash($cfg, $p), strtolower((string)$p['hash']));
     if (!$sigOk) {
       audit_log($db, 'payment.payu-return-bad-hash', ['co' => $co, 'txnid' => $txnid, 'have' => substr((string)($p['hash'] ?? ''), 0, 24)]);
@@ -5951,6 +5967,30 @@ try {
       if ($v !== '' && !filter_var($v, FILTER_VALIDATE_URL))
         jout(400, ['error' => 'Site base URL must look like https://yourshop.com (no trailing slash).']);
       $setBody['siteBaseUrl'] = $v;
+    }
+    // Selecting PayU is an all-or-nothing configuration change. Do not save a
+    // half-configured provider that silently falls back to demo/UPI at checkout.
+    $effectiveProvider = array_key_exists('payProvider', $setBody)
+      ? (string)$setBody['payProvider'] : (string)($db['settings']['payProvider'] ?? 'demo');
+    $effectiveEnv = array_key_exists('payuEnv', $setBody)
+      ? (string)$setBody['payuEnv'] : (string)($db['settings']['payuEnv'] ?? 'test');
+    $effectiveKey = array_key_exists('payuKey', $setBody)
+      ? trim((string)$setBody['payuKey']) : trim((string)($db['settings']['payuKey'] ?? ''));
+    $effectiveSalt = array_key_exists('payuSalt', $setBody)
+      ? trim((string)$setBody['payuSalt']) : trim((string)($db['settings']['payuSalt'] ?? ''));
+    $effectiveBase = array_key_exists('siteBaseUrl', $setBody)
+      ? trim((string)$setBody['siteBaseUrl']) : trim((string)($db['settings']['siteBaseUrl'] ?? ''));
+    if ($effectiveProvider === 'payu') {
+      $missing = [];
+      if ($effectiveKey === '') $missing[] = 'Merchant Key';
+      if ($effectiveSalt === '') $missing[] = 'Merchant Salt';
+      if ($effectiveBase === '') $missing[] = 'public Site base URL';
+      if ($missing) jout(400, ['error' => 'PayU is selected but incomplete — add ' . implode(', ', $missing) . ' before saving.']);
+      $baseScheme = strtolower((string)parse_url($effectiveBase, PHP_URL_SCHEME));
+      if (!parse_url($effectiveBase, PHP_URL_HOST) || !in_array($baseScheme, ['http', 'https'], true))
+        jout(400, ['error' => 'PayU Site base URL must include a public http:// or https:// host.']);
+      if ($effectiveEnv === 'prod' && $baseScheme !== 'https')
+        jout(400, ['error' => 'PayU production mode requires an https Site base URL.']);
     }
     foreach ($setBody as $k => $v) $db['settings'][$k] = $v;
     audit_log($db, 'settings.updated', ['keys' => implode(',', array_keys($setBody))]);

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   SHIVAA v45-MEGA — boost.js (2030 enhancement engine)
+   SHIVAA v47-MEGA — boost.js (2030 enhancement engine)
    Loaded AFTER app.js. Idempotent, degrades gracefully.
 
    01 page-hero banners on every page   02 light/noir/gold themes
@@ -21,6 +21,59 @@
   const pageName = () => (document.body.dataset.page || '');
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+  /* Video is enhancement, not above-the-fold content. Keep the browser on the
+     poster image until the element is visible (or the shopper hovers a film),
+     then attach the MP4. This prevents a home visit from opening several
+     multi-megabyte streams at once, especially on mobile data. */
+  function lazyVideo(v, opts = {}) {
+    if (!v || v.dataset.lazyVideo === '1') return v && v._loadLazyVideo;
+    const src = v.dataset.src || v.getAttribute('src');
+    if (!src) return null;
+    v.dataset.src = src;
+    v.removeAttribute('src');
+    v.preload = 'none';
+    v.autoplay = false;
+    v.muted = true;
+    v.playsInline = true;
+    v.dataset.lazyVideo = '1';
+    let loaded = false, queued = false;
+    const load = () => {
+      if (loaded || !document.contains(v)) return;
+      loaded = true;
+      // Assigning src is enough to start the browser's media pipeline. Avoid
+      // an explicit load() call: it needlessly restarts the request on some
+      // mobile engines and is not implemented by lightweight test DOMs.
+      v.src = v.dataset.src;
+      v.autoplay = !!opts.autoplay;
+      const slide = v.closest('.c-slide');
+      if (opts.autoplay && (!slide || slide.classList.contains('on'))) playLazyVideo(v);
+    };
+    const request = () => {
+      if (loaded || queued) return;
+      queued = true;
+      if (opts.delay) setTimeout(() => { queued = false; load(); }, opts.delay);
+      else load();
+    };
+    v._loadLazyVideo = request;
+    if (!opts.hoverOnly && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver(entries => entries.forEach(en => {
+        if (en.isIntersecting) { request(); if (!opts.repeat) io.unobserve(v); }
+      }), { rootMargin: opts.rootMargin || '160px 0px', threshold: opts.threshold || 0.12 });
+      io.observe(v); v._lazyVideoObserver = io;
+    } else if (!opts.hoverOnly && !('IntersectionObserver' in window)) {
+      setTimeout(request, opts.delay || 900);
+    }
+    return request;
+  }
+  function playLazyVideo(v) {
+    if (!v || (v.readyState === 0 && v.networkState === 0)) return;
+    try { const result = v.play(); if (result && typeof result.catch === 'function') result.catch(() => {}); } catch (e) {}
+  }
+  function stopLazyVideo(v) {
+    if (!v || (v.readyState === 0 && v.networkState === 0)) return;
+    try { v.pause(); } catch (e) {}
+  }
 
   let BOOST = null;
   fetch('/js/boost-data.json').then(r => r.ok ? r.json() : null).then(d => {
@@ -127,11 +180,11 @@
     const ph = view.querySelector('[data-boost="pghero"]');
     const v = document.createElement('video');
     v.className = 'ph-vid';
-    v.src = '/images/films/' + pv[page] + '.mp4';
-    v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
+    v.dataset.src = '/images/films/' + pv[page] + '.mp4';
+    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
     v.setAttribute('aria-hidden', 'true');
     v.onerror = () => { v.remove(); const bg = ph && ph.querySelector('.ph-bg'); if (bg) bg.style.opacity = ''; };
-    if (ph) ph.insertBefore(v, ph.firstChild);
+    if (ph) { ph.insertBefore(v, ph.firstChild); lazyVideo(v, { autoplay: true, delay: 900 }); }
   }
 
   /* ═══════════ 02 THEMES ═══════════ */
@@ -557,7 +610,7 @@
     </div></div>`;
   function filmCard(f) {
     return `<a class="film-card rv" data-reveal href="#/shop" aria-label="${esc(f[1])}">
-      <video src="/images/films/${f[0]}.mp4" poster="${POSTERS[f[0]] || ''}" muted loop playsinline preload="metadata" onerror="this.remove()"></video>
+      <video data-src="/images/films/${f[0]}.mp4" poster="${POSTERS[f[0]] || ''}" muted loop playsinline preload="none" onerror="this.remove()"></video>
       <span class="f-veil"></span><span class="f-frame"></span>
       <span class="f-ribbon">✦ FILM</span>
       <span class="f-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
@@ -592,7 +645,7 @@
   </section>`;
   const secCta = () => `<section class="sec container boost-cta" data-boost="cta">
     <div class="cta-in" data-reveal="zoom">
-      <div class="cta-img"><img src="/images/banners/poster-bridal.jpg" alt="The Bridal House" loading="lazy"><video class="cta-vid" src="/images/films/bridal-lux.mp4" autoplay muted loop playsinline onerror="this.remove()"></video></div>
+      <div class="cta-img"><img src="/images/banners/poster-bridal.jpg" alt="The Bridal House" loading="lazy"><video class="cta-vid" data-src="/images/films/bridal-lux.mp4" muted loop playsinline preload="none" onerror="this.remove()"></video></div>
       <div class="cta-body">
         <span class="label">✦ The Bridal House</span>
         <h2>The complete <em style="color:var(--gold-2)">trousseau</em>, made to inherit</h2>
@@ -617,8 +670,9 @@
     if (!hero.querySelector('.boost-hero-film')) {
       const wrap = document.createElement('div');
       wrap.className = 'boost-hero-film';
-      wrap.innerHTML = `<video src="/images/films/hero.mp4" poster="/images/banners/gen-hero-2030.jpg" autoplay muted loop playsinline onerror="this.closest('.boost-hero-film').remove()"></video><div class="film-vignette"></div>`;
+      wrap.innerHTML = `<video data-src="/images/films/hero.mp4" poster="/images/banners/gen-hero-2030.jpg" muted loop playsinline preload="none" onerror="this.closest('.boost-hero-film').remove()"></video><div class="film-vignette"></div>`;
       hero.prepend(wrap);
+      lazyVideo(wrap.querySelector('video'), { autoplay: true, delay: 1200 });
     }
 
     // ── cinematic: carousel slides become live video backgrounds (text floats on film) ──
@@ -628,13 +682,31 @@
       if (!slide || slide.querySelector('video.c-vid')) return;
       const v = document.createElement('video');
       v.className = 'c-vid';
-      v.src = '/images/films/' + film + '.mp4';
-      v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
+      v.dataset.src = '/images/films/' + film + '.mp4';
+      v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
       v.setAttribute('aria-hidden', 'true');
       v.onerror = () => v.remove();
       const fade = slide.querySelector('.c-fade');
       slide.insertBefore(v, fade || slide.firstChild);
+      lazyVideo(v, { autoplay: true, delay: 1200, repeat: true });
     });
+    // The carousel changes the active class in app.js. Pause old films and
+    // start the newly visible one without ever preloading the hidden slides.
+    const cSlides = $$('.c-slide', view);
+    const syncCarouselVideo = () => cSlides.forEach(slide => {
+      const v = slide.querySelector('video.c-vid');
+      if (!v) return;
+      if (slide.classList.contains('on')) {
+        if (v._loadLazyVideo) v._loadLazyVideo();
+        else playLazyVideo(v);
+      } else stopLazyVideo(v);
+    });
+    syncCarouselVideo();
+    if (cSlides.length && 'MutationObserver' in window) {
+      const cmo = new MutationObserver(syncCarouselVideo);
+      cSlides.forEach(slide => cmo.observe(slide, { attributes: true, attributeFilter: ['class'] }));
+      setTimeout(() => cmo.disconnect(), 10 * 60 * 1000);
+    }
 
     // (bridal CTA film lives inside secCta itself — nothing to patch here)
     const after = (sel, html) => {
@@ -662,7 +734,9 @@
     const nl = view.querySelector('.newsletter');
     if (nl && !nl.closest('section').nextElementSibling?.matches('[data-boost="insta"]')) nl.closest('section').insertAdjacentHTML('afterend', secInsta());
 
-    tickCd(view); bindPulse(view); reveal(view); initFilmCards(view); countUp(view);
+    tickCd(view); bindPulse(view); reveal(view); initFilmCards(view);
+    $$('.cta-vid', view).forEach(v => lazyVideo(v, { autoplay: true, delay: 500 }));
+    countUp(view);
     bindLightbox(view);
     view.dataset.boost = '1';
   }
@@ -672,8 +746,9 @@
       const v = card.querySelector('video');
       if (!v || card.dataset.filmbound) return;
       card.dataset.filmbound = '1';
-      card.addEventListener('mouseenter', () => v.play().catch(() => {}));
-      card.addEventListener('mouseleave', () => v.pause());
+      lazyVideo(v, { hoverOnly: true });
+      card.addEventListener('mouseenter', () => { if (v._loadLazyVideo) v._loadLazyVideo(); playLazyVideo(v); });
+      card.addEventListener('mouseleave', () => stopLazyVideo(v));
     });
   }
 

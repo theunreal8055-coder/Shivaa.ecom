@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 115;
+const APP_REL = 116;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1371,67 +1371,76 @@ function renderRecentViewed() {
 
 function initCarousel() {
   const car = $('#heroCarousel'); if (!car) return;
-  clearInterval(window._carTimer);
-  const track = $('#cTrack'), slides = $$('.c-slide', car), n = slides.length;
-  const dots = $('#cDots');
-  dots.innerHTML = slides.map((_, i) => `<span class="c-dot ${i === 0 ? 'on' : ''}" data-i="${i}"></span>`).join('');
-  let idx = 0;
+  // Home is rendered again whenever the SPA returns to it. Tear down the old
+  // deck first so it cannot leave timers/listeners behind or advance twice.
+  if (window._carDestroy) { try { window._carDestroy(); } catch (e) {} }
+  const track = $('#cTrack', car), slides = $$('.c-slide', car), dots = $('#cDots', car), n = slides.length;
+  if (!track || !dots || !n) return;
+
+  let idx = Math.max(0, slides.findIndex(sl => sl.classList.contains('on')));
+  if (idx < 0) idx = 0;
+  let timer = null, paused = false, sx = null, sy = null, st = 0, pid = null, vertical = false;
+  const bindings = [];
+  const on = (target, type, fn, opts) => {
+    target.addEventListener(type, fn, opts);
+    bindings.push(() => target.removeEventListener(type, fn, opts));
+  };
+  const interval = () => {
+    const mobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || innerWidth <= 820;
+    return mobile ? 12000 : 5500;
+  };
+  const stop = () => { paused = true; clearTimeout(timer); timer = null; window._carTimer = null; };
+  const schedule = () => {
+    clearTimeout(timer); timer = null; window._carTimer = null;
+    if (paused || document.hidden || !document.contains(car)) return;
+    timer = setTimeout(() => { go(idx + 1); schedule(); }, interval());
+    window._carTimer = timer;
+  };
+  const start = () => { paused = false; schedule(); };
   const go = i => {
     idx = (i + n) % n;
-    track.style.transform = `translateX(-${idx * 100}%)`;
-    $$('.c-dot', dots).forEach((d, j) => d.classList.toggle('on', j === idx));
-    // mark the visible slide so its Ken-Burns zoom + copy reveal run only there
+    track.style.transform = `translate3d(-${idx * 100}%,0,0)`;
     slides.forEach((sl, j) => {
-      sl.classList.toggle('on', j === idx);
-      sl.setAttribute('aria-hidden', j === idx ? 'false' : 'true');
+      const active = j === idx;
+      sl.classList.toggle('on', active);
+      sl.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+    $$('.c-dot', dots).forEach((d, j) => {
+      const active = j === idx;
+      d.classList.toggle('on', active);
+      d.setAttribute('aria-current', active ? 'true' : 'false');
     });
   };
-  go(0);
+
+  dots.innerHTML = slides.map((_, i) =>
+    `<button type="button" class="c-dot ${i === idx ? 'on' : ''}" data-i="${i}" aria-label="Show poster ${i + 1}" aria-current="${i === idx ? 'true' : 'false'}"></button>`
+  ).join('');
+  go(idx);
+
   const next = () => go(idx + 1), prev = () => go(idx - 1);
-  $('.c-next', car).onclick = next; $('.c-prev', car).onclick = prev;
-  $$('.c-dot', dots).forEach(d => d.onclick = () => go(+d.dataset.i));
-  const start = () => {
-    /* v113b - never stack intervals. Every pointercancel / lostpointercapture /
-       visibilitychange used to add another timer on top of the running one, so
-       after a scroll or a tab switch the deck advanced two, three, four slides
-       per tick. clearInterval first makes start() idempotent. */
-    clearInterval(window._carTimer);
-    // v42: slower auto-advance on mobile (12s vs 5.5s desktop) so it glides, not jumps
-    const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
-    const interval = _mob ? 12000 : 5500;
-    window._carTimer = setInterval(next, interval);
-  };
-  const stop = () => { clearInterval(window._carTimer); window._carTimer = null; };
-  car.addEventListener('mouseenter', stop);
-  car.addEventListener('mouseleave', start);
-  /* v113 — swipe engine rebuilt.
-     The old code only listened for pointerdown/pointerup. Mobile browsers fire
-     **pointercancel** (never pointerup) the instant a vertical page scroll
-     starts on the carousel, so one scroll left `sx` set and the autoplay dead:
-     the poster looked frozen and every later swipe was ignored. Now:
-       • pointer capture keeps the gesture stream on the carousel;
-       • cancel / leave / lostcapture all reset and restart autoplay;
-       • a gesture whose dominant axis is vertical is a page scroll, not a swipe;
-       • keyboard ←/→ and a pause while the tab is hidden. */
-  let sx = null, sy = null, st = 0, pid = null, vertical = false;
+  const prevBtn = $('.c-prev', car), nextBtn = $('.c-next', car);
+  if (prevBtn) on(prevBtn, 'click', e => { e.preventDefault(); prev(); start(); });
+  if (nextBtn) on(nextBtn, 'click', e => { e.preventDefault(); next(); start(); });
+  $$('.c-dot', dots).forEach(d => on(d, 'click', () => { go(+d.dataset.i); start(); }));
+
+  // Keep the pointer gesture deliberately small and self-resetting. A vertical
+  // drag belongs to the page; a horizontal drag changes exactly one poster.
   const reset = () => { sx = sy = st = pid = null; vertical = false; start(); };
-  car.addEventListener('pointerdown', e => {
+  on(car, 'mouseenter', stop);
+  on(car, 'mouseleave', start);
+  on(car, 'focusin', stop);
+  on(car, 'focusout', e => { if (!car.contains(e.relatedTarget)) start(); });
+  on(car, 'pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    sx = e.clientX; sy = e.clientY; st = Date.now(); pid = e.pointerId; vertical = false;
-    stop();
+    sx = e.clientX; sy = e.clientY; st = Date.now(); pid = e.pointerId; vertical = false; stop();
     try { car.setPointerCapture(pid); } catch (_) {}
   });
-  car.addEventListener('pointermove', e => {
+  on(car, 'pointermove', e => {
     if (sx == null || e.pointerId !== pid || vertical) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
-    // once the finger is clearly travelling vertically it is a page scroll
-    // (v115: 10px/×1.15 was too eager — real thumbs drift, and a slightly
-    //  sloppy horizontal swipe was classed as a scroll and dropped. True
-    //  scrolls still end the gesture themselves via pointercancel, and the
-    //  container pins touch-action:pan-y in css/v115.css.)
     if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.35) vertical = true;
   });
-  car.addEventListener('pointerup', e => {
+  on(car, 'pointerup', e => {
     if (sx == null || e.pointerId !== pid) return;
     if (!vertical) {
       const dx = e.clientX - sx, dy = e.clientY - sy;
@@ -1440,16 +1449,19 @@ function initCarousel() {
     }
     reset();
   });
-  ['pointercancel', 'lostpointercapture'].forEach(ev => car.addEventListener(ev, e => {
-    if (sx == null || e.pointerId !== pid) return;
-    reset();
+  ['pointercancel', 'lostpointercapture'].forEach(type => on(car, type, e => {
+    if (sx != null && e.pointerId === pid) reset();
   }));
-  car.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); reset(); }
-    if (e.key === 'ArrowRight') { e.preventDefault(); next(); reset(); }
+  on(car, 'keydown', e => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); start(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); next(); start(); }
   });
-  // a hidden tab must not burn through the deck; resume when it comes back
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else if (location.hash === '#/' || location.hash === '' || location.hash === '#') start(); });
+  const onVisibility = () => { if (document.hidden) stop(); else if (document.contains(car)) start(); };
+  on(document, 'visibilitychange', onVisibility);
+  window._carDestroy = () => {
+    stop(); bindings.splice(0).forEach(off => { try { off(); } catch (e) {} });
+    if (window._carDestroy) window._carDestroy = null;
+  };
   start();
 }
 
@@ -1549,20 +1561,21 @@ async function loadRates() {
     renderTicker(); renderRateStrip(); document.dispatchEvent(new CustomEvent('rates'));
   } catch (e) {}
 }
-/* v90 — while the official MCX feed is live the shop polls every 1 s (was 15 s) so
-   every price tracks the exchange every second; off-hours it relaxes to 5 s. A tab
-   returning to the foreground refreshes immediately if its quote is stale.
-   Millisecond smooth animation is handled by renderTicker's interpolation (see below). */
+/* Keep the storefront responsive and the rate endpoint healthy: the server's
+   exchange tick is already cached, so a 15 s live poll is plenty for shoppers;
+   off-hours it relaxes to 60 s. A tab returning to the foreground refreshes
+   immediately if its quote is stale. The ticker still interpolates smoothly
+   between real server ticks. */
 let _ratesTimer = null;
 function scheduleRatesPoll() {
   clearTimeout(_ratesTimer);
   const live = !!(state.rates && state.rates.live);
-  const delay = live ? 1000 : 5000;
+  const delay = live ? 15000 : 60000;
   _ratesTimer = setTimeout(async () => { await loadRates(); scheduleRatesPoll(); }, delay);
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || !_lastRatesAt) return;
-  const maxAge = state.rates && state.rates.live ? 3000 : 10000;
+  const maxAge = state.rates && state.rates.live ? 30000 : 120000;
   if (Date.now() - _lastRatesAt > maxAge) { loadRates(); scheduleRatesPoll(); }
 }, { passive: true });
 // v2026-09-14 — bullion millisecond smooth: 60fps interpolation so the ticker *looks* like it moves every millisecond
@@ -1726,7 +1739,7 @@ function productCard(p, opts = {}) {
         ${fitsSize ? `<span class="pc-your-size" title="Made in your saved size ${esc(mySize)}">✓ your size ${esc(mySize)}</span>` : ''}
         <div class="glare"></div>
       </a>
-      <button type="button" class="pc-quick" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.quickView('${p.id}')">✦ Quick view</button>
+      <button type="button" class="pc-quick" data-pid="${esc(p.id)}" aria-label="Quick view ${esc(p.name)}">✦ Quick view</button>
     </div>
     <button type="button" class="pc-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();event.stopPropagation();Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg><span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span>
@@ -3357,19 +3370,19 @@ window.Shivaa.holdRepeat = (el, step, opts = {}) => {
   el._holdWired = true;
   el.classList.add('hold-btn');
   const FIRST = opts.firstDelay ?? 340, R0 = opts.repeatStart ?? 95, RMIN = opts.repeatMin ?? 32;
-  let t1 = null, t2 = null, rep = R0, alive = false;
-  const clear = () => { clearTimeout(t1); clearTimeout(t2); t1 = t2 = null; alive = false; };
+  let t1 = null, t2 = null, rep = R0, alive = false, pointerId = null;
+  const clear = () => { clearTimeout(t1); clearTimeout(t2); t1 = t2 = null; alive = false; pointerId = null; };
   const tick = () => { step(); rep = Math.max(RMIN, Math.round(rep * 0.86)); t2 = setTimeout(tick, rep); };
   el.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
-    clear(); alive = true; rep = R0;
+    clear(); alive = true; rep = R0; pointerId = e.pointerId;
     try { el.setPointerCapture(e.pointerId); } catch (_) {}
     step();
     t1 = setTimeout(tick, FIRST);
   });
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => el.addEventListener(ev, clear));
-  el.addEventListener('pointerleave', () => { if (!el.hasPointerCapture?.(el._pid)) clear(); });
+  el.addEventListener('pointerleave', () => { if (!pointerId || !el.hasPointerCapture?.(pointerId)) clear(); });
   el.addEventListener('keydown', e => {
     if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
       e.preventDefault();
@@ -3379,6 +3392,18 @@ window.Shivaa.holdRepeat = (el, step, opts = {}) => {
   document.addEventListener('visibilitychange', () => { if (document.hidden) clear(); });
 };
 
+// A delegated listener survives every SPA re-render and does not depend on
+// inline `event`/CSP behaviour. Product cards are created in several routes.
+if (!window._quickViewClickWired) {
+  window._quickViewClickWired = true;
+  document.addEventListener('click', e => {
+    const btn = e.target.closest && e.target.closest('.pc-quick');
+    if (!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    const id = btn.dataset.pid || btn.closest('.p-card')?.dataset.pid;
+    if (id && window.Shivaa.quickView) window.Shivaa.quickView(id);
+  }, true);
+}
 window.Shivaa.quickView = async (id) => {
   /* v113 — a cold cache used to throw the shopper onto the full product page,
      which reads as "quick view is broken". Now the single piece is fetched
@@ -3735,13 +3760,18 @@ pages.checkout = async (view) => {
   const pct = +(payCfg.prepaidPct || 0);
   const badge = $('#payBadge'); if (badge) badge.textContent = pct ? pct + '% off' : '';
   const sub = $('#payOnlineSub');
+  const payuSelectedNotReady = payCfg.provider === 'payu' && !(payCfg.payu && payCfg.payu.ready);
   if (sub) sub.textContent = payCfg.mode === 'payu'
     ? 'UPI · cards · net-banking · wallets · secured by PayU' + (pct ? ' · instant ' + pct + '% off' : '')
-    : 'UPI · cards · net-banking (demo until PayU keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
+    : payuSelectedNotReady
+      ? 'PayU is selected but not ready — use UPI QR while Admin completes setup'
+      : 'UPI · cards · net-banking (demo until PayU keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
   const note = $('#payDemoNote');
   if (note) note.innerHTML = payCfg.mode === 'payu'
     ? '🔒 You will be redirected to the secure <b>PayU</b> payment page (UPI / cards / net-banking / wallets). Your card details never touch shivaa.in.' + (payCfg.payu && payCfg.payu.env === 'test' ? ' <b>Test mode.</b>' : '')
-    : '🔒 Card/net-banking checkout switches <b>live on PayU</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
+    : payuSelectedNotReady
+      ? '⚠️ PayU is selected but its server configuration is incomplete. ' + esc(payCfg.payu?.reason || 'Ask the shop to finish Admin → Payments setup.') + ' Until then, use the <b>UPI QR tab</b>, WhatsApp or COD.'
+      : '🔒 Card/net-banking checkout switches <b>live on PayU</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
   const codPct = +(state.settings.codFeePct || 0);
   const codSub = $('#payCodSub');
   if (codSub) {
@@ -3958,28 +3988,54 @@ function demoPaySheet(po, orderId) {
 }
 /* v94 — full-page navigation seam (tests capture instead of navigating). */
 window.Shivaa.redirectTo = (url) => { window.location.href = url; };
-/* v94 — brief overlay while the browser leaves for the PayU payment page */
-function payuRedirectSheet() {
-  return new Promise(() => {
-    openModal(`<div style="text-align:center;padding:14px 6px">
+/* v94 — brief overlay while the browser leaves for the PayU payment page.
+   This must not be a never-resolving promise: if a CSP, popup policy or
+   temporary network error prevents the POST, checkout needs a recovery path. */
+function payuRedirectSheet(orderId, action, fields) {
+  openModal(`<div style="text-align:center;padding:14px 6px">
       <div class="pp-spinner" aria-hidden="true"></div>
       <h3 style="margin:14px 0 6px">Redirecting to PayU…</h3>
       <p style="color:var(--muted);font-size:13px">Do not press back or close this tab. You can pay with any UPI app, card, net-banking or wallet — we&rsquo;ll bring you back when it&rsquo;s done.</p>
     </div>`);
-  });
+  setTimeout(() => {
+    let form = null;
+    try {
+      form = Shivaa.payuSubmit(action, fields);
+      // A successful navigation unloads this document. If the form is still
+      // here after a few seconds, surface the unpaid order instead of trapping
+      // the shopper behind an endless spinner.
+      setTimeout(() => {
+        if (form && document.body.contains(form)) {
+          closeModal();
+          toast('PayU did not open — you can retry from your order page', 'err');
+          location.hash = '#/order/' + encodeURIComponent(orderId);
+        }
+      }, 4500);
+    } catch (e) {
+      closeModal();
+      toast('PayU could not open — retry from your order page', 'err');
+      location.hash = '#/order/' + encodeURIComponent(orderId);
+    }
+  }, 180);
+  return true;
 }
 /* v94 — PayU hosted checkout: the server signs and returns the form fields;
    we auto-submit a full-page POST to secure.payu.in / test.payu.in. */
 window.Shivaa.payuSubmit = (action, fields) => {
+  const target = new URL(String(action || ''), location.href);
+  if (!/^https:$/.test(target.protocol) || !/^(?:test\.|secure\.)payu\.in$/i.test(target.hostname) || target.pathname !== '/_payment') {
+    throw new Error('Invalid PayU payment endpoint');
+  }
   const f = document.createElement('form');
-  f.method = 'POST'; f.action = action; f.style.display = 'none';
+  f.method = 'POST'; f.action = target.href; f.style.display = 'none';
   for (const [k, v] of Object.entries(fields || {})) {
     const i = document.createElement('input');
     i.type = 'hidden'; i.name = k; i.value = String(v ?? '');
     f.appendChild(i);
   }
   document.body.appendChild(f);
-  f.submit();
+  HTMLFormElement.prototype.submit.call(f);
+  return f;
 };
 window.Shivaa.payForOrder = async (orderId) => {
   let po;
@@ -3992,8 +4048,7 @@ window.Shivaa.payForOrder = async (orderId) => {
       toast('PayU checkout could not start — retry or use the UPI QR tab', 'err'); return false;
     }
     toast('Taking you to PayU…');
-    setTimeout(() => Shivaa.payuSubmit(po.action, po.fields), 300);
-    return payuRedirectSheet();
+    return payuRedirectSheet(orderId, po.action, po.fields);
   }
   // v82 — public host with no gateway keys: go straight to the real UPI QR +
   // owner-approved screenshot flow (the old "demo success" sheet could mark
@@ -4004,6 +4059,7 @@ window.Shivaa.payForOrder = async (orderId) => {
   }
   return demoPaySheet(po, orderId);
 };
+
 window.Shivaa.placeOrder = async () => {
   const form = $('#addrForm');
   if (!form.reportValidity()) return;
@@ -4276,7 +4332,7 @@ pages.order = async (view, q, id) => {
         <h3>${order.paymentStatus === 'Partially paid' ? '⌛ Balance payment pending' : '⌛ Payment pending'}</h3>
         <p>${order.amountPaid ? `<b>${fmt(order.amountPaid)} received</b> · balance <b>${fmt(order.balance || (order.total - order.amountPaid))}</b> · ` : ''}Your piece is reserved &amp; today&rsquo;s rate is held. Complete payment now — UPI QR, cards or net-banking — or switch to WhatsApp.</p>
         <div class="pay-due-btns">
-          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder(${jsArg(order.id)}).then(()=>location.reload())">Pay ${fmt(order.balance || (order.amountPaid ? order.total - order.amountPaid : order.total))} now</button>
+          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder(${jsArg(order.id)})">Pay ${fmt(order.balance || (order.amountPaid ? order.total - order.amountPaid : order.total))} now</button>
           <button class="btn btn-outline" onclick="Shivaa.waOpenOrder(${jsArg(order.id)})">Pay on WhatsApp</button>
         </div></div>` : ''}
       ${order.paymentStatus === 'Proof submitted' ? `<div class="pay-due-card" style="background:linear-gradient(135deg,#eef6ff,#dcecff);border-color:#7fb0e6">
@@ -4433,7 +4489,7 @@ pages.account = async (view, q) => {
           <a class="btn btn-outline btn-sm" href="#/certificate/${o.id}">🛡 Certificate</a>
           ${o.status === 'Delivered' ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.buyAgain('${o.id}')">↻ Buy again</button>` : ''}
           ${o.status === 'Delivered' ? `<a class="btn btn-outline btn-sm" href="#/care?order=${encodeURIComponent(o.id)}">✦ Care</a>` : ''}
-          ${(o.paymentStatus === 'Awaiting payment' || o.paymentStatus === 'Partially paid') ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.payForOrder('${o.id}').then(()=>location.reload())" style="margin-left:auto">⌛ Pay ${o.balance ? fmt(o.balance) : 'now'}</button>` : ''}
+          ${(o.paymentStatus === 'Awaiting payment' || o.paymentStatus === 'Partially paid') ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.payForOrder('${o.id}')" style="margin-left:auto">⌛ Pay ${o.balance ? fmt(o.balance) : 'now'}</button>` : ''}
           ${o.codConfirmed === false && o.paymentMethod === 'COD' ? `<button class="btn btn-outline btn-sm" onclick="Shivaa.codConfirm('${o.id}')">✓ Confirm COD</button>` : ''}
           ${oq ? `<a class="btn btn-gold btn-sm" href="javascript:Shivaa.fqOpen({route:'purchase',orderId:${jsArg(o.id)}})" style="margin-left:auto">✦ Gold Finale — this order qualifies</a>` : ''}
       </div></div>`;
@@ -7983,21 +8039,19 @@ async function boot(isRedraw) {
   // the drawer's layout rules use !important and would override an inline style
   document.querySelectorAll('a[href="#/catalogues"]').forEach(a => { a.classList.toggle('b2b-only-hide', !isPartner()); a.style.display = ''; });
   document.querySelectorAll('.foot-chips a[href="#/catalogues"]').forEach(a => a.classList.toggle('b2b-only-hide', !isPartner()));
-  // footer social WhatsApp link (subtle)
-  // custom pages in footer
-  try {
-    const { pages: cps } = await api('/api/pages');
-    if (cps && cps.length) {
-      const col = document.getElementById('footCustomPages');
-      if (col && !document.getElementById('customPageLinks')) {
-        const div = document.createElement('div');
-        div.id = 'customPageLinks';
-        div.className = 'fv-custom';
-        cps.slice(0, 5).forEach(pg => div.insertAdjacentHTML('beforeend', `<a href="#/p/${pg.slug}">${esc(pg.title)}</a>`));
-        col.appendChild(div);
-      }
+  // Footer custom pages are non-critical. Fetch them in the background so a
+  // slow/absent pages endpoint can never hold the first route or preloader.
+  void api('/api/pages').then(({ pages: cps }) => {
+    if (!cps || !cps.length) return;
+    const col = document.getElementById('footCustomPages');
+    if (col && !document.getElementById('customPageLinks')) {
+      const div = document.createElement('div');
+      div.id = 'customPageLinks';
+      div.className = 'fv-custom';
+      cps.slice(0, 5).forEach(pg => div.insertAdjacentHTML('beforeend', `<a href="#/p/${pg.slug}">${esc(pg.title)}</a>`));
+      col.appendChild(div);
     }
-  } catch (e) {}
+  }).catch(() => {});
   // v101 — footer WhatsApp slot points at the official wa.me/message channel
   // populate nav + footer category menus
   $('#catMenu').innerHTML = `
@@ -8069,7 +8123,7 @@ async function boot(isRedraw) {
   partnerLanding(state.user);
   initMiniCart();   // v91 slide-in bag
   route();
-  // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours
+  // adaptive rate polling: 15 s while MCX is live, 60 s off-hours
   scheduleRatesPoll();
   setInterval(() => {
     const R = state.rates; if (!R || !R.live) return;

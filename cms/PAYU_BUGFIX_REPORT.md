@@ -2,6 +2,19 @@
 
 **Scope:** update PayU payment gateway API only. No other routes disturbed. Branch `arena/01a0a030-shivaa-ecom`.
 
+
+## v116 follow-up fixes (2026-09-15)
+
+The active inline implementation in `cms/api.php` and the storefront now also include these fixes:
+
+* **Callback fatal fixed:** the PayU reconcile closure explicitly captures the mutable database (`use (&$db)`). Without that capture, a valid PayU return could fail before reconciliation with an undefined `$db` inside the closure.
+* **Browser-only credit removed:** a successful browser return is never used as a fallback when `verify_payment` is unavailable. The order remains pending until PayU returns the exact transaction from the server-to-server verification call.
+* **Callback binding tightened:** the configured Merchant Key must match the callback key before the reverse hash is accepted.
+* **Configuration is fail-closed:** PayU cannot be saved as the active provider without a Merchant Key, Salt and Site base URL; production also requires an HTTPS base URL. `/api/pay/config` exposes a safe, non-secret reason when an older database is incomplete.
+* **Redirect recovery fixed:** the hosted form submission no longer leaves `payForOrder()` behind a never-resolving promise. If the form cannot leave the page, the customer is returned to the unpaid order page and can retry.
+
+The performance, hero carousel and delegated Quick View changes are documented in [`../DEPLOY-v116.md`](../DEPLOY-v116.md) from the repository root.
+
 ---
 
 ## 1. What was mapped
@@ -29,7 +42,7 @@ Hash verification (python pipe test):
 | **B5 — HIGH** | `cms/api.php:4044-4046` admin `pay-test` probe | Clicking **Test** with **valid** PayU test creds always shows *PayU rejected the key/salt* (false negative). So admin thinks env mismatch when it is not. | Probe expected `strpos($blob,'not exist')` but PayU actually returns **"No Transaction Found"** / **"No transaction found for this txnid"** (no word "exist"). Probe also checked `status===1` only — missing txn returns `status 0`, so no branch matched. | **FIXED** — detect `invalid key` / `invalid hash` / `authentication failed` as *invalid*; any other 200 JSON with `status` field is treated as **valid**. Works for both test (`test.payu.in`) and prod (`info.payu.in`). |
 | **B6** | `payu_apply:710` amount check `int(round(paid)) !== attempt.amount` + fallback `net_amount_debit ?? amount` | Decimal `amount` like `"199.50"` truncates via round to 200 and mismatches on half-rupee orders. Also if PayU omits `net_amount_debit`, amount string with decimals still rounds unpredictably. | Orders are rupee-integers, so low impact, but future half-rupee catalog items would fail verify. | **KEPT** with note — integer catalog means safe; true fix would compare formatted `"%.2f"` strings. Not changed to avoid disturbing stable path (doc only). |
 | **B7** | Helper name `phonepe_site_base()` used for PayU (`3631`) + txnid length doc | Function name suggests PhonePe; PayU/hosted checkout base URL logic re-uses it (`filter_var + parse_url scheme`). Works but confusing. Doc says txnid max 30 vs spec 25 — inconsistent. | Not a functional bug — readability + spec nit. | **KEPT** (no rename to avoid diff noise). Standalone fix file documents the intent; truncating to 30 kept (PayU tolerates ≤30, order ids are ~15 chars anyway). |
-| **B8 — LOW** | Frontend `payForOrder:3793` `setTimeout 300` + `payuRedirectSheet()` never resolves | Modal blocks checkout screen forever (by design), but if PayU POST fails, user stuck on "Redirecting to PayU…" with no recovery except close-maybe-leaky. | Intentional blocking promise; needs `beforeunload` warning not present. | **NOT CHANGED** (frontend out of scope for "PayU file only" request). Noted for future. |
+| **B8 — LOW** | Frontend `payForOrder` hosted redirect | A blocked or failed hosted POST could leave checkout stuck on "Redirecting to PayU…". | The redirect helper intentionally never resolved. | **FIXED in v116** — submits the form with a bounded fallback to the unpaid order page; no browser payment state is trusted. |
 
 ### Also noted, not changed
 

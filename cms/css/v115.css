@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   SHIVAA v115 — release layer (categories back · carousel touch ·
+   SHIVAA v116 — release layer (categories back · carousel touch ·
    RTGS strip units are fixed server-side in api.php)
    ═══════════════════════════════════════════════════════════ */
 
@@ -18,3 +18,18 @@
 /* The category grid shows all 17 house faces again (v115 · LIVE_CATS reverts
    to the full map). No layout change is needed — the auto-fill grid simply
    gets its rows back; this note documents why the count changed. */
+
+/* v116 — carousel dots are real keyboard/touch buttons, not inert spans. */
+#heroCarousel .c-dot {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+}
+#heroCarousel .c-dot:focus-visible,
+#heroCarousel .c-arrow:focus-visible {
+  outline: 2px solid #ffe9bd;
+  outline-offset: 3px;
+}
