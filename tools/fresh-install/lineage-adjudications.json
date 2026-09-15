@@ -1,0 +1,13 @@
+{
+  "_how": "One entry per archived file that the v1→v115 audit could not find in the tree. A drop is legitimate only with a reason; lineage-audit.py exits 1 while any drop is unexplained. Keys are the path as it appears inside the release archive (also matched for every later release that carried the same file).",
+  "css/gift-concierge.css": "RESTORED in v115-FI — v42's Gift Concierge (markup + handlers + this stylesheet) fell out of the tree when pages.home was rewritten; the feature now rides as a removable layer: css/gift-concierge.css (v42 file restored, v115-FI mount block appended) + js/gift-concierge.js.",
+  "css/home-v43.css": "SUPERSEDED — the v43 home prototype (`shivaa-update-v43 (2).zip`) was built on a pre-v43 base. 28 of its 41 classes still live in the tree, re-homed into styles.css/mobile.css by the v43→v44 home rebuild; the remaining 13 were the prototype's duplicated hero rules.",
+  "css/hallmark-v43.css": "SUPERSEDED — same archive, the `hm2-*` hallmark redesign. The live hallmark page uses the `hm-*` family (js/hallmark.js + css/hallmark.css); the hm2 markup it styled was never carried past v43, and Feature 1 (docs/FEATURE-01-HUID.md) then re-cut the page around the honest BIS hand-off.",
+  "relay/shivaa-relay.mjs": "RESTORED in v115-FI from shivaa-update-v80.zip — the Bullion Desk's Render relay (v78) was only ever archived, never committed to the repo, so a fresh host could not re-deploy it. Now at repo root `relay/` (NOT in the site bundle: it deploys to Render, and .htaccess blocks /relay/ on the host).",
+  "relay/package.json": "RESTORED in v115-FI — the relay's runtime manifest, needed for `npm start` on Render.",
+  "relay/relay.config.example.json": "RESTORED in v115-FI — the no-secrets config template the relay reads.",
+  "relay/README.md": "RESTORED in v115-FI — relay behaviour + rate-source notes.",
+  "relay/RENDER-SETUP.md": "RESTORED in v115-FI — the 6-step Render deploy the owner follows for live MCX rates (v112 rate-drift fix depends on it).",
+  "css/v105.css": "SUPERSEDED by design — FEATURE-LINEAGE.md: “1,062 lines of styles.css + v105.css for stale markup → dropped (would fight mobile.css)”. Its surviving features were ported into the v107 layer (css/v107.css + js/v107.js), which is what the live shell loads.",
+  "js/v105.js": "SUPERSEDED by design — the v105 prototype JS was mined for v107: footer ticker, tap-reactive glow, Quick View guards, design detail sheet, size-guide and route-scoped redirect all live in js/v107.js; the OTP paste/split/auto-advance it carried is native in the live js/auth.js (verified in v115-FI: auth.js binds `paste` on every .shv-otp box)."
+}

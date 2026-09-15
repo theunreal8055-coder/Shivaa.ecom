@@ -21,6 +21,12 @@ qa/         qa_v36.py (API regression) · smoke_media.py (upload smoke test)
             t9 mobile viewport)
 ```
 
+## Fresh install (new host, no history)
+
+`shivaa-FRESH-INSTALL-v115.zip` + `shivaa-FRESH-MEDIA-v115.zip` — the whole store (all of
+v1 → v115, audited) on an empty host, seeded by `install.php`. Everything about it, incl.
+what is deliberately *not* seeded, is in [`FRESH-INSTALL-v115.md`](FRESH-INSTALL-v115.md).
+
 ## Quick start
 ```bash
 # local demo of the site

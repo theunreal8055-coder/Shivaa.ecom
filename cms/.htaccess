@@ -11,6 +11,15 @@ RewriteRule (^|/)\.env - [F,NC]
 # API: /api/...  →  api.php
 RewriteRule ^api/(.*)$ api.php?__route=$1 [QSA,L]
 
+# v115-FI — the first-run installer locks itself out at the edge. install.php
+# deletes data/install-open when it succeeds and writes data/INSTALL.lock, and
+# this condition then 403s every later visit — the second lock lives in the PHP
+# itself, so a host ignoring .htaccess is still refused. The relative TestString
+# is resolved against THIS directory, so a subfolder install (public_html/cms/)
+# is guarded by its own copy of the file.
+RewriteCond data/INSTALL.lock -f
+RewriteRule ^install\.php$ - [F,NC,L]
+
 # v107 — robots.txt has advertised /sitemap.xml forever; generate it from db.json
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 

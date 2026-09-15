@@ -1,0 +1,6 @@
+# v50 / v115-FI — the database folder is private. Everything denied, always.
+# Root .htaccess already denies ^data/ (v107); this nested file is the second
+# lock, because the store also gets installed into a SUBFOLDER on some hosts
+# (public_html/cms/) where a root-only rule would not apply. db.json, the
+# .lock/.tmp write-ahead files and sms-config.json must never be readable.
+Require all denied
