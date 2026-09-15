@@ -4,6 +4,21 @@
 'use strict';
 (function () {
 
+/* ─────────── v115 · release handshake ───────────
+   index.html stamps window.__SHIVAA_REL=<n> in <head> BEFORE any script
+   loads. If the shell a shopper was served is NEWER than this app.js — a
+   phone can pair a fresh index.html with a script still held in some cache
+   layer, which is exactly how "the update changed nothing" happened — reload
+   exactly once so the release pairs up. The sessionStorage flag makes the
+   guard fire at most once per tab; it can never loop. */
+const APP_REL = 115;
+try {
+  if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
+    sessionStorage.setItem('shv_rel_guard', '1');
+    location.reload();
+  }
+} catch (e) {}
+
 /* ─────────── safe storage (works even in sandboxed previews) ─────────── */
 const mem = {};
 let _storageBlocked = false;
@@ -183,15 +198,15 @@ const CATS = {
   nosepins: { name: 'Nose Pins', sub: 'Light · Daily', img: '/images/categories/nosepins.jpg' },
   silver: { name: 'Silver 925', sub: 'Payal · Chains · Kada', img: '/images/categories/silver.jpg' },
 };
-/* v111: menus/filters show only categories that actually have products in the
-   loaded catalogue (owner: samples removed — live shop is rings-only for now).
-   Falls back to the full CATS map while the catalogue is still loading. */
+/* v115 — owner decision: EVERY house category shows again. The v111 filter
+   (render only categories that have products) was built for a catalogue that
+   briefly had samples in many categories; with the live rings-only catalogue
+   it collapsed every menu, grid and filter to a single "Rings" tile, which
+   read to the owner as "the update deleted my categories". Nothing was ever
+   deleted — an empty category now lands on the shop's honest "being
+   catalogued" state instead of disappearing. */
 function LIVE_CATS() {
-  const have = new Set((state.productsCache || []).map(p => p && p.category).filter(Boolean));
-  if (!have.size) return CATS;
-  const out = {};
-  for (const [k, c] of Object.entries(CATS)) if (have.has(k)) out[k] = c;
-  return Object.keys(out).length ? out : CATS;
+  return CATS;
 }
 
 /* ─────────── WhatsApp integration ─────────── */
@@ -1410,7 +1425,11 @@ function initCarousel() {
     if (sx == null || e.pointerId !== pid || vertical) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
     // once the finger is clearly travelling vertically it is a page scroll
-    if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx) * 1.15) vertical = true;
+    // (v115: 10px/×1.15 was too eager — real thumbs drift, and a slightly
+    //  sloppy horizontal swipe was classed as a scroll and dropped. True
+    //  scrolls still end the gesture themselves via pointercancel, and the
+    //  container pins touch-action:pan-y in css/v115.css.)
+    if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.35) vertical = true;
   });
   car.addEventListener('pointerup', e => {
     if (sx == null || e.pointerId !== pid) return;
@@ -2100,7 +2119,7 @@ pages.home = async (view) => {
     <div class="carousel" id="heroCarousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Featured Shivaa campaigns — use the left and right arrow keys">
       <div class="c-track" id="cTrack">
         <div class="c-slide s-left">
-          <img src="/images/banners/poster-heritage.jpg" alt="Shivaa fine gold craftsmanship" fetchpriority="high">
+          <img src="/images/banners/poster-heritage.jpg" alt="Shivaa fine gold craftsmanship" draggable="false" fetchpriority="high">
           <div class="c-fade"></div>
           <span class="c-frame" aria-hidden="true"><i class="cf-c c1"></i><i class="cf-c c2"></i><i class="cf-c c3"></i><i class="cf-c c4"></i></span>
           <span class="c-wm" aria-hidden="true">99&middot;999</span>
@@ -2113,7 +2132,7 @@ pages.home = async (view) => {
           </div>
         </div>
         <div class="c-slide s-center">
-          <img src="/images/banners/poster-bridal.jpg" alt="Bridal collection" loading="lazy">
+          <img src="/images/banners/poster-bridal.jpg" alt="Bridal collection" draggable="false" loading="lazy">
           <div class="c-fade fade-c"></div>
           <div class="c-body">
             <span class="label">&#10022; The bridal edit &middot; Jayal to your city</span>
@@ -2124,7 +2143,7 @@ pages.home = async (view) => {
           </div>
         </div>
         <div class="c-slide s-right">
-          <img src="/images/banners/poster-everyday.jpg" alt="Everyday edit under 50000" loading="lazy">
+          <img src="/images/banners/poster-everyday.jpg" alt="Everyday edit under 50000" draggable="false" loading="lazy">
           <div class="c-fade fade-r"></div>
           <div class="c-body">
             <span class="label">&#10022; The everyday edit</span>
@@ -2135,7 +2154,7 @@ pages.home = async (view) => {
           </div>
         </div>
         <div class="c-slide s-band">
-          <img src="/images/banners/wedding.jpg" alt="Swarna Nidhi gold savings plan" loading="lazy">
+          <img src="/images/banners/wedding.jpg" alt="Swarna Nidhi gold savings plan" draggable="false" loading="lazy">
           <div class="c-fade"></div>
           <div class="c-panel">
             <span class="label">&#10022; Swarna Nidhi &middot; the gold savings plan</span>
@@ -3363,7 +3382,12 @@ window.Shivaa.holdRepeat = (el, step, opts = {}) => {
 window.Shivaa.quickView = async (id) => {
   /* v113 — a cold cache used to throw the shopper onto the full product page,
      which reads as "quick view is broken". Now the single piece is fetched
-     and the sheet still opens where they were. */
+     and the sheet still opens where they were.
+     v115 — the single-piece endpoint is the LAST thing that can fail, so if
+     it does (flaky mobile network, a proxy hiccup) the LIST endpoint is tried
+     next — it is the very response the service worker keeps cached for
+     offline shoppers. Only if both fail does the sheet give up, and it stays
+     PUT with a clear toast: a quick view must never yank the shopper away. */
   let p = state.productsCache.find(x => x.id === id);
   if (!p) {
     try {
@@ -3371,7 +3395,14 @@ window.Shivaa.quickView = async (id) => {
       p = r && r.product;
       if (p && !state.productsCache.some(x => x.id === p.id)) state.productsCache.push(p);
     } catch (e) { p = null; }
-    if (!p) { toast('Could not load that piece just now — opening its page', 'err'); location.hash = '#/product/' + id; return; }
+    if (!p) {
+      try {
+        const r2 = await api('/api/products');
+        p = ((r2 && r2.products) || []).find(x => x.id === id) || null;
+        if (p && !state.productsCache.some(x => x.id === p.id)) state.productsCache.push(p);
+      } catch (e2) { p = null; }
+    }
+    if (!p) { toast('Could not load that piece just now — please try again', 'err'); return; }
   }
   const pr = price(p);
   const wished = state.user ? false : state.localWish.includes(id);

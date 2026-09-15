@@ -1,10 +1,17 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
 > This file lives on `main` so ANY new Arena chat (any account, any device) starts with full history.
-> Updated: 2026-09-15 — branch `arena/01a0a2e9-shivaa-ecom` (v114 checkout invoice FY TypeError)
+> Updated: 2026-09-15 — branch `arena/01a0a310-shivaa-ecom` (v115 categories-back + phone self-heal)
 > **Owner magic phrase for next chat:** `Read ARENA-STATE.md and HANDOFF.md and MEMORY.md first, then continue.`
 
-## Session 2026-09-15 (arena/01a0a2e9) — v114 invoice FY
+## Session 2026-09-15 #2 (arena/01a0a310) — v115: "v113 deleted my categories"
+- **Owner complaint:** after extracting v113 all product categories "removed"; quick view still bounced; hero swipes still dead on Android Chrome.
+- **Truth (verified live):** all 65 products intact on `/api/products`. v113's app.js carried v111's `LIVE_CATS()` (hide categories with no products) → rings-only catalogue = one "Rings" tile everywhere. Display filter, not data loss.
+- **v115 fixes:** `LIVE_CATS()` → full CATS (all 17 tiles); index.html↔app.js release handshake (`__SHIVAA_REL` vs `APP_REL`, one guarded reload) so a phone can't pair fresh shell + stale script; quick view falls back to `/api/products` list (SW-cached) and never navigates away; carousel `touch-action:pan-y` on the container + `draggable="false"` on banners + vertical-intent 14px/×1.35; **rtgs_strip() display-unit bug** (was per-gram under ₹/10g label — ₹15,491 "per 10 g"; now ×10/×1000 like the desk renders). SW shell → `shivaa-shell-v115`.
+- **Deploy:** zip `shivaa-update-v115.zip` (6 files, root layout) + auto-sync from `main`. **Owner phone step after upload: close ALL Chrome tabs of shivaa.in, reopen fresh (or pull-to-refresh twice); last resort Site settings → Clear & reset.**
+- Gates: smoke 32/32 (new: home grid shows 17 tiles), re-run on the zip overlay; php-sweep 211/0; sw precache == index.html 21/21.
+
+## Session 2026-09-15 #1 (arena/01a0a2e9) — v114 invoice FY
 - Checkout 500: `str_pad(((int)date('y')) ± 1, …)` TypeError under `strict_types=1`. Fixed with `$fyStart` (Apr–Mar IST) + `(string)` `str_pad`. Invoice still `SHV/{fy}/{seq}`.
 - Zip: `shivaa-update-v114.zip` → overwrite `public_html/api.php`. Gate: `node tools/mega/php-sweep/sweep.mjs` → `211 routes · 0 exceptions`.
 

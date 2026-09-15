@@ -2277,11 +2277,18 @@ function rtgs_strip(array $db): array {
       $q = static fn($x) => round($x, 3);
     }
     $mid = $base + $premG;
+    /* v115 — the strip's rows are quoted in DISPLAY units (gold ₹/10 g,
+       silver ₹/kg), exactly as the unit label says and exactly as the partner
+       desk renders them (admin.js scales its per-gram rows by ×10/×1000).
+       The first cut returned the per-gram mid under a per-10 g label, so the
+       homepage printed "RTGS Gold 9999 ₹15,491 / 10 g" — a tenth of the
+       truth. Premium/spread are already stored in display units ($premD,
+       $spreadD), so scaling the quote by $u reconciles both. */
     $out[$key] = ['key' => $key, 'label' => $want[$key], 'purity' => $pur, 'unit' => $metal === 'g' ? '₹/10 g' : '₹/kg',
-      'buy' => $side === 'sell' ? 0 : $q($mid - $spreadG),
-      'sell' => $side === 'buy' ? 0 : $q($mid + $spreadG),
-      'mid' => $q($mid),
-      'change' => $chg !== null ? $q($chg) : 0];
+      'buy' => $side === 'sell' ? 0 : $q(($mid - $spreadG) * $u),
+      'sell' => $side === 'buy' ? 0 : $q(($mid + $spreadG) * $u),
+      'mid' => $q($mid * $u),
+      'change' => $chg !== null ? $q($chg * $u) : 0];
   }
   return $out ? ['rows' => $out, 'anchor' => $an['mcxOn'] ? 'mcx-future' : 'spot',
                  'updatedAt' => now_iso()] : [];

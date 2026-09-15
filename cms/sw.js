@@ -6,13 +6,17 @@
    grew without limit and would eventually exhaust storage on cheap devices).
    v104: shell/media bumped; a SKIP_WAITING message lets the in-app banner
    activate a freshly downloaded release the moment the shopper approves.
-   v113b: the precache list finally matches index.html — it had been pinning
-   app.js?v=108 and auth.js?v=107 (v108.js/v109.js are not loaded by the page
-   at all) and was missing boost.css/boost.js and the whole v113 layer, so a
-   returning phone kept a stale shell on its first paint. The offline fallback
-   also stopped answering a missing IMAGE with index.html. */
+ v113b: the precache list finally matches index.html — it had been pinning
+ app.js?v=108 and auth.js?v=107 (v108.js/v109.js are not loaded by the page
+ at all) and was missing boost.css/boost.js and the whole v113 layer, so a
+ returning phone kept a stale shell on its first paint. The offline fallback
+ also stopped answering a missing IMAGE with index.html.
+ v115: shell bumped again for the categories-back release (app.js?v=115 +
+ the v115 css layer). index.html now also stamps window.__SHIVAA_REL, and
+ app.js reloads itself once if the paired script is older than the shell it
+ was served — a device can no longer run a fresh shell on a stale script. */
 'use strict';
-const SHELL = 'shivaa-shell-v113b';
+const SHELL = 'shivaa-shell-v115';
 const MEDIA = 'shivaa-media-v107';
 const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
 const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
@@ -26,8 +30,8 @@ const SHELL_FILES = ['/', '/index.html',
   '/css/fonts.css?v=107', '/css/styles.css?v=107', '/css/hallmark.css?v=107',
   '/css/trust.css?v=107', '/css/finale.css?v=107', '/css/motion.css?v=107',
   '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
-  '/css/boost.css?v=46', '/css/v113.css?v=113b',
-  '/js/otp-autofill.js?v=107', '/js/app.js?v=113b', '/js/hallmark.js?v=107',
+  '/css/boost.css?v=46', '/css/v113.css?v=113b', '/css/v115.css?v=115',
+  '/js/otp-autofill.js?v=107', '/js/app.js?v=115', '/js/hallmark.js?v=107',
   '/js/trust.js?v=107', '/js/auth.js?v=113b', '/js/motion.js?v=107',
   '/js/aurum.js?v=107', '/js/v107.js?v=107', '/js/boost.js?v=46',
   '/manifest.webmanifest', '/offline.html',
