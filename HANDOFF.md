@@ -1,8 +1,58 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-15 (v118 — product gallery, Quick View, categories and PayU recovery)**
+**Last updated: 2026-09-15 (v119 — 22K premium ₹398 desk-physical + published rate anchor + first-paint/mobile pack)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
+
+---
+
+## 🚀 v119 — 22K PREMIUM ₹398 (desk physical) + PUBLISHED RATE ANCHOR + FIRST-PAINT PACK (2026-09-15)
+
+**Owner decision implemented (Task 2, LOCKED — do not change the numbers):** the 22K
+retail premium is **₹398/g on the desk-physical basis**. `/api/rates` now publishes
+`premium.gold22` and an `anchorLevel` block, and `jaipur.gold22` is derived from that
+one anchor:
+
+* `premium: {gold22: 398, gold: 55, silver: 3}` — `gold` stays the 24K line
+* `anchorLevel: {mode: "mcx-future" | "spot" | "override", goldPerG, silverPerG, source, at, ageMs}`
+* `jaipur.gold22 = round(anchorLevel.goldPerG × 0.9167) + 398`
+  (live example: anchor 15,084 → 13828 + 398 = **14,226**)
+* 24K/18K lines keep `jaipurPremium` (55) untouched; an admin override still wins.
+* Every 22K piece is **₹343/g** dearer than v118 (398 − 55). A 3.83 g ring (PGS5004)
+  moved ₹61,340 → ₹62,855 — the per-gram rate is exactly +343, the total also carries
+  the percentage making charge.
+
+**Also in v119 (the first-paint/mobile pack, ported additively from the unshipped
+PR #43 "Feather" line — never wholesale, PR #43 is pre-v118 and would revert v118):**
+
+* **Skeleton** inside `<main id="view">` → real first paint before `app.js` runs;
+  `body.shv-ready` retires it, `js/v119.js` adds a 9 s honest "tap to retry" safety net.
+* **Shop slices:** the grid renders 20 cards, then grows via `#shopSentinel` +
+  IntersectionObserver (`Shivaa.shopLoadMore()`); the filter/sort list is still whole.
+* **HUID chip (honest):** prints a HUID only when the catalogue carries one
+  (`p.huid` / `hallmark.entries[].huid` — all 63 records are `not_provided` today);
+  otherwise it is a labelled *HUID check* guide to the BIS Care walkthrough.
+* **Install chip** from the **2nd visit**, only when `beforeinstallprompt` fires; Close
+  is remembered, `display-mode: standalone` hides it.
+* **Pinch zoom** on the Quick View photo (1×–4×, never swipes a shot) + tap zoom kept.
+* **.htaccess:** guarded brotli + `immutable` caching for `?v=` assets (deflate kept).
+  **Merge it — never blind-overwrite** a panel `.htaccess`.
+* Deliberately **skipped:** the PR #43 `srcset` (its `-400/-800` derivatives do not
+  exist on the server; a missing file would trip every card's `onerror` fallback).
+
+**Proof (all re-run on source AND on the extracted zip overlay):** v113b **32/32** ·
+v117 **27/27** · v118 **18/18** · **v119 27/27** · php-sweep **211 routes · 0
+exceptions**. The shipped `api.php` was additionally executed under a real PHP 8.5
+(php-wasm) with a seeded MCX tick: `premium.gold22=398`, `anchorLevel.mode=mcx-future`,
+`jaipur.gold22=14226` (matches the formula), plus the `spot` and `override` paths.
+
+**Deliverable:** `shivaa-update-v119.zip` (10 files — `index.html`, `sw.js`,
+`.htaccess`, `api.php`, `js/app.js`, `js/v107.js`, `js/admin.js`, `js/v119.js`,
+`css/v119.css`, `DEPLOY-v119.md`) + `cms/DEPLOY-v119.md` with the merge-the-.htaccess
+instruction and the 5-minute owner phone pass.
+
+**Owner phone pass (5 min):** shop scroll slices · tap/pinch zoom · HUID chip · rates
+page (22K premium + anchor) · install chip on the 2nd visit.
 
 ---
 

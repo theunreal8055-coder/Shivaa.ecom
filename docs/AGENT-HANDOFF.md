@@ -5,9 +5,22 @@ dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
 
-## CURRENT FORWARD BASELINE — v118 (15 Sep 2026)
+## CURRENT FORWARD BASELINE — v119 (15 Sep 2026)
 
-The storefront baseline is **v118**, branch `arena/01a0a48d-shivaa-ecom`, commit `0f699f8`, PR #41, deliverable `shivaa-update-v118.zip`. The owner installed/tested it and reported all fixes working. Preserve it in every future change.
+The storefront baseline is **v119** — the v118 baseline plus the owner-locked rate decision and the first-paint/mobile pack. Deliverable `shivaa-update-v119.zip` (10 files, root layout). **Everything v118 guarantees still stands** (see the v118 list below) and must not be reverted.
+
+- **Rates (owner-locked, do not change the numbers):** the 22K retail premium is **₹398/g, desk physical** (`settings.gold22Premium`, default 398, admin-editable). `/api/rates` publishes `premium.gold22` **and** `anchorLevel {mode, goldPerG, silverPerG, …}`, and `jaipur.gold22` is derived from that one anchor: `round(anchorLevel.goldPerG × 0.9167) + 398`. The 24K/18K lines keep `jaipurPremium` (55) and an admin override still wins. Every 22K piece is ₹343/g dearer than v118.
+- **First paint:** `index.html` ships a skeleton inside `<main id="view">` and `skeleton → body.shv-ready` retires it.
+- **Shop slices:** the grid renders 20 cards at a time and grows through `#shopSentinel` (IntersectionObserver) — the filtered list is still computed whole.
+- **HUID chip (honesty rule applies):** the PDP chip prints a HUID **only** when the catalogue carries one (`p.huid` or `hallmark.entries[].huid`); otherwise it is a labelled *HUID check* guide linking to the BIS Care walkthrough. Never invent a HUID.
+- **Install chip:** appears from the **second visit** onward, only when the browser fires `beforeinstallprompt`; Close is remembered per device.
+- **Pinch zoom:** Quick View photo zooms 1×–4× with two fingers without swiping shots; double-tap/pan unchanged.
+- **.htaccess:** brotli (guarded) + `immutable` caching for `?v=` assets; deflate kept. **Merge, never blind-overwrite** if panel rules exist.
+- **Gates required before any later release:** `v113b-check.js` (32) · `v117-check.js` (27) · `v118-check.js` (18) · **`v119-check.js` (27)** · php-sweep (211/0) · catalogue 65 with four images each — all re-run on the built zip overlay, plus a real-PHP probe of the shipped `api.php`.
+
+## Previous baseline — v118 (15 Sep 2026)
+
+The baseline was **v118**, branch `arena/01a0a48d-shivaa-ecom`, commit `0f699f8`, PR #41, deliverable `shivaa-update-v118.zip`. The owner installed/tested it and reported all fixes working. Preserve it in every future change.
 
 - Product pages reliably navigate all four photos by arrows, button dots and horizontal swipe/drag; pointer capture and vertical-intent handling must remain.
 - Quick View opens on captured final `click`, never `pointerup`, and must stay in its modal rather than navigate.
