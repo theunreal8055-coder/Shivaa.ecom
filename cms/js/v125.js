@@ -22,15 +22,15 @@
   var doc = document;
   var win = window;
 
-  /* ── the films. THE GOLD THREAD carries the owner's five real films
-        (uploaded 16 Sep 2026, compressed to ~1 MB each at 720×1280). The
-        Revolving Case still runs the four AI stand-ins until the owner's
-        case footage arrives — swap the paths 1:1, nothing else changes. ── */
+  /* ── the films — ALL NINE are the owner's real footage now (uploaded
+        16 Sep 2026, compressed to ~1–1.7 MB each at 720×1280, 10 s each).
+        The Case: the bride's journey, unboxing to everyday wear. The
+        Thread: the gold's journey, fire to forever. ── */
   var CASE_FILMS = [
-    { f: '/images/films/film-01.mp4', p: '/images/films/film-01.jpg', no: '01', title: 'The Craft',        cap: 'Where every piece begins — in patient hands.' },
-    { f: '/images/films/film-02.mp4', p: '/images/films/film-02.jpg', no: '02', title: 'The Bridal House', cap: 'Dressing the moment a family keeps forever.' },
-    { f: '/images/films/film-03.mp4', p: '/images/films/film-03.jpg', no: '03', title: 'The Collection',   cap: 'Warm metal, warmer light — the everyday gold.' },
-    { f: '/images/films/film-04.mp4', p: '/images/films/film-04.jpg', no: '04', title: 'The Details',      cap: 'The little things, looked at closely.' }
+    { f: '/images/films/film-01.mp4', p: '/images/films/film-01.jpg', no: '01', title: 'The Unboxing', cap: 'The box opens, and the room goes quiet.' },
+    { f: '/images/films/film-02.mp4', p: '/images/films/film-02.jpg', no: '02', title: 'The Blessing', cap: 'A mother\u2019s hands. A promise in gold.' },
+    { f: '/images/films/film-03.mp4', p: '/images/films/film-03.jpg', no: '03', title: 'The Muse',     cap: 'Some gold waits its whole life for her.' },
+    { f: '/images/films/film-04.mp4', p: '/images/films/film-04.jpg', no: '04', title: 'The Wearing',  cap: 'Then one day, it is simply hers.' }
   ];
   /* the thread story — traditional values, modern methods; fire to forever */
   var THREAD_FILMS = [

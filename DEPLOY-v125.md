@@ -7,18 +7,20 @@ Thread** — built for real on the live homepage, plus the full-screen
 **Zip:** `shivaa-update-v125.zip` — extracts straight into `public_html` (root layout).
 Rates untouched (`premium.gold22=398` lock); `api.php`, `.htaccess`, `db.json` NOT in this zip.
 
-## ⚠ FILM STATUS — READ FIRST (updated 16 Sep, evening)
-- **The Gold Thread now carries the owner's five REAL films**
-  (`thread-01..05.mp4`, 720×1280, ~4.6 MB total): The Beginning ·
-  From Paper to Gold · The Pieces · The Modern Bride · Forever, Reimagined.
-  Uploaded by the owner to `main` (commit `5d3aff0`), compressed for the web,
-  posters extracted. No stand-ins in the thread.
-- **The Revolving Case still runs the four AI stand-ins**
-  (`film-01..04.mp4`, ~1.2 MB total). When the owner sends the four case
-  films, drop them in as `images/films/film-01.mp4` … `film-04.mp4`
-  (9:16 vertical, ~10 s each) and re-ship — nothing else changes.
-- **Do not deploy to the live site before the owner has either accepted the
-  case stand-ins or supplied the real four.**
+## FILM STATUS — ALL NINE FILMS ARE THE OWNER'S REAL FOOTAGE (16 Sep, night)
+No AI stand-ins ship in this release. Two stories, one homepage:
+- **The Revolving Case** (`film-01..04.mp4`, 720×1280, 1.3–1.7 MB each) —
+  the bride's journey: The Unboxing · The Blessing · The Muse · The Wearing.
+  (Uploaded to `main` as `Bride_unboxing… / Mother_puts_ring… /
+  Woman_modeling… / Woman_wearing…`, commit `ac69a5a`.)
+- **The Gold Thread** (`thread-01..05.mp4`, 720×1280, 0.7–1.2 MB each) —
+  the gold's journey: The Beginning · From Paper to Gold · The Pieces ·
+  The Modern Bride · Forever, Reimagined. (Uploaded to `main`, commit
+  `5d3aff0`.) All ten-second 9:16 originals compressed for the web with
+  posters extracted; raw uploads kept at repo root.
+- One owner eyeball pass is still worth it before shipping: check that any
+  rendered text (e.g. the box branding in the unboxing film) came out clean
+  — AI generation sometimes mangles on-screen words.
 
 ## WHAT IS NEW
 1. **The Revolving Case** (after the category slider, before Bestsellers) —
@@ -51,7 +53,7 @@ Rates untouched (`premium.gold22=398` lock); `api.php`, `.htaccess`, `db.json` N
     css/v125.css
     images/films/thread-01.mp4 … thread-05.mp4   (owner's 5 story films, 689–1214 KB)
     images/films/thread-01.jpg … thread-05.jpg   (5 posters, 40–58 KB)
-    images/films/film-01.mp4 … film-04.mp4       (4 case stand-ins, 209–355 KB)
+    images/films/film-01.mp4 … film-04.mp4       (owner's 4 case films, 1.3–1.7 MB)
     images/films/film-01.jpg … film-04.jpg       (4 posters)
 
 ## DEPLOY (Hostinger, ~2 min)
@@ -63,8 +65,9 @@ Rates untouched (`premium.gold22=398` lock); `api.php`, `.htaccess`, `db.json` N
 
 ## OWNER PHONE PASS (2 min)
 - Close ALL shivaa.in tabs, reopen fresh (or pull-to-refresh twice).
-- Home: below the category slider, the **Revolving Case** — drag it, spin with
-  the arrows, tap the front film: it should fill the screen with sound.
+- Home: below the category slider, the **Revolving Case** — the bride's four
+  films in the ring (The Unboxing fronts it). Drag it, spin with the arrows,
+  tap the front film: it should fill the screen with sound.
 - Scroll on: the **Gold Thread** draws itself down through **five chapters**
   (fire → sketch → pieces → bride → forever); each film wakes as the thread
   passes it. Tap one: full screen with sound, and the counter reads "0X / 05".
@@ -80,7 +83,7 @@ Rates untouched (`premium.gold22=398` lock); `api.php`, `.htaccess`, `db.json` N
 
 ## PROOF (run on this tree)
 v113b 32/32 · v117 27/27 · v118 18/18 · v119 27/27 · v120 24/24 · v121 14/14 ·
-v122 22/22 · v123 14/14 · v124 20/20 · **v125 25/25** · php-sweep 211 routes ·
+v122 22/22 · v123 14/14 · v124 20/20 · **v125 26/26** · php-sweep 211 routes ·
 0 exceptions. All re-run on the extracted zip overlay (`SMOKE_CMS`). The v125
 gate asserts: the exact 125 triple, **no stale 124 stamp in any branch**, SW
 precache pins + include order, both home mounts placed (case before

@@ -113,7 +113,10 @@ function bootStore(extra = '') {
       if (!fs.existsSync(jpg) || fs.statSync(jpg).size < 10 * 1024) { filmsOk = false; filmsDetail.push(`poster ${fam}-0${i}.jpg missing/too small`); }
     }
   }
-  ok('all nine films + posters on disk (4 case stand-ins + 5 owner story films), each light (50 KB – 2.5 MB)', filmsOk, filmsDetail.join('; '));
+  ok('all nine owner films + posters on disk (4 case + 5 thread), each light (50 KB – 2.5 MB)', filmsOk, filmsDetail.join('; '));
+
+  ok('the case story is the owner four-film bride arc (unboxing to everyday wear)',
+    /The Unboxing/.test(v125) && /The Blessing/.test(v125) && /The Muse/.test(v125) && /The Wearing/.test(v125));
 
   ok('the thread story is the owner five-chapter arc (fire to forever)',
     /From Paper to Gold/.test(v125) && /The Modern Bride/.test(v125) && /Forever, Reimagined/.test(v125) &&
@@ -163,7 +166,7 @@ function bootStore(extra = '') {
     caseMounted && d1.querySelectorAll('#svCaseMount .sv-case-card').length === 4 && !!d1.querySelector('#svCaseMount .sv-case-stage'));
 
   ok('case counter names the front film',
-    /01 \/ 04 · THE CRAFT/.test((d1.querySelector('#svCaseMount .sv-case-count') || {}).textContent || ''));
+    /01 \/ 04 · THE UNBOXING/.test((d1.querySelector('#svCaseMount .sv-case-count') || {}).textContent || ''));
 
   b1.dom.window.ShivaaV125.caseNext();
   await sleep(700);
@@ -180,7 +183,7 @@ function bootStore(extra = '') {
     (d1.querySelector('#svThreadMount .sv-thread-item:last-child small') || {}).textContent === 'CHAPTER 05');
 
   const allSrcs = [...d1.querySelectorAll('#svCaseMount video, #svThreadMount video')].map(v => v.getAttribute('src'));
-  ok('film sources: the case plays its 4 stand-ins, the thread plays the 5 owner films',
+  ok('film sources: the case plays its 4 bride-arc films, the thread its 5 story films',
     allSrcs.filter(x => /\/images\/films\/film-0[1-4]\.mp4$/.test(x)).length === 4 &&
     allSrcs.filter(x => /\/images\/films\/thread-0[1-5]\.mp4$/.test(x)).length === 5);
 
@@ -188,7 +191,7 @@ function bootStore(extra = '') {
   b1.dom.window.ShivaaV125.open(1, d1.querySelector('#svCaseMount .sv-case-card'));
   await sleep(150);
   const reelOk = !d1.getElementById('svReel').hidden &&
-    d1.getElementById('svReelTitle').textContent === 'The Bridal House' &&
+    d1.getElementById('svReelTitle').textContent === 'The Blessing' &&
     d1.documentElement.classList.contains('sv-reel-open');
   b1.dom.window.ShivaaV125.close();
   await sleep(60);
