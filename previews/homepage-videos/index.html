@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shivaa · 5 ways to show your 4 cinematic films</title>
+<style>
+/* ── Shivaa tokens (copied from cms/css/styles.css) ─────────────────── */
+:root{
+  --maroon:#6e1e2a; --maroon-2:#571620; --maroon-deep:#3d0e15;
+  --gold:#b98a2f; --gold-2:#d4af5a; --gold-soft:#efdcb2; --gold-faint:#f7eed8;
+  --cream:#faf6ef; --cream-2:#f4ecdd; --cream-3:#ede1cb;
+  --ink:#2b2118; --ink-2:#5d5245; --ink-3:#6f6353;
+  --line:#e6d9c0; --white:#fffdf9;
+  --r:14px; --r-lg:22px;
+  --ff-disp:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --ff-label:'Marcellus','Cormorant Garamond',Georgia,serif;
+  --ff-body:'Jost','Segoe UI',system-ui,sans-serif;
+  --ease:cubic-bezier(.22,.8,.24,1);
+  --sh-1:0 2px 10px rgba(61,14,21,.06); --sh-2:0 10px 30px rgba(61,14,21,.10); --sh-3:0 24px 70px rgba(61,14,21,.18);
+}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:400;font-display:swap;src:url('assets/fonts/cormorant-garamond.woff2') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:500;font-display:swap;src:url('assets/fonts/cormorant-garamond.woff2') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:600;font-display:swap;src:url('assets/fonts/cormorant-garamond.woff2') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:700;font-display:swap;src:url('assets/fonts/cormorant-garamond.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:300;font-display:swap;src:url('assets/fonts/jost.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:400;font-display:swap;src:url('assets/fonts/jost.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:500;font-display:swap;src:url('assets/fonts/jost.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:600;font-display:swap;src:url('assets/fonts/jost.woff2') format('woff2')}
+@font-face{font-family:'Marcellus';font-style:normal;font-weight:400;font-display:swap;src:url('assets/fonts/marcellus-400.woff2') format('woff2')}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--ff-body);color:var(--ink);background:var(--cream);font-weight:400;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img,video{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+h1,h2,h3{font-family:var(--ff-disp);font-weight:600;color:var(--maroon-deep);line-height:1.12}
+.container{width:min(1240px,92vw);margin:0 auto}
+.label{font-family:var(--ff-label);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);display:inline-block}
+.disp-italic{font-style:italic;font-weight:500}
+.see-all{font-size:14px;color:var(--gold);font-weight:500}
+
+/* ── top bar ─────────────────────────────────────────────────────────── */
+.topbar{position:sticky;top:0;z-index:90;background:rgba(250,246,239,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar-in{width:min(1360px,94vw);margin:0 auto;display:flex;align-items:center;gap:18px;padding:12px 0}
+.brand{font-family:var(--ff-label);letter-spacing:.3em;font-size:17px;color:var(--maroon-deep);white-space:nowrap}
+.brand b{color:var(--gold);font-weight:400}
+.topnav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1}
+.topnav::-webkit-scrollbar{display:none}
+.topnav a{font-size:12.5px;letter-spacing:.06em;color:var(--ink-2);padding:7px 12px;border-radius:99px;white-space:nowrap;transition:.25s}
+.topnav a:hover{background:var(--gold-faint);color:var(--maroon)}
+.topnav a b{font-family:var(--ff-label);color:var(--gold);font-weight:400;margin-right:4px}
+.standchip{font-size:11px;letter-spacing:.08em;color:var(--maroon);background:var(--gold-faint);border:1px solid var(--gold-soft);padding:6px 12px;border-radius:99px;white-space:nowrap}
+@media(max-width:900px){.standchip{display:none}}
+
+/* ── intro ───────────────────────────────────────────────────────────── */
+.intro{padding:64px 0 26px;text-align:center}
+.intro h1{font-size:clamp(40px,5.4vw,68px);margin:14px 0 12px}
+.intro p{max-width:640px;margin:0 auto;color:var(--ink-2);font-size:17px}
+.intro .standnote{margin:18px auto 0;max-width:640px;font-size:13px;color:var(--ink-3);background:var(--cream-2);border:1px dashed var(--line);border-radius:var(--r);padding:10px 16px}
+
+/* the four films strip */
+.films-strip{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;padding:34px 0 8px}
+.film-chip{width:118px;text-align:center}
+.film-chip video{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:12px;border:1px solid var(--line);box-shadow:var(--sh-1);background:#000}
+.film-chip b{display:block;font-family:var(--ff-label);font-size:11px;letter-spacing:.18em;color:var(--gold);margin-top:8px}
+.film-chip span{font-size:12px;color:var(--ink-2)}
+
+/* ── way sections ────────────────────────────────────────────────────── */
+.way{padding:64px 0 30px;scroll-margin-top:76px}
+.way-head{display:flex;align-items:flex-start;gap:22px;max-width:900px}
+.way-num{font-family:var(--ff-disp);font-size:74px;line-height:.8;color:var(--gold-soft);font-weight:600;min-width:64px}
+.way-head h2{font-size:clamp(28px,3.4vw,42px);margin:4px 0 6px}
+.way-head p{color:var(--ink-2);font-size:16px}
+.place-chip{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--maroon);background:var(--gold-faint);border:1px solid var(--gold-soft);border-radius:99px;padding:6px 14px;margin-top:10px}
+.place-chip svg{flex:none}
+.way-demo{margin-top:30px;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-2);border:1px solid var(--line);position:relative}
+.way-notes{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}
+.way-notes div{background:var(--white);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.way-notes b{display:block;font-family:var(--ff-label);font-size:11px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:6px}
+.way-notes .n-what b{color:var(--maroon)} .way-notes .n-why b{color:var(--gold)} .way-notes .n-watch b{color:var(--warn,#b3541e)}
+.way-notes p{font-size:13.5px;color:var(--ink-2);line-height:1.5}
+@media(max-width:760px){.way-notes{grid-template-columns:1fr}.way-num{font-size:52px;min-width:44px}.way-head{gap:14px}}
+
+/* site-style section header used inside demos */
+.sec-head{margin-bottom:22px}
+.sec-head h2{font-size:clamp(30px,4vw,46px)}
+
+/* site-style buttons */
+.btn-gold{display:inline-flex;align-items:center;gap:10px;font-family:var(--ff-label);font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:linear-gradient(180deg,#caa14a,#b98a2f);padding:15px 28px;border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,244,214,.4),0 3px 0 #6e5013,0 14px 30px rgba(110,84,20,.35);transition:.2s}
+.btn-gold:active{transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,244,214,.3),0 0 0 #6e5013,0 6px 14px rgba(110,84,20,.3)}
+.btn-ghost{display:inline-flex;align-items:center;gap:10px;font-family:var(--ff-label);font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-soft);border:1px solid rgba(239,220,178,.5);padding:14px 26px;border-radius:14px;transition:.25s}
+.btn-ghost:hover{border-color:var(--gold-2);color:#fff}
+
+/* sound toggle (shared) */
+.snd{position:absolute;top:10px;right:10px;z-index:5;width:36px;height:36px;border-radius:99px;background:rgba(20,8,10,.55);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;color:#ffedc4;transition:.25s;border:1px solid rgba(255,233,189,.25)}
+.snd:hover{background:rgba(20,8,10,.8)}
+.snd svg{width:16px;height:16px}
+
+/* ═══ WAY 1 · reels row ═══════════════════════════════════════════════ */
+.demo-reels{background:var(--cream);padding:44px 0 40px}
+.reels-row{display:flex;gap:26px;overflow-x:auto;padding:6px 6px 18px;scrollbar-width:none}
+.reels-row::-webkit-scrollbar{display:none}
+.reel-chip{flex:none;width:96px;text-align:center;cursor:pointer;background:none}
+.reel-ring{position:relative;width:92px;height:92px;margin:0 auto;border-radius:99px;padding:3px;background:conic-gradient(from 210deg,#8a6a24,#d4af5a,#ffe9bd,#d4af5a,#8a6a24);transition:.35s}
+.reel-chip:hover .reel-ring{transform:translateY(-4px);box-shadow:0 14px 30px rgba(185,138,47,.35)}
+.reel-ring img{width:100%;height:100%;object-fit:cover;border-radius:99px;border:3px solid var(--cream)}
+.reel-play{position:absolute;right:-2px;bottom:-2px;width:30px;height:30px;border-radius:99px;background:var(--maroon);color:var(--gold-soft);display:flex;align-items:center;justify-content:center;border:2px solid var(--cream)}
+.reel-play svg{width:12px;height:12px;margin-left:1px}
+.reel-chip b{display:block;font-family:var(--ff-label);font-size:11.5px;letter-spacing:.1em;color:var(--ink);margin-top:9px}
+.reel-chip small{font-size:11px;color:var(--ink-3)}
+
+/* ═══ reel viewer (fullscreen, used by ways 1·3·5) ═══════════════════ */
+.reel-viewer{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center}
+.reel-viewer[hidden]{display:none}
+.rv-backdrop{position:absolute;inset:0;background:rgba(16,5,8,.93);backdrop-filter:blur(8px)}
+.rv-stage{position:relative;height:min(88dvh,860px);aspect-ratio:9/16;z-index:2;animation:rvIn .45s var(--ease)}
+@keyframes rvIn{from{opacity:0;transform:scale(.94) translateY(14px)}to{opacity:1;transform:none}}
+.rv-stage video{width:100%;height:100%;object-fit:cover;border-radius:20px;background:#000;box-shadow:0 40px 110px rgba(0,0,0,.6);border:1px solid rgba(212,175,90,.35)}
+.rv-bars{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:6px;z-index:6}
+.rv-bar{flex:1;height:3px;border-radius:99px;background:rgba(255,255,255,.28);overflow:hidden;padding:0}
+.rv-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#e8c877,#fff3d0)}
+.rv-close{position:absolute;top:-52px;right:0;width:40px;height:40px;border-radius:99px;background:rgba(255,255,255,.1);color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center;transition:.25s;z-index:7}
+.rv-close:hover{background:rgba(255,255,255,.25)}
+.rv-nav{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:99px;background:rgba(255,255,255,.1);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;transition:.25s;z-index:7}
+.rv-nav:hover{background:rgba(255,255,255,.25)}
+.rv-prev{left:-58px}.rv-next{right:-58px}
+.rv-meta{position:absolute;left:14px;right:14px;bottom:14px;z-index:6;display:flex;align-items:end;justify-content:space-between;gap:10px;background:linear-gradient(0deg,rgba(10,3,5,.72),transparent);padding:26px 12px 10px;border-radius:0 0 20px 20px}
+.rv-title{font-family:var(--ff-disp);font-size:26px;color:#fff6de;line-height:1.05}
+.rv-count{font-family:var(--ff-label);font-size:11px;letter-spacing:.22em;color:var(--gold-2)}
+.rv-tools{position:absolute;top:-52px;left:0;display:flex;gap:8px;z-index:7}
+.rv-tools button{width:40px;height:40px;border-radius:99px;background:rgba(255,255,255,.1);color:#fff;display:flex;align-items:center;justify-content:center;transition:.25s}
+.rv-tools button:hover{background:rgba(255,255,255,.25)}
+.rv-tools svg{width:17px;height:17px}
+.rv-paused{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:5;pointer-events:none;opacity:0;transition:.3s}
+.rv-paused.show{opacity:1}
+.rv-paused span{width:68px;height:68px;border-radius:99px;background:rgba(16,5,8,.55);backdrop-filter:blur(4px);color:#ffedc4;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,233,189,.35)}
+.rv-paused svg{width:26px;height:26px;margin-left:3px}
+.rv-hint{position:absolute;bottom:74px;left:50%;transform:translateX(-50%);z-index:8;font-size:11.5px;letter-spacing:.14em;color:#ffe9bd;background:rgba(16,5,8,.65);padding:7px 14px;border-radius:99px;opacity:0;transition:.4s;white-space:nowrap}
+.rv-hint.show{opacity:1}
+@media(max-width:760px){
+  .rv-stage{height:100dvh;aspect-ratio:auto;width:100vw}
+  .rv-stage video{border-radius:0;height:100dvh;object-fit:contain;background:#000}
+  .rv-meta{border-radius:0}
+  .rv-prev{left:10px}.rv-next{right:10px}
+  .rv-close{top:auto;bottom:calc(100dvh - 100vh - 0px);top:14px;right:14px;background:rgba(255,255,255,.14)}
+  .rv-tools{top:14px;left:14px}
+}
+
+/* ═══ WAY 2 · film hero ═══════════════════════════════════════════════ */
+.demo-hero{min-height:540px;display:flex;align-items:center;position:relative;overflow:hidden;background:var(--maroon-deep)}
+.dh-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(30px) brightness(.36) saturate(1.2);transform:scale(1.3)}
+.dh-veil{position:absolute;inset:0;background:linear-gradient(100deg,rgba(29,5,9,.82) 8%,rgba(29,5,9,.38) 55%,rgba(29,5,9,.55));z-index:1}
+.dh-in{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:44px;width:min(1240px,92vw);margin:0 auto;padding:58px 0}
+.dh-copy .label{color:var(--gold-2)}
+.dh-copy h1{font-size:clamp(44px,5.6vw,76px);color:#fff8e8;margin:14px 0 12px}
+.dh-copy h1 em{font-style:italic;font-weight:500;background:linear-gradient(100deg,#e8c877 10%,#fff3d0 35%,#e8c877 60%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.dh-copy p{color:rgba(255,240,214,.82);font-size:17px;max-width:420px;margin-bottom:28px}
+.dh-cta{display:flex;gap:14px;flex-wrap:wrap}
+.dh-film{position:relative;flex:none;width:min(238px,34vw)}
+.dh-film video{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:18px;box-shadow:0 34px 80px rgba(0,0,0,.55);border:1px solid rgba(212,175,90,.5)}
+.dh-tag{position:absolute;left:10px;top:10px;font-family:var(--ff-label);font-size:10px;letter-spacing:.2em;color:#ffe9bd;background:rgba(16,5,8,.55);backdrop-filter:blur(6px);padding:6px 10px;border-radius:99px;border:1px solid rgba(255,233,189,.25)}
+.dh-dots{position:absolute;left:50%;transform:translateX(-50%);bottom:-24px;display:flex;gap:7px}
+.dh-dots button{width:9px;height:9px;border-radius:99px;background:rgba(255,233,189,.35);transition:.3s;padding:0}
+.dh-dots button.on{background:var(--gold-2);transform:scale(1.25)}
+@media(max-width:860px){
+  .demo-hero{min-height:0}
+  .dh-in{flex-direction:column;text-align:center;padding:52px 0 64px;gap:40px}
+  .dh-copy p{margin-left:auto;margin-right:auto}
+  .dh-cta{justify-content:center}
+  .dh-film{width:min(216px,56vw)}
+}
+
+/* ═══ WAY 3 · films rail ══════════════════════════════════════════════ */
+.demo-rail{background:var(--cream);padding:44px 0 34px;position:relative}
+.rail-wrap{position:relative}
+.rail{display:flex;gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;padding:8px max(4vw,calc((100vw - 1240px)/2)) 22px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.film-card{position:relative;flex:none;width:min(258px,64vw);scroll-snap-align:center;cursor:pointer;border-radius:18px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--sh-1);background:#000;transition:.4s var(--ease)}
+.film-card:hover{transform:translateY(-6px);box-shadow:var(--sh-3);border-color:var(--gold-2)}
+.film-card video{width:100%;aspect-ratio:9/16;object-fit:cover;pointer-events:none}
+.fc-shade{position:absolute;inset:auto 0 0 0;height:38%;background:linear-gradient(0deg,rgba(15,4,7,.78),transparent);pointer-events:none}
+.fc-meta{position:absolute;left:14px;right:14px;bottom:12px;color:#fff6de;pointer-events:none}
+.fc-meta b{font-family:var(--ff-disp);font-size:22px;font-weight:600;display:block;line-height:1.1}
+.fc-meta small{font-size:11.5px;letter-spacing:.16em;color:var(--gold-2);font-family:var(--ff-label)}
+.fc-dur{position:absolute;top:10px;left:10px;font-size:11px;letter-spacing:.1em;color:#ffe9bd;background:rgba(16,5,8,.55);backdrop-filter:blur(6px);padding:5px 10px;border-radius:99px;border:1px solid rgba(255,233,189,.22)}
+.fc-full{position:absolute;top:10px;right:10px;font-size:10.5px;letter-spacing:.14em;color:#ffe9bd;background:rgba(16,5,8,.55);backdrop-filter:blur(6px);padding:6px 10px;border-radius:99px;border:1px solid rgba(255,233,189,.22);display:flex;align-items:center;gap:5px}
+.fc-full svg{width:10px;height:10px}
+.rail-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:6;width:46px;height:46px;border-radius:99px;background:var(--white);border:1px solid var(--line);color:var(--maroon);font-size:22px;box-shadow:var(--sh-2);display:flex;align-items:center;justify-content:center;transition:.25s}
+.rail-arrow:hover{background:var(--gold-faint);border-color:var(--gold-2)}
+.rail-arrow.r-prev{left:max(2vw,calc((100vw - 1240px)/2 - 34px))}
+.rail-arrow.r-next{right:max(2vw,calc((100vw - 1240px)/2 - 34px))}
+@media(max-width:760px){.rail-arrow{display:none}}
+
+/* ═══ WAY 4 · story blocks ════════════════════════════════════════════ */
+.demo-story{background:var(--white);padding:50px 0 44px}
+.story{display:flex;align-items:center;gap:52px;padding:34px 0}
+.story + .story{border-top:1px solid var(--line)}
+.story.rev{flex-direction:row-reverse}
+.story-film{flex:none;width:min(300px,38vw);background:var(--cream-2);padding:14px;border:1px solid var(--gold-soft);border-radius:var(--r-lg);box-shadow:var(--sh-2);position:relative}
+.story-film video{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:calc(var(--r-lg) - 6px);background:#000}
+.story-film .snd{top:22px;right:22px}
+.story-copy .label{margin-bottom:10px}
+.story-copy h2{font-size:clamp(30px,3.6vw,46px);margin-bottom:12px}
+.story-copy p{color:var(--ink-2);font-size:16px;max-width:430px;margin-bottom:18px}
+.rule{width:64px;height:2px;background:linear-gradient(90deg,var(--gold),var(--gold-soft));border-radius:99px;margin-bottom:18px}
+.watch-link{font-family:var(--ff-label);font-size:13px;letter-spacing:.16em;color:var(--gold);text-transform:uppercase;display:inline-flex;align-items:center;gap:8px;transition:.25s}
+.watch-link:hover{color:var(--maroon);gap:12px}
+.watch-link svg{width:13px;height:13px}
+.rv-anim{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.rv-anim.in{opacity:1;transform:none}
+@media(max-width:800px){.story,.story.rev{flex-direction:column;gap:26px;text-align:center}.story-copy p{margin:0 auto 18px}.rule{margin:0 auto 18px}.story-film{width:min(280px,68vw)}}
+
+/* ═══ WAY 5 · boutique wall ═══════════════════════════════════════════ */
+.demo-wall{background:radial-gradient(1200px 500px at 50% -80px,#571620,#3d0e15 70%);padding:52px 0 56px}
+.wall-head{text-align:center;margin-bottom:30px}
+.wall-head h2{color:#fff6de;font-size:clamp(30px,4vw,48px)}
+.wall-head p{color:rgba(255,240,214,.72);font-size:15px;max-width:520px;margin:8px auto 0}
+.wall-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.wall-tile{position:relative;border-radius:16px;overflow:hidden;cursor:pointer;border:1px solid rgba(212,175,90,.28);transition:.45s var(--ease);background:#000}
+.wall-tile video{width:100%;aspect-ratio:9/16;object-fit:cover;pointer-events:none}
+.wall-tile .wt-name{position:absolute;left:12px;bottom:12px;right:12px;color:#fff6de;font-family:var(--ff-disp);font-size:19px;text-shadow:0 2px 12px rgba(0,0,0,.6);pointer-events:none}
+.wall-tile .wt-view{position:absolute;top:10px;left:10px;font-size:10.5px;letter-spacing:.16em;font-family:var(--ff-label);color:#3d0e15;background:linear-gradient(180deg,#f3d98f,#d8b45e);padding:6px 11px;border-radius:99px;opacity:0;transform:translateY(-6px);transition:.35s}
+.wall-grid:hover .wall-tile{opacity:.42;transform:scale(.985)}
+.wall-grid .wall-tile:hover{opacity:1;transform:scale(1.025);border-color:var(--gold-2);box-shadow:0 24px 60px rgba(0,0,0,.5);z-index:3}
+.wall-grid .wall-tile:hover .wt-view{opacity:1;transform:none}
+@media(max-width:860px){
+  .wall-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;padding-bottom:14px;scrollbar-width:none}
+  .wall-grid::-webkit-scrollbar{display:none}
+  .wall-tile{flex:none;width:min(232px,58vw);scroll-snap-align:center}
+  .wall-grid:hover .wall-tile,.wall-grid .wall-tile:hover{opacity:1;transform:none}
+  .wall-tile .wt-view{opacity:1;transform:none}
+}
+
+/* ── footer ──────────────────────────────────────────────────────────── */
+.pv-foot{padding:60px 0 80px;text-align:center}
+.pv-foot h2{font-size:clamp(28px,3.6vw,44px);margin:12px 0}
+.pv-foot p{color:var(--ink-2);max-width:560px;margin:0 auto 26px;font-size:16px}
+.pv-foot .btn-gold{color:#fff}
+@media (prefers-reduced-motion:reduce){
+  .rv-anim{opacity:1;transform:none;transition:none}
+  .rv-stage{animation:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ TOP BAR ═══════════ -->
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">SHIVAA <b>·</b> VIDEO PREVIEWS</div>
+    <nav class="topnav">
+      <a href="#w1"><b>1</b> Reels Row</a>
+      <a href="#w2"><b>2</b> Film Hero</a>
+      <a href="#w3"><b>3</b> Films Rail</a>
+      <a href="#w4"><b>4</b> Story Blocks</a>
+      <a href="#w5"><b>5</b> Boutique Wall</a>
+    </nav>
+    <span class="standchip">9:16 films · stand-in footage</span>
+  </div>
+</header>
+
+<!-- ═══════════ INTRO ═══════════ -->
+<section class="intro container">
+  <span class="label">Proposal · v125 candidate</span>
+  <h1>Four cinematic films.<br>Five ways to <span class="disp-italic">wear</span> them.</h1>
+  <p>Your films are <strong>9:16 vertical</strong> — the exact shape people already scroll every day on Instagram and WhatsApp. That is an advantage: here are five ways to show them on the homepage, every one of them live and tappable below.</p>
+  <div class="standnote">⚠ The footage here is <strong>studio-made stand-in film</strong> (AI-generated in this workspace, ~0.3 MB each) purely to preview the layouts — your four real films drop straight into any of these, one file each.</div>
+  <div class="films-strip" id="filmsStrip"></div>
+</section>
+
+<!-- ═══════════ WAY 1 · REELS ROW ═══════════ -->
+<section class="way container" id="w1">
+  <div class="way-head">
+    <div class="way-num">1</div>
+    <div>
+      <span class="label">My recommendation</span>
+      <h2>The Reels Row <span class="disp-italic">— “Shivaa Stories”</span></h2>
+      <p>Four round gold-ringed chips right on the homepage. Tap one — the screen fills with the film, sound on, swipe to the next, exactly like a reel.</p>
+      <span class="place-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Sits: top of the homepage, right under the hero banner — the chips mirror your category slider, so it feels native</span>
+    </div>
+  </div>
+
+  <div class="way-demo demo-reels">
+    <div class="container">
+      <div class="sec-head">
+        <span class="label">New films · every week</span>
+        <h2>Shivaa <span class="disp-italic">Stories</span></h2>
+      </div>
+      <div class="reels-row" id="reelsRow"></div>
+    </div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>Round chips on the homepage; a tap opens a full-screen reel player with progress bars, swipe, and sound — a pattern every phone shopper already knows by heart.</p></div>
+    <div class="n-why"><b>Why it works</b><p>9:16 fills the whole phone screen edge-to-edge with zero cropping. Sound plays because the visitor asked for it. The gold rings match your category tiles.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>Films download only when tapped — the same “tap to load, saves mobile data” rule your product 360° films already follow. Nobody's data is spent without a tap.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ WAY 2 · FILM HERO ═══════════ -->
+<section class="way container" id="w2">
+  <div class="way-head">
+    <div class="way-num">2</div>
+    <div>
+      <span class="label">The first impression</span>
+      <h2>The Film Hero <span class="disp-italic">— cinema at the door</span></h2>
+      <p>The banner itself goes cinematic: your headline, one tall film glowing beside it, its light filling the whole banner behind. Four dots swap between the four films.</p>
+      <span class="place-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Sits: becomes the hero banner itself — or lives just under it if we keep the poster banners on top</span>
+    </div>
+  </div>
+
+  <div class="way-demo demo-hero">
+    <video class="dh-bg" id="heroBg" data-io muted loop playsinline preload="metadata" poster="assets/p1.jpg"><source src="assets/v1.mp4" type="video/mp4"></video>
+    <div class="dh-veil"></div>
+    <div class="dh-in">
+      <div class="dh-copy">
+        <span class="label">Shivaa Jewellers · Johari Bazar, Jaipur</span>
+        <h1>Wear your <em>heritage</em></h1>
+        <p>Handpicked 22K from the old city's own house — weighed honest, hallmarked true, worn for generations.</p>
+        <div class="dh-cta">
+          <button class="btn-gold" onclick="openReel(0)">▶ Watch the films</button>
+          <button class="btn-ghost" onclick="document.getElementById('w3').scrollIntoView({behavior:'smooth'})">Explore the collection</button>
+        </div>
+      </div>
+      <div class="dh-film">
+        <video id="heroFilm" data-io muted loop playsinline preload="metadata" poster="assets/p1.jpg"><source src="assets/v1.mp4" type="video/mp4"></video>
+        <span class="dh-tag" id="heroTag">FILM 01 · THE CRAFT</span>
+        <div class="dh-dots" id="heroDots"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>The homepage opener: serif headline, gold button, one vertical film in a tall card — and its blurred glow washing the whole banner behind it.</p></div>
+    <div class="n-why"><b>Why it works</b><p>First thing every visitor sees. One film tells the whole story in three seconds, and the dots quietly reveal there are four.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>The hero is the site's speed champion, so: still photo paints first, film starts only after the page is up, and the blurred backdrop is a still image in production — the v121 speed wins stay intact.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ WAY 3 · FILMS RAIL ═══════════ -->
+<section class="way container" id="w3">
+  <div class="way-head">
+    <div class="way-num">3</div>
+    <div>
+      <span class="label">The movie-poster shelf</span>
+      <h2>The Films Rail <span class="disp-italic">— now showing</span></h2>
+      <p>Four tall poster-cards in a swipeable shelf. Each one plays silently as it scrolls into view, pauses when it leaves, and opens full-screen on tap.</p>
+      <span class="place-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Sits: between the live-rates strip and Bestsellers</span>
+    </div>
+  </div>
+
+  <div class="way-demo demo-rail">
+    <div class="sec-head" style="width:min(1240px,92vw);margin:0 auto 18px">
+      <span class="label">Now showing</span>
+      <h2>Shivaa <span class="disp-italic">Films</span></h2>
+    </div>
+    <div class="rail-wrap">
+      <button class="rail-arrow r-prev" onclick="railStep(-1)" aria-label="Previous films">‹</button>
+      <div class="rail" id="rail"></div>
+      <button class="rail-arrow r-next" onclick="railStep(1)" aria-label="Next films">›</button>
+    </div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>A horizontal shelf of the four films like cinema posters — number, title and duration on each card, arrows on desktop, swipe on phone.</p></div>
+    <div class="n-why"><b>Why it works</b><p>All four films visible in one glance without a single tap; each plays only while on screen, so the motion is alive but never wasteful.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>Cards pre-load just before they enter the screen, and every film ships at ~1–2 MB after compression — the shelf stays light even on 4G.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ WAY 4 · STORY BLOCKS ═══════════ -->
+<section class="way container" id="w4">
+  <div class="way-head">
+    <div class="way-num">4</div>
+    <div>
+      <span class="label">The lookbook</span>
+      <h2>The Story Blocks <span class="disp-italic">— chapters of the house</span></h2>
+      <p>The films woven into the page like a magazine: each one a tall framed window beside a few lines of copy, revealed gently as you scroll.</p>
+      <span class="place-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Sits: woven between sections — after Bestsellers, before New Arrivals</span>
+    </div>
+  </div>
+
+  <div class="way-demo demo-story">
+    <div class="container">
+      <div class="story">
+        <div class="story-film rv-anim">
+          <video data-io data-film="0" muted loop playsinline preload="metadata" poster="assets/p1.jpg"><source src="assets/v1.mp4" type="video/mp4"></video>
+          <button class="snd" data-snd aria-label="Toggle sound" onclick="toggleSnd(this)"></button>
+        </div>
+        <div class="story-copy rv-anim">
+          <span class="label">Chapter One</span>
+          <h2>The <span class="disp-italic">Craft</span></h2>
+          <div class="rule"></div>
+          <p>Every piece begins in the hands of karigars whose families have worked gold for the old city for generations. This is what patience looks like, up close.</p>
+          <button class="watch-link" onclick="openReel(0)">Watch the film <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+      <div class="story rev">
+        <div class="story-film rv-anim">
+          <video data-io data-film="1" muted loop playsinline preload="metadata" poster="assets/p2.jpg"><source src="assets/v2.mp4" type="video/mp4"></video>
+          <button class="snd" data-snd aria-label="Toggle sound" onclick="toggleSnd(this)"></button>
+        </div>
+        <div class="story-copy rv-anim">
+          <span class="label">Chapter Two</span>
+          <h2>The <span class="disp-italic">Bride</span></h2>
+          <div class="rule"></div>
+          <p>From rakhdi to aad, the bridal house dresses the moment a family keeps forever — tried, weighed and hallmarked in store, remembered for a lifetime.</p>
+          <button class="watch-link" onclick="openReel(1)">Watch the film <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>Films as chapters — The Craft, The Bride, The Collection, The Details — each in a gold-framed window beside serif copy that scrolls in softly.</p></div>
+    <div class="n-why"><b>Why it works</b><p>The slowest and most premium feel; it turns shopping into storytelling. Pairs beautifully with two of the four films while the others power Way 1 or 3.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>Pushes products a bit further down the page — I'd use two chapters on the homepage (not all four) for exactly that reason.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ WAY 5 · BOUTIQUE WALL ═══════════ -->
+<section class="way container" id="w5">
+  <div class="way-head">
+    <div class="way-num">5</div>
+    <div>
+      <span class="label">The showstopper</span>
+      <h2>The Boutique Wall <span class="disp-italic">— a living window</span></h2>
+      <p>One dark maroon band where all four films play together like the boutique's own window display. Hover to spotlight one; tap for the full reel.</p>
+      <span class="place-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Sits: a full-width band after New Arrivals — the same stage presence as the gold finale band</span>
+    </div>
+  </div>
+
+  <div class="way-demo demo-wall">
+    <div class="container">
+      <div class="wall-head">
+        <span class="label" style="color:var(--gold-2)">The house on screen</span>
+        <h2>Step inside the <span class="disp-italic">boutique</span></h2>
+        <p>Four films, one window. Hover — or tap — to bring one forward.</p>
+      </div>
+      <div class="wall-grid" id="wallGrid"></div>
+    </div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>A full-width maroon band with the four vertical films playing side by side, like standing at the showroom window after dark.</p></div>
+    <div class="n-why"><b>Why it works</b><p>The single most dramatic view of the set — four living portraits of the house at once, and it photographs beautifully in screenshots people share.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>Four films at once is heavy, so: on phones it becomes a swipeable row playing one at a time, and the whole band pauses the moment it leaves the screen.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer class="pv-foot container">
+  <span class="label">Your call</span>
+  <h2>Pick one — or <span class="disp-italic">mix two</span></h2>
+  <p>They combine well: <strong>Way 1 (Reels) + Way 4 (Story blocks)</strong> is my recommendation — the reels pull people in, the chapters tell the story. Whichever you choose, I'll build it as <strong>v125</strong>: your four films compressed light, poster-first, playing only while on screen, every house gate re-run.</p>
+  <button class="btn-gold" onclick="openReel(0)">▶ Replay the films</button>
+</footer>
+
+<!-- ═══════════ REEL VIEWER (shared by ways 1 · 3 · 5) ═══════════ -->
+<div class="reel-viewer" id="reelViewer" hidden role="dialog" aria-modal="true" aria-label="Shivaa film player">
+  <div class="rv-backdrop" data-close></div>
+  <div class="rv-stage" id="rvStage">
+    <div class="rv-bars" id="rvBars"></div>
+    <div class="rv-tools">
+      <button id="rvSnd" aria-label="Toggle sound" onclick="rvToggleSnd()"></button>
+    </div>
+    <button class="rv-close" data-close aria-label="Close">✕</button>
+    <video id="reelVideo" playsinline preload="auto"></video>
+    <div class="rv-paused" id="rvPaused"><span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>
+    <div class="rv-hint" id="rvHint">🔊 Tap the speaker for sound</div>
+    <button class="rv-nav rv-prev" onclick="rvGo(-1)" aria-label="Previous film">‹</button>
+    <button class="rv-nav rv-next" onclick="rvGo(1)" aria-label="Next film">›</button>
+    <div class="rv-meta">
+      <div><div class="rv-count" id="rvCount">01 / 04</div><div class="rv-title" id="rvTitle">The Craft</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── the four films ─────────────────────────────────────────────────── */
+const FILMS=[
+  {file:'v1.mp4',poster:'p1.jpg',no:'01',title:'The Craft',sub:'22K macro study'},
+  {file:'v2.mp4',poster:'p2.jpg',no:'02',title:'The Bridal House',sub:'Kundan couture'},
+  {file:'v3.mp4',poster:'p3.jpg',no:'03',title:'The Collection',sub:'Bangles, candle-lit'},
+  {file:'v4.mp4',poster:'p4.jpg',no:'04',title:'The Details',sub:'Tikka & jhumka'}
+];
+const REDUCED=(typeof matchMedia==='function')?matchMedia('(prefers-reduced-motion: reduce)').matches:false;
+const A=f=>'assets/'+f;
+const splay=v=>{try{const p=v.play(); if(p&&p.catch)p.catch(()=>{});}catch(e){}};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+/* svg icons */
+const IC_SND_ON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/></svg>';
+const IC_SND_OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none"/><path d="M16 9l5 5M21 9l-5 5"/></svg>';
+const IC_PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+
+/* ── build: intro strip · reels row · rail · wall · hero dots ───────── */
+function buildStatic(){
+  $('#filmsStrip').innerHTML=FILMS.map((f,i)=>`
+    <div class="film-chip">
+      <video muted loop playsinline preload="metadata" poster="${A(f.poster)}" data-io><source src="${A(f.file)}" type="video/mp4"></video>
+      <b>FILM ${f.no}</b><span>${f.title}</span>
+    </div>`).join('');
+
+  $('#reelsRow').innerHTML=FILMS.map((f,i)=>`
+    <button class="reel-chip" onclick="openReel(${i})" aria-label="Play ${f.title}">
+      <span class="reel-ring"><img src="${A(f.poster)}" alt="${f.title}"><span class="reel-play">${IC_PLAY}</span></span>
+      <b>${f.title}</b><small>${f.sub}</small>
+    </button>`).join('');
+
+  $('#rail').innerHTML=FILMS.map((f,i)=>`
+    <div class="film-card" onclick="openReel(${i})" role="button" tabindex="0" aria-label="Play ${f.title}" onkeydown="if(event.key==='Enter')openReel(${i})">
+      <video muted loop playsinline preload="metadata" poster="${A(f.poster)}" data-io><source src="${A(f.file)}" type="video/mp4"></video>
+      <span class="fc-dur">0:08</span>
+      <span class="fc-full">${IC_PLAY} TAP FOR FULLSCREEN</span>
+      <div class="fc-shade"></div>
+      <div class="fc-meta"><small>FILM ${f.no}</small><b>${f.title}</b></div>
+    </div>`).join('');
+
+  $('#wallGrid').innerHTML=FILMS.map((f,i)=>`
+    <div class="wall-tile" onclick="openReel(${i})" role="button" tabindex="0" aria-label="Play ${f.title}" onkeydown="if(event.key==='Enter')openReel(${i})">
+      <video muted loop playsinline preload="metadata" poster="${A(f.poster)}" data-io><source src="${A(f.file)}" type="video/mp4"></video>
+      <span class="wt-view">▶ WATCH</span>
+      <div class="wt-name">${f.title}</div>
+    </div>`).join('');
+
+  $('#heroDots').innerHTML=FILMS.map((f,i)=>`<button onclick="setHeroFilm(${i})" aria-label="Film ${f.no}: ${f.title}" class="${i===0?'on':''}"></button>`).join('');
+
+  $$('.snd[data-snd]').forEach(b=>b.innerHTML=IC_SND_OFF);
+}
+buildStatic();
+
+/* ── play-on-view: every [data-io] video ────────────────────────────── */
+if('IntersectionObserver' in window){
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      const v=e.target;
+      v.dataset.vis=e.intersectionRatio>=.35?'1':'0';
+      if(e.intersectionRatio>=.35){ if(!REDUCED) splay(v); }
+      else v.pause();
+    });
+  },{threshold:[0,.35,.6]});
+  $$('video[data-io]').forEach(v=>io.observe(v));
+}
+
+/* ── inline sound toggles (story blocks) ────────────────────────────── */
+function toggleSnd(btn){
+  const v=btn.parentElement.querySelector('video');
+  v.muted=!v.muted; btn.innerHTML=v.muted?IC_SND_OFF:IC_SND_ON;
+}
+
+/* ── reel viewer ────────────────────────────────────────────────────── */
+const viewer=$('#reelViewer'), rvVid=$('#reelVideo');
+let rvIndex=0, rvTouchX=null, rvTouchY=null, rvSwiped=false;
+$('#rvBars').innerHTML=FILMS.map((f,i)=>`<button class="rv-bar" onclick="rvJump(${i})" aria-label="Film ${f.no}"><i></i></button>`).join('');
+const bars=$$('#rvBars .rv-bar i');
+
+function paintBars(){
+  bars.forEach((b,i)=>{
+    b.style.width=i<rvIndex?'100%':'0%';
+  });
+}
+function rvPlay(){
+  try{
+    const p=rvVid.play();
+    if(p&&p.catch) p.catch(()=>{ rvVid.muted=true; rvToggleSnd(); splay(rvVid); $('#rvHint').classList.add('show'); setTimeout(()=>$('#rvHint').classList.remove('show'),2600); });
+  }catch(e){}
+}
+function openReel(i){
+  rvIndex=i; viewer.hidden=false; document.body.style.overflow='hidden';
+  $$('video[data-io]').forEach(v=>v.pause());
+  loadReel();
+}
+function loadReel(){
+  const f=FILMS[rvIndex];
+  rvVid.src=A(f.file); rvVid.muted=false;
+  $('#rvSnd').innerHTML=IC_SND_ON;
+  $('#rvCount').textContent=`${f.no} / 0${FILMS.length}`;
+  $('#rvTitle').textContent=f.title;
+  $('#rvPaused').classList.remove('show');
+  paintBars(); rvPlay();
+}
+function closeReel(){
+  viewer.hidden=true; rvVid.pause(); rvVid.removeAttribute('src'); rvVid.load();
+  document.body.style.overflow='';
+  /* resume the inline films that are still on screen */
+  if(!REDUCED) $$('video[data-io]').forEach(v=>{ if(v.dataset.vis==='1'&&v.getAttribute('src')!=='') splay(v); });
+}
+function rvGo(d){ rvIndex=(rvIndex+d+FILMS.length)%FILMS.length; loadReel(); }
+function rvJump(i){ if(i===rvIndex){rvPlay();return;} rvIndex=i; loadReel(); }
+function rvToggleSnd(){ rvVid.muted=!rvVid.muted; $('#rvSnd').innerHTML=rvVid.muted?IC_SND_OFF:IC_SND_ON; }
+window.openReel=openReel;
+
+rvVid.addEventListener('timeupdate',()=>{ const d=rvVid.duration||8; bars[rvIndex].style.width=Math.min(100,rvVid.currentTime/d*100)+'%'; });
+rvVid.addEventListener('ended',()=>rvGo(1));
+rvVid.addEventListener('play',()=>$('#rvPaused').classList.remove('show'));
+rvVid.addEventListener('pause',()=>{ if(!viewer.hidden) $('#rvPaused').classList.add('show'); });
+$$('[data-close]').forEach(el=>el.addEventListener('click',closeReel));
+document.addEventListener('keydown',e=>{
+  if(viewer.hidden) return;
+  if(e.key==='Escape') closeReel();
+  if(e.key==='ArrowRight') rvGo(1);
+  if(e.key==='ArrowLeft') rvGo(-1);
+});
+/* tap = play/pause · swipe = prev/next */
+const stage=$('#rvStage');
+stage.addEventListener('touchstart',e=>{ rvTouchX=e.touches[0].clientX; rvTouchY=e.touches[0].clientY; rvSwiped=false; },{passive:true});
+stage.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-rvTouchX, dy=e.changedTouches[0].clientY-rvTouchY;
+  if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)){ rvGo(dx<0?1:-1); rvSwiped=true; }
+},{passive:true});
+rvVid.addEventListener('click',()=>{ if(rvSwiped){rvSwiped=false;return;} rvVid.paused?rvPlay():rvVid.pause(); });
+
+/* ── hero chapters ──────────────────────────────────────────────────── */
+function setHeroFilm(i){
+  const f=FILMS[i];
+  const film=$('#heroFilm'), bg=$('#heroBg');
+  film.src=A(f.file); bg.src=A(f.file);
+  splay(film); splay(bg);
+  $('#heroTag').textContent=`FILM ${f.no} · ${f.title.toUpperCase()}`;
+  $$('#heroDots button').forEach((b,j)=>b.classList.toggle('on',j===i));
+}
+window.setHeroFilm=setHeroFilm;
+
+/* ── rail arrows ────────────────────────────────────────────────────── */
+function railStep(d){
+  const r=$('#rail'), card=r.querySelector('.film-card');
+  r.scrollBy({left:d*(card.offsetWidth+20)*1.5,behavior:'smooth'});
+}
+
+/* ── story-block reveal ─────────────────────────────────────────────── */
+if('IntersectionObserver' in window){
+  const rio=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){e.target.classList.add('in'); rio.unobserve(e.target);} }),{threshold:.2});
+  $$('.rv-anim').forEach(el=>rio.observe(el));
+}
+</script>
+</body>
+</html>
+n'); rio.unobserve(e.target);} }),{threshold:.2});
+$$('.rv-anim').forEach(el=>rio.observe(el));
+</script>
+</body>
+</html>
