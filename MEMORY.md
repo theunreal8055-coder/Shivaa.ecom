@@ -1,8 +1,14 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
 > This file lives on `main` so ANY new Arena chat (any account, any device) starts with full history.
-> Updated: 2026-09-15 — branch `arena/01a0a5aa-shivaa-ecom` (v119 live-verified + rates-blank/category-photo diagnosis + v120 planning)
+> Updated: 2026-09-16 — branch `arena/01a0a7e6-shivaa-ecom` (v123 category-photo refresh)
 > **Owner magic phrase for next chat:** `Read ARENA-STATE.md and HANDOFF.md and MEMORY.md first, then continue.`
+
+## Session 2026-09-16 (arena/01a0a7e6) — v123 category-photo refresh
+- **Owner task:** "update those photos" on the homepage category slider; 17 owner photos supplied (14 attached + 3 already at repo root from the PR #47 upload). The 17 hash-named jpgs map 1:1 to the 17 CATS keys — that IS the "previous data" mapping.
+- **Done:** every tile AI-edited from the owner's own photo (watermarks/ad text removed: NAKODA, MAHAKALI, nakodapayal, chhatralajewels, "Kada Payal"; jewellery identical), 420×420, installed over the 16 v113b placeholders + old rings photo in `cms/images/categories/`; each read back + QA'd. All six render sites + pre-boot v116 list `?v=120`→`?v=123`; handshake triple 123; SW `shivaa-shell-v123`. New `v123-check.js` 14/14; older suites forward-compatible. Rates LOCKED untouched; api.php/.htaccess/db.json not in the release. `shivaa-update-v123.zip` (22 files) + `DEPLOY-v123.md`; gates 178/178 + php-sweep 211/0; PR → main.
+- **Mapping (for swaps):** rings 12747ae · necklaces de394b8 (floral V set) · earrings 94aa472 · bangles d1e2bb8 · bracelets 18da0318 · chains 98af24b · pendants 4f829c7 · mangalsutra e74d8a1 · bajubandh 921a4a7 · rakhdi d2cf594 · aad a040aef · sheeshphool c361740 · hathphool 3c38980 · punach b5aa894 (forced leftover fit — swap on owner's word) · bridalanklets 91c89e0 (ornate silver payal) · nosepins 57181fc · silver c7c3804 (plain kada payal).
+- **Lesson:** the image-edit endpoint returns empty responses on long prompts; short prompts succeed. Keep edit prompts one-liners.
 
 ## Session 2026-09-15 #6 (arena/01a0a5aa) — v119 live-verified + rates-blank & category-photo diagnosis + v120 planning
 - **v119 is MERGED + LIVE (re-recorded here — the v119 session's doc commit was never pushed):** PR #45 merged to `main` as `e2a4dd5` (15 Sep 2026, 19:31 IST). Live read 20:48 IST: `/api/rates` → `premium.gold22 = 398`, `anchorLevel.mode = mcx-future`, `jaipur.gold22 = 14200` = `round(15056 × 0.9167) + 398`; every 22K piece **+₹343/g** vs v118; `/api/products` → all 22K rings ≈ ₹14,231/g, PGS5004 (3.83 g) = ₹62,877; `/sw.js` SHELL `shivaa-shell-v119`; `/js/v119.js` real JS → zip landed in `public_html` ROOT. Re-confirmed 20:54 IST: anchor 15040 → jaipur.gold22 14185 = `round(15040 × 0.9167) + 398` ✓. **OWNER DECISION LOCKED:** 22K premium ₹398 (desk physical) + the anchor formula — never change a rate factor without an explicit owner instruction.
