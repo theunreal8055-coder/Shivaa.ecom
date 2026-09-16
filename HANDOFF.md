@@ -1,10 +1,53 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-16 (v124 — Punach + New In slider faces from owner photos, `?v=124` cache-bust; v123 category-photo refresh before it).**
+**Last updated: 2026-09-17 (v126 — THE LAPTOP: film budget + the glow + the desktop layer, `?v=126`, shell `shivaa-shell-v126`; v125 the nine owner films before it).**
 **v124 STATUS: MERGED — PR #49, merge commit `5145ab2` on `main` (16 Sep 2026). Owner visual check of the two new tiles still pending; no live-site read recorded yet — do not claim one.** **v123 STATUS: MERGED + LIVE — merged as PR #48 (`bfc3908`) into `main`; owner live-verified 16 Sep, `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.**
-**Forward baseline: never restore the v113b placeholder category tiles, and never re-publish a `?v=` stamp older than 124.**
+**Forward baseline: never restore the v113b placeholder category tiles, never re-publish a `?v=` stamp older than 126, and never let a film ship eager again (poster + `preload="none"` + `data-film` — v126's budget hands out the bytes).**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
+
+---
+
+## 🚀 v126 — THE LAPTOP: film budget · the glow · the desktop layer (2026-09-17)
+
+**Built from one laptop screenshot + one phone report. Four complaints, one release.**
+
+| Owner said | Root cause found | Fix |
+|---|---|---|
+| "on the laptop it loads very slowly" | `boost.js enhanceHome()` mounted **five eager autoplay films** the moment the home template existed — `hero.mp4` 16.3 MB + heritage 7.5 + bridal-lux 6.0 + rings-worn 6.1 + gold-flow 11.8 ≈ **47 MB** — with `src` + `autoplay`, no device/save-data/viewport guard. On top of that v125's nine films (`preload="metadata"`) and the bridal CTA film. | Every film now ships **cold** — poster, `preload="none"`, URL parked in `data-film`. New `js/v126.js` is the only thing that hands out bytes, under a budget. |
+| "more than 70 percent of the screen is empty" | The 1240 px column leaves both margins bare on a wide screen, and the first paint was blocked by the films above. | **Desktop-only** gutter rails (hairline gold thread + quarter motifs + a scroll ember, ≥1280 px, mouse only), a clickable four-chapter rail under the Revolving Case, chapter medallions + filigree in the Gold Thread, wider rows and bigger films. |
+| "the gold thread doesn't glow" | v125 drew a plain 2.4 px gradient stroke — a line, not light. | Two halo strokes under it (outer blurred via `#svGlowF`), a CSS drop-shadow bloom on the stroke, an ember riding the tip from `getPointAtLength`, and a gold halo on each chapter as it ignites. |
+| "on mobile the fifth film doesn't load" | Nine films × `preload="metadata"` competing for ≈4 phone decoders, served in creation order — the **last** in the queue (thread 05 · Forever, Reimagined) was starved. | The budget (3 on a phone), warming on approach, eviction of the furthest film, retry on error/stall, and a 2.2 s watchdog that re-arms any film that wants to play but has no frames. |
+
+**The film budget, in one line each:** 4 live films on a laptop · 3 on a phone · **0**
+under Save-Data / au-lite (posters only, as v125 already promised). Warms at 75 %
+of a viewport away, plays at 22 % visibility, evicts the live film furthest from
+the viewport, retries `error`/`stalled` twice then parks on the poster. The
+16 MB hero film additionally waits for `load` + 2.2 s of idle.
+
+**The owner's question — *"should we introduce more elements and graphics only
+for laptop/desktop users?"* — answered yes, and gated so a phone cannot see it:**
+every desktop rule lives inside a `min-width` query, every desktop element is
+created only when `(min-width:1024px)` / `(min-width:1280px) and (hover:hover)
+and (pointer:fine)` matches, and `undesk()` removes all of it if the window is
+later dragged narrow. The v126 gate boots a phone-shaped jsdom and asserts
+**no rails, no chapter chips, no medallions** while both features and all nine
+films are still present.
+
+**⚠ Deploy note that matters this time:** `boost.js` is re-stamped
+**`?v=46` → `?v=126`** in the v117 post-paint injector *and* in the worker
+precache. If an old `boost.js?v=46` survives in a visitor's cache, the
+eager-video build keeps running and **no speed change is visible**.
+
+**Deliverable:** `shivaa-update-v126.zip` (10 files, 216 KB — **code only, no
+media**; the nine owner films are already live from v125) + `DEPLOY-v126.md`
+with a 2-minute Hostinger extract, a 5-check laptop pass and a 3-check phone
+pass. `api.php` / `.htaccess` / `db.json` are **not** in the zip (rates LOCKED
+at 398, catalogue untouched).
+
+**Gates:** 264/264 on source **and** on the built zip overlay (v113b 32 ·
+v117 27 · v118 18 · v119 27 · v120 24 · v121 14 · v122 22 · v123 14 ·
+v124 20 · v125 27 · **v126 39**) · php-sweep **211 routes · 0 exceptions**.
 
 ---
 

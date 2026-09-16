@@ -1,0 +1,190 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIVAA v126 — THE DESKTOP LAYER + THE GLOW   (17 Sep 2026)
+
+   Owner's brief, verbatim intent: "on the laptop it loads very slowly,
+   more than 70% of the screen is empty and the gold thread that goes down
+   with us doesn't glow. In mobile it is perfect — except the fifth film
+   of the Gold Thread never loads."
+
+   Blocks marked DESKTOP-ONLY live inside a `min-width` query, and the
+   elements they style are only ever created by v126.js on a mouse-pointer
+   screen — so a phone never sees one byte of this layout.
+
+     1 · THE GLOW (all sizes)  — the thread now draws as light: a layered
+         halo under the stroke, a drop-shadow bloom on the stroke, a molten
+         ember riding the tip, and a halo on each chapter as it ignites.
+     2 · GUTTER RAILS (DESKTOP-ONLY, ≥1280px + mouse) — the empty margins
+         either side of the 1240px column carry the house ornament: a
+         hairline gold thread, motifs at the quarters, an ember on scroll.
+     3 · THE REVOLVING CASE ON DESKTOP — bigger ring, spotlight cones, lit
+         floor and a clickable chapter rail.
+     4 · THE GOLD THREAD ON DESKTOP — wider rows, bigger films, a chapter
+         medallion and filigree between chapters.
+
+   Stroke widths are deliberately small: this thread SVG is stretched with
+   preserveAspectRatio="none" (≈3.1× horizontally on a 1240px column), so a
+   stroke-width of 8 paints ≈25px wide. The core stroke is 2.4 — everything
+   here is sized to sit around it, not swallow it.
+
+   House rules honoured: every rule is namespaced sv-; nothing here touches
+   another layer; au-lite and prefers-reduced-motion switch the ornament off
+   and leave the content exactly as it is.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ═══ 1 · THE GLOW — the thread becomes light (all sizes) ═══════════════ */
+.sv-thread-svg .sv-ghost { stroke: rgba(185, 138, 47, .22); }
+.sv-thread-svg .sv-halo-o { fill: none; stroke: url(#svGrad); stroke-width: 7;   stroke-linecap: round; opacity: .10; filter: url(#svGlowF); }
+.sv-thread-svg .sv-halo   { fill: none; stroke: url(#svGrad); stroke-width: 3.5; stroke-linecap: round; opacity: .22; }
+.sv-thread-svg .sv-draw   { filter: drop-shadow(0 0 3px rgba(232, 200, 119, .8)) drop-shadow(0 0 8px rgba(185, 138, 47, .45)); }
+
+/* the ember that rides the tip of the thread — v126.js positions it from
+   getPointAtLength, so it stays a round spark however the SVG is stretched */
+.sv-ember {
+  position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3;
+  pointer-events: none; opacity: 0; transition: opacity .45s ease;
+  will-change: transform;
+}
+.sv-ember.sv-on { opacity: 1; }
+.sv-ember i { position: absolute; left: 0; top: 0; border-radius: 50%; transform: translate(-50%, -50%); }
+.sv-ember-core {
+  width: 13px; height: 13px;
+  background: radial-gradient(circle at 40% 34%, #fff8e6 0%, #ffd97a 42%, rgba(185, 138, 47, 0) 72%);
+  box-shadow: 0 0 10px 3px rgba(255, 214, 122, .85), 0 0 28px 9px rgba(185, 138, 47, .45);
+}
+.sv-ember-ring { width: 30px; height: 30px; border: 1px solid rgba(232, 200, 119, .5); animation: svEmberPulse 2.4s ease-out infinite; }
+@keyframes svEmberPulse {
+  0%   { transform: translate(-50%, -50%) scale(.42); opacity: .85; }
+  100% { transform: translate(-50%, -50%) scale(1.7);  opacity: 0; }
+}
+/* a chapter ignites: v125's lift, now with a gold halo around the film */
+.sv-thread-item.sv-lit .sv-thread-film {
+  box-shadow: 0 0 0 1px var(--gold-2, #d4af5a),
+              0 0 26px rgba(212, 175, 90, .40),
+              0 0 62px rgba(185, 138, 47, .20),
+              0 24px 60px rgba(185, 138, 47, .28);
+}
+
+/* ═══ 2 · GUTTER RAILS — DESKTOP-ONLY (≥1280px, mouse pointers) ════════ */
+@media (min-width: 1280px) and (hover: hover) and (pointer: fine) {
+  .sv-rail {
+    position: fixed; top: 0; bottom: 0; width: 10px; z-index: 2;
+    pointer-events: none; opacity: 0; transition: opacity .9s ease;
+  }
+  .sv-rail.sv-on { opacity: 1; }
+  .sv-rail-l { left: calc((100vw - 1240px) / 4 - 5px); }
+  .sv-rail-r { right: calc((100vw - 1240px) / 4 - 5px); }
+  .sv-rail-line {
+    position: absolute; top: 6vh; bottom: 6vh; left: 50%; width: 1px; margin-left: -.5px;
+    background: linear-gradient(180deg, transparent, rgba(185, 138, 47, .38) 12%, rgba(185, 138, 47, .38) 88%, transparent);
+  }
+  .sv-rail-run {
+    position: absolute; top: 6vh; bottom: 6vh; left: 50%; width: 1px; margin-left: -.5px;
+    background: linear-gradient(180deg, #e8c877, #fff3d0 45%, #b98a2f);
+    transform-origin: 50% 0; transform: scaleY(0);
+  }
+  .sv-rail-ember {
+    position: absolute; left: 50%; top: 0; width: 9px; height: 9px; margin-left: -4.5px;
+    border-radius: 50%; will-change: transform;
+    background: radial-gradient(circle at 40% 34%, #fff8e6, #ffd97a 45%, rgba(185, 138, 47, 0) 72%);
+    box-shadow: 0 0 8px 2px rgba(255, 214, 122, .7), 0 0 20px 6px rgba(185, 138, 47, .35);
+  }
+  .sv-rail-motif {
+    position: absolute; left: 50%; width: 7px; height: 7px; margin-left: -3.5px;
+    border: 1px solid rgba(185, 138, 47, .55); transform: rotate(45deg);
+    background: rgba(250, 246, 239, .9);
+  }
+  .sv-rail-cap {
+    position: absolute; left: 50%; width: 3px; height: 3px; margin-left: -1.5px;
+    border-radius: 50%; background: rgba(185, 138, 47, .55);
+  }
+  /* the rails step back while the full-screen reel is open */
+  html.sv-reel-open .sv-rail { opacity: 0 !important; }
+}
+
+/* ═══ 3 · THE REVOLVING CASE ON DESKTOP (≥1024px) ══════════════════════ */
+@media (min-width: 1024px) {
+  .sv-case-spots { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .sv-case-spots i {
+    position: absolute; top: -10%; width: 30%; height: 90%;
+    background: radial-gradient(60% 50% at 50% 42%, rgba(255, 233, 189, .10), transparent 70%);
+  }
+  .sv-case-spots i:first-child { left: 2%; }
+  .sv-case-spots i:last-child { right: 2%; }
+  .sv-case-floor {
+    position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%);
+    width: 56%; height: 130px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(closest-side, rgba(212, 175, 90, .26), transparent 72%);
+    filter: blur(2px);
+  }
+  .sv-case-chapters {
+    display: flex; align-items: stretch; justify-content: center; gap: 10px;
+    margin: 22px auto 0; max-width: 1080px; padding: 0 16px;
+  }
+  .sv-case-chapter {
+    flex: 1 1 0; min-width: 0; text-align: left; cursor: pointer;
+    border: 1px solid rgba(212, 175, 90, .3); border-radius: 14px;
+    background: rgba(16, 5, 8, .35); color: rgba(255, 240, 214, .72);
+    padding: 12px 14px; transition: .3s; font: inherit;
+  }
+  .sv-case-chapter b { display: block; font-family: var(--ff-disp, serif); font-size: 17px; color: #fff6de; line-height: 1.15; }
+  .sv-case-chapter small { font-family: var(--ff-label, serif); font-size: 10px; letter-spacing: .24em; color: var(--gold-2, #d4af5a); }
+  .sv-case-chapter span { display: block; margin-top: 4px; font-size: 12px; color: rgba(255, 240, 214, .55); line-height: 1.35; }
+  .sv-case-chapter:hover { border-color: rgba(212, 175, 90, .7); background: rgba(16, 5, 8, .55); }
+  .sv-case-chapter[aria-current="true"] {
+    border-color: var(--gold-2, #d4af5a); background: rgba(212, 175, 90, .13);
+    box-shadow: 0 0 0 1px var(--gold-2, #d4af5a), 0 14px 34px rgba(185, 138, 47, .25);
+  }
+  .sv-case-chapter[aria-current="true"] span { color: rgba(255, 240, 214, .78); }
+}
+
+/* ═══ 4 · THE GOLD THREAD ON DESKTOP (≥1024px) ═════════════════════════ */
+@media (min-width: 1024px) {
+  .sv-medallion {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 46px; height: 46px; border-radius: 50%; margin-bottom: 10px;
+    border: 1px solid rgba(185, 138, 47, .45);
+    background: radial-gradient(circle at 38% 32%, #fff8e6, #f0dca8 60%, #e6cf9c);
+    color: var(--maroon-deep, #3d0e15);
+    font-family: var(--ff-label, serif); font-size: 13px; letter-spacing: .12em;
+    box-shadow: 0 6px 18px rgba(185, 138, 47, .22);
+  }
+  .sv-filigree { display: block; width: 190px; margin: 0 auto; opacity: .5; }
+
+  /* a laptop has the width for a wider, brighter thread */
+  .sv-thread-svg .sv-halo-o { stroke-width: 10; opacity: .12; }
+  .sv-thread-svg .sv-halo   { stroke-width: 5;  opacity: .26; }
+  .sv-thread-svg .sv-draw {
+    filter: drop-shadow(0 0 4px rgba(232, 200, 119, .95))
+            drop-shadow(0 0 13px rgba(185, 138, 47, .55))
+            drop-shadow(0 0 26px rgba(185, 138, 47, .3));
+  }
+  .sv-ember-core { width: 15px; height: 15px; box-shadow: 0 0 12px 4px rgba(255, 214, 122, .9), 0 0 34px 11px rgba(185, 138, 47, .5); }
+  .sv-ember-ring { width: 36px; height: 36px; }
+
+  /* the Revolving Case: a bigger ring inside a lit vitrine */
+  #svCaseMount .sv-case-stage { height: min(560px, 62vh); }
+  #svCaseMount .sv-case-card { width: min(286px, 24vw); border-radius: 20px; }
+  #svCaseMount .sv-case-head p { font-size: 15px; }
+
+  /* the Gold Thread: wider rows, bigger films, room for the medallion */
+  #svThreadMount .sv-thread-item { width: min(1180px, 94%); gap: 4vw; }
+  #svThreadMount .sv-thread-film { width: min(300px, 26vw); }
+  #svThreadMount .sv-thread-cap { max-width: 430px; }
+  #svThreadMount .sv-thread-cap b { font-size: clamp(26px, 2.6vw, 36px); }
+  #svThreadMount .sv-thread-cap p { font-size: 15.5px; }
+  #svThreadMount .sv-thread-intro { max-width: 620px; }
+  #svThreadMount .sv-thread-item.sv-lit .sv-medallion {
+    border-color: var(--gold-2, #d4af5a);
+    box-shadow: 0 0 0 1px var(--gold-2, #d4af5a), 0 0 22px rgba(212, 175, 90, .45), 0 6px 18px rgba(185, 138, 47, .22);
+  }
+}
+
+/* ═══ 5 · DISCIPLINE — the ornament is a luxury, never a cost ══════════ */
+@media (prefers-reduced-motion: reduce) {
+  .sv-ember-ring { animation: none; opacity: .55; }
+}
+html.au-lite .sv-ember-ring,
+html.au-lite .sv-case-spots,
+html.au-lite .sv-case-floor { display: none; }
+html.au-lite .sv-thread-svg .sv-halo-o { opacity: .07; }
+@media print { .sv-rail, .sv-ember, .sv-case-spots, .sv-case-floor, .sv-medallion, .sv-filigree { display: none !important; } }

@@ -79,16 +79,16 @@ function bootStore(extra = '') {
   ok('Bug A bonus: the anchor line prints one ₹ (shared ratesAnchorTxt helper)',
     /function ratesAnchorTxt\(R\)/.test(app) && !/· ₹\$\{fmt\(AL\.goldPerG\)\}/.test(app));
   ok('Bug B: tile photos are versioned with a logo-then-hide fallback chain',
-    /\?v=12(0|3|4|5)/.test(app) && /dataset\.lfb/.test(app) && /this\.style\.display='none'/.test(app) &&
+    /\?v=12(0|3|4|5|6)/.test(app) && /dataset\.lfb/.test(app) && /this\.style\.display='none'/.test(app) &&
     /loading="eager" decoding="async" fetchpriority="low"/.test(app));
   ok('Bug B: the tile monogram underlay can never be bare text',
     /\.cb-img::after/.test(v120css) && /content: '✦'/.test(v120css) && /\.cb-img img \{ position: relative; z-index: 1/.test(v120css));
   ok('Bug B: every category render site carries a versioned photo URL (v116 key re-stamped)',
-    /cat-mini-card"><img src="\$\{c\.img\}\?v=12(0|3|4|5)"/.test(app) &&
-    /mt-img"><img src="\$\{c\.img\}\?v=12(0|3|4|5)"/.test(app) &&
-    /dwCatList/.test(app) && /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=12(0|3|4|5)"/.test(app) &&
-    /c\.img \+ '\?v=12(0|3|4|5)"/.test(v116src) &&
-    /\/js\/v116\.js\?v=12(0|3|4|5)/.test(html) && /'\/js\/v116\.js\?v=12(0|3|4|5)'/.test(sw));
+    /cat-mini-card"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6)"/.test(app) &&
+    /mt-img"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6)"/.test(app) &&
+    /dwCatList/.test(app) && /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6)"/.test(app) &&
+    /c\.img \+ '\?v=12(0|3|4|5|6)"/.test(v116src) &&
+    /\/js\/v116\.js\?v=12(0|3|4|5|6)/.test(html) && /'\/js\/v116\.js\?v=12(0|3|4|5|6)'/.test(sw));
   ok('mobile pack JS: haptics + back-button overlays, self-guarded',
     /Shivaa\.haptic/.test(v120js) && /_shvHaptic/.test(v120js) && /wrapTap\('addToCart', 20\)/.test(v120js) &&
     /wrapTap\('toggleWish', 12\)/.test(v120js) && /shvOverlay/.test(v120js) && /popstate/.test(v120js) &&
@@ -130,11 +130,11 @@ function bootStore(extra = '') {
 
   w.location.hash = '#/';
   ok('home category tiles carry versioned photo URLs',
-    await until(() => [...d.querySelectorAll('.cb-img img')].length > 0 && [...d.querySelectorAll('.cb-img img')].every(i => /\?v=12(0|3|4|5)/.test(i.src))));
+    await until(() => [...d.querySelectorAll('.cb-img img')].length > 0 && [...d.querySelectorAll('.cb-img img')].every(i => /\?v=12(0|3|4|5|6)/.test(i.src))));
   const tileImg = d.querySelector('.cb-img img');
   tileImg.dispatchEvent(new w.Event('error'));
   ok('tile fallback stage 1: a failed photo swaps to the house logo',
-    /\/images\/logo\.png\?v=12(0|3|4|5)/.test(tileImg.src));
+    /\/images\/logo\.png\?v=12(0|3|4|5|6)/.test(tileImg.src));
   tileImg.dispatchEvent(new w.Event('error'));
   ok('tile fallback stage 2: a failed logo hides to the monogram underlay, never bare text',
     tileImg.style.display === 'none');

@@ -51,7 +51,19 @@
         (navigator.connection && navigator.connection.saveData);
     } catch (e) { return false; }
   }
-  function splay(v) { try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
+  /* v126 · splay/shut are the ONLY play/pause doors in this file. Each one
+     stamps the element's "wants to play" intent so the v126 media governor
+     (which may have detached a film's src to free a decoder on a phone) can
+     honour it the moment it re-attaches. With no governor present the stamps
+     are inert and everything behaves exactly as v125 did. */
+  function splay(v) {
+    try { v.dataset.svWant = '1'; } catch (e) {}
+    try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+  }
+  function shut(v) {
+    try { v.dataset.svWant = '0'; } catch (e) {}
+    try { v.pause(); } catch (e) {}
+  }
   var $ = function (s, r) { return (r || doc).querySelector(s); };
 
   /* ═══ 1 · THE REEL (built once, lives on <body>) ═══════════════════ */
@@ -178,11 +190,13 @@
 
   /* pause/resume every mounted film around the reel (data discipline) */
   var mountedFilms = [];
-  function pauseAllFilms() { mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; }); mountedFilms.forEach(function (v) { try { v.pause(); } catch (e) {} }); }
+  function pauseAllFilms() { mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; }); mountedFilms.forEach(shut); }
   function resumeVisibleFilms() {
     mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; });
     if (REDUCED) return;
-    mountedFilms.forEach(function (v) { if (v.dataset.svVis === '1' && v.getAttribute('src')) splay(v); });
+    /* v126 · a film whose src the governor detached still "wants" to play —
+       asking it to play is what re-arms it (the governor plays on attach). */
+    mountedFilms.forEach(function (v) { if (v.dataset.svVis === '1' && (v.getAttribute('src') || v.getAttribute('data-film'))) splay(v); });
   }
 
   /* ═══ 2 · film elements (poster-first, LITE never mounts a <video>) ═ */
@@ -195,12 +209,20 @@
       return wrap;
     }
     var v = doc.createElement('video');
-    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'metadata';
+    /* v126 · films now start COLD. The src stays on the element (so a browser
+       without the v126 governor still plays them) but preload=none means not
+       one byte is fetched until something asks to play. Nine films x metadata
+       at boot was a laptop's whole first screen of bandwidth, and on a phone
+       it was nine media elements fighting for four hardware decoders — which
+       is why the LAST thread film (05) could sit there and never load. */
+    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
     v.setAttribute('poster', fl.p);
     v.setAttribute('aria-label', fl.title);
+    v.setAttribute('data-film', fl.f);
     v.src = fl.f;
     v.style.cssText = 'width:100%;height:100%;object-fit:cover';
     v.dataset.svVis = '0';
+    v.dataset.svWant = '0';
     wrap.appendChild(v);
     mountedFilms.push(v);
     if ('IntersectionObserver' in win) {
@@ -208,7 +230,7 @@
         es.forEach(function (e) {
           v.dataset.svVis = e.intersectionRatio >= .35 ? '1' : '0';
           if (e.intersectionRatio >= .35) { if (playGate()) splay(v); }
-          else { try { v.pause(); } catch (err) {} }
+          else { shut(v); }
         });
       }, { threshold: [0, .35, .6] }).observe(v);
     }
@@ -278,7 +300,7 @@
         cards.forEach(function (c, i) {
           var v = c.querySelector('video');
           if (!v) return;
-          if (i === fi) { if (caseVisible() && !reelOpen()) splay(v); } else { try { v.pause(); } catch (e) {} }
+          if (i === fi) { if (caseVisible() && !reelOpen()) splay(v); } else { shut(v); }
         });
       }
       /* settle: stop the frame loop once nothing is in flight */
@@ -324,7 +346,7 @@
     if ('IntersectionObserver' in win) {
       new IntersectionObserver(function (es) {
         visible = es[0].intersectionRatio > .15;
-        if (!visible) cards.forEach(function (c) { var v = c.querySelector('video'); if (v) { try { v.pause(); } catch (e) {} } });
+        if (!visible) cards.forEach(function (c) { var v = c.querySelector('video'); if (v) shut(v); });
         else kick();
       }, { threshold: [0, .15, .5] }).observe(stage);
     } else { visible = true; }
@@ -392,7 +414,7 @@
         if (lit !== it.classList.contains('sv-lit')) {
           it.classList.toggle('sv-lit', lit);
           var v = it.querySelector('video');
-          if (v) { if (lit && threadVisible() && !reelOpen()) splay(v); else { try { v.pause(); } catch (e) {} } }
+          if (v) { if (lit && threadVisible() && !reelOpen()) splay(v); else shut(v); }
         }
       });
     }

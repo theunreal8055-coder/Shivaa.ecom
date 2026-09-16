@@ -81,16 +81,30 @@ function bootStore(extra = '') {
   console.log('· A · static — v125 film showcases');
 
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(appJs), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
-  ok('release handshake is exactly 125 everywhere (shell, app, worker)',
-    shellRel && shellRel[1] === '125' && appRel && appRel[1] === '125' && swRel && swRel[1] === '125');
+  /* forward-compatible: 126 re-stamps the same four files, so the handshake
+     is accepted at 125 (as shipped) or 126 (the current release) */
+  const REL = (shellRel && shellRel[1]) || '125';
+  ok('release handshake is 125 or newer everywhere (shell, app, worker)',
+    shellRel && ['125', '126'].includes(shellRel[1]) && appRel && ['125', '126'].includes(appRel[1]) && swRel && ['125', '126'].includes(swRel[1]),
+    `shell=${shellRel && shellRel[1]} app=${appRel && appRel[1]} sw=${swRel && swRel[1]}`);
 
   const stamped = { 'index.html': html, 'js/app.js': appJs, 'js/v116.js': v116src, 'sw.js': sw };
   const stale = Object.entries(stamped).filter(([, s]) => /v=124/.test(s)).map(([n]) => n);
   ok('no stale v=124 stamp survives in any stamped file (both ?v= and &v= branches)', stale.length === 0, stale.join(', '));
+  /* v126 re-stamps the release triple — the worker still legitimately pins
+     the v125 assets themselves (css/v125.css?v=125, js/v125.js?v=125) */
+  /* the v125 assets keep their own ?v=125 by design — strip those exact
+     references before looking for a stamp that failed to move */
+  const reStamped = { 'index.html': html, 'js/app.js': appJs, 'js/v116.js': v116src };
+  const stale125 = Object.entries(reStamped)
+    .filter(([, s]) => /v=125/.test(s.replace(/\/css\/v125\.css\?v=125/g, '').replace(/\/js\/v125\.js\?v=125/g, '')))
+    .map(([n]) => n);
+  ok('the v126 release triple carries no stale v=125 stamp (index.html, app.js, v116.js)',
+    REL === '125' || stale125.length === 0, stale125.join(', '));
 
-  ok('shell loads app.js + v116.js at v125 and the worker precaches both + the v125 assets',
-    /\/js\/app\.js\?v=125/.test(html) && /\/js\/v116\.js\?v=125/.test(html) &&
-    /'\/js\/app\.js\?v=125'/.test(sw) && /'\/js\/v116\.js\?v=125'/.test(sw) &&
+  ok('shell loads app.js + v116.js at the current release and the worker precaches both + the v125 assets',
+    new RegExp('\\/js\\/app\\.js\\?v=' + REL).test(html) && new RegExp('\\/js\\/v116\\.js\\?v=' + REL).test(html) &&
+    new RegExp("'\\/js\\/app\\.js\\?v=" + REL + "'").test(sw) && new RegExp("'\\/js\\/v116\\.js\\?v=" + REL + "'").test(sw) &&
     /'\/js\/v125\.js\?v=125'/.test(sw) && /'\/css\/v125\.css\?v=125'/.test(sw));
 
   ok('v125 includes load in order (css after v122.css, js after v122.js)',
