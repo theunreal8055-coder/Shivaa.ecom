@@ -22,14 +22,25 @@
   var doc = document;
   var win = window;
 
-  /* ── the four films (titles are house copy; footage is the owner's) ──── */
-  var FILMS = [
+  /* ── the films. THE GOLD THREAD carries the owner's five real films
+        (uploaded 16 Sep 2026, compressed to ~1 MB each at 720×1280). The
+        Revolving Case still runs the four AI stand-ins until the owner's
+        case footage arrives — swap the paths 1:1, nothing else changes. ── */
+  var CASE_FILMS = [
     { f: '/images/films/film-01.mp4', p: '/images/films/film-01.jpg', no: '01', title: 'The Craft',        cap: 'Where every piece begins — in patient hands.' },
     { f: '/images/films/film-02.mp4', p: '/images/films/film-02.jpg', no: '02', title: 'The Bridal House', cap: 'Dressing the moment a family keeps forever.' },
     { f: '/images/films/film-03.mp4', p: '/images/films/film-03.jpg', no: '03', title: 'The Collection',   cap: 'Warm metal, warmer light — the everyday gold.' },
     { f: '/images/films/film-04.mp4', p: '/images/films/film-04.jpg', no: '04', title: 'The Details',      cap: 'The little things, looked at closely.' }
   ];
-  var N = FILMS.length, STEP = 90;
+  /* the thread story — traditional values, modern methods; fire to forever */
+  var THREAD_FILMS = [
+    { f: '/images/films/thread-01.mp4', p: '/images/films/thread-01.jpg', no: '01', title: 'The Beginning',       cap: 'Where every thread of gold begins — in fire.' },
+    { f: '/images/films/thread-02.mp4', p: '/images/films/thread-02.jpg', no: '02', title: 'From Paper to Gold',  cap: 'Sketched by hand. Made real in metal.' },
+    { f: '/images/films/thread-03.mp4', p: '/images/films/thread-03.jpg', no: '03', title: 'The Pieces',          cap: 'Old-world engraving. New-world light.' },
+    { f: '/images/films/thread-04.mp4', p: '/images/films/thread-04.jpg', no: '04', title: 'The Modern Bride',    cap: "Her grandmother's kada, worn her way." },
+    { f: '/images/films/thread-05.mp4', p: '/images/films/thread-05.jpg', no: '05', title: 'Forever, Reimagined', cap: 'Two generations of gold. One thread.' }
+  ];
+  var STEP = 90;
 
   var REDUCED = (typeof matchMedia === 'function') && matchMedia('(prefers-reduced-motion: reduce)').matches;
   /* au-lite is set by aurum.js (save-data / low-core) — re-checked at every
@@ -44,11 +55,21 @@
   var $ = function (s, r) { return (r || doc).querySelector(s); };
 
   /* ═══ 1 · THE REEL (built once, lives on <body>) ═══════════════════ */
-  var reel = { el: null, vid: null, bars: [], i: 0, tx: null, ty: null, swiped: false };
+  var reel = { el: null, vid: null, bars: [], i: 0, tx: null, ty: null, swiped: false, list: null, builtList: null };
   var SND_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/></svg>';
   var SND_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none"/><path d="M16 9l5 5M21 9l-5 5"/></svg>';
   var PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
 
+  function reelBuildBars() {
+    var box = $('#svReelBars');
+    box.innerHTML = reel.list.map(function (fl, i) {
+      return '<button class="sv-reel-bar" data-i="' + i + '" aria-label="Film ' + fl.no + '"><i></i></button>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('.sv-reel-bar'), function (b) {
+      b.addEventListener('click', function () { var i = +b.getAttribute('data-i'); if (i === reel.i) reelPlay(); else { reel.i = i; reelLoad(); } });
+    });
+    reel.bars = Array.prototype.slice.call(box.querySelectorAll('.sv-reel-bar i'));
+  }
   function ensureReel() {
     if (reel.el) return;
     var w = doc.createElement('div');
@@ -69,13 +90,7 @@
       '</div>';
     doc.body.appendChild(w);
     reel.el = w; reel.vid = $('#svReelVid'); reel.stage = $('#svReelStage');
-    $('#svReelBars').innerHTML = FILMS.map(function (fl, i) {
-      return '<button class="sv-reel-bar" data-i="' + i + '" aria-label="Film ' + fl.no + '"><i></i></button>';
-    }).join('');
-    reel.bars = Array.prototype.slice.call(w.querySelectorAll('.sv-reel-bar i'));
-    Array.prototype.forEach.call(w.querySelectorAll('.sv-reel-bar'), function (b) {
-      b.addEventListener('click', function () { var i = +b.getAttribute('data-i'); if (i === reel.i) reelPlay(); else { reel.i = i; reelLoad(); } });
-    });
+
     $('#svReelSnd').innerHTML = SND_ON;
     $('#svReelSnd').addEventListener('click', reelSnd);
     $('#svReelPrev').addEventListener('click', function () { reelGo(-1); });
@@ -119,10 +134,10 @@
     } catch (e) {}
   }
   function reelLoad(fromEl) {
-    var fl = FILMS[reel.i];
+    var fl = reel.list[reel.i];
     reel.vid.src = fl.f; reel.vid.muted = false;
     $('#svReelSnd').innerHTML = SND_ON;
-    $('#svReelCount').textContent = fl.no + ' / 0' + N;
+    $('#svReelCount').textContent = fl.no + ' / 0' + reel.list.length;
     $('#svReelTitle').textContent = fl.title;
     $('#svReelPaused').classList.remove('sv-show');
     reelPaintBars(); reelPlay();
@@ -141,9 +156,11 @@
       }); });
     }
   }
-  function openReel(i, fromEl) {
+  function openReel(i, fromEl, list) {
     ensureReel();
-    reel.i = ((i % N) + N) % N;
+    reel.list = list || CASE_FILMS;
+    reel.i = ((i % reel.list.length) + reel.list.length) % reel.list.length;
+    if (reel.builtList !== reel.list) { reelBuildBars(); reel.builtList = reel.list; }
     reel.el.hidden = false;
     doc.documentElement.classList.add('sv-reel-open');
     pauseAllFilms();
@@ -156,7 +173,7 @@
     try { reel.vid.pause(); reel.vid.removeAttribute('src'); reel.vid.load(); } catch (e) {}
     resumeVisibleFilms();
   }
-  function reelGo(d) { reel.i = (reel.i + d + N) % N; reelLoad(); }
+  function reelGo(d) { reel.i = (reel.i + d + reel.list.length) % reel.list.length; reelLoad(); }
   function reelSnd() { reel.vid.muted = !reel.vid.muted; $('#svReelSnd').innerHTML = reel.vid.muted ? SND_OFF : SND_ON; }
 
   /* pause/resume every mounted film around the reel (data discipline) */
@@ -220,7 +237,7 @@
       '</div>';
     var stage = $('#svCaseStage'), ring = $('#svCaseRing');
     var cards = [];
-    FILMS.forEach(function (fl, i) {
+    CASE_FILMS.forEach(function (fl, i) {
       var c = doc.createElement('button');
       c.className = 'sv-case-card'; c.type = 'button';
       c.setAttribute('aria-label', 'Play ' + fl.title);
@@ -235,9 +252,9 @@
       R = Math.max(120, Math.round(cw * .95));
       cards.forEach(function (c, i) { c.style.transform = 'translate(-50%,-50%) rotateY(' + (i * STEP) + 'deg) translateZ(' + R + 'px)'; });
     }
-    function front() { return ((Math.round(-rot / STEP) % N) + N) % N; }
+    function front() { return ((Math.round(-rot / STEP) % CASE_FILMS.length) + CASE_FILMS.length) % CASE_FILMS.length; }
     function caseVisible() { return visible && stage.isConnected; }
-    function setCount() { $('#svCaseCount').textContent = FILMS[front()].no + ' / 0' + N + ' · ' + FILMS[front()].title.toUpperCase(); }
+    function setCount() { $('#svCaseCount').textContent = CASE_FILMS[front()].no + ' / 0' + CASE_FILMS.length + ' · ' + CASE_FILMS[front()].title.toUpperCase(); }
     function loop() {
       if (!stage.isConnected) { raf = null; return; }
       if (!dragging) {
@@ -294,7 +311,7 @@
     cards.forEach(function (c, i) {
       c.addEventListener('click', function () {
         if (Date.now() - lastMoveT < 240) return;
-        if (i === front()) openReel(i, c);
+        if (i === front()) openReel(i, c, CASE_FILMS);
         else {
           var cur = (snapTo != null) ? snapTo : rot;
           var delta = (((-i * STEP - cur) % 360) + 360) % 360; if (delta > 180) delta -= 360;
@@ -333,18 +350,18 @@
       '<div class="sv-thread" id="svThreadBox">' +
         '<svg class="sv-thread-svg" viewBox="0 0 400 1700" preserveAspectRatio="none" aria-hidden="true">' +
           '<defs><linearGradient id="svGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a6a24"/><stop offset=".5" stop-color="#e8c877"/><stop offset="1" stop-color="#8a6a24"/></linearGradient></defs>' +
-          '<path class="sv-ghost" d="M200,0 C345,150 55,280 200,430 C345,580 55,710 200,860 C345,1010 55,1140 200,1290 C345,1440 55,1560 200,1700"/>' +
-          '<path class="sv-draw" id="svThreadPath" d="M200,0 C345,150 55,280 200,430 C345,580 55,710 200,860 C345,1010 55,1140 200,1290 C345,1440 55,1560 200,1700"/>' +
+          '<path class="sv-ghost" d="M200,0 C345,120 55,220 200,340 C345,460 55,560 200,680 C345,800 55,900 200,1020 C345,1140 55,1240 200,1360 C345,1480 55,1580 200,1700"/>' +
+          '<path class="sv-draw" id="svThreadPath" d="M200,0 C345,120 55,220 200,340 C345,460 55,560 200,680 C345,800 55,900 200,1020 C345,1140 55,1240 200,1360 C345,1480 55,1580 200,1700"/>' +
         '</svg>' +
         '<div class="sv-thread-intro">' +
           '<span class="label">Follow the thread</span>' +
           '<h3>Everything begins as <span class="disp-italic">one thread of gold</span></h3>' +
-          '<p>Scroll slowly — the thread draws itself, and the films wake as it passes.</p>' +
+          '<p>Scroll slowly — the thread draws itself and the films wake as it passes. Five chapters, fire to forever.</p>' +
         '</div>' +
         '<div class="sv-thread-items" id="svThreadItems"></div>' +
       '</div>';
     var items = [];
-    FILMS.forEach(function (fl, i) {
+    THREAD_FILMS.forEach(function (fl, i) {
       var it = doc.createElement('div');
       it.className = 'sv-thread-item' + (i % 2 ? ' sv-right' : '');
       it.innerHTML =
@@ -352,7 +369,7 @@
         '<div class="sv-thread-cap"><small>CHAPTER ' + fl.no + '</small><b>' + fl.title + '</b><p>' + fl.cap + '</p></div>';
       var filmBtn = it.querySelector('.sv-thread-film');
       filmBtn.insertBefore(filmMedia(fl, liteMode, function () { return !REDUCED && it.classList.contains('sv-lit') && threadVisible() && !reelOpen(); }), filmBtn.firstChild);
-      filmBtn.addEventListener('click', function () { openReel(i, filmBtn); });
+      filmBtn.addEventListener('click', function () { openReel(i, filmBtn, THREAD_FILMS); });
       $('#svThreadItems').appendChild(it); items.push(it);
     });
     var path = $('#svThreadPath'), box = $('#svThreadBox');
@@ -434,7 +451,10 @@
     caseNext: function () { if (caseApi) caseApi.next(); },
     caseFront: function () { return caseApi ? caseApi.front() : -1; },
     caseCount: function () { return caseApi ? caseApi.count() : 0; },
-    films: FILMS.length,
+    films: CASE_FILMS.length + THREAD_FILMS.length,
+    caseFilms: CASE_FILMS.length,
+    threadFilms: THREAD_FILMS.length,
+    openThread: function (i, el) { openReel(i, el, THREAD_FILMS); },
     lite: lite
   };
 

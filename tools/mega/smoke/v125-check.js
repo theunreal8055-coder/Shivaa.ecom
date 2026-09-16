@@ -104,14 +104,21 @@ function bootStore(extra = '') {
     appJs.indexOf('id="svThreadMount"') > appJs.indexOf('Bestsellers'));
 
   let filmsOk = true, filmsDetail = [];
-  for (let i = 1; i <= 4; i++) {
-    const mp4 = path.join(CMS, `images/films/film-0${i}.mp4`), jpg = path.join(CMS, `images/films/film-0${i}.jpg`);
-    if (!fs.existsSync(mp4)) { filmsOk = false; filmsDetail.push(`missing film-0${i}.mp4`); continue; }
-    const sz = fs.statSync(mp4).size;
-    if (sz < 50 * 1024 || sz > 2.5 * 1024 * 1024) { filmsOk = false; filmsDetail.push(`film-0${i}.mp4 ${Math.round(sz / 1024)}KB out of range`); }
-    if (!fs.existsSync(jpg) || fs.statSync(jpg).size < 10 * 1024) { filmsOk = false; filmsDetail.push(`poster film-0${i}.jpg missing/too small`); }
+  for (const [fam, n] of [['film', 4], ['thread', 5]]) {
+    for (let i = 1; i <= n; i++) {
+      const mp4 = path.join(CMS, `images/films/${fam}-0${i}.mp4`), jpg = path.join(CMS, `images/films/${fam}-0${i}.jpg`);
+      if (!fs.existsSync(mp4)) { filmsOk = false; filmsDetail.push(`missing ${fam}-0${i}.mp4`); continue; }
+      const sz = fs.statSync(mp4).size;
+      if (sz < 50 * 1024 || sz > 2.5 * 1024 * 1024) { filmsOk = false; filmsDetail.push(`${fam}-0${i}.mp4 ${Math.round(sz / 1024)}KB out of range`); }
+      if (!fs.existsSync(jpg) || fs.statSync(jpg).size < 10 * 1024) { filmsOk = false; filmsDetail.push(`poster ${fam}-0${i}.jpg missing/too small`); }
+    }
   }
-  ok('all four films + posters on disk, each film light (50 KB – 2.5 MB)', filmsOk, filmsDetail.join('; '));
+  ok('all nine films + posters on disk (4 case stand-ins + 5 owner story films), each light (50 KB – 2.5 MB)', filmsOk, filmsDetail.join('; '));
+
+  ok('the thread story is the owner five-chapter arc (fire to forever)',
+    /From Paper to Gold/.test(v125) && /The Modern Bride/.test(v125) && /Forever, Reimagined/.test(v125) &&
+    /thread-01\.mp4/.test(v125) && /thread-05\.mp4/.test(v125) &&
+    (v125.match(/\/images\/films\/thread-0\d\.mp4/g) || []).length === 5);
 
   ok('v125.js is self-guarding: strict, IIFE, no network of its own, guarded matchMedia',
     /^\s*(\/\*[\s\S]*?\*\/\s*)?'use strict';/.test(v125) && /\(function \(\)\s*\{/.test(v125) && !/fetch\(/.test(v125) &&
@@ -167,12 +174,15 @@ function bootStore(extra = '') {
 
   const threadMounted = await until(() => d1.querySelector('#svThreadMount .sv-thread'), 4000);
   const tpath = d1.querySelector('#svThreadPath');
-  ok('the Gold Thread renders: 4 chapters + a draw path with dash geometry',
-    threadMounted && d1.querySelectorAll('#svThreadMount .sv-thread-item').length === 4 &&
-    tpath && tpath.style.strokeDasharray !== '' && tpath.style.strokeDashoffset !== '');
+  ok('the Gold Thread renders: 5 chapters + a draw path with dash geometry',
+    threadMounted && d1.querySelectorAll('#svThreadMount .sv-thread-item').length === 5 &&
+    tpath && tpath.style.strokeDasharray !== '' && tpath.style.strokeDashoffset !== '' &&
+    (d1.querySelector('#svThreadMount .sv-thread-item:last-child small') || {}).textContent === 'CHAPTER 05');
 
-  ok('film sources point at the four shipped files',
-    [...d1.querySelectorAll('#svCaseMount video, #svThreadMount video')].map(v => v.getAttribute('src')).filter(s => /\/images\/films\/film-0[1-4]\.mp4$/.test(s)).length >= 4);
+  const allSrcs = [...d1.querySelectorAll('#svCaseMount video, #svThreadMount video')].map(v => v.getAttribute('src'));
+  ok('film sources: the case plays its 4 stand-ins, the thread plays the 5 owner films',
+    allSrcs.filter(x => /\/images\/films\/film-0[1-4]\.mp4$/.test(x)).length === 4 &&
+    allSrcs.filter(x => /\/images\/films\/thread-0[1-5]\.mp4$/.test(x)).length === 5);
 
   /* reel player round-trip */
   b1.dom.window.ShivaaV125.open(1, d1.querySelector('#svCaseMount .sv-case-card'));
@@ -184,6 +194,16 @@ function bootStore(extra = '') {
   await sleep(60);
   ok('the Reel opens on the chosen film (scroll locked) and closes clean',
     reelOk && d1.getElementById('svReel').hidden && !d1.documentElement.classList.contains('sv-reel-open'));
+
+  /* the thread list (5 films) in the same reel */
+  b1.dom.window.ShivaaV125.openThread(3, d1.querySelector('#svThreadMount .sv-thread-film'));
+  await sleep(150);
+  ok('the Reel plays the thread story list: 5 films, right chapter, own counter',
+    !d1.getElementById('svReel').hidden &&
+    d1.getElementById('svReelTitle').textContent === 'The Modern Bride' &&
+    d1.getElementById('svReelCount').textContent === '04 / 05');
+  b1.dom.window.ShivaaV125.close();
+  await sleep(60);
 
   /* boost films row superseded once boost has had its chance to inject */
   await until(() => b1.dom.window.document.querySelector('#view [data-boost="films"]'), 5000);
@@ -207,9 +227,10 @@ function bootStore(extra = '') {
   });
   const d2 = b2.dom.window.document;
   await until(() => d2.getElementById('svCaseMount') && d2.getElementById('svCaseMount').dataset.mnt === '1', 12000);
-  ok('au-lite (save-data) mode: films never mount a <video> — posters only',
+  ok('au-lite (save-data) mode: films never mount a <video> — posters only (4 + 5)',
     d2.querySelectorAll('#svCaseMount video, #svThreadMount video').length === 0 &&
-    d2.querySelectorAll('#svCaseMount .sv-case-card img').length === 4);
+    d2.querySelectorAll('#svCaseMount .sv-case-card img').length === 4 &&
+    d2.querySelectorAll('#svThreadMount .sv-thread-film img').length === 5);
   b1.dom.window.close(); b2.dom.window.close(); server.close();
 
   const pass = results.filter(Boolean).length;
