@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shivaa · Round 3 — five more advanced ways</title>
+<title>Shivaa · Round 4 — graphically advanced, phone + laptop</title>
 <style>
 /* ── Shivaa tokens (same as live site) ──────────────────────────────── */
 :root{
@@ -42,7 +42,7 @@ h1,h2,h3{font-family:var(--ff-disp);font-weight:600;color:var(--maroon-deep);lin
 
 /* ── top bar ─────────────────────────────────────────────────────────── */
 .topbar{position:sticky;top:0;z-index:90;background:rgba(250,246,239,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.topbar-in{width:min(1420px,94vw);margin:0 auto;display:flex;align-items:center;gap:16px;padding:12px 0}
+.topbar-in{width:min(1500px,94vw);margin:0 auto;display:flex;align-items:center;gap:16px;padding:12px 0}
 .brand{font-family:var(--ff-label);letter-spacing:.3em;font-size:17px;color:var(--maroon-deep);white-space:nowrap}
 .brand b{color:var(--gold);font-weight:400}
 .topnav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1}
@@ -54,8 +54,9 @@ h1,h2,h3{font-family:var(--ff-disp);font-weight:600;color:var(--maroon-deep);lin
 /* ── intro ───────────────────────────────────────────────────────────── */
 .intro{padding:64px 0 26px;text-align:center}
 .intro h1{font-size:clamp(40px,5.4vw,68px);margin:14px 0 12px}
-.intro p{max-width:700px;margin:0 auto;color:var(--ink-2);font-size:17px}
-.intro .standnote{margin:18px auto 0;max-width:700px;font-size:13px;color:var(--ink-3);background:var(--cream-2);border:1px dashed var(--line);border-radius:var(--r);padding:10px 16px}
+.intro p{max-width:720px;margin:0 auto;color:var(--ink-2);font-size:17px}
+.intro .standnote{margin:18px auto 0;max-width:720px;font-size:13px;color:var(--ink-3);background:var(--cream-2);border:1px dashed var(--line);border-radius:var(--r);padding:10px 16px}
+.compat{display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;letter-spacing:.1em;color:var(--maroon);background:var(--gold-faint);border:1px solid var(--gold-soft);border-radius:99px;padding:7px 16px}
 
 /* ── way sections ────────────────────────────────────────────────────── */
 .way{padding:64px 0 30px;scroll-margin-top:76px}
@@ -64,137 +65,125 @@ h1,h2,h3{font-family:var(--ff-disp);font-weight:600;color:var(--maroon-deep);lin
 .way-head h2{font-size:clamp(28px,3.4vw,42px);margin:4px 0 6px}
 .way-head p{color:var(--ink-2);font-size:16px}
 .place-chip{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--maroon);background:var(--gold-faint);border:1px solid var(--gold-soft);border-radius:99px;padding:6px 14px;margin-top:10px}
+.place-chip+.place-chip{margin-left:8px}
 .way-demo{margin-top:30px;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-2);border:1px solid var(--line);position:relative}
 .way-notes{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}
 .way-notes div{background:var(--white);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
 .way-notes b{display:block;font-family:var(--ff-label);font-size:11px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:6px}
 .way-notes .n-what b{color:var(--maroon)} .way-notes .n-why b{color:var(--gold)} .way-notes .n-watch b{color:#b3541e}
 .way-notes p{font-size:13.5px;color:var(--ink-2);line-height:1.5}
-@media(max-width:760px){.way-notes{grid-template-columns:1fr}.way-num{font-size:52px;min-width:44px}.way-head{gap:14px}}
+@media(max-width:760px){.way-notes{grid-template-columns:1fr}.way-num{font-size:52px;min-width:44px}.way-head{gap:14px}.place-chip+.place-chip{margin-left:0;margin-top:6px}}
 
-/* ═══ WAY 11 · FILM HIGHWAY (horizontal scroll-jack) ══════════════════ */
-.hw-wrap{position:relative;height:320vh;height:calc(100dvh * 3.2);background:radial-gradient(1100px 500px at 20% 0%,#3a0f18,#160509 60%);border-radius:var(--r-lg);border:1px solid var(--line);box-shadow:var(--sh-2)}
-.hw-stage{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden;display:flex;align-items:center;border-radius:inherit}
-.hw-track{display:flex;align-items:center;gap:7vw;padding:0 14vw;will-change:transform}
-.hw-item{flex:none;position:relative}
-.hw-item:nth-child(even){transform:translateY(4%)}
-.hw-item:nth-child(odd){transform:translateY(-4%)}
-.hw-ghost{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);font-family:var(--ff-disp);font-weight:600;font-size:clamp(56px,8.5vw,120px);line-height:.9;letter-spacing:.02em;white-space:nowrap;color:transparent;-webkit-text-stroke:1px rgba(212,175,90,.55);z-index:0;pointer-events:none;will-change:transform}
-.hw-card{position:relative;z-index:1;height:min(58vh,540px);aspect-ratio:9/16;border-radius:18px;overflow:hidden;cursor:pointer;box-shadow:0 34px 80px rgba(0,0,0,.55);border:1px solid rgba(212,175,90,.4);transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
-.hw-card:hover{transform:scale(1.035);box-shadow:0 40px 100px rgba(0,0,0,.65),0 0 0 1px var(--gold-2)}
-.hw-card video{width:100%;height:100%;object-fit:cover}
-.hw-no{position:absolute;top:10px;left:10px;font-family:var(--ff-label);font-size:10px;letter-spacing:.22em;color:#ffe9bd;background:rgba(16,5,8,.55);backdrop-filter:blur(6px);padding:6px 10px;border-radius:99px;border:1px solid rgba(255,233,189,.22);z-index:2}
-.hw-lead{flex:none;width:min(440px,72vw);color:rgba(255,240,214,.85)}
-.hw-lead h3{color:#fff8e8;font-size:clamp(30px,3.6vw,44px);margin:10px 0}
-.hw-lead p{font-size:15px}
-.hw-progress{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:min(340px,60vw);height:2px;background:rgba(255,244,214,.2);border-radius:99px;overflow:hidden}
-.hw-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#e8c877,#fff3d0)}
-.hw-hint{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);font-family:var(--ff-label);font-size:11px;letter-spacing:.24em;color:#ffe9bd;pointer-events:none}
-.hw-skip{position:absolute;bottom:20px;right:20px;font-family:var(--ff-label);font-size:11px;letter-spacing:.2em;color:#ffe9bd;border:1px solid rgba(255,233,189,.35);background:rgba(16,5,8,.4);backdrop-filter:blur(6px);padding:10px 16px;border-radius:99px;transition:.25s;z-index:5}
-.hw-skip:hover{background:rgba(16,5,8,.7)}
+/* ═══ WAY 16 · MOLTEN GALLERY ═════════════════════════════════════════ */
+.mk-sec{position:relative;background:radial-gradient(900px 520px at 50% -10%,#4d131d,#150509 62%);padding:60px 0 58px;overflow:hidden}
+.mk-bokeh{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.mk-head{text-align:center;margin-bottom:38px;position:relative;z-index:2}
+.mk-head h2{color:#fff6de;font-size:clamp(28px,3.8vw,46px)}
+.mk-head p{color:rgba(255,240,214,.66);font-size:14.5px;margin-top:6px}
+.mk-row{display:flex;justify-content:center;gap:clamp(18px,3.4vw,44px);flex-wrap:nowrap;position:relative;z-index:2;padding:26px 4vw 10px}
+.mk-item{flex:none;width:min(184px,40vw);text-align:center}
+.mk-frame{padding:3px;border-radius:44% 56% 58% 42% / 46% 44% 56% 54%;background:linear-gradient(135deg,#8a6a24,#ffe9bd 38%,#b98a2f 62%,#f3d98f);animation:mkMorph 11s ease-in-out infinite alternate, mkBob 7s ease-in-out infinite;box-shadow:0 26px 60px rgba(0,0,0,.55),0 0 0 1px rgba(255,233,189,.18);cursor:pointer;transition:box-shadow .45s var(--ease),transform .45s var(--ease)}
+.mk-item:nth-child(2) .mk-frame{animation-delay:-3.4s,-1.2s;border-radius:58% 42% 44% 56% / 42% 56% 44% 58%}
+.mk-item:nth-child(3) .mk-frame{animation-delay:-6.8s,-2.6s;border-radius:50% 50% 42% 58% / 56% 44% 56% 44%}
+.mk-item:nth-child(4) .mk-frame{animation-delay:-1.7s,-4.1s;border-radius:42% 58% 52% 48% / 48% 56% 44% 52%}
+@keyframes mkMorph{0%{border-radius:44% 56% 58% 42%/46% 44% 56% 54%}50%{border-radius:56% 44% 42% 58%/52% 58% 42% 48%}100%{border-radius:42% 58% 50% 50%/44% 50% 50% 56%}}
+@keyframes mkBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.mk-frame:hover{box-shadow:0 34px 80px rgba(0,0,0,.65),0 0 34px rgba(212,175,90,.35);transform:translateY(-6px)}
+.mk-blob{border-radius:inherit;overflow:hidden;aspect-ratio:9/14;background:#000;position:relative}
+.mk-blob video{width:100%;height:100%;object-fit:cover}
+.mk-no{position:absolute;top:10px;left:12px;font-family:var(--ff-label);font-size:9px;letter-spacing:.24em;color:#ffe9bd;text-shadow:0 1px 8px #000;pointer-events:none}
+.mk-item b{display:block;font-family:var(--ff-disp);font-style:italic;font-weight:500;font-size:19px;color:#fff3d0;margin-top:13px;text-shadow:0 2px 14px rgba(0,0,0,.5)}
+.mk-item small{font-size:11px;color:rgba(255,240,214,.6);letter-spacing:.1em}
+@media(max-width:760px){
+  .mk-row{flex-wrap:wrap;gap:20px}
+  .mk-item{width:min(158px,42vw)}
+}
 
-/* ═══ WAY 12 · GOLD THREAD ════════════════════════════════════════════ */
-.gt-sec{position:relative;background:linear-gradient(180deg,#faf6ef,#f4ecdd);padding:76px 0 70px}
-.gt-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.gt-svg .gt-ghost{fill:none;stroke:rgba(185,138,47,.16);stroke-width:2}
-.gt-svg .gt-draw{fill:none;stroke:url(#gtGrad);stroke-width:2.4;stroke-linecap:round}
-.gt-intro{text-align:center;max-width:520px;margin:0 auto 40px;position:relative;z-index:2}
-.gt-intro h3{font-size:clamp(28px,3.4vw,40px)}
-.gt-intro p{color:var(--ink-2);font-size:15px;margin-top:8px}
-.gt-items{position:relative;z-index:2}
-.gt-item{display:flex;align-items:center;gap:5vw;width:min(1000px,88vw);margin:0 auto 15vh}
-.gt-item.right{flex-direction:row-reverse}
-.gt-film{flex:none;width:min(250px,38vw);aspect-ratio:9/16;border-radius:18px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--sh-2);opacity:.38;filter:saturate(.35);transform:translateY(16px);transition:opacity .7s var(--ease),filter .7s,transform .7s var(--ease),border-color .7s,box-shadow .7s;cursor:pointer;background:#000}
-.gt-film video{width:100%;height:100%;object-fit:cover}
-.gt-item.lit .gt-film{opacity:1;filter:none;transform:none;border-color:var(--gold-2);box-shadow:0 0 0 1px var(--gold-2),0 24px 60px rgba(185,138,47,.28)}
-.gt-cap{max-width:300px;opacity:0;transform:translateY(14px);transition:.7s var(--ease) .1s}
-.gt-item.lit .gt-cap{opacity:1;transform:none}
-.gt-cap small{font-family:var(--ff-label);font-size:11px;letter-spacing:.26em;color:var(--gold)}
-.gt-cap b{display:block;font-family:var(--ff-disp);font-size:clamp(26px,3vw,36px);color:var(--maroon-deep);line-height:1.08;margin:6px 0}
-.gt-cap p{font-size:14.5px;color:var(--ink-2)}
-@media(max-width:700px){.gt-item,.gt-item.right{flex-direction:column;gap:18px;text-align:center;margin-bottom:11vh}.gt-cap{max-width:340px}.gt-film{width:min(240px,62vw)}}
+/* ═══ WAY 17 · REVOLVING CASE ═════════════════════════════════════════ */
+.rc-sec{background:linear-gradient(180deg,#100409,#1c080e 55%,#100409);padding:60px 0 64px;position:relative;overflow:hidden}
+.rc-head{text-align:center;margin-bottom:8px}
+.rc-head h2{color:#fff6de;font-size:clamp(28px,3.8vw,46px)}
+.rc-head p{color:rgba(255,240,214,.66);font-size:14.5px;margin-top:6px}
+.rc-stage{position:relative;height:min(560px,120vw);perspective:1250px;perspective-origin:50% 44%;touch-action:pan-y;cursor:grab}
+.rc-stage:active{cursor:grabbing}
+.rc-ring{position:absolute;left:50%;top:52%;width:0;height:0;transform-style:preserve-3d;will-change:transform}
+.rc-card{position:absolute;left:0;top:0;transform:translate(-50%,-50%);width:min(238px,58vw);aspect-ratio:9/16;border-radius:18px;overflow:hidden;background:#000;border:1px solid rgba(212,175,90,.4);box-shadow:0 30px 70px rgba(0,0,0,.6);backface-visibility:visible;cursor:pointer}
+.rc-card video{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.rc-card .rc-name{position:absolute;left:0;right:0;bottom:12px;text-align:center;color:#fff6de;font-family:var(--ff-disp);font-size:19px;text-shadow:0 2px 12px rgba(0,0,0,.8);pointer-events:none}
+.rc-card .rc-no{position:absolute;top:10px;left:10px;font-family:var(--ff-label);font-size:9.5px;letter-spacing:.22em;color:#ffe9bd;background:rgba(16,5,8,.55);padding:5px 9px;border-radius:99px;pointer-events:none}
+.rc-glow{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);width:70%;height:110px;border-radius:50%;background:radial-gradient(closest-side,rgba(212,175,90,.22),transparent 70%);pointer-events:none}
+.rc-ui{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:6px}
+.rc-arrow{width:46px;height:46px;border-radius:99px;border:1px solid rgba(212,175,90,.45);color:var(--gold-soft);font-size:20px;background:rgba(16,5,8,.4);transition:.25s;display:flex;align-items:center;justify-content:center}
+.rc-arrow:hover{border-color:var(--gold-2);color:#fff3d0}
+.rc-count{font-family:var(--ff-label);font-size:12px;letter-spacing:.26em;color:var(--gold-2);min-width:130px;text-align:center}
+.rc-hint{text-align:center;color:rgba(255,240,214,.5);font-size:11.5px;letter-spacing:.2em;font-family:var(--ff-label);margin-top:16px}
 
-/* ═══ WAY 13 · THE LOUPE ══════════════════════════════════════════════ */
-.lp-sec{background:linear-gradient(180deg,#150509,#0d0306);padding:60px 0 56px;position:relative}
-.lp-head{text-align:center;margin-bottom:36px}
-.lp-head h2{color:#fff6de;font-size:clamp(28px,3.8vw,46px)}
-.lp-head p{color:rgba(255,240,214,.66);font-size:14.5px;margin-top:6px}
-.lp-wall{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:min(880px,92vw);margin:0 auto;position:relative}
-@media(hover:hover){.lp-wall{cursor:none}}
-.lp-tile{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:4/5;border:1px solid rgba(212,175,90,.22);background:#000;padding:0}
-.lp-tile img{width:100%;height:100%;object-fit:cover;filter:brightness(.5) saturate(.55);transition:filter .35s}
-.lp-tile:hover img{filter:brightness(.62) saturate(.7)}
-.lp-tile .lp-name{position:absolute;left:12px;bottom:11px;color:#fff6de;font-family:var(--ff-disp);font-size:19px;text-shadow:0 2px 12px rgba(0,0,0,.8);pointer-events:none}
-.lp-loupe{position:absolute;top:0;left:0;width:230px;height:230px;border-radius:50%;overflow:hidden;border:2px solid var(--gold-2);box-shadow:0 0 0 6px rgba(212,175,90,.14),0 30px 60px rgba(0,0,0,.65),inset 0 0 30px rgba(0,0,0,.35);opacity:0;transition:opacity .35s;pointer-events:none;z-index:6;will-change:transform}
-.lp-loupe video{position:absolute;will-change:width,height,left,top}
-.lp-loupe .lp-rim{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);font-family:var(--ff-label);font-size:8.5px;letter-spacing:.3em;color:#ffe9bd;text-shadow:0 1px 6px #000;white-space:nowrap}
-.lp-hint{text-align:center;color:rgba(255,240,214,.5);font-size:11.5px;letter-spacing:.2em;font-family:var(--ff-label);margin-top:26px}
-@media(max-width:700px){.lp-loupe{width:170px;height:170px}}
+/* ═══ WAY 18 · THE COMPARE ════════════════════════════════════════════ */
+.cmp-sec{background:linear-gradient(180deg,#faf6ef,#f4ecdd);padding:56px 0 54px}
+.cmp-head{text-align:center;margin-bottom:30px}
+.cmp-head h2{font-size:clamp(28px,3.8vw,46px)}
+.cmp-head p{color:var(--ink-2);font-size:14.5px;margin-top:6px}
+.cmp-stage{--x:50%;position:relative;height:min(66vh,600px);min-height:380px;border-radius:18px;overflow:hidden;border:1px solid var(--gold-soft);box-shadow:var(--sh-3);cursor:ew-resize;touch-action:pan-y;user-select:none;-webkit-user-select:none;background:#000}
+.cmp-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .3s}
+.cmp-stage .flicking{opacity:.15}
+.cmp-b{clip-path:inset(0 0 0 var(--x))}
+.cmp-bar{position:absolute;top:0;bottom:0;left:var(--x);width:2px;background:linear-gradient(180deg,transparent,#f3d98f 18%,#fff3d0 50%,#f3d98f 82%,transparent);z-index:4;pointer-events:none}
+.cmp-handle{position:absolute;top:50%;left:var(--x);transform:translate(-50%,-50%) rotate(45deg);width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#f3d98f,#b98a2f);border:2px solid #fff3d0;box-shadow:0 10px 26px rgba(61,14,21,.45);z-index:5;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.cmp-handle span{transform:rotate(-45deg);color:#3d0e15;font-size:15px;font-family:var(--ff-label)}
+.cmp-tag{position:absolute;bottom:16px;z-index:3;font-family:var(--ff-disp);font-style:italic;font-weight:500;font-size:clamp(22px,3.4vw,38px);color:#fff6de;text-shadow:0 2px 16px rgba(0,0,0,.75);background:none;border:none;cursor:pointer;transition:opacity .3s}
+.cmp-tag:hover{color:#ffe9bd}
+.cmp-tag.l{left:20px}
+.cmp-tag.r{right:20px}
+.cmp-shade{position:absolute;inset:0;background:linear-gradient(0deg,rgba(10,3,5,.5),transparent 34%);z-index:2;pointer-events:none}
+.cmp-picks{display:flex;justify-content:center;gap:clamp(16px,3vw,44px);margin-top:24px;flex-wrap:wrap}
+.cmp-side{display:flex;align-items:center;gap:10px}
+.cmp-side small{font-family:var(--ff-label);font-size:10px;letter-spacing:.22em;color:var(--ink-3)}
+.cmp-chip{width:44px;height:44px;border-radius:99px;padding:2px;border:1px solid var(--line);background:var(--white);transition:.3s;overflow:hidden}
+.cmp-chip img{width:100%;height:100%;object-fit:cover;border-radius:99px}
+.cmp-chip.on{border-color:var(--gold-2);box-shadow:0 0 0 3px rgba(212,175,90,.25)}
+.cmp-chip:hover{transform:translateY(-2px)}
+.cmp-hint{text-align:center;font-size:11.5px;letter-spacing:.18em;color:var(--ink-3);font-family:var(--ff-label);margin-top:18px}
 
-/* ═══ WAY 14 · SWIPE DECK ═════════════════════════════════════════════ */
-.dk-sec{background:radial-gradient(700px 460px at 50% 0%,#fdf8ee,#f6efe1 70%);padding:58px 0 54px}
-.dk-head{text-align:center;margin-bottom:30px}
-.dk-head h2{font-size:clamp(28px,3.8vw,46px)}
-.dk-head p{color:var(--ink-2);font-size:14.5px;margin-top:6px}
-.dk-stage{position:relative;display:flex;flex-direction:column;align-items:center}
-.dk-stack{position:relative;width:min(270px,72vw);height:min(480px,128vw)}
-.dk-card{position:absolute;inset:0;border-radius:20px;overflow:hidden;background:#000;border:1px solid var(--gold-soft);box-shadow:0 24px 60px rgba(61,14,21,.28);cursor:grab;touch-action:none;will-change:transform;user-select:none;-webkit-user-select:none}
-.dk-card:active{cursor:grabbing}
-.dk-card video,.dk-card img{width:100%;height:100%;object-fit:cover;pointer-events:none}
-.dk-card .dk-name{position:absolute;left:0;right:0;bottom:14px;text-align:center;color:#fff6de;font-family:var(--ff-disp);font-size:22px;text-shadow:0 2px 12px rgba(0,0,0,.8);pointer-events:none}
-.dk-card .dk-no{position:absolute;top:10px;left:10px;font-family:var(--ff-label);font-size:10px;letter-spacing:.22em;color:#ffe9bd;background:rgba(16,5,8,.55);padding:6px 10px;border-radius:99px;pointer-events:none}
-.dk-stamp{position:absolute;top:26px;font-family:var(--ff-label);font-size:15px;letter-spacing:.2em;padding:9px 16px;border-radius:8px;border:2px solid;transform:rotate(-12deg);opacity:0;pointer-events:none}
-.dk-stamp.keep{left:20px;color:#2e7d4f;border-color:#2e7d4f;background:rgba(46,125,79,.12)}
-.dk-stamp.nope{right:20px;color:#a32638;border-color:#a32638;background:rgba(163,38,56,.12);transform:rotate(12deg)}
-.dk-card[data-d="1"]{transform:translateY(14px) scale(.955) rotate(3.5deg)}
-.dk-card[data-d="2"]{transform:translateY(28px) scale(.91) rotate(-3deg)}
-.dk-card[data-d="3"]{transform:translateY(42px) scale(.865) rotate(4deg);opacity:.55}
-.dk-ui{display:flex;align-items:center;gap:18px;margin-top:64px}
-.dk-btn{width:56px;height:56px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:21px;transition:.25s;border:1px solid var(--line);background:var(--white);box-shadow:var(--sh-1)}
-.dk-btn.nope{color:#a32638}
-.dk-btn.keep{color:#2e7d4f}
-.dk-btn:hover{transform:translateY(-3px);box-shadow:var(--sh-2)}
-.dk-count{font-family:var(--ff-label);font-size:12px;letter-spacing:.24em;color:var(--ink-2);text-align:center;min-width:120px}
-.dk-count b{display:block;font-size:17px;color:var(--maroon-deep);letter-spacing:.1em}
-.dk-hint{margin-top:16px;font-size:11.5px;letter-spacing:.18em;color:var(--ink-3);font-family:var(--ff-label)}
+/* ═══ WAY 19 · KINETIC BANDS ══════════════════════════════════════════ */
+.kb-sec{background:#0c0305;padding:0 0 8px;position:relative;overflow:hidden}
+.kb-bar{height:clamp(22px,3.4vh,34px);background:#0c0305;border-top:1px solid rgba(212,175,90,.25);border-bottom:1px solid rgba(212,175,90,.25);position:relative;z-index:3}
+.kb-band{overflow:hidden;padding:clamp(6px,1.2vh,12px) 0;position:relative}
+.kb-track{display:inline-flex;white-space:nowrap;will-change:transform}
+.kb-track span{font-family:var(--ff-disp);font-weight:600;font-size:clamp(44px,7.4vw,104px);line-height:1;letter-spacing:.01em;padding-right:.6em}
+.kb-track .o{color:transparent;-webkit-text-stroke:1px rgba(212,175,90,.6)}
+.kb-track .f{color:#e8c877}
+.kb-track .i{font-style:italic;font-weight:500;color:#fff3d0}
+.kb-films{display:flex;justify-content:center;gap:clamp(16px,2.6vw,34px);padding:clamp(22px,4vh,44px) 4vw;position:relative;z-index:2}
+.kb-card{flex:none;width:min(212px,54vw);aspect-ratio:9/16;border-radius:16px;overflow:hidden;position:relative;border:1px solid rgba(212,175,90,.4);box-shadow:0 30px 70px rgba(0,0,0,.55);cursor:pointer;opacity:0;transform:translateY(40px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.kb-card.in{opacity:1;transform:none}
+.kb-card:nth-child(2){margin-top:clamp(18px,4vh,52px)}
+.kb-card:nth-child(4){margin-top:clamp(18px,4vh,52px)}
+.kb-card video{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.kb-card .kb-name{position:absolute;left:0;right:0;bottom:12px;text-align:center;color:#fff6de;font-family:var(--ff-disp);font-size:19px;text-shadow:0 2px 12px rgba(0,0,0,.8);pointer-events:none}
+.kb-cta{display:block;text-align:center;font-family:var(--ff-label);letter-spacing:.3em;font-size:12px;color:#ffe9bd;padding:clamp(18px,3.4vh,30px) 0 clamp(30px,5vh,44px)}
 
-/* ═══ WAY 15 · THE CHANNEL ════════════════════════════════════════════ */
-.ch-sec{background:linear-gradient(180deg,#160509,#0d0306);padding:58px 0 60px;position:relative}
-.ch-head{text-align:center;margin-bottom:34px}
-.ch-head h2{color:#fff6de;font-size:clamp(28px,3.8vw,46px)}
-.ch-head p{color:rgba(255,240,214,.66);font-size:14.5px;margin-top:6px}
-.ch-tv{width:min(430px,88vw);margin:0 auto;background:linear-gradient(160deg,#5b1722,#3d0e15);border:1px solid rgba(212,175,90,.4);border-radius:28px;padding:18px 18px 14px;box-shadow:0 44px 110px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,233,189,.18)}
-.ch-screen{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:9/16;max-height:62vh;margin:0 auto}
-.ch-screen video{width:100%;height:100%;object-fit:cover}
-.ch-badge{position:absolute;top:12px;left:12px;font-family:var(--ff-label);font-size:11px;letter-spacing:.22em;color:#1d0509;background:linear-gradient(180deg,#f3d98f,#d8b45e);padding:7px 12px;border-radius:8px;z-index:3}
-.ch-live{position:absolute;top:12px;right:12px;font-family:var(--ff-label);font-size:10px;letter-spacing:.2em;color:#ffdfdf;background:rgba(163,38,56,.85);padding:6px 10px;border-radius:8px;display:flex;align-items:center;gap:6px;z-index:3}
-.ch-live i{width:6px;height:6px;border-radius:99px;background:#ff9fa9;animation:pulse 1.6s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.ch-scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);pointer-events:none;z-index:2}
-.ch-screen.flick{animation:flick .28s steps(2) 1}
-@keyframes flick{0%{filter:brightness(.2)}50%{filter:brightness(1.4)}100%{filter:none}}
-.ch-controls{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap}
-.ch-ch{font-family:var(--ff-label);font-size:12px;letter-spacing:.14em;color:var(--gold-soft);border:1px solid rgba(212,175,90,.4);background:rgba(16,5,8,.35);width:42px;height:42px;border-radius:10px;transition:.25s;display:flex;align-items:center;justify-content:center}
-.ch-ch:hover{border-color:var(--gold-2);color:#fff3d0}
-.ch-ch.on{background:linear-gradient(180deg,#f3d98f,#d8b45e);color:#1d0509;border-color:#f3d98f}
-.ch-tool{width:42px;height:42px;border-radius:10px;border:1px solid rgba(212,175,90,.4);color:var(--gold-soft);display:flex;align-items:center;justify-content:center;transition:.25s;font-size:16px}
-.ch-tool:hover{border-color:var(--gold-2);color:#fff3d0}
-.ch-tool svg{width:17px;height:17px}
-.ch-marquee{overflow:hidden;background:rgba(16,5,8,.55);border:1px solid rgba(212,175,90,.28);border-radius:99px;margin-top:14px;padding:8px 0}
-.ch-marquee div{display:inline-flex;white-space:nowrap;font-family:var(--ff-label);font-size:10.5px;letter-spacing:.3em;color:var(--gold-2);animation:marq 16s linear infinite;will-change:transform}
-@keyframes marq{to{transform:translateX(-50%)}}
-.ch-mini{position:fixed;bottom:18px;right:18px;width:148px;border-radius:14px;overflow:hidden;box-shadow:0 26px 60px rgba(0,0,0,.6);border:1px solid var(--gold-2);z-index:120;background:#000;cursor:pointer}
-.ch-mini[hidden]{display:none}
-.ch-mini video{width:100%;aspect-ratio:9/16;object-fit:cover}
-.ch-mini .ch-mini-badge{position:absolute;top:8px;left:8px;font-family:var(--ff-label);font-size:9px;letter-spacing:.2em;color:#1d0509;background:linear-gradient(180deg,#f3d98f,#d8b45e);padding:4px 8px;border-radius:6px}
-.ch-mini .ch-mini-close{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:99px;background:rgba(16,5,8,.65);color:#ffe9bd;font-size:12px;display:flex;align-items:center;justify-content:center;z-index:3}
-.ch-mini .ch-mini-pop{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(0deg,rgba(10,3,5,.8),transparent);color:#ffe9bd;font-family:var(--ff-label);font-size:9px;letter-spacing:.18em;text-align:center;padding:14px 0 7px}
-.ch-note{text-align:center;color:rgba(255,240,214,.45);font-size:11.5px;letter-spacing:.18em;font-family:var(--ff-label);margin-top:24px}
+/* ═══ WAY 20 · GOLD DUST WALL ═════════════════════════════════════════ */
+.gd-sec{position:relative;background:#0b0204;padding:60px 0 62px;overflow:hidden;min-height:76vh}
+.gd-canvas{position:absolute;inset:0;width:100%;height:100%}
+.gd-head{text-align:center;margin-bottom:40px;position:relative;z-index:2}
+.gd-head h2{color:#fff6de;font-size:clamp(28px,3.8vw,46px)}
+.gd-head p{color:rgba(255,240,214,.66);font-size:14.5px;margin-top:6px}
+.gd-row{display:flex;justify-content:center;gap:clamp(18px,3vw,40px);position:relative;z-index:2;padding:0 4vw}
+.gd-film{flex:none;width:min(196px,44vw);aspect-ratio:9/16;border-radius:16px;overflow:hidden;position:relative;border:1px solid rgba(212,175,90,.45);box-shadow:0 0 0 1px rgba(212,175,90,.12),0 30px 74px rgba(0,0,0,.6);cursor:pointer;animation:gdFloat 8s ease-in-out infinite;transition:box-shadow .5s var(--ease)}
+.gd-film:nth-child(2){animation-delay:-2.6s}
+.gd-film:nth-child(3){animation-delay:-5.2s}
+.gd-film:nth-child(4){animation-delay:-7s}
+@keyframes gdFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.gd-film:hover{box-shadow:0 0 0 1px var(--gold-2),0 0 44px rgba(212,175,90,.35),0 30px 74px rgba(0,0,0,.6)}
+.gd-film video{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.gd-film .gd-name{position:absolute;left:0;right:0;bottom:12px;text-align:center;color:#fff6de;font-family:var(--ff-disp);font-size:19px;text-shadow:0 2px 12px rgba(0,0,0,.85);pointer-events:none}
+.gd-hint{text-align:center;color:rgba(255,240,214,.5);font-size:11.5px;letter-spacing:.2em;font-family:var(--ff-label);margin-top:34px;position:relative;z-index:2}
+@media(max-width:760px){.gd-row{flex-wrap:wrap;gap:22px}.gd-film{width:min(158px,42vw)}}
 
 /* ── footer ──────────────────────────────────────────────────────────── */
 .pv-foot{padding:60px 0 80px;text-align:center}
 .pv-foot h2{font-size:clamp(28px,3.6vw,44px);margin:12px 0}
-.pv-foot p{color:var(--ink-2);max-width:680px;margin:0 auto 26px;font-size:16px}
+.pv-foot p{color:var(--ink-2);max-width:700px;margin:0 auto 26px;font-size:16px}
 
 /* ═══ REEL VIEWER (shared · FLIP zoom) ═══════════════════════════════ */
 .reel-viewer{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center}
@@ -232,7 +221,8 @@ h1,h2,h3{font-family:var(--ff-disp);font-weight:600;color:var(--maroon-deep);lin
   .rv-tools{top:14px;left:14px}
 }
 @media (prefers-reduced-motion:reduce){
-  .ch-marquee div,.ch-live i,.ch-screen.flick{animation:none}
+  .mk-frame,.gd-film,.kb-card{animation:none!important}
+  .rc-card{transition:none!important}
 }
 </style>
 </head>
@@ -241,13 +231,14 @@ h1,h2,h3{font-family:var(--ff-disp);font-weight:600;color:var(--maroon-deep);lin
 <!-- ═══════════ TOP BAR ═══════════ -->
 <header class="topbar">
   <div class="topbar-in">
-    <div class="brand">SHIVAA <b>·</b> FILMS <b>·</b> III</div>
+    <div class="brand">SHIVAA <b>·</b> FILMS <b>·</b> IV</div>
     <nav class="topnav">
-      <a href="#w11"><b>11</b> Film Highway</a>
-      <a href="#w12"><b>12</b> Gold Thread</a>
-      <a href="#w13"><b>13</b> The Loupe</a>
-      <a href="#w14"><b>14</b> Swipe Deck</a>
-      <a href="#w15"><b>15</b> The Channel</a>
+      <a href="#w16"><b>16</b> Molten Gallery</a>
+      <a href="#w17"><b>17</b> Revolving Case</a>
+      <a href="#w18"><b>18</b> The Compare</a>
+      <a href="#w19"><b>19</b> Kinetic Bands</a>
+      <a href="#w20"><b>20</b> Gold Dust</a>
+      <a href="round3.html"><b>★</b> Round 3 · 11–15</a>
       <a href="round2.html"><b>★</b> Round 2 · 6–10</a>
       <a href="simple.html"><b>★</b> Round 1 · 1–5</a>
     </nav>
@@ -256,201 +247,185 @@ h1,h2,h3{font-family:var(--ff-disp);font-weight:600;color:var(--maroon-deep);lin
 
 <!-- ═══════════ INTRO ═══════════ -->
 <section class="intro container">
-  <span class="label">Round 3 · The wild set</span>
-  <h1>Five more. <span class="disp-italic">The wildest</span> five.</h1>
-  <p>New ground, nothing repeated: a highway that travels sideways as you scroll, a thread of gold that draws itself through the story, a jeweller's loupe with live film inside the lens, a deck of films you can physically throw — and a TV channel that follows you down the page.</p>
-  <div class="standnote">⚠ Same stand-in footage (AI) as before — your four real 9:16 films drop straight in. House rules unchanged: muted till tapped, poster-first, plays only while on screen.</div>
+  <span class="label">Round 4 · The gallery set</span>
+  <h1>Five more. <span class="disp-italic">Pure graphics.</span></h1>
+  <p>Molten gold that never settles, a display case you spin with your own hand, a split screen you tear open, typography that moves with your scroll, and a wall of gold dust that swirls at your touch. Generative and cinematic — no plugins, no heavy libraries.</p>
+  <div class="standnote">⚠ Stand-in footage (AI) as always — your four real 9:16 films drop straight in. House rules unchanged: muted till tapped, poster-first, plays only while on screen.</div>
+  <div class="compat">📱 Built for thumb &amp; trackpad — every way works on phone and laptop</div>
 </section>
 
-<!-- ═══════════ WAY 11 · FILM HIGHWAY ═══════════ -->
-<section class="way container" id="w11">
+<!-- ═══════════ WAY 16 · MOLTEN GALLERY ═══════════ -->
+<section class="way container" id="w16">
   <div class="way-head">
-    <div class="way-num">11</div>
+    <div class="way-num">16</div>
     <div>
-      <span class="label">Scroll, sideways</span>
-      <h2>The Film Highway <span class="disp-italic">— the road runs left</span></h2>
-      <p>The screen pins itself, and your <em>downward</em> scroll drives the films <em>sideways</em> down a dark highway — ghost chapter names sliding the other way, a progress line marking the road.</p>
-      <span class="place-chip">Sits: a full-screen act between the category slider and Bestsellers</span>
+      <span class="label">Liquid gold</span>
+      <h2>The Molten Gallery <span class="disp-italic">— films that never settle</span></h2>
+      <p>Four films float inside slowly <em>morphing molten-gold frames</em> — organic shapes that breathe and drift like drops of gold — over a living field of warm bokeh light.</p>
+      <span class="place-chip">Sits: the hero act — right under the banner</span>
+      <span class="place-chip">Works: mouse + touch</span>
     </div>
   </div>
 
-  <div class="way-demo hw-wrap" id="hwWrap">
-    <div class="hw-stage">
-      <div class="hw-track" id="hwTrack"></div>
-      <div class="hw-hint" id="hwHint">KEEP SCROLLING — THE ROAD RUNS SIDEWAYS →</div>
-      <div class="hw-progress"><i id="hwFill"></i></div>
-      <button class="hw-skip" id="hwSkip">SKIP →</button>
+  <div class="way-demo mk-sec" id="mkSec">
+    <canvas class="mk-bokeh" id="mkBokeh" aria-hidden="true"></canvas>
+    <div class="mk-head">
+      <span class="label" style="color:var(--gold-2)">Poured, not placed</span>
+      <h2>Gold takes <span class="disp-italic">its own shape</span></h2>
+      <p>The frames above morph forever — no two moments alike.</p>
     </div>
+    <div class="mk-row" id="mkRow"></div>
   </div>
 
   <div class="way-notes">
-    <div class="n-what"><b>What it is</b><p>A scroll-jacked horizontal gallery: the four films ride across the screen as you scroll down, giant outlined chapter names parallaxing past in the opposite direction.</p></div>
-    <div class="n-why"><b>Why it works</b><p>Side-to-side feels like a journey, and the surprise of “scrolling down moves me sideways” is the kind of moment people show a friend. Works beautifully on phones.</p></div>
-    <div class="n-watch"><b>Watch-outs</b><p>It holds the scroll for a few swipes — Skip button included, and it collapses to a simple swipeable row on old phones or reduced-motion settings.</p></div>
+    <div class="n-what"><b>What it is</b><p>Each film lives in a generative blob frame — a gold-gradient border whose organic shape morphs endlessly (each on its own clock), gently bobbing, over a canvas of drifting warm bokeh.</p></div>
+    <div class="n-why"><b>Why it works</b><p>It's the visual language of molten gold and luxury skincare ads — soft, alive, impossible to screenshot the same way twice. Feels expensive without shouting.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>All GPU-cheap transforms (morph + bob are pure CSS; bokeh is one light canvas). On phones the row wraps to 2×2 and the bokeh halves. Reduced-motion: everything gently stills.</p></div>
   </div>
 </section>
 
-<!-- ═══════════ WAY 12 · GOLD THREAD ═══════════ -->
-<section class="way container" id="w12">
+<!-- ═══════════ WAY 17 · REVOLVING CASE ═══════════ -->
+<section class="way container" id="w17">
   <div class="way-head">
-    <div class="way-num">12</div>
+    <div class="way-num">17</div>
     <div>
-      <span class="label">The story line</span>
-      <h2>The Gold Thread <span class="disp-italic">— one line, four chapters</span></h2>
-      <p>A single thread of gold draws itself down the page as you scroll, weaving between the four films — and each film <em>ignites</em> the moment the thread reaches it. Because every piece does begin as one thread of gold.</p>
-      <span class="place-chip">Sits: the storytelling heart of the homepage, after Bestsellers</span>
+      <span class="label">The display case</span>
+      <h2>The Revolving Case <span class="disp-italic">— spin it yourself</span></h2>
+      <p>A real 3D display case: the four films stand in a ring you can <em>spin with your hand</em> — drag it, throw it, watch it coast with inertia and settle facing the film you chose. Only the front film plays.</p>
+      <span class="place-chip">Sits: the centrepiece between Bestsellers and New Arrivals</span>
+      <span class="place-chip">Works: drag on laptop, swipe on phone</span>
     </div>
   </div>
 
-  <div class="way-demo gt-sec" id="gtSec">
-    <svg class="gt-svg" viewBox="0 0 400 1700" preserveAspectRatio="none" aria-hidden="true">
-      <defs><linearGradient id="gtGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a6a24"/><stop offset=".5" stop-color="#e8c877"/><stop offset="1" stop-color="#8a6a24"/></linearGradient></defs>
-      <path class="gt-ghost" d="M200,0 C345,150 55,280 200,430 C345,580 55,710 200,860 C345,1010 55,1140 200,1290 C345,1440 55,1560 200,1700"/>
-      <path class="gt-draw" id="gtPath" d="M200,0 C345,150 55,280 200,430 C345,580 55,710 200,860 C345,1010 55,1140 200,1290 C345,1440 55,1560 200,1700"/>
-    </svg>
-    <div class="container">
-      <div class="gt-intro">
-        <span class="label">Follow the thread</span>
-        <h3>Everything begins as <span class="disp-italic">one thread of gold</span></h3>
-        <p>Scroll slowly — the thread draws itself, and the films wake as it passes.</p>
-      </div>
-      <div class="gt-items" id="gtItems"></div>
+  <div class="way-demo rc-sec">
+    <div class="rc-head">
+      <span class="label" style="color:var(--gold-2)">Pick it up</span>
+      <h2>Turn the <span class="disp-italic">case</span></h2>
+      <p>Drag the case sideways — throw it, it coasts. Or use the arrows.</p>
     </div>
+    <div class="rc-stage" id="rcStage">
+      <div class="rc-ring" id="rcRing"></div>
+      <div class="rc-glow"></div>
+    </div>
+    <div class="rc-ui">
+      <button class="rc-arrow" id="rcPrev" aria-label="Previous film">‹</button>
+      <div class="rc-count" id="rcCount">01 / 04 · THE CRAFT</div>
+      <button class="rc-arrow" id="rcNext" aria-label="Next film">›</button>
+    </div>
+    <div class="rc-hint">DRAG TO SPIN · TAP THE FRONT FILM TO OPEN FULL-SCREEN</div>
   </div>
 
   <div class="way-notes">
-    <div class="n-what"><b>What it is</b><p>A scroll-drawn golden line (real SVG, drawing itself stroke by stroke) that weaves left and right through the four films, lighting each one — film, frame and caption — as it arrives.</p></div>
-    <div class="n-why"><b>Why it works</b><p>It turns four separate videos into one continuous story, and the metaphor is the product: gold, drawn into form. Calm, premium, unforgettable.</p></div>
-    <div class="n-watch"><b>Watch-outs</b><p>The quietest of the wild set — it needs scroll room to breathe, so it earns its place as a full act, not a strip. Films play only once lit, saving data.</p></div>
+    <div class="n-what"><b>What it is</b><p>A 3D cylinder of the four films with true physics — drag velocity, coasting inertia, magnetic snap to the nearest film. Cards dim and brighten by their angle; the front film plays, the rest wait.</p></div>
+    <div class="n-why"><b>Why it works</b><p>It recreates the exact gesture of turning a jewellery display in your hand. The single most physical, satisfying interaction of all twenty ways — identical on thumb and mouse.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>Vertical page scroll stays free (only horizontal drags spin). Reduced-motion gets arrows-only, no coast. One film plays at a time — the lightest of the wild ways.</p></div>
   </div>
 </section>
 
-<!-- ═══════════ WAY 13 · THE LOUPE ═══════════ -->
-<section class="way container" id="w13">
+<!-- ═══════════ WAY 18 · THE COMPARE ═══════════ -->
+<section class="way container" id="w18">
   <div class="way-head">
-    <div class="way-num">13</div>
+    <div class="way-num">18</div>
     <div>
-      <span class="label">Inspect it like a jeweller</span>
-      <h2>The Loupe <span class="disp-italic">— live film in the lens</span></h2>
-      <p>The four films hang dim on a dark wall — until you raise the jeweller's loupe. Inside the lens the wall is <em>alive and magnified</em>: glide it across a film and it plays, right under the glass.</p>
-      <span class="place-chip">Sits: the inspection moment — after the rates strip, before the catalogue</span>
+      <span class="label">Two films, one screen</span>
+      <h2>The Compare <span class="disp-italic">— tear the screen open</span></h2>
+      <p>Two films share one screen, split by a gold seam with a diamond handle. <em>Drag it anywhere</em> to tear between them — The Craft against The Bride — and pick any two of the four films to face each other.</p>
+      <span class="place-chip">Sits: the bridal act — “two looks, one you”</span>
+      <span class="place-chip">Works: drag on laptop, slide on phone</span>
     </div>
   </div>
 
-  <div class="way-demo lp-sec" id="lpSec">
-    <div class="lp-head">
-      <span class="label" style="color:var(--gold-2)">10× · live lens</span>
-      <h2>Look <span class="disp-italic">closer</span></h2>
-      <p>Glide the loupe across the wall — the films play inside the lens.</p>
+  <div class="way-demo cmp-sec">
+    <div class="cmp-head">
+      <span class="label">Side by side</span>
+      <h2>Which one is <span class="disp-italic">you</span>?</h2>
+      <p>Drag the gold seam. Tap a title to open that film full-screen.</p>
     </div>
-    <div class="lp-wall" id="lpWall"></div>
-    <div class="lp-loupe" id="lpLoupe">
-      <video id="lpVideo" muted loop playsinline preload="auto"></video>
-      <span class="lp-rim">✦ SHIVAA · LOUPE · 10× ✦</span>
+    <div class="cmp-stage" id="cmpStage">
+      <video id="cmpA" muted loop playsinline preload="metadata" poster="assets/p1.jpg" data-io></video>
+      <video id="cmpB" class="cmp-b" muted loop playsinline preload="metadata" poster="assets/p2.jpg" data-io></video>
+      <div class="cmp-shade"></div>
+      <button class="cmp-tag l" id="cmpTagL">The Craft</button>
+      <button class="cmp-tag r" id="cmpTagR">The Bridal House</button>
+      <div class="cmp-bar"></div>
+      <div class="cmp-handle"><span>⇄</span></div>
     </div>
-    <div class="lp-hint">GLIDE THE LOUPE · TAP A FILM TO OPEN IT FULL-SCREEN</div>
+    <div class="cmp-picks" id="cmpPicks"></div>
+    <div class="cmp-hint">CHOOSE THE TWO FILMS · DRAG THE SEAM ANYWHERE · VERTICAL SCROLL STAYS FREE</div>
   </div>
 
   <div class="way-notes">
-    <div class="n-what"><b>What it is</b><p>A real magnifying lens that follows your cursor (or thumb): inside the glass, the film under it plays live at 1.75× — the rest of the wall stays dim and still. Tap to open full-screen.</p></div>
-    <div class="n-why"><b>Why it works</b><p>It's the single most on-brand interaction of all fifteen ways — this is literally how your customers inspect gold. Browsing becomes appraising.</p></div>
-    <div class="n-watch"><b>Watch-outs</b><p>Only one video stream ever plays (the one in the lens); the wall itself is posters. The lens lags a touch on purpose — it feels weighted, like a real tool.</p></div>
+    <div class="n-what"><b>What it is</b><p>A draggable split screen — clip-path reveal, gold seam, diamond handle — plus pickers to stage any two of your four films against each other. Both films play; the seam is yours.</p></div>
+    <div class="n-why"><b>Why it works</b><p>Compare sliders are the internet's favourite toy, and no jeweller uses one for films. “Classic you vs bridal you” is a decision — and decisions convert.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>The seam clamps so it can never hide a film completely. Vertical scrolling passes straight through on phones; only the horizontal drag moves the seam.</p></div>
   </div>
 </section>
 
-<!-- ═══════════ WAY 14 · SWIPE DECK ═══════════ -->
-<section class="way container" id="w14">
+<!-- ═══════════ WAY 19 · KINETIC BANDS ═══════════ -->
+<section class="way container" id="w19">
   <div class="way-head">
-    <div class="way-num">14</div>
+    <div class="way-num">19</div>
     <div>
-      <span class="label">Films you can hold</span>
-      <h2>The Swipe Deck <span class="disp-italic">— throw the film away</span></h2>
-      <p>A physical deck of the four films. Drag the top card any direction — it tilts with your hand — and <em>throw</em> it off the pile to reveal the next. Or keep it, with a gold stamp.</p>
-      <span class="place-chip">Sits: the playful heart of the homepage — or a Diwali campaign moment</span>
+      <span class="label">Type in motion</span>
+      <h2>The Kinetic Bands <span class="disp-italic">— the page has a pulse</span></h2>
+      <p>Cinema letterbox bars, then two giant type bands — outlined gold, solid cream, italic serif — rolling opposite ways, and their speed <em>breathes with your scroll</em>: scroll fast, the words race; stop, they glide. The films ride between the bands.</p>
+      <span class="place-chip">Sits: the full-width statement after the rates strip</span>
+      <span class="place-chip">Works: wheel + touch scroll</span>
     </div>
   </div>
 
-  <div class="way-demo dk-sec">
-    <div class="dk-head">
-      <span class="label">Pick like cards</span>
-      <h2>Keep it, or <span class="disp-italic">next</span></h2>
-      <p>Drag the top card — throw it either way. Tap it to watch full-screen.</p>
-    </div>
-    <div class="dk-stage">
-      <div class="dk-stack" id="dkStack"></div>
-      <div class="dk-ui">
-        <button class="dk-btn nope" id="dkNope" aria-label="Next film">✕</button>
-        <div class="dk-count"><b id="dkCount">01 / 04</b>KEPT <span id="dkKeeps">0</span></div>
-        <button class="dk-btn keep" id="dkKeep" aria-label="Keep film">♥</button>
-      </div>
-      <div class="dk-hint">DRAG THE CARD · OR USE THE BUTTONS · THE DECK RESHUFFLES FOREVER</div>
-    </div>
+  <div class="way-demo kb-sec" id="kbSec">
+    <div class="kb-bar"></div>
+    <div class="kb-band" id="kbBandA"><div class="kb-track" id="kbTrackA"></div></div>
+    <div class="kb-films" id="kbFilms"></div>
+    <div class="kb-band" id="kbBandB"><div class="kb-track" id="kbTrackB"></div></div>
+    <div class="kb-bar"></div>
+    <div class="kb-cta">SHIVAA.IN · WEAR YOUR HERITAGE</div>
   </div>
 
   <div class="way-notes">
-    <div class="n-what"><b>What it is</b><p>Tinder-style physics: the card follows your finger with rotation and inertia, stamps itself KEEP or NEXT as you swing it, and flies off with a spring. The deck reshuffles endlessly.</p></div>
-    <div class="n-why"><b>Why it works</b><p>It's the most playful thing on any jeweller's site, and play converts — every throw is a decision, and decisions are engagement. A natural fit for campaign seasons.</p></div>
-    <div class="n-watch"><b>Watch-outs</b><p>Only the top card plays video; the rest are posters (light). A tap — never a drag — opens the film, so throwing never accidentally opens.</p></div>
+    <div class="n-what"><b>What it is</b><p>Fashion-house kinetic typography: two infinite type bands (one left, one right) whose speed is literally driven by your scroll velocity, with the four films staggered between them inside cinema letterboxing.</p></div>
+    <div class="n-why"><b>Why it works</b><p>The page feels alive under your finger or wheel — that responsiveness is what separates modern from dated. And big serif gold type <em>is</em> the Shivaa brand voice.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>Bands stop dead when the section is off-screen; reduced-motion shows static type with the films intact. The type is décor — real text stays selectable nowhere near this effect.</p></div>
   </div>
 </section>
 
-<!-- ═══════════ WAY 15 · THE CHANNEL ═══════════ -->
-<section class="way container" id="w15">
+<!-- ═══════════ WAY 20 · GOLD DUST WALL ═══════════ -->
+<section class="way container" id="w20">
   <div class="way-head">
-    <div class="way-num">15</div>
+    <div class="way-num">20</div>
     <div>
-      <span class="label">The most practical wild one</span>
-      <h2>The Shivaa Channel <span class="disp-italic">— TV that follows you</span></h2>
-      <p>A proper television: gold-trimmed set, channel buttons, a “now showing” ticker. Scroll past it and the film <em>docks into a corner mini-player</em> that keeps playing while you shop — one tap brings it back.</p>
-      <span class="place-chip">Sits: anywhere early — because it follows the visitor down the whole page</span>
+      <span class="label">Generative gold</span>
+      <h2>The Gold Dust Wall <span class="disp-italic">— a thousand motes of light</span></h2>
+      <p>A living canvas of up to nine hundred gold motes — drifting, twinkling, breathing with depth — and the four films floating in it. Move your hand through the dust and <em>it swirls around you</em> like sunlight in a dark showroom.</p>
+      <span class="place-chip">Sits: the closing art piece, before the footer</span>
+      <span class="place-chip">Works: cursor + thumb, particle count adapts</span>
     </div>
   </div>
 
-  <div class="way-demo ch-sec" id="chSec">
-    <div class="ch-head">
-      <span class="label" style="color:var(--gold-2)">Now showing</span>
-      <h2>The house, <span class="disp-italic">on air</span></h2>
-      <p>Change channels — then scroll past the set and watch what happens.</p>
+  <div class="way-demo gd-sec" id="gdSec">
+    <canvas class="gd-canvas" id="gdCanvas" aria-hidden="true"></canvas>
+    <div class="gd-head">
+      <span class="label" style="color:var(--gold-2)">Stir the light</span>
+      <h2>Sona chhayi <span class="disp-italic">hawa mein</span></h2>
+      <p>Move your cursor — or your thumb — through the dust.</p>
     </div>
-    <div class="ch-tv" id="chTv">
-      <div class="ch-screen" id="chScreen">
-        <video id="chVideo" muted loop playsinline preload="metadata" poster="assets/p1.jpg" data-io></video>
-        <div class="ch-scan"></div>
-        <span class="ch-badge" id="chBadge">CH 01</span>
-        <span class="ch-live"><i></i>ON AIR</span>
-      </div>
-      <div class="ch-controls">
-        <button class="ch-tool" id="chPrev" aria-label="Previous channel">‹</button>
-        <button class="ch-ch on" data-ch="0">1</button>
-        <button class="ch-ch" data-ch="1">2</button>
-        <button class="ch-ch" data-ch="2">3</button>
-        <button class="ch-ch" data-ch="3">4</button>
-        <button class="ch-tool" id="chNext" aria-label="Next channel">›</button>
-        <button class="ch-tool" id="chSnd" aria-label="Toggle sound"></button>
-        <button class="ch-tool" id="chFull" aria-label="Open full-screen">⛶</button>
-      </div>
-      <div class="ch-marquee"><div id="chMarquee"></div></div>
-    </div>
-    <div class="ch-note">SCROLL PAST THE SET — THE FILM DOCKS INTO A CORNER PLAYER</div>
-    <div class="ch-mini" id="chMini" hidden>
-      <span class="ch-mini-badge" id="chMiniBadge">CH 01</span>
-      <button class="ch-mini-close" id="chMiniClose" aria-label="Close mini player">✕</button>
-      <span class="ch-mini-pop">TAP TO RETURN TO THE SET</span>
-    </div>
+    <div class="gd-row" id="gdRow"></div>
+    <div class="gd-hint">DRIFT YOUR HAND THROUGH THE GOLD · TAP A FILM TO OPEN IT</div>
   </div>
 
   <div class="way-notes">
-    <div class="n-what"><b>What it is</b><p>A TV set for the house with four channels, a scanline shimmer and a gold ticker — plus the modern streaming trick: pass it by and the film docks into a corner mini-player that follows you, dismissible with one tap.</p></div>
-    <div class="n-why"><b>Why it works</b><p>People keep watching while they shop — the film literally travels with them through the catalogue. Of the wild set, this is the one built for conversions, not just applause.</p></div>
-    <div class="n-watch"><b>Watch-outs</b><p>The mini-player is small, muted and always closable — no hostage video. It pauses the moment it leaves the screen or the tab sleeps.</p></div>
+    <div class="n-what"><b>What it is</b><p>A real generative particle system — depth-blurred, twinkling gold dust on canvas — with a soft vortex that follows your pointer or thumb and stirs the motes around it. The films float in the field.</p></div>
+    <div class="n-why"><b>Why it works</b><p>It's the jewellery shop atmosphere itself: dust motes in a sunbeam over the counter. Zero images, pure code — the lightest “expensive” you can ship.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>Particles halve on phones and everything pauses off-screen or when the tab sleeps. Reduced-motion gets a still, starry field. No two visits render identically — that's the charm.</p></div>
   </div>
 </section>
 
 <!-- ═══════════ FOOTER ═══════════ -->
 <footer class="pv-foot container">
-  <span class="label">Fifteen ways, three rounds</span>
-  <h2>Wild picks: <span class="disp-italic">13 + 15</span>, or 11 alone</h2>
-  <p>My honest take on Round 3: <strong>Way 13 (The Loupe)</strong> is the most Shivaa thing ever put on a website, and <strong>Way 15 (The Channel)</strong> is the most practical. <strong>Way 11 (Highway)</strong> alone makes the homepage unforgettable. Mix freely with Rounds 1 and 2 — the front-page links above take you back.</p>
+  <span class="label">Twenty ways · four rounds</span>
+  <h2>Gallery picks: <span class="disp-italic">17 + 20</span></h2>
+  <p>Round 4 honest take: <strong>Way 17 (Revolving Case)</strong> is the most satisfying thing I can build for both phone and laptop, and <strong>Way 20 (Gold Dust)</strong> is the most beautiful. <strong>Way 18 (Compare)</strong> is the sleeper — the most practical of the five. Rounds 1–3 are one click up in the top bar.</p>
 </footer>
 
 <!-- ═══════════ REEL VIEWER (shared) ═══════════ -->
@@ -472,13 +447,12 @@ h1,h2,h3{font-family:var(--ff-disp);font-weight:600;color:var(--maroon-deep);lin
 <script>
 /* ═══ shared ═════════════════════════════════════════════════════════ */
 const FILMS=[
-  {file:'v1.mp4',poster:'p1.jpg',no:'01',title:'The Craft',sub:'22K macro study',cap:'Where every piece begins — in patient hands.'},
-  {file:'v2.mp4',poster:'p2.jpg',no:'02',title:'The Bridal House',sub:'Kundan couture',cap:'Dressing the moment a family keeps forever.'},
-  {file:'v3.mp4',poster:'p3.jpg',no:'03',title:'The Collection',sub:'Bangles, candle-lit',cap:'Warm metal, warmer light — the everyday gold.'},
-  {file:'v4.mp4',poster:'p4.jpg',no:'04',title:'The Details',sub:'Tikka & jhumka',cap:'The little things, looked at closely.'}
+  {file:'v1.mp4',poster:'p1.jpg',no:'01',title:'The Craft',sub:'22K macro study'},
+  {file:'v2.mp4',poster:'p2.jpg',no:'02',title:'The Bridal House',sub:'Kundan couture'},
+  {file:'v3.mp4',poster:'p3.jpg',no:'03',title:'The Collection',sub:'Bangles, candle-lit'},
+  {file:'v4.mp4',poster:'p4.jpg',no:'04',title:'The Details',sub:'Tikka & jhumka'}
 ];
 const REDUCED=(typeof matchMedia==='function')?matchMedia('(prefers-reduced-motion: reduce)').matches:false;
-const HOVER=(typeof matchMedia==='function')&&matchMedia('(hover: hover) and (pointer: fine)').matches;
 const A=f=>'assets/'+f;
 const splay=v=>{try{const p=v.play(); if(p&&p.catch)p.catch(()=>{});}catch(e){}};
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -569,276 +543,314 @@ function armPlayOnView(){
   $$('video[data-io]').forEach(v=>io.observe(v));
 }
 
-/* ═══ WAY 11 · film highway ══════════════════════════════════════════ */
+/* ═══ WAY 16 · molten gallery + bokeh canvas ═════════════════════════ */
 (function(){
-  const wrap=$('#hwWrap'); if(!wrap) return;
-  $('#hwTrack').innerHTML=
-    `<div class="hw-lead"><span class="label" style="color:var(--gold-2)">The road runs left</span><h3>Four films.<br>One <em class="disp-italic" style="font-style:italic">highway</em>.</h3><p>Keep scrolling — the screen stays, the films travel.</p></div>`+
-    FILMS.map((f,i)=>`
-      <div class="hw-item">
-        <div class="hw-ghost">${f.title.toUpperCase()}</div>
-        <div class="hw-card" onclick="openReel(${i},this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openReel(${i},this)" aria-label="Play ${f.title}">
-          <span class="hw-no">FILM ${f.no}</span>
+  const sec=$('#mkSec'); if(!sec) return;
+  $('#mkRow').innerHTML=FILMS.map((f,i)=>`
+    <div class="mk-item">
+      <div class="mk-frame" onclick="openReel(${i},this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openReel(${i},this)" aria-label="Play ${f.title}">
+        <div class="mk-blob">
           <video muted loop playsinline preload="metadata" poster="${A(f.poster)}" data-io><source src="${A(f.file)}" type="video/mp4"></video>
+          <span class="mk-no">FILM ${f.no}</span>
         </div>
-      </div>`).join('')+
-    `<div class="hw-lead" style="text-align:left"><span class="label" style="color:var(--gold-2)">End of the road</span><h3>Your films,<br>on <em style="font-style:italic">shivaa.in</em>.</h3><p>This is Round 3, Way 11 — the highway.</p></div>`;
-
-  const track=$('#hwTrack'), stage=wrap.querySelector('.hw-stage');
-  const ghosts=[...wrap.querySelectorAll('.hw-ghost')];
-  const fill=$('#hwFill'), hint=$('#hwHint');
-  let near=false, ticking=false;
-  function drive(){
-    ticking=false;
-    const r=wrap.getBoundingClientRect();
-    const total=r.height-window.innerHeight;
-    const p=total>0?Math.min(1,Math.max(0,-r.top/total)):0;
-    const dist=Math.max(0, track.scrollWidth-stage.clientWidth);
-    const x=-p*dist;
-    track.style.transform='translate3d('+x+'px,0,0)';
-    ghosts.forEach(g=>{ g.style.transform='translateX(calc(-50% + '+(-x*0.14)+'px))'; });
-    if(fill) fill.style.width=(p*100)+'%';
-    if(hint) hint.style.opacity=p>0.03?0:1;
-  }
-  function onScroll(){ if(!ticking){ticking=true;requestAnimationFrame(drive);} }
-  addEventListener('scroll',onScroll,{passive:true});
-  addEventListener('resize',onScroll);
-  if('IntersectionObserver' in window){
-    new IntersectionObserver(es=>{near=es[0].isIntersecting; if(near) onScroll();},{rootMargin:'160px 0px'}).observe(wrap);
-  }
-  $('#hwSkip').addEventListener('click',()=>{
-    const r=wrap.getBoundingClientRect();
-    window.scrollTo({top:r.bottom+window.scrollY-2,behavior:REDUCED?'auto':'smooth'});
-  });
-  onScroll();
-})();
-
-/* ═══ WAY 12 · gold thread ═══════════════════════════════════════════ */
-(function(){
-  const sec=$('#gtSec'); if(!sec) return;
-  $('#gtItems').innerHTML=FILMS.map((f,i)=>`
-    <div class="gt-item ${i%2?'right':''}">
-      <div class="gt-film" onclick="openReel(${i},this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openReel(${i},this)" aria-label="Play ${f.title}">
-        <video muted loop playsinline preload="metadata" poster="${A(f.poster)}"><source src="${A(f.file)}" type="video/mp4"></video>
       </div>
-      <div class="gt-cap"><small>CHAPTER ${f.no}</small><b>${f.title}</b><p>${f.cap}</p></div>
+      <b>${f.title}</b><small>${f.sub}</small>
     </div>`).join('');
 
-  const path=$('#gtPath');
-  let L=2400;
-  try{ if(path&&typeof path.getTotalLength==='function'){ L=path.getTotalLength(); } }catch(e){}
-  if(path){ path.style.strokeDasharray=L; path.style.strokeDashoffset=L; }
-  const items=[...sec.querySelectorAll('.gt-item')];
-  let ticking=false;
-  function drive(){
-    ticking=false;
-    const r=sec.getBoundingClientRect();
-    const tipY=window.innerHeight*0.72 - r.top;   /* page-relative tip */
-    const p=Math.min(1,Math.max(0,tipY/r.height));
-    if(path) path.style.strokeDashoffset=L*(1-p);
-    items.forEach(it=>{
-      const ir=it.getBoundingClientRect();
-      const cy=ir.top-r.top+ir.height/2;
-      const lit=cy<=tipY;
-      if(lit!==it.classList.contains('lit')){
-        it.classList.toggle('lit',lit);
-        const v=it.querySelector('video');
-        if(lit&&!REDUCED&&!viewerOpen()) splay(v); else v.pause();
-      }
-    });
+  const cv=$('#mkBokeh');
+  const ctx=(cv&&cv.getContext)?cv.getContext('2d'):null; if(!ctx) return;
+  let W=0,H=0,raf=null,vis=false;
+  const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  const N=(innerWidth<760?16:34);
+  const orbs=Array.from({length:N},()=>({
+    x:Math.random(), y:Math.random(),
+    r:16+Math.random()*66, a:.05+Math.random()*.10,
+    dx:(Math.random()-.5)*.00018, dy:(Math.random()-.5)*.00012,
+    warm:Math.random()>.45
+  }));
+  function size(){ W=cv.clientWidth||sec.clientWidth; H=cv.clientHeight||sec.clientHeight;
+    cv.width=Math.max(1,W*dpr); cv.height=Math.max(1,H*dpr); ctx.setTransform(dpr,0,0,dpr,0,0); }
+  function draw(){
+    if(!vis){raf=null;return;}
+    ctx.clearRect(0,0,W,H);
+    for(const o of orbs){
+      o.x=(o.x+o.dx+1)%1; o.y=(o.y+o.dy+1)%1;
+      const px=o.x*W, py=o.y*H, c=o.warm?'232,200,119':'212,175,90';
+      const g=ctx.createRadialGradient(px,py,0,px,py,o.r);
+      g.addColorStop(0,'rgba('+c+','+o.a.toFixed(3)+')');
+      g.addColorStop(1,'rgba('+c+',0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(px,py,o.r,0,6.2832); ctx.fill();
+    }
+    if(REDUCED){ raf=null; return; }
+    raf=requestAnimationFrame(draw);
   }
-  function onScroll(){ if(!ticking){ticking=true;requestAnimationFrame(drive);} }
-  addEventListener('scroll',onScroll,{passive:true});
-  addEventListener('resize',onScroll);
-  onScroll();
-  window.gtDrive=drive;
+  size(); addEventListener('resize',size);
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(es=>{ vis=es[0].isIntersecting; if(vis&&!raf){size();raf=requestAnimationFrame(draw);} },{rootMargin:'60px'}).observe(sec);
+  } else { vis=true; raf=requestAnimationFrame(draw); }
 })();
 
-/* ═══ WAY 13 · the loupe ═════════════════════════════════════════════ */
+/* ═══ WAY 17 · revolving case (drag physics) ═════════════════════════ */
 (function(){
-  const wall=$('#lpWall'); if(!wall) return;
-  wall.innerHTML=FILMS.map((f,i)=>`
-    <button class="lp-tile" data-i="${i}" aria-label="Inspect ${f.title}">
-      <img src="${A(f.poster)}" alt="${f.title}">
-      <span class="lp-name">${f.title}</span>
-    </button>`).join('');
-  const sec=$('#lpSec'), loupe=$('#lpLoupe'), lv=$('#lpVideo');
-  const tiles=[...wall.querySelectorAll('.lp-tile')];
-  let curIdx=-1, tx=0, ty=0, lx=0, ly=0, raf=null, vis=false, touchMode=false;
+  const stage=$('#rcStage'); if(!stage) return;
+  const ring=$('#rcRing');
+  ring.innerHTML=FILMS.map((f,i)=>`
+    <div class="rc-card" data-i="${i}" role="button" tabindex="0" aria-label="Play ${f.title}">
+      <span class="rc-no">FILM ${f.no}</span>
+      <video muted loop playsinline preload="metadata" poster="${A(f.poster)}"><source src="${A(f.file)}" type="video/mp4"></video>
+      <div class="rc-name">${f.title}</div>
+    </div>`).join('');
+  const cards=[...ring.querySelectorAll('.rc-card')];
+  const STEP=90;
+  let rot=0, vel=0, R=190, dragging=false, lastX=0, movedPx=0, snapTo=null, raf=null, vis=false, lastFront=-1, lastMoveT=0;
 
+  function place(){
+    const cw=cards[0]?cards[0].offsetWidth:238;
+    R=Math.max(120,Math.round(cw*.95));
+    cards.forEach((c,i)=>{ c.style.transform='translate(-50%,-50%) rotateY('+(i*STEP)+'deg) translateZ('+R+'px)'; });
+  }
+  function frontIndex(){ return ((Math.round(-rot/STEP)%cards.length)+cards.length)%cards.length; }
+  function setCount(){
+    const f=FILMS[frontIndex()];
+    $('#rcCount').textContent=f.no+' / 04 · '+f.title.toUpperCase();
+  }
   function loop(){
     if(!vis){raf=null;return;}
-    lx+=(tx-lx)*.22; ly+=(ty-ly)*.22;
-    const R=loupe.offsetWidth/2;
-    loupe.style.transform='translate3d('+(lx-R)+'px,'+(ly-R)+'px,0)';
-    loupe.style.opacity='1';
+    if(!dragging){
+      if(Math.abs(vel)>.06){ rot+=vel; vel*=.94; }
+      else if(snapTo!=null){
+        rot+=(snapTo-rot)*.14;
+        if(Math.abs(snapTo-rot)<.12){ rot=snapTo; snapTo=null; }
+      } else vel=0;
+    }
+    ring.style.transform='rotateY('+rot+'deg)';
+    cards.forEach((c,i)=>{
+      const ang=((i*STEP+rot)%360+360)%360;
+      const d=Math.min(ang,360-ang);
+      const f=Math.max(0,1-d/180);
+      c.style.opacity=(.32+.68*f).toFixed(3);
+      c.style.filter='brightness('+(.42+.58*f).toFixed(3)+')';
+    });
+    const fi=frontIndex();
+    if(fi!==lastFront){
+      lastFront=fi; setCount();
+      cards.forEach((c,i)=>{
+        const v=c.querySelector('video');
+        if(i===fi){ if(!REDUCED&&!viewerOpen()&&vis) splay(v); } else v.pause();
+      });
+    }
     raf=requestAnimationFrame(loop);
   }
-  function move(cx,cy){
-    const wr=wall.getBoundingClientRect();
-    let tile=null, locx=0, locy=0;
-    for(const t of tiles){
-      const r=t.getBoundingClientRect();
-      if(cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom){ tile=t; locx=cx-r.left; locy=cy-r.top; break; }
+  function kick(){ if(!raf&&vis) raf=requestAnimationFrame(loop); }
+
+  stage.addEventListener('pointerdown',e=>{
+    dragging=true; lastX=e.clientX; movedPx=0; vel=0; snapTo=null;
+    try{ stage.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  stage.addEventListener('pointermove',e=>{
+    if(!dragging) return;
+    const dx=e.clientX-lastX; lastX=e.clientX;
+    movedPx+=Math.abs(dx); lastMoveT=Date.now();
+    rot+=dx*.32; vel=dx*.32; kick();
+  });
+  const endDrag=()=>{
+    if(!dragging) return;
+    dragging=false;
+    if(movedPx>7){ snapTo=Math.round(rot/STEP)*STEP; }
+  };
+  stage.addEventListener('pointerup',endDrag);
+  stage.addEventListener('pointercancel',endDrag);
+
+  cards.forEach((c,i)=>c.addEventListener('click',()=>{
+    if(Date.now()-lastMoveT<240) return;
+    if(i===frontIndex()){ openReel(i,c); }
+    else{
+      const cur=(snapTo!=null)?snapTo:rot;
+      let target=-i*STEP;
+      let delta=((target-cur)%360+360)%360; if(delta>180)delta-=360;
+      snapTo=cur+delta; vel=0; kick();
     }
-    if(!tile){ loupe.style.opacity='0'; return; }
-    const idx=+tile.dataset.i;
-    if(idx!==curIdx){ curIdx=idx; lv.src=A(FILMS[idx].file); splay(lv); }
-    const scale=1.75, LW=loupe.offsetWidth;
-    lv.style.width=(tile.offsetWidth*scale)+'px';
-    lv.style.height=(tile.offsetHeight*scale)+'px';
-    lv.style.left=(-(locx*scale-LW/2))+'px';
-    lv.style.top=(-(locy*scale-LW/2))+'px';
-    tx=cx-wr.left; ty=cy-wr.top-(touchMode?120:0);
-    if(!raf&&vis) raf=requestAnimationFrame(loop);
+  }));
+  function stepBy(d){
+    const base=(snapTo!=null)?snapTo:Math.round(rot/STEP)*STEP;
+    snapTo=base+d*STEP; vel=0; kick();
   }
-  wall.addEventListener('mousemove',e=>{touchMode=false;move(e.clientX,e.clientY);});
-  wall.addEventListener('mouseleave',()=>{ loupe.style.opacity='0'; });
-  wall.addEventListener('touchmove',e=>{ touchMode=true; const t=e.touches[0]; move(t.clientX,t.clientY); },{passive:true});
-  wall.addEventListener('touchend',()=>{ setTimeout(()=>{loupe.style.opacity='0';},700); });
-  tiles.forEach((t,i)=>t.addEventListener('click',()=>openReel(i,t)));
-  if('IntersectionObserver' in window){
-    new IntersectionObserver(es=>{vis=es[0].isIntersecting; if(vis&&!raf) raf=requestAnimationFrame(loop);},{rootMargin:'60px'}).observe(sec);
-  }
-  window.lpMove=move;
-})();
+  $('#rcPrev').addEventListener('click',()=>stepBy(-1));
+  $('#rcNext').addEventListener('click',()=>stepBy(1));
 
-/* ═══ WAY 14 · swipe deck ════════════════════════════════════════════ */
-(function(){
-  const stack=$('#dkStack'); if(!stack) return;
-  let order=[0,1,2,3], throws=0, keeps=0, topCard=null, dragging=false, sx=0, sy=0, moved=false;
-
-  function render(){
-    stack.innerHTML=order.map((fi,d)=>`
-      <div class="dk-card" data-d="${d}" data-fi="${fi}" ${d===0?'data-top="1"':''}>
-        ${d===0
-          ? `<video muted loop playsinline preload="metadata" poster="${A(FILMS[fi].poster)}" data-io><source src="${A(FILMS[fi].file)}" type="video/mp4"></video>`
-          : `<img src="${A(FILMS[fi].poster)}" alt="${FILMS[fi].title}">`}
-        <span class="dk-no">FILM ${FILMS[fi].no}</span>
-        <span class="dk-stamp keep">KEEP ♥</span>
-        <span class="dk-stamp nope">NEXT</span>
-        <div class="dk-name">${FILMS[fi].title}</div>
-      </div>`).join('');
-    $('#dkCount').textContent=FILMS[order[0]].no+' / 04';
-    $('#dkKeeps').textContent=keeps;
-    topCard=stack.querySelector('[data-top="1"]');
-    if(topCard&&!REDUCED&&!viewerOpen()) splay(topCard.querySelector('video'));
-    bindTop();
-    $$('.dk-card[data-d="1"],.dk-card[data-d="2"],.dk-card[data-d="3"]').forEach(c=>{
-      c.addEventListener('click',()=>{ /* under cards peek only */ });
-    });
-  }
-  function bindTop(){
-    if(!topCard) return;
-    topCard.addEventListener('pointerdown',e=>{
-      if(e.button&&e.button!==0) return;
-      dragging=true; moved=false; sx=e.clientX; sy=e.clientY;
-      topCard.style.transition='none';
-      try{ topCard.setPointerCapture(e.pointerId); }catch(err){}
-    });
-    topCard.addEventListener('pointermove',e=>{
-      if(!dragging) return;
-      const dx=e.clientX-sx, dy=e.clientY-sy;
-      if(Math.abs(dx)>6||Math.abs(dy)>6) moved=true;
-      topCard.style.transform='translate('+dx+'px,'+(dy*.35)+'px) rotate('+(dx*.06)+'deg)';
-      const k=topCard.querySelector('.dk-stamp.keep'), n=topCard.querySelector('.dk-stamp.nope');
-      if(k) k.style.opacity=Math.min(1,Math.max(0,dx/90));
-      if(n) n.style.opacity=Math.min(1,Math.max(0,-dx/90));
-    });
-    const up=e=>{
-      if(!dragging) return;
-      dragging=false;
-      const dx=e.clientX-sx;
-      topCard.style.transition='transform .45s cubic-bezier(.22,1,.36,1), opacity .4s';
-      if(Math.abs(dx)>90){ fling(dx>0?1:-1); }
-      else{
-        topCard.style.transform='';
-        topCard.querySelector('.dk-stamp.keep').style.opacity=0;
-        topCard.querySelector('.dk-stamp.nope').style.opacity=0;
-        if(!moved) openReel(order[0],topCard);
-      }
-    };
-    topCard.addEventListener('pointerup',up);
-    topCard.addEventListener('pointercancel',up);
-  }
-  function fling(dir){
-    if(!topCard) return;
-    const card=topCard;
-    card.style.transition='transform .45s cubic-bezier(.22,1,.36,1), opacity .4s';
-    card.style.transform='translate('+(dir*130)+'%,-40px) rotate('+(dir*24)+'deg)';
-    card.style.opacity='0';
-    if(dir>0) keeps++;
-    setTimeout(()=>{
-      order.push(order.shift()); throws++;
-      if(throws>=FILMS.length) throws=0;
-      render();
-    },430);
-    window.dkTop=()=>null;
-  }
-  $('#dkNope').addEventListener('click',()=>fling(-1));
-  $('#dkKeep').addEventListener('click',()=>fling(1));
-  window.dkFling=fling; window.dkState=()=>({order:order.slice(),keeps,throws});
-  render();
-})();
-
-/* ═══ WAY 15 · the channel ═══════════════════════════════════════════ */
-(function(){
-  const sec=$('#chSec'); if(!sec) return;
-  const video=$('#chVideo'), screen=$('#chScreen'), mini=$('#chMini');
-  const btns=$$('#w15 .ch-ch');
-  let idx=0, seen=false, docked=false, closed=false;
-
-  function marquee(){
-    const t='NOW SHOWING · '+FILMS[idx].title.toUpperCase()+' · 22K HANDPICKED · SHIVAA.IN · HALLMARKED TRUE · ';
-    $('#chMarquee').textContent=t+t;
-  }
-  function setCh(i,fromEl){
-    idx=((i%FILMS.length)+FILMS.length)%FILMS.length;
-    video.src=A(FILMS[idx].file);
-    if(!REDUCED) splay(video);
-    $('#chBadge').textContent='CH '+FILMS[idx].no;
-    $('#chMiniBadge').textContent='CH '+FILMS[idx].no;
-    btns.forEach((b,j)=>b.classList.toggle('on',j===idx));
-    if(screen&&!REDUCED){ screen.classList.remove('flick'); void screen.offsetWidth; screen.classList.add('flick'); }
-    marquee();
-  }
-  btns.forEach(b=>b.addEventListener('click',()=>setCh(+b.dataset.ch)));
-  $('#chPrev').addEventListener('click',()=>setCh(idx-1));
-  $('#chNext').addEventListener('click',()=>setCh(idx+1));
-  $('#chSnd').innerHTML=IC_SND_OFF;
-  $('#chSnd').addEventListener('click',()=>{ video.muted=!video.muted; $('#chSnd').innerHTML=video.muted?IC_SND_OFF:IC_SND_ON; });
-  $('#chFull').addEventListener('click',()=>openReel(idx,screen));
-
-  function dock(){
-    docked=true; mini.hidden=false;
-    mini.insertBefore(video,mini.firstChild);
-    if(!REDUCED) splay(video);
-  }
-  function undock(){
-    docked=false; mini.hidden=true;
-    screen.insertBefore(video,screen.querySelector('.ch-scan'));
-    if(!REDUCED) splay(video);
-  }
+  place(); addEventListener('resize',place); setCount();
   if('IntersectionObserver' in window){
     new IntersectionObserver(es=>{
-      const ratio=es[0].intersectionRatio;
-      if(ratio>=.3){
-        seen=true;
-        if(docked) undock();
-        closed=false;
-      } else if(ratio<.2 && seen && !docked && !closed && !viewerOpen()){
-        dock();
-      }
-    },{threshold:[0,.2,.3,.6]}).observe(screen);
-  }
-  $('#chMiniClose').addEventListener('click',e=>{ e.stopPropagation(); closed=true; undock(); });
-  mini.addEventListener('click',()=>{
-    const r=sec.getBoundingClientRect();
-    window.scrollTo({top:r.top+window.scrollY-80,behavior:REDUCED?'auto':'smooth'});
-  });
-  setCh(0);
-  window.chSet=setCh; window.chState=()=>({idx,docked,seen,closed});
+      vis=es[0].isIntersecting;
+      if(vis) kick(); else cards.forEach(c=>c.querySelector('video').pause());
+    },{rootMargin:'60px'}).observe(stage);
+  } else { vis=true; kick(); }
+  window.rcNext=()=>{ snapTo=Math.round(rot/STEP)*STEP+STEP; vel=0; kick(); };
+  window.rcState=()=>({rot:Math.round(rot),front:frontIndex()});
 })();
+
+/* ═══ WAY 18 · the compare (draggable seam) ══════════════════════════ */
+(function(){
+  const stage=$('#cmpStage'); if(!stage) return;
+  const va=$('#cmpA'), vb=$('#cmpB');
+  let li=0, ri=1, dragging=false;
+  va.src=A(FILMS[0].file); vb.src=A(FILMS[1].file);
+
+  function setTag(side,i){
+    const el=$(side==='l'?'#cmpTagL':'#cmpTagR');
+    el.textContent=FILMS[i].title;
+    el.onclick=()=>openReel(i,stage);
+  }
+  function flick(v){ v.classList.add('flicking'); setTimeout(()=>v.classList.remove('flicking'),260); }
+  window.cmpSet=function(side,i){
+    if(side==='l'){ li=i; va.src=A(FILMS[i].file); flick(va); setTag('l',i); if(ri===i){ ri=(i+1)%FILMS.length; vb.src=A(FILMS[ri].file); setTag('r',ri); } }
+    else{ ri=i; vb.src=A(FILMS[i].file); flick(vb); setTag('r',i); if(li===i){ li=(i+1)%FILMS.length; va.src=A(FILMS[li].file); setTag('l',li); } }
+    paintChips();
+  };
+  $('#cmpPicks').innerHTML=
+    '<div class="cmp-side"><small>LEFT FILM</small>'+FILMS.map((f,i)=>`<button class="cmp-chip" data-side="l" data-i="${i}" aria-label="Left: ${f.title}"><img src="${A(f.poster)}" alt=""></button>`).join('')+'</div>'+
+    '<div class="cmp-side"><small>RIGHT FILM</small>'+FILMS.map((f,i)=>`<button class="cmp-chip" data-side="r" data-i="${i}" aria-label="Right: ${f.title}"><img src="${A(f.poster)}" alt=""></button>`).join('')+'</div>';
+  const chips=[...stage.parentElement.querySelectorAll('.cmp-chip')];
+  function paintChips(){ chips.forEach(c=>c.classList.toggle('on', (c.dataset.side==='l'?+c.dataset.i===li:+c.dataset.i===ri))); }
+  chips.forEach(c=>c.addEventListener('click',()=>window.cmpSet(c.dataset.side,+c.dataset.i)));
+  paintChips();
+
+  function setX(clientX){
+    const r=stage.getBoundingClientRect();
+    if(r.width<=0) return;
+    const px=Math.min(92,Math.max(8,(clientX-r.left)/r.width*100));
+    stage.style.setProperty('--x',px.toFixed(2)+'%');
+    $('#cmpTagL').style.opacity=px<24?0:1;
+    $('#cmpTagR').style.opacity=px>76?0:1;
+  }
+  stage.addEventListener('pointerdown',e=>{ dragging=true; setX(e.clientX); try{stage.setPointerCapture(e.pointerId);}catch(err){} });
+  stage.addEventListener('pointermove',e=>{ if(dragging) setX(e.clientX); });
+  const stop=()=>{dragging=false;};
+  stage.addEventListener('pointerup',stop);
+  stage.addEventListener('pointercancel',stop);
+  setTag('l',0); setTag('r',1);
+})();
+
+/* ═══ WAY 19 · kinetic bands (scroll-velocity marquee) ═══════════════ */
+(function(){
+  const sec=$('#kbSec'); if(!sec) return;
+  const PHRASE1='WEAR YOUR <span class="o">HERITAGE</span> <span class="i">·</span> 22K <span class="o">HANDPICKED</span> <span class="i">·</span> ';
+  const PHRASE2='THE <span class="o">BRIDAL</span> HOUSE <span class="i">·</span> HALLMARKED <span class="f">TRUE</span> <span class="i">·</span> ';
+  const tA=$('#kbTrackA'), tB=$('#kbTrackB');
+  tA.innerHTML='<span>'+PHRASE1.repeat(3)+'</span><span>'+PHRASE1.repeat(3)+'</span>';
+  tB.innerHTML='<span>'+PHRASE2.repeat(3)+'</span><span>'+PHRASE2.repeat(3)+'</span>';
+  $('#kbFilms').innerHTML=FILMS.map((f,i)=>`
+    <div class="kb-card" onclick="openReel(${i},this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openReel(${i},this)" aria-label="Play ${f.title}">
+      <video muted loop playsinline preload="metadata" poster="${A(f.poster)}" data-io><source src="${A(f.file)}" type="video/mp4"></video>
+      <div class="kb-name">${f.title}</div>
+    </div>`).join('');
+
+  const bands=[
+    {el:tA, dir: 1, base:.55, x:0, half:0},
+    {el:tB, dir:-1, base:.45, x:0, half:0}
+  ];
+  function measure(){ bands.forEach(b=>{ b.half=b.el.scrollWidth/2; if(b.dir<0&&b.x===0) b.x=-b.half; }); }
+  measure(); addEventListener('resize',measure);
+
+  let vel=0, lastY=window.scrollY, lastT=Date.now(), raf=null, vis=false;
+  function onScroll(){
+    const now=Date.now(), dt=Math.max(16,now-lastT);
+    const dy=window.scrollY-lastY;
+    vel=vel*.75+(dy/dt*90)*.25;
+    lastY=window.scrollY; lastT=now;
+    if(!raf&&vis) raf=requestAnimationFrame(tick);
+  }
+  function tick(){
+    if(!vis){raf=null;return;}
+    bands.forEach(b=>{
+      if(b.half>0){
+        b.x-= (b.base*b.dir + vel*b.dir*.22);
+        if(b.dir>0){ if(b.x<=-b.half) b.x+=b.half; }
+        else{ if(b.x>=0) b.x-=b.half; }
+        b.el.style.transform='translate3d('+b.x.toFixed(1)+'px,0,0)';
+      }
+    });
+    vel*=.9;
+    if(!REDUCED) raf=requestAnimationFrame(tick); else raf=null;
+  }
+  addEventListener('scroll',onScroll,{passive:true});
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(es=>{ vis=es[0].isIntersecting; if(vis&&!raf) raf=requestAnimationFrame(tick); },{rootMargin:'80px'}).observe(sec);
+  }
+  if('IntersectionObserver' in window){
+    const rio=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){e.target.classList.add('in'); rio.unobserve(e.target);} }),{threshold:.25});
+    $$('#kbFilms .kb-card').forEach(c=>rio.observe(c));
+  } else { $$('#kbFilms .kb-card').forEach(c=>c.classList.add('in')); }
+  window.kbState=()=>({vis,vel:Math.round(vel*10)/10});
+})();
+
+/* ═══ WAY 20 · gold dust wall (particles) ════════════════════════════ */
+(function(){
+  const sec=$('#gdSec'); if(!sec) return;
+  $('#gdRow').innerHTML=FILMS.map((f,i)=>`
+    <div class="gd-film" onclick="openReel(${i},this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openReel(${i},this)" aria-label="Play ${f.title}">
+      <video muted loop playsinline preload="metadata" poster="${A(f.poster)}" data-io><source src="${A(f.file)}" type="video/mp4"></video>
+      <div class="gd-name">${f.title}</div>
+    </div>`).join('');
+
+  const cv=$('#gdCanvas');
+  const ctx=(cv&&cv.getContext)?cv.getContext('2d'):null; if(!ctx) return;
+  let W=0,H=0,raf=null,vis=false,t0=Date.now();
+  const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  const N=(innerWidth<760?420:900);
+  const ps=Array.from({length:N},()=>({
+    x:Math.random(), y:Math.random(),
+    z:.3+Math.random()*.7,
+    vx:(Math.random()-.5)*.00012, vy:(Math.random()-.5)*.0001,
+    bv:(Math.random()-.5)*.0001,
+    s:.6+Math.random()*1.8,
+    a:.25+Math.random()*.6,
+    ph:Math.random()*6.28, tw:.4+Math.random()*1.4,
+    warm:Math.random()>.35
+  }));
+  const ptr={x:.5,y:.5,str:0,target:0};
+  function size(){ W=cv.clientWidth||sec.clientWidth; H=cv.clientHeight||sec.clientHeight;
+    cv.width=Math.max(1,W*dpr); cv.height=Math.max(1,H*dpr); ctx.setTransform(dpr,0,0,dpr,0,0); }
+  function draw(){
+    const t=(Date.now()-t0)/1000;
+    ctx.clearRect(0,0,W,H);
+    ptr.str+=(ptr.target-ptr.str)*.06;
+    for(const p of ps){
+      /* pointer vortex */
+      if(ptr.str>.02&&!REDUCED){
+        const dx=ptr.x-p.x, dy=ptr.y-p.y, d2=dx*dx+dy*dy;
+        if(d2<.02&&d2>1e-6){
+          const d=Math.sqrt(d2), f=(ptr.str*.00016)*(1-d/.1414);
+          p.vx+=(-dy/d)*f*36 + (dx/d)*f*12;
+          p.vy+=( dx/d)*f*36 + (dy/d)*f*12;
+        }
+      }
+      p.vx+=(p.bv-p.vx)*.02; p.vy+=((p.bv*.8)-p.vy)*.02;
+      p.x+=p.vx*p.z; p.y+=p.vy*p.z;
+      if(p.x<-.02)p.x=1.02; if(p.x>1.02)p.x=-.02;
+      if(p.y<-.02)p.y=1.02; if(p.y>1.02)p.y=-.02;
+      const a=p.a*(.55+.45*Math.sin(t*p.tw+p.ph));
+      if(a<=.02) continue;
+      const px=p.x*W, py=p.y*H, r=p.s*p.z*2.1;
+      ctx.fillStyle=p.warm?('rgba(255,233,189,'+a.toFixed(3)+')'):('rgba(212,175,90,'+a.toFixed(3)+')');
+      ctx.beginPath(); ctx.arc(px,py,r,0,6.2832); ctx.fill();
+    }
+    if(REDUCED){ raf=null; return; }
+    raf=requestAnimationFrame(draw);
+  }
+  size(); addEventListener('resize',size);
+  function setPtr(cx,cy){ const r=cv.getBoundingClientRect(); if(r.width<=0)return;
+    ptr.x=(cx-r.left)/r.width; ptr.y=(cy-r.top)/r.height; ptr.target=1; }
+  sec.addEventListener('mousemove',e=>setPtr(e.clientX,e.clientY));
+  sec.addEventListener('mouseleave',()=>{ptr.target=0;});
+  sec.addEventListener('touchmove',e=>{const t=e.touches[0]; setPtr(t.clientX,t.clientY);},{passive:true});
+  sec.addEventListener('touchend',()=>{ptr.target=0;});
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(es=>{ vis=es[0].isIntersecting; if(vis&&!raf){size();raf=requestAnimationFrame(draw);} },{rootMargin:'60px'}).observe(sec);
+  } else { vis=true; raf=requestAnimationFrame(draw); }
+})();
+
+armPlayOnView();
 </script>
 </body>
 </html>
