@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shivaa · Round 3 — five more advanced ways</title>
+<style>
+/* ── Shivaa tokens (same as live site) ──────────────────────────────── */
+:root{
+  --maroon:#6e1e2a; --maroon-2:#571620; --maroon-deep:#3d0e15;
+  --gold:#b98a2f; --gold-2:#d4af5a; --gold-soft:#efdcb2; --gold-faint:#f7eed8;
+  --cream:#faf6ef; --cream-2:#f4ecdd; --cream-3:#ede1cb;
+  --ink:#2b2118; --ink-2:#5d5245; --ink-3:#6f6353;
+  --line:#e6d9c0; --white:#fffdf9;
+  --r:14px; --r-lg:22px;
+  --ff-disp:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --ff-label:'Marcellus','Cormorant Garamond',Georgia,serif;
+  --ff-body:'Jost','Segoe UI',system-ui,sans-serif;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --sh-1:0 2px 10px rgba(61,14,21,.06); --sh-2:0 10px 30px rgba(61,14,21,.10); --sh-3:0 24px 70px rgba(61,14,21,.18);
+}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:400;font-display:swap;src:url('assets/fonts/cormorant-garamond.woff2') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:500;font-display:swap;src:url('assets/fonts/cormorant-garamond.woff2') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:600;font-display:swap;src:url('assets/fonts/cormorant-garamond.woff2') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:700;font-display:swap;src:url('assets/fonts/cormorant-garamond.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:300;font-display:swap;src:url('assets/fonts/jost.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:400;font-display:swap;src:url('assets/fonts/jost.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:500;font-display:swap;src:url('assets/fonts/jost.woff2') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:600;font-display:swap;src:url('assets/fonts/jost.woff2') format('woff2')}
+@font-face{font-family:'Marcellus';font-style:normal;font-weight:400;font-display:swap;src:url('assets/fonts/marcellus-400.woff2') format('woff2')}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--ff-body);color:var(--ink);background:var(--cream);font-weight:400;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img,video{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+h1,h2,h3{font-family:var(--ff-disp);font-weight:600;color:var(--maroon-deep);line-height:1.12}
+.container{width:min(1240px,92vw);margin:0 auto}
+.label{font-family:var(--ff-label);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);display:inline-block}
+.disp-italic{font-style:italic;font-weight:500}
+
+/* ── top bar ─────────────────────────────────────────────────────────── */
+.topbar{position:sticky;top:0;z-index:90;background:rgba(250,246,239,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.topbar-in{width:min(1420px,94vw);margin:0 auto;display:flex;align-items:center;gap:16px;padding:12px 0}
+.brand{font-family:var(--ff-label);letter-spacing:.3em;font-size:17px;color:var(--maroon-deep);white-space:nowrap}
+.brand b{color:var(--gold);font-weight:400}
+.topnav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1}
+.topnav::-webkit-scrollbar{display:none}
+.topnav a{font-size:12.5px;letter-spacing:.06em;color:var(--ink-2);padding:7px 12px;border-radius:99px;white-space:nowrap;transition:.25s}
+.topnav a:hover{background:var(--gold-faint);color:var(--maroon)}
+.topnav a b{font-family:var(--ff-label);color:var(--gold);font-weight:400;margin-right:4px}
+
+/* ── intro ───────────────────────────────────────────────────────────── */
+.intro{padding:64px 0 26px;text-align:center}
+.intro h1{font-size:clamp(40px,5.4vw,68px);margin:14px 0 12px}
+.intro p{max-width:700px;margin:0 auto;color:var(--ink-2);font-size:17px}
+.intro .standnote{margin:18px auto 0;max-width:700px;font-size:13px;color:var(--ink-3);background:var(--cream-2);border:1px dashed var(--line);border-radius:var(--r);padding:10px 16px}
+
+/* ── way sections ────────────────────────────────────────────────────── */
+.way{padding:64px 0 30px;scroll-margin-top:76px}
+.way-head{display:flex;align-items:flex-start;gap:22px;max-width:960px}
+.way-num{font-family:var(--ff-disp);font-size:74px;line-height:.8;color:var(--gold-soft);font-weight:600;min-width:64px}
+.way-head h2{font-size:clamp(28px,3.4vw,42px);margin:4px 0 6px}
+.way-head p{color:var(--ink-2);font-size:16px}
+.place-chip{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--maroon);background:var(--gold-faint);border:1px solid var(--gold-soft);border-radius:99px;padding:6px 14px;margin-top:10px}
+.way-demo{margin-top:30px;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-2);border:1px solid var(--line);position:relative}
+.way-notes{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}
+.way-notes div{background:var(--white);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.way-notes b{display:block;font-family:var(--ff-label);font-size:11px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:6px}
+.way-notes .n-what b{color:var(--maroon)} .way-notes .n-why b{color:var(--gold)} .way-notes .n-watch b{color:#b3541e}
+.way-notes p{font-size:13.5px;color:var(--ink-2);line-height:1.5}
+@media(max-width:760px){.way-notes{grid-template-columns:1fr}.way-num{font-size:52px;min-width:44px}.way-head{gap:14px}}
+
+/* ═══ WAY 11 · FILM HIGHWAY (horizontal scroll-jack) ══════════════════ */
+.hw-wrap{position:relative;height:320vh;height:calc(100dvh * 3.2);background:radial-gradient(1100px 500px at 20% 0%,#3a0f18,#160509 60%);border-radius:var(--r-lg);border:1px solid var(--line);box-shadow:var(--sh-2)}
+.hw-stage{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden;display:flex;align-items:center;border-radius:inherit}
+.hw-track{display:flex;align-items:center;gap:7vw;padding:0 14vw;will-change:transform}
+.hw-item{flex:none;position:relative}
+.hw-item:nth-child(even){transform:translateY(4%)}
+.hw-item:nth-child(odd){transform:translateY(-4%)}
+.hw-ghost{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);font-family:var(--ff-disp);font-weight:600;font-size:clamp(56px,8.5vw,120px);line-height:.9;letter-spacing:.02em;white-space:nowrap;color:transparent;-webkit-text-stroke:1px rgba(212,175,90,.55);z-index:0;pointer-events:none;will-change:transform}
+.hw-card{position:relative;z-index:1;height:min(58vh,540px);aspect-ratio:9/16;border-radius:18px;overflow:hidden;cursor:pointer;box-shadow:0 34px 80px rgba(0,0,0,.55);border:1px solid rgba(212,175,90,.4);transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
+.hw-card:hover{transform:scale(1.035);box-shadow:0 40px 100px rgba(0,0,0,.65),0 0 0 1px var(--gold-2)}
+.hw-card video{width:100%;height:100%;object-fit:cover}
+.hw-no{position:absolute;top:10px;left:10px;font-family:var(--ff-label);font-size:10px;letter-spacing:.22em;color:#ffe9bd;background:rgba(16,5,8,.55);backdrop-filter:blur(6px);padding:6px 10px;border-radius:99px;border:1px solid rgba(255,233,189,.22);z-index:2}
+.hw-lead{flex:none;width:min(440px,72vw);color:rgba(255,240,214,.85)}
+.hw-lead h3{color:#fff8e8;font-size:clamp(30px,3.6vw,44px);margin:10px 0}
+.hw-lead p{font-size:15px}
+.hw-progress{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:min(340px,60vw);height:2px;background:rgba(255,244,214,.2);border-radius:99px;overflow:hidden}
+.hw-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#e8c877,#fff3d0)}
+.hw-hint{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);font-family:var(--ff-label);font-size:11px;letter-spacing:.24em;color:#ffe9bd;pointer-events:none}
+.hw-skip{position:absolute;bottom:20px;right:20px;font-family:var(--ff-label);font-size:11px;letter-spacing:.2em;color:#ffe9bd;border:1px solid rgba(255,233,189,.35);background:rgba(16,5,8,.4);backdrop-filter:blur(6px);padding:10px 16px;border-radius:99px;transition:.25s;z-index:5}
+.hw-skip:hover{background:rgba(16,5,8,.7)}
+
+/* ═══ WAY 12 · GOLD THREAD ════════════════════════════════════════════ */
+.gt-sec{position:relative;background:linear-gradient(180deg,#faf6ef,#f4ecdd);padding:76px 0 70px}
+.gt-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.gt-svg .gt-ghost{fill:none;stroke:rgba(185,138,47,.16);stroke-width:2}
+.gt-svg .gt-draw{fill:none;stroke:url(#gtGrad);stroke-width:2.4;stroke-linecap:round}
+.gt-intro{text-align:center;max-width:520px;margin:0 auto 40px;position:relative;z-index:2}
+.gt-intro h3{font-size:clamp(28px,3.4vw,40px)}
+.gt-intro p{color:var(--ink-2);font-size:15px;margin-top:8px}
+.gt-items{position:relative;z-index:2}
+.gt-item{display:flex;align-items:center;gap:5vw;width:min(1000px,88vw);margin:0 auto 15vh}
+.gt-item.right{flex-direction:row-reverse}
+.gt-film{flex:none;width:min(250px,38vw);aspect-ratio:9/16;border-radius:18px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--sh-2);opacity:.38;filter:saturate(.35);transform:translateY(16px);transition:opacity .7s var(--ease),filter .7s,transform .7s var(--ease),border-color .7s,box-shadow .7s;cursor:pointer;background:#000}
+.gt-film video{width:100%;height:100%;object-fit:cover}
+.gt-item.lit .gt-film{opacity:1;filter:none;transform:none;border-color:var(--gold-2);box-shadow:0 0 0 1px var(--gold-2),0 24px 60px rgba(185,138,47,.28)}
+.gt-cap{max-width:300px;opacity:0;transform:translateY(14px);transition:.7s var(--ease) .1s}
+.gt-item.lit .gt-cap{opacity:1;transform:none}
+.gt-cap small{font-family:var(--ff-label);font-size:11px;letter-spacing:.26em;color:var(--gold)}
+.gt-cap b{display:block;font-family:var(--ff-disp);font-size:clamp(26px,3vw,36px);color:var(--maroon-deep);line-height:1.08;margin:6px 0}
+.gt-cap p{font-size:14.5px;color:var(--ink-2)}
+@media(max-width:700px){.gt-item,.gt-item.right{flex-direction:column;gap:18px;text-align:center;margin-bottom:11vh}.gt-cap{max-width:340px}.gt-film{width:min(240px,62vw)}}
+
+/* ═══ WAY 13 · THE LOUPE ══════════════════════════════════════════════ */
+.lp-sec{background:linear-gradient(180deg,#150509,#0d0306);padding:60px 0 56px;position:relative}
+.lp-head{text-align:center;margin-bottom:36px}
+.lp-head h2{color:#fff6de;font-size:clamp(28px,3.8vw,46px)}
+.lp-head p{color:rgba(255,240,214,.66);font-size:14.5px;margin-top:6px}
+.lp-wall{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:min(880px,92vw);margin:0 auto;position:relative}
+@media(hover:hover){.lp-wall{cursor:none}}
+.lp-tile{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:4/5;border:1px solid rgba(212,175,90,.22);background:#000;padding:0}
+.lp-tile img{width:100%;height:100%;object-fit:cover;filter:brightness(.5) saturate(.55);transition:filter .35s}
+.lp-tile:hover img{filter:brightness(.62) saturate(.7)}
+.lp-tile .lp-name{position:absolute;left:12px;bottom:11px;color:#fff6de;font-family:var(--ff-disp);font-size:19px;text-shadow:0 2px 12px rgba(0,0,0,.8);pointer-events:none}
+.lp-loupe{position:absolute;top:0;left:0;width:230px;height:230px;border-radius:50%;overflow:hidden;border:2px solid var(--gold-2);box-shadow:0 0 0 6px rgba(212,175,90,.14),0 30px 60px rgba(0,0,0,.65),inset 0 0 30px rgba(0,0,0,.35);opacity:0;transition:opacity .35s;pointer-events:none;z-index:6;will-change:transform}
+.lp-loupe video{position:absolute;will-change:width,height,left,top}
+.lp-loupe .lp-rim{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);font-family:var(--ff-label);font-size:8.5px;letter-spacing:.3em;color:#ffe9bd;text-shadow:0 1px 6px #000;white-space:nowrap}
+.lp-hint{text-align:center;color:rgba(255,240,214,.5);font-size:11.5px;letter-spacing:.2em;font-family:var(--ff-label);margin-top:26px}
+@media(max-width:700px){.lp-loupe{width:170px;height:170px}}
+
+/* ═══ WAY 14 · SWIPE DECK ═════════════════════════════════════════════ */
+.dk-sec{background:radial-gradient(700px 460px at 50% 0%,#fdf8ee,#f6efe1 70%);padding:58px 0 54px}
+.dk-head{text-align:center;margin-bottom:30px}
+.dk-head h2{font-size:clamp(28px,3.8vw,46px)}
+.dk-head p{color:var(--ink-2);font-size:14.5px;margin-top:6px}
+.dk-stage{position:relative;display:flex;flex-direction:column;align-items:center}
+.dk-stack{position:relative;width:min(270px,72vw);height:min(480px,128vw)}
+.dk-card{position:absolute;inset:0;border-radius:20px;overflow:hidden;background:#000;border:1px solid var(--gold-soft);box-shadow:0 24px 60px rgba(61,14,21,.28);cursor:grab;touch-action:none;will-change:transform;user-select:none;-webkit-user-select:none}
+.dk-card:active{cursor:grabbing}
+.dk-card video,.dk-card img{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.dk-card .dk-name{position:absolute;left:0;right:0;bottom:14px;text-align:center;color:#fff6de;font-family:var(--ff-disp);font-size:22px;text-shadow:0 2px 12px rgba(0,0,0,.8);pointer-events:none}
+.dk-card .dk-no{position:absolute;top:10px;left:10px;font-family:var(--ff-label);font-size:10px;letter-spacing:.22em;color:#ffe9bd;background:rgba(16,5,8,.55);padding:6px 10px;border-radius:99px;pointer-events:none}
+.dk-stamp{position:absolute;top:26px;font-family:var(--ff-label);font-size:15px;letter-spacing:.2em;padding:9px 16px;border-radius:8px;border:2px solid;transform:rotate(-12deg);opacity:0;pointer-events:none}
+.dk-stamp.keep{left:20px;color:#2e7d4f;border-color:#2e7d4f;background:rgba(46,125,79,.12)}
+.dk-stamp.nope{right:20px;color:#a32638;border-color:#a32638;background:rgba(163,38,56,.12);transform:rotate(12deg)}
+.dk-card[data-d="1"]{transform:translateY(14px) scale(.955) rotate(3.5deg)}
+.dk-card[data-d="2"]{transform:translateY(28px) scale(.91) rotate(-3deg)}
+.dk-card[data-d="3"]{transform:translateY(42px) scale(.865) rotate(4deg);opacity:.55}
+.dk-ui{display:flex;align-items:center;gap:18px;margin-top:64px}
+.dk-btn{width:56px;height:56px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:21px;transition:.25s;border:1px solid var(--line);background:var(--white);box-shadow:var(--sh-1)}
+.dk-btn.nope{color:#a32638}
+.dk-btn.keep{color:#2e7d4f}
+.dk-btn:hover{transform:translateY(-3px);box-shadow:var(--sh-2)}
+.dk-count{font-family:var(--ff-label);font-size:12px;letter-spacing:.24em;color:var(--ink-2);text-align:center;min-width:120px}
+.dk-count b{display:block;font-size:17px;color:var(--maroon-deep);letter-spacing:.1em}
+.dk-hint{margin-top:16px;font-size:11.5px;letter-spacing:.18em;color:var(--ink-3);font-family:var(--ff-label)}
+
+/* ═══ WAY 15 · THE CHANNEL ════════════════════════════════════════════ */
+.ch-sec{background:linear-gradient(180deg,#160509,#0d0306);padding:58px 0 60px;position:relative}
+.ch-head{text-align:center;margin-bottom:34px}
+.ch-head h2{color:#fff6de;font-size:clamp(28px,3.8vw,46px)}
+.ch-head p{color:rgba(255,240,214,.66);font-size:14.5px;margin-top:6px}
+.ch-tv{width:min(430px,88vw);margin:0 auto;background:linear-gradient(160deg,#5b1722,#3d0e15);border:1px solid rgba(212,175,90,.4);border-radius:28px;padding:18px 18px 14px;box-shadow:0 44px 110px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,233,189,.18)}
+.ch-screen{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:9/16;max-height:62vh;margin:0 auto}
+.ch-screen video{width:100%;height:100%;object-fit:cover}
+.ch-badge{position:absolute;top:12px;left:12px;font-family:var(--ff-label);font-size:11px;letter-spacing:.22em;color:#1d0509;background:linear-gradient(180deg,#f3d98f,#d8b45e);padding:7px 12px;border-radius:8px;z-index:3}
+.ch-live{position:absolute;top:12px;right:12px;font-family:var(--ff-label);font-size:10px;letter-spacing:.2em;color:#ffdfdf;background:rgba(163,38,56,.85);padding:6px 10px;border-radius:8px;display:flex;align-items:center;gap:6px;z-index:3}
+.ch-live i{width:6px;height:6px;border-radius:99px;background:#ff9fa9;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.ch-scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);pointer-events:none;z-index:2}
+.ch-screen.flick{animation:flick .28s steps(2) 1}
+@keyframes flick{0%{filter:brightness(.2)}50%{filter:brightness(1.4)}100%{filter:none}}
+.ch-controls{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.ch-ch{font-family:var(--ff-label);font-size:12px;letter-spacing:.14em;color:var(--gold-soft);border:1px solid rgba(212,175,90,.4);background:rgba(16,5,8,.35);width:42px;height:42px;border-radius:10px;transition:.25s;display:flex;align-items:center;justify-content:center}
+.ch-ch:hover{border-color:var(--gold-2);color:#fff3d0}
+.ch-ch.on{background:linear-gradient(180deg,#f3d98f,#d8b45e);color:#1d0509;border-color:#f3d98f}
+.ch-tool{width:42px;height:42px;border-radius:10px;border:1px solid rgba(212,175,90,.4);color:var(--gold-soft);display:flex;align-items:center;justify-content:center;transition:.25s;font-size:16px}
+.ch-tool:hover{border-color:var(--gold-2);color:#fff3d0}
+.ch-tool svg{width:17px;height:17px}
+.ch-marquee{overflow:hidden;background:rgba(16,5,8,.55);border:1px solid rgba(212,175,90,.28);border-radius:99px;margin-top:14px;padding:8px 0}
+.ch-marquee div{display:inline-flex;white-space:nowrap;font-family:var(--ff-label);font-size:10.5px;letter-spacing:.3em;color:var(--gold-2);animation:marq 16s linear infinite;will-change:transform}
+@keyframes marq{to{transform:translateX(-50%)}}
+.ch-mini{position:fixed;bottom:18px;right:18px;width:148px;border-radius:14px;overflow:hidden;box-shadow:0 26px 60px rgba(0,0,0,.6);border:1px solid var(--gold-2);z-index:120;background:#000;cursor:pointer}
+.ch-mini[hidden]{display:none}
+.ch-mini video{width:100%;aspect-ratio:9/16;object-fit:cover}
+.ch-mini .ch-mini-badge{position:absolute;top:8px;left:8px;font-family:var(--ff-label);font-size:9px;letter-spacing:.2em;color:#1d0509;background:linear-gradient(180deg,#f3d98f,#d8b45e);padding:4px 8px;border-radius:6px}
+.ch-mini .ch-mini-close{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:99px;background:rgba(16,5,8,.65);color:#ffe9bd;font-size:12px;display:flex;align-items:center;justify-content:center;z-index:3}
+.ch-mini .ch-mini-pop{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(0deg,rgba(10,3,5,.8),transparent);color:#ffe9bd;font-family:var(--ff-label);font-size:9px;letter-spacing:.18em;text-align:center;padding:14px 0 7px}
+.ch-note{text-align:center;color:rgba(255,240,214,.45);font-size:11.5px;letter-spacing:.18em;font-family:var(--ff-label);margin-top:24px}
+
+/* ── footer ──────────────────────────────────────────────────────────── */
+.pv-foot{padding:60px 0 80px;text-align:center}
+.pv-foot h2{font-size:clamp(28px,3.6vw,44px);margin:12px 0}
+.pv-foot p{color:var(--ink-2);max-width:680px;margin:0 auto 26px;font-size:16px}
+
+/* ═══ REEL VIEWER (shared · FLIP zoom) ═══════════════════════════════ */
+.reel-viewer{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center}
+.reel-viewer[hidden]{display:none}
+.rv-backdrop{position:absolute;inset:0;background:rgba(16,5,8,.93);backdrop-filter:blur(8px)}
+.rv-stage{position:relative;height:min(88dvh,860px);aspect-ratio:9/16;z-index:2;will-change:transform}
+.rv-stage video{width:100%;height:100%;object-fit:cover;border-radius:20px;background:#000;box-shadow:0 40px 110px rgba(0,0,0,.6);border:1px solid rgba(212,175,90,.35)}
+.rv-bars{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:6px;z-index:6}
+.rv-bar{flex:1;height:3px;border-radius:99px;background:rgba(255,255,255,.28);overflow:hidden;padding:0}
+.rv-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#e8c877,#fff3d0)}
+.rv-close{position:absolute;top:-52px;right:0;width:40px;height:40px;border-radius:99px;background:rgba(255,255,255,.1);color:#fff;font-size:19px;display:flex;align-items:center;justify-content:center;transition:.25s;z-index:7}
+.rv-close:hover{background:rgba(255,255,255,.25)}
+.rv-nav{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:99px;background:rgba(255,255,255,.1);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;transition:.25s;z-index:7}
+.rv-nav:hover{background:rgba(255,255,255,.25)}
+.rv-prev{left:-58px}.rv-next{right:-58px}
+.rv-meta{position:absolute;left:14px;right:14px;bottom:14px;z-index:6;display:flex;align-items:end;justify-content:space-between;gap:10px;background:linear-gradient(0deg,rgba(10,3,5,.72),transparent);padding:26px 12px 10px;border-radius:0 0 20px 20px}
+.rv-title{font-family:var(--ff-disp);font-size:26px;color:#fff6de;line-height:1.05}
+.rv-count{font-family:var(--ff-label);font-size:11px;letter-spacing:.22em;color:var(--gold-2)}
+.rv-tools{position:absolute;top:-52px;left:0;display:flex;gap:8px;z-index:7}
+.rv-tools button{width:40px;height:40px;border-radius:99px;background:rgba(255,255,255,.1);color:#fff;display:flex;align-items:center;justify-content:center;transition:.25s}
+.rv-tools button:hover{background:rgba(255,255,255,.25)}
+.rv-tools svg{width:17px;height:17px}
+.rv-paused{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:5;pointer-events:none;opacity:0;transition:.3s}
+.rv-paused.show{opacity:1}
+.rv-paused span{width:68px;height:68px;border-radius:99px;background:rgba(16,5,8,.55);backdrop-filter:blur(4px);color:#ffedc4;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,233,189,.35)}
+.rv-paused svg{width:26px;height:26px;margin-left:3px}
+.rv-hint{position:absolute;bottom:74px;left:50%;transform:translateX(-50%);z-index:8;font-size:11.5px;letter-spacing:.14em;color:#ffe9bd;background:rgba(16,5,8,.65);padding:7px 14px;border-radius:99px;opacity:0;transition:.4s;white-space:nowrap}
+.rv-hint.show{opacity:1}
+@media(max-width:760px){
+  .rv-stage{height:100dvh;aspect-ratio:auto;width:100vw}
+  .rv-stage video{border-radius:0;height:100dvh;object-fit:contain;background:#000}
+  .rv-meta{border-radius:0}
+  .rv-prev{left:10px}.rv-next{right:10px}
+  .rv-close{top:14px;right:14px;background:rgba(255,255,255,.14)}
+  .rv-tools{top:14px;left:14px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ch-marquee div,.ch-live i,.ch-screen.flick{animation:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ TOP BAR ═══════════ -->
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">SHIVAA <b>·</b> FILMS <b>·</b> III</div>
+    <nav class="topnav">
+      <a href="#w11"><b>11</b> Film Highway</a>
+      <a href="#w12"><b>12</b> Gold Thread</a>
+      <a href="#w13"><b>13</b> The Loupe</a>
+      <a href="#w14"><b>14</b> Swipe Deck</a>
+      <a href="#w15"><b>15</b> The Channel</a>
+      <a href="index.html"><b>★</b> Round 4 · 16–20</a>
+      <a href="round2.html"><b>★</b> Round 2 · 6–10</a>
+      <a href="simple.html"><b>★</b> Round 1 · 1–5</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ═══════════ INTRO ═══════════ -->
+<section class="intro container">
+  <span class="label">Round 3 · The wild set</span>
+  <h1>Five more. <span class="disp-italic">The wildest</span> five.</h1>
+  <p>New ground, nothing repeated: a highway that travels sideways as you scroll, a thread of gold that draws itself through the story, a jeweller's loupe with live film inside the lens, a deck of films you can physically throw — and a TV channel that follows you down the page.</p>
+  <div class="standnote">⚠ Same stand-in footage (AI) as before — your four real 9:16 films drop straight in. House rules unchanged: muted till tapped, poster-first, plays only while on screen.</div>
+</section>
+
+<!-- ═══════════ WAY 11 · FILM HIGHWAY ═══════════ -->
+<section class="way container" id="w11">
+  <div class="way-head">
+    <div class="way-num">11</div>
+    <div>
+      <span class="label">Scroll, sideways</span>
+      <h2>The Film Highway <span class="disp-italic">— the road runs left</span></h2>
+      <p>The screen pins itself, and your <em>downward</em> scroll drives the films <em>sideways</em> down a dark highway — ghost chapter names sliding the other way, a progress line marking the road.</p>
+      <span class="place-chip">Sits: a full-screen act between the category slider and Bestsellers</span>
+    </div>
+  </div>
+
+  <div class="way-demo hw-wrap" id="hwWrap">
+    <div class="hw-stage">
+      <div class="hw-track" id="hwTrack"></div>
+      <div class="hw-hint" id="hwHint">KEEP SCROLLING — THE ROAD RUNS SIDEWAYS →</div>
+      <div class="hw-progress"><i id="hwFill"></i></div>
+      <button class="hw-skip" id="hwSkip">SKIP →</button>
+    </div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>A scroll-jacked horizontal gallery: the four films ride across the screen as you scroll down, giant outlined chapter names parallaxing past in the opposite direction.</p></div>
+    <div class="n-why"><b>Why it works</b><p>Side-to-side feels like a journey, and the surprise of “scrolling down moves me sideways” is the kind of moment people show a friend. Works beautifully on phones.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>It holds the scroll for a few swipes — Skip button included, and it collapses to a simple swipeable row on old phones or reduced-motion settings.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ WAY 12 · GOLD THREAD ═══════════ -->
+<section class="way container" id="w12">
+  <div class="way-head">
+    <div class="way-num">12</div>
+    <div>
+      <span class="label">The story line</span>
+      <h2>The Gold Thread <span class="disp-italic">— one line, four chapters</span></h2>
+      <p>A single thread of gold draws itself down the page as you scroll, weaving between the four films — and each film <em>ignites</em> the moment the thread reaches it. Because every piece does begin as one thread of gold.</p>
+      <span class="place-chip">Sits: the storytelling heart of the homepage, after Bestsellers</span>
+    </div>
+  </div>
+
+  <div class="way-demo gt-sec" id="gtSec">
+    <svg class="gt-svg" viewBox="0 0 400 1700" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="gtGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a6a24"/><stop offset=".5" stop-color="#e8c877"/><stop offset="1" stop-color="#8a6a24"/></linearGradient></defs>
+      <path class="gt-ghost" d="M200,0 C345,150 55,280 200,430 C345,580 55,710 200,860 C345,1010 55,1140 200,1290 C345,1440 55,1560 200,1700"/>
+      <path class="gt-draw" id="gtPath" d="M200,0 C345,150 55,280 200,430 C345,580 55,710 200,860 C345,1010 55,1140 200,1290 C345,1440 55,1560 200,1700"/>
+    </svg>
+    <div class="container">
+      <div class="gt-intro">
+        <span class="label">Follow the thread</span>
+        <h3>Everything begins as <span class="disp-italic">one thread of gold</span></h3>
+        <p>Scroll slowly — the thread draws itself, and the films wake as it passes.</p>
+      </div>
+      <div class="gt-items" id="gtItems"></div>
+    </div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>A scroll-drawn golden line (real SVG, drawing itself stroke by stroke) that weaves left and right through the four films, lighting each one — film, frame and caption — as it arrives.</p></div>
+    <div class="n-why"><b>Why it works</b><p>It turns four separate videos into one continuous story, and the metaphor is the product: gold, drawn into form. Calm, premium, unforgettable.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>The quietest of the wild set — it needs scroll room to breathe, so it earns its place as a full act, not a strip. Films play only once lit, saving data.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ WAY 13 · THE LOUPE ═══════════ -->
+<section class="way container" id="w13">
+  <div class="way-head">
+    <div class="way-num">13</div>
+    <div>
+      <span class="label">Inspect it like a jeweller</span>
+      <h2>The Loupe <span class="disp-italic">— live film in the lens</span></h2>
+      <p>The four films hang dim on a dark wall — until you raise the jeweller's loupe. Inside the lens the wall is <em>alive and magnified</em>: glide it across a film and it plays, right under the glass.</p>
+      <span class="place-chip">Sits: the inspection moment — after the rates strip, before the catalogue</span>
+    </div>
+  </div>
+
+  <div class="way-demo lp-sec" id="lpSec">
+    <div class="lp-head">
+      <span class="label" style="color:var(--gold-2)">10× · live lens</span>
+      <h2>Look <span class="disp-italic">closer</span></h2>
+      <p>Glide the loupe across the wall — the films play inside the lens.</p>
+    </div>
+    <div class="lp-wall" id="lpWall"></div>
+    <div class="lp-loupe" id="lpLoupe">
+      <video id="lpVideo" muted loop playsinline preload="auto"></video>
+      <span class="lp-rim">✦ SHIVAA · LOUPE · 10× ✦</span>
+    </div>
+    <div class="lp-hint">GLIDE THE LOUPE · TAP A FILM TO OPEN IT FULL-SCREEN</div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>A real magnifying lens that follows your cursor (or thumb): inside the glass, the film under it plays live at 1.75× — the rest of the wall stays dim and still. Tap to open full-screen.</p></div>
+    <div class="n-why"><b>Why it works</b><p>It's the single most on-brand interaction of all fifteen ways — this is literally how your customers inspect gold. Browsing becomes appraising.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>Only one video stream ever plays (the one in the lens); the wall itself is posters. The lens lags a touch on purpose — it feels weighted, like a real tool.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ WAY 14 · SWIPE DECK ═══════════ -->
+<section class="way container" id="w14">
+  <div class="way-head">
+    <div class="way-num">14</div>
+    <div>
+      <span class="label">Films you can hold</span>
+      <h2>The Swipe Deck <span class="disp-italic">— throw the film away</span></h2>
+      <p>A physical deck of the four films. Drag the top card any direction — it tilts with your hand — and <em>throw</em> it off the pile to reveal the next. Or keep it, with a gold stamp.</p>
+      <span class="place-chip">Sits: the playful heart of the homepage — or a Diwali campaign moment</span>
+    </div>
+  </div>
+
+  <div class="way-demo dk-sec">
+    <div class="dk-head">
+      <span class="label">Pick like cards</span>
+      <h2>Keep it, or <span class="disp-italic">next</span></h2>
+      <p>Drag the top card — throw it either way. Tap it to watch full-screen.</p>
+    </div>
+    <div class="dk-stage">
+      <div class="dk-stack" id="dkStack"></div>
+      <div class="dk-ui">
+        <button class="dk-btn nope" id="dkNope" aria-label="Next film">✕</button>
+        <div class="dk-count"><b id="dkCount">01 / 04</b>KEPT <span id="dkKeeps">0</span></div>
+        <button class="dk-btn keep" id="dkKeep" aria-label="Keep film">♥</button>
+      </div>
+      <div class="dk-hint">DRAG THE CARD · OR USE THE BUTTONS · THE DECK RESHUFFLES FOREVER</div>
+    </div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>Tinder-style physics: the card follows your finger with rotation and inertia, stamps itself KEEP or NEXT as you swing it, and flies off with a spring. The deck reshuffles endlessly.</p></div>
+    <div class="n-why"><b>Why it works</b><p>It's the most playful thing on any jeweller's site, and play converts — every throw is a decision, and decisions are engagement. A natural fit for campaign seasons.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>Only the top card plays video; the rest are posters (light). A tap — never a drag — opens the film, so throwing never accidentally opens.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ WAY 15 · THE CHANNEL ═══════════ -->
+<section class="way container" id="w15">
+  <div class="way-head">
+    <div class="way-num">15</div>
+    <div>
+      <span class="label">The most practical wild one</span>
+      <h2>The Shivaa Channel <span class="disp-italic">— TV that follows you</span></h2>
+      <p>A proper television: gold-trimmed set, channel buttons, a “now showing” ticker. Scroll past it and the film <em>docks into a corner mini-player</em> that keeps playing while you shop — one tap brings it back.</p>
+      <span class="place-chip">Sits: anywhere early — because it follows the visitor down the whole page</span>
+    </div>
+  </div>
+
+  <div class="way-demo ch-sec" id="chSec">
+    <div class="ch-head">
+      <span class="label" style="color:var(--gold-2)">Now showing</span>
+      <h2>The house, <span class="disp-italic">on air</span></h2>
+      <p>Change channels — then scroll past the set and watch what happens.</p>
+    </div>
+    <div class="ch-tv" id="chTv">
+      <div class="ch-screen" id="chScreen">
+        <video id="chVideo" muted loop playsinline preload="metadata" poster="assets/p1.jpg" data-io></video>
+        <div class="ch-scan"></div>
+        <span class="ch-badge" id="chBadge">CH 01</span>
+        <span class="ch-live"><i></i>ON AIR</span>
+      </div>
+      <div class="ch-controls">
+        <button class="ch-tool" id="chPrev" aria-label="Previous channel">‹</button>
+        <button class="ch-ch on" data-ch="0">1</button>
+        <button class="ch-ch" data-ch="1">2</button>
+        <button class="ch-ch" data-ch="2">3</button>
+        <button class="ch-ch" data-ch="3">4</button>
+        <button class="ch-tool" id="chNext" aria-label="Next channel">›</button>
+        <button class="ch-tool" id="chSnd" aria-label="Toggle sound"></button>
+        <button class="ch-tool" id="chFull" aria-label="Open full-screen">⛶</button>
+      </div>
+      <div class="ch-marquee"><div id="chMarquee"></div></div>
+    </div>
+    <div class="ch-note">SCROLL PAST THE SET — THE FILM DOCKS INTO A CORNER PLAYER</div>
+    <div class="ch-mini" id="chMini" hidden>
+      <span class="ch-mini-badge" id="chMiniBadge">CH 01</span>
+      <button class="ch-mini-close" id="chMiniClose" aria-label="Close mini player">✕</button>
+      <span class="ch-mini-pop">TAP TO RETURN TO THE SET</span>
+    </div>
+  </div>
+
+  <div class="way-notes">
+    <div class="n-what"><b>What it is</b><p>A TV set for the house with four channels, a scanline shimmer and a gold ticker — plus the modern streaming trick: pass it by and the film docks into a corner mini-player that follows you, dismissible with one tap.</p></div>
+    <div class="n-why"><b>Why it works</b><p>People keep watching while they shop — the film literally travels with them through the catalogue. Of the wild set, this is the one built for conversions, not just applause.</p></div>
+    <div class="n-watch"><b>Watch-outs</b><p>The mini-player is small, muted and always closable — no hostage video. It pauses the moment it leaves the screen or the tab sleeps.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer class="pv-foot container">
+  <span class="label">Fifteen ways, three rounds</span>
+  <h2>Wild picks: <span class="disp-italic">13 + 15</span>, or 11 alone</h2>
+  <p>My honest take on Round 3: <strong>Way 13 (The Loupe)</strong> is the most Shivaa thing ever put on a website, and <strong>Way 15 (The Channel)</strong> is the most practical. <strong>Way 11 (Highway)</strong> alone makes the homepage unforgettable. Mix freely with Rounds 1 and 2 — the front-page links above take you back.</p>
+</footer>
+
+<!-- ═══════════ REEL VIEWER (shared) ═══════════ -->
+<div class="reel-viewer" id="reelViewer" hidden role="dialog" aria-modal="true" aria-label="Shivaa film player">
+  <div class="rv-backdrop" data-close></div>
+  <div class="rv-stage" id="rvStage">
+    <div class="rv-bars" id="rvBars"></div>
+    <div class="rv-tools"><button id="rvSnd" aria-label="Toggle sound" onclick="rvToggleSnd()"></button></div>
+    <button class="rv-close" data-close aria-label="Close">✕</button>
+    <video id="reelVideo" playsinline preload="auto"></video>
+    <div class="rv-paused" id="rvPaused"><span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>
+    <div class="rv-hint" id="rvHint">🔊 Tap the speaker for sound</div>
+    <button class="rv-nav rv-prev" onclick="rvGo(-1)" aria-label="Previous film">‹</button>
+    <button class="rv-nav rv-next" onclick="rvGo(1)" aria-label="Next film">›</button>
+    <div class="rv-meta"><div><div class="rv-count" id="rvCount">01 / 04</div><div class="rv-title" id="rvTitle">The Craft</div></div></div>
+  </div>
+</div>
+
+<script>
+/* ═══ shared ═════════════════════════════════════════════════════════ */
+const FILMS=[
+  {file:'v1.mp4',poster:'p1.jpg',no:'01',title:'The Craft',sub:'22K macro study',cap:'Where every piece begins — in patient hands.'},
+  {file:'v2.mp4',poster:'p2.jpg',no:'02',title:'The Bridal House',sub:'Kundan couture',cap:'Dressing the moment a family keeps forever.'},
+  {file:'v3.mp4',poster:'p3.jpg',no:'03',title:'The Collection',sub:'Bangles, candle-lit',cap:'Warm metal, warmer light — the everyday gold.'},
+  {file:'v4.mp4',poster:'p4.jpg',no:'04',title:'The Details',sub:'Tikka & jhumka',cap:'The little things, looked at closely.'}
+];
+const REDUCED=(typeof matchMedia==='function')?matchMedia('(prefers-reduced-motion: reduce)').matches:false;
+const HOVER=(typeof matchMedia==='function')&&matchMedia('(hover: hover) and (pointer: fine)').matches;
+const A=f=>'assets/'+f;
+const splay=v=>{try{const p=v.play(); if(p&&p.catch)p.catch(()=>{});}catch(e){}};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const IC_SND_ON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/></svg>';
+const IC_SND_OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none"/><path d="M16 9l5 5M21 9l-5 5"/></svg>';
+
+/* ═══ reel viewer + FLIP zoom ════════════════════════════════════════ */
+const viewer=$('#reelViewer'), rvVid=$('#reelVideo'), rvStage=$('#rvStage');
+let rvIndex=0, rvTouchX=null, rvTouchY=null, rvSwiped=false;
+$('#rvBars').innerHTML=FILMS.map((f,i)=>`<button class="rv-bar" onclick="rvJump(${i})" aria-label="Film ${f.no}"><i></i></button>`).join('');
+const bars=$$('#rvBars .rv-bar i');
+const viewerOpen=()=>!viewer.hidden;
+function paintBars(){ bars.forEach((b,i)=>{ b.style.width=(i<rvIndex?'100%':'0%'); }); }
+function rvPlay(){
+  try{
+    const p=rvVid.play();
+    if(p&&p.catch) p.catch(()=>{ rvVid.muted=true; rvToggleSnd(); splay(rvVid); $('#rvHint').classList.add('show'); setTimeout(()=>$('#rvHint').classList.remove('show'),2600); });
+  }catch(e){}
+}
+function openReel(i, fromEl){
+  rvIndex=i; viewer.hidden=false; document.body.style.overflow='hidden';
+  $$('video[data-io]').forEach(v=>v.pause());
+  loadReel(fromEl);
+}
+function loadReel(fromEl){
+  const f=FILMS[rvIndex];
+  rvVid.src=A(f.file); rvVid.muted=false;
+  $('#rvSnd').innerHTML=IC_SND_ON;
+  $('#rvCount').textContent=f.no+' / 0'+FILMS.length;
+  $('#rvTitle').textContent=f.title;
+  $('#rvPaused').classList.remove('show');
+  paintBars(); rvPlay();
+  if(fromEl && !REDUCED){
+    const fr=fromEl.getBoundingClientRect(), tr=rvStage.getBoundingClientRect();
+    if(tr.width>0&&fr.width>0){
+      const s=Math.max(fr.width/tr.width, fr.height/tr.height);
+      const dx=fr.left+fr.width/2-(tr.left+tr.width/2);
+      const dy=fr.top+fr.height/2-(tr.top+tr.height/2);
+      rvStage.style.transition='none';
+      rvStage.style.transform='translate('+dx+'px,'+dy+'px) scale('+s+')';
+      rvStage.style.opacity='.25';
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        rvStage.style.transition='transform .55s cubic-bezier(.22,1,.36,1), opacity .4s';
+        rvStage.style.transform='none'; rvStage.style.opacity='1';
+        setTimeout(()=>{ rvStage.style.transition=''; rvStage.style.transform=''; rvStage.style.opacity=''; },620);
+      }));
+    }
+  }
+}
+function closeReel(){
+  viewer.hidden=true; rvVid.pause(); rvVid.removeAttribute('src'); rvVid.load();
+  document.body.style.overflow='';
+  if(!REDUCED) $$('video[data-io]').forEach(v=>{ if(v.dataset.vis==='1'&&v.getAttribute('src')!=='') splay(v); });
+}
+function rvGo(d){ rvIndex=(rvIndex+d+FILMS.length)%FILMS.length; loadReel(); }
+function rvJump(i){ if(i===rvIndex){rvPlay();return;} rvIndex=i; loadReel(); }
+function rvToggleSnd(){ rvVid.muted=!rvVid.muted; $('#rvSnd').innerHTML=rvVid.muted?IC_SND_OFF:IC_SND_ON; }
+window.openReel=openReel; window.rvGo=rvGo; window.rvJump=rvJump; window.rvToggleSnd=rvToggleSnd;
+rvVid.addEventListener('timeupdate',()=>{ const d=rvVid.duration||8; bars[rvIndex].style.width=Math.min(100,rvVid.currentTime/d*100)+'%'; });
+rvVid.addEventListener('ended',()=>rvGo(1));
+rvVid.addEventListener('play',()=>$('#rvPaused').classList.remove('show'));
+rvVid.addEventListener('pause',()=>{ if(!viewer.hidden) $('#rvPaused').classList.add('show'); });
+$$('[data-close]').forEach(el=>el.addEventListener('click',closeReel));
+document.addEventListener('keydown',e=>{
+  if(viewer.hidden) return;
+  if(e.key==='Escape') closeReel();
+  if(e.key==='ArrowRight') rvGo(1);
+  if(e.key==='ArrowLeft') rvGo(-1);
+});
+rvStage.addEventListener('touchstart',e=>{ rvTouchX=e.touches[0].clientX; rvTouchY=e.touches[0].clientY; rvSwiped=false; },{passive:true});
+rvStage.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-rvTouchX, dy=e.changedTouches[0].clientY-rvTouchY;
+  if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)){ rvGo(dx<0?1:-1); rvSwiped=true; }
+},{passive:true});
+rvVid.addEventListener('click',()=>{ if(rvSwiped){rvSwiped=false;return;} rvVid.paused?rvPlay():rvVid.pause(); });
+
+/* ═══ play-on-view ═══════════════════════════════════════════════════ */
+function armPlayOnView(){
+  if(!('IntersectionObserver' in window)) return;
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      const v=e.target;
+      v.dataset.vis=e.intersectionRatio>=.35?'1':'0';
+      if(e.intersectionRatio>=.35){ if(!REDUCED && !viewerOpen()) splay(v); }
+      else v.pause();
+    });
+  },{threshold:[0,.35,.6]});
+  $$('video[data-io]').forEach(v=>io.observe(v));
+}
+
+/* ═══ WAY 11 · film highway ══════════════════════════════════════════ */
+(function(){
+  const wrap=$('#hwWrap'); if(!wrap) return;
+  $('#hwTrack').innerHTML=
+    `<div class="hw-lead"><span class="label" style="color:var(--gold-2)">The road runs left</span><h3>Four films.<br>One <em class="disp-italic" style="font-style:italic">highway</em>.</h3><p>Keep scrolling — the screen stays, the films travel.</p></div>`+
+    FILMS.map((f,i)=>`
+      <div class="hw-item">
+        <div class="hw-ghost">${f.title.toUpperCase()}</div>
+        <div class="hw-card" onclick="openReel(${i},this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openReel(${i},this)" aria-label="Play ${f.title}">
+          <span class="hw-no">FILM ${f.no}</span>
+          <video muted loop playsinline preload="metadata" poster="${A(f.poster)}" data-io><source src="${A(f.file)}" type="video/mp4"></video>
+        </div>
+      </div>`).join('')+
+    `<div class="hw-lead" style="text-align:left"><span class="label" style="color:var(--gold-2)">End of the road</span><h3>Your films,<br>on <em style="font-style:italic">shivaa.in</em>.</h3><p>This is Round 3, Way 11 — the highway.</p></div>`;
+
+  const track=$('#hwTrack'), stage=wrap.querySelector('.hw-stage');
+  const ghosts=[...wrap.querySelectorAll('.hw-ghost')];
+  const fill=$('#hwFill'), hint=$('#hwHint');
+  let near=false, ticking=false;
+  function drive(){
+    ticking=false;
+    const r=wrap.getBoundingClientRect();
+    const total=r.height-window.innerHeight;
+    const p=total>0?Math.min(1,Math.max(0,-r.top/total)):0;
+    const dist=Math.max(0, track.scrollWidth-stage.clientWidth);
+    const x=-p*dist;
+    track.style.transform='translate3d('+x+'px,0,0)';
+    ghosts.forEach(g=>{ g.style.transform='translateX(calc(-50% + '+(-x*0.14)+'px))'; });
+    if(fill) fill.style.width=(p*100)+'%';
+    if(hint) hint.style.opacity=p>0.03?0:1;
+  }
+  function onScroll(){ if(!ticking){ticking=true;requestAnimationFrame(drive);} }
+  addEventListener('scroll',onScroll,{passive:true});
+  addEventListener('resize',onScroll);
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(es=>{near=es[0].isIntersecting; if(near) onScroll();},{rootMargin:'160px 0px'}).observe(wrap);
+  }
+  $('#hwSkip').addEventListener('click',()=>{
+    const r=wrap.getBoundingClientRect();
+    window.scrollTo({top:r.bottom+window.scrollY-2,behavior:REDUCED?'auto':'smooth'});
+  });
+  onScroll();
+})();
+
+/* ═══ WAY 12 · gold thread ═══════════════════════════════════════════ */
+(function(){
+  const sec=$('#gtSec'); if(!sec) return;
+  $('#gtItems').innerHTML=FILMS.map((f,i)=>`
+    <div class="gt-item ${i%2?'right':''}">
+      <div class="gt-film" onclick="openReel(${i},this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openReel(${i},this)" aria-label="Play ${f.title}">
+        <video muted loop playsinline preload="metadata" poster="${A(f.poster)}"><source src="${A(f.file)}" type="video/mp4"></video>
+      </div>
+      <div class="gt-cap"><small>CHAPTER ${f.no}</small><b>${f.title}</b><p>${f.cap}</p></div>
+    </div>`).join('');
+
+  const path=$('#gtPath');
+  let L=2400;
+  try{ if(path&&typeof path.getTotalLength==='function'){ L=path.getTotalLength(); } }catch(e){}
+  if(path){ path.style.strokeDasharray=L; path.style.strokeDashoffset=L; }
+  const items=[...sec.querySelectorAll('.gt-item')];
+  let ticking=false;
+  function drive(){
+    ticking=false;
+    const r=sec.getBoundingClientRect();
+    const tipY=window.innerHeight*0.72 - r.top;   /* page-relative tip */
+    const p=Math.min(1,Math.max(0,tipY/r.height));
+    if(path) path.style.strokeDashoffset=L*(1-p);
+    items.forEach(it=>{
+      const ir=it.getBoundingClientRect();
+      const cy=ir.top-r.top+ir.height/2;
+      const lit=cy<=tipY;
+      if(lit!==it.classList.contains('lit')){
+        it.classList.toggle('lit',lit);
+        const v=it.querySelector('video');
+        if(lit&&!REDUCED&&!viewerOpen()) splay(v); else v.pause();
+      }
+    });
+  }
+  function onScroll(){ if(!ticking){ticking=true;requestAnimationFrame(drive);} }
+  addEventListener('scroll',onScroll,{passive:true});
+  addEventListener('resize',onScroll);
+  onScroll();
+  window.gtDrive=drive;
+})();
+
+/* ═══ WAY 13 · the loupe ═════════════════════════════════════════════ */
+(function(){
+  const wall=$('#lpWall'); if(!wall) return;
+  wall.innerHTML=FILMS.map((f,i)=>`
+    <button class="lp-tile" data-i="${i}" aria-label="Inspect ${f.title}">
+      <img src="${A(f.poster)}" alt="${f.title}">
+      <span class="lp-name">${f.title}</span>
+    </button>`).join('');
+  const sec=$('#lpSec'), loupe=$('#lpLoupe'), lv=$('#lpVideo');
+  const tiles=[...wall.querySelectorAll('.lp-tile')];
+  let curIdx=-1, tx=0, ty=0, lx=0, ly=0, raf=null, vis=false, touchMode=false;
+
+  function loop(){
+    if(!vis){raf=null;return;}
+    lx+=(tx-lx)*.22; ly+=(ty-ly)*.22;
+    const R=loupe.offsetWidth/2;
+    loupe.style.transform='translate3d('+(lx-R)+'px,'+(ly-R)+'px,0)';
+    loupe.style.opacity='1';
+    raf=requestAnimationFrame(loop);
+  }
+  function move(cx,cy){
+    const wr=wall.getBoundingClientRect();
+    let tile=null, locx=0, locy=0;
+    for(const t of tiles){
+      const r=t.getBoundingClientRect();
+      if(cx>=r.left&&cx<=r.right&&cy>=r.top&&cy<=r.bottom){ tile=t; locx=cx-r.left; locy=cy-r.top; break; }
+    }
+    if(!tile){ loupe.style.opacity='0'; return; }
+    const idx=+tile.dataset.i;
+    if(idx!==curIdx){ curIdx=idx; lv.src=A(FILMS[idx].file); splay(lv); }
+    const scale=1.75, LW=loupe.offsetWidth;
+    lv.style.width=(tile.offsetWidth*scale)+'px';
+    lv.style.height=(tile.offsetHeight*scale)+'px';
+    lv.style.left=(-(locx*scale-LW/2))+'px';
+    lv.style.top=(-(locy*scale-LW/2))+'px';
+    tx=cx-wr.left; ty=cy-wr.top-(touchMode?120:0);
+    if(!raf&&vis) raf=requestAnimationFrame(loop);
+  }
+  wall.addEventListener('mousemove',e=>{touchMode=false;move(e.clientX,e.clientY);});
+  wall.addEventListener('mouseleave',()=>{ loupe.style.opacity='0'; });
+  wall.addEventListener('touchmove',e=>{ touchMode=true; const t=e.touches[0]; move(t.clientX,t.clientY); },{passive:true});
+  wall.addEventListener('touchend',()=>{ setTimeout(()=>{loupe.style.opacity='0';},700); });
+  tiles.forEach((t,i)=>t.addEventListener('click',()=>openReel(i,t)));
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(es=>{vis=es[0].isIntersecting; if(vis&&!raf) raf=requestAnimationFrame(loop);},{rootMargin:'60px'}).observe(sec);
+  }
+  window.lpMove=move;
+})();
+
+/* ═══ WAY 14 · swipe deck ════════════════════════════════════════════ */
+(function(){
+  const stack=$('#dkStack'); if(!stack) return;
+  let order=[0,1,2,3], throws=0, keeps=0, topCard=null, dragging=false, sx=0, sy=0, moved=false;
+
+  function render(){
+    stack.innerHTML=order.map((fi,d)=>`
+      <div class="dk-card" data-d="${d}" data-fi="${fi}" ${d===0?'data-top="1"':''}>
+        ${d===0
+          ? `<video muted loop playsinline preload="metadata" poster="${A(FILMS[fi].poster)}" data-io><source src="${A(FILMS[fi].file)}" type="video/mp4"></video>`
+          : `<img src="${A(FILMS[fi].poster)}" alt="${FILMS[fi].title}">`}
+        <span class="dk-no">FILM ${FILMS[fi].no}</span>
+        <span class="dk-stamp keep">KEEP ♥</span>
+        <span class="dk-stamp nope">NEXT</span>
+        <div class="dk-name">${FILMS[fi].title}</div>
+      </div>`).join('');
+    $('#dkCount').textContent=FILMS[order[0]].no+' / 04';
+    $('#dkKeeps').textContent=keeps;
+    topCard=stack.querySelector('[data-top="1"]');
+    if(topCard&&!REDUCED&&!viewerOpen()) splay(topCard.querySelector('video'));
+    bindTop();
+    $$('.dk-card[data-d="1"],.dk-card[data-d="2"],.dk-card[data-d="3"]').forEach(c=>{
+      c.addEventListener('click',()=>{ /* under cards peek only */ });
+    });
+  }
+  function bindTop(){
+    if(!topCard) return;
+    topCard.addEventListener('pointerdown',e=>{
+      if(e.button&&e.button!==0) return;
+      dragging=true; moved=false; sx=e.clientX; sy=e.clientY;
+      topCard.style.transition='none';
+      try{ topCard.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    topCard.addEventListener('pointermove',e=>{
+      if(!dragging) return;
+      const dx=e.clientX-sx, dy=e.clientY-sy;
+      if(Math.abs(dx)>6||Math.abs(dy)>6) moved=true;
+      topCard.style.transform='translate('+dx+'px,'+(dy*.35)+'px) rotate('+(dx*.06)+'deg)';
+      const k=topCard.querySelector('.dk-stamp.keep'), n=topCard.querySelector('.dk-stamp.nope');
+      if(k) k.style.opacity=Math.min(1,Math.max(0,dx/90));
+      if(n) n.style.opacity=Math.min(1,Math.max(0,-dx/90));
+    });
+    const up=e=>{
+      if(!dragging) return;
+      dragging=false;
+      const dx=e.clientX-sx;
+      topCard.style.transition='transform .45s cubic-bezier(.22,1,.36,1), opacity .4s';
+      if(Math.abs(dx)>90){ fling(dx>0?1:-1); }
+      else{
+        topCard.style.transform='';
+        topCard.querySelector('.dk-stamp.keep').style.opacity=0;
+        topCard.querySelector('.dk-stamp.nope').style.opacity=0;
+        if(!moved) openReel(order[0],topCard);
+      }
+    };
+    topCard.addEventListener('pointerup',up);
+    topCard.addEventListener('pointercancel',up);
+  }
+  function fling(dir){
+    if(!topCard) return;
+    const card=topCard;
+    card.style.transition='transform .45s cubic-bezier(.22,1,.36,1), opacity .4s';
+    card.style.transform='translate('+(dir*130)+'%,-40px) rotate('+(dir*24)+'deg)';
+    card.style.opacity='0';
+    if(dir>0) keeps++;
+    setTimeout(()=>{
+      order.push(order.shift()); throws++;
+      if(throws>=FILMS.length) throws=0;
+      render();
+    },430);
+    window.dkTop=()=>null;
+  }
+  $('#dkNope').addEventListener('click',()=>fling(-1));
+  $('#dkKeep').addEventListener('click',()=>fling(1));
+  window.dkFling=fling; window.dkState=()=>({order:order.slice(),keeps,throws});
+  render();
+})();
+
+/* ═══ WAY 15 · the channel ═══════════════════════════════════════════ */
+(function(){
+  const sec=$('#chSec'); if(!sec) return;
+  const video=$('#chVideo'), screen=$('#chScreen'), mini=$('#chMini');
+  const btns=$$('#w15 .ch-ch');
+  let idx=0, seen=false, docked=false, closed=false;
+
+  function marquee(){
+    const t='NOW SHOWING · '+FILMS[idx].title.toUpperCase()+' · 22K HANDPICKED · SHIVAA.IN · HALLMARKED TRUE · ';
+    $('#chMarquee').textContent=t+t;
+  }
+  function setCh(i,fromEl){
+    idx=((i%FILMS.length)+FILMS.length)%FILMS.length;
+    video.src=A(FILMS[idx].file);
+    if(!REDUCED) splay(video);
+    $('#chBadge').textContent='CH '+FILMS[idx].no;
+    $('#chMiniBadge').textContent='CH '+FILMS[idx].no;
+    btns.forEach((b,j)=>b.classList.toggle('on',j===idx));
+    if(screen&&!REDUCED){ screen.classList.remove('flick'); void screen.offsetWidth; screen.classList.add('flick'); }
+    marquee();
+  }
+  btns.forEach(b=>b.addEventListener('click',()=>setCh(+b.dataset.ch)));
+  $('#chPrev').addEventListener('click',()=>setCh(idx-1));
+  $('#chNext').addEventListener('click',()=>setCh(idx+1));
+  $('#chSnd').innerHTML=IC_SND_OFF;
+  $('#chSnd').addEventListener('click',()=>{ video.muted=!video.muted; $('#chSnd').innerHTML=video.muted?IC_SND_OFF:IC_SND_ON; });
+  $('#chFull').addEventListener('click',()=>openReel(idx,screen));
+
+  function dock(){
+    docked=true; mini.hidden=false;
+    mini.insertBefore(video,mini.firstChild);
+    if(!REDUCED) splay(video);
+  }
+  function undock(){
+    docked=false; mini.hidden=true;
+    screen.insertBefore(video,screen.querySelector('.ch-scan'));
+    if(!REDUCED) splay(video);
+  }
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(es=>{
+      const ratio=es[0].intersectionRatio;
+      if(ratio>=.3){
+        seen=true;
+        if(docked) undock();
+        closed=false;
+      } else if(ratio<.2 && seen && !docked && !closed && !viewerOpen()){
+        dock();
+      }
+    },{threshold:[0,.2,.3,.6]}).observe(screen);
+  }
+  $('#chMiniClose').addEventListener('click',e=>{ e.stopPropagation(); closed=true; undock(); });
+  mini.addEventListener('click',()=>{
+    const r=sec.getBoundingClientRect();
+    window.scrollTo({top:r.top+window.scrollY-80,behavior:REDUCED?'auto':'smooth'});
+  });
+  setCh(0);
+  window.chSet=setCh; window.chState=()=>({idx,docked,seen,closed});
+})();
+</script>
+</body>
+</html>
