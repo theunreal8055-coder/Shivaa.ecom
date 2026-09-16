@@ -10,6 +10,8 @@
 
 ## 🚀 v126 — THE LAPTOP: film budget · the glow · the desktop layer (2026-09-17)
 
+**STATUS: MERGED — PR #53, merge commit `b6c0432` on `main` (17 Sep 2026). `shivaa-update-v126.zip` (10 files, 216 KB) sits at the repo root on `main` for the Hostinger fast path if the auto-sync cron stays silent (v119 lesson: never trust the cron until the merge is SEEN live). Owner live-verification pending — do not record it until he reports it.**
+
 **Built from one laptop screenshot + one phone report. Four complaints, one release.**
 
 | Owner said | Root cause found | Fix |
