@@ -127,11 +127,8 @@
     const ph = view.querySelector('[data-boost="pghero"]');
     const v = document.createElement('video');
     v.className = 'ph-vid';
-    /* v126 · page-hero films start cold too — the banner photograph carries
-       the page while the governor decides (near-view + budget + data mode). */
-    v.setAttribute('data-film', '/images/films/' + pv[page] + '.mp4');
-    v.setAttribute('data-film-auto', '1');
-    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
+    v.src = '/images/films/' + pv[page] + '.mp4';
+    v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
     v.setAttribute('aria-hidden', 'true');
     v.onerror = () => { v.remove(); const bg = ph && ph.querySelector('.ph-bg'); if (bg) bg.style.opacity = ''; };
     if (ph) ph.insertBefore(v, ph.firstChild);
@@ -560,7 +557,7 @@
     </div></div>`;
   function filmCard(f) {
     return `<a class="film-card rv" data-reveal href="#/shop" aria-label="${esc(f[1])}">
-      <video data-film="/images/films/${f[0]}.mp4" data-film-auto="1" poster="${POSTERS[f[0]] || ''}" muted loop playsinline preload="none" onerror="this.remove()"></video>
+      <video src="/images/films/${f[0]}.mp4" poster="${POSTERS[f[0]] || ''}" muted loop playsinline autoplay onerror="this.remove()"></video>
       <span class="f-veil"></span><span class="f-frame"></span>
       <span class="f-ribbon">✦ FILM</span>
       <span class="f-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
@@ -595,7 +592,7 @@
   </section>`;
   const secCta = () => `<section class="sec container boost-cta" data-boost="cta">
     <div class="cta-in" data-reveal="zoom">
-      <div class="cta-img"><img src="/images/banners/poster-bridal.jpg" alt="The Bridal House" loading="lazy"><video class="cta-vid" data-film="/images/films/bridal-lux.mp4" data-film-auto="1" muted loop playsinline preload="none" aria-hidden="true" onerror="this.remove()"></video></div>
+      <div class="cta-img"><img src="/images/banners/poster-bridal.jpg" alt="The Bridal House" loading="lazy"><video class="cta-vid" src="/images/films/bridal-lux.mp4" muted loop playsinline autoplay aria-hidden="true" onerror="this.remove()"></video></div>
       <div class="cta-body">
         <span class="label">✦ The Bridal House</span>
         <h2>The complete <em style="color:var(--gold-2)">trousseau</em>, made to inherit</h2>
@@ -620,11 +617,7 @@
     if (!hero.querySelector('.boost-hero-film')) {
       const wrap = document.createElement('div');
       wrap.className = 'boost-hero-film';
-      /* v126 · the hero film is 16 MB and it sat IN FRONT of the hero photo at
-         boot: the laptop's whole first screen waited on it. It now starts cold
-         (poster only) and v126's media governor fetches it after load + idle,
-         and never at all under Save-Data / au-lite / reduced motion. */
-      wrap.innerHTML = `<video data-film="/images/films/hero.mp4" data-film-auto="1" data-film-idle="1" poster="/images/banners/gen-hero-2030.jpg" muted loop playsinline preload="none" aria-hidden="true" onerror="this.remove()"></video><div class="film-vignette"></div>`;
+      wrap.innerHTML = `<video src="/images/films/hero.mp4" poster="/images/banners/gen-hero-2030.jpg" muted loop playsinline autoplay aria-hidden="true" onerror="this.remove()"></video><div class="film-vignette"></div>`;
       hero.prepend(wrap);
     }
 
@@ -635,13 +628,8 @@
       if (!slide || slide.querySelector('video.c-vid')) return;
       const v = document.createElement('video');
       v.className = 'c-vid';
-      /* v126 · four ambient films (31 MB) used to autoplay the instant the
-         carousel existed, below the fold, on every device. They now start
-         cold — the slide keeps its photograph — and v126's governor fetches
-         and plays each one only as it approaches the viewport. */
-      v.setAttribute('data-film', '/images/films/' + film + '.mp4');
-      v.setAttribute('data-film-auto', '1');
-      v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
+      v.src = '/images/films/' + film + '.mp4';
+      v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
       v.setAttribute('aria-hidden', 'true');
       v.onerror = () => v.remove();
       const fade = slide.querySelector('.c-fade');
