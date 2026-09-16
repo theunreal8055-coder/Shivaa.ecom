@@ -63,7 +63,7 @@ const until = async (fn, ms = 8000, step = 60) => {
   console.log('\nSHIVAA v117 "butter" check\n');
   console.log('· static gates');
   ok('release handshake remains at v117 or newer on both sides',
-    /__SHIVAA_REL\s*=\s*(117|118|119|120|121|122|123|124|125)/.test(html) && /APP_REL\s*=\s*(117|118|119|120|121|122|123|124|125)/.test(appJs));
+    /__SHIVAA_REL\s*=\s*(117|118|119|120|121|122|123|124|125|126)/.test(html) && /APP_REL\s*=\s*(117|118|119|120|121|122|123|124|125|126)/.test(appJs));
 
   ok('fonts.css is file-based (no base64 payload)',
     !/base64,/.test(fontsCss) && /url\('\/fonts\//.test(fontsCss));
@@ -97,12 +97,15 @@ const until = async (fn, ms = 8000, step = 60) => {
     v117Js.indexOf('aurum.js') > 0 && v117Js.indexOf('aurum.js') < v117Js.indexOf('motion.js') &&
     v117Js.indexOf('motion.js') < v117Js.indexOf('boost.js'));
 
-  ok('sw.js shell remains at v117 or newer', /SHELL = 'shivaa-shell-v(117|118|119|120|121|122|123|124|125)'/.test(swJs));
+  ok('sw.js shell remains at v117 or newer', /SHELL = 'shivaa-shell-v(117|118|119|120|121|122|123|124|125|126)'/.test(swJs));
   const swFilesBlock = (swJs.match(/const SHELL_FILES = \[([\s\S]*?)\];/) || [null, ''])[1];
   const swList = [...swFilesBlock.matchAll(/'([^']*)'/g)].map(m => m[1]);
+  /* the post-paint trio is stamped by v117.js, not index.html — read it from
+     there so a re-bump (v126 re-stamps boost.js) cannot desync this gate */
+  const boostStamp = (/\/js\/boost\.js\?v=([^']+)/.exec(v117Js) || [, '46'])[1];
   const requested = new Set([
     ...blockingCss, ...deferredCss, ...staticJs,
-    ...['aurum.js?v=107', 'motion.js?v=107', 'boost.js?v=46'].map(u => '/js/' + u),
+    ...['aurum.js?v=107', 'motion.js?v=107', 'boost.js?v=' + boostStamp].map(u => '/js/' + u),
     ...fontFiles, '/manifest.webmanifest', '/offline.html',
     '/images/icons/icon-192.png', '/images/icons/icon-512.png',
     '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png',
