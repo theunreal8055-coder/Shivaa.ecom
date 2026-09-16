@@ -54,7 +54,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
             silver: { name: 'Silver 925', img: '/images/categories/silver.jpg' },
           };
           list.innerHTML = Object.entries(CATS).map(([k, c]) =>
-            '<a href="#/shop?category=' + k + '"><img src="' + c.img + '?v=120" alt="" loading="lazy" onerror="this.remove()"><span>' + c.name + '</span></a>'
+            '<a href="#/shop?category=' + k + '"><img src="' + c.img + '?v=123" alt="" loading="lazy" onerror="this.remove()"><span>' + c.name + '</span></a>'
           ).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }

@@ -1,12 +1,11 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   SHIVAA v121 check — mobile smoothness gates.
+   SHIVAA v123 check — category-photo refresh release gates.
 
-   A · static   (9) v121 wiring, 121 handshake, LCP srcset + matching preload,
-                    the -m file, v121.css (layers, skip-offscreen, sweep
-                    gating), hidden guards on the second-tickers
-   B · live     (5) jsdom: boots, one visible slide with the -m srcset, the
-                     carousel advances its .on hook, shop slices still grow
-                     under content-visibility, zero page errors
+   A · static  (8) 123 handshake triple, app/v116/sw wiring, all six render
+                   sites re-versioned, v116 pre-boot list, 17 tile files on
+                   disk, fallback chain + monogram underlay intact, rates lock
+   B · live    (6) jsdom: boots 77, home tiles ?v=123, two-stage fallback,
+                   shop catbar ?v=123, zero page errors
    ══════════════════════════════════════════════════════════════════════════ */
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
@@ -30,6 +29,8 @@ const RATES_STUB = {
   premium: { gold22: 398, gold: 55, silver: 3 },
   rtgs: { rows: {} }, history: [],
 };
+
+const CAT_KEYS = ['rings', 'necklaces', 'earrings', 'bangles', 'bracelets', 'chains', 'pendants', 'mangalsutra', 'bajubandh', 'rakhdi', 'aad', 'sheeshphool', 'hathphool', 'punach', 'bridalanklets', 'nosepins', 'silver'];
 
 function bootStore(extra = '') {
   return new JSDOM(fs.readFileSync(path.join(CMS, 'index.html'), 'utf8'), {
@@ -59,43 +60,32 @@ function bootStore(extra = '') {
   const html = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8');
   const app = fs.readFileSync(path.join(CMS, 'js/app.js'), 'utf8');
   const sw = fs.readFileSync(path.join(CMS, 'sw.js'), 'utf8');
-  const v121css = fs.readFileSync(path.join(CMS, 'css/v121.css'), 'utf8');
+  const v116src = fs.readFileSync(path.join(CMS, 'js/v116.js'), 'utf8');
+  const v120css = fs.readFileSync(path.join(CMS, 'css/v120.css'), 'utf8');
 
-  console.log('\nSHIVAA v121 check\n\n· A · static gates');
-  ok('the shell loads the v121 layer after the v120 layer',
-    /\/css\/v121\.css\?v=121/.test(html) &&
-    html.indexOf('/css/v120.css?v=120') < html.indexOf('/css/v121.css?v=121'));
-  ok('service worker precaches v121 and the media cache stays v120 (no gratuitous purge)',
-    /'\/css\/v121\.css\?v=121'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
+  console.log('\nSHIVAA v123 check\n\n· A · static gates');
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
-  ok('release stamps stay a consistent triple (shell = script = worker)',
-    !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
+  ok('release stamps are a consistent 123 triple (shell = script = worker)',
+    !!shellRel && !!appRel && !!swRel && shellRel[1] === '123' && appRel[1] === '123' && swRel[1] === '123',
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
-  ok('release handshake is 121 on both sides (shell v121, script key v121)',
-    /__SHIVAA_REL\s*=\s*(121|122|123)/.test(html) && /APP_REL\s*=\s*(121|122|123)/.test(app) &&
-    /SHELL = 'shivaa-shell-v(121|122|123)'/.test(sw) && /\/js\/app\.js\?v=(121|122|123)/.test(html) &&
-    /'\/js\/app\.js\?v=(121|122|123)'/.test(sw));
-  const slide1 = /<img src="\/images\/banners\/poster-heritage\.jpg" srcset="([^"]+)" sizes="100vw"[^>]*decoding="async"[^>]*fetchpriority="high">/.exec(app);
-  const slideLazy = (app.match(/draggable="false" decoding="async" loading="lazy">/g) || []).length;
-  const preload = /<link rel="preload" as="image" imagesrcset="([^"]+)" imagesizes="100vw" fetchpriority="high">/.exec(html);
-  const preUrls = preload ? [...preload[1].matchAll(/(\/images\/[^\s,]+)/g)].map(m => m[1]) : [];
-  ok('LCP: first slide carries a phone-sized srcset and every slide decodes async',
-    !!slide1 && slide1[1].includes('poster-heritage-m.jpg 800w') && slideLazy === 3, `lazy slides: ${slideLazy}`);
-  ok('LCP: the head preload matches the slide srcset and every file exists on disk',
-    !!preload && preUrls.length === 2 && preUrls.every(u => fs.existsSync(path.join(CMS, u))) &&
-    !/preload" as="image" href="\/images\/products\/ring-floral\.jpg"/.test(html), preUrls.join(', '));
-  const mBytes = fs.statSync(path.join(CMS, 'images/banners/poster-heritage-m.jpg')).size;
-  const fullBytes = fs.statSync(path.join(CMS, 'images/banners/poster-heritage.jpg')).size;
-  ok('the phone hero is genuinely lighter (under half the full file)',
-    mBytes < fullBytes / 2, `${mBytes}B vs ${fullBytes}B`);
-  ok('smoothness CSS: cards drop GPU layers, skip off-screen work, sweep paints on .on only',
-    /@media \(pointer: coarse\)[\s\S]*?\.p-card \{ will-change: auto/.test(v121css) &&
-    /\.p-card \{\s*content-visibility: auto/.test(v121css) && /contain-intrinsic-size: auto 320px/.test(v121css) &&
-    /\.c-slide::after \{ animation: none/.test(v121css) &&
-    /\.c-slide\.on::after \{ animation: sheetSweep 6\.5s/.test(v121css));
-  ok('the second-tickers skip DOM churn while the tab is hidden',
-    /if \(document\.hidden\) return;\n    const d = Math\.max\(0, target - Date\.now\(\)\);/.test(app) &&
-    /if \(document\.hidden\) return;\n    if \(!finaleLive\(\)\)/.test(app));
+  ok('shell loads app.js + v116.js at v123 and the worker precaches both',
+    /\/js\/app\.js\?v=123/.test(html) && /\/js\/v116\.js\?v=123/.test(html) &&
+    /'\/js\/app\.js\?v=123'/.test(sw) && /'\/js\/v116\.js\?v=123'/.test(sw));
+  ok('all six category render sites carry ?v=123 photo URLs',
+    /catBarItems\(\)\.map/.test(app) && /\?v=123' : '\?v=123'/.test(app.replace(/&v=123/g, '?v=123')) &&
+    /cat-mini-card"><img src="\$\{c\.img\}\?v=123"/.test(app) &&
+    /mt-img"><img src="\$\{c\.img\}\?v=123"/.test(app) &&
+    /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=123"/.test(app) &&
+    (app.match(/c\.img\}\?v=123"/g) || []).length >= 4);
+  ok('v116 pre-boot drawer list carries ?v=123', /c\.img \+ '\?v=123"/.test(v116src));
+  const missing = CAT_KEYS.filter(k => { try { return fs.statSync(path.join(CMS, 'images/categories', k + '.jpg')).size < 8000; } catch (_) { return true; } });
+  ok('all 17 category tile files exist on disk (>= 8 KB each)', missing.length === 0, 'missing/small: ' + missing.join(', '));
+  ok('fallback chain intact: logo-then-hide with dataset.lfb guard',
+    /dataset\.lfb/.test(app) && /this\.style\.display='none'/.test(app) && /\/images\/logo\.png\?v=123/.test(app));
+  ok('tile monogram underlay still guarantees no bare-text tiles',
+    /\.cb-img::after/.test(v120css) && /content: '✦'/.test(v120css) && /\.cb-img img \{ position: relative; z-index: 1/.test(v120css));
+  ok('rates remain owner-locked (premium.gold22 = 398 in db)',
+    DB.settings && DB.settings.gold22Premium === 398);
 
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -103,29 +93,21 @@ function bootStore(extra = '') {
   const errors = [];
   const dom = bootStore(w => w.addEventListener('error', e => { if (!(e.target && e.target.tagName === 'IMG')) errors.push(e.message || String(e.error)); }));
   const w = dom.window, d = w.document;
-  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
-
-  w.location.hash = '#/';
-  ok('home shows exactly one visible slide carrying the phone srcset',
-    await until(() => d.querySelectorAll('.c-slide.on').length === 1 &&
-      (d.querySelector('.c-slide img') || {}).srcset.includes('poster-heritage-m.jpg')));
-  const slides = [...d.querySelectorAll('.c-slide')];
-  const onBefore = slides.findIndex(s => s.classList.contains('on'));
-  d.querySelector('.c-next').click();
-  ok('the carousel advances its .on hook (the sweep gating follows the visible slide)',
-    await until(() => [...d.querySelectorAll('.c-slide')].findIndex(s => s.classList.contains('on')) !== onBefore),
-    `stayed on slide ${onBefore}`);
-
+  ok('storefront boots with the 77-product catalogue', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
+  ok('home category tiles render with ?v=123 photo URLs',
+    await until(() => [...d.querySelectorAll('.cb-img img')].length >= 17 && [...d.querySelectorAll('.cb-img img')].every(i => /\?v=123/.test(i.src))));
+  const tileImg = d.querySelector('.cb-img img');
+  tileImg.dispatchEvent(new w.Event('error'));
+  ok('fallback stage 1: a failed tile photo swaps to the v123 house logo', /\/images\/logo\.png\?v=123/.test(tileImg.src));
+  tileImg.dispatchEvent(new w.Event('error'));
+  ok('fallback stage 2: a failed logo hides to the monogram underlay', tileImg.style.display === 'none');
   w.location.hash = '#/shop';
-  await until(() => d.querySelectorAll('#shopGrid .p-card').length > 0);
-  const n0 = d.querySelectorAll('#shopGrid .p-card').length;
-  w.Shivaa.shopLoadMore();
-  ok('shop slices still grow under content-visibility (infinite scroll unbroken)',
-    await until(() => d.querySelectorAll('#shopGrid .p-card').length > n0), `${n0} cards, no growth`);
-  ok('no unhandled page errors in the v121 session', errors.length === 0, errors.slice(0, 3).join(' | '));
+  ok('shop-page category bar photos carry ?v=123',
+    await until(() => [...d.querySelectorAll('.shop-catbar .cb-img img')].length >= 17 && [...d.querySelectorAll('.shop-catbar .cb-img img')].every(i => /\?v=123/.test(i.src))));
+  ok('no unhandled page errors in the v123 session', errors.length === 0, errors.slice(0, 3).join(' | '));
 
   server.close();
   const pass = results.filter(Boolean).length;
-  console.log(`\n${pass}/${results.length} v121 checks passed  ${pass === results.length ? '✦' : '✗'}`);
+  console.log(`\n${pass}/${results.length} v123 checks passed  ${pass === results.length ? '✦' : '✗'}`);
   process.exit(pass === results.length ? 0 : 1);
-})().catch(e => { console.error('HARNESS ERROR', e); server.close(); process.exit(1); });
+})().catch(e => { console.error('v123-check crashed:', e); process.exit(1); });

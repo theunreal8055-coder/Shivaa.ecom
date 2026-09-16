@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-15 (v119 — 22K premium ₹398 desk-physical + published rate anchor + first-paint/mobile pack)**
+**Last updated: 2026-09-16 (v123 — category-photo refresh: 17 real AI-cleaned owner tiles + ?v=123 cache-bust)**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
@@ -432,6 +432,14 @@ PGS5059 Kanchan
 ---
 
 ## 📝 SESSION STEP LOG (newest first — append every session)
+
+**2026-09-16 — v123 category-photo refresh (branch `arena/01a0a7e6-shivaa-ecom`)**
+1. Owner asked for new homepage category-slider photos; read MEMORY/HANDOFF/ARENA-STATE first; branch verified at tip of main (`2ad3bad`, PR #47), worktree clean.
+2. Discovered the 17 hash-named owner jpgs at the repo root map 1:1 onto the 17 `CATS` keys (owner upload that arrived with PR #47); 14 were re-attached in chat, 3 read from the root. Mapping: rings 12747ae · necklaces de394b8 · earrings 94aa472 · bangles d1e2bb8 · bracelets 18da0318 · chains 98af24b · pendants 4f829c7 · mangalsutra e74d8a1 · bajubandh 921a4a7 · rakhdi d2cf594 · aad a040aef · sheeshphool c361740 · hathphool 3c38980 · punach b5aa894 · bridalanklets 91c89e0 · nosepins 57181fc · silver c7c3804.
+3. AI-edited each photo (generate_image, reference edit): watermarks/ad text removed (NAKODA, MAHAKALI, nakodapayal, chhatralajewels, "Kada Payal"), jewellery kept identical; finalized 420×420 q82 with Pillow; every tile read back and QA'd; old 17 placeholders backed up to /home/user/cat_backup_v122 and restorable from `2ad3bad`.
+4. Re-versioned all six render sites + v116 pre-boot list `?v=120`→`?v=123`; handshake triple → 123; SW `shivaa-shell-v123`; precache app.js/v116 at 123. New `tools/mega/smoke/v123-check.js` (14); v117–v122 suites forward-compatible.
+5. Gates on finished tree: 32/32 · 27/27 · 18/18 · 27/27 · 24/24 · 14/14 · 22/22 · 14/14 · php-sweep 211/0. Deliverable `shivaa-update-v123.zip` (22 files, root layout) + `DEPLOY-v123.md`. Rates LOCKED, api.php/.htaccess/db.json untouched. PR → main.
+6. Lesson: the image-edit endpoint drops long prompts with empty responses — short prompts go through.
 
 **2026-09-15 — v118 storefront repair (branch `arena/01a0a48d-shivaa-ecom`, commit `0f699f8`, PR #41) — OWNER CONFIRMED WORKING**
 1. **Intake/continuity:** owner reported five storefront failures and requested an update ZIP. Read `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `READ-ME-FIRST.txt`, `HANDOFF.md` and `ARENA-STATE.md` before editing; verified branch started at v117/main commit `ea2d48b` and the worktree was clean.

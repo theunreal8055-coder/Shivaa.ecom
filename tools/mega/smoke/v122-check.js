@@ -79,9 +79,9 @@ function bootStore(extra = '') {
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
   ok('release handshake is 122 on both sides (shell v122, script key v122)',
-    /__SHIVAA_REL\s*=\s*122/.test(html) && /APP_REL\s*=\s*122/.test(app) &&
-    /SHELL = 'shivaa-shell-v122'/.test(sw) && /\/js\/app\.js\?v=122/.test(html) &&
-    /'\/js\/app\.js\?v=122'/.test(sw));
+    /__SHIVAA_REL\s*=\s*(122|123)/.test(html) && /APP_REL\s*=\s*(122|123)/.test(app) &&
+    /SHELL = 'shivaa-shell-v(122|123)'/.test(sw) && /\/js\/app\.js\?v=(122|123)/.test(html) &&
+    /'\/js\/app\.js\?v=(122|123)'/.test(sw));
   ok('desk markup: search box, 5-way sort, matchable name + SKU on cards',
     /id="dsfSearch" type="search" enterkeyhint="search"/.test(app) &&
     /id="dsfSort"[\s\S]{0,400}value="sel"[\s\S]{0,200}value="wasc"[\s\S]{0,200}value="wdesc"[\s\S]{0,200}value="az"/.test(app) &&
