@@ -1,25 +1,31 @@
-# AGENT HANDOFF — read this first, every new chat (updated 16 Sep 2026)
+# AGENT HANDOFF — read this first, every new chat (updated 16 Sep 2026 — v124)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
 
-## CURRENT FORWARD BASELINE — v123 (16 Sep 2026)
+## CURRENT FORWARD BASELINE — v124 (16 Sep 2026)
 
-The storefront baseline is **v123** — the v119 baseline plus the v120 bug-fix/mobile pack, the v121 smoothness pack, the v122 B2B design desk, and the v123 category-photo refresh. **It is merged and live:** PR **#48**, merge commit **`bfc3908`** on `main`, and the **owner live-verified it on 16 Sep 2026 — `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.** Deliverable `shivaa-update-v123.zip` (22 files, root layout) + `DEPLOY-v123.md`. **Everything v119 and v118 guarantee still stands** (see the lists below) and must not be reverted.
+The storefront baseline is **v124** — the v119 baseline plus the v120 bug-fix/mobile pack, the v121 smoothness pack, the v122 B2B design desk, the v123 category-photo refresh and the v124 slider faces (Punach + New In). **v123's provenance (restored this session after its own doc commits were lost):** merged as PR **#48**, merge commit **`bfc3908`** on `main`, and **owner live-verified on 16 Sep 2026 — `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`** (owner-reported; the sandbox has no route to shivaa.in). Deliverables: `shivaa-update-v123.zip` (22 files) + `DEPLOY-v123.md`, then `shivaa-update-v124.zip` (7 files) + `DEPLOY-v124.md`. v124's merge/live record is the newest entry in `HANDOFF.md`'s session step log. **Everything v119 and v118 guarantee still stands** (see the lists below) and must not be reverted.
+
+- **Slider faces (v124):** 18 faces live in `cms/images/categories/` — the 17 `CATS` keys plus `newin.jpg`, which the New In chip now uses instead of borrowing `/images/products/mangalsutra-modern.jpg` (product imagery is never category art). `punach.jpg` is the owner's kundan-kada photo (`ponchi-500x500.jpg`), which retired the v123 "forced leftover fit" tile. Every face is 420×420 q82, cropped centred on the trimmed content box so the round tile crop cannot clip a piece. **A bump must sweep BOTH `?v=` and the `&v=` branch** of the tile URL builder — a `?v=`-only sweep silently leaves half the tiles on the old stamp.
 
 - **Category tiles (v123):** all 17 homepage/shop category-slider tiles are the owner's own photographs, AI-cleaned (third-party watermarks / ad text removed — NAKODA, MAHAKALI, nakodapayal, chhatralajewels, "Kada Payal"), 420×420, centred circle-crop-safe, in `cms/images/categories/`. Never re-publish the v113b placeholder art. Owner-source jpgs for every tile live at the repo root and map 1:1 onto the `CATS` keys (see `MEMORY.md` → *Mapping (for swaps)*); `punach` currently carries the delicate leaf-chain set, the one forced fit the owner may swap on a word.
-- **Version triple:** `__SHIVAA_REL` / `APP_REL` / SW `SHELL` are all **123**, all six category-photo render sites + the pre-boot `v116` list carry `?v=123`, and the SW precache pins `app.js?v=123` + `v116.js?v=123`. Any new release bumps **all of them together** and makes the older suites forward-compatible (house pattern) rather than editing them down.
+- **Version triple:** `__SHIVAA_REL` / `APP_REL` / SW `SHELL` are all **124**, all six category-photo render sites + the pre-boot `v116` list carry `?v=124` (and `&v=124` in the already-queried branch), and the SW precache pins `app.js?v=124` + `v116.js?v=124`. The media cache intentionally stays `shivaa-media-v120`. Any new release bumps **all of them together** and makes the older suites forward-compatible (house pattern) rather than editing them down.
 - **v120 pack:** rates page patches values in place (no more blank-white page, alert typing survives a poll tick); every category photo has the logo→hide fallback plus the monogram underlay, so a tile can never render as bare text; tap haptics; back button owns search/modals/drawers; safe-area + `dvh` + 16 px inputs mobile CSS. Suite `tools/mega/smoke/v120-check.js` (24).
 - **v121 pack:** phone-sized hero banner (`poster-heritage-m.jpg`, srcset + matching head preload), cards drop permanent GPU layers + `content-visibility` on phones, banner shine repaints only on the visible slide, tickers rest while the tab is hidden. Media cache deliberately stays `shivaa-media-v120` (no gratuitous purge). Suite (14).
 - **v122 pack:** B2B design desk `#/catalogues` — name/SKU search (debounced, persisted) + 5-way sort incl. selected-first; sticky bill bar gated on the top total; second gallery shots load near-view only; card-photo logo fallback; wishlist crash guard; honest empty-catalogue note. Billing math verified byte-identical. Suite (22).
 - **Rates:** untouched since v119 — `premium.gold22 = 398` and the anchor formula are **owner-locked**; `api.php`, `.htaccess` and `db.json` shipped in **none** of the v120–v123 zips.
 - **Catalogue:** master PGS set is **77** rings (the 65 signature rings + Ladies-67 tranche 1, PGS5066–5077, via PR #46); each still carries four images.
-- **Gates required before any later release:** `v113b-check.js` (32) · `v117-check.js` (27) · `v118-check.js` (18) · `v119-check.js` (27) · `v120-check.js` (24) · `v121-check.js` (14) · `v122-check.js` (22) · **`v123-check.js` (14)** · php-sweep (211/0) · catalogue 77 with four images each — all re-run on the built zip overlay, plus a real-PHP probe of the shipped `api.php` whenever it changes.
+- **Gates required before any later release:** `v113b-check.js` (32) · `v117-check.js` (27) · `v118-check.js` (18) · `v119-check.js` (27) · `v120-check.js` (24) · `v121-check.js` (14) · `v122-check.js` (22) · `v123-check.js` (14) · **`v124-check.js` (20)** · php-sweep (211/0) · catalogue 77 with four images each — all re-run on the built zip overlay, plus a real-PHP probe of the shipped `api.php` whenever it changes.
 - **Deploy caution:** the auto-sync cron did **not** fire for PR #45; never trust push-to-deploy until a merge is seen reaching shivaa.in on its own. The zip extracted into `public_html` ROOT is the fast path; `main` is the durable one.
 
-## Previous baseline — v119 (15 Sep 2026)
+## Previous baseline — v123 (16 Sep 2026)
+
+The baseline was **v123** — 17 real AI-cleaned owner tiles + `?v=123`; merged as **PR #48 (`bfc3908`)**, owner live-verified 16 Sep (`sw.js` = `shivaa-shell-v123`). Nothing in v124 reverts it: v124 only retook the `punach` face and gave the New In chip its own.
+
+## Earlier baseline — v119 (15 Sep 2026)
 
 The baseline was **v119** — the v118 baseline plus the owner-locked rate decision and the first-paint/mobile pack. Deliverable `shivaa-update-v119.zip` (10 files, root layout). **Everything v118 guarantees still stands** (see the v118 list below) and must not be reverted.
 

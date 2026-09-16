@@ -1,8 +1,8 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-16 (v123 — category-photo refresh: 17 real AI-cleaned owner tiles + ?v=123 cache-bust).**
-**v123 STATUS: MERGED + LIVE — merged as PR #48 (`bfc3908`) into `main`; owner live-verified 16 Sep, `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.**
-**v123 is the required forward baseline: never restore the v113b placeholder category tiles, and never re-publish a `?v=` stamp older than 123.**
+**Last updated: 2026-09-16 (v124 — Punach + New In slider faces from owner photos, `?v=124` cache-bust; v123 category-photo refresh before it).**
+**v124 STATUS: shipped on the session branch, PR → `main` (see the step log below).** **v123 STATUS: MERGED + LIVE — merged as PR #48 (`bfc3908`) into `main`; owner live-verified 16 Sep, `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.**
+**Forward baseline: never restore the v113b placeholder category tiles, and never re-publish a `?v=` stamp older than 124.**
 **Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
@@ -434,6 +434,17 @@ PGS5059 Kanchan
 ---
 
 ## 📝 SESSION STEP LOG (newest first — append every session)
+
+**2026-09-16 — v124 Punach + New In slider faces (branch `arena/01a0a845-shivaa-ecom`)**
+0. **Step 0 (docs repair, own commit `5ba446b`):** the v123 session's two doc commits were local-only and lost to the sandbox reset — re-added *merged as PR #48 `bfc3908`* and *owner live-verified 16 Sep, `sw.js` = `shivaa-shell-v123`* to `MEMORY.md` + `HANDOFF.md`, and `docs/AGENT-HANDOFF.md`'s CURRENT FORWARD BASELINE moved v119 → **v123** (v119 demoted to previous, v118 to earlier). PR #48 merge re-verified from GitHub (`MERGED`, `2026-09-16T02:37:32Z`); the shivaa.in read stays the owner's word — this sandbox has no route to the site.
+1. Owner: "edit the attached image and paste it in the punach title of category slider", then a follow-up adding a second photo "for new in jewellery". Read `ARENA-STATE.md` / `HANDOFF.md` / `MEMORY.md` first; branch verified at `main`.
+2. The chat attachment never landed (claimed `/home/user/uploads/` did not exist — verified filesystem-wide). Owner uploaded both photos to `main` instead (`2cadc34 Add files via upload`): `ponchi-500x500.jpg` (500×333, landscape despite the filename) and `e94d7c530ea31e50aeed8df7d9200fc0.jpg` (736×985); `git merge origin/main` into the session branch (`e800afd`) brought them in. No tile was invented while the file was missing.
+3. Each photo AI-cleaned with `generate_image` (reference edit, **one-line prompt** — the long-prompt empty-response bug is still live: both first attempts returned `Response contains no images`), then finalised `420x420^ -gravity center`-equivalent: scale-to-cover, content bbox found with `-fuzz 18% -trim`, crop offset centred on the *jewellery* (punach `+117+0`, newin `+0+27`) so the round tile crop can't clip a piece, `-strip -interlace Plane -quality 82 -sampling-factor 4:2:0` → byte sizes 44 KB / 25 KB, in family with the 17 v123 tiles (15–44 KB).
+4. Installed `cms/images/categories/punach.jpg` (replacing the v123 leaf-chain "forced leftover fit" the previous session flagged for exactly this swap; prior md5 `a5fcfd5acd66b0edecb45e74e3d6be85`, restorable from `git show bfc3908:cms/images/categories/punach.jpg`) and the new `cms/images/categories/newin.jpg`. `catBarItems()`'s New In chip now points at that face instead of borrowing `/images/products/mangalsutra-modern.jpg` — the product file is untouched on disk, just no longer used as category art.
+5. Stamps 123 → **124** everywhere: `__SHIVAA_REL` / `APP_REL` / `shivaa-shell-v124`, 13 `?v=123` sites **plus the `'&v=123' : '?v=123'` branch of the tile URL builder — a `?v=`-only sweep silently leaves that half stale** (found by grep; now asserted), v116 pre-boot list, SW precache. Media cache deliberately stays `shivaa-media-v120` (the `?v=` change already busts these two files; a MEDIA bump would gratuitously purge every phone's product photos).
+6. New gate `tools/mega/smoke/v124-check.js` (**20**): exact 124 triple, zero stale 123 in either branch, six render sites, 18 faces on disk each exactly 420×420 baseline JPEG, punach provably changed off the v123 bytes, New In on its own face with the product photo still present, fallback chain, monogram underlay, rates + media locks, and a jsdom boot where home + shop render both new faces. v117–v123 extended with `|124` and v120-check's `?v=12(0|3)` widened (house forward-compat pattern).
+7. Gates on the finished tree AND on the extracted `shivaa-update-v124.zip` (7 files, root layout, built by `tools/mega/make-v124-zip.py`): v113b 32/32 · v117 27/27 · v118 18/18 · v119 27/27 · v120 24/24 · v121 14/14 · v122 22/22 · v123 14/14 · v124 20/20 = **198/198** · php-sweep 211/0. Rates LOCKED (398) — `api.php` / `.htaccess` / `db.json` not in the release. `DEPLOY-v124.md` written.
+8. **Open item for the owner:** nobody in this sandbox could look at the two tiles (image reads return placeholders here) — the owner must eyeball `punach.jpg` / `newin.jpg` on the slider; a swap or a different source photo is a one-commit fix.
 
 **2026-09-16 — v123 category-photo refresh (branch `arena/01a0a7e6-shivaa-ecom`) — MERGED + OWNER LIVE-VERIFIED**
 1. Owner asked for new homepage category-slider photos; read MEMORY/HANDOFF/ARENA-STATE first; branch verified at tip of main (`2ad3bad`, PR #47), worktree clean.

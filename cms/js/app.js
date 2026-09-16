@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 123;
+const APP_REL = 124;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1658,18 +1658,28 @@ function renderTicker() {
 }
 
 /* ─────────── category slider v2 (image cards, Tanishq-inspired) ─────────── */
+/* v124 — owner-supplied photos for two slider faces, both AI-cleaned to a plain
+   cream field and finalised 420×420 q82 centred on the jewellery (round-crop safe):
+   · `punach`        ← ponchi-500x500.jpg (the kundan kada pair), replacing the
+     delicate leaf-chain set v123 itself flagged as "forced leftover fit — swap on
+     owner's word". This is that swap.
+   · 'New In' chip   ← e94d7c530ea31e50aeed8df7d9200fc0.jpg, now served from its own
+     category face /images/categories/newin.jpg instead of borrowing the product
+     photo /images/products/mangalsutra-modern.jpg (that file is left on disk and
+     referenced by no tile; product imagery is never repurposed as a category face).
+   Stamps moved 123 → 124 everywhere (?v= AND &v= branches, app/v116/sw + handshake). */
 const catBarItems = () => [
   { label: 'All Jewellery', href: '#/shop', img: '/images/products/ring-floral.jpg' },
   ...Object.entries(LIVE_CATS()).map(([k, c]) => ({ label: c.name, href: '#/shop?category=' + k, img: c.img })),
   { label: 'Under ₹50K', href: '#/shop?max=50000', img: '/images/products/pendant-om.jpg' },
-  { label: 'New In', href: '#/shop?tag=new', img: '/images/products/mangalsutra-modern.jpg' },
+  { label: 'New In', href: '#/shop?tag=new', img: '/images/categories/newin.jpg' },
 ];
 function catBarHTML() {
   return `<div class="cb-wrap"><button class="cb-arrow cb-prev" aria-label="Previous">‹</button><div class="catbar2">` +
-    /* v120 — Bug B: tile photos carry ?v=123 (busts poisoned pre-v113 SW entries) and a
+    /* v120 — Bug B: tile photos carry ?v=124 (busts poisoned pre-v113 SW entries) and a
        two-stage fallback — house logo, then hide to reveal the monogram underlay in
        css/v120.css — so a tile can never degrade to bare alt-text again. */
-    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&v=123' : '?v=123'); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=123';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
+    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&v=124' : '?v=124'); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=124';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
     `</div><button class="cb-arrow cb-next" aria-label="Next">›</button></div>`;
 }
 function initCatbar() {
@@ -2206,7 +2216,7 @@ pages.home = async (view) => {
   <section class="sec container" style="padding-bottom:26px">
     <div class="sec-head rv" style="margin-bottom:22px"><span class="label">Shop by category</span><h2>Find your <span class="disp-italic">forever</span></h2></div>
     <div class="cat-mini">
-      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}?v=123" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=123';}else{this.remove();}"><b>${c.name}</b></a>`).join('')}
+      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}?v=124" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=124';}else{this.remove();}"><b>${c.name}</b></a>`).join('')}
     </div>
   </section>
 
@@ -7989,7 +7999,7 @@ function renderSugg(qs) {
       `<div class="sugg-lbl">Popular searches</div>` +
       POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=123" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=123';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=124" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=124';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -8001,7 +8011,7 @@ function renderSugg(qs) {
       + `<div class="sugg-lbl">Try</div>`
       + POPULAR_Q.slice(0, 4).map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=123" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=123';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=124" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=124';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -8294,7 +8304,7 @@ async function boot(isRedraw) {
   <div class="mega-in">
     <div class="mega-grid">${Object.entries(LIVE_CATS()).map(([k, c]) => `
       <a class="mega-tile" href="#/shop?category=${k}">
-        <span class="mt-img"><img src="${c.img}?v=123" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=123';}else{this.remove();}"></span>
+        <span class="mt-img"><img src="${c.img}?v=124" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=124';}else{this.remove();}"></span>
         <span class="mt-tx"><b>${c.name}</b><small>${c.sub}</small></span>
       </a>`).join('')}
     </div>
@@ -8324,7 +8334,7 @@ async function boot(isRedraw) {
           list = document.createElement('div');
           list.id = 'dwCatList'; list.className = 'dw-catlist';
           list.innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) =>
-            `<a href="#/shop?category=${k}"><img src="${c.img}?v=123" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=123';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
+            `<a href="#/shop?category=${k}"><img src="${c.img}?v=124" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=124';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }
         const open = !list.classList.contains('open');
