@@ -51,17 +51,10 @@
         (navigator.connection && navigator.connection.saveData);
     } catch (e) { return false; }
   }
-  /* v126 · splay/shut are the ONLY play/pause doors in this file. Each one
-     stamps the element's "wants to play" intent so the v126 media governor
-     (which may have detached a film's src to free a decoder on a phone) can
-     honour it the moment it re-attaches. With no governor present the stamps
-     are inert and everything behaves exactly as v125 did. */
   function splay(v) {
-    try { v.dataset.svWant = '1'; } catch (e) {}
     try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
   }
   function shut(v) {
-    try { v.dataset.svWant = '0'; } catch (e) {}
     try { v.pause(); } catch (e) {}
   }
   var $ = function (s, r) { return (r || doc).querySelector(s); };
@@ -194,9 +187,7 @@
   function resumeVisibleFilms() {
     mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; });
     if (REDUCED) return;
-    /* v126 · a film whose src the governor detached still "wants" to play —
-       asking it to play is what re-arms it (the governor plays on attach). */
-    mountedFilms.forEach(function (v) { if (v.dataset.svVis === '1' && (v.getAttribute('src') || v.getAttribute('data-film'))) splay(v); });
+    mountedFilms.forEach(function (v) { if (v.dataset.svVis === '1' && v.getAttribute('src')) splay(v); });
   }
 
   /* ═══ 2 · film elements (poster-first, LITE never mounts a <video>) ═ */
@@ -209,20 +200,12 @@
       return wrap;
     }
     var v = doc.createElement('video');
-    /* v126 · films now start COLD. The src stays on the element (so a browser
-       without the v126 governor still plays them) but preload=none means not
-       one byte is fetched until something asks to play. Nine films x metadata
-       at boot was a laptop's whole first screen of bandwidth, and on a phone
-       it was nine media elements fighting for four hardware decoders — which
-       is why the LAST thread film (05) could sit there and never load. */
-    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
+    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'metadata';
     v.setAttribute('poster', fl.p);
     v.setAttribute('aria-label', fl.title);
-    v.setAttribute('data-film', fl.f);
     v.src = fl.f;
     v.style.cssText = 'width:100%;height:100%;object-fit:cover';
     v.dataset.svVis = '0';
-    v.dataset.svWant = '0';
     wrap.appendChild(v);
     mountedFilms.push(v);
     if ('IntersectionObserver' in win) {
