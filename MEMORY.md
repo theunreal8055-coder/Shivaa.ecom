@@ -6,7 +6,7 @@
 > **Owner magic phrase for next chat:** `Read ARENA-STATE.md and HANDOFF.md and MEMORY.md first, then continue.`
 
 ## Session 2026-09-16 #7 (arena/01a0a860) — v125 SHIPPED — the owner said "Ship it"
-- **Owner's word received (16 Sep night): "Ship it and also give me a update zip file in the GitHub if you can't auto deploy."** → PR #51 merged to main. All nine films real, 224/224 gates, php-sweep 211/0.
+- **Owner's word received (16 Sep night): "Ship it and also give me a update zip file in the GitHub if you can't auto deploy."** → **PR #51 MERGED to main as `b2eb791` (16 Sep 2026, 13:46 UTC)** — merge verified: main's `cms/sw.js` = `shivaa-shell-v125`, `cms/js/v125.js` carries THREAD_FILMS, `shivaa-update-v125.zip` (11.0 MB) at repo root. All nine films real, 224/224 gates, php-sweep 211/0.
 - **Deploy routes both live:** (1) main-merge auto-sync cron (Hostinger-side; it failed silently once before — v119/PR #45 lesson: never trust it until the merge is SEEN live), (2) `shivaa-update-v125.zip` at the repo root on main (25 files, 11.0 MB, root layout, no api.php/.htaccess/db.json) + `DEPLOY-v125.md` runbook (2-min Hostinger extract into public_html).
 - **Owner live-verification checklist (his, not ours — no route to shivaa.in from sandbox):** close ALL shivaa.in tabs → reopen; home shows the Revolving Case (bride arc, The Unboxing fronts) below the category slider and the Gold Thread (fire-to-forever, 5 chapters) after Bestsellers; old "house in motion" strip gone; tap a film → full screen with sound; `/sw.js` view-source shows `shivaa-shell-v125`; data-saver ON → posters only.
 - **Do NOT record "owner live-verified" until he actually reports it (house law).**
