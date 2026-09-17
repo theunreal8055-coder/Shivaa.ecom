@@ -3830,11 +3830,18 @@ try {
 
   /* v128 — admin "Test keys" for Cashfree. Probes GET /pg/orders/{probe}:
      valid App ID + Secret Key answer 404 (order not found); wrong or
-     missing credentials answer 401/403 (authentication failed). */
+     missing credentials answer 401/403 (authentication failed).
+     Cashfree keys are prefixed: sandbox keys start TEST_, production PROD_
+     — a prefix that contradicts the selected environment is flagged. */
   if ($route === 'admin/pay-test' && $method === 'POST') {
     need_admin($db);
     $cfg = cashfree_cfg($db);
     if ($cfg['appId'] === '' || $cfg['secret'] === '') jout(400, ['ok' => false, 'error' => 'Enter the Cashfree App ID and Secret Key first.']);
+    $keyEnv = strpos($cfg['appId'], 'TEST_') === 0 ? 'sandbox'
+            : (strpos($cfg['appId'], 'PROD_') === 0 ? 'production' : '');
+    if ($keyEnv !== '' && $keyEnv !== $cfg['env'])
+      jout(200, ['ok' => false, 'env' => $cfg['env'],
+        'detail' => 'This looks like a ' . $keyEnv . ' key (Cashfree keys start ' . ($keyEnv === 'sandbox' ? 'TEST_' : 'PROD_') . ') but the environment is set to ' . $cfg['env'] . '. Switch the environment or paste the matching keys.']);
     $probe = 'shvprobe' . substr((string)time(), -6) . bin2hex(random_bytes(2));
     $r = cashfree_fetch_order($cfg, $probe);
     if (in_array($r['code'], [401, 403], true))

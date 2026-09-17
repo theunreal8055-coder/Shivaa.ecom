@@ -85,3 +85,42 @@ Customer taps "Pay now"
 Refunds: Orders → ↩️ on a Cashfree-paid order. Cashfree settles refunds
 asynchronously; the order flips to *Refunded* once Cashfree reports SUCCESS
 (the customer order-page poller and webhook advance the status).
+
+## Verified against the official Cashfree documentation
+
+Every piece of this integration was checked against Cashfree's own docs on
+2026-09-17 (index: https://www.cashfree.com/docs/llms.txt):
+
+| Doc page | What it confirmed for this build |
+|----------|-----------------------------------|
+| Payments Overview | Hosted Web Checkout is the correct integration method for a PHP site (vs. Elements/mobile SDKs/plugins) |
+| Quickstart Guide | Sandbox = `sandbox.cashfree.com` + `TEST_…` keys; Production = `api.cashfree.com` + `PROD_…` keys; KYC required for live. **The admin "Test" button flags TEST_/PROD_ key-vs-environment mismatches.** |
+| Hosted Web Checkout (web integration) | 3-step flow: server creates order → JS SDK `cashfree.checkout({paymentSessionId})` → confirm via Get Order; `return_url` recommended + webhook recommended (both implemented) |
+| Create Order API | Request shape used: `order_id`, `order_amount`, `order_currency`, `customer_details`, `order_meta.return_url` (incl. the documented `{order_id}` placeholder), `order_meta.notify_url`, `order_note`, `order_tags.checkout_context` |
+| Get Order API | `order_status = PAID` is the success condition; verified server-to-server before crediting |
+| Webhooks — Overview / Configuration / Signature | Registered per environment, version 2023-08-01, events Success/Failed/Dropped Payment + Refund; signature = `base64(HMAC-SHA256(timestamp + rawBody, secret))` — exactly what `cashfree_webhook_verified()` checks |
+| Refunds API | `POST /pg/orders/{id}/refunds` with `refund_id` (3–40 chars) + `refund_amount` + `refund_note`; status via `GET /pg/orders/{id}/refunds/{refund_id}` |
+| Domain whitelisting | https-only, needs Contact/Terms/Refund pages + INR pricing, ~24 h review — captured in the setup guide Part B |
+| Data to Test Integration | Sandbox test cards (OTP `111000`), test UPI VPAs (`testsuccess@gocash` etc.) — captured in the setup guide Part D |
+
+## Mapping: the recommended integration plan ↔ this implementation
+
+| Recommended step | Where it lives |
+|---|---|
+| 1. Audit existing checkout | Done — existing `pay/config · pay/order · pay/verify` architecture kept, no second checkout system |
+| 2. Add Cashfree configuration | `settings.cfAppId / cfSecretKey / cfEnv` + admin Payments card |
+| 3. Cashfree order creation in PHP | `cashfree_create_order()` inside `POST /api/pay/order` — **amount computed from the stored order balance, never from the browser** |
+| 4. Cashfree JS checkout | `Shivaa.cashfreeCheckout()` in `cms/js/app.js` (official v3 SDK, `redirectTarget: '_self'`) |
+| 5. Return URL | `/api/pay/cashfree/return?co=…&order_id={order_id}` |
+| 6. Server-side verification | `cashfree_fetch_order()` + `cashfree_apply()` (PAID + amount match) |
+| 7. Webhook | `/api/pay/cashfree/webhook` with HMAC verification + replay guard |
+| 8. Connect to existing order | `order_add_payment()` ledger → `paymentStatus = Paid` |
+| 9. Prevent duplicates | Rate limit on `pay/order`, idempotent crediting on Cashfree order id, fresh `-A<n>` id per retry |
+| 10. Test sandbox | Setup guide Part D (11-scenario matrix + official test cards/UPI VPAs) |
+| 11. Switch to production | Setup guide Part F (PROD_ keys, production webhook, whitelisting) |
+| 12. Small real transaction | Setup guide Part F step 5 (pay + refund drill) |
+
+**Operator guide:** [`cms/docs/CASHFREE-SETUP-GUIDE.md`](cms/docs/CASHFREE-SETUP-GUIDE.md) —
+account, keys, whitelisting, admin wiring, webhook setup, sandbox test matrix,
+go-live checklist, and every official doc link.
+
