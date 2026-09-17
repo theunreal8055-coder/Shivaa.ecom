@@ -1,16 +1,39 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-17 (v126 — THE LAPTOP: film budget + the glow + the desktop layer, `?v=126`, shell `shivaa-shell-v126`; v125 the nine owner films before it).**
-**v124 STATUS: MERGED — PR #49, merge commit `5145ab2` on `main` (16 Sep 2026). Owner visual check of the two new tiles still pending; no live-site read recorded yet — do not claim one.** **v123 STATUS: MERGED + LIVE — merged as PR #48 (`bfc3908`) into `main`; owner live-verified 16 Sep, `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.**
-**Forward baseline: never restore the v113b placeholder category tiles, never re-publish a `?v=` stamp older than 126, and never let a film ship eager again (poster + `preload="none"` + `data-film` — v126's budget hands out the bytes).**
-**Live site: https://shivaa.in · Repo: theunreal8055-coder/Shivaa.ecom**
+**Last updated: 2026-09-16 (v125 FROZEN — owner's ruling: the website is v125 only, no changes. v126 REVERTED via PR #55 and DEAD; the "v125-fix" zip removed and dead. Read the ⛔ section below before doing anything.)**
+**v124 STATUS: MERGED — PR #49, merge commit `5145ab2` on `main` (16 Sep 2026). v123 STATUS: MERGED + LIVE — merged as PR #48 (`bfc3908`) into `main`; owner live-verified 16 Sep, `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.**
+**Forward baseline: v125 ONLY (owner-frozen 16 Sep 2026). No new release, no stamp bump, no file swap, no "repair" — until the owner explicitly asks for a change. Never restore the v113b placeholder category tiles. v126 and the v125-fix zip are dead — do not resurrect, reference or re-deploy them (see `MEMORY.md` → OWNER'S RULING).**
+**Live site: https://shivaa.in (owner-confirmed v125 after his own restore) · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
 
 ---
 
-## 🚀 v126 — THE LAPTOP: film budget · the glow · the desktop layer (2026-09-17)
+## ⛔ v125 FROZEN — v126 REVERTED + OWNER RULING (16 Sep 2026, branch `arena/01a0ab0c-shivaa-ecom`)
 
-**STATUS: MERGED — PR #53, merge commit `b6c0432` on `main` (17 Sep 2026). `shivaa-update-v126.zip` (10 files, 216 KB) sits at the repo root on `main` for the Hostinger fast path if the auto-sync cron stays silent (v119 lesson: never trust the cron until the merge is SEEN live). Owner live-verification pending — do not record it until he reports it.**
+**The live website is v125 and STAYS v125 — the owner's explicit, final word: "my website should be v125 only and no changes."**
+
+**Timeline (owner-reported + repo facts):**
+1. v125 shipped (PR #51, `b2eb791`): the nine owner films — Revolving Case (4) + Gold Thread (5). Owner confirmed good.
+2. v126 (PR #53, `b6c0432`) deployed by the owner → **the live site became "ugly — all elements scattered and all images blurred"** (owner's words). Root cause never forensically pinned down (mixed-version serving / partial upload are the candidates; the v126 code itself passed 264/264 gates). **Do not relitigate it.**
+3. The owner restored it himself: full `public_html` backup zip → extract → `shivaa-update-v125.zip` over the top → "now everything is ok".
+4. A follow-up 3-file "v125-fix" zip (sw.js v125 shell + restored `js/boost.js` + `css/boost.css`, byte-identical v125-era files) was then deployed by the owner → **made the site bad again in his judgment.** The fix artifacts were removed from the branch tip and are referenced nowhere.
+5. v126 was **REVERTED to v125 film behaviour via PR #55** (merge `43eae10` on `main`). `cms/` is pure v125.
+6. Owner ruling (verbatim): "please dont be oversmart now i just feel my store right, you just forget everything you did for v126 and for v125 fix zip, ok?" → **Standing law, recorded in `MEMORY.md`: v125 = the stable live baseline. Do not propose, build, upload or reference v126, `shivaa-update-v126.zip`, or the 3-file fix in any session — unless the owner himself explicitly asks.**
+
+**Lessons (labelled lessons, not facts):**
+- "Byte-identical to an old file" ≠ "safe to deploy". On this site, swapping `sw.js` out-of-band makes every visitor's service worker wipe + re-fetch its whole cache, and the v125-era `boost.js` re-mounts ~47 MB of eager autoplay films. Both churn what the owner experiences, regardless of the bytes' provenance.
+- The owner's recovery pattern is the official one: **download the full `public_html` zip first → extract the last-known-good zip over the top.** He has run it twice successfully.
+- Any future change, only if the owner asks: (1) owner backup zip FIRST; (2) ONE small numbered zip, root layout, minimum files; (3) `sw.js` never swapped in a "repair" — only in a full release that re-stamps everything; (4) owner extracts, owner verifies, nothing is "shipped" until he says so.
+
+**Repo state (verified 16 Sep 2026):** fix zip + `DEPLOY-v125-FIX.md` deleted from the branch tip; `main` = `43eae10` (v125, PR #55 revert) + these handoff updates only; `shivaa-update-v126.zip` / `DEPLOY-v126.md` / the v126 tools still sit at the repo root on `main` — **inert** (nothing live loads them); the owner may order their deletion later.
+
+---
+
+## 🚀 v126 — THE LAPTOP: film budget · the glow · the desktop layer (2026-09-17) — ⛔ DEAD
+
+**⛔ STATUS: REVERTED + DEAD. Deployed by the owner, reported broken by him ("ugly — elements scattered, images blurred"), restored by the owner (backup zip + v125 re-extract), code reverted via PR #55 (`43eae10` on `main`), and ruled dead by the owner on 16 Sep 2026. Do NOT re-deploy, reference or build on top of v126 in any session unless the owner explicitly asks. The history below is kept for the record only.**
+
+**Original status (for the record): MERGED — PR #53, merge commit `b6c0432` on `main` (17 Sep 2026). `shivaa-update-v126.zip` (10 files, 216 KB) sits at the repo root on `main` — inert now. Owner live-verification is moot: he reported the deployed site as broken.**
 
 **Built from one laptop screenshot + one phone report. Four complaints, one release.**
 
@@ -479,6 +502,14 @@ PGS5059 Kanchan
 ---
 
 ## 📝 SESSION STEP LOG (newest first — append every session)
+
+**2026-09-16 — v125 FROZEN / v126 + v125-fix ABANDONED (branch `arena/01a0ab0c-shivaa-ecom`) — MERGED, BRANCH CLOSED**
+1. Owner: v126 (as deployed) broke the live site ("ugly — all elements scattered and all images blurred"); he restored it himself (full `public_html` backup zip → extract → `shivaa-update-v125.zip` over the top → "now everything is ok"). Asked to be told what to do — no agent changes.
+2. Live probe via `fetch_page` (bash/curl to shivaa.in is TLS-blocked, as always): app.js `APP_REL=125` · v117.js v125-era · v125.js pure v125 · v126.js/v126.css 404 · **sw.js still `shivaa-shell-v126`** · **js/boost.js + css/boost.css missing (404)**. Reported the mixed state to the owner, factually, no changes made.
+3. Built `shivaa-fix-v125.zip` (sw.js == the v125 zip's own sw.js, byte-identical; js/boost.js + css/boost.css = the pre-v126 versions, verified) + `DEPLOY-v125-FIX.md`. Owner deployed it → **site bad again in his judgment.**
+4. Owner ruling: "please dont be oversmart … i just feel my store right, you just forget everything you did for v126 and for v125 fix zip, ok?" → fix artifacts REMOVED from the branch tip; ruling recorded in `MEMORY.md` (standing law) + this HANDOFF (⛔ section) + `docs/AGENT-HANDOFF.md`.
+5. Owner final word: **"my website should be v125 only and no changes"** → live site left exactly as he restored it. No further live probing, deploys or proposals.
+6. **Merged:** PR **#56** → `main` (recorded in this same PR line so the "doc commit never pushed" failure is not repeated — the merge state is on `main`, not just on the session branch) → branch closed; `main`'s `cms/` remains pure v125 (`43eae10`, PR #55) plus these doc updates only.
 
 **2026-09-16 — v124 Punach + New In slider faces (branch `arena/01a0a845-shivaa-ecom`)**
 0. **Step 0 (docs repair, own commit `5ba446b`):** the v123 session's two doc commits were local-only and lost to the sandbox reset — re-added *merged as PR #48 `bfc3908`* and *owner live-verified 16 Sep, `sw.js` = `shivaa-shell-v123`* to `MEMORY.md` + `HANDOFF.md`, and `docs/AGENT-HANDOFF.md`'s CURRENT FORWARD BASELINE moved v119 → **v123** (v119 demoted to previous, v118 to earlier). PR #48 merge re-verified from GitHub (`MERGED`, `2026-09-16T02:37:32Z`); the shivaa.in read stays the owner's word — this sandbox has no route to the site.
