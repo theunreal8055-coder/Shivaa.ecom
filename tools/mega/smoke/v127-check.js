@@ -159,10 +159,17 @@ const ROWS = [
     shell.indexOf('/js/v127.js') > shell.indexOf('/js/app.js'),
     'v127 layer missing or loaded before app.js');
 
-  ok('the frozen v125 triple is untouched — no release, no stamp bump',
-    /window\.__SHIVAA_REL=125;/.test(shell) && /SHELL = 'shivaa-shell-v125'/.test(sw) &&
-    /APP_REL\s*=\s*125/.test(fs.readFileSync(path.join(CMS, 'js/app.js'), 'utf8')),
-    'a repair must not re-stamp the site (owner rule: sw.js is never swapped in a repair)');
+  /* v128 forward-compat: the repair itself still ships unchanged (v127.js
+     keeps its own ?v=127 stamp and still loads last), but a later FULL
+     release — owner-ordered, re-stamping every file together — may move
+     the release triple forward. What must never happen is a *repair*
+     bumping stamps piecemeal; that is still asserted by v125-check. */
+  const relOk = (n) => ['125', '126', '128'].includes(String(n));
+  ok('the release triple is 125 or newer — v127 itself never re-stamped anything',
+    relOk(/window\.__SHIVAA_REL=(\d+);/.exec(shell) && /window\.__SHIVAA_REL=(\d+);/.exec(shell)[1]) &&
+    relOk(/SHELL = 'shivaa-shell-v(\d+)'/.exec(sw) && /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw)[1]) &&
+    relOk((/APP_REL\s*=\s*(\d+)/.exec(fs.readFileSync(path.join(CMS, 'js/app.js'), 'utf8')) || [])[1]),
+    'v127.js keeps its own stamp; only a full release may move the triple');
 
   ok('v127 registers no route and touches no price, rate or API',
     !/pages\.[a-z]/.test(v127) && !/\/api\//.test(v127) && !/premium|ratePerGram|gold22/.test(v127));

@@ -125,13 +125,23 @@
     const pv = (BOOST && BOOST.pageVideos) || CINEMA.pageVideos;
     if (!pv[page]) return;
     const ph = view.querySelector('[data-boost="pghero"]');
+    if (!ph) return;
+    /* v128 · the page film mounts COLD: the governor (js/v128.js) builds the
+       <video> only once real frames are decoded, so the static hero image
+       holds (no dark buffering gap) and no film bytes flow at page load.
+       Without the governor (partial extract / exotic browser) the old eager
+       behaviour returns unchanged — this layer degrades, never breaks. */
+    if (window.ShivaaV128 && ShivaaV128.pghero) {
+      try { ShivaaV128.pghero(ph, pv[page]); } catch (e) {}
+      return;
+    }
     const v = document.createElement('video');
     v.className = 'ph-vid';
     v.src = '/images/films/' + pv[page] + '.mp4';
     v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
     v.setAttribute('aria-hidden', 'true');
     v.onerror = () => { v.remove(); const bg = ph && ph.querySelector('.ph-bg'); if (bg) bg.style.opacity = ''; };
-    if (ph) ph.insertBefore(v, ph.firstChild);
+    ph.insertBefore(v, ph.firstChild);
   }
 
   /* ═══════════ 02 THEMES ═══════════ */
@@ -557,7 +567,7 @@
     </div></div>`;
   function filmCard(f) {
     return `<a class="film-card rv" data-reveal href="#/shop" aria-label="${esc(f[1])}">
-      <video src="/images/films/${f[0]}.mp4" poster="${POSTERS[f[0]] || ''}" muted loop playsinline autoplay onerror="this.remove()"></video>
+      <video data-film="/images/films/${f[0]}.mp4" poster="${POSTERS[f[0]] || ''}" muted loop playsinline preload="none" onerror="this.remove()"></video>
       <span class="f-veil"></span><span class="f-frame"></span>
       <span class="f-ribbon">✦ FILM</span>
       <span class="f-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
@@ -592,7 +602,7 @@
   </section>`;
   const secCta = () => `<section class="sec container boost-cta" data-boost="cta">
     <div class="cta-in" data-reveal="zoom">
-      <div class="cta-img"><img src="/images/banners/poster-bridal.jpg" alt="The Bridal House" loading="lazy"><video class="cta-vid" src="/images/films/bridal-lux.mp4" muted loop playsinline autoplay aria-hidden="true" onerror="this.remove()"></video></div>
+      <div class="cta-img"><img src="/images/banners/poster-bridal.jpg" alt="The Bridal House" loading="lazy"><video class="cta-vid" data-film="/images/films/bridal-lux.mp4" muted loop playsinline preload="none" aria-hidden="true" onerror="this.remove()"></video></div>
       <div class="cta-body">
         <span class="label">✦ The Bridal House</span>
         <h2>The complete <em style="color:var(--gold-2)">trousseau</em>, made to inherit</h2>
@@ -617,8 +627,17 @@
     if (!hero.querySelector('.boost-hero-film')) {
       const wrap = document.createElement('div');
       wrap.className = 'boost-hero-film';
-      wrap.innerHTML = `<video src="/images/films/hero.mp4" poster="/images/banners/gen-hero-2030.jpg" muted loop playsinline autoplay aria-hidden="true" onerror="this.remove()"></video><div class="film-vignette"></div>`;
+      /* v128 · the hero film mounts COLD — poster up, URL parked in
+         data-film, zero bytes. The governor arms it only after the page
+         has settled (load + 2.2 s) and plays it at ≥ 22% visibility. */
+      wrap.innerHTML = `<video data-film="/images/films/hero.mp4" poster="/images/banners/gen-hero-2030.jpg" muted loop playsinline preload="none" aria-hidden="true" onerror="this.remove()"></video><div class="film-vignette"></div>`;
       hero.prepend(wrap);
+      const hv = wrap.querySelector('video');
+      if (window.ShivaaV128 && hv) {
+        try { ShivaaV128.film(hv, { auto: true }); } catch (e) {}
+      } else if (hv) {
+        hv.autoplay = true; hv.src = '/images/films/hero.mp4';   /* eager fallback — no governor present */
+      }
     }
 
     // ── cinematic: carousel slides become live video backgrounds (text floats on film) ──
@@ -628,12 +647,19 @@
       if (!slide || slide.querySelector('video.c-vid')) return;
       const v = document.createElement('video');
       v.className = 'c-vid';
-      v.src = '/images/films/' + film + '.mp4';
-      v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+      /* v128 · cold: the slide's own banner image shows until the governor
+         arms + plays this film (≥ 22% visible — only the on-screen slide) */
+      v.setAttribute('data-film', '/images/films/' + film + '.mp4');
+      v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
       v.setAttribute('aria-hidden', 'true');
       v.onerror = () => v.remove();
       const fade = slide.querySelector('.c-fade');
       slide.insertBefore(v, fade || slide.firstChild);
+      if (window.ShivaaV128) {
+        try { ShivaaV128.film(v, { auto: true }); } catch (e) {}
+      } else {
+        v.autoplay = true; v.src = '/images/films/' + film + '.mp4';   /* eager fallback */
+      }
     });
 
     // (bridal CTA film lives inside secCta itself — nothing to patch here)
@@ -662,6 +688,15 @@
     const nl = view.querySelector('.newsletter');
     if (nl && !nl.closest('section').nextElementSibling?.matches('[data-boost="insta"]')) nl.closest('section').insertAdjacentHTML('afterend', secInsta());
 
+    /* v128 · the bridal CTA film (cold in its template above) registers
+       with the governor — the static bridal poster shows until the film
+       is near enough to arm and visible enough to play. */
+    if (window.ShivaaV128) {
+      try { $$('video.cta-vid', view).forEach(cv => ShivaaV128.film(cv, { auto: true })); } catch (e) {}
+    } else {
+      $$('video.cta-vid', view).forEach(cv => { cv.autoplay = true; cv.src = cv.getAttribute('data-film') || ''; });   /* eager fallback */
+    }
+
     tickCd(view); bindPulse(view); reveal(view); initFilmCards(view); countUp(view);
     bindLightbox(view);
     view.dataset.boost = '1';
@@ -672,7 +707,12 @@
       const v = card.querySelector('video');
       if (!v || card.dataset.filmbound) return;
       card.dataset.filmbound = '1';
-      card.addEventListener('mouseenter', () => v.play().catch(() => {}));
+      /* v128 · hover-play goes through the film governor's want-door —
+         a cold card arms + plays on demand instead of autoplaying. */
+      card.addEventListener('mouseenter', () => {
+        if (window.__shvWant) { try { window.__shvWant(v); } catch (e) {} }
+        else v.play().catch(() => {});
+      });
       card.addEventListener('mouseleave', () => v.pause());
     });
   }

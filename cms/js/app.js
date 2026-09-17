@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 125;
+const APP_REL = 128;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1676,7 +1676,7 @@ const catBarItems = () => [
 ];
 function catBarHTML() {
   return `<div class="cb-wrap"><button class="cb-arrow cb-prev" aria-label="Previous">‹</button><div class="catbar2">` +
-    /* v120 — Bug B: tile photos carry ?v=125 (busts poisoned pre-v113 SW entries) and a
+    /* v120 — Bug B: tile photos carry a release tile stamp (busts poisoned pre-v113 SW entries) and a
        two-stage fallback — house logo, then hide to reveal the monogram underlay in
        css/v120.css — so a tile can never degrade to bare alt-text again. */
     catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&v=125' : '?v=125'); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +

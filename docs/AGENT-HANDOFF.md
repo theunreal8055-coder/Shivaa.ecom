@@ -1,11 +1,19 @@
-# AGENT HANDOFF — read this first, every new chat (updated 17 Sep 2026 — ✅ v127 LIVE + OWNER-VERIFIED: the 2-file navigation repair on top of frozen v125. v126 dead. PR #59 MERGED to `main` as `5ed09a5`, so both the code and this ledger are on `main`)
+# AGENT HANDOFF — read this first, every new chat (updated 17 Sep 2026 — 🚀 v128 THE SPEED RELEASE built, gated 284/284 + php-sweep 211/0 on source and the shipped zip, `shivaa-update-v128.zip` delivered — NOT yet live (owner backup/extract/verify pending). Live until then: v125 + v127, owner-verified. v126 dead)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
 
-## ✅ NEWEST — v127 NAVIGATION REPAIR — LIVE + OWNER-VERIFIED (17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`)
+## 🚀 NEWEST — v128 THE SPEED RELEASE · THE FILM BUDGET (17 Sep 2026, branch `arena/01a0add3-shivaa-ecom`)
+
+**Owner's brief:** *"I have opened the app it's fine all functions perfect, only update you have to do now is to make it load fast and smoothest in the world… give me a update zip file."* → a speed-only **full release** (the explicit owner order authorises it): triple 125 → 128, `sw.js` ships, every edited file re-stamped together (owner ground rule #3 satisfied). **Zero visual change** — no CSS, no layout, no new elements; only *when film bytes move* changed.
+
+**The disease (measured):** ~47 MB+ of eager autoplay film bytes at homepage render — hero 16.7 MB + four carousel films ≈ 32 MB + the superseded films row (~26 MB started for nothing) + the bridal CTA + nine `preload=metadata` films + a 6–11.8 MB autoplay film atop every inner page. **The cure:** every film mounts COLD (`data-film`, `preload="none"`, poster up, zero bytes) and `js/v128.js` (new) is the only byte-giver: budget 4 desktop / 3 phone / 0 Save-Data|au-lite; warm at 75% proximity; boost films play at ≥22% visibility, v125 films through their `splay()/shut()` doors (now stamping `data-sv-want` + hooks); furthest-film eviction; nothing arms before settle (load + 2.2 s); 2.2 s watchdog (Gold Thread 05 regression pinned); page heroes built only on `loadeddata` (no dark gap). No v128.js → the old eager build returns (degrades, never breaks).
+
+**Status:** gates **284/284 on source AND the zip overlay** + php-sweep 211/0. `shivaa-update-v128.zip` (8 files, 208 KB, md5 `0f6255b314bbbfc0a21b9db19147fe7f`) + `DEPLOY-v128.md` at the repo root. **PR #61 open, deliberately unmerged** (merge = cron deploys before the owner's backup). Pending: owner backup → extract into `public_html` ROOT → 8-step checklist → his report; only then record live. Full detail: `HANDOFF.md` → § v128, `MEMORY.md` → Session 2026-09-17 #3.
+
+## ✅ v127 NAVIGATION REPAIR — LIVE + OWNER-VERIFIED (17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`)
 
 **Owner's word (17 Sep 2026, verbatim):** *"The version 127 update is working very fine and I
 installed it and extracted in public HTML folder and its working fine now."* → **v127 is the

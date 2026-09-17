@@ -85,7 +85,7 @@ function bootStore(extra = '') {
      is accepted at 125 (as shipped) or 126 (the current release) */
   const REL = (shellRel && shellRel[1]) || '125';
   ok('release handshake is 125 or newer everywhere (shell, app, worker)',
-    shellRel && ['125', '126'].includes(shellRel[1]) && appRel && ['125', '126'].includes(appRel[1]) && swRel && ['125', '126'].includes(swRel[1]),
+    shellRel && ['125', '126', '128'].includes(shellRel[1]) && appRel && ['125', '126', '128'].includes(appRel[1]) && swRel && ['125', '126', '128'].includes(swRel[1]),
     `shell=${shellRel && shellRel[1]} app=${appRel && appRel[1]} sw=${swRel && swRel[1]}`);
 
   const stamped = { 'index.html': html, 'js/app.js': appJs, 'js/v116.js': v116src, 'sw.js': sw };
@@ -96,8 +96,16 @@ function bootStore(extra = '') {
   /* the v125 assets keep their own ?v=125 by design — strip those exact
      references before looking for a stamp that failed to move */
   const reStamped = { 'index.html': html, 'js/app.js': appJs, 'js/v116.js': v116src };
+  /* v128 forward-compat: the category-tile / logo-fallback image stamps
+     legitimately stay at 125 (those images are unchanged since v125 — no
+     pointless refetch), exactly like the v125 css layer below. */
   const stale125 = Object.entries(reStamped)
-    .filter(([, s]) => /v=125/.test(s.replace(/\/css\/v125\.css\?v=125/g, '').replace(/\/js\/v125\.js\?v=125/g, '')))
+    .filter(([, s]) => /v=125/.test(s
+      .replace(/\/css\/v125\.css\?v=125/g, '').replace(/\/js\/v125\.js\?v=125/g, '')
+      .replace(/'&v=125' : '\?v=125'/g, '')
+      .replace(/\/images\/logo\.png\?v=125/g, '')
+      .replace(/\$\{c\.img\}\?v=125/g, '')
+      .replace(/c\.img \+ '\?v=125/g, '')))
     .map(([n]) => n);
   ok('the v126 release triple carries no stale v=125 stamp (index.html, app.js, v116.js)',
     REL === '125' || stale125.length === 0, stale125.join(', '));
@@ -105,12 +113,12 @@ function bootStore(extra = '') {
   ok('shell loads app.js + v116.js at the current release and the worker precaches both + the v125 assets',
     new RegExp('\\/js\\/app\\.js\\?v=' + REL).test(html) && new RegExp('\\/js\\/v116\\.js\\?v=' + REL).test(html) &&
     new RegExp("'\\/js\\/app\\.js\\?v=" + REL + "'").test(sw) && new RegExp("'\\/js\\/v116\\.js\\?v=" + REL + "'").test(sw) &&
-    /'\/js\/v125\.js\?v=125'/.test(sw) && /'\/css\/v125\.css\?v=125'/.test(sw));
+    /'\/js\/v125\.js\?v=(125|128)'/.test(sw) && /'\/css\/v125\.css\?v=125'/.test(sw));
 
   ok('v125 includes load in order (css after v122.css, js after v122.js)',
-    /\/css\/v125\.css\?v=125/.test(html) && /\/js\/v125\.js\?v=125/.test(html) &&
+    /\/css\/v125\.css\?v=125/.test(html) && /\/js\/v125\.js\?v=(125|128)/.test(html) &&
     html.indexOf('/css/v122.css?v=122') < html.indexOf('/css/v125.css?v=125') &&
-    html.indexOf('/js/v122.js?v=122') < html.indexOf('/js/v125.js?v=125'));
+    html.indexOf('/js/v122.js?v=122') < html.indexOf('/js/v125.js?v=' + REL));
 
   ok('home template carries both mounts: case before Bestsellers, thread after it',
     /id="svCaseMount"/.test(appJs) && /id="svThreadMount"/.test(appJs) &&
@@ -196,7 +204,8 @@ function bootStore(extra = '') {
     tpath && tpath.style.strokeDasharray !== '' && tpath.style.strokeDashoffset !== '' &&
     (d1.querySelector('#svThreadMount .sv-thread-item:last-child small') || {}).textContent === 'CHAPTER 05');
 
-  const allSrcs = [...d1.querySelectorAll('#svCaseMount video, #svThreadMount video')].map(v => v.getAttribute('src'));
+  /* v128 · films mount cold: the URL lives in data-film until the governor arms them */
+  const allSrcs = [...d1.querySelectorAll('#svCaseMount video, #svThreadMount video')].map(v => v.getAttribute('src') || v.getAttribute('data-film'));
   ok('film sources: the case plays its 4 bride-arc films, the thread its 5 story films',
     allSrcs.filter(x => /\/images\/films\/film-0[1-4]\.mp4$/.test(x)).length === 4 &&
     allSrcs.filter(x => /\/images\/films\/thread-0[1-5]\.mp4$/.test(x)).length === 5);

@@ -1,10 +1,49 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-17 (✅ v127 LIVE AND OWNER-VERIFIED — the owner extracted `shivaa-update-v127.zip` into `public_html` himself and reported the search-bar categories and the sidebar buttons now work. Live site = frozen v125 + the 2-file v127 navigation repair; stamps stay 125. **PR #59 MERGED to `main` as `5ed09a5` (17 Sep 2026, 05:15 UTC), so this ledger and the v127 code are both on `main` now.** v126 and the "v125-fix" zip remain DEAD — read the ⛔ section below before doing anything.)**
+**Last updated: 2026-09-17 (🚀 v128 · THE SPEED RELEASE — BUILT, GATED 284/284 + php-sweep 211/0 ON SOURCE AND ON THE SHIPPED ZIP, zip `shivaa-update-v128.zip` (8 files, 208 KB, md5 `0f6255b314bbbfc0a21b9db19147fe7f`) at the repo root. The owner explicitly ordered a speed release ("make it load fast and the smoothest in the world… give me an update zip"), which authorises a FULL numbered release — not a repair — so the version triple moves 125 → 128 and `sw.js` ships, re-stamping everything together per owner ground rule #3. **NOT YET LIVE — the owner has not taken his backup or extracted the zip; do not record it as live until he reports it. PR #61 is open and deliberately UNMERGED until he says so** (merging fires the Hostinger auto-sync cron and would deploy `cms/` before his backup — the v126 failure mode). v126 and the "v125-fix" zip remain DEAD. Forward baseline once live: **v125 + v127 + v128**.)**
 **v124 STATUS: MERGED — PR #49, merge commit `5145ab2` on `main` (16 Sep 2026). v123 STATUS: MERGED + LIVE — merged as PR #48 (`bfc3908`) into `main`; owner live-verified 16 Sep, `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.**
-**Forward baseline: v125 ONLY (owner-frozen 16 Sep 2026). No new release, no stamp bump, no file swap, no "repair" — until the owner explicitly asks for a change. Never restore the v113b placeholder category tiles. v126 and the v125-fix zip are dead — do not resurrect, reference or re-deploy them (see `MEMORY.md` → OWNER'S RULING).**
-**Live site: https://shivaa.in (owner-confirmed v125 after his own restore) · Repo: theunreal8055-coder/Shivaa.ecom**
+**Live site (until v128 is installed): https://shivaa.in = frozen v125 + the 2-file v127 navigation repair, owner-verified 17 Sep. · Repo: theunreal8055-coder/Shivaa.ecom**
 **THIS FILE IS THE SINGLE SOURCE OF TRUTH. It is on GitHub. Any new chat reads this and continues.**
+
+---
+
+## 🚀 v128 — THE SPEED RELEASE · THE FILM BUDGET (2026-09-17, branch `arena/01a0add3-shivaa-ecom`)
+
+**Owner's brief (verbatim):** *"I have opened the app it's fine all functions perfect, only update you have to do now is to make it load fast and smoothest in the world, you can take as much as time as you want and use your full capability, give me a update zip file."* → A speed-only FULL release. **Zero visual change by design** — no CSS shipped, no layout touched, no new elements; only *when film bytes move* changed.
+
+**The measured disease (grep + atom-verified, not guessed):** the live v125+127 homepage handed every visitor **~47 MB+ of eager film bytes** the moment it rendered:
+- `boost.js enhanceHome()`: hero.mp4 **16.7 MB** + 4 carousel films (heritage 7.5 + bridal-lux 6.0 + rings-worn 7.0 + gold-flow 11.8 ≈ **32 MB**), all `src` + `autoplay`;
+- the v46 films row (4 more autoplay videos, ~26 MB started) mounted by boost then **removed a beat later** by v125's supersede — bytes started for nothing;
+- the bridal CTA film (6.0 MB, autoplay);
+- v125's nine films at `preload="metadata"` (moov fetch each + the documented phone decoder starvation that killed Gold Thread 05);
+- and `ensurePageHero()` mounted a **6–11.8 MB autoplay film at the top of every inner page** (Live Rates alone = gold-flow 11.8 MB).
+Save-Data / au-lite visitors downloaded all of it too — boost had no gate at all.
+
+**The cure — every film mounts COLD, and ONE new file is the only thing that hands out bytes:**
+
+| Contract | Implementation |
+|---|---|
+| cold mount | URL parked in `data-film`, `preload="none"`, no `autoplay`, poster visible — **zero bytes at mount** (boost: hero, carousel, film cards, CTA; v125: the nine films) |
+| the budget | `js/v128.js` (new, 314 lines): **4 armed films desktop · 3 phone · 0 under Save-Data/au-lite** (posters only — v125's own promise, finally applied to boost's films too); `prefers-reduced-motion`: nothing autoplays |
+| warm | within 75% of a viewport (IO `rootMargin '75% 0px'`): `src` set + `preload='metadata'` — moov only (137–249 KB for the big ambients, **3.6 KB** for the owner's nine) |
+| play | boost films (hero, carousel, CTA) at **≥ 22% visibility**; v125 films through their own `splay()/shut()` doors, which now stamp `data-sv-want` and call `window.__shvWant/__shvShut` |
+| evict | arming beyond the budget parks the armed film **furthest from the viewport** (a visible, playing film goes last) — pause → src removed → `load()` → poster |
+| settle | **nothing arms before the page has settled** (load + 2.2 s, hard 8 s cap) — first paint, images and the worker precache get the wire first |
+| watchdog | every 2.2 s: any wanting film with no bytes is re-armed; `error` twice → parked on poster for good; prunes SPA-orphans. **The Gold Thread 05 starvation bug cannot recur by construction** (pinned by a named regression check) |
+| page heroes | `data-boost-pgfilm` on the section; the `<video>` is **built detached and inserted only when its first frame is decoded** (`loadeddata`, 8 s fallback) — the static hero image holds instead of the old dark buffering gap, because `.boost-pghero:has(.ph-vid) .ph-bg{opacity:0}` only fires when the element exists |
+| tab | hidden pauses every film; returning resumes the wanting ones |
+| degradation | **if `js/v128.js` is absent** (partial extract / exotic browser), boost.js and v125.js fall back to the old eager build — the site degrades, never breaks (pinned by a gate control that strips v128 and watches the disease return) |
+| untouched | the Reel (loads on explicit tap, ungoverned), PDP 360° films (tap-to-load), rates/₹398 lock, prices, catalogue, admin, PayU, v127 navigation, every image/film/font byte |
+
+**Files (7 + doc):** `index.html` (REL 128 + re-stamps + the v128 script line, loaded between v125 and **v127 — v127 stays LAST**, its tap-ownership contract preserved) · `js/app.js` (APP_REL 128 + one comment reword) · `js/boost.js` (the six film mounts go cold, each with its eager fallback) · `js/v117.js` (boost injector `?v=46` → `?v=128` — the CACHE STAMP TRAP closed for returning visitors) · `js/v125.js` (filmMedia parks + registers; splay/shut stamp svWant + hooks; resumeVisibleFilms no longer requires src) · `js/v128.js` (NEW) · `sw.js` (SHELL `shivaa-shell-v128` + precache pins app/v116/v117/v125/boost at 128 + `v128.js?v=128`; **MEDIA stays `shivaa-media-v120`**; no film ever in the precache). The category-tile / logo-fallback image stamps legitimately stay at `?v=125` — those images are unchanged, so no device refetches 20 tiny files for nothing.
+
+**Gates: 284/284 on source AND on the extracted zip overlay** (v113b 32 · v117 27 · v118 18 · v119 27 · v120 24 · v121 14 · v122 22 · v123 14 · v124 20 · v125 27 · v127 27 · **v128 31**) · php-sweep **211 routes · 0 exceptions**. `tools/mega/smoke/v128-check.js` (new) boots the real shell with a CONTROLLABLE IntersectionObserver and proves: **zero mp4 requests through boot + settle + 3 s** (the headline), all 15 films cold, proximity arming, budget 4/3/0, eviction, the svWant case spin, the reel round-trip, the page-hero build-on-frames contract, and two controls — the eager build returns when v128.js is stripped, and au-lite still mounts zero `<video>`. jsdom quirks handled per house memory: `hardwareConcurrency` pinned to 8 (jsdom reports 2 → au-lite), matchMedia stubbed per scenario.
+
+**Deliverable:** `shivaa-update-v128.zip` (**8 files, 208 KB**, root layout, NO api.php/.htaccess/db.json — gated) + `DEPLOY-v128.md` (backup-first runbook + 8-step owner checklist + "judge the speed on the SECOND open — the first re-fetches the shell once", which is normal for every release).
+
+**Pending, in order (owner's moves only):** (1) owner takes a full `public_html` backup zip; (2) extracts `shivaa-update-v128.zip` into the `public_html` ROOT; (3) runs the 8-step checklist; (4) reports — only then is v128 recorded live. PR #61 (`arena/01a0add3-shivaa-ecom` → `main`) is open and held: **merge only on his word**, after which the cron re-deploys the identical files (no-op for shoppers).
+
+**Known-but-untouched, still open from v127:** the `js/v120.js` falsy-`openHash` history-entry leak. Fixing it means editing `v120.js` — ask the owner first.
 
 ---
 

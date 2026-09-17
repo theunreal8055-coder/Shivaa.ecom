@@ -51,10 +51,19 @@
         (navigator.connection && navigator.connection.saveData);
     } catch (e) { return false; }
   }
+  /* v128 · splay/shut stay the ONLY play/pause doors, and now stamp
+     data-sv-want so the film governor (js/v128.js) knows a film's intent:
+     a film it evicted for budget is replayed the moment it is re-armed,
+     and a cold film is armed on demand. No governor → identical old
+     behaviour (these remain plain play/pause wrappers). */
   function splay(v) {
+    try { v.dataset.svWant = '1'; } catch (e) {}
+    if (win.__shvWant) { try { win.__shvWant(v); } catch (e) {} }
     try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
   }
   function shut(v) {
+    try { v.dataset.svWant = '0'; } catch (e) {}
+    if (win.__shvShut) { try { win.__shvShut(v); } catch (e) {} }
     try { v.pause(); } catch (e) {}
   }
   var $ = function (s, r) { return (r || doc).querySelector(s); };
@@ -187,7 +196,10 @@
   function resumeVisibleFilms() {
     mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; });
     if (REDUCED) return;
-    mountedFilms.forEach(function (v) { if (v.dataset.svVis === '1' && v.getAttribute('src')) splay(v); });
+    /* v128 · parked films (src parked in data-film) resume through splay
+       too — the governor arms them if the budget allows, the poster holds
+       if it does not. */
+    mountedFilms.forEach(function (v) { if (v.dataset.svVis === '1') splay(v); });
   }
 
   /* ═══ 2 · film elements (poster-first, LITE never mounts a <video>) ═ */
@@ -200,10 +212,22 @@
       return wrap;
     }
     var v = doc.createElement('video');
-    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'metadata';
+    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'none';
     v.setAttribute('poster', fl.p);
     v.setAttribute('aria-label', fl.title);
-    v.src = fl.f;
+    /* v128 · the film mounts COLD: its URL is parked in data-film and the
+       governor (js/v128.js) hands out the bytes when the film is near,
+       wanted and inside the device budget — the nine films no longer fetch
+       their moov boxes at mount, and a phone's ~4 decoders are never
+       pre-divided nine ways (the Gold Thread 05 starvation bug). No
+       governor present → the old preload=metadata build, unchanged. */
+    if (win.ShivaaV128 && win.ShivaaV128.film) {
+      v.setAttribute('data-film', fl.f);
+      try { win.ShivaaV128.film(v, { auto: false }); } catch (e2) {}
+    } else {
+      v.preload = 'metadata';
+      v.src = fl.f;
+    }
     v.style.cssText = 'width:100%;height:100%;object-fit:cover';
     v.dataset.svVis = '0';
     wrap.appendChild(v);

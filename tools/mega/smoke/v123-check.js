@@ -66,11 +66,11 @@ function bootStore(extra = '') {
   console.log('\nSHIVAA v123 check\n\n· A · static gates');
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps are a consistent 123/124 triple (shell = script = worker)',
-    !!shellRel && !!appRel && !!swRel && ['123','124','125','126'].includes(shellRel[1]) && ['123','124','125','126'].includes(appRel[1]) && ['123','124','125','126'].includes(swRel[1]),
+    !!shellRel && !!appRel && !!swRel && ['123','124','125','126','128'].includes(shellRel[1]) && ['123','124','125','126','128'].includes(appRel[1]) && ['123','124','125','126','128'].includes(swRel[1]),
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
-  ok('shell loads app.js + v116.js at v123/v124 and the worker precaches both',
-    /\/js\/app\.js\?v=12[3456]/.test(html) && /\/js\/v116\.js\?v=12[3456]/.test(html) &&
-    /'\/js\/app\.js\?v=12[3456]'/.test(sw) && /'\/js\/v116\.js\?v=12[3456]'/.test(sw));
+  ok('shell loads app.js + v116.js at v123+ and the worker precaches both',
+    /\/js\/app\.js\?v=12[34568]/.test(html) && /\/js\/v116\.js\?v=12[34568]/.test(html) &&
+    /'\/js\/app\.js\?v=12[34568]'/.test(sw) && /'\/js\/v116\.js\?v=12[34568]'/.test(sw));
   ok('all six category render sites carry ?v=123/124 photo URLs',
     /catBarItems\(\)\.map/.test(app) && /\?v=12[3456]' : '\?v=12[3456]'/.test(app.replace(/&v=12[3456]/g, '?v=123')) &&
     /cat-mini-card"><img src="\$\{c\.img\}\?v=12[3456]"/.test(app) &&
