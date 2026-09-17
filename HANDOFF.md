@@ -509,7 +509,7 @@ PGS5059 Kanchan
 3. Built `shivaa-fix-v125.zip` (sw.js == the v125 zip's own sw.js, byte-identical; js/boost.js + css/boost.css = the pre-v126 versions, verified) + `DEPLOY-v125-FIX.md`. Owner deployed it → **site bad again in his judgment.**
 4. Owner ruling: "please dont be oversmart … i just feel my store right, you just forget everything you did for v126 and for v125 fix zip, ok?" → fix artifacts REMOVED from the branch tip; ruling recorded in `MEMORY.md` (standing law) + this HANDOFF (⛔ section) + `docs/AGENT-HANDOFF.md`.
 5. Owner final word: **"my website should be v125 only and no changes"** → live site left exactly as he restored it. No further live probing, deploys or proposals.
-6. Merged to `main` via the closing PR of this session → branch closed; `main`'s `cms/` remains pure v125 (`43eae10`, PR #55) plus these doc updates only.
+6. **Merged:** PR **#56** → `main` (recorded in this same PR line so the "doc commit never pushed" failure is not repeated — the merge state is on `main`, not just on the session branch) → branch closed; `main`'s `cms/` remains pure v125 (`43eae10`, PR #55) plus these doc updates only.
 
 **2026-09-16 — v124 Punach + New In slider faces (branch `arena/01a0a845-shivaa-ecom`)**
 0. **Step 0 (docs repair, own commit `5ba446b`):** the v123 session's two doc commits were local-only and lost to the sandbox reset — re-added *merged as PR #48 `bfc3908`* and *owner live-verified 16 Sep, `sw.js` = `shivaa-shell-v123`* to `MEMORY.md` + `HANDOFF.md`, and `docs/AGENT-HANDOFF.md`'s CURRENT FORWARD BASELINE moved v119 → **v123** (v119 demoted to previous, v118 to earlier). PR #48 merge re-verified from GitHub (`MERGED`, `2026-09-16T02:37:32Z`); the shivaa.in read stays the owner's word — this sandbox has no route to the site.
