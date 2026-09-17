@@ -25,7 +25,7 @@
 - The owner's recovery pattern is the official one: **download the full `public_html` zip first → extract the last-known-good zip over the top.** He has run it twice successfully.
 - Any future change, only if the owner asks: (1) owner backup zip FIRST; (2) ONE small numbered zip, root layout, minimum files; (3) `sw.js` never swapped in a "repair" — only in a full release that re-stamps everything; (4) owner extracts, owner verifies, nothing is "shipped" until he says so.
 
-**Repo state (verified 16 Sep 2026):** fix zip + `DEPLOY-v125-FIX.md` deleted from the branch tip; `main` = `43eae10` (v125, PR #55 revert) + these handoff updates only; `shivaa-update-v126.zip` / `DEPLOY-v126.md` / the v126 tools still sit at the repo root on `main` — **inert** (nothing live loads them); the owner may order their deletion later.
+**Repo state (re-verified 17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`):** fix zip + `DEPLOY-v125-FIX.md` deleted from the branch tip; `main` = `43eae10` (v125, PR #55 revert) + handoff updates only. **Correction to the 16 Sep note above: nothing named v126 exists in the repository any more** — `git ls-tree -r --name-only origin/main | grep -i 126` returns empty, and so does the same command on every later branch. `shivaa-update-v126.zip`, `DEPLOY-v126.md` and the v126 tools are gone from the tree, not merely inert; no cleanup is pending. The word "126" survives in `cms/` only as colour values (`rgba(228,201,126,…)` in `styles.css`) and QR-code tables in `js/qr.js` — neither is a version reference.
 
 ---
 
