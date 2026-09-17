@@ -23,6 +23,7 @@ require_once __DIR__ . '/hallmark.php';
 require_once __DIR__ . '/trust.php';
 require_once __DIR__ . '/sms.php';   // v33 — OTP SMS delivery plug-in (no-op in demo mode)
 require_once __DIR__ . '/mail.php';  // v48 — OTP by email when no SMS gateway exists
+require_once __DIR__ . '/sbiepay.gateway.php';  // v128 — SBIePay (SBI) hosted checkout, dormant until selected
 
 /* ───────── helpers ───────── */
 function jout(int $code, $payload): void {
@@ -635,7 +636,9 @@ function payu_cfg(array $db): array {
    activate from the admin UI or API). */
 function payu_active_provider(array $db): string {
   $p = (string)($db['settings']['payProvider'] ?? 'demo');
-  return in_array($p, ['demo', 'payu'], true) ? $p : 'demo';
+  /* v128 — 'sbiepay' joins the selectable set; payu_ready() still insists on
+     provider === 'payu', so no PayU path can run while SBIePay is selected. */
+  return in_array($p, ['demo', 'payu', 'sbiepay'], true) ? $p : 'demo';
 }
 function payu_ready(array $db): bool {
   $c = payu_cfg($db);
@@ -3713,10 +3716,15 @@ try {
     // and Razorpay code is dormant and unreachable (no selectable provider).
     $puCfg = payu_cfg($db);
     $puLive = payu_ready($db);
+    /* v128 — SBIePay joins PayU as a selectable hosted checkout. The checkout
+       page only ever sees the mode the server can actually serve. */
+    $sbiCfg = sbiepay_cfg($db);
+    $sbiLive = sbiepay_ready($db);
     jout(200, [
-      'mode' => $puLive ? 'payu' : 'demo',
+      'mode' => $sbiLive ? 'sbiepay' : ($puLive ? 'payu' : 'demo'),
       'provider' => $provider,
       'payu' => ['ready' => $puLive, 'env' => $puCfg['env']],
+      'sbiepay' => ['ready' => $sbiLive, 'env' => $sbiCfg['env']],
       'prepaidPct' => (float)($s['prepaidPct'] ?? 2),
       /* v107 — checkout reads the rate-lock window from here (was hardcoded) */
       'lockMinutes' => (int)($s['rateLockMinutes'] ?? 20),
@@ -3797,6 +3805,40 @@ try {
       $db['orders'][$i]['gatewayOrderId'] = $txnid;
       db_save($DB_FILE, $db);
       jout(200, ['mode' => 'payu', 'action' => $cfg['action'], 'fields' => $fields,
+                 'amount' => (int)$due, 'orderId' => $o['id'], 'env' => $cfg['env']]);
+    }
+    /* v128 — SBIePay hosted checkout: the AES pipe-request is built server-side
+       (the seller key never reaches the browser) and the browser is handed the
+       two fields SBI's AggregatorHostedListener expects. Like PayU, nothing is
+       credited here — only SBI's status API can mark the order paid. */
+    if (sbiepay_ready($db)) {
+      $cfg = sbiepay_cfg($db);
+      $base = phonepe_site_base($db);   // generic public-base helper (shared)
+      $baseOk = filter_var($base, FILTER_VALIDATE_URL) && in_array(strtolower((string)parse_url($base, PHP_URL_SCHEME)), ['http', 'https'], true);
+      if (!$baseOk) jout(500, ['error' => 'Site base URL is missing/invalid — set it in Admin → Payments.']);
+      if ($cfg['env'] === 'prod' && strtolower((string)parse_url($base, PHP_URL_SCHEME)) !== 'https')
+        jout(500, ['error' => 'SBIePay live mode needs an https site. Set the https Site URL in Admin → Payments.']);
+      $attempts = $db['orders'][$i]['sbiAttempts'] ?? [];
+      $orderNo = sbiepay_clean_id((string)$o['id'], 18) . 'A' . (count($attempts) + 1);
+      $returnUrl = $base . '/api/pay/sbiepay/return?co=' . urlencode((string)$o['id']);
+      $fields = sbiepay_form_fields($cfg, [
+        'amount'            => sbiepay_amount_str($due),
+        'other_info'        => 'Shivaa Jewellers order ' . $o['id'],
+        'success_url'       => $returnUrl,
+        'fail_url'          => $returnUrl,
+        'merchant_order_no' => $orderNo,
+        'customer_id'       => 'NA',
+      ]);
+      if (!$fields || empty($fields['EncryptTrans']))
+        jout(500, ['error' => 'SBIePay encryption failed — check the Seller Key in Admin → Payments.']);
+      $db['orders'][$i]['sbiAttempts'][] = [
+        'merchantOrderNo' => $orderNo, 'amount' => (int)$due, 'amountStr' => sbiepay_amount_str($due),
+        'env' => $cfg['env'], 'at' => now_iso(), 'lastState' => 'initiated',
+      ];
+      $db['orders'][$i]['gateway'] = 'sbiepay';
+      $db['orders'][$i]['gatewayOrderId'] = $orderNo;
+      db_save($DB_FILE, $db);
+      jout(200, ['mode' => 'sbiepay', 'action' => $cfg['action'], 'fields' => $fields,
                  'amount' => (int)$due, 'orderId' => $o['id'], 'env' => $cfg['env']]);
     }
     /* v93 — PhonePe Standard Checkout v2: OAuth-authenticated /checkout/v2/pay
@@ -4027,6 +4069,18 @@ try {
   if ($route === 'pay/payu/status' && $method === 'POST') {
     $b = body_json();
     [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
+    /* v128 — the order page's payment poller is provider-neutral in practice:
+       a customer who returns from SBIePay lands on the same route. When the
+       order's gateway is SBIePay we ask SBI (not PayU) for the truth. */
+    if (($db['orders'][$i]['gateway'] ?? '') === 'sbiepay' && sbiepay_ready($db)
+        && !empty($db['orders'][$i]['sbiAttempts'])) {
+      $sbiAttempts = $db['orders'][$i]['sbiAttempts'];
+      $sbiLast = $sbiAttempts[count($sbiAttempts) - 1];
+      $vS = sbiepay_status_query(sbiepay_cfg($db), (string)($sbiLast['sbiTxnId'] ?? ''),
+        (string)($sbiLast['merchantOrderNo'] ?? ''), (string)($sbiLast['amountStr'] ?? ''));
+      if (!empty($vS['map'])) sbiepay_apply($db, $i, $vS['map'], (string)($sbiLast['merchantOrderNo'] ?? ''));
+      jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
+    }
     if (payu_ready($db) && !empty($db['orders'][$i]['payuAttempts'])) {
       $cfg = payu_cfg($db);
       $attempts = $db['orders'][$i]['payuAttempts'];
@@ -4044,6 +4098,91 @@ try {
           if (is_array($st['json'] ?? null)) payu_apply_refund($db, $i, $st['json'], (string)$rf['payuRefundKey']);
         }
       }
+    }
+    jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
+  }
+
+  /* ════════ v128 · SBIePay hosted-checkout return + poll ════════
+     Browser flow: pay/order → auto-POST EncryptTrans to sbiepay.sbi → SBI
+     sends the browser back here with an AES payload. We decrypt it only to
+     learn WHICH order/attempt it is, then ask SBI's status API for the truth
+     and credit the ledger exclusively from that answer: a forged POST cannot
+     produce a decryptable payload without the seller key, and a replayed one
+     cannot double-credit (sbiepay_apply is idempotent by transaction id). */
+  $sbi_reconcile = function (array &$db, int $i, string $orderNo, string $sbiTxn = '', array $hint = []): array {
+    $cfg = sbiepay_cfg($db);
+    $attempt = sbiepay_attempt($db['orders'][$i], $orderNo);
+    if (!$attempt) return ['ok' => false, 'code' => 'ATTEMPT_NOT_FOUND'];
+    if ($sbiTxn === '') $sbiTxn = (string)($attempt['sbiTxnId'] ?? '');
+    if ($sbiTxn === '') return ['ok' => false, 'code' => 'NO_TXN_ID'];
+    $v = sbiepay_status_query($cfg, $sbiTxn, $orderNo, (string)($attempt['amountStr'] ?? ''));
+    if (!empty($v['map'])) {
+      $m = $v['map'];
+      $back = (string)($m['merchant_order_no'] ?? '');
+      if ($back !== '' && $back !== $orderNo) {
+        audit_log($db, 'payment.sbiepay-status-mismatch',
+          ['order' => $db['orders'][$i]['id'] ?? '?', 'want' => $orderNo, 'got' => $back]);
+        return ['ok' => false, 'code' => 'ORDER_MISMATCH'];
+      }
+      return sbiepay_apply($db, $i, $m, $orderNo);
+    }
+    audit_log($db, 'payment.sbiepay-verify-fail', ['order' => $db['orders'][$i]['id'] ?? '?',
+      'order_no' => $orderNo, 'http' => $v['code'], 'raw' => substr((string)$v['raw'], 0, 300)]);
+    return ['ok' => false, 'code' => 'VERIFY_UNAVAILABLE'];
+  };
+  if ($route === 'pay/sbiepay/return') {
+    $co = (string)($_GET['co'] ?? '');
+    $orderId = preg_match('/^[A-Za-z0-9_-]{1,48}$/', $co) ? substr($co, 0, 48) : '';
+    $rawBody = (string)file_get_contents('php://input');
+    $sbiCfgR = sbiepay_cfg($db);
+    $ex = sbiepay_extract_return($sbiCfgR, is_array($_POST) ? $_POST : [], $rawBody);
+    /* Some SBIePay merchants are returned with a GET query instead of a POST
+       body — accept that shape too (still AES-verified, never trusted alone). */
+    if (empty($ex['map']) && !empty($_GET)) {
+      $exGet = sbiepay_extract_return($sbiCfgR, $_GET, '');
+      if (!empty($exGet['map'])) $ex = $exGet;
+    }
+    $m = $ex['map'];
+    $orderNo = sbiepay_clean_id((string)($m['merchant_order_no'] ?? ''), 24);
+    $result = 'pending';
+    $idx = null;
+    if ($orderId !== '') {
+      foreach ($db['orders'] as $ii0 => $oo0) if ((string)($oo0['id'] ?? '') === $orderId) { $idx = $ii0; break; }
+    }
+    if ($idx === null && $orderNo !== '') $idx = sbiepay_find_order_index($db, $orderNo);
+    if ($idx !== null) {
+      if ($orderNo === '') {
+        $at = $db['orders'][$idx]['sbiAttempts'] ?? [];
+        $orderNo = $at ? (string)($at[count($at) - 1]['merchantOrderNo'] ?? '') : '';
+      }
+      $sbiTxn = (string)($m['sbi_transaction_id'] ?? '');
+      $status = strtoupper(trim((string)($m['transaction_status'] ?? '')));
+      if ($orderNo !== '') {
+        $r = $sbi_reconcile($db, $idx, $orderNo, $sbiTxn, $m);
+        if (!empty($r['ok'])) $result = 'success';
+        elseif (($r['code'] ?? '') === 'FAILED' || $status === 'FAIL') $result = 'fail';
+        else $result = 'pending';
+      }
+    } else {
+      audit_log($db, 'payment.sbiepay-return-unknown-order',
+        ['co' => $co, 'order_no' => $orderNo, 'source' => (string)($ex['source'] ?? '?')]);
+    }
+    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?pu=' . $result
+                             : '/#/account?tab=orders';
+    header('Cache-Control: no-store');
+    header('Location: ' . $target, true, 302);
+    exit;
+  }
+  /* Customer-side poller: asks SBI again for the latest attempt of an order.
+     This is what rescues a customer whose browser never made it back from the
+     bank page (closed tab, flaky network) — the money is still captured. */
+  if ($route === 'pay/sbiepay/status' && $method === 'POST') {
+    $b = body_json();
+    [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
+    if (sbiepay_ready($db) && !empty($db['orders'][$i]['sbiAttempts'])) {
+      $attempts = $db['orders'][$i]['sbiAttempts'];
+      $last = $attempts[count($attempts) - 1];
+      $sbi_reconcile($db, $i, (string)($last['merchantOrderNo'] ?? ''), (string)($last['sbiTxnId'] ?? ''));
     }
     jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
   }
@@ -4200,6 +4339,37 @@ try {
       jout(200, ['ok' => false, 'env' => $cfg['env'],
         'detail' => 'PayU rejected the key/salt: ' . (is_array($v['json'] ?? null) ? ($v['json']['msg'] ?? 'check key, salt and environment') : ($v['err'] ?: 'no response'))]);
     }
+    if ($which === 'sbiepay' || (isset($b['provider']) && $b['provider'] === 'sbiepay')) {
+      $cfg = sbiepay_cfg($db);
+      if ($cfg['merchant_id'] === '' || strlen($cfg['seller_key']) < 8)
+        jout(400, ['ok' => false, 'error' => 'Enter the SBIePay Merchant ID and Seller Key first.']);
+      /* 1 — prove the pasted seller key really is the AES key: encrypt a probe
+         and decrypt it again. Catches a truncated/whitespace-mangled paste
+         before a customer ever reaches the bank page. */
+      $probePlain = 'SHIVAAPROBE' . time();
+      $enc = sbiepay_encrypt($cfg, $probePlain);
+      $back = $enc === null ? null : sbiepay_decrypt($cfg, $enc);
+      if ($back !== $probePlain)
+        jout(200, ['ok' => false, 'env' => $cfg['env'],
+          'detail' => 'The Seller Key cannot run AES — re-paste the full key from the SBIePay welcome kit (no spaces, no line breaks).']);
+      /* 2 — live reachability probe: ask the status API about a transaction
+         that cannot exist. "No such transaction" style answers mean the
+         credentials were accepted; "invalid/unauthorised" means they were not. */
+      $probe = sbiepay_status_query($cfg, 'SHVPROBE' . substr((string)time(), -6),
+        'SHVPROBE' . substr((string)time(), -4), '1.00');
+      $raw = trim((string)$probe['raw']);
+      $low = strtolower($raw);
+      $bad = strpos($low, 'invalid') !== false || strpos($low, 'authentication') !== false
+          || strpos($low, 'not authoris') !== false || strpos($low, 'not authoriz') !== false
+          || strpos($low, 'unauthori') !== false || strpos($low, 'merchant is not') !== false;
+      if ($probe['code'] === 200 && $raw !== '' && !$bad)
+        jout(200, ['ok' => true, 'env' => $cfg['env'], 'code' => $probe['code'],
+          'detail' => 'Seller key verified (AES round-trip OK) and the SBIePay ' . ($cfg['env'] === 'prod' ? 'live' : 'UAT')
+            . ' endpoint answered' . ($probe['plain'] !== '' ? ': ' . substr($probe['plain'], 0, 120) : '.')
+            . ' Register the Success/Failure URL with SBIePay before going live.']);
+      jout(200, ['ok' => false, 'env' => $cfg['env'],
+        'detail' => 'SBIePay did not accept the credentials: ' . ($raw !== '' ? substr($raw, 0, 200) : ($probe['err'] ?: 'no response from ' . $cfg['status_api']))]);
+    }
     if ($which === 'phonepe' || (isset($b['provider']) && $b['provider'] === 'phonepe')) {
       $cfg = phonepe_cfg($db);
       if ($cfg['clientId'] === '' || $cfg['clientSecret'] === '') jout(400, ['ok' => false, 'error' => 'Enter PhonePe Client ID and Client Secret first.']);
@@ -4225,6 +4395,42 @@ try {
       jout(200, ['ok' => $code === 200, 'http' => $code, 'detail' => $code === 200 ? 'Razorpay credentials accepted.' : 'Razorpay rejected the keys: ' . ($j['error']['description'] ?? $raw)]);
     }
     jout(400, ['ok' => false, 'error' => 'No live gateway is selected.']);
+  }
+  /* v128 — manual SBIePay reconcile. Rescue path for a customer who closed the
+     tab on the bank page before SBI handed the transaction id back: the owner
+     reads the ATRN (SBIePay transaction id) in the SBIePay merchant dashboard,
+     then this route asks SBI for the truth and credits the order exactly like
+     the automatic return path does. Never credits from the typed value alone. */
+  if ($route === 'admin/sbi-reconcile' && $method === 'POST') {
+    need_admin($db);
+    $b = body_json();
+    if (!sbiepay_ready($db)) jout(400, ['error' => 'SBIePay is not the active payment provider.']);
+    $orderId = (string)($b['orderId'] ?? '');
+    $txn = preg_replace('#[^A-Za-z0-9\-_]#', '', (string)($b['sbiTxnId'] ?? ''));
+    if ($txn === '') jout(400, ['error' => 'Enter the SBIePay transaction id / ATRN from the SBIePay dashboard.']);
+    $idxR = null;
+    foreach ($db['orders'] as $iiR => $ooR) if ((string)($ooR['id'] ?? '') === $orderId) { $idxR = $iiR; break; }
+    if ($idxR === null) jout(404, ['error' => 'Order not found']);
+    $attemptsR = $db['orders'][$idxR]['sbiAttempts'] ?? [];
+    if (!$attemptsR) jout(400, ['error' => 'This order has no SBIePay attempt — the customer never reached the bank page.']);
+    $orderNoR = (string)($b['orderNo'] ?? '');
+    if ($orderNoR === '') { $lastR = $attemptsR[count($attemptsR) - 1]; $orderNoR = (string)($lastR['merchantOrderNo'] ?? ''); }
+    $amtR = (string)($b['amount'] ?? '');
+    if ($amtR === '') {
+      foreach ($attemptsR as $aR) if ((string)($aR['merchantOrderNo'] ?? '') === $orderNoR) { $amtR = (string)($aR['amountStr'] ?? ''); break; }
+    }
+    if ($amtR === '') jout(400, ['error' => 'Unknown SBIePay order number for this order — pass orderNo + amount explicitly.']);
+    $vR = sbiepay_status_query(sbiepay_cfg($db), $txn, $orderNoR, $amtR);
+    if (empty($vR['map'])) {
+      audit_log($db, 'payment.sbiepay-admin-reconcile-fail', ['order' => $orderId, 'txn' => $txn, 'http' => $vR['code'], 'raw' => substr((string)$vR['raw'], 0, 200)]);
+      jout(502, ['error' => 'SBIePay did not return a transaction row.', 'http' => $vR['code'], 'raw' => substr((string)$vR['raw'], 0, 300)]);
+    }
+    foreach ($db['orders'][$idxR]['sbiAttempts'] as $akR => $aaR) {
+      if ((string)($aaR['merchantOrderNo'] ?? '') === $orderNoR) $db['orders'][$idxR]['sbiAttempts'][$akR]['sbiTxnId'] = $txn;
+    }
+    $rR = sbiepay_apply($db, $idxR, $vR['map'], $orderNoR);
+    audit_log($db, 'payment.sbiepay-admin-reconcile', ['order' => $orderId, 'txn' => $txn, 'result' => $rR['code'] ?? 'ok']);
+    jout(200, ['ok' => !empty($rR['ok']), 'result' => $rR, 'order' => $db['orders'][$idxR]]);
   }
 
   /* v94 — PayU refund (admin-initiated). cancel_refund_transaction via
@@ -5944,9 +6150,9 @@ try {
     foreach (['upiName', 'shopName', 'address', 'finePurity', 'payProvider'] as $sk) {
       if (array_key_exists($sk, $setBody) && !is_scalar($setBody[$sk])) jout(400, ['error' => $sk . ' must be text']);
     }
-    // v94 — only demo + PayU can be selected; PhonePe/Razorpay options were
-    // removed from the website (their server code stays dormant).
-    if (array_key_exists('payProvider', $setBody) && !in_array((string)$setBody['payProvider'], ['demo', 'payu'], true))
+    // v94 — only demo + PayU can be selected; v128 adds SBIePay. PhonePe /
+    // Razorpay options stay removed (their server code remains dormant).
+    if (array_key_exists('payProvider', $setBody) && !in_array((string)$setBody['payProvider'], ['demo', 'payu', 'sbiepay'], true))
       jout(400, ['error' => 'Unknown payment provider']);
     if (array_key_exists('payuKey', $setBody)) {
       $v = trim((string)$setBody['payuKey']);
@@ -5963,6 +6169,36 @@ try {
     }
     if (array_key_exists('payuEnv', $setBody) && !in_array((string)$setBody['payuEnv'], ['test', 'prod'], true))
       jout(400, ['error' => 'PayU environment must be test or prod.']);
+    /* v128 — SBIePay. The seller key is the AES key for EncryptTrans, so it is
+       named with "secret" and the public-settings sanitiser strips it from every
+       non-admin read (same treatment as payuSalt). */
+    if (array_key_exists('sbiMerchantId', $setBody)) {
+      $v = trim((string)$setBody['sbiMerchantId']);
+      if ($v !== '' && !preg_match('/^[A-Za-z0-9_\-]{4,40}$/', $v))
+        jout(400, ['error' => 'SBIePay Merchant ID looks invalid (4–40 letters/numbers/_/- — copy it exactly from the SBIePay MIF confirmation mail).']);
+      $setBody['sbiMerchantId'] = $v;
+    }
+    if (array_key_exists('sbiSellerSecret', $setBody)) {
+      $v = trim((string)$setBody['sbiSellerSecret']);
+      if ($v === '') { unset($setBody['sbiSellerSecret']); }   // blank never wipes the saved key
+      elseif (!preg_match('/^[^\s\|]{8,128}$/', $v))
+        jout(400, ['error' => 'SBIePay Seller Key looks invalid (paste the full key from the SBIePay welcome kit — 8–128 characters, no spaces or |).']);
+      else $setBody['sbiSellerSecret'] = $v;
+    }
+    if (array_key_exists('sbiAggregatorId', $setBody)) {
+      $v = trim((string)$setBody['sbiAggregatorId']);
+      if ($v !== '' && !preg_match('/^[A-Za-z0-9_\-]{3,32}$/', $v))
+        jout(400, ['error' => 'SBIePay Aggregator ID looks invalid (leave blank for SBIEPAY).']);
+      $setBody['sbiAggregatorId'] = $v;
+    }
+    if (array_key_exists('sbiAccountId', $setBody)) {
+      $v = strtoupper(trim((string)$setBody['sbiAccountId']));
+      if ($v !== '' && !preg_match('/^[A-Z0-9_\-]{2,24}$/', $v))
+        jout(400, ['error' => 'SBIePay Account Identifier looks invalid (usually NEFT — from the SBIePay welcome kit).']);
+      $setBody['sbiAccountId'] = $v;
+    }
+    if (array_key_exists('sbiEnv', $setBody) && !in_array((string)$setBody['sbiEnv'], ['uat', 'prod'], true))
+      jout(400, ['error' => 'SBIePay environment must be uat (test) or prod (live).']);
     if (array_key_exists('ppClientId', $setBody)) {
       $v = trim((string)$setBody['ppClientId']);
       if ($v !== '' && !preg_match('/^[A-Za-z0-9_\-]{3,64}$/', $v))

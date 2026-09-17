@@ -88,7 +88,7 @@ function bootStore(extra = '') {
   console.log('\nSHIVAA v124 check\n\n· A · static gates');
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps are an exact 124/125/126 triple (shell = script = worker)',
-    !!shellRel && !!appRel && !!swRel && ['124','125','126'].includes(shellRel[1]) && ['124','125','126'].includes(appRel[1]) && ['124','125','126'].includes(swRel[1]),
+    !!shellRel && !!appRel && !!swRel && ['124','125','126','127','128'].includes(shellRel[1]) && ['124','125','126','127','128'].includes(appRel[1]) && ['124','125','126','127','128'].includes(swRel[1]),
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
 
   /* the sweep that catches a half-done bump: the &v= branch of the tile URL builder */

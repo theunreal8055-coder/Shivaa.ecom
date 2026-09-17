@@ -769,6 +769,7 @@ async function renderAdmin(view, q) {
             <select name="payProvider" class="sortsel" style="width:100%;border-radius:12px">
               <option value="demo" ${(S.payProvider || 'demo') === 'demo' ? 'selected' : ''}>Demo / simulated gateway (no real charge)</option>
               <option value="payu" ${S.payProvider === 'payu' ? 'selected' : ''}>PayU (UPI · cards · net-banking · wallets)</option>
+              <option value="sbiepay" ${S.payProvider === 'sbiepay' ? 'selected' : ''}>SBIePay — State Bank of India (net-banking · cards · UPI)</option>
             </select></div>
           <div class="fld"><label>Site base URL <small>(public https address used for the PayU Success/Failure redirect)</small></label><input name="siteBaseUrl" value="${esc(S.siteBaseUrl || '')}" placeholder="https://www.shivaa.in"></div>
           <div class="fld"><label>Prepaid discount % <small>(pay online)</small></label><input name="prepaidPct" type="number" step="0.5" min="0" max="10" value="${S.prepaidPct ?? 2}"></div>
@@ -795,12 +796,36 @@ async function renderAdmin(view, q) {
             </div>
           </fieldset>
 
+          <fieldset class="fld full payu-keys" style="border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0">
+            <legend style="padding:0 6px;font-weight:700;font-size:13px">🔵 SBIePay — State Bank of India <small>(values from the SBIePay welcome kit / MIF confirmation)</small></legend>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="fld"><label>Merchant ID <small>(SBIePay merchant id)</small></label><input name="sbiMerchantId" value="${esc(S.sbiMerchantId || '')}" placeholder="e.g. 1234567" autocomplete="off"></div>
+              <div class="fld"><label>Seller Key <small>(AES key — never shown once saved)</small></label><input name="sbiSellerSecret" type="password" placeholder="${S.sbiMerchantId ? '•••• saved — leave blank to keep' : 'paste the seller key from the welcome kit'}" autocomplete="new-password"></div>
+              <div class="fld"><label>Aggregator ID</label><input name="sbiAggregatorId" value="${esc(S.sbiAggregatorId || '')}" placeholder="SBIEPAY (default)"></div>
+              <div class="fld"><label>Account Identifier</label><input name="sbiAccountId" value="${esc(S.sbiAccountId || '')}" placeholder="NEFT (default)"></div>
+              <div class="fld"><label>Environment</label>
+                <select name="sbiEnv" class="sortsel" style="width:100%;border-radius:12px">
+                  <option value="uat" ${(S.sbiEnv || 'uat') === 'uat' ? 'selected' : ''}>UAT / test (test.sbiepay.sbi — staging credentials)</option>
+                  <option value="prod" ${S.sbiEnv === 'prod' ? 'selected' : ''}>Production (sbiepay.sbi — live credentials)</option>
+                </select></div>
+              <div class="fld"><label>Verification</label>
+                <button type="button" class="btn btn-outline btn-sm" style="width:100%" onclick="ShivaaAdmin.testPay('sbiepay')">Test SBIePay credentials</button></div>
+              <div class="fld full" style="font-size:12px;color:var(--ink-3);border-top:1px dashed var(--line);padding-top:8px">
+                Register this <b>Success URL</b> and <b>Failure URL</b> with SBIePay (both are the same address):
+                <code id="sbiReturnUrl"></code>. Every payment is re-verified with SBI's status API before the order is
+                marked paid, so a customer cannot fake a payment by replaying the return URL. SBI refunds are raised in the
+                SBIePay merchant dashboard (the order ledger records them here).
+              </div>
+              <div class="fld full"><span id="sbiTestOut" style="font-size:12.5px"></span></div>
+            </div>
+          </fieldset>
+
           <div class="fld"><label>Counter UPI ID <small>(QR fallback — works without any gateway)</small></label><input name="upiId" value="${esc(S.upiId || '')}" placeholder="yourshop@okhdfcbank"></div>
           <div class="fld"><label>UPI payee name</label><input name="upiName" value="${esc(S.upiName || 'Shivaa Jewellers')}"></div>
           <div class="fld full"><label>Prepaid-only pincodes (comma-separated; NE &amp; Ladakh prepaid by default)</label><input name="codBlockedPins" value="${esc(S.codBlockedPins || '')}" placeholder="110001, 744101"></div>
           <div class="fld"><label>Shop GSTIN <small>(printed on tax invoices)</small></label><input name="gstin" value="${esc(S.gstin || '')}" placeholder="08ABCDE1234F1Z5" style="text-transform:uppercase"></div>
           <div class="fld"><label>Google review link <small>(10/10 reviewers are sent here)</small></label><input name="googleReviewUrl" value="${esc(S.googleReviewUrl || '')}" placeholder="https://maps.app.goo.gl/…"></div>
-          <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">No PayU keys yet? Leave provider on <b>Demo</b> and fill only the <b>UPI ID</b> — customers scan the QR and upload a payment screenshot; you verify each one under Orders (banner at top). With PayU Merchant Key + Salt, UPI, cards, net-banking and wallets go fully automatic.</div>
+          <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">No gateway keys yet? Leave provider on <b>Demo</b> and fill only the <b>UPI ID</b> — customers scan the QR and upload a payment screenshot; you verify each one under Orders (banner at top). With <b>PayU</b> Merchant Key + Salt, or <b>SBIePay</b> Merchant ID + Seller Key, UPI, cards, net-banking and wallets go fully automatic. Full walkthrough: <code>docs/SBI-EPAY-INTEGRATION.md</code>.</div>
           <button class="btn btn-primary btn-sm" style="justify-self:start">Save payments</button>
         </form></div>
       <div class="adm-card"><h3>📡 Official MCX rate feed <span style="font-size:11px;color:var(--ink-3);font-weight:400">Angel One SmartAPI · free demat · fully automatic TOTP login</span></h3>
@@ -1658,18 +1683,29 @@ window.ShivaaAdmin.savePay = async e => {
                  // v94 — PayU hosted checkout
                  siteBaseUrl: g('siteBaseUrl').trim().replace(/\/+$/, ''),
                  payuKey: g('payuKey').trim(),
-                 payuEnv: g('payuEnv') === 'prod' ? 'prod' : 'test' };
-  // salt is write-only: only sent when retyped (server strips it from GETs)
+                 payuEnv: g('payuEnv') === 'prod' ? 'prod' : 'test',
+                 // v128 — SBIePay (SBI)
+                 sbiMerchantId: g('sbiMerchantId').trim(),
+                 sbiAggregatorId: g('sbiAggregatorId').trim(),
+                 sbiAccountId: g('sbiAccountId').trim(),
+                 sbiEnv: g('sbiEnv') === 'prod' ? 'prod' : 'uat' };
+  // salts/keys are write-only: only sent when retyped (server strips them from GETs)
   if (g('payuSalt')) body.payuSalt = g('payuSalt').trim();
+  if (g('sbiSellerSecret')) body.sbiSellerSecret = g('sbiSellerSecret').trim();
   try {
     const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
     Object.assign(state.settings, s);
     ShivaaAdmin.wirePayUrls(s.siteBaseUrl || '');
     const liveMsg = body.payProvider === 'payu' && body.payuKey && (s.payuSalt || g('payuSalt'))
       ? (body.payuEnv === 'test' ? 'PayU connected in TEST mode 🧪' : 'Payments LIVE via PayU 🟠')
+      : body.payProvider === 'sbiepay' && body.sbiMerchantId && body.sbiSellerSecret
+      ? (body.sbiEnv === 'prod' ? 'Payments LIVE via SBIePay 🔵' : 'SBIePay connected in UAT/test mode 🧪')
+      : body.payProvider === 'sbiepay' && body.sbiMerchantId
+      ? 'SBIePay details saved — paste the Seller Key (or press Test) to start taking payments'
       : 'Payment settings saved (demo / UPI-QR mode)';
     toast(liveMsg);
     if (body.payProvider === 'payu') setTimeout(() => ShivaaAdmin.testPay('payu'), 500);
+    if (body.payProvider === 'sbiepay') setTimeout(() => ShivaaAdmin.testPay('sbiepay'), 500);
   } catch (err) { toast(err.message, 'err'); }
 };
 /* v94 — show the exact surl/furl to paste into the PayU dashboard */
@@ -1677,10 +1713,14 @@ window.ShivaaAdmin.wirePayUrls = (base) => {
   const b = (base || '').replace(/\/+$/, '') || ('https://' + (location.hostname || 'www.shivaa.in'));
   const r = document.getElementById('payuReturnUrl');
   if (r) r.textContent = b + '/api/pay/payu/return';
+  // v128 — SBIePay's Success URL and Failure URL are both this address.
+  const s = document.getElementById('sbiReturnUrl');
+  if (s) s.textContent = b + '/api/pay/sbiepay/return';
 };
 window.ShivaaAdmin.testPay = async (provider) => {
-  const out = document.getElementById('payuTestOut');
-  if (out) out.innerHTML = '<span class="live-dot" style="display:inline-block;margin-right:6px"></span> Checking credentials with PayU…';
+  const isSbi = provider === 'sbiepay';
+  const out = document.getElementById(isSbi ? 'sbiTestOut' : 'payuTestOut');
+  if (out) out.innerHTML = '<span class="live-dot" style="display:inline-block;margin-right:6px"></span> Checking credentials with ' + (isSbi ? 'SBIePay' : 'PayU') + '…';
   try {
     const r = await api('/api/admin/pay-test', { method: 'POST', body: JSON.stringify({ provider }) });
     if (out) {
