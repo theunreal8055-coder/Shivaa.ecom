@@ -25,6 +25,13 @@ SBI's online gateway is **SBIePay** (also written SBI e-Pay). Unlike a self-serv
 Everything in steps 4–5 is already built. Step 1 is paperwork with SBI — it is the only part that
 takes real time (typically **2–6 weeks** for a private merchant, sometimes longer).
 
+**Is there an instant SBI gateway? No.** SBIePay has no self-service signup and no public sandbox —
+its own FAQ says the RM and Risk/Fraud/Compliance team scrutinise the application, then a pricing
+offer and document set follow, and the account is activated only after those documents are approved.
+If you need to accept money **today**, the fastest SBI-flavoured route is an **SBI UPI VPA** pasted
+into Admin → Payments → *Counter UPI ID* (the QR + screenshot flow already works, same day), with a
+fintech PA (PayU — already wired) as the card/netbanking bridge. Full comparison in §10.
+
 ---
 
 ## 1 · Reality check — read this before you spend weeks on SBIePay
@@ -86,7 +93,9 @@ takes real time (typically **2–6 weeks** for a private merchant, sometimes lon
 
 | Requirement | Where shivaa.in stands |
 |---|---|
-| Valid SSL on the domain | ✅ shivaa.in runs HTTPS |
+| Valid SSL on the domain | ✅ shivaa.in runs HTTPS (not strictly required for the aggregator-hosted model, but it is checked) |
+| **Domain registered in the merchant's / firm's name** (stated SBIePay requirement) | ⚠️ verify in the registrar panel — the site resolving is not enough. If the domain is in a personal or third-party name, transfer it to the firm/merchant name before applying |
+| Goods / fees and prices displayed on the site | ✅ the catalogue shows every piece with its price |
 | Customer-friendly, specific refund policy, visible on the site | ✅ `https://shivaa.in/#/refund` (linked in the footer). Keep it specific: timelines, who pays return shipping, custom/engraved pieces |
 | Refund policy **accepted by the customer before** landing on SBIePay | ✅ v128 injects an acceptance tick on checkout while SBIePay is the live provider |
 | No card data stored on the site | ✅ hosted checkout, PCI burden stays with SBI |
@@ -255,17 +264,55 @@ curl -s -X POST https://shivaa.in/api/pay/payu/status \
 
 ---
 
-## 10 · Timeline, cost expectations, and the fallback
+## 10 · Instant or procedure? (the honest timeline)
 
-| Path | Typical time to first live rupee | Notes |
-|---|---|---|
-| **SBIePay** | 2–6 weeks (paperwork + VSCC + activation) | Cheapest to reason about if you bank with SBI; slow, form-heavy onboarding |
-| **PayU** (already wired) | Same day | Test creds work immediately; UPI + cards + net-banking live |
-| **UPI QR proof flow** (already live) | Already working | Zero gateway dependency; customer uploads a screenshot, counter approves |
+**There is no instant SBI payment gateway.** Confirmed against SBIePay's own FAQ: once your
+application arrives, *"SBIePay Relationship Manager and Risk, Fraud and Compliance team will
+scrutinize your application. On approval, you will receive the pricing offer along with the list of
+documents that will be required… your account shall be activated once your documents submitted by you
+are approved."* There is also **no public sandbox** — UAT (`test.sbiepay.sbi`) credentials come with
+or after the welcome kit, so onboarding and integration cannot be parallelised by a developer alone.
 
-Recommended sequence: keep PayU/UPI running now → submit SBIePay in parallel → when the welcome kit
-arrives, flip the provider in Admin → Payments → test on UAT → switch to Production. SBIePay is a
-preference, not a blocker.
+What *is* fast, ranked by time to the first live rupee:
+
+| # | Route | Time to live | What it covers | Trade-off |
+|---|---|---|---|---|
+| 1 | **SBI UPI VPA + the site's QR flow** — get an SBI UPI ID (SBI Pay / YONO Business / branch), paste it in **Admin → Payments → Counter UPI ID** | **Same day** | Real UPI money into the SBI account, per-order QR, customer uploads the payment screenshot, the counter approves it | UPI only, no cards/netbanking, manual approval per order, best under ~₹1 lakh per transaction |
+| 2 | **An RBI-authorised fintech PA** (PayU is already wired; Razorpay/PhonePe code is present but dormant) | **Hours – 3 days** (digital KYC; most delays are name/address mismatches across PAN, bank and GST) | Cards, netbanking (incl. SBI netbanking), UPI, wallets — the customer's *SBI card / SBI netbanking* works fine | Not SBI-branded, and money settles from the PA's escrow, not directly from SBI |
+| 3 | **SBI Payments in-store acceptance** (YONO SBI Merchant app / Bharat QR / POS, via `sbipayments.com` or the branch) | **Days** (onboarded through their team) | Counter-side Bharat QR/UPI, tap-to-pay, T+1 settlement | Not a website checkout — it digitises the shop counter, not shivaa.in |
+| 4 | **SBIePay hosted checkout** (what v128 implements) | **2 – 6 weeks** (RM + Risk/Fraud/Compliance scrutiny → pricing offer → document set → activation) | Full online acceptance: netbanking (~45 banks direct), Visa/MC/RuPay/Maestro + international cards, UPI, 3-D Secure, T+2 settlement; **aggregator-hosted = no card data on the site, no PCI-DSS burden** | The procedure in §2; merchant-hosted would additionally demand PCI-DSS compliance |
+
+### How to compress the SBIePay timeline (not to zero, but shorter)
+
+1. Use the **online Sign Up** (`epay.sbi.bank.in`) rather than only the paper MIF — it starts the RM
+   review immediately; the MIF route adds a hand-off.
+2. Send the **complete document pack in one go** (§2.2). Every round-trip costs days.
+3. Ask your **SBI branch relationship manager to push it** — an existing current-account relationship
+   with real turnover is the strongest accelerator available.
+4. Arrange the **VSCC** with a CERT-In empanelled auditor **before** SBI asks for it (it is the
+   longest external item — an audit of the site, not of your shop).
+5. Check the **domain is registered in the merchant's name** (a stated SBIePay requirement) — verify
+   the registrant in your Hostinger/.IN registrar panel, not just that the site resolves.
+6. Keep **goods and prices displayed** on the site (they are) and make sure the **refund policy is
+   shown and accepted before** the customer reaches SBIePay (v128 injects the acceptance tick).
+7. Register **Success URL = Failure URL = `https://shivaa.in/api/pay/sbiepay/return`** exactly, and
+   ask for the **UAT credentials in the same email** as the welcome kit.
+8. Because our code is already written and structurally tested, day one of the welcome kit = paste
+   three values, run Test, then UAT. There is nothing left to build.
+
+### Cost expectations (typical market figures — get them in writing from SBIePay)
+
+Cards and net-banking commonly quote around **1.8–2.5% + GST**; a setup fee is often waived for
+existing SBI customers, an AMC of roughly ₹1,000–10,000/yr can apply, chargebacks carry a per-instance
+fee, and settlement is **T+2 working days**. UPI is generally the cheapest rail for merchants —
+confirm what applies to your turnover category in the pricing offer. Nothing here changes the fact
+that the site works today on PayU/UPI, so treat the SBI quote as a comparison, not a prerequisite.
+
+### The recommendation in one line
+
+Run routes 1 + 2 now (selling today), submit route 4 in parallel (the paperwork), and switch to
+SBIePay the moment the welcome kit lands — the code is already in place, dormant, waiting for three
+values.
 
 ---
 
