@@ -1,0 +1,110 @@
+name: Hostinger Deploy (auto)
+
+# Push-button-to-live: every push to main that touches cms/** is automatically
+# synced to Hostinger public_html/ over FTPS, then live-verified.
+#   NEVER touched: data/ (orders, users, live catalogue), uploads/ (live media),
+#   .htaccess (panel rules — merged by hand on the rare releases that change it).
+#   Opt out of one push: put [skip deploy] in the commit message.
+#   Manual run: Actions → Hostinger Deploy → Run workflow (dry-run defaults YES).
+
+on:
+  push:
+    branches: [main]
+    paths: ['cms/**']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "YES = preview only (no writes). NO = real deploy."
+        required: true
+        default: "YES"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shivaa-hostinger-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: FTPS sync cms/ to public_html
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip deploy]')
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Preflight — secrets + handshake + PHP lint
+        env:
+          FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${FTP_SERVER:-}" ] || [ -z "${FTP_USERNAME:-}" ] || [ -z "${FTP_PASSWORD:-}" ]; then
+            echo "::error::Hostinger FTP secrets are not set. One-time setup (owner, 5 min): GitHub repo → Settings → Secrets and variables → Actions → add HOSTINGER_FTP_SERVER, HOSTINGER_FTP_USERNAME, HOSTINGER_FTP_PASSWORD. Full steps: HOSTINGER-AUTO-DEPLOY.md. Nothing was deployed."
+            exit 1
+          fi
+          test -f cms/index.html && test -f cms/api.php && test -f cms/sw.js \
+            || { echo "::error::critical file missing in cms/ — refusing to deploy"; exit 1; }
+          REL_HTML=$(grep -o 'window.__SHIVAA_REL=[0-9]*' cms/index.html | head -1 | grep -o '[0-9]*$')
+          REL_APP=$(grep -o 'const APP_REL = [0-9]*' cms/js/app.js | head -1 | grep -o '[0-9]*$')
+          echo "stamps: index.html REL=${REL_HTML:-?} app.js APP_REL=${REL_APP:-?}"
+          test -n "${REL_HTML:-}" || { echo "::error::no __SHIVAA_REL stamp in cms/index.html — refusing to deploy"; exit 1; }
+          test "$REL_HTML" = "$REL_APP" || { echo "::error::handshake mismatch (index.html=$REL_HTML app.js=$REL_APP) — refusing to deploy"; exit 1; }
+          echo "SHIVAA_REL=$REL_HTML" >> "$GITHUB_ENV"
+          echo "worker shell in repo: $(grep -o 'shivaa-shell-v[0-9]*' cms/sw.js | head -1)"
+          if command -v php >/dev/null 2>&1; then
+            FAIL=0
+            for f in cms/*.php; do php -l "$f" >/dev/null || FAIL=1; done
+            test "$FAIL" = "0" || { echo "::error::PHP syntax error — refusing to deploy"; exit 1; }
+            echo "php -l clean on all cms/*.php"
+          else
+            echo "::warning::php not on runner — lint skipped"
+          fi
+          echo "--- files changed in this push (top 40) ---"
+          git log -1 --name-status --pretty=format: | head -40 || true
+
+      - name: Sync to Hostinger (FTPS)
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          # Hostinger FTPS certs often don't match custom ftp hostnames, so
+          # hostname verification is relaxed — the transfer itself stays encrypted.
+          security: loose
+          local-dir: cms/
+          server-dir: public_html/
+          timeout: 60000
+          log-level: standard
+          # Pushes to main are always live. Manual runs preview unless dry_run=NO.
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run != 'NO' }}
+          exclude:
+            - data/**
+            - uploads/**
+            - .htaccess
+
+      - name: Verify live site serves the new release
+        if: github.event_name == 'push' || inputs.dry_run == 'NO'
+        env:
+          REL: ${{ env.SHIVAA_REL }}
+        run: |
+          set -euo pipefail
+          echo "expecting live __SHIVAA_REL=$REL"
+          OK=0
+          for i in $(seq 1 12); do
+            HOME_HTML=$(curl -fsSL --max-time 30 "https://shivaa.in/?v=$REL" || true)
+            if echo "$HOME_HTML" | grep -q "window.__SHIVAA_REL=$REL;"; then OK=1; break; fi
+            echo "attempt $i/12: new stamp not live yet — waiting 10 s"
+            sleep 10
+          done
+          test "$OK" = "1" || { echo "::error::live homepage does not serve __SHIVAA_REL=$REL after sync — read the sync log above"; exit 1; }
+          SW=$(curl -fsSL --max-time 30 "https://shivaa.in/sw.js" || true)
+          echo "live sw.js shell: $(echo "$SW" | grep -o 'shivaa-shell-v[0-9]*' | head -1)"
+          echo "VERIFY OK: https://shivaa.in serves release $REL ✅"
