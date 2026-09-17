@@ -91,7 +91,9 @@
           else if (!is && openHash[o.id]) {
             var sameHash = (openHash[o.id] === location.hash);
             openHash[o.id] = false;
-            if (pushed > 0) {
+            if (window.__shvNavigating) {
+              if (pushed > 0) pushed--;
+            } else if (pushed > 0) {
               if (sameHash) { expectPop = true; try { history.back(); } catch (e) { expectPop = false; pushed--; } }
               else pushed--;   // a real navigation orphaned the entry; Back still lands correctly
             }

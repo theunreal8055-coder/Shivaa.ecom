@@ -196,3 +196,67 @@ html.sv-reel-open { overflow: hidden; }
   .sv-reel-stage, .sv-thread-film, .sv-thread-cap { transition: none; }
 }
 html.au-lite .sv-case-glow { display: none; }
+
+/* ── Desktop & Laptop polish (min-width: 1024px) ── */
+@media (min-width: 1024px) {
+  .sv-case {
+    padding: clamp(40px, 4.5vw, 60px) 0 clamp(32px, 3.5vw, 48px);
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .sv-case-stage {
+    height: 520px;
+    perspective: 1450px;
+  }
+  .sv-case-card {
+    width: 250px;
+    border-radius: 20px;
+    box-shadow: 0 35px 85px rgba(0, 0, 0, .75);
+    transition: box-shadow .35s ease, border-color .35s ease, transform .4s ease;
+  }
+  .sv-case-card:hover {
+    border-color: var(--gold-2, #d4af5a);
+    box-shadow: 0 40px 95px rgba(212, 175, 90, .28), 0 0 0 1px var(--gold-2, #d4af5a);
+  }
+  .sv-case-arrow {
+    width: 52px;
+    height: 52px;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  .sv-case-arrow:hover {
+    transform: scale(1.08);
+    background: rgba(212, 175, 90, .22);
+    border-color: var(--gold-2, #d4af5a);
+  }
+  .sv-thread {
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: clamp(36px, 4vw, 56px) 0 clamp(44px, 5vw, 70px);
+  }
+  .sv-thread-item {
+    gap: 6vw;
+    margin-bottom: 70px;
+  }
+  .sv-thread-film {
+    width: 260px;
+    border-radius: 20px;
+  }
+  .sv-thread-film:hover {
+    transform: scale(1.03) translateY(-4px) !important;
+    box-shadow: 0 30px 70px rgba(185, 138, 47, .35) !important;
+  }
+  .sv-thread-cap {
+    max-width: 380px;
+  }
+  .sv-thread-cap b {
+    font-size: clamp(28px, 2.5vw, 36px);
+  }
+  .sv-thread-cap p {
+    font-size: 15.5px;
+    line-height: 1.6;
+  }
+}
+
