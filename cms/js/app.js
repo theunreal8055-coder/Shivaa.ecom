@@ -4023,11 +4023,22 @@ window.Shivaa.wishlistAlerts = async (idsArg) => {
 };
 
 /* ═══════════ v128 · online payments — Cashfree hosted checkout, demo without keys ═══════════ */
-function loadExternalScript(src) {
+function loadExternalScript(src, timeoutMs) {
   return new Promise(resolve => {
     if (document.querySelector(`script[src="${src}"]`)) return resolve(true);
     const s = document.createElement('script'); s.src = src;
-    s.onload = () => resolve(true); s.onerror = () => resolve(false);
+    let done = false;
+    const finish = (ok) => {
+      if (done) return; done = true;
+      if (tm) clearTimeout(tm);
+      if (!ok) s.remove();   /* v130 — a failed tag must not poison "Try again" retries */
+      resolve(ok);
+    };
+    /* v130 — a hung request (no response, no onerror) must surface an error,
+       never spin the handoff sheet forever. */
+    const tm = timeoutMs ? setTimeout(() => finish(false), timeoutMs) : null;
+    s.onload = () => finish(true);
+    s.onerror = () => finish(false);
     document.head.appendChild(s);
   });
 }
@@ -4132,7 +4143,18 @@ function cashfreeRedirectSheet(retry) {
       <button type="button" class="btn btn-ghost btn-block" id="cfCancel" style="margin-top:8px">Return to my order</button>
     </div>`);
   const go = $('#cfContinue');
-  if (go) go.onclick = () => { go.disabled = true; go.textContent = 'Opening Cashfree…'; retry(); setTimeout(() => { if (document.body.contains(go)) { go.disabled = false; go.textContent = 'Try Cashfree again'; } }, 5000); };
+  if (go) go.onclick = () => {
+    go.disabled = true; go.textContent = 'Opening Cashfree…';
+    /* v130 — restore the sheet from its error state before retrying. */
+    const sheet = document.getElementById('cfHandoff');
+    if (sheet) {
+      const sp = sheet.querySelector('.pp-spinner'); if (sp) sp.style.display = '';
+      const h = sheet.querySelector('h3'); if (h) h.textContent = 'Opening secure Cashfree checkout…';
+      const err = document.getElementById('cfErr'); if (err) err.style.display = 'none';
+    }
+    retry();
+    setTimeout(() => { if (document.body.contains(go)) { go.disabled = false; go.textContent = 'Try Cashfree again'; } }, 5000);
+  };
   const cancel = $('#cfCancel'); if (cancel) cancel.onclick = () => { closeModal(); resolve(false); };
   });
 }
@@ -4141,7 +4163,7 @@ function cashfreeRedirectSheet(retry) {
    redirectTarget _self replaces this page; Cashfree sends the customer back to
    the return_url, which the server verifies before crediting the order. */
 window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
-  const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js');
+  const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 15000);
   if (!ok || typeof window.Cashfree !== 'function') throw new Error('Cashfree could not load — check your internet connection and try again');
   const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
   let res;
@@ -4173,7 +4195,17 @@ window.Shivaa.payForOrder = async (orderId) => {
         .catch(e => {
           const msg = (e && e.message) ? e.message : 'Cashfree could not open — tap Try Cashfree again';
           const box = document.getElementById('cfErr');
-          if (box) { box.style.display = 'block'; box.textContent = '⚠️ ' + msg; }
+          if (box) {
+            box.style.display = 'block';
+            box.textContent = '⚠️ ' + msg;
+            /* v130 — stop looking like we're still working: hide the spinner,
+               say what happened; "Try Cashfree again" restores the sheet. */
+            const sheet = document.getElementById('cfHandoff');
+            if (sheet) {
+              const sp = sheet.querySelector('.pp-spinner'); if (sp) sp.style.display = 'none';
+              const h = sheet.querySelector('h3'); if (h) h.textContent = 'Cashfree could not open';
+            }
+          }
           toast(msg, 'err');
         });
     };
