@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-17 (✅ v127 LIVE AND OWNER-VERIFIED — the owner extracted `shivaa-update-v127.zip` into `public_html` himself and reported the search-bar categories and the sidebar buttons now work. Live site = frozen v125 + the 2-file v127 navigation repair; stamps stay 125. PR #59 is still OPEN/UNMERGED, so this ledger lives only on `arena/01a0ad8d-shivaa-ecom` — see § v127 → OWNER LIVE-VERIFIED. v126 and the "v125-fix" zip remain DEAD — read the ⛔ section below before doing anything.)**
+**Last updated: 2026-09-17 (✅ v127 LIVE AND OWNER-VERIFIED — the owner extracted `shivaa-update-v127.zip` into `public_html` himself and reported the search-bar categories and the sidebar buttons now work. Live site = frozen v125 + the 2-file v127 navigation repair; stamps stay 125. **PR #59 MERGED to `main` as `5ed09a5` (17 Sep 2026, 05:15 UTC), so this ledger and the v127 code are both on `main` now.** v126 and the "v125-fix" zip remain DEAD — read the ⛔ section below before doing anything.)**
 **v124 STATUS: MERGED — PR #49, merge commit `5145ab2` on `main` (16 Sep 2026). v123 STATUS: MERGED + LIVE — merged as PR #48 (`bfc3908`) into `main`; owner live-verified 16 Sep, `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.**
 **Forward baseline: v125 ONLY (owner-frozen 16 Sep 2026). No new release, no stamp bump, no file swap, no "repair" — until the owner explicitly asks for a change. Never restore the v113b placeholder category tiles. v126 and the v125-fix zip are dead — do not resurrect, reference or re-deploy them (see `MEMORY.md` → OWNER'S RULING).**
 **Live site: https://shivaa.in (owner-confirmed v125 after his own restore) · Repo: theunreal8055-coder/Shivaa.ecom**
@@ -104,13 +104,13 @@ The only surviving "126" in `cms/` is colour values (`rgba(228,201,126,…)` in 
 and QR tables in `js/qr.js` — neither is a version reference.
 
 **State at close:** commits `da6e5cb` (the fix) + `d6782ba` (the stale-v126 doc correction)
-+ this close, on `arena/01a0ad8d-shivaa-ecom`, pushed. **PR #59 → `main` is OPEN AND
-DELIBERATELY UNMERGED** — merging fires the Hostinger auto-sync cron within ~5 min and would
++ this close, on `arena/01a0ad8d-shivaa-ecom`, pushed. **PR #59 → `main` was OPEN AND
+DELIBERATELY UNMERGED at the time of writing** *(superseded — merged as `5ed09a5`, see MERGED TO `main` below)* — merging fires the Hostinger auto-sync cron within ~5 min and would
 deploy `cms/` **before the owner has taken his backup**, breaking owner rules #1 and #4
 (the v126 failure mode). **Do not merge it in a future session unless the owner says he has
 his backup and wants it live.**
 
-**⚠ THE LEDGER TRAP:** because PR #59 is unmerged, **this § v127, the `MEMORY.md` →
+**⚠ THE LEDGER TRAP** *(now closed by the merge — kept as history)*: because PR #59 was unmerged, **this § v127, the `MEMORY.md` →
 Session 2026-09-17 #2 entry and the `docs/AGENT-HANDOFF.md` note live ONLY on
 `arena/01a0ad8d-shivaa-ecom` — they are NOT on `main`.** A new chat branching from `main`
 will not see them. Recover first:
@@ -143,8 +143,8 @@ point at which it may be recorded as live-verified, and it is now so recorded.
   without it the layer never loads and the buttons could not work, which the owner confirms
   they do. Both files ship in the one zip, so extracting it necessarily replaced both.
 - **How it got live:** the owner's own path — he extracted `shivaa-update-v127.zip` into the
-  `public_html` **ROOT** himself. **The Hostinger auto-sync cron was NOT involved and PR #59
-  is still unmerged.** Live tree = v125 + the two v127 files, nothing else changed.
+  `public_html` **ROOT** himself. **The Hostinger auto-sync cron was NOT involved in that install**
+  (PR #59 was merged later, as `5ed09a5`). Live tree = v125 + the two v127 files, nothing else changed.
 - **⚠ HOW TO CONFIRM v127 IS LIVE — the old trick no longer works.** Every previous release
   was verified by reading `https://shivaa.in/sw.js` for the `SHELL` stamp. **That will still
   read `shivaa-shell-v125`, and that is CORRECT, not a failed deploy** — v127 is a repair and
@@ -155,7 +155,7 @@ point at which it may be recorded as live-verified, and it is now so recorded.
 - **Confirmed working on the owner's device:** search-bar category chips land on their own
   category; the sidebar buttons (Live Rates, Gold Buyback, Swarna Nidhi, and the rest) land
   on their own pages. No regression reported.
-- **PR #59 remains OPEN and UNMERGED.** The reason for holding it (deploy before the owner's
+- **PR #59 was OPEN and UNMERGED at this point** *(superseded — merged as `5ed09a5`)*. The reason for holding it (deploy before the owner's
   backup) no longer applies — he has deployed and verified. Merging now is safe in principle:
   `main`'s `cms/` would match what is already live, so the auto-sync cron would deploy
   identical files, and it is the only way this ledger reaches `main`. **The owner has not
@@ -164,6 +164,29 @@ point at which it may be recorded as live-verified, and it is now so recorded.
   layer owns the sidebar and search-palette taps, so anything that edits drawer or palette
   markup must keep `#mainNav`, `#searchSugg`, `a.sugg-cat` and the `href="#/…"` contract
   intact, and must re-run `v127-check.js` (27) with the other gates.
+
+### ✅ MERGED TO `main` — 17 Sep 2026, 05:15 UTC · merge commit `5ed09a5` (PR #59)
+
+**The owner chose to merge, so this supersedes every "PR #59 is OPEN/UNMERGED" and every
+"the ledger is NOT on `main`" statement above — those were true when written and are kept as
+history.** Verified after the merge, by reading `origin/main` rather than assuming:
+
+- `cms/js/v127.js` present on `main` (8465 bytes) ✅
+- `cms/index.html` on `main` references `/js/v127.js?v=127` (1 occurrence) ✅
+- `shivaa-update-v127.zip` on `main` (10896 bytes) ✅
+- `git diff origin/main HEAD -- cms/` → **empty**: `main`'s `cms/` is byte-identical to the
+  tree that passed 252/252 and to the files the owner installed ✅
+- `git ls-tree -r --name-only origin/main | grep -i 126` → still **empty** ✅
+- Fast-forward from `4be9a54`; no conflicts possible, nothing else on `main` was touched.
+
+**The ledger trap is closed:** a new chat branching from `main` now sees v127 as the newest,
+live, owner-verified state. **`main` tip = `5ed09a5`.**
+
+**Deploy note:** merging fires the Hostinger auto-sync cron, which re-deploys `cms/` to
+`public_html` within ~5 min. That is a no-op for the shopper — the cron would write the same
+two files the owner already extracted by hand — and it excludes `data/` and `uploads/`, so the
+live database and media are untouched. (The cron has failed silently once before, v119/PR #45;
+if it does not fire, nothing is lost, because the owner's manual extract is already live.)
 
 ---
 

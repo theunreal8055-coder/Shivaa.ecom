@@ -1,4 +1,4 @@
-# AGENT HANDOFF — read this first, every new chat (updated 17 Sep 2026 — ✅ v127 LIVE + OWNER-VERIFIED: the 2-file navigation repair on top of frozen v125. v126 dead. ⚠ PR #59 unmerged, so this ledger is NOT on `main` yet — read the START HERE box below)
+# AGENT HANDOFF — read this first, every new chat (updated 17 Sep 2026 — ✅ v127 LIVE + OWNER-VERIFIED: the 2-file navigation repair on top of frozen v125. v126 dead. PR #59 MERGED to `main` as `5ed09a5`, so both the code and this ledger are on `main`)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
@@ -10,7 +10,7 @@ workspace pattern `demo65/` (one folder per supplier batch).
 **Owner's word (17 Sep 2026, verbatim):** *"The version 127 update is working very fine and I
 installed it and extracted in public HTML folder and its working fine now."* → **v127 is the
 live, owner-confirmed state of shivaa.in.** He extracted `shivaa-update-v127.zip` into the
-`public_html` ROOT himself; the auto-sync cron was not involved and PR #59 is still unmerged.
+`public_html` ROOT himself; the auto-sync cron was not involved in that install.
 
 **Independently re-checked from the sandbox:** `fetch_page` on `https://shivaa.in/js/v127.js`
 returned **HTTP 200 with the full, correct file**. The `<script src="/js/v127.js?v=127">` tag
@@ -55,28 +55,26 @@ inside `cms/`. `sw.js` / `app.js` / `boost.js` / `boost.css` / `.htaccess` / `ap
 `db.json` are untouched and the triple stays **125**. The only "126" left in `cms/` is colour
 values (`rgba(228,201,126,…)`) and QR tables in `js/qr.js` — neither is a version reference.
 
-### ⛔ START HERE, NEXT CHAT — the v127 ledger is NOT on `main` yet
+### ✅ STATE — v127 is MERGED to `main` (17 Sep 2026, 05:15 UTC, merge commit `5ed09a5`)
 
-**PR #59 (`arena/01a0ad8d-shivaa-ecom` → `main`) is OPEN AND UNMERGED.** It was held back
-because merging fires the Hostinger auto-sync cron within ~5 min and would have deployed
-`cms/` before the owner took his `public_html` backup (owner rules #1 and #4 — the v126
-failure mode). **That reason has now expired: the owner took his own path, extracted the zip
-himself, and live-verified it.** Merging is safe in principle — `main`'s `cms/` matches what
-is already live, so the cron would deploy identical files — and it is the only way this
-ledger reaches `main`. **He has not asked for the merge, so it has not been done. Ask him;
-do not merge unasked.**
+**`main` tip = `5ed09a5`. A new chat branching from `main` sees v127 as the newest, live,
+owner-verified state — no recovery step is needed.** The owner was asked directly and chose
+to merge; it was a fast-forward from `4be9a54`, so no conflicts were possible.
 
-Consequence: **§ v127 in `HANDOFF.md`, Session 2026-09-17 #2 in `MEMORY.md` and this note
-exist ONLY on `arena/01a0ad8d-shivaa-ecom`.** A chat branched from `main` will read v125 as
-the newest state and will not know v127 is live. Recover before doing anything else:
+The PR had been held back earlier because merging fires the Hostinger auto-sync cron within
+~5 min and would have deployed `cms/` before the owner took his `public_html` backup (owner
+rules #1 and #4 — the v126 failure mode). That reason expired when he took his own path:
+extracted the zip himself and live-verified it. By merge time `main`'s `cms/` was
+byte-identical to what was already live, so the cron re-deploys the same two files — a no-op
+for the shopper. It excludes `data/` and `uploads/`, so the live DB and media are untouched.
+(The cron has failed silently once before, v119/PR #45; if it does not fire, nothing is lost.)
 
-```
-git fetch origin arena/01a0ad8d-shivaa-ecom
-git log --oneline -4 FETCH_HEAD    # da6e5cb fix · d6782ba doc fix · 69ebacf close · <live-verified>
-```
+Verified after the merge by reading `origin/main`, not assumed: `cms/js/v127.js` present
+(8465 bytes) · `cms/index.html` references `/js/v127.js?v=127` (1×) ·
+`shivaa-update-v127.zip` present (10896 bytes, md5 `a3bc6214eaff1b19f43a6da9465966c0`) ·
+`git diff origin/main HEAD -- cms/` **empty** · `git ls-tree -r --name-only origin/main |
+grep -i 126` still **empty**.
 
-Deliverable on that branch: `shivaa-update-v127.zip` (2 files, 11 KB, md5
-`a3bc6214eaff1b19f43a6da9465966c0`) — **already installed and owner-verified live.**
 Gates, re-run on the shipped zip's own contents: **252/252** (v113b 32 · v117 27 · v118 18 ·
 v119 27 · v120 24 · v121 14 · v122 22 · v123 14 · v124 20 · v125 27 · v127 27) + php-sweep
 **211 routes · 0 exceptions**.
