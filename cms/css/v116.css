@@ -303,3 +303,84 @@
     padding-bottom: 120px !important;
   }
 }
+
+/* ── 12. MOBILE SIDEBAR DRAWER INTERACTIVITY & STACKING ── */
+body.drawer-open .header {
+  z-index: 2000 !important;
+}
+body.drawer-open .mnav,
+body.drawer-open .boost-chat-fab,
+body.drawer-open .boost-theme,
+body.drawer-open .boost-top,
+body.drawer-open .wa-fab,
+body.drawer-open .compare-tray,
+body.drawer-open .ds-bar,
+body.drawer-open .shv-install {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transition: opacity .25s ease, visibility .25s ease !important;
+}
+
+/* Ensure drawer close button has prominent 44px hit target & feedback */
+.dw-close {
+  min-width: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(212,175,90,0.3);
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+.dw-close:active {
+  transform: scale(0.9) !important;
+  background: rgba(212,175,90,0.3) !important;
+}
+
+/* Fast tap response & touch handling on all sidebar links/buttons */
+.nav .nav-scroll > a,
+.nav .nav-scroll > button.nav-cats,
+.nav .dw-foot > a,
+.dw-tile,
+.dw-catlist a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(212,175,90,0.2);
+  cursor: pointer;
+}
+
+.nav .nav-scroll > a:active,
+.nav .dw-foot > a:active {
+  background: rgba(212,175,90,0.18) !important;
+}
+
+.dw-tile:active {
+  transform: scale(0.94) !important;
+  border-color: var(--gold-2, #d4af5a) !important;
+}
+
+.dw-catlist a:active {
+  background: rgba(212,175,90,0.22) !important;
+}
+
+.nav-cats.dw-more:active {
+  background: rgba(212,175,90,0.22) !important;
+}
+
+/* Smooth expandable accordion in sidebar */
+.dw-catlist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin: 0 20px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height .45s cubic-bezier(0.22, 1, 0.36, 1), opacity .3s ease, margin .35s ease;
+}
+.dw-catlist.open {
+  max-height: 820px;
+  opacity: 1;
+  margin: 10px 20px 4px;
+}
+

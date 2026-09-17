@@ -21,11 +21,13 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
     const catsBtn = $('#navCats');
     if (!catsBtn || catsBtn._wired) return; // already wired by boot()
     _wired = true;
+    catsBtn._wired = true;
     catsBtn._v116wired = true;
     
     catsBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       e.preventDefault();
+      try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(10); } catch (_) {}
       
       // Mobile drawer: toggle inline category list
       if (window.matchMedia('(max-width:820px)').matches) {
@@ -54,7 +56,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
             silver: { name: 'Silver 925', img: '/images/categories/silver.jpg' },
           };
           list.innerHTML = Object.entries(CATS).map(([k, c]) =>
-            '<a href="#/shop?category=' + k + '"><img src="' + c.img + '?v=125" alt="" loading="lazy" onerror="this.remove()"><span>' + c.name + '</span></a>'
+            '<a href="#/shop?category=' + k + '"><img src="' + c.img + '?v=125" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb=\'1\';this.src=\'/images/logo.png?v=125\';}else{this.remove();}"><span>' + c.name + '</span></a>'
           ).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }
@@ -63,7 +65,9 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
         catsBtn.classList.toggle('open', !isOpen);
         catsBtn.setAttribute('aria-expanded', String(!isOpen));
         if (!isOpen) {
-          requestAnimationFrame(() => list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+          requestAnimationFrame(() => {
+            try { list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
+          });
         }
         return;
       }
@@ -168,7 +172,9 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   document.addEventListener('click', function(e) {
     const link = e.target.closest('.dw-catlist a, .dw-tiles a');
     if (!link) return;
-    // Close the drawer after a short delay
+    window.__shvNavigating = true;
+    setTimeout(() => { window.__shvNavigating = false; }, 400);
+    // Close the drawer after a short delay so navigation commits first
     setTimeout(() => {
       if (window._closeDrawer) window._closeDrawer();
     }, 100);

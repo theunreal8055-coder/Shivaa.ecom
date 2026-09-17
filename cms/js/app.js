@@ -8128,7 +8128,13 @@ addEventListener('scroll', (() => {
   };
   window._closeDrawer=()=>setOpen(false);
   const dwClose=$('#dwClose');
-  if(dwClose) dwClose.addEventListener('click',()=>setOpen(false));
+  if(dwClose) {
+    dwClose.addEventListener('click', (e) => {
+      e.stopPropagation();
+      try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(8); } catch (_) {}
+      setOpen(false);
+    });
+  }
   tgl.setAttribute('aria-controls','mainNav'); tgl.setAttribute('aria-expanded','false');
   tgl.onclick=e=>{e.stopPropagation();setOpen(!isOpen());};
   scrim&&(scrim.onclick=()=>setOpen(false));
@@ -8142,15 +8148,48 @@ addEventListener('scroll', (() => {
       else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
     }
   });
-  nav.addEventListener('click',e=>{ if(e.target.closest('a')&&innerWidth<=820) setOpen(false); });
+  nav.addEventListener('click', e => {
+    const a = e.target.closest('a');
+    if (!a || innerWidth > 820) return;
+    const href = a.getAttribute('href') || '';
+    window.__shvNavigating = true;
+    setTimeout(() => { window.__shvNavigating = false; }, 400);
+    try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(10); } catch (_) {}
+
+    // External / dialer links: allow native action and close after delay
+    if (!href.startsWith('#')) {
+      setTimeout(() => setOpen(false), 140);
+      return;
+    }
+
+    // Same-hash link: smoothly scroll to top and refresh route
+    const curHash = location.hash || '#/';
+    if (curHash === href || (curHash === '#/' && href === '#/')) {
+      e.preventDefault();
+      setOpen(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (typeof route === 'function') route();
+      return;
+    }
+
+    // New hash link: close drawer smoothly after letting navigation commit
+    setTimeout(() => setOpen(false), 90);
+  });
   // swipe left to close
   let x0=null,y0=null;
-  nav.addEventListener('touchstart',e=>{x0=e.touches[0].clientX;y0=e.touches[0].clientY;},{passive:true});
-  nav.addEventListener('touchmove',e=>{
-    if(x0===null) return;
-    const dx=e.touches[0].clientX-x0, dy=Math.abs(e.touches[0].clientY-y0);
-    if(dx<-58&&dy<44){ setOpen(false); x0=null; }
-  },{passive:true});
+  nav.addEventListener('touchstart', e => {
+    if (e.touches && e.touches[0]) {
+      x0 = e.touches[0].clientX;
+      y0 = e.touches[0].clientY;
+    }
+  }, { passive: true });
+  nav.addEventListener('touchmove', e => {
+    if (x0 === null || y0 === null || !e.touches || !e.touches[0]) return;
+    const dx = e.touches[0].clientX - x0, dy = Math.abs(e.touches[0].clientY - y0);
+    if (dx < -55 && dy < 34) { setOpen(false); x0 = null; y0 = null; }
+  }, { passive: true });
+  nav.addEventListener('touchend', () => { x0 = null; y0 = null; }, { passive: true });
+  nav.addEventListener('touchcancel', () => { x0 = null; y0 = null; }, { passive: true });
   addEventListener('resize',()=>{ if(innerWidth>820&&isOpen()) setOpen(false); });
 })();
 // mobile: tap "Categories" to open the dropdown (no hover on touch)
@@ -8337,6 +8376,7 @@ async function boot(isRedraw) {
     catsBtn._wired = true;
     catsBtn.onclick = e => {
       e.stopPropagation();
+      try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(10); } catch (_) {}
       // inside the drawer, expand an inline list rather than the desktop mega panel
       if (matchMedia('(max-width:820px)').matches) {
         let list = document.getElementById('dwCatList');
@@ -8351,7 +8391,11 @@ async function boot(isRedraw) {
         list.classList.toggle('open', open);
         catsBtn.classList.toggle('open', open);
         catsBtn.setAttribute('aria-expanded', String(open));
-        if (open) requestAnimationFrame(() => list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+        if (open) {
+          requestAnimationFrame(() => {
+            try { list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
+          });
+        }
         return;
       }
       const open = panel.hidden;
