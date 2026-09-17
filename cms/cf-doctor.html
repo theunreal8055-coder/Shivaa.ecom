@@ -63,17 +63,31 @@
   })();
 
   async function tCsp() {
-    say('1) Security header (Content-Security-Policy) ACTUALLY SENT by shivaa.in:');
+    say('1) Security header (Content-Security-Policy) ACTUALLY SENT for this page:');
+    say('   tested URL: ' + location.href);
     var r = null;
     try { r = (await (await fetch(location.href, { cache: 'no-store' })).headers).get('content-security-policy'); }
-    catch (e) { say('   ERROR reading my own response headers: ' + e); return { present: false }; }
-    if (!r) { say('   ⚠ the server sends NO Content-Security-Policy header at all.'); return { present: false }; }
+    catch (e) { say('   ERROR reading my own response headers: ' + e); return { blocked: null, csp: null }; }
+    if (!r) { say('   (no Content-Security-Policy header is sent at all — that restricts nothing)'); return { blocked: false, csp: null }; }
     say('   ' + r);
-    var scriptOk = /script-src[^;]*https:\/\/\*\.cashfree\.com/.test(r);
-    say(scriptOk
-      ? '   ✅ script-src allows https://*.cashfree.com — the browser MAY load the SDK.'
-      : '   ❌ script-src does NOT allow cashfree.com → the browser BLOCKS the Cashfree SDK. THAT IS THE BUG.');
-    return { present: true, scriptOk: scriptOk };
+    /* A policy only blocks external scripts when a governing source list
+       EXISTS: script-src if present, else default-src. A policy with neither
+       (e.g. just "upgrade-insecure-requests") restricts nothing at all. */
+    var mScript = r.match(/script-src\s+([^;]+)/);
+    var mDefault = r.match(/default-src\s+([^;]+)/);
+    var governing = mScript ? mScript[1].trim() : (mDefault ? mDefault[1].trim() : null);
+    var blocked;
+    if (governing === null) {
+      blocked = false;
+      say('   ✅ this policy has no script-src/default-src — it restricts NOTHING; the Cashfree SDK may load.');
+    } else if (/https:\/\/\*\.cashfree\.com|\*|https:/.test(governing)) {
+      blocked = false;
+      say('   ✅ ' + (mScript ? 'script-src' : 'default-src') + ' permits cashfree.com — the browser MAY load the SDK.');
+    } else {
+      blocked = true;
+      say('   ❌ ' + (mScript ? 'script-src' : 'default-src') + ' = "' + governing + '" — external Cashfree scripts are BLOCKED by this policy. THAT IS THE BUG.');
+    }
+    return { blocked: blocked, csp: r };
   }
 
   async function tRelease() {
@@ -86,6 +100,7 @@
       var txt = await (await fetch(ref, { cache: 'no-store' })).text();
       say('   index.html loads ' + ref + '  (' + txt.length + ' chars)');
       var marks = [];
+      if (txt.indexOf('v133 — EVERY attempt') >= 0) marks.push('v133 (fresh session per attempt)');
       if (txt.indexOf('no payment window appeared') >= 0) marks.push('v132 (payment-window guard)');
       if (txt.indexOf('__cf_timeout__') >= 0) marks.push('v131 (20s checkout timeout)');
       if (txt.indexOf('if (!ok) s.remove();') >= 0) marks.push('v130 (retry fix + 15s SDK timeout)');
@@ -200,18 +215,18 @@
     if (sdk) { await tCheckout('production'); say(''); await tCheckout('sandbox'); }
     say('');
     say('──────── VERDICT ────────');
-    if (!csp || !csp.present) {
-      say('• The server sends no CSP header, so the policy is not blocking. If step 4 failed, this phone/network is the blocker.');
-    } else if (!csp.scriptOk) {
-      say('• ⛔ FOUND IT: shivaa.in is STILL sending the old policy (no cashfree.com in script-src). The live .htaccess on the server is not taking effect (wrong file, or the host is caching/overriding it). Until the new line is actually served, every visitor\'s SDK is blocked.');
+    if (csp.blocked === true) {
+      say('• ⛔ FOUND IT: the URL tested above is sending a policy that BLOCKS the Cashfree SDK. Read the "tested URL" line: if that was www.shivaa.in while the apex works — or a plain http:// address — the hosts/paths are configured differently. The v132 .htaccess line must be served on THAT host too, and always use https://, not http://.');
+    } else if (csp.csp === null) {
+      say('• The server sent no CSP header at all — nothing policy-side is blocking. If step 4 still failed, this phone/network is the blocker. (Also: the Shivaa security headers are missing on this URL — check the "tested URL" line above; you may be hitting a host-default or redirect path.)');
     } else if (frame === false) {
       say('• ⛔ FOUND IT: everything loads, but the page is BLOCKED from embedding Cashfree\'s payment window (CSP frame-src). The SDK reports "launched", the window is dead, no error is raised — the infinite spinner. Fix: deploy the v132 .htaccess (adds frame-src + form-action for cashfree.com), then re-run this page — step 4b must turn ✅.');
     } else if (!sdk) {
-      say('• ⛔ FOUND IT: the policy is correct, but THIS phone cannot load the SDK script. Disable ad-blocking / data-saver (lite mode) on this phone, or test the same link on a different browser or network.');
-    } else if (rel && rel.indexOf('v132') !== 0) {
-      say('• All Cashfree paths are green, but the live app is ' + rel + ', not v132. Deploy shivaa-patch-v132.zip (includes the "payment window never appeared" guard) and test in a private tab.');
+      say('• ⛔ FOUND IT: the policy is fine, but THIS phone cannot load the SDK script. Disable ad-blocking / data-saver (lite mode) on this phone, or test the same link on a different browser or network.');
+    } else if (rel && rel.indexOf('v133') !== 0) {
+      say('• All Cashfree paths are green, but the live app is ' + rel + ', not v133. Deploy shivaa-patch-v133.zip (a FRESH Cashfree session is minted on every attempt — the fix for "payment_session_id is not present or is invalid") and test in a private tab.');
     } else {
-      say('• ✅ ALL GREEN: policy ok, framing ok, SDK loads, SDK answers Cashfree, and the live app is v132. Place a real test order now — the hosted checkout window should appear. If it does not, send me this full report and we go to the server side (Admin → Payments cfEnv/keys, data/ logs).');
+      say('• ✅ ALL GREEN: policy ok, framing ok, SDK loads, SDK answers Cashfree, and the live app is v133. Place a real test order now — every attempt mints a fresh session and the hosted checkout window should appear. Still stuck? Then it is the server side: Admin → Payments MUST be PRODUCTION with the production API keys (your Cashfree dashboard → Developers → API Keys), and send me this full report.');
     }
     if (envGuess && sdk) say('• Hint: this phone can reach ' + ((netProd && netSandbox) ? 'both' : (netProd ? 'api.cashfree.com' : 'sandbox.cashfree.com')) + ' — make sure Admin → Payments → Cashfree environment matches the keys you pasted in (a production account using sandbox keys, or vice versa, creates sessions the SDK cannot open).');
     full = lines.join('\n');
