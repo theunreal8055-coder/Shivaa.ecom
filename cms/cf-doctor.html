@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shivaa Payment Doctor</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background:#faf7f2; color:#241a14; padding:16px; }
+  .wrap { max-width: 660px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 8px 0 4px; }
+  .sub { color:#6b5d52; font-size: 13.5px; margin: 0 0 14px; line-height: 1.5; }
+  .card { background:#fff; border:1px solid #e8ddd2; border-radius:14px; padding:14px; margin-bottom:12px; }
+  .btn { display:block; width:100%; border:0; border-radius:12px; padding:13px 16px; font-size:16px; font-weight:600; background:#5f259f; color:#fff; }
+  .btn.ghost { background:#fff; color:#5f259f; border:1.5px solid #5f259f; margin-top:8px; }
+  .btn:disabled { opacity:.55; }
+  .row { display:flex; gap:8px; margin-top:8px; }
+  .row .btn { flex:1; margin-top:0; padding:10px 8px; font-size:13.5px; }
+  #out { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.55; background:#201712; color:#f4e9dc; border-radius:12px; padding:12px; display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>💳 Shivaa Payment Doctor</h1>
+  <p class="sub">This page tests every link between shivaa.in and Cashfree, one by one: the security header the server sends, the app release that is live, the network path to Cashfree, and the Cashfree SDK itself. It creates NO order and charges NOTHING — the SDK test on purpose uses an invalid session id.</p>
+  <div class="card">
+    <button class="btn" id="go">Run diagnostics (~30 s)</button>
+    <div class="row" id="actions" style="display:none">
+      <button class="btn ghost" id="copy">Copy results</button>
+      <button class="btn ghost" id="share">Share</button>
+      <button class="btn ghost" id="again">Run again</button>
+    </div>
+  </div>
+  <div class="card"><div id="out"></div></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var SDK_URL = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+  var KEY = 'shv_cf_doctor_chk';
+  var out = document.getElementById('out');
+  var lines = [];
+  var full = '';
+
+  function say(s) { lines.push(s); out.textContent = lines.join('\n'); out.scrollTop = out.scrollHeight; }
+  function sleepTimer(ms, label) {
+    return new Promise(function (_, rej) {
+      setTimeout(function () { rej(new Error(label || ('no response for ' + ms + 'ms'))); }, ms);
+    });
+  }
+  function chkSet(v) { try { sessionStorage.setItem(KEY, v); } catch (e) {} }
+  function chkGet() { try { return sessionStorage.getItem(KEY); } catch (e) { return null; } }
+  function chkClear() { try { sessionStorage.removeItem(KEY); } catch (e) {} }
+
+  /* If a previous run's SDK test navigated the page away, sessionStorage
+     survives the navigation and we can still report what happened. */
+  (function checkPrevious() {
+    var p = chkGet();
+    if (!p) return;
+    chkClear();
+    out.style.display = 'block';
+    out.textContent = 'NOTE from your PREVIOUS run: the page NAVIGATED AWAY during the "' + p + '" SDK test.\n\nThat is good information: it means the Cashfree SDK actually started opening the hosted payment page — the SDK machinery works from this page, so the remaining problem is in the real session details (env / credentials), not in loading.\n\nTap "Run again" for the full report.';
+  })();
+
+  async function tCsp() {
+    say('1) Security header (Content-Security-Policy) ACTUALLY SENT by shivaa.in:');
+    var r = null;
+    try { r = (await (await fetch(location.href, { cache: 'no-store' })).headers).get('content-security-policy'); }
+    catch (e) { say('   ERROR reading my own response headers: ' + e); return { present: false }; }
+    if (!r) { say('   ⚠ the server sends NO Content-Security-Policy header at all.'); return { present: false }; }
+    say('   ' + r);
+    var scriptOk = /script-src[^;]*https:\/\/\*\.cashfree\.com/.test(r);
+    say(scriptOk
+      ? '   ✅ script-src allows https://*.cashfree.com — the browser MAY load the SDK.'
+      : '   ❌ script-src does NOT allow cashfree.com → the browser BLOCKS the Cashfree SDK. THAT IS THE BUG.');
+    return { present: true, scriptOk: scriptOk };
+  }
+
+  async function tRelease() {
+    say('2) Which app release the live site currently serves:');
+    try {
+      var html = await (await fetch('/index.html', { cache: 'no-store' })).text();
+      var m = html.match(/\/js\/(app[^"'\s]*\.js\?v=\d+)/);
+      if (!m) { say('   could not find the app script reference in index.html'); return null; }
+      var ref = '/js/' + m[1];
+      var txt = await (await fetch(ref, { cache: 'no-store' })).text();
+      say('   index.html loads ' + ref + '  (' + txt.length + ' chars)');
+      var marks = [];
+      if (txt.indexOf('__cf_timeout__') >= 0) marks.push('v131 (20s checkout timeout)');
+      if (txt.indexOf('if (!ok) s.remove();') >= 0) marks.push('v130 (retry fix + 15s SDK timeout)');
+      if (txt.indexOf('id="cfErr"') >= 0) marks.push('v129 (error box)');
+      say('   release markers found: ' + (marks.length ? marks.join(' | ') : 'NONE — v128 or older! (no error box, no timeouts — the "silent eternal spinner" version)'));
+      if (marks.length && marks[0] !== 'v131 (20s checkout timeout)') {
+        say('   ⚠ the newest release (v131) is NOT deployed — deploy shivaa-patch-v131.zip so no failure can be a silent spinner.');
+      }
+      return marks[0] || 'v128-or-older';
+    } catch (e) { say('   ERROR: ' + e); return null; }
+  }
+
+  async function tNet(host) {
+    var label = host.replace('https://', '');
+    try {
+      var t0 = Date.now();
+      var r = await fetch(host + '/pg/orders', { method: 'GET', cache: 'no-store' });
+      var ms = Date.now() - t0;
+      say('   ' + label + ' → HTTP ' + r.status + ' in ' + ms + 'ms' +
+        ((r.status === 401 || r.status === 403) ? '  (reachable — Cashfree answered; 401/403 without credentials is EXPECTED)' : ''));
+      return true;
+    } catch (e) {
+      say('   ' + label + ' → FAILED: ' + (e && e.message ? e.message : String(e)) + '  (connect-src CSP block, or no network path from this phone)');
+      return false;
+    }
+  }
+
+  async function tSdk() {
+    say('4) Loading the Cashfree SDK script into THIS page (15 s cap):');
+    var t0 = Date.now();
+    var ok = await new Promise(function (resolve) {
+      if (document.querySelector('script[src="' + SDK_URL + '"]')) { resolve(true); return; }
+      var s = document.createElement('script'); s.src = SDK_URL;
+      var done = false;
+      var fin = function (v) { if (!done) { done = true; if (tm) clearTimeout(tm); resolve(v); } };
+      var tm = setTimeout(function () { s.remove(); fin(false); }, 15000);
+      s.onload = function () { fin(true); };
+      s.onerror = function () { s.remove(); fin(false); };
+      document.head.appendChild(s);
+    });
+    var ms = Date.now() - t0;
+    if (!ok) {
+      say('   ❌ SDK script FAILED to load after ' + ms + 'ms. With a good policy this means THIS PHONE is blocking ' + SDK_URL + ' (ad-blocker, data-saver/lite mode, or carrier).');
+      return false;
+    }
+    var isFn = (typeof window.Cashfree === 'function');
+    say('   ✅ SDK loaded in ' + ms + 'ms — window.Cashfree is ' + (isFn ? 'a function ✅' : 'NOT a function ❌ (script delivered but did not define the SDK)'));
+    return isFn;
+  }
+
+  async function tCheckout(env) {
+    say('5-' + env + ') SDK checkout call with a DELIBERATELY INVALID session id (8 s cap):');
+    try {
+      chkSet(env);
+      var cf = window.Cashfree({ mode: env });
+      var res = await Promise.race([
+        cf.checkout({ paymentSessionId: 'shv-doctor-invalid', redirectTarget: '_self' }),
+        sleepTimer(8000, 'the SDK HUNG (no response, no error in 8s)')
+      ]);
+      chkClear();
+      say('   SDK RESOLVED: ' + (typeof res === 'object' ? JSON.stringify(res) : String(res)));
+      say('   → the SDK spoke to Cashfree and got an answer (for an invalid id an error answer is EXPECTED) — the SDK ↔ Cashfree path WORKS in ' + env + ' mode.');
+    } catch (e) {
+      chkClear();
+      if (e && e.message && e.message.indexOf('the SDK HUNG') === 0) {
+        say('   ⚠ ' + e.message + ' — the SDK is not reaching Cashfree (or is swallowing its error) in ' + env + ' mode.');
+      } else {
+        say('   SDK answered with: ' + (e && e.message ? e.message : String(e)));
+        say('   → the SDK spoke to Cashfree and got an answer — the SDK ↔ Cashfree path WORKS in ' + env + ' mode.');
+      }
+    }
+  }
+
+  async function main() {
+    chkClear();
+    lines = [];
+    out.textContent = '';
+    out.style.display = 'block';
+    say('Shivaa Payment Doctor — ' + new Date().toLocaleString());
+    say('browser: ' + navigator.userAgent);
+    say('');
+    var csp = await tCsp();
+    var rel = await tRelease();
+    say('');
+    say('3) Can THIS phone reach Cashfree servers directly?');
+    var netProd = await tNet('https://api.cashfree.com');
+    var netSandbox = await tNet('https://sandbox.cashfree.com');
+    say('');
+    var sdk = await tSdk();
+    if (sdk) { await tCheckout('production'); say(''); await tCheckout('sandbox'); }
+    say('');
+    say('──────── VERDICT ────────');
+    var envGuess = null;
+    if (sdk && csp && csp.scriptOk) envGuess = (netSandbox && !netProd) ? 'sandbox' : 'production';
+    if (!csp || !csp.present) {
+      say('• The server sends no CSP header, so the policy is not blocking. If step 4 failed, this phone/network is the blocker.');
+    } else if (!csp.scriptOk) {
+      say('• ⛔ FOUND IT: shivaa.in is STILL sending the old policy (no cashfree.com in script-src). The live .htaccess on the server is not taking effect (wrong file, or the host is caching/overriding it). Until the new line is actually served, every visitor\'s SDK is blocked.');
+    } else if (!sdk) {
+      say('• ⛔ FOUND IT: the policy is correct, but THIS phone cannot load the SDK script. Disable ad-blocking / data-saver (lite mode) on this phone, or test the same link on a different browser or network.');
+    } else if (rel && rel.indexOf('v131') !== 0) {
+      say('• The page-side path is healthy, but the live site is running ' + rel + ', not v131 — the "hung checkout" fix is missing. Deploy shivaa-patch-v131.zip and test in a private tab.');
+    } else {
+      say('• Page-side path is healthy: policy ok, SDK loads, and the SDK answers Cashfree. If the real checkout still hangs, the remaining suspect is the session itself (cfEnv / keys / return_url) — send me this whole report; next step is the server side (Admin → Payments settings and data/ logs).');
+    }
+    if (envGuess && sdk) say('• Hint: this phone can reach ' + ((netProd && netSandbox) ? 'both' : (netProd ? 'api.cashfree.com' : 'sandbox.cashfree.com')) + ' — make sure Admin → Payments → Cashfree environment matches the keys you pasted in (a production account using sandbox keys, or vice versa, creates sessions the SDK cannot open).');
+    full = lines.join('\n');
+    document.getElementById('actions').style.display = 'flex';
+  }
+
+  document.getElementById('go').addEventListener('click', function () {
+    this.disabled = true;
+    main().catch(function (e) { say('UNEXPECTED ERROR: ' + (e && e.stack ? e.stack : e)); })
+      .then(function () { document.getElementById('go').disabled = false; });
+  });
+  document.getElementById('again').addEventListener('click', function () { document.getElementById('go').click(); });
+  document.getElementById('copy').addEventListener('click', function () {
+    var self = this;
+    function fallback() {
+      var t = document.createElement('textarea');
+      t.value = full; document.body.appendChild(t); t.select();
+      try { document.execCommand('copy'); self.textContent = 'Copied ✓'; } catch (e) { self.textContent = 'Select the text manually'; }
+      t.remove(); setTimeout(function () { self.textContent = 'Copy results'; }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(full).then(function () {
+        self.textContent = 'Copied ✓'; setTimeout(function () { self.textContent = 'Copy results'; }, 2000);
+      }, fallback);
+    } else fallback();
+  });
+  document.getElementById('share').addEventListener('click', function () {
+    if (navigator.share) navigator.share({ title: 'Shivaa Payment Doctor', text: full }).catch(function () {});
+    else document.getElementById('copy').click();
+  });
+})();
+</script>
+</body>
+</html>
