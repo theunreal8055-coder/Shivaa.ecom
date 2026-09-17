@@ -1,0 +1,58 @@
+{
+  "paths": {
+    "work_dir": "freeops/work",
+    "out_dir": "freeops/out",
+    "raw_pdfs": "freeops/raw",
+    "supplier_sheets": "freeops/suppliers"
+  },
+  "ingest": {
+    "dpi_crop": 200,
+    "min_crop_px": 300,
+    "skip_cover": true
+  },
+  "normalize": {
+    "categories": {
+      "rings": ["ring", "rings", "ring designs"],
+      "bangles": ["bangle", "kada", "bangles"],
+      "necklaces": ["necklace", "har", "set"],
+      "earrings": ["earring", "jhumka", "chandbali", "tops"],
+      "bracelets": ["bracelet"],
+      "pendants": ["pendant", "locket"],
+      "mangalsutra": ["mangalsutra", "mangalsutras"],
+      "nosepins": ["nose pin", "nosepin", "nath"],
+      "silver": ["silver", "925"],
+      "chains": ["chain", "chains"]
+    },
+    "metal_purities": { "Gold": ["24K", "22K", "18K", "14K"], "Silver": ["925", "999"] },
+    "default_mc_pct_gold": 12,
+    "default_mc_pct_silver": 15,
+    "strict": false
+  },
+  "photoshoot": {
+    "shots": [{ "key": "studio", "name": "Studio" }],
+    "note": "free tier: 03_free_studio.py writes shot_studio.jpg so stage 4 kenburns + stage 6 upload work unchanged"
+  },
+  "video": {
+    "mode": "kenburns",
+    "kenburns": {
+      "duration_s": 8,
+      "fps": 30,
+      "size": "720x720",
+      "moves": ["zoom-in", "pan-left", "zoom-out", "pan-right"],
+      "crossfade_s": 0.7,
+      "watermark": "SHIVAA.IN",
+      "watermark_color": "0x0E5C3A"
+    }
+  },
+  "upload": {
+    "base_url": "https://shivaa.in",
+    "media_route": "/api/media",
+    "products_route": "/api/products",
+    "categories_route": "/api/catalogs",
+    "batch_pause_s": 1.0
+  },
+  "free_tier": {
+    "videos_per_run": 12,
+    "note": "₹0 tier — deterministic studio + template copy. When budget allows, add a Replicate key + run 03_photoshoot.py to upgrade any design; ledgers make it per-design."
+  }
+}

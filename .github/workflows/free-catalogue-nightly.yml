@@ -1,0 +1,110 @@
+name: Free Catalogue Nightly (₹0)
+
+# Nightly zero-employee catalogue run: FTPS-intake → ingest → studio → films →
+# metadata → (optional) live upload. Photos/films go to shivaa.in, never to Git.
+
+on:
+  schedule:
+    - cron: "30 18 * * *"   # 18:30 UTC = 00:00 IST — after your shop day closes
+  workflow_dispatch:
+    inputs:
+      max_pdfs:
+        description: "How many inbox PDFs to process this run"
+        default: "8"
+      make_live:
+        description: "Type YES to push products live this run (secrets must exist)"
+        default: "NO"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shivaa-free-catalogue
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install free toolchain (tesseract, ffmpeg, pdf/image libs)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr ffmpeg >/dev/null
+          python3 -m pip install --quiet pymupdf pillow numpy scipy imageio-ffmpeg openpyxl
+          tesseract --version | head -1
+          ffmpeg -version | head -1
+
+      - name: Pull new PDFs from the Hostinger drop-folder (if secrets exist)
+        env:
+          FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          FTP_USER: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          FTP_DIR: ${{ secrets.FTP_INBOX_DIR }}
+        run: |
+          if [ -z "$FTP_SERVER" ]; then echo "No FTP secrets — skipping intake (PDFs can also be committed to catalogue-inbox/ directly)."; exit 0; fi
+          python3 - <<'PY'
+          import ftplib, os, pathlib
+          srv, usr, pwd = os.environ["FTP_SERVER"], os.environ["FTP_USER"], os.environ["FTP_PASS"]
+          rdir = os.environ.get("FTP_DIR") or "freeops-inbox"
+          out = pathlib.Path("catalogue-inbox"); out.mkdir(exist_ok=True)
+          f = ftplib.FTP_TLS(srv, usr, pwd)
+          f.prot_p()
+          try:
+              f.cwd(rdir)
+          except ftplib.error_perm as e:
+              print(f"drop-folder {rdir}/ not found on server ({e}) — create it in hPanel; skipping intake."); raise SystemExit(0)
+          names = [n for n in f.nlst() if n.lower().endswith(".pdf")]
+          print(f"{len(names)} new PDF(s) in {rdir}/")
+          for n in names:
+              dst = out / n
+              with open(dst, "wb") as fh:
+                  f.retrbinary(f"RETR {n}", fh.write)
+              try:
+                  f.delete(n)          # consumed — remove from drop-folder
+              except Exception as e:
+                  print("could not delete on server (fine):", e)
+              print("pulled", n, dst.stat().st_size, "bytes")
+          f.quit()
+          PY
+
+      - name: Run the free pipeline (process + report; live only if enabled)
+        env:
+          SHIVAA_ADMIN_EMAIL: ${{ secrets.SHIVAA_ADMIN_EMAIL }}
+          SHIVAA_ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
+          AUTO_LIVE: ${{ github.event_name == 'schedule' && secrets.SHIVAA_AUTO_LIVE || inputs.make_live }}
+        run: |
+          ARGS=(--config pipeline/config.free.json --max-pdfs "${{ github.event.inputs.max_pdfs || '8' }}")
+          if [ "$AUTO_LIVE" = "YES" ] && [ -n "$SHIVAA_ADMIN_PASSWORD" ]; then
+            python3 pipeline/run_free.py "${ARGS[@]}" --upload
+          elif [ -n "$SHIVAA_ADMIN_PASSWORD" ]; then
+            python3 pipeline/run_free.py "${ARGS[@]}" --upload --dry-run
+          else
+            python3 pipeline/run_free.py "${ARGS[@]}"
+          fi
+
+      - name: Commit ledgers + report (media stays out of Git via .gitignore)
+        run: |
+          git config user.name  "shivaa-free-catalogue"
+          git config user.email "actions@shivaa.in"
+          git add -A freeops/work freeops/suppliers docs/FREE-CATALOGUE-PIPELINE.md || true
+          git add -A catalogue-inbox || true
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit."
+          else
+            git commit -m "[free-catalogue] nightly run — ledgers + report [skip deploy]" --no-verify
+            git push
+          fi
+
+      - name: Attach the nightly report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-report
+          path: |
+            freeops/work/report-free.md
+            freeops/work/quarantine_free.json
+          if-no-files-found: ignore

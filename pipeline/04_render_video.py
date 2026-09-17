@@ -163,7 +163,8 @@ def main():
     shots_order = [s["key"] for s in cfg["photoshoot"]["shots"]]
     for d in designs:
         mp4 = out / d["sku"] / "video.mp4"
-        if ledger.done(d["sku"]):
+        # self-heal: ledger-done but file missing (fresh runner) -> render again
+        if ledger.done(d["sku"]) and mp4.exists():
             LOG.info("skip (done) %s", d["sku"]); continue
         shots = [out / d["sku"] / f"shot_{k}.jpg" for k in shots_order]
         shots = [s for s in shots if s.exists()]
