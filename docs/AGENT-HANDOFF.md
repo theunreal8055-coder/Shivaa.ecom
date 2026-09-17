@@ -23,6 +23,44 @@ allow-list for the one deliberately-unpreached file. Deliverable `shivaa-update-
 php-sweep 211/0. **Owner live-verification pending — do not record it until he reports it.**
 Full detail: `HANDOFF.md` → § v127, `MEMORY.md` → Session 2026-09-17 #2.
 
+**v126 contamination check (the owner asked directly; answered with reads, 17 Sep 2026): NO.**
+The zip holds 2 files; the string `126` occurs **0 times** in either; no `v126` file exists
+under `cms/js/` or `cms/css/`; `git ls-tree -r --name-only origin/main | grep -i 126` is
+**empty**, and so is the same command on this branch. The branch changes exactly 2 files
+inside `cms/`. `sw.js` / `app.js` / `boost.js` / `boost.css` / `.htaccess` / `api.php` /
+`db.json` are untouched and the triple stays **125**. The only "126" left in `cms/` is colour
+values (`rgba(228,201,126,…)`) and QR tables in `js/qr.js` — neither is a version reference.
+
+### ⛔ START HERE, NEXT CHAT — the v127 ledger is NOT on `main` yet
+
+**PR #59 (`arena/01a0ad8d-shivaa-ecom` → `main`) is OPEN AND DELIBERATELY UNMERGED.**
+Merging fires the Hostinger auto-sync cron within ~5 min and would deploy `cms/` **before the
+owner has taken his `public_html` backup** — owner rules #1 and #4, and the exact v126
+failure mode. **Do not merge it unless the owner says he has his backup and wants it live.**
+
+Consequence: **§ v127 in `HANDOFF.md`, Session 2026-09-17 #2 in `MEMORY.md` and this note
+exist ONLY on `arena/01a0ad8d-shivaa-ecom`.** A chat branched from `main` will not see them.
+Recover before doing anything else:
+
+```
+git fetch origin arena/01a0ad8d-shivaa-ecom
+git log --oneline -3 FETCH_HEAD    # da6e5cb fix · d6782ba doc correction · <session close>
+```
+
+Deliverable on that branch: `shivaa-update-v127.zip` (2 files, 11 KB, md5
+`a3bc6214eaff1b19f43a6da9465966c0`). Pending, in order: owner backup → owner extracts into
+the `public_html` ROOT (or approves the merge) → owner runs the 8-step check list in
+`DEPLOY-v127.md` → **only then** record v127 as live-verified. Gates at close, re-run on the
+shipped zip's own contents: **252/252** (v113b 32 · v117 27 · v118 18 · v119 27 · v120 24 ·
+v121 14 · v122 22 · v123 14 · v124 20 · v125 27 · v127 27) + php-sweep **211 routes · 0
+exceptions**.
+
+**Still open, deliberately untouched:** `js/v120.js` stores `openHash[id] = location.hash`,
+which is the empty string on a bare `shivaa.in/` visit — falsy — so on the home page the
+close branch never runs and *every* class mutation while a sheet is open pushes another
+history entry (instrumented: 2 pushStates for one drawer open). It pollutes the Back button;
+it does not bounce navigation. Fixing it means editing `v120.js` — **ask the owner first.**
+
 ## CURRENT FORWARD BASELINE — v124 (16 Sep 2026)
 
 The storefront baseline is **v124** — the v119 baseline plus the v120 bug-fix/mobile pack, the v121 smoothness pack, the v122 B2B design desk, the v123 category-photo refresh and the v124 slider faces (Punach + New In). **v123's provenance (restored this session after its own doc commits were lost):** merged as PR **#48**, merge commit **`bfc3908`** on `main`, and **owner live-verified on 16 Sep 2026 — `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`** (owner-reported; the sandbox has no route to shivaa.in). Deliverables: `shivaa-update-v123.zip` (22 files) + `DEPLOY-v123.md`, then `shivaa-update-v124.zip` (7 files) + `DEPLOY-v124.md`. v124's merge/live record is the newest entry in `HANDOFF.md`'s session step log. **Everything v119 and v118 guarantee still stands** (see the lists below) and must not be reverted.

@@ -86,6 +86,46 @@ the gate still sees it if the layer is ever removed.
 (backup-first runbook + an 8-step owner check list). **Live verification is the owner's — do
 not record it until he reports it.**
 
+### SESSION CLOSE — 17 Sep 2026 (owner: "have you updated any v126 files in v127?" → then "close this chat")
+
+**The v126 question, answered with reads rather than assurances — NO, zero v126 in v127:**
+
+| Check | Result |
+|---|---|
+| Contents of `shivaa-update-v127.zip` | 2 files: `index.html`, `js/v127.js` |
+| Occurrences of the string `126` in either zipped file | **0** in each |
+| Any `v126` file under `cms/js/` or `cms/css/` | **none exists** |
+| `git ls-tree -r --name-only origin/main \| grep -i 126` | **empty** |
+| same command on `arena/01a0ad8d-shivaa-ecom` | **empty** |
+| files this branch changes inside `cms/` | **2** — `index.html` (+4 lines), new `js/v127.js` |
+| `sw.js` · `app.js` · `boost.js` · `boost.css` · `.htaccess` · `api.php` · `db.json` | **all untouched**, triple stays **125** |
+
+The only surviving "126" in `cms/` is colour values (`rgba(228,201,126,…)` in `styles.css`)
+and QR tables in `js/qr.js` — neither is a version reference.
+
+**State at close:** commits `da6e5cb` (the fix) + `d6782ba` (the stale-v126 doc correction)
++ this close, on `arena/01a0ad8d-shivaa-ecom`, pushed. **PR #59 → `main` is OPEN AND
+DELIBERATELY UNMERGED** — merging fires the Hostinger auto-sync cron within ~5 min and would
+deploy `cms/` **before the owner has taken his backup**, breaking owner rules #1 and #4
+(the v126 failure mode). **Do not merge it in a future session unless the owner says he has
+his backup and wants it live.**
+
+**⚠ THE LEDGER TRAP:** because PR #59 is unmerged, **this § v127, the `MEMORY.md` →
+Session 2026-09-17 #2 entry and the `docs/AGENT-HANDOFF.md` note live ONLY on
+`arena/01a0ad8d-shivaa-ecom` — they are NOT on `main`.** A new chat branching from `main`
+will not see them. Recover first:
+`git fetch origin arena/01a0ad8d-shivaa-ecom && git log --oneline -3 FETCH_HEAD`.
+Deliverable `shivaa-update-v127.zip` (2 files, 11 KB, md5 `a3bc6214eaff1b19f43a6da9465966c0`).
+
+**Pending, in order:** (1) owner takes a full `public_html` backup zip; (2) owner extracts
+`shivaa-update-v127.zip` into the `public_html` ROOT — or says the word and PR #59 is merged;
+(3) owner runs the 8-step check list in `DEPLOY-v127.md`; (4) only then is v127 recorded as
+live-verified. Gates at close, re-run on the shipped zip's own contents: **252/252** +
+php-sweep **211 routes · 0 exceptions**.
+
+**Still open, deliberately untouched:** the `js/v120.js` falsy-`openHash` history-entry leak
+(documented above). Ask the owner before fixing — it means editing `v120.js`.
+
 ---
 
 ## 🚀 v126 — THE LAPTOP: film budget · the glow · the desktop layer (2026-09-17) — ⛔ DEAD
