@@ -4184,6 +4184,22 @@ window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
     const em = res.error.message || res.error.code || res.error.description;
     throw new Error('Cashfree refused to open: ' + (em || JSON.stringify(res.error)));
   }
+  /* v132 — the v3 SDK opens the hosted checkout in its own full-screen
+     iframe and resolves optimistically ({redirect:true}). A block (CSP or
+     similar) kills that iframe SILENTLY — the page just sits with the
+     spinner. So after the SDK says "launched", verify a payment frame
+     actually materialised on this page. If the top frame had really
+     navigated to Cashfree, this code would never run at all. */
+  if (res && res.redirect) {
+    const frameAppeared = await (async () => {
+      for (let i = 0; i < 25; i++) {
+        if (document.querySelector('iframe') || document.querySelector('[data-addedby="cfatom"]')) return true;
+        await new Promise(r => setTimeout(r, 400));
+      }
+      return false;
+    })();
+    if (!frameAppeared) throw new Error('Cashfree reported it opened, but no payment window appeared — it was blocked by this browser. Tap Try Cashfree again or use a different browser.');
+  }
   return true;
 };
 window.Shivaa.payForOrder = async (orderId) => {

@@ -101,5 +101,10 @@ AddType application/pdf .pdf
   # from sdk.cashfree.com: without it in script-src the browser BLOCKS the
   # SDK for every visitor → the v128 "infinite spinner" symptom. Also allow
   # its API/img hosts for pre-checkout calls and pixels.
-  Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://*.cashfree.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://*.cashfree.com; font-src 'self' data:; connect-src 'self' https://*.onrender.com https://*.cashfree.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://secure.payu.in https://test.payu.in; object-src 'none'; worker-src 'self'"
+  # v132 — THE actual "infinite spinner" bug: the v3 SDK opens the hosted
+  # checkout in its OWN full-screen iframe and resolves optimistically. With
+  # no frame-src, the browser fell back to default-src 'self' and silently
+  # killed that iframe → SDK said "launched", nothing appeared, no error.
+  # frame-src (and form-action, for SDKs that submit instead) must allow it.
+  Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://*.cashfree.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://*.cashfree.com; font-src 'self' data:; connect-src 'self' https://*.onrender.com https://*.cashfree.com; frame-src 'self' https://*.cashfree.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://secure.payu.in https://test.payu.in https://*.cashfree.com; object-src 'none'; worker-src 'self'"
 </IfModule>

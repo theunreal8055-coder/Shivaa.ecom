@@ -86,6 +86,7 @@
       var txt = await (await fetch(ref, { cache: 'no-store' })).text();
       say('   index.html loads ' + ref + '  (' + txt.length + ' chars)');
       var marks = [];
+      if (txt.indexOf('no payment window appeared') >= 0) marks.push('v132 (payment-window guard)');
       if (txt.indexOf('__cf_timeout__') >= 0) marks.push('v131 (20s checkout timeout)');
       if (txt.indexOf('if (!ok) s.remove();') >= 0) marks.push('v130 (retry fix + 15s SDK timeout)');
       if (txt.indexOf('id="cfErr"') >= 0) marks.push('v129 (error box)');
@@ -135,6 +136,27 @@
     return isFn;
   }
 
+  async function tFrame() {
+    say('4b) Can this page EMBED a Cashfree frame? (The v3 SDK shows the hosted checkout in its own full-screen iframe — if the CSP blocks framing, the SDK says "launched" and nothing appears: the infinite spinner.)');
+    try {
+      var res = await new Promise(function (resolve) {
+        var f = document.createElement('iframe');
+        f.style.display = 'none';
+        var done = false;
+        var fin = function (v) { if (!done) { done = true; if (tm) clearTimeout(tm); try { f.remove(); } catch (e) {} resolve(v); } };
+        var tm = setTimeout(function () { fin('timeout'); }, 8000);
+        f.onload = function () { fin('load'); };
+        f.onerror = function () { fin('error'); };
+        document.body.appendChild(f);
+        f.src = 'https://sandbox.cashfree.com/pg/orders';
+      });
+      if (res === 'load') { say('   ✅ framing ALLOWED — an iframe to cashfree.com loaded. The SDK\'s payment window can appear on this page.'); return true; }
+      if (res === 'error') { say('   ❌ framing BLOCKED — the browser refused the cashfree.com iframe. THIS is why the hosted checkout never appears (CSP frame-src missing or wrong). The fix: the v132 .htaccess line that adds frame-src.'); return false; }
+      say('   ⚠ no load/error event within 8 s — inconclusive (retry the test).');
+      return null;
+    } catch (e) { say('   ERROR: ' + e); return null; }
+  }
+
   async function tCheckout(env) {
     say('5-' + env + ') SDK checkout call with a DELIBERATELY INVALID session id (8 s cap):');
     try {
@@ -174,21 +196,22 @@
     var netSandbox = await tNet('https://sandbox.cashfree.com');
     say('');
     var sdk = await tSdk();
+    var frame = await tFrame();
     if (sdk) { await tCheckout('production'); say(''); await tCheckout('sandbox'); }
     say('');
     say('──────── VERDICT ────────');
-    var envGuess = null;
-    if (sdk && csp && csp.scriptOk) envGuess = (netSandbox && !netProd) ? 'sandbox' : 'production';
     if (!csp || !csp.present) {
       say('• The server sends no CSP header, so the policy is not blocking. If step 4 failed, this phone/network is the blocker.');
     } else if (!csp.scriptOk) {
       say('• ⛔ FOUND IT: shivaa.in is STILL sending the old policy (no cashfree.com in script-src). The live .htaccess on the server is not taking effect (wrong file, or the host is caching/overriding it). Until the new line is actually served, every visitor\'s SDK is blocked.');
+    } else if (frame === false) {
+      say('• ⛔ FOUND IT: everything loads, but the page is BLOCKED from embedding Cashfree\'s payment window (CSP frame-src). The SDK reports "launched", the window is dead, no error is raised — the infinite spinner. Fix: deploy the v132 .htaccess (adds frame-src + form-action for cashfree.com), then re-run this page — step 4b must turn ✅.');
     } else if (!sdk) {
       say('• ⛔ FOUND IT: the policy is correct, but THIS phone cannot load the SDK script. Disable ad-blocking / data-saver (lite mode) on this phone, or test the same link on a different browser or network.');
-    } else if (rel && rel.indexOf('v131') !== 0) {
-      say('• The page-side path is healthy, but the live site is running ' + rel + ', not v131 — the "hung checkout" fix is missing. Deploy shivaa-patch-v131.zip and test in a private tab.');
+    } else if (rel && rel.indexOf('v132') !== 0) {
+      say('• All Cashfree paths are green, but the live app is ' + rel + ', not v132. Deploy shivaa-patch-v132.zip (includes the "payment window never appeared" guard) and test in a private tab.');
     } else {
-      say('• Page-side path is healthy: policy ok, SDK loads, and the SDK answers Cashfree. If the real checkout still hangs, the remaining suspect is the session itself (cfEnv / keys / return_url) — send me this whole report; next step is the server side (Admin → Payments settings and data/ logs).');
+      say('• ✅ ALL GREEN: policy ok, framing ok, SDK loads, SDK answers Cashfree, and the live app is v132. Place a real test order now — the hosted checkout window should appear. If it does not, send me this full report and we go to the server side (Admin → Payments cfEnv/keys, data/ logs).');
     }
     if (envGuess && sdk) say('• Hint: this phone can reach ' + ((netProd && netSandbox) ? 'both' : (netProd ? 'api.cashfree.com' : 'sandbox.cashfree.com')) + ' — make sure Admin → Payments → Cashfree environment matches the keys you pasted in (a production account using sandbox keys, or vice versa, creates sessions the SDK cannot open).');
     full = lines.join('\n');
