@@ -106,8 +106,8 @@
       if (txt.indexOf('if (!ok) s.remove();') >= 0) marks.push('v130 (retry fix + 15s SDK timeout)');
       if (txt.indexOf('id="cfErr"') >= 0) marks.push('v129 (error box)');
       say('   release markers found: ' + (marks.length ? marks.join(' | ') : 'NONE — v128 or older! (no error box, no timeouts — the "silent eternal spinner" version)'));
-      if (marks.length && marks[0] !== 'v131 (20s checkout timeout)') {
-        say('   ⚠ the newest release (v131) is NOT deployed — deploy shivaa-patch-v131.zip so no failure can be a silent spinner.');
+      if (marks.length && marks[0] !== 'v133 (fresh session per attempt)') {
+        say('   ⚠ the newest release (v133) is NOT deployed — deploy shivaa-patch-v133.zip (fresh session per attempt + payment-window guard).');
       }
       return marks[0] || 'v128-or-older';
     } catch (e) { say('   ERROR: ' + e); return null; }
