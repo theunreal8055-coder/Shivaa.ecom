@@ -56,7 +56,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
             silver: { name: 'Silver 925', img: '/images/categories/silver.jpg' },
           };
           list.innerHTML = Object.entries(CATS).map(([k, c]) =>
-            '<a href="#/shop?category=' + k + '"><img src="' + c.img + '?v=125" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb=\'1\';this.src=\'/images/logo.png?v=125\';}else{this.remove();}"><span>' + c.name + '</span></a>'
+            '<a href="#/shop?category=' + k + '"><img src="' + c.img + '?v=128" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb=\'1\';this.src=\'/images/logo.png?v=128\';}else{this.remove();}"><span>' + c.name + '</span></a>'
           ).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }
