@@ -370,6 +370,12 @@
      category chips. Loads LAST so it can take the tap before any older layer
      dismisses the sheet first. No design, route, price or rate is touched. -->
 <script src="/js/v127.js?v=127" defer></script>
+<!-- v129 · surface the reason Cashfree refuses. app.js called cf.checkout()
+     without reading the Promise it returns, so result.error.message was
+     discarded and a refusal looked like an endless spinner. This layer awaits
+     it and paints the exact message on screen. No design, route, price, rate,
+     API or service-worker change; no stamp bump. -->
+<script src="/js/v129.js?v=129" defer></script>
 
 <script>
 if ('serviceWorker' in navigator) {

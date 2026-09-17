@@ -118,7 +118,7 @@ const until = async (fn, ms = 8000, step = 60) => {
      in the SHELL cache by the fetch handler itself — it is simply absent from
      the install list. Anything named here is a deliberate network-only shell
      request; every other gap, and every relic, still fails this check. */
-  const NETWORK_ONLY = ['/js/v127.js?v=127'];
+  const NETWORK_ONLY = ['/js/v127.js?v=127', '/js/v129.js?v=129'];
   const missing = [...requested].filter(u => !swStatic.includes(u) && !NETWORK_ONLY.includes(u));
   const staleAllow = NETWORK_ONLY.filter(u => !requested.has(u));   // an allow-list entry the shell no longer loads
   const extra = swStatic.filter(u => !requested.has(u));
