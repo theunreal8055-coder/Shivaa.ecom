@@ -85,10 +85,15 @@ jobs:
           log-level: standard
           # Pushes to main are always live. Manual runs preview unless dry_run=NO.
           dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run != 'NO' }}
-          exclude:
-            - data/**
-            - uploads/**
-            - .htaccess
+          # Multiline STRING (GitHub rejects a YAML list under `with:`).
+          # Defaults re-added per the action README + our never-sync rules.
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            data/**
+            uploads/**
+            .htaccess
 
       - name: Verify live site serves the new release
         if: github.event_name == 'push' || inputs.dry_run == 'NO'
