@@ -1,4 +1,4 @@
-# AGENT HANDOFF — read this first, every new chat (updated 16 Sep 2026 — v124)
+# AGENT HANDOFF — read this first, every new chat (updated 16 Sep 2026 — v125 FROZEN by owner ruling; v126 dead)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
@@ -21,7 +21,7 @@ The storefront baseline is **v124** — the v119 baseline plus the v120 bug-fix/
 - **Gates required before any later release:** `v113b-check.js` (32) · `v117-check.js` (27) · `v118-check.js` (18) · `v119-check.js` (27) · `v120-check.js` (24) · `v121-check.js` (14) · `v122-check.js` (22) · `v123-check.js` (14) · **`v124-check.js` (20)** · php-sweep (211/0) · catalogue 77 with four images each — all re-run on the built zip overlay, plus a real-PHP probe of the shipped `api.php` whenever it changes.
 - **Deploy caution:** the auto-sync cron did **not** fire for PR #45; never trust push-to-deploy until a merge is seen reaching shivaa.in on its own. The zip extracted into `public_html` ROOT is the fast path; `main` is the durable one.
 
-## Previous baseline — v123 (16 Sep 2026)
+## Earlier baseline — v123 (16 Sep 2026)
 
 The baseline was **v123** — 17 real AI-cleaned owner tiles + `?v=123`; merged as **PR #48 (`bfc3908`)**, owner live-verified 16 Sep (`sw.js` = `shivaa-shell-v123`). Nothing in v124 reverts it: v124 only retook the `punach` face and gave the New In chip its own.
 
