@@ -1,9 +1,27 @@
-# AGENT HANDOFF — read this first, every new chat (updated 16 Sep 2026 — v125 FROZEN by owner ruling; v126 dead)
+# AGENT HANDOFF — read this first, every new chat (updated 17 Sep 2026 — v125 FROZEN by owner ruling; v126 dead; v127 = a 2-file navigation REPAIR on top of v125)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
+
+## NEWEST — v127 NAVIGATION REPAIR (17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`)
+
+The owner asked for exactly two things and nothing else: the **search-bar category chips**
+and **every sidebar row** were landing on the home page instead of their own page. Cause:
+`app.js` dismissed the sheet *inside* the click and let the anchor's default action navigate,
+while `js/v120.js`'s back-button helper answered a sheet closing with `history.back()` — the
+traversal out-raced the navigation (search bar); and the drawer rows never performed a
+navigation at all, leaning entirely on the native anchor action (sidebar). Fix: **new
+`cms/js/v127.js` + one `<script defer>` line in `cms/index.html`**, loaded last, taking those
+taps in the capture phase — `preventDefault()` → arm `window.__shvNavigating` (the flag
+`v120.js` already honours) → navigate through the hash itself → *then* close the sheet.
+**It is a REPAIR, not a release: `__SHIVAA_REL`/`APP_REL`/`SHELL` all stay 125 and `sw.js` is
+NOT in the zip (owner rule #3).** `v117-check.js` carries a documented `NETWORK_ONLY`
+allow-list for the one deliberately-unpreached file. Deliverable `shivaa-update-v127.zip`
+(2 files, 11 KB) + `DEPLOY-v127.md`. Gates 252/252 on source and on the zip overlay,
+php-sweep 211/0. **Owner live-verification pending — do not record it until he reports it.**
+Full detail: `HANDOFF.md` → § v127, `MEMORY.md` → Session 2026-09-17 #2.
 
 ## CURRENT FORWARD BASELINE — v124 (16 Sep 2026)
 
