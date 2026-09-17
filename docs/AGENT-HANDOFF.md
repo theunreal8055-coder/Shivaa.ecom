@@ -1,9 +1,91 @@
-# AGENT HANDOFF — read this first, every new chat (updated 16 Sep 2026 — v125 FROZEN by owner ruling; v126 dead)
+# AGENT HANDOFF — read this first, every new chat (updated 17 Sep 2026 — ✅ v127 LIVE + OWNER-VERIFIED: the 2-file navigation repair on top of frozen v125. v126 dead. ⚠ PR #59 unmerged, so this ledger is NOT on `main` yet — read the START HERE box below)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
+
+## ✅ NEWEST — v127 NAVIGATION REPAIR — LIVE + OWNER-VERIFIED (17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`)
+
+**Owner's word (17 Sep 2026, verbatim):** *"The version 127 update is working very fine and I
+installed it and extracted in public HTML folder and its working fine now."* → **v127 is the
+live, owner-confirmed state of shivaa.in.** He extracted `shivaa-update-v127.zip` into the
+`public_html` ROOT himself; the auto-sync cron was not involved and PR #59 is still unmerged.
+
+**Independently re-checked from the sandbox:** `fetch_page` on `https://shivaa.in/js/v127.js`
+returned **HTTP 200 with the full, correct file**. The `<script src="/js/v127.js?v=127">` tag
+in the live shell was **not** directly read — the fetch tool strips `<script>` elements — so
+that half is inferred from the owner's working buttons, not observed.
+
+**⚠ HOW TO CONFIRM IT IS LIVE — the old trick no longer works.** Reading
+`https://shivaa.in/sw.js` will still show `SHELL = 'shivaa-shell-v125'` **and that is
+correct, not a failed deploy** — v127 is a repair and deliberately left `sw.js` and the
+version triple alone. The live proof is `https://shivaa.in/js/v127.js` returning real
+JavaScript, and `<script src="/js/v127.js?v=127" defer>` in the view-source of
+`https://shivaa.in/`.
+
+**Forward baseline from here: v125 + v127.** Preserve both. The v127 layer owns the sidebar
+and search-palette taps, so anything editing drawer or palette markup must keep `#mainNav`,
+`#searchSugg`, `a.sugg-cat` and the `href="#/…"` contract intact, and must re-run
+`v127-check.js` (27) alongside the other gates.
+
+### The repair itself
+
+The owner asked for exactly two things and nothing else: the **search-bar category chips**
+and **every sidebar row** were landing on the home page instead of their own page. Cause:
+`app.js` dismissed the sheet *inside* the click and let the anchor's default action navigate,
+while `js/v120.js`'s back-button helper answered a sheet closing with `history.back()` — the
+traversal out-raced the navigation (search bar); and the drawer rows never performed a
+navigation at all, leaning entirely on the native anchor action (sidebar). Fix: **new
+`cms/js/v127.js` + one `<script defer>` line in `cms/index.html`**, loaded last, taking those
+taps in the capture phase — `preventDefault()` → arm `window.__shvNavigating` (the flag
+`v120.js` already honours) → navigate through the hash itself → *then* close the sheet.
+**It is a REPAIR, not a release: `__SHIVAA_REL`/`APP_REL`/`SHELL` all stay 125 and `sw.js` is
+NOT in the zip (owner rule #3).** `v117-check.js` carries a documented `NETWORK_ONLY`
+allow-list for the one deliberately-unpreached file. Deliverable `shivaa-update-v127.zip`
+(2 files, 11 KB) + `DEPLOY-v127.md`. Gates 252/252 on source and on the zip overlay,
+php-sweep 211/0. **Owner live-verification pending — do not record it until he reports it.**
+Full detail: `HANDOFF.md` → § v127, `MEMORY.md` → Session 2026-09-17 #2.
+
+**v126 contamination check (the owner asked directly; answered with reads, 17 Sep 2026): NO.**
+The zip holds 2 files; the string `126` occurs **0 times** in either; no `v126` file exists
+under `cms/js/` or `cms/css/`; `git ls-tree -r --name-only origin/main | grep -i 126` is
+**empty**, and so is the same command on this branch. The branch changes exactly 2 files
+inside `cms/`. `sw.js` / `app.js` / `boost.js` / `boost.css` / `.htaccess` / `api.php` /
+`db.json` are untouched and the triple stays **125**. The only "126" left in `cms/` is colour
+values (`rgba(228,201,126,…)`) and QR tables in `js/qr.js` — neither is a version reference.
+
+### ⛔ START HERE, NEXT CHAT — the v127 ledger is NOT on `main` yet
+
+**PR #59 (`arena/01a0ad8d-shivaa-ecom` → `main`) is OPEN AND UNMERGED.** It was held back
+because merging fires the Hostinger auto-sync cron within ~5 min and would have deployed
+`cms/` before the owner took his `public_html` backup (owner rules #1 and #4 — the v126
+failure mode). **That reason has now expired: the owner took his own path, extracted the zip
+himself, and live-verified it.** Merging is safe in principle — `main`'s `cms/` matches what
+is already live, so the cron would deploy identical files — and it is the only way this
+ledger reaches `main`. **He has not asked for the merge, so it has not been done. Ask him;
+do not merge unasked.**
+
+Consequence: **§ v127 in `HANDOFF.md`, Session 2026-09-17 #2 in `MEMORY.md` and this note
+exist ONLY on `arena/01a0ad8d-shivaa-ecom`.** A chat branched from `main` will read v125 as
+the newest state and will not know v127 is live. Recover before doing anything else:
+
+```
+git fetch origin arena/01a0ad8d-shivaa-ecom
+git log --oneline -4 FETCH_HEAD    # da6e5cb fix · d6782ba doc fix · 69ebacf close · <live-verified>
+```
+
+Deliverable on that branch: `shivaa-update-v127.zip` (2 files, 11 KB, md5
+`a3bc6214eaff1b19f43a6da9465966c0`) — **already installed and owner-verified live.**
+Gates, re-run on the shipped zip's own contents: **252/252** (v113b 32 · v117 27 · v118 18 ·
+v119 27 · v120 24 · v121 14 · v122 22 · v123 14 · v124 20 · v125 27 · v127 27) + php-sweep
+**211 routes · 0 exceptions**.
+
+**Still open, deliberately untouched:** `js/v120.js` stores `openHash[id] = location.hash`,
+which is the empty string on a bare `shivaa.in/` visit — falsy — so on the home page the
+close branch never runs and *every* class mutation while a sheet is open pushes another
+history entry (instrumented: 2 pushStates for one drawer open). It pollutes the Back button;
+it does not bounce navigation. Fixing it means editing `v120.js` — **ask the owner first.**
 
 ## CURRENT FORWARD BASELINE — v124 (16 Sep 2026)
 

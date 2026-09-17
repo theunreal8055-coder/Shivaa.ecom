@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-16 (v125 FROZEN — owner's ruling: the website is v125 only, no changes. v126 REVERTED via PR #55 and DEAD; the "v125-fix" zip removed and dead. Read the ⛔ section below before doing anything.)**
+**Last updated: 2026-09-17 (✅ v127 LIVE AND OWNER-VERIFIED — the owner extracted `shivaa-update-v127.zip` into `public_html` himself and reported the search-bar categories and the sidebar buttons now work. Live site = frozen v125 + the 2-file v127 navigation repair; stamps stay 125. PR #59 is still OPEN/UNMERGED, so this ledger lives only on `arena/01a0ad8d-shivaa-ecom` — see § v127 → OWNER LIVE-VERIFIED. v126 and the "v125-fix" zip remain DEAD — read the ⛔ section below before doing anything.)**
 **v124 STATUS: MERGED — PR #49, merge commit `5145ab2` on `main` (16 Sep 2026). v123 STATUS: MERGED + LIVE — merged as PR #48 (`bfc3908`) into `main`; owner live-verified 16 Sep, `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.**
 **Forward baseline: v125 ONLY (owner-frozen 16 Sep 2026). No new release, no stamp bump, no file swap, no "repair" — until the owner explicitly asks for a change. Never restore the v113b placeholder category tiles. v126 and the v125-fix zip are dead — do not resurrect, reference or re-deploy them (see `MEMORY.md` → OWNER'S RULING).**
 **Live site: https://shivaa.in (owner-confirmed v125 after his own restore) · Repo: theunreal8055-coder/Shivaa.ecom**
@@ -25,7 +25,145 @@
 - The owner's recovery pattern is the official one: **download the full `public_html` zip first → extract the last-known-good zip over the top.** He has run it twice successfully.
 - Any future change, only if the owner asks: (1) owner backup zip FIRST; (2) ONE small numbered zip, root layout, minimum files; (3) `sw.js` never swapped in a "repair" — only in a full release that re-stamps everything; (4) owner extracts, owner verifies, nothing is "shipped" until he says so.
 
-**Repo state (verified 16 Sep 2026):** fix zip + `DEPLOY-v125-FIX.md` deleted from the branch tip; `main` = `43eae10` (v125, PR #55 revert) + these handoff updates only; `shivaa-update-v126.zip` / `DEPLOY-v126.md` / the v126 tools still sit at the repo root on `main` — **inert** (nothing live loads them); the owner may order their deletion later.
+**Repo state (re-verified 17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`):** fix zip + `DEPLOY-v125-FIX.md` deleted from the branch tip; `main` = `43eae10` (v125, PR #55 revert) + handoff updates only. **Correction to the 16 Sep note above: nothing named v126 exists in the repository any more** — `git ls-tree -r --name-only origin/main | grep -i 126` returns empty, and so does the same command on every later branch. `shivaa-update-v126.zip`, `DEPLOY-v126.md` and the v126 tools are gone from the tree, not merely inert; no cleanup is pending. The word "126" survives in `cms/` only as colour values (`rgba(228,201,126,…)` in `styles.css`) and QR-code tables in `js/qr.js` — neither is a version reference.
+
+---
+
+## 🔧 v127 — THE NAVIGATION REPAIR: search-bar categories + every sidebar button (2026-09-17, branch `arena/01a0ad8d-shivaa-ecom`)
+
+**Owner's brief (17 Sep 2026):** *"in the search bar whenever you click on any category it
+directly shifts us to the homepage rather than that category … in the sidebar whenever you
+click any button — Live Rates, Swarna Nidhi, Gold Buyback — it directly takes us to the home
+page. They are perfect in line, shape and text, but they do not direct us to anything; the
+buttons are there but they are not functional. Make the buttons of the search bar and
+sidebar perfect and functional. Do not touch anything other than that. Just give me an
+update zip, only these two changes."*
+
+**This is a REPAIR on top of frozen v125, not a release.** `__SHIVAA_REL` / `APP_REL` / SW
+`SHELL` all stay **125**. **`sw.js` is not in the zip** — owner rule #3 (the worker is never
+swapped in a repair). No `app.js`, `v120.js`, `.htaccess`, `api.php` or `db.json` change.
+
+| Owner said | Root cause found (reproduced, not guessed) | Fix |
+|---|---|---|
+| "a search-bar category takes me to the home page" | `app.js` dismissed the palette **inside** the click and let the anchor's own default action navigate (`if (cat) { closeSearch(); return; }`). `js/v120.js`'s back-button helper sees a sheet close on an unchanged hash and calls `history.back()` to release the entry the open pushed. The tap therefore queued a traversal **and** pushed the new hash; in a real browser the traversal runs after and drops the shopper on the pre-overlay entry — the home page. **Instrumented proof:** `[v120] close search was="#/" … sameHash=true nav=false` → `history.back()`. jsdom's traversal order hides it, so the gate counts `history.back()` calls instead of trusting the final hash. | navigate **first**, dismiss **second**, with `window.__shvNavigating` armed (the house flag `v120.js` already honours) so no traversal can be queued against a navigation in flight |
+| "every sidebar button is dead / takes me home" | every drawer row (`#/rates`, `#/buyback`, `#/savings`, `#/services`, `#/catalogues`, `#/finale`, `#/b2b`, the four photo tiles, the 17-category list, the three footer links) leaned entirely on the browser's native anchor action with the drawer closing 90 ms later — **the app never performed the navigation itself.** Anything that swallowed or out-raced that default action left the tap dead, and a dead tap while standing on the home page reads exactly as "it took me to the home page". | `js/v127.js` owns the tap: `preventDefault()` → arm the flag → set the hash itself → then shut the drawer. A same-hash tap calls `Shivaa.redraw()` (debounced 250 ms) instead of dying. |
+
+**Files (2):** `cms/js/v127.js` (new, 8.5 KB) + one `<script src="/js/v127.js?v=127" defer>`
+line in `cms/index.html`, loaded **last** so it takes the tap before any older layer
+dismisses the sheet first. Capture-phase listeners on `#mainNav a[href^="#/"]` and
+`#searchSugg a.sugg-cat`. Dialer links, external links and ctrl/⌘/shift/alt-clicks keep
+their native action; the palette's product / popular / recent rows are untouched.
+
+**Two traps the gate caught that reading did not:**
+1. **`e.defaultPrevented` must not be a bail-out.** `js/v118.js` preventDefaults a
+   same-hash *category* tap in the document capture phase (it redraws). Bailing on it
+   handed the tap back to the old dismiss-first path — the sheet closed with
+   `__shvNavigating` false and `history.back()` fired again — and left the drawer stuck open
+   on a repeat tap. The layer now owns the tap regardless and debounces the double redraw.
+2. **A repair must not swap `sw.js`,** but `v117-check.js` demands precache == shell
+   requests. Resolved the house way (forward-compatible, not edited down): `v117-check.js`
+   gained a documented `NETWORK_ONLY` allow-list naming `/js/v127.js?v=127` — the worker is
+   network-first for scripts, so its fetch handler caches the new file on first paint. The
+   gate still fails on any other gap and on any relic (**verified** by adding a dummy
+   `<script>` and watching it fail), and fails on a stale allow-list entry.
+
+**Found but deliberately NOT touched (ask the owner first):** `js/v120.js` stores
+`openHash[id] = location.hash`, which is the **empty string** on a bare `shivaa.in/` visit —
+falsy — so on the home page the close branch never runs and *every* class mutation while a
+sheet is open pushes **another** history entry (instrumented: 2 pushStates for one drawer
+open). It pollutes the Back button; it does not bounce navigation. Fixing it means editing
+`v120.js`, which this repair was told not to touch.
+
+**Gates: 252/252 on source AND on the built zip overlay** (v113b 32 · v117 27 · v118 18 ·
+v119 27 · v120 24 · v121 14 · v122 22 · v123 14 · v124 20 · v125 27 · **v127 27**) ·
+php-sweep **211 routes · 0 exceptions**. `tools/mega/smoke/v127-check.js` boots the real
+shell, taps every button the owner named, asserts `history.back()` is never queued against a
+tap, and carries a **named regression check**: the same chip tap on the shell with
+`js/v127.js` stripped out **does** fire `history.back()` — proof the bug was real and that
+the gate still sees it if the layer is ever removed.
+
+**Deliverable:** `shivaa-update-v127.zip` (**2 files, 11 KB**, root layout) + `DEPLOY-v127.md`
+(backup-first runbook + an 8-step owner check list). **Live verification is the owner's — do
+not record it until he reports it.**
+
+### SESSION CLOSE — 17 Sep 2026 (owner: "have you updated any v126 files in v127?" → then "close this chat")
+
+**The v126 question, answered with reads rather than assurances — NO, zero v126 in v127:**
+
+| Check | Result |
+|---|---|
+| Contents of `shivaa-update-v127.zip` | 2 files: `index.html`, `js/v127.js` |
+| Occurrences of the string `126` in either zipped file | **0** in each |
+| Any `v126` file under `cms/js/` or `cms/css/` | **none exists** |
+| `git ls-tree -r --name-only origin/main \| grep -i 126` | **empty** |
+| same command on `arena/01a0ad8d-shivaa-ecom` | **empty** |
+| files this branch changes inside `cms/` | **2** — `index.html` (+4 lines), new `js/v127.js` |
+| `sw.js` · `app.js` · `boost.js` · `boost.css` · `.htaccess` · `api.php` · `db.json` | **all untouched**, triple stays **125** |
+
+The only surviving "126" in `cms/` is colour values (`rgba(228,201,126,…)` in `styles.css`)
+and QR tables in `js/qr.js` — neither is a version reference.
+
+**State at close:** commits `da6e5cb` (the fix) + `d6782ba` (the stale-v126 doc correction)
++ this close, on `arena/01a0ad8d-shivaa-ecom`, pushed. **PR #59 → `main` is OPEN AND
+DELIBERATELY UNMERGED** — merging fires the Hostinger auto-sync cron within ~5 min and would
+deploy `cms/` **before the owner has taken his backup**, breaking owner rules #1 and #4
+(the v126 failure mode). **Do not merge it in a future session unless the owner says he has
+his backup and wants it live.**
+
+**⚠ THE LEDGER TRAP:** because PR #59 is unmerged, **this § v127, the `MEMORY.md` →
+Session 2026-09-17 #2 entry and the `docs/AGENT-HANDOFF.md` note live ONLY on
+`arena/01a0ad8d-shivaa-ecom` — they are NOT on `main`.** A new chat branching from `main`
+will not see them. Recover first:
+`git fetch origin arena/01a0ad8d-shivaa-ecom && git log --oneline -3 FETCH_HEAD`.
+Deliverable `shivaa-update-v127.zip` (2 files, 11 KB, md5 `a3bc6214eaff1b19f43a6da9465966c0`).
+
+**Pending, in order:** (1) owner takes a full `public_html` backup zip; (2) owner extracts
+`shivaa-update-v127.zip` into the `public_html` ROOT — or says the word and PR #59 is merged;
+(3) owner runs the 8-step check list in `DEPLOY-v127.md`; (4) only then is v127 recorded as
+live-verified. Gates at close, re-run on the shipped zip's own contents: **252/252** +
+php-sweep **211 routes · 0 exceptions**.
+
+**Still open, deliberately untouched:** the `js/v120.js` falsy-`openHash` history-entry leak
+(documented above). Ask the owner before fixing — it means editing `v120.js`.
+
+### ✅ OWNER LIVE-VERIFIED — 17 Sep 2026 (this supersedes the "Pending, in order" list above)
+
+**Owner's words (verbatim):** *"The version 127 update is working very fine and I installed it
+and extracted in public HTML folder and its working fine now."*
+
+**v127 is the live, owner-confirmed state of shivaa.in.** Per house law this is the first
+point at which it may be recorded as live-verified, and it is now so recorded.
+
+- **Independently re-checked from the sandbox (not just taken on report):** `fetch_page` on
+  `https://shivaa.in/js/v127.js` returned **HTTP 200 with the full, correct file** — the v127
+  header comment, `arm()`, `navigate()`, `onDrawerTap()`, `onPaletteTap()` and the capture-phase
+  `bind()`, all as shipped. **The `<script src="/js/v127.js?v=127">` tag in the live shell was
+  NOT directly read** — the fetch tool returns markdown and strips `<script>` elements. It is
+  inferred, not observed: the tag can only be absent if `index.html` was not extracted, and
+  without it the layer never loads and the buttons could not work, which the owner confirms
+  they do. Both files ship in the one zip, so extracting it necessarily replaced both.
+- **How it got live:** the owner's own path — he extracted `shivaa-update-v127.zip` into the
+  `public_html` **ROOT** himself. **The Hostinger auto-sync cron was NOT involved and PR #59
+  is still unmerged.** Live tree = v125 + the two v127 files, nothing else changed.
+- **⚠ HOW TO CONFIRM v127 IS LIVE — the old trick no longer works.** Every previous release
+  was verified by reading `https://shivaa.in/sw.js` for the `SHELL` stamp. **That will still
+  read `shivaa-shell-v125`, and that is CORRECT, not a failed deploy** — v127 is a repair and
+  deliberately left `sw.js` and the version triple alone. The live proof of v127 is:
+  `https://shivaa.in/js/v127.js` returns real JavaScript, and view-source of
+  `https://shivaa.in/` contains `<script src="/js/v127.js?v=127" defer>`.
+  (Sandbox has no route to shivaa.in — `fetch_page` can read it, bash/curl cannot.)
+- **Confirmed working on the owner's device:** search-bar category chips land on their own
+  category; the sidebar buttons (Live Rates, Gold Buyback, Swarna Nidhi, and the rest) land
+  on their own pages. No regression reported.
+- **PR #59 remains OPEN and UNMERGED.** The reason for holding it (deploy before the owner's
+  backup) no longer applies — he has deployed and verified. Merging now is safe in principle:
+  `main`'s `cms/` would match what is already live, so the auto-sync cron would deploy
+  identical files, and it is the only way this ledger reaches `main`. **The owner has not
+  asked for the merge, so it has not been done. Ask him; do not merge unasked.**
+- **Forward baseline from here: v125 + v127.** A later release must preserve both. The v127
+  layer owns the sidebar and search-palette taps, so anything that edits drawer or palette
+  markup must keep `#mainNav`, `#searchSugg`, `a.sugg-cat` and the `href="#/…"` contract
+  intact, and must re-run `v127-check.js` (27) with the other gates.
 
 ---
 

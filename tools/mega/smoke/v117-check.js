@@ -111,11 +111,22 @@ const until = async (fn, ms = 8000, step = 60) => {
     '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png',
   ]);
   const swStatic = swList.filter(u => u !== '/' && u !== '/index.html');
-  const missing = [...requested].filter(u => !swStatic.includes(u));
+  /* v127 — a repair must never swap sw.js (owner's standing rule, recorded in
+     MEMORY.md after v126: an out-of-band shell swap makes every device wipe
+     and re-fetch its whole cache). The worker is network-first for scripts,
+     so a file the shell newly requests is fetched on first paint and stored
+     in the SHELL cache by the fetch handler itself — it is simply absent from
+     the install list. Anything named here is a deliberate network-only shell
+     request; every other gap, and every relic, still fails this check. */
+  const NETWORK_ONLY = ['/js/v127.js?v=127'];
+  const missing = [...requested].filter(u => !swStatic.includes(u) && !NETWORK_ONLY.includes(u));
+  const staleAllow = NETWORK_ONLY.filter(u => !requested.has(u));   // an allow-list entry the shell no longer loads
   const extra = swStatic.filter(u => !requested.has(u));
   ok('sw precache == everything the shell requests (no gaps, no relics)',
-    missing.length === 0 && extra.length === 0,
-    (missing.length ? 'missing: ' + missing.join(',') + ' ' : '') + (extra.length ? 'extra: ' + extra.join(',') : ''));
+    missing.length === 0 && extra.length === 0 && staleAllow.length === 0,
+    (missing.length ? 'missing: ' + missing.join(',') + ' ' : '') +
+    (extra.length ? 'extra: ' + extra.join(',') + ' ' : '') +
+    (staleAllow.length ? 'allow-listed but not requested: ' + staleAllow.join(',') : ''));
 
   /* inside boot(), loadRates must ride the batch, not a serial await (the
      rates POLL legitimately keeps its own await — that one is fine) */
