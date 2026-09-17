@@ -1,7 +1,7 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
 > This file lives on `main` so ANY new Arena chat (any account, any device) starts with full history.
-> Updated: 2026-09-17 — **v125 is still the frozen live baseline; the owner asked for ONE repair on top of it → v127 (sidebar + search-bar navigation), 2 files, no `sw.js`, no stamp bump.** v126 and the "v125-fix" zip remain dead — do not resurrect them. Next session starts from this tip.
+> Updated: 2026-09-17 — **v127 is LIVE AND OWNER-VERIFIED.** The owner installed `shivaa-update-v127.zip` himself and reported the search-bar categories and the sidebar buttons now work. Live site = the frozen **v125** baseline + the v127 navigation repair (2 files: `index.html`, `js/v127.js`). Version stamps stay **125** on purpose — v127 is a repair, not a release. v126 and the "v125-fix" zip remain dead — do not resurrect them. Next session starts from this tip.
 > **Owner magic phrase for next chat:** `Read ARENA-STATE.md and HANDOFF.md and MEMORY.md first, then continue.`
 
 ## Session 2026-09-17 #2 (arena/01a0ad8d) — v127 REPAIR: "the search-bar categories and every sidebar button take me to the home page"
@@ -27,6 +27,25 @@
 - **Pending, in order:** (1) owner downloads a full `public_html` backup zip; (2) owner extracts `shivaa-update-v127.zip` into `public_html` ROOT, or says the word and PR #59 is merged; (3) owner runs the 8-step check list in `DEPLOY-v127.md`; (4) **only then** is v127 recorded as live-verified. Gates at close, on the shipped zip's own contents: **252/252** + php-sweep **211/0**.
 - **Known-but-untouched, still open (ask before fixing):** the `js/v120.js` falsy-`openHash` history-entry leak described above. Fixing it means editing `v120.js`, which this repair was told not to touch.
 - Sandbox note: `tools/mega/smoke/preview-server.js` (static + `db.json` API emulation) was added so the owner can tap the buttons without deploying; it is a sandbox tool and is never part of a zip.
+
+### ✅ OWNER LIVE-VERIFIED — 17 Sep 2026 (this supersedes the "Pending" list above; steps 1–3 are DONE)
+- **Owner's words (verbatim):** *"The version 127 update is working very fine and I installed it and extracted in public HTML folder and its working fine now."* → **v127 is the live, owner-confirmed state of shivaa.in. Per house law this is the first point at which it may be recorded as live-verified — and it is now so recorded.**
+- **Independently re-checked from the sandbox (not just taken on report):** `fetch_page` on
+  `https://shivaa.in/js/v127.js` returned **HTTP 200 with the full, correct file** — the v127
+  header comment, `arm()`, `navigate()`, `onDrawerTap()`, `onPaletteTap()` and the capture-phase
+  `bind()`, all as shipped. **The `<script src="/js/v127.js?v=127">` tag in the live shell was
+  NOT directly read** — the fetch tool returns markdown and strips `<script>` elements. It is
+  inferred, not observed: the tag can only be absent if `index.html` was not extracted, and
+  without it the layer never loads and the buttons could not work, which the owner confirms
+  they do. Both files ship in the one zip, so extracting it necessarily replaced both.
+- **How it got live:** the owner's own path — he extracted `shivaa-update-v127.zip` into the `public_html` **ROOT** himself. **The Hostinger auto-sync cron was NOT involved; PR #59 is still unmerged.** So the live tree is v125 + the two v127 files, and nothing else changed.
+- **⚠ HOW TO CONFIRM v127 IS LIVE — do NOT use the old trick.** Every previous release was verified by reading `https://shivaa.in/sw.js` for the `SHELL` stamp. **That check will read `shivaa-shell-v125` and that is CORRECT, not a failure** — v127 is a repair and deliberately did not re-stamp the shell or touch `sw.js`. The live proof of v127 is: `https://shivaa.in/js/v127.js` returns real JavaScript, and `https://shivaa.in/` view-source contains `<script src="/js/v127.js?v=127" defer>`. (The sandbox has no route to shivaa.in — `fetch_page` can read it, bash/curl cannot.)
+- **What is confirmed working on the owner's device:** the search-bar category chips land on their own category, and the sidebar buttons (Live Rates, Gold Buyback, Swarna Nidhi, and the rest) land on their own pages. No regression reported.
+- **Still open — PR #59 (`arena/01a0ad8d-shivaa-ecom` → `main`) is OPEN and UNMERGED.** The reason for holding it (deploy before the owner's backup) no longer applies: he has deployed and verified. Merging now is safe in principle — `main`'s `cms/` would match what is already live, so the auto-sync cron would deploy identical files — and it is the only way this ledger reaches `main`. **The owner has not asked for the merge, so it has not been done. Ask him; do not merge unasked.**
+- **⚠ THE LEDGER TRAP IS STILL LIVE:** until PR #59 merges, **this whole session entry, `HANDOFF.md` § v127 and the `docs/AGENT-HANDOFF.md` note exist ONLY on `arena/01a0ad8d-shivaa-ecom`.** A new chat branching from `main` sees v125 as the newest state and would not know v127 is live. Recover first:
+  `git fetch origin arena/01a0ad8d-shivaa-ecom && git log --oneline -4 FETCH_HEAD`
+  (`da6e5cb` fix · `d6782ba` doc correction · `69ebacf` session close · `<this entry>`). Zip md5 `a3bc6214eaff1b19f43a6da9465966c0`.
+- **Forward baseline from here:** v125 + v127. Any future change must preserve BOTH — the v127 layer owns the sidebar and search-palette taps, so a later release that edits drawer or palette markup must keep `#mainNav`, `#searchSugg`, `a.sugg-cat` and the `href="#/…"` contract intact, and must re-run `v127-check.js` (27) alongside the other gates.
 
 ## Session 2026-09-16 #2 (arena/01a0ab0c) — OWNER'S RULING: v125 is the frozen line. v126 and the "v125-fix" zip are dead
 - **Owner's words (after the 3-file fix made the live site bad again in his judgment):** "please dont be oversmart now i just feel my store right, you just forget everything you did for v126 and for v125 fix zip, ok?" → **Standing law: v125 = the stable live baseline. Do not propose, build, upload or reference v126, `shivaa-update-v126.zip`, or the 3-file fix (`sw.js`/`js/boost.js`/`css/boost.css`) again in any session — unless the owner himself explicitly asks.**

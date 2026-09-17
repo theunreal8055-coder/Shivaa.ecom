@@ -1,6 +1,6 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-17 (v127 REPAIR — the owner asked for one fix on top of frozen v125: the search-bar category chips and every sidebar button were landing on the home page. 2 files, no `sw.js`, no stamp bump. v125 is still the live baseline; v126 and the "v125-fix" zip remain DEAD — read the ⛔ section below before doing anything.)**
+**Last updated: 2026-09-17 (✅ v127 LIVE AND OWNER-VERIFIED — the owner extracted `shivaa-update-v127.zip` into `public_html` himself and reported the search-bar categories and the sidebar buttons now work. Live site = frozen v125 + the 2-file v127 navigation repair; stamps stay 125. PR #59 is still OPEN/UNMERGED, so this ledger lives only on `arena/01a0ad8d-shivaa-ecom` — see § v127 → OWNER LIVE-VERIFIED. v126 and the "v125-fix" zip remain DEAD — read the ⛔ section below before doing anything.)**
 **v124 STATUS: MERGED — PR #49, merge commit `5145ab2` on `main` (16 Sep 2026). v123 STATUS: MERGED + LIVE — merged as PR #48 (`bfc3908`) into `main`; owner live-verified 16 Sep, `https://shivaa.in/sw.js` → `SHELL = 'shivaa-shell-v123'`.**
 **Forward baseline: v125 ONLY (owner-frozen 16 Sep 2026). No new release, no stamp bump, no file swap, no "repair" — until the owner explicitly asks for a change. Never restore the v113b placeholder category tiles. v126 and the v125-fix zip are dead — do not resurrect, reference or re-deploy them (see `MEMORY.md` → OWNER'S RULING).**
 **Live site: https://shivaa.in (owner-confirmed v125 after his own restore) · Repo: theunreal8055-coder/Shivaa.ecom**
@@ -125,6 +125,45 @@ php-sweep **211 routes · 0 exceptions**.
 
 **Still open, deliberately untouched:** the `js/v120.js` falsy-`openHash` history-entry leak
 (documented above). Ask the owner before fixing — it means editing `v120.js`.
+
+### ✅ OWNER LIVE-VERIFIED — 17 Sep 2026 (this supersedes the "Pending, in order" list above)
+
+**Owner's words (verbatim):** *"The version 127 update is working very fine and I installed it
+and extracted in public HTML folder and its working fine now."*
+
+**v127 is the live, owner-confirmed state of shivaa.in.** Per house law this is the first
+point at which it may be recorded as live-verified, and it is now so recorded.
+
+- **Independently re-checked from the sandbox (not just taken on report):** `fetch_page` on
+  `https://shivaa.in/js/v127.js` returned **HTTP 200 with the full, correct file** — the v127
+  header comment, `arm()`, `navigate()`, `onDrawerTap()`, `onPaletteTap()` and the capture-phase
+  `bind()`, all as shipped. **The `<script src="/js/v127.js?v=127">` tag in the live shell was
+  NOT directly read** — the fetch tool returns markdown and strips `<script>` elements. It is
+  inferred, not observed: the tag can only be absent if `index.html` was not extracted, and
+  without it the layer never loads and the buttons could not work, which the owner confirms
+  they do. Both files ship in the one zip, so extracting it necessarily replaced both.
+- **How it got live:** the owner's own path — he extracted `shivaa-update-v127.zip` into the
+  `public_html` **ROOT** himself. **The Hostinger auto-sync cron was NOT involved and PR #59
+  is still unmerged.** Live tree = v125 + the two v127 files, nothing else changed.
+- **⚠ HOW TO CONFIRM v127 IS LIVE — the old trick no longer works.** Every previous release
+  was verified by reading `https://shivaa.in/sw.js` for the `SHELL` stamp. **That will still
+  read `shivaa-shell-v125`, and that is CORRECT, not a failed deploy** — v127 is a repair and
+  deliberately left `sw.js` and the version triple alone. The live proof of v127 is:
+  `https://shivaa.in/js/v127.js` returns real JavaScript, and view-source of
+  `https://shivaa.in/` contains `<script src="/js/v127.js?v=127" defer>`.
+  (Sandbox has no route to shivaa.in — `fetch_page` can read it, bash/curl cannot.)
+- **Confirmed working on the owner's device:** search-bar category chips land on their own
+  category; the sidebar buttons (Live Rates, Gold Buyback, Swarna Nidhi, and the rest) land
+  on their own pages. No regression reported.
+- **PR #59 remains OPEN and UNMERGED.** The reason for holding it (deploy before the owner's
+  backup) no longer applies — he has deployed and verified. Merging now is safe in principle:
+  `main`'s `cms/` would match what is already live, so the auto-sync cron would deploy
+  identical files, and it is the only way this ledger reaches `main`. **The owner has not
+  asked for the merge, so it has not been done. Ask him; do not merge unasked.**
+- **Forward baseline from here: v125 + v127.** A later release must preserve both. The v127
+  layer owns the sidebar and search-palette taps, so anything that edits drawer or palette
+  markup must keep `#mainNav`, `#searchSugg`, `a.sugg-cat` and the `href="#/…"` contract
+  intact, and must re-run `v127-check.js` (27) with the other gates.
 
 ---
 
