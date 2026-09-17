@@ -16,7 +16,7 @@
  app.js reloads itself once if the paired script is older than the shell it
  was served — a device can no longer run a fresh shell on a stale script. */
 'use strict';
-const SHELL = 'shivaa-shell-v125';
+const SHELL = 'shivaa-shell-v128';
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */

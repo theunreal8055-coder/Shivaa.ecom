@@ -178,13 +178,15 @@ function rate_block(array &$db, string $scope, string $id, int $cap, int $window
    saves, so two concurrent requests can never do read-modify-write on stale
    copies (lost orders, duplicate invoice numbers, double-spent loyalty points
    or bypassed per-day attempt/rate counters). Routes that wait on slow
-   external HTTP calls (SMS/email gateways, Razorpay, GST/Angel APIs) are
+   external HTTP calls (SMS/email gateways, Cashfree, GST/Angel APIs) are
    intentionally excluded so one slow upstream cannot stall the whole API. */
 function shv_wants_write_lock(string $route, string $method): bool {
   if ($method === 'GET' || $method === 'HEAD' || $method === 'OPTIONS') return false;
   static $slow = [
     'auth/send-otp' => 1, 'kyc/send-otp' => 1, 'auth/reset/start' => 1,
     'partners/apply' => 1, 'pay/order' => 1, 'rates/refresh' => 1,
+    'pay/cashfree/status' => 1, 'pay/cashfree/webhook' => 1,
+    'admin/refund' => 1, 'admin/pay-test' => 1,
     'sms/test' => 1, 'mail/test' => 1, 'admin/feed-test' => 1,
     'kyc/gst-lookup' => 1, 'admin/gst-reverify' => 1, 'bullion/tick' => 1, // v87/v88: GST calls wait on apitxt.com
   ];
@@ -377,44 +379,41 @@ function http_post_json(string $url, array $payload, string $userPwd = '', int $
   return ($code >= 200 && $code < 300 && is_array($d)) ? $d : null;
 }
 
-/* ═══════════ v93 — PhonePe Standard Checkout v2 (OAuth / O-Bearer) ═══════════
-   Current PhonePe website gateway: the server mints an OAuth client-credentials
-   token (Client ID + Client Version + Client Secret from Dashboard → Developer
-   Settings), then calls /checkout/v2/pay to obtain a mercury PayPage URL; the
-   browser is sent there via the checkout.js bundle (redirect mode); PhonePe
-   returns the browser to our return URL AND posts HMAC-signed webhooks. Every
-   result is confirmed server-to-server via GET /checkout/v2/order/{id}/status.
-   Sandbox base: api-preprod.phonepe.com/apis/pg-sandbox
-   Prod base:     api.phonepe.com/apis/pg   (token via apis/identity-manager)
-   Docs: developer.phonepe.com → Payment Gateway → Standard Checkout. */
-function phonepe_cfg(array $db): array {
+/* ═══════════ v128 — Cashfree Hosted Web Checkout (PG API 2023-08-01) ═══════════
+   The ONLY live card/UPI gateway on the shop. Flow per Cashfree docs:
+   1) Server creates an order (POST /pg/orders with x-client-id + x-client-secret)
+      and receives an order_id + payment_session_id.
+   2) The browser loads the Cashfree JS SDK (sdk.cashfree.com/js/v3/cashfree.js)
+      and opens the PCI-compliant hosted checkout with the payment_session_id.
+   3) After payment the browser returns to our return_url and Cashfree also
+      POSTs an HMAC-signed webhook; credits are issued ONLY after the server
+      calls GET /pg/orders/{order_id} and sees order_status PAID for the exact
+      amount. The redirect / webhook alone are never trusted.
+   Sandbox base: https://sandbox.cashfree.com/pg
+   Prod base:    https://api.cashfree.com/pg */
+function cashfree_cfg(array $db): array {
   $s = $db['settings'] ?? [];
-  $env = (($s['ppEnv'] ?? 'prod') === 'uat') ? 'uat' : 'prod';
+  $env = (($s['cfEnv'] ?? 'sandbox') === 'production') ? 'production' : 'sandbox';
   return [
-    'clientId'      => trim((string)($s['ppClientId'] ?? '')),
-    'clientSecret'  => trim((string)($s['ppClientSecret'] ?? '')),
-    'clientVersion' => trim((string)($s['ppClientVersion'] ?? '1')) !== '' ? trim((string)$s['ppClientVersion']) : '1',
-    'whSecret'      => trim((string)($s['ppWebhookSecret'] ?? '')),
-    'whUser'        => trim((string)($s['ppWebhookUser'] ?? '')),
-    'whPass'        => trim((string)($s['ppWebhookPass'] ?? '')),
-    'env'           => $env,
-    'host'          => $env === 'uat'
-                       ? 'https://api-preprod.phonepe.com/apis/pg-sandbox'
-                       : 'https://api.phonepe.com/apis/pg',
-    'oauth'         => $env === 'uat'
-                       ? 'https://api-preprod.phonepe.com/apis/pg-sandbox/v1/oauth/token'
-                       : 'https://api.phonepe.com/apis/identity-manager/v1/oauth/token',
-    'bundle'        => $env === 'uat'
-                       ? 'https://mercury-stg.phonepe.com/web/bundle/checkout.js'
-                       : 'https://mercury.phonepe.com/web/bundle/checkout.js',
+    'appId'      => trim((string)($s['cfAppId'] ?? '')),
+    'secret'     => trim((string)($s['cfSecretKey'] ?? '')),
+    'env'        => $env,
+    'host'       => $env === 'production' ? 'https://api.cashfree.com' : 'https://sandbox.cashfree.com',
+    'apiVersion' => '2023-08-01',
   ];
 }
-function phonepe_ready(array $db): bool {
-  $c = phonepe_cfg($db);
-  return ($db['settings']['payProvider'] ?? 'demo') === 'phonepe' && $c['clientId'] !== '' && $c['clientSecret'] !== '';
+/* Only demo + Cashfree can be selected; any legacy payu/phonepe/razorpay
+   value saved by older releases is treated as demo (their code is gone). */
+function cashfree_active_provider(array $db): string {
+  $p = (string)($db['settings']['payProvider'] ?? 'demo');
+  return in_array($p, ['demo', 'cashfree'], true) ? $p : 'demo';
 }
-/* public base URL PhonePe returns the browser / posts webhooks to. */
-function phonepe_site_base(array $db): string {
+function cashfree_ready(array $db): bool {
+  $c = cashfree_cfg($db);
+  return cashfree_active_provider($db) === 'cashfree' && $c['appId'] !== '' && $c['secret'] !== '';
+}
+/* public base URL Cashfree returns the browser to / posts webhooks at. */
+function shv_site_base(array $db): string {
   $base = trim((string)($db['settings']['siteBaseUrl'] ?? ''));
   if ($base === '') {
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
@@ -426,155 +425,117 @@ function phonepe_site_base(array $db): string {
   $base = preg_replace('#/api/?$#', '', $base);
   return rtrim($base, '/');
 }
-/* PhonePe order/refund ids allow A-Z a-z 0-9 - _ only (order id max 63) */
-function phonepe_sanitize_id(string $v, int $max = 40): string {
+/* Cashfree ids: alphanumerics, - and _ only (order_id max 50, refund_id max 40). */
+function cashfree_sanitize_id(string $v, int $max = 50): string {
   $v = preg_replace('#[^A-Za-z0-9_-]#', '', $v);
   return substr((string)$v, 0, $max);
 }
-/* OAuth client-credentials token, cached (in the private data/ dir) until
-   ~5 min before expires_at. A 401/403 forces one refresh. */
-function phonepe_token(array $cfg, bool $force = false): array {
-  $cacheFile = $GLOBALS['ROOT'] . '/data/.pp-token-' . $cfg['env'] . '.json';
-  if (!$force && is_file($cacheFile)) {
-    $c = json_decode((string)@file_get_contents($cacheFile), true);
-    if (is_array($c) && !empty($c['access_token']) && (int)($c['expires_at'] ?? 0) > time() + 300)
-      return ['token' => (string)$c['access_token'], 'cached' => true];
+/* authenticated PG API call (x-api-version + x-client-id + x-client-secret). */
+function cashfree_call(array $cfg, string $method, string $path, ?array $body = null): array {
+  if (!function_exists('curl_init')) return ['code' => 0, 'json' => null, 'raw' => 'curl missing'];
+  $ch = curl_init($cfg['host'] . $path);
+  $headers = [
+    'Accept: application/json',
+    'x-api-version: ' . $cfg['apiVersion'],
+    'x-client-id: ' . $cfg['appId'],
+    'x-client-secret: ' . $cfg['secret'],
+  ];
+  $opts = [
+    CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25, CURLOPT_CONNECTTIMEOUT => 10,
+    CURLOPT_SSL_VERIFYPEER => true, CURLOPT_CUSTOMREQUEST => $method,
+    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
+  ];
+  if ($body !== null) {
+    $opts[CURLOPT_POSTFIELDS] = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $headers[] = 'Content-Type: application/json';
   }
-  if (!function_exists('curl_init')) return ['error' => 'curl missing'];
-  $ch = curl_init($cfg['oauth']);
-  curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_CONNECTTIMEOUT => 10,
-    CURLOPT_SSL_VERIFYPEER => true, CURLOPT_POST => true,
-    CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'],
-    CURLOPT_POSTFIELDS => http_build_query([
-      'client_id' => $cfg['clientId'], 'client_version' => $cfg['clientVersion'],
-      'client_secret' => $cfg['clientSecret'], 'grant_type' => 'client_credentials',
-    ]),
-  ]);
+  curl_setopt_array($ch, $opts);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
   $raw = (string)curl_exec($ch);
   $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
   $err = (string)curl_error($ch);
   curl_close($ch);
-  $j = json_decode($raw, true);
-  if ($code !== 200 || !is_array($j) || empty($j['access_token']))
-    return ['error' => 'token HTTP ' . $code, 'json' => $j, 'err' => $err];
-  if (is_dir(dirname($cacheFile))) {
-    @file_put_contents($cacheFile . '.tmp', $raw, LOCK_EX);
-    @rename($cacheFile . '.tmp', $cacheFile);
-    @chmod($cacheFile, 0600);
-  }
-  return ['token' => (string)$j['access_token']];
+  return ['code' => $code, 'json' => json_decode($raw, true), 'raw' => $raw, 'err' => $err];
 }
-/* authenticated v2 JSON call; retries once with a fresh token on 401/403 */
-function phonepe_call(array $cfg, string $method, string $path, ?array $body = null): array {
-  if (!function_exists('curl_init')) return ['code' => 0, 'json' => null, 'raw' => 'curl missing'];
-  $attempt = function () use ($cfg, $method, $path, $body) {
-    $t = phonepe_token($cfg);
-    if (!empty($t['error'])) return ['code' => 0, 'json' => null, 'raw' => '', 'err' => 'token: ' . ($t['json']['message'] ?? $t['error'])];
-    $ch = curl_init($cfg['host'] . $path);
-    $headers = ['Accept: application/json', 'Authorization: O-Bearer ' . $t['token']];
-    $opts = [
-      CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 10,
-      CURLOPT_SSL_VERIFYPEER => true, CURLOPT_CUSTOMREQUEST => $method,
-      CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
-    ];
-    if ($method !== 'GET' && $body !== null) {
-      $opts[CURLOPT_POSTFIELDS] = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-      $headers[] = 'Content-Type: application/json';
-    }
-    curl_setopt_array($ch, $opts);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    $raw = (string)curl_exec($ch);
-    $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-    $err = (string)curl_error($ch);
-    curl_close($ch);
-    return ['code' => $code, 'json' => json_decode($raw, true), 'raw' => $raw, 'err' => $err];
-  };
-  $r = $attempt();
-  if ($r['code'] === 401 || $r['code'] === 403) {
-    $t2 = phonepe_token($cfg, true);
-    if (empty($t2['error'])) $r = $attempt();
-  }
-  return $r;
+function cashfree_create_order(array $cfg, array $payload): array {
+  return cashfree_call($cfg, 'POST', '/pg/orders', $payload);
 }
-function phonepe_order_status(array $cfg, string $moid): array {
-  return phonepe_call($cfg, 'GET', '/checkout/v2/order/' . rawurlencode($moid) . '/status?details=true');
+/* Step 3 of the Cashfree flow — GET /pg/orders/{order_id}. An order counts as
+   paid only when order_status is PAID. */
+function cashfree_fetch_order(array $cfg, string $cfOrderId): array {
+  return cashfree_call($cfg, 'GET', '/pg/orders/' . rawurlencode($cfOrderId));
 }
-/* find the Shivaa order owning a merchantOrderId we sent PhonePe */
-function phonepe_find_order_index(array $db, string $moid): ?int {
+/* find the Shivaa order index owning a Cashfree order id we created */
+function cashfree_find_order_index(array $db, string $cfOrderId): ?int {
+  if ($cfOrderId === '') return null;
   foreach ($db['orders'] ?? [] as $i => $o) {
-    foreach (($o['ppAttempts'] ?? []) as $a) if (($a['moid'] ?? '') === $moid) return $i;
+    foreach (($o['cfAttempts'] ?? []) as $a) if (($a['cfOrderId'] ?? '') === $cfOrderId) return $i;
   }
   return null;
 }
-/* reconcile an Order Status (or signed webhook payload, same shape) into the
-   order ledger. Idempotent on the PhonePe transaction id. Returns a result. */
-function phonepe_apply(array &$db, int $i, array $st, string $moid): array {
+/* reconcile a fetched order status into the ledger. Idempotent on the
+   Cashfree order id; the amount must match the attempt exactly. */
+function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array {
   $o = &$db['orders'][$i];
   $attempt = null;
-  foreach (($o['ppAttempts'] ?? []) as $a) if (($a['moid'] ?? '') === $moid) { $attempt = $a; break; }
+  foreach (($o['cfAttempts'] ?? []) as $a) if (($a['cfOrderId'] ?? '') === $cfOrderId) { $attempt = $a; break; }
   if (!$attempt) return ['ok' => false, 'code' => 'ATTEMPT_NOT_FOUND'];
-  foreach (($o['ppAttempts'] ?? []) as &$aa) {
-    if (($aa['moid'] ?? '') === $moid) {
-      $aa['lastState'] = strtoupper((string)($st['state'] ?? ''));
-      if (!empty($st['orderId'])) $aa['ppOrderId'] = (string)$st['orderId'];
+  $state = strtoupper(trim((string)($st['order_status'] ?? '')));
+  foreach (($o['cfAttempts'] ?? []) as &$aa) {
+    if (($aa['cfOrderId'] ?? '') === $cfOrderId) {
+      $aa['lastState'] = $state;
+      if (!empty($st['payment_session_id'])) $aa['sessionId'] = (string)$st['payment_session_id'];
       $aa['checkedAt'] = now_iso();
     }
   }
   unset($aa);
-  $state = strtoupper((string)($st['state'] ?? ''));
-  $amtPaise = (int)($st['amount'] ?? 0);
-  $details = is_array($st['paymentDetails'] ?? null) ? $st['paymentDetails'] : [];
-  $good = null;
-  foreach ($details as $d) {
-    if (strtoupper((string)($d['state'] ?? '')) === 'COMPLETED' && (int)($d['amount'] ?? 0) > 0) { $good = $d; break; }
-  }
   if ($state === 'FAILED') {
-    $o['ppLastFailure'] = ['moid' => $moid, 'code' => (string)($details[0]['errorCode'] ?? 'FAILED'), 'at' => now_iso()];
+    $o['cfLastFailure'] = ['cfOrderId' => $cfOrderId, 'at' => now_iso()];
     db_save($GLOBALS['DB_FILE'], $db);
     return ['ok' => false, 'code' => 'FAILED', 'state' => 'FAILED'];
   }
-  if ($state !== 'COMPLETED' || !$good)
-    return ['ok' => false, 'code' => (string)($st['code'] ?? 'PENDING'), 'state' => $state];
+  if ($state !== 'PAID')
+    return ['ok' => false, 'code' => (string)($st['order_status'] ?? 'PENDING'), 'state' => $state];
   // security: the paid amount must equal this attempt exactly
-  $paidPaise = (int)($good['amount'] ?? $amtPaise);
-  if ($paidPaise !== (int)$attempt['amountPaise'] || ($amtPaise !== 0 && $amtPaise !== (int)$attempt['amountPaise']))
-    return ['ok' => false, 'code' => 'AMOUNT_MISMATCH', 'expected' => (int)$attempt['amountPaise'], 'got' => $paidPaise];
-  $ppTxn = (string)($good['transactionId'] ?? '');
+  $paidRupees = (float)($st['order_amount'] ?? 0);
+  if ((int)round($paidRupees) !== (int)$attempt['amount'])
+    return ['ok' => false, 'code' => 'AMOUNT_MISMATCH', 'expected' => (int)$attempt['amount'], 'got' => (int)round($paidRupees)];
+  $ref = $cfOrderId;
   foreach (($o['payments'] ?? []) as $p) {
-    if ($ppTxn !== '' && (($p['ref'] ?? '') === $ppTxn || ($p['gatewayPaymentId'] ?? '') === $ppTxn))
-      return ['ok' => true, 'already' => true, 'state' => 'COMPLETED'];
+    if (($p['ref'] ?? '') === $ref || ($p['gatewayPaymentId'] ?? '') === $ref)
+      return ['ok' => true, 'already' => true, 'state' => 'PAID'];
   }
   // a retried order could already be fully paid by another attempt
   if ((int)($o['amountPaid'] ?? 0) >= (int)($o['total'] ?? 0) && (int)($o['total'] ?? 0) > 0)
-    return ['ok' => true, 'already' => true, 'state' => 'COMPLETED'];
-  $ref = $ppTxn !== '' ? $ppTxn : $moid;
+    return ['ok' => true, 'already' => true, 'state' => 'PAID'];
   order_add_payment($o, [
-    'amount' => max(1, (int)round($paidPaise / 100)), 'mode' => 'phonepe',
+    'amount' => max(1, (int)round($paidRupees)), 'mode' => 'cashfree',
     'ref' => $ref, 'gatewayPaymentId' => $ref, 'at' => now_iso(), 'status' => 'approved',
-    'instrument' => (string)($good['paymentMode'] ?? ''),
+    'instrument' => substr((string)($st['payment_method'] ?? ''), 0, 40),
   ]);
   $total = (int)($o['total'] ?? 0);
   $paid = (int)($o['amountPaid'] ?? 0);
   if ($paid >= $total && $total > 0) { $o['paymentStatus'] = 'Paid'; $o['paidAt'] = $o['paidAt'] ?? now_iso(); $o['balance'] = 0; }
   elseif ($paid > 0) { $o['paymentStatus'] = 'Partially paid'; $o['balance'] = max(0, $total - $paid); }
-  $o['paymentRef'] = $ref; $o['gateway'] = 'phonepe'; $o['ppTxnId'] = $ref;
-  audit_log($db, 'payment.phonepe-paid', ['order' => $o['id'], 'amount' => (int)round($paidPaise / 100), 'txn' => $ref]);
+  $o['paymentRef'] = $ref; $o['gateway'] = 'cashfree';
+  audit_log($db, 'payment.cashfree-paid', ['order' => $o['id'], 'amount' => (int)round($paidRupees), 'cfOrderId' => $cfOrderId]);
   db_save($GLOBALS['DB_FILE'], $db);
-  return ['ok' => true, 'state' => 'COMPLETED', 'ref' => $ref];
+  return ['ok' => true, 'state' => 'PAID', 'ref' => $ref];
 }
-/* refund webhook/result: advance a refund row to its terminal state */
-function phonepe_apply_refund(array &$db, int $i, array $p): array {
+/* refund entity from POST /refunds or GET /refunds/{id}: advance a refund row.
+   Cashfree refund_status: PENDING / SUCCESS / FAILED. */
+function cashfree_apply_refund(array &$db, int $i, array $p): array {
   $o = &$db['orders'][$i];
-  $rfId = (string)($p['merchantRefundId'] ?? '');
-  $state = strtoupper((string)($p['state'] ?? ''));
+  $rfId = (string)($p['refund_id'] ?? '');
+  $state = strtoupper((string)($p['refund_status'] ?? ''));
   $touched = false;
   foreach (($o['refunds'] ?? []) as $k => $r) {
-    if (($r['merchantRefundId'] ?? '') === $rfId) {
+    if (($r['cfRefundId'] ?? '') === $rfId) {
       $o['refunds'][$k] = array_merge($r, [
-        'state' => $state, 'ppRefundId' => (string)($p['refundId'] ?? $r['ppRefundId'] ?? ''),
+        'state' => $state !== '' ? $state : ($r['state'] ?? 'PENDING'),
+        'cfRefundGatewayId' => (string)($p['cf_refund_id'] ?? $r['cfRefundGatewayId'] ?? ''),
         'updatedAt' => now_iso(),
-        'status' => $state === 'COMPLETED' ? 'accepted' : ($state === 'FAILED' ? 'failed' : 'pending'),
+        'status' => $state === 'SUCCESS' ? 'accepted' : ($state === 'FAILED' ? 'failed' : ($r['status'] ?? 'pending')),
       ]);
       $touched = true;
     }
@@ -582,201 +543,26 @@ function phonepe_apply_refund(array &$db, int $i, array $p): array {
   if (!$touched) return ['ok' => false, 'code' => 'REFUND_NOT_FOUND'];
   $refundedDone = array_sum(array_map(fn($r) => ($r['status'] ?? '') === 'accepted' ? (int)($r['amount'] ?? 0) : 0, $o['refunds'] ?? []));
   $paid = (int)($o['amountPaid'] ?? 0);
-  if ($state === 'COMPLETED') {
+  if ($state === 'SUCCESS') {
     $o['paymentStatus'] = $refundedDone >= $paid && $paid > 0 ? 'Refunded' : 'Partially refunded';
-    audit_log($db, 'payment.phonepe-refund-done', ['order' => $o['id'], 'refund' => $rfId, 'state' => $state]);
+    audit_log($db, 'payment.cashfree-refund-done', ['order' => $o['id'], 'refund' => $rfId]);
   } elseif ($state === 'FAILED') {
-    audit_log($db, 'payment.phonepe-refund-failed', ['order' => $o['id'], 'refund' => $rfId]);
+    audit_log($db, 'payment.cashfree-refund-failed', ['order' => $o['id'], 'refund' => $rfId]);
   }
   db_save($GLOBALS['DB_FILE'], $db);
-  return ['ok' => true, 'state' => $state];
+  return ['ok' => true, 'state' => $state !== '' ? $state : 'PENDING'];
 }
-/* HMAC check for dashboard-configured webhooks. PhonePe signs the raw body
-   with the Checksum Secret Key; compare both hex and base64 encodings since
-   the dashboard does not pin one. Also supports the optional SHA username:
-   password Authorization mode. */
-function phonepe_webhook_verified(array $cfg, string $raw, array $srv): bool {
-  $sig = trim((string)($srv['HTTP_X_PHONEPE_CHECKSUM_SIGNATURE'] ?? ''));
-  if ($sig !== '' && $cfg['whSecret'] !== '') {
-    $bin = hash_hmac('sha256', $raw, $cfg['whSecret'], true);
-    $hex = hash_hmac('sha256', $raw, $cfg['whSecret']);
-    $cands = [$hex, strtolower($hex), base64_encode($bin)];
-    foreach ($cands as $c) if (hash_equals($c, $sig)) return true;
-  }
-  $auth = trim((string)($srv['HTTP_AUTHORIZATION'] ?? ''));
-  if ($auth !== '' && $cfg['whUser'] !== '') {
-    $expect = hash('sha256', $cfg['whUser'] . ':' . $cfg['whPass']);
-    $got = trim(preg_replace('#^(sha256|basic|bearer)\s+#i', '', $auth));
-    if (hash_equals($expect, $got) || hash_equals($expect, strtolower($got))) return true;
-  }
-  return false;
-}
-
-
-/* ═══════════ v94 — PayU India hosted checkout (SHA-512 redirect) ═══════════
-   The merchant server builds a signed form (key|txnid|amount|…|salt SHA-512)
-   which the browser POSTs to the PayU hosted page. PayU returns the browser
-   to surl/furl with a reverse hash; credits are issued ONLY after the
-   server-to-server verify_payment call confirms status + amount. */
-function payu_cfg(array $db): array {
-  $s = $db['settings'] ?? [];
-  $env = (($s['payuEnv'] ?? 'test') === 'prod') ? 'prod' : 'test';
-  return [
-    'key'    => trim((string)($s['payuKey'] ?? '')),
-    'salt'   => trim((string)($s['payuSalt'] ?? '')),
-    'env'    => $env,
-    'action' => $env === 'prod' ? 'https://secure.payu.in/_payment' : 'https://test.payu.in/_payment',
-    'api'    => $env === 'prod' ? 'https://info.payu.in/merchant/postservice.php?form=2'
-                                : 'https://test.payu.in/merchant/postservice.php?form=2',
-  ];
-}
-/* Only demo + PayU can be selected now; any legacy phonepe/razorpay value in
-   saved settings is treated as demo (their code stays dormant and can never
-   activate from the admin UI or API). */
-function payu_active_provider(array $db): string {
-  $p = (string)($db['settings']['payProvider'] ?? 'demo');
-  return in_array($p, ['demo', 'payu'], true) ? $p : 'demo';
-}
-function payu_ready(array $db): bool {
-  $c = payu_cfg($db);
-  return payu_active_provider($db) === 'payu' && $c['key'] !== '' && $c['salt'] !== '';
-}
-/* PayU txnid: A-Za-z0-9-_ safe, max 30 chars, unique per attempt. */
-function payu_sanitize_txn(string $v, int $max = 22): string {
-  $v = preg_replace('#[^A-Za-z0-9_-]#', '', $v);
-  return substr((string)$v, 0, $max);
-}
-/* request hash: sha512(key|txnid|amount|productinfo|firstname|email|
-   udf1..udf10|salt). udf6..udf10 are always empty here. Pipes must never
-   appear in field values (they would shift the hash segments). */
-function payu_request_hash(array $cfg, array $f): string {
-  $seq = ['key', 'txnid', 'amount', 'productinfo', 'firstname', 'email',
-          'udf1', 'udf2', 'udf3', 'udf4', 'udf5', 'udf6', 'udf7', 'udf8', 'udf9', 'udf10'];
-  $str = implode('|', array_map(fn($k) => (string)($f[$k] ?? ''), $seq)) . '|' . $cfg['salt'];
-  return strtolower(hash('sha512', $str));
-}
-/* response hash on surl/furl: sha512(salt|status||||||udf5..udf1|email|
-   firstname|productinfo|amount|txnid|key) — five empty segments between
-   status and udf5 (the unused udf10..udf6 slots). additionalCharges, when
-   present, is prefixed. */
-function payu_response_hash(array $cfg, array $p): string {
-  $vals = [$cfg['salt'], (string)($p['status'] ?? ''), '', '', '', '', '',
-           (string)($p['udf5'] ?? ''), (string)($p['udf4'] ?? ''), (string)($p['udf3'] ?? ''),
-           (string)($p['udf2'] ?? ''), (string)($p['udf1'] ?? ''), (string)($p['email'] ?? ''),
-           (string)($p['firstname'] ?? ''), (string)($p['productinfo'] ?? ''),
-           (string)($p['amount'] ?? ''), (string)($p['txnid'] ?? ''), (string)($p['key'] ?? '')];
-  $str = implode('|', $vals);
-  if (!empty($p['additionalCharges'])) $str = (string)$p['additionalCharges'] . '|' . $str;
-  return strtolower(hash('sha512', $str));
-}
-/* postservice.php?form=2 server API. $vars are var1..varN in order; the hash
-   is sha512(key|command|var1|…|varN|salt). */
-function payu_postservice(array $cfg, string $command, array $vars): array {
-  if (!function_exists('curl_init')) return ['code' => 0, 'json' => null, 'raw' => 'curl missing'];
-  $hashStr = $cfg['key'] . '|' . $command;
-  foreach ($vars as $v) $hashStr .= '|' . (string)$v;
-  $hashStr .= '|' . $cfg['salt'];
-  $post = ['key' => $cfg['key'], 'command' => $command, 'hash' => strtolower(hash('sha512', $hashStr))];
-  foreach (array_values($vars) as $n => $v) $post['var' . ($n + 1)] = (string)$v;
-  $ch = curl_init($cfg['api']);
-  curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 10,
-    CURLOPT_SSL_VERIFYPEER => true, CURLOPT_POST => true,
-    CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'],
-    CURLOPT_POSTFIELDS => http_build_query($post),
-    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Shivaa/1.0)',
-  ]);
-  $raw = (string)curl_exec($ch);
-  $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-  $err = (string)curl_error($ch);
-  curl_close($ch);
-  return ['code' => $code, 'json' => json_decode($raw, true), 'raw' => $raw, 'err' => $err];
-}
-function payu_verify_txn(array $cfg, string $txnid): array {
-  return payu_postservice($cfg, 'verify_payment', [$txnid]);
-}
-/* find the order index owning a PayU txnid (udf1 carries the shop order id,
-   but txnid lookup is the authoritative mapping). */
-function payu_find_order_index(array $db, string $txnid): ?int {
-  if ($txnid === '') return null;
-  foreach ($db['orders'] ?? [] as $i => $o) {
-    foreach (($o['payuAttempts'] ?? []) as $a) if (($a['txnid'] ?? '') === $txnid) return $i;
-  }
-  return null;
-}
-/* reconcile a verified transaction into the ledger. Idempotent on the PayU
-   mihpayid (and, failing that, the txnid). Amount must match the attempt. */
-function payu_apply(array &$db, int $i, array $t, string $txnid): array {
-  $o = &$db['orders'][$i];
-  $attempt = null;
-  foreach (($o['payuAttempts'] ?? []) as $a) if (($a['txnid'] ?? '') === $txnid) { $attempt = $a; break; }
-  if (!$attempt) return ['ok' => false, 'code' => 'ATTEMPT_NOT_FOUND'];
-  $state = strtolower(trim((string)($t['status'] ?? '')));
-  foreach (($o['payuAttempts'] ?? []) as &$aa) {
-    if (($aa['txnid'] ?? '') === $txnid) {
-      $aa['lastState'] = $state;
-      if (!empty($t['mihpayid'])) $aa['mihpayid'] = (string)$t['mihpayid'];
-      $aa['checkedAt'] = now_iso();
-    }
-  }
-  unset($aa);
-  if ($state === 'failure' || $state === 'failed') {
-    $o['payuLastFailure'] = ['txnid' => $txnid, 'code' => (string)($t['error'] ?? $t['error_Message'] ?? 'FAILED'), 'at' => now_iso()];
-    db_save($GLOBALS['DB_FILE'], $db);
-    return ['ok' => false, 'code' => 'FAILED', 'state' => 'failed'];
-  }
-  if ($state !== 'success') return ['ok' => false, 'code' => 'PENDING', 'state' => $state];
-  $paidRupees = (float)($t['net_amount_debit'] ?? $t['amount'] ?? 0);
-  if ((int)round($paidRupees) !== (int)$attempt['amount'])
-    return ['ok' => false, 'code' => 'AMOUNT_MISMATCH', 'expected' => (int)$attempt['amount'], 'got' => (int)round($paidRupees)];
-  $mih = (string)($t['mihpayid'] ?? '');
-  $ref = $mih !== '' ? $mih : $txnid;
-  foreach (($o['payments'] ?? []) as $p) {
-    if (($p['ref'] ?? '') === $ref || ($p['gatewayPaymentId'] ?? '') === $ref || ($p['ref'] ?? '') === $txnid)
-      return ['ok' => true, 'already' => true, 'state' => 'success'];
-  }
-  if ((int)($o['amountPaid'] ?? 0) >= (int)($o['total'] ?? 0) && (int)($o['total'] ?? 0) > 0)
-    return ['ok' => true, 'already' => true, 'state' => 'success'];
-  order_add_payment($o, [
-    'amount' => max(1, (int)round($paidRupees)), 'mode' => 'payu',
-    'ref' => $ref, 'gatewayPaymentId' => $ref, 'at' => now_iso(), 'status' => 'approved',
-    'instrument' => (string)($t['mode'] ?? $t['bank_name'] ?? ''),
-  ]);
-  $total = (int)($o['total'] ?? 0);
-  $paid = (int)($o['amountPaid'] ?? 0);
-  if ($paid >= $total && $total > 0) { $o['paymentStatus'] = 'Paid'; $o['paidAt'] = $o['paidAt'] ?? now_iso(); $o['balance'] = 0; }
-  elseif ($paid > 0) { $o['paymentStatus'] = 'Partially paid'; $o['balance'] = max(0, $total - $paid); }
-  $o['paymentRef'] = $ref; $o['gateway'] = 'payu'; $o['payuMihpayid'] = $ref;
-  audit_log($db, 'payment.payu-paid', ['order' => $o['id'], 'amount' => (int)round($paidRupees), 'txnid' => $txnid, 'mih' => $mih]);
-  db_save($GLOBALS['DB_FILE'], $db);
-  return ['ok' => true, 'state' => 'success', 'ref' => $ref];
-}
-/* refund result from check_action_status: advance a refund row. PayU phrases
-   vary ("Refund Completed Successfully", "refund success", "Refund Failed"). */
-function payu_apply_refund(array &$db, int $i, array $resp, string $rfKey): array {
-  $o = &$db['orders'][$i];
-  $blob = strtolower(json_encode($resp));
-  $done = strpos($blob, 'completed') !== false || preg_match('/refund[^"]*success|success[^"]*refund/', $blob) === 1;
-  $failed = strpos($blob, 'refund failed') !== false || strpos($blob, '"failed"') !== false;
-  $touched = false;
-  foreach (($o['refunds'] ?? []) as $k => $r) {
-    if (($r['payuRefundKey'] ?? '') === $rfKey) {
-      $newState = $done ? 'COMPLETED' : ($failed ? 'FAILED' : ($r['state'] ?? 'PENDING'));
-      $o['refunds'][$k] = array_merge($r, ['state' => $newState, 'updatedAt' => now_iso(),
-        'status' => $newState === 'COMPLETED' ? 'accepted' : ($newState === 'FAILED' ? 'failed' : 'pending')]);
-      $touched = true;
-      if ($newState === 'FAILED') audit_log($db, 'payment.payu-refund-failed', ['order' => $o['id'], 'refund' => $rfKey]);
-    }
-  }
-  if (!$touched) return ['ok' => false, 'code' => 'REFUND_NOT_FOUND'];
-  $refundedDone = array_sum(array_map(fn($r) => ($r['status'] ?? '') === 'accepted' ? (int)($r['amount'] ?? 0) : 0, $o['refunds'] ?? []));
-  $paid = (int)($o['amountPaid'] ?? 0);
-  if ($done) {
-    $o['paymentStatus'] = $refundedDone >= $paid && $paid > 0 ? 'Refunded' : 'Partially refunded';
-    audit_log($db, 'payment.payu-refund-done', ['order' => $o['id'], 'refund' => $rfKey]);
-  }
-  db_save($GLOBALS['DB_FILE'], $db);
-  return ['ok' => true, 'state' => $done ? 'COMPLETED' : ($failed ? 'FAILED' : 'PENDING')];
+/* Cashfree signs webhooks as base64(HMAC-SHA256(timestamp . rawBody, secret)).
+   Verified over the RAW body; a stale timestamp (>10 min) is rejected. */
+function cashfree_webhook_verified(array $cfg, string $raw, array $srv): bool {
+  $sig = trim((string)($srv['HTTP_X_WEBHOOK_SIGNATURE'] ?? ''));
+  $ts = trim((string)($srv['HTTP_X_WEBHOOK_TIMESTAMP'] ?? ''));
+  if ($sig === '' || $ts === '' || $cfg['secret'] === '') return false;
+  if (!preg_match('/^\d{10,16}$/', $ts)) return false;
+  $age = abs(time() * 1000 - (int)substr($ts, 0, 13));
+  if ($age > 600000) return false;   // older than 10 minutes — replay guard
+  $expect = base64_encode(hash_hmac('sha256', $ts . $raw, $cfg['secret'], true));
+  return hash_equals($expect, $sig);
 }
 
 /* v61 — generic JSON POST/GET with custom headers (Angel One SmartAPI) */
@@ -3702,21 +3488,21 @@ try {
     }
   }
 
-  /* ════════ v58 · payments scaffold (Razorpay-ready; demo without keys) ════════
-     No keys needed to operate: in demo mode checkout shows a simulated gateway
-     screen. Paste Razorpay key id + secret in admin Settings → Payments and the
-     same routes create real gateway orders and verify real signatures. */
+  /* ════════ v128 · payments — Cashfree hosted checkout (demo until keys added) ════════
+     No keys needed to operate: in demo mode checkout offers the UPI QR proof
+     flow (or a simulated screen on local builds). Paste the Cashfree App ID +
+     Secret Key in admin Settings → Payments and the same routes create real
+     Cashfree orders and verify them server-to-server. */
   if ($route === 'pay/config' && $method === 'GET') {
     $s = $db['settings'];
-    $provider = payu_active_provider($db);
-    // v94 — PayU hosted checkout is the only live gateway in the UI. PhonePe
-    // and Razorpay code is dormant and unreachable (no selectable provider).
-    $puCfg = payu_cfg($db);
-    $puLive = payu_ready($db);
+    $provider = cashfree_active_provider($db);
+    // v128 — Cashfree hosted checkout is the only live gateway in the UI.
+    $cfCfg = cashfree_cfg($db);
+    $cfLive = cashfree_ready($db);
     jout(200, [
-      'mode' => $puLive ? 'payu' : 'demo',
+      'mode' => $cfLive ? 'cashfree' : 'demo',
       'provider' => $provider,
-      'payu' => ['ready' => $puLive, 'env' => $puCfg['env']],
+      'cashfree' => ['ready' => $cfLive, 'env' => $cfCfg['env']],
       'prepaidPct' => (float)($s['prepaidPct'] ?? 2),
       /* v107 — checkout reads the rate-lock window from here (was hardcoded) */
       'lockMinutes' => (int)($s['rateLockMinutes'] ?? 20),
@@ -3744,7 +3530,7 @@ try {
     // replaying a stale checkout could otherwise pay for a dead order).
     if (($o['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled — please place a new order.']);
     // v86 — cap payment-order creation so a scripted checkout can't flood the
-    // gateway (Razorpay orders) or the manual proof queue.
+    // gateway (Cashfree orders) or the manual proof queue.
     rate_block($db, 'payorder-u', $u['id'] ?? '?', 60, 3600);
     $s = $db['settings'];
     // v60: charge only the outstanding balance (advances / part payments already made)
@@ -3754,108 +3540,66 @@ try {
     if ($due <= 0) jout(400, ['error' => 'This order is already fully paid']);
     if ($due > 100000000) jout(400, ['error' => 'Amount above the online limit — pay via WhatsApp / RTGS at the shop.']);  // v82 ₹1 cr ceiling
     $amountPaise = (int)round($due * 100);
-    /* v94 — PayU hosted checkout: build the SHA-512 signed form the browser
-       POSTs to secure.payu.in (or test.payu.in). No charge exists server-side
-       until surl/furl + verify_payment confirms it. */
-    if (payu_ready($db)) {
-      $cfg = payu_cfg($db);
-      $base = phonepe_site_base($db);   // generic public-base helper (shared)
+    /* v128 — Cashfree hosted checkout (Step 1: create the order server-side).
+       Cashfree returns an order_id + payment_session_id; the browser then
+       opens the hosted page with the JS SDK. Nothing is credited until
+       GET /pg/orders/{id} reports PAID (return URL / webhook / poller). */
+    if (cashfree_ready($db)) {
+      $cfg = cashfree_cfg($db);
+      $base = shv_site_base($db);
       $baseOk = filter_var($base, FILTER_VALIDATE_URL) && in_array(strtolower((string)parse_url($base, PHP_URL_SCHEME)), ['http', 'https'], true);
       if (!$baseOk) jout(500, ['error' => 'Site base URL is missing/invalid — set it in Admin → Payments.']);
-      if ($cfg['env'] === 'prod' && strtolower((string)parse_url($base, PHP_URL_SCHEME)) !== 'https')
-        jout(500, ['error' => 'PayU live mode needs an https site. Set the https Site URL in Admin → Payments.']);
-      $attempts = $db['orders'][$i]['payuAttempts'] ?? [];
-      $txnid = payu_sanitize_txn($o['id'], 22) . '-A' . (count($attempts) + 1);
-      if (strlen($txnid) > 30) $txnid = substr($txnid, 0, 30);
+      if ($cfg['env'] === 'production' && strtolower((string)parse_url($base, PHP_URL_SCHEME)) !== 'https')
+        jout(500, ['error' => 'Cashfree production mode needs an https site. Set the https Site URL in Admin → Payments.']);
+      $attempts = $db['orders'][$i]['cfAttempts'] ?? [];
+      // each retry gets a fresh Cashfree order id; charset [A-Za-z0-9_-], max 50.
+      $cfOrderId = cashfree_sanitize_id($o['id'], 44) . '-A' . (count($attempts) + 1);
       $phoneRaw = (string)(($o['address']['phone'] ?? '') ?: ($u['phone'] ?? ''));
       $phone = preg_replace('#\D#', '', $phoneRaw);
+      $phone = substr($phone, -10) !== '' ? substr($phone, -10) : '9999999999';
       $name = trim((string)(($o['address']['name'] ?? '') ?: ($u['name'] ?? '')));
-      $name = substr(preg_replace('#[|<>]#', '', $name) ?: 'Customer', 0, 60);
+      $name = substr(preg_replace('#[<>|]#', '', $name) ?: 'Customer', 0, 60);
       $email = trim((string)($u['email'] ?? $o['email'] ?? ''));
       if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        // PayU requires a syntactically valid email; use a neutral placeholder
-        $email = 'orders@' . (preg_replace('#^https?://#', '', parse_url($base, PHP_URL_HOST) ?: 'shivaa.in'));
+        // Cashfree wants a syntactically valid email; use a neutral placeholder
+        $email = 'orders@' . (preg_replace('#[^a-z0-9.-]#', '', (string)parse_url($base, PHP_URL_HOST)) ?: 'shivaa.in');
       }
-      $product = substr(preg_replace('#[|<>]#', '', 'Shivaa Jewellers order ' . $o['id']), 0, 100);
-      $fields = [
-        'key' => $cfg['key'], 'txnid' => $txnid,
-        'amount' => number_format($due, 2, '.', ''),
-        'productinfo' => $product, 'firstname' => $name, 'email' => $email,
-        'phone' => substr($phone, -10) !== '' ? substr($phone, -10) : '9999999999',
-        'surl' => $base . '/api/pay/payu/return?co=' . urlencode($o['id']),
-        'furl' => $base . '/api/pay/payu/return?co=' . urlencode($o['id']),
-        'udf1' => payu_sanitize_txn($o['id'], 48), 'udf2' => 'Shivaa order',
-        'udf3' => '', 'udf4' => '', 'udf5' => '', 'udf6' => '', 'udf7' => '',
-        'udf8' => '', 'udf9' => '', 'udf10' => '',
-      ];
-      $fields['hash'] = payu_request_hash($cfg, $fields);
-      $db['orders'][$i]['payuAttempts'][] = [
-        'txnid' => $txnid, 'amount' => (int)$due, 'env' => $cfg['env'],
-        'at' => now_iso(), 'lastState' => 'initiated',
-      ];
-      $db['orders'][$i]['gateway'] = 'payu';
-      $db['orders'][$i]['gatewayOrderId'] = $txnid;
-      db_save($DB_FILE, $db);
-      jout(200, ['mode' => 'payu', 'action' => $cfg['action'], 'fields' => $fields,
-                 'amount' => (int)$due, 'orderId' => $o['id'], 'env' => $cfg['env']]);
-    }
-    /* v93 — PhonePe Standard Checkout v2: OAuth-authenticated /checkout/v2/pay
-       returns the mercury PayPage token URL the browser opens (redirect).
-       DORMANT since v94 (provider no longer selectable in admin). */
-    if (phonepe_ready($db)) {
-      $cfg = phonepe_cfg($db);
-      $base = phonepe_site_base($db);
-      $baseOk = filter_var($base, FILTER_VALIDATE_URL) && in_array(strtolower((string)parse_url($base, PHP_URL_SCHEME)), ['http', 'https'], true);
-      if (!$baseOk) jout(500, ['error' => 'Site base URL is missing/invalid — set it in Admin → Payments.']);
-      if ($cfg['env'] === 'prod' && strtolower((string)parse_url($base, PHP_URL_SCHEME)) !== 'https')
-        jout(500, ['error' => 'PhonePe live mode needs an https site. Set the https Site URL in Admin → Payments.']);
-      $attempts = $db['orders'][$i]['ppAttempts'] ?? [];
-      // each attempt gets a fresh merchantOrderId (PhonePe rejects reuse in a
-      // non-CREATED state); charset [A-Za-z0-9_-], max 63.
-      $moid = phonepe_sanitize_id($o['id'], 48) . '-A' . (count($attempts) + 1);
-      $phoneRaw = (string)($o['address']['phone'] ?? '');
-      if ($phoneRaw === '') $phoneRaw = (string)($u['phone'] ?? '');
-      $phone = preg_replace('#\D#', '', $phoneRaw);
-      if (strlen($phone) === 10) $phone = '91' . $phone;
       $payload = [
-        'merchantOrderId' => $moid,
-        'amount' => $amountPaise,
-        'expireAfter' => 1200,
-        'paymentFlow' => [
-          'type' => 'PG_CHECKOUT',
-          'merchantUrls' => ['redirectUrl' => $base . '/api/pay/phonepe/return?co=' . urlencode($o['id'])],
+        'order_id' => $cfOrderId,
+        'order_amount' => round($due, 2),
+        'order_currency' => 'INR',
+        'customer_details' => [
+          'customer_id' => cashfree_sanitize_id((string)($u['id'] ?? 'guest'), 32) ?: 'guest',
+          'customer_name' => $name,
+          'customer_email' => $email,
+          'customer_phone' => $phone,
         ],
-        'disablePaymentRetry' => false,
-        'metaInfo' => ['udf1' => $o['id'], 'udf2' => 'Shivaa order'],
+        'order_meta' => [
+          // {order_id} is replaced by Cashfree at redirect time (documented placeholder)
+          'return_url' => $base . '/api/pay/cashfree/return?co=' . urlencode($o['id']) . '&order_id={order_id}',
+          'notify_url' => $base . '/api/pay/cashfree/webhook',
+        ],
+        'order_note' => substr('Shivaa Jewellers order ' . $o['id'], 0, 100),
+        'order_tags' => ['checkout_context' => 'Shivaa order ' . $o['id']],
       ];
-      if (strlen($phone) >= 10) $payload['prefillUserLoginDetails'] = ['phoneNumber' => '+' . substr($phone, 0, 2) . ' ' . substr($phone, 2)];
-      $res = phonepe_call($cfg, 'POST', '/checkout/v2/pay', $payload);
+      $res = cashfree_create_order($cfg, $payload);
       $j = $res['json'];
-      $redirectUrl = is_array($j) ? (string)($j['redirectUrl'] ?? '') : '';
-      if ($res['code'] !== 200 || $redirectUrl === '') {
-        audit_log($db, 'payment.phonepe-init-fail', ['order' => $o['id'], 'http' => $res['code'], 'resp' => $j, 'err' => $res['err']]);
-        jout(502, ['error' => 'PhonePe could not start this payment — choose WhatsApp/COD, the UPI QR tab, or retry in a moment.',
-                   'gatewayCode' => $j['code'] ?? null, 'gatewayMessage' => $j['message'] ?? ($res['err'] ?: null)]);
+      $sessionId = is_array($j) ? (string)($j['payment_session_id'] ?? '') : '';
+      if (!in_array($res['code'], [200, 201], true) || $sessionId === '') {
+        audit_log($db, 'payment.cashfree-init-fail', ['order' => $o['id'], 'http' => $res['code'], 'resp' => $j, 'err' => $res['err']]);
+        jout(502, ['error' => 'Cashfree could not start this payment — choose WhatsApp/COD, the UPI QR tab, or retry in a moment.',
+                   'gatewayCode' => $j['code'] ?? ($j['type'] ?? null),
+                   'gatewayMessage' => $j['message'] ?? ($res['err'] ?: null)]);
       }
-      $db['orders'][$i]['ppAttempts'][] = [
-        'moid' => $moid, 'ppOrderId' => (string)($j['orderId'] ?? ''), 'amountPaise' => $amountPaise,
-        'env' => $cfg['env'], 'at' => now_iso(), 'lastState' => (string)($j['state'] ?? 'PENDING'),
+      $db['orders'][$i]['cfAttempts'][] = [
+        'cfOrderId' => $cfOrderId, 'sessionId' => $sessionId, 'amount' => (int)$due,
+        'env' => $cfg['env'], 'at' => now_iso(), 'lastState' => strtoupper((string)($j['order_status'] ?? 'ACTIVE')),
       ];
-      $db['orders'][$i]['gatewayOrderId'] = $moid;
-      $db['orders'][$i]['gateway'] = 'phonepe';
+      $db['orders'][$i]['gateway'] = 'cashfree';
+      $db['orders'][$i]['gatewayOrderId'] = $cfOrderId;
       db_save($DB_FILE, $db);
-      jout(200, ['mode' => 'phonepe', 'redirectUrl' => $redirectUrl, 'bundle' => $cfg['bundle'],
+      jout(200, ['mode' => 'cashfree', 'paymentSessionId' => $sessionId, 'cfOrderId' => $cfOrderId,
                  'amount' => $amountPaise, 'orderId' => $o['id'], 'env' => $cfg['env']]);
-    }
-    if (!empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']) && (($s['payProvider'] ?? '') === 'razorpay')) {
-      $rzp = http_post_json('https://api.razorpay.com/v1/orders', [
-        'amount' => $amountPaise, 'currency' => 'INR', 'receipt' => $o['id'],
-        'payment_capture' => 1, 'notes' => ['order' => $o['id'], 'customer' => $o['userName']],
-      ], $s['rzpKeyId'] . ':' . $s['rzpKeySecret']);
-      if (!$rzp || empty($rzp['id'])) jout(502, ['error' => 'Payment gateway could not be reached — choose WhatsApp/COD or retry.']);
-      $db['orders'][$i]['gatewayOrderId'] = $rzp['id'];
-      db_save($DB_FILE, $db);
-      jout(200, ['mode' => 'razorpay', 'keyId' => $s['rzpKeyId'], 'gatewayOrder' => $rzp, 'amount' => $amountPaise, 'orderId' => $o['id']]);
     }
     /* No live gateway keys. A local/preview build gets a fake order id whose
        "demo success" works on screen; a PUBLIC host must never hand out
@@ -3874,31 +3618,25 @@ try {
                'amount' => $amountPaise, 'orderId' => $o['id']]);
   }
   if ($route === 'pay/verify' && $method === 'POST') {
+    /* v128 — real online payments run through Cashfree and are confirmed by
+       the server-side GET /pg/orders call (return URL / webhook / poller).
+       This route only completes the simulated gateway used on local/preview
+       builds when no Cashfree keys are configured yet. */
     $b = body_json();
     [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
-    $s = $db['settings'];
     if (($o['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled — no payment can be applied to it.']);  // v86
     $gOrderId = (string)($b['gatewayOrderId'] ?? ($o['gatewayOrderId'] ?? ''));
     $payId = (string)($b['paymentId'] ?? '');
-    $sig = (string)($b['signature'] ?? '');
-    if (!empty($s['rzpKeyId']) && !empty($s['rzpKeySecret']) && (($s['payProvider'] ?? '') === 'razorpay')) {
-      // v82 — the signed gateway order MUST be the one this server created for
-      // THIS order, or a valid payment for a cheap order could mark any order paid.
-      if ($gOrderId !== (string)($o['gatewayOrderId'] ?? ''))
-        jout(400, ['error' => 'Payment does not belong to this order — use the UPI screenshot option if you paid directly.']);
-      $expect = hash_hmac('sha256', $gOrderId . '|' . $payId, (string)$s['rzpKeySecret']);
-      if (!$payId || !hash_equals($expect, $sig)) jout(400, ['error' => 'Payment verification failed — no charge was completed.']);
-    } elseif (strpos($gOrderId, 'demo_') === 0) {
-      // v82 — the test gateway only auto-completes on a local/preview build,
-      // and only with the reference this server issued for this order. On a
-      // public host without Razorpay keys, payments go through the
-      // owner-approved UPI screenshot flow — never a self-issued "demo" receipt.
-      if (!shv_dev_mode() || $gOrderId !== (string)($o['gatewayOrderId'] ?? ''))
-        jout(400, ['error' => 'Online card/UPI checkout is not switched on. Please use WhatsApp/COD or attach a payment screenshot — the shop confirms it manually.']);
-    } else {
-      jout(400, ['error' => 'Gateway not configured for live payments.']);
+    if (strpos($gOrderId, 'demo_') !== 0) {
+      jout(400, ['error' => 'Online checkout runs through Cashfree — open the secure payment page again, or use WhatsApp/COD or the UPI screenshot option.']);
     }
-    $gw = (!empty($s['rzpKeyId']) && ($s['payProvider'] ?? '') === 'razorpay') ? 'razorpay' : 'demo';
+    // v82 — the simulated gateway only auto-completes on a local/preview
+    // build, and only with the reference this server issued for this order.
+    // A public host always goes through Cashfree or the owner-approved UPI
+    // screenshot flow — never a self-issued "demo" receipt.
+    if (!shv_dev_mode() || $gOrderId !== (string)($o['gatewayOrderId'] ?? ''))
+      jout(400, ['error' => 'Online card/UPI checkout is not switched on. Please use WhatsApp/COD or attach a payment screenshot — the shop confirms it manually.']);
+    $gw = 'demo';
     // v83 — idempotency: a captured gateway payment id must credit the order
     // exactly once (a replayed verify call used to add another ₹1+ line).
     foreach (($o['payments'] ?? []) as $__p) {
@@ -3969,167 +3707,80 @@ try {
     jout(200, ['orders' => array_reverse($pend)]);
   }
 
-  /* ════════ v94 · PayU hosted-checkout return + client poll ════════
-     Browser flow: pay/order → auto-POST signed form to PayU → PayU POSTs the
-     browser back to surl/furl here. We verify the reverse hash AND call
-     verify_payment server-to-server before crediting; the redirect is never
-     trusted on its own. */
-  $payu_reconcile = function (int $i, string $txnid, ?array $hint = null): array {
-    $cfg = payu_cfg($db);
-    $v = payu_verify_txn($cfg, $txnid);
-    $details = $v['json']['transaction_details'] ?? null;
-    if (is_array($details)) {
-      $t = $details[$txnid] ?? null;
-      if (is_array($t)) return payu_apply($db, $i, $t, $txnid);
-    }
-    audit_log($db, 'payment.payu-verify-fail', ['order' => $db['orders'][$i]['id'] ?? '?', 'txnid' => $txnid,
-      'http' => $v['code'], 'raw' => substr((string)$v['raw'], 0, 300)]);
-    // verify API unavailable: accept the hash-verified redirect hint (status
-    // success only; the customer poller retries verify_payment afterward).
-    if ($hint !== null && strtolower((string)($hint['status'] ?? '')) === 'success')
-      return payu_apply($db, $i, ['status' => 'success', 'mihpayid' => $hint['mihpayid'] ?? '',
-        'net_amount_debit' => $hint['amount'] ?? 0, 'mode' => $hint['mode'] ?? ''], $txnid);
-    return ['ok' => false, 'code' => 'VERIFY_UNAVAILABLE'];
+  /* ════════ v128 · Cashfree hosted-checkout return + webhook + client poll ════════
+     Browser flow: pay/order → Cashfree hosted page → browser GETs back to
+     return_url here. Server flow: Cashfree POSTs an HMAC-signed webhook.
+     Both paths ONLY trigger a reconcile — credits are issued after the
+     server-to-server GET /pg/orders/{order_id} reports order_status PAID;
+     the redirect / webhook payload alone is never trusted. */
+  $cashfree_reconcile = function (int $i, string $cfOrderId) use ($db): array {
+    $cfg = cashfree_cfg($db);
+    $st = cashfree_fetch_order($cfg, $cfOrderId);
+    if (is_array($st['json'] ?? null)) return cashfree_apply($db, $i, $st['json'], $cfOrderId);
+    audit_log($db, 'payment.cashfree-status-fail', ['order' => $db['orders'][$i]['id'] ?? '?', 'cfOrderId' => $cfOrderId,
+      'http' => $st['code'], 'raw' => substr((string)$st['raw'], 0, 300), 'err' => $st['err'] ?? '']);
+    return ['ok' => false, 'code' => 'STATUS_UNAVAILABLE'];
   };
-  if ($route === 'pay/payu/return') {
+  if ($route === 'pay/cashfree/return') {
+    // Cashfree redirects the customer to order_meta.return_url (?co=shop order)
     $co = (string)($_GET['co'] ?? '');
     $orderId = preg_match('/^[A-Za-z0-9_-]{1,48}$/', $co) ? substr($co, 0, 48) : '';
-    $p = $_POST;
-    $txnid = (string)($p['txnid'] ?? '');
     $result = 'pending';
-    $cfg = payu_cfg($db);
-    $sigOk = !empty($p['hash']) && !empty($p['key']) && !empty($p['txnid'])
-          && hash_equals(payu_response_hash($cfg, $p), strtolower((string)$p['hash']));
-    if (!$sigOk) {
-      audit_log($db, 'payment.payu-return-bad-hash', ['co' => $co, 'txnid' => $txnid, 'have' => substr((string)($p['hash'] ?? ''), 0, 24)]);
-      $result = 'fail';
-    } else {
-      $idx = $txnid !== '' ? payu_find_order_index($db, $txnid) : null;
-      if ($idx === null && $orderId !== '') {
-        foreach ($db['orders'] as $ii => $oo) if (($oo['id'] ?? '') === $orderId) {
-          foreach (($oo['payuAttempts'] ?? []) as $a) { if (($a['txnid'] ?? '') === $txnid) { $idx = $ii; break; } }
-          break;
-        }
-      }
-      if ($idx !== null) {
-        $r = $payu_reconcile($idx, $txnid, $p);
+    if ($orderId !== '') {
+      $idx = null;
+      foreach ($db['orders'] as $ii => $oo) if (($oo['id'] ?? '') === $orderId) { $idx = $ii; break; }
+      if ($idx !== null && !empty($db['orders'][$idx]['cfAttempts'])) {
+        $attempts = $db['orders'][$idx]['cfAttempts'];
+        $last = $attempts[count($attempts) - 1];
+        $r = $cashfree_reconcile($idx, (string)$last['cfOrderId']);
         if (!empty($r['ok'])) $result = 'success';
-        elseif (strtolower((string)($p['status'] ?? '')) === 'failure' || ($r['state'] ?? '') === 'failed' || ($r['code'] ?? '') === 'FAILED') $result = 'fail';
-        else $result = 'pending';
+        elseif (($r['state'] ?? '') === 'FAILED' || ($r['code'] ?? '') === 'FAILED') $result = 'fail';
       }
     }
-    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?pu=' . $result
+    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?cf=' . $result
                              : '/#/account?tab=orders';
     header('Cache-Control: no-store');
     header('Location: ' . $target, true, 302);
     exit;
   }
-  if ($route === 'pay/payu/status' && $method === 'POST') {
-    $b = body_json();
-    [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
-    if (payu_ready($db) && !empty($db['orders'][$i]['payuAttempts'])) {
-      $cfg = payu_cfg($db);
-      $attempts = $db['orders'][$i]['payuAttempts'];
-      $last = $attempts[count($attempts) - 1];
-      $v = payu_verify_txn($cfg, (string)$last['txnid']);
-      $details = $v['json']['transaction_details'] ?? null;
-      if (is_array($details)) {
-        $t = $details[$last['txnid']] ?? null;
-        if (is_array($t)) payu_apply($db, $i, $t, (string)$last['txnid']);
-      }
-      // refund tracking (PayU settles refunds asynchronously)
-      foreach (($db['orders'][$i]['refunds'] ?? []) as $rf) {
-        if (in_array((string)($rf['state'] ?? ''), ['PENDING', 'CONFIRMED', ''], true) && !empty($rf['payuMihpayid'])) {
-          $st = payu_postservice($cfg, 'check_action_status', [(string)$rf['payuMihpayid']]);
-          if (is_array($st['json'] ?? null)) payu_apply_refund($db, $i, $st['json'], (string)$rf['payuRefundKey']);
-        }
-      }
-    }
-    jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
-  }
-
-  /* ════════ v93 · PhonePe v2 redirect return, HMAC webhook, client poll ════════
-     Browser flow: pay/order → mercury PayPage → GET return here (we call the
-     OAuth Order Status API, NEVER trust the redirect) → bounce into the SPA.
-     Server flow: PhonePe POSTs an HMAC-signed webhook (checkout.order.* /
-     pg.refund.*); verify over the RAW body, then reconcile. */
-  $phonepe_reconcile_order = function (int $i, string $moid, array $fallback = null): array {
-    $cfg = phonepe_cfg($db);
-    $st = phonepe_order_status($cfg, $moid);
-    if (is_array($st['json'] ?? null)) return phonepe_apply($db, $i, $st['json'], $moid);
-    audit_log($db, 'payment.phonepe-status-fail', ['order' => $db['orders'][$i]['id'], 'http' => $st['code'], 'err' => $st['err']]);
-    // status API unavailable: trust the already HMAC-verified webhook body
-    if ($fallback !== null) return phonepe_apply($db, $i, $fallback, $moid);
-    return ['ok' => false, 'code' => 'STATUS_UNAVAILABLE'];
-  };
-  if ($route === 'pay/phonepe/return' && $method === 'GET') {
-    // PhonePe sends the browser back to paymentFlow.merchantUrls.redirectUrl;
-    // we carry our order id as ?co= and also accept the PhonePe order id.
-    $co = (string)($_GET['co'] ?? '');
-    $orderId = preg_match('/^[A-Za-z0-9_-]{1,48}$/', $co) ? substr($co, 0, 48) : '';
-    $result = 'pending';
-    if ($orderId !== '' && phonepe_ready($db)) {
-      $idx = null;
-      foreach ($db['orders'] as $ii => $oo) if (($oo['id'] ?? '') === $orderId) { $idx = $ii; break; }
-      if ($idx !== null && !empty($db['orders'][$idx]['ppAttempts'])) {
-        $attempts = $db['orders'][$idx]['ppAttempts'];
-        $last = $attempts[count($attempts) - 1];
-        $r = $phonepe_reconcile_order($idx, (string)$last['moid']);
-        if (!empty($r['ok'])) $result = 'success';
-        elseif (($r['state'] ?? '') === 'FAILED' || ($r['code'] ?? '') === 'FAILED') $result = 'fail';
-      }
-    } elseif ($orderId === '') {
-      $orderId = $co;   // gateway disabled mid-flow: still try to land the customer
-    }
-    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?pp=' . $result : '/';
-    header('Cache-Control: no-store');
-    header('Location: ' . $target, true, 302);
-    exit;
-  }
-  if ($route === 'pay/phonepe/callback' && $method === 'POST') {
+  if ($route === 'pay/cashfree/webhook' && $method === 'POST') {
+    // Cashfree signs the raw body: base64(HMAC-SHA256(timestamp . body, secret))
     $raw = (string)file_get_contents('php://input');
-    $cfg = phonepe_cfg($db);
-    if (!phonepe_webhook_verified($cfg, $raw, $_SERVER)) {
-      audit_log($db, 'payment.phonepe-callback-bad-sig', ['have' => substr((string)($_SERVER['HTTP_X_PHONEPE_CHECKSUM_SIGNATURE'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? ''), 0, 24)]);
+    $cfg = cashfree_cfg($db);
+    if (!cashfree_webhook_verified($cfg, $raw, $_SERVER)) {
+      audit_log($db, 'payment.cashfree-webhook-bad-sig', ['have' => substr((string)($_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? ''), 0, 24)]);
       jout(401, ['success' => false, 'error' => 'bad signature']);
     }
     $ev = json_decode($raw, true);
     if (!is_array($ev)) jout(400, ['success' => false, 'error' => 'bad payload']);
-    $event = (string)($ev['event'] ?? '');
-    $p = is_array($ev['payload'] ?? null) ? $ev['payload'] : [];
-    if (strpos($event, 'checkout.order.') === 0) {
-      $moid = (string)($p['merchantOrderId'] ?? '');
-      $i = $moid !== '' ? phonepe_find_order_index($db, $moid) : null;
-      if ($i === null) jout(200, ['success' => true, 'note' => 'order not found for ' . $moid]);
-      $r = $phonepe_reconcile_order($i, $moid, $p);
-      jout(200, ['success' => true, 'result' => $r]);
-    } elseif (strpos($event, 'pg.refund.') === 0) {
-      $moid = (string)($p['originalMerchantOrderId'] ?? '');
-      $i = $moid !== '' ? phonepe_find_order_index($db, $moid) : null;
-      if ($i === null) jout(200, ['success' => true, 'note' => 'order not found for ' . $moid]);
-      $r = phonepe_apply_refund($db, $i, $p);
-      jout(200, ['success' => true, 'result' => $r]);
+    // Payment webhooks carry the order in data.order (ORDER_SUCCESS / ORDER_FAILED
+    // etc.); we never trust the event — always re-fetch the order status.
+    $cfOrderId = (string)($ev['data']['order']['order_id'] ?? '');
+    if ($cfOrderId !== '') {
+      $wi = cashfree_find_order_index($db, $cfOrderId);
+      if ($wi !== null) $cashfree_reconcile($wi, $cfOrderId);
+      else audit_log($db, 'payment.cashfree-webhook-unknown', ['cfOrderId' => $cfOrderId, 'event' => (string)($ev['event'] ?? $ev['type'] ?? '')]);
     }
-    jout(200, ['success' => true, 'note' => 'ignored event ' . $event]);
+    jout(200, ['success' => true]);
   }
-  if ($route === 'pay/phonepe/status' && $method === 'POST') {
-    // order page poller: ask the server to reconcile PhonePe right now
+  if ($route === 'pay/cashfree/status' && $method === 'POST') {
+    // order page poller: ask the server to reconcile Cashfree right now
     $b = body_json();
     [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
-    if (phonepe_ready($db) && !empty($db['orders'][$i]['ppAttempts'])) {
-      $rcfg = phonepe_cfg($db);
-      $attempts = $db['orders'][$i]['ppAttempts'];
+    if (!empty($db['orders'][$i]['cfAttempts'])) {
+      $cfg = cashfree_cfg($db);
+      $attempts = $db['orders'][$i]['cfAttempts'];
       $last = $attempts[count($attempts) - 1];
-      $st = phonepe_order_status($rcfg, (string)$last['moid']);
-      if (is_array($st['json'] ?? null)) phonepe_apply($db, $i, $st['json'], (string)$last['moid']);
-      // PhonePe mandates tracking refunds via BOTH webhook and Refund Status
+      $st = cashfree_fetch_order($cfg, (string)$last['cfOrderId']);
+      if (is_array($st['json'] ?? null)) cashfree_apply($db, $i, $st['json'], (string)$last['cfOrderId']);
+      // Cashfree settles refunds asynchronously — advance any pending refund rows
       foreach (($db['orders'][$i]['refunds'] ?? []) as $rf) {
-        if (in_array((string)($rf['state'] ?? ''), ['PENDING', 'CONFIRMED', ''], true) && !empty($rf['merchantRefundId'])) {
-          $rr = phonepe_call($rcfg, 'GET', '/payments/v2/refund/' . rawurlencode((string)$rf['merchantRefundId']) . '/status');
+        if (in_array((string)($rf['state'] ?? ''), ['PENDING', 'ACTIVE', ''], true) && !empty($rf['cfRefundId']) && !empty($rf['cfOrderId'])) {
+          $rr = cashfree_call($cfg, 'GET', '/pg/orders/' . rawurlencode((string)$rf['cfOrderId']) . '/refunds/' . rawurlencode((string)$rf['cfRefundId']));
           if (is_array($rr['json'] ?? null)) {
             $rp = $rr['json'];
-            if (empty($rp['merchantRefundId'])) $rp['merchantRefundId'] = $rf['merchantRefundId'];
-            phonepe_apply_refund($db, $i, $rp);
+            if (empty($rp['refund_id'])) $rp['refund_id'] = $rf['cfRefundId'];
+            cashfree_apply_refund($db, $i, $rp);
           }
         }
       }
@@ -4177,112 +3828,36 @@ try {
     jout(404, ['error' => 'Order not found']);
   }
 
-  /* v93 — admin "Test keys" for the configured gateway. For PhonePe v2 this
-     mints a fresh OAuth token: a token back means Client ID/Version/Secret are
-     all accepted (PhonePe answers 401/invalid_client otherwise). */
+  /* v128 — admin "Test keys" for Cashfree. Probes GET /pg/orders/{probe}:
+     valid App ID + Secret Key answer 404 (order not found); wrong or
+     missing credentials answer 401/403 (authentication failed).
+     Cashfree keys are prefixed: sandbox keys start TEST_, production PROD_
+     — a prefix that contradicts the selected environment is flagged. */
   if ($route === 'admin/pay-test' && $method === 'POST') {
     need_admin($db);
-    $b = body_json();
-    $which = (string)($b['provider'] ?? payu_active_provider($db));
-    if ($which === 'payu' || (isset($b['provider']) && $b['provider'] === 'payu')) {
-      $cfg = payu_cfg($db);
-      if ($cfg['key'] === '' || $cfg['salt'] === '') jout(400, ['ok' => false, 'error' => 'Enter PayU Merchant Key and Salt first.']);
-      // Probe: a never-used txnid with VALID creds returns JSON with status/msg
-      // like "No Transaction Found" or empty transaction_details; bad key/salt
-      // returns "Invalid key" / "Invalid hash" / "Authentication failed".
-      $probe = 'SHVPROBE' . substr((string)time(), -6) . bin2hex(random_bytes(2));
-      $v = payu_verify_txn($cfg, substr($probe, 0, 30));
-      $blob = strtolower((string)($v['raw'] ?? '') . ' ' . (is_array($v['json']) ? (($v['json']['msg'] ?? '') . ' ' . ($v['json']['error'] ?? '')) : ''));
-      $hasInvalid = strpos($blob, 'invalid key') !== false || strpos($blob, 'invalid hash') !== false || strpos($blob, 'authentication failed') !== false || strpos($blob, 'merchant key') !== false;
-      $okCreds = is_array($v['json'] ?? null) && !$hasInvalid && ($v['code'] === 200 || $v['code'] === 0 || isset($v['json']['status']));
-      if ($okCreds) jout(200, ['ok' => true, 'env' => $cfg['env'],
-        'detail' => 'Credentials accepted by PayU (' . $cfg['env'] . ') — merchant key recognised. Remember to set the Success/Failure URLs in the PayU dashboard.']);
+    $cfg = cashfree_cfg($db);
+    if ($cfg['appId'] === '' || $cfg['secret'] === '') jout(400, ['ok' => false, 'error' => 'Enter the Cashfree App ID and Secret Key first.']);
+    $keyEnv = strpos($cfg['appId'], 'TEST_') === 0 ? 'sandbox'
+            : (strpos($cfg['appId'], 'PROD_') === 0 ? 'production' : '');
+    if ($keyEnv !== '' && $keyEnv !== $cfg['env'])
       jout(200, ['ok' => false, 'env' => $cfg['env'],
-        'detail' => 'PayU rejected the key/salt: ' . (is_array($v['json'] ?? null) ? ($v['json']['msg'] ?? 'check key, salt and environment') : ($v['err'] ?: 'no response'))]);
-    }
-    if ($which === 'phonepe' || (isset($b['provider']) && $b['provider'] === 'phonepe')) {
-      $cfg = phonepe_cfg($db);
-      if ($cfg['clientId'] === '' || $cfg['clientSecret'] === '') jout(400, ['ok' => false, 'error' => 'Enter PhonePe Client ID and Client Secret first.']);
-      $t = phonepe_token($cfg, true);
-      if (!empty($t['token'])) jout(200, [
-        'ok' => true, 'env' => $cfg['env'],
-        'detail' => 'Credentials accepted by PhonePe (' . $cfg['env'] . ') — OAuth token issued. Remember to create + verify the HMAC webhook too.',
-      ]);
-      $msg = $t['json']['message'] ?? $t['json']['error'] ?? ($t['err'] ?? 'rejected');
-      $hint = stripos($msg, 'invalid') !== false ? ' — check Client ID, Client Version and Client Secret (most common mismatch).' : '';
-      jout(200, ['ok' => false, 'env' => $cfg['env'], 'detail' => 'PhonePe rejected the credentials: ' . $msg . $hint]);
-    }
-    if ($which === 'razorpay') {
-      $s = $db['settings'];
-      if (empty($s['rzpKeyId']) || empty($s['rzpKeySecret'])) jout(400, ['ok' => false, 'error' => 'Enter Razorpay Key ID and Secret first.']);
-      $ch = curl_init('https://api.razorpay.com/v1/orders?count=1');
-      curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_USERPWD => $s['rzpKeyId'] . ':' . $s['rzpKeySecret'], CURLOPT_HTTPHEADER => ['Accept: application/json'],
-      ]);
-      $raw = (string)curl_exec($ch); $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE); curl_close($ch);
-      $j = json_decode($raw, true);
-      jout(200, ['ok' => $code === 200, 'http' => $code, 'detail' => $code === 200 ? 'Razorpay credentials accepted.' : 'Razorpay rejected the keys: ' . ($j['error']['description'] ?? $raw)]);
-    }
-    jout(400, ['ok' => false, 'error' => 'No live gateway is selected.']);
+        'detail' => 'This looks like a ' . $keyEnv . ' key (Cashfree keys start ' . ($keyEnv === 'sandbox' ? 'TEST_' : 'PROD_') . ') but the environment is set to ' . $cfg['env'] . '. Switch the environment or paste the matching keys.']);
+    $probe = 'shvprobe' . substr((string)time(), -6) . bin2hex(random_bytes(2));
+    $r = cashfree_fetch_order($cfg, $probe);
+    if (in_array($r['code'], [401, 403], true))
+      jout(200, ['ok' => false, 'env' => $cfg['env'],
+        'detail' => 'Cashfree rejected the App ID / Secret Key (HTTP ' . $r['code'] . '). Copy them fresh from Cashfree Merchant Dashboard → API Keys' . ($cfg['env'] === 'production' ? ' (production keys, not sandbox).' : ' (sandbox keys, not production).')]);
+    if (in_array($r['code'], [200, 400, 404], true))
+      jout(200, ['ok' => true, 'env' => $cfg['env'],
+        'detail' => 'Credentials accepted by Cashfree (' . $cfg['env'] . '). Whitelist your domain in the Cashfree dashboard and keep the webhook URL below configured.']);
+    jout(200, ['ok' => false, 'env' => $cfg['env'],
+      'detail' => 'Cashfree could not be reached right now (HTTP ' . $r['code'] . ($r['err'] !== '' ? ' — ' . $r['err'] : '') . '). Check the server\'s outbound connectivity and retry.']);
   }
 
-  /* v94 — PayU refund (admin-initiated). cancel_refund_transaction via
-     postservice; PayU settles asynchronously, confirmed by check_action_status
-     (called from the customer status poller) — the order only flips to
-     Refunded once PayU reports the refund completed. */
-  if ($route === 'admin/refund' && $method === 'POST') {
-    $b0 = body_json();
-    $payuOrderIdx = null;
-    foreach ($db['orders'] as $ii0 => $oo0) if (($oo0['id'] ?? '') === (string)($b0['orderId'] ?? '')) { $payuOrderIdx = $ii0; break; }
-    if ($payuOrderIdx !== null && ($db['orders'][$payuOrderIdx]['gateway'] ?? '') === 'payu' && payu_ready($db)) {
-      $u = need_admin($db);
-      $ord = &$db['orders'][$payuOrderIdx];
-      $paid = (int)($ord['amountPaid'] ?? 0);
-      if ($paid <= 0) jout(400, ['error' => 'No captured PayU payment to refund on this order.']);
-      foreach ($ord['refunds'] ?? [] as $r) {
-        if (in_array((string)($r['state'] ?? $r['status'] ?? ''), ['PENDING', 'CONFIRMED', 'pending'], true))
-          jout(400, ['error' => 'A refund for this order is still processing — wait for it to complete before starting another.']);
-      }
-      $committed = array_sum(array_map(fn($r) => in_array((string)($r['state'] ?? ''), ['FAILED'], true) ? 0 : (int)($r['amount'] ?? 0), $ord['refunds'] ?? []));
-      $refundable = max(0, $paid - $committed);
-      $want = isset($b0['amount']) ? max(1, (int)round((float)$b0['amount'])) : $refundable;
-      if ($want > $refundable || $refundable <= 0) jout(400, ['error' => 'Refund amount exceeds the captured amount (' . $refundable . ').']);
-      // the PayU mihpayid of the captured ledger payment
-      $mih = '';
-      foreach (array_reverse($ord['payments'] ?? []) as $p) {
-        if (($p['mode'] ?? '') === 'payu' && ($p['status'] ?? '') === 'approved' && !empty($p['gatewayPaymentId'])) { $mih = (string)$p['gatewayPaymentId']; break; }
-      }
-      if ($mih === '') {
-        foreach (array_reverse($ord['payuAttempts'] ?? []) as $a) if (!empty($a['mihpayid'])) { $mih = (string)$a['mihpayid']; break; }
-      }
-      if ($mih === '') jout(400, ['error' => 'PayU payment id missing — verify the payment first.']);
-      $cfg = payu_cfg($db);
-      $n = count($ord['refunds'] ?? []) + 1;
-      $puAttempts = $ord['payuAttempts'] ?? [];
-      $lastAttempt = $puAttempts ? end($puAttempts) : ['txnid' => $mih];
-      $rfKey = payu_sanitize_txn((string)$lastAttempt['txnid'], 22) . '-RF' . $n;
-      // var1=mihpayid, var2=token (PayU accepts the same mihpayid), var3=amount
-      $res = payu_postservice($cfg, 'cancel_refund_transaction', [$mih, $mih, number_format($want, 2, '.', '')]);
-      $j = $res['json'];
-      if (!is_array($j) || (int)($j['status'] ?? 0) !== 1) {
-        audit_log($db, 'payment.payu-refund-fail', ['order' => $ord['id'], 'resp' => $j, 'raw' => substr((string)$res['raw'], 0, 300)]);
-        jout(502, ['error' => 'PayU did not accept the refund: ' . (is_array($j) ? (string)($j['msg'] ?? 'HTTP ' . $res['code']) : ($res['err'] ?: 'no response'))]);
-      }
-      $ord['refunds'][] = [
-        'payuRefundKey' => $rfKey, 'payuMihpayid' => $mih, 'amount' => $want,
-        'reason' => substr((string)($b0['reason'] ?? 'Customer refund'), 0, 160),
-        'at' => now_iso(), 'state' => 'PENDING', 'status' => 'pending',
-        'by' => ($u['name'] ?? 'admin'),
-      ];
-      audit_log($db, 'payment.payu-refund', ['order' => $ord['id'], 'amount' => $want, 'mih' => $mih, 'msg' => $j['msg'] ?? '']);
-      db_save($DB_FILE, $db);
-      jout(200, ['ok' => true, 'order' => $ord]);
-    }
-  }
-  /* v93 — PhonePe v2 refund (admin-initiated). DORMANT since v94 (provider
-     no longer selectable); retained so any historical PhonePe order could
-     still be refunded if keys were ever entered. */
+  /* v128 — Cashfree refund (admin-initiated). POST /pg/orders/{id}/refunds;
+     Cashfree settles asynchronously — the customer status poller and the
+     webhook advance the refund row, and the order flips to Refunded only
+     once Cashfree reports refund_status SUCCESS. */
   if ($route === 'admin/refund' && $method === 'POST') {
     $u = need_admin($db);
     $b = body_json();
@@ -4290,51 +3865,60 @@ try {
     foreach ($db['orders'] as $ii => $oo) if (($oo['id'] ?? '') === (string)($b['orderId'] ?? '')) { $idx = $ii; break; }
     if ($idx === null) jout(404, ['error' => 'Order not found']);
     $ord = &$db['orders'][$idx];
-    if (($ord['gateway'] ?? '') !== 'phonepe' || !phonepe_ready($db))
-      jout(400, ['error' => 'This order was not paid through PhonePe.']);
+    if (($ord['gateway'] ?? '') !== 'cashfree' || !cashfree_ready($db))
+      jout(400, ['error' => 'This order was not paid through Cashfree.']);
     $paid = (int)($ord['amountPaid'] ?? 0);
-    if ($paid <= 0) jout(400, ['error' => 'No captured PhonePe payment to refund on this order.']);
-    // money already committed to refunds (completed OR still settling)
-    $committed = array_sum(array_map(fn($r) => ($r['state'] ?? '') === 'FAILED' ? 0 : (int)($r['amount'] ?? 0), $ord['refunds'] ?? []));
+    if ($paid <= 0) jout(400, ['error' => 'No captured Cashfree payment to refund on this order.']);
     foreach ($ord['refunds'] ?? [] as $r) {
-      if (in_array((string)($r['state'] ?? $r['status'] ?? ''), ['PENDING', 'CONFIRMED', 'pending'], true))
+      if (in_array((string)($r['state'] ?? $r['status'] ?? ''), ['PENDING', 'ACTIVE', 'pending'], true))
         jout(400, ['error' => 'A refund for this order is still processing — wait for it to complete before starting another.']);
     }
+    // money already committed to refunds (completed OR still settling)
+    $committed = array_sum(array_map(fn($r) => in_array((string)($r['state'] ?? ''), ['FAILED'], true) ? 0 : (int)($r['amount'] ?? 0), $ord['refunds'] ?? []));
     $refundable = max(0, $paid - $committed);
     $want = isset($b['amount']) ? max(1, (int)round((float)$b['amount'])) : $refundable;
     if ($want > $refundable || $refundable <= 0) jout(400, ['error' => 'Refund amount exceeds the captured amount (' . $refundable . ').']);
-    // PhonePe refunds key off the merchantOrderId WE sent: the latest completed attempt
-    $moid = '';
-    foreach (array_reverse($ord['ppAttempts'] ?? []) as $a) { if (($a['lastState'] ?? '') === 'COMPLETED') { $moid = (string)$a['moid']; break; } }
-    if ($moid === '') {
-      $all = $ord['ppAttempts'] ?? [];
-      if ($all) $moid = (string)end($all)['moid'];
+    // Cashfree refunds key off the Cashfree order id WE created: the paid attempt
+    $cfOrderId = '';
+    foreach (array_reverse($ord['cfAttempts'] ?? []) as $a) { if (($a['lastState'] ?? '') === 'PAID') { $cfOrderId = (string)$a['cfOrderId']; break; } }
+    if ($cfOrderId === '') {
+      $all = $ord['cfAttempts'] ?? [];
+      if ($all) $cfOrderId = (string)end($all)['cfOrderId'];
     }
-    if ($moid === '') jout(400, ['error' => 'Original PhonePe order id missing.']);
-    $cfg = phonepe_cfg($db);
+    if ($cfOrderId === '') jout(400, ['error' => 'Cashfree order id missing — verify the payment first.']);
+    $cfg = cashfree_cfg($db);
     $n = count($ord['refunds'] ?? []) + 1;
-    $rfId = phonepe_sanitize_id($ord['id'], 40) . '-RF' . $n;
-    $res = phonepe_call($cfg, 'POST', '/payments/v2/refund', [
-      'merchantRefundId' => $rfId,
-      'originalMerchantOrderId' => $moid,
-      'amount' => (int)round($want * 100),
+    $rfId = cashfree_sanitize_id($ord['id'], 34) . '-RF' . $n;   // refund_id: 3–40 chars
+    $note = trim((string)($b['reason'] ?? 'Customer refund'));
+    $note = substr($note !== '' ? $note : 'Customer refund', 0, 100);
+    $res = cashfree_call($cfg, 'POST', '/pg/orders/' . rawurlencode($cfOrderId) . '/refunds', [
+      'refund_id' => $rfId,
+      'refund_amount' => (float)$want,
+      'refund_note' => $note,
     ]);
     $j = $res['json'];
-    if ($res['code'] !== 200 || !is_array($j) || empty($j['refundId'])) {
-      audit_log($db, 'payment.phonepe-refund-fail', ['order' => $ord['id'], 'http' => $res['code'], 'resp' => $j, 'err' => $res['err']]);
-      jout(502, ['error' => 'PhonePe did not accept the refund: ' . ($j['message'] ?? ('HTTP ' . $res['code']))]);
+    if (!in_array($res['code'], [200, 201], true) || !is_array($j) || empty($j['refund_id'])) {
+      audit_log($db, 'payment.cashfree-refund-fail', ['order' => $ord['id'], 'http' => $res['code'], 'resp' => $j, 'err' => $res['err']]);
+      jout(502, ['error' => 'Cashfree did not accept the refund: ' . (is_array($j) ? (string)($j['message'] ?? 'HTTP ' . $res['code']) : ($res['err'] ?: 'no response'))]);
     }
+    $state = strtoupper((string)($j['refund_status'] ?? 'PENDING'));
     $ord['refunds'][] = [
-      'merchantRefundId' => $rfId, 'ppRefundId' => (string)($j['refundId'] ?? ''),
-      'originalMoid' => $moid, 'amount' => $want,
+      'cfRefundId' => $rfId, 'cfRefundGatewayId' => (string)($j['cf_refund_id'] ?? ''),
+      'cfOrderId' => $cfOrderId, 'amount' => $want,
       'reason' => substr((string)($b['reason'] ?? 'Customer refund'), 0, 160),
-      'at' => now_iso(), 'state' => (string)($j['state'] ?? 'PENDING'), 'status' => 'pending',
+      'at' => now_iso(), 'state' => $state,
+      'status' => $state === 'SUCCESS' ? 'accepted' : ($state === 'FAILED' ? 'failed' : 'pending'),
       'by' => ($u['name'] ?? 'admin'),
     ];
-    audit_log($db, 'payment.phonepe-refund', ['order' => $ord['id'], 'amount' => $want, 'refundId' => $rfId]);
+    if ($state === 'SUCCESS') {
+      $refundedDone = array_sum(array_map(fn($r) => ($r['status'] ?? '') === 'accepted' ? (int)($r['amount'] ?? 0) : 0, $ord['refunds'] ?? []));
+      $ord['paymentStatus'] = $refundedDone >= $paid && $paid > 0 ? 'Refunded' : 'Partially refunded';
+    }
+    audit_log($db, 'payment.cashfree-refund', ['order' => $ord['id'], 'amount' => $want, 'refundId' => $rfId, 'state' => $state]);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'order' => $ord]);
   }
+
 
   /* ── catalogs (uploads) ── */
   if ($route === 'catalogs' && $method === 'GET') {
@@ -5944,61 +5528,32 @@ try {
     foreach (['upiName', 'shopName', 'address', 'finePurity', 'payProvider'] as $sk) {
       if (array_key_exists($sk, $setBody) && !is_scalar($setBody[$sk])) jout(400, ['error' => $sk . ' must be text']);
     }
-    // v94 — only demo + PayU can be selected; PhonePe/Razorpay options were
-    // removed from the website (their server code stays dormant).
-    if (array_key_exists('payProvider', $setBody) && !in_array((string)$setBody['payProvider'], ['demo', 'payu'], true))
+    // v128 — only demo + Cashfree can be selected; every other gateway has
+    // been removed from the website.
+    if (array_key_exists('payProvider', $setBody) && !in_array((string)$setBody['payProvider'], ['demo', 'cashfree'], true))
       jout(400, ['error' => 'Unknown payment provider']);
-    if (array_key_exists('payuKey', $setBody)) {
-      $v = trim((string)$setBody['payuKey']);
-      if ($v !== '' && !preg_match('/^[A-Za-z0-9_\-]{4,40}$/', $v))
-        jout(400, ['error' => 'PayU Merchant Key looks invalid (4–40 letters/numbers/_/- — copy exactly from the PayU dashboard; whitespace trimmed).']);
-      $setBody['payuKey'] = $v;
+    if (array_key_exists('cfAppId', $setBody)) {
+      $v = trim((string)$setBody['cfAppId']);
+      if ($v !== '' && !preg_match('/^[A-Za-z0-9_\-]{6,80}$/', $v))
+        jout(400, ['error' => 'Cashfree App ID looks invalid — copy it exactly from Cashfree Merchant Dashboard → API Keys (whitespace trimmed).']);
+      $setBody['cfAppId'] = $v;
     }
-    if (array_key_exists('payuSalt', $setBody)) {
-      $v = trim((string)$setBody['payuSalt']);
-      if ($v === '') { unset($setBody['payuSalt']); }   // blank never wipes the saved salt
-      elseif (!preg_match('/^[^\s\|]{8,128}$/', $v))
-        jout(400, ['error' => 'PayU Salt looks invalid (paste the full salt from the PayU dashboard — 8–128 non-space characters, no |).']);
-      else $setBody['payuSalt'] = $v;
+    if (array_key_exists('cfSecretKey', $setBody)) {
+      $v = trim((string)$setBody['cfSecretKey']);
+      if ($v === '') { unset($setBody['cfSecretKey']); }   // blank never wipes the saved secret
+      elseif (!preg_match('/^[^\s]{16,160}$/', $v))
+        jout(400, ['error' => 'Cashfree Secret Key looks invalid (paste the full secret key from API Keys — no spaces).']);
+      else $setBody['cfSecretKey'] = $v;
     }
-    if (array_key_exists('payuEnv', $setBody) && !in_array((string)$setBody['payuEnv'], ['test', 'prod'], true))
-      jout(400, ['error' => 'PayU environment must be test or prod.']);
-    if (array_key_exists('ppClientId', $setBody)) {
-      $v = trim((string)$setBody['ppClientId']);
-      if ($v !== '' && !preg_match('/^[A-Za-z0-9_\-]{3,64}$/', $v))
-        jout(400, ['error' => 'PhonePe Client ID looks invalid (Developer Settings → API keys).']);
-      $setBody['ppClientId'] = $v;
+    if (array_key_exists('cfEnv', $setBody) && !in_array((string)$setBody['cfEnv'], ['sandbox', 'production'], true))
+      jout(400, ['error' => 'Cashfree environment must be sandbox or production.']);
+    // v128 — fresh start: wipe every legacy gateway credential (PayU / PhonePe /
+    // Razorpay) out of the stored settings the first time settings are saved.
+    foreach (['payuKey', 'payuSalt', 'payuEnv', 'ppClientId', 'ppClientSecret',
+              'ppClientVersion', 'ppWebhookSecret', 'ppWebhookUser', 'ppWebhookPass',
+              'ppEnv', 'rzpKeyId', 'rzpKeySecret'] as $legacyKey) {
+      unset($db['settings'][$legacyKey], $setBody[$legacyKey]);
     }
-    if (array_key_exists('ppClientSecret', $setBody)) {
-      $v = trim((string)$setBody['ppClientSecret']);
-      if ($v === '') { unset($setBody['ppClientSecret']); }   // blank never wipes the saved secret
-      elseif (!preg_match('/^[A-Za-z0-9_\-]{16,160}$/', $v))
-        jout(400, ['error' => 'PhonePe Client Secret looks invalid (paste the full secret from Developer Settings).']);
-      else $setBody['ppClientSecret'] = $v;
-    }
-    if (array_key_exists('ppClientVersion', $setBody)) {
-      $v = trim((string)$setBody['ppClientVersion']);
-      if ($v !== '' && !preg_match('/^[A-Za-z0-9._\-]{1,12}$/', $v))
-        jout(400, ['error' => 'PhonePe Client Version looks invalid (usually just 1).']);
-      $setBody['ppClientVersion'] = $v === '' ? '1' : $v;
-    }
-    if (array_key_exists('ppWebhookSecret', $setBody)) {
-      $v = trim((string)$setBody['ppWebhookSecret']);
-      if ($v === '') { unset($setBody['ppWebhookSecret']); }
-      elseif (strlen($v) < 8 || strlen($v) > 160 || !preg_match('/^[A-Za-z0-9_\-\.]+$/', $v))
-        jout(400, ['error' => 'PhonePe webhook Checksum Secret looks invalid.']);
-      else $setBody['ppWebhookSecret'] = $v;
-    }
-    foreach (['ppWebhookUser', 'ppWebhookPass'] as $wk) {
-      if (array_key_exists($wk, $setBody)) {
-        $v = trim((string)$setBody[$wk]);
-        if ($v === '') unset($setBody[$wk]);
-        elseif (!preg_match('/^[A-Za-z0-9_\-\.@:]{1,80}$/', $v)) jout(400, ['error' => 'Webhook credentials contain unsupported characters.']);
-        else $setBody[$wk] = $v;
-      }
-    }
-    if (array_key_exists('ppEnv', $setBody) && !in_array((string)$setBody['ppEnv'], ['uat', 'prod'], true))
-      jout(400, ['error' => 'PhonePe environment must be uat or prod.']);
     if (array_key_exists('siteBaseUrl', $setBody)) {
       $v = rtrim(trim((string)$setBody['siteBaseUrl']), '/');
       if ($v !== '' && !filter_var($v, FILTER_VALIDATE_URL))

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 125;
+const APP_REL = 128;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -3772,7 +3772,7 @@ pages.checkout = async (view) => {
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
-  /* v58 — payment configuration (demo until Razorpay keys are added) */
+  /* v128 — payment configuration (demo until Cashfree keys are added) */
   let payCfg = { mode: 'demo', prepaidPct: 2, keyId: '' };
   try { payCfg = await api('/api/pay/config'); } catch (e) {}
   view.innerHTML = `
@@ -3792,11 +3792,11 @@ pages.checkout = async (view) => {
 
       <div class="sec-title">Payment method</div>
       <div style="display:grid;gap:12px" id="payOpts">
-        <label class="pay-opt on" id="payOptOnline"><input type="radio" name="pay" value="Online" checked><span><b>Pay online · UPI / card / net-banking <em class="pay-badge" id="payBadge">2% off</em></b><small id="payOnlineSub">secured by PayU · instant 2% prepaid discount</small></span></label>
+        <label class="pay-opt on" id="payOptOnline"><input type="radio" name="pay" value="Online" checked><span><b>Pay online · UPI / card / net-banking <em class="pay-badge" id="payBadge">2% off</em></b><small id="payOnlineSub">secured by Cashfree · instant 2% prepaid discount</small></span></label>
         <label class="pay-opt" id="payOptCod"><input type="radio" name="pay" value="COD"><span><b>Cash on Delivery</b><small id="payCodSub">Available on orders below ${fmt(50000)} · ID verification at handover · full price</small></span></label>
         <label class="pay-opt"><input type="radio" name="pay" value="WhatsApp"><span><b>WhatsApp Order</b><small>Our team confirms the order &amp; payment (UPI / bank / card) on chat · full price</small></span></label>
       </div>
-      <div class="qty-banner mt-2" id="payDemoNote">🔒 Card/net-banking checkout switches to <b>live PayU</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.</div>
+      <div class="qty-banner mt-2" id="payDemoNote">🔒 Card/net-banking checkout switches to <b>live Cashfree</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.</div>
     </div>
 
     <div class="summary">
@@ -3897,13 +3897,13 @@ pages.checkout = async (view) => {
   const pct = +(payCfg.prepaidPct || 0);
   const badge = $('#payBadge'); if (badge) badge.textContent = pct ? pct + '% off' : '';
   const sub = $('#payOnlineSub');
-  if (sub) sub.textContent = payCfg.mode === 'payu'
-    ? 'UPI · cards · net-banking · wallets · secured by PayU' + (pct ? ' · instant ' + pct + '% off' : '')
-    : 'UPI · cards · net-banking (demo until PayU keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
+  if (sub) sub.textContent = payCfg.mode === 'cashfree'
+    ? 'UPI · cards · net-banking · wallets · secured by Cashfree' + (pct ? ' · instant ' + pct + '% off' : '')
+    : 'UPI · cards · net-banking (demo until Cashfree keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
   const note = $('#payDemoNote');
-  if (note) note.innerHTML = payCfg.mode === 'payu'
-    ? '🔒 You will be redirected to the secure <b>PayU</b> payment page (UPI / cards / net-banking / wallets). Your card details never touch shivaa.in.' + (payCfg.payu && payCfg.payu.env === 'test' ? ' <b>Test mode.</b>' : '')
-    : '🔒 Card/net-banking checkout switches <b>live on PayU</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
+  if (note) note.innerHTML = payCfg.mode === 'cashfree'
+    ? '🔒 You will be redirected to the secure <b>Cashfree</b> payment page (UPI / cards / net-banking / wallets · 120+ payment methods). Your card details never touch shivaa.in.' + (payCfg.cashfree && payCfg.cashfree.env === 'sandbox' ? ' <b>Test mode.</b>' : '')
+    : '🔒 Card/net-banking checkout switches <b>live on Cashfree</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
   const codPct = +(state.settings.codFeePct || 0);
   const codSub = $('#payCodSub');
   if (codSub) {
@@ -4022,7 +4022,7 @@ window.Shivaa.wishlistAlerts = async (idsArg) => {
   } catch (e) { toast(e.message, 'err'); }
 };
 
-/* ═══════════ v58 · online payments — Razorpay-ready, demo without keys ═══════════ */
+/* ═══════════ v128 · online payments — Cashfree hosted checkout, demo without keys ═══════════ */
 function loadExternalScript(src) {
   return new Promise(resolve => {
     if (document.querySelector(`script[src="${src}"]`)) return resolve(true);
@@ -4096,7 +4096,7 @@ function demoPaySheet(po, orderId) {
         <button type="button" class="ps-m">🏦 Net-banking</button>
       </div>
       <button class="btn btn-gold btn-block btn-lg" id="psPay">Pay ${fmt(amt)} <small>(demo success)</small></button>
-      <p class="ps-note">Card checkout switches to live PayU the moment keys are added in admin &rarr; Settings &rarr; Payments.${po.upiId ? ' Need to really pay now? open the <b>UPI QR</b> tab.' : ''}</p>
+      <p class="ps-note">Card checkout switches to live Cashfree the moment keys are added in admin &rarr; Settings &rarr; Payments.${po.upiId ? ' Need to really pay now? open the <b>UPI QR</b> tab.' : ''}</p>
       </div>
       <button class="btn btn-ghost btn-block" id="psLater">Pay later &middot; order stays reserved</button>
     </div>`);
@@ -4120,59 +4120,52 @@ function demoPaySheet(po, orderId) {
 }
 /* v94 — full-page navigation seam (tests capture instead of navigating). */
 window.Shivaa.redirectTo = (url) => { window.location.href = url; };
-/* v94 — brief overlay while the browser leaves for the PayU payment page */
-function payuRedirectSheet(retry) {
+/* v128 — brief overlay while the browser leaves for the Cashfree payment page */
+function cashfreeRedirectSheet(retry) {
   return new Promise(resolve => {
-  openModal(`<div style="text-align:center;padding:14px 6px" id="payuHandoff">
+  openModal(`<div style="text-align:center;padding:14px 6px" id="cfHandoff">
       <div class="pp-spinner" aria-hidden="true"></div>
-      <h3 style="margin:14px 0 6px">Opening secure PayU…</h3>
-      <p style="color:var(--muted);font-size:13px">Keep this tab open. If PayU does not open automatically, use the button below.</p>
-      <button type="button" class="btn btn-gold btn-block" id="payuContinue" style="margin-top:14px">Continue to PayU</button>
-      <button type="button" class="btn btn-ghost btn-block" id="payuCancel" style="margin-top:8px">Return to my order</button>
+      <h3 style="margin:14px 0 6px">Opening secure Cashfree checkout…</h3>
+      <p style="color:var(--muted);font-size:13px">Keep this tab open. If Cashfree does not open automatically, use the button below.</p>
+      <button type="button" class="btn btn-gold btn-block" id="cfContinue" style="margin-top:14px">Continue to Cashfree</button>
+      <button type="button" class="btn btn-ghost btn-block" id="cfCancel" style="margin-top:8px">Return to my order</button>
     </div>`);
-  const go = $('#payuContinue');
-  if (go) go.onclick = () => { go.disabled = true; go.textContent = 'Opening PayU…'; retry(); setTimeout(() => { if (document.body.contains(go)) { go.disabled = false; go.textContent = 'Try PayU again'; } }, 5000); };
-  const cancel = $('#payuCancel'); if (cancel) cancel.onclick = () => { closeModal(); resolve(false); };
+  const go = $('#cfContinue');
+  if (go) go.onclick = () => { go.disabled = true; go.textContent = 'Opening Cashfree…'; retry(); setTimeout(() => { if (document.body.contains(go)) { go.disabled = false; go.textContent = 'Try Cashfree again'; } }, 5000); };
+  const cancel = $('#cfCancel'); if (cancel) cancel.onclick = () => { closeModal(); resolve(false); };
   });
 }
-/* v94 — PayU hosted checkout: the server signs and returns the form fields;
-   we auto-submit a full-page POST to secure.payu.in / test.payu.in. */
-window.Shivaa.payuSubmit = (action, fields) => {
-  /* v118 — never leave a customer behind an endless spinner. Use the native
-     prototype (immune to fields named submit), validate PayU's host, and
-     return a real success/failure signal so the handoff can offer a retry. */
-  let u;
-  try { u = new URL(action, location.href); } catch (_) { throw new Error('Invalid PayU payment address'); }
-  if (!/^https:$/.test(u.protocol) || !/(^|\.)payu\.in$/i.test(u.hostname)) throw new Error('Unsafe PayU payment address');
-  const f = document.createElement('form');
-  f.method = 'POST'; f.action = u.href; f.style.display = 'none'; f.target = '_self';
-  for (const [k, v] of Object.entries(fields || {})) {
-    const i = document.createElement('input');
-    i.type = 'hidden'; i.name = k; i.value = String(v ?? '');
-    f.appendChild(i);
-  }
-  document.body.appendChild(f);
-  HTMLFormElement.prototype.submit.call(f);
+/* v128 — Cashfree hosted checkout (Step 2): load the official JS SDK and open
+   the PCI-compliant payment page with the payment_session_id the server minted.
+   redirectTarget _self replaces this page; Cashfree sends the customer back to
+   the return_url, which the server verifies before crediting the order. */
+window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
+  const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js');
+  if (!ok || typeof window.Cashfree !== 'function') throw new Error('Cashfree could not load — check your internet connection and try again');
+  const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
+  cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' });
   return true;
 };
 window.Shivaa.payForOrder = async (orderId) => {
   let po;
   try { po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) }); }
   catch (e) { toast(e.message, 'err'); return false; }
-  // v94 — PayU: signed form POST redirect; PayU returns the browser to
-  // /api/pay/payu/return → order page (?pu=…), server verifies via verify_payment.
-  if (po.mode === 'payu') {
-    if (!po.action || !po.fields || !po.fields.hash) {
-      toast('PayU checkout could not start — retry or use the UPI QR tab', 'err'); return false;
+  // v128 — Cashfree: server created the order, we open the hosted checkout;
+  // Cashfree returns the browser to /api/pay/cashfree/return → order page
+  // (?cf=…), the server verifies via GET /pg/orders/{id}.
+  if (po.mode === 'cashfree') {
+    if (!po.paymentSessionId) {
+      toast('Cashfree checkout could not start — retry or use the UPI QR tab', 'err'); return false;
     }
-    toast('Taking you to PayU…');
+    toast('Taking you to secure Cashfree checkout…');
     const handoff = () => {
-      try { Shivaa.payuSubmit(po.action, po.fields); }
-      catch (e) { toast(e.message || 'PayU could not open — tap Try PayU again', 'err'); }
+      Shivaa.cashfreeCheckout(po.paymentSessionId, po.env)
+        .catch(e => toast(e.message || 'Cashfree could not open — tap Try Cashfree again', 'err'));
     };
-    const waiting = payuRedirectSheet(handoff);
-    /* Submit immediately after the handoff UI is painted. The visible button
-       remains as a user-gesture fallback for strict mobile browsers. */
+    const waiting = cashfreeRedirectSheet(handoff);
+    /* Open the checkout immediately after the handoff UI is painted. The
+       visible button remains as a user-gesture fallback for strict mobile
+       browsers. */
     setTimeout(handoff, 50);
     return waiting;
   }
@@ -4209,7 +4202,7 @@ window.Shivaa.placeOrder = async () => {
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
     if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
     window._lastOrder = order;
-    // v58 — online prepayment (Razorpay live when configured, simulated in demo)
+    // v128 — online prepayment (Cashfree live when configured, simulated in demo)
     if (paymentMethod === 'Online') await Shivaa.payForOrder(order.id, { fromCheckout: true });
     // Gold Finale: remember a qualifying order so the order page can offer the quiz
     try {
@@ -4347,14 +4340,14 @@ function paymentLedgerHTML(o) {
   const pays = o.payments || [];
   if (!pays.length) return '';
   const pct = Math.max(4, Math.min(100, Math.round((o.amountPaid || 0) / Math.max(1, o.total) * 100)));
-  const payLabel = { payu: 'PayU', phonepe: 'PhonePe', razorpay: 'Razorpay', 'upi-qr': 'UPI QR', cash: 'Cash', bank: 'Bank transfer', card: 'Card', upi: 'UPI' };
+  const payLabel = { cashfree: 'Cashfree', 'upi-qr': 'UPI QR', cash: 'Cash', bank: 'Bank transfer', card: 'Card', upi: 'UPI' };
   const refunds = o.refunds || [];
   return `<div class="paymil" style="max-width:640px;margin:12px auto 0">
       <div class="paymil-bar"><i style="width:${pct}%"></i><span>${pct}% paid</span></div>
     </div>
     <details class="acc" style="max-width:640px;margin:6px auto" open><summary>Payment history (${pays.length})${o.balance > 0 && o.paymentStatus !== 'Refunded' ? ' · balance ' + fmt(o.balance) : ''}</summary><div class="acc-body">
     ${pays.map(p => `<div class="sum-row"><span>${new Date(p.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(payLabel[p.mode] || p.mode || p.gateway || 'online')} · <small>${esc(p.status || 'approved')}${p.ref ? ' · ' + esc(p.ref) : ''}</small></span><b>${p.status === 'rejected' ? '—' : fmt(p.amount)}</b></div>`).join('')}
-    ${refunds.map(r => `<div class="sum-row" style="color:var(--warn)"><span>${new Date(r.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(({ payu: 'PayU', phonepe: 'PhonePe', razorpay: 'Razorpay' })[String(o.gateway || '').toLowerCase()] || 'Gateway')} refund · <small>${esc(r.status || 'pending')} · 5–7 days</small></span><b>− ${fmt(r.amount)}</b></div>`).join('')}
+    ${refunds.map(r => `<div class="sum-row" style="color:var(--warn)"><span>${new Date(r.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · ${esc(({ cashfree: 'Cashfree' })[String(o.gateway || '').toLowerCase()] || 'Gateway')} refund · <small>${esc(r.status || 'pending')} · 5–7 days</small></span><b>− ${fmt(r.amount)}</b></div>`).join('')}
     ${o.amountPaid && !refunds.length ? `<div class="sum-row total"><span>Received</span><b>${fmt(o.amountPaid)}</b></div>` : ''}
     ${(o.balance > 0 && o.paymentStatus !== 'Refunded') ? `<div class="sum-row" style="color:var(--warn)"><span>Balance due before dispatch</span><b>${fmt(o.balance)}</b></div>` : ''}
   </div></details>`;
@@ -4417,14 +4410,14 @@ pages.order = async (view, q, id) => {
   let order;
   try { order = (await api('/api/orders/' + id)).order; } catch (e) { view.innerHTML = `<div class="empty"><h3>Order not found</h3></div>`; return; }
   window._lastOrder = order;
-  // v94 — returning from the PayU hosted page (?pu=success|pending|fail)
-  const ppReturn = String(q.get('pu') || q.get('pp') || '').toLowerCase();
+  // v128 — returning from the Cashfree hosted page (?cf=success|pending|fail)
+  const ppReturn = String(q.get('cf') || '').toLowerCase();
   const ppBannerHTML = ppReturn === 'success'
-    ? `<div class="pp-banner ok" id="ppBanner"><span class="pp-bi">✓</span><div><b>Payment received</b><small>PayU confirmed it — the receipt is shown in the ledger below.</small></div></div>`
+    ? `<div class="pp-banner ok" id="ppBanner"><span class="pp-bi">✓</span><div><b>Payment received</b><small>Cashfree confirmed it — the receipt is shown in the ledger below.</small></div></div>`
     : ppReturn === 'fail'
-    ? `<div class="pp-banner err" id="ppBanner"><span class="pp-bi">!</span><div><b>Payment was not completed</b><small>If money was debited, PayU reverses it automatically in 5–7 working days. Retry with the button below.</small></div></div>`
+    ? `<div class="pp-banner err" id="ppBanner"><span class="pp-bi">!</span><div><b>Payment was not completed</b><small>If money was debited, Cashfree reverses it automatically in 5–7 working days. Retry with the button below.</small></div></div>`
     : ppReturn === 'pending'
-    ? `<div class="pp-banner pending" id="ppBanner"><span class="pp-spinner sm" aria-hidden="true"></span><div><b>Confirming your PayU payment…</b><small>Hold on a few seconds — do not close this tab.</small></div></div>`
+    ? `<div class="pp-banner pending" id="ppBanner"><span class="pp-spinner sm" aria-hidden="true"></span><div><b>Confirming your Cashfree payment…</b><small>Hold on a few seconds — do not close this tab.</small></div></div>`
     : '';
   view.innerHTML = `
   <div style="min-height:70vh;display:flex;align-items:center;padding:60px 0">
@@ -4483,8 +4476,8 @@ pages.order = async (view, q, id) => {
     const slot = $('#refundSlot');
     if (mine && slot) slot.innerHTML = refundCardHTML(order, mine);
   } catch (e) { /* guests / no requests */ }
-  // v94 — after a PayU redirect return, ask the server to run verify_payment
-  // (and refund status) and redraw the moment the order flips to Paid.
+  // v128 — after a Cashfree redirect return, ask the server to reconcile the
+  // order (GET /pg/orders + refund status) and redraw the moment it flips to Paid.
   if (ppReturn === 'success' || ppReturn === 'pending') {
     const pollPP = async (tries) => {
       if (!document.getElementById('ppBanner')) return;              // navigated away
@@ -4496,17 +4489,17 @@ pages.order = async (view, q, id) => {
       await new Promise(r => setTimeout(r, tries === 0 ? 1200 : 2600));
       if (!document.getElementById('ppBanner')) return;
       try {
-        const r = await api('/api/pay/payu/status', { method: 'POST', body: JSON.stringify({ orderId: id }) });
+        const r = await api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId: id }) });
         const o = r.order || {};
         const ps = String(o.paymentStatus || '');
         if (/^paid$/i.test(ps) || /partially paid/i.test(ps)) {
-          toast('PayU payment confirmed ✦');
+          toast('Cashfree payment confirmed ✦');
           history.replaceState(null, '', '#/order/' + encodeURIComponent(id));
           return pages.order(view, new URLSearchParams(), id);
         }
         if (/failed/i.test(ps)) {
-          history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + '?pu=fail');
-          return pages.order(view, new URLSearchParams('pu=fail'), id);
+          history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + '?cf=fail');
+          return pages.order(view, new URLSearchParams('cf=fail'), id);
         }
         return pollPP(tries + 1);
       } catch (e) { return pollPP(tries + 1); }
@@ -7770,7 +7763,7 @@ function loadStaffBundle() {
   if (!_staffBundle) {
     _staffBundle = injectScript('/js/qr.js?v=99')
       .catch(() => { /* QR tags degrade gracefully; the panel must still open */ })
-      .then(() => injectScript('/js/admin.js?v=103'))
+      .then(() => injectScript('/js/admin.js?v=128'))
       .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
   }
   return _staffBundle;
