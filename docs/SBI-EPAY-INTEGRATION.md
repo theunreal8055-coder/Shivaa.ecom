@@ -308,6 +308,27 @@ fee, and settlement is **T+2 working days**. UPI is generally the cheapest rail 
 confirm what applies to your turnover category in the pricing offer. Nothing here changes the fact
 that the site works today on PayU/UPI, so treat the SBI quote as a comparison, not a prerequisite.
 
+### Settlement — what actually reaches the account, and when
+
+**SBIePay does not offer instant settlement.** Its own FAQ is explicit: settlement follows the RBI
+nodal-account instruction of a **maximum T+2 working days** (T = the day of intimation of transaction
+completion) for private merchants and autonomous bodies — *"while genuine efforts are made to settle
+the funds by T+1 working day itself, all the funds shall be settled by T+2 working days."* Government
+bodies settle T+3. International collections follow the same cycle, credited in rupees only.
+
+| Channel | When the money reaches your account | Notes |
+|---|---|---|
+| **SBIePay online** (cards · netbanking · UPI · wallets) | **T+2 working days max** (best-effort T+1) | All channels aggregate into one nodal account and the day's collections land as a single credit; fees come off either as net settlement or as a monthly invoice, per your agreement |
+| **SBI Payments POS / YONO SBI Merchant (Bharat QR)** | Auto-settlement at end of day → **next day (T+1)** | Counter-side acceptance, not the website |
+| **Your own SBI UPI VPA** — the site's *Counter UPI ID* QR flow | **Instant** — UPI credits the payee's bank account in real time, no aggregator holds the money | UPI only; bank per-transaction limits apply (typically ₹1 lakh, higher for approved categories); you approve each screenshot in Orders |
+| **Fintech PA "instant settlement"** (Cashfree/Razorpay-style add-on) | Minutes — paid, risk-gated | Understand what it is: the PA **pre-funds** you ahead of its own T+1/T+2 cycle. It is a cash-flow product with a fee, not a faster RBI settlement cycle |
+
+So: if the goal is money in the SBI account *today*, the UPI VPA QR flow is the only route that does
+it — that is why it exists as step 1 in the ranking above. If the goal is automatic card/netbanking
+collection, budget for **T+2** with SBIePay (and ask the RM whether any on-demand/T+0 product exists
+for your merchant category — none is published; get any offer in writing, with cut-off time, fee and
+whether it is revocable).
+
 ### The recommendation in one line
 
 Run routes 1 + 2 now (selling today), submit route 4 in parallel (the paperwork), and switch to
