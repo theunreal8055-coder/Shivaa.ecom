@@ -4127,6 +4127,7 @@ function cashfreeRedirectSheet(retry) {
       <div class="pp-spinner" aria-hidden="true"></div>
       <h3 style="margin:14px 0 6px">Opening secure Cashfree checkout…</h3>
       <p style="color:var(--muted);font-size:13px">Keep this tab open. If Cashfree does not open automatically, use the button below.</p>
+      <div id="cfErr" style="display:none;color:#8f1d16;font-size:12.5px;margin:10px 4px 0;text-align:left;background:#fdecea;border:1px solid #f5c6c2;border-radius:10px;padding:8px 10px;word-break:break-word"></div>
       <button type="button" class="btn btn-gold btn-block" id="cfContinue" style="margin-top:14px">Continue to Cashfree</button>
       <button type="button" class="btn btn-ghost btn-block" id="cfCancel" style="margin-top:8px">Return to my order</button>
     </div>`);
@@ -4143,7 +4144,16 @@ window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
   const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js');
   if (!ok || typeof window.Cashfree !== 'function') throw new Error('Cashfree could not load — check your internet connection and try again');
   const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
-  cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' });
+  let res;
+  try {
+    res = await cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' });
+  } catch (e) {
+    throw new Error('Cashfree checkout failed: ' + ((e && e.message) ? e.message : String(e)));
+  }
+  if (res && res.error) {
+    const em = res.error.message || res.error.code || res.error.description;
+    throw new Error('Cashfree refused to open: ' + (em || JSON.stringify(res.error)));
+  }
   return true;
 };
 window.Shivaa.payForOrder = async (orderId) => {
@@ -4160,7 +4170,12 @@ window.Shivaa.payForOrder = async (orderId) => {
     toast('Taking you to secure Cashfree checkout…');
     const handoff = () => {
       Shivaa.cashfreeCheckout(po.paymentSessionId, po.env)
-        .catch(e => toast(e.message || 'Cashfree could not open — tap Try Cashfree again', 'err'));
+        .catch(e => {
+          const msg = (e && e.message) ? e.message : 'Cashfree could not open — tap Try Cashfree again';
+          const box = document.getElementById('cfErr');
+          if (box) { box.style.display = 'block'; box.textContent = '⚠️ ' + msg; }
+          toast(msg, 'err');
+        });
     };
     const waiting = cashfreeRedirectSheet(handoff);
     /* Open the checkout immediately after the handoff UI is painted. The
