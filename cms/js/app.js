@@ -4023,11 +4023,22 @@ window.Shivaa.wishlistAlerts = async (idsArg) => {
 };
 
 /* ═══════════ v128 · online payments — Cashfree hosted checkout, demo without keys ═══════════ */
-function loadExternalScript(src) {
+function loadExternalScript(src, timeoutMs) {
   return new Promise(resolve => {
     if (document.querySelector(`script[src="${src}"]`)) return resolve(true);
     const s = document.createElement('script'); s.src = src;
-    s.onload = () => resolve(true); s.onerror = () => resolve(false);
+    let done = false;
+    const finish = (ok) => {
+      if (done) return; done = true;
+      if (tm) clearTimeout(tm);
+      if (!ok) s.remove();   /* v130 — a failed tag must not poison "Try again" retries */
+      resolve(ok);
+    };
+    /* v130 — a hung request (no response, no onerror) must surface an error,
+       never spin the handoff sheet forever. */
+    const tm = timeoutMs ? setTimeout(() => finish(false), timeoutMs) : null;
+    s.onload = () => finish(true);
+    s.onerror = () => finish(false);
     document.head.appendChild(s);
   });
 }
@@ -4127,11 +4138,23 @@ function cashfreeRedirectSheet(retry) {
       <div class="pp-spinner" aria-hidden="true"></div>
       <h3 style="margin:14px 0 6px">Opening secure Cashfree checkout…</h3>
       <p style="color:var(--muted);font-size:13px">Keep this tab open. If Cashfree does not open automatically, use the button below.</p>
+      <div id="cfErr" style="display:none;color:#8f1d16;font-size:12.5px;margin:10px 4px 0;text-align:left;background:#fdecea;border:1px solid #f5c6c2;border-radius:10px;padding:8px 10px;word-break:break-word"></div>
       <button type="button" class="btn btn-gold btn-block" id="cfContinue" style="margin-top:14px">Continue to Cashfree</button>
       <button type="button" class="btn btn-ghost btn-block" id="cfCancel" style="margin-top:8px">Return to my order</button>
     </div>`);
   const go = $('#cfContinue');
-  if (go) go.onclick = () => { go.disabled = true; go.textContent = 'Opening Cashfree…'; retry(); setTimeout(() => { if (document.body.contains(go)) { go.disabled = false; go.textContent = 'Try Cashfree again'; } }, 5000); };
+  if (go) go.onclick = () => {
+    go.disabled = true; go.textContent = 'Opening Cashfree…';
+    /* v130 — restore the sheet from its error state before retrying. */
+    const sheet = document.getElementById('cfHandoff');
+    if (sheet) {
+      const sp = sheet.querySelector('.pp-spinner'); if (sp) sp.style.display = '';
+      const h = sheet.querySelector('h3'); if (h) h.textContent = 'Opening secure Cashfree checkout…';
+      const err = document.getElementById('cfErr'); if (err) err.style.display = 'none';
+    }
+    retry();
+    setTimeout(() => { if (document.body.contains(go)) { go.disabled = false; go.textContent = 'Try Cashfree again'; } }, 5000);
+  };
   const cancel = $('#cfCancel'); if (cancel) cancel.onclick = () => { closeModal(); resolve(false); };
   });
 }
@@ -4140,10 +4163,43 @@ function cashfreeRedirectSheet(retry) {
    redirectTarget _self replaces this page; Cashfree sends the customer back to
    the return_url, which the server verifies before crediting the order. */
 window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
-  const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js');
+  const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 15000);
   if (!ok || typeof window.Cashfree !== 'function') throw new Error('Cashfree could not load — check your internet connection and try again');
   const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
-  cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' });
+  let res;
+  try {
+    /* v131 — a successful _self checkout navigates the page away, which kills
+       any pending timer with it — so the timeout below can ONLY fire when the
+       SDK hangs without responding. That must never be a silent eternal
+       spinner: it surfaces as the same red error box as every other failure. */
+    res = await Promise.race([
+      cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('__cf_timeout__')), 20000))
+    ]);
+  } catch (e) {
+    if (e && e.message === '__cf_timeout__') throw new Error('Cashfree did not respond (20s timeout) — tap Try Cashfree again');
+    throw new Error('Cashfree checkout failed: ' + ((e && e.message) ? e.message : String(e)));
+  }
+  if (res && res.error) {
+    const em = res.error.message || res.error.code || res.error.description;
+    throw new Error('Cashfree refused to open: ' + (em || JSON.stringify(res.error)));
+  }
+  /* v132 — the v3 SDK opens the hosted checkout in its own full-screen
+     iframe and resolves optimistically ({redirect:true}). A block (CSP or
+     similar) kills that iframe SILENTLY — the page just sits with the
+     spinner. So after the SDK says "launched", verify a payment frame
+     actually materialised on this page. If the top frame had really
+     navigated to Cashfree, this code would never run at all. */
+  if (res && res.redirect) {
+    const frameAppeared = await (async () => {
+      for (let i = 0; i < 25; i++) {
+        if (document.querySelector('iframe') || document.querySelector('[data-addedby="cfatom"]')) return true;
+        await new Promise(r => setTimeout(r, 400));
+      }
+      return false;
+    })();
+    if (!frameAppeared) throw new Error('Cashfree reported it opened, but no payment window appeared — it was blocked by this browser. Tap Try Cashfree again or use a different browser.');
+  }
   return true;
 };
 window.Shivaa.payForOrder = async (orderId) => {
@@ -4158,9 +4214,39 @@ window.Shivaa.payForOrder = async (orderId) => {
       toast('Cashfree checkout could not start — retry or use the UPI QR tab', 'err'); return false;
     }
     toast('Taking you to secure Cashfree checkout…');
+    /* v133 — EVERY attempt (the first one and each "Try Cashfree again") mints
+       a FRESH Cashfree session server-side. Sessions are short-lived and the
+       first hosted-page open can consume them, so reusing one
+       paymentSessionId across retries produces
+       "payment_session_id is not present or is invalid". The server is built
+       for this: each /api/pay/order call creates a new Cashfree order
+       (-A1, -A2, …) and a new session. */
     const handoff = () => {
-      Shivaa.cashfreeCheckout(po.paymentSessionId, po.env)
-        .catch(e => toast(e.message || 'Cashfree could not open — tap Try Cashfree again', 'err'));
+      api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) })
+        .then(p2 => {
+          if (!p2 || p2.mode !== 'cashfree' || !p2.paymentSessionId) {
+            throw new Error((p2 && (p2.gatewayMessage || p2.error)) || 'Cashfree could not start — use the UPI QR tab or retry');
+          }
+          return Shivaa.cashfreeCheckout(p2.paymentSessionId, p2.env);
+        })
+        .catch(e => {
+          let msg = (e && e.message) ? e.message : 'Cashfree could not open — tap Try Cashfree again';
+          if (/payment_session_id/i.test(msg)) msg = 'Cashfree session expired or was rejected — tap Try Cashfree again to start a fresh one';
+          const box = document.getElementById('cfErr');
+          if (box) {
+            box.style.display = 'block';
+            box.textContent = '⚠️ ' + msg;
+            /* v130 — stop looking like we're still working: hide the spinner,
+               say what happened; "Try Cashfree again" restores the sheet. */
+            const sheet = document.getElementById('cfHandoff');
+            if (sheet) {
+              const sp = sheet.querySelector('.pp-spinner'); if (sp) sp.style.display = 'none';
+              const h = sheet.querySelector('h3'); if (h) h.textContent = 'Cashfree could not open';
+              if (window.console) console.warn('[shivaa-cashfree]', msg);
+            }
+          }
+          toast(msg, 'err');
+        });
     };
     const waiting = cashfreeRedirectSheet(handoff);
     /* Open the checkout immediately after the handoff UI is painted. The

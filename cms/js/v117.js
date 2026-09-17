@@ -46,7 +46,7 @@
     // order = the old static-defer order in index.html
     inject('/js/aurum.js?v=107')
       .then(function () { return inject('/js/motion.js?v=107'); })
-      .then(function () { return inject('/js/boost.js?v=46'); })
+      .then(function () { return inject('/js/boost.js?v=134'); })
       .catch(function () { /* ambience is optional — never noisy */ });
   }
 
