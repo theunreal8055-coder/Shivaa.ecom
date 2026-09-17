@@ -4214,10 +4214,24 @@ window.Shivaa.payForOrder = async (orderId) => {
       toast('Cashfree checkout could not start — retry or use the UPI QR tab', 'err'); return false;
     }
     toast('Taking you to secure Cashfree checkout…');
+    /* v133 — EVERY attempt (the first one and each "Try Cashfree again") mints
+       a FRESH Cashfree session server-side. Sessions are short-lived and the
+       first hosted-page open can consume them, so reusing one
+       paymentSessionId across retries produces
+       "payment_session_id is not present or is invalid". The server is built
+       for this: each /api/pay/order call creates a new Cashfree order
+       (-A1, -A2, …) and a new session. */
     const handoff = () => {
-      Shivaa.cashfreeCheckout(po.paymentSessionId, po.env)
+      api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) })
+        .then(p2 => {
+          if (!p2 || p2.mode !== 'cashfree' || !p2.paymentSessionId) {
+            throw new Error((p2 && (p2.gatewayMessage || p2.error)) || 'Cashfree could not start — use the UPI QR tab or retry');
+          }
+          return Shivaa.cashfreeCheckout(p2.paymentSessionId, p2.env);
+        })
         .catch(e => {
-          const msg = (e && e.message) ? e.message : 'Cashfree could not open — tap Try Cashfree again';
+          let msg = (e && e.message) ? e.message : 'Cashfree could not open — tap Try Cashfree again';
+          if (/payment_session_id/i.test(msg)) msg = 'Cashfree session expired or was rejected — tap Try Cashfree again to start a fresh one';
           const box = document.getElementById('cfErr');
           if (box) {
             box.style.display = 'block';
