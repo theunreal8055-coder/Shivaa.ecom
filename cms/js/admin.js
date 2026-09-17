@@ -189,7 +189,7 @@ async function renderAdmin(view, q) {
           <td style="white-space:nowrap"><button class="icon-e" onclick="Shivaa.orderDetail('${o.id}')" title="View">👁</button>
             <button class="icon-e" onclick="ShivaaAdmin.waOrder('${o.id}')" title="Send WhatsApp update">📱</button>
             <button class="icon-e" onclick="ShivaaAdmin.manualPay('${o.id}')" title="Record manual / advance payment">💰</button>
-            ${(o.gateway === 'payu' || o.gateway === 'phonepe') && +o.amountPaid > 0 && !/^refunded$/i.test(o.paymentStatus || '') ? `<button class="icon-e" onclick="ShivaaAdmin.gatewayRefund('${o.id}', ${+o.amountPaid}, '${o.gateway}')" title="${o.gateway === 'payu' ? 'PayU' : 'PhonePe'} gateway refund">↩️</button>` : ''}
+            ${o.gateway === 'cashfree' && +o.amountPaid > 0 && !/^refunded$/i.test(o.paymentStatus || '') ? `<button class="icon-e" onclick="ShivaaAdmin.gatewayRefund('${o.id}', ${+o.amountPaid}, 'cashfree')" title="Cashfree gateway refund">↩️</button>` : ''}
             ${o.invoiceNo ? `<button class="icon-e" onclick="ShivaaAdmin.printInvoice('${o.id}')" title="Print GST invoice">🧾</button>` : ''}
             <button class="icon-e" onclick="ShivaaAdmin.reviewAsk('${o.id}')" title="Ask for review">⭐</button>
             <button class="icon-e" onclick="ShivaaAdmin.orderMeta('${o.id}')" title="HUID / dispatch / e-way">📋</button>
@@ -767,31 +767,32 @@ async function renderAdmin(view, q) {
         <form class="form-grid" id="payForm" onsubmit="ShivaaAdmin.savePay(event)">
           <div class="fld"><label>Payment provider</label>
             <select name="payProvider" class="sortsel" style="width:100%;border-radius:12px">
-              <option value="demo" ${(S.payProvider || 'demo') === 'demo' ? 'selected' : ''}>Demo / simulated gateway (no real charge)</option>
-              <option value="payu" ${S.payProvider === 'payu' ? 'selected' : ''}>PayU (UPI · cards · net-banking · wallets)</option>
+              <option value="demo" ${(S.payProvider || 'demo') === 'demo' ? 'selected' : ''}>Demo / no gateway (no real charge)</option>
+              <option value="cashfree" ${S.payProvider === 'cashfree' ? 'selected' : ''}>Cashfree (UPI · cards · net-banking · wallets · 120+ methods)</option>
             </select></div>
-          <div class="fld"><label>Site base URL <small>(public https address used for the PayU Success/Failure redirect)</small></label><input name="siteBaseUrl" value="${esc(S.siteBaseUrl || '')}" placeholder="https://www.shivaa.in"></div>
+          <div class="fld"><label>Site base URL <small>(public https address used for the Cashfree return &amp; webhook URLs)</small></label><input name="siteBaseUrl" value="${esc(S.siteBaseUrl || '')}" placeholder="https://www.shivaa.in"></div>
           <div class="fld"><label>Prepaid discount % <small>(pay online)</small></label><input name="prepaidPct" type="number" step="0.5" min="0" max="10" value="${S.prepaidPct ?? 2}"></div>
           <div class="fld"><label>COD handling fee % <small>(0 = free)</small></label><input name="codFeePct" type="number" step="0.5" min="0" max="10" value="${S.codFeePct ?? 0}"></div>
 
-          <fieldset class="fld full payu-keys" style="border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0">
-            <legend style="padding:0 6px;font-weight:700;font-size:13px">🟠 PayU payment gateway <small>(Dashboard → Integration details)</small></legend>
+          <fieldset class="fld full cf-keys" style="border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0">
+            <legend style="padding:0 6px;font-weight:700;font-size:13px">🟣 Cashfree payment gateway <small>(Merchant Dashboard → API Keys)</small></legend>
             <div class="form-grid" style="grid-template-columns:1fr 1fr">
-              <div class="fld"><label>Merchant Key</label><input name="payuKey" value="${esc(S.payuKey || '')}" placeholder="e.g. rjQUPt (test) or your live key" autocomplete="off"></div>
-              <div class="fld"><label>Merchant Salt <small>(never shown once saved)</small></label><input name="payuSalt" type="password" placeholder="${S.payuSalt ? '•••• saved — leave blank to keep' : 'paste salt (Key/Salt page)'}" autocomplete="new-password"></div>
+              <div class="fld"><label>App ID <small>(x-client-id)</small></label><input name="cfAppId" value="${esc(S.cfAppId || '')}" placeholder="e.g. 123456789abc…def0" autocomplete="off"></div>
+              <div class="fld"><label>Secret Key <small>(x-client-secret · never shown once saved)</small></label><input name="cfSecretKey" type="password" placeholder="${S.cfSecretKey ? '•••• saved — leave blank to keep' : 'paste secret key from API Keys'}" autocomplete="new-password"></div>
               <div class="fld"><label>Environment</label>
-                <select name="payuEnv" class="sortsel" style="width:100%;border-radius:12px">
-                  <option value="test" ${(S.payuEnv || 'test') === 'test' ? 'selected' : ''}>Test mode (test.payu.in — test key/salt)</option>
-                  <option value="prod" ${S.payuEnv === 'prod' ? 'selected' : ''}>Production (secure.payu.in — live key/salt)</option>
+                <select name="cfEnv" class="sortsel" style="width:100%;border-radius:12px">
+                  <option value="sandbox" ${(S.cfEnv || 'sandbox') === 'sandbox' ? 'selected' : ''}>Sandbox (sandbox.cashfree.com — test keys)</option>
+                  <option value="production" ${S.cfEnv === 'production' ? 'selected' : ''}>Production (api.cashfree.com — live keys)</option>
                 </select></div>
               <div class="fld"><label>Verification</label>
-                <button type="button" class="btn btn-outline btn-sm" style="width:100%" onclick="ShivaaAdmin.testPay('payu')">Test PayU credentials</button></div>
+                <button type="button" class="btn btn-outline btn-sm" style="width:100%" onclick="ShivaaAdmin.testPay('cashfree')">Test Cashfree credentials</button></div>
               <div class="fld full" style="font-size:12px;color:var(--ink-3);border-top:1px dashed var(--line);padding-top:8px">
-                In the PayU dashboard set <b>Success URL (surl)</b> and <b>Failure URL (furl)</b> to
-                <code id="payuReturnUrl"></code> (the shop also sends them with every payment automatically).
-                Payment responses are re-verified server-to-server with <code>verify_payment</code>; refunds use <code>cancel_refund_transaction</code>.
+                In the Cashfree dashboard: <b>whitelist your website domain</b>, then set the <b>Webhook URL</b> to
+                <code id="cfWebhookUrl"></code> (signatures are verified with your secret key). Customers are sent back to
+                <code id="cfReturnUrl"></code> after paying — both URLs are also sent automatically with every order.
+                Payments are re-verified server-to-server with <code>GET /pg/orders/&lbrace;order_id&rbrace;</code> before the order is marked paid.
               </div>
-              <div class="fld full"><span id="payuTestOut" style="font-size:12.5px"></span></div>
+              <div class="fld full"><span id="cfTestOut" style="font-size:12.5px"></span></div>
             </div>
           </fieldset>
 
@@ -800,7 +801,7 @@ async function renderAdmin(view, q) {
           <div class="fld full"><label>Prepaid-only pincodes (comma-separated; NE &amp; Ladakh prepaid by default)</label><input name="codBlockedPins" value="${esc(S.codBlockedPins || '')}" placeholder="110001, 744101"></div>
           <div class="fld"><label>Shop GSTIN <small>(printed on tax invoices)</small></label><input name="gstin" value="${esc(S.gstin || '')}" placeholder="08ABCDE1234F1Z5" style="text-transform:uppercase"></div>
           <div class="fld"><label>Google review link <small>(10/10 reviewers are sent here)</small></label><input name="googleReviewUrl" value="${esc(S.googleReviewUrl || '')}" placeholder="https://maps.app.goo.gl/…"></div>
-          <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">No PayU keys yet? Leave provider on <b>Demo</b> and fill only the <b>UPI ID</b> — customers scan the QR and upload a payment screenshot; you verify each one under Orders (banner at top). With PayU Merchant Key + Salt, UPI, cards, net-banking and wallets go fully automatic.</div>
+          <div class="fld full" style="font-size:12.5px;color:var(--ink-3)">No Cashfree keys yet? Leave provider on <b>Demo</b> and fill only the <b>UPI ID</b> — customers scan the QR and upload a payment screenshot; you verify each one under Orders (banner at top). With the Cashfree App ID + Secret Key, UPI, cards, net-banking and wallets go fully automatic.</div>
           <button class="btn btn-primary btn-sm" style="justify-self:start">Save payments</button>
         </form></div>
       <div class="adm-card"><h3>📡 Official MCX rate feed <span style="font-size:11px;color:var(--ink-3);font-weight:400">Angel One SmartAPI · free demat · fully automatic TOTP login</span></h3>
@@ -858,7 +859,7 @@ async function renderAdmin(view, q) {
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.bindGstCert && window.ShivaaAdmin.bindGstCert(), 0);   // v103 — GST certificate
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.smsCard && window.ShivaaAdmin.smsCard(), 0);   // v33 — SMS status card
     setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.testFeed && window.ShivaaAdmin.testFeed(), 300);   // v61 — MCX feed status
-    setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.wirePayUrls && window.ShivaaAdmin.wirePayUrls(S.siteBaseUrl || ''), 0);   // v92 — PhonePe redirect/callback URLs
+    setTimeout(() => window.ShivaaAdmin && window.ShivaaAdmin.wirePayUrls && window.ShivaaAdmin.wirePayUrls(S.siteBaseUrl || ''), 0);   // v128 — Cashfree return + webhook URLs
   }
 }
 window.ShivaaAdmin = {};
@@ -1646,7 +1647,7 @@ window.ShivaaAdmin.saveSettings = async e => {
     Object.assign(state.settings, s); toast('Settings saved');
   } catch (err) { toast(err.message, 'err'); }
 };
-/* ── v58 · payments settings ── */
+/* ── v128 · payments settings (Cashfree hosted checkout) ── */
 window.ShivaaAdmin.savePay = async e => {
   e.preventDefault();
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
@@ -1655,32 +1656,34 @@ window.ShivaaAdmin.savePay = async e => {
                  upiId: g('upiId').trim(), upiName: g('upiName').trim() || 'Shivaa Jewellers',
                  codBlockedPins: g('codBlockedPins').replace(/[^\d,\s]/g, '').trim(),
                  gstin: g('gstin').trim().toUpperCase(), googleReviewUrl: g('googleReviewUrl').trim(),
-                 // v94 — PayU hosted checkout
+                 // v128 — Cashfree hosted checkout
                  siteBaseUrl: g('siteBaseUrl').trim().replace(/\/+$/, ''),
-                 payuKey: g('payuKey').trim(),
-                 payuEnv: g('payuEnv') === 'prod' ? 'prod' : 'test' };
-  // salt is write-only: only sent when retyped (server strips it from GETs)
-  if (g('payuSalt')) body.payuSalt = g('payuSalt').trim();
+                 cfAppId: g('cfAppId').trim(),
+                 cfEnv: g('cfEnv') === 'production' ? 'production' : 'sandbox' };
+  // secret key is write-only: only sent when retyped (server strips it from GETs)
+  if (g('cfSecretKey')) body.cfSecretKey = g('cfSecretKey').trim();
   try {
     const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
     Object.assign(state.settings, s);
     ShivaaAdmin.wirePayUrls(s.siteBaseUrl || '');
-    const liveMsg = body.payProvider === 'payu' && body.payuKey && (s.payuSalt || g('payuSalt'))
-      ? (body.payuEnv === 'test' ? 'PayU connected in TEST mode 🧪' : 'Payments LIVE via PayU 🟠')
+    const liveMsg = body.payProvider === 'cashfree' && body.cfAppId && body.cfSecretKey
+      ? (body.cfEnv === 'sandbox' ? 'Cashfree connected in SANDBOX mode 🧪' : 'Payments LIVE via Cashfree 🟣')
       : 'Payment settings saved (demo / UPI-QR mode)';
     toast(liveMsg);
-    if (body.payProvider === 'payu') setTimeout(() => ShivaaAdmin.testPay('payu'), 500);
+    if (body.payProvider === 'cashfree') setTimeout(() => ShivaaAdmin.testPay('cashfree'), 500);
   } catch (err) { toast(err.message, 'err'); }
 };
-/* v94 — show the exact surl/furl to paste into the PayU dashboard */
+/* v128 — show the exact return + webhook URLs to configure in the Cashfree dashboard */
 window.ShivaaAdmin.wirePayUrls = (base) => {
   const b = (base || '').replace(/\/+$/, '') || ('https://' + (location.hostname || 'www.shivaa.in'));
-  const r = document.getElementById('payuReturnUrl');
-  if (r) r.textContent = b + '/api/pay/payu/return';
+  const r = document.getElementById('cfReturnUrl');
+  if (r) r.textContent = b + '/api/pay/cashfree/return';
+  const w = document.getElementById('cfWebhookUrl');
+  if (w) w.textContent = b + '/api/pay/cashfree/webhook';
 };
 window.ShivaaAdmin.testPay = async (provider) => {
-  const out = document.getElementById('payuTestOut');
-  if (out) out.innerHTML = '<span class="live-dot" style="display:inline-block;margin-right:6px"></span> Checking credentials with PayU…';
+  const out = document.getElementById('cfTestOut');
+  if (out) out.innerHTML = '<span class="live-dot" style="display:inline-block;margin-right:6px"></span> Checking credentials with Cashfree…';
   try {
     const r = await api('/api/admin/pay-test', { method: 'POST', body: JSON.stringify({ provider }) });
     if (out) {
@@ -3336,11 +3339,11 @@ window.ShivaaAdmin.manualPay = (id) => {
   })();
 };
 
-/* v94 — gateway refund (PayU; historical PhonePe orders too). Full or
-   partial; settlement is asynchronous — the order flips to Refunded only
-   once the gateway reports the refund completed. */
+/* v128 — Cashfree gateway refund. Full or partial; settlement is
+   asynchronous — the order flips to Refunded only once Cashfree reports
+   the refund completed. */
 window.ShivaaAdmin.gatewayRefund = (id, maxAmt, gw) => {
-  const name = gw === 'payu' ? 'PayU' : 'PhonePe';
+  const name = 'Cashfree';
   const rows = window._adminOrders.find(x => x.id === id)?.refunds || [];
   const already = rows.reduce((a, r) => a + ((r.state === 'FAILED' || r.status === 'failed') ? 0 : +r.amount), 0);
   if (rows.some(r => ['PENDING', 'CONFIRMED', 'pending'].includes(r.state || r.status))) {
@@ -3360,9 +3363,6 @@ window.ShivaaAdmin.gatewayRefund = (id, maxAmt, gw) => {
     } catch (e) { window.Shivaa.toast(e.message, 'err'); }
   })();
 };
-/* historical alias */
-window.ShivaaAdmin.phonepeRefund = (id, maxAmt) => window.ShivaaAdmin.gatewayRefund(id, maxAmt, 'phonepe');
-
 window.ShivaaAdmin.refundDecide = async (id, decision) => {
   let note = '', amount = 0, mode = 'upi';
   if (decision === 'approve') {

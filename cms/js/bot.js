@@ -41,7 +41,7 @@
     bespoke: 'The <b class="g">Bespoke & Care studio</b> does custom designs, resizing, polishing, repair and lifetime exchange — share a photo on WhatsApp and the karigars quote.',
     designsel: '<b class="g">Design Selection</b> lets you order catalogue designs in fine metal — retail pieces ship finished, jeweller partners settle in fine grams with zero making charges.',
     making: 'Every price is <b class="g">metal weight × live rate + a fixed making charge per design</b> (+ stone value if any), with 3% GST — the full breakup prints on the product page and the bill.',
-    payment: 'We accept <b class="g">UPI (Google Pay, PhonePe, Paytm), cards, net-banking and wallets on our secure PayU checkout</b>, plus WhatsApp Pay and COD. Cards & UPI get a 2% prepaid discount.',
+    payment: 'We accept <b class="g">UPI (Google Pay, PhonePe, Paytm), cards, net-banking and wallets on our secure Cashfree checkout</b> — 120+ payment methods — plus WhatsApp Pay and COD. Cards & UPI get a 2% prepaid discount.',
     hours: 'Jayal counter is open <b class="g">all days, 10:00 – 20:30 IST</b>. On WhatsApp the desk replies through the day.',
     account: 'Signing in takes only your <b class="g">mobile number</b> — we SMS a one-time code, no password. New numbers get an OTP too, then a quick details form.',
   };
@@ -423,7 +423,7 @@
       push('bot', F('making') + '<br>' + moreBtn('#/rates', 'See the rate & price breakup →') + feedback());
       chips(["Today's gold rate", 'EMI options']); return;
     }
-    if (/(\bcod\b|cash on delivery|payment|upi|gpay|phonepe|payu|netbanking|pay later)/.test(t)) {
+    if (/(\bcod\b|cash on delivery|payment|upi|gpay|phonepe|cashfree|payu|netbanking|pay later)/.test(t)) {
       push('bot', F('payment') + feedback()); chips(['EMI options', 'Shipping & returns']); return;
     }
     if (/(timing|hours|opening time|what time|when.*open|when do|kab khulte|kab tak|kitne baje)/.test(t) && !/order|courier|deliver/.test(t)) {

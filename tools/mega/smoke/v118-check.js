@@ -1,4 +1,5 @@
-/* SHIVAA v118 regression check — gallery, Quick View, categories, PayU. */
+/* SHIVAA v118 regression check — gallery, Quick View, categories, checkout handoff.
+   v128 — gateway checks updated for the Cashfree hosted checkout. */
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const http = require('http');
@@ -25,8 +26,8 @@ const server=http.createServer((req,res)=>{let u=decodeURIComponent(req.url.spli
  ok('category rail images are eager with a safe fallback',/loading="eager" decoding="async" fetchpriority="low"/.test(app)&&/\.cb-img img \{ display:block/.test(css));
  ok('gallery dots are buttons and gestures use pointer capture',/id="galDots"[\s\S]{0,400}<button type="button"/.test(app)&&/setPointerCapture/.test(app)&&/lostpointercapture/.test(app));
  ok('Quick View opens on click, not pointerup',/document\.addEventListener\('click', function\(e\)/.test(v116)&&!/document\.addEventListener\('pointerup', function\(e\)/.test(v116));
- ok('PayU handoff has retry/cancel and native submit',/id="payuContinue"/.test(app)&&/id="payuCancel"/.test(app)&&/HTMLFormElement\.prototype\.submit\.call\(f\)/.test(app));
- ok('PayU destination is restricted to HTTPS payu.in',/\^https:\$/.test(app)&&/payu\\\.in/.test(app));
+ ok('Cashfree handoff has retry/cancel and opens the SDK checkout',/id="cfContinue"/.test(app)&&/id="cfCancel"/.test(app)&&/cf\.checkout\(\{ paymentSessionId/.test(app));
+ ok('Cashfree checkout uses the official v3 SDK with a session id',/sdk\.cashfree\.com\/js\/v3\/cashfree\.js/.test(app)&&/paymentSessionId: String\(paymentSessionId\)/.test(app));
 
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const origin=`http://127.0.0.1:${server.address().port}`; const errors=[];
@@ -56,11 +57,8 @@ const server=http.createServer((req,res)=>{let u=decodeURIComponent(req.url.spli
  w.location.hash='#/shop?category=rings';await until(()=>d.querySelector('.pc-quick'));
  const oldHash=w.location.hash;d.querySelector('.pc-quick').click();
  ok('Quick View opens without navigating to product page',await until(()=>d.querySelector('.qv-modal .qv'))&&w.location.hash===oldHash,w.location.hash);
- let submitted=false;w.HTMLFormElement.prototype.submit=function(){submitted=true};
- w.Shivaa.payuSubmit('https://secure.payu.in/_payment',{key:'x',hash:'y'});
- ok('PayU form performs a real native handoff',submitted);
- let blocked=false;try{w.Shivaa.payuSubmit('https://evil.example/pay',{})}catch(_){blocked=true}
- ok('non-PayU payment destinations are blocked',blocked);
+ ok('Cashfree checkout launcher is registered',typeof w.Shivaa.cashfreeCheckout==='function');
+ ok('legacy PayU form submitter is removed',typeof w.Shivaa.payuSubmit!=='function');
  ok('no unhandled page errors',errors.length===0,errors.join(' | '));
  dom.window.close();server.close();
  const n=results.filter(Boolean).length;console.log(`\n${n}/${results.length} v118 checks passed  ✦`);process.exit(n===results.length?0:1);
