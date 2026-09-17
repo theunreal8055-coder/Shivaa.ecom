@@ -4168,8 +4168,16 @@ window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
   const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
   let res;
   try {
-    res = await cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' });
+    /* v131 — a successful _self checkout navigates the page away, which kills
+       any pending timer with it — so the timeout below can ONLY fire when the
+       SDK hangs without responding. That must never be a silent eternal
+       spinner: it surfaces as the same red error box as every other failure. */
+    res = await Promise.race([
+      cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('__cf_timeout__')), 20000))
+    ]);
   } catch (e) {
+    if (e && e.message === '__cf_timeout__') throw new Error('Cashfree did not respond (20s timeout) — tap Try Cashfree again');
     throw new Error('Cashfree checkout failed: ' + ((e && e.message) ? e.message : String(e)));
   }
   if (res && res.error) {
@@ -4204,6 +4212,7 @@ window.Shivaa.payForOrder = async (orderId) => {
             if (sheet) {
               const sp = sheet.querySelector('.pp-spinner'); if (sp) sp.style.display = 'none';
               const h = sheet.querySelector('h3'); if (h) h.textContent = 'Cashfree could not open';
+              if (window.console) console.warn('[shivaa-cashfree]', msg);
             }
           }
           toast(msg, 'err');
