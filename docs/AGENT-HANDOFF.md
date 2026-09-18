@@ -1,9 +1,129 @@
-# AGENT HANDOFF — read this first, every new chat (updated 17 Sep 2026 — ✅ v127 LIVE + OWNER-VERIFIED: the 2-file navigation repair on top of frozen v125. v126 dead. PR #59 MERGED to `main` as `5ed09a5`, so both the code and this ledger are on `main`)
+# AGENT HANDOFF — read this first, every new chat (updated 18 Sep 2026 — ✅ PAYMENT CORRECTNESS PASS MERGED to `main` as PR #69: v135 → v138. Invoice, loyalty points and stock now committed on payment, not at checkout. **Deploy `shivaa-update-v138.zip` only — it supersedes v135/v136/v137.** ⚠ The payment path was never executed — no PHP binary in the sandbox. v127 remains live underneath this.)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
+
+## ✅ NEWEST — v135 → v138 PAYMENT CORRECTNESS PASS — MERGED to `main` (18 Sep 2026, PR #69, branch `arena/01a0b25e-shivaa-ecom`)
+
+**Owner's report that started it:** *"even if someone does not pay and comes back
+silently then Shiva automatically issues invoices against but the right thing to be
+done is when a customer pace then only we should issue invoice."* It had **not** been
+fixed and was in **no** prior audit — it became finding **#25**. Chasing it found the
+same defect class twice more: **loyalty points (#16)** and **reserved stock (#26)**.
+
+**The unifying lesson — now a standing review question for this codebase:** whenever
+anything is granted, deducted or reserved, ask *"what happens to it if the purchase
+never completes?"*
+
+### What shipped
+
+| Release | Commit | Fix |
+|---|---|---|
+| v135 | `b95ec74` | 13 payment findings from the Part-2 audit |
+| v136 | `b1a47e9` | GST Tax Invoice issued on `Paid`, not at checkout |
+| v137 | `4eefb91` | Points earned on `Paid`, clawed back on full refund, restored on cancel |
+| v137.1 | `73df782` | **Fix to v137** — double-earn hazard on pre-existing orders |
+| v138 | `abae753` | Reserved stock returned on cancellation |
+
+Plus `c61498b` (the shell pointed at `/js/app.js?v=133`, a file that does not exist in
+`cms/js`, so `cms/` could not boot), `4b1624d` + `74c8cc1` (the audit and its gate),
+and `a3d4c0c` / `13fa83e` / `fec5e9c` (audit notes).
+
+### 🔴 The lesson that matters most
+
+**Deferring a side effect creates a migration hazard on the rows that already exist.**
+Moving point-*earning* from creation to `Paid` meant every order already in the
+database — which had banked its points at creation and carried no marker — could be
+credited **a second time** when later marked Paid. Guarding on the *new* flag alone is
+not enough. The fix: **stamp an explicit marker at creation (`pointsDeferred`) and make
+the new helper refuse to act without it.** Found in self-review, shipped as v137.1
+before the owner ever saw v137.
+
+Second: **a rebuilt fix invalidates the zip you already handed over.** The first v137
+zip predated that fix and would have deployed the bug. After any post-build edit,
+**grep inside the zip for the fix marker and re-publish the md5.**
+
+### Deploy
+
+**`shivaa-update-v138.zip` — md5 `e3e48f6ad116b7bbaaaffc381f32c948`, 5 files, stamps
+138/138/138**, root layout into `public_html` ROOT. Verified a **strict superset** of
+v135+v136+v137 by diffing every fix marker across all four zips. **Deploy v138 only and
+delete the other three.** `boost.js` deliberately stays `?v=134`.
+
+### ⚠ Four things the next agent must not get wrong
+
+1. **No PHP binary exists in the sandbox — nothing was executed.** The `php-parser`
+   check is clean (125 top-level nodes, proven against a broken negative control) but a
+   parse check is **not** a run. No `php -l`, no 211-route php-sweep, **no payment path
+   exercised.** Do not retry obtaining PHP — apt unreachable, asset hosts blocked,
+   `@php-wasm/node` throws `PHPLoader.processId must be set before init`. **A live
+   Cashfree sandbox test is still owed before this is trusted with real money.**
+2. **`.htaccess` is EXCLUDED from the Hostinger auto-sync.** This release tightens the
+   CSP there (drops the PayU hosts v128 deleted and a stale `*.onrender.com` relay), so
+   **that fix ships only via the zip, never via auto-deploy.** Safe to drop: nothing in
+   `cms/` calls PayU any more and `angelRelayUrl` is unset.
+3. **The Hostinger FTP secrets are STILL not set** — all 4 historical runs of
+   `hostinger-deploy.yml` failed at preflight with *"Nothing was deployed."* Merging
+   PR #69 therefore deployed nothing. **If those secrets are ever added, merging any PR
+   touching `cms/**` becomes an unconfirmed live deploy** — the v126 failure mode, one
+   secret away.
+4. **Finding #27 must not be fixed the easy way.** A lazy expiry sweep cannot run on the
+   read path: `shv_wants_write_lock()` returns `false` for `GET`/`HEAD`/`OPTIONS`, so the
+   `orders` GET holds no lock and a `db_save()` there writes a stale snapshot back over
+   the whole database — reintroducing finding #10. Any sweep must live on a lock-taking
+   POST or acquire the lock explicitly and re-read under it. There is no `cron` route and
+   no scheduler. **No expiry window has been chosen — do not invent one.**
+
+### Still open — all blocked on the owner, not on code
+
+**#14** settlement reconciliation (live settlement data) · **#27** abandoned-order points
+(expiry window) · **#2** receipt email · **#4** EMI · **#5** unpaid-order recovery ·
+**#6** Payment Links.
+
+**#2 is NOT blocked on credentials.** `cms/mail.php` is a real working `mail()` mailer —
+`shivaa_mail_send()` at :90, `-f<from>` envelope attempt then plain-`mail()` fallback,
+header-injection guard, per-IP relay cap; required at `api.php:25`. The blockers are its
+**OTP-only `/^\d{4,6}$/` guard at :96** and the owner's wording. **Do not repeat the old
+"blocked on mail credentials" claim without opening the file — it was wrong once already.**
+
+### Traps re-confirmed this session
+
+- **Sandbox reset** wipes `/tmp` and `node_modules` **and rewinds local git history to the
+  branch point** while leaving the tree intact. Recovery: `git fetch origin <branch>`
+  (the default refspec covers only `main`, so the branch has no local tracking ref),
+  confirm the tree already equals the remote tip, then `git reset --mixed <remote-tip>`.
+  **Never force-push. Always verify a push landed** via `git ls-remote`.
+- **Gate allow-lists come in three shapes** — regex alternation `|137)`, quoted array
+  `'137']`, **and bounded character class `13[0-7]`**. Bumping to 138 broke 15 assertions
+  until all three were found; a single regex sweep misses the third.
+- **`\+` in a BRE grep pattern is a quantifier, not a literal `+`** — it made a
+  "stock is never restored" scan match the decrement and nearly produced a false finding.
+  Verify with python fixed-string matching.
+- **A fixed-width `sed` window over a function body lies** — brace-match with python.
+- **`grep -c` returning 0 breaks a `&&` chain** and silently truncates the rest of a script.
+- **Never build a directory symlink and write through it** — that writes into the real repo.
+- **Zip recipe: build from `git diff --name-only <branch-point> -- cms/`, never `HEAD`**,
+  else files committed in a prior release silently drop out.
+- **`shivaa.in` is unreachable from the sandbox** — no live behaviour is verifiable here.
+
+### Standing owner rules, unchanged
+
+Owner is **non-technical** — talk plainly. **Never fabricate** supplier, payment, courier,
+notification, legal, BIS, HUID, GSTIN, certificate or analytics data; no mock success
+fallbacks. **Backup before deploy; nothing ships until the owner says so; a repair must
+not swap `sw.js`** (rule #3). Rates are **owner-locked** (`premium.gold22 = 398`, anchor
+formula). Never hand-edit live `db.json`; products only via API/upsert. Every release
+bumps every `?v=` in `cms/index.html` together. **Forward-only history: merge commits,
+never squash or rebase onto `main`.**
+
+### Forward baseline from here
+
+**v125 + v127 + v135/v136/v137/v138.** Preserve all of it. The v127 layer still owns the
+sidebar and search-palette taps.
+
+---
 
 ## ✅ NEWEST — v127 NAVIGATION REPAIR — LIVE + OWNER-VERIFIED (17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`)
 

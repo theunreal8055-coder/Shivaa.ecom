@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 128;
+const APP_REL = 138;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -3902,7 +3902,7 @@ pages.checkout = async (view) => {
     : 'UPI · cards · net-banking (demo until Cashfree keys are added)' + (pct ? ' · instant ' + pct + '% off' : '');
   const note = $('#payDemoNote');
   if (note) note.innerHTML = payCfg.mode === 'cashfree'
-    ? '🔒 You will be redirected to the secure <b>Cashfree</b> payment page (UPI / cards / net-banking / wallets · 120+ payment methods). Your card details never touch shivaa.in.' + (payCfg.cashfree && payCfg.cashfree.env === 'sandbox' ? ' <b>Test mode.</b>' : '')
+    ? '🔒 You will be redirected to the secure <b>Cashfree</b> payment page (UPI / cards / net-banking / wallets · 120+ payment methods). Your card details never touch shivaa.in.' + (payCfg.cashfree && payCfg.cashfree.test ? ' <b>Test mode.</b>' : '')
     : '🔒 Card/net-banking checkout switches <b>live on Cashfree</b> the moment keys are added in admin — until then use the <b>UPI QR tab</b> to pay for real, or choose WhatsApp / COD.';
   const codPct = +(state.settings.codFeePct || 0);
   const codSub = $('#payCodSub');
@@ -3912,7 +3912,7 @@ pages.checkout = async (view) => {
     const codBlocked = savedPin && !pinPromise(savedPin).cod;
     codSub.textContent = codBlocked
       ? 'Not available at pincode ' + savedPin + ' (insured prepaid courier only)'
-      : 'Available on orders below ' + fmt(50000) + ' · ID verification at handover' + (codPct ? ' · ' + codPct + '% handling fee' : ' · full price');
+      : 'Available on orders below ' + fmt(+(state.settings.codMaxAmount || 50000)) + ' · ID verification at handover' + (codPct ? ' · ' + codPct + '% handling fee' : ' · full price');   // v135 (#8) — the server now enforces this ceiling
     const codRadio = $('#payOpts input[value="COD"]');
     if (codRadio) codRadio.disabled = !!codBlocked;
   }
@@ -4281,12 +4281,21 @@ window.Shivaa.placeOrder = async () => {
     const order = await api('/api/orders', { method: 'POST', body: JSON.stringify({
       items: state.cart.map(c => ({ id: c.id, qty: c.qty, size: c.size, engraving: c.engraving })),
       address, paymentMethod, coupon: window._co.coupon, usePoints: !!$('#usePts')?.checked,
-      rateLock: (() => { const age = (Date.now() - new Date((window._co.rateLock || {}).stampedAt || 0).getTime()) / 1000;
-        return age <= 20 * 60 ? window._co.rateLock : null; })(),
+      /* v135 (#20) — this was hardcoded to 20 minutes while the countdown the
+         customer watches is driven by the server's lockMinutes (5–60). Set the
+         window to 30 and the UI counted down half an hour while every lock over
+         20 minutes was dropped here — and the server priced at live rates. */
+      rateLock: (() => { const mins = Math.max(5, Math.min(60, +((window._co || {}).lockMinutes) || 20));
+        const age = (Date.now() - new Date((window._co.rateLock || {}).stampedAt || 0).getTime()) / 1000;
+        return age <= mins * 60 ? window._co.rateLock : null; })(),
     }) });
     clearInterval(window._co.lockTimer);
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
-    if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
+    /* v137 (#16) — only the redemption is applied optimistically. The earning
+       now lands when the order is Paid (server-side order_grant_points), so
+       showing it here would display points the customer has not earned yet —
+       and would let them see a balance they cannot actually redeem. */
+    if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0));
     window._lastOrder = order;
     // v128 — online prepayment (Cashfree live when configured, simulated in demo)
     if (paymentMethod === 'Online') await Shivaa.payForOrder(order.id, { fromCheckout: true });
@@ -4513,13 +4522,18 @@ pages.order = async (view, q, id) => {
         <div style="font-size:34px;margin-bottom:8px;color:var(--gold)">✦</div>
         <span class="label">Order placed</span>
         <h1 style="font-size:42px">Shubh Aashirwad, ${esc(order.userName.split(' ')[0])}!</h1>
-        <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed. You earned <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> ✦<br>
-        Invoice & rate-lock summary sent to your account. Live tracking below.</p>
+        <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed.${order.earnedPoints > 0 ? ` You will earn <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> once payment is confirmed ✦` : ''}<br>
+        Rate-lock summary saved to your account. Live tracking below.</p>
       </div>
       ${ppBannerHTML}
       <div class="order-card mt-3">
         <div class="order-top"><div class="order-id">${order.id} · ${timeFmt(order.createdAt)}</div><span class="status-pill st-${order.status.toLowerCase()}">${order.status}</span></div>
-        ${order.invoiceNo ? `<div style="font-size:12px;color:var(--ink-3);margin:2px 0 8px">Tax invoice <b>${esc(order.invoiceNo)}</b> · HSN ${esc(order.hsn || (order.items || []).map(i => i.hsn).filter(Boolean)[0] || '7113')}</div>` : ''}
+        ${order.invoiceNo
+          ? `<div style="font-size:12px;color:var(--ink-3);margin:2px 0 8px">Tax invoice <b>${esc(order.invoiceNo)}</b> · HSN ${esc(order.hsn || (order.items || []).map(i => i.hsn).filter(Boolean)[0] || '7113')}</div>`
+          /* v136 (#25) — the Tax Invoice is minted only once the money is in,
+             so an unpaid order says when to expect it instead of showing a
+             number over an unsettled balance. */
+          : `<div style="font-size:12px;color:var(--ink-3);margin:2px 0 8px">Tax invoice is issued once payment is confirmed · HSN ${esc(order.hsn || (order.items || []).map(i => i.hsn).filter(Boolean)[0] || '7113')}</div>`}
         ${order.items.map(it => `<div class="sum-row"><span>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b>${fmt(it.unitPrice * it.qty)}</b></div>`).join('')}
         <div class="sum-row"><span>Rate locked at</span><b>${fmt(order.rateSnapshot.gold22 || order.rateSnapshot.silver)}/g (${esc(order.rateSnapshot.stampedAt ? timeFmt(order.rateSnapshot.stampedAt) : 'order time')})</b></div>
         <div class="sum-row"><span>Subtotal</span><b>${fmt(order.subtotal)}</b></div>
@@ -4565,14 +4579,20 @@ pages.order = async (view, q, id) => {
   // v128 — after a Cashfree redirect return, ask the server to reconcile the
   // order (GET /pg/orders + refund status) and redraw the moment it flips to Paid.
   if (ppReturn === 'success' || ppReturn === 'pending') {
+    /* v135 (#7) — the poller used to give up after six tries (about 15 seconds)
+       and tell the customer to "reload this page in a minute" at precisely the
+       moment they are most anxious about a five-figure payment. UPI and bank
+       confirmations routinely take 30–90 s, so the schedule now backs off to
+       roughly two and a half minutes before it stops. */
+    const PP_SCHEDULE = [1200, 2600, 4000, 6000, 8000, 10000, 12000, 15000, 15000, 15000];
     const pollPP = async (tries) => {
       if (!document.getElementById('ppBanner')) return;              // navigated away
-      if (tries >= 6) {
+      if (tries >= PP_SCHEDULE.length) {
         const b = document.getElementById('ppBanner');
-        if (b) b.querySelector('small').textContent = 'Confirmation is taking longer than usual — reload this page in a minute, or contact the shop if money was debited.';
+        if (b) b.querySelector('small').textContent = 'Confirmation is taking longer than usual — leave this page open and it will keep checking, or reload it in a minute. Contact the shop if money was debited.';
         return;
       }
-      await new Promise(r => setTimeout(r, tries === 0 ? 1200 : 2600));
+      await new Promise(r => setTimeout(r, PP_SCHEDULE[tries]));
       if (!document.getElementById('ppBanner')) return;
       try {
         const r = await api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId: id }) });
