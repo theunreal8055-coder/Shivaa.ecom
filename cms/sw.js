@@ -16,7 +16,7 @@
  app.js reloads itself once if the paired script is older than the shell it
  was served — a device can no longer run a fresh shell on a stale script. */
 'use strict';
-const SHELL = 'shivaa-shell-v137';
+const SHELL = 'shivaa-shell-v138';
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -40,10 +40,10 @@ const SHELL_FILES = ['/', '/index.html',
   '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
   '/css/boost.css?v=46', '/css/v113.css?v=113b', '/css/v115.css?v=115',
   '/css/v116.css?v=116', '/css/v117.css?v=117', '/css/v118.css?v=118', '/css/v119.css?v=119', '/css/v120.css?v=120', '/css/v121.css?v=121', '/css/v122.css?v=122', '/css/v125.css?v=125',
-  '/js/otp-autofill.js?v=107', '/js/app.js?v=137', '/js/hallmark.js?v=107',
+  '/js/otp-autofill.js?v=107', '/js/app.js?v=138', '/js/hallmark.js?v=107',
   '/js/trust.js?v=107', '/js/auth.js?v=113b', '/js/motion.js?v=107',
   '/js/aurum.js?v=107', '/js/v107.js?v=107', '/js/boost.js?v=134',
-  '/js/v116.js?v=137', '/js/v117.js?v=137', '/js/v118.js?v=118', '/js/v119.js?v=119', '/js/v120.js?v=120', '/js/v122.js?v=122', '/js/v125.js?v=125',
+  '/js/v116.js?v=138', '/js/v117.js?v=138', '/js/v118.js?v=118', '/js/v119.js?v=119', '/js/v120.js?v=120', '/js/v122.js?v=122', '/js/v125.js?v=125',
   '/fonts/jost.woff2', '/fonts/cormorant-garamond.woff2', '/fonts/marcellus-400.woff2',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',

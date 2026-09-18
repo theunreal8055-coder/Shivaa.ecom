@@ -2178,6 +2178,38 @@ function order_restore_points(array &$db, array &$ord): void {
   unset($uu);
 }
 
+/* v137 (#26) — cancelling an order also returns the stock it reserved.
+   Order creation debits product stock at the same moment it debits redeemed
+   points, but only the points side had a matching credit, so every cancelled
+   order permanently shrank inventory by units that were never actually sold.
+   Mirrors order_restore_points() deliberately: same status guard, same
+   one-shot flag, same audit event shape, so repeated status edits cannot
+   inflate stock twice.
+   Note this is unconditional on dispatch state — a piece cancelled after
+   dispatch still had its stock debited at creation, so the credit is
+   symmetric either way. Stock in this shop is advisory (no route refuses an
+   order on it and no buy button disables on it), so this corrects the
+   low-stock report rather than changing what a customer can purchase. */
+function order_restore_stock(array &$db, array &$ord): void {
+  if (($ord['status'] ?? '') !== 'Cancelled') return;
+  if (!empty($ord['stockRestored'])) return;
+  $items = is_array($ord['items'] ?? null) ? $ord['items'] : [];
+  $ord['stockRestored'] = true;     // set even when there are no items — one shot only
+  if (!$items) return;
+  foreach ($items as $it) {
+    $pid = (string)($it['productId'] ?? '');
+    $qty = (int)($it['qty'] ?? 0);
+    if ($pid === '' || $qty <= 0) continue;
+    foreach ($db['products'] as &$pr) {
+      if (($pr['id'] ?? '') !== $pid) continue;
+      $pr['stock'] = max(0, (int)($pr['stock'] ?? 0)) + $qty;
+      audit_log($db, 'stock.restored', ['order' => $ord['id'] ?? '', 'product' => $pid, 'qty' => $qty]);
+      break;
+    }
+  }
+  unset($pr);
+}
+
 /* ───────── auth ───────── */
 /* ── password hashing (bcrypt, with transparent upgrade from legacy sha256+salt) ── */
 function pw_hash(string $plain): string { return password_hash($plain, PASSWORD_DEFAULT); }
@@ -3739,6 +3771,8 @@ try {
              no longer happening. Guarded so repeated status edits cannot
              refund the same points twice. */
           order_restore_points($db, $x);
+          /* v137 (#26) — and the stock the same order reserved. */
+          order_restore_stock($db, $x);
         }
         if (!empty($patch['paymentStatus']) && !preg_match('/^[A-Za-z0-9 &\-\/.,()]{1,40}$/', (string)$patch['paymentStatus'])) jout(400, ['error' => 'Payment status contains invalid characters']);
         if (!empty($patch['paymentStatus'])) {
