@@ -17,11 +17,11 @@
 
    A · static  (14) release stamps, load order, what each new file is allowed
                     to touch, and the Cashfree payload shape.
-   B · live    (21) jsdom on the real shell: the bag's Checkout tap reaches the
+   B · live    (26) jsdom on the real shell: the bag's Checkout tap reaches the
                     payment page, history.back() is never queued against it, a
                     category page carries no category photographs, the payment
                     page's bar is in flow, saved addresses prefill.
-   C · control (3)  the SAME taps with /js/v139.js stripped out DO queue
+   C · control (4)  the SAME taps with /js/v139.js stripped out DO queue
                     history.back() — while the URL is still the page the shopper
                     came from, i.e. against the navigation in flight. The named
                     regression check that the bug was real and that this gate can
@@ -312,6 +312,29 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
     try { U.w.close(); } catch (_) {}
   }
 
+  console.log('\n· B · live — the drawer\'s 17-category list folds when you leave');
+  {
+    const F = boot({ startHash: '#/' });
+    if (!(await F.booted())) ok('fold session boots', false);
+    await sleep(500);
+    F.click(F.$('#navToggle'));
+    await until(() => F.$('#mainNav') && F.$('#mainNav').classList.contains('open'), 6000);
+    F.click(F.$('#navCats'));
+    const expanded = await until(() => F.$('#dwCatList') && F.$('#dwCatList').classList.contains('open'), 6000);
+    const rows = F.$$('#dwCatList a[href^="#/"]').length;
+    ok('the sidebar really does expand all 17 categories', expanded && rows === 17, rows + ' row(s)');
+    const link = F.$$('#dwCatList a[href^="#/"]')[2];
+    const href = link.getAttribute('href');
+    F.click(link);
+    await sleep(1300);
+    ok('tapping one of them navigates to that category', F.w.location.hash === href, 'hash=' + F.w.location.hash);
+    ok('…and the 17-photo list folds shut instead of staying open on the page',
+      F.$('#dwCatList') && !F.$('#dwCatList').classList.contains('open') &&
+      F.$('#navCats').getAttribute('aria-expanded') === 'false',
+      'aria-expanded=' + (F.$('#navCats') && F.$('#navCats').getAttribute('aria-expanded')));
+    try { F.w.close(); } catch (_) {}
+  }
+
   /* ══════ C · control ══════ */
   console.log('\n· C · control — the same taps with /js/v139.js stripped out');
   const C = boot({ startHash: '#/', stripV139: true });
@@ -345,6 +368,23 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
     ok('control · …and it is queued while the URL is still the page the shopper came from',
       backAt.length > 0 && backAt[0] === '#/',
       'history.back() fired at hash=' + JSON.stringify(backAt[0]));
+  }
+  {
+    /* the same category tap with the layer stripped: the list stays open —
+       which is what the owner meant by "still that 17 photos are on the page". */
+    const D = boot({ startHash: '#/', stripV139: true });
+    if (!(await D.booted())) ok('control fold session boots', false);
+    await sleep(500);
+    D.click(D.$('#navToggle'));
+    await until(() => D.$('#mainNav') && D.$('#mainNav').classList.contains('open'), 6000);
+    D.click(D.$('#navCats'));
+    await until(() => D.$('#dwCatList') && D.$('#dwCatList').classList.contains('open'), 6000);
+    D.click(D.$$('#dwCatList a[href^="#/"]')[2]);
+    await sleep(1300);
+    ok('control · WITHOUT the layer the 17-photo list is still open after navigating',
+      D.$('#dwCatList') && D.$('#dwCatList').classList.contains('open') &&
+      D.$('#navCats').getAttribute('aria-expanded') === 'true');
+    try { D.w.close(); } catch (_) {}
   }
   try { C.w.close(); } catch (_) {}
   try { A.w.close(); } catch (_) {}

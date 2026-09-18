@@ -73,7 +73,7 @@ waiting for the traversal to win.
 
 ### Verification
 
-`v139-check.js` **40/40** (14 static · 23 live · 3 control) — including the
+`v139-check.js` **44/44** (14 static · 26 live · 4 control) — including the
 named regression control: strip `/js/v139.js` and the same tap **does** queue
 `history.back()` at `hash=#/`. Full suite re-run **against the zip's own
 extracted bytes**: v113b 32/32 · v117 27/27 · v118 19/19 · v119 27/27 · v120
@@ -89,7 +89,7 @@ PHP binary in the sandbox**, so the Cashfree path was never executed: `api.php`
 got a `php-parser` parse check (128 top-level nodes) proven against a
 deliberately broken negative control, which is a parse check and **not** a run.
 
-**Deliverable:** `shivaa-update-v139.zip` — md5 `1863326f6a60986b13059950b9a428a8`,
+**Deliverable:** `shivaa-update-v139.zip` — md5 `0a3ec3d21d8e01406ec4cdb8fce322e2`,
 8 files, root layout, all 16 fix markers grepped inside the built zip.
 `DEPLOY-v139.md` carries the owner's install steps **and** the four dashboard
 actions One Click Checkout needs from him.

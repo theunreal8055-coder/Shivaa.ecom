@@ -61,8 +61,9 @@ unfiltered `#/shop` browse page and the home page. Side benefit: 20 image
 requests removed from every category page.
 
 Also: the sidebar's expanded "All 17 categories" list now **folds shut** when
-you navigate, so the menu opens tidy instead of showing the same 17 pictures
-again. The 17 categories themselves are untouched — that is the owner's own v115
+you navigate (`foldCatList()`, `aria-expanded` back to `false`), so the menu
+opens tidy instead of showing the same 17 pictures again. Both halves are in the
+gate — the fold **and** a control proving the list stays open without it. The 17 categories themselves are untouched — that is the owner's own v115
 decision and it stands.
 
 ### 3 · "place order button is always there on the screen in the phone … it disturbs and does not let the customer fill the information"
@@ -162,7 +163,7 @@ a change in gateway behaviour is your decision, not mine.
 
 | Gate | Result |
 |---|---|
-| `v139-check.js` (new — 14 static, 23 live, 3 control) | **40/40** |
+| `v139-check.js` (new — 14 static · 26 live · 4 control) | **44/44** |
 | `v113b` · `v117` · `v118` · `v119` · `v120` · `v121` · `v122` · `v123` · `v124` | 32/32 · 27/27 · 19/19 · 27/27 · 24/24 · 14/14 · 22/22 · 14/14 · 20/20 |
 | `v125-check.js` | 25/27 — the 2 failures are past-release scope rules (see below) |
 | `v127-check.js` | 26/27 — same (its frozen-v125-triple rule) |
