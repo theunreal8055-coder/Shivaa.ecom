@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 139;
+const APP_REL = 140;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -55,7 +55,7 @@ addEventListener('online', () => {
   ensureOfflineBar().classList.remove('show'); document.body.classList.remove('is-offline');
   toast('Back online ✦ refreshing rates…'); loadRates();
 });
-/* ═══ v139 · SILENT UPDATES — no popup, ever ═══
+/* ═══ v139/v140 · SILENT UPDATES — no popup, ever ═══
    Owner report (18 Sep 2026, verbatim): "When people open my website, it says
    update, when we press update it again pops up and says update, i don't want
    these popups of update to be shown, website should be updated automatically
@@ -658,16 +658,37 @@ window.Shivaa.updatePartnerUI = updatePartnerUI;
    and in-session storefront navigation are respected; a sessionStorage flag
    means a new tab / next day's open lands on bullion again, including
    persistent logins. Returns true when it redirected. */
-function partnerLanding(user) {
-  let already = false;
-  try { already = !!sessionStorage.getItem('shv_partner_landed'); } catch (e) {}
-  if (already) return false;
-  try { sessionStorage.setItem('shv_partner_landed', '1'); } catch (e) {}
-  const bareHome = !location.hash || location.hash === '#/' || location.hash === '#/home';
-  if (user && user.role === 'partner' && bareHome) { location.hash = '#/partner'; return true; }
-  return false;
-}
+/* v101 → v140 — welcomeSession() owns the landing now. This name remains as a
+   thin alias so no edge caller that kept using partnerLanding() ever breaks. */
+function partnerLanding() { welcomeSession(); return true; }
 window.Shivaa.partnerLanding = partnerLanding;
+
+/* v140 · AUTOMATIC LANDING — a returning visitor lands where they belong with
+   no login form and no taps, and nobody is ever trapped in a redirect loop.
+     · A jeweller whose token is still valid goes straight to the live Bullion
+       Desk on every fresh open — jewellers watch rates ~100 times a day, so
+       re-typing a password each time is not acceptable.
+     · A retail customer whose token is still valid lands back on the home page
+       — her session, wishlist and rate context are all already there.
+     · A signed-out visitor simply gets the normal home page; this helper never
+       opens the login sheet unprompted.
+   WHEN: only on a bare URL — the root domain, '#/', or '#/home'. A typed URL
+   or a shared link (a product page, a WhatsApp cart) is honoured untouched,
+   in keeping with the v101 contract. It runs exactly once per tab, from
+   boot() the moment the first batch has hydrated state.user — so a slow
+   first batch can never cause a missed landing, and a later sign-in in the
+   same tab is handled by afterLogin() instead. */
+let _landedThisTab = false;
+function welcomeSession() {
+  if (_landedThisTab) return;
+  _landedThisTab = true;
+  try { sessionStorage.setItem('shv_landed', '1'); } catch (e) {}
+  const bareHome = !location.hash || location.hash === '#/' || location.hash === '#/home';
+  if (!bareHome) return;                     // a typed URL / shared link always wins
+  const u = state.user || null;
+  if (u && u.role === 'partner') location.hash = '#/partner';   // → the live Bullion Desk
+}
+window.Shivaa.welcomeSession = welcomeSession;
 
 /* ─────────── cart ops ─────────── */
 function addToCart(id, qty = 1, size = null, engraving = null, opts = {}) {
@@ -8534,6 +8555,14 @@ async function boot(isRedraw) {
   }
   const [me = { user: null }, settings = {}, mc = { table: [] }, prods = { products: [] }, cats = { catalogs: [] }] = _packed || [];
   state.user = me.user; state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
+  /* v140 — AUTOMATIC LANDING: the moment a real /api/auth/me answer hydrates
+     state.user, a signed-in jeweller on a bare URL goes straight to the live
+     Bullion Desk (and a retail customer stays on home) — no login form, no
+     taps. welcomeSession() self-guards (runs once per tab, bare URL only) and
+     runs here — synchronously, before route() paints — so the portal is what
+     gets painted, never a flashed home page; redraws and later in-session
+     navigation are never yanked back. */
+  try { welcomeSession(); } catch (e) {}
   state.eventCoupons = me.events || [];
   /* v57: birthday / anniversary coupon welcome — shown once per code */
   (state.eventCoupons || []).forEach(c => {
@@ -8655,13 +8684,6 @@ async function boot(isRedraw) {
   $('#footCats').innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
   const pl = $('#preloader');
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
-  /* v101 · item 11 — a jeweller's every fresh app open starts at the live
-     Bullion Desk (bare #/partner redirects to ?view=bullion). Deep links
-     (shared piece, cart link) are honoured, and once they navigate into the
-     storefront within this tab session we never yank them back. The flag
-     lives in sessionStorage, so a new tab / next day's open lands on bullion
-     again — including repeat opens and persistent sessions. */
-  partnerLanding(state.user);
   initMiniCart();   // v91 slide-in bag
   route();
   // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours

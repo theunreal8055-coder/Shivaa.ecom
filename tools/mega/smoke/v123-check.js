@@ -66,11 +66,11 @@ function bootStore(extra = '') {
   console.log('\nSHIVAA v123 check\n\n· A · static gates');
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps are a consistent 123/124 triple (shell = script = worker)',
-    !!shellRel && !!appRel && !!swRel && ['123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139'].includes(shellRel[1]) && ['123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139'].includes(appRel[1]) && ['123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139'].includes(swRel[1]),
+    !!shellRel && !!appRel && !!swRel && ['123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140'].includes(shellRel[1]) && ['123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140'].includes(appRel[1]) && ['123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140'].includes(swRel[1]),
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
   ok('shell loads app.js + v116.js at v123/v124 and the worker precaches both',
-    /\/js\/app\.js\?v=(12[3-9]|13[0-9])/.test(html) && /\/js\/v116\.js\?v=(12[3-9]|13[0-9])/.test(html) &&
-    /'\/js\/app\.js\?v=(12[3-9]|13[0-9])'/.test(sw) && /'\/js\/v116\.js\?v=(12[3-9]|13[0-9])'/.test(sw));
+    /\/js\/app\.js\?v=(12[3-9]|13[0-9]|140)/.test(html) && /\/js\/v116\.js\?v=(12[3-9]|13[0-9]|140)/.test(html) &&
+    /'\/js\/app\.js\?v=(12[3-9]|13[0-9]|140)'/.test(sw) && /'\/js\/v116\.js\?v=(12[3-9]|13[0-9]|140)'/.test(sw));
   ok('all six category render sites carry ?v=123/124 photo URLs',
     /catBarItems\(\)\.map/.test(app) && /\?v=(12[3-9]|13[0-9])' : '\?v=(12[3-9]|13[0-9])'/.test(app.replace(/&v=(12[3-9]|13[0-9])/g, '?v=123')) &&
     /cat-mini-card"><img src="\$\{c\.img\}\?v=(12[3-9]|13[0-9])"/.test(app) &&

@@ -23,7 +23,6 @@
 @media (max-width: 820px) {
   /* 1 · notch + gesture-bar clearance for floating chrome */
   .toast-wrap { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
-  #shvInstallChip { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
   .boost-chat { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
   /* 2 · iOS Safari must never auto-zoom a field on focus (16px floor) */
   input, select, textarea { font-size: 16px; }

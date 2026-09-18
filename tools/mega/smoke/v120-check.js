@@ -63,10 +63,11 @@ function bootStore(extra = '') {
 
   console.log('\nSHIVAA v120 check\n\n· A · static gates');
   ok('the shell loads the v120 layer (css + js, after the v119 layer)',
-    /\/css\/v120\.css\?v=120/.test(html) && /\/js\/v120\.js\?v=120/.test(html) &&
-    html.indexOf('/js/v119.js?v=119') < html.indexOf('/js/v120.js?v=120'));
+    /\/css\/v120\.css\?v=(120|140)/.test(html) && /\/js\/v120\.js\?v=(120|140)/.test(html) &&
+    (html.indexOf('/js/v119.js?v=140') !== -1 || html.indexOf('/js/v119.js?v=119') !== -1) &&
+    html.indexOf('/js/v119.js?v=140') < html.indexOf('/js/v120.js?v=140'));
   ok('service worker precaches v120 and the media cache is the v120 generation',
-    /'\/css\/v120\.css\?v=120'/.test(sw) && /'\/js\/v120\.js\?v=120'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
+    /'\/css\/v120\.css\?v=(120|140)'/.test(sw) && /'\/js\/v120\.js\?v=(120|140)'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps stay a consistent triple (shell = script = worker)',
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],

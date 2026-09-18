@@ -1,0 +1,21 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIVAA v140 — automated sessions & no install popup (18 Sep 2026).
+   Purely additive and safety-scoped: nothing here overrides a live rule.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* A pair of class hooks for release checks; no visual effect by itself. */
+.shv-v140-marker { display: none; }
+
+/* A returning jeweller lands on the bullion desk — every text/number on it must
+   stay crisp in the one second he glances at the board. Cheap typography guard
+   only; no layout behaviour is changed. */
+#partner-view .bd-board,
+.bullion-board-wrap {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reduced-motion users never see entrance animation on the portal either. */
+@media (prefers-reduced-motion: reduce) {
+  #bullionBoard .bd-row, #bullionBoard .bd-pill { animation: none !important; transition: none !important; }
+}

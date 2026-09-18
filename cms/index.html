@@ -42,15 +42,16 @@
 <link rel="stylesheet" href="/css/mobile.css?v=107">
 <link rel="stylesheet" href="/css/v113.css?v=113b">
 <link rel="stylesheet" href="/css/v115.css?v=115">
-<link rel="stylesheet" href="/css/v116.css?v=116">
+<link rel="stylesheet" href="/css/v116.css?v=140">
 <link rel="stylesheet" href="/css/v117.css?v=117">
 <link rel="stylesheet" href="/css/v118.css?v=118">
-<link rel="stylesheet" href="/css/v119.css?v=119">
-<link rel="stylesheet" href="/css/v120.css?v=120">
+<link rel="stylesheet" href="/css/v119.css?v=140">
+<link rel="stylesheet" href="/css/v120.css?v=140">
 <link rel="stylesheet" href="/css/v121.css?v=121">
 <link rel="stylesheet" href="/css/v122.css?v=122">
 <link rel="stylesheet" href="/css/v125.css?v=125">
 <link rel="stylesheet" href="/css/v139.css?v=139">
+<link rel="stylesheet" href="/css/v140.css?v=140">
 
 <link rel="preload" as="style" href="/css/hallmark.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
 <link rel="preload" as="style" href="/css/trust.css?v=107" onload="this.onload=null;this.rel='stylesheet'">
@@ -69,7 +70,7 @@
 <!-- v119 · release stamp: app.js compares this against its own APP_REL and
      reloads once if the paired script is older — a phone can no longer sit on
      a fresh shell with a stale script ("the update changed nothing"). -->
-<script>window.__SHIVAA_REL=139;</script>
+<script>window.__SHIVAA_REL=140;</script>
 <!-- v121 · hero LCP: the first banner is the biggest paint, and the router injects
      it after boot — so it preloads here with the same srcset the slide uses,
      and phones fetch the 37KB 800px variant instead of the 172KB file. -->
@@ -355,16 +356,16 @@
      paint never waits for.
      `defer` keeps execution order and guarantees a fully parsed DOM. -->
 <script src="/js/otp-autofill.js?v=107" defer></script>
-<script src="/js/app.js?v=139" defer></script>
+<script src="/js/app.js?v=140" defer></script>
 <script src="/js/hallmark.js?v=107" defer></script>
 <script src="/js/trust.js?v=107" defer></script>
 <script src="/js/auth.js?v=113b" defer></script>
-<script src="/js/v107.js?v=139" defer></script>
-<script src="/js/v116.js?v=139" defer></script>
-<script src="/js/v117.js?v=139" defer></script>
+<script src="/js/v107.js?v=140" defer></script>
+<script src="/js/v116.js?v=140" defer></script>
+<script src="/js/v117.js?v=140" defer></script>
 <script src="/js/v118.js?v=118" defer></script>
-<script src="/js/v119.js?v=119" defer></script>
-<script src="/js/v120.js?v=120" defer></script>
+<script src="/js/v119.js?v=140" defer></script>
+<script src="/js/v120.js?v=140" defer></script>
 <script src="/js/v122.js?v=122" defer></script>
 <script src="/js/v125.js?v=125" defer></script>
 <!-- v127 · navigation ownership for the sidebar rows + the search palette's
@@ -374,6 +375,10 @@
 <!-- v139 — the bag drawer owns its own taps (Checkout ✦ was out-raced by the
      back-button overlay helper); loaded last so nothing can pre-empt it. -->
 <script src="/js/v139.js?v=139" defer></script>
+<!-- v140 — automatic-landing hardening + install-chip removal: any script an
+     older cache still held is re-stamped here, and this release's guard cleans
+     up a stray install bar if one ever got cached. Loaded last. -->
+<script src="/js/v140.js?v=140" defer></script>
 
 <script>
 if ('serviceWorker' in navigator) {

@@ -39,65 +39,14 @@
     }, 9000);
   }
 
-  /* ── 2 · INSTALL CHIP (second visit only) ───────────────────────────────
-     The manifest, icons and shortcuts already exist; the browser only offers
-     `beforeinstallprompt` when the app is installable, and we show the chip
-     from the SECOND visit onwards — a first-time visitor is never nagged.
-     Closing it is remembered forever (per device). */
-  var VISITS = 'shv_visits', CLOSED = 'shv_install_closed';
-  var priorVisits = 0;
-  try {
-    priorVisits = parseInt(localStorage.getItem(VISITS) || '0', 10) || 0;
-    localStorage.setItem(VISITS, String(priorVisits + 1));
-  } catch (e) {}
-
-  function alreadyInstalled() {
-    try {
-      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
-    } catch (e) {}
-    return !!(window.navigator && window.navigator.standalone);
-  }
-  function chipClosed() {
-    try { return localStorage.getItem(CLOSED) === '1'; } catch (e) { return false; }
-  }
-  function hideChip() {
-    var c = doc.getElementById('shvInstallChip');
-    if (c && c.parentNode) c.parentNode.removeChild(c);
-  }
-  var promptEvent = null;
-  function showChip() {
-    if (!promptEvent || alreadyInstalled() || chipClosed() || priorVisits < 1) return;
-    if (doc.getElementById('shvInstallChip')) return;
-    var chip = doc.createElement('div');
-    chip.id = 'shvInstallChip';
-    chip.setAttribute('role', 'dialog');
-    chip.setAttribute('aria-label', 'Install the Shivaa app');
-    chip.innerHTML =
-      '<div><div class="shv-ic-title">Keep Shivaa on your home screen</div>' +
-      '<div class="shv-ic-sub">Live Jaipur rates, one tap away — works offline too.</div></div>' +
-      '<button type="button" class="shv-ic-go">Install</button>' +
-      '<button type="button" class="shv-ic-x" aria-label="Not now">&#10005;</button>';
-    doc.body.appendChild(chip);
-    var go = chip.querySelector('.shv-ic-go'), x = chip.querySelector('.shv-ic-x');
-    if (go) go.onclick = function () {
-      hideChip();
-      var p = promptEvent; promptEvent = null;
-      try { if (p && p.prompt) p.prompt(); } catch (e) {}
-    };
-    if (x) x.onclick = function () {
-      hideChip();
-      try { localStorage.setItem(CLOSED, '1'); } catch (e) {}
-    };
-  }
-  window.addEventListener('beforeinstallprompt', function (e) {
-    e.preventDefault();
-    promptEvent = e;
-    showChip();
-  });
-  window.addEventListener('appinstalled', function () {
-    hideChip(); promptEvent = null;
-    try { localStorage.setItem(CLOSED, '1'); } catch (e) {}
-  });
+  /* ── 2 · INSTALL CHIP — REMOVED in v140 (18 Sep 2026) ──────────────────
+     The owner's report, verbatim: a small pop-up says "keep shivaa on your
+     home screen", and tapping its cross first shifts it aside, then back to
+     centre, and it never actually goes — it disturbed the shopping experience.
+     The chip and everything that could summon it are DELETED (the design
+     decision: never re-ask). The app remains installable through the
+     browser's own menu; the site just no longer nags or positions a bar of
+     its own. `shv_visits` is no longer needed and is not written. */
 
   /* ── 3 · boot ─────────────────────────────────────────────────────────── */
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', watchSkeleton);
