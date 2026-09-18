@@ -439,6 +439,77 @@ milliseconds, so this is latent, not live; a length branch costs one line.
 
 ---
 
+# Pass 3 — found while verifying the v136/v137 repairs
+
+Both findings below were found re-reading the code *after* the invoice (#25)
+and loyalty (#16) fixes, and both are the same shape as those two: **a value
+movement is committed when the checkout form is submitted, and nothing gives it
+back when the purchase does not happen.**
+
+## 26 · Cancelling an order returns the redeemed points but never the stock
+
+Order creation reserves stock (`api.php:3710`):
+
+```php
+foreach ($items as $it) foreach ($db['products'] as &$pr2)
+  if ($pr2['id'] === $it['productId'])
+    $pr2['stock'] = max(0, (int)($pr2['stock'] ?? 0) - $it['qty']);
+```
+
+There is **no matching increment anywhere in `api.php`** — a scan of every line
+containing `['stock']` finds the decrement above, the two low-stock report
+queries, and the product upsert, and nothing that ever adds stock back. The
+admin status handler calls `order_restore_points()` when an order is cancelled,
+so points come home but the units stay reserved forever.
+
+**Impact here is low, and it is worth saying why rather than inflating it.**
+Stock in this shop is advisory, not a gate: `api.php` never rejects an order on
+stock, and the storefront never disables a buy button on it. Every one of the
+77 products currently carries a nominal 8 or 10. So this is inventory drift —
+a slowly falling number that will eventually trip the `stock <= 3` low-stock
+report with units that were never actually sold — not an oversell. It still
+matters because that report is one of the few numbers the owner reads.
+
+## 27 · Redeemed points are released only by a manual admin cancel
+
+v137 correctly stopped *earning* points at checkout, but the *redemption* debit
+still happens at creation (`api.php:3707`):
+
+```php
+$uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0) - $pointsUsed);
+```
+
+The only thing that gives those points back is `order_restore_points()`, and its
+first line is `if (($ord['status'] ?? '') !== 'Cancelled') return;`. Verified in
+this tree:
+
+- **no cancel route exists at all** — not for the customer, not for anyone;
+- **no `cron` route and no auto-expiry**, so an unpaid order never dies on its own;
+- the *only* way an order reaches `Cancelled` is the admin setting the status
+  dropdown and `PUT /api/orders/{id}` landing on `api.php:3741`.
+
+So a customer who redeems points, closes the tab, and is never manually
+cancelled by the owner has spent those points permanently. On a ₹3,00,000 order
+the redemption cap is 10% of subtotal (`api.php:3648`), i.e. up to 3,000 points
+— ₹3,000 of real discount the customer will never be able to use.
+
+**This is unmasked by v137, not created by it.** Before v137 the same line read
+`... - $pointsUsed) + $earned;`, so the debit was hidden behind a credit of
+unearned points — the exact bug #16. v137 removed the credit, which is correct,
+and left the debit standing on its own where it can now be seen.
+
+**Deliberately not fixed here.** The fix is an order-expiry policy — after how
+long does an unpaid order give up its points and its stock? That is the
+owner's commercial decision, not a code decision, and the same question gates
+finding #5. There is also no scheduler in this deployment to run it. Inventing
+a window unilaterally would be worse than leaving it: too short and it cancels
+orders the owner is still chasing payment on.
+
+Until then the mitigation is operational — cancelling an abandoned order in the
+admin already returns the points correctly.
+
+---
+
 ## What this pass did *not* find (checked and sound)
 
 - **PCI scope** — hosted checkout only; no card field, PAN or CVV appears

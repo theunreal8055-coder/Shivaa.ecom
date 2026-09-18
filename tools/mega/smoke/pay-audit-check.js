@@ -178,6 +178,38 @@ ok(25, 'a Tax Invoice is issued at order placement, before any payment is receiv
   `expected order creation to omit invoiceNo (found: ${/'invoiceNo' =>/.test(orderCreate)}) `
   + `and order_issue_invoice() to exist (found: ${/function order_issue_invoice\(/.test(api)})`);
 
+/* ── Pass 3 findings (found while verifying the #25/#16 repairs) ──────── */
+
+/* #26 — stock is reserved at order placement and never given back. Bug-present
+   = the creation decrement exists AND nothing in api.php ever adds stock back.
+   Note the impact is inventory drift, not oversell: stock is advisory here
+   (no route rejects an order on it), but the owner reads the stock<=3 report. */
+const stockDecrement = /\$pr2\['stock'\] = max\(0, \(int\)\(\$pr2\['stock'\] \?\? 0\) - \$it\['qty'\]\)/.test(api);
+const stockIncrement =
+     /\$pr2\['stock'\] = max\(0, \(int\)\(\$pr2\['stock'\] \?\? 0\) \+/.test(api)
+  || /\['stock'\]\s*\+=/.test(api)
+  || /function order_restore_stock\(/.test(api);
+ok(26, 'cancelling an order returns the points but never the stock it reserved',
+  stockDecrement && !stockIncrement,
+  `expected the creation decrement (found: ${stockDecrement}) `
+  + `and no stock restore anywhere (found restore: ${stockIncrement})`);
+
+/* #27 — redeemed points are released ONLY by a manual admin cancel. Bug-present
+   = the redemption debit happens at creation, the sole release is gated on
+   status === 'Cancelled', and nothing can reach Cancelled automatically
+   (no customer cancel route, no cron/auto-expiry).
+   Unmasked by v137, not created by it: the pre-v137 line ended `+ $earned`,
+   hiding the debit behind the unearned credit that #16 removed. */
+const pointsDebit = /\$uu\['loyaltyPoints'\] = max\(0, \(int\)\(\$uu\['loyaltyPoints'\] \?\? 0\) - \$pointsUsed\);/.test(api);
+const restoreGatedOnCancel = /function order_restore_points\([\s\S]{0,160}!== 'Cancelled'\) return;/.test(api);
+const anyCancelRoute = /route === 'orders\/\(\[\\w-\]\+\)\/cancel'/.test(api) || /'orders\/cancel'/.test(api);
+const anyAutoExpiry = /route === 'cron'/.test(api) || /function order_expire/.test(api);
+ok(27, 'redeemed points on an abandoned order are released only by a manual admin cancel',
+  pointsDebit && restoreGatedOnCancel && !anyCancelRoute && !anyAutoExpiry,
+  `expected the creation debit (found: ${pointsDebit}), restore gated on Cancelled `
+  + `(found: ${restoreGatedOnCancel}), no customer cancel route (found: ${anyCancelRoute}) `
+  + `and no auto-expiry (found: ${anyAutoExpiry})`);
+
 /* ── things the audit checked and found SOUND (must stay sound) ────────── */
 console.log('\n· invariants that must NOT regress');
 const inv = [];
