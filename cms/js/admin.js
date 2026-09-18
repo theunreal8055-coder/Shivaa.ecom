@@ -805,6 +805,13 @@ async function renderAdmin(view, q) {
                 <input type="checkbox" name="cfOccAddress" style="width:17px;height:17px;accent-color:var(--gold)" ${(S.cfOccAddress === undefined ? true : !!S.cfOccAddress) ? 'checked' : ''}> Pre-fill the delivery address</label></div>
               <div class="fld"><label style="display:flex;gap:8px;align-items:center;font-size:12.5px">
                 <input type="checkbox" name="cfOccAuth" style="width:17px;height:17px;accent-color:var(--gold)" ${(S.cfOccAuth === undefined ? true : !!S.cfOccAuth) ? 'checked' : ''}> Verify the phone number (OTP login)</label></div>
+              <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
+                <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
+                  <input type="checkbox" name="guestCheckout" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${S.guestCheckout ? 'checked' : ''}>
+                  <span><b>⚡ Automatic Guest Checkout (One-Tap Buy)</b><br>
+                  <small style="color:var(--ink-3)">Tapping <b>Make It Yours</b> places the order and hands the customer straight to Cashfree — <b>no account, no address form, no shivaa.in OTP</b>. Cashfree verifies the name, number and address on its own page and the only thing typed there is the customer&rsquo;s UPI PIN / net-banking password (a first-time number is verified once by Cashfree, then remembered). Needs <b>One Click Checkout</b> above to already be on, and the switch only takes effect once Cashfree is connected live. Turn off for instant rollback to the previous checkout.</small></span>
+                </label>
+              </div>
               <div class="fld full" style="font-size:12px;color:var(--ink-3)">
                 If Cashfree refuses the One Click Checkout payload (product not active, a rejected field, a version mismatch) the payment is
                 <b>retried automatically as a standard Cashfree checkout</b> — nobody is ever unable to pay — and the refusal is written to the audit log
@@ -1681,7 +1688,9 @@ window.ShivaaAdmin.savePay = async e => {
                  // v139 — Cashfree One Click Checkout
                  cfOcc: !!document.querySelector('[name="cfOcc"]')?.checked,
                  cfOccAddress: !!document.querySelector('[name="cfOccAddress"]')?.checked,
-                 cfOccAuth: !!document.querySelector('[name="cfOccAuth"]')?.checked };
+                 cfOccAuth: !!document.querySelector('[name="cfOccAuth"]')?.checked,
+                 // v142 — automatic guest checkout (One-Tap Buy)
+                 guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked };
   // secret key is write-only: only sent when retyped (server strips it from GETs)
   if (g('cfSecretKey')) body.cfSecretKey = g('cfSecretKey').trim();
   try {
@@ -1935,7 +1944,13 @@ window.ShivaaAdmin.printJobSlip = (id) => {
 function admPrintDoc(o, kind) {
   if (!o) return;
   const S = (window.Shivaa.state && window.Shivaa.state.settings) || {};
-  const addr = o.address || {};
+  /* v142 — a guest express order ships to the address Cashfree verified, not
+     the placeholder the shop created while Cashfree collected it. */
+  const cf = (o.cfCheckout && o.cfCheckout.shipping) || null;
+  const addr = cf
+    ? { name: cf.name || cf.phone || o.userName || '', line: [cf.address_line_one, cf.address_line_two].filter(Boolean).join(', '),
+        city: cf.city || '', state: cf.state || '', pincode: cf.pin_code || '', phone: cf.phone || (o.cfCheckout.phone) || '' }
+    : (o.address || {});
   const addrLine = [addr.name, addr.line, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ');
   const totW = (o.items || []).reduce((a, i) => a + (i.weightG || 0) * (i.qty || 1), 0).toFixed(3);
   const when = new Date(o.createdAt || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -1946,7 +1961,7 @@ function admPrintDoc(o, kind) {
       <div style="text-align:right"><b>INSURED PARCEL</b><div class="muted">Handle with care · jewellery</div></div></div>
       <div class="grid2">
         <div><div class="muted">FROM</div><b>Shivaa Jewellers</b><div>${escP(S.address || 'Sadar Bazaar, Jayal, Nagaur (Raj.)')}</div><div>${escP(S.phone || '')}</div></div>
-        <div class="box"><div class="muted">DELIVER TO</div><div class="label-to"><b>${escP((addr.name || o.userName || '').toUpperCase())}</b><br>${escP(addrLine || '')}<br>📞 ${escP(addr.phone || o.phone || '')}</div></div>
+        <div class="box"><div class="muted">DELIVER TO${cf ? ' · CASHFREE-VERIFIED' : ''}</div><div class="label-to"><b>${escP((addr.name || o.userName || '').toUpperCase())}</b><br>${escP(addrLine || '')}<br>📞 ${escP((cf && o.cfCheckout && o.cfCheckout.phone) || addr.phone || o.phone || '')}</div></div>
       </div>
       <div class="box" style="text-align:center"><div class="muted">${escP(o.courier || 'COURIER')} · AWB / TRACKING</div><div class="big">${escP(o.awb || 'AWAITING AWB')}</div></div>
       <div class="grid2">
@@ -3545,6 +3560,12 @@ window.ShivaaAdmin.openAudit = async () => {
 window.ShivaaAdmin.printInvoice = (id) => {
   const o = (window._adminOrders || []).find(x => x.id === id);
   if (!o) return;
+  /* v142 — bill a guest express order to Cashfree's verified address/name. */
+  const cf2 = (o.cfCheckout && o.cfCheckout.shipping) || null;
+  const pAddr = cf2
+    ? { name: cf2.name || o.userName || '', line: [cf2.address_line_one, cf2.address_line_two].filter(Boolean).join(', '),
+        city: cf2.city || '', state: cf2.state || '', pincode: cf2.pin_code || '', phone: cf2.phone || (o.cfCheckout && o.cfCheckout.phone) || '' }
+    : (o.address || {});
   const s = state.settings || {};
   const gstin = s.gstin || 'GSTIN on file';
   const w = window.open('', '_blank');
@@ -3568,7 +3589,7 @@ window.ShivaaAdmin.printInvoice = (id) => {
   </style></head><body>
   <div class="flx"><div><h1>Shivaa Jewellers</h1><div class="muted">Jayal, Nagaur, Rajasthan · ${gstin}<br>Ph. +91 89050 05921 · shivaa.in</div></div>
   <div style="text-align:right"><b>TAX INVOICE</b><br>${o.invoiceNo || ''}<br><span class="muted">${new Date(o.createdAt).toLocaleDateString('en-IN')}</span></div></div>
-  <div class="flx" style="margin-top:8px"><div><b>Bill to:</b><br>${esc(o.userName || '')}<br><span class="muted">${esc((o.address && (o.address.line1 || o.address.address)) || '')}<br>${esc([o.address && o.address.city, o.address && o.address.state, o.address && o.address.pincode].filter(Boolean).join(', '))}</span><br>${esc((o.address && o.address.phone) || o.phone || '')}</div>
+  <div class="flx" style="margin-top:8px"><div><b>Bill to:${cf2 ? ' <span class="muted">(Cashfree-verified)</span>' : ''}</b><br>${esc(cf2 ? (pAddr.name || pAddr.phone || '') : (o.userName || ''))}<br><span class="muted">${esc(pAddr.line || pAddr.address || '')}<br>${esc([pAddr.city, pAddr.state, pAddr.pincode].filter(Boolean).join(', '))}</span><br>${esc(pAddr.phone || o.phone || '')}</div>
   <div style="text-align:right"><b>Order:</b> ${o.id}<br><b>Payment:</b> ${esc(o.paymentStatus || '')} (${esc(o.paymentMethod || '')})</div></div>
   <table><thead><tr><th>Description</th><th>Purity</th><th class="r">Wt g</th><th class="r">Qty</th><th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th><th class="r">Total</th></tr></thead>
   <tbody>${rows}

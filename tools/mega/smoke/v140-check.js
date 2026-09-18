@@ -138,13 +138,14 @@ function boot({ user = null, token = null, startHash = '', innerWidth = 420 } = 
 
   ok('the release triple moves together to 140 or newer (index.html · app.js · sw.js)',
     (/window\.__SHIVAA_REL=140;/.test(shell) && /APP_REL\s*=\s*140/.test(app) && /SHELL = 'shivaa-shell-v140'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=141;/.test(shell) && /APP_REL\s*=\s*141/.test(app) && /SHELL = 'shivaa-shell-v141'/.test(sw)),
-    'index.html/app.js/sw.js stamps must all read 140 (or the v141 release they moved to)');
+    (/window\.__SHIVAA_REL=141;/.test(shell) && /APP_REL\s*=\s*141/.test(app) && /SHELL = 'shivaa-shell-v141'/.test(sw)) ||
+    (/window\.__SHIVAA_REL=142;/.test(shell) && /APP_REL\s*=\s*142/.test(app) && /SHELL = 'shivaa-shell-v142'/.test(sw)),
+    'index.html/app.js/sw.js stamps must all read 140 (or the v141/v142 release they moved to)');
 
   ok('every changed file carries its new cache stamp (?v=140 / app.js 140+141) in index.html',
     /\/css\/v116\.css\?v=140/.test(shell) && /\/css\/v119\.css\?v=140/.test(shell) && /\/css\/v120\.css\?v=140/.test(shell) &&
-    /\/js\/app\.js\?v=(140|141)/.test(shell) && /\/js\/v107\.js\?v=140/.test(shell) && /\/js\/v116\.js\?v=(140|141)/.test(shell) &&
-    /\/js\/v117\.js\?v=(140|141)/.test(shell) && /\/js\/v119\.js\?v=140/.test(shell) && /\/js\/v120\.js\?v=140/.test(shell),
+    /\/js\/app\.js\?v=(140|141|142)/.test(shell) && /\/js\/v107\.js\?v=140/.test(shell) && /\/js\/v116\.js\?v=(140|141|142)/.test(shell) &&
+    /\/js\/v117\.js\?v=(140|141|142)/.test(shell) && /\/js\/v119\.js\?v=140/.test(shell) && /\/js\/v120\.js\?v=140/.test(shell),
     'a changed stamped file must move its ?v= (immutable cache, one year)');
 
   ok('the new v140 layer ships, is loaded LAST, and the worker precaches it',
@@ -153,9 +154,9 @@ function boot({ user = null, token = null, startHash = '', innerWidth = 420 } = 
     sw.includes("'/js/v140.js?v=140'") && sw.includes("'/css/v140.css?v=140'"));
 
   ok('the service worker precache matches the re-stamped files exactly',
-    (sw.includes("'/js/app.js?v=140'") || sw.includes("'/js/app.js?v=141'")) &&
+    (sw.includes("'/js/app.js?v=140'") || sw.includes("'/js/app.js?v=141'") || sw.includes("'/js/app.js?v=142'")) &&
     sw.includes("'/js/v119.js?v=140'") && sw.includes("'/js/v120.js?v=140'") &&
-    (sw.includes("'/js/v116.js?v=140'") || sw.includes("'/js/v116.js?v=141'")) &&
+    (sw.includes("'/js/v116.js?v=140'") || sw.includes("'/js/v116.js?v=141'") || sw.includes("'/js/v116.js?v=142'")) &&
     sw.includes("'/css/v119.css?v=140'") && sw.includes("'/css/v120.css?v=140'") && sw.includes("'/css/v116.css?v=140'"));
 
   ok('the install chip is GONE from the markup layer (js/v119.js)',

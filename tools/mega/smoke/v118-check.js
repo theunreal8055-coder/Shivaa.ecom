@@ -20,9 +20,9 @@ const server=http.createServer((req,res)=>{let u=decodeURIComponent(req.url.spli
  const css=fs.readFileSync(path.join(CMS,'css/v118.css'),'utf8');
  const sw=fs.readFileSync(path.join(CMS,'sw.js'),'utf8');
  console.log('\nSHIVAA v118 checkout + catalogue check\n\n· static gates');
- ok('release handshake is v118 or newer',/__SHIVAA_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141)/.test(html)&&/APP_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141)/.test(app));
+ ok('release handshake is v118 or newer',/__SHIVAA_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142)/.test(html)&&/APP_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142)/.test(app));
  ok('v118 CSS and JS are loaded',/v118\.css\?v=118/.test(html)&&/v118\.js\?v=118/.test(html));
- ok('service-worker shell is v118 or newer',/SHELL = 'shivaa-shell-v(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141)'/.test(sw));
+ ok('service-worker shell is v118 or newer',/SHELL = 'shivaa-shell-v(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142)'/.test(sw));
  ok('category rail images are eager with a safe fallback',/loading="eager" decoding="async" fetchpriority="low"/.test(app)&&/\.cb-img img \{ display:block/.test(css));
  ok('gallery dots are buttons and gestures use pointer capture',/id="galDots"[\s\S]{0,400}<button type="button"/.test(app)&&/setPointerCapture/.test(app)&&/lostpointercapture/.test(app));
  ok('Quick View opens on click, not pointerup',/document\.addEventListener\('click', function\(e\)/.test(v116)&&!/document\.addEventListener\('pointerup', function\(e\)/.test(v116));

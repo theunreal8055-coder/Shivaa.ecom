@@ -468,6 +468,59 @@ function cashfree_sanitize_id(string $v, int $max = 50): string {
   $v = preg_replace('#[^A-Za-z0-9_-]#', '', $v);
   return substr((string)$v, 0, $max);
 }
+
+/* v142 · GUEST EXPRESS CHECKOUT — a shopper who buys without an account still
+   needs to reach their own order afterwards (the Cashfree return lands on the
+   order page, and the page's pin poller reads orders/{id}). The bearer for that
+   is a per-order access code: for members the account token, for guest orders a
+   hash of data only the order itself knows (ids, createdAt, delivery phone).
+   It can be written into the customer's own links but never reversed or guessed,
+   and pay/cashfree/status — the only mutation a guest can reach with it — is
+   IP-rate-limited and does nothing but read the payment state from Cashfree. */
+function shv_guest_pin(array $o): string {
+  /* Only fields fixed at creation may enter the hash. gatewayOrderId is written
+     by the first pay attempt, and cfCheckout.phone (the number Cashfree
+     verified) can differ from the number a first-time buyer typed — hashing
+     either would recompute a pin the customer no longer holds and lock them
+     out of their own order the moment payment succeeds. id, createdAt and the
+     private `tail` never change. */
+  $raw = implode('|', [
+    (string)($o['id'] ?? ''),
+    (string)($o['createdAt'] ?? ''),
+    (string)($o['tail'] ?? ''),   // set at creation; ties even identical orders apart
+  ]);
+  return substr(hash('sha256', $raw), 0, 16);
+}
+
+/* v142 · cap how many Cashfree charge-sessions one shop order can ever mint.
+   Without this, a guest holding only an access pin could replay pay/order
+   until the freezer (rate_block) stopped them — the freezer is IP scoped, so a
+   distributed replay is still possible; this is a crisp per-ORDER ceiling.
+   Members keep a higher ceiling (paying in steps, retries); guests are one
+   tap, three sessions. */
+function shv_cap_cf_create(array &$db, array $o, bool $guest): bool {
+  $max = $guest ? 3 : 12;
+  $n = 0;
+  foreach (($o['cfAttempts'] ?? []) as $a) if (!empty($a['cfOrderId'])) $n++;
+  return $n < $max;
+}
+
+/* v142 · resolve an order for the current request, member or guest. The only
+   routes that call this are the three a guest-buy customer must reach without
+   an account: read the order, mint the Cashfree charge, poll its status.
+   Legacy orders are unaffected — guest access applies only to rows explicitly
+   saved with guest:true, and the pin must match under a constant-time compare. */
+function shv_resolve_order(array $db, string $id, string $pin = ''): array {
+  $i = null; $o = null;
+  foreach ($db['orders'] as $idx => $x) if (($x['id'] ?? '') === $id) { $i = $idx; $o = $x; break; }
+  if ($o === null) return ['o' => null, 'denied' => true];
+  $u = req_user($db);
+  if ($u && ($o['userId'] ?? '') === $u['id']) return ['i' => $i, 'o' => $o, 'u' => $u, 'guest' => false];
+  if ($u && ($u['role'] ?? '') === 'admin') return ['i' => $i, 'o' => $o, 'u' => $u, 'guest' => false];
+  if (($o['guest'] ?? false) === true && $pin !== '' && hash_equals(shv_guest_pin($o), $pin))
+    return ['i' => $i, 'o' => $o, 'u' => null, 'guest' => true];
+  return ['o' => null, 'denied' => true];
+}
 /* authenticated PG API call (x-api-version + x-client-id + x-client-secret). */
 function cashfree_call(array $cfg, string $method, string $path, ?array $body = null): array {
   if (!function_exists('curl_init')) return ['code' => 0, 'json' => null, 'raw' => 'curl missing'];
@@ -3691,14 +3744,33 @@ try {
   /* ── orders ── */
   if ($route === 'orders' && $method === 'POST') {
     $u = req_user($db);
-    if (!$u) jout(401, ['error' => 'Login required to place order']);
-    rate_block($db, 'order-ip', client_ip(), 60, 3600);
-    rate_block($db, 'order-u', $u['id'] ?? '?', 40, 3600);
+    /* v142 · GUEST EXPRESS CHECKOUT — previously an order without an account was
+       refused outright, so the whole buy journey (login → typed address → coupon
+       → Cashfree → order page) could never be skipped. With the flag on, a guest
+       order is allowed because it is SAFE, not because it is simpler:
+         · the delivery phone/gst fields are still validated exactly like before
+         · the customer id can only ever be its own synthetic 'guest' value
+         · member-only coupons and loyalty points are silently off
+         · the order is tagged guest:true and the returned object carries a
+           one-way access pin — it does NOT open the member account surface
+       The flag defaults OFF; nothing about existing member checkout moves. */
+    $guestBuyOk = !empty($db['settings']['guestCheckout']);
+    if (!$u && !$guestBuyOk) jout(401, ['error' => 'Login required to place order']);
+    $userId = $u ? $u['id'] : ($guestBuyOk ? 'guest' : null);
+    rate_block($db, 'order-ip', client_ip(), $guestBuyOk ? 300 : 60, 3600);
+    rate_block($db, 'order-u', $userId ?? '?', 40, 3600);
     $b = body_json();
     if (!is_array($b['items'] ?? null) || !count($b['items'])) jout(400, ['error' => 'Cart is empty']);
     if (count($b['items']) > 100) jout(400, ['error' => 'Too many cart items (max 100 per order).']);
     $pm = (string)($b['paymentMethod'] ?? 'Online');
     if (!in_array($pm, ['Online', 'COD', 'WhatsApp'], true)) jout(400, ['error' => 'Unknown payment method.']);
+    /* v142 — a guest express order carries a provisional address that Cashfree
+       replaces on payment; COD and WhatsApp settle (or get confirmed) without
+       that payment, so they would leave an unshippable placeholder order.
+       Guest buying is prepaid-online only, enforced server-side: a crafted
+       request cannot dodge it. Members keep COD/WhatsApp as before. */
+    if (!$u && $pm !== 'Online')
+      jout(400, ['error' => 'Guest checkout can only pay online (UPI / card / net-banking). Sign in to choose cash on delivery or WhatsApp.']);
     $b['paymentMethod'] = $pm;
     // Bound free-text checkout fields before they are stored/printed on invoices.
     if (is_array($b['address'] ?? null)) {
@@ -3740,7 +3812,12 @@ try {
          20 minutes was silently dropped here and the order priced at LIVE
          rates — a price-integrity bug on a shop selling by the gram. */
       $lockSec = max(300, min(3600, (int)($db['settings']['rateLockMinutes'] ?? 20) * 60));
-      if ($stamp !== false && (time() - $stamp) <= $lockSec) {
+      $allowLock = true;
+      /* v142 — a rate lock only makes sense when the shopper has been ON the
+         checkout watching the countdown; requiring it of a walked-in guest
+         order would fail every express purchase. Guests are priced live. */
+      if (!$u) $allowLock = false;
+      if ($allowLock && $stamp !== false && (time() - $stamp) <= $lockSec) {
         $L = (array)$b['rateLock']['rates']; $ok = true;
         foreach (['gold22','gold24','gold18','silver'] as $rk) {
           if (isset($L[$rk]) && is_numeric($L[$rk]) && !empty($R[$rk])
@@ -3771,7 +3848,7 @@ try {
     // feed (metal value would collapse to ₹0 + stones).
     if ($subtotal <= 0) jout(503, ['error' => 'Live pricing is temporarily unavailable — please retry in a minute, or order on WhatsApp.']);
     $coupon = null;
-    if (!empty($b['coupon'])) foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper($b['coupon']) && coupon_live($c) && coupon_for_user($c, $u)) $coupon = $c;
+    if (!empty($b['coupon']) && !empty($u)) foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper($b['coupon']) && coupon_live($c) && coupon_for_user($c, $u)) $coupon = $c;
     // v84 — honour the admin's "once per customer" / "new customers only"
     // flags server-side (the checkout UI only hid the code; the API used it).
     if ($coupon && !empty($coupon['oncePerUser'])) {
@@ -3788,7 +3865,7 @@ try {
       $discount = (int)round(max(0, min($subtotal, $raw)));
     }
     $pointsUsed = 0;
-    if (!empty($b['usePoints'])) {
+    if (!empty($b['usePoints']) && !empty($u)) {
       $maxPts = (int)min((float)($u['loyaltyPoints'] ?? 0), floor($subtotal * 0.1));
       $pointsUsed = max(0, (int)min($maxPts, (int)floor(max(0, $subtotal - $discount))));
       $discount += $pointsUsed;
@@ -3827,7 +3904,7 @@ try {
        no-op for them), so the historical series stays continuous. */
     $order = [
       'id' => biz_id('SHV'), 'hsn' => '71131910',
-      'userId' => $u['id'], 'userName' => $u['name'], 'items' => $items,
+      'userId' => $userId, 'userName' => $u ? $u['name'] : trim((string)($b['address']['name'] ?? 'Valued customer')), 'items' => $items,
       'address' => $b['address'] ?? (object)[], 'paymentMethod' => $pm,
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Awaiting payment'),
       'subtotal' => $subtotal, 'discount' => $discount, 'prepaidDiscount' => $prepaid, 'codFee' => $codFee,
@@ -3841,19 +3918,32 @@ try {
       'rateSnapshot' => array_merge($R, ['stampedAt' => now_iso(), 'locked' => $lockedR !== null]),
       'status' => 'Placed', 'createdAt' => now_iso(), 'timeline' => [['s' => 'Placed', 't' => now_iso()]],
     ];
+    /* v142 — guest express orders: tag them and mint the access pin. `tail` is
+       private entropy that enters the pin hash but — like the pin itself — is
+       never sent to the browser, so the pin cannot be recomputed client-side. */
+    if (!$u) {
+      $order['guest'] = true;
+      $order['tail'] = bin2hex(random_bytes(12));
+      $order['email'] = '';
+    }
     $db['orders'][] = $order;
     /* v137 (#16) — only the REDEMPTION happens here; the earning does not.
        Redeeming at checkout is correct (it prices this order), but crediting
        `earnedPoints` in the same write meant an abandoned cart permanently
        granted spendable points against money never received. Earning now
        happens in order_grant_points() when the order reaches Paid. */
-    foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
+    foreach ($db['users'] as &$uu) if ($u && $uu['id'] === $u['id']) {
       $uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0) - $pointsUsed);
     }
     unset($uu);
     foreach ($items as $it) foreach ($db['products'] as &$pr2) if ($pr2['id'] === $it['productId']) $pr2['stock'] = max(0, (int)($pr2['stock'] ?? 0) - $it['qty']);
     db_save($DB_FILE, $db);
-    jout(200, $order);
+    /* v142 — a guest gets exactly the same order object, plus the access pin
+       (`pin`, never persisted to the database) that lets the order page read /
+       pay / poll their order without a member account. */
+    $resp = $order;
+    if (!$u) $resp['pin'] = shv_guest_pin($order);
+    jout(200, $resp);
   }
   if ($route === 'orders' && $method === 'GET') {
     $u = req_user($db);
@@ -3866,7 +3956,8 @@ try {
     if ($method === 'GET') {
       $u = req_user($db);
       if (!$o) jout(404, ['error' => 'Not found']);
-      if ($o['userId'] !== ($u['id'] ?? '') && ($u['role'] ?? '') !== 'admin') jout(403, ['error' => 'Not yours']);
+      $guestPinOk = (($o['guest'] ?? false) === true) && hash_equals(shv_guest_pin($o), trim((string)($_GET['pin'] ?? '')));
+      if (($o['userId'] ?? '') !== ($u['id'] ?? '') && ($u['role'] ?? '') !== 'admin' && !$guestPinOk) jout(403, ['error' => 'Not yours']);
       jout(200, ['order' => $o]);
     }
     if ($method === 'PUT') {
@@ -3932,8 +4023,15 @@ try {
     // v128 — Cashfree hosted checkout is the only live gateway in the UI.
     $cfCfg = cashfree_cfg($db);
     $cfLive = cashfree_ready($db);
+    /* v142 — the storefront builds the express checkout ONLY when it sees this
+       flag; the flag is on only when the owner has switched it on AND a live
+       Cashfree connection exists AND Cashfree One Click Checkout is enabled.
+       Those last two are what make the "auto-verify name/number/address, only
+       ask for the PIN" promise real — without them it is just a payment form. */
+    $guestEnabled = !empty($s['guestCheckout']) && $cfLive && !empty($cfCfg['occ']);
     jout(200, [
       'mode' => $cfLive ? 'cashfree' : 'demo',
+      'guestCheckout' => $guestEnabled,
       'provider' => $provider,
       /* v135 (#9) — this route is public and used to broadcast whether the shop
          is running Cashfree sandbox or production. Only a boolean now. */
@@ -3960,7 +4058,17 @@ try {
   };
   if ($route === 'pay/order' && $method === 'POST') {
     $b = body_json();
-    [$i, $o, $u] = $find_order_owner((string)($b['orderId'] ?? ''));
+    /* v142 — guest express order: the charge can be minted with the order's own
+       access pin instead of a member token. The member path is unchanged. */
+    $pin = (string)($b['pin'] ?? '');
+    $guest = $pin !== '' && empty(req_user($db));
+    if ($guest) {
+      $gr = shv_resolve_order($db, (string)($b['orderId'] ?? ''), $pin);
+      if (empty($gr['o']) || empty($gr['guest'])) jout(403, ['error' => 'Order not found or access code incorrect']);
+      [$i, $o, $u] = [$gr['i'], $gr['o'], null];
+    } else {
+      [$i, $o, $u] = $find_order_owner((string)($b['orderId'] ?? ''));
+    }
     // v86 — a cancelled order must never create a gateway charge (a customer
     // replaying a stale checkout could otherwise pay for a dead order).
     if (($o['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled — please place a new order.']);
@@ -3987,6 +4095,11 @@ try {
       if ($cfg['env'] === 'production' && strtolower((string)parse_url($base, PHP_URL_SCHEME)) !== 'https')
         jout(500, ['error' => 'Cashfree production mode needs an https site. Set the https Site URL in Admin → Payments.']);
       $attempts = $db['orders'][$i]['cfAttempts'] ?? [];
+      /* v142 — each retry mints a fresh Cashfree session and each one is a
+         gateway call; no single order may ever mint unbounded ones (members:
+         12, guests: 3 — enough for the happy path, a retry and one bank drop). */
+      if (!shv_cap_cf_create($db, $o, $guest))
+        jout(429, ['error' => 'Too many payment sessions — please pay on WhatsApp / COD, or contact the shop.']);
       // each retry gets a fresh Cashfree order id; charset [A-Za-z0-9_-], max 50.
       $cfOrderId = cashfree_sanitize_id($o['id'], 44) . '-A' . (count($attempts) + 1);
       $phoneRaw = (string)(($o['address']['phone'] ?? '') ?: ($u['phone'] ?? ''));
@@ -4007,11 +4120,12 @@ try {
           'customer_id' => cashfree_sanitize_id((string)($u['id'] ?? 'guest'), 32) ?: 'guest',
           'customer_name' => $name,
           'customer_email' => $email,
-          'customer_phone' => $phone,
+          'customer_phone' => ($phone === '9999999999' && !$u) ? '' : $phone,   // v142 · guests let Cashfree collect/verify the number
         ],
         'order_meta' => [
           // {order_id} is replaced by Cashfree at redirect time (documented placeholder)
-          'return_url' => $base . '/api/pay/cashfree/return?co=' . urlencode($o['id']) . '&order_id={order_id}',
+          'return_url' => $base . '/api/pay/cashfree/return?co=' . urlencode($o['id'])
+                        . ($u ? '' : '&pin=' . rawurlencode(shv_guest_pin($o))) . '&order_id={order_id}',   // v142 · guest orders ride their pin home
           'notify_url' => $base . '/api/pay/cashfree/webhook',
         ],
         'order_note' => substr('Shivaa Jewellers order ' . $o['id'], 0, 100),
@@ -4029,6 +4143,24 @@ try {
         $occBlock = cashfree_occ_block($cfg, $db, $o);
         if ($occBlock) {
           $payload = array_merge($payload, $occBlock);
+          if ($guest) {
+            /* v142 · `checkoutAuthenticate` is what lets Cashfree recognise a
+               saved number and skip the first-time OTP — the one-tap the owner
+               asked for; the number itself already rides in customer_phone
+               above (from the typed value, or empty so Cashfree collects it).
+               Members keep exactly the admin's cfOccAuth choice. */
+            $blockArr =& $payload['products']['one_click_checkout'];
+            if (!isset($blockArr['conditions'])) $blockArr['conditions'] = [];
+            $hasAuth = false;
+            foreach ($blockArr['conditions'] as $__c) {
+              if (($__c['key'] ?? '') === 'features' && (($__c['action'] ?? '') === 'ALLOW') && !empty($__c['values'])) {
+                $hasAuth = in_array('checkoutAuthenticate', $__c['values'], true);
+                break;
+              }
+            }
+            if (!$hasAuth) $blockArr['conditions'][] = ['key' => 'features', 'action' => 'ALLOW', 'values' => ['checkoutAuthenticate']];
+            unset($blockArr, $__c);
+          }
           $cfgOcc = $cfg; $cfgOcc['apiVersion'] = $cfg['occApiVersion'];
           $res = cashfree_call($cfgOcc, 'POST', '/pg/orders', $payload);
           $rj = $res['json'];
@@ -4231,7 +4363,15 @@ try {
       'Too many payment redirects from this connection — please wait a few minutes.');
     $co = (string)($_GET['co'] ?? '');
     $orderId = preg_match('/^[A-Za-z0-9_-]{1,48}$/', $co) ? substr($co, 0, 48) : '';
-    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?cf=pending'
+    $rp = '';
+    if ($orderId !== '') {          // v142 · guest express orders ride their pin home
+      foreach ($db['orders'] as $x) if (($x['id'] ?? '') === $orderId) {
+        if (($x['guest'] ?? false) === true && !empty($_GET['pin'])
+            && hash_equals(shv_guest_pin($x), trim((string)$_GET['pin']))) $rp = '&pin=' . rawurlencode((string)$_GET['pin']);
+        break;
+      }
+    }
+    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?cf=pending' . $rp
                              : '/#/account?tab=orders';
     header('Cache-Control: no-store');
     header('Location: ' . $target, true, 302);
@@ -4282,7 +4422,18 @@ try {
   if ($route === 'pay/cashfree/status' && $method === 'POST') {
     // order page poller: ask the server to reconcile Cashfree right now
     $b = body_json();
-    [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
+    /* v142 — guest express order: the poller that confirms the Cashfree payment
+       also accepts the order's access pin. Every other order mutation stays
+       member-only. */
+    $pin = (string)($b['pin'] ?? '');
+    $guest = $pin !== '' && empty(req_user($db));
+    if ($guest) {
+      $gr = shv_resolve_order($db, (string)($b['orderId'] ?? ''), $pin);
+      if (empty($gr['o']) || empty($gr['guest'])) jout(403, ['error' => 'Order not found or access code incorrect']);
+      [$i, $o] = [$gr['i'], $gr['o']];
+    } else {
+      [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
+    }
     if (!empty($db['orders'][$i]['cfAttempts'])) {
       $cfg = cashfree_cfg($db);
       $oid = (string)($db['orders'][$i]['id'] ?? '');
@@ -6072,7 +6223,7 @@ try {
     }
     // scalar-only keys must never silently accept arrays/objects (they feed
     // string contexts: UPI URIs, invoice lines, SMS messages)
-    foreach (['upiName', 'shopName', 'address', 'finePurity', 'payProvider'] as $sk) {
+    foreach (['upiName', 'shopName', 'address', 'finePurity', 'payProvider', 'guestCheckout'] as $sk) {
       if (array_key_exists($sk, $setBody) && !is_scalar($setBody[$sk])) jout(400, ['error' => $sk . ' must be text']);
     }
     // v128 — only demo + Cashfree can be selected; every other gateway has
@@ -6096,7 +6247,7 @@ try {
       jout(400, ['error' => 'Cashfree environment must be sandbox or production.']);
     // v139 — One Click Checkout switches are strict booleans; anything else is
     // a mistake in the admin form, not a value to store.
-    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth'] as $occKey) {
+    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth', 'guestCheckout'] as $occKey) {
       if (array_key_exists($occKey, $setBody)) {
         $v = $setBody[$occKey];
         if (is_bool($v)) continue;

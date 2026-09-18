@@ -72,11 +72,11 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
 
   console.log('\nSHIVAA v119 check\n\n· A · static gates');
   ok('release handshake is 119 on both sides',
-    /__SHIVAA_REL\s*=\s*(119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141)/.test(html) && /APP_REL\s*=\s*(119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141)/.test(app));
+    /__SHIVAA_REL\s*=\s*(119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142)/.test(html) && /APP_REL\s*=\s*(119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142)/.test(app));
   ok('the shell loads the v119 layer (css + js)',
     /\/css\/v119\.css\?v=(119|140)/.test(html) && /\/js\/v119\.js\?v=(119|140)/.test(html));
   ok('service-worker shell is v119 and precaches the whole v119 layer',
-    /SHELL = 'shivaa-shell-v(119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141)'/.test(sw) && /'\/css\/v119\.css\?v=(119|140)'/.test(sw) && /'\/js\/v119\.js\?v=(119|140)'/.test(sw) && /'\/js\/app\.js\?v=(119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141)'/.test(sw));
+    /SHELL = 'shivaa-shell-v(119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142)'/.test(sw) && /'\/css\/v119\.css\?v=(119|140)'/.test(sw) && /'\/js\/v119\.js\?v=(119|140)'/.test(sw) && /'\/js\/app\.js\?v=(119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142)'/.test(sw));
   ok('index.html ships a first-paint skeleton that v119.css retires',
     /<main id="view"><div class="shv-skeleton"/.test(html) && /body\.shv-ready \.shv-skeleton/.test(v119css));
   const heroPreload = /<link rel="preload" as="image" ([^>]*?)fetchpriority="high">/.exec(html);
