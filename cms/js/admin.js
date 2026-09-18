@@ -793,6 +793,24 @@ async function renderAdmin(view, q) {
                 Payments are re-verified server-to-server with <code>GET /pg/orders/&lbrace;order_id&rbrace;</code> before the order is marked paid.
               </div>
               <div class="fld full"><span id="cfTestOut" style="font-size:12.5px"></span></div>
+
+              <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
+                <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
+                  <input type="checkbox" name="cfOcc" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${S.cfOcc ? 'checked' : ''}>
+                  <span><b>⚡ Cashfree One Click Checkout</b><br>
+                  <small style="color:var(--ink-3)">Verified WhatsApp-OTP login, the customer's address pre-filled on Cashfree's page from their 100M+ saved profiles, and your cart shown as a summary. Needs the product switched on at <b>Merchant Dashboard &rarr; Payment Gateway &rarr; PG Products &rarr; One Click Checkout</b> — ticking this box alone does nothing until Cashfree has activated it on the account.</small></span>
+                </label>
+              </div>
+              <div class="fld"><label style="display:flex;gap:8px;align-items:center;font-size:12.5px">
+                <input type="checkbox" name="cfOccAddress" style="width:17px;height:17px;accent-color:var(--gold)" ${(S.cfOccAddress === undefined ? true : !!S.cfOccAddress) ? 'checked' : ''}> Pre-fill the delivery address</label></div>
+              <div class="fld"><label style="display:flex;gap:8px;align-items:center;font-size:12.5px">
+                <input type="checkbox" name="cfOccAuth" style="width:17px;height:17px;accent-color:var(--gold)" ${(S.cfOccAuth === undefined ? true : !!S.cfOccAuth) ? 'checked' : ''}> Verify the phone number (OTP login)</label></div>
+              <div class="fld full" style="font-size:12px;color:var(--ink-3)">
+                If Cashfree refuses the One Click Checkout payload (product not active, a rejected field, a version mismatch) the payment is
+                <b>retried automatically as a standard Cashfree checkout</b> — nobody is ever unable to pay — and the refusal is written to the audit log
+                as <code>payment.cashfree-occ-fallback</code>. Whatever address the customer confirms on Cashfree's page is stored on the order as
+                <code>cfCheckout</code>, <b>alongside</b> the address they typed here, so a difference is visible before dispatch.
+              </div>
             </div>
           </fieldset>
 
@@ -1659,7 +1677,11 @@ window.ShivaaAdmin.savePay = async e => {
                  // v128 — Cashfree hosted checkout
                  siteBaseUrl: g('siteBaseUrl').trim().replace(/\/+$/, ''),
                  cfAppId: g('cfAppId').trim(),
-                 cfEnv: g('cfEnv') === 'production' ? 'production' : 'sandbox' };
+                 cfEnv: g('cfEnv') === 'production' ? 'production' : 'sandbox',
+                 // v139 — Cashfree One Click Checkout
+                 cfOcc: !!document.querySelector('[name="cfOcc"]')?.checked,
+                 cfOccAddress: !!document.querySelector('[name="cfOccAddress"]')?.checked,
+                 cfOccAuth: !!document.querySelector('[name="cfOccAuth"]')?.checked };
   // secret key is write-only: only sent when retyped (server strips it from GETs)
   if (g('cfSecretKey')) body.cfSecretKey = g('cfSecretKey').trim();
   try {

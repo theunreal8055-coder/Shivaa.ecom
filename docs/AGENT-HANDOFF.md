@@ -1,9 +1,142 @@
-# AGENT HANDOFF — read this first, every new chat (updated 18 Sep 2026 — ✅ PAYMENT CORRECTNESS PASS MERGED to `main` as PR #69: v135 → v138. Invoice, loyalty points and stock now committed on payment, not at checkout. **Deploy `shivaa-update-v138.zip` only — it supersedes v135/v136/v137.** ⚠ The payment path was never executed — no PHP binary in the sandbox. v127 remains live underneath this.)
+# AGENT HANDOFF — read this first, every new chat (updated 18 Sep 2026 — ✅ v139 SHOP-EXPERIENCE PASS **MERGED TO `main` AS PR #70** on the owner's instruction. Five owner reports fixed: bag-drawer Checkout, category-page photos, payment-page Place Order bar, Cashfree One Click Checkout, and the recurring update popup. **⚠ Whether that merge auto-deployed could NOT be confirmed — `gh secret list` returns 403 — so ASK THE OWNER whether v139 is live or he still has to install `shivaa-update-v139.zip` (md5 `cfd64d3ba65641a39140ec0c53533be7`, 9 files).** ⚠ The Cashfree OCC path was never executed — no PHP binary in the sandbox; `cfOcc` ships OFF and a sandbox order is still owed. Previous: ✅ PAYMENT CORRECTNESS PASS MERGED to `main` as PR #69: v135 → v138.)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
+
+## ✅ NEWEST — v139 SHOP-EXPERIENCE PASS (18 Sep 2026, branch `arena/01a0b366-shivaa-ecom`, **MERGED TO `main` AS PR #70** — the owner's hold *"don't merge the PR until you are told to do so"* was **lifted** at session close with *"perge this PR to main"*, so the merge is authorised and spent. Merged forward-only as a merge commit per owner law.)
+
+**Owner's five reports, verbatim:** *"the check out button doesn't work and
+doesn't take us to the payment page"* · *"when you click on any category and go
+to that category page then still that 17 photos are on the page the images are
+only there"* · *"place order button is always there on the screen in the phone
+… place order button should be down"* · *"I have selected the one tab quick
+check out button from the cash free but I cannot see … that the information is
+pre filled or the addresses are prefilled or the numbers are automatically
+verified"* · *"the update popup that keeps coming on the page is not needed"*.
+
+**The fifth one was two popups, not one** — `app.js`'s "New version available ·
+Update now" toast with its `confirm()`, and `js/v107.js`'s "Update available ·
+Reload / Dismiss" prompt that came back **every 30 minutes**. Both **deleted**,
+not restyled: a service-worker update now installs silently, waits for
+`visibilitychange` → *hidden*, and swaps then — and a form-safety check means a
+filled checkout/payment/login form is **never** reloaded over. `js/v107.js`
+therefore ships in the zip **even though the release number did not move**,
+because its bytes changed and its `?v=139` had never been served to anybody yet.
+**That exception is valid only for an undeployed release** — on a deployed one
+the immutable-`?v=` rule wins and every changed file's stamp must be bumped.
+
+**Every one was reproduced and measured before it was fixed** — the probes are
+kept in the repo: `tools/mega/smoke/probe-owner-issues.js` and
+`probe-control-timing.js`.
+
+### The lesson this release adds to the standing list
+
+**A tap that looks dead is usually a tap being out-raced — and the same defect
+can live in every overlay, not just the two you fixed.** v127 removed the
+dismiss-first `history.back()` race from `#mainNav` and `#searchSugg` and was
+recorded as complete. The bag drawer (`#cartDrawer`) had the identical wiring
+and was never in scope, so the shop's **most important button** stayed broken
+for two releases. Measured event order before the fix:
+
+```
+history.back() @hash=#/      ← queued while the URL is still the page you came from
+popstate @hash=#/checkout
+hashchange -> #/checkout     backs=1
+```
+
+**Standing review question #2 for this codebase** (alongside *"what happens to
+it if the purchase never completes?"*): **every** overlay that pushes a history
+entry — modal, bag, search, menu, PDF — must be asked *"who owns a tap on a link
+inside me?"*. If the answer is "the browser's default action", it is a bug
+waiting for the traversal to win.
+
+### What shipped
+
+| Fix | Where |
+|---|---|
+| the bag drawer owns its own taps (navigate → arm `__shvNavigating` → close) | **new `cms/js/v139.js`**, capture phase, loaded last |
+| a filtered category page renders a text chip strip, not 20 photographs | `catChipsHTML()` + the `filtered` branch in `pages.shop` |
+| the drawer's 17-category list folds shut on navigation | `foldCatList()` in `js/v139.js` |
+| the payment page's Place Order bar joins the page flow | `mcta-inline` + `css/v139.css` (`position: static`) |
+| Cashfree One Click Checkout: `products.one_click_checkout` + `cart_details` + Get Order Extended | `cashfree_occ_block()` / `cashfree_fetch_order_extended()` / `cashfree_occ_capture()` in `cms/api.php`, switches in `cms/js/admin.js` |
+| the shop's own address prefill (the half Cashfree can never do) | `pages.checkout` reads the v84 address book, chips, `shv_lastAddr`, "save this address" |
+
+### 5 · the endless "update" popup (the owner's follow-up message)
+
+*"it says update, when we press update it again pops up and says update, i don't
+want these popups of update to be shown, website should be updated automatically
+from back-end."* There were **two** popups — `js/app.js`'s `#swUpdate` (*"A newer,
+better Shivaa is ready"*) and `js/v107.js`'s `#v107Upd` (*"A fresher Shivaa is
+ready"*). The loop's exact cause: the button ran `postMessage('SKIP_WAITING')`
+and then `location.reload()` **immediately** — `postMessage` only *asks*, so the
+reloaded page found the worker still waiting and offered the same button again.
+The `prompted` flag could not help: it is a variable, and every reload starts a
+fresh one. Both popups are **deleted**. `sw.js` already self-activates
+(`skipWaiting()` in its own install handler + `clients.claim()` on activate) and
+the shell is network-first, so **no prompt was ever necessary** — it was asking
+the customer to do something that had already happened. A waiting worker is now
+activated silently and the swap reloads only while the tab is hidden, never over
+a form, once per session, never offline.
+
+**Standing review question #3 for this codebase:** *before adding any "please
+update" prompt, check whether the thing already updates itself.* This one did.
+
+### ⚠ Five things the next agent must not get wrong
+
+1. **An OCC refusal must never block a payment.** The create-order call retries
+   ONCE without `products`/`cart_details` and audit-logs
+   `payment.cashfree-occ-fallback`. Do not "simplify" that away — it is the only
+   thing standing between a rejected optional feature and a customer who cannot
+   pay. `cfCheckout` is stored **alongside** the typed address, never over it.
+2. **`cfOcc` defaults to OFF and must stay that way** until the owner confirms
+   PG Products → One Click Checkout reads *Active* on the account. Ticking the
+   box without an activated product just produces fallbacks.
+3. **The forward-compat sweep has three shapes, and a stamp bump breaks all of
+   them.** v139 broke 15 assertions across 9 gates until alternation `|138)`
+   (47), quoted `'138'` (9) **and** bounded class `13[0-8]` (25) were all swept.
+   A single regex sweep misses the third — this is the second time.
+4. **A changed stamped file MUST move its `?v=`.** `.htaccess` serves `?v=`
+   assets `immutable` for a year (line 53). v139 changed `js/v107.js`, so its
+   stamp moved `?v=107 → ?v=139` in **both** `index.html` and the `sw.js`
+   precache. Forget either half and returning phones keep the old file — and the
+   old popup — forever. `v117-check.js` enforces precache == requested.
+5. **v118's rail guarantee was re-pointed, not deleted.** Its "category rail
+   photos eager-load on a phone" assertion now measures the *unfiltered* shop
+   page, because a filtered page no longer has a rail. If that check ever fails
+   again, the rail is gone from `#/shop` — that is a real regression.
+
+### Verification
+
+`v139-check.js` **56/56** (19 static · 33 live · 4 control) — including the
+named regression control: strip `/js/v139.js` and the same tap **does** queue
+`history.back()` at `hash=#/`. Full suite re-run **against the zip's own
+extracted bytes**: v113b 32/32 · v117 27/27 · v118 19/19 · v119 27/27 · v120
+24/24 · v121 14/14 · v122 22/22 · v123 14/14 · v124 20/20 · v125 25/27 · v127
+26/27 · pay-audit 2/18 present · 10/10 invariants · php-sweep **207 routes · 0
+exceptions**.
+
+**Honest limit, stated twice because it matters:** jsdom performs no real
+cross-document navigation, so the *visible* bounce on a phone is inferred from
+the identical v127 mechanism (which the owner live-verified), **not measured
+here** — the measured quantity is the queued traversal. And there is **still no
+PHP binary in the sandbox**, so the Cashfree path was never executed: `api.php`
+got a `php-parser` parse check (128 top-level nodes) proven against a
+deliberately broken negative control, which is a parse check and **not** a run.
+
+**Deliverable:** `shivaa-update-v139.zip` — md5 `cfd64d3ba65641a39140ec0c53533be7`,
+8 files, root layout, all 16 fix markers grepped inside the built zip.
+`DEPLOY-v139.md` carries the owner's install steps **and** the four dashboard
+actions One Click Checkout needs from him.
+
+### Forward baseline from here
+
+**v125 + v127 + v135/v136/v137/v138 + v139.** Preserve all of it. v127 owns
+`#mainNav` + `#searchSugg`; **v139 owns `#cartDrawer`** — two layers, two
+overlays, never the same tap.
+
+---
 
 ## ✅ NEWEST — v135 → v138 PAYMENT CORRECTNESS PASS — MERGED to `main` (18 Sep 2026, PR #69, branch `arena/01a0b25e-shivaa-ecom`)
 

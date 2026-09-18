@@ -1,3 +1,79 @@
+# v139 — Cashfree One Click Checkout ("1-tab quick checkout")
+
+**Owner report (18 Sep 2026):** *"I have selected the one tab quick check out
+button from the cash free but I cannot see on the website that the information
+is pre filled or the addresses are prefilled or the numbers are automatically
+verified so how can we do that."*
+
+**Why nothing happened:** switching the product on in the Merchant Dashboard is
+necessary but **not sufficient** for a custom website. Cashfree's own
+integration note ("Custom website",
+<https://www.cashfree.com/docs/payments/checkout/integration-one-click-checkout>)
+says the merchant must **extend the Create Order API** and then read the result
+back with a second endpoint. Until v139 this site sent neither, so Cashfree
+served the plain hosted checkout and had no reason to log anybody in.
+
+### What the API actually needs
+
+| Cashfree requirement (documented) | Where it lives now |
+|---|---|
+| `products.one_click_checkout.enabled: true` | `cashfree_occ_block()` in `cms/api.php`, merged into the create-order payload |
+| `conditions: [{ key: "features", action: "ALLOW", values: [...] }]` | `checkoutCollectAddress` (address pre-fill) and `checkoutAuthenticate` (verified login), each behind its own admin checkbox |
+| `cart_details.cart_items[]` | built from the order's own line items (id, name, qty, unit price, image, INR), capped at 20 rows |
+| `x-api-version: 2025-01-01` on that call | `cashfree_cfg()['occApiVersion']` — sent **only** on the create-order call that carries OCC, so no other call's response shape can move |
+| `GET /pg/orders/{order_id}/extended` after payment | `cashfree_fetch_order_extended()` → `cashfree_occ_capture()` inside `cashfree_apply()` |
+
+`cashfree_occ_capture()` stores what Cashfree collected — verified phone, the
+**shipping and billing addresses the customer confirmed on Cashfree's page**,
+any applied offer — on the order as **`cfCheckout`, alongside the address typed
+on shivaa.in, never over it**. Cashfree's own note warns the two may differ;
+that difference is exactly what the owner must see before dispatch.
+
+### The three switches (Admin → Settings → Payments & gateway)
+
+| Setting | Default | Effect |
+|---|---|---|
+| `cfOcc` | **off** | master switch. A gateway-behaviour change is the owner's decision, and the product must be active on the account first |
+| `cfOccAddress` | on when `cfOcc` is on | `checkoutCollectAddress` |
+| `cfOccAuth` | on when `cfOcc` is on | `checkoutAuthenticate` |
+
+Validation (`cms/api.php`, settings PUT) accepts only booleans / truthy-falsy
+strings; anything else is a 400.
+
+### Safety — an OCC refusal can never block a payment
+
+If Cashfree rejects the extended payload (product not active, a rejected field,
+a version mismatch), the order is **retried once as a standard hosted checkout**
+and the refusal is audit-logged as `payment.cashfree-occ-fallback` with the HTTP
+code and response body. The customer never sees the failure.
+
+### What Cashfree can and cannot do for this shop
+
+* **Can:** log a returning customer in by WhatsApp OTP, pre-fill *their* address
+  from Cashfree's 100M+ saved profiles, show the cart summary, auto-apply offers
+  — all **on Cashfree's page**.
+* **Cannot:** fill in *our* checkout form. That half is the shop's own job, and
+  v139 does it: `pages.checkout` now pre-fills from the site's address book
+  (`/api/addresses`, which has existed since v84 and was never read at
+  checkout), offers every saved address as a one-tap chip, and remembers the
+  last one used (`shv_lastAddr`). A **"save this address"** tick at the bottom
+  of the form is what turns the second order into a one-tap order.
+
+### Still owed before this is trusted with real money
+
+1. Confirm **PG Products → One Click Checkout** reads *Active* (not merely
+   requested) on the account.
+2. Turn `cfOcc` on in **sandbox**, place a test order, and confirm the OTP
+   login + pre-filled address + cart summary appear on Cashfree's page.
+3. Then repeat in production with `PROD_` keys.
+
+**No PHP binary exists in the sandbox, so none of this was executed end to end.**
+`cms/api.php` was validated with a `php-parser` parse check (128 top-level nodes)
+proven against a deliberately broken negative control, plus php-sweep
+(207 routes · 0 exceptions). A parse check is **not** a run.
+
+---
+
 # v128 — Cashfree is now the ONLY payment gateway
 
 **Fresh start:** every previous gateway has been removed from the codebase —

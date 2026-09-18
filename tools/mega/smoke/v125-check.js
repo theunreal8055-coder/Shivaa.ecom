@@ -85,7 +85,7 @@ function bootStore(extra = '') {
      is accepted at 125 (as shipped) or 126 (the current release) */
   const REL = (shellRel && shellRel[1]) || '125';
   ok('release handshake is 125 or newer everywhere (shell, app, worker)',
-    shellRel && ['125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138'].includes(shellRel[1]) && appRel && ['125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138'].includes(appRel[1]) && swRel && ['125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138'].includes(swRel[1]),
+    shellRel && ['125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139'].includes(shellRel[1]) && appRel && ['125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139'].includes(appRel[1]) && swRel && ['125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139'].includes(swRel[1]),
     `shell=${shellRel && shellRel[1]} app=${appRel && appRel[1]} sw=${swRel && swRel[1]}`);
 
   const stamped = { 'index.html': html, 'js/app.js': appJs, 'js/v116.js': v116src, 'sw.js': sw };
