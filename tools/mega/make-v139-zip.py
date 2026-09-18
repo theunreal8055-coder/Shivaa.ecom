@@ -38,10 +38,10 @@ untracked = [l.strip()[len('cms/'):] for l in sh('git', 'ls-files', '--others', 
 files = sorted(set(changed + untracked) - NEVER)
 # a stamp-only bump must not drag an unchanged file into the zip: js/v116.js and
 # js/v117.js are byte-identical, only their ?v= moved in index.html.
-STAMP_ONLY = {'js/v116.js', 'js/v117.js'}
+STAMP_ONLY = {'js/v116.js', 'js/v117.js'}   # js/v107.js IS a content change in v139 (its update popup was removed)
 files = [f for f in files if f not in STAMP_ONLY]
 
-EXPECT = {'index.html', 'sw.js', 'js/app.js', 'js/v139.js', 'css/v139.css', 'api.php', 'js/admin.js'}
+EXPECT = {'index.html', 'sw.js', 'js/app.js', 'js/v107.js', 'js/v139.js', 'css/v139.css', 'api.php', 'js/admin.js'}
 missing = EXPECT - set(files)
 extra = set(files) - EXPECT
 if missing or extra:
@@ -88,12 +88,26 @@ MARKERS = [
     ('api.php', "cashfree-occ-fallback"),
     ('api.php', "/extended"),
     ('js/admin.js', 'name="cfOcc"'),
+    ('js/v107.js', "pwaUpdateBar"),
 ]
+# the update popups must be ABSENT from the shipped bytes, not merely unreferenced
+ABSENT = [('js/app.js', 'A newer, better Shivaa is ready'), ('js/app.js', 'swu-go'),
+          ('js/v107.js', 'v107UpdGo'), ('js/v107.js', 'A fresher Shivaa is ready')]
 with zipfile.ZipFile(OUT) as z:
     bad = []
     for name, marker in MARKERS:
         if marker.encode() not in z.read(name):
             bad.append('%s ← %r' % (name, marker))
-    if bad:
-        raise SystemExit('FIX MARKER MISSING FROM THE BUILT ZIP:\n  ' + '\n  '.join(bad))
+    gone = []
+    for name, marker in ABSENT:
+        raw = z.read(name)
+        # only executable code counts: both files keep a comment naming the old
+        # banner, because WHY it was removed matters more than the fact.
+        import re as _re
+        code = _re.sub(rb'/\*[\s\S]*?\*/', b'', raw)
+        if marker.encode() in code:
+            gone.append('%s still builds %r' % (name, marker))
+    if bad or gone:
+        raise SystemExit('ZIP VERIFICATION FAILED:\n  ' + '\n  '.join(bad + gone))
     print('\nall %d fix markers present inside the built zip ✦' % len(MARKERS))
+    print('all %d removed popups confirmed absent from executable code ✦' % len(ABSENT))

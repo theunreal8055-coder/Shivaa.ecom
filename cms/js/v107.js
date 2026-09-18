@@ -536,34 +536,30 @@
     load();
   }
 
-  /* ═══ 10 · PWA UPDATE BAR + OFFLINE BANNER ══════════════════════════════ */
+  /* ═══ 10 · PWA UPDATE — SILENT (v139) + OFFLINE BANNER ══════════════════
+     This bar used to say "✦ A fresher Shivaa is ready · Update now". It was
+     the SECOND of two update popups (js/app.js had the first), and both asked
+     the shopper to do something sw.js already does by itself — it calls
+     self.skipWaiting() at the end of its own install handler and
+     self.clients.claim() on activate, so the new release takes over with no
+     tap from anybody. Owner, 18 Sep 2026: "i don't want these popups of update
+     to be shown, website should be updated automatically from back-end".
+     So: no bar. A waiting worker is simply told to activate, and any bar an
+     older cached copy already painted is removed. js/app.js owns the single
+     silent swap (it reloads only while the tab is hidden). */
   function pwaUpdateBar() {
     if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data && e.data.type === 'SW_ACTIVATED' && sessionStorage.getItem('shv_v107_upd') === 'pending') {
-        sessionStorage.removeItem('shv_v107_upd');
-      }
-    });
+    const strip = () => { const b = document.getElementById('v107Upd'); if (b) b.remove(); };
+    strip();
+    try { document.addEventListener('DOMContentLoaded', strip, { once: true }); } catch (e) {}
     navigator.serviceWorker.getRegistration().then(reg => {
       if (!reg) return;
-      const show = () => {
-        if ($('#v107Upd') || sessionStorage.getItem('shv_v107_upd_dismissed')) return;
-        const bar = document.createElement('div');
-        bar.id = 'v107Upd';
-        bar.innerHTML = `<span>✦ A fresher Shivaa is ready.</span><button id="v107UpdGo">Update now</button><button class="x" id="v107UpdX" aria-label="Dismiss">×</button>`;
-        document.body.appendChild(bar);
-        $('#v107UpdGo').onclick = () => {
-          sessionStorage.setItem('shv_v107_upd', 'pending');
-          reg.waiting && reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-          setTimeout(() => location.reload(), 400);
-        };
-        $('#v107UpdX').onclick = () => { sessionStorage.setItem('shv_v107_upd_dismissed', '1'); bar.remove(); };
-      };
-      if (reg.waiting) show();
+      const activate = w => { try { w && w.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {} };
+      if (reg.waiting) activate(reg.waiting);
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         if (!nw) return;
-        nw.addEventListener('statechange', () => { if (nw.state === 'installed' && navigator.serviceWorker.controller) show(); });
+        nw.addEventListener('statechange', () => { if (nw.state === 'installed') activate(nw); });
       });
     }).catch(() => {});
   }

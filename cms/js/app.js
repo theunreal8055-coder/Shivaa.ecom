@@ -55,45 +55,92 @@ addEventListener('online', () => {
   ensureOfflineBar().classList.remove('show'); document.body.classList.remove('is-offline');
   toast('Back online ✦ refreshing rates…'); loadRates();
 });
-/* v104 — when a freshly downloaded service worker is installed while this
-   tab is open, offer one tap to move to the new release (then reload on the
-   controller change) instead of silently running half-old half-new code. */
-(function serviceWorkerUpdateWatch() {
+/* ═══ v139 · SILENT UPDATES — no popup, ever ═══
+   Owner report (18 Sep 2026, verbatim): "When people open my website, it says
+   update, when we press update it again pops up and says update, i don't want
+   these popups of update to be shown, website should be updated automatically
+   from back-end and customers should only see the latest version."
+
+   WHY IT LOOPED. Two separate watchers both offered the same update — this one
+   (#swUpdate, "A newer, better Shivaa is ready") and js/v107.js's pwaUpdateBar
+   (#v107Upd, "A fresher Shivaa is ready"). Worse, the button here did:
+
+       worker.postMessage('SKIP_WAITING');
+       location.reload();          // ← immediately, without waiting
+
+   `postMessage` only ASKS the waiting worker to activate; it returns at once.
+   So the page reloaded while that worker was still waiting, the reloaded page
+   found `reg.waiting` again, and offered the same button again — press update,
+   get update, forever. The `prompted` flag could not help: it is a variable,
+   and every reload starts a fresh one.
+
+   WHY NO PROMPT IS NEEDED AT ALL. sw.js already calls self.skipWaiting() at the
+   end of its own install handler and self.clients.claim() on activate — the new
+   release takes over by itself, with no tap from anybody. And the shell is
+   network-first, so a returning shopper is served the freshest index.html and
+   the freshest ?v=-stamped scripts on their next load regardless. The popup was
+   asking the customer to do something that was already happening.
+
+   WHAT THIS DOES INSTEAD:
+     · never creates a banner, and deletes one if an older cached copy did;
+     · silently tells any waiting worker to activate (SKIP_WAITING);
+     · applies the swap with a reload ONLY when the tab is hidden — the shopper
+       is looking somewhere else, so nothing they see ever flickers;
+     · never reloads on a page with a form in progress (checkout, bag, quote,
+       catalogues) so a half-typed address can't be thrown away;
+     · at most once per session, and never while offline.
+   If none of those moments arrives, nothing happens at all: the worker has
+   already swapped, and the next visit serves the new version anyway. */
+(function serviceWorkerSilentUpdate() {
   if (!('serviceWorker' in navigator)) return;
-  let banner = null, prompted = false;
-  const showUpdateBanner = (worker) => {
-    if (prompted) return; prompted = true;
-    banner = document.getElementById('swUpdate');
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'swUpdate'; banner.className = 'sw-update'; banner.setAttribute('role', 'alert');
-      banner.innerHTML = '<span class="swu-ic" aria-hidden="true">✦</span><span class="swu-tx"><b>A newer, better Shivaa is ready</b><small>Performance & polish updates — takes a second</small></span><button type="button" class="swu-go">Update now</button>';
-      document.body.appendChild(banner);
-    }
-    requestAnimationFrame(() => banner.classList.add('show'));
-    banner.querySelector('.swu-go').onclick = () => {
-      try { worker && worker.postMessage('SKIP_WAITING'); } catch (e) {}
-      try { location.reload(); } catch (e) {}   // covers workers that already activated via skipWaiting
-    };
+  /* self-heal: an older cached app.js/v107.js may already have painted a bar */
+  const stripPrompt = () => {
+    ['swUpdate', 'v107Upd'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
   };
-  let reloading = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return; reloading = true;
+  stripPrompt();
+  try { document.addEventListener('DOMContentLoaded', stripPrompt, { once: true }); } catch (e) {}
+
+  const skipWaiting = w => { try { w && w.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {} };
+  /* a page where an interrupted reload would destroy the shopper's own typing */
+  const FORM_PAGES = ['checkout', 'cart', 'quote', 'catalogues', 'videoconsult', 'giftcard'];
+  let reloaded = false;
+  const applySwap = () => {
+    if (reloaded) return;
+    if (!document.hidden) return;                       // never in front of the shopper
+    if (navigator.onLine === false) return;             // not while offline
+    if (FORM_PAGES.indexOf(document.body.dataset.page) >= 0) return;
+    let guard = false;
+    try { guard = sessionStorage.getItem('shv_sw_swapped') === '1'; } catch (e) {}
+    if (guard) return;
+    reloaded = true;
+    try { sessionStorage.setItem('shv_sw_swapped', '1'); } catch (e) {}
+    stripPrompt();
     try { location.reload(); } catch (e) {}
-  });
-  navigator.serviceWorker.getRegistration().then(reg => {
-    if (!reg) return;
-    const track = w => {
-      if (!w) return;
-      w.addEventListener('statechange', () => {
-        if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(w);
-      });
-      if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(w);
-    };
-    track(reg.installing);
-    if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
-    reg.addEventListener('updatefound', () => track(reg.installing));
-  }).catch(() => {});
+  };
+
+  /* the new worker took control. Do NOT reload now — wait for a hidden tab. */
+  try {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      applySwap();
+      try {
+        document.addEventListener('visibilitychange', () => { if (document.hidden) applySwap(); });
+      } catch (e) {}
+    });
+  } catch (e) {}
+
+  try {
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if (!reg) return;
+      if (reg.waiting) skipWaiting(reg.waiting);        // unblock an old worker silently
+      const track = w => {
+        if (!w) return;
+        w.addEventListener('statechange', () => { if (w.state === 'installed') skipWaiting(w); });
+        if (w.state === 'installed') skipWaiting(w);
+      };
+      track(reg.installing);
+      reg.addEventListener('updatefound', () => track(reg.installing));
+    }).catch(() => {});
+  } catch (e) {}
 })();
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];

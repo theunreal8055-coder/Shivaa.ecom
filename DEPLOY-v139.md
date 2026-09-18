@@ -74,6 +74,53 @@ flow, at the end of the form**. Same card, same total, same button — it scroll
 with the page instead of floating over the address fields. Nothing is hidden.
 The cart page's bar is unchanged (it was not reported and has no form under it).
 
+### 5 · "it says update, when we press update it again pops up and says update"
+
+**There were TWO popups, not one.** `js/app.js` painted *"A newer, better Shivaa
+is ready → Update now"* and `js/v107.js` painted *"A fresher Shivaa is ready →
+Update now"*. Both were asking for the same thing.
+
+**Why pressing Update brought it straight back.** The button did this:
+
+```js
+worker.postMessage('SKIP_WAITING');
+location.reload();          // ← immediately, without waiting
+```
+
+`postMessage` only *asks* the waiting update to activate — it returns instantly.
+So the page reloaded while that update was **still waiting**, the reloaded page
+found it waiting again, and offered the same button again. Press update → get
+update → forever. The "only ask once" flag could not help: it is a variable, and
+every reload starts a fresh one.
+
+**Why no popup is needed at all.** `sw.js` already calls `self.skipWaiting()` at
+the end of its own install handler and `self.clients.claim()` on activate — the
+new release takes over **by itself**, with no tap from anybody. And the shell is
+network-first, so a returning customer is served the newest page and the newest
+scripts on their next load regardless. The popup was asking the customer to do
+something that had already happened.
+
+**What it does now:**
+
+* **no popup, ever** — both are deleted, and if an older cached script already
+  painted one, it is removed on load;
+* a waiting update is told to activate **silently**;
+* the swap is applied with a reload **only while the tab is hidden** — the
+  customer is looking somewhere else, so nothing they see ever flickers;
+* it never reloads on a page with a form in progress (checkout, bag, quote,
+  catalogues), so a half-typed address can't be thrown away;
+* at most once per session, and never while offline.
+
+If no hidden moment ever arrives, nothing happens at all — the update has
+already swapped, and the next visit serves the new version anyway. That is
+exactly "updated automatically from the back-end, customers only see the latest
+version".
+
+> `js/v107.js` is a **content** change, so its stamp moves `?v=107 → ?v=139`.
+> `.htaccess` serves `?v=` assets as `immutable` for a year: a changed file that
+> keeps its old stamp would leave every returning phone on the old copy — and the
+> old popup — permanently.
+
 ### 4 · "I have selected the one tab quick check out … I cannot see that the information is pre filled or the addresses are prefilled or the numbers are automatically verified"
 
 **This one is not a website bug — it is a missing API call, now added.**
@@ -111,12 +158,14 @@ Cashfree can only ever pre-fill *Cashfree's* page. This half was always ours.
 
 ---
 
-## Files in the zip (7 + this document)
+## Files in the zip (8 + this document)
 
 ```
 index.html          release stamp 139 · loads css/v139.css + js/v139.js (last)
 sw.js               SHELL 'shivaa-shell-v139' · precache updated
 js/app.js           APP_REL 139 · chip strip · checkout prefill · mcta-inline
+                    · update popup replaced by the silent updater
+js/v107.js          its second update popup removed (?v=107 → ?v=139)
 js/v139.js          NEW — the bag drawer owns its taps · category list folds
 css/v139.css        NEW — bag motion · chip strip · in-flow CTA · address chips
 api.php             Cashfree One Click Checkout (create-order + Get Order Extended)
@@ -163,7 +212,7 @@ a change in gateway behaviour is your decision, not mine.
 
 | Gate | Result |
 |---|---|
-| `v139-check.js` (new — 14 static · 26 live · 4 control) | **44/44** |
+| `v139-check.js` (new — 19 static · 33 live · 4 control) | **56/56** |
 | `v113b` · `v117` · `v118` · `v119` · `v120` · `v121` · `v122` · `v123` · `v124` | 32/32 · 27/27 · 19/19 · 27/27 · 24/24 · 14/14 · 22/22 · 14/14 · 20/20 |
 | `v125-check.js` | 25/27 — the 2 failures are past-release scope rules (see below) |
 | `v127-check.js` | 26/27 — same (its frozen-v125-triple rule) |

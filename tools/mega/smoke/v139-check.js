@@ -33,7 +33,7 @@
    Run:  node tools/mega/smoke/v139-check.js
    Overlay: SMOKE_CMS=<dir> node tools/mega/smoke/v139-check.js
    ══════════════════════════════════════════════════════════════════════ */
-const { JSDOM } = require('jsdom');
+const { JSDOM, VirtualConsole } = require('jsdom');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -79,15 +79,42 @@ const USER = { id: 'u1', name: 'Aarti Choudhary', email: 'aarti@example.com', ph
     { id: 'ad1', label: 'Home', name: 'Aarti Choudhary', phone: '9876543210', line: '12 Kisan Nagar', city: 'Jayal', state: 'Rajasthan', pincode: '341023', isDefault: true },
     { id: 'ad2', label: 'Work', name: 'Aarti C.', phone: '9812345678', line: 'Shop 4, MG Road', city: 'Nagaur', state: 'Rajasthan', pincode: '341001' } ] };
 
-function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = false } = {}) {
+function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = false, withSW = false } = {}) {
   const backs = { n: 0 };
   const errors = [];
+  /* jsdom refuses to navigate, and `location.reload` cannot be redefined — but
+     it DOES raise a "Not implemented: navigation" jsdomError every time reload
+     is called. That is the observable used to count silent swaps. */
+  const navs = { n: 0 };
+  const vc = new VirtualConsole();
+  vc.on('jsdomError', e => { if (/Not implemented: navigation/.test(String(e.message))) navs.n++; });
+  vc.on('error', () => {}); vc.on('log', () => {}); vc.on('info', () => {}); vc.on('warn', () => {});
+  /* a service-worker registration with a WAITING worker — the exact state that
+     used to raise the popup on every single load. */
+  const sw = { posts: [], handlers: {}, worker: null, reg: null };
+  if (withSW) {
+    sw.worker = { state: 'installed', postMessage: m => sw.posts.push(m), addEventListener() {} };
+    sw.reg = { waiting: sw.worker, installing: null, active: null,
+               addEventListener() {}, };
+  }
   const html = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8')
     .replace(V139_TAG, stripV139 ? '' : m => m);
   const dom = new JSDOM(html, {
     url: `http://127.0.0.1:${server.address().port}/${startHash}`,
-    runScripts: 'dangerously', resources: 'usable', pretendToBeVisual: true,
+    runScripts: 'dangerously', resources: 'usable', pretendToBeVisual: true, virtualConsole: vc,
     beforeParse(w) {
+      if (withSW) {
+        Object.defineProperty(w.navigator, 'serviceWorker', { configurable: true, value: {
+          controller: {},
+          getRegistration: () => Promise.resolve(sw.reg),
+          addEventListener: (t, fn) => { (sw.handlers[t] = sw.handlers[t] || []).push(fn); },
+        } });
+      }
+      /* a tab the shopper is NOT looking at — how the silent swap is allowed */
+      let _hidden = false;
+      Object.defineProperty(w.document, 'hidden', { configurable: true, get: () => _hidden });
+      Object.defineProperty(w.document, 'visibilityState', { configurable: true, get: () => _hidden ? 'hidden' : 'visible' });
+      w.__setHidden = v => { _hidden = v; };
       w.innerWidth = innerWidth; w.innerHeight = 900;
       w.matchMedia = q => ({ matches: /max-width:\s*[6-8]\d\dpx/.test(q), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} });
       w.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
@@ -128,7 +155,8 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
   });
   const w = dom.window, doc = w.document;
   return {
-    dom, w, doc, backs, errors,
+    dom, w, doc, backs, errors, navs, sw,
+    fireControllerChange: () => (sw.handlers.controllerchange || []).forEach(fn => { try { fn({}); } catch (e) {} }),
     $: s => doc.querySelector(s),
     $$: s => [...doc.querySelectorAll(s)],
     click: (el, o) => el.dispatchEvent(new w.MouseEvent('click', Object.assign({ bubbles: true, cancelable: true }, o))),
@@ -150,6 +178,7 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
   const css139 = fs.readFileSync(path.join(CMS, 'css/v139.css'), 'utf8');
   const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
   const admin = fs.readFileSync(path.join(CMS, 'js/admin.js'), 'utf8');
+  const v107src = fs.readFileSync(path.join(CMS, 'js/v107.js'), 'utf8');
 
   ok('cms/js/v139.js ships, index.html loads it last (after v127) and the worker precaches it',
     /<script src="\/js\/v139\.js\?v=139" defer><\/script>/.test(shell) &&
@@ -219,6 +248,34 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
     /GET Order Extended|\/extended/.test(api) &&
     /cfCheckout/.test(api) &&
     /<input type="checkbox" name="cfOcc"/.test(admin));
+
+  console.log('\n· A · static — no update popup can be built at all (owner report 5)');
+  /* Both files KEEP a comment naming the old banner, because why it was removed
+     matters more than the fact. So the assertion must read the CODE, not the
+     prose: strip block comments first, then look for the banner machinery. */
+  const codeOnly = src => src.replace(/\/\*[\s\S]*?\*\//g, '');
+  const appCode = codeOnly(app), v107Code = codeOnly(v107src);
+  ok('app.js no longer builds the "A newer, better Shivaa is ready" banner',
+    !/A newer, better Shivaa is ready/.test(appCode) && !/swu-go/.test(appCode) &&
+    !/swu-tx/.test(appCode) && !/banner\.classList\.add\('show'\)/.test(appCode),
+    'banner machinery still present in executable code');
+  ok('v107.js no longer builds the "A fresher Shivaa is ready" bar',
+    !/A fresher Shivaa is ready/.test(v107Code) && !/v107UpdGo/.test(v107Code) &&
+    !/v107UpdX/.test(v107Code) && !/Update now/.test(v107Code),
+    'update bar still present in executable code');
+  /* and prove the stripper is not simply blanking the files out */
+  ok('(control) the comment stripper leaves real code intact',
+    /serviceWorkerSilentUpdate/.test(appCode) && /function pwaUpdateBar/.test(v107Code) &&
+    appCode.length > app.length * 0.5, 'stripper removed too much: ' + appCode.length + '/' + app.length);
+  ok('both watchers now activate a waiting worker silently instead of asking',
+    /skipWaiting = w =>/.test(appCode) && /type: 'SKIP_WAITING'/.test(appCode) &&
+    /const activate = w =>/.test(v107Code) && /type: 'SKIP_WAITING'/.test(v107Code));
+  ok('the only reload left is gated on a HIDDEN tab, never on a visible one',
+    /if \(!document\.hidden\) return;/.test(appCode) &&
+    /FORM_PAGES\.indexOf\(document\.body\.dataset\.page\) >= 0/.test(appCode) &&
+    !/controllerchange', \(\) => \{\s*if \(reloading\) return; reloading = true;\s*try \{ location\.reload\(\)/.test(appCode));
+  ok('any popup an older cached script already painted is removed on load',
+    /\['swUpdate', 'v107Upd'\]\.forEach/.test(appCode) && /const b = document\.getElementById\('v107Upd'\); if \(b\) b\.remove\(\)/.test(v107Code));
 
   /* ══════ B · live ══════ */
   console.log('\n· B · live — the bag drawer\'s Checkout tap (owner report 1)');
@@ -333,6 +390,51 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
       F.$('#navCats').getAttribute('aria-expanded') === 'false',
       'aria-expanded=' + (F.$('#navCats') && F.$('#navCats').getAttribute('aria-expanded')));
     try { F.w.close(); } catch (_) {}
+  }
+
+  console.log('\n· B · live — a waiting service worker raises no popup and swaps silently');
+  {
+    const U = boot({ startHash: '#/', withSW: true });
+    if (!(await U.booted())) ok('silent-update session boots', false);
+    await sleep(700);
+    ok('a waiting worker is present — the exact state that used to raise the popup',
+      !!U.sw.reg.waiting && U.sw.reg.waiting.state === 'installed');
+    ok('NO update popup is painted (neither #swUpdate nor #v107Upd)',
+      !U.$('#swUpdate') && !U.$('#v107Upd') &&
+      !/A newer, better Shivaa is ready|A fresher Shivaa is ready/.test(U.doc.body.textContent),
+      'found: ' + [U.$('#swUpdate') && '#swUpdate', U.$('#v107Upd') && '#v107Upd'].filter(Boolean).join(','));
+    ok('the waiting worker was told to activate on its own (SKIP_WAITING), with no tap',
+      U.sw.posts.some(m => m && m.type === 'SKIP_WAITING'), JSON.stringify(U.sw.posts));
+    U.navs.n = 0;
+    U.fireControllerChange();
+    await sleep(500);
+    ok('a completed swap does NOT reload while the shopper is looking at the tab',
+      U.navs.n === 0, U.navs.n + ' reload(s) while visible');
+    U.w.__setHidden(true);
+    U.doc.dispatchEvent(new U.w.Event('visibilitychange'));
+    await sleep(500);
+    ok('…and applies itself the moment the tab is hidden — exactly one reload',
+      U.navs.n === 1, U.navs.n + ' reload(s)');
+    try { U.w.close(); } catch (_) {}
+  }
+  {
+    /* the same swap on the payment page: a half-typed address must survive */
+    const P = boot({ startHash: '#/', loggedIn: true, withSW: true });
+    if (!(await P.booted())) ok('checkout silent-update session boots', false);
+    await sleep(400);
+    P.w.eval(`window.Shivaa.addToCart(${JSON.stringify(DB.products[0].id)}, 1, { silent: false })`);
+    await until(() => P.$('#cartDrawer') && P.$('#cartDrawer').classList.contains('open'), 8000);
+    P.click(P.$('.mc-foot a[href="#/checkout"]'));
+    await until(() => P.$('#addrForm'), 12000);
+    P.navs.n = 0;
+    P.fireControllerChange();
+    P.w.__setHidden(true);
+    P.doc.dispatchEvent(new P.w.Event('visibilitychange'));
+    await sleep(500);
+    ok('on the payment page the swap waits — it never reloads over a form being filled',
+      P.doc.body.dataset.page === 'checkout' && P.navs.n === 0,
+      'page=' + P.doc.body.dataset.page + ' reloads=' + P.navs.n);
+    try { P.w.close(); } catch (_) {}
   }
 
   /* ══════ C · control ══════ */

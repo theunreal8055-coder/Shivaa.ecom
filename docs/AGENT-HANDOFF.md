@@ -52,7 +52,27 @@ waiting for the traversal to win.
 | Cashfree One Click Checkout: `products.one_click_checkout` + `cart_details` + Get Order Extended | `cashfree_occ_block()` / `cashfree_fetch_order_extended()` / `cashfree_occ_capture()` in `cms/api.php`, switches in `cms/js/admin.js` |
 | the shop's own address prefill (the half Cashfree can never do) | `pages.checkout` reads the v84 address book, chips, `shv_lastAddr`, "save this address" |
 
-### ⚠ Four things the next agent must not get wrong
+### 5 · the endless "update" popup (the owner's follow-up message)
+
+*"it says update, when we press update it again pops up and says update, i don't
+want these popups of update to be shown, website should be updated automatically
+from back-end."* There were **two** popups — `js/app.js`'s `#swUpdate` (*"A newer,
+better Shivaa is ready"*) and `js/v107.js`'s `#v107Upd` (*"A fresher Shivaa is
+ready"*). The loop's exact cause: the button ran `postMessage('SKIP_WAITING')`
+and then `location.reload()` **immediately** — `postMessage` only *asks*, so the
+reloaded page found the worker still waiting and offered the same button again.
+The `prompted` flag could not help: it is a variable, and every reload starts a
+fresh one. Both popups are **deleted**. `sw.js` already self-activates
+(`skipWaiting()` in its own install handler + `clients.claim()` on activate) and
+the shell is network-first, so **no prompt was ever necessary** — it was asking
+the customer to do something that had already happened. A waiting worker is now
+activated silently and the swap reloads only while the tab is hidden, never over
+a form, once per session, never offline.
+
+**Standing review question #3 for this codebase:** *before adding any "please
+update" prompt, check whether the thing already updates itself.* This one did.
+
+### ⚠ Five things the next agent must not get wrong
 
 1. **An OCC refusal must never block a payment.** The create-order call retries
    ONCE without `products`/`cart_details` and audit-logs
@@ -66,14 +86,19 @@ waiting for the traversal to win.
    them.** v139 broke 15 assertions across 9 gates until alternation `|138)`
    (47), quoted `'138'` (9) **and** bounded class `13[0-8]` (25) were all swept.
    A single regex sweep misses the third — this is the second time.
-4. **v118's rail guarantee was re-pointed, not deleted.** Its "category rail
+4. **A changed stamped file MUST move its `?v=`.** `.htaccess` serves `?v=`
+   assets `immutable` for a year (line 53). v139 changed `js/v107.js`, so its
+   stamp moved `?v=107 → ?v=139` in **both** `index.html` and the `sw.js`
+   precache. Forget either half and returning phones keep the old file — and the
+   old popup — forever. `v117-check.js` enforces precache == requested.
+5. **v118's rail guarantee was re-pointed, not deleted.** Its "category rail
    photos eager-load on a phone" assertion now measures the *unfiltered* shop
    page, because a filtered page no longer has a rail. If that check ever fails
    again, the rail is gone from `#/shop` — that is a real regression.
 
 ### Verification
 
-`v139-check.js` **44/44** (14 static · 26 live · 4 control) — including the
+`v139-check.js` **56/56** (19 static · 33 live · 4 control) — including the
 named regression control: strip `/js/v139.js` and the same tap **does** queue
 `history.back()` at `hash=#/`. Full suite re-run **against the zip's own
 extracted bytes**: v113b 32/32 · v117 27/27 · v118 19/19 · v119 27/27 · v120
@@ -89,7 +114,7 @@ PHP binary in the sandbox**, so the Cashfree path was never executed: `api.php`
 got a `php-parser` parse check (128 top-level nodes) proven against a
 deliberately broken negative control, which is a parse check and **not** a run.
 
-**Deliverable:** `shivaa-update-v139.zip` — md5 `0a3ec3d21d8e01406ec4cdb8fce322e2`,
+**Deliverable:** `shivaa-update-v139.zip` — md5 `cfd64d3ba65641a39140ec0c53533be7`,
 8 files, root layout, all 16 fix markers grepped inside the built zip.
 `DEPLOY-v139.md` carries the owner's install steps **and** the four dashboard
 actions One Click Checkout needs from him.
