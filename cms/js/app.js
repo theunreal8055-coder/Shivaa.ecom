@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 140;
+const APP_REL = 141;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -55,7 +55,7 @@ addEventListener('online', () => {
   ensureOfflineBar().classList.remove('show'); document.body.classList.remove('is-offline');
   toast('Back online ✦ refreshing rates…'); loadRates();
 });
-/* ═══ v139/v140 · SILENT UPDATES — no popup, ever ═══
+/* ═══ v140/v141 · SILENT UPDATES — no popup, ever ═══
    Owner report (18 Sep 2026, verbatim): "When people open my website, it says
    update, when we press update it again pops up and says update, i don't want
    these popups of update to be shown, website should be updated automatically
@@ -8032,7 +8032,13 @@ function loadStaffBundle() {
   if (!_staffBundle) {
     _staffBundle = injectScript('/js/qr.js?v=99')
       .catch(() => { /* QR tags degrade gracefully; the panel must still open */ })
-      .then(() => injectScript('/js/admin.js?v=128'))
+      /* v141 — the admin panel also carries the Cashfree One Click Checkout
+         switches, but it was still fetched as ?v=128 from before v139 added
+         them. .htaccess marks every ?v= asset immutable for a year, so the
+         owner's browser kept the pre-v139 admin.js and never saw the switch.
+         The stamp must move with every release that changes admin.js, exactly
+         like index.html's script tags. */
+      .then(() => injectScript('/js/admin.js?v=141'))
       .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
   }
   return _staffBundle;
