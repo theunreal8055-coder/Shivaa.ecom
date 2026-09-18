@@ -394,12 +394,37 @@ function http_post_json(string $url, array $payload, string $userPwd = '', int $
 function cashfree_cfg(array $db): array {
   $s = $db['settings'] ?? [];
   $env = (($s['cfEnv'] ?? 'sandbox') === 'production') ? 'production' : 'sandbox';
+  /* v139 · Cashfree ONE CLICK CHECKOUT (OCC).
+     The owner switched the product on in the Merchant Dashboard and saw no
+     change on the site. That is expected: OCC is not a dashboard skin — for a
+     custom website Cashfree's own integration note ("Custom website",
+     cashfree.com/docs/payments/checkout/integration-one-click-checkout) says you
+     must EXTEND the Create Order call with `products.one_click_checkout` and
+     `cart_details`, and then read the collected data back with the
+     Get Order Extended API. Without those two objects Cashfree serves the plain
+     hosted checkout and never logs the customer in, never pre-fills an address
+     and never shows the cart summary. Both are now sent, behind these switches:
+       cfOcc       — master switch (default OFF: a new gateway behaviour is an
+                     owner decision, and it needs his dashboard product active)
+       cfOccAddress— allow `checkoutCollectAddress` (WhatsApp-OTP login +
+                     address pre-filled from Cashfree's 100M+ saved addresses)
+       cfOccAuth   — allow `checkoutAuthenticate` (verified-number login)
+     `occApiVersion` is separate because Cashfree's OCC sample pins
+     x-api-version 2025-01-01 while the rest of this integration is written
+     against 2023-08-01; only the create-order call that carries `products` is
+     bumped, so no other call's response shape can move. */
+  $occ = !empty($s['cfOcc']);
   return [
     'appId'      => trim((string)($s['cfAppId'] ?? '')),
     'secret'     => trim((string)($s['cfSecretKey'] ?? '')),
     'env'        => $env,
     'host'       => $env === 'production' ? 'https://api.cashfree.com' : 'https://sandbox.cashfree.com',
     'apiVersion' => '2023-08-01',
+    'occ'        => $occ,
+    /* both features are allowed unless the owner explicitly turns one off */
+    'occAddress' => $occ && !array_key_exists('cfOccAddress', $s) ? true : ($occ && !empty($s['cfOccAddress'])),
+    'occAuth'    => $occ && !array_key_exists('cfOccAuth', $s) ? true : ($occ && !empty($s['cfOccAuth'])),
+    'occApiVersion' => '2025-01-01',
   ];
 }
 /* Only demo + Cashfree can be selected; any legacy payu/phonepe/razorpay
@@ -470,8 +495,84 @@ function cashfree_call(array $cfg, string $method, string $path, ?array $body = 
   curl_close($ch);
   return ['code' => $code, 'json' => json_decode($raw, true), 'raw' => $raw, 'err' => $err];
 }
+/* v139 · the two objects Cashfree's "Custom website" One Click Checkout guide
+   says to add to Create Order. Returns [] when OCC is off, so the caller can
+   simply merge. `cart_details` is what makes the checkout summary show the
+   actual pieces; `products.one_click_checkout.conditions` is what turns on the
+   verified login and the pre-filled address. */
+function cashfree_occ_block(array $cfg, array $db, array $o): array {
+  if (empty($cfg['occ'])) return [];
+  $features = [];
+  if (!empty($cfg['occAddress'])) $features[] = 'checkoutCollectAddress';
+  if (!empty($cfg['occAuth'])) $features[] = 'checkoutAuthenticate';
+  $block = ['one_click_checkout' => ['enabled' => true]];
+  if ($features) $block['one_click_checkout']['conditions'] = [
+    ['key' => 'features', 'action' => 'ALLOW', 'values' => $features],
+  ];
+  $items = [];
+  foreach ((array)($o['items'] ?? []) as $it) {
+    if (!is_array($it)) continue;
+    $nm = trim((string)($it['name'] ?? $it['productName'] ?? 'Shivaa piece'));
+    if ($nm === '') $nm = 'Shivaa piece';
+    $qty = max(1, (int)($it['qty'] ?? 1));
+    $unit = max(0.01, round(((float)($it['price'] ?? $it['unitPrice'] ?? 0)) ?: 1, 2));
+    $row = [
+      'item_id' => cashfree_sanitize_id((string)($it['productId'] ?? $it['id'] ?? ('item' . count($items))), 40) ?: ('item' . count($items)),
+      'item_name' => mb_substr($nm, 0, 120),
+      'item_quantity' => $qty,
+      'item_original_unit_price' => $unit,
+      'item_discounted_unit_price' => $unit,
+      'item_currency' => 'INR',
+    ];
+    $img = '';
+    foreach ([(array)($it['image'] ?? null), (array)($it['images'] ?? [])] as $cand) {
+      foreach ($cand as $c) { if (is_string($c) && $c !== '') { $img = $c; break 2; } }
+    }
+    if ($img !== '') {
+      /* Cashfree displays this; only ever an http(s) URL of our own site */
+      if (preg_match('#^https?://#i', $img)) $row['item_image_url'] = substr($img, 0, 500);
+      else $row['item_image_url'] = substr(shv_site_base($db) . '/' . ltrim($img, '/'), 0, 500);
+    }
+    $items[] = $row;
+    if (count($items) >= 20) break;      // a cart summary, not a data dump
+  }
+  return $items ? ['products' => $block, 'cart_details' => ['cart_items' => $items]]
+                : ['products' => $block];
+}
 function cashfree_create_order(array $cfg, array $payload): array {
   return cashfree_call($cfg, 'POST', '/pg/orders', $payload);
+}
+/* v139 · Get Order Extended — GET /pg/orders/{order_id}/extended. This is the
+   ONLY place Cashfree returns what its One Click Checkout actually collected:
+   the logged-in customer, the shipping/billing address the shopper confirmed
+   (which may differ from the one typed on shivaa.in) and any applied offer.
+   Read-only: a failure here must never fail a payment. */
+function cashfree_fetch_order_extended(array $cfg, string $cfOrderId): array {
+  $c = $cfg;
+  $c['apiVersion'] = $cfg['occApiVersion'] ?? '2025-01-01';
+  return cashfree_call($c, 'GET', '/pg/orders/' . rawurlencode($cfOrderId) . '/extended');
+}
+/* Reduce the extended payload to the few fields worth keeping on the order. */
+function cashfree_occ_capture(array $cfg, string $cfOrderId): array {
+  if (empty($cfg['occ'])) return [];
+  $res = cashfree_fetch_order_extended($cfg, $cfOrderId);
+  $j = is_array($res['json'] ?? null) ? $res['json'] : [];
+  if (!$j || !in_array((int)$res['code'], [200, 201], true)) return [];
+  $keep = function ($a) {
+    if (!is_array($a)) return null;
+    $out = [];
+    foreach (['name', 'phone', 'email', 'address_line_one', 'address_line_two',
+              'city', 'state', 'pin_code', 'country'] as $k) {
+      if (isset($a[$k]) && is_scalar($a[$k])) $out[$k] = mb_substr(trim((string)$a[$k]), 0, 160);
+    }
+    return $out ?: null;
+  };
+  $cap = [];
+  $ship = $keep($j['shipping_address'] ?? null); if ($ship) $cap['shipping'] = $ship;
+  $bill = $keep($j['billing_address'] ?? null); if ($bill) $cap['billing'] = $bill;
+  if (isset($j['customer_details']['customer_phone'])) $cap['phone'] = mb_substr((string)$j['customer_details']['customer_phone'], 0, 20);
+  if (isset($j['offer']['offer_meta']['offer_title'])) $cap['offer'] = mb_substr((string)$j['offer']['offer_meta']['offer_title'], 0, 120);
+  return $cap;
 }
 /* Step 3 of the Cashfree flow — GET /pg/orders/{order_id}. An order counts as
    paid only when order_status is PAID. */
@@ -609,6 +710,17 @@ function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array
   if ($paid >= $total && $total > 0) { $o['paymentStatus'] = 'Paid'; $o['paidAt'] = $o['paidAt'] ?? now_iso(); $o['balance'] = 0; }
   elseif ($paid > 0) { $o['paymentStatus'] = 'Partially paid'; $o['balance'] = max(0, $total - $paid); }
   $o['paymentRef'] = $ref; $o['gateway'] = 'cashfree';
+  /* v139 · if this payment ran through Cashfree One Click Checkout, read back
+     what Cashfree actually collected (verified phone, the confirmed shipping /
+     billing address, any applied offer) and store it ALONGSIDE the address the
+     shopper typed on shivaa.in — never over it. The two can differ when the
+     customer edits the address on Cashfree's page, and that difference is
+     exactly what the owner needs to see before dispatch. Read-only and
+     best-effort: a failure here must never fail a confirmed payment. */
+  if (!empty($o['cfOcc'])) {
+    $cap = cashfree_occ_capture(cashfree_cfg($db), $cfOrderId);
+    if ($cap) { $cap['capturedAt'] = now_iso(); $o['cfCheckout'] = $cap; }
+  }
   order_issue_invoice($db, $o);   // v136 (#25) — the Tax Invoice appears now, not at checkout
   order_grant_points($db, $o);    // v137 (#16) — royalty points are earned now, not at checkout
   audit_log($db, 'payment.cashfree-paid', ['order' => $o['id'], 'amount' => (int)round($paidRupees), 'cfOrderId' => $cfOrderId]);
@@ -3905,7 +4017,35 @@ try {
         'order_note' => substr('Shivaa Jewellers order ' . $o['id'], 0, 100),
         'order_tags' => ['checkout_context' => 'Shivaa order ' . $o['id']],
       ];
-      $res = cashfree_create_order($cfg, $payload);
+      /* v139 · One Click Checkout. The OCC objects are merged in only when the
+         owner has the switch on, and the call that carries them uses the
+         x-api-version Cashfree's OCC guide pins (2025-01-01). If Cashfree
+         refuses the extended payload for ANY reason — product not activated on
+         the account, a rejected field, a version mismatch — the order is
+         retried ONCE without OCC. A customer must never be unable to pay
+         because an optional convenience feature was rejected. */
+      $occOn = !empty($cfg['occ']);
+      if ($occOn) {
+        $occBlock = cashfree_occ_block($cfg, $db, $o);
+        if ($occBlock) {
+          $payload = array_merge($payload, $occBlock);
+          $cfgOcc = $cfg; $cfgOcc['apiVersion'] = $cfg['occApiVersion'];
+          $res = cashfree_call($cfgOcc, 'POST', '/pg/orders', $payload);
+          $rj = $res['json'];
+          if (!in_array($res['code'], [200, 201], true) || !is_array($rj) || (string)($rj['payment_session_id'] ?? '') === '') {
+            audit_log($db, 'payment.cashfree-occ-fallback', [
+              'order' => $o['id'], 'cfOrderId' => $cfOrderId, 'http' => $res['code'],
+              'resp' => $rj, 'err' => $res['err'],
+              'note' => 'One Click Checkout payload rejected — retrying as a standard hosted checkout',
+            ]);
+            unset($payload['products'], $payload['cart_details']);
+            $occOn = false;
+            $res = cashfree_create_order($cfg, $payload);
+          }
+        } else { $occOn = false; $res = cashfree_create_order($cfg, $payload); }
+      } else {
+        $res = cashfree_create_order($cfg, $payload);
+      }
       $j = $res['json'];
       $sessionId = is_array($j) ? (string)($j['payment_session_id'] ?? '') : '';
       if (!in_array($res['code'], [200, 201], true) || $sessionId === '') {
@@ -3920,9 +4060,11 @@ try {
       ];
       $db['orders'][$i]['gateway'] = 'cashfree';
       $db['orders'][$i]['gatewayOrderId'] = $cfOrderId;
+      $db['orders'][$i]['cfOcc'] = $occOn;      // v139 — was this attempt a One Click Checkout?
       db_save($DB_FILE, $db);
       jout(200, ['mode' => 'cashfree', 'paymentSessionId' => $sessionId, 'cfOrderId' => $cfOrderId,
-                 'amount' => $amountPaise, 'orderId' => $o['id'], 'env' => $cfg['env']]);
+                 'amount' => $amountPaise, 'orderId' => $o['id'], 'env' => $cfg['env'],
+                 'oneClick' => $occOn]);
     }
     /* No live gateway keys. A local/preview build gets a fake order id whose
        "demo success" works on screen; a PUBLIC host must never hand out
@@ -5952,6 +6094,17 @@ try {
     }
     if (array_key_exists('cfEnv', $setBody) && !in_array((string)$setBody['cfEnv'], ['sandbox', 'production'], true))
       jout(400, ['error' => 'Cashfree environment must be sandbox or production.']);
+    // v139 — One Click Checkout switches are strict booleans; anything else is
+    // a mistake in the admin form, not a value to store.
+    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth'] as $occKey) {
+      if (array_key_exists($occKey, $setBody)) {
+        $v = $setBody[$occKey];
+        if (is_bool($v)) continue;
+        if (in_array($v, [1, '1', true, 'true', 'on', 'yes'], true)) { $setBody[$occKey] = true; continue; }
+        if (in_array($v, [0, '0', false, 'false', 'off', 'no', '', null], true)) { $setBody[$occKey] = false; continue; }
+        jout(400, ['error' => 'One Click Checkout settings must be true or false.']);
+      }
+    }
     // v128 — fresh start: wipe every legacy gateway credential (PayU / PhonePe /
     // Razorpay) out of the stored settings the first time settings are saved.
     foreach (['payuKey', 'payuSalt', 'payuEnv', 'ppClientId', 'ppClientSecret',

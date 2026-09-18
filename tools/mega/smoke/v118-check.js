@@ -20,9 +20,9 @@ const server=http.createServer((req,res)=>{let u=decodeURIComponent(req.url.spli
  const css=fs.readFileSync(path.join(CMS,'css/v118.css'),'utf8');
  const sw=fs.readFileSync(path.join(CMS,'sw.js'),'utf8');
  console.log('\nSHIVAA v118 checkout + catalogue check\n\n· static gates');
- ok('release handshake is v118 or newer',/__SHIVAA_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138)/.test(html)&&/APP_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138)/.test(app));
+ ok('release handshake is v118 or newer',/__SHIVAA_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)/.test(html)&&/APP_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)/.test(app));
  ok('v118 CSS and JS are loaded',/v118\.css\?v=118/.test(html)&&/v118\.js\?v=118/.test(html));
- ok('service-worker shell is v118 or newer',/SHELL = 'shivaa-shell-v(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138)'/.test(sw));
+ ok('service-worker shell is v118 or newer',/SHELL = 'shivaa-shell-v(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)'/.test(sw));
  ok('category rail images are eager with a safe fallback',/loading="eager" decoding="async" fetchpriority="low"/.test(app)&&/\.cb-img img \{ display:block/.test(css));
  ok('gallery dots are buttons and gestures use pointer capture',/id="galDots"[\s\S]{0,400}<button type="button"/.test(app)&&/setPointerCapture/.test(app)&&/lostpointercapture/.test(app));
  ok('Quick View opens on click, not pointerup',/document\.addEventListener\('click', function\(e\)/.test(v116)&&!/document\.addEventListener\('pointerup', function\(e\)/.test(v116));
@@ -46,6 +46,17 @@ const server=http.createServer((req,res)=>{let u=decodeURIComponent(req.url.spli
  ok('storefront boots',await until(()=>w.Shivaa&&w.Shivaa.state.productsCache.length===77,20000));
  w.location.hash='#/shop?category=rings';
  ok('a populated category opens its product grid',await until(()=>d.querySelectorAll('#shopGrid .p-card').length>0),d.body.textContent.slice(0,200));
+ /* v139 — this guarantee ("the category rail's photos all eager-load on a
+    phone") is unchanged; only the page it is measured on moved. A FILTERED
+    category page no longer paints the photo rail at all — that was the owner's
+    report of 18 Sep 2026 ("still that 17 photos are on the page the images are
+    only there"), and tools/mega/smoke/v139-check.js owns that assertion now.
+    The rail still exists on the unfiltered Shop page, so the eager-load
+    guarantee is asserted there, where the rail still is. */
+ w.location.hash='#/shop';
+ ok('the category rail still exists on the unfiltered shop page (v139 moved it off filtered pages)',
+   await until(()=>d.querySelectorAll('.shop-catbar .cb-img img').length>=18,15000),
+   String(d.querySelectorAll('.shop-catbar .cb-img img').length));
  const catImgs=[...d.querySelectorAll('.shop-catbar .cb-img img')];
  ok('mobile category rail carries all image thumbnails',catImgs.length>=18&&catImgs.every(i=>i.getAttribute('loading')==='eager'),String(catImgs.length));
  w.location.hash='#/shop?category=necklaces';

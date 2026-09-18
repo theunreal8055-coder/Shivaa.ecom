@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 138;
+const APP_REL = 139;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1682,6 +1682,24 @@ function catBarHTML() {
     catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&v=125' : '?v=125'); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
     `</div><button class="cb-arrow cb-next" aria-label="Next">›</button></div>`;
 }
+/* v139 · CATEGORY PAGE FOCUS — the owner's report (18 Sep 2026):
+   "when you click on any category and go to that category page then still that
+   17 photos are on the page the images are only there".
+   Proven before fixing: `#/shop?category=earrings` painted 20 category tiles
+   with 20 <img> tags above a grid holding 0 pieces — the page was a wall of
+   category photographs with no jewellery in it. A FILTERED shop page is a
+   results page, so it gets a compact text chip strip (one tap to hop category,
+   zero photographs, zero image requests) and the photo slider stays where it
+   belongs: the unfiltered browse page and the home page. */
+function catChipsHTML(active) {
+  const on = String(active || '');
+  const chip = (href, label, key) =>
+    `<a href="${href}" class="cat-chip${key && key === on ? ' on' : ''}"${key && key === on ? ' aria-current="page"' : ''}>${esc(label)}</a>`;
+  return `<div class="cat-chips" role="navigation" aria-label="Jump to a category">` +
+    chip('#/shop', 'All Jewellery', on === '' ? '__all' : '') +
+    Object.entries(LIVE_CATS()).map(([k, c]) => chip('#/shop?category=' + k, c.name, k)).join('') +
+    `</div>`;
+}
 function initCatbar() {
   $$('.cb-wrap').forEach(wrap => {
     if (wrap._cb) return; wrap._cb = true;
@@ -2361,6 +2379,10 @@ pages.home = async (view) => {
 /* ─────────── SHOP ─────────── */
 pages.shop = async (view, q) => {
   const cat = q.get('category') || '', tag = q.get('tag') || '', search = q.get('q') || '';
+  /* v139 — a filtered shop page is a RESULTS page: it shows the pieces, not a
+     wall of 20 category photographs (the owner's "only the images are there").
+     The photo slider stays on the unfiltered browse page and the home page. */
+  const filtered = !!(cat || tag || search || q.get('max'));
   const metals = new Set(), purities = new Set();
   state.productsCache.forEach(p => { metals.add(p.metal); purities.add(p.purity); });
   view.innerHTML = `
@@ -2369,7 +2391,9 @@ pages.shop = async (view, q) => {
     <h1>${search ? `“${esc(search)}”` : cat ? esc((CATS[cat] && CATS[cat].name) || 'Jewellery') : 'All Jewellery'}${tag ? ' · ' + esc(TAGS[tag] || tag) : ''}</h1>
     <p>Every price below follows the live Jaipur gold & silver rate and our published making-charge chart — automatically.</p>
   </div></section>
-  <div class="catbar-outer shop-catbar" style="background:var(--white);border-bottom:1px solid var(--line)">${catBarHTML()}</div>
+  ${filtered
+    ? `<div class="catbar-outer shop-catbar shop-chipbar">${catChipsHTML(cat)}</div>`
+    : `<div class="catbar-outer shop-catbar" style="background:var(--white);border-bottom:1px solid var(--line)">${catBarHTML()}</div>`}
   <div class="fsheet-overlay" id="fsheetOverlay"></div>
   <aside class="filters" id="filterDrawer" aria-label="Filters" aria-hidden="true">
     <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" type="button" aria-label="Close filters">✕</button></div>
@@ -3772,6 +3796,23 @@ pages.checkout = async (view) => {
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
+  /* ═══ v139 · ADDRESS PREFILL ═══
+     The shop has kept an address book since v84 (/api/addresses, and the
+     account page literally says "add one for faster checkout") — but the
+     checkout form never read it, so every shopper retyped name, phone, street,
+     city and pincode on every single order. That is the "addresses are not
+     prefilled" half of the owner's report, and it is the half only this site
+     can fix: Cashfree's One Click Checkout prefills CASHFREE'S page, never
+     ours. Prefill order = the address used last time, else the default, else
+     the newest saved one. Every field stays editable — prefill is a
+     convenience, never a lock. */
+  const _adrs = (state.user && Array.isArray(state.user.addresses)) ? state.user.addresses : [];
+  let _pre = null;
+  try {
+    const _last = store.get('shv_lastAddr', null);
+    _pre = _adrs.find(a => a && a.id === _last) || _adrs.find(a => a && a.isDefault) || _adrs[0] || null;
+  } catch (e) { _pre = null; }
+  const _pv = (k, fb) => esc(String((_pre && _pre[k] != null && _pre[k] !== '') ? _pre[k] : (fb == null ? '' : fb)));
   /* v128 — payment configuration (demo until Cashfree keys are added) */
   let payCfg = { mode: 'demo', prepaidPct: 2, keyId: '' };
   try { payCfg = await api('/api/pay/config'); } catch (e) {}
@@ -3780,14 +3821,22 @@ pages.checkout = async (view) => {
   <div class="container cart-layout" style="padding-top:40px">
     <div>
       <div class="sec-title">Delivery address</div>
+      ${_adrs.length ? `<div class="adr-sw" id="adrSw" role="group" aria-label="Choose a saved address">
+        ${_adrs.map(a => `<button type="button" class="adr-chip${_pre && a.id === _pre.id ? ' on' : ''}" data-adr="${esc(a.id)}">
+          <b>${esc(a.label || 'Address')}</b><small>${esc(a.line)} · ${esc(a.city)} ${esc(a.pincode)}</small></button>`).join('')}
+        <a class="adr-chip adr-new" href="#/account?tab=addresses"><b>＋</b><small>Manage addresses</small></a>
+      </div>
+      <p class="adr-note" id="adrNote" ${_pre ? '' : 'hidden'}>✦ Filled from your saved ${esc((_pre && _pre.label) || 'address')} — change anything you need to.</p>` : `
+      <p class="adr-note adr-note-empty">Type the delivery details once — tick <b>save this address</b> below and every order after this one fills itself in.</p>`}
       <form id="addrForm" class="form-grid">
-        <div class="fld"><label for="adName">Full name</label><input id="adName" name="name" autocomplete="name" required value="${esc(state.user.name)}"></div>
-        <div class="fld"><label for="adPhone">Phone</label><input id="adPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required value="${esc(state.user.phone || '')}" placeholder="+91"></div>
-        <div class="fld full"><label for="adLine">Address (house, street, landmark)</label><input id="adLine" name="line" autocomplete="street-address" required placeholder="House no, street, landmark"></div>
-        <div class="fld"><label for="adCity">City</label><input id="adCity" name="city" autocomplete="address-level2" required></div>
-        <div class="fld"><label for="adState">State</label><input id="adState" name="state" autocomplete="address-level1" required value="Rajasthan"></div>
-        <div class="fld"><label for="adPin">Pincode</label><input id="adPin" name="pincode" inputmode="numeric" autocomplete="postal-code" required maxlength="6" pattern="\\d{6}" placeholder="341023"><small class="pin-note" id="adPinMsg" hidden></small></div>
+        <div class="fld"><label for="adName">Full name</label><input id="adName" name="name" autocomplete="name" required value="${_pv('name', state.user.name)}"></div>
+        <div class="fld"><label for="adPhone">Phone</label><input id="adPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required value="${_pv('phone', state.user.phone || '')}" placeholder="+91"></div>
+        <div class="fld full"><label for="adLine">Address (house, street, landmark)</label><input id="adLine" name="line" autocomplete="street-address" required placeholder="House no, street, landmark" value="${_pv('line')}"></div>
+        <div class="fld"><label for="adCity">City</label><input id="adCity" name="city" autocomplete="address-level2" required value="${_pv('city')}"></div>
+        <div class="fld"><label for="adState">State</label><input id="adState" name="state" autocomplete="address-level1" required value="${_pv('state', 'Rajasthan')}"></div>
+        <div class="fld"><label for="adPin">Pincode</label><input id="adPin" name="pincode" inputmode="numeric" autocomplete="postal-code" required maxlength="6" pattern="\\d{6}" placeholder="341023" value="${_pv('pincode')}"><small class="pin-note" id="adPinMsg" hidden></small></div>
         <div class="fld"><label for="adCountry">Country</label><input id="adCountry" name="country" value="India" readonly></div>
+        <label class="fld full adr-save"><input type="checkbox" id="adSave"${_pre ? '' : ' checked'}> <span>Save this address to my account &mdash; next checkout fills itself in</span></label>
       </form>
 
       <div class="sec-title">Payment method</div>
@@ -3816,10 +3865,20 @@ pages.checkout = async (view) => {
       <button class="btn btn-gold btn-block btn-lg mt-2" id="placeBtn" onclick="Shivaa.placeOrder()">Place Order ✦</button>
     </div>
   </div>
-  <div class="mcta-bar">
+  <div class="mcta-bar mcta-inline" id="coBar">
     <div class="mcta-total"><small>Total · 20-min rate locked</small><b id="coMobileTotal">${fmt(Math.round(subtotal * (1 - (((state.settings || {}).prepaidPct) || 2) / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
     <button class="btn btn-gold" type="button" onclick="Shivaa.placeOrder()">Place Order ✦</button>
   </div>`;
+  /* v139 · the owner's report (18 Sep 2026, verbatim): "place order button is
+     always there on the screen in the phone I don't need that place order
+     button place order button should be down like whenever the customer is
+     filling any information that place order button always shining disturbs and
+     does not let the customer fill the information required".
+     The `mcta-inline` class on the bar above (css/v139.css) takes it out of the
+     fixed layer and puts it in the page flow, at the end of the form: it scrolls
+     with the page instead of floating over the fields. Nothing is hidden — the
+     total and the button are the last thing on the page, and the summary card
+     keeps its own in-flow Place Order button above it. */
   /* ── v57: 20-minute live-rate lock — your price cannot move while paying ── */
   const pickRates = () => ({ gold22: state.rates.gold22, gold24: state.rates.gold24, gold18: state.rates.gold18, silver: state.rates.silver });
   /* v107 - the lock window is server-owned (pay/config lockMinutes) and a lock
@@ -3887,6 +3946,26 @@ pages.checkout = async (view) => {
   }
   if (!window._co.rateLock) setLock();        // v107 — auto-arm (restored lock wins)
   coTotals(); paintLock(); startLockClock();
+  /* v139 — the saved-address switcher. One tap moves a whole saved address into
+     the form; tapping is the shopper's own instruction, so replacing the fields
+     is what was asked for. The chip also becomes the address this order
+     remembers, so the next checkout pre-fills the same one. */
+  const _sw = $('#adrSw');
+  if (_sw) _sw.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('button[data-adr]'); if (!b) return;
+    const a = _adrs.find(x => x && x.id === b.dataset.adr); if (!a) return;
+    const set = (id, v) => { const el = document.getElementById(id); if (!el) return;
+      el.value = (v == null ? '' : String(v));
+      try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e2) {} };
+    set('adName', a.name); set('adPhone', a.phone); set('adLine', a.line);
+    set('adCity', a.city); set('adState', a.state || 'Rajasthan'); set('adPin', a.pincode);
+    $$('#adrSw .adr-chip').forEach(c => c.classList.toggle('on', c === b));
+    const sv = $('#adSave'); if (sv) sv.checked = false;      // it is already in the book
+    try { store.set('shv_lastAddr', a.id); } catch (e2) {}
+    const nn = $('#adrNote');
+    if (nn) { nn.hidden = false; nn.innerHTML = `✦ Filled from your saved ${esc(a.label || 'address')} — change anything you need to.`; }
+    try { if (window.Shivaa && Shivaa.haptic) Shivaa.haptic(8); } catch (e2) {}
+  });
   $$('#payOpts input').forEach(r => r.onchange = () => {
     $$('.pay-opt').forEach(o => o.classList.remove('on'));
     r.closest('.pay-opt').classList.add('on');
@@ -4290,6 +4369,22 @@ window.Shivaa.placeOrder = async () => {
         return age <= mins * 60 ? window._co.rateLock : null; })(),
     }) });
     clearInterval(window._co.lockTimer);
+    /* v139 — "save this address" is what turns the second order into a
+       one-tap order. Fire-and-forget on purpose: a failed address save must
+       never stand between the customer and the payment they just started. */
+    try {
+      if ($('#adSave') && $('#adSave').checked && state.user) {
+        const _body = { name: address.name, phone: address.phone, line: address.line,
+                        city: address.city, state: address.state, pincode: address.pincode, label: 'Home' };
+        api('/api/addresses', { method: 'POST', body: JSON.stringify(_body) })
+          .then(r => { if (r && Array.isArray(r.addresses)) {
+              state.user.addresses = r.addresses;
+              const last = r.addresses[r.addresses.length - 1];
+              if (last && last.id) store.set('shv_lastAddr', last.id);
+            } })
+          .catch(() => { try { store.set('shv_lastAddr', null); } catch (e) {} });
+      }
+    } catch (e) {}
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
     /* v137 (#16) — only the redemption is applied optimistically. The earning
        now lands when the order is Paid (server-side order_grant_points), so
