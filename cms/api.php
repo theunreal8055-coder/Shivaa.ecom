@@ -609,6 +609,7 @@ function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array
   if ($paid >= $total && $total > 0) { $o['paymentStatus'] = 'Paid'; $o['paidAt'] = $o['paidAt'] ?? now_iso(); $o['balance'] = 0; }
   elseif ($paid > 0) { $o['paymentStatus'] = 'Partially paid'; $o['balance'] = max(0, $total - $paid); }
   $o['paymentRef'] = $ref; $o['gateway'] = 'cashfree';
+  order_issue_invoice($db, $o);   // v136 (#25) — the Tax Invoice appears now, not at checkout
   audit_log($db, 'payment.cashfree-paid', ['order' => $o['id'], 'amount' => (int)round($paidRupees), 'cfOrderId' => $cfOrderId]);
   db_save($GLOBALS['DB_FILE'], $db);
   return ['ok' => true, 'state' => 'PAID', 'ref' => $ref];
@@ -2045,6 +2046,40 @@ function order_add_payment(array &$ord, array $pay): void {
     if ($ord['amountPaid'] >= $total && $total > 0) { $ord['paymentStatus'] = 'Paid'; $ord['paidAt'] = $ord['paidAt'] ?? now_iso(); $ord['balance'] = 0; }
     elseif ($ord['amountPaid'] > 0) { $ord['paymentStatus'] = 'Partially paid'; $ord['balance'] = max(0, $total - $ord['amountPaid']); }
   }
+}
+
+/* v136 (#25) — mint the GST invoice number the moment an order is actually
+   PAID, not when the checkout form is submitted.
+
+   Before this, order creation assigned `invoiceNo` unconditionally, so:
+     • a customer who reached checkout and walked away without paying still
+       consumed a sequential invoice number, punching a permanent hole in the
+       GST series (the series must be continuous when you file);
+     • the order page printed "Tax invoice SHV/26-27/0101 · HSN 71131910" over
+       an order with no money against it.
+
+   Owner decision 18 Sep 2026: invoice on payment for every method, COD
+   included — a COD order is invoiced once the cash is collected, not when the
+   parcel is dispatched. Orders already in the database keep whatever number
+   they carry, because the helper returns early when `invoiceNo` is non-empty;
+   the historical series therefore stays continuous.
+
+   Idempotent by construction: safe to call from every payment path, and safe
+   to call twice on the same order. */
+function order_issue_invoice(array &$db, array &$ord): void {
+  if (!empty($ord['invoiceNo'])) return;                 // already invoiced — never renumber
+  if (($ord['paymentStatus'] ?? '') !== 'Paid') return;  // only a settled order gets a Tax Invoice
+  if ((int)($ord['total'] ?? 0) <= 0) return;            // a zero-value order is not a supply
+  /* Financial year runs Apr–Mar (IST), per the v114 scheme. */
+  $fyStart = ((int)date('n') >= 4) ? (int)date('y') : (int)date('y') - 1;
+  $fy = str_pad((string)$fyStart, 2, '0', STR_PAD_LEFT) . '-' . str_pad((string)($fyStart + 1), 2, '0', STR_PAD_LEFT);
+  /* str_pad() is string-typed under declare(strict_types=1) — cast explicitly. */
+  $seq = (int)($db['settings']['invoiceSeq'] ?? 100) + 1;
+  $db['settings']['invoiceSeq'] = $seq;
+  $ord['invoiceNo'] = 'SHV/' . $fy . '/' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+  $ord['invoicedAt'] = now_iso();
+  audit_log($db, 'invoice.issued', ['order' => $ord['id'] ?? '', 'invoiceNo' => $ord['invoiceNo'],
+                                    'amount' => (int)($ord['amountPaid'] ?? 0)]);
 }
 
 /* ───────── auth ───────── */
@@ -3540,16 +3575,18 @@ try {
       jout(400, ['error' => 'Cash on delivery is available up to ₹' . number_format($codMax) . ' — for this order please pay online, or order on WhatsApp.']);
     $total = max(0, $subtotal - $discount - $prepaid + $codFee + $shipping);
     $earned = (int)floor($total / 100);
-    /* v114 — sequential financial-year invoice number (GST, Apr–Mar IST).
-       str_pad() is string-typed under declare(strict_types=1); passing an int
-       (the old `((int)date('y')) ± 1`) TypeError'd the whole checkout. */
-    $fyStart = ((int)date('n') >= 4) ? (int)date('y') : (int)date('y') - 1;
-    $fy = str_pad((string)$fyStart, 2, '0', STR_PAD_LEFT) . '-' . str_pad((string)($fyStart + 1), 2, '0', STR_PAD_LEFT);
-    $seq = (int)($db['settings']['invoiceSeq'] ?? 100) + 1;
-    $db['settings']['invoiceSeq'] = $seq;
-    $invoiceNo = 'SHV/' . $fy . '/' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+    /* v136 (#25) — the GST invoice number is NO LONGER minted here.
+       v114 assigned it the instant the order row was created, so a customer
+       who opened checkout and walked away without paying still burned a
+       sequential invoice number (GST filing expects a continuous series), and
+       the order page printed "Tax invoice SHV/…" over money never received.
+       The number is now minted by order_issue_invoice() the moment the order
+       reaches Paid. Owner decision 18 Sep 2026: COD included — a COD invoice
+       is issued only after the cash is collected, not at dispatch.
+       Orders already in the database keep the number they carry (below is a
+       no-op for them), so the historical series stays continuous. */
     $order = [
-      'id' => biz_id('SHV'), 'invoiceNo' => $invoiceNo, 'hsn' => '71131910',
+      'id' => biz_id('SHV'), 'hsn' => '71131910',
       'userId' => $u['id'], 'userName' => $u['name'], 'items' => $items,
       'address' => $b['address'] ?? (object)[], 'paymentMethod' => $pm,
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Awaiting payment'),
@@ -3611,6 +3648,9 @@ try {
             audit_log($db, 'payment.manual-refund-flag', ['order' => $x['id'],
               'note' => 'status set to Refunded with no gateway refund on record']);
           $x['paymentStatus'] = $newPs;
+          /* v136 (#25) — an owner marking an order Paid (including a COD order
+             once the cash is in hand) is the moment its Tax Invoice is minted. */
+          order_issue_invoice($db, $x);
         }
         $o = $x;
       }
@@ -3784,6 +3824,7 @@ try {
     $db['orders'][$i]['paidAt'] = now_iso();
     $db['orders'][$i]['paymentRef'] = $payId ?: $gOrderId;
     $db['orders'][$i]['gateway'] = $gw;
+    order_issue_invoice($db, $db['orders'][$i]);   // v136 (#25)
     audit_log($db, 'payment.gateway-paid', ['order' => $o['id'], 'amount' => $paidAmt, 'gateway' => $gw]);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
@@ -4017,6 +4058,7 @@ try {
           if ($db['orders'][$idx]['paymentStatus'] === 'Paid') $db['orders'][$idx]['paidAt'] = now_iso();
         }
         $db['orders'][$idx]['gateway'] = 'upi-qr';
+        order_issue_invoice($db, $db['orders'][$idx]);   // v136 (#25)
         audit_log($db, 'payment.approved', ['order' => $ord['id'], 'manual' => $manualAmt]);
       } else {
         $pays =& $db['orders'][$idx]['payments'];

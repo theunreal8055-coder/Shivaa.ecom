@@ -156,6 +156,18 @@ ok(24, 'webhook timestamp regex allows 10 digits but the age math assumes 13',
   && /abs\(time\(\) \* 1000 - \(int\)substr\(\$ts, 0, 13\)\)/.test(sigFn)
   && !/strlen\(\$ts\)/.test(sigFn));
 
+/* #25 — a GST Tax Invoice must be issued when the money is received, not when
+   the checkout form is submitted. Bug-present = the order-creation block mints
+   `invoiceNo` itself. Fixed = creation leaves it out and a dedicated
+   order_issue_invoice() mints it from the Paid transition only.
+   Owner decision 18 Sep 2026: COD included (invoice after cash is collected). */
+const orderCreate = api.slice(api.indexOf("$order = [\n      'id' => biz_id('SHV')"),
+                              api.indexOf("if ($route === 'orders' && $method === 'GET')"));
+ok(25, 'a Tax Invoice is issued at order placement, before any payment is received',
+  /'invoiceNo' =>/.test(orderCreate) || !/function order_issue_invoice\(/.test(api),
+  `expected order creation to omit invoiceNo (found: ${/'invoiceNo' =>/.test(orderCreate)}) `
+  + `and order_issue_invoice() to exist (found: ${/function order_issue_invoice\(/.test(api)})`);
+
 /* ── things the audit checked and found SOUND (must stay sound) ────────── */
 console.log('\n· invariants that must NOT regress');
 const inv = [];
