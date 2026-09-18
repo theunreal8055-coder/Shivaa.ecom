@@ -4,11 +4,11 @@
 invoice being issued before payment; loyalty points had exactly the same flaw.
 
 **Deliverable:** `shivaa-update-v137.zip` — **5 files**, md5
-`740feb712770a3415b300b55e3a0100d`
+`a72b2f6ddf4c3d397b83b7d11b0a45bb`
 
 ```
 .htaccess      5,310 bytes
-api.php      384,392 bytes
+api.php      385,195 bytes
 index.html    26,649 bytes
 js/app.js    560,283 bytes
 sw.js          7,212 bytes
@@ -63,6 +63,12 @@ approval, admin UPI-QR approval, and an owner marking an order Paid.
 - **Pre-v137 orders are untouched.** Their points were credited at creation and
   carry no `pointsGranted` flag, so the revoke helper skips them. No existing
   customer loses points they already have.
+- **No double-earning on the crossover.** Every order created from v137 onward
+  is stamped `pointsDeferred: true`, and `order_grant_points()` refuses to act
+  without that stamp. This matters for the orders already sitting in your
+  database: they banked their points at creation under the old code, so if you
+  mark one of them **Paid** after this deploy, the stamp is what stops the same
+  points being credited a second time.
 
 ## Customer-facing wording changed
 

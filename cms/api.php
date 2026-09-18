@@ -2101,6 +2101,12 @@ function order_issue_invoice(array &$db, array &$ord): void {
    The balance is clamped at zero, so a clawback can never push a customer
    negative. */
 function order_grant_points(array &$db, array &$ord): void {
+  /* Only orders created by v137+ defer their points. This guard is what makes
+     the deploy safe: a pre-v137 order already banked its `earnedPoints` at
+     creation under the old code and carries no `pointsDeferred` marker, so
+     without this check marking such an order Paid afterwards would credit the
+     same points a SECOND time. */
+  if (empty($ord['pointsDeferred'])) return;              // legacy order — points already banked at creation
   if (!empty($ord['pointsGranted'])) return;              // already credited — never double-grant
   if (($ord['paymentStatus'] ?? '') !== 'Paid') return;   // only a settled order earns
   $earn = (int)($ord['earnedPoints'] ?? 0);
@@ -3683,6 +3689,11 @@ try {
       'subtotal' => $subtotal, 'discount' => $discount, 'prepaidDiscount' => $prepaid, 'codFee' => $codFee,
       'pointsUsed' => $pointsUsed, 'coupon' => $coupon['code'] ?? null,
       'shipping' => $shipping, 'total' => $total, 'earnedPoints' => $earned,
+      /* v137 (#16) — marks this order as one whose points are deferred to
+         payment. order_grant_points() refuses to act without it, which is what
+         keeps pre-v137 orders (points already banked at creation, no marker)
+         from being credited a second time when they are later marked Paid. */
+      'pointsDeferred' => true,
       'rateSnapshot' => array_merge($R, ['stampedAt' => now_iso(), 'locked' => $lockedR !== null]),
       'status' => 'Placed', 'createdAt' => now_iso(), 'timeline' => [['s' => 'Placed', 't' => now_iso()]],
     ];
