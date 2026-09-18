@@ -511,6 +511,23 @@ orders the owner is still chasing payment on.
 Until then the mitigation is operational — cancelling an abandoned order in the
 admin already returns the points correctly.
 
+### Why the obvious implementation is unsafe here
+
+The natural fix is a lazy sweep: when an order is read and found unpaid past the
+window, release its points and stock. That cannot be done on the read path in
+this codebase.
+
+`shv_wants_write_lock()` returns `false` for `GET`, `HEAD` and `OPTIONS`, and
+`shv_acquire_lock()` returns immediately when it does — so the `orders` GET
+handler runs with **no write lock held**. A sweep that called `db_save()` there
+would write a stale in-memory snapshot back over the whole database. That is
+precisely the data-loss hazard finding #10 described, reintroduced by the fix.
+
+Any expiry sweep therefore has to live on a route that takes the lock (a POST),
+or acquire it explicitly and re-read under it — the same shape as the v135 fix
+to the Cashfree reconcile. Worth stating here so the fix is not written the easy
+way later.
+
 ---
 
 ## What this pass did *not* find (checked and sound)
