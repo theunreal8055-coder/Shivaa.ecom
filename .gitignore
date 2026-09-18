@@ -4,6 +4,9 @@
 __pycache__/
 *.tmp
 
+# local dev-only tooling for the smoke gates (jsdom / php-parser); never shipped
+node_modules/
+
 # batch workspace scratch (regenerable); MEDIA IS TRACKED — snapshots respect
 # .gitignore, so untracked media does not survive sandbox restarts (lesson 5 Sep)
 demo65/work/tags/

@@ -35,27 +35,8 @@ body.shv-ready .shv-skeleton { display: none !important; }
   .shv-skeleton .sk-hero, .shv-skeleton .sk-card { animation: none; background: #f4eee5; }
 }
 
-/* ── 2 · INSTALL CHIP — appears on the SECOND visit, only when the browser
-   actually offers an install prompt (never nagged on a first impression) ── */
-#shvInstallChip {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; z-index: 940;
-  display: flex; align-items: center; gap: 10px; max-width: min(92vw, 430px);
-  padding: 10px 12px; border-radius: 16px; border: 1px solid var(--line, #e6ddd0);
-  background: var(--white, #fff); box-shadow: 0 12px 30px rgba(60, 45, 20, .18);
-  font-size: 13px; line-height: 1.35; animation: shv-chip-in .28s ease-out both;
-}
-@keyframes shv-chip-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
-#shvInstallChip .shv-ic-title { font-weight: 600; }
-#shvInstallChip .shv-ic-sub { color: var(--ink-3, #7a736a); font-size: 12px; }
-#shvInstallChip .shv-ic-go {
-  border: 0; border-radius: 999px; padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer;
-  background: var(--gold, #b8860b); color: #fff; white-space: nowrap;
-}
-#shvInstallChip .shv-ic-x {
-  border: 0; background: transparent; color: var(--ink-3, #7a736a); font-size: 17px; line-height: 1;
-  cursor: pointer; padding: 4px 6px;
-}
-@media (display-mode: standalone) { #shvInstallChip { display: none !important; } }
+/* ── 2 · INSTALL CHIP — REMOVED in v140. Its styles are deleted along with
+   the component itself (the "keep Shivaa on your home screen" bar). ── */
 
 /* ── 3 · HUID CHIP on the product page — a GUIDE unless the catalogue really
    carries a HUID (then the number is printed verbatim, never invented) ── */

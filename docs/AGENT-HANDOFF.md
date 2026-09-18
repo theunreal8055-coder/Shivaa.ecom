@@ -1,9 +1,37 @@
-# AGENT HANDOFF — read this first, every new chat (updated 18 Sep 2026 — ✅ v139 SHOP-EXPERIENCE PASS **MERGED TO `main` AS PR #70** on the owner's instruction. Five owner reports fixed: bag-drawer Checkout, category-page photos, payment-page Place Order bar, Cashfree One Click Checkout, and the recurring update popup. **⚠ Whether that merge auto-deployed could NOT be confirmed — `gh secret list` returns 403 — so ASK THE OWNER whether v139 is live or he still has to install `shivaa-update-v139.zip` (md5 `cfd64d3ba65641a39140ec0c53533be7`, 9 files).** ⚠ The Cashfree OCC path was never executed — no PHP binary in the sandbox; `cfOcc` ships OFF and a sandbox order is still owed. Previous: ✅ PAYMENT CORRECTNESS PASS MERGED to `main` as PR #69: v135 → v138.)
+# AGENT HANDOFF — read this first, every new chat (updated 18 Sep 2026 — ✅ v142 AUTOMATIC GUEST CHECKOUT **MERGED TO `main` AS PR #71** on the owner's instruction. "Make It Yours" is now a one-tap purchase: order placed instantly, Cashfree auto-verifies name/number/address + saved payment method, the customer types only their UPI PIN / net-banking password. Ships **OFF by default** — switch at Admin → Settings → Payments → "⚡ Automatic Guest Checkout (One-Tap Buy)". Deliverable `shivaa-update-v142.zip`, md5 `87f56fb46b63af6a4b793ca95abad6a9`, 6 files. **⚠ A live Cashfree sandbox ₹1 order is STILL OWED.** Previous: ✅ v139 SHOP-EXPERIENCE PASS MERGED as PR #70 (five owner reports; whether it auto-deployed is unconfirmed — `gh secret list` 403, ask the owner). Previous: ✅ PAYMENT CORRECTNESS PASS MERGED to `main` as PR #69: v135 → v138.)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
+
+## ✅ NEWEST — v142 AUTOMATIC GUEST CHECKOUT (18 Sep 2026, branch `arena/01a0b3ff-shivaa-ecom`, **MERGED TO `main` AS PR #71** on the owner's instruction "update memory doc handoff and agent doc and merge the PR". Ships v140 → v141 → v142.)
+
+**Owner brief, verbatim:** *"Make the most advanced and Fully automatic checkout, without even otp, still verifying the name number address and payment methods automatically — once a person clicks make it yours then it's automatically purchased, just the customer needs to fill their UPI pin or NetBanking password, everything else is automated."*
+
+**How it works (switch ON, signed-out visitor):** tap **Make It Yours** → order placed instantly → browser goes **straight to Cashfree's page** → Cashfree auto-verifies name / number / address from its One Click Checkout registry and shows the saved payment method → the customer types **only** their UPI PIN / net-banking password → done. **Ships OFF by default** (Admin → Settings → Payments → "⚡ Automatic Guest Checkout (One-Tap Buy)"); untick = instant rollback, no migration.
+
+### What shipped (all gated OFF until the owner switches it on)
+| Piece | Where |
+|---|---|
+| one-tap buy page + hand-off to Cashfree | `cms/js/app.js` (`pdBuy` → `pages.express` → `payForOrder`), signed-out only |
+| guest order gate + one-way access PIN | `cms/api.php` (id always `'guest'`; PIN = `substr(sha256(id\|createdAt\|entropy),0,16)`, never persisted, constant-time) |
+| **prepaid-only, server-enforced** | `cms/api.php` — `if (!$u && $pm !== 'Online') jout(400,…)` kills crafted COD/WhatsApp |
+| per-order gateway-session cap (3 guest / 12 member) | `cms/api.php` (`shv_cap_cf_create`) |
+| admin switch + Cashfree-verified address on dispatch/invoice | `cms/js/admin.js` (prefers `o.cfCheckout.shipping`, badged) |
+| release triple re-stamp 141→142 (v116/v117 lockstep) + admin bundle `?v=142` | `cms/index.html`, `cms/js/app.js`, `cms/sw.js` |
+
+### Verification (all run before the PR opened)
+13 gate suites (v113b 32/32 … **v142 13/13**) · php-sweep **208 routes · 0 exceptions** · `api.php` parse-clean vs a **proven broken negative control** · pay-audit **10/10 invariants** (2/18 pre-existing findings unchanged) · jsdom end-to-end (PDP → Make It Yours → One-Tap Buy → guest order → poller) **zero errors**.
+
+### Deploy → rollback
+`shivaa-update-v142.zip` (md5 `87f56fb46b63af6a4b793ca95abad6a9`, 6 files) into `public_html` ROOT. Rollback = untick the switch (or redeploy the prior `shivaa-update-v141.zip`). Supersedes v140/v141 zips.
+
+### Things the next agent must not get wrong
+- **A live Cashfree sandbox ₹1 order is STILL OWED** — no PHP binary in the sandbox; the path is parse-checked + jsdom-exercised only. `cfOcc` ships OFF.
+- **A brand-new number must verify ONCE on Cashfree's own page** — that is Cashfree's security rule, not a site limitation. Do not promise "zero OTP for every number ever".
+- **Never print the Cashfree secret** — it belongs only in the admin settings.
+- Guests can NEVER use member coupons / loyalty points / rate lock, and no account is created (id stays `'guest'`).
 
 ## ✅ NEWEST — v139 SHOP-EXPERIENCE PASS (18 Sep 2026, branch `arena/01a0b366-shivaa-ecom`, **MERGED TO `main` AS PR #70** — the owner's hold *"don't merge the PR until you are told to do so"* was **lifted** at session close with *"perge this PR to main"*, so the merge is authorised and spent. Merged forward-only as a merge commit per owner law.)
 

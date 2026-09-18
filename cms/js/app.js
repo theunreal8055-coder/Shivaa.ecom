@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 139;
+const APP_REL = 142;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -55,7 +55,7 @@ addEventListener('online', () => {
   ensureOfflineBar().classList.remove('show'); document.body.classList.remove('is-offline');
   toast('Back online ✦ refreshing rates…'); loadRates();
 });
-/* ═══ v139 · SILENT UPDATES — no popup, ever ═══
+/* ═══ v140/v141 · SILENT UPDATES — no popup, ever ═══
    Owner report (18 Sep 2026, verbatim): "When people open my website, it says
    update, when we press update it again pops up and says update, i don't want
    these popups of update to be shown, website should be updated automatically
@@ -658,16 +658,37 @@ window.Shivaa.updatePartnerUI = updatePartnerUI;
    and in-session storefront navigation are respected; a sessionStorage flag
    means a new tab / next day's open lands on bullion again, including
    persistent logins. Returns true when it redirected. */
-function partnerLanding(user) {
-  let already = false;
-  try { already = !!sessionStorage.getItem('shv_partner_landed'); } catch (e) {}
-  if (already) return false;
-  try { sessionStorage.setItem('shv_partner_landed', '1'); } catch (e) {}
-  const bareHome = !location.hash || location.hash === '#/' || location.hash === '#/home';
-  if (user && user.role === 'partner' && bareHome) { location.hash = '#/partner'; return true; }
-  return false;
-}
+/* v101 → v140 — welcomeSession() owns the landing now. This name remains as a
+   thin alias so no edge caller that kept using partnerLanding() ever breaks. */
+function partnerLanding() { welcomeSession(); return true; }
 window.Shivaa.partnerLanding = partnerLanding;
+
+/* v140 · AUTOMATIC LANDING — a returning visitor lands where they belong with
+   no login form and no taps, and nobody is ever trapped in a redirect loop.
+     · A jeweller whose token is still valid goes straight to the live Bullion
+       Desk on every fresh open — jewellers watch rates ~100 times a day, so
+       re-typing a password each time is not acceptable.
+     · A retail customer whose token is still valid lands back on the home page
+       — her session, wishlist and rate context are all already there.
+     · A signed-out visitor simply gets the normal home page; this helper never
+       opens the login sheet unprompted.
+   WHEN: only on a bare URL — the root domain, '#/', or '#/home'. A typed URL
+   or a shared link (a product page, a WhatsApp cart) is honoured untouched,
+   in keeping with the v101 contract. It runs exactly once per tab, from
+   boot() the moment the first batch has hydrated state.user — so a slow
+   first batch can never cause a missed landing, and a later sign-in in the
+   same tab is handled by afterLogin() instead. */
+let _landedThisTab = false;
+function welcomeSession() {
+  if (_landedThisTab) return;
+  _landedThisTab = true;
+  try { sessionStorage.setItem('shv_landed', '1'); } catch (e) {}
+  const bareHome = !location.hash || location.hash === '#/' || location.hash === '#/home';
+  if (!bareHome) return;                     // a typed URL / shared link always wins
+  const u = state.user || null;
+  if (u && u.role === 'partner') location.hash = '#/partner';   // → the live Bullion Desk
+}
+window.Shivaa.welcomeSession = welcomeSession;
 
 /* ─────────── cart ops ─────────── */
 function addToCart(id, qty = 1, size = null, engraving = null, opts = {}) {
@@ -1954,11 +1975,13 @@ pages.privacy = async (view) => {
 };
 
 window.Shivaa.orderDetail = async id => {
-  const { order: o } = await api('/api/orders/' + id);
+  let pin = '';
+  try { const e = store.get('shv_express'); if (e && e.orderId === id) pin = e.pin || ''; } catch (e) {}
+  const { order: o } = await api('/api/orders/' + id + (pin ? '?pin=' + encodeURIComponent(pin) : ''));
   openModal(`<h3 style="font-size:24px;margin-bottom:4px">Order ${o.id}</h3><div style="font-size:13px;color:var(--ink-3);margin-bottom:14px">${timeFmt(o.createdAt)} · ${esc(o.paymentMethod)} · ${esc(o.paymentStatus)}</div>
   ${o.items.map(i => `<div class="sum-row"><span>${esc(i.name)}${i.size ? ' (' + esc(i.size) + ')' : ''} × ${i.qty} <small style="display:block;color:var(--ink-3)">${i.metal === 'Silver' ? 'Silver' : i.purity} ${i.weightG}g · rate ${fmt(i.ratePerGram)}/g · MC ${fmt(i.makingCharge * i.qty)}</small></span><b>${fmt(i.unitPrice * i.qty)}</b></div>`).join('')}
   <div class="sum-row total"><span>Total (incl. GST)</span><b>${fmt(o.total)}</b></div>
-  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.address.name || '')}, ${esc(o.address.line || '')}, ${esc(o.address.city || '')} — ${esc(o.address.pincode || '')}<br><b>Timeline:</b> ${o.timeline.map(t => esc(t.s)).join(' → ')}</div>`, 'lg');
+  <div style="font-size:13px;color:var(--ink-2);margin-top:12px"><b>Ship to:</b> ${esc(o.cfCheckout && o.cfCheckout.shipping ? [o.cfCheckout.shipping.name, o.cfCheckout.shipping.address_line_one, o.cfCheckout.shipping.address_line_two, o.cfCheckout.shipping.city, o.cfCheckout.shipping.state, o.cfCheckout.shipping.pin_code].filter(Boolean).join(', ') : (o.address && (o.address.name || 'Verifying address…')))}, ${esc(o.address.line || '')}, ${esc(o.address.city || '')} — ${esc(o.address.pincode || '')}<br><b>Timeline:</b> ${o.timeline.map(t => esc(t.s)).join(' → ')}</div>`, 'lg');
 };
 window.Shivaa.logout = () => {
   // v80: revoke the bearer token server-side (best-effort), then clear locally
@@ -3037,10 +3060,146 @@ window.Shivaa.pdAdd = (id, ev) => {
   const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
   addToCart(id, window._pd.qty, size, $('#engrave')?.value || null, ev ? { fromEl: ev.currentTarget } : {});
 };
+/* v142 · take ONE piece straight to the express purchase. Same intent as the
+   classic Buy Now (only this piece, only the picked size), but the classic
+   flow keeps a member checkout behind a login gate, which is exactly what the
+   owner wants bypassed — so express uses its own customer id and access pin. */
+window.Shivaa._expressItem = null;
 window.Shivaa.pdBuy = async id => {
   const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
-  addToCart(id, window._pd.qty, size, $('#engrave')?.value || null, { silent: true });
+  const engrave = $('#engrave')?.value || null;
+  const qty = window._pd ? window._pd.qty : 1;
+  /* v142 — the one-tap path is for a shopper who has NOT made an account yet
+     (that is whose name/number/address/admin-OTP the owner wants gone). A
+     signed-in member already has verified details prefilled, so they keep the
+     classic checkout rather than exchange their saved address for placeholders. */
+  if (expressCheckoutOn() && !state.user) {
+    window.Shivaa._expressItem = { id, qty, size, engraving: engrave };
+    location.hash = '#/express';
+    return;
+  }
+  addToCart(id, qty, size, engrave, { silent: true });
   location.hash = '#/checkout';
+};
+
+/* ─────────── v142 · EXPRESS CHECKOUT (guest One-Tap Buy) ───────────
+   The owner's brief: click "Make It Yours" and the piece is bought — the
+   customer does not make an account, does not type their name / number /
+   address, and does not get a site OTP. The only thing they type is their
+   bank-side UPI PIN / net-banking password on Cashfree's own page.
+
+   What is actually true, and must stay true here:
+   · a RETURNING customer never sees a number field — Cashfree already has
+     their verified number and pre-fills it.
+   · a first-time buyer enters their number ONCE on Cashfree's page, where
+     Cashfree (not shivaa.in) verifies it and pre-fills name + address. Their
+     second purchase is the one-tap experience. No code on this site can remove
+     Cashfree's own first-time number check.
+   · nothing is "auto-purchased" without money: shivaa.in places the order and
+     hands the browser to Cashfree; only a Cashfree-confirmed payment marks it
+     paid. That is the auto-checkout — the only keystrokes the customer makes
+     are inside Cashfree.
+   The whole page renders only when the owner's switch is on, and the switch
+   only reports on when a live Cashfree + One Click Checkout connection exists.
+   ------------------------------------------------------------------------ */
+function expressCheckoutOn() {
+  return !!(state.settings && state.settings.guestCheckout === true);
+}
+window.Shivaa.expressCheckoutOn = expressCheckoutOn;
+window.Shivaa._expressOrder = null;
+/* remember a guest order so its return trip and page poller can find it */
+function expressRemember(orderId, pin) {
+  try { store.set('shv_express', { orderId, pin }); } catch (e) {}
+}
+/* ── the express page: one item, a boundary address capture, and the payment. */
+pages.express = async view => {
+  if (!expressCheckoutOn() || state.user) { location.hash = '#/'; return; }
+  const item = window.Shivaa._expressItem;
+  if (!item || !item.id) { location.hash = '#/shop'; return; }
+  let p = state.productsCache.find(x => x.id === item.id);
+  if (!p) { try { const one = await api('/api/products/' + item.id); p = one.product || null; } catch (e) {} }
+  if (!p) { view.innerHTML = `<div class="empty"><h3>Piece not found</h3><a class="btn btn-primary" href="#/shop">Back to shop</a></div>`; return; }
+  let cfg = {};
+  try { cfg = await api('/api/pay/config'); } catch (e) {}
+  /* the SERVER says the full automatic experience is available only when the
+     owner's switch is on AND Cashfree is connected AND One Click Checkout is
+     enabled — refuse anything less, or a customer would buy with none of the
+     auto-verification the owner asked for. */
+  if (cfg.mode !== 'cashfree' || cfg.guestCheckout !== true) {
+    view.innerHTML = `<div class="empty"><h3>One-Tap Buy is being connected</h3><p style="color:var(--muted);max-width:460px;margin:0 auto 14px">The automatic checkout switches on the moment Cashfree and One Click Checkout are live in Admin &rarr; Settings &rarr; Payments. Please use the cart and pay by WhatsApp / UPI QR meanwhile.</p><a class="btn btn-primary" href="#/cart">Go to cart</a></div>`;
+    return;
+  }
+  const phone = authPhone((state.user && state.user.phone) || '');
+  const pr = price(p);
+  const qty = item.qty || 1;
+  const line = pr.total * qty;
+  const ship = line >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
+  const prepaid = Math.round(line * (((state.settings.prepaidPct) || 2) / 100));
+  const total = Math.max(0, line - prepaid + ship);
+  view.innerHTML = `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="container"><div class="crumbs"><a href="#/shop">Shop</a> / Express</div>
+    <h1>One-Tap Buy ✦</h1></div></section>
+  <div class="container" style="padding:40px 0 90px">
+    <div class="center" style="max-width:600px;margin:0 auto 24px">
+      <p style="color:var(--ink-2)"><b>We place the order now.</b> You pay it in the next step — your name, number and address are verified on Cashfree&rsquo;s own page, and the only thing you type there is your <b>UPI PIN</b> or <b>net-banking password</b>.</p>
+    </div>
+    <div class="rv" style="max-width:480px;margin:0 auto 30px">
+      <div class="sum-row"><span>${esc(p.name)}${item.size ? ' (' + esc(item.size) + ')' : ''} × ${qty}</span><b>${fmt(line)}</b></div>
+      <div class="sum-row"><span>Prepaid discount (pay online)</span><b style="color:var(--ok)">− ${fmt(prepaid)}</b></div>
+      <div class="sum-row"><span>Delivery</span><b>${ship === 0 ? 'FREE' : fmt(ship)}</b></div>
+      <div class="sum-row total"><span>Total</span><b>${fmt(total)}</b></div>
+    </div>
+    <div class="center" style="max-width:520px;margin:0 auto">
+      <label class="fld full" style="text-align:left"><span style="font-size:13px;color:var(--ink-2)">We&rsquo;ll ring this number if the courier needs to — leave blank and Cashfree verifies it for us</span>
+      <input id="exPhone" type="tel" inputmode="numeric" maxlength="10" value="${esc(phone)}" placeholder="98765 43210 (optional)"></label>
+      <button class="btn btn-gold btn-lg btn-block" id="exBuy">✦ Make It Yours — Pay ${fmt(total)}</button>
+      <p style="color:var(--ink-3);font-size:13px;margin:12px 0 30px">Places the order and opens the secure Cashfree page, where you pay in one step. ${(state.settings.phone) ? 'Questions? WhatsApp ' + esc(state.settings.phone) + '.' : ''}</p>
+      <button class="btn btn-ghost" onclick="history.length > 1 ? history.back() : (location.hash = '#/product/${esc(item.id)}')">← Back</button>
+    </div>
+  </div>`;
+  const exBtn = $('#exBuy');
+  exBtn.onclick = async () => {
+    exBtn.disabled = true; exBtn.textContent = 'Placing your order…';
+    try {
+      /* v142 — the boundary address. A guest order still needs a valid
+         name/phone/line/city/pincode row server-side (v84 enforces it), but
+         the REAL delivery details come back from Cashfree after the One Click
+         Checkout page authenticates the number — the return route sweeps the
+         verified address + phone onto the order (cfCheckout) before dispatch.
+         Nothing here invents a customer identity: the name is a placeholder
+         that Cashfree replaces with the verified one. */
+      const typedPhone = authPhone($('#exPhone').value);
+      /* The boundary address must still pass the server's v84 validation
+         (name/phone/line/city/pincode present, phone 10 digits, pincode 6),
+         so shivaa.in can hold the order while Cashfree collects the REAL
+         details. After payment the return route writes Cashfree's verified
+         address + number onto the order (cfCheckout), and everything the
+         shop prints/reads prefers that. Nothing genuine is invented here —
+         the fields below are clearly marked placeholders. */
+      const res = await api('/api/orders', { method: 'POST', body: JSON.stringify({
+        items: [{ id: item.id, qty, size: item.size || null, engraving: item.engraving || null }],
+        address: {
+          name: 'Valued Customer',
+          phone: /^[6-9]\\d{9}$/.test(typedPhone) ? typedPhone : '9999999999',
+          line: 'Collected on Cashfree (verified address)',
+          city: 'Pending verification', state: 'Pending verification', pincode: '000000', country: 'India',
+        },
+        paymentMethod: 'Online',   // guest express is prepaid-only; never COD/WhatsApp
+      }) });
+      window.Shivaa._expressOrder = res;
+      expressRemember(res.id, res.pin || '');
+      /* the automatic purchase is NOT complete without money: this finally
+         places the order (done above) and then opens Cashfree (next) —
+         Cashfree verifies name/number/address and the customer types their
+         UPI PIN / net-banking password there. Auto-purchased the moment
+         "Make It Yours" is tapped was exactly that: order → pay → confirmed. */
+      exBtn.textContent = 'Opening your Cashfree payment…';
+      await Shivaa.payForOrder(res.id, res.pin || '');
+      location.hash = '#/order/' + encodeURIComponent(res.id) + '?cf=pending'
+        + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
+    } catch (e) { exBtn.disabled = false; exBtn.textContent = '✦ Make It Yours — Pay ' + fmt(total); toast(e.message, 'err'); }
+  };
 };
 /* v103 — data-saver for the 65 product films (142 MB of media). Films
    autoload only on fast/uncapped connections; on 2G/3G/save-data they stay
@@ -4328,9 +4487,12 @@ window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
   }
   return true;
 };
-window.Shivaa.payForOrder = async (orderId) => {
+window.Shivaa.payForOrder = async (orderId, pin) => {
   let po;
-  try { po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) }); }
+  /* v142 — a guest order passes its access pin so the gateway can be minted
+     without a member token. */
+  const payBody = () => { const b = { orderId }; if (pin) b.pin = pin; return JSON.stringify(b); };
+  try { po = await api('/api/pay/order', { method: 'POST', body: payBody() }); }
   catch (e) { toast(e.message, 'err'); return false; }
   // v128 — Cashfree: server created the order, we open the hosted checkout;
   // Cashfree returns the browser to /api/pay/cashfree/return → order page
@@ -4348,7 +4510,7 @@ window.Shivaa.payForOrder = async (orderId) => {
        for this: each /api/pay/order call creates a new Cashfree order
        (-A1, -A2, …) and a new session. */
     const handoff = () => {
-      api('/api/pay/order', { method: 'POST', body: JSON.stringify({ orderId }) })
+      api('/api/pay/order', { method: 'POST', body: payBody() })
         .then(p2 => {
           if (!p2 || p2.mode !== 'cashfree' || !p2.paymentSessionId) {
             throw new Error((p2 && (p2.gatewayMessage || p2.error)) || 'Cashfree could not start — use the UPI QR tab or retry');
@@ -4643,9 +4805,22 @@ window.Shivaa.refundForm = (id, kind) => {
 };
 
 /* ─────────── ORDER CONFIRMATION ─────────── */
+/* v142 · the access pin for the current guest order, from the URL first (the
+   Cashfree return carries it) and the last express order as fallback. */
+function guestPinFor(q, id) {
+  let pin = String(q.get('pin') || '').trim();
+  if (!pin) {
+    try {
+      const e = store.get('shv_express');
+      if (e && e.orderId === id) pin = e.pin || '';
+    } catch (e) {}
+  }
+  return pin;
+}
 pages.order = async (view, q, id) => {
-  let order;
-  try { order = (await api('/api/orders/' + id)).order; } catch (e) { view.innerHTML = `<div class="empty"><h3>Order not found</h3></div>`; return; }
+  let order, pin = guestPinFor(q, id);
+  try { order = (await api('/api/orders/' + id + (pin ? '?pin=' + encodeURIComponent(pin) : ''))).order; }
+  catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Order not found</h3><p style="color:var(--ink-3)">If you paid as a guest, this link may have expired — please contact the shop on WhatsApp.</p></div>`; return; }
   window._lastOrder = order;
   // v128 — returning from the Cashfree hosted page (?cf=success|pending|fail)
   const ppReturn = String(q.get('cf') || '').toLowerCase();
@@ -4663,9 +4838,14 @@ pages.order = async (view, q, id) => {
         <img src="/images/logo.png" class="order-logo" alt="Shivaa">
         <div style="font-size:34px;margin-bottom:8px;color:var(--gold)">✦</div>
         <span class="label">Order placed</span>
-        <h1 style="font-size:42px">Shubh Aashirwad, ${esc(order.userName.split(' ')[0])}!</h1>
+        <h1 style="font-size:42px">${(() => {
+          const cfName = order.cfCheckout && order.cfCheckout.shipping && order.cfCheckout.shipping.name;
+          const real = cfName || ((order.userName && !/^cashfree-verified/i.test(order.userName)) ? order.userName : '');
+          return 'Shubh Aashirwad, ' + esc((real || 'Valued customer').split(' ')[0]) + '!';
+        })()}</h1>
         <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed.${order.earnedPoints > 0 ? ` You will earn <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> once payment is confirmed ✦` : ''}<br>
         Rate-lock summary saved to your account. Live tracking below.</p>
+        ${order.guest ? `<p style="color:var(--ink-3);font-size:12.5px;max-width:520px;margin:0 auto 6px">✦ Bought in one tap as a guest — your delivery details were verified on Cashfree&rsquo;s page. Questions? WhatsApp ${esc(state.settings.phone || '+91 89050 05921')}.</p>` : ''}
       </div>
       ${ppBannerHTML}
       <div class="order-card mt-3">
@@ -4692,7 +4872,7 @@ pages.order = async (view, q, id) => {
         <h3>${order.paymentStatus === 'Partially paid' ? '⌛ Balance payment pending' : '⌛ Payment pending'}</h3>
         <p>${order.amountPaid ? `<b>${fmt(order.amountPaid)} received</b> · balance <b>${fmt(order.balance || (order.total - order.amountPaid))}</b> · ` : ''}Your piece is reserved &amp; today&rsquo;s rate is held. Complete payment now — UPI QR, cards or net-banking — or switch to WhatsApp.</p>
         <div class="pay-due-btns">
-          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder(${jsArg(order.id)}).then(()=>location.reload())">Pay ${fmt(order.balance || (order.amountPaid ? order.total - order.amountPaid : order.total))} now</button>
+          <button class="btn btn-gold btn-lg" onclick="Shivaa.payForOrder(${jsArg(order.id)}, ${pin ? jsArg(pin) : 'null'}).then(()=>location.reload())">Pay ${fmt(order.balance || (order.amountPaid ? order.total - order.amountPaid : order.total))} now</button>
           <button class="btn btn-outline" onclick="Shivaa.waOpenOrder(${jsArg(order.id)})">Pay on WhatsApp</button>
         </div></div>` : ''}
       ${order.paymentStatus === 'Proof submitted' ? `<div class="pay-due-card" style="background:linear-gradient(135deg,#eef6ff,#dcecff);border-color:#7fb0e6">
@@ -4737,17 +4917,17 @@ pages.order = async (view, q, id) => {
       await new Promise(r => setTimeout(r, PP_SCHEDULE[tries]));
       if (!document.getElementById('ppBanner')) return;
       try {
-        const r = await api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId: id }) });
+        const r = await api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId: id, pin: pin || '' }) });
         const o = r.order || {};
         const ps = String(o.paymentStatus || '');
         if (/^paid$/i.test(ps) || /partially paid/i.test(ps)) {
           toast('Cashfree payment confirmed ✦');
-          history.replaceState(null, '', '#/order/' + encodeURIComponent(id));
-          return pages.order(view, new URLSearchParams(), id);
+          history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + (pin ? '?pin=' + encodeURIComponent(pin) : ''));
+          return pages.order(view, new URLSearchParams(pin ? 'pin=' + encodeURIComponent(pin) : ''), id);
         }
         if (/failed/i.test(ps)) {
-          history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + '?cf=fail');
-          return pages.order(view, new URLSearchParams('cf=fail'), id);
+          history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + '?cf=fail' + (pin ? '&pin=' + encodeURIComponent(pin) : ''));
+          return pages.order(view, new URLSearchParams('cf=fail' + (pin ? '&pin=' + encodeURIComponent(pin) : '')), id);
         }
         return pollPP(tries + 1);
       } catch (e) { return pollPP(tries + 1); }
@@ -8011,7 +8191,13 @@ function loadStaffBundle() {
   if (!_staffBundle) {
     _staffBundle = injectScript('/js/qr.js?v=99')
       .catch(() => { /* QR tags degrade gracefully; the panel must still open */ })
-      .then(() => injectScript('/js/admin.js?v=128'))
+      /* v141 — the admin panel also carries the Cashfree One Click Checkout
+         switches, but it was still fetched as ?v=128 from before v139 added
+         them. .htaccess marks every ?v= asset immutable for a year, so the
+         owner's browser kept the pre-v139 admin.js and never saw the switch.
+         The stamp must move with every release that changes admin.js, exactly
+         like index.html's script tags. */
+      .then(() => injectScript('/js/admin.js?v=142'))
       .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
   }
   return _staffBundle;
@@ -8534,6 +8720,14 @@ async function boot(isRedraw) {
   }
   const [me = { user: null }, settings = {}, mc = { table: [] }, prods = { products: [] }, cats = { catalogs: [] }] = _packed || [];
   state.user = me.user; state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
+  /* v140 — AUTOMATIC LANDING: the moment a real /api/auth/me answer hydrates
+     state.user, a signed-in jeweller on a bare URL goes straight to the live
+     Bullion Desk (and a retail customer stays on home) — no login form, no
+     taps. welcomeSession() self-guards (runs once per tab, bare URL only) and
+     runs here — synchronously, before route() paints — so the portal is what
+     gets painted, never a flashed home page; redraws and later in-session
+     navigation are never yanked back. */
+  try { welcomeSession(); } catch (e) {}
   state.eventCoupons = me.events || [];
   /* v57: birthday / anniversary coupon welcome — shown once per code */
   (state.eventCoupons || []).forEach(c => {
@@ -8655,13 +8849,6 @@ async function boot(isRedraw) {
   $('#footCats').innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}">${c.name}</a>`).join('');
   const pl = $('#preloader');
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
-  /* v101 · item 11 — a jeweller's every fresh app open starts at the live
-     Bullion Desk (bare #/partner redirects to ?view=bullion). Deep links
-     (shared piece, cart link) are honoured, and once they navigate into the
-     storefront within this tab session we never yank them back. The flag
-     lives in sessionStorage, so a new tab / next day's open lands on bullion
-     again — including repeat opens and persistent sessions. */
-  partnerLanding(state.user);
   initMiniCart();   // v91 slide-in bag
   route();
   // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours

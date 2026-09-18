@@ -314,8 +314,7 @@ body.drawer-open .boost-theme,
 body.drawer-open .boost-top,
 body.drawer-open .wa-fab,
 body.drawer-open .compare-tray,
-body.drawer-open .ds-bar,
-body.drawer-open .shv-install {
+body.drawer-open .ds-bar {
   opacity: 0 !important;
   pointer-events: none !important;
   visibility: hidden !important;
