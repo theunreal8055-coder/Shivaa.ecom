@@ -63,7 +63,7 @@ const until = async (fn, ms = 8000, step = 60) => {
   console.log('\nSHIVAA v117 "butter" check\n');
   console.log('· static gates');
   ok('release handshake remains at v117 or newer on both sides',
-    /__SHIVAA_REL\s*=\s*(117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136)/.test(html) && /APP_REL\s*=\s*(117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136)/.test(appJs));
+    /__SHIVAA_REL\s*=\s*(117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137)/.test(html) && /APP_REL\s*=\s*(117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137)/.test(appJs));
 
   ok('fonts.css is file-based (no base64 payload)',
     !/base64,/.test(fontsCss) && /url\('\/fonts\//.test(fontsCss));
@@ -97,7 +97,7 @@ const until = async (fn, ms = 8000, step = 60) => {
     v117Js.indexOf('aurum.js') > 0 && v117Js.indexOf('aurum.js') < v117Js.indexOf('motion.js') &&
     v117Js.indexOf('motion.js') < v117Js.indexOf('boost.js'));
 
-  ok('sw.js shell remains at v117 or newer', /SHELL = 'shivaa-shell-v(117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136)'/.test(swJs));
+  ok('sw.js shell remains at v117 or newer', /SHELL = 'shivaa-shell-v(117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137)'/.test(swJs));
   const swFilesBlock = (swJs.match(/const SHELL_FILES = \[([\s\S]*?)\];/) || [null, ''])[1];
   const swList = [...swFilesBlock.matchAll(/'([^']*)'/g)].map(m => m[1]);
   /* the post-paint trio is stamped by v117.js, not index.html — read it from

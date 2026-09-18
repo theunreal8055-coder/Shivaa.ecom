@@ -610,6 +610,7 @@ function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array
   elseif ($paid > 0) { $o['paymentStatus'] = 'Partially paid'; $o['balance'] = max(0, $total - $paid); }
   $o['paymentRef'] = $ref; $o['gateway'] = 'cashfree';
   order_issue_invoice($db, $o);   // v136 (#25) — the Tax Invoice appears now, not at checkout
+  order_grant_points($db, $o);    // v137 (#16) — royalty points are earned now, not at checkout
   audit_log($db, 'payment.cashfree-paid', ['order' => $o['id'], 'amount' => (int)round($paidRupees), 'cfOrderId' => $cfOrderId]);
   db_save($GLOBALS['DB_FILE'], $db);
   return ['ok' => true, 'state' => 'PAID', 'ref' => $ref];
@@ -637,6 +638,10 @@ function cashfree_apply_refund(array &$db, int $i, array $p): array {
   $paid = (int)($o['amountPaid'] ?? 0);
   if ($state === 'SUCCESS') {
     $o['paymentStatus'] = $refundedDone >= $paid && $paid > 0 ? 'Refunded' : 'Partially refunded';
+    /* v137 (#16) — a fully refunded order gives its royalty points back.
+       Only on a FULL refund: a partial refund leaves the customer with a
+       partly-paid order that still earned its points. */
+    if ($o['paymentStatus'] === 'Refunded') order_revoke_points($db, $o);
     audit_log($db, 'payment.cashfree-refund-done', ['order' => $o['id'], 'refund' => $rfId]);
   } elseif ($state === 'FAILED') {
     audit_log($db, 'payment.cashfree-refund-failed', ['order' => $o['id'], 'refund' => $rfId]);
@@ -2080,6 +2085,91 @@ function order_issue_invoice(array &$db, array &$ord): void {
   $ord['invoicedAt'] = now_iso();
   audit_log($db, 'invoice.issued', ['order' => $ord['id'] ?? '', 'invoiceNo' => $ord['invoiceNo'],
                                     'amount' => (int)($ord['amountPaid'] ?? 0)]);
+}
+
+/* v137 (#16) — royalty points are EARNED when the order is paid, not when the
+   checkout form is submitted. Owner decision 18 Sep 2026.
+
+   Before this, order creation credited `earnedPoints` to the customer's
+   balance in the same write that created the order row. Those points were
+   immediately redeemable against the next order (10% cap), and nothing ever
+   took them back — so an abandoned cart permanently granted spendable value
+   against money the shop never received, and a refunded order kept its points.
+
+   Mirrors order_issue_invoice(): called from every settling path, idempotent
+   via the `pointsGranted` flag, and a no-op unless the order is actually Paid.
+   The balance is clamped at zero, so a clawback can never push a customer
+   negative. */
+function order_grant_points(array &$db, array &$ord): void {
+  if (!empty($ord['pointsGranted'])) return;              // already credited — never double-grant
+  if (($ord['paymentStatus'] ?? '') !== 'Paid') return;   // only a settled order earns
+  $earn = (int)($ord['earnedPoints'] ?? 0);
+  $uid = (string)($ord['userId'] ?? '');
+  if ($uid === '' || $earn <= 0) { $ord['pointsGranted'] = true; return; }
+  $credited = false;
+  foreach ($db['users'] as &$uu) {
+    if (($uu['id'] ?? '') !== $uid) continue;
+    $uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0)) + $earn;
+    $credited = true;
+    break;
+  }
+  unset($uu);
+  /* Only mark it granted — and only write the audit line — if a customer
+     balance actually moved. Otherwise a missing user record would leave an
+     audit entry claiming a credit that never happened, and the order would be
+     flagged done so a later retry could never repair it. */
+  if (!$credited) {
+    audit_log($db, 'loyalty.grant-skipped', ['order' => $ord['id'] ?? '', 'user' => $uid,
+      'points' => $earn, 'note' => 'no matching user record; order left unflagged for retry']);
+    return;
+  }
+  $ord['pointsGranted'] = true;
+  $ord['pointsGrantedAt'] = now_iso();
+  audit_log($db, 'loyalty.granted', ['order' => $ord['id'] ?? '', 'user' => $uid, 'points' => $earn]);
+}
+
+/* v137 (#16) — take the earned points back when an order is refunded.
+   Clamped at zero: if the customer already spent them we absorb the loss
+   rather than driving a customer balance negative. Only ever reverses a grant
+   this code actually made (`pointsGranted`), so pre-v137 orders — whose points
+   were credited at creation and are not flagged — are left untouched. */
+function order_revoke_points(array &$db, array &$ord): void {
+  if (empty($ord['pointsGranted'])) return;
+  $earn = (int)($ord['earnedPoints'] ?? 0);
+  $uid = (string)($ord['userId'] ?? '');
+  if ($uid === '' || $earn <= 0) return;
+  foreach ($db['users'] as &$uu) {
+    if (($uu['id'] ?? '') !== $uid) continue;
+    $before = max(0, (int)($uu['loyaltyPoints'] ?? 0));
+    $uu['loyaltyPoints'] = max(0, $before - $earn);
+    audit_log($db, 'loyalty.revoked', ['order' => $ord['id'] ?? '', 'user' => $uid,
+      'points' => $before - $uu['loyaltyPoints'], 'asked' => $earn,
+      'short' => $earn - ($before - $uu['loyaltyPoints'])]);
+    break;
+  }
+  unset($uu);
+  $ord['pointsGranted'] = false;
+  $ord['pointsRevokedAt'] = now_iso();
+}
+
+/* v137 — points a customer REDEEMED on an order are returned when that order
+   is cancelled. They were deducted at checkout against an order that never
+   happened; keeping them would charge the customer for a cancelled purchase.
+   Guarded by `pointsRestored` so repeated status edits cannot refund twice. */
+function order_restore_points(array &$db, array &$ord): void {
+  if (($ord['status'] ?? '') !== 'Cancelled') return;
+  if (!empty($ord['pointsRestored'])) return;
+  $used = (int)($ord['pointsUsed'] ?? 0);
+  $uid = (string)($ord['userId'] ?? '');
+  $ord['pointsRestored'] = true;      // set even when $used is 0 — one shot only
+  if ($uid === '' || $used <= 0) return;
+  foreach ($db['users'] as &$uu) {
+    if (($uu['id'] ?? '') !== $uid) continue;
+    $uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0)) + $used;
+    audit_log($db, 'loyalty.restored', ['order' => $ord['id'] ?? '', 'user' => $uid, 'points' => $used]);
+    break;
+  }
+  unset($uu);
 }
 
 /* ───────── auth ───────── */
@@ -3597,9 +3687,15 @@ try {
       'status' => 'Placed', 'createdAt' => now_iso(), 'timeline' => [['s' => 'Placed', 't' => now_iso()]],
     ];
     $db['orders'][] = $order;
+    /* v137 (#16) — only the REDEMPTION happens here; the earning does not.
+       Redeeming at checkout is correct (it prices this order), but crediting
+       `earnedPoints` in the same write meant an abandoned cart permanently
+       granted spendable points against money never received. Earning now
+       happens in order_grant_points() when the order reaches Paid. */
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
-      $uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0) - $pointsUsed) + $earned;
+      $uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0) - $pointsUsed);
     }
+    unset($uu);
     foreach ($items as $it) foreach ($db['products'] as &$pr2) if ($pr2['id'] === $it['productId']) $pr2['stock'] = max(0, (int)($pr2['stock'] ?? 0) - $it['qty']);
     db_save($DB_FILE, $db);
     jout(200, $order);
@@ -3625,7 +3721,14 @@ try {
         $st = $patch['status'] ?? null;
         if ($st !== null) $st = trim((string)$st);
         if ($st !== '' && !preg_match('/^[A-Za-z0-9 &\-\/.,()\']{1,40}$/', $st)) jout(400, ['error' => 'Status contains invalid characters']);
-        if ($st && $st !== $x['status']) { $x['status'] = $st; $x['timeline'][] = ['s' => $st, 't' => now_iso()]; }
+        if ($st && $st !== $x['status']) {
+          $x['status'] = $st; $x['timeline'][] = ['s' => $st, 't' => now_iso()];
+          /* v137 — cancelling returns the points the customer redeemed on this
+             order. They were deducted at checkout against a purchase that is
+             no longer happening. Guarded so repeated status edits cannot
+             refund the same points twice. */
+          order_restore_points($db, $x);
+        }
         if (!empty($patch['paymentStatus']) && !preg_match('/^[A-Za-z0-9 &\-\/.,()]{1,40}$/', (string)$patch['paymentStatus'])) jout(400, ['error' => 'Payment status contains invalid characters']);
         if (!empty($patch['paymentStatus'])) {
           $newPs = substr((string)$patch['paymentStatus'], 0, 40);
@@ -3651,6 +3754,7 @@ try {
           /* v136 (#25) — an owner marking an order Paid (including a COD order
              once the cash is in hand) is the moment its Tax Invoice is minted. */
           order_issue_invoice($db, $x);
+          order_grant_points($db, $x);   // v137 (#16)
         }
         $o = $x;
       }
@@ -3825,6 +3929,7 @@ try {
     $db['orders'][$i]['paymentRef'] = $payId ?: $gOrderId;
     $db['orders'][$i]['gateway'] = $gw;
     order_issue_invoice($db, $db['orders'][$i]);   // v136 (#25)
+    order_grant_points($db, $db['orders'][$i]);    // v137 (#16)
     audit_log($db, 'payment.gateway-paid', ['order' => $o['id'], 'amount' => $paidAmt, 'gateway' => $gw]);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
@@ -4059,6 +4164,7 @@ try {
         }
         $db['orders'][$idx]['gateway'] = 'upi-qr';
         order_issue_invoice($db, $db['orders'][$idx]);   // v136 (#25)
+        order_grant_points($db, $db['orders'][$idx]);    // v137 (#16)
         audit_log($db, 'payment.approved', ['order' => $ord['id'], 'manual' => $manualAmt]);
       } else {
         $pays =& $db['orders'][$idx]['payments'];
@@ -4164,6 +4270,7 @@ try {
     if ($state === 'SUCCESS') {
       $refundedDone = array_sum(array_map(fn($r) => ($r['status'] ?? '') === 'accepted' ? (int)($r['amount'] ?? 0) : 0, $ord['refunds'] ?? []));
       $ord['paymentStatus'] = $refundedDone >= $paid && $paid > 0 ? 'Refunded' : 'Partially refunded';
+      if ($ord['paymentStatus'] === 'Refunded') order_revoke_points($db, $ord);   // v137 (#16)
     }
     audit_log($db, 'payment.cashfree-refund', ['order' => $ord['id'], 'amount' => $want, 'refundId' => $rfId, 'state' => $state]);
     db_save($DB_FILE, $db);

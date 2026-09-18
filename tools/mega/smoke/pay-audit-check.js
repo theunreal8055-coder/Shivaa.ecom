@@ -90,11 +90,21 @@ ok(15, 'a second Cashfree payment is swallowed instead of recorded as an overpay
 
 // #16 — points are granted at order creation and never clawed back
 const loyaltyWrites = lines(api).filter(l => /loyaltyPoints'\]\s*=/.test(l));
+/* #16 — points must be EARNED when the order is paid, not when the checkout
+   form is submitted, and taken back on a full refund.
+   Bug-present = the order-creation write credits `$earned` in the same
+   statement that deducts `$pointsUsed` (so an abandoned cart permanently
+   grants spendable value), or the dedicated grant/revoke helpers are absent.
+   Asserts behaviour rather than a count of loyaltyPoints assignments: v137
+   legitimately adds three more (grant, revoke, restore-on-cancel). */
+const createWrite = lines(api).filter(l => /loyaltyPoints'\]\s*=/.test(l) && /pointsUsed/.test(l));
 ok(16, 'royalty points granted at order creation, never clawed back on refund',
-  loyaltyWrites.length === 1
-  && /- \$pointsUsed\) \+ \$earned/.test(loyaltyWrites[0])
-  && !/loyaltyPoints/.test(api.slice(api.indexOf("route === 'admin/refund'"), api.indexOf("route === 'admin/refund'") + 3000)),
-  `expected exactly 1 loyaltyPoints assignment, found ${loyaltyWrites.length}`);
+  createWrite.some(l => /\+\s*\$earned/.test(l))
+  || !/function order_grant_points\(/.test(api)
+  || !/function order_revoke_points\(/.test(api),
+  `expected the creation write to deduct pointsUsed only (no "+ $earned") and both `
+  + `order_grant_points() and order_revoke_points() to exist `
+  + `(creation writes found: ${createWrite.length})`);
 
 // #17 — admin PUT sets paymentStatus with no ledger movement
 const putBlock = api.slice(api.indexOf("if (preg_match('#^orders/([\\w-]+)$#', $route, $m))"), api.indexOf('v128 · payments'));

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 136;
+const APP_REL = 137;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -4291,7 +4291,11 @@ window.Shivaa.placeOrder = async () => {
     }) });
     clearInterval(window._co.lockTimer);
     state.cart = []; store.set('shv_cart', state.cart); updateBadges();
-    if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0)) + order.earnedPoints;
+    /* v137 (#16) — only the redemption is applied optimistically. The earning
+       now lands when the order is Paid (server-side order_grant_points), so
+       showing it here would display points the customer has not earned yet —
+       and would let them see a balance they cannot actually redeem. */
+    if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0));
     window._lastOrder = order;
     // v128 — online prepayment (Cashfree live when configured, simulated in demo)
     if (paymentMethod === 'Online') await Shivaa.payForOrder(order.id, { fromCheckout: true });
@@ -4518,7 +4522,7 @@ pages.order = async (view, q, id) => {
         <div style="font-size:34px;margin-bottom:8px;color:var(--gold)">✦</div>
         <span class="label">Order placed</span>
         <h1 style="font-size:42px">Shubh Aashirwad, ${esc(order.userName.split(' ')[0])}!</h1>
-        <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed. You earned <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> ✦<br>
+        <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed.${order.earnedPoints > 0 ? ` You will earn <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> once payment is confirmed ✦` : ''}<br>
         Rate-lock summary saved to your account. Live tracking below.</p>
       </div>
       ${ppBannerHTML}
