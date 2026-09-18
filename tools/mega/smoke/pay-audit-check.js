@@ -35,12 +35,18 @@ const lines = (src) => src.split('\n');
 
 /* ── Part 2 findings ──────────────────────────────────────────────────── */
 
-// #10 — the reconcile routes are excluded from the request-level write lock
-const lockFn = api.slice(api.indexOf('function shv_wants_write_lock'), api.indexOf('function shv_acquire_lock'));
-ok(10, 'cashfree webhook + status are on the $slow no-lock list (lost-update window)',
-  /'pay\/cashfree\/status' => 1, 'pay\/cashfree\/webhook' => 1/.test(lockFn)
-  && /if \(isset\(\$slow\[\$route\]\)\) return false;/.test(lockFn),
-  'expected both routes in $slow and the early return');
+// #10 — the hazard is a gateway call made while holding a stale snapshot that
+// is later written back whole. Being on the $slow no-lock list is fine AS LONG
+// AS the reconcile re-reads the database under the lock after the call, so the
+// assertion tests that order of operations rather than the route list.
+const recBlock = api.slice(api.indexOf('$cashfree_reconcile = function'), api.indexOf("if ($route === 'pay/cashfree/return')"));
+const iFetch = recBlock.indexOf('cashfree_fetch_order(');
+const iLock = recBlock.indexOf('shv_acquire_lock(');
+const iLoad = recBlock.indexOf('db_load(');
+const iApply = recBlock.indexOf('cashfree_apply(');
+ok(10, 'reconcile applies a stale snapshot: gateway call not followed by lock + re-read',
+  !(iFetch > -1 && iLock > iFetch && iLoad > iLock && iApply > iLoad && /use \(&\$db\)/.test(recBlock)),
+  `expected fetch(${iFetch}) < lock(${iLock}) < db_load(${iLoad}) < apply(${iApply}) and use (&$db)`);
 
 // #11 — webhook answers 200 unconditionally
 const whBlock = api.slice(api.indexOf("if ($route === 'pay/cashfree/webhook'"), api.indexOf("if ($route === 'pay/cashfree/status'"));
@@ -71,11 +77,16 @@ ok(13, "ledger 'instrument' reads order-entity payment_method (always empty)",
 ok(14, 'no settlement reconciliation (/pg/settlements never called)',
   !/\/pg\/settlements/.test(api));
 
-// #15 — order_add_payment clamps an overpayment to a ₹0 row
+// #15 — the clamp in order_add_payment stays (it protects every other caller);
+// the finding was that a SECOND Cashfree payment reached it and was silently
+// zeroed. So the assertion is about the Cashfree path: a settled order must
+// record the extra payment BEFORE order_add_payment can clamp it away.
 const oap = api.slice(api.indexOf('function order_add_payment'), api.indexOf('function order_add_payment') + 1400);
-ok(15, 'order_add_payment clamps an overpayment to ₹0 instead of recording it',
-  /\$room = max\(0, \(int\)\(\$ord\['total'\] \?\? 0\) - \$already\);/.test(oap)
-  && /\$pay\['amount'\] = max\(0, min\(\$pay\['amount'\], \$room\)\);/.test(oap));
+const iOver = applyFn.indexOf("$o['overpayments'][]");
+const iAdd = applyFn.indexOf('order_add_payment(');
+ok(15, 'a second Cashfree payment is swallowed instead of recorded as an overpayment',
+  !(iOver > -1 && iAdd > -1 && iOver < iAdd && /payment\.overpayment/.test(applyFn)),
+  `expected an overpayments[] write at ${iOver} before order_add_payment at ${iAdd} + a payment.overpayment audit line`);
 
 // #16 — points are granted at order creation and never clawed back
 const loyaltyWrites = lines(api).filter(l => /loyaltyPoints'\]\s*=/.test(l));
@@ -100,11 +111,15 @@ ok(18, "pay/proof forces 'Proof submitted' even on an already-Paid order",
   && !/amountPaid.*>=.*total|paymentStatus.*=== 'Paid'/.test(proofBlock.slice(0, proofBlock.indexOf("'Proof submitted'"))),
   'expected the unconditional assignment with no paid-guard before it');
 
-// #19 — the return redirect blocks on the gateway call before the 302
+// #19 — the return redirect blocks on the gateway call before the 302.
+// NB indexOf returns -1 when absent and -1 < N is TRUE, so both indices must be
+// checked explicitly or a fixed route still reads as broken.
 const retBlock = api.slice(api.indexOf("if ($route === 'pay/cashfree/return')"), api.indexOf("if ($route === 'pay/cashfree/webhook'"));
+const iRec = retBlock.indexOf('$cashfree_reconcile(');
+const iLoc = retBlock.indexOf("header('Location: '");
 ok(19, 'return URL reconciles (up to 25 s) before sending the 302',
-  retBlock.indexOf('$cashfree_reconcile(') < retBlock.indexOf("header('Location: '")
-  && /CURLOPT_TIMEOUT => 25/.test(api));
+  iRec > -1 && iLoc > -1 && iRec < iLoc && /CURLOPT_TIMEOUT => 25/.test(api),
+  `expected the route to redirect with no reconcile call (reconcile at ${iRec}, Location at ${iLoc})`);
 
 // #20 — three different rate-lock windows
 ok(20, 'rate lock: server-driven countdown vs hardcoded 20 min client + 1200 s server',
@@ -132,7 +147,10 @@ ok(23, 'CSP form-action still whitelists secure.payu.in / test.payu.in (PayU rem
   && /frame-src 'self' https:\/\/\*\.cashfree\.com/.test(csp));
 
 // #24 — webhook timestamp parsing assumes milliseconds
-const sigFn = api.slice(api.indexOf('function cashfree_webhook_verified'), api.indexOf('function cashfree_webhook_verified') + 700);
+const sigStart = api.indexOf('function cashfree_webhook_verified');
+// slice to the closing brace, not a fixed window: the function grew past 700
+// bytes in v135 and a fixed slice silently dropped the hash_equals line.
+const sigFn = api.slice(sigStart, api.indexOf('\n}\n', sigStart) + 3);
 ok(24, 'webhook timestamp regex allows 10 digits but the age math assumes 13',
   /\/\^\\d\{10,16\}\$\//.test(sigFn)
   && /abs\(time\(\) \* 1000 - \(int\)substr\(\$ts, 0, 13\)\)/.test(sigFn)
@@ -171,10 +189,14 @@ sound('CSP allows the Cashfree iframe, SDK, XHR and form posts',
   && /frame-src[^;]*\*\.cashfree\.com/.test(csp) && /form-action[^;]*\*\.cashfree\.com/.test(csp));
 sound('db writes are atomic (temp file + rename, fail closed)',
   /\.tmp-' \. bin2hex\(random_bytes\(4\)\)/.test(api) && /rename\(/.test(api));
+/* Version-agnostic on purpose: this asserts the Part 1 fix (the shell's main
+   script tag resolves to a file that actually exists in cms/js, and the worker
+   precaches the same string), not any particular release number. */
+const appTag = (html.match(/<script src="(\/js\/app[^"]*)" defer>/) || [])[1] || '';
+const appFile = appTag.split('?')[0];
+const swHasApp = appTag !== '' && sw.includes("'" + appTag + "'");
 sound('storefront shell resolves its main script (Part 1 fix still in place)',
-  /<script src="\/js\/app\.js\?v=133" defer><\/script>/.test(html)
-  && fs.existsSync(path.join(CMS, 'js/app.js'))
-  && /'\/js\/app\.js\?v=133'/.test(sw));
+  appFile !== '' && fs.existsSync(path.join(CMS, appFile.replace(/^\//, ''))) && swHasApp);
 
 const p = results.filter(Boolean).length, t = results.length;
 const pi = inv.filter(Boolean).length, ti = inv.length;

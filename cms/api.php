@@ -412,6 +412,19 @@ function cashfree_ready(array $db): bool {
   $c = cashfree_cfg($db);
   return cashfree_active_provider($db) === 'cashfree' && $c['appId'] !== '' && $c['secret'] !== '';
 }
+/* v135 (#21) — the simulated gateway used to switch on from shv_dev_mode()
+   alone, and shv_dev_mode() returns true whenever data/.otp-dev-mode exists.
+   That directory is EXCLUDED from the auto-deploy, so one stray file on the
+   server — invisible to this repo and surviving every deploy — would have made
+   pay/order hand out demo_ references that pay/verify then self-credited:
+   free jewellery, no gateway involved. The demo gateway now needs the dev-host
+   check AND an explicit admin setting, and is refused outright in production.
+   To use it on a local build set "allowDemoPayments": true in data/db.json. */
+function shv_demo_payments_ok(array $db): bool {
+  if (!shv_dev_mode()) return false;
+  if ((string)($db['settings']['cfEnv'] ?? '') === 'production') return false;
+  return !empty($db['settings']['allowDemoPayments']);
+}
 /* public base URL Cashfree returns the browser to / posts webhooks at. */
 function shv_site_base(array $db): string {
   $base = trim((string)($db['settings']['siteBaseUrl'] ?? ''));
@@ -465,6 +478,56 @@ function cashfree_create_order(array $cfg, array $payload): array {
 function cashfree_fetch_order(array $cfg, string $cfOrderId): array {
   return cashfree_call($cfg, 'GET', '/pg/orders/' . rawurlencode($cfOrderId));
 }
+/* v135 — the instrument lives on the PAYMENT entity, not the order entity:
+   GET /pg/orders/{order_id}/payments returns cf_payment_id, bank_reference,
+   payment_method and payment_amount. Without this call the ledger could never
+   answer "how did the customer pay", could not defend a chargeback and could
+   not be matched line-by-line against Cashfree's settlement report. */
+function cashfree_fetch_payments(array $cfg, string $cfOrderId): array {
+  return cashfree_call($cfg, 'GET', '/pg/orders/' . rawurlencode($cfOrderId) . '/payments');
+}
+/* v135 — pick the successful payment out of the list and reduce it to the few
+   fields worth keeping. Tolerates both the documented list shape and a single
+   object, and never throws on an unexpected payload. */
+function cashfree_payment_detail(array $cfg, string $cfOrderId): array {
+  $res = cashfree_fetch_payments($cfg, $cfOrderId);
+  $rows = $res['json'] ?? null;
+  if (!is_array($rows)) return [];
+  if (isset($rows['cf_payment_id'])) $rows = [$rows];
+  $best = null;
+  foreach ($rows as $r) {
+    if (!is_array($r)) continue;
+    $ps = strtoupper((string)($r['payment_status'] ?? ''));
+    if ($ps === 'SUCCESS' || $ps === 'CAPTURED') { $best = $r; break; }
+    if ($best === null) $best = $r;
+  }
+  if (!is_array($best)) return [];
+  $method = '';
+  $pm = $best['payment_method'] ?? null;
+  if (is_array($pm)) {
+    // payment_method is a one-key object: {"upi": {...}} / {"card": {...}} / …
+    $keys = array_keys($pm);
+    $method = (string)($keys[0] ?? '');
+    if ($method === 'card' && is_array($pm['card'] ?? null)) {
+      $brand = (string)($pm['card']['card_type'] ?? '');
+      $last4 = (string)($pm['card']['card_last4'] ?? '');
+      $method = trim('card ' . $brand . ($last4 !== '' ? ' ••••' . $last4 : ''));
+    } elseif ($method === 'netbanking' && is_array($pm['netbanking'] ?? null)) {
+      $method = trim('netbanking ' . (string)($pm['netbanking']['netbanking_bank_name'] ?? ''));
+    } elseif ($method === 'upi' && is_array($pm['upi'] ?? null)) {
+      $method = trim('upi ' . (string)($pm['upi']['channel'] ?? ''));
+    }
+  } elseif (is_string($pm)) {
+    $method = $pm;
+  }
+  return [
+    'cfPaymentId'  => substr((string)($best['cf_payment_id'] ?? ''), 0, 40),
+    'bankRef'      => substr((string)($best['bank_reference'] ?? ''), 0, 60),
+    'method'       => substr(trim($method), 0, 60),
+    'paymentGroup' => substr((string)($best['payment_group'] ?? ''), 0, 30),
+    'paymentAmount'=> isset($best['payment_amount']) ? round((float)$best['payment_amount'], 2) : null,
+  ];
+}
 /* find the Shivaa order index owning a Cashfree order id we created */
 function cashfree_find_order_index(array $db, string $cfOrderId): ?int {
   if ($cfOrderId === '') return null;
@@ -501,17 +564,45 @@ function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array
   if ((int)round($paidRupees) !== (int)$attempt['amount'])
     return ['ok' => false, 'code' => 'AMOUNT_MISMATCH', 'expected' => (int)$attempt['amount'], 'got' => (int)round($paidRupees)];
   $ref = $cfOrderId;
+  /* v135 — the instrument, the gateway payment id and the bank reference come
+     from the PAYMENT entity. The order entity has no payment_method field, so
+     the old `'instrument' => $st['payment_method']` was always an empty
+     string and the shop stored no evidence at all for a dispute. */
+  $det = cashfree_payment_detail(cashfree_cfg($db), $cfOrderId);
   foreach (($o['payments'] ?? []) as $p) {
     if (($p['ref'] ?? '') === $ref || ($p['gatewayPaymentId'] ?? '') === $ref)
       return ['ok' => true, 'already' => true, 'state' => 'PAID'];
   }
-  // a retried order could already be fully paid by another attempt
-  if ((int)($o['amountPaid'] ?? 0) >= (int)($o['total'] ?? 0) && (int)($o['total'] ?? 0) > 0)
-    return ['ok' => true, 'already' => true, 'state' => 'PAID'];
+  /* v135 — a SECOND Cashfree order on an already-settled shop order used to be
+     swallowed silently (and order_add_payment would have clamped it to a ₹0
+     ledger row). Two tabs, or a retry that succeeded after the first one also
+     succeeded, left the customer out of pocket with nothing recorded. It is
+     now written to overpayments[] and audit-logged so the owner can refund it
+     with the existing one-tap Cashfree refund. */
+  $total = (int)($o['total'] ?? 0);
+  if ((int)($o['amountPaid'] ?? 0) >= $total && $total > 0) {
+    $o['overpayments'] = $o['overpayments'] ?? [];
+    foreach ($o['overpayments'] as $op) if (($op['cfOrderId'] ?? '') === $cfOrderId) {
+      db_save($GLOBALS['DB_FILE'], $db);
+      return ['ok' => true, 'already' => true, 'state' => 'PAID'];
+    }
+    $o['overpayments'][] = [
+      'cfOrderId' => $cfOrderId, 'amount' => (int)round($paidRupees), 'at' => now_iso(),
+      'cfPaymentId' => (string)($det['cfPaymentId'] ?? ''), 'bankRef' => (string)($det['bankRef'] ?? ''),
+      'method' => (string)($det['method'] ?? ''), 'state' => 'UNREFUNDED',
+    ];
+    audit_log($db, 'payment.overpayment', ['order' => $o['id'], 'amount' => (int)round($paidRupees),
+      'cfOrderId' => $cfOrderId, 'cfPaymentId' => (string)($det['cfPaymentId'] ?? '')]);
+    db_save($GLOBALS['DB_FILE'], $db);
+    return ['ok' => true, 'state' => 'PAID', 'overpaid' => (int)round($paidRupees), 'ref' => $ref];
+  }
   order_add_payment($o, [
     'amount' => max(1, (int)round($paidRupees)), 'mode' => 'cashfree',
     'ref' => $ref, 'gatewayPaymentId' => $ref, 'at' => now_iso(), 'status' => 'approved',
-    'instrument' => substr((string)($st['payment_method'] ?? ''), 0, 40),
+    'instrument' => (string)($det['method'] ?? ''),
+    'cfPaymentId' => (string)($det['cfPaymentId'] ?? ''),
+    'bankReference' => (string)($det['bankRef'] ?? ''),
+    'paymentGroup' => (string)($det['paymentGroup'] ?? ''),
   ]);
   $total = (int)($o['total'] ?? 0);
   $paid = (int)($o['amountPaid'] ?? 0);
@@ -559,7 +650,12 @@ function cashfree_webhook_verified(array $cfg, string $raw, array $srv): bool {
   $ts = trim((string)($srv['HTTP_X_WEBHOOK_TIMESTAMP'] ?? ''));
   if ($sig === '' || $ts === '' || $cfg['secret'] === '') return false;
   if (!preg_match('/^\d{10,16}$/', $ts)) return false;
-  $age = abs(time() * 1000 - (int)substr($ts, 0, 13));
+  /* v135 (#24) — Cashfree documents milliseconds, but a 10-digit SECONDS
+     timestamp passes the regex above and used to fail the age check by
+     ~1.7e12 ms, which would reject EVERY webhook as "bad signature" with no
+     diagnostic to tell it apart from a real forgery. */
+  $ms = strlen($ts) <= 11 ? ((int)$ts) * 1000 : (int)substr($ts, 0, 13);
+  $age = abs(time() * 1000 - $ms);
   if ($age > 600000) return false;   // older than 10 minutes — replay guard
   $expect = base64_encode(hash_hmac('sha256', $ts . $raw, $cfg['secret'], true));
   return hash_equals($expect, $sig);
@@ -3362,7 +3458,14 @@ try {
     $lockedR = null;
     if (!empty($b['rateLock']['stampedAt']) && !empty($b['rateLock']['rates'])) {
       $stamp = strtotime((string)$b['rateLock']['stampedAt']);
-      if ($stamp !== false && (time() - $stamp) <= 1200) {
+      /* v135 (#20) — the window the customer is promised is rateLockMinutes
+         (pay/config publishes it and the checkout counts it down, clamped to
+         5–60 min), but this check was hardcoded to 1200 s. With rateLockMinutes
+         set to 30 the UI counted down half an hour while every lock older than
+         20 minutes was silently dropped here and the order priced at LIVE
+         rates — a price-integrity bug on a shop selling by the gram. */
+      $lockSec = max(300, min(3600, (int)($db['settings']['rateLockMinutes'] ?? 20) * 60));
+      if ($stamp !== false && (time() - $stamp) <= $lockSec) {
         $L = (array)$b['rateLock']['rates']; $ok = true;
         foreach (['gold22','gold24','gold18','silver'] as $rk) {
           if (isset($L[$rk]) && is_numeric($L[$rk]) && !empty($R[$rk])
@@ -3427,6 +3530,14 @@ try {
     /* v58 — optional COD handling fee (percentage of subtotal); default 0 */
     $codFeePct = (float)($db['settings']['codFeePct'] ?? 0);
     $codFee = ($pm === 'COD' && $codFeePct > 0) ? (int)round($subtotal * $codFeePct / 100) : 0;
+    /* v135 (#8) — the checkout has always promised "Cash on Delivery available
+       on orders below ₹50,000", but only the UI ever enforced it, and only on
+       pincode grounds. The API accepted COD for any amount, so a crafted
+       request could place a ₹3,00,000 order with nothing paid up front. The
+       ceiling is now a server-side setting (codMaxAmount, default 50000). */
+    $codMax = (int)($db['settings']['codMaxAmount'] ?? 50000);
+    if ($pm === 'COD' && $codMax > 0 && $subtotal > $codMax)
+      jout(400, ['error' => 'Cash on delivery is available up to ₹' . number_format($codMax) . ' — for this order please pay online, or order on WhatsApp.']);
     $total = max(0, $subtotal - $discount - $prepaid + $codFee + $shipping);
     $earned = (int)floor($total / 100);
     /* v114 — sequential financial-year invoice number (GST, Apr–Mar IST).
@@ -3479,7 +3590,28 @@ try {
         if ($st !== '' && !preg_match('/^[A-Za-z0-9 &\-\/.,()\']{1,40}$/', $st)) jout(400, ['error' => 'Status contains invalid characters']);
         if ($st && $st !== $x['status']) { $x['status'] = $st; $x['timeline'][] = ['s' => $st, 't' => now_iso()]; }
         if (!empty($patch['paymentStatus']) && !preg_match('/^[A-Za-z0-9 &\-\/.,()]{1,40}$/', (string)$patch['paymentStatus'])) jout(400, ['error' => 'Payment status contains invalid characters']);
-        if (!empty($patch['paymentStatus'])) $x['paymentStatus'] = substr((string)$patch['paymentStatus'], 0, 40);
+        if (!empty($patch['paymentStatus'])) {
+          $newPs = substr((string)$patch['paymentStatus'], 0, 40);
+          /* v135 (#17) — paymentStatus used to be settable straight from the
+             request with no ledger row, no amountPaid and no balance, so the
+             customer-facing order page could read "Paid via Online ₹62,877"
+             over an empty ledger. Marking an order Paid from the dropdown now
+             writes an explicit manual ledger line carrying the reason, so the
+             status and the money can never disagree. */
+          if (preg_match('/^paid$/i', $newPs)
+              && (int)($x['total'] ?? 0) > 0
+              && (int)($x['amountPaid'] ?? 0) < (int)$x['total']) {
+            $why = substr(trim((string)($patch['reason'] ?? '')) ?: 'Confirmed manually by the shop', 0, 120);
+            order_add_payment($x, ['amount' => (int)$x['total'] - (int)($x['amountPaid'] ?? 0),
+              'mode' => 'manual', 'ref' => 'manual', 'at' => now_iso(),
+              'status' => 'approved', 'note' => $why, 'byAdmin' => true]);
+            audit_log($db, 'payment.manual-override', ['order' => $x['id'], 'to' => $newPs, 'reason' => $why]);
+          }
+          if (preg_match('/^refunded$/i', $newPs) && empty($x['refunds']))
+            audit_log($db, 'payment.manual-refund-flag', ['order' => $x['id'],
+              'note' => 'status set to Refunded with no gateway refund on record']);
+          $x['paymentStatus'] = $newPs;
+        }
         $o = $x;
       }
       if (!$o) jout(404, ['error' => 'Order not found']);   // v82 — don't answer 200 null for unknown ids
@@ -3502,7 +3634,9 @@ try {
     jout(200, [
       'mode' => $cfLive ? 'cashfree' : 'demo',
       'provider' => $provider,
-      'cashfree' => ['ready' => $cfLive, 'env' => $cfCfg['env']],
+      /* v135 (#9) — this route is public and used to broadcast whether the shop
+         is running Cashfree sandbox or production. Only a boolean now. */
+      'cashfree' => ['ready' => $cfLive, 'test' => $cfCfg['env'] !== 'production'],
       'prepaidPct' => (float)($s['prepaidPct'] ?? 2),
       /* v107 — checkout reads the rate-lock window from here (was hardcoded) */
       'lockMinutes' => (int)($s['rateLockMinutes'] ?? 20),
@@ -3605,7 +3739,7 @@ try {
        "demo success" works on screen; a PUBLIC host must never hand out
        self-confirmable receipts — send the customer to the real UPI QR +
        owner-approved screenshot flow instead (v82). */
-    if (shv_dev_mode()) {
+    if (shv_demo_payments_ok($db)) {   // v135 (#21) — dev host AND explicit admin setting, never in production
       $ref = 'demo_' . bin2hex(random_bytes(8));
       $db['orders'][$i]['gatewayOrderId'] = $ref;
       db_save($DB_FILE, $db);
@@ -3634,7 +3768,7 @@ try {
     // build, and only with the reference this server issued for this order.
     // A public host always goes through Cashfree or the owner-approved UPI
     // screenshot flow — never a self-issued "demo" receipt.
-    if (!shv_dev_mode() || $gOrderId !== (string)($o['gatewayOrderId'] ?? ''))
+    if (!shv_demo_payments_ok($db) || $gOrderId !== (string)($o['gatewayOrderId'] ?? ''))   // v135 (#21)
       jout(400, ['error' => 'Online card/UPI checkout is not switched on. Please use WhatsApp/COD or attach a payment screenshot — the shop confirms it manually.']);
     $gw = 'demo';
     // v83 — idempotency: a captured gateway payment id must credit the order
@@ -3663,6 +3797,12 @@ try {
     $proofOrderId = (string)($_POST['orderId'] ?? (body_json()['orderId'] ?? ''));
     [$i, $o] = $find_order_owner($proofOrderId);
     if (($o['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled — no payment proof can be attached.']);  // v86
+    /* v135 (#18) — this route used to set paymentStatus unconditionally, so a
+       screenshot uploaded against an order Cashfree had already marked Paid
+       flipped it back to "Proof submitted" and the order page started showing
+       a settled order as awaiting verification. */
+    if ((int)($o['total'] ?? 0) > 0 && (int)($o['amountPaid'] ?? 0) >= (int)$o['total'])
+      jout(400, ['error' => 'This order is already paid — no proof is needed. Contact the shop if something looks wrong.']);
     rate_block($db, 'payproof-ip', client_ip(), 40, 3600);
     rate_block($db, 'payproof-u', $o['userId'] ?? '?', 30, 3600);
     if (count($db['orders'][$i]['payments'] ?? []) >= 12) jout(400, ['error' => 'Too many payment submissions for this order — contact the shop.']);
@@ -3713,31 +3853,52 @@ try {
      Both paths ONLY trigger a reconcile — credits are issued after the
      server-to-server GET /pg/orders/{order_id} reports order_status PAID;
      the redirect / webhook payload alone is never trusted. */
-  $cashfree_reconcile = function (int $i, string $cfOrderId) use ($db): array {
+  $cashfree_reconcile = function (int $i, string $cfOrderId) use (&$db): array {
     $cfg = cashfree_cfg($db);
+    /* v135 (#10) — the gateway call happens FIRST, before this request holds
+       the write lock or mutates anything. The three Cashfree lanes (browser
+       return, signed webhook, page poller) are all on the no-write-lock list
+       precisely because they wait on Cashfree, and db_save() rewrites the
+       WHOLE db.json from this request's snapshot. Waiting 25 s on a stale
+       snapshot and then writing it back silently discarded every other write
+       that landed meanwhile — and the browser return and the webhook arrive
+       milliseconds apart, so every payment raced itself. */
     $st = cashfree_fetch_order($cfg, $cfOrderId);
-    if (is_array($st['json'] ?? null)) return cashfree_apply($db, $i, $st['json'], $cfOrderId);
-    audit_log($db, 'payment.cashfree-status-fail', ['order' => $db['orders'][$i]['id'] ?? '?', 'cfOrderId' => $cfOrderId,
-      'http' => $st['code'], 'raw' => substr((string)$st['raw'], 0, 300), 'err' => $st['err'] ?? '']);
-    return ['ok' => false, 'code' => 'STATUS_UNAVAILABLE'];
+    if (!is_array($st['json'] ?? null)) {
+      audit_log($db, 'payment.cashfree-status-fail', ['order' => $db['orders'][$i]['id'] ?? '?', 'cfOrderId' => $cfOrderId,
+        'http' => $st['code'], 'raw' => substr((string)$st['raw'], 0, 300), 'err' => $st['err'] ?? '']);
+      return ['ok' => false, 'code' => 'STATUS_UNAVAILABLE'];
+    }
+    /* Now take the exclusive lock (only if this request does not already hold
+       one — flock on a second handle from the same process would self-block)
+       and re-read the database, so we apply against the current state and not
+       against a snapshot that predates the gateway call. */
+    if (empty($GLOBALS['__shv_lock'])) shv_acquire_lock($GLOBALS['DB_FILE'], 'cashfree-reconcile', 'POST');
+    $db = db_load($GLOBALS['DB_FILE']);
+    $fresh = cashfree_find_order_index($db, $cfOrderId);
+    if ($fresh === null) return ['ok' => false, 'code' => 'ATTEMPT_NOT_FOUND'];
+    return cashfree_apply($db, $fresh, $st['json'], $cfOrderId);
   };
   if ($route === 'pay/cashfree/return') {
-    // Cashfree redirects the customer to order_meta.return_url (?co=shop order)
+    /* Cashfree redirects the customer to order_meta.return_url (?co=shop order
+       &order_id=<cashfree order>). v135 changes three things here:
+       #19 — this route used to call Cashfree (up to a 25 s timeout) BEFORE
+             sending the 302, so a slow gateway response left the customer on a
+             blank white page at the worst moment of the purchase. It now
+             redirects straight away and the order page's poller resolves the
+             state in about a second.
+       #1  — the poller sweeps every non-terminal attempt instead of only the
+             newest one, so a customer who retried (or paid in a second tab)
+             and completed an OLDER Cashfree order is still confirmed. The old
+             code reconciled only $attempts[count-1] and ignored the order_id
+             Cashfree handed back.
+       #22 — the route is unauthenticated and used to trigger an outbound
+             gateway call per hit; it is now rate-limited per IP. */
+    rate_block($db, 'cfreturn-ip', client_ip(), 120, 3600, 900,
+      'Too many payment redirects from this connection — please wait a few minutes.');
     $co = (string)($_GET['co'] ?? '');
     $orderId = preg_match('/^[A-Za-z0-9_-]{1,48}$/', $co) ? substr($co, 0, 48) : '';
-    $result = 'pending';
-    if ($orderId !== '') {
-      $idx = null;
-      foreach ($db['orders'] as $ii => $oo) if (($oo['id'] ?? '') === $orderId) { $idx = $ii; break; }
-      if ($idx !== null && !empty($db['orders'][$idx]['cfAttempts'])) {
-        $attempts = $db['orders'][$idx]['cfAttempts'];
-        $last = $attempts[count($attempts) - 1];
-        $r = $cashfree_reconcile($idx, (string)$last['cfOrderId']);
-        if (!empty($r['ok'])) $result = 'success';
-        elseif (($r['state'] ?? '') === 'FAILED' || ($r['code'] ?? '') === 'FAILED') $result = 'fail';
-      }
-    }
-    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?cf=' . $result
+    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?cf=pending'
                              : '/#/account?tab=orders';
     header('Cache-Control: no-store');
     header('Location: ' . $target, true, 302);
@@ -3753,14 +3914,36 @@ try {
     }
     $ev = json_decode($raw, true);
     if (!is_array($ev)) jout(400, ['success' => false, 'error' => 'bad payload']);
-    // Payment webhooks carry the order in data.order (ORDER_SUCCESS / ORDER_FAILED
-    // etc.); we never trust the event — always re-fetch the order status.
-    $cfOrderId = (string)($ev['data']['order']['order_id'] ?? '');
-    if ($cfOrderId !== '') {
-      $wi = cashfree_find_order_index($db, $cfOrderId);
-      if ($wi !== null) $cashfree_reconcile($wi, $cfOrderId);
-      else audit_log($db, 'payment.cashfree-webhook-unknown', ['cfOrderId' => $cfOrderId, 'event' => (string)($ev['event'] ?? $ev['type'] ?? '')]);
+    /* Payment webhooks carry the order in data.order (PAYMENT_SUCCESS_WEBHOOK /
+       PAYMENT_FAILED_WEBHOOK / PAYMENT_USER_DROPPED_WEBHOOK); refund events
+       carry it in data.order too, with the refund in data.refund. We never
+       trust the event — the order is always re-fetched from Cashfree. */
+    $type = strtoupper((string)($ev['type'] ?? $ev['event'] ?? ''));
+    $cfOrderId = (string)($ev['data']['order']['order_id'] ?? ($ev['data']['payment']['order_id'] ?? ''));
+    if ($cfOrderId === '') {
+      audit_log($db, 'payment.cashfree-webhook-noorder', ['event' => $type]);
+      jout(200, ['success' => true, 'ignored' => 'no order id']);
     }
+    $wi = cashfree_find_order_index($db, $cfOrderId);
+    if ($wi === null) {
+      audit_log($db, 'payment.cashfree-webhook-unknown', ['cfOrderId' => $cfOrderId, 'event' => $type]);
+      jout(200, ['success' => true, 'ignored' => 'unknown order']);
+    }
+    $r = $cashfree_reconcile($wi, $cfOrderId);   // also refreshes $db by reference
+    /* v135 (#12) — a refund webhook used to be read only for its order id, so
+       cashfree_apply_refund() ran from the customer poller alone: a refund
+       Cashfree completed while the customer never reopened the order page
+       stayed PENDING in the ledger forever. */
+    if (strpos($type, 'REFUND') !== false && is_array($ev['data']['refund'] ?? null)) {
+      $ri = cashfree_find_order_index($db, $cfOrderId);
+      if ($ri !== null) cashfree_apply_refund($db, $ri, (array)$ev['data']['refund']);
+    }
+    /* v135 (#11) — answering 200 tells Cashfree "delivered, stop retrying".
+       When the status call itself failed the event was lost for good, which is
+       exactly the pay-and-close-the-tab case this webhook exists for. Ask for a
+       retry instead; terminal states and unknown orders still answer 200. */
+    if (($r['code'] ?? '') === 'STATUS_UNAVAILABLE')
+      jout(503, ['success' => false, 'error' => 'order status unavailable — please retry']);
     jout(200, ['success' => true]);
   }
   if ($route === 'pay/cashfree/status' && $method === 'POST') {
@@ -3769,10 +3952,36 @@ try {
     [$i, $o] = $find_order_owner((string)($b['orderId'] ?? ''));
     if (!empty($db['orders'][$i]['cfAttempts'])) {
       $cfg = cashfree_cfg($db);
+      $oid = (string)($db['orders'][$i]['id'] ?? '');
+      /* v135 (#1) — sweep every recent attempt that is not already terminal,
+         newest first. Since v133 each retry mints a FRESH Cashfree order, and a
+         customer who taps "Try Cashfree again" (or pays in a second tab) can
+         complete an OLDER one; reconciling only the newest left them staring at
+         "Confirming your payment…" forever while the webhook quietly fixed the
+         order behind their back. Bounded at four gateway calls per poll. */
       $attempts = $db['orders'][$i]['cfAttempts'];
-      $last = $attempts[count($attempts) - 1];
-      $st = cashfree_fetch_order($cfg, (string)$last['cfOrderId']);
-      if (is_array($st['json'] ?? null)) cashfree_apply($db, $i, $st['json'], (string)$last['cfOrderId']);
+      $queue = [];
+      $lastId = (string)($attempts[count($attempts) - 1]['cfOrderId'] ?? '');
+      if ($lastId !== '') $queue[] = $lastId;   // the newest always gets one look
+      foreach (array_reverse($attempts) as $a) {
+        if (in_array(strtoupper((string)($a['lastState'] ?? '')), ['PAID', 'FAILED'], true)) continue;
+        $qid = (string)($a['cfOrderId'] ?? '');
+        if ($qid === '' || in_array($qid, $queue, true)) continue;
+        $queue[] = $qid;
+        if (count($queue) >= 4) break;
+      }
+      foreach ($queue as $qid) {
+        $cashfree_reconcile($i, $qid);
+        /* the reconcile re-reads the database under the lock, so this order's
+           index may have moved — re-find it before touching anything else. */
+        $i = null;
+        foreach ($db['orders'] as $ii => $oo) if (($oo['id'] ?? '') === $oid) { $i = $ii; break; }
+        if ($i === null) break;
+        if ((int)($db['orders'][$i]['total'] ?? 0) > 0
+            && (int)($db['orders'][$i]['amountPaid'] ?? 0) >= (int)$db['orders'][$i]['total'])
+          break;   // settled — stop spending gateway calls
+      }
+      if ($i === null) jout(404, ['error' => 'Order not found']);
       // Cashfree settles refunds asynchronously — advance any pending refund rows
       foreach (($db['orders'][$i]['refunds'] ?? []) as $rf) {
         if (in_array((string)($rf['state'] ?? ''), ['PENDING', 'ACTIVE', ''], true) && !empty($rf['cfRefundId']) && !empty($rf['cfOrderId'])) {
@@ -5503,6 +5712,8 @@ try {
     $numRules = [
       'shippingFee' => [0, 100000, 'int'], 'freeShipAbove' => [0, 100000000, 'int'],
       'prepaidPct' => [0, 50, 'float'], 'codFeePct' => [0, 50, 'float'],
+      /* v135 (#8) — the COD ceiling the server now enforces at order time */
+      'codMaxAmount' => [0, 100000000, 'int'],
       'referralReward' => [0, 1000000, 'int'], 'bullionGoldPremium' => [0, 100000, 'int'],
       'bullionSilverPremium' => [0, 100000, 'int'], 'metalFactor' => [0.5, 1.2, 'float'],
       /* v119 — the 22K retail premium the whole rate card is built on */
