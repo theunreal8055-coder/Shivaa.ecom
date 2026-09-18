@@ -334,7 +334,7 @@ payment happens, and `loyaltyPoints` is written nowhere else in the file
 - a fully refunded order keeps them;
 - a cancelled order keeps them.
 
-At 1 point = ₹1 with a 10%-of-subtotal redemption cap (`api.php:3414`), a
+At 1 point = ₹1 with a 10%-of-subtotal redemption cap (`api.php:3648`), a
 ₹62,877 order earns 628 points — ₹628 of spendable credit that survives a full
 refund. Fix: earn on `Paid`, claw back on refund and cancellation.
 
@@ -489,9 +489,12 @@ this tree:
   dropdown and `PUT /api/orders/{id}` landing on `api.php:3741`.
 
 So a customer who redeems points, closes the tab, and is never manually
-cancelled by the owner has spent those points permanently. On a ₹3,00,000 order
-the redemption cap is 10% of subtotal (`api.php:3648`), i.e. up to 3,000 points
-— ₹3,000 of real discount the customer will never be able to use.
+cancelled by the owner has spent those points permanently. At 1 point = ₹1 the
+redemption cap is 10% of subtotal (`api.php:3648`), so on a ₹3,00,000 order a
+customer can redeem up to 30,000 points — ₹30,000 of real discount that is
+debited at checkout and, on an abandoned order, never comes back. (The same
+order would *earn* 3,000 points at 1 point per ₹100 — a tenth of the redemption
+cap, which is why the pre-v137 credit never offset the debit.)
 
 **This is unmasked by v137, not created by it.** Before v137 the same line read
 `... - $pointsUsed) + $earned;`, so the debit was hidden behind a credit of
