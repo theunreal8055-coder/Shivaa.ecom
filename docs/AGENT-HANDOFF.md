@@ -1,20 +1,31 @@
-# AGENT HANDOFF — read this first, every new chat (updated 18 Sep 2026 — 🆕 v139 BAG / CATEGORY / PAYMENT PAGE REPAIR on branch `arena/01a0b366-shivaa-ecom`, PR opened and **NOT merged on the owner's instruction**. Previous: ✅ PAYMENT CORRECTNESS PASS MERGED to `main` as PR #69: v135 → v138. Invoice, loyalty points and stock now committed on payment, not at checkout. **Deploy `shivaa-update-v138.zip` only — it supersedes v135/v136/v137.** ⚠ The payment path was never executed — no PHP binary in the sandbox. v127 remains live underneath this.)
+# AGENT HANDOFF — read this first, every new chat (updated 18 Sep 2026 — ✅ v139 SHOP-EXPERIENCE PASS **MERGED TO `main` AS PR #70** on the owner's instruction. Five owner reports fixed: bag-drawer Checkout, category-page photos, payment-page Place Order bar, Cashfree One Click Checkout, and the recurring update popup. **⚠ Whether that merge auto-deployed could NOT be confirmed — `gh secret list` returns 403 — so ASK THE OWNER whether v139 is live or he still has to install `shivaa-update-v139.zip` (md5 `cfd64d3ba65641a39140ec0c53533be7`, 9 files).** ⚠ The Cashfree OCC path was never executed — no PHP binary in the sandbox; `cfOcc` ships OFF and a sandbox order is still owed. Previous: ✅ PAYMENT CORRECTNESS PASS MERGED to `main` as PR #69: v135 → v138.)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
 
-## ✅ NEWEST — v139 BAG / CATEGORY PAGE / PAYMENT PAGE REPAIR (18 Sep 2026, branch `arena/01a0b366-shivaa-ecom`, **PR opened and deliberately NOT merged — the owner said "don't merge the PR until you are told to do so"**)
+## ✅ NEWEST — v139 SHOP-EXPERIENCE PASS (18 Sep 2026, branch `arena/01a0b366-shivaa-ecom`, **MERGED TO `main` AS PR #70** — the owner's hold *"don't merge the PR until you are told to do so"* was **lifted** at session close with *"perge this PR to main"*, so the merge is authorised and spent. Merged forward-only as a merge commit per owner law.)
 
-**Owner's four reports, verbatim:** *"the check out button doesn't work and
+**Owner's five reports, verbatim:** *"the check out button doesn't work and
 doesn't take us to the payment page"* · *"when you click on any category and go
 to that category page then still that 17 photos are on the page the images are
 only there"* · *"place order button is always there on the screen in the phone
 … place order button should be down"* · *"I have selected the one tab quick
 check out button from the cash free but I cannot see … that the information is
 pre filled or the addresses are prefilled or the numbers are automatically
-verified"*.
+verified"* · *"the update popup that keeps coming on the page is not needed"*.
+
+**The fifth one was two popups, not one** — `app.js`'s "New version available ·
+Update now" toast with its `confirm()`, and `js/v107.js`'s "Update available ·
+Reload / Dismiss" prompt that came back **every 30 minutes**. Both **deleted**,
+not restyled: a service-worker update now installs silently, waits for
+`visibilitychange` → *hidden*, and swaps then — and a form-safety check means a
+filled checkout/payment/login form is **never** reloaded over. `js/v107.js`
+therefore ships in the zip **even though the release number did not move**,
+because its bytes changed and its `?v=139` had never been served to anybody yet.
+**That exception is valid only for an undeployed release** — on a deployed one
+the immutable-`?v=` rule wins and every changed file's stamp must be bumped.
 
 **Every one was reproduced and measured before it was fixed** — the probes are
 kept in the repo: `tools/mega/smoke/probe-owner-issues.js` and
