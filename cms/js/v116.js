@@ -9,95 +9,16 @@
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
-/* ─────────── 1. CATEGORIES BUTTON: ENSURE WIRED EARLY ───────────
-   The categories button wiring lives inside boot() which waits for API
-   calls. If those are slow (bad network), the button appears dead.
-   This early wiring works before boot completes. */
-(function earlyCatsButton() {
-  let _wired = false;
-  
-  function wireCatsButton() {
-    if (_wired) return;
-    const catsBtn = $('#navCats');
-    if (!catsBtn || catsBtn._wired) return; // already wired by boot()
-    _wired = true;
-    catsBtn._wired = true;
-    catsBtn._v116wired = true;
-    
-    catsBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      e.preventDefault();
-      try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(10); } catch (_) {}
-      
-      // Mobile drawer: toggle inline category list
-      if (window.matchMedia('(max-width:820px)').matches) {
-        let list = document.getElementById('dwCatList');
-        if (!list) {
-          list = document.createElement('div');
-          list.id = 'dwCatList';
-          list.className = 'dw-catlist';
-          const CATS = {
-            rings: { name: 'Rings', img: '/images/categories/rings.jpg' },
-            necklaces: { name: 'Necklaces', img: '/images/categories/necklaces.jpg' },
-            earrings: { name: 'Earrings', img: '/images/categories/earrings.jpg' },
-            bangles: { name: 'Bangles & Kadas', img: '/images/categories/bangles.jpg' },
-            bracelets: { name: 'Bracelets', img: '/images/categories/bracelets.jpg' },
-            chains: { name: 'Chains', img: '/images/categories/chains.jpg' },
-            pendants: { name: 'Pendants', img: '/images/categories/pendants.jpg' },
-            mangalsutra: { name: 'Mangalsutra', img: '/images/categories/mangalsutra.jpg' },
-            bajubandh: { name: 'Bajubandh', img: '/images/categories/bajubandh.jpg' },
-            rakhdi: { name: 'Rakhdi Set', img: '/images/categories/rakhdi.jpg' },
-            aad: { name: 'Fancy Aad', img: '/images/categories/aad.jpg' },
-            sheeshphool: { name: 'Sheesh Phool', img: '/images/categories/sheeshphool.jpg' },
-            hathphool: { name: 'Hathphool', img: '/images/categories/hathphool.jpg' },
-            punach: { name: 'Punach', img: '/images/categories/punach.jpg' },
-            bridalanklets: { name: 'Bridal Anklets', img: '/images/categories/bridalanklets.jpg' },
-            nosepins: { name: 'Nose Pins', img: '/images/categories/nosepins.jpg' },
-            silver: { name: 'Silver 925', img: '/images/categories/silver.jpg' },
-          };
-          list.innerHTML = Object.entries(CATS).map(([k, c]) =>
-            '<a href="#/shop?category=' + k + '"><img src="' + c.img + '?v=125" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb=\'1\';this.src=\'/images/logo.png?v=125\';}else{this.remove();}"><span>' + c.name + '</span></a>'
-          ).join('');
-          catsBtn.insertAdjacentElement('afterend', list);
-        }
-        const isOpen = list.classList.contains('open');
-        list.classList.toggle('open', !isOpen);
-        catsBtn.classList.toggle('open', !isOpen);
-        catsBtn.setAttribute('aria-expanded', String(!isOpen));
-        if (!isOpen) {
-          requestAnimationFrame(() => {
-            try { list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
-          });
-        }
-        return;
-      }
-      
-      // Desktop: toggle mega panel
-      const panel = $('#catMenu');
-      const backdrop = $('#megaBackdrop');
-      if (panel && backdrop) {
-        const isOpen = !panel.hidden;
-        panel.hidden = isOpen;
-        backdrop.hidden = isOpen;
-        catsBtn.setAttribute('aria-expanded', String(!isOpen));
-        
-        // Ensure headerH is set for proper positioning
-        const header = $('#header');
-        if (header) {
-          document.documentElement.style.setProperty('--headerH', 
-            Math.round(header.getBoundingClientRect().bottom) + 'px');
-        }
-      }
-    }, { capture: true });
-  }
-  
-  // Try immediately, then again on DOMContentLoaded and after a delay
-  if (document.readyState !== 'loading') {
-    setTimeout(wireCatsButton, 200);
-  }
-  document.addEventListener('DOMContentLoaded', () => setTimeout(wireCatsButton, 200), { once: true });
-  window.addEventListener('load', () => setTimeout(wireCatsButton, 500), { once: true });
-})();
+/* ─────────── 1. CATEGORIES BUTTON — OWNERSHIP MOVED (v158) ───────────
+   This file used to wire #navCats from a 200 ms timer because boot() — which
+   originally did the wiring — waits for the API batch. That made TWO owners of
+   one button, and they were not equivalent: this copy never bound the scrim,
+   the outside tap, Escape or the scroll close, so whenever it won the race the
+   panel could open with no way to dismiss it (the owner's "even if we want to
+   close the categories button it still doesn't go").
+   app.js now owns the control alone (initCatsMenu() — see the note above it),
+   it runs before boot instead of after it, and its 17 tiles are built from the
+   house CATS constant with no API involved. Nothing is left to wire here. */
 
 /* ─────────── 2. HEADER HEIGHT: SET IMMEDIATELY ───────────
    The mega-panel positions at top:var(--headerH). Set it early. */

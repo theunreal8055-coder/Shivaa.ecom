@@ -14,7 +14,36 @@
      hasn't been set yet (first click before resize fires). */
   z-index: 1200 !important;
 }
-.mega-backdrop { z-index: 1199 !important; }
+.mega-backdrop {
+  z-index: 1199 !important;
+  /* v158 — the scrim starts BELOW the header. It used to be `inset:0`, and
+     because it is a fixed child of the same sticky <header> that holds the
+     Categories button while the button itself is static, the scrim painted
+     over the one control that closes the panel. Dimming the page behind the
+     panel is the job; swallowing the nav bar was the bug. */
+  top: var(--headerH, 120px);   /* longhands, not the `inset` shorthand: every
+                                    browser that ever ran this app understands
+                                    them, and styles.css's own `inset:0` above
+                                    is overridden on the same specificity */
+  right: 0; bottom: 0; left: 0;
+}
+/* v158 — while the panel is open the header rides above the floating chrome
+   (WhatsApp/chat/top/compare pills, the bottom tab bar), exactly the way the
+   mobile drawer already raises it with body.drawer-open — so no floating
+   button can ever sit on top of a category tile and eat its tap. */
+body.cats-open .header { z-index: 2000 !important; }
+body.cats-open .mnav,
+body.cats-open .boost-chat-fab,
+body.cats-open .boost-theme,
+body.cats-open .boost-top,
+body.cats-open .wa-fab,
+body.cats-open .compare-tray,
+body.cats-open .ds-bar {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transition: opacity .25s ease, visibility .25s ease !important;
+}
 
 /* On desktop, if headerH is 0 or unset, use a computed fallback */
 @media (min-width: 681px) {

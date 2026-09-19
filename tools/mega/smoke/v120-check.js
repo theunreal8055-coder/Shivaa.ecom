@@ -88,7 +88,11 @@ function bootStore(extra = '') {
     /cat-mini-card"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(app) &&
     /mt-img"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(app) &&
     /dwCatList/.test(app) && /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(app) &&
-    /c\.img \+ '\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(v116src) &&
+    /* v158 moved the drawer's 17-item list out of js/v116.js into app.js's
+       single controller (catsListHTML) — the stamp must exist in whichever
+       file owns the render site. */
+    (/c\.img \+ '\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(v116src) ||
+     /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(app)) &&
     /\/js\/v116\.js\?v=12(0|3|4|5|6|7|8|9)|13[0-9]/.test(html) && /'\/js\/v116\.js\?v=12(0|3|4|5|6|7|8|9)|13[0-9]'/.test(sw));
   ok('mobile pack JS: haptics + back-button overlays, self-guarded',
     /Shivaa\.haptic/.test(v120js) && /_shvHaptic/.test(v120js) && /wrapTap\('addToCart', 20\)/.test(v120js) &&

@@ -41,10 +41,14 @@ ok('release triple moves together to 142 or newer (index.html · app.js · sw.js
   st(shell, /window\.__SHIVAA_REL=(\d+);/) >= 142 && st(app, /APP_REL\s*=\s*(\d+)/) >= 142 && st(sw, /SHELL = 'shivaa-shell-v(\d+)'/) >= 142,
   'index.html/app.js/sw.js stamps must all read 142+');
 
-ok('the moved set is consistent — v116.js and v117.js ride 142 in shell + worker (house rule: bump every ?v= together)',
-  /\/js\/v116\.js\?v=142/.test(shell) && /\/js\/v117\.js\?v=142/.test(shell) &&
-  /'\/js\/v116\.js\?v=142'/.test(sw) && /'\/js\/v117\.js\?v=142'/.test(sw),
-  'a changed stamped file must update index.html AND sw.js; v116/v117 move in lockstep');
+/* v158 — js/v116.js changed again on its own (the duplicate categories owner
+   was deleted), so the literal "both ride 142" pin becomes the real house rule:
+   142 or newer, and index.html and the worker must agree file by file. */
+const stampOf142 = (t, file) => { const m = new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\?v=(\\d+)').exec(t); return m ? Number(m[1]) : 0; };
+const paired142 = (file, min) => { const a = stampOf142(shell, file), b = stampOf142(sw, file); return a >= min && a === b; };
+ok('the moved set is consistent — v116.js and v117.js ride 142+ with index.html == worker',
+  paired142('/js/v116.js', 142) && paired142('/js/v117.js', 142),
+  'a changed stamped file must update index.html AND sw.js with the same number');
 
 ok('the staff bundle stamp (admin.js) moves with it to v142+ (the v141 fix must not regress)',
   (/injectScript\('\/js\/admin\.js\?v=(14[2-9]|1[5-9]\d|2\d\d)'\)/.test(app) || /injectScript\('\/js\/admin\.js\?v=' \+ APP_REL\)/.test(app)) && !/admin\.js\?v=128/.test(app),

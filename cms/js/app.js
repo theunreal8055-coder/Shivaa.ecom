@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 157;
+const APP_REL = 158;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1767,6 +1767,157 @@ function catChipsHTML(active) {
     chip('#/shop', 'All Jewellery', on === '' ? '__all' : '') +
     Object.entries(LIVE_CATS()).map(([k, c]) => chip('#/shop?category=' + k, c.name, k)).join('') +
     `</div>`;
+}
+/* ─────────── THE CATEGORIES CONTROL — one owner (v158) ───────────
+   Owner report (20 Sep 2026, verbatim): *"Fix category button, it comes it's
+   very good graphic advanced very good but when we click any category of
+   jewellery then it doesn't respond and even if we want to close the
+   categories button it still doesn't go."*
+
+   Three real defects in the shipped tree, each proven before this fix:
+
+   1 · TWO OWNERS FOR ONE BUTTON. boot() wired `#navCats`, but boot waits for
+       the API batch; js/v116.js wired the same button from a 200 ms timer with
+       a DIFFERENT and incomplete handler (it never bound the scrim, the
+       outside tap, Escape or the scroll close). Whichever ran first won, so on
+       a normal phone connection the panel could open with no way to dismiss it
+       except tapping a tile.
+   2 · THE SCRIM COVERED THE BUTTON. `.mega-backdrop` is a fixed child of the
+       sticky <header> (z-index 1199) and `#navCats` is a static child of that
+       same header, so while the panel stood open the scrim painted OVER the
+       one control meant to close it — the "can't close it" report, exactly.
+   3 · THE PANEL COULD OPEN EMPTY. Its 17 tiles were built only after boot's
+       API batch landed, so a tap during a slow load opened a blank panel —
+       "clicking a category doesn't respond" because there were no categories.
+
+   Now: app.js alone owns the control (js/v116.js's duplicate is deleted), the
+   tiles are built from the house CATS constant the moment the DOM is ready —
+   no API needed — and every dismissal path runs through one close routine that
+   also clears `body.cats-open`. Taps travel the house pattern already used by
+   js/v127.js and js/v139.js: NAVIGATE FIRST, DISMISS SECOND, with
+   window.__shvNavigating armed so js/v120.js never queues a traversal against
+   a navigation in flight. */
+function catsPanelHTML() {
+  return `
+  <div class="mega-in">
+    <div class="mega-grid">${Object.entries(LIVE_CATS()).map(([k, c]) => `
+      <a class="mega-tile" href="#/shop?category=${k}">
+        <span class="mt-img"><img src="${c.img}?v=125" alt="${esc(c.name)}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"></span>
+        <span class="mt-tx"><b>${c.name}</b><small>${c.sub}</small></span>
+      </a>`).join('')}
+    </div>
+    <div class="mega-rail">
+      <a class="mega-feat" href="#/shop?tag=heritage">
+        <img src="/images/banners/poster-heritage.jpg" alt="The Heritage Edit">
+        <div><span class="mega-k">The Heritage Edit</span><b>HANDCRAFTED<br>CLASSICS</b><small>Explore the edit →</small></div>
+      </a>
+      <a class="mega-cta" href="#/shop?max=50000">The Under ₹50,000 Edit <span>→</span></a>
+      <a class="mega-cta alt" href="#/b2b">For Jewellers · B2B Portal <span>→</span></a>
+    </div>
+  </div>`;
+}
+/* the drawer's own 17-category list — the SAME CATS source as the panel, so
+   the two can never drift apart (v116's copy hard-coded a second list). */
+function catsListHTML() {
+  return Object.entries(LIVE_CATS()).map(([k, c]) =>
+    `<a href="#/shop?category=${k}"><img src="${c.img}?v=125" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
+}
+/* the house navigation: hand the tap to the app, arm the flag, then dismiss */
+function shvNavTo(href) {
+  const target = String(href || '');
+  if (target.indexOf('#/') !== 0) return false;
+  try {
+    window.__shvNavigating = true;
+    if (window.__shvNavArm) clearTimeout(window.__shvNavArm);
+    window.__shvNavArm = setTimeout(() => { window.__shvNavigating = false; }, 500);
+  } catch (e) {}
+  try {
+    if (location.hash === target) { if (window.Shivaa && Shivaa.redraw) Shivaa.redraw(); else route(); }
+    else location.hash = target;
+    return true;
+  } catch (e) { return false; }
+}
+let _catsMenuReady = false;
+function initCatsMenu() {
+  const tgl = $('#navToggle'), nav = $('#mainNav');
+  const panel = $('#catMenu'), scrim = $('#megaBackdrop'), catsBtn = $('#navCats');
+  if (!panel || !catsBtn) return false;
+  const isNarrow = () => matchMedia('(max-width:820px)').matches;
+  /* build the panel content the moment this runs — no API call is involved, so
+     the very first tap already has all 17 tiles (defect 3, closed). */
+  if (!panel.innerHTML.trim()) panel.innerHTML = catsPanelHTML();
+  if (!_catsMenuReady) {
+    _catsMenuReady = true;
+    const listEl = () => {                     // the drawer's inline list, created on first use
+      let list = document.getElementById('dwCatList');
+      if (!list) {
+        list = document.createElement('div'); list.id = 'dwCatList'; list.className = 'dw-catlist';
+        list.innerHTML = catsListHTML();
+        catsBtn.insertAdjacentElement('afterend', list);
+      }
+      return list;
+    };
+    const setListOpen = on => {
+      if (on) listEl();                        // never a dead toggle on a cold drawer
+      const list = document.getElementById('dwCatList');
+      if (!list) { catsBtn.classList.toggle('open', on); catsBtn.setAttribute('aria-expanded', String(on)); return; }
+      list.classList.toggle('open', on); catsBtn.classList.toggle('open', on);
+      catsBtn.setAttribute('aria-expanded', String(on));
+      if (on) requestAnimationFrame(() => { try { list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {} });
+    };
+    const foldList = () => setListOpen(false);
+    const setPanelOpen = on => {
+      panel.hidden = !on; if (scrim) scrim.hidden = !on;
+      catsBtn.setAttribute('aria-expanded', String(on));
+      document.body.classList.toggle('cats-open', on);   // raises the header over the floaters (see css/v116.css)
+      if (on) { try { const h = $('#header'); if (h) document.documentElement.style.setProperty('--headerH', Math.round(h.getBoundingClientRect().bottom) + 'px'); } catch (e) {} }
+    };
+    const closeAll = () => { setPanelOpen(false); foldList(); };   // every dismissal lands here
+    catsBtn.onclick = e => {
+      e.stopPropagation();
+      try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(10); } catch (_) {}
+      if (isNarrow()) {   // inside the drawer: the inline list, not the desktop panel
+        const opening = !(document.getElementById('dwCatList') || { classList: { contains: () => false } }).classList.contains('open');
+        setListOpen(opening);
+        if (tgl && nav && !nav.classList.contains('open')) tgl.click();   // the pill lives in the drawer — open it
+        return;
+      }
+      setPanelOpen(panel.hidden);
+    };
+    /* a tap on the scrim closes the panel — bound UNCONDITIONALLY (defect 1) */
+    if (scrim) scrim.addEventListener('click', () => setPanelOpen(false));
+    /* a tap on a tile: navigate FIRST, dismiss SECOND (never the other way) */
+    panel.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('a[href^="#/"]');
+      if (!a) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // new-tab taps stay native
+      e.preventDefault(); e.stopPropagation();
+      try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(10); } catch (_) {}
+      shvNavTo(a.getAttribute('href'));
+      setPanelOpen(false);
+    }, true);
+    document.addEventListener('click', e => {
+      if (panel.hidden) return;
+      if (e.target.closest && (e.target.closest('#catMenu') || e.target.closest('#navCats'))) return;
+      setPanelOpen(false);
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { setPanelOpen(false); foldList(); } });
+    addEventListener('scroll', () => { if (!panel.hidden) setPanelOpen(false); }, { passive: true });
+    /* never leave a stale open state behind: a width change, a route change or
+       the page going away (a stuck body.cats-open would keep the floaters
+       hidden and the header raised). */
+    addEventListener('resize', closeAll, { passive: true });
+    addEventListener('hashchange', () => { setPanelOpen(false); foldList(); });
+    addEventListener('pagehide', closeAll);
+    /* the 17-photo list folds whenever the drawer itself closes — the earlier
+       fix folded it only on a hash change, so tapping the category you were
+       already standing on left the wall of photos open for next time. */
+    if (nav && typeof MutationObserver === 'function') {
+      new MutationObserver(() => { if (!nav.classList.contains('open')) foldList(); })
+        .observe(nav, { attributes: true, attributeFilter: ['class'] });
+    }
+  }
+  return true;
 }
 function initCatbar() {
   $$('.cb-wrap').forEach(wrap => {
@@ -8980,66 +9131,12 @@ async function boot(isRedraw) {
     } catch (e) {}
   }).catch(() => {});
   // v101 — footer WhatsApp slot points at the official wa.me/message channel
-  // populate nav + footer category menus
-  $('#catMenu').innerHTML = `
-  <div class="mega-in">
-    <div class="mega-grid">${Object.entries(LIVE_CATS()).map(([k, c]) => `
-      <a class="mega-tile" href="#/shop?category=${k}">
-        <span class="mt-img"><img src="${c.img}?v=125" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"></span>
-        <span class="mt-tx"><b>${c.name}</b><small>${c.sub}</small></span>
-      </a>`).join('')}
-    </div>
-    <div class="mega-rail">
-      <a class="mega-feat" href="#/shop?tag=heritage">
-        <img src="/images/banners/poster-heritage.jpg" alt="The Heritage Edit">
-        <div><span class="mega-k">The Heritage Edit</span><b>HANDCRAFTED<br>CLASSICS</b><small>Explore the edit →</small></div>
-      </a>
-      <a class="mega-cta" href="#/shop?max=50000">The Under ₹50,000 Edit <span>→</span></a>
-      <a class="mega-cta alt" href="#/b2b">For Jewellers · B2B Portal <span>→</span></a>
-    </div>
-  </div>`;
-  // open/close behaviour (desktop: full-width panel under header; mobile: inside menu)
-  const panel = $('#catMenu'), backdrop = $('#megaBackdrop'), catsBtn = $('#navCats');
-  /* v56: the mega panel never locks the page itself, so closing it must not
-     strip the scroll-lock owned by another sheet (this used to unlock the
-     background the moment the filter drawer's toggle was tapped). */
-  const closeMega = () => { if (matchMedia('(max-width:680px)').matches) return; if (panel.hidden) return; panel.hidden = true; backdrop.hidden = true; catsBtn?.setAttribute('aria-expanded', 'false'); };
-  if (catsBtn && !catsBtn._wired) {
-    catsBtn._wired = true;
-    catsBtn.onclick = e => {
-      e.stopPropagation();
-      try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(10); } catch (_) {}
-      // inside the drawer, expand an inline list rather than the desktop mega panel
-      if (matchMedia('(max-width:820px)').matches) {
-        let list = document.getElementById('dwCatList');
-        if (!list) {
-          list = document.createElement('div');
-          list.id = 'dwCatList'; list.className = 'dw-catlist';
-          list.innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) =>
-            `<a href="#/shop?category=${k}"><img src="${c.img}?v=125" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
-          catsBtn.insertAdjacentElement('afterend', list);
-        }
-        const open = !list.classList.contains('open');
-        list.classList.toggle('open', open);
-        catsBtn.classList.toggle('open', open);
-        catsBtn.setAttribute('aria-expanded', String(open));
-        if (open) {
-          requestAnimationFrame(() => {
-            try { list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
-          });
-        }
-        return;
-      }
-      const open = panel.hidden;
-      panel.hidden = !open; backdrop.hidden = !open;
-      catsBtn.setAttribute('aria-expanded', String(open));
-    };
-    panel.addEventListener('click', e => { if (e.target.closest('a')) closeMega(); });
-    backdrop.addEventListener('click', closeMega);
-    document.addEventListener('click', e => { if (!e.target.closest('#catMenu') && !e.target.closest('#navCats')) closeMega(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMega(); });
-    addEventListener('scroll', closeMega, { passive: true });
-  }
+  // v158 — the Categories control (the desktop panel and the drawer's 17-item
+  // list) is owned by initCatsMenu() alone: it already ran before boot, so this
+  // call only re-syncs it after a redraw. js/v116.js's duplicate wiring — the
+  // one that could win the race and leave the panel with no way to close — is
+  // deleted. The old inline panel markup lives in catsPanelHTML() now.
+  initCatsMenu();
   // The drawer's own tile grid + "All 17 categories" pill replace the old
   // stacked mm-grid / mm-feats / mcat-list blocks (they duplicated the same
   // destinations three times and made the drawer ~860px taller than the phone).
@@ -9060,6 +9157,11 @@ async function boot(isRedraw) {
   // module switches itself off within 30s of 00:00 IST on 1 Jan 2027.
   setInterval(syncFinaleChrome, 30000);
 }
+/* v158 — the Categories button must work from the first paint: its tiles come
+   from the house CATS constant, so nothing about it needs the API. Wiring it
+   here (and again in boot) is what closes the "the button is dead while the
+   network is slow" report for good. */
+try { initCatsMenu(); } catch (e) {}
 // Wait for the following feature/auth/admin scripts to register their routes.
 // A fast cached API must not outrun loading the HUID module on a cold visit.
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => boot(), { once: true });

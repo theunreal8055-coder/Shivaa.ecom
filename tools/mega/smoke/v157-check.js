@@ -135,12 +135,17 @@ console.log('\n· 5 — BUG B6: the Swarna Nidhi projection follows the feed, in
     /if \(!document\.getElementById\('svCalc'\)\) \{ document\.removeEventListener\('rates', _svLive\); return; \}/.test(app));
 }
 
-console.log('\n· 6 — stamp lockstep (157) incl. the loader stamps:');
+/* v158 — these pins are deliberately forward-tolerant: the exact release
+   stamp is pinned by the suite of the release that ships it (v158-check); an
+   older era suite must only refuse to go BACKWARDS. */
+const REL = +((/const APP_REL = (\d+);/.exec(app) || [])[1] || 0);
+console.log('\n· 6 — stamp lockstep (' + REL + ', forward-tolerant from 157) incl. the loader stamps:');
 {
-  ok('APP_REL 157', /const APP_REL = 157;/.test(app));
-  ok('index __SHIVAA_REL=157 + loader app.js?v=157', idx.includes('window.__SHIVAA_REL=157;') && idx.includes('/js/app.js?v=157"'));
-  ok('sw SHELL v157 + PRECACHE /js/app.js?v=157', sw.includes("'shivaa-shell-v157'") && sw.includes("'/js/app.js?v=157'"));
-  ok('api rel 157 (mind the 3-space gap)', /'rel'   => 157,/.test(api));
+  ok('APP_REL is 157 or later', REL >= 157, 'APP_REL=' + REL);
+  ok('index __SHIVAA_REL + loader app.js?v= both track APP_REL',
+    idx.includes(`window.__SHIVAA_REL=${REL};`) && idx.includes(`/js/app.js?v=${REL}"`));
+  ok('sw SHELL + PRECACHE app.js track APP_REL', sw.includes(`'shivaa-shell-v${REL}'`) && sw.includes(`'/js/app.js?v=${REL}'`));
+  ok('api rel 157+ (mind the 3-space gap)', (() => { const m = /'rel'\s*=>\s*(\d+),/.exec(api); return !!m && +m[1] >= 157; })());
   ok('no stale 156 stamp left in the boot spots',
     !/const APP_REL = 156;/.test(app) && !idx.includes('__SHIVAA_REL=156') && !idx.includes('/js/app.js?v=156"')
     && !sw.includes('shivaa-shell-v156') && !sw.includes("'/js/app.js?v=156'") && !/'rel'   => 156,/.test(api));

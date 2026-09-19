@@ -109,7 +109,11 @@ function bootStore(extra = '') {
     /mt-img"><img src="\$\{c\.img\}\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(app) &&
     /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(app) &&
     (app.match(/c\.img\}\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/g) || []).length >= 4);
-  ok('v116 pre-boot drawer list carries ?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)', /c\.img \+ '\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(v116src));
+  /* v158 — the drawer list is app.js's catsListHTML() now (one source, one
+     stamp); the v116 copy is gone. */
+  ok('the drawer category list carries ?v=124..139 (v158: built in app.js)',
+    /c\.img \+ '\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(v116src) ||
+    /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(app));
 
   const small = TILE_KEYS.filter(k => { try { return fs.statSync(path.join(CMS, 'images/categories', k + '.jpg')).size < 8000; } catch (_) { return true; } });
   ok('all 18 category faces exist on disk (17 CATS + the new newin face, >= 8 KB)', small.length === 0, 'missing/small: ' + small.join(', '));

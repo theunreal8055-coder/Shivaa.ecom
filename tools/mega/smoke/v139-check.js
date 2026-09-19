@@ -474,8 +474,12 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
       'history.back() fired at hash=' + JSON.stringify(backAt[0]));
   }
   {
-    /* the same category tap with the layer stripped: the list stays open —
-       which is what the owner meant by "still that 17 photos are on the page". */
+    /* v158 — the same category tap with this layer stripped. It used to leave
+       the 17-photo list open ("still that 17 photos are on the page"), which is
+       what v139's fold fixed from outside. app.js's Categories controller now
+       owns the fold itself (on navigation, on the drawer closing, on Escape),
+       so the defect no longer reproduces even with js/v139.js absent — the pin
+       below asserts that stronger truth instead of the old control. */
     const D = boot({ startHash: '#/', stripV139: true });
     if (!(await D.booted())) ok('control fold session boots', false);
     await sleep(500);
@@ -485,9 +489,9 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
     await until(() => D.$('#dwCatList') && D.$('#dwCatList').classList.contains('open'), 6000);
     D.click(D.$$('#dwCatList a[href^="#/"]')[2]);
     await sleep(1300);
-    ok('control · WITHOUT the layer the 17-photo list is still open after navigating',
-      D.$('#dwCatList') && D.$('#dwCatList').classList.contains('open') &&
-      D.$('#navCats').getAttribute('aria-expanded') === 'true');
+    ok('control · even WITHOUT this layer the list folds after navigating (v158 moved the fold into app.js)',
+      D.$('#dwCatList') && !D.$('#dwCatList').classList.contains('open') &&
+      D.$('#navCats').getAttribute('aria-expanded') === 'false');
     try { D.w.close(); } catch (_) {}
   }
   try { C.w.close(); } catch (_) {}

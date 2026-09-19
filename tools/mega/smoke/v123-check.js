@@ -80,7 +80,11 @@ function bootStore(extra = '') {
     /mt-img"><img src="\$\{c\.img\}\?v=(12[3-9]|13[0-9])"/.test(app) &&
     /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=(12[3-9]|13[0-9])"/.test(app) &&
     (app.match(/c\.img\}\?v=(12[3-9]|13[0-9])"/g) || []).length >= 4);
-  ok('v116 pre-boot drawer list carries ?v=123/124', /c\.img \+ '\?v=(12[3-9]|13[0-9])"/.test(v116src));
+  /* v158 — the pre-boot drawer list is app.js's catsListHTML() now, so the
+     version stamp has to be present in the file that actually renders it. */
+  ok('the drawer category list carries ?v=123/124 (v158: built in app.js)',
+    /c\.img \+ '\?v=(12[3-9]|13[0-9])"/.test(v116src) ||
+    /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=(12[3-9]|13[0-9])"/.test(app));
   const missing = CAT_KEYS.filter(k => { try { return fs.statSync(path.join(CMS, 'images/categories', k + '.jpg')).size < 8000; } catch (_) { return true; } });
   ok('all 17 category tile files exist on disk (>= 8 KB each)', missing.length === 0, 'missing/small: ' + missing.join(', '));
   ok('fallback chain intact: logo-then-hide with dataset.lfb guard',

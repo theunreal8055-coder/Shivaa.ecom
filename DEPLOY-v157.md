@@ -1,5 +1,11 @@
 # DEPLOY — v157 (SHIVAA EVERYWHERE · the last Jaipur survivors · three more bugs dead)
 
+> **SUPERSEDED BEFORE DEPLOY — use `shivaa-update-v158.zip` / `DEPLOY-v158.md`.**
+> v157 was packaged but never extracted on the server. v158 carries everything
+> below forward *plus* the Categories-button repair the owner reported on
+> 20 Sep 2026, so there is nothing to choose between them: extract v158.
+> This file is kept only as the record + rollback reference.
+
 **Zip:** `shivaa-update-v157.zip` · md5 `db0b867c2c2c7a203f05c123cfc6d723` ·
 sha256 `6e0afa263fab82f45946401fbb3821dfc9433639279c535b1b9ef781c1b55d50`
 · **9 files:** `api.php`, `css/styles.css`, `hallmark.php`, `index.html`,

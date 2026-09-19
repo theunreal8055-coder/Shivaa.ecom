@@ -147,22 +147,25 @@ function boot({ user = null, token = null, startHash = '', innerWidth = 420 } = 
     })(),
     'index.html/app.js/sw.js stamps must all read 140 or newer, in lockstep');
 
-  ok('every changed file carries its new cache stamp (?v=140 / app.js 140+141) in index.html',
-    /\/css\/v116\.css\?v=140/.test(shell) && /\/css\/v119\.css\?v=140/.test(shell) && /\/css\/v120\.css\?v=140/.test(shell) &&
-    st(shell, /\/js\/app\.js\?v=(\d+)/) >= 140 && /\/js\/v107\.js\?v=140/.test(shell) && st(shell, /\/js\/v116\.js\?v=(\d+)/) >= 140 &&
-    st(shell, /\/js\/v117\.js\?v=(\d+)/) >= 140 && /\/js\/v119\.js\?v=140/.test(shell) && /\/js\/v120\.js\?v=140/.test(shell),
-    'a changed stamped file must move its ?v= (immutable cache, one year)');
+  /* v158 — forward-tolerant: the era's rule is really "every stamped asset
+     reads 140 or newer AND index.html and the worker agree on the number".
+     Pinning the literal 140 made this pin fail the moment a later release
+     legitimately re-stamped one of these files. */
+  const stampOf = (t, file) => { const m = new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\?v=(\\d+)').exec(t); return m ? Number(m[1]) : 0; };
+  const paired = (file, min) => { const a = stampOf(shell, file), b = stampOf(sw, file); return a >= min && a === b; };
+  ok('every changed file carries its cache stamp (140+, and index.html == worker)',
+    ['/css/v116.css', '/css/v119.css', '/css/v120.css', '/js/app.js', '/js/v107.js', '/js/v116.js', '/js/v117.js', '/js/v119.js', '/js/v120.js']
+      .every(f => paired(f, 140)),
+    'a changed stamped file must move its ?v= in BOTH places (immutable cache, one year)');
 
   ok('the new v140 layer ships, is loaded LAST, and the worker precaches it',
     /<script src="\/js\/v140\.js\?v=140" defer><\/script>/.test(shell) &&
     shell.indexOf('/js/v139.js?v=139') < shell.indexOf('/js/v140.js?v=140') &&
     sw.includes("'/js/v140.js?v=140'") && sw.includes("'/css/v140.css?v=140'"));
 
-  ok('the service worker precache matches the re-stamped files exactly',
-    (() => { const x = /'\/js\/app\.js\?v=(\d+)'/.exec(sw); return !!x && Number(x[1]) >= 140; })() &&
-    sw.includes("'/js/v119.js?v=140'") && sw.includes("'/js/v120.js?v=140'") &&
-    (() => { const x = /'\/js\/v116\.js\?v=(\d+)'/.exec(sw); return !!x && Number(x[1]) >= 140; })() &&
-    sw.includes("'/css/v119.css?v=140'") && sw.includes("'/css/v120.css?v=140'") && sw.includes("'/css/v116.css?v=140'"));
+  ok('the service worker precache matches the re-stamped files exactly (140+, index == worker)',
+    ['/js/app.js', '/js/v119.js', '/js/v120.js', '/js/v116.js', '/css/v119.css', '/css/v120.css', '/css/v116.css']
+      .every(f => paired(f, 140)));
 
   ok('the install chip is GONE from the markup layer (js/v119.js)',
     !/Keep Shivaa on your home screen/.test(v119) && !/beforeinstallprompt/.test(v119) && !/shvInstallChip/.test(v119),

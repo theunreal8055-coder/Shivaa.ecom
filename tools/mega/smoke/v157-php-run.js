@@ -183,13 +183,14 @@ echo json_encode([
       && ((b2.json || {}).jaipur || {}).gold22 === Math.round(ANCHOR_G * 0.9167) + 398);
   }
 
-  console.log('\n· 5 — version truth: rel 157 with self-consistent stamps:');
+  console.log('\n· 5 — version truth: rel 157 or later, with self-consistent stamps:');
   {
     php.writeFile('/tcrun/data/db.json', JSON.stringify(mkDb()));
     const v = await req('GET', 'version');
-    ok('/api/version rel 157 · shell shivaa-shell-v157 · index/app stamps 157',
-      v.http === 200 && v.json && v.json.rel === 157 && v.json.shell === 'shivaa-shell-v157'
-      && v.json.stamp && v.json.stamp.index === 157 && v.json.stamp.app === 157,
+    const rel = v.json && Number(v.json.rel);                       // v158 — forward-tolerant: the exact number is v158-check's job
+    ok('/api/version rel 157+ · shell tracks rel · index/app stamps track rel',
+      v.http === 200 && rel >= 157 && v.json.shell === 'shivaa-shell-v' + rel
+      && v.json.stamp && v.json.stamp.index === rel && v.json.stamp.app === rel,
       JSON.stringify(v.json));
   }
 
