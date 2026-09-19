@@ -47,7 +47,7 @@ ok('the moved set is consistent — v116.js and v117.js ride 142 in shell + work
   'a changed stamped file must update index.html AND sw.js; v116/v117 move in lockstep');
 
 ok('the staff bundle stamp (admin.js) moves with it to v142+ (the v141 fix must not regress)',
-  /injectScript\('\/js\/admin\.js\?v=14[2-9]'\)/.test(app) && !/admin\.js\?v=128/.test(app),
+  (/injectScript\('\/js\/admin\.js\?v=(14[2-9]|1[5-9]\d|2\d\d)'\)/.test(app) || /injectScript\('\/js\/admin\.js\?v=' \+ APP_REL\)/.test(app)) && !/admin\.js\?v=128/.test(app),
   'app.js must load /js/admin.js?v=142+, never v128');
 
 ok('the owner-facing switch exists in the admin payments panel',

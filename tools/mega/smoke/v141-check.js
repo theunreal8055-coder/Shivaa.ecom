@@ -48,7 +48,7 @@ ok('index.html loads app.js at v141 and the worker precaches it at v141',
   st(shell, /\/js\/app\.js\?v=(\d+)/) >= 141 && st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 141);
 
 ok('the admin panel bundle stamp moved OFF v128 (the pre-v139 stamp that hid the switches)',
-  st(app, /\/js\/admin\.js\?v=(\d+)/) >= 141 && !/admin\.js\?v=128/.test(app),
+  (/\/js\/admin\.js\?v=' \+ APP_REL/.test(app) ? st(app, /APP_REL = (\d+)/) >= 141 : st(app, /\/js\/admin\.js\?v=(\d+)/) >= 141) && !/admin\.js\?v=128/.test(app),   // v152: dynamic stamp also satisfies — it IS APP_REL
   'app.js must load /js/admin.js?v=141+, never v128');
 
 ok('the One Click Checkout switches really exist in the shipped admin.js',

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 151;
+const APP_REL = 152;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -3075,19 +3075,14 @@ window.Shivaa.pdBuy = async id => {
      classic checkout rather than exchange their saved address for placeholders. */
   if (expressCheckoutOn() && !state.user) {
     window.Shivaa._expressItem = { id, qty, size, engraving: engrave };
-    /* v147 — persist it: the Truecaller round-trip can make Android reclaim
-       and RELOAD this tab, and the one-tap resume must still find the piece
-       the shopper tapped (else the reload bounces to #/shop and the verified
-       number lands on an abandoned page). */
+    /* v147/v152 — persist it: Android may reclaim and RELOAD the tab mid-
+       payment; the reload must still find the piece the shopper tapped. */
     try { store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() }); } catch (e) {}
-    /* v149 — owner: "when person clicks … buy now, they should DIRECTLY go to
-       cashfree … why open this page". On an Android phone with Truecaller the
-       sheet opens IN PLACE; the Express page is never shown. Every other
-       device keeps the classic page (and its typed fallback). */
-    if (await window.Shivaa.tcInstantReady()) {
-      window.Shivaa.tcInstant({ kind: 'item', item: window.Shivaa._expressItem });
-      return;
-    }
+    /* v152 — DIRECT TO CASHFREE by design: when this device already knows the
+       number (last purchase here), the Express mount buys by itself one beat
+       later — the shopper's tap lands on Cashfree's page with nothing typed.
+       A first-time guest sees exactly ONE field (Cashfree's own API demands a
+       real customer_phone before the order can exist — no placeholder, ever). */
     location.hash = '#/express';
     return;
   }
@@ -3120,210 +3115,6 @@ function expressCheckoutOn() {
 }
 window.Shivaa.expressCheckoutOn = expressCheckoutOn;
 
-/* ═════════ v149 · INSTANT ONE-TAP — no intermediate page ═════════
-   Owner's verdict on v148, verbatim: "why do you even open this page, when
-   person clicks checkout or buy now, then they should directly go to cashfree
-   payment gateway". Cashfree's page belongs to Cashfree — no third-party
-   script can run there, so the Truecaller tap CANNOT literally live on their
-   page. What this block does instead is the next best thing, and arguably
-   exactly what he meant: the tap fires the Truecaller sheet IN PLACE (no
-   navigation to #/express at all), the verified number is answered by the
-   server, the order is placed silently, and the first page the customer ever
-   loads is Cashfree. The Express page survives as the FALLBACK: if
-   Truecaller declines, times out, or the phone has no app, the customer lands
-   there with the SAME pending verification re-attached, where typing remains.
-   ───────────────────────────────────────────────────────────────────────── */
-window.Shivaa._tcCfgCache = undefined;
-window.Shivaa._tcCfg = async () => {
-  if (window.Shivaa._tcCfgCache !== undefined) return window.Shivaa._tcCfgCache;
-  let c = null;
-  try { const r = await api('/api/auth/truecaller/config'); if (r && r.enabled && r.partnerKey) c = r; } catch (e) {}
-  window.Shivaa._tcCfgCache = c;
-  return c;
-};
-function tcAndroidNow() { return /Android/i.test(navigator.userAgent || ''); }
-window.Shivaa.tcInstantReady = async () => {
-  if (!expressCheckoutOn() || state.user || !tcAndroidNow()) return false;
-  return !!(await window.Shivaa._tcCfg());
-};
-/* single source for the deep link — the Express card and the instant tap must
-   NEVER drift apart on what Truecaller sees */
-function tcDeepLink(nonce, partnerKey) {
-  return 'truecallersdk://truesdk/web_verify?'
-    + 'type=btmsheet'
-    + '&requestNonce=' + encodeURIComponent(nonce)
-    + '&partnerKey=' + encodeURIComponent(partnerKey)
-    + '&partnerName=' + encodeURIComponent('Shivaa Jewels')
-    + '&lang=en'
-    + '&privacyUrl=' + encodeURIComponent('https://www.shivaa.in/#/privacy')
-    + '&termsUrl=' + encodeURIComponent('https://www.shivaa.in/#/terms')
-    + '&loginPrefix=Continue+with'
-    + '&ctaPrefix=Verify'
-    + '&ctaColor=1d72b8'
-    + '&ctaTextColor=ffffff'
-    + '&btnShape=ROUNDED'
-    + '&skipOption=ENTERMANUALLY'
-    + '&ttl=60000';
-}
-window.Shivaa.tcDeepLink = tcDeepLink;
-
-/* The instant engine. kind:'item' carries {item}; kind:'cart' buys state.cart.
-   opts.resume re-attaches after the Android tab was reclaimed and reloaded
-   mid-round-trip (the pending marker holds the nonce AND the intent). */
-window.Shivaa.tcInstant = async (opts = {}) => {
-  if (window.Shivaa._tcInstantBusy) return;
-  const cfg = await window.Shivaa._tcCfg();
-  if (!cfg || state.user || !expressCheckoutOn()) { location.hash = '#/express'; return; }
-  if (window.Shivaa._tcInstantBusy) return;
-  window.Shivaa._tcInstantBusy = true;
-  const PKEY = 'shv_tc_pending';
-  const DEADLINE = Date.now() + 9 * 60 * 1000;
-  const freshRec = e => !!(e && e.nonce && (Date.now() - (e.at || 0)) < 9 * 60 * 1000);
-  const newNonce = () => 'shv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
-  let pend = null; try { pend = store.get(PKEY, null); } catch (e) {}
-  const resume = !!(opts.resume && freshRec(pend) && pend.mode === 'instant');
-  const kind = opts.kind || (pend && pend.kind) || 'cart';
-  let item = opts.item || ((window.Shivaa._expressItem && window.Shivaa._expressItem.id) ? window.Shivaa._expressItem : null);
-  if (!item && kind === 'item') {
-    try { const sv = store.get('shv_ex_item', null); if (sv && sv.item && sv.item.id && (Date.now() - (sv.at || 0)) < 10 * 60 * 1000) item = sv.item; } catch (e) {}
-  }
-  const nonce = resume ? pend.nonce : newNonce();
-  let done = false, polling = false, placed = false, polls = 0, timer = null, ready = null, slow = false, lastPhone = '';
-  try { store.set(PKEY, { nonce, at: Date.now(), mode: 'instant', kind: (kind === 'item' && item) ? 'item' : 'cart', item: (kind === 'item') ? item : null }); } catch (e) {}
-  window.__shvTcNonce = nonce;
-
-  /* the pill — the ONLY UI this path adds: a discreet bar, no page */
-  let pill = document.getElementById('shvTcPill');
-  if (!pill) {
-    pill = document.createElement('div'); pill.id = 'shvTcPill';
-    pill.innerHTML = '<style>#shvTcPill{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;background:#10151c;color:#f5f1e8;border:1px solid rgba(255,255,255,.22);border-radius:14px;padding:11px 14px;box-shadow:0 10px 30px rgba(0,0,0,.38);font-size:13px;max-width:92vw;display:flex;gap:12px;align-items:center;font-family:inherit}#shvTcPill button{background:none;border:1px solid rgba(255,255,255,.35);color:#cfe6ff;border-radius:9px;padding:5px 9px;font-size:11.5px;cursor:pointer;white-space:nowrap}</style>'
-      + '<span id="shvTcPillTxt">✦ Verifying with Truecaller — confirm in the app</span>'
-      + '<button type="button" id="shvTcPillAlt">Type instead</button>';
-    document.body.appendChild(pill);
-  }
-  const sayP = t => { const el = document.getElementById('shvTcPillTxt'); if (el) el.innerHTML = t; };
-  const altBtn = () => document.getElementById('shvTcPillAlt');
-  const cleanup = clearPending => {
-    polling = false; if (timer) { clearInterval(timer); timer = null; }
-    document.removeEventListener('visibilitychange', wake);
-    window.removeEventListener('focus', wake); window.removeEventListener('pageshow', wake);
-    const p = document.getElementById('shvTcPill'); if (p) p.remove();
-    if (clearPending) { try { store.set(PKEY, null); } catch (e) {} }
-    window.Shivaa._tcInstantBusy = false;
-  };
-  const handoff = why => {           // give up the instant path — Express continues, same nonce stays pending
-    cleanup(false);
-    if (why) toast(why, 'err');
-    if (String(location.hash || '').indexOf('#/express') !== 0) location.hash = '#/express';
-  };
-
-  const buy = async (phone) => {
-    if (placed) return;                       // (finish() sets done on PURPOSE — buy must still run once)
-    const items = (kind === 'item' && item && item.id)
-      ? [{ id: item.id, qty: item.qty || 1, size: item.size || null, engraving: item.engraving || null }]
-      : state.cart.map(c => ({ id: c.id, qty: c.qty || 1, size: c.size || null, engraving: c.engraving || null }));
-    if (!items.length) { handoff('Your bag looks empty — open the checkout page to continue'); return; }
-    placed = true;
-    sayP('Placing your order…');
-    try {
-      const res = await api('/api/orders', { method: 'POST', body: JSON.stringify({
-        items,
-        address: {   // the v143 boundary address — Cashfree's One-Click page collects the REAL one
-          name: 'Valued Customer', phone,
-          line: 'Collected on Cashfree (verified address)', city: 'Pending verification',
-          state: 'Pending verification', pincode: '000000', country: 'India',
-        },
-        paymentMethod: 'Online',
-        tcNonce: nonce,
-      }) });
-      window.Shivaa._expressOrder = res;
-      expressRemember(res.id, res.pin || '');
-      window.Shivaa._expressItem = null;
-      try { store.set('shv_ex_item', null); } catch (e) {}
-      sayP('✅ ' + (phone ? '+91 ' + phone + ' verified — opening your Cashfree page…' : 'Opening your Cashfree page…'));
-      await new Promise(r => setTimeout(r, 400));
-      cleanup(true);
-      await Shivaa.payForOrder(res.id, res.pin || '');
-      location.hash = '#/order/' + encodeURIComponent(res.id) + '?cf=pending'
-        + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
-    } catch (e) {
-      placed = false;
-      sayP('⚠ ' + esc((e && e.message) || 'Could not place the order'));
-      const a = altBtn();
-      if (a) { a.textContent = 'Retry now'; a.onclick = () => buy(lastPhone); }
-    }
-  };
-  const al = altBtn(); if (al) al.onclick = () => handoff('');
-
-  const finish = async (phone, name) => {
-    if (done || placed) return;
-    done = true; lastPhone = phone;
-    try { store.set('shv_tc_phone', { phone, name: name || '', at: Date.now() }); } catch (e) {}
-    sayP('✅ ' + (name ? esc(name) + ' · ' : '') + '+91 ' + phone + ' verified — no typing, straight to payment');
-    await buy(phone);   // a failed POST stays recoverable via the pill's Retry — never via a poll-loop hammer
-  };
-  const pollOnce = async () => {
-    if (done) return;
-    if (placed) { cleanup(true); return; }
-    if (String(location.hash || '').indexOf('#/express') === 0) { cleanup(false); return; }  // Express mounted — it owns the same nonce now
-    polls++;
-    let r = null;
-    try { r = await api('/api/auth/truecaller/result?nonce=' + encodeURIComponent(nonce)); } catch (e) {}
-    if (done) return;
-    if (r && r.verified && /^[6-9]\d{9}$/.test(r.phone || '')) {
-      if (document.hidden) { ready = { phone: r.phone, name: r.name || '' }; if (timer) { clearInterval(timer); timer = null; } return; }
-      finish(r.phone, r.name || '');
-      return;
-    }
-    if (r && r.rejected) { handoff(''); return; }
-    if (r && r.failed) {
-      let rf = null;
-      try { rf = await api('/api/auth/truecaller/refetch?nonce=' + encodeURIComponent(nonce)); } catch (e) {}
-      if (rf && rf.verified && /^[6-9]\d{9}$/.test(rf.phone || '')) { sayP('✅ Recovered — the number came through. Opening payment…'); finish(rf.phone, rf.name || ''); return; }
-      handoff('');
-      return;
-    }
-    if (r && r.invoked && polls % 3 === 1) sayP('Truecaller is open — tap <b>Continue</b> on your number; payment opens by itself');
-    if (polls === 55 && !slow) {
-      slow = true; if (timer) clearInterval(timer);
-      timer = setInterval(pollOnce, 3500);
-      sayP('Still waiting on Truecaller — <b>type instead</b> to go now, or keep this open: if Truecaller answers, it buys by itself');
-      return;
-    }
-    if (slow && Date.now() > DEADLINE) { handoff(''); return; }
-  };
-  const arm = () => { if (timer) clearInterval(timer); timer = setInterval(pollOnce, slow ? 3500 : 700); };
-  const wake = () => {
-    if (done || document.hidden) return;
-    if (ready) { const q = ready; ready = null; if (!placed) finish(q.phone, q.name); return; }
-    if (placed) return;
-    if (timer) { if (!slow) polls = 0; pollOnce(); return; }
-    let p2 = null; try { p2 = store.get(PKEY, null); } catch (e) {}
-    if (freshRec(p2) && p2.nonce === nonce && p2.mode === 'instant') { polling = true; arm(); pollOnce(); }
-  };
-  document.addEventListener('visibilitychange', wake);
-  window.addEventListener('focus', wake);
-  window.addEventListener('pageshow', wake);
-  if (!resume) { sayP('Opening Truecaller… tap <b>Continue</b> — the app stays, this page pays'); window.location = tcDeepLink(nonce, cfg.partnerKey); }
-  polling = true; pollOnce(); arm();
-};
-
-/* Cart CTAs carry data-tcinstant and keep their #/express href: the listener
-   below upgrades the tap to the instant path ONLY when the config cache
-   already proved Truecaller+Android are a go. No cache yet → plain Express,
-   never a delay on first paint. */
-document.addEventListener('click', ev => {
-  try {
-    const a = ev.target && ev.target.closest ? ev.target.closest('a[data-tcinstant]') : null;
-    if (!a) return;
-    if (!expressCheckoutOn() || state.user || !tcAndroidNow()) return;
-    if (!window.Shivaa._tcCfgCache) return;               // warm-cache-only upgrade; href stands otherwise
-    if (window.Shivaa._tcInstantBusy) { ev.preventDefault(); return; }
-    ev.preventDefault();
-    window.Shivaa.tcInstant({ kind: 'cart' });
-  } catch (e) {}
-}, false);
-
 window.Shivaa._expressOrder = null;
 /* remember a guest order so its return trip and page poller can find it */
 function expressRemember(orderId, pin) {
@@ -3333,18 +3124,14 @@ function expressRemember(orderId, pin) {
 pages.express = async view => {
   if (!expressCheckoutOn() || state.user) { location.hash = '#/'; return; }
   /* v145 — support BOTH single-item (Buy Now) and multi-item (Cart → Checkout) flows */
-  /* v147 — a Truecaller round-trip may reload the tab mid-purchase; restore
-     the one-shot item ONLY while that round-trip is genuinely in flight (a
-     fresh pending nonce). Any other time, a stored item must never hijack a
-     cart checkout. */
+  /* v152 — restore a stashed one-shot piece while the express intent is still
+     FRESH; a stale stash must never hijack a later cart checkout. */
   if (!window.Shivaa._expressItem) {
     try {
-      const p = store.get('shv_tc_pending', null);
-      if (p && p.nonce && (Date.now() - (p.at || 0)) < 9 * 60 * 1000) {   // v148: matches the patient Truecaller watch
-        const sv = store.get('shv_ex_item', null);
-        if (sv && sv.item && sv.item.id && (Date.now() - (sv.at || 0)) < 10 * 60 * 1000)
-          window.Shivaa._expressItem = sv.item;
-      }
+      const sv = store.get('shv_ex_item', null);
+      if (sv && sv.item && sv.item.id && (Date.now() - (sv.at || 0)) < 10 * 60 * 1000)
+        window.Shivaa._expressItem = sv.item;
+      else if (sv) store.set('shv_ex_item', null);
     } catch (e) {}
   }
   const fromCart = !window.Shivaa._expressItem && state.cart.length > 0;
@@ -3370,7 +3157,9 @@ pages.express = async view => {
     view.innerHTML = `<div class="empty"><h3>One-Tap Buy is being connected</h3><p style="color:var(--muted);max-width:460px;margin:0 auto 14px">The automatic checkout switches on the moment Cashfree and One Click Checkout are live in Admin &rarr; Settings &rarr; Payments. Please use the cart and pay by WhatsApp / UPI QR meanwhile.</p><a class="btn btn-primary" href="#/cart">Go to cart</a></div>`;
     return;
   }
-  const phone = authPhone((state.user && state.user.phone) || '');
+  let expMem = null; try { expMem = store.get('shv_exp_contact', null); } catch (e) {}
+  const expMemPhone = (expMem && /^[6-9]\d{9}$/.test(expMem.phone || '') && (Date.now() - (expMem.at || 0)) < 180 * 864e5) ? expMem.phone : '';
+  const phone = authPhone((state.user && state.user.phone) || '') || expMemPhone;
   const line = cartItems.reduce((a, c) => a + price(c.p).total * (c.qty || 1), 0);
   const ship = line >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   const prepaid = Math.round(line * (((state.settings.prepaidPct) || 2) / 100));
@@ -3381,7 +3170,7 @@ pages.express = async view => {
     <h1>${fromCart ? 'Checkout' : 'One-Tap Buy'} ✦</h1></div></section>
   <div class="container" style="padding:40px 0 90px">
     <div class="center" style="max-width:600px;margin:0 auto 24px">
-      <p style="color:var(--ink-2)"><b>We place the order now.</b> On Android, one tap on <b>Verify with Truecaller</b> finishes everything: your number arrives from Truecaller by itself, the order is placed by itself, and Cashfree opens with your address pre-filled — the only thing you type is your <b>UPI PIN</b> or <b>net-banking password</b>.</p>
+      <p style="color:var(--ink-2)"><b>We place the order now.</b> Your number, once, is enough: <b>Cashfree</b> verifies it with its own 6-digit OTP on its own page, pre-fills your saved address, and the only thing you type there is your <b>UPI PIN</b> or net-banking password. Bought here before? Then this page opens your payment by itself — nothing to type at all.</p>
     </div>
     <div class="rv" style="max-width:480px;margin:0 auto 30px">
       ${cartItems.map(c => `<div class="sum-row"><span>${esc(c.p.name)}${c.size ? ' (' + esc(c.size) + ')' : ''} × ${c.qty || 1}</span><b>${fmt(price(c.p).total * (c.qty || 1))}</b></div>`).join('')}
@@ -3390,8 +3179,7 @@ pages.express = async view => {
       <div class="sum-row total"><span>Total</span><b>${fmt(total)}</b></div>
     </div>
     <div class="center" style="max-width:520px;margin:0 auto">
-      <div id="tcMount" style="margin-bottom:16px"></div>
-      <label class="fld full" style="text-align:left"><span style="font-size:13px;color:var(--ink-2)">Your 10-digit mobile number — the Truecaller button fills it itself; Cashfree uses it to find your saved address</span>
+      <label class="fld full" style="text-align:left"><span style="font-size:13px;color:var(--ink-2)">Your 10-digit mobile number — Cashfree uses it to verify you (its own OTP) and find your saved address. Remembered on this phone: next time, one tap goes straight to payment</span>
       <input id="exPhone" type="tel" inputmode="numeric" maxlength="10" required value="${esc(phone)}" placeholder="98765 43210 (required)"></label>
       <p id="exPhoneErr" style="color:#c0392b;font-size:12.5px;margin:4px 0 0;display:none"></p>
       <p id="exPhoneNote" style="color:#27ae60;font-size:12.5px;margin:4px 0 6px;display:none;text-align:left"></p>
@@ -3403,21 +3191,16 @@ pages.express = async view => {
   const exBtn = $('#exBuy');
   const phoneField = () => $('#exPhone');
   let placed = false;
-  /* v147 · ONE SHARED BUY PATH — the button and the Truecaller auto-continue
-     run the SAME code: validate → place guest order (with the verification
-     nonce when there is one) → open Cashfree. The server re-reads the verified
-     number from its own store, so the auto path is tamper-proof end to end. */
-  const doBuy = async (tcPhone, tcNonce) => {
+  /* v147/v152 · ONE SHARED BUY PATH — the button and the remembered-number
+     auto-buy run the SAME code: validate → place guest order → open Cashfree. */
+  const doBuy = async () => {
     if (placed) return;
     /* v143 — Cashfree Create Order REQUIRES a real 10-digit customer_phone:
-       validated before the browser ever touches the server. On the AUTO path
-       a bad number can only mean a stale verification, so we never nag there
-       — the manual field and button below still stand. */
+       validated before the browser ever touches the server. */
     const f = phoneField();
-    const typedPhone = authPhone(tcPhone || (f && f.value) || '');
+    const typedPhone = authPhone((f && f.value) || '');
     const phoneErr = $('#exPhoneErr');
     if (!/^[6-9]\d{9}$/.test(typedPhone)) {
-      if (tcPhone) return;
       phoneErr.textContent = 'Please enter a valid 10-digit mobile number — Cashfree needs it to start the payment.';
       phoneErr.style.display = 'block';
       if (f) f.focus();
@@ -3433,8 +3216,7 @@ pages.express = async view => {
          Checkout page authenticates the number — the return route sweeps the
          verified address + phone onto the order (cfCheckout) before dispatch.
          Nothing here invents a customer identity: the name is a placeholder
-         that Cashfree replaces with the verified one — and since v147 also
-         Truecaller's, before Cashfree even opens. */
+         that Cashfree replaces with its own verified one on payment. */
       const body = {
         items: cartItems.map(c => ({ id: c.id, qty: c.qty || 1, size: c.size || null, engraving: c.engraving || null })),
         address: {
@@ -3445,12 +3227,12 @@ pages.express = async view => {
         },
         paymentMethod: 'Online',   // guest express is prepaid-only; never COD/WhatsApp
       };
-      /* v147 — with a live verification the server swaps phone + name for
-         Truecaller's own values; nothing typed or tampered survives. */
-      if (tcPhone && tcNonce) body.tcNonce = tcNonce;
       const res = await api('/api/orders', { method: 'POST', body: JSON.stringify(body) });
       window.Shivaa._expressOrder = res;
       expressRemember(res.id, res.pin || '');
+      /* v152 — remember the number on THIS device (localStorage only):
+         every future tap goes direct — that is the zero-typing experience. */
+      try { store.set('shv_exp_contact', { phone: typedPhone, at: Date.now() }); } catch (e) {}
       /* the one-shot Buy Now item is spent the moment the order exists —
          a stale snapshot must never hijack a later cart checkout */
       window.Shivaa._expressItem = null;
@@ -3469,224 +3251,25 @@ pages.express = async view => {
       toast(e.message, 'err');
     }
   };
-  /* v147 — a number Truecaller verified before on THIS phone pre-fills the
-     field for the next purchase (customer's own device, localStorage only —
-     nothing is uploaded). They still tap once, but never type anything. */
-  (function tcRememberPrefill() {
+  /* v152 — THE DIRECT PATH. A number remembered from this device's last
+     purchase (localStorage only — nothing uploaded) arrives pre-filled AND
+     buys by itself one beat later: the shopper's tap therefore goes DIRECTLY
+     to Cashfree — no button press, no typing, no verification vendor.
+     They can still press the button immediately; nothing waits on us. */
+  (function expRemember() {
     const f = phoneField();
-    if (!f) return;
-    let mem = null;
-    try { mem = store.get('shv_tc_phone', null); } catch (e) {}
-    if (mem && /^[6-9]\d{9}$/.test(mem.phone || '')) {
-      f.value = mem.phone;
-      f.style.borderColor = '#27ae60';
-      f.style.background = '#f0fff4';
-      const n = $('#exPhoneNote');
-      if (n) {
-        n.style.display = 'block';
-        n.innerHTML = '✓ +91 ' + mem.phone + (mem.name ? ' · ' + esc(mem.name) : '') + ' remembered from your last Truecaller verification. Tap <b>Make It Yours</b> — or verify again below.';
-      }
+    if (!f || !f.value) return;
+    f.style.borderColor = '#27ae60';
+    f.style.background = '#f0fff4';
+    const n = $('#exPhoneNote');
+    if (n) {
+      n.style.display = 'block';
+      n.innerHTML = '✓ +91 ' + f.value + ' remembered from your last purchase here — opening your payment…';
     }
+    if (!state.user) setTimeout(() => { if (!placed) doBuy(); }, 450);
   })();
   exBtn.onclick = () => doBuy();
 
-  /* ═════════════ v147 · TRUECALLER ONE TAP → STRAIGHT TO CASHFREE ═════════
-     Owner's ask, verbatim: "true caller should automatically take me to the
-     next page of cash free … skip every process and take directly to the
-     pre filled addresses … just buy a one click of truecaller".
-     That is exactly what this block does now. Flow:
-       tap "Verify with Truecaller" → Truecaller app shows the number →
-       tap Continue → Truecaller's servers POST the verified number to
-       /api/auth/truecaller/callback → THIS page (polling by nonce) sees it →
-       fills +91… and fires doBuy() BY ITSELF → Cashfree opens with the
-       address pre-filled. The customer types NOTHING.
-     The nonce lives in localStorage, so even an Android tab reload in the
-     middle of the round-trip re-attaches to the same verification.
-     TYPING IS THE FALLBACK, NEVER THE PLAN: it appears only when Truecaller
-     truly cannot deliver — app not installed, "Not now" tapped, or a host
-     that swallows the callback (the v146 path). No customer can be stuck.
-     Truecaller's web verify is Android-only by design; iPhone/desktop keep
-     the typed field (their documented limitation, unchanged since v144). */
-  (async () => {
-    const mount = $('#tcMount');
-    if (!mount) return;
-    let tcCfg = {};
-    try { tcCfg = (await window.Shivaa._tcCfg()) || {}; } catch (e) {}   // v149 — one cached config read, shared with the instant path
-    if (!tcCfg.enabled || !tcCfg.partnerKey) return;
-    const ua = navigator.userAgent || '';
-    if (!/Android/i.test(ua)) return;
-    const PKEY = 'shv_tc_pending';
-    /* v148 · PATIENCE. v147's wait window was ~40 s — and a customer who
-       approves the sheet, reads the number, taps it and confirms in the app
-       routinely takes longer than that. The consent then landed on OUR SERVER
-       (the owner's test proves it: lastKind=consent, minutes after the tap)
-       while the page had already stopped listening → "nothing happens".
-       The field is now patient: fast 700 ms polling for 40 s, then a slow
-       watch every 3.5 s until ~9 minutes (Truecaller's request expires at 10),
-       and the typed field appears AS AN OPTION mid-wait without stopping the
-       auto-continue. Verified number arriving at minute 8 still buys in one
-       tap exactly like minute 0. */
-    const freshRec = e => !!(e && e.nonce && (Date.now() - (e.at || 0)) < 9 * 60 * 1000);
-    const newNonce = () => 'shv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
-    let pend = null;
-    try { pend = store.get(PKEY, null); } catch (e) {}
-    let nonce = freshRec(pend) ? pend.nonce : newNonce();
-    let sent = freshRec(pend);
-    let done = false, polling = false, polls = 0, timer = null, ready = null, slow = false;
-    const DEADLINE = Date.now() + 9 * 60 * 1000;
-    mount.innerHTML = `
-      <button type="button" id="tcBtn" class="btn btn-gold btn-lg btn-block" style="background:linear-gradient(135deg,#1d72b8,#2196f3);color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" fill="#fff"/></svg>
-        <span id="tcBtnText">✦ Verify with Truecaller — one tap, zero typing</span>
-      </button>
-      <p id="tcStatus" style="color:var(--ink-3);font-size:12px;margin:6px 0 0;text-align:center">${sent ? 'Re-attaching to your Truecaller verification…' : 'Your number, your saved address, your payment page — one tap, nothing typed'}</p>`;
-    const tcBtn = $('#tcBtn'), tcStatus = $('#tcStatus'), tcBtnText = $('#tcBtnText');
-    const say = (html, color) => {
-      if (!tcStatus) return;
-      tcStatus.innerHTML = html;
-      tcStatus.style.color = color || 'var(--ink-3)';
-    };
-    const stop = () => { polling = false; if (timer) { clearInterval(timer); timer = null; } };
-    /* v148 — the interval rate follows the phase: 700 ms while the customer is
-       expected to be back mid-pocket, 3.5 s for the long patient watch. */
-    const arm = () => { if (timer) clearInterval(timer); timer = setInterval(pollOnce, slow ? 3500 : 700); };
-    const typeHint = () => {
-      const f = phoneField();
-      if (f) {
-        f.placeholder = 'The number Truecaller showed you';
-        f.style.borderColor = '#1d72b8';
-        f.style.background = '#f4f9ff';
-      }
-      tcBtn.disabled = false;
-      if (tcBtnText) tcBtnText.textContent = 'Open Truecaller again';
-    };
-    const fallbackTyping = why => {
-      if (done) return;
-      stop();
-      say('Type the <b>10-digit number you just saw in Truecaller</b> and tap Make It Yours — Cashfree will still pre-fill your address. <span style="opacity:.75">(' + why + '.)</span>', '#7a1f2b');
-      typeHint();
-    };
-    const finish = async (phone, name) => {
-      if (done || placed) return;
-      done = true;
-      stop();
-      try { store.set(PKEY, null); } catch (e) {}
-      const f = phoneField();
-      if (f) {
-        f.value = phone;
-        f.style.borderColor = '#27ae60';
-        f.style.background = '#f0fff4';
-      }
-      try { store.set('shv_tc_phone', { phone, name: name || '', at: Date.now() }); } catch (e) {}
-      tcBtn.disabled = true;
-      if (tcBtnText) tcBtnText.textContent = '✓ Verified by Truecaller';
-      tcBtn.style.background = '#27ae60';
-      say('✅ ' + (name ? esc(name) + ' · ' : '') + '+91 ' + phone + ' verified — opening your Cashfree page with the address pre-filled…', '#27ae60');
-      await new Promise(r => setTimeout(r, 500));   // let the tick be seen
-      await doBuy(phone, nonce);                    // ← THE ONE TAP: no other input
-    };
-    const pollOnce = async () => {
-      if (done) return;
-      if (placed) { stop(); return; }                                  // Make It Yours already fired — nothing to hand to
-      /* v148 — the customer walked to another page mid-wait: stop this mount's
-         watch quietly. The nonce stays pending server-side; coming back to
-         One-Tap Buy re-attaches and finishes what Truecaller confirmed. */
-      if (String(location.hash || '').indexOf('#/express') !== 0) { stop(); return; }
-      polls++;
-      let r = null;
-      try { r = await api('/api/auth/truecaller/result?nonce=' + encodeURIComponent(nonce)); } catch (e) {}
-      if (done || placed) return;
-      if (r && r.verified && /^[6-9]\d{9}$/.test(r.phone || '')) {
-        /* If the tab is still BEHIND the Truecaller app, don't navigate a
-           hidden page away — hold the number and fire the instant it's back. */
-        if (document.hidden) { ready = { phone: r.phone, name: r.name || '' }; stop(); return; }
-        finish(r.phone, r.name || '');
-        return;
-      }
-      if (r && r.rejected) { fallbackTyping('You chose “Not now” in Truecaller'); return; }
-      if (r && r.failed) {
-        /* v148 — Truecaller confirmed, but OUR read of the number broke (a
-           refused profile endpoint, a dead upstream). Say so and reset to a
-           FRESH request instead of letting the customer stare at a spinner.
-           v149 — first let the SERVER retry its own read with the same token
-           (the callback stored tk/ep on the failed entry for exactly this);
-           a transient hiccup then never costs the customer a re-tap. */
-        stop();
-        let rf = null;
-        try { rf = await api('/api/auth/truecaller/refetch?nonce=' + encodeURIComponent(nonce)); } catch (e) {}
-        if (rf && rf.verified && /^[6-9]\d{9}$/.test(rf.phone || '')) {
-          say('✅ Truecaller confirmed — our second read of the number came through. Opening your payment…', '#27ae60');
-          await finish(rf.phone, rf.name || '');
-          return;
-        }
-        nonce = newNonce(); sent = false; slow = false;
-        try { store.set(PKEY, null); } catch (e) {}
-        typeHint();
-        if (tcBtnText) tcBtnText.textContent = 'Try Truecaller again';
-        say('Truecaller confirmed you, but reading the number hiccuped — tap <b>Try again</b>; it stays one tap with zero typing', '#7a1f2b');
-        return;
-      }
-      if (r && r.invoked && polls % 3 === 1) say('Truecaller is open — tap <b>Continue</b> on your number; this page does the rest', '#1d72b8');
-      if (polls === 55 && !slow) {
-        /* v148 — THE FIX for “nothing happens”. Do NOT stop listening: offer
-           typing, keep a slow watch. A number that arrives at minute 8 still
-           completes the one tap. */
-        slow = true; arm();
-        typeHint();
-        say('Still waiting on Truecaller — <b>type your number and tap Make It Yours</b> to go now, or keep this page open: if Truecaller answers, it continues by itself', '#7a1f2b');
-        return;
-      }
-      if (slow && Date.now() > DEADLINE) { fallbackTyping('Truecaller did not report back to us'); return; }
-    };
-    const start = () => {
-      if (polling || done) return;
-      polling = true;
-      polls = 0;
-      pollOnce();
-      arm();
-    };
-    const wake = () => {
-      if (done || document.hidden) return;
-      if (ready) { const q = ready; ready = null; if (!placed) finish(q.phone, q.name); return; }
-      if (!sent || placed) return;
-      if (polling) { if (!slow) polls = 0; pollOnce(); return; }   // the callback usually lands the moment the app hands back
-      /* v148 — came back after a silent stretch (interval throttled away,
-         or a reload): re-arm while the pending nonce is still fresh. */
-      let p2 = null;
-      try { p2 = store.get(PKEY, null); } catch (e) {}
-      if (freshRec(p2) && p2.nonce === nonce) start();
-    };
-    document.addEventListener('visibilitychange', wake);
-    window.addEventListener('focus', wake);
-    window.addEventListener('pageshow', wake);
-    if (sent) {
-      tcBtn.disabled = true;
-      if (tcBtnText) tcBtnText.textContent = 'Verified on Truecaller — wait one moment…';
-      start();
-    }
-    tcBtn.onclick = () => {
-      if (done || placed) return;
-      sent = true;
-      slow = false;                                   // v148 — a fresh tap earns the fast window again
-      try { store.set(PKEY, { nonce, at: Date.now() }); } catch (e) {}
-      tcBtn.disabled = true;
-      if (tcBtnText) tcBtnText.textContent = 'Confirm in the Truecaller app…';
-      say('Opening Truecaller… tap <b>Continue</b> on your number — then just wait: this page opens your Cashfree payment by itself', '#1d72b8');
-      window.__shvTcNonce = nonce;
-      const deepLink = tcDeepLink(nonce, tcCfg.partnerKey);   // v149 — same builder the instant tap uses (defined above; single source)
-      start();
-      window.location = deepLink;
-      /* Truecaller's own documented presence check: if this tab never lost
-         focus, the app is not on this phone — go straight to the typed field
-         instead of waiting 40 silent seconds. */
-      setTimeout(() => {
-        if (done || placed) return;
-        if (document.hidden || !document.hasFocus()) return;   // app took the screen
-        fallbackTyping('Truecaller app not found on this phone');
-        stop();
-      }, 900);
-    };
-  })();
 };
 /* v103 — data-saver for the 65 product films (142 MB of media). Films
    autoload only on fast/uncapped connections; on 2G/3G/save-data they stay
@@ -4046,7 +3629,7 @@ pages.cart = async (view) => {
       <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
       <div class="sum-row" style="color:var(--ok);font-size:13px"><span>✦ Pay online &amp; save</span><b>− ${fmt(Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100))}</b></div>
       <div style="margin:16px 0 6px" class="label" id="ptLbl">Loyalty & offers applied at checkout →</div>
-      <a class="btn btn-primary btn-block btn-lg" data-tcinstant="1" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
+      <a class="btn btn-primary btn-block btn-lg" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
       <a class="btn btn-outline btn-block btn-sm mt-2" href="#/quote">📄 Get shareable quotation (48 h rate hold)</a>
       <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.waOpenCart()">Order via WhatsApp chat <span class="mini-wa">${WA_SVG}</span></button>
       <a class="btn btn-ghost btn-block btn-sm mt-2" href="#/shop">Continue shopping</a>
@@ -4054,7 +3637,7 @@ pages.cart = async (view) => {
   </div>
   <div class="mcta-bar" aria-hidden="false">
     <div class="mcta-total"><small>${cartCount()} item${cartCount() > 1 ? 's' : ''} · total</small><b>${fmt(subtotal + shipping)}</b></div>
-    <a class="btn btn-gold" data-tcinstant="1" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
+    <a class="btn btn-gold" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
   </div>`;
   window.Shivaa.bindDelivery(view);   // v103 — remembered pincode answers immediately
 };
@@ -4147,7 +3730,7 @@ function miniCartHTML() {
       <div class="sum-row"><span>Subtotal · ${count} item${count > 1 ? 's' : ''} (incl. GST)</span><b id="mcSub">${fmt(subtotal)}</b></div>
       <div class="sum-row"><span>Insured shipping</span>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</div>
       <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
-      <a class="btn btn-gold btn-block btn-lg" data-tcinstant="1" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}" data-mc-close>Checkout ✦</a>
+      <a class="btn btn-gold btn-block btn-lg" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}" data-mc-close>Checkout ✦</a>
       <div class="mc-foot-alt">
         <a href="#/cart" data-mc-close>View full bag</a>
         <button type="button" data-mc-close>Continue shopping</button>
@@ -8684,7 +8267,7 @@ function loadStaffBundle() {
          owner's browser kept the pre-v139 admin.js and never saw the switch.
          The stamp must move with every release that changes admin.js, exactly
          like index.html's script tags. */
-      .then(() => injectScript('/js/admin.js?v=147'))
+      .then(() => injectScript('/js/admin.js?v=' + APP_REL))   // v152 — the stamp now FOLLOWS APP_REL; a release that touches admin.js can never desync it again (the v141 bug class, closed at the root)
       .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
   }
   return _staffBundle;
@@ -9338,19 +8921,6 @@ async function boot(isRedraw) {
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
   initMiniCart();   // v91 slide-in bag
   route();
-  /* v149 — warm the Truecaller config cache so the FIRST cart/buy tap can decide
-     the instant path synchronously, and RESUME an instant tap whose round-trip
-     was cut short by Android reclaiming the tab: the pending marker (nonce +
-     intent) is 9 minutes fresh, exactly like the Express page's own re-attach. */
-  Promise.resolve().then(async () => {
-    const c = await window.Shivaa._tcCfg();
-    if (!c || state.user || !expressCheckoutOn() || !tcAndroidNow()) return;
-    let p = null; try { p = store.get('shv_tc_pending', null); } catch (e) {}
-    if (p && p.mode === 'instant' && p.nonce && (Date.now() - (p.at || 0)) < 9 * 60 * 1000
-        && String(location.hash || '').indexOf('#/express') !== 0) {
-      window.Shivaa.tcInstant({ resume: true });
-    }
-  });
   // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours
   scheduleRatesPoll();
   setInterval(() => {

@@ -821,23 +821,6 @@ async function renderAdmin(view, q) {
             </div>
           </fieldset>
 
-          <fieldset style="border:1px solid rgba(212,175,55,0.2);border-radius:10px;padding:14px 16px;margin:12px 0">
-            <legend style="font-weight:600;color:var(--gold);padding:0 8px">📱 Truecaller One-Tap Verification</legend>
-            <div class="fld full">
-              <label>Truecaller Partner Key <small>(from <a href="https://verification-sdk-console.truecaller.com" target="_blank" style="color:var(--gold)">Truecaller Developer Console</a>)</small></label>
-              <input name="tcAppKey" value="${esc(S.tcAppKey || '')}" placeholder="Paste your Truecaller Partner Key here">
-              <small style="color:var(--ink-3)">v147 — now truly ONE TAP on Android: the customer taps “Verify with Truecaller”, taps Continue in the app, and the site receives the number from Truecaller&rsquo;s own servers, fills it, places the order and opens Cashfree with the address pre-filled — nothing is typed. Manual entry survives only as the fallback (iPhone/desktop, no app installed, or Truecaller&rsquo;s servers not reaching this site). Use the check below if a customer reports “it asks me to type”.</small>
-            </div>
-            <div class="fld full" style="margin-top:10px">
-              <label>Callback URL — this EXACT address must be saved in the Truecaller console (App &rarr; Callback URL)</label>
-              <code id="tcCbUrl" style="display:block;background:rgba(0,0,0,.25);padding:8px 10px;border-radius:8px;font-size:12.5px;word-break:break-all">${esc((location.origin || 'https://www.shivaa.in') + '/api/auth/truecaller/callback')}</code>
-              <small style="color:var(--ink-3)">If the console has no/another URL here, the verified number never arrives — the customer is asked to type it. One wrong character in the console looks exactly like a “broken button” on the phone.</small>
-            </div>
-            <div class="fld full" style="margin-top:8px">
-              <button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.tcCheck()">🔌 Check Truecaller connection</button>
-              <div id="tcLive" style="font-size:12.5px;color:var(--ink-2);margin-top:8px;display:flex;flex-direction:column;gap:4px"></div>
-            </div>
-          </fieldset>
 
           <div class="fld"><label>Counter UPI ID <small>(QR fallback — works without any gateway)</small></label><input name="upiId" value="${esc(S.upiId || '')}" placeholder="yourshop@okhdfcbank"></div>
           <div class="fld"><label>UPI payee name</label><input name="upiName" value="${esc(S.upiName || 'Shivaa Jewellers')}"></div>
@@ -1708,8 +1691,9 @@ window.ShivaaAdmin.savePay = async e => {
                  cfOccAddress: !!document.querySelector('[name="cfOccAddress"]')?.checked,
                  cfOccAuth: !!document.querySelector('[name="cfOccAuth"]')?.checked,
                  // v142 — automatic guest checkout (One-Tap Buy)
-                 guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked,
-                 tcAppKey: document.querySelector('[name="tcAppKey"]')?.value?.trim() || '' };
+                 guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked };
+  /* v152 — the partner-key field is GONE from the save body: the settings PUT
+     no longer accepts it, and any stale DB value has no reader left (route deleted). */
   // secret key is write-only: only sent when retyped (server strips it from GETs)
   if (g('cfSecretKey')) body.cfSecretKey = g('cfSecretKey').trim();
   try {
@@ -1730,35 +1714,6 @@ window.ShivaaAdmin.wirePayUrls = (base) => {
   if (r) r.textContent = b + '/api/pay/cashfree/return';
   const w = document.getElementById('cfWebhookUrl');
   if (w) w.textContent = b + '/api/pay/cashfree/webhook';
-  /* v147 — the Truecaller console needs the same base, on a different route */
-  const t = document.getElementById('tcCbUrl');
-  if (t) t.textContent = b + '/api/auth/truecaller/callback';
-};
-/* v147 — Truecaller connection doctor. Every "the button makes them TYPE the
-   number" report is one of exactly four causes, and this tells them apart
-   using the server's own trail (config route): no key · key set but the
-   console never POSTed (wrong/missing Callback URL, or a host that drops
-   inbound POSTs) · data dir not writable (the number arrives but cannot be
-   stored) · all good (recent consent callbacks). */
-window.ShivaaAdmin.tcCheck = async () => {
-  const box = document.getElementById('tcLive');
-  if (!box) return;
-  box.textContent = 'Checking…';
-  let r = null;
-  try { r = await api('/api/auth/truecaller/config'); } catch (e) { box.textContent = 'Could not reach the API — ' + ((e && e.message) || e); return; }
-  const line = (txt) => { const d = document.createElement('div'); d.textContent = txt; box.appendChild(d); };
-  box.innerHTML = '';
-  line(r.enabled ? '✅ Partner key: saved' : '🔴 Partner key: EMPTY — paste it above and press Save payments.');
-  line(r.dataWritable ? '✅ The server can store verified numbers (cms/data/tc-verify is writable).'
-    : '🔴 cms/data is NOT writable — a verified number would arrive and vanish. Ask Hostinger support (or hPanel → File Manager) to set cms/data to 755/775.');
-  if (r.lastCallbackAt) {
-    const mins = Math.max(0, Math.round(Date.now() / 1000 / 60 - r.lastCallbackAt / 60));
-    const kind = ({ invoked: 'a handshake (Truecaller saw the deep link)', consent: 'a verified number', rejected: 'a declined verification', bad: 'a malformed request' })[r.lastKind] || 'a request';
-    line('✅ Truecaller has reached this site before — last callback ' + (mins < 60 ? mins + ' min ago' : 'about ' + Math.round(mins / 60) + ' h ago') + ' (' + kind + ').');
-    if (r.lastKind !== 'consent') line('ℹ️ If the last kind was never "a verified number", open One-Tap Buy on an Android phone, tap Verify, and press Continue in the Truecaller app — then re-check here.');
-  } else {
-    line('🔴 Truecaller has NEVER posted to this site. Almost always the console: open verification-sdk-console.truecaller.com → your App → Callback URL, and paste exactly the address shown above (must be reachable: https, no /api duplication). If it is already exact and this stays red after a real test tap, the host is dropping Truecaller\u2019s inbound POST — ask Hostinger to allow POSTs to /api/auth/truecaller/callback.');
-  }
 };
 window.ShivaaAdmin.testPay = async (provider) => {
   const out = document.getElementById('cfTestOut');

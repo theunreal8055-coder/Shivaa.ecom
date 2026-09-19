@@ -9,6 +9,19 @@
    Run: node tools/mega/smoke/v151-check.js
         SMOKE_CMS=<dir> node tools/mega/smoke/v151-check.js   (zip overlay)
    ═══════════════════════════════════════════════════════════════════════ */
+/* v152 · retired-feature guard — the phone-verify vendor was REMOVED by owner
+   decision 19 Sep (Express to Cashfree direct is the flow). This suite documents
+   the v143–v151 era: it SKIPs (exit 0) on trees without the feature and still
+   fully RUNS on any older tree/overlay (SHIVAA_ROOT / SMOKE_CMS). */
+{
+  const _fs = require('fs'), _pt = require('path');
+  const _root = process.env.SHIVAA_ROOT || _pt.resolve(__dirname, '../../..');
+  const _cms = process.env.SMOKE_CMS || _pt.join(_root, 'cms');
+  let _api = '';
+  try { _api = _fs.readFileSync(_pt.join(_cms, 'api.php'), 'utf8'); } catch (e) {}
+  if (!/auth\/truecaller\/callback/.test(_api)) { console.log('SKIP — v152: verification vendor not in this tree'); process.exit(0); }
+}
+
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '../../..');
