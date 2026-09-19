@@ -1,9 +1,34 @@
-# AGENT HANDOFF — read this first, every new chat (updated 19 Sep 2026 — **v146** cart-checkout crash + Truecaller rebuilt. Live was v144. Zip `shivaa-update-v146.zip` md5 `a78fbe885808a4e8cdc9a66210a50674`, 5 files. Previous 18 Sep 2026 — ✅ v142 AUTOMATIC GUEST CHECKOUT **MERGED TO `main` AS PR #71** on the owner's instruction. "Make It Yours" is now a one-tap purchase: order placed instantly, Cashfree auto-verifies name/number/address + saved payment method, the customer types only their UPI PIN / net-banking password. Ships **OFF by default** — switch at Admin → Settings → Payments → "⚡ Automatic Guest Checkout (One-Tap Buy)". Deliverable `shivaa-update-v142.zip`, md5 `87f56fb46b63af6a4b793ca95abad6a9`, 6 files. **⚠ A live Cashfree sandbox ₹1 order is STILL OWED.** Previous: ✅ v139 SHOP-EXPERIENCE PASS MERGED as PR #70 (five owner reports; whether it auto-deployed is unconfirmed — `gh secret list` 403, ask the owner). Previous: ✅ PAYMENT CORRECTNESS PASS MERGED to `main` as PR #69: v135 → v138.)
+# AGENT HANDOFF — read this first, every new chat (updated 19 Sep 2026 — **v147 TRUECALLER ONE TAP → CASHFREE (zero typing)** — built + fully green in git, UNDEPLOYED; zip `shivaa-update-v147.zip` md5 `5e8e5af76d31aac5bcea7eed761aad4c`, 5 files; the ONE owner step that makes it work is setting the Callback URL at developer.truecaller.com to `https://www.shivaa.in/api/auth/truecaller/callback`. **PHP EXECUTION GATE NOW EXISTS** — `@php-wasm/node` runs real api.php in-sandbox; "no PHP binary" is obsolete. Previous 19 Sep 2026 — **v146** cart-checkout crash + Truecaller rebuilt (LIVE). Live was v144. Zip `shivaa-update-v146.zip` md5 `a78fbe885808a4e8cdc9a66210a50674`, 5 files. Previous 18 Sep 2026 — ✅ v142 AUTOMATIC GUEST CHECKOUT **MERGED TO `main` AS PR #71** on the owner's instruction. "Make It Yours" is now a one-tap purchase: order placed instantly, Cashfree auto-verifies name/number/address + saved payment method, the customer types only their UPI PIN / net-banking password. Ships **OFF by default** — switch at Admin → Settings → Payments → "⚡ Automatic Guest Checkout (One-Tap Buy)". Deliverable `shivaa-update-v142.zip`, md5 `87f56fb46b63af6a4b793ca95abad6a9`, 6 files. **⚠ A live Cashfree sandbox ₹1 order is STILL OWED.** Previous: ✅ v139 SHOP-EXPERIENCE PASS MERGED as PR #70 (five owner reports; whether it auto-deployed is unconfirmed — `gh secret list` 403, ask the owner). Previous: ✅ PAYMENT CORRECTNESS PASS MERGED to `main` as PR #69: v135 → v138.)
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
+
+## ✅ NEWEST — v147 TRUECALLER ONE TAP → STRAIGHT TO CASHFREE (19 Sep 2026, branch `arena/01a0b86b-shivaa-ecom`, tip `3e8d8b9`, **UNDEPLOYED — waiting for the owner**)
+
+**Owner ask, verbatim:** *"now the only issue is after Verify with Truecaller and Continue in the Truecaller app it is still asking the customer to type the 10 digit number … automatically truecaller take the customer to the cashfree page with prefill address in one click of Truecaller."*
+
+**How it works after v147:** tap *Continue in the Truecaller app* → approve in the app → back in the browser the phone field **fills itself** (Truecaller's servers POST the verified number to our callback) and the order + Cashfree checkout **open by themselves**, address pre-filled. **Zero typing.** Typing survives only as fallback (no app installed / "Not now" / a host that swallows the POST).
+
+| Piece | Where |
+|---|---|
+| Callback honours all 3 Truecaller messages (`flow_invoked` / consent / `user_rejected`); answers 2xx BEFORE the profile fetch; atomic per-nonce store + diagnostics | `cms/api.php` (`shv_tc_entry_*`, `auth/truecaller/callback`) |
+| Verified phone **overrides** typed phone server-side; order tagged `truecaller:verified`; SSRF allowlist on the profile endpoint | `cms/api.php` (`POST /api/orders` tcNonce block) |
+| One shared `doBuy()`; auto-wait poll + auto-fire; nonce/item survive tab-reload (localStorage); per-device phone memory | `cms/js/app.js` (`pages.express` + Truecaller widget) |
+| Callback URL printed for the console + "Check Truecaller connection" doctor (`dataWritable`, `lastCallbackAt/lastKind`) | `cms/js/admin.js` (Payments → Truecaller) |
+| Stamps 147/147/147 in lockstep; sw.js deliberately in the zip (same-version pair); v116.js stays `?v=142` | `cms/index.html`, `cms/sw.js`, `cms/js/app.js` |
+
+**QA — the big one:** `@php-wasm/node` now **EXECUTES the real api.php** in this sandbox (`tools/mega/smoke/v147-php-run.js`, 16/16 — it was never just parsed before; the old "no PHP binary" wall was a usage bug: set `emscriptenOptions.processId` when creating the PHP instance). Plus `v147-tc-autobuy.js` (14/14): a jsdom boot of the real storefront shell proving one tap → order placed with NOTHING typed → Cashfree hand-off, with a named regression control. All historical suites green on source AND on the **zip overlay**.
+
+**Deploy:** `DEPLOY-v147.md`. Step 0 backup, 5 files into `public_html` ROOT, then **set the Truecaller console Callback URL** — without it the number never arrives and the page falls back to typing (today's behaviour). After deploy: phone test + admin doctor check. Rollback: restore v146 backups (`shivaa-update-v146.zip`).
+
+**Things the next agent must not get wrong**
+- **The Callback URL lives in Truecaller's console, not in our code.** Admin → Payments prints the exact string; developer.truecaller.com must match it.
+- `lastCallbackAt` empty after a live tap = Truecaller's POST never reached the host (server-side block) — typed fallback still works; this is diagnostic, not a code bug.
+- First-time numbers may still quick-verify **on Cashfree's own page** — Cashfree's rule, never promise around it.
+- Desktop = web-popup flow = no push-back by design; typed entry stays there.
+- `cms/data/tc-verify/` must stay writable (admin doctor shows `dataWritable`); callback route is lockless — **never add db_save() there**.
 
 ## ✅ NEWEST — v142 AUTOMATIC GUEST CHECKOUT (18 Sep 2026, branch `arena/01a0b3ff-shivaa-ecom`, **MERGED TO `main` AS PR #71** on the owner's instruction "update memory doc handoff and agent doc and merge the PR". Ships v140 → v141 → v142.)
 
@@ -480,6 +505,15 @@ dies on sandbox restarts**); open a PR `arena/… → main` and merge at milesto
   ln -sf $(python3 -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())") /home/user/tools/bin/ffmpeg`
 - apt is BROKEN (egress); RAR5 via npm `node-unrar-js`; shivaa.in UNREACHABLE
   from sandbox (uploads happen on the server, never from here).
+- **PHP CAN run in the sandbox since v147** (replaces the old "no PHP binary"
+  law everywhere): `cd tools/mega/smoke && npm i @php-wasm/node@3.1.54
+  jsdom@30` (node_modules never survives a restart — reinstall, npm works).
+  `new PHP(await loadNodeRuntime('8.3',{emscriptenOptions:{processId:1}}))`;
+  result has `bytes` (NOT stdoutText in v3); `php.mkdirTree()` before
+  writeFile; unregister the `php://` stream wrapper to fake `php_sapi_name()`.
+  Pattern: `tools/mega/smoke/v147-php-run.js`. jsdom: `resources:'usable'`
+  does NOT use a custom fetch — serve the shell over a localhost HTTP server
+  (pattern: `tools/mega/smoke/v147-tc-autobuy.js`).
 - `generate_image` paths are repo-root-relative.
 - ffmpeg-7 quirks already patched in `04_render_video.py` (no drawtext →
   blend-screen watermark; `[0:v]` pad labels).
