@@ -51,7 +51,7 @@ ok('the staff bundle stamp (admin.js) moves with it to v142+ (the v141 fix must 
   'app.js must load /js/admin.js?v=142+, never v128');
 
 ok('the owner-facing switch exists in the admin payments panel',
-  /name="guestCheckout"/.test(admin) && /Automatic Guest Checkout \((One-Tap Buy|tap → Cashfree, no pages)\)/.test(admin),   // v153 relabelled the same switch
+  /name="guestCheckout"/.test(admin) && /Automatic Guest Checkout \((One-Tap Buy|tap (&rarr;|→) Cashfree, no pages)\)/.test(admin),   // v153 relabelled the same switch
   'admin.js must render the guestCheckout toggle');
 
 ok('admin saves the switch as a strict boolean',
