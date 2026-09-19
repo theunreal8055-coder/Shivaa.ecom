@@ -24,6 +24,9 @@ const ROOT = path.resolve(__dirname, '../../..');
 const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 
 const results = [];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 const ok = (name, pass, detail = '') => { results.push(!!pass); console.log(`${pass ? '  PASS  ' : '  FAIL  '}${name}${!pass && detail ? '\n          ' + detail : ''}`); };
 
 const shell = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8');
@@ -35,7 +38,7 @@ const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
 console.log('\n· A · the automatic guest checkout exists');
 
 ok('release triple moves together to 142 or newer (index.html · app.js · sw.js)',
-  /window\.__SHIVAA_REL=14[2-9];/.test(shell) && /APP_REL\s*=\s*14[2-9]/.test(app) && /SHELL = 'shivaa-shell-v14[2-9]'/.test(sw),
+  st(shell, /window\.__SHIVAA_REL=(\d+);/) >= 142 && st(app, /APP_REL\s*=\s*(\d+)/) >= 142 && st(sw, /SHELL = 'shivaa-shell-v(\d+)'/) >= 142,
   'index.html/app.js/sw.js stamps must all read 142+');
 
 ok('the moved set is consistent — v116.js and v117.js ride 142 in shell + worker (house rule: bump every ?v= together)',

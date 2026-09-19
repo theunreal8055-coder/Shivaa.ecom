@@ -31,6 +31,9 @@ const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
 
 const results = [];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 const ok = (name, pass, detail = '') => {
   results.push(!!pass);
   console.log(`${pass ? '  PASS  ' : '  FAIL  '}${name}${!pass && detail ? '\n          ' + detail : ''}`);
@@ -146,8 +149,8 @@ function boot({ user = null, token = null, startHash = '', innerWidth = 420 } = 
 
   ok('every changed file carries its new cache stamp (?v=140 / app.js 140+141) in index.html',
     /\/css\/v116\.css\?v=140/.test(shell) && /\/css\/v119\.css\?v=140/.test(shell) && /\/css\/v120\.css\?v=140/.test(shell) &&
-    /\/js\/app\.js\?v=(14\d)/.test(shell) && /\/js\/v107\.js\?v=140/.test(shell) && /\/js\/v116\.js\?v=(14\d)/.test(shell) &&
-    /\/js\/v117\.js\?v=(14\d)/.test(shell) && /\/js\/v119\.js\?v=140/.test(shell) && /\/js\/v120\.js\?v=140/.test(shell),
+    st(shell, /\/js\/app\.js\?v=(\d+)/) >= 140 && /\/js\/v107\.js\?v=140/.test(shell) && st(shell, /\/js\/v116\.js\?v=(\d+)/) >= 140 &&
+    st(shell, /\/js\/v117\.js\?v=(\d+)/) >= 140 && /\/js\/v119\.js\?v=140/.test(shell) && /\/js\/v120\.js\?v=140/.test(shell),
     'a changed stamped file must move its ?v= (immutable cache, one year)');
 
   ok('the new v140 layer ships, is loaded LAST, and the worker precaches it',

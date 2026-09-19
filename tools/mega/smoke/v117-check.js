@@ -24,6 +24,9 @@ const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
 
 const results = [];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 const ok = (name, cond, detail = '') => {
   results.push({ name, pass: !!cond, detail });
   console.log((cond ? '  PASS  ' : '  FAIL  ') + name + (detail && !cond ? '\n          ' + detail : ''));
@@ -63,7 +66,7 @@ const until = async (fn, ms = 8000, step = 60) => {
   console.log('\nSHIVAA v117 "butter" check\n');
   console.log('· static gates');
   ok('release handshake remains at v117 or newer on both sides',
-    /__SHIVAA_REL\s*=\s*(11[7-9]|12\d|13\d|14\d)/.test(html) && /APP_REL\s*=\s*(11[7-9]|12\d|13\d|14\d)/.test(appJs));
+    st(html, /__SHIVAA_REL\s*=\s*(\d+)/) >= 117 && st(appJs, /APP_REL\s*=\s*(\d+)/) >= 117);
 
   ok('fonts.css is file-based (no base64 payload)',
     !/base64,/.test(fontsCss) && /url\('\/fonts\//.test(fontsCss));
@@ -97,7 +100,7 @@ const until = async (fn, ms = 8000, step = 60) => {
     v117Js.indexOf('aurum.js') > 0 && v117Js.indexOf('aurum.js') < v117Js.indexOf('motion.js') &&
     v117Js.indexOf('motion.js') < v117Js.indexOf('boost.js'));
 
-  ok('sw.js shell remains at v117 or newer', /SHELL = 'shivaa-shell-v(11[7-9]|12\d|13\d|14\d)'/.test(swJs));
+  ok('sw.js shell remains at v117 or newer', st(swJs, /SHELL = 'shivaa-shell-v(\d+)/) >= 117);
   const swFilesBlock = (swJs.match(/const SHELL_FILES = \[([\s\S]*?)\];/) || [null, ''])[1];
   const swList = [...swFilesBlock.matchAll(/'([^']*)'/g)].map(m => m[1]);
   /* the post-paint trio is stamped by v117.js, not index.html — read it from

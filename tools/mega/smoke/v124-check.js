@@ -20,6 +20,9 @@ const ROOT = path.resolve(__dirname, '../../..');
 const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
 const results = [];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 function ok(name, pass, detail = '') { results.push(!!pass); console.log(`${pass ? '  PASS  ' : '  FAIL  '}${name}${!pass && detail ? '\n          ' + detail : ''}`); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - t < ms) { try { if (fn()) return true; } catch (_) {} await sleep(50); } return false; }
@@ -98,8 +101,8 @@ function bootStore(extra = '') {
     stale.length === 0, 'still carries 123: ' + stale.join(', '));
 
   ok("shell loads app.js + v116.js at v124 and the worker precaches both",
-    /\/js\/app\.js\?v=(12[4-9]|13\d|14\d)/.test(html) && /\/js\/v116\.js\?v=(12[4-9]|13\d|14\d)/.test(html) &&
-    /'\/js\/app\.js\?v=(12[4-9]|13\d|14\d)'/.test(sw) && /'\/js\/v116\.js\?v=(12[4-9]|13\d|14\d)'/.test(sw));
+    st(html, /\/js\/app\.js\?v=(\d+)/) >= 124 && st(html, /\/js\/v116\.js\?v=(\d+)/) >= 124 &&
+    st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 124 && st(sw, /'\/js\/v116\.js\?v=(\d+)'/) >= 124);
   ok('all six category render sites + the &v= branch carry ?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)',
     /catBarItems\(\)\.map/.test(app) && /'&v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)' : '\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)'/.test(app) &&
     /cat-mini-card"><img src="\$\{c\.img\}\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(app) &&

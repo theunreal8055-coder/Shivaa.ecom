@@ -13,6 +13,9 @@ const ROOT = path.resolve(__dirname, '../../..');
 const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
 const results = [];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 function ok(name, pass, detail = '') { results.push(!!pass); console.log(`${pass ? '  PASS  ' : '  FAIL  '}${name}${!pass && detail ? '\n          ' + detail : ''}`); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - t < ms) { try { if (fn()) return true; } catch (_) {} await sleep(50); } return false; }
@@ -72,11 +75,11 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
 
   console.log('\nSHIVAA v119 check\n\n· A · static gates');
   ok('release handshake is 119 on both sides',
-    /__SHIVAA_REL\s*=\s*(119|12\d|13\d|14\d)/.test(html) && /APP_REL\s*=\s*(119|12\d|13\d|14\d)/.test(app));
+    st(html, /__SHIVAA_REL\s*=\s*(\d+)/) >= 119 && st(app, /APP_REL\s*=\s*(\d+)/) >= 119);
   ok('the shell loads the v119 layer (css + js)',
     /\/css\/v119\.css\?v=(119|140)/.test(html) && /\/js\/v119\.js\?v=(119|140)/.test(html));
   ok('service-worker shell is v119 and precaches the whole v119 layer',
-    /SHELL = 'shivaa-shell-v(119|12\d|13\d|14\d)'/.test(sw) && /'\/css\/v119\.css\?v=(119|140)'/.test(sw) && /'\/js\/v119\.js\?v=(119|140)'/.test(sw) && /'\/js\/app\.js\?v=(119|12\d|13\d|14\d)'/.test(sw));
+    st(sw, /SHELL = 'shivaa-shell-v(\d+)/) >= 119 && /'\/css\/v119\.css\?v=(119|140)'/.test(sw) && /'\/js\/v119\.js\?v=(119|140)'/.test(sw) && st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 119);
   ok('index.html ships a first-paint skeleton that v119.css retires',
     /<main id="view"><div class="shv-skeleton"/.test(html) && /body\.shv-ready \.shv-skeleton/.test(v119css));
   const heroPreload = /<link rel="preload" as="image" ([^>]*?)fetchpriority="high">/.exec(html);

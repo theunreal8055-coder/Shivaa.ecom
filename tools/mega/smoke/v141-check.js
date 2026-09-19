@@ -28,6 +28,9 @@ const ROOT = path.resolve(__dirname, '../../..');
 const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 
 const results = [];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 const ok = (name, pass, detail = '') => { results.push(!!pass); console.log(`${pass ? '  PASS  ' : '  FAIL  '}${name}${!pass && detail ? '\n          ' + detail : ''}`); };
 
 const shell = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8');
@@ -38,14 +41,14 @@ const admin = fs.readFileSync(path.join(CMS, 'js/admin.js'), 'utf8');
 console.log('\n· A · static');
 
 ok('the release triple moves together to 141 (index.html · app.js · sw.js)',
-  /window\.__SHIVAA_REL=14[1-9];/.test(shell) && /APP_REL\s*=\s*14[1-9]/.test(app) && /SHELL = 'shivaa-shell-v14[1-9]'/.test(sw),
+  st(shell, /window\.__SHIVAA_REL=(\d+);/) >= 141 && st(app, /APP_REL\s*=\s*(\d+)/) >= 141 && st(sw, /SHELL = 'shivaa-shell-v(\d+)'/) >= 141,
   'index.html/app.js/sw.js stamps must all read 141 or newer');
 
 ok('index.html loads app.js at v141 and the worker precaches it at v141',
-  /\/js\/app\.js\?v=14[1-9]/.test(shell) && /'\/js\/app\.js\?v=14[1-9]'/.test(sw));
+  st(shell, /\/js\/app\.js\?v=(\d+)/) >= 141 && st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 141);
 
 ok('the admin panel bundle stamp moved OFF v128 (the pre-v139 stamp that hid the switches)',
-  /injectScript\('\/js\/admin\.js\?v=14[1-9]'\)/.test(app) && !/admin\.js\?v=128/.test(app),
+  st(app, /\/js\/admin\.js\?v=(\d+)/) >= 141 && !/admin\.js\?v=128/.test(app),
   'app.js must load /js/admin.js?v=141+, never v128');
 
 ok('the One Click Checkout switches really exist in the shipped admin.js',

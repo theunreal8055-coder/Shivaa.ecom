@@ -414,38 +414,74 @@ const TC_TTL_SECONDS = 600;   // 10 minutes (matches Truecaller's access token T
 /* v147 · Fetch the verified profile from Truecaller using the access token
    they POSTed. Bound tightly: the caller answers Truecaller first and runs
    this after the response, but a hung upstream must still die on its own. */
+/* v150 · Endpoint normalisation. The LIVE doctor narrowed the root cause to
+   the SHAPE OF THE URL, not the reader: fetch answered 200+JSON, the deep
+   reader found no digits — classic symptom of GETting the bare profile HOST
+   (an API-root JSON like {"status":"UP"}, a landing blob, a 200 error
+   envelope) because Truecaller's reply sometimes carries
+   "https://profile4-noneu.truecaller.com" and expects the caller to append
+   /v1/default. v148 accepted such hosts through the allowlist but still
+   fetched them AS-IS — accepted, useless. Fix the shape first, then police
+   it. Pure function: the QA suite executes it on real-world strings. */
+function tc_norm_endpoint(string $ep): string {
+  $ep = trim($ep);
+  $ep = preg_replace('/#.*$/', '', $ep);                  // v150 — a URL fragment never belongs in a server-side GET
+  if ($ep === '') return $ep;
+  if (!preg_match('#^(https?://[^/?\#]+)(/[^?\#]*)?(\?[^\#]*)?$#i', $ep, $m)) return $ep;   // unparseable — let the allowlist refuse it
+  $host = $m[1];
+  $path = isset($m[2]) ? $m[2] : '';
+  $qs   = isset($m[3]) ? $m[3] : '';
+  if ($path === '' || $path === '/') $path = '/v1/default';   // bare host / root ⇒ the documented profile path
+  return $host . $path . $qs;
+}
+/* v150 · A diagnostic SNIPPET of any upstream body, scrubbed for privacy:
+   every DIGIT run becomes '#', every 16+ char token becomes '<tok>'. Key
+   names, punctuation and JSON structure survive — which is EXACTLY what the
+   doctor needs to pinpoint a shape gap in one live tap, and nothing a
+   passing stranger could abuse. */
+function tc_snip(string $raw, int $cap = 200): string {
+  $s = trim(preg_replace('/\s+/', ' ', strip_tags($raw)));
+  $s = preg_replace('/[A-Za-z0-9\-_\/\+\.=]{16,}/', '<tok>', $s);
+  $s = str_replace('%2F', '/', $s);                       // undo URL-encoding the token mask split
+  $s = preg_replace('/\d+/', '#', $s);
+  return mb_substr($s, 0, $cap);
+}
 function truecaller_fetch_profile(string $accessToken, string $endpoint): array {
-  if (!function_exists('curl_init')) return ['ok' => false, 'err' => 'curl missing'];
+  $endpoint = tc_norm_endpoint($endpoint);                // v150 — shape FIRST (see above)
   /* v147 — the endpoint comes from a public POST. Only Truecaller's own
      https profile hosts may be fetched (no SSRF against the shop's VPS).
      v148 — the old pattern demanded a SUBDOMAIN and a bare path, and
-     Truecaller's replies do not always look like that: a query string on the
-     profile URL ('?fields=…') or a bare https://truecaller.com/ host was
-     refused → the verified number silently never stored → the page waited on
-     nothing. The class of hosts is unchanged (any *.truecaller.com or
-     truecaller.com itself, https, no port, no userinfo, path chars only — a
-     lookalike like truecaller.com.evil.net still fails the pattern), it is
-     only made shape-tolerant. */
+     Truecaller's replies do not always look like that. The class of hosts is
+     unchanged (any *.truecaller.com or truecaller.com itself, https, no
+     port, no userinfo, path chars only — a lookalike like
+     truecaller.com.evil.net still fails the pattern). */
   if (!preg_match('#^https://(?:[a-z0-9\-]+\.)*truecaller\.com/[a-z0-9/_\-\.]*(?:\?[a-z0-9=&_%.,\-~]*)?$#i', $endpoint))
     return ['ok' => false, 'err' => 'endpoint host not allowed'];
+  /* v150 — the curl guard moved BELOW the policy: shape policing must run
+     even where curl is absent (it also makes the sandbox QA able to EXECUTE
+     the normalise→allowlist path end to end, not just parse it). */
+  if (!function_exists('curl_init')) return ['ok' => false, 'err' => 'curl missing'];
   $ch = curl_init($endpoint);
   curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_TIMEOUT => 8,
     CURLOPT_CONNECTTIMEOUT => 4,
+    CURLOPT_FOLLOWLOCATION => true,          // v150 — some Truecaller profile hosts 301 the bare path
+    CURLOPT_MAXREDIRS => 2,
     CURLOPT_HTTPHEADER => [
       'Authorization: Bearer ' . $accessToken,
       'Accept: application/json',
+      'User-Agent: Mozilla/5.0 (compatible; ShivaaJewels/1.0)' . "\r",   // v150 — bare 'curl/8.x' UAs have been served 200-error JSON by CDNs before
     ],
   ]);
   $raw = (string)curl_exec($ch);
   $httpCode = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
   $err = (string)curl_error($ch);
   curl_close($ch);
-  if ($err) return ['ok' => false, 'err' => $err];
+  if ($err) return ['ok' => false, 'err' => $err, 'snip' => tc_snip($raw)];
   $j = json_decode($raw, true);
-  if (!is_array($j) || $httpCode !== 200) return ['ok' => false, 'http' => $httpCode, 'raw' => substr($raw, 0, 400)];
-  return ['ok' => true, 'profile' => $j];
+  if (!is_array($j) || $httpCode !== 200) return ['ok' => false, 'http' => $httpCode, 'raw' => substr($raw, 0, 400), 'snip' => tc_snip($raw)];
+  return ['ok' => true, 'profile' => $j, 'snip' => tc_snip($raw)];
 }
 
 /* v149 · Normalise ANY phone shape Truecaller has ever returned into a bare
@@ -494,8 +530,15 @@ function tc_profile_extract(array $p): array {
           if ($c !== '') $phone = $c;
         }
         if ($kk === 'name' && is_string($v) && trim($v) !== '' && $flat === null) $flat = mb_substr(trim($v), 0, 60);
-        if (($kk === 'firstname' || $kk === 'first') && trim((string)$v) !== '' && $first === '') $first = trim((string)$v);
-        if (($kk === 'lastname' || $kk === 'last') && trim((string)$v) !== '' && $last === '') $last = trim((string)$v);
+        if ($kk === 'firstname' || $kk === 'first') { if (trim((string)$v) !== '' && $first === '') $first = trim((string)$v); }
+        if ($kk === 'lastname' || $kk === 'last') { if (trim((string)$v) !== '' && $last === '') $last = trim((string)$v); }
+      }
+      /* v150 · JSON-inside-a-string — Truecaller has shipped replies where the
+         real payload rides as an escaped JSON blob in one field. Parse and
+         keep walking; the shared budget caps the recursion cost. */
+      if (is_string($v) && strlen($v) > 8 && ($v[0] === '{' || $v[0] === '[')) {
+        $sub = json_decode($v, true);
+        if (is_array($sub)) { $scan($sub, $depth + 1); continue; }
       }
       if (is_array($v)) $scan($v, $depth + 1);
     }
@@ -4321,12 +4364,15 @@ try {
          values) so the next doctor reading pinpoints the shape for good. */
       $keys = implode(',', array_slice(array_keys((array)($res['profile'] ?? [])), 0, 10));
       tc_entry_put($reqId, ['st' => 'failed', 'tk' => $token, 'ep' => $ep]);
-      tc_status_note(['lastKind' => 'consent', 'lastOk' => 0,
-        'lastError' => mb_substr('profile had no Indian mobile number [keys: ' . $keys . ']', 0, 160)]);
+      tc_status_note(['lastKind' => 'consent', 'lastOk' => 0, 'lastEp' => mb_substr(tc_norm_endpoint($ep), 0, 120),
+        /* v150 — the KEY LIST plus a digit-masked SNIPPET of the actual body: one live
+           tap now tells the whole story (which URL we really fetched, what it answered). */
+        'lastError' => mb_substr('profile had no Indian mobile number [keys: ' . $keys . '] | ' . (string)($res['snip'] ?? ''), 0, 300)]);
     } else {
       tc_entry_put($reqId, ['st' => 'failed', 'tk' => $token, 'ep' => $ep]);   // v148 — terminal state; v149 — + retry material
-      tc_status_note(['lastKind' => 'consent', 'lastOk' => 0,
-        'lastError' => substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 160)]);
+      tc_status_note(['lastKind' => 'consent', 'lastOk' => 0, 'lastEp' => mb_substr(tc_norm_endpoint($ep), 0, 120),
+        'lastError' => mb_substr(substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 120)
+          . ' | ' . (string)($res['snip'] ?? ''), 0, 300)]);
     }
     exit;
   }
@@ -4381,11 +4427,16 @@ try {
     if (!empty($res['ok']) && is_array($res['profile'] ?? null)) [$phone, $name] = tc_profile_extract($res['profile']);
     if ($phone !== '') {
       tc_entry_put($nonce, ['st' => 'ok', 'phone' => $phone, 'name' => $name]);
-      tc_status_note(['lastKind' => 'refetch', 'lastOk' => 1, 'lastError' => '', 'lastPhoneTail' => substr($phone, -4)]);
+      tc_status_note(['lastKind' => 'refetch', 'lastOk' => 1, 'lastError' => '', 'lastRefetchError' => '', 'lastPhoneTail' => substr($phone, -4)]);
       jout(200, ['verified' => true, 'phone' => $phone, 'name' => $name, 'retry' => true]);
     }
-    $why = !empty($res['ok']) ? 'still no number' : substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 120);
-    tc_status_note(['lastKind' => 'refetch', 'lastOk' => 0, 'lastError' => mb_substr('refetch: ' . $why, 0, 160)]);
+    $why = (!empty($res['ok']) ? 'no number in profile' : substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 120))
+      . ' | ' . (string)($res['snip'] ?? '');
+    /* v150 — the refetch writes its OWN trail key and NO LONGER overwrites the
+       consent diagnosis: the owner's 19-Sep test proved why (refetch: still no
+       number erased the [keys: …] evidence the refetch itself was supposed to
+       explain). Both lines are visible in the doctor now. */
+    tc_status_note(['lastKind' => 'refetch', 'lastRefetchError' => mb_substr($why, 0, 300), 'lastRefetchAt' => time()]);
     jout(200, ['verified' => false, 'failed' => true, 'retry' => false]);
   }
 
@@ -4407,7 +4458,11 @@ try {
       /* v148 — did the LAST consent actually yield a stored number, and if
          not, why (sanitized server-side error only; never any customer data). */
       'lastOk'        => is_array($st) ? ($st['lastOk'] ?? '') : '',
-      'lastError'     => is_array($st) ? substr((string)($st['lastError'] ?? ''), 0, 160) : '',
+      'lastError'     => is_array($st) ? substr((string)($st['lastError'] ?? ''), 0, 300) : '',
+      /* v150 — the profile URL we actually fetched + the refetch line: the doctor
+         now explains itself, no code access needed. */
+      'lastEp'        => is_array($st) ? substr((string)($st['lastEp'] ?? ''), 0, 120) : '',
+      'lastRefetchError' => is_array($st) ? substr((string)($st['lastRefetchError'] ?? ''), 0, 300) : '',
     ]);
   }
 

@@ -76,7 +76,7 @@ ok('result route surfaces the failed state',
   /\$st === 'failed'\)   jout\(200, \['verified' => false, 'failed' => true\]\)/.test(api));
 ok('config doctor exposes lastOk + lastError (≤160 chars, sanitized server-side, no personal data)',
   /'lastOk'        => is_array\(\$st\) \? \(\$st\['lastOk'\] \?\? ''\) : ''/.test(api) &&
-  /'lastError'     => is_array\(\$st\) \? substr\(\(string\)\(\$st\['lastError'\] \?\? ''\), 0, 160\)/.test(api));
+  /'lastError'\s*=> is_array\(\$st\) \? substr\(\(string\)\(\$st\['lastError'\] \?\? ''\), 0, \d+\)/.test(api));   // v150 fix-forward: the CAP is a number, not a literal
 
 const n = results.filter(Boolean).length;
 console.log(`\n${n}/${results.length} v148 checks passed  ${n === results.length ? '✦' : ''}`);

@@ -16,6 +16,9 @@ const ROOT = path.resolve(__dirname, '../../..');
 const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
 const results = [];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 function ok(name, pass, detail = '') { results.push(!!pass); console.log(`${pass ? '  PASS  ' : '  FAIL  '}${name}${!pass && detail ? '\n          ' + detail : ''}`); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - t < ms) { try { if (fn()) return true; } catch (_) {} await sleep(50); } return false; }
@@ -72,9 +75,9 @@ function bootStore(extra = '') {
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
   ok('release handshake is 121 on both sides (shell v121, script key v121)',
-    /__SHIVAA_REL\s*=\s*(12[1-9]|13\d|14\d)/.test(html) && /APP_REL\s*=\s*(12[1-9]|13\d|14\d)/.test(app) &&
-    /SHELL = 'shivaa-shell-v(12[1-9]|13\d|14\d)'/.test(sw) && /\/js\/app\.js\?v=(12[1-9]|13\d|14\d)/.test(html) &&
-    /'\/js\/app\.js\?v=(12[1-9]|13\d|14\d)'/.test(sw));
+    st(html, /__SHIVAA_REL\s*=\s*(\d+)/) >= 121 && st(app, /APP_REL\s*=\s*(\d+)/) >= 121 &&
+    st(sw, /SHELL = 'shivaa-shell-v(\d+)/) >= 121 && st(html, /\/js\/app\.js\?v=(\d+)/) >= 121 &&
+    st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 121);
   const slide1 = /<img src="\/images\/banners\/poster-heritage\.jpg" srcset="([^"]+)" sizes="100vw"[^>]*decoding="async"[^>]*fetchpriority="high">/.exec(app);
   const slideLazy = (app.match(/draggable="false" decoding="async" loading="lazy">/g) || []).length;
   const preload = /<link rel="preload" as="image" imagesrcset="([^"]+)" imagesizes="100vw" fetchpriority="high">/.exec(html);
