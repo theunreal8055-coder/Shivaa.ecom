@@ -773,7 +773,30 @@ function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array
      best-effort: a failure here must never fail a confirmed payment. */
   if (!empty($o['cfOcc'])) {
     $cap = cashfree_occ_capture(cashfree_cfg($db), $cfOrderId);
-    if ($cap) { $cap['capturedAt'] = now_iso(); $o['cfCheckout'] = $cap; }
+    if ($cap) { $cap['capturedAt'] = now_iso(); $o['cfCheckout'] = $cap;
+      /* v154 — when the address row is still ONLY the canonical boundary
+         placeholders (nobody typed anything on shivaa.in), promote Cashfree's
+         verified contact INTO the row so the dispatch queue always holds the
+         real number and address. A typed-flow order is never touched: the
+         number the customer gave us stays the number we show. */
+      if (($o['address']['line'] ?? '') === 'Collected on Cashfree (verified address)'
+          && ($o['address']['name'] ?? '') === 'Valued Customer'
+          && ($o['address']['pincode'] ?? '') === '000000') {
+        $cp = preg_replace('/\D/', '', (string)($cap['phone'] ?? ''));
+        if (strlen($cp) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($cp, -10))) $o['address']['phone'] = substr($cp, -10);
+        $cdn = trim((string)($cap['name'] ?? ''));
+        if ($cdn === '') $cdn = trim((string)($j['customer_details']['customer_name'] ?? ''));
+        if ($cdn !== '' && $cdn !== 'Valued Customer') $o['address']['name'] = mb_substr(preg_replace('#[<>|]#', '', $cdn), 0, 60);
+        $sh = is_array($cap['shipping'] ?? null) ? $cap['shipping'] : (is_array($cap['billing'] ?? null) ? $cap['billing'] : null);
+        if ($sh) {
+          $l1 = trim((string)($sh['address'] ?? '')); if ($l1 === '') $l1 = trim((string)($sh['line1'] ?? ''));
+          if ($l1 !== '') $o['address']['line'] = mb_substr($l1, 0, 160);
+          $ct = trim((string)($sh['city'] ?? '')); if ($ct !== '') $o['address']['city'] = mb_substr($ct, 0, 60);
+          $st = trim((string)($sh['state'] ?? '')); if ($st !== '') $o['address']['state'] = mb_substr($st, 0, 60);
+          $pz = preg_replace('/\D/', '', (string)($sh['pincode'] ?? '')); if (strlen($pz) === 6) $o['address']['pincode'] = $pz;
+        }
+      }
+    }
   }
   order_issue_invoice($db, $o);   // v136 (#25) — the Tax Invoice appears now, not at checkout
   order_grant_points($db, $o);    // v137 (#16) — royalty points are earned now, not at checkout
@@ -3800,13 +3823,27 @@ try {
       if (!isset($af[$ak]) || trim((string)$af[$ak]) === '')
         jout(400, ['error' => 'Complete delivery address required (name, mobile, address, city, pincode).']);
     }
-    /* v143/v146 — guest One-Tap Buy: Cashfree Create Order refuses an empty
-       or placeholder customer_phone. Catch it here (order create) as well as
-       at pay/order, so the shopper sees the number field error instead of a
-       later "Cashfree denied the payment". */
+    /* v143/v154 — guest contact rules, final form. v143 existed because an
+       EMPTY customer_phone made Cashfree itself refuse the order. The owner's
+       19-Sep rule ("tap goes DIRECTLY to the cashfree payment portal"; "the
+       customer can type their number on Cashfree's side") lets exactly ONE
+       shape bypass the typed-phone demand: the CANONICAL boundary signature —
+       every field an exact match — and only while the Express switch AND the
+       Cashfree provider are both on. The real number then lives on Cashfree's
+       verified side and the paid sweep promotes it into this row. ANY other
+       guest order still needs a real 10-digit mobile, or it never existed. */
     if (!$u) {
+      $exSig = ($db['settings']['guestCheckout'] ?? null) === true
+            && ($db['settings']['payProvider'] ?? 'demo') === 'cashfree'
+            && (string)($af['name'] ?? '') === 'Valued Customer'
+            && (string)($af['line'] ?? '') === 'Collected on Cashfree (verified address)'
+            && (string)($af['city'] ?? '') === 'Pending verification'
+            && (string)($af['state'] ?? '') === 'Pending verification'
+            && (string)($af['pincode'] ?? '') === '000000';
       $gPhone = substr(preg_replace('/\D/', '', (string)($af['phone'] ?? '')), -10);
-      if (!preg_match('/^[6-9]\d{9}$/', $gPhone) || $gPhone === '9999999999')
+      if ($exSig && ($gPhone === '9999999999' || $gPhone === '')) {
+        $b['address']['phone'] = '9999999999';   // Cashfree's page replaces it at payment
+      } elseif (!preg_match('/^[6-9]\d{9}$/', $gPhone) || $gPhone === '9999999999')
         jout(400, ['error' => 'Please enter your real 10-digit mobile number — Cashfree needs it to start the payment.']);
     }
     $R = current_rates($db);
@@ -4071,7 +4108,7 @@ try {
     $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
     jout(200, [
       'ok'    => true,
-      'rel'   => 153,
+      'rel'   => 154,
       'shell' => $sh,
       'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
                   'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
@@ -4136,12 +4173,16 @@ try {
       $phoneRaw = (string)(($o['address']['phone'] ?? '') ?: ($u['phone'] ?? ''));
       $phone = preg_replace('#\D#', '', $phoneRaw);
       $phone = substr($phone, -10) !== '' ? substr($phone, -10) : '9999999999';
-      /* v143 — Cashfree Create Order REQUIRES customer_phone as a non-empty
-         10-digit number. The previous code sent '' when the guest had the
-         placeholder phone, which made Cashfree reject both the OCC attempt
-         AND the standard-checkout fallback. Now we refuse the payment
-         attempt with a clear message instead of sending an empty phone. */
-      if (!$u && $phone === '9999999999')
+      /* v143/v154 — empty phones stay refused (that was the v143 incident).
+         The 9999999999 sentinel is allowed to open a session ONLY when the
+         order line carries the canonical boundary row — a guest order the
+         Express lane itself created. Cashfree then authenticates the real
+         number on its own page (checkoutAuthenticate) and the paid sweep
+         promotes it back; even if the owner flips the switch mid-flight,
+         finishing an in-flight payment beats stranding the customer. A typed
+         flow that somehow stored the sentinel is still refused, loudly. */
+      if (!$u && $phone === '9999999999'
+          && (string)($o['address']['line'] ?? '') !== 'Collected on Cashfree (verified address)')
         jout(400, ['error' => 'Please enter your real mobile number — Cashfree needs a 10-digit phone to start the payment.']);
       $name = trim((string)(($o['address']['name'] ?? '') ?: ($u['name'] ?? '')));
       $name = substr(preg_replace('#[<>|]#', '', $name) ?: 'Customer', 0, 60);

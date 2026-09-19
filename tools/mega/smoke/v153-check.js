@@ -11,6 +11,11 @@
    Run: node tools/mega/smoke/v153-check.js
         SMOKE_CMS=<dir> node tools/mega/smoke/v153-check.js   (zip overlay)
    ═══════════════════════════════════════════════════════════════════════ */
+/* v154 · guard — this suite documents the ONE-FIELD-CARD era (v153). When the
+   card itself was removed (v154: fieldless boundary buy), it SKIPs here and
+   still fully runs on any v153-era tree/overlay (SHIVAA_ROOT / SMOKE_CMS). */
+if (!/exmPhone/.test((function(){ try { const _f=require('fs'),_p=require('path'); const _c=process.env.SMOKE_CMS||_p.resolve(__dirname,'../../..','cms'); return _f.readFileSync(_p.join(_c,'js','app.js'),'utf8'); } catch(e){ return ''; } })())) { console.log('SKIP — v154: the one-field card era ended (fieldless direct buy)'); process.exit(0); }
+
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '../../..');
