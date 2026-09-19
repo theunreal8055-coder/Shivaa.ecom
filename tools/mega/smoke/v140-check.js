@@ -31,6 +31,9 @@ const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
 
 const results = [];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 const ok = (name, pass, detail = '') => {
   results.push(!!pass);
   console.log(`${pass ? '  PASS  ' : '  FAIL  '}${name}${!pass && detail ? '\n          ' + detail : ''}`);
@@ -136,20 +139,18 @@ function boot({ user = null, token = null, startHash = '', innerWidth = 420 } = 
   const v116css = fs.readFileSync(path.join(CMS, 'css/v116.css'), 'utf8');
   const v140css = fs.readFileSync(path.join(CMS, 'css/v140.css'), 'utf8');
 
-  ok('the release triple moves together to 140 or newer (index.html · app.js · sw.js)',
-    (/window\.__SHIVAA_REL=140;/.test(shell) && /APP_REL\s*=\s*140/.test(app) && /SHELL = 'shivaa-shell-v140'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=141;/.test(shell) && /APP_REL\s*=\s*141/.test(app) && /SHELL = 'shivaa-shell-v141'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=142;/.test(shell) && /APP_REL\s*=\s*142/.test(app) && /SHELL = 'shivaa-shell-v142'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=143;/.test(shell) && /APP_REL\s*=\s*143/.test(app) && /SHELL = 'shivaa-shell-v143'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=144;/.test(shell) && /APP_REL\s*=\s*144/.test(app) && /SHELL = 'shivaa-shell-v144'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=145;/.test(shell) && /APP_REL\s*=\s*145/.test(app) && /SHELL = 'shivaa-shell-v145'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=146;/.test(shell) && /APP_REL\s*=\s*146/.test(app) && /SHELL = 'shivaa-shell-v146'/.test(sw)),
-    'index.html/app.js/sw.js stamps must all read 140 (or a later release they moved to)');
+  ok('the release triple moves together to 140 or newer (index.html · app.js · sw.js)  [v148 fix-forward: numeric]',
+    (() => {
+      const g = (re, t) => Number((re.exec(t) || [0, 0])[1]);
+      const a = g(/window\.__SHIVAA_REL=(\d+);/, shell), b = g(/APP_REL\s*=\s*(\d+)/, app), c = g(/SHELL = 'shivaa-shell-v(\d+)'/, sw);
+      return a >= 140 && a === b && b === c;
+    })(),
+    'index.html/app.js/sw.js stamps must all read 140 or newer, in lockstep');
 
   ok('every changed file carries its new cache stamp (?v=140 / app.js 140+141) in index.html',
     /\/css\/v116\.css\?v=140/.test(shell) && /\/css\/v119\.css\?v=140/.test(shell) && /\/css\/v120\.css\?v=140/.test(shell) &&
-    /\/js\/app\.js\?v=(140|141|142|143|144|145|146)/.test(shell) && /\/js\/v107\.js\?v=140/.test(shell) && /\/js\/v116\.js\?v=(140|141|142|143|144|145|146)/.test(shell) &&
-    /\/js\/v117\.js\?v=(140|141|142|143|144|145|146)/.test(shell) && /\/js\/v119\.js\?v=140/.test(shell) && /\/js\/v120\.js\?v=140/.test(shell),
+    st(shell, /\/js\/app\.js\?v=(\d+)/) >= 140 && /\/js\/v107\.js\?v=140/.test(shell) && st(shell, /\/js\/v116\.js\?v=(\d+)/) >= 140 &&
+    st(shell, /\/js\/v117\.js\?v=(\d+)/) >= 140 && /\/js\/v119\.js\?v=140/.test(shell) && /\/js\/v120\.js\?v=140/.test(shell),
     'a changed stamped file must move its ?v= (immutable cache, one year)');
 
   ok('the new v140 layer ships, is loaded LAST, and the worker precaches it',
@@ -158,9 +159,9 @@ function boot({ user = null, token = null, startHash = '', innerWidth = 420 } = 
     sw.includes("'/js/v140.js?v=140'") && sw.includes("'/css/v140.css?v=140'"));
 
   ok('the service worker precache matches the re-stamped files exactly',
-    (sw.includes("'/js/app.js?v=140'") || sw.includes("'/js/app.js?v=141'") || sw.includes("'/js/app.js?v=142'") || sw.includes("'/js/app.js?v=143'") || sw.includes("'/js/app.js?v=144'") || sw.includes("'/js/app.js?v=145'") || sw.includes("'/js/app.js?v=146'")) &&
+    (() => { const x = /'\/js\/app\.js\?v=(\d+)'/.exec(sw); return !!x && Number(x[1]) >= 140; })() &&
     sw.includes("'/js/v119.js?v=140'") && sw.includes("'/js/v120.js?v=140'") &&
-    (sw.includes("'/js/v116.js?v=140'") || sw.includes("'/js/v116.js?v=141'") || sw.includes("'/js/v116.js?v=142'") || sw.includes("'/js/v116.js?v=143'") || sw.includes("'/js/v116.js?v=144'") || sw.includes("'/js/v116.js?v=145'") || sw.includes("'/js/v116.js?v=146'")) &&
+    (() => { const x = /'\/js\/v116\.js\?v=(\d+)'/.exec(sw); return !!x && Number(x[1]) >= 140; })() &&
     sw.includes("'/css/v119.css?v=140'") && sw.includes("'/css/v120.css?v=140'") && sw.includes("'/css/v116.css?v=140'"));
 
   ok('the install chip is GONE from the markup layer (js/v119.js)',

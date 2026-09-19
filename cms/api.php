@@ -186,8 +186,7 @@ function shv_wants_write_lock(string $route, string $method): bool {
     'auth/send-otp' => 1, 'kyc/send-otp' => 1, 'auth/reset/start' => 1,
     'partners/apply' => 1, 'pay/order' => 1, 'rates/refresh' => 1,
     'pay/cashfree/status' => 1, 'pay/cashfree/webhook' => 1,
-    'auth/truecaller/callback' => 1,  // v144 — Truecaller expects response within 3 seconds
-    'admin/refund' => 1, 'admin/pay-test' => 1,
+        'admin/refund' => 1, 'admin/pay-test' => 1,
     'sms/test' => 1, 'mail/test' => 1, 'admin/feed-test' => 1,
     'kyc/gst-lookup' => 1, 'admin/gst-reverify' => 1, 'bullion/tick' => 1, // v87/v88: GST calls wait on apitxt.com
   ];
@@ -392,75 +391,6 @@ function http_post_json(string $url, array $payload, string $userPwd = '', int $
       amount. The redirect / webhook alone are never trusted.
    Sandbox base: https://sandbox.cashfree.com/pg
    Prod base:    https://api.cashfree.com/pg */
-/* ─────────────────────────────────────────────────────────────────────────────
-   v144 · TRUECALLER ONE-TAP VERIFICATION (mobile web)
-   Truecaller's deep link opens the Truecaller app on the user's Android phone,
-   shows "Continue with +91 XXXXX XXXXX", and when the user taps Continue,
-   Truecaller POSTs {requestId, accessToken, endpoint} to our callback URL.
-   We fetch the verified profile (phone + name) from the endpoint, store it
-   temporarily, and the frontend polls for the result.
-   Falls back to manual phone input on iPhone, desktop, or when the Truecaller
-   app is not installed.
-   ───────────────────────────────────────────────────────────────────────────── */
-const TC_VERIFY_FILE = __DIR__ . '/data/tc-verify.json';
-const TC_TTL_SECONDS = 600;   // 10 minutes (matches Truecaller's access token TTL)
-
-/* Fetch the verified profile from Truecaller using the access token they POSTed. */
-function truecaller_fetch_profile(string $accessToken, string $endpoint): array {
-  if (!function_exists('curl_init')) return ['ok' => false, 'err' => 'curl missing'];
-  $ch = curl_init($endpoint);
-  curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_TIMEOUT => 10,
-    CURLOPT_CONNECTTIMEOUT => 5,
-    CURLOPT_HTTPHEADER => [
-      'Authorization: Bearer ' . $accessToken,
-      'Accept: application/json',
-    ],
-  ]);
-  $raw = (string)curl_exec($ch);
-  $httpCode = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-  $err = (string)curl_error($ch);
-  curl_close($ch);
-  if ($err) return ['ok' => false, 'err' => $err];
-  $j = json_decode($raw, true);
-  if (!is_array($j) || $httpCode !== 200) return ['ok' => false, 'http' => $httpCode, 'raw' => $raw];
-  return ['ok' => true, 'profile' => $j];
-}
-
-/* Read the temporary verification store (nonce → {phone, name, at}). */
-function tc_store_read(): array {
-  if (!file_exists(TC_VERIFY_FILE)) return [];
-  $raw = (string)@file_get_contents(TC_VERIFY_FILE);
-  $j = json_decode($raw, true);
-  return is_array($j) ? $j : [];
-}
-
-/* Write the temporary verification store, pruning entries older than TTL. */
-function tc_store_write(array $store): void {
-  $now = time();
-  $fresh = [];
-  foreach ($store as $k => $v) {
-    if (isset($v['at']) && ($now - (int)$v['at']) < TC_TTL_SECONDS) $fresh[$k] = $v;
-  }
-  @file_put_contents(TC_VERIFY_FILE, json_encode($fresh, JSON_UNESCAPED_SLASHES), LOCK_EX);
-}
-
-/* Store a verified result keyed by requestNonce. */
-function tc_store_put(string $nonce, string $phone, string $name): void {
-  $store = tc_store_read();
-  $store[$nonce] = ['phone' => $phone, 'name' => $name, 'at' => time()];
-  tc_store_write($store);
-}
-
-/* Read a verified result by nonce (returns null if not found or expired). */
-function tc_store_get(string $nonce): ?array {
-  $store = tc_store_read();
-  if (!isset($store[$nonce])) return null;
-  $entry = $store[$nonce];
-  if (isset($entry['at']) && (time() - (int)$entry['at']) >= TC_TTL_SECONDS) return null;
-  return $entry;
-}
 
 function cashfree_cfg(array $db): array {
   $s = $db['settings'] ?? [];
@@ -843,7 +773,30 @@ function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array
      best-effort: a failure here must never fail a confirmed payment. */
   if (!empty($o['cfOcc'])) {
     $cap = cashfree_occ_capture(cashfree_cfg($db), $cfOrderId);
-    if ($cap) { $cap['capturedAt'] = now_iso(); $o['cfCheckout'] = $cap; }
+    if ($cap) { $cap['capturedAt'] = now_iso(); $o['cfCheckout'] = $cap;
+      /* v154 — when the address row is still ONLY the canonical boundary
+         placeholders (nobody typed anything on shivaa.in), promote Cashfree's
+         verified contact INTO the row so the dispatch queue always holds the
+         real number and address. A typed-flow order is never touched: the
+         number the customer gave us stays the number we show. */
+      if (($o['address']['line'] ?? '') === 'Collected on Cashfree (verified address)'
+          && ($o['address']['name'] ?? '') === 'Valued Customer'
+          && ($o['address']['pincode'] ?? '') === '000000') {
+        $cp = preg_replace('/\D/', '', (string)($cap['phone'] ?? ''));
+        if (strlen($cp) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($cp, -10))) $o['address']['phone'] = substr($cp, -10);
+        $cdn = trim((string)($cap['name'] ?? ''));
+        if ($cdn === '') $cdn = trim((string)($j['customer_details']['customer_name'] ?? ''));
+        if ($cdn !== '' && $cdn !== 'Valued Customer') $o['address']['name'] = mb_substr(preg_replace('#[<>|]#', '', $cdn), 0, 60);
+        $sh = is_array($cap['shipping'] ?? null) ? $cap['shipping'] : (is_array($cap['billing'] ?? null) ? $cap['billing'] : null);
+        if ($sh) {
+          $l1 = trim((string)($sh['address'] ?? '')); if ($l1 === '') $l1 = trim((string)($sh['line1'] ?? ''));
+          if ($l1 !== '') $o['address']['line'] = mb_substr($l1, 0, 160);
+          $ct = trim((string)($sh['city'] ?? '')); if ($ct !== '') $o['address']['city'] = mb_substr($ct, 0, 60);
+          $st = trim((string)($sh['state'] ?? '')); if ($st !== '') $o['address']['state'] = mb_substr($st, 0, 60);
+          $pz = preg_replace('/\D/', '', (string)($sh['pincode'] ?? '')); if (strlen($pz) === 6) $o['address']['pincode'] = $pz;
+        }
+      }
+    }
   }
   order_issue_invoice($db, $o);   // v136 (#25) — the Tax Invoice appears now, not at checkout
   order_grant_points($db, $o);    // v137 (#16) — royalty points are earned now, not at checkout
@@ -3870,13 +3823,27 @@ try {
       if (!isset($af[$ak]) || trim((string)$af[$ak]) === '')
         jout(400, ['error' => 'Complete delivery address required (name, mobile, address, city, pincode).']);
     }
-    /* v143/v146 — guest One-Tap Buy: Cashfree Create Order refuses an empty
-       or placeholder customer_phone. Catch it here (order create) as well as
-       at pay/order, so the shopper sees the number field error instead of a
-       later "Cashfree denied the payment". */
+    /* v143/v154 — guest contact rules, final form. v143 existed because an
+       EMPTY customer_phone made Cashfree itself refuse the order. The owner's
+       19-Sep rule ("tap goes DIRECTLY to the cashfree payment portal"; "the
+       customer can type their number on Cashfree's side") lets exactly ONE
+       shape bypass the typed-phone demand: the CANONICAL boundary signature —
+       every field an exact match — and only while the Express switch AND the
+       Cashfree provider are both on. The real number then lives on Cashfree's
+       verified side and the paid sweep promotes it into this row. ANY other
+       guest order still needs a real 10-digit mobile, or it never existed. */
     if (!$u) {
+      $exSig = ($db['settings']['guestCheckout'] ?? null) === true
+            && ($db['settings']['payProvider'] ?? 'demo') === 'cashfree'
+            && (string)($af['name'] ?? '') === 'Valued Customer'
+            && (string)($af['line'] ?? '') === 'Collected on Cashfree (verified address)'
+            && (string)($af['city'] ?? '') === 'Pending verification'
+            && (string)($af['state'] ?? '') === 'Pending verification'
+            && (string)($af['pincode'] ?? '') === '000000';
       $gPhone = substr(preg_replace('/\D/', '', (string)($af['phone'] ?? '')), -10);
-      if (!preg_match('/^[6-9]\d{9}$/', $gPhone) || $gPhone === '9999999999')
+      if ($exSig && ($gPhone === '9999999999' || $gPhone === '')) {
+        $b['address']['phone'] = '9999999999';   // Cashfree's page replaces it at payment
+      } elseif (!preg_match('/^[6-9]\d{9}$/', $gPhone) || $gPhone === '9999999999')
         jout(400, ['error' => 'Please enter your real 10-digit mobile number — Cashfree needs it to start the payment.']);
     }
     $R = current_rates($db);
@@ -4128,69 +4095,24 @@ try {
     ]);
   }
 
-  /* ════════ v144/v146 · Truecaller one-tap verification ════════
-     Callback: Truecaller POSTs {requestId, accessToken, endpoint} here when
-     the user taps "Continue" in the Truecaller app. We fetch the verified
-     profile and store it for the frontend to poll.
-     This route must respond within 3 seconds and accepts POST from any origin
-     (Truecaller's servers, not the browser).
-     v146 — Hostinger may drop this inbound POST. The storefront no longer
-     waits on it: the customer types the number they saw in Truecaller. These
-     routes stay as a bonus auto-fill when the callback does arrive. */
-  if ($route === 'auth/truecaller/callback' && $method === 'POST') {
-    /* v144.1 — use body_json() instead of raw php://input (which can only be
-       read once per request; body_json() may have already consumed it). */
-    $body = body_json();
-    $reqId = trim((string)($body['requestId'] ?? ''));
-    $token = trim((string)($body['accessToken'] ?? ''));
-    $ep    = trim((string)($body['endpoint'] ?? ''));
-    if ($reqId === '' || $token === '' || $ep === '') {
-      http_response_code(200);   // Truecaller expects 2xx even on bad input
-      echo json_encode(['ok' => false, 'err' => 'missing fields']);
-      exit;
-    }
-    // Fetch the verified profile from Truecaller (server-to-server).
-    $res = truecaller_fetch_profile($token, $ep);
-    if (!empty($res['ok']) && !empty($res['profile'])) {
-      $p = $res['profile'];
-      $phones = (array)($p['phones'] ?? []);
-      $phone = '';
-      foreach ($phones as $ph) {
-        $num = preg_replace('#\D#', '', (string)($ph['e164Format'] ?? ($ph['number'] ?? '')));
-        if (strlen($num) >= 10) { $phone = substr($num, -10); break; }
-      }
-      // Fallback: try the top-level phoneNumber field
-      if ($phone === '' && isset($p['phoneNumber'])) {
-        $num = preg_replace('#\D#', '', (string)$p['phoneNumber']);
-        if (strlen($num) >= 10) $phone = substr($num, -10);
-      }
-      $name = trim((string)($p['name'] ?? ''));
-      if ($phone !== '') {
-        tc_store_put($reqId, $phone, $name);
-        audit_log($db, 'truecaller.verified', ['nonce' => substr($reqId, 0, 16) . '…', 'phone' => '***' . substr($phone, -4)]);
-      }
-    }
-    http_response_code(200);
-    echo json_encode(['ok' => true]);
-    exit;
-  }
+  /* v152 — the phone-verify routes (callback / result / refetch / config) are REMOVED
+     by owner decision 19 Sep: Express to Cashfree direct is the only flow now. */
 
-  /* Poll endpoint: frontend checks if Truecaller has verified the number yet. */
-  if ($route === 'auth/truecaller/result' && $method === 'GET') {
-    $nonce = trim((string)($_GET['nonce'] ?? ''));
-    if ($nonce === '' || strlen($nonce) < 8) jout(400, ['error' => 'Invalid nonce']);
-    $result = tc_store_get($nonce);
-    if ($result) {
-      jout(200, ['verified' => true, 'phone' => $result['phone'], 'name' => $result['name'] ?? '']);
-    }
-    jout(200, ['verified' => false]);
-  }
-
-  /* Public config: expose whether Truecaller is configured so the frontend
-     knows whether to show the Truecaller button. */
-  if ($route === 'auth/truecaller/config' && $method === 'GET') {
-    $tcKey = trim((string)($db['settings']['tcAppKey'] ?? ''));
-    jout(200, ['enabled' => $tcKey !== '', 'partnerKey' => $tcKey]);
+  /* v151 · api/version — the ONLY honest "did my deploy land?" endpoint. The
+     DEPLOY docs had been pointing at an /api/health that never existed (the
+     route table has no health entry — it answers Unknown API); this fixes the
+     lie by shipping the real one. NOTHING secret: release constants + the same
+     four already-public doctor summary lines (no keys, no phones, no names). */
+  if ($route === 'version' && $method === 'GET') {
+    $swSrc = (string)@file_get_contents(__DIR__ . '/sw.js');
+    $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
+    jout(200, [
+      'ok'    => true,
+      'rel'   => 155,
+      'shell' => $sh,
+      'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
+                  'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
+    ]);
   }
 
   $find_order_owner = function (string $id) use ($db) {
@@ -4251,12 +4173,16 @@ try {
       $phoneRaw = (string)(($o['address']['phone'] ?? '') ?: ($u['phone'] ?? ''));
       $phone = preg_replace('#\D#', '', $phoneRaw);
       $phone = substr($phone, -10) !== '' ? substr($phone, -10) : '9999999999';
-      /* v143 — Cashfree Create Order REQUIRES customer_phone as a non-empty
-         10-digit number. The previous code sent '' when the guest had the
-         placeholder phone, which made Cashfree reject both the OCC attempt
-         AND the standard-checkout fallback. Now we refuse the payment
-         attempt with a clear message instead of sending an empty phone. */
-      if (!$u && $phone === '9999999999')
+      /* v143/v154 — empty phones stay refused (that was the v143 incident).
+         The 9999999999 sentinel is allowed to open a session ONLY when the
+         order line carries the canonical boundary row — a guest order the
+         Express lane itself created. Cashfree then authenticates the real
+         number on its own page (checkoutAuthenticate) and the paid sweep
+         promotes it back; even if the owner flips the switch mid-flight,
+         finishing an in-flight payment beats stranding the customer. A typed
+         flow that somehow stored the sentinel is still refused, loudly. */
+      if (!$u && $phone === '9999999999'
+          && (string)($o['address']['line'] ?? '') !== 'Collected on Cashfree (verified address)')
         jout(400, ['error' => 'Please enter your real mobile number — Cashfree needs a 10-digit phone to start the payment.']);
       $name = trim((string)(($o['address']['name'] ?? '') ?: ($u['name'] ?? '')));
       $name = substr(preg_replace('#[<>|]#', '', $name) ?: 'Customer', 0, 60);
@@ -6223,7 +6149,7 @@ try {
     // Recursive: also strips secrets nested inside objects (gstApi.key) and
     // keys whose whole subtree is a credential, so a future nested setting
     // cannot leak by accident.
-    $blockedSubs = ['secret', 'password', 'passwd', 'private', 'apikey', 'mpin',
+    $blockedSubs = ['secret', 'password', 'passwd', 'private', 'apikey', 'appkey', 'mpin',
       'relaykey', 'smskey', 'otpkey', 'authkey', 'clientsecret', 'accesstoken', 'gstapi', 'gstkey',
       'token', 'credential', 'webhooksecret', 'saltkey', 'salt', 'webhookpass', 'clientsecret'];
     $isSecretKey = static function ($k) use ($blockedSubs): bool {
@@ -6409,16 +6335,10 @@ try {
         jout(400, ['error' => 'One Click Checkout settings must be true or false.']);
       }
     }
-    // v144 — Truecaller Partner Key: alphanumeric + hyphens, 8-80 chars
-    if (array_key_exists('tcAppKey', $setBody)) {
-      $v = trim((string)$setBody['tcAppKey']);
-      if ($v !== '' && !preg_match('/^[A-Za-z0-9_\-]{8,80}$/', $v))
-        jout(400, ['error' => 'Truecaller Partner Key looks invalid — copy it exactly from the Truecaller Developer Console.']);
-      $setBody['tcAppKey'] = $v;
-    }
+    // v152 — the retired verification vendor's key: wiped with the other legacy creds.
     // v128 — fresh start: wipe every legacy gateway credential (PayU / PhonePe /
     // Razorpay) out of the stored settings the first time settings are saved.
-    foreach (['payuKey', 'payuSalt', 'payuEnv', 'ppClientId', 'ppClientSecret',
+    foreach (['tcAppKey', 'payuKey', 'payuSalt', 'payuEnv', 'ppClientId', 'ppClientSecret',
               'ppClientVersion', 'ppWebhookSecret', 'ppWebhookUser', 'ppWebhookPass',
               'ppEnv', 'rzpKeyId', 'rzpKeySecret'] as $legacyKey) {
       unset($db['settings'][$legacyKey], $setBody[$legacyKey]);

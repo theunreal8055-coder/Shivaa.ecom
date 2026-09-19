@@ -8,6 +8,9 @@ const ROOT = path.resolve(__dirname, '../../..');
 const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
 const results=[];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 function ok(name, pass, detail=''){results.push(!!pass);console.log(`${pass?'  PASS  ':'  FAIL  '}${name}${!pass&&detail?'\n          '+detail:''}`)}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn,ms=8000){const t=Date.now();while(Date.now()-t<ms){try{if(fn())return true}catch(_){}await sleep(50)}return false}
@@ -20,9 +23,9 @@ const server=http.createServer((req,res)=>{let u=decodeURIComponent(req.url.spli
  const css=fs.readFileSync(path.join(CMS,'css/v118.css'),'utf8');
  const sw=fs.readFileSync(path.join(CMS,'sw.js'),'utf8');
  console.log('\nSHIVAA v118 checkout + catalogue check\n\n· static gates');
- ok('release handshake is v118 or newer',/__SHIVAA_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146)/.test(html)&&/APP_REL\s*=\s*(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146)/.test(app));
+ ok('release handshake is v118 or newer',st(html, /__SHIVAA_REL\s*=\s*(\d+)/) >= 118 && st(app, /APP_REL\s*=\s*(\d+)/) >= 118);
  ok('v118 CSS and JS are loaded',/v118\.css\?v=118/.test(html)&&/v118\.js\?v=118/.test(html));
- ok('service-worker shell is v118 or newer',/SHELL = 'shivaa-shell-v(118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146)'/.test(sw));
+ ok('service-worker shell is v118 or newer',st(sw, /SHELL = 'shivaa-shell-v(\d+)/) >= 118);
  ok('category rail images are eager with a safe fallback',/loading="eager" decoding="async" fetchpriority="low"/.test(app)&&/\.cb-img img \{ display:block/.test(css));
  ok('gallery dots are buttons and gestures use pointer capture',/id="galDots"[\s\S]{0,400}<button type="button"/.test(app)&&/setPointerCapture/.test(app)&&/lostpointercapture/.test(app));
  ok('Quick View opens on click, not pointerup',/document\.addEventListener\('click', function\(e\)/.test(v116)&&!/document\.addEventListener\('pointerup', function\(e\)/.test(v116));

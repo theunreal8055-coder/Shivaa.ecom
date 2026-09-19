@@ -808,8 +808,8 @@ async function renderAdmin(view, q) {
               <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
                 <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
                   <input type="checkbox" name="guestCheckout" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${S.guestCheckout ? 'checked' : ''}>
-                  <span><b>⚡ Automatic Guest Checkout (One-Tap Buy)</b><br>
-                  <small style="color:var(--ink-3)">Tapping <b>Make It Yours</b> places the order and hands the customer straight to Cashfree — <b>no account, no address form, no shivaa.in OTP</b>. Cashfree verifies the name, number and address on its own page and the only thing typed there is the customer&rsquo;s UPI PIN / net-banking password (a first-time number is verified once by Cashfree, then remembered). Needs <b>One Click Checkout</b> above to already be on, and the switch only takes effect once Cashfree is connected live. Turn off for instant rollback to the previous checkout.</small></span>
+                  <span><b>⚡ Automatic Guest Checkout (tap &rarr; Cashfree, no pages)</b><br>
+                  <small style="color:var(--ink-3)">v155: Buy Now / Make It Yours / cart Checkout place the order <b>on the spot</b> — no Express page, no number field, not even a status card; NOTHING is typed and NOTHING of ours renders between the tap and Cashfree&rsquo;s payment portal. The customer&rsquo;s <b>real mobile, name and address are collected and OTP-verified by Cashfree on its own page</b> (that is its One Click Checkout doing its job), and the verified contact is written back onto the paid order automatically. <b>No account, no address form, no shivaa.in OTP.</b> Turn the switch off and the site instantly reverts to the classic checkout (which still demands the full address, as always). Needs <b>One Click Checkout</b> above to already be on; the effect begins once Cashfree is connected live.</small></span>
                 </label>
               </div>
               <div class="fld full" style="font-size:12px;color:var(--ink-3)">
@@ -821,14 +821,6 @@ async function renderAdmin(view, q) {
             </div>
           </fieldset>
 
-          <fieldset style="border:1px solid rgba(212,175,55,0.2);border-radius:10px;padding:14px 16px;margin:12px 0">
-            <legend style="font-weight:600;color:var(--gold);padding:0 8px">📱 Truecaller One-Tap Verification</legend>
-            <div class="fld full">
-              <label>Truecaller Partner Key <small>(from <a href="https://verification-sdk-console.truecaller.com" target="_blank" style="color:var(--gold)">Truecaller Developer Console</a>)</small></label>
-              <input name="tcAppKey" value="${esc(S.tcAppKey || '')}" placeholder="Paste your Truecaller Partner Key here">
-              <small style="color:var(--ink-3)">Enables automatic phone number detection on Android phones — the customer sees "Continue with +91 XXXXX" and taps once. No OTP, no typing. Works only on Android mobile web with the Truecaller app installed; falls back to manual input on iPhone/desktop.</small>
-            </div>
-          </fieldset>
 
           <div class="fld"><label>Counter UPI ID <small>(QR fallback — works without any gateway)</small></label><input name="upiId" value="${esc(S.upiId || '')}" placeholder="yourshop@okhdfcbank"></div>
           <div class="fld"><label>UPI payee name</label><input name="upiName" value="${esc(S.upiName || 'Shivaa Jewellers')}"></div>
@@ -1699,8 +1691,9 @@ window.ShivaaAdmin.savePay = async e => {
                  cfOccAddress: !!document.querySelector('[name="cfOccAddress"]')?.checked,
                  cfOccAuth: !!document.querySelector('[name="cfOccAuth"]')?.checked,
                  // v142 — automatic guest checkout (One-Tap Buy)
-                 guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked,
-                 tcAppKey: document.querySelector('[name="tcAppKey"]')?.value?.trim() || '' };
+                 guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked };
+  /* v152 — the partner-key field is GONE from the save body: the settings PUT
+     no longer accepts it, and any stale DB value has no reader left (route deleted). */
   // secret key is write-only: only sent when retyped (server strips it from GETs)
   if (g('cfSecretKey')) body.cfSecretKey = g('cfSecretKey').trim();
   try {

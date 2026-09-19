@@ -15,6 +15,9 @@ const ROOT = path.resolve(__dirname, '../../..');
 const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
 const results = [];
+/* v150 · numeric stamp floors — never ranges: 150 must pass a v117 pin the same way 149 did. */
+const st = (src, re) => { const m = String(src).match(re); return m ? +m[1] : 0; };
+
 function ok(name, pass, detail = '') { results.push(!!pass); console.log(`${pass ? '  PASS  ' : '  FAIL  '}${name}${!pass && detail ? '\n          ' + detail : ''}`); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t = Date.now(); while (Date.now() - t < ms) { try { if (fn()) return true; } catch (_) {} await sleep(50); } return false; }
@@ -66,11 +69,11 @@ function bootStore(extra = '') {
   console.log('\nSHIVAA v123 check\n\n· A · static gates');
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps are a consistent 123/124 triple (shell = script = worker)',
-    !!shellRel && !!appRel && !!swRel && ['123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140', '141', '142', '143', '144', '145', '146'].includes(shellRel[1]) && ['123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140', '141', '142', '143', '144', '145', '146'].includes(appRel[1]) && ['123', '124', '125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140', '141', '142', '143', '144', '145', '146'].includes(swRel[1]),
+    !!shellRel && !!appRel && !!swRel && Number(shellRel[1]) >= 123 && Number(appRel[1]) >= 123 && Number(swRel[1]) >= 123 /* v148 fix-forward: numeric, never re-pin */,
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
   ok('shell loads app.js + v116.js at v123/v124 and the worker precaches both',
-    /\/js\/app\.js\?v=(12[3-9]|13[0-9]|14[012])/.test(html) && /\/js\/v116\.js\?v=(12[3-9]|13[0-9]|14[012])/.test(html) &&
-    /'\/js\/app\.js\?v=(12[3-9]|13[0-9]|14[012])'/.test(sw) && /'\/js\/v116\.js\?v=(12[3-9]|13[0-9]|14[012])'/.test(sw));
+    st(html, /\/js\/app\.js\?v=(\d+)/) >= 123 && st(html, /\/js\/v116\.js\?v=(\d+)/) >= 123 &&
+    st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 123 && st(sw, /'\/js\/v116\.js\?v=(\d+)'/) >= 123);
   ok('all six category render sites carry ?v=123/124 photo URLs',
     /catBarItems\(\)\.map/.test(app) && /\?v=(12[3-9]|13[0-9])' : '\?v=(12[3-9]|13[0-9])'/.test(app.replace(/&v=(12[3-9]|13[0-9])/g, '?v=123')) &&
     /cat-mini-card"><img src="\$\{c\.img\}\?v=(12[3-9]|13[0-9])"/.test(app) &&

@@ -159,10 +159,17 @@ const ROWS = [
     shell.indexOf('/js/v127.js') > shell.indexOf('/js/app.js'),
     'v127 layer missing or loaded before app.js');
 
-  ok('the frozen v125 triple is untouched — no release, no stamp bump',
-    /window\.__SHIVAA_REL=125;/.test(shell) && /SHELL = 'shivaa-shell-v125'/.test(sw) &&
-    /APP_REL\s*=\s*125/.test(fs.readFileSync(path.join(CMS, 'js/app.js'), 'utf8')),
-    'a repair must not re-stamp the site (owner rule: sw.js is never swapped in a repair)');
+  /* v147 fix-forward: "frozen at 125" was the v127 REPAIR's own era rule —
+     later releases (v135+) legitimately moved the triple. The durable law is
+     the FLOOR (never below v125) plus the triple moving TOGETHER (and sw.js
+     being kept in lockstep — a repair must never swap it, a release stamps it). */
+  const t125 = (re, src) => { const m = re.exec(src); return m ? parseInt(m[1], 10) : 0; };
+  const relShell = t125(/window\.__SHIVAA_REL\s*=\s*(\d+)/, shell);
+  const relSw = t125(/SHELL = 'shivaa-shell-v(\d+)'/, sw);
+  const relApp = t125(/APP_REL\s*=\s*(\d+)/, fs.readFileSync(path.join(CMS, 'js/app.js'), 'utf8'));
+  ok('the release triple is v125 or newer AND moves together (the v127 floor survives every later release)',
+    relShell >= 125 && relSw === relShell && relApp === relShell,
+    `shell=${relShell} app=${relApp} sw=${relSw} (v127 floor, all three equal)`);
 
   ok('v127 registers no route and touches no price, rate or API',
     !/pages\.[a-z]/.test(v127) && !/\/api\//.test(v127) && !/premium|ratePerGram|gold22/.test(v127));

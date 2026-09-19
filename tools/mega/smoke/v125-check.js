@@ -85,7 +85,7 @@ function bootStore(extra = '') {
      is accepted at 125 (as shipped) or 126 (the current release) */
   const REL = (shellRel && shellRel[1]) || '125';
   ok('release handshake is 125 or newer everywhere (shell, app, worker)',
-    shellRel && ['125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140', '141', '142', '143', '144', '145', '146'].includes(shellRel[1]) && appRel && ['125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140', '141', '142', '143', '144', '145', '146'].includes(appRel[1]) && swRel && ['125', '126', '127', '128', '129', '130', '131', '132', '133', '134', '135', '136', '137', '138', '139', '140', '141', '142', '143', '144', '145', '146'].includes(swRel[1]),
+    shellRel && appRel && swRel && Number(shellRel[1]) >= 125 && Number(appRel[1]) >= 125 && Number(swRel[1]) >= 125 /* v148 fix-forward: numeric, never re-pin */,
     `shell=${shellRel && shellRel[1]} app=${appRel && appRel[1]} sw=${swRel && swRel[1]}`);
 
   const stamped = { 'index.html': html, 'js/app.js': appJs, 'js/v116.js': v116src, 'sw.js': sw };
@@ -96,15 +96,28 @@ function bootStore(extra = '') {
   /* the v125 assets keep their own ?v=125 by design — strip those exact
      references before looking for a stamp that failed to move */
   const reStamped = { 'index.html': html, 'js/app.js': appJs, 'js/v116.js': v116src };
+  /* v147 fix-forward: only SCRIPT/CSS ASSET TAGS are release stamps. The bare
+     ?v=125 that survives in app.js/v116.js is the v120-era photo cache-bust on
+     category images (?v=125 on /images/…jpg) — a media token, not a stamp,
+     and it must never read as a stale one. The v125 layer keeps its own
+     ?v=125 by design (never re-stamped while unchanged). */
   const stale125 = Object.entries(reStamped)
-    .filter(([, s]) => /v=125/.test(s.replace(/\/css\/v125\.css\?v=125/g, '').replace(/\/js\/v125\.js\?v=125/g, '')))
+    .filter(([, s]) => (s.match(/\/(?:js|css)\/[a-z0-9.\-]+\.(?:js|css)\?v=125/gi) || [])
+      .filter(t => !/[.\/]v125\.(?:js|css)\?v=125$/i.test(t)).length > 0)
     .map(([n]) => n);
   ok('the v126 release triple carries no stale v=125 stamp (index.html, app.js, v116.js)',
     REL === '125' || stale125.length === 0, stale125.join(', '));
 
-  ok('shell loads app.js + v116.js at the current release and the worker precaches both + the v125 assets',
-    new RegExp('\\/js\\/app\\.js\\?v=' + REL).test(html) && new RegExp('\\/js\\/v116\\.js\\?v=' + REL).test(html) &&
-    new RegExp("'\\/js\\/app\\.js\\?v=" + REL + "'").test(sw) && new RegExp("'\\/js\\/v116\\.js\\?v=" + REL + "'").test(sw) &&
+  /* v147 fix-forward: since the v143 rule only CHANGED files move their ?v=.
+     app.js rides the current release in shell AND worker (lockstep enforced);
+     v116/v117 legitimately keep whatever ≥116 stamp their last change gave
+     them — demanding the current release from them pinched every release from
+     v146 on, so the check is: exists, stamped, and in shell/worker lockstep. */
+  const v116Tag = /\/js\/v116\.js\?v=(\d{3})/.exec(html), v116Sw = /'\/js\/v116\.js\?v=(\d{3})'/.exec(sw);
+  ok('shell loads app.js at the current release and v116.js in shell/worker lockstep — plus the v125 assets precached',
+    new RegExp('\\/js\\/app\\.js\\?v=' + REL).test(html) &&
+    new RegExp("'\\/js\\/app\\.js\\?v=" + REL + "'").test(sw) &&
+    !!v116Tag && !!v116Sw && v116Tag[1] === v116Sw[1] && +v116Tag[1] >= 116 &&
     /'\/js\/v125\.js\?v=125'/.test(sw) && /'\/css\/v125\.css\?v=125'/.test(sw));
 
   ok('v125 includes load in order (css after v122.css, js after v122.js)',

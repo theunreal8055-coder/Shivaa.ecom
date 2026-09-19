@@ -11,6 +11,19 @@
 
    Run: node tools/mega/smoke/v146-check.js
    ═══════════════════════════════════════════════════════════════════════ */
+
+/* v152 · retired-feature guard — the phone-verify vendor was REMOVED by owner
+   decision 19 Sep (Express to Cashfree direct is the flow). This suite documents
+   the v143–v151 era: it SKIPs (exit 0) on trees without the feature and still
+   fully RUNS on any older tree/overlay (SHIVAA_ROOT / SMOKE_CMS). */
+{
+  const _fs = require('fs'), _pt = require('path');
+  const _root = process.env.SHIVAA_ROOT || _pt.resolve(__dirname, '../../..');
+  const _cms = process.env.SMOKE_CMS || _pt.join(_root, 'cms');
+  let _api = '';
+  try { _api = _fs.readFileSync(_pt.join(_cms, 'api.php'), 'utf8'); } catch (e) {}
+  if (!/auth\/truecaller\/callback/.test(_api)) { console.log('SKIP — v152: verification vendor not in this tree'); process.exit(0); }
+}
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '../../..');
@@ -27,11 +40,14 @@ const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
 
 console.log('\n· A · stamps');
 ok('release triple is 146 (index.html · app.js · sw.js)',
-  /window\.__SHIVAA_REL=146;/.test(shell) && /APP_REL\s*=\s*146/.test(app) && /SHELL = 'shivaa-shell-v146'/.test(sw));
-ok('index.html and the worker both request /js/app.js?v=146',
-  /\/js\/app\.js\?v=146/.test(shell) && /'\/js\/app\.js\?v=146'/.test(sw));
+  (Number((/window\.__SHIVAA_REL=(\d+);/.exec(shell)||[0,0])[1]) >= 146 && Number((/APP_REL\s*=\s*(\d+)/.exec(app)||[0,0])[1]) >= 146 && Number((/SHELL = 'shivaa-shell-v(\d+)'/.exec(sw)||[0,0])[1]) >= 146 /* v148 fix-forward */));
+ok('index.html and the worker both request /js/app.js?v=<the release> (>=146, lockstep; v148 fix-forward)',
+  (() => {
+    const r = Number((/window\.__SHIVAA_REL=(\d+);/.exec(shell) || [0, 0])[1]);
+    return r >= 146 && new RegExp('/js/app\\.js\\?v=' + r).test(shell) && new RegExp("'/js/app\\.js\\?v=" + r + "'").test(sw);
+  })());
 ok('staff bundle stamp moved to 146 (never v128)',
-  /injectScript\('\/js\/admin\.js\?v=146'\)/.test(app) && !/admin\.js\?v=128/.test(app));
+  /injectScript\('\/js\/admin\.js\?v=14[6-9]'\)/.test(app) && !/admin\.js\?v=128/.test(app));
 ok('no leftover 144 handshake in the triple',
   !/__SHIVAA_REL=144;/.test(shell) && !/APP_REL\s*=\s*144/.test(app) && !/shivaa-shell-v144/.test(sw));
 
@@ -53,8 +69,9 @@ ok('return is detected via visibilitychange + focus (not an infinite wait spinne
   /document\.addEventListener\('visibilitychange'/.test(app) &&
   /Type the <b>10-digit number you just saw in Truecaller<\/b>/.test(app) &&
   !/Waiting for Truecaller verification…/.test(app));
-ok('callback poll is bonus-only, not the primary path',
-  /startBonusPoll/.test(app) && /auth\/truecaller\/result/.test(app));
+ok('callback poll exists (v146: bonus auto-fill · v147: primary path with auto-continue)',
+  /auth\/truecaller\/result/.test(app) &&
+  (/startBonusPoll/.test(app) || /doBuy\(phone, nonce\)/.test(app)));
 ok('server keeps callback / result / config routes + Partner Key validation',
   /auth\/truecaller\/callback/.test(api) && /auth\/truecaller\/result/.test(api) &&
   /auth\/truecaller\/config/.test(api) && /tcAppKey/.test(api) && /tcAppKey/.test(admin));
