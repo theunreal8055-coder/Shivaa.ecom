@@ -448,6 +448,63 @@ function truecaller_fetch_profile(string $accessToken, string $endpoint): array 
   return ['ok' => true, 'profile' => $j];
 }
 
+/* v149 · Normalise ANY phone shape Truecaller has ever returned into a bare
+   10-digit Indian mobile. Live proof for this file: the owner's test stored
+   failed with "profile had no Indian mobile number" — the profile came back
+   200+JSON, just in a shape the v148 reader only looked at the obvious two
+   keys for. Strict on the SHAPE: 10 local digits, 11 with a trunk 0, 12 with
+   a 91 country code, 13 as 0-91, 14 as 00-91 — and the final number must be
+   [6-9]xxxx. (The QA case that shipped this fix: '+91 098765 43210'-style
+   mixes with a 0 before the 10 digits arrive behind the country code.) */
+function tc_norm_phone($v): string {
+  if (!is_scalar($v)) return '';
+  $d = preg_replace('#\D#', '', (string)$v);
+  $len = strlen($d);
+  if ($len === 14 && substr($d, 0, 4) === '0091') $d = substr($d, 4);       // 0091 + 10
+  elseif ($len === 13 && substr($d, 0, 3) === '091') $d = substr($d, 3);    // 0-91 + 10
+  elseif ($len === 12 && substr($d, 0, 2) === '91') $d = substr($d, 2);     // +91 + 10
+  elseif ($len === 11 && $d[0] === '0') $d = substr($d, 1);                 // local trunk 0 + 10
+  return strlen($d) === 10 && preg_match('/^[6-9]\d{9}$/', $d) ? $d : '';
+}
+
+/* v149 · Deep profile reader. Truecaller's profile payload has appeared with
+   phones[], phoneNumbers[], mobiles[], primaryPhone, phoneNumber, msisdn,
+   e164Format, wrapped in data:{}, under firstName+lastName instead of name…
+   Rather than enumerate every shape again, walk the WHOLE tree (bounded)
+   and accept a number only from a phone-ish key or when the value IS exactly
+   an Indian mobile pattern. No PII is stored from this path — on failure the
+   caller records key NAMES only, which is what this bug needed in the first
+   place. */
+function tc_profile_extract(array $p): array {
+  $phone = ''; $first = ''; $last = ''; $flat = null; $budget = 4000;
+  $skipKeys = ['id', 'orderid', 'requestid', 'requestnonce', 'customerid', 'partnerid', 'accesstoken', 'token', 'nonce', 'hash'];
+  $scan = function (array $n, int $depth) use (&$scan, &$phone, &$first, &$last, &$flat, &$budget, $skipKeys) {
+    if ($depth > 6 || $budget <= 0) return;
+    foreach ($n as $k => $v) {
+      if (--$budget <= 0) return;
+      $kk = strtolower((string)$k);
+      if (!in_array($kk, $skipKeys, true) && (is_string($v) || is_int($v))) {
+        if ($phone === '' && preg_match('/e164|msisdn|phone|mobile|number/i', (string)$k)) {
+          $c = tc_norm_phone($v);
+          if ($c !== '') $phone = $c;
+        }
+        if ($phone === '' && is_string($v) && strlen($v) >= 10 && strlen($v) <= 18
+            && preg_match('/^\s*\+?\s*(?:00\s*91|91|0)?\s*[6-9][\d\s\-()]{9,14}\s*$/', $v)) {
+          $c = tc_norm_phone($v);
+          if ($c !== '') $phone = $c;
+        }
+        if ($kk === 'name' && is_string($v) && trim($v) !== '' && $flat === null) $flat = mb_substr(trim($v), 0, 60);
+        if (($kk === 'firstname' || $kk === 'first') && trim((string)$v) !== '' && $first === '') $first = trim((string)$v);
+        if (($kk === 'lastname' || $kk === 'last') && trim((string)$v) !== '' && $last === '') $last = trim((string)$v);
+      }
+      if (is_array($v)) $scan($v, $depth + 1);
+    }
+  };
+  $scan($p, 0);
+  $name = $flat !== null ? $flat : mb_substr(trim($first . ' ' . $last), 0, 60);
+  return [$phone, $name];
+}
+
 /* v147 · The temporary verification store is ONE FILE PER NONCE under
    data/tc-verify/ (named by sha1 of the nonce). The old shared-JSON store was
    a read-modify-write race on a route that deliberately runs WITHOUT the DB
@@ -463,6 +520,7 @@ function tc_entry_put(string $nonce, array $entry): bool {
   if (!is_dir(TC_VERIFY_DIR)) @mkdir(TC_VERIFY_DIR, 0755, true);
   $entry['at'] = time();
   $w = @file_put_contents(tc_verify_path($nonce), json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+  if ($w !== false) @chmod(tc_verify_path($nonce), 0600);   // v149 — entries may carry a live Truecaller token for ≤10 min
   /* opportunistic TTL prune — at most every write touches ≤ 200 small files */
   $fs = @glob(TC_VERIFY_DIR . '/[0-9a-f][0-9a-f]*.json');
   if (is_array($fs)) foreach ($fs as $f) {
@@ -4240,36 +4298,33 @@ try {
     echo json_encode(['ok' => true]);
     if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
     $res = truecaller_fetch_profile($token, $ep);
-    if (!empty($res['ok']) && !empty($res['profile'])) {
-      $p = $res['profile'];
-      $phones = (array)($p['phones'] ?? []);
-      $phone = '';
-      foreach ($phones as $ph) {
-        $num = preg_replace('#\D#', '', (string)($ph['e164Format'] ?? ($ph['number'] ?? '')));
-        if (substr($num, 0, 2) === '91') $num = substr($num, 2);
-        if (strlen($num) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($num, -10))) { $phone = substr($num, -10); break; }
-      }
-      // Fallback: try the top-level phoneNumber field
-      if ($phone === '' && isset($p['phoneNumber'])) {
-        $num = preg_replace('#\D#', '', (string)$p['phoneNumber']);
-        if (substr($num, 0, 2) === '91') $num = substr($num, 2);
-        if (strlen($num) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($num, -10))) $phone = substr($num, -10);
-      }
-      $name = mb_substr(trim((string)($p['name'] ?? '')), 0, 60);
-      if ($phone !== '') {
-        $stored = tc_entry_put($reqId, ['st' => 'ok', 'phone' => $phone, 'name' => $name]);
-        tc_status_note(['lastKind' => 'consent', 'lastOk' => 1, 'lastError' => '', 'lastPhoneTail' => substr($phone, -4), 'stored' => $stored ? 1 : 0]);
-        if (!$stored) tc_status_note(['lastError' => 'data/tc-verify not writable — chmod 755 cms/data']);
-      } else {
-        /* v148 — store a terminal state for the nonce: with nothing written the
-           page sat on "tap Continue in the app" for its whole window while
-           Truecaller had actually finished. 'failed' lets the storefront say
-           so and offer an immediate re-tap. */
-        tc_entry_put($reqId, ['st' => 'failed']);
-        tc_status_note(['lastKind' => 'consent', 'lastOk' => 0, 'lastError' => 'profile had no Indian mobile number']);
-      }
+    /* v149 — ONE deep reader for every shape (see tc_profile_extract). The live
+       doctor proved the old two-key reader lost real numbers: consent landed,
+       the profile answered 200, and "profile had no Indian mobile number" was
+       stored because Truecaller nested the phone under a key we never looked
+       at. Also: the callback body itself is scanned — some Truecaller replies
+       carry the number right in the POST and never need the profile fetch. */
+    $phone = ''; $name = '';
+    if (!empty($res['ok']) && is_array($res['profile'] ?? null)) [$phone, $name] = tc_profile_extract($res['profile']);
+    if ($phone === '') {
+      [$pb, $nb] = tc_profile_extract($body);
+      if ($pb !== '') { $phone = $pb; if ($name === '') $name = $nb; }
+    }
+    if ($phone !== '') {
+      $stored = tc_entry_put($reqId, ['st' => 'ok', 'phone' => $phone, 'name' => $name]);
+      tc_status_note(['lastKind' => 'consent', 'lastOk' => 1, 'lastError' => '', 'lastPhoneTail' => substr($phone, -4), 'stored' => $stored ? 1 : 0]);
+      if (!$stored) tc_status_note(['lastError' => 'data/tc-verify not writable — chmod 755 cms/data']);
+    } elseif (!empty($res['ok'])) {
+      /* v149 — still no number after the deep read: keep tk/ep on the failed
+         entry so the storefront can ask US to try once more (refetch route)
+         instead of demanding a full re-consent; log the key NAMES (never any
+         values) so the next doctor reading pinpoints the shape for good. */
+      $keys = implode(',', array_slice(array_keys((array)($res['profile'] ?? [])), 0, 10));
+      tc_entry_put($reqId, ['st' => 'failed', 'tk' => $token, 'ep' => $ep]);
+      tc_status_note(['lastKind' => 'consent', 'lastOk' => 0,
+        'lastError' => mb_substr('profile had no Indian mobile number [keys: ' . $keys . ']', 0, 160)]);
     } else {
-      tc_entry_put($reqId, ['st' => 'failed']);   // v148 — see above
+      tc_entry_put($reqId, ['st' => 'failed', 'tk' => $token, 'ep' => $ep]);   // v148 — terminal state; v149 — + retry material
       tc_status_note(['lastKind' => 'consent', 'lastOk' => 0,
         'lastError' => substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 160)]);
     }
@@ -4292,6 +4347,46 @@ try {
     if ($st === 'rejected') jout(200, ['verified' => false, 'rejected' => true]);
     if ($st === 'failed')   jout(200, ['verified' => false, 'failed' => true]);
     jout(200, ['verified' => false]);
+  }
+
+  /* v149 · Server-side SECOND LOOK. The owner's live test proved the class of
+     bug: Truecaller CONFIRMED the customer, but OUR one read of the profile
+     came back unusable (a transient upstream failure, or a shape the
+     reader was still learning). Demanding a fresh consent tap for OUR read is
+     unfair — the token they POSTed is valid for 10 minutes, so the failed
+     entry keeps it (plus the endpoint) and this route re-runs the fetch with
+     the SAME authorization. The storefront calls it the moment it sees
+     failed:true; the customer usually never notices the hiccup at all.
+     Guarded: only an entry in state 'failed' that carries tk/ep refetches,
+     one attempt per 12 s, and the entry's own 10-minute TTL still applies —
+     an expired token simply fails upstream and the state stays failed. */
+  if ($route === 'auth/truecaller/refetch' && $method === 'GET') {
+    $nonce = substr(trim((string)($_GET['nonce'] ?? '')), 0, 64);
+    if ($nonce === '' || strlen($nonce) < 8) jout(400, ['error' => 'Invalid nonce']);
+    $entry = tc_entry_get($nonce);
+    $st = is_array($entry) ? (string)($entry['st'] ?? '') : '';
+    if ($st === 'ok' && preg_match('/^[6-9]\d{9}$/', (string)($entry['phone'] ?? ''))) {
+      jout(200, ['verified' => true, 'phone' => (string)$entry['phone'], 'name' => (string)($entry['name'] ?? ''), 'retry' => true]);
+    }
+    if ($st !== 'failed' || empty($entry['tk']) || empty($entry['ep'])) {
+      jout(200, ['verified' => false, 'retry' => false]);   // nothing to re-read — the page should offer a fresh tap
+    }
+    if (time() - (int)($entry['rf'] ?? 0) < 12) {
+      jout(200, ['verified' => false, 'failed' => true, 'retry' => false, 'throttled' => true]);
+    }
+    $entry['rf'] = time();
+    tc_entry_put($nonce, $entry);
+    $res = truecaller_fetch_profile((string)$entry['tk'], (string)$entry['ep']);
+    $phone = ''; $name = '';
+    if (!empty($res['ok']) && is_array($res['profile'] ?? null)) [$phone, $name] = tc_profile_extract($res['profile']);
+    if ($phone !== '') {
+      tc_entry_put($nonce, ['st' => 'ok', 'phone' => $phone, 'name' => $name]);
+      tc_status_note(['lastKind' => 'refetch', 'lastOk' => 1, 'lastError' => '', 'lastPhoneTail' => substr($phone, -4)]);
+      jout(200, ['verified' => true, 'phone' => $phone, 'name' => $name, 'retry' => true]);
+    }
+    $why = !empty($res['ok']) ? 'still no number' : substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 120);
+    tc_status_note(['lastKind' => 'refetch', 'lastOk' => 0, 'lastError' => mb_substr('refetch: ' . $why, 0, 160)]);
+    jout(200, ['verified' => false, 'failed' => true, 'retry' => false]);
   }
 
   /* Public config: whether Truecaller is configured, and — for the admin

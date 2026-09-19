@@ -38,7 +38,7 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 
 async function runScenario({ control = false } = {}) {
   /* compress the polling clock; the control reproduces v147's give-up */
-  let served = APP_SRC.replace('slow ? 3500 : 700', 'slow ? 140 : 60');
+  let served = APP_SRC.replace(/slow \? 3500 : 700/g, 'slow ? 140 : 60');   // v149 note: /g — BOTH engines compress (express card + instant pill)
   if (served === APP_SRC) throw new Error('clock replace did not apply');
   if (control) {
     const g147 = served.replace('slow = true; arm();', "slow = true; stop(); /* control: v147 gave up here */;");

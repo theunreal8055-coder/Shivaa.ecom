@@ -29,7 +29,7 @@ const rApp = g(/APP_REL\s*=\s*(\d+)/, app);
 const rSw = g(/SHELL = 'shivaa-shell-v(\d+)'/, sw);
 
 console.log('\n· A · stamps (v148; only changed files move)');
-ok('release triple is 148 and in lockstep', rShell === 148 && rApp === 148 && rSw === 148, [rShell, rApp, rSw].join('/'));
+ok('release triple is ≥148 and in lockstep (numeric pin — survives future bumps)', rShell >= 148 && rApp >= 148 && rSw >= 148 && rShell === rApp && rApp === rSw, [rShell, rApp, rSw].join('/'));
 ok('shell + worker request the SAME app.js stamp as the release',
   new RegExp('/js/app\\.js\\?v=' + rShell).test(shell) && new RegExp("'\\/js\\/app\\.js\\?v=" + rShell + "'").test(sw));
 ok('worker still precaches the UNCHANGED v116 layer at ?v=142 (owner ruling)',
@@ -69,7 +69,7 @@ const cbSlice = api.slice(api.indexOf("auth/truecaller/callback' && $method === 
 ok('profile allowlist accepts subdomains AND bare truecaller.com AND a query string (v148)',
   /preg_match\('#\^https:\/\/\(\?:\[a-z0-9\\-\]\+\\.\)\*truecaller\\\.com\/\[a-z0-9\/_\\-\\\.\]\*\(\?:\\\?\[a-z0-9=&_%\.,\\-~\]\*\)\?\$#i'/.test(api));
 ok('failed profile read STORES a terminal state for the nonce',
-  (cbSlice.match(/tc_entry_put\(\$reqId, \['st' => 'failed'\]\)/g) || []).length === 2);
+  (cbSlice.match(/'st' => 'failed'/g) || []).length === 2 && /'st' => 'failed', 'tk' => \$token, 'ep' => \$ep/.test(cbSlice));
 ok('success note sets lastOk=1 and clears stale lastError; non-consent notes clear lastOk',
   /'lastOk' => 1, 'lastError' => ''/.test(cbSlice) && /'lastKind' => 'invoked', 'lastOk' => ''/.test(cbSlice) && /'lastKind' => 'rejected', 'lastOk' => ''/.test(cbSlice));
 ok('result route surfaces the failed state',
