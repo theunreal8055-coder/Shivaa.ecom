@@ -97,7 +97,7 @@
        24K jaipurPremium is only a fallback for an older payload. */
     const premG = Number(set.gold22Premium !== undefined ? set.gold22Premium : set.jaipurPremium), premS = Number(set.jaipurSilverPremium);
     const basis = (isFinite(premG) && isFinite(premS))
-      ? `How this price is built: live bullion spot <b>${fmt2(r.gold22)}/g (22K)</b> + <b>${fmt2(premG)}/g</b> 22K Jaipur premium — desk physical (silver +${fmt2(premS)}/g) · GST extra at checkout · rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''}.`
+      ? `How this price is built: live bullion spot <b>${fmt2(r.gold22)}/g (22K)</b> + <b>${fmt2(premG)}/g</b> 22K Shivaa premium — desk physical (silver +${fmt2(premS)}/g) · GST extra at checkout · rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''}.`
       : `Rates re-checked every 10 minutes${r.t ? ' · last update ' + inrTime(r.t) : ''} · GST extra at checkout.`;
     host.innerHTML =
       `<div class="v107-tick" role="list" aria-label="Today's metal rates per gram">${cells}</div>` +
@@ -408,7 +408,7 @@
       }
       FULFIL.slice(1).forEach((st, i) => {
         if (o.status === 'Cancelled') { if (i === 0) steps.push({ state: 'fail', title: 'Cancelled', sub: o.cancelReason || 'cancelled before dispatch' }); return; }
-        if (idx > i) steps.push({ state: 'done', title: st, sub: st === 'Confirmed' ? 'payment verified · packing at the Jaipur atelier' : '' });
+        if (idx > i) steps.push({ state: 'done', title: st, sub: st === 'Confirmed' ? 'payment verified · packing at the Shivaa atelier' : '' });
         else if (idx === i) steps.push({ state: 'now', title: st, sub: st === 'Confirmed' ? 'being hallmarked & packed' : st === 'Shipped' ? 'in transit — tracking on WhatsApp' : '' });
       });
       refs.forEach(r => steps.push({

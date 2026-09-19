@@ -97,12 +97,27 @@ ok('express stash still stamped (reclaim proof, not a memory of the shopper)', a
   && app.includes("store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() })"));
 
 console.log('\n· 6 — stamp lockstep (155) incl. the loader stamps v152 once missed:');
-ok('APP_REL 155', /const APP_REL = 155;/.test(app));
-ok('index __SHIVAA_REL=155 + loader app.js?v=155', idx.includes('window.__SHIVAA_REL=155;') && idx.includes('/js/app.js?v=155"'));
-ok('sw SHELL v155 + PRECACHE /js/app.js?v=155', sw.includes("'shivaa-shell-v155'") && sw.includes("'/js/app.js?v=155'"));
-ok('no stale 154 left in the boot files', !idx.includes('154') && !sw.includes('154'));
-ok("api rel 155", /'rel'\s+=> 155,/.test(api));
-ok('admin copy speaks v155', adm.includes('v155: Buy Now') && adm.includes('NOTHING of ours renders between the tap'));
+/* v156 era-guard — the stamps MOVED at v156 (Shivaa rates + 24K premium).
+   Exact-155 pins still own the v155 tree; on a v156+ tree they become the
+   house's self-consistency check (one N, everywhere, lockstep) while §1–§5
+   keep guarding the silent-lane physics forever. SMOKE_CMS overlays of the
+   v155 zip still get the full exact run. */
+{
+  const rel = (() => { const m = app.match(/const APP_REL = (\d+);/); return m ? +m[1] : 0; })();
+  if (rel > 155) {
+    ok(`era-superseded (APP_REL ${rel}): stamps self-consistent across index/sw/api instead of exact-155`,
+      idx.includes(`window.__SHIVAA_REL=${rel};`) && idx.includes(`/js/app.js?v=${rel}"`)
+      && sw.includes(`'shivaa-shell-v${rel}'`) && sw.includes(`'/js/app.js?v=${rel}'`)
+      && new RegExp(`'rel'\\s+=> ${rel},`).test(api));
+  } else {
+    ok('APP_REL 155', /const APP_REL = 155;/.test(app));
+    ok('index __SHIVAA_REL=155 + loader app.js?v=155', idx.includes('window.__SHIVAA_REL=155;') && idx.includes('/js/app.js?v=155"'));
+    ok('sw SHELL v155 + PRECACHE /js/app.js?v=155', sw.includes("'shivaa-shell-v155'") && sw.includes("'/js/app.js?v=155'"));
+    ok("api rel 155", /'rel'\s+=> 155,/.test(api));
+  }
+  ok('no stale 154 left in the boot files', !idx.includes('154') && !sw.includes('154'));
+  ok('admin copy speaks v155', adm.includes('v155: Buy Now') && adm.includes('NOTHING of ours renders between the tap'));
+}
 
 const pass = results.filter(Boolean).length;
 console.log(`\n${pass}/${results.length} v154-v155 checks passed  ${pass === results.length ? '✦ — SILENT: tap, two fetches, Cashfree' : '✗ FAILED'}`);
