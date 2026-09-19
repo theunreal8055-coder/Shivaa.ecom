@@ -393,26 +393,38 @@ function http_post_json(string $url, array $payload, string $userPwd = '', int $
    Sandbox base: https://sandbox.cashfree.com/pg
    Prod base:    https://api.cashfree.com/pg */
 /* ─────────────────────────────────────────────────────────────────────────────
-   v144 · TRUECALLER ONE-TAP VERIFICATION (mobile web)
+   v144/v147 · TRUECALLER ONE-TAP VERIFICATION (mobile web)
    Truecaller's deep link opens the Truecaller app on the user's Android phone,
    shows "Continue with +91 XXXXX XXXXX", and when the user taps Continue,
-   Truecaller POSTs {requestId, accessToken, endpoint} to our callback URL.
-   We fetch the verified profile (phone + name) from the endpoint, store it
-   temporarily, and the frontend polls for the result.
+   Truecaller POSTs {requestId, accessToken, endpoint} to the callback URL
+   configured in the Truecaller console. We fetch the verified profile
+   (phone + name) from the endpoint, store it, and the storefront picks it up
+   and continues to Cashfree BY ITSELF — the customer types nothing.
+   v147 also honours Truecaller's "flow_invoked" handshake and their
+   user_rejected notice, answers inside the documented 3-second budget, and
+   keeps a diagnostic trail so a silent firewall/console problem can be told
+   apart from a code problem.
    Falls back to manual phone input on iPhone, desktop, or when the Truecaller
    app is not installed.
    ───────────────────────────────────────────────────────────────────────────── */
-const TC_VERIFY_FILE = __DIR__ . '/data/tc-verify.json';
+define('TC_VERIFY_DIR', __DIR__ . '/data/tc-verify');
+define('TC_STATUS_FILE', __DIR__ . '/data/tc-verify/_status.json');
 const TC_TTL_SECONDS = 600;   // 10 minutes (matches Truecaller's access token TTL)
 
-/* Fetch the verified profile from Truecaller using the access token they POSTed. */
+/* v147 · Fetch the verified profile from Truecaller using the access token
+   they POSTed. Bound tightly: the caller answers Truecaller first and runs
+   this after the response, but a hung upstream must still die on its own. */
 function truecaller_fetch_profile(string $accessToken, string $endpoint): array {
   if (!function_exists('curl_init')) return ['ok' => false, 'err' => 'curl missing'];
+  /* v147 — the endpoint comes from a public POST. Only Truecaller's own
+     https profile hosts may be fetched (no SSRF against the shop's VPS). */
+  if (!preg_match('#^https://[a-z0-9.\-]*\.truecaller\.com/[a-z0-9/_\-\.]*$#i', $endpoint))
+    return ['ok' => false, 'err' => 'endpoint host not allowed'];
   $ch = curl_init($endpoint);
   curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_TIMEOUT => 10,
-    CURLOPT_CONNECTTIMEOUT => 5,
+    CURLOPT_TIMEOUT => 8,
+    CURLOPT_CONNECTTIMEOUT => 4,
     CURLOPT_HTTPHEADER => [
       'Authorization: Bearer ' . $accessToken,
       'Accept: application/json',
@@ -424,42 +436,52 @@ function truecaller_fetch_profile(string $accessToken, string $endpoint): array 
   curl_close($ch);
   if ($err) return ['ok' => false, 'err' => $err];
   $j = json_decode($raw, true);
-  if (!is_array($j) || $httpCode !== 200) return ['ok' => false, 'http' => $httpCode, 'raw' => $raw];
+  if (!is_array($j) || $httpCode !== 200) return ['ok' => false, 'http' => $httpCode, 'raw' => substr($raw, 0, 400)];
   return ['ok' => true, 'profile' => $j];
 }
 
-/* Read the temporary verification store (nonce → {phone, name, at}). */
-function tc_store_read(): array {
-  if (!file_exists(TC_VERIFY_FILE)) return [];
-  $raw = (string)@file_get_contents(TC_VERIFY_FILE);
-  $j = json_decode($raw, true);
-  return is_array($j) ? $j : [];
+/* v147 · The temporary verification store is ONE FILE PER NONCE under
+   data/tc-verify/ (named by sha1 of the nonce). The old shared-JSON store was
+   a read-modify-write race on a route that deliberately runs WITHOUT the DB
+   write lock, and its @file_put_contents failure was silent — a verification
+   could vanish with no trace at all. One small atomic file per request fixes
+   both, and the write result is now recorded in _status.json for the doctor. */
+function tc_verify_writable(): bool {
+  if (is_dir(TC_VERIFY_DIR)) return is_writable(TC_VERIFY_DIR);
+  return is_writable(dirname(TC_VERIFY_DIR));
 }
-
-/* Write the temporary verification store, pruning entries older than TTL. */
-function tc_store_write(array $store): void {
-  $now = time();
-  $fresh = [];
-  foreach ($store as $k => $v) {
-    if (isset($v['at']) && ($now - (int)$v['at']) < TC_TTL_SECONDS) $fresh[$k] = $v;
+function tc_verify_path(string $nonce): string { return TC_VERIFY_DIR . '/' . sha1($nonce) . '.json'; }
+function tc_entry_put(string $nonce, array $entry): bool {
+  if (!is_dir(TC_VERIFY_DIR)) @mkdir(TC_VERIFY_DIR, 0755, true);
+  $entry['at'] = time();
+  $w = @file_put_contents(tc_verify_path($nonce), json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+  /* opportunistic TTL prune — at most every write touches ≤ 200 small files */
+  $fs = @glob(TC_VERIFY_DIR . '/[0-9a-f][0-9a-f]*.json');
+  if (is_array($fs)) foreach ($fs as $f) {
+    if (time() - (int)@filemtime($f) >= TC_TTL_SECONDS) @unlink($f);
   }
-  @file_put_contents(TC_VERIFY_FILE, json_encode($fresh, JSON_UNESCAPED_SLASHES), LOCK_EX);
+  return $w !== false;
 }
-
-/* Store a verified result keyed by requestNonce. */
-function tc_store_put(string $nonce, string $phone, string $name): void {
-  $store = tc_store_read();
-  $store[$nonce] = ['phone' => $phone, 'name' => $name, 'at' => time()];
-  tc_store_write($store);
+/* Read a stored entry by nonce (null when absent or older than the TTL). */
+function tc_entry_get(string $nonce): ?array {
+  $p = tc_verify_path($nonce);
+  if (!is_file($p)) return null;
+  if (time() - (int)@filemtime($p) >= TC_TTL_SECONDS) return null;
+  $j = json_decode((string)@file_get_contents($p), true);
+  return is_array($j) ? $j : null;
 }
-
-/* Read a verified result by nonce (returns null if not found or expired). */
-function tc_store_get(string $nonce): ?array {
-  $store = tc_store_read();
-  if (!isset($store[$nonce])) return null;
-  $entry = $store[$nonce];
-  if (isset($entry['at']) && (time() - (int)$entry['at']) >= TC_TTL_SECONDS) return null;
-  return $entry;
+/* v147 · Diagnostic trail. The callback route must NEVER write db.json (it
+   runs without the exclusive lock — a stale snapshot write there is audit
+   finding #10 all over again), so "did Truecaller ever reach us?" lives in
+   this small file next to the store and is surfaced by the config endpoint. */
+function tc_status_note(array $patch): void {
+  if (!is_dir(TC_VERIFY_DIR)) @mkdir(TC_VERIFY_DIR, 0755, true);
+  $s = [];
+  $j = @json_decode((string)@file_get_contents(TC_STATUS_FILE), true);
+  if (is_array($j)) $s = $j;
+  foreach ($patch as $k => $v) $s[$k] = $v;
+  $s['seenAt'] = time();
+  @file_put_contents(TC_STATUS_FILE, json_encode($s, JSON_UNESCAPED_SLASHES), LOCK_EX);
 }
 
 function cashfree_cfg(array $db): array {
@@ -3879,6 +3901,30 @@ try {
       if (!preg_match('/^[6-9]\d{9}$/', $gPhone) || $gPhone === '9999999999')
         jout(400, ['error' => 'Please enter your real 10-digit mobile number — Cashfree needs it to start the payment.']);
     }
+    /* v147 · TRUECALLER ONE TAP → CASHFREE, NOTHING TYPED. When the shopper
+       arrives at this POST straight from a fresh Truecaller verification, the
+       browser also sends tcNonce; the verified number is then taken from OUR
+       store, not from the browser — a typed, stale or tampered phone cannot
+       overwrite a Truecaller-verified one. The verified name also replaces
+       the 'Valued Customer' placeholder, which is what lets Cashfree's One
+       Click Checkout match the profile and pre-fill the saved address.
+       If the nonce is absent, unknown or expired, everything degrades to
+       exactly the v146 behaviour — this can never break a purchase. */
+    $tcVerified = false;
+    if (!$u && !empty($b['tcNonce']) && is_string($b['tcNonce'])) {
+      $tcNonce = substr(trim($b['tcNonce']), 0, 64);
+      if ($tcNonce !== '' && preg_match('/^[A-Za-z0-9_\-\.=]{8,64}$/', $tcNonce)) {
+        $tc = tc_entry_get($tcNonce);
+        if (is_array($tc) && ($tc['st'] ?? '') === 'ok' && preg_match('/^[6-9]\d{9}$/', (string)($tc['phone'] ?? ''))) {
+          $b['address']['phone'] = (string)$tc['phone'];
+          $tcName = trim((string)($tc['name'] ?? ''));
+          if ($tcName !== '' && $tcName !== 'Valued Customer' && $tcName !== 'Valued customer')
+            $b['address']['name'] = mb_substr($tcName, 0, 60);
+          $af = $b['address'];
+          $tcVerified = true;
+        }
+      }
+    }
     $R = current_rates($db);
     /* v57: honour a 20-minute checkout rate lock — accepted only inside a
        2% safety band so a locked quote can never be abused. */
@@ -4006,6 +4052,9 @@ try {
       $order['tail'] = bin2hex(random_bytes(12));
       $order['email'] = '';
     }
+    /* v147 — mark the order so admin/invoice views can badge "number verified
+       via Truecaller" and so the address is honestly attributed. */
+    if ($tcVerified) $order['truecaller'] = 'verified';
     $db['orders'][] = $order;
     /* v137 (#16) — only the REDEMPTION happens here; the earning does not.
        Redeeming at checkout is correct (it prices this order), but crediting
@@ -4128,28 +4177,60 @@ try {
     ]);
   }
 
-  /* ════════ v144/v146 · Truecaller one-tap verification ════════
-     Callback: Truecaller POSTs {requestId, accessToken, endpoint} here when
-     the user taps "Continue" in the Truecaller app. We fetch the verified
-     profile and store it for the frontend to poll.
-     This route must respond within 3 seconds and accepts POST from any origin
-     (Truecaller's servers, not the browser).
-     v146 — Hostinger may drop this inbound POST. The storefront no longer
-     waits on it: the customer types the number they saw in Truecaller. These
-     routes stay as a bonus auto-fill when the callback does arrive. */
+  /* ════════ v144/v146/v147 · Truecaller one-tap verification ════════
+     Callback: Truecaller POSTs here — from THEIR servers, never the browser.
+     Three message shapes exist and (since v147) all three are honoured:
+       {"requestId","status":"flow_invoked"}      — deep link was recognised
+       {"requestId","accessToken","endpoint"}     — the user tapped Continue
+       {"requestId","status":"user_rejected"}     — the user tapped Not now
+     Truecaller requires a 2xx within ~3 seconds of EVERY one of them; v144
+     did the slow profile fetch BEFORE answering, which risks the timeout.
+     v147 answers first, fetches after (fastcgi_finish_request on PHP-FPM —
+     which is what Hostinger runs).
+     v146 assumed Hostinger may drop this POST and degraded the shop to typed
+     entry. The drop was never proven — a console with no/ wrong callback URL,
+     a non-writable data dir or the 3-second timeout would each look exactly
+     the same from the storefront. The _status.json trail + the config route
+     below now separate those causes, and the storefront waits on this poll
+     (v147) and continues to Cashfree by ITSELF when the number arrives. */
   if ($route === 'auth/truecaller/callback' && $method === 'POST') {
-    /* v144.1 — use body_json() instead of raw php://input (which can only be
-       read once per request; body_json() may have already consumed it). */
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    /* v144.1 — body_json(); v147 — a form-encoded POST body still lands. */
     $body = body_json();
-    $reqId = trim((string)($body['requestId'] ?? ''));
-    $token = trim((string)($body['accessToken'] ?? ''));
-    $ep    = trim((string)($body['endpoint'] ?? ''));
-    if ($reqId === '' || $token === '' || $ep === '') {
+    if (!$body && is_array($_POST) && $_POST) $body = $_POST;
+    $reqId  = substr(trim((string)($body['requestId'] ?? ($body['requestNonce'] ?? ''))), 0, 64);
+    $status = strtolower(trim((string)($body['status'] ?? '')));
+    $token  = trim((string)($body['accessToken'] ?? ''));
+    $ep     = trim((string)($body['endpoint'] ?? ''));
+    $nonceOk = $reqId !== '' && preg_match('/^[A-Za-z0-9_\-\.=]{8,64}$/', $reqId);
+
+    // Handshake — Truecaller saw the deep link. Proof the flow started; the
+    // storefront swaps "opening…" wording for "tap Continue in the app".
+    if ($nonceOk && $status === 'flow_invoked' && $token === '') {
+      tc_entry_put($reqId, ['st' => 'invoked']);
+      tc_status_note(['lastKind' => 'invoked']);
+      echo json_encode(['ok' => true]);
+      exit;
+    }
+    // The customer declined inside the Truecaller app.
+    if ($nonceOk && ($status === 'user_rejected' || $status === 'rejected' || $status === 'flow_cancelled')) {
+      tc_entry_put($reqId, ['st' => 'rejected']);
+      tc_status_note(['lastKind' => 'rejected']);
+      echo json_encode(['ok' => true]);
+      exit;
+    }
+    if (!$nonceOk || $token === '' || $ep === '') {
       http_response_code(200);   // Truecaller expects 2xx even on bad input
+      tc_status_note(['lastKind' => 'bad', 'lastError' => 'missing/unknown fields']);
       echo json_encode(['ok' => false, 'err' => 'missing fields']);
       exit;
     }
-    // Fetch the verified profile from Truecaller (server-to-server).
+    /* v147 — answer INSIDE Truecaller's 3-second budget, then work. The
+       profile fetch is server-to-server egress; it cannot hold their retry
+       timer open the way v144 did. */
+    echo json_encode(['ok' => true]);
+    if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
     $res = truecaller_fetch_profile($token, $ep);
     if (!empty($res['ok']) && !empty($res['profile'])) {
       $p = $res['profile'];
@@ -4157,40 +4238,63 @@ try {
       $phone = '';
       foreach ($phones as $ph) {
         $num = preg_replace('#\D#', '', (string)($ph['e164Format'] ?? ($ph['number'] ?? '')));
-        if (strlen($num) >= 10) { $phone = substr($num, -10); break; }
+        if (substr($num, 0, 2) === '91') $num = substr($num, 2);
+        if (strlen($num) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($num, -10))) { $phone = substr($num, -10); break; }
       }
       // Fallback: try the top-level phoneNumber field
       if ($phone === '' && isset($p['phoneNumber'])) {
         $num = preg_replace('#\D#', '', (string)$p['phoneNumber']);
-        if (strlen($num) >= 10) $phone = substr($num, -10);
+        if (substr($num, 0, 2) === '91') $num = substr($num, 2);
+        if (strlen($num) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($num, -10))) $phone = substr($num, -10);
       }
-      $name = trim((string)($p['name'] ?? ''));
+      $name = mb_substr(trim((string)($p['name'] ?? '')), 0, 60);
       if ($phone !== '') {
-        tc_store_put($reqId, $phone, $name);
-        audit_log($db, 'truecaller.verified', ['nonce' => substr($reqId, 0, 16) . '…', 'phone' => '***' . substr($phone, -4)]);
+        $stored = tc_entry_put($reqId, ['st' => 'ok', 'phone' => $phone, 'name' => $name]);
+        tc_status_note(['lastKind' => 'consent', 'lastPhoneTail' => substr($phone, -4), 'stored' => $stored ? 1 : 0]);
+        if (!$stored) tc_status_note(['lastError' => 'data/tc-verify not writable — chmod 755 cms/data']);
+      } else {
+        tc_status_note(['lastKind' => 'consent', 'lastError' => 'profile had no Indian mobile number']);
       }
+    } else {
+      tc_status_note(['lastKind' => 'consent',
+        'lastError' => substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 160)]);
     }
-    http_response_code(200);
-    echo json_encode(['ok' => true]);
     exit;
   }
 
-  /* Poll endpoint: frontend checks if Truecaller has verified the number yet. */
+  /* Poll endpoint: the storefront checks what Truecaller reported so far.
+     v147 returns the handshake/rejected states too — the page waits when the
+     app is open, continues by itself when the number lands, and only falls
+     back to typed entry on an explicit rejection or a long silence. */
   if ($route === 'auth/truecaller/result' && $method === 'GET') {
-    $nonce = trim((string)($_GET['nonce'] ?? ''));
+    $nonce = substr(trim((string)($_GET['nonce'] ?? '')), 0, 64);
     if ($nonce === '' || strlen($nonce) < 8) jout(400, ['error' => 'Invalid nonce']);
-    $result = tc_store_get($nonce);
-    if ($result) {
-      jout(200, ['verified' => true, 'phone' => $result['phone'], 'name' => $result['name'] ?? '']);
+    $entry = tc_entry_get($nonce);
+    $st = is_array($entry) ? (string)($entry['st'] ?? '') : '';
+    if ($st === 'ok' && preg_match('/^[6-9]\d{9}$/', (string)($entry['phone'] ?? ''))) {
+      jout(200, ['verified' => true, 'phone' => (string)$entry['phone'], 'name' => (string)($entry['name'] ?? '')]);
     }
+    if ($st === 'invoked')  jout(200, ['verified' => false, 'invoked' => true]);
+    if ($st === 'rejected') jout(200, ['verified' => false, 'rejected' => true]);
     jout(200, ['verified' => false]);
   }
 
-  /* Public config: expose whether Truecaller is configured so the frontend
-     knows whether to show the Truecaller button. */
+  /* Public config: whether Truecaller is configured, and — for the admin
+     doctor card — the EXACT callback URL the Truecaller console must point at
+     plus whether our side can actually receive/store anything. Nothing
+     sensitive is here: the Partner Key is by design embedded in the client-
+     side deep link; the last-callback trail carries no personal data. */
   if ($route === 'auth/truecaller/config' && $method === 'GET') {
     $tcKey = trim((string)($db['settings']['tcAppKey'] ?? ''));
-    jout(200, ['enabled' => $tcKey !== '', 'partnerKey' => $tcKey]);
+    $st = @json_decode((string)@file_get_contents(TC_STATUS_FILE), true);
+    jout(200, [
+      'enabled'       => $tcKey !== '',
+      'partnerKey'    => $tcKey,
+      'callbackUrl'   => shv_site_base($db) . '/api/auth/truecaller/callback',
+      'dataWritable'  => tc_verify_writable(),
+      'lastCallbackAt' => is_array($st) && isset($st['seenAt']) ? (int)$st['seenAt'] : 0,
+      'lastKind'      => is_array($st) ? (string)($st['lastKind'] ?? '') : '',
+    ]);
   }
 
   $find_order_owner = function (string $id) use ($db) {

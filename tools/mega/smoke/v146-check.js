@@ -27,11 +27,11 @@ const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
 
 console.log('\n· A · stamps');
 ok('release triple is 146 (index.html · app.js · sw.js)',
-  /window\.__SHIVAA_REL=146;/.test(shell) && /APP_REL\s*=\s*146/.test(app) && /SHELL = 'shivaa-shell-v146'/.test(sw));
+  /window\.__SHIVAA_REL=14[67];/.test(shell) && /APP_REL\s*=\s*14[67]/.test(app) && /SHELL = 'shivaa-shell-v14[67]'/.test(sw));
 ok('index.html and the worker both request /js/app.js?v=146',
-  /\/js\/app\.js\?v=146/.test(shell) && /'\/js\/app\.js\?v=146'/.test(sw));
+  /\/js\/app\.js\?v=14[67]/.test(shell) && /'\/js\/app\.js\?v=14[67]'/.test(sw));
 ok('staff bundle stamp moved to 146 (never v128)',
-  /injectScript\('\/js\/admin\.js\?v=146'\)/.test(app) && !/admin\.js\?v=128/.test(app));
+  /injectScript\('\/js\/admin\.js\?v=14[67]'\)/.test(app) && !/admin\.js\?v=128/.test(app));
 ok('no leftover 144 handshake in the triple',
   !/__SHIVAA_REL=144;/.test(shell) && !/APP_REL\s*=\s*144/.test(app) && !/shivaa-shell-v144/.test(sw));
 
@@ -53,8 +53,9 @@ ok('return is detected via visibilitychange + focus (not an infinite wait spinne
   /document\.addEventListener\('visibilitychange'/.test(app) &&
   /Type the <b>10-digit number you just saw in Truecaller<\/b>/.test(app) &&
   !/Waiting for Truecaller verification…/.test(app));
-ok('callback poll is bonus-only, not the primary path',
-  /startBonusPoll/.test(app) && /auth\/truecaller\/result/.test(app));
+ok('callback poll exists (v146: bonus auto-fill · v147: primary path with auto-continue)',
+  /auth\/truecaller\/result/.test(app) &&
+  (/startBonusPoll/.test(app) || /doBuy\(phone, nonce\)/.test(app)));
 ok('server keeps callback / result / config routes + Partner Key validation',
   /auth\/truecaller\/callback/.test(api) && /auth\/truecaller\/result/.test(api) &&
   /auth\/truecaller\/config/.test(api) && /tcAppKey/.test(api) && /tcAppKey/.test(admin));

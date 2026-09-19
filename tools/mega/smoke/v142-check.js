@@ -35,7 +35,7 @@ const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
 console.log('\n· A · the automatic guest checkout exists');
 
 ok('release triple moves together to 142 or newer (index.html · app.js · sw.js)',
-  /window\.__SHIVAA_REL=14[2-6];/.test(shell) && /APP_REL\s*=\s*14[2-6]/.test(app) && /SHELL = 'shivaa-shell-v14[2-6]'/.test(sw),
+  /window\.__SHIVAA_REL=14[2-7];/.test(shell) && /APP_REL\s*=\s*14[2-7]/.test(app) && /SHELL = 'shivaa-shell-v14[2-7]'/.test(sw),
   'index.html/app.js/sw.js stamps must all read 142+');
 
 ok('the moved set is consistent — v116.js and v117.js ride 142 in shell + worker (house rule: bump every ?v= together)',
@@ -44,7 +44,7 @@ ok('the moved set is consistent — v116.js and v117.js ride 142 in shell + work
   'a changed stamped file must update index.html AND sw.js; v116/v117 move in lockstep');
 
 ok('the staff bundle stamp (admin.js) moves with it to v142+ (the v141 fix must not regress)',
-  /injectScript\('\/js\/admin\.js\?v=14[2-6]'\)/.test(app) && !/admin\.js\?v=128/.test(app),
+  /injectScript\('\/js\/admin\.js\?v=14[2-7]'\)/.test(app) && !/admin\.js\?v=128/.test(app),
   'app.js must load /js/admin.js?v=142+, never v128');
 
 ok('the owner-facing switch exists in the admin payments panel',
