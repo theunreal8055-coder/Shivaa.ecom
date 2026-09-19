@@ -821,6 +821,15 @@ async function renderAdmin(view, q) {
             </div>
           </fieldset>
 
+          <fieldset style="border:1px solid rgba(212,175,55,0.2);border-radius:10px;padding:14px 16px;margin:12px 0">
+            <legend style="font-weight:600;color:var(--gold);padding:0 8px">📱 Truecaller One-Tap Verification</legend>
+            <div class="fld full">
+              <label>Truecaller Partner Key <small>(from <a href="https://verification-sdk-console.truecaller.com" target="_blank" style="color:var(--gold)">Truecaller Developer Console</a>)</small></label>
+              <input name="tcAppKey" value="${esc(S.tcAppKey || '')}" placeholder="Paste your Truecaller Partner Key here">
+              <small style="color:var(--ink-3)">Enables automatic phone number detection on Android phones — the customer sees "Continue with +91 XXXXX" and taps once. No OTP, no typing. Works only on Android mobile web with the Truecaller app installed; falls back to manual input on iPhone/desktop.</small>
+            </div>
+          </fieldset>
+
           <div class="fld"><label>Counter UPI ID <small>(QR fallback — works without any gateway)</small></label><input name="upiId" value="${esc(S.upiId || '')}" placeholder="yourshop@okhdfcbank"></div>
           <div class="fld"><label>UPI payee name</label><input name="upiName" value="${esc(S.upiName || 'Shivaa Jewellers')}"></div>
           <div class="fld full"><label>Prepaid-only pincodes (comma-separated; NE &amp; Ladakh prepaid by default)</label><input name="codBlockedPins" value="${esc(S.codBlockedPins || '')}" placeholder="110001, 744101"></div>
@@ -1690,7 +1699,8 @@ window.ShivaaAdmin.savePay = async e => {
                  cfOccAddress: !!document.querySelector('[name="cfOccAddress"]')?.checked,
                  cfOccAuth: !!document.querySelector('[name="cfOccAuth"]')?.checked,
                  // v142 — automatic guest checkout (One-Tap Buy)
-                 guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked };
+                 guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked,
+                 tcAppKey: document.querySelector('[name="tcAppKey"]')?.value?.trim() || '' };
   // secret key is write-only: only sent when retyped (server strips it from GETs)
   if (g('cfSecretKey')) body.cfSecretKey = g('cfSecretKey').trim();
   try {

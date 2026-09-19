@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 142;
+const APP_REL = 144;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -3114,11 +3114,20 @@ function expressRemember(orderId, pin) {
 /* ── the express page: one item, a boundary address capture, and the payment. */
 pages.express = async view => {
   if (!expressCheckoutOn() || state.user) { location.hash = '#/'; return; }
-  const item = window.Shivaa._expressItem;
-  if (!item || !item.id) { location.hash = '#/shop'; return; }
-  let p = state.productsCache.find(x => x.id === item.id);
-  if (!p) { try { const one = await api('/api/products/' + item.id); p = one.product || null; } catch (e) {} }
-  if (!p) { view.innerHTML = `<div class="empty"><h3>Piece not found</h3><a class="btn btn-primary" href="#/shop">Back to shop</a></div>`; return; }
+  /* v145 — support BOTH single-item (Buy Now) and multi-item (Cart → Checkout) flows */
+  const fromCart = !window.Shivaa._expressItem && state.cart.length > 0;
+  let cartItems = [];
+  let item = window.Shivaa._expressItem;
+  if (fromCart) {
+    cartItems = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+    if (!cartItems.length) { location.hash = '#/cart'; return; }
+  } else {
+    if (!item || !item.id) { location.hash = '#/shop'; return; }
+    let p = state.productsCache.find(x => x.id === item.id);
+    if (!p) { try { const one = await api('/api/products/' + item.id); p = one.product || null; } catch (e) {} }
+    if (!p) { view.innerHTML = `<div class="empty"><h3>Piece not found</h3><a class="btn btn-primary" href="#/shop">Back to shop</a></div>`; return; }
+    cartItems = [{ id: item.id, qty: item.qty || 1, size: item.size || null, engraving: item.engraving || null, p }];
+  }
   let cfg = {};
   try { cfg = await api('/api/pay/config'); } catch (e) {}
   /* the SERVER says the full automatic experience is available only when the
@@ -3130,36 +3139,134 @@ pages.express = async view => {
     return;
   }
   const phone = authPhone((state.user && state.user.phone) || '');
-  const pr = price(p);
-  const qty = item.qty || 1;
-  const line = pr.total * qty;
+  const line = cartItems.reduce((a, c) => a + price(c.p).total * (c.qty || 1), 0);
   const ship = line >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   const prepaid = Math.round(line * (((state.settings.prepaidPct) || 2) / 100));
   const total = Math.max(0, line - prepaid + ship);
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container"><div class="crumbs"><a href="#/shop">Shop</a> / Express</div>
-    <h1>One-Tap Buy ✦</h1></div></section>
+    <h1>${fromCart ? 'Checkout' : 'One-Tap Buy'} ✦</h1></div></section>
   <div class="container" style="padding:40px 0 90px">
     <div class="center" style="max-width:600px;margin:0 auto 24px">
       <p style="color:var(--ink-2)"><b>We place the order now.</b> You pay it in the next step — your name, number and address are verified on Cashfree&rsquo;s own page, and the only thing you type there is your <b>UPI PIN</b> or <b>net-banking password</b>.</p>
     </div>
     <div class="rv" style="max-width:480px;margin:0 auto 30px">
-      <div class="sum-row"><span>${esc(p.name)}${item.size ? ' (' + esc(item.size) + ')' : ''} × ${qty}</span><b>${fmt(line)}</b></div>
+      ${cartItems.map(c => `<div class="sum-row"><span>${esc(c.p.name)}${c.size ? ' (' + esc(c.size) + ')' : ''} × ${c.qty || 1}</span><b>${fmt(price(c.p).total * (c.qty || 1))}</b></div>`).join('')}
       <div class="sum-row"><span>Prepaid discount (pay online)</span><b style="color:var(--ok)">− ${fmt(prepaid)}</b></div>
       <div class="sum-row"><span>Delivery</span><b>${ship === 0 ? 'FREE' : fmt(ship)}</b></div>
       <div class="sum-row total"><span>Total</span><b>${fmt(total)}</b></div>
     </div>
     <div class="center" style="max-width:520px;margin:0 auto">
-      <label class="fld full" style="text-align:left"><span style="font-size:13px;color:var(--ink-2)">We&rsquo;ll ring this number if the courier needs to — leave blank and Cashfree verifies it for us</span>
-      <input id="exPhone" type="tel" inputmode="numeric" maxlength="10" value="${esc(phone)}" placeholder="98765 43210 (optional)"></label>
+      <div id="tcMount" style="margin-bottom:16px"></div>
+      <label class="fld full" style="text-align:left"><span style="font-size:13px;color:var(--ink-2)">Your 10-digit mobile number — Cashfree uses this to verify your identity and pre-fill your address</span>
+      <input id="exPhone" type="tel" inputmode="numeric" maxlength="10" required value="${esc(phone)}" placeholder="98765 43210 (required)"></label>
+      <p id="exPhoneErr" style="color:#c0392b;font-size:12.5px;margin:4px 0 0;display:none"></p>
       <button class="btn btn-gold btn-lg btn-block" id="exBuy">✦ Make It Yours — Pay ${fmt(total)}</button>
       <p style="color:var(--ink-3);font-size:13px;margin:12px 0 30px">Places the order and opens the secure Cashfree page, where you pay in one step. ${(state.settings.phone) ? 'Questions? WhatsApp ' + esc(state.settings.phone) + '.' : ''}</p>
-      <button class="btn btn-ghost" onclick="history.length > 1 ? history.back() : (location.hash = '#/product/${esc(item.id)}')">← Back</button>
+      <button class="btn btn-ghost" onclick="history.length > 1 ? history.back() : (location.hash = '${fromCart ? '#/cart' : '#/shop'}')">← Back</button>
     </div>
   </div>`;
   const exBtn = $('#exBuy');
+  /* v144 · Truecaller one-tap verification.
+     If configured and the user is on Android with Truecaller installed:
+     show a gold "✦ Verify with Truecaller" button. One tap → Truecaller
+     auto-detects their number → verified phone fills the input field.
+     Falls back silently to manual input on iPhone/desktop/no-app. */
+  (async () => {
+    const mount = $('#tcMount');
+    if (!mount) return;
+    let tcCfg = {};
+    try { tcCfg = await api('/api/auth/truecaller/config'); } catch (e) {}
+    if (!tcCfg.enabled || !tcCfg.partnerKey) return;   // Truecaller not configured
+    // Only show on Android (Truecaller deep link works on Android mobile web only)
+    const ua = navigator.userAgent || '';
+    const isAndroid = /Android/i.test(ua);
+    if (!isAndroid) return;
+    const nonce = 'shv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    mount.innerHTML = `
+      <button id="tcBtn" class="btn btn-gold btn-lg btn-block" style="background:linear-gradient(135deg,#1d72b8,#2196f3);color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" fill="#fff"/></svg>
+        ✦ Verify with Truecaller
+      </button>
+      <p id="tcStatus" style="color:var(--ink-3);font-size:12px;margin:6px 0 0;text-align:center">One tap — no OTP, no typing</p>`;
+    const tcBtn = $('#tcBtn');
+    const tcStatus = $('#tcStatus');
+    tcBtn.onclick = () => {
+      tcBtn.disabled = true;
+      tcStatus.textContent = 'Opening Truecaller…';
+      // Store nonce for the poll
+      window.__shvTcNonce = nonce;
+      // Trigger the Truecaller deep link
+      const deepLink = 'truecallersdk://truesdk/web_verify?'
+        + 'type=btmsheet'
+        + '&requestNonce=' + encodeURIComponent(nonce)
+        + '&partnerKey=' + encodeURIComponent(tcCfg.partnerKey)
+        + '&partnerName=' + encodeURIComponent('Shivaa Jewels')
+        + '&lang=en'
+        + '&privacyUrl=' + encodeURIComponent('https://www.shivaa.in/#/privacy')
+        + '&termsUrl=' + encodeURIComponent('https://www.shivaa.in/#/terms')
+        + '&loginPrefix=Continue+with'
+        + '&ctaPrefix=Verify'
+        + '&ctaColor=1d72b8'
+        + '&ctaTextColor=ffffff'
+        + '&btnShape=ROUNDED'
+        + '&skipOption=ENTERMANUALLY'
+        + '&ttl=60000';
+      window.location = deepLink;
+      // If Truecaller app is present, the page loses focus. If not, it stays focused.
+      setTimeout(() => {
+        if (document.hasFocus()) {
+          // Truecaller app NOT present — show manual input
+          tcStatus.textContent = 'Truecaller not found — please enter your number below';
+          tcBtn.disabled = false;
+          tcBtn.style.opacity = '0.5';
+          setTimeout(() => { if (mount) mount.style.display = 'none'; }, 3000);
+        } else {
+          // Truecaller app opened — poll for the verified result
+          tcStatus.textContent = 'Waiting for Truecaller verification…';
+          let polls = 0;
+          const poll = setInterval(async () => {
+            polls++;
+            if (polls > 30) { clearInterval(poll); tcStatus.textContent = 'Timed out — please enter your number below'; tcBtn.disabled = false; return; }
+            try {
+              const r = await api('/api/auth/truecaller/result?nonce=' + encodeURIComponent(nonce));
+              if (r && r.verified && r.phone) {
+                clearInterval(poll);
+                const phoneField = $('#exPhone');
+                if (phoneField) {
+                  phoneField.value = r.phone;
+                  phoneField.style.borderColor = '#27ae60';
+                  phoneField.style.background = '#f0fff4';
+                }
+                tcStatus.innerHTML = '✅ Verified: <b>+91 ' + r.phone + '</b>' + (r.name ? ' — ' + r.name : '');
+                tcStatus.style.color = '#27ae60';
+                tcBtn.textContent = '✓ Verified by Truecaller';
+                tcBtn.disabled = true;
+                tcBtn.style.background = '#27ae60';
+              }
+            } catch (e) { /* keep polling */ }
+          }, 1500);
+        }
+      }, 800);
+    };
+  })();
+
   exBtn.onclick = async () => {
+    /* v143 — Cashfree Create Order REQUIRES a real 10-digit customer_phone.
+       The original code sent an empty string when the guest left the field
+       blank, which made Cashfree reject the order (and the standard-checkout
+       fallback too) with "Cashfree denied the payment". Phone is now required
+       and validated before we ever touch the server. */
+    const typedPhone = authPhone($('#exPhone').value);
+    const phoneErr = $('#exPhoneErr');
+    if (!/^[6-9]\d{9}$/.test(typedPhone)) {
+      phoneErr.textContent = 'Please enter a valid 10-digit mobile number — Cashfree needs it to start the payment.';
+      phoneErr.style.display = 'block';
+      $('#exPhone').focus();
+      return;
+    }
+    phoneErr.style.display = 'none';
     exBtn.disabled = true; exBtn.textContent = 'Placing your order…';
     try {
       /* v142 — the boundary address. A guest order still needs a valid
@@ -3169,19 +3276,15 @@ pages.express = async view => {
          verified address + phone onto the order (cfCheckout) before dispatch.
          Nothing here invents a customer identity: the name is a placeholder
          that Cashfree replaces with the verified one. */
-      const typedPhone = authPhone($('#exPhone').value);
-      /* The boundary address must still pass the server's v84 validation
-         (name/phone/line/city/pincode present, phone 10 digits, pincode 6),
-         so shivaa.in can hold the order while Cashfree collects the REAL
-         details. After payment the return route writes Cashfree's verified
-         address + number onto the order (cfCheckout), and everything the
-         shop prints/reads prefers that. Nothing genuine is invented here —
-         the fields below are clearly marked placeholders. */
+      const typedPhone2 = authPhone($('#exPhone').value);
+      /* v143 — the phone is now validated above (10-digit, starts with 6-9),
+         so we never fall back to the placeholder. Cashfree requires a real
+         phone to create the order AND to look up the customer for OCC. */
       const res = await api('/api/orders', { method: 'POST', body: JSON.stringify({
-        items: [{ id: item.id, qty, size: item.size || null, engraving: item.engraving || null }],
+        items: cartItems.map(c => ({ id: c.id, qty: c.qty || 1, size: c.size || null, engraving: c.engraving || null })),
         address: {
           name: 'Valued Customer',
-          phone: /^[6-9]\\d{9}$/.test(typedPhone) ? typedPhone : '9999999999',
+          phone: typedPhone2,
           line: 'Collected on Cashfree (verified address)',
           city: 'Pending verification', state: 'Pending verification', pincode: '000000', country: 'India',
         },
@@ -3559,7 +3662,7 @@ pages.cart = async (view) => {
       <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
       <div class="sum-row" style="color:var(--ok);font-size:13px"><span>✦ Pay online &amp; save</span><b>− ${fmt(Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100))}</b></div>
       <div style="margin:16px 0 6px" class="label" id="ptLbl">Loyalty & offers applied at checkout →</div>
-      <a class="btn btn-primary btn-block btn-lg" href="#/checkout">Proceed to Checkout</a>
+      <a class="btn btn-primary btn-block btn-lg" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
       <a class="btn btn-outline btn-block btn-sm mt-2" href="#/quote">📄 Get shareable quotation (48 h rate hold)</a>
       <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.waOpenCart()">Order via WhatsApp chat <span class="mini-wa">${WA_SVG}</span></button>
       <a class="btn btn-ghost btn-block btn-sm mt-2" href="#/shop">Continue shopping</a>
@@ -3567,7 +3670,7 @@ pages.cart = async (view) => {
   </div>
   <div class="mcta-bar" aria-hidden="false">
     <div class="mcta-total"><small>${cartCount()} item${cartCount() > 1 ? 's' : ''} · total</small><b>${fmt(subtotal + shipping)}</b></div>
-    <a class="btn btn-gold" href="#/checkout">Proceed to Checkout ✦</a>
+    <a class="btn btn-gold" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
   </div>`;
   window.Shivaa.bindDelivery(view);   // v103 — remembered pincode answers immediately
 };
@@ -3998,7 +4101,7 @@ window.Shivaa.quickView = async (id) => {
 /* ─────────── CHECKOUT ─────────── */
 pages.checkout = async (view) => {
   if (!state.cart.length) { location.hash = '#/cart'; return; }
-  if (!state.user) { openLogin('checkout'); return; }
+  if (!state.user) { if (expressCheckoutOn()) { location.hash = '#/express'; return; } openLogin('checkout'); return; }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
@@ -8197,7 +8300,7 @@ function loadStaffBundle() {
          owner's browser kept the pre-v139 admin.js and never saw the switch.
          The stamp must move with every release that changes admin.js, exactly
          like index.html's script tags. */
-      .then(() => injectScript('/js/admin.js?v=142'))
+      .then(() => injectScript('/js/admin.js?v=144'))
       .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
   }
   return _staffBundle;
