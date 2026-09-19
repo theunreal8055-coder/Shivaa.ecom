@@ -1,5 +1,6 @@
 # scratch / transient
 /work/
+.scratch/
 *.pyc
 __pycache__/
 *.tmp
