@@ -3114,11 +3114,20 @@ function expressRemember(orderId, pin) {
 /* ── the express page: one item, a boundary address capture, and the payment. */
 pages.express = async view => {
   if (!expressCheckoutOn() || state.user) { location.hash = '#/'; return; }
-  const item = window.Shivaa._expressItem;
-  if (!item || !item.id) { location.hash = '#/shop'; return; }
-  let p = state.productsCache.find(x => x.id === item.id);
-  if (!p) { try { const one = await api('/api/products/' + item.id); p = one.product || null; } catch (e) {} }
-  if (!p) { view.innerHTML = `<div class="empty"><h3>Piece not found</h3><a class="btn btn-primary" href="#/shop">Back to shop</a></div>`; return; }
+  /* v145 — support BOTH single-item (Buy Now) and multi-item (Cart → Checkout) flows */
+  const fromCart = !window.Shivaa._expressItem && state.cart.length > 0;
+  let cartItems = [];
+  let item = window.Shivaa._expressItem;
+  if (fromCart) {
+    cartItems = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+    if (!cartItems.length) { location.hash = '#/cart'; return; }
+  } else {
+    if (!item || !item.id) { location.hash = '#/shop'; return; }
+    let p = state.productsCache.find(x => x.id === item.id);
+    if (!p) { try { const one = await api('/api/products/' + item.id); p = one.product || null; } catch (e) {} }
+    if (!p) { view.innerHTML = `<div class="empty"><h3>Piece not found</h3><a class="btn btn-primary" href="#/shop">Back to shop</a></div>`; return; }
+    cartItems = [{ id: item.id, qty: item.qty || 1, size: item.size || null, engraving: item.engraving || null, p }];
+  }
   let cfg = {};
   try { cfg = await api('/api/pay/config'); } catch (e) {}
   /* the SERVER says the full automatic experience is available only when the
@@ -3130,22 +3139,20 @@ pages.express = async view => {
     return;
   }
   const phone = authPhone((state.user && state.user.phone) || '');
-  const pr = price(p);
-  const qty = item.qty || 1;
-  const line = pr.total * qty;
+  const line = cartItems.reduce((a, c) => a + price(c.p).total * (c.qty || 1), 0);
   const ship = line >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   const prepaid = Math.round(line * (((state.settings.prepaidPct) || 2) / 100));
   const total = Math.max(0, line - prepaid + ship);
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container"><div class="crumbs"><a href="#/shop">Shop</a> / Express</div>
-    <h1>One-Tap Buy ✦</h1></div></section>
+    <h1>${fromCart ? 'Checkout' : 'One-Tap Buy'} ✦</h1></div></section>
   <div class="container" style="padding:40px 0 90px">
     <div class="center" style="max-width:600px;margin:0 auto 24px">
       <p style="color:var(--ink-2)"><b>We place the order now.</b> You pay it in the next step — your name, number and address are verified on Cashfree&rsquo;s own page, and the only thing you type there is your <b>UPI PIN</b> or <b>net-banking password</b>.</p>
     </div>
     <div class="rv" style="max-width:480px;margin:0 auto 30px">
-      <div class="sum-row"><span>${esc(p.name)}${item.size ? ' (' + esc(item.size) + ')' : ''} × ${qty}</span><b>${fmt(line)}</b></div>
+      ${cartItems.map(c => `<div class="sum-row"><span>${esc(c.p.name)}${c.size ? ' (' + esc(c.size) + ')' : ''} × ${c.qty || 1}</span><b>${fmt(price(c.p).total * (c.qty || 1))}</b></div>`).join('')}
       <div class="sum-row"><span>Prepaid discount (pay online)</span><b style="color:var(--ok)">− ${fmt(prepaid)}</b></div>
       <div class="sum-row"><span>Delivery</span><b>${ship === 0 ? 'FREE' : fmt(ship)}</b></div>
       <div class="sum-row total"><span>Total</span><b>${fmt(total)}</b></div>
@@ -3274,7 +3281,7 @@ pages.express = async view => {
          so we never fall back to the placeholder. Cashfree requires a real
          phone to create the order AND to look up the customer for OCC. */
       const res = await api('/api/orders', { method: 'POST', body: JSON.stringify({
-        items: [{ id: item.id, qty, size: item.size || null, engraving: item.engraving || null }],
+        items: cartItems.map(c => ({ id: c.id, qty: c.qty || 1, size: c.size || null, engraving: c.engraving || null })),
         address: {
           name: 'Valued Customer',
           phone: typedPhone2,
@@ -3655,7 +3662,7 @@ pages.cart = async (view) => {
       <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
       <div class="sum-row" style="color:var(--ok);font-size:13px"><span>✦ Pay online &amp; save</span><b>− ${fmt(Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100))}</b></div>
       <div style="margin:16px 0 6px" class="label" id="ptLbl">Loyalty & offers applied at checkout →</div>
-      <a class="btn btn-primary btn-block btn-lg" href="#/checkout">Proceed to Checkout</a>
+      <a class="btn btn-primary btn-block btn-lg" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
       <a class="btn btn-outline btn-block btn-sm mt-2" href="#/quote">📄 Get shareable quotation (48 h rate hold)</a>
       <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.waOpenCart()">Order via WhatsApp chat <span class="mini-wa">${WA_SVG}</span></button>
       <a class="btn btn-ghost btn-block btn-sm mt-2" href="#/shop">Continue shopping</a>
@@ -3663,7 +3670,7 @@ pages.cart = async (view) => {
   </div>
   <div class="mcta-bar" aria-hidden="false">
     <div class="mcta-total"><small>${cartCount()} item${cartCount() > 1 ? 's' : ''} · total</small><b>${fmt(subtotal + shipping)}</b></div>
-    <a class="btn btn-gold" href="#/checkout">Proceed to Checkout ✦</a>
+    <a class="btn btn-gold" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
   </div>`;
   window.Shivaa.bindDelivery(view);   // v103 — remembered pincode answers immediately
 };
@@ -4094,7 +4101,7 @@ window.Shivaa.quickView = async (id) => {
 /* ─────────── CHECKOUT ─────────── */
 pages.checkout = async (view) => {
   if (!state.cart.length) { location.hash = '#/cart'; return; }
-  if (!state.user) { openLogin('checkout'); return; }
+  if (!state.user) { if (expressCheckoutOn()) { location.hash = '#/express'; return; } openLogin('checkout'); return; }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
