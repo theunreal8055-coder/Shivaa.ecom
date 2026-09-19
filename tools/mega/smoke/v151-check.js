@@ -72,6 +72,13 @@ ok('release stamps move together to 151+ (numeric floors — no ranges, per the 
 ok('frozen layers stay frozen (v116.js ?v=142, css 140 — untouched layers must not move)',
   st(idx, /\/js\/v116\.js\?v=(\d+)/) === 142 && st(idx, /\/css\/v116\.css\?v=(\d+)/) === 140);
 
+ok('api/version is REAL this time: route exists, answers with rel 151 + shell + both stamps',
+  api.includes("if ($route === 'version' && $method === 'GET') {") &&
+  api.includes("'rel'   => 151,") && api.includes("SHELL = '([^']+)'") &&
+  /__SHIVAA_REL/.test(api) && !/$route === 'health'/.test(api));   // the OLD claim died where it lives: as a ROUTE, comments notwithstanding
+ok('api/version leaks NOTHING secret (no partnerKey, no tokens, no phones — only the four public doctor lines)',
+  !/partnerKey|tcAppKey|accessToken|phone(?!Numbers)/.test(api.slice(api.indexOf("if ($route === 'version'"), api.indexOf("if ($route === 'auth/truecaller/config'"))));
+
 const m = results.filter(Boolean).length;
 console.log(`\n${m}/${results.length} v151 static checks passed  ${m === results.length ? '✦' : '✗'}`);
 process.exit(m === results.length ? 0 : 1);

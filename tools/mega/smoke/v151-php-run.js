@@ -35,7 +35,12 @@ const ok = (name, pass, detail = '') => { results.push(!!pass); console.log(`${p
   for (const f of ['api.php', 'hallmark.php', 'trust.php', 'sms.php', 'mail.php']) {
     php.writeFile('/tcrun/' + f, fs.readFileSync(path.join(CMS, f), 'utf8'));
   }
+  php.mkdirTree('/tcrun/js');
   php.writeFile('/tcrun/data/db.json', JSON.stringify(db));
+  /* v151 · api/version reads its NEIGHBOURS (sw.js/index.html/js/app.js) — mirror the real
+     docroot so the sandbox executes the same code path production will. */
+  for (const f of ['sw.js', 'index.html']) php.writeFile('/tcrun/' + f, fs.readFileSync(path.join(CMS, f), 'utf8'));
+  php.writeFile('/tcrun/js/app.js', fs.readFileSync(path.join(CMS, 'js/app.js'), 'utf8'));
 
   const b64 = s => Buffer.from(s).toString('base64');
   async function req(method, route, body, extraPost, q) {
@@ -127,6 +132,21 @@ echo json_encode($out);` });
   const r1 = await req('GET', 'auth/truecaller/result', null, null, { nonce: N1 });
   ok('the storefront poll for that nonce gets verified+phone (the flow end to end)',
     r1.json && r1.json.verified === true && r1.json.phone === '9812345678', JSON.stringify(r1.json).slice(0, 200));
+
+  console.log('\n· 2b — api/version: the deploy-proof endpoint, EXECUTED (it replaces the /api/health the old docs cited and never existed)');
+  const v1 = await req('GET', 'version');
+  ok('GET /api/version → 200 {ok:true, rel:151} with shell + index/app stamps read from the ACTUAL files next door',
+    v1.http === 200 && v1.json && v1.json.ok === true && v1.json.rel === 151 &&
+    /^shivaa-shell-v15[1-9]/.test(String(v1.json.shell || '')) &&
+    v1.json.stamp && v1.json.stamp.index === v1.json.rel && v1.json.stamp.app === v1.json.rel,
+    JSON.stringify(v1.json).slice(0, 220));
+  ok('the tc summary on the SAME fetch shows the consent we just ran (kind, ok, who) — one URL = version + verdict',
+    v1.json && v1.json.tc && v1.json.tc.kind === 'consent' && v1.json.tc.ok === 1 && v1.json.tc.who === 'who=- p=from-body',
+    JSON.stringify((v1.json || {}).tc).slice(0, 160));
+  const v0 = await req('GET', 'health');
+  ok('the old /api/health claim is DEAD: it still 404s (Unknown API) — and every DEPLOY doc now says /api/version',
+    v0.http === 404 && /Unknown API/.test(String(v0.json && v0.json.error || v0.raw)),
+    JSON.stringify({ http: v0.http, err: String(v0.json && v0.json.error) }));
 
   console.log('\n· 3 — regressions the audit wiring must not disturb');
   const N2 = 'shvq151look00002';

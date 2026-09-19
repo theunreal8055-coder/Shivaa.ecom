@@ -4502,6 +4502,30 @@ try {
      plus whether our side can actually receive/store anything. Nothing
      sensitive is here: the Partner Key is by design embedded in the client-
      side deep link; the last-callback trail carries no personal data. */
+  /* v151 · api/version — the ONLY honest "did my deploy land?" endpoint. The
+     DEPLOY docs had been pointing at an /api/health that never existed (the
+     route table has no health entry — it answers Unknown API); this fixes the
+     lie by shipping the real one. NOTHING secret: release constants + the same
+     four already-public doctor summary lines (no keys, no phones, no names). */
+  if ($route === 'version' && $method === 'GET') {
+    $swSrc = (string)@file_get_contents(__DIR__ . '/sw.js');
+    $st = @json_decode((string)@file_get_contents(TC_STATUS_FILE), true);
+    $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
+    jout(200, [
+      'ok'    => true,
+      'rel'   => 151,
+      'shell' => $sh,
+      'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
+                  'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
+      'tc'    => [
+        'at'   => is_array($st) && isset($st['seenAt']) ? (int)$st['seenAt'] : 0,
+        'kind' => is_array($st) ? (string)($st['lastKind'] ?? '') : '',
+        'ok'   => is_array($st) ? ($st['lastOk'] ?? '') : '',
+        'who'  => is_array($st) ? substr((string)($st['lastProfile'] ?? ''), 0, 80) : '',
+      ],
+    ]);
+  }
+
   if ($route === 'auth/truecaller/config' && $method === 'GET') {
     $tcKey = trim((string)($db['settings']['tcAppKey'] ?? ''));
     $st = @json_decode((string)@file_get_contents(TC_STATUS_FILE), true);
