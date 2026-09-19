@@ -3164,7 +3164,7 @@ pages.express = async view => {
       <p id="exPhoneErr" style="color:#c0392b;font-size:12.5px;margin:4px 0 0;display:none"></p>
       <button class="btn btn-gold btn-lg btn-block" id="exBuy">✦ Make It Yours — Pay ${fmt(total)}</button>
       <p style="color:var(--ink-3);font-size:13px;margin:12px 0 30px">Places the order and opens the secure Cashfree page, where you pay in one step. ${(state.settings.phone) ? 'Questions? WhatsApp ' + esc(state.settings.phone) + '.' : ''}</p>
-      <button class="btn btn-ghost" onclick="history.length > 1 ? history.back() : (location.hash = '#/product/${esc(item.id)}')">← Back</button>
+      <button class="btn btn-ghost" onclick="history.length > 1 ? history.back() : (location.hash = '${fromCart ? '#/cart' : '#/shop'}')">← Back</button>
     </div>
   </div>`;
   const exBtn = $('#exBuy');
