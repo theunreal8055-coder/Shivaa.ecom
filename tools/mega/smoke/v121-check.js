@@ -72,9 +72,9 @@ function bootStore(extra = '') {
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
   ok('release handshake is 121 on both sides (shell v121, script key v121)',
-    /__SHIVAA_REL\s*=\s*(121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)/.test(html) && /APP_REL\s*=\s*(121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)/.test(app) &&
-    /SHELL = 'shivaa-shell-v(121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)'/.test(sw) && /\/js\/app\.js\?v=(121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)/.test(html) &&
-    /'\/js\/app\.js\?v=(121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)'/.test(sw));
+    /__SHIVAA_REL\s*=\s*(12[1-9]|13\d|14\d)/.test(html) && /APP_REL\s*=\s*(12[1-9]|13\d|14\d)/.test(app) &&
+    /SHELL = 'shivaa-shell-v(12[1-9]|13\d|14\d)'/.test(sw) && /\/js\/app\.js\?v=(12[1-9]|13\d|14\d)/.test(html) &&
+    /'\/js\/app\.js\?v=(12[1-9]|13\d|14\d)'/.test(sw));
   const slide1 = /<img src="\/images\/banners\/poster-heritage\.jpg" srcset="([^"]+)" sizes="100vw"[^>]*decoding="async"[^>]*fetchpriority="high">/.exec(app);
   const slideLazy = (app.match(/draggable="false" decoding="async" loading="lazy">/g) || []).length;
   const preload = /<link rel="preload" as="image" imagesrcset="([^"]+)" imagesizes="100vw" fetchpriority="high">/.exec(html);

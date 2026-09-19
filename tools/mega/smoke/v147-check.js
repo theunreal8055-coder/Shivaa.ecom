@@ -36,12 +36,19 @@ const admin = fs.readFileSync(path.join(CMS, 'js/admin.js'), 'utf8');
 const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
 
 console.log('\n· A · stamps');
-ok('release triple is 147 (index.html · app.js · sw.js)',
-  /window\.__SHIVAA_REL=147;/.test(shell) && /APP_REL\s*=\s*147/.test(app) && /SHELL = 'shivaa-shell-v147'/.test(sw));
-ok('index.html and the worker both request /js/app.js?v=147',
-  /\/js\/app\.js\?v=147/.test(shell) && /'\/js\/app\.js\?v=147'/.test(sw));
-ok('staff bundle rides the release (/js/admin.js?v=147)',
-  /injectScript\('\/js\/admin\.js\?v=147'\)/.test(app));
+ok('release triple is >=147 in lockstep (index.html · app.js · sw.js)  [v148 fix-forward: numeric]',
+  (() => {
+    const g = (re, t) => Number((re.exec(t) || [0, 0])[1]);
+    const r1 = g(/window\.__SHIVAA_REL=(\d+);/, shell), r2 = g(/APP_REL\s*=\s*(\d+)/, app), r3 = g(/SHELL = 'shivaa-shell-v(\d+)'/, sw);
+    return r1 >= 147 && r1 === r2 && r2 === r3;
+  })());
+ok('index.html and the worker both request /js/app.js?v=<the release> (lockstep)',
+  (() => {
+    const r = (Number((/window\.__SHIVAA_REL=(\d+);/.exec(shell) || [0, 0])[1]));
+    return new RegExp('/js/app\\.js\\?v=' + r).test(shell) && new RegExp("'/js/app\\.js\\?v=" + r + "'").test(sw);
+  })());
+ok('staff bundle rides >=147 (unchanged files may keep their older bump)',
+  /injectScript\('\/js\/admin\.js\?v=1(4[7-9]|[5-9]\d)'\)/.test(app));
 
 console.log('\n· B · server — the callback can actually land, fast, and is observable');
 const cbStart = api.indexOf("auth/truecaller/callback' && $method === 'POST'");
@@ -53,8 +60,8 @@ ok('callback ANSWERS before the profile fetch (Truecaller\u2019s 3 s rule)',
 ok('callback NEVER writes db.json (unlocked route) and carries no audit_log', !/audit_log\(/.test(cbSlice));
 ok('store is one file per nonce (sha1-named, atomic) — no shared-JSON race',
   /function tc_verify_path/.test(api) && /sha1\(\$nonce\)/.test(api) && !/function tc_store_read/.test(api));
-ok('profile endpoint is allowlisted to truecaller.com over https (no SSRF)',
-  api.indexOf("preg_match('#^https://[a-z0-9.\\-]*\\.truecaller\\.com/", api.indexOf('function truecaller_fetch_profile')) !== -1);
+ok('profile endpoint is allowlisted to truecaller.com over https (no SSRF; v148 shape-tolerant)',
+  api.indexOf("preg_match('#^https://(?:[a-z0-9\\-]+\\.)*truecaller\\.com/", api.indexOf('function truecaller_fetch_profile')) !== -1);
 ok('result route returns invoked / rejected states, verified only on a real Indian mobile',
   /'invoked' => true/.test(api) && /'rejected' => true/.test(api) && /\^\[6-9\]\\d\{9\}\$\/\', \(string\)\(\$entry\['phone'\]/.test(api));
 ok('config route is the doctor: callbackUrl + dataWritable + lastCallbackAt',
@@ -80,8 +87,9 @@ ok('one shared buy path for button and auto-continue (doBuy with tcNonce)',
   /const doBuy = async \(tcPhone, tcNonce\)/.test(app) && /exBtn\.onclick = \(\) => doBuy\(\);/.test(app) && /body\.tcNonce = tcNonce/.test(app));
 ok('verified result AUTO-fires the purchase (the one tap the owner asked for)',
   /await doBuy\(phone, nonce\);/.test(app));
-ok('the poll is fast (700 ms) and waits instead of demanding a typed number',
-  /setInterval\(pollOnce, 700\)/.test(app) && /polls >= 55/.test(app));
+ok('the poll is fast (700 ms) then PATIENT (v148: 3.5 s watch to a 9-min deadline, never a hard stop at 40 s)',
+  /setInterval\(pollOnce, slow \? 3500 : 700\)/.test(app) && /polls === 55/.test(app)
+  && /Date\.now\(\) \+ 9 \* 60 \* 1000/.test(app) && /if \(slow && Date\.now\(\) > DEADLINE\)/.test(app));
 ok('the nonce survives an Android tab reload (localStorage shv_tc_pending + resume)',
   /shv_tc_pending/.test(app) && /Re-attaching to your Truecaller verification/.test(app));
 ok('typed entry survives ONLY as the fallback, with the v146 wording',

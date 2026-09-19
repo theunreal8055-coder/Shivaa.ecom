@@ -186,25 +186,13 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
     shell.indexOf('/js/app.js?v=139') < shell.indexOf('/js/v139.js?v=139') &&
     sw.includes("'/js/v139.js?v=139'") && sw.includes("'/css/v139.css?v=139'"));
 
-  ok('the release triple moves together to 139 or newer (index.html · app.js · sw.js)',
-    (/window\.__SHIVAA_REL=139;/.test(shell) && /APP_REL\s*=\s*139/.test(app) &&
-     /SHELL = 'shivaa-shell-v139'/.test(sw) &&
-     /\/js\/app\.js\?v=139/.test(shell) && /\/js\/v116\.js\?v=139/.test(shell) && /\/js\/v117\.js\?v=139/.test(shell)) ||
-    (/window\.__SHIVAA_REL=140;/.test(shell) && /APP_REL\s*=\s*140/.test(app) &&
-     /SHELL = 'shivaa-shell-v140'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=141;/.test(shell) && /APP_REL\s*=\s*141/.test(app) &&
-     /SHELL = 'shivaa-shell-v141'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=142;/.test(shell) && /APP_REL\s*=\s*142/.test(app) &&
-     /SHELL = 'shivaa-shell-v142'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=143;/.test(shell) && /APP_REL\s*=\s*143/.test(app) &&
-     /SHELL = 'shivaa-shell-v143'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=144;/.test(shell) && /APP_REL\s*=\s*144/.test(app) &&
-     /SHELL = 'shivaa-shell-v144'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=145;/.test(shell) && /APP_REL\s*=\s*145/.test(app) &&
-     /SHELL = 'shivaa-shell-v145'/.test(sw)) ||
-    (/window\.__SHIVAA_REL=14[67];/.test(shell) && /APP_REL\s*=\s*14[67]/.test(app) &&
-     /SHELL = 'shivaa-shell-v14[67]'/.test(sw)),
-    'index.html/app.js/sw.js stamps must all read 139 (or a later release they moved to)');
+  ok('the release triple moves together to 139 or newer (index.html · app.js · sw.js)  [v148 fix-forward: numeric]',
+    (() => {
+      const g = (re, t) => Number((re.exec(t) || [0, 0])[1]);
+      const a = g(/window\.__SHIVAA_REL=(\d+);/, shell), b = g(/APP_REL\s*=\s*(\d+)/, app), c = g(/SHELL = 'shivaa-shell-v(\d+)'/, sw);
+      return a >= 139 && a === b && b === c;
+    })(),
+    'index.html/app.js/sw.js stamps must all read 139 or newer, in lockstep');
 
   ok('no stale 138 stamp survives in the shell, the app or the worker',
     !/\?v=138/.test(shell) && !/\?v=138/.test(sw) && !/APP_REL\s*=\s*138/.test(app),

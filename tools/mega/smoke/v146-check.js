@@ -27,11 +27,14 @@ const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
 
 console.log('\n· A · stamps');
 ok('release triple is 146 (index.html · app.js · sw.js)',
-  /window\.__SHIVAA_REL=14[67];/.test(shell) && /APP_REL\s*=\s*14[67]/.test(app) && /SHELL = 'shivaa-shell-v14[67]'/.test(sw));
-ok('index.html and the worker both request /js/app.js?v=146',
-  /\/js\/app\.js\?v=14[67]/.test(shell) && /'\/js\/app\.js\?v=14[67]'/.test(sw));
+  (Number((/window\.__SHIVAA_REL=(\d+);/.exec(shell)||[0,0])[1]) >= 146 && Number((/APP_REL\s*=\s*(\d+)/.exec(app)||[0,0])[1]) >= 146 && Number((/SHELL = 'shivaa-shell-v(\d+)'/.exec(sw)||[0,0])[1]) >= 146 /* v148 fix-forward */));
+ok('index.html and the worker both request /js/app.js?v=<the release> (>=146, lockstep; v148 fix-forward)',
+  (() => {
+    const r = Number((/window\.__SHIVAA_REL=(\d+);/.exec(shell) || [0, 0])[1]);
+    return r >= 146 && new RegExp('/js/app\\.js\\?v=' + r).test(shell) && new RegExp("'/js/app\\.js\\?v=" + r + "'").test(sw);
+  })());
 ok('staff bundle stamp moved to 146 (never v128)',
-  /injectScript\('\/js\/admin\.js\?v=14[67]'\)/.test(app) && !/admin\.js\?v=128/.test(app));
+  /injectScript\('\/js\/admin\.js\?v=14[6-9]'\)/.test(app) && !/admin\.js\?v=128/.test(app));
 ok('no leftover 144 handshake in the triple',
   !/__SHIVAA_REL=144;/.test(shell) && !/APP_REL\s*=\s*144/.test(app) && !/shivaa-shell-v144/.test(sw));
 

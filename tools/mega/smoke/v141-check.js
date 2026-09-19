@@ -38,14 +38,14 @@ const admin = fs.readFileSync(path.join(CMS, 'js/admin.js'), 'utf8');
 console.log('\n· A · static');
 
 ok('the release triple moves together to 141 (index.html · app.js · sw.js)',
-  /window\.__SHIVAA_REL=14[1-7];/.test(shell) && /APP_REL\s*=\s*14[1-7]/.test(app) && /SHELL = 'shivaa-shell-v14[1-7]'/.test(sw),
+  /window\.__SHIVAA_REL=14[1-9];/.test(shell) && /APP_REL\s*=\s*14[1-9]/.test(app) && /SHELL = 'shivaa-shell-v14[1-9]'/.test(sw),
   'index.html/app.js/sw.js stamps must all read 141 or newer');
 
 ok('index.html loads app.js at v141 and the worker precaches it at v141',
-  /\/js\/app\.js\?v=14[1-7]/.test(shell) && /'\/js\/app\.js\?v=14[1-7]'/.test(sw));
+  /\/js\/app\.js\?v=14[1-9]/.test(shell) && /'\/js\/app\.js\?v=14[1-9]'/.test(sw));
 
 ok('the admin panel bundle stamp moved OFF v128 (the pre-v139 stamp that hid the switches)',
-  /injectScript\('\/js\/admin\.js\?v=14[1-7]'\)/.test(app) && !/admin\.js\?v=128/.test(app),
+  /injectScript\('\/js\/admin\.js\?v=14[1-9]'\)/.test(app) && !/admin\.js\?v=128/.test(app),
   'app.js must load /js/admin.js?v=141+, never v128');
 
 ok('the One Click Checkout switches really exist in the shipped admin.js',

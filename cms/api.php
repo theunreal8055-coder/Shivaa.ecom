@@ -417,8 +417,16 @@ const TC_TTL_SECONDS = 600;   // 10 minutes (matches Truecaller's access token T
 function truecaller_fetch_profile(string $accessToken, string $endpoint): array {
   if (!function_exists('curl_init')) return ['ok' => false, 'err' => 'curl missing'];
   /* v147 — the endpoint comes from a public POST. Only Truecaller's own
-     https profile hosts may be fetched (no SSRF against the shop's VPS). */
-  if (!preg_match('#^https://[a-z0-9.\-]*\.truecaller\.com/[a-z0-9/_\-\.]*$#i', $endpoint))
+     https profile hosts may be fetched (no SSRF against the shop's VPS).
+     v148 — the old pattern demanded a SUBDOMAIN and a bare path, and
+     Truecaller's replies do not always look like that: a query string on the
+     profile URL ('?fields=…') or a bare https://truecaller.com/ host was
+     refused → the verified number silently never stored → the page waited on
+     nothing. The class of hosts is unchanged (any *.truecaller.com or
+     truecaller.com itself, https, no port, no userinfo, path chars only — a
+     lookalike like truecaller.com.evil.net still fails the pattern), it is
+     only made shape-tolerant. */
+  if (!preg_match('#^https://(?:[a-z0-9\-]+\.)*truecaller\.com/[a-z0-9/_\-\.]*(?:\?[a-z0-9=&_%.,\-~]*)?$#i', $endpoint))
     return ['ok' => false, 'err' => 'endpoint host not allowed'];
   $ch = curl_init($endpoint);
   curl_setopt_array($ch, [
@@ -4209,20 +4217,20 @@ try {
     // storefront swaps "opening…" wording for "tap Continue in the app".
     if ($nonceOk && $status === 'flow_invoked' && $token === '') {
       tc_entry_put($reqId, ['st' => 'invoked']);
-      tc_status_note(['lastKind' => 'invoked']);
+      tc_status_note(['lastKind' => 'invoked', 'lastOk' => '']);
       echo json_encode(['ok' => true]);
       exit;
     }
     // The customer declined inside the Truecaller app.
     if ($nonceOk && ($status === 'user_rejected' || $status === 'rejected' || $status === 'flow_cancelled')) {
       tc_entry_put($reqId, ['st' => 'rejected']);
-      tc_status_note(['lastKind' => 'rejected']);
+      tc_status_note(['lastKind' => 'rejected', 'lastOk' => '']);
       echo json_encode(['ok' => true]);
       exit;
     }
     if (!$nonceOk || $token === '' || $ep === '') {
       http_response_code(200);   // Truecaller expects 2xx even on bad input
-      tc_status_note(['lastKind' => 'bad', 'lastError' => 'missing/unknown fields']);
+      tc_status_note(['lastKind' => 'bad', 'lastOk' => '', 'lastError' => 'missing/unknown fields']);
       echo json_encode(['ok' => false, 'err' => 'missing fields']);
       exit;
     }
@@ -4250,13 +4258,19 @@ try {
       $name = mb_substr(trim((string)($p['name'] ?? '')), 0, 60);
       if ($phone !== '') {
         $stored = tc_entry_put($reqId, ['st' => 'ok', 'phone' => $phone, 'name' => $name]);
-        tc_status_note(['lastKind' => 'consent', 'lastPhoneTail' => substr($phone, -4), 'stored' => $stored ? 1 : 0]);
+        tc_status_note(['lastKind' => 'consent', 'lastOk' => 1, 'lastError' => '', 'lastPhoneTail' => substr($phone, -4), 'stored' => $stored ? 1 : 0]);
         if (!$stored) tc_status_note(['lastError' => 'data/tc-verify not writable — chmod 755 cms/data']);
       } else {
-        tc_status_note(['lastKind' => 'consent', 'lastError' => 'profile had no Indian mobile number']);
+        /* v148 — store a terminal state for the nonce: with nothing written the
+           page sat on "tap Continue in the app" for its whole window while
+           Truecaller had actually finished. 'failed' lets the storefront say
+           so and offer an immediate re-tap. */
+        tc_entry_put($reqId, ['st' => 'failed']);
+        tc_status_note(['lastKind' => 'consent', 'lastOk' => 0, 'lastError' => 'profile had no Indian mobile number']);
       }
     } else {
-      tc_status_note(['lastKind' => 'consent',
+      tc_entry_put($reqId, ['st' => 'failed']);   // v148 — see above
+      tc_status_note(['lastKind' => 'consent', 'lastOk' => 0,
         'lastError' => substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 160)]);
     }
     exit;
@@ -4276,6 +4290,7 @@ try {
     }
     if ($st === 'invoked')  jout(200, ['verified' => false, 'invoked' => true]);
     if ($st === 'rejected') jout(200, ['verified' => false, 'rejected' => true]);
+    if ($st === 'failed')   jout(200, ['verified' => false, 'failed' => true]);
     jout(200, ['verified' => false]);
   }
 
@@ -4294,6 +4309,10 @@ try {
       'dataWritable'  => tc_verify_writable(),
       'lastCallbackAt' => is_array($st) && isset($st['seenAt']) ? (int)$st['seenAt'] : 0,
       'lastKind'      => is_array($st) ? (string)($st['lastKind'] ?? '') : '',
+      /* v148 — did the LAST consent actually yield a stored number, and if
+         not, why (sanitized server-side error only; never any customer data). */
+      'lastOk'        => is_array($st) ? ($st['lastOk'] ?? '') : '',
+      'lastError'     => is_array($st) ? substr((string)($st['lastError'] ?? ''), 0, 160) : '',
     ]);
   }
 

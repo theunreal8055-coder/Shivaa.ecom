@@ -135,6 +135,27 @@ try { include '/tcrun/api.php'; } catch (Throwable $e) { echo "\\n@@FATAL " . ge
   ok('refused endpoint: nothing is stored as verified, and the doctor still answers',
     rBad.json && rBad.json.verified === false && c3.http === 200, JSON.stringify(rBad.json) + JSON.stringify(c3.json));
 
+  console.log('\n· v148 — endpoint shape-tolerance, the FAILED state, doctor visibility');
+  const cb5 = await req('POST', 'auth/truecaller/callback', { requestId: 'shvqav148query01', accessToken: 'tkn', endpoint: 'https://profile4-noneu.truecaller.com/v1/default?fields=name,phones' });
+  const r5 = await req('GET', 'auth/truecaller/result', null, null, { nonce: 'shvqav148query01' });
+  ok('query-string profile endpoint PASSES the allowlist (flow reaches the fetch itself; v147 refused it)',
+    cb5.http === 200 && r5.json && r5.json.failed === true && r5.json.verified === false, JSON.stringify(r5.json));
+  const c5 = await req('GET', 'auth/truecaller/config');
+  ok('doctor distinguishes the two failure kinds: lastOk=0 + a real lastError, no customer data',
+    c5.json && c5.json.lastOk === 0 && typeof c5.json.lastError === 'string' && c5.json.lastError !== ''
+    && c5.json.lastError.indexOf('host not allowed') === -1,
+    JSON.stringify({ lastOk: c5.json.lastOk, lastError: c5.json.lastError }));
+  await req('POST', 'auth/truecaller/callback', { requestId: 'shvqav148bare002', accessToken: 'tkn', endpoint: 'https://truecaller.com/v1/default' });
+  const r6 = await req('GET', 'auth/truecaller/result', null, null, { nonce: 'shvqav148bare002' });
+  ok('bare https://truecaller.com host accepted (the old pattern demanded a subdomain)',
+    r6.json && r6.json.failed === true, JSON.stringify(r6.json));
+  await req('POST', 'auth/truecaller/callback', { requestId: 'shvqav148fake003', accessToken: 'tkn', endpoint: 'https://truecaller.com.evil.test/v1/default' });
+  const r7 = await req('GET', 'auth/truecaller/result', null, null, { nonce: 'shvqav148fake003' });
+  const c7 = await req('GET', 'auth/truecaller/config');
+  ok('look-alike host STILL refused → failed state + doctor error names \u201chost not allowed\u201d',
+    r7.json && r7.json.failed === true && /host not allowed/.test(String(c7.json.lastError || '')),
+    JSON.stringify({ r: r7.json, e: c7.json.lastError }));
+
   console.log('\n· the ONE TAP — verified phone in the store becomes THE order\u2019s phone');
   /* seed exactly what the callback stores after a SUCCESSFUL profile fetch
      (curl to real Truecaller is out of reach in the sandbox — the storage and

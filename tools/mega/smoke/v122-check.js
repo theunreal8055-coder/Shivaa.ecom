@@ -79,9 +79,9 @@ function bootStore(extra = '') {
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
     `${shellRel && shellRel[1]} / ${appRel && appRel[1]} / ${swRel && swRel[1]}`);
   ok('release handshake is 122 on both sides (shell v122, script key v122)',
-    /__SHIVAA_REL\s*=\s*(122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)/.test(html) && /APP_REL\s*=\s*(122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)/.test(app) &&
-    /SHELL = 'shivaa-shell-v(122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)'/.test(sw) && /\/js\/app\.js\?v=(122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)/.test(html) &&
-    /'\/js\/app\.js\?v=(122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147)'/.test(sw));
+    /__SHIVAA_REL\s*=\s*(12[2-9]|13\d|14\d)/.test(html) && /APP_REL\s*=\s*(12[2-9]|13\d|14\d)/.test(app) &&
+    /SHELL = 'shivaa-shell-v(12[2-9]|13\d|14\d)'/.test(sw) && /\/js\/app\.js\?v=(12[2-9]|13\d|14\d)/.test(html) &&
+    /'\/js\/app\.js\?v=(12[2-9]|13\d|14\d)'/.test(sw));
   ok('desk markup: search box, 5-way sort, matchable name + SKU on cards',
     /id="dsfSearch" type="search" enterkeyhint="search"/.test(app) &&
     /id="dsfSort"[\s\S]{0,400}value="sel"[\s\S]{0,200}value="wasc"[\s\S]{0,200}value="wdesc"[\s\S]{0,200}value="az"/.test(app) &&

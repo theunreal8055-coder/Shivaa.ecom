@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 147;
+const APP_REL = 148;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -3127,7 +3127,7 @@ pages.express = async view => {
   if (!window.Shivaa._expressItem) {
     try {
       const p = store.get('shv_tc_pending', null);
-      if (p && p.nonce && (Date.now() - (p.at || 0)) < 3 * 60 * 1000) {
+      if (p && p.nonce && (Date.now() - (p.at || 0)) < 9 * 60 * 1000) {   // v148: matches the patient Truecaller watch
         const sv = store.get('shv_ex_item', null);
         if (sv && sv.item && sv.item.id && (Date.now() - (sv.at || 0)) < 10 * 60 * 1000)
           window.Shivaa._expressItem = sv.item;
@@ -3303,13 +3303,24 @@ pages.express = async view => {
     const ua = navigator.userAgent || '';
     if (!/Android/i.test(ua)) return;
     const PKEY = 'shv_tc_pending';
-    const freshRec = e => !!(e && e.nonce && (Date.now() - (e.at || 0)) < 3 * 60 * 1000);
+    /* v148 · PATIENCE. v147's wait window was ~40 s — and a customer who
+       approves the sheet, reads the number, taps it and confirms in the app
+       routinely takes longer than that. The consent then landed on OUR SERVER
+       (the owner's test proves it: lastKind=consent, minutes after the tap)
+       while the page had already stopped listening → "nothing happens".
+       The field is now patient: fast 700 ms polling for 40 s, then a slow
+       watch every 3.5 s until ~9 minutes (Truecaller's request expires at 10),
+       and the typed field appears AS AN OPTION mid-wait without stopping the
+       auto-continue. Verified number arriving at minute 8 still buys in one
+       tap exactly like minute 0. */
+    const freshRec = e => !!(e && e.nonce && (Date.now() - (e.at || 0)) < 9 * 60 * 1000);
+    const newNonce = () => 'shv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     let pend = null;
     try { pend = store.get(PKEY, null); } catch (e) {}
-    const nonce = freshRec(pend) ? pend.nonce
-      : 'shv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    let nonce = freshRec(pend) ? pend.nonce : newNonce();
     let sent = freshRec(pend);
-    let done = false, polling = false, polls = 0, timer = null, ready = null;
+    let done = false, polling = false, polls = 0, timer = null, ready = null, slow = false;
+    const DEADLINE = Date.now() + 9 * 60 * 1000;
     mount.innerHTML = `
       <button type="button" id="tcBtn" class="btn btn-gold btn-lg btn-block" style="background:linear-gradient(135deg,#1d72b8,#2196f3);color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" fill="#fff"/></svg>
@@ -3323,10 +3334,10 @@ pages.express = async view => {
       tcStatus.style.color = color || 'var(--ink-3)';
     };
     const stop = () => { polling = false; if (timer) { clearInterval(timer); timer = null; } };
-    const fallbackTyping = why => {
-      if (done) return;
-      stop();
-      say('Type the <b>10-digit number you just saw in Truecaller</b> and tap Make It Yours — Cashfree will still pre-fill your address. <span style="opacity:.75">(' + why + '.)</span>', '#7a1f2b');
+    /* v148 — the interval rate follows the phase: 700 ms while the customer is
+       expected to be back mid-pocket, 3.5 s for the long patient watch. */
+    const arm = () => { if (timer) clearInterval(timer); timer = setInterval(pollOnce, slow ? 3500 : 700); };
+    const typeHint = () => {
       const f = phoneField();
       if (f) {
         f.placeholder = 'The number Truecaller showed you';
@@ -3335,6 +3346,12 @@ pages.express = async view => {
       }
       tcBtn.disabled = false;
       if (tcBtnText) tcBtnText.textContent = 'Open Truecaller again';
+    };
+    const fallbackTyping = why => {
+      if (done) return;
+      stop();
+      say('Type the <b>10-digit number you just saw in Truecaller</b> and tap Make It Yours — Cashfree will still pre-fill your address. <span style="opacity:.75">(' + why + '.)</span>', '#7a1f2b');
+      typeHint();
     };
     const finish = async (phone, name) => {
       if (done || placed) return;
@@ -3357,10 +3374,15 @@ pages.express = async view => {
     };
     const pollOnce = async () => {
       if (done) return;
+      if (placed) { stop(); return; }                                  // Make It Yours already fired — nothing to hand to
+      /* v148 — the customer walked to another page mid-wait: stop this mount's
+         watch quietly. The nonce stays pending server-side; coming back to
+         One-Tap Buy re-attaches and finishes what Truecaller confirmed. */
+      if (String(location.hash || '').indexOf('#/express') !== 0) { stop(); return; }
       polls++;
       let r = null;
       try { r = await api('/api/auth/truecaller/result?nonce=' + encodeURIComponent(nonce)); } catch (e) {}
-      if (done) return;
+      if (done || placed) return;
       if (r && r.verified && /^[6-9]\d{9}$/.test(r.phone || '')) {
         /* If the tab is still BEHIND the Truecaller app, don't navigate a
            hidden page away — hold the number and fire the instant it's back. */
@@ -3369,20 +3391,47 @@ pages.express = async view => {
         return;
       }
       if (r && r.rejected) { fallbackTyping('You chose “Not now” in Truecaller'); return; }
+      if (r && r.failed) {
+        /* v148 — Truecaller confirmed, but OUR read of the number broke (a
+           refused profile endpoint, a dead upstream). Say so and reset to a
+           FRESH request instead of letting the customer stare at a spinner. */
+        stop();
+        nonce = newNonce(); sent = false; slow = false;
+        try { store.set(PKEY, null); } catch (e) {}
+        typeHint();
+        if (tcBtnText) tcBtnText.textContent = 'Try Truecaller again';
+        say('Truecaller confirmed you, but reading the number hiccuped — tap <b>Try again</b>; it stays one tap with zero typing', '#7a1f2b');
+        return;
+      }
       if (r && r.invoked && polls % 3 === 1) say('Truecaller is open — tap <b>Continue</b> on your number; this page does the rest', '#1d72b8');
-      if (polls >= 55) { fallbackTyping('Truecaller did not report back to us'); return; }   // ~40 s at 700 ms
+      if (polls === 55 && !slow) {
+        /* v148 — THE FIX for “nothing happens”. Do NOT stop listening: offer
+           typing, keep a slow watch. A number that arrives at minute 8 still
+           completes the one tap. */
+        slow = true; arm();
+        typeHint();
+        say('Still waiting on Truecaller — <b>type your number and tap Make It Yours</b> to go now, or keep this page open: if Truecaller answers, it continues by itself', '#7a1f2b');
+        return;
+      }
+      if (slow && Date.now() > DEADLINE) { fallbackTyping('Truecaller did not report back to us'); return; }
     };
     const start = () => {
       if (polling || done) return;
       polling = true;
       polls = 0;
       pollOnce();
-      timer = setInterval(pollOnce, 700);
+      arm();
     };
     const wake = () => {
       if (done || document.hidden) return;
-      if (ready) { const q = ready; ready = null; finish(q.phone, q.name); return; }
-      if (sent && polling) { polls = 0; pollOnce(); }   // the callback usually lands the moment the app hands back
+      if (ready) { const q = ready; ready = null; if (!placed) finish(q.phone, q.name); return; }
+      if (!sent || placed) return;
+      if (polling) { if (!slow) polls = 0; pollOnce(); return; }   // the callback usually lands the moment the app hands back
+      /* v148 — came back after a silent stretch (interval throttled away,
+         or a reload): re-arm while the pending nonce is still fresh. */
+      let p2 = null;
+      try { p2 = store.get(PKEY, null); } catch (e) {}
+      if (freshRec(p2) && p2.nonce === nonce) start();
     };
     document.addEventListener('visibilitychange', wake);
     window.addEventListener('focus', wake);
@@ -3395,6 +3444,7 @@ pages.express = async view => {
     tcBtn.onclick = () => {
       if (done || placed) return;
       sent = true;
+      slow = false;                                   // v148 — a fresh tap earns the fast window again
       try { store.set(PKEY, { nonce, at: Date.now() }); } catch (e) {}
       tcBtn.disabled = true;
       if (tcBtnText) tcBtnText.textContent = 'Confirm in the Truecaller app…';
