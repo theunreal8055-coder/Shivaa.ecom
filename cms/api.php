@@ -548,6 +548,53 @@ function tc_profile_extract(array $p): array {
   return [$phone, $name];
 }
 
+/* v151 · WHOSE profile is it, in 40 privacy-safe characters. The live doctor
+   proved the v150 fetch works: /v1/default answers 200 with a REAL profile —
+   and the owner's tap returned the SHIVAA JEWELS BUSINESS profile itself
+   (name.first "SHIVAA JEWELS", phoneNumbers a single landline-shaped digit
+   run, companyName/badges/history present). Two worlds still look alike from
+   the storefront: (a) only the OWNER's device is affected — his Truecaller app
+   logs in AS the business, whose profile simply has no Indian mobile, while
+   every real customer's profile carries theirs and v150 already works for
+   them; (b) the console serves the DEVELOPER's profile to EVERY consent
+   (test-mode / app-token scoping) — then nobody ever gets a number. One tap
+   from any second phone tells them apart IF the doctor names the profile —
+   initials only, phone CLASSES only, never a digit of the number itself.
+   Format: who=SB p=landline:1 business / who=RK p=mobile:1 / who=- p=none. */
+function tc_profile_audit($p): string {
+  if (!is_array($p)) return 'no-profile';
+  $f = ''; $l = '';
+  if (isset($p['name']) && is_array($p['name'])) { $f = trim((string)($p['name']['first'] ?? '')); $l = trim((string)($p['name']['last'] ?? '')); }
+  elseif (isset($p['name']) && is_string($p['name'])) { $f = trim((string)$p['name']); }
+  if ($f === '' && isset($p['firstName'])) $f = trim((string)$p['firstName']);
+  if ($l === '' && isset($p['lastName'])) $l = trim((string)$p['lastName']);
+  $who = ($f !== '' || $l !== '')
+    ? mb_strtoupper(mb_substr($f !== '' ? $f : $l, 0, 1)) . ($f !== '' && $l !== '' ? mb_strtoupper(mb_substr($l, 0, 1)) : '')
+    : '-';
+  $kinds = array(); $budget = 60;
+  $class = function ($v) { $d = preg_replace('#\D#', '', (string)$v);
+    if ($d === '' || strlen($d) < 5) return '';
+    return tc_norm_phone($v) !== '' ? 'mobile' : (strlen($d) <= 8 ? 'short' : (strlen($d) <= 13 ? 'landline' : 'odd')); };
+  $walk = function ($n) use (&$walk, &$kinds, &$budget, $class) {
+    foreach ($n as $v) {
+      if (--$budget <= 0) return;
+      if (is_array($v)) { $walk($v); continue; }
+      if (!is_scalar($v)) continue;
+      $k = $class($v);
+      if ($k !== '') $kinds[] = $k;
+    }
+  };
+  foreach (array('phoneNumbers', 'phones', 'mobiles', 'maskedPhones', 'verifiedNumbers', 'primaryPhone', 'phoneNumber', 'msisdn') as $k) {
+    if (!isset($p[$k])) continue;
+    if (is_array($p[$k])) $walk($p[$k]);
+    else { $c = $class($p[$k]); if ($c !== '') $kinds[] = $c; }
+  }
+  $parts = array();
+  foreach (array_count_values($kinds) as $kk => $c) $parts[] = $kk . ':' . $c;
+  $biz = (isset($p['companyName']) || isset($p['badges']) || isset($p['jobTitle'])) ? ' business' : '';
+  return 'who=' . $who . ' p=' . ($parts ? implode(',', $parts) : 'none') . $biz;
+}
+
 /* v147 · The temporary verification store is ONE FILE PER NONCE under
    data/tc-verify/ (named by sha1 of the nonce). The old shared-JSON store was
    a read-modify-write race on a route that deliberately runs WITHOUT the DB
@@ -4355,7 +4402,10 @@ try {
     }
     if ($phone !== '') {
       $stored = tc_entry_put($reqId, ['st' => 'ok', 'phone' => $phone, 'name' => $name]);
-      tc_status_note(['lastKind' => 'consent', 'lastOk' => 1, 'lastError' => '', 'lastPhoneTail' => substr($phone, -4), 'stored' => $stored ? 1 : 0]);
+      /* v151 — even a SUCCESS records WHO was read (initials + classes only) — the owner can
+         now see every tap's identity trail without trusting the storefront. */
+      tc_status_note(['lastKind' => 'consent', 'lastOk' => 1, 'lastError' => '', 'lastPhoneTail' => substr($phone, -4), 'stored' => $stored ? 1 : 0,
+        'lastProfile' => mb_substr(!empty($res['ok']) ? tc_profile_audit($res['profile'] ?? null) : 'who=- p=from-body', 0, 80)]);
       if (!$stored) tc_status_note(['lastError' => 'data/tc-verify not writable — chmod 755 cms/data']);
     } elseif (!empty($res['ok'])) {
       /* v149 — still no number after the deep read: keep tk/ep on the failed
@@ -4363,11 +4413,15 @@ try {
          instead of demanding a full re-consent; log the key NAMES (never any
          values) so the next doctor reading pinpoints the shape for good. */
       $keys = implode(',', array_slice(array_keys((array)($res['profile'] ?? [])), 0, 10));
+      /* v151 — + the PROFILE AUDIT: whose profile came back and what phone CLASSES it
+         holds. This is the line that separates "the tester's Truecaller account has no
+         mobile" from "the console serves one fixed profile to everyone". */
+      $aud = tc_profile_audit($res['profile'] ?? null);
       tc_entry_put($reqId, ['st' => 'failed', 'tk' => $token, 'ep' => $ep]);
-      tc_status_note(['lastKind' => 'consent', 'lastOk' => 0, 'lastEp' => mb_substr(tc_norm_endpoint($ep), 0, 120),
+      tc_status_note(['lastKind' => 'consent', 'lastOk' => 0, 'lastEp' => mb_substr(tc_norm_endpoint($ep), 0, 120), 'lastProfile' => mb_substr($aud, 0, 80),
         /* v150 — the KEY LIST plus a digit-masked SNIPPET of the actual body: one live
            tap now tells the whole story (which URL we really fetched, what it answered). */
-        'lastError' => mb_substr('profile had no Indian mobile number [keys: ' . $keys . '] | ' . (string)($res['snip'] ?? ''), 0, 300)]);
+        'lastError' => mb_substr('profile had no Indian mobile number [keys: ' . $keys . '] [aud ' . $aud . '] | ' . (string)($res['snip'] ?? ''), 0, 300)]);
     } else {
       tc_entry_put($reqId, ['st' => 'failed', 'tk' => $token, 'ep' => $ep]);   // v148 — terminal state; v149 — + retry material
       tc_status_note(['lastKind' => 'consent', 'lastOk' => 0, 'lastEp' => mb_substr(tc_norm_endpoint($ep), 0, 120),
@@ -4427,10 +4481,13 @@ try {
     if (!empty($res['ok']) && is_array($res['profile'] ?? null)) [$phone, $name] = tc_profile_extract($res['profile']);
     if ($phone !== '') {
       tc_entry_put($nonce, ['st' => 'ok', 'phone' => $phone, 'name' => $name]);
-      tc_status_note(['lastKind' => 'refetch', 'lastOk' => 1, 'lastError' => '', 'lastRefetchError' => '', 'lastPhoneTail' => substr($phone, -4)]);
+      tc_status_note(['lastKind' => 'refetch', 'lastOk' => 1, 'lastError' => '', 'lastRefetchError' => '', 'lastPhoneTail' => substr($phone, -4),
+        'lastProfile' => mb_substr(tc_profile_audit($res['profile'] ?? null), 0, 80)]);   // v151
       jout(200, ['verified' => true, 'phone' => $phone, 'name' => $name, 'retry' => true]);
     }
-    $why = (!empty($res['ok']) ? 'no number in profile' : substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 120))
+    /* v151 — the audit rides the refetch line too: the refetch is the LAST read of a
+       session, so who=p-… here is the freshest identity evidence the box can hold. */
+    $why = (!empty($res['ok']) ? 'no number in profile [aud ' . tc_profile_audit($res['profile'] ?? null) . ']' : substr((string)($res['err'] ?? ('http ' . (int)($res['http'] ?? 0))), 0, 120))
       . ' | ' . (string)($res['snip'] ?? '');
     /* v150 — the refetch writes its OWN trail key and NO LONGER overwrites the
        consent diagnosis: the owner's 19-Sep test proved why (refetch: still no
@@ -4463,6 +4520,10 @@ try {
          now explains itself, no code access needed. */
       'lastEp'        => is_array($st) ? substr((string)($st['lastEp'] ?? ''), 0, 120) : '',
       'lastRefetchError' => is_array($st) ? substr((string)($st['lastRefetchError'] ?? ''), 0, 300) : '',
+      /* v151 — whose profile the last read returned: initials + phone CLASSES only
+         (who=SB p=landline:1 business). THE discriminator for the business-vs-test-mode
+         question — a second tester's tap showing a DIFFERENT who= proves customers work. */
+      'lastProfile' => is_array($st) ? substr((string)($st['lastProfile'] ?? ''), 0, 80) : '',
     ]);
   }
 
