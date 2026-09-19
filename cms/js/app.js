@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 156;
+const APP_REL = 157;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1639,7 +1639,7 @@ let _lastRatesAt = 0;
 async function loadRates() {
   try {
     const r = await api('/api/rates');
-    state.rates = { ...r, ...(r.jaipur || {}) };  // storefront prices = Jaipur market rates
+    state.rates = { ...r, ...(r.jaipur || {}) };  // storefront prices = Shivaa market rates (payload key is legacy)
     _lastRatesAt = Date.now();
     renderTicker(); renderRateStrip(); document.dispatchEvent(new CustomEvent('rates'));
   } catch (e) {}
@@ -3433,6 +3433,9 @@ window.Shivaa.sizeGuide = () => openModal(`
   <p style="font-size:12.5px;color:var(--ink-3);margin-top:12px">Between sizes? Take the larger — we resize free within 30 days. Bangles: size 2.4 ≈ 2¼" internal diameter.</p>`);
 
 /* ─────────── COMPARE / SHORTLIST ─────────── */
+/* v157 — shared by the render AND the in-place poll patch, so the two can
+   never drift apart. */
+function compareMetalLabel(p) { return p.metal === 'Silver' ? 'Silver 925' : p.purity + ' Gold'; }
 pages.compare = async (view, q) => {
   const shared = (q.get('ids') || '').split(',').map(x => x.trim()).filter(Boolean);
   if (shared.length) {
@@ -3451,8 +3454,8 @@ pages.compare = async (view, q) => {
   }
   const total = items.reduce((a, p) => a + price(p).total, 0);
   const stoneRowNeeded = items.some(p => stoneInfo(p) !== '—');
-  const row = (label, fn, cls = '') => `<tr class="${cls}"><th scope="row">${label}</th>${items.map(p => `<td>${fn(p)}</td>`).join('')}</tr>`;
-  const metalLabel = p => p.metal === 'Silver' ? 'Silver 925' : p.purity + ' Gold';
+  const row = (label, fn, cls = '', key = '') => `<tr class="${cls}"><th scope="row">${label}</th>${items.map(p => `<td${key ? ` data-cmp="${key}" data-pid="${p.id}"` : ''}>${fn(p)}</td>`).join('')}</tr>`;
+  const metalLabel = compareMetalLabel;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Compare</div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
     <p>${items.length} of ${COMPARE_MAX} pieces selected · prices recalculate from the current Shivaa live rate and product making-charge data.</p></div></section>
@@ -3468,7 +3471,7 @@ pages.compare = async (view, q) => {
       </div>
     </div>
 
-    <div class="pcmp-note">Current combined shortlist value: <b>${fmt(total)}</b> · indicative until order confirmation.</div>
+    <div class="pcmp-note">Current combined shortlist value: <b data-cmp-note>${fmt(total)}</b> · indicative until order confirmation.</div>
     ${items.length < 2 ? '<div class="qty-banner pcmp-tip">Add one more piece to unlock a true side-by-side comparison.</div>' : ''}
 
     <div class="pcmp-grid" role="list">
@@ -3491,10 +3494,10 @@ pages.compare = async (view, q) => {
         <thead><tr><th scope="col">Detail</th>${items.map(p => `<th scope="col"><a href="#/product/${p.id}">${esc(p.name)}</a></th>`).join('')}</tr></thead>
         <tbody>
           ${row('Live price', p => { const pr = price(p); return `<b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small> incl. 3% GST</small>`; }, 'pcmp-total-row')}
-          ${row('Metal value', p => fmt(price(p).metalValue))}
-          ${row('Making charges', p => fmt(price(p).makingCharge))}
-          ${row('GST', p => fmt(price(p).gst))}
-          ${row('Rate basis', p => { const pr = price(p); return `${esc(metalLabel(p))} · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g`; })}
+          ${row('Metal value', p => fmt(price(p).metalValue), '', 'mval')}
+          ${row('Making charges', p => fmt(price(p).makingCharge), '', 'mcr')}
+          ${row('GST', p => fmt(price(p).gst), '', 'gst')}
+          ${row('Rate basis', p => { const pr = price(p); return `${esc(metalLabel(p))} · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g`; }, '', 'rate')}
           ${row('Net weight', p => `${p.weightG} g`)}
           ${row('Category', p => esc(CATS[p.category]?.name || p.category))}
           ${row('SKU', p => esc(p.sku || p.id))}
@@ -3512,6 +3515,35 @@ pages.compare = async (view, q) => {
   updateCompareUI();
   bindTilt(view);
 };
+/* v157 — BUG FIX: the 1 s rates poll rebuilt the WHOLE compare page (v120's
+   Bug A on #/rates and v156's cart fix, one page over). A rebuild that lands
+   mid-gesture resets the comparison table's horizontal scroll (it is a
+   tabindex="0" scroll pane), drops any focus/selection, and can swallow a tap
+   that straddles a tick — the Remove / Add to Cart / Clear buttons all live
+   on this page. The poll now patches every derived number in place: the price
+   cells are already handled by the global .js-price handler, and the metal /
+   making / GST / rate-basis rows plus the shortlist total patch here.
+   Returns false when the hooks are gone (empty tray, or an older cached
+   app.js) so the caller falls back to a single honest render. */
+function refreshComparePage() {
+  if (!location.hash.startsWith('#/compare')) return false;
+  const view = $('#view');
+  const table = view && view.querySelector('.pcmp-table');
+  if (!table) return false;
+  const items = compareItems();
+  if (!items.length) return !!view.querySelector('.pcmp-empty');   // empty tray already on screen — nothing to patch
+  items.forEach(p => {
+    const pr = price(p);
+    const set = (k, v) => { const el = table.querySelector(`[data-cmp="${k}"][data-pid="${p.id}"]`); if (el) el.innerHTML = v; };
+    set('mval', fmt(pr.metalValue));
+    set('mcr', fmt(pr.makingCharge));
+    set('gst', fmt(pr.gst));
+    set('rate', `${esc(compareMetalLabel(p))} · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g`);
+  });
+  const note = view.querySelector('[data-cmp-note]');
+  if (note) note.textContent = fmt(items.reduce((a, p) => a + price(p).total, 0));
+  return true;
+}
 
 /* ─────────── CART ─────────── */
 /* v103 — saved-for-later (private, local like the cart) */
@@ -5637,7 +5669,7 @@ pages.rates = async (view) => {
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1>
   <p>The same feed that powers every price on shivaa.in — sourced from official MCX futures (when the owner’s exchange feed is connected) or the international bullion market, refreshed automatically every ~10 minutes.</p></div></section>
   <div class="container" style="padding:44px 0 90px">
-    <div class="jaipur-hero">
+    <div class="shivaa-hero">
       <div class="jh-main">
         <span class="jh-badge">✦ SHIVAA LIVE RATE</span>
         <div class="jh-name">Gold 22K <small>(91.67)</small></div>
@@ -7230,7 +7262,7 @@ pages.buyback = async (view) => {
     <!-- ── LIVE VALUATION ENGINE ── -->
     <section class="bb-calc rv" id="bbCalc">
       <div class="bbc-head">
-        <span class="bbc-live"><i></i> LIVE JAIPUR RATE</span>
+        <span class="bbc-live"><i></i> LIVE SHIVAA RATE</span>
         <h2>What is your jewellery worth <em class="shimmer foil-txt">today</em>?</h2>
         <p>Enter the weight and purity stamped on your piece. This is the same feed that prices every product on shivaa.in, refreshed roughly every 10 minutes.</p>
       </div>
@@ -7396,6 +7428,24 @@ pages.buyback = async (view) => {
     $$('#bbSrc .bbp').forEach(x => x.classList.remove('on'));
     b.classList.add('on'); src = b.dataset.src; calc();
   }));
+
+  /* v157 — BUG FIX: the badge says LIVE, but the valuation was frozen at the
+     rate captured the moment the page rendered — the poll never touched it,
+     so the number kept drifting away from the feed the site advertises.
+     Every tick now re-reads the storefront rates IN PLACE and re-runs the
+     arithmetic: the weight input and the range slider are never re-rendered,
+     so typing and dragging survive. The listener detaches itself the instant
+     the calculator leaves the DOM (navigation), so no dead page keeps work. */
+  const _bbLive = () => {
+    if (!document.getElementById('bbCalc')) { document.removeEventListener('rates', _bbLive); return; }
+    const RR = state.rates || {};
+    if (RR.gold22) rates.g22 = RR.gold22;
+    if (RR.gold24) rates.g24 = RR.gold24;
+    if (RR.gold18) rates.g18 = RR.gold18;
+    if (RR.silver) rates.slv = RR.silver;
+    calc();
+  };
+  document.addEventListener('rates', _bbLive);
   calc();
 };
 
@@ -7405,7 +7455,7 @@ pages.buyback = async (view) => {
    ═══════════════════════════════════════════════════════════════════ */
 pages.savings = async (view) => {
   const R = state.rates || {};
-  const g22 = R.gold22 || 0;
+  let g22 = R.gold22 || 0;   // v157 — mutable: the live feed patches it in place
 
   view.innerHTML = `
   <section class="page-hero lux-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -7471,7 +7521,7 @@ pages.savings = async (view) => {
       <div class="bbc-head">
         <span class="bbc-live"><i></i> LIVE PROJECTION</span>
         <h2>See exactly what you will <em class="shimmer foil-txt">walk away with</em></h2>
-        <p>Move the slider to your comfortable monthly amount. Gold quantity is projected at today's Shivaa 22K rate of <b>${fmt(g22)}/g</b>.</p>
+        <p>Move the slider to your comfortable monthly amount. Gold quantity is projected at today's Shivaa 22K rate of <b data-sv-rate>${fmt(g22)}/g</b>.</p>
       </div>
 
       <div class="svc-body">
@@ -7502,7 +7552,7 @@ pages.savings = async (view) => {
           <div class="bbr-shine" aria-hidden="true"></div>
           <span class="bbr-label">YOU RECEIVE, IN GOLD</span>
           <div class="svr-gold" id="svGrams">0 g</div>
-          <div class="bbr-rate">approx. 22K gold at ${fmt(g22)}/g</div>
+          <div class="bbr-rate">approx. 22K gold at <span data-sv-rate2>${fmt(g22)}</span>/g</div>
 
           <div class="svr-bonus">
             <div class="svrb-ring" id="svRing"><span id="svPct">9%</span></div>
@@ -7638,6 +7688,21 @@ pages.savings = async (view) => {
     if (amt) amt.value = b.dataset.v; if (rng) rng.value = b.dataset.v;
     calc();
   }));
+
+  /* v157 — BUG FIX: the projection had the same freeze as the buyback page —
+     it divided the plan value by the 22K rate captured at render, so the
+     grams it promised stopped matching the live rate the rest of the site
+     quotes. The rate is patched in place (the ₹ input and the slider are
+     never rebuilt) and the projection re-runs on every tick. */
+  const _svLive = () => {
+    if (!document.getElementById('svCalc')) { document.removeEventListener('rates', _svLive); return; }
+    const RR = state.rates || {};
+    if (RR.gold22) g22 = RR.gold22;
+    const a = document.querySelector('[data-sv-rate]'); if (a) a.textContent = fmt(g22) + '/g';
+    const b = document.querySelector('[data-sv-rate2]'); if (b) b.textContent = fmt(g22);
+    calc();
+  };
+  document.addEventListener('rates', _svLive);
   calc();
 
   /* ---- v60 digital passbook ---- */
@@ -8250,8 +8315,14 @@ pages.faq = async (view) => {
 async function fillPrizeWorth() {
   const el = $('#prizeWorth'); if (!el) return;
   try {
+    /* v157 — BUG FIX: a bare /api/rates fetch returns the RAW fine anchor, so
+       this line valued the 10 g prize at a 24K rate ₹398/g BELOW the one the
+       storefront charges (v156 gave the 24K line the same desk premium as
+       22K). The prize is now valued on the storefront 24K rate — the same
+       number every customer sees — with the payload fallbacks kept. */
     const r = await api('/api/rates');
-    if (r && r.gold24) el.innerHTML = '✦ worth <b>₹' + Math.round(10 * r.gold24).toLocaleString('en-IN') + '</b> at today\u2019s 24K rate';
+    const g24 = (state.rates && state.rates.gold24) || (r && r.jaipur && r.jaipur.gold24) || (r && r.gold24);
+    if (g24) el.innerHTML = '✦ worth <b>₹' + Math.round(10 * g24).toLocaleString('en-IN') + '</b> at today\u2019s 24K rate';
     else el.innerHTML = '✦ valued at the live 24K rate on draw night';
   } catch (e) { el.innerHTML = '✦ valued at the live 24K rate on draw night'; }
 }
@@ -8605,7 +8676,10 @@ document.addEventListener('rates', () => {
      it (the rebuild wiped the pincode input mid-typing, every second while
      the MCX feed is live). Full re-render is only the stale-markup fallback. */
   if (location.hash.startsWith('#/cart')) { if (!refreshCartPage()) { try { const _pcr = pages.cart($('#view')); if (_pcr && _pcr.catch) _pcr.catch(() => {}); } catch (e) {} } }
-  if (location.hash.startsWith('#/compare')) pages.compare($('#view'), new URLSearchParams());
+  /* v157 — Bug fix: the compare page patches in place too (a wholesale rebuild
+     reset the comparison table's scroll and could swallow a tap that landed
+     mid-tick); a full render only when the hooks are missing. */
+  if (location.hash.startsWith('#/compare')) { if (!refreshComparePage()) pages.compare($('#view'), new URLSearchParams()); }
 });
 function refreshPdLive() {
   const pd = window._pd;

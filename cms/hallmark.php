@@ -138,6 +138,20 @@ function hallmark_staff_record(array $product): array {
   return ['revision' => $stored['revision'], 'entries' => $entries, 'needsReview' => false];
 }
 
+/* v157 — the rate brand is Shivaa. Older catalogue rows still carry the
+   legacy phrase ("Gold price follows the live Jaipur bullion rate…") inside
+   their customer-facing copy, and the live database is NOT shipped in a code
+   release — so the storefront normalises the wording at the DISPLAY boundary.
+   The stored row is never rewritten, and staff/partner views (which read the
+   raw records, not this projection) keep the original text. */
+function shv_storefront_copy(string $s): string {
+  return str_ireplace(
+    ['live Jaipur bullion rate', 'the Jaipur bullion rate', 'Jaipur bullion rate', 'Jaipur live rate'],
+    ['live Shivaa rate', 'Shivaa’s rate', 'Shivaa rate', 'Shivaa live rate'],
+    $s
+  );
+}
+
 function hallmark_product(array $product): array {
   $entries = hallmark_staff_record($product)['entries'];
   // Discard any legacy verification flags. Private provenance notes and staff
@@ -155,6 +169,9 @@ function hallmark_product(array $product): array {
     }
     if (array_key_exists('video', $product)) $product['video'] = shv_safe_media_url($product['video']) ?? '';
   }
+  // v157 — public copy only: the rate brand on a storefront response is Shivaa.
+  if (isset($product['desc']) && is_string($product['desc'])) $product['desc'] = shv_storefront_copy($product['desc']);
+  if (isset($product['mediaNote']) && is_string($product['mediaNote'])) $product['mediaNote'] = shv_storefront_copy($product['mediaNote']);
   $product['hallmark'] = [
     'status' => $entries ? 'recorded_unverified' : 'not_provided',
     'verified' => false,

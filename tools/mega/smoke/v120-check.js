@@ -76,7 +76,7 @@ function bootStore(extra = '') {
     /function refreshRatesPage\(R\)/.test(app) && /if \(!refreshRatesPage\(state\.rates\)\)/.test(app) &&
     /data-rr="g22"/.test(app) && /data-rr="srcbadge"/.test(app));
   ok('Bug A: rates template is never reveal-gated and survives a cold open',
-    !/jaipur-hero rv/.test(app) && !/chart-wrap mt-3 rv/.test(app) && /Weighing the market/.test(app));
+    !/jaipur-hero rv/.test(app) && !/shivaa-hero rv/.test(app) && !/chart-wrap mt-3 rv/.test(app) && /Weighing the market/.test(app));
   ok('Bug A bonus: the anchor line prints one ₹ (shared ratesAnchorTxt helper)',
     /function ratesAnchorTxt\(R\)/.test(app) && !/· ₹\$\{fmt\(AL\.goldPerG\)\}/.test(app));
   ok('Bug B: tile photos are versioned with a logo-then-hide fallback chain',

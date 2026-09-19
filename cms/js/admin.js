@@ -751,10 +751,10 @@ async function renderAdmin(view, q) {
         <div class="fld full"><label>Address</label><input name="address" value="${esc(S.address || '')}"></div>
         <div class="fld"><label>Free shipping above ₹</label><input name="freeShipAbove" type="number" value="${S.freeShipAbove}"></div>
         <div class="fld"><label>Shipping fee ₹</label><input name="shippingFee" type="number" value="${S.shippingFee}"></div>
-        <div class="fld"><label>Jaipur gold premium ₹/g <span style="font-size:11px;color:var(--ink-3)">(legacy — feeds only the 18K line ×0.75)</span></label><input name="jaipurPremium" type="number" value="${S.jaipurPremium ?? 55}"></div>
+        <div class="fld"><label>Shivaa gold premium ₹/g <span style="font-size:11px;color:var(--ink-3)">(legacy — feeds only the 18K line ×0.75)</span></label><input name="jaipurPremium" type="number" value="${S.jaipurPremium ?? 55}"></div>
         <div class="fld"><label>24K gold premium ₹/g <span style="font-size:11px;color:var(--ink-3)">(desk physical — v156: same ₹398 as the 22K line)</span></label><input name="gold24Premium" type="number" value="${S.gold24Premium ?? 398}"></div>
         <div class="fld"><label>22K gold premium ₹/g <span style="font-size:11px;color:var(--ink-3)">(desk physical — what the shop sells at)</span></label><input name="gold22Premium" type="number" value="${S.gold22Premium ?? 398}"></div>
-        <div class="fld"><label>Jaipur silver premium ₹/g</label><input name="jaipurSilverPremium" type="number" step="0.5" value="${S.jaipurSilverPremium ?? 3}"></div>
+        <div class="fld"><label>Shivaa silver premium ₹/g</label><input name="jaipurSilverPremium" type="number" step="0.5" value="${S.jaipurSilverPremium ?? 3}"></div>
         <div class="fld full"><label>GST verification API key (optional)</label><input name="gstKey" placeholder="leave blank — the APITxT SMS key already verifies GST automatically; use only for a different provider"></div>
         <div class="fld"><label>Bhai Dooj draw — live stream URL (YouTube/Instagram)</label><input name="drawStreamUrl" value="${esc(S.drawStreamUrl || '')}" placeholder="https://youtube.com/live/…"></div>
         <div class="fld"><label>Winner announcement note (shown after the draw)</label><input name="winnerNote" value="${esc(S.winnerNote || '')}" placeholder="Winner: …, verified by CA …"></div>
@@ -1153,7 +1153,7 @@ window.ShivaaAdmin._drawPoster = (target, scale) => {
   x.font = `bold ${58 * S}px "Noto Serif Devanagari", Georgia, serif`; x.fillText('शिवा', W / 2, 198 * S);
   x.fillStyle = '#e9c77a'; x.font = `600 ${56 * S}px Jost, Arial, sans-serif`; x.fillText('SHIVAA JEWELLERS', W / 2, 340 * S);
   x.fillStyle = 'rgba(233,199,122,0.85)'; x.font = `${26 * S}px Jost, Arial`;
-  x.fillText('BIS HALLMARKED · JAIPUR', W / 2, 386 * S);
+  x.fillText('BIS HALLMARKED · SHIVAA', W / 2, 386 * S);
   // date strip
   const now = new Date();
   const ds = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -3526,7 +3526,7 @@ window.ShivaaAdmin.productPoster = (id) => {
     .br{border-top:1px solid rgba(243,210,122,.4);margin:16px 0 10px;padding-top:12px}
     .url{font-size:15px;color:#fff;font-family:Jost,sans-serif;letter-spacing:.5px}
   </style></head><body><div class="poster">
-    <div class="sub">✦ Shivaa Jewellers · Jaipur rates ✦</div>
+    <div class="sub">✦ Shivaa Jewellers · Shivaa live rates ✦</div>
     <img src="${location.origin}${safeUrl(img)}" onerror="this.src='${location.origin}/images/logo.png'">
     <h1>${esc(p.name || '')}</h1>
     <div class="sub">${esc(p.purity || '')} · BIS hallmarked · lifetime exchange</div>

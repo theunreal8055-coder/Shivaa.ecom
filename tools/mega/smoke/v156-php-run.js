@@ -149,9 +149,12 @@ try { include '/tcrun/api.php'; } catch (Throwable $e) { echo "\\n@@FATAL " . ge
     `rates=${JSON.stringify(rt5)}`);
   ok('/api/products rates.gold22 = 14226 (22K pricing untouched)', rt5.gold22 === EXP.gold22);
   const v = await req('GET', 'version');
-  ok('/api/version rel 156 with self-consistent stamps (index 156 · app 156 · shell v156)',
-    v.http === 200 && v.json && v.json.rel === 156 && v.json.shell === 'shivaa-shell-v156'
-    && v.json.stamp && v.json.stamp.index === 156 && v.json.stamp.app === 156,
+  /* v157 — forward-tolerant era guard (house pattern): v156's semantics became
+     the baseline, so a later release must stay SELF-CONSISTENT at its own
+     stamp rather than pin 156 forever. Exactness is v157-check's job. */
+  ok('/api/version rel ≥ 156 with self-consistent stamps (index = app = shell)',
+    v.http === 200 && v.json && v.json.rel >= 156 && v.json.shell === 'shivaa-shell-v' + v.json.rel
+    && v.json.stamp && v.json.stamp.index === v.json.rel && v.json.stamp.app === v.json.rel,
     JSON.stringify(v.json));
 
   const pass = results.filter(Boolean).length;

@@ -128,7 +128,7 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
     await until(() => v156
       ? /22K Shivaa premium/.test(d.body.textContent) && /24K Shivaa premium/.test(d.body.textContent) && /\+₹398/.test(d.body.textContent)
       : /22K Jaipur premium/.test(d.body.textContent) && /\+₹398/.test(d.body.textContent)),
-    (d.querySelector('.jaipur-hero') || {}).textContent);
+    (d.querySelector('.shivaa-hero, .jaipur-hero') || {}).textContent);
   ok('rate card names the anchor it prices from (MCX future)',
     await until(() => /Rate anchor/.test(d.body.textContent) && /MCX future/.test(d.body.textContent)));
 
