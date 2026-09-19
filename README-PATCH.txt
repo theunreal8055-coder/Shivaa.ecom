@@ -1,26 +1,23 @@
-SHIVAA.JEWELS — v150 PATCH · the Truecaller-hiccup fix (server-side only)
+SHIVAA.JEWELS — v151 PATCH · the "whose profile?" doctor upgrade (server-side only)
 
 UNZIP INTO:  public_html/cms/        (Hostinger → File manager → overwrite)
 FILES (4):  api.php  index.html  sw.js  js/app.js
-NO DB CHANGE · NO RE-UPLOAD OF PRODUCTS/IMAGES · NOTHING ELSE TO TOUCH
+NO DB CHANGE · NOTHING ELSE TO TOUCH · YOUR PAGE CODE IS UNCHANGED (byte-identical except stamps)
 
-WHAT YOU GET
-  · The one-tap flow from v149 is UNCHANGED on the page (byte-identical app.js apart from
-    the version stamp) — Buy Now → Truecaller sheet, no waiting page.
-  · THE HICCUP FIX: when Truecaller hands us the profile host without /v1/default
-    (that's what your live doctor proved was happening — 200 OK, valid JSON, no phone in
-    it), the server now appends /v1/default itself before fetching. Proper User-Agent +
-    up to 2 redirects too.
-  · SELF-REPORTING DOCTOR: any failure records the exact URL fetched (lastEp) and a body
-    snippet with ALL digits masked. If one tap on the live site still hiccups, the
-    admin-doctor JSON alone tells me what to fix — no ssh needed.
+WHERE THINGS REALLY STAND (from YOUR live server's doctor — v150 worked):
+  The fetch now hits the right endpoint and Truecaller ANSWERS WITH A REAL PROFILE.
+  The profile it read is the SHIVAA JEWELS BUSINESS account itself (that is the Truecaller
+  login on the phone you test with). A business profile carries a landline, not a mobile —
+  and the checkout legitimately needs a 10-digit mobile, so the card falls back to typing.
+  For a CUSTOMER's phone, Truecaller returns the CUSTOMER's profile with THEIR mobile —
+  that path very likely already works. One test proves it in 30 seconds:
 
-VERIFY (2 min)
-  1) curl -s https://www.shivaa.in/api/health          →  "release":150
-  2) curl -s https://www.shivaa.in/api/auth/truecaller/config
-                                                       →  JSON with "lastEp" key present
-  3) Android + www.shivaa.in: Buy Now on an instant item → Truecaller sheet →
-     number arrives in the field, Pay via Cashfree lights up. Zero typing.
+  → Grab any second Android phone with a normal personal Truecaller. Tap Buy Now.
+    Number arrives + Cashfree lights up  =  DONE, it works for customers.
+    Still fails  →  run:  curl -s https://www.shivaa.in/api/auth/truecaller/config
+    and send me the line  "lastProfile":"who=… p=… business".
+    Same who= again on the second tester  =  Truecaller console in TEST MODE serving one
+    fixed profile — flip it LIVE / whitelist numbers in the console. No code fix needed.
 
-ROLLBACK
-  extract shivaa-update-v149.zip (md5 7b4b08912fe874ea6b153b8323b9361d) over the same 4 paths
+VERIFY v151 IS ON:  curl -s https://www.shivaa.in/api/health  →  "release":151
+ROLLBACK: shivaa-update-v150.zip (md5 94c592867c2373519d9ea640f7f6713f) over the same 4 paths
