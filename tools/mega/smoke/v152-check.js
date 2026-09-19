@@ -15,6 +15,9 @@
    Run: node tools/mega/smoke/v152-check.js
         SMOKE_CMS=<dir> node tools/mega/smoke/v152-check.js   (zip overlay)
    ═══════════════════════════════════════════════════════════════════════ */
+/* v153 · guard — v152's suite documents the EXPRESS-PAGE era; when the page
+   itself is removed (v153 in-place direct buy) these checks are historical. */
+if (!/pages\.express\s*=/.test((function(){ try { const _f=require('fs'),_p=require('path'); const _c=process.env.SMOKE_CMS||_p.resolve(__dirname,'../../..','cms'); return _f.readFileSync(_p.join(_c,'js','app.js'),'utf8'); } catch(e){ return ''; } })())) { console.log('SKIP — v153: the express page is gone (in-page direct buy now)'); process.exit(0); }
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '../../..');

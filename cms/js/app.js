@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 152;
+const APP_REL = 153;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -3060,10 +3060,10 @@ window.Shivaa.pdAdd = (id, ev) => {
   const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
   addToCart(id, window._pd.qty, size, $('#engrave')?.value || null, ev ? { fromEl: ev.currentTarget } : {});
 };
-/* v142 · take ONE piece straight to the express purchase. Same intent as the
-   classic Buy Now (only this piece, only the picked size), but the classic
-   flow keeps a member checkout behind a login gate, which is exactly what the
-   owner wants bypassed — so express uses its own customer id and access pin. */
+/* v142/v153 · take ONE piece straight to the purchase — since v153 with NO
+   page at all. Same intent as the classic Buy Now (only this piece, only the
+   picked size), but the classic flow keeps a member checkout behind forms the
+   owner wants bypassed — so direct-buy uses its own customer id and access pin. */
 window.Shivaa._expressItem = null;
 window.Shivaa.pdBuy = async id => {
   const size = $('#sizeRow .size-pill.on')?.dataset.size || null;
@@ -3075,202 +3075,227 @@ window.Shivaa.pdBuy = async id => {
      classic checkout rather than exchange their saved address for placeholders. */
   if (expressCheckoutOn() && !state.user) {
     window.Shivaa._expressItem = { id, qty, size, engraving: engrave };
-    /* v147/v152 — persist it: Android may reclaim and RELOAD the tab mid-
-       payment; the reload must still find the piece the shopper tapped. */
+    /* v153 — NO PAGE ANYMORE (owner's rule of the 19th: the Express page is
+       removed). The tap buys IN PLACE right here; the stash only exists so a
+       reclaimed-and-reloaded Android tab can resume exactly where it died. */
     try { store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() }); } catch (e) {}
-    /* v152 — DIRECT TO CASHFREE by design: when this device already knows the
-       number (last purchase here), the Express mount buys by itself one beat
-       later — the shopper's tap lands on Cashfree's page with nothing typed.
-       A first-time guest sees exactly ONE field (Cashfree's own API demands a
-       real customer_phone before the order can exist — no placeholder, ever). */
-    location.hash = '#/express';
-    return;
+    if (await window.Shivaa.exDirect(false)) return;
+    window.Shivaa._expressItem = null;
+    try { store.set('shv_ex_item', null); } catch (e) {}
   }
   addToCart(id, qty, size, engrave, { silent: true });
   location.hash = '#/checkout';
 };
 
-/* ─────────── v142 · EXPRESS CHECKOUT (guest One-Tap Buy) ───────────
-   The owner's brief: click "Make It Yours" and the piece is bought — the
-   customer does not make an account, does not type their name / number /
-   address, and does not get a site OTP. The only thing they type is their
-   bank-side UPI PIN / net-banking password on Cashfree's own page.
+/* ─────────── v142/v153 · GUEST DIRECT BUY (One-Tap Buy, pageless) ───────────
+   The owner's brief: click "Make It Yours" and the piece is bought — no
+   account, no forms, no site OTP. v153 took the LAST in-between surface away
+   too: the Express PAGE is deleted, the tap places the order from wherever
+   the shopper is standing and the browser goes straight to Cashfree's portal.
 
-   What is actually true, and must stay true here:
-   · a RETURNING customer never sees a number field — Cashfree already has
-     their verified number and pre-fills it.
-   · a first-time buyer enters their number ONCE on Cashfree's page, where
-     Cashfree (not shivaa.in) verifies it and pre-fills name + address. Their
-     second purchase is the one-tap experience. No code on this site can remove
-     Cashfree's own first-time number check.
+   What is physically true, and stays enforced here:
+   · an order cannot exist without a real 10-digit customer_phone — Cashfree's
+     Create-Order API demands it (v143) and the v84 gate demands contact for
+     every order. First buy on a device answers that with ONE field on a small
+     card OVER the same page (nothing navigates); after that the number lives
+     on the device (localStorage, 180 days) and every tap is press → Cashfree.
    · nothing is "auto-purchased" without money: shivaa.in places the order and
-     hands the browser to Cashfree; only a Cashfree-confirmed payment marks it
-     paid. That is the auto-checkout — the only keystrokes the customer makes
-     are inside Cashfree.
-   The whole page renders only when the owner's switch is on, and the switch
-   only reports on when a live Cashfree + One Click Checkout connection exists.
-   ------------------------------------------------------------------------ */
+     hands the browser to Cashfree; only Cashfree's confirmed payment marks it
+     paid. The only keystrokes the customer makes are inside Cashfree.
+   The whole flow runs only when the owner's switch is on, and the switch only
+   reports on when a live Cashfree + One Click Checkout connection exists. */
 function expressCheckoutOn() {
   return !!(state.settings && state.settings.guestCheckout === true);
 }
 window.Shivaa.expressCheckoutOn = expressCheckoutOn;
 
 window.Shivaa._expressOrder = null;
-/* remember a guest order so its return trip and page poller can find it */
+/* remember a guest order so its return trip and page poller can find it.
+   v153 stamps the TIME too — a fresh entry is what lets a reloaded tab RESUME
+   the payment instead of re-placing an order the shopper already paid for. */
 function expressRemember(orderId, pin) {
-  try { store.set('shv_express', { orderId, pin }); } catch (e) {}
+  try { store.set('shv_express', { orderId, pin, at: Date.now() }); } catch (e) {}
 }
-/* ── the express page: one item, a boundary address capture, and the payment. */
-pages.express = async view => {
-  if (!expressCheckoutOn() || state.user) { location.hash = '#/'; return; }
-  /* v145 — support BOTH single-item (Buy Now) and multi-item (Cart → Checkout) flows */
-  /* v152 — restore a stashed one-shot piece while the express intent is still
-     FRESH; a stale stash must never hijack a later cart checkout. */
-  if (!window.Shivaa._expressItem) {
-    try {
-      const sv = store.get('shv_ex_item', null);
-      if (sv && sv.item && sv.item.id && (Date.now() - (sv.at || 0)) < 10 * 60 * 1000)
-        window.Shivaa._expressItem = sv.item;
-      else if (sv) store.set('shv_ex_item', null);
-    } catch (e) {}
+/* ═════════ v153 · IN-PAGE DIRECT BUY — THE EXPRESS PAGE ITSELF IS GONE.
+   Owner (19 Sep): "completely remove the one tap page of Shiva that you are
+   made and redirect customers directly to the cashfree payment portal once
+   they click on buy now check out or make it yours". No route, no render,
+   no URL change: the tap places the order from wherever the shopper stands
+   and the browser goes straight to Cashfree. The only thing that may still
+   appear is a ONE-FIELD card floating over the SAME page, and only on the
+   first buy on a device (see the banner above).
+   ═══════════════════════════════════════════════════════════════════════ */
+window.Shivaa._payCfg = null;
+const EX = { busy: false, el: null };
+async function exGate() {
+  if (!(state.settings && state.settings.guestCheckout === true)) return false;
+  let c = window.Shivaa._payCfg;
+  if (!c || Date.now() - c.at > 60000) {
+    try { c = window.Shivaa._payCfg = { cfg: await api('/api/pay/config'), at: Date.now() }; }
+    catch (e) { return false; }
   }
-  const fromCart = !window.Shivaa._expressItem && state.cart.length > 0;
-  let cartItems = [];
-  let item = window.Shivaa._expressItem;
-  if (fromCart) {
-    cartItems = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
-    if (!cartItems.length) { location.hash = '#/cart'; return; }
-  } else {
-    if (!item || !item.id) { location.hash = '#/shop'; return; }
-    let p = state.productsCache.find(x => x.id === item.id);
-    if (!p) { try { const one = await api('/api/products/' + item.id); p = one.product || null; } catch (e) {} }
-    if (!p) { view.innerHTML = `<div class="empty"><h3>Piece not found</h3><a class="btn btn-primary" href="#/shop">Back to shop</a></div>`; return; }
-    cartItems = [{ id: item.id, qty: item.qty || 1, size: item.size || null, engraving: item.engraving || null, p }];
-  }
-  let cfg = {};
-  try { cfg = await api('/api/pay/config'); } catch (e) {}
-  /* the SERVER says the full automatic experience is available only when the
-     owner's switch is on AND Cashfree is connected AND One Click Checkout is
-     enabled — refuse anything less, or a customer would buy with none of the
-     auto-verification the owner asked for. */
-  if (cfg.mode !== 'cashfree' || cfg.guestCheckout !== true) {
-    view.innerHTML = `<div class="empty"><h3>One-Tap Buy is being connected</h3><p style="color:var(--muted);max-width:460px;margin:0 auto 14px">The automatic checkout switches on the moment Cashfree and One Click Checkout are live in Admin &rarr; Settings &rarr; Payments. Please use the cart and pay by WhatsApp / UPI QR meanwhile.</p><a class="btn btn-primary" href="#/cart">Go to cart</a></div>`;
-    return;
-  }
-  let expMem = null; try { expMem = store.get('shv_exp_contact', null); } catch (e) {}
-  const expMemPhone = (expMem && /^[6-9]\d{9}$/.test(expMem.phone || '') && (Date.now() - (expMem.at || 0)) < 180 * 864e5) ? expMem.phone : '';
-  const phone = authPhone((state.user && state.user.phone) || '') || expMemPhone;
-  const line = cartItems.reduce((a, c) => a + price(c.p).total * (c.qty || 1), 0);
+  return !!(c.cfg && c.cfg.mode === 'cashfree' && c.cfg.guestCheckout === true);
+}
+function exMemPhone() {
+  let m = null; try { m = store.get('shv_exp_contact', null); } catch (e) {}
+  return (m && /^[6-9]\d{9}$/.test(m.phone || '') && (Date.now() - (m.at || 0)) < 180 * 864e5) ? m.phone : '';
+}
+function exClose() { if (EX.el) { EX.el.remove(); EX.el = null; } }
+function exShell(inner, onClose) {
+  exClose();
+  const d = document.createElement('div');
+  d.id = 'shvExCard'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+  d.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(24,16,8,.5);display:flex;align-items:center;justify-content:center;padding:18px';
+  d.innerHTML = '<div style="max-width:440px;width:100%;background:var(--bg-card,#fffdf9);border:1px solid var(--line,#e6ddd0);border-radius:18px;padding:22px 22px 18px;box-shadow:0 24px 60px rgba(0,0,0,.3)">' + inner + '</div>';
+  if (onClose) d.addEventListener('click', ev => { if (ev.target === d) onClose(); });
+  document.body.appendChild(d);
+  EX.el = d;
+  return d;
+}
+function exBusy(msg) {
+  exShell('<p style="margin:6px 2px;font-weight:600;font-size:15.5px">' + msg +
+          '</p><p style="color:var(--ink-3);font-size:13px;margin:0 2px 4px">Do not close this tab — Cashfree is opening.</p>', null);
+}
+async function exItems(fromCart) {
+  if (fromCart) return state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+  const it = window.Shivaa._expressItem;
+  if (!it || !it.id) return [];
+  let p = state.productsCache.find(x => x.id === it.id);
+  if (!p) { try { const one = await api('/api/products/' + it.id); p = one.product || null; } catch (e) {} }
+  return p ? [{ id: it.id, qty: it.qty || 1, size: it.size || null, engraving: it.engraving || null, p }] : [];
+}
+function exTotals(items) {
+  const line = items.reduce((a, c) => a + price(c.p).total * (c.qty || 1), 0);
   const ship = line >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   const prepaid = Math.round(line * (((state.settings.prepaidPct) || 2) / 100));
-  const total = Math.max(0, line - prepaid + ship);
-  view.innerHTML = `
-  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="container"><div class="crumbs"><a href="#/shop">Shop</a> / Express</div>
-    <h1>${fromCart ? 'Checkout' : 'One-Tap Buy'} ✦</h1></div></section>
-  <div class="container" style="padding:40px 0 90px">
-    <div class="center" style="max-width:600px;margin:0 auto 24px">
-      <p style="color:var(--ink-2)"><b>We place the order now.</b> Your number, once, is enough: <b>Cashfree</b> verifies it with its own 6-digit OTP on its own page, pre-fills your saved address, and the only thing you type there is your <b>UPI PIN</b> or net-banking password. Bought here before? Then this page opens your payment by itself — nothing to type at all.</p>
-    </div>
-    <div class="rv" style="max-width:480px;margin:0 auto 30px">
-      ${cartItems.map(c => `<div class="sum-row"><span>${esc(c.p.name)}${c.size ? ' (' + esc(c.size) + ')' : ''} × ${c.qty || 1}</span><b>${fmt(price(c.p).total * (c.qty || 1))}</b></div>`).join('')}
-      <div class="sum-row"><span>Prepaid discount (pay online)</span><b style="color:var(--ok)">− ${fmt(prepaid)}</b></div>
-      <div class="sum-row"><span>Delivery</span><b>${ship === 0 ? 'FREE' : fmt(ship)}</b></div>
-      <div class="sum-row total"><span>Total</span><b>${fmt(total)}</b></div>
-    </div>
-    <div class="center" style="max-width:520px;margin:0 auto">
-      <label class="fld full" style="text-align:left"><span style="font-size:13px;color:var(--ink-2)">Your 10-digit mobile number — Cashfree uses it to verify you (its own OTP) and find your saved address. Remembered on this phone: next time, one tap goes straight to payment</span>
-      <input id="exPhone" type="tel" inputmode="numeric" maxlength="10" required value="${esc(phone)}" placeholder="98765 43210 (required)"></label>
-      <p id="exPhoneErr" style="color:#c0392b;font-size:12.5px;margin:4px 0 0;display:none"></p>
-      <p id="exPhoneNote" style="color:#27ae60;font-size:12.5px;margin:4px 0 6px;display:none;text-align:left"></p>
-      <button class="btn btn-gold btn-lg btn-block" id="exBuy">✦ Make It Yours — Pay ${fmt(total)}</button>
-      <p style="color:var(--ink-3);font-size:13px;margin:12px 0 30px">Places the order and opens the secure Cashfree page, where you pay in one step. ${(state.settings.phone) ? 'Questions? WhatsApp ' + esc(state.settings.phone) + '.' : ''}</p>
-      <button class="btn btn-ghost" onclick="location.hash='${fromCart ? '#/cart' : '#/shop'}'">← Back</button>
-    </div>
-  </div>`;
-  const exBtn = $('#exBuy');
-  const phoneField = () => $('#exPhone');
-  let placed = false;
-  /* v147/v152 · ONE SHARED BUY PATH — the button and the remembered-number
-     auto-buy run the SAME code: validate → place guest order → open Cashfree. */
-  const doBuy = async () => {
-    if (placed) return;
-    /* v143 — Cashfree Create Order REQUIRES a real 10-digit customer_phone:
-       validated before the browser ever touches the server. */
-    const f = phoneField();
-    const typedPhone = authPhone((f && f.value) || '');
-    const phoneErr = $('#exPhoneErr');
-    if (!/^[6-9]\d{9}$/.test(typedPhone)) {
-      phoneErr.textContent = 'Please enter a valid 10-digit mobile number — Cashfree needs it to start the payment.';
-      phoneErr.style.display = 'block';
-      if (f) f.focus();
-      return;
+  return Math.max(0, line - prepaid + ship);
+}
+async function exRunBuy(items, phone) {
+  /* v142 boundary address — the REAL delivery details come back from
+     Cashfree's own page after its OTP verifies the number, and the return
+     route sweeps them onto the order (cfCheckout). Nothing is invented:
+     the name is a placeholder Cashfree replaces with its verified one. */
+  const res = await api('/api/orders', { method: 'POST', body: JSON.stringify({
+    items: items.map(c => ({ id: c.id, qty: c.qty || 1, size: c.size || null, engraving: c.engraving || null })),
+    address: { name: 'Valued Customer', phone, line: 'Collected on Cashfree (verified address)',
+               city: 'Pending verification', state: 'Pending verification', pincode: '000000', country: 'India' },
+    paymentMethod: 'Online',   // guest direct-buy is prepaid-only; never COD/WhatsApp
+  }) });
+  window.Shivaa._expressOrder = res;
+  expressRemember(res.id, res.pin || '');
+  try { store.set('shv_exp_contact', { phone, at: Date.now() }); } catch (e) {}
+  window.Shivaa._expressItem = null;
+  try { store.set('shv_ex_item', null); } catch (e) {}
+  exBusy('Opening your Cashfree payment…');
+  /* v153 — the cf-pending view is set BEFORE the handoff, never after: the
+     order exists and the shopper is anchored to it even if Cashfree's SDK is
+     slow or the tab gets reclaimed mid-navigation. payForOrder then drives
+     the actual redirect; its own toasts stay honest either way. */
+  location.hash = '#/order/' + encodeURIComponent(res.id) + '?cf=pending'
+    + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
+  try { await Shivaa.payForOrder(res.id, res.pin || ''); } catch (e) {}
+  exClose();
+}
+/* THE entry point: true = the flow consumed the tap (or is mid-modal);
+   false = caller must proceed with the classic addToCart → #/checkout. */
+window.Shivaa.exDirect = async fromCart => {
+  if (EX.busy || state.user) return false;
+  if (!(await exGate())) return false;
+  const items = await exItems(!!fromCart);
+  if (!items.length) return false;
+  EX.busy = true;
+  try {
+    const mem = exMemPhone();
+    if (mem) {
+      /* the owner's literal rule: press → Cashfree's portal. A device that
+         has bought here before is asked for NOTHING. */
+      exBusy('✓ +91 ' + mem + ' remembered from this device — opening your payment…');
+      await exRunBuy(items, mem);
+      return true;
     }
-    phoneErr.style.display = 'none';
-    placed = true;
-    exBtn.disabled = true; exBtn.textContent = 'Placing your order…';
-    try {
-      /* v142 — the boundary address. A guest order still needs a valid
-         name/phone/line/city/pincode row server-side (v84 enforces it), but
-         the REAL delivery details come back from Cashfree after the One Click
-         Checkout page authenticates the number — the return route sweeps the
-         verified address + phone onto the order (cfCheckout) before dispatch.
-         Nothing here invents a customer identity: the name is a placeholder
-         that Cashfree replaces with its own verified one on payment. */
-      const body = {
-        items: cartItems.map(c => ({ id: c.id, qty: c.qty || 1, size: c.size || null, engraving: c.engraving || null })),
-        address: {
-          name: 'Valued Customer',
-          phone: typedPhone,
-          line: 'Collected on Cashfree (verified address)',
-          city: 'Pending verification', state: 'Pending verification', pincode: '000000', country: 'India',
-        },
-        paymentMethod: 'Online',   // guest express is prepaid-only; never COD/WhatsApp
+    let cancelled = false;
+    await new Promise(resolve => {
+      const total = exTotals(items);
+      const done = () => { cancelled = true; exClose(); resolve(); };
+      const d = exShell(`
+        <h3 style="margin:0 0 4px">One line, then Cashfree ✦</h3>
+        <p style="color:var(--ink-3);font-size:13px;margin:0 0 12px">Just your 10-digit mobile — Cashfree verifies it with its own OTP, pre-fills your saved address and opens your payment. First and last time we ask; next tap goes straight to Cashfree.</p>
+        <label style="display:block;text-align:left;font-size:13px;color:var(--ink-2)">Your 10-digit mobile number
+          <input id="exmPhone" type="tel" inputmode="numeric" maxlength="10" placeholder="98765 43210"
+            style="width:100%;box-sizing:border-box;margin-top:5px;padding:12px 14px;font-size:17px;border:1.5px solid var(--line,#e2d9cc);border-radius:11px;background:#fff;color:inherit">
+        </label>
+        <p id="exmErr" style="color:#c0392b;font-size:12.5px;margin:6px 0 0;display:none"></p>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button type="button" class="btn btn-ghost" id="exmCancel">Cancel</button>
+          <button type="button" class="btn btn-gold" id="exmGo">✦ Pay ${fmt(total)} with Cashfree</button>
+        </div>`, done);
+      const inp = d.querySelector('#exmPhone'), err = d.querySelector('#exmErr');
+      const goBtn = d.querySelector('#exmGo');
+      let going = false;
+      const go = async () => {
+        if (going) return;
+        const ph = authPhone(inp.value);
+        if (!/^[6-9]\d{9}$/.test(ph)) {
+          err.textContent = 'Please enter a valid 10-digit mobile number — Cashfree needs it to start the payment.';
+          err.style.display = 'block'; try { inp.focus(); } catch (e) {} return;
+        }
+        going = true;
+        goBtn.disabled = true; goBtn.textContent = 'Placing your order…';
+        try { await exRunBuy(items, ph); }
+        catch (e) {
+          going = false; toast(e.message, 'err');
+          goBtn.disabled = false; goBtn.textContent = '✦ Pay ' + fmt(total) + ' with Cashfree';
+          return;
+        }
+        resolve();   // success: exRunBuy already moved us; leave the overlay up until the browser lands on Cashfree
       };
-      const res = await api('/api/orders', { method: 'POST', body: JSON.stringify(body) });
-      window.Shivaa._expressOrder = res;
-      expressRemember(res.id, res.pin || '');
-      /* v152 — remember the number on THIS device (localStorage only):
-         every future tap goes direct — that is the zero-typing experience. */
-      try { store.set('shv_exp_contact', { phone: typedPhone, at: Date.now() }); } catch (e) {}
-      /* the one-shot Buy Now item is spent the moment the order exists —
-         a stale snapshot must never hijack a later cart checkout */
+      goBtn.onclick = go;
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+      d.querySelector('#exmCancel').onclick = done;
+      setTimeout(() => { try { inp.focus(); } catch (e) {} }, 30);
+    });
+    if (cancelled) {
+      /* the one-shot intent DIED with the cancel — clear the stash so no
+         future boot resurrects a purchase this shopper walked away from. */
       window.Shivaa._expressItem = null;
       try { store.set('shv_ex_item', null); } catch (e) {}
-      /* v142 — the automatic purchase is NOT complete without money: order
-         placed above, Cashfree opened next; only Cashfree's PAID status marks
-         it paid. Auto-purchased the moment "Make It Yours" is tapped was
-         exactly that: order → pay → confirmed. */
-      exBtn.textContent = 'Opening your Cashfree payment…';
-      await Shivaa.payForOrder(res.id, res.pin || '');
-      location.hash = '#/order/' + encodeURIComponent(res.id) + '?cf=pending'
-        + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
-    } catch (e) {
-      placed = false;
-      exBtn.disabled = false; exBtn.textContent = '✦ Make It Yours — Pay ' + fmt(total);
-      toast(e.message, 'err');
     }
-  };
-  /* v152 — THE DIRECT PATH. A number remembered from this device's last
-     purchase (localStorage only — nothing uploaded) arrives pre-filled AND
-     buys by itself one beat later: the shopper's tap therefore goes DIRECTLY
-     to Cashfree — no button press, no typing, no verification vendor.
-     They can still press the button immediately; nothing waits on us. */
-  (function expRemember() {
-    const f = phoneField();
-    if (!f || !f.value) return;
-    f.style.borderColor = '#27ae60';
-    f.style.background = '#f0fff4';
-    const n = $('#exPhoneNote');
-    if (n) {
-      n.style.display = 'block';
-      n.innerHTML = '✓ +91 ' + f.value + ' remembered from your last purchase here — opening your payment…';
-    }
-    if (!state.user) setTimeout(() => { if (!placed) doBuy(); }, 450);
-  })();
-  exBtn.onclick = () => doBuy();
-
+    return true;
+  } catch (e) {
+    exClose(); toast(e.message, 'err');
+    return true;   // the guest already saw an honest error — do NOT silently dump them into the classic checkout
+  } finally { EX.busy = false; }
 };
+/* the cart / sidebar CTA: same in-page direct buy; when the flow declines
+   (member, or Cashfree/switch not live) the link proceeds as always. */
+window.Shivaa.exCartCta = ev => {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  window.Shivaa.exDirect(true).then(used => { if (!used) location.hash = '#/checkout'; });
+  return false;
+};
+/* reclaimed-tab RESUME (v153 — the route can't restore anything anymore):
+   fresh ORDER + fresh tap → resume the payment, never re-place the order;
+   fresh tap with no order yet → re-run the buy (silent if remembered);
+   stale anything → clear and walk away. Called once per boot. */
+window.Shivaa.exResume = () => {
+  if (state.user || EX.busy) return;
+  let sv = null; try { sv = store.get('shv_ex_item', null); } catch (e) {}
+  const fresh = sv && sv.item && sv.item.id && (Date.now() - (sv.at || 0)) < 10 * 60 * 1000;
+  if (!fresh) { if (sv) { try { store.set('shv_ex_item', null); } catch (e) {} } return; }
+  let ord = null; try { ord = store.get('shv_express', null); } catch (e) {}
+  if (ord && ord.orderId && (Date.now() - (ord.at || 0)) < 10 * 60 * 1000) {
+    try { store.set('shv_ex_item', null); } catch (e) {}
+    window.Shivaa._expressItem = null;
+    exBusy('Resuming your payment — one moment…');
+    location.hash = '#/order/' + encodeURIComponent(ord.orderId) + '?cf=pending'
+      + (ord.pin ? '&pin=' + encodeURIComponent(ord.pin) : '');
+    Promise.resolve(Shivaa.payForOrder(ord.orderId, ord.pin || '')).then(exClose, exClose);
+    return;
+  }
+  window.Shivaa._expressItem = sv.item;
+  window.Shivaa.exDirect(false);
+};
+
 /* v103 — data-saver for the 65 product films (142 MB of media). Films
    autoload only on fast/uncapped connections; on 2G/3G/save-data they stay
    as poster frames and load on tap. The visitor can force either mode. */
@@ -3629,7 +3654,7 @@ pages.cart = async (view) => {
       <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
       <div class="sum-row" style="color:var(--ok);font-size:13px"><span>✦ Pay online &amp; save</span><b>− ${fmt(Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100))}</b></div>
       <div style="margin:16px 0 6px" class="label" id="ptLbl">Loyalty & offers applied at checkout →</div>
-      <a class="btn btn-primary btn-block btn-lg" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
+      <a class="btn btn-primary btn-block btn-lg" href="#/checkout" onclick="return Shivaa.exCartCta(event)">Proceed to Checkout ✦</a>
       <a class="btn btn-outline btn-block btn-sm mt-2" href="#/quote">📄 Get shareable quotation (48 h rate hold)</a>
       <button class="btn btn-ghost btn-block mt-2" onclick="Shivaa.waOpenCart()">Order via WhatsApp chat <span class="mini-wa">${WA_SVG}</span></button>
       <a class="btn btn-ghost btn-block btn-sm mt-2" href="#/shop">Continue shopping</a>
@@ -3637,7 +3662,7 @@ pages.cart = async (view) => {
   </div>
   <div class="mcta-bar" aria-hidden="false">
     <div class="mcta-total"><small>${cartCount()} item${cartCount() > 1 ? 's' : ''} · total</small><b>${fmt(subtotal + shipping)}</b></div>
-    <a class="btn btn-gold" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}">Proceed to Checkout ✦</a>
+    <a class="btn btn-gold" href="#/checkout" onclick="return Shivaa.exCartCta(event)">Proceed to Checkout ✦</a>
   </div>`;
   window.Shivaa.bindDelivery(view);   // v103 — remembered pincode answers immediately
 };
@@ -3730,7 +3755,7 @@ function miniCartHTML() {
       <div class="sum-row"><span>Subtotal · ${count} item${count > 1 ? 's' : ''} (incl. GST)</span><b id="mcSub">${fmt(subtotal)}</b></div>
       <div class="sum-row"><span>Insured shipping</span>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</div>
       <div class="sum-row total"><span>Total</span><b>${fmt(subtotal + shipping)}</b></div>
-      <a class="btn btn-gold btn-block btn-lg" href="${expressCheckoutOn() && !state.user ? '#/express' : '#/checkout'}" data-mc-close>Checkout ✦</a>
+      <a class="btn btn-gold btn-block btn-lg" href="#/checkout" onclick="return Shivaa.exCartCta(event)" data-mc-close>Checkout ✦</a>
       <div class="mc-foot-alt">
         <a href="#/cart" data-mc-close>View full bag</a>
         <button type="button" data-mc-close>Continue shopping</button>
@@ -4068,7 +4093,17 @@ window.Shivaa.quickView = async (id) => {
 /* ─────────── CHECKOUT ─────────── */
 pages.checkout = async (view) => {
   if (!state.cart.length) { location.hash = '#/cart'; return; }
-  if (!state.user) { if (expressCheckoutOn()) { location.hash = '#/express'; return; } openLogin('checkout'); return; }
+  if (!state.user) {
+    /* v153 — a guest landing on the classic checkout URL (back-gesture, stale
+       link) gets the SAME in-page direct buy rather than being bounced to a
+       page that no longer exists; only when the flow declines does the login
+       offer appear. */
+    if (expressCheckoutOn()) {
+      window.Shivaa.exDirect(true).then(used => { if (!used) openLogin('checkout'); });
+      return;
+    }
+    openLogin('checkout'); return;
+  }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
@@ -8282,6 +8317,13 @@ function route() {
   const [pathPart, qs] = hash.split('?');
   const seg = pathPart.split('/').filter(Boolean);
   const page = seg[0] || 'home';
+  /* v153 — the Express route no longer exists (direct buy runs in place).
+     Any old bookmark, shared link or Android back-gesture landing on it gets
+     a harmless bounce — never a dead end, never a re-buy. */
+  if (page === 'express') {
+    location.replace(String(location.href).replace(/#\/express\S*/, state.user ? '#/checkout' : '#/cart'));
+    return;
+  }
   const q = new URLSearchParams(qs || '');
   const view = $('#view');
   closeModal();
@@ -8921,6 +8963,7 @@ async function boot(isRedraw) {
   if (pl) { pl.classList.add('hide'); setTimeout(() => pl.remove(), 900); }
   initMiniCart();   // v91 slide-in bag
   route();
+  try { window.Shivaa.exResume(); } catch (e) {}   // v153 — in-page buy survived a tab reclaim?
   // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours
   scheduleRatesPoll();
   setInterval(() => {

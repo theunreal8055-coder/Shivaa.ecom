@@ -51,7 +51,7 @@ ok('the staff bundle stamp (admin.js) moves with it to v142+ (the v141 fix must 
   'app.js must load /js/admin.js?v=142+, never v128');
 
 ok('the owner-facing switch exists in the admin payments panel',
-  /name="guestCheckout"/.test(admin) && /Automatic Guest Checkout \(One-Tap Buy\)/.test(admin),
+  /name="guestCheckout"/.test(admin) && /Automatic Guest Checkout \((One-Tap Buy|tap → Cashfree, no pages)\)/.test(admin),   // v153 relabelled the same switch
   'admin.js must render the guestCheckout toggle');
 
 ok('admin saves the switch as a strict boolean',
@@ -59,7 +59,7 @@ ok('admin saves the switch as a strict boolean',
   'savePay must read the checkbox');
 
 ok('the express buyer, express page and guest pin helpers are wired in app.js',
-  /pages\.express\s*=/.test(app) && /expressCheckoutOn/.test(app) && /guestPinFor/.test(app),
+  (/pages\.express\s*=/.test(app) || /window\.Shivaa\.exDirect\s*=/.test(app)) && /expressCheckoutOn/.test(app) && /guestPinFor/.test(app),   // v153: route-less in-page engine counts as wired
   'app.js must define the express route and its gates');
 
 ok('the storefront place-order API accepts a guest only when the flag is on',

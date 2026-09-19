@@ -808,8 +808,8 @@ async function renderAdmin(view, q) {
               <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
                 <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
                   <input type="checkbox" name="guestCheckout" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${S.guestCheckout ? 'checked' : ''}>
-                  <span><b>⚡ Automatic Guest Checkout (One-Tap Buy)</b><br>
-                  <small style="color:var(--ink-3)">Tapping <b>Make It Yours</b> places the order and hands the customer straight to Cashfree — <b>no account, no address form, no shivaa.in OTP</b>. Cashfree verifies the name, number and address on its own page and the only thing typed there is the customer&rsquo;s UPI PIN / net-banking password (a first-time number is verified once by Cashfree, then remembered). Needs <b>One Click Checkout</b> above to already be on, and the switch only takes effect once Cashfree is connected live. Turn off for instant rollback to the previous checkout.</small></span>
+                  <span><b>⚡ Automatic Guest Checkout (tap &rarr; Cashfree, no pages)</b><br>
+                  <small style="color:var(--ink-3)">v153: Buy Now / Make It Yours / cart Checkout place the order <b>on the spot</b> — no Express page, no intermediate screens, the browser goes straight to Cashfree&rsquo;s payment portal. <b>No account, no address form, no shivaa.in OTP.</b> Cashfree verifies the name, number and address on its own page and the only thing typed there is the customer&rsquo;s UPI PIN / net-banking password (a brand-new number on a device is asked once, in a one-field card over the same page, then remembered on the device). Needs <b>One Click Checkout</b> above to already be on, and the switch only takes effect once Cashfree is connected live. Turn off for instant rollback to the classic checkout.</small></span>
                 </label>
               </div>
               <div class="fld full" style="font-size:12px;color:var(--ink-3)">
