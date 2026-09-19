@@ -1,6 +1,6 @@
 # DEPLOY — v151 (the profile-audit release: "who did Truecaller actually verify?")
 
-**Zip:** `shivaa-update-v151.zip` · md5 `b4c8b6f66ff0b008847a45dbd80e2107` · 4 files:
+**Zip:** `shivaa-update-v151.zip` · md5 `8f827df579540391088b86616b265ec9` · 4 files:
 `api.php`, `index.html`, `sw.js`, `js/app.js` → extract into `public_html/cms/`, **overwrite all four**.
 
 ## What happened, in one paragraph
@@ -39,9 +39,13 @@ privacy-safe characters: name INITIALS + phone CLASSES (`mobile/landline/short/o
 `/api/auth/truecaller/config` JSON gains one key: `lastProfile`. That single fetch now
 answers the only remaining question instead of "still no number".
 
-## Proof it's live
+## Proof it's live — ONE honest URL now
 
-`curl -s https://www.shivaa.in/api/health` → `"release":151`; the config JSON shows `lastProfile`.
+`curl -s https://www.shivaa.in/api/version` → `{"ok":true,"rel":151,"shell":"shivaa-shell-v151","stamp":{"index":151,"app":151},"tc":{…}}`
+(v151 SHIPS that endpoint. Earlier DEPLOY docs cited `/api/health` — that route **never existed**;
+it answered `{"error":"Unknown API"}`. My mistake, now fixed at the source: the server itself
+reads sw.js/index/app stamps beside api.php and tells you, plus the last Truecaller verdict —
+`kind`, `ok`, and v151's `who` line — in the same JSON.)
 
 ## Rollback
 
