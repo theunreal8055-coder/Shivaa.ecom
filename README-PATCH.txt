@@ -1,19 +1,26 @@
-shivaa-update-v149.zip — md5 7b4b08912fe874ea6b153b8323b9361d
-4 files (root layout): api.php · index.html · sw.js · js/app.js   (cms/js/admin.js untouched, loader stays ?v=147)
+SHIVAA.JEWELS — v150 PATCH · the Truecaller-hiccup fix (server-side only)
 
-EXTRACT INTO public_html ROOT over the live v148 site. Rollback = re-extract shivaa-update-v148.zip
-(md5 221a807059a121f919f35415f28db617) over the same 4 files.
+UNZIP INTO:  public_html/cms/        (Hostinger → File manager → overwrite)
+FILES (4):  api.php  index.html  sw.js  js/app.js
+NO DB CHANGE · NO RE-UPLOAD OF PRODUCTS/IMAGES · NOTHING ELSE TO TOUCH
 
-v149 = INSTANT ONE-TAP + SELF-HEALING PROFILE READ, per the owner's live test:
-· the "reading the number hiccuped" failure (live doctor: "profile had no Indian mobile number")
-  is fixed by a deep recursive profile reader + a body fallback + a server-side refetch that
-  retries OUR read with the same Truecaller token before the customer ever sees an error;
-  the doctor now logs the profile KEY NAMES for any future shape gap.
-· Make It Yours / cart Checkout on Android+Truecaller no longer open the Express page at all:
-  the deep link fires in place (floating pill), the verified number places the order silently,
-  and the FIRST real page is Cashfree. Declines/timeouts/iPhone/desktop hand off to the Express
-  page (fallback) with the same nonce still pending — typing stays the last resort.
-· a reclaimed Android tab resumes the exact instant flow at boot (pending marker carries mode:'instant').
-Stamps 149/149/149/149. Full proofs: v149-check 31/31 · v149-php-run 12/12 · v149-tc-instant
-20/20 · all 19 legacy suites + patience 16/16 + autobuy 14/14 + pay-audit invariants 10/10 on
-the stacked overlay (main + v147 + v148 + v149).
+WHAT YOU GET
+  · The one-tap flow from v149 is UNCHANGED on the page (byte-identical app.js apart from
+    the version stamp) — Buy Now → Truecaller sheet, no waiting page.
+  · THE HICCUP FIX: when Truecaller hands us the profile host without /v1/default
+    (that's what your live doctor proved was happening — 200 OK, valid JSON, no phone in
+    it), the server now appends /v1/default itself before fetching. Proper User-Agent +
+    up to 2 redirects too.
+  · SELF-REPORTING DOCTOR: any failure records the exact URL fetched (lastEp) and a body
+    snippet with ALL digits masked. If one tap on the live site still hiccups, the
+    admin-doctor JSON alone tells me what to fix — no ssh needed.
+
+VERIFY (2 min)
+  1) curl -s https://www.shivaa.in/api/health          →  "release":150
+  2) curl -s https://www.shivaa.in/api/auth/truecaller/config
+                                                       →  JSON with "lastEp" key present
+  3) Android + www.shivaa.in: Buy Now on an instant item → Truecaller sheet →
+     number arrives in the field, Pay via Cashfree lights up. Zero typing.
+
+ROLLBACK
+  extract shivaa-update-v149.zip (md5 7b4b08912fe874ea6b153b8323b9361d) over the same 4 paths
