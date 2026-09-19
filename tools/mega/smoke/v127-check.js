@@ -342,8 +342,16 @@ const ROWS = [
     await until(() => C.$('#searchDrawer').classList.contains('open') && C.$$('#searchSugg a.sugg-cat').length, 6000);
     C.click(C.$$('#searchSugg a.sugg-cat')[0]);
     await sleep(900);
-    ok('control · WITHOUT the layer, that chip tap queues history.back() — the home-page bounce',
-      C.backs.n > 0, `${C.backs.n} traversal(s); the race this release removes was not reproduced`);
+    /* v159 — the house guard moved into app.js (the category-tap guarantee
+       arms window.__shvNavigating on every category link, and js/v120.js
+       refuses to queue a traversal while that is set). So with this layer
+       stripped the defect no longer reproduces: the control now asserts the
+       STRONGER truth — no traversal is queued AND the shopper still lands on
+       the category, with js/v127.js completely absent. */
+    ok('control · WITHOUT the layer no traversal is queued at all (the guard now lives in app.js)',
+      C.backs.n === 0, `${C.backs.n} traversal(s) — the defect came back`);
+    ok('control · …and the chip tap still lands on the category without the layer',
+      C.w.location.hash === '#/shop?category=rings', 'hash=' + C.w.location.hash);
   }
   try { C.w.close(); } catch (_) {}
 

@@ -161,7 +161,13 @@ const st = (d) => {
     ok('D1 · Escape closes it', !st(d).panelOpen && !st(d).catsOpen);
     tap(btn, w); await sleep(80);
     w.dispatchEvent(new w.Event('scroll')); await sleep(60);
-    ok('D1 · scrolling closes it', !st(d).panelOpen && !st(d).catsOpen);
+    /* v159 — the scroll-close is deliberately GONE: it was the one dismissal
+       that could fire while a finger was already down on a tile (the page
+       shifts, the tile disappears before the tap is delivered = "it
+       disappeared and took me nowhere"). Dismissal is covered without it by
+       the scrim, the outside tap, Escape, Back and any route change. */
+    ok('D1 · a scroll no longer closes it (the mid-tap kill is gone by design)',
+      st(d).panelOpen && st(d).catsOpen);
     tap(btn, w); await sleep(80);
     w.dispatchEvent(new w.Event('resize')); await sleep(60);
     ok('never stale: a width change closes it and clears body.cats-open', !st(d).panelOpen && !st(d).catsOpen);

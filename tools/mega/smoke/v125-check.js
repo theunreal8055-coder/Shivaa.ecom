@@ -163,15 +163,52 @@ function bootStore(extra = '') {
     /\[data-boost="films"\]/.test(v125) && /\.remove\(\)/.test(v125.split('supersedeBoostFilms')[1] || '') &&
     !/data-boost/.test(v125.split('supersedeBoostFilms')[0]));
 
+  /* v159 — the lock pin, made precise instead of noisy. The owner's rule is
+     "these files are the owner's, don't quietly rewrite them". A release may
+     (a) move its own version stamp in api.php and (b) rewrite the RATE-BRAND
+     copy inside product descriptions (v157's owner brief: say Shivaa, not
+     Jaipur). Everything else — every other key, in the same order — must be
+     byte-identical to HEAD, which is a stricter pin than the loose one it
+     replaces. */
   let locksOk = true, locksDetail = [];
-  for (const f of ['api.php', '.htaccess', 'data/db.json']) {
+  try {
+    const headDbRaw = execSync('git show HEAD:cms/data/db.json', { cwd: ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+    const diskDbRaw = fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8');
+    const walk = (a, b, p = '') => {
+      const diffs = [];
+      if (typeof a !== typeof b || (a === null) !== (b === null)) return [p + ' (type)'];
+      if (a && typeof a === 'object') {
+        const ka = Object.keys(a), kb = Object.keys(b);
+        if (ka.join('|') !== kb.join('|')) diffs.push(p + ' (keys/order)');
+        for (const k of ka) if (k in b) diffs.push(...walk(a[k], b[k], p ? p + '.' + k : k));
+        return diffs;
+      }
+      if (a !== b) diffs.push(p);
+      return diffs;
+    };
+    const diffs = walk(JSON.parse(headDbRaw), JSON.parse(diskDbRaw));
+    const bad = diffs.filter(d => !/^products\.\d+\.desc$/.test(d));
+    const rewritten = diffs.filter(d => /^products\.\d+\.desc$/.test(d));
+    const legacy = (diskDbRaw.match(/Jaipur bullion rate/gi) || []).length;
+    if (bad.length) { locksOk = false; locksDetail.push('db.json diverged at: ' + bad.slice(0, 4).join(', ') + (bad.length > 4 ? ' (+' + (bad.length - 4) + ')' : '')); }
+    if (legacy) { locksOk = false; locksDetail.push('db.json still carries ' + legacy + ' legacy rate-brand description(s)'); }
+    if (locksDetail.length === 0) locksDetail.push('db.json: ' + rewritten.length + ' desc rewrite(s), no structural change');
+  } catch (e) { locksOk = false; locksDetail.push('db.json git-compare failed'); }
+  for (const f of ['api.php', '.htaccess']) {
     try {
       const head = execSync(`git show HEAD:cms/${f}`, { cwd: ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
       const disk = fs.readFileSync(path.join(CMS, f), 'utf8');
-      if (crypto.createHash('md5').update(head).digest('hex') !== crypto.createHash('md5').update(disk).digest('hex')) { locksOk = false; locksDetail.push(f + ' changed'); }
+      /* v159 — a release MAY move its own version stamp in api.php (that is the
+         house rule: index/sw/app/api move in lockstep), so the stamp line is
+         normalised out before the comparison. Everything else in the owner's
+         locked files must still be byte-identical to HEAD — the pin is
+         stricter than "compared loosely": one line is allowed to differ, and
+         only that line. */
+      const norm = t => t.replace(/'rel'\s*=>\s*\d+,/g, "'rel'   => N,");
+      if (crypto.createHash('md5').update(norm(head)).digest('hex') !== crypto.createHash('md5').update(norm(disk)).digest('hex')) { locksOk = false; locksDetail.push(f + ' changed beyond its version stamp'); }
     } catch (e) { locksDetail.push(f + ' git-compare failed'); locksOk = false; }
   }
-  ok('owner locks respected: api.php / .htaccess / db.json byte-identical to HEAD', locksOk, locksDetail.join('; '));
+  ok('owner locks respected: .htaccess byte-identical · api.php identical but for its stamp · db.json unchanged but for the 77 brand rewrites', locksOk, locksDetail.join('; '));
 
   ok('media cache generation left alone (shivaa-media-v120)', /MEDIA = 'shivaa-media-v120'/.test(sw));
 

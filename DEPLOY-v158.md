@@ -1,5 +1,11 @@
 # DEPLOY — v158 (THE CATEGORIES BUTTON · + everything v157 carried)
 
+> **SUPERSEDED — use `shivaa-update-v159.zip` / `DEPLOY-v159.md`.** The owner
+> reported after this release that the panel now closes ("it disappeared") but a
+> category tap still did not take him to the category page, so v159 keeps
+> everything below and makes that landing unconditional. This file is kept as
+> the record of what v158 fixed and why.
+
 **Zip:** `shivaa-update-v158.zip` · md5 `e32254988ebef5f21e1ae2fd06fc29ea` ·
 sha256 `450e79dce189ef6ab6ca5577a50e5f3595c1bf4186581d8b75dbd1bd8e4711ef`
 · **11 files:** `api.php`, `css/styles.css`, `css/v116.css`, `hallmark.php`,

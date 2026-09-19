@@ -26,37 +26,51 @@ const ok = (name, pass, detail = '') => { results.push(!!pass); console.log(`${p
 if (!/function initCatsMenu\(\)/.test(app)) { console.log('SKIP — pre-v158 tree'); process.exit(0); }
 const REL = +((/const APP_REL = (\d+);/.exec(app) || [])[1] || 0);
 
-console.log('\n· 1 — stamp lockstep 158 (index · sw · api · app):');
-ok('APP_REL 158', REL === 158, 'APP_REL=' + REL);
-ok('index __SHIVAA_REL=158', idx.includes('window.__SHIVAA_REL=158;'));
-ok('sw SHELL shivaa-shell-v158', sw.includes("'shivaa-shell-v158'"));
-ok("api 'rel' => 158 (mind the 3-space gap)", /'rel'   => 158,/.test(api));
-ok('no 157 stamp survives in the boot spots',
+/* forward-tolerant from v158: a later release legitimately moves the stamps on.
+   The exact number is that release's own suite's job; this one refuses to go
+   BACKWARDS and insists index.html and the worker agree. */
+const stampOf = (t, file) => { const m = new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\?v=(\\d+)').exec(t); return m ? Number(m[1]) : 0; };
+const paired = (file, min) => { const a = stampOf(idx, file), b = stampOf(sw, file); return a >= min && a === b; };
+console.log('\n· 1 — stamp lockstep (' + REL + ', forward-tolerant from 158):');
+ok('APP_REL 158 or later', REL >= 158, 'APP_REL=' + REL);
+ok('index __SHIVAA_REL tracks APP_REL', idx.includes(`window.__SHIVAA_REL=${REL};`));
+ok('sw SHELL tracks APP_REL', sw.includes(`'shivaa-shell-v${REL}'`));
+ok("api 'rel' is 158 or later (mind the 3-space gap)", (() => { const m = /'rel'\s*=>\s*(\d+),/.exec(api); return !!m && +m[1] >= 158; })());
+ok('nothing regressed to a pre-158 stamp in the boot spots',
   !idx.includes('__SHIVAA_REL=157') && !idx.includes('app.js?v=157') && !sw.includes('shivaa-shell-v157') && !sw.includes("'/js/app.js?v=157'"));
 
-console.log('\n· 2 — the four moved assets are stamped 158 in BOTH the shell and the precache:');
-for (const [file, needle] of [['/js/app.js', "idx + precache"], ['/css/styles.css', ''], ['/js/v116.js', ''], ['/css/v116.css', '']]) {
-  const inIdx = new RegExp(file.replace(/[/.]/g, '\\$&') + '\\?v=158').test(html);
-  const inSw = sw.includes(`'${file}?v=158'`);
-  ok(`${file}?v=158 in index.html AND the sw precache`, inIdx && inSw, `index=${inIdx} sw=${inSw}`);
+console.log('\n· 2 — the four v158-moved assets stay stamped in BOTH the shell and the precache:');
+for (const file of ['/js/app.js', '/css/styles.css', '/js/v116.js', '/css/v116.css']) {
+  ok(`${file} stamped together in index.html AND the sw precache`, paired(file, 158), `index=${stampOf(idx, file)} sw=${stampOf(sw, file)}`);
 }
 
 console.log('\n· 3 — the categories ownership move (static proof of the repair):');
 ok('js/v116.js holds no #navCats wiring (comments excluded)',
   !/navCats|wireCatsButton|earlyCatsButton/.test(v116js.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')));
 ok('app.js has the single controller + the two builders + the house navigation helper',
-  /function catsPanelHTML\(\)/.test(app) && /function catsListHTML\(\)/.test(app) && /function shvNavTo\(href\)/.test(app) && /let _catsMenuReady = false;/.test(app));
+  /* v159 gave shvNavTo an opts argument (watchdog + event), so the signature is
+     pinned loosely — the helper must still exist and still be the one the panel
+     calls. */
+  /function catsPanelHTML\(\)/.test(app) && /function catsListHTML\(\)/.test(app) && /function shvNavTo\(href(, opts)?\)/.test(app) && /let _catsMenuReady = false;/.test(app));
 ok('the controller is initialised BEFORE boot (first paint, no API needed)',
   /try \{ initCatsMenu\(\); \} catch \(e\) \{\}/.test(app) && /^  initCatsMenu\(\);$/m.test(app) &&
   app.indexOf('try { initCatsMenu(); }') < app.indexOf('if (document.readyState === \'loading\')'));
 ok('the old inline panel markup is gone (one builder, not two)',
   !/\$\('#catMenu'\)\.innerHTML = `/.test(app));
-ok('every dismissal path is bound by the owner: scrim · outside · Escape · scroll · resize · hashchange',
+ok('every dismissal path is bound by the owner: scrim · outside · Escape · resize · hashchange',
+  /* v159 removed the SCROLL dismissal on purpose: it was the one close that
+     could fire while a finger was already down on a tile (hiding the tile
+     before the tap was delivered). The pin now asserts the remaining paths and
+     that the tap-killing one stays gone — a stronger rule, not a weaker one. */
   /if \(scrim\) scrim\.addEventListener\('click'/.test(app) && /document\.addEventListener\('click', e => \{\n      if \(panel\.hidden\) return;/.test(app) &&
-  /e\.key === 'Escape'\) \{ setPanelOpen\(false\); foldList\(\); \}/.test(app) && /addEventListener\('scroll', \(\) => \{ if \(!panel\.hidden\) setPanelOpen\(false\); \}/.test(app) &&
-  /addEventListener\('resize', closeAll/.test(app) && /addEventListener\('hashchange', \(\) => \{ setPanelOpen\(false\); foldList\(\); \}\)/.test(app));
-ok('tiles navigate FIRST and dismiss SECOND (the v127/v139 house pattern)',
-  /shvNavTo\(a\.getAttribute\('href'\)\);\n      setPanelOpen\(false\);/.test(app) && /window\.__shvNavigating = true/.test(app));
+  /e\.key === 'Escape'\) \{ setPanelOpen\(false\); foldList\(\); \}/.test(app) &&
+  /addEventListener\('resize', closeAll/.test(app) && /addEventListener\('hashchange', \(\) => \{ setPanelOpen\(false\); foldList\(\); \}\)/.test(app) &&
+  !/addEventListener\('scroll', \(\) => \{ if \(!panel\.hidden\) setPanelOpen\(false\); \}/.test(app));
+ok('tiles navigate FIRST and dismiss SECOND — and the dismiss can no longer pre-empt the tap',
+  /* v159 keeps navigate-first and moves the dismiss to the next tick, so
+     hiding the panel can never cancel the journey the tap started. */
+  /shvNavTo\(a\.getAttribute\('href'\), \{ watchdog: true, ev: e \}\);\n      setTimeout\(\(\) => setPanelOpen\(false\), 0\);/.test(app) &&
+  /window\.__shvNavigating = true/.test(app));
 ok('the drawer list folds on the drawer closing too (observer), not only on hashchange',
   /new MutationObserver\(\(\) => \{ if \(!nav\.classList\.contains\('open'\)\) foldList\(\); \}\)/.test(app));
 ok('css: the scrim starts below the header + the open panel rides above the floating chrome',

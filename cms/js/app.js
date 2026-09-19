@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 158;
+const APP_REL = 159;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1823,19 +1823,102 @@ function catsListHTML() {
     `<a href="#/shop?category=${k}"><img src="${c.img}?v=125" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
 }
 /* the house navigation: hand the tap to the app, arm the flag, then dismiss */
-function shvNavTo(href) {
+let _lastShvNav = 0;
+function shvNavTo(href, opts) {
   const target = String(href || '');
   if (target.indexOf('#/') !== 0) return false;
+  const ev = (opts && opts.ev) || null;
+  const from = (() => { try { return location.hash; } catch (e) { return ''; } })();
   try {
-    window.__shvNavigating = true;
+    window.__shvNavigating = true;                       // v120 must not queue a traversal against this
     if (window.__shvNavArm) clearTimeout(window.__shvNavArm);
-    window.__shvNavArm = setTimeout(() => { window.__shvNavigating = false; }, 500);
+    window.__shvNavArm = setTimeout(() => { window.__shvNavigating = false; }, opts && opts.watchdog ? 1500 : 500);
   } catch (e) {}
+  let landed = false;
   try {
-    if (location.hash === target) { if (window.Shivaa && Shivaa.redraw) Shivaa.redraw(); else route(); }
-    else location.hash = target;
-    return true;
-  } catch (e) { return false; }
+    if (location.hash === target) {
+      /* already standing there — a repeat tap must still do something. Skip the
+         redraw when an earlier capture listener already did it for this same
+         tap (js/v118.js handles same-hash category links and marks the event),
+         so one tap can never render the page twice. */
+      const now = Date.now();
+      if (!(ev && ev.defaultPrevented) && now - _lastShvNav > 250) {
+        _lastShvNav = now;
+        try { if (window.Shivaa && Shivaa.redraw) Shivaa.redraw(); else route(); } catch (e) {}
+      }
+      landed = true;
+    } else { location.hash = target; landed = true; }
+  } catch (e) { landed = false; }
+  /* v159 — THE GUARANTEE. Owner report (20 Sep 2026, after v158): *"Category
+     page doesn't take us anywhere when we click on any category but this time
+     it disappeared"* — the panel closed (the v158 repair) but the tap still did
+     not land. Anything that consumes or out-races a tap — a dismiss-first
+     owner, a stray history traversal, a platform that swallows the hash
+     assignment — leaves exactly that: panel gone, page unchanged. Belt one is
+     our own assignment above; belt two is the anchor's native action (we no
+     longer preventDefault); this is belt three: if a moment later the shopper
+     is still standing where they were, walk them there. It never fights a real
+     navigation: it only fires when the hash has not moved at all. */
+  if (opts && opts.watchdog) {
+    setTimeout(() => {
+      try {
+        if (location.hash === target) return;          // arrived — nothing to do
+        if (location.hash !== from) return;            // something else navigated on purpose — leave it
+        try { location.hash = target; } catch (e) {}   // second attempt
+        if (location.hash === target) return;
+        /* even the hash assignment was blocked: drive the router directly */
+        try { history.pushState(null, '', target); } catch (e) {}
+        _lastShvNav = Date.now();
+        try { route(); } catch (e) {}
+      } catch (e) {}
+    }, 450);
+  }
+  return landed;
+}
+/* v159 — THE CATEGORY-TAP GUARANTEE, app-wide. Every category link in the app
+   (the header panel, the drawer's 17-item list, the home page's category
+   photos, the shop chip strip, the footer) gets the same safety net. This
+   listener runs in the capture phase at the document — i.e. AHEAD of every
+   owner — and deliberately consumes NOTHING: no preventDefault, no
+   stopPropagation, so the existing owners (js/v118.js, js/v127.js, js/v139.js,
+   the drawer, the panel) keep behaving exactly as they do. It only watches
+   the outcome, and if the tap produced no navigation at all, it completes it.
+   That is what makes "the tap went nowhere" impossible no matter which layer
+   is on duty or which one is broken. */
+let _catTapGuaranteeOn = false;
+function initCategoryTapGuarantee() {
+  if (_catTapGuaranteeOn) return true;
+  _catTapGuaranteeOn = true;
+  const SEL = 'a[href^="#/shop?category="]';
+  document.addEventListener('click', e => {
+    try {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;          // new-tab taps stay native
+      if (e.button !== undefined && e.button > 0) return;                   // middle/right click
+      const a = e.target && e.target.closest && e.target.closest(SEL);
+      if (!a) return;
+      const href = a.getAttribute('href') || '';
+      if (!/^#\/shop\?category=[a-z0-9_-]{1,32}$/i.test(href)) return;      // same guard js/v118.js uses
+      const from = location.hash;
+      if (href === from) return;                                            // same category: the owners redraw
+      try {
+        window.__shvNavigating = true;
+        if (window.__shvNavArm) clearTimeout(window.__shvNavArm);
+        window.__shvNavArm = setTimeout(() => { window.__shvNavigating = false; }, 1200);
+      } catch (err) {}
+      setTimeout(() => {
+        try {
+          if (location.hash === href) return;            // it landed — the ordinary path
+          if (location.hash !== from) return;            // something else navigated on purpose
+          try { location.hash = href; } catch (err) {}   // the tap was swallowed: complete it
+          if (location.hash === href) return;
+          try { history.pushState(null, '', href); } catch (err) {}
+          _lastShvNav = Date.now();
+          try { route(); } catch (err) {}
+        } catch (err) {}
+      }, 450);
+    } catch (err) {}
+  }, true);
+  return true;
 }
 let _catsMenuReady = false;
 function initCatsMenu() {
@@ -1886,15 +1969,20 @@ function initCatsMenu() {
     };
     /* a tap on the scrim closes the panel — bound UNCONDITIONALLY (defect 1) */
     if (scrim) scrim.addEventListener('click', () => setPanelOpen(false));
-    /* a tap on a tile: navigate FIRST, dismiss SECOND (never the other way) */
+    /* a tap on a tile. v159 — the default action is NO LONGER prevented: our own
+       navigation is belt one, the anchor's native action is belt two, and
+       shvNavTo's watchdog is belt three. The panel closes on the next tick,
+       i.e. after the tap has been fully processed — hiding a tile can never
+       cancel the journey it started. */
     panel.addEventListener('click', e => {
       const a = e.target.closest && e.target.closest('a[href^="#/"]');
       if (!a) return;
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // new-tab taps stay native
-      e.preventDefault(); e.stopPropagation();
+      if (e.button !== undefined && e.button > 0) return;
+      e.stopPropagation();                                            // one owner for this tap
       try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(10); } catch (_) {}
-      shvNavTo(a.getAttribute('href'));
-      setPanelOpen(false);
+      shvNavTo(a.getAttribute('href'), { watchdog: true, ev: e });
+      setTimeout(() => setPanelOpen(false), 0);
     }, true);
     document.addEventListener('click', e => {
       if (panel.hidden) return;
@@ -1902,7 +1990,12 @@ function initCatsMenu() {
       setPanelOpen(false);
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { setPanelOpen(false); foldList(); } });
-    addEventListener('scroll', () => { if (!panel.hidden) setPanelOpen(false); }, { passive: true });
+    /* v159 — the scroll-close is GONE. It was the one dismissal that could fire
+       while a finger was already down on a tile (any page shift under an open
+       panel hides the tile before the tap is delivered), which is precisely
+       "it disappeared and took me nowhere". Dismissal is fully covered without
+       it: the scrim owns every touch below the header, plus outside tap,
+       Escape, Back, and any route change. */
     /* never leave a stale open state behind: a width change, a route change or
        the page going away (a stuck body.cats-open would keep the floaters
        hidden and the header raised). */
@@ -9162,6 +9255,7 @@ async function boot(isRedraw) {
    here (and again in boot) is what closes the "the button is dead while the
    network is slow" report for good. */
 try { initCatsMenu(); } catch (e) {}
+try { initCategoryTapGuarantee(); } catch (e) {}
 // Wait for the following feature/auth/admin scripts to register their routes.
 // A fast cached API must not outrun loading the HUID module on a cold visit.
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => boot(), { once: true });
