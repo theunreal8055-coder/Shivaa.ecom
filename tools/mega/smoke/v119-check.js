@@ -94,7 +94,10 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
 
   console.log('\n· B · rates — the Task-2 owner decision (22K premium 398, desk physical)');
   ok('api.php defines the 22K premium (default 398) and publishes premium.gold22',
-    /function gold22_premium\(array \$db\): int \{[\s\S]{0,160}\?\? 398/.test(api) && /'premium' => \['gold22' => gold22_premium\(\$db\)/.test(api));
+    /* v156 — the payload grew a pinned-override branch in front of the block, so
+       the literal "'premium' => ['gold22'" is now two lines deeper. The intent
+       is untouched: the 22K premium still comes from gold22_premium(). */
+    /function gold22_premium\(array \$db\): int \{[\s\S]{0,160}\?\? 398/.test(api) && /'premium' =>[\s\S]{0,260}'gold22' => gold22_premium\(\$db\)/.test(api));
   ok('/api/rates derives jaipur from the ONE anchor block and publishes anchorLevel',
     /jaipur_from_anchor\(\$db, \$ancLevel\)/.test(api) && /'anchorLevel' => \$ancLevel/.test(api) &&
     /'mode' => \$anc\['mcxOn'\] \? 'mcx-future' : 'spot'/.test(api) && /'silverPerG'/.test(api));
@@ -106,8 +109,15 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
     `${dm.settings.gold22Premium} / ${dm.products.length} products`);
   ok('admin settings expose and save the 22K premium',
     /name="gold22Premium"/.test(adminJs) && /gold22Premium: \+g\('gold22Premium'\)/.test(adminJs));
-  ok('the footer basis line quotes the 22K premium (24K key only as fallback)',
-    /set\.gold22Premium !== undefined \? set\.gold22Premium : set\.jaipurPremium/.test(v107js) && /22K Jaipur premium/.test(v107js));
+  ok('the footer basis line quotes the 22K premium (settings chain only as fallback)',
+    /* v156 — the line reads the premium from the rates payload FIRST (it is the
+       authority and it knows when the owner has pinned an absolute counter
+       rate), keeping the v119 settings chain as the fallback it always was, and
+       the brand in the sentence is the shop's own. v156-check pins the
+       arithmetic itself; v156-rates proves it on a rendered page. */
+    /isNum\(PM\.gold22\) \? PM\.gold22/.test(v107js) &&
+    /set\.gold22Premium !== undefined \? set\.gold22Premium : set\.jaipurPremium/.test(v107js) &&
+    /Shivaa premium/.test(v107js));
 
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -118,9 +128,19 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
   ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
 
   w.location.hash = '#/rates';
-  ok('rate card shows the 22K premium (₹398), not the 24K one',
-    await until(() => /22K Jaipur premium/.test(d.body.textContent) && /\+₹398/.test(d.body.textContent)),
-    (d.querySelector('.jaipur-hero') || {}).textContent);
+  ok('rate card shows the 22K premium (₹398), and the 24K row follows the PAYLOAD\'s own key',
+    /* v156 — renamed with the rate brand, and the intent sharpened rather than
+       widened. v119's point was that the 22K row must print ₹398 and never fall
+       back to the legacy ₹55; that is asserted on the row itself now. The 24K
+       row v156 added is payload-driven by design: THIS stub is a pre-v156
+       response (premium.gold = 55, no gold24 key), so the honest printout is
+       +₹55 — the premium that response's own 24K rate was built with. A v156
+       payload publishes gold24 = 398 and the same row then reads +₹398, which
+       is what v156-check and v156-rates assert against the real server. */
+    await until(() => /22K Shivaa premium/.test(d.body.textContent) &&
+      (d.querySelector('[data-rr="prem22"]') || {}).textContent === '+₹398/g' &&
+      (d.querySelector('[data-rr="prem24"]') || {}).textContent === '+₹55/g'),
+    `prem22="${(d.querySelector('[data-rr="prem22"]') || {}).textContent}" prem24="${(d.querySelector('[data-rr="prem24"]') || {}).textContent}"`);
   ok('rate card names the anchor it prices from (MCX future)',
     await until(() => /Rate anchor/.test(d.body.textContent) && /MCX future/.test(d.body.textContent)));
 

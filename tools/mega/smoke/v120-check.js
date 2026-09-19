@@ -62,12 +62,20 @@ function bootStore(extra = '') {
   const v116src = fs.readFileSync(path.join(CMS, 'js/v116.js'), 'utf8');
 
   console.log('\nSHIVAA v120 check\n\n· A · static gates');
+  /* v156 fix-forward — the v120 layer's stamp was pinned to (120|140); v156
+     edits js/v120.js (the empty-hash Back-button bug), so its ?v= moved, as the
+     immutable-cache rule REQUIRES. The intent is unchanged: the layer must be
+     loaded, after v119, at a stamp of its era or newer — and the worker must
+     precache the very same URL. The order test is now stamp-agnostic, because a
+     hard-coded '?v=140' indexOf() silently returns -1 the day the stamp moves
+     and -1 < anything reads as a pass/fail lie. */
+  const stampOf = (t, re) => Number((re.exec(t) || [0, 0])[1]);
   ok('the shell loads the v120 layer (css + js, after the v119 layer)',
-    /\/css\/v120\.css\?v=(120|140)/.test(html) && /\/js\/v120\.js\?v=(120|140)/.test(html) &&
-    (html.indexOf('/js/v119.js?v=140') !== -1 || html.indexOf('/js/v119.js?v=119') !== -1) &&
-    html.indexOf('/js/v119.js?v=140') < html.indexOf('/js/v120.js?v=140'));
+    stampOf(html, /\/css\/v120\.css\?v=(\d+)/) >= 120 && stampOf(html, /\/js\/v120\.js\?v=(\d+)/) >= 140 &&
+    html.indexOf('/js/v119.js?v=') !== -1 && html.indexOf('/js/v120.js?v=') !== -1 &&
+    html.indexOf('/js/v119.js?v=') < html.indexOf('/js/v120.js?v='));
   ok('service worker precaches v120 and the media cache is the v120 generation',
-    /'\/css\/v120\.css\?v=(120|140)'/.test(sw) && /'\/js\/v120\.js\?v=(120|140)'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
+    stampOf(sw, /'\/css\/v120\.css\?v=(\d+)'/) >= 120 && stampOf(sw, /'\/js\/v120\.js\?v=(\d+)'/) >= 140 && /MEDIA = 'shivaa-media-v120'/.test(sw));
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps stay a consistent triple (shell = script = worker)',
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],

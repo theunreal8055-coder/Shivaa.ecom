@@ -454,7 +454,7 @@
     tip.className = 'v109-tip';
     tip.textContent = '%';
     const mc = p.mcScheme === 'percent' ? (p.mcValue + '% making') : (p.mcValue ? ('making ' + fmt(p.mcValue)) : 'making as listed on the piece');
-    tip.title = mc + ' · live metal extra · GST extra. We do not invent a “typical Jaipur %”.';
+    tip.title = mc + ' · live metal extra · GST extra. We do not invent a “typical market %”.';
     priceEl.appendChild(tip);
   }
   function srMeta(card, p) {
@@ -981,7 +981,7 @@
   }
   function pageWhy(view) {
     paint(view, `<span class="label">Trust</span><h1>Why live-rate, not MRP</h1>
-      <p class="lead">Gold moves. An MRP printed last month is either stale or padded. Shivaa prices metal at the live Jaipur rate, adds the making on the card, then GST. The hallmark is a laser mark + HUID — see the HUID guide for what to look for. We do not show a stock photo of “a typical stamp” and pretend it is yours.</p>
+      <p class="lead">Gold moves. An MRP printed last month is either stale or padded. Shivaa prices metal at the live Shivaa rate, adds the making on the card, then GST. The hallmark is a laser mark + HUID — see the HUID guide for what to look for. We do not show a stock photo of “a typical stamp” and pretend it is yours.</p>
       <p>GSTIN 08AAICE5666R1ZP · CIN U32111RJ2025PTC099173 · UDYAM UDYAM-RJ-25-0086081
         <button type="button" class="btn btn-ghost btn-sm" id="v109CopyGst">Copy GSTIN</button></p>
       <a class="btn btn-outline" href="#/trust">Trust page</a>`);
@@ -992,7 +992,7 @@
   }
   function pageMaking(view) {
     paint(view, `<span class="label">Making</span><h1>Why this making %</h1>
-      <p class="lead">Each SKU already carries its making scheme (percent or flat) from the catalogue. The % on a card is that SKU’s figure — not a “typical Jaipur rate” we made up. Open any piece for the rupee amount at today’s metal rate.</p>
+      <p class="lead">Each SKU already carries its making scheme (percent or flat) from the catalogue. The % on a card is that SKU’s figure — not a “typical market rate” we made up. Open any piece for the rupee amount at today’s metal rate.</p>
       <a class="btn btn-outline" href="#/shop">See it on cards</a>`);
   }
   function pageBaby(view) {

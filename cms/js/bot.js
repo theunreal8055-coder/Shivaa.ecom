@@ -357,7 +357,7 @@
     if (t.includes('lawful') || t.includes('legal')) { push('bot', 'Yes — it is run as a <b class="g">skill-based, equal-odds contest</b>: a genuine free route, one entry per person, published rules and odds, CA-witnessed draw. Purchases never multiply entries — that is the point that keeps it lawful.'); return; }
     if (/(rate|bhav|gold price|silver price|today.*price)/.test(t)) {
       const r = rates || (await api('rates').catch(() => null)) || {};
-      push('bot', 'Right now at the Jaipur feed:<div class="rate-line"><span>22K gold</span><b class="g">' + inr(r.gold22 || 0) + '/g</b></div><div class="rate-line"><span>24K gold</span><b class="g">' + inr(r.gold24 || 0) + '/g</b></div><div class="rate-line"><span>Silver</span><b class="g">' + inr(r.silver || 0) + '/g</b></div>Every product price already uses this rate; your bill locks it at order time.');
+      push('bot', 'Right now at the Shivaa feed:<div class="rate-line"><span>22K gold</span><b class="g">' + inr(r.gold22 || 0) + '/g</b></div><div class="rate-line"><span>24K gold</span><b class="g">' + inr(r.gold24 || 0) + '/g</b></div><div class="rate-line"><span>Silver</span><b class="g">' + inr(r.silver || 0) + '/g</b></div>Every product price already uses this rate; your bill locks it at order time.');
       chips(['Rings under ₹50K', 'What moves the price?', 'Choose for me']); return;
     }
     if (t.includes('moves the price')) { push('bot', 'Three honest dials: <b class="g">weight × live rate</b>, a fixed <b class="g">making charge</b> per design, and any <b class="g">stone value</b> — all printed in the price table on every page, with 3% GST shown.'); return; }
@@ -378,7 +378,7 @@
     if (/(alert|notify|remind).*(rate|gold|silver|22k|24k)|(rate|gold|silver).*(alert|drop|fall)/.test(t)) {
       const digits = parseInt(t.replace(/\D+/g, '').slice(0, 7), 10);
       flow = { stage: 'ratealert', metal: /silver/.test(t) ? 'silver' : 'gold22', target: (digits > 100 ? digits : null) };
-      push('bot', 'Smart move ✦ I’ll watch the Jaipur feed for you. ' + (flow.target ? 'Target <b class="g">' + inr(flow.target) + '/g</b> — ' : '') + 'which email should the alert go to?');
+      push('bot', 'Smart move ✦ I’ll watch the Shivaa feed for you. ' + (flow.target ? 'Target <b class="g">' + inr(flow.target) + '/g</b> — ' : '') + 'which email should the alert go to?');
       return;
     }
     /* v54: compare straight from chat — "compare 1 and 2" */

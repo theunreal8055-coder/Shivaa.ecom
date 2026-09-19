@@ -751,9 +751,20 @@ async function renderAdmin(view, q) {
         <div class="fld full"><label>Address</label><input name="address" value="${esc(S.address || '')}"></div>
         <div class="fld"><label>Free shipping above ₹</label><input name="freeShipAbove" type="number" value="${S.freeShipAbove}"></div>
         <div class="fld"><label>Shipping fee ₹</label><input name="shippingFee" type="number" value="${S.shippingFee}"></div>
-        <div class="fld"><label>Jaipur gold premium ₹/g <span style="font-size:11px;color:var(--ink-3)">(24K line)</span></label><input name="jaipurPremium" type="number" value="${S.jaipurPremium ?? 55}"></div>
-        <div class="fld"><label>22K gold premium ₹/g <span style="font-size:11px;color:var(--ink-3)">(desk physical — what the shop sells at)</span></label><input name="gold22Premium" type="number" value="${S.gold22Premium ?? 398}"></div>
-        <div class="fld"><label>Jaipur silver premium ₹/g</label><input name="jaipurSilverPremium" type="number" step="0.5" value="${S.jaipurSilverPremium ?? 3}"></div>
+        <!-- v156 — the shop's retail premium, per metal line. The 24K knob is
+             NEW and defaults to the 22K number (owner's order: "add same
+             premium as you have added in the 22 karat"); while it is left
+             alone the two karats move together. 18K is not a knob — it stays
+             the house derivation, 0.75 × the 24K premium. The legacy
+             jaipurPremium field is GONE on purpose: it no longer drives any
+             retail gold line, and a knob that does nothing is a trap. Its
+             stored value is left untouched in the database.
+             The silver input keeps its jaipurSilverPremium NAME — that is the
+             key the live database and api.php already use; only the label the
+             owner reads has changed. -->
+        <div class="fld"><label>Shivaa 24K gold premium ₹/g <span style="font-size:11px;color:var(--ink-3)">(fine line — defaults to the 22K premium; 18K = 0.75 × this)</span></label><input name="gold24Premium" type="number" value="${S.gold24Premium ?? S.gold22Premium ?? 398}"></div>
+        <div class="fld"><label>Shivaa 22K gold premium ₹/g <span style="font-size:11px;color:var(--ink-3)">(desk physical — what the shop sells at)</span></label><input name="gold22Premium" type="number" value="${S.gold22Premium ?? 398}"></div>
+        <div class="fld"><label>Shivaa silver premium ₹/g</label><input name="jaipurSilverPremium" type="number" step="0.5" value="${S.jaipurSilverPremium ?? 3}"></div>
         <div class="fld full"><label>GST verification API key (optional)</label><input name="gstKey" placeholder="leave blank — the APITxT SMS key already verifies GST automatically; use only for a different provider"></div>
         <div class="fld"><label>Bhai Dooj draw — live stream URL (YouTube/Instagram)</label><input name="drawStreamUrl" value="${esc(S.drawStreamUrl || '')}" placeholder="https://youtube.com/live/…"></div>
         <div class="fld"><label>Winner announcement note (shown after the draw)</label><input name="winnerNote" value="${esc(S.winnerNote || '')}" placeholder="Winner: …, verified by CA …"></div>
@@ -1152,7 +1163,7 @@ window.ShivaaAdmin._drawPoster = (target, scale) => {
   x.font = `bold ${58 * S}px "Noto Serif Devanagari", Georgia, serif`; x.fillText('शिवा', W / 2, 198 * S);
   x.fillStyle = '#e9c77a'; x.font = `600 ${56 * S}px Jost, Arial, sans-serif`; x.fillText('SHIVAA JEWELLERS', W / 2, 340 * S);
   x.fillStyle = 'rgba(233,199,122,0.85)'; x.font = `${26 * S}px Jost, Arial`;
-  x.fillText('BIS HALLMARKED · JAIPUR', W / 2, 386 * S);
+  x.fillText('BIS HALLMARKED · SHIVAA', W / 2, 386 * S);
   // date strip
   const now = new Date();
   const ds = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -1192,7 +1203,7 @@ window.ShivaaAdmin._drawPoster = (target, scale) => {
   // footer
   x.fillStyle = '#c9a24b'; x.fillRect(110 * S, H - 232 * S, W - 220 * S, 3 * S);
   x.fillStyle = '#f1dba4'; x.font = `600 ${40 * S}px Jost, Arial`;
-  x.fillText('Shivaa Jewellers, Jayal, Nagaur · Jaipur', W / 2, H - 166 * S);
+  x.fillText('Shivaa Jewellers · Jayal, Nagaur (Rajasthan)', W / 2, H - 166 * S);
   x.font = `500 ${30 * S}px Jost, Arial`; x.fillStyle = 'rgba(241,219,164,0.85)';
   x.fillText('WhatsApp your order · shivaa.in', W / 2, H - 112 * S);
   x.font = `${20 * S}px Jost, Arial`; x.fillStyle = 'rgba(233,199,122,0.6)';
@@ -1669,7 +1680,7 @@ window.ShivaaAdmin.saveSettings = async e => {
   // read by name — positional indexing silently corrupts settings if a field moves
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
   try {
-    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), jaipurPremium: +g('jaipurPremium'), gold22Premium: +g('gold22Premium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: g('gstKey').trim() }, announcements: g('announcements').split('\n').filter(Boolean) }) });
+    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), gold24Premium: +g('gold24Premium'), gold22Premium: +g('gold22Premium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: g('gstKey').trim() }, announcements: g('announcements').split('\n').filter(Boolean) }) });
     Object.assign(state.settings, s); toast('Settings saved');
   } catch (err) { toast(err.message, 'err'); }
 };
@@ -3525,7 +3536,7 @@ window.ShivaaAdmin.productPoster = (id) => {
     .br{border-top:1px solid rgba(243,210,122,.4);margin:16px 0 10px;padding-top:12px}
     .url{font-size:15px;color:#fff;font-family:Jost,sans-serif;letter-spacing:.5px}
   </style></head><body><div class="poster">
-    <div class="sub">✦ Shivaa Jewellers · Jaipur rates ✦</div>
+    <div class="sub">✦ Shivaa Jewellers · Live Shivaa Rates ✦</div>
     <img src="${location.origin}${safeUrl(img)}" onerror="this.src='${location.origin}/images/logo.png'">
     <h1>${esc(p.name || '')}</h1>
     <div class="sub">${esc(p.purity || '')} · BIS hallmarked · lifetime exchange</div>

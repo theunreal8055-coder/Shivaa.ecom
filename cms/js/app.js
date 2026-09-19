@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 155;
+const APP_REL = 156;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -397,6 +397,18 @@ window.Shivaa.waProduct = id => {
 const TAGS = { wedding: 'Wedding', festive: 'Festive', daily: 'Everyday', gifting: 'Gifting', mens: "Men's", heritage: 'Heritage', luxe: 'Luxe', new: 'New In', bestseller: 'Bestsellers' };
 
 /* price computation — mirrors the server exactly */
+/* v156 — brand filter for CATALOGUE COPY. The 77 live product descriptions
+   were written when the shop priced off "the live Jaipur bullion rate"; the
+   shop's own name is Shivaa and that is what a customer must read on the
+   product page. Deliberately narrow: only the RATE phrase is rewritten — never
+   a product name, a city, a review, a spec or anything else. The repo master
+   db.json is corrected too, but the LIVE database belongs to the server (a
+   deploy zip never overwrites data/), which is exactly why the filter lives at
+   render time: every device reads Shivaa the moment this file ships, with no
+   data migration and no admin click. */
+const brandRate = s => String(s == null ? '' : s)
+  .replace(/Jaipur(\s*[-–—]\s*|\s+)(bullion\s+)?rate/gi, (m, gap, bullion) => 'Shivaa' + (gap || ' ') + (bullion || '') + 'rate');
+
 function price(p, R) {
   R = R || state.rates || {};
   const rate = p.metal === 'Silver' ? R.silver : R['gold' + p.purity.replace('K', '')];
@@ -1636,14 +1648,71 @@ function startRing3D(canvas) {
 
 /* ─────────── live rates ─────────── */
 let _lastRatesAt = 0;
+/* ═══ v156 · BUG FIX — THE PHANTOM RISE ═══════════════════════════════════
+   Every headline this shop prints is the RETAIL rate: the market anchor plus
+   Shivaa's own premium (22K +₹398/g · 24K +₹398/g · 18K +₹299/g · silver
+   +₹3/g). The `history` stamps the server persists — and therefore publishes —
+   are the RAW anchor with no premium in them, and must stay that way: the B2B
+   desk's day low/high bands are computed from those raw stamps.
+   The ticker, the home rate strip, the rates-page chart and the rate lab all
+   compared the two bases at once, so on a live shop:
+     • every cell carried a permanent phantom RISE — a flat market read
+       "▲ 398 ₹/g vs prev" forever, and a FALLING market still read green,
+       because a real ±₹40 move can never outweigh a ₹398 basis gap;
+     • the 12-hour chart ended exactly ₹398 below the card printed above it,
+       and the rate lab's "then vs now" was inflated by the same gap.
+   No test ever caught it because every smoke fixture built its `history` out
+   of the premium-INCLUSIVE block — a fixture that repeats the production
+   payload's shape would have. v156-rates.js is that fixture.
+   Fix: lift the published series onto the retail basis ONCE, here, using the
+   premium block /api/rates already publishes. The raw stamps stay readable as
+   `historySpot`. When a payload publishes no premiums (an older cached
+   response) or the owner has PINNED an override (those rates are absolute, so
+   no premium is inside them) the series passes through untouched — the shape
+   of the curve never changes, only its basis. B2B never reads this. */
+function ratePremiums(r) {
+  const p = (r && r.premium) || null;
+  if (!p || p.pinned) return null;
+  const num = (v, fb) => (typeof v === 'number' && isFinite(v)) ? v : fb;
+  const g24 = num(p.gold24, num(p.gold, 0));
+  if (!g24 && !num(p.gold22, 0) && !num(p.silver, 0)) return null;   // nothing published to lift by
+  return { gold24: g24, gold22: num(p.gold22, g24), gold18: num(p.gold18, Math.round(g24 * 0.75)), silver: num(p.silver, 0) };
+}
+function retailHistory(hist, prem) {
+  if (!Array.isArray(hist)) return [];
+  if (!prem) return hist;
+  return hist.map(h => (h && typeof h === 'object') ? {
+    ...h,
+    gold24: Number(h.gold24 || 0) + prem.gold24,
+    gold22: Number(h.gold22 || 0) + prem.gold22,
+    gold18: Number(h.gold18 || 0) + prem.gold18,
+    silver: Math.round((Number(h.silver || 0) + prem.silver) * 10) / 10,
+  } : h);
+}
 async function loadRates() {
   try {
     const r = await api('/api/rates');
-    state.rates = { ...r, ...(r.jaipur || {}) };  // storefront prices = Jaipur market rates
+    const merged = { ...r, ...(r.shivaa || r.jaipur || {}) };   // storefront prices = Shivaa's own retail rates
+    merged.historySpot = Array.isArray(r.history) ? r.history : [];   // raw anchor stamps, as published
+    merged.history = retailHistory(merged.historySpot, ratePremiums(r));
+    state.rates = merged;
     _lastRatesAt = Date.now();
     renderTicker(); renderRateStrip(); document.dispatchEvent(new CustomEvent('rates'));
   } catch (e) {}
 }
+/* v156 — the premium block read ONE way, shared by the rates-page render and
+   by the in-place poll patch (they each carried their own fallback chain, so a
+   payload without `premium.gold22` could print two different numbers). */
+function ratePrem(R) {
+  const p = (R && R.premium) || {};
+  const num = (v, fb) => (typeof v === 'number' && isFinite(v)) ? v : fb;
+  const g24 = num(p.gold24, num(p.gold, 398));
+  return { g22: num(p.gold22, g24), g24: g24, g18: num(p.gold18, Math.round(g24 * 0.75)),
+           sil: num(p.silver, 3), pinned: !!p.pinned };
+}
+/* an admin-pinned override is an absolute counter rate: no premium sits inside
+   it, and saying "+₹398/g" next to it would be a lie. */
+const premTxt = (v, pinned) => pinned ? 'pinned · none added' : '+₹' + v + '/g';
 /* v90 — while the official MCX feed is live the shop polls every 1 s (was 15 s) so
    every price tracks the exchange every second; off-hours it relaxes to 5 s. A tab
    returning to the foreground refreshes immediately if its quote is stale.
@@ -1709,7 +1778,7 @@ function renderTicker() {
     const d = a - b;
     return `<i class="${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '▲' : '▼'}${Math.abs(d) >= 10 ? Math.round(Math.abs(d)) : Math.abs(d).toFixed(1)}</i>`;
   };
-  const liveTxt = R.live ? 'MCX LIVE' : 'JAIPUR LIVE';
+  const liveTxt = R.live ? 'MCX LIVE' : 'SHIVAA LIVE';
   el.innerHTML =
     `<span class="ub-live${R.live ? ' is-live' : ''}"><span class="live-dot"></span>${liveTxt}</span>` +
     `<span>Gold 22K <b data-rt="gold22">${fmt(R.gold22)}/g</b> ${chg(R.gold22, prev && prev.gold22)}</span>` +
@@ -1991,7 +2060,7 @@ window.Shivaa.logout = () => {
 
 function renderRateStrip() {
   const R = state.rates; if (!R || !$('#rateStrip')) return;
-  /* v113b — a flat move reads "— steady" on every cell, Jaipur included.
+  /* v113b — a flat move reads "— steady" on every cell, Shivaa's own included.
      "▲ 0 ₹/g vs prev" looked like a broken counter, not a calm market. */
   const cell = (key, name, val, unit, chg) => {
     const flat = Math.abs(chg) < 0.05;
@@ -2021,12 +2090,12 @@ function renderRateStrip() {
   };
   const rt = (R.rtgs && R.rtgs.rows) || {};
   /* v113b — the RTGS cells are part of the strip's own move-flash now, so the
-     bullion numbers pulse exactly like the Jaipur ones when the feed ticks. */
+     bullion numbers pulse exactly like the Shivaa ones when the feed ticks. */
   const shows = [['gold22', fmt(R.gold22)], ['gold18', fmt(R.gold18)], ['silver', fmt2(R.silver)]];
   if (rt.tdsGold9999) shows.push(['rtgsG9999', rtgsVal(rt.tdsGold9999)]);
   if (rt.silverPeti) shows.push(['rtgsS9999', rtgsVal(rt.silverPeti)]);
   $('#rateStrip').innerHTML =
-    cell('gold22', '✦ Jaipur Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
+    cell('gold22', '✦ Shivaa Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
     cell('gold18', 'Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
     cell('silver', 'Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
     rtgsCell('rtgsG9999', rt.tdsGold9999) +
@@ -2052,7 +2121,7 @@ const legalCard = (t, b) => `<div class="adm-card" style="margin-bottom:16px"><h
 pages.terms = async (view) => {
   view.innerHTML = legalShell('Terms of Sale', 'Buying from Shivaa, ', 'plainly', 'The full agreement between you and Ernate Shine Jewellery Pvt. Ltd. — short, honest, and without traps.',
     legalCard('1 · Who we are', 'Shivaa Jewellers is the retail brand of <b>Ernate Shine Jewellery Pvt. Ltd.</b>, operating from Jayal, Nagaur, Rajasthan (GST-registered). Support: +91 89050 05921 · Support@shivaa.in · all days 10:00–20:30 IST.') +
-    legalCard('2 · Prices & GST', 'Prices are computed live from weight × the day\u2019s Jaipur rate + a published making charge + stone value where applicable. <b>3% GST</b> is shown in the price table before you order, and every bill carries the full breakup. Prices shown before you place an order are the prices you pay.') +
+    legalCard('2 · Prices & GST', 'Prices are computed live from weight × the day\u2019s Shivaa rate + a published making charge + stone value where applicable. <b>3% GST</b> is shown in the price table before you order, and every bill carries the full breakup. Prices shown before you place an order are the prices you pay.') +
     legalCard('3 · Orders & acceptance', 'An order is accepted when we confirm it and begin work/dispatch. If a design is out of stock or a weight varies by more than ±5%, we contact you before proceeding — you may adjust, exchange or cancel with a full refund.') +
     legalCard('4 · Purity promise', 'Every gold piece is <b>BIS hallmarked</b>; HUID is printed on your bill and verifiable in the BIS Care app. Silver is 925 stamped. If any certified assay ever proves a piece under-purity, we replace it or refund in full.') +
     legalCard('5 · The Bhai Dooj Gold Finale contest', 'Run under published rules: three equal-odds entry routes (a 3 g+ gold purchase, a 100 g silver order, or the free quiz), one entry per person, purchases never multiply odds, CA-witnessed live draw on Bhai Dooj, 11 November 2026, prize 10 g certified 24K gold, TDS 31.2% where applicable, void in Tamil Nadu and West Bengal. Full rules live on the campaign page.') +
@@ -2216,10 +2285,10 @@ pages.home = async (view) => {
       <div>
         <span class="hero-kicker">✦ &nbsp;Jayal · Nagaur · Since 2025 &nbsp;✦</span>
         <h1>Jewellery as honest as your <em class="shimmer foil-txt">love</em></h1>
-        <p class="hero-sub">Gold & silver jewellery at live Jaipur rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
+        <p class="hero-sub">Gold & silver jewellery at live Shivaa rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
         <div class="hero-cta">
           <a class="btn btn-gold btn-lg" href="#/shop">Shop the Collection</a>
-          <a class="btn btn-light btn-lg" href="#/rates">Jaipur Live Rates</a>
+          <a class="btn btn-light btn-lg" href="#/rates">Shivaa Live Rates</a>
         </div>
         <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
         <div class="hero-stats">
@@ -2255,7 +2324,7 @@ pages.home = async (view) => {
             <span class="label">&#10022; The House of Honest Gold</span>
             <h3>Purity you can <em class="shimmer foil-txt">pass down</em></h3>
             <div class="offer-seal alt seal-plaque"><b>HUID<small>GUIDE</small></b><span>check the actual piece</span></div>
-            <p>Every Shivaa piece is handcrafted by master karigars, weighed to the milligram and billed at Jaipur's live rate &mdash; jewellery made to be inherited, not replaced.</p>
+            <p>Every Shivaa piece is handcrafted by master karigars, weighed to the milligram and billed at Shivaa's live rate &mdash; jewellery made to be inherited, not replaced.</p>
             <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop">Explore the Collections</a><a class="btn btn-light btn-lg" href="#/about">Our Craft &amp; Story</a></div>
           </div>
         </div>
@@ -2277,7 +2346,7 @@ pages.home = async (view) => {
             <span class="label">&#10022; The everyday edit</span>
             <h3>Above ordinary,<br><em class="shimmer foil-txt">under &#8377;50,000</em></h3>
             <div class="price-lock"><b>&#8377;2,400</b><span>from &middot; live-rate priced &middot; daily wear</span></div>
-            <p>Studs, pendants, chains &amp; silver &mdash; with individual specifications and Jaipur-rate pricing.</p>
+            <p>Studs, pendants, chains &amp; silver &mdash; with individual specifications and Shivaa-rate pricing.</p>
             <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop?max=50000">Shop the Edit</a></div>
           </div>
         </div>
@@ -2329,7 +2398,7 @@ pages.home = async (view) => {
       <div class="rv">
         <span class="label">Product of the month</span>
         <h2 style="font-size:34px;margin-top:8px">${esc(spot.name)}</h2>
-        <p style="color:var(--ink-2);margin:12px 0 8px">${esc(spot.desc.split('.')[0])}.</p>
+        <p style="color:var(--ink-2);margin:12px 0 8px">${esc(brandRate(spot.desc).split('.')[0])}.</p>
         <div style="display:flex;align-items:baseline;gap:14px;margin:14px 0 22px">
           <b style="font-family:var(--ff-disp);font-size:34px;color:var(--maroon-deep)" class="js-price" data-pid="${spot.id}" data-qty="1">${fmt(spotPr.total)}</b>
           <small style="color:var(--ink-3)">live price · incl. GST · 18K ${spot.weightG}g + listed stone value</small>
@@ -2343,7 +2412,7 @@ pages.home = async (view) => {
     <div class="empty" style="padding:40px 20px;background:var(--white);border:1px dashed var(--gold-soft);border-radius:20px">
       <span class="label">The Collection</span>
       <h3 style="margin:10px 0 6px">The vault is being restocked</h3>
-      <p style="color:var(--ink-3);font-size:14px">New designs are being photographed & priced at today's Jaipur rate — back very soon. Meanwhile, the bullion desk & custom orders are open.</p>
+      <p style="color:var(--ink-3);font-size:14px">New designs are being photographed & priced at today's Shivaa rate — back very soon. Meanwhile, the bullion desk & custom orders are open.</p>
       <a class="btn btn-primary" style="margin-top:16px" href="#/b2b">For Jewellers → B2B</a>
     </div>
   </section>`}
@@ -2387,7 +2456,7 @@ pages.home = async (view) => {
     <div class="pillars">
       ${[
         ['bis', '<a href="#/hallmark">Check a HUID</a>', 'Use the actual piece’s HUID in BIS Care; catalogue data is not verification', '<path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3z" style="--dash:64"/><path class="pl-draw" d="M9 11.5l2 2 4-4.5" style="--dash:14"/>'],
-        ['rate', 'Live-Rate Pricing', 'Jaipur market feed &mdash; the price you see is the price you are billed', '<circle class="pl-draw" cx="12" cy="12" r="8.5" style="--dash:54"/><path class="pl-draw" d="M12 7.5v4.5l3.2 1.9" style="--dash:12"/>'],
+        ['rate', 'Live-Rate Pricing', 'Shivaa market feed &mdash; the price you see is the price you are billed', '<circle class="pl-draw" cx="12" cy="12" r="8.5" style="--dash:54"/><path class="pl-draw" d="M12 7.5v4.5l3.2 1.9" style="--dash:12"/>'],
         ['ship', 'Insured Shipping', 'Tamper-sealed and fully insured, delivered anywhere in India', '<path class="pl-draw" d="M4 8l8-4 8 4v8l-8 4-8-4V8z" style="--dash:56"/><path class="pl-draw" d="M4 8l8 4 8-4M12 12v8" style="--dash:34"/>'],
         ['ret', '7-Day Easy Returns', 'No-questions returns &middot; lifetime exchange at the live rate', '<path class="pl-draw" d="M4.5 12a7.5 7.5 0 1 1 2.2 5.3" style="--dash:44"/><path class="pl-draw" d="M4.5 12V7.5M4.5 12H9" style="--dash:14"/>'],
       ].map((x, i) => `<div class="pillar rv rv-d${i}" data-tilt="0.6">
@@ -2459,7 +2528,7 @@ pages.shop = async (view, q) => {
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container">
     <div class="crumbs"><a href="#/">Home</a> / Shop</div>
     <h1>${search ? `“${esc(search)}”` : cat ? esc((CATS[cat] && CATS[cat].name) || 'Jewellery') : 'All Jewellery'}${tag ? ' · ' + esc(TAGS[tag] || tag) : ''}</h1>
-    <p>Every price below follows the live Jaipur gold & silver rate and our published making-charge chart — automatically.</p>
+    <p>Every price below follows the live Shivaa gold & silver rate and our published making-charge chart — automatically.</p>
   </div></section>
   ${filtered
     ? `<div class="catbar-outer shop-catbar shop-chipbar">${catChipsHTML(cat)}</div>`
@@ -2755,7 +2824,7 @@ pages.product = async (view, q, id) => {
             .map(x => `<div class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">${x[1]}</svg>${x[0]}</div>`).join('')}
         </div>
 
-        <details class="acc" open><summary>Catalogue description</summary><div class="acc-body">${esc(p.desc)}${/(hallmark|certif|\bbis\b)/i.test(p.desc || '') ? '<p class="hm-note">Catalogue claims are not an official BIS record or certificate. Check the piece-level information above.</p>' : ''}</div></details>
+        <details class="acc" open><summary>Catalogue description</summary><div class="acc-body">${esc(brandRate(p.desc))}${/(hallmark|certif|\bbis\b)/i.test(p.desc || '') ? '<p class="hm-note">Catalogue claims are not an official BIS record or certificate. Check the piece-level information above.</p>' : ''}</div></details>
         <details class="acc"><summary>Purity &amp; hallmark evidence</summary><div class="acc-body">Listed specification: ${esc(p.purity)} ${esc(p.metal)}, ${esc(p.weightG)} g. These catalogue values are not a BIS lookup or an assay result. Use the piece HUID information above and compare the actual stamp with the official BIS Care result. No BIS verification or stone certificate is issued by this website feature.</div></details>
         <details class="acc"><summary>Making Charges & Exchange</summary><div class="acc-body">Making charges for this design are shown in the price table above — nothing hidden, nothing category-averaged. Lifetime exchange at the day's live rate with making charges waived on exchanges within 6 months; 90% buy-back of metal value thereafter.</div></details>
         <details class="acc"><summary>Shipping & Returns</summary><div class="acc-body">Free insured shipping above ${fmt(state.settings.freeShipAbove)}; tamper-sealed packaging with signature & OTP delivery. 7-day no-question returns (uncustomised pieces). Engraved pieces are exchangeable, not returnable.</div></details>
@@ -3455,7 +3524,7 @@ pages.compare = async (view, q) => {
   const metalLabel = p => p.metal === 'Silver' ? 'Silver 925' : p.purity + ' Gold';
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Compare</div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
-    <p>${items.length} of ${COMPARE_MAX} pieces selected · prices recalculate from the current Jaipur live rate and product making-charge data.</p></div></section>
+    <p>${items.length} of ${COMPARE_MAX} pieces selected · prices recalculate from the current Shivaa live rate and product making-charge data.</p></div></section>
 
   <section class="sec container pcmp-page">
     <div class="pcmp-toolbar" aria-label="Compare shortlist actions">
@@ -3575,7 +3644,7 @@ pages.cart = async (view) => {
   const shipping = subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Cart</div><h1>Your Cart</h1>
-  <p>${lines.length} piece${lines.length > 1 ? 's' : ''} · priced at the live Jaipur rate of ${timeFmt(state.rates.t)}</p></div></section>
+  <p>${lines.length} piece${lines.length > 1 ? 's' : ''} · priced at the live Shivaa rate of ${timeFmt(state.rates.t)}</p></div></section>
   <div class="container cart-layout">
     <div>
       <div class="cart-items">
@@ -3678,7 +3747,7 @@ function miniCartHTML() {
     <div class="mc-empty">
       <div class="mc-empty-ic">✦</div>
       <h3>Your bag awaits its sparkle</h3>
-      <p>Handcrafted pieces, priced live with the Jaipur rate.</p>
+      <p>Handcrafted pieces, priced live with the Shivaa rate.</p>
       <a class="btn btn-primary" href="#/shop" data-mc-close>Explore Jewellery</a>
     </div>`;
   const free = state.settings.freeShipAbove;
@@ -5505,7 +5574,7 @@ pages.quote = async view => {
         <div><b>PRICE QUOTATION</b><small>Quotation no. ${qNo} · valid till ${validTill.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</small></div>
         <span class="q-stamp">RATE HELD<br>48 HOURS</span>
       </header>
-      <p class="q-note">Dear family, namaste. Below is your selection priced at Jaipur&rsquo;s <b>live rate of today (${timeFmt(R.t)})</b>. Confirm within 48 hours and the same rate is honoured; after that the day&rsquo;s live rate applies. Every price below includes <b>3% GST</b> and the metal value, making charge and stones are shown on the invoice.</p>
+      <p class="q-note">Dear family, namaste. Below is your selection priced at Shivaa&rsquo;s <b>live rate of today (${timeFmt(R.t)})</b>. Confirm within 48 hours and the same rate is honoured; after that the day&rsquo;s live rate applies. Every price below includes <b>3% GST</b> and the metal value, making charge and stones are shown on the invoice.</p>
       <table class="q-tbl">
         <thead><tr><th>Piece</th><th class="num">Qty</th><th class="num">Approx wt</th><th class="num">Amount</th></tr></thead>
         <tbody>${rows.map(r => `<tr>
@@ -5554,12 +5623,15 @@ function refreshRatesPage(R) {
   try {
     const set = (k, v) => { const el = document.querySelector(`[data-rr="${k}"]`); if (el) el.textContent = v; };
     const setHTML = (k, v) => { const el = document.querySelector(`[data-rr="${k}"]`); if (el) el.innerHTML = v; };
-    const prem22 = R.premium ? (R.premium.gold22 !== undefined ? R.premium.gold22 : R.premium.gold) : 398;
+    const PM = ratePrem(R);
     setHTML('g22', fmt(R.gold22) + '<small>/gram</small>');
     setHTML('g22sub', '₹' + Math.round(R.gold22 * 10).toLocaleString('en-IN') + ' per 10 g · updated ' + timeFmt(R.t));
-    set('spot22', fmt(R.spot.gold22) + '/g');
-    set('prem22', '+₹' + prem22 + '/g');
+    set('spot22', fmt((R.spot || {}).gold22 || 0) + '/g');
+    set('prem22', premTxt(PM.g22, PM.pinned));
+    set('prem24', premTxt(PM.g24, PM.pinned));          // v156 — the 24K line
     set('anchor', ratesAnchorTxt(R));
+    [['gold24', PM.g24], ['gold22', PM.g22], ['gold18', PM.g18], ['silver', PM.sil]].forEach(([k, v]) =>
+      set('premc-' + k, PM.pinned ? 'admin-pinned counter rate' : 'incl. ' + (k === 'silver' ? fmt2(v) : '₹' + v) + '/g Shivaa premium'));
     set('silv', fmt2(R.silver) + '/g');
     ['gold24', 'gold22', 'gold18', 'silver'].forEach(k => {
       set('rc-' + k, k === 'silver' ? fmt2(R[k]) : fmt(R[k]));
@@ -5579,13 +5651,17 @@ pages.rates = async (view) => {
   /* v120 — Bug A: never crash on a cold open. If the rates batch has not
      landed yet, show an honest loader; the next poll renders for real. */
   if (!R) {
-    view.innerHTML = `<section class="page-hero"><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1><p>Fetching the live Jaipur feed…</p></div></section><div class="container" style="padding:60px 0 90px;text-align:center;color:var(--ink-3)"><span class="pp-spinner" aria-hidden="true"></span><p style="margin-top:14px">Weighing the market — one moment ✦</p></div>`;
+    view.innerHTML = `<section class="page-hero"><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1><p>Fetching the live Shivaa feed…</p></div></section><div class="container" style="padding:60px 0 90px;text-align:center;color:var(--ink-3)"><span class="pp-spinner" aria-hidden="true"></span><p style="margin-top:14px">Weighing the market — one moment ✦</p></div>`;
     return;
   }
   /* v119 — the card is built from the SAME anchor the shop prices from:
      22K rate = round(anchorLevel.goldPerG × 0.9167) + premium.gold22 (₹398/g,
-     desk physical). premium.gold stays the 24K line for older payloads. */
-  const prem22 = R.premium ? (R.premium.gold22 !== undefined ? R.premium.gold22 : R.premium.gold) : 398;
+     desk physical).
+     v156 — the owner's order: the 24K line now carries the SAME premium, so
+     the card publishes both and every karat tile shows the premium inside its
+     own price. premium.gold stays the 24K key for older payloads. */
+  const PM = ratePrem(R);
+  const SPOT = R.spot || {};
   const anchorTxt = ratesAnchorTxt(R);
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Live Rates</div><h1>Today's Gold & Silver Rates</h1>
@@ -5593,22 +5669,29 @@ pages.rates = async (view) => {
   <div class="container" style="padding:44px 0 90px">
     <div class="jaipur-hero">
       <div class="jh-main">
-        <span class="jh-badge">✦ JAIPUR MARKET RATE</span>
+        <span class="jh-badge">✦ SHIVAA MARKET RATE</span>
         <div class="jh-name">Gold 22K <small>(91.67)</small></div>
         <div class="jh-val" data-rr="g22">${fmt(R.gold22)}<small>/gram</small></div>
         <div class="jh-sub" data-rr="g22sub">₹${Math.round(R.gold22 * 10).toLocaleString('en-IN')} per 10 g · updated ${timeFmt(R.t)}</div>
       </div>
       <div class="jh-side">
-        <div class="jh-row"><span>International spot (22K)</span><b data-rr="spot22">${fmt(R.spot.gold22)}/g</b></div>
-        <div class="jh-row"><span>22K Jaipur premium <small style="color:var(--ink-3)">desk physical</small></span><b data-rr="prem22">+₹${prem22}/g</b></div>
+        <div class="jh-row"><span>International spot (22K)</span><b data-rr="spot22">${fmt(SPOT.gold22 || 0)}/g</b></div>
+        <div class="jh-row"><span>22K Shivaa premium <small style="color:var(--ink-3)">desk physical</small></span><b data-rr="prem22">${premTxt(PM.g22, PM.pinned)}</b></div>
+        <div class="jh-row"><span>24K Shivaa premium <small style="color:var(--ink-3)">same as 22K</small></span><b data-rr="prem24">${premTxt(PM.g24, PM.pinned)}</b></div>
         <div class="jh-row"><span>Rate anchor</span><b data-rr="anchor">${anchorTxt}</b></div>
-        <div class="jh-row"><span>Silver (Jaipur 925)</span><b data-rr="silv">${fmt2(R.silver)}/g</b></div>
-        <div class="jh-note">These Jaipur rates power every price on shivaa.in — your bill matches this card to the rupee.</div>
+        <div class="jh-row"><span>Silver (Shivaa 925)</span><b data-rr="silv">${fmt2(R.silver)}/g</b></div>
+        <div class="jh-note">These Shivaa rates power every price on shivaa.in — your bill matches this card to the rupee.</div>
       </div>
     </div>
     <div class="rate-cards">
-      ${[['GOLD 24K · JAIPUR', 'gold24', '99.99% fine — reference'], ['GOLD 22K · JAIPUR', 'gold22', '91.67% — jewellery grade'], ['GOLD 18K · JAIPUR', 'gold18', '75.0% — contemporary'], ['SILVER 925 · JAIPUR', 'silver', 'sterling — jewellery grade']]
-        .map(c => `<div class="rate-card ${c[0].includes('GOLD') ? 'gold' : ''}"><div class="rc-name">${c[0]}</div><div class="rc-val" data-rr="rc-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]]) : fmt(R[c[1]])}</div><small>per gram · ${c[2]}</small><div style="margin-top:10px;font-size:12px;color:var(--ink-3)">per 10 g: <b data-rr="rc10-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]] * 10) : fmt(R[c[1]] * 10)}</b></div></div>`).join('')}
+      ${[['GOLD 24K · SHIVAA', 'gold24', '99.99% fine — reference'], ['GOLD 22K · SHIVAA', 'gold22', '91.67% — jewellery grade'], ['GOLD 18K · SHIVAA', 'gold18', '75.0% — contemporary'], ['SILVER 925 · SHIVAA', 'silver', 'sterling — jewellery grade']]
+        .map(c => {
+          /* v156 — each tile now states the Shivaa premium sitting inside its
+             price, so a customer comparing this card with an exchange feed can
+             see exactly what the shop adds and why. */
+          const pv = c[1] === 'gold24' ? PM.g24 : c[1] === 'gold22' ? PM.g22 : c[1] === 'gold18' ? PM.g18 : PM.sil;
+          return `<div class="rate-card ${c[0].includes('GOLD') ? 'gold' : ''}"><div class="rc-name">${c[0]}</div><div class="rc-val" data-rr="rc-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]]) : fmt(R[c[1]])}</div><small>per gram · ${c[2]}</small><div style="margin-top:10px;font-size:12px;color:var(--ink-3)">per 10 g: <b data-rr="rc10-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]] * 10) : fmt(R[c[1]] * 10)}</b></div><div style="margin-top:6px;font-size:11.5px;color:var(--ink-3)" data-rr="premc-${c[1]}">${PM.pinned ? 'admin-pinned counter rate' : 'incl. ' + (c[1] === 'silver' ? fmt2(pv) : '₹' + pv) + '/g Shivaa premium'}</div></div>`;
+        }).join('')}
     </div>
     <div class="chart-wrap mt-3"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
       <h3 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
@@ -5634,17 +5717,23 @@ pages.rates = async (view) => {
   drawRateChart($('#rateChart'), R.history || []);
 };
 function drawRateChart(cv, hist) {
-  if (!cv || !hist.length) return;
+  /* v156 — a single stamp (a fresh install, or a history reset) used to run
+     every X through `i / (data.length - 1)` = 0/0 = NaN, and one non-numeric
+     stamp poisoned min/max for the whole curve: the canvas silently drew
+     nothing under a heading that promised 12 hours. Two usable points are now
+     the floor, and a bad stamp is dropped instead of flattening the chart. */
+  if (!cv || !Array.isArray(hist)) return;
+  const data = hist.map(p => Number(p && p.gold22)).filter(v => isFinite(v) && v > 0);
+  if (data.length < 2) return;
   const x = cv.getContext('2d'); if (!x) return;   // v107 — canvas can be unavailable; chart is progressive enhancement
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const w = cv.parentElement.clientWidth - 0, h = 300;
   cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + 'px';
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
   const pad = { l: 56, r: 56, t: 16, b: 26 };
-  const data = hist.map(p => p.gold22);
   const min = Math.min(...data) * 0.999, max = Math.max(...data) * 1.001;
-  const X = i => pad.l + i / (data.length - 1) * (w - pad.l - pad.r);
-  const Y = v => pad.t + (1 - (v - min) / (max - min)) * (h - pad.t - pad.b);
+  const X = i => pad.l + i / Math.max(1, data.length - 1) * (w - pad.l - pad.r);
+  const Y = v => pad.t + (1 - (v - min) / ((max - min) || 1)) * (h - pad.t - pad.b);
   x.strokeStyle = '#eee3cd'; x.fillStyle = '#8a7d6c'; x.font = '11px Jost'; x.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const v = min + (max - min) * i / 4, y = Y(v);
@@ -6552,7 +6641,7 @@ function openLogin(next = '') {
     <aside class="auth-brand" aria-hidden="true">
       <img src="/images/logo.png" alt="" class="ab-logo">
       <b>The House of<br>Honest Gold</b>
-      <p>Live Jaipur rates &middot; piece-level HUID guidance &middot; OTP-verified accounts.</p>
+      <p>Live Shivaa rates &middot; piece-level HUID guidance &middot; OTP-verified accounts.</p>
       <ul class="ab-list">
         <li>Rate-locked billing, honest to the rupee</li>
         <li>100% buyback on every Shivaa piece</li>
@@ -6842,7 +6931,7 @@ function certificateSheet(o) {
       <section class="cert-assure">
         <p><b>✦ Hallmarking.</b> Every gold piece carries its BIS-assigned <b>HUID</b>, physically stamped on the piece and printed on the tax invoice. Scan it anytime in the official <b>BIS Care</b> app. Silver 925 pieces carry the 925 stamp.</p>
         <p><b>✦ Honest weights.</b> Weights are recorded to the milligram at billing; stones &amp; pearls are valued separately and shown on the invoice.</p>
-        <p><b>✦ Transparent price.</b> Metal value at the day&rsquo;s locked Jaipur rate + listed making charge + 3% GST — nothing hidden, nothing rounded up.</p>
+        <p><b>✦ Transparent price.</b> Metal value at the day&rsquo;s locked Shivaa rate + listed making charge + 3% GST — nothing hidden, nothing rounded up.</p>
         <p><b>✦ Lifetime buyback.</b> This certificate accompanies the piece for 100% metal-value buyback under our published policy.</p>
       </section>
       <footer class="cert-foot">
@@ -7139,7 +7228,7 @@ function partnerGateHTML(title, sub) {
 
 /* ═══════════════════════════════════════════════════════════════════
    PAGE · 100% GOLD BUYBACK GUARANTEE            (deck B2C #10 + #15)
-   Live valuation against the same Jaipur rate feed that powers pricing.
+   Live valuation against the same Shivaa rate feed that powers pricing.
    ═══════════════════════════════════════════════════════════════════ */
 pages.buyback = async (view) => {
   const R = state.rates || {};
@@ -7161,7 +7250,7 @@ pages.buyback = async (view) => {
       <div class="vault-card">
         <span class="vc-num">100<small>%</small></span>
         <b>Pure gold value returned</b>
-        <p>We buy back the full metal value of your jewellery at the live Jaipur rate on the day you return — not a discounted "scrap" rate.</p>
+        <p>We buy back the full metal value of your jewellery at the live Shivaa rate on the day you return — not a discounted "scrap" rate.</p>
       </div>
       <div class="vault-card vc-emerald">
         <span class="vc-num">0<small>%</small></span>
@@ -7178,7 +7267,7 @@ pages.buyback = async (view) => {
     <!-- ── LIVE VALUATION ENGINE ── -->
     <section class="bb-calc rv" id="bbCalc">
       <div class="bbc-head">
-        <span class="bbc-live"><i></i> LIVE JAIPUR RATE</span>
+        <span class="bbc-live"><i></i> LIVE SHIVAA RATE</span>
         <h2>What is your jewellery worth <em class="shimmer foil-txt">today</em>?</h2>
         <p>Enter the weight and purity stamped on your piece. This is the same feed that prices every product on shivaa.in, refreshed roughly every 10 minutes.</p>
       </div>
@@ -7266,7 +7355,7 @@ pages.buyback = async (view) => {
       <div class="step-rail">
         <div class="step-item"><span class="si-n">01</span><b>Bring the piece &amp; the invoice</b><p>Bring the invoice and the actual piece. Check any hallmark reference against the stamp; a catalogue listing or invoice is not a BIS lookup result.</p></div>
         <div class="step-item"><span class="si-n">02</span><b>Weighed in front of you</b><p>On a calibrated counter scale. You watch the number, we both agree on it before anything else happens.</p></div>
-        <div class="step-item"><span class="si-n">03</span><b>Valued at the live rate</b><p>The same published Jaipur rate on the board that day — no private "counter rate".</p></div>
+        <div class="step-item"><span class="si-n">03</span><b>Valued at the live rate</b><p>The same published Shivaa rate on the board that day — no private "counter rate".</p></div>
         <div class="step-item"><span class="si-n">04</span><b>Paid or exchanged</b><p>Take it as bank transfer, or put the full value against a new piece with nothing deducted.</p></div>
       </div>
     </section>
@@ -7375,7 +7464,7 @@ pages.savings = async (view) => {
           <p>Choose a monthly amount. Pay it for eleven months. In the twelfth month Shivaa adds a full instalment of its own — then you choose any piece in the store and pay only the making charges on it.</p>
           <ul class="ph-points">
             <li><span>✦</span> No lock on design — pick anything, in-store or online</li>
-            <li><span>✦</span> Gold billed at the live Jaipur rate on redemption day</li>
+            <li><span>✦</span> Gold billed at the live Shivaa rate on redemption day</li>
             <li><span>✦</span> Miss a month? The plan simply extends, nothing is forfeited</li>
             <li><span>✦</span> Fully refundable in cash before maturity, minus nothing</li>
           </ul>
@@ -7419,7 +7508,7 @@ pages.savings = async (view) => {
       <div class="bbc-head">
         <span class="bbc-live"><i></i> LIVE PROJECTION</span>
         <h2>See exactly what you will <em class="shimmer foil-txt">walk away with</em></h2>
-        <p>Move the slider to your comfortable monthly amount. Gold quantity is projected at today's Jaipur 22K rate of <b>${fmt(g22)}/g</b>.</p>
+        <p>Move the slider to your comfortable monthly amount. Gold quantity is projected at today's Shivaa 22K rate of <b>${fmt(g22)}/g</b>.</p>
       </div>
 
       <div class="svc-body">
@@ -7513,7 +7602,7 @@ pages.savings = async (view) => {
         <div class="fine-card"><b>If you miss a month</b><p>The plan extends by that month. There is no penalty and no interest. The 12th instalment from Shivaa is paid once your 11 are complete.</p></div>
         <div class="fine-card"><b>Cancelling early</b><p>Withdraw any time before maturity and receive every rupee you paid back in full. The Shivaa instalment applies only on completion.</p></div>
         <div class="fine-card"><b>What you can buy</b><p>Any gold or silver jewellery in the store. Making charges are payable on the piece you choose; the saved amount covers the metal.</p></div>
-        <div class="fine-card"><b>Rate applied</b><p>The published live Jaipur rate on the day you redeem — not the day you enrolled. If gold falls, you get more grams.</p></div>
+        <div class="fine-card"><b>Rate applied</b><p>The published live Shivaa rate on the day you redeem — not the day you enrolled. If gold falls, you get more grams.</p></div>
         <div class="fine-card"><b>Transferable</b><p>The plan can be redeemed by an immediate family member with your written consent and ID.</p></div>
       </div>
     </section>
@@ -7690,7 +7779,7 @@ pages.metal = async (view) => {
       <div class="bbc-head">
         <span class="bbc-live"><i></i> LIVE CALCULATION</span>
         <h2>What your fine gold <em class="shimmer foil-txt">could become</em></h2>
-        <p>Today's Jaipur rate for 24K (99.999) fine gold: <b>${fmt(g24)}/g</b>.</p>
+        <p>Today's Shivaa rate for 24K (99.999) fine gold: <b>${fmt(g24)}/g</b>.</p>
       </div>
 
       <div class="svc-body">
@@ -7914,7 +8003,7 @@ pages.deadstock = async (view) => {
       <div class="bbc-head">
         <span class="bbc-live"><i></i> LIVE ESTIMATE</span>
         <h2>What your old stock is <em class="shimmer foil-txt">actually worth</em></h2>
-        <p>Today's Jaipur rates &mdash; fine 24K <b>${fmt(g24)}/g</b> &middot; 22K <b>${fmt(g22)}/g</b> &middot; fine silver <b>${fmt(Math.max(R?.silver || 0, (R?.jaipur?.silver || 0) / 1000))}/g</b>.</p>
+        <p>Today's Shivaa rates &mdash; fine 24K <b>${fmt(g24)}/g</b> &middot; 22K <b>${fmt(g22)}/g</b> &middot; fine silver <b>${fmt(Math.max(R?.silver || 0, (R?.jaipur?.silver || 0) / 1000))}/g</b>.</p>
       </div>
 
       <div class="svc-body">
@@ -8167,9 +8256,9 @@ pages.faq = async (view) => {
   <div class="container" style="padding:44px 0 90px;max-width:860px">
     <h2 class="label" style="margin-bottom:16px">Purity &amp; pricing</h2>
     <details class="acc" open><summary>How do I check BIS hallmark details?</summary><div class="acc-body">Use the HUID stamped on the actual piece in the official BIS Care app’s “Verify HUID” feature. Staff-entered HUIDs, catalogue descriptions and listed purity are not BIS verification. Our <a class="hm-text-link" href="#/hallmark">HUID check guide</a> explains the process and clearly shows when no piece-level HUID has been provided. Automatic BIS verification is not connected here.</div></details>
-    <details class="acc"><summary>How is the price of a piece calculated?</summary><div class="acc-body">(Live metal rate × weight) + making charges for that piece + GST at 3%. The metal rate is Jaipur's live rate at the time of billing — the same number you see on the ticker, to the rupee.</div></details>
+    <details class="acc"><summary>How is the price of a piece calculated?</summary><div class="acc-body">(Live metal rate × weight) + making charges for that piece + GST at 3%. The metal rate is Shivaa's live rate at the time of billing — the same number you see on the ticker, to the rupee.</div></details>
     <details class="acc"><summary>Do making charges differ between designs?</summary><div class="acc-body">Yes — each design carries its own making charge based on the karigar's work, shown clearly on the product page. Machine-made chains cost far less than hand-carved bridal work, and we think you should see that honestly.</div></details>
-    <details class="acc"><summary>Why do prices change between visits?</summary><div class="acc-body">Because the metal rate moves. Prices track the live Jaipur rate and refresh every few minutes — the rate is locked at the moment you place your order.</div></details>
+    <details class="acc"><summary>Why do prices change between visits?</summary><div class="acc-body">Because the metal rate moves. Prices track the live Shivaa rate and refresh every few minutes — the rate is locked at the moment you place your order.</div></details>
     <h2 class="label" style="margin:34px 0 16px">Orders &amp; delivery</h2>
     <details class="acc"><summary>How fast is delivery, and is it insured?</summary><div class="acc-body">Dispatched in 24–48 hours, delivered in 2–6 days across India depending on your city. Every shipment is fully insured, tamper-sealed, and delivered against signature and OTP verification.</div></details>
     <details class="acc"><summary>Can I track my order?</summary><div class="acc-body">Yes — we WhatsApp and email the courier tracking number as soon as it ships, and you can see every order under <a href="#/track" style="color:var(--maroon);font-weight:500">Track Your Order</a>.</div></details>

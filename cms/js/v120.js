@@ -77,7 +77,27 @@
   });
   try {
     if (typeof MutationObserver === 'function' && document.documentElement) {
-      var openHash = {};   // overlay id -> location.hash it opened on (false = closed)
+      /* ═══ v156 · BUG FIX — THE BACK BUTTON NEEDED *N* PRESSES ON HOME ═══
+         A bare shivaa.in/ visit has an EMPTY location.hash, and the empty
+         string is falsy. `openHash[o.id] = location.hash` therefore recorded
+         NOTHING on the home page, so:
+           (a) `if (is && !openHash[o.id])` stayed true on EVERY class mutation
+               anywhere in the document while a sheet was open, and pushed
+               ANOTHER history entry each time (instrumented in the v127
+               session: 2+ pushStates for a single drawer open), and
+           (b) the close branch `else if (!is && openHash[o.id])` never ran, so
+               not one of those entries was ever released — a shopper who
+               opened the menu on the home page had to press Back once per
+               mutation to get out of the shop.
+         Found and instrumented during the v127 navigation repair and left
+         alone on purpose (that brief said do not touch this file); the owner's
+         19 Sep 2026 order — "find some bugs in the app and solve" — is the
+         ask that opens it. The hash is now normalised on BOTH sides of the
+         comparison, so `sameHash` means exactly what it always meant and the
+         navigation guard v127 relies on is untouched; only the empty-hash
+         (home page) case changes. */
+      var curHash = function () { return location.hash || '#/'; };
+      var openHash = {};   // overlay id -> hash it opened on ('#/' when the URL carries none); false = closed
       var mo = new MutationObserver(function () {
         if (!historyOK) return;
         for (var i = 0; i < OVERLAYS.length; i++) {
@@ -86,10 +106,10 @@
           /* a Back-driven close still syncs state (else the next open would
              wrongly look "already open" and skip its entry) — it just skips
              the push/back accounting, which popstate already handled. */
-          if (fromPop) { openHash[o.id] = is ? location.hash : false; continue; }
-          if (is && !openHash[o.id]) { pushEntry(o.id); openHash[o.id] = location.hash; }
+          if (fromPop) { openHash[o.id] = is ? curHash() : false; continue; }
+          if (is && !openHash[o.id]) { pushEntry(o.id); openHash[o.id] = curHash(); }
           else if (!is && openHash[o.id]) {
-            var sameHash = (openHash[o.id] === location.hash);
+            var sameHash = (openHash[o.id] === curHash());
             openHash[o.id] = false;
             if (window.__shvNavigating) {
               if (pushed > 0) pushed--;

@@ -96,12 +96,26 @@ ok('the busy claim is SYNCHRONOUS (v155 double-tap race fix): claim before any a
 ok('express stash still stamped (reclaim proof, not a memory of the shopper)', app.includes("store.set('shv_express', { orderId, pin, at: Date.now() })")
   && app.includes("store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() })"));
 
-console.log('\n· 6 — stamp lockstep (155) incl. the loader stamps v152 once missed:');
-ok('APP_REL 155', /const APP_REL = 155;/.test(app));
-ok('index __SHIVAA_REL=155 + loader app.js?v=155', idx.includes('window.__SHIVAA_REL=155;') && idx.includes('/js/app.js?v=155"'));
-ok('sw SHELL v155 + PRECACHE /js/app.js?v=155', sw.includes("'shivaa-shell-v155'") && sw.includes("'/js/app.js?v=155'"));
+console.log('\n· 6 — stamp lockstep (155 is the FLOOR) incl. the loader stamps v152 once missed:');
+/* v156 fix-forward — these four were EXACT 155 pins, so the next release
+   "broke" this suite for nothing at all. v155's own banked lesson (c) is the
+   rule: once an era's semantics ARE the baseline, its version pin becomes a
+   floor and the suite keeps what it actually owns — the four stamps must still
+   move in LOCKSTEP (the v152 loader-stamp miss is what this block exists for).
+   Exactness for the CURRENT release is the newest suite's job (v156-check). */
+const num = (re, t) => Number((re.exec(t) || [0, 0])[1]);
+const relIdx = num(/window\.__SHIVAA_REL=(\d+);/, idx);
+const relApp = num(/APP_REL\s*=\s*(\d+)/, app);
+const relSw  = num(/SHELL = 'shivaa-shell-v(\d+)'/, sw);
+const relLdr = num(/\/js\/app\.js\?v=(\d+)"/, idx);
+const relPre = num(/'\/js\/app\.js\?v=(\d+)'/, sw);
+const relApi = num(/'rel'\s+=> (\d+),/, api);
+ok('APP_REL >= 155', relApp >= 155, String(relApp));
+ok('index __SHIVAA_REL >= 155 + the loader stamp MATCHES it', relIdx >= 155 && relLdr === relIdx, `${relIdx} / loader ${relLdr}`);
+ok('sw SHELL >= 155 + its PRECACHE app.js stamp MATCHES the shell', relSw >= 155 && relPre === relSw, `${relSw} / precache ${relPre}`);
+ok('the whole release moves in lockstep (index = app = sw = api)', relIdx === relApp && relApp === relSw && relSw === relApi,
+  `${relIdx}/${relApp}/${relSw}/${relApi}`);
 ok('no stale 154 left in the boot files', !idx.includes('154') && !sw.includes('154'));
-ok("api rel 155", /'rel'\s+=> 155,/.test(api));
 ok('admin copy speaks v155', adm.includes('v155: Buy Now') && adm.includes('NOTHING of ours renders between the tap'));
 
 const pass = results.filter(Boolean).length;

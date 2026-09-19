@@ -149,8 +149,13 @@ function boot({ user = null, token = null, startHash = '', innerWidth = 420 } = 
 
   ok('every changed file carries its new cache stamp (?v=140 / app.js 140+141) in index.html',
     /\/css\/v116\.css\?v=140/.test(shell) && /\/css\/v119\.css\?v=140/.test(shell) && /\/css\/v120\.css\?v=140/.test(shell) &&
-    st(shell, /\/js\/app\.js\?v=(\d+)/) >= 140 && /\/js\/v107\.js\?v=140/.test(shell) && st(shell, /\/js\/v116\.js\?v=(\d+)/) >= 140 &&
-    st(shell, /\/js\/v117\.js\?v=(\d+)/) >= 140 && /\/js\/v119\.js\?v=140/.test(shell) && /\/js\/v120\.js\?v=140/.test(shell),
+    st(shell, /\/js\/app\.js\?v=(\d+)/) >= 140 && st(shell, /\/js\/v107\.js\?v=(\d+)/) >= 140 && st(shell, /\/js\/v116\.js\?v=(\d+)/) >= 140 &&
+    st(shell, /\/js\/v117\.js\?v=(\d+)/) >= 140 && /\/js\/v119\.js\?v=140/.test(shell) && st(shell, /\/js\/v120\.js\?v=(\d+)/) >= 140,
+    /* v156 fix-forward — v107.js and v120.js were EXACT ?v=140 pins; v156 edits
+       both (the footer basis line + the empty-hash Back-button bug), so their
+       stamps moved, which is precisely what this check demands ("a changed
+       stamped file must move its ?v="). Floors, not pins — same as app.js and
+       v116/v117.js already were. v119.js is untouched by v156 and stays exact. */
     'a changed stamped file must move its ?v= (immutable cache, one year)');
 
   ok('the new v140 layer ships, is loaded LAST, and the worker precaches it',
@@ -160,7 +165,7 @@ function boot({ user = null, token = null, startHash = '', innerWidth = 420 } = 
 
   ok('the service worker precache matches the re-stamped files exactly',
     (() => { const x = /'\/js\/app\.js\?v=(\d+)'/.exec(sw); return !!x && Number(x[1]) >= 140; })() &&
-    sw.includes("'/js/v119.js?v=140'") && sw.includes("'/js/v120.js?v=140'") &&
+    sw.includes("'/js/v119.js?v=140'") && (() => { const x = /'\/js\/v120\.js\?v=(\d+)'/.exec(sw); return !!x && Number(x[1]) >= 140; })() &&
     (() => { const x = /'\/js\/v116\.js\?v=(\d+)'/.exec(sw); return !!x && Number(x[1]) >= 140; })() &&
     sw.includes("'/css/v119.css?v=140'") && sw.includes("'/css/v120.css?v=140'") && sw.includes("'/css/v116.css?v=140'"));
 
