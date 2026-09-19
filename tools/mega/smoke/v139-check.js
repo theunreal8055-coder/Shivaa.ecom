@@ -195,8 +195,16 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
     (/window\.__SHIVAA_REL=141;/.test(shell) && /APP_REL\s*=\s*141/.test(app) &&
      /SHELL = 'shivaa-shell-v141'/.test(sw)) ||
     (/window\.__SHIVAA_REL=142;/.test(shell) && /APP_REL\s*=\s*142/.test(app) &&
-     /SHELL = 'shivaa-shell-v142'/.test(sw)),
-    'index.html/app.js/sw.js stamps must all read 139 (or the v140/v141/v142 release they moved to)');
+     /SHELL = 'shivaa-shell-v142'/.test(sw)) ||
+    (/window\.__SHIVAA_REL=143;/.test(shell) && /APP_REL\s*=\s*143/.test(app) &&
+     /SHELL = 'shivaa-shell-v143'/.test(sw)) ||
+    (/window\.__SHIVAA_REL=144;/.test(shell) && /APP_REL\s*=\s*144/.test(app) &&
+     /SHELL = 'shivaa-shell-v144'/.test(sw)) ||
+    (/window\.__SHIVAA_REL=145;/.test(shell) && /APP_REL\s*=\s*145/.test(app) &&
+     /SHELL = 'shivaa-shell-v145'/.test(sw)) ||
+    (/window\.__SHIVAA_REL=146;/.test(shell) && /APP_REL\s*=\s*146/.test(app) &&
+     /SHELL = 'shivaa-shell-v146'/.test(sw)),
+    'index.html/app.js/sw.js stamps must all read 139 (or a later release they moved to)');
 
   ok('no stale 138 stamp survives in the shell, the app or the worker',
     !/\?v=138/.test(shell) && !/\?v=138/.test(sw) && !/APP_REL\s*=\s*138/.test(app),

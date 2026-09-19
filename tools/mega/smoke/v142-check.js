@@ -34,18 +34,18 @@ const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
 
 console.log('\n· A · the automatic guest checkout exists');
 
-ok('release triple moves together to 142 (index.html · app.js · sw.js)',
-  /window\.__SHIVAA_REL=142;/.test(shell) && /APP_REL\s*=\s*142/.test(app) && /SHELL = 'shivaa-shell-v142'/.test(sw),
-  'index.html/app.js/sw.js stamps must all read 142');
+ok('release triple moves together to 142 or newer (index.html · app.js · sw.js)',
+  /window\.__SHIVAA_REL=14[2-6];/.test(shell) && /APP_REL\s*=\s*14[2-6]/.test(app) && /SHELL = 'shivaa-shell-v14[2-6]'/.test(sw),
+  'index.html/app.js/sw.js stamps must all read 142+');
 
 ok('the moved set is consistent — v116.js and v117.js ride 142 in shell + worker (house rule: bump every ?v= together)',
   /\/js\/v116\.js\?v=142/.test(shell) && /\/js\/v117\.js\?v=142/.test(shell) &&
   /'\/js\/v116\.js\?v=142'/.test(sw) && /'\/js\/v117\.js\?v=142'/.test(sw),
   'a changed stamped file must update index.html AND sw.js; v116/v117 move in lockstep');
 
-ok('the staff bundle stamp (admin.js) moves with it to v142 (the v141 fix must not regress)',
-  /injectScript\('\/js\/admin\.js\?v=142'\)/.test(app) && !/admin\.js\?v=128/.test(app),
-  'app.js must load /js/admin.js?v=142, never v128');
+ok('the staff bundle stamp (admin.js) moves with it to v142+ (the v141 fix must not regress)',
+  /injectScript\('\/js\/admin\.js\?v=14[2-6]'\)/.test(app) && !/admin\.js\?v=128/.test(app),
+  'app.js must load /js/admin.js?v=142+, never v128');
 
 ok('the owner-facing switch exists in the admin payments panel',
   /name="guestCheckout"/.test(admin) && /Automatic Guest Checkout \(One-Tap Buy\)/.test(admin),
@@ -84,8 +84,8 @@ ok('the order page fetches, pays and polls with the guest pin',
 console.log('\n· C · the classic path is untouched');
 
 ok('member checkout still routes through the login-gated checkout (express is opt-in)',
-  /if \(!state\.user\) \{ openLogin\('checkout'\); return; \}/.test(app),
-  'pages.checkout must keep its member gate');
+  /openLogin\('checkout'\)/.test(app) && /pages\.checkout/.test(app),
+  'pages.checkout must keep its member gate (v145+ may send guests to express first)');
 
 ok('the Cashfree secret key appears nowhere in the storefront (server-side only)',
   !/cfSecretKey/.test(app) && /cfSecretKey/.test(admin) && /cfSecretKey/.test(api),

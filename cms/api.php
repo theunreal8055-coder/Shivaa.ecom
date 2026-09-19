@@ -3870,6 +3870,15 @@ try {
       if (!isset($af[$ak]) || trim((string)$af[$ak]) === '')
         jout(400, ['error' => 'Complete delivery address required (name, mobile, address, city, pincode).']);
     }
+    /* v143/v146 — guest One-Tap Buy: Cashfree Create Order refuses an empty
+       or placeholder customer_phone. Catch it here (order create) as well as
+       at pay/order, so the shopper sees the number field error instead of a
+       later "Cashfree denied the payment". */
+    if (!$u) {
+      $gPhone = substr(preg_replace('/\D/', '', (string)($af['phone'] ?? '')), -10);
+      if (!preg_match('/^[6-9]\d{9}$/', $gPhone) || $gPhone === '9999999999')
+        jout(400, ['error' => 'Please enter your real 10-digit mobile number — Cashfree needs it to start the payment.']);
+    }
     $R = current_rates($db);
     /* v57: honour a 20-minute checkout rate lock — accepted only inside a
        2% safety band so a locked quote can never be abused. */
@@ -4119,12 +4128,15 @@ try {
     ]);
   }
 
-  /* ════════ v144 · Truecaller one-tap verification ════════
+  /* ════════ v144/v146 · Truecaller one-tap verification ════════
      Callback: Truecaller POSTs {requestId, accessToken, endpoint} here when
      the user taps "Continue" in the Truecaller app. We fetch the verified
      profile and store it for the frontend to poll.
      This route must respond within 3 seconds and accepts POST from any origin
-     (Truecaller's servers, not the browser). */
+     (Truecaller's servers, not the browser).
+     v146 — Hostinger may drop this inbound POST. The storefront no longer
+     waits on it: the customer types the number they saw in Truecaller. These
+     routes stay as a bonus auto-fill when the callback does arrive. */
   if ($route === 'auth/truecaller/callback' && $method === 'POST') {
     /* v144.1 — use body_json() instead of raw php://input (which can only be
        read once per request; body_json() may have already consumed it). */
