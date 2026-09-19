@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 142;
+const APP_REL = 143;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -3151,8 +3151,9 @@ pages.express = async view => {
       <div class="sum-row total"><span>Total</span><b>${fmt(total)}</b></div>
     </div>
     <div class="center" style="max-width:520px;margin:0 auto">
-      <label class="fld full" style="text-align:left"><span style="font-size:13px;color:var(--ink-2)">We&rsquo;ll ring this number if the courier needs to — leave blank and Cashfree verifies it for us</span>
-      <input id="exPhone" type="tel" inputmode="numeric" maxlength="10" value="${esc(phone)}" placeholder="98765 43210 (optional)"></label>
+      <label class="fld full" style="text-align:left"><span style="font-size:13px;color:var(--ink-2)">Your 10-digit mobile number — Cashfree uses this to verify your identity and pre-fill your address</span>
+      <input id="exPhone" type="tel" inputmode="numeric" maxlength="10" required value="${esc(phone)}" placeholder="98765 43210 (required)"></label>
+      <p id="exPhoneErr" style="color:#c0392b;font-size:12.5px;margin:4px 0 0;display:none"></p>
       <button class="btn btn-gold btn-lg btn-block" id="exBuy">✦ Make It Yours — Pay ${fmt(total)}</button>
       <p style="color:var(--ink-3);font-size:13px;margin:12px 0 30px">Places the order and opens the secure Cashfree page, where you pay in one step. ${(state.settings.phone) ? 'Questions? WhatsApp ' + esc(state.settings.phone) + '.' : ''}</p>
       <button class="btn btn-ghost" onclick="history.length > 1 ? history.back() : (location.hash = '#/product/${esc(item.id)}')">← Back</button>
@@ -3160,6 +3161,20 @@ pages.express = async view => {
   </div>`;
   const exBtn = $('#exBuy');
   exBtn.onclick = async () => {
+    /* v143 — Cashfree Create Order REQUIRES a real 10-digit customer_phone.
+       The original code sent an empty string when the guest left the field
+       blank, which made Cashfree reject the order (and the standard-checkout
+       fallback too) with "Cashfree denied the payment". Phone is now required
+       and validated before we ever touch the server. */
+    const typedPhone = authPhone($('#exPhone').value);
+    const phoneErr = $('#exPhoneErr');
+    if (!/^[6-9]\d{9}$/.test(typedPhone)) {
+      phoneErr.textContent = 'Please enter a valid 10-digit mobile number — Cashfree needs it to start the payment.';
+      phoneErr.style.display = 'block';
+      $('#exPhone').focus();
+      return;
+    }
+    phoneErr.style.display = 'none';
     exBtn.disabled = true; exBtn.textContent = 'Placing your order…';
     try {
       /* v142 — the boundary address. A guest order still needs a valid
@@ -3169,19 +3184,15 @@ pages.express = async view => {
          verified address + phone onto the order (cfCheckout) before dispatch.
          Nothing here invents a customer identity: the name is a placeholder
          that Cashfree replaces with the verified one. */
-      const typedPhone = authPhone($('#exPhone').value);
-      /* The boundary address must still pass the server's v84 validation
-         (name/phone/line/city/pincode present, phone 10 digits, pincode 6),
-         so shivaa.in can hold the order while Cashfree collects the REAL
-         details. After payment the return route writes Cashfree's verified
-         address + number onto the order (cfCheckout), and everything the
-         shop prints/reads prefers that. Nothing genuine is invented here —
-         the fields below are clearly marked placeholders. */
+      const typedPhone2 = authPhone($('#exPhone').value);
+      /* v143 — the phone is now validated above (10-digit, starts with 6-9),
+         so we never fall back to the placeholder. Cashfree requires a real
+         phone to create the order AND to look up the customer for OCC. */
       const res = await api('/api/orders', { method: 'POST', body: JSON.stringify({
         items: [{ id: item.id, qty, size: item.size || null, engraving: item.engraving || null }],
         address: {
           name: 'Valued Customer',
-          phone: /^[6-9]\\d{9}$/.test(typedPhone) ? typedPhone : '9999999999',
+          phone: typedPhone2,
           line: 'Collected on Cashfree (verified address)',
           city: 'Pending verification', state: 'Pending verification', pincode: '000000', country: 'India',
         },

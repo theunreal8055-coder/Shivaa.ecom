@@ -4105,6 +4105,13 @@ try {
       $phoneRaw = (string)(($o['address']['phone'] ?? '') ?: ($u['phone'] ?? ''));
       $phone = preg_replace('#\D#', '', $phoneRaw);
       $phone = substr($phone, -10) !== '' ? substr($phone, -10) : '9999999999';
+      /* v143 — Cashfree Create Order REQUIRES customer_phone as a non-empty
+         10-digit number. The previous code sent '' when the guest had the
+         placeholder phone, which made Cashfree reject both the OCC attempt
+         AND the standard-checkout fallback. Now we refuse the payment
+         attempt with a clear message instead of sending an empty phone. */
+      if (!$u && $phone === '9999999999')
+        jout(400, ['error' => 'Please enter your real mobile number — Cashfree needs a 10-digit phone to start the payment.']);
       $name = trim((string)(($o['address']['name'] ?? '') ?: ($u['name'] ?? '')));
       $name = substr(preg_replace('#[<>|]#', '', $name) ?: 'Customer', 0, 60);
       $email = trim((string)($u['email'] ?? $o['email'] ?? ''));
@@ -4120,7 +4127,7 @@ try {
           'customer_id' => cashfree_sanitize_id((string)($u['id'] ?? 'guest'), 32) ?: 'guest',
           'customer_name' => $name,
           'customer_email' => $email,
-          'customer_phone' => ($phone === '9999999999' && !$u) ? '' : $phone,   // v142 · guests let Cashfree collect/verify the number
+          'customer_phone' => $phone,   // v143 — always a 10-digit number; empty phone rejected above
         ],
         'order_meta' => [
           // {order_id} is replaced by Cashfree at redirect time (documented placeholder)
