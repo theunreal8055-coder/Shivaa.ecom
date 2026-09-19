@@ -106,8 +106,12 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
     `${dm.settings.gold22Premium} / ${dm.products.length} products`);
   ok('admin settings expose and save the 22K premium',
     /name="gold22Premium"/.test(adminJs) && /gold22Premium: \+g\('gold22Premium'\)/.test(adminJs));
-  ok('the footer basis line quotes the 22K premium (24K key only as fallback)',
-    /set\.gold22Premium !== undefined \? set\.gold22Premium : set\.jaipurPremium/.test(v107js) && /22K Jaipur premium/.test(v107js));
+  const v156 = /gold24_premium/.test(api);   // v156 era: the rate brand is SHIVAA and 24K carries the same ₹398 premium
+  ok(v156
+    ? 'the footer basis line quotes the 22K premium (era: v156 Shivaa copy — owner ordered Jaipur renamed to Shivaa)'
+    : 'the footer basis line quotes the 22K premium (24K key only as fallback)',
+    /set\.gold22Premium !== undefined \? set\.gold22Premium : set\.jaipurPremium/.test(v107js)
+    && (v156 ? /22K Shivaa premium/.test(v107js) : /22K Jaipur premium/.test(v107js)));
 
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -118,8 +122,12 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
   ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
 
   w.location.hash = '#/rates';
-  ok('rate card shows the 22K premium (₹398), not the 24K one',
-    await until(() => /22K Jaipur premium/.test(d.body.textContent) && /\+₹398/.test(d.body.textContent)),
+  ok(v156
+    ? 'rate card shows BOTH desk premiums (24K + 22K, ₹398 each — v156 owner decision)'
+    : 'rate card shows the 22K premium (₹398), not the 24K one',
+    await until(() => v156
+      ? /22K Shivaa premium/.test(d.body.textContent) && /24K Shivaa premium/.test(d.body.textContent) && /\+₹398/.test(d.body.textContent)
+      : /22K Jaipur premium/.test(d.body.textContent) && /\+₹398/.test(d.body.textContent)),
     (d.querySelector('.jaipur-hero') || {}).textContent);
   ok('rate card names the anchor it prices from (MCX future)',
     await until(() => /Rate anchor/.test(d.body.textContent) && /MCX future/.test(d.body.textContent)));

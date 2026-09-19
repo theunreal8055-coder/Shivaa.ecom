@@ -1944,14 +1944,28 @@ function gold22_premium(array $db): int {
   $v = $db['settings']['gold22Premium'] ?? 398;
   return is_numeric($v) ? (int)round((float)$v) : 398;
 }
-/* v119 — one derivation for the whole shop: anchor → Jaipur retail. */
+/* ─── v156 · owner decision (2026-09-19, LOCKED) ─────────────────────────
+   The 24K retail premium is now its own explicit number too — ₹398/g, the
+   SAME figure the 22K line carries ("add the same premium as the 22 karat",
+   owner chose: same total, ₹398/g, replacing the old ₹55 on the 24K line).
+   It rides the SAME anchor as every other line, so `jaipur.gold24` is
+   always round(anchorLevel.goldPerG) + 398. The legacy `jaipurPremium` (₹55)
+   no longer touches 24K — it only feeds the 18K line (×0.75), and an admin
+   rate override still wins over everything. B2C only: the B2B bullion desk
+   prices off the raw anchor (bullion_rows/rtgs_strip) and is untouched. */
+function gold24_premium(array $db): int {
+  $v = $db['settings']['gold24Premium'] ?? 398;
+  return is_numeric($v) ? (int)round((float)$v) : 398;
+}
+/* v119 — one derivation for the whole shop: anchor → Shivaa retail. */
 function jaipur_from_anchor(array $db, array $anchor): array {
   $gp   = (int)($db['settings']['jaipurPremium'] ?? 55);
   $gp22 = gold22_premium($db);
+  $gp24 = gold24_premium($db);
   $sp   = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
   $g24  = (float)($anchor['goldPerG'] ?? 0);
   $sil  = (float)($anchor['silverPerG'] ?? 0);
-  return ['gold24' => (int)round($g24) + $gp,
+  return ['gold24' => (int)round($g24) + $gp24,
           'gold22' => (int)round($g24 * PURITY_22) + $gp22,
           'gold18' => (int)round($g24 * PURITY_18) + (int)round($gp * 0.75),
           'silver' => round($sil + $sp, 1)];
@@ -1999,7 +2013,7 @@ function current_rates(array $db): array {
   }
   $l = $db['rates']['last'];
   $gp = (int)($db['settings']['jaipurPremium'] ?? 55); $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
-  return ['gold24' => (int)$l['gold24'] + $gp, 'gold22' => (int)$l['gold22'] + gold22_premium($db),
+  return ['gold24' => (int)$l['gold24'] + gold24_premium($db), 'gold22' => (int)$l['gold22'] + gold22_premium($db),
           'gold18' => (int)$l['gold18'] + (int)round($gp * 0.75), 'silver' => round((double)$l['silver'] + $sp, 1)];
 }
 /* v90 — same Jaipur premium math as current_rates(), but anchored to the
@@ -2920,7 +2934,7 @@ if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   ], 'updatedAt' => now_iso()];
 }
 if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => now_iso(), 'gold24' => 11800, 'gold22' => 10800, 'gold18' => 8850, 'silver' => 95, 'source' => 'bootstrap']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
-foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'gold22Premium' => 398, 'jaipurSilverPremium' => 3, 'whatsapp' => '91890505921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
+foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'gold24Premium' => 398, 'gold22Premium' => 398, 'jaipurSilverPremium' => 3, 'whatsapp' => '91890505921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
 /* v82 — hourly housekeeping so ephemeral collections never grow forever:
    expired bearer tokens, stale OTPs and old per-IP mail counters. Runs
    inside a request that already holds the EX write lock, at most once an
@@ -2977,8 +2991,11 @@ try {
          same factors, same owner calibration — computed by rtgs_strip()). */
       'rtgs' => rtgs_strip($db),
       /* v119 — premium.gold22 is the 22K retail premium (₹398/g, Task-2 owner
-         decision). premium.gold stays the 24K line so nothing older breaks. */
-      'premium' => ['gold22' => gold22_premium($db), 'gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
+         decision). premium.gold stays the legacy Jaipur line so nothing
+         older breaks. v156 — premium.gold24 publishes the NEW 24K retail
+         premium (₹398/g, the same figure as 22K — owner's same-total choice)
+         so the rate card can show both desk premiums honestly. */
+      'premium' => ['gold22' => gold22_premium($db), 'gold24' => gold24_premium($db), 'gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
       'override' => $db['rates']['override'] ?? null,
       'history' => array_slice($db['rates']['history'] ?? [], -120),
       'nextUpdateIn' => 60,
@@ -4108,7 +4125,7 @@ try {
     $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
     jout(200, [
       'ok'    => true,
-      'rel'   => 155,
+      'rel'   => 156,
       'shell' => $sh,
       'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
                   'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
@@ -6282,8 +6299,10 @@ try {
       'codMaxAmount' => [0, 100000000, 'int'],
       'referralReward' => [0, 1000000, 'int'], 'bullionGoldPremium' => [0, 100000, 'int'],
       'bullionSilverPremium' => [0, 100000, 'int'], 'metalFactor' => [0.5, 1.2, 'float'],
-      /* v119 — the 22K retail premium the whole rate card is built on */
-      'gold22Premium' => [0, 100000, 'int'], 'jaipurPremium' => [0, 100000, 'int'],
+      /* v119 — the 22K retail premium the whole rate card is built on.
+         v156 — gold24Premium joins it: the 24K line now carries the SAME
+         ₹398/g figure (owner: "add the same premium as the 22 karat"). */
+      'gold22Premium' => [0, 100000, 'int'], 'gold24Premium' => [0, 100000, 'int'], 'jaipurPremium' => [0, 100000, 'int'],
     ];
     foreach ($numRules as $nk => [$lo, $hi, $cast]) {
       if (array_key_exists($nk, $setBody)) {
@@ -6460,8 +6479,8 @@ try {
                   'Only to B2B partners'], 'a' => 1],
       ['id' => 'q4', 'q' => 'The price you pay for a piece on shivaa.in is based on:',
        'opts' => ['A fixed national rate set every January',
-                  'Yesterday’s Jaipur closing rate',
-                  'The live Jaipur gold / silver rate at the time you buy',
+                  'Yesterday’s closing rate',
+                  'The live Shivaa gold / silver rate at the time you buy',
                   'The rate on the day the piece was made'], 'a' => 2],
       ['id' => 'q5', 'q' => 'Sterling silver marked “925” means the piece is:',
        'opts' => ['92.5% silver with the rest alloy for strength',

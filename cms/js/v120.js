@@ -78,6 +78,14 @@
   try {
     if (typeof MutationObserver === 'function' && document.documentElement) {
       var openHash = {};   // overlay id -> location.hash it opened on (false = closed)
+      /* v156 — BUG FIX: on a bare shivaa.in/ visit location.hash is the EMPTY
+         STRING, which is falsy — so "opened on home" looked exactly like
+         "closed". Every class mutation while a sheet stood open on the home
+         page then pushed ANOTHER history entry (instrumented: 2 pushStates
+         for ONE drawer open), burying the Back button under dead entries.
+         Only an explicit false may ever mean "closed" — initialise the map
+         and compare strictly, so '' counts as the real marker it is. */
+      for (var zi = 0; zi < OVERLAYS.length; zi++) { openHash[OVERLAYS[zi].id] = false; }
       var mo = new MutationObserver(function () {
         if (!historyOK) return;
         for (var i = 0; i < OVERLAYS.length; i++) {
@@ -87,8 +95,8 @@
              wrongly look "already open" and skip its entry) — it just skips
              the push/back accounting, which popstate already handled. */
           if (fromPop) { openHash[o.id] = is ? location.hash : false; continue; }
-          if (is && !openHash[o.id]) { pushEntry(o.id); openHash[o.id] = location.hash; }
-          else if (!is && openHash[o.id]) {
+          if (is && openHash[o.id] === false) { pushEntry(o.id); openHash[o.id] = location.hash; }
+          else if (!is && openHash[o.id] !== false) {
             var sameHash = (openHash[o.id] === location.hash);
             openHash[o.id] = false;
             if (window.__shvNavigating) {
