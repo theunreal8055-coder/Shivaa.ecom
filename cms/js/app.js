@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 143;
+const APP_REL = 144;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -3151,6 +3151,7 @@ pages.express = async view => {
       <div class="sum-row total"><span>Total</span><b>${fmt(total)}</b></div>
     </div>
     <div class="center" style="max-width:520px;margin:0 auto">
+      <div id="tcMount" style="margin-bottom:16px"></div>
       <label class="fld full" style="text-align:left"><span style="font-size:13px;color:var(--ink-2)">Your 10-digit mobile number — Cashfree uses this to verify your identity and pre-fill your address</span>
       <input id="exPhone" type="tel" inputmode="numeric" maxlength="10" required value="${esc(phone)}" placeholder="98765 43210 (required)"></label>
       <p id="exPhoneErr" style="color:#c0392b;font-size:12.5px;margin:4px 0 0;display:none"></p>
@@ -3160,6 +3161,90 @@ pages.express = async view => {
     </div>
   </div>`;
   const exBtn = $('#exBuy');
+  /* v144 · Truecaller one-tap verification.
+     If configured and the user is on Android with Truecaller installed:
+     show a gold "✦ Verify with Truecaller" button. One tap → Truecaller
+     auto-detects their number → verified phone fills the input field.
+     Falls back silently to manual input on iPhone/desktop/no-app. */
+  (async () => {
+    const mount = $('#tcMount');
+    if (!mount) return;
+    let tcCfg = {};
+    try { tcCfg = await api('/api/auth/truecaller/config'); } catch (e) {}
+    if (!tcCfg.enabled || !tcCfg.partnerKey) return;   // Truecaller not configured
+    // Only show on Android (Truecaller deep link works on Android mobile web only)
+    const ua = navigator.userAgent || '';
+    const isAndroid = /Android/i.test(ua);
+    if (!isAndroid) return;
+    const nonce = 'shv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    mount.innerHTML = `
+      <button id="tcBtn" class="btn btn-gold btn-lg btn-block" style="background:linear-gradient(135deg,#1d72b8,#2196f3);color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" fill="#fff"/></svg>
+        ✦ Verify with Truecaller
+      </button>
+      <p id="tcStatus" style="color:var(--ink-3);font-size:12px;margin:6px 0 0;text-align:center">One tap — no OTP, no typing</p>`;
+    const tcBtn = $('#tcBtn');
+    const tcStatus = $('#tcStatus');
+    tcBtn.onclick = () => {
+      tcBtn.disabled = true;
+      tcStatus.textContent = 'Opening Truecaller…';
+      // Store nonce for the poll
+      window.__shvTcNonce = nonce;
+      // Trigger the Truecaller deep link
+      const deepLink = 'truecallersdk://truesdk/web_verify?'
+        + 'type=btmsheet'
+        + '&requestNonce=' + encodeURIComponent(nonce)
+        + '&partnerKey=' + encodeURIComponent(tcCfg.partnerKey)
+        + '&partnerName=' + encodeURIComponent('Shivaa Jewels')
+        + '&lang=en'
+        + '&privacyUrl=' + encodeURIComponent('https://www.shivaa.in/#/privacy')
+        + '&termsUrl=' + encodeURIComponent('https://www.shivaa.in/#/terms')
+        + '&loginPrefix=Continue+with'
+        + '&ctaPrefix=Verify'
+        + '&ctaColor=1d72b8'
+        + '&ctaTextColor=ffffff'
+        + '&btnShape=ROUNDED'
+        + '&skipOption=ENTERMANUALLY'
+        + '&ttl=60000';
+      window.location = deepLink;
+      // If Truecaller app is present, the page loses focus. If not, it stays focused.
+      setTimeout(() => {
+        if (document.hasFocus()) {
+          // Truecaller app NOT present — show manual input
+          tcStatus.textContent = 'Truecaller not found — please enter your number below';
+          tcBtn.disabled = false;
+          tcBtn.style.opacity = '0.5';
+          setTimeout(() => { if (mount) mount.style.display = 'none'; }, 3000);
+        } else {
+          // Truecaller app opened — poll for the verified result
+          tcStatus.textContent = 'Waiting for Truecaller verification…';
+          let polls = 0;
+          const poll = setInterval(async () => {
+            polls++;
+            if (polls > 30) { clearInterval(poll); tcStatus.textContent = 'Timed out — please enter your number below'; tcBtn.disabled = false; return; }
+            try {
+              const r = await api('/api/auth/truecaller/result?nonce=' + encodeURIComponent(nonce));
+              if (r && r.verified && r.phone) {
+                clearInterval(poll);
+                const phoneField = $('#exPhone');
+                if (phoneField) {
+                  phoneField.value = r.phone;
+                  phoneField.style.borderColor = '#27ae60';
+                  phoneField.style.background = '#f0fff4';
+                }
+                tcStatus.innerHTML = '✅ Verified: <b>+91 ' + r.phone + '</b>' + (r.name ? ' — ' + r.name : '');
+                tcStatus.style.color = '#27ae60';
+                tcBtn.textContent = '✓ Verified by Truecaller';
+                tcBtn.disabled = true;
+                tcBtn.style.background = '#27ae60';
+              }
+            } catch (e) { /* keep polling */ }
+          }, 1500);
+        }
+      }, 800);
+    };
+  })();
+
   exBtn.onclick = async () => {
     /* v143 — Cashfree Create Order REQUIRES a real 10-digit customer_phone.
        The original code sent an empty string when the guest left the field
@@ -8208,7 +8293,7 @@ function loadStaffBundle() {
          owner's browser kept the pre-v139 admin.js and never saw the switch.
          The stamp must move with every release that changes admin.js, exactly
          like index.html's script tags. */
-      .then(() => injectScript('/js/admin.js?v=142'))
+      .then(() => injectScript('/js/admin.js?v=144'))
       .catch((e) => { _staffBundle = null; throw e; });   // reset so a retry can run
   }
   return _staffBundle;
