@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 154;
+const APP_REL = 155;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -3075,7 +3075,8 @@ window.Shivaa.pdBuy = async id => {
      classic checkout rather than exchange their saved address for placeholders. */
   if (expressCheckoutOn() && !state.user) {
     window.Shivaa._expressItem = { id, qty, size, engraving: engrave };
-    /* v153/v154 — NO PAGE, NO FIELD (owner's rule, twice stated on the 19th).
+    /* v153/v154/v155 — NO PAGE, NO FIELD, NO RENDER (owner's rule, three
+       times on the 19th — each repeat cut another layer of ours out of the way).
        The tap buys IN PLACE with zero typing here; the stash only exists so a
        reclaimed-and-reloaded Android tab can resume exactly where it died. */
     try { store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() }); } catch (e) {}
@@ -3087,7 +3088,7 @@ window.Shivaa.pdBuy = async id => {
   location.hash = '#/checkout';
 };
 
-/* ─────────── v142/v154 · GUEST DIRECT BUY (pageless AND fieldless) ───────────
+/* ─────── v142/v154/v155 · GUEST DIRECT BUY (pageless · fieldless · silent) ───────
    The owner's brief: click "Make It Yours" and the piece is bought — no
    account, no forms, no site OTP. v153 deleted the Express PAGE; v154 deleted
    the last thing of ours that stood in the way: the one-field card. Now the
@@ -3124,12 +3125,15 @@ function expressRemember(orderId, pin) {
    they click on buy now check out or make it yours". No route, no render,
    no URL change: the tap places the order from wherever the shopper stands
    and the browser goes straight to Cashfree. Nothing of ours asks the
-   customer for anything anymore (v154 — see the banner above): a quiet
-   "Opening your Cashfree payment…" moment is the ONLY Shivaa UI between
-   the tap and Cashfree's portal.
+   customer for anything (v154) — and as of v154's repeat NOTHING of ours
+   RENDERS either: no overlay, no sheet, no toast, not even the quiet
+   "Opening your Cashfree payment…" line. The tap is two fetches
+   (place the boundary order, mint+open one Cashfree session) and the
+   browser belongs to Cashfree. Owner said it three times; v155 is the
+   third reading — the literal one.
    ═══════════════════════════════════════════════════════════════════════ */
 window.Shivaa._payCfg = null;
-const EX = { busy: false, el: null };
+const EX = { busy: false };
 async function exGate() {
   if (!(state.settings && state.settings.guestCheckout === true)) return false;
   let c = window.Shivaa._payCfg;
@@ -3138,22 +3142,6 @@ async function exGate() {
     catch (e) { return false; }
   }
   return !!(c.cfg && c.cfg.mode === 'cashfree' && c.cfg.guestCheckout === true);
-}
-function exClose() { if (EX.el) { EX.el.remove(); EX.el = null; } }
-function exShell(inner, onClose) {
-  exClose();
-  const d = document.createElement('div');
-  d.id = 'shvExCard'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
-  d.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(24,16,8,.5);display:flex;align-items:center;justify-content:center;padding:18px';
-  d.innerHTML = '<div style="max-width:440px;width:100%;background:var(--bg-card,#fffdf9);border:1px solid var(--line,#e6ddd0);border-radius:18px;padding:22px 22px 18px;box-shadow:0 24px 60px rgba(0,0,0,.3)">' + inner + '</div>';
-  if (onClose) d.addEventListener('click', ev => { if (ev.target === d) onClose(); });
-  document.body.appendChild(d);
-  EX.el = d;
-  return d;
-}
-function exBusy(msg) {
-  exShell('<p style="margin:6px 2px;font-weight:600;font-size:15.5px">' + msg +
-          '</p><p style="color:var(--ink-3);font-size:13px;margin:0 2px 4px">Do not close this tab — Cashfree is opening.</p>', null);
 }
 async function exItems(fromCart) {
   if (fromCart) return state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
@@ -3178,6 +3166,19 @@ const EX_BOUNDARY = {
   name: 'Valued Customer', phone: '9999999999', line: 'Collected on Cashfree (verified address)',
   city: 'Pending verification', state: 'Pending verification', pincode: '000000', country: 'India',
 };
+/* v155 · THE SILENT HANDOFF — one mint, opened the instant it lands.
+   payForOrder's sheet, toast and v133 fresh-mint-before-open exist for the
+   ORDER VIEW, where a session is often stale by the time a "Pay now" tap
+   happens. In THIS lane the session is milliseconds old, so we mint once
+   and open it directly. If even that declines, the order view — which owns
+   its retry button, the UPI QR tab and the access pin — receives them. */
+async function exHandoff(orderId, pin) {
+  const po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify(pin ? { orderId, pin } : { orderId }) });
+  if (!po || po.mode !== 'cashfree' || !po.paymentSessionId) {
+    throw new Error((po && (po.gatewayMessage || po.error)) || 'Cashfree could not start');
+  }
+  await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);
+}
 async function exRunBuy(items) {
   const res = await api('/api/orders', { method: 'POST', body: JSON.stringify({
     items: items.map(c => ({ id: c.id, qty: c.qty || 1, size: c.size || null, engraving: c.engraving || null })),
@@ -3188,32 +3189,35 @@ async function exRunBuy(items) {
   expressRemember(res.id, res.pin || '');
   window.Shivaa._expressItem = null;
   try { store.set('shv_ex_item', null); } catch (e) {}
-  exBusy('Opening your Cashfree payment…');
-  try { await Shivaa.payForOrder(res.id, res.pin || ''); } catch (e) {}
-  /* the cf-pending anchor AFTER the handoff: in a live browser payForOrder has
-     already replaced this document with Cashfree's page (this line never
-     runs); it lands here only when the handoff DECLINED — and then the order
-     view, with its retry button and access pin, is exactly where they belong. */
-  location.hash = '#/order/' + encodeURIComponent(res.id) + '?cf=pending'
-    + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
-  exClose();
+  /* v155 — NOTHING renders here. A successful handoff replaces this whole
+     document with Cashfree's portal (the catch below never runs); a declined
+     one lands on the order view, silently, where the shopper can retry or
+     pay by QR. No overlay, no sheet, no toast — the tap and the portal are
+     the only two things the customer experiences. */
+  try { await exHandoff(res.id, res.pin || ''); } catch (e) {
+    location.hash = '#/order/' + encodeURIComponent(res.id) + '?cf=pending'
+      + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
+  }
 }
 /* THE entry point: true = the flow consumed the tap; false = caller must
    proceed with the classic addToCart → #/checkout (member, or the switch /
-   Cashfree not live). v154: the flow never asks the shopper anything, so it
-   never waits on anything except the two API rounds. */
+   Cashfree not live). v154: the flow never asks the shopper anything.
+   v155: it never SHOWS them anything either — two fetches, then Cashfree. */
 window.Shivaa.exDirect = async fromCart => {
   if (EX.busy || state.user) return false;
-  if (!(await exGate())) return false;
-  const items = await exItems(!!fromCart);
-  if (!items.length) return false;
+  /* v155 — claim SYNCHRONOUSLY, before any await: two eager taps (double-tap,
+     an impatient second thumb) used to interleave inside the gate round-trip
+     and place TWO boundary orders. One claim now makes that impossible. */
   EX.busy = true;
   try {
+    if (!(await exGate())) return false;
+    const items = await exItems(!!fromCart);
+    if (!items.length) return false;
     await exRunBuy(items);
     return true;
   } catch (e) {
-    exClose(); toast(e.message, 'err');
-    return true;   // an honest error on the page they tapped — never a silent dump into classic checkout
+    toast(e.message, 'err');   // the order itself failed (network/400) — say so, stay put, NOTHING was placed
+    return true;   // never a silent dump into classic checkout
   } finally { EX.busy = false; }
 };
 /* the cart / sidebar CTA: same in-page direct buy; when the flow declines
@@ -3236,10 +3240,12 @@ window.Shivaa.exResume = () => {
   if (ord && ord.orderId && (Date.now() - (ord.at || 0)) < 10 * 60 * 1000) {
     try { store.set('shv_ex_item', null); } catch (e) {}
     window.Shivaa._expressItem = null;
-    exBusy('Resuming your payment — one moment…');
     location.hash = '#/order/' + encodeURIComponent(ord.orderId) + '?cf=pending'
       + (ord.pin ? '&pin=' + encodeURIComponent(ord.pin) : '');
-    Promise.resolve(Shivaa.payForOrder(ord.orderId, ord.pin || '')).then(exClose, exClose);
+    /* v155 — no "Resuming…" overlay: the order view renders underneath while
+       the silent handoff retries Cashfree over it; if that too declines, the
+       view's own Pay-now button and QR tab stand ready. */
+    exHandoff(ord.orderId, ord.pin || '').catch(() => {});
     return;
   }
   window.Shivaa._expressItem = sv.item;

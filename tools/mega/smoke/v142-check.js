@@ -81,8 +81,8 @@ ok('guest order creation can never mint endless gateway sessions (per-order cap)
   'pay/order must refuse once the per-order session cap is hit');
 
 ok('the order page fetches, pays and polls with the guest pin',
-  /\?pin=' \+ encodeURIComponent\(pin\)/.test(app) && /payForOrder\(res\.id, res\.pin/.test(app) && /pin: pin \|\| ''/.test(app),
-  'the full guest lifecycle must carry the pin end-to-end');
+  /\?pin=' \+ encodeURIComponent\(pin\)/.test(app) && /(payForOrder|exHandoff)\(res\.id, res\.pin/.test(app) && /pin: pin \|\| ''/.test(app),
+  'the full guest lifecycle must carry the pin end-to-end (v155: exHandoff replaced payForOrder in the lane)');
 
 console.log('\n· C · the classic path is untouched');
 

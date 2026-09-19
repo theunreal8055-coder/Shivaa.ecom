@@ -15,6 +15,16 @@
    Run: node tools/mega/smoke/v154-check.js
         SMOKE_CMS=<dir> node tools/mega/smoke/v154-check.js   (zip overlay)
    ═══════════════════════════════════════════════════════════════════════ */
+
+/* v155 era-guard: once the lane uses the SILENT HANDOFF (exHandoff), the
+   v154 surface is gone by design (busy overlay deleted, lane never calls
+   payForOrder) — this suite would only shout noise. It still full-runs on any
+   v154-era tree/overlay (SMOKE_CMS honored). */
+if (/async function exHandoff/.test((function () {
+  try { const _f = require('fs'), _p = require('path');
+    const _c = process.env.SMOKE_CMS || _p.resolve(__dirname, '..', '..', '..', 'cms');
+    return _f.readFileSync(_p.join(_c, 'js', 'app.js'), 'utf8'); } catch (e) { return ''; }
+})())) { console.log('SKIP — v155: silent handoff era — the overlay+payForOrder lane is retired'); process.exit(0); }
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '../../..');

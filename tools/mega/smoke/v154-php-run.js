@@ -11,7 +11,7 @@
      5  a guest who still types a real number + real address → 200
         (the typed flow keeps working untouched, sentinel refused for it).
      6  stale clients: tcNonce surplus + boundary → 200 (v152 promise).
-     7  /api/version: rel 154, neighbour stamps 154.
+     7  /api/version: rel >= 154 with self-consistent stamps (v155 forward-tolerant).
    Run: node tools/mega/smoke/v154-php-run.js
         SMOKE_CMS=<dir> node tools/mega/smoke/v154-php-run.js   (zip overlay)
    ═══════════════════════════════════════════════════════════════════════ */
@@ -140,7 +140,8 @@ try { include '/tcrun/api.php'; } catch (Throwable $e) { echo "\\n@@FATAL " . ge
 
   console.log('\n· 7 — version truth:');
   const rv = await req('GET', 'version');
-  ok('/api/version: rel 154 + stamps 154/154 + shell v154', rv.http === 200 && rv.json && rv.json.rel === 154 && rv.json.stamp.index === 154 && rv.json.stamp.app === 154 && /v154/.test(rv.json.shell), JSON.stringify(rv.json));
+  ok('/api/version: rel >= 154 with fully SELF-CONSISTENT stamps (forward-tolerant since v155)', rv.http === 200 && rv.json && rv.json.rel >= 154
+    && rv.json.stamp.index === rv.json.rel && rv.json.stamp.app === rv.json.rel && rv.json.shell === 'shivaa-shell-v' + rv.json.rel, JSON.stringify(rv.json));
 
   const n = results.filter(Boolean).length;
   console.log(`\n${n}/${results.length} v154 PHP-run checks passed  ${n === results.length ? '✦ — a lock that only ONE key opens' : '✗ FAILED'}`);
