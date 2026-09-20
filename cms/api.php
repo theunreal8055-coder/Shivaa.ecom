@@ -472,13 +472,25 @@ function cashfree_sanitize_id(string $v, int $max = 50): string {
 
 function campaign_studs_catalog(): array {
   return [
-    'p_stud_m1' => ['id' => 'p_stud_m1', 'sku' => 'SHV-MST-01', 'name' => "Shivaa Rudra 22K Gold Men's Stud", 'weightG' => 2.85, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-mens-rudra.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Solid 22K Gold Men Stud with octagonal facets.'],
-    'p_stud_m2' => ['id' => 'p_stud_m2', 'sku' => 'SHV-MST-02', 'name' => "Shivaa Veer 22K Gold Men's Stud", 'weightG' => 3.20, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-mens-veer.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Square prism diamond-cut solid 22K Gold Men Stud.'],
-    'p_stud_m3' => ['id' => 'p_stud_m3', 'sku' => 'SHV-MST-03', 'name' => "Shivaa Surya 22K Gold Men's Stud", 'weightG' => 2.50, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-mens-surya.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Radial sunburst 22K Gold Men Stud.'],
-    'p_stud_w1' => ['id' => 'p_stud_w1', 'sku' => 'SHV-LST-01', 'name' => "Shivaa Mayura 22K Gold Ladies Studs (Pair)", 'weightG' => 3.40, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-ladies-mayura.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Floral filigree solid 22K Gold Ladies Studs pair.'],
-    'p_stud_w2' => ['id' => 'p_stud_w2', 'sku' => 'SHV-LST-02', 'name' => "Shivaa Chandrika 22K Gold Ladies Studs (Pair)", 'weightG' => 2.90, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-ladies-chandrika.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Crescent bloom diamond-cut 22K Gold Ladies Studs pair.'],
-    'p_stud_w3' => ['id' => 'p_stud_w3', 'sku' => 'SHV-LST-03', 'name' => "Shivaa Tara 22K Gold Ladies Studs (Pair)", 'weightG' => 3.15, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-ladies-tara.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Celestial star cluster 22K Gold Ladies Studs pair.'],
+    'p_stud_m1' => ['id' => 'p_stud_m1', 'sku' => 'SHV-MST-01', 'name' => "Shivaa Veer 22K Gold Men's Square Stud (Pair)", 'weightG' => 3.0, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/mst01-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Men's Square Stud pair."],
+    'p_stud_m2' => ['id' => 'p_stud_m2', 'sku' => 'SHV-MST-02', 'name' => "Shivaa Rudra 22K Gold Men's Cushion Stud (Pair)", 'weightG' => 3.0, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/mst02-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Men's Cushion Stud pair."],
+    'p_stud_m3' => ['id' => 'p_stud_m3', 'sku' => 'SHV-MST-03', 'name' => "Shivaa Bali 22K Gold Men's Huggy Hoop (Pair)", 'weightG' => 3.0, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/mst03-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Men's Huggy Hoop pair."],
+    'p_stud_w1' => ['id' => 'p_stud_w1', 'sku' => 'SHV-LST-01', 'name' => "Shivaa Heer Paisley-Heart 22K Gold Ladies Tops (Pair)", 'weightG' => 3.255, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/lst01-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Ladies Paisley-Heart Tops pair."],
+    'p_stud_w2' => ['id' => 'p_stud_w2', 'sku' => 'SHV-LST-02', 'name' => "Shivaa Morni Swirl 22K Gold Ladies Drop Tops (Pair)", 'weightG' => 2.928, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/lst02-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Ladies Morni Swirl Tops pair."],
+    'p_stud_w3' => ['id' => 'p_stud_w3', 'sku' => 'SHV-LST-03', 'name' => "Shivaa Sitara Star 22K Gold Ladies Round Tops (Pair)", 'weightG' => 3.086, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/lst03-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Ladies Sitara Star Tops pair."],
   ];
+}
+
+/* v163 · Gold Biscuit Scheme qualifying items check (global scope for Cashfree return) */
+function finale_qualifies(array $items): bool {
+  $CAMPAIGN_SKUS = ['SHV-MST-01', 'SHV-MST-02', 'SHV-MST-03', 'SHV-LST-01', 'SHV-LST-02', 'SHV-LST-03', 'p_stud_m1', 'p_stud_m2', 'p_stud_m3', 'p_stud_w1', 'p_stud_w2', 'p_stud_w3'];
+  foreach ($items as $it) {
+    $id = (string)($it['id'] ?? $it['productId'] ?? '');
+    $sku = (string)($it['sku'] ?? '');
+    $isCamp = !empty($it['isCampaignStud']) || !empty($it['campaignStud']);
+    if (in_array($id, $CAMPAIGN_SKUS, true) || in_array($sku, $CAMPAIGN_SKUS, true) || $isCamp) return true;
+  }
+  return false;
 }
 
 /* v142 · GUEST EXPRESS CHECKOUT — a shopper who buys without an account still
@@ -565,8 +577,8 @@ function cashfree_call(array $cfg, string $method, string $path, ?array $body = 
    simply merge. `cart_details` is what makes the checkout summary show the
    actual pieces; `products.one_click_checkout.conditions` is what turns on the
    verified login and the pre-filled address. */
-function cashfree_occ_block(array $cfg, array $db, array $o): array {
-  if (empty($cfg['occ'])) return [];
+function cashfree_occ_block(array $cfg, array $db, array $o, bool $force = false): array {
+  if (empty($cfg['occ']) && !$force) return [];
   $features = [];
   if (!empty($cfg['occAddress'])) $features[] = 'checkoutCollectAddress';
   if (!empty($cfg['occAuth'])) $features[] = 'checkoutAuthenticate';
@@ -590,7 +602,7 @@ function cashfree_occ_block(array $cfg, array $db, array $o): array {
       'item_currency' => 'INR',
     ];
     $img = '';
-    foreach ([(array)($it['image'] ?? null), (array)($it['images'] ?? [])] as $cand) {
+    foreach ([(array)($it['image'] ?? null), (array)($it['images'] ?? []), (array)($it['img'] ?? null)] as $cand) {
       foreach ($cand as $c) { if (is_string($c) && $c !== '') { $img = $c; break 2; } }
     }
     if ($img !== '') {
@@ -3873,19 +3885,24 @@ try {
        Cashfree provider are both on. The real number then lives on Cashfree's
        verified side and the paid sweep promotes it into this row. ANY other
        guest order still needs a real 10-digit mobile, or it never existed. */
+    $exSig = ($db['settings']['guestCheckout'] ?? null) === true
+          && ($db['settings']['payProvider'] ?? 'demo') === 'cashfree'
+          && (string)($af['name'] ?? '') === 'Valued Customer'
+          && (string)($af['line'] ?? '') === 'Collected on Cashfree (verified address)'
+          && (string)($af['city'] ?? '') === 'Pending verification'
+          && (string)($af['state'] ?? '') === 'Pending verification'
+          && (string)($af['pincode'] ?? '') === '000000';
+    $gPhone = substr(preg_replace('/\D/', '', (string)($af['phone'] ?? '')), -10);
     if (!$u) {
-      $exSig = ($db['settings']['guestCheckout'] ?? null) === true
-            && ($db['settings']['payProvider'] ?? 'demo') === 'cashfree'
-            && (string)($af['name'] ?? '') === 'Valued Customer'
-            && (string)($af['line'] ?? '') === 'Collected on Cashfree (verified address)'
-            && (string)($af['city'] ?? '') === 'Pending verification'
-            && (string)($af['state'] ?? '') === 'Pending verification'
-            && (string)($af['pincode'] ?? '') === '000000';
-      $gPhone = substr(preg_replace('/\D/', '', (string)($af['phone'] ?? '')), -10);
       if ($exSig && ($gPhone === '9999999999' || $gPhone === '')) {
         $b['address']['phone'] = '9999999999';   // Cashfree's page replaces it at payment
       } elseif (!preg_match('/^[6-9]\d{9}$/', $gPhone) || $gPhone === '9999999999')
         jout(400, ['error' => 'Please enter your real 10-digit mobile number — Cashfree needs it to start the payment.']);
+    } else {
+      if ($exSig && ($gPhone === '9999999999' || $gPhone === '')) {
+        $uPhone = preg_replace('/\D/', '', (string)($u['phone'] ?? ''));
+        $b['address']['phone'] = (strlen($uPhone) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($uPhone, -10))) ? substr($uPhone, -10) : '9999999999';
+      }
     }
     $R = current_rates($db);
     /* v57: honour a 20-minute checkout rate lock — accepted only inside a
@@ -4012,13 +4029,13 @@ try {
       'rateSnapshot' => array_merge($R, ['stampedAt' => now_iso(), 'locked' => $lockedR !== null]),
       'status' => 'Placed', 'createdAt' => now_iso(), 'timeline' => [['s' => 'Placed', 't' => now_iso()]],
     ];
-    /* v142 — guest express orders: tag them and mint the access pin. `tail` is
+    /* v142/v161 — guest express orders: tag them and mint the access pin. `tail` is
        private entropy that enters the pin hash but — like the pin itself — is
        never sent to the browser, so the pin cannot be recomputed client-side. */
-    if (!$u) {
-      $order['guest'] = true;
+    if (!$u || $exSig) {
+      if (!$u) $order['guest'] = true;
       $order['tail'] = bin2hex(random_bytes(12));
-      $order['email'] = '';
+      if (!$u) $order['email'] = '';
     }
     $db['orders'][] = $order;
     /* v137 (#16) — only the REDEMPTION happens here; the earning does not.
@@ -4032,11 +4049,12 @@ try {
     unset($uu);
     foreach ($items as $it) foreach ($db['products'] as &$pr2) if ($pr2['id'] === $it['productId']) $pr2['stock'] = max(0, (int)($pr2['stock'] ?? 0) - $it['qty']);
     db_save($DB_FILE, $db);
-    /* v142 — a guest gets exactly the same order object, plus the access pin
-       (`pin`, never persisted to the database) that lets the order page read /
-       pay / poll their order without a member account. */
+    /* v142/v161 — order gets the access pin (`pin`, never persisted to the database)
+       that lets the order page read / pay / poll without a member account. */
     $resp = $order;
-    if (!$u) $resp['pin'] = shv_guest_pin($order);
+    if (!$u || $exSig || !empty($order['guest']) || !empty($order['tail'])) {
+      $resp['pin'] = shv_guest_pin($order);
+    }
     jout(200, $resp);
   }
   if ($route === 'orders' && $method === 'GET') {
@@ -4155,7 +4173,7 @@ try {
     $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
     jout(200, [
       'ok'    => true,
-      'rel'   => 160,
+      'rel'   => 163,
       'shell' => $sh,
       'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
                   'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
@@ -4173,15 +4191,20 @@ try {
   };
   if ($route === 'pay/order' && $method === 'POST') {
     $b = body_json();
-    /* v142 — guest express order: the charge can be minted with the order's own
-       access pin instead of a member token. The member path is unchanged. */
+    /* v142/v161 — guest express order: the charge can be minted with the order's own
+       access pin instead of a member token. If a pin is provided, verify against the pin
+       first regardless of any lingering auth token, falling back to member lookup. */
     $pin = (string)($b['pin'] ?? '');
-    $guest = $pin !== '' && empty(req_user($db));
-    if ($guest) {
+    if ($pin !== '') {
       $gr = shv_resolve_order($db, (string)($b['orderId'] ?? ''), $pin);
-      if (empty($gr['o']) || empty($gr['guest'])) jout(403, ['error' => 'Order not found or access code incorrect']);
-      [$i, $o, $u] = [$gr['i'], $gr['o'], null];
+      if (!empty($gr['o'])) {
+        [$i, $o, $u] = [$gr['i'], $gr['o'], $gr['u'] ?? null];
+        $guest = !empty($gr['guest']);
+      } else {
+        jout(403, ['error' => 'Order not found or access code incorrect']);
+      }
     } else {
+      $guest = false;
       [$i, $o, $u] = $find_order_owner((string)($b['orderId'] ?? ''));
     }
     // v86 — a cancelled order must never create a gateway charge (a customer
@@ -4220,17 +4243,17 @@ try {
       $phoneRaw = (string)(($o['address']['phone'] ?? '') ?: ($u['phone'] ?? ''));
       $phone = preg_replace('#\D#', '', $phoneRaw);
       $phone = substr($phone, -10) !== '' ? substr($phone, -10) : '9999999999';
-      /* v143/v154 — empty phones stay refused (that was the v143 incident).
-         The 9999999999 sentinel is allowed to open a session ONLY when the
-         order line carries the canonical boundary row — a guest order the
-         Express lane itself created. Cashfree then authenticates the real
-         number on its own page (checkoutAuthenticate) and the paid sweep
-         promotes it back; even if the owner flips the switch mid-flight,
-         finishing an in-flight payment beats stranding the customer. A typed
-         flow that somehow stored the sentinel is still refused, loudly. */
+      if ($phone === '9999999999' && !empty($u['phone'])) {
+        $uPhone = preg_replace('#\D#', '', (string)$u['phone']);
+        if (strlen($uPhone) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($uPhone, -10))) {
+          $phone = substr($uPhone, -10);
+        }
+      }
       if (!$u && $phone === '9999999999'
           && (string)($o['address']['line'] ?? '') !== 'Collected on Cashfree (verified address)')
         jout(400, ['error' => 'Please enter your real mobile number — Cashfree needs a 10-digit phone to start the payment.']);
+      $isSentinel = ($phone === '9999999999');
+      $isBoundary = ((string)($o['address']['line'] ?? '') === 'Collected on Cashfree (verified address)');
       $name = trim((string)(($o['address']['name'] ?? '') ?: ($u['name'] ?? '')));
       $name = substr(preg_replace('#[<>|]#', '', $name) ?: 'Customer', 0, 60);
       $email = trim((string)($u['email'] ?? $o['email'] ?? ''));
@@ -4238,6 +4261,11 @@ try {
         // Cashfree wants a syntactically valid email; use a neutral placeholder
         $email = 'orders@' . (preg_replace('#[^a-z0-9.-]#', '', (string)parse_url($base, PHP_URL_HOST)) ?: 'shivaa.in');
       }
+      $storePhone = preg_replace('/\D/', '', (string)($db['settings']['phone'] ?? '8905005921'));
+      $storePhone10 = (strlen($storePhone) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($storePhone, -10))) ? substr($storePhone, -10) : '8905005921';
+      $cfPhone = (strlen($phone) === 10 && preg_match('/^[6-9]\d{9}$/', $phone) && !preg_match('/^(\d)\1{9}$/', $phone))
+        ? $phone
+        : $storePhone10;
       $payload = [
         'order_id' => $cfOrderId,
         'order_amount' => round($due, 2),
@@ -4246,35 +4274,24 @@ try {
           'customer_id' => cashfree_sanitize_id((string)($u['id'] ?? 'guest'), 32) ?: 'guest',
           'customer_name' => $name,
           'customer_email' => $email,
-          'customer_phone' => $phone,   // v143 — always a 10-digit number; empty phone rejected above
+          'customer_phone' => $cfPhone,   // v143/v161 — always a verified 10-digit number for Cashfree PG
         ],
         'order_meta' => [
           // {order_id} is replaced by Cashfree at redirect time (documented placeholder)
           'return_url' => $base . '/api/pay/cashfree/return?co=' . urlencode($o['id'])
-                        . ($u ? '' : '&pin=' . rawurlencode(shv_guest_pin($o))) . '&order_id={order_id}',   // v142 · guest orders ride their pin home
+                        . ($u && empty($pin) ? '' : '&pin=' . rawurlencode(shv_guest_pin($o))) . '&order_id={order_id}',   // v142 · guest orders ride their pin home
           'notify_url' => $base . '/api/pay/cashfree/webhook',
         ],
         'order_note' => substr('Shivaa Jewellers order ' . $o['id'], 0, 100),
         'order_tags' => ['checkout_context' => 'Shivaa order ' . $o['id']],
       ];
-      /* v139 · One Click Checkout. The OCC objects are merged in only when the
-         owner has the switch on, and the call that carries them uses the
-         x-api-version Cashfree's OCC guide pins (2025-01-01). If Cashfree
-         refuses the extended payload for ANY reason — product not activated on
-         the account, a rejected field, a version mismatch — the order is
-         retried ONCE without OCC. A customer must never be unable to pay
-         because an optional convenience feature was rejected. */
-      $occOn = !empty($cfg['occ']);
+      /* v139/v161 · One Click Checkout */
+      $occOn = !empty($cfg['occ']) || $isSentinel || $isBoundary || $guest;
       if ($occOn) {
-        $occBlock = cashfree_occ_block($cfg, $db, $o);
+        $occBlock = cashfree_occ_block($cfg, $db, $o, $occOn);
         if ($occBlock) {
           $payload = array_merge($payload, $occBlock);
-          if ($guest) {
-            /* v142 · `checkoutAuthenticate` is what lets Cashfree recognise a
-               saved number and skip the first-time OTP — the one-tap the owner
-               asked for; the number itself already rides in customer_phone
-               above (from the typed value, or empty so Cashfree collects it).
-               Members keep exactly the admin's cfOccAuth choice. */
+          if ($guest || $isSentinel || $isBoundary || !empty($cfg['cfOccAuth'])) {
             $blockArr =& $payload['products']['one_click_checkout'];
             if (!isset($blockArr['conditions'])) $blockArr['conditions'] = [];
             $hasAuth = false;
@@ -4298,6 +4315,8 @@ try {
             ]);
             unset($payload['products'], $payload['cart_details']);
             $occOn = false;
+            $cfOrderId = cashfree_sanitize_id($o['id'], 44) . '-A' . (count($attempts) + 2);
+            $payload['order_id'] = $cfOrderId;
             $res = cashfree_create_order($cfg, $payload);
           }
         } else { $occOn = false; $res = cashfree_create_order($cfg, $payload); }
@@ -6534,15 +6553,17 @@ try {
       foreach ($db['finaleEntries'] as $e) if (($e['userId'] ?? '') === $userId && ($e['status'] ?? '') === 'Entered') return $e;
       return null;
     }
-    function finale_qualifies(array $items): bool {
-      $CAMPAIGN_SKUS = ['SHV-MST-01', 'SHV-MST-02', 'SHV-MST-03', 'SHV-LST-01', 'SHV-LST-02', 'SHV-LST-03', 'p_stud_m1', 'p_stud_m2', 'p_stud_m3', 'p_stud_w1', 'p_stud_w2', 'p_stud_w3'];
-      foreach ($items as $it) {
-        $id = (string)($it['id'] ?? '');
-        $sku = (string)($it['sku'] ?? '');
-        $isCamp = !empty($it['isCampaignStud']) || !empty($it['campaignStud']);
-        if (in_array($id, $CAMPAIGN_SKUS, true) || in_array($sku, $CAMPAIGN_SKUS, true) || $isCamp) return true;
+    if (!function_exists('finale_qualifies')) {
+      function finale_qualifies(array $items): bool {
+        $CAMPAIGN_SKUS = ['SHV-MST-01', 'SHV-MST-02', 'SHV-MST-03', 'SHV-LST-01', 'SHV-LST-02', 'SHV-LST-03', 'p_stud_m1', 'p_stud_m2', 'p_stud_m3', 'p_stud_w1', 'p_stud_w2', 'p_stud_w3'];
+        foreach ($items as $it) {
+          $id = (string)($it['id'] ?? $it['productId'] ?? '');
+          $sku = (string)($it['sku'] ?? '');
+          $isCamp = !empty($it['isCampaignStud']) || !empty($it['campaignStud']);
+          if (in_array($id, $CAMPAIGN_SKUS, true) || in_array($sku, $CAMPAIGN_SKUS, true) || $isCamp) return true;
+        }
+        return false;
       }
-      return false;
     }
     function finale_public_entry(array $e): array {
       return ['id' => $e['id'], 'route' => $e['route'], 'orderId' => $e['orderId'] ?? null,
