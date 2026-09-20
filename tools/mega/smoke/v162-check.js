@@ -38,29 +38,22 @@ function check(label, fn) {
   }
 }
 
-// 1. Version Stamps
-check('Index.html stamps window.__SHIVAA_REL = 162', () => {
+// 1. Version Stamps — v164: forward-tolerant lockstep (era floor 162, not an exact pin)
+const REL_NOW = +((fs.readFileSync(path.join(root, 'cms/index.html'), 'utf8').match(/__SHIVAA_REL=(\d+)/) || [])[1] || 0);
+check('Release stamps are in lockstep at rel >= 162 (index/app/api/shell/loaders)', () => {
+  assert(REL_NOW >= 162, 'tree rel ' + REL_NOW + ' is below era 162');
   const index = fs.readFileSync(path.join(root, 'cms/index.html'), 'utf8');
-  assert(index.includes('window.__SHIVAA_REL=162;'), 'Missing __SHIVAA_REL=162 in index.html');
-  assert(index.includes('/css/finale.css?v=162'), 'Missing finale.css?v=162 in index.html');
-  assert(index.includes('/js/app.js?v=162'), 'Missing app.js?v=162 in index.html');
-});
-
-check('Service Worker sw.js stamps SHELL = "shivaa-shell-v162"', () => {
   const sw = fs.readFileSync(path.join(root, 'cms/sw.js'), 'utf8');
-  assert(sw.includes("const SHELL = 'shivaa-shell-v162';"), 'Missing shivaa-shell-v162 in sw.js');
-  assert(sw.includes('/css/finale.css?v=162'), 'Missing finale.css?v=162 in sw.js');
-  assert(sw.includes('/js/app.js?v=162'), 'Missing app.js?v=162 in sw.js');
-});
-
-check('App.js stamps APP_REL = 162', () => {
   const app = fs.readFileSync(path.join(root, 'cms/js/app.js'), 'utf8');
-  assert(app.includes('const APP_REL = 162;'), 'Missing APP_REL = 162 in app.js');
-});
-
-check('Api.php GET /api/version stamps rel = 162', () => {
   const api = fs.readFileSync(path.join(root, 'cms/api.php'), 'utf8');
-  assert(api.includes("'rel'   => 162,"), 'Missing rel => 162 in api.php');
+  assert(app.includes('const APP_REL = ' + REL_NOW + ';'), 'APP_REL must equal ' + REL_NOW);
+  assert(sw.includes("const SHELL = 'shivaa-shell-v" + REL_NOW + "';"), 'SHELL must equal v' + REL_NOW);
+  assert(api.includes("'rel'   => " + REL_NOW + ","), 'api rel must equal v' + REL_NOW);
+  assert(index.includes('/js/app.js?v=' + REL_NOW), 'index app loader must equal v' + REL_NOW);
+  assert(sw.includes('/js/app.js?v=' + REL_NOW), 'sw app precache must equal v' + REL_NOW);
+  const finIdx = (index.match(/\/css\/finale\.css\?v=(\d+)/) || [])[1];
+  const finSw = (sw.match(/\/css\/finale\.css\?v=(\d+)/) || [])[1];
+  assert(finIdx && finIdx === finSw, 'finale.css stamp must agree between index and sw');
 });
 
 // 2. Cashfree SDK Preconnect & Preload
@@ -114,13 +107,18 @@ check('App.js pages.scheme polls Cashfree status resiliently before launching qu
   assert(app.includes("toast('भुगतान सत्यापित हो रहा है... / Verifying payment… ✦');"), 'pages.scheme must display status verification toast');
 });
 
-// 9. Api.php campaign_studs_catalog sync
-check('Api.php campaign_studs_catalog matches v160/v161/v162 product weights and 15% MC', () => {
+// 9. Api.php campaign_studs_catalog sync — v164: value pins, not source-shape
+// pins (the catalog is built by a $mk helper now; weights/MC/SKUs unchanged).
+check('Api.php campaign_studs_catalog keeps the v160 spec weights and 15% MC', () => {
   const api = fs.readFileSync(path.join(root, 'cms/api.php'), 'utf8');
-  assert(api.includes("'weightG' => 3.0, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15"), 'Gents studs must have 3.0g and 15% MC');
-  assert(api.includes("'p_stud_w1' => ['id' => 'p_stud_w1', 'sku' => 'SHV-LST-01', 'name' => \"Shivaa Heer Paisley-Heart 22K Gold Ladies Tops (Pair)\", 'weightG' => 3.255"), 'Heer stud must be 3.255g with 15% MC');
-  assert(api.includes("'p_stud_w2' => ['id' => 'p_stud_w2', 'sku' => 'SHV-LST-02', 'name' => \"Shivaa Morni Swirl 22K Gold Ladies Drop Tops (Pair)\", 'weightG' => 2.928"), 'Morni stud must be 2.928g with 15% MC');
-  assert(api.includes("'p_stud_w3' => ['id' => 'p_stud_w3', 'sku' => 'SHV-LST-03', 'name' => \"Shivaa Sitara Star 22K Gold Ladies Round Tops (Pair)\", 'weightG' => 3.086"), 'Sitara stud must be 3.086g with 15% MC');
+  const start = api.indexOf('function campaign_studs_catalog()');
+  const fn = api.slice(start, api.indexOf('function finale_qualifies', start));
+  assert(fn.includes('SHV-MST-01') && fn.includes('SHV-MST-02') && fn.includes('SHV-MST-03'), 'gents SKUs present');
+  assert(fn.includes('SHV-LST-01') && fn.includes('SHV-LST-02') && fn.includes('SHV-LST-03'), 'ladies SKUs present');
+  assert((fn.match(/, 3\.0,/g) || []).length >= 3, 'gents 3.0g present');
+  assert(fn.includes('3.255') && fn.includes('2.928') && fn.includes('3.086'), 'ladies tag weights present');
+  assert(fn.includes("'mcValue' => 15") && fn.includes("'mcScheme' => 'percent'"), '15% MC present');
+  assert(fn.includes("'category' => 'earrings'"), 'earrings category present');
 });
 
 // 10. Api.php pay/order pin resolution and OCC authentication

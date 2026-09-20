@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 163;
+const APP_REL = 164;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -945,11 +945,16 @@ function ensureCampaignStuds() {
   if (typeof CAMPAIGN_STUDS_DATA === 'undefined') return;
   const studs = Object.values(CAMPAIGN_STUDS_DATA).flat();
   studs.forEach(s => {
+    /* v164 — the client twins carry FULL store schema (sizes/rating/reviews/
+       stone fields/flag) so grids and the product page read them exactly like
+       server rows; any server row (db or twin) always merges on top, so live
+       stock, ratings and staff HUIDs win. Earrings take no size: sizes []. */
+    const full = Object.assign({sizes: [], rating: 4.8, reviews: 0, stoneDesc: '', stoneType: 'White', stoneColour: '', isCampaignStud: true}, s);
     const idx = state.productsCache.findIndex(p => p.id === s.id);
     if (idx === -1) {
-      state.productsCache.push({ ...s });
+      state.productsCache.push({ ...full });
     } else {
-      state.productsCache[idx] = { ...s, ...state.productsCache[idx] };
+      state.productsCache[idx] = { ...full, ...state.productsCache[idx] };
     }
   });
 }
@@ -3539,8 +3544,8 @@ pages.product = async (view, q, id) => {
           <div class="emi-strip">◈ <span><b>No-cost EMI from <span id="pdEmi3">${fmt(emi3)}</span>/mo</b> (3 months) · standard EMI <span id="pdEmi6">${fmt(emi6)}</span>/mo (6 months) on cards & UPI-autopay</span></div>
         </div>
 
-        ${p.sizes.length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide()" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide</a></div>
-        <div class="size-row" id="sizeRow">${p.sizes.map(s => `<button class="size-pill ${String(s) === String(localStorage.getItem('shv_ring_size') || '') ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" title="Find your ring size">📏 Size guide</a></div>` : ''}
+        ${(p.sizes||[]).length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide()" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide</a></div>
+        <div class="size-row" id="sizeRow">${(p.sizes||[]).map(s => `<button class="size-pill ${String(s) === String(localStorage.getItem('shv_ring_size') || '') ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" title="Find your ring size">📏 Size guide</a></div>` : ''}
 
         <div class="opt-label"><span>Engraving (free, up to 12 characters)</span></div>
         <div class="pin-row" style="max-width:340px"><input id="engrave" maxlength="12" placeholder="e.g. R♥S 26"></div>
@@ -4750,8 +4755,8 @@ window.Shivaa.quickView = async (id) => {
           <h3>${esc(p.name)}</h3>
           <div class="pc-rating" style="margin:6px 0 10px">★ ${p.rating} <span style="color:var(--ink-3);font-size:12.5px">· ${p.reviews} reviews · ${p.weightG} g</span></div>
           <div class="pc-price" style="margin-bottom:6px"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST · live</small></div>
-          ${(p.sizes && p.sizes.length) ? `<div class="opt-label"><span>Size ${savedSize ? '· your saved size ' + esc(savedSize) + ' is selected' : ''}</span></div>
-            <div class="size-row" id="qvSize">${p.sizes.map(s => `<button type="button" class="size-pill ${String(s) === String(savedSize) ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" onclick="Shivaa.closeModal()">📏 Size guide</a></div>` : ''}
+          ${((p.sizes||[]).length) ? `<div class="opt-label"><span>Size ${savedSize ? '· your saved size ' + esc(savedSize) + ' is selected' : ''}</span></div>
+            <div class="size-row" id="qvSize">${(p.sizes||[]).map(s => `<button type="button" class="size-pill ${String(s) === String(savedSize) ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" onclick="Shivaa.closeModal()">📏 Size guide</a></div>` : ''}
           <div class="qty-row qv-qty" style="margin:14px 0 4px"><button type="button" id="qvMinus" aria-label="Decrease quantity">−</button><b id="qvQty">1</b><button type="button" id="qvPlus" aria-label="Increase quantity">+</button></div>
         </div>
         <div class="qv-foot">

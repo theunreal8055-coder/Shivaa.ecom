@@ -470,14 +470,35 @@ function cashfree_sanitize_id(string $v, int $max = 50): string {
   return substr((string)$v, 0, $max);
 }
 
+/* v164 · the 6 Gold Biscuit Scheme studs as FULL store-grade records.
+   These rows are byte-identical in shape to the 6 products now living in
+   master cms/data/db.json (ids p_stud_* / SKUs SHV-*ST-*): earrings category,
+   sizes [] (earrings take no size — the PDP guards this too), rating/reviews,
+   stock, full tags, all 4 photoshoot images, 15% MC. They serve as the
+   fallback whenever the live database has not yet received the catalogue rows
+   (code deploys never touch live data/), so the product page, cart, checkout,
+   wishlist and Cashfree checkout behave EXACTLY like any other store piece.
+   Once the Catalogue Deploy carries the db.json rows live, the products list
+   below suppresses these twins by id-or-SKU so the shop never shows doubles. */
 function campaign_studs_catalog(): array {
+  $mensTags = ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens', 'tops'];
+  $ladiesTags = ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies', 'tops'];
+  $mk = function (string $id, string $sku, string $name, string $subtitle, float $weightG, string $stoneDesc, string $desc, array $tags, array $images): array {
+    return ['id' => $id, 'sku' => $sku, 'name' => $name, 'subtitle' => $subtitle,
+      'category' => 'earrings', 'metal' => 'Gold', 'purity' => '22K', 'weightG' => $weightG,
+      'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0,
+      'stoneDesc' => $stoneDesc, 'stoneType' => 'White', 'stoneColour' => '',
+      'lessWeightG' => 0, 'wastagePct' => 8, 'stock' => 50, 'active' => true,
+      'rating' => 4.8, 'reviews' => 0, 'sizes' => [], 'tags' => $tags, 'images' => $images,
+      'desc' => $desc, 'isCampaignStud' => true];
+  };
   return [
-    'p_stud_m1' => ['id' => 'p_stud_m1', 'sku' => 'SHV-MST-01', 'name' => "Shivaa Veer 22K Gold Men's Square Stud (Pair)", 'weightG' => 3.0, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/mst01-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Men's Square Stud pair."],
-    'p_stud_m2' => ['id' => 'p_stud_m2', 'sku' => 'SHV-MST-02', 'name' => "Shivaa Rudra 22K Gold Men's Cushion Stud (Pair)", 'weightG' => 3.0, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/mst02-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Men's Cushion Stud pair."],
-    'p_stud_m3' => ['id' => 'p_stud_m3', 'sku' => 'SHV-MST-03', 'name' => "Shivaa Bali 22K Gold Men's Huggy Hoop (Pair)", 'weightG' => 3.0, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/mst03-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Men's Huggy Hoop pair."],
-    'p_stud_w1' => ['id' => 'p_stud_w1', 'sku' => 'SHV-LST-01', 'name' => "Shivaa Heer Paisley-Heart 22K Gold Ladies Tops (Pair)", 'weightG' => 3.255, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/lst01-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Ladies Paisley-Heart Tops pair."],
-    'p_stud_w2' => ['id' => 'p_stud_w2', 'sku' => 'SHV-LST-02', 'name' => "Shivaa Morni Swirl 22K Gold Ladies Drop Tops (Pair)", 'weightG' => 2.928, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/lst02-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Ladies Morni Swirl Tops pair."],
-    'p_stud_w3' => ['id' => 'p_stud_w3', 'sku' => 'SHV-LST-03', 'name' => "Shivaa Sitara Star 22K Gold Ladies Round Tops (Pair)", 'weightG' => 3.086, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15, 'mcPct' => 15, 'stoneValue' => 0, 'images' => ['/images/products/studs/lst03-studio.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => "Solid 22K Gold Ladies Sitara Star Tops pair."],
+    'p_stud_m1' => $mk('p_stud_m1', 'SHV-MST-01', "Shivaa Veer 22K Gold Men's Square Stud (Pair)", 'Classic Solitaire-Square · Sparkling White Stones', 3.0, 'solitaire-square white accent stones', 'A sharp solitaire-square stud pair in certified solid 22K yellow gold (3.00 g pair), hand-set with sparkling white accent stones. Made for everyday royal distinction. Qualifies for 10g Gold Biscuit Scheme.', $mensTags, ['/images/products/studs/mst01-studio.jpg', '/images/products/studs/mst01-macro.jpg', '/images/products/studs/mst01-worn.jpg', '/images/products/studs/mst01-gift.jpg']),
+    'p_stud_m2' => $mk('p_stud_m2', 'SHV-MST-02', "Shivaa Rudra 22K Gold Men's Cushion Stud (Pair)", 'Bold Cushion Frame · Double Stone Halo', 3.0, 'double-frame white stone halo', 'A bold concave-cushion stud pair in certified solid 22K yellow gold (3.00 g pair) with a double frame of sparkling white stones and secure screw-back post. Qualifies for 10g Gold Biscuit Scheme.', $mensTags, ['/images/products/studs/mst02-studio.jpg', '/images/products/studs/mst02-macro.jpg', '/images/products/studs/mst02-worn.jpg', '/images/products/studs/mst02-gift.jpg']),
+    'p_stud_m3' => $mk('p_stud_m3', 'SHV-MST-03', "Shivaa Bali 22K Gold Men's Huggy Hoop (Pair)", 'Sleek Huggy Bali · Stone Pavé Line', 3.0, 'pavé-line white stones', 'A sleek huggy-hoop bali pair in certified solid 22K yellow gold (3.00 g pair), pavé-lined with sparkling white stones. Light, secure and unmistakably royal. Qualifies for 10g Gold Biscuit Scheme.', $mensTags, ['/images/products/studs/mst03-studio.jpg', '/images/products/studs/mst03-macro.jpg', '/images/products/studs/mst03-worn.jpg', '/images/products/studs/mst03-gift.jpg']),
+    'p_stud_w1' => $mk('p_stud_w1', 'SHV-LST-01', 'Shivaa Heer Paisley-Heart 22K Gold Ladies Tops (Pair)', 'Paisley-Heart Drops · White Stone Pavé', 3.255, 'white stone pavé with pear drop', 'Paisley-heart drop tops in certified solid 22K yellow gold (3.255 g pair), finished with white stone pavé and a pear drop. Tag BT-16101. Qualifies for 10g Gold Biscuit Scheme.', $ladiesTags, ['/images/products/studs/lst01-studio.jpg', '/images/products/studs/lst01-macro.jpg', '/images/products/studs/lst01-worn.jpg', '/images/products/studs/lst01-gift.jpg']),
+    'p_stud_w2' => $mk('p_stud_w2', 'SHV-LST-02', 'Shivaa Morni Swirl 22K Gold Ladies Drop Tops (Pair)', 'Spiral Swirl · Green Accent · Pear Drop', 2.928, 'white stone arc, green accent, pear drop', 'Spiral-swirl drop tops in certified solid 22K yellow gold (2.928 g pair) with a green accent stone, white stone arc and pear drop. Tag BT-17675. Qualifies for 10g Gold Biscuit Scheme.', $ladiesTags, ['/images/products/studs/lst02-studio.jpg', '/images/products/studs/lst02-macro.jpg', '/images/products/studs/lst02-worn.jpg', '/images/products/studs/lst02-gift.jpg']),
+    'p_stud_w3' => $mk('p_stud_w3', 'SHV-LST-03', 'Shivaa Sitara Star 22K Gold Ladies Round Tops (Pair)', 'Round Star Medallion · Red Accent Halo', 3.086, 'white stone halo with red accent', 'Round star-medallion tops in certified solid 22K yellow gold (3.086 g pair) with a red accent stone in a white stone halo. Tag BT-18159. Qualifies for 10g Gold Biscuit Scheme.', $ladiesTags, ['/images/products/studs/lst03-studio.jpg', '/images/products/studs/lst03-macro.jpg', '/images/products/studs/lst03-worn.jpg', '/images/products/studs/lst03-gift.jpg']),
   ];
 }
 
@@ -3090,8 +3111,14 @@ try {
   if ($route === 'products' && $method === 'GET') {
     $list = array_values(array_filter($db['products'], fn($x) => !empty($x['active'])));
     $camps = campaign_studs_catalog();
+    // v164 — campaign twins only when the live db.json does not already carry
+    // the real rows (code ships before the Catalogue Deploy): match by id OR
+    // sku so the shop never renders a doubled Earrings grid. The db row — with
+    // its live stock, ratings and staff HUIDs — always wins over the twin.
+    $haveIds = []; $haveSkus = [];
+    foreach ($list as $lx) { $haveIds[$lx['id']] = true; if (!empty($lx['sku'])) $haveSkus[$lx['sku']] = true; }
     foreach ($camps as $cid => $cp) {
-      $list[] = $cp;
+      if (empty($haveIds[$cid]) && empty($haveSkus[$cp['sku'] ?? ''])) $list[] = $cp;
     }
     if (!empty($_GET['category'])) $list = array_values(array_filter($list, fn($x) => $x['category'] === $_GET['category']));
     if (!empty($_GET['q'])) { $s = strtolower($_GET['q']); $list = array_values(array_filter($list, fn($x) => str_contains(strtolower($x['name'] . ' ' . $x['category'] . ' ' . ($x['desc'] ?? '') . ' ' . implode(' ', $x['tags'] ?? [])), $s))); }
@@ -3108,10 +3135,24 @@ try {
       if ($idx === null) {
         $camps = campaign_studs_catalog();
         if (isset($camps[$m[1]])) {
+          // v164 — the fallback twins are full store-grade records now: the
+          // same hallmark pass, the same defaults and the same priced
+          // siblings as the db path, so the product page renders before the
+          // Catalogue Deploy lands exactly as it renders after it. Reviews
+          // read the live db rows (members can review the studs too) so a
+          // twin never hides feedback left on the real piece.
           $R = current_rates($db);
-          $p = $camps[$m[1]];
+          $p = hallmark_product($camps[$m[1]]);
+          $p['lessWeightG'] = $p['lessWeightG'] ?? 0; $p['wastagePct'] = $p['wastagePct'] ?? 8;
           $p['price'] = compute_price($p, $R);
-          jout(200, ['product' => $p, 'rates' => current_rates($db), 'similar' => [], 'reviews' => []]);
+          $sim = [];
+          foreach ($camps as $sid => $sp) {
+            if ($sid === $m[1]) continue;
+            $y = hallmark_product($sp); $y['price'] = compute_price($sp, $R); $sim[] = $y;
+            if (count($sim) >= 4) break;
+          }
+          $rvw = array_values(array_filter($db['reviews'] ?? [], fn($r) => ($r['productId'] ?? '') === $m[1]));
+          jout(200, ['product' => $p, 'rates' => current_rates($db), 'similar' => $sim, 'reviews' => $rvw]);
         }
         jout(404, ['error' => 'Not found']);   // v82 — never index with null
       }
@@ -3744,6 +3785,14 @@ try {
     $w = $u ? ($u['wishlist'] ?? []) : [];
     $R = current_rates($db); $items = [];
     foreach ($db['products'] as $x) if (in_array($x['id'], $w)) { $y = hallmark_product($x); $y['price'] = compute_price($x, $R); $items[] = $y; }
+    // v164 — stud ids saved to a wishlist before the Catalogue Deploy lands
+    // resolve through the campaign twins, so members see the pieces, not gaps.
+    if ($w) {
+      $seenW = []; foreach ($items as $it) $seenW[$it['id']] = true;
+      foreach (campaign_studs_catalog() as $cid => $cp) {
+        if (in_array($cid, $w) && empty($seenW[$cid])) { $y = hallmark_product($cp); $y['price'] = compute_price($cp, $R); $items[] = $y; }
+      }
+    }
     jout(200, ['wishlist' => $w, 'items' => $items]);
   }
   if ($route === 'wishlist' && $method === 'POST') {
@@ -3752,7 +3801,7 @@ try {
     $b = body_json();
     $wid = (string)($b['id'] ?? '');
     if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $wid)) jout(400, ['error' => 'Invalid product.']);
-    $prodExists = false; foreach ($db['products'] as $pe) if (($pe['id'] ?? '') === $wid) { $prodExists = true; break; }
+    $prodExists = array_key_exists($wid, campaign_studs_catalog()); foreach ($db['products'] as $pe) if (($pe['id'] ?? '') === $wid) { $prodExists = true; break; }
     if (!$prodExists) jout(404, ['error' => 'Product not found.']);
     foreach ($db['users'] as &$uu) if ($uu['id'] === $u['id']) {
       $uu['wishlist'] = array_slice($uu['wishlist'] ?? [], -199);
@@ -4173,7 +4222,7 @@ try {
     $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
     jout(200, [
       'ok'    => true,
-      'rel'   => 163,
+      'rel'   => 164,
       'shell' => $sh,
       'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
                   'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
@@ -5808,7 +5857,7 @@ try {
     $text = trim((string)($_POST['text'] ?? ''));
     if ($pid === '' || $text === '') jout(400, ['error' => 'productId & text required']);
     if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $pid)) jout(400, ['error' => 'Invalid product.']);
-    $prodExists = false; foreach ($db['products'] as $pe) if (($pe['id'] ?? '') === $pid) { $prodExists = true; break; }
+    $prodExists = array_key_exists($pid, campaign_studs_catalog()); foreach ($db['products'] as $pe) if (($pe['id'] ?? '') === $pid) { $prodExists = true; break; }
     if (!$prodExists) jout(404, ['error' => 'Product not found.']);
     $photos = [];
     if (!empty($_FILES['photos'])) {
@@ -5891,6 +5940,7 @@ try {
     need_admin($db);
     $pmap = [];
     foreach ($db['products'] as $pr) $pmap[$pr['id']] = $pr['name'] ?? '';
+    foreach (campaign_studs_catalog() as $cid => $cp) if (empty($pmap[$cid])) $pmap[$cid] = $cp['name'];
     $rows = array_map(fn($r) => $r + ['productName' => $pmap[$r['productId']] ?? ''], array_reverse($db['reviews'] ?? []));
     jout(200, ['reviews' => $rows]);
   }
@@ -6144,7 +6194,7 @@ try {
     if (empty($b['productId']) || trim((string)($b['text'] ?? '')) === '') jout(400, ['error' => 'productId & text required']);
     $pid = (string)$b['productId'];
     if (!preg_match('/^[A-Za-z0-9_-]{1,40}$/', $pid)) jout(400, ['error' => 'Invalid product.']);
-    $prodExists = false; foreach ($db['products'] as $pe) if (($pe['id'] ?? '') === $pid) { $prodExists = true; break; }
+    $prodExists = array_key_exists($pid, campaign_studs_catalog()); foreach ($db['products'] as $pe) if (($pe['id'] ?? '') === $pid) { $prodExists = true; break; }
     if (!$prodExists) jout(404, ['error' => 'Product not found.']);
     $rv = ['id' => uid('rv'), 'productId' => $pid, 'userId' => $u['id'], 'userName' => $u['name'],
            'rating' => clampn((int)($b['rating'] ?? 5), 1, 5), 'text' => cut500((string)$b['text']), 'createdAt' => now_iso()];

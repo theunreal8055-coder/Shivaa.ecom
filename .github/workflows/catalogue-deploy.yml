@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       live:
-        description: "Type YES to make the live catalogue exactly the PGS rings in master db.json (delete strays, upload photos + records). Anything else runs a dry-run."
+        description: "Type YES to make the live catalogue exactly the master records in db.json — PGS rings + SHV scheme studs (delete strays, upload photos + records). Anything else runs a dry-run."
         required: true
         default: "NO"
         type: string
@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   deploy-catalogue:
-    name: Make live catalogue exactly the master PGS rings
+    name: Make live catalogue exactly the master catalogue (PGS + SHV)
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -66,25 +66,28 @@ jobs:
           if not prods:
               errors.append('master db.json has no products')
           for p in prods:
-              if not str(p.get('sku', '')).startswith('PGS'):
-                  errors.append(f"non-PGS product in master: {p.get('sku')}")
+              if not str(p.get('sku', '')).startswith(('PGS', 'SHV')):
+                  errors.append(f"non-master-SKU product in master: {p.get('sku')}")
               if p.get('video'):
                   errors.append(f"{p.get('sku')}: still has video key")
               if len(p.get('images', [])) < 4:
                   errors.append(f"{p.get('sku')}: fewer than 4 images")
-              for im in p['images'][:4]:
+              for im in p.get('images', [])[:4]:
                   if not (Path('cms') / im.lstrip('/')).is_file():
                       errors.append(f"{p.get('sku')}: missing file {im}")
+          stud_skus = sorted(p.get('sku') for p in prods if str(p.get('sku', '')).startswith('SHV'))
+          if stud_skus != sorted(['SHV-MST-01', 'SHV-MST-02', 'SHV-MST-03', 'SHV-LST-01', 'SHV-LST-02', 'SHV-LST-03']):
+              errors.append(f"scheme stud SKU set changed: {stud_skus}")
           if errors:
               for e in errors:
                   print(f'::error::{e}')
               sys.exit(1)
-          print(f'preflight OK: {len(prods)} PGS products, 4 shots each, all files present, no videos')
+          print(f'preflight OK: {len(prods)} master products (PGS {len(prods) - len(stud_skus)} + SHV studs {len(stud_skus)}), 4 shots each, all files present, no videos')
           PY
           echo "--- zoom QA on the v111 zoom-campaign covers + editorials (PGS5001-5065 only;"
           echo "    the ladies-67 lot has its own contact-sheet QA per LADIES67-STATE.md) ---"
           python3 tools/photoshoot/zoom_check.py --sku \
-            $(python3 -c "import json;print(' '.join(p['sku'] for p in json.load(open('cms/data/db.json'))['products'] if int(p['sku'][3:])<=5065))") \
+            $(python3 -c "import json;print(' '.join(p['sku'] for p in json.load(open('cms/data/db.json'))['products'] if p['sku'].startswith('PGS') and int(p['sku'][3:])<=5065))") \
             > zoom-report.txt 2>&1 || true
           cat zoom-report.txt
           FAILS=$(grep -c FAIL zoom-report.txt || true)
@@ -124,7 +127,7 @@ jobs:
           fi
           set +e
           if [ "$LIVE" = "YES" ]; then
-            echo "LIVE=YES confirmed: live catalogue becomes exactly the master PGS rings."
+            echo "LIVE=YES confirmed: live catalogue becomes exactly the master records (PGS rings + SHV scheme studs)."
             python3 deploy/catalogue_deploy.py --email "$ADMIN_EMAIL" --password "$ADMIN_PASSWORD" --live > catalogue-deploy.log 2>&1
           else
             echo "LIVE is '$LIVE' (not YES): dry-run only."
@@ -176,15 +179,16 @@ jobs:
           if st != 200:
               print(f'::error::verification GET /api/products failed ({st}): {products}'); sys.exit(1)
           live = products.get('products', [])
-          pgs = [p for p in live if str(p.get('sku', '')).startswith('PGS')]
-          non_pgs = [p for p in live if not str(p.get('sku', '')).startswith('PGS')]
+          master_live = [p for p in live if str(p.get('sku', '')).startswith(('PGS', 'SHV'))]
+          strays = [p for p in live if not str(p.get('sku', '')).startswith(('PGS', 'SHV'))]
           with_video = [p for p in live if p.get('video')]
-          undershot = [p.get('sku') for p in pgs if len(p.get('images', [])) < 4]
-          print(f'Live verification: total={len(live)}, pgs_rings={len(pgs)}, non_pgs={len(non_pgs)}, videos={len(with_video)}, under_4_shot={undershot}')
+          undershot = [p.get('sku') for p in master_live if len(p.get('images', [])) < 4]
+          studs_real = [p.get('sku') for p in master_live if str(p.get('sku', '')).startswith('SHV') and not p.get('isCampaignStud')]
+          print(f'Live verification: total={len(live)}, master={len(master_live)}, strays={len(strays)}, videos={len(with_video)}, under_4_shot={undershot}, studs_real_rows={len(studs_real)}/6')
           want = {p['sku'] for p in json.loads(open('cms/data/db.json').read())['products']}
-          got = {p['sku'] for p in pgs}
-          ok = got == want and not non_pgs and not with_video and not undershot
+          got = {p['sku'] for p in master_live}
+          ok = got == want and not strays and not with_video and not undershot and len(studs_real) == 6
           if not ok:
-              print(f'::error::live catalogue does not match the master contract (missing={sorted(want - got)[:5]} extra={sorted(got - want)[:5]} non_pgs={len(non_pgs)})'); sys.exit(1)
-          print(f'VERIFY OK: live site shows exactly the {len(want)} master PGS rings, 4 shots each, no videos, zero stray products ✅')
+              print(f'::error::live catalogue does not match the master contract (missing={sorted(want - got)[:5]} extra={sorted(got - want)[:5]} strays={len(strays)} studs_real={len(studs_real)}/6)'); sys.exit(1)
+          print(f'VERIFY OK: live site shows exactly the {len(want)} master records (PGS rings + 6 SHV scheme studs as real rows), 4 shots each, no videos, zero stray products ✅')
           PY
