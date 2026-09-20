@@ -916,11 +916,26 @@ function finaleBarArt() {
 
 /* ─────────────────────── 2030 HOLOGRAPHIC AI CONCIERGE & SOUND ENGINE ─────────────────────── */
 const AURA_SCRIPTS = {
-  poster: "Namaste! I am Aura, your Shivaa 2030 AI Concierge. Today, you have an exclusive opportunity to win a 10g 24K Gold Biscuit worth over ₹1,50,000. Step inside to explore this grand festive scheme!",
-  landing: "Here is our 2030 transparent scheme blueprint. We have reserved this reward exclusively for our 6 Masterpiece 22K Gold Stud designs. Every purchase enters our CA-audited cryptographic live draw.",
-  gender: "Tell me, who are we curating this fine 22K gold piece for today? Choose our Men's royal geometric studs or our Ladies' handcrafted floral blossom collection.",
-  products: "Here are the 3 exclusive 22K BIS Hallmarked masterpiece studs for your collection. Notice the real-time live market pricing and zero-hidden-cost transparency. Select your design to unlock your draw quiz!",
-  quiz: "Welcome to the official qualifying quiz. Please answer carefully: you have exactly ONE attempt per question and ONE final submission. Once locked, your score is permanently recorded in the CA ledger."
+  poster: {
+    hi: "नमस्ते जी! मैं हूँ ऑरा, आपकी शिवा AI साथी। आपका स्वागत है ₹1,50,000 के 10 ग्राम 24K गोल्ड बिस्कुट लकी ड्रॉ में! सिर्फ 6 खास 22K गोल्ड स्टड्स पर यह सुनहरा मौका उपलब्ध है। चलिए, शुरू करते हैं!",
+    en: "Namaste! I am Aura, your Shivaa AI Concierge. Step into the ₹1,50,000 10g 24K Gold Biscuit Grand Campaign on our 6 Masterpiece Studs."
+  },
+  landing: {
+    hi: "यहाँ है हमारे 10 ग्राम गोल्ड स्कीम का पूरा पारदर्शी रोडमैप। 100% हॉलमार्क वाला शुद्ध 22K सोना और सीए द्वारा लाइव ऑडिटेड ड्रा। चलिए, अपनी पसंदीदा कलेक्शन चुनते हैं!",
+    en: "Here is our 2030 transparent scheme blueprint. 100% hallmarked 22K gold with CA-witnessed live draw protocol."
+  },
+  gender: {
+    hi: "आप किसके लिए ज्वेलरी पसंद कर रहे हैं? जेंट्स के लिए शानदार 22K गोल्ड स्टड्स या फिर लेडीज़ के लिए खूबसूरत फ्लोरल डिज़ाइन? अपनी पसंद पर टैप करें!",
+    en: "Who are we curating for today? Choose our Men's royal geometric studs or Ladies' handcrafted floral blossom pairs."
+  },
+  products: {
+    hi: "ये रहे आपके लिए 3 एक्सक्लूसिव 22K गोल्ड स्टड्स! लाइव रेट और मेकिंग चार्ज की पूरी ट्रांसपेरेंसी के साथ। अपना पसंदीदा डिज़ाइन आर्डर करें और 1-अटेम्प्ट क्विज अनलॉक करें!",
+    en: "Presenting the 3 exclusive 22K BIS Hallmarked masterpiece studs with live dynamic rates and instant checkout!"
+  },
+  quiz: {
+    hi: "बधाई हो! अब आपके सामने है हमारा ऑफिशियल 1-अटेम्प्ट क्विज। हर सवाल का जवाब केवल एक बार दिया जा सकता है। सोच-समझकर सबमिट करें, ऑल द वेरी बेस्ट!",
+    en: "Welcome to the official 1-attempt quiz. Each question answered once with permanent submission lock. Good luck!"
+  }
 };
 
 const ShivaaAudio = {
@@ -961,30 +976,34 @@ const ShivaaAudio = {
     setTimeout(() => this.playTone(780, 0.16, 'sine'), 60);
     setTimeout(() => this.playTone(1040, 0.2, 'sine'), 120);
   },
-  speak(text) {
+  speak(scriptItem) {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     if (!this.voiceEnabled) return;
-    const ut = new SpeechSynthesisUtterance(text);
-    ut.rate = 1.0;
-    ut.pitch = 1.08;
+    const spokenText = typeof scriptItem === 'object' ? (scriptItem.hi || scriptItem.en) : scriptItem;
+    const ut = new SpeechSynthesisUtterance(spokenText);
+    ut.rate = 0.92;
+    ut.pitch = 1.15;
+    ut.lang = 'hi-IN';
     const voices = window.speechSynthesis.getVoices();
-    const indVoice = voices.find(v => v.lang.includes('en-IN') || v.name.includes('India')) || voices.find(v => v.lang.startsWith('en'));
-    if (indVoice) ut.voice = indVoice;
+    const hiVoice = voices.find(v => v.lang.includes('hi') || v.name.includes('Hindi') || v.name.includes('Lekha') || v.name.includes('Swara') || v.name.includes('Neerja')) ||
+                    voices.find(v => v.lang.includes('en-IN') || v.name.includes('India')) ||
+                    voices.find(v => v.lang.startsWith('en'));
+    if (hiVoice) ut.voice = hiVoice;
     
     this.speaking = true;
     const btn = document.getElementById('shvAiSpeakBtn');
-    if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 Speaking...'; }
+    if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 Speaking in Hindi...'; }
 
     ut.onend = () => {
       this.speaking = false;
       const b = document.getElementById('shvAiSpeakBtn');
-      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 Listen to Aura'; }
+      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 Aura Hindi Voice'; }
     };
     ut.onerror = () => {
       this.speaking = false;
       const b = document.getElementById('shvAiSpeakBtn');
-      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 Listen to Aura'; }
+      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 Aura Hindi Voice'; }
     };
     window.speechSynthesis.speak(ut);
   },
@@ -997,10 +1016,10 @@ const ShivaaAudio = {
       if (btn) { btn.classList.remove('speaking'); btn.innerHTML = '🔇 Voice Muted'; }
       toast('Aura voice audio muted ✦');
     } else {
-      if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 Speaking...'; }
+      if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 Speaking in Hindi...'; }
       const step = window._schemeState?.step || 'poster';
       this.speak(AURA_SCRIPTS[step] || AURA_SCRIPTS.poster);
-      toast('Aura voice guide enabled ✦');
+      toast('Aura Hindi voice guide active ✦');
     }
   }
 };
@@ -1474,8 +1493,12 @@ function renderSchemeStage(step, gender) {
   // Update Aura AI Concierge Message & Voice
   const msgEl = document.getElementById('shvAiMessage');
   if (msgEl && AURA_SCRIPTS[step]) {
-    msgEl.innerHTML = AURA_SCRIPTS[step];
-    if (ShivaaAudio.voiceEnabled) ShivaaAudio.speak(AURA_SCRIPTS[step]);
+    const sc = AURA_SCRIPTS[step];
+    msgEl.innerHTML = `
+      <span class="shv-ai-hi-text" style="display:block;font-size:14px;color:#fff6dc;font-weight:500;margin-bottom:3px">${esc(sc.hi || sc)}</span>
+      ${sc.en ? `<small style="display:block;font-size:11.5px;color:rgba(255,226,138,0.75);letter-spacing:0.02em">“${esc(sc.en)}”</small>` : ''}
+    `;
+    if (ShivaaAudio.voiceEnabled) ShivaaAudio.speak(sc);
   }
 
   init3DCardTilts();
@@ -2761,6 +2784,7 @@ pages.home = async (view) => {
         <p class="hero-sub">Gold & silver jewellery at Shivaa's live rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
         <div class="hero-cta">
           <a class="btn btn-gold btn-lg" href="#/shop">Shop the Collection</a>
+          <a class="btn btn-gold btn-lg shv-pulse-cta" href="#/scheme">✦ Win 10g Gold Biscuit</a>
           <a class="btn btn-light btn-lg" href="#/rates">Shivaa Live Rates</a>
         </div>
         <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
@@ -2779,6 +2803,25 @@ pages.home = async (view) => {
         </div>
     </div>
     <div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>
+  </section>
+
+  <!-- HOME CAMPAIGN ENTRY CARD -->
+  <section class="container shv-home-campaign-entry" style="margin: 28px auto 20px;">
+    <div class="shv-home-campaign-card rv">
+      <div class="shv-hcc-art">
+        <img src="/images/banners/gold-biscuit-campaign.jpg" alt="10g 24K Gold Biscuit Prize" loading="lazy">
+        <span class="shv-hcc-badge">✦ 10g 24K Bullion Prize</span>
+      </div>
+      <div class="shv-hcc-content">
+        <span class="shv-hcc-kicker">✦ FESTIVE GRAND CAMPAIGN · 2026</span>
+        <h2 class="shv-hcc-title">Win a 10g 24K Gold Biscuit <span class="gold-txt">Worth ₹1,50,000*</span></h2>
+        <p class="shv-hcc-sub">Exclusively available on our <b>6 Masterpiece 22K Gold Ear Stud Designs</b> (3 for Men &amp; 3 for Ladies). Order your stud, answer the 1-attempt quiz, and enter the CA-witnessed live draw.</p>
+        <div class="shv-hcc-cta-row">
+          <a href="#/scheme" class="btn btn-gold btn-lg shv-pulse-cta">Enter 10g Gold Scheme Funnel ✦</a>
+          <a href="#/scheme?step=gender" class="btn btn-outline btn-lg">Explore 6 Exclusive Studs (Men / Women) →</a>
+        </div>
+      </div>
+    </div>
   </section>
 
   <div class="catbar-outer">${catBarHTML()}</div>

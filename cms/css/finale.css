@@ -10,14 +10,15 @@
 /* Camp visibility toggle */
 html [data-camp].camp-off { display: none !important; }
 
-/* ── Global Scheme Theme Variables ── */
+/* ── Global Scheme Theme Variables (High-Contrast Gold & Obsidian Velvet) ── */
 :root {
-  --gold-glow: rgba(230, 183, 92, 0.4);
-  --gold-bright: #ffe28a;
-  --gold-foil: linear-gradient(135deg, #fff2cc 0%, #f1c762 30%, #d49a2a 55%, #f9dc8c 85%, #b57a15 100%);
-  --gold-foil-dark: linear-gradient(135deg, #d4a738 0%, #9e6f1a 50%, #68450a 100%);
-  --dark-velvet: radial-gradient(130% 140% at 50% -20%, #2a0b12 0%, #150407 50%, #080203 100%);
-  --obsidian-card: linear-gradient(165deg, rgba(38, 14, 20, 0.94) 0%, rgba(18, 5, 8, 0.98) 100%);
+  --gold-glow: rgba(255, 215, 100, 0.45);
+  --gold-bright: #fff2bf;
+  --gold-luminous: #ffd764;
+  --gold-foil: linear-gradient(135deg, #ffffff 0%, #ffe082 25%, #ffca28 50%, #ffa000 80%, #ffd54f 100%);
+  --gold-foil-dark: linear-gradient(135deg, #e6b75c 0%, #b8860b 50%, #795548 100%);
+  --dark-velvet: radial-gradient(130% 140% at 50% -20%, #2e0813 0%, #170408 55%, #0a0104 100%);
+  --obsidian-card: linear-gradient(165deg, rgba(42, 12, 20, 0.96) 0%, rgba(18, 4, 8, 0.98) 100%);
 }
 
 /* ─────────────────────────── COUNTDOWN CHIPS ─────────────────────────── */
@@ -250,6 +251,102 @@ html [data-camp].camp-off { display: none !important; }
   color: rgba(246, 232, 200, 0.75);
 }
 .fb-chips li::before { content: '✦'; color: #d9a53c; margin-right: 7px; font-size: 9px; }
+
+/* ── Home Page Campaign Entry Banner ── */
+.shv-home-campaign-entry {
+  position: relative;
+  z-index: 4;
+}
+.shv-home-campaign-card {
+  position: relative;
+  background: var(--obsidian-card);
+  border: 1px solid rgba(255, 215, 100, 0.45);
+  border-radius: 24px;
+  padding: clamp(24px, 4vw, 40px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(255, 215, 100, 0.12);
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: clamp(24px, 4vw, 48px);
+  align-items: center;
+  overflow: hidden;
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+.shv-home-campaign-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.9), 0 0 45px rgba(255, 215, 100, 0.22);
+  border-color: rgba(255, 226, 138, 0.7);
+}
+.shv-hcc-art {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 215, 100, 0.35);
+}
+.shv-hcc-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.shv-hcc-badge {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  background: rgba(18, 4, 8, 0.85);
+  border: 1px solid rgba(255, 215, 100, 0.4);
+  color: #fff2bf;
+  font-family: var(--ff-label);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 5px 8px;
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+}
+.shv-hcc-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--ff-label);
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #ffd764;
+  margin-bottom: 8px;
+}
+.shv-hcc-title {
+  color: #ffffff;
+  font-family: var(--ff-disp);
+  font-size: clamp(24px, 3.4vw, 38px);
+  line-height: 1.15;
+  margin: 0 0 12px;
+  font-weight: 700;
+}
+.shv-hcc-title span.gold-txt {
+  background: var(--gold-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.shv-hcc-sub {
+  color: rgba(255, 246, 220, 0.88);
+  font-size: 14.5px;
+  line-height: 1.6;
+  margin: 0 0 20px;
+  font-weight: 300;
+}
+.shv-hcc-sub b {
+  color: #ffd764;
+  font-weight: 600;
+}
+.shv-hcc-cta-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
 
 /* ─────────────────────── MASTER SCHEME EXPERIENCE (#/scheme) ─────────────────────── */
 .shv-scheme-page {
@@ -1328,6 +1425,8 @@ html [data-camp].camp-off { display: none !important; }
 /* ─────────────────────── RESPONSIVE & MOBILE-FIRST OPTIMIZATIONS ─────────────────────── */
 @media (max-width: 1000px) {
   .shv-poster-card { grid-template-columns: 1fr; text-align: center; }
+  .shv-home-campaign-card { grid-template-columns: 1fr; text-align: center; }
+  .shv-hcc-cta-row { justify-content: center; }
   .shv-poster-cta-row { justify-content: center; }
   .shv-val-banner .val-row { justify-content: center; }
   .shv-pillars-grid { grid-template-columns: 1fr 1fr; }
