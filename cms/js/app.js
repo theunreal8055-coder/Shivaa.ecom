@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 161;
+const APP_REL = 162;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -5427,7 +5427,7 @@ function cashfreeRedirectSheet(retry) {
   const cancel = $('#cfCancel'); if (cancel) cancel.onclick = () => { closeModal(); resolve(false); };
   });
 }
-/* v128/v161 — Cashfree hosted checkout (Step 2): load the official JS SDK and open
+/* v128/v162 — Cashfree hosted checkout (Step 2): load the official JS SDK and open
    the PCI-compliant payment page with the payment_session_id the server minted.
    redirectTarget _self replaces this page; Cashfree sends the customer back to
    the return_url, which the server verifies before crediting the order. */
@@ -5462,6 +5462,10 @@ window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
     }
     const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
     const res = cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
+    if (res && res.error) {
+      console.warn('Cashfree SDK returned error, submitting hosted form directly:', res.error);
+      return submitHostedForm();
+    }
     if (res && typeof res.then === 'function') {
       return await res;
     }

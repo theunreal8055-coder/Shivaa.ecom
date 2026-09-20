@@ -91,9 +91,9 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({
         ok: true,
-        rel: 161,
-        shell: 'shivaa-shell-v161',
-        stamp: { index: 161, app: 161 }
+        rel: 162,
+        shell: 'shivaa-shell-v162',
+        stamp: { index: 162, app: 162 }
       }));
     }
 

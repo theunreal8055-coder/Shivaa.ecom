@@ -4161,7 +4161,7 @@ try {
     $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
     jout(200, [
       'ok'    => true,
-      'rel'   => 161,
+      'rel'   => 162,
       'shell' => $sh,
       'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
                   'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
@@ -4303,6 +4303,8 @@ try {
             ]);
             unset($payload['products'], $payload['cart_details']);
             $occOn = false;
+            $cfOrderId = cashfree_sanitize_id($o['id'], 44) . '-A' . (count($attempts) + 2);
+            $payload['order_id'] = $cfOrderId;
             $res = cashfree_create_order($cfg, $payload);
           }
         } else { $occOn = false; $res = cashfree_create_order($cfg, $payload); }
