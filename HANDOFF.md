@@ -1,6 +1,17 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-**Last updated: 2026-09-20 (v159 10g GOLD BISCUIT CAMPAIGN FUNNEL & CURATED 6 STUDS on `arena/01a0bf5c-shivaa-ecom`, PR created & merged to main. Root-layout release package `shivaa-update-v159.zip` md5 `8cb48328b0246b80b0a0c21c84661555`).**
+**Last updated: 2026-09-21 (v160 REAL 6 TOPS + 24 PHOTOS + MOBILE MASTERY + PAY-FAIL AUTO-RETURN on `arena/01a0c003-shivaa-ecom`, PR #80 merged to main. Root-layout release package `shivaa-update-v160.zip` md5 `5506bd0854bcb176dbdda6f67d13dde6`, 31 files, 3.5 MB).**
+
+### Executive Summary of v160:
+1. **6 real tops replace the 6 AI concept studs** (owner's 6 photos): gents 3.00 g/pair ×3 (Veer square, Rudra cushion, Bali hoop), ladies tag-weight ×3 (Heer paisley-heart 3.255 g BT-16101, Morni swirl 2.928 g BT-17675, Sitara star 3.086 g BT-18159) — all 22K, 15% MC + 3% GST. IDs/SKUs stable (quiz ledger + orders unaffected). NOTE: owner typed 3.225 for paisley but its tag reads 3.255 — site uses tag truth; one-line change if he insists.
+2. **24 photoshoot photos, 4 per design** (studio/macro/worn/gift), AI-shot from the owner's refs, QA'd design-faithful, finished square 1000×1000 q82. Card gallery (thumbs + setStudPhoto) + PDP 4-photo support; gender banners rebuilt as 3-up montages of the real studios; 6 orphaned v159 stud files deleted (server cleanup note in DEPLOY).
+3. **Mobile mastery:** stepper sticky offset fixed to calc(58px + safe-area) (was 56px, sliding under the header); badges/ribbons right-constrained; price/meta rows wrap + stack ≤380px; countdown label centered; quiz/studs-title clamps. Square natives kill the upscale-crop blur class.
+4. **Pay-fail auto-return (owner complaint, all 3 surfaces):** buyCampaignStud SDK-throw (kept), NEW placeOrder Online-fail → scheme products, NEW order-page ?cf=fail campaign banner + Back-to-3-designs + 4s auto-return; gender auto-detected via campaignGenderOfItems. Success → quiz unchanged.
+5. **Stamps 160 lockstep** incl. finale.css per-file stamp move (index+sw). Gate `tools/mega/smoke/v160-check.js` 63/63.
+
+---
+
+**Previous update: 2026-09-20 (v159 10g GOLD BISCUIT CAMPAIGN FUNNEL & CURATED 6 STUDS on `arena/01a0bf5c-shivaa-ecom`, PR created & merged to main. Root-layout release package `shivaa-update-v159.zip` md5 `8cb48328b0246b80b0a0c21c84661555`).**
 
 ### Executive Summary of v159:
 1. **Curated 6 Studs 10g Gold Biscuit Funnel (`#/scheme`, `#/finale`):**
