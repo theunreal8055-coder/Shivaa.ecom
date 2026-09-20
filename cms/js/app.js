@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 157;
+const APP_REL = 158;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -990,22 +990,22 @@ function finaleBarArt() {
   return `<div class="fin-bar" aria-hidden="true"><div class="fin-eng"><small>Shivaa · fine gold</small><em>10 g</em><span>24K · 999.9</span></div></div>`;
 }
 
-/* ─────────────────────── 2030 HOLOGRAPHIC AI CONCIERGE & SOUND ENGINE (HINDI FRIENDLY VIBE) ─────────────────────── */
+/* ─────────────────────── 2030 HOLOGRAPHIC AI CONCIERGE & SOUND ENGINE (WARM HINDI VIBE) ─────────────────────── */
 const AURA_SCRIPTS = {
   poster: {
-    hi: "नमस्ते जी! मैं आपकी शिवा साथी ऑरा हूँ। इस पावन अवसर पर पाइए 10 ग्राम शुद्ध 24 कैरट सोने का बिस्कुट जीतने का सुनहरा मौका! बस हमारे 6 खूबसूरत 22 कैरट गोल्ड स्टड्स में से अपना पसंदीदा डिज़ाइन चुनिए। चलिए, शुरू करते हैं!"
+    hi: "नमस्ते जी! आपका शिवा में हार्दिक स्वागत है। मैं आपकी शिवा साथी ऑरा। इस शुभ अवसर पर पाइए 10 ग्राम शुद्ध 24 कैरट सोने का बिस्कुट जीतने का शानदार मौका! बस हमारे 6 खूबसूरत 22 कैरट गोल्ड स्टड्स में से अपना पसंदीदा डिज़ाइन चुनिए। चलिए, आगे बढ़ते हैं!"
   },
   landing: {
-    hi: "यहाँ है हमारी 10 ग्राम गोल्ड स्कीम की पूरी जानकारी! 100% बीआईएस हॉलमार्क शुद्ध सोना और सीए द्वारा प्रमाणित पारदर्शी लाइव ड्रॉ। आइए, अपनी पसंद का कलेक्शन चुनें!"
+    hi: "नमस्ते! यहाँ है हमारी 10 ग्राम गोल्ड स्कीम की पूरी जानकारी। 100% बीआईएस हॉलमार्क शुद्ध 22 कैरट सोना और सीए द्वारा प्रमाणित पारदर्शी लाइव ड्रॉ। आइए, अब अपना पसंदीदा कलेक्शन चुनें!"
   },
   gender: {
     hi: "आप किसके लिए स्टड्स पसंद कर रहे हैं? पुरुषों के लिए रॉयल डिज़ाइन या महिलाओं के लिए खूबसूरत फ्लोरल डिज़ाइन? अपनी पसंद पर टैप कीजिए!"
   },
   products: {
-    hi: "ये रहे आपके लिए 3 बेहद खूबसूरत 22 कैरट गोल्ड स्टड्स! लाइव रेट और सिर्फ 12% मेकिंग चार्ज के साथ। अभी बाय नाउ करें और सीधा कैशफ्री से 1-क्लिक आर्डर कम्प्लीट करें!"
+    hi: "ये रहे आपके लिए 3 बेहद खूबसूरत 22 कैरट गोल्ड स्टड्स! लाइव रेट और सिर्फ 12% मेकिंग चार्ज के साथ। अपना पसंदीदा डिज़ाइन चुनिए और 1-क्लिक कैशफ्री से आसानी से आर्डर कम्प्लीट करें!"
   },
   quiz: {
-    hi: "बहुत-बहुत बधाई! आपका आर्डर कन्फर्म हो चुका है। अब दीजिए इस आसान 1-अटेम्प्ट क्विज के 5 सवालों के जवाब और लाइव ड्रॉ में अपनी एंट्री पक्की कीजिए! ऑल द बेस्ट!"
+    hi: "बहुत-बहुत बधाई! आपका आर्डर कन्फर्म हो चुका है। अब इस आसान 1-अटेम्प्ट क्विज के 5 सवालों के सही जवाब देकर लाइव ड्रॉ में अपनी ऑफिशियल एंट्री पक्की कीजिए! ऑल द बेस्ट!"
   }
 };
 
@@ -1047,62 +1047,85 @@ const ShivaaAudio = {
     setTimeout(() => this.playTone(780, 0.16, 'sine'), 60);
     setTimeout(() => this.playTone(1040, 0.2, 'sine'), 120);
   },
+  getHindiVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    const vList = window.speechSynthesis.getVoices() || [];
+    return vList.find(v => /swara|neerja|kalpana|lekha|hi-in.*female|google.*hi.*female/i.test(v.name)) ||
+           vList.find(v => v.lang && (v.lang === 'hi-IN' || v.lang === 'hi_IN') && /female|natural|online/i.test(v.name)) ||
+           vList.find(v => v.lang && (v.lang === 'hi-IN' || v.lang === 'hi_IN')) ||
+           vList.find(v => /hindi|lekh|swar|kalpan|heman|neerj/i.test(v.name)) ||
+           vList.find(v => v.lang && v.lang.startsWith('hi')) ||
+           null;
+  },
   speak(scriptItem) {
     if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
+    try {
+      window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    } catch (e) {}
+
     const spokenText = typeof scriptItem === 'object' ? (scriptItem.hi || '') : String(scriptItem || '');
     if (!spokenText) return;
+
     const ut = new SpeechSynthesisUtterance(spokenText);
-    ut.rate = 0.92;
-    ut.pitch = 1.15;
+    ut.rate = 0.90;
+    ut.pitch = 1.12;
     ut.lang = 'hi-IN';
 
-    const getHiVoice = () => {
-      const vList = window.speechSynthesis.getVoices() || [];
-      return vList.find(v => (v.lang && (v.lang === 'hi-IN' || v.lang.startsWith('hi') || v.lang.includes('hi_IN')))) ||
-             vList.find(v => /hindi|lekh[a-z]|swar[a-z]|kalpan[a-z]|heman[a-z]|neerj[a-z]|hi[-_]/i.test(v.name)) ||
-             vList.find(v => v.lang && v.lang.includes('hi')) || null;
-    };
-
-    let hiVoice = getHiVoice();
+    const hiVoice = this.getHindiVoice();
     if (hiVoice) ut.voice = hiVoice;
 
     if (window.speechSynthesis.onvoiceschanged === undefined) {
       window.speechSynthesis.onvoiceschanged = () => {
-        const hv = getHiVoice();
+        const hv = this.getHindiVoice();
         if (hv) ut.voice = hv;
       };
     }
 
     this.speaking = true;
-    const btn = document.getElementById('shvAiSpeakBtn');
-    if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 ऑरा बोल रही हैं...'; }
+    const btns = document.querySelectorAll('#shvAiSpeakBtn, .js-aura-speak-btn');
+    btns.forEach(b => {
+      b.classList.add('speaking');
+      b.innerHTML = '🔊 <span class="aura-txt">ऑरा बोल रही हैं...</span>';
+    });
 
-    ut.onend = () => {
+    const resetBtns = () => {
       this.speaking = false;
-      const b = document.getElementById('shvAiSpeakBtn');
-      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 ऑरा की आवाज़ सुनें (Hindi)'; }
+      const allBtns = document.querySelectorAll('#shvAiSpeakBtn, .js-aura-speak-btn');
+      allBtns.forEach(b => {
+        b.classList.remove('speaking');
+        b.innerHTML = '🔊 <span class="aura-txt">ऑरा की आवाज़ सुनें (Hindi)</span>';
+      });
     };
-    ut.onerror = () => {
-      this.speaking = false;
-      const b = document.getElementById('shvAiSpeakBtn');
-      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 ऑरा की आवाज़ सुनें (Hindi)'; }
-    };
-    window.speechSynthesis.speak(ut);
+
+    ut.onend = resetBtns;
+    ut.onerror = resetBtns;
+
+    try {
+      window.speechSynthesis.speak(ut);
+    } catch (e) {
+      resetBtns();
+    }
   },
   toggleVoice() {
     this.voiceEnabled = !this.voiceEnabled;
-    const btn = document.getElementById('shvAiSpeakBtn');
+    const btns = document.querySelectorAll('#shvAiSpeakBtn, .js-aura-speak-btn');
     if (!this.voiceEnabled) {
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       this.speaking = false;
-      if (btn) { btn.classList.remove('speaking'); btn.innerHTML = '🔇 आवाज़ बंद है (Muted)'; }
+      btns.forEach(b => {
+        b.classList.remove('speaking');
+        b.innerHTML = '🔇 <span class="aura-txt">आवाज़ बंद है (Muted)</span>';
+      });
       toast('ऑरा की आवाज़ म्यूट कर दी गई है ✦');
     } else {
-      if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 ऑरा बोल रही हैं...'; }
+      btns.forEach(b => {
+        b.classList.add('speaking');
+        b.innerHTML = '🔊 <span class="aura-txt">ऑरा बोल रही हैं...</span>';
+      });
       const step = window._schemeState?.step || 'poster';
       this.speak(AURA_SCRIPTS[step] || AURA_SCRIPTS.poster);
-      toast('नमस्ते! ऑरा हिंदी वॉइस सक्रिय ✦');
+      toast('नमस्ते जी! ऑरा हिंदी वॉइस सक्रिय ✦');
     }
   }
 };
@@ -1720,7 +1743,14 @@ window.Shivaa.buyCampaignStud = async (productId) => {
     });
 
     if (po && po.mode === 'cashfree' && po.paymentSessionId) {
-      await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);
+      try {
+        await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);
+      } catch (cfErr) {
+        console.warn('Cashfree payment cancelled/failed:', cfErr);
+        toast('भुगतान पूरा नहीं हो सका — आप दोबारा डिज़ाइन चुनकर बाय नाउ कर सकते हैं ✦', 'err');
+        const g = window._schemeState?.gender || (p.tags && p.tags.includes('ladies') ? 'ladies' : 'gents');
+        Shivaa.setSchemeStep('products', g);
+      }
       return;
     }
 
@@ -1730,14 +1760,20 @@ window.Shivaa.buyCampaignStud = async (productId) => {
       if (paid) {
         location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(res.id) + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
         return;
+      } else {
+        toast('भुगतान रद्द किया गया — कृपया पुनः प्रयास करें ✦', 'err');
+        const g = window._schemeState?.gender || (p.tags && p.tags.includes('ladies') ? 'ladies' : 'gents');
+        Shivaa.setSchemeStep('products', g);
+        return;
       }
     }
 
-    location.hash = '#/order/' + encodeURIComponent(res.id) + '?cf=pending' + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
+    location.hash = '#/scheme?step=products&gender=' + encodeURIComponent(window._schemeState?.gender || 'gents');
   } catch (err) {
     console.error('Direct buy error:', err);
-    addToCart(productId, 1, null, null, { silent: true });
-    location.hash = '#/checkout';
+    toast('भुगतान शुरू नहीं हो सका — कृपया दोबारा कोशिश करें ✦', 'err');
+    const g = window._schemeState?.gender || (p && p.tags && p.tags.includes('ladies') ? 'ladies' : 'gents');
+    Shivaa.setSchemeStep('products', g);
   }
 };
 
@@ -9090,16 +9126,30 @@ pages.scheme = async (view) => {
     const cf = q.get('cf');
     if (orderId && cf === 'pending') {
       api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId, pin: pin || '' }) })
-        .catch(() => {})
-        .finally(() => {
+        .then(res => {
+          if (res && res.paid) {
+            toast('भुगतान सफल! 1-अटेम्प्ट क्विज शुरू हो रहा है ✦');
+            setTimeout(() => {
+              fqOpen({ route: 'purchase', orderId, pin });
+            }, 300);
+          } else {
+            toast('भुगतान अधूरा रहा — कृपया दोबारा डिज़ाइन चुनकर बाय नाउ करें ✦', 'err');
+            setTimeout(() => {
+              Shivaa.setSchemeStep('products', window._schemeState?.gender || 'gents');
+            }, 500);
+          }
+        })
+        .catch(() => {
           setTimeout(() => {
             fqOpen({ route: 'purchase', orderId, pin });
           }, 300);
         });
-    } else {
+    } else if (orderId) {
       setTimeout(() => {
         fqOpen({ route: 'purchase', orderId, pin });
       }, 350);
+    } else {
+      Shivaa.setSchemeStep('products', gender || 'gents');
     }
   }
 };
