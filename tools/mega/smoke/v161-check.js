@@ -85,11 +85,10 @@ check('App.js renderSchemeStage uses window.scrollTo to prevent docking collisio
   assert(app.includes('window.scrollTo({ top: 0, behavior: \'smooth\' });'), 'app.js must call window.scrollTo({ top: 0, behavior: \'smooth\' })');
 });
 
-// 5. App.js Cashfree modal checkout and fallback
-check('App.js cashfreeCheckout uses _modal target with timeout and _self fallback', () => {
+// 5. App.js Cashfree hosted checkout launcher
+check('App.js cashfreeCheckout uses official Cashfree SDK v3 with _self redirect and fallback', () => {
   const app = fs.readFileSync(path.join(root, 'cms/js/app.js'), 'utf8');
-  assert(app.includes("redirectTarget: '_modal'"), 'cashfreeCheckout must use _modal redirectTarget');
-  assert(app.includes("redirectTarget: '_self'"), 'cashfreeCheckout must retain _self fallback');
+  assert(app.includes("redirectTarget: '_self'"), 'cashfreeCheckout must use _self redirectTarget');
   assert(app.includes('() => typeof window.Cashfree === \'function\''), 'cashfreeCheckout must verify window.Cashfree before returning');
 });
 

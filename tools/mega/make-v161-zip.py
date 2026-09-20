@@ -72,7 +72,7 @@ def build_zip(target_path):
         ('js/app.js', 'AURA_SCRIPTS'),
         ('js/app.js', 'buyCampaignStud'),
         ('js/app.js', 'ensureCampaignStuds'),
-        ('js/app.js', "redirectTarget: '_modal'"),
+        ('js/app.js', "redirectTarget: '_self'"),
         ('js/app.js', 'window.scrollTo({ top: 0, behavior: \'smooth\' });'),
         ('css/finale.css', '.shv-scheme-stepper {\n  position: relative !important;\n  top: auto !important;'),
         ('css/finale.css', '.shv-ai-concierge-bar {\n  position: relative !important;\n  z-index: 15 !important;'),

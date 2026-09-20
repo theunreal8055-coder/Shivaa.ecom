@@ -1789,7 +1789,6 @@ window.Shivaa.buyCampaignStud = async (productId) => {
     if (po && po.mode === 'cashfree' && po.paymentSessionId) {
       try {
         await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);
-        location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(res.id) + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '') + '&cf=pending';
       } catch (cfErr) {
         console.warn('Cashfree payment cancelled/failed:', cfErr);
         toast('कैशफ्री चेकआउट लोड नहीं हो सका — कृपया पुनः प्रयास करें ✦', 'err');
@@ -5430,8 +5429,8 @@ function cashfreeRedirectSheet(retry) {
 }
 /* v128/v161 — Cashfree hosted checkout (Step 2): load the official JS SDK and open
    the PCI-compliant payment page with the payment_session_id the server minted.
-   redirectTarget _modal provides in-app popup while redirectTarget: '_self'
-   provides seamless redirection when modal is blocked or on mobile. */
+   redirectTarget _self replaces this page; Cashfree sends the customer back to
+   the return_url, which the server verifies before crediting the order. */
 window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
   const sess = String(paymentSessionId || '').trim();
   if (!sess) throw new Error('Cashfree session ID missing');
@@ -5462,31 +5461,9 @@ window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
       return submitHostedForm();
     }
     const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
-    const isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-    if (isMobile) {
-      return cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
-    }
-
-    let res;
-    try {
-      res = await Promise.race([
-        cf.checkout({ paymentSessionId: sess, redirectTarget: '_modal' }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('__cf_timeout__')), 20000))
-      ]);
-    } catch (e) {
-      if (e && e.message === '__cf_timeout__') {
-        console.warn('Cashfree modal timed out or blocked — falling back to redirect');
-        return cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
-      }
-      try {
-        return await cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
-      } catch (e2) {
-        throw new Error('Cashfree checkout failed: ' + ((e && e.message) ? e.message : String(e)));
-      }
-    }
-    if (res && res.error) {
-      const em = res.error.message || res.error.code || res.error.description;
-      throw new Error('Cashfree refused to open: ' + (em || JSON.stringify(res.error)));
+    const res = cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
+    if (res && typeof res.then === 'function') {
+      return await res;
     }
     return res || true;
   } catch (e) {
