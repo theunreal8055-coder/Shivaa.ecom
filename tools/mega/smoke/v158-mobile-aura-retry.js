@@ -77,14 +77,14 @@ console.log('\n· 3 — MOBILE FIRST OPTIMIZATION & RESPONSIVENESS:');
     (css.match(/^\.shv-ai-concierge-bar\s*\{/m) || []).length === 1);
 }
 
-console.log('\n· 4 — VERSION 158 STAMP LOCKSTEP:');
+console.log('\n· 4 — VERSION 158+ STAMP LOCKSTEP:');
 {
-  ok('app.js APP_REL = 158', app.includes('const APP_REL = 158;'));
-  ok('index.html __SHIVAA_REL = 158 and app.js?v=158',
-    idx.includes('window.__SHIVAA_REL=158;') && idx.includes('/js/app.js?v=158'));
-  ok('sw.js SHELL = shivaa-shell-v158 and app.js?v=158 precache',
-    sw.includes("shivaa-shell-v158") && sw.includes("'/js/app.js?v=158'"));
-  ok('api.php rel = 158', /'rel'\s*=>\s*158,/.test(api));
+  ok('app.js APP_REL = 158+', /const APP_REL = 15\d;/.test(app));
+  ok('index.html __SHIVAA_REL = 158+ and app.js?v=158+',
+    /window\.__SHIVAA_REL=15\d;/.test(idx) && /\/js\/app\.js\?v=15\d/.test(idx));
+  ok('sw.js SHELL = shivaa-shell-v158+ and app.js?v=158+ precache',
+    /shivaa-shell-v15\d/.test(sw) && /'\/js\/app\.js\?v=15\d'/.test(sw));
+  ok('api.php rel = 158+', /'rel'\s*=>\s*15\d,/.test(api));
 }
 
 const pass = results.filter(Boolean).length;

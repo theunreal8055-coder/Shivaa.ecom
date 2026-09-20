@@ -1556,12 +1556,17 @@ html [data-camp].camp-off { display: none !important; }
 
 @media (max-width: 768px) {
   .shv-scheme-page {
-    padding-bottom: calc(70px + env(safe-area-inset-bottom, 20px));
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 24px));
     width: 100%;
     overflow-x: hidden;
   }
   .shv-scheme-stepper {
-    padding: 8px 0;
+    padding: 6px 0;
+    position: sticky;
+    top: 56px;
+    z-index: 40;
+    background: rgba(14, 4, 7, 0.94);
+    backdrop-filter: blur(16px);
   }
   .shv-stepper-wrap {
     display: flex;
@@ -1569,7 +1574,7 @@ html [data-camp].camp-off { display: none !important; }
     overflow-x: auto;
     justify-content: flex-start;
     gap: 6px;
-    padding: 2px 10px;
+    padding: 4px 12px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -1578,8 +1583,8 @@ html [data-camp].camp-off { display: none !important; }
   }
   .shv-step-btn {
     flex-shrink: 0;
-    font-size: 10px;
-    padding: 6px 11px;
+    font-size: 10.5px;
+    padding: 6px 12px;
     min-height: 38px;
     touch-action: manipulation;
   }
@@ -1587,63 +1592,159 @@ html [data-camp].camp-off { display: none !important; }
     display: none;
   }
   .shv-ai-concierge-bar {
-    margin: 10px 10px 16px;
-    padding: 10px 12px;
-    gap: 10px;
+    margin: 10px 12px 16px;
+    padding: 12px 14px;
+    gap: 12px;
     flex-direction: column;
     align-items: flex-start;
+    border-radius: 16px;
   }
   .shv-ai-avatar-wrap {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
   }
   .shv-ai-msg {
-    font-size: 12px;
+    font-size: 12.5px;
     line-height: 1.45;
   }
   .shv-ai-sound-btn {
-    font-size: 10.5px;
-    padding: 6px 12px;
-    align-self: flex-start;
+    font-size: 11px;
+    padding: 8px 14px;
+    align-self: stretch;
+    justify-content: center;
+    border-radius: 20px;
+    min-height: 42px;
+    touch-action: manipulation;
   }
   .shv-poster-hero {
-    padding: 16px 0 30px;
+    padding: 12px 0 24px;
   }
   .shv-poster-card {
     padding: 20px 14px;
-    border-radius: 18px;
+    border-radius: 20px;
+    gap: 20px;
   }
   .shv-poster-title {
-    font-size: clamp(20px, 5.5vw, 30px);
+    font-size: clamp(20px, 5.2vw, 28px);
     line-height: 1.2;
     margin-bottom: 10px;
   }
   .shv-poster-desc {
-    font-size: 13.5px;
+    font-size: 13px;
     line-height: 1.5;
   }
   .shv-hud-chip {
-    font-size: 9px;
-    padding: 3px 7px;
+    font-size: 9.5px;
+    padding: 4px 8px;
+  }
+  .shv-val-banner {
+    padding: 10px 12px;
+    margin: 10px 0 14px;
   }
   .shv-val-banner .val-amt {
     font-size: 22px;
   }
-  .shv-btn-buy, .shv-btn-cart {
+  .finale-cd {
+    justify-content: center;
+    gap: 6px;
+  }
+  .finale-cd .fc-cell {
+    min-width: 56px;
+    padding: 6px 8px;
+    border-radius: 10px;
+  }
+  .finale-cd .fc-cell b {
+    font-size: 20px;
+  }
+  .finale-cd .fc-cell span {
+    font-size: 8.5px;
+  }
+  .shv-studs-sec {
+    padding: 16px 0 40px;
+  }
+  .shv-studs-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .shv-collection-tabs {
+    display: flex;
+    width: 100%;
+    gap: 8px;
+  }
+  .shv-tab-btn {
+    flex: 1;
     min-height: 44px;
-    font-size: 13.5px;
-    padding: 10px 12px;
+    font-size: 12px;
+    padding: 8px 10px;
+    text-align: center;
+    touch-action: manipulation;
+  }
+  .shv-stud-card {
+    padding: 16px 14px;
+    border-radius: 20px;
+  }
+  .shv-stud-img-wrap {
+    aspect-ratio: 1;
+    border-radius: 14px;
+    max-height: 280px;
+  }
+  .shv-stud-name {
+    font-size: 18px;
+    margin: 6px 0 4px;
+  }
+  .shv-stud-desc {
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .shv-stud-acts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin-top: 14px;
+  }
+  .shv-btn-buy, .shv-btn-cart {
+    width: 100%;
+    min-height: 48px;
+    font-size: 14px;
+    padding: 12px 16px;
+    border-radius: 24px;
     touch-action: manipulation;
   }
   .btn-xl {
-    min-height: 46px;
+    min-height: 48px;
     font-size: 13.5px;
     padding: 12px 18px;
     width: 100%;
+    border-radius: 24px;
+    touch-action: manipulation;
   }
   .shv-poster-cta-row {
     flex-direction: column;
     gap: 10px;
+    width: 100%;
+  }
+  .shv-gender-portal {
+    padding: 24px 0 40px;
+  }
+  .shv-portal-head h2 {
+    font-size: 26px;
+  }
+  .shv-portal-head p {
+    font-size: 13.5px;
+  }
+  .shv-gender-card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+  .shv-gender-btn {
+    min-height: 44px;
+    font-size: 12.5px;
+    width: 100%;
+    touch-action: manipulation;
   }
 }
 
@@ -1651,16 +1752,14 @@ html [data-camp].camp-off { display: none !important; }
   .shv-pillars-grid { grid-template-columns: 1fr; gap: 12px; }
   .shv-pillar-card { padding: 16px 12px; }
   .shv-pillar-card h3 { font-size: 16px; }
-  .shv-pillar-card p { font-size: 12.5px; }
-  .shv-gender-card { padding: 14px 12px; }
-  .shv-gender-content h3 { font-size: 19px; }
-  .shv-gender-content p { font-size: 12.5px; }
-  .shv-stud-card { padding: 14px 12px; }
-  .shv-stud-name { font-size: 17px; }
-  .shv-stud-sub { font-size: 11.5px; }
+  .shv-pillar-card p { font-size: 12px; }
+  .shv-gender-content h3 { font-size: 18px; }
+  .shv-gender-content p { font-size: 12px; }
   .shv-stud-price { font-size: 19px; }
-  .shv-val-banner { padding: 10px 12px; }
   .shv-hcc-title { font-size: 20px; }
-  .shv-hcc-sub { font-size: 13px; }
+  .shv-hcc-sub { font-size: 12.5px; }
+  .shv-poster-art { gap: 14px; }
+  .shv-poster-img-frame { width: 100%; max-width: 280px; }
+  .fin-bar { width: 100%; max-width: 260px; }
 }
   
