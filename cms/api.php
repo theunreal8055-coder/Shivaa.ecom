@@ -470,6 +470,17 @@ function cashfree_sanitize_id(string $v, int $max = 50): string {
   return substr((string)$v, 0, $max);
 }
 
+function campaign_studs_catalog(): array {
+  return [
+    'p_stud_m1' => ['id' => 'p_stud_m1', 'sku' => 'SHV-MST-01', 'name' => "Shivaa Rudra 22K Gold Men's Stud", 'weightG' => 2.85, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-mens-rudra.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Solid 22K Gold Men Stud with octagonal facets.'],
+    'p_stud_m2' => ['id' => 'p_stud_m2', 'sku' => 'SHV-MST-02', 'name' => "Shivaa Veer 22K Gold Men's Stud", 'weightG' => 3.20, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-mens-veer.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Square prism diamond-cut solid 22K Gold Men Stud.'],
+    'p_stud_m3' => ['id' => 'p_stud_m3', 'sku' => 'SHV-MST-03', 'name' => "Shivaa Surya 22K Gold Men's Stud", 'weightG' => 2.50, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-mens-surya.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Radial sunburst 22K Gold Men Stud.'],
+    'p_stud_w1' => ['id' => 'p_stud_w1', 'sku' => 'SHV-LST-01', 'name' => "Shivaa Mayura 22K Gold Ladies Studs (Pair)", 'weightG' => 3.40, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-ladies-mayura.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Floral filigree solid 22K Gold Ladies Studs pair.'],
+    'p_stud_w2' => ['id' => 'p_stud_w2', 'sku' => 'SHV-LST-02', 'name' => "Shivaa Chandrika 22K Gold Ladies Studs (Pair)", 'weightG' => 2.90, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-ladies-chandrika.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Crescent bloom diamond-cut 22K Gold Ladies Studs pair.'],
+    'p_stud_w3' => ['id' => 'p_stud_w3', 'sku' => 'SHV-LST-03', 'name' => "Shivaa Tara 22K Gold Ladies Studs (Pair)", 'weightG' => 3.15, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-ladies-tara.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Celestial star cluster 22K Gold Ladies Studs pair.'],
+  ];
+}
+
 /* v142 · GUEST EXPRESS CHECKOUT — a shopper who buys without an account still
    needs to reach their own order afterwards (the Cashfree return lands on the
    order page, and the page's pin poller reads orders/{id}). The bearer for that
@@ -3078,7 +3089,16 @@ try {
   if (preg_match('#^products/([\w-]+)$#', $route, $m)) {
     $idx = null; foreach ($db['products'] as $i => $x) if ($x['id'] === $m[1]) $idx = $i;
     if ($method === 'GET') {
-      if ($idx === null) jout(404, ['error' => 'Not found']);   // v82 — never index with null
+      if ($idx === null) {
+        $camps = campaign_studs_catalog();
+        if (isset($camps[$m[1]])) {
+          $R = current_rates($db);
+          $p = $camps[$m[1]];
+          $p['price'] = compute_price($p, $R);
+          jout(200, ['product' => $p, 'rates' => current_rates($db), 'similar' => [], 'reviews' => []]);
+        }
+        jout(404, ['error' => 'Not found']);   // v82 — never index with null
+      }
       $R = current_rates($db);
       $similar = [];
       foreach ($db['products'] as $x) if ($x['category'] === $db['products'][$idx]['category'] && $x['id'] !== $m[1] && !empty($x['active'])) { $y = hallmark_product($x); $y['price'] = compute_price($x, $R); $similar[] = $y; if (count($similar) >= 4) break; }
@@ -3891,18 +3911,24 @@ try {
       }
     }
     $subtotal = 0; $items = [];
+    $allProds = array_merge($db['products'], array_values(campaign_studs_catalog()));
     foreach (($b['items'] ?? []) as $it) {
       if (!is_array($it)) continue;
       $qty = (int)($it['qty'] ?? 1);
       if ($qty < 1) $qty = 1; elseif ($qty > 99) $qty = 99;
-      foreach ($db['products'] as $prod) if ($prod['id'] === ($it['id'] ?? null)) {
+      $targetId = (string)($it['id'] ?? ($it['productId'] ?? ''));
+      foreach ($allProds as $prod) if ($prod['id'] === $targetId || ($prod['sku'] ?? '') === $targetId) {
         $pr = compute_price($prod, $R);
-        $line = ['productId' => $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null,
+        $line = ['productId' => $prod['id'], 'sku' => $prod['sku'] ?? $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null,
                  'qty' => $qty, 'weightG' => $prod['weightG'], 'purity' => $prod['purity'], 'metal' => $prod['metal'],
                  'hsn' => ($prod['metal'] ?? '') === 'Silver' ? '71131110' : '71131910',
                  'unitPrice' => $pr['total'], 'ratePerGram' => $pr['ratePerGram'], 'makingCharge' => $pr['makingCharge'], 'gst' => $pr['gst'],
                  'size' => isset($it['size']) ? mb_substr(trim((string)$it['size']), 0, 30) : null,
                  'engraving' => isset($it['engraving']) ? mb_substr(trim((string)$it['engraving']), 0, 80) : null];
+        if (!empty($prod['isCampaignStud']) || array_key_exists($prod['id'], campaign_studs_catalog())) {
+          $line['isCampaignStud'] = true;
+          $line['campaignStud'] = true;
+        }
         $subtotal += $line['unitPrice'] * $line['qty'];
         $items[] = $line; break;
       }
@@ -4460,15 +4486,21 @@ try {
     $co = (string)($_GET['co'] ?? '');
     $orderId = preg_match('/^[A-Za-z0-9_-]{1,48}$/', $co) ? substr($co, 0, 48) : '';
     $rp = '';
+    $isCampOrder = false;
     if ($orderId !== '') {          // v142 · guest express orders ride their pin home
       foreach ($db['orders'] as $x) if (($x['id'] ?? '') === $orderId) {
         if (($x['guest'] ?? false) === true && !empty($_GET['pin'])
             && hash_equals(shv_guest_pin($x), trim((string)$_GET['pin']))) $rp = '&pin=' . rawurlencode((string)$_GET['pin']);
+        if (finale_qualifies($x['items'] ?? [])) $isCampOrder = true;
         break;
       }
     }
-    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?cf=pending' . $rp
-                             : '/#/account?tab=orders';
+    if ($isCampOrder && $orderId !== '') {
+      $target = '/#/scheme?step=quiz&orderId=' . rawurlencode($orderId) . '&cf=pending' . $rp;
+    } else {
+      $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?cf=pending' . $rp
+                               : '/#/account?tab=orders';
+    }
     header('Cache-Control: no-store');
     header('Location: ' . $target, true, 302);
     exit;
@@ -6519,6 +6551,24 @@ try {
       return 0;
     }
 
+    $b = body_json();
+    $pin = (string)($b['pin'] ?? ($_GET['pin'] ?? ''));
+    $order_id_req = trim((string)($b['orderId'] ?? ($_GET['orderId'] ?? '')));
+    if (!$u && !empty($order_id_req) && !empty($pin)) {
+      foreach ($db['orders'] as $o) {
+        if ($o['id'] === $order_id_req && ($o['guest'] ?? false) === true && hash_equals(shv_guest_pin($o), $pin)) {
+          $u = [
+            'id' => 'guest_' . $o['id'],
+            'name' => (string)($o['address']['name'] ?? 'Valued Customer'),
+            'phone' => (string)($o['address']['phone'] ?? ''),
+            'email' => '',
+            'role' => 'guest'
+          ];
+          break;
+        }
+      }
+    }
+
     if ($route === 'finale/quiz' && $method === 'GET') {
       if (!$u) jout(401, ['error' => 'Login required']);
       $my = finale_entry_for($db, $u['id']);
@@ -6546,7 +6596,6 @@ try {
       if (!$u) jout(401, ['error' => 'Login required']);
       if (!$is_open) jout(403, ['error' => 'The Gold Biscuit Campaign has concluded. Thank you for being part of it.']);
       if (!$accepting) jout(403, ['error' => 'Entries closed — the CA-witnessed live draw takes place on draw night.']);
-      $b = body_json();
       $route_type = ($b['route'] ?? '') === 'free' ? 'free' : 'purchase';
       $order_id = $route_type === 'purchase' ? trim((string)($b['orderId'] ?? '')) : null;
 
@@ -6569,7 +6618,8 @@ try {
         if (!$order_id) jout(400, ['error' => 'Order reference missing.']);
         $ord = null; foreach ($db['orders'] as $o) if ($o['id'] === $order_id) $ord = $o;
         if (!$ord) jout(404, ['error' => 'Order not found.']);
-        if (($ord['userId'] ?? '') !== $u['id']) jout(403, ['error' => 'This order does not belong to your account.']);
+        $isOwner = (($ord['userId'] ?? '') === $u['id']) || ($u['id'] === 'guest_' . $ord['id']);
+        if (!$isOwner) jout(403, ['error' => 'This order does not belong to your account.']);
         $ost = (string)($ord['status'] ?? '');
         $pst = (string)($ord['paymentStatus'] ?? '');
         if (in_array($ost, ['Cancelled', 'Returned', 'Refunded'], true))

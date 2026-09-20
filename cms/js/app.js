@@ -1208,7 +1208,7 @@ function finaleLanding() {
           <span class="num">4</span> 3 Curated Studs
         </button>
         <span class="shv-stepper-sep">→</span>
-        <button type="button" class="shv-step-btn" data-step="quiz" onclick="toast('Complete purchase of any campaign stud to unlock the quiz ✦')">
+        <button type="button" class="shv-step-btn" data-step="quiz" onclick="Shivaa.setSchemeStep('quiz')">
           <span class="num">5</span> 1-Attempt Quiz
         </button>
       </div>
@@ -1456,6 +1456,32 @@ function finaleLanding() {
         </div>
       </section>
     </div>
+
+    <!-- STAGE 5: 1-ATTEMPT QUIZ STAGE -->
+    <div class="shv-scheme-stage" data-stage="quiz" id="stageQuiz">
+      <section class="container" style="max-width:860px;padding:40px 16px 80px;text-align:center">
+        <div class="rv in" style="background:var(--obsidian-card);border:1px solid rgba(212,175,90,0.35);border-radius:24px;padding:40px 24px;box-shadow:0 16px 48px rgba(0,0,0,0.5)">
+          <span class="fh-kicker">✦ Step 5 · Official CA-Audited Entry</span>
+          <h2 style="color:#fff9ea;font-family:var(--ff-disp);font-size:clamp(26px,3.5vw,40px);margin:8px 0 14px">
+            10g Gold Biscuit <span class="gold-txt">1-Attempt Scored Quiz</span>
+          </h2>
+          <p style="color:rgba(246,232,200,0.85);max-width:640px;margin:0 auto 24px;font-size:15px;line-height:1.6">
+            Unlocked upon purchasing any of our 6 exclusive 22K Gold Campaign Ear Studs. Answer 5 jewellery craft questions to register your single official entry into the CA-witnessed draw.
+          </p>
+          <div class="shv-strict-warning" style="max-width:600px;margin:0 auto 28px;text-align:left">
+            <b>⚠️ Strict 1-Attempt Policy:</b> Every question can be attempted only once. Your score is permanently committed to the CA ledger upon submission — zero retries allowed under any circumstance.
+          </div>
+          <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+            <button type="button" class="btn btn-gold btn-xl shv-pulse-cta" onclick="Shivaa.fqOpen({route:'purchase', orderId: window._lastOrder?.id})">
+              Start / Resume Official Quiz ✦
+            </button>
+            <button type="button" class="btn btn-outline btn-xl" onclick="Shivaa.setSchemeStep('products')">
+              ← View 6 Campaign Ear Studs
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>`;
 }
 
@@ -1473,12 +1499,17 @@ window.Shivaa.setSchemeStep = (step = 'poster', gender = 'gents') => {
   } catch (e) {}
 
   renderSchemeStage(step, gender);
+  if (step === 'quiz') {
+    setTimeout(() => {
+      fqOpen({ route: 'purchase', orderId: window._lastOrder?.id });
+    }, 400);
+  }
 };
 
 function renderSchemeStage(step, gender) {
   $$('.shv-step-btn').forEach(btn => {
     const s = btn.dataset.step;
-    btn.classList.toggle('active', s === step || (step === 'products' && s === 'products') || (step === 'gender' && s === 'gender') || (step === 'landing' && s === 'landing'));
+    btn.classList.toggle('active', s === step || (step === 'products' && s === 'products') || (step === 'gender' && s === 'gender') || (step === 'landing' && s === 'landing') || (step === 'quiz' && s === 'quiz'));
   });
 
   $$('.shv-scheme-stage').forEach(el => {
@@ -1566,7 +1597,7 @@ window.Shivaa.addCampaignToCart = async (productId) => {
   const p = (state.productsCache || []).find(x => x.id === productId) ||
             Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === productId);
   if (!p) { toast('Product details loading...', 'err'); return; }
-  await addToCart(p, 1);
+  addToCart(productId, 1);
   toast(`Added ${p.name} to bag! Qualifies for 10g Gold Biscuit Draw ✦`);
   openCart();
 };
@@ -1575,7 +1606,17 @@ window.Shivaa.buyCampaignStud = async (productId) => {
   const p = (state.productsCache || []).find(x => x.id === productId) ||
             Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === productId);
   if (!p) { toast('Product details loading...', 'err'); return; }
-  await addToCart(p, 1);
+
+  /* Directly launch Cashfree Payment Portal for guest 1-tap checkout */
+  if (expressCheckoutOn() && !state.user) {
+    window.Shivaa._expressItem = { id: productId, qty: 1 };
+    try { store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() }); } catch (e) {}
+    if (await window.Shivaa.exDirect(false)) return;
+    window.Shivaa._expressItem = null;
+    try { store.set('shv_ex_item', null); } catch (e) {}
+  }
+
+  addToCart(productId, 1, null, null, { silent: true });
   location.hash = '#/checkout';
 };
 
@@ -1611,9 +1652,9 @@ function fqGetStatus() {
   return api('/api/finale/entry').then(r => r.entry || null).catch(() => null);
 }
 
-function fqRequireAuth(route, orderId) {
-  if (state.user) return true;
-  FQ.pending = { route, orderId };
+function fqRequireAuth(route, orderId, pin) {
+  if (state.user || (orderId && pin)) return true;
+  FQ.pending = { route, orderId, pin };
   openLogin(location.hash || '#/scheme');
   return false;
 }
@@ -1755,9 +1796,10 @@ function fqShowReviewModal() {
 window.Shivaa.fqSubmitFinal = async () => {
   const qz = FQ.cache;
   if (!qz) return;
-  const ctx = window._fqCtx || { route: 'purchase', orderId: null };
+  const ctx = window._fqCtx || { route: 'purchase', orderId: null, pin: null };
   const route = ctx.route || 'purchase';
   const orderId = ctx.orderId || null;
+  const pin = ctx.pin || window._fqPin || null;
 
   const answers = qz.questions.map(q => ({ id: q.id, c: FQ.answers[q.id] !== undefined ? FQ.answers[q.id] : 0 }));
   const btn = $('#fqSubBtn');
@@ -1765,14 +1807,17 @@ window.Shivaa.fqSubmitFinal = async () => {
   if (btn) { btn.disabled = true; btn.textContent = 'Verifying & Submitting…'; }
 
   try {
+    const payload = {
+      route,
+      orderId,
+      checks: { age18: true, notExcluded: true, notInsider: true },
+      answers
+    };
+    if (pin) payload.pin = pin;
+
     const r = await api('/api/finale/entry', {
       method: 'POST',
-      body: JSON.stringify({
-        route,
-        orderId,
-        checks: { age18: true, notExcluded: true, notInsider: true },
-        answers
-      })
+      body: JSON.stringify(payload)
     });
     FQ.pending = null;
     fqShowCertificate(r.entry || r);
@@ -1816,6 +1861,7 @@ function fqShowCertificate(entry) {
 
 function finaleBandHTML(order, entry) {
   const orderId = order.id;
+  const pin = order.pin || '';
   return `<div class="container fb-wrap fb-wrap-tight">
     <div class="fb-main">
       <span class="fb-kicker"><i>✦</i> 10g Gold Biscuit Scheme · Qualifying Order</span>
@@ -1826,7 +1872,7 @@ function finaleBandHTML(order, entry) {
       <div class="fb-cta">
         ${entry
           ? '<a class="btn btn-gold btn-lg" href="#/scheme">See Scheme Page</a>'
-          : `<button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.fqOpen({route:'purchase',orderId:${jsArg(orderId)}})">Take the 1-Attempt Quiz ✦</button>`}
+          : `<button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.fqOpen({route:'purchase',orderId:${jsArg(orderId)},pin:${pin ? jsArg(pin) : 'null'}})">Take the 1-Attempt Quiz ✦</button>`}
         <a class="btn btn-light btn-lg" href="#/shop">Continue Shopping</a>
       </div>
       <ul class="fb-chips">
@@ -1844,14 +1890,15 @@ function finaleBandRefresh(entry) {
   band.innerHTML = finaleBandHTML(order, entry);
 }
 
-async function fqOpen({ route = 'purchase', orderId = null } = {}) {
+async function fqOpen({ route = 'purchase', orderId = null, pin = null } = {}) {
   if (!finaleLive()) { toast('The Gold Biscuit Campaign has ended — thank you for being part of it.', 'err'); return; }
-  if (!fqRequireAuth(route, orderId)) return;
-  window._fqCtx = { route, orderId };
+  if (!fqRequireAuth(route, orderId, pin)) return;
+  window._fqCtx = { route, orderId, pin };
   FQ.pending = null;
-  window._fqRoute = route; window._fqOrderId = orderId;
+  window._fqRoute = route; window._fqOrderId = orderId; window._fqPin = pin;
   try {
-    const data = await api('/api/finale/quiz');
+    const qStr = (orderId ? '?orderId=' + encodeURIComponent(orderId) + (pin ? '&pin=' + encodeURIComponent(pin) : '') : '');
+    const data = await api('/api/finale/quiz' + qStr);
     FQ.cache = data;
     if (data.alreadySubmitted || (data.entry && data.entry.id)) {
       return fqShowCertificate(data.entry || { score: data.submittedScore || 5, total: 5, orderId });
@@ -1859,7 +1906,7 @@ async function fqOpen({ route = 'purchase', orderId = null } = {}) {
     if (!data.accepting) return fqShowClosed(data.reason);
     fqShowIntro(route, orderId, data);
   } catch (err) {
-    if (!state.user) { fqRequireAuth(route, orderId); return; }
+    if (!state.user && !pin) { fqRequireAuth(route, orderId, pin); return; }
     toast(err.message || 'The quiz is busy — please try again.', 'err');
   }
 }
@@ -3727,10 +3774,19 @@ async function exGate() {
   return !!(c.cfg && c.cfg.mode === 'cashfree' && c.cfg.guestCheckout === true);
 }
 async function exItems(fromCart) {
-  if (fromCart) return state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+  if (fromCart) {
+    return state.cart.map(c => {
+      let p = state.productsCache.find(x => x.id === c.id);
+      if (!p && typeof CAMPAIGN_STUDS_DATA !== 'undefined') p = Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === c.id);
+      return p ? { ...c, p } : null;
+    }).filter(Boolean);
+  }
   const it = window.Shivaa._expressItem;
   if (!it || !it.id) return [];
   let p = state.productsCache.find(x => x.id === it.id);
+  if (!p && typeof CAMPAIGN_STUDS_DATA !== 'undefined') {
+    p = Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === it.id);
+  }
   if (!p) { try { const one = await api('/api/products/' + it.id); p = one.product || null; } catch (e) {} }
   return p ? [{ id: it.id, qty: it.qty || 1, size: it.size || null, engraving: it.engraving || null, p }] : [];
 }
@@ -5287,7 +5343,13 @@ window.Shivaa.placeOrder = async () => {
     if (state.user) state.user.loyaltyPoints = Math.max(0, (state.user.loyaltyPoints || 0) - (order.pointsUsed || 0));
     window._lastOrder = order;
     // v128 — online prepayment (Cashfree live when configured, simulated in demo)
-    if (paymentMethod === 'Online') await Shivaa.payForOrder(order.id, { fromCheckout: true });
+    if (paymentMethod === 'Online') {
+      const paidOk = await Shivaa.payForOrder(order.id, { fromCheckout: true });
+      if (paidOk && finaleLive() && finaleQualifiesItems((order && order.items) || []).ok) {
+        location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(order.id) + (order.pin ? '&pin=' + encodeURIComponent(order.pin) : '');
+        return;
+      }
+    }
     // Gold Finale: remember a qualifying order so the order page can offer the quiz
     try {
       if (finaleLive() && finaleQualifiesItems((order && order.items) || []).ok) sessionStorage.setItem('fqPrompt', order.id);
@@ -5507,6 +5569,15 @@ pages.order = async (view, q, id) => {
   try { order = (await api('/api/orders/' + id + (pin ? '?pin=' + encodeURIComponent(pin) : ''))).order; }
   catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Order not found</h3><p style="color:var(--ink-3)">If you paid as a guest, this link may have expired — please contact the shop on WhatsApp.</p></div>`; return; }
   window._lastOrder = order;
+
+  // If a campaign stud order is confirmed paid, navigate directly to the quiz
+  const isPaidNow = /paid/i.test(order.paymentStatus || '') || String(q.get('cf') || '').toLowerCase() === 'success';
+  if (isPaidNow && finaleLive() && finaleQualifiesItems(order.items || []).ok && sessionStorage.getItem('fqPrompt') === order.id) {
+    sessionStorage.removeItem('fqPrompt');
+    location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(order.id) + (pin ? '&pin=' + encodeURIComponent(pin) : '');
+    return;
+  }
+
   // v128 — returning from the Cashfree hosted page (?cf=success|pending|fail)
   const ppReturn = String(q.get('cf') || '').toLowerCase();
   const ppBannerHTML = ppReturn === 'success'
@@ -5607,6 +5678,10 @@ pages.order = async (view, q, id) => {
         const ps = String(o.paymentStatus || '');
         if (/^paid$/i.test(ps) || /partially paid/i.test(ps)) {
           toast('Cashfree payment confirmed ✦');
+          if (finaleLive() && finaleQualifiesItems(o.items || []).ok) {
+            location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(id) + (pin ? '&pin=' + encodeURIComponent(pin) : '');
+            return;
+          }
           history.replaceState(null, '', '#/order/' + encodeURIComponent(id) + (pin ? '?pin=' + encodeURIComponent(pin) : ''));
           return pages.order(view, new URLSearchParams(pin ? 'pin=' + encodeURIComponent(pin) : ''), id);
         }
@@ -8864,11 +8939,20 @@ pages.scheme = async (view) => {
     else if (seg[1] === 'gender') step = 'gender';
     else if (seg[1] === 'gents') { step = 'products'; gender = 'gents'; }
     else if (seg[1] === 'ladies') { step = 'products'; gender = 'ladies'; }
+    else if (seg[1] === 'quiz') step = 'quiz';
     else step = 'poster';
   }
 
   window._schemeState = { step, gender };
   renderSchemeStage(step, gender);
+
+  if (step === 'quiz') {
+    const orderId = q.get('orderId') || (window._lastOrder && window._lastOrder.id);
+    const pin = q.get('pin') || (guestPinFor ? guestPinFor(q, orderId) : '');
+    setTimeout(() => {
+      fqOpen({ route: 'purchase', orderId, pin });
+    }, 350);
+  }
 };
 pages.finale = pages.scheme;
 pages['gold-biscuit'] = pages.scheme;
