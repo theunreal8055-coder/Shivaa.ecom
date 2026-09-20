@@ -565,8 +565,8 @@ function cashfree_call(array $cfg, string $method, string $path, ?array $body = 
    simply merge. `cart_details` is what makes the checkout summary show the
    actual pieces; `products.one_click_checkout.conditions` is what turns on the
    verified login and the pre-filled address. */
-function cashfree_occ_block(array $cfg, array $db, array $o): array {
-  if (empty($cfg['occ'])) return [];
+function cashfree_occ_block(array $cfg, array $db, array $o, bool $force = false): array {
+  if (empty($cfg['occ']) && !$force) return [];
   $features = [];
   if (!empty($cfg['occAddress'])) $features[] = 'checkoutCollectAddress';
   if (!empty($cfg['occAuth'])) $features[] = 'checkoutAuthenticate';
@@ -4237,11 +4237,11 @@ try {
           $phone = substr($uPhone, -10);
         }
       }
+      if (!$u && $phone === '9999999999'
+          && (string)($o['address']['line'] ?? '') !== 'Collected on Cashfree (verified address)')
+        jout(400, ['error' => 'Please enter your real mobile number — Cashfree needs a 10-digit phone to start the payment.']);
       $isSentinel = ($phone === '9999999999');
       $isBoundary = ((string)($o['address']['line'] ?? '') === 'Collected on Cashfree (verified address)');
-      if ($isSentinel && !$isBoundary && empty($guest)) {
-        jout(400, ['error' => 'Please enter your real mobile number — Cashfree needs a 10-digit phone to start the payment.']);
-      }
       $name = trim((string)(($o['address']['name'] ?? '') ?: ($u['name'] ?? '')));
       $name = substr(preg_replace('#[<>|]#', '', $name) ?: 'Customer', 0, 60);
       $email = trim((string)($u['email'] ?? $o['email'] ?? ''));
@@ -4249,6 +4249,11 @@ try {
         // Cashfree wants a syntactically valid email; use a neutral placeholder
         $email = 'orders@' . (preg_replace('#[^a-z0-9.-]#', '', (string)parse_url($base, PHP_URL_HOST)) ?: 'shivaa.in');
       }
+      $storePhone = preg_replace('/\D/', '', (string)($db['settings']['phone'] ?? '8905005921'));
+      $storePhone10 = (strlen($storePhone) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($storePhone, -10))) ? substr($storePhone, -10) : '8905005921';
+      $cfPhone = (strlen($phone) === 10 && preg_match('/^[6-9]\d{9}$/', $phone) && !preg_match('/^(\d)\1{9}$/', $phone))
+        ? $phone
+        : $storePhone10;
       $payload = [
         'order_id' => $cfOrderId,
         'order_amount' => round($due, 2),
@@ -4257,7 +4262,7 @@ try {
           'customer_id' => cashfree_sanitize_id((string)($u['id'] ?? 'guest'), 32) ?: 'guest',
           'customer_name' => $name,
           'customer_email' => $email,
-          'customer_phone' => $phone,   // v143 — always a 10-digit number; empty phone rejected above
+          'customer_phone' => $cfPhone,   // v143/v161 — always a verified 10-digit number for Cashfree PG
         ],
         'order_meta' => [
           // {order_id} is replaced by Cashfree at redirect time (documented placeholder)
@@ -4271,7 +4276,7 @@ try {
       /* v139/v161 · One Click Checkout */
       $occOn = !empty($cfg['occ']) || $isSentinel || $isBoundary || $guest;
       if ($occOn) {
-        $occBlock = cashfree_occ_block($cfg, $db, $o);
+        $occBlock = cashfree_occ_block($cfg, $db, $o, $occOn);
         if ($occBlock) {
           $payload = array_merge($payload, $occBlock);
           if ($guest || $isSentinel || $isBoundary || !empty($cfg['cfOccAuth'])) {

@@ -1758,10 +1758,11 @@ window.Shivaa.buyCampaignStud = async (productId) => {
     toast('Opening Cashfree 1-Click checkout…');
 
     const validPh = ph => Boolean(ph && /^[6-9]\d{9}$/.test(String(ph).replace(/\D/g, '').slice(-10)));
-    const userPhone = (state.user && validPh(state.user.phone)) ? String(state.user.phone).replace(/\D/g, '').slice(-10) : EX_BOUNDARY.phone;
+    const savedPhone = (state.user && state.user.phone) || store.get('shv_phone') || store.get('shv_user_phone') || '';
+    const userPhone = validPh(savedPhone) ? String(savedPhone).replace(/\D/g, '').slice(-10) : EX_BOUNDARY.phone;
     const addr = {
       ...EX_BOUNDARY,
-      name: (state.user && state.user.name) || EX_BOUNDARY.name,
+      name: validPh(userPhone) ? ((state.user && state.user.name) || EX_BOUNDARY.name) : EX_BOUNDARY.name,
       phone: userPhone,
     };
 
@@ -1791,7 +1792,7 @@ window.Shivaa.buyCampaignStud = async (productId) => {
         location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(res.id) + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '') + '&cf=pending';
       } catch (cfErr) {
         console.warn('Cashfree payment cancelled/failed:', cfErr);
-        toast('भुगतान पूरा नहीं हो सका — आप दोबारा डिज़ाइन चुनकर बाय नाउ कर सकते हैं ✦', 'err');
+        toast('कैशफ्री चेकआउट लोड नहीं हो सका — कृपया पुनः प्रयास करें ✦', 'err');
         const g = window._schemeState?.gender || (p.tags && p.tags.includes('ladies') ? 'ladies' : 'gents');
         Shivaa.setSchemeStep('products', g);
       }
@@ -5427,37 +5428,71 @@ function cashfreeRedirectSheet(retry) {
   const cancel = $('#cfCancel'); if (cancel) cancel.onclick = () => { closeModal(); resolve(false); };
   });
 }
-/* v128 — Cashfree hosted checkout (Step 2): load the official JS SDK and open
+/* v128/v161 — Cashfree hosted checkout (Step 2): load the official JS SDK and open
    the PCI-compliant payment page with the payment_session_id the server minted.
-   redirectTarget _self replaces this page; Cashfree sends the customer back to
-   the return_url, which the server verifies before crediting the order. */
+   redirectTarget _modal provides in-app popup while redirectTarget: '_self'
+   provides seamless redirection when modal is blocked or on mobile. */
 window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
-  const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 15000, () => typeof window.Cashfree === 'function');
-  if (!ok || typeof window.Cashfree !== 'function') throw new Error('Cashfree could not load — check your internet connection and try again');
-  const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
-  let res;
+  const sess = String(paymentSessionId || '').trim();
+  if (!sess) throw new Error('Cashfree session ID missing');
+
+  // Direct checkout fallback helper (submits hidden form to Cashfree checkout URL)
+  const submitHostedForm = () => {
+    const action = env === 'sandbox'
+      ? 'https://sandbox.cashfree.com/pg/view/sessions/checkout'
+      : 'https://api.cashfree.com/pg/view/sessions/checkout';
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = action;
+    form.target = '_self';
+    form.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payment_session_id';
+    input.value = sess;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    return true;
+  };
+
   try {
-    res = await Promise.race([
-      cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_modal' }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('__cf_timeout__')), 25000))
-    ]);
-  } catch (e) {
-    if (e && e.message === '__cf_timeout__') {
-      console.warn('Cashfree modal timed out or blocked — falling back to redirect');
-      return cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' });
+    const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 15000, () => typeof window.Cashfree === 'function');
+    if (!ok || typeof window.Cashfree !== 'function') {
+      return submitHostedForm();
     }
-    // If modal failed for another reason, try redirect target _self as fallback
+    const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
+    const isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+    if (isMobile) {
+      return cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
+    }
+
+    let res;
     try {
-      return await cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' });
-    } catch (e2) {
-      throw new Error('Cashfree checkout failed: ' + ((e && e.message) ? e.message : String(e)));
+      res = await Promise.race([
+        cf.checkout({ paymentSessionId: sess, redirectTarget: '_modal' }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('__cf_timeout__')), 20000))
+      ]);
+    } catch (e) {
+      if (e && e.message === '__cf_timeout__') {
+        console.warn('Cashfree modal timed out or blocked — falling back to redirect');
+        return cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
+      }
+      try {
+        return await cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
+      } catch (e2) {
+        throw new Error('Cashfree checkout failed: ' + ((e && e.message) ? e.message : String(e)));
+      }
     }
+    if (res && res.error) {
+      const em = res.error.message || res.error.code || res.error.description;
+      throw new Error('Cashfree refused to open: ' + (em || JSON.stringify(res.error)));
+    }
+    return res || true;
+  } catch (e) {
+    console.warn('Cashfree SDK checkout exception, falling back to direct hosted form:', e);
+    return submitHostedForm();
   }
-  if (res && res.error) {
-    const em = res.error.message || res.error.code || res.error.description;
-    throw new Error('Cashfree refused to open: ' + (em || JSON.stringify(res.error)));
-  }
-  return res || true;
 };
 window.Shivaa.payForOrder = async (orderId, pin) => {
   let po;
