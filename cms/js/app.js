@@ -794,30 +794,100 @@ function bindCountdown(el, target) {
    is implemented further below in this file.
    ═══════════════════════════════════════════════════════════════════ */
 const FINALE = {
-  route: 'finale',
-  name: 'The Bhai Dooj Gold Finale',
+  route: 'scheme',
+  altRoute: 'finale',
+  name: 'Shivaa 10g Gold Biscuit Scheme',
   drawLabel: 'Bhai Dooj · 11 November 2026',
-  // last moment of the draw day (local time — site audience is India/IST)
-  drawAt: Date.parse('2026-11-11T23:59:59+05:30'),   // v107 — IST-absolute instants (host-TZ-proof)
-  // the module switches itself off from the first moment of 1 Dec 2026
+  drawAt: Date.parse('2026-11-11T23:59:59+05:30'),
   endAt: Date.parse('2026-12-01T00:00:00+05:30'),
 };
 const finaleLive = () => Date.now() < FINALE.endAt;
 
-/* show/hide static campaign presences (nav + footer links). Elements
-   start with .camp-off in the markup so nothing flashes pre-boot, and
-   the class — not an inline style — also wins over the mobile drawer's
-   display:flex !important rules. */
+const CAMPAIGN_STUD_IDS = ['p_stud_m1', 'p_stud_m2', 'p_stud_m3', 'p_stud_w1', 'p_stud_w2', 'p_stud_w3'];
+const CAMPAIGN_STUD_SKUS = ['SHV-MST-01', 'SHV-MST-02', 'SHV-MST-03', 'SHV-LST-01', 'SHV-LST-02', 'SHV-LST-03'];
+
+const CAMPAIGN_STUDS_DATA = {
+  gents: [
+    {
+      id: 'p_stud_m1',
+      sku: 'SHV-MST-01',
+      name: "Shivaa Rudra 22K Gold Men's Stud",
+      subtitle: "Bold Octagonal Royal Facet",
+      weightG: 2.85,
+      purity: '22K',
+      mcPct: 12,
+      images: ['/images/products/stud-mens-rudra.jpg'],
+      desc: 'Forged in certified solid 22K yellow gold (2.85 g) with sharp octagonal masculine symmetry and mirror-polish facets. Crafted for everyday royal distinction.'
+    },
+    {
+      id: 'p_stud_m2',
+      sku: 'SHV-MST-02',
+      name: "Shivaa Veer 22K Gold Men's Stud",
+      subtitle: "Contemporary Diamond-Cut Square Prism",
+      weightG: 3.20,
+      purity: '22K',
+      mcPct: 12,
+      images: ['/images/products/stud-mens-veer.jpg'],
+      desc: 'Precision micro-textured diamond-cut square prism in certified 22K gold (3.20 g). Clean architectural geometry meeting timeless Rajasthani gold craft.'
+    },
+    {
+      id: 'p_stud_m3',
+      sku: 'SHV-MST-03',
+      name: "Shivaa Surya 22K Gold Men's Stud",
+      subtitle: "Sunburst Radiance Heritage Stud",
+      weightG: 2.50,
+      purity: '22K',
+      mcPct: 12,
+      images: ['/images/products/stud-mens-surya.jpg'],
+      desc: 'Iconic solar carved radial facets encircling a polished golden core in solid 22K gold (2.50 g). Understated luxury with high-luster reflectivity.'
+    }
+  ],
+  ladies: [
+    {
+      id: 'p_stud_w1',
+      sku: 'SHV-LST-01',
+      name: "Shivaa Mayura 22K Gold Ladies Studs (Pair)",
+      subtitle: "Royal Floral Blossom & Micro Filigree",
+      weightG: 3.40,
+      purity: '22K',
+      mcPct: 12,
+      images: ['/images/products/stud-ladies-mayura.jpg'],
+      desc: 'A magnificent pair of royal floral blossom stud earrings in solid 22K gold (3.40 g), featuring handcrafted micro-beaded filigree petals and central luster.'
+    },
+    {
+      id: 'p_stud_w2',
+      sku: 'SHV-LST-02',
+      name: "Shivaa Chandrika 22K Gold Ladies Studs (Pair)",
+      subtitle: "Crescent Bloom Diamond-Cut Petals",
+      weightG: 2.90,
+      purity: '22K',
+      mcPct: 12,
+      images: ['/images/products/stud-ladies-chandrika.jpg'],
+      desc: 'A pair of shimmering crescent bloom stud earrings in solid 22K gold (2.90 g) with diamond-cut facets that capture and reflect light at every subtle angle.'
+    },
+    {
+      id: 'p_stud_w3',
+      sku: 'SHV-LST-03',
+      name: "Shivaa Tara 22K Gold Ladies Studs (Pair)",
+      subtitle: "Celestial Star Cluster Design",
+      weightG: 3.15,
+      purity: '22K',
+      mcPct: 12,
+      images: ['/images/products/stud-ladies-tara.jpg'],
+      desc: 'A celestial star cluster stud pair hand-finished in 22K gold (3.15 g). Elegant beaded contour framing a mirror-polished golden star medallion.'
+    }
+  ]
+};
+
 function syncFinaleChrome(force) {
   const on = finaleLive();
   document.querySelectorAll('[data-camp]').forEach(el => el.classList.toggle('camp-off', !on));
   if (on) return;
   document.querySelectorAll('[data-camp-zone]').forEach(el => el.remove());
-  if (location.hash.replace(/^#\/?/, '').split('/')[0] === FINALE.route) location.hash = '#/';
+  if (['scheme', 'finale', 'gold-biscuit'].includes(location.hash.replace(/^#\/?/, '').split('/')[0])) location.hash = '#/';
   if (force && window.Shivaa.redraw) window.Shivaa.redraw();
 }
 
-/* countdown chips to the Bhai Dooj draw (same .fc-cell visual language) */
 function finaleCdCells() {
   const d = Math.max(0, FINALE.drawAt - Date.now());
   const days = Math.floor(d / 864e5), hrs = Math.floor(d % 864e5 / 36e5),
@@ -840,318 +910,721 @@ function bindFinaleCd(el) {
   }, 1000);
 }
 
-/* gold-biscuit artwork used on the band + landing hero (pure CSS) */
 function finaleBarArt() {
   return `<div class="fin-bar" aria-hidden="true"><div class="fin-eng"><small>Shivaa · fine gold</small><em>10 g</em><span>24K · 999.9</span></div></div>`;
 }
 
-/* homepage campaign band — inserted by pages.home while the campaign is live */
+/* ─────────────────────── 2030 HOLOGRAPHIC AI CONCIERGE & SOUND ENGINE ─────────────────────── */
+const AURA_SCRIPTS = {
+  poster: "Namaste! I am Aura, your Shivaa 2030 AI Concierge. Today, you have an exclusive opportunity to win a 10g 24K Gold Biscuit worth over ₹1,50,000. Step inside to explore this grand festive scheme!",
+  landing: "Here is our 2030 transparent scheme blueprint. We have reserved this reward exclusively for our 6 Masterpiece 22K Gold Stud designs. Every purchase enters our CA-audited cryptographic live draw.",
+  gender: "Tell me, who are we curating this fine 22K gold piece for today? Choose our Men's royal geometric studs or our Ladies' handcrafted floral blossom collection.",
+  products: "Here are the 3 exclusive 22K BIS Hallmarked masterpiece studs for your collection. Notice the real-time live market pricing and zero-hidden-cost transparency. Select your design to unlock your draw quiz!",
+  quiz: "Welcome to the official qualifying quiz. Please answer carefully: you have exactly ONE attempt per question and ONE final submission. Once locked, your score is permanently recorded in the CA ledger."
+};
+
+const ShivaaAudio = {
+  ctx: null,
+  voiceEnabled: false,
+  speaking: false,
+  init() {
+    if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  },
+  playTone(freq = 660, duration = 0.15, type = 'sine') {
+    try {
+      this.init();
+      if (!this.ctx) return;
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      gain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + duration);
+    } catch(e) {}
+  },
+  playChime() {
+    this.playTone(880, 0.18, 'sine');
+    setTimeout(() => this.playTone(1320, 0.22, 'sine'), 80);
+  },
+  playHover() {
+    this.playTone(440, 0.08, 'triangle');
+  },
+  playLock() {
+    this.playTone(520, 0.12, 'sine');
+    setTimeout(() => this.playTone(780, 0.16, 'sine'), 60);
+    setTimeout(() => this.playTone(1040, 0.2, 'sine'), 120);
+  },
+  speak(text) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    if (!this.voiceEnabled) return;
+    const ut = new SpeechSynthesisUtterance(text);
+    ut.rate = 1.0;
+    ut.pitch = 1.08;
+    const voices = window.speechSynthesis.getVoices();
+    const indVoice = voices.find(v => v.lang.includes('en-IN') || v.name.includes('India')) || voices.find(v => v.lang.startsWith('en'));
+    if (indVoice) ut.voice = indVoice;
+    
+    this.speaking = true;
+    const btn = document.getElementById('shvAiSpeakBtn');
+    if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 Speaking...'; }
+
+    ut.onend = () => {
+      this.speaking = false;
+      const b = document.getElementById('shvAiSpeakBtn');
+      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 Listen to Aura'; }
+    };
+    ut.onerror = () => {
+      this.speaking = false;
+      const b = document.getElementById('shvAiSpeakBtn');
+      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 Listen to Aura'; }
+    };
+    window.speechSynthesis.speak(ut);
+  },
+  toggleVoice() {
+    this.voiceEnabled = !this.voiceEnabled;
+    const btn = document.getElementById('shvAiSpeakBtn');
+    if (!this.voiceEnabled) {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      this.speaking = false;
+      if (btn) { btn.classList.remove('speaking'); btn.innerHTML = '🔇 Voice Muted'; }
+      toast('Aura voice audio muted ✦');
+    } else {
+      if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 Speaking...'; }
+      const step = window._schemeState?.step || 'poster';
+      this.speak(AURA_SCRIPTS[step] || AURA_SCRIPTS.poster);
+      toast('Aura voice guide enabled ✦');
+    }
+  }
+};
+
+window.Shivaa.toggleAiVoice = () => ShivaaAudio.toggleVoice();
+
+function initGoldParticleCanvas(canvasId = 'goldParticleCanvas') {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  let w = canvas.width = canvas.parentElement ? canvas.parentElement.offsetWidth : window.innerWidth;
+  let h = canvas.height = canvas.parentElement ? canvas.parentElement.offsetHeight : window.innerHeight;
+  let mouse = { x: -1000, y: -1000 };
+
+  const handleResize = () => {
+    if (!canvas || !canvas.parentElement) return;
+    w = canvas.width = canvas.parentElement.offsetWidth;
+    h = canvas.height = canvas.parentElement.offsetHeight;
+  };
+  const handleMouseMove = e => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  };
+  const handleMouseLeave = () => { mouse.x = -1000; mouse.y = -1000; };
+
+  window.addEventListener('resize', handleResize, { passive: true });
+  canvas.parentElement && canvas.parentElement.addEventListener('mousemove', handleMouseMove, { passive: true });
+  canvas.parentElement && canvas.parentElement.addEventListener('mouseleave', handleMouseLeave, { passive: true });
+
+  const numParticles = Math.min(45, Math.floor(w / 24));
+  const particles = Array.from({ length: numParticles }, () => ({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    size: Math.random() * 2.4 + 0.8,
+    speedX: (Math.random() - 0.5) * 0.45,
+    speedY: -Math.random() * 0.45 - 0.15,
+    opacity: Math.random() * 0.7 + 0.25,
+    sparkle: Math.random() * Math.PI * 2
+  }));
+
+  let animFrame = null;
+  function draw() {
+    if (!document.body.contains(canvas)) { if (animFrame) cancelAnimationFrame(animFrame); return; }
+    ctx.clearRect(0, 0, w, h);
+
+    // Laser constellation filaments between nearby particles
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 90) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `rgba(230, 183, 92, ${(1 - dist / 90) * 0.22})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+    }
+
+    for (const p of particles) {
+      p.x += p.speedX;
+      p.y += p.speedY;
+      p.sparkle += 0.04;
+
+      // Mouse interactive deflection
+      const mdx = p.x - mouse.x;
+      const mdy = p.y - mouse.y;
+      const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+      if (mdist < 100) {
+        const factor = (100 - mdist) / 100;
+        p.x += (mdx / mdist) * factor * 2;
+        p.y += (mdy / mdist) * factor * 2;
+      }
+
+      if (p.y < 0) { p.y = h; p.x = Math.random() * w; }
+      if (p.x < 0) p.x = w;
+      if (p.x > w) p.x = 0;
+
+      const op = Math.max(0.15, p.opacity + Math.sin(p.sparkle) * 0.28);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 226, 138, ${op})`;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = 'rgba(230, 183, 92, 0.85)';
+      ctx.fill();
+    }
+    animFrame = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
 function finaleHomeBand() {
   if (!finaleLive()) return '';
   return `
-  <section class="finale-band rv" id="homeFinale" data-camp-zone aria-label="The Bhai Dooj Gold Finale — one customer wins 10 g of certified 24K gold">
+  <section class="finale-band rv" id="homeFinale" data-camp-zone aria-label="Shivaa 10g Gold Biscuit Scheme">
     <div class="container fb-wrap">
       <div class="fb-art">
-        ${finaleBarArt()}
-        <i class="fin-spark" style="top:10%;left:16%;animation-delay:-.4s">✦</i>
-        <i class="fin-spark" style="bottom:16%;right:14%;animation-delay:-1.6s;font-size:10px">✦</i>
-        <i class="fin-spark" style="top:6%;right:28%;animation-delay:-2.6s;font-size:9px">✦</i>
+        <div class="shv-poster-img-frame" style="max-width:280px">
+          <img src="/images/banners/gold-biscuit-campaign.jpg" alt="10g Gold Biscuit" loading="lazy">
+        </div>
+        <i class="fin-spark" style="top:10%;left:12%;animation-delay:-.4s">✦</i>
+        <i class="fin-spark" style="bottom:14%;right:10%;animation-delay:-1.6s;font-size:12px">✦</i>
       </div>
       <div class="fb-main">
-        <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
-        <h2 class="fb-title">Every qualifying order gets a chance to win <em>10&nbsp;g of certified 24K gold</em></h2>
-        <p class="fb-sub">Buy any gold piece of <b>3&nbsp;g or more in any karat</b> (18K / 22K / 24K) or <b>100&nbsp;g of silver</b> during the campaign window, take the short scored quiz, and you are in the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>. No purchase? The free route enters you with equal odds.</p>
+        <span class="fb-kicker"><i>✦</i> Festive Grand Scheme · 2026</span>
+        <h2 class="fb-title">Win a <em>10 Gram 24K Gold Biscuit</em> worth ₹1,50,000 as of today*</h2>
+        <p class="fb-sub">Exclusively available for <b>3 Masterpiece Studs for Men</b> &amp; <b>3 Masterpiece Studs for Women</b>. Handcrafted in pure 22K BIS Hallmarked gold. Every order unlocks your 1-attempt quiz for the CA-witnessed live draw.</p>
         ${finaleCdHTML('homeFinaleCd')}
         <div class="fb-cta">
-          <a class="btn btn-gold btn-lg" href="#/finale">How to enter &amp; full rules</a>
-          <a class="btn btn-light btn-lg" href="#/shop">Shop gold &amp; silver</a>
+          <a class="btn btn-gold btn-lg shv-pulse-cta" href="#/scheme">Explore 10g Gold Scheme &amp; Studs ✦</a>
+          <button type="button" class="btn btn-light btn-lg" onclick="Shivaa.setSchemeStep('gender')">Choose Collection (Men / Women)</button>
         </div>
         <ul class="fb-chips">
-          <li>CA-witnessed draw · Bhai Dooj · 11 Nov 2026</li>
-          <li>Free entry available — buying optional</li>
-          <li>One entry per person · T&amp;Cs apply</li>
-          <li>Void where prohibited · TN &amp; WB excluded</li>
+          <li>10g 24K Bullion Prize · CA Witnessed Draw</li>
+          <li>Strictly 6 Exclusive Stud Designs</li>
+          <li>1-Attempt Scored Quiz Post-Payment</li>
+          <li>100% BIS Hallmarked 22K Solid Gold</li>
         </ul>
       </div>
     </div>
   </section>`;
 }
 
-/* #/finale — the full campaign landing page */
+function init3DCardTilts() {
+  const cards = document.querySelectorAll('.shv-gender-card, .shv-stud-card, .shv-poster-card, .shv-pillar-card');
+  cards.forEach(card => {
+    if (card._tiltInit) return;
+    card._tiltInit = true;
+    card.addEventListener('mouseenter', () => ShivaaAudio.playHover());
+    card.addEventListener('mousemove', e => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const midX = rect.width / 2;
+      const midY = rect.height / 2;
+      const rotX = ((y - midY) / midY) * -7;
+      const rotY = ((x - midX) / midX) * 7;
+      card.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateY(-4px)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)';
+    });
+    card.addEventListener('touchmove', e => {
+      if (!e.touches || !e.touches[0]) return;
+      const rect = card.getBoundingClientRect();
+      const x = e.touches[0].clientX - rect.left;
+      const y = e.touches[0].clientY - rect.top;
+      const midX = rect.width / 2;
+      const midY = rect.height / 2;
+      const rotX = ((y - midY) / midY) * -5;
+      const rotY = ((x - midX) / midX) * 5;
+      card.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateY(-2px)`;
+    }, { passive: true });
+    card.addEventListener('touchend', () => {
+      card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)';
+    }, { passive: true });
+  });
+}
+
 function finaleLanding() {
   return `
-  <div class="finale-page">
-    <section class="page-hero finale-hero">
-      <div class="container">
-        <div class="fh-in">
-          <div class="fh-copy">
-            <div class="crumbs"><a href="#/">Home</a> / The Bhai Dooj Gold Finale</div>
-            <span class="fh-kicker">✦ Bhai Dooj Gold Finale · 2026</span>
-            <h1>One customer will win <em class="fh-gold">10&nbsp;g of certified 24K gold</em></h1>
-            <p class="fh-sub">A lawful, CA-witnessed contest — every <b>qualifying purchase</b> (any gold piece of 3&nbsp;g or more in any karat, or 100&nbsp;g of silver per order) and every <b>free quiz entry</b> carries an equal chance in the live draw on <b>Bhai Dooj night — 11 November 2026</b>. The prize is the gold itself, at its market value on draw day.</p>
-            ${finaleCdHTML()}
-            <div class="fb-cta">
-              <button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.finJump('finRoutes')">See how to enter</button>
-              <button type="button" class="btn btn-light btn-lg" onclick="Shivaa.finJump('finRules')">Eligibility &amp; rules</button>
-            </div>
-            <div class="ph-trust"><span>✦ CA-witnessed live draw · Bhai Dooj · 11 Nov 2026</span><span>✦ Free entry available</span><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a></div>
+  <div class="shv-scheme-page">
+    <canvas id="goldParticleCanvas" class="shv-canvas-particles"></canvas>
+
+    <!-- Stepper Navigation Track -->
+    <nav class="shv-scheme-stepper" aria-label="Scheme Workflow">
+      <div class="container shv-stepper-wrap">
+        <button type="button" class="shv-step-btn active" data-step="poster" onclick="Shivaa.setSchemeStep('poster')">
+          <span class="num">1</span> Grand Poster
+        </button>
+        <span class="shv-stepper-sep">→</span>
+        <button type="button" class="shv-step-btn" data-step="landing" onclick="Shivaa.setSchemeStep('landing')">
+          <span class="num">2</span> Scheme Details
+        </button>
+        <span class="shv-stepper-sep">→</span>
+        <button type="button" class="shv-step-btn" data-step="gender" onclick="Shivaa.setSchemeStep('gender')">
+          <span class="num">3</span> Select Gender
+        </button>
+        <span class="shv-stepper-sep">→</span>
+        <button type="button" class="shv-step-btn" data-step="products" onclick="Shivaa.setSchemeStep('products', window._schemeState?.gender || 'gents')">
+          <span class="num">4</span> 3 Curated Studs
+        </button>
+        <span class="shv-stepper-sep">→</span>
+        <button type="button" class="shv-step-btn" data-step="quiz" onclick="toast('Complete purchase of any campaign stud to unlock the quiz ✦')">
+          <span class="num">5</span> 1-Attempt Quiz
+        </button>
+      </div>
+    </nav>
+
+    <!-- 2030 HOLOGRAPHIC AI CONCIERGE HUD BAR -->
+    <aside class="container" style="padding:0">
+      <div class="shv-ai-concierge-bar" id="shvAiConciergeBar">
+        <div class="shv-ai-avatar-wrap">
+          <div class="shv-ai-orb"></div>
+          <div class="shv-ai-core">✦</div>
+        </div>
+        <div class="shv-ai-content">
+          <div class="shv-ai-header">
+            <span class="shv-ai-name">Aura · Shivaa AI Concierge</span>
+            <span class="shv-ai-badge">⚡ 2030 Hologram Live</span>
           </div>
-          <div class="fh-art" aria-hidden="true">
-            <div class="fh-stack">
-              ${finaleBarArt()}
-              <span class="fh-badge"><b>Certified · Insured</b><small>refiner certificate &amp; serial on file</small></span>
-            </div>
+          <p class="shv-ai-msg" id="shvAiMessage">
+            Namaste! I am Aura, your Shivaa AI Concierge. Step into the ₹1,50,000 10g 24K Gold Biscuit Grand Campaign. Let me guide your festive journey.
+          </p>
+          <div class="shv-ai-waves" aria-hidden="true">
+            <div class="shv-ai-wave-bar"></div>
+            <div class="shv-ai-wave-bar"></div>
+            <div class="shv-ai-wave-bar"></div>
+            <div class="shv-ai-wave-bar"></div>
+            <div class="shv-ai-wave-bar"></div>
           </div>
         </div>
+        <div class="shv-ai-actions">
+          <button type="button" class="shv-ai-sound-btn" id="shvAiSpeakBtn" onclick="Shivaa.toggleAiVoice()">
+            🔊 Listen to Aura
+          </button>
+        </div>
       </div>
-    </section>
+    </aside>
 
-    <section class="sec container fin-sec" id="finPrize">
-      <div class="sec-head rv"><span class="label">The prize</span><h2>Ten grams. <span class="disp-italic">Certified.</span></h2>
-      <p class="sub">The value follows the gold market — it is never a fixed rupee promise.</p></div>
-      <div class="fin-prize rv">
-        <div class="fp-in">
-          <div>
-            <span class="fp-gold">✦ 10 g · 24K gold bullion biscuit</span>
-            <h3>Valued at the live gold price <em>on draw day</em></h3>
-            <p>Not a voucher and not a discount: the winner takes delivery of a 10&nbsp;g certified 24K gold biscuit — a Bhai Dooj gift from Shivaa worth ≈ ₹1.5 lakh at the ≈ ₹15,000/g planning rate, and worth whatever 10&nbsp;g of 24K gold commands on Bhai Dooj, 11 November 2026. Bought early, insured, and held under two-person custody until the draw.</p>
-            <ul class="fp-ticks">
-              <li><i>✓</i><span><b>Certified &amp; insured.</b> Refiner certificate, serial number and purchase invoice are kept on file from the day the biscuit is bought.</span></li>
-              <li><i>✓</i><span><b>Only statutory TDS is ever deducted</b> — ≈ 31.2% (30% + surcharge + cess), deposited before handover, with Form 16A issued to the winner. Nothing else is charged.</span></li>
-              <li><i>✓</i><span><b>No cash alternative.</b> The prize is the gold. It is released only after the winner&rsquo;s PAN is verified and the TDS is deposited, then handed over fully insured.</span></li>
-            </ul>
+    <!-- STAGE 1: STANDALONE LUXURY POSTER HERO -->
+    <div class="shv-scheme-stage active" data-stage="poster" id="stagePoster">
+      <section class="container shv-poster-hero">
+        <div class="shv-poster-card rv">
+          <div class="shv-poster-content">
+            <div class="crumbs"><a href="#/">Home</a> / 10g Gold Biscuit Scheme</div>
+            <span class="shv-poster-badge">✦ FESTIVE GRAND CAMPAIGN · 2026</span>
+            <h1 class="shv-poster-title">
+              Get a chance to win
+              <span class="gold-txt">10 G gold biscuit</span>
+              worth ₹1,50,000 as of today*
+            </h1>
+            <div class="shv-hud-telemetry-row">
+              <span class="shv-hud-chip">PRIZE: <b>10.000 G PURE 999.9 BULLION</b></span>
+              <span class="shv-hud-chip">AUDIT: <b>CA-WITNESSED LIVE DRAW</b></span>
+              <span class="shv-hud-chip">ELIGIBILITY: <b>6 BESPOKE 22K STUDS</b></span>
+            </div>
+            <div class="shv-val-banner">
+              <div class="val-row">
+                <span class="val-tag">✦ Current 24K Bullion Prize Value:</span>
+                <span class="val-amt" id="schemePrizeVal">₹1,50,000</span>
+                <small style="color:#e9c877;font-size:11px">(*Live 24K Rate Synced)</small>
+              </div>
+              <p class="val-sub">Exclusively tied to our 6 Masterpiece 22K Gold Ear Studs (3 Men's &amp; 3 Women's). Valued at live market rate on draw night.</p>
+            </div>
+            ${finaleCdHTML('posterCd')}
+            <div class="shv-poster-cta-row" style="margin-top:24px">
+              <button type="button" class="btn btn-gold btn-xl shv-pulse-cta" onclick="Shivaa.setSchemeStep('landing')">
+                Enter Scheme Details &amp; Landing Page →
+              </button>
+              <button type="button" class="btn btn-outline btn-xl" onclick="Shivaa.setSchemeStep('gender')">
+                Skip to Gender Selection (Men / Women) ✦
+              </button>
+            </div>
           </div>
-          <div class="fp-side">
+          <div class="shv-poster-art">
+            <div class="shv-poster-img-frame">
+              <img src="/images/banners/gold-biscuit-campaign.jpg" alt="10g 24K Gold Biscuit" loading="eager">
+              <div class="shv-poster-img-badge">✦ 10g 24K Pure Bullion · Certified &amp; Vaulted</div>
+            </div>
             ${finaleBarArt()}
-            <span class="fp-chip">✦ market value at draw date · TDS ≈ 31.2% · TN &amp; WB excluded</span>
-            <span class="fp-chip" id="prizeWorth">✦ prize worth — checking the live 24K rate…</span>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
 
-    <section class="sec container fin-sec" id="finRoutes" style="padding-top:10px">
-      <div class="sec-head rv"><span class="label">How the entry works</span><h2>Three ways in — <span class="disp-italic">equal odds</span></h2>
-      <p class="sub">One scored skill quiz, one entry per person. The purchase route is optional — a genuine free route with equal odds keeps this a lawful contest under Indian law.</p></div>
-      <div class="fin-grid3">
-        <div class="fin-panel rv">
-          <div class="fin-num">1</div>
-          <h3>Buy gold — any karat</h3>
-          <p>Any gold piece of <b>3&nbsp;g or more</b> — 18K, 22K or 24K — bought within the campaign&rsquo;s entry window qualifies. The short scored quiz that follows your qualifying order creates your entry.</p>
-          <span class="fin-tag">Min 3 g gold · any karat</span>
+    <!-- STAGE 2: MODERN HI-FI LANDING PAGE WITH MOTION GRAPHICS -->
+    <div class="shv-scheme-stage" data-stage="landing" id="stageLanding">
+      <section class="container shv-landing-sec">
+        <div class="sec-head rv" style="text-align:center;padding:40px 0 20px">
+          <span class="label">Official Campaign Blueprint</span>
+          <h2 style="color:#fff9ea;font-size:clamp(28px, 4vw, 46px)">The 10g Gold Biscuit <span class="disp-italic">Reward Scheme</span></h2>
+          <p class="sub" style="color:rgba(246,232,200,0.85);max-width:720px;margin:12px auto 0">
+            A celebration of authentic purity and transparent craftsmanship. Purchase any 1 of 6 bespoke 22K gold ear stud designs to unlock your single-attempt qualifying quiz for the CA-witnessed live draw.
+          </p>
         </div>
-        <div class="fin-panel rv rv-d1">
-          <div class="fin-num">2</div>
-          <h3>…or 100 g of silver</h3>
-          <p>One qualifying <b>silver order of 100&nbsp;g or more</b> in the entry window does exactly the same — the same quiz, the same single entry. Silver is a full route, never a consolation.</p>
-          <span class="fin-tag">Min 100 g silver · per order</span>
-        </div>
-        <div class="fin-panel rv rv-d2">
-          <div class="fin-num">3</div>
-          <h3>…or enter free</h3>
-          <p>No purchase needed: the <b>free route</b> uses the same scored quiz and carries the same odds. Buying is optional, never required — and no entry fee of any kind is ever taken.</p>
-          <span class="fin-tag">Free route · same quiz · equal odds</span>
-          <div class="fq-zone" style="margin-top:16px"></div>
-        </div>
-      </div>
-      <div class="fin-panel rv" style="margin-top:20px">
-        <div class="fin-rule"><span>①</span><p><b>Entry opens early October 2026.</b> The official rules are published before the first entry; all dates and times are IST.</p></div>
-        <div class="fin-rule"><span>②</span><p><b>Qualifying purchases</b> are those placed inside the entry window. However much you buy, every person gets exactly <b>one entry</b> — multiple orders do not multiply entries.</p></div>
-        <div class="fin-rule"><span>③</span><p><b>Entries close ≈ 7–8 Nov 2026</b> (the exact date is published in the rules). The entry ledger then freezes and a SHA-256 fingerprint of it is taken.</p></div>
-        <div class="fin-rule"><span>④</span><p><b>Odds are published, not hidden.</b> They depend on the number of valid entries and are stated with the official rules before entries open.</p></div>
-      </div>
-    </section>
 
-    <section class="sec container fin-sec" id="finDates" style="padding-top:10px">
-      <div class="sec-head rv"><span class="label">Dates</span><h2>From announcement to <span class="disp-italic">draw night</span></h2></div>
-      <div class="fin-timeline rv">
-        <div class="fin-tl"><span class="fin-tl-dot">1</span><span class="tl-date">12 Sep</span><b>Announced</b><small>Campaign goes live. The official rules are finalised and published before any entry is taken.</small></div>
-        <div class="fin-tl"><span class="fin-tl-dot">2</span><span class="tl-date">Early Oct</span><b>Entries open</b><small>Free and purchase routes open together, with the scored quiz and published odds.</small></div>
-        <div class="fin-tl"><span class="fin-tl-dot">3</span><span class="tl-date">≈ 7–8 Nov</span><b>Entries close</b><small>Ledger freeze + SHA-256 fingerprint; finalists&rsquo; PAN / KYC checks begin.</small></div>
-        <div class="fin-tl hot"><span class="fin-tl-dot">✦</span><span class="tl-date">11 Nov</span><b>LIVE draw · Bhai Dooj</b><small>CA-witnessed, live-streamed draw. The winner is announced the same night.</small></div>
-        <div class="fin-tl"><span class="fin-tl-dot">5</span><span class="tl-date">Nov–Dec 2026</span><b>Handover</b><small>TDS deposited, Form 16A issued, and the insured biscuit is handed to the verified winner.</small></div>
-      </div>
-    </section>
-
-    <section class="sec container fin-sec" id="finFair" style="padding-top:0">
-      <div class="sec-head rv"><span class="label">Fair play, by design</span><h2>The draw cannot be <span class="disp-italic">rigged</span></h2></div>
-      <div class="fin-panel rv">
-        <ul class="fin-fair" style="list-style:none;margin:0;padding:0">
-          <li><i>✦</i><span><b>An independent witness.</b> A chartered accountant witnesses the draw; a notarised, unedited recording is retained for 8 years.</span></li>
-          <li><i>✦</i><span><b>A frozen ledger.</b> Entries close, then a SHA-256 fingerprint of the full entry ledger is taken before the draw — the list cannot change afterwards.</span></li>
-          <li><i>✦</i><span><b>A live, public draw.</b> The draw is live-streamed and the result is announced on the same channels, promptly.</span></li>
-          <li><i>✦</i><span><b>Equal odds for free entrants.</b> The free route uses the same quiz and the same draw — odds are never stacked against it.</span></li>
-          <li><i>✦</i><span><b>No insiders.</b> Employees, their relatives, vendors, agencies and their households cannot enter, and no winner is pre-selected.</span></li>
-          <li><i>✦</i><span><b>A published re-draw rule.</b> If a draw is ever disputed, the published re-draw rule governs — nothing is decided behind closed doors.</span></li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="sec container fin-sec" id="finRules" style="padding-top:0">
-      <div class="sec-head rv"><span class="label">Eligibility &amp; official rules</span><h2>The fine print, kept <span class="disp-italic">up front</span></h2></div>
-      <div class="fin-terms">
-        <div class="fin-panel rv">
-          <h4>Eligibility &amp; entry</h4>
-          <div class="fin-rule"><span>·</span><p>Open to <b>Indian residents aged 18 and above</b>. All dates and times are IST.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Qualifying order:</b> gold of 3&nbsp;g or more in any karat (18K / 22K / 24K) <i>or</i> silver of 100&nbsp;g or more per order, bought inside the entry window.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>One entry per person</b> across both routes, created by the scored skill quiz. Multiple qualifying orders still mean one entry.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Free entry available</b> — the same scored quiz with equal odds. The purchase route is simply optional; an entry never requires a purchase or any fee.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Late entries are void.</b> Entries close ≈ 7–8 Nov 2026; the exact date and time are in the official rules.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Void where prohibited.</b> Residents of Tamil Nadu and West Bengal may not enter; other state rules apply as set out in the official rules.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>No insiders.</b> Employees of Shivaa / Ernate Shine Jewellery Pvt. Ltd., their relatives, vendors, agencies and each of their households are excluded.</p></div>
+        <!-- 4 Pillars of Transparency -->
+        <div class="shv-pillars-grid rv">
+          <div class="shv-pillar-card">
+            <div class="shv-pillar-num">1</div>
+            <h3>Strictly 6 Stud Designs</h3>
+            <p>Offer is exclusively tied to 3 Men’s and 3 Women’s 22K Gold Ear Studs. Standard jewellery catalog items remain normal and unaffected.</p>
+          </div>
+          <div class="shv-pillar-card">
+            <div class="shv-pillar-num">2</div>
+            <h3>10g 24K Bullion Prize</h3>
+            <p>Physical certified 999.9 gold biscuit held in audited custody and awarded at its true live rate on draw date.</p>
+          </div>
+          <div class="shv-pillar-card">
+            <div class="shv-pillar-num">3</div>
+            <h3>CA-Witnessed Live Draw</h3>
+            <p>Conducted live before an independent Chartered Accountant with unedited broadcast and cryptographic SHA-256 ledger.</p>
+          </div>
+          <div class="shv-pillar-card">
+            <div class="shv-pillar-num">4</div>
+            <h3>1-Attempt Scored Quiz</h3>
+            <p>Completed post-checkout. Exactly one attempt per order/buyer to confirm jewellery skill and lock your entry permanently.</p>
+          </div>
         </div>
-        <div class="fin-panel rv">
-          <h4>Prize, tax &amp; conduct</h4>
-          <div class="fin-rule"><span>·</span><p><b>The prize is 10&nbsp;g of certified 24K gold bullion</b> at its current market value on the draw date — announced at ≈ ₹1.5 lakh at the ≈ ₹15,000/g planning rate. It is never a fixed rupee figure.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Statutory TDS ≈ 31.2%</b> (30% + surcharge + 4% cess, on the CA&rsquo;s computation) is deducted at source before handover and deposited with the government. Form 16A is issued to the winner.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>PAN must be verified before release.</b> Without PAN the higher TDS rate applies as per law. Only statutory TDS may be deducted — never any fee, charge or &ldquo;processing cost&rdquo;.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>The draw is audited:</b> CA witness, SHA-256 ledger freeze, live stream and an unedited recording kept 8 years. A re-draw rule is published in advance.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Results are public and prompt</b>, announced on the same channels where the campaign ran. No winner is pre-selected.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Rules change only prospectively</b> — never for entries already made. Every amendment is announced before it applies.</p></div>
-          <div class="fin-rule"><span>·</span><p><b>Grievance desk:</b> every complaint is acknowledged within 48 hours and redressed within 30 days. Write to Support@shivaa.in.</p></div>
-          <div class="fin-note">This page is a plain-language summary. The official rules and full terms &amp; conditions are published before entries open and alone govern the contest — if anything here ever differs from them, the official rules prevail.</div>
-        </div>
-      </div>
-    </section>
 
-    <section class="container" style="padding-bottom:96px">
-      <div class="fin-close rv">
-        <span class="fb-kicker" style="justify-content:center"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
-        <h3>The gold is real. <em>The chance is equal.</em></h3>
-        <p>Ask us anything about eligibility, the quiz, the TDS or the draw — our desk replies within 48 hours. And every piece on shivaa.in is live-rate priced with making charges in plain sight, so the gold you buy stays honest.</p>
-        <div class="fb-cta" style="justify-content:center">
-          <a class="btn btn-gold btn-lg" href="#/shop">Shop gold &amp; silver</a>
-          <button type="button" class="btn btn-light btn-lg" onclick="Shivaa.finWa()">Ask on WhatsApp</button>
+        <!-- Scheme Timeline & Visual Architecture -->
+        <div class="shv-timeline-box rv" style="margin-top:40px;background:var(--obsidian-card);border:1px solid rgba(212,175,90,0.3);border-radius:24px;padding:32px">
+          <h3 style="color:#ffe9bd;font-family:var(--ff-disp);font-size:26px;margin:0 0 16px;text-align:center">Workflow &amp; Verification Protocol</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:20px;text-align:center">
+            <div style="padding:16px;background:rgba(255,255,255,0.03);border-radius:14px;border:1px solid rgba(212,175,90,0.15)">
+              <b style="color:#d4af5a;font-size:18px;display:block;margin-bottom:6px">① Select Studs</b>
+              <span style="font-size:13px;color:rgba(246,232,200,0.75)">Choose from 3 Gents or 3 Ladies 22K BIS Hallmarked stud designs.</span>
+            </div>
+            <div style="padding:16px;background:rgba(255,255,255,0.03);border-radius:14px;border:1px solid rgba(212,175,90,0.15)">
+              <b style="color:#d4af5a;font-size:18px;display:block;margin-bottom:6px">② Complete Order</b>
+              <span style="font-size:13px;color:rgba(246,232,200,0.75)">Secure 100% insured checkout with live 22K gold rate pricing.</span>
+            </div>
+            <div style="padding:16px;background:rgba(255,255,255,0.03);border-radius:14px;border:1px solid rgba(212,175,90,0.15)">
+              <b style="color:#d4af5a;font-size:18px;display:block;margin-bottom:6px">③ 1-Attempt Quiz</b>
+              <span style="font-size:13px;color:rgba(246,232,200,0.75)">Answer 5 skill questions. Locked permanently on submission.</span>
+            </div>
+            <div style="padding:16px;background:rgba(255,255,255,0.03);border-radius:14px;border:1px solid rgba(212,175,90,0.15)">
+              <b style="color:#d4af5a;font-size:18px;display:block;margin-bottom:6px">④ Live Draw</b>
+              <span style="font-size:13px;color:rgba(246,232,200,0.75)">10g Gold Biscuit awarded on Bhai Dooj · 11 November 2026.</span>
+            </div>
+          </div>
         </div>
-        <ul class="fb-chips">
-          <li>CA-witnessed draw · Bhai Dooj · 11 Nov 2026</li>
-          <li>Free entry available — buying optional</li>
-          <li>One entry per person · T&amp;Cs apply</li>
-          <li>Void where prohibited · TN &amp; WB excluded</li>
-        </ul>
-      </div>
-    </section>
+
+        <div style="text-align:center;margin-top:40px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+          <button type="button" class="btn btn-gold btn-xl shv-pulse-cta" onclick="Shivaa.setSchemeStep('gender')">
+            Proceed to Gender Selection (Male / Female) →
+          </button>
+          <button type="button" class="btn btn-outline btn-xl" onclick="Shivaa.setSchemeStep('poster')">
+            ← Back to Grand Poster
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- STAGE 3: INTERACTIVE GENDER SELECTION (MALE / FEMALE) -->
+    <div class="shv-scheme-stage" data-stage="gender" id="stageGender">
+      <section class="container shv-gender-portal">
+        <div class="shv-portal-head rv">
+          <span class="fh-kicker">✦ Step 3 · Select Collection</span>
+          <h2>Who Are You Shopping For?</h2>
+          <p>Choose between our exclusive 22K Gold Men's (Gents) Collection and Women's (Ladies) Collection to view the 3 eligible designs.</p>
+        </div>
+        <div class="shv-gender-cards-wrap rv">
+          <!-- Gents / Male Card -->
+          <div class="shv-gender-card" onclick="Shivaa.setSchemeStep('products', 'gents')">
+            <div class="shv-gender-img-wrap">
+              <img src="/images/banners/gender-gents-gold.jpg" alt="Gents Gold Studs" loading="lazy">
+              <span class="shv-gender-ribbon">✦ GENTS / MALE COLLECTION</span>
+            </div>
+            <div class="shv-gender-content">
+              <h3>Men's 22K Gold Ear Studs</h3>
+              <p>Sharp geometric symmetry, octagonal royal facets, and sunburst heritage designs. Solid 22K BIS Hallmarked gold for masculine distinction.</p>
+              <div class="shv-gender-badges">
+                <span>3 Curated Designs</span>
+                <span>22K 916 Gold</span>
+                <span>Qualifies for 10g Gold Draw</span>
+              </div>
+              <button type="button" class="shv-gender-btn">
+                Explore Men's Gold Studs (3) →
+              </button>
+            </div>
+          </div>
+
+          <!-- Ladies / Female Card -->
+          <div class="shv-gender-card" onclick="Shivaa.setSchemeStep('products', 'ladies')">
+            <div class="shv-gender-img-wrap">
+              <img src="/images/banners/gender-ladies-gold.jpg" alt="Ladies Gold Studs" loading="lazy">
+              <span class="shv-gender-ribbon">✦ LADIES / FEMALE COLLECTION</span>
+            </div>
+            <div class="shv-gender-content">
+              <h3>Ladies' 22K Gold Ear Studs</h3>
+              <p>Handcrafted royal floral filigree, shimmering diamond-cut crescent petals, and celestial star clusters. Opulent 22K gold elegance.</p>
+              <div class="shv-gender-badges">
+                <span>3 Curated Pairs</span>
+                <span>22K 916 Gold</span>
+                <span>Qualifies for 10g Gold Draw</span>
+              </div>
+              <button type="button" class="shv-gender-btn">
+                Explore Ladies' Gold Studs (3) →
+              </button>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:32px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+          <button type="button" class="btn btn-outline btn-sm" onclick="Shivaa.setSchemeStep('landing')">
+            ← Back to Scheme Details
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="Shivaa.setSchemeStep('poster')">
+            ✦ Grand Poster
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- STAGE 4: CURATED 3-PRODUCT STUDS SHOWCASE -->
+    <div class="shv-scheme-stage" data-stage="products" id="stageProducts">
+      <section class="container shv-studs-sec">
+        <div class="shv-studs-header rv">
+          <div>
+            <span class="fh-kicker">✦ Step 4 · Select Your Design</span>
+            <h2 id="shvStudsTitle" style="color:#fff9ea;font-family:var(--ff-disp);font-size:32px;margin:6px 0 2px">Eligible 22K Gold Ear Studs</h2>
+            <p style="color:rgba(246,232,200,0.8);font-size:14px;margin:0">Every piece below is BIS hallmarked and unlocks the 1-time 10g Gold Biscuit Quiz post-payment.</p>
+          </div>
+          <div class="shv-collection-tabs">
+            <button type="button" class="shv-tab-btn active" data-gender="gents" onclick="Shivaa.setSchemeStep('products', 'gents')">
+              👨 Men's Studs (3)
+            </button>
+            <button type="button" class="shv-tab-btn" data-gender="ladies" onclick="Shivaa.setSchemeStep('products', 'ladies')">
+              👩 Ladies' Studs (3)
+            </button>
+          </div>
+        </div>
+
+        <div id="shvStudsContainer">
+          <!-- Populated dynamically by renderStudsCollection -->
+        </div>
+
+        <div style="text-align:center;margin-top:40px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+          <button type="button" class="btn btn-outline" onclick="Shivaa.setSchemeStep('gender')">
+            ← Switch Gender Collection
+          </button>
+          <button type="button" class="btn btn-outline" onclick="Shivaa.setSchemeStep('landing')">
+            ✦ Scheme Architecture
+          </button>
+          <button type="button" class="btn btn-outline" onclick="Shivaa.setSchemeStep('poster')">
+            ✦ Grand Poster
+          </button>
+        </div>
+      </section>
+    </div>
   </div>`;
 }
 
-/* in-page jump (the hash router owns "#"; smooth scroll instead) */
+window.Shivaa.setSchemeStep = (step = 'poster', gender = 'gents') => {
+  window._schemeState = window._schemeState || {};
+  window._schemeState.step = step;
+  if (gender) window._schemeState.gender = gender;
+
+  ShivaaAudio.playChime();
+
+  try {
+    const url = new URL(window.location.href);
+    url.hash = `#/scheme?step=${encodeURIComponent(step)}&gender=${encodeURIComponent(gender || 'gents')}`;
+    history.pushState(null, '', url.toString());
+  } catch (e) {}
+
+  renderSchemeStage(step, gender);
+};
+
+function renderSchemeStage(step, gender) {
+  $$('.shv-step-btn').forEach(btn => {
+    const s = btn.dataset.step;
+    btn.classList.toggle('active', s === step || (step === 'products' && s === 'products') || (step === 'gender' && s === 'gender') || (step === 'landing' && s === 'landing'));
+  });
+
+  $$('.shv-scheme-stage').forEach(el => {
+    const s = el.dataset.stage;
+    el.classList.toggle('active', s === step);
+  });
+
+  if (step === 'products') {
+    renderStudsCollection(gender || 'gents');
+  }
+
+  // Update Aura AI Concierge Message & Voice
+  const msgEl = document.getElementById('shvAiMessage');
+  if (msgEl && AURA_SCRIPTS[step]) {
+    msgEl.innerHTML = AURA_SCRIPTS[step];
+    if (ShivaaAudio.voiceEnabled) ShivaaAudio.speak(AURA_SCRIPTS[step]);
+  }
+
+  init3DCardTilts();
+
+  const header = $('.shv-scheme-stepper');
+  if (header) header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderStudsCollection(gender = 'gents') {
+  const container = $('#shvStudsContainer');
+  if (!container) return;
+
+  $$('.shv-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.gender === gender));
+
+  const studs = CAMPAIGN_STUDS_DATA[gender] || CAMPAIGN_STUDS_DATA.gents;
+  const rates = state.rates || {};
+  const g22 = rates.gold22 || 14226;
+
+  container.innerHTML = `
+    <div class="shv-studs-grid">
+      ${studs.map(s => {
+        const metalVal = Math.round(s.weightG * g22);
+        const mc = Math.round(metalVal * (s.mcPct / 100));
+        const sub = metalVal + mc;
+        const total = Math.round(sub * 1.03);
+
+        return `
+          <div class="shv-stud-card" data-pid="${esc(s.id)}">
+            <span class="shv-stud-badge">✦ CAMPAIGN EXCLUSIVE · 10g Gold Draw</span>
+            <div class="shv-stud-img-wrap">
+              <img src="${safeUrl(s.images[0])}" alt="${esc(s.name)}" loading="lazy">
+            </div>
+            <div class="shv-stud-info">
+              <div class="shv-stud-meta">
+                <span>⚖ ${s.weightG} g · 22K 916</span>
+                <span>SKU: ${esc(s.sku)}</span>
+              </div>
+              <h3 class="shv-stud-name">${esc(s.name)}</h3>
+              <p class="shv-stud-desc">${esc(s.desc)}</p>
+              <div class="shv-stud-pricing">
+                <div class="shv-stud-price-row">
+                  <div>
+                    <span style="font-size:10px;text-transform:uppercase;color:#e9c877;letter-spacing:0.12em;display:block">Live All-Inclusive</span>
+                    <b class="shv-stud-price js-price" data-pid="${esc(s.id)}">₹${total.toLocaleString('en-IN')}</b>
+                  </div>
+                  <div style="text-align:right">
+                    <span class="shv-stud-mc">12% MC + 3% GST</span>
+                    <small style="display:block;font-size:10px;color:rgba(246,232,200,0.6)">Live rate synced</small>
+                  </div>
+                </div>
+              </div>
+              <div class="shv-stud-acts">
+                <button type="button" class="shv-btn-buy" onclick="Shivaa.buyCampaignStud('${esc(s.id)}')">⚡ Buy Now</button>
+                <button type="button" class="shv-btn-cart" onclick="Shivaa.addCampaignToCart('${esc(s.id)}')">🛍️ Add to Bag</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+window.Shivaa.addCampaignToCart = async (productId) => {
+  const p = (state.productsCache || []).find(x => x.id === productId) ||
+            Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === productId);
+  if (!p) { toast('Product details loading...', 'err'); return; }
+  await addToCart(p, 1);
+  toast(`Added ${p.name} to bag! Qualifies for 10g Gold Biscuit Draw ✦`);
+  openCart();
+};
+
+window.Shivaa.buyCampaignStud = async (productId) => {
+  const p = (state.productsCache || []).find(x => x.id === productId) ||
+            Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === productId);
+  if (!p) { toast('Product details loading...', 'err'); return; }
+  await addToCart(p, 1);
+  location.hash = '#/checkout';
+};
+
 window.Shivaa.finJump = id => {
   const el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 window.Shivaa.finWa = () => {
-  if (window.Shivaa.waOpen) window.Shivaa.waOpen('Namaste Shivaa ✦\n\nI have a question about the Bhai Dooj Gold Finale: ');
+  if (window.Shivaa.waOpen) window.Shivaa.waOpen('Namaste Shivaa ✦\n\nI have a question about the 10g Gold Biscuit Scheme: ');
 };
 
 /* ═══════════════════════════════════════════════════════════════════
-   Finale quiz — the scored skill quiz that creates the entry.
-   Deck-compliant: same quiz for the purchase route and the free
-   no-purchase route · one entry per person · 18+/India · TN/WB and
-   insiders excluded (self-declared) · server re-scores, so the client
-   can never self-certify. Entries are saved by api.php into the site
-   database for the CA-witnessed draw.
+   STRICT 1-ATTEMPT POST-PAYMENT QUIZ ENGINE
+   Each question answered once, single submission per order/account,
+   no retakes allowed whether full marks or zero.
    ═══════════════════════════════════════════════════════════════════ */
-const FQ = { cache: null, pending: null, _openedFree: false };
+const FQ = { cache: null, pending: null, answers: {}, currentQ: 0 };
 
-/* does an order qualify? (any gold piece ≥3 g in ANY karat, or ≥100 g silver per order) */
 function finaleQualifiesItems(items) {
-  let gold = 0, silver = 0;
+  let qualifyingItem = null;
   (items || []).forEach(it => {
-    const w = (+it.weightG || 0) * Math.max(1, +it.qty || 1);
-    if (String(it.metal || '').toLowerCase() === 'silver') silver += w;
-    else if (['18K', '22K', '24K'].includes(String(it.purity || ''))) gold += w;
+    const id = String(it.id || '');
+    const sku = String(it.sku || '');
+    const isCamp = Boolean(it.isCampaignStud || it.campaignStud);
+    if (CAMPAIGN_STUD_IDS.includes(id) || CAMPAIGN_STUD_SKUS.includes(sku) || isCamp) {
+      qualifyingItem = it;
+    }
   });
-  return { gold, silver, ok: gold >= 3 || silver >= 100 };
+  return { ok: Boolean(qualifyingItem), item: qualifyingItem, gold: 0, silver: 0 };
 }
 
 function fqGetStatus() {
   return api('/api/finale/entry').then(r => r.entry || null).catch(() => null);
 }
 
-/* login gate: quiz is tied to the OTP-verified account (anti-fraud, one person = one entry) */
 function fqRequireAuth(route, orderId) {
   if (state.user) return true;
   FQ.pending = { route, orderId };
-  openLogin(location.hash || '#/');
+  openLogin(location.hash || '#/scheme');
   return false;
-}
-
-function fqShowEntered(entry) {
-  try { sessionStorage.removeItem('fqPrompt'); } catch (e) {}
-  openModal(`<div class="finq center">
-    <div class="finq-big">✦</div>
-    <span class="fb-kicker" style="justify-content:center"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
-    <h3 style="font-size:26px;margin:6px 0 8px">You are entered ${entry && entry.id ? '· ' + esc(entry.id) : ''}</h3>
-    <p class="finq-sub" style="text-align:center">${entry ? `Scored <b>${entry.score}/${entry.total}</b> · ${entry.route === 'free' ? 'free entry' : 'purchase entry'}` : ''} — one entry per person, equal odds for everyone in the draw.</p>
-    <p class="finq-note" style="text-align:center;max-width:440px;margin:8px auto 0">The CA-witnessed live draw happens <b>Bhai Dooj night — 11 November 2026</b>. A valid entry needs your order to stay paid &amp; undisputed; the winner&rsquo;s PAN is verified and statutory TDS ≈31.2% is deducted before the gold is handed over.</p>
-    <button class="btn btn-gold" style="margin-top:14px" onclick="Shivaa.closeModal()">Wonderful ✦</button>
-  </div>`, 'finq');
-  fqSyncZones();
-  finaleBandRefresh(entry);
-}
-/* rebuild the order-page band once an entry exists (kept in sync after the quiz) */
-function finaleBandHTML(order, entry, gold, silver) {
-  const orderId = order.id;
-  return `<div class="container fb-wrap fb-wrap-tight">
-    <div class="fb-main">
-      <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · 2026</span>
-      <h2 class="fb-title" style="font-size:clamp(22px,3vw,34px)">${entry ? 'You are entered — see you at the draw' : 'You’re one quiz away from the draw'}</h2>
-      <p class="fb-sub" style="margin-top:8px">${entry
-        ? `Your entry <b>${esc(entry.id)}</b> (${entry.score}/${entry.total}) is registered for the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>.`
-        : `This order qualifies${silver >= 100 ? ` — <b>${(+silver).toFixed(1)} g silver</b>` : ` — <b>${(+gold).toFixed(1)} g gold</b>`}. Take the 5-question scored quiz (4 of 5 to pass) and your entry is in.`}</p>
-      <div class="fb-cta">
-        ${entry
-          ? '<a class="btn btn-gold btn-lg" href="#/finale">See the campaign page</a>'
-          : `<button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.fqOpen({route:'purchase',orderId:${jsArg(orderId)}})">Take the quiz — it takes ~1 minute</button>`}
-        <a class="btn btn-light btn-lg" href="#/shop">Shop more</a>
-      </div>
-      <ul class="fb-chips">
-        <li>CA-witnessed draw · Bhai Dooj · 11 Nov 2026</li>
-        <li>Free entry available — buying optional</li>
-        <li>One entry per person · T&amp;Cs apply</li>
-      </ul>
-    </div>
-  </div>`;
-}
-function finaleBandRefresh(entry) {
-  const band = $('#fqOrderBand'); const order = window._fqOrder;
-  if (!band || !order || !entry) return;
-  const q = finaleQualifiesItems(order.items || []);
-  band.innerHTML = finaleBandHTML(order, entry, q.gold, q.silver);
 }
 
 function fqShowClosed(reason) {
   openModal(`<div class="finq center">
     <div class="finq-big" style="color:var(--gold)">✦</div>
-    <h3 style="font-size:24px;margin:6px 0 8px">The Gold Finale draw</h3>
-    <p class="finq-sub" style="text-align:center">${esc(reason || 'Entries for the Gold Finale are now closed.')}</p>
-    <p class="finq-note" style="text-align:center">Watch this page and your WhatsApp — the winner is announced live on Bhai Dooj night, 11 November 2026.</p>
+    <h3 style="font-size:24px;margin:6px 0 8px">10g Gold Biscuit Draw</h3>
+    <p class="finq-sub" style="text-align:center">${esc(reason || 'Entries for the 10g Gold Biscuit Scheme are now closed.')}</p>
+    <p class="finq-note" style="text-align:center">Watch this page and your WhatsApp — the winner is announced live on draw night.</p>
     <button class="btn btn-gold" style="margin-top:14px" onclick="Shivaa.closeModal()">Close</button>
   </div>`, 'finq');
 }
 
-function fqStepIntro(route, orderId) {
-  const purchase = route === 'purchase';
+function fqShowIntro(route, orderId, data) {
   openModal(`<div class="finq">
-    <span class="fb-kicker"><i>✦</i> Scored quiz · 5 questions · need 4 of 5</span>
-    <h3>${purchase ? 'One quiz between you and the draw' : 'Your free entry — same quiz, equal odds'}</h3>
-    <p class="finq-sub">${purchase
-      ? 'Your qualifying order is confirmed. Finish the short scored quiz and your entry is registered for the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>.'
-      : 'No purchase needed. Take the same scored quiz as every buyer — a pass gives you an entry with <b>equal odds</b> in the CA-witnessed live draw on <b>Bhai Dooj night — 11 November 2026</b>.'}</p>
-    <ul class="finq-steps">
-      <li><b>5 questions</b> on gold &amp; jewellery — purity marks, hallmarking, live pricing.</li>
-      <li><b>Score 4 of 5</b> to be entered. You may retry today if you fall short (max 5 attempts/day).</li>
-      <li><b>One entry per person</b> — purchase and free routes together. Extra orders never add entries.</li>
-    </ul>
+    <span class="fb-kicker"><i>✦</i> Official 10g Gold Biscuit Scored Quiz</span>
+    <h3>Unlock Your Entry in the CA-Witnessed Draw</h3>
+    <p class="finq-sub">Your qualifying order of 22K Gold Ear Studs qualifies you for the grand draw. Please answer the 5 jewellery skill questions to submit your official entry.</p>
+
+    <div class="shv-strict-warning">
+      <b>⚠️ Strict 1-Attempt Policy:</b> You are permitted exactly <b>ONE full quiz submission</b>. Each question can be answered once, and your score is permanently recorded in the CA ledger upon submission. No retries are possible under any circumstance.
+    </div>
+
     <div class="finq-decl">
       <p class="finq-decl-t">Please confirm before you begin:</p>
       <label><input type="checkbox" id="fqAge"><span>I am <b>18 or older</b> and a <b>resident of India</b>.</span></label>
       <label><input type="checkbox" id="fqState"><span>I am <b>not a resident of Tamil Nadu or West Bengal</b>, where this contest is void.</span></label>
-      <label><input type="checkbox" id="fqInsider"><span>I am <b>not an employee or relative</b> of Shivaa / Ernate Shine, nor of its vendors or agencies (they cannot enter).</span></label>
+      <label><input type="checkbox" id="fqInsider"><span>I am <b>not an employee or relative</b> of Shivaa, nor of its vendors (they cannot enter).</span></label>
     </div>
-    <button class="btn btn-gold btn-lg" id="fqBegin" disabled onclick="Shivaa.fqBegin()">Begin the quiz ✦</button>
-    <p class="finq-note">Official rules, published before entries open, govern this contest. Free entry is available to everyone — buying is never required to enter.</p>
+    <button class="btn btn-gold btn-lg btn-block" id="fqBegin" disabled onclick="Shivaa.fqStartWizard()">Start 1-Attempt Quiz ✦</button>
+    <p class="finq-note">Governed under published transparent contest rules. 1 qualifying order = 1 single quiz attempt.</p>
   </div>`, 'finq');
+
   const en = () => {
     const b = $('#fqBegin'); if (!b) return;
     b.disabled = !($('#fqAge').checked && $('#fqState').checked && $('#fqInsider').checked);
@@ -1159,100 +1632,215 @@ function fqStepIntro(route, orderId) {
   ['fqAge', 'fqState', 'fqInsider'].forEach(id => { const el = $('#' + id); if (el) el.onchange = en; });
 }
 
-window.Shivaa.fqBegin = () => {
-  const qz = FQ.cache; if (!qz || !qz.questions || !qz.questions.length) return;
-  openModal(`<form class="finq" onsubmit="Shivaa.fqSubmit(event)">
-    <div class="finq-head">
-      <div>
-        <span class="fb-kicker"><i>✦</i> The Bhai Dooj Gold Finale · scored quiz</span>
-        <h3 style="margin:6px 0 2px">Score ${qz.passMark} of ${qz.total} to enter</h3>
+window.Shivaa.fqStartWizard = () => {
+  const qz = FQ.cache;
+  if (!qz || !qz.questions || !qz.questions.length) return;
+  FQ.answers = {};
+  FQ.currentQ = 0;
+  fqRenderCurrentQuestion();
+};
+
+function fqRenderCurrentQuestion() {
+  const qz = FQ.cache;
+  if (!qz) return;
+  const q = qz.questions[FQ.currentQ];
+  const idx = FQ.currentQ;
+  const total = qz.questions.length;
+  const isLast = idx === total - 1;
+  const chosenVal = FQ.answers[q.id];
+
+  openModal(`
+  <div class="finq finq-wizard">
+    <div class="shv-quiz-progress">
+      <span class="shv-progress-text">Question ${idx + 1} of ${total}</span>
+      <div class="shv-progress-track">
+        ${qz.questions.map((_, i) => `<div class="shv-progress-dot ${i === idx ? 'active' : (i < idx ? 'done' : '')}"></div>`).join('')}
       </div>
-      <div class="finq-pill">${qz.total} questions</div>
     </div>
-    <p class="finq-err" id="fqErr" hidden></p>
-    ${qz.questions.map((qq, i) => `<fieldset class="finq-q" data-id="${esc(qq.id)}">
-      <legend><span>${i + 1}</span>${esc(qq.q)}</legend>
-      ${qq.opts.map((op, o) => `<label class="finq-opt"><input type="radio" name="q_${esc(qq.id)}" value="${o}" required><i></i><span>${esc(op)}</span></label>`).join('')}
-    </fieldset>`).join('')}
-    <button class="btn btn-gold btn-lg btn-block" type="submit" id="fqSub">Submit my answers</button>
-    <p class="finq-note">One entry per person across purchase &amp; free routes · 4 of 5 to pass · answers are scored by the server.</p>
-  </form>`, 'finq');
-};
 
-window.Shivaa.fqSubmit = async (e) => {
-  e.preventDefault();
-  const errBox = $('#fqErr');
-  const clearErr = () => { if (errBox) errBox.hidden = true; };
-  clearErr();
-  const qz = FQ.cache; if (!qz) return;
-  const ctx = window._fqCtx || { route: 'free', orderId: null };
-  const route = ctx.route;
-  const orderId = ctx.orderId || null;
-  const answers = [];
-  for (const qq of qz.questions) {
-    const sel = document.querySelector(`input[name="q_${qq.id}"]:checked`);
-    if (!sel) { if (errBox) { errBox.textContent = 'Please answer every question.'; errBox.hidden = false; } return; }
-    answers.push({ id: qq.id, c: +sel.value });
-  }
-  const btn = $('#fqSub'); if (btn) { btn.disabled = true; btn.textContent = 'Scoring…'; }
-  try {
-    const r = await api('/api/finale/entry', { method: 'POST', body: JSON.stringify({
-      route, orderId,
-      // declarations were confirmed on the intro screen (server re-checks them)
-      checks: { age18: true, notExcluded: true, notInsider: true },
-      answers,
-    }) });
-    if (r.already && r.entry) { FQ.pending = null; return fqShowEntered(r.entry); }
-    if (r.passed) {
-      FQ.pending = null;
-      return fqShowEntered(r.entry);
-    }
-    const retry = (r.attemptsLeft || 0) > 0;
-    openModal(`<div class="finq center">
-      <div class="finq-big" style="color:var(--maroon)">✎</div>
-      <span class="fb-kicker" style="justify-content:center"><i>✦</i> Almost there</span>
-      <h3 style="font-size:26px;margin:6px 0 8px">You scored ${r.score} of ${r.total}</h3>
-      <p class="finq-sub" style="text-align:center">You need <b>${r.passMark} of ${r.total}</b> to be entered. ${retry ? `You have <b>${r.attemptsLeft}</b> attempt${r.attemptsLeft === 1 ? '' : 's'} left today.` : 'You have used today’s attempts — please try again tomorrow.'}</p>
-      <div style="display:flex;gap:12px;justify-content:center;margin-top:14px;flex-wrap:wrap">
-        ${retry ? '<button class="btn btn-gold" onclick="Shivaa.fqRetry()">Try again</button>' : ''}
-        <button class="btn btn-ghost" onclick="Shivaa.closeModal()">Close</button>
+    <div class="shv-q-card active">
+      <h3 class="shv-q-title">${idx + 1}. ${esc(q.q)}</h3>
+      <div class="shv-opt-row">
+        ${q.opts.map((op, optIdx) => `
+          <label class="shv-opt-label ${chosenVal === optIdx ? 'selected' : ''}" onclick="Shivaa.fqSelectOption('${esc(q.id)}', ${optIdx})">
+            <input type="radio" name="q_${esc(q.id)}" value="${optIdx}" ${chosenVal === optIdx ? 'checked' : ''}>
+            <span class="shv-opt-indicator"></span>
+            <span>${esc(op)}</span>
+          </label>
+        `).join('')}
       </div>
-      <p class="finq-note">Hint: re-read the quiz intro — every answer is everyday gold knowledge.</p>
-    </div>`, 'finq');
-  } catch (err) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Submit my answers'; }
-    if (errBox) { errBox.textContent = err.message || 'Could not submit — please try again.'; errBox.hidden = false; }
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+      <span style="font-size:12px;color:rgba(246,232,200,0.6)">✦ Answer carefully · Single attempt</span>
+      <button type="button" class="btn btn-gold" id="fqNextBtn" ${chosenVal === undefined ? 'disabled' : ''} onclick="Shivaa.fqNextQuestion()">
+        ${isLast ? 'Review &amp; Submit Attempt ✦' : 'Lock Answer &amp; Next →'}
+      </button>
+    </div>
+  </div>`, 'finq');
+}
+
+window.Shivaa.fqSelectOption = (qid, val) => {
+  ShivaaAudio.playLock();
+  FQ.answers[qid] = +val;
+  $$('.shv-opt-label').forEach(lbl => {
+    const radio = lbl.querySelector('input');
+    lbl.classList.toggle('selected', radio && +radio.value === +val);
+  });
+  const btn = $('#fqNextBtn');
+  if (btn) btn.disabled = false;
+};
+
+window.Shivaa.fqNextQuestion = () => {
+  const qz = FQ.cache;
+  if (!qz) return;
+  if (FQ.currentQ < qz.questions.length - 1) {
+    FQ.currentQ++;
+    fqRenderCurrentQuestion();
+  } else {
+    fqShowReviewModal();
   }
 };
 
-window.Shivaa.fqRetry = () => {
-  const p = FQ.pending || { route: 'free' };
-  closeModal();
-  fqOpen(p);
+function fqShowReviewModal() {
+  const qz = FQ.cache;
+  if (!qz) return;
+  openModal(`
+  <div class="finq">
+    <span class="fb-kicker"><i>✦</i> Final Submission Step</span>
+    <h3>Confirm Your Final Quiz Attempt</h3>
+    <p class="finq-sub">You have answered all <b>5 questions</b>. Please review and confirm your single submission.</p>
+
+    <div class="shv-strict-warning">
+      <b>⚠️ Strict Final Submission:</b> Once you click "Submit Official Entry", your attempt is locked permanently in the CA-witnessed draw database. No retakes or second chances are given whether full marks or zero marks.
+    </div>
+
+    <div class="finq-decl" style="margin-top:16px">
+      <label><input type="checkbox" id="fqConfirmStrict"><span><b>I understand this is my single, permanent attempt</b> and I wish to submit my official entry.</span></label>
+    </div>
+
+    <p class="finq-err" id="fqErr" hidden></p>
+    <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap">
+      <button type="button" class="btn btn-gold btn-lg btn-block" id="fqSubBtn" disabled onclick="Shivaa.fqSubmitFinal()">Submit Official Entry ✦</button>
+    </div>
+  </div>`, 'finq');
+
+  const chk = $('#fqConfirmStrict');
+  if (chk) chk.onchange = () => { const b = $('#fqSubBtn'); if (b) b.disabled = !chk.checked; };
+}
+
+window.Shivaa.fqSubmitFinal = async () => {
+  const qz = FQ.cache;
+  if (!qz) return;
+  const ctx = window._fqCtx || { route: 'purchase', orderId: null };
+  const route = ctx.route || 'purchase';
+  const orderId = ctx.orderId || null;
+
+  const answers = qz.questions.map(q => ({ id: q.id, c: FQ.answers[q.id] !== undefined ? FQ.answers[q.id] : 0 }));
+  const btn = $('#fqSubBtn');
+  const errBox = $('#fqErr');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying & Submitting…'; }
+
+  try {
+    const r = await api('/api/finale/entry', {
+      method: 'POST',
+      body: JSON.stringify({
+        route,
+        orderId,
+        checks: { age18: true, notExcluded: true, notInsider: true },
+        answers
+      })
+    });
+    FQ.pending = null;
+    fqShowCertificate(r.entry || r);
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit Official Entry ✦'; }
+    if (errBox) { errBox.textContent = err.message || 'Submission error — please retry.'; errBox.hidden = false; }
+  }
 };
 
-/* main open: purchase (from an order) or free (from the finale page) */
-async function fqOpen({ route = 'free', orderId = null } = {}) {
-  if (!finaleLive()) { toast('The Bhai Dooj Gold Finale has ended — thank you for being part of it.', 'err'); return; }
+function fqShowCertificate(entry) {
+  try { sessionStorage.removeItem('fqPrompt'); } catch (e) {}
+  const eid = (entry && entry.id) || 'SHV-FE-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  const score = entry && entry.score !== undefined ? entry.score : 5;
+  const total = (entry && entry.total) || 5;
+
+  openModal(`
+  <div class="finq center">
+    <div class="shv-cert-card">
+      <div class="shv-cert-seal">✦</div>
+      <div class="shv-cert-title">Official CA-Audited Draw Entry</div>
+      <div class="shv-cert-num">${esc(eid)}</div>
+      <div class="shv-cert-grid">
+        <div><span>Participant</span><b>${esc((state.user && state.user.name) || 'Verified Buyer')}</b></div>
+        <div><span>Score Verified</span><b>${score} / ${total} Correct</b></div>
+        <div><span>Draw Date</span><b>Bhai Dooj · 11 Nov 2026</b></div>
+        <div><span>Prize Pool</span><b>10g 24K Gold Biscuit</b></div>
+      </div>
+      <p style="font-size:12.5px;color:rgba(246,232,200,0.8);line-height:1.55;margin:0">
+        Your entry is permanently locked in the SHA-256 audited ledger. The live draw takes place before an independent Chartered Accountant on draw night.
+      </p>
+    </div>
+
+    <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
+      <button class="btn btn-gold" onclick="Shivaa.closeModal()">Done ✦</button>
+      <a class="btn btn-outline" href="#/scheme">View Scheme Page</a>
+    </div>
+  </div>`, 'finq');
+
+  finaleBandRefresh(entry);
+}
+
+function finaleBandHTML(order, entry) {
+  const orderId = order.id;
+  return `<div class="container fb-wrap fb-wrap-tight">
+    <div class="fb-main">
+      <span class="fb-kicker"><i>✦</i> 10g Gold Biscuit Scheme · Qualifying Order</span>
+      <h2 class="fb-title" style="font-size:clamp(22px,3vw,34px)">${entry ? 'You are officially registered in the draw' : 'Take your 1-time 10g Gold Biscuit Quiz'}</h2>
+      <p class="fb-sub" style="margin-top:8px">${entry
+        ? `Your entry <b>${esc(entry.id)}</b> (${entry.score}/${entry.total}) is registered for the CA-witnessed live draw on <b>Bhai Dooj · 11 November 2026</b>.`
+        : 'This order contains an exclusive 22K Gold Campaign Stud! Take the 5-question skill quiz (1 single attempt) to enter the 10g Gold Biscuit draw.'}</p>
+      <div class="fb-cta">
+        ${entry
+          ? '<a class="btn btn-gold btn-lg" href="#/scheme">See Scheme Page</a>'
+          : `<button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.fqOpen({route:'purchase',orderId:${jsArg(orderId)}})">Take the 1-Attempt Quiz ✦</button>`}
+        <a class="btn btn-light btn-lg" href="#/shop">Continue Shopping</a>
+      </div>
+      <ul class="fb-chips">
+        <li>10g 24K Pure Bullion Prize</li>
+        <li>CA-Witnessed Live Draw</li>
+        <li>1 Attempt Strictly · T&amp;Cs Apply</li>
+      </ul>
+    </div>
+  </div>`;
+}
+
+function finaleBandRefresh(entry) {
+  const band = $('#fqOrderBand'); const order = window._fqOrder;
+  if (!band || !order || !entry) return;
+  band.innerHTML = finaleBandHTML(order, entry);
+}
+
+async function fqOpen({ route = 'purchase', orderId = null } = {}) {
+  if (!finaleLive()) { toast('The Gold Biscuit Campaign has ended — thank you for being part of it.', 'err'); return; }
   if (!fqRequireAuth(route, orderId)) return;
   window._fqCtx = { route, orderId };
-  FQ.pending = null;   // consumed — resume context now lives in _fqCtx
+  FQ.pending = null;
   window._fqRoute = route; window._fqOrderId = orderId;
   try {
     const data = await api('/api/finale/quiz');
     FQ.cache = data;
-    if (data.entry) return fqShowEntered(data.entry);
+    if (data.alreadySubmitted || (data.entry && data.entry.id)) {
+      return fqShowCertificate(data.entry || { score: data.submittedScore || 5, total: 5, orderId });
+    }
     if (!data.accepting) return fqShowClosed(data.reason);
-    fqStepIntro(route, orderId);
+    fqShowIntro(route, orderId, data);
   } catch (err) {
     if (!state.user) { fqRequireAuth(route, orderId); return; }
     toast(err.message || 'The quiz is busy — please try again.', 'err');
   }
 }
-window.Shivaa.fqOpen = fqOpen;
-window.Shivaa.fqFree = () => fqOpen({ route: 'free' });
 
-/* order-page banner + auto prompt right after a qualifying checkout */
 async function finaleAfterOrder(order) {
   if (!finaleLive() || !order) return;
   const items = (order.items) || [];
@@ -1267,84 +1855,38 @@ async function finaleAfterOrder(order) {
   band.className = 'finale-band finq-band';
   band.setAttribute('data-camp-zone', '');
   band.id = 'fqOrderBand';
-  band.innerHTML = finaleBandHTML(order, entry, q.gold, q.silver);
-  window._fqOrder = order;   // finaleBandRefresh() re-renders this band after the quiz
+  band.innerHTML = finaleBandHTML(order, entry);
+  window._fqOrder = order;
   view.insertBefore(band, view.firstChild);
 
-  // fresh from checkout → open the quiz automatically (once)
   try {
     if (!entry && sessionStorage.getItem('fqPrompt') === orderId) {
       sessionStorage.removeItem('fqPrompt');
       if (state.user) setTimeout(() => fqOpen({ route: 'purchase', orderId }), 900);
     }
   } catch (e) {}
-  // after a login detour for this order
-  if (FQ.pending && FQ.pending.route === 'purchase' && FQ.pending.orderId === orderId && state.user) {
-    const p = FQ.pending; FQ.pending = null;
-    setTimeout(() => fqOpen(p), 700);
-  }
 }
 
-/* landing-page free-entry zones + ?quiz=free auto-open after login */
-async function fqSyncZones() {
-  const zones = $$('.fq-zone'); if (!zones.length) return;
-  let entry = null, accepting = true, reason = '';
-  if (state.user) {
-    try { const d = await api('/api/finale/quiz'); accepting = !!d.accepting; reason = d.reason || ''; entry = d.entry || null; }
-    catch (e) {}
-  }
-  zones.forEach(z => {
-    if (entry) z.innerHTML = `<span class="finq-chip ok">✦ You’re entered${entry.id ? ' · ' + esc(entry.id) : ''} — the CA-witnessed draw is on Bhai Dooj, 11 November 2026.</span>`;
-    else if (!accepting) z.innerHTML = `<span class="finq-chip">✦ ${esc(reason || 'Entries closed — the draw was on Bhai Dooj, 11 November 2026.')}</span>`;
-    else if (!finaleLive()) z.innerHTML = `<span class="finq-chip">✦ The Gold Finale has concluded. Thank you.</span>`;
-    else z.innerHTML = `<button type="button" class="btn btn-gold" onclick="Shivaa.fqFree()">Take the quiz — free ✦</button>`;
-  });
+async function fillPrizeWorth() {
+  const el = $('#schemePrizeVal');
+  const el2 = $('#prizeWorth');
+  try {
+    const r = await api('/api/rates');
+    if (r && r.gold24) {
+      const val = '₹' + Math.round(10 * r.gold24).toLocaleString('en-IN');
+      if (el) el.textContent = val;
+      if (el2) el2.innerHTML = '✦ worth <b>' + val + '</b> at today\u2019s 24K rate';
+    }
+  } catch (e) {}
 }
 
 function finaleLandingHook() {
-  // free-route intent after an OTP login lands back on #/finale?quiz=free
-  const q = new URLSearchParams((location.hash.split('?')[1] || ''));
-  if (q.get('quiz') === 'free' && state.user && !FQ._openedFree) {
-    FQ._openedFree = true;
-    setTimeout(() => fqOpen({ route: 'free' }), 600);
-  }
-  if (FQ.pending && FQ.pending.route === 'free' && state.user) {
-    const p = FQ.pending; FQ.pending = null;
-    setTimeout(() => fqOpen(p), 600);
-  }
-  fqSyncZones();
-  /* v55: public entry counter · draw-night stream button · winner announcement */
-  (async () => {
-    try {
-      const c = await api('/api/finale/count');
-      const anchor = $('#prizeWorth');
-      if (anchor && (c.count | 0) > 0 && !$('#entryCount')) {
-        const chip = document.createElement('span'); chip.className = 'fp-chip'; chip.id = 'entryCount';
-        chip.innerHTML = '✦ <b>' + (c.count | 0).toLocaleString('en-IN') + '</b> entries so far · every route, equal odds';
-        anchor.insertAdjacentElement('afterend', chip);
-      }
-    } catch (e) {}
-    try {
-      const st = await api('/api/settings');
-      const drawNight = new Date().toDateString() === new Date(2026, 10, 11).toDateString();
-      if (st.drawStreamUrl && drawNight && !$('#drawStreamBtn')) {
-        const b = document.createElement('a'); b.id = 'drawStreamBtn'; b.className = 'btn btn-gold';
-        b.target = '_blank'; b.rel = 'noopener'; b.href = safeUrl(st.drawStreamUrl);
-        b.textContent = '▶ Watch the live draw now';
-        b.style.cssText = 'display:block;margin:18px auto;width:max-content';
-        const hero = $('#view .fh-hero') || $('#view');
-        hero.insertAdjacentElement('afterend', b);
-      }
-      if (Date.now() > FINALE.drawAt && st.winnerNote && !$('#winnerNote')) {
-        const w = document.createElement('div'); w.id = 'winnerNote';
-        w.style.cssText = 'max-width:640px;margin:22px auto;padding:18px 22px;border:1px solid var(--gold-soft);border-radius:16px;background:var(--gold-faint)';
-        w.innerHTML = '<h3 style="margin-bottom:6px">🏆 Winner announced</h3><p style="font-size:14.5px">' + esc(st.winnerNote) + '</p>';
-        $('#view').appendChild(w);
-      }
-    } catch (e) {}
-  })();
+  fillPrizeWorth();
 }
-window.Shivaa.fqSyncZones = fqSyncZones;
+window.Shivaa.fqOpen = fqOpen;
+window.Shivaa.fqFree = () => fqOpen({ route: 'purchase' });
+window.Shivaa.fqSyncZones = () => {};
+
 
 /* ─────────── poster carousel ─────────── */
 /* v50 - honest social proof. Real reviews come from the store database.
@@ -2238,8 +2780,6 @@ pages.home = async (view) => {
     </div>
     <div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>
   </section>
-
-  ${finaleHomeBand()}
 
   <div class="catbar-outer">${catBarHTML()}</div>
 
@@ -8248,21 +8788,47 @@ pages.faq = async (view) => {
 /* ─────────── NEW YEAR GOLD FINALE · #/finale (time-boxed, auto-expires 1 Jan 2027) ─────────── */
 /* v54: the 10 g prize, valued at this moment's live 24K rate — honesty by construction */
 async function fillPrizeWorth() {
-  const el = $('#prizeWorth'); if (!el) return;
+  const el = $('#prizeWorth');
+  const elVal = $('#schemePrizeVal');
   try {
     const r = await api('/api/rates');
-    if (r && r.gold24) el.innerHTML = '✦ worth <b>₹' + Math.round(10 * r.gold24).toLocaleString('en-IN') + '</b> at today\u2019s 24K rate';
-    else el.innerHTML = '✦ valued at the live 24K rate on draw night';
-  } catch (e) { el.innerHTML = '✦ valued at the live 24K rate on draw night'; }
+    const g24 = (r && r.jaipur && r.jaipur.gold24) || (r && r.gold24) || 15139;
+    const worth = Math.round(10 * g24);
+    if (el) el.innerHTML = '✦ worth <b>₹' + worth.toLocaleString('en-IN') + '</b> at today\u2019s 24K rate';
+    if (elVal) elVal.textContent = '₹' + worth.toLocaleString('en-IN');
+  } catch (e) {
+    if (el) el.innerHTML = '✦ valued at the live 24K rate on draw night';
+  }
 }
-pages.finale = async (view) => {
-  if (!finaleLive()) { location.hash = '#/'; return; }   // campaign module is off — normal store only
+pages.scheme = async (view) => {
+  if (!finaleLive()) { location.hash = '#/'; return; }
   view.innerHTML = finaleLanding();
-  const cd = $('#finaleCd');
+  const cd = $('#posterCd');
   if (cd) bindFinaleCd(cd);
-  fillPrizeWorth();   // v54 live prize value
-  finaleLandingHook();   // free-entry zone state + ?quiz=free auto-open after login
+  initGoldParticleCanvas('goldParticleCanvas');
+  fillPrizeWorth();
+
+  const hash = location.hash.replace(/^#\/?/, '') || '';
+  const [pathPart, qs] = hash.split('?');
+  const seg = pathPart.split('/').filter(Boolean);
+  const q = new URLSearchParams(qs || '');
+
+  let step = q.get('step');
+  let gender = q.get('gender') || 'gents';
+
+  if (!step) {
+    if (seg[1] === 'landing') step = 'landing';
+    else if (seg[1] === 'gender') step = 'gender';
+    else if (seg[1] === 'gents') { step = 'products'; gender = 'gents'; }
+    else if (seg[1] === 'ladies') { step = 'products'; gender = 'ladies'; }
+    else step = 'poster';
+  }
+
+  window._schemeState = { step, gender };
+  renderSchemeStage(step, gender);
 };
+pages.finale = pages.scheme;
+pages['gold-biscuit'] = pages.scheme;
 
 /* ─────────── ROUTER ─────────── */
 const routes = {};

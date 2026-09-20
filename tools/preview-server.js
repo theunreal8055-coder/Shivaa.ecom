@@ -22,6 +22,7 @@ const MIME = {
   '.mp4': 'video/mp4',
   '.webmanifest': 'application/manifest+json',
   '.pdf': 'application/pdf',
+  '.zip': 'application/zip',
 };
 
 const server = http.createServer((req, res) => {
@@ -41,6 +42,51 @@ const server = http.createServer((req, res) => {
       db = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
     } catch (e) {}
 
+    
+    if (pathname === '/api/finale/entry' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        let b = {};
+        try { b = JSON.parse(body); } catch(e) {}
+        const orderId = (b.orderId || '').trim();
+        const CAMPAIGN_SKUS = ['SHV-STUD-M1', 'SHV-STUD-M2', 'SHV-STUD-M3', 'SHV-STUD-W1', 'SHV-STUD-W2', 'SHV-STUD-W3', 'p_stud_m1', 'p_stud_m2', 'p_stud_m3', 'p_stud_w1', 'p_stud_w2', 'p_stud_w3'];
+        
+        // Mock qualifying check
+        let isQualifying = true; // allow testing
+        let order = (db.orders || []).find(o => o.id === orderId);
+        if (order) {
+          isQualifying = (order.items || []).some(it => CAMPAIGN_SKUS.includes(it.sku) || CAMPAIGN_SKUS.includes(it.id));
+        }
+
+        // Quiz answers check
+        if (b.answers) {
+          const ans = b.answers;
+          let score = 0;
+          if (ans.q1 === 'b') score++;
+          if (ans.q2 === 'c') score++;
+          if (ans.q3 === 'b') score++;
+          if (ans.q4 === 'b') score++;
+          if (ans.q5 === 'b') score++;
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({
+            ok: true,
+            score,
+            total: 5,
+            message: 'Quiz submitted and locked permanently. Good luck in the 10g Gold Biscuit lucky draw!'
+          }));
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          ok: true,
+          eligible: isQualifying,
+          orderId: orderId || 'DEMO-ORDER-101',
+          scheme: '10g Gold Bullion Campaign'
+        }));
+      });
+      return;
+    }
     if (pathname === '/api/rates') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       const goldPerG = 15056;

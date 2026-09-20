@@ -6499,13 +6499,14 @@ try {
       return null;
     }
     function finale_qualifies(array $items): bool {
-      $gold = 0.0; $silver = 0.0;
+      $CAMPAIGN_SKUS = ['SHV-MST-01', 'SHV-MST-02', 'SHV-MST-03', 'SHV-LST-01', 'SHV-LST-02', 'SHV-LST-03', 'p_stud_m1', 'p_stud_m2', 'p_stud_m3', 'p_stud_w1', 'p_stud_w2', 'p_stud_w3'];
       foreach ($items as $it) {
-        $w = (float)($it['weightG'] ?? 0) * max(1, (int)($it['qty'] ?? 1));
-        if (strcasecmp((string)($it['metal'] ?? ''), 'Silver') === 0) $silver += $w;
-        elseif (in_array((string)($it['purity'] ?? ''), ['18K', '22K', '24K'], true)) $gold += $w;
+        $id = (string)($it['id'] ?? '');
+        $sku = (string)($it['sku'] ?? '');
+        $isCamp = !empty($it['isCampaignStud']) || !empty($it['campaignStud']);
+        if (in_array($id, $CAMPAIGN_SKUS, true) || in_array($sku, $CAMPAIGN_SKUS, true) || $isCamp) return true;
       }
-      return $gold >= 3.0 || $silver >= 100.0;
+      return false;
     }
     function finale_public_entry(array $e): array {
       return ['id' => $e['id'], 'route' => $e['route'], 'orderId' => $e['orderId'] ?? null,
@@ -6513,20 +6514,23 @@ try {
               'createdAt' => $e['createdAt']];
     }
     function finale_daily_attempts(array &$db, string $userId): int {
-      $today = gmdate('Y-m-d', time() + 19800); // IST date
       $a = $db['finaleAttempts'][$userId] ?? null;
-      if (!is_array($a) || ($a['day'] ?? '') !== $today) { $db['finaleAttempts'][$userId] = ['day' => $today, 'count' => 0]; return 0; }
-      return (int)$a['count'];
+      if (is_array($a) && !empty($a['submitted'])) return 1;
+      return 0;
     }
 
     if ($route === 'finale/quiz' && $method === 'GET') {
       if (!$u) jout(401, ['error' => 'Login required']);
       $my = finale_entry_for($db, $u['id']);
+      $attempt = $db['finaleAttempts'][$u['id']] ?? null;
+      $alreadySubmitted = is_array($attempt) && !empty($attempt['submitted']);
       jout(200, [
         'open' => $is_open, 'accepting' => $accepting,
-        'reason' => !$is_open ? 'The New Year Gold Finale has concluded. Thank you for being part of it.'
-                   : (!$accepting ? 'Entries closed in December — the CA-witnessed live draw takes place on 31 December 2026.' : ''),
-        'passMark' => $FE_PASS, 'total' => $FE_MAX, 'attemptsLeft' => max(0, $FE_DAILY_ATTEMPTS - finale_daily_attempts($db, $u['id'])),
+        'reason' => !$is_open ? 'The Gold Biscuit Campaign has concluded. Thank you for being part of it.'
+                   : (!$accepting ? 'Entries closed — the CA-witnessed live draw takes place on draw night.' : ''),
+        'passMark' => $FE_PASS, 'total' => $FE_MAX,
+        'alreadySubmitted' => $alreadySubmitted,
+        'attemptsLeft' => $alreadySubmitted ? 0 : 1,
         'questions' => array_map(fn($q) => ['id' => $q['id'], 'q' => $q['q'], 'opts' => $q['opts']], $FE_QUIZ),
         'entry' => $my ? finale_public_entry($my) : null,
       ]);
@@ -6540,13 +6544,17 @@ try {
 
     if ($route === 'finale/entry' && $method === 'POST') {
       if (!$u) jout(401, ['error' => 'Login required']);
-      if (!$is_open) jout(403, ['error' => 'The New Year Gold Finale has concluded. Thank you for being part of it.']);
-      if (!$accepting) jout(403, ['error' => 'Entries closed in December — the CA-witnessed live draw takes place on 31 December 2026.']);
+      if (!$is_open) jout(403, ['error' => 'The Gold Biscuit Campaign has concluded. Thank you for being part of it.']);
+      if (!$accepting) jout(403, ['error' => 'Entries closed — the CA-witnessed live draw takes place on draw night.']);
       $b = body_json();
       $route_type = ($b['route'] ?? '') === 'free' ? 'free' : 'purchase';
       $order_id = $route_type === 'purchase' ? trim((string)($b['orderId'] ?? '')) : null;
 
-      // one entry per person — ever (purchase and free routes combined)
+      // one full submission EVER per person (strict single-attempt rule)
+      $existingAttempt = $db['finaleAttempts'][$u['id']] ?? null;
+      if (is_array($existingAttempt) && !empty($existingAttempt['submitted'])) {
+        jout(403, ['error' => 'You have already submitted your quiz attempt. Strictly one submission is permitted.', 'alreadySubmitted' => true]);
+      }
       $existing = finale_entry_for($db, $u['id']);
       if ($existing) jout(200, ['already' => true, 'entry' => finale_public_entry($existing)]);
 
@@ -6562,24 +6570,15 @@ try {
         $ord = null; foreach ($db['orders'] as $o) if ($o['id'] === $order_id) $ord = $o;
         if (!$ord) jout(404, ['error' => 'Order not found.']);
         if (($ord['userId'] ?? '') !== $u['id']) jout(403, ['error' => 'This order does not belong to your account.']);
-        // v82 — a cancelled or unpaid COD order is not a purchase. COD orders
-        // become eligible only after the shop confirms/ships them; prepaid
-        // orders once payment is approved.
         $ost = (string)($ord['status'] ?? '');
         $pst = (string)($ord['paymentStatus'] ?? '');
         if (in_array($ost, ['Cancelled', 'Returned', 'Refunded'], true))
           jout(400, ['error' => 'Cancelled orders are not eligible for the draw.']);
         $paid = str_contains($pst, 'Paid') || $pst === 'Proof submitted'
              || in_array($ost, ['Shipped', 'Delivered', 'Confirmed'], true);
-        if (!$paid) jout(400, ['error' => 'This order can be used once its payment is confirmed. The free quiz route needs no purchase.']);
-        if (!finale_qualifies($ord['items'] ?? [])) jout(400, ['error' => 'This order does not qualify — a qualifying order is any gold piece of 3 g or more in any karat, or 100 g or more of silver per order.']);
+        if (!$paid) jout(400, ['error' => 'This order can be used once its payment is confirmed.']);
+        if (!finale_qualifies($ord['items'] ?? [])) jout(400, ['error' => 'This order does not qualify — only orders containing one of the 6 exclusive 22K Gold Campaign Ear Studs qualify for the 10g Gold Biscuit draw.']);
       }
-
-      // attempt guard: 5 quiz attempts per person per day
-      $day = gmdate('Y-m-d', time() + 19800);
-      $a = $db['finaleAttempts'][$u['id']] ?? null;
-      $count = (is_array($a) && ($a['day'] ?? '') === $day) ? (int)$a['count'] : 0;
-      if ($count >= $FE_DAILY_ATTEMPTS) jout(429, ['error' => 'You have used today’s quiz attempts. Please try again tomorrow.']);
 
       // server-side scoring against the canonical bank
       $answers = is_array($b['answers'] ?? null) ? $b['answers'] : [];
@@ -6590,26 +6589,38 @@ try {
         if ($got[$qq['id']] === $qq['a']) $score++;
       }
       if ($missing) jout(400, ['error' => 'Please answer every question.']);
-      // v82 — count a try only when a full, scored quiz was submitted (a
-      // half-filled form must not silently burn the day's attempts)
-      $count++;
-      $db['finaleAttempts'][$u['id']] = ['day' => $day, 'count' => $count];
+
+      // Record strict single submission
+      $day = gmdate('Y-m-d', time() + 19800);
+      $db['finaleAttempts'][$u['id']] = [
+        'submitted' => true,
+        'count' => 1,
+        'day' => $day,
+        'score' => $score,
+        'total' => $FE_MAX,
+        'orderId' => $order_id,
+        'submittedAt' => now_iso()
+      ];
       $passed = $score >= $FE_PASS;
-      $entry = null;
-      if ($passed) {
-        $entry = ['id' => uid('fe'), 'userId' => $u['id'], 'route' => $route_type, 'orderId' => $order_id,
-                  'name' => (string)($u['name'] ?? ''), 'phone' => (string)($u['phone'] ?? ''),
-                  'email' => (string)($u['email'] ?? ''),
-                  'score' => $score, 'total' => $FE_MAX, 'passed' => true, 'status' => 'Entered',
-                  'checks' => ['age18' => true, 'notExcluded' => true, 'notInsider' => true],
-                  'answers' => $got, 'createdAt' => now_iso(), 'source' => 'site-quiz'];
-        $db['finaleEntries'][] = $entry;
-      }
+      $entry = [
+        'id' => uid('fe'), 'userId' => $u['id'], 'route' => $route_type, 'orderId' => $order_id,
+        'name' => (string)($u['name'] ?? ''), 'phone' => (string)($u['phone'] ?? ''),
+        'email' => (string)($u['email'] ?? ''),
+        'score' => $score, 'total' => $FE_MAX, 'passed' => $passed, 'status' => 'Entered',
+        'checks' => ['age18' => true, 'notExcluded' => true, 'notInsider' => true],
+        'answers' => $got, 'createdAt' => now_iso(), 'source' => 'site-quiz'
+      ];
+      $db['finaleEntries'][] = $entry;
       db_save($DB_FILE, $db);
-      jout(200, $passed
-        ? ['passed' => true, 'score' => $score, 'total' => $FE_MAX, 'passMark' => $FE_PASS, 'entry' => finale_public_entry($entry)]
-        : ['passed' => false, 'score' => $score, 'total' => $FE_MAX, 'passMark' => $FE_PASS,
-           'attemptsLeft' => max(0, $FE_DAILY_ATTEMPTS - $count)]);
+      jout(200, [
+        'submitted' => true,
+        'passed' => $passed,
+        'score' => $score,
+        'total' => $FE_MAX,
+        'passMark' => $FE_PASS,
+        'entry' => finale_public_entry($entry),
+        'attemptsLeft' => 0
+      ]);
     }
 
     if ($route === 'finale/count' && $method === 'GET') {
