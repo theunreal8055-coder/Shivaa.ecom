@@ -1750,25 +1750,59 @@ window.Shivaa.buyCampaignStud = async (productId) => {
               allStuds.find(x => x.id === productId);
     if (!p) { toast('Product details loading...', 'err'); return; }
 
-    // Set express item
-    window.Shivaa._expressItem = { id: productId, qty: 1, size: null, engraving: null, isCampaignStud: true };
+    // Set express item exactly like normal products
+    window.Shivaa._expressItem = { id: productId, qty: 1, isCampaignStud: true };
     try { store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() }); } catch (e) {}
 
-    // Unified 1-click Cashfree checkout pipeline — matches regular products exactly
-    toast('Opening Cashfree 1-Click checkout…');
-    const items = [{ id: productId, qty: 1, size: null, engraving: null, p, isCampaignStud: true }];
-    await exRunBuy(items);
+    // Place boundary order with canonical EX_BOUNDARY (identical to exRunBuy)
+    const res = await api('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ id: productId, qty: 1, size: null, engraving: null }],
+        address: { ...EX_BOUNDARY },
+        paymentMethod: 'Online',
+      })
+    });
+
+    if (!res || !res.id) throw new Error((res && res.error) || 'Order initialization failed');
+    window.Shivaa._lastOrder = res;
+    window.Shivaa._expressOrder = res;
+    expressRemember(res.id, res.pin || '');
+    try { sessionStorage.setItem('fqPrompt', res.id); } catch (e) {}
+
+    // Mint Cashfree session via pay/order (identical to exHandoff)
+    const po = await api('/api/pay/order', {
+      method: 'POST',
+      body: JSON.stringify(res.pin ? { orderId: res.id, pin: res.pin } : { orderId: res.id })
+    });
+
+    if (po && po.mode === 'cashfree' && po.paymentSessionId) {
+      // Open Cashfree One Click Checkout portal!
+      // Do NOT touch location.hash or navigate away — Cashfree takes over the window / modal.
+      await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);
+      return;
+    }
+
+    if (po && po.mode === 'demo') {
+      const pr = price(p);
+      const paid = await demoPaySheet(po, res.id, (pr && pr.total) || res.total);
+      if (paid) {
+        location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(res.id) + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
+        return;
+      } else {
+        toast('भुगतान रद्द किया गया — कृपया पुनः प्रयास करें ✦', 'err');
+        return;
+      }
+    }
+
+    throw new Error((po && (po.gatewayMessage || po.error)) || 'Cashfree could not start');
   } catch (err) {
-    console.error('Campaign stud buy error:', err);
+    console.error('Campaign Buy Now error:', err);
     toast((err && err.message) || 'कैशफ्री चेकआउट लोड नहीं हो सका — कृपया पुनः प्रयास करें ✦', 'err');
   } finally {
     if (buyBtn) {
-      setTimeout(() => {
-        if (buyBtn) {
-          buyBtn.disabled = false;
-          buyBtn.innerHTML = prevBtnHtml || '⚡ Buy Now';
-        }
-      }, 4000);
+      buyBtn.disabled = false;
+      buyBtn.innerHTML = prevBtnHtml || '⚡ Buy Now';
     }
   }
 };
@@ -3967,23 +4001,10 @@ const EX_BOUNDARY = {
    its retry button, the UPI QR tab and the access pin — receives them. */
 async function exHandoff(orderId, pin) {
   const po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify(pin ? { orderId, pin } : { orderId }) });
-  if (po && po.mode === 'cashfree' && po.paymentSessionId) {
-    return await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);
+  if (!po || po.mode !== 'cashfree' || !po.paymentSessionId) {
+    throw new Error((po && (po.gatewayMessage || po.error)) || 'Cashfree could not start');
   }
-  if (po && po.mode === 'demo') {
-    const paid = await demoPaySheet(po, orderId);
-    if (paid) {
-      const isCamp = Boolean(window.Shivaa._lastOrder && window.Shivaa._lastOrder.items && window.Shivaa._lastOrder.items.some(x => x.isCampaignStud || x.campaignStud || (x.id && x.id.startsWith('p_stud_'))));
-      if (isCamp) {
-        location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(orderId) + (pin ? '&pin=' + encodeURIComponent(pin) : '');
-      } else {
-        location.hash = '#/order/' + encodeURIComponent(orderId) + '?paid=1' + (pin ? '&pin=' + encodeURIComponent(pin) : '');
-      }
-      return true;
-    }
-    return false;
-  }
-  throw new Error((po && (po.gatewayMessage || po.error)) || 'Cashfree could not start');
+  await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);
 }
 async function exRunBuy(items) {
   const res = await api('/api/orders', { method: 'POST', body: JSON.stringify({
@@ -3992,11 +4013,9 @@ async function exRunBuy(items) {
     paymentMethod: 'Online',   // guest direct-buy is prepaid-only; never COD/WhatsApp
   }) });
   window.Shivaa._expressOrder = res;
-  window.Shivaa._lastOrder = res;
   expressRemember(res.id, res.pin || '');
   window.Shivaa._expressItem = null;
   try { store.set('shv_ex_item', null); } catch (e) {}
-  try { sessionStorage.setItem('fqPrompt', res.id); } catch (e) {}
   /* v155 — NOTHING renders here. A successful handoff replaces this whole
      document with Cashfree's portal (the catch below never runs); a declined
      one lands on the order view, silently, where the shopper can retry or
@@ -5389,7 +5408,7 @@ function cashfreeRedirectSheet(retry) {
   const cancel = $('#cfCancel'); if (cancel) cancel.onclick = () => { closeModal(); resolve(false); };
   });
 }
-/* v128/v163 — Cashfree hosted checkout (Step 2): load the official JS SDK and open
+/* v128/v162 — Cashfree hosted checkout (Step 2): load the official JS SDK and open
    the PCI-compliant payment page with the payment_session_id the server minted.
    redirectTarget _self replaces this page; Cashfree sends the customer back to
    the return_url, which the server verifies before crediting the order. */
@@ -5423,13 +5442,41 @@ window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
       return submitHostedForm();
     }
     const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
-    const res = cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
-    if (res && res.error) {
-      console.warn('Cashfree SDK returned error, submitting hosted form directly:', res.error);
-      return submitHostedForm();
+    const isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+    if (isMobile) {
+      const res = cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
+      if (res && res.error) {
+        console.warn('Cashfree mobile SDK returned error, submitting form directly:', res.error);
+        return submitHostedForm();
+      }
+      return res || true;
     }
-    if (res && typeof res.then === 'function') {
-      return await res;
+
+    let res;
+    try {
+      res = await Promise.race([
+        cf.checkout({ paymentSessionId: sess, redirectTarget: '_modal' }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('__cf_timeout__')), 20000))
+      ]);
+    } catch (e) {
+      if (e && e.message === '__cf_timeout__') {
+        console.warn('Cashfree modal timed out or blocked — falling back to redirect');
+        return cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
+      }
+      try {
+        return await cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
+      } catch (e2) {
+        return submitHostedForm();
+      }
+    }
+
+    if (res && res.error) {
+      console.warn('Cashfree SDK modal returned error, falling back to redirect:', res.error);
+      try {
+        return await cf.checkout({ paymentSessionId: sess, redirectTarget: '_self' });
+      } catch (e3) {
+        return submitHostedForm();
+      }
     }
     return res || true;
   } catch (e) {

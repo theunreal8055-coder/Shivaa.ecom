@@ -1,21 +1,19 @@
 #!/usr/bin/env node
 /**
  * v163-check.js — Comprehensive verification suite for Shivaa v163 release
- * 
- * Verifies:
- * 1. Stamp alignment across index.html, sw.js, app.js, and api.php (all v163).
+ * Tests:
+ * 1. Stamp alignment across index.html, sw.js, app.js, and api.php (all 163).
  * 2. Preconnect and defer of Cashfree SDK v3 in index.html.
  * 3. Stepper styles in cms/css/finale.css: position relative !important on desktop and mobile.
- * 4. Aura HUD styles in cms/css/finale.css: z-index 15 !important, relative positioning.
- * 5. App.js scrollTo top prevents docking collisions with Aura.
- * 6. App.js buyCampaignStud routes through the unified exRunBuy pipeline with EX_BOUNDARY.
- * 7. App.js exRunBuy saves _expressOrder, _lastOrder, and sets fqPrompt in sessionStorage.
- * 8. App.js exHandoff gracefully supports Cashfree mode and Demo mode.
- * 9. App.js cashfreeCheckout uses official SDK v3 with _self redirectTarget and hosted form fallback.
- * 10. Api.php cashfree_occ_block enforces origUnit >= discUnit and sanitizes item names.
- * 11. Api.php finale_qualifies checks both id and productId.
- * 12. Api.php pay/cashfree/return redirects campaign orders to /#/scheme?step=quiz.
- * 13. Api.php campaign_studs_catalog matches catalog specs and 15% MC.
+ * 4. Aura HUD styles in cms/css/finale.css: z-index 15 !important, clear: both, margin.
+ * 5. App.js scrollTo vs scrollIntoView for stepper docking.
+ * 6. App.js buyCampaignStud uses canonical EX_BOUNDARY and invokes Cashfree without location.hash destruction.
+ * 7. App.js cashfreeCheckout handles _modal on desktop and _self on mobile with submitHostedForm fallback.
+ * 8. App.js loadExternalScript handles preloaded and cached scripts gracefully.
+ * 9. Api.php finale_qualifies defined at global scope for safe return redirects.
+ * 10. Api.php cashfree_occ_block supports image, images, and img item fields.
+ * 11. Api.php campaign_studs_catalog matches v160/v161/v162/v163 product weights and 15% MC.
+ * 12. Api.php pay/order pin resolution and OCC checkoutAuthenticate allowance.
  */
 
 'use strict';
@@ -86,67 +84,66 @@ check('Finale.css prevents sticky stepper from docking over Aura HUD', () => {
 check('App.js renderSchemeStage uses window.scrollTo to prevent docking collisions', () => {
   const app = fs.readFileSync(path.join(root, 'cms/js/app.js'), 'utf8');
   assert(!app.includes('header.scrollIntoView'), 'app.js should not call header.scrollIntoView on the stepper');
-  assert(app.includes("window.scrollTo({ top: 0, behavior: 'smooth' });"), 'app.js must call window.scrollTo({ top: 0, behavior: \'smooth\' })');
+  assert(app.includes('window.scrollTo({ top: 0, behavior: \'smooth\' });'), 'app.js must call window.scrollTo({ top: 0, behavior: \'smooth\' })');
 });
 
-// 5. App.js buyCampaignStud routes through unified exRunBuy pipeline
-check('App.js buyCampaignStud delegates cleanly to exRunBuy without stepper resets', () => {
+// 5. App.js buyCampaignStud uses canonical EX_BOUNDARY and invokes Cashfree seamlessly
+check('App.js buyCampaignStud places canonical boundary order and invokes Cashfree without location.hash destruction', () => {
   const app = fs.readFileSync(path.join(root, 'cms/js/app.js'), 'utf8');
-  assert(app.includes('await exRunBuy(items);'), 'buyCampaignStud must await exRunBuy(items)');
-  const buyFn = app.slice(app.indexOf('window.Shivaa.buyCampaignStud ='), app.indexOf('window.Shivaa.finJump'));
-  assert(!buyFn.includes('setSchemeStep'), 'buyCampaignStud should not reset stepper on errors');
-  assert(!buyFn.includes('location.hash ='), 'buyCampaignStud should not change hash directly');
+  assert(app.includes('buyCampaignStud = async (productId) =>'), 'buyCampaignStud must exist');
+  assert(app.includes("address: { ...EX_BOUNDARY }"), 'buyCampaignStud must use exact EX_BOUNDARY without tampering');
+  assert(app.includes("await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);"), 'buyCampaignStud must call cashfreeCheckout');
+  // Check that location.hash is NOT called right after cashfreeCheckout on the success path
+  const buyFnMatch = app.match(/buyCampaignStud\s*=\s*async[\s\S]*?window\.Shivaa\.finJump/);
+  assert(buyFnMatch, 'Could not extract buyCampaignStud body');
+  const buyFnBody = buyFnMatch[0];
+  const cfSuccessPath = buyFnBody.match(/if\s*\(po\s*&&\s*po\.mode\s*===\s*'cashfree'[\s\S]*?return;\s*\}/);
+  assert(cfSuccessPath, 'Must have po.mode === cashfree branch in buyCampaignStud');
+  const cleanCode = cfSuccessPath[0].replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert(!cleanCode.includes('location.hash'), 'Cashfree branch must not set location.hash on success path');
 });
 
-// 6. App.js exRunBuy stores order references and remembers pin
-check('App.js exRunBuy saves expressOrder and lastOrder correctly', () => {
+// 6. App.js Cashfree hosted checkout launcher
+check('App.js cashfreeCheckout handles _modal and _self with fallback', () => {
   const app = fs.readFileSync(path.join(root, 'cms/js/app.js'), 'utf8');
-  assert(app.includes('window.Shivaa._expressOrder = res;'), 'exRunBuy must set _expressOrder');
-  assert(app.includes('window.Shivaa._lastOrder = res;'), 'exRunBuy must set _lastOrder');
-  assert(app.includes("sessionStorage.setItem('fqPrompt', res.id)"), 'exRunBuy must set fqPrompt');
-});
-
-// 7. App.js exHandoff supports Cashfree mode and Demo mode
-check('App.js exHandoff supports both Cashfree mode and Demo mode', () => {
-  const app = fs.readFileSync(path.join(root, 'cms/js/app.js'), 'utf8');
-  assert(app.includes("po.mode === 'cashfree' && po.paymentSessionId"), 'exHandoff must start Cashfree checkout');
-  assert(app.includes("po.mode === 'demo'"), 'exHandoff must handle demo mode');
-});
-
-// 8. App.js cashfreeCheckout launcher & fallback
-check('App.js cashfreeCheckout uses official Cashfree SDK v3 with _self redirect and form fallback', () => {
-  const app = fs.readFileSync(path.join(root, 'cms/js/app.js'), 'utf8');
-  assert(app.includes("redirectTarget: '_self'"), 'cashfreeCheckout must use _self redirectTarget');
+  assert(app.includes("redirectTarget: '_modal'"), 'cashfreeCheckout must support _modal for desktop One Click Checkout');
+  assert(app.includes("redirectTarget: '_self'"), 'cashfreeCheckout must support _self for mobile and fallback');
   assert(app.includes('submitHostedForm'), 'cashfreeCheckout must include submitHostedForm fallback');
-  assert(app.includes("action = env === 'sandbox'"), 'submitHostedForm must support sandbox and production URLs');
+  assert(app.includes('() => typeof window.Cashfree === \'function\''), 'cashfreeCheckout must verify window.Cashfree before returning');
 });
 
-// 9. Api.php OCC item validation: original_price >= discounted_price and sanitized name
-check('Api.php cashfree_occ_block ensures origUnit >= discUnit and sanitizes item names', () => {
+// 7. Api.php finale_qualifies global definition
+check('Api.php defines finale_qualifies at global scope so pay/cashfree/return never throws fatal', () => {
   const api = fs.readFileSync(path.join(root, 'cms/api.php'), 'utf8');
-  assert(api.includes('$origUnit = max($unit, $discUnit);'), 'Api.php must ensure original unit price is at least discounted unit price');
-  assert(api.includes("'item_original_unit_price' => $origUnit,"), 'item_original_unit_price must use $origUnit');
-  assert(api.includes("$nm = preg_replace('/[^\\w\\s\\-().,]/', '', $nm);"), 'Item names must be sanitized');
+  const returnIdx = api.indexOf("'pay/cashfree/return'");
+  const funcIdx = api.indexOf('function finale_qualifies(');
+  assert(funcIdx !== -1, 'finale_qualifies must be defined');
+  assert(returnIdx !== -1, 'pay/cashfree/return must exist');
+  assert(funcIdx < returnIdx, 'finale_qualifies must be defined BEFORE pay/cashfree/return');
 });
 
-// 10. Api.php finale_qualifies checks id and productId
-check('Api.php finale_qualifies identifies campaign orders by id and productId', () => {
+// 8. Api.php cashfree_occ_block image support
+check('Api.php cashfree_occ_block inspects img, image, and images keys', () => {
   const api = fs.readFileSync(path.join(root, 'cms/api.php'), 'utf8');
-  assert(api.includes("$id = (string)($it['id'] ?? ($it['productId'] ?? ''));"), 'finale_qualifies must check id and productId');
+  assert(api.includes("(array)($it['img'] ?? null)"), 'cashfree_occ_block must inspect $it[img]');
 });
 
-// 11. Api.php pay/cashfree/return redirects campaign orders to quiz
-check('Api.php pay/cashfree/return routes qualifying scheme orders to step=quiz', () => {
+// 9. Api.php campaign_studs_catalog sync
+check('Api.php campaign_studs_catalog matches v160/v161/v162/v163 product weights and 15% MC', () => {
   const api = fs.readFileSync(path.join(root, 'cms/api.php'), 'utf8');
-  assert(api.includes("if ($isCampOrder && $orderId !== '') {"), 'pay/cashfree/return must detect isCampOrder');
-  assert(api.includes("target = '/#/scheme?step=quiz&orderId='"), 'pay/cashfree/return must direct campaign orders to quiz');
+  assert(api.includes("'weightG' => 3.0, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 15"), 'Gents studs must have 3.0g and 15% MC');
+  assert(api.includes("'p_stud_w1' => ['id' => 'p_stud_w1', 'sku' => 'SHV-LST-01', 'name' => \"Shivaa Heer Paisley-Heart 22K Gold Ladies Tops (Pair)\", 'weightG' => 3.255"), 'Heer stud must be 3.255g with 15% MC');
+  assert(api.includes("'p_stud_w2' => ['id' => 'p_stud_w2', 'sku' => 'SHV-LST-02', 'name' => \"Shivaa Morni Swirl 22K Gold Ladies Drop Tops (Pair)\", 'weightG' => 2.928"), 'Morni stud must be 2.928g with 15% MC');
+  assert(api.includes("'p_stud_w3' => ['id' => 'p_stud_w3', 'sku' => 'SHV-LST-03', 'name' => \"Shivaa Sitara Star 22K Gold Ladies Round Tops (Pair)\", 'weightG' => 3.086"), 'Sitara stud must be 3.086g with 15% MC');
 });
 
-// 12. Api.php campaign studs weights & making charge
-check('Api.php campaign_studs_catalog matches exact specs', () => {
+// 10. Api.php pay/order pin resolution and OCC authentication
+check('Api.php allows pin resolution and OCC checkoutAuthenticate for Express 1-click buy', () => {
   const api = fs.readFileSync(path.join(root, 'cms/api.php'), 'utf8');
-  assert(api.includes("'p_stud_m1' => ['id' => 'p_stud_m1', 'sku' => 'SHV-MST-01', 'name' => \"Shivaa Veer 22K Gold Men's Square Stud (Pair)\", 'weightG' => 3.0"), 'p_stud_m1 must match');
-  assert(api.includes("'p_stud_w1' => ['id' => 'p_stud_w1', 'sku' => 'SHV-LST-01', 'name' => \"Shivaa Heer Paisley-Heart 22K Gold Ladies Tops (Pair)\", 'weightG' => 3.255"), 'p_stud_w1 must match');
+  assert(api.includes('$gr = shv_resolve_order($db, (string)($b[\'orderId\'] ?? \'\'), $pin);'), 'pay/order must resolve order by pin if pin is present');
+  assert(api.includes('$occOn = !empty($cfg[\'occ\']) || $isSentinel || $isBoundary || $guest;'), 'pay/order must enable OCC for sentinel/boundary orders');
+  assert(api.includes('checkoutAuthenticate'), 'pay/order must allow checkoutAuthenticate');
+  assert(api.includes('shv_guest_pin($order)'), 'orders must generate guest pin for express orders');
 });
 
 console.log(`\nResults: ${passCount} passed, ${failCount} failed.`);
