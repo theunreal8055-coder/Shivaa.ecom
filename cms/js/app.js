@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 159;
+const APP_REL = 160;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -812,130 +812,130 @@ const CAMPAIGN_STUDS_DATA = {
     {
       id: 'p_stud_m1',
       sku: 'SHV-MST-01',
-      name: "Shivaa Rudra 22K Gold Men's Stud",
-      subtitle: "Bold Octagonal Royal Facet",
+      name: "Shivaa Veer 22K Gold Men's Square Stud (Pair)",
+      subtitle: "Classic Solitaire-Square · Sparkling White Stones",
       category: 'earrings',
       metal: 'Gold',
       purity: '22K',
-      weightG: 2.85,
+      weightG: 3.0,
       mcScheme: 'percent',
-      mcValue: 12,
-      mcPct: 12,
+      mcValue: 15,
+      mcPct: 15,
       stoneValue: 0,
       lessWeightG: 0,
       wastagePct: 8,
       stock: 50,
       active: true,
-      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens'],
-      images: ['/images/products/stud-mens-rudra.jpg'],
-      desc: 'Forged in certified solid 22K yellow gold (2.85 g) with sharp octagonal masculine symmetry and mirror-polish facets. Crafted for everyday royal distinction. Qualifies for 10g Gold Biscuit Scheme.'
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens', 'tops'],
+      images: ['/images/products/studs/mst01-studio.jpg', '/images/products/studs/mst01-macro.jpg', '/images/products/studs/mst01-worn.jpg', '/images/products/studs/mst01-gift.jpg'],
+      desc: 'A sharp solitaire-square stud pair in certified solid 22K yellow gold (3.00 g pair), hand-set with sparkling white accent stones. Made for everyday royal distinction. Qualifies for 10g Gold Biscuit Scheme.'
     },
     {
       id: 'p_stud_m2',
       sku: 'SHV-MST-02',
-      name: "Shivaa Veer 22K Gold Men's Stud",
-      subtitle: "Contemporary Diamond-Cut Square Prism",
+      name: "Shivaa Rudra 22K Gold Men's Cushion Stud (Pair)",
+      subtitle: "Bold Cushion Frame · Double Stone Halo",
       category: 'earrings',
       metal: 'Gold',
       purity: '22K',
-      weightG: 3.20,
+      weightG: 3.0,
       mcScheme: 'percent',
-      mcValue: 12,
-      mcPct: 12,
+      mcValue: 15,
+      mcPct: 15,
       stoneValue: 0,
       lessWeightG: 0,
       wastagePct: 8,
       stock: 50,
       active: true,
-      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens'],
-      images: ['/images/products/stud-mens-veer.jpg'],
-      desc: 'Precision micro-textured diamond-cut square prism in certified 22K gold (3.20 g). Clean architectural geometry meeting timeless Rajasthani gold craft. Qualifies for 10g Gold Biscuit Scheme.'
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens', 'tops'],
+      images: ['/images/products/studs/mst02-studio.jpg', '/images/products/studs/mst02-macro.jpg', '/images/products/studs/mst02-worn.jpg', '/images/products/studs/mst02-gift.jpg'],
+      desc: 'A bold concave-cushion stud pair in certified solid 22K yellow gold (3.00 g pair) with a double frame of sparkling white stones and secure screw-back post. Qualifies for 10g Gold Biscuit Scheme.'
     },
     {
       id: 'p_stud_m3',
       sku: 'SHV-MST-03',
-      name: "Shivaa Surya 22K Gold Men's Stud",
-      subtitle: "Sunburst Radiance Heritage Stud",
+      name: "Shivaa Bali 22K Gold Men's Huggy Hoop (Pair)",
+      subtitle: "Sleek Huggy Bali · Stone Pavé Line",
       category: 'earrings',
       metal: 'Gold',
       purity: '22K',
-      weightG: 2.50,
+      weightG: 3.0,
       mcScheme: 'percent',
-      mcValue: 12,
-      mcPct: 12,
+      mcValue: 15,
+      mcPct: 15,
       stoneValue: 0,
       lessWeightG: 0,
       wastagePct: 8,
       stock: 50,
       active: true,
-      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens'],
-      images: ['/images/products/stud-mens-surya.jpg'],
-      desc: 'Iconic solar carved radial facets encircling a polished golden core in solid 22K gold (2.50 g). Understated luxury with high-luster reflectivity. Qualifies for 10g Gold Biscuit Scheme.'
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens', 'tops'],
+      images: ['/images/products/studs/mst03-studio.jpg', '/images/products/studs/mst03-macro.jpg', '/images/products/studs/mst03-worn.jpg', '/images/products/studs/mst03-gift.jpg'],
+      desc: 'A sleek huggy-hoop bali pair in certified solid 22K yellow gold (3.00 g pair), pavé-lined with sparkling white stones. Light, secure and unmistakably royal. Qualifies for 10g Gold Biscuit Scheme.'
     }
   ],
   ladies: [
     {
       id: 'p_stud_w1',
       sku: 'SHV-LST-01',
-      name: "Shivaa Mayura 22K Gold Ladies Studs (Pair)",
-      subtitle: "Royal Floral Blossom & Micro Filigree",
+      name: "Shivaa Heer Paisley-Heart 22K Gold Ladies Tops (Pair)",
+      subtitle: "Paisley-Heart Drops · White Stone Pavé",
       category: 'earrings',
       metal: 'Gold',
       purity: '22K',
-      weightG: 3.40,
+      weightG: 3.255,
       mcScheme: 'percent',
-      mcValue: 12,
-      mcPct: 12,
+      mcValue: 15,
+      mcPct: 15,
       stoneValue: 0,
       lessWeightG: 0,
       wastagePct: 8,
       stock: 50,
       active: true,
-      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies'],
-      images: ['/images/products/stud-ladies-mayura.jpg'],
-      desc: 'A magnificent pair of royal floral blossom stud earrings in solid 22K gold (3.40 g), featuring handcrafted micro-beaded filigree petals and central luster. Qualifies for 10g Gold Biscuit Scheme.'
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies', 'tops'],
+      images: ['/images/products/studs/lst01-studio.jpg', '/images/products/studs/lst01-macro.jpg', '/images/products/studs/lst01-worn.jpg', '/images/products/studs/lst01-gift.jpg'],
+      desc: 'Paisley-heart drop tops in certified solid 22K yellow gold (3.255 g pair), finished with white stone pavé and a pear drop. Tag BT-16101. Qualifies for 10g Gold Biscuit Scheme.'
     },
     {
       id: 'p_stud_w2',
       sku: 'SHV-LST-02',
-      name: "Shivaa Chandrika 22K Gold Ladies Studs (Pair)",
-      subtitle: "Crescent Bloom Diamond-Cut Petals",
+      name: "Shivaa Morni Swirl 22K Gold Ladies Drop Tops (Pair)",
+      subtitle: "Spiral Swirl · Green Accent · Pear Drop",
       category: 'earrings',
       metal: 'Gold',
       purity: '22K',
-      weightG: 2.90,
+      weightG: 2.928,
       mcScheme: 'percent',
-      mcValue: 12,
-      mcPct: 12,
+      mcValue: 15,
+      mcPct: 15,
       stoneValue: 0,
       lessWeightG: 0,
       wastagePct: 8,
       stock: 50,
       active: true,
-      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies'],
-      images: ['/images/products/stud-ladies-chandrika.jpg'],
-      desc: 'A pair of shimmering crescent bloom stud earrings in solid 22K gold (2.90 g) with diamond-cut facets that capture and reflect light at every subtle angle. Qualifies for 10g Gold Biscuit Scheme.'
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies', 'tops'],
+      images: ['/images/products/studs/lst02-studio.jpg', '/images/products/studs/lst02-macro.jpg', '/images/products/studs/lst02-worn.jpg', '/images/products/studs/lst02-gift.jpg'],
+      desc: 'Spiral-swirl drop tops in certified solid 22K yellow gold (2.928 g pair) with a green accent stone, white stone arc and pear drop. Tag BT-17675. Qualifies for 10g Gold Biscuit Scheme.'
     },
     {
       id: 'p_stud_w3',
       sku: 'SHV-LST-03',
-      name: "Shivaa Tara 22K Gold Ladies Studs (Pair)",
-      subtitle: "Celestial Star Cluster Design",
+      name: "Shivaa Sitara Star 22K Gold Ladies Round Tops (Pair)",
+      subtitle: "Round Star Medallion · Red Accent Halo",
       category: 'earrings',
       metal: 'Gold',
       purity: '22K',
-      weightG: 3.15,
+      weightG: 3.086,
       mcScheme: 'percent',
-      mcValue: 12,
-      mcPct: 12,
+      mcValue: 15,
+      mcPct: 15,
       stoneValue: 0,
       lessWeightG: 0,
       wastagePct: 8,
       stock: 50,
       active: true,
-      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies'],
-      images: ['/images/products/stud-ladies-tara.jpg'],
-      desc: 'A celestial star cluster stud pair hand-finished in 22K gold (3.15 g). Elegant beaded contour framing a mirror-polished golden star medallion. Qualifies for 10g Gold Biscuit Scheme.'
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies', 'tops'],
+      images: ['/images/products/studs/lst03-studio.jpg', '/images/products/studs/lst03-macro.jpg', '/images/products/studs/lst03-worn.jpg', '/images/products/studs/lst03-gift.jpg'],
+      desc: 'Round star-medallion tops in certified solid 22K yellow gold (3.086 g pair) with a red accent stone in a white stone halo. Tag BT-18159. Qualifies for 10g Gold Biscuit Scheme.'
     }
   ]
 };
@@ -1389,7 +1389,7 @@ function finaleLanding() {
           <div class="shv-poster-art">
             <div class="shv-poster-img-frame">
               <img src="/images/banners/gold-biscuit-campaign.jpg" alt="10g 24K Gold Biscuit" loading="eager">
-              <div class="shv-poster-img-badge">✦ 10g 24K Pure Bullion · Certified &amp; Vaulted</div>
+              <div class="shv-poster-img-badge">✦ 10g 24K Bullion · Certified</div>
             </div>
             ${finaleBarArt()}
           </div>
@@ -1483,7 +1483,7 @@ function finaleLanding() {
             </div>
             <div class="shv-gender-content">
               <h3>Men's 22K Gold Ear Studs</h3>
-              <p>Sharp geometric symmetry, octagonal royal facets, and sunburst heritage designs. Solid 22K BIS Hallmarked gold for masculine distinction.</p>
+              <p>Sharp solitaire squares, bold cushion halos and sleek huggy balis — solid 22K BIS Hallmarked gold with sparkling white stones.</p>
               <div class="shv-gender-badges">
                 <span>3 Curated Designs</span>
                 <span>22K 916 Gold</span>
@@ -1503,7 +1503,7 @@ function finaleLanding() {
             </div>
             <div class="shv-gender-content">
               <h3>Ladies' 22K Gold Ear Studs</h3>
-              <p>Handcrafted royal floral filigree, shimmering diamond-cut crescent petals, and celestial star clusters. Opulent 22K gold elegance.</p>
+              <p>Paisley-heart drops, spiral swirls with green accents and star medallions — opulent 22K gold tops with fine stone detailing.</p>
               <div class="shv-gender-badges">
                 <span>3 Curated Pairs</span>
                 <span>22K 916 Gold</span>
@@ -1654,21 +1654,26 @@ function renderStudsCollection(gender = 'gents') {
 
   container.innerHTML = `
     <div class="shv-studs-grid">
-      ${studs.map(s => {
+      ${studs.map((s, si) => {
         const metalVal = Math.round(s.weightG * g22);
         const mc = Math.round(metalVal * (s.mcPct / 100));
         const sub = metalVal + mc;
         const total = Math.round(sub * 1.03);
+        const wDisp = (+s.weightG).toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+        const shots = (s.images && s.images.length ? s.images : ['/images/logo.png']).slice(0, 4);
 
         return `
           <div class="shv-stud-card" data-pid="${esc(s.id)}">
             <span class="shv-stud-badge">✦ CAMPAIGN EXCLUSIVE · 10g Gold Draw</span>
             <div class="shv-stud-img-wrap">
-              <img src="${safeUrl(s.images[0])}" alt="${esc(s.name)}" loading="lazy">
+              <img class="shv-stud-main-img" src="${safeUrl(shots[0])}" alt="${esc(s.name)}" loading="${si === 0 ? 'eager' : 'lazy'}" decoding="async" fetchpriority="${si === 0 ? 'high' : 'auto'}">
+            </div>
+            <div class="shv-stud-thumbs" role="tablist" aria-label="4 photoshoot views">
+              ${shots.map((im, i) => `<button type="button" class="shv-stud-thumb${i === 0 ? ' active' : ''}" data-idx="${i}" onclick="Shivaa.setStudPhoto('${esc(s.id)}', ${i})" aria-label="View photo ${i + 1} of ${esc(s.name)}"><img src="${safeUrl(im)}" alt="" loading="lazy" decoding="async"></button>`).join('')}
             </div>
             <div class="shv-stud-info">
               <div class="shv-stud-meta">
-                <span>⚖ ${s.weightG} g · 22K 916</span>
+                <span>⚖ ${wDisp} g · 22K 916</span>
                 <span>SKU: ${esc(s.sku)}</span>
               </div>
               <h3 class="shv-stud-name">${esc(s.name)}</h3>
@@ -1680,7 +1685,7 @@ function renderStudsCollection(gender = 'gents') {
                     <b class="shv-stud-price js-price" data-pid="${esc(s.id)}">₹${total.toLocaleString('en-IN')}</b>
                   </div>
                   <div style="text-align:right">
-                    <span class="shv-stud-mc">12% MC + 3% GST</span>
+                    <span class="shv-stud-mc">${s.mcPct}% MC + 3% GST</span>
                     <small style="display:block;font-size:10px;color:rgba(246,232,200,0.6)">Live rate synced</small>
                   </div>
                 </div>
@@ -1695,6 +1700,29 @@ function renderStudsCollection(gender = 'gents') {
       }).join('')}
     </div>
   `;
+}
+
+/* v160 · 4-photo gallery switcher + campaign gender resolver (fail-redirect) */
+window.Shivaa.setStudPhoto = (pid, idx) => {
+  const card = document.querySelector('.shv-stud-card[data-pid="' + pid + '"]');
+  if (!card) return;
+  const all = Object.values(CAMPAIGN_STUDS_DATA).flat();
+  const p = all.find(x => x.id === pid);
+  const main = card.querySelector('.shv-stud-main-img');
+  if (!main || !p || !p.images[idx]) return;
+  main.src = safeUrl(p.images[idx]);
+  card.querySelectorAll('.shv-stud-thumb').forEach(t => t.classList.toggle('active', +t.dataset.idx === idx));
+};
+function campaignGenderOfItems(items) {
+  try {
+    const all = Object.values(CAMPAIGN_STUDS_DATA).flat();
+    for (const it of (items || [])) {
+      const id = String(it.id || it.productId || '');
+      const hit = all.find(x => x.id === id);
+      if (hit) return (hit.tags && hit.tags.includes('ladies')) ? 'ladies' : 'gents';
+    }
+  } catch (e) {}
+  return (window._schemeState && window._schemeState.gender) || 'gents';
 }
 
 window.Shivaa.addCampaignToCart = async (productId) => {
@@ -5522,6 +5550,13 @@ window.Shivaa.placeOrder = async () => {
         location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(order.id) + (order.pin ? '&pin=' + encodeURIComponent(order.pin) : '');
         return;
       }
+      /* v160 — a failed/cancelled campaign payment returns to the 3-design
+         showcase (owner order), never strands on the order page. */
+      if (!paidOk && finaleLive() && finaleQualifiesItems((order && order.items) || []).ok) {
+        toast('Payment was not completed — pick your design again to retry ✦', 'err');
+        location.hash = '#/scheme?step=products&gender=' + encodeURIComponent(campaignGenderOfItems((order && order.items) || []));
+        return;
+      }
     }
     // Gold Finale: remember a qualifying order so the order page can offer the quiz
     try {
@@ -5753,10 +5788,13 @@ pages.order = async (view, q, id) => {
 
   // v128 — returning from the Cashfree hosted page (?cf=success|pending|fail)
   const ppReturn = String(q.get('cf') || '').toLowerCase();
+  /* v160 — campaign fail flag: fail banner + auto-return to the showcase. */
+  const campFail = (ppReturn === 'fail') && finaleLive() && finaleQualifiesItems(order.items || []).ok;
+  const campFailGender = campFail ? campaignGenderOfItems(order.items || []) : 'gents';
   const ppBannerHTML = ppReturn === 'success'
     ? `<div class="pp-banner ok" id="ppBanner"><span class="pp-bi">✓</span><div><b>Payment received</b><small>Cashfree confirmed it — the receipt is shown in the ledger below.</small></div></div>`
     : ppReturn === 'fail'
-    ? `<div class="pp-banner err" id="ppBanner"><span class="pp-bi">!</span><div><b>Payment was not completed</b><small>If money was debited, Cashfree reverses it automatically in 5–7 working days. Retry with the button below.</small></div></div>`
+    ? `<div class="pp-banner err" id="ppBanner"><span class="pp-bi">!</span><div><b>Payment was not completed</b><small>${campFail ? 'Your 10g-scheme design is still waiting in the showcase — taking you back to the 3 designs in a moment.' : 'If money was debited, Cashfree reverses it automatically in 5–7 working days. Retry with the button below.'}</small>${campFail ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-gold btn-sm" href="#/scheme?step=products&gender=${campFailGender}">← Back to 3 designs</a></div>` : ''}</div></div>`
     : ppReturn === 'pending'
     ? `<div class="pp-banner pending" id="ppBanner"><span class="pp-spinner sm" aria-hidden="true"></span><div><b>Confirming your Cashfree payment…</b><small>Hold on a few seconds — do not close this tab.</small></div></div>`
     : '';
@@ -5819,6 +5857,16 @@ pages.order = async (view, q, id) => {
     </div>
   </div>`;
   confetti();
+  /* v160 — campaign fail auto-return (owner order): order page is a dead-end
+     after a failed scheme payment; the showcase is where the retry happens. */
+  if (campFail) {
+    toast('Payment failed — showing your 3 designs again ✦', 'err');
+    setTimeout(() => {
+      if (String(location.hash || '').includes('#/order/')) {
+        location.hash = '#/scheme?step=products&gender=' + encodeURIComponent(campFailGender);
+      }
+    }, 4000);
+  }
   finaleAfterOrder(order);   // Gold Finale: quiz prompt for qualifying orders (if campaign live)
   // v60: surface this order's refund/exchange request if one exists
   try {
