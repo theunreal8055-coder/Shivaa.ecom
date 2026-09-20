@@ -470,6 +470,17 @@ function cashfree_sanitize_id(string $v, int $max = 50): string {
   return substr((string)$v, 0, $max);
 }
 
+function campaign_studs_catalog(): array {
+  return [
+    'p_stud_m1' => ['id' => 'p_stud_m1', 'sku' => 'SHV-MST-01', 'name' => "Shivaa Rudra 22K Gold Men's Stud", 'weightG' => 2.85, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-mens-rudra.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Solid 22K Gold Men Stud with octagonal facets.'],
+    'p_stud_m2' => ['id' => 'p_stud_m2', 'sku' => 'SHV-MST-02', 'name' => "Shivaa Veer 22K Gold Men's Stud", 'weightG' => 3.20, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-mens-veer.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Square prism diamond-cut solid 22K Gold Men Stud.'],
+    'p_stud_m3' => ['id' => 'p_stud_m3', 'sku' => 'SHV-MST-03', 'name' => "Shivaa Surya 22K Gold Men's Stud", 'weightG' => 2.50, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-mens-surya.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Radial sunburst 22K Gold Men Stud.'],
+    'p_stud_w1' => ['id' => 'p_stud_w1', 'sku' => 'SHV-LST-01', 'name' => "Shivaa Mayura 22K Gold Ladies Studs (Pair)", 'weightG' => 3.40, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-ladies-mayura.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Floral filigree solid 22K Gold Ladies Studs pair.'],
+    'p_stud_w2' => ['id' => 'p_stud_w2', 'sku' => 'SHV-LST-02', 'name' => "Shivaa Chandrika 22K Gold Ladies Studs (Pair)", 'weightG' => 2.90, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-ladies-chandrika.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Crescent bloom diamond-cut 22K Gold Ladies Studs pair.'],
+    'p_stud_w3' => ['id' => 'p_stud_w3', 'sku' => 'SHV-LST-03', 'name' => "Shivaa Tara 22K Gold Ladies Studs (Pair)", 'weightG' => 3.15, 'purity' => '22K', 'metal' => 'Gold', 'category' => 'earrings', 'mcScheme' => 'percent', 'mcValue' => 12, 'stoneValue' => 0, 'images' => ['/images/products/stud-ladies-tara.jpg'], 'active' => true, 'isCampaignStud' => true, 'desc' => 'Celestial star cluster 22K Gold Ladies Studs pair.'],
+  ];
+}
+
 /* v142 · GUEST EXPRESS CHECKOUT — a shopper who buys without an account still
    needs to reach their own order afterwards (the Cashfree return lands on the
    order page, and the page's pin poller reads orders/{id}). The bearer for that
@@ -3066,6 +3077,10 @@ try {
   /* ── products ── */
   if ($route === 'products' && $method === 'GET') {
     $list = array_values(array_filter($db['products'], fn($x) => !empty($x['active'])));
+    $camps = campaign_studs_catalog();
+    foreach ($camps as $cid => $cp) {
+      $list[] = $cp;
+    }
     if (!empty($_GET['category'])) $list = array_values(array_filter($list, fn($x) => $x['category'] === $_GET['category']));
     if (!empty($_GET['q'])) { $s = strtolower($_GET['q']); $list = array_values(array_filter($list, fn($x) => str_contains(strtolower($x['name'] . ' ' . $x['category'] . ' ' . ($x['desc'] ?? '') . ' ' . implode(' ', $x['tags'] ?? [])), $s))); }
     if (!empty($_GET['metal'])) $list = array_values(array_filter($list, fn($x) => $x['metal'] === $_GET['metal']));
@@ -3078,7 +3093,16 @@ try {
   if (preg_match('#^products/([\w-]+)$#', $route, $m)) {
     $idx = null; foreach ($db['products'] as $i => $x) if ($x['id'] === $m[1]) $idx = $i;
     if ($method === 'GET') {
-      if ($idx === null) jout(404, ['error' => 'Not found']);   // v82 — never index with null
+      if ($idx === null) {
+        $camps = campaign_studs_catalog();
+        if (isset($camps[$m[1]])) {
+          $R = current_rates($db);
+          $p = $camps[$m[1]];
+          $p['price'] = compute_price($p, $R);
+          jout(200, ['product' => $p, 'rates' => current_rates($db), 'similar' => [], 'reviews' => []]);
+        }
+        jout(404, ['error' => 'Not found']);   // v82 — never index with null
+      }
       $R = current_rates($db);
       $similar = [];
       foreach ($db['products'] as $x) if ($x['category'] === $db['products'][$idx]['category'] && $x['id'] !== $m[1] && !empty($x['active'])) { $y = hallmark_product($x); $y['price'] = compute_price($x, $R); $similar[] = $y; if (count($similar) >= 4) break; }
@@ -3891,18 +3915,24 @@ try {
       }
     }
     $subtotal = 0; $items = [];
+    $allProds = array_merge($db['products'], array_values(campaign_studs_catalog()));
     foreach (($b['items'] ?? []) as $it) {
       if (!is_array($it)) continue;
       $qty = (int)($it['qty'] ?? 1);
       if ($qty < 1) $qty = 1; elseif ($qty > 99) $qty = 99;
-      foreach ($db['products'] as $prod) if ($prod['id'] === ($it['id'] ?? null)) {
+      $targetId = (string)($it['id'] ?? ($it['productId'] ?? ''));
+      foreach ($allProds as $prod) if ($prod['id'] === $targetId || ($prod['sku'] ?? '') === $targetId) {
         $pr = compute_price($prod, $R);
-        $line = ['productId' => $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null,
+        $line = ['productId' => $prod['id'], 'sku' => $prod['sku'] ?? $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null,
                  'qty' => $qty, 'weightG' => $prod['weightG'], 'purity' => $prod['purity'], 'metal' => $prod['metal'],
                  'hsn' => ($prod['metal'] ?? '') === 'Silver' ? '71131110' : '71131910',
                  'unitPrice' => $pr['total'], 'ratePerGram' => $pr['ratePerGram'], 'makingCharge' => $pr['makingCharge'], 'gst' => $pr['gst'],
                  'size' => isset($it['size']) ? mb_substr(trim((string)$it['size']), 0, 30) : null,
                  'engraving' => isset($it['engraving']) ? mb_substr(trim((string)$it['engraving']), 0, 80) : null];
+        if (!empty($prod['isCampaignStud']) || array_key_exists($prod['id'], campaign_studs_catalog())) {
+          $line['isCampaignStud'] = true;
+          $line['campaignStud'] = true;
+        }
         $subtotal += $line['unitPrice'] * $line['qty'];
         $items[] = $line; break;
       }
@@ -4125,7 +4155,7 @@ try {
     $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
     jout(200, [
       'ok'    => true,
-      'rel'   => 156,
+      'rel'   => 159,
       'shell' => $sh,
       'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
                   'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
@@ -4460,15 +4490,21 @@ try {
     $co = (string)($_GET['co'] ?? '');
     $orderId = preg_match('/^[A-Za-z0-9_-]{1,48}$/', $co) ? substr($co, 0, 48) : '';
     $rp = '';
+    $isCampOrder = false;
     if ($orderId !== '') {          // v142 · guest express orders ride their pin home
       foreach ($db['orders'] as $x) if (($x['id'] ?? '') === $orderId) {
         if (($x['guest'] ?? false) === true && !empty($_GET['pin'])
             && hash_equals(shv_guest_pin($x), trim((string)$_GET['pin']))) $rp = '&pin=' . rawurlencode((string)$_GET['pin']);
+        if (finale_qualifies($x['items'] ?? [])) $isCampOrder = true;
         break;
       }
     }
-    $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?cf=pending' . $rp
-                             : '/#/account?tab=orders';
+    if ($isCampOrder && $orderId !== '') {
+      $target = '/#/scheme?step=quiz&orderId=' . rawurlencode($orderId) . '&cf=pending' . $rp;
+    } else {
+      $target = $orderId !== '' ? '/#/order/' . rawurlencode($orderId) . '?cf=pending' . $rp
+                               : '/#/account?tab=orders';
+    }
     header('Cache-Control: no-store');
     header('Location: ' . $target, true, 302);
     exit;
@@ -6499,13 +6535,14 @@ try {
       return null;
     }
     function finale_qualifies(array $items): bool {
-      $gold = 0.0; $silver = 0.0;
+      $CAMPAIGN_SKUS = ['SHV-MST-01', 'SHV-MST-02', 'SHV-MST-03', 'SHV-LST-01', 'SHV-LST-02', 'SHV-LST-03', 'p_stud_m1', 'p_stud_m2', 'p_stud_m3', 'p_stud_w1', 'p_stud_w2', 'p_stud_w3'];
       foreach ($items as $it) {
-        $w = (float)($it['weightG'] ?? 0) * max(1, (int)($it['qty'] ?? 1));
-        if (strcasecmp((string)($it['metal'] ?? ''), 'Silver') === 0) $silver += $w;
-        elseif (in_array((string)($it['purity'] ?? ''), ['18K', '22K', '24K'], true)) $gold += $w;
+        $id = (string)($it['id'] ?? '');
+        $sku = (string)($it['sku'] ?? '');
+        $isCamp = !empty($it['isCampaignStud']) || !empty($it['campaignStud']);
+        if (in_array($id, $CAMPAIGN_SKUS, true) || in_array($sku, $CAMPAIGN_SKUS, true) || $isCamp) return true;
       }
-      return $gold >= 3.0 || $silver >= 100.0;
+      return false;
     }
     function finale_public_entry(array $e): array {
       return ['id' => $e['id'], 'route' => $e['route'], 'orderId' => $e['orderId'] ?? null,
@@ -6513,20 +6550,41 @@ try {
               'createdAt' => $e['createdAt']];
     }
     function finale_daily_attempts(array &$db, string $userId): int {
-      $today = gmdate('Y-m-d', time() + 19800); // IST date
       $a = $db['finaleAttempts'][$userId] ?? null;
-      if (!is_array($a) || ($a['day'] ?? '') !== $today) { $db['finaleAttempts'][$userId] = ['day' => $today, 'count' => 0]; return 0; }
-      return (int)$a['count'];
+      if (is_array($a) && !empty($a['submitted'])) return 1;
+      return 0;
+    }
+
+    $b = body_json();
+    $pin = (string)($b['pin'] ?? ($_GET['pin'] ?? ''));
+    $order_id_req = trim((string)($b['orderId'] ?? ($_GET['orderId'] ?? '')));
+    if (!$u && !empty($order_id_req) && !empty($pin)) {
+      foreach ($db['orders'] as $o) {
+        if ($o['id'] === $order_id_req && ($o['guest'] ?? false) === true && hash_equals(shv_guest_pin($o), $pin)) {
+          $u = [
+            'id' => 'guest_' . $o['id'],
+            'name' => (string)($o['address']['name'] ?? 'Valued Customer'),
+            'phone' => (string)($o['address']['phone'] ?? ''),
+            'email' => '',
+            'role' => 'guest'
+          ];
+          break;
+        }
+      }
     }
 
     if ($route === 'finale/quiz' && $method === 'GET') {
       if (!$u) jout(401, ['error' => 'Login required']);
       $my = finale_entry_for($db, $u['id']);
+      $attempt = $db['finaleAttempts'][$u['id']] ?? null;
+      $alreadySubmitted = is_array($attempt) && !empty($attempt['submitted']);
       jout(200, [
         'open' => $is_open, 'accepting' => $accepting,
-        'reason' => !$is_open ? 'The New Year Gold Finale has concluded. Thank you for being part of it.'
-                   : (!$accepting ? 'Entries closed in December — the CA-witnessed live draw takes place on 31 December 2026.' : ''),
-        'passMark' => $FE_PASS, 'total' => $FE_MAX, 'attemptsLeft' => max(0, $FE_DAILY_ATTEMPTS - finale_daily_attempts($db, $u['id'])),
+        'reason' => !$is_open ? 'The Gold Biscuit Campaign has concluded. Thank you for being part of it.'
+                   : (!$accepting ? 'Entries closed — the CA-witnessed live draw takes place on draw night.' : ''),
+        'passMark' => $FE_PASS, 'total' => $FE_MAX,
+        'alreadySubmitted' => $alreadySubmitted,
+        'attemptsLeft' => $alreadySubmitted ? 0 : 1,
         'questions' => array_map(fn($q) => ['id' => $q['id'], 'q' => $q['q'], 'opts' => $q['opts']], $FE_QUIZ),
         'entry' => $my ? finale_public_entry($my) : null,
       ]);
@@ -6540,13 +6598,16 @@ try {
 
     if ($route === 'finale/entry' && $method === 'POST') {
       if (!$u) jout(401, ['error' => 'Login required']);
-      if (!$is_open) jout(403, ['error' => 'The New Year Gold Finale has concluded. Thank you for being part of it.']);
-      if (!$accepting) jout(403, ['error' => 'Entries closed in December — the CA-witnessed live draw takes place on 31 December 2026.']);
-      $b = body_json();
+      if (!$is_open) jout(403, ['error' => 'The Gold Biscuit Campaign has concluded. Thank you for being part of it.']);
+      if (!$accepting) jout(403, ['error' => 'Entries closed — the CA-witnessed live draw takes place on draw night.']);
       $route_type = ($b['route'] ?? '') === 'free' ? 'free' : 'purchase';
       $order_id = $route_type === 'purchase' ? trim((string)($b['orderId'] ?? '')) : null;
 
-      // one entry per person — ever (purchase and free routes combined)
+      // one full submission EVER per person (strict single-attempt rule)
+      $existingAttempt = $db['finaleAttempts'][$u['id']] ?? null;
+      if (is_array($existingAttempt) && !empty($existingAttempt['submitted'])) {
+        jout(403, ['error' => 'You have already submitted your quiz attempt. Strictly one submission is permitted.', 'alreadySubmitted' => true]);
+      }
       $existing = finale_entry_for($db, $u['id']);
       if ($existing) jout(200, ['already' => true, 'entry' => finale_public_entry($existing)]);
 
@@ -6561,25 +6622,17 @@ try {
         if (!$order_id) jout(400, ['error' => 'Order reference missing.']);
         $ord = null; foreach ($db['orders'] as $o) if ($o['id'] === $order_id) $ord = $o;
         if (!$ord) jout(404, ['error' => 'Order not found.']);
-        if (($ord['userId'] ?? '') !== $u['id']) jout(403, ['error' => 'This order does not belong to your account.']);
-        // v82 — a cancelled or unpaid COD order is not a purchase. COD orders
-        // become eligible only after the shop confirms/ships them; prepaid
-        // orders once payment is approved.
+        $isOwner = (($ord['userId'] ?? '') === $u['id']) || ($u['id'] === 'guest_' . $ord['id']);
+        if (!$isOwner) jout(403, ['error' => 'This order does not belong to your account.']);
         $ost = (string)($ord['status'] ?? '');
         $pst = (string)($ord['paymentStatus'] ?? '');
         if (in_array($ost, ['Cancelled', 'Returned', 'Refunded'], true))
           jout(400, ['error' => 'Cancelled orders are not eligible for the draw.']);
         $paid = str_contains($pst, 'Paid') || $pst === 'Proof submitted'
              || in_array($ost, ['Shipped', 'Delivered', 'Confirmed'], true);
-        if (!$paid) jout(400, ['error' => 'This order can be used once its payment is confirmed. The free quiz route needs no purchase.']);
-        if (!finale_qualifies($ord['items'] ?? [])) jout(400, ['error' => 'This order does not qualify — a qualifying order is any gold piece of 3 g or more in any karat, or 100 g or more of silver per order.']);
+        if (!$paid) jout(400, ['error' => 'This order can be used once its payment is confirmed.']);
+        if (!finale_qualifies($ord['items'] ?? [])) jout(400, ['error' => 'This order does not qualify — only orders containing one of the 6 exclusive 22K Gold Campaign Ear Studs qualify for the 10g Gold Biscuit draw.']);
       }
-
-      // attempt guard: 5 quiz attempts per person per day
-      $day = gmdate('Y-m-d', time() + 19800);
-      $a = $db['finaleAttempts'][$u['id']] ?? null;
-      $count = (is_array($a) && ($a['day'] ?? '') === $day) ? (int)$a['count'] : 0;
-      if ($count >= $FE_DAILY_ATTEMPTS) jout(429, ['error' => 'You have used today’s quiz attempts. Please try again tomorrow.']);
 
       // server-side scoring against the canonical bank
       $answers = is_array($b['answers'] ?? null) ? $b['answers'] : [];
@@ -6590,26 +6643,38 @@ try {
         if ($got[$qq['id']] === $qq['a']) $score++;
       }
       if ($missing) jout(400, ['error' => 'Please answer every question.']);
-      // v82 — count a try only when a full, scored quiz was submitted (a
-      // half-filled form must not silently burn the day's attempts)
-      $count++;
-      $db['finaleAttempts'][$u['id']] = ['day' => $day, 'count' => $count];
+
+      // Record strict single submission
+      $day = gmdate('Y-m-d', time() + 19800);
+      $db['finaleAttempts'][$u['id']] = [
+        'submitted' => true,
+        'count' => 1,
+        'day' => $day,
+        'score' => $score,
+        'total' => $FE_MAX,
+        'orderId' => $order_id,
+        'submittedAt' => now_iso()
+      ];
       $passed = $score >= $FE_PASS;
-      $entry = null;
-      if ($passed) {
-        $entry = ['id' => uid('fe'), 'userId' => $u['id'], 'route' => $route_type, 'orderId' => $order_id,
-                  'name' => (string)($u['name'] ?? ''), 'phone' => (string)($u['phone'] ?? ''),
-                  'email' => (string)($u['email'] ?? ''),
-                  'score' => $score, 'total' => $FE_MAX, 'passed' => true, 'status' => 'Entered',
-                  'checks' => ['age18' => true, 'notExcluded' => true, 'notInsider' => true],
-                  'answers' => $got, 'createdAt' => now_iso(), 'source' => 'site-quiz'];
-        $db['finaleEntries'][] = $entry;
-      }
+      $entry = [
+        'id' => uid('fe'), 'userId' => $u['id'], 'route' => $route_type, 'orderId' => $order_id,
+        'name' => (string)($u['name'] ?? ''), 'phone' => (string)($u['phone'] ?? ''),
+        'email' => (string)($u['email'] ?? ''),
+        'score' => $score, 'total' => $FE_MAX, 'passed' => $passed, 'status' => 'Entered',
+        'checks' => ['age18' => true, 'notExcluded' => true, 'notInsider' => true],
+        'answers' => $got, 'createdAt' => now_iso(), 'source' => 'site-quiz'
+      ];
+      $db['finaleEntries'][] = $entry;
       db_save($DB_FILE, $db);
-      jout(200, $passed
-        ? ['passed' => true, 'score' => $score, 'total' => $FE_MAX, 'passMark' => $FE_PASS, 'entry' => finale_public_entry($entry)]
-        : ['passed' => false, 'score' => $score, 'total' => $FE_MAX, 'passMark' => $FE_PASS,
-           'attemptsLeft' => max(0, $FE_DAILY_ATTEMPTS - $count)]);
+      jout(200, [
+        'submitted' => true,
+        'passed' => $passed,
+        'score' => $score,
+        'total' => $FE_MAX,
+        'passMark' => $FE_PASS,
+        'entry' => finale_public_entry($entry),
+        'attemptsLeft' => 0
+      ]);
     }
 
     if ($route === 'finale/count' && $method === 'GET') {
