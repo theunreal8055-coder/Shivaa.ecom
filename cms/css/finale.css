@@ -21,6 +21,105 @@ html [data-camp].camp-off { display: none !important; }
   --obsidian-card: linear-gradient(165deg, rgba(42, 12, 20, 0.96) 0%, rgba(18, 4, 8, 0.98) 100%);
 }
 
+/* ─────────────────────────── TOP RIBBON & HEADER PILL ─────────────────────────── */
+.shv-top-scheme-ribbon {
+  background: linear-gradient(90deg, #2b050d 0%, #4a0d1b 35%, #2b050d 70%, #170408 100%);
+  border-bottom: 1px solid rgba(255, 215, 100, 0.45);
+  color: #fff2bf;
+  padding: 8px 0;
+  font-size: 13px;
+  position: relative;
+  z-index: 60;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.shv-ribbon-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.shv-ribbon-tag {
+  font-family: var(--ff-label, 'Montserrat', sans-serif);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: rgba(255, 215, 100, 0.18);
+  border: 1px solid rgba(255, 215, 100, 0.5);
+  color: #ffd764;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.shv-ribbon-txt {
+  flex: 1;
+  color: #fff8e1;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.shv-ribbon-txt b {
+  color: #ffd764;
+  font-weight: 700;
+}
+.shv-ribbon-cta {
+  background: var(--gold-foil);
+  color: #2b1700 !important;
+  font-family: var(--ff-label, 'Montserrat', sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 20px;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(255, 215, 100, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.shv-ribbon-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 215, 100, 0.55);
+}
+
+/* Header Action Scheme Pill */
+.hdr-scheme-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(74, 13, 27, 0.95), rgba(30, 6, 12, 0.95));
+  border: 1px solid rgba(255, 215, 100, 0.6);
+  border-radius: 24px;
+  padding: 6px 14px;
+  color: #ffd764 !important;
+  font-family: var(--ff-label, 'Montserrat', sans-serif);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: 0 2px 12px rgba(255, 215, 100, 0.2);
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+.hdr-scheme-pill:hover {
+  background: var(--gold-foil);
+  color: #2b1700 !important;
+  border-color: #ffe082;
+  box-shadow: 0 4px 18px rgba(255, 215, 100, 0.5);
+  transform: translateY(-1px);
+}
+.hdr-scheme-pill .hsp-spark {
+  color: #ffe082;
+}
+
+@media (max-width: 600px) {
+  .shv-ribbon-txt { font-size: 11.5px; }
+  .shv-ribbon-tag { font-size: 9px; padding: 2px 7px; }
+  .shv-ribbon-cta { font-size: 10px; padding: 4px 10px; }
+  .hdr-scheme-pill { padding: 4px 10px; font-size: 10px; }
+}
+
 /* ─────────────────────────── COUNTDOWN CHIPS ─────────────────────────── */
 .finale-cd { display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0 6px; }
 .finale-cd .fc-cell {
@@ -354,7 +453,10 @@ html [data-camp].camp-off { display: none !important; }
   min-height: 100vh;
   background: #0d0305;
   color: #fdf3dd;
-  overflow: hidden;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100vw;
   padding-bottom: 80px;
 }
 
@@ -376,29 +478,38 @@ html [data-camp].camp-off { display: none !important; }
   background: rgba(22, 6, 9, 0.85);
   border-bottom: 1px solid rgba(212, 175, 90, 0.25);
   backdrop-filter: blur(12px);
-  padding: 16px 0;
+  padding: 12px 0;
 }
 .shv-stepper-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px clamp(10px, 3vw, 28px);
-  flex-wrap: wrap;
+  gap: 8px clamp(8px, 2vw, 24px);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 4px 12px;
+}
+.shv-stepper-wrap::-webkit-scrollbar {
+  display: none;
 }
 .shv-step-btn {
   background: transparent;
   border: 1px solid rgba(212, 175, 90, 0.25);
   border-radius: 30px;
-  padding: 7px 16px;
+  padding: 6px 14px;
   color: rgba(246, 232, 200, 0.65);
   font-family: var(--ff-label);
   font-size: 10.5px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.25s ease;
 }
 .shv-step-btn span.num {
@@ -440,6 +551,9 @@ html [data-camp].camp-off { display: none !important; }
   display: none;
   opacity: 0;
   transform: translateY(16px);
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 .shv-scheme-stage.active {
@@ -455,42 +569,45 @@ html [data-camp].camp-off { display: none !important; }
 
 /* ─────────────────────── STAGE 1: POSTER & LANDING HERO ─────────────────────── */
 .shv-poster-hero {
-  padding: 50px 0 60px;
+  padding: 36px 0 50px;
 }
 .shv-poster-card {
   position: relative;
   background: var(--obsidian-card);
   border: 1px solid rgba(212, 175, 90, 0.45);
   border-radius: 28px;
-  padding: clamp(32px, 5vw, 64px) clamp(24px, 4vw, 56px);
+  padding: clamp(24px, 4vw, 56px) clamp(18px, 3.5vw, 48px);
   box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8), 0 0 50px rgba(212, 175, 90, 0.08);
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
-  gap: clamp(30px, 5vw, 64px);
+  gap: clamp(24px, 4vw, 48px);
   align-items: center;
+  box-sizing: border-box;
+  width: 100%;
 }
 .shv-poster-badge {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-family: var(--ff-label);
-  font-size: 11px;
-  letter-spacing: 0.28em;
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: #e9c877;
   background: rgba(212, 175, 90, 0.12);
   border: 1px solid rgba(212, 175, 90, 0.45);
   border-radius: 30px;
-  padding: 8px 18px;
-  margin-bottom: 22px;
+  padding: 6px 14px;
+  margin-bottom: 16px;
 }
 .shv-poster-title {
   color: #fff9ea;
-  font-size: clamp(30px, 4.4vw, 56px);
+  font-size: clamp(22px, 4vw, 44px);
   font-family: var(--ff-disp);
-  line-height: 1.06;
+  line-height: 1.16;
   font-weight: 700;
-  margin: 0 0 16px;
+  margin: 0 0 14px;
+  word-break: break-word;
 }
 .shv-poster-title span.gold-txt {
   background: var(--gold-foil);
@@ -503,46 +620,46 @@ html [data-camp].camp-off { display: none !important; }
   background: linear-gradient(135deg, rgba(212, 175, 90, 0.18), rgba(212, 175, 90, 0.05));
   border-left: 3px solid #e6b75c;
   border-radius: 0 14px 14px 0;
-  padding: 14px 20px;
-  margin: 18px 0 22px;
+  padding: 12px 16px;
+  margin: 14px 0 18px;
 }
 .shv-val-banner .val-row {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 .shv-val-banner .val-tag {
   font-family: var(--ff-label);
-  font-size: 10px;
-  letter-spacing: 0.22em;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #e9c877;
 }
 .shv-val-banner .val-amt {
   font-family: var(--ff-disp);
-  font-size: clamp(24px, 3.2vw, 36px);
+  font-size: clamp(22px, 3.5vw, 32px);
   font-weight: 700;
   color: #ffffff;
 }
 .shv-val-banner .val-sub {
-  font-size: 12px;
+  font-size: 11.5px;
   color: rgba(246, 232, 200, 0.75);
   margin-top: 4px;
 }
 .shv-poster-desc {
-  font-size: 15.5px;
+  font-size: 14.5px;
   color: rgba(246, 232, 200, 0.85);
-  line-height: 1.65;
+  line-height: 1.6;
   font-weight: 300;
   max-width: 600px;
 }
 .shv-poster-desc b { color: #f6dc96; font-weight: 600; }
 .shv-poster-cta-row {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-top: 26px;
+  margin-top: 20px;
 }
 .shv-pulse-cta {
   position: relative;
@@ -1439,18 +1556,20 @@ html [data-camp].camp-off { display: none !important; }
 
 @media (max-width: 768px) {
   .shv-scheme-page {
-    padding-bottom: calc(50px + env(safe-area-inset-bottom, 20px));
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 20px));
+    width: 100%;
+    overflow-x: hidden;
   }
   .shv-scheme-stepper {
-    padding: 10px 0;
+    padding: 8px 0;
   }
   .shv-stepper-wrap {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
     justify-content: flex-start;
-    gap: 8px;
-    padding: 4px 16px;
+    gap: 6px;
+    padding: 2px 10px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -1460,67 +1579,87 @@ html [data-camp].camp-off { display: none !important; }
   .shv-step-btn {
     flex-shrink: 0;
     font-size: 10px;
-    padding: 8px 14px;
-    min-height: 44px;
+    padding: 6px 11px;
+    min-height: 38px;
     touch-action: manipulation;
   }
   .shv-stepper-sep {
     display: none;
   }
   .shv-ai-concierge-bar {
-    margin: 12px 14px 20px;
-    padding: 12px 16px;
-    gap: 12px;
+    margin: 10px 10px 16px;
+    padding: 10px 12px;
+    gap: 10px;
+    flex-direction: column;
+    align-items: flex-start;
   }
   .shv-ai-avatar-wrap {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
   }
   .shv-ai-msg {
-    font-size: 12.5px;
+    font-size: 12px;
+    line-height: 1.45;
   }
   .shv-ai-sound-btn {
-    font-size: 10px;
-    padding: 5px 10px;
+    font-size: 10.5px;
+    padding: 6px 12px;
+    align-self: flex-start;
   }
   .shv-poster-hero {
-    padding: 24px 0 40px;
+    padding: 16px 0 30px;
   }
   .shv-poster-card {
-    padding: 24px 16px;
-    border-radius: 20px;
+    padding: 20px 14px;
+    border-radius: 18px;
   }
   .shv-poster-title {
-    font-size: clamp(26px, 7vw, 36px);
-    line-height: 1.15;
+    font-size: clamp(20px, 5.5vw, 30px);
+    line-height: 1.2;
+    margin-bottom: 10px;
   }
   .shv-poster-desc {
-    font-size: 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .shv-hud-chip {
+    font-size: 9px;
+    padding: 3px 7px;
+  }
+  .shv-val-banner .val-amt {
+    font-size: 22px;
   }
   .shv-btn-buy, .shv-btn-cart {
-    min-height: 48px;
-    font-size: 14px;
+    min-height: 44px;
+    font-size: 13.5px;
+    padding: 10px 12px;
     touch-action: manipulation;
   }
   .btn-xl {
-    min-height: 50px;
-    font-size: 14.5px;
-    padding: 14px 24px;
+    min-height: 46px;
+    font-size: 13.5px;
+    padding: 12px 18px;
     width: 100%;
   }
   .shv-poster-cta-row {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
 }
 
 @media (max-width: 480px) {
-  .shv-pillars-grid { grid-template-columns: 1fr; gap: 14px; }
-  .shv-pillar-card { padding: 20px 16px; }
-  .shv-gender-card { padding: 18px 14px; }
-  .shv-gender-content h3 { font-size: 22px; }
-  .shv-stud-card { padding: 18px 14px; }
-  .shv-stud-name { font-size: 20px; }
-  .shv-stud-price { font-size: 22px; }
-  .shv-val-banner { padding: 12px 14px; }
+  .shv-pillars-grid { grid-template-columns: 1fr; gap: 12px; }
+  .shv-pillar-card { padding: 16px 12px; }
+  .shv-pillar-card h3 { font-size: 16px; }
+  .shv-pillar-card p { font-size: 12.5px; }
+  .shv-gender-card { padding: 14px 12px; }
+  .shv-gender-content h3 { font-size: 19px; }
+  .shv-gender-content p { font-size: 12.5px; }
+  .shv-stud-card { padding: 14px 12px; }
+  .shv-stud-name { font-size: 17px; }
+  .shv-stud-sub { font-size: 11.5px; }
+  .shv-stud-price { font-size: 19px; }
+  .shv-val-banner { padding: 10px 12px; }
+  .shv-hcc-title { font-size: 20px; }
+  .shv-hcc-sub { font-size: 13px; }
 }

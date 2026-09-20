@@ -692,6 +692,7 @@ window.Shivaa.welcomeSession = welcomeSession;
 
 /* ─────────── cart ops ─────────── */
 function addToCart(id, qty = 1, size = null, engraving = null, opts = {}) {
+  if (typeof ensureCampaignStuds === 'function') ensureCampaignStuds();
   const key = i => i.id + '|' + (i.size || '');
   const item = { id, qty, size, engraving };
   const ex = state.cart.find(i => key(i) === key(item));
@@ -699,7 +700,7 @@ function addToCart(id, qty = 1, size = null, engraving = null, opts = {}) {
   store.set('shv_cart', state.cart);
   updateBadges();
   /* v91 — fly the piece's image into the bag, then glide the mini-bag open */
-  const p = state.productsCache.find(x => x.id === id);
+  const p = (state.productsCache && state.productsCache.find(x => x.id === id)) || (typeof CAMPAIGN_STUDS_DATA !== 'undefined' ? Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === id) : null);
   const src = p && (p.images && p.images[0]);
   let fromEl = opts.fromEl || document.querySelector(`.p-card[data-pid="${id}"] .pc-imgwrap img`);
   if (src) flyToBag(src, fromEl).then(() => { if (!opts.silent) openCart(true); });
@@ -813,33 +814,63 @@ const CAMPAIGN_STUDS_DATA = {
       sku: 'SHV-MST-01',
       name: "Shivaa Rudra 22K Gold Men's Stud",
       subtitle: "Bold Octagonal Royal Facet",
-      weightG: 2.85,
+      category: 'earrings',
+      metal: 'Gold',
       purity: '22K',
+      weightG: 2.85,
+      mcScheme: 'percent',
+      mcValue: 12,
       mcPct: 12,
+      stoneValue: 0,
+      lessWeightG: 0,
+      wastagePct: 8,
+      stock: 50,
+      active: true,
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens'],
       images: ['/images/products/stud-mens-rudra.jpg'],
-      desc: 'Forged in certified solid 22K yellow gold (2.85 g) with sharp octagonal masculine symmetry and mirror-polish facets. Crafted for everyday royal distinction.'
+      desc: 'Forged in certified solid 22K yellow gold (2.85 g) with sharp octagonal masculine symmetry and mirror-polish facets. Crafted for everyday royal distinction. Qualifies for 10g Gold Biscuit Scheme.'
     },
     {
       id: 'p_stud_m2',
       sku: 'SHV-MST-02',
       name: "Shivaa Veer 22K Gold Men's Stud",
       subtitle: "Contemporary Diamond-Cut Square Prism",
-      weightG: 3.20,
+      category: 'earrings',
+      metal: 'Gold',
       purity: '22K',
+      weightG: 3.20,
+      mcScheme: 'percent',
+      mcValue: 12,
       mcPct: 12,
+      stoneValue: 0,
+      lessWeightG: 0,
+      wastagePct: 8,
+      stock: 50,
+      active: true,
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens'],
       images: ['/images/products/stud-mens-veer.jpg'],
-      desc: 'Precision micro-textured diamond-cut square prism in certified 22K gold (3.20 g). Clean architectural geometry meeting timeless Rajasthani gold craft.'
+      desc: 'Precision micro-textured diamond-cut square prism in certified 22K gold (3.20 g). Clean architectural geometry meeting timeless Rajasthani gold craft. Qualifies for 10g Gold Biscuit Scheme.'
     },
     {
       id: 'p_stud_m3',
       sku: 'SHV-MST-03',
       name: "Shivaa Surya 22K Gold Men's Stud",
       subtitle: "Sunburst Radiance Heritage Stud",
-      weightG: 2.50,
+      category: 'earrings',
+      metal: 'Gold',
       purity: '22K',
+      weightG: 2.50,
+      mcScheme: 'percent',
+      mcValue: 12,
       mcPct: 12,
+      stoneValue: 0,
+      lessWeightG: 0,
+      wastagePct: 8,
+      stock: 50,
+      active: true,
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'mens'],
       images: ['/images/products/stud-mens-surya.jpg'],
-      desc: 'Iconic solar carved radial facets encircling a polished golden core in solid 22K gold (2.50 g). Understated luxury with high-luster reflectivity.'
+      desc: 'Iconic solar carved radial facets encircling a polished golden core in solid 22K gold (2.50 g). Understated luxury with high-luster reflectivity. Qualifies for 10g Gold Biscuit Scheme.'
     }
   ],
   ladies: [
@@ -848,36 +879,81 @@ const CAMPAIGN_STUDS_DATA = {
       sku: 'SHV-LST-01',
       name: "Shivaa Mayura 22K Gold Ladies Studs (Pair)",
       subtitle: "Royal Floral Blossom & Micro Filigree",
-      weightG: 3.40,
+      category: 'earrings',
+      metal: 'Gold',
       purity: '22K',
+      weightG: 3.40,
+      mcScheme: 'percent',
+      mcValue: 12,
       mcPct: 12,
+      stoneValue: 0,
+      lessWeightG: 0,
+      wastagePct: 8,
+      stock: 50,
+      active: true,
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies'],
       images: ['/images/products/stud-ladies-mayura.jpg'],
-      desc: 'A magnificent pair of royal floral blossom stud earrings in solid 22K gold (3.40 g), featuring handcrafted micro-beaded filigree petals and central luster.'
+      desc: 'A magnificent pair of royal floral blossom stud earrings in solid 22K gold (3.40 g), featuring handcrafted micro-beaded filigree petals and central luster. Qualifies for 10g Gold Biscuit Scheme.'
     },
     {
       id: 'p_stud_w2',
       sku: 'SHV-LST-02',
       name: "Shivaa Chandrika 22K Gold Ladies Studs (Pair)",
       subtitle: "Crescent Bloom Diamond-Cut Petals",
-      weightG: 2.90,
+      category: 'earrings',
+      metal: 'Gold',
       purity: '22K',
+      weightG: 2.90,
+      mcScheme: 'percent',
+      mcValue: 12,
       mcPct: 12,
+      stoneValue: 0,
+      lessWeightG: 0,
+      wastagePct: 8,
+      stock: 50,
+      active: true,
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies'],
       images: ['/images/products/stud-ladies-chandrika.jpg'],
-      desc: 'A pair of shimmering crescent bloom stud earrings in solid 22K gold (2.90 g) with diamond-cut facets that capture and reflect light at every subtle angle.'
+      desc: 'A pair of shimmering crescent bloom stud earrings in solid 22K gold (2.90 g) with diamond-cut facets that capture and reflect light at every subtle angle. Qualifies for 10g Gold Biscuit Scheme.'
     },
     {
       id: 'p_stud_w3',
       sku: 'SHV-LST-03',
       name: "Shivaa Tara 22K Gold Ladies Studs (Pair)",
       subtitle: "Celestial Star Cluster Design",
-      weightG: 3.15,
+      category: 'earrings',
+      metal: 'Gold',
       purity: '22K',
+      weightG: 3.15,
+      mcScheme: 'percent',
+      mcValue: 12,
       mcPct: 12,
+      stoneValue: 0,
+      lessWeightG: 0,
+      wastagePct: 8,
+      stock: 50,
+      active: true,
+      tags: ['campaign', 'scheme', 'gold-biscuit', 'earrings', 'gold', '22k', 'studs', 'ladies'],
       images: ['/images/products/stud-ladies-tara.jpg'],
-      desc: 'A celestial star cluster stud pair hand-finished in 22K gold (3.15 g). Elegant beaded contour framing a mirror-polished golden star medallion.'
+      desc: 'A celestial star cluster stud pair hand-finished in 22K gold (3.15 g). Elegant beaded contour framing a mirror-polished golden star medallion. Qualifies for 10g Gold Biscuit Scheme.'
     }
   ]
 };
+
+function ensureCampaignStuds() {
+  if (!state.productsCache) state.productsCache = [];
+  if (typeof CAMPAIGN_STUDS_DATA === 'undefined') return;
+  const studs = Object.values(CAMPAIGN_STUDS_DATA).flat();
+  studs.forEach(s => {
+    const idx = state.productsCache.findIndex(p => p.id === s.id);
+    if (idx === -1) {
+      state.productsCache.push({ ...s });
+    } else {
+      state.productsCache[idx] = { ...s, ...state.productsCache[idx] };
+    }
+  });
+}
+ensureCampaignStuds();
 
 function syncFinaleChrome(force) {
   const on = finaleLive();
@@ -914,27 +990,22 @@ function finaleBarArt() {
   return `<div class="fin-bar" aria-hidden="true"><div class="fin-eng"><small>Shivaa · fine gold</small><em>10 g</em><span>24K · 999.9</span></div></div>`;
 }
 
-/* ─────────────────────── 2030 HOLOGRAPHIC AI CONCIERGE & SOUND ENGINE ─────────────────────── */
+/* ─────────────────────── 2030 HOLOGRAPHIC AI CONCIERGE & SOUND ENGINE (HINDI ONLY) ─────────────────────── */
 const AURA_SCRIPTS = {
   poster: {
-    hi: "नमस्ते जी! मैं हूँ ऑरा, आपकी शिवा AI साथी। आपका स्वागत है ₹1,50,000 के 10 ग्राम 24K गोल्ड बिस्कुट लकी ड्रॉ में! सिर्फ 6 खास 22K गोल्ड स्टड्स पर यह सुनहरा मौका उपलब्ध है। चलिए, शुरू करते हैं!",
-    en: "Namaste! I am Aura, your Shivaa AI Concierge. Step into the ₹1,50,000 10g 24K Gold Biscuit Grand Campaign on our 6 Masterpiece Studs."
+    hi: "नमस्ते! मैं ऑरा हूँ, आपकी शिवा एआई कंसीयर्ज। हमारे 10 ग्राम 24 कैरट गोल्ड बिस्कुट ग्रैंड कैंपेन में आपका स्वागत है। चलिए, मैं आपको इस स्कीम की पूरी जानकारी देती हूँ।"
   },
   landing: {
-    hi: "यहाँ है हमारे 10 ग्राम गोल्ड स्कीम का पूरा पारदर्शी रोडमैप। 100% हॉलमार्क वाला शुद्ध 22K सोना और सीए द्वारा लाइव ऑडिटेड ड्रा। चलिए, अपनी पसंदीदा कलेक्शन चुनते हैं!",
-    en: "Here is our 2030 transparent scheme blueprint. 100% hallmarked 22K gold with CA-witnessed live draw protocol."
+    hi: "यहाँ है हमारे 10 ग्राम गोल्ड स्कीम का पूरा पारदर्शी विवरण। 100% हॉलमार्क वाला शुद्ध 22 कैरट सोना और सीए द्वारा लाइव ऑडिटेड ड्रा। चलिए, अपनी पसंदीदा कलेक्शन चुनते हैं!"
   },
   gender: {
-    hi: "आप किसके लिए ज्वेलरी पसंद कर रहे हैं? जेंट्स के लिए शानदार 22K गोल्ड स्टड्स या फिर लेडीज़ के लिए खूबसूरत फ्लोरल डिज़ाइन? अपनी पसंद पर टैप करें!",
-    en: "Who are we curating for today? Choose our Men's royal geometric studs or Ladies' handcrafted floral blossom pairs."
+    hi: "आप किसके लिए गोल्ड स्टड्स पसंद कर रहे हैं? पुरुषों के लिए शानदार 22 कैरट गोल्ड स्टड्स या फिर महिलाओं के लिए खूबसूरत डिज़ाइन? अपनी पसंद पर टैप करें।"
   },
   products: {
-    hi: "ये रहे आपके लिए 3 एक्सक्लूसिव 22K गोल्ड स्टड्स! लाइव रेट और मेकिंग चार्ज की पूरी ट्रांसपेरेंसी के साथ। अपना पसंदीदा डिज़ाइन आर्डर करें और 1-अटेम्प्ट क्विज अनलॉक करें!",
-    en: "Presenting the 3 exclusive 22K BIS Hallmarked masterpiece studs with live dynamic rates and instant checkout!"
+    hi: "ये रहे आपके लिए 3 एक्सक्लूसिव 22 कैरट गोल्ड स्टड्स। लाइव रेट और मेकिंग चार्ज की पूरी ट्रांसपेरेंसी के साथ। अपना पसंदीदा डिज़ाइन आर्डर करें और 1-अटेम्प्ट क्विज अनलॉक करें!"
   },
   quiz: {
-    hi: "बधाई हो! अब आपके सामने है हमारा ऑफिशियल 1-अटेम्प्ट क्विज। हर सवाल का जवाब केवल एक बार दिया जा सकता है। सोच-समझकर सबमिट करें, ऑल द वेरी बेस्ट!",
-    en: "Welcome to the official 1-attempt quiz. Each question answered once with permanent submission lock. Good luck!"
+    hi: "बधाई हो! अब आपके सामने है हमारा ऑफिशियल 1-अटेम्प्ट क्विज। हर सवाल का जवाब केवल एक बार दिया जा सकता है। सोच-समझकर सबमिट करें, शुभकामनाएँ!"
   }
 };
 
@@ -980,30 +1051,43 @@ const ShivaaAudio = {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     if (!this.voiceEnabled) return;
-    const spokenText = typeof scriptItem === 'object' ? (scriptItem.hi || scriptItem.en) : scriptItem;
+    const spokenText = typeof scriptItem === 'object' ? (scriptItem.hi || '') : String(scriptItem || '');
+    if (!spokenText) return;
     const ut = new SpeechSynthesisUtterance(spokenText);
-    ut.rate = 0.92;
+    ut.rate = 0.90;
     ut.pitch = 1.15;
     ut.lang = 'hi-IN';
-    const voices = window.speechSynthesis.getVoices();
-    const hiVoice = voices.find(v => v.lang.includes('hi') || v.name.includes('Hindi') || v.name.includes('Lekha') || v.name.includes('Swara') || v.name.includes('Neerja')) ||
-                    voices.find(v => v.lang.includes('en-IN') || v.name.includes('India')) ||
-                    voices.find(v => v.lang.startsWith('en'));
+
+    const getHiVoice = () => {
+      const vList = window.speechSynthesis.getVoices() || [];
+      return vList.find(v => (v.lang && (v.lang === 'hi-IN' || v.lang.startsWith('hi') || v.lang.includes('hi_IN')))) ||
+             vList.find(v => /hindi|lekh[a-z]|swar[a-z]|kalpan[a-z]|heman[a-z]|neerj[a-z]/i.test(v.name)) ||
+             vList.find(v => v.lang && v.lang.includes('hi')) || null;
+    };
+
+    let hiVoice = getHiVoice();
     if (hiVoice) ut.voice = hiVoice;
-    
+
+    if (window.speechSynthesis.onvoiceschanged === undefined) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        const hv = getHiVoice();
+        if (hv) ut.voice = hv;
+      };
+    }
+
     this.speaking = true;
     const btn = document.getElementById('shvAiSpeakBtn');
-    if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 Speaking in Hindi...'; }
+    if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 ऑरा हिंदी में बोल रही हैं...'; }
 
     ut.onend = () => {
       this.speaking = false;
       const b = document.getElementById('shvAiSpeakBtn');
-      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 Aura Hindi Voice'; }
+      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 ऑरा की आवाज़ सुनें (Hindi)'; }
     };
     ut.onerror = () => {
       this.speaking = false;
       const b = document.getElementById('shvAiSpeakBtn');
-      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 Aura Hindi Voice'; }
+      if (b) { b.classList.remove('speaking'); b.innerHTML = '🔊 ऑरा की आवाज़ सुनें (Hindi)'; }
     };
     window.speechSynthesis.speak(ut);
   },
@@ -1013,13 +1097,13 @@ const ShivaaAudio = {
     if (!this.voiceEnabled) {
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       this.speaking = false;
-      if (btn) { btn.classList.remove('speaking'); btn.innerHTML = '🔇 Voice Muted'; }
-      toast('Aura voice audio muted ✦');
+      if (btn) { btn.classList.remove('speaking'); btn.innerHTML = '🔇 आवाज़ बंद है (Muted)'; }
+      toast('ऑरा की आवाज़ म्यूट कर दी गई है ✦');
     } else {
-      if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 Speaking in Hindi...'; }
+      if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 ऑरा हिंदी में बोल रही हैं...'; }
       const step = window._schemeState?.step || 'poster';
       this.speak(AURA_SCRIPTS[step] || AURA_SCRIPTS.poster);
-      toast('Aura Hindi voice guide active ✦');
+      toast('ऑरा हिंदी वॉइस गाइड सक्रिय ✦');
     }
   }
 };
@@ -1214,7 +1298,7 @@ function finaleLanding() {
       </div>
     </nav>
 
-    <!-- 2030 HOLOGRAPHIC AI CONCIERGE HUD BAR -->
+    <!-- 2030 HOLOGRAPHIC AI CONCIERGE HUD BAR (HINDI ONLY) -->
     <aside class="container" style="padding:0">
       <div class="shv-ai-concierge-bar" id="shvAiConciergeBar">
         <div class="shv-ai-avatar-wrap">
@@ -1223,11 +1307,11 @@ function finaleLanding() {
         </div>
         <div class="shv-ai-content">
           <div class="shv-ai-header">
-            <span class="shv-ai-name">Aura · Shivaa AI Concierge</span>
-            <span class="shv-ai-badge">⚡ 2030 Hologram Live</span>
+            <span class="shv-ai-name">ऑरा (Aura) · शिवा AI साथी (Hindi)</span>
+            <span class="shv-ai-badge">⚡ 2030 लाइव AI</span>
           </div>
           <p class="shv-ai-msg" id="shvAiMessage">
-            Namaste! I am Aura, your Shivaa AI Concierge. Step into the ₹1,50,000 10g 24K Gold Biscuit Grand Campaign. Let me guide your festive journey.
+            नमस्ते! मैं ऑरा हूँ, आपकी शिवा एआई कंसीयर्ज। हमारे 10 ग्राम 24 कैरट गोल्ड बिस्कुट ग्रैंड कैंपेन में आपका स्वागत है। चलिए, मैं आपको इस स्कीम की पूरी जानकारी देती हूँ।
           </p>
           <div class="shv-ai-waves" aria-hidden="true">
             <div class="shv-ai-wave-bar"></div>
@@ -1239,7 +1323,7 @@ function finaleLanding() {
         </div>
         <div class="shv-ai-actions">
           <button type="button" class="shv-ai-sound-btn" id="shvAiSpeakBtn" onclick="Shivaa.toggleAiVoice()">
-            🔊 Listen to Aura
+            🔊 ऑरा की आवाज़ सुनें (Hindi)
           </button>
         </div>
       </div>
@@ -1521,14 +1605,11 @@ function renderSchemeStage(step, gender) {
     renderStudsCollection(gender || 'gents');
   }
 
-  // Update Aura AI Concierge Message & Voice
+  // Update Aura AI Concierge Message & Voice (Hindi)
   const msgEl = document.getElementById('shvAiMessage');
   if (msgEl && AURA_SCRIPTS[step]) {
     const sc = AURA_SCRIPTS[step];
-    msgEl.innerHTML = `
-      <span class="shv-ai-hi-text" style="display:block;font-size:14px;color:#fff6dc;font-weight:500;margin-bottom:3px">${esc(sc.hi || sc)}</span>
-      ${sc.en ? `<small style="display:block;font-size:11.5px;color:rgba(255,226,138,0.75);letter-spacing:0.02em">“${esc(sc.en)}”</small>` : ''}
-    `;
+    msgEl.innerHTML = `<span class="shv-ai-hi-text" style="display:block;font-size:13px;color:#fff6dc;font-weight:500;line-height:1.4">${esc(sc.hi || sc)}</span>`;
     if (ShivaaAudio.voiceEnabled) ShivaaAudio.speak(sc);
   }
 
@@ -1539,6 +1620,7 @@ function renderSchemeStage(step, gender) {
 }
 
 function renderStudsCollection(gender = 'gents') {
+  ensureCampaignStuds();
   const container = $('#shvStudsContainer');
   if (!container) return;
 
@@ -1594,30 +1676,70 @@ function renderStudsCollection(gender = 'gents') {
 }
 
 window.Shivaa.addCampaignToCart = async (productId) => {
+  ensureCampaignStuds();
+  const allStuds = Object.values(CAMPAIGN_STUDS_DATA).flat();
   const p = (state.productsCache || []).find(x => x.id === productId) ||
-            Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === productId);
+            allStuds.find(x => x.id === productId);
   if (!p) { toast('Product details loading...', 'err'); return; }
   addToCart(productId, 1);
   toast(`Added ${p.name} to bag! Qualifies for 10g Gold Biscuit Draw ✦`);
-  openCart();
+  openCart(true);
 };
 
 window.Shivaa.buyCampaignStud = async (productId) => {
+  ensureCampaignStuds();
+  const allStuds = Object.values(CAMPAIGN_STUDS_DATA).flat();
   const p = (state.productsCache || []).find(x => x.id === productId) ||
-            Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === productId);
+            allStuds.find(x => x.id === productId);
   if (!p) { toast('Product details loading...', 'err'); return; }
 
-  /* Directly launch Cashfree Payment Portal for guest 1-tap checkout */
-  if (expressCheckoutOn() && !state.user) {
-    window.Shivaa._expressItem = { id: productId, qty: 1 };
-    try { store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() }); } catch (e) {}
-    if (await window.Shivaa.exDirect(false)) return;
-    window.Shivaa._expressItem = null;
-    try { store.set('shv_ex_item', null); } catch (e) {}
-  }
+  // Set express item
+  window.Shivaa._expressItem = { id: productId, qty: 1, isCampaignStud: true };
+  try { store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() }); } catch (e) {}
 
-  addToCart(productId, 1, null, null, { silent: true });
-  location.hash = '#/checkout';
+  // 1-Click direct Cashfree checkout
+  toast('Opening Cashfree 1-Click checkout…');
+  try {
+    const res = await api('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ id: productId, qty: 1, isCampaignStud: true }],
+        address: { ...EX_BOUNDARY },
+        paymentMethod: 'Online',
+      })
+    });
+
+    if (!res || !res.id) throw new Error('Order initialization failed');
+    window.Shivaa._lastOrder = res;
+    window.Shivaa._expressOrder = res;
+    expressRemember(res.id, res.pin || '');
+    try { sessionStorage.setItem('fqPrompt', res.id); } catch (e) {}
+
+    const po = await api('/api/pay/order', {
+      method: 'POST',
+      body: JSON.stringify(res.pin ? { orderId: res.id, pin: res.pin } : { orderId: res.id })
+    });
+
+    if (po && po.mode === 'cashfree' && po.paymentSessionId) {
+      await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);
+      return;
+    }
+
+    if (po && po.mode === 'demo') {
+      const pr = price(p);
+      const paid = await demoPaySheet(po, res.id, (pr && pr.total) || res.total);
+      if (paid) {
+        location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(res.id) + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
+        return;
+      }
+    }
+
+    location.hash = '#/order/' + encodeURIComponent(res.id) + '?cf=pending' + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '');
+  } catch (err) {
+    console.error('Direct buy error:', err);
+    addToCart(productId, 1, null, null, { silent: true });
+    location.hash = '#/checkout';
+  }
 };
 
 window.Shivaa.finJump = id => {
@@ -2809,6 +2931,7 @@ pages.pickup = async (view) => {
 };
 
 pages.home = async (view) => {
+  ensureCampaignStuds();
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
   const best = [...best0, ...state.productsCache.filter(p => !best0.includes(p))].slice(0, 12);
   const news = state.productsCache.filter(p => p.tags && p.tags.includes('new')).slice(0, 8);
@@ -4320,6 +4443,7 @@ function refreshCartPage() {
 /* ═══════════════════ v91 — slide-in mini bag ═══════════════════ */
 let _cartTrap = null;
 function cartLines() {
+  ensureCampaignStuds();
   return state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
 }
 function cartTotals() {
@@ -4728,6 +4852,7 @@ window.Shivaa.quickView = async (id) => {
 
 /* ─────────── CHECKOUT ─────────── */
 pages.checkout = async (view) => {
+  ensureCampaignStuds();
   if (!state.cart.length) { location.hash = '#/cart'; return; }
   if (!state.user) {
     /* v153 — a guest landing on the classic checkout URL (back-gesture, stale
@@ -8919,6 +9044,7 @@ async function fillPrizeWorth() {
   }
 }
 pages.scheme = async (view) => {
+  ensureCampaignStuds();
   if (!finaleLive()) { location.hash = '#/'; return; }
   view.innerHTML = finaleLanding();
   const cd = $('#posterCd');
@@ -8949,9 +9075,20 @@ pages.scheme = async (view) => {
   if (step === 'quiz') {
     const orderId = q.get('orderId') || (window._lastOrder && window._lastOrder.id);
     const pin = q.get('pin') || (guestPinFor ? guestPinFor(q, orderId) : '');
-    setTimeout(() => {
-      fqOpen({ route: 'purchase', orderId, pin });
-    }, 350);
+    const cf = q.get('cf');
+    if (orderId && cf === 'pending') {
+      api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId, pin: pin || '' }) })
+        .catch(() => {})
+        .finally(() => {
+          setTimeout(() => {
+            fqOpen({ route: 'purchase', orderId, pin });
+          }, 300);
+        });
+    } else {
+      setTimeout(() => {
+        fqOpen({ route: 'purchase', orderId, pin });
+      }, 350);
+    }
   }
 };
 pages.finale = pages.scheme;
@@ -9569,6 +9706,7 @@ async function boot(isRedraw) {
   }
   state.mcTable = mc.table || [];
   state.productsCache = prods.products || []; state.cacheAt = Date.now();
+  ensureCampaignStuds();
   state.compare = normalizeCompare(state.compare).filter(id => state.productsCache.some(p => p.id === id));
   store.set('shv_compare', state.compare);
   window.Shivaa.catCache = cats.catalogs || []; catCache = window.Shivaa.catCache;
