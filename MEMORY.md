@@ -1,5 +1,7 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+> **v160 REAL TOPS + 24 PHOTOS + MOBILE + PAY-FAIL RETURN (2026-09-21, branch `arena/01a0c003-shivaa-ecom`, PR #80 merged to main, zip `shivaa-update-v160.zip` md5 `5506bd0854bcb176dbdda6f67d13dde6`, 31 files):** owner's 6 real tops replace AI concepts — gents 3.00g×3 (Veer/Rudra/Bali), ladies 3.255/2.928/3.086g (Heer/Morni/Sitara, tag truth; owner typed 3.225 for paisley vs tag 3.255 — used tag, flagged), all 22K 15% MC; 24 AI photoshoot photos (studio/macro/worn/gift per design, 1000px square, QA'd faithful, no re-rolls needed); card 4-thumb gallery; gender banners re-montaged; mobile overlap class killed (stepper 58px+safe-area, badge constraints, ≤380px stacks) + blur class killed (square natives); pay-fail from ALL 3 surfaces auto-returns to the gender-correct 3-design showcase (gender resolver, 4s auto-return on ?cf=fail); stamps 160; gate v160-check 63/63. Lessons: image budget = 10 ATTEMPTS/user-turn (empties count) — plan 10+10+4 across user nudges; test-window bugs (slice into next product) — bound blocks by structure; square natives beat CSS for sharpness.
+
 > **v159 SCHEME FUNNEL & CURATED 6 STUDS (2026-09-20, branch `arena/01a0bf5c-shivaa-ecom`, PR created and merged to `main`).**
 > **Release Package:** `shivaa-update-v159.zip` (md5 `8cb48328b0246b80b0a0c21c84661555`, 14 files root layout).
 > **Features:**
