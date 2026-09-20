@@ -1736,6 +1736,7 @@ window.Shivaa.addCampaignToCart = async (productId) => {
 };
 
 window.Shivaa.buyCampaignStud = async (productId) => {
+  ensureCampaignStuds();
   const buyBtn = document.querySelector(`.shv-stud-card[data-pid="${productId}"] .shv-btn-buy`);
   const prevBtnHtml = buyBtn ? buyBtn.innerHTML : '';
   if (buyBtn) {
@@ -1744,7 +1745,6 @@ window.Shivaa.buyCampaignStud = async (productId) => {
   }
 
   try {
-    ensureCampaignStuds();
     const allStuds = Object.values(CAMPAIGN_STUDS_DATA).flat();
     const p = (state.productsCache || []).find(x => x.id === productId) ||
               allStuds.find(x => x.id === productId);
@@ -4001,6 +4001,21 @@ const EX_BOUNDARY = {
    its retry button, the UPI QR tab and the access pin — receives them. */
 async function exHandoff(orderId, pin) {
   const po = await api('/api/pay/order', { method: 'POST', body: JSON.stringify(pin ? { orderId, pin } : { orderId }) });
+  if (po && po.mode === 'demo') {
+    const paid = await demoPaySheet(po, orderId, po.amount ? Math.round(po.amount / 100) : 48500);
+    if (paid) {
+      const ord = window.Shivaa._expressOrder || window.Shivaa._lastOrder;
+      const isCamp = ord && ord.items && ord.items.some(x => x.isCampaignStud || x.campaignStud || /p_stud|SHV-[ML]ST/i.test(x.id || x.productId || x.sku || ''));
+      if (isCamp) {
+        location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(orderId) + (pin ? '&pin=' + encodeURIComponent(pin) : '');
+      } else {
+        location.hash = '#/order/' + encodeURIComponent(orderId) + '?paid=1' + (pin ? '&pin=' + encodeURIComponent(pin) : '');
+      }
+      return;
+    } else {
+      throw new Error('Payment cancelled');
+    }
+  }
   if (!po || po.mode !== 'cashfree' || !po.paymentSessionId) {
     throw new Error((po && (po.gatewayMessage || po.error)) || 'Cashfree could not start');
   }
@@ -4013,6 +4028,7 @@ async function exRunBuy(items) {
     paymentMethod: 'Online',   // guest direct-buy is prepaid-only; never COD/WhatsApp
   }) });
   window.Shivaa._expressOrder = res;
+  window.Shivaa._lastOrder = res;
   expressRemember(res.id, res.pin || '');
   window.Shivaa._expressItem = null;
   try { store.set('shv_ex_item', null); } catch (e) {}
