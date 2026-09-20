@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 156;
+const APP_REL = 157;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -990,22 +990,22 @@ function finaleBarArt() {
   return `<div class="fin-bar" aria-hidden="true"><div class="fin-eng"><small>Shivaa · fine gold</small><em>10 g</em><span>24K · 999.9</span></div></div>`;
 }
 
-/* ─────────────────────── 2030 HOLOGRAPHIC AI CONCIERGE & SOUND ENGINE (HINDI ONLY) ─────────────────────── */
+/* ─────────────────────── 2030 HOLOGRAPHIC AI CONCIERGE & SOUND ENGINE (HINDI FRIENDLY VIBE) ─────────────────────── */
 const AURA_SCRIPTS = {
   poster: {
-    hi: "नमस्ते! मैं ऑरा हूँ, आपकी शिवा एआई कंसीयर्ज। हमारे 10 ग्राम 24 कैरट गोल्ड बिस्कुट ग्रैंड कैंपेन में आपका स्वागत है। चलिए, मैं आपको इस स्कीम की पूरी जानकारी देती हूँ।"
+    hi: "नमस्ते जी! मैं आपकी शिवा साथी ऑरा हूँ। इस पावन अवसर पर पाइए 10 ग्राम शुद्ध 24 कैरट सोने का बिस्कुट जीतने का सुनहरा मौका! बस हमारे 6 खूबसूरत 22 कैरट गोल्ड स्टड्स में से अपना पसंदीदा डिज़ाइन चुनिए। चलिए, शुरू करते हैं!"
   },
   landing: {
-    hi: "यहाँ है हमारे 10 ग्राम गोल्ड स्कीम का पूरा पारदर्शी विवरण। 100% हॉलमार्क वाला शुद्ध 22 कैरट सोना और सीए द्वारा लाइव ऑडिटेड ड्रा। चलिए, अपनी पसंदीदा कलेक्शन चुनते हैं!"
+    hi: "यहाँ है हमारी 10 ग्राम गोल्ड स्कीम की पूरी जानकारी! 100% बीआईएस हॉलमार्क शुद्ध सोना और सीए द्वारा प्रमाणित पारदर्शी लाइव ड्रॉ। आइए, अपनी पसंद का कलेक्शन चुनें!"
   },
   gender: {
-    hi: "आप किसके लिए गोल्ड स्टड्स पसंद कर रहे हैं? पुरुषों के लिए शानदार 22 कैरट गोल्ड स्टड्स या फिर महिलाओं के लिए खूबसूरत डिज़ाइन? अपनी पसंद पर टैप करें।"
+    hi: "आप किसके लिए स्टड्स पसंद कर रहे हैं? पुरुषों के लिए रॉयल डिज़ाइन या महिलाओं के लिए खूबसूरत फ्लोरल डिज़ाइन? अपनी पसंद पर टैप कीजिए!"
   },
   products: {
-    hi: "ये रहे आपके लिए 3 एक्सक्लूसिव 22 कैरट गोल्ड स्टड्स। लाइव रेट और मेकिंग चार्ज की पूरी ट्रांसपेरेंसी के साथ। अपना पसंदीदा डिज़ाइन आर्डर करें और 1-अटेम्प्ट क्विज अनलॉक करें!"
+    hi: "ये रहे आपके लिए 3 बेहद खूबसूरत 22 कैरट गोल्ड स्टड्स! लाइव रेट और सिर्फ 12% मेकिंग चार्ज के साथ। अभी बाय नाउ करें और सीधा कैशफ्री से 1-क्लिक आर्डर कम्प्लीट करें!"
   },
   quiz: {
-    hi: "बधाई हो! अब आपके सामने है हमारा ऑफिशियल 1-अटेम्प्ट क्विज। हर सवाल का जवाब केवल एक बार दिया जा सकता है। सोच-समझकर सबमिट करें, शुभकामनाएँ!"
+    hi: "बहुत-बहुत बधाई! आपका आर्डर कन्फर्म हो चुका है। अब दीजिए इस आसान 1-अटेम्प्ट क्विज के 5 सवालों के जवाब और लाइव ड्रॉ में अपनी एंट्री पक्की कीजिए! ऑल द बेस्ट!"
   }
 };
 
@@ -1050,18 +1050,17 @@ const ShivaaAudio = {
   speak(scriptItem) {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
-    if (!this.voiceEnabled) return;
     const spokenText = typeof scriptItem === 'object' ? (scriptItem.hi || '') : String(scriptItem || '');
     if (!spokenText) return;
     const ut = new SpeechSynthesisUtterance(spokenText);
-    ut.rate = 0.90;
+    ut.rate = 0.92;
     ut.pitch = 1.15;
     ut.lang = 'hi-IN';
 
     const getHiVoice = () => {
       const vList = window.speechSynthesis.getVoices() || [];
       return vList.find(v => (v.lang && (v.lang === 'hi-IN' || v.lang.startsWith('hi') || v.lang.includes('hi_IN')))) ||
-             vList.find(v => /hindi|lekh[a-z]|swar[a-z]|kalpan[a-z]|heman[a-z]|neerj[a-z]/i.test(v.name)) ||
+             vList.find(v => /hindi|lekh[a-z]|swar[a-z]|kalpan[a-z]|heman[a-z]|neerj[a-z]|hi[-_]/i.test(v.name)) ||
              vList.find(v => v.lang && v.lang.includes('hi')) || null;
     };
 
@@ -1077,7 +1076,7 @@ const ShivaaAudio = {
 
     this.speaking = true;
     const btn = document.getElementById('shvAiSpeakBtn');
-    if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 ऑरा हिंदी में बोल रही हैं...'; }
+    if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 ऑरा बोल रही हैं...'; }
 
     ut.onend = () => {
       this.speaking = false;
@@ -1100,10 +1099,10 @@ const ShivaaAudio = {
       if (btn) { btn.classList.remove('speaking'); btn.innerHTML = '🔇 आवाज़ बंद है (Muted)'; }
       toast('ऑरा की आवाज़ म्यूट कर दी गई है ✦');
     } else {
-      if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 ऑरा हिंदी में बोल रही हैं...'; }
+      if (btn) { btn.classList.add('speaking'); btn.innerHTML = '🔊 ऑरा बोल रही हैं...'; }
       const step = window._schemeState?.step || 'poster';
       this.speak(AURA_SCRIPTS[step] || AURA_SCRIPTS.poster);
-      toast('ऑरा हिंदी वॉइस गाइड सक्रिय ✦');
+      toast('नमस्ते! ऑरा हिंदी वॉइस सक्रिय ✦');
     }
   }
 };
@@ -4326,12 +4325,19 @@ function laterSectionHTML() {
   </section>`;
 }
 pages.cart = async (view) => {
+  ensureCampaignStuds();
   const laterHTML = laterSectionHTML();
   if (!state.cart.length) {
     view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart awaits its sparkle</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>` + laterHTML;
     return;
   }
-  const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+  const items = state.cart.map(c => {
+    let p = (state.productsCache || []).find(x => x.id === c.id);
+    if (!p && typeof CAMPAIGN_STUDS_DATA !== 'undefined') {
+      p = Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === c.id);
+    }
+    return { ...c, p };
+  }).filter(x => x.p);
   const lines = items.map(it => ({ it, pr: price(it.p) }));
   const subtotal = lines.reduce((a, l) => a + l.pr.total * l.it.qty, 0);
   const shipping = subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
@@ -4444,7 +4450,13 @@ function refreshCartPage() {
 let _cartTrap = null;
 function cartLines() {
   ensureCampaignStuds();
-  return state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
+  return state.cart.map(c => {
+    let p = (state.productsCache || []).find(x => x.id === c.id);
+    if (!p && typeof CAMPAIGN_STUDS_DATA !== 'undefined') {
+      p = Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === c.id);
+    }
+    return { ...c, p };
+  }).filter(x => x.p);
 }
 function cartTotals() {
   const lines = cartLines();

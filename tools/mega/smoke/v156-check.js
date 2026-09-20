@@ -184,15 +184,15 @@ console.log('\n· 7 — BUG B3: the 12 h chart can never paint NaN again:');
     && app.indexOf('if (data.length < 2) return;') < app.indexOf('const min = Math.min(...data) * 0.999'));
 }
 
-console.log('\n· 8 — stamp lockstep (156) incl. the loader stamps:');
+console.log('\n· 8 — stamp lockstep (156+) incl. the loader stamps:');
 {
-  ok('APP_REL 156', /const APP_REL = 156;/.test(app));
-  ok('index __SHIVAA_REL=156 + loader app.js?v=156', idx.includes('window.__SHIVAA_REL=156;') && idx.includes('/js/app.js?v=156"'));
-  ok('sw SHELL v156 + PRECACHE /js/app.js?v=156', sw.includes("'shivaa-shell-v156'") && sw.includes("'/js/app.js?v=156'"));
+  ok('APP_REL 156+', /const APP_REL = 15[67];/.test(app));
+  ok('index __SHIVAA_REL=156+ + loader app.js?v=156+', /window\.__SHIVAA_REL=15[67];/.test(idx) && /\/js\/app\.js\?v=15[67]"/.test(idx));
+  ok('sw SHELL v156+ + PRECACHE /js/app.js?v=156+', /'shivaa-shell-v15[67]'/.test(sw) && /'\/js\/app\.js\?v=15[67]'/.test(sw));
   ok('no stale 155 stamp left in the five boot spots',
     !/const APP_REL = 155;/.test(app) && !idx.includes('__SHIVAA_REL=155') && !idx.includes('/js/app.js?v=155"')
     && !sw.includes('shivaa-shell-v155') && !sw.includes("'/js/app.js?v=155'"));
-  ok("api rel 156 (mind the 3-space gap)", /'rel'   => 156,/.test(api));
+  ok("api rel 156+ (mind the 3-space gap)", /'rel'   => 15[67],/.test(api));
   ok('admin loader still FOLLOWS APP_REL (v152 design — no manual stamp to miss)',
     app.includes("injectScript('/js/admin.js?v=' + APP_REL)"));
 }
