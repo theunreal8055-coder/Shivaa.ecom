@@ -21,6 +21,8 @@ on:
   # Every PR against main auto-validates the deploy script with a DRY-RUN
   # (login + read live catalogue + plan; never writes). The zoom gate is
   # advisory during the fix phase so batch PRs don't block on pending re-rolls.
+  # A live-login 401 on a PR is downgraded to a warning (dead secret, not dead
+  # code); dispatch --live and push runs always fail hard without login.
   pull_request:
     branches: [main]
   # Autonomous live deploy: pushing the GO marker file to main (PR merge only —
@@ -137,6 +139,15 @@ jobs:
           set -e
           cat catalogue-deploy.log
           if [ "$code" -ne 0 ]; then
+            # v164 — PR dry-runs validate what the PR controls (offline preflight
+            # above + the script's own preflight). A dead-live-credential 401 is
+            # an environment issue, not a code regression: warn loudly and let
+            # the PR go green, instead of blocking every catalogue PR forever.
+            # Real runs (dispatch --live / push) still fail hard below this.
+            if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] && grep -q "login failed" catalogue-deploy.log; then
+              echo "::warning::PR dry-run could not log in to the live site (stale SHIVAA_ADMIN_PASSWORD?) — offline validation passed; live-plan validation skipped. Fix the secret before the real deploy."
+              exit 0
+            fi
             echo "::error::catalogue_deploy.py exited $code"
             python3 - <<'PY'
           from pathlib import Path

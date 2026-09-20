@@ -104,6 +104,7 @@ if (fs.existsSync(depPy) && fs.existsSync(wfYml)) {
   ok(wf.includes("startswith(('PGS', 'SHV'))"), 'workflow: preflight + verify accept the SHV set');
   ok(wf.includes("p['sku'].startswith('PGS') and int(p['sku'][3:])"), 'workflow: zoom gate skips SHV (no int() crash)');
   ok(wf.includes('studs_real') && wf.includes('strays'), 'workflow: independent verify counts strays + real stud rows');
+  ok(wf.includes('pull_request') && wf.includes('login failed') && wf.includes('stale SHIVAA_ADMIN_PASSWORD'), 'workflow: PR dry-run downgrades a dead-credential 401 to a warning (live runs still fail hard)');
   try { execSync('python3 -m py_compile ' + JSON.stringify(depPy), { stdio: 'pipe' }); ok(true, 'deploy: py_compile clean'); }
   catch (e) { ok(false, 'deploy: py_compile: ' + String((e.stderr || e.message || '')).slice(0, 120)); }
 } else {
