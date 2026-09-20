@@ -5,9 +5,9 @@ dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
 
-## ✅ NEWEST — LAUNCH FILM (20 Sep 2026, branch `arena/01a0ba75-shivaa-ecom`, **PR #78 OPEN — do not merge unasked**)
+## ✅ NEWEST — LAUNCH FILM (20 Sep 2026, branch `arena/01a0ba75-shivaa-ecom`, **PR #78 merging to main on owner order**)
 
-Not a CMS release. **Do not bump storefront stamps.** Live site = **v155** silent lane.
+Not a CMS release. **Do not bump storefront stamps.** Storefront on main is **v156**; this session did not edit cms/.
 
 | What | Where |
 |---|---|
@@ -24,7 +24,7 @@ Not a CMS release. **Do not bump storefront stamps.** Live site = **v155** silen
 - 9:16 crop-paste into 16:9 was **rejected**. Full-bleed 16:9 only.
 - Omni 8s clips **do not share faces/score**. Concat feels disconnected; unity needs **extend + last frame + character stills + one music bed**.
 - Never write Jaipur. Brand **Shivaa Jewels / shivaa.in**.
-- Merge PR #78 only if the owner asks (large MP4s on the branch).
+- PR #78 merging on owner order (large MP4s).
 
 ## v151 THE PROFILE AUDIT (19 Sep 2026, branch `arena/01a0b86b-shivaa-ecom`, **UNDEPLOYED — owner extracts `shivaa-update-v151.zip`, md5 `8f827df579540391088b86616b265ec9`, into `public_html/cms/`**)
 The owner reported the hiccup "still there" — the live v150 doctor showed the opposite: the fetch now hits /v1/default and Truecaller returns a REAL profile. The profile is the shop's OWN business account (name "SHIVAA JEWELS Pvt Ltd", one landline-shaped phoneNumbers entry) because the owner's test phone is signed into Truecaller as the business; no mobile exists there, and the checkout (server + all seven page gates) requires a 10-digit [6-9] mobile — rejection is CORRECT behavior, not a bug. What is still unknown after that: real customers' taps may already work, OR the console may serve the developer profile to every consent (test mode). v151 = api.php-only tc_profile_audit: 'who=<name initials> p=<mobile|landline|short|odd>:<count>[ business]' — privacy-safe by construction (no digits, initials only, 59-node budget) — stored on EVERY consent/refetch outcome and exposed as NEW public key lastProfile on /api/auth/truecaller/config. ONE tap from a second personal-Truecaller phone then decides everything: same who= twice = fix it in the Truecaller console (not code); different who= with p=mobile:1 = customer flow works TODAY. QA: 17/17 static + 11/11 EXECUTED (the live business body audits to who=SP p=landline:1 business verbatim) + full regression on source AND the main+v147..v151 overlay incl. v125; page byte-identical except stamps (151 lockstep; admin loader frozen ?v=147). Rollback = v150 zip 94c5928…
