@@ -575,22 +575,26 @@ function cashfree_occ_block(array $cfg, array $db, array $o, bool $force = false
     ['key' => 'features', 'action' => 'ALLOW', 'values' => $features],
   ];
   $items = [];
+  $single = (count((array)($o['items'] ?? [])) === 1);
   foreach ((array)($o['items'] ?? []) as $it) {
     if (!is_array($it)) continue;
     $nm = trim((string)($it['name'] ?? $it['productName'] ?? 'Shivaa piece'));
+    $nm = preg_replace('/[^\w\s\-().,]/', '', $nm);
     if ($nm === '') $nm = 'Shivaa piece';
     $qty = max(1, (int)($it['qty'] ?? 1));
     $unit = max(0.01, round(((float)($it['price'] ?? $it['unitPrice'] ?? 0)) ?: 1, 2));
+    $discUnit = ($single && !empty($o['total'])) ? max(0.01, round((float)$o['total'] / $qty, 2)) : $unit;
+    $origUnit = max($unit, $discUnit);
     $row = [
       'item_id' => cashfree_sanitize_id((string)($it['productId'] ?? $it['id'] ?? ('item' . count($items))), 40) ?: ('item' . count($items)),
       'item_name' => mb_substr($nm, 0, 120),
       'item_quantity' => $qty,
-      'item_original_unit_price' => $unit,
-      'item_discounted_unit_price' => $unit,
+      'item_original_unit_price' => $origUnit,
+      'item_discounted_unit_price' => $discUnit,
       'item_currency' => 'INR',
     ];
     $img = '';
-    foreach ([(array)($it['image'] ?? null), (array)($it['images'] ?? [])] as $cand) {
+    foreach ([(array)($it['img'] ?? null), (array)($it['image'] ?? null), (array)($it['images'] ?? [])] as $cand) {
       foreach ($cand as $c) { if (is_string($c) && $c !== '') { $img = $c; break 2; } }
     }
     if ($img !== '') {
@@ -4161,7 +4165,7 @@ try {
     $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
     jout(200, [
       'ok'    => true,
-      'rel'   => 162,
+      'rel'   => 163,
       'shell' => $sh,
       'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
                   'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
@@ -6544,7 +6548,7 @@ try {
     function finale_qualifies(array $items): bool {
       $CAMPAIGN_SKUS = ['SHV-MST-01', 'SHV-MST-02', 'SHV-MST-03', 'SHV-LST-01', 'SHV-LST-02', 'SHV-LST-03', 'p_stud_m1', 'p_stud_m2', 'p_stud_m3', 'p_stud_w1', 'p_stud_w2', 'p_stud_w3'];
       foreach ($items as $it) {
-        $id = (string)($it['id'] ?? '');
+        $id = (string)($it['id'] ?? ($it['productId'] ?? ''));
         $sku = (string)($it['sku'] ?? '');
         $isCamp = !empty($it['isCampaignStud']) || !empty($it['campaignStud']);
         if (in_array($id, $CAMPAIGN_SKUS, true) || in_array($sku, $CAMPAIGN_SKUS, true) || $isCamp) return true;

@@ -91,9 +91,9 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({
         ok: true,
-        rel: 162,
-        shell: 'shivaa-shell-v162',
-        stamp: { index: 162, app: 162 }
+        rel: 163,
+        shell: 'shivaa-shell-v163',
+        stamp: { index: 163, app: 163 }
       }));
     }
 
@@ -210,6 +210,22 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/making-charges') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ table: db.makingCharges || [] }));
+    }
+
+    if (pathname === '/api/pay/config') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        mode: 'cashfree',
+        guestCheckout: true,
+        provider: 'cashfree',
+        cashfree: { ready: true, test: false },
+        prepaidPct: 0,
+        lockMinutes: 20,
+        codFeePct: 0,
+        upiId: '',
+        upiName: 'Shivaa Jewels',
+        currency: 'INR'
+      }));
     }
 
     if (pathname === '/api/auth/me') {
