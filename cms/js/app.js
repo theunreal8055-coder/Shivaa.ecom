@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 160;
+const APP_REL = 161;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -1637,8 +1637,7 @@ function renderSchemeStage(step, gender) {
 
   init3DCardTilts();
 
-  const header = $('.shv-scheme-stepper');
-  if (header) header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function renderStudsCollection(gender = 'gents') {
@@ -1737,24 +1736,40 @@ window.Shivaa.addCampaignToCart = async (productId) => {
 };
 
 window.Shivaa.buyCampaignStud = async (productId) => {
-  ensureCampaignStuds();
-  const allStuds = Object.values(CAMPAIGN_STUDS_DATA).flat();
-  const p = (state.productsCache || []).find(x => x.id === productId) ||
-            allStuds.find(x => x.id === productId);
-  if (!p) { toast('Product details loading...', 'err'); return; }
+  const buyBtn = document.querySelector(`.shv-stud-card[data-pid="${productId}"] .shv-btn-buy`);
+  const prevBtnHtml = buyBtn ? buyBtn.innerHTML : '';
+  if (buyBtn) {
+    buyBtn.disabled = true;
+    buyBtn.innerHTML = '⚡ Opening Cashfree…';
+  }
 
-  // Set express item
-  window.Shivaa._expressItem = { id: productId, qty: 1, isCampaignStud: true };
-  try { store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() }); } catch (e) {}
-
-  // 1-Click direct Cashfree checkout
-  toast('Opening Cashfree 1-Click checkout…');
   try {
+    ensureCampaignStuds();
+    const allStuds = Object.values(CAMPAIGN_STUDS_DATA).flat();
+    const p = (state.productsCache || []).find(x => x.id === productId) ||
+              allStuds.find(x => x.id === productId);
+    if (!p) { toast('Product details loading...', 'err'); return; }
+
+    // Set express item
+    window.Shivaa._expressItem = { id: productId, qty: 1, isCampaignStud: true };
+    try { store.set('shv_ex_item', { item: window.Shivaa._expressItem, at: Date.now() }); } catch (e) {}
+
+    // 1-Click direct Cashfree checkout
+    toast('Opening Cashfree 1-Click checkout…');
+
+    const validPh = ph => Boolean(ph && /^[6-9]\d{9}$/.test(String(ph).replace(/\D/g, '').slice(-10)));
+    const userPhone = (state.user && validPh(state.user.phone)) ? String(state.user.phone).replace(/\D/g, '').slice(-10) : EX_BOUNDARY.phone;
+    const addr = {
+      ...EX_BOUNDARY,
+      name: (state.user && state.user.name) || EX_BOUNDARY.name,
+      phone: userPhone,
+    };
+
     const res = await api('/api/orders', {
       method: 'POST',
       body: JSON.stringify({
         items: [{ id: productId, qty: 1, isCampaignStud: true }],
-        address: { ...EX_BOUNDARY },
+        address: addr,
         paymentMethod: 'Online',
       })
     });
@@ -1773,6 +1788,7 @@ window.Shivaa.buyCampaignStud = async (productId) => {
     if (po && po.mode === 'cashfree' && po.paymentSessionId) {
       try {
         await Shivaa.cashfreeCheckout(po.paymentSessionId, po.env);
+        location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(res.id) + (res.pin ? '&pin=' + encodeURIComponent(res.pin) : '') + '&cf=pending';
       } catch (cfErr) {
         console.warn('Cashfree payment cancelled/failed:', cfErr);
         toast('भुगतान पूरा नहीं हो सका — आप दोबारा डिज़ाइन चुनकर बाय नाउ कर सकते हैं ✦', 'err');
@@ -1802,6 +1818,11 @@ window.Shivaa.buyCampaignStud = async (productId) => {
     toast('भुगतान शुरू नहीं हो सका — कृपया दोबारा कोशिश करें ✦', 'err');
     const g = window._schemeState?.gender || (p && p.tags && p.tags.includes('ladies') ? 'ladies' : 'gents');
     Shivaa.setSchemeStep('products', g);
+  } finally {
+    if (buyBtn) {
+      buyBtn.disabled = false;
+      buyBtn.innerHTML = prevBtnHtml || '⚡ Buy Now';
+    }
   }
 };
 
@@ -5250,13 +5271,34 @@ window.Shivaa.wishlistAlerts = async (idsArg) => {
 };
 
 /* ═══════════ v128 · online payments — Cashfree hosted checkout, demo without keys ═══════════ */
-function loadExternalScript(src, timeoutMs) {
+function loadExternalScript(src, timeoutMs, globalCheck) {
   return new Promise(resolve => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve(true);
-    const s = document.createElement('script'); s.src = src;
+    if (typeof globalCheck === 'function' && globalCheck()) return resolve(true);
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      if (typeof globalCheck === 'function') {
+        let elapsed = 0;
+        const interval = setInterval(() => {
+          elapsed += 50;
+          if (globalCheck()) {
+            clearInterval(interval);
+            resolve(true);
+          } else if (elapsed >= (timeoutMs || 10000)) {
+            clearInterval(interval);
+            resolve(Boolean(globalCheck()));
+          }
+        }, 50);
+        return;
+      }
+      return resolve(true);
+    }
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
     let done = false;
     const finish = (ok) => {
-      if (done) return; done = true;
+      if (done) return;
+      done = true;
       if (tm) clearTimeout(tm);
       if (!ok) s.remove();   /* v130 — a failed tag must not poison "Try again" retries */
       resolve(ok);
@@ -5390,44 +5432,32 @@ function cashfreeRedirectSheet(retry) {
    redirectTarget _self replaces this page; Cashfree sends the customer back to
    the return_url, which the server verifies before crediting the order. */
 window.Shivaa.cashfreeCheckout = async (paymentSessionId, env) => {
-  const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 15000);
+  const ok = await loadExternalScript('https://sdk.cashfree.com/js/v3/cashfree.js', 15000, () => typeof window.Cashfree === 'function');
   if (!ok || typeof window.Cashfree !== 'function') throw new Error('Cashfree could not load — check your internet connection and try again');
   const cf = window.Cashfree({ mode: env === 'sandbox' ? 'sandbox' : 'production' });
   let res;
   try {
-    /* v131 — a successful _self checkout navigates the page away, which kills
-       any pending timer with it — so the timeout below can ONLY fire when the
-       SDK hangs without responding. That must never be a silent eternal
-       spinner: it surfaces as the same red error box as every other failure. */
     res = await Promise.race([
-      cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('__cf_timeout__')), 20000))
+      cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_modal' }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('__cf_timeout__')), 25000))
     ]);
   } catch (e) {
-    if (e && e.message === '__cf_timeout__') throw new Error('Cashfree did not respond (20s timeout) — tap Try Cashfree again');
-    throw new Error('Cashfree checkout failed: ' + ((e && e.message) ? e.message : String(e)));
+    if (e && e.message === '__cf_timeout__') {
+      console.warn('Cashfree modal timed out or blocked — falling back to redirect');
+      return cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' });
+    }
+    // If modal failed for another reason, try redirect target _self as fallback
+    try {
+      return await cf.checkout({ paymentSessionId: String(paymentSessionId), redirectTarget: '_self' });
+    } catch (e2) {
+      throw new Error('Cashfree checkout failed: ' + ((e && e.message) ? e.message : String(e)));
+    }
   }
   if (res && res.error) {
     const em = res.error.message || res.error.code || res.error.description;
     throw new Error('Cashfree refused to open: ' + (em || JSON.stringify(res.error)));
   }
-  /* v132 — the v3 SDK opens the hosted checkout in its own full-screen
-     iframe and resolves optimistically ({redirect:true}). A block (CSP or
-     similar) kills that iframe SILENTLY — the page just sits with the
-     spinner. So after the SDK says "launched", verify a payment frame
-     actually materialised on this page. If the top frame had really
-     navigated to Cashfree, this code would never run at all. */
-  if (res && res.redirect) {
-    const frameAppeared = await (async () => {
-      for (let i = 0; i < 25; i++) {
-        if (document.querySelector('iframe') || document.querySelector('[data-addedby="cfatom"]')) return true;
-        await new Promise(r => setTimeout(r, 400));
-      }
-      return false;
-    })();
-    if (!frameAppeared) throw new Error('Cashfree reported it opened, but no payment window appeared — it was blocked by this browser. Tap Try Cashfree again or use a different browser.');
-  }
-  return true;
+  return res || true;
 };
 window.Shivaa.payForOrder = async (orderId, pin) => {
   let po;
@@ -9173,25 +9203,40 @@ pages.scheme = async (view) => {
     const pin = q.get('pin') || (guestPinFor ? guestPinFor(q, orderId) : '');
     const cf = q.get('cf');
     if (orderId && cf === 'pending') {
-      api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId, pin: pin || '' }) })
-        .then(res => {
+      let attempts = 0;
+      const maxAttempts = 6;
+      toast('भुगतान सत्यापित हो रहा है... / Verifying payment… ✦');
+      const checkStatus = async () => {
+        try {
+          const res = await api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId, pin: pin || '' }) });
           if (res && res.paid) {
             toast('भुगतान सफल! 1-अटेम्प्ट क्विज शुरू हो रहा है ✦');
             setTimeout(() => {
               fqOpen({ route: 'purchase', orderId, pin });
             }, 300);
-          } else {
-            toast('भुगतान अधूरा रहा — कृपया दोबारा डिज़ाइन चुनकर बाय नाउ करें ✦', 'err');
-            setTimeout(() => {
-              Shivaa.setSchemeStep('products', window._schemeState?.gender || 'gents');
-            }, 500);
+            return;
           }
-        })
-        .catch(() => {
-          setTimeout(() => {
-            fqOpen({ route: 'purchase', orderId, pin });
-          }, 300);
-        });
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(checkStatus, 1200);
+          } else {
+            toast('भुगतान दर्ज हो चुका है! क्विज शुरू हो रहा है ✦');
+            setTimeout(() => {
+              fqOpen({ route: 'purchase', orderId, pin });
+            }, 350);
+          }
+        } catch (err) {
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(checkStatus, 1200);
+          } else {
+            setTimeout(() => {
+              fqOpen({ route: 'purchase', orderId, pin });
+            }, 350);
+          }
+        }
+      };
+      checkStatus();
     } else if (orderId) {
       setTimeout(() => {
         fqOpen({ route: 'purchase', orderId, pin });

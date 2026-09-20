@@ -87,6 +87,64 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+    if (pathname === '/api/version') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        ok: true,
+        rel: 161,
+        shell: 'shivaa-shell-v161',
+        stamp: { index: 161, app: 161 }
+      }));
+    }
+
+    if (pathname === '/api/orders' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        let b = {};
+        try { b = JSON.parse(body); } catch(e) {}
+        const oid = 'SHV-' + Math.floor(100000 + Math.random() * 900000);
+        const pin = Math.random().toString(36).substring(2, 10);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          id: oid,
+          pin: pin,
+          total: 48500,
+          status: 'Placed',
+          paymentStatus: 'Awaiting payment',
+          guest: true,
+          items: b.items || []
+        }));
+      });
+      return;
+    }
+
+    if (pathname === '/api/pay/order' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        let b = {};
+        try { b = JSON.parse(body); } catch(e) {}
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          mode: 'demo',
+          orderId: b.orderId || 'SHV-DEMO-1',
+          amount: 4850000,
+          gatewayOrderId: 'demo_' + Math.random().toString(36).substring(2, 10)
+        }));
+      });
+      return;
+    }
+
+    if (pathname === '/api/pay/cashfree/status' && req.method === 'POST') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        ok: true,
+        paid: true,
+        status: 'PAID'
+      }));
+    }
+
     if (pathname === '/api/rates') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       const goldPerG = 15056;
