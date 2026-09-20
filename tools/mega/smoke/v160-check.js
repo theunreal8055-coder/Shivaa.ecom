@@ -14,14 +14,15 @@ const idx = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8');
 const sw = fs.readFileSync(path.join(CMS, 'sw.js'), 'utf8');
 const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
 
-// §1 stamps 160 lockstep
-ok(idx.includes('window.__SHIVAA_REL=160;'), 'index triple 160');
-ok(app.includes('const APP_REL = 160;'), 'APP_REL 160');
-ok(sw.includes("SHELL = 'shivaa-shell-v160'"), 'sw shell 160');
-ok(api.includes("'rel'   => 160,"), 'api rel 160');
-ok(idx.includes('/js/app.js?v=160'), 'index app loader 160');
-ok(sw.includes('/js/app.js?v=160'), 'sw app precache 160');
-ok(idx.includes('/css/finale.css?v=160') && sw.includes('/css/finale.css?v=160'), 'finale.css stamp moved with edit (index+sw)');
+// §1 stamps — v164: forward-tolerant lockstep (era floor 160, not an exact pin)
+const relNow = +(((idx.match(/__SHIVAA_REL=(\d+)/) || [])[1]) || 0);
+ok(relNow >= 160, 'tree rel ' + relNow + ' >= era 160');
+ok(app.includes('const APP_REL = ' + relNow + ';'), 'APP_REL lockstep ' + relNow);
+ok(sw.includes("SHELL = 'shivaa-shell-v" + relNow + "'"), 'sw shell lockstep ' + relNow);
+ok(api.includes("'rel'   => " + relNow + ","), 'api rel lockstep ' + relNow);
+ok(idx.includes('/js/app.js?v=' + relNow) && sw.includes('/js/app.js?v=' + relNow), 'app loader lockstep (index+sw) ' + relNow);
+const finIdx = (idx.match(/\/css\/finale\.css\?v=(\d+)/) || [])[1], finSw = (sw.match(/\/css\/finale\.css\?v=(\d+)/) || [])[1];
+ok(finIdx && finIdx === finSw, 'finale.css stamp agrees index+sw (v' + finIdx + ')');
 
 // §2 product specs — 6 tops, exact weights, 22K, 15% MC
 for (const [id, wt] of [['p_stud_m1', '3.0'], ['p_stud_m2', '3.0'], ['p_stud_m3', '3.0'],
@@ -53,8 +54,12 @@ ok(app.includes("Payment failed — showing your 3 designs again"), 'order auto-
 ok(app.includes("#/scheme?step=products&gender=' + encodeURIComponent(campFailGender)"), 'auto-return target = showcase');
 
 // §5 mobile mastery CSS
-for (const pin of ['v160 · MOBILE MASTERY', 'top: calc(58px + env(safe-area-inset-top',
-  'max-width: calc(100% - 20px)', '#shvStudsTitle', '@media (max-width: 380px)']) {
+// v164: the v160 calc-top pin was superseded in v161+ (the concierge bar is
+// position:relative now — see v161-check §3); it fails on every newer tree,
+// so it only applies when the v161+ rule is absent.
+const cssPins = ['v160 · MOBILE MASTERY', 'max-width: calc(100% - 20px)', '#shvStudsTitle', '@media (max-width: 380px)'];
+if (!css.includes('.shv-ai-concierge-bar {\n  position: relative !important;')) cssPins.push('top: calc(58px + env(safe-area-inset-top');
+for (const pin of cssPins) {
   ok(css.includes(pin), 'css pin: ' + pin.slice(0, 42));
 }
 ok((css.match(/{/g) || []).length === (css.match(/}/g) || []).length, 'css braces balanced');

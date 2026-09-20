@@ -1,24 +1,31 @@
 #!/usr/bin/env python3
-"""CATALOGUE DEPLOY (v111, generalized 2026-09-15) — make the LIVE catalogue
-exactly the PGS rings in cms/data/db.json (the master), with photos uploaded
-from cms/images/.
+"""CATALOGUE DEPLOY (v111, generalized 2026-09-15, v164 2026-09-20) — make the
+LIVE catalogue exactly the master records in cms/data/db.json (PGS rings +
+SHV Gold Biscuit Scheme studs), with photos uploaded from cms/images/.
 
-Owner order (2026-09-14): no sample products — the shop shows ONLY PGS rings.
+Owner order (2026-09-14): no sample products — the shop shows ONLY master records.
 Generalized 2026-09-15 for the ladies-67 lot (owner: "upload 12 designs on
 live website"): the master count is DYNAMIC (was hard-asserted 65); the
-contract is now "live == every PGS record in master db.json".
+contract is now "live == every master record in db.json".
+v164: the master set is PGS rings PLUS the 6 SHV scheme studs (category
+earrings), which reached the store as real records so members can buy, review
+and wishlist them like any other piece. Live twins served from the server's
+campaign fallback (isCampaignStud, no db row) are replaced by real rows via
+POST, never PUT — a PUT at a twin id would 404.
 This script is idempotent and resumable:
   1. login -> token
   2. GET /api/products -> live catalogue
-  3. [--live] DELETE every live product whose sku is NOT in the master PGS set
+  3. [--live] DELETE every live product whose sku is NOT in the master set
      (future-proof; nothing in master is ever deleted)
   4. for each master record, in SKU order:
        - POST /api/media x4 (images[] order)
-       - PUT  /api/products/{id}  if the SKU already exists live (update in
-         place — no catalogue gap), else POST /api/products
+       - PUT  /api/products/{id}  if the SKU already exists live as a real db
+         row (update in place — no catalogue gap), else POST /api/products.
+         Live twins served from the server's campaign fallback carry
+         isCampaignStud and have no db row: POST, never PUT (PUT 404s there).
        - body = master record minus id/createdAt/hallmark*  (v110 lesson: the
          API rejects hallmark payloads; identity keys are server-owned)
-  5. verify: live product set == master PGS set, 0 videos, all 4 images
+  5. verify: live product set == master set, 0 videos, all 4 images
 
 Usage:
     python3 deploy/catalogue_deploy.py --email admin@shivaa.in --password '***'        # dry-run
@@ -40,6 +47,11 @@ BASE = 'https://shivaa.in'
 STRIP_KEYS = ('id', 'createdAt')          # server-owned
 STRIP_PREFIXES = ('hallmark',)            # v110 lesson: API rejects hallmark payloads
 RETRIES, BACKOFF = 5, 15
+MASTER_PREFIXES = ('PGS', 'SHV')  # v164 — master set: PGS rings + SHV scheme studs
+
+
+def is_master_sku(sku):  # v164 — the live == master contract keyed on both prefixes
+    return str(sku or '').startswith(MASTER_PREFIXES)
 
 
 def api(route, method='GET', token=None, json_body=None, file=None, fields=None, timeout=180):
@@ -99,16 +111,23 @@ def main():
     a = ap.parse_args()
 
     db = json.loads(DB.read_text())
-    master = [p for p in db['products'] if str(p.get('sku', '')).startswith('PGS')]
-    assert master, 'no PGS rings in master db.json'
-    assert len(master) == len(db['products']), 'non-PGS product in master db.json'
+    master = [p for p in db['products'] if is_master_sku(p.get('sku', ''))]
+    assert master, 'no master records in master db.json'
+    assert len(master) == len(db['products']), 'non-master-SKU product in master db.json'
+    # v164 — the 6 scheme studs ride as fixed ids p_stud_*/SHV-*ST-*: the buy,
+    # draw-entry and review paths key on them, so a renamed twin breaks the shop.
+    studs = [p for p in master if str(p.get('sku', '')).startswith('SHV')]
+    want_studs = {f'SHV-MST-0{i}' for i in (1, 2, 3)} | {f'SHV-LST-0{i}' for i in (1, 2, 3)}
+    assert {p['sku'] for p in studs} == want_studs, f'scheme stud SKUs changed: {sorted(p["sku"] for p in studs)}'
+    assert {p['id'] for p in studs} == {f'p_stud_m{i}' for i in (1, 2, 3)} | {f'p_stud_w{i}' for i in (1, 2, 3)}, 'scheme stud ids changed'
     for p in master:  # preflight media on disk
         assert p.get('name') and float(p.get('weightG', 0)) > 0, f"{p['sku']}: bad record"
+        assert len(p.get('images', [])) >= 4, f"{p['sku']}: fewer than 4 images"
         for im in p['images'][:4]:
             assert (IMG_ROOT / im.lstrip('/')).is_file(), f"{p['sku']}: missing {im}"
     skus = [p['sku'] for p in master]
     assert len(set(skus)) == len(master), 'duplicate SKUs in master db.json'
-    print(f'preflight OK: {len(master)} PGS master records, all 4 shots on disk, no videos')
+    print(f'preflight OK: {len(master)} master records (PGS {len(master) - len(studs)} + SHV studs {len(studs)}), all 4 shots on disk, no videos')
 
     ledger = {'refreshed': []}
     if LEDGER.exists() and a.live:
@@ -136,17 +155,17 @@ def main():
         if s:
             live_by_sku.setdefault(s, p)
     strangers = [p for p in live if str(p.get('sku', '')) not in set(skus)]
-    print(f'live now: {len(live)} products; {len(live_by_sku)} with SKU; {len(strangers)} non-PGS to delete')
+    print(f'live now: {len(live)} products; {len(live_by_sku)} with SKU; {len(strangers)} non-master to delete')
     for p in strangers:
         print('  would DELETE', p.get('id'), p.get('sku'), str(p.get('name', ''))[:40])
     todo = [p for p in master if p['sku'] not in ledger.get('refreshed', [])]
-    print(f'plan: refresh {len(todo)} PGS products ({len(master) - len(todo)} already done this pass)')
+    print(f'plan: refresh {len(todo)} master products ({len(master) - len(todo)} already done this pass)')
 
     if not a.live:
         print('\nDRY-RUN — no changes made. Re-run with --live to execute.')
         return
 
-    # 1) delete non-PGS strays
+    # 1) delete non-master strays
     for p in strangers:
         st, r = api(f"/api/products/{p['id']}", 'DELETE', token=tok)
         if st in (200, 204, 404):
@@ -170,12 +189,19 @@ def main():
         body = clean_record(rec)
         body['images'] = paths
         existing = live_by_sku.get(sku)
-        if existing and existing.get('id'):
+        # v164 — campaign twins (isCampaignStud) are served from the server's
+        # fallback, not a db row: a PUT at their id 404s, so they POST instead.
+        # A PUT that 404s anyway (row deleted between GET and PUT) also falls
+        # through to POST, exactly once.
+        if existing and existing.get('id') and not existing.get('isCampaignStud'):
             st, r = api(f"/api/products/{existing['id']}", 'PUT', token=tok, json_body=body)
-            if st != 200:
+            if st == 404:
+                existing = None
+            elif st != 200:
                 sys.exit(f'{sku} PUT failed ({st}): {r} — re-run to resume')
-            print('updated', sku)
-        else:
+            else:
+                print('updated', sku)
+        if not (existing and existing.get('id') and not existing.get('isCampaignStud')):
             st, r = api('/api/products', 'POST', token=tok, json_body=body)
             if st not in (200, 201):
                 sys.exit(f'{sku} POST failed ({st}): {r} — re-run to resume')
@@ -189,15 +215,22 @@ def main():
     if st != 200:
         sys.exit(f'final GET products failed ({st}): {r}')
     live = r.get('products', [])
-    pgs = [p for p in live if str(p.get('sku', '')).startswith('PGS')]
+    master_live = [p for p in live if is_master_sku(p.get('sku', ''))]
     with_video = [p for p in live if p.get('video')]
-    four = all(len(p.get('images', [])) >= 4 for p in pgs)
+    four = all(len(p.get('images', [])) >= 4 for p in master_live)
     want = set(skus)
-    got = {str(p.get('sku', '')) for p in pgs}
-    ok = got == want and len(live) == len(want) and not with_video and four
-    print(f'\nVERIFY: {len(live)} products live (want {len(want)}); PGS {len(pgs)} (want {len(want)}); '
+    got = {str(p.get('sku', '')) for p in master_live}
+    n_studs_live = sum(1 for p in master_live if str(p.get('sku', '')).startswith('SHV'))
+    # v164 — twins share the SKU namespace, so the SETS would match even if the
+    # studs were still fallback-served: require real db rows (no isCampaignStud)
+    # for all 6 studs plus the strict live == master count.
+    studs_real = sum(1 for p in master_live
+                     if str(p.get('sku', '')).startswith('SHV') and not p.get('isCampaignStud'))
+    ok = got == want and len(live) == len(want) and not with_video and four and studs_real == 6
+    print(f'\nVERIFY: {len(live)} products live (want {len(want)}); master {len(master_live)} (want {len(want)}); '
           f'missing={sorted(want - got)[:5]} extra={sorted(got - want)[:5]}; '
-          f'videos {len(with_video)} (want 0); all 4-shot: {four}. '
+          f'videos {len(with_video)} (want 0); all 4-shot: {four}; '
+          f'studs live {n_studs_live}/6, real rows {studs_real}/6. '
           + ('OK ✅' if ok else 'MISMATCH ⚠️ — investigate before re-running'))
     if ok:
         LEDGER.unlink(missing_ok=True)  # clean slate for the next pass
