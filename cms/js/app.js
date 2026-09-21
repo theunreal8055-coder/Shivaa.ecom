@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 166;
+const APP_REL = 167;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -163,19 +163,41 @@ const jsArg = s => JSON.stringify(String(s ?? '')).replace(/&/g, '&amp;').replac
 const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmt2 = n => '₹' + (+n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateFmt = iso => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+/* v167 — `pct || 2` treated an owner-set 0% prepaid discount as 2%, so the cart
+   and the quote sheet advertised "Pay online & save − ₹X" the server would
+   never take off (api.php reads prepaidPct with ??, so 0 stays 0). One reader,
+   used everywhere, that keeps 0 as 0. */
+const prepaidPct = () => {
+  const s = (state && state.settings) || {};
+  let v = (s.prepaidPct === undefined || s.prepaidPct === null) ? undefined : +s.prepaidPct;
+  if (v === undefined || isNaN(v)) { const c = (window._co && window._co.payCfg) || {}; v = (c.prepaidPct === undefined || c.prepaidPct === null) ? 2 : +c.prepaidPct; if (isNaN(v)) v = 2; }
+  return Math.max(0, v);
+};
 const timeFmt = iso => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 function toast(msg, type = 'ok') {
   const t = document.createElement('div');
   t.className = 'toast ' + type; t.textContent = msg;
-  $('#toastWrap').appendChild(t);
+  /* v167 — this threw if #toastWrap was ever missing (it is created by the
+     shell, but a re-render or an embed that strips it would take every toast
+     down with it, silently). Repair the wrapper instead of crashing. */
+  let wrap = $('#toastWrap');
+  if (!wrap) { wrap = document.createElement('div'); wrap.id = 'toastWrap'; wrap.className = 'toast-wrap'; document.body.appendChild(wrap); }
+  wrap.appendChild(t);
   setTimeout(() => { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(() => t.remove(), 500); }, 3200);
 }
 let _modalTrap = null;
 function openModal(html, cls = '') {
   const box = $('#modalBox');
+  /* v167 — the dialog had role="dialog" aria-modal="true" but NO accessible
+     name at all (the old aria-labelledby was removed here and nothing replaced
+     it), and its close button's name was the literal character "✕". Every sheet
+     now borrows its own first heading as the label. */
+  const head = /<h[1-6][^>]*>([\s\S]{0,160}?)<\/h[1-6]>/i.exec(html);
+  const headTxt = head ? head[1].replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim() : '';
   box.removeAttribute('aria-labelledby');
-  box.className = 'modal ' + cls; box.innerHTML = `<button class="modal-close" onclick="Shivaa.closeModal()">✕</button>` + html;
+  if (headTxt) box.setAttribute('aria-label', headTxt.slice(0, 120)); else box.removeAttribute('aria-label');
+  box.className = 'modal ' + cls; box.innerHTML = `<button class="modal-close" aria-label="Close" onclick="Shivaa.closeModal()">✕</button>` + html;
   $('#modalOverlay').classList.add('open'); lockScroll();
   if (_modalTrap) { _modalTrap(); _modalTrap = null; }
   if (window.ShivaaMotion && ShivaaMotion.trapFocus) _modalTrap = ShivaaMotion.trapFocus(box);
@@ -2160,22 +2182,11 @@ async function finaleAfterOrder(order) {
   } catch (e) {}
 }
 
-async function fillPrizeWorth() {
-  const el = $('#schemePrizeVal');
-  const el2 = $('#prizeWorth');
-  try {
-    const r = await api('/api/rates');
-    if (r && r.gold24) {
-      const val = '₹' + Math.round(10 * r.gold24).toLocaleString('en-IN');
-      if (el) el.textContent = val;
-      if (el2) el2.innerHTML = '✦ worth <b>' + val + '</b> at today\u2019s 24K rate';
-    }
-  } catch (e) {}
-}
-
-function finaleLandingHook() {
-  fillPrizeWorth();
-}
+/* v167 — the SECOND copy of fillPrizeWorth() lived here (the scheme landing
+   had its own version further down the file). Two function declarations in one
+   scope means the last one silently wins; the duplicate was dead code and the
+   only copy now lives next to pages.scheme, where it is called from. The dead
+   `finaleLandingHook` wrapper (never referenced anywhere) went with it. */
 window.Shivaa.fqOpen = fqOpen;
 window.Shivaa.fqFree = () => fqOpen({ route: 'purchase' });
 window.Shivaa.fqSyncZones = () => {};
@@ -2603,11 +2614,31 @@ function catChipsHTML(active) {
     Object.entries(LIVE_CATS()).map(([k, c]) => chip('#/shop?category=' + k, c.name, k)).join('') +
     `</div>`;
 }
+/* v167 — the category rail's arrow/scroll wiring.
+   THE LEAK: initCatbar() runs on every navigation and used to register a fresh
+   window `resize` listener per rendered rail. The rail is re-created on every
+   render, so each visit left another closure (holding a detached DOM node)
+   pinned to the window forever: a session that browsed 20 pages ran the same
+   arrow recalculation 20 times per resize. Measured with work/audit harness:
+   7 listeners after one lap of the site, 14 after three.
+   FIX: exactly ONE window resize listener for the whole app; it walks the live
+   rails instead of capturing them. */
+let _cbResizeBound = false;
+function cbRailUpdate() {
+  $$('.cb-wrap').forEach(wrap => {
+    const bar = $('.catbar2', wrap), prev = $('.cb-prev', wrap), next = $('.cb-next', wrap);
+    if (!bar || !prev || !next) return;
+    prev.disabled = bar.scrollLeft < 8;
+    next.disabled = bar.scrollLeft > bar.scrollWidth - bar.clientWidth - 8;
+  });
+}
 function initCatbar() {
   $$('.cb-wrap').forEach(wrap => {
     if (wrap._cb) return; wrap._cb = true;
     const bar = $('.catbar2', wrap);
+    if (!bar) return;   // v167 — a rail-less wrap used to throw on the next line
     const prev = $('.cb-prev', wrap), next = $('.cb-next', wrap);
+    if (!prev || !next) return;
     const step = () => Math.min(bar.clientWidth * 0.8, 640);
     prev.onclick = () => bar.scrollBy({ left: -step(), behavior: 'smooth' });
     next.onclick = () => bar.scrollBy({ left: step(), behavior: 'smooth' });
@@ -2616,8 +2647,9 @@ function initCatbar() {
     bar.addEventListener('pointerup', e => { if (sx != null) { const d = e.clientX - sx; if (Math.abs(d) > 30) bar.scrollBy({ left: -d * 2, behavior: 'smooth' }); sx = null; } });
     const upd = () => { prev.disabled = bar.scrollLeft < 8; next.disabled = bar.scrollLeft > bar.scrollWidth - bar.clientWidth - 8; };
     bar.addEventListener('scroll', upd, { passive: true });
-    addEventListener('resize', upd); upd();
+    upd();
   });
+  if (!_cbResizeBound) { _cbResizeBound = true; addEventListener('resize', cbRailUpdate, { passive: true }); }
 }
 
 /* ─────────── hero gold dust (ambience only — no 3D models) ─────────── */
@@ -2721,6 +2753,27 @@ function mcTableHTML(rows, editable = false) {
 
 /* ═══════════════════ PAGES ═══════════════════ */
 const pages = {};
+/* v167 — every empty / not-found view on the site was an <h3> with no <h1>
+   above it: an empty bag, a wrong order link, a deleted CMS page. Those routes
+   were the only pages on the site with no page heading at all. They now render
+   the same hero as every real page (crumb + h1) with the message as an <h2>. */
+const emptyShell = (crumb, title, inner) => `
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="container"><div class="crumbs"><a href="#/">Home</a> / ${crumb}</div><h1>${title}</h1></div></section>
+  <div class="container" style="padding:10px 0 80px">${inner}</div>`;
+/* v167 — the signed-out door for the member routes (account, track, orders'
+   invoice, certificates). It used to open the login sheet over an EMPTY page:
+   behind the dialog there was nothing — no heading, no context, and closing the
+   dialog left the shopper on a blank screen. The page now explains itself. */
+const signInGate = (view, next, title, blurb) => {
+  if (!view) return;
+  view.innerHTML = emptyShell(title, title, `<div class="adm-card" style="max-width:520px;margin:0 auto;text-align:center">
+    <img src="/images/logo.png" style="height:42px;margin:0 auto 12px" alt="Shivaa">
+    <p style="color:var(--ink-2);font-size:14.5px;line-height:1.7;margin-bottom:18px">${blurb}</p>
+    <button class="btn btn-gold btn-lg" onclick="Shivaa.openLogin(${jsArg(next || '')})">Sign in with mobile OTP ✦</button>
+    <p style="margin-top:12px;font-size:12.5px;color:var(--ink-3)">Jeweller? Use the partner door in the same sheet (email + password).</p>
+  </div>`);
+};
 
 /* ─────────── HOME ─────────── */
 pages.login = async () => { openLogin(); };
@@ -2741,9 +2794,9 @@ pages.privacy = async (view) => {
       <img src="/images/logo.png" class="priv-logo" alt="Shivaa">
       <div>
         <span class="label">The promise</span>
-        <h3>Jewellery is personal. So is your data.</h3>
+        <h2>Jewellery is personal. So is your data.</h2>
         <p>Shivaa operates at the intersection of trust and craftsmanship — from our flagship showroom in Jayal, Nagaur to shivaa.in and the Shivaa Jewels app. This policy explains, in plain language, exactly what we collect, why, and the control you hold. It is the web edition of our complete compliance framework.</p>
-        <a class="btn btn-outline btn-sm" href="/docs/shivaa-privacy-policy.pdf" target="_blank" style="margin-top:14px">⬇ Download Full Policy (PDF, 12 pages)</a>
+        <a class="btn btn-outline btn-sm" rel="noopener noreferrer" href="/docs/shivaa-privacy-policy.pdf" target="_blank" style="margin-top:14px">⬇ Download Full Policy (PDF, 12 pages)</a>
       </div>
     </div>
 
@@ -2798,7 +2851,7 @@ pages.privacy = async (view) => {
     <div class="priv-dpo">
       <div class="dpo-card">
         <span class="label">Grievance Officer · Data Protection Officer</span>
-        <h3>Mr. Karan Soni — Executive Director</h3>
+        <h2>Mr. Karan Soni — Executive Director</h2>
         <div class="dpo-row"><span>🏢</span><p>Ernate Shine Jewellery Pvt. Ltd. ("Shivaa")<br>Shop No. 1, Main Road, Sadar Bazaar, Jayal, Nagaur, Rajasthan — 341023</p></div>
         <div class="dpo-row"><span>✉️</span><p><a href="mailto:Support@shivaa.in">Support@shivaa.in</a> (subject: "Data Grievance")</p></div>
         <div class="dpo-row"><span>☎</span><p><a href="tel:+918905005921">+91 89050 05921</a></p></div>
@@ -2882,7 +2935,7 @@ const legalShell = (crumb, title, ital, intro, body) => `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / ${crumb}</div><h1>${title} <em class="disp-italic">${ital}</em></h1>
   <p>${intro}</p></div></section>
   <div class="container" style="padding:40px 0 60px;max-width:880px">${body}</div>`;
-const legalCard = (t, b) => `<div class="adm-card" style="margin-bottom:16px"><h3 style="margin-bottom:8px">${t}</h3><div style="font-size:14.5px;line-height:1.75;color:var(--ink-2)">${b}</div></div>`;
+const legalCard = (t, b) => `<div class="adm-card legal-card" style="margin-bottom:16px"><h2 style="margin-bottom:8px">${t}</h2><div style="font-size:14.5px;line-height:1.75;color:var(--ink-2)">${b}</div></div>`;
 
 pages.terms = async (view) => {
   view.innerHTML = legalShell('Terms of Sale', 'Buying from Shivaa, ', 'plainly', 'The full agreement between you and Ernate Shine Jewellery Pvt. Ltd. — short, honest, and without traps.',
@@ -3320,21 +3373,21 @@ pages.shop = async (view, q) => {
     : `<div class="catbar-outer shop-catbar" style="background:var(--white);border-bottom:1px solid var(--line)">${catBarHTML()}</div>`}
   <div class="fsheet-overlay" id="fsheetOverlay"></div>
   <aside class="filters" id="filterDrawer" aria-label="Filters" aria-hidden="true">
-    <div class="fsheet-bar"><b>Refine pieces</b><button id="fsheetClose" type="button" aria-label="Close filters">✕</button></div>
-      <div class="fgroup"><h4>Category</h4>
+    <div class="fsheet-bar"><h2 class="fsheet-title">Refine pieces</h2><button id="fsheetClose" type="button" aria-label="Close filters">✕</button></div>
+      <div class="fgroup"><h3>Category</h3>
         ${Object.entries(LIVE_CATS()).map(([k, c]) => `<label class="fcheck"><input type="checkbox" data-f="cat" value="${k}" ${cat === k ? 'checked' : ''}>${c.name}</label>`).join('')}
       </div>
-      <div class="fgroup"><h4>Metal</h4>
+      <div class="fgroup"><h3>Metal</h3>
         ${[...metals].map(m => `<label class="fcheck"><input type="checkbox" data-f="metal" value="${m}">${m === 'Gold' ? 'Gold' : 'Silver 925'}</label>`).join('')}
       </div>
-      <div class="fgroup"><h4>Purity</h4>
+      <div class="fgroup"><h3>Purity</h3>
         ${[...purities].map(p => `<label class="fcheck"><input type="checkbox" data-f="purity" value="${p}">${p === '925' ? 'Silver 925' : p + ' Gold'}</label>`).join('')}
       </div>
-      <div class="fgroup"><h4>Occasion</h4>
+      <div class="fgroup"><h3>Occasion</h3>
         ${Object.entries(TAGS).map(([k, v]) => `<label class="fcheck"><input type="checkbox" data-f="tag" value="${k}" ${tag === k ? 'checked' : ''}>${v}</label>`).join('')}
       </div>
-      <div class="fgroup"><h4>Max price</h4>
-        <input type="range" id="priceRange" min="10000" max="1500000" step="5000" value="${+q.get('max') || 1500000}" style="width:100%;accent-color:var(--gold)">
+      <div class="fgroup"><h3>Max price</h3>
+        <input type="range" id="priceRange" min="10000" max="1500000" step="5000" value="${+q.get('max') || 1500000}" aria-label="Maximum price per piece" aria-valuetext="${q.get('max') ? fmt(+q.get('max')) : 'Any price'}" style="width:100%;accent-color:var(--gold)">
         <div class="fmeta"><span>₹10,000</span><span id="priceMaxLbl">${q.get('max') ? fmt(+q.get('max')) : 'Any'}</span></div>
       </div>
       <div class="fsheet-acts">
@@ -3348,7 +3401,7 @@ pages.shop = async (view, q) => {
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           ${savedRingSize() ? `<button type="button" class="size-match-chip" id="sizeMatchChip" aria-pressed="false">📏 rings in your size ${esc(savedRingSize())}</button>` : ''}
           <button class="btn btn-outline btn-sm f-toggle" id="filterToggle">⚙ Filters <span class="fbadge" id="fBadge" hidden></span></button>
-          <select class="sortsel" id="sortSel">
+          <select class="sortsel" id="sortSel" aria-label="Sort pieces">
             <option value="featured">Sort · Featured</option>
             <option value="price-asc">Price · Low to High</option>
             <option value="price-desc">Price · High to Low</option>
@@ -3419,7 +3472,10 @@ pages.shop = async (view, q) => {
       const want = savedRingSize();
       list = list.filter(p => p.category === 'rings' && (p.sizes || []).map(String).includes(String(want)));
     }
-    list = list.filter(p => price(p).total <= f.max);
+    /* v167 — the slider's top stop is labelled "Any", but ₹15,00,000 was still
+       applied as a real ceiling, so a heavier piece would vanish from the grid
+       with the filter reading "Any". At the top stop there is no ceiling. */
+    if (f.max < 1500000) list = list.filter(p => price(p).total <= f.max);
     const sort = $('#sortSel').value;
     if (sort === 'price-asc') list.sort((a, b) => price(a).total - price(b).total);
     if (sort === 'price-desc') list.sort((a, b) => price(b).total - price(a).total);
@@ -3461,7 +3517,11 @@ pages.shop = async (view, q) => {
   const onSheetKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeSheet(); } };
   const fBadge = $('#fBadge');
   const syncBadge = () => {
-    const n = $$('input[data-f]:checked').length + ($('#priceRange').value < 1500000 ? 0 : 0);
+    /* v167 — `+ (value < 1500000 ? 0 : 0)` could only ever add 0, so the badge
+       counted the checkboxes but never the max-price filter it was written for.
+       It also counted nothing while the sheet was open (it was only refreshed
+       on "change" events from the checkboxes). */
+    const n = $$('input[data-f]:checked').length + ($('#priceRange') && +$('#priceRange').value < 1500000 ? 1 : 0);
     if (fBadge) { fBadge.hidden = !(n > 0); fBadge.textContent = n; }
   };
   if ($('#filterToggle')) {
@@ -3476,8 +3536,11 @@ pages.shop = async (view, q) => {
      can stack filters (the old auto-close made the sheet feel stuck). The
      sheet closes only via ✕, the scrim, “Show pieces”, or ESC. */
   $$('input[data-f]').forEach(i => i.onchange = () => { apply(); syncBadge(); });
-  $('#priceRange').oninput = e => { $('#priceMaxLbl').textContent = e.target.value >= 1500000 ? 'Any' : fmt(+e.target.value); };
-  $('#priceRange').onchange = apply;
+  /* v167 — the badge is refreshed here too: moving the slider is a filter
+     choice like any checkbox, and it used to leave "0 filters" on the button
+     while the sheet was open on a narrowed price. */
+  $('#priceRange').oninput = e => { $('#priceMaxLbl').textContent = e.target.value >= 1500000 ? 'Any' : fmt(+e.target.value); syncBadge(); };
+  $('#priceRange').onchange = () => { apply(); syncBadge(); };
   $('#sortSel').onchange = apply;
   /* v103 — one-tap "rings in your size" personal filter */
   const sizeChip = $('#sizeMatchChip');
@@ -4249,7 +4312,7 @@ function deliveryHTML(pin) {
     html: (pr.home ? '✓ <b>Jayal — home turf!</b> ' : '✓ Delivers to <b>' + pin + '</b> · ' + esc(pr.region) + ' ')
       + '· insured handover <b>' + pr.by + '</b><br>'
       + (pr.cod ? '💵 Cash on Delivery available' : '🔒 This pincode is prepaid-only (insured courier)')
-      + ' · free shipping over ' + fmt((state.settings || {}).freeShipAbove || 50000),
+      + ' · free shipping over ' + fmt((state.settings || {}).freeShipAbove ?? 50000),
   };
 }
 /* v103 — bind every [data-delivery] widget (PDP + cart share this). */
@@ -4324,7 +4387,7 @@ pages.compare = async (view, q) => {
     view.innerHTML = `
     <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Compare</div><h1>Compare your <em class="disp-italic">shortlist</em></h1>
       <p>Add up to four pieces from product cards or product pages. The comparison uses only live prices and product details already shown on Shivaa.</p></div></section>
-    <div class="empty pcmp-empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your compare tray is empty</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Tap “Compare” on any piece to build a private shortlist on this device.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`;
+    <div class="empty pcmp-empty"><img src="/images/logo.png" class="empty-logo" alt=""><h2>Your compare tray is empty</h2><p style="margin:10px 0 22px;color:var(--ink-3)">Tap “Compare” on any piece to build a private shortlist on this device.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`;
     updateCompareUI();
     return;
   }
@@ -4413,7 +4476,11 @@ window.Shivaa.cartMoveBack = (id, size) => {
   const it = l.find(x => x.id === id && (x.size || '') === (size || ''));
   if (!it) return;
   setLater(l.filter(x => x !== it));
-  const existing = state.cart.find(x => x.id === id && (x.size || '') === (x.size || ''));
+  /* v167 — this compared the same expression with itself (`x.size === x.size`),
+     so it always matched the FIRST line with that product id: a ring saved for
+     later in size 16 merged into the size-12 line already in the bag, and the
+     shopper ordered the wrong size. Compare against the saved line's size. */
+  const existing = state.cart.find(x => x.id === id && (x.size || '') === (size || ''));
   if (existing) existing.qty += it.qty;
   else state.cart.push({ id, qty: it.qty, size: it.size || null, engraving: it.engraving || '' });
   store.set('shv_cart', state.cart); updateBadges(); renderMiniCart();
@@ -4446,7 +4513,7 @@ pages.cart = async (view) => {
   ensureCampaignStuds();
   const laterHTML = laterSectionHTML();
   if (!state.cart.length) {
-    view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart awaits its sparkle</h3><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>` + laterHTML;
+    view.innerHTML = emptyShell('Cart', 'Your Cart', `<div class="empty" style="padding:70px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h2>Your cart awaits its sparkle</h2><p style="margin:10px 0 22px;color:var(--ink-3)">Add a piece and watch its price live-update here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>` + laterHTML);
     return;
   }
   const items = state.cart.map(c => {
@@ -4494,7 +4561,7 @@ pages.cart = async (view) => {
       <div class="sum-row"><span>Shipping (insured)</span><span data-cart-ship>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</span></div>
       ${shipping > 0 ? `<div class="sum-row" data-cart-gap style="font-size:12.5px;color:var(--ink-3)"><span>Add ${fmt(state.settings.freeShipAbove - subtotal)} for free shipping</span><span></span></div>` : ''}
       <div class="sum-row total"><span>Total</span><b data-cart-total>${fmt(subtotal + shipping)}</b></div>
-      <div class="sum-row" style="color:var(--ok);font-size:13px"><span>✦ Pay online &amp; save</span><b data-cart-save>− ${fmt(Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100))}</b></div>
+      ${prepaidPct() > 0 ? `<div class="sum-row" style="color:var(--ok);font-size:13px"><span>✦ Pay online &amp; save</span><b data-cart-save>− ${fmt(Math.round(subtotal * prepaidPct() / 100))}</b></div>` : ''}
       <div style="margin:16px 0 6px" class="label" id="ptLbl">Loyalty & offers applied at checkout →</div>
       <a class="btn btn-primary btn-block btn-lg" href="#/checkout" onclick="return Shivaa.exCartCta(event)">Proceed to Checkout ✦</a>
       <a class="btn btn-outline btn-block btn-sm mt-2" href="#/quote">📄 Get shareable quotation (48 h rate hold)</a>
@@ -4559,7 +4626,7 @@ function refreshCartPage() {
   const gap = view.querySelector('[data-cart-gap] span:first-child');
   if (gap) gap.textContent = `Add ${fmt(state.settings.freeShipAbove - t.subtotal)} for free shipping`;
   const tot = view.querySelector('[data-cart-total]'); if (tot) tot.textContent = fmt(t.subtotal + t.shipping);
-  const save = view.querySelector('[data-cart-save]'); if (save) save.textContent = '− ' + fmt(Math.round(t.subtotal * (((state.settings || {}).prepaidPct) || 2) / 100));
+  const save = view.querySelector('[data-cart-save]'); if (save && prepaidPct() > 0) save.textContent = '− ' + fmt(Math.round(t.subtotal * prepaidPct() / 100));
   const mcta = view.querySelector('[data-cart-mcta]'); if (mcta) mcta.textContent = fmt(t.subtotal + t.shipping);
   return true;
 }
@@ -5061,14 +5128,14 @@ pages.checkout = async (view) => {
       <div class="sum-row"><span>Subtotal</span><b id="coSub">${fmt(subtotal)}</b></div>
       <div class="sum-row" id="coDiscRow" hidden><span>Coupon discount</span><b id="coDisc" style="color:var(--ok)">− ₹0</b></div>
       <div class="sum-row" id="coPrepaidRow"><span>Prepaid discount <em style="font-style:normal;font-size:11px;color:var(--ok)">pay online</em></span><b id="coPrepaid" style="color:var(--ok)">− ₹0</b></div>
-      <div class="sum-row"><span>Shipping</span>${freeShip ? '<span class="free">FREE</span>' : `<b id="coShip">${fmt(state.settings.shippingFee)}</b>`}</div>
+      <div class="sum-row" id="coShipRow"><span>Shipping</span>${freeShip ? '<span class="free">FREE</span>' : `<b id="coShip">${fmt(state.settings.shippingFee)}</b>`}</div>
       <div class="sum-row" id="coCodRow" hidden><span>COD handling fee</span><b id="coCod">+ ₹0</b></div>
-      <div class="sum-row total"><span>Total</span><b id="coTotal">${fmt(Math.round(subtotal * (1 - (((state.settings || {}).prepaidPct) || 2) / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
+      <div class="sum-row total"><span>Total</span><b id="coTotal">${fmt(Math.round(subtotal * (1 - prepaidPct() / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
       <button class="btn btn-gold btn-block btn-lg mt-2" id="placeBtn" onclick="Shivaa.placeOrder()">Place Order ✦</button>
     </div>
   </div>
   <div class="mcta-bar mcta-inline" id="coBar">
-    <div class="mcta-total"><small>Total · 20-min rate locked</small><b id="coMobileTotal">${fmt(Math.round(subtotal * (1 - (((state.settings || {}).prepaidPct) || 2) / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
+    <div class="mcta-total"><small>Total · 20-min rate locked</small><b id="coMobileTotal">${fmt(Math.round(subtotal * (1 - prepaidPct() / 100)) + (freeShip ? 0 : state.settings.shippingFee))}</b></div>
     <button class="btn btn-gold" type="button" onclick="Shivaa.placeOrder()">Place Order ✦</button>
   </div>`;
   /* v139 · the owner's report (18 Sep 2026, verbatim): "place order button is
@@ -5111,9 +5178,24 @@ pages.checkout = async (view) => {
       el.textContent = fmt(t); sub += t;
     });
     window._co.subtotal = sub;
+    const wasFree = window._co.freeShip;
     window._co.freeShip = sub >= state.settings.freeShipAbove;
     $('#coSub').textContent = fmt(sub);
-    const shipRow = document.querySelector('.summary .sum-row:nth-last-child(2)'); // "Shipping"
+    /* v167 — TWO defects in one line. (a) The shipping row was looked up with
+       '.sum-row:nth-last-child(2)', which is the *COD fee* row (the total is
+       last, COD sits above it) — so any code that patched it wrote FREE into
+       the wrong row. (b) The looked-up row was then never used at all: when a
+       live rate tick moved the bag across the free-shipping threshold the
+       shipping line kept printing the old fee until the whole page was
+       rebuilt. Both fixed: the row now carries a stable id and is repainted
+       here, with an honest toast when the threshold is crossed. */
+    const shipRow = $('#coShipRow');
+    if (shipRow) {
+      const cell = shipRow.querySelector('b, span.free');
+      if (cell) cell.outerHTML = window._co.freeShip ? '<span class="free">FREE</span>' : `<b id="coShip">${fmt(state.settings.shippingFee)}</b>`;
+      if (wasFree !== window._co.freeShip && typeof toast === 'function')
+        toast(window._co.freeShip ? '✦ Free insured shipping unlocked' : 'Shipping fee applies below ' + fmt(state.settings.freeShipAbove));
+    }
     window.Shivaa.updateCheckout();
   }
   function activeLock() {
@@ -5882,7 +5964,12 @@ function guestPinFor(q, id) {
 pages.order = async (view, q, id) => {
   let order, pin = guestPinFor(q, id);
   try { order = (await api('/api/orders/' + id + (pin ? '?pin=' + encodeURIComponent(pin) : ''))).order; }
-  catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Order not found</h3><p style="color:var(--ink-3)">If you paid as a guest, this link may have expired — please contact the shop on WhatsApp.</p></div>`; return; }
+  catch (e) { order = null; }
+  /* v167 — the catch above used to BE the handler; a 200 that carries no order
+     (a proxy, a cached response, a backend change) fell straight through to
+     `order.paymentStatus` and the whole route died into the generic error view
+     — "Cannot read properties of null" in front of the shopper. */
+  if (!order) { view.innerHTML = emptyShell('Track Order', 'Order not found', `<div class="empty"><div class="big">✦</div><p style="color:var(--ink-3)">If you paid as a guest, this link may have expired — please contact the shop on WhatsApp.</p></div>`); return; }
   window._lastOrder = order;
 
   // If a campaign stud order is confirmed paid, navigate directly to the quiz
@@ -6041,7 +6128,7 @@ function confetti() {
 
 /* ─────────── WISHLIST ─────────── */
 pages.account = async (view, q) => {
-  if (!state.user) { openLogin('account'); return; }
+  if (!state.user) { signInGate(view, 'account', 'My Account', 'Sign in with the mobile number you order with — your orders, certificates, saved addresses and Royalty points sit behind it.'); openLogin('account'); return; }
   const tab = q.get('tab') || 'home';
   const me = state.user;
   // v31 — a failed fetch must never blank the account page; if the session
@@ -6119,7 +6206,7 @@ pages.account = async (view, q) => {
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
         ${o.items.map(i => `<img src="${safeUrl(i.img)}" style="width:44px;height:44px;border-radius:9px;object-fit:cover" alt="">`).join('')}
           <a class="btn btn-ghost btn-sm" href="javascript:Shivaa.orderDetail(${jsArg(o.id)})">Details</a>
-          <a class="btn btn-outline btn-sm" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
+          <a class="btn btn-outline btn-sm" rel="noopener" href="#/invoice/${o.id}" target="_blank">⬇ Invoice</a>
           <a class="btn btn-outline btn-sm" href="#/certificate/${o.id}">🛡 Certificate</a>
           ${o.status === 'Delivered' ? `<button class="btn btn-gold btn-sm" onclick="Shivaa.buyAgain('${o.id}')">↻ Buy again</button>` : ''}
           ${o.status === 'Delivered' ? `<a class="btn btn-outline btn-sm" href="#/care?order=${encodeURIComponent(o.id)}">✦ Care</a>` : ''}
@@ -6238,7 +6325,7 @@ pages.wishlist = async (view) => {
       </div>
     </div>
     <div class="p-grid">${items.map(p => productCard(p, { wishSet: wl })).join('')}</div>`
-    : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Nothing saved yet</h3><p style="margin:10px 0 20px">Tap the heart on any piece to keep it here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+    : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h2>Nothing saved yet</h2><p style="margin:10px 0 20px">Tap the heart on any piece to keep it here.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
   if (items.length) {
     const ids = items.map(p => p.id).join(',');
@@ -6276,7 +6363,7 @@ pages.giftlist = async (view, q) => {
         <a class="btn btn-gold btn-lg" target="_blank" rel="noopener" href="${waLink('Namaste Shivaa ✦\n\nI would like to gift a piece from ' + (by || 'a') + '’s Shivaa gift registry: ' + location.href)}">💝 Talk to the wedding &amp; gifting desk</a>
         <a class="btn btn-ghost" href="#/shop">Create your own registry</a>
       </div>`
-    : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This registry is empty</h3><p style="margin:10px 0 20px">Its pieces may have moved &mdash; browse the collection instead.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+    : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h2>This registry is empty</h2><p style="margin:10px 0 20px">Its pieces may have moved &mdash; browse the collection instead.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
 };
 
@@ -6301,7 +6388,7 @@ pages.sizer = async view => {
   <div class="container sizer-wrap" style="padding:36px 0 90px">
     <div class="sizer-grid">
       <div class="adm-card sz-card">
-        <h3>① Match a ring you already own</h3>
+        <h2>① Match a ring you already own</h2>
         <p class="partner-note">Calibrate once with any ATM / bank card (exactly <b>85.6 mm</b> wide), then resize until the circle fits the <b>inner edge</b> of your ring. Press &amp; hold any − / + button to move continuously.</p>
         <div class="sz-cal">
           <label>Calibration — card should line up exactly: <button type="button" class="sz-reset" id="szCalReset">reset</button></label>
@@ -6316,7 +6403,7 @@ pages.sizer = async view => {
         <button class="btn btn-gold btn-block" id="szSave">Save my size · pre-select on every ring</button>
       </div>
       <div class="adm-card sz-card">
-        <h3>② Printable paper strip</h3>
+        <h2>② Printable paper strip</h2>
         <p class="partner-note">Wrap snugly around the widest part of the finger (allow for the knuckle). The number at the arrow is your <b>Indian size</b>.</p>
         <div class="sz-strip-wrap">
           <div class="sz-strip" id="szStrip"></div>
@@ -6332,7 +6419,7 @@ pages.sizer = async view => {
       </div>
     </div>
     <div class="adm-card sz-chart-card">
-      <h3>③ Indian ring size chart <small>inner diameter &amp; circumference, mm</small></h3>
+      <h2>③ Indian ring size chart <small>inner diameter &amp; circumference, mm</small></h3>
       <p class="partner-note">Standard Indian numbering used across Indian jewellers: <b>Indian size = inner circumference (mm) − 40</b>. Measure the finger's circumference with the strip above and read across.</p>
       <div class="sz-chart" id="szChart"></div>
     </div>
@@ -6430,7 +6517,7 @@ pages.care = async (view, q) => {
             <span><b>${t}</b><small>${d}</small></span></label>`).join('')}
         </div>
         <div class="care-promise adm-card">
-          <h3>The Shivaa care promise</h3>
+          <h2>The Shivaa care promise</h2>
           <ul>
             <li>✦ Weighing in your presence, sealed &amp; photographed.</li>
             <li>✦ No charge for standard polishing &amp; stone checks on our pieces.</li>
@@ -6440,7 +6527,7 @@ pages.care = async (view, q) => {
         </div>
       </div>
       <form class="adm-card care-form" id="careForm">
-        <h3>Book a care visit</h3>
+        <h2>Book a care visit</h2>
         <div class="fld"><label>Full name *</label><input name="name" required value="${esc(state.user?.name || '')}"></div>
         <div class="fld"><label>Mobile *</label><input name="phone" type="tel" inputmode="tel" maxlength="10" required value="${esc((state.user?.phone || '').replace(/\D/g, '').slice(-10))}"></div>
         <div class="fld"><label>Related order no. (if any)</label><input name="order" value="${esc(preOrder)}" placeholder="SHV…"></div>
@@ -6508,14 +6595,14 @@ function careRequestsHTML(mine) {
 /* ═══════════ v58 · shareable quotation from the cart (48 h rate hold) ═══════════ */
 pages.quote = async view => {
   const lines = state.cart.map(c => ({ c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
-  if (!lines.length) { view.innerHTML = `<div class="empty" style="padding:110px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Your cart is empty</h3><p style="margin:10px 0 20px">Add pieces and then generate a quotation.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`; return; }
+  if (!lines.length) { view.innerHTML = emptyShell('Quotation', 'Price Quotation', `<div class="empty" style="padding:70px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h2>Your cart is empty</h2><p style="margin:10px 0 20px">Add pieces and then generate a quotation.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`); return; }
   const R = state.rates;
   const rows = lines.map(({ c, p }) => {
     const pr = price(p);
     return { p, c, pr, line: pr.total * c.qty };
   });
   const subtotal = rows.reduce((a, r) => a + r.line, 0);
-  const prepaid = Math.round(subtotal * (((state.settings || {}).prepaidPct) || 2) / 100);
+  const prepaid = Math.round(subtotal * prepaidPct() / 100);
   const ship = subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   const validTill = new Date(Date.now() + 48 * 3600e3);
   const qNo = 'Q' + Date.now().toString().slice(-7);
@@ -6544,7 +6631,7 @@ pages.quote = async view => {
       <div class="q-tot">
         <div><span>Subtotal (incl. GST)</span><b>${fmt(subtotal)}</b></div>
         <div><span>Insured shipping</span><b>${ship === 0 ? 'FREE' : fmt(ship)}</b></div>
-        <div class="ok"><span>Online prepayment discount</span><b>− ${fmt(prepaid)}</b></div>
+        ${prepaid > 0 ? `<div class="ok"><span>Online prepayment discount</span><b>− ${fmt(prepaid)}</b></div>` : ''}
         <div class="grand"><span>Pay online by ${validTill.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span><b>${fmt(Math.max(0, subtotal - prepaid + ship))}</b></div>
       </div>
       <div class="q-foot">
@@ -6644,17 +6731,17 @@ pages.rates = async (view) => {
         .map(c => `<div class="rate-card ${c[0].includes('GOLD') ? 'gold' : ''}"><div class="rc-name">${c[0]}</div><div class="rc-val" data-rr="rc-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]]) : fmt(R[c[1]])}</div><small>per gram · ${c[2]}</small><div style="margin-top:10px;font-size:12px;color:var(--ink-3)">per 10 g: <b data-rr="rc10-${c[1]}">${c[1] === 'silver' ? fmt2(R[c[1]] * 10) : fmt(R[c[1]] * 10)}</b></div></div>`).join('')}
     </div>
     <div class="chart-wrap mt-3"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-      <h3 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
+      <h2 style="font-size:20px;display:flex;align-items:center;gap:10px"><img src="/images/logo.png" style="height:26px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:3px 8px" alt=""> 22K Gold — last 12 hours <small style="font-weight:400;color:var(--ink-3);font-size:13px">(per gram)</small></h3>
       <span data-rr="srcbadge" class="src-badge ${(R.source === 'live' || R.source === 'live-mcx') ? 'src-live' : 'src-sim'}">${R.source === 'live-mcx' ? '<span class="live-dot"></span>OFFICIAL MCX LIVE' : (R.source === 'live' ? '<span class="live-dot"></span>LIVE FEED' : 'SIMULATED FEED*')}</span></div>
       <canvas id="rateChart"></canvas></div>
     <div class="grid2 mt-3">
-      <div class="adm-card"><h3>Get a rate alert</h3>
+      <div class="adm-card"><h2>Get a rate alert</h2>
         <form class="form-grid" onsubmit="Shivaa.rateAlert(event)">
           <div class="fld"><label>Email</label><input type="email" required placeholder="you@email.com"></div>
           <div class="fld"><label>Alert when 22K crosses (₹/g)</label><input type="number" min="5000" required placeholder="${R.gold22 + 200}"></div>
           <button class="btn btn-primary btn-sm" style="grid-column:1/-1;justify-self:start">Set alert</button>
         </form></div>
-      <div class="adm-card"><h3>How your price is built</h3>
+      <div class="adm-card"><h2>How your price is built</h2>
         <div class="sum-row"><span>Live rate × net weight</span><b>metal value</b></div>
         <div class="sum-row"><span>+ Making charges for your piece</span><b>shown at product page</b></div>
         <div class="sum-row"><span>+ Listed stone value (if any)</span><b>at cost</b></div>
@@ -6911,7 +6998,7 @@ pages.b2b = async (view) => {
               <span class="dz-meta"><b id="kyCardName"></b><small id="kyCardSize"></small></span>
               <button type="button" class="dz-x" id="kyCardClear" aria-label="Remove attached file">✕</button>
             </div>
-            <input type="file" id="kyCardFile" accept="image/*,application/pdf" hidden>
+            <input type="file" id="kyCardFile" accept="image/*,application/pdf" aria-label="Attach your business card (photo or PDF, optional)" hidden>
           </div>
         </div>
         <p class="kyc-note">GSTIN verified live with the official GST database (firm name &amp; status) &middot; mobile OTP-verified &middot; approval within 48 h. The button below stays locked until every business detail above is complete and verified.</p>
@@ -7056,6 +7143,15 @@ pages.b2b = async (view) => {
         try { navigator.vibrate?.(8); } catch (e) {}
       };
       dz.onclick = e => { if (e.target.closest('.dz-x')) return; fi.click(); };
+      /* v167 — this dropzone was CLICK-ONLY: a partner on a keyboard (or with a
+         screen reader) had no way to attach the business card the same form
+         invites them to add. It is a real button now — focusable, announced,
+         and opened with Enter or Space. */
+      dz.tabIndex = 0; dz.setAttribute('role', 'button');
+      if (!dz.getAttribute('aria-label')) dz.setAttribute('aria-label', 'Attach your business card (photo or PDF, optional)');
+      dz.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); fi.click(); }
+      });
       if (clearBtn) clearBtn.onclick = e => { e.stopPropagation(); clearCard(); };
       fi.onchange = () => { if (fi.files[0]) setCard(fi.files[0]); };
       ['dragover', 'dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => {
@@ -7157,7 +7253,11 @@ window.Shivaa.kycOtpVerify = async () => {
        digits be submitted again, clear the field so the retry starts clean, and
        say WHY on the form itself (a toast is easy to miss mid-form). */
     window._kycOtpFailed = code;
-    autoCode = '';
+    /* v167 — `autoCode` is a `let` inside kycGate(), so writing it from here
+       was a ReferenceError under 'use strict': the catch block died BEFORE the
+       status line and the toast, and the partner saw a silent form. The
+       auto-verifier already re-arms through window._kycOtpFailed, so the
+       write is not needed at all. */
     try { $('#kyOtp').value = ''; } catch (err) {}
     const st = $('#otpStat'); if (st) { st.textContent = '✗ ' + e.message; st.className = 'kyc-status bad'; }
     toast(e.message, 'err');
@@ -7262,14 +7362,14 @@ pages.services = async (view) => {
   <div class="container" style="padding:50px 0 90px">
     <div class="svc-grid" style="margin-bottom:44px">
       <div class="svc rv"><div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 4l1.8 4.2L18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8L12 4z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg></div>
-        <h4>Custom Designs</h4><p>Bring a photo, a sketch, or grandma's idea — our karigars craft it in 22K/18K with a transparent quote (metal at live rate + chart making charges).</p></div>
+        <h2>Custom Designs</h2><p>Bring a photo, a sketch, or grandma's idea — our karigars craft it in 22K/18K with a transparent quote (metal at live rate + chart making charges).</p></div>
       <div class="svc rv"><div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a4.5 4.5 0 0 0-6 6L4 17v3h3l4.7-4.7a4.5 4.5 0 0 0 6-6l-3 3-2.5-.5-.5-2.5 3-3z"/></svg></div>
-        <h4>Repair & Restoration</h4><p>Heirloom polishing, re-plating, stone setting, re-stringing, resizing — free inspection, lifetime workmanship warranty on repairs.</p></div>
+        <h2>Repair &amp; Restoration</h2><p>Heirloom polishing, re-plating, stone setting, re-stringing, resizing — free inspection, lifetime workmanship warranty on repairs.</p></div>
       <div class="svc rv"><div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3h8l1 4a5 5 0 0 1-10 0l1-4z"/><path d="M9 12l-1 3h8l-1-3M12 15v6"/></svg></div>
-        <h4>Personal Shopping</h4><p>Video or in-store appointment with a Shivaa advisor — bridal trousseau planning, gifting shortlists, budget-first curation.</p></div>
+        <h2>Personal Shopping</h2><p>Video or in-store appointment with a Shivaa advisor — bridal trousseau planning, gifting shortlists, budget-first curation.</p></div>
     </div>
     <div class="grid2">
-      <div class="adm-card"><h3>Book / Request a quote</h3>
+      <div class="adm-card"><h2>Book / Request a quote</h2>
         <form class="form-grid" onsubmit="Shivaa.svcForm(event)">
           <div class="fld"><label>Service *</label><select id="svcType" class="sortsel" style="width:100%;border-radius:12px">
             <option value="custom">Custom Design</option><option value="repair">Repair & Restoration</option><option value="shopping">Personal Shopping Appointment</option></select></div>
@@ -7281,7 +7381,7 @@ pages.services = async (view) => {
           <div class="fld full"><label>Approx. budget (optional)</label><input placeholder="₹"></div>
           <button class="btn btn-primary btn-block" style="grid-column:1/-1">Send Request</button>
         </form></div>
-      <div class="adm-card"><h3>How it works</h3>
+      <div class="adm-card"><h2>How it works</h2>
         <div class="benefit"><div class="bic">1</div><div><b>Share your idea or piece</b><p>Photos, sketches or the piece itself — free assessment either way.</p></div></div>
         <div class="benefit"><div class="bic">2</div><div><b>Transparent quote</b><p>Live metal rate + chart making charges + the stated stone value. Nothing else.</p></div></div>
         <div class="benefit"><div class="bic">3</div><div><b>Craft & deliver</b><p>Typical custom work: 10–21 days. Repairs: 2–7 days. Fully insured both ways.</p></div></div>
@@ -7347,12 +7447,12 @@ pages.contact = async (view) => {
           <div><b>Store hours</b><p>All days · 10:00 – 20:30 IST<br>Online support: 9:00 – 21:00</p></div></div>
         <div class="info-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>
           <div style="flex:1"><b>Follow Shivaa Jewels</b><p style="margin-bottom:0">New designs, festive live rates &amp; bullion updates — on our official channels.</p>${socialRowHTML('fv-social--light')}</div></div>
-        <div class="adm-card mt-2"><h3>Find us</h3>
+        <div class="adm-card mt-2"><h2>Find us</h2>
           <div style="border-radius:14px;overflow:hidden;border:1px solid var(--line)">
           <svg viewBox="0 0 400 240" style="display:block;width:100%"><rect width="400" height="240" fill="#f4ecdd"/><path d="M0 60 Q100 45 200 62 T400 55 L400 75 Q300 88 200 72 T0 80Z" fill="#e7dcc4"/><path d="M0 190 Q120 175 240 192 T400 185 L400 240 L0 240Z" fill="#e7dcc4"/><path d="M30 30 L110 30 M30 46 L90 46 M310 215 L390 215 M320 200 L370 200" stroke="#d8c9a8" stroke-width="3" stroke-linecap="round"/><path d="M60 210 C 90 160, 200 150, 250 110 S 340 70, 360 40" stroke="#c9b586" stroke-width="5" fill="none" stroke-dasharray="2 9" stroke-linecap="round"/><circle cx="250" cy="110" r="26" fill="rgba(185,138,47,.16)"/><path d="M250 84 c-11 0 -19 8 -19 18 c0 13 19 30 19 30 s19 -17 19 -30 c0 -10 -8 -18 -19 -18z" fill="#6e1e2a"/><circle cx="250" cy="102" r="6.5" fill="#faf6ef"/><text x="250" y="150" text-anchor="middle" font-family="Georgia" font-size="15" fill="#6e1e2a">Shivaa · Sadar Bazaar, Jayal</text><text x="250" y="168" text-anchor="middle" font-family="Arial" font-size="11" fill="#8a7d6c">Nagaur, Rajasthan 341023</text></svg>
           </div></div>
       </div>
-      <div class="adm-card"><h3>Send a message</h3>
+      <div class="adm-card"><h2>Send a message</h2>
         <form class="form-grid" onsubmit="Shivaa.contactForm(event)">
           <div class="fld"><label>Name *</label><input name="name" autocomplete="name" required></div>
           <div class="fld"><label>Phone</label><input name="phone" type="tel" inputmode="tel" autocomplete="tel"></div>
@@ -7806,7 +7906,7 @@ window.Shivaa.toast = toast;
 
 /* ─────────── invoices (owner-only, watermarked) ─────────── */
 pages.invoice = async (view, q, id) => {
-  if (!state.user) { openLogin(); return; }
+  if (!state.user) { signInGate(view, '', 'Tax Invoice', 'Sign in to open the invoice for this order — it stays in your account for as long as you need it.'); openLogin(); return; }
   view.innerHTML = '<div class="loading-spin"></div>';
   let o = null, kind = 'retail';
   if (id.startsWith('MX')) {
@@ -7814,7 +7914,7 @@ pages.invoice = async (view, q, id) => {
   } else {
     try { o = (await api('/api/orders/' + id)).order; } catch (e) {}
   }
-  if (!o) { view.innerHTML = '<div class="empty"><h3>Invoice not found</h3></div>'; return; }
+  if (!o) { view.innerHTML = emptyShell('Tax Invoice', 'Invoice not found', '<div class="empty"><p style="color:var(--ink-3)">We could not find an invoice with that number on this account.</p><a class="btn btn-outline" href="#/account?tab=orders">My orders</a></div>'); return; }
   const wm = `${state.user.name} · ${state.user.email}`;
   const rows = kind === 'metal'
     ? o.items.map(it => `<tr><td>${esc(it.name)}</td><td>${it.qty}</td><td>${it.weightG} g</td><td>${it.lineWeight} g</td></tr>`).join('')
@@ -7891,12 +7991,12 @@ function certificateSheet(o) {
   </div>`;
 }
 pages.certificate = async (view, q, id) => {
-  if (!state.user) { openLogin(); return; }
+  if (!state.user) { signInGate(view, '', 'Certificate', 'Sign in to open the certificate for this order — it stays in your account, ready to print or show at the counter.'); openLogin(); return; }
   view.innerHTML = '<div class="loading-spin"></div>';
   document.documentElement.classList.add('cert-mode');
   let o = null;
   try { o = (await api('/api/orders/' + id)).order; } catch (e) {}
-  if (!o) { document.documentElement.classList.remove('cert-mode'); view.innerHTML = '<div class="empty"><h3>Certificate not found</h3><a class="btn btn-primary" href="#/certificates">My Certificates</a></div>'; return; }
+  if (!o) { document.documentElement.classList.remove('cert-mode'); view.innerHTML = emptyShell('Certificates', 'Certificate not found', '<div class="empty"><p style="color:var(--ink-3)">That order has no certificate on this account.</p><a class="btn btn-primary" href="#/certificates">My Certificates</a></div>'); return; }
   view.innerHTML = `<div class="cert-page">
     <div class="cert-actions inv-no-print">
       <button class="btn btn-gold btn-lg" onclick="window.print()">⬇ Save as PDF / Print</button>
@@ -7906,7 +8006,7 @@ pages.certificate = async (view, q, id) => {
   </div>`;
 };
 pages.certificates = async view => {
-  if (!state.user) { openLogin('account'); return; }
+  if (!state.user) { signInGate(view, 'account', 'My Certificates', 'Your digital purity & price certificates are issued with every order — sign in to open the locker.'); openLogin('account'); return; }
   document.documentElement.classList.remove('cert-mode');
   let orders = [];
   try { orders = (await api('/api/orders')).orders || []; } catch (e) {}
@@ -7917,7 +8017,7 @@ pages.certificates = async view => {
       <span class="cc-ic">&#127970;</span>
       <div><b>${esc(o.id)}</b><small>${new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · ${o.items.reduce((a, i) => a + i.qty, 0)} piece(s) · ${fmt(o.total)}</small></div>
       <span class="cc-go">View &amp; print &#8250;</span></a>`).join('')}</div>`
-      : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h3>No certificates yet</h3><p style="margin:10px 0 18px">Your certificate is issued automatically with your first order.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
+      : `<div class="empty"><img src="/images/logo.png" class="empty-logo" alt=""><h2>No certificates yet</h2><p style="margin:10px 0 18px">Your certificate is issued automatically with your first order.</p><a class="btn btn-primary" href="#/shop">Explore Jewellery</a></div>`}
   </div>`;
 };
 
@@ -7925,7 +8025,7 @@ pages.certificates = async view => {
 pages.p = async (view, q, slug) => {
   let pg = null;
   try { pg = await api('/api/pages?slug=' + encodeURIComponent(slug || '')); } catch (e) {}
-  if (!pg || pg.error || !pg.title) { view.innerHTML = `<div class="empty" style="padding:100px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>Page not found</h3><a class="btn btn-outline" href="#/">Back home</a></div>`; return; }
+  if (!pg || pg.error || !pg.title) { view.innerHTML = emptyShell('Page', 'Page not found', `<div class="empty" style="padding:70px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><p style="color:var(--ink-3);margin-bottom:18px">That page may have been renamed or retired.</p><a class="btn btn-outline" href="#/">Back home</a></div>`); return; }
   const safe = esc(pg.body || '')
     .split(/\n\s*\n/)                                   // blank line → paragraph
     .map(par => '<p>' + par.replace(/\n/g, '<br>') + '</p>')
@@ -9155,7 +9255,7 @@ window.Shivaa.dsSubmit = (e) => {
    PAGES · TRACK ORDER + FAQ                                      (v31)
    ═══════════════════════════════════════════════════════════════════ */
 pages.track = async (view) => {
-  if (!state.user) { openLogin('track'); return; }
+  if (!state.user) { signInGate(view, 'track', 'Track Order', 'Sign in to see every order, its courier and its live status. Guest orders stay reachable through the WhatsApp message we sent you.'); openLogin('track'); return; }
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="container"><div class="crumbs"><a href="#/">Home</a> / Track Order</div>
@@ -9173,7 +9273,7 @@ pages.track = async (view) => {
   try {
     const { orders } = await api('/api/orders');
     if (!orders.length) {
-      box.innerHTML = `<div class="empty"><div class="big">&#10022;</div><h3>No orders yet</h3>
+      box.innerHTML = `<div class="empty"><div class="big">&#10022;</div><h2>No orders yet</h2>
         <p style="color:var(--ink-3);margin:8px 0 18px">Your orders will appear here the moment you place one.</p>
         <a class="btn btn-primary" href="#/shop">Explore the collections</a></div>`;
       return;
@@ -9439,9 +9539,21 @@ function route() {
   clearInterval(window._v107Redir);                     // v107 — any new navigation cancels a pending unknown-route redirect
   if (routes[page]) {
     const res = routes[page](view, q, seg[1]);
-    if (res && res.catch) res.catch(e => { console.error(e); view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Something slipped</h3><p>${esc(e.message)}</p></div>`; });
+    /* v167 — the LAST resort of every route was an <h3> with no page heading,
+       no route back and no retry: whatever the failure, the shopper was left on
+       a fragment. It is a page now, and a failed load can simply be retried
+       without reloading the whole site. */
+    if (res && res.catch) res.catch(e => {
+      console.error(e);
+      view.innerHTML = emptyShell('Error', 'Something slipped', `<div class="empty" style="padding:60px 20px">
+        <p style="color:var(--ink-3);margin-bottom:18px">${esc((e && e.message) || 'The page did not finish loading.')}</p>
+        <button class="btn btn-gold" id="routeRetry">Try again</button> <a class="btn btn-ghost" href="#/">Back home</a></div>`);
+      const b = $('#routeRetry'); if (b) b.onclick = () => { try { route(); } catch (_) { location.reload(); } };
+    });
   } else {
-    view.innerHTML = `<div class="empty" style="padding:120px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><h3>This page has slipped its clasp</h3><p style="color:var(--ink-3);margin:10px 0 20px">Redirecting you home in <b id="redirN">3</b>…</p><a class="btn btn-primary" href="#/">Take me home ✦</a></div>`;
+    view.innerHTML = emptyShell('Error', 'This page has slipped its clasp', `<div class="empty" style="padding:60px 20px">
+      <p style="color:var(--ink-3);margin-bottom:18px">Redirecting you home in <b id="redirN">3</b>…</p>
+      <a class="btn btn-primary" href="#/">Take me home ✦</a></div>`);
     let n = 3;
     clearInterval(window._v107Redir);
     window._v107Redir = setInterval(() => {

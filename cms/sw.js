@@ -15,7 +15,7 @@
  the v115 css layer). index.html now also stamps window.__SHIVAA_REL, and
  app.js reloads itself once if the paired script is older than the shell it
  was served — a device can no longer run a fresh shell on a stale script.
- v166 · ALWAYS THE LATEST: every asset URL was re-stamped to ?v=166. The
+ v166 · ALWAYS THE LATEST: every asset URL was re-stamped to ?v=167. The
  untouched files had been left at their old numbers (styles.css was still
  ?v=107) while .htaccess serves any ?v= URL as immutable for a YEAR — so a
  device that visited weeks ago kept the old design and the old scripts, which
@@ -24,18 +24,18 @@
  open tab on activate (SHV_RELEASE) and honours a page asking it to drop every
  cache before re-entering on the newest release (SHV_PURGE). */
 'use strict';
-const SHELL = 'shivaa-shell-v166';
+const SHELL = 'shivaa-shell-v167';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 166;
+const REL = 167;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
 const MEDIA = 'shivaa-media-v120';
 const MEDIA_MAX = 60;          // ~60 product photos kept on the phone
-const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
+const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days (v167 — now enforced in trimMedia)
 /* v99: bot.css/bot.js dropped from the shell (Saathi removed ahead of Gemini).
    admin.js + qr.js are deliberately NOT precached — they are fetched on demand
    by loadStaffBundle() in app.js, and a shopper should never pay for them. */
@@ -48,16 +48,16 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = ['/', '/index.html',
-  '/css/fonts.css?v=166', '/css/styles.css?v=166', '/css/hallmark.css?v=166',
-  '/css/trust.css?v=166', '/css/finale.css?v=166', '/css/motion.css?v=166',
-  '/css/mobile.css?v=166', '/css/aurum.css?v=166', '/css/v107.css?v=166',
-  '/css/boost.css?v=166', '/css/v113.css?v=166', '/css/v115.css?v=166',
-  '/css/v116.css?v=166', '/css/v117.css?v=166', '/css/v118.css?v=166', '/css/v119.css?v=166', '/css/v120.css?v=166', '/css/v121.css?v=166', '/css/v122.css?v=166', '/css/v125.css?v=166', '/css/v139.css?v=166', '/css/v140.css?v=166',
-  '/js/otp-autofill.js?v=166', '/js/app.js?v=166', '/js/hallmark.js?v=166',
-  '/js/trust.js?v=166', '/js/auth.js?v=166', '/js/motion.js?v=166',
-  '/js/aurum.js?v=166', '/js/v107.js?v=166', '/js/boost.js?v=166',
-  '/js/v116.js?v=166', '/js/v117.js?v=166', '/js/v118.js?v=166', '/js/v119.js?v=166', '/js/v120.js?v=166', '/js/v122.js?v=166', '/js/v125.js?v=166', '/js/v127.js?v=166', '/js/v139.js?v=166', '/js/v140.js?v=166', '/js/v166.js?v=166',
-  '/fonts/jost.woff2?v=166', '/fonts/cormorant-garamond.woff2?v=166', '/fonts/marcellus-400.woff2?v=166',
+  '/css/fonts.css?v=167', '/css/styles.css?v=167', '/css/hallmark.css?v=167',
+  '/css/trust.css?v=167', '/css/finale.css?v=167', '/css/motion.css?v=167',
+  '/css/mobile.css?v=167', '/css/aurum.css?v=167', '/css/v107.css?v=167',
+  '/css/boost.css?v=167', '/css/v113.css?v=167', '/css/v115.css?v=167',
+  '/css/v116.css?v=167', '/css/v117.css?v=167', '/css/v118.css?v=167', '/css/v119.css?v=167', '/css/v120.css?v=167', '/css/v121.css?v=167', '/css/v122.css?v=167', '/css/v125.css?v=167', '/css/v139.css?v=167', '/css/v140.css?v=167', '/css/v167.css?v=167',
+  '/js/otp-autofill.js?v=167', '/js/app.js?v=167', '/js/hallmark.js?v=167',
+  '/js/trust.js?v=167', '/js/auth.js?v=167', '/js/motion.js?v=167',
+  '/js/aurum.js?v=167', '/js/v107.js?v=167', '/js/boost.js?v=167',
+  '/js/v116.js?v=167', '/js/v117.js?v=167', '/js/v118.js?v=167', '/js/v119.js?v=167', '/js/v120.js?v=167', '/js/v122.js?v=167', '/js/v125.js?v=167', '/js/v127.js?v=167', '/js/v139.js?v=167', '/js/v140.js?v=167', '/js/v166.js?v=167', '/js/v167.js?v=167',
+  '/fonts/jost.woff2?v=167', '/fonts/cormorant-garamond.woff2?v=167', '/fonts/marcellus-400.woff2?v=167',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];
@@ -103,12 +103,24 @@ self.addEventListener('activate', (e) => {
   }));
 });
 
-/* Cap the media cache: drop the oldest entries past MEDIA_MAX. */
+/* Cap the media cache: drop the oldest entries past MEDIA_MAX, and (v167)
+   expire anything past MEDIA_TTL. MEDIA_TTL was declared in the v120 layer and
+   read nowhere, so a photo replaced at the same URL kept its old bytes on every
+   phone that had already seen it — the cache was trimmed for COUNT, never for
+   AGE. The stored response's own Date header is the timestamp. */
 async function trimMedia() {
   const c = await caches.open(MEDIA);
   const keys = await c.keys();
-  if (keys.length <= MEDIA_MAX) return;
-  for (let i = 0; i < keys.length - MEDIA_MAX; i++) await c.delete(keys[i]);
+  for (let i = 0; i < Math.max(0, keys.length - MEDIA_MAX); i++) await c.delete(keys[i]);
+  const cutoff = Date.now() - MEDIA_TTL;
+  for (const k of await c.keys()) {
+    try {
+      const res = await c.match(k);
+      const stamp = res && res.headers.get('date');
+      const t = stamp ? Date.parse(stamp) : NaN;
+      if (isFinite(t) && t < cutoff) await c.delete(k);
+    } catch (_) { /* a cache read problem must never break a page */ }
+  }
 }
 function isImage(u) {
   return /\.(?:png|jpe?g|webp|gif|svg|avif|ico)(?:\?|$)/i.test(u.pathname);

@@ -9,7 +9,7 @@
 /* v166 · the release this layer belongs to (index.html stamps it inline before
    any script). Every asset URL built here rides it: `.htaccess` caches any
    `?v=` URL immutably for a year, so a hardcoded token would pin the old art. */
-const REL = window.__SHIVAA_REL || 166;
+const REL = window.__SHIVAA_REL || 167;
 const ASSET_V = '?v=' + REL;
 
 const $ = (s, el = document) => el.querySelector(s);

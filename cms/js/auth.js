@@ -122,9 +122,27 @@
   }
   const backTo = s => `<button type="button" class="shv-back" id="shvBack" aria-label="Back">&#8249;</button>`;
   const bindBack = (s, tab) => { const b = $('#shvBack'); if (b) b.onclick = () => go(s, tab); };
-  const errBox = () => `<div class="shv-err" id="shvErr" hidden></div>`;
+  /* v167 — THE DUPLICATE-ID BUG. The first step of this sheet renders BOTH
+     doors at once (retail OTP pane + jeweller password pane), and each of them
+     carried the same element id (shvErr). Two elements, one id: invalid HTML,
+     and worse,
+     `$('#shvErr')` (getElementById → always the FIRST match) wrote every error
+     into the retail pane — which is `hidden` the moment the shopper switches to
+     the Jeweller door. A partner typing a wrong password therefore saw the
+     spinner stop and absolutely nothing else; the same happened to the OTP
+     errors after switching back. Errors are now addressed by class, into the
+     pane the shopper can actually see. */
+  const errBox = () => `<div class="shv-err" data-shv-err hidden></div>`;
+  const errBoxes = () => $$('.shv-err[data-shv-err]');
+  function activeErrBox() {
+    const all = errBoxes();
+    return all.find(x => { const p = x.closest('.shv-pane'); return !p || !p.hidden; }) || all[0] || null;
+  }
+  function clearErrs() { errBoxes().forEach(x => { x.hidden = true; x.innerHTML = ''; }); }
   function showErr(msg) {
-    const b = $('#shvErr'); if (!b) return;
+    const all = errBoxes();
+    const b = activeErrBox(); if (!b) return;
+    all.forEach(x => { if (x !== b) { x.hidden = true; x.innerHTML = ''; } });
     b.innerHTML = msg; b.hidden = false;
     b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
   }
@@ -207,7 +225,7 @@
       window._loginNext = aud === 'jwl' ? 'partner' : (explicitNext && explicitNext !== 'partner' ? explicitNext : '');
       const f = body.querySelector(aud === 'jwl' ? '#shvJwPw' : '#shvPhoneIn');
       if (f && aud === 'jwl' && !f.value) $('#shvJwEm').focus(); else if (f) f.focus();
-      const e = $('#shvErr'); if (e) e.hidden = true;
+      clearErrs();
     };
     $$('.shv-aud-btn', body).forEach(b => b.onclick = () => switchTab(b.dataset.aud));
     switchTab(tab0 || 'retail');
@@ -230,7 +248,7 @@
         if (inp.value !== ph) return;
         autoSent = ph; otpPhone = ph;
         if (otpInFlight || otpSentFor === ph) return;   // v113b - one SMS per number
-        const e0 = $('#shvErr'); if (e0) e0.hidden = true;
+        clearErrs();
         await sendOtp();
       }, 260);
     });

@@ -1,0 +1,92 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIVAA v167 — one stylesheet for the release's repairs. Loaded last, so the
+   rules here win the specificity ties they are written for.
+
+   1 · KEYBOARD FOCUS. Four controls on the site had `outline:none` with no
+   keyboard replacement. The worst was #searchInput (an ID selector beats every
+   generic :focus-visible rule already in styles.css, and its rule is repeated
+   in aurum.css), so the search field — the one control a keyboard user reaches
+   first with the search button — showed nothing at all when focused.
+
+   2 · HEADING LEVELS. Pages that jumped h1 → h3/h4 now carry a real h2. These
+   rules keep the exact size, family and margins those headings had, so the
+   repair is invisible on screen.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · focus that can actually be seen ─────────────────────────────────── */
+#searchInput:focus-visible,
+#hdrSearchInput:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+.fld input:focus-visible,
+.fld select:focus-visible,
+.fld textarea:focus-visible,
+.nl-form input:focus-visible,
+.fn-card .nl-form input:focus-visible,
+.fl-news .nl-form input:focus-visible,
+.fv-news .nl-form input:focus-visible,
+.wt-tx input:focus-visible,
+.pin-row input:focus-visible,
+.coupon-row input:focus-visible,
+.otp-boxes input:focus-visible,
+.boost-chat .bc-form input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+.au-search input:focus-visible,
+.search-panel input:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 8px; }
+/* touch taps never get the ring — a finger does not need a focus indicator */
+@media (hover: none) and (pointer: coarse) {
+  #searchInput:focus-visible, #hdrSearchInput:focus-visible { outline: none; }
+}
+
+/* ── 2 · heading-level repairs, pixel-identical to the level they replace ── */
+/* styles.css:480 styled every .adm-card heading at 20px — the promoted h2s
+   (legal pages, contact, rates, care, sizer, services) keep exactly that. */
+.adm-card > h2,
+.adm-card h2 {
+  font-size: 20px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+/* styles.css:1847 styled .empty h3 at 26px — the empty/not-found views. */
+.empty h2 {
+  font-family: var(--ff-disp);
+  font-size: 26px;
+  color: var(--maroon-deep);
+  margin-bottom: 8px;
+}
+/* styles.css:458 styled .svc h4 at 24px — the services cards, which are the
+   page's own sections and sit directly under its h1. */
+.svc h2, .svc h3 {
+  font-family: var(--ff-disp);
+  font-size: 24px;
+  color: var(--maroon-deep);
+  margin-bottom: 8px;
+}
+/* styles.css:1376/1932 styled .fsheet-bar b at 20px — the filter drawer title. */
+.fsheet-bar .fsheet-title,
+.fsheet-bar h2 {
+  font-family: var(--ff-disp);
+  font-size: 20px;
+  color: var(--maroon-deep);
+  margin: 0;
+  line-height: 1.2;
+}
+/* the PDP hallmark block: <h3> → <h2> without changing its size */
+.hm-product-head h2 { font-size: 1.17em; margin: 0; }
+/* styles.css:1482/:1503 styled .priv-hero-card h3 and .dpo-card h3 — the
+   privacy page's two section headings (h1 → h3 was a skipped level). */
+.priv-hero-card h2 { color: #fdf3dd; font-size: clamp(22px, 3vw, 30px); margin: 8px 0 10px; }
+.dpo-card h2 { color: #fdf3dd; font-size: clamp(20px, 2.6vw, 26px); margin: 10px 0 18px; position: relative; z-index: 2; }
+
+/* ── 3 · the label repair layer (js/v167.js) must not change any layout ──── */
+/* (for= adds no box; this rule exists only to document the intent) */
+.fld label[for] { cursor: pointer; }

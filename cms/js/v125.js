@@ -222,6 +222,13 @@
 
   /* ═══ 3 · THE REVOLVING CASE ═══════════════════════════════════════ */
   var caseApi = null;
+  /* v167 — live re-placers for the revolving case. Every home render mounts a
+     fresh case; the old code registered a NEW window resize listener per mount,
+     so each return to the home page left another closure — and its detached
+     stage — pinned to the window for the life of the tab. One listener now
+     serves them all and drops the dead stages on the first resize. */
+  var casePlaces = [];
+  var caseResizeBound = false;
   function mountCase(mount) {
     mount.dataset.mnt = '1';
     var liteMode = lite();
@@ -335,7 +342,11 @@
     } else { visible = true; }
     place();
     if ('ResizeObserver' in win) new ResizeObserver(place).observe(stage);
-    win.addEventListener('resize', place);
+    casePlaces.push(function () { place(); return stage.isConnected; });
+    if (!caseResizeBound) {
+      caseResizeBound = true;
+      win.addEventListener('resize', function () { casePlaces = casePlaces.filter(function (f) { return f(); }); });
+    }
     setCount();
     caseApi = {
       next: function () { stepBy(1); },

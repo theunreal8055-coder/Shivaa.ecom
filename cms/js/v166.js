@@ -65,7 +65,9 @@
 'use strict';
 (function () {
 
-  var REL = 166;                       // must equal window.__SHIVAA_REL and APP_REL
+  /* v166's OWN release id — never bump this: it is the number this file moves
+     devices TO (and the fallback when index.html has not stamped the page yet). */
+  var REL = 166;
   var $ = function (s, el) { return (el || document).querySelector(s); };
   var $$ = function (s, el) { return [].slice.call((el || document).querySelectorAll(s)); };
   var w = window;
@@ -393,7 +395,16 @@
     if (w.__shvAurum || document.documentElement.classList.contains('js-aurum')) return;
     if (w.__shvEnhRetry) return;
     w.__shvEnhRetry = true;
-    var files = ['/js/aurum.js?v=' + REL, '/js/motion.js?v=' + REL, '/js/boost.js?v=' + REL];
+    /* v167 — THESE THREE URLS WERE FROZEN AT 166. This is the graphics failsafe
+       — the one path that runs exactly when the ambience did NOT load — and it
+       asked for /js/aurum.js?v=166 while the shell was already on a newer
+       release. `.htaccess` serves any ?v= URL as `immutable` for a year, so on
+       the very devices that had already seen 166 the failsafe re-loaded the
+       SAME bytes that had just failed, and on a device that had moved on it
+       fetched a version the rest of the page no longer matched. It now rides
+       the release the page is actually running, exactly like v117.js does. */
+    var assetRel = +(w.__SHIVAA_REL || REL);
+    var files = ['/js/aurum.js?v=' + assetRel, '/js/motion.js?v=' + assetRel, '/js/boost.js?v=' + assetRel];
     files.reduce(function (p, src) {
       return p.then(function () {
         return new Promise(function (res) {
