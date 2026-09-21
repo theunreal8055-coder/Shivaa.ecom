@@ -1,6 +1,7 @@
 # DEPLOY — v165 · Cashfree Failures Tell the Truth (the 6-ear-studs error)
 
 **Zip:** `shivaa-update-v165.zip`
+- **MD5:** `06bbc6f7a2198e63b2896b43958832de`
 - **Files (5, root layout):** `api.php`, `index.html`, `sw.js`, `js/app.js`, `js/admin.js`
 - Extract into `public_html/` → overwrite. Never touches `data/db.json` or `.htaccess`.
 
