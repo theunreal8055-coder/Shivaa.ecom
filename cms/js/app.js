@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 164;
+const APP_REL = 165;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -210,7 +210,16 @@ async function api(path, opts = {}) {
       setToken(''); state.user = null;
       try { updateBadges(); } catch (e) {}
     }
-    throw Object.assign(new Error(data.error || 'Request failed'), { status: res.status });
+    /* v165 — never swallow the gateway's own words again: a 502 from pay/order
+       carries `gatewayCode`/`gatewayMessage` (the real Cashfree rejection).
+       Attach both to the thrown error (callers toast `message`, devtools gets
+       the raw pair) so a per-product failure is diagnosable from ONE report. */
+    const __e = Object.assign(new Error(data.error || 'Request failed'), { status: res.status });
+    if (data.gatewayCode || data.gatewayMessage) {
+      __e.gatewayCode = data.gatewayCode; __e.gatewayMessage = data.gatewayMessage;
+      try { console.warn('[shivaa-gateway]', res.status, data.gatewayCode || '', data.gatewayMessage || ''); } catch (_) {}
+    }
+    throw __e;
   }
   return data;
 }

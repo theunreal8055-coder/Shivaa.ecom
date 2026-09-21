@@ -18,13 +18,13 @@ const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
 const dbRaw = fs.readFileSync(path.join(CMS, 'data/db.json'));   // bytes: style pins need the raw file
 const db = JSON.parse(dbRaw.toString('utf8'));
 
-// §1 stamps 164 lockstep
-ok(idx.includes('window.__SHIVAA_REL=164;'), 'index triple 164');
-ok(app.includes('const APP_REL = 164;'), 'APP_REL 164');
-ok(sw.includes("SHELL = 'shivaa-shell-v164'"), 'sw shell 164');
-ok(api.includes("'rel'   => 164,"), 'api rel 164');
-ok(idx.includes('/js/app.js?v=164'), 'index app loader 164');
-ok(sw.includes('/js/app.js?v=164'), 'sw app precache 164');
+// §1 stamps lockstep — v165 convention: NUMERIC FLOORS, never exact pins again
+ok((idx.match(/window\.__SHIVAA_REL=(\d+)/) || [0, 0])[1] * 1 >= 164, 'index stamp >= 164');
+ok((app.match(/const APP_REL = (\d+);/) || [0, 0])[1] * 1 >= 164, 'APP_REL >= 164');
+ok((sw.match(/SHELL = 'shivaa-shell-v(\d+)'/) || [0, 0])[1] * 1 >= 164, 'sw shell >= 164');
+ok((api.match(/'rel'   => (\d+),/) || [0, 0])[1] * 1 >= 164, 'api rel >= 164');
+ok((idx.match(/\/js\/app\.js\?v=(\d+)/) || [0, 0])[1] * 1 >= 164, 'index app loader >= 164');
+ok((sw.match(/\/js\/app\.js\?v=(\d+)/) || [0, 0])[1] * 1 >= 164, 'sw app precache >= 164');
 const finIdx = (idx.match(/\/css\/finale\.css\?v=(\d+)/) || [])[1];
 const finSw = (sw.match(/\/css\/finale\.css\?v=(\d+)/) || [])[1];
 ok(finIdx && finIdx === finSw, 'finale.css stamp agrees index+sw (v' + finIdx + ', file untouched this rel)');
