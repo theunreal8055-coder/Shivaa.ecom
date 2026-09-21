@@ -13,7 +13,9 @@
 
 - Storefront release **168**, media cache **168**.
 - v167 recorded 64 fixes; v168 adds 40, **104 cumulatively recorded**.
-- **Not live-verified or deployed by this session.** No update ZIP was generated.
+- **Not live-verified or deployed by this session.** On the owner’s follow-up,
+  `shivaa-update-v168.zip` was built from source commit `e5b2905` (17 files).
+  Package/overlay verification and extraction notes are in `DEPLOY-v168.md`.
 - Current session branch: `arena/01a0c31d-shivaa-ecom`. Obey the active Arena
   session's branch restrictions; do not switch branches or merge main on the
   strength of an old handoff instruction.

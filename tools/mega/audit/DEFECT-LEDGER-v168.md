@@ -141,3 +141,10 @@ node tools/mega/php-sweep/sweep.mjs
    this release specifically prevents stale route/staff ERROR replacements.
 
 No PR merge, production upload, credential change or live payment was performed.
+
+## Requested download package follow-up
+
+`shivaa-update-v168.zip` now packages 17 committed code files from `e5b2905`;
+see `DEPLOY-v168.md` for hash and successful overlay checks. N01 remains a
+separate host-managed Apache comment repair, deliberately excluded from the ZIP.
+No production deployment or main merge was performed.

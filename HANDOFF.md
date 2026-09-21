@@ -1,5 +1,21 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
+## Update-package follow-up — requested GitHub download (21 Sep 2026)
+
+`shivaa-update-v168.zip` is now built from committed source
+`e5b2905de68e99b45508f1d58496610cb223b453`: **17 files, 539,228 bytes**,
+SHA-256 `efaa0f46035296cc4296cb06954d6fcf72248880c4334cf1f81e8d00cc62478f`.
+It includes the v166–v168 code-file union for a full v165-or-newer CMS.
+No DB, uploads, credentials or `.htaccess`. The host-comment repair is separate.
+Isolated v167 + ZIP overlay tests (with the separate host-comment fix applied
+in the sandbox): v168 **39/39**, signatures **12/12**, v167 **36/36**, executed
+v164 PHP **17/17**, direct checkout **24/24**. ZIP members match their source
+commit byte-for-byte. See `DEPLOY-v168.md` for extraction and host-config notes.
+The owner requested publishing the package on the current GitHub branch only;
+**no main merge or live-site deployment**. This supersedes the earlier
+“no ZIP produced” status below. Private GitHub download requires sign-in.
+
+
 
 ## Current continuation — v168 specialist audit (21 Sep 2026)
 
