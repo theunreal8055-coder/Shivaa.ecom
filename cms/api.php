@@ -2978,7 +2978,13 @@ if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
   ], 'updatedAt' => now_iso()];
 }
 if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => now_iso(), 'gold24' => 11800, 'gold22' => 10800, 'gold18' => 8850, 'silver' => 95, 'source' => 'bootstrap']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
-foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'gold24Premium' => 398, 'gold22Premium' => 398, 'jaipurSilverPremium' => 3, 'whatsapp' => '91890505921', 'metalFactor' => 0.92, 'finePurity' => '99.50%'] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
+foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'gold24Premium' => 398, 'gold22Premium' => 398, 'jaipurSilverPremium' => 3, 'whatsapp' => '91890505921', 'metalFactor' => 0.92, 'finePurity' => '99.50%',
+  /* v166 — "customers should only see the latest version of the website".
+     ON (default): a device running an older release moves itself to the newest
+     one as soon as the release check sees it (never over a form or a payment).
+     OFF: the old quiet behaviour — the new release is picked up on the next
+     visit, with no reload. Flipped by the owner in Admin → Settings. */
+  'forceLatestVersion' => true] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
 /* v82 — hourly housekeeping so ephemeral collections never grow forever:
    expired bearer tokens, stale OTPs and old per-IP mail counters. Runs
    inside a request that already holds the EX write lock, at most once an
@@ -4217,15 +4223,29 @@ try {
      route table has no health entry — it answers Unknown API); this fixes the
      lie by shipping the real one. NOTHING secret: release constants + the same
      four already-public doctor summary lines (no keys, no phones, no names). */
+  /* v166 — this endpoint is now the shop's "am I on the latest release?" dial.
+     js/v166.js asks it (never cached) on every load, on returning to the tab,
+     on focus and every 5 minutes: if `rel` is newer than the release the page
+     is running, the page clears its caches and re-enters on the new one. The
+     owner's switch `forceLatestVersion` (Admin → Settings, ON by default)
+     decides whether that happens by itself or only on the shopper's next
+     visit. Public payload on purpose: release constants, one boolean and the
+     file times a support agent can compare — no keys, no names, no numbers. */
   if ($route === 'version' && $method === 'GET') {
     $swSrc = (string)@file_get_contents(__DIR__ . '/sw.js');
     $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
+    $swRel = (int)(preg_match("/REL\s*=\s*(\d+)/", $swSrc, $mr) ? $mr[1] : 0);
+    $idxSrc = (string)@file_get_contents(__DIR__ . '/index.html');
+    $idxRel = (int)(preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', $idxSrc, $mi) ? $mi[1] : 0);
+    $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 165,
+      'rel'   => 166,
       'shell' => $sh,
-      'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
-                  'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
+      'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
+      'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
+      'stamp' => ['index' => $idxRel, 'app' => $appRel, 'sw' => $swRel,
+                  'matched' => ($idxRel === $appRel && ($swRel === 0 || $swRel === $idxRel))],
     ]);
   }
 
@@ -6469,7 +6489,10 @@ try {
       jout(400, ['error' => 'Cashfree environment must be sandbox or production.']);
     // v139 — One Click Checkout switches are strict booleans; anything else is
     // a mistake in the admin form, not a value to store.
-    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth', 'guestCheckout'] as $occKey) {
+    /* v166 — forceLatestVersion joins the strict booleans: it decides whether a
+       shopper's device moves itself to the newest release, so a typo must be
+       refused rather than stored as a truthy string. */
+    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth', 'guestCheckout', 'forceLatestVersion'] as $occKey) {
       if (array_key_exists($occKey, $setBody)) {
         $v = $setBody[$occKey];
         if (is_bool($v)) continue;

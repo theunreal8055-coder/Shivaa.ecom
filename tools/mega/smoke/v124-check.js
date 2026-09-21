@@ -103,13 +103,14 @@ function bootStore(extra = '') {
   ok("shell loads app.js + v116.js at v124 and the worker precaches both",
     st(html, /\/js\/app\.js\?v=(\d+)/) >= 124 && st(html, /\/js\/v116\.js\?v=(\d+)/) >= 124 &&
     st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 124 && st(sw, /'\/js\/v116\.js\?v=(\d+)'/) >= 124);
-  ok('all six category render sites + the &v= branch carry ?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)',
-    /catBarItems\(\)\.map/.test(app) && /'&v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)' : '\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)'/.test(app) &&
-    /cat-mini-card"><img src="\$\{c\.img\}\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(app) &&
-    /mt-img"><img src="\$\{c\.img\}\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(app) &&
-    /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(app) &&
-    (app.match(/c\.img\}\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/g) || []).length >= 4);
-  ok('v116 pre-boot drawer list carries ?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)', /c\.img \+ '\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)"/.test(v116src));
+  ok('all six category render sites + the &v= branch carry release-driven photo URLs',
+    /catBarItems\(\)\.map/.test(app) && /'&' \+ ASSET_V\.slice\(1\) : ASSET_V\)/.test(app) &&
+    /cat-mini-card"><img src="\$\{c\.img\}(\?v=\d{2,3}|\$\{ASSET_V\})"/.test(app) &&
+    /mt-img"><img src="\$\{c\.img\}(\?v=\d{2,3}|\$\{ASSET_V\})"/.test(app) &&
+    /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}(\?v=\d{2,3}|\$\{ASSET_V\})"/.test(app) &&
+    (app.match(/c\.img\}(\?v=\d{2,3}|\$\{ASSET_V\})"/g) || []).length >= 4);
+  /* v166 fix-forward: the drawer's photos ride the release (ASSET_V). */
+  ok('v116 pre-boot drawer list carries a release-driven photo stamp', /c\.img \+ (ASSET_V|'\?v=\d{2,3}"')/.test(v116src));
 
   const small = TILE_KEYS.filter(k => { try { return fs.statSync(path.join(CMS, 'images/categories', k + '.jpg')).size < 8000; } catch (_) { return true; } });
   ok('all 18 category faces exist on disk (17 CATS + the new newin face, >= 8 KB)', small.length === 0, 'missing/small: ' + small.join(', '));
@@ -126,7 +127,7 @@ function bootStore(extra = '') {
     fs.existsSync(path.join(CMS, 'images/products/mangalsutra-modern.jpg')));
 
   ok('fallback chain intact: logo-then-hide with dataset.lfb guard, versioned at 124',
-    /dataset\.lfb/.test(app) && /this\.style\.display='none'/.test(app) && /\/images\/logo\.png\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)/.test(app));
+    /dataset\.lfb/.test(app) && /this\.style\.display='none'/.test(app) && /\/images\/logo\.png(\?v=\d{2,3}|\$\{ASSET_V\})/.test(app));
   ok('tile monogram underlay still guarantees no bare-text tiles',
     /\.cb-img::after/.test(v120css) && /content: '✦'/.test(v120css) && /\.cb-img img \{ position: relative; z-index: 1/.test(v120css));
   ok('owner locks respected: rates 398 unchanged and the media cache generation left alone',
@@ -138,20 +139,22 @@ function bootStore(extra = '') {
   const errors = [];
   const dom = bootStore(w => w.addEventListener('error', e => { if (!(e.target && e.target.tagName === 'IMG')) errors.push(e.message || String(e.error)); }));
   const w = dom.window, d = w.document;
-  ok('storefront boots with the 77-product catalogue', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
-  ok('home slider renders all 20 faces (17 categories + 3 chips) at ?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)',
-    await until(() => [...d.querySelectorAll('.cb-img img')].length >= 20 && [...d.querySelectorAll('.cb-img img')].every(i => /\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)/.test(i.src))));
+  /* v166 fix-forward: 77 rings + the owner's 6 campaign studs — a floor, not a pin. */
+  ok('storefront boots with the full catalogue', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length >= 77, 20000),
+    (w.Shivaa && w.Shivaa.state ? w.Shivaa.state.productsCache.length : 0) + ' pieces');
+  ok('home slider renders all 20 faces (17 categories + 3 chips) at ?v=\d{2,3}',
+    await until(() => [...d.querySelectorAll('.cb-img img')].length >= 20 && [...d.querySelectorAll('.cb-img img')].every(i => /\?v=\d{2,3}/.test(i.src))));
   const srcs = () => [...d.querySelectorAll('.cb-item')].map(a => ({ t: (a.querySelector('b') || {}).textContent, s: (a.querySelector('img') || {}).src }));
-  ok('the Punach face serves images/categories/punach.jpg?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)', srcs().some(x => /Punach/.test(x.t || '') && /\/images\/categories\/punach\.jpg\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)/.test(x.s)), JSON.stringify(srcs().find(x => /Punach/.test(x.t || ''))));
-  ok("the New In face serves images/categories/newin.jpg?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)", srcs().some(x => /New In/.test(x.t || '') && /\/images\/categories\/newin\.jpg\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)/.test(x.s)), JSON.stringify(srcs().find(x => /New In/.test(x.t || ''))));
+  ok('the Punach face serves images/categories/punach.jpg?v=\d{2,3}', srcs().some(x => /Punach/.test(x.t || '') && /\/images\/categories\/punach\.jpg\?v=\d{2,3}/.test(x.s)), JSON.stringify(srcs().find(x => /Punach/.test(x.t || ''))));
+  ok("the New In face serves images/categories/newin.jpg?v=\d{2,3}", srcs().some(x => /New In/.test(x.t || '') && /\/images\/categories\/newin\.jpg\?v=\d{2,3}/.test(x.s)), JSON.stringify(srcs().find(x => /New In/.test(x.t || ''))));
   const tileImg = d.querySelector('.cb-img img');
   tileImg.dispatchEvent(new w.Event('error'));
-  ok('fallback stage 1: a failed tile photo swaps to the v124 house logo', /\/images\/logo\.png\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)/.test(tileImg.src));
+  ok('fallback stage 1: a failed tile photo swaps to the v124 house logo', /\/images\/logo\.png\?v=\d{2,3}/.test(tileImg.src));
   tileImg.dispatchEvent(new w.Event('error'));
   ok('fallback stage 2: a failed logo hides to the monogram underlay', tileImg.style.display === 'none');
   w.location.hash = '#/shop';
-  ok('shop-page category bar photos carry ?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)',
-    await until(() => [...d.querySelectorAll('.shop-catbar .cb-img img')].length >= 20 && [...d.querySelectorAll('.shop-catbar .cb-img img')].every(i => /\?v=(124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139)/.test(i.src))));
+  ok('shop-page category bar photos carry ?v=\d{2,3}',
+    await until(() => [...d.querySelectorAll('.shop-catbar .cb-img img')].length >= 20 && [...d.querySelectorAll('.shop-catbar .cb-img img')].every(i => /\?v=\d{2,3}/.test(i.src))));
   ok('no unhandled page errors in the v124 session', errors.length === 0, errors.slice(0, 3).join(' | '));
 
   server.close();

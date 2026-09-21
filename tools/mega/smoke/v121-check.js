@@ -65,11 +65,12 @@ function bootStore(extra = '') {
   const v121css = fs.readFileSync(path.join(CMS, 'css/v121.css'), 'utf8');
 
   console.log('\nSHIVAA v121 check\n\n· A · static gates');
+  /* v166 fix-forward: stamps are release numbers, never a layer's era. */
   ok('the shell loads the v121 layer after the v120 layer',
-    /\/css\/v121\.css\?v=121/.test(html) &&
-    html.indexOf('/css/v120.css?v=120') < html.indexOf('/css/v121.css?v=121'));
+    /\/css\/v121\.css\?v=\d+/.test(html) &&
+    html.search(/\/css\/v120\.css\?v=/) < html.search(/\/css\/v121\.css\?v=/));
   ok('service worker precaches v121 and the media cache stays v120 (no gratuitous purge)',
-    /'\/css\/v121\.css\?v=121'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
+    /'\/css\/v121\.css\?v=\d+'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps stay a consistent triple (shell = script = worker)',
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
@@ -106,7 +107,9 @@ function bootStore(extra = '') {
   const errors = [];
   const dom = bootStore(w => w.addEventListener('error', e => { if (!(e.target && e.target.tagName === 'IMG')) errors.push(e.message || String(e.error)); }));
   const w = dom.window, d = w.document;
-  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
+  /* v166 fix-forward: 77 rings + the owner's 6 campaign studs — a floor. */
+  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length >= 77, 20000),
+    (w.Shivaa && w.Shivaa.state ? w.Shivaa.state.productsCache.length : 0) + ' pieces');
 
   w.location.hash = '#/';
   ok('home shows exactly one visible slide carrying the phone srcset',

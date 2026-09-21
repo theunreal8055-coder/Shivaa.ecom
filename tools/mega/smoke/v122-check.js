@@ -71,12 +71,13 @@ function bootStore(extra = '') {
   const v122js = fs.readFileSync(path.join(CMS, 'js/v122.js'), 'utf8');
 
   console.log('\nSHIVAA v122 check\n\n· A · static gates');
+  /* v166 fix-forward: stamps are release numbers, never a layer's era. */
   ok('the shell loads the v122 layer (css + js, after the v121/v120 layers)',
-    /\/css\/v122\.css\?v=122/.test(html) && /\/js\/v122\.js\?v=122/.test(html) &&
-    html.indexOf('/css/v121.css?v=121') < html.indexOf('/css/v122.css?v=122') &&
-    html.indexOf('/js/v120.js?v=120') < html.indexOf('/js/v122.js?v=122'));
+    /\/css\/v122\.css\?v=\d+/.test(html) && /\/js\/v122\.js\?v=\d+/.test(html) &&
+    html.search(/\/css\/v121\.css\?v=/) < html.search(/\/css\/v122\.css\?v=/) &&
+    html.search(/\/js\/v120\.js\?v=/) < html.search(/\/js\/v122\.js\?v=/));
   ok('service worker precaches the v122 layer',
-    /'\/css\/v122\.css\?v=122'/.test(sw) && /'\/js\/v122\.js\?v=122'/.test(sw));
+    /'\/css\/v122\.css\?v=\d+'/.test(sw) && /'\/js\/v122\.js\?v=\d+'/.test(sw));
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps stay a consistent triple (shell = script = worker)',
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
@@ -97,7 +98,8 @@ function bootStore(extra = '') {
     /function dsSort\(\)/.test(app) && /_dsi/.test(app) && /if \(e\) grid\.appendChild\(e\)/.test(app));
   ok('desk photos: second shots load near-view only, decode async, logo fallback',
     /rootMargin: '300px'/.test(app) && !/has-multi img:nth-child\(2\)'\)\.forEach\(im =>/.test(app) &&
-    /decoding="async" loading="lazy" onerror="this\.onerror=null;this\.src='\/images\/logo\.png\?v=122'"/.test(app));
+    /* v166 fix-forward: the house-logo fallback rides the release now (${ASSET_V}). */
+    /decoding="async" loading="lazy" onerror="this\.onerror=null;this\.src='\/images\/logo\.png(\$\{ASSET_V\}|\?v=\d{2,3})'"/.test(app));
   ok('billing math untouched: fine-metal factor in bar, bill and place button',
     (app.match(/state\.settings\.metalFactor \|\| 0\.92/g) || []).length >= 2 &&
     /Metal Settlement Bill/.test(app) && /Place Metal Order \(\$\{fine\} g fine\)/.test(app));
@@ -120,18 +122,22 @@ function bootStore(extra = '') {
   const errors = [];
   const dom = bootStore(w => w.addEventListener('error', e => { if (!(e.target && e.target.tagName === 'IMG')) errors.push(e.message || String(e.error)); }));
   const w = dom.window, d = w.document;
-  ok('storefront boots as a partner', await until(() => w.Shivaa && w.Shivaa.state.user && w.Shivaa.state.user.role === 'partner' && w.Shivaa.state.productsCache.length === 77, 20000));
+  ok('storefront boots as a partner', await until(() => w.Shivaa && w.Shivaa.state.user && w.Shivaa.state.user.role === 'partner' && w.Shivaa.state.productsCache.length >= 77, 20000),
+    (w.Shivaa && w.Shivaa.state ? w.Shivaa.state.productsCache.length : 0) + ' pieces');
 
   w.location.hash = '#/catalogues';
   const vis = () => [...d.querySelectorAll('#dsGrid .ds-card')].filter(c => c.style.display !== 'none');
-  ok('the desk renders: 77 cards, search, sort, bill total',
-    await until(() => d.querySelectorAll('#dsGrid .ds-card').length === 77 && d.querySelector('#dsfSearch') && d.querySelector('#dsfSort') && d.querySelector('#dsFine')));
+  /* v166 fix-forward: the owner's 6 campaign studs are active server rows, so
+     the desk carries them too (77 rings + 6) — the gates assert the floor. */
+  ok('the desk renders: the full catalogue, search, sort, bill total',
+    await until(() => d.querySelectorAll('#dsGrid .ds-card').length >= 77 && d.querySelector('#dsfSearch') && d.querySelector('#dsfSort') && d.querySelector('#dsFine')),
+    d.querySelectorAll('#dsGrid .ds-card').length + ' cards');
 
   d.querySelector('#dsfSort').value = 'wasc';
   d.querySelector('#dsfSort').dispatchEvent(new w.Event('change', { bubbles: true }));
   await sleep(200);
   const wts = vis().map(c => +c.dataset.w);
-  ok('weight sort orders the desk light-first', wts.length === 77 && wts[0] <= wts[wts.length - 1] && wts.every((x, i) => i === 0 || wts[i - 1] <= x),
+  ok('weight sort orders the desk light-first', wts.length >= 77 && wts[0] <= wts[wts.length - 1] && wts.every((x, i) => i === 0 || wts[i - 1] <= x),
     wts.slice(0, 3).join(',') + ' … ' + wts.slice(-3).join(','));
 
   const sku = d.querySelector('#dsGrid .ds-card').dataset.sku;
@@ -142,7 +148,7 @@ function bootStore(extra = '') {
     `query: ${sku}`);
 
   d.querySelector('#dsfReset').click();
-  ok('reset restores the full desk', await until(() => d.querySelector('#dsfSearch').value === '' && d.querySelector('#dsfSort').value === '' && vis().length === 77));
+  ok('reset restores the full desk', await until(() => d.querySelector('#dsfSearch').value === '' && d.querySelector('#dsfSort').value === '' && vis().length >= 77), vis().length + ' visible');
 
   const pid = d.querySelector('#dsGrid .ds-card').id.replace(/^ds-/, '');
   w.ShivaaDS.qty(pid, 1);

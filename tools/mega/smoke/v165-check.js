@@ -17,14 +17,20 @@ const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; } else { fail++; console.log('FAIL:', m); } };
 
-// §1 stamps 165 lockstep (per-file rule: finale.css stays at its own era stamp)
-ok(idx.includes('window.__SHIVAA_REL=165;'), 'index triple 165');
-ok(app.includes('const APP_REL = 165;'), 'APP_REL 165');
-ok(sw.includes("SHELL = 'shivaa-shell-v165'"), 'sw shell 165');
-ok(api.includes("'rel'   => 165,"), 'api rel 165');
-ok(idx.includes('/js/app.js?v=165'), 'index app loader 165');
-ok(sw.includes('/js/app.js?v=165'), 'sw app precache 165');
-ok(idx.includes('/css/finale.css?v=163'), 'finale.css keeps its own-era stamp 163');
+/* §1 release lockstep — v166 fix-forward: this gate used to pin the literal
+   "165" (and finale.css at 163). A later release legitimately re-stamps EVERY
+   asset URL — it is the only way a ?v= URL cached for a year can ever move
+   (that was the owner's "people still see the 15-day-old version") — so the
+   durable law is the FLOOR plus the triple moving together, never a re-pin. */
+const REL = Number((/window\.__SHIVAA_REL=(\d+);/.exec(idx) || [0, 0])[1]);
+const APPREL = Number((/const APP_REL = (\d+);/.exec(app) || [0, 0])[1]);
+const SWREL = Number((/SHELL = 'shivaa-shell-v(\d+)'/.exec(sw) || [0, 0])[1]);
+const APIREL = Number((/'rel'\s*=>\s*(\d+),/.exec(api) || [0, 0])[1]) || 0;
+ok(REL >= 165 && APPREL === REL && SWREL === REL && APIREL === REL, 'release triple in lockstep at 165 or newer');
+ok(idx.includes('/js/app.js?v=' + REL), 'index app loader carries the current release');
+ok(sw.includes('/js/app.js?v=' + REL), 'sw app precache carries the current release');
+const finaleV = Number((/\/css\/finale\.css\?v=(\d+)/.exec(idx) || [0, 0])[1]);
+ok(finaleV >= 163, 'finale.css is stamped at its own era floor (163) or newer');
 
 // §2 api.php — the 502 now carries the WHY
 ok(api.includes("'amount' => (int)$due, 'resp' => $j"), 'init-fail audit records the order amount');
@@ -40,7 +46,7 @@ ok(api.includes("'gatewayMessage' => $j['message'] ?? ($res['err'] ?: null)"), '
 // §3 app.js — api() surfaces the gateway pair, never swallows it
 ok(app.includes('__e.gatewayCode = data.gatewayCode; __e.gatewayMessage = data.gatewayMessage;'), 'thrown errors carry gatewayCode/gatewayMessage');
 ok(app.includes("console.warn('[shivaa-gateway]'"), 'gateway pair logged to devtools');
-ok(app.includes('const APP_REL = 165;'), 'app stamp 165');
+ok(app.includes('const APP_REL = ' + REL + ';'), 'app stamp is the current release');
 ok(app.includes("throw new Error((po && (po.gatewayMessage || po.error)) || 'Cashfree could not start');"), 'stud Buy Now error chain untouched');
 
 // §4 admin.js — the audit viewer can now show the full gateway meta

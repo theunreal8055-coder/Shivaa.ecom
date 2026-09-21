@@ -48,7 +48,10 @@ async function until(fn, ms = 12000) {
 }
 
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.webp': 'image/webp' };
-const V127_TAG = /<script src="\/js\/v127\.js\?v=127" defer><\/script>/;
+/* v166 fix-forward: the stamp is a release number, not the layer's own name —
+   a later release re-stamps every asset URL, and this gate's CONTROL strips the
+   tag, so it must match whatever stamp the release carries. */
+const V127_TAG = /<script src="\/js\/v127\.js\?v=\d+" defer><\/script>/;
 
 const server = http.createServer((req, res) => {
   let u = decodeURIComponent(req.url.split('?')[0]);

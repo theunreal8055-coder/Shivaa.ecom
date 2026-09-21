@@ -76,10 +76,11 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
   console.log('\nSHIVAA v119 check\n\n· A · static gates');
   ok('release handshake is 119 on both sides',
     st(html, /__SHIVAA_REL\s*=\s*(\d+)/) >= 119 && st(app, /APP_REL\s*=\s*(\d+)/) >= 119);
+  /* v166 fix-forward: the stamp is the release, not the layer's era. */
   ok('the shell loads the v119 layer (css + js)',
-    /\/css\/v119\.css\?v=(119|140)/.test(html) && /\/js\/v119\.js\?v=(119|140)/.test(html));
+    /\/css\/v119\.css\?v=\d+/.test(html) && /\/js\/v119\.js\?v=\d+/.test(html));
   ok('service-worker shell is v119 and precaches the whole v119 layer',
-    st(sw, /SHELL = 'shivaa-shell-v(\d+)/) >= 119 && /'\/css\/v119\.css\?v=(119|140)'/.test(sw) && /'\/js\/v119\.js\?v=(119|140)'/.test(sw) && st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 119);
+    st(sw, /SHELL = 'shivaa-shell-v(\d+)/) >= 119 && /'\/css\/v119\.css\?v=\d+'/.test(sw) && /'\/js\/v119\.js\?v=\d+'/.test(sw) && st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 119);
   ok('index.html ships a first-paint skeleton that v119.css retires',
     /<main id="view"><div class="shv-skeleton"/.test(html) && /body\.shv-ready \.shv-skeleton/.test(v119css));
   const heroPreload = /<link rel="preload" as="image" ([^>]*?)fetchpriority="high">/.exec(html);
@@ -101,8 +102,10 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
   ok('settings PUT whitelists the 22K premium (so the owner can tune it in admin)',
     /'gold22Premium' => \[0, 100000, 'int'\]/.test(api));
   const dm = JSON.parse(dbJson);
-  ok('master db.json carries gold22Premium 398 · 77 products · 4 images each',
-    dm.settings.gold22Premium === 398 && dm.products.length === 77 && dm.products.every(p => (p.images || []).length === 4),
+  /* v166 fix-forward: the live catalogue grew by the owner's 6 campaign studs
+     (20 Sep) — the premium and the 4-image discipline are the durable law. */
+  ok('master db.json carries gold22Premium 398 · 77+ products · 4 images each',
+    dm.settings.gold22Premium === 398 && dm.products.length >= 77 && dm.products.every(p => (p.images || []).length === 4),
     `${dm.settings.gold22Premium} / ${dm.products.length} products`);
   ok('admin settings expose and save the 22K premium',
     /name="gold22Premium"/.test(adminJs) && /gold22Premium: \+g\('gold22Premium'\)/.test(adminJs));
@@ -119,7 +122,8 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
   const errors = [];
   const dom = bootStore(w => w.addEventListener('error', e => { if (!(e.target && e.target.tagName === 'IMG')) errors.push(e.message || String(e.error)); }));
   const w = dom.window, d = w.document;
-  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
+  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length >= 77, 20000),
+    (w.Shivaa && w.Shivaa.state ? w.Shivaa.state.productsCache.length : 0) + ' pieces');
 
   w.location.hash = '#/rates';
   ok(v156

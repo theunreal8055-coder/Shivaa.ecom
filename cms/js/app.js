@@ -11,7 +11,14 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 165;
+const APP_REL = 166;
+/* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
+   `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
+   frozen token (the old `?v=125` on category photos, `?v=122` on the logo
+   fallback) pins that image on every device that has already seen it — the
+   same trap that kept a 15-day-old stylesheet on returning shoppers. Media
+   URLs now ride the release, exactly like the shell's script and link tags. */
+const ASSET_V = '?v=' + APP_REL;
 try {
   if ((window.__SHIVAA_REL || 0) > APP_REL && !sessionStorage.getItem('shv_rel_guard')) {
     sessionStorage.setItem('shv_rel_guard', '1');
@@ -185,15 +192,29 @@ async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token()) headers['Authorization'] = 'Bearer ' + token();
   let res;
+  /* v166 — a request that never answers used to be the worst outcome of all:
+     `fetch` neither resolved nor rejected, so boot()'s 6 s cap painted the shop
+     with ZERO products and the promised quiet re-paint never came — an empty
+     storefront until the shopper refreshed by hand. Every call is now bounded
+     (15 s default, 20 s for the catalogue) so a stall becomes a failure the
+     retry layers can actually see. */
+  const timeout = Math.max(1000, +(opts.timeout || 15000));
+  const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+  const timer = ctl ? setTimeout(() => { try { ctl.abort(); } catch (e) {} }, timeout) : null;
+  const fetchOpts = { ...opts, headers: opts.body instanceof FormData ? (token() ? { Authorization: 'Bearer ' + token() } : {}) : headers };
+  if (ctl) fetchOpts.signal = ctl.signal;
   try {
-    res = await fetch(path, { ...opts, headers: opts.body instanceof FormData ? (token() ? { Authorization: 'Bearer ' + token() } : {}) : headers });
+    res = await fetch(path, fetchOpts);
   } catch (netErr) {
+    if (timer) clearTimeout(timer);
     const first = !document.body.classList.contains('is-offline');
     ensureOfflineBar().classList.add('show'); document.body.classList.add('is-offline');
     if (first) toast('You appear to be offline — check your connection', 'err');
     const e = new Error('No connection — please check your internet and retry');
     e.isNetwork = true; throw e;
   }
+  if (timer) clearTimeout(timer);
+
   const data = await res.json().catch(() => ({}));
   // v80: a successful call proves connectivity — dismiss a stale offline
   // banner even if the browser never fired the flaky 'online' event
@@ -231,6 +252,7 @@ const state = {
   localWish: store.get('shv_wish', []),
   compare: store.get('shv_compare', []),      // product ids, max 4 — local shortlist only
   productsCache: [], cacheAt: 0,
+  catalogOk: false,   // v166 — true only once a real /api/products answer landed
 };
 
 /* v57: every category face is the studio photograph the house selected,
@@ -2560,7 +2582,7 @@ function catBarHTML() {
     /* v120 — Bug B: tile photos carry ?v=125 (busts poisoned pre-v113 SW entries) and a
        two-stage fallback — house logo, then hide to reveal the monogram underlay in
        css/v120.css — so a tile can never degrade to bare alt-text again. */
-    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&v=125' : '?v=125'); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
+    catBarItems().map(c => { const _cu = safeUrl(c.img); const _cb = ((_cu && _cu !== '#') ? _cu : '/images/logo.png'); const _cs = _cb + (_cb.indexOf('?') >= 0 ? '&' + ASSET_V.slice(1) : ASSET_V); return `<a href="${c.href}" class="cb-item"><span class="cb-img"><img src="${_cs}" alt="${esc(c.label)}" loading="eager" decoding="async" fetchpriority="low" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.onerror=null;this.style.display='none';}"><i class="cb-ring"></i></span><b>${c.label}</b></a>`; }).join('') +
     `</div><button class="cb-arrow cb-next" aria-label="Next">›</button></div>`;
 }
 /* v139 · CATEGORY PAGE FOCUS — the owner's report (18 Sep 2026):
@@ -3136,7 +3158,7 @@ pages.home = async (view) => {
   <section class="sec container" style="padding-bottom:26px">
     <div class="sec-head rv" style="margin-bottom:22px"><span class="label">Shop by category</span><h2>Find your <span class="disp-italic">forever</span></h2></div>
     <div class="cat-mini">
-      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}?v=125" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"><b>${c.name}</b></a>`).join('')}
+      ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}${ASSET_V}" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><b>${c.name}</b></a>`).join('')}
     </div>
   </section>
 
@@ -6759,7 +6781,7 @@ pages.catalogues = async (view) => {
         const name = esc(p.name.replace('Shivaa Ring Design', 'Design'));
         return `<div class="ds-card ${window._sel[p.id] ? 'on' : ''}" id="ds-${p.id}" data-cat="${esc(p.category)}" data-w="${esc(p.weightG)}" data-stone="${esc(p.stoneType || 'Plain')}" data-colour="${esc(p.stoneColour || (/(colour|ruby|emerald|sapphire|navratna|kundan|polki)/i.test((p.stoneType || '') + (p.stoneDesc || '')) ? 'Colour' : 'White'))}" data-purity="${esc(p.purity)}" data-name="${esc(p.name)}" data-sku="${esc(p.sku)}">
         <a class="ds-img ds-slider ${imgs.length > 1 ? 'has-multi' : ''}" href="#/product/${encodeURIComponent(p.id)}" aria-label="View ${name}">
-          <span class="ds-track">${imgs.map((src, i) => `<img src="${src}" decoding="async" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png?v=122'" alt="${i === 0 ? name : ''}" draggable="false">`).join('')}</span>
+          <span class="ds-track">${imgs.map((src, i) => `<img src="${src}" decoding="async" loading="lazy" onerror="this.onerror=null;this.src='/images/logo.png${ASSET_V}'" alt="${i === 0 ? name : ''}" draggable="false">`).join('')}</span>
           <span class="ds-wt">${p.weightG} g</span>
           ${imgs.length > 1 ? `<span class="ds-count" data-count>1/${imgs.length}</span>
             <button type="button" class="ds-arrow ds-prev" data-dir="-1" aria-label="Previous photo">‹</button>
@@ -9309,6 +9331,9 @@ const routes = {};
 Object.keys(pages).forEach(k => routes[k] = pages[k]);
 Object.assign(window.Shivaa, {
   api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,
+  /* v166 — the device's last-good catalogue + the honest catalogue flag, so the
+     retry layer in js/v166.js reads and writes exactly one copy */
+  catalogCacheRead, catalogCacheWrite,
   toggleCompare, removeCompare, clearCompare, copyCompareLink, waCompare, compareLink, compareItems,
   routes, price, fmt, esc, safeUrl, jsArg, productCard, mcTableHTML, openLogin,
   waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
@@ -9342,7 +9367,7 @@ function injectScript(src) {
 function loadStaffBundle() {
   if (window.ShivaaAdmin) return Promise.resolve();
   if (!_staffBundle) {
-    _staffBundle = injectScript('/js/qr.js?v=99')
+    _staffBundle = injectScript('/js/qr.js?v=' + APP_REL)
       .catch(() => { /* QR tags degrade gracefully; the panel must still open */ })
       /* v141 — the admin panel also carries the Cashfree One Click Checkout
          switches, but it was still fetched as ?v=128 from before v139 added
@@ -9376,6 +9401,13 @@ function route() {
   const view = $('#view');
   closeModal();
   if (typeof closeCart === 'function') closeCart();
+  /* v166 — NO navigation may inherit an open overlay. The mega panel and its
+     full-viewport backdrop used to stay on screen when the panel had been
+     opened by js/v116.js's early wiring (which skips app.js's close listeners)
+     — the shopper tapped Rings, the page changed underneath, the backdrop kept
+     swallowing every later tap, and it read as "clicking a category does
+     nothing". Owned unconditionally now; see js/v166.js for the full layer. */
+  try { if (typeof window.__shvCloseOverlays === 'function') window.__shvCloseOverlays(); } catch (e) {}
   while (_scrollLock.n > 0) unlockScroll();
   clearInterval(window._carTimer);
   // v101 — the bullion board's 30s poll lives only while the portal is open;
@@ -9596,7 +9628,7 @@ function renderSugg(qs) {
       `<div class="sugg-lbl">Popular searches</div>` +
       POPULAR_Q.map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=125" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 6).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}${ASSET_V}" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -9608,7 +9640,7 @@ function renderSugg(qs) {
       + `<div class="sugg-lbl">Try</div>`
       + POPULAR_Q.slice(0, 4).map(p => `<div class="sugg sugg-chip" data-q="${p}"><span class="sugg-ic">✦</span><span>${p}</span></div>`).join('')
       + `<div class="sugg-lbl">Shop by category</div>`
-      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}?v=125" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
+      + Object.entries(LIVE_CATS()).slice(0, 4).map(([k, c]) => `<a class="sugg sugg-cat" href="#/shop?category=${encodeURIComponent(k)}"><img src="${c.img}${ASSET_V}" alt="" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><span>${c.name}</span><span class="sugg-go">›</span></a>`).join('');
     el.classList.add('open');
     return;
   }
@@ -9850,6 +9882,28 @@ function decorate5D() {
   (function glow() { gx += (mx - gx) * 0.12; gy += (my - gy) * 0.12; cg.style.left = gx + 'px'; cg.style.top = gy + 'px'; requestAnimationFrame(glow); })();
 })();
 
+/* ─────────── v166 · the catalogue must never be silently missing ───────────
+   The owner's report: "sometimes the products on the page are shown and
+   sometimes it's all empty … sometimes we have to refresh it". Two ways in:
+   (a) /api/products fails (5xx, a dropped mobile connection) and the catch
+   turns it into `{products: []}` — painted as an empty shop with no retry;
+   (b) it HANGS, so the 6 s boot cap paints the shell with no pieces at all and
+   the re-paint never arrives. Both are answered here: a device keeps its
+   last-good catalogue for three weeks and paints from it instantly, fresh
+   pieces always win, and js/v166.js runs the visible retry chain for whatever
+   is still missing. */
+const CATALOG_KEY = 'shv_catalog_v166';
+const CATALOG_TTL = 1000 * 60 * 60 * 24 * 21;
+function catalogCacheRead() {
+  try {
+    const o = JSON.parse(localStorage.getItem(CATALOG_KEY) || 'null');
+    if (o && o.at && (Date.now() - o.at) < CATALOG_TTL && Array.isArray(o.products) && o.products.length) return o.products;
+  } catch (e) {}
+  return null;
+}
+function catalogCacheWrite(ps) {
+  try { if (ps && ps.length) localStorage.setItem(CATALOG_KEY, JSON.stringify({ at: Date.now(), products: ps })); } catch (e) {}
+}
 /* ─────────── boot ─────────── */
 async function wishIds() {
   if (!state.user) return [];
@@ -9863,11 +9917,22 @@ async function boot(isRedraw) {
      footer page-links hydrate in the background, and a hard 6 s cap (15 s on
      redraws) lifts the preloader and paints whatever has landed; if the cap
      beat a slow batch, the shop quietly re-paints the moment it arrives. */
+  /* v166 — paint from the device's last-good catalogue at once, so a slow or
+     stalled network can never show an empty shop (js/v166.js refreshes and
+     retries behind this). */
+  const _cachedCat = catalogCacheRead() || [];
+  /* the 6 campaign studs are pushed into productsCache at module load (a twin
+     of the server's campaign catalogue), so "is the catalogue here?" can only
+     be answered by counting REAL pieces */
+  const _realCount = () => (state.productsCache || []).filter(p => !p.isCampaignStud).length;
+  if (_cachedCat.length && !_realCount()) {
+    state.productsCache = _cachedCat.concat((state.productsCache || []).filter(p => p.isCampaignStud));
+  }
   const _firstBatch = Promise.all([
     token() ? api('/api/auth/me').catch(() => ({ user: null })) : Promise.resolve({ user: null }),
     api('/api/settings').catch(() => ({})),
     api('/api/making-charges').catch(() => ({ table: [] })),
-    api('/api/products').catch(() => ({ products: [] })),
+    api('/api/products', { timeout: 20000 }).catch(() => ({ products: [] })),
     api('/api/catalogs').catch(() => ({ catalogs: [] })),
     loadRates(),   // v117 — used to be a second serial await below
   ]);
@@ -9915,7 +9980,19 @@ async function boot(isRedraw) {
     }, true);
   }
   state.mcTable = mc.table || [];
-  state.productsCache = prods.products || []; state.cacheAt = Date.now();
+  /* v166 — fresh pieces always win and are kept on the device for the next
+     visit; a failed or empty answer never wipes a catalogue we already have
+     (which is what turned one bad request into "the products are all
+     empty"). `catalogOk` is the honest flag js/v166.js retries against. */
+  const _freshProds = (prods && prods.products) || [];
+  if (_freshProds.length) {
+    state.productsCache = _freshProds; state.catalogOk = true; catalogCacheWrite(_freshProds);
+  } else {
+    /* a failed or empty answer is NEVER "catalogue ok" — the device copy (if
+       any) still paints, and js/v166.js keeps retrying behind it */
+    state.catalogOk = false;
+  }
+  state.cacheAt = Date.now();
   ensureCampaignStuds();
   state.compare = normalizeCompare(state.compare).filter(id => state.productsCache.some(p => p.id === id));
   store.set('shv_compare', state.compare);
@@ -9952,7 +10029,7 @@ async function boot(isRedraw) {
   <div class="mega-in">
     <div class="mega-grid">${Object.entries(LIVE_CATS()).map(([k, c]) => `
       <a class="mega-tile" href="#/shop?category=${k}">
-        <span class="mt-img"><img src="${c.img}?v=125" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"></span>
+        <span class="mt-img"><img src="${c.img}${ASSET_V}" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"></span>
         <span class="mt-tx"><b>${c.name}</b><small>${c.sub}</small></span>
       </a>`).join('')}
     </div>
@@ -9983,7 +10060,7 @@ async function boot(isRedraw) {
           list = document.createElement('div');
           list.id = 'dwCatList'; list.className = 'dw-catlist';
           list.innerHTML = Object.entries(LIVE_CATS()).map(([k, c]) =>
-            `<a href="#/shop?category=${k}"><img src="${c.img}?v=125" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png?v=125';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
+            `<a href="#/shop?category=${k}"><img src="${c.img}${ASSET_V}" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><span>${esc(c.name)}</span></a>`).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }
         const open = !list.classList.contains('open');

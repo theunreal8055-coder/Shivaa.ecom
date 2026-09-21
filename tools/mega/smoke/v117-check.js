@@ -70,16 +70,21 @@ const until = async (fn, ms = 8000, step = 60) => {
 
   ok('fonts.css is file-based (no base64 payload)',
     !/base64,/.test(fontsCss) && /url\('\/fonts\//.test(fontsCss));
+  /* v166 fix-forward: the @font-face src URLs now carry the release stamp
+     (?v=166 — a font is served with a 365-day freshness window), so the check
+     strips the query before touching the file system. */
   const fontRefs = [...fontsCss.matchAll(/url\('(\/fonts\/[^']+)'\)/g)].map(m => m[1]);
-  const fontFiles = [...new Set(fontRefs)];
+  const fontFiles = [...new Set(fontRefs.map(u => u.split('?')[0]))];
   ok('every @font-face file exists on disk (' + fontFiles.length + ' files)',
     fontFiles.length >= 3 && fontFiles.every(f => fs.existsSync(path.join(CMS, f))));
   ok('font bytes on disk are the unique-font set (≤ 90 KB, was ~265 KB)',
     fontFiles.reduce((a, f) => a + fs.statSync(path.join(CMS, f)).size, 0) < 90 * 1024,
     fontFiles.reduce((a, f) => a + fs.statSync(path.join(CMS, f)).size, 0) + ' bytes');
 
-  ok('index.html preloads the webfonts',
-    (html.match(/rel="preload" href="\/fonts\//g) || []).length === fontFiles.length);
+  const fontUrls = [...html.matchAll(/rel="preload" href="(\/fonts\/[^"]+)"/g)].map(m => m[1]);
+  ok('index.html preloads the webfonts (at the release stamp the CSS asks for)',
+    fontUrls.length === fontFiles.length && fontUrls.every(u => /^\/fonts\/[a-z0-9-]+\.woff2\?v=\d+$/.test(u)),
+    fontUrls.join(', '));
 
   const htmlNoNoscript = html.replace(/<noscript>[\s\S]*?<\/noscript>/g, '');
   const blockingCss = [...htmlNoNoscript.matchAll(/<link rel="stylesheet" href="(\/css\/[^"]+)"/g)].map(m => m[1]);
@@ -105,11 +110,19 @@ const until = async (fn, ms = 8000, step = 60) => {
   const swList = [...swFilesBlock.matchAll(/'([^']*)'/g)].map(m => m[1]);
   /* the post-paint trio is stamped by v117.js, not index.html — read it from
      there so a re-bump (v126 re-stamps boost.js) cannot desync this gate */
-  const boostStamp = (/\/js\/boost\.js\?v=([^']+)/.exec(v117Js) || [, '46'])[1];
+  /* v166 fix-forward: v117.js no longer hardcodes the trio's stamps — it injects
+     them at whatever release is live (`window.__SHIVAA_REL`), which is what
+     keeps a returning device off the frozen ?v=107 copies. The gate reads the
+     release from the shell and expects exactly that. */
+  const SHELL_REL = (/__SHIVAA_REL=(\d+)/.exec(html) || [, '166'])[1];
+  const boostStamp = SHELL_REL;
   const requested = new Set([
     ...blockingCss, ...deferredCss, ...staticJs,
-    ...['aurum.js?v=107', 'motion.js?v=107', 'boost.js?v=' + boostStamp].map(u => '/js/' + u),
-    ...fontFiles, '/manifest.webmanifest', '/offline.html',
+    ...['aurum.js?v=' + boostStamp, 'motion.js?v=' + boostStamp, 'boost.js?v=' + boostStamp].map(u => '/js/' + u),
+    /* v166: the shell asks for fonts WITH the release stamp (the CSS asks for the
+       same URL), so the precache comparison must use the stamped URLs. */
+    ...fontUrls,
+    '/manifest.webmanifest', '/offline.html',
     '/images/icons/icon-192.png', '/images/icons/icon-512.png',
     '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png',
   ]);
@@ -121,7 +134,10 @@ const until = async (fn, ms = 8000, step = 60) => {
      in the SHELL cache by the fetch handler itself — it is simply absent from
      the install list. Anything named here is a deliberate network-only shell
      request; every other gap, and every relic, still fails this check. */
-  const NETWORK_ONLY = ['/js/v127.js?v=127'];
+  /* v166 fix-forward: v127.js — and now v166.js — are precached by the worker
+     itself, so nothing is network-only any more. The gate keeps its teeth:
+     any gap or relic still fails. */
+  const NETWORK_ONLY = [];
   const missing = [...requested].filter(u => !swStatic.includes(u) && !NETWORK_ONLY.includes(u));
   const staleAllow = NETWORK_ONLY.filter(u => !requested.has(u));   // an allow-list entry the shell no longer loads
   const extra = swStatic.filter(u => !requested.has(u));

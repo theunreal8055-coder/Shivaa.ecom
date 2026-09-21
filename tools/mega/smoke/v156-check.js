@@ -186,13 +186,18 @@ console.log('\n· 7 — BUG B3: the 12 h chart can never paint NaN again:');
 
 console.log('\n· 8 — stamp lockstep (156+) incl. the loader stamps:');
 {
-  ok('APP_REL 156+', /const APP_REL = 15\d;/.test(app));
-  ok('index __SHIVAA_REL=156+ + loader app.js?v=156+', /window\.__SHIVAA_REL=15\d;/.test(idx) && /\/js\/app\.js\?v=15\d"/.test(idx));
-  ok('sw SHELL v156+ + PRECACHE /js/app.js?v=156+', /'shivaa-shell-v15\d'/.test(sw) && /'\/js\/app\.js\?v=15\d'/.test(sw));
+  /* v166 fix-forward: the era pins (15\d) closed this gate at v159 — a later
+     release re-stamps every asset. The durable law is a FLOOR plus lockstep. */
+  const num = (t, re) => Number((re.exec(t) || [0, 0])[1]) || 0;
+  ok('APP_REL 156+', num(app, /const APP_REL = (\d+);/) >= 156);
+  ok('index __SHIVAA_REL=156+ + loader app.js?v=156+',
+    num(idx, /window\.__SHIVAA_REL=(\d+);/) >= 156 && num(idx, /\/js\/app\.js\?v=(\d+)"/) >= 156);
+  ok('sw SHELL v156+ + PRECACHE /js/app.js?v=156+',
+    num(sw, /'shivaa-shell-v(\d+)'/) >= 156 && num(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 156);
   ok('no stale 155 stamp left in the five boot spots',
     !/const APP_REL = 155;/.test(app) && !idx.includes('__SHIVAA_REL=155') && !idx.includes('/js/app.js?v=155"')
     && !sw.includes('shivaa-shell-v155') && !sw.includes("'/js/app.js?v=155'"));
-  ok("api rel 156+ (mind the 3-space gap)", /'rel'   => 15\d,/.test(api));
+  ok("api rel 156+ (front of the version payload)", (Number((/'rel'\s*=>\s*(\d+),/.exec(api) || [0, 0])[1]) || 0) >= 156);
   ok('admin loader still FOLLOWS APP_REL (v152 design — no manual stamp to miss)',
     app.includes("injectScript('/js/admin.js?v=' + APP_REL)"));
 }

@@ -62,12 +62,13 @@ function bootStore(extra = '') {
   const v116src = fs.readFileSync(path.join(CMS, 'js/v116.js'), 'utf8');
 
   console.log('\nSHIVAA v120 check\n\n· A · static gates');
+  /* v166 fix-forward: stamps are release numbers, never a layer's era. */
   ok('the shell loads the v120 layer (css + js, after the v119 layer)',
-    /\/css\/v120\.css\?v=(120|140)/.test(html) && /\/js\/v120\.js\?v=(120|140)/.test(html) &&
-    (html.indexOf('/js/v119.js?v=140') !== -1 || html.indexOf('/js/v119.js?v=119') !== -1) &&
-    html.indexOf('/js/v119.js?v=140') < html.indexOf('/js/v120.js?v=140'));
+    /\/css\/v120\.css\?v=\d+/.test(html) && /\/js\/v120\.js\?v=\d+/.test(html) &&
+    /\/js\/v119\.js\?v=\d+/.test(html) &&
+    html.search(/\/js\/v119\.js\?v=/) < html.search(/\/js\/v120\.js\?v=/));
   ok('service worker precaches v120 and the media cache is the v120 generation',
-    /'\/css\/v120\.css\?v=(120|140)'/.test(sw) && /'\/js\/v120\.js\?v=(120|140)'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
+    /'\/css\/v120\.css\?v=\d+'/.test(sw) && /'\/js\/v120\.js\?v=\d+'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps stay a consistent triple (shell = script = worker)',
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
@@ -84,12 +85,17 @@ function bootStore(extra = '') {
     /loading="eager" decoding="async" fetchpriority="low"/.test(app));
   ok('Bug B: the tile monogram underlay can never be bare text',
     /\.cb-img::after/.test(v120css) && /content: '✦'/.test(v120css) && /\.cb-img img \{ position: relative; z-index: 1/.test(v120css));
+  /* v166 fix-forward: the photo-URL helper is what matters — the numeric key
+     is whatever release stamped it (\d{2,3} covers v120+ and every later era). */
   ok('Bug B: every category render site carries a versioned photo URL (v116 key re-stamped)',
-    /cat-mini-card"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(app) &&
-    /mt-img"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(app) &&
-    /dwCatList/.test(app) && /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(app) &&
-    /c\.img \+ '\?v=12(0|3|4|5|6|7|8|9)|13[0-9]"/.test(v116src) &&
-    /\/js\/v116\.js\?v=12(0|3|4|5|6|7|8|9)|13[0-9]/.test(html) && /'\/js\/v116\.js\?v=12(0|3|4|5|6|7|8|9)|13[0-9]'/.test(sw));
+    /* v166 fix-forward: the stamp is no longer a literal — it rides the release
+       (${ASSET_V} in app.js, window.__SHIVAA_REL in v116.js), which is strictly
+       stronger: a release bump re-stamps the photo URL. */
+    /cat-mini-card"><img src="\$\{c\.img\}(\$\{ASSET_V\}|\?v=\d{2,3})"/.test(app) &&
+    /mt-img"><img src="\$\{c\.img\}(\$\{ASSET_V\}|\?v=\d{2,3})"/.test(app) &&
+    /dwCatList/.test(app) && /#\/shop\?category=\$\{k\}"><img src="\$\{c\.img\}(\$\{ASSET_V\}|\?v=\d{2,3})"/.test(app) &&
+    /c\.img \+ (ASSET_V|'\?v=\d{2,3}"')/.test(v116src) &&
+    /\/js\/v116\.js\?v=\d+/.test(html) && /'\/js\/v116\.js\?v=\d+'/.test(sw));
   ok('mobile pack JS: haptics + back-button overlays, self-guarded',
     /Shivaa\.haptic/.test(v120js) && /_shvHaptic/.test(v120js) && /wrapTap\('addToCart', 20\)/.test(v120js) &&
     /wrapTap\('toggleWish', 12\)/.test(v120js) && /shvOverlay/.test(v120js) && /popstate/.test(v120js) &&
@@ -107,7 +113,11 @@ function bootStore(extra = '') {
   const errors = [];
   const dom = bootStore(w => w.addEventListener('error', e => { if (!(e.target && e.target.tagName === 'IMG')) errors.push(e.message || String(e.error)); }));
   const w = dom.window, d = w.document;
-  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length === 77, 20000));
+  /* v166 fix-forward: the live catalogue carries the owner's 77 rings PLUS the
+     6 campaign studs (their ids are the same, so the merge dedupes) — a floor,
+     not a pin. */
+  ok('storefront boots', await until(() => w.Shivaa && w.Shivaa.state.productsCache.length >= 77, 20000),
+    (w.Shivaa && w.Shivaa.state ? w.Shivaa.state.productsCache.length : 0) + ' pieces');
   ok('v120.js executed (haptics live, actions wrapped)',
     await until(() => typeof w.Shivaa.haptic === 'function' && !!w.Shivaa.addToCart._shvHaptic && !!w.Shivaa.toggleWish._shvHaptic));
 
@@ -131,11 +141,11 @@ function bootStore(extra = '') {
 
   w.location.hash = '#/';
   ok('home category tiles carry versioned photo URLs',
-    await until(() => [...d.querySelectorAll('.cb-img img')].length > 0 && [...d.querySelectorAll('.cb-img img')].every(i => /\?v=12(0|3|4|5|6|7|8|9)|13[0-9]/.test(i.src))));
+    await until(() => [...d.querySelectorAll('.cb-img img')].length > 0 && [...d.querySelectorAll('.cb-img img')].every(i => /\?v=\d{2,3}/.test(i.src))));
   const tileImg = d.querySelector('.cb-img img');
   tileImg.dispatchEvent(new w.Event('error'));
   ok('tile fallback stage 1: a failed photo swaps to the house logo',
-    /\/images\/logo\.png\?v=12(0|3|4|5|6|7|8|9)|13[0-9]/.test(tileImg.src));
+    /\/images\/logo\.png\?v=\d{2,3}/.test(tileImg.src));
   tileImg.dispatchEvent(new w.Event('error'));
   ok('tile fallback stage 2: a failed logo hides to the monogram underlay, never bare text',
     tileImg.style.display === 'none');
