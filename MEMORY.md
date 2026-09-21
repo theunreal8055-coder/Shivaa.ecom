@@ -1,5 +1,29 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## Current state — v170 desktop category update (21 Sep 2026)
+
+Read `docs/SESSION-STATE-2026-09-21-v170.md` and `DEPLOY-v170.md` first.
+This supersedes the v169 “latest”/branch banners below; older notes are history.
+
+- Branch `arena/01a0c384-shivaa-ecom`; source `0b0a7e8`, package `b601c23`.
+- **v170 ZIP:** 19 files / 545,711 bytes; full v165+ required. Permanent link:
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/b601c237433ac207e2489cac9d7e6b560864b9d1/shivaa-update-v170.zip
+- SHA-256 `4ec884c4d5f8634a47f3b4112f2d36ff26010cf4b033b3fea48b21920310c60e`.
+- Desktop menu is viewport-owned and no longer disappears on focus/scroll.
+  Category activation precedes dismissal; same-category redraw occurs once;
+  native modified links and mobile drawer are preserved. Shop filters no longer
+  read the animated clone of the prior category, which caused wrong/empty results.
+- **97/97 Chromium browser checks** pass on source AND actual ZIP overlay;
+  v169 control 19/97. All 38 active legacy suites have passing evidence, but the
+  last full run had one transient v156 PHP RTGS-equality failure; isolated rerun
+  passed 14/14 unchanged. Details and limits are in the new session record.
+- Shell/index/app/API/worker **170**, media cache intentionally **168**.
+  Published v169 archive unchanged. No data/uploads/media/credentials/.htaccess
+  packaged or modified; no main merge or hosting deployment. **NOT live-verified.**
+- Forward only. Install the whole ZIP together beside index.html/api.php after
+  backup; never just sw.js. Real affected laptop/hosting acceptance remains.
+
+
 ## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
 
 **Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change

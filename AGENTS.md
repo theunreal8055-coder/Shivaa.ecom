@@ -2,34 +2,32 @@
 
 ## Read first
 
-1. `docs/SESSION-STATE-2026-09-21-v169.md`, then the final-state sections of
-   `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `HANDOFF.md`, `ARENA-STATE.md`.
-   Older “current/newest”, no-ZIP and release-freeze banners are historical.
-2. `tools/mega/audit/DEFECT-LEDGER-v169.md` and `DEPLOY-v169.md`.
-3. Actual branch, diff and code. Documents have contained stale counts/labels;
-   verify before repeating them.
+1. `docs/SESSION-STATE-2026-09-21-v170.md`, `DEPLOY-v170.md`, and current
+   sections of `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `HANDOFF.md`, `ARENA-STATE.md`.
+2. For the preserved prior audit: `docs/SESSION-STATE-2026-09-21-v169.md` and
+   `tools/mega/audit/DEFECT-LEDGER-v169.md`. Old release/branch banners are history.
+3. Actual branch, diff and code; verify document claims before repeating them.
 
 ## Current source state (21 September 2026)
 
-- Storefront/source release **169**; hardened media cache deliberately stays
-  **168** because no media changed.
-- Prior ledgers:104 repairs; v169 adds **36**, for **140 cumulatively recorded**.
-  B20 is separately identified hardening, not a claimed cross-customer exploit.
-- **Published, remotely verified, NOT live-deployed.** Publication commit
-  `f847d85057a112296c59ef58a35731a184b74194`; source `db52583`. The owner received the
-  immutable link recorded in the final session record. The new
-  `shivaa-update-v169.zip`:17 cumulative code files, built from `db52583`.
-  Requires full v165+; see `DEPLOY-v169.md` for hash/extraction/overlay evidence.
-  No DB/uploads/credentials/media/host configuration is packaged.
-- Actual ZIP overlay checks pass:25/25 page,28/28 PHP,39/39 v168 boundaries,
-  12/12 signatures,17/17 v164 PHP,24/24 direct checkout,36/36 v167.
-  Existing v168 ZIP is unchanged; the new archive is reproducible using
-  `tools/mega/make-v169-zip.py` and the documented source commit.
-- Current session branch: `arena/01a0c31d-shivaa-ecom`. Obey the active Arena
-  session's branch restrictions; do not switch branches or merge main on the
-  strength of an old handoff instruction.
-- App: `cms/` (PHP 8 API, vanilla JS hash-routed SPA, JSON-backed production data).
-- Do not mistake the static preview's fixture responses for a live backend.
+- **v170 category fix**, source `0b0a7e8`, package `b601c23`. Shell release170,
+  media cache168 intentionally unchanged. Active branch `arena/01a0c384-shivaa-ecom`;
+  always obey the live Arena session branch restriction over historical notes.
+- New archive: `shivaa-update-v170.zip`, 19 cumulative files /545,711 bytes,
+  full v165+ required. Hash/install/permanent link in the v170 session record.
+- Shop selectors exclude page-transition snapshot controls; desktop menu moved
+  outside blurred header, bounded to viewport; scroll no longer kills selection;
+  navigation before dismissal; repeat/modified/keyboard/mobile/resize fixes.
+- **97/97 real Chromium tests** pass on source and actual ZIP overlay; unchanged
+  v169 control19/97. `npm run test:categories` in tools/mega/smoke is essential:
+  jsdom cannot expose geometry, WAAPI snapshot or real pointer-sequence failures.
+- All38 active legacy suites have passing evidence. Last full run37 PASS/16 SKIP/
+  1 FAIL (v156 whole RTGS object comparison); unchanged isolated rerun14/14 passes.
+  Do not hide that intermittent harness result or claim all tests always pass.
+- **NOT live-deployed.** No main merge, hosting workflow, real payment, catalogue,
+  database, credentials or uploads changed. Prior v169 ZIP/hash unchanged.
+- App: `cms/` (PHP8 API, vanilla JS hash SPA, JSON-backed production data).
+  Static/browser fixtures are not a live backend.
 
 ## Forward-only / do not repeat completed work
 
@@ -41,7 +39,7 @@
   Missing scratch logs do not mean a fix is absent. Do not replay non-idempotent
   `work/audit169/backend.py` / `frontend.py` patch scripts.
 - The complete product/test/package inventory and remaining work are recorded
-  in `docs/SESSION-STATE-2026-09-21-v169.md`. Do not redo or recount those repairs.
+  in `docs/SESSION-STATE-2026-09-21-v170.md`. Do not redo or recount those repairs.
 - A docs-only update needs no new app release or replacement archive. Preserve
   the published ZIP/hash and immutable download link. Do not call it installed
   or live without owner/host evidence.
@@ -78,8 +76,8 @@ cd ../../..
 node tools/mega/php-sweep/sweep.mjs
 ```
 
-- Last verified belt: **38 active suites pass, 16 retired-feature suites skip,
-  0 fail**. The runner explicitly distinguishes SKIP from PASS.
+- Regression evidence and the intermittent legacy RTGS assertion are recorded
+  above. The runner explicitly distinguishes SKIP from PASS.
 - PHP can execute via the installed PHP-WASM dependency. A parser pass is not
   runtime proof; test the relevant real PHP block/endpoints too.
 - v169 gates: **28/28 executed PHP**, **25/25 executed page/print cases**.
