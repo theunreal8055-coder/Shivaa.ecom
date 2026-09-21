@@ -37,7 +37,14 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '../../..');
 const CMS = process.env.SMOKE_CMS || path.join(ROOT, 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
-const REL = 166;
+/* v167 fix-forward: this gate used to pin the literal 166. A later release
+   legitimately re-stamps EVERY asset URL — it is the only way a ?v= URL cached
+   for a year can ever move (that was the owner's "people still see the
+   old version") — so the durable law is the FLOOR plus the triple moving
+   together. The release under test is read from the shell itself. */
+const REL_FLOOR = 166;
+const REL = Math.max(REL_FLOOR, Number((/window\.__SHIVAA_REL=(\d+);/.exec(
+  fs.readFileSync(path.join(CMS, 'index.html'), 'utf8')) || [0, 0])[1]) || REL_FLOOR);
 
 const results = [];
 const ok = (name, pass, detail = '') => {
@@ -86,7 +93,7 @@ function boot({ startHash = '', innerWidth = 1280, fetchMode = 'ok', failFirst =
                 stripV166 = false, seedCatalog = false, versionRel = REL, versionForce = true,
                 swWaiting = null, swPosts = null } = {}) {
   const html = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8')
-    .replace(/<script src="\/js\/v166\.js\?v=166" defer><\/script>/, stripV166 ? '' : m => m);
+    .replace(/<script src="\/js\/v166\.js\?v=\d+" defer><\/script>/, stripV166 ? '' : m => m);
   const navs = { n: 0, urls: [] };
   const vc = new VirtualConsole();
   vc.on('jsdomError', e => {
@@ -184,7 +191,7 @@ function boot({ startHash = '', innerWidth = 1280, fetchMode = 'ok', failFirst =
     `rel stamps: ${(idx.match(/__SHIVAA_REL=(\d+)/) || [])[1]} / ${(app.match(/const APP_REL = (\d+)/) || [])[1]} / ${(sw.match(/const REL = (\d+)/) || [])[1]}`);
 
   ok('the v166 layer is loaded LAST, with the current stamp',
-    /<script src="\/js\/v166\.js\?v=166" defer><\/script>/.test(idx) &&
+    new RegExp(`<script src="/js/v166\\.js\\?v=${REL}" defer></script>`).test(idx) &&
     idx.indexOf('/js/v166.js') > idx.indexOf('/js/v140.js'),
     'v166 tag: ' + /<script src="\/js\/v166\.js[^>]*>/.test(idx));
 

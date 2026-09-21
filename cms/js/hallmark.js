@@ -41,7 +41,7 @@
   function productPanel(product, inLookup = false, hideHandoffLink = false) {
     const entries = publicEntries(product);
     return `<section class="hm-product" aria-label="Piece hallmark information">
-      <div class="hm-product-head"><h3>BIS hallmark / HUID</h3><span class="hm-badge">${entries.length ? 'Recorded · not verified' : 'HUID not provided'}</span></div>
+      <div class="hm-product-head"><h2>BIS hallmark / HUID</h2><span class="hm-badge">${entries.length ? 'Recorded · not verified' : 'HUID not provided'}</span></div>
       ${entries.length ? `<p>Staff-entered references only. These are <b>not BIS verification results</b> and may not identify the piece supplied to you.</p>
         <ul class="hm-records">${entries.map(e => `<li><span>${esc(e.pieceLabel)}</span><code>${esc(e.huid)}</code>${inLookup ? `<button type="button" class="btn btn-ghost btn-sm" data-hm-use="${esc(e.huid)}">Use this HUID</button>` : ''}</li>`).join('')}</ul>`
         : '<p>No piece-level HUID has been provided for this listing. This is missing catalogue data, <b>not a BIS finding</b>.</p>'}
