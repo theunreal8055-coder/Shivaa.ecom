@@ -492,3 +492,10 @@ Owner (non-technical) reported five things by phone-style message. **All five we
 
 ## Pending owner deploys (Hostinger)
 - `bullion-update-20260914.zip` → `app.js` at found path; `connect-rates-bullion-20260914.zip` → `public_html/api.php` (status unknown; code is on main via PR #31 so the auto-sync cron deploys cms/ code regardless).
+
+## Session 2026-09-21 — v170 final desktop Categories navigation repair
+- Owner confirmed the desktop/laptop Categories panel displayed all categories but selected tiles still did not navigate; mobile remained healthy.
+- Root hardening: `cms/js/v166.js` no longer relies on the anchor default action amid competing legacy panel listeners. Its capture owner now closes overlays, cancels competing propagation, directly commits the selected internal hash, and redraws an already-current category. Mouse, keyboard and touch share this route.
+- Coherent release bump to 170: index/app/API/worker/v117 fallback and every shell/worker asset stamp. No catalogue, product, customer, financial, upload, credential or `.htaccess` data changed.
+- Evidence: v166 desktop/slow-boot/control gate 32/32; standard belt 25/25 page, 28/28 PHP, 39/39 v168 boundary and 12/12 signatures; JS syntax/diff checks clean.
+- Delivery: `shivaa-update-v170.zip` is a root-layout six-file update; installation guide `DEPLOY-v170.md`. Publication/deployment status must be updated after push; source work alone is not live deployment.

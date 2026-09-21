@@ -108,9 +108,22 @@
       if (row) {
         var href = row.getAttribute('href') || '';
         closeOverlays();
-        if (href && href.charAt(0) === '#' && location.hash === href) {
+        /* v170 — own the category navigation as well as the overlay close.
+           Relying on the anchor's default action left desktop navigation at the
+           mercy of the older capture/bubble listeners on the panel. On some
+           laptop browsers the panel disappeared but the hash never committed,
+           so the selected category did not open. A category tile is an
+           in-app hash destination: cancel competing defaults, commit that hash
+           directly, and explicitly redraw when it is already current. This is
+           equally valid for mouse click, keyboard activation and touch. */
+        if (href && href.charAt(0) === '#') {
           e.preventDefault();
-          try { w.Shivaa && w.Shivaa.redraw && w.Shivaa.redraw(); } catch (_) {}
+          e.stopPropagation();
+          if (location.hash !== href) {
+            location.hash = href;
+          } else {
+            try { w.Shivaa && w.Shivaa.redraw && w.Shivaa.redraw(); } catch (_) {}
+          }
         }
         return;
       }

@@ -1008,3 +1008,9 @@ PGS5059 Kanchan
 - **Continue ring photoshoots:** new chat → connect repo → "Read HANDOFF.md first, continue the ring photoshoots" (agent follows `tools/photoshoot/SESSION-STATE.md`, 2 rings/turn).
 - **Deploy what's done:** new chat → "Read HANDOFF.md first, deploy" (agent verifies staging, commits, pushes; server cron finishes within ~5 min — or agent gives you the one Path B command if no cron yet).
 - **One-time auto-deploy setup:** follow `deploy/AUTOMATION.md` (5 minutes), then deployment is fully automatic forever.
+
+## Session 2026-09-21 — v170 desktop Categories final fix
+- Fixed the remaining laptop/desktop failure where all 17 tiles appeared but selecting one could fail to commit its route. The category capture owner now closes overlays and directly navigates to the tile hash; selecting the current category explicitly redraws it. Mobile behaviour is preserved.
+- Release handshake moved coherently to 170. No database/catalogue/customer/payment/upload data changed.
+- Tests: category/slow-boot/control 32/32; retained v169/v168 belt 25/25 + 28/28 + 39/39 + 12/12.
+- Deliverables: `shivaa-update-v170.zip` (six root-layout files) and `DEPLOY-v170.md`. Do not call it live until the owner installs and verifies it on hosting.
