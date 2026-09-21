@@ -35,7 +35,7 @@
      warm cache AND, because `.htaccess` serves any ?v= URL immutably for a
      year, a returning device kept running the old animation code: the owner's
      "some animations or graphics are not loaded". */
-  var REL = window.__SHIVAA_REL || 167;
+  var REL = window.__SHIVAA_REL || 169;
   var IDLE = window.requestIdleCallback || function (fn) { return setTimeout(fn, 300); };
 
   function inject(src) {

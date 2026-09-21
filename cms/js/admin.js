@@ -2028,7 +2028,8 @@ window.ShivaaAdmin.printReceipt = id => {
   const paid = o.amountPaid || (o.paymentStatus === 'Paid' ? o.total : 0);
   const bal = Math.max(0, (o.total || 0) - paid);
   const w = window.open('', '_blank', 'width=380,height=700');
-  w.document.write(`<!doctype html><html><head><title>Receipt ${o.id}</title><style>
+  if (!w) return toast('Allow pop-ups to print the receipt', 'err');
+  w.document.write(`<!doctype html><html><head><title>Receipt ${esc(o.id)}</title><style>
     @page{size:80mm auto;margin:2mm}
     body{font-family:'Courier New',monospace;width:76mm;margin:0 auto;color:#000;font-size:11px}
     h2{text-align:center;font-size:14px;margin:2px 0}.c{text-align:center}.m{font-size:10px;color:#333}
@@ -2037,15 +2038,17 @@ window.ShivaaAdmin.printReceipt = id => {
     @media(max-width:60mm){body{width:54mm;font-size:10px}}
   </style></head><body>
   <h2>SHIVAA JEWELLERS</h2>
-  <div class="c m">Sadar Bazaar, Jayal, Nagaur (Raj.)<br>+91 89050 05921 · shivaa.in<br>${S.gstin ? 'GSTIN: ' + S.gstin : ''}</div>
+  <div class="c m">Sadar Bazaar, Jayal, Nagaur (Raj.)<br>+91 89050 05921 · shivaa.in<br>${S.gstin ? 'GSTIN: ' + esc(S.gstin) : ''}</div>
   <div class="ln"></div>
-  <table><tr><td>Receipt</td><td class="r"><b>${o.invoiceNo || o.id}</b></td></tr>
+  <table><tr><td>Receipt</td><td class="r"><b>${esc(o.invoiceNo || o.id)}</b></td></tr>
   <tr><td>Date</td><td class="r">${new Date(o.createdAt).toLocaleString('en-IN')}</td></tr>
   <tr><td>Customer</td><td class="r">${esc(o.userName || '')}</td></tr></table>
   <div class="ln"></div>
-  <table>${(o.items || []).map(it => `<tr><td>${Number(it.qty) || 0} x ${escP(it.name || '')}${it.size ? ' (' + escP(it.size) + ')' : ''}</td><td class="r">${(Number(it.unitPrice) || 0).toLocaleString('en-IN')}</td></tr>`).join('')}
+  <table>${(o.items || []).map(it => `<tr><td>${Number(it.qty) || 0} x ${escP(it.name || '')}${it.size ? ' (' + escP(it.size) + ')' : ''}</td><td class="r">${((Number(it.unitPrice) || 0) * (Number(it.qty) || 0)).toLocaleString('en-IN')}</td></tr>`).join('')}
   ${o.shipping ? `<tr><td>Shipping</td><td class="r">${o.shipping.toLocaleString('en-IN')}</td></tr>` : ''}
   ${o.prepaidDiscount ? `<tr><td>Prepaid discount</td><td class="r">-${o.prepaidDiscount.toLocaleString('en-IN')}</td></tr>` : ''}
+  ${o.discount ? `<tr><td>Discount</td><td class="r">-${Number(o.discount).toLocaleString('en-IN')}</td></tr>` : ''}
+  ${o.codFee ? `<tr><td>COD fee</td><td class="r">${Number(o.codFee).toLocaleString('en-IN')}</td></tr>` : ''}
   </table>
   <div class="ln"></div>
   <table><tr><td><b>TOTAL</b></td><td class="r"><b>Rs.${(o.total || 0).toLocaleString('en-IN')}</b></td></tr>
@@ -3584,6 +3587,7 @@ window.ShivaaAdmin.openAudit = async () => {
 window.ShivaaAdmin.printInvoice = (id) => {
   const o = (window._adminOrders || []).find(x => x.id === id);
   if (!o) return;
+  if (!o.invoiceNo) return toast('Tax invoice not issued yet — confirm payment first, or print an order receipt.', 'err');
   /* v142 — bill a guest express order to Cashfree's verified address/name. */
   const cf2 = (o.cfCheckout && o.cfCheckout.shipping) || null;
   const pAddr = cf2
@@ -3593,15 +3597,14 @@ window.ShivaaAdmin.printInvoice = (id) => {
   const s = state.settings || {};
   const gstin = s.gstin || 'GSTIN on file';
   const w = window.open('', '_blank');
-  let subTotal = 0, taxTotal = 0;
+  if (!w) return toast('Allow pop-ups to print the invoice', 'err');
   const rows = (o.items || []).map(it => {
     const qty = it.qty || 1;
     const gst = Math.round((it.gst || 0) * qty);
     const taxable = Math.max(0, Math.round((it.unitPrice || 0) * qty - gst));
-    subTotal += taxable; taxTotal += gst;
     return `<tr><td>${esc(it.name || '')}${it.size ? ' · ' + esc(it.size) : ''}<br><small>HSN ${esc(it.hsn || '71131910')}</small></td><td>${esc(it.purity || '')}</td><td class="r">${it.weightG ? Number(it.weightG).toFixed(2) : ''}</td><td class="r">${qty}</td><td class="r">${taxable.toLocaleString('en-IN')}</td><td class="r">${Math.round(gst / 2).toLocaleString('en-IN')}</td><td class="r">${(gst - Math.round(gst / 2)).toLocaleString('en-IN')}</td><td class="r">${(taxable + gst).toLocaleString('en-IN')}</td></tr>`;
   }).join('');
-  w.document.write(`<!doctype html><html><head><title>Invoice ${o.invoiceNo || o.id}</title>
+  w.document.write(`<!doctype html><html><head><title>Invoice ${esc(o.invoiceNo || o.id)}</title>
   <style>
     body{font-family:'Segoe UI',Arial,sans-serif;color:#111;max-width:800px;margin:20px auto;padding:0 14px;font-size:12px}
     h1{font-size:18px;margin:0}.muted{color:#555;font-size:11px}
@@ -3611,17 +3614,19 @@ window.ShivaaAdmin.printInvoice = (id) => {
     @media print{@page{margin:8mm}}
     @media (max-width:64mm){body{font-size:9px;max-width:58mm;margin:0 auto;padding:2mm}th:nth-child(2),td:nth-child(2),th:nth-child(3),td:nth-child(3){display:none}}
   </style></head><body>
-  <div class="flx"><div><h1>Shivaa Jewellers</h1><div class="muted">Jayal, Nagaur, Rajasthan · ${gstin}<br>Ph. +91 89050 05921 · shivaa.in</div></div>
-  <div style="text-align:right"><b>TAX INVOICE</b><br>${o.invoiceNo || ''}<br><span class="muted">${new Date(o.createdAt).toLocaleDateString('en-IN')}</span></div></div>
+  <div class="flx"><div><h1>Shivaa Jewellers</h1><div class="muted">Jayal, Nagaur, Rajasthan · ${esc(gstin)}<br>Ph. +91 89050 05921 · shivaa.in</div></div>
+  <div style="text-align:right"><b>TAX INVOICE</b><br>${esc(o.invoiceNo || '')}<br><span class="muted">${new Date(o.createdAt).toLocaleDateString('en-IN')}</span></div></div>
   <div class="flx" style="margin-top:8px"><div><b>Bill to:${cf2 ? ' <span class="muted">(Cashfree-verified)</span>' : ''}</b><br>${esc(cf2 ? (pAddr.name || pAddr.phone || '') : (o.userName || ''))}<br><span class="muted">${esc(pAddr.line || pAddr.address || '')}<br>${esc([pAddr.city, pAddr.state, pAddr.pincode].filter(Boolean).join(', '))}</span><br>${esc(pAddr.phone || o.phone || '')}</div>
-  <div style="text-align:right"><b>Order:</b> ${o.id}<br><b>Payment:</b> ${esc(o.paymentStatus || '')} (${esc(o.paymentMethod || '')})</div></div>
+  <div style="text-align:right"><b>Order:</b> ${esc(o.id)}<br><b>Payment:</b> ${esc(o.paymentStatus || '')} (${esc(o.paymentMethod || '')})</div></div>
   <table><thead><tr><th>Description</th><th>Purity</th><th class="r">Wt g</th><th class="r">Qty</th><th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th><th class="r">Total</th></tr></thead>
   <tbody>${rows}
   ${o.shipping ? `<tr><td colspan="4">Insured shipping</td><td class="r">${o.shipping.toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
   ${o.prepaidDiscount ? `<tr><td colspan="4">Prepaid discount</td><td class="r">−${o.prepaidDiscount.toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
+  ${o.discount ? `<tr><td colspan="4">Coupon discount</td><td class="r">−${Number(o.discount).toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
+  ${o.codFee ? `<tr><td colspan="4">COD fee</td><td class="r">${Number(o.codFee).toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
   <tr class="tot"><td colspan="4">Grand total</td><td colspan="3"></td><td class="r">₹${(o.total || 0).toLocaleString('en-IN')}</td></tr>
   </tbody></table>
-  <p class="muted" style="margin-top:10px">HSN 71131910 (gold jewellery) / 71131110 (silver). GST 1.5% CGST + 1.5% SGST on making charges. Every gold piece is BIS hallmarked with a unique 6-digit HUID. 7-day return · lifetime exchange · lifetime care.</p>
+  <p class="muted" style="margin-top:10px">HSN 71131910 (gold jewellery) / 71131110 (silver). GST amounts above are from the saved order; tax treatment must be confirmed for the place of supply. Every gold piece is BIS hallmarked with a unique 6-digit HUID. 7-day return · lifetime exchange · lifetime care.</p>
   <script>window.onload=()=>{window.print()}</script></body></html>`);
   w.document.close();
 };

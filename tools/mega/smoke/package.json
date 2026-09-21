@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node v169-check.js && node v169-php-run.js && node v168-check.js && node v168-php-run.js",
+    "test:regression": "node v168-regression.js"
   },
   "keywords": [],
   "author": "",

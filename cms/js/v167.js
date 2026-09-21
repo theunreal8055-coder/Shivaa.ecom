@@ -42,6 +42,7 @@
     if (el.hasAttribute('hidden')) return false;          // e.g. the KYC card file input
     if (el.getAttribute('aria-hidden') === 'true') return false;
     if (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')) return false;
+    if (el.labels && el.labels.length) return false;
     if (el.closest && el.closest('label')) return false;  // already implied by its label
     return true;
   }
@@ -59,7 +60,11 @@
   }
 
   function pair(label) {
-    if (label.hasAttribute('for')) return;
+    if (label.hasAttribute('for')) {
+      var existingBlock = label.closest('.fld, .fgroup, .bbc-field, .svc-amt-row, .bbc-wt');
+      if (existingBlock) nameExtraControls(label, existingBlock);
+      return;
+    }
     if (label.querySelector('input,select,textarea')) return;   // the label wraps its own field
     var block = label.closest('.fld, .fgroup, .pin-row, .coupon-row, .nl-form, .bbc-field, .kyc-drop');
     if (!block) return;
@@ -94,7 +99,9 @@
     for (var i = 0; i < ctl.length; i++) {
       var el = ctl[i];
       if (!usable(el)) continue;
-      if (el.hasAttribute('placeholder')) continue;          // browsers/AT read the placeholder
+      if (el.hasAttribute('placeholder') && el.getAttribute('placeholder').trim()) {
+        el.setAttribute('aria-label', el.getAttribute('placeholder').trim()); continue;
+      }
       var host = el.closest('.fld, .fgroup, .bbc-field, .pin-row, .coupon-row, .svc-amt-row, .bbc-wt');
       if (!host) continue;
       var lb = host.querySelector('label');

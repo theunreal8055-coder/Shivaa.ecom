@@ -10,7 +10,7 @@
                       (muted/playsinline/poster-first, LITE = posters only),
                       boost films row superseded (display layer only),
                       owner locks untouched (api/.htaccess/db vs git HEAD),
-                      media cache generation left alone
+                      media cache generation is forward-only
    B · live    (8)   jsdom: boots 77, zero page errors, both sections mount,
                       case 4 cards + counter, arrows advance the front film,
                       thread 4 chapters + drawn path, film srcs correct,
@@ -183,7 +183,7 @@ function bootStore(extra = '') {
   if (!new RegExp("'rel'\\s*=>\\s*" + relNow + ",").test(apiNow)) { locksOk = false; locksDetail.push('api.php rel is not the shell release'); }
   ok('owner locks respected: the LIVE catalogue db.json is untouched, and .htaccess/api.php keep the hardening + release lockstep', locksOk, locksDetail.join('; '));
 
-  ok('media cache generation left alone (shivaa-media-v120)', /MEDIA = 'shivaa-media-v120'/.test(sw));
+  ok('media cache generation is v120 or newer (v168 purges private/poisoned entries)', Number((/MEDIA = 'shivaa-media-v(\d+)'/.exec(sw) || [0, 0])[1]) >= 120);
 
   ok('reel player: keyboard + swipe + auto-advance + scroll lock + route-safe close',
     /Escape/.test(v125) && /touchstart/.test(v125) && /'ended'/.test(v125) && /sv-reel-open/.test(v125) && /hashchange/.test(v125) && /\.sv-reel\b/.test(v125css));

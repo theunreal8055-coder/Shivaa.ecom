@@ -87,7 +87,7 @@ console.log('\n· 5 — gates, fallbacks, and the reclaim contract:');
 ok('gate = owner switch AND cashfree+OCC config', lane === '' ? false : (app.includes('state.settings.guestCheckout === true') && app.includes("c.cfg.mode === 'cashfree' && c.cfg.guestCheckout === true")));
 ok('exDirect consumes the tap on error (no silent dump to classic checkout)', app.includes('toast(e.message, \'err\');   // the order itself failed'));
 ok('cart CTA declines → #/checkout, landing declines → openLogin', app.includes("exDirect(true).then(used => { if (!used) location.hash = '#/checkout'; });")
-  && app.includes("exDirect(true).then(used => { if (!used) openLogin('checkout'); });"));
+  && /exDirect\(true\)\.then\(used => \{ if \(!used(?: && isCurrent\(\))?\) openLogin\('checkout'\); \}\);/.test(app));  // v169 allows the navigation ownership guard
 ok('member + in-flight guards intact', app.includes('if (EX.busy || state.user) return false;'));
 ok('the busy claim is SYNCHRONOUS (v155 double-tap race fix): claim before any await', (() => {
   const i = app.indexOf('window.Shivaa.exDirect = async'); const j = app.indexOf('};', i);

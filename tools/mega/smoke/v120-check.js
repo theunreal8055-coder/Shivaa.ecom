@@ -67,8 +67,8 @@ function bootStore(extra = '') {
     /\/css\/v120\.css\?v=\d+/.test(html) && /\/js\/v120\.js\?v=\d+/.test(html) &&
     /\/js\/v119\.js\?v=\d+/.test(html) &&
     html.search(/\/js\/v119\.js\?v=/) < html.search(/\/js\/v120\.js\?v=/));
-  ok('service worker precaches v120 and the media cache is the v120 generation',
-    /'\/css\/v120\.css\?v=\d+'/.test(sw) && /'\/js\/v120\.js\?v=\d+'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
+  ok('service worker precaches v120 and the media cache is v120 or a later intentional generation',
+    /'\/css\/v120\.css\?v=\d+'/.test(sw) && /'\/js\/v120\.js\?v=\d+'/.test(sw) && Number((/MEDIA = 'shivaa-media-v(\d+)'/.exec(sw) || [0, 0])[1]) >= 120);
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps stay a consistent triple (shell = script = worker)',
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],

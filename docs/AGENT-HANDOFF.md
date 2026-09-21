@@ -1,11 +1,189 @@
-# AGENT HANDOFF — read this first, every new chat (updated **20 Sep 2026 v159 SCHEME FUNNEL & CURATED 6 STUDS** — branch `arena/01a0bf5c-shivaa-ecom`, PR created & merged to `main`).
+# AGENT HANDOFF — v169 published, not live-verified (21 Sep 2026)
+
+## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
+
+**Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
+inventory, commit/evidence map, permanent download and remaining work. This
+section supersedes every older “current/newest”, no-ZIP, old-HEAD or release-freeze
+banner below. Earlier notes are history, not commands to restore old code.
+
+- **Completed and pushed:** source `db525839d91800a07616b3f2ce26b17e61490503`;
+  package publication `f847d85057a112296c59ef58a35731a184b74194` on
+  `arena/01a0c31d-shivaa-ecom`. Later docs-only commits do not change those
+  identities; inspect git for the actual HEAD.
+- **Latest download:** https://github.com/theunreal8055-coder/Shivaa.ecom/raw/f847d85057a112296c59ef58a35731a184b74194/shivaa-update-v169.zip
+- **Archive:**17 files,540,823 bytes; SHA-256
+  `9ff5aad3856c2efcdf52ec3eddb4b6d7bc04503436017eb39673413dbb0088fb`;
+  GitHub blob `320fa3ae85b202dc2edaa209ff4d90a3a1576cb8` remotely verified.
+  Full v165+ prerequisite; backup first; root-layout extraction beside
+  index.html/api.php. No data/uploads/credentials/media/host `.htaccess`.
+- **Release169, media cache168 intentionally.** 36 additional recorded repairs
+  →140 cumulative; B20 hardening separately uncounted. Ledgers v168/v169
+  contain the individual completed fixes. Do not count53 checks as53 bugs.
+- **Recorded checks:**28/28 PHP,25/25 pages; full belt38 PASS/16 retired SKIP/0 FAIL.
+  Actual ZIP overlay and negative-control evidence are in the final session
+  record and `DEPLOY-v169.md`. These are not native/live-host certifications.
+- **NOT deployed or owner-confirmed installed.** No main merge, live payment,
+  real OTP/GST lookup or customer/supplier-data update in this audit/publication.
+- **Forward only:** preserve v169 and its tests; make new targeted forward fixes,
+  never reset/revert to an old release, restore an old ZIP, force-push history,
+  rerun the ignored one-time patch scripts, or repeat/recount ledger repairs.
+  The historical v125 freeze is superseded; rejected v126/Truecaller stay retired.
+  Old merge/deploy permissions are not new authorization. Never deploy just sw.js.
+- This closeout changes documentation only: no new release, rebuilt ZIP or
+  repeated repair. Future work begins with the owner's next request and the
+  final record's open-work list, not another replay of this audit.
+
+## Historical session notes below — superseded where inconsistent
+
+## Historical package preparation — v169 GitHub download (21 Sep 2026)
+
+The owner requested the latest update-file link. **`shivaa-update-v169.zip` is
+now built and verified** from source `db525839d91800a07616b3f2ce26b17e61490503`:
+**17 files, 540,823 bytes**, SHA-256
+`9ff5aad3856c2efcdf52ec3eddb4b6d7bc04503436017eb39673413dbb0088fb`.
+Cumulative v166–v169 code files; requires full **v165+**. Root-layout extraction
+beside index.html/api.php, backup first. No data/uploads/credentials/media or
+host-managed `.htaccess`. See `DEPLOY-v169.md` and `tools/mega/make-v169-zip.py`.
+Actual ZIP over isolated original-v167 code passes25/25 pages,28/28 PHP,
+39/39 previous boundaries,12/12 signatures,17/17 v164 PHP,24/24 direct checkout,
+36/36 v167. The separate Apache-comment repair was applied only in that fixture.
+Publishing is only on `arena/01a0c31d-shivaa-ecom`; **no main merge/live deployment
+or real payment**. GitHub download requires repository access. This supersedes
+the historical “no v169 ZIP / no commit” status below. The old v168 ZIP is unchanged.
+
+
+## Historical pre-publication audit — v169 deeper audit (21 Sep 2026)
+
+Historical status at the audit stage: source repairs were not yet packaged or
+pushed. The final record above supersedes that status; no deployment occurred. Branch remains
+`arena/01a0c31d-shivaa-ecom`; the audit-stage baseline was published v168 `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
+The existing **v168 ZIP/link is unchanged and excludes these v169 repairs**.
+
+- **36 additional recorded defect repairs + one separately uncounted hardening
+  change (B20).** Prior 104 → **140 cumulatively recorded**, not 140 new bugs,
+  not 53 bugs merely because there are 53 new checks. Ledger/evidence/limits:
+  `tools/mega/audit/DEFECT-LEDGER-v169.md`; future packaging: `DEPLOY-v169.md`.
+- New executed PHP tests **28/28**; v168 control **1/28**. New page/print tests
+  **25/25**; v168 control **0/25**. Full belt **38 active PASS, 16 retired SKIP,
+  0 FAIL**. Direct checkout **24/24**; prior v164 PHP **17/17**. Static sweep
+  **209 routes / 0 exceptions**, NOT 209 executed endpoints. PHP parser plus
+  changed JS syntax and whitespace checks pass.
+- Backend repairs: stale whole-DB saves reject with409; lock/staging failures
+  fail closed; OTP/attempt/metal/bullion/GST reference writes persist; approval
+  no longer creates random Paid settlements; guest order/payment throttles are
+  not one global bucket; checkout line/phone/future-lock/dead-rate validation;
+  actual reserved stock restored on cancellation; delivery reminders and
+  referral qualification; OCC dispatch field mapping; canonical manual Paid.
+- Feed outages no longer randomly jitter/clamp quotes. Preserve healthy legs,
+  known cached rates/quote time, zero missing anchors and existing healthy
+  ₹398 retail premium rules. No supplier prices/weights/data were fabricated.
+- Frontend repairs: successful async responses/polls/timers cannot overwrite
+  newer routes in the covered pages; URL flags/partial status are not full
+  payment proof; scheme uses the actual status response and never fakes quiz
+  eligibility after errors; invoices require saved issuance and show saved
+  adjustments; thermal totals/escaping/popup handling; honest guest wording
+  and per-item metal rate summaries, including missing legacy snapshots.
+- B20 strips private pin entropy from customer projections. Existing access
+  controls already protected those responses; do NOT claim this proved a
+  cross-customer exploit. Derived guest pins and rightful access still work.
+- No DB/catalogue/customer/media/credential changes; no real OTP/payment/GST
+  lookup or production deployment. Direct checkout and approved films/design
+  retained. Existing settlement/stock/quote history was NOT rewritten.
+- Six deployable source files differ from v168: `api.php`, `index.html`,
+  `sw.js`, `js/app.js`, `js/admin.js`, `js/v117.js`. Release/shell stamps **169**;
+  hardened media cache intentionally stays **168** (no media changes).
+  A six-file v168 overlay passes25/25 page,28/28 PHP,24/24 direct checks.
+  Any future six-file delta requires full v168; never deploy only the worker.
+  Host-managed `.htaccess` remains separate and excluded from a future ZIP.
+- Reusable tests: `tools/mega/smoke/php-api-fixture.js`, `v169-php-run.js`,
+  `v169-check.js`; `npm test` runs v169 plus v168. Existing regression runner
+  discovers the new suites and logs to ignored `work/audit169/regression/`
+  (`SMOKE_LOG_DIR` override). The v155/v156 source-shape assertions were updated
+  for legitimate guards, not counted as new product fixes. v156 also passes
+  unchanged v168. Harness deadlines prevent silent unresolved-promise success.
+- Concurrency caution: request-level snapshot checking is not a native load
+  test. Current nested GST callers reload after cache merge; Cashfree locks and
+  reloads before reconciliation. Future nested loads must not refresh a hash
+  then save an old array. Do not automatically retry money-changing POSTs on
+  409. Slow gateway calls under locks remain an operational follow-up.
+- Remaining: native Hostinger/PWA/WebView/thermal-printer/gateway checks,
+  historical financial-data review, other async form/admin continuations,
+  referral actual-credit reconciliation and supplier-backed certificate/legal
+  review. The whole website is not certified bug-free. At this pre-publication stage
+  no v169 ZIP existed; the final record above documents its later publication.
+
+
+## Update-package follow-up — requested GitHub download (21 Sep 2026)
+
+`shivaa-update-v168.zip` is now built from committed source
+`e5b2905de68e99b45508f1d58496610cb223b453`: **17 files, 539,228 bytes**,
+SHA-256 `efaa0f46035296cc4296cb06954d6fcf72248880c4334cf1f81e8d00cc62478f`.
+It includes the v166–v168 code-file union for a full v165-or-newer CMS.
+No DB, uploads, credentials or `.htaccess`. The host-comment repair is separate.
+Isolated v167 + ZIP overlay tests (with the separate host-comment fix applied
+in the sandbox): v168 **39/39**, signatures **12/12**, v167 **36/36**, executed
+v164 PHP **17/17**, direct checkout **24/24**. ZIP members match their source
+commit byte-for-byte. See `DEPLOY-v168.md` for extraction and host-config notes.
+The owner requested publishing the package on the current GitHub branch only;
+**no main merge or live-site deployment**. This supersedes the earlier
+“no ZIP produced” status below. Private GitHub download requires sign-in.
+
+
+
+## Historical pre-publication audit — v168 specialist audit (21 Sep 2026)
+
+**Branch:** `arena/01a0c31d-shivaa-ecom`, based on `5b0c380`. **Status: source
+changes only; NOT deployed, not merged, no live payment tested, no ZIP produced.**
+This section supersedes older “current/newest” release labels below; retain those
+sections as history, not instructions to restore an older version.
+
+- Continued the v167 ledger: **40 additional verified fixes**, plus its previous
+  **64 fixed**, for **104 cumulatively recorded**. Do NOT describe this as 100
+  newly found bugs in this session. Ledger, repros and caveats:
+  `tools/mega/audit/DEFECT-LEDGER-v168.md`; deployment boundaries: `DEPLOY-v168.md`.
+- Main fixes: invalid Apache HTML comments; damaged/blocked browser storage;
+  API body timeouts, cancellation, headers, invalid JSON and late-401 races;
+  route error races, staff query links, modal scroll-lock ownership; label
+  overrides; scoped/private-safe/expiry-aware worker caches; font tokens and
+  PWA metadata; invoice adjustments, escaping, popup recovery and false GST
+  wording; advertised WebM uploads and extension/signature correspondence.
+- No catalogue, DB, customer, payment configuration, product media or owner-film
+  changes. Preserve the direct Cashfree flow, 6 campaign studs, category tiles,
+  24K premium rule, HUID honesty and the removal of the old verification vendor.
+- Release handshake and asset stamps **168**, media cache **168** deliberately
+  purges old private/HTML entries. Never deploy the worker alone. `.htaccess`
+  remains host-managed: apply/review only the tiny comment fix, never wholesale
+  overwrite it or ship it in an update ZIP.
+- Reproducible tests: `cd tools/mega/smoke && npm ci && npm test` → **39/39 JS/DOM/
+  worker/config checks + 12/12 executed PHP signature cases**. Against v167:
+  **0/39 and 9/12**, proving the new gate can see the old failures. Full belt:
+  `npm run test:regression` → **36 active suites pass, 16 retired-feature
+  suites explicitly skip, 0 fail**; detailed logs regenerate under ignored
+  `work/audit168/regression/`. The actual tests are tracked, not scratch-only.
+- v155 direct-checkout harness repaired (not a new product defect): it used to
+  start after the six campaign studs populated the cache but BEFORE settings.
+  Now waits for settings plus a real catalogue fixture and closes jsdom windows.
+  **24/24 passes on BOTH original v167 and current code**. Four older cache
+  generation pins now accept a deliberate forward media generation; actual
+  privacy/expiry behaviors are checked by the new worker tests.
+- Important corrected assumptions: v167 #65 unused invoice accumulators did NOT
+  prove a wrong grand total (already `o.total`). Lint-only warnings are not fixed
+  bugs; empty category tiles are owner's intent. See historical triage in ledger.
+  Source DB currently contains **77 PGS rows, all four-image** (unchanged), not
+  the stale “65 rows” claim. `demo65/status.py`: 65 crops, 260 shots, 65 metadata,
+  **0 videos in this checkout**. Do not regenerate films without an owner request.
+- Outstanding: native Hostinger validation, installed-PWA/real-device visual QA,
+  genuine Cashfree payment/MID limit confirmation, CA review of tax presentation,
+  and async page-success cancellation beyond the error races repaired here.
+
 
 **Owner:** Shivaa Jewellers (shivaa.in), non-technical. Talk plainly, no jargon
 dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
 
-## ✅ NEWEST — v159 10g GOLD BISCUIT CAMPAIGN FUNNEL & CURATED 6 STUDS (20 Sep 2026, branch `arena/01a0bf5c-shivaa-ecom`)
+## Historical — v159 10g GOLD BISCUIT CAMPAIGN FUNNEL & CURATED 6 STUDS (20 Sep 2026, branch `arena/01a0bf5c-shivaa-ecom`)
 
 ### What Was Delivered in v157 → v158 → v159:
 1. **Curated 6 Studs 10g Gold Biscuit Funnel (`#/scheme`, `#/finale`):**
@@ -42,7 +220,7 @@ dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
 
-## ✅ NEWEST — LAUNCH FILM (20 Sep 2026, branch `arena/01a0ba75-shivaa-ecom`, **PR #78 merging to main on owner order**)
+## Historical — LAUNCH FILM (20 Sep 2026, branch `arena/01a0ba75-shivaa-ecom`, **PR #78 merging to main on owner order**)
 
 Not a CMS release. **Do not bump storefront stamps.** Storefront on main is **v156**; this session did not edit cms/.
 
@@ -114,7 +292,7 @@ The owner's live test of v148 said two things and both are answered here. **(1) 
 - Desktop = web-popup flow = no push-back by design; typed entry stays there.
 - `cms/data/tc-verify/` must stay writable (admin doctor shows `dataWritable`); callback route is lockless — **never add db_save() there**.
 
-## ✅ NEWEST — v142 AUTOMATIC GUEST CHECKOUT (18 Sep 2026, branch `arena/01a0b3ff-shivaa-ecom`, **MERGED TO `main` AS PR #71** on the owner's instruction "update memory doc handoff and agent doc and merge the PR". Ships v140 → v141 → v142.)
+## Historical — v142 AUTOMATIC GUEST CHECKOUT (18 Sep 2026, branch `arena/01a0b3ff-shivaa-ecom`, **MERGED TO `main` AS PR #71** on the owner's instruction "update memory doc handoff and agent doc and merge the PR". Ships v140 → v141 → v142.)
 
 **Owner brief, verbatim:** *"Make the most advanced and Fully automatic checkout, without even otp, still verifying the name number address and payment methods automatically — once a person clicks make it yours then it's automatically purchased, just the customer needs to fill their UPI pin or NetBanking password, everything else is automated."*
 
@@ -142,7 +320,7 @@ The owner's live test of v148 said two things and both are answered here. **(1) 
 - **Never print the Cashfree secret** — it belongs only in the admin settings.
 - Guests can NEVER use member coupons / loyalty points / rate lock, and no account is created (id stays `'guest'`).
 
-## ✅ NEWEST — v139 SHOP-EXPERIENCE PASS (18 Sep 2026, branch `arena/01a0b366-shivaa-ecom`, **MERGED TO `main` AS PR #70** — the owner's hold *"don't merge the PR until you are told to do so"* was **lifted** at session close with *"perge this PR to main"*, so the merge is authorised and spent. Merged forward-only as a merge commit per owner law.)
+## Historical — v139 SHOP-EXPERIENCE PASS (18 Sep 2026, branch `arena/01a0b366-shivaa-ecom`, **MERGED TO `main` AS PR #70** — the owner's hold *"don't merge the PR until you are told to do so"* was **lifted** at session close with *"perge this PR to main"*, so the merge is authorised and spent. Merged forward-only as a merge commit per owner law.)
 
 **Owner's five reports, verbatim:** *"the check out button doesn't work and
 doesn't take us to the payment page"* · *"when you click on any category and go
@@ -275,7 +453,7 @@ overlays, never the same tap.
 
 ---
 
-## ✅ NEWEST — v135 → v138 PAYMENT CORRECTNESS PASS — MERGED to `main` (18 Sep 2026, PR #69, branch `arena/01a0b25e-shivaa-ecom`)
+## Historical — v135 → v138 PAYMENT CORRECTNESS PASS — MERGED to `main` (18 Sep 2026, PR #69, branch `arena/01a0b25e-shivaa-ecom`)
 
 **Owner's report that started it:** *"even if someone does not pay and comes back
 silently then Shiva automatically issues invoices against but the right thing to be
@@ -395,7 +573,7 @@ sidebar and search-palette taps.
 
 ---
 
-## ✅ NEWEST — v127 NAVIGATION REPAIR — LIVE + OWNER-VERIFIED (17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`)
+## Historical — v127 NAVIGATION REPAIR — LIVE + OWNER-VERIFIED (17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`)
 
 **Owner's word (17 Sep 2026, verbatim):** *"The version 127 update is working very fine and I
 installed it and extracted in public HTML folder and its working fine now."* → **v127 is the
@@ -646,7 +824,11 @@ provide: Replicate token (pay-as-you-go), a VPS (or confirm their Hostinger
 plan is a VPS), and per supplier drop: weights CSV + photos zip. NOTHING is
 built yet (that chat was interrupted); owner's priority = finish demo65 first.
 
-## Site-change requests (features/fixes)
+## Historical site-change/deployment notes (not active authorization)
+
+Do not follow the old PR/main/deploy sequence below without a new owner request.
+Current session restrictions and the final v169 record take precedence.
+
 Edit `cms/` on your branch; bump every `?v=` in `cms/index.html` (currently 11 refs) whenever
 js/css change; PR → main → cron auto-deploys. NEVER edit live db.json by
 hand; products only via API/upsert. Warn owner: hand-edits in hPanel File

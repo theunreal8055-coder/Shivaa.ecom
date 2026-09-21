@@ -69,8 +69,8 @@ function bootStore(extra = '') {
   ok('the shell loads the v121 layer after the v120 layer',
     /\/css\/v121\.css\?v=\d+/.test(html) &&
     html.search(/\/css\/v120\.css\?v=/) < html.search(/\/css\/v121\.css\?v=/));
-  ok('service worker precaches v121 and the media cache stays v120 (no gratuitous purge)',
-    /'\/css\/v121\.css\?v=\d+'/.test(sw) && /MEDIA = 'shivaa-media-v120'/.test(sw));
+  ok('service worker precaches v121 and the media cache is v120 or a later intentional generation',
+    /'\/css\/v121\.css\?v=\d+'/.test(sw) && Number((/MEDIA = 'shivaa-media-v(\d+)'/.exec(sw) || [0, 0])[1]) >= 120);
   const shellRel = /__SHIVAA_REL\s*=\s*(\d+)/.exec(html), appRel = /APP_REL\s*=\s*(\d+)/.exec(app), swRel = /SHELL = 'shivaa-shell-v(\d+)'/.exec(sw);
   ok('release stamps stay a consistent triple (shell = script = worker)',
     !!shellRel && !!appRel && !!swRel && shellRel[1] === appRel[1] && appRel[1] === swRel[1],
