@@ -8,6 +8,8 @@ Work forward; do not restore old releases or repeat completed repairs.
 - Active session branch: `arena/01a0c384-shivaa-ecom`.
 - Source/test/builder commit: `0b0a7e8a95be970f023c530099234a1acac6e83c`.
 - Package/guide commit: `b601c237433ac207e2489cac9d7e6b560864b9d1`.
+- **Published and remotely verified:** GitHub contents API matches size/blob;
+  authenticated raw download matches the local ZIP byte-for-byte and SHA-256.
 - Archive: **shivaa-update-v170.zip**, 19 files, 545,711 bytes.
 - SHA-256: `4ec884c4d5f8634a47f3b4112f2d36ff26010cf4b033b3fea48b21920310c60e`.
 - Git blob: `b11b77133c99b2e5e3853244d8d5dbcb989b04c7`.
