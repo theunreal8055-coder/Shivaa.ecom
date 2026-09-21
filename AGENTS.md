@@ -15,11 +15,14 @@
   **168** because no media changed.
 - Prior ledgers:104 repairs; v169 adds **36**, for **140 cumulatively recorded**.
   B20 is separately identified hardening, not a claimed cross-customer exploit.
-- **Not packaged, pushed or deployed in the v169 continuation.** Current HEAD
-  `f2b6c44` is the published v168 package; local source is newer. The existing
-  `shivaa-update-v168.zip`/download is unchanged and excludes the v169 repairs.
-- Future v169 six-file delta requires full v168; see `DEPLOY-v169.md`. Never
-  rename an old ZIP to imply it contains new code.
+- **Not live-deployed.** Owner requested publishing the new
+  `shivaa-update-v169.zip`:17 cumulative code files, built from `db52583`.
+  Requires full v165+; see `DEPLOY-v169.md` for hash/extraction/overlay evidence.
+  No DB/uploads/credentials/media/host configuration is packaged.
+- Actual ZIP overlay checks pass:25/25 page,28/28 PHP,39/39 v168 boundaries,
+  12/12 signatures,17/17 v164 PHP,24/24 direct checkout,36/36 v167.
+  Existing v168 ZIP is unchanged; the new archive is reproducible using
+  `tools/mega/make-v169-zip.py` and the documented source commit.
 - Current session branch: `arena/01a0c31d-shivaa-ecom`. Obey the active Arena
   session's branch restrictions; do not switch branches or merge main on the
   strength of an old handoff instruction.

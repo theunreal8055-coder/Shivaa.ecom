@@ -1,5 +1,22 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
+## Latest package follow-up — v169 GitHub download (21 Sep 2026)
+
+The owner requested the latest update-file link. **`shivaa-update-v169.zip` is
+now built and verified** from source `db525839d91800a07616b3f2ce26b17e61490503`:
+**17 files, 540,823 bytes**, SHA-256
+`9ff5aad3856c2efcdf52ec3eddb4b6d7bc04503436017eb39673413dbb0088fb`.
+Cumulative v166–v169 code files; requires full **v165+**. Root-layout extraction
+beside index.html/api.php, backup first. No data/uploads/credentials/media or
+host-managed `.htaccess`. See `DEPLOY-v169.md` and `tools/mega/make-v169-zip.py`.
+Actual ZIP over isolated original-v167 code passes25/25 pages,28/28 PHP,
+39/39 previous boundaries,12/12 signatures,17/17 v164 PHP,24/24 direct checkout,
+36/36 v167. The separate Apache-comment repair was applied only in that fixture.
+Publishing is only on `arena/01a0c31d-shivaa-ecom`; **no main merge/live deployment
+or real payment**. GitHub download requires repository access. This supersedes
+the historical “no v169 ZIP / no commit” status below. The old v168 ZIP is unchanged.
+
+
 ## Current continuation — v169 deeper audit (21 Sep 2026)
 
 This section supersedes older “current” banners below. **Source repairs only;

@@ -2,7 +2,7 @@
 
 **21 September 2026 · branch `arena/01a0c31d-shivaa-ecom`**
 **Baseline:** published v168, `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
-**Status:** source repairs verified in isolation; **not packaged, pushed or deployed** in this continuation. The existing v168 download is unchanged and does not contain these repairs.
+**Status:** source repairs and the new v169 update ZIP are verified in isolation; **not live-deployed**. On the owner’s follow-up, the 17-file cumulative package was built from `db525839d91800a07616b3f2ce26b17e61490503` for publication on the current branch only. See `DEPLOY-v169.md` for hash, extraction notes and archive-overlay results. The old v168 download is unchanged.
 
 ## Results and counting
 
@@ -12,7 +12,7 @@
 - Executed production page/print bodies in isolated DOMs: **25/25 checks pass**; baseline v168: **0/25 pass**.
 - Full regression runner: **38 active suites pass, 16 retired-feature suites explicitly skip, 0 fail**.
 - Direct Cashfree checkout fixture: **24/24**; previous v164 PHP catalogue/payment fixture: **17/17**.
-- A six-file v169 overlay onto the v168 control also passes **25/25 page**, **28/28 PHP** and **24/24 direct-checkout** checks. No archive was built.
+- A six-file v169 overlay onto the v168 control also passes **25/25 page**, **28/28 PHP** and **24/24 direct-checkout** checks. That was the initial source-only check; the later actual archive overlay also passes, as recorded in the deployment guide.
 - Static PHP route sweep: **209 routes, 0 exceptions**. This is source analysis, **not execution of 209 endpoints**.
 - PHP parser accepts production and rejects its deliberately broken control. Changed JS syntax and `git diff --check` pass.
 
