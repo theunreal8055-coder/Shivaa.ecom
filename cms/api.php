@@ -195,8 +195,9 @@ function shv_wants_write_lock(string $route, string $method): bool {
 }
 function shv_acquire_lock(string $DB_FILE, string $route, string $method): void {
   if (!shv_wants_write_lock($route, $method)) return;
-  $h = fopen($DB_FILE . '.lock', 'c');
-  if ($h) { flock($h, LOCK_EX); $GLOBALS['__shv_lock'] = $h; }
+  $h = @fopen($DB_FILE . '.lock', 'c');
+  if (!$h || !flock($h, LOCK_EX)) jout(503, ['error' => 'Database lock unavailable — please retry.']);
+  $GLOBALS['__shv_lock'] = $h;
 }
 function db_load(string $DB_FILE): array {
   for ($i = 0; $i < 5; $i++) {
@@ -210,7 +211,10 @@ function db_load(string $DB_FILE): array {
       else $raw = file_get_contents($DB_FILE);
     }
     $db = json_decode((string)$raw, true);
-    if (is_array($db)) return $db;
+    if (is_array($db)) {
+      $GLOBALS['__shv_snapshots'][$DB_FILE] = hash('sha256', (string)$raw);
+      return $db;
+    }
     usleep(120000);
   }
   jout(500, ['error' => 'Database file unreadable — check data/db.json exists & permissions (755/644)']);
@@ -218,8 +222,16 @@ function db_load(string $DB_FILE): array {
 function db_save(string $DB_FILE, array $db): void {
   $held = !empty($GLOBALS['__shv_lock']);
   $lock = $held ? null : fopen($DB_FILE . '.lock', 'c');
-  if ($lock) flock($lock, LOCK_EX);
-  // v81 — atomic replace: write a temp file in the same directory, fsync,
+  if (!$held && (!$lock || !flock($lock, LOCK_EX))) jout(503, ['error' => 'Database lock unavailable — please retry.']);
+  /* v169: slow gateway/GET requests do not own a read-modify-write lock.
+     Never overwrite a concurrent order, OTP or payment with their old snapshot.
+     Caller must reload/reconcile; do not blindly retry a money-changing POST. */
+  $expected = $GLOBALS['__shv_snapshots'][$DB_FILE] ?? null;
+  if ($expected !== null && !hash_equals($expected, (string)@hash_file('sha256', $DB_FILE))) {
+    if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+    jout(409, ['error' => 'Data changed during this request — refresh and check the latest status before retrying.', 'code' => 'DATA_CONFLICT']);
+  }
+  // v81 — atomic replace: write a temp file in the same directory, flush,
   // then rename over db.json. A crash/disk-full mid-write can never leave a
   // truncated/zero-byte database (the old file stays intact until rename).
   $json = json_encode($db, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -249,9 +261,11 @@ function db_save(string $DB_FILE, array $db): void {
       jout(500, ['error' => 'Could not finalise the save — please retry.']);
     }
   } else {
-    // read-only hosts: legacy fallback, but only when the encode is non-empty
-    @file_put_contents($DB_FILE, $json);
+    // Never fall back to truncating the live file if staging failed.
+    if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
+    jout(500, ['error' => 'Could not stage the save — previous data was kept.']);
   }
+  $GLOBALS['__shv_snapshots'][$DB_FILE] = hash('sha256', $json);
   if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
 }
 function clampn($v, $a, $b) { return max($a, min($b, $v)); }
@@ -522,6 +536,11 @@ function finale_qualifies(array $items): bool {
    It can be written into the customer's own links but never reversed or guessed,
    and pay/cashfree/status — the only mutation a guest can reach with it — is
    IP-rate-limited and does nothing but read the payment state from Cashfree. */
+/* Browser order views do not need the entropy used to derive access pins. */
+function shv_public_order(array $o): array {
+  unset($o['tail']);
+  return $o;
+}
 function shv_guest_pin(array $o): string {
   /* Only fields fixed at creation may enter the hash. gatewayOrderId is written
      by the first pay attempt, and cfCheckout.phone (the number Cashfree
@@ -743,7 +762,7 @@ function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array
   foreach (($o['cfAttempts'] ?? []) as $a) if (($a['cfOrderId'] ?? '') === $cfOrderId) { $attempt = $a; break; }
   if (!$attempt) return ['ok' => false, 'code' => 'ATTEMPT_NOT_FOUND'];
   $state = strtoupper(trim((string)($st['order_status'] ?? '')));
-  foreach (($o['cfAttempts'] ?? []) as &$aa) {
+  foreach ($o['cfAttempts'] as &$aa) {
     if (($aa['cfOrderId'] ?? '') === $cfOrderId) {
       $aa['lastState'] = $state;
       if (!empty($st['payment_session_id'])) $aa['sessionId'] = (string)$st['payment_session_id'];
@@ -756,8 +775,10 @@ function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array
     db_save($GLOBALS['DB_FILE'], $db);
     return ['ok' => false, 'code' => 'FAILED', 'state' => 'FAILED'];
   }
-  if ($state !== 'PAID')
+  if ($state !== 'PAID') {
+    db_save($GLOBALS['DB_FILE'], $db);
     return ['ok' => false, 'code' => (string)($st['order_status'] ?? 'PENDING'), 'state' => $state];
+  }
   // security: the paid amount must equal this attempt exactly
   $paidRupees = (float)($st['order_amount'] ?? 0);
   if ((int)round($paidRupees) !== (int)$attempt['amount'])
@@ -829,15 +850,15 @@ function cashfree_apply(array &$db, int $i, array $st, string $cfOrderId): array
         $cp = preg_replace('/\D/', '', (string)($cap['phone'] ?? ''));
         if (strlen($cp) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($cp, -10))) $o['address']['phone'] = substr($cp, -10);
         $cdn = trim((string)($cap['name'] ?? ''));
-        if ($cdn === '') $cdn = trim((string)($j['customer_details']['customer_name'] ?? ''));
+        if ($cdn === '') $cdn = trim((string)($cap['shipping']['name'] ?? $cap['billing']['name'] ?? ''));
         if ($cdn !== '' && $cdn !== 'Valued Customer') $o['address']['name'] = mb_substr(preg_replace('#[<>|]#', '', $cdn), 0, 60);
         $sh = is_array($cap['shipping'] ?? null) ? $cap['shipping'] : (is_array($cap['billing'] ?? null) ? $cap['billing'] : null);
         if ($sh) {
-          $l1 = trim((string)($sh['address'] ?? '')); if ($l1 === '') $l1 = trim((string)($sh['line1'] ?? ''));
+          $l1 = trim(implode(', ', array_filter([trim((string)($sh['address_line_one'] ?? $sh['address'] ?? $sh['line1'] ?? '')), trim((string)($sh['address_line_two'] ?? $sh['line2'] ?? ''))])));
           if ($l1 !== '') $o['address']['line'] = mb_substr($l1, 0, 160);
           $ct = trim((string)($sh['city'] ?? '')); if ($ct !== '') $o['address']['city'] = mb_substr($ct, 0, 60);
           $st = trim((string)($sh['state'] ?? '')); if ($st !== '') $o['address']['state'] = mb_substr($st, 0, 60);
-          $pz = preg_replace('/\D/', '', (string)($sh['pincode'] ?? '')); if (strlen($pz) === 6) $o['address']['pincode'] = $pz;
+          $pz = preg_replace('/\D/', '', (string)($sh['pin_code'] ?? $sh['pincode'] ?? '')); if (strlen($pz) === 6) $o['address']['pincode'] = $pz;
         }
       }
     }
@@ -1899,9 +1920,9 @@ const BASE_GOLD = 11850.0, BASE_SILVER = 168.0;
 
 function rates_refresh(array &$db): array {
   $last = $db['rates']['last'] ?? null;
-  $gold24 = $last['gold24'] ?? BASE_GOLD;
-  $silver = $last['silver'] ?? BASE_SILVER;
-  $source = 'simulated';
+  $gold24 = $last['gold24'] ?? 0;
+  $silver = $last['silver'] ?? 0;
+  $source = 'unavailable';
   // v73 — one parallel resolver across all providers (gold/silver/FX)
   $spot = spot_resolve($db);
   $gLeg = $spot['gold']; $sLeg = $spot['silver']; $fxLeg = $spot['inr'];
@@ -1911,13 +1932,9 @@ function rates_refresh(array &$db): array {
   $liveLegs = 0;
   if ($gUsd > 0 && $inr > 0) { $gold24 = ($gUsd * $inr) / OZ; $liveLegs++; }
   if ($sUsd > 0 && $inr > 0) { $silver = ($sUsd * $inr) / OZ; $liveLegs++; }
-  if ($liveLegs < 2) {
-    $gold24 = clampn($gold24 * (1 + (mt_rand(-35, 35) / 10000)), BASE_GOLD * 0.96, BASE_GOLD * 1.04);
-    $silver = clampn($silver * (1 + (mt_rand(-50, 50) / 10000)), BASE_SILVER * 0.96, BASE_SILVER * 1.04);
-    $source = (($last['source'] ?? '') === 'live' || ($last['source'] ?? '') === 'live-mcx') ? 'cached+sim' : 'simulated';
-  } else {
-    $source = 'live';
-  }
+  // Keep each available live leg, hold a missing leg at its last known value.
+  // Random jitter is not market data, and must never become a customer quote.
+  $source = $liveLegs === 2 ? 'live' : ($liveLegs > 0 ? 'partial' : (($gold24 > 0 || $silver > 0) ? 'cached' : 'unavailable'));
   if ($inr <= 0) $inr = (float)($last['usdInr'] ?? ($db['settings']['manualUsdInr'] ?? ($db['settings']['usdInr'] ?? 95.5)));
   $gUsdHi = (float)$gLeg['high'] ?: $gUsd; $gUsdLo = (float)$gLeg['low'] ?: $gUsd;
   $sUsdHi = (float)$sLeg['high'] ?: $sUsd; $sUsdLo = (float)$sLeg['low'] ?: $sUsd;
@@ -1967,6 +1984,7 @@ function rates_refresh(array &$db): array {
     'spotSrc' => $spotSrc,
     'spotKind' => $spotImplied ? 'mcx-implied' : ($liveLegs >= 2 ? 'live' : 'partial'),
     'source' => $source,
+    'quotedAt' => in_array($source, ['live', 'live-mcx'], true) ? now_iso() : ($last['quotedAt'] ?? $last['t'] ?? null),
   ];
   $db['rates']['last'] = $stamp;
   $db['rates']['history'][] = $stamp;
@@ -2009,10 +2027,10 @@ function jaipur_from_anchor(array $db, array $anchor): array {
   $sp   = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
   $g24  = (float)($anchor['goldPerG'] ?? 0);
   $sil  = (float)($anchor['silverPerG'] ?? 0);
-  return ['gold24' => (int)round($g24) + $gp24,
-          'gold22' => (int)round($g24 * PURITY_22) + $gp22,
-          'gold18' => (int)round($g24 * PURITY_18) + (int)round($gp * 0.75),
-          'silver' => round($sil + $sp, 1)];
+  return ['gold24' => $g24 > 0 ? (int)round($g24) + $gp24 : 0,
+          'gold22' => $g24 > 0 ? (int)round($g24 * PURITY_22) + $gp22 : 0,
+          'gold18' => $g24 > 0 ? (int)round($g24 * PURITY_18) + (int)round($gp * 0.75) : 0,
+          'silver' => $sil > 0 ? round($sil + $sp, 1) : 0];
 }
 /* v119 — the anchor block /api/rates publishes. `mode` is what the rate card
    shows: the MCX future whenever the exchange feed is the live source,
@@ -2034,7 +2052,7 @@ function anchor_level(array $db): array {
   $r = is_array($db['rates']['last'] ?? null) ? $db['rates']['last'] : [];
   return ['mode' => 'spot', 'source' => (string)($r['source'] ?? 'spot'),
           'goldPerG' => (float)($r['gold24'] ?? 0), 'silverPerG' => (float)($r['silver'] ?? 0),
-          'at' => (string)($r['t'] ?? ''), 'ageMs' => null];
+          'at' => (string)($r['quotedAt'] ?? $r['t'] ?? ''), 'ageMs' => null];
 }
 function current_rates(array $db): array {
   $ov = $db['rates']['override'] ?? null;
@@ -2057,8 +2075,8 @@ function current_rates(array $db): array {
   }
   $l = $db['rates']['last'];
   $gp = (int)($db['settings']['jaipurPremium'] ?? 55); $sp = (double)($db['settings']['jaipurSilverPremium'] ?? 3);
-  return ['gold24' => (int)$l['gold24'] + gold24_premium($db), 'gold22' => (int)$l['gold22'] + gold22_premium($db),
-          'gold18' => (int)$l['gold18'] + (int)round($gp * 0.75), 'silver' => round((double)$l['silver'] + $sp, 1)];
+  return ['gold24' => $l['gold24'] > 0 ? (int)$l['gold24'] + gold24_premium($db) : 0, 'gold22' => $l['gold22'] > 0 ? (int)$l['gold22'] + gold22_premium($db) : 0,
+          'gold18' => $l['gold18'] > 0 ? (int)$l['gold18'] + (int)round($gp * 0.75) : 0, 'silver' => $l['silver'] > 0 ? round((double)$l['silver'] + $sp, 1) : 0];
 }
 /* v90 — same Jaipur premium math as current_rates(), but anchored to the
    fresh MCX tick per-gram price instead of the ~10 min persisted stamp.
@@ -2445,7 +2463,7 @@ function order_restore_stock(array &$db, array &$ord): void {
   if (!$items) return;
   foreach ($items as $it) {
     $pid = (string)($it['productId'] ?? '');
-    $qty = (int)($it['qty'] ?? 0);
+    $qty = (int)($it['stockReserved'] ?? $it['qty'] ?? 0);
     if ($pid === '' || $qty <= 0) continue;
     foreach ($db['products'] as &$pr) {
       if (($pr['id'] ?? '') !== $pid) continue;
@@ -2977,7 +2995,7 @@ if (!is_array($db['bullion'] ?? null) || !isset($db['bullion']['cash'])) {
     'goldRef9930' => ['label' => 'Ref. Gold Local 99.30 — CASH', 'purity' => '99.30%', 'buy' => 0, 'sell' => 0],
   ], 'updatedAt' => now_iso()];
 }
-if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => now_iso(), 'gold24' => 11800, 'gold22' => 10800, 'gold18' => 8850, 'silver' => 95, 'source' => 'bootstrap']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
+if (!isset($db['rates']['last'])) { $db['rates']['last'] = ['t' => '1970-01-01T00:00:00Z', 'gold24' => 0, 'gold22' => 0, 'gold18' => 0, 'silver' => 0, 'source' => 'unavailable']; $db['rates']['history'] = $db['rates']['history'] ?? []; }
 foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55, 'gold24Premium' => 398, 'gold22Premium' => 398, 'jaipurSilverPremium' => 3, 'whatsapp' => '91890505921', 'metalFactor' => 0.92, 'finePurity' => '99.50%',
   /* v166 — "customers should only see the latest version of the website".
      ON (default): a device running an older release moves itself to the newest
@@ -3363,7 +3381,8 @@ try {
      it is burned. Previously the same verified code stayed valid for an hour
      and could be replayed against register, the login door and partner apply. */
   function otp_consume_verified(array &$db, string $phone): void {
-    foreach (($db['otps'] ?? []) as &$oRec) {
+    if (!is_array($db['otps'] ?? null)) return;
+    foreach ($db['otps'] as &$oRec) {
       if (($oRec['phone'] ?? '') === $phone && ($oRec['purpose'] ?? 'login') !== 'reset'
           && !empty($oRec['verified']) && empty($oRec['consumedByLogin'])) {
         $oRec['consumedByLogin'] = true;
@@ -3896,7 +3915,7 @@ try {
     if (!$u && !$guestBuyOk) jout(401, ['error' => 'Login required to place order']);
     $userId = $u ? $u['id'] : ($guestBuyOk ? 'guest' : null);
     rate_block($db, 'order-ip', client_ip(), $guestBuyOk ? 300 : 60, 3600);
-    rate_block($db, 'order-u', $userId ?? '?', 40, 3600);
+    rate_block($db, 'order-u', $u ? $u['id'] : 'guest-ip:' . client_ip(), 40, 3600);
     $b = body_json();
     if (!is_array($b['items'] ?? null) || !count($b['items'])) jout(400, ['error' => 'Cart is empty']);
     if (count($b['items']) > 100) jout(400, ['error' => 'Too many cart items (max 100 per order).']);
@@ -3927,6 +3946,7 @@ try {
         $af['phone'] = $oPhone;
       }
       if (!empty($af['pincode']) && !preg_match('/^\d{6}$/', (string)$af['pincode'])) jout(400, ['error' => 'Pincode must be 6 digits']);
+      $b['address'] = $af;
     } else $b['address'] = [];
     // v84 — jewellery is a physical good: the API used to accept orders with
     // NO delivery address at all (a crafted request, or a broken client),
@@ -3983,7 +4003,7 @@ try {
          checkout watching the countdown; requiring it of a walked-in guest
          order would fail every express purchase. Guests are priced live. */
       if (!$u) $allowLock = false;
-      if ($allowLock && $stamp !== false && (time() - $stamp) <= $lockSec) {
+      if ($allowLock && $stamp !== false && $stamp <= time() && (time() - $stamp) <= $lockSec) {
         $L = (array)$b['rateLock']['rates']; $ok = true;
         foreach (['gold22','gold24','gold18','silver'] as $rk) {
           if (isset($L[$rk]) && is_numeric($L[$rk]) && !empty($R[$rk])
@@ -3995,12 +4015,16 @@ try {
     $subtotal = 0; $items = [];
     $allProds = array_merge($db['products'], array_values(campaign_studs_catalog()));
     foreach (($b['items'] ?? []) as $it) {
-      if (!is_array($it)) continue;
+      if (!is_array($it)) jout(400, ['error' => 'Invalid cart item — refresh your bag.']);
+      $found = false;
       $qty = (int)($it['qty'] ?? 1);
       if ($qty < 1) $qty = 1; elseif ($qty > 99) $qty = 99;
       $targetId = (string)($it['id'] ?? ($it['productId'] ?? ''));
       foreach ($allProds as $prod) if ($prod['id'] === $targetId || ($prod['sku'] ?? '') === $targetId) {
+        if (empty($prod['active'])) jout(400, ['error' => 'A selected design is no longer available — refresh your bag.']);
+        $found = true;
         $pr = compute_price($prod, $R);
+        if ($pr['ratePerGram'] <= 0) jout(503, ['error' => 'Pricing for this metal is unavailable — please retry later or contact the shop.']);
         $line = ['productId' => $prod['id'], 'sku' => $prod['sku'] ?? $prod['id'], 'name' => $prod['name'], 'img' => $prod['images'][0] ?? null,
                  'qty' => $qty, 'weightG' => $prod['weightG'], 'purity' => $prod['purity'], 'metal' => $prod['metal'],
                  'hsn' => ($prod['metal'] ?? '') === 'Silver' ? '71131110' : '71131910',
@@ -4014,6 +4038,7 @@ try {
         $subtotal += $line['unitPrice'] * $line['qty'];
         $items[] = $line; break;
       }
+      if (!$found) jout(400, ['error' => 'A selected design was not found — refresh your bag.']);
     }
     if (!$items) jout(400, ['error' => 'Cart is empty']);
     // v83 — fail closed: never accept an order priced against a dead/zero rate
@@ -4091,13 +4116,23 @@ try {
       'status' => 'Placed', 'createdAt' => now_iso(), 'timeline' => [['s' => 'Placed', 't' => now_iso()]],
     ];
     /* v142/v161 — guest express orders: tag them and mint the access pin. `tail` is
-       private entropy that enters the pin hash but — like the pin itself — is
-       never sent to the browser, so the pin cannot be recomputed client-side. */
+       private entropy that enters the pin hash and is never sent to the browser.
+       The derived pin IS returned to its buyer for authenticated guest links. */
     if (!$u || $exSig) {
       if (!$u) $order['guest'] = true;
       $order['tail'] = bin2hex(random_bytes(12));
       if (!$u) $order['email'] = '';
     }
+    foreach ($order['items'] as &$reserved) {
+      $reserved['stockReserved'] = 0;
+      foreach ($db['products'] as &$prodStock) if ($prodStock['id'] === $reserved['productId']) {
+        $reserved['stockReserved'] = min(max(0, (int)($prodStock['stock'] ?? 0)), (int)$reserved['qty']);
+        $prodStock['stock'] = max(0, (int)($prodStock['stock'] ?? 0)) - $reserved['stockReserved'];
+        break;
+      }
+      unset($prodStock);
+    }
+    unset($reserved);
     $db['orders'][] = $order;
     /* v137 (#16) — only the REDEMPTION happens here; the earning does not.
        Redeeming at checkout is correct (it prices this order), but crediting
@@ -4108,11 +4143,10 @@ try {
       $uu['loyaltyPoints'] = max(0, (int)($uu['loyaltyPoints'] ?? 0) - $pointsUsed);
     }
     unset($uu);
-    foreach ($items as $it) foreach ($db['products'] as &$pr2) if ($pr2['id'] === $it['productId']) $pr2['stock'] = max(0, (int)($pr2['stock'] ?? 0) - $it['qty']);
     db_save($DB_FILE, $db);
     /* v142/v161 — order gets the access pin (`pin`, never persisted to the database)
        that lets the order page read / pay / poll without a member account. */
-    $resp = $order;
+    $resp = shv_public_order($order);
     if (!$u || $exSig || !empty($order['guest']) || !empty($order['tail'])) {
       $resp['pin'] = shv_guest_pin($order);
     }
@@ -4122,7 +4156,7 @@ try {
     $u = req_user($db);
     if (!$u) jout(401, ['error' => 'Login required']);
     $list = $u['role'] === 'admin' ? $db['orders'] : array_values(array_filter($db['orders'], fn($o) => $o['userId'] === $u['id']));
-    jout(200, ['orders' => array_reverse(array_values($list))]);
+    jout(200, ['orders' => array_map('shv_public_order', array_reverse(array_values($list)))]);
   }
   if (preg_match('#^orders/([\w-]+)$#', $route, $m)) {
     $o = null; foreach ($db['orders'] as $x) if ($x['id'] === $m[1]) $o = $x;
@@ -4131,7 +4165,7 @@ try {
       if (!$o) jout(404, ['error' => 'Not found']);
       $guestPinOk = (($o['guest'] ?? false) === true) && hash_equals(shv_guest_pin($o), trim((string)($_GET['pin'] ?? '')));
       if (($o['userId'] ?? '') !== ($u['id'] ?? '') && ($u['role'] ?? '') !== 'admin' && !$guestPinOk) jout(403, ['error' => 'Not yours']);
-      jout(200, ['order' => $o]);
+      jout(200, ['order' => shv_public_order($o)]);
     }
     if ($method === 'PUT') {
       need_admin($db);
@@ -4139,7 +4173,7 @@ try {
       foreach ($db['orders'] as &$x) if ($x['id'] === $m[1]) {
         $st = $patch['status'] ?? null;
         if ($st !== null) $st = trim((string)$st);
-        if ($st !== '' && !preg_match('/^[A-Za-z0-9 &\-\/.,()\']{1,40}$/', $st)) jout(400, ['error' => 'Status contains invalid characters']);
+        if ($st !== null && $st !== '' && !preg_match('/^[A-Za-z0-9 &\-\/.,()\']{1,40}$/', $st)) jout(400, ['error' => 'Status contains invalid characters']);
         if ($st && $st !== $x['status']) {
           $x['status'] = $st; $x['timeline'][] = ['s' => $st, 't' => now_iso()];
           /* v137 — cancelling returns the points the customer redeemed on this
@@ -4152,7 +4186,8 @@ try {
         }
         if (!empty($patch['paymentStatus']) && !preg_match('/^[A-Za-z0-9 &\-\/.,()]{1,40}$/', (string)$patch['paymentStatus'])) jout(400, ['error' => 'Payment status contains invalid characters']);
         if (!empty($patch['paymentStatus'])) {
-          $newPs = substr((string)$patch['paymentStatus'], 0, 40);
+          $newPs = substr(trim((string)$patch['paymentStatus']), 0, 40);
+          if (strcasecmp($newPs, 'Paid') === 0) $newPs = 'Paid';
           /* v135 (#17) — paymentStatus used to be settable straight from the
              request with no ledger row, no amountPaid and no balance, so the
              customer-facing order page could read "Paid via Online ₹62,877"
@@ -4246,7 +4281,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 168,
+      'rel'   => 169,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -4287,7 +4322,7 @@ try {
     if (($o['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled — please place a new order.']);
     // v86 — cap payment-order creation so a scripted checkout can't flood the
     // gateway (Cashfree orders) or the manual proof queue.
-    rate_block($db, 'payorder-u', $u['id'] ?? '?', 60, 3600);
+    rate_block($db, 'payorder-u', $u ? $u['id'] : 'guest-ip:' . client_ip(), 60, 3600);
     $s = $db['settings'];
     // v60: charge only the outstanding balance (advances / part payments already made)
     $already = (int)($o['amountPaid'] ?? 0);
@@ -4490,7 +4525,7 @@ try {
     order_grant_points($db, $db['orders'][$i]);    // v137 (#16)
     audit_log($db, 'payment.gateway-paid', ['order' => $o['id'], 'amount' => $paidAmt, 'gateway' => $gw]);
     db_save($DB_FILE, $db);
-    jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
+    jout(200, ['ok' => true, 'order' => shv_public_order($db['orders'][$i])]);
   }
 
   /* ════════ v59 · UPI QR payment proof (works with no gateway keys) ════════
@@ -4543,7 +4578,7 @@ try {
     $db['orders'][$i]['payProof'] = $proof;   // latest proof, for simple UI
     $db['orders'][$i]['gateway'] = 'upi-qr';
     db_save($DB_FILE, $db);
-    jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
+    jout(200, ['ok' => true, 'order' => shv_public_order($db['orders'][$i])]);
   }
   if ($route === 'admin/pay-proofs' && $method === 'GET') {
     need_admin($db);
@@ -4723,7 +4758,7 @@ try {
         }
       }
     }
-    jout(200, ['ok' => true, 'order' => $db['orders'][$i]]);
+    jout(200, ['ok' => true, 'order' => shv_public_order($db['orders'][$i])]);
   }
   if ($route === 'admin/pay-proof' && $method === 'POST') {
     need_admin($db);
@@ -4763,7 +4798,7 @@ try {
         audit_log($db, 'payment.proof-rejected', ['order' => $ord['id']]);
       }
       db_save($DB_FILE, $db);
-      jout(200, ['ok' => true, 'order' => $db['orders'][$idx]]);
+      jout(200, ['ok' => true, 'order' => shv_public_order($db['orders'][$idx])]);
     }
     jout(404, ['error' => 'Order not found']);
   }
@@ -4857,7 +4892,7 @@ try {
     }
     audit_log($db, 'payment.cashfree-refund', ['order' => $ord['id'], 'amount' => $want, 'refundId' => $rfId, 'state' => $state]);
     db_save($DB_FILE, $db);
-    jout(200, ['ok' => true, 'order' => $ord]);
+    jout(200, ['ok' => true, 'order' => shv_public_order($ord)]);
   }
 
 
@@ -5087,7 +5122,7 @@ try {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
     $mxSt = substr(trim((string)(body_json()['status'] ?? '')), 0, 40);
     if ($mxSt !== '' && !preg_match('/^[A-Za-z0-9 &\-\/\.]{1,40}$/', $mxSt)) jout(400, ['error' => 'Invalid status']);
-    foreach (($db['metalOrders'] ?? []) as &$o) if ($o['id'] === $mMX[1]) { if ($mxSt !== '') $o['status'] = $mxSt; $out = $o; }
+    foreach ($db['metalOrders'] as &$o) if ($o['id'] === $mMX[1]) { if ($mxSt !== '') $o['status'] = $mxSt; $out = $o; }
     if (empty($out)) jout(404, ['error' => 'Order not found']);
     db_save($DB_FILE, $db); jout(200, $out);
   }
@@ -5296,7 +5331,7 @@ try {
     $u = req_user($db); if (!$u || $u['role'] !== 'admin') jout(403, ['error' => 'Admin access required']);
     $blSt = substr(trim((string)(body_json()['status'] ?? '')), 0, 40);
     if ($blSt !== '' && !preg_match('/^[A-Za-z0-9 &\-\/\.]{1,40}$/', $blSt)) jout(400, ['error' => 'Invalid status']);
-    foreach (($db['bullionOrders'] ?? []) as &$o) if ($o['id'] === $mBLO[1]) { if ($blSt !== '') $o['status'] = $blSt; $out = $o; }
+    foreach ($db['bullionOrders'] as &$o) if ($o['id'] === $mBLO[1]) { if ($blSt !== '') $o['status'] = $blSt; $out = $o; }
     if (empty($out)) jout(404, ['error' => 'Order not found']);
     db_save($DB_FILE, $db); jout(200, $out);
   }
@@ -5436,15 +5471,14 @@ try {
       if ($pr['status'] === 'approved' && empty($pr['joined'])) {
         $pr['joined'] = now_iso();
         foreach ($db['users'] as &$u) if (strtolower($u['email']) === strtolower($pr['email'])) { $u['role'] = 'partner'; $u['partnerId'] = $pr['id']; }
-        for ($w = 5; $w >= 1; $w--) {
-          $sales = (int)round(((mt_rand(250, 950)) / 100) * 100000);
-          $db['settlements'][] = ['partnerId' => $pr['id'], 'weekEnding' => date('Y-m-d', time() - $w * 7 * 86400),
-                                  'sales' => $sales, 'orders' => mt_rand(4, 22), 'payout' => (int)round($sales * 0.985), 'status' => 'Paid'];
-        }
+        // v169: approval grants access, NOT fictional sales or Paid settlements.
+        unset($u);
       }
       $out = $pr;
     }
-    db_save($DB_FILE, $db); jout(200, $out ?? ['error' => 'Not found']);
+    unset($pr);
+    if (empty($out)) jout(404, ['error' => 'Partner not found']);
+    db_save($DB_FILE, $db); jout(200, $out);
   }
 
   /* v88 — admin: stream the official GST certificate PDF (Form GST REG-06).
@@ -5496,7 +5530,7 @@ try {
       'gstAddress' => $info['address'], 'gstDistrict' => $info['district'],
       'gstPincode' => $info['pincode'], 'pan' => $chk['pan'], 'gstVerifiedAt' => now_iso()];
     $updated = 0;
-    foreach (($db['partners'] ?? []) as &$pRow) {
+    foreach ($db['partners'] as &$pRow) {
       if (strtoupper((string)($pRow['kyc']['gstin'] ?? '')) === $g) {
         $pRow['kyc'] = array_merge(is_array($pRow['kyc'] ?? null) ? $pRow['kyc'] : ['gstin' => $g, 'otpVerified' => true], $snap);
         $postal = trim(implode(', ', array_filter([
@@ -5821,7 +5855,7 @@ try {
     if (($ccO['status'] ?? '') === 'Cancelled') jout(400, ['error' => 'This order was cancelled.']);
     $db['orders'][$idx]['codConfirmed'] = true;
     $db['orders'][$idx]['codConfirmedAt'] = now_iso();
-    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'order' => $db['orders'][$idx]]);
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'order' => shv_public_order($db['orders'][$idx])]);
   }
   if (preg_match('#^orders/([\w-]+)/refund-request$#', $route, $mRR) && $method === 'POST') {
     $b = body_json();
@@ -5966,9 +6000,10 @@ try {
       if (($o['status'] ?? '') !== 'Delivered') continue;
       if (strtotime((string)($o['createdAt'] ?? 'now')) > $cut) continue;   // needs ~6 days post-delivery
     
-      $delivAt = $o['createdAt'];
-      foreach (($o['timeline'] ?? []) as $tl) if (($tl['status'] ?? '') === 'Delivered') $delivAt = $tl['at'] ?? $delivAt;
-      if (strtotime((string)$delivAt) > $cut) continue;
+      $delivAt = $o['deliveredAt'] ?? '';
+      foreach (($o['timeline'] ?? []) as $tl) if (($tl['s'] ?? $tl['status'] ?? '') === 'Delivered') $delivAt = $tl['t'] ?? $tl['at'] ?? $delivAt;
+      $delivered = strtotime((string)$delivAt);
+      if ($delivered === false || $delivered > $cut) continue;
       foreach (($o['items'] ?? []) as $it) {
         if (empty($reviewedPids[($o['userId'] ?? '') . '|' . ($it['productId'] ?? '')])) {
           $asks[] = ['orderId' => $o['id'], 'userName' => $o['userName'], 'phone' => ($o['address']['phone'] ?? $o['phone'] ?? ''),
@@ -5993,10 +6028,10 @@ try {
   if ($route === 'referrals/stats' && $method === 'GET') {
     $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
     $code = (string)($u['referralCode'] ?? '');
-    $friends = array_values(array_filter($db['users'], fn($x) => ($x['referredBy'] ?? '') === $code));
+    $friends = $code === '' ? [] : array_values(array_filter($db['users'], fn($x) => ($x['referredBy'] ?? '') === $code && ($x['id'] ?? '') !== $u['id']));
     $completed = 0; $reward = 0;
     foreach ($friends as $f) {
-      $hasOrder = (bool)array_filter($db['orders'], fn($o) => $o['userId'] === $f['id'] && ($o['status'] ?? '') !== 'Cancelled');
+      $hasOrder = (bool)array_filter($db['orders'], fn($o) => $o['userId'] === $f['id'] && ($o['status'] ?? '') !== 'Cancelled' && ($o['paymentStatus'] ?? '') === 'Paid');
       if ($hasOrder) { $completed++; $reward += (int)($db['settings']['referralReward'] ?? 250); }
     }
     jout(200, ['code' => $code, 'signedUp' => count($friends), 'completed' => $completed,
@@ -6156,7 +6191,7 @@ try {
     foreach ($db['users'] as $x) if ($x['id'] === $q || $x['email'] === $q || ($x['phone'] ?? '') === $q) { $u = $x; break; }
     if (!$u) jout(404, ['error' => 'Customer not found']);
     jout(200, ['user' => pub_user($u),
-      'orders' => array_values(array_filter($db['orders'], fn($o) => $o['userId'] === $u['id'])),
+      'orders' => array_map('shv_public_order', array_values(array_filter($db['orders'], fn($o) => $o['userId'] === $u['id']))),
       'reviews' => array_values(array_filter($db['reviews'], fn($r) => ($r['userId'] ?? '') === $u['id'])),
       'plans' => array_values(array_filter($db['savingsPlans'], fn($p) => $p['userId'] === $u['id'])),
       'serviceRequests' => array_values(array_filter($db['serviceRequests'], fn($s) => ($s['phone'] ?? '') === ($u['phone'] ?? '')))]);

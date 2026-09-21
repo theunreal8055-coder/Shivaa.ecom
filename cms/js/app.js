@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 168;
+const APP_REL = 169;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -2190,14 +2190,16 @@ async function fqOpen({ route = 'purchase', orderId = null, pin = null } = {}) {
 }
 
 async function finaleAfterOrder(order) {
-  if (!finaleLive() || !order) return;
+  if (!finaleLive() || !order || !orderIsPaid(order)) return;
+  const initialView = $('#view');
+  const isCurrent = viewLifetime(initialView);
   const items = (order.items) || [];
   const q = finaleQualifiesItems(items);
   if (!q.ok) return;
   const orderId = order.id;
   let entry = null;
   if (state.user) entry = await fqGetStatus();
-  const view = $('#view'); if (!view || !finaleLive()) return;
+  const view = $('#view'); if (!isCurrent() || !view || !finaleLive()) return;
 
   const band = document.createElement('section');
   band.className = 'finale-band finq-band';
@@ -2210,7 +2212,7 @@ async function finaleAfterOrder(order) {
   try {
     if (!entry && sessionStorage.getItem('fqPrompt') === orderId) {
       sessionStorage.removeItem('fqPrompt');
-      if (state.user) setTimeout(() => fqOpen({ route: 'purchase', orderId }), 900);
+      if (state.user) setTimeout(() => { if (isCurrent()) fqOpen({ route: 'purchase', orderId }); }, 900);
     }
   } catch (e) {}
 }
@@ -2785,6 +2787,12 @@ function mcTableHTML(rows, editable = false) {
 }
 
 /* ═══════════════════ PAGES ═══════════════════ */
+/* v169 — async pages must not repaint or redirect a newer navigation. */
+function viewLifetime(view) {
+  const generation = routeGeneration, hash = location.hash;
+  return () => routeGeneration === generation && location.hash === hash && document.getElementById('view') === view;
+}
+const orderIsPaid = order => /^paid$/i.test(String((order || {}).paymentStatus || '').trim());
 const pages = {};
 /* v167 — every empty / not-found view on the site was an <h3> with no <h1>
    above it: an empty bag, a wrong order link, a deleted CMS page. Those routes
@@ -3592,6 +3600,7 @@ pages.shop = async (view, q) => {
 
 /* ─────────── PRODUCT ─────────── */
 pages.product = async (view, q, id) => {
+  const isCurrent = viewLifetime(view);
   /* v91 — luxury skeleton while the piece loads (replaces the blank flash) */
   view.innerHTML = `<div class="container" style="padding-top:26px"><div class="pd-layout">
     <div class="pd-gallery"><div class="skeleton" style="aspect-ratio:1/1;border-radius:20px"></div></div>
@@ -3605,10 +3614,12 @@ pages.product = async (view, q, id) => {
       <div class="skeleton" style="height:50px;width:210px;border-radius:40px"></div>
     </div></div></div>`;
   let data;
-  try { data = await api('/api/products/' + id); } catch (e) { view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
+  try { data = await api('/api/products/' + id); } catch (e) { if (!isCurrent()) return; view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
+  if (!isCurrent()) return;
   const p = data.product, pr = price(p), R = data.rates || state.rates;
   injectProductLD(p, pr);   // v57: schema.org Product JSON-LD + per-piece OG share card
   const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
+  if (!isCurrent()) return;
   const compared = isCompared(p.id);
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
   view.innerHTML = `
@@ -5082,6 +5093,7 @@ window.Shivaa.quickView = async (id) => {
 
 /* ─────────── CHECKOUT ─────────── */
 pages.checkout = async (view) => {
+  const isCurrent = viewLifetime(view);
   ensureCampaignStuds();
   if (!state.cart.length) { location.hash = '#/cart'; return; }
   if (!state.user) {
@@ -5090,7 +5102,7 @@ pages.checkout = async (view) => {
        page that no longer exists; only when the flow declines does the login
        offer appear. */
     if (expressCheckoutOn()) {
-      window.Shivaa.exDirect(true).then(used => { if (!used) openLogin('checkout'); });
+      window.Shivaa.exDirect(true).then(used => { if (!used && isCurrent()) openLogin('checkout'); });
       return;
     }
     openLogin('checkout'); return;
@@ -5118,6 +5130,7 @@ pages.checkout = async (view) => {
   /* v128 — payment configuration (demo until Cashfree keys are added) */
   let payCfg = { mode: 'demo', prepaidPct: 2, keyId: '' };
   try { payCfg = await api('/api/pay/config'); } catch (e) {}
+  if (!isCurrent()) return;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/cart">Cart</a> / Checkout</div><h1>Checkout</h1></div></section>
   <div class="container cart-layout" style="padding-top:40px">
@@ -5995,9 +6008,11 @@ function guestPinFor(q, id) {
   return pin;
 }
 pages.order = async (view, q, id) => {
+  const isCurrent = viewLifetime(view);
   let order, pin = guestPinFor(q, id);
   try { order = (await api('/api/orders/' + id + (pin ? '?pin=' + encodeURIComponent(pin) : ''))).order; }
   catch (e) { order = null; }
+  if (!isCurrent()) return;
   /* v167 — the catch above used to BE the handler; a 200 that carries no order
      (a proxy, a cached response, a backend change) fell straight through to
      `order.paymentStatus` and the whole route died into the generic error view
@@ -6006,7 +6021,12 @@ pages.order = async (view, q, id) => {
   window._lastOrder = order;
 
   // If a campaign stud order is confirmed paid, navigate directly to the quiz
-  const isPaidNow = /paid/i.test(order.paymentStatus || '') || String(q.get('cf') || '').toLowerCase() === 'success';
+  const savedRates = [...new Set((order.items || []).map(it => {
+    const key = it.metal === 'Silver' ? 'silver' : 'gold' + String(it.purity || '').replace('K', '');
+    const rate = Number(it.ratePerGram || (order.rateSnapshot || {})[key]);
+    return Number.isFinite(rate) && rate > 0 ? `${esc([it.purity, it.metal].filter(Boolean).join(' '))}: ${fmt(rate)}/g` : '';
+  }).filter(Boolean))];
+  const isPaidNow = orderIsPaid(order);
   if (isPaidNow && finaleLive() && finaleQualifiesItems(order.items || []).ok && sessionStorage.getItem('fqPrompt') === order.id) {
     sessionStorage.removeItem('fqPrompt');
     location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(order.id) + (pin ? '&pin=' + encodeURIComponent(pin) : '');
@@ -6014,7 +6034,8 @@ pages.order = async (view, q, id) => {
   }
 
   // v128 — returning from the Cashfree hosted page (?cf=success|pending|fail)
-  const ppReturn = String(q.get('cf') || '').toLowerCase();
+  const returnHint = String(q.get('cf') || '').toLowerCase();
+  const ppReturn = isPaidNow ? (returnHint ? 'success' : '') : (returnHint === 'success' ? 'pending' : returnHint);
   /* v160 — campaign fail flag: fail banner + auto-return to the showcase. */
   const campFail = (ppReturn === 'fail') && finaleLive() && finaleQualifiesItems(order.items || []).ok;
   const campFailGender = campFail ? campaignGenderOfItems(order.items || []) : 'gents';
@@ -6039,7 +6060,7 @@ pages.order = async (view, q, id) => {
         })()}</h1>
         <p style="color:var(--ink-2)">Order <b style="color:var(--maroon)">${order.id}</b> is confirmed.${order.earnedPoints > 0 ? ` You will earn <b style="color:var(--gold)">${order.earnedPoints} royalty points</b> once payment is confirmed ✦` : ''}<br>
         Rate-lock summary saved to your account. Live tracking below.</p>
-        ${order.guest ? `<p style="color:var(--ink-3);font-size:12.5px;max-width:520px;margin:0 auto 6px">✦ Bought in one tap as a guest — your delivery details were verified on Cashfree&rsquo;s page. Questions? WhatsApp ${esc(state.settings.phone || '+91 89050 05921')}.</p>` : ''}
+        ${order.guest ? `<p style="color:var(--ink-3);font-size:12.5px;max-width:520px;margin:0 auto 6px">✦ Bought in one tap as a guest — delivery details are collected on Cashfree&rsquo;s page. The shop confirms them before dispatch. Questions? WhatsApp ${esc(state.settings.phone || '+91 89050 05921')}.</p>` : ''}
       </div>
       ${ppBannerHTML}
       <div class="order-card mt-3">
@@ -6051,12 +6072,12 @@ pages.order = async (view, q, id) => {
              number over an unsettled balance. */
           : `<div style="font-size:12px;color:var(--ink-3);margin:2px 0 8px">Tax invoice is issued once payment is confirmed · HSN ${esc(order.hsn || (order.items || []).map(i => i.hsn).filter(Boolean)[0] || '7113')}</div>`}
         ${order.items.map(it => `<div class="sum-row"><span>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b>${fmt(it.unitPrice * it.qty)}</b></div>`).join('')}
-        <div class="sum-row"><span>Rate locked at</span><b>${fmt(order.rateSnapshot.gold22 || order.rateSnapshot.silver)}/g (${esc(order.rateSnapshot.stampedAt ? timeFmt(order.rateSnapshot.stampedAt) : 'order time')})</b></div>
+        <div class="sum-row"><span>Rate locked at</span><b>${savedRates.length ? savedRates.join('<br>') : 'Not recorded'} (${esc((order.rateSnapshot || {}).stampedAt ? timeFmt((order.rateSnapshot || {}).stampedAt) : 'order time')})</b></div>
         <div class="sum-row"><span>Subtotal</span><b>${fmt(order.subtotal)}</b></div>
         ${order.discount ? `<div class="sum-row"><span>Discount${order.coupon ? ' (' + esc(order.coupon) + ')' : ''}${order.pointsUsed ? ' · ' + order.pointsUsed + ' pts' : ''}</span><b style="color:var(--ok)">− ${fmt(order.discount)}</b></div>` : ''}
         <div class="sum-row"><span>Shipping</span>${order.shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(order.shipping)}</b>`}</div>
         ${order.prepaidDiscount ? `<div class="sum-row"><span>Prepaid discount</span><b style="color:var(--ok)">− ${fmt(order.prepaidDiscount)}</b></div>` : ''}
-        <div class="sum-row total"><span>${/paid/i.test(order.paymentStatus || '') ? 'Paid via' : 'Payment'} ${esc(order.paymentMethod)}</span><b>${fmt(order.total)}</b></div>
+        <div class="sum-row total"><span>${isPaidNow ? 'Paid via' : 'Payment'} ${esc(order.paymentMethod)}</span><b>${fmt(order.total)}</b></div>
       </div>
       ${orderStageHTML(order)}
       ${trackingCardHTML(order)}
@@ -6083,13 +6104,13 @@ pages.order = async (view, q, id) => {
       <div class="center" style="margin-top:12px"><a class="btn btn-primary" href="#/account?tab=orders">View All Orders</a> <a class="btn btn-ghost" href="#/shop" style="margin-left:10px">Continue Shopping</a></div>
     </div>
   </div>`;
-  confetti();
+  if (isPaidNow) confetti();
   /* v160 — campaign fail auto-return (owner order): order page is a dead-end
      after a failed scheme payment; the showcase is where the retry happens. */
   if (campFail) {
     toast('Payment failed — showing your 3 designs again ✦', 'err');
     setTimeout(() => {
-      if (String(location.hash || '').includes('#/order/')) {
+      if (isCurrent()) {
         location.hash = '#/scheme?step=products&gender=' + encodeURIComponent(campFailGender);
       }
     }, 4000);
@@ -6098,13 +6119,15 @@ pages.order = async (view, q, id) => {
   // v60: surface this order's refund/exchange request if one exists
   try {
     const { requests } = await api('/api/refunds/mine');
+    if (!isCurrent()) return;
     const mine = (requests || []).find(r => r.orderId === order.id);
     const slot = $('#refundSlot');
     if (mine && slot) slot.innerHTML = refundCardHTML(order, mine);
   } catch (e) { /* guests / no requests */ }
+  if (!isCurrent()) return;
   // v128 — after a Cashfree redirect return, ask the server to reconcile the
   // order (GET /pg/orders + refund status) and redraw the moment it flips to Paid.
-  if (ppReturn === 'success' || ppReturn === 'pending') {
+  if (!isPaidNow && (ppReturn === 'success' || ppReturn === 'pending')) {
     /* v135 (#7) — the poller used to give up after six tries (about 15 seconds)
        and tell the customer to "reload this page in a minute" at precisely the
        moment they are most anxious about a five-figure payment. UPI and bank
@@ -6112,21 +6135,22 @@ pages.order = async (view, q, id) => {
        roughly two and a half minutes before it stops. */
     const PP_SCHEDULE = [1200, 2600, 4000, 6000, 8000, 10000, 12000, 15000, 15000, 15000];
     const pollPP = async (tries) => {
-      if (!document.getElementById('ppBanner')) return;              // navigated away
+      if (!isCurrent() || !document.getElementById('ppBanner')) return;              // navigated away
       if (tries >= PP_SCHEDULE.length) {
         const b = document.getElementById('ppBanner');
-        if (b) b.querySelector('small').textContent = 'Confirmation is taking longer than usual — leave this page open and it will keep checking, or reload it in a minute. Contact the shop if money was debited.';
+        if (b) b.querySelector('small').textContent = 'Confirmation is taking longer than usual — automatic checks have paused. Reload this page to check again. Contact the shop if money was debited.';
         return;
       }
       await new Promise(r => setTimeout(r, PP_SCHEDULE[tries]));
-      if (!document.getElementById('ppBanner')) return;
+      if (!isCurrent() || !document.getElementById('ppBanner')) return;
       try {
         const r = await api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId: id, pin: pin || '' }) });
+        if (!isCurrent()) return;
         const o = r.order || {};
         const ps = String(o.paymentStatus || '');
         if (/^paid$/i.test(ps) || /partially paid/i.test(ps)) {
-          toast('Cashfree payment confirmed ✦');
-          if (finaleLive() && finaleQualifiesItems(o.items || []).ok) {
+          toast(orderIsPaid(o) ? 'Cashfree payment confirmed ✦' : 'Part payment received — balance is still due.');
+          if (orderIsPaid(o) && finaleLive() && finaleQualifiesItems(o.items || []).ok) {
             location.hash = '#/scheme?step=quiz&orderId=' + encodeURIComponent(id) + (pin ? '&pin=' + encodeURIComponent(pin) : '');
             return;
           }
@@ -6161,16 +6185,19 @@ function confetti() {
 
 /* ─────────── WISHLIST ─────────── */
 pages.account = async (view, q) => {
+  const isCurrent = viewLifetime(view);
   if (!state.user) { signInGate(view, 'account', 'My Account', 'Sign in with the mobile number you order with — your orders, certificates, saved addresses and Royalty points sit behind it.'); openLogin('account'); return; }
   const tab = q.get('tab') || 'home';
   const me = state.user;
   // v31 — a failed fetch must never blank the account page; if the session
   // died (401), api() has already cleared it, so show the login gate.
   let orders = [], wl = [];
-  try { orders = (await api('/api/orders')).orders || []; window.Shivaa._myOrders = orders; }   // v57: buy-again
-  catch (e) { if (!state.user) { openLogin('account'); return; } }
+  try { orders = (await api('/api/orders')).orders || []; if (!isCurrent()) return; window.Shivaa._myOrders = orders; }   // v57: buy-again
+  catch (e) { if (!isCurrent()) return; if (!state.user) { openLogin('account'); return; } }
+  if (!isCurrent()) return;
   try { wl = (await api('/api/wishlist')).wishlist || []; }
-  catch (e) { if (!state.user) { openLogin('account'); return; } }
+  catch (e) { if (!isCurrent()) return; if (!state.user) { openLogin('account'); return; } }
+  if (!isCurrent()) return;
   const tier = me.loyaltyPoints > 5000 ? 'Gold' : me.loyaltyPoints > 2000 ? 'Silver' : 'Bronze';
   const initials = me.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const prof = me.profile || {};
@@ -6342,9 +6369,11 @@ window.Shivaa.addrDel = async id => {
   catch (e) { toast(e.message, 'err'); }
 };
 pages.wishlist = async (view) => {
+  const isCurrent = viewLifetime(view);
   let items = [], wl = [];
   if (state.user) { const r = await api('/api/wishlist'); wl = r.wishlist; items = r.items; }
   else { wl = state.localWish; items = state.productsCache.filter(p => state.localWish.includes(p.id)); }
+  if (!isCurrent()) return;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Wishlist</div><h1>Wishlist</h1><p>${items.length} saved piece${items.length === 1 ? '' : 's'}${state.user ? '' : ' · login to sync across devices'}</p></div></section>
   <div class="container" style="padding:30px 0 90px">
@@ -7939,15 +7968,21 @@ window.Shivaa.toast = toast;
 
 /* ─────────── invoices (owner-only, watermarked) ─────────── */
 pages.invoice = async (view, q, id) => {
+  const isCurrent = viewLifetime(view);
   if (!state.user) { signInGate(view, '', 'Tax Invoice', 'Sign in to open the invoice for this order — it stays in your account for as long as you need it.'); openLogin(); return; }
   view.innerHTML = '<div class="loading-spin"></div>';
   let o = null, kind = 'retail';
-  if (id.startsWith('MX')) {
+  if (String(id || '').startsWith('MX')) {
     try { const r = await api('/api/metalexchange/orders'); o = r.orders.find(x => x.id === id); kind = 'metal'; } catch (e) {}
   } else {
     try { o = (await api('/api/orders/' + id)).order; } catch (e) {}
   }
+  if (!isCurrent()) return;
   if (!o) { view.innerHTML = emptyShell('Tax Invoice', 'Invoice not found', '<div class="empty"><p style="color:var(--ink-3)">We could not find an invoice with that number on this account.</p><a class="btn btn-outline" href="#/account?tab=orders">My orders</a></div>'); return; }
+  if (kind === 'retail' && !o.invoiceNo) {
+    view.innerHTML = emptyShell('Tax Invoice', 'Invoice not issued yet', '<div class="empty"><p>Your tax invoice is issued after payment is confirmed.</p><a class="btn btn-outline" href="#/order/' + encodeURIComponent(o.id) + '">View order and payment status</a></div>');
+    return;
+  }
   const wm = `${state.user.name} · ${state.user.email}`;
   const rows = kind === 'metal'
     ? o.items.map(it => `<tr><td>${esc(it.name)}</td><td>${it.qty}</td><td>${it.weightG} g</td><td>${it.lineWeight} g</td></tr>`).join('')
@@ -7957,14 +7992,17 @@ pages.invoice = async (view, q, id) => {
        <tr class="tot"><td colspan="3">Fine metal @ ${esc(o.purity)} (× ${o.factor}, zero MC)</td><td>${o.fineGrams} g</td></tr>`
     : `<tr class="tot"><td colspan="3">Subtotal (incl. GST)</td><td>₹${o.subtotal.toLocaleString('en-IN')}</td></tr>
        ${o.discount ? `<tr class="tot"><td colspan="3">Discount</td><td>− ₹${o.discount.toLocaleString('en-IN')}</td></tr>` : ''}
-       <tr class="tot"><td colspan="3">Total paid (${esc(o.paymentMethod)})</td><td>₹${o.total.toLocaleString('en-IN')}</td></tr>`;
+       ${o.prepaidDiscount ? `<tr class="tot"><td colspan="3">Prepaid discount</td><td>− ${fmt(o.prepaidDiscount)}</td></tr>` : ''}
+       ${o.shipping ? `<tr class="tot"><td colspan="3">Shipping</td><td>${fmt(o.shipping)}</td></tr>` : ''}
+       ${o.codFee ? `<tr class="tot"><td colspan="3">COD fee</td><td>${fmt(o.codFee)}</td></tr>` : ''}
+       <tr class="tot"><td colspan="3">Invoice total (${esc(o.paymentMethod)})</td><td>₹${o.total.toLocaleString('en-IN')}</td></tr>`;
   view.innerHTML = `
   <div class="inv-page">
     <div class="inv-no-print inv-top"><button class="btn btn-primary" onclick="window.print()">⬇ Download / Print PDF</button><a class="btn btn-ghost" href="${kind === 'metal' ? '#/partner' : '#/account?tab=orders'}">← Back</a></div>
     <div class="inv-sheet">
-      <div class="inv-wm">${esc(wm)}<br>${o.id}</div>
+      <div class="inv-wm">${esc(wm)}<br>${esc(o.id)}</div>
       <div class="inv-head"><img src="/images/logo.png" alt="Shivaa"><div><b>SHIVAA</b><small>Ernate Shine Jewellery Pvt. Ltd.<br>Jayal, Nagaur, Rajasthan · GSTIN on request</small></div>
-      <div class="inv-meta"><b>Invoice ${o.id}</b><small>${new Date(o.createdAt).toLocaleString('en-IN')}<br>${kind === 'metal' ? 'B2B · Metal Settlement' : 'Retail Invoice'}<br>Status: ${esc(o.status)}</small></div></div>
+      <div class="inv-meta"><b>Invoice ${esc(o.invoiceNo || o.id)}</b><small>${new Date(o.createdAt).toLocaleString('en-IN')}<br>${kind === 'metal' ? 'B2B · Metal Settlement' : 'Retail Invoice'}<br>Status: ${esc(o.status)}</small></div></div>
       <div class="inv-to"><b>Billed to:</b> ${esc(o.address?.name || o.partnerName || state.user.name)}${o.address ? ` · ${esc(o.address.city || '')} ${esc(o.address.pincode || '')}` : ''}</div>
       <table class="inv-tbl"><thead><tr><th>Item</th><th>Qty</th><th>${kind === 'metal' ? 'Weight' : 'Rate'}</th><th>${kind === 'metal' ? 'Line wt' : 'Amount'}</th></tr></thead>
       <tbody>${rows}${totals}</tbody></table>
@@ -8024,11 +8062,13 @@ function certificateSheet(o) {
   </div>`;
 }
 pages.certificate = async (view, q, id) => {
+  const isCurrent = viewLifetime(view);
   if (!state.user) { signInGate(view, '', 'Certificate', 'Sign in to open the certificate for this order — it stays in your account, ready to print or show at the counter.'); openLogin(); return; }
   view.innerHTML = '<div class="loading-spin"></div>';
   document.documentElement.classList.add('cert-mode');
   let o = null;
   try { o = (await api('/api/orders/' + id)).order; } catch (e) {}
+  if (!isCurrent()) return;
   if (!o) { document.documentElement.classList.remove('cert-mode'); view.innerHTML = emptyShell('Certificates', 'Certificate not found', '<div class="empty"><p style="color:var(--ink-3)">That order has no certificate on this account.</p><a class="btn btn-primary" href="#/certificates">My Certificates</a></div>'); return; }
   view.innerHTML = `<div class="cert-page">
     <div class="cert-actions inv-no-print">
@@ -8039,10 +8079,12 @@ pages.certificate = async (view, q, id) => {
   </div>`;
 };
 pages.certificates = async view => {
+  const isCurrent = viewLifetime(view);
   if (!state.user) { signInGate(view, 'account', 'My Certificates', 'Your digital purity & price certificates are issued with every order — sign in to open the locker.'); openLogin('account'); return; }
   document.documentElement.classList.remove('cert-mode');
   let orders = [];
   try { orders = (await api('/api/orders')).orders || []; } catch (e) {}
+  if (!isCurrent()) return;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/account">My Account</a> / Certificates</div><h1>My Certificates</h1><p>Digital purity &amp; price certificates for every Shivaa order — save, print, or show at the counter.</p></div></section>
   <div class="container" style="padding:36px 0 90px">
@@ -8056,8 +8098,10 @@ pages.certificates = async view => {
 
 /* ─────────── custom pages (owner-managed) ─────────── */
 pages.p = async (view, q, slug) => {
+  const isCurrent = viewLifetime(view);
   let pg = null;
   try { pg = await api('/api/pages?slug=' + encodeURIComponent(slug || '')); } catch (e) {}
+  if (!isCurrent()) return;
   if (!pg || pg.error || !pg.title) { view.innerHTML = emptyShell('Page', 'Page not found', `<div class="empty" style="padding:70px 20px"><img src="/images/logo.png" class="empty-logo" alt=""><p style="color:var(--ink-3);margin-bottom:18px">That page may have been renamed or retired.</p><a class="btn btn-outline" href="#/">Back home</a></div>`); return; }
   const safe = esc(pg.body || '')
     .split(/\n\s*\n/)                                   // blank line → paragraph
@@ -9380,6 +9424,7 @@ async function fillPrizeWorth() {
   }
 }
 pages.scheme = async (view) => {
+  const isCurrent = viewLifetime(view);
   ensureCampaignStuds();
   if (!finaleLive()) { location.hash = '#/'; return; }
   view.innerHTML = finaleLanding();
@@ -9414,45 +9459,34 @@ pages.scheme = async (view) => {
     const orderId = q.get('orderId') || (window._lastOrder && window._lastOrder.id);
     const pin = q.get('pin') || (guestPinFor ? guestPinFor(q, orderId) : '');
     const cf = q.get('cf');
-    if (orderId && cf === 'pending') {
-      let attempts = 0;
-      const maxAttempts = 6;
+    if (orderId) {
       toast('भुगतान सत्यापित हो रहा है... / Verifying payment… ✦');
+      let attempts = 0;
+      const maxAttempts = cf === 'pending' ? 6 : 1;
+      const stillPending = () => {
+        if (!isCurrent()) return;
+        toast('Payment is not confirmed yet. Check your order status before taking the quiz.', 'err');
+        const old = view.querySelector('#schemePayRetry'); if (old) old.remove();
+        const help = document.createElement('p'); help.id = 'schemePayRetry'; help.className = 'center';
+        const link = document.createElement('a'); link.className = 'btn btn-outline';
+        link.href = '#/order/' + encodeURIComponent(orderId) + '?cf=pending' + (pin ? '&pin=' + encodeURIComponent(pin) : '');
+        link.textContent = 'Check payment status'; help.appendChild(link); view.appendChild(help);
+      };
       const checkStatus = async () => {
+        if (!isCurrent()) return;
         try {
           const res = await api('/api/pay/cashfree/status', { method: 'POST', body: JSON.stringify({ orderId, pin: pin || '' }) });
-          if (res && res.paid) {
-            toast('भुगतान सफल! 1-अटेम्प्ट क्विज शुरू हो रहा है ✦');
-            setTimeout(() => {
-              fqOpen({ route: 'purchase', orderId, pin });
-            }, 300);
-            return;
+          if (!isCurrent()) return;
+          if (orderIsPaid(res && res.order)) {
+            toast('Payment confirmed — opening your quiz ✦');
+            fqOpen({ route: 'purchase', orderId, pin }); return;
           }
-          attempts++;
-          if (attempts < maxAttempts) {
-            setTimeout(checkStatus, 1200);
-          } else {
-            toast('भुगतान दर्ज हो चुका है! क्विज शुरू हो रहा है ✦');
-            setTimeout(() => {
-              fqOpen({ route: 'purchase', orderId, pin });
-            }, 350);
-          }
-        } catch (err) {
-          attempts++;
-          if (attempts < maxAttempts) {
-            setTimeout(checkStatus, 1200);
-          } else {
-            setTimeout(() => {
-              fqOpen({ route: 'purchase', orderId, pin });
-            }, 350);
-          }
-        }
+        } catch (err) { if (!isCurrent()) return; }
+        attempts++;
+        if (attempts < maxAttempts) setTimeout(checkStatus, 1200);
+        else stillPending();
       };
       checkStatus();
-    } else if (orderId) {
-      setTimeout(() => {
-        fqOpen({ route: 'purchase', orderId, pin });
-      }, 350);
     } else {
       Shivaa.setSchemeStep('products', gender || 'gents');
     }

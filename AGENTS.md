@@ -5,17 +5,21 @@
 1. Newest section of `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `HANDOFF.md` and
    `ARENA-STATE.md`. Older “current” banners below are historical, not a rollback
    instruction.
-2. `tools/mega/audit/DEFECT-LEDGER-v168.md` and `DEPLOY-v168.md`.
+2. `tools/mega/audit/DEFECT-LEDGER-v169.md` and `DEPLOY-v169.md`.
 3. Actual branch, diff and code. Documents have contained stale counts/labels;
    verify before repeating them.
 
 ## Current source state (21 September 2026)
 
-- Storefront release **168**, media cache **168**.
-- v167 recorded 64 fixes; v168 adds 40, **104 cumulatively recorded**.
-- **Not live-verified or deployed by this session.** On the owner’s follow-up,
-  `shivaa-update-v168.zip` was built from source commit `e5b2905` (17 files).
-  Package/overlay verification and extraction notes are in `DEPLOY-v168.md`.
+- Storefront/source release **169**; hardened media cache deliberately stays
+  **168** because no media changed.
+- Prior ledgers:104 repairs; v169 adds **36**, for **140 cumulatively recorded**.
+  B20 is separately identified hardening, not a claimed cross-customer exploit.
+- **Not packaged, pushed or deployed in the v169 continuation.** Current HEAD
+  `f2b6c44` is the published v168 package; local source is newer. The existing
+  `shivaa-update-v168.zip`/download is unchanged and excludes the v169 repairs.
+- Future v169 six-file delta requires full v168; see `DEPLOY-v169.md`. Never
+  rename an old ZIP to imply it contains new code.
 - Current session branch: `arena/01a0c31d-shivaa-ecom`. Obey the active Arena
   session's branch restrictions; do not switch branches or merge main on the
   strength of an old handoff instruction.
@@ -52,12 +56,18 @@ cd ../../..
 node tools/mega/php-sweep/sweep.mjs
 ```
 
-- Last verified belt: **36 active suites pass, 16 retired-feature suites skip,
+- Last verified belt: **38 active suites pass, 16 retired-feature suites skip,
   0 fail**. The runner explicitly distinguishes SKIP from PASS.
 - PHP can execute via the installed PHP-WASM dependency. A parser pass is not
   runtime proof; test the relevant real PHP block/endpoints too.
-- New v168 regressions fail on original v167; `SMOKE_CMS` selects an isolated
-  source/overlay tree. Never point mutating test fixtures at production.
+- v169 gates: **28/28 executed PHP**, **25/25 executed page/print cases**.
+  Same tests on published v168: **1/28** and **0/25**. Tests are not bug counts.
+  `SMOKE_CMS` selects isolated code; PHP fixtures use a separate in-memory DB.
+  Never point mutating tests at production. New helpers live in tracked
+  `tools/mega/smoke/php-api-fixture.js`; scratch logs stay in `work/audit169/`.
+- `db_save` rejects stale snapshots with409. Do not blindly retry money-changing
+  POSTs. Any future nested `db_load` must not permit saving an older outer array.
+  Native locking/load/gateway tests remain separate from deterministic fixtures.
 - `work/` and `node_modules/` are transient/ignored. Keep reusable tests and
   findings in tracked `tools/mega/`, not only in scratch directories.
 - After edits update the memory, handoff and agent guide with measured results,

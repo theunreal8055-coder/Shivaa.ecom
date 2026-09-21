@@ -1,5 +1,65 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
+## Current continuation — v169 deeper audit (21 Sep 2026)
+
+This section supersedes older “current” banners below. **Source repairs only;
+NOT packaged, pushed, merged or deployed in this continuation.** Branch remains
+`arena/01a0c31d-shivaa-ecom`; baseline/HEAD is published v168 `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
+The existing **v168 ZIP/link is unchanged and excludes these v169 repairs**.
+
+- **36 additional recorded defect repairs + one separately uncounted hardening
+  change (B20).** Prior 104 → **140 cumulatively recorded**, not 140 new bugs,
+  not 53 bugs merely because there are 53 new checks. Ledger/evidence/limits:
+  `tools/mega/audit/DEFECT-LEDGER-v169.md`; future packaging: `DEPLOY-v169.md`.
+- New executed PHP tests **28/28**; v168 control **1/28**. New page/print tests
+  **25/25**; v168 control **0/25**. Full belt **38 active PASS, 16 retired SKIP,
+  0 FAIL**. Direct checkout **24/24**; prior v164 PHP **17/17**. Static sweep
+  **209 routes / 0 exceptions**, NOT 209 executed endpoints. PHP parser plus
+  changed JS syntax and whitespace checks pass.
+- Backend repairs: stale whole-DB saves reject with409; lock/staging failures
+  fail closed; OTP/attempt/metal/bullion/GST reference writes persist; approval
+  no longer creates random Paid settlements; guest order/payment throttles are
+  not one global bucket; checkout line/phone/future-lock/dead-rate validation;
+  actual reserved stock restored on cancellation; delivery reminders and
+  referral qualification; OCC dispatch field mapping; canonical manual Paid.
+- Feed outages no longer randomly jitter/clamp quotes. Preserve healthy legs,
+  known cached rates/quote time, zero missing anchors and existing healthy
+  ₹398 retail premium rules. No supplier prices/weights/data were fabricated.
+- Frontend repairs: successful async responses/polls/timers cannot overwrite
+  newer routes in the covered pages; URL flags/partial status are not full
+  payment proof; scheme uses the actual status response and never fakes quiz
+  eligibility after errors; invoices require saved issuance and show saved
+  adjustments; thermal totals/escaping/popup handling; honest guest wording
+  and per-item metal rate summaries, including missing legacy snapshots.
+- B20 strips private pin entropy from customer projections. Existing access
+  controls already protected those responses; do NOT claim this proved a
+  cross-customer exploit. Derived guest pins and rightful access still work.
+- No DB/catalogue/customer/media/credential changes; no real OTP/payment/GST
+  lookup or production deployment. Direct checkout and approved films/design
+  retained. Existing settlement/stock/quote history was NOT rewritten.
+- Six deployable source files differ from v168: `api.php`, `index.html`,
+  `sw.js`, `js/app.js`, `js/admin.js`, `js/v117.js`. Release/shell stamps **169**;
+  hardened media cache intentionally stays **168** (no media changes).
+  A six-file v168 overlay passes25/25 page,28/28 PHP,24/24 direct checks.
+  Any future six-file delta requires full v168; never deploy only the worker.
+  Host-managed `.htaccess` remains separate and excluded from a future ZIP.
+- Reusable tests: `tools/mega/smoke/php-api-fixture.js`, `v169-php-run.js`,
+  `v169-check.js`; `npm test` runs v169 plus v168. Existing regression runner
+  discovers the new suites and logs to ignored `work/audit169/regression/`
+  (`SMOKE_LOG_DIR` override). The v155/v156 source-shape assertions were updated
+  for legitimate guards, not counted as new product fixes. v156 also passes
+  unchanged v168. Harness deadlines prevent silent unresolved-promise success.
+- Concurrency caution: request-level snapshot checking is not a native load
+  test. Current nested GST callers reload after cache merge; Cashfree locks and
+  reloads before reconciliation. Future nested loads must not refresh a hash
+  then save an old array. Do not automatically retry money-changing POSTs on
+  409. Slow gateway calls under locks remain an operational follow-up.
+- Remaining: native Hostinger/PWA/WebView/thermal-printer/gateway checks,
+  historical financial-data review, other async form/admin continuations,
+  referral actual-credit reconciliation and supplier-backed certificate/legal
+  review. The whole website is not certified bug-free. No v169 ZIP exists yet.
+
+
 ## Update-package follow-up — requested GitHub download (21 Sep 2026)
 
 `shivaa-update-v168.zip` is now built from committed source

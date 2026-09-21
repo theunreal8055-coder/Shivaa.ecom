@@ -17,7 +17,7 @@
  the v115 css layer). index.html now also stamps window.__SHIVAA_REL, and
  app.js reloads itself once if the paired script is older than the shell it
  was served — a device can no longer run a fresh shell on a stale script.
- v166 · ALWAYS THE LATEST: every asset URL was re-stamped to ?v=168. The
+ v166 · ALWAYS THE LATEST: every asset URL was re-stamped to ?v=169. The
  untouched files had been left at their old numbers (styles.css was still
  ?v=107) while .htaccess serves any ?v= URL as immutable for a YEAR — so a
  device that visited weeks ago kept the old design and the old scripts, which
@@ -26,12 +26,12 @@
  open tab on activate (SHV_RELEASE) and honours a page asking it to drop every
  cache before re-entering on the newest release (SHV_PURGE). */
 'use strict';
-const SHELL = 'shivaa-shell-v168';
+const SHELL = 'shivaa-shell-v169';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 168;
+const REL = 169;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -51,16 +51,16 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks befor
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = ['/', '/index.html',
-  '/css/fonts.css?v=168', '/css/styles.css?v=168', '/css/hallmark.css?v=168',
-  '/css/trust.css?v=168', '/css/finale.css?v=168', '/css/motion.css?v=168',
-  '/css/mobile.css?v=168', '/css/aurum.css?v=168', '/css/v107.css?v=168',
-  '/css/boost.css?v=168', '/css/v113.css?v=168', '/css/v115.css?v=168',
-  '/css/v116.css?v=168', '/css/v117.css?v=168', '/css/v118.css?v=168', '/css/v119.css?v=168', '/css/v120.css?v=168', '/css/v121.css?v=168', '/css/v122.css?v=168', '/css/v125.css?v=168', '/css/v139.css?v=168', '/css/v140.css?v=168', '/css/v167.css?v=168',
-  '/js/otp-autofill.js?v=168', '/js/app.js?v=168', '/js/hallmark.js?v=168',
-  '/js/trust.js?v=168', '/js/auth.js?v=168', '/js/motion.js?v=168',
-  '/js/aurum.js?v=168', '/js/v107.js?v=168', '/js/boost.js?v=168',
-  '/js/v116.js?v=168', '/js/v117.js?v=168', '/js/v118.js?v=168', '/js/v119.js?v=168', '/js/v120.js?v=168', '/js/v122.js?v=168', '/js/v125.js?v=168', '/js/v127.js?v=168', '/js/v139.js?v=168', '/js/v140.js?v=168', '/js/v166.js?v=168', '/js/v167.js?v=168',
-  '/fonts/jost.woff2?v=168', '/fonts/cormorant-garamond.woff2?v=168', '/fonts/marcellus-400.woff2?v=168',
+  '/css/fonts.css?v=169', '/css/styles.css?v=169', '/css/hallmark.css?v=169',
+  '/css/trust.css?v=169', '/css/finale.css?v=169', '/css/motion.css?v=169',
+  '/css/mobile.css?v=169', '/css/aurum.css?v=169', '/css/v107.css?v=169',
+  '/css/boost.css?v=169', '/css/v113.css?v=169', '/css/v115.css?v=169',
+  '/css/v116.css?v=169', '/css/v117.css?v=169', '/css/v118.css?v=169', '/css/v119.css?v=169', '/css/v120.css?v=169', '/css/v121.css?v=169', '/css/v122.css?v=169', '/css/v125.css?v=169', '/css/v139.css?v=169', '/css/v140.css?v=169', '/css/v167.css?v=169',
+  '/js/otp-autofill.js?v=169', '/js/app.js?v=169', '/js/hallmark.js?v=169',
+  '/js/trust.js?v=169', '/js/auth.js?v=169', '/js/motion.js?v=169',
+  '/js/aurum.js?v=169', '/js/v107.js?v=169', '/js/boost.js?v=169',
+  '/js/v116.js?v=169', '/js/v117.js?v=169', '/js/v118.js?v=169', '/js/v119.js?v=169', '/js/v120.js?v=169', '/js/v122.js?v=169', '/js/v125.js?v=169', '/js/v127.js?v=169', '/js/v139.js?v=169', '/js/v140.js?v=169', '/js/v166.js?v=169', '/js/v167.js?v=169',
+  '/fonts/jost.woff2?v=169', '/fonts/cormorant-garamond.woff2?v=169', '/fonts/marcellus-400.woff2?v=169',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];

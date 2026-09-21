@@ -2,7 +2,7 @@
    SKIP, never as passing tests. Detailed logs stay in ignored work/. */
 const fs = require('fs'), path = require('path'), { execFile } = require('child_process');
 const root = path.resolve(__dirname, '../../..');
-const logDir = path.join(root, 'work/audit168/regression');
+const logDir = path.resolve(root, process.env.SMOKE_LOG_DIR || 'work/audit169/regression');
 fs.mkdirSync(logDir, { recursive: true });
 const files = fs.readdirSync(__dirname).filter(f => /^v\d+[a-z]?-(check|php-run|direct|pdp|cart)\.js$/.test(f));
 files.push('pay-audit-check.js', 'php-parse-check.js');

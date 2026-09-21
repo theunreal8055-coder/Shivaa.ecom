@@ -41,6 +41,13 @@ const ok = (name, pass, detail = '') => { results.push(!!pass); console.log(`${p
 
 const app = read('js/app.js'), api = read('api.php'), adm = read('js/admin.js'), idx = read('index.html'), sw = read('sw.js'), v107 = read('js/v107.js'), v120 = read('js/v120.js');
 
+/* v169 permits a zero-feed guard while retaining the EXACT healthy-rate
+   expressions. v169-php-run executes both sides, custom premiums and override. */
+function positiveRate(field, expression, guard) {
+  return api.includes(`'${field}' => ${expression},`)
+    || api.includes(`'${field}' => ${guard} > 0 ? ${expression} : 0,`);
+}
+
 console.log('· 1 — SHIVAA RATES: the B2C storefront speaks Shivaa, not Jaipur:');
 {
   /* customer-facing rate strings that must NEVER come back */
@@ -86,13 +93,13 @@ console.log('\n· 2 — the 24K PREMIUM (₹398/g, same as 22K — owner LOCKED)
 {
   ok('api defines gold24_premium() (own explicit setting, default 398 — the v119 pattern)',
     /function gold24_premium\(array \$db\): int \{[\s\S]{0,200}\['gold24Premium'\] \?\? 398[\s\S]{0,120}: 398;/.test(api));
-  ok('jaipur_from_anchor: 24K = round(anchor) + $gp24 (gold24_premium), 22K math byte-intact',
+  ok('jaipur_from_anchor: 24K = round(anchor) + $gp24 (gold24_premium), positive 22K math intact',
     /\$gp24 = gold24_premium\(\$db\);/.test(api)
-    && api.includes("'gold24' => (int)round($g24) + $gp24,")
-    && api.includes("'gold22' => (int)round($g24 * PURITY_22) + $gp22,")
-    && api.includes("'gold18' => (int)round($g24 * PURITY_18) + (int)round($gp * 0.75),"));
+    && positiveRate('gold24', "(int)round($g24) + $gp24", "$g24")
+    && positiveRate('gold22', "(int)round($g24 * PURITY_22) + $gp22", "$g24")
+    && positiveRate('gold18', "(int)round($g24 * PURITY_18) + (int)round($gp * 0.75)", "$g24"));
   ok('current_rates fallback: 24K carries the new premium (no path left behind)',
-    api.includes("'gold24' => (int)$l['gold24'] + gold24_premium($db),")
+    positiveRate('gold24', "(int)$l['gold24'] + gold24_premium($db)", "$l['gold24']")
     && !api.includes("'gold24' => (int)$l['gold24'] + $gp,"));
   ok('the legacy ₹55 jaipurPremium never touches gold24 anywhere in the RETAIL derivations',
     (() => {
@@ -135,9 +142,9 @@ console.log('\n· 4 — B2B UNTOUCHED (the bullion desk never met a premium):');
   ok('rtgs_strip stays anchored to bullion_anchors() (same anchor, zero retail premium)',
     r0 > b0 && r1 > r0 && api.slice(r0, r1).includes('bullion_anchors($db)')
     && desk.includes("bullionGoldPremium'] ?? 10"));
-  ok('22K line math is byte-identical to v155 (only gold24 moved)',
-    api.includes("'gold22' => (int)round($g24 * PURITY_22) + $gp22,")
-    && api.includes("'gold22' => (int)$l['gold22'] + gold22_premium($db),"));
+  ok('positive 22K formula is identical to v155 (zero-feed guard allowed)',
+    positiveRate('gold22', "(int)round($g24 * PURITY_22) + $gp22", "$g24")
+    && positiveRate('gold22', "(int)$l['gold22'] + gold22_premium($db)", "$l['gold22']"));
   ok('app.js B2B surfaces untouched (partner gate, b2b page, city chips intact)',
     app.includes("pages.b2b = async (view) =>") && app.includes('#/partner') && app.includes('bullion desk'));
 }
