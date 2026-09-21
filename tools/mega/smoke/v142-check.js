@@ -41,9 +41,12 @@ ok('release triple moves together to 142 or newer (index.html · app.js · sw.js
   st(shell, /window\.__SHIVAA_REL=(\d+);/) >= 142 && st(app, /APP_REL\s*=\s*(\d+)/) >= 142 && st(sw, /SHELL = 'shivaa-shell-v(\d+)'/) >= 142,
   'index.html/app.js/sw.js stamps must all read 142+');
 
-ok('the moved set is consistent — v116.js and v117.js ride 142 in shell + worker (house rule: bump every ?v= together)',
-  /\/js\/v116\.js\?v=142/.test(shell) && /\/js\/v117\.js\?v=142/.test(shell) &&
-  /'\/js\/v116\.js\?v=142'/.test(sw) && /'\/js\/v117\.js\?v=142'/.test(sw),
+/* v166 fix-forward: ?v= rides the RELEASE (v142 was that day's number). The durable
+   law is that v116.js and v117.js carry the SAME stamp in the shell and the worker. */
+ok('the moved set is consistent — v116.js and v117.js ride one release in shell + worker (house rule: bump every ?v= together)',
+  (() => { const a = (/\/js\/v116\.js\?v=(\d+)/.exec(shell) || [0, 0])[1], b = (/\/js\/v117\.js\?v=(\d+)/.exec(shell) || [0, 0])[1],
+      c = (/'\/js\/v116\.js\?v=(\d+)'/.exec(sw) || [0, 0])[1], d = (/'\/js\/v117\.js\?v=(\d+)'/.exec(sw) || [0, 0])[1];
+    return !!a && a >= 142 && a === b && b === c && c === d; })(),
   'a changed stamped file must update index.html AND sw.js; v116/v117 move in lockstep');
 
 ok('the staff bundle stamp (admin.js) moves with it to v142+ (the v141 fix must not regress)',

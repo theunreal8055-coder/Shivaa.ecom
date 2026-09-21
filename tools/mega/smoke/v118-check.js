@@ -24,13 +24,21 @@ const server=http.createServer((req,res)=>{let u=decodeURIComponent(req.url.spli
  const sw=fs.readFileSync(path.join(CMS,'sw.js'),'utf8');
  console.log('\nSHIVAA v118 checkout + catalogue check\n\n· static gates');
  ok('release handshake is v118 or newer',st(html, /__SHIVAA_REL\s*=\s*(\d+)/) >= 118 && st(app, /APP_REL\s*=\s*(\d+)/) >= 118);
- ok('v118 CSS and JS are loaded',/v118\.css\?v=118/.test(html)&&/v118\.js\?v=118/.test(html));
+ /* v166 fix-forward: stamps are release numbers — a later release re-stamps
+    every asset URL, so only the layer + a stamp are required. */
+ ok('v118 CSS and JS are loaded',/v118\.css\?v=\d+/.test(html)&&/v118\.js\?v=\d+/.test(html));
  ok('service-worker shell is v118 or newer',st(sw, /SHELL = 'shivaa-shell-v(\d+)/) >= 118);
  ok('category rail images are eager with a safe fallback',/loading="eager" decoding="async" fetchpriority="low"/.test(app)&&/\.cb-img img \{ display:block/.test(css));
  ok('gallery dots are buttons and gestures use pointer capture',/id="galDots"[\s\S]{0,400}<button type="button"/.test(app)&&/setPointerCapture/.test(app)&&/lostpointercapture/.test(app));
  ok('Quick View opens on click, not pointerup',/document\.addEventListener\('click', function\(e\)/.test(v116)&&!/document\.addEventListener\('pointerup', function\(e\)/.test(v116));
  ok('Cashfree handoff has retry/cancel and opens the SDK checkout',/id="cfContinue"/.test(app)&&/id="cfCancel"/.test(app)&&/cf\.checkout\(\{ paymentSessionId/.test(app));
- ok('Cashfree checkout uses the official v3 SDK with a session id',/sdk\.cashfree\.com\/js\/v3\/cashfree\.js/.test(app)&&/paymentSessionId: String\(paymentSessionId\)/.test(app));
+ /* v166 fix-forward: the call site passes the TRIMMED session string it built
+    (`const sess = String(paymentSessionId || '').trim()`), so the v118-era pin on
+    `String(paymentSessionId)` was asserting a variable name, not a behaviour. */
+ ok('Cashfree checkout uses the official v3 SDK with a session id',
+   /sdk\.cashfree\.com\/js\/v3\/cashfree\.js/.test(app) &&
+   /const sess = String\(paymentSessionId \|\| ''\)\.trim\(\)/.test(app) &&
+   /paymentSessionId:\s*sess/.test(app));
 
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const origin=`http://127.0.0.1:${server.address().port}`; const errors=[];
@@ -46,7 +54,9 @@ const server=http.createServer((req,res)=>{let u=decodeURIComponent(req.url.spli
   };
  }});
  const w=dom.window,d=w.document;
- ok('storefront boots',await until(()=>w.Shivaa&&w.Shivaa.state.productsCache.length===77,20000));
+ /* v166 fix-forward: 77 rings + the owner's 6 campaign studs — a floor. */
+ ok('storefront boots',await until(()=>w.Shivaa&&w.Shivaa.state.productsCache.length>=77,20000),
+   (w.Shivaa&&w.Shivaa.state?w.Shivaa.state.productsCache.length:0)+' pieces');
  w.location.hash='#/shop?category=rings';
  ok('a populated category opens its product grid',await until(()=>d.querySelectorAll('#shopGrid .p-card').length>0),d.body.textContent.slice(0,200));
  /* v139 — this guarantee ("the category rail's photos all eager-load on a

@@ -8,13 +8,17 @@
    really 78 KB of unique fonts. Each family now ships ONE file; the
    per-weight @font-face aliases below are byte-identical to the old
    rendering, but every weight shares a single download + cache entry.
+   v166 — every src URL carries the release stamp. The host serves font/woff2
+   with a 365-day freshness window, so an un-versioned URL is the same trap the
+   ?v= rule exists to prevent: a replaced face would never reach a returning
+   device. The stamp must move together with /css/fonts.css's own ?v=.
    ═══════════════════════════════════════════════════════════ */
-@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/cormorant-garamond.woff2') format('woff2')}
-@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/cormorant-garamond.woff2') format('woff2')}
-@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/cormorant-garamond.woff2') format('woff2')}
-@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/cormorant-garamond.woff2') format('woff2')}
-@font-face{font-family:'Jost';font-style:normal;font-weight:300;font-display:swap;src:url('/fonts/jost.woff2') format('woff2')}
-@font-face{font-family:'Jost';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/jost.woff2') format('woff2')}
-@font-face{font-family:'Jost';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/jost.woff2') format('woff2')}
-@font-face{font-family:'Jost';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/jost.woff2') format('woff2')}
-@font-face{font-family:'Marcellus';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/marcellus-400.woff2') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/cormorant-garamond.woff2?v=166') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/cormorant-garamond.woff2?v=166') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/cormorant-garamond.woff2?v=166') format('woff2')}
+@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/cormorant-garamond.woff2?v=166') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:300;font-display:swap;src:url('/fonts/jost.woff2?v=166') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/jost.woff2?v=166') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/jost.woff2?v=166') format('woff2')}
+@font-face{font-family:'Jost';font-style:normal;font-weight:600;font-display:swap;src:url('/fonts/jost.woff2?v=166') format('woff2')}
+@font-face{font-family:'Marcellus';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/marcellus-400.woff2?v=166') format('woff2')}

@@ -55,7 +55,9 @@ async function until(fn, ms = 12000) {
 }
 
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.webp': 'image/webp' };
-const V139_TAG = /<script src="\/js\/v139\.js\?v=139" defer><\/script>/;
+/* v166 fix-forward: stamp-agnostic — a later release re-stamps every asset
+   URL, and the control section strips this exact tag. */
+const V139_TAG = /<script src="\/js\/v139\.js\?v=\d+" defer><\/script>/;
 
 const server = http.createServer((req, res) => {
   const u = decodeURIComponent(req.url.split('?')[0]);
@@ -79,7 +81,7 @@ const USER = { id: 'u1', name: 'Aarti Choudhary', email: 'aarti@example.com', ph
     { id: 'ad1', label: 'Home', name: 'Aarti Choudhary', phone: '9876543210', line: '12 Kisan Nagar', city: 'Jayal', state: 'Rajasthan', pincode: '341023', isDefault: true },
     { id: 'ad2', label: 'Work', name: 'Aarti C.', phone: '9812345678', line: 'Shop 4, MG Road', city: 'Nagaur', state: 'Rajasthan', pincode: '341001' } ] };
 
-function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = false, withSW = false } = {}) {
+function boot({ stripV139 = false, stripV166 = false, startHash = '', innerWidth = 420, loggedIn = false, withSW = false } = {}) {
   const backs = { n: 0 };
   const errors = [];
   /* jsdom refuses to navigate, and `location.reload` cannot be redefined — but
@@ -98,7 +100,12 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
                addEventListener() {}, };
   }
   const html = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8')
-    .replace(V139_TAG, stripV139 ? '' : m => m);
+    .replace(V139_TAG, stripV139 ? '' : m => m)
+    /* v166 fix-forward: the v166 layer ALSO owns closing an open overlay on
+       navigation. A control that proves the v139-era defect must therefore run
+       without BOTH owners, or it would measure the newer layer and call it a
+       pass. */
+    .replace(/<script src="\/js\/v166\.js\?v=\d+" defer><\/script>/, stripV166 ? '' : m => m);
   const dom = new JSDOM(html, {
     url: `http://127.0.0.1:${server.address().port}/${startHash}`,
     runScripts: 'dangerously', resources: 'usable', pretendToBeVisual: true, virtualConsole: vc,
@@ -181,10 +188,10 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
   const v107src = fs.readFileSync(path.join(CMS, 'js/v107.js'), 'utf8');
 
   ok('cms/js/v139.js ships, index.html loads it last (after v127) and the worker precaches it',
-    /<script src="\/js\/v139\.js\?v=139" defer><\/script>/.test(shell) &&
-    shell.indexOf('/js/v127.js?v=127') < shell.indexOf('/js/v139.js?v=139') &&
-    shell.indexOf('/js/app.js?v=139') < shell.indexOf('/js/v139.js?v=139') &&
-    sw.includes("'/js/v139.js?v=139'") && sw.includes("'/css/v139.css?v=139'"));
+    V139_TAG.test(shell) &&
+    shell.indexOf('/js/v127.js?v=') < shell.indexOf('/js/v139.js?v=') &&
+    shell.indexOf('/js/app.js?v=') < shell.indexOf('/js/v139.js?v=') &&
+    /\/js\/v139\.js\?v=\d+/.test(sw) && /\/css\/v139\.css\?v=\d+/.test(sw));
 
   ok('the release triple moves together to 139 or newer (index.html · app.js · sw.js)  [v148 fix-forward: numeric]',
     (() => {
@@ -198,9 +205,11 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
     !/\?v=138/.test(shell) && !/\?v=138/.test(sw) && !/APP_REL\s*=\s*138/.test(app),
     (shell.match(/\?v=138/g) || []).length + ' in index.html, ' + (sw.match(/\?v=138/g) || []).length + ' in sw.js');
 
+  /* v166 fix-forward: the stamps are release numbers, not layer names — a
+     later release re-stamps every asset URL (that is what un-pins a device). */
   ok('css/v139.css ships and is linked after v125.css',
-    /<link rel="stylesheet" href="\/css\/v139\.css\?v=139">/.test(shell) &&
-    shell.indexOf('/css/v125.css?v=125') < shell.indexOf('/css/v139.css?v=139'));
+    /<link rel="stylesheet" href="\/css\/v139\.css\?v=\d+">/.test(shell) &&
+    shell.search(/\/css\/v125\.css\?v=/) < shell.search(/\/css\/v139\.css\?v=/));
 
   ok('v139.js owns ONLY the bag drawer — it never touches the sidebar or the search palette',
     /getElementById\('cartDrawer'\)/.test(v139) &&
@@ -337,8 +346,12 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
   try { L.w.close(); } catch (_) {}
 
   console.log('\n· B · live — a category page is about the pieces (owner report 2)');
+  /* v166 fix-forward: `earrings` stopped being empty the day the six campaign
+     studs went live in db.json (a stale expectation, it failed on the pristine
+     tree too) — a genuinely empty category is used for the honest-state half. */
+  const EMPTY_CAT = 'punach';
   for (const [hash, label] of [['#/shop?category=rings', 'a category that has pieces'],
-                               ['#/shop?category=earrings', 'a category still being catalogued']]) {
+                               ['#/shop?category=' + EMPTY_CAT, 'a category still being catalogued']]) {
     const B = boot({ startHash: hash });
     await until(() => B.doc.body.dataset.page === 'shop' && B.$('#shopGrid'), 20000);
     await sleep(800);
@@ -354,8 +367,8 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
     /* the route query lives INSIDE the fragment ('#/shop?category=rings'),
        so URL.searchParams on the whole hash is empty — parse the tail. */
     const catKey = new URLSearchParams(hash.split('?')[1] || '').get('category');
-    if (catKey === 'rings') {
-      ok('…and the pieces are really there (the page is not empty)', B.$$('#shopGrid .p-card').length > 0 && /77 pieces/.test(B.$('#resCount').textContent));
+    if (catKey !== EMPTY_CAT) {
+      ok('…and the pieces are really there (the page is not empty)', B.$$('#shopGrid .p-card').length > 0 && /\d+ pieces/.test(B.$('#resCount').textContent));
     } else {
       ok('…and an empty category says so honestly instead of showing only pictures',
         !!B.$('#shopGrid .empty') && /being catalogued/.test(B.$('#shopGrid .empty').textContent));
@@ -476,7 +489,7 @@ function boot({ stripV139 = false, startHash = '', innerWidth = 420, loggedIn = 
   {
     /* the same category tap with the layer stripped: the list stays open —
        which is what the owner meant by "still that 17 photos are on the page". */
-    const D = boot({ startHash: '#/', stripV139: true });
+    const D = boot({ startHash: '#/', stripV139: true, stripV166: true });
     if (!(await D.booted())) ok('control fold session boots', false);
     await sleep(500);
     D.click(D.$('#navToggle'));

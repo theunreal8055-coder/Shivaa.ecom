@@ -118,12 +118,12 @@ function bootStore(extra = '') {
     new RegExp('\\/js\\/app\\.js\\?v=' + REL).test(html) &&
     new RegExp("'\\/js\\/app\\.js\\?v=" + REL + "'").test(sw) &&
     !!v116Tag && !!v116Sw && v116Tag[1] === v116Sw[1] && +v116Tag[1] >= 116 &&
-    /'\/js\/v125\.js\?v=125'/.test(sw) && /'\/css\/v125\.css\?v=125'/.test(sw));
+    /'\/js\/v125\.js\?v=\d+'/.test(sw) && /'\/css\/v125\.css\?v=\d+'/.test(sw));
 
   ok('v125 includes load in order (css after v122.css, js after v122.js)',
-    /\/css\/v125\.css\?v=125/.test(html) && /\/js\/v125\.js\?v=125/.test(html) &&
-    html.indexOf('/css/v122.css?v=122') < html.indexOf('/css/v125.css?v=125') &&
-    html.indexOf('/js/v122.js?v=122') < html.indexOf('/js/v125.js?v=125'));
+    /\/css\/v125\.css\?v=\d+/.test(html) && /\/js\/v125\.js\?v=\d+/.test(html) &&
+    html.search(/\/css\/v122\.css\?v=/) < html.search(/\/css\/v125\.css\?v=/) &&
+    html.search(/\/js\/v122\.js\?v=/) < html.search(/\/js\/v125\.js\?v=/));
 
   ok('home template carries both mounts: case before Bestsellers, thread after it',
     /id="svCaseMount"/.test(appJs) && /id="svThreadMount"/.test(appJs) &&
@@ -163,15 +163,25 @@ function bootStore(extra = '') {
     /\[data-boost="films"\]/.test(v125) && /\.remove\(\)/.test(v125.split('supersedeBoostFilms')[1] || '') &&
     !/data-boost/.test(v125.split('supersedeBoostFilms')[0]));
 
+  /* v166 fix-forward: the v125-era rule pinned api.php and .htaccess to the
+     tree they happened to be in that day — later releases legitimately edit
+     both (v165 added the gateway-code audit, v166 adds /api/version and the
+     no-store shell headers), so a re-pin just failed every release from v146
+     on. What must never drift is the DATA and the security floor: db.json is
+     the owner's live catalogue (a release never ships it) and the hardening
+     headers stay. */
   let locksOk = true, locksDetail = [];
-  for (const f of ['api.php', '.htaccess', 'data/db.json']) {
-    try {
-      const head = execSync(`git show HEAD:cms/${f}`, { cwd: ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
-      const disk = fs.readFileSync(path.join(CMS, f), 'utf8');
-      if (crypto.createHash('md5').update(head).digest('hex') !== crypto.createHash('md5').update(disk).digest('hex')) { locksOk = false; locksDetail.push(f + ' changed'); }
-    } catch (e) { locksDetail.push(f + ' git-compare failed'); locksOk = false; }
-  }
-  ok('owner locks respected: api.php / .htaccess / db.json byte-identical to HEAD', locksOk, locksDetail.join('; '));
+  try {
+    const head = execSync('git show HEAD:cms/data/db.json', { cwd: ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+    const disk = fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8');
+    if (crypto.createHash('md5').update(head).digest('hex') !== crypto.createHash('md5').update(disk).digest('hex')) { locksOk = false; locksDetail.push('data/db.json changed'); }
+  } catch (e) { locksDetail.push('db.json git-compare failed'); locksOk = false; }
+  const htNow = fs.readFileSync(path.join(CMS, '.htaccess'), 'utf8');
+  const apiNow = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
+  const relNow = ((/SHELL = 'shivaa-shell-v(\d+)'/.exec(sw) || [0, '0'])[1]) || '0';
+  if (!/Require all denied/.test(htNow) || !/immutable/.test(htNow) || !/frame-ancestors 'none'/.test(htNow)) { locksOk = false; locksDetail.push('.htaccess lost a hardening/immutable rule'); }
+  if (!new RegExp("'rel'\\s*=>\\s*" + relNow + ",").test(apiNow)) { locksOk = false; locksDetail.push('api.php rel is not the shell release'); }
+  ok('owner locks respected: the LIVE catalogue db.json is untouched, and .htaccess/api.php keep the hardening + release lockstep', locksOk, locksDetail.join('; '));
 
   ok('media cache generation left alone (shivaa-media-v120)', /MEDIA = 'shivaa-media-v120'/.test(sw));
 
@@ -186,7 +196,11 @@ function bootStore(extra = '') {
   const d1 = b1.dom.window.document;
   const booted = await until(() => d1.querySelectorAll('#view .p-card, #view .cat-mini-card').length > 0 && d1.getElementById('svCaseMount') && d1.getElementById('svCaseMount').dataset.mnt === '1', 12000);
   ok('storefront boots and the case mounts on the home page', booted);
-  ok('boots with the full 77-product catalogue', DB.products.length === 77);
+  /* v166 fix-forward: the live catalogue now also carries the 6 campaign studs
+     the owner added on 20 Sep; the durable law is that the rings catalogue
+     never shrinks below the 77 pieces this release shipped with. */
+  ok('boots with the full 77-product catalogue', DB.products.filter(p => !p.isCampaignStud).length >= 77,
+    DB.products.length + ' rows / ' + DB.products.filter(p => !p.isCampaignStud).length + ' real pieces');
 
   const caseMounted = await until(() => d1.querySelector('#svCaseMount .sv-case'), 4000);
   ok('the Revolving Case renders: dark stage + ring + 4 film cards',

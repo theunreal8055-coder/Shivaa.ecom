@@ -30,6 +30,11 @@ http.createServer((req, res) => {
       const id = u.split('/').pop();
       out = { product: DB.products.find(p => p.id === id || p.sku === id) || DB.products[0], similar: [], reviews: [], rates: (DB.rates || {}).last };
     } else if (u === '/api/pages') out = { pages: [] };
+    /* v166 — the release endpoint the freshness controller reads (same shape as
+       api.php), so the preview behaves exactly like production. */
+    else if (u === '/api/version') out = { ok: true, rel: 166, shell: 'shivaa-shell-v166', builtAt: new Date().toISOString(),
+      forceLatest: (DB.settings && DB.settings.forceLatestVersion) !== false,
+      stamp: { index: 166, app: 166, sw: 166, matched: true } };
     else if (u === '/api/auth/me') out = { user: null };
     else out = {};
     return send(200, JSON.stringify(out), 'application/json');

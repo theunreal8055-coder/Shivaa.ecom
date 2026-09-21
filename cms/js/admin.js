@@ -813,6 +813,13 @@ async function renderAdmin(view, q) {
                   <small style="color:var(--ink-3)">v155: Buy Now / Make It Yours / cart Checkout place the order <b>on the spot</b> — no Express page, no number field, not even a status card; NOTHING is typed and NOTHING of ours renders between the tap and Cashfree&rsquo;s payment portal. The customer&rsquo;s <b>real mobile, name and address are collected and OTP-verified by Cashfree on its own page</b> (that is its One Click Checkout doing its job), and the verified contact is written back onto the paid order automatically. <b>No account, no address form, no shivaa.in OTP.</b> Turn the switch off and the site instantly reverts to the classic checkout (which still demands the full address, as always). Needs <b>One Click Checkout</b> above to already be on; the effect begins once Cashfree is connected live.</small></span>
                 </label>
               </div>
+              <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
+                <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
+                  <input type="checkbox" name="forceLatestVersion" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${(S.forceLatestVersion === undefined ? true : !!S.forceLatestVersion) ? 'checked' : ''}>
+                  <span><b>🔄 Always show customers the latest version</b> <small style="color:var(--ink-3)">(recommended: ON)</small><br>
+                  <small style="color:var(--ink-3)">Every asset on the site is stamped with the release it belongs to, so a phone or laptop that visited weeks ago can never keep an old design or an old script. With this ON, a device that is still running an older release also moves itself to the newest one automatically — the moment the release check sees it, and never while someone is filling a form or paying. Turn it OFF and the new version is simply picked up on the customer&rsquo;s next visit, with no reload.</small></span>
+                </label>
+              </div>
               <div class="fld full" style="font-size:12px;color:var(--ink-3)">
                 If Cashfree refuses the One Click Checkout payload (product not active, a rejected field, a version mismatch) the payment is
                 <b>retried automatically as a standard Cashfree checkout</b> — nobody is ever unable to pay — and the refusal is written to the audit log
@@ -1692,7 +1699,9 @@ window.ShivaaAdmin.savePay = async e => {
                  cfOccAddress: !!document.querySelector('[name="cfOccAddress"]')?.checked,
                  cfOccAuth: !!document.querySelector('[name="cfOccAuth"]')?.checked,
                  // v142 — automatic guest checkout (One-Tap Buy)
-                 guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked };
+                 guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked,
+                 // v166 — always serve the newest release to every device
+                 forceLatestVersion: !!document.querySelector('[name="forceLatestVersion"]')?.checked };
   /* v152 — the partner-key field is GONE from the save body: the settings PUT
      no longer accepts it, and any stale DB value has no reader left (route deleted). */
   // secret key is write-only: only sent when retyped (server strips it from GETs)

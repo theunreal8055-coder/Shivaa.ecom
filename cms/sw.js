@@ -14,9 +14,22 @@
  v115: shell bumped again for the categories-back release (app.js?v=115 +
  the v115 css layer). index.html now also stamps window.__SHIVAA_REL, and
  app.js reloads itself once if the paired script is older than the shell it
- was served — a device can no longer run a fresh shell on a stale script. */
+ was served — a device can no longer run a fresh shell on a stale script.
+ v166 · ALWAYS THE LATEST: every asset URL was re-stamped to ?v=166. The
+ untouched files had been left at their old numbers (styles.css was still
+ ?v=107) while .htaccess serves any ?v= URL as immutable for a YEAR — so a
+ device that visited weeks ago kept the old design and the old scripts, which
+ is the owner's "people still see the 15-day-old version". New stamps are URLs
+ no device has ever cached. This worker also announces its release to every
+ open tab on activate (SHV_RELEASE) and honours a page asking it to drop every
+ cache before re-entering on the newest release (SHV_PURGE). */
 'use strict';
-const SHELL = 'shivaa-shell-v165';
+const SHELL = 'shivaa-shell-v166';
+/* v166 — the release this worker belongs to. It is announced to every open tab
+   the moment the new worker activates, so a page that is running an older
+   release can move itself to the newest one (js/v166.js, "always the latest").
+   Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
+const REL = 166;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -35,16 +48,16 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = ['/', '/index.html',
-  '/css/fonts.css?v=117', '/css/styles.css?v=107', '/css/hallmark.css?v=107',
-  '/css/trust.css?v=107', '/css/finale.css?v=163', '/css/motion.css?v=107',
-  '/css/mobile.css?v=107', '/css/aurum.css?v=107', '/css/v107.css?v=107',
-  '/css/boost.css?v=46', '/css/v113.css?v=113b', '/css/v115.css?v=115',
-  '/css/v116.css?v=140', '/css/v117.css?v=117', '/css/v118.css?v=118', '/css/v119.css?v=140', '/css/v120.css?v=140', '/css/v121.css?v=121', '/css/v122.css?v=122', '/css/v125.css?v=125', '/css/v139.css?v=139', '/css/v140.css?v=140',
-  '/js/otp-autofill.js?v=107', '/js/app.js?v=165', '/js/hallmark.js?v=107',
-  '/js/trust.js?v=107', '/js/auth.js?v=113b', '/js/motion.js?v=107',
-  '/js/aurum.js?v=107', '/js/v107.js?v=140', '/js/boost.js?v=134',
-  '/js/v116.js?v=142', '/js/v117.js?v=142', '/js/v118.js?v=118', '/js/v119.js?v=140', '/js/v120.js?v=140', '/js/v122.js?v=122', '/js/v125.js?v=125', '/js/v139.js?v=139', '/js/v140.js?v=140',
-  '/fonts/jost.woff2', '/fonts/cormorant-garamond.woff2', '/fonts/marcellus-400.woff2',
+  '/css/fonts.css?v=166', '/css/styles.css?v=166', '/css/hallmark.css?v=166',
+  '/css/trust.css?v=166', '/css/finale.css?v=166', '/css/motion.css?v=166',
+  '/css/mobile.css?v=166', '/css/aurum.css?v=166', '/css/v107.css?v=166',
+  '/css/boost.css?v=166', '/css/v113.css?v=166', '/css/v115.css?v=166',
+  '/css/v116.css?v=166', '/css/v117.css?v=166', '/css/v118.css?v=166', '/css/v119.css?v=166', '/css/v120.css?v=166', '/css/v121.css?v=166', '/css/v122.css?v=166', '/css/v125.css?v=166', '/css/v139.css?v=166', '/css/v140.css?v=166',
+  '/js/otp-autofill.js?v=166', '/js/app.js?v=166', '/js/hallmark.js?v=166',
+  '/js/trust.js?v=166', '/js/auth.js?v=166', '/js/motion.js?v=166',
+  '/js/aurum.js?v=166', '/js/v107.js?v=166', '/js/boost.js?v=166',
+  '/js/v116.js?v=166', '/js/v117.js?v=166', '/js/v118.js?v=166', '/js/v119.js?v=166', '/js/v120.js?v=166', '/js/v122.js?v=166', '/js/v125.js?v=166', '/js/v127.js?v=166', '/js/v139.js?v=166', '/js/v140.js?v=166', '/js/v166.js?v=166',
+  '/fonts/jost.woff2?v=166', '/fonts/cormorant-garamond.woff2?v=166', '/fonts/marcellus-400.woff2?v=166',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];
@@ -52,6 +65,19 @@ const SHELL_FILES = ['/', '/index.html',
 self.addEventListener('message', (e) => {
   // v107 — accept both the legacy string and the {type} object form
   if (e.data === 'SKIP_WAITING' || (e.data && e.data.type === 'SKIP_WAITING')) self.skipWaiting();
+  /* v166 — the page may ask this worker to drop every byte it holds before it
+     re-enters the site on a newer release ("always the latest"). Deleting
+     caches is safe at any time: the shell is network-first, so the next fetch
+     simply goes to the server. */
+  if (e.data && e.data.type === 'SHV_PURGE') {
+    e.waitUntil(caches.keys().then((ks) => Promise.all(ks.map((k) => caches.delete(k))))
+      .then(() => { if (e.source && e.source.postMessage) e.source.postMessage({ type: 'SHV_PURGED', rel: REL }); })
+      .catch(() => {}));
+  }
+  if (e.data && e.data.type === 'SHV_WHOAMI') {
+    const reply = (e.source && e.source.postMessage) ? e.source.postMessage.bind(e.source) : null;
+    if (reply) reply({ type: 'SHV_RELEASE', rel: REL, shell: SHELL });
+  }
 });
 self.addEventListener('install', (e) => {
   /* v107 — per-file precache. addAll() is all-or-nothing: one 404 in the list
@@ -67,7 +93,14 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(
     ks.filter((k) => k !== SHELL && k !== MEDIA).map((k) => caches.delete(k))
-  )).then(() => self.clients.claim()));
+  )).then(() => self.clients.claim()).then(() => {
+    /* v166 — announce the new release to every open tab. A page that is still
+       running an older release can then move itself to this one instead of
+       waiting for the shopper to notice (js/v166.js handles the message). */
+    return self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((cs) => {
+      cs.forEach((c) => { try { c.postMessage({ type: 'SHV_RELEASE', rel: REL, shell: SHELL }); } catch (_) {} });
+    });
+  }));
 });
 
 /* Cap the media cache: drop the oldest entries past MEDIA_MAX. */

@@ -6,6 +6,12 @@
 'use strict';
 (function () {
 
+/* v166 · the release this layer belongs to (index.html stamps it inline before
+   any script). Every asset URL built here rides it: `.htaccess` caches any
+   `?v=` URL immutably for a year, so a hardcoded token would pin the old art. */
+const REL = window.__SHIVAA_REL || 166;
+const ASSET_V = '?v=' + REL;
+
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
@@ -56,7 +62,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
             silver: { name: 'Silver 925', img: '/images/categories/silver.jpg' },
           };
           list.innerHTML = Object.entries(CATS).map(([k, c]) =>
-            '<a href="#/shop?category=' + k + '"><img src="' + c.img + '?v=125" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb=\'1\';this.src=\'/images/logo.png?v=125\';}else{this.remove();}"><span>' + c.name + '</span></a>'
+            '<a href="#/shop?category=' + k + '"><img src="' + c.img + ASSET_V + '" alt="" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb=\'1\';this.src=\'/images/logo.png' + ASSET_V + '\';}else{this.remove();}"><span>' + c.name + '</span></a>'
           ).join('');
           catsBtn.insertAdjacentElement('afterend', list);
         }

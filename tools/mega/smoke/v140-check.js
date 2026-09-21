@@ -147,22 +147,28 @@ function boot({ user = null, token = null, startHash = '', innerWidth = 420 } = 
     })(),
     'index.html/app.js/sw.js stamps must all read 140 or newer, in lockstep');
 
-  ok('every changed file carries its new cache stamp (?v=140 / app.js 140+141) in index.html',
-    /\/css\/v116\.css\?v=140/.test(shell) && /\/css\/v119\.css\?v=140/.test(shell) && /\/css\/v120\.css\?v=140/.test(shell) &&
-    st(shell, /\/js\/app\.js\?v=(\d+)/) >= 140 && /\/js\/v107\.js\?v=140/.test(shell) && st(shell, /\/js\/v116\.js\?v=(\d+)/) >= 140 &&
-    st(shell, /\/js\/v117\.js\?v=(\d+)/) >= 140 && /\/js\/v119\.js\?v=140/.test(shell) && /\/js\/v120\.js\?v=140/.test(shell),
+  /* v166 fix-forward: ?v= is a RELEASE number, not the era each file was written.
+     A later release re-stamps every asset (that is the whole point — a ?v= URL is
+     immutable for a year), so the durable law is "stamped at 140 or newer". */
+  ok('every changed file carries a current cache stamp (v140 floor) in index.html',
+    st(shell, /\/css\/v116\.css\?v=(\d+)/) >= 140 && st(shell, /\/css\/v119\.css\?v=(\d+)/) >= 140 && st(shell, /\/css\/v120\.css\?v=(\d+)/) >= 140 &&
+    st(shell, /\/js\/app\.js\?v=(\d+)/) >= 140 && st(shell, /\/js\/v107\.js\?v=(\d+)/) >= 140 && st(shell, /\/js\/v116\.js\?v=(\d+)/) >= 140 &&
+    st(shell, /\/js\/v117\.js\?v=(\d+)/) >= 140 && st(shell, /\/js\/v119\.js\?v=(\d+)/) >= 140 && st(shell, /\/js\/v120\.js\?v=(\d+)/) >= 140,
     'a changed stamped file must move its ?v= (immutable cache, one year)');
 
-  ok('the new v140 layer ships, is loaded LAST, and the worker precaches it',
-    /<script src="\/js\/v140\.js\?v=140" defer><\/script>/.test(shell) &&
-    shell.indexOf('/js/v139.js?v=139') < shell.indexOf('/js/v140.js?v=140') &&
-    sw.includes("'/js/v140.js?v=140'") && sw.includes("'/css/v140.css?v=140'"));
+  /* v166 fix-forward: "LAST" was true in the v140 era — later layers (v166) load
+     after it by design. The durable law: it ships once, after v139, and both the
+     shell and the worker carry it. */
+  ok('the v140 layer ships after v139 and the worker precaches it',
+    /<script src="\/js\/v140\.js\?v=\d+" defer><\/script>/.test(shell) &&
+    shell.search(/\/js\/v139\.js\?v=/) < shell.search(/\/js\/v140\.js\?v=/) &&
+    /'\/js\/v140\.js\?v=\d+'/.test(sw) && /'\/css\/v140\.css\?v=\d+'/.test(sw));
 
   ok('the service worker precache matches the re-stamped files exactly',
     (() => { const x = /'\/js\/app\.js\?v=(\d+)'/.exec(sw); return !!x && Number(x[1]) >= 140; })() &&
-    sw.includes("'/js/v119.js?v=140'") && sw.includes("'/js/v120.js?v=140'") &&
+    st(sw, /'\/js\/v119\.js\?v=(\d+)'/) >= 140 && st(sw, /'\/js\/v120\.js\?v=(\d+)'/) >= 140 &&
     (() => { const x = /'\/js\/v116\.js\?v=(\d+)'/.exec(sw); return !!x && Number(x[1]) >= 140; })() &&
-    sw.includes("'/css/v119.css?v=140'") && sw.includes("'/css/v120.css?v=140'") && sw.includes("'/css/v116.css?v=140'"));
+    st(sw, /'\/css\/v119\.css\?v=(\d+)'/) >= 140 && st(sw, /'\/css\/v120\.css\?v=(\d+)'/) >= 140 && st(sw, /'\/css\/v116\.css\?v=(\d+)'/) >= 140);
 
   ok('the install chip is GONE from the markup layer (js/v119.js)',
     !/Keep Shivaa on your home screen/.test(v119) && !/beforeinstallprompt/.test(v119) && !/shvInstallChip/.test(v119),

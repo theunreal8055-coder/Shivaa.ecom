@@ -28,7 +28,14 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', capPreloader, { once: true });
   else capPreloader();
 
-  /* ── 2 · post-paint enhancement loader ────────────────────── */
+  /* ── 2 · post-paint enhancement loader ──────────────────────
+     v166 · the URLs ride the CURRENT release. They used to be frozen at the
+     numbers of their own era (aurum/motion at ?v=107, boost at ?v=134) while
+     sw.js precached the release-stamped copies — so the injection missed the
+     warm cache AND, because `.htaccess` serves any ?v= URL immutably for a
+     year, a returning device kept running the old animation code: the owner's
+     "some animations or graphics are not loaded". */
+  var REL = window.__SHIVAA_REL || 166;
   var IDLE = window.requestIdleCallback || function (fn) { return setTimeout(fn, 300); };
 
   function inject(src) {
@@ -44,9 +51,9 @@
 
   function loadEnhancements() {
     // order = the old static-defer order in index.html
-    inject('/js/aurum.js?v=107')
-      .then(function () { return inject('/js/motion.js?v=107'); })
-      .then(function () { return inject('/js/boost.js?v=134'); })
+    inject('/js/aurum.js?v=' + REL)
+      .then(function () { return inject('/js/motion.js?v=' + REL); })
+      .then(function () { return inject('/js/boost.js?v=' + REL); })
       .catch(function () { /* ambience is optional — never noisy */ });
   }
 
