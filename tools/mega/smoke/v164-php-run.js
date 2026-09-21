@@ -120,9 +120,10 @@ try { include '/tcrun/api.php'; } catch (Throwable $e) { echo "\\n@@FATAL " . ge
   php.writeFile('/tcrun/data/db.json', JSON.stringify(seedDb(true)));
 
   const v = await req('GET', 'version');
-  ok('A0 · /api/version: rel 164, shell v164, stamps 164/164',
-    v.http === 200 && !v.fatal && v.json && v.json.rel === 164 && v.json.shell === 'shivaa-shell-v164'
-    && v.json.stamp && v.json.stamp.index === 164 && v.json.stamp.app === 164,
+  ok('A0 · /api/version: stamps present and at least this era (rel/shell/index/app >= 164)',
+    v.http === 200 && !v.fatal && v.json && v.json.rel >= 164 && /^shivaa-shell-v\d+$/.test(v.json.shell || '')
+    && v.json.shell === 'shivaa-shell-v' + v.json.rel
+    && v.json.stamp && v.json.stamp.index === v.json.rel && v.json.stamp.app === v.json.rel,
     v.fatal || v.raw.slice(0, 160));
 
   const la = await req('GET', 'products');

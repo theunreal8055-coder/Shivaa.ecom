@@ -3553,9 +3553,20 @@ window.ShivaaAdmin.openAudit = async () => {
   if (card.style.display && host.dataset.loaded) return;
   try {
     const d = await window.Shivaa.api('/api/admin/audit');
-    host.innerHTML = (d.log || []).map(l => `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
+    /* v165 — payment failures must be readable, not just countable. Entries
+       that carry gateway detail (payment.cashfree-*) get an expandable
+       <details> with the full meta: HTTP status + Cashfree's own code/message
+       (and the exact order amount), so the real reason is one tap away. */
+    host.innerHTML = (d.log || []).map(l => {
+      const m = l.meta || {};
+      const hasDet = m && (m.resp != null || m.err != null || m.http != null);
+      const det = hasDet
+        ? `<details style="flex-basis:100%;margin-top:4px"><summary style="cursor:pointer;color:var(--ink-3);font-size:12px">gateway details</summary><pre style="white-space:pre-wrap;word-break:break-word;font-size:11.5px;margin:6px 0 0;background:rgba(0,0,0,.04);padding:8px;border-radius:8px">${esc(JSON.stringify(m, null, 1))}</pre></details>`
+        : '';
+      return `<div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
       <span style="color:var(--ink-3);white-space:nowrap">${new Date(l.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
-      <b style="min-width:150px">${esc(l.what)}</b><span>${esc((l.meta && (l.meta.order || l.meta.user || '')))}</span><small style="margin-left:auto;color:var(--ink-3)">${esc(l.by || '')}</small></div>`).join('');
+      <b style="min-width:150px">${esc(l.what)}</b><span>${esc((m && (m.order || m.user || '')))}</span><small style="margin-left:auto;color:var(--ink-3)">${esc(l.by || '')}</small>${det}</div>`;
+    }).join('');
     host.dataset.loaded = '1';
   } catch (e) { host.textContent = e.message; }
 };

@@ -4222,7 +4222,7 @@ try {
     $sh = preg_match("/SHELL = '([^']+)'/", $swSrc, $m) ? $m[1] : '?';
     jout(200, [
       'ok'    => true,
-      'rel'   => 164,
+      'rel'   => 165,
       'shell' => $sh,
       'stamp' => ['index' => (bool)preg_match('/__SHIVAA_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/index.html'), $mi) ? (int)$mi[1] : 0,
                   'app'   => (bool)preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? (int)$ma[1] : 0],
@@ -4375,7 +4375,26 @@ try {
       $j = $res['json'];
       $sessionId = is_array($j) ? (string)($j['payment_session_id'] ?? '') : '';
       if (!in_array($res['code'], [200, 201], true) || $sessionId === '') {
-        audit_log($db, 'payment.cashfree-init-fail', ['order' => $o['id'], 'http' => $res['code'], 'resp' => $j, 'err' => $res['err']]);
+        audit_log($db, 'payment.cashfree-init-fail', ['order' => $o['id'], 'http' => $res['code'], 'amount' => (int)$due, 'resp' => $j, 'err' => $res['err']]);
+        /* v165 — say WHY. Cashfree's own troubleshooting lists "exceeded the
+           maximum amount limit set for your MID" as a create-order rejection
+           (new/young merchant accounts carry a per-transaction cap until it is
+           raised). The 6 campaign ear studs are the first pieces priced above
+           roughly ₹50k, and the amount is the only field in the Create-Order
+           payload that changes per product — which is why ONLY those six ever
+           saw this error while every lighter piece paid smoothly. Detect that
+           case and answer with an honest, actionable line instead of a generic
+           "retry in a moment" that could never succeed. */
+        $gwCode = strtolower(trim((string)($j['code'] ?? ($j['type'] ?? ''))));
+        $gwText = mb_strtolower(trim((string)($j['message'] ?? '') . ' ' . ($j['type'] ?? '') . ' ' . $res['raw']));
+        $amtLimit = ($gwCode === 'order_amount_invalid')
+          || preg_match('/(maximum|exceed\w*|limit).{0,60}(amount|order_amount)|(amount|order_amount).{0,60}(maximum|exceed\w*|limit)/i', $gwText);
+        if ($amtLimit) {
+          jout(502, ['error' => 'This piece is above our current online-payment limit — please pay with the UPI QR tab (works for any amount) or on WhatsApp/COD. We are raising the limit with our payment partner.',
+                     'kind' => 'amount-limit',
+                     'gatewayCode' => $j['code'] ?? ($j['type'] ?? null),
+                     'gatewayMessage' => $j['message'] ?? ($res['err'] ?: null)]);
+        }
         jout(502, ['error' => 'Cashfree could not start this payment — choose WhatsApp/COD, the UPI QR tab, or retry in a moment.',
                    'gatewayCode' => $j['code'] ?? ($j['type'] ?? null),
                    'gatewayMessage' => $j['message'] ?? ($res['err'] ?: null)]);
