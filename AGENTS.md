@@ -2,9 +2,9 @@
 
 ## Read first
 
-1. Newest section of `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `HANDOFF.md` and
-   `ARENA-STATE.md`. Older “current” banners below are historical, not a rollback
-   instruction.
+1. `docs/SESSION-STATE-2026-09-21-v169.md`, then the final-state sections of
+   `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `HANDOFF.md`, `ARENA-STATE.md`.
+   Older “current/newest”, no-ZIP and release-freeze banners are historical.
 2. `tools/mega/audit/DEFECT-LEDGER-v169.md` and `DEPLOY-v169.md`.
 3. Actual branch, diff and code. Documents have contained stale counts/labels;
    verify before repeating them.
@@ -15,7 +15,9 @@
   **168** because no media changed.
 - Prior ledgers:104 repairs; v169 adds **36**, for **140 cumulatively recorded**.
   B20 is separately identified hardening, not a claimed cross-customer exploit.
-- **Not live-deployed.** Owner requested publishing the new
+- **Published, remotely verified, NOT live-deployed.** Publication commit
+  `f847d85057a112296c59ef58a35731a184b74194`; source `db52583`. The owner received the
+  immutable link recorded in the final session record. The new
   `shivaa-update-v169.zip`:17 cumulative code files, built from `db52583`.
   Requires full v165+; see `DEPLOY-v169.md` for hash/extraction/overlay evidence.
   No DB/uploads/credentials/media/host configuration is packaged.
@@ -28,6 +30,23 @@
   strength of an old handoff instruction.
 - App: `cms/` (PHP 8 API, vanilla JS hash-routed SPA, JSON-backed production data).
 - Do not mistake the static preview's fixture responses for a live backend.
+
+## Forward-only / do not repeat completed work
+
+- Preserve the latest verified source. New fixes are targeted forward commits;
+  no release reset/revert, old-file/ZIP restoration or rewritten/force-pushed
+  history. The old v125 freeze was superseded by owner-requested releases
+  through v169; rejected v126 and Truecaller must remain retired.
+- Consult the completed v168/v169 ledger IDs and tests before changing a path.
+  Missing scratch logs do not mean a fix is absent. Do not replay non-idempotent
+  `work/audit169/backend.py` / `frontend.py` patch scripts.
+- The complete product/test/package inventory and remaining work are recorded
+  in `docs/SESSION-STATE-2026-09-21-v169.md`. Do not redo or recount those repairs.
+- A docs-only update needs no new app release or replacement archive. Preserve
+  the published ZIP/hash and immutable download link. Do not call it installed
+  or live without owner/host evidence.
+- Historical merge/deploy instructions are not new authorization. Stay on this
+  session's branch; do not merge main or trigger live workflows for continuity.
 
 ## Safety and owner rules
 

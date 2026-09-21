@@ -1,6 +1,42 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
-## Latest package follow-up — v169 GitHub download (21 Sep 2026)
+## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
+
+**Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
+inventory, commit/evidence map, permanent download and remaining work. This
+section supersedes every older “current/newest”, no-ZIP, old-HEAD or release-freeze
+banner below. Earlier notes are history, not commands to restore old code.
+
+- **Completed and pushed:** source `db525839d91800a07616b3f2ce26b17e61490503`;
+  package publication `f847d85057a112296c59ef58a35731a184b74194` on
+  `arena/01a0c31d-shivaa-ecom`. Later docs-only commits do not change those
+  identities; inspect git for the actual HEAD.
+- **Latest download:** https://github.com/theunreal8055-coder/Shivaa.ecom/raw/f847d85057a112296c59ef58a35731a184b74194/shivaa-update-v169.zip
+- **Archive:**17 files,540,823 bytes; SHA-256
+  `9ff5aad3856c2efcdf52ec3eddb4b6d7bc04503436017eb39673413dbb0088fb`;
+  GitHub blob `320fa3ae85b202dc2edaa209ff4d90a3a1576cb8` remotely verified.
+  Full v165+ prerequisite; backup first; root-layout extraction beside
+  index.html/api.php. No data/uploads/credentials/media/host `.htaccess`.
+- **Release169, media cache168 intentionally.** 36 additional recorded repairs
+  →140 cumulative; B20 hardening separately uncounted. Ledgers v168/v169
+  contain the individual completed fixes. Do not count53 checks as53 bugs.
+- **Recorded checks:**28/28 PHP,25/25 pages; full belt38 PASS/16 retired SKIP/0 FAIL.
+  Actual ZIP overlay and negative-control evidence are in the final session
+  record and `DEPLOY-v169.md`. These are not native/live-host certifications.
+- **NOT deployed or owner-confirmed installed.** No main merge, live payment,
+  real OTP/GST lookup or customer/supplier-data update in this audit/publication.
+- **Forward only:** preserve v169 and its tests; make new targeted forward fixes,
+  never reset/revert to an old release, restore an old ZIP, force-push history,
+  rerun the ignored one-time patch scripts, or repeat/recount ledger repairs.
+  The historical v125 freeze is superseded; rejected v126/Truecaller stay retired.
+  Old merge/deploy permissions are not new authorization. Never deploy just sw.js.
+- This closeout changes documentation only: no new release, rebuilt ZIP or
+  repeated repair. Future work begins with the owner's next request and the
+  final record's open-work list, not another replay of this audit.
+
+## Historical session notes below — superseded where inconsistent
+
+## Historical package preparation — v169 GitHub download (21 Sep 2026)
 
 The owner requested the latest update-file link. **`shivaa-update-v169.zip` is
 now built and verified** from source `db525839d91800a07616b3f2ce26b17e61490503`:
@@ -17,11 +53,11 @@ or real payment**. GitHub download requires repository access. This supersedes
 the historical “no v169 ZIP / no commit” status below. The old v168 ZIP is unchanged.
 
 
-## Current continuation — v169 deeper audit (21 Sep 2026)
+## Historical pre-publication audit — v169 deeper audit (21 Sep 2026)
 
-This section supersedes older “current” banners below. **Source repairs only;
-NOT packaged, pushed, merged or deployed in this continuation.** Branch remains
-`arena/01a0c31d-shivaa-ecom`; baseline/HEAD is published v168 `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
+Historical status at the audit stage: source repairs were not yet packaged or
+pushed. The final record above supersedes that status; no deployment occurred. Branch remains
+`arena/01a0c31d-shivaa-ecom`; the audit-stage baseline was published v168 `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
 The existing **v168 ZIP/link is unchanged and excludes these v169 repairs**.
 
 - **36 additional recorded defect repairs + one separately uncounted hardening
@@ -74,7 +110,8 @@ The existing **v168 ZIP/link is unchanged and excludes these v169 repairs**.
 - Remaining: native Hostinger/PWA/WebView/thermal-printer/gateway checks,
   historical financial-data review, other async form/admin continuations,
   referral actual-credit reconciliation and supplier-backed certificate/legal
-  review. The whole website is not certified bug-free. No v169 ZIP exists yet.
+  review. The whole website is not certified bug-free. At this pre-publication stage
+  no v169 ZIP existed; the final record above documents its later publication.
 
 
 ## Update-package follow-up — requested GitHub download (21 Sep 2026)
@@ -94,7 +131,7 @@ The owner requested publishing the package on the current GitHub branch only;
 
 
 
-## Current continuation — v168 specialist audit (21 Sep 2026)
+## Historical pre-publication audit — v168 specialist audit (21 Sep 2026)
 
 **Branch:** `arena/01a0c31d-shivaa-ecom`, based on `5b0c380`. **Status: source
 changes only; NOT deployed, not merged, no live payment tested, no ZIP produced.**
@@ -297,7 +334,7 @@ Owner (non-technical) reported five things by phone-style message. **All five we
 - **Deploy note:** the merge fires the Hostinger auto-sync cron, which re-deploys `cms/` within ~5 min. That is a no-op for the shopper — the same two files the owner already extracted by hand — and it excludes `data/` and `uploads/`, so the live DB and media are untouched. (The cron has failed silently once before, v119/PR #45; if it does not fire, nothing is lost — the owner's manual extract is already live.)
 - **Forward baseline, final for this session: v125 + v127, both on `main`, live and owner-verified.**
 
-## Session 2026-09-16 #2 (arena/01a0ab0c) — OWNER'S RULING: v125 is the frozen line. v126 and the "v125-fix" zip are dead
+## Historical session 2026-09-16 #2 (arena/01a0ab0c) — v125 freeze, superseded by later owner-requested releases through v169. v126 and the "v125-fix" zip are dead
 - **Owner's words (after the 3-file fix made the live site bad again in his judgment):** "please dont be oversmart now i just feel my store right, you just forget everything you did for v126 and for v125 fix zip, ok?" → **Standing law: v125 = the stable live baseline. Do not propose, build, upload or reference v126, `shivaa-update-v126.zip`, or the 3-file fix (`sw.js`/`js/boost.js`/`css/boost.css`) again in any session — unless the owner himself explicitly asks.**
 - **Owner's recovery (his moves, do not touch):** downloaded the full `public_html` zip from Hostinger (his backup) → extracted it → re-extracted `shivaa-update-v125.zip` over the top → "now everything is ok / my store right". **That is the live state. Leave it alone.**
 - **Facts, honestly recorded (no diagnosis pushed on the owner):** the 3-file fix was byte-identical v125-era content (its `sw.js` == the v125 zip's own `sw.js`; `boost.js`/`boost.css` = the pre-v126 versions), verified and gated. It still made the live site worse in the owner's experience. **Lessons (labelled as such, not facts):** (a) swapping `sw.js` out-of-band makes every device's service worker wipe and re-fetch its whole cache — a big visible churn on the next visit; (b) v125-era `boost.js` re-mounts ~47 MB of EAGER autoplay films (hero 16 MB + four ambients) — the exact weight v126 later made cold, whose lightness the owner had since had. **"Byte-identical to an old file" is not the same as "safe to deploy" on this site.**

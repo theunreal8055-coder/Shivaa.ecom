@@ -1,6 +1,42 @@
-# AGENT HANDOFF — current source v168, 21 Sep 2026 (not deployed)
+# AGENT HANDOFF — v169 published, not live-verified (21 Sep 2026)
 
-## Latest package follow-up — v169 GitHub download (21 Sep 2026)
+## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
+
+**Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
+inventory, commit/evidence map, permanent download and remaining work. This
+section supersedes every older “current/newest”, no-ZIP, old-HEAD or release-freeze
+banner below. Earlier notes are history, not commands to restore old code.
+
+- **Completed and pushed:** source `db525839d91800a07616b3f2ce26b17e61490503`;
+  package publication `f847d85057a112296c59ef58a35731a184b74194` on
+  `arena/01a0c31d-shivaa-ecom`. Later docs-only commits do not change those
+  identities; inspect git for the actual HEAD.
+- **Latest download:** https://github.com/theunreal8055-coder/Shivaa.ecom/raw/f847d85057a112296c59ef58a35731a184b74194/shivaa-update-v169.zip
+- **Archive:**17 files,540,823 bytes; SHA-256
+  `9ff5aad3856c2efcdf52ec3eddb4b6d7bc04503436017eb39673413dbb0088fb`;
+  GitHub blob `320fa3ae85b202dc2edaa209ff4d90a3a1576cb8` remotely verified.
+  Full v165+ prerequisite; backup first; root-layout extraction beside
+  index.html/api.php. No data/uploads/credentials/media/host `.htaccess`.
+- **Release169, media cache168 intentionally.** 36 additional recorded repairs
+  →140 cumulative; B20 hardening separately uncounted. Ledgers v168/v169
+  contain the individual completed fixes. Do not count53 checks as53 bugs.
+- **Recorded checks:**28/28 PHP,25/25 pages; full belt38 PASS/16 retired SKIP/0 FAIL.
+  Actual ZIP overlay and negative-control evidence are in the final session
+  record and `DEPLOY-v169.md`. These are not native/live-host certifications.
+- **NOT deployed or owner-confirmed installed.** No main merge, live payment,
+  real OTP/GST lookup or customer/supplier-data update in this audit/publication.
+- **Forward only:** preserve v169 and its tests; make new targeted forward fixes,
+  never reset/revert to an old release, restore an old ZIP, force-push history,
+  rerun the ignored one-time patch scripts, or repeat/recount ledger repairs.
+  The historical v125 freeze is superseded; rejected v126/Truecaller stay retired.
+  Old merge/deploy permissions are not new authorization. Never deploy just sw.js.
+- This closeout changes documentation only: no new release, rebuilt ZIP or
+  repeated repair. Future work begins with the owner's next request and the
+  final record's open-work list, not another replay of this audit.
+
+## Historical session notes below — superseded where inconsistent
+
+## Historical package preparation — v169 GitHub download (21 Sep 2026)
 
 The owner requested the latest update-file link. **`shivaa-update-v169.zip` is
 now built and verified** from source `db525839d91800a07616b3f2ce26b17e61490503`:
@@ -17,11 +53,11 @@ or real payment**. GitHub download requires repository access. This supersedes
 the historical “no v169 ZIP / no commit” status below. The old v168 ZIP is unchanged.
 
 
-## Current continuation — v169 deeper audit (21 Sep 2026)
+## Historical pre-publication audit — v169 deeper audit (21 Sep 2026)
 
-This section supersedes older “current” banners below. **Source repairs only;
-NOT packaged, pushed, merged or deployed in this continuation.** Branch remains
-`arena/01a0c31d-shivaa-ecom`; baseline/HEAD is published v168 `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
+Historical status at the audit stage: source repairs were not yet packaged or
+pushed. The final record above supersedes that status; no deployment occurred. Branch remains
+`arena/01a0c31d-shivaa-ecom`; the audit-stage baseline was published v168 `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
 The existing **v168 ZIP/link is unchanged and excludes these v169 repairs**.
 
 - **36 additional recorded defect repairs + one separately uncounted hardening
@@ -74,7 +110,8 @@ The existing **v168 ZIP/link is unchanged and excludes these v169 repairs**.
 - Remaining: native Hostinger/PWA/WebView/thermal-printer/gateway checks,
   historical financial-data review, other async form/admin continuations,
   referral actual-credit reconciliation and supplier-backed certificate/legal
-  review. The whole website is not certified bug-free. No v169 ZIP exists yet.
+  review. The whole website is not certified bug-free. At this pre-publication stage
+  no v169 ZIP existed; the final record above documents its later publication.
 
 
 ## Update-package follow-up — requested GitHub download (21 Sep 2026)
@@ -94,7 +131,7 @@ The owner requested publishing the package on the current GitHub branch only;
 
 
 
-## Current continuation — v168 specialist audit (21 Sep 2026)
+## Historical pre-publication audit — v168 specialist audit (21 Sep 2026)
 
 **Branch:** `arena/01a0c31d-shivaa-ecom`, based on `5b0c380`. **Status: source
 changes only; NOT deployed, not merged, no live payment tested, no ZIP produced.**
@@ -146,7 +183,7 @@ dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
 
-## ✅ NEWEST — v159 10g GOLD BISCUIT CAMPAIGN FUNNEL & CURATED 6 STUDS (20 Sep 2026, branch `arena/01a0bf5c-shivaa-ecom`)
+## Historical — v159 10g GOLD BISCUIT CAMPAIGN FUNNEL & CURATED 6 STUDS (20 Sep 2026, branch `arena/01a0bf5c-shivaa-ecom`)
 
 ### What Was Delivered in v157 → v158 → v159:
 1. **Curated 6 Studs 10g Gold Biscuit Funnel (`#/scheme`, `#/finale`):**
@@ -183,7 +220,7 @@ dumps. **Repo = single source of truth.** Live site = PHP CMS in `cms/`
 (v37) + JSON db on Hostinger; batch automation in `pipeline/`; current batch
 workspace pattern `demo65/` (one folder per supplier batch).
 
-## ✅ NEWEST — LAUNCH FILM (20 Sep 2026, branch `arena/01a0ba75-shivaa-ecom`, **PR #78 merging to main on owner order**)
+## Historical — LAUNCH FILM (20 Sep 2026, branch `arena/01a0ba75-shivaa-ecom`, **PR #78 merging to main on owner order**)
 
 Not a CMS release. **Do not bump storefront stamps.** Storefront on main is **v156**; this session did not edit cms/.
 
@@ -255,7 +292,7 @@ The owner's live test of v148 said two things and both are answered here. **(1) 
 - Desktop = web-popup flow = no push-back by design; typed entry stays there.
 - `cms/data/tc-verify/` must stay writable (admin doctor shows `dataWritable`); callback route is lockless — **never add db_save() there**.
 
-## ✅ NEWEST — v142 AUTOMATIC GUEST CHECKOUT (18 Sep 2026, branch `arena/01a0b3ff-shivaa-ecom`, **MERGED TO `main` AS PR #71** on the owner's instruction "update memory doc handoff and agent doc and merge the PR". Ships v140 → v141 → v142.)
+## Historical — v142 AUTOMATIC GUEST CHECKOUT (18 Sep 2026, branch `arena/01a0b3ff-shivaa-ecom`, **MERGED TO `main` AS PR #71** on the owner's instruction "update memory doc handoff and agent doc and merge the PR". Ships v140 → v141 → v142.)
 
 **Owner brief, verbatim:** *"Make the most advanced and Fully automatic checkout, without even otp, still verifying the name number address and payment methods automatically — once a person clicks make it yours then it's automatically purchased, just the customer needs to fill their UPI pin or NetBanking password, everything else is automated."*
 
@@ -283,7 +320,7 @@ The owner's live test of v148 said two things and both are answered here. **(1) 
 - **Never print the Cashfree secret** — it belongs only in the admin settings.
 - Guests can NEVER use member coupons / loyalty points / rate lock, and no account is created (id stays `'guest'`).
 
-## ✅ NEWEST — v139 SHOP-EXPERIENCE PASS (18 Sep 2026, branch `arena/01a0b366-shivaa-ecom`, **MERGED TO `main` AS PR #70** — the owner's hold *"don't merge the PR until you are told to do so"* was **lifted** at session close with *"perge this PR to main"*, so the merge is authorised and spent. Merged forward-only as a merge commit per owner law.)
+## Historical — v139 SHOP-EXPERIENCE PASS (18 Sep 2026, branch `arena/01a0b366-shivaa-ecom`, **MERGED TO `main` AS PR #70** — the owner's hold *"don't merge the PR until you are told to do so"* was **lifted** at session close with *"perge this PR to main"*, so the merge is authorised and spent. Merged forward-only as a merge commit per owner law.)
 
 **Owner's five reports, verbatim:** *"the check out button doesn't work and
 doesn't take us to the payment page"* · *"when you click on any category and go
@@ -416,7 +453,7 @@ overlays, never the same tap.
 
 ---
 
-## ✅ NEWEST — v135 → v138 PAYMENT CORRECTNESS PASS — MERGED to `main` (18 Sep 2026, PR #69, branch `arena/01a0b25e-shivaa-ecom`)
+## Historical — v135 → v138 PAYMENT CORRECTNESS PASS — MERGED to `main` (18 Sep 2026, PR #69, branch `arena/01a0b25e-shivaa-ecom`)
 
 **Owner's report that started it:** *"even if someone does not pay and comes back
 silently then Shiva automatically issues invoices against but the right thing to be
@@ -536,7 +573,7 @@ sidebar and search-palette taps.
 
 ---
 
-## ✅ NEWEST — v127 NAVIGATION REPAIR — LIVE + OWNER-VERIFIED (17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`)
+## Historical — v127 NAVIGATION REPAIR — LIVE + OWNER-VERIFIED (17 Sep 2026, branch `arena/01a0ad8d-shivaa-ecom`)
 
 **Owner's word (17 Sep 2026, verbatim):** *"The version 127 update is working very fine and I
 installed it and extracted in public HTML folder and its working fine now."* → **v127 is the
@@ -787,7 +824,11 @@ provide: Replicate token (pay-as-you-go), a VPS (or confirm their Hostinger
 plan is a VPS), and per supplier drop: weights CSV + photos zip. NOTHING is
 built yet (that chat was interrupted); owner's priority = finish demo65 first.
 
-## Site-change requests (features/fixes)
+## Historical site-change/deployment notes (not active authorization)
+
+Do not follow the old PR/main/deploy sequence below without a new owner request.
+Current session restrictions and the final v169 record take precedence.
+
 Edit `cms/` on your branch; bump every `?v=` in `cms/index.html` (currently 11 refs) whenever
 js/css change; PR → main → cron auto-deploys. NEVER edit live db.json by
 hand; products only via API/upsert. Warn owner: hand-edits in hPanel File

@@ -1,6 +1,42 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
-## Latest package follow-up — v169 GitHub download (21 Sep 2026)
+## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
+
+**Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
+inventory, commit/evidence map, permanent download and remaining work. This
+section supersedes every older “current/newest”, no-ZIP, old-HEAD or release-freeze
+banner below. Earlier notes are history, not commands to restore old code.
+
+- **Completed and pushed:** source `db525839d91800a07616b3f2ce26b17e61490503`;
+  package publication `f847d85057a112296c59ef58a35731a184b74194` on
+  `arena/01a0c31d-shivaa-ecom`. Later docs-only commits do not change those
+  identities; inspect git for the actual HEAD.
+- **Latest download:** https://github.com/theunreal8055-coder/Shivaa.ecom/raw/f847d85057a112296c59ef58a35731a184b74194/shivaa-update-v169.zip
+- **Archive:**17 files,540,823 bytes; SHA-256
+  `9ff5aad3856c2efcdf52ec3eddb4b6d7bc04503436017eb39673413dbb0088fb`;
+  GitHub blob `320fa3ae85b202dc2edaa209ff4d90a3a1576cb8` remotely verified.
+  Full v165+ prerequisite; backup first; root-layout extraction beside
+  index.html/api.php. No data/uploads/credentials/media/host `.htaccess`.
+- **Release169, media cache168 intentionally.** 36 additional recorded repairs
+  →140 cumulative; B20 hardening separately uncounted. Ledgers v168/v169
+  contain the individual completed fixes. Do not count53 checks as53 bugs.
+- **Recorded checks:**28/28 PHP,25/25 pages; full belt38 PASS/16 retired SKIP/0 FAIL.
+  Actual ZIP overlay and negative-control evidence are in the final session
+  record and `DEPLOY-v169.md`. These are not native/live-host certifications.
+- **NOT deployed or owner-confirmed installed.** No main merge, live payment,
+  real OTP/GST lookup or customer/supplier-data update in this audit/publication.
+- **Forward only:** preserve v169 and its tests; make new targeted forward fixes,
+  never reset/revert to an old release, restore an old ZIP, force-push history,
+  rerun the ignored one-time patch scripts, or repeat/recount ledger repairs.
+  The historical v125 freeze is superseded; rejected v126/Truecaller stay retired.
+  Old merge/deploy permissions are not new authorization. Never deploy just sw.js.
+- This closeout changes documentation only: no new release, rebuilt ZIP or
+  repeated repair. Future work begins with the owner's next request and the
+  final record's open-work list, not another replay of this audit.
+
+## Historical session notes below — superseded where inconsistent
+
+## Historical package preparation — v169 GitHub download (21 Sep 2026)
 
 The owner requested the latest update-file link. **`shivaa-update-v169.zip` is
 now built and verified** from source `db525839d91800a07616b3f2ce26b17e61490503`:
@@ -17,11 +53,11 @@ or real payment**. GitHub download requires repository access. This supersedes
 the historical “no v169 ZIP / no commit” status below. The old v168 ZIP is unchanged.
 
 
-## Current continuation — v169 deeper audit (21 Sep 2026)
+## Historical pre-publication audit — v169 deeper audit (21 Sep 2026)
 
-This section supersedes older “current” banners below. **Source repairs only;
-NOT packaged, pushed, merged or deployed in this continuation.** Branch remains
-`arena/01a0c31d-shivaa-ecom`; baseline/HEAD is published v168 `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
+Historical status at the audit stage: source repairs were not yet packaged or
+pushed. The final record above supersedes that status; no deployment occurred. Branch remains
+`arena/01a0c31d-shivaa-ecom`; the audit-stage baseline was published v168 `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
 The existing **v168 ZIP/link is unchanged and excludes these v169 repairs**.
 
 - **36 additional recorded defect repairs + one separately uncounted hardening
@@ -74,7 +110,8 @@ The existing **v168 ZIP/link is unchanged and excludes these v169 repairs**.
 - Remaining: native Hostinger/PWA/WebView/thermal-printer/gateway checks,
   historical financial-data review, other async form/admin continuations,
   referral actual-credit reconciliation and supplier-backed certificate/legal
-  review. The whole website is not certified bug-free. No v169 ZIP exists yet.
+  review. The whole website is not certified bug-free. At this pre-publication stage
+  no v169 ZIP existed; the final record above documents its later publication.
 
 
 ## Update-package follow-up — requested GitHub download (21 Sep 2026)
@@ -94,7 +131,7 @@ The owner requested publishing the package on the current GitHub branch only;
 
 
 
-## Current continuation — v168 specialist audit (21 Sep 2026)
+## Historical pre-publication audit — v168 specialist audit (21 Sep 2026)
 
 **Branch:** `arena/01a0c31d-shivaa-ecom`, based on `5b0c380`. **Status: source
 changes only; NOT deployed, not merged, no live payment tested, no ZIP produced.**

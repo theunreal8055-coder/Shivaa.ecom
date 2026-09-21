@@ -2,7 +2,9 @@
 
 **21 September 2026 · branch `arena/01a0c31d-shivaa-ecom`**
 **Baseline:** published v168, `f2b6c4467fe6fa3822b223cda73e5d513fc604ef`.
-**Status:** source repairs and the new v169 update ZIP are verified in isolation; **not live-deployed**. On the owner’s follow-up, the 17-file cumulative package was built from `db525839d91800a07616b3f2ce26b17e61490503` for publication on the current branch only. See `DEPLOY-v169.md` for hash, extraction notes and archive-overlay results. The old v168 download is unchanged.
+**Status:** source repairs and the new v169 update ZIP are verified in isolation; **not live-deployed**. On the owner’s follow-up, the 17-file cumulative package was built from `db525839d91800a07616b3f2ce26b17e61490503` and published on the current branch only at `f847d85057a112296c59ef58a35731a184b74194`. GitHub archive size/blob identity was verified after push. See `DEPLOY-v169.md` for hash, extraction notes and archive-overlay results. The old v168 download is unchanged.
+
+Final change inventory, immutable link and forward-only continuation rules: `docs/SESSION-STATE-2026-09-21-v169.md`. Do not repeat or recount the completed entries below.
 
 ## Results and counting
 

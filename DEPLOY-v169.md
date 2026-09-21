@@ -1,6 +1,6 @@
 # v169 — deeper persistence, payment and order audit
 
-**21 September 2026 · packaged on `arena/01a0c31d-shivaa-ecom` · NOT DEPLOYED**
+**21 September 2026 · published and verified on `arena/01a0c31d-shivaa-ecom` · NOT DEPLOYED**
 
 36 additional recorded repairs, plus one uncounted hardening change. Prior ledgers:104; cumulative recorded repairs: **140**. Evidence and limitations: [v169 defect ledger](tools/mega/audit/DEFECT-LEDGER-v169.md).
 
@@ -11,8 +11,10 @@ The owner's follow-up requested the latest GitHub update link. The new package i
 - **17 files · 540,823 bytes**; cumulative v166–v169 code-file union.
 - Requires an existing full **v165-or-newer CMS**, not an empty hosting folder.
 - **SHA-256:** `9ff5aad3856c2efcdf52ec3eddb4b6d7bc04503436017eb39673413dbb0088fb`
-- [Download v169 ZIP on GitHub](https://github.com/theunreal8055-coder/Shivaa.ecom/raw/refs/heads/arena/01a0c31d-shivaa-ecom/shivaa-update-v169.zip)
+- [Download v169 ZIP on GitHub](https://github.com/theunreal8055-coder/Shivaa.ecom/raw/f847d85057a112296c59ef58a35731a184b74194/shivaa-update-v169.zip)
+- Publication commit: `f847d85057a112296c59ef58a35731a184b74194`. GitHub contents API matched size and Git blob `320fa3ae85b202dc2edaa209ff4d90a3a1576cb8` after push.
 - Private repository: sign in with a GitHub account that has access.
+- Final forward-only continuity record: `docs/SESSION-STATE-2026-09-21-v169.md`.
 
 **Back up your website and database first.** Upload/extract into the existing website folder that contains `index.html` and `api.php` (usually `public_html`, or `public_html/cms` for that installation). The ZIP has root-relative members, **no extra `cms/` folder**. Replace the code files together; never extract only the worker.
 
