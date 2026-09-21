@@ -160,23 +160,6 @@ jobs:
             exit "$code"
           fi
 
-      # TEMPORARY (session branch only) — this sandbox cannot download run logs
-      # (results-receiver.actions.githubusercontent.com is TLS-blocked), so the
-      # successful dry-run's plan lines are surfaced as annotations, which the
-      # session CAN read via the check-runs annotations API. Reverted in the
-      # next commit; never intended to reach main.
-      - name: TEMP diagnostic — surface dry-run plan as annotations
-        if: always()
-        run: |
-          if [ -f catalogue-deploy.log ]; then
-            while IFS= read -r line; do
-              line="${line%$'\r'}"
-              [ -n "$line" ] && echo "::warning::$line"
-            done < <(grep -E 'preflight OK|logged in as|live now|non-master to delete|plan:|DRY-RUN|catalogue_deploy.py|login failed' catalogue-deploy.log || true)
-          else
-            echo "::warning::catalogue-deploy.log not present"
-          fi
-
       - name: Independently verify live catalogue
         if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.live == 'YES') }}
         env:
