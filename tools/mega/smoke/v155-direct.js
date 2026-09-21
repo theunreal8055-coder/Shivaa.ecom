@@ -118,7 +118,11 @@ async function boot({ cfg = { mode: 'cashfree', guestCheckout: true }, settingsO
   });
   const w = dom.window;
   const t0 = Date.now();
-  while (Date.now() - t0 < 15000 && !(w.Shivaa && w.Shivaa.state && w.Shivaa.state.productsCache && w.Shivaa.state.productsCache.length)) await sleep(80);
+  // v168: campaign studs populate productsCache BEFORE boot has settings.
+  // Waiting for length alone races exGate() (guestCheckout is still unknown).
+  while (Date.now() - t0 < 15000 && !(w.Shivaa && w.Shivaa.state && w.Shivaa.state.settings &&
+    w.Shivaa.state.productsCache.some(p => p.id === DB.products[0].id))) await sleep(80);
+  if (!w.Shivaa?.state.settings) throw new Error('Test boot did not finish loading settings');
   w.Shivaa.payCount = 0;
   const _payRaw = w.Shivaa.payForOrder;
   w.Shivaa.payForOrder = async (...args) => { w.Shivaa.payCount++; return _payRaw(...args); };
@@ -129,7 +133,7 @@ async function boot({ cfg = { mode: 'cashfree', guestCheckout: true }, settingsO
 }
 const bootRun = async (opts, fn) => {
   const B = await boot(opts);
-  try { await fn(B); } finally { try { B.server.close(); } catch (e) {} }
+  try { await fn(B); } finally { try { B.dom.window.close(); B.server.close(); } catch (e) {} }
   return B.errors;
 };
 const BDN = { name: 'Valued Customer', phone: '9999999999', line: 'Collected on Cashfree (verified address)', city: 'Pending verification', state: 'Pending verification', pincode: '000000', country: 'India' };

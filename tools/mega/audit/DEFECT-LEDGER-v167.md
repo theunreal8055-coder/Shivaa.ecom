@@ -1,5 +1,11 @@
 # DEFECT LEDGER — the 100-bug hunt (started 21 Sep 2026)
 
+> Historical v167 ledger: 64 fixed. Continued by [v168](DEFECT-LEDGER-v168.md)
+> with 40 additional fixes (104 cumulative). The old OPEN rows below are
+> historical findings, NOT all confirmed customer defects; see v168 triage
+> before counting or fixing them. In particular #65 was unused accumulation,
+> not evidence of a wrong saved grand total.
+
 Owner brief: *"find 100 bugs errors and glitches in the app and fix them as a specialist
 doctor of shivaa website."*
 

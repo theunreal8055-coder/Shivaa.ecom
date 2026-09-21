@@ -287,7 +287,7 @@
     try {
       if (w.caches && caches.keys) {
         jobs.push(caches.keys().then(function (ks) {
-          return Promise.all(ks.map(function (k) { return caches.delete(k).catch(function () {}); }));
+          return Promise.all(ks.filter(function (k) { return /^shivaa-(?:shell|media)-v/.test(k); }).map(function (k) { return caches.delete(k).catch(function () {}); }));
         }).catch(function () {}));
       }
     } catch (_) {}

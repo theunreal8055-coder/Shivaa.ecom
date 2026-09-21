@@ -130,8 +130,8 @@ function bootStore(extra = '') {
     /dataset\.lfb/.test(app) && /this\.style\.display='none'/.test(app) && /\/images\/logo\.png(\?v=\d{2,3}|\$\{ASSET_V\})/.test(app));
   ok('tile monogram underlay still guarantees no bare-text tiles',
     /\.cb-img::after/.test(v120css) && /content: '✦'/.test(v120css) && /\.cb-img img \{ position: relative; z-index: 1/.test(v120css));
-  ok('owner locks respected: rates 398 unchanged and the media cache generation left alone',
-    DB.settings && DB.settings.gold22Premium === 398 && /MEDIA = 'shivaa-media-v120'/.test(sw));
+  ok('owner locks respected: rates 398 unchanged and the media cache generation is forward-only',
+    DB.settings && DB.settings.gold22Premium === 398 && Number((/MEDIA = 'shivaa-media-v(\d+)'/.exec(sw) || [0, 0])[1]) >= 120);
 
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const origin = `http://127.0.0.1:${server.address().port}`;

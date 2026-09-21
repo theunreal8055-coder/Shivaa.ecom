@@ -1,5 +1,53 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
+
+## Current continuation — v168 specialist audit (21 Sep 2026)
+
+**Branch:** `arena/01a0c31d-shivaa-ecom`, based on `5b0c380`. **Status: source
+changes only; NOT deployed, not merged, no live payment tested, no ZIP produced.**
+This section supersedes older “current/newest” release labels below; retain those
+sections as history, not instructions to restore an older version.
+
+- Continued the v167 ledger: **40 additional verified fixes**, plus its previous
+  **64 fixed**, for **104 cumulatively recorded**. Do NOT describe this as 100
+  newly found bugs in this session. Ledger, repros and caveats:
+  `tools/mega/audit/DEFECT-LEDGER-v168.md`; deployment boundaries: `DEPLOY-v168.md`.
+- Main fixes: invalid Apache HTML comments; damaged/blocked browser storage;
+  API body timeouts, cancellation, headers, invalid JSON and late-401 races;
+  route error races, staff query links, modal scroll-lock ownership; label
+  overrides; scoped/private-safe/expiry-aware worker caches; font tokens and
+  PWA metadata; invoice adjustments, escaping, popup recovery and false GST
+  wording; advertised WebM uploads and extension/signature correspondence.
+- No catalogue, DB, customer, payment configuration, product media or owner-film
+  changes. Preserve the direct Cashfree flow, 6 campaign studs, category tiles,
+  24K premium rule, HUID honesty and the removal of the old verification vendor.
+- Release handshake and asset stamps **168**, media cache **168** deliberately
+  purges old private/HTML entries. Never deploy the worker alone. `.htaccess`
+  remains host-managed: apply/review only the tiny comment fix, never wholesale
+  overwrite it or ship it in an update ZIP.
+- Reproducible tests: `cd tools/mega/smoke && npm ci && npm test` → **39/39 JS/DOM/
+  worker/config checks + 12/12 executed PHP signature cases**. Against v167:
+  **0/39 and 9/12**, proving the new gate can see the old failures. Full belt:
+  `npm run test:regression` → **36 active suites pass, 16 retired-feature
+  suites explicitly skip, 0 fail**; detailed logs regenerate under ignored
+  `work/audit168/regression/`. The actual tests are tracked, not scratch-only.
+- v155 direct-checkout harness repaired (not a new product defect): it used to
+  start after the six campaign studs populated the cache but BEFORE settings.
+  Now waits for settings plus a real catalogue fixture and closes jsdom windows.
+  **24/24 passes on BOTH original v167 and current code**. Four older cache
+  generation pins now accept a deliberate forward media generation; actual
+  privacy/expiry behaviors are checked by the new worker tests.
+- Important corrected assumptions: v167 #65 unused invoice accumulators did NOT
+  prove a wrong grand total (already `o.total`). Lint-only warnings are not fixed
+  bugs; empty category tiles are owner's intent. See historical triage in ledger.
+  Source DB currently contains **77 PGS rows, all four-image** (unchanged), not
+  the stale “65 rows” claim. `demo65/status.py`: 65 crops, 260 shots, 65 metadata,
+  **0 videos in this checkout**. Do not regenerate films without an owner request.
+- Outstanding: native Hostinger validation, installed-PWA/real-device visual QA,
+  genuine Cashfree payment/MID limit confirmation, CA review of tax presentation,
+  and async page-success cancellation beyond the error races repaired here.
+
+
 **Last updated: 2026-09-21 (v160 REAL 6 TOPS + 24 PHOTOS + MOBILE MASTERY + PAY-FAIL AUTO-RETURN on `arena/01a0c003-shivaa-ecom`, PR #80 merged to main. Root-layout release package `shivaa-update-v160.zip` md5 `5506bd0854bcb176dbdda6f67d13dde6`, 31 files, 3.5 MB).**
 
 ### Executive Summary of v160:

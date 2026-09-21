@@ -1,5 +1,53 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+
+## Current continuation — v168 specialist audit (21 Sep 2026)
+
+**Branch:** `arena/01a0c31d-shivaa-ecom`, based on `5b0c380`. **Status: source
+changes only; NOT deployed, not merged, no live payment tested, no ZIP produced.**
+This section supersedes older “current/newest” release labels below; retain those
+sections as history, not instructions to restore an older version.
+
+- Continued the v167 ledger: **40 additional verified fixes**, plus its previous
+  **64 fixed**, for **104 cumulatively recorded**. Do NOT describe this as 100
+  newly found bugs in this session. Ledger, repros and caveats:
+  `tools/mega/audit/DEFECT-LEDGER-v168.md`; deployment boundaries: `DEPLOY-v168.md`.
+- Main fixes: invalid Apache HTML comments; damaged/blocked browser storage;
+  API body timeouts, cancellation, headers, invalid JSON and late-401 races;
+  route error races, staff query links, modal scroll-lock ownership; label
+  overrides; scoped/private-safe/expiry-aware worker caches; font tokens and
+  PWA metadata; invoice adjustments, escaping, popup recovery and false GST
+  wording; advertised WebM uploads and extension/signature correspondence.
+- No catalogue, DB, customer, payment configuration, product media or owner-film
+  changes. Preserve the direct Cashfree flow, 6 campaign studs, category tiles,
+  24K premium rule, HUID honesty and the removal of the old verification vendor.
+- Release handshake and asset stamps **168**, media cache **168** deliberately
+  purges old private/HTML entries. Never deploy the worker alone. `.htaccess`
+  remains host-managed: apply/review only the tiny comment fix, never wholesale
+  overwrite it or ship it in an update ZIP.
+- Reproducible tests: `cd tools/mega/smoke && npm ci && npm test` → **39/39 JS/DOM/
+  worker/config checks + 12/12 executed PHP signature cases**. Against v167:
+  **0/39 and 9/12**, proving the new gate can see the old failures. Full belt:
+  `npm run test:regression` → **36 active suites pass, 16 retired-feature
+  suites explicitly skip, 0 fail**; detailed logs regenerate under ignored
+  `work/audit168/regression/`. The actual tests are tracked, not scratch-only.
+- v155 direct-checkout harness repaired (not a new product defect): it used to
+  start after the six campaign studs populated the cache but BEFORE settings.
+  Now waits for settings plus a real catalogue fixture and closes jsdom windows.
+  **24/24 passes on BOTH original v167 and current code**. Four older cache
+  generation pins now accept a deliberate forward media generation; actual
+  privacy/expiry behaviors are checked by the new worker tests.
+- Important corrected assumptions: v167 #65 unused invoice accumulators did NOT
+  prove a wrong grand total (already `o.total`). Lint-only warnings are not fixed
+  bugs; empty category tiles are owner's intent. See historical triage in ledger.
+  Source DB currently contains **77 PGS rows, all four-image** (unchanged), not
+  the stale “65 rows” claim. `demo65/status.py`: 65 crops, 260 shots, 65 metadata,
+  **0 videos in this checkout**. Do not regenerate films without an owner request.
+- Outstanding: native Hostinger validation, installed-PWA/real-device visual QA,
+  genuine Cashfree payment/MID limit confirmation, CA review of tax presentation,
+  and async page-success cancellation beyond the error races repaired here.
+
+
 > **v167 EVERY FIELD HAS A NAME, EVERY PAGE HAS A HEADING — the 100-bug hunt, release 1 (2026-09-21, branch `arena/01a0c2bf-shivaa-ecom`, zip `shivaa-update-v167.zip` md5 `f7219538fdad9300f1d342d32e58e448`, 12 files):** owner's brief was to *find and fix 100 bugs* like a specialist doctor. This release ships **64 reproduced, fixed defects** (ledger `tools/mega/audit/DEFECT-LEDGER-v167.md`, 87 rows incl. 12 open + a "ruled out" table). Method, not luck: jsdom crawl of 44 routes, a stateful interactive harness (`work/audit/harness.js`), a ~700-tap sweep, a11y/listener/resize/noh1 probes. **Headline:** the login sheet mounted **two elements with `id="shvErr"`** (retail + jeweller panes on step 1) and `$('#shvErr')` = getElementById → every error landed in the hidden pane, so a partner's wrong password showed a spinner that stopped and *nothing else* (errors are now per-pane + a visible-pane resolver; `work/audit/probe-login-jwl.js` proves before/after). **Biggest class:** 140+ generated fields (`admin.js` 94, `app.js` 47) had a visible `<label>` never tied to its control → "edit text, blank" for every screen reader; fixed by **one delegated layer `js/v167.js`** (pairs label↔control in `.fld` blocks, ids unnamed controls, names a block's *second* control — the savings/buyback sliders — and derives names for strays; attrs only, idempotent, try/caught, ships a control run that proves the page without it is still broken). Ten routes had **no h1** and nineteen skipped a level (empty bag, empty quote, order/invoice/certificate not-found, retired CMS page, the route-error + unknown-URL fallbacks, legal/contact/rates/care/services/sizer/privacy/PDP hallmark) — now standard hero + `h2`, with `css/v167.css` reproducing each old size/family/margin so nothing moves on screen. Five member routes (account, track, certificates, invoice, **certificate**) opened the login sheet over an **empty page**; `#modalBox` had role=dialog with **no name** and a close button named "✕"; `#searchInput`'s `outline:none` beat every generic `:focus-visible` (ID specificity + a duplicated rule in `aurum.css`); the B2B card dropzone was click-only. **Honesty bugs:** `toast()` threw on a missing `#toastWrap`; filter badge `+ (value < 1500000 ? 0 : 0)` could never count the price filter and didn't refresh while the drawer was open; the slider's top stop said "Any" but hid >₹15L pieces; prepaid saving used `|| 2` while api.php uses `??` (owner-set 0% promised a discount that never came off) → one `prepaidPct()` reader; `#coShipRow` was found via `.sum-row:nth-last-child(2)` = the **COD** row, so shipping was never repainted when a rate tick crossed the free-ship threshold; `freeShipAbove` fallback "₹0"; `cartMoveBack` compared `x.size === x.size` (size-16 save merged into the size-12 line); `kycOtpVerify` wrote to another function's `let` (strict ReferenceError → silent form after a rejected OTP); `initCatbar` leaked a resize listener per navigation (7 → 14 measured); `pages.order` dereferenced a null order; v166's graphics failsafe re-fetched its own frozen `?v=166` URLs; `sw.js` declared `MEDIA_TTL` (v120) and never enforced it. **RESULT: a11y probe 68 → 0 on 44 routes**; v167-check 36/36, v166-check 32/32 (its stamp pin made forward-tolerant: the release triple is read from the shell, floor 166), v164 114 · v165 28 · v139 56 · whole belt green · php-sweep 209/0 · pay-audit 10/10. **`v155-direct.js` is flaky on baseline too** (23/24 vs 24/24, same code, proven on a clean worktree) — not a product bug. Lessons: a duplicate id is a *silent* failure amplifier when the duplicate pair is one visible + one hidden pane; a11y repairs that must not move pixels belong in a delegated layer + one CSS file, not 140 call sites; when a gate pins a literal release number it must be converted to a floor + lockstep read (never re-pin).
 > **v165 CASHFREE FAILURES TELL THE TRUTH — the 6-ear-studs error (2026-09-21, branch `arena/01a0c227-shivaa-ecom`):** owner's report — exact error "Cashfree could not start this payment — choose WhatsApp/COD, the UPI QR tab, or retry in a moment" ONLY on the 6 Gold Biscuit scheme studs (₹49.6k–₹55.1k each at live rates), everything lighter pays fine. Root cause: the ONLY per-product field in the Create-Order payload is `order_amount`; Cashfree's own troubleshooting names **"exceeded the maximum amount limit set for your MID"** (young MIDs get a ~₹50k per-txn cap until raised) — deterministic, hits both the OCC attempt AND the standard fallback, so the occ-fallback net can't rescue it. v165: api.php classifies the amount-limit rejection (code `order_amount_invalid` + message regex) → honest customer line + `kind:'amount-limit'` + `amount` in the init-fail audit row; app.js `api()` attaches `gatewayCode`/`gatewayMessage` to every thrown error + console.warn `[shivaa-gateway]`; admin audit viewer shows a "gateway details" expander with the full Cashfree meta. Stamps 165. **REAL fix = owner asks Cashfree to raise the MID per-transaction limit (jewellery UPI allows ₹2L/txn since 15 Sep 2025); UPI QR / WhatsApp / COD sell every stud meanwhile — no site change needed once raised.** QA: v165-check 31/31, v165-php-run 12/12 (executed php-wasm: classification extracted byte-exact, five gateway outcomes + fall-through byte-lock), v164-check 114/114 + v164-php-run 17/17 (their exact stamp pins converted to NUMERIC FLOORS — the never-re-pin rule applied one release late), pay-audit invariants 10/10 unchanged, php-parser + node --check clean. Deliverable `shivaa-update-v165.zip` (5 files, md5 `06bbc6f7a2198e63b2896b43958832de`) + DEPLOY-v165.md. Lesson banked: when a per-product failure has product-independent code, diff the PAYLOAD, not the page — the one field that varies is the story.
 

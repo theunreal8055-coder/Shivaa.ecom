@@ -3220,8 +3220,14 @@ try {
     $isVid = in_array($ext, ['mp4', 'webm', 'mov']);
     if (!$isImg && !$isVid) jout(400, ['error' => 'Only jpg/png/webp images or mp4/webm videos']);
     $head = (string)@file_get_contents($f['tmp_name'], false, null, 0, 12);
-    $headOk = $isImg ? (substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n" || (substr($head, 0, 4) === 'RIFF' && substr($head, 8, 4) === 'WEBP'))
-                     : (substr($head, 4, 4) === 'ftyp');
+    $headOk = match ($ext) {
+      'jpg', 'jpeg' => substr($head, 0, 3) === "\xFF\xD8\xFF",
+      'png' => substr($head, 0, 8) === "\x89PNG\r\n\x1a\n",
+      'webp' => substr($head, 0, 4) === 'RIFF' && substr($head, 8, 4) === 'WEBP',
+      'webm' => substr($head, 0, 4) === "\x1a\x45\xdf\xa3",
+      'mp4', 'mov' => substr($head, 4, 4) === 'ftyp',
+      default => false,
+    };
     if (!$headOk) jout(400, ['error' => 'File content does not match its extension']);
     $cat = preg_replace('/[^a-z0-9_-]/', '', strtolower((string)($_POST['category'] ?? 'general'))) ?: 'general';
     $sub = $isVid ? 'videos' : 'designs';
@@ -4240,7 +4246,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 167,
+      'rel'   => 168,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

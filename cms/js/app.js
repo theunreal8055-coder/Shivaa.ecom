@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 167;
+const APP_REL = 168;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -27,13 +27,22 @@ try {
 } catch (e) {}
 
 /* ─────────── safe storage (works even in sandboxed previews) ─────────── */
-const mem = {};
+const mem = Object.create(null);
+const volatileKeys = new Set();
 let _storageBlocked = false;
 try { localStorage.setItem('shv_probe', '1'); localStorage.removeItem('shv_probe'); } catch (e) { _storageBlocked = true; }
 const store = {
-  get(k, d) { if (_storageBlocked) return k in mem ? mem[k] : d; try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return k in mem ? mem[k] : d; } },
-  set(k, v) { mem[k] = v; if (_storageBlocked) return; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  get(k, d) { if (_storageBlocked || volatileKeys.has(k)) return k in mem ? mem[k] : d; try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return k in mem ? mem[k] : d; } },
+  set(k, v) { mem[k] = v; if (_storageBlocked) return; try { localStorage.setItem(k, JSON.stringify(v)); volatileKeys.delete(k); } catch (e) { volatileKeys.add(k); } },
 };
+/* v168 — persisted browser data is untrusted, even when it is valid JSON. */
+const cleanIds = value => Array.isArray(value) ? [...new Set(value.filter(x => typeof x === 'string' && x.trim()))] : [];
+const cleanCart = value => !Array.isArray(value) ? [] : value.filter(x =>
+  x && typeof x === 'object' && typeof x.id === 'string' && x.id.trim() &&
+  Number.isFinite(Number(x.qty)) && Number(x.qty) > 0
+).map(x => ({ id: x.id, qty: Math.min(99, Math.max(1, Math.floor(Number(x.qty)))),
+  size: typeof x.size === 'string' || typeof x.size === 'number' ? String(x.size) : null,
+  engraving: typeof x.engraving === 'string' ? x.engraving : '' }));
 const token = () => store.get('shv_token', null);
 const setToken = t => store.set('shv_token', t);
 
@@ -187,6 +196,7 @@ function toast(msg, type = 'ok') {
   setTimeout(() => { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(() => t.remove(), 500); }, 3200);
 }
 let _modalTrap = null;
+let _modalLocked = false;
 function openModal(html, cls = '') {
   const box = $('#modalBox');
   /* v167 — the dialog had role="dialog" aria-modal="true" but NO accessible
@@ -196,14 +206,16 @@ function openModal(html, cls = '') {
   const head = /<h[1-6][^>]*>([\s\S]{0,160}?)<\/h[1-6]>/i.exec(html);
   const headTxt = head ? head[1].replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim() : '';
   box.removeAttribute('aria-labelledby');
-  if (headTxt) box.setAttribute('aria-label', headTxt.slice(0, 120)); else box.removeAttribute('aria-label');
+  if (headTxt) box.setAttribute('aria-label', headTxt.slice(0, 120)); else box.setAttribute('aria-label', 'Shivaa dialog');
   box.className = 'modal ' + cls; box.innerHTML = `<button class="modal-close" aria-label="Close" onclick="Shivaa.closeModal()">✕</button>` + html;
-  $('#modalOverlay').classList.add('open'); lockScroll();
+  $('#modalOverlay').classList.add('open');
+  if (!_modalLocked) { lockScroll(); _modalLocked = true; }
   if (_modalTrap) { _modalTrap(); _modalTrap = null; }
   if (window.ShivaaMotion && ShivaaMotion.trapFocus) _modalTrap = ShivaaMotion.trapFocus(box);
 }
 function closeModal() {
-  $('#modalOverlay').classList.remove('open'); unlockScroll();
+  $('#modalOverlay').classList.remove('open');
+  if (_modalLocked) { unlockScroll(); _modalLocked = false; }
   if (_modalTrap) { _modalTrap(); _modalTrap = null; }
 }
 $('#modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeModal(); });
@@ -211,33 +223,54 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal
 
 /* ─────────── API client ─────────── */
 async function api(path, opts = {}) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (token()) headers['Authorization'] = 'Bearer ' + token();
-  let res;
-  /* v166 — a request that never answers used to be the worst outcome of all:
-     `fetch` neither resolved nor rejected, so boot()'s 6 s cap painted the shop
-     with ZERO products and the promised quiet re-paint never came — an empty
-     storefront until the shopper refreshed by hand. Every call is now bounded
-     (15 s default, 20 s for the catalogue) so a stall becomes a failure the
-     retry layers can actually see. */
-  const timeout = Math.max(1000, +(opts.timeout || 15000));
-  const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
-  const timer = ctl ? setTimeout(() => { try { ctl.abort(); } catch (e) {} }, timeout) : null;
-  const fetchOpts = { ...opts, headers: opts.body instanceof FormData ? (token() ? { Authorization: 'Bearer ' + token() } : {}) : headers };
-  if (ctl) fetchOpts.signal = ctl.signal;
+  const requestToken = token();
+  const headers = {};
+  const putHeader = (key, value) => { headers[String(key).toLowerCase()] = value; };
+  if (opts.headers && typeof opts.headers.forEach === 'function' && !Array.isArray(opts.headers)) opts.headers.forEach((v, k) => putHeader(k, v));
+  else if (Array.isArray(opts.headers)) opts.headers.forEach(([k, v]) => putHeader(k, v));
+  else Object.entries(opts.headers || {}).forEach(([k, v]) => putHeader(k, v));
+  if (opts.body instanceof FormData) delete headers['content-type'];
+  else if (!headers['content-type']) headers['content-type'] = 'application/json';
+  if (requestToken) { delete headers.authorization; headers.Authorization = 'Bearer ' + requestToken; }
+  const timeout = Number.isFinite(+opts.timeout) && +opts.timeout > 0 ? Math.max(1000, +opts.timeout) : 15000;
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  let timer, cancel, res, data;
+  const interrupted = new Promise((_, reject) => {
+    cancel = () => { if (ctl) ctl.abort(); reject(Object.assign(new Error('Request cancelled'), { name: 'AbortError' })); };
+    timer = setTimeout(() => {
+      if (ctl) ctl.abort();
+      reject(Object.assign(new Error('The server took too long — please retry'), { isTimeout: true }));
+    }, timeout);
+  });
+  if (opts.signal) {
+    if (opts.signal.aborted) cancel();
+    else opts.signal.addEventListener('abort', cancel, { once: true });
+  }
   try {
-    res = await fetch(path, fetchOpts);
+    if (opts.signal && opts.signal.aborted) await interrupted;
+    const fetchOpts = { ...opts, headers, signal: ctl ? ctl.signal : opts.signal };
+    delete fetchOpts.timeout;
+    res = await Promise.race([fetch(path, fetchOpts), interrupted]);
+    try {
+      data = await Promise.race([res.json(), interrupted]);
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid API payload');
+    } catch (error) {
+      if (error.name === 'AbortError' || error.isTimeout) throw error;
+      data = {};
+      if (res.ok) throw Object.assign(new Error('The server returned an unreadable response — please retry'), { isProtocol: true });
+    }
   } catch (netErr) {
-    if (timer) clearTimeout(timer);
+    if (netErr.name === 'AbortError' || netErr.isTimeout || netErr.isProtocol) throw netErr;
     const first = !document.body.classList.contains('is-offline');
     ensureOfflineBar().classList.add('show'); document.body.classList.add('is-offline');
     if (first) toast('You appear to be offline — check your connection', 'err');
     const e = new Error('No connection — please check your internet and retry');
     e.isNetwork = true; throw e;
+  } finally {
+    clearTimeout(timer);
+    if (opts.signal) opts.signal.removeEventListener('abort', cancel);
   }
-  if (timer) clearTimeout(timer);
 
-  const data = await res.json().catch(() => ({}));
   // v80: a successful call proves connectivity — dismiss a stale offline
   // banner even if the browser never fired the flaky 'online' event
   if (document.body.classList.contains('is-offline')) {
@@ -249,7 +282,7 @@ async function api(path, opts = {}) {
     // drop it immediately so every page shows its login gate instead of
     // raw "Login required" errors (protects against reloads that wipe
     // storage, expired/purged tokens, and restored databases).
-    if (res.status === 401 && token()) {
+    if (res.status === 401 && requestToken && token() === requestToken) {
       setToken(''); state.user = null;
       try { updateBadges(); } catch (e) {}
     }
@@ -270,8 +303,8 @@ async function api(path, opts = {}) {
 /* ─────────── app state ─────────── */
 const state = {
   user: null, rates: null, settings: null, mcTable: [],
-  cart: store.get('shv_cart', []),            // [{id, qty, size, engraving}]
-  localWish: store.get('shv_wish', []),
+  cart: cleanCart(store.get('shv_cart', [])),            // [{id, qty, size, engraving}]
+  localWish: cleanIds(store.get('shv_wish', [])),
   compare: store.get('shv_compare', []),      // product ids, max 4 — local shortlist only
   productsCache: [], cacheAt: 0,
   catalogOk: false,   // v166 — true only once a real /api/products answer landed
@@ -4457,8 +4490,8 @@ pages.compare = async (view, q) => {
 
 /* ─────────── CART ─────────── */
 /* v103 — saved-for-later (private, local like the cart) */
-const getLater = () => { try { return JSON.parse(localStorage.getItem('shv_later') || '[]'); } catch (e) { return []; } };
-const setLater = l => { try { localStorage.setItem('shv_later', JSON.stringify(l.slice(0, 50))); } catch (e) {} };
+const getLater = () => cleanCart(store.get('shv_later', []));
+const setLater = l => store.set('shv_later', cleanCart(l).slice(0, 50));
 window.Shivaa.cartSaveLater = (id, size) => {
   const i = state.cart.findIndex(x => x.id === id && (x.size || '') === (size || ''));
   if (i < 0) return;
@@ -9356,7 +9389,9 @@ pages.scheme = async (view) => {
   fillPrizeWorth();
 
   const hash = location.hash.replace(/^#\/?/, '') || '';
-  const [pathPart, qs] = hash.split('?');
+  const cut = hash.indexOf('?');
+  const pathPart = cut < 0 ? hash : hash.slice(0, cut);
+  const qs = cut < 0 ? '' : hash.slice(cut + 1);
   const seg = pathPart.split('/').filter(Boolean);
   const q = new URLSearchParams(qs || '');
 
@@ -9427,7 +9462,7 @@ pages.finale = pages.scheme;
 pages['gold-biscuit'] = pages.scheme;
 
 /* ─────────── ROUTER ─────────── */
-const routes = {};
+const routes = Object.create(null);
 Object.keys(pages).forEach(k => routes[k] = pages[k]);
 Object.assign(window.Shivaa, {
   api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,
@@ -9485,9 +9520,13 @@ const _staffEmpty = (h, p, retry) => `<div class="empty" style="padding:120px 20
   (retry ? `<button type="button" class="btn" style="margin-top:14px" onclick="Shivaa.redraw()">Retry</button>` : '') +
   `</div>`;
 
+let routeGeneration = 0;
 function route() {
+  const generation = ++routeGeneration;
   const hash = location.hash.replace(/^#\/?/, '') || '';
-  const [pathPart, qs] = hash.split('?');
+  const cut = hash.indexOf('?');
+  const pathPart = cut < 0 ? hash : hash.slice(0, cut);
+  const qs = cut < 0 ? '' : hash.slice(cut + 1);
   const seg = pathPart.split('/').filter(Boolean);
   const page = seg[0] || 'home';
   /* v153 — the Express route no longer exists (direct buy runs in place).
@@ -9524,26 +9563,29 @@ function route() {
   if (page !== 'product') resetProductMeta();   // v57: per-piece SEO data only lives on the PDP
   syncFinaleChrome();   // campaign links/banner switch off by date alone after Bhai Dooj (11 Nov 2026)
   /* v99 · staff routes are lazy: fetch the bundle, then replay this route */
-  if (STAFF_PAGES[page] && !routes[page]) {
+  if (Object.prototype.hasOwnProperty.call(STAFF_PAGES, page) && !routes[page]) {
     view.innerHTML = _staffEmpty('Opening the staff panel…', 'Loading the admin workspace — this happens once per session.', false);
     loadStaffBundle()
       .then(() => {
         // replay only if the visitor is still on the staff route
-        if ((location.hash.replace(/^#\/?/, '').split('/')[0] || 'home') === page) route();
+        if (generation === routeGeneration) route();
       })
       .catch(() => {
+        if (generation !== routeGeneration) return;
         view.innerHTML = _staffEmpty('The staff panel did not load', 'Check your connection, then retry.', true);
       });
     return;
   }
   clearInterval(window._v107Redir);                     // v107 — any new navigation cancels a pending unknown-route redirect
-  if (routes[page]) {
-    const res = routes[page](view, q, seg[1]);
+  if (Object.prototype.hasOwnProperty.call(routes, page) && typeof routes[page] === 'function') {
+    let res;
+    try { res = routes[page](view, q, seg[1]); } catch (e) { res = Promise.reject(e); }
     /* v167 — the LAST resort of every route was an <h3> with no page heading,
        no route back and no retry: whatever the failure, the shopper was left on
        a fragment. It is a page now, and a failed load can simply be retried
        without reloading the whole site. */
     if (res && res.catch) res.catch(e => {
+      if (generation !== routeGeneration) return;
       console.error(e);
       view.innerHTML = emptyShell('Error', 'Something slipped', `<div class="empty" style="padding:60px 20px">
         <p style="color:var(--ink-3);margin-bottom:18px">${esc((e && e.message) || 'The page did not finish loading.')}</p>
@@ -9633,7 +9675,7 @@ $('#searchScrim').onclick = closeSearch;   // v101 — tap the frosted backdrop 
   if (clear) clear.onclick = () => { inp.value = ''; clear.hidden = true; inp.focus(); };
 })();
 /* v91 — instant search: keyboard navigation, recent + popular queries */
-const recentQueries = () => { try { return JSON.parse(localStorage.getItem('shv_recentq') || '[]'); } catch (e) { return []; } };
+const recentQueries = () => cleanIds(store.get('shv_recentq', [])).slice(0, 6);
 const pushRecentQuery = q => {
   q = q.trim(); if (!q) return;
   const l = recentQueries().filter(x => x.toLowerCase() !== q.toLowerCase());
