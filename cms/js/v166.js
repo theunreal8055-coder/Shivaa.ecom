@@ -97,21 +97,29 @@
     if (w.__shvOverlaysWired) return;
     w.__shvOverlaysWired = true;
 
-    /* a) a tap INSIDE the panel: the navigation is already committed by the
-          anchor, so the panel must leave the screen first — otherwise it and
-          its backdrop hide the page the shopper just asked for. A repeat tap
-          (same hash) still has to do something: redraw the route. */
+    /* v170: commit a plain desktop link activation BEFORE hiding its
+       ancestor. Hiding the panel is not navigation: do not rely on a later
+       browser default action after another listener has dismissed the menu.
+       Keep Ctrl/Meta/Shift/Alt-clicks native, including same-category tabs. */
     document.addEventListener('click', function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
       var row = t.closest('#catMenu a, #dwCatList a, .mega-tile');
       if (row) {
+        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey ||
+            row.hasAttribute('download') || (row.target && row.target !== '_self')) return;
         var href = row.getAttribute('href') || '';
-        closeOverlays();
-        if (href && href.charAt(0) === '#' && location.hash === href) {
-          e.preventDefault();
-          try { w.Shivaa && w.Shivaa.redraw && w.Shivaa.redraw(); } catch (_) {}
+        if (href.indexOf('#/') === 0 && !e.defaultPrevented) {
+          if (row.closest('#catMenu')) {
+            e.preventDefault();
+            if (location.hash !== href) location.hash = href;
+            else try { w.Shivaa && w.Shivaa.redraw && w.Shivaa.redraw(); } catch (_) {}
+          } else if (!row.closest('#mainNav') && location.hash === href) {
+            e.preventDefault();
+            try { w.Shivaa && w.Shivaa.redraw && w.Shivaa.redraw(); } catch (_) {}
+          }
         }
+        closeOverlays();
         return;
       }
       /* b) the backdrop is a full-viewport overlay — it must never swallow a
@@ -123,8 +131,25 @@
       }
     }, true);
 
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeOverlays(); });
-    addEventListener('scroll', function () { if (w.innerWidth > 680) closeOverlays(); }, { passive: true });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      var panel = $('#catMenu'), wasOpen = panel && !panel.hidden;
+      closeOverlays();
+      if (wasOpen) { var btn = $('#navCats'); if (btn) btn.focus({ preventScroll: true }); }
+    });
+    /* Crossing the drawer breakpoint must not leave a desktop scrim over
+       tablet content or a mobile body-lock on a newly widened window. */
+    var mobileLayout = w.innerWidth <= 820;
+    addEventListener('resize', function () {
+      var mobileNow = w.innerWidth <= 820;
+      if (mobileNow === mobileLayout) return;
+      closeOverlays();
+      if (!mobileNow && typeof w._closeDrawer === 'function') w._closeDrawer();
+      mobileLayout = mobileNow;
+    });
+    /* v170: never close on scroll. Mouse/keyboard focus can scroll a lower
+       tile into view BEFORE click; closing then discards the intended target.
+       Outside click, Escape, resize and navigation still dismiss the menu. */
     /* d) THE fix for the owner's report: no navigation ever inherits an open
           overlay. route() paints the new page; hashchange lands right after. */
     addEventListener('hashchange', closeOverlays);

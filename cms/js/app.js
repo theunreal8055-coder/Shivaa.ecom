@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 169;
+const APP_REL = 170;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3396,6 +3396,13 @@ pages.home = async (view) => {
 
 /* ─────────── SHOP ─────────── */
 pages.shop = async (view, q) => {
+  /* v170: the animated route transition briefly clones the OLD view into
+     .au-vt at body level, including checked category/metal/price controls.
+     Document-wide selectors combined those old filters with this category
+     and left the wrong products on screen even after the animation ended.
+     Read and bind only this live shop, never the visual snapshot. */
+  const $ = (s, el = view) => el.querySelector(s);
+  const $$ = (s, el = view) => [...el.querySelectorAll(s)];
   const cat = q.get('category') || '', tag = q.get('tag') || '', search = q.get('q') || '';
   /* v139 — a filtered shop page is a RESULTS page: it shows the pieces, not a
      wall of 20 category photographs (the owner's "only the images are there").
@@ -10014,6 +10021,9 @@ $$('.nav-drop > a').forEach(a => {
 // header height var (mega panel positioning)
 const setHeaderH = () => { const h = document.getElementById('header'); if (h) document.documentElement.style.setProperty('--headerH', Math.round(h.getBoundingClientRect().bottom) + 'px'); };
 addEventListener('resize', setHeaderH, { passive: true });
+// Keep a viewport-owned menu aligned while the sticky header shrinks/expands.
+addEventListener('scroll', setHeaderH, { passive: true });
+if (typeof ResizeObserver === 'function' && $('#header')) new ResizeObserver(setHeaderH).observe($('#header'));
 // magnetic buttons + glare-follow on extra cards (5D layer)
 function bindMagnetic(scope = document) {
   // v42: disabled entirely on mobile/touch — major source of scroll-jank & flicker
@@ -10243,6 +10253,7 @@ async function boot(isRedraw) {
       try { if (window.Shivaa && window.Shivaa.haptic) window.Shivaa.haptic(10); } catch (_) {}
       // inside the drawer, expand an inline list rather than the desktop mega panel
       if (matchMedia('(max-width:820px)').matches) {
+        catsBtn.setAttribute('aria-controls', 'dwCatList');
         let list = document.getElementById('dwCatList');
         if (!list) {
           list = document.createElement('div');
@@ -10262,15 +10273,22 @@ async function boot(isRedraw) {
         }
         return;
       }
+      catsBtn.setAttribute('aria-controls', 'catMenu');
+      setHeaderH();
       const open = panel.hidden;
+      if (open) panel.scrollTop = 0;
       panel.hidden = !open; backdrop.hidden = !open;
       catsBtn.setAttribute('aria-expanded', String(open));
     };
-    panel.addEventListener('click', e => { if (e.target.closest('a')) closeMega(); });
+    panel.addEventListener('click', e => {
+      const a = e.target.closest('a');
+      if (a && e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey &&
+          !a.hasAttribute('download') && (!a.target || a.target === '_self')) closeMega();
+    });
     backdrop.addEventListener('click', closeMega);
     document.addEventListener('click', e => { if (!e.target.closest('#catMenu') && !e.target.closest('#navCats')) closeMega(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMega(); });
-    addEventListener('scroll', closeMega, { passive: true });
+    // v170: scrolling/focusing a lower tile must not dismiss its click target.
   }
   // The drawer's own tile grid + "All 17 categories" pill replace the old
   // stacked mm-grid / mm-feats / mcat-list blocks (they duplicated the same

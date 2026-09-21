@@ -37,6 +37,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
       
       // Mobile drawer: toggle inline category list
       if (window.matchMedia('(max-width:820px)').matches) {
+        catsBtn.setAttribute('aria-controls', 'dwCatList');
         let list = document.getElementById('dwCatList');
         if (!list) {
           list = document.createElement('div');
@@ -79,10 +80,12 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
       }
       
       // Desktop: toggle mega panel
+      catsBtn.setAttribute('aria-controls', 'catMenu');
       const panel = $('#catMenu');
       const backdrop = $('#megaBackdrop');
       if (panel && backdrop) {
         const isOpen = !panel.hidden;
+        if (!isOpen) panel.scrollTop = 0;
         panel.hidden = isOpen;
         backdrop.hidden = isOpen;
         catsBtn.setAttribute('aria-expanded', String(!isOpen));
