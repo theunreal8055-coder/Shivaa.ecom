@@ -13,6 +13,11 @@ on:
         required: true
         default: "admin@shivaa.in"
         type: string
+      approval:
+        description: "For live=YES only, type exactly: RESET RINGS LIVE"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -71,8 +76,19 @@ jobs:
           ADMIN_EMAIL: ${{ inputs.email }}
           ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
           LIVE: ${{ inputs.live }}
+          APPROVAL: ${{ inputs.approval }}
         run: |
           set -euo pipefail
+          if [ "$LIVE" = "YES" ]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::A live ring reset is allowed only from main."
+              exit 1
+            fi
+            if [ "$APPROVAL" != "RESET RINGS LIVE" ]; then
+              echo "::error::The destructive live reset was not approved with the exact phrase."
+              exit 1
+            fi
+          fi
           if [ -z "${ADMIN_PASSWORD:-}" ]; then
             echo "::error::Repository secret SHIVAA_ADMIN_PASSWORD is not set."
             exit 1

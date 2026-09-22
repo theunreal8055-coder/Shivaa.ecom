@@ -1,5 +1,23 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
+## Deployment control update — owner approval required (22 Sep 2026)
+
+This section supersedes older automatic-on-merge deployment instructions. PR #90
+is merged on `main` (`2393a7949852b9bb1f16cdbfa8b138f83da8235e`); the owner
+reports Hostinger MySQL setup and migration of 77 products succeeded. The live
+`/api/version` now reports release **170** with a matched handshake, but the GitHub
+`main` application files remain stamped **169**. Never deploy this older tree over
+production; the next approved application release must move forward (normally 171+).
+
+All production writes are manual-only: no push/merge may deploy CMS code or the
+catalogue. Arena must explain the proposed live change and ask the owner first. One
+clear yes authorizes only one manual run. The Hostinger workflow requires `main` plus
+`DEPLOY SHIVAA LIVE`, checks the live version to prevent downgrade, and excludes
+data/uploads/config/installer/`.htaccess`. Catalogue and Ring Reset use separate
+confirmation phrases. Store FTPS values only in GitHub Actions secrets; disable the
+old Hostinger cron code writer (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
+No live deployment occurred while installing these controls.
+
 ## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
 
 **Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change

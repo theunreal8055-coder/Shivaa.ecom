@@ -18,19 +18,16 @@ on:
         required: false
         default: "YES"
         type: string
-  # Every PR against main auto-validates the deploy script with a DRY-RUN
-  # (login + read live catalogue + plan; never writes). The zoom gate is
-  # advisory during the fix phase so batch PRs don't block on pending re-rolls.
-  # A live-login 401 on a PR is downgraded to a warning (dead secret, not dead
-  # code); dispatch --live and push runs always fail hard without login.
+      approval:
+        description: "For live=YES only, type exactly: DEPLOY CATALOGUE LIVE"
+        required: false
+        default: ""
+        type: string
+  # Every PR against main validates the deploy script with a DRY-RUN only.
+  # Production catalogue writes are manual-only and require the owner's exact
+  # approval phrase. A merge or push can never change the live catalogue.
   pull_request:
     branches: [main]
-  # Autonomous live deploy: pushing the GO marker file to main (PR merge only —
-  # main is protected) fires the REAL run. Zoom gate is hard-enforced UNLESS
-  # the marker also contains ZOOM_GATE=NO (conscious override).
-  push:
-    branches: [main]
-    paths: ['deploy/GO-LIVE-v111.txt']
 
 permissions:
   contents: read
@@ -55,8 +52,7 @@ jobs:
       - name: Preflight master catalogue + zoom QA gate
         env:
           PR_MODE: ${{ github.event_name == 'pull_request' }}
-          PUSH_MODE: ${{ github.event_name == 'push' }}
-          REQUIRE_ZOOM_PASS: ${{ github.event_name == 'push' && 'YES' || (github.event_name == 'pull_request' && 'NO' || inputs.require_zoom_pass) }}
+          REQUIRE_ZOOM_PASS: ${{ github.event_name == 'pull_request' && 'NO' || inputs.require_zoom_pass }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -95,20 +91,8 @@ jobs:
           FAILS=$(grep -c FAIL zoom-report.txt || true)
           PASSES=$(grep -c PASS zoom-report.txt || true)
           echo "zoom QA: ${PASSES} PASS, ${FAILS} FAIL"
-          if [ "$PUSH_MODE" = "true" ]; then
-            if ! grep -q "GO" deploy/GO-LIVE-v111.txt 2>/dev/null; then
-              echo "::error::GO-LIVE marker file does not contain GO — refusing to run."
-              exit 1
-            fi
-            if grep -q "ZOOM_GATE=NO" deploy/GO-LIVE-v111.txt 2>/dev/null; then
-              REQUIRE_ZOOM_PASS=NO
-              echo "PUSH MODE: GO-LIVE marker requests ZOOM_GATE=NO (conscious override — deploy proceeds, zoom leftovers stay on the follow-up ledger)."
-            else
-              echo "PUSH MODE: zoom gate is HARD-enforced."
-            fi
-          fi
           if [ "$REQUIRE_ZOOM_PASS" = "YES" ] && [ "$FAILS" != "0" ]; then
-            echo "::error::${FAILS} shot(s) still fail the zoom gate — finish the v111 zoom-fix batches or set require_zoom_pass=NO / ZOOM_GATE=NO consciously."
+            echo "::error::${FAILS} shot(s) still fail the zoom gate — finish the v111 zoom-fix batches or set require_zoom_pass=NO consciously."
             exit 1
           fi
           if [ "$FAILS" != "0" ]; then
@@ -119,10 +103,21 @@ jobs:
         env:
           ADMIN_EMAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.email || 'admin@shivaa.in' }}
           ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
-          LIVE: ${{ github.event_name == 'push' && 'YES' || (github.event_name == 'pull_request' && 'NO' || inputs.live) }}
+          LIVE: ${{ github.event_name == 'pull_request' && 'NO' || inputs.live }}
+          APPROVAL: ${{ github.event_name == 'workflow_dispatch' && inputs.approval || '' }}
         run: |
           set -euo pipefail
           echo "event=${GITHUB_EVENT_NAME:-} LIVE='$LIVE' email='$ADMIN_EMAIL' password_set=$([ -n "${ADMIN_PASSWORD:-}" ] && echo yes || echo no)"
+          if [ "$LIVE" = "YES" ]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::Live catalogue deployment is allowed only from main."
+              exit 1
+            fi
+            if [ "$APPROVAL" != "DEPLOY CATALOGUE LIVE" ]; then
+              echo "::error::Live catalogue deployment was not approved with the exact phrase."
+              exit 1
+            fi
+          fi
           if [ -z "${ADMIN_PASSWORD:-}" ]; then
             echo "::error::Repository secret SHIVAA_ADMIN_PASSWORD is not set."
             exit 1
@@ -143,7 +138,7 @@ jobs:
             # above + the script's own preflight). A dead-live-credential 401 is
             # an environment issue, not a code regression: warn loudly and let
             # the PR go green, instead of blocking every catalogue PR forever.
-            # Real runs (dispatch --live / push) still fail hard below this.
+            # Real owner-approved dispatches still fail hard below this.
             if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] && grep -q "login failed" catalogue-deploy.log; then
               echo "::warning::PR dry-run could not log in to the live site (stale SHIVAA_ADMIN_PASSWORD?) — offline validation passed; live-plan validation skipped. Fix the secret before the real deploy."
               exit 0
@@ -161,7 +156,7 @@ jobs:
           fi
 
       - name: Independently verify live catalogue
-        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.live == 'YES') }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.live == 'YES' }}
         env:
           ADMIN_EMAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.email || 'admin@shivaa.in' }}
           ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
