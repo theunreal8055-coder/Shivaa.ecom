@@ -17,6 +17,48 @@
   `deploy_code:false`. See `HOSTINGER-AUTO-DEPLOY.md`. No live deployment was made
   while adding these controls.
 
+## Hostinger preview prepared — dry-run not yet started (22 Sep 2026)
+
+- Owner asked for the preview/dry-run only. **The real workflow run was NOT
+  started from the sandbox:** the Arena session token is read-only for Actions
+  (`gh workflow run` → HTTP 403 on the dispatch endpoint; `actions/secrets` also
+  403). The preview button therefore remains an owner action.
+- The workflow's entire preflight was reproduced locally from `origin/main` =
+  `9e8b2b98` using the new tracked tool
+  `tools/mega/hostinger-preview-replica.js`: **10 PASS / 2 WARN / 0 FAIL** —
+  critical files, no tracked `config.php`, stamps 169 lockstep
+  (`shivaa-shell-v169`), PHP syntax clean on all 10 `cms/*.php` under real PHP
+  8.3 via php-wasm (negative control fires), and the transfer plan: 760 sync
+  candidates / 247.9 MB after the exclude list, 48 files withheld
+  (`.htaccess`, `setup-mysql.php`, `data/**`, `uploads/**`). The repo's own
+  `deploy-approval-check.js` gate is **20/20**.
+- Live `/api/version` reads **170** with `stamp.matched:true`, so the real
+  preview will log `::warning::ANTI-DOWNGRADE` (repo 169 < live 170) and
+  continue; `mode=deploy` would abort before any upload.
+- **Owner’s one click:** Actions → *Hostinger Deploy (approval required)* →
+  *Run workflow* → branch `main` → `mode=preview`, or
+  `gh workflow run hostinger-deploy.yml --ref main -f mode=preview`.
+- Evidence: `docs/HOSTINGER-PREVIEW-2026-09-22.md`. No live deployment, no FTPS
+  write, no catalogue/DB/upload/credential change; live stays 170, GitHub `main`
+  stays 169.
+- **RETRY, same day, after the owner reported all three FTPS secrets added: the
+  dispatch is STILL refused — HTTP 403 on `workflow_dispatch` (CLI and REST both
+  re-run and re-proven this turn).** The secrets gate and the dispatch gate are
+  different things: adding the secrets clears the workflow's *internal*
+  preflight (step *Preflight — credentials, release handshake and PHP syntax*;
+  the last real run `35680829125` failed there with “Hostinger FTPS secrets are
+  not configured”), but it cannot grant the Arena GitHub connection **Actions
+  write**, which is what starting a run requires. Re-verified locally this turn:
+  `deploy-approval-check.js` **20/20**, replica **10 PASS / 2 WARN / 0 FAIL**,
+  live `/api/version` still **170/matched**. The run must be started owner-side:
+  Actions → *Hostinger Deploy (approval required)* → *Run workflow* → `main` →
+  `mode=preview` (default). Preview forces `dry-run: true`, so it cannot write;
+  `mode=deploy` would additionally abort on the anti-downgrade gate (169 < 170).
+  Optional future unblock: grant the Arena GitHub connection Actions **write**.
+- Noted, not acted on: `cms/shivaa-update-v161..v163.zip` (≈10 MB) sit inside
+  the synced directory and are not matched by the exclude list, so a future code
+  deploy would upload them (owner decision).
+
 ## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
 
 **Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
