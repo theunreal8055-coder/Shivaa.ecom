@@ -5647,7 +5647,7 @@ try {
     need_admin($db);
     $b = body_json();
     foreach ($db['orders'] as $i => $ord) if (($ord['id'] ?? '') === (string)($b['orderId'] ?? '')) {
-      foreach (['huid', 'courier', 'awb', 'insuredValue', 'ewaybill', 'dispatchNote'] as $k)
+      foreach (['huid', 'courier', 'awb', 'insuredValue', 'ewaybill', 'dispatchNote', 'actualWeightG', 'weightNote'] as $k)
         if (isset($b[$k])) $db['orders'][$i][$k] = substr((string)$b[$k], 0, 120);
       db_save($DB_FILE, $db); jout(200, ['ok' => true]);
     }
