@@ -1,3 +1,6 @@
+# cms private live config
+cms/config.php
+
 # scratch / transient
 /work/
 *.pyc
