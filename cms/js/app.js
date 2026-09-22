@@ -2766,7 +2766,7 @@ function productCard(p, opts = {}) {
     <div class="pc-body">
       <div class="pc-cat">${esc(CATS[p.category] ? CATS[p.category].name : (p.category || ''))} · ${p.metal === 'Silver' ? 'Silver ' + esc(p.purity || '') : esc(p.purity || '') + ' Gold'}</div>
       <a href="#/product/${p.id}"><h3 class="pc-name">${esc(p.name)}</h3></a>
-      <div class="pc-meta">${p.weightG} g${p.stoneValue ? ' · stone value listed' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
+      <div class="pc-meta">Approx. ${p.weightG} g${p.stoneValue ? ' · stone value listed' : ''} · <span class="pc-rating">★ ${p.rating}<span>(${p.reviews})</span></span></div>
       <div class="pc-price"><b class="js-price" data-pid="${p.id}" data-qty="1">${fmt(pr.total)}</b><small>incl. 3% GST</small></div>
       <div class="pc-live"><span class="live-dot"></span>live price · ${pr.ratePerGram % 1 ? fmt2(pr.ratePerGram) : fmt(pr.ratePerGram)}/g today</div>
     </div>
@@ -2783,7 +2783,7 @@ function mcTableHTML(rows, editable = false) {
       <td style="color:var(--ink-3);font-size:13px">${esc(r.note || '')}</td>
     </tr>`).join('')}</tbody>
   </table></div>
-  <div class="gst-note">◈ Every price = live metal rate × weight + making charge (as above) + listed stone value, then 3% GST. No hidden charges, ever. Live rates on this site update automatically — <a href="#/rates" style="text-decoration:underline">see current rates</a>.</div>`;
+  <div class="gst-note">◈ Every price = live metal rate × estimated weight + making charge (as above) + listed stone value, then 3% GST. Gold weight is estimated (±3–5% manufacturing variation); any lower actual scale weight is refunded directly to you before dispatch. Live rates on this site update automatically — <a href="#/rates" style="text-decoration:underline">see current rates</a>.</div>`;
 }
 
 /* ═══════════════════ PAGES ═══════════════════ */
@@ -2982,7 +2982,7 @@ pages.terms = async (view) => {
   view.innerHTML = legalShell('Terms of Sale', 'Buying from Shivaa, ', 'plainly', 'The full agreement between you and Ernate Shine Jewellery Pvt. Ltd. — short, honest, and without traps.',
     legalCard('1 · Who we are', 'Shivaa Jewellers is the retail brand of <b>Ernate Shine Jewellery Pvt. Ltd.</b>, operating from Jayal, Nagaur, Rajasthan (GST-registered). Support: +91 89050 05921 · Support@shivaa.in · all days 10:00–20:30 IST.') +
     legalCard('2 · Prices & GST', 'Prices are computed live from weight × the day\u2019s Shivaa rate + a published making charge + stone value where applicable. <b>3% GST</b> is shown in the price table before you order, and every bill carries the full breakup. Prices shown before you place an order are the prices you pay.') +
-    legalCard('3 · Orders & acceptance', 'An order is accepted when we confirm it and begin work/dispatch. If a design is out of stock or a weight varies by more than ±5%, we contact you before proceeding — you may adjust, exchange or cancel with a full refund.') +
+    legalCard('3 · Orders, weights & refunds', 'An order is accepted when we confirm it and begin work/casting. Gold jewellery is handcrafted and cast, so final weights may vary by ±3–5%. Every piece is weighed on digital scales post-polishing: if actual scale weight is lower than estimated, the exact excess amount paid is refunded to your account prior to dispatch. If higher by up to +3%, Shivaa absorbs the difference as a brand courtesy.') +
     legalCard('4 · Purity promise', 'Every gold piece is <b>BIS hallmarked</b>; HUID is printed on your bill and verifiable in the BIS Care app. Silver is 925 stamped. If any certified assay ever proves a piece under-purity, we replace it or refund in full.') +
     legalCard('5 · The Bhai Dooj Gold Finale contest', 'Run under published rules: three equal-odds entry routes (a 3 g+ gold purchase, a 100 g silver order, or the free quiz), one entry per person, purchases never multiply odds, CA-witnessed live draw on Bhai Dooj, 11 November 2026, prize 10 g certified 24K gold, TDS 31.2% where applicable, void in Tamil Nadu and West Bengal. Full rules live on the campaign page.') +
     legalCard('6 · Disputes', 'We would rather talk than fight — message us first. Failing that, disputes are governed by Indian law with courts at Nagaur, Rajasthan having jurisdiction. Consumer rights under the Consumer Protection Act, 2019 are unaffected.'));
@@ -3677,7 +3677,7 @@ pages.product = async (view, q, id) => {
               <tr><td>GST</td><td>3%</td><td id="pdGst">${fmt(pr.gst)}</td></tr>
               <tr class="total"><td>Total payable</td><td></td><td id="pdBrkTot">${fmt(pr.total)}</td></tr>
             </table>
-            <div style="font-size:11.5px;color:var(--ink-3);margin-top:8px">Rate: ${timeFmt(R.t || state.rates.t)} · final bill locks at order time.</div>
+            <div style="font-size:11.5px;color:var(--ink-3);margin-top:8px">Rate: ${timeFmt(R.t || state.rates.t)} · final rate locks at order time. Gold weight is estimated (±3–5% manufacturing variation); any lower actual scale weight is refunded directly to your account before dispatch.</div>
           </div>
           <div class="emi-strip">◈ <span><b>No-cost EMI from <span id="pdEmi3">${fmt(emi3)}</span>/mo</b> (3 months) · standard EMI <span id="pdEmi6">${fmt(emi6)}</span>/mo (6 months) on cards & UPI-autopay</span></div>
         </div>

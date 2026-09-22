@@ -199,6 +199,25 @@ function shv_acquire_lock(string $DB_FILE, string $route, string $method): void 
   if (!$h || !flock($h, LOCK_EX)) jout(503, ['error' => 'Database lock unavailable — please retry.']);
   $GLOBALS['__shv_lock'] = $h;
 }
+function get_db_pdo(): ?PDO {
+  static $pdo = null;
+  if ($pdo !== null) return $pdo;
+  $configFile = __DIR__ . '/config.php';
+  if (!file_exists($configFile)) return null;
+  try {
+    $config = require $configFile;
+    $ms = $config['mysql'] ?? [];
+    if (empty($ms['dbname']) || $ms['dbname'] === 'YOUR_HOSTINGER_DB_NAME') return null;
+    $dsn = "mysql:host={$ms['host']};port=" . ($ms['port'] ?? 3306) . ";dbname={$ms['dbname']};charset=" . ($ms['charset'] ?? 'utf8mb4');
+    $pdo = new PDO($dsn, $ms['username'], $ms['password'], [
+      PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+      PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+    return $pdo;
+  } catch (Throwable $e) {
+    return null;
+  }
+}
 function db_load(string $DB_FILE): array {
   for ($i = 0; $i < 5; $i++) {
     if (!empty($GLOBALS['__shv_lock'])) {
@@ -5647,7 +5666,7 @@ try {
     need_admin($db);
     $b = body_json();
     foreach ($db['orders'] as $i => $ord) if (($ord['id'] ?? '') === (string)($b['orderId'] ?? '')) {
-      foreach (['huid', 'courier', 'awb', 'insuredValue', 'ewaybill', 'dispatchNote'] as $k)
+      foreach (['huid', 'courier', 'awb', 'insuredValue', 'ewaybill', 'dispatchNote', 'actualWeightG', 'weightNote'] as $k)
         if (isset($b[$k])) $db['orders'][$i][$k] = substr((string)$b[$k], 0, 120);
       db_save($DB_FILE, $db); jout(200, ['ok' => true]);
     }

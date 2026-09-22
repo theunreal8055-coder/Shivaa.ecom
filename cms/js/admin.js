@@ -1045,15 +1045,25 @@ window.ShivaaAdmin.reviewAsk = (id) => {
   const msg = 'Namaste ' + (o.userName || '') + ' ✦ — thank you for choosing Shivaa! If you loved your ' + (first.name || 'piece') + ', a photo + 2 lines on its page would make our day (and help other families): shivaa.in/#/product/' + (first.productId || '');
   window.open('https://wa.me/91' + String(o.phone || '8905005921').slice(-10) + '?text=' + encodeURIComponent(msg), '_blank');
 };
+window.ShivaaAdmin.waWeightUpdate = (id) => {
+  const o = (window._adminOrders || []).find(x => x.id === id); if (!o) return;
+  const wt = o.actualWeightG ? o.actualWeightG + 'g' : 'weighed post-polishing';
+  const note = o.weightNote ? ' (' + o.weightNote + ')' : '';
+  const msg = 'Namaste ' + (o.userName || '') + ' ✦ — your Shivaa order ' + o.id + ' is ready! Scale weight: ' + wt + note + '. Tax invoice & live tracking: shivaa.in/#/order/' + o.id;
+  window.open('https://wa.me/91' + String(o.phone || '8905005921').slice(-10) + '?text=' + encodeURIComponent(msg), '_blank');
+};
 window.ShivaaAdmin.orderMeta = (id) => {
   const o = (window._adminOrders || []).find(x => x.id === id); if (!o) return;
   const old = document.getElementById('omModal'); if (old) old.remove();
+  const estWt = (o.items || []).reduce((a, i) => a + (Number(i.weightG) || 0) * (i.qty || 1), 0);
   const m = document.createElement('div'); m.id = 'omModal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(29,5,9,.55);z-index:6000;display:flex;align-items:center;justify-content:center;padding:18px';
-  m.innerHTML = `<div class="adm-card" style="max-width:430px;width:100%;background:var(--white)">
-    <h3>📋 ${id} — compliance & dispatch</h3>
+  m.innerHTML = `<div class="adm-card" style="max-width:480px;width:100%;background:var(--white)">
+    <h3>📋 ${id} — compliance, weight & dispatch</h3>
     <form class="form-grid" style="grid-template-columns:1fr 1fr" onsubmit="ShivaaAdmin.orderMetaSave(event,'${id}')">
       <div class="fld"><label>HUID(s), comma-separated</label><input name="huid" value="${esc(o.huid || '')}"></div>
+      <div class="fld"><label>Actual Scale Wt (g)</label><input name="actualWeightG" type="number" step="0.001" value="${esc(o.actualWeightG || '')}" placeholder="Est. ${estWt ? estWt.toFixed(3) : '3.00'}g"></div>
+      <div class="fld full"><label>Weight Adjustment / Refund Note</label><input name="weightNote" value="${esc(o.weightNote || '')}" placeholder="e.g. 0.100g lower, ₹710 refunded to customer"></div>
       <div class="fld"><label>Insured value ₹</label><input name="insuredValue" type="number" value="${esc(o.insuredValue || '')}" placeholder="${Math.round(o.total || 0)}"></div>
       <div class="fld"><label>Courier</label><input name="courier" value="${esc(o.courier || '')}" placeholder="BlueDart / Sequel…"></div>
       <div class="fld"><label>AWB / tracking no.</label><input name="awb" value="${esc(o.awb || '')}"></div>
@@ -1063,9 +1073,12 @@ window.ShivaaAdmin.orderMeta = (id) => {
         <select name="paymentStatus" class="sortsel" style="width:100%;border-radius:12px">
           ${['Awaiting payment', 'Paid', 'Refunded'].map(ps => `<option ${(o.paymentStatus || 'Awaiting payment') === ps ? 'selected' : ''}>${ps}</option>`).join('')}
         </select></div>
-      <button class="btn btn-primary btn-sm" style="grid-column:1/-1">Save</button>
+      <button class="btn btn-primary btn-sm" style="grid-column:1/-1">Save Compliance & Weight</button>
     </form>
-    <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="document.getElementById('omModal').remove()">Close</button>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.waWeightUpdate('${id}')">📱 Send Scale Weight & Refund Note via WhatsApp</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('omModal').remove()">Close</button>
+    </div>
   </div>`;
   document.body.appendChild(m);
 };
@@ -3624,6 +3637,8 @@ window.ShivaaAdmin.printInvoice = (id) => {
   ${o.prepaidDiscount ? `<tr><td colspan="4">Prepaid discount</td><td class="r">−${o.prepaidDiscount.toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
   ${o.discount ? `<tr><td colspan="4">Coupon discount</td><td class="r">−${Number(o.discount).toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
   ${o.codFee ? `<tr><td colspan="4">COD fee</td><td class="r">${Number(o.codFee).toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
+  ${o.actualWeightG ? `<tr><td colspan="4">Actual scale weight (post-polishing)</td><td class="r">${o.actualWeightG} g</td><td colspan="3"></td></tr>` : ''}
+  ${o.weightNote ? `<tr><td colspan="4">Weight adjustment note</td><td class="r" colspan="4">${esc(o.weightNote)}</td></tr>` : ''}
   <tr class="tot"><td colspan="4">Grand total</td><td colspan="3"></td><td class="r">₹${(o.total || 0).toLocaleString('en-IN')}</td></tr>
   </tbody></table>
   <p class="muted" style="margin-top:10px">HSN 71131910 (gold jewellery) / 71131110 (silver). GST amounts above are from the saved order; tax treatment must be confirmed for the place of supply. Every gold piece is BIS hallmarked with a unique 6-digit HUID. 7-day return · lifetime exchange · lifetime care.</p>
