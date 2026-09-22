@@ -18,6 +18,28 @@ confirmation phrases. Store FTPS values only in GitHub Actions secrets; disable 
 old Hostinger cron code writer (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
 No live deployment occurred while installing these controls.
 
+## Hostinger preview prepared — dry-run not yet started (22 Sep 2026)
+
+Owner asked for the preview/dry-run only. **The real workflow run was not started
+from the sandbox:** the Arena session token is read-only for Actions
+(`gh workflow run` → HTTP 403 on the dispatch endpoint; secrets also 403), the
+same limit recorded on 17 Sep. Instead the workflow's entire preflight was
+reproduced locally from `origin/main` = `9e8b2b98` with the new tracked tool
+`tools/mega/hostinger-preview-replica.js`: **10 PASS / 2 WARN / 0 FAIL** —
+critical files, no tracked `config.php`, stamps 169 lockstep
+(`shivaa-shell-v169`), PHP syntax clean on all 10 `cms/*.php` under real PHP 8.3
+(php-wasm `token_get_all(TOKEN_PARSE)`, negative control fires), repo gate
+`deploy-approval-check.js` **20/20**, and the transfer plan (760 sync candidates
+/ 247.9 MB; 48 files withheld: `.htaccess`, `setup-mysql.php`, `data/**`,
+`uploads/**`). Live `/api/version` reads 170/matched → the real preview will log
+`::warning::ANTI-DOWNGRADE` (169 < 170) and continue; deploy stays blocked.
+Evidence: `docs/HOSTINGER-PREVIEW-2026-09-22.md`. **Owner's one click starts the
+real dry-run:** Actions → Hostinger Deploy (approval required) → Run workflow →
+`mode=preview`, or `gh workflow run hostinger-deploy.yml --ref main -f mode=preview`.
+Nothing was deployed; live stays 170, GitHub `main` stays 169. Housekeeping found
+but NOT acted on: `cms/shivaa-update-v161..v163.zip` (≈10 MB) sit inside the
+synced directory and are not excluded, so a future code deploy would upload them.
+
 ## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
 
 **Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
