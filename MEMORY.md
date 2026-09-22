@@ -41,6 +41,20 @@
 - Evidence: `docs/HOSTINGER-PREVIEW-2026-09-22.md`. No live deployment, no FTPS
   write, no catalogue/DB/upload/credential change; live stays 170, GitHub `main`
   stays 169.
+- **RETRY, same day, after the owner reported all three FTPS secrets added: the
+  dispatch is STILL refused — HTTP 403 on `workflow_dispatch` (CLI and REST both
+  re-run and re-proven this turn).** The secrets gate and the dispatch gate are
+  different things: adding the secrets clears the workflow's *internal*
+  preflight (step *Preflight — credentials, release handshake and PHP syntax*;
+  the last real run `35680829125` failed there with “Hostinger FTPS secrets are
+  not configured”), but it cannot grant the Arena GitHub connection **Actions
+  write**, which is what starting a run requires. Re-verified locally this turn:
+  `deploy-approval-check.js` **20/20**, replica **10 PASS / 2 WARN / 0 FAIL**,
+  live `/api/version` still **170/matched**. The run must be started owner-side:
+  Actions → *Hostinger Deploy (approval required)* → *Run workflow* → `main` →
+  `mode=preview` (default). Preview forces `dry-run: true`, so it cannot write;
+  `mode=deploy` would additionally abort on the anti-downgrade gate (169 < 170).
+  Optional future unblock: grant the Arena GitHub connection Actions **write**.
 - Noted, not acted on: `cms/shivaa-update-v161..v163.zip` (≈10 MB) sit inside
   the synced directory and are not matched by the exclude list, so a future code
   deploy would upload them (owner decision).

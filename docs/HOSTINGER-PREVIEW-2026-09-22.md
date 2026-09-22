@@ -127,3 +127,58 @@ first-run FTPS/connection error as a configuration matter, not a code matter.
 - Live site remains release **170** with a matched handshake; repository `main`
   remains release **169**.
 - This is a preview preparation record, not a release, and not approval for one.
+
+## 6. Retry after the owner added the three FTPS secrets (22 Sep 2026, later the same day)
+
+The owner reported that all three Hostinger secrets are now added and asked for
+the preview/dry-run again. **The dispatch was retried and is still refused — and
+the two blockers are different things:**
+
+| Blocker | Status after the retry | Where it is cleared |
+|---|---|---|
+| FTPS secrets missing in the repo | Owner reports **added**; cannot be listed from here (`actions/secrets` → HTTP 403, secrets are write-only by design) | Inside the run: step *Preflight — credentials, release handshake and PHP syntax*. If they are still absent it fails there with “Hostinger FTPS secrets are not configured”. The last real run (`35680829125`, 1 h before this retry) failed on exactly that message. |
+| Starting the run at all | **Still blocked — HTTP 403** | Only GitHub Actions **write** permission can clear it. The Arena session GitHub connection has read-only Actions access (it can read runs, workflows and repo content, but cannot create a dispatch). Adding secrets does not and cannot change this. |
+
+Retry evidence (unchanged from §1, reproduced this turn):
+
+```
+$ gh workflow run hostinger-deploy.yml --ref main -f mode=preview
+could not create workflow dispatch event: HTTP 403: Resource not accessible by integration
+  (https://api.github.com/repos/theunreal8055-coder/Shivaa.ecom/actions/workflows/360344481/dispatches)
+
+$ POST /repos/…/actions/workflows/360344481/dispatches   {"ref":"main","inputs":{"mode":"preview"}}
+{"message":"Resource not accessible by integration", … ,"status":403}
+```
+
+What *was* refreshed locally this turn, so the owner knows the run is worth
+starting:
+
+```
+node tools/mega/smoke/deploy-approval-check.js   → Deployment approval gate: 20 passed, 0 failed
+LIVE_VERSION_JSON='{"rel":170,…}' node tools/mega/hostinger-preview-replica.js
+  → REPLICA RESULT: 10 passed, 2 warning(s), 0 failed   (origin/main 9e8b2b98, stamps 169 lockstep,
+                                                         php-wasm 8.3.33 clean on 10 files,
+                                                         760 sync candidates / 247.9 MB, 48 withheld)
+live /api/version → {"rel":170,"shell":"shivaa-shell-v170","stamp":{"…","matched":true}}   (unchanged)
+```
+
+So the moment the owner presses **Run workflow** (`mode` already defaults to
+**preview**), the expected log is exactly §3 above: secrets read successfully →
+preflight green → `::warning::ANTI-DOWNGRADE` (169 < 170) → FTPS dry-run →
+“dry-run only; no production files were intentionally changed”. Nothing can
+deploy: preview forces `dry-run: true`, and a `deploy` run would abort on the
+anti-downgrade gate before any upload.
+
+**Why the secrets alone could not start the run — and what can:** dispatching a
+workflow is a GitHub Actions *write* operation. The Arena GitHub connection is
+read-only for Actions, so this session can plan, verify and read results but not
+press the button. Two ways forward, both owner-side:
+
+1. Press it: GitHub → **Actions** → **Hostinger Deploy (approval required)** →
+   **Run workflow** → branch **main** → `mode` = **preview** → **Run**. Works on
+   desktop or in the GitHub mobile app.
+2. Optional, for future turns: if the Arena GitHub connection is granted Actions
+   **write** permission, later previews can be dispatched straight from chat.
+
+Either way the sandbox can read the finished run (`gh run list` / `gh run view`)
+and report the preview result here.

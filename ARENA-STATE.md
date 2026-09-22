@@ -40,6 +40,27 @@ Nothing was deployed; live stays 170, GitHub `main` stays 169. Housekeeping foun
 but NOT acted on: `cms/shivaa-update-v161..v163.zip` (≈10 MB) sit inside the
 synced directory and are not excluded, so a future code deploy would upload them.
 
+**RETRY, same day, after the owner reported all three FTPS secrets added
+(22 Sep 2026):** the dispatch was re-attempted and is **still HTTP 403**
+(`gh workflow run … -f mode=preview` and the REST dispatch endpoint both refuse
+with “Resource not accessible by integration”). This is *not* the secrets
+blocker: the three secrets clear the workflow's **internal** preflight step
+(critical files, stamps, `php -l`, live-version read — the step the last real run
+`35680829125` failed with “Hostinger FTPS secrets are not configured”), but
+starting a run is a GitHub Actions **write** operation and the Arena GitHub
+connection has only read access to Actions. Secrets also cannot be listed from
+here (`actions/secrets` → 403, write-only by design). Re-verified locally this
+turn: `deploy-approval-check.js` **20/20**, `hostinger-preview-replica.js`
+**10 PASS / 2 WARN / 0 FAIL** (origin/main `9e8b2b98`, stamps 169 lockstep,
+php-wasm 8.3.33 clean on 10 `cms/*.php`, 760 sync candidates / 247.9 MB, 48
+withheld), live `/api/version` still **170/matched**. Preview is safe to repeat:
+it forces `dry-run: true`, and `mode=deploy` would additionally abort on the
+anti-downgrade gate (169 < 170) before any upload. **The remaining step is
+owner-side:** Actions → *Hostinger Deploy (approval required)* → *Run workflow* →
+branch `main` → `mode=preview` (already the default) → **Run**; the sandbox can
+then read the run and report the result. Optional future unblock: grant the
+Arena GitHub connection Actions **write** permission.
+
 ## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
 
 **Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change

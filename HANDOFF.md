@@ -38,6 +38,45 @@ deployed; live remains 170 and GitHub `main` remains 169. Noted but not acted
 on: `cms/shivaa-update-v161..v163.zip` (≈10 MB) are inside the synced directory
 and are not excluded, so a future code deploy would upload them.
 
+### Retry after the three FTPS secrets were added (22 Sep 2026, same day)
+
+The owner reported all three Hostinger secrets are now added and asked for the
+preview again. **The dispatch was retried and is still refused — HTTP 403**
+(`gh workflow run hostinger-deploy.yml --ref main -f mode=preview` and the REST
+dispatch endpoint both return “Resource not accessible by integration”).
+
+Two different gates, and only one of them moved:
+
+- **Secrets gate (inside the run)** — the three secrets are read by the
+  workflow's own *Preflight* step. They cannot be listed from the sandbox
+  (`actions/secrets` → 403; secrets are write-only by design), so the definitive
+  check is that step's log on the next run. The last real run, `35680829125`,
+  failed there with “Hostinger FTP secrets are not set … Nothing was deployed”
+  before the secrets existed; that is the error the owner's setup should now
+  remove.
+- **Dispatch gate (starting the run)** — a workflow dispatch is a GitHub Actions
+  **write** operation. The Arena session GitHub connection has read-only Actions
+  access, so this chat can plan, verify and read runs but cannot press the
+  button. **Adding secrets does not change this**, which is why the retry still
+  403s.
+
+Refreshed locally this turn so the owner knows the run is worth starting:
+`node tools/mega/smoke/deploy-approval-check.js` → **20/20**;
+`LIVE_VERSION_JSON='{"rel":170,…}' node tools/mega/hostinger-preview-replica.js`
+→ **10 PASS / 2 WARN / 0 FAIL** (origin/main `9e8b2b98`, stamps 169 lockstep,
+php-wasm 8.3.33 clean on all 10 `cms/*.php`, 760 sync candidates / 247.9 MB after
+excludes, 48 withheld); live `/api/version` → **170**, `stamp.matched: true`
+(unchanged).
+
+**The one remaining step is owner-side:** GitHub → **Actions** → *Hostinger
+Deploy (approval required)* → **Run workflow** → branch **main** → `mode=preview`
+(already the default) → **Run**. Preview forces `dry-run: true`, so it cannot
+write; a `deploy` run would additionally abort on the anti-downgrade gate
+(169 < 170) before uploading anything. Optional future unblock: grant the Arena
+GitHub connection Actions **write** permission and later previews can be
+dispatched from chat. Full retry record: §6 of
+`docs/HOSTINGER-PREVIEW-2026-09-22.md`.
+
 ## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
 
 **Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
