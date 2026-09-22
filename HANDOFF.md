@@ -1,5 +1,22 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
+## Deployment control update — owner approval required (22 Sep 2026)
+
+PR #90 is merged on `main` (`2393a7949852b9bb1f16cdbfa8b138f83da8235e`),
+including MySQL/PDO support and actual-scale-weight/refund handling. The owner
+reports the Hostinger MySQL tables and 77-product migration are live. A direct
+`/api/version` read reports release **170** with matched stamps; GitHub `main` is
+still stamped **169**, so deploying the current tree would be a downgrade and is
+forbidden. Prepare the next change as a forward release (normally 171+).
+
+The owner requires an explicit question before every live update. Code merges no
+longer auto-deploy. `.github/workflows/hostinger-deploy.yml` is manual-only, requires
+`DEPLOY SHIVAA LIVE` from `main`, blocks older-than-live releases and excludes live
+data, uploads, `config.php`, the MySQL installer and `.htaccess`. Catalogue and Ring
+Reset have independent manual confirmations. FTPS values belong only in GitHub
+Actions secrets; the old Hostinger cron must have `deploy_code:false`. Full setup and
+runbook: `HOSTINGER-AUTO-DEPLOY.md`. No production write occurred in this setup.
+
 ## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
 
 **Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change

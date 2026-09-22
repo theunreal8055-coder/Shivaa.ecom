@@ -1,103 +1,125 @@
-# HOSTINGER AUTO-DEPLOY — uploads go live by themselves (from 17 Sep 2026)
+# HOSTINGER DEPLOYMENT — ARENA → GITHUB → LIVE, WITH OWNER APPROVAL
 
-**What changed:** every time Arena work is merged to `main`, GitHub Actions now
-syncs `cms/` straight into your Hostinger `public_html/` over secure FTPS —
-only the changed files, usually 1–3 minutes — then checks that shivaa.in really
-serves the new release. **No more manual zip uploads.**
+**Production rule:** GitHub pushes and PR merges do **not** update the website.
+Arena must explain the proposed live change and ask the owner first. Only after
+the owner explicitly approves may Arena start the manual GitHub Actions deploy.
 
-You do **one 5-minute setup below, once**. After that it just works.
+This replaces the old automatic-on-merge behavior.
 
----
+## Current safety state
 
-## 0 · One-time setup (owner, 5 minutes, phone-friendly)
+- Repository: `theunreal8055-coder/Shivaa.ecom`
+- Production URL: `https://www.shivaa.in`
+- Deployment workflow: `.github/workflows/hostinger-deploy.yml`
+- Workflow trigger: manual `workflow_dispatch` only
+- Live deploy source: protected `main` branch only
+- Exact live confirmation phrase: `DEPLOY SHIVAA LIVE`
+- Live catalogue writes and destructive ring resets have separate manual approval
+  phrases and can no longer be triggered by a push.
+- The workflow never transfers `data/`, `uploads/`, `.htaccess`, `config.php`,
+  `.env*`, `backups/` or `setup-mysql.php`.
+- The workflow compares `/api/version` with the repository before uploading and
+  blocks a downgrade.
 
-**Step 1 — get your FTP details from Hostinger (2 min)**
+**Important as of 22 September 2026:** the public website reports release **170**,
+while GitHub `main` reports release **169**. Therefore the current repository
+must not be deployed over production. The next approved application release
+must move forward (normally release 171 or later); the anti-downgrade gate will
+block a 169 → 170 rollback automatically.
 
-1. Log in at **hostinger.com → hPanel → Websites → Manage** next to shivaa.in.
-2. Open **Files → FTP Accounts** (on some plans: Dashboard → **FTP details**).
-3. Note down: **FTP hostname** (looks like `ftp.shivaa.in` or a server name),
-   **Username** (looks like `u375397497`), and your FTP **password**.
-   If you don't know the password, reset it on that same page.
+## One-time owner setup — secrets stay inside GitHub
 
-**Step 2 — save them as GitHub secrets (2 min)**
+Never paste FTP credentials into Arena chat, an issue, a commit or a document.
 
-1. Open **github.com/theunreal8055-coder/Shivaa.ecom → Settings → Secrets and
-   variables → Actions → New repository secret** (repeat 3 times):
-   - Name `HOSTINGER_FTP_SERVER` → value = the FTP hostname from Step 1
-   - Name `HOSTINGER_FTP_USERNAME` → value = the FTP username
-   - Name `HOSTINGER_FTP_PASSWORD` → value = the FTP password
-2. Secrets are encrypted — even the agent can never read them back. Only the
-   deploy workflow can use them, and only to upload your own site files.
+1. In Hostinger hPanel, open **Websites → shivaa.in → Files → FTP Accounts**.
+2. In GitHub, open:
+   **Shivaa.ecom → Settings → Secrets and variables → Actions**.
+3. Add or update these repository secrets:
+   - `HOSTINGER_FTP_SERVER`
+   - `HOSTINGER_FTP_USERNAME`
+   - `HOSTINGER_FTP_PASSWORD`
+4. Do not send their values to the agent. GitHub secrets are write-only and the
+   workflow can use them without displaying them.
+5. In Hostinger, inspect the old server-side `auto_sync.php` setup. In the home
+   folder's `.shivaa-sync.json`, set `"deploy_code": false`, or disable that
+   cron entirely. Otherwise an old cron could still overwrite production
+   without the new approval gate. Catalogue-only automation may remain enabled
+   only if intentionally required.
 
-**Step 3 — test it (1 min)**
+## Safe connection test — no website changes
 
-1. GitHub repo → **Actions → Hostinger Deploy → Run workflow → dry_run: YES →
-   Run workflow.** The log lists what WOULD upload. Nothing changes.
-2. Run it once more with **dry_run: NO**. Watch it go green (~15–30 min the
-   very first time — it uploads the full photo set once; later deploys send
-   only changed files). Green check = shivaa.in verified serving the release.
-3. On your phone: close all shivaa.in tabs, reopen — the site is current.
+After the three GitHub secrets exist, Arena may run a preview without production
+approval:
 
-**Step 4 — retire the old cron deploy (1 min, after Step 3 is green)**
+```bash
+gh workflow run hostinger-deploy.yml \
+  --ref main \
+  -f mode=preview
+```
 
-The old server cron (`auto_sync.php`) also copies code and must not fight the
-new pipeline. In Hostinger **File Manager**: turn on **Show hidden files**,
-open your **home folder** (one level ABOVE `public_html`), edit
-`.shivaa-sync.json`, and either:
+The FTPS action runs in dry-run mode. It validates credentials, PHP syntax,
+release stamps, protected-file exclusions and the current live release, then
+shows what would transfer. It does not intentionally write website files.
 
-- set `"deploy_code": false` (recommended — keeps the cron's catalogue sync,
-  stops it touching code), **or**
-- make sure `"branch": "main"` if you want to keep it as a backup writer.
+A green preview proves GitHub Actions can reach Hostinger. It is not permission
+to deploy.
 
-Also confirm on that file that `branch` is `main`, not an old `arena/…`
-branch — an old branch would push stale code over the live site.
+## Live deployment procedure
 
-Done. From now on: **Arena finishes → merged → live, automatically.**
+For every release, without exception:
 
----
+1. Arena finishes the work on its Arena branch and runs the required test suite.
+2. Arena opens the PR and reports exactly what would change.
+3. The owner decides whether to merge the PR.
+4. After merge, Arena reports the source release, current live release, test
+   results and protected-file boundary.
+5. Arena asks: **“Deploy this release to shivaa.in now?”**
+6. Only a clear owner **yes** authorizes this one deployment.
+7. Arena starts:
 
-## How it works (plain words)
+```bash
+gh workflow run hostinger-deploy.yml \
+  --ref main \
+  -f mode=deploy \
+  -f approval='DEPLOY SHIVAA LIVE'
+```
 
-1. Arena merges finished work to `main` (unchanged — same as today).
-2. The **Hostinger Deploy** workflow wakes up, but ONLY if the merge touched
-   website files (`cms/`). Doc-only merges don't deploy anything.
-3. **Safety checks first:** FTP secrets exist · release stamps match
-   (`index.html` ↔ `app.js` handshake) · every PHP file passes a syntax lint.
-   Any failure = red cross, nothing uploaded.
-4. **Sync:** changed files go up over encrypted FTPS (port 21).
-5. **Proof:** the workflow fetches your live homepage and refuses to go green
-   until shivaa.in serves the new release number.
+8. Arena watches the run to completion and checks `/api/version` plus the live
+   release handshake before reporting success.
 
-## What it NEVER touches
+Approval is single-use. Approval for one release never authorizes later releases,
+catalogue changes, database migrations or destructive maintenance.
 
-- `data/` — your live orders, customers, and catalogue database.
-- `uploads/` — product photos and films uploaded through the site.
-- `.htaccess` — your panel's server rules. On the rare release that changes
-  this file, the agent will tell you the exact lines to merge by hand.
-- Anything else already on the server stays put (files the repo deleted are
-  left alone — the agent will tell you if one ever needs manual cleanup).
+## What the code deployment never touches
 
-## Skipping one deploy
+- `data/` — live orders, users and fallback JSON data
+- `uploads/` — customer/product uploads
+- `config.php` — Hostinger MySQL credentials
+- `.env` / `.env.*` — environment credentials
+- `setup-mysql.php` — one-time installer
+- `.htaccess` — host-managed Apache rules
+- `backups/` — server backups
 
-- Editing the merge message in the GitHub app/website: add `[skip deploy]`
-  anywhere in it and that push will not deploy.
-- Or: **Actions → Hostinger Deploy → … → Disable workflow**, re-enable later.
+The MySQL tables and their live rows are not replaced by the FTPS code sync.
+Database/schema changes require their own reviewed migration and separate owner
+approval.
 
-## If a deploy ever goes red
+## Catalogue and destructive maintenance
 
-1. Open the failed run — the log says exactly which step failed, in plain words.
-2. Nothing half-uploads: the safety checks run BEFORE any file moves.
-3. Rollback = merge a revert PR (the agent does this) — the revert itself
-   auto-deploys, restoring the previous release. Every `main` push also keeps
-   a one-click backup tag (see the main-guard workflow).
+- Catalogue PRs may run validation/dry-run checks.
+- A push or merge can never perform a live catalogue write.
+- A live catalogue dispatch requires `live=YES` and the exact phrase
+  `DEPLOY CATALOGUE LIVE`, after owner approval.
+- Ring Reset remains manual-only and additionally requires the exact phrase
+  `RESET RINGS LIVE`. It should be treated as destructive recovery, not normal
+  deployment.
 
-## FAQ
+## If a run fails
 
-- **First run slow?** Yes, once (~15–30 min, ~236 MB of theme photos). Every
-  run after that syncs only what changed (1–3 min).
-- **Catalogue (rings/products)?** Unchanged — products still go live through
-  **Catalogue Deploy**, never through this file sync.
-- **Do I still verify on my phone?** A quick eyeball after big releases is
-  still wise — but the workflow already proves the new code is live.
-- **Can the agent see my FTP password?** No. Secrets are write-only; the agent
-  can use the pipeline but can never read the password back.
+- A failed preflight uploads nothing.
+- A newer live release blocks an older repository release.
+- A wrong branch or confirmation phrase blocks production mode.
+- If post-deploy verification fails, stop and inspect the run; do not repeatedly
+  rerun production syncs or guess at live data.
+- Roll forward with a corrected, tested release. Never force-push or restore old
+  application files blindly.

@@ -1,22 +1,28 @@
-name: Hostinger Deploy (auto)
+name: Hostinger Deploy (approval required)
 
-# Push-button-to-live: every push to main that touches cms/** is automatically
-# synced to Hostinger public_html/ over FTPS, then live-verified.
-#   NEVER touched: data/ (orders, users, live catalogue), uploads/ (live media),
-#   .htaccess (panel rules — merged by hand on the rare releases that change it).
-#   Opt out of one push: put [skip deploy] in the commit message.
-#   Manual run: Actions → Hostinger Deploy → Run workflow (dry-run defaults YES).
+# Production safety contract:
+# - A merge or push NEVER updates Hostinger automatically.
+# - Preview and live syncs are started manually with workflow_dispatch.
+# - A live sync requires the exact approval phrase below and must run from main.
+# - The workflow refuses to replace a newer live release with an older repo release.
+# - Live data, uploads, credentials, the MySQL installer and host-managed Apache
+#   rules are never transferred by this workflow.
 
 on:
-  push:
-    branches: [main]
-    paths: ['cms/**']
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: "YES = preview only (no writes). NO = real deploy."
+      mode:
+        description: "preview = show the FTPS plan only; deploy = update the live website after owner approval"
         required: true
-        default: "YES"
+        default: preview
+        type: choice
+        options:
+          - preview
+          - deploy
+      approval:
+        description: "For deploy only, type exactly: DEPLOY SHIVAA LIVE"
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -28,47 +34,90 @@ concurrency:
 
 jobs:
   deploy:
-    name: FTPS sync cms/ to public_html
+    name: ${{ inputs.mode == 'deploy' && 'Deploy cms/ to Hostinger' || 'Preview Hostinger sync' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip deploy]')
 
     steps:
+      - name: Validate manual production approval
+        env:
+          MODE: ${{ inputs.mode }}
+          APPROVAL: ${{ inputs.approval }}
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = "deploy" ]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::Live deployment is allowed only from the protected main branch."
+              exit 1
+            fi
+            if [ "$APPROVAL" != "DEPLOY SHIVAA LIVE" ]; then
+              echo "::error::Live deployment was not approved. Type the exact confirmation phrase."
+              exit 1
+            fi
+            echo "Manual owner approval phrase accepted for a main-branch deployment."
+          else
+            echo "Preview mode: FTPS will run with dry-run enabled; no website files will change."
+          fi
+
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Preflight — secrets + handshake + PHP lint
+      - name: Preflight — credentials, release handshake and PHP syntax
         env:
           FTP_SERVER: ${{ secrets.HOSTINGER_FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.HOSTINGER_FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
           if [ -z "${FTP_SERVER:-}" ] || [ -z "${FTP_USERNAME:-}" ] || [ -z "${FTP_PASSWORD:-}" ]; then
-            echo "::error::Hostinger FTP secrets are not set. One-time setup (owner, 5 min): GitHub repo → Settings → Secrets and variables → Actions → add HOSTINGER_FTP_SERVER, HOSTINGER_FTP_USERNAME, HOSTINGER_FTP_PASSWORD. Full steps: HOSTINGER-AUTO-DEPLOY.md. Nothing was deployed."
+            echo "::error::Hostinger FTPS secrets are not configured. Add HOSTINGER_FTP_SERVER, HOSTINGER_FTP_USERNAME and HOSTINGER_FTP_PASSWORD under GitHub Actions secrets. Never paste their values into chat."
             exit 1
           fi
-          test -f cms/index.html && test -f cms/api.php && test -f cms/sw.js \
-            || { echo "::error::critical file missing in cms/ — refusing to deploy"; exit 1; }
+
+          test -f cms/index.html && test -f cms/api.php && test -f cms/sw.js && test -f cms/js/app.js \
+            || { echo "::error::A critical CMS file is missing — refusing to continue."; exit 1; }
+          test ! -f cms/config.php \
+            || { echo "::error::cms/config.php must never be tracked or deployed — refusing to continue."; exit 1; }
+
           REL_HTML=$(grep -o 'window.__SHIVAA_REL=[0-9]*' cms/index.html | head -1 | grep -o '[0-9]*$')
           REL_APP=$(grep -o 'const APP_REL = [0-9]*' cms/js/app.js | head -1 | grep -o '[0-9]*$')
-          echo "stamps: index.html REL=${REL_HTML:-?} app.js APP_REL=${REL_APP:-?}"
-          test -n "${REL_HTML:-}" || { echo "::error::no __SHIVAA_REL stamp in cms/index.html — refusing to deploy"; exit 1; }
-          test "$REL_HTML" = "$REL_APP" || { echo "::error::handshake mismatch (index.html=$REL_HTML app.js=$REL_APP) — refusing to deploy"; exit 1; }
-          echo "SHIVAA_REL=$REL_HTML" >> "$GITHUB_ENV"
-          echo "worker shell in repo: $(grep -o 'shivaa-shell-v[0-9]*' cms/sw.js | head -1)"
-          if command -v php >/dev/null 2>&1; then
-            FAIL=0
-            for f in cms/*.php; do php -l "$f" >/dev/null || FAIL=1; done
-            test "$FAIL" = "0" || { echo "::error::PHP syntax error — refusing to deploy"; exit 1; }
-            echo "php -l clean on all cms/*.php"
-          else
-            echo "::warning::php not on runner — lint skipped"
-          fi
-          echo "--- files changed in this push (top 40) ---"
-          git log -1 --name-status --pretty=format: | head -40 || true
+          REL_SW=$(grep -o "const REL = [0-9]*" cms/sw.js | head -1 | grep -o '[0-9]*$')
+          REL_API=$(grep -o "'rel'   => [0-9]*" cms/api.php | head -1 | grep -o '[0-9]*$')
+          SHELL=$(grep -o 'shivaa-shell-v[0-9]*' cms/sw.js | head -1)
 
-      - name: Sync to Hostinger (FTPS)
+          echo "repo stamps: index=${REL_HTML:-?} app=${REL_APP:-?} worker=${REL_SW:-?} api=${REL_API:-?} shell=${SHELL:-?}"
+          test -n "${REL_HTML:-}" && test -n "${REL_APP:-}" && test -n "${REL_SW:-}" && test -n "${REL_API:-}" \
+            || { echo "::error::One or more release stamps could not be read."; exit 1; }
+          test "$REL_HTML" = "$REL_APP" && test "$REL_HTML" = "$REL_SW" && test "$REL_HTML" = "$REL_API" \
+            || { echo "::error::Release handshake mismatch — refusing to deploy a mixed version."; exit 1; }
+          test "$SHELL" = "shivaa-shell-v$REL_HTML" \
+            || { echo "::error::Service-worker shell does not match release $REL_HTML."; exit 1; }
+          echo "SHIVAA_REL=$REL_HTML" >> "$GITHUB_ENV"
+
+          php -v | head -1
+          FAIL=0
+          for f in cms/*.php; do php -l "$f" >/dev/null || FAIL=1; done
+          test "$FAIL" = "0" || { echo "::error::PHP syntax error — refusing to deploy."; exit 1; }
+          echo "php -l clean on all cms/*.php"
+
+          LIVE_JSON=$(curl -fsSL --retry 3 --max-time 30 "https://www.shivaa.in/api/version?deploy-check=${GITHUB_SHA}" || true)
+          LIVE_REL=$(printf '%s' "$LIVE_JSON" | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo is_array($j)?(int)($j["rel"]??0):0;')
+          echo "live /api/version: ${LIVE_JSON:-unavailable}"
+          echo "LIVE_REL=$LIVE_REL" >> "$GITHUB_ENV"
+          if [ "$LIVE_REL" -le 0 ]; then
+            echo "::error::Could not verify the current live release. Refusing an unverified sync."
+            exit 1
+          fi
+          if [ "$REL_HTML" -lt "$LIVE_REL" ]; then
+            if [ "$MODE" = "deploy" ]; then
+              echo "::error::ANTI-DOWNGRADE: GitHub release $REL_HTML is older than live release $LIVE_REL. Nothing was uploaded. Prepare a new forward release first."
+              exit 1
+            fi
+            echo "::warning::ANTI-DOWNGRADE: GitHub release $REL_HTML is older than live release $LIVE_REL. Preview is allowed, but deployment would be blocked."
+          fi
+
+      - name: Preview or sync to Hostinger over FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.HOSTINGER_FTP_SERVER }}
@@ -76,17 +125,16 @@ jobs:
           password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
           protocol: ftps
           port: 21
-          # Hostinger FTPS certs often don't match custom ftp hostnames, so
-          # hostname verification is relaxed — the transfer itself stays encrypted.
+          # Hostinger FTPS certificates may not match a custom FTP hostname.
+          # The transfer remains encrypted; only hostname verification is relaxed.
           security: loose
           local-dir: cms/
           server-dir: public_html/
           timeout: 60000
           log-level: standard
-          # Pushes to main are always live. Manual runs preview unless dry_run=NO.
-          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run != 'NO' }}
-          # Multiline STRING (GitHub rejects a YAML list under `with:`).
-          # Defaults re-added per the action README + our never-sync rules.
+          dry-run: ${{ inputs.mode != 'deploy' }}
+          # Never copy or remove live business data, uploads, credentials,
+          # host-managed rules or the one-time database installer.
           exclude: |
             **/.git*
             **/.git*/**
@@ -94,22 +142,44 @@ jobs:
             data/**
             uploads/**
             .htaccess
+            config.php
+            setup-mysql.php
+            .env
+            .env.*
+            backups/**
 
-      - name: Verify live site serves the new release
-        if: github.event_name == 'push' || inputs.dry_run == 'NO'
+      - name: Verify the approved live release
+        if: inputs.mode == 'deploy'
         env:
           REL: ${{ env.SHIVAA_REL }}
         run: |
           set -euo pipefail
-          echo "expecting live __SHIVAA_REL=$REL"
+          echo "Expecting live release $REL"
           OK=0
           for i in $(seq 1 12); do
-            HOME_HTML=$(curl -fsSL --max-time 30 "https://shivaa.in/?v=$REL" || true)
-            if echo "$HOME_HTML" | grep -q "window.__SHIVAA_REL=$REL;"; then OK=1; break; fi
-            echo "attempt $i/12: new stamp not live yet — waiting 10 s"
+            VERSION=$(curl -fsSL --max-time 30 "https://www.shivaa.in/api/version?verify=${GITHUB_SHA}-$i" || true)
+            LIVE=$(printf '%s' "$VERSION" | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo is_array($j)?(int)($j["rel"]??0):0;')
+            MATCHED=$(printf '%s' "$VERSION" | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo !empty($j["stamp"]["matched"])?"yes":"no";')
+            echo "attempt $i/12: rel=${LIVE:-0}, handshake=$MATCHED"
+            if [ "$LIVE" = "$REL" ] && [ "$MATCHED" = "yes" ]; then OK=1; break; fi
             sleep 10
           done
-          test "$OK" = "1" || { echo "::error::live homepage does not serve __SHIVAA_REL=$REL after sync — read the sync log above"; exit 1; }
-          SW=$(curl -fsSL --max-time 30 "https://shivaa.in/sw.js" || true)
-          echo "live sw.js shell: $(echo "$SW" | grep -o 'shivaa-shell-v[0-9]*' | head -1)"
-          echo "VERIFY OK: https://shivaa.in serves release $REL ✅"
+          test "$OK" = "1" || { echo "::error::Hostinger sync finished, but the live release handshake did not verify."; exit 1; }
+          echo "VERIFY OK: https://www.shivaa.in serves release $REL with matching stamps."
+
+      - name: Deployment summary
+        if: always()
+        env:
+          MODE: ${{ inputs.mode }}
+          REL: ${{ env.SHIVAA_REL }}
+          LIVE_BEFORE: ${{ env.LIVE_REL }}
+        run: |
+          {
+            echo "## Hostinger deployment gate"
+            echo "- Mode: **${MODE:-unknown}**"
+            echo "- Repository release: **${REL:-unknown}**"
+            echo "- Live release before run: **${LIVE_BEFORE:-unknown}**"
+            if [ "${MODE:-}" = "preview" ]; then
+              echo "- Result: dry-run only; no production files were intentionally changed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

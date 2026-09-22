@@ -1,5 +1,25 @@
 # Shivaa — agent working guide
 
+## Deployment control update — owner approval required (22 Sep 2026)
+
+- PR #90 is merged on `main` (`2393a7949852b9bb1f16cdbfa8b138f83da8235e`):
+  MySQL/PDO support, the installer/template and manufacturing-weight workflow are
+  retained. The owner reports the 77-product Hostinger migration completed.
+- The public `/api/version` currently reports **release 170** with matching
+  index/app/worker stamps, while this GitHub `main` tree still carries application
+  release **169**. **Never deploy the current 169 tree over live 170.** The next
+  application release must move forward (normally 171+) and pass the anti-downgrade gate.
+- Production is now manual-only by owner policy. A push/merge must never update
+  Hostinger or the live catalogue. Explain the proposed deployment and ask the
+  owner first; one explicit yes authorizes only that one run.
+- `.github/workflows/hostinger-deploy.yml` requires a manual dispatch from `main`
+  plus `DEPLOY SHIVAA LIVE`; catalogue and ring-reset workflows have separate
+  explicit phrases. Protected data/uploads/config/installer/`.htaccess` stay excluded.
+- The owner must store Hostinger FTPS values only as GitHub Actions secrets and
+  disable the old Hostinger `auto_sync.php` code writer (`deploy_code:false`). Never
+  request credentials in chat. See `HOSTINGER-AUTO-DEPLOY.md`.
+- No live deployment was performed while installing these controls.
+
 ## Read first
 
 1. `docs/SESSION-STATE-2026-09-21-v169.md`, then the final-state sections of

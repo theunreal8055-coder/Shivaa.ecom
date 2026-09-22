@@ -1,5 +1,22 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## Deployment control update — owner approval required (22 Sep 2026)
+
+- PR #90 merged to `main` at `2393a7949852b9bb1f16cdbfa8b138f83da8235e`;
+  MySQL support and the gold scale-weight/refund workflow are the forward baseline.
+  The owner reports 77 products migrated successfully on Hostinger.
+- Live `/api/version` reports **170** with matched index/app/worker stamps. GitHub
+  `main` still carries app stamp **169**. Do not deploy it; create the next approved
+  application change as a forward release (normally 171+).
+- Owner policy: **ask before every live update**. A merge is not deployment approval.
+  The Hostinger workflow is manual-only and requires `DEPLOY SHIVAA LIVE` from `main`;
+  it blocks downgrades and excludes data/uploads/config/installer/`.htaccess`. Live
+  catalogue and Ring Reset have separate manual confirmation phrases.
+- Hostinger credentials must exist only as GitHub Actions secrets. Never request or
+  print them in chat. Disable the old Hostinger cron code sync with
+  `deploy_code:false`. See `HOSTINGER-AUTO-DEPLOY.md`. No live deployment was made
+  while adding these controls.
+
 ## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
 
 **Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change

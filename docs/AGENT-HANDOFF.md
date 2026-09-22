@@ -1,5 +1,16 @@
 # AGENT HANDOFF — v169 published, not live-verified (21 Sep 2026)
 
+## Deployment control update — owner approval required (22 Sep 2026)
+
+PR #90 is merged at `2393a7949852b9bb1f16cdbfa8b138f83da8235e`; the owner
+reports the Hostinger MySQL migration of 77 products succeeded. Live `/api/version`
+reports release **170**, while GitHub `main` remains stamped **169**. Never deploy
+the current tree over the newer live site; the next application release must move
+forward (normally 171+). Production deployment is manual-only: ask the owner first,
+then use the approval-gated workflow from `main`. Merges do not authorize deployment.
+Credentials stay in GitHub Actions secrets, and the old Hostinger cron code writer
+must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
+
 ## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
 
 **Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
