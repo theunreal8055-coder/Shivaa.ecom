@@ -109,11 +109,19 @@ def build(revision='HEAD'):
     assert b"$route === 'admin/purge-unpaid'" in api, 'purge route missing'
     assert b"db-before-purge-" in api, 'no safety backup before delete'
     assert b"'DELETE ALL SALES'" in api and b"'DELETE UNPAID'" in api, 'confirmation phrases missing'
-    # customers must be provably out of reach of the purge
-    purge_block = api.split(b"admin/purge-unpaid", 1)[1]
-    for bad in [b"$db['users']", b"$db['partners']", b"$db['products']", b"$db['settlements']", b"$db['reviews']"]:
+    # customers must be provably out of reach of the purge: isolate just that
+    # route's block (from its declaration to the next route handler).
+    m = re.search(
+        rb"if \(\(\$route === 'admin/purge-unpaid' && \$method === 'GET'\)[\s\S]*?\n  if \(\$route === ",
+        api)
+    assert m, 'purge route block not delimited'
+    purge_block = m.group(0)
+    for bad in [b"$db['users']", b"$db['partners']", b"$db['products']",
+                b"$db['settlements']", b"$db['reviews']", b"$db['coupons']"]:
         assert bad not in purge_block, f'purge touches {bad!r}'
     assert b"array_splice($db['orders']" in purge_block, 'purge must only splice orders'
+    assert b"@mkdir($bkDir" in purge_block, 'backup directory not created'
+    assert b"jout(500, ['error' => 'Could not write the safety backup" in purge_block, 'purge must abort if the backup fails'
     # the dashboard surface for it
     assert b'pgPreview' in contents['js/admin.js'], 'purge UI missing'
     assert b'/api/admin/purge-unpaid' in contents['js/admin.js'], 'purge API call missing'

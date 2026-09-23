@@ -17,7 +17,7 @@
  the v115 css layer). index.html now also stamps window.__SHIVAA_REL, and
  app.js reloads itself once if the paired script is older than the shell it
  was served — a device can no longer run a fresh shell on a stale script.
- v166 · ALWAYS THE LATEST: every asset URL was re-stamped to ?v=175. The
+ v166 · ALWAYS THE LATEST: every asset URL was re-stamped to ?v=<REL>. The
  untouched files had been left at their old numbers (styles.css was still
  ?v=107) while .htaccess serves any ?v= URL as immutable for a YEAR — so a
  device that visited weeks ago kept the old design and the old scripts, which
