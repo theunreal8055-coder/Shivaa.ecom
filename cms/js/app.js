@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 172;
+const APP_REL = 173;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -182,7 +182,18 @@ const prepaidPct = () => {
   if (v === undefined || isNaN(v)) { const c = (window._co && window._co.payCfg) || {}; v = (c.prepaidPct === undefined || c.prepaidPct === null) ? 2 : +c.prepaidPct; if (isNaN(v)) v = 2; }
   return Math.max(0, v);
 };
-const timeFmt = iso => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+/* v173 — timeFmt is now null-safe. A shared #/product/ link opened cold on a
+   slow connection could reach render before /api/rates answered, and the one
+   place that read `state.rates.t` with state.rates still null threw
+   "Cannot read properties of null (reading 't')" — the shopper's very first
+   impression of a shared piece was the error page. Every caller that may run
+   pre-hydration goes through this: falsy/invalid input yields '' and the
+   caller shows an honest fallback word instead of crashing. */
+const timeFmt = iso => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+};
 
 function toast(msg, type = 'ok') {
   const t = document.createElement('div');
@@ -422,7 +433,7 @@ function waProductMsg(p, qty, size, engraving) {
   if (pr.stoneValue) L.push('• Listed stone value = ' + fmt(pr.stoneValue));
   L.push('• GST 3% = ' + fmt(pr.gst));
   L.push('');
-  L.push('Rate as on ' + timeFmt(R.t) + ' (' + (R.source === 'live-mcx' ? 'official MCX' : R.source) + ' feed)');
+  L.push('Rate as on ' + (timeFmt(R && R.t) || 'today') + (R && R.source ? ' (' + (R.source === 'live-mcx' ? 'official MCX' : R.source) + ' feed)' : ''));
   L.push(location.origin + '/#/product/' + p.id);
   L.push('');
   L.push('Namaste Shivaa ✦ I would like to order this piece.');
@@ -442,7 +453,7 @@ function waCartMsg() {
   L.push('Shipping: ' + (shipping ? fmt(shipping) : 'FREE insured'));
   L.push('Total: ' + fmt(sub + shipping));
   L.push('');
-  L.push('Final bill locks at order confirmation. Rate as on ' + timeFmt(state.rates.t) + '.');
+  L.push('Final bill locks at order confirmation. Rate as on ' + (timeFmt(state.rates?.t) || 'today') + '.');
   L.push('');
   L.push('Namaste! I would like to place this order.');
   return L.join('\n');
@@ -3646,7 +3657,12 @@ pages.product = async (view, q, id) => {
   let data;
   try { data = await api('/api/products/' + id); } catch (e) { if (!isCurrent()) return; view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
   if (!isCurrent()) return;
-  const p = data.product, pr = price(p), R = data.rates || state.rates;
+  /* v173 — a shared #/product/ link is often the FIRST page a new visitor
+     ever loads, and it can render before /api/rates answers. The piece's own
+     answer already carries the live rates, so price with those and never
+     assume state.rates exists yet (it was null in exactly that race, and the
+     single `state.rates.t` read crashed the whole page). */
+  const p = data.product, R = data.rates || state.rates || {}, pr = price(p, R);
   injectProductLD(p, pr);   // v57: schema.org Product JSON-LD + per-piece OG share card
   const wished = state.user ? await wishIds().then(s => s.includes(p.id)) : state.localWish.includes(p.id);
   if (!isCurrent()) return;
@@ -3712,7 +3728,7 @@ pages.product = async (view, q, id) => {
               <tr><td>GST</td><td>3%</td><td id="pdGst">${fmt(pr.gst)}</td></tr>
               <tr class="total"><td>Total payable</td><td></td><td id="pdBrkTot">${fmt(pr.total)}</td></tr>
             </table>
-            <div style="font-size:11.5px;color:var(--ink-3);margin-top:8px">Rate: ${timeFmt(R.t || state.rates.t)} · final rate locks at order time. Gold weight is estimated (±3–5% manufacturing variation); any lower actual scale weight is refunded directly to your account before dispatch.</div>
+            <div style="font-size:11.5px;color:var(--ink-3);margin-top:8px">Rate: ${timeFmt((R && R.t) || state.rates?.t) || 'live · just updated'} · final rate locks at order time. Gold weight is estimated (±3–5% manufacturing variation); any lower actual scale weight is refunded directly to your account before dispatch.</div>
           </div>
           <div class="emi-strip">◈ <span><b>No-cost EMI from <span id="pdEmi3">${fmt(emi3)}</span>/mo</b> (3 months) · standard EMI <span id="pdEmi6">${fmt(emi6)}</span>/mo (6 months) on cards & UPI-autopay</span></div>
         </div>
@@ -4608,7 +4624,7 @@ pages.cart = async (view) => {
   const shipping = subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Cart</div><h1>Your Cart</h1>
-  <p data-cart-hero>${lines.length} piece${lines.length > 1 ? 's' : ''} · priced at the live Shivaa rate of ${timeFmt(state.rates.t)}</p></div></section>
+  <p data-cart-hero>${lines.length} piece${lines.length > 1 ? 's' : ''} · priced at the live Shivaa rate${timeFmt(state.rates?.t) ? ' of ' + timeFmt(state.rates.t) : ''}</p></div></section>
   <div class="container cart-layout">
     <div>
       <div class="cart-items">
@@ -5220,7 +5236,7 @@ pages.checkout = async (view) => {
      total and the button are the last thing on the page, and the summary card
      keeps its own in-flow Place Order button above it. */
   /* ── v57: 20-minute live-rate lock — your price cannot move while paying ── */
-  const pickRates = () => ({ gold22: state.rates.gold22, gold24: state.rates.gold24, gold18: state.rates.gold18, silver: state.rates.silver });
+  const pickRates = () => { const R = state.rates || {}; return { gold22: R.gold22, gold24: R.gold24, gold18: R.gold18, silver: R.silver }; };
   /* v107 - the lock window is server-owned (pay/config lockMinutes) and a lock
      in flight survives a refresh via localStorage. The server still enforces
      the +/-2% band at submit, so a stale or hand-edited lock can never make
@@ -5417,7 +5433,9 @@ window.Shivaa.updateCheckout = () => {
 window.Shivaa.rateAlertModal = (pid) => {
   const p = pid ? state.productsCache.find(x => x.id === pid) : null;
   const metalKey = p ? (p.metal === 'Silver' ? 'silver' : 'gold' + String(p.purity || '22K').replace('K', '')) : 'gold22';
-  const cur = Math.round(state.rates[metalKey] || 0);
+  /* v173 — this modal opens from the product page's "Alert on price drop"
+     link, which a shared deep link can reach before /api/rates hydrates */
+  const cur = Math.round((state.rates && state.rates[metalKey]) || 0);
   const suggested = Math.round(cur * 0.98 / 10) * 10;
   openModal(`<h3 style="margin-bottom:6px">🔔 Alert me on a price drop</h3>
   <p style="color:var(--ink-2);font-size:13.5px;margin-bottom:14px">${p ? 'If <b>' + esc(p.name) + '</b> gets cheaper as the ' : 'If the '}${metalKey === 'silver' ? 'silver' : 'gold'} rate falls, we ping you on WhatsApp/email before anyone else.</p>
@@ -5449,7 +5467,7 @@ window.Shivaa.wishlistAlerts = async (idsArg) => {
   const metals = [...new Set(state.productsCache.filter(p => wl.includes(p.id)).map(p => p.metal === 'Silver' ? 'silver' : 'gold' + String(p.purity || '22K').replace('K', '')))];
   try {
     for (const m of metals) {
-      const cur = Math.round(state.rates[m] || 0); if (!cur) continue;
+      const cur = Math.round((state.rates && state.rates[m]) || 0); if (!cur) continue;
       await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ phone, email: (state.user && state.user.email) || '', metal: m, target: Math.round(cur * 0.98 / 10) * 10 }) });
     }
     toast('Drop alerts set for all saved pieces ✦');
