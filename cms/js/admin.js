@@ -106,6 +106,7 @@ async function renderAdmin(view, q) {
       <div class="stat-grid">
         <div class="stat"><small>Revenue</small><b>${fmt(stats.revenue || 0)}</b><span>${stats.orders || 0} orders</span></div>
         <div class="stat"><small>Avg order value</small><b>${fmt(stats.aov || 0)}</b><span>incl. GST</span></div>
+        ${stats.unpaidOrders ? `<div class="stat"><small>Unpaid attempts</small><b style="color:var(--warn)">${stats.unpaidOrders}</b><span>failed / abandoned payments — not counted as sales${stats.paidOrders ? ' · ' + stats.paidOrders + ' paid' : ''}</span></div>` : ''}
         <div class="stat"><small>Customers</small><b>${stats.customers || 0}</b><span>${stats.newsletter || 0} newsletter</span></div>
         <div class="stat"><small>B2B partners</small><b>${stats.partners || 0}</b><span style="${stats.pendingPartners ? 'color:var(--warn)' : ''}">${stats.pendingPartners || 0} pending</span></div>
       </div>
@@ -188,7 +189,21 @@ async function renderAdmin(view, q) {
     const asksBanner = reviewAsks.length ? `<div class="proof-banner" style="background:linear-gradient(135deg,#fff8e6,#f5e9c8);border-color:var(--gold)">⭐ <b>${reviewAsks.length}</b> delivered piece${reviewAsks.length > 1 ? 's' : ''} waiting on a photo review
       <div style="margin-top:8px;display:grid;gap:6px">${reviewAsks.slice(0, 12).map(a => `<div class="proof-row"><div><b>${esc(a.name)}</b> · ${esc(a.userName)} · <small>${esc(a.phone)}</small><br><small style="color:var(--ink-3)">Delivered ${new Date(a.deliveredAt).toLocaleDateString('en-IN')} · order ${esc(a.orderId)}</small></div>
       <div><a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${Shivaa.waLink('Namaste ✦ hope you are loving your ' + a.name + ' from Shivaa. A quick photo review helps other brides & families — takes 30 seconds: ' + location.origin + '/#/product/' + a.productId)}">📱 Ask review</a></div></div>`).join('')}</div></div>` : '';
-    body.innerHTML = `${proofBanner}${asksBanner}<div class="adm-card"><h3>${orders.length} orders <button class="btn btn-ghost btn-sm" style="margin-left:10px" onclick="ShivaaAdmin.gstrCSV()">⬇ GSTR-1 CSV</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.catalogCSV()">⬇ Catalogue CSV</button></h3>
+    body.innerHTML = `${proofBanner}${asksBanner}<div class="adm-card" id="purgeCard"><h3>🧹 Clear the failed-payment test orders</h3>
+      <p class="partner-note" style="font-size:12.5px">A Cashfree payment that failed, was dropped or was never completed <b>never marks the order Failed</b> — it leaves the row sitting at <b>&ldquo;Awaiting payment&rdquo;</b>, and until v176 the dashboard counted those rows as real revenue. That is why the gateway tests you ran while wiring up Cashfree showed up as sales.</p>
+      <p class="partner-note" style="font-size:12.5px">Preview first — nothing is deleted until you type the confirmation phrase. Every run writes a <b>full timestamped backup</b> into <code>data/backups/</code> before a single row is removed, so this is reversible.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:12px 0 4px">
+        <div class="fld" style="margin:0"><label>What to remove</label>
+          <select id="pgScope" class="sortsel" style="width:100%;border-radius:12px">
+            <option value="unpaid">Only orders with no money received (safe)</option>
+            <option value="all">Every order — reset sales completely</option>
+          </select></div>
+        <button class="btn btn-outline btn-sm" id="pgPreview">🔍 Preview</button>
+      </div>
+      <div id="pgBody" style="margin-top:10px"></div>
+      <div id="pgRun" style="margin-top:12px"></div>
+    </div>
+    <div class="adm-card"><h3>${orders.length} orders <button class="btn btn-ghost btn-sm" style="margin-left:10px" onclick="ShivaaAdmin.gstrCSV()">⬇ GSTR-1 CSV</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.catalogCSV()">⬇ Catalogue CSV</button></h3>
       <div class="adm-table-wrap"><table class="adm-table">
         <thead><tr><th>Order / Invoice</th><th>Customer</th><th>Items</th><th class="num">Total</th><th>Payment</th><th>Status</th><th></th></tr></thead>
         <tbody>${orders.map(o => `<tr>
@@ -233,6 +248,68 @@ async function renderAdmin(view, q) {
     $('#rpCsv').onclick = ShivaaAdmin.reportCSV;
     $('#rpAudit').onclick = ShivaaAdmin.openAudit;
     ShivaaAdmin.runReport();
+  }
+
+  /* ── v176 · purge the failed-payment test orders (orders tab) ── */
+  if (tab === 'orders') {
+    const pv = $('#pgPreview'), pgScope = $('#pgScope'), pgBody = $('#pgBody'), pgRun = $('#pgRun');
+    if (pv && pgScope && pgBody) {
+      const E = window.Shivaa.esc, F = window.Shivaa.fmt;
+      const renderPurge = p => {
+        const st = p.byPaymentStatus || {}, mt = p.byMethod || {};
+        pgBody.innerHTML = `
+          <div class="cb-grid">
+            <div class="cb-tile"><small>Orders on the shop</small><b>${p.totalOrders}</b></div>
+            <div class="cb-tile"><small>Would be removed</small><b style="color:var(--warn)">${p.wouldDelete}</b></div>
+            <div class="cb-tile"><small>Would stay</small><b>${p.wouldKeep}</b></div>
+            <div class="cb-tile out"><small>Value removed</small><b>₹${(p.valueRemoved || 0).toLocaleString('en-IN')}</b></div>
+          </div>
+          <h4 style="margin:14px 0 6px">Why each one is going</h4>
+          <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Payment status</th><th class="num">Orders</th></tr></thead><tbody>
+            ${Object.entries(st).map(([k, v]) => `<tr><td>${E(k)}</td><td class="num">${v}</td></tr>`).join('') || '<tr><td colspan="2" class="partner-note">Nothing to remove.</td></tr>'}
+          </tbody></table></div>
+          <h4 style="margin:14px 0 6px">By payment method</h4>
+          <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Method</th><th class="num">Orders</th></tr></thead><tbody>
+            ${Object.entries(mt).map(([k, v]) => `<tr><td>${E(k)}</td><td class="num">${v}</td></tr>`).join('') || '<tr><td colspan="2" class="partner-note">—</td></tr>'}
+          </tbody></table></div>
+          ${(p.sample || []).length ? `<h4 style="margin:14px 0 6px">First ${Math.min(25, p.sample.length)} of them</h4>
+          <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Order</th><th>When</th><th>Customer</th><th class="num">Total</th><th>Payment</th></tr></thead><tbody>
+            ${p.sample.map(s => `<tr><td><b>${E(s.id)}</b></td><td>${E(String(s.at || '').slice(0, 16).replace('T', ' '))}</td><td>${E(s.name || '')}</td><td class="num">${F(s.total || 0)}</td><td>${E(s.paymentMethod)} · ${E(s.paymentStatus)}</td></tr>`).join('')}
+          </tbody></table></div>` : ''}
+          ${p.scope === 'all' ? `<p class="partner-note" style="color:var(--bad);margin-top:10px"><b>⚠ This scope also removes every PAID and COD order.</b> That is real money and real customers — use it only if you truly want an empty sales book. The backup still protects you.</p>` : ''}
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:14px">
+            <div class="fld" style="margin:0;min-width:260px"><label>Type <b>${E(p.needsPhrase)}</b> to confirm</label>
+              <input id="pgPhrase" placeholder="${E(p.needsPhrase)}" autocomplete="off"></div>
+            <button class="btn btn-sm" id="pgGo" style="background:var(--bad,#b3261e);color:#fff;border:0">🗑 Delete ${p.wouldDelete} order${p.wouldDelete === 1 ? '' : 's'}</button>
+          </div>
+          <p class="partner-note" style="margin-top:8px">B2B and B2C customers, partners, products, reviews, coupons and every paid order are never touched by this action.</p>`;
+        const go = $('#pgGo');
+        if (go) go.onclick = async () => {
+          const typed = (($('#pgPhrase') || {}).value || '');
+          go.disabled = true; go.textContent = 'Deleting…';
+          try {
+            const r = await window.Shivaa.api('/api/admin/purge-unpaid', {
+              method: 'POST', body: JSON.stringify({ scope: p.scope, confirm: typed })
+            });
+            window.Shivaa.toast(r.note || ('Removed ' + r.deleted + ' orders'), 'ok');
+            pgBody.innerHTML = `<p class="partner-note" style="color:var(--ok)"><b>Done.</b> ${E(r.note || '')}</p>
+              <p class="partner-note">Backup saved at <code>${E(r.backup || '')}</code> — restore it from Hostinger File Manager if you ever need these rows back.</p>`;
+            setTimeout(() => renderAdmin($('#view'), new URLSearchParams('tab=orders')), 2500);
+          } catch (e) {
+            window.Shivaa.toast(e.message, 'err');
+            go.disabled = false; go.textContent = '🗑 Delete ' + p.wouldDelete + ' order' + (p.wouldDelete === 1 ? '' : 's');
+          }
+        };
+      };
+      pv.onclick = async () => {
+        pv.disabled = true; pv.textContent = 'Checking…';
+        pgBody.innerHTML = '<p class="partner-note">Reading the order book…</p>';
+        try { renderPurge(await window.Shivaa.api('/api/admin/purge-unpaid?scope=' + pgScope.value)); }
+        catch (e) { pgBody.innerHTML = '<p class="partner-note" style="color:var(--bad)">' + E(e.message) + '</p>'; }
+        pv.disabled = false; pv.textContent = '🔍 Preview';
+      };
+      pgScope.onchange = () => { pgBody.innerHTML = ''; };
+    }
   }
 
   /* ── v60 REFUNDS / EXCHANGES ── */

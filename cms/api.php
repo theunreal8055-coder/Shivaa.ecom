@@ -2313,6 +2313,41 @@ function compute_price(array $p, array $R): array {
           'stoneValue' => $stoneValue, 'subtotal' => $subtotal, 'gst' => $gst, 'total' => $subtotal + $gst];
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   v176 — A SALE IS MONEY THAT ACTUALLY ARRIVED.
+
+   The owner's report: "how can you show sales even if the payment is failed."
+   Both revenue endpoints filtered orders only on fulfilment status
+   (`status !== 'Cancelled'`) and never looked at paymentStatus. A Cashfree
+   payment that failed, was dropped, or was never completed leaves the order
+   row sitting at 'Awaiting payment' — so every gateway test the owner ran
+   while wiring up Cashfree was counted as real revenue in the dashboard and
+   the sales report.
+
+   This helper is the single definition of "money received" and every revenue
+   figure now goes through it. It is deliberately conservative: an order only
+   counts when the shop has the money (fully or in part). COD is excluded too
+   because that money is still in the customer's pocket until delivery.
+   ══════════════════════════════════════════════════════════════════════════ */
+function order_money_received(array $o): int {
+  $ps = (string)($o['paymentStatus'] ?? '');
+  if ($ps === 'Paid') return max(0, (int)($o['total'] ?? 0));
+  if ($ps === 'Partially paid') return max(0, min((int)($o['amountPaid'] ?? 0), (int)($o['total'] ?? 0)));
+  return 0;   // Awaiting payment · Confirm on WhatsApp · Proof submitted · Pending (COD) · Refunded …
+}
+/* True when the order is a genuine, money-received sale. */
+function order_is_paid_sale(array $o): bool {
+  return order_money_received($o) > 0;
+}
+/* v176 — an order whose payment never completed: a failed/dropped/abandoned
+   gateway attempt, an unconfirmed WhatsApp enquiry, or an unverified proof.
+   These are the rows the purge removes. A COD order is NOT in this set — the
+   money is genuinely owed and will be collected at the door. */
+function order_is_unpaid_attempt(array $o): bool {
+  $ps = (string)($o['paymentStatus'] ?? '');
+  return in_array($ps, ['Awaiting payment', 'Confirm on WhatsApp', 'Proof submitted', 'Failed', 'Payment failed', 'Cancelled'], true);
+}
+
 /* v60 — payment ledger on an order: supports multiple part payments/advances.
    Mutates the order array and recomputes amountPaid + paymentStatus. */
 function order_add_payment(array &$ord, array $pay): void {
@@ -4300,7 +4335,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 175,
+      'rel'   => 176,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -5682,6 +5717,120 @@ try {
     }
     jout(404, ['error' => 'Order not found']);
   }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     v176 · PURGE THE FAILED-PAYMENT TEST ORDERS
+
+     Owner's report: "when i was deploying the payment gateway integration I
+     was trying sales without actually paying and its showing in sales in my
+     dashboard … first Delete all the sales data, don't touch b2b and b2c
+     customers."
+
+     A failed / dropped / abandoned Cashfree attempt never marks the order
+     Failed — it just leaves the row sitting at paymentStatus 'Awaiting
+     payment', and the dashboard used to count it as a sale at full total.
+     This endpoint removes those rows.
+
+     SAFETY, in the order it matters:
+       1. Admin token required (need_admin).
+       2. A timestamped backup of the FULL db.json is written to data/
+          (web-denied by .htaccess) BEFORE anything is removed. The purge
+          is fully reversible by restoring that file.
+       3. Only db['orders'] is ever touched. users (B2B + B2C customers),
+          partners, products, settlements, reviews, coupons, catalogs and
+          every other collection are byte-identical afterwards.
+       4. The default scope 'unpaid' removes ONLY orders where no money was
+          ever received — Paid, Partially paid and Pending (COD) orders are
+          never touched, because that money is real.
+       5. GET = a dry-run preview (nothing is written). POST = the real
+          delete, and only with the exact confirmation phrase.
+
+     Returns a per-reason breakdown so the owner can see exactly what went.
+     ══════════════════════════════════════════════════════════════════════ */
+  if (($route === 'admin/purge-unpaid' && $method === 'GET')
+      || ($route === 'admin/purge-unpaid' && $method === 'POST')) {
+    need_admin($db);
+    $b = $method === 'POST' ? body_json() : [];
+    $scope = ($b['scope'] ?? 'unpaid') === 'all' ? 'all' : 'unpaid';
+    // 'unpaid' needs a short phrase; 'all' (which also removes paid orders)
+    // needs a longer one so a stray click can never wipe real sales.
+    $needPhrase = $scope === 'all' ? 'DELETE ALL SALES' : 'DELETE UNPAID';
+    $confirmed  = hash_equals($needPhrase, strtoupper(trim((string)($b['confirm'] ?? ''))));
+
+    $all = is_array($db['orders'] ?? null) ? $db['orders'] : [];
+    $doomed = [];
+    foreach ($all as $i => $o) {
+      if (!is_array($o)) continue;
+      if ($scope === 'all') { $doomed[$i] = $o; continue; }
+      // v176 — an order survives unless its payment genuinely never completed
+      if (order_is_unpaid_attempt($o)) $doomed[$i] = $o;
+    }
+
+    $sample = [];
+    $byStatus = [];
+    $byMethod = [];
+    $value = 0;
+    foreach ($doomed as $o) {
+      $value += (int)($o['total'] ?? 0);
+      $ps = (string)($o['paymentStatus'] ?? '—');
+      $byStatus[$ps] = ($byStatus[$ps] ?? 0) + 1;
+      $pm = (string)($o['paymentMethod'] ?? '—');
+      $byMethod[$pm] = ($byMethod[$pm] ?? 0) + 1;
+      if (count($sample) < 25) $sample[] = [
+        'id' => (string)($o['id'] ?? ''), 'at' => (string)($o['createdAt'] ?? ''),
+        'total' => (int)($o['total'] ?? 0), 'status' => (string)($o['status'] ?? ''),
+        'paymentStatus' => $ps, 'paymentMethod' => $pm,
+        'name' => (string)($o['address']['name'] ?? $o['userName'] ?? '')];
+    }
+    $keep = count($all) - count($doomed);
+    $preview = [
+      'scope' => $scope, 'needsPhrase' => $needPhrase, 'confirmed' => $confirmed,
+      'totalOrders' => count($all), 'wouldDelete' => count($doomed), 'wouldKeep' => $keep,
+      'valueRemoved' => $value, 'byPaymentStatus' => $byStatus, 'byMethod' => $byMethod,
+      'sample' => $sample,
+    ];
+    if ($method === 'GET') { jout(200, ['ok' => true, 'preview' => true] + $preview); }
+    if (!$confirmed) jout(400, ['error' => 'Type the confirmation phrase ' . $needPhrase . ' to run the delete.',
+                                'needsPhrase' => $needPhrase] + $preview);
+    if (count($doomed) === 0) jout(200, ['ok' => true, 'deleted' => 0, 'kept' => count($all),
+      'note' => 'Nothing to remove — every order on the shop has money behind it.'] + $preview);
+
+    /* 1) BACKUP FIRST — full database, timestamped, inside web-denied data/ */
+    $bkDir = __DIR__ . '/data/backups';
+    if (!is_dir($bkDir)) @mkdir($bkDir, 0755, true);
+    $bkName = 'db-before-purge-' . date('Ymd-His') . '.json';
+    $bkPath = $bkDir . '/' . $bkName;
+    $bkJson = json_encode($db, JSON_PRETTY_PRINT | JSON_UNESIGNED_SLASHES | JSON_UNESIGNED_UNICODE);
+    if ($bkJson === false || @file_put_contents($bkPath, $bkJson, LOCK_EX) === false)
+      jout(500, ['error' => 'Could not write the safety backup — nothing was deleted. Check that data/ is writable (755).']);
+    @chmod($bkPath, 0644);
+    // keep the last 10 purge backups so the folder can never grow unbounded
+    $oldBks = glob($bkDir . '/db-before-purge-*.json') ?: [];
+    if (count($oldBks) > 10) {
+      sort($oldBks);   // oldest first (timestamped names)
+      foreach (array_slice($oldBks, 0, count($oldBks) - 10) as $f) @unlink($f);
+    }
+
+    /* 2) DELETE — db['orders'] only, rebuilt by index so nothing else shifts */
+    $removed = [];
+    foreach (array_reverse(array_keys($doomed), true) as $i) {
+      $removed[] = ['id' => (string)($all[$i]['id'] ?? ''), 'total' => (int)($all[$i]['total'] ?? 0),
+                    'paymentStatus' => (string)($all[$i]['paymentStatus'] ?? '')];
+      array_splice($db['orders'], (int)$i, 1);
+    }
+    $db['orders'] = array_values($db['orders']);
+    audit_log($db, 'sales.purge-unpaid', [
+      'scope' => $scope, 'deleted' => count($removed), 'kept' => count($db['orders']),
+      'valueRemoved' => $value, 'backup' => 'data/backups/' . $bkName,
+      'by' => req_user($db)['name'] ?? 'admin']);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'deleted' => count($removed), 'kept' => count($db['orders']),
+      'valueRemoved' => $value, 'byPaymentStatus' => $byStatus, 'byMethod' => $byMethod,
+      'backup' => 'data/backups/' . $bkName, 'removed' => array_reverse($removed),
+      'note' => 'Deleted ' . count($removed) . ' order' . (count($removed) === 1 ? '' : 's')
+        . ' worth ₹' . number_format($value) . '. B2B and B2C customers, partners, products and every paid order were untouched.'
+        . ' A full backup is saved at data/backups/' . $bkName . '.']);
+  }
   if ($route === 'admin/gold-purchases' && $method === 'GET') {
     need_admin($db);
     jout(200, ['purchases' => array_reverse($db['goldPurchases'] ?? [])]);
@@ -5811,13 +5960,18 @@ try {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) jout(400, ['error' => 'Invalid date']);
     $rows = array_values(array_filter($db['cashbook'], fn($r) => substr((string)($r['at'] ?? ''), 0, 10) === $day));
     // system-derived figures: paid orders today, old-gold payouts today
+    /* v176 — same defect as admin/stats: this summed every non-cancelled
+       order's total into the day's sales, so a failed Cashfree test attempt
+       appeared as money taken. Only money actually received counts now. */
     $orderSales = 0; $onlineSales = 0; $codSales = 0; $waSales = 0;
     foreach ($db['orders'] as $o) {
       if (substr((string)($o['createdAt'] ?? ''), 0, 10) !== $day || ($o['status'] ?? '') === 'Cancelled') continue;
-      $orderSales += (int)($o['total'] ?? 0);
-      if (($o['paymentMethod'] ?? '') === 'COD') $codSales += (int)$o['total'];
-      elseif (($o['paymentMethod'] ?? '') === 'WhatsApp') $waSales += (int)$o['total'];
-      else $onlineSales += (int)$o['total'];
+      $received = order_money_received($o);
+      if ($received <= 0) continue;
+      $orderSales += $received;
+      if (($o['paymentMethod'] ?? '') === 'COD') $codSales += $received;
+      elseif (($o['paymentMethod'] ?? '') === 'WhatsApp') $waSales += $received;
+      else $onlineSales += $received;
     }
     $goldPaid = 0;
     foreach ($db['goldPurchases'] as $g) if (substr((string)($g['createdAt'] ?? ''), 0, 10) === $day) $goldPaid += (int)$g['amount'];
@@ -6162,10 +6316,20 @@ try {
     $valid = array_filter($os, fn($o) => ($o['status'] ?? '') !== 'Cancelled');
     $orders = count($valid); $revenue = 0; $tax = 0; $metal = 0; $making = 0; $stones = 0; $shipping = 0; $prepaidDisc = 0;
     $byMethod = []; $bestsellers = [];
+    /* v176 — "how can you show sales even if the payment is failed."
+       This loop used to add EVERY non-cancelled order's total to revenue, so
+       the gateway tests the owner ran while deploying Cashfree — which leave
+       the order parked at 'Awaiting payment' — were reported as real sales.
+       Revenue now comes from order_money_received(): money the shop actually
+       holds. The order COUNT still reports every order placed, and the paid /
+       unpaid split is exposed so the dashboard can show it honestly. */
+    $paidOrders = 0; $unpaidOrders = 0; $pendingAmount = 0;
     foreach ($valid as $o) {
-      $revenue += (int)($o['total'] ?? 0);
-      $taxable = round(($o['total'] ?? 0) / 1.03);
-      $tax += (int)round((($o['total'] ?? 0) - $taxable));
+      $received = order_money_received($o);
+      if ($received > 0) $paidOrders++; else { $unpaidOrders++; $pendingAmount += (int)($o['total'] ?? 0); }
+      $revenue += $received;
+      $taxable = round($received / 1.03);
+      $tax += (int)round($received - $taxable);
       foreach (($o['items'] ?? []) as $it) {
         $making += (int)($it['makingCharge'] ?? 0) * (int)($it['qty'] ?? 1);
         $stones += (int)($it['stoneValue'] ?? 0) * (int)($it['qty'] ?? 1);
@@ -6179,7 +6343,7 @@ try {
       $prepaidDisc += (int)($o['prepaidDiscount'] ?? 0);
       $m = $o['paymentMethod'] ?? 'Other';
       $byMethod[$m] = $byMethod[$m] ?? ['n' => 0, 'value' => 0];
-      $byMethod[$m]['n']++; $byMethod[$m]['value'] += (int)($o['total'] ?? 0);
+      $byMethod[$m]['n']++; $byMethod[$m]['value'] += $received;
     }
     uasort($bestsellers, fn($a, $b) => $b['qty'] <=> $a['qty']);
     $refunds = array_values(array_filter($db['refundRequests'], fn($r) => ($r['status'] ?? '') === 'refunded' && $inRange((string)($r['decidedAt'] ?? ''))));
@@ -6199,6 +6363,9 @@ try {
     $proofPending = count(array_filter($db['orders'], fn($o) => ($o['paymentStatus'] ?? '') === 'Proof submitted'));
     jout(200, [
       'range' => [$from, $to], 'orders' => $orders, 'revenue' => $revenue, 'tax' => $tax,
+      /* v176 — paid/unpaid split so the owner can see exactly how much of the
+         order book has money behind it (failed gateway tests sit in unpaid). */
+      'paidOrders' => $paidOrders, 'unpaidOrders' => $unpaidOrders, 'pendingAmount' => $pendingAmount,
       'cgst' => intdiv($tax, 2), 'sgst' => $tax - intdiv($tax, 2),
       'metalValue' => max(0, $metal), 'makingRevenue' => $making, 'stoneValue' => $stones, 'shipping' => $shipping,
       'prepaidDiscount' => $prepaidDisc, 'byMethod' => $byMethod,
@@ -6627,20 +6794,33 @@ try {
 
   if ($route === 'admin/stats' && $method === 'GET') {
     need_admin($db);
-    // v86 — cancelled orders are not revenue and must not inflate the dashboard
+    /* v176 — "how can you show sales even if the payment is failed."
+       This used to sum every non-cancelled order's total into revenue, so the
+       Cashfree gateway tests the owner ran during deployment — each one parked
+       at paymentStatus 'Awaiting payment' after the payment failed or was
+       dropped — inflated the dashboard's revenue, AOV and byDay chart.
+       Revenue is now order_money_received() only: money the shop actually has.
+       The paid/unpaid split is returned so the dashboard stays honest. */
     $liveOrders = array_values(array_filter($db['orders'], fn($o) => ($o['status'] ?? '') !== 'Cancelled'));
-    $rev = array_sum(array_column($liveOrders, 'total'));
+    $rev = array_sum(array_map('order_money_received', $liveOrders));
+    $paidCount = count(array_filter($liveOrders, 'order_is_paid_sale'));
+    $unpaidCount = count($liveOrders) - $paidCount;
     $byDay = [];
-    foreach ($liveOrders as $o) { $d = substr($o['createdAt'], 0, 10); $byDay[$d] = ($byDay[$d] ?? 0) + $o['total']; }
+    foreach ($liveOrders as $o) {
+      $received = order_money_received($o);
+      if ($received <= 0) continue;   // an unpaid attempt is not a sale — keep it out of the chart
+      $d = substr($o['createdAt'], 0, 10); $byDay[$d] = ($byDay[$d] ?? 0) + $received;
+    }
     $low = [];
     foreach ($db['products'] as $p) if (($p['stock'] ?? 0) <= 3) $low[] = ['name' => $p['name'], 'stock' => $p['stock']];
     $customers = count(array_filter($db['users'], fn($u) => $u['role'] === 'customer'));
     jout(200, ['revenue' => $rev, 'orders' => count($db['orders']), 'customers' => $customers,
                'products' => count($db['products']),
+               'paidOrders' => $paidCount, 'unpaidOrders' => $unpaidCount,
                'partners' => count(array_filter($db['partners'], fn($x) => $x['status'] === 'approved')),
                'pendingPartners' => count(array_filter($db['partners'], fn($x) => $x['status'] === 'pending')),
                'serviceRequests' => count(array_filter($db['serviceRequests'], fn($s) => $s['status'] === 'new')),
-               'aov' => count($liveOrders) ? (int)round($rev / count($liveOrders)) : 0,
+               'aov' => $paidCount ? (int)round($rev / $paidCount) : 0,
                'byDay' => $byDay, 'newsletter' => count($db['newsletter']), 'lowStock' => $low,
                'signIns' => array_reverse(array_slice($db['securityLog'] ?? [], -6)),
                'referrals' => count(array_filter($db['users'], fn($u) => !empty($u['referredBy']))),
