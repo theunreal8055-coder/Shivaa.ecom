@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 171;
+const APP_REL = 172;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -477,6 +477,36 @@ window.Shivaa.waProduct = id => {
   const onPdp = !!(pd.p && pd.p.id === id);
   const size = onPdp ? ($('#sizeRow .size-pill.on')?.dataset.size || null) : null;
   waOpen(waProductMsg(p, onPdp ? (pd.qty || 1) : 1, size, onPdp ? ($('#engrave')?.value || null) : null));
+};
+
+/* ─────────── v172 · one share function for every product surface ───────────
+   The owner asked for a customer-facing "share this piece with a friend"
+   control on every product. The direct link #/product/<id> always existed and
+   v57 already serves per-piece OG cards for rich WhatsApp previews — but only
+   the quick-view popup (v102) ever exposed a share button; the full product
+   page itself had NONE. This is the single share path all surfaces call:
+   phone → native share sheet (WhatsApp / SMS / anything installed);
+   desktop / no share sheet → copy the link + toast, with the double
+   clipboard fallback for older browsers. */
+window.Shivaa.shareProduct = async id => {
+  const pd = window._pd || {};
+  const p = (pd.p && pd.p.id === id) ? pd.p : state.productsCache.find(x => x.id === id);
+  const shareUrl = location.origin + location.pathname + '#/product/' + encodeURIComponent(id);
+  const data = {
+    title: (p ? p.name + ' · ' : '') + 'Shivaa Jewels',
+    text: p ? p.name + ' — BIS hallmarked, priced on the live rate. Have a look ✦' : 'Have a look at this piece from Shivaa Jewels ✦',
+    url: shareUrl,
+  };
+  if (navigator.share) { try { await navigator.share(data); } catch (e) {} return; }
+  try { await navigator.clipboard.writeText(shareUrl); toast('Piece link copied — paste it to your friend ✦'); }
+  catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = shareUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Piece link copied — paste it to your friend ✦'); }
+    catch (_) { toast('Copy this page\u2019s link to share', ''); }
+    ta.remove();
+  }
 };
 
 /* ─────────── page component registry ─────────── */
@@ -3649,9 +3679,14 @@ pages.product = async (view, q, id) => {
             <h1>${esc(p.name)}</h1>
             <div class="pc-rating" style="font-size:15px">★ ${p.rating} <span style="color:var(--ink-3);font-size:13px">· ${p.reviews} reviews · SKU ${p.sku}</span></div>
           </div>
-          <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" style="position:static;width:46px;height:46px" aria-label="Wishlist">
-            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
-          </button>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button class="pc-wish pd-share" onclick="Shivaa.shareProduct('${p.id}')" style="position:static;width:46px;height:46px" aria-label="Share this piece" title="Share this piece with a friend">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3"/></svg>
+            </button>
+            <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" style="position:static;width:46px;height:46px" aria-label="Wishlist">
+              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="pd-pricebox">
@@ -3694,6 +3729,7 @@ pages.product = async (view, q, id) => {
         <div class="pd-cta-row">
           <button class="btn btn-outline" onclick="Shivaa.pdAdd('${p.id}', event)">🛍 Add to Cart</button>
           <button class="btn btn-ghost wa-order" onclick="Shivaa.waProduct('${p.id}')">${WA_SVG} Chat to Order</button>
+          <button type="button" class="btn btn-outline" onclick="Shivaa.shareProduct('${p.id}')" aria-label="Share this piece with a friend">🔗 Share</button>
           <button type="button" class="btn btn-outline pd-compare ${compared ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleCompare('${p.id}')" aria-pressed="${compared ? 'true' : 'false'}" aria-label="${compared ? 'Remove from compare' : 'Add to compare'}">⚖ <span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span></button>
         </div>
         <div style="font-size:12.5px;color:${p.stock > 3 ? 'var(--ok)' : 'var(--warn)'};display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${p.stock > 3 ? '● In stock — ships in 48 hours' : '● Only ' + p.stock + ' left with our karigar'}</span><a href="javascript:Shivaa.rateAlertModal(${jsArg(p.id)})" style="font-size:12px">🔔 Alert on price drop</a></div>
@@ -5025,19 +5061,8 @@ window.Shivaa.quickView = async (id) => {
   window.Shivaa.holdRepeat($('#qvMinus'), () => setQty(qty - 1));
   window.Shivaa.holdRepeat($('#qvPlus'), () => setQty(qty + 1));
   // v102 — native share sheet on phones, copy-link fallback on desktop
-  $('#qvShare').onclick = async () => {
-    const shareUrl = location.origin + location.pathname + '#/product/' + p.id;
-    const data = { title: p.name + ' · Shivaa Jewels', text: p.name + ' — BIS hallmarked, priced on the live rate.', url: shareUrl };
-    if (navigator.share) { try { await navigator.share(data); } catch (e) {} return; }
-    try { await navigator.clipboard.writeText(shareUrl); toast('Piece link copied ✦'); }
-    catch (e) {
-      const ta = document.createElement('textarea');
-      ta.value = shareUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy'); toast('Piece link copied ✦'); } catch (_) { toast('Copy this page’s link to share', ''); }
-      ta.remove();
-    }
-  };
+  // v172 — now the one shared path every surface uses (Shivaa.shareProduct)
+  $('#qvShare').onclick = () => window.Shivaa.shareProduct(p.id);
   $('#qvAdd').onclick = (e) => {
     const size = $('#qvSize .size-pill.on')?.dataset.size || null;
     haptic(12);
