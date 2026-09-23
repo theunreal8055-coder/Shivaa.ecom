@@ -4300,7 +4300,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 174,
+      'rel'   => 175,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -4390,11 +4390,21 @@ try {
         // Cashfree wants a syntactically valid email; use a neutral placeholder
         $email = 'orders@' . (preg_replace('#[^a-z0-9.-]#', '', (string)parse_url($base, PHP_URL_HOST)) ?: 'shivaa.in');
       }
-      $storePhone = preg_replace('/\D/', '', (string)($db['settings']['phone'] ?? '8905005921'));
-      $storePhone10 = (strlen($storePhone) >= 10 && preg_match('/^[6-9]\d{9}$/', substr($storePhone, -10))) ? substr($storePhone, -10) : '8905005921';
+      /* v175 — NEVER put the shop's own mobile in front of a customer.
+         The old fallback substituted $db['settings']['phone'] — the OWNER'S
+         number — whenever the shopper's number was not a plain 10-digit one.
+         Every Express-lane customer (whose real number Cashfree collects and
+         OTP-verifies on its own page, exactly as the v154 boundary design
+         intends) was shown the owner's personal 8905005921 pre-filled in the
+         payment form. Cashfree only needs a SYNTACTICALLY VALID 10-digit
+         number at create-order (v143 proved an empty one is refused), so the
+         placeholder is now a neutral number that belongs to nobody — the same
+         treatment the customer_email line above already gets. The customer's
+         real number is still used whenever we actually have one. */
+      $cfPlaceholder = '9000000000';
       $cfPhone = (strlen($phone) === 10 && preg_match('/^[6-9]\d{9}$/', $phone) && !preg_match('/^(\d)\1{9}$/', $phone))
         ? $phone
-        : $storePhone10;
+        : $cfPlaceholder;
       $payload = [
         'order_id' => $cfOrderId,
         'order_amount' => round($due, 2),

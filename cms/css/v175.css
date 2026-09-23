@@ -1,0 +1,56 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIVAA v175 — the product photo finally sits ABOVE the product title
+
+   THE BUG (present since v104 — this is the owner's "the texts are not under
+   the photos, they are actually now on", and it is why swiping the gallery
+   "stopped working" near the bottom of the picture).
+
+   styles.css pins the gallery so the photo stays in view while the details
+   scroll past it on a desktop:
+       .pd-gallery { position: sticky; top: 100px; }
+   Two later rules then fight over that on a phone:
+
+     · styles.css ≤1080px → `.pd-gallery{position:static}`
+       Correct — `top` is ignored on a statically positioned box, so the
+       100px offset dies with it.
+
+     · boost.css ≤700px → `.pd-gallery{position:relative}`
+       Legitimate — the zoom button needs something to position against.
+       BUT `top` DOES apply to a relatively positioned box, so this single
+       declaration brings the 100px offset back to life.
+
+   Result on every phone: the gallery was shoved 100px down inside its grid
+   row. Its lower half slid under the title, the title printed straight across
+   the photograph, and the bottom of the frame — where the photo dots live —
+   sat underneath the text where a thumb could never reach it. Swiping the
+   picture "worked" only in the top half, which is exactly what the owner saw.
+
+   THE FIX — the sticky offset may only exist while the gallery is actually
+   sticky. Measured on a 390×844 phone: the title block used to start 76px
+   BEFORE the photo ended; it now starts a clean 24px (the grid gap) after.
+
+   Loaded LAST so it wins the tie it is written for. Delete the one v175 tag
+   in index.html to roll back.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · the 100px sticky offset may only exist while the gallery sticks ── */
+/*        Desktop keeps the photo in view while the details scroll past it;
+          phones stack the two columns and must not carry the offset at all.
+          `position: sticky` is restated here because boost.css overrides it
+          with `position: relative` at EVERY width (it only wants a containing
+          block for the zoom button), which had quietly killed the desktop
+          sticky as well. */
+@media (min-width: 1081px) {
+  .pd-gallery { position: sticky; top: 100px; }
+}
+@media (max-width: 1080px) {
+  .pd-gallery { top: auto !important; }
+}
+
+/* ── and the photo frame never sits on top of the words, whatever happens ── */
+/* v174 gave the info column the paint order; restate it here so this file
+   alone is enough to guarantee the title is readable. */
+.pd-info { position: relative; z-index: 2; }
+.pd-gallery { isolation: isolate; }
+.gal-wrap { contain: paint; }
+.gal-slide img { max-width: 100%; max-height: 100%; }
