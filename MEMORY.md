@@ -19,6 +19,15 @@
 
 ## Hostinger preview prepared — dry-run not yet started (22 Sep 2026)
 
+> **Status: still an open owner action, unchanged.** Its numbers are historical:
+> it was measured against `main` = 169, and the newest published release is now
+> **v176** (see the v176 block below). The stamp references below (`shivaa-shell-v169`,
+> "repo 169 < live 170") describe that day's measurement, **not** current state —
+> do not quote them as the current release. The one durable fact: **the Hostinger
+> deploy workflow cannot be started from this sandbox (Arena token is read-only for
+> Actions, HTTP 403 on dispatch), so the owner must start it himself.** No deploy,
+> FTPS write or data change has happened.
+
 - Owner asked for the preview/dry-run only. **The real workflow run was NOT
   started from the sandbox:** the Arena session token is read-only for Actions
   (`gh workflow run` → HTTP 403 on the dispatch endpoint; `actions/secrets` also

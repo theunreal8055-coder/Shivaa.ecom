@@ -8,10 +8,12 @@
 
 PR #90 is merged at `2393a7949852b9bb1f16cdbfa8b138f83da8235e`; the owner
 reports the Hostinger MySQL migration of 77 products succeeded. Live `/api/version`
-reports release **170**, while GitHub `main` remains stamped **169**. Never deploy
-the current tree over the newer live site; the next application release must move
-forward (normally 171+). Production deployment is manual-only: ask the owner first,
-then use the approval-gated workflow from `main`. Merges do not authorize deployment.
+last reported release **170**; the newest published package is **v176** (commit
+`64c46a9`). **Never deploy an older tree over a newer live site, and never deploy
+anything without the owner's explicit yes.** Any next application release must
+move forward from **177** and pass the anti-downgrade gate. Production deployment
+is manual-only: ask the owner first, then use the approval-gated workflow from
+`main`. Merges do not authorize deployment.
 Credentials stay in GitHub Actions secrets, and the old Hostinger cron code writer
 must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
 
