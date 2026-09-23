@@ -1,4 +1,8 @@
-# AGENT HANDOFF — v169 published, not live-verified (21 Sep 2026)
+# AGENT HANDOFF — v176 published, not live-verified (23 Sep 2026)
+
+> **Current release: 176.** The v169 block below is history. Read the
+> *CURRENT STATE — v176* section first, then the v169 record, then the
+> historical notes. **Forward only — never revert to an older release.**
 
 ## Deployment control update — owner approval required (22 Sep 2026)
 
@@ -11,9 +15,143 @@ then use the approval-gated workflow from `main`. Merges do not authorize deploy
 Credentials stay in GitHub Actions secrets, and the old Hostinger cron code writer
 must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
 
-## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
+## CURRENT STATE — v176 published; failed payments are no longer sales (23 Sep 2026)
 
-**Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
+**This section supersedes the v169 "Final verified state" below for anything
+about the current release.** v170–v176 were delivered after that record; the
+v169 section stays as history, not as a restore instruction.
+
+- **Branch / HEAD:** `arena/01a0cd08-shivaa-ecom` → `64c46a9d2a97f20bccf377be6494dc0d8f5362d0`.
+  Commits this release: `a1e2698` (the fix + purge + UI + stamps) ·
+  `212d9d0` (sw.js changelog comment de-hardened from a literal `?v=175`) ·
+  `64c46a9` (ZIP rebuilt from the final tree — the earlier blob was 3 bytes
+  stale, caught by comparing the GitHub blob size to the local file).
+- **Latest download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/64c46a9d2a97f20bccf377be6494dc0d8f5362d0/shivaa-update-v176.zip
+- **Archive:** 7 files, **426,252 bytes**, SHA-256
+  `ca53b8b9df9662435f4880b7d3bead8e2132ac1017f3cecc956c550cd6f72674`.
+  GitHub blob `1b91023bebfa033f83886c2ccd77e1f3ee73c3a1` remotely verified
+  (size + `git hash-object` both match local). Build is deterministic — two
+  runs produced the identical hash. Builder: `tools/mega/make-v176-zip.py`.
+- **Files:** `api.php`, `index.html`, `sw.js`, `js/app.js`, `js/admin.js`,
+  `css/v175.css`, `css/v174.css` (cumulative v171→v176). Installing v176 alone
+  on a v165+ site delivers all six. No data / uploads / credentials / media /
+  host `.htaccess` in the archive.
+- **Stamps:** release **176** in lockstep (`__SHIVAA_REL`, `APP_REL`,
+  `SHELL='shivaa-shell-v176'`, `REL=176`, `'rel' => 176`), 54 `?v=176` asset
+  stamps in `index.html` + 49 in `sw.js`. MEDIA cache deliberately stays
+  `shivaa-media-v168` (no media changed).
+- **NOT deployed, NOT owner-installed, NOT live-verified.** Do not record it as
+  live until the owner reports extracting the zip and re-checking the dashboard.
+
+### The defect — why a failed payment was reported as a sale
+
+Owner report, verbatim: *"how can you show sales even if the payment is failed"*.
+
+**A Cashfree payment that fails, is dropped at the bank page, or is never
+completed NEVER marks the order Failed.** `cashfree_apply()` writes the failure
+to `cfLastFailure` and leaves `paymentStatus` exactly where order creation put
+it: `Awaiting payment`. The row stays in `db['orders']` with a live fulfilment
+status, so nothing about it looks wrong.
+
+Three admin endpoints then computed revenue from **fulfilment status alone**:
+
+| endpoint | the old line |
+|---|---|
+| `admin/stats` (dashboard) | `$rev = array_sum(array_column($liveOrders,'total'));` |
+| `admin/reports` (GST/CA pack) | `$revenue += (int)($o['total'] ?? 0);` |
+| `admin/cashbook` (day book) | `$orderSales += (int)($o['total'] ?? 0);` |
+
+Each filtered `($o['status'] ?? '') !== 'Cancelled'` and **never read
+`paymentStatus`**. So every gateway test the owner ran while deploying Cashfree
+was summed into revenue, AOV and the daily chart at its **full order total**.
+Measured on a synthetic order book shaped like the owner's: **56% of the
+reported revenue was money that never arrived.**
+
+**The fix — one definition, three call sites.** New helpers in `api.php`:
+`order_money_received()` (Paid → `total`; Partially paid → `amountPaid` clamped
+to `total`; everything else → 0), `order_is_paid_sale()`,
+`order_is_unpaid_attempt()`. COD is excluded too — that money is still in the
+customer's pocket until delivery. Order **count** still reports every order
+placed, and `paidOrders` / `unpaidOrders` are now returned so the dashboard
+shows the split instead of hiding it. The Overview card surfaces the
+unpaid-attempt count next to revenue.
+
+### The purge — one admin action, backup first, customers untouchable
+
+The owner also asked for the data itself gone. **The live data could NOT be
+deleted from this workspace:** `cms/data/db.json` here is a snapshot with
+`orders: []` — the test sales exist only on the Hostinger server — and house law
+forbids hand-editing the live DB. So the tool ships **on the dashboard**
+(Orders tab, top card) and runs on the server with the owner's own credentials.
+
+- `GET /api/admin/purge-unpaid` — **dry-run preview only, writes nothing.**
+  Returns total orders, would-delete, would-keep, value removed, a breakdown by
+  `paymentStatus` and by `paymentMethod`, and the first 25 rows.
+- `POST /api/admin/purge-unpaid` — the real delete, **only** with the exact
+  confirmation phrase. `scope:'unpaid'` (default, safe) needs `DELETE UNPAID`;
+  `scope:'all'` (a full sales reset) needs the longer `DELETE ALL SALES` so a
+  stray click cannot reach it.
+- **Before a single row is removed** the FULL database is written to
+  `data/backups/db-before-purge-<timestamp>.json` (web-denied by `.htaccess`),
+  the last 10 such backups are retained, and the action is audit-logged as
+  `sales.purge-unpaid`. If the backup write fails the purge aborts with 500 and
+  deletes nothing.
+- **Only `db['orders']` is ever spliced.** `users` (B2B + B2C), `partners`,
+  `products`, `settlements`, `reviews`, `coupons` and `catalogs` are provably
+  out of reach — the release builder **asserts** those keys do not appear in the
+  purge route's block. Paid / Partially paid / COD / Refunded orders survive,
+  because that money is real.
+- Logic verified by simulation before shipping: a 10-row book (2 failed
+  gateway tests, 2 paid, 1 COD, 1 WhatsApp, 1 proof-submitted, 1 partial, 1
+  refunded, 1 cancelled) → 5 unpaid attempts removed, 5 paid/COD/refunded kept,
+  all 3 customer rows and the partner record byte-identical.
+
+### What was verified, and what was NOT
+
+**Verified:** `php-parser` clean on `api.php` (139 statements) · `node --check`
+clean on `js/admin.js` and `js/app.js`, on the **shipped zip bytes** not just
+the working tree · the revenue + purge logic simulated in Python with
+assertions on every paymentStatus value · the builder asserts all cumulative
+prior repairs (v171–v175) plus the new v176 invariants · no `?v=175` leftovers
+anywhere · ZIP integrity (`testzip`, namelist, byte-for-byte member match) ·
+remote blob size and git-hash equal to local.
+
+**NOT verified — state this plainly, do not upgrade it:**
+- **No PHP binary in this sandbox. `api.php` was never executed.** A parser
+  pass is not a run. The purge endpoint and the three revenue sites have had no
+  runtime test.
+- **No browser/jsdom test of the new admin card.** The UI was syntax-checked
+  only.
+- **The smoke suite was not re-run for v176** and no v176 suite was added.
+- **The test-order purge has NOT happened.** It is an owner action: install
+  v176, open Orders → *Clear the failed-payment test orders* → Preview → type
+  the phrase. Until he does, the inflated figures remain in the live dashboard
+  and the owner should read them with that in mind.
+- Live site unreachable from the sandbox; nothing here is live-verified.
+
+### Standing rules that still bind (do not lose these)
+
+- **FORWARD ONLY.** Preserve v176 and its tests; new work is targeted forward
+  commits. Never reset/revert to an older release, restore an old ZIP,
+  force-push this branch, or rewrite history. Next release is **177+**.
+- Owner-approved **manual deploys only**. A push/merge is not deployment
+  approval. Nothing here was deployed.
+- **Never hand-edit `cms/data/db.json`.** This collided with the owner's
+  "delete all the sales data" and was resolved by shipping a server-side,
+  backup-first admin tool instead of touching the file — record that choice,
+  do not silently "fix" the collision the other way next time.
+- **Never swap `sw.js` alone.** Index, app, worker, API release and every asset
+  URL move coherently.
+- B2B and B2C customers are explicitly out of scope for any sales cleanup.
+
+## ~~Final verified state~~ — v169, SUPERSEDED by v176 (21 Sep 2026)
+
+> **Historical record. The current release is v176 — read the *CURRENT STATE —
+> v176* section at the top of this file and `DEPLOY-v176.md` instead.**
+> Do not restore or re-point anything to v169.
+
+**Read `docs/SESSION-STATE-2026-09-21-v169.md`** for the complete v169 change
 inventory, commit/evidence map, permanent download and remaining work. This
 section supersedes every older “current/newest”, no-ZIP, old-HEAD or release-freeze
 banner below. Earlier notes are history, not commands to restore old code.

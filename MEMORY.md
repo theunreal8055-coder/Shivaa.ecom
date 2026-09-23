@@ -59,9 +59,100 @@
   the synced directory and are not matched by the exclude list, so a future code
   deploy would upload them (owner decision).
 
-## Final verified state — v169 published; FORWARD ONLY (21 Sep 2026)
+## CURRENT STATE — v176: failed payments stopped counting as sales (23 Sep 2026)
 
-**Read `docs/SESSION-STATE-2026-09-21-v169.md` first** for the complete change
+**Supersedes the v169 record below as the current release.** v170–v176 all landed
+after it. Branch `arena/01a0cd08-shivaa-ecom`, HEAD
+`64c46a9d2a97f20bccf377be6494dc0d8f5362d0` (commits `a1e2698` fix · `212d9d0`
+sw.js comment · `64c46a9` ZIP rebuild).
+
+- **Download:** https://github.com/theunreal8055-coder/Shivaa.ecom/raw/64c46a9d2a97f20bccf377be6494dc0d8f5362d0/shivaa-update-v176.zip
+  **7 files, 426,252 B, SHA-256 `ca53b8b9…6f72674`**; builder
+  `tools/mega/make-v176-zip.py`; deterministic (two runs, same hash); remote
+  GitHub blob `1b91023b…` matches local size and `git hash-object`.
+- **Stamps 176 lockstep** (`__SHIVAA_REL`/`APP_REL`/`shivaa-shell-v176`/`REL`/`'rel'`),
+  54 `?v=176` in index.html + 49 in sw.js. MEDIA stays `shivaa-media-v168`.
+- **NOT deployed, NOT owner-installed, NOT live-verified.** The test-order
+  purge has **not** been run — that is an owner click on his own server.
+
+### Owner report (verbatim)
+*"Actually can you reset all the sales data, because when i was deploying the
+payment gateway integration I was trying sales without actually paying and its
+showing in sales in my dashboard, how can you show sales even if the payment is
+failed, first Delete all the sales data, don't touch b2b and b2c customers"*
+
+### Root cause — a failed payment is never marked Failed
+`cashfree_apply()` records a failure in `cfLastFailure` and **leaves
+`paymentStatus` at `Awaiting payment`**, the value order creation assigned. The
+row keeps a live fulfilment status, so it looks like a normal order. Three
+endpoints then summed revenue from fulfilment status alone, never reading
+`paymentStatus`:
+
+- `admin/stats` — `$rev = array_sum(array_column($liveOrders,'total'));`
+- `admin/reports` — `$revenue += (int)($o['total'] ?? 0);`
+- `admin/cashbook` — `$orderSales += (int)($o['total'] ?? 0);`
+
+All three filtered only `status !== 'Cancelled'`. Every gateway test run during
+the Cashfree deployment was therefore counted at full order total. On a
+synthetic book shaped like the owner's, **56% of reported revenue was phantom.**
+
+### The fix — one definition of "money received"
+`order_money_received()` (Paid → total · Partially paid → amountPaid clamped ·
+everything else → 0) plus `order_is_paid_sale()` and
+`order_is_unpaid_attempt()`. All three endpoints route through it. COD is
+excluded — the money is still the customer's until delivery. Order count still
+reports every order placed; `paidOrders`/`unpaidOrders` are now returned and the
+Overview card shows the unpaid count next to revenue.
+
+### The purge — server-side, backup-first, customers untouchable
+The live data could not be deleted from here: local `db.json` has `orders: []`,
+and house law forbids hand-editing the live DB. So the tool ships on the
+dashboard (Orders tab, top card):
+
+- `GET /api/admin/purge-unpaid` = dry-run preview, writes nothing (counts,
+  value, per-`paymentStatus` and per-method breakdown, first 25 rows).
+- `POST` = delete, only with the exact phrase. `scope:'unpaid'` (default) needs
+  `DELETE UNPAID`; `scope:'all'` needs `DELETE ALL SALES`.
+- Full DB written to `data/backups/db-before-purge-<ts>.json` (web-denied)
+  **before** any removal; last 10 kept; audit-logged `sales.purge-unpaid`;
+  a failed backup write aborts the purge with 500.
+- Only `db['orders']` is spliced — the release builder **asserts** `users`,
+  `partners`, `products`, `settlements`, `reviews`, `coupons` never appear in
+  the purge route. Paid / Partially paid / COD / Refunded survive.
+- Simulated before shipping: 10-row book → 5 unpaid attempts removed, 5
+  paid/COD/refunded kept, all 3 customer rows + the partner record untouched.
+
+### Judgement call recorded (do not silently reverse it)
+The owner said "delete all the sales data", which read literally includes paid
+orders. I shipped a **conservative default** (`unpaid` only) and put the full
+reset behind a longer confirmation phrase, because destroying real money on my
+own judgement is worse than asking him to choose. The preview shows the stakes
+either way.
+
+### Verification status — measured, honest
+- **Passed:** php-parser clean (139 statements) · `node --check` on admin.js and
+  app.js **on the shipped zip bytes** · revenue + purge logic simulated in Python
+  with assertions across every paymentStatus value · builder asserts all
+  cumulative v171–v175 repairs + new v176 invariants · zero `?v=175` leftovers ·
+  ZIP integrity + deterministic hash + remote blob equality.
+- **NOT passed / not attempted:** **no PHP binary — `api.php` never executed** ·
+  no browser/jsdom test of the new admin card · smoke suite not re-run and no
+  v176 suite added · the purge itself has not been run anywhere · live site
+  unreachable from the sandbox.
+
+### Forward-only (standing, restated because the owner asked for it)
+Preserve v176 and its tests. New work is targeted forward commits — never
+reset/revert to an older release, restore an old ZIP, force-push
+`arena/01a0cd08-shivaa-ecom`, or rewrite history. **Next release is 177+.**
+Owner-approved manual deploys only; a push is not approval. Never hand-edit
+`cms/data/db.json`. Never swap `sw.js` alone. B2B and B2C customers are out of
+scope for any sales cleanup.
+
+## ~~Final verified state~~ — v169, SUPERSEDED by v176 (21 Sep 2026)
+
+> **Historical record — the current release is v176.** See the *CURRENT STATE — v176* section at the top of this file and `DEPLOY-v176.md`. Do not restore or re-point anything to v169.
+
+**Read `docs/SESSION-STATE-2026-09-21-v169.md`** for the complete v169 change
 inventory, commit/evidence map, permanent download and remaining work. This
 section supersedes every older “current/newest”, no-ZIP, old-HEAD or release-freeze
 banner below. Earlier notes are history, not commands to restore old code.

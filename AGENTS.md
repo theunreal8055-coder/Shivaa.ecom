@@ -5,10 +5,11 @@
 - PR #90 is merged on `main` (`2393a7949852b9bb1f16cdbfa8b138f83da8235e`):
   MySQL/PDO support, the installer/template and manufacturing-weight workflow are
   retained. The owner reports the 77-product Hostinger migration completed.
-- The public `/api/version` currently reports **release 170** with matching
-  index/app/worker stamps, while this GitHub `main` tree still carries application
-  release **169**. **Never deploy the current 169 tree over live 170.** The next
-  application release must move forward (normally 171+) and pass the anti-downgrade gate.
+- The public `/api/version` last reported **release 170** with matching
+  index/app/worker stamps. The newest published package is **v176** (commit
+  `64c46a9`). **Never deploy an older tree over a newer live site, and never
+  deploy anything without the owner's explicit yes.** Any next application
+  release must move forward from **177** and pass the anti-downgrade gate.
 - Production is now manual-only by owner policy. A push/merge must never update
   Hostinger or the live catalogue. Explain the proposed deployment and ask the
   owner first; one explicit yes authorizes only that one run.
@@ -22,19 +23,26 @@
 
 ## Read first
 
-1. `docs/SESSION-STATE-2026-09-21-v169.md`, then the final-state sections of
-   `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `HANDOFF.md`, `ARENA-STATE.md`.
-   Older “current/newest”, no-ZIP and release-freeze banners are historical.
-2. `tools/mega/audit/DEFECT-LEDGER-v169.md` and `DEPLOY-v169.md`.
+1. **The *CURRENT STATE — v176* section of `docs/AGENT-HANDOFF.md` and
+   `MEMORY.md`, plus `DEPLOY-v176.md`.** These are the live record.
+2. `docs/SESSION-STATE-2026-09-21-v169.md` and `DEPLOY-v169.md` for the v169
+   baseline, then `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `HANDOFF.md`,
+   `ARENA-STATE.md`. Older “current/newest”, no-ZIP and release-freeze banners
+   are historical — the v169 “final state” is history, not a restore
+   instruction.
 3. Actual branch, diff and code. Documents have contained stale counts/labels;
    verify before repeating them.
 
-## Current source state (21 September 2026)
+## Current source state (23 September 2026) — release 176
 
-- Storefront/source release **169**; hardened media cache deliberately stays
-  **168** because no media changed.
+- Storefront/source release **176**; hardened media cache deliberately stays
+  **168** because no media changed. Release stamps move in lockstep
+  (`__SHIVAA_REL`, `APP_REL`, `shivaa-shell-v176`, `REL`, `'rel' => 176`) plus
+  every `?v=` asset stamp in `index.html` and `sw.js`.
 - Prior ledgers:104 repairs; v169 adds **36**, for **140 cumulatively recorded**.
   B20 is separately identified hardening, not a claimed cross-customer exploit.
+  **v170–v176 are separate owner-requested releases recorded in the handoff, not
+  new ledger rows — do not recount them as bugs.**
 - **Published, remotely verified, NOT live-deployed.** Publication commit
   `f847d85057a112296c59ef58a35731a184b74194`; source `db52583`. The owner received the
   immutable link recorded in the final session record. The new
@@ -53,10 +61,15 @@
 
 ## Forward-only / do not repeat completed work
 
-- Preserve the latest verified source. New fixes are targeted forward commits;
-  no release reset/revert, old-file/ZIP restoration or rewritten/force-pushed
-  history. The old v125 freeze was superseded by owner-requested releases
-  through v169; rejected v126 and Truecaller must remain retired.
+**FORWARD ONLY — the owner restated this rule at the close of the v176 session;
+it is absolute.**
+
+- Preserve the latest verified source (currently **v176**). New fixes are targeted
+  forward commits; **no release reset or revert, no old-file or old-ZIP
+  restoration, no rewritten or force-pushed history. The next release is 177 or
+  higher — never reuse or renumber a shipped release.** The old v125 freeze was
+  superseded by owner-requested releases through v176; rejected v126 and
+  Truecaller must remain retired.
 - Consult the completed v168/v169 ledger IDs and tests before changing a path.
   Missing scratch logs do not mean a fix is absent. Do not replay non-idempotent
   `work/audit169/backend.py` / `frontend.py` patch scripts.
@@ -76,6 +89,13 @@
   government data, analytics, payment/courier status or customer confirmations.
 - Do not edit `cms/data/db.json`, customer orders, credentials or uploads to make
   tests pass. Use isolated, clearly labelled QA fixtures.
+  **v176 collision, already resolved — do not resolve it the other way.** The
+  owner asked to "delete all the sales data", which read literally means editing
+  the live `db.json`. House law forbids that, and this workspace's copy has
+  `orders: []` anyway, so the purge ships as a server-side, admin-only,
+  backup-first dashboard action (`/api/admin/purge-unpaid`) instead. Any future
+  "delete the data" request gets the same treatment: build the guarded tool,
+  never hand-edit the database.
 - Never restore the retired verification integration or the rejected v126 work.
 - `.htaccess` is host-managed for deployment. Review its tiny Apache comment fix
   separately; never overwrite the live file wholesale or package it in a ZIP.
