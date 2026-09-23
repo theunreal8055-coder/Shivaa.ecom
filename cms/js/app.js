@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 169;
+const APP_REL = 171;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -9505,6 +9505,9 @@ Object.assign(window.Shivaa, {
   catalogCacheRead, catalogCacheWrite,
   toggleCompare, removeCompare, clearCompare, copyCompareLink, waCompare, compareLink, compareItems,
   routes, price, fmt, esc, safeUrl, jsArg, productCard, mcTableHTML, openLogin,
+  /* v171 — the staff bundle (admin.js) builds its category dropdown from this
+     exact list, so admin and shop can never disagree on categories again */
+  CATS,
   waLink, waOpen, waProductMsg, waCartMsg, waOrderMsg, waCompareMsg, WA_SVG, waFallbackModal,
   redraw: () => route(true),
   openCart, closeCart, renderMiniCart, flyToBag,

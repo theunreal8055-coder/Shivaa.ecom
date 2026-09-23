@@ -7,10 +7,23 @@ const { api, state, toast, fmt, esc, safeUrl, jsArg, openModal, closeModal, toke
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
-const CATS = window.Shivaa ? {
-  rings: 'Rings', necklaces: 'Necklaces', earrings: 'Earrings', bangles: 'Bangles & Kadas', bracelets: 'Bracelets',
-  pendants: 'Pendants & Chains', mangalsutra: 'Mangalsutra', nosepins: 'Nose Pins', silver: 'Silver 925',
-} : {};
+/* v171 — the admin panel now reads the SAME category list the shop renders
+   (window.Shivaa.CATS, exported by app.js). The old private 9-entry copy here
+   was (a) missing 8 live categories (chains, bajubandh, rakhdi, aad,
+   sheeshphool, hathphool, punach, bridalanklets) and (b) a flat string map,
+   while the Add-product form template read `v.name` — `.name` of a string is
+   undefined, so EVERY option in the category dropdown printed "undefined".
+   One source of truth, flattened to key → display name; the literal below is
+   only a fallback for a stale cached app.js that predates the export. */
+const CATS = (window.Shivaa && window.Shivaa.CATS)
+  ? Object.fromEntries(Object.entries(window.Shivaa.CATS).map(([k, c]) => [k, (c && c.name) || k]))
+  : {
+      rings: 'Rings', necklaces: 'Necklaces', earrings: 'Earrings', bangles: 'Bangles & Kadas',
+      bracelets: 'Bracelets', chains: 'Chains', pendants: 'Pendants', mangalsutra: 'Mangalsutra',
+      bajubandh: 'Bajubandh', rakhdi: 'Rakhdi Set', aad: 'Fancy Aad', sheeshphool: 'Sheesh Phool',
+      hathphool: 'Hathphool', punach: 'Punach', bridalanklets: 'Bridal Anklets',
+      nosepins: 'Nose Pins', silver: 'Silver 925',
+    };
 const IMG_FILES = ['ring-floral.jpg','ring-kundan.jpg','ring-signet.jpg','ring-couple.jpg','necklace-rani.jpg','necklace-choker.jpg','necklace-satlada.jpg','earrings-jhumka.jpg','earrings-chandbali.jpg','earrings-studs.jpg','earrings-drops.jpg','bangle-kada.jpg','bangle-pair.jpg','bracelet-tennis.jpg','bracelet-charm.jpg','pendant-om.jpg','pendant-infinity.jpg','chain-gold.jpg','mangalsutra-trad.jpg','mangalsutra-modern.jpg','nosepin.jpg','silver-anklet.jpg','silver-chain.jpg','silver-kada.jpg'];
 
 /* ════════════════ ADMIN ════════════════ */
@@ -1371,7 +1384,7 @@ window.ShivaaAdmin.editProduct = id => {
     <h3 style="font-size:24px;margin-bottom:16px">${id ? 'Edit product' : 'Add product'}</h3>
     <form class="form-grid" onsubmit="ShivaaAdmin.saveProduct(event,'${id || ''}')">
       <div class="fld full"><label>Name</label><input required value="${esc(p.name)}" name="name"></div>
-      <div class="fld"><label>Category</label><select class="sortsel" style="width:100%;border-radius:12px" name="category">${Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${p.category === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select></div>
+      <div class="fld"><label>Category</label><select class="sortsel" style="width:100%;border-radius:12px" name="category">${Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${p.category === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
       <div class="fld"><label>Metal</label><select class="sortsel" style="width:100%;border-radius:12px" name="metal"><option ${p.metal === 'Gold' ? 'selected' : ''}>Gold</option><option ${p.metal === 'Silver' ? 'selected' : ''}>Silver</option></select></div>
       <div class="fld"><label>Purity</label><select class="sortsel" style="width:100%;border-radius:12px" name="purity">${['22K', '18K', '925'].map(x => `<option ${p.purity === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
       <div class="fld"><label>Weight (g)</label><input type="number" step="0.1" required value="${p.weightG}" name="weightG"></div>
@@ -1389,11 +1402,16 @@ window.ShivaaAdmin.editProduct = id => {
       <div class="fld"><label>Stock</label><input type="number" value="${p.stock}" name="stock"></div>
       <div class="fld full"><label>Product pictures ${id ? '· tap the ★ to choose which picture is shown in the list (primary)' : '· pick a picture'}</label>
         <div class="apg-grid" id="apgGrid"></div>
+        <div class="kyc-inline" style="margin-top:6px;flex-wrap:wrap;gap:8px">
+          <input type="file" id="apgFile" accept="image/*" multiple hidden>
+          <button type="button" class="btn btn-primary btn-sm" id="apgUpload">📷 Upload from gallery / camera</button>
+          <span id="apgUpMsg" style="font-size:12px;color:var(--ink-3)"></span>
+        </div>
         <div class="kyc-inline" style="margin-top:6px">
           <select class="sortsel" id="apgStock" style="flex:1;min-width:180px;border-radius:12px">${IMG_FILES.map(f => `<option value="/images/products/${f}">${f}</option>`).join('')}</select>
-          <button type="button" class="btn btn-ghost btn-sm" id="apgAdd">+ Add this picture</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="apgAdd">+ Add this stock picture</button>
         </div>
-        <p class="apg-hint">The picture with the solid gold ★ is the primary picture — it is what shoppers see in the list, the cart and shared links.</p>
+        <p class="apg-hint">Upload your own photos straight from the phone's gallery or camera (JPG / PNG / WEBP, up to 25 MB each), or pick a stock picture below. The picture with the solid gold ★ is the primary picture — it is what shoppers see in the list, the cart and shared links.</p>
       </div>
       <div class="fld full"><label>Sizes (comma separated)</label><input value="${esc((p.sizes || []).join(', '))}" name="sizes"></div>
       <div class="fld full"><label>Tags (comma: wedding, festive, daily, gifting, mens, new, bestseller)</label><input value="${esc((p.tags || []).join(', '))}" name="tags"></div>
@@ -1441,6 +1459,49 @@ window.ShivaaAdmin.editProduct = id => {
     renderImgGrid();
     window.Shivaa.toast('Picture added — tap its ★ to make it primary');
   };
+
+  /* v171 — upload the owner's OWN photos (phone gallery / camera) straight into
+     the product. Before this, the form only offered the fixed stock-picture
+     dropdown — there was no way to attach a photo taken of the real piece.
+     Uses the existing admin-only POST /api/media endpoint (jpg/png/webp,
+     magic-byte-checked, 25 MB cap) and appends each returned /uploads/… URL to
+     the picture grid, where the ★ primary picker already handles it. */
+  const upBtn = document.getElementById('apgUpload');
+  const upInput = document.getElementById('apgFile');
+  const upMsg = document.getElementById('apgUpMsg');
+  const upSay = (t, bad) => { if (upMsg) { upMsg.textContent = t; upMsg.style.color = bad ? 'var(--bad, #b3261e)' : 'var(--ink-3)'; } };
+  if (upBtn && upInput) {
+    upBtn.onclick = () => upInput.click();
+    upInput.onchange = async () => {
+      const files = [...(upInput.files || [])];
+      if (!files.length) return;
+      upBtn.disabled = true;
+      let done = 0, failed = 0;
+      for (const f of files) {
+        if (!/^image\/(jpeg|png|webp)$/.test(f.type) && !/\.(jpe?g|png|webp)$/i.test(f.name)) {
+          failed++; upSay(`"${f.name}" skipped — use JPG, PNG or WEBP`, true); continue;
+        }
+        if (f.size > 25 * 1024 * 1024) { failed++; upSay(`"${f.name}" skipped — over 25 MB`, true); continue; }
+        upSay(`Uploading ${done + failed + 1} of ${files.length}…`);
+        const fd = new FormData();
+        fd.append('file', f);
+        const catSel = document.querySelector('#modalBox [name="category"]');
+        fd.append('category', (catSel && catSel.value) || 'general');
+        try {
+          const r = await api('/api/media', { method: 'POST', body: fd, timeout: 120000 });
+          if (!window._epImages.includes(r.url)) window._epImages.push(r.url);
+          done++;
+          renderImgGrid();
+        } catch (e) { failed++; upSay((e && e.message) || 'Upload failed', true); }
+      }
+      upInput.value = '';
+      upBtn.disabled = false;
+      if (done) {
+        upSay(`✓ ${done} photo${done > 1 ? 's' : ''} added${failed ? ` · ${failed} failed` : ''}`, !!failed);
+        window.Shivaa.toast(done + (done > 1 ? ' photos' : ' photo') + ' uploaded — tap a ★ to choose the primary picture');
+      }
+    };
+  }
 };
 window.ShivaaAdmin.saveProduct = async (e, id) => {
   e.preventDefault();
