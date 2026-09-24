@@ -1,5 +1,92 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
+## v178 published — use Shivaa like an app: no store, no APK, no upload (24 Sep 2026)
+
+**Current release: 178** (owner request: *"how can we give customers an
+option to download the app in their mobile without uploading it to the
+playstore — apk, webapp, or smarter?"*). Forward release on branch
+`arena/01a0d168-shivaa-ecom`; commits `0c8cd29` (source) + `e8fbf52`
+(the ZIP). Full record: `DEPLOY-v178.md` and the *CURRENT STATE — v178*
+section of `docs/AGENT-HANDOFF.md` / `MEMORY.md`.
+
+- **Download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/e8fbf5234729dfa98533fa79c9dbfdf479615db5/shivaa-update-v178.zip
+  — 9 files, 445,829 B, SHA-256
+  `72464db96b0fe9c91d11c4b6c4f9785da0b59b88b68d6c3a4bcc7c18b31f509f`,
+  built from source `0c8cd29`; builder `tools/mega/make-v178-zip.py`;
+  deterministic. Requires full v165+; backup first; no DB/uploads/
+  credentials/media/host `.htaccess`.
+- **The change:** the in-footer PWA app band — a quiet footer card (never
+  floating, never auto-appearing; the v140 law is enforced by tests) with
+  a client-drawn QR of `https://shivaa.in/` (qrcode-generator 1.4.4
+  vendored, MIT) and a CTA. Android Chrome/Edge: the captured
+  `beforeinstallprompt` fires ONLY on the tap; iPhone: tap-only two-step
+  sheet (Share ▢ → "Add to Home Screen"); other Android browsers: ⋮ menu;
+  desktop: menu → Install. The sheet closes instantly (×, backdrop, Esc);
+  Hide persists (30-day re-show); standalone never shows the band. New
+  assets `css/v178.css` (last sheet) + `js/v178.js` (last deferred
+  layer); sw precache +2; stamps 177 → 178 lockstep; MEDIA stays 168.
+- **Unchanged:** no API route, no admin, no money code, no customers or
+  orders; the v176/v177 purge/stats/cash-book behaviour is re-asserted by
+  the builder and re-run by the PHP suite.
+- **Verified (executed):** on the shipped ZIP bytes `v178-check.js`
+  17/17 (incl. the vendored QR encoder executed: finders/timing/
+  determinism) + `v178-php-run.js` 17/17 (PHP 8.3, full v177 regression
+  carried over, version handshake 178) · full belt **158 executed checks,
+  0 failures** · **remote-verified after push:** contents API size 445,829 +
+  blob `538ccebf…619` (= local `git hash-object`); authenticated download
+  byte-identical. **NOT verified:** no owner install, live unreachable,
+  real browser install flows not run (stubs only) — a physical phone is
+  the final acceptance.
+- **Forward only:** v176, v177 and v178 all stay shipped; **next release
+  is 179+**; owner-approved manual deploys only.
+
+## v177 — the v176 rework, fixed (24 Sep 2026) — HISTORY, superseded as current by v178
+
+**Current release: 177** (owner request: *"make v176 again but better,
+without bugs and errors"*). Forward release on branch
+`arena/01a0d168-shivaa-ecom` (branched from `bc666f3`, the PR #93 merge that
+carried v171–v176 onto `main`); commits `a77dacf` + `29e2c0d`. Full record:
+`DEPLOY-v177.md` and the *CURRENT STATE — v177* section of
+`docs/AGENT-HANDOFF.md` / `MEMORY.md`.
+
+- **Download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/557fb51c194f4acfbe08bd0f7e69e4660c4da0cf/shivaa-update-v177.zip
+  — 7 files, 427,896 B, SHA-256
+  `2c9fff1a8b39e186093e44ecac0980189e7ca783337be677e35d5bea6b35dec2`,
+  built from source `29e2c0d`; builder `tools/mega/make-v177-zip.py`;
+  deterministic. Requires full v165+; backup first; no DB/uploads/credentials
+  /media/host `.htaccess`.
+- **Five v176 defects repaired:** (1) **the confirmed purge could never
+  run** — the backup used `JSON_UNESIGNED_SLASHES`/`JSON_UNESIGNED_UNICODE`,
+  nonexistent constants, so every confirmed delete 500'd after the phrase
+  (no backup, no delete); now the real `JSON_UNESCAPED_*` flags, guarded by a
+  static check; (2) **the preview ignored `?scope=`** — "every order"
+  selected showed the safe slice and the short phrase; GET now reads the
+  query, POST the body; (3) **same-second backups could overwrite each
+  other** — names now made unique before writing; (4) **the day book's COD
+  tile read ₹0 forever** — the cash book now counts money on the day it
+  arrives from the order's payment ledger (online/UPI receipt day, proof
+  approval day, COD collection day, legacy paidAt/createdAt; cancelled
+  excluded; no double count), tile renamed "COD collected"; (5)
+  **crash-proofing + honest note** — stats byDay could 500 on a row missing
+  `createdAt`, the preview `TypeError`'d on a scalar legacy `address`, the
+  audit line re-read the bearer mid-route, and the scope-`all` note no
+  longer claims "every paid order was untouched".
+- **Unchanged:** the v176 money-received core (dashboard, reports and cash
+  book count only money actually received), the confirmation phrases,
+  backup-first ordering, last-10 retention, and the scope — only
+  `db['orders']` is ever spliced; B2B and B2C customers, partners,
+  products, settlements, reviews and coupons are provably untouched.
+- **Verified (executed):** `v177-php-run.js` 17/17 under PHP 8.3 (also
+  against the extracted ZIP bytes) · `v177-check.js` 11/11 · full belt
+  40 pass / 16 retired skip / 0 fail (pre-edit baseline 38/16/0) · v169
+  gates on shipped bytes 28/28 + 25/25 · v168 signatures 12/12 · php-sweep
+  212 routes / 0 exceptions. **NOT verified:** no owner install, live site
+  unreachable, purge not run anywhere, no main merge / deployment / real
+  payment.
+- **Forward only:** v176, v177 and v178 all stay shipped; **next release is 179+**; owner-approved manual deploys only.
+
 ## Deployment control update — owner approval required (22 Sep 2026)
 
 PR #90 is merged on `main` (`2393a7949852b9bb1f16cdbfa8b138f83da8235e`),

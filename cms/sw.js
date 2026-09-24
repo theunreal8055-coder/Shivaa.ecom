@@ -24,14 +24,28 @@
  is the owner's "people still see the 15-day-old version". New stamps are URLs
  no device has ever cached. This worker also announces its release to every
  open tab on activate (SHV_RELEASE) and honours a page asking it to drop every
- cache before re-entering on the newest release (SHV_PURGE). */
+ cache before re-entering on the newest release (SHV_PURGE).
+ v177: shell re-stamped for the v176-defect rework (scope-honest purge
+ preview, crash-proof stats, ledger-true day book). No new assets, no media
+ change — the MEDIA generation below deliberately stays at its own number.
+ v178: shell re-stamped for the in-footer app band — the PWA install
+ nudge (no store, no APK): new assets css/v178.css + js/v178.js, pre-cached.
+ The band itself is plain footer HTML; this worker only keeps it fresh.
+ The MEDIA generation below stays put.
+ v179: bullion rates — the permanent fix. No new shell assets (the relay
+ runs on its own host, not the site); the api changes are: the
+ MCX-over-spot premium is now auto-learned while both feeds are live, and
+ when MCX is down the site prices from spot × that premium (honest
+ 'mcx-est' label) instead of raw spot; last-good MCX persists; /api/rates
+ carries a `health` object; relay pull health lands in a throttled side
+ file. */
 'use strict';
-const SHELL = 'shivaa-shell-v176';
+const SHELL = 'shivaa-shell-v179';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 176;
+const REL = 179;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -51,16 +65,18 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks befor
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = ['/', '/index.html',
-  '/css/fonts.css?v=176', '/css/styles.css?v=176', '/css/hallmark.css?v=176',
-  '/css/trust.css?v=176', '/css/finale.css?v=176', '/css/motion.css?v=176',
-  '/css/mobile.css?v=176', '/css/aurum.css?v=176', '/css/v107.css?v=176',
-  '/css/boost.css?v=176', '/css/v113.css?v=176', '/css/v115.css?v=176',
-  '/css/v116.css?v=176', '/css/v117.css?v=176', '/css/v118.css?v=176', '/css/v119.css?v=176', '/css/v120.css?v=176', '/css/v121.css?v=176', '/css/v122.css?v=176', '/css/v125.css?v=176', '/css/v139.css?v=176', '/css/v140.css?v=176', '/css/v167.css?v=176', '/css/v174.css?v=176', '/css/v175.css?v=176',
-  '/js/otp-autofill.js?v=176', '/js/app.js?v=176', '/js/hallmark.js?v=176',
-  '/js/trust.js?v=176', '/js/auth.js?v=176', '/js/motion.js?v=176',
-  '/js/aurum.js?v=176', '/js/v107.js?v=176', '/js/boost.js?v=176',
-  '/js/v116.js?v=176', '/js/v117.js?v=176', '/js/v118.js?v=176', '/js/v119.js?v=176', '/js/v120.js?v=176', '/js/v122.js?v=176', '/js/v125.js?v=176', '/js/v127.js?v=176', '/js/v139.js?v=176', '/js/v140.js?v=176', '/js/v166.js?v=176', '/js/v167.js?v=176',
-  '/fonts/jost.woff2?v=176', '/fonts/cormorant-garamond.woff2?v=176', '/fonts/marcellus-400.woff2?v=176',
+  '/css/fonts.css?v=179', '/css/styles.css?v=179', '/css/hallmark.css?v=179',
+  '/css/trust.css?v=179', '/css/finale.css?v=179', '/css/motion.css?v=179',
+  '/css/mobile.css?v=179', '/css/aurum.css?v=179', '/css/v107.css?v=179',
+  '/css/boost.css?v=179', '/css/v113.css?v=179', '/css/v115.css?v=179',
+  '/css/v116.css?v=179', '/css/v117.css?v=179', '/css/v118.css?v=179', '/css/v119.css?v=179', '/css/v120.css?v=179', '/css/v121.css?v=179', '/css/v122.css?v=179', '/css/v125.css?v=179', '/css/v139.css?v=179', '/css/v140.css?v=179', '/css/v167.css?v=179', '/css/v174.css?v=179', '/css/v175.css?v=179',
+  '/css/v178.css?v=179',
+  '/js/otp-autofill.js?v=179', '/js/app.js?v=179', '/js/hallmark.js?v=179',
+  '/js/trust.js?v=179', '/js/auth.js?v=179', '/js/motion.js?v=179',
+  '/js/aurum.js?v=179', '/js/v107.js?v=179', '/js/boost.js?v=179',
+  '/js/v116.js?v=179', '/js/v117.js?v=179', '/js/v118.js?v=179', '/js/v119.js?v=179', '/js/v120.js?v=179', '/js/v122.js?v=179', '/js/v125.js?v=179', '/js/v127.js?v=179', '/js/v139.js?v=179', '/js/v140.js?v=179', '/js/v166.js?v=179', '/js/v167.js?v=179',
+  '/js/v178.js?v=179',
+  '/fonts/jost.woff2?v=179', '/fonts/cormorant-garamond.woff2?v=179', '/fonts/marcellus-400.woff2?v=179',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];

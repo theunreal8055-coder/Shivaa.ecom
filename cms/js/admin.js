@@ -472,6 +472,47 @@ async function renderAdmin(view, q) {
     })();
   }
 
+
+/* v179 — one-glance bullion pipeline health, rendered from the /api/rates
+   `health` payload. The owner's rule: if this strip says "nothing to
+   touch", then it is true. */
+function v179HealthStrip(R) {
+  const h = (R && R.health) ? R.health : null;
+  if (!h) return '';
+  const dot = (cls) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;background:${cls === 'ok' ? '#2e7d32' : cls === 'warn' ? '#b98a2f' : '#c62828'}"></span>`;
+  const t = (iso) => iso ? new Date(iso).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '';
+  const mcxLive = !!(h.mcx && h.mcx.live);
+  const est = String(R.source || '').startsWith('mcx-est');
+  const relOk = h.relay ? h.relay.ok : null;
+  const rows = [];
+  if (mcxLive) rows.push(['ok', `<b>MCX official</b> live — ${h.tick && h.tick.relayFresh ? 'relay ' + (h.tick.ageSec == null ? '?' : h.tick.ageSec) + ' s ago' : 'site-side Angel poll'}${h.mcx && h.mcx.goldSymbol ? ' · ' + esc(h.mcx.goldSymbol) + ' / ' + esc(h.mcx.silverSymbol) : ''}`]);
+  else if (est) rows.push(['warn', `<b>MCX official</b> down — pricing <b>auto-estimates</b> from spot × the live-learned premium (≈ market). Self-heals when the feed returns — <b>nothing to touch</b>.`]);
+  else rows.push(['bad', `<b>MCX official</b> down and no live spot estimate either — check the two lines below.`]);
+  if (relOk === true) rows.push(['ok', `<b>Relay (Render)</b> fresh${h.tick && h.tick.ageSec != null ? ' · ' + h.tick.ageSec + ' s' : ''}`]);
+  else if (relOk === false) rows.push(['warn', `<b>Relay (Render)</b> down — ${esc(h.relay.error || 'no response')} · last ok ${t(h.relay.at)} (prices are unaffected: the estimate ladder holds)`]);
+  else rows.push(['warn', `<b>Relay</b> not configured — the site polls Angel directly (the permanent setup; deploy <code>cms/relay</code> to Render only if you want the 1-s board)`]);
+  if (h.angel && h.angel.configured) rows.push(h.angel.lastError ? ['warn', `<b>Angel (site direct)</b> configured — last error: ${esc(h.angel.lastError)} · ${t(h.angel.errorAt)}`] : ['ok', `<b>Angel (site direct)</b> configured — the permanent MCX source; TOTP re-login is automatic`]);
+  else rows.push(['warn', `<b>Angel (site direct)</b> not configured — add the five Angel fields in Settings once; after that the site prices MCX by itself and the relay is optional`]);
+  const sp = (h.spot && h.spot.src) || {};
+  rows.push(['ok', `<b>Dollar / spot</b> OK — gold: ${esc(sp.gold || '?')} · silver: ${esc(sp.silver || '?')} · FX: ${esc(sp.fx || '?')}${h.spot && h.spot.ageSec != null ? ' · ' + h.spot.ageSec + ' s ago' : ''}`]);
+  if (h.premium) {
+    const pf = (p) => p ? '×' + Math.round(p.factor * 1000) / 1000 + ' (' + p.origin + ')' : '?';
+    rows.push([h.premium.samples ? 'ok' : 'warn', `<b>MCX premium</b> (auto-learned from live pairs) — gold ${pf(h.premium.gold)} · silver ${pf(h.premium.silver)}${h.premium.samples ? ' · ' + h.premium.samples + ' samples' : ' · no samples yet — using the settings factors'}`]);
+  }
+  const overall = h.overall === 'ok'
+    ? ['ok', '✓ All good — nothing to touch.']
+    : (h.overall === 'degraded'
+      ? ['warn', '⚠ MCX feed down — prices are estimated, not wrong: the spot + live-learned premium ladder is holding. No manual fixing needed.']
+      : ['bad', '✕ Bullion feed down — open the relay healthz on Render and check the Angel credentials below.']);
+  return `<div class="adm-card" style="border-left:3px solid ${overall[0] === 'ok' ? '#2e7d32' : overall[0] === 'warn' ? '#b98a2f' : '#c62828'}">
+    <h3>Pipeline health <span style="font-size:12px;color:var(--ink-3);font-weight:400">— the permanent fix: if this says nothing to touch, it is true</span></h3>
+    <p style="font-size:13.5px;font-weight:600;margin:0 0 10px">${dot(overall[0])}${overall[1]}</p>
+    <div style="display:grid;gap:6px;font-size:12.5px;color:var(--ink-2)">
+      ${rows.map(r => `<div style="display:flex;align-items:baseline">${dot(r[0])}<span>${r[1]}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
+
   /* ── RATES ── */
   if (tab === 'rates') {
     const R = state.rates;
@@ -480,6 +521,7 @@ async function renderAdmin(view, q) {
         ${[['Gold 24K', R.gold24, '/g'], ['Gold 22K', R.gold22, '/g'], ['Gold 18K', R.gold18, '/g'], ['Silver 925', R.silver, '/g']]
           .map(c => `<div class="stat"><small>${c[0]}</small><b>${fmt(c[1])}${c[2]}</b><span>per 10g: ${fmt(c[1] * 10)}</span></div>`).join('')}
       </div>
+      ${v179HealthStrip(R)}
       <div class="adm-card"><h3>Feed control <span class="src-badge ${R.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(R.source)}</span></h3>
         <p style="font-size:13.5px;color:var(--ink-2);margin-bottom:14px">Server polls the bullion market every 10 minutes (XAU/XAG USD→INR). "Refresh now" forces an immediate poll; override pins the counter rate (e.g., for in-store boards) until cleared.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -802,7 +844,9 @@ async function renderAdmin(view, q) {
       <div class="cb-grid">
         <div class="cb-tile"><small>Online / prepaid sales</small><b>${fmt(cashData.onlineSales||0)}</b></div>
         <div class="cb-tile"><small>WhatsApp confirmed</small><b>${fmt(cashData.waSales||0)}</b></div>
-        <div class="cb-tile"><small>COD booked</small><b>${fmt(cashData.codSales||0)}</b></div>
+        <!-- v177 — the day book now counts COD the day the cash is actually
+             in hand (its ledger row), so the tile says "collected", not "booked" -->
+        <div class="cb-tile"><small>COD collected</small><b>${fmt(cashData.codSales||0)}</b></div>
         <div class="cb-tile out"><small>Old-gold paid out</small><b>−${fmt(cashData.oldGoldOut||0)}</b></div>
       </div>
       <form class="form-grid" style="grid-template-columns:.8fr 2fr 1fr 1fr auto;align-items:end;margin-top:14px" onsubmit="ShivaaAdmin.cbAdd(event,${jsArg(cashData.date)})">

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 176;
+const APP_REL = 179;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -2619,7 +2619,17 @@ function rateAgeLabel(R) {
     const s = Math.max(1, Math.round((R.liveAgeMs + Math.max(0, Date.now() - _lastRatesAt)) / 1000));
     return { txt: 'MCX live · ' + s + 's ago', live: true };
   }
-  return { txt: (R.source === 'live-mcx' ? 'MCX' : R.source === 'live' ? 'Live spot' : esc(R.source)) + ' · ' + timeFmt(R.t), live: false };
+  /* v179 — honest labels: the auto-estimate (spot × the live-learned MCX
+     premium) is named as such, so nobody mistakes it for the exchange feed. */
+  let src;
+  if (R.source === 'live-mcx') src = 'MCX';
+  else if (String(R.source || '').startsWith('mcx-est')) {
+    const p = (R.health && R.health.premium) ? R.health.premium.gold : null;
+    src = 'MCX estimate · spot ×' + (p ? Math.round(p.factor * 1000) / 1000 : 'premium')
+      + (p && p.origin === 'calibrated' ? ' (auto-learned)' : '') + ', MCX feed down';
+  }
+  else src = R.source === 'live' ? 'Live spot' : esc(R.source || 'cached');
+  return { txt: src + ' · ' + timeFmt(R.t), live: false };
 }
 function renderTicker() {
   const R = state.rates; if (!R) return;

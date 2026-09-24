@@ -1,23 +1,362 @@
-# AGENT HANDOFF — v176 published, not live-verified (23 Sep 2026)
+# AGENT HANDOFF — v179 deployed, relay error resolved (24 Sep 2026)
 
-> **Current release: 176.** The v169 block below is history. Read the
-> *CURRENT STATE — v176* section first, then the v169 record, then the
-> historical notes. **Forward only — never revert to an older release.**
+> **Current release: 179 (live).** Read the *CURRENT STATE — v179 DEPLOYED*
+> section first, then the superseded v179-built record, then the v178 record
+> (history), the v177 record, the v176 record, the v169 record, then the
+> historical notes.
+> **Forward only — never revert to an older release.**
 
 ## Deployment control update — owner approval required (22 Sep 2026)
 
 PR #90 is merged at `2393a7949852b9bb1f16cdbfa8b138f83da8235e`; the owner
 reports the Hostinger MySQL migration of 77 products succeeded. Live `/api/version`
-last reported release **170**; the newest published package is **v176** (commit
-`64c46a9`). **Never deploy an older tree over a newer live site, and never deploy
+last reported release **170**; the newest published package is **v178** (source commit `0c8cd29`). **Never deploy an older tree over a newer live site, and never deploy
 anything without the owner's explicit yes.** Any next application release must
-move forward from **177** and pass the anti-downgrade gate. Production deployment
+move forward from **179** and pass the anti-downgrade gate. Production deployment
 is manual-only: ask the owner first, then use the approval-gated workflow from
 `main`. Merges do not authorize deployment.
 Credentials stay in GitHub Actions secrets, and the old Hostinger cron code writer
 must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
 
+## CURRENT STATE — v179 DEPLOYED BY OWNER, relay error resolved (24 Sep 2026)
+
+- **Live is 179.** Owner uploaded `shivaa-update-v179.zip` to Hostinger;
+  `/api/version` = 179 owner-confirmed (the sandbox cannot route to
+  shivaa.in, so live checks are owner-confirmed; the published ZIP itself
+  was byte-verified via the GitHub API — DEPLOY-v179.md).
+- **The "signal is aborted without reason" error is resolved
+  (owner-confirmed 24 Sep).** Root-cause chain, for future agents:
+  the old v78 relay (Render) kept dying internally (undici AbortError)
+  while still serving stale frames; the board's SSE line is fed from the
+  **\*Browser push URL\*** Settings field (`angelRelayStreamUrl` — NOT the
+  *Relay server URL* field), and the board status line
+  (`[data-tickstate]`, admin.js `setTickState`) prints a stale frame's
+  `error` field **verbatim**. Owner's fix: both relay Settings fields
+  cleared, hard refresh, old Render service deleted (instructed).
+- The site now prices MCX from its **own** Angel One feed (one-time creds
+  in Admin → Settings → "Enable official MCX feed" section). The new relay
+  (`cms/relay`) is NOT deployed yet — it is optional and only restores the
+  public 1-second board motion; prices are correct without it.
+- **Owner asked "is it permanently fixed?"** — answer on record: that error
+  has no path back (dead relay cut out; v179 treats any dead relay as a
+  non-breaking strip line), and the rates ladder self-heals
+  MCX-down / relay-down / spot-down without owner touch (belt 164/0).
+  Residual owner items: re-enter Angel creds only if Angel rotates them
+  (strip names the field); optional `cms/relay` Render deploy.
+- **PENDING — final owner acceptance (the permanence proof):** after
+  23:40 IST market close → Pipeline health strip turns amber
+  "auto-estimating" with rates on market and no action; 09:00 next day →
+  back to green live. Owner to report the cycle. v177/v178 phone-side
+  acceptances remain open from earlier releases.
+- **Closed out per owner instruction (24 Sep 2026):** branch
+  `arena/01a0d168-shivaa-ecom` pushed and **merged to `main` via PR**
+  (owner asked for the merge explicitly). Merging is not deployment
+  approval; live was already 179 and main now matches it. Next release:
+  **180+**, forward only.
+
+## SUPERSEDED — v179 BUILT, belt green (24 Sep 2026)
+**Implementation COMPLETE (24 Sep 2026, this session):**
+- `4670cb8` — the v179 core on the 179 tree: `cms/api.php` (calibrated
+  premium `premium_calibrate`/`premium_factor_for`, honest `mcx-est`
+  ladder with `premiumEst` + `spotKind` + fresh `quotedAt`,
+  `rates.mcxLastGood` persistence, `rates_health()` on the public
+  `/api/rates`, the **GET-route `db_save` before `jout()` exits** —
+  without it every poll's calibration/last-good was silently discarded,
+  throttled `.relay-health.json` side-file), `cms/relay/relay.js` +
+  `package.json` + `README-RENDER.md` (relay v2, zero-dep Node 18+,
+  same `/tick` + `/stream` contract + `/healthz`, self-heal for every
+  failure mode incl. "signal is aborted without reason", TOTP verified
+  against the RFC 6238 vectors), the admin **Pipeline health strip**
+  (Live Rates tab) and the honest storefront `mcx-est` label, stamps
+  178 → 179 in lockstep (MEDIA stays v168).
+- `d51a7c8` — `shivaa-update-v179.zip` (9 files, 450,237 B, SHA-256
+  `e6f4265f…54e8d`, built from `4670cb8`), DEPLOY-v179.md, the belt
+  rotated to the v179 chain (v178 suites on disk, off chain; their
+  regression content re-executes inside v179-php-run).
+- **Belt: 164 executed checks, 0 failures** — deploy gate 20,
+  v179-check 8 (incl. the relay TOTP run against the RFC vectors),
+  v179-php-run 25 (v178/v177 purge+stats regression carried + R01–R08
+  executing the rates engine end-to-end, incl. the RTGS strip staying
+  on-market with MCX down), v179-relay 7 (the real relay vs a mock
+  Angel: backoff self-heal, 401 → re-login, crash → last tick served),
+  v169 25+28 (B21 tests now assert the v179 premium on live legs),
+  v168 39+12.
+- **PENDING — GitHub connection:** the sandbox token expired mid-session
+  (`GH_TOKEN` no longer valid) → the branch `arena/01a0d168-shivaa-ecom`
+  is **not pushed past `39e9fc9`** (v178); local tip is `bb3a8d3`.
+  After the owner reconnects GitHub in Arena: push
+  `git push origin arena/01a0d168-shivaa-ecom`, then remote-verify the
+  published ZIP (contents API at ref `d51a7c8`: size 450,237 + byte
+  comparison of an authenticated download) and record it in
+  DEPLOY-v179.md. NOTHING is deployed — owner deploys manually from
+  DEPLOY-v179.md + `cms/relay/README-RENDER.md`.
+
+
+
+> **Work order from the owner (verbatim):** *"signal is aborted without
+> reason, in MCX and dollar connection in bullion rates, the dollar
+> connection is working fine, but mcx connection from render is showing
+> this error … please give me a permanent solution for bullion rates that
+> I don't ever have to touch the rates in the next update, but first
+> update agent handoff and memory doc then work on this update."*
+
+**Diagnosis (recon complete, no code yet):**
+- "signal is aborted without reason" is a Node/undici AbortError — it
+  comes from the **v78 push relay**, a standalone Node service running on
+  **Render** whose source is NOT in this repository (it was handed over
+  for deployment there). Its long-lived Angel SmartStream connection gets
+  aborted (platform/code timeout) and the relay does not self-heal.
+- The **dollar leg** is fine because it is PHP on the Hostinger box with
+  a multi-tier provider ladder (gold-api / ECB / exchange-rate / Yahoo /
+  jsDelivr) — no single point of failure.
+- The MCX leg depends on the Render relay as its live source. While the
+  relay is dead: the live board freezes, and `rates_refresh` falls back
+  to a **RAW spot conversion** (`gold24 = XAU_USD × USDINR / OZ`) that is
+  systematically ~10–14% BELOW the real market, because MCX futures carry
+  duty + premium. **That is why the owner has to touch the rates manually
+  every time the relay dies.** The premium factors already exist in the
+  codebase (`spotImpliedGoldFactor` ≈ 1.1371, `spotImpliedSilverFactor`
+  ≈ 1.1838, owner-tunable in settings) but are only used MCX→USD, never
+  USD→MCX-estimate.
+
+**v179 design (agreed shape; builds on the v178 tree, stamps 178 → 179,
+MEDIA stays v168, ZIP stays the same 9-file cumulative union):**
+1. **Site self-sufficiency (the permanent part).** The Hostinger box
+   becomes the permanent MCX source: Angel SmartAPI credentials go in the
+   site's own admin panel (fields already exist: angelEnabled/ApiKey/
+   Client/Mpin/TotpSecret). TOTP self-heals the daily 3:30 AM expiry;
+   contract rollover auto-resolves via Search Scrip. After this one-time
+   setup the Render relay is OPTIONAL board polish — its death can never
+   blank or skew prices again.
+2. **Premium-aware automatic fallback.** When MCX is dead (relay down AND
+   Angel unconfigured/failing/cooling), `rates_refresh` prices
+   `gold24 = spotXau × USDINR / OZ × premium` with an **auto-calibrated**
+   factor: every time MCX and spot are both live, the live ratio is
+   recorded (rolling median, stored in `db['rates']['premiumCalib']`);
+   the calibrated value wins when fresh (< 7 d) and sane (0.9–1.5),
+   otherwise the settings factor. Labeled `source = 'mcx-est'` — honest,
+   visible, and ≈ market without the owner touching anything.
+3. **Last-good persistence + honest freshness.** The last official MCX
+   pack persists (`db['rates']['mcxLastGood']` with timestamp); the
+   public `/api/rates` payload carries a `health` object (mcx source +
+   age, premium factor + calibrated?, relay last-ok, spot sources); the
+   storefront ticker shows a small honest tag (MCX live / MCX est. /
+   delayed); the admin Live Rates tab shows a plain-English health strip
+   (green/amber per leg) so "all good" is one glance.
+4. **Relay v2 IN THIS REPO** (`cms/relay/relay.js`, zero npm deps, Node
+   18+): a self-healing Angel **REST** poller — same public contract as
+   v78 (`/tick` + `/stream?key=` SSE, X-Relay-Key auth, /healthz), but
+   built only on the SmartAPI endpoints this codebase already proves
+   (loginByPassword + TOTP, searchScrip, quote @ 1 rps): auto re-login on
+   401/daily expiry, contract re-resolution at rollover, exponential
+   backoff + jitter on ANY error (including aborts), no-frame watchdog,
+   last-tick persisted to disk. Deployable to Render in two minutes; if
+   it ever dies again, 1–3 hold the prices.
+5. **Belt:** `v179-check.js` (static invariants) + `v179-php-run.js`
+   (carries the v178/v177 purge+stats regression over, adds the rates
+   engine tests: MCX live → live-mcx + calibration recorded; MCX dead →
+   mcx-est within the sane band using the calibrated factor; both dead →
+   last stamp; health payload; legacy-db safety) + `v179-relay.js`
+   (Node, against a mock Angel: backoff on abort, re-login on 401, /tick
+   survives a crash, stream clients get frames). Release-check suites of
+   superseded releases leave the chain (stay on disk).
+
+**One-time owner action after deploying v179:** paste the five Angel
+credentials into admin → Live Rates (or Settings) and save. Nothing else,
+ever. Until that is done, layers 2–4 still remove the manual fixing
+(spot+premium estimate instead of raw spot).
+
+
+## CURRENT STATE — v178: use Shivaa like an app — the in-footer PWA band (24 Sep 2026)
+
+**Supersedes the v177 record below as the current release.** Owner request:
+*"How can we give customers an option to download the app in their mobile
+without even uploading it to the playstore — is apk better or webapp or a
+smarter way?"* Agreed with the owner: **PWA first.** The site already
+ships the whole app substrate (standalone manifest, 192/512 + maskable
+icons, service worker, iOS meta tags, offline shell); v178 adds only the
+missing nudge. No APK, no Play Store, no signing key, no upload — future
+releases update the "app" through the existing release dial.
+
+- **The change:** a quiet **in-footer app band** (plain HTML between the
+  footer nav and the trust row) with a **client-drawn QR** of
+  `https://shivaa.in/` and a CTA. Android Chrome/Edge: the real
+  `beforeinstallprompt` is captured (`preventDefault`) and fired **only on
+  the CTA tap**; `appinstalled` hides the band. iPhone: a **tap-only
+  two-step sheet** (Share ▢ → "Add to Home Screen"). Other Android
+  browsers: ⋮ menu → "Add to Home screen". Desktop: browser menu →
+  Install. The sheet closes instantly (×, backdrop, Esc). The card's
+  **Hide** is instant and **persists** (versioned `localStorage` key,
+  30-day courtesy re-show). Standalone (Chrome `display-mode` + iOS
+  `navigator`) never shows the band. New assets: `css/v178.css` (last
+  stylesheet) and `js/v178.js` (last deferred layer; qrcode-generator
+  1.4.4 vendored verbatim — MIT, © 2009 Kazuhiko Arase — in its own IIFE).
+- **The v140 law — enforced by tests, not memory:** the band uses no
+  `position:fixed/absolute`, the file contains **no timers**, no browser
+  alerts, **never creates the dead floating install chip's element id**,
+  the only overlay is the tap-open sheet, and every close is instant with
+  a persisted dismiss.
+- **Stamps 178 lockstep** (`__SHIVAA_REL=178` / `APP_REL = 178` /
+  `shivaa-shell-v178` / `REL = 178` / `'rel' => 178`), 56 `?v=178` in
+  `index.html` + 51 in `sw.js`, both new assets precached. MEDIA stays
+  `shivaa-media-v168` (no media changed). **No API route, no admin
+  surface, no money code, no customers/orders changed.**
+- **Download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/e8fbf5234729dfa98533fa79c9dbfdf479615db5/shivaa-update-v178.zip
+  **9 files, 445,829 B, SHA-256**
+  `72464db96b0fe9c91d11c4b6c4f9785da0b59b88b68d6c3a4bcc7c18b31f509f`,
+  built from source `0c8cd291510999503259f370d49eccf044dc4866`;
+  publication commit `e8fbf5234729dfa98533fa79c9dbfdf479615db5`;
+  builder `tools/mega/make-v178-zip.py`; deterministic; every member
+  byte-matches its committed `cms/` source.
+- **Remote-verified after push:** contents API size **445,829** + Git blob
+  `538ccebf4768706bef942435e0592c5b0a809619` (= local `git hash-object`);
+  authenticated download byte-identical.
+- **Verified (executed, on the shipped ZIP bytes):** `v178-check.js`
+  **17/17** (static invariants + the vendored QR encoder executed:
+  version-1 grid, finder patterns, timing dark-on-even, determinism, grid
+  growth + DOM behaviour of the real shipped band in an isolated browser:
+  first visit shows the card with the QR drawn on-device; the captured
+  prompt fires only on the CTA tap and never alone; a declined prompt
+  leaves the card exactly as it was; the iPhone sheet names "Share" and
+  "Add to Home Screen" and closes instantly via button, Esc and backdrop;
+  the Android fallback names the ⋮ menu; `appinstalled` hides and
+  remembers; the dismiss persists across reloads with the 30-day re-show
+  honoured; standalone never shows the band) · `v178-php-run.js`
+  **17/17** (PHP 8.3; the complete v177 regression carried over unchanged
+  + `/api/version` now 178 with a matched handshake) · full belt
+  **158 executed checks, 0 failures** (approval gate 20, v178 17, v178
+  PHP 17, v169 pages 25, v169 PHP 28, v168 boundary 39, v168 PHP 12). The
+  superseded v177 static suite stays on disk, off the belt chain. NOT
+  verified: no owner install, live site unreachable, real Chrome/Safari
+  install flows not run (faithful stubs) — a physical phone is the final
+  acceptance. No main merge, no Hostinger deployment, no real payment.
+- **Commits:** `0c8cd29` (source: band + two assets + 178 stamps + both
+  suites + builder) · `e8fbf52` (the ZIP publication).
+
+### Forward-only (restated)
+v176, v177 AND v178 are shipped — never reset/revert, restore an old ZIP,
+force-push or rewrite history. **Next release is 179+.** Owner-approved
+manual deploys only; a push is not approval. Never hand-edit
+`cms/data/db.json`. Never swap `sw.js` alone. B2B and B2C customers are
+out of scope for any sales cleanup. Agreed future phases (owner to
+approve later): Android web push (VAPID) as optional Phase 2 — iPhone web
+push is impossible, iPhone stays on the WhatsApp/SMS lanes; a direct APK
+only if ever demanded (it would introduce a permanent signing key).
+
+## CURRENT STATE — v177 published: the v176 rework, fixed (24 Sep 2026) — HISTORY, superseded as current by v178
+
+**This section supersedes the v176 "CURRENT STATE" below for anything about
+the current release.** v177 is the owner-requested *"make v176 again but
+better, without bugs and errors"* — a forward release, not a reset: the same
+seven files, the same owner flow, five v176 defects repaired and executed
+PHP tests added that catch each one.
+
+- **Branch / HEAD:** `arena/01a0d168-shivaa-ecom`, branched from `bc666f3`
+  (PR #93 merge, which carried v171–v176 onto `main`). Commits this release:
+  `a77dacf` (the five fixes + stamps + both v177 suites + builder) ·
+  `29e2c0d` (builder assertion fix; the ZIP is built from this commit).
+- **Latest download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/557fb51c194f4acfbe08bd0f7e69e4660c4da0cf/shivaa-update-v177.zip
+- **Archive:** 7 files, **427,896 bytes**, SHA-256
+  `2c9fff1a8b39e186093e44ecac0980189e7ca783337be677e35d5bea6b35dec2`,
+  built from source `29e2c0d86867acc73bb0c86da86bf5558c1329ee`, publication
+  commit `557fb51c194f4acfbe08bd0f7e69e4660c4da0cf`.
+  Deterministic (two runs, identical hash); every member byte-matches its
+  committed `cms/` source. Remote-verified after push: contents API size
+  427896 + blob `c9224cc8940220a42b095dd4bce84e144585f99c` (= local
+  `git hash-object`), authenticated download byte-identical. Builder:
+  `tools/mega/make-v177-zip.py`.
+- **Stamps:** release **177** in lockstep (`__SHIVAA_REL=177`,
+  `APP_REL = 177`, `SHELL='shivaa-shell-v177'`, `REL=177`, `'rel' => 177`),
+  54 `?v=177` asset stamps in `index.html` + 49 in `sw.js`. MEDIA cache
+  deliberately stays `shivaa-media-v168` (no media changed).
+- **NOT deployed, NOT owner-installed, NOT live-verified.** The v176 ZIP and
+  link remain unchanged and valid. The test-order purge has **not** been run
+  anywhere — it is an owner action on his own server (and, unlike in v176,
+  it can now actually complete).
+
+### The five v176 defects, repaired
+
+1. **The confirmed purge could never run.** The backup line called
+   `json_encode()` with `JSON_UNESIGNED_SLASHES` / `JSON_UNESIGNED_UNICODE`
+   — constants that do not exist in PHP. Every confirmed POST
+   `/api/admin/purge-unpaid` threw *"Undefined constant"* and 500'd AFTER
+   the owner typed the phrase: no backup, no delete, generic error. This is
+   why a parser pass and a Python simulation can both be green while the
+   feature is dead. v177 uses the real `JSON_UNESCAPED_*` pair;
+   `v177-check.js` asserts the typo can never return.
+2. **The preview ignored `?scope=`.** The UI previews via
+   `GET …/purge-unpaid?scope=…`, but v176 read the scope only from the POST
+   body, so every preview answered `unpaid`: "every order" selected showed a
+   partial preview, the short phrase and no all-sales warning. v177 reads
+   GET from the query and POST from the body; unknown values collapse to
+   the safe `unpaid`.
+3. **Same-second backups could overwrite each other**
+   (`db-before-purge-<Ymd-His>.json` collision). The name is now made
+   unique (numeric suffix) before writing; three same-second purges produce
+   three distinct valid backups (executed test).
+4. **The day book's COD tile read ₹0 forever** (creation-day filter +
+   `order_money_received()` excluding COD until delivery). The cash book now
+   counts money on the day it arrives, from the order's payment ledger:
+   online/UPI rows on receipt day, a UPI proof on the day the owner approves
+   it (`approvedAt`), COD on the day its row is written (cash in hand),
+   pre-ledger legacy rows on `paidAt` then `createdAt`; cancelled excluded;
+   no double counting. Tile renamed **"COD collected"**.
+5. **Crash-proofing + an honest note.** `admin/stats` byDay could 500 on a
+   legacy row without `createdAt` (PHP 8 undefined-key + `substr(null)`);
+   the preview sample `TypeError`'d on a legacy scalar `address`; the audit
+   line re-read the bearer mid-route (now uses `need_admin`'s result); the
+   scope-`all` success note no longer claims "every paid order was
+   untouched".
+
+**Unchanged:** the money-received core (dashboard, reports and cash book
+still count only money actually received), the phrases, backup-first
+ordering, last-10 retention, and the scope: **only `db['orders']` is ever
+spliced** — B2B and B2C customers, partners, products, settlements, reviews
+and coupons are provably out of reach (the builder asserts it).
+
+### What was verified, and what was NOT
+
+**Verified (executed, on the shipped ZIP bytes as well as the working
+tree):** `v177-php-run.js` **17/17** under PHP 8.3 — revenue trio on the
+10-order book; preview scope honesty; refused phrases write nothing; the
+safe delete removes exactly the 5 unpaid attempts with a full pre-purge
+backup, byte-identical customers/partners/products and an audit line naming
+the admin; `all` refuses the short phrase; same-second backup uniqueness;
+retention trims to 10; legacy-row crash cases; COD cash only on collection
+day; proof on approval day; legacy rows once; cancelled excluded;
+`/api/version` 177 matched handshake. `v177-check.js` **11/11**. Full belt
+**40 suites pass, 16 retired skip, 0 fail** (baseline before edits:
+38/16/0). Prior gates on shipped bytes: v169 PHP 28/28, v169 pages 25/25,
+v168 signatures 12/12. Static sweep 212 routes / 0 exceptions. `node
+--check` on shipped JS. ZIP `testzip` + member match + deterministic hash.
+
+**NOT verified — state this plainly:** no owner install; the live site is
+unreachable from the sandbox; the purge itself has not been run anywhere;
+no main merge, no Hostinger deployment, no real payment.
+
+### Standing rules that still bind (do not lose these)
+
+- **FORWARD ONLY.** v176 and v177 are both shipped; new work is targeted
+  forward commits. Never reset/revert, restore an old ZIP, force-push or
+  rewrite history. **Next release is 178+.**
+- Owner-approved **manual deploys only.** A push/merge is not deployment
+  approval. Nothing here was deployed.
+- **Never hand-edit `cms/data/db.json`.** "Delete the data" requests get a
+  guarded server-side tool, never a file edit.
+- **Never swap `sw.js` alone.** Index, app, worker, API release and every
+  asset URL move coherently.
+- B2B and B2C customers are explicitly out of scope for any sales cleanup.
+
 ## CURRENT STATE — v176 published; failed payments are no longer sales (23 Sep 2026)
+
+> **Historical record — the current release is v177.** See the
+> *CURRENT STATE — v177* section above and `DEPLOY-v177.md`. The v176
+> release stays shipped; its ZIP/link are unchanged. Two of v176's defects
+> (the undefined-JSON-constant purge 500 and the scope-blind preview) are
+> recorded above and fixed in v177 — read v176's "NOT verified" list with
+> that in mind.
 
 **This section supersedes the v169 "Final verified state" below for anything
 about the current release.** v170–v176 were delivered after that record; the
