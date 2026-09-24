@@ -17,7 +17,44 @@ is manual-only: ask the owner first, then use the approval-gated workflow from
 Credentials stay in GitHub Actions secrets, and the old Hostinger cron code writer
 must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
 
-## CURRENT STATE — v179 in progress: bullion rates, the permanent fix (24 Sep 2026)
+## CURRENT STATE — v179 BUILT, belt green — push + remote verification pending (24 Sep 2026)
+**Implementation COMPLETE (24 Sep 2026, this session):**
+- `4670cb8` — the v179 core on the 179 tree: `cms/api.php` (calibrated
+  premium `premium_calibrate`/`premium_factor_for`, honest `mcx-est`
+  ladder with `premiumEst` + `spotKind` + fresh `quotedAt`,
+  `rates.mcxLastGood` persistence, `rates_health()` on the public
+  `/api/rates`, the **GET-route `db_save` before `jout()` exits** —
+  without it every poll's calibration/last-good was silently discarded,
+  throttled `.relay-health.json` side-file), `cms/relay/relay.js` +
+  `package.json` + `README-RENDER.md` (relay v2, zero-dep Node 18+,
+  same `/tick` + `/stream` contract + `/healthz`, self-heal for every
+  failure mode incl. "signal is aborted without reason", TOTP verified
+  against the RFC 6238 vectors), the admin **Pipeline health strip**
+  (Live Rates tab) and the honest storefront `mcx-est` label, stamps
+  178 → 179 in lockstep (MEDIA stays v168).
+- `d51a7c8` — `shivaa-update-v179.zip` (9 files, 450,237 B, SHA-256
+  `e6f4265f…54e8d`, built from `4670cb8`), DEPLOY-v179.md, the belt
+  rotated to the v179 chain (v178 suites on disk, off chain; their
+  regression content re-executes inside v179-php-run).
+- **Belt: 164 executed checks, 0 failures** — deploy gate 20,
+  v179-check 8 (incl. the relay TOTP run against the RFC vectors),
+  v179-php-run 25 (v178/v177 purge+stats regression carried + R01–R08
+  executing the rates engine end-to-end, incl. the RTGS strip staying
+  on-market with MCX down), v179-relay 7 (the real relay vs a mock
+  Angel: backoff self-heal, 401 → re-login, crash → last tick served),
+  v169 25+28 (B21 tests now assert the v179 premium on live legs),
+  v168 39+12.
+- **PENDING — GitHub connection:** the sandbox token expired mid-session
+  (`GH_TOKEN` no longer valid) → the branch `arena/01a0d168-shivaa-ecom`
+  is **not pushed past `39e9fc9`** (v178); local tip is `bb3a8d3`.
+  After the owner reconnects GitHub in Arena: push
+  `git push origin arena/01a0d168-shivaa-ecom`, then remote-verify the
+  published ZIP (contents API at ref `d51a7c8`: size 450,237 + byte
+  comparison of an authenticated download) and record it in
+  DEPLOY-v179.md. NOTHING is deployed — owner deploys manually from
+  DEPLOY-v179.md + `cms/relay/README-RENDER.md`.
+
+
 
 > **Work order from the owner (verbatim):** *"signal is aborted without
 > reason, in MCX and dollar connection in bullion rates, the dollar
