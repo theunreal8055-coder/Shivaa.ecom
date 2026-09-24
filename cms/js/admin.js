@@ -802,7 +802,9 @@ async function renderAdmin(view, q) {
       <div class="cb-grid">
         <div class="cb-tile"><small>Online / prepaid sales</small><b>${fmt(cashData.onlineSales||0)}</b></div>
         <div class="cb-tile"><small>WhatsApp confirmed</small><b>${fmt(cashData.waSales||0)}</b></div>
-        <div class="cb-tile"><small>COD booked</small><b>${fmt(cashData.codSales||0)}</b></div>
+        <!-- v177 — the day book now counts COD the day the cash is actually
+             in hand (its ledger row), so the tile says "collected", not "booked" -->
+        <div class="cb-tile"><small>COD collected</small><b>${fmt(cashData.codSales||0)}</b></div>
         <div class="cb-tile out"><small>Old-gold paid out</small><b>−${fmt(cashData.oldGoldOut||0)}</b></div>
       </div>
       <form class="form-grid" style="grid-template-columns:.8fr 2fr 1fr 1fr auto;align-items:end;margin-top:14px" onsubmit="ShivaaAdmin.cbAdd(event,${jsArg(cashData.date)})">

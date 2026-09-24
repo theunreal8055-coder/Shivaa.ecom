@@ -4335,7 +4335,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 176,
+      'rel'   => 177,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -5749,9 +5749,16 @@ try {
      ══════════════════════════════════════════════════════════════════════ */
   if (($route === 'admin/purge-unpaid' && $method === 'GET')
       || ($route === 'admin/purge-unpaid' && $method === 'POST')) {
-    need_admin($db);
+    $adminUser = need_admin($db);
     $b = $method === 'POST' ? body_json() : [];
-    $scope = ($b['scope'] ?? 'unpaid') === 'all' ? 'all' : 'unpaid';
+    /* v177 — the preview is scope-honest. v176 read the scope only from the
+       POST body, so the GET preview (the UI calls it with ?scope=) ALWAYS
+       answered 'unpaid': with "every order" selected the owner saw a partial
+       preview, the short phrase and no all-sales warning, and the button that
+       followed would delete less than the dropdown promised. GET now reads
+       the query string, POST the body, and both validate to the two scopes. */
+    $scopeRaw = $method === 'POST' ? ($b['scope'] ?? 'unpaid') : ($_GET['scope'] ?? 'unpaid');
+    $scope = (string)$scopeRaw === 'all' ? 'all' : 'unpaid';
     // 'unpaid' needs a short phrase; 'all' (which also removes paid orders)
     // needs a longer one so a stray click can never wipe real sales.
     $needPhrase = $scope === 'all' ? 'DELETE ALL SALES' : 'DELETE UNPAID';
@@ -5780,7 +5787,9 @@ try {
         'id' => (string)($o['id'] ?? ''), 'at' => (string)($o['createdAt'] ?? ''),
         'total' => (int)($o['total'] ?? 0), 'status' => (string)($o['status'] ?? ''),
         'paymentStatus' => $ps, 'paymentMethod' => $pm,
-        'name' => (string)($o['address']['name'] ?? $o['userName'] ?? '')];
+        /* v177 — a legacy row whose `address` is a scalar used to raise a
+           PHP 8 TypeError here and 500 the whole preview. */
+        'name' => is_array($o['address'] ?? null) ? (string)($o['address']['name'] ?? '') : (string)($o['userName'] ?? '')];
     }
     $keep = count($all) - count($doomed);
     $preview = [
@@ -5800,7 +5809,20 @@ try {
     if (!is_dir($bkDir)) @mkdir($bkDir, 0755, true);
     $bkName = 'db-before-purge-' . date('Ymd-His') . '.json';
     $bkPath = $bkDir . '/' . $bkName;
-    $bkJson = json_encode($db, JSON_PRETTY_PRINT | JSON_UNESIGNED_SLASHES | JSON_UNESIGNED_UNICODE);
+    /* v177 — two purges inside the same second used to collide on the name
+       and the second backup would silently overwrite the first — deleting
+       through a backup that no longer exists. Make the name unique BEFORE
+       writing, so every purge keeps its own snapshot. */
+    for ($bkN = 2; file_exists($bkPath); $bkN++) {
+      $bkName = 'db-before-purge-' . date('Ymd-His') . '-' . $bkN . '.json';
+      $bkPath = $bkDir . '/' . $bkName;
+    }
+    /* v177 — v176 passed two json_encode() flags that do not exist in PHP
+       (a typo of the UNESCAPED pair): every confirmed purge threw
+       "Undefined constant" and 500'd AFTER the owner typed the phrase, so
+       the delete could never run and the backup never happened. db_save()
+       itself uses the real flags; the backup does too. */
+    $bkJson = json_encode($db, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if ($bkJson === false || @file_put_contents($bkPath, $bkJson, LOCK_EX) === false)
       jout(500, ['error' => 'Could not write the safety backup — nothing was deleted. Check that data/ is writable (755).']);
     @chmod($bkPath, 0644);
@@ -5819,16 +5841,25 @@ try {
       array_splice($db['orders'], (int)$i, 1);
     }
     $db['orders'] = array_values($db['orders']);
+    /* v177 — the admin identity comes from need_admin() above, which already
+       validated it; re-reading req_user() mid-route could warn if the bearer
+       token expired inside this very request. */
     audit_log($db, 'sales.purge-unpaid', [
       'scope' => $scope, 'deleted' => count($removed), 'kept' => count($db['orders']),
       'valueRemoved' => $value, 'backup' => 'data/backups/' . $bkName,
-      'by' => req_user($db)['name'] ?? 'admin']);
+      'by' => (string)($adminUser['name'] ?? 'admin')]);
     db_save($DB_FILE, $db);
+    /* v177 — the success note tells the truth about what survived. The v176
+       wording claimed "every paid order was untouched" even for a scope=all
+       reset, in which the paid orders were exactly what went. */
+    $survivors = $scope === 'all'
+      ? 'The order book was reset, paid and COD orders included. B2B and B2C customers, partners, products, reviews and coupons were untouched.'
+      : 'B2B and B2C customers, partners, products, reviews, coupons and every paid, partially-paid, COD and refunded order were untouched.';
     jout(200, ['ok' => true, 'deleted' => count($removed), 'kept' => count($db['orders']),
       'valueRemoved' => $value, 'byPaymentStatus' => $byStatus, 'byMethod' => $byMethod,
       'backup' => 'data/backups/' . $bkName, 'removed' => array_reverse($removed),
       'note' => 'Deleted ' . count($removed) . ' order' . (count($removed) === 1 ? '' : 's')
-        . ' worth ₹' . number_format($value) . '. B2B and B2C customers, partners, products and every paid order were untouched.'
+        . ' worth ₹' . number_format($value) . '. ' . $survivors
         . ' A full backup is saved at data/backups/' . $bkName . '.']);
   }
   if ($route === 'admin/gold-purchases' && $method === 'GET') {
@@ -5959,19 +5990,49 @@ try {
     $day = substr((string)($_GET['date'] ?? date('Y-m-d')), 0, 10);
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) jout(400, ['error' => 'Invalid date']);
     $rows = array_values(array_filter($db['cashbook'], fn($r) => substr((string)($r['at'] ?? ''), 0, 10) === $day));
-    // system-derived figures: paid orders today, old-gold payouts today
+    // system-derived figures: money that came IN the shop on $day, old-gold out
     /* v176 — same defect as admin/stats: this summed every non-cancelled
        order's total into the day's sales, so a failed Cashfree test attempt
-       appeared as money taken. Only money actually received counts now. */
+       appeared as money taken.
+       v177 — go one step further and count on the day the money actually
+       arrived, from the order's own payment ledger (v60: every accepted
+       payment is a row with `at` + `status`):
+         · online / WhatsApp / UPI rows count on their receipt day
+           (`approvedAt` for a proof the owner confirms a day later, else `at`);
+         · COD counts when the cash is in hand — the day its ledger row was
+           written (marking a COD order Paid stamps the row), never before.
+           v176 filtered on the ORDER's creation day with money_received()
+           excluding COD, so the COD tile read ₹0 even on the day the cash
+           was collected;
+         · legacy pre-ledger rows (money recorded only as amountPaid) fall
+           back to paidAt, then createdAt;
+         · Cancelled orders are excluded, as before.
+       No order is counted twice: a row is either ledger-backed or legacy. */
     $orderSales = 0; $onlineSales = 0; $codSales = 0; $waSales = 0;
     foreach ($db['orders'] as $o) {
-      if (substr((string)($o['createdAt'] ?? ''), 0, 10) !== $day || ($o['status'] ?? '') === 'Cancelled') continue;
-      $received = order_money_received($o);
-      if ($received <= 0) continue;
-      $orderSales += $received;
-      if (($o['paymentMethod'] ?? '') === 'COD') $codSales += $received;
-      elseif (($o['paymentMethod'] ?? '') === 'WhatsApp') $waSales += $received;
-      else $onlineSales += $received;
+      if (!is_array($o)) continue;
+      if (($o['status'] ?? '') === 'Cancelled') continue;
+      $method = (string)($o['paymentMethod'] ?? '');
+      $addBucket = function (int $amt) use (&$orderSales, &$onlineSales, &$codSales, &$waSales, $method): void {
+        if ($amt <= 0) return;
+        $orderSales += $amt;
+        if ($method === 'COD') $codSales += $amt;
+        elseif ($method === 'WhatsApp') $waSales += $amt;
+        else $onlineSales += $amt;
+      };
+      $ledger = is_array($o['payments'] ?? null) ? $o['payments'] : [];
+      if ($ledger) {
+        foreach ($ledger as $p) {
+          if (!is_array($p) || ($p['status'] ?? '') !== 'approved') continue;
+          $d = substr((string)($p['approvedAt'] ?? $p['at'] ?? ''), 0, 10);
+          if ($d !== $day) continue;
+          $addBucket((int)($p['amount'] ?? 0));
+        }
+      } else {
+        $d = substr((string)($o['paidAt'] ?? $o['createdAt'] ?? ''), 0, 10);
+        if ($d !== $day) continue;
+        $addBucket(min((int)($o['amountPaid'] ?? 0), (int)($o['total'] ?? 0)));
+      }
     }
     $goldPaid = 0;
     foreach ($db['goldPurchases'] as $g) if (substr((string)($g['createdAt'] ?? ''), 0, 10) === $day) $goldPaid += (int)$g['amount'];
@@ -6809,7 +6870,12 @@ try {
     foreach ($liveOrders as $o) {
       $received = order_money_received($o);
       if ($received <= 0) continue;   // an unpaid attempt is not a sale — keep it out of the chart
-      $d = substr($o['createdAt'], 0, 10); $byDay[$d] = ($byDay[$d] ?? 0) + $received;
+      /* v177 — a legacy row without createdAt used to hit PHP 8
+         "undefined array key" + substr(null) here and 500 the whole
+         dashboard. Cast, skip, and keep charting the rest. */
+      $d = substr((string)($o['createdAt'] ?? ''), 0, 10);
+      if ($d === '') continue;
+      $byDay[$d] = ($byDay[$d] ?? 0) + $received;
     }
     $low = [];
     foreach ($db['products'] as $p) if (($p['stock'] ?? 0) <= 3) $low[] = ['name' => $p['name'], 'stock' => $p['stock']];
