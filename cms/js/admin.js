@@ -513,9 +513,9 @@ function v179HealthStrip(R) {
   </div>`;
 }
 
-  /* v180 — Data Source strip: one glance tells the owner whether product reads
-   are served by Hostinger MySQL or the JSON safety net, and why. Fed by the
-   public /api/version `db` payload (booleans/counts only — never credentials). */
+  /* v180/v181 — Data Source strip: one glance tells the owner whether product reads
+   and shop collections are served by Hostinger MySQL or the JSON safety net, and why.
+   Fed by the public /api/version `db` payload (booleans/counts only — never credentials). */
 function v180DbStrip() {
   fetch('/api/version', { cache: 'no-store' })
     .then(r => r.json())
@@ -527,7 +527,7 @@ function v180DbStrip() {
       let cls, line;
       if (d.mode === 'mysql') {
         cls = 'ok';
-        line = `<b>Hostinger MySQL</b> is serving the catalogue — ${d.jsonCount != null ? d.jsonCount : d.sqlCount} designs, mirror healthy.`;
+        line = `<b>Hostinger MySQL</b> is active — catalogue &amp; collections on SQL (phase ${d.phase || 3}), mirror healthy.`;
       } else if (d.driver !== 'mysql') {
         cls = 'warn';
         line = `<b>JSON file</b> (db_driver not set to mysql in config.php) — SQL switch not enabled.`;
@@ -545,7 +545,7 @@ function v180DbStrip() {
         line = `<b>JSON safety net</b> active (${esc(d.reason || 'fallback')}) — site unaffected.`;
       }
       el.style.borderLeft = `3px solid ${cls === 'ok' ? '#2e7d32' : '#b98a2f'}`;
-      el.innerHTML = `<h3>Data source <span style="font-size:12px;color:var(--ink-3);font-weight:400">— v180 storage dial</span></h3>
+      el.innerHTML = `<h3>Data source <span style="font-size:12px;color:var(--ink-3);font-weight:400">— Phase 3 SQL storage dial</span></h3>
         <p style="font-size:13.5px;font-weight:600;margin:0">${dot(cls)}${line}</p>
         <p style="font-size:12px;color:var(--ink-3);margin:8px 0 0">driver <code>${esc(d.driver || '?')}</code> · release ${esc(String(v.rel || '?'))} · rollback anytime: set <code>db_driver => 'json'</code> in config.php</p>`;
     })
@@ -921,7 +921,18 @@ function v180DbStrip() {
 
   if (tab === 'settings') {
     const S = state.settings;
-    body.innerHTML = `<div class="adm-card"><h3>Store settings</h3>
+    body.innerHTML = `<div class="adm-card" style="border-left:4px solid var(--gold,#d4af37)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h3 style="margin:0 0 4px 0">&#128188; Billing Software</h3>
+          <p style="margin:0;font-size:13px;color:var(--ink-3,#666)">Self-hosted billing app in <code>/billing/</code> &mdash; isolated from shop updates.</p>
+        </div>
+        <a href="/billing/" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none">
+          Open Billing Software &#8599;
+        </a>
+      </div>
+    </div>
+    <div class="adm-card"><h3>Store settings</h3>
       <form class="form-grid" onsubmit="ShivaaAdmin.saveSettings(event)">
         <div class="fld"><label>Phone</label><input name="phone" value="${esc(S.phone || '')}"></div>
         <div class="fld"><label>WhatsApp number (with 91, no +)</label><input name="whatsapp" value="${esc(S.whatsapp || '918905005921')}" placeholder="918905005921"></div>

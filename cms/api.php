@@ -381,7 +381,358 @@ function shv_version_db(): array {
   $st = $GLOBALS['__shv_sql_state'] ?? ['driver' => shv_db_driver(), 'mode' => 'json', 'reason' => 'not-loaded',
                                          'sqlCount' => null, 'jsonCount' => null];
   $st['mirrorBehind'] = file_exists(shv_mirror_behind_file());
-  return $st;
+  return [
+    'driver'       => $st['driver'] ?? shv_db_driver(),
+    'mode'         => $st['mode'] ?? 'json',
+    'reason'       => $st['reason'] ?? '',
+    'sqlCount'     => $st['sqlCount'] ?? null,
+    'jsonCount'    => $st['jsonCount'] ?? null,
+    'mirrorBehind' => (bool)($st['mirrorBehind'] ?? false),
+  ];
+}
+/* v181 — Phase 3 SQL overlay for settings, orders, users, reviews, coupons, settlements */
+function shv_sql_phase3_overlay(array &$db): void {
+  if (($GLOBALS['__shv_sql_state']['mode'] ?? '') !== 'mysql') return;
+  $pdo = get_db_pdo();
+  if (!$pdo) return;
+  try {
+    // 1. Settings overlay
+    $sRows = $pdo->query('SELECT `key_name`, `val_json` FROM `settings`')->fetchAll();
+    if (!empty($sRows)) {
+      $sqlSettings = [];
+      foreach ($sRows as $sr) {
+        $k = (string)($sr['key_name'] ?? '');
+        if ($k === '_all_settings') {
+          $dec = json_decode((string)($sr['val_json'] ?? ''), true);
+          if (is_array($dec)) $sqlSettings = array_merge($dec, $sqlSettings);
+        } else {
+          $val = json_decode((string)($sr['val_json'] ?? ''), true);
+          $sqlSettings[$k] = $val;
+        }
+      }
+      if (!empty($sqlSettings) && is_array($db['settings'] ?? null)) {
+        $db['settings'] = array_merge($db['settings'], $sqlSettings);
+      }
+    }
+    $GLOBALS['__shv_settings_hash'] = hash('sha256', json_encode($db['settings'] ?? []));
+
+    // 2. Orders overlay
+    $oRows = $pdo->query('SELECT * FROM `orders`')->fetchAll();
+    $sqlOrders = [];
+    foreach ($oRows as $or) {
+      $dec = json_decode((string)($or['data_json'] ?? ''), true);
+      if (is_array($dec) && ($dec['id'] ?? '') !== '') {
+        $sqlOrders[(string)$dec['id']] = $dec;
+      }
+    }
+    $jsonOrders = is_array($db['orders'] ?? null) ? $db['orders'] : [];
+    if (count($sqlOrders) === count($jsonOrders) && count($jsonOrders) > 0) {
+      $outOrders = [];
+      $allMatched = true;
+      foreach ($jsonOrders as $jo) {
+        $jid = (string)($jo['id'] ?? '');
+        if (isset($sqlOrders[$jid])) $outOrders[] = $sqlOrders[$jid];
+        else { $allMatched = false; break; }
+      }
+      if ($allMatched) $db['orders'] = $outOrders;
+    }
+    $oh = [];
+    foreach (($db['orders'] ?? []) as $__o) {
+      $__oid = (string)($__o['id'] ?? '');
+      if ($__oid !== '') $oh[$__oid] = hash('sha256', json_encode($__o));
+    }
+    $GLOBALS['__shv_order_hashes'] = $oh;
+
+    // 3. Users overlay
+    $uRows = $pdo->query('SELECT * FROM `users`')->fetchAll();
+    $sqlUsers = [];
+    foreach ($uRows as $ur) {
+      $dec = json_decode((string)($ur['data_json'] ?? ''), true);
+      if (is_array($dec) && ($dec['id'] ?? '') !== '') {
+        $sqlUsers[(string)$dec['id']] = $dec;
+      }
+    }
+    $jsonUsers = is_array($db['users'] ?? null) ? $db['users'] : [];
+    if (count($sqlUsers) === count($jsonUsers) && count($jsonUsers) > 0) {
+      $outUsers = [];
+      $allMatched = true;
+      foreach ($jsonUsers as $ju) {
+        $juid = (string)($ju['id'] ?? '');
+        if (isset($sqlUsers[$juid])) $outUsers[] = $sqlUsers[$juid];
+        else { $allMatched = false; break; }
+      }
+      if ($allMatched) $db['users'] = $outUsers;
+    }
+    $uh = [];
+    foreach (($db['users'] ?? []) as $__u) {
+      $__uid = (string)($__u['id'] ?? '');
+      if ($__uid !== '') $uh[$__uid] = hash('sha256', json_encode($__u));
+    }
+    $GLOBALS['__shv_user_hashes'] = $uh;
+
+    // 4. Reviews overlay
+    $rRows = $pdo->query('SELECT * FROM `reviews`')->fetchAll();
+    $sqlReviews = [];
+    foreach ($rRows as $rr) {
+      $dec = json_decode((string)($rr['data_json'] ?? ''), true);
+      if (is_array($dec) && ($dec['id'] ?? '') !== '') {
+        $sqlReviews[(string)$dec['id']] = $dec;
+      }
+    }
+    $jsonReviews = is_array($db['reviews'] ?? null) ? $db['reviews'] : [];
+    if (count($sqlReviews) === count($jsonReviews) && count($jsonReviews) > 0) {
+      $outReviews = [];
+      $allMatched = true;
+      foreach ($jsonReviews as $jr) {
+        $jrid = (string)($jr['id'] ?? '');
+        if (isset($sqlReviews[$jrid])) $outReviews[] = $sqlReviews[$jrid];
+        else { $allMatched = false; break; }
+      }
+      if ($allMatched) $db['reviews'] = $outReviews;
+    }
+
+    // 5. Coupons overlay
+    $cRows = $pdo->query('SELECT * FROM `coupons`')->fetchAll();
+    $sqlCoupons = [];
+    foreach ($cRows as $cr) {
+      $dec = json_decode((string)($cr['data_json'] ?? ''), true);
+      if (is_array($dec) && ($dec['id'] ?? ($dec['code'] ?? '')) !== '') {
+        $cid = (string)($dec['id'] ?? $dec['code']);
+        $sqlCoupons[$cid] = $dec;
+      }
+    }
+    $jsonCoupons = is_array($db['coupons'] ?? null) ? $db['coupons'] : [];
+    if (count($sqlCoupons) === count($jsonCoupons) && count($jsonCoupons) > 0) {
+      $outCoupons = [];
+      $allMatched = true;
+      foreach ($jsonCoupons as $jc) {
+        $jcid = (string)($jc['id'] ?? ($jc['code'] ?? ''));
+        if (isset($sqlCoupons[$jcid])) $outCoupons[] = $sqlCoupons[$jcid];
+        else { $allMatched = false; break; }
+      }
+      if ($allMatched) $db['coupons'] = $outCoupons;
+    }
+
+    // 6. Settlements overlay
+    $stRows = $pdo->query('SELECT * FROM `settlements`')->fetchAll();
+    $sqlSettlements = [];
+    foreach ($stRows as $str) {
+      $dec = json_decode((string)($str['data_json'] ?? ''), true);
+      if (is_array($dec) && ($dec['id'] ?? '') !== '') {
+        $sqlSettlements[(string)$dec['id']] = $dec;
+      }
+    }
+    $jsonSettlements = is_array($db['settlements'] ?? null) ? $db['settlements'] : [];
+    if (count($sqlSettlements) === count($jsonSettlements) && count($jsonSettlements) > 0) {
+      $outSettlements = [];
+      $allMatched = true;
+      foreach ($jsonSettlements as $js) {
+        $jsid = (string)($js['id'] ?? '');
+        if (isset($sqlSettlements[$jsid])) $outSettlements[] = $sqlSettlements[$jsid];
+        else { $allMatched = false; break; }
+      }
+      if ($allMatched) $db['settlements'] = $outSettlements;
+    }
+  } catch (Throwable $e) {
+    @error_log('Shivaa Phase3 overlay fallback: ' . $e->getMessage());
+  }
+}
+
+/* v181 — Phase 3 SQL mirror for settings, orders, users, reviews, coupons, settlements */
+function shv_sql_phase3_mirror(array $db): void {
+  if (shv_db_driver() !== 'mysql') return;
+  $m = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+  if ($m === 'GET' || $m === 'HEAD' || $m === 'OPTIONS') return;
+  if (file_exists(shv_mirror_behind_file())) return;
+  $pdo = get_db_pdo();
+  if (!$pdo) return;
+
+  try {
+    $inTx = $pdo->inTransaction();
+    if (!$inTx) $pdo->beginTransaction();
+
+    // 1. Settings mirror
+    if (isset($db['settings']) && is_array($db['settings'])) {
+      $curSetHash = hash('sha256', json_encode($db['settings']));
+      $prevSetHash = $GLOBALS['__shv_settings_hash'] ?? null;
+      if ($prevSetHash === null || $curSetHash !== $prevSetHash) {
+        $stmtS = $pdo->prepare('INSERT INTO `settings` (`key_name`, `val_json`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `val_json`=VALUES(`val_json`)');
+        foreach ($db['settings'] as $k => $v) {
+          if (!is_string($k) || $k === '') continue;
+          $stmtS->execute([$k, json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
+        }
+        $stmtS->execute(['_all_settings', json_encode($db['settings'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
+        $GLOBALS['__shv_settings_hash'] = $curSetHash;
+      }
+    }
+
+    // 2. Orders mirror
+    if (isset($db['orders']) && is_array($db['orders'])) {
+      $curO = [];
+      foreach ($db['orders'] as $o) {
+        $oid = (string)($o['id'] ?? '');
+        if ($oid !== '') $curO[$oid] = hash('sha256', json_encode($o));
+      }
+      $prevO = $GLOBALS['__shv_order_hashes'] ?? null;
+      $stmtO = $pdo->prepare('INSERT INTO `orders`
+        (`id`, `user_id`, `user_name`, `phone`, `total`, `amount_paid`, `payment_method`, `payment_status`, `status`, `invoice_no`, `items_json`, `address_json`, `data_json`, `created_at`)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+        `user_id`=VALUES(`user_id`), `user_name`=VALUES(`user_name`), `phone`=VALUES(`phone`),
+        `total`=VALUES(`total`), `amount_paid`=VALUES(`amount_paid`), `payment_method`=VALUES(`payment_method`),
+        `payment_status`=VALUES(`payment_status`), `status`=VALUES(`status`), `invoice_no`=VALUES(`invoice_no`),
+        `items_json`=VALUES(`items_json`), `address_json`=VALUES(`address_json`), `data_json`=VALUES(`data_json`)');
+      $delO = $pdo->prepare('DELETE FROM `orders` WHERE `id` = ?');
+
+      $byIdO = [];
+      foreach ($db['orders'] as $o) { $oid = (string)($o['id'] ?? ''); if ($oid !== '') $byIdO[$oid] = $o; }
+
+      if (is_array($prevO)) {
+        $upO = [];
+        foreach ($curO as $oid => $h) if (!isset($prevO[$oid]) || $prevO[$oid] !== $h) $upO[] = $oid;
+        $rmO = array_diff_key($prevO, $curO);
+      } else {
+        $upO = array_keys($curO); $rmO = [];
+      }
+
+      foreach ($upO as $oid) {
+        $o = $byIdO[$oid];
+        $data = json_encode($o, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        $items = json_encode($o['items'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '[]';
+        $addr = json_encode($o['address'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        $created = !empty($o['createdAt']) ? date('Y-m-d H:i:s', strtotime($o['createdAt'])) : date('Y-m-d H:i:s');
+        $stmtO->execute([
+          $oid,
+          (string)($o['userId'] ?? 'guest'),
+          (string)($o['userName'] ?? ($o['customerName'] ?? '')),
+          (string)($o['phone'] ?? ''),
+          (float)($o['total'] ?? 0),
+          (float)($o['amountPaid'] ?? 0),
+          (string)($o['gateway'] ?? ($o['paymentMethod'] ?? 'Online')),
+          (string)($o['paymentStatus'] ?? 'Awaiting payment'),
+          (string)($o['status'] ?? 'Placed'),
+          !empty($o['invoiceNo']) ? (string)$o['invoiceNo'] : null,
+          $items,
+          $addr,
+          $data,
+          $created,
+        ]);
+      }
+      foreach ($rmO as $oid => $_) $delO->execute([$oid]);
+      $GLOBALS['__shv_order_hashes'] = $curO;
+    }
+
+    // 3. Users mirror
+    if (isset($db['users']) && is_array($db['users'])) {
+      $curU = [];
+      foreach ($db['users'] as $u) {
+        $uid = (string)($u['id'] ?? '');
+        if ($uid !== '') $curU[$uid] = hash('sha256', json_encode($u));
+      }
+      $prevU = $GLOBALS['__shv_user_hashes'] ?? null;
+      $stmtU = $pdo->prepare('INSERT INTO `users` (`id`, `role`, `name`, `phone`, `email`, `data_json`, `created_at`)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE `role`=VALUES(`role`), `name`=VALUES(`name`), `phone`=VALUES(`phone`), `email`=VALUES(`email`), `data_json`=VALUES(`data_json`)');
+      $delU = $pdo->prepare('DELETE FROM `users` WHERE `id` = ?');
+
+      $byIdU = [];
+      foreach ($db['users'] as $u) { $uid = (string)($u['id'] ?? ''); if ($uid !== '') $byIdU[$uid] = $u; }
+
+      if (is_array($prevU)) {
+        $upU = [];
+        foreach ($curU as $uid => $h) if (!isset($prevU[$uid]) || $prevU[$uid] !== $h) $upU[] = $uid;
+        $rmU = array_diff_key($prevU, $curU);
+      } else {
+        $upU = array_keys($curU); $rmU = [];
+      }
+
+      foreach ($upU as $uid) {
+        $u = $byIdU[$uid];
+        $data = json_encode($u, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        $created = !empty($u['createdAt']) ? date('Y-m-d H:i:s', strtotime($u['createdAt'])) : date('Y-m-d H:i:s');
+        $stmtU->execute([
+          $uid,
+          (string)($u['role'] ?? 'customer'),
+          (string)($u['name'] ?? ''),
+          (string)($u['phone'] ?? ''),
+          (string)($u['email'] ?? ''),
+          $data,
+          $created,
+        ]);
+      }
+      foreach ($rmU as $uid => $_) $delU->execute([$uid]);
+      $GLOBALS['__shv_user_hashes'] = $curU;
+    }
+
+    // 4. Reviews mirror
+    if (isset($db['reviews']) && is_array($db['reviews'])) {
+      $curR = [];
+      foreach ($db['reviews'] as $r) {
+        $rid = (string)($r['id'] ?? '');
+        if ($rid !== '') $curR[$rid] = hash('sha256', json_encode($r));
+      }
+      $prevR = $GLOBALS['__shv_review_hashes'] ?? null;
+      $stmtR = $pdo->prepare('INSERT INTO `reviews` (`id`, `product_id`, `rating`, `data_json`, `created_at`)
+        VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE `product_id`=VALUES(`product_id`), `rating`=VALUES(`rating`), `data_json`=VALUES(`data_json`)');
+      $delR = $pdo->prepare('DELETE FROM `reviews` WHERE `id` = ?');
+
+      $byIdR = [];
+      foreach ($db['reviews'] as $r) { $rid = (string)($r['id'] ?? ''); if ($rid !== '') $byIdR[$rid] = $r; }
+
+      if (is_array($prevR)) {
+        $upR = [];
+        foreach ($curR as $rid => $h) if (!isset($prevR[$rid]) || $prevR[$rid] !== $h) $upR[] = $rid;
+        $rmR = array_diff_key($prevR, $curR);
+      } else {
+        $upR = array_keys($curR); $rmR = [];
+      }
+
+      foreach ($upR as $rid) {
+        $r = $byIdR[$rid];
+        $data = json_encode($r, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        $created = !empty($r['createdAt']) ? date('Y-m-d H:i:s', strtotime($r['createdAt'])) : date('Y-m-d H:i:s');
+        $stmtR->execute([
+          $rid,
+          (string)($r['productId'] ?? ($r['product_id'] ?? '')),
+          (int)($r['rating'] ?? 5),
+          $data,
+          $created,
+        ]);
+      }
+      foreach ($rmR as $rid => $_) $delR->execute([$rid]);
+      $GLOBALS['__shv_review_hashes'] = $curR;
+    }
+
+    // 5. Coupons mirror
+    if (isset($db['coupons']) && is_array($db['coupons'])) {
+      $stmtC = $pdo->prepare('INSERT INTO `coupons` (`id`, `data_json`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `data_json`=VALUES(`data_json`)');
+      foreach ($db['coupons'] as $c) {
+        $cid = (string)($c['id'] ?? ($c['code'] ?? ''));
+        if ($cid === '') continue;
+        $data = json_encode($c, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        $stmtC->execute([$cid, $data]);
+      }
+    }
+
+    // 6. Settlements mirror
+    if (isset($db['settlements']) && is_array($db['settlements'])) {
+      $stmtSt = $pdo->prepare('INSERT INTO `settlements` (`id`, `data_json`, `created_at`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `data_json`=VALUES(`data_json`)');
+      foreach ($db['settlements'] as $s) {
+        $sid = (string)($s['id'] ?? '');
+        if ($sid === '') continue;
+        $data = json_encode($s, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        $created = !empty($s['createdAt']) ? date('Y-m-d H:i:s', strtotime($s['createdAt'])) : date('Y-m-d H:i:s');
+        $stmtSt->execute([$sid, $data, $created]);
+      }
+    }
+
+    if (!$inTx && $pdo->inTransaction()) $pdo->commit();
+  } catch (Throwable $e) {
+    try { if ($pdo->inTransaction()) $pdo->rollBack(); } catch (Throwable $e2) {}
+    @file_put_contents(shv_mirror_behind_file(),
+      json_encode(['at' => date('c'), 'error' => mb_substr((string)$e->getMessage(), 0, 300)]));
+  }
 }
 function db_load(string $DB_FILE): array {
   for ($i = 0; $i < 5; $i++) {
@@ -413,6 +764,9 @@ function db_load(string $DB_FILE): array {
         $ph = [];
         foreach ($db['products'] as $__p) { $__id = (string)($__p['id'] ?? ''); if ($__id !== '') $ph[$__id] = shv_product_row_hash($__p); }
         $GLOBALS['__shv_prod_hashes'] = $ph;
+      }
+      if (function_exists('shv_sql_phase3_overlay')) {
+        shv_sql_phase3_overlay($db);
       }
       return $db;
     }
@@ -471,6 +825,8 @@ function db_save(string $DB_FILE, array $db): void {
      lock is still held (mirrors never run on GET; a failure flags
      data/.sql-mirror-behind instead of failing this request). */
   if (function_exists('shv_sql_products_mirror')) shv_sql_products_mirror($db['products'] ?? []);
+  /* v181 — Phase 3: mirror orders, settings, users, reviews, coupons, settlements */
+  if (function_exists('shv_sql_phase3_mirror')) shv_sql_phase3_mirror($db);
   if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
 }
 function clampn($v, $a, $b) { return max($a, min($b, $v)); }
@@ -4661,7 +5017,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 180,
+      'rel'   => 181,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
