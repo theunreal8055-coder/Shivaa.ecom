@@ -101,8 +101,12 @@ assets in this release; the relay lives on its own host).
   `api.php`, `js/app.js`, `js/admin.js`; the css/js v178 pair unchanged).
 - **SHA-256:** `e6f4265fb45405d6cdf9eefa93614e056285d819b8b1501dbb0d267853554e8d`
 - Source commit: `4670cb854a8f1ed1834773397856f736309c7efc` (the code the
-  ZIP contains). Publication commit: `__PUB_COMMIT_PENDING__` (the ZIP on
-  this session branch).
+  ZIP contains). Publication commit:
+  `d51a7c893d417d90f2728f0ba66f30f004d9cac4` (the ZIP on this session
+  branch).
+- [Download v179 ZIP on GitHub](https://github.com/theunreal8055-coder/Shivaa.ecom/raw/d51a7c893d417d90f2728f0ba66f30f004d9cac4/shivaa-update-v179.zip)
+  (private repository — the link requires a GitHub account with access;
+  the ZIP is also in this repository root).
 - Builder: `python3 tools/mega/make-v179-zip.py` (asserts every cumulative
   prior repair — v176 revenue core, v177 purge, v178 band + the v140 law —
   plus the v179 invariants: calibrated-premium engine, `mcx-est` ladder,
