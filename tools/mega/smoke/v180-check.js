@@ -6,6 +6,21 @@ const fs = require('fs'), path = require('path'), assert = require('node:assert/
 const { execFileSync } = require('node:child_process');
 const CMS = process.env.SMOKE_CMS || path.resolve(__dirname, '../../../cms');
 const ROOT = path.resolve(__dirname, '../../..');
+
+/* SUPERSEDED-PROBE v180 — stamp-exact suite for release 180: on a NEWER
+   tree it SKIPs (regression content re-executes inside current chain php-run);
+   on its own release or an overlay of its zip it runs in full. */
+{
+  const fs0 = require('fs'), path0 = require('path');
+  const cms0 = process.env.SMOKE_CMS || path0.resolve(__dirname, '../../../cms');
+  const m0 = /__SHIVAA_REL\s*=\s*(\d+)/.exec(fs0.readFileSync(path0.join(cms0, 'index.html'), 'utf8'));
+  const rel0 = m0 ? +m0[1] : 0;
+  if (rel0 > 180) {
+    console.log('SKIP v180-check superseded by release ' + rel0 + ' (stamp-exact; its regression content runs in v180/v181 php-run)');
+    process.exit(0);
+  }
+}
+
 const rd = n => fs.readFileSync(path.join(CMS, n), 'utf8');
 const index = rd('index.html'), sw = rd('sw.js'), app = rd('js/app.js'), admin = rd('js/admin.js'), api = rd('api.php');
 const installer = rd('upgrade-sql.php'), cfgExample = rd('config.example.php');

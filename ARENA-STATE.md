@@ -1,5 +1,13 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
+## Current Build & Live Status — v181 built (Phase 3 SQL & Billing Doorway); v180 live on Hostinger (24 Sep 2026)
+
+- **LIVE SITE IS 180 (VERIFIED):** Probed at `https://shivaa.in/api/version`:
+  `rel: 180, db.driver: "mysql", db.mode: "mysql", sqlCount: 78, jsonCount: 78, mirrorBehind: false`.
+- **v181 BUILT & GATED:** Completes SQL Phase 3 (`orders`, `settings`, `users`, `reviews`, `coupons`, `settlements` dual-mode overlay & mirror) + Admin Settings Billing Software doorway tile.
+- Package: `shivaa-update-v181.zip` (6 files, 445,347 bytes) + runbook `DEPLOY-v181.md`.
+- Next step: owner installs `shivaa-update-v181.zip` and runs `/upgrade-sql.php`.
+
 ## Deployment control update — owner approval required (22 Sep 2026)
 
 This section supersedes older automatic-on-merge deployment instructions. PR #90

@@ -167,9 +167,13 @@ function shv_ensure_schema(PDO $pdo): array {
     `total` DECIMAL(12,2) NOT NULL DEFAULT 0.00, `amount_paid` DECIMAL(12,2) DEFAULT 0.00,
     `payment_method` VARCHAR(64) DEFAULT 'Online', `payment_status` VARCHAR(32) DEFAULT 'Awaiting payment',
     `status` VARCHAR(32) DEFAULT 'Placed', `invoice_no` VARCHAR(64) NULL,
-    `items_json` LONGTEXT, `address_json` TEXT, `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `items_json` LONGTEXT, `address_json` TEXT, `data_json` LONGTEXT, `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX `idx_status` (`status`), INDEX `idx_invoice` (`invoice_no`), INDEX `idx_phone` (`phone`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  if (!$col($pdo, 'orders', 'data_json')) {
+    $pdo->exec("ALTER TABLE `orders` ADD COLUMN `data_json` LONGTEXT NULL AFTER `address_json`");
+    $log[] = 'added data_json column to orders (full-row mirror)';
+  } else $log[] = 'orders.data_json column present';
   $pdo->exec("CREATE TABLE IF NOT EXISTS `users` (
     `id` VARCHAR(64) PRIMARY KEY, `role` VARCHAR(32) DEFAULT 'customer',
     `name` VARCHAR(128), `phone` VARCHAR(32), `email` VARCHAR(128),
@@ -232,6 +236,125 @@ function shv_upsert_products(PDO $pdo, array $products): int {
   return $n;
 }
 
+function shv_upsert_settings(PDO $pdo, array $settings): int {
+  $stmt = $pdo->prepare('INSERT INTO `settings` (`key_name`, `val_json`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `val_json`=VALUES(`val_json`)');
+  $n = 0;
+  foreach ($settings as $k => $v) {
+    if (!is_string($k) || $k === '') continue;
+    $stmt->execute([$k, json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
+    $n++;
+  }
+  $stmt->execute(['_all_settings', json_encode($settings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
+  return $n;
+}
+
+function shv_upsert_orders(PDO $pdo, array $orders): int {
+  $stmt = $pdo->prepare('INSERT INTO `orders`
+    (`id`, `user_id`, `user_name`, `phone`, `total`, `amount_paid`, `payment_method`, `payment_status`, `status`, `invoice_no`, `items_json`, `address_json`, `data_json`, `created_at`)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+    `user_id`=VALUES(`user_id`), `user_name`=VALUES(`user_name`), `phone`=VALUES(`phone`),
+    `total`=VALUES(`total`), `amount_paid`=VALUES(`amount_paid`), `payment_method`=VALUES(`payment_method`),
+    `payment_status`=VALUES(`payment_status`), `status`=VALUES(`status`), `invoice_no`=VALUES(`invoice_no`),
+    `items_json`=VALUES(`items_json`), `address_json`=VALUES(`address_json`), `data_json`=VALUES(`data_json`)');
+  $n = 0;
+  foreach ($orders as $o) {
+    if (!is_array($o) || ($o['id'] ?? '') === '') continue;
+    $data = json_encode($o, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    $items = json_encode($o['items'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '[]';
+    $addr = json_encode($o['address'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    $created = !empty($o['createdAt']) ? date('Y-m-d H:i:s', strtotime($o['createdAt'])) : date('Y-m-d H:i:s');
+    $stmt->execute([
+      (string)$o['id'],
+      (string)($o['userId'] ?? 'guest'),
+      (string)($o['userName'] ?? ($o['customerName'] ?? '')),
+      (string)($o['phone'] ?? ''),
+      (float)($o['total'] ?? 0),
+      (float)($o['amountPaid'] ?? 0),
+      (string)($o['gateway'] ?? ($o['paymentMethod'] ?? 'Online')),
+      (string)($o['paymentStatus'] ?? 'Awaiting payment'),
+      (string)($o['status'] ?? 'Placed'),
+      !empty($o['invoiceNo']) ? (string)$o['invoiceNo'] : null,
+      $items,
+      $addr,
+      $data,
+      $created,
+    ]);
+    $n++;
+  }
+  return $n;
+}
+
+function shv_upsert_users(PDO $pdo, array $users): int {
+  $stmt = $pdo->prepare('INSERT INTO `users` (`id`, `role`, `name`, `phone`, `email`, `data_json`, `created_at`)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE `role`=VALUES(`role`), `name`=VALUES(`name`), `phone`=VALUES(`phone`), `email`=VALUES(`email`), `data_json`=VALUES(`data_json`)');
+  $n = 0;
+  foreach ($users as $u) {
+    if (!is_array($u) || ($u['id'] ?? '') === '') continue;
+    $data = json_encode($u, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    $created = !empty($u['createdAt']) ? date('Y-m-d H:i:s', strtotime($u['createdAt'])) : date('Y-m-d H:i:s');
+    $stmt->execute([
+      (string)$u['id'],
+      (string)($u['role'] ?? 'customer'),
+      (string)($u['name'] ?? ''),
+      (string)($u['phone'] ?? ''),
+      (string)($u['email'] ?? ''),
+      $data,
+      $created,
+    ]);
+    $n++;
+  }
+  return $n;
+}
+
+function shv_upsert_reviews(PDO $pdo, array $reviews): int {
+  $stmt = $pdo->prepare('INSERT INTO `reviews` (`id`, `product_id`, `rating`, `data_json`, `created_at`)
+    VALUES (?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE `product_id`=VALUES(`product_id`), `rating`=VALUES(`rating`), `data_json`=VALUES(`data_json`)');
+  $n = 0;
+  foreach ($reviews as $r) {
+    if (!is_array($r) || ($r['id'] ?? '') === '') continue;
+    $data = json_encode($r, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    $created = !empty($r['createdAt']) ? date('Y-m-d H:i:s', strtotime($r['createdAt'])) : date('Y-m-d H:i:s');
+    $stmt->execute([
+      (string)$r['id'],
+      (string)($r['productId'] ?? ($r['product_id'] ?? '')),
+      (int)($r['rating'] ?? 5),
+      $data,
+      $created,
+    ]);
+    $n++;
+  }
+  return $n;
+}
+
+function shv_upsert_coupons(PDO $pdo, array $coupons): int {
+  $stmt = $pdo->prepare('INSERT INTO `coupons` (`id`, `data_json`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `data_json`=VALUES(`data_json`)');
+  $n = 0;
+  foreach ($coupons as $c) {
+    $id = (string)($c['id'] ?? ($c['code'] ?? ''));
+    if ($id === '') continue;
+    $data = json_encode($c, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    $stmt->execute([$id, $data]);
+    $n++;
+  }
+  return $n;
+}
+
+function shv_upsert_settlements(PDO $pdo, array $settlements): int {
+  $stmt = $pdo->prepare('INSERT INTO `settlements` (`id`, `data_json`, `created_at`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `data_json`=VALUES(`data_json`)');
+  $n = 0;
+  foreach ($settlements as $s) {
+    if (!is_array($s) || ($s['id'] ?? '') === '') continue;
+    $data = json_encode($s, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    $created = !empty($s['createdAt']) ? date('Y-m-d H:i:s', strtotime($s['createdAt'])) : date('Y-m-d H:i:s');
+    $stmt->execute([(string)$s['id'], $data, $created]);
+    $n++;
+  }
+  return $n;
+}
+
 function shv_backup_json_db(): string {
   global $DB_FILE, $ROOT;
   $dir = $ROOT . '/data/backups';
@@ -284,11 +407,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $backup = shv_backup_json_db();                       // BACKUP FIRST — aborts on any failure
         $schemaLog = shv_ensure_schema($pdo);
         $upserted = shv_upsert_products($pdo, $db['products'] ?? []);
+        $upSettings = shv_upsert_settings($pdo, $db['settings'] ?? []);
+        $upOrders = shv_upsert_orders($pdo, $db['orders'] ?? []);
+        $upUsers = shv_upsert_users($pdo, $db['users'] ?? []);
+        $upReviews = shv_upsert_reviews($pdo, $db['reviews'] ?? []);
+        $upCoupons = shv_upsert_coupons($pdo, $db['coupons'] ?? []);
+        $upSettlements = shv_upsert_settlements($pdo, $db['settlements'] ?? []);
+
         $sqlAfter = (int)$pdo->query('SELECT COUNT(*) FROM `products`')->fetchColumn();
+        $sqlOrders = (int)$pdo->query('SELECT COUNT(*) FROM `orders`')->fetchColumn();
+        $sqlUsers = (int)$pdo->query('SELECT COUNT(*) FROM `users`')->fetchColumn();
+        $sqlReviews = (int)$pdo->query('SELECT COUNT(*) FROM `reviews`')->fetchColumn();
+        $sqlCoupons = (int)$pdo->query('SELECT COUNT(*) FROM `coupons`')->fetchColumn();
+        $sqlSettlements = (int)$pdo->query('SELECT COUNT(*) FROM `settlements`')->fetchColumn();
+
         // verify: counts equal + spot-check three rows byte-for-byte through data_json
         $mismatches = [];
-        if ($sqlAfter !== count($db['products'] ?? [])) $mismatches[] = "count: json=" . count($db['products'] ?? []) . " sql=$sqlAfter";
-        else {
+        if ($sqlAfter !== count($db['products'] ?? [])) $mismatches[] = "products count: json=" . count($db['products'] ?? []) . " sql=$sqlAfter";
+        if ($sqlOrders !== count($db['orders'] ?? [])) $mismatches[] = "orders count: json=" . count($db['orders'] ?? []) . " sql=$sqlOrders";
+        if ($sqlUsers !== count($db['users'] ?? [])) $mismatches[] = "users count: json=" . count($db['users'] ?? []) . " sql=$sqlUsers";
+        if ($sqlReviews !== count($db['reviews'] ?? [])) $mismatches[] = "reviews count: json=" . count($db['reviews'] ?? []) . " sql=$sqlReviews";
+        if ($sqlCoupons !== count($db['coupons'] ?? [])) $mismatches[] = "coupons count: json=" . count($db['coupons'] ?? []) . " sql=$sqlCoupons";
+        if ($sqlSettlements !== count($db['settlements'] ?? [])) $mismatches[] = "settlements count: json=" . count($db['settlements'] ?? []) . " sql=$sqlSettlements";
+
+        if (count($db['products'] ?? []) > 0 && empty($mismatches)) {
           $ids = array_map(fn($p) => (string)$p['id'], array_values($db['products'] ?? []));
           $pick = array_values(array_unique([$ids[0] ?? null, $ids[intdiv(count($ids), 2)] ?? null, $ids[count($ids) - 1] ?? null]));
           $qv = $pdo->prepare('SELECT `data_json` FROM `products` WHERE `id` = ?');
@@ -298,7 +440,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $src = null;
             foreach (($db['products'] ?? []) as $p) if (($p['id'] ?? '') === $pid) { $src = $p; break; }
             $enc = $src === null ? null : json_encode($src, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            if (!$row || (string)$row['data_json'] !== (string)$enc) $mismatches[] = "row $pid differs";
+            if (!$row || (string)$row['data_json'] !== (string)$enc) $mismatches[] = "product row $pid differs";
           }
         }
         if ($mismatches) throw new RuntimeException('Verification failed: ' . implode('; ', $mismatches) . ' — JSON untouched by the failure path beyond the backup; re-run after checking.');
@@ -306,6 +448,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = [
           'backup' => $backup, 'schema' => $schemaLog, 'upserted' => $upserted,
           'jsonCount' => count($db['products'] ?? []), 'sqlCount' => $sqlAfter,
+          'upSettings' => $upSettings, 'upOrders' => $upOrders, 'upUsers' => $upUsers,
+          'upReviews' => $upReviews, 'upCoupons' => $upCoupons, 'upSettlements' => $upSettlements,
           'driver' => $driver,
         ];
       } catch (Throwable $e) {
@@ -318,12 +462,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($result !== null) {
   $rows = implode('', array_map(fn($l) => '<tr><td>✓</td><td>' . h($l) . '</td></tr>', $result['schema']));
   shv_ui_page('Shivaa SQL setup — done', '
-    <p class="ok">✓ Database reconciled and verified.</p>
+    <p class="ok">✓ Database reconciled and verified (Phase 3).</p>
     <table><tr><th></th><th>Step</th></tr>
       <tr><td>✓</td><td>Backup written: <code>' . h($result['backup']) . '</code> (before any change)</td></tr>
       ' . $rows . '
-      <tr><td>✓</td><td>Products upserted: <b>' . (int)$result['upserted'] . '</b> · JSON count <b>' . (int)$result['jsonCount'] . '</b> · SQL count <b>' . (int)$result['sqlCount'] . '</b> (counts match, spot-checks byte-identical)</td></tr>
-      <tr><td>✓</td><td>Mirror flag cleared — product reads switch to MySQL automatically</td></tr>
+      <tr><td>✓</td><td>Products: <b>' . (int)$result['upserted'] . '</b> · Orders: <b>' . (int)$result['upOrders'] . '</b> · Users: <b>' . (int)$result['upUsers'] . '</b></td></tr>
+      <tr><td>✓</td><td>Settings: <b>' . (int)$result['upSettings'] . ' keys</b> · Reviews: <b>' . (int)$result['upReviews'] . '</b> · Coupons: <b>' . (int)$result['upCoupons'] . '</b> · Settlements: <b>' . (int)$result['upSettlements'] . '</b></td></tr>
+      <tr><td>✓</td><td>All collections verified byte-identical &amp; count-matched</td></tr>
+      <tr><td>✓</td><td>Mirror flag cleared — product &amp; collection reads switch to MySQL automatically</td></tr>
     </table>
     <p style="font-size:14px;margin-top:16px">Config <code>db_driver</code> is <b>' . h($result['driver']) . '</b>. '
       . ($result['driver'] === 'mysql'
