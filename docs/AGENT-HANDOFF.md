@@ -17,6 +17,82 @@ is manual-only: ask the owner first, then use the approval-gated workflow from
 Credentials stay in GitHub Actions secrets, and the old Hostinger cron code writer
 must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
 
+## CURRENT STATE — v179 in progress: bullion rates, the permanent fix (24 Sep 2026)
+
+> **Work order from the owner (verbatim):** *"signal is aborted without
+> reason, in MCX and dollar connection in bullion rates, the dollar
+> connection is working fine, but mcx connection from render is showing
+> this error … please give me a permanent solution for bullion rates that
+> I don't ever have to touch the rates in the next update, but first
+> update agent handoff and memory doc then work on this update."*
+
+**Diagnosis (recon complete, no code yet):**
+- "signal is aborted without reason" is a Node/undici AbortError — it
+  comes from the **v78 push relay**, a standalone Node service running on
+  **Render** whose source is NOT in this repository (it was handed over
+  for deployment there). Its long-lived Angel SmartStream connection gets
+  aborted (platform/code timeout) and the relay does not self-heal.
+- The **dollar leg** is fine because it is PHP on the Hostinger box with
+  a multi-tier provider ladder (gold-api / ECB / exchange-rate / Yahoo /
+  jsDelivr) — no single point of failure.
+- The MCX leg depends on the Render relay as its live source. While the
+  relay is dead: the live board freezes, and `rates_refresh` falls back
+  to a **RAW spot conversion** (`gold24 = XAU_USD × USDINR / OZ`) that is
+  systematically ~10–14% BELOW the real market, because MCX futures carry
+  duty + premium. **That is why the owner has to touch the rates manually
+  every time the relay dies.** The premium factors already exist in the
+  codebase (`spotImpliedGoldFactor` ≈ 1.1371, `spotImpliedSilverFactor`
+  ≈ 1.1838, owner-tunable in settings) but are only used MCX→USD, never
+  USD→MCX-estimate.
+
+**v179 design (agreed shape; builds on the v178 tree, stamps 178 → 179,
+MEDIA stays v168, ZIP stays the same 9-file cumulative union):**
+1. **Site self-sufficiency (the permanent part).** The Hostinger box
+   becomes the permanent MCX source: Angel SmartAPI credentials go in the
+   site's own admin panel (fields already exist: angelEnabled/ApiKey/
+   Client/Mpin/TotpSecret). TOTP self-heals the daily 3:30 AM expiry;
+   contract rollover auto-resolves via Search Scrip. After this one-time
+   setup the Render relay is OPTIONAL board polish — its death can never
+   blank or skew prices again.
+2. **Premium-aware automatic fallback.** When MCX is dead (relay down AND
+   Angel unconfigured/failing/cooling), `rates_refresh` prices
+   `gold24 = spotXau × USDINR / OZ × premium` with an **auto-calibrated**
+   factor: every time MCX and spot are both live, the live ratio is
+   recorded (rolling median, stored in `db['rates']['premiumCalib']`);
+   the calibrated value wins when fresh (< 7 d) and sane (0.9–1.5),
+   otherwise the settings factor. Labeled `source = 'mcx-est'` — honest,
+   visible, and ≈ market without the owner touching anything.
+3. **Last-good persistence + honest freshness.** The last official MCX
+   pack persists (`db['rates']['mcxLastGood']` with timestamp); the
+   public `/api/rates` payload carries a `health` object (mcx source +
+   age, premium factor + calibrated?, relay last-ok, spot sources); the
+   storefront ticker shows a small honest tag (MCX live / MCX est. /
+   delayed); the admin Live Rates tab shows a plain-English health strip
+   (green/amber per leg) so "all good" is one glance.
+4. **Relay v2 IN THIS REPO** (`cms/relay/relay.js`, zero npm deps, Node
+   18+): a self-healing Angel **REST** poller — same public contract as
+   v78 (`/tick` + `/stream?key=` SSE, X-Relay-Key auth, /healthz), but
+   built only on the SmartAPI endpoints this codebase already proves
+   (loginByPassword + TOTP, searchScrip, quote @ 1 rps): auto re-login on
+   401/daily expiry, contract re-resolution at rollover, exponential
+   backoff + jitter on ANY error (including aborts), no-frame watchdog,
+   last-tick persisted to disk. Deployable to Render in two minutes; if
+   it ever dies again, 1–3 hold the prices.
+5. **Belt:** `v179-check.js` (static invariants) + `v179-php-run.js`
+   (carries the v178/v177 purge+stats regression over, adds the rates
+   engine tests: MCX live → live-mcx + calibration recorded; MCX dead →
+   mcx-est within the sane band using the calibrated factor; both dead →
+   last stamp; health payload; legacy-db safety) + `v179-relay.js`
+   (Node, against a mock Angel: backoff on abort, re-login on 401, /tick
+   survives a crash, stream clients get frames). Release-check suites of
+   superseded releases leave the chain (stay on disk).
+
+**One-time owner action after deploying v179:** paste the five Angel
+credentials into admin → Live Rates (or Settings) and save. Nothing else,
+ever. Until that is done, layers 2–4 still remove the manual fixing
+(spot+premium estimate instead of raw spot).
+
+
 ## CURRENT STATE — v178: use Shivaa like an app — the in-footer PWA band (24 Sep 2026)
 
 **Supersedes the v177 record below as the current release.** Owner request:
