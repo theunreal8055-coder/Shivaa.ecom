@@ -7,10 +7,23 @@ const { api, state, toast, fmt, esc, safeUrl, jsArg, openModal, closeModal, toke
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
-const CATS = window.Shivaa ? {
-  rings: 'Rings', necklaces: 'Necklaces', earrings: 'Earrings', bangles: 'Bangles & Kadas', bracelets: 'Bracelets',
-  pendants: 'Pendants & Chains', mangalsutra: 'Mangalsutra', nosepins: 'Nose Pins', silver: 'Silver 925',
-} : {};
+/* v171 — the admin panel now reads the SAME category list the shop renders
+   (window.Shivaa.CATS, exported by app.js). The old private 9-entry copy here
+   was (a) missing 8 live categories (chains, bajubandh, rakhdi, aad,
+   sheeshphool, hathphool, punach, bridalanklets) and (b) a flat string map,
+   while the Add-product form template read `v.name` — `.name` of a string is
+   undefined, so EVERY option in the category dropdown printed "undefined".
+   One source of truth, flattened to key → display name; the literal below is
+   only a fallback for a stale cached app.js that predates the export. */
+const CATS = (window.Shivaa && window.Shivaa.CATS)
+  ? Object.fromEntries(Object.entries(window.Shivaa.CATS).map(([k, c]) => [k, (c && c.name) || k]))
+  : {
+      rings: 'Rings', necklaces: 'Necklaces', earrings: 'Earrings', bangles: 'Bangles & Kadas',
+      bracelets: 'Bracelets', chains: 'Chains', pendants: 'Pendants', mangalsutra: 'Mangalsutra',
+      bajubandh: 'Bajubandh', rakhdi: 'Rakhdi Set', aad: 'Fancy Aad', sheeshphool: 'Sheesh Phool',
+      hathphool: 'Hathphool', punach: 'Punach', bridalanklets: 'Bridal Anklets',
+      nosepins: 'Nose Pins', silver: 'Silver 925',
+    };
 const IMG_FILES = ['ring-floral.jpg','ring-kundan.jpg','ring-signet.jpg','ring-couple.jpg','necklace-rani.jpg','necklace-choker.jpg','necklace-satlada.jpg','earrings-jhumka.jpg','earrings-chandbali.jpg','earrings-studs.jpg','earrings-drops.jpg','bangle-kada.jpg','bangle-pair.jpg','bracelet-tennis.jpg','bracelet-charm.jpg','pendant-om.jpg','pendant-infinity.jpg','chain-gold.jpg','mangalsutra-trad.jpg','mangalsutra-modern.jpg','nosepin.jpg','silver-anklet.jpg','silver-chain.jpg','silver-kada.jpg'];
 
 /* ════════════════ ADMIN ════════════════ */
@@ -93,6 +106,7 @@ async function renderAdmin(view, q) {
       <div class="stat-grid">
         <div class="stat"><small>Revenue</small><b>${fmt(stats.revenue || 0)}</b><span>${stats.orders || 0} orders</span></div>
         <div class="stat"><small>Avg order value</small><b>${fmt(stats.aov || 0)}</b><span>incl. GST</span></div>
+        ${stats.unpaidOrders ? `<div class="stat"><small>Unpaid attempts</small><b style="color:var(--warn)">${stats.unpaidOrders}</b><span>failed / abandoned payments — not counted as sales${stats.paidOrders ? ' · ' + stats.paidOrders + ' paid' : ''}</span></div>` : ''}
         <div class="stat"><small>Customers</small><b>${stats.customers || 0}</b><span>${stats.newsletter || 0} newsletter</span></div>
         <div class="stat"><small>B2B partners</small><b>${stats.partners || 0}</b><span style="${stats.pendingPartners ? 'color:var(--warn)' : ''}">${stats.pendingPartners || 0} pending</span></div>
       </div>
@@ -175,7 +189,21 @@ async function renderAdmin(view, q) {
     const asksBanner = reviewAsks.length ? `<div class="proof-banner" style="background:linear-gradient(135deg,#fff8e6,#f5e9c8);border-color:var(--gold)">⭐ <b>${reviewAsks.length}</b> delivered piece${reviewAsks.length > 1 ? 's' : ''} waiting on a photo review
       <div style="margin-top:8px;display:grid;gap:6px">${reviewAsks.slice(0, 12).map(a => `<div class="proof-row"><div><b>${esc(a.name)}</b> · ${esc(a.userName)} · <small>${esc(a.phone)}</small><br><small style="color:var(--ink-3)">Delivered ${new Date(a.deliveredAt).toLocaleDateString('en-IN')} · order ${esc(a.orderId)}</small></div>
       <div><a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="${Shivaa.waLink('Namaste ✦ hope you are loving your ' + a.name + ' from Shivaa. A quick photo review helps other brides & families — takes 30 seconds: ' + location.origin + '/#/product/' + a.productId)}">📱 Ask review</a></div></div>`).join('')}</div></div>` : '';
-    body.innerHTML = `${proofBanner}${asksBanner}<div class="adm-card"><h3>${orders.length} orders <button class="btn btn-ghost btn-sm" style="margin-left:10px" onclick="ShivaaAdmin.gstrCSV()">⬇ GSTR-1 CSV</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.catalogCSV()">⬇ Catalogue CSV</button></h3>
+    body.innerHTML = `${proofBanner}${asksBanner}<div class="adm-card" id="purgeCard"><h3>🧹 Clear the failed-payment test orders</h3>
+      <p class="partner-note" style="font-size:12.5px">A Cashfree payment that failed, was dropped or was never completed <b>never marks the order Failed</b> — it leaves the row sitting at <b>&ldquo;Awaiting payment&rdquo;</b>, and until v176 the dashboard counted those rows as real revenue. That is why the gateway tests you ran while wiring up Cashfree showed up as sales.</p>
+      <p class="partner-note" style="font-size:12.5px">Preview first — nothing is deleted until you type the confirmation phrase. Every run writes a <b>full timestamped backup</b> into <code>data/backups/</code> before a single row is removed, so this is reversible.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:12px 0 4px">
+        <div class="fld" style="margin:0"><label>What to remove</label>
+          <select id="pgScope" class="sortsel" style="width:100%;border-radius:12px">
+            <option value="unpaid">Only orders with no money received (safe)</option>
+            <option value="all">Every order — reset sales completely</option>
+          </select></div>
+        <button class="btn btn-outline btn-sm" id="pgPreview">🔍 Preview</button>
+      </div>
+      <div id="pgBody" style="margin-top:10px"></div>
+      <div id="pgRun" style="margin-top:12px"></div>
+    </div>
+    <div class="adm-card"><h3>${orders.length} orders <button class="btn btn-ghost btn-sm" style="margin-left:10px" onclick="ShivaaAdmin.gstrCSV()">⬇ GSTR-1 CSV</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.catalogCSV()">⬇ Catalogue CSV</button></h3>
       <div class="adm-table-wrap"><table class="adm-table">
         <thead><tr><th>Order / Invoice</th><th>Customer</th><th>Items</th><th class="num">Total</th><th>Payment</th><th>Status</th><th></th></tr></thead>
         <tbody>${orders.map(o => `<tr>
@@ -220,6 +248,68 @@ async function renderAdmin(view, q) {
     $('#rpCsv').onclick = ShivaaAdmin.reportCSV;
     $('#rpAudit').onclick = ShivaaAdmin.openAudit;
     ShivaaAdmin.runReport();
+  }
+
+  /* ── v176 · purge the failed-payment test orders (orders tab) ── */
+  if (tab === 'orders') {
+    const pv = $('#pgPreview'), pgScope = $('#pgScope'), pgBody = $('#pgBody'), pgRun = $('#pgRun');
+    if (pv && pgScope && pgBody) {
+      const E = window.Shivaa.esc, F = window.Shivaa.fmt;
+      const renderPurge = p => {
+        const st = p.byPaymentStatus || {}, mt = p.byMethod || {};
+        pgBody.innerHTML = `
+          <div class="cb-grid">
+            <div class="cb-tile"><small>Orders on the shop</small><b>${p.totalOrders}</b></div>
+            <div class="cb-tile"><small>Would be removed</small><b style="color:var(--warn)">${p.wouldDelete}</b></div>
+            <div class="cb-tile"><small>Would stay</small><b>${p.wouldKeep}</b></div>
+            <div class="cb-tile out"><small>Value removed</small><b>₹${(p.valueRemoved || 0).toLocaleString('en-IN')}</b></div>
+          </div>
+          <h4 style="margin:14px 0 6px">Why each one is going</h4>
+          <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Payment status</th><th class="num">Orders</th></tr></thead><tbody>
+            ${Object.entries(st).map(([k, v]) => `<tr><td>${E(k)}</td><td class="num">${v}</td></tr>`).join('') || '<tr><td colspan="2" class="partner-note">Nothing to remove.</td></tr>'}
+          </tbody></table></div>
+          <h4 style="margin:14px 0 6px">By payment method</h4>
+          <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Method</th><th class="num">Orders</th></tr></thead><tbody>
+            ${Object.entries(mt).map(([k, v]) => `<tr><td>${E(k)}</td><td class="num">${v}</td></tr>`).join('') || '<tr><td colspan="2" class="partner-note">—</td></tr>'}
+          </tbody></table></div>
+          ${(p.sample || []).length ? `<h4 style="margin:14px 0 6px">First ${Math.min(25, p.sample.length)} of them</h4>
+          <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Order</th><th>When</th><th>Customer</th><th class="num">Total</th><th>Payment</th></tr></thead><tbody>
+            ${p.sample.map(s => `<tr><td><b>${E(s.id)}</b></td><td>${E(String(s.at || '').slice(0, 16).replace('T', ' '))}</td><td>${E(s.name || '')}</td><td class="num">${F(s.total || 0)}</td><td>${E(s.paymentMethod)} · ${E(s.paymentStatus)}</td></tr>`).join('')}
+          </tbody></table></div>` : ''}
+          ${p.scope === 'all' ? `<p class="partner-note" style="color:var(--bad);margin-top:10px"><b>⚠ This scope also removes every PAID and COD order.</b> That is real money and real customers — use it only if you truly want an empty sales book. The backup still protects you.</p>` : ''}
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:14px">
+            <div class="fld" style="margin:0;min-width:260px"><label>Type <b>${E(p.needsPhrase)}</b> to confirm</label>
+              <input id="pgPhrase" placeholder="${E(p.needsPhrase)}" autocomplete="off"></div>
+            <button class="btn btn-sm" id="pgGo" style="background:var(--bad,#b3261e);color:#fff;border:0">🗑 Delete ${p.wouldDelete} order${p.wouldDelete === 1 ? '' : 's'}</button>
+          </div>
+          <p class="partner-note" style="margin-top:8px">B2B and B2C customers, partners, products, reviews, coupons and every paid order are never touched by this action.</p>`;
+        const go = $('#pgGo');
+        if (go) go.onclick = async () => {
+          const typed = (($('#pgPhrase') || {}).value || '');
+          go.disabled = true; go.textContent = 'Deleting…';
+          try {
+            const r = await window.Shivaa.api('/api/admin/purge-unpaid', {
+              method: 'POST', body: JSON.stringify({ scope: p.scope, confirm: typed })
+            });
+            window.Shivaa.toast(r.note || ('Removed ' + r.deleted + ' orders'), 'ok');
+            pgBody.innerHTML = `<p class="partner-note" style="color:var(--ok)"><b>Done.</b> ${E(r.note || '')}</p>
+              <p class="partner-note">Backup saved at <code>${E(r.backup || '')}</code> — restore it from Hostinger File Manager if you ever need these rows back.</p>`;
+            setTimeout(() => renderAdmin($('#view'), new URLSearchParams('tab=orders')), 2500);
+          } catch (e) {
+            window.Shivaa.toast(e.message, 'err');
+            go.disabled = false; go.textContent = '🗑 Delete ' + p.wouldDelete + ' order' + (p.wouldDelete === 1 ? '' : 's');
+          }
+        };
+      };
+      pv.onclick = async () => {
+        pv.disabled = true; pv.textContent = 'Checking…';
+        pgBody.innerHTML = '<p class="partner-note">Reading the order book…</p>';
+        try { renderPurge(await window.Shivaa.api('/api/admin/purge-unpaid?scope=' + pgScope.value)); }
+        catch (e) { pgBody.innerHTML = '<p class="partner-note" style="color:var(--bad)">' + E(e.message) + '</p>'; }
+        pv.disabled = false; pv.textContent = '🔍 Preview';
+      };
+      pgScope.onchange = () => { pgBody.innerHTML = ''; };
+    }
   }
 
   /* ── v60 REFUNDS / EXCHANGES ── */
@@ -1371,7 +1461,7 @@ window.ShivaaAdmin.editProduct = id => {
     <h3 style="font-size:24px;margin-bottom:16px">${id ? 'Edit product' : 'Add product'}</h3>
     <form class="form-grid" onsubmit="ShivaaAdmin.saveProduct(event,'${id || ''}')">
       <div class="fld full"><label>Name</label><input required value="${esc(p.name)}" name="name"></div>
-      <div class="fld"><label>Category</label><select class="sortsel" style="width:100%;border-radius:12px" name="category">${Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${p.category === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select></div>
+      <div class="fld"><label>Category</label><select class="sortsel" style="width:100%;border-radius:12px" name="category">${Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${p.category === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
       <div class="fld"><label>Metal</label><select class="sortsel" style="width:100%;border-radius:12px" name="metal"><option ${p.metal === 'Gold' ? 'selected' : ''}>Gold</option><option ${p.metal === 'Silver' ? 'selected' : ''}>Silver</option></select></div>
       <div class="fld"><label>Purity</label><select class="sortsel" style="width:100%;border-radius:12px" name="purity">${['22K', '18K', '925'].map(x => `<option ${p.purity === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
       <div class="fld"><label>Weight (g)</label><input type="number" step="0.1" required value="${p.weightG}" name="weightG"></div>
@@ -1389,11 +1479,16 @@ window.ShivaaAdmin.editProduct = id => {
       <div class="fld"><label>Stock</label><input type="number" value="${p.stock}" name="stock"></div>
       <div class="fld full"><label>Product pictures ${id ? '· tap the ★ to choose which picture is shown in the list (primary)' : '· pick a picture'}</label>
         <div class="apg-grid" id="apgGrid"></div>
+        <div class="kyc-inline" style="margin-top:6px;flex-wrap:wrap;gap:8px">
+          <input type="file" id="apgFile" accept="image/*" multiple hidden>
+          <button type="button" class="btn btn-primary btn-sm" id="apgUpload">📷 Upload from gallery / camera</button>
+          <span id="apgUpMsg" style="font-size:12px;color:var(--ink-3)"></span>
+        </div>
         <div class="kyc-inline" style="margin-top:6px">
           <select class="sortsel" id="apgStock" style="flex:1;min-width:180px;border-radius:12px">${IMG_FILES.map(f => `<option value="/images/products/${f}">${f}</option>`).join('')}</select>
-          <button type="button" class="btn btn-ghost btn-sm" id="apgAdd">+ Add this picture</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="apgAdd">+ Add this stock picture</button>
         </div>
-        <p class="apg-hint">The picture with the solid gold ★ is the primary picture — it is what shoppers see in the list, the cart and shared links.</p>
+        <p class="apg-hint">Upload your own photos straight from the phone's gallery or camera (JPG / PNG / WEBP, up to 25 MB each), or pick a stock picture below. The picture with the solid gold ★ is the primary picture — it is what shoppers see in the list, the cart and shared links.</p>
       </div>
       <div class="fld full"><label>Sizes (comma separated)</label><input value="${esc((p.sizes || []).join(', '))}" name="sizes"></div>
       <div class="fld full"><label>Tags (comma: wedding, festive, daily, gifting, mens, new, bestseller)</label><input value="${esc((p.tags || []).join(', '))}" name="tags"></div>
@@ -1441,6 +1536,49 @@ window.ShivaaAdmin.editProduct = id => {
     renderImgGrid();
     window.Shivaa.toast('Picture added — tap its ★ to make it primary');
   };
+
+  /* v171 — upload the owner's OWN photos (phone gallery / camera) straight into
+     the product. Before this, the form only offered the fixed stock-picture
+     dropdown — there was no way to attach a photo taken of the real piece.
+     Uses the existing admin-only POST /api/media endpoint (jpg/png/webp,
+     magic-byte-checked, 25 MB cap) and appends each returned /uploads/… URL to
+     the picture grid, where the ★ primary picker already handles it. */
+  const upBtn = document.getElementById('apgUpload');
+  const upInput = document.getElementById('apgFile');
+  const upMsg = document.getElementById('apgUpMsg');
+  const upSay = (t, bad) => { if (upMsg) { upMsg.textContent = t; upMsg.style.color = bad ? 'var(--bad, #b3261e)' : 'var(--ink-3)'; } };
+  if (upBtn && upInput) {
+    upBtn.onclick = () => upInput.click();
+    upInput.onchange = async () => {
+      const files = [...(upInput.files || [])];
+      if (!files.length) return;
+      upBtn.disabled = true;
+      let done = 0, failed = 0;
+      for (const f of files) {
+        if (!/^image\/(jpeg|png|webp)$/.test(f.type) && !/\.(jpe?g|png|webp)$/i.test(f.name)) {
+          failed++; upSay(`"${f.name}" skipped — use JPG, PNG or WEBP`, true); continue;
+        }
+        if (f.size > 25 * 1024 * 1024) { failed++; upSay(`"${f.name}" skipped — over 25 MB`, true); continue; }
+        upSay(`Uploading ${done + failed + 1} of ${files.length}…`);
+        const fd = new FormData();
+        fd.append('file', f);
+        const catSel = document.querySelector('#modalBox [name="category"]');
+        fd.append('category', (catSel && catSel.value) || 'general');
+        try {
+          const r = await api('/api/media', { method: 'POST', body: fd, timeout: 120000 });
+          if (!window._epImages.includes(r.url)) window._epImages.push(r.url);
+          done++;
+          renderImgGrid();
+        } catch (e) { failed++; upSay((e && e.message) || 'Upload failed', true); }
+      }
+      upInput.value = '';
+      upBtn.disabled = false;
+      if (done) {
+        upSay(`✓ ${done} photo${done > 1 ? 's' : ''} added${failed ? ` · ${failed} failed` : ''}`, !!failed);
+        window.Shivaa.toast(done + (done > 1 ? ' photos' : ' photo') + ' uploaded — tap a ★ to choose the primary picture');
+      }
+    };
+  }
 };
 window.ShivaaAdmin.saveProduct = async (e, id) => {
   e.preventDefault();

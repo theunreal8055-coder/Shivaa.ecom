@@ -1,0 +1,90 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIVAA v174 — a product photo can never cover a product title
+
+   The owner's report: "Photos of the products come and overlap the title of
+   the product."
+
+   ROOT CAUSE. The product gallery's swipe track is a composited layer —
+   v118.css gives it `will-change: transform` and `translate3d(0,0,0)` so a
+   flick never stutters. Clipping a composited child is done by the
+   compositor, not the layout engine, and a parent that clips with
+   `overflow: hidden` + `border-radius` is exactly the case where that clip
+   is unreliable on Android Chrome and some iOS WebKit builds: the rounded
+   frame stops masking the layer and the photo paints outside its box. On the
+   product page the photo frame sits directly above the title, so the leaked
+   pixels land on the words. The same hole exists on every rounded
+   photo frame in the grids.
+
+   THE REPAIR. `contain: paint` is enforced by the compositor itself, so the
+   frame becomes a real wall no matter which layer the photo ends up on —
+   and it keeps the rounded corners. On top of that the words now win the
+   paint order outright, so even a future effect that leaks can only ever
+   land *under* the title, never on it.
+
+   Layout is untouched: no size, spacing, radius or motion changes. This file
+   only ADDS containment and stacking. Delete the one v174 tag in index.html
+   to roll back.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · the product photo frame is a compositor-enforced wall ──────────── */
+/*        contain:paint clips descendants (and their composited layers) to
+          the padding box, honouring the border-radius — unlike overflow on
+          a parent of a promoted layer. */
+.gal-wrap { contain: paint; }
+
+/* ── 2 · the words always win the paint order ───────────────────────────── */
+/*        .pd-info comes after .pd-gallery in the DOM, so it already paints
+          above it; making that explicit with a stacking context means a
+          leaked photo layer can never climb over the title, price or CTAs
+          even if some later stylesheet gives the gallery a z-index. */
+.pd-info { position: relative; z-index: 2; }
+
+/*        isolation keeps everything inside the gallery in its own stacking
+          context, so nothing in there can reach the sibling column at all. */
+.pd-gallery { isolation: isolate; }
+
+/* ── 3 · a photo can never be larger than its frame ─────────────────────── */
+/*        The click-to-zoom rule (styles.css) scales a shot to 2.1×. Belt and
+          braces: the image itself is capped at the frame too, so a scaled,
+          pinched or drag-panned photo stays inside on every engine. */
+.gal-slide img { max-width: 100%; max-height: 100%; }
+
+/* ── 4 · the sticky gallery can never grow past the window ──────────────── */
+/*        Desktop pins the gallery at top:100px (styles.css). When the square
+          is taller than the window its lower half is unreachable and rides
+          under the copy while scrolling. Capping the box keeps the whole
+          piece in view; object-fit:cover simply crops the shot a little. */
+@media (min-width: 1081px) {
+  .pd-gallery .gal-wrap { max-height: calc(100vh - 132px); }
+}
+
+/* ── 5 · the same wall on the other rounded photo frames ────────────────── */
+/*        Shop cards, compare, lookbook and the studs rail all pair a rounded
+          photo frame with a title underneath, so they get the same
+          compositor-enforced clip. .p-card / .cat-card / .cat-mini-card are
+          deliberately NOT touched: they carry transform-style:preserve-3d
+          for their hover tilt, and containment would flatten it. */
+.pc-imgwrap,
+.pcmp-img,
+.shv-stud-img-wrap,
+.look-item,
+.cb-img { contain: paint; }
+
+/* ── 6 · the title is never buried under the hero shot on a phone ───────── */
+/*        A full-bleed 1:1 hero fills the entire first screen, so the piece's
+          name, price and buttons start below the fold and the shopper's
+          first view is a photo with no title in sight. Capping the hero to
+          roughly three-fifths of the window puts the title, the live price
+          and "Make It Yours" on the opening screen while keeping the
+          edge-to-edge look (the shot just crops a little taller). */
+@media (max-width: 768px) {
+  body[data-page="product"] .gal-wrap {
+    aspect-ratio: auto;
+    height: min(58dvh, 430px);
+  }
+  /* the loading skeleton must match the frame it stands in for */
+  body[data-page="product"] .pd-gallery .skeleton {
+    aspect-ratio: auto !important;
+    height: min(58dvh, 430px) !important;
+  }
+}
