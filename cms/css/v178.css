@@ -1,0 +1,69 @@
+/* ══════════════════════════════════════════════════════════════════════
+   SHIVAA v178 — the in-footer app band (PWA install, no store, no APK).
+   The old floating install chip is dead (v140, owner-ordered, never
+   returns). This band is IN-CONTENT: it lives in the footer flow, never
+   floats, never auto-appears as an overlay, and its dismiss sticks.
+   Only the iPhone/Android guide SHEET is an overlay — and it opens solely
+   on a tap, and closes instantly (button, backdrop or Esc).
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── the band ─────────────────────────────────────────────────────────── */
+.fv-appband{display:flex;align-items:center;gap:18px;position:relative;z-index:1;
+  margin:26px 0 4px;padding:16px 18px;border:1px solid rgba(212,175,90,.30);
+  border-radius:16px;background:linear-gradient(135deg,rgba(212,175,90,.10),rgba(212,175,90,.03) 55%,rgba(255,255,255,.02));}
+.fv-appband[hidden]{display:none}
+.fv-appband-qr{flex:none;width:78px;height:78px;padding:5px;border-radius:12px;
+  background:#fdf8ef;box-shadow:0 4px 14px rgba(0,0,0,.35);}
+.fv-appband-qr canvas{display:block;width:100%;height:100%;border-radius:7px}
+.fv-appband-copy{flex:1;min-width:0}
+.fv-appband-copy .label{margin-bottom:5px}
+.fv-appband-copy h5{font-family:var(--ff-disp);font-weight:600;font-size:17.5px;
+  color:#f3dfae;margin:0 0 5px;line-height:1.25}
+.fv-appband-copy p{margin:0;font-size:13px;color:rgba(233,213,168,.78);line-height:1.5;max-width:560px}
+.fv-appband-copy p b{color:#f3dfae;font-weight:600}
+.fv-appband-act{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:172px}
+.fv-appband-x{align-self:center;background:none;border:0;cursor:pointer;color:rgba(233,213,168,.5);
+  font-size:13px;line-height:1;padding:3px 8px;border-radius:8px;transition:.2s}
+.fv-appband-x:hover{color:#fff;background:rgba(255,255,255,.08)}
+.fv-appband-x:focus-visible{outline:2px solid var(--gold-2);outline-offset:2px}
+@media (max-width:680px){
+  .fv-appband{flex-wrap:wrap;gap:14px;padding:14px}
+  .fv-appband-qr{width:66px;height:66px}
+  .fv-appband-copy h5{font-size:16.5px}
+  .fv-appband-act{flex:1 1 100%;flex-direction:row;align-items:center;justify-content:space-between;min-width:0}
+  .fv-appband-act .btn{flex:1}
+}
+
+/* ── the guide sheet (opens on tap only; closes instantly) ───────────── */
+.shv-sheet{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;
+  justify-content:center;background:rgba(29,5,9,.72);padding:0}
+.shv-sheet[hidden]{display:none}
+.shv-sheet-card{position:relative;width:100%;max-width:460px;background:#fffdf8;
+  border-radius:22px 22px 0 0;padding:22px 20px 26px;box-shadow:0 -10px 40px rgba(0,0,0,.4);
+  max-height:92vh;overflow:auto}
+@media (min-width:681px){
+  .shv-sheet{align-items:center;padding:24px}
+  .shv-sheet-card{border-radius:22px}
+}
+.shv-sheet-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;
+  border:1px solid rgba(110,30,42,.25);background:#fff;color:var(--maroon);font-size:15px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;z-index:2}
+.shv-sheet-close:hover{background:var(--maroon);color:#f9ecd2}
+.shv-sheet-close:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.shv-sheet-card .label{margin-bottom:6px}
+.shv-sheet-card h3{font-size:19px;margin:0 0 4px;padding-right:36px}
+.shv-sheet-card .sub{font-size:13px;color:var(--ink-2);margin:0 0 16px}
+.shv-steps{display:grid;gap:12px}
+.shv-step{display:flex;align-items:center;gap:14px;padding:12px;border:1px solid rgba(110,30,42,.14);
+  border-radius:14px;background:#fff}
+.shv-step-ic{flex:none;width:52px;height:52px;border-radius:12px;background:var(--gold-faint);
+  border:1px solid rgba(185,138,47,.35);display:flex;align-items:center;justify-content:center;
+  font-size:24px;color:var(--maroon)}
+.shv-step-ic svg{width:26px;height:26px;stroke:var(--maroon);fill:none;stroke-width:1.8}
+.shv-step b{display:block;font-size:14.5px;color:var(--maroon-deep)}
+.shv-step small{display:block;font-size:12.5px;color:var(--ink-3);line-height:1.45;margin-top:2px}
+.shv-sheet-note{margin:14px 0 0;font-size:12px;color:var(--ink-3);line-height:1.5}
+.shv-sheet-note b{color:var(--maroon)}
+@media (prefers-reduced-motion:reduce){
+  .fv-appband-x,.shv-sheet-close{transition:none}
+}
