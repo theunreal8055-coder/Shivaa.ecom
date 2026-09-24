@@ -68,7 +68,26 @@
   the synced directory and are not matched by the exclude list, so a future code
   deploy would upload them (owner decision).
 
-## CURRENT STATE — v179 BUILT, belt green — push + remote verification pending (24 Sep 2026)
+## CURRENT STATE — v179 DEPLOYED BY OWNER, relay error resolved (24 Sep 2026)
+
+- **Live is 179** — owner uploaded `shivaa-update-v179.zip` to Hostinger;
+  `/api/version` = 179 confirmed by the owner (site unreachable from this
+  sandbox, so live verification is owner-confirmed, not agent-confirmed).
+- The old v78 Render relay was cut out: both relay Settings fields cleared
+  (*Relay server URL* + *Browser push URL* — the board's SSE line fed from the
+  push-URL field; the board status line displays `t.error` verbatim from stale
+  relay frames, which is where "signal is aborted without reason" surfaced),
+  old Render service deleted. Owner confirms the error is gone.
+- One-time Angel creds entered in Admin → Settings ("Enable official MCX feed"
+  section); site direct feed is the MCX source. New relay (Phase 2,
+  `cms/relay`) NOT yet deployed — public 1 s board motion waits for it; prices
+  are correct without it (10-min stamp, v179 estimate ladder when MCX dark).
+- Owner asked "is it permanently fixed?" — answer given: the known failure
+  modes are self-healing by construction + tested; live acceptance = tonight
+  23:40 IST market close → strip turns amber auto-estimate, nothing touched;
+  09:00 next day → back to green. Optional: deploy new relay for the 1 s board.
+
+## SUPERSEDED — v179 BUILT, belt green (24 Sep 2026)
 **Implementation COMPLETE (24 Sep 2026, this session):**
 - `4670cb8` — the v179 core on the 179 tree: `cms/api.php` (calibrated
   premium `premium_calibrate`/`premium_factor_for`, honest `mcx-est`

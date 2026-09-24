@@ -1,8 +1,9 @@
-# AGENT HANDOFF — v178 published, not live-verified (24 Sep 2026)
+# AGENT HANDOFF — v179 deployed, relay error resolved (24 Sep 2026)
 
-> **Current release: 178.** The v169 block below is history. Read the
-> *CURRENT STATE — v178* section first, then the v177 record (now history),
-> then the v176 record, then the v169 record, then the historical notes.
+> **Current release: 179 (live).** Read the *CURRENT STATE — v179 DEPLOYED*
+> section first, then the superseded v179-built record, then the v178 record
+> (history), the v177 record, the v176 record, the v169 record, then the
+> historical notes.
 > **Forward only — never revert to an older release.**
 
 ## Deployment control update — owner approval required (22 Sep 2026)
@@ -17,7 +18,43 @@ is manual-only: ask the owner first, then use the approval-gated workflow from
 Credentials stay in GitHub Actions secrets, and the old Hostinger cron code writer
 must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
 
-## CURRENT STATE — v179 BUILT, belt green — push + remote verification pending (24 Sep 2026)
+## CURRENT STATE — v179 DEPLOYED BY OWNER, relay error resolved (24 Sep 2026)
+
+- **Live is 179.** Owner uploaded `shivaa-update-v179.zip` to Hostinger;
+  `/api/version` = 179 owner-confirmed (the sandbox cannot route to
+  shivaa.in, so live checks are owner-confirmed; the published ZIP itself
+  was byte-verified via the GitHub API — DEPLOY-v179.md).
+- **The "signal is aborted without reason" error is resolved
+  (owner-confirmed 24 Sep).** Root-cause chain, for future agents:
+  the old v78 relay (Render) kept dying internally (undici AbortError)
+  while still serving stale frames; the board's SSE line is fed from the
+  **\*Browser push URL\*** Settings field (`angelRelayStreamUrl` — NOT the
+  *Relay server URL* field), and the board status line
+  (`[data-tickstate]`, admin.js `setTickState`) prints a stale frame's
+  `error` field **verbatim**. Owner's fix: both relay Settings fields
+  cleared, hard refresh, old Render service deleted (instructed).
+- The site now prices MCX from its **own** Angel One feed (one-time creds
+  in Admin → Settings → "Enable official MCX feed" section). The new relay
+  (`cms/relay`) is NOT deployed yet — it is optional and only restores the
+  public 1-second board motion; prices are correct without it.
+- **Owner asked "is it permanently fixed?"** — answer on record: that error
+  has no path back (dead relay cut out; v179 treats any dead relay as a
+  non-breaking strip line), and the rates ladder self-heals
+  MCX-down / relay-down / spot-down without owner touch (belt 164/0).
+  Residual owner items: re-enter Angel creds only if Angel rotates them
+  (strip names the field); optional `cms/relay` Render deploy.
+- **PENDING — final owner acceptance (the permanence proof):** after
+  23:40 IST market close → Pipeline health strip turns amber
+  "auto-estimating" with rates on market and no action; 09:00 next day →
+  back to green live. Owner to report the cycle. v177/v178 phone-side
+  acceptances remain open from earlier releases.
+- **Closed out per owner instruction (24 Sep 2026):** branch
+  `arena/01a0d168-shivaa-ecom` pushed and **merged to `main` via PR**
+  (owner asked for the merge explicitly). Merging is not deployment
+  approval; live was already 179 and main now matches it. Next release:
+  **180+**, forward only.
+
+## SUPERSEDED — v179 BUILT, belt green (24 Sep 2026)
 **Implementation COMPLETE (24 Sep 2026, this session):**
 - `4670cb8` — the v179 core on the 179 tree: `cms/api.php` (calibrated
   premium `premium_calibrate`/`premium_factor_for`, honest `mcx-est`
