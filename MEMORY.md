@@ -24,6 +24,14 @@
   MySQL `pending_review` → owner Approve queue → batch ledger; (4) owner's own
   billing-software zip installs to `public_html/billing/` (or subdomain) —
   **outside every shop ZIP** — plus one Admin→Settings link tile.
+- **v181 EXECUTED (24 Sep 2026, branch `arena/01a0d340-shivaa-ecom`):**
+  Phase 3 SQL migration built: `orders`, `settings`, `users`, `reviews`, `coupons`, and `settlements` wired for dual-mode MySQL overlay (`shv_sql_phase3_overlay`) and mirror-on-save (`shv_sql_phase3_mirror`) with JSON safety net.
+  `upgrade-sql.php` adds `orders.data_json`, syncs all collections, checks counts, spot-checks row hashes, clears mirror flag.
+  Admin Settings gains the "Billing Software ↗" doorway tile (`/billing/` new tab).
+  Release stamps 180 → 181 lockstep (56×`?v=181` index, 51×`?v=181` sw, app 181, api 181; media stays v168).
+  All smoke suites pass (`npm test` green: 20 deploy + 6 v181 check + v180 skip + 6 v181 php + 8 v180 php + 25 v179 php + 7 relay + 25 v169 pages + 28 v169 php + 39 v168 check + 12 v168 php).
+  Package: `shivaa-update-v181.zip` (6 files, 445,347 bytes, SHA-256 `17f8d30bc4884c630d771470aea05893e44b36ed7442f221d91288121b3f2361`) + `DEPLOY-v181.md`.
+
 - **Same-day status update: owner chose step-by-step → Phase 1+2 EXECUTED —
   v180 SQL runtime BUILT (dual-mode overlay + mirror-on-save + ZIP-only
   `upgrade-sql.php`), belt green, ZIP + `DEPLOY-v180.md` published.

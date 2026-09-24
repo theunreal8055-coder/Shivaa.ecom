@@ -1,4 +1,18 @@
-# AGENT HANDOFF — v180 DEPLOYED & LIVE (Hostinger MySQL engaged, 78 rows) (24 Sep 2026)
+# AGENT HANDOFF — v181 BUILT (SQL Phase 3 & Billing Doorway); v180 LIVE ON HOSTINGER (24 Sep 2026)
+
+## CURRENT STATE — v181 BUILT: SQL Phase 3 (Orders, Settings, Users, Reviews, Settlements) + Billing Doorway (24 Sep 2026)
+
+- **v181 = SQL Phase 3 + Billing Doorway:**
+  - `api.php`: Phase 3 overlay (`shv_sql_phase3_overlay`) and mirror-on-save (`shv_sql_phase3_mirror`) for `settings`, `orders`, `users`, `reviews`, `coupons`, and `settlements`.
+  - Reads overlay from MySQL when `db_driver => 'mysql'`, PDO connects, and mirror flag is clear.
+  - Dual-write mirror-on-save: saves to `db.json` first, mirrors deltas to MySQL in one transaction.
+  - Zero downtime safety net: if MySQL fails, `data/.sql-mirror-behind` trips and reads transparently fall back to JSON.
+  - `upgrade-sql.php`: one-time reconciler adds `orders.data_json`, syncs all collections, checks counts, spot-checks row hashes, clears mirror flag.
+  - `js/admin.js`: adds the "Billing Software ↗" doorway tile in Admin → Settings (opens `/billing/` in new tab).
+  - Stamps 180 → 181 in lockstep across `index.html` (56×`?v=181`, `__SHIVAA_REL=181`), `sw.js` (51×`?v=181`, `shivaa-shell-v181`, `REL=181`), `app.js` (`APP_REL=181`), `api.php` (`rel: 181`). MEDIA cache deliberately stays `shivaa-media-v168`.
+- **Package:** `shivaa-update-v181.zip` (6 files, 445,347 bytes, SHA-256 `17f8d30bc4884c630d771470aea05893e44b36ed7442f221d91288121b3f2361`) + `DEPLOY-v181.md`.
+- **Belt at close:** `npm test` exit 0 (deploy approval 20/20, v181-check 6/6, v180-check skipped forward-compat, v181-php-run 6/6, v180-php-run 8/8, v179-php-run 25/25, relay 7/7, v169 pages 25/25, v169 PHP 28/28, v168 boundaries 39/39, N40 signatures 12/12).
+- **Current LIVE:** 180 (MySQL active, 78 products, mirrorBehind: false). v181 is built and ready for owner deployment.
 
 ## STATUS UPDATE — v180 LIVE ON HOSTINGER (24 Sep 2026, probed and verified)
 

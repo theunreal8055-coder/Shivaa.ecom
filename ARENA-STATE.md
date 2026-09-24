@@ -1,17 +1,12 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
-## Current Live Status — v180 deployed & verified live on Hostinger (24 Sep 2026)
+## Current Build & Live Status — v181 built (Phase 3 SQL & Billing Doorway); v180 live on Hostinger (24 Sep 2026)
 
-- **LIVE SITE IS 180 (VERIFIED):** The owner extracted `shivaa-update-v180.zip` and ran `/upgrade-sql.php`.
-- Probed directly at `https://shivaa.in/api/version`:
-  - `rel: 180`, `shell: "shivaa-shell-v180"`, stamps matched: `180 / 180 / 180`
-  - `db: {"driver": "mysql", "mode": "mysql", "reason": "", "sqlCount": 78, "jsonCount": 78, "mirrorBehind": false}`
-  - MySQL is actively serving catalogue reads; JSON mirror-on-save is synchronized; zero mirror lag.
-- Documentation: `docs/HANDOFF-NEXT-2026-09-24-v180.md` and `DEPLOY-v180.md`.
-- Next milestones per `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md`:
-  1. Billing software tile in Admin Settings.
-  2. SQL Phase 3 (orders, settings, customers).
-  3. Auto-catalogue review queue for 3-lakh drops.
+- **LIVE SITE IS 180 (VERIFIED):** Probed at `https://shivaa.in/api/version`:
+  `rel: 180, db.driver: "mysql", db.mode: "mysql", sqlCount: 78, jsonCount: 78, mirrorBehind: false`.
+- **v181 BUILT & GATED:** Completes SQL Phase 3 (`orders`, `settings`, `users`, `reviews`, `coupons`, `settlements` dual-mode overlay & mirror) + Admin Settings Billing Software doorway tile.
+- Package: `shivaa-update-v181.zip` (6 files, 445,347 bytes) + runbook `DEPLOY-v181.md`.
+- Next step: owner installs `shivaa-update-v181.zip` and runs `/upgrade-sql.php`.
 
 ## Deployment control update — owner approval required (22 Sep 2026)
 
