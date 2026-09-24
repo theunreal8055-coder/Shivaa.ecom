@@ -1,28 +1,18 @@
-# AGENT HANDOFF — v180 built (SQL runtime), belt green; live stays 179 (24 Sep 2026)
+# AGENT HANDOFF — v180 DEPLOYED & LIVE (Hostinger MySQL engaged, 78 rows) (24 Sep 2026)
 
-## PLAN SESSION — SQL at scale · update ZIPs · auto-catalogue · billing software (24 Sep 2026, `arena/01a0d219-shivaa-ecom`)
+## STATUS UPDATE — v180 LIVE ON HOSTINGER (24 Sep 2026, probed and verified)
 
-- Owner's three screenshots (10:16 am): hPanel shivaa.in resources (disk 0.71/200
-  GB), MySQL DB `u486999505_Shivaa` (21 Sep), phpMyAdmin **products 77 · orders 0
-  · settings 0**. Code check the same turn: **runtime is still JSON** —
-  `get_db_pdo()` never called, `db_driver` unread, all I/O via `db_load`/
-  `db_save` on `data/db.json`. The 77 rows are the one-way `setup-mysql.php`
-  product copy; the empty orders/settings tables prove no SQL writes yet.
-  Do NOT tell the owner the site "runs on MySQL" until Phase 2 lands.
-- Full agreed roadmap: **`docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md`** —
-  SQL phases (schema/fulltext → dual-mode runtime + JSON fallback → cutover →
-  CDN decision for 300k×4 images ≈180 GB > 200 GB disk), ZIP-update ritual
-  kept (+ one idempotent `upgrade-sql.php` URL per schema release), auto-
-  catalogue review-queue pipeline (agent metadata, owner-only weights/prices
-  law intact, approve gate, batch ledger), billing zip → `public_html/billing/`
-  outside all shop ZIPs + Settings link tile.
-- **Status update (same day): plan EXECUTED through Phase 1+2 — v180 SQL
-  runtime built, belt green, ZIP + runbook ready; NOT deployed (owner yes
-  required).** Still awaiting owner: billing zip upload, review-queue vs
-  auto-approve, LiteSpeed/object-storage/cron choices. Live stays **179**;
-  forward-only 180+.
+- **LIVE IS NOW 180 ON HOSTINGER:** The owner extracted `shivaa-update-v180.zip` and ran `/upgrade-sql.php`.
+  Direct probe of `https://shivaa.in/api/version`:
+  `{"ok":true,"rel":180,"shell":"shivaa-shell-v180","builtAt":"2026-09-24T16:44:39+05:30","forceLatest":true,"stamp":{"index":180,"app":180,"sw":180,"matched":true},"db":{"driver":"mysql","mode":"mysql","reason":"","sqlCount":78,"jsonCount":78,"mirrorBehind":false}}`
+- **Hostinger MySQL is actively engaged:** `db.mode` is `"mysql"`, both stores count 78 products (`sqlCount: 78`, `jsonCount: 78`), no mirror behind flag (`mirrorBehind: false`, `reason: ""`).
+- **Next steps per `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md`:**
+  1. Billing software tile in Admin Settings (`/billing/` external link).
+  2. SQL Phase 3 (orders, settings, users, reviews migration to SQL).
+  3. Auto-catalogue intake & review queue for 3-lakh design drops.
 
-> **Current build: 180 (SQL runtime) — NOT yet live; current LIVE: 179.**
+> **Current release: 180 (LIVE & VERIFIED).**
+> **Database driver: MySQL active, 78 products, JSON mirror-on-save synchronized.**
 > Read the *CURRENT STATE — v180 BUILT* section first, then the v179
 > deployed record, then the superseded v179-built record, then the v178 record
 > (history), the v177 record, the v176 record, the v169 record, then the

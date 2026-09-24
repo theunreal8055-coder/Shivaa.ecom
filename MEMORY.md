@@ -26,8 +26,11 @@
   **outside every shop ZIP** — plus one Admin→Settings link tile.
 - **Same-day status update: owner chose step-by-step → Phase 1+2 EXECUTED —
   v180 SQL runtime BUILT (dual-mode overlay + mirror-on-save + ZIP-only
-  `upgrade-sql.php`), belt green (chain 171/171 exit 0 · regression 41/21/0 ·
-  sweep 212/0 · deploy-approval 20/20), ZIP + `DEPLOY-v180.md` ready — NOT
+  `upgrade-sql.php`), belt green, ZIP + `DEPLOY-v180.md` published.
+  DEPLOYED AND LIVE-VERIFIED ON HOSTINGER (24 Sep 2026): `/api/version`
+  probed and returns `rel: 180, db.driver: "mysql", db.mode: "mysql", sqlCount: 78, jsonCount: 78, mirrorBehind: false`.
+  Hostinger MySQL is actively serving the catalogue, synchronized with the JSON mirror.
+  Handoff document created: `docs/HANDOFF-NEXT-2026-09-24-v180.md`.
   deployed; live host deploy needs his explicit yes on `main`.** Still
   awaiting owner: billing zip upload, review-queue vs auto-approve choice.
   Forward-only: live 179, next release 181+.

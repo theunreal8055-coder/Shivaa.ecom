@@ -1,5 +1,18 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
+## Current Live Status — v180 deployed & verified live on Hostinger (24 Sep 2026)
+
+- **LIVE SITE IS 180 (VERIFIED):** The owner extracted `shivaa-update-v180.zip` and ran `/upgrade-sql.php`.
+- Probed directly at `https://shivaa.in/api/version`:
+  - `rel: 180`, `shell: "shivaa-shell-v180"`, stamps matched: `180 / 180 / 180`
+  - `db: {"driver": "mysql", "mode": "mysql", "reason": "", "sqlCount": 78, "jsonCount": 78, "mirrorBehind": false}`
+  - MySQL is actively serving catalogue reads; JSON mirror-on-save is synchronized; zero mirror lag.
+- Documentation: `docs/HANDOFF-NEXT-2026-09-24-v180.md` and `DEPLOY-v180.md`.
+- Next milestones per `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md`:
+  1. Billing software tile in Admin Settings.
+  2. SQL Phase 3 (orders, settings, customers).
+  3. Auto-catalogue review queue for 3-lakh drops.
+
 ## Deployment control update — owner approval required (22 Sep 2026)
 
 This section supersedes older automatic-on-merge deployment instructions. PR #90
