@@ -1,5 +1,18 @@
 # Shivaa — agent working guide
 
+## Plan session (24 Sep 2026) — read before touching SQL/billing/catalogue work
+
+- The agreed master roadmap for the SQL-at-3-lakh migration, the standing ZIP
+  update ritual, the auto-catalogue review-queue, and the owner's billing-software
+  deployment is `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md`. **No part of it
+  is built or deployed yet** — it is the plan awaiting the owner's priority
+  choices. Live is 179; next release 180+.
+- Verified fact to never misstate: despite `config.example.php` saying
+  `db_driver => 'mysql'` and `setup-mysql.php` having created tables (77 product
+  rows copied), **the runtime never calls `get_db_pdo()`** — every read/write is
+  still `db_load`/`db_save` on `cms/data/db.json`. `orders`/`settings` SQL tables
+  are empty for that reason. "Tables exist" ≠ "site runs on MySQL".
+
 ## Deployment control update — owner approval required (22 Sep 2026)
 
 - PR #90 is merged on `main` (`2393a7949852b9bb1f16cdbfa8b138f83da8235e`):

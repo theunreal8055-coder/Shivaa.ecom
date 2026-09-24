@@ -1,5 +1,34 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — SQL scaling plan + billing + auto-catalogue (24 Sep 2026, branch `arena/01a0d219-shivaa-ecom`)
+
+- Owner returned with three screenshots (10:16 am): hPanel `shivaa.in` (Business
+  Web Hosting, SSL/CDN ✓, disk **0.71 GB / 200 GB**, inodes 5.26K/600K); MySQL
+  management page (DB+user `u486999505_Shivaa`, created 21 Sep); phpMyAdmin
+  showing **`products` 77 rows · `orders` 0 · `settings` 0**.
+- **Honest code-verified state (do not overstate):** the 77 product rows are the
+  one-way `setup-mysql.php` copy. The running app is **still 100% JSON at
+  runtime** — `get_db_pdo()` has **zero call sites**, `db_driver` in
+  `config.php` is never read, `db_load`/`db_save` still own every read/write
+  (`cms/data/db.json` 0.42 MB, 83 products local). Empty `orders`/`settings`
+  tables confirm nothing writes SQL yet. MySQL today = passive product mirror,
+  not the live brain. The real "shift to SQL" = Phases 1–3 ahead.
+- **Plan of record written:** `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md` —
+  (1) SQL migration phases (schema/fulltext → dual-mode runtime with JSON
+  fallback + Data Source strip → collection-by-collection cutover → scale
+  truths: images ≈180 GB at 300k×4 shots exceed the 200 GB disk ⇒ CDN/object
+  storage decision, films stay featured-only); (2) update-ZIP ritual unchanged
+  (backup → extract → `/api/version`), SQL releases add one idempotent
+  `upgrade-sql.php` URL; (3) auto-catalogue: raw images → agent metadata
+  (creative fields agent-written; weights/prices ONLY from owner CSV/tags) →
+  MySQL `pending_review` → owner Approve queue → batch ledger; (4) owner's own
+  billing-software zip installs to `public_html/billing/` (or subdomain) —
+  **outside every shop ZIP** — plus one Admin→Settings link tile.
+- Awaiting owner: priority order (recommend **SQL runtime = v180 first**),
+  billing zip upload, review-queue vs auto-approve choice. **No release built,
+  no deploy, nothing live — plan/doc only.** Forward-only: live 179, next
+  release 180+.
+
 ## Deployment control update — owner approval required (22 Sep 2026)
 
 - PR #90 merged to `main` at `2393a7949852b9bb1f16cdbfa8b138f83da8235e`;

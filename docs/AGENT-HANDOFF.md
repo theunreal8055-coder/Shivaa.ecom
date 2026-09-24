@@ -1,5 +1,25 @@
 # AGENT HANDOFF — v179 deployed, relay error resolved (24 Sep 2026)
 
+## PLAN SESSION — SQL at scale · update ZIPs · auto-catalogue · billing software (24 Sep 2026, `arena/01a0d219-shivaa-ecom`)
+
+- Owner's three screenshots (10:16 am): hPanel shivaa.in resources (disk 0.71/200
+  GB), MySQL DB `u486999505_Shivaa` (21 Sep), phpMyAdmin **products 77 · orders 0
+  · settings 0**. Code check the same turn: **runtime is still JSON** —
+  `get_db_pdo()` never called, `db_driver` unread, all I/O via `db_load`/
+  `db_save` on `data/db.json`. The 77 rows are the one-way `setup-mysql.php`
+  product copy; the empty orders/settings tables prove no SQL writes yet.
+  Do NOT tell the owner the site "runs on MySQL" until Phase 2 lands.
+- Full agreed roadmap: **`docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md`** —
+  SQL phases (schema/fulltext → dual-mode runtime + JSON fallback → cutover →
+  CDN decision for 300k×4 images ≈180 GB > 200 GB disk), ZIP-update ritual
+  kept (+ one idempotent `upgrade-sql.php` URL per schema release), auto-
+  catalogue review-queue pipeline (agent metadata, owner-only weights/prices
+  law intact, approve gate, batch ledger), billing zip → `public_html/billing/`
+  outside all shop ZIPs + Settings link tile.
+- **Status: plan + docs only — no code change, no ZIP, no deploy.** Awaiting
+  owner: priority (recommend SQL runtime as **v180**), billing zip upload,
+  review-queue vs auto-approve. Live stays **179**; forward-only 180+.
+
 > **Current release: 179 (live).** Read the *CURRENT STATE — v179 DEPLOYED*
 > section first, then the superseded v179-built record, then the v178 record
 > (history), the v177 record, the v176 record, the v169 record, then the
