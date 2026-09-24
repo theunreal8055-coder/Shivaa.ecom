@@ -110,6 +110,9 @@ releases update the "app" through the existing release dial.
   publication commit `e8fbf5234729dfa98533fa79c9dbfdf479615db5`;
   builder `tools/mega/make-v178-zip.py`; deterministic; every member
   byte-matches its committed `cms/` source.
+- **Remote-verified after push:** contents API size **445,829** + Git blob
+  `538ccebf…619` = local `git hash-object`; authenticated download
+  byte-identical.
 - **Verified (executed, on the shipped ZIP bytes):** `v178-check.js`
   **17/17** (static invariants + the vendored QR encoder executed:
   version-1 grid, finder patterns, timing dark-on-even, determinism, grid

@@ -33,7 +33,9 @@ section of `docs/AGENT-HANDOFF.md` / `MEMORY.md`.
   17/17 (incl. the vendored QR encoder executed: finders/timing/
   determinism) + `v178-php-run.js` 17/17 (PHP 8.3, full v177 regression
   carried over, version handshake 178) · full belt **158 executed checks,
-  0 failures**. **NOT verified:** no owner install, live unreachable,
+  0 failures** · **remote-verified after push:** contents API size 445,829 +
+  blob `538ccebf…619` (= local `git hash-object`); authenticated download
+  byte-identical. **NOT verified:** no owner install, live unreachable,
   real browser install flows not run (stubs only) — a physical phone is
   the final acceptance.
 - **Forward only:** v176, v177 and v178 all stay shipped; **next release

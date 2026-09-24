@@ -35,6 +35,12 @@ files total.
   (the ZIP on this session branch). The build is deterministic and every
   member byte-matches its committed `cms/` source (verified against
   `git show 0c8cd29:cms/…`).
+- **Remote-verified after push:** the GitHub contents API at
+  `ref=ef47f41` matched the size (**445,829**) and Git blob
+  `538ccebf4768706bef942435e0592c5b0a809619` (= local `git hash-object`),
+  and an authenticated download of the published ZIP is byte-identical to
+  the local file (same SHA-256 `72464db9…`, 9 members, clean `testzip`).
+  Private repository: the raw link requires a GitHub account with access.
 - Builder: `python3 tools/mega/make-v178-zip.py` (asserts every cumulative
   prior repair — v176 revenue core, v177 purge fixes — plus the v178
   invariants: band placement, the v140 law, the vendored QR license,
