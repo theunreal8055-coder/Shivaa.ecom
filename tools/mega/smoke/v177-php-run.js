@@ -6,6 +6,19 @@
    tests (Awaiting payment), 2 paid, 1 COD (Pending (COD)), 1 WhatsApp
    enquiry, 1 UPI proof, 1 partial, 1 refunded, 1 cancelled.
    Money actually received: 62000 + 35000 + 50000 = 147000. */
+/* SUPERSEDED-PROBE v177 — stamp-exact suite for release 177: on a NEWER
+   tree it SKIPs (regression content re-executes inside the current chain's
+   php-run); on its own release or an overlay of its zip it runs in full. */
+{
+  const fs0 = require('fs'), path0 = require('path');
+  const cms0 = process.env.SMOKE_CMS || path0.resolve(__dirname, '../../../cms');
+  const m0 = /__SHIVAA_REL\s*=\s*(\d+)/.exec(fs0.readFileSync(path0.join(cms0, 'index.html'), 'utf8'));
+  const rel0 = m0 ? +m0[1] : 0;
+  if (rel0 > 177) {
+    console.log('SKIP v177-php-run superseded by release ' + rel0 + ' (stamp-exact; its regression content runs in the v179/v180 chain php-run)');
+    process.exit(0);
+  }
+}
 const assert = require('node:assert/strict');
 const {fixture,seed,ADMIN} = require('./php-api-fixture');
 let pass=0, fail=0;

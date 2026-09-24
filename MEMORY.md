@@ -1,5 +1,37 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — SQL scaling plan + billing + auto-catalogue (24 Sep 2026, branch `arena/01a0d219-shivaa-ecom`)
+
+- Owner returned with three screenshots (10:16 am): hPanel `shivaa.in` (Business
+  Web Hosting, SSL/CDN ✓, disk **0.71 GB / 200 GB**, inodes 5.26K/600K); MySQL
+  management page (DB+user `u486999505_Shivaa`, created 21 Sep); phpMyAdmin
+  showing **`products` 77 rows · `orders` 0 · `settings` 0**.
+- **Honest code-verified state (do not overstate):** the 77 product rows are the
+  one-way `setup-mysql.php` copy. The running app is **still 100% JSON at
+  runtime** — `get_db_pdo()` has **zero call sites**, `db_driver` in
+  `config.php` is never read, `db_load`/`db_save` still own every read/write
+  (`cms/data/db.json` 0.42 MB, 83 products local). Empty `orders`/`settings`
+  tables confirm nothing writes SQL yet. MySQL today = passive product mirror,
+  not the live brain. The real "shift to SQL" = Phases 1–3 ahead.
+- **Plan of record written:** `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md` —
+  (1) SQL migration phases (schema/fulltext → dual-mode runtime with JSON
+  fallback + Data Source strip → collection-by-collection cutover → scale
+  truths: images ≈180 GB at 300k×4 shots exceed the 200 GB disk ⇒ CDN/object
+  storage decision, films stay featured-only); (2) update-ZIP ritual unchanged
+  (backup → extract → `/api/version`), SQL releases add one idempotent
+  `upgrade-sql.php` URL; (3) auto-catalogue: raw images → agent metadata
+  (creative fields agent-written; weights/prices ONLY from owner CSV/tags) →
+  MySQL `pending_review` → owner Approve queue → batch ledger; (4) owner's own
+  billing-software zip installs to `public_html/billing/` (or subdomain) —
+  **outside every shop ZIP** — plus one Admin→Settings link tile.
+- **Same-day status update: owner chose step-by-step → Phase 1+2 EXECUTED —
+  v180 SQL runtime BUILT (dual-mode overlay + mirror-on-save + ZIP-only
+  `upgrade-sql.php`), belt green (chain 171/171 exit 0 · regression 41/21/0 ·
+  sweep 212/0 · deploy-approval 20/20), ZIP + `DEPLOY-v180.md` ready — NOT
+  deployed; live host deploy needs his explicit yes on `main`.** Still
+  awaiting owner: billing zip upload, review-queue vs auto-approve choice.
+  Forward-only: live 179, next release 181+.
+
 ## Deployment control update — owner approval required (22 Sep 2026)
 
 - PR #90 merged to `main` at `2393a7949852b9bb1f16cdbfa8b138f83da8235e`;
@@ -67,6 +99,97 @@
 - Noted, not acted on: `cms/shivaa-update-v161..v163.zip` (≈10 MB) sit inside
   the synced directory and are not matched by the exclude list, so a future code
   deploy would upload them (owner decision).
+
+## CURRENT STATE — v180 BUILT: SQL runtime (dual-mode), belt green; LIVE STAYS 179 until owner deploys (24 Sep 2026)
+
+**v180 = the Hostinger MySQL runtime switch (roadmap Phase 1+2), built and
+gated this session; NOT yet deployed — manual host deploy needs the owner's
+explicit yes on `main` like every release before it.** 6-file ZIP:
+`api.php` · `index.html` · `sw.js` · `js/app.js` · `js/admin.js` ·
+`upgrade-sql.php` (NEW, ZIP-only, excluded from the GitHub auto-deploy
+alongside `setup-mysql.php`).
+
+**What actually engages SQL now:** `db_driver => 'mysql'` in `config.php`
+is finally READ. Product catalogue reads overlay from Hostinger MySQL
+(`shv_sql_products_overlay`) ONLY when every safety check passes: PDO
+connects ∧ no `data/.sql-mirror-behind` flag ∧ verdict == '' (counts equal,
+every JSON id present in SQL, non-empty). JSON stays the write source of
+truth (flock/atomic/409 all unchanged) and defines membership + order; SQL
+content wins per id. Any doubt → the JSON net with the exact reason on
+`/api/version` → `db.reason` (`driver-json` · `no-connection` ·
+`mirror-behind` · `count-mismatch` · `id-mismatch` · `sql-empty` ·
+`sql-error`) — booleans/counts only, never credentials.
+
+**Mirror-on-save:** after the PROVEN JSON save succeeds, `shv_sql_products_mirror`
+diffs the post-save snapshot vs the pre-save load and upserts+deletes per id
+in one transaction (GET/HEAD never mirror — rate polls cost nothing). Every
+mutation site is covered without touching a route. A mirror failure never
+fails the request: it writes the flag; while the flag exists, reads AND
+mirror-writes stay OFF until `/upgrade-sql.php` reconciles (healing is
+installer-owned, audited, never silent).
+
+**`upgrade-sql.php` (one idempotent URL):** same bcrypt/legacy password gate
++ per-IP throttle as api.php → **BACKUP `db.json` FIRST** (`db-before-sql-
+reconcile-…json`) → schema up/grades (`data_json` full-row column, FULLTEXT
+`(name,desc)` for 300k search, LONGTEXT desc, Phase-3 `catalog_batches`/
+`catalog_assets`/`catalog_jobs` prepared) → full product upsert → count +
+byte-identical spot-check verify → flag unlink (reads engage next request).
+Standalone file (never includes api.php) — shipped via ZIP only.
+
+**Also in v180:** `compute_price` hardened (row missing metal/pricing purity
+now prices with catalogue defaults — found by the EXECUTED gate, X07; no
+real catalogue row lacks those keys, so no existing price changes);
+admin → Live Rates gains the **v180 Data Source strip** (green MySQL vs
+amber safety-net + plain-English reason + open `/upgrade-sql.php` fix +
+`db_driver => 'json'` one-line rollback); stamps 179 → 180 lockstep
+(56×`?v=180` index · 51×`?v=180` sw · MEDIA stays `shivaa-media-v168`).
+
+**Honest test limit (do not overstate):** the sandbox has NO MySQL server
+and no `pdo_mysql` in php-wasm — the real SQL round-trip is NOT verified
+here. Covered instead by installer count/verify logic + the belt's fallback
+ladders; server acceptance = `upgrade-sql.php` report counts + `/api/version`
+`db.mode`/`db.reason` after deploy.
+
+**Belt at close: deploy-approval 20/20 · chained `npm test` exit 0 (171
+executed checks: 20 deploy + 7 v180-check + 25 v179-php-run + 8 v180-php-run
++ 7 v179-relay + 25 v169 page/print + 28 v169 PHP + 39 v168-check + 12
+v168-php, 0 failures; relay under full-chain load may flake T05/T06 —
+standalone 7/7, rerun standalone before believing a red) · regression
+`41 pass / 21 retired-feature SKIP / 0 fail` · php-sweep `212 routes / 0
+exceptions`.** Three new suites: `v180-check.js` (7 — stamps, overlay/mirror
+function map, installer order/password/backup markers, workflow excludes,
+compute_price hardening, config default, admin strip) and `v180-php-run.js`
+(8 — X01 default json-mode · X02 mysql+no-PDO honest fallback · X03
+mirror-behind read ladder · X04 pure verdict boundaries · X05 sha256/stable
+overlay (IDENTICAL|STABLE|SENSITIVE|COLS19) · X06 no-credential leak ·
+X07 full JSON+mirror CRUD round-trip incl. GET product price · X08 installer
+backup-first + wrong-password throttle + unlink order). The five stamp-exact
+v177–v179 suites now carry SUPERSEDED-PROBE SKIPs (exit 0 when
+`__SHIVAA_REL` > their release; they still RUN on their own release +
+overlay) — this is how the forward-only law is mechanically enforced in the
+regression belt.
+
+**Laws learned this session (permanent):** (1) any helper CALLED FROM
+INSIDE `db_load`/`db_save` must be `function_exists`-guarded in those two
+bodies — legacy suites extract only those bodies and fatal (255) on an
+unguarded call (v169 B01/B01-control/B22 proved it; fixed in api.php, never
+in the historical suites); (2) the `@unlink` semicolon lives INSIDE the
+backtick template (`F.run(`@unlink('…');`)`); (3) php-wasm suites must
+AWRITE awaited config writes (X03 race); (4) `compute_price` runs on EVERY
+GET product — payload fixtures need metal/purity or `??` defaults (shipped).
+
+**Prerequisite:** live v179+ (owner-deployed). **Rollback:** restore the
+five pre-existing files and/or `db_driver => 'json'` (installer file can
+stay — inert). **Not yet (Phase 3):** orders/users/settings runtime, media
+object-storage (~180 GB at 300k), GET-side pagination — money routes must
+leave extract-only JSON together, with a staged read-compatible backfill
+(first rows both stores) before any write cutover; `orders`/`settings`
+tables are still empty and that has NOT changed by v180.
+
+**Pending from owner (unchanged):** LiteSpeed Quantum/Varnish choice ·
+object-storage decision + bucket creds · cron-stress choice · billing zip
+upload (`public_html/billing/`) · auto-catalogue review-queue vs
+auto-approve gate.
 
 ## CURRENT STATE — v179 DEPLOYED BY OWNER, relay error resolved (24 Sep 2026)
 

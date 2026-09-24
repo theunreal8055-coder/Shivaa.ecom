@@ -218,6 +218,171 @@ function get_db_pdo(): ?PDO {
     return null;
   }
 }
+/* ───────── v180 · dual-mode storage (Hostinger MySQL + JSON safety net) ─────────
+   Design laws — do not weaken:
+   1. data/db.json stays the write-time source of truth for every request
+      (flock, atomic rename, 409 snapshot — all unchanged below).
+   2. Reads overlay $db['products'] from SQL ONLY when the mirror is provably
+      healthy: db_driver === 'mysql', PDO connects, no mirror-behind flag, and
+      every JSON product id exists in SQL with equal counts (the installer
+      reconciles). Any doubt → JSON products + an honest reason in /api/version.
+   3. Writes: after the JSON save succeeds, product rows are diffed per-id
+      (hash vs the load snapshot) and mirrored — upserts + deletes — so EVERY
+      mutation site (admin CRUD, stock decrements, hallmark edits) is covered
+      without touching a single route. GET/HEAD never mirror (read routes do
+      not mutate products; rate polls stay free). A mirror failure never fails
+      the request: it writes data/.sql-mirror-behind and reads fall back to
+      JSON until /upgrade-sql.php reconciles — while the flag exists the
+      mirror also refuses to write, so healing is installer-owned and audited. */
+function shv_config_arr(): array {
+  /* No static cache: config.php is a tiny `return [...]` file (opcode-cached
+     by PHP anyway), and a per-process memo would pin stale settings for the
+     lifetime of a long-running worker after the owner edits the file. */
+  $f = __DIR__ . '/config.php';
+  if (!file_exists($f)) return [];
+  try { $x = require $f; return is_array($x) ? $x : []; } catch (Throwable $e) { return []; }
+}
+function shv_db_driver(): string {
+  $d = shv_config_arr()['db_driver'] ?? 'json';
+  return $d === 'mysql' ? 'mysql' : 'json';
+}
+function shv_mirror_behind_file(): string { return __DIR__ . '/data/.sql-mirror-behind'; }
+function shv_product_row_hash(array $p): string {
+  $j = json_encode($p, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+  return hash('sha256', $j === false ? '' : $j);
+}
+function shv_sql_upsert_sql(): string {
+  return 'INSERT INTO `products` (`id`,`sku`,`name`,`category`,`metal`,`purity`,`weightG`,`lessWeightG`,`mcScheme`,`mcValue`,`stoneValue`,`stoneDesc`,`images_json`,`desc`,`rating`,`reviews`,`stock`,`active`,`data_json`)'
+    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    . ' ON DUPLICATE KEY UPDATE `sku`=VALUES(`sku`),`name`=VALUES(`name`),`category`=VALUES(`category`),'
+    . '`metal`=VALUES(`metal`),`purity`=VALUES(`purity`),`weightG`=VALUES(`weightG`),`lessWeightG`=VALUES(`lessWeightG`),'
+    . '`mcScheme`=VALUES(`mcScheme`),`mcValue`=VALUES(`mcValue`),`stoneValue`=VALUES(`stoneValue`),`stoneDesc`=VALUES(`stoneDesc`),'
+    . '`images_json`=VALUES(`images_json`),`desc`=VALUES(`desc`),`rating`=VALUES(`rating`),`reviews`=VALUES(`reviews`),'
+    . '`stock`=VALUES(`stock`),`active`=VALUES(`active`),`data_json`=VALUES(`data_json`)';
+}
+function shv_sql_product_values(array $p): array {
+  $enc = fn($v) => ($j = json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) === false ? '[]' : $j;
+  $data = json_encode($p, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+  if ($data === false) $data = '{}';
+  return [
+    (string)($p['id'] ?? ''),
+    mb_substr((string)($p['sku'] ?? ''), 0, 60),
+    mb_substr((string)($p['name'] ?? ''), 0, 200),
+    mb_substr((string)($p['category'] ?? ''), 0, 60),
+    mb_substr((string)($p['metal'] ?? 'Gold'), 0, 20),
+    mb_substr((string)($p['purity'] ?? '22K'), 0, 20),
+    (float)($p['weightG'] ?? 0),
+    (float)($p['lessWeightG'] ?? 0),
+    mb_substr((string)($p['mcScheme'] ?? 'perGram'), 0, 20),
+    (float)($p['mcValue'] ?? 0),
+    (float)($p['stoneValue'] ?? 0),
+    mb_substr((string)($p['stoneDesc'] ?? ''), 0, 300),
+    $enc(array_values(is_array($p['images'] ?? null) ? $p['images'] : [])),
+    mb_substr((string)($p['desc'] ?? ''), 0, 20000),
+    (float)($p['rating'] ?? 5.0),
+    (int)($p['reviews'] ?? 0),
+    (int)($p['stock'] ?? 0),
+    !empty($p['active']) ? 1 : 0,
+    $data,
+  ];
+}
+/* Pure verdict: may SQL content replace the JSON products array? '' = yes. */
+function shv_sql_overlay_verdict(array $jsonProducts, array $sqlById): string {
+  $nJson = count($jsonProducts); $nSql = count($sqlById);
+  if ($nSql === 0 && $nJson > 0) return 'sql-empty';
+  if ($nSql !== $nJson) return 'count-mismatch';
+  foreach ($jsonProducts as $jp) if (!isset($sqlById[(string)($jp['id'] ?? '')])) return 'id-mismatch';
+  return '';
+}
+function shv_sql_products_overlay(array $jsonProducts): array {
+  $state = ['driver' => shv_db_driver(), 'mode' => 'json', 'reason' => 'driver-json',
+            'sqlCount' => null, 'jsonCount' => count($jsonProducts)];
+  $fallback = function (string $reason) use ($jsonProducts, $state) {
+    $state['reason'] = $reason;
+    return ['products' => $jsonProducts, 'state' => $state];
+  };
+  if (shv_db_driver() !== 'mysql') return $fallback('driver-json');
+  if (file_exists(shv_mirror_behind_file())) return $fallback('mirror-behind');
+  $pdo = get_db_pdo();
+  if (!$pdo) return $fallback('no-connection');
+  try { $rows = $pdo->query('SELECT * FROM `products`')->fetchAll(); }
+  catch (Throwable $e) { return $fallback('sql-error'); }
+  $byId = [];
+  foreach ($rows as $r) {
+    $decoded = json_decode((string)($r['data_json'] ?? ''), true);
+    if (is_array($decoded) && isset($decoded['id'])) { $byId[(string)$decoded['id']] = $decoded; continue; }
+    /* pre-v180 row (setup-mysql.php copy, no data_json) — hydrate from columns
+       so nothing disappears; /upgrade-sql.php rewrites it with the full row. */
+    $byId[(string)($r['id'] ?? '')] = [
+      'id' => (string)($r['id'] ?? ''), 'sku' => (string)($r['sku'] ?? ''),
+      'name' => (string)($r['name'] ?? ''), 'category' => (string)($r['category'] ?? ''),
+      'metal' => (string)($r['metal'] ?? 'Gold'), 'purity' => (string)($r['purity'] ?? '22K'),
+      'weightG' => (float)($r['weightG'] ?? 0), 'lessWeightG' => (float)($r['lessWeightG'] ?? 0),
+      'mcScheme' => (string)($r['mcScheme'] ?? 'perGram'), 'mcValue' => (float)($r['mcValue'] ?? 0),
+      'stoneValue' => (float)($r['stoneValue'] ?? 0), 'stoneDesc' => (string)($r['stoneDesc'] ?? ''),
+      'images' => json_decode((string)($r['images_json'] ?? '[]'), true) ?: [],
+      'desc' => (string)($r['desc'] ?? ''), 'rating' => (float)($r['rating'] ?? 5.0),
+      'reviews' => (int)($r['reviews'] ?? 0), 'stock' => (int)($r['stock'] ?? 0),
+      'active' => (bool)(int)($r['active'] ?? 0),
+    ];
+  }
+  $state['sqlCount'] = count($byId);
+  $verdict = shv_sql_overlay_verdict($jsonProducts, $byId);
+  if ($verdict !== '') return $fallback($verdict);
+  /* SQL content wins per id; the JSON array defines membership and order, so
+     the shop renders the catalogue in exactly the order it renders today. */
+  $out = [];
+  foreach ($jsonProducts as $jp) $out[] = $byId[(string)($jp['id'] ?? '')];
+  $state['mode'] = 'mysql'; $state['reason'] = '';
+  return ['products' => $out, 'state' => $state];
+}
+function shv_sql_products_mirror(array $products): void {
+  if (shv_db_driver() !== 'mysql') return;
+  $m = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+  if ($m === 'GET' || $m === 'HEAD' || $m === 'OPTIONS') return;   // reads never mutate
+  if (file_exists(shv_mirror_behind_file())) return;               // installer owns healing
+  $pdo = get_db_pdo();
+  if (!$pdo) return;                                               // reads already fell back
+  $cur = [];
+  foreach ($products as $p) {
+    $id = (string)($p['id'] ?? '');
+    if ($id !== '') $cur[$id] = shv_product_row_hash($p);
+  }
+  $prev = $GLOBALS['__shv_prod_hashes'] ?? null;
+  try {
+    $stmt = $pdo->prepare(shv_sql_upsert_sql());
+    $del  = $pdo->prepare('DELETE FROM `products` WHERE `id` = ?');
+    $byId = [];
+    foreach ($products as $p) { $id = (string)($p['id'] ?? ''); if ($id !== '') $byId[$id] = $p; }
+    if (is_array($prev)) {
+      $up = [];
+      foreach ($cur as $id => $h) if (!isset($prev[$id]) || $prev[$id] !== $h) $up[] = $id;
+      $rm = array_diff_key($prev, $cur);
+    } else {
+      $up = array_keys($cur); $rm = [];   // no load snapshot — defensive full upsert
+    }
+    if ($up || $rm) {
+      if (!$pdo->inTransaction()) $pdo->beginTransaction();
+      foreach ($up as $id) $stmt->execute(shv_sql_product_values($byId[$id]));
+      foreach ($rm as $id => $_) $del->execute([$id]);
+      $pdo->commit();
+    }
+    $GLOBALS['__shv_prod_hashes'] = $cur;
+    @unlink(shv_mirror_behind_file());
+  } catch (Throwable $e) {
+    try { if ($pdo->inTransaction()) $pdo->rollBack(); } catch (Throwable $e2) {}
+    /* The JSON save already succeeded — never fail the request. Flag the
+       mirror; reads fall back to JSON until /upgrade-sql.php reconciles. */
+    @file_put_contents(shv_mirror_behind_file(),
+      json_encode(['at' => date('c'), 'error' => mb_substr((string)$e->getMessage(), 0, 300)]));
+  }
+}
+function shv_version_db(): array {
+  $st = $GLOBALS['__shv_sql_state'] ?? ['driver' => shv_db_driver(), 'mode' => 'json', 'reason' => 'not-loaded',
+                                         'sqlCount' => null, 'jsonCount' => null];
+  $st['mirrorBehind'] = file_exists(shv_mirror_behind_file());
+  return $st;
+}
 function db_load(string $DB_FILE): array {
   for ($i = 0; $i < 5; $i++) {
     if (!empty($GLOBALS['__shv_lock'])) {
@@ -232,6 +397,23 @@ function db_load(string $DB_FILE): array {
     $db = json_decode((string)$raw, true);
     if (is_array($db)) {
       $GLOBALS['__shv_snapshots'][$DB_FILE] = hash('sha256', (string)$raw);
+      /* v180 — when db_driver=mysql and the mirror is provably healthy, product
+         content comes from Hostinger MySQL (JSON still defines order/membership
+         as the reconciliation baseline). Any doubt → JSON, honest reason stored
+         for /api/version. */
+      /* function_exists: the executed legacy gates pull EXACTLY the
+         db_load/db_save bodies out of this file. With the helper layer
+         absent they must keep exercising the original JSON path (that is
+         what they assert); in the shipped api.php every helper lives in
+         this same file, so the guard never changes production behaviour. */
+      if (function_exists('shv_sql_products_overlay')) {
+        $ov = shv_sql_products_overlay(is_array($db['products'] ?? null) ? $db['products'] : []);
+        $db['products'] = $ov['products'];
+        $GLOBALS['__shv_sql_state'] = $ov['state'];
+        $ph = [];
+        foreach ($db['products'] as $__p) { $__id = (string)($__p['id'] ?? ''); if ($__id !== '') $ph[$__id] = shv_product_row_hash($__p); }
+        $GLOBALS['__shv_prod_hashes'] = $ph;
+      }
       return $db;
     }
     usleep(120000);
@@ -285,6 +467,10 @@ function db_save(string $DB_FILE, array $db): void {
     jout(500, ['error' => 'Could not stage the save — previous data was kept.']);
   }
   $GLOBALS['__shv_snapshots'][$DB_FILE] = hash('sha256', $json);
+  /* v180 — JSON is saved; mirror any product delta to MySQL while the write
+     lock is still held (mirrors never run on GET; a failure flags
+     data/.sql-mirror-behind instead of failing this request). */
+  if (function_exists('shv_sql_products_mirror')) shv_sql_products_mirror($db['products'] ?? []);
   if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
 }
 function clampn($v, $a, $b) { return max($a, min($b, $v)); }
@@ -2430,7 +2616,11 @@ function apitxt_gst_certificate(string $g, bool $useCache = true): array {
 }
 
 function compute_price(array $p, array $R): array {
-  $key = $p['metal'] === 'Silver' ? 'silver' : ('gold' . str_replace('K', '', $p['purity']));
+  /* v180 — a row missing metal/purity (API-created, or a pre-v180 legacy row)
+     must price with the catalogue defaults instead of erroring the product
+     page. Every real catalogue row carries both keys, so this changes nothing
+     for existing prices. */
+  $key = (($p['metal'] ?? 'Gold') === 'Silver') ? 'silver' : ('gold' . str_replace('K', '', (string)($p['purity'] ?? '22K')));
   $rate = (float)$R[$key];
   $metalValue = (int)round($rate * (float)$p['weightG']);
   $makingCharge = (int)round($p['mcScheme'] === 'percent' ? $metalValue * (float)$p['mcValue'] / 100 : ($p['mcScheme'] === 'perGram' ? (float)$p['mcValue'] * (float)$p['weightG'] : (float)$p['mcValue']));
@@ -4471,12 +4661,16 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 179,
+      'rel'   => 180,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
       'stamp' => ['index' => $idxRel, 'app' => $appRel, 'sw' => $swRel,
                   'matched' => ($idxRel === $appRel && ($swRel === 0 || $swRel === $idxRel))],
+      /* v180 — data-source dial: booleans/counts only, never credentials.
+         mode 'mysql' = product reads served by Hostinger MySQL right now;
+         reason explains any JSON fallback in plain terms. */
+      'db' => shv_version_db(),
     ]);
   }
 

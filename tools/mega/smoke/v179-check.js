@@ -11,6 +11,19 @@ const CMS=process.env.SMOKE_CMS||path.resolve(__dirname,'../../../cms');
 const rd=n=>fs.readFileSync(path.join(CMS,n),'utf8');
 const index=rd('index.html'),sw=rd('sw.js'),app=rd('js/app.js'),admin=rd('js/admin.js'),api=rd('api.php');
 const relay=rd('relay/relay.js');
+/* SUPERSEDED-PROBE v179 — stamp-exact suite for release 179: on a NEWER
+   tree it SKIPs (regression content re-executes inside the current chain's
+   php-run); on its own release or an overlay of its zip it runs in full. */
+{
+  const fs0 = require('fs'), path0 = require('path');
+  const cms0 = process.env.SMOKE_CMS || path0.resolve(__dirname, '../../../cms');
+  const m0 = /__SHIVAA_REL\s*=\s*(\d+)/.exec(fs0.readFileSync(path0.join(cms0, 'index.html'), 'utf8'));
+  const rel0 = m0 ? +m0[1] : 0;
+  if (rel0 > 179) {
+    console.log('SKIP v179-check superseded by release ' + rel0 + ' (stamp-exact; its regression content runs in the v179/v180 chain php-run)');
+    process.exit(0);
+  }
+}
 let pass=0,fail=0;
 setTimeout(()=>{console.error('v179 harness deadline exceeded');process.exit(1);},60000);
 async function test(id,name,f){try{await f();pass++;console.log(`PASS ${id} ${name}`);}catch(e){fail++;console.log(`FAIL ${id} ${name}: ${e.message}`);}}
