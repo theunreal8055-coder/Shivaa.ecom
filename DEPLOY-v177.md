@@ -25,6 +25,12 @@ executed PHP 8.3 tests added that catch each one.
   (the ZIP on this session branch). The build is deterministic — two runs
   produced the identical hash, and every member byte-matches its committed
   `cms/` source (verified against `git show 29e2c0d:cms/…`).
+- **Remote-verified after push:** the GitHub contents API matched size
+  (427896) and Git blob `c9224cc8940220a42b095dd4bce84e144585f99c` (local
+  `git hash-object` agrees), and an authenticated download of the published
+  ZIP is byte-identical to the local file (same SHA-256, 7 members, clean
+  `testzip`). Private repository: the raw link requires a GitHub account
+  with access.
 - Builder: `python3 tools/mega/make-v177-zip.py` (asserts every cumulative
   prior repair, the v176 revenue core, the purge route's data scope, and
   each of the five v177 invariants below).

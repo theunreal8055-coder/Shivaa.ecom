@@ -34,9 +34,13 @@ PHP tests added that catch each one.
   https://github.com/theunreal8055-coder/Shivaa.ecom/raw/557fb51c194f4acfbe08bd0f7e69e4660c4da0cf/shivaa-update-v177.zip
 - **Archive:** 7 files, **427,896 bytes**, SHA-256
   `2c9fff1a8b39e186093e44ecac0980189e7ca783337be677e35d5bea6b35dec2`,
-  built from source `29e2c0d86867acc73bb0c86da86bf5558c1329ee`.
+  built from source `29e2c0d86867acc73bb0c86da86bf5558c1329ee`, publication
+  commit `557fb51c194f4acfbe08bd0f7e69e4660c4da0cf`.
   Deterministic (two runs, identical hash); every member byte-matches its
-  committed `cms/` source. Builder: `tools/mega/make-v177-zip.py`.
+  committed `cms/` source. Remote-verified after push: contents API size
+  427896 + blob `c9224cc8940220a42b095dd4bce84e144585f99c` (= local
+  `git hash-object`), authenticated download byte-identical. Builder:
+  `tools/mega/make-v177-zip.py`.
 - **Stamps:** release **177** in lockstep (`__SHIVAA_REL=177`,
   `APP_REL = 177`, `SHELL='shivaa-shell-v177'`, `REL=177`, `'rel' => 177`),
   54 `?v=177` asset stamps in `index.html` + 49 in `sw.js`. MEDIA cache

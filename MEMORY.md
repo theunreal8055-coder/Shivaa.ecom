@@ -81,9 +81,12 @@ fix; ZIP built from this commit).
 - **Download:**
   https://github.com/theunreal8055-coder/Shivaa.ecom/raw/557fb51c194f4acfbe08bd0f7e69e4660c4da0cf/shivaa-update-v177.zip
   **7 files, 427,896 B, SHA-256 `2c9fff1a…5dec2`** (full:
-  `2c9fff1a8b39e186093e44ecac0980189e7ca783337be677e35d5bea6b35dec2`);
+  `2c9fff1a8b39e186093e44ecac0980189e7ca783337be677e35d5bea6b35dec2`),
+  publication commit `557fb51c194f4acfbe08bd0f7e69e4660c4da0cf`;
   builder `tools/mega/make-v177-zip.py`; deterministic (two runs, same
-  hash); member bytes match the committed source.
+  hash); member bytes match the committed source; remote-verified after
+  push (contents API size + blob `c9224cc8…` = local `git hash-object`;
+  authenticated download byte-identical).
 - **Stamps 177 lockstep** (`__SHIVAA_REL=177`/`APP_REL = 177`/
   `shivaa-shell-v177`/`REL=177`/`'rel' => 177`), 54 `?v=177` in index.html +
   49 in sw.js. MEDIA stays `shivaa-media-v168`.
