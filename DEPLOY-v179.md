@@ -104,9 +104,15 @@ assets in this release; the relay lives on its own host).
   ZIP contains). Publication commit:
   `d51a7c893d417d90f2728f0ba66f30f004d9cac4` (the ZIP on this session
   branch).
-- [Download v179 ZIP on GitHub](https://github.com/theunreal8055-coder/Shivaa.ecom/raw/d51a7c893d417d90f2728f0ba66f30f004d9cac4/shivaa-update-v179.zip)
+- **[Direct download link (v179 ZIP)](https://github.com/theunreal8055-coder/Shivaa.ecom/raw/d51a7c893d417d90f2728f0ba66f30f004d9cac4/shivaa-update-v179.zip)**
   (private repository — the link requires a GitHub account with access;
   the ZIP is also in this repository root).
+- **Remote-verified after push (24 Sep 2026):** the GitHub contents API at
+  `ref=d51a7c8` reports size **450,237** and Git blob
+  `ff66386ef844504af5eea2719f3d85267165ee67` (= local `git hash-object`);
+  the blob's full content decoded from the git blobs API is
+  **byte-identical** to the local file (same SHA-256
+  `e6f4265f…54e8d`, 9 members, clean `testzip`).
 - Builder: `python3 tools/mega/make-v179-zip.py` (asserts every cumulative
   prior repair — v176 revenue core, v177 purge, v178 band + the v140 law —
   plus the v179 invariants: calibrated-premium engine, `mcx-est` ladder,
