@@ -86,6 +86,11 @@
   modes are self-healing by construction + tested; live acceptance = tonight
   23:40 IST market close → strip turns amber auto-estimate, nothing touched;
   09:00 next day → back to green. Optional: deploy new relay for the 1 s board.
+- **Closed out per owner instruction (24 Sep 2026):** branch pushed,
+  **PR #94 created and merged to `main`** (merge commit `24104377`; clean
+  fast-forward — main was still at the branch point). main now carries the
+  v179 tree + ZIP + docs (stamps 179, `shivaa-shell-v179` verified on
+  origin/main). Merging ≠ deployment; live already 179. Next release 180+.
 
 ## SUPERSEDED — v179 BUILT, belt green (24 Sep 2026)
 **Implementation COMPLETE (24 Sep 2026, this session):**

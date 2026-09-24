@@ -49,8 +49,9 @@ must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
   back to green live. Owner to report the cycle. v177/v178 phone-side
   acceptances remain open from earlier releases.
 - **Closed out per owner instruction (24 Sep 2026):** branch
-  `arena/01a0d168-shivaa-ecom` pushed and **merged to `main` via PR**
-  (owner asked for the merge explicitly). Merging is not deployment
+  `arena/01a0d168-shivaa-ecom` pushed and **merged to `main` via PR #94**
+  (owner asked for the merge explicitly; merge commit `24104377`, fast
+  clean — main was still at the branch point). Merging is not deployment
   approval; live was already 179 and main now matches it. Next release:
   **180+**, forward only.
 
