@@ -95,13 +95,14 @@ ever sleeps), everything above still holds on the site's own feed.
 **`shivaa-update-v179.zip`** — same nine files as v178 (no new site
 assets in this release; the relay lives on its own host).
 
-- **9 files · cumulative v171–v179 code-file union**, a superset of the
-  v178 package (updated `api.php`, `index.html`, `sw.js`, `js/app.js`,
-  `js/admin.js` with the 179 stamps + the v179 core).
 - Requires an existing full **v165-or-newer CMS**, not an empty hosting folder.
-- SHA-256: `__SHA_PENDING__`
-- [Download v179 ZIP on GitHub](__LINK_PENDING__)
-- Source commit: `__SRC_COMMIT_PENDING__` · Publication commit: `__PUB_COMMIT_PENDING__`
+- **9 files · 450,237 bytes**; cumulative v171–v179 code-file union,
+  a superset of the v178 package (the 179 re-stamp + the v179 core in
+  `api.php`, `js/app.js`, `js/admin.js`; the css/js v178 pair unchanged).
+- **SHA-256:** `e6f4265fb45405d6cdf9eefa93614e056285d819b8b1501dbb0d267853554e8d`
+- Source commit: `4670cb854a8f1ed1834773397856f736309c7efc` (the code the
+  ZIP contains). Publication commit: `__PUB_COMMIT_PENDING__` (the ZIP on
+  this session branch).
 - Builder: `python3 tools/mega/make-v179-zip.py` (asserts every cumulative
   prior repair — v176 revenue core, v177 purge, v178 band + the v140 law —
   plus the v179 invariants: calibrated-premium engine, `mcx-est` ladder,
@@ -178,10 +179,12 @@ relay v2 is a drop-in behind the same admin fields.
   reason" class); a dead session (the 3:30 AM expiry) heals by
   automatic re-login with a fresh valid TOTP; **a killed relay's
   replacement serves the last good tick immediately from disk.**
-- **Full belt: __BELT_COUNT__ executed checks, 0 failures** —
+- **Full belt: 164 executed checks, 0 failures** —
   deployment-approval gate 20, v179 check 8, v179 PHP 25, v179 relay 7,
-  v178 17, v178 PHP 17, v169 25, v169 PHP 28, v168 39, v168 PHP 12.
-  The superseded v177 suites stay on disk, off the chain.
+  v169 pages 25, v169 PHP 28, v168 boundary 39, v168 PHP 12. The v178
+  static/PHP suites stay on disk, off the chain (their stamp assertions
+  are 178-shaped by design; their regression content is carried and
+  re-executed inside `v179-php-run.js` 25/25).
 - ZIP integrity (`testzip`), member list (exactly the 9 files,
   root-relative), byte-for-byte member match against the source commit.
 

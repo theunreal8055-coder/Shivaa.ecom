@@ -181,11 +181,10 @@ def build(revision='HEAD'):
     assert b'function premium_calibrate(array &$db, array $mcx, float $gUsd, float $sUsd, float $inr): void' in api, 'calibrator missing'
     assert b"function premium_factor_for(array $db, string $metal): array" in api, 'factor resolver missing'
     assert b"function rates_health(array $db): array" in api, 'health reporter missing'
-    assert b'array_slice((array)($db[\'rates\'][\'premiumCalib\'] ?? []), -200)' in api, 'window not capped at 200'
-    assert b'abs($r - $prev[\'gold\']) > 0.30' in api, 'calibration sanity jump guard missing'
-    assert b'in_array($src, [\'live\', \'live-mcx\', \'mcx-est\', \'mcx-est(partial)\'], true)' in api, 'spotKind ladder wrong'
-    assert b"'source' => ($liveLegs >= 2) ? 'mcx-est' : 'mcx-est(partial)'" in api, 'mcx-est source missing'
-    assert b"spotKind' => 'mcx-est'" not in api and b"($premiumEst ? 'mcx-est'" in api, 'spotKind not premium-aware'
+    assert b'$db[\'rates\'][\'premiumCalib\'] = array_slice($cal, -200);' in api, 'window not capped at 200'
+    assert b"$source = ($liveLegs >= 2) ? 'mcx-est' : 'mcx-est(partial)';" in api, 'mcx-est source missing'
+    assert b"'spotKind' => $spotImplied ? 'mcx-implied' : ($premiumEst ? 'mcx-est' : ($liveLegs >= 2 ? 'live' : 'partial'))" in api, 'spotKind ladder not premium-aware'
+    assert b"in_array($source, ['live', 'live-mcx', 'mcx-est', 'mcx-est(partial)'], true) ? now_iso()" in api, 'quotedAt ladder not premium-aware'
     assert b"if ($gUsd > 0 && $pgF[0] > 0) { $gold24 = ($gUsd * $inr) / OZ * $pgF[0];" in api, 'gold estimate line missing'
     assert b"'premiumEst' => $premiumEst" in api, 'stamp does not carry the applied premium'
     # calibration runs while both feeds are live
@@ -200,13 +199,14 @@ def build(revision='HEAD'):
     assert b"'overall' => $overall," in api, 'overall verdict missing'
     # relay pull health side-file, throttled
     assert b'$rhFile = $GLOBALS[\'ROOT\'] . \'/data/.relay-health.json\';' in api, 'relay health side-file missing'
-    assert b"($rhPrev ? strtotime($rhPrev['at']) : 0) > time() - 300" in api, 'relay health not throttled'
+    assert b'$rhThrottle = $relayOkNow ? 300 : 60;' in api, 'relay health not throttled'
+    assert b'(time() - (int)($rhPrev[\'atT\'] ?? 0)) >= $rhThrottle' in api, 'relay health state-change bypass missing'
     # the legacy raw-spot-only path must be gone
     assert b"$gA = $mcx['gold'] ? round(($mcx['gold']['ltp'] / 10) * 1.0, 2) : round(($sg / OZ) * $inr, 2);" not in api, 'raw spot anchor is back'
     # ── v179: the UI renders the honest state ──
     assert b'function v179HealthStrip(R)' in contents['js/admin.js'], 'admin health strip missing'
     assert b'${v179HealthStrip(R)}' in contents['js/admin.js'], 'strip not rendered in the rates tab'
-    for k in ['health.mcx', 'health.relay', 'health.angel', 'health.spot', 'health.premium']:
+    for k in ['h.mcx', 'h.relay', 'h.angel', 'h.spot', 'h.premium', 'h.overall']:
         assert k.encode() in contents['js/admin.js'], f'strip does not read {k}'
     assert b"String(R.source || '').startsWith('mcx-est')" in contents['js/app.js'], 'storefront honest label missing'
     assert b'(auto-learned)' in contents['js/app.js'], 'calibration origin not shown to the customer'

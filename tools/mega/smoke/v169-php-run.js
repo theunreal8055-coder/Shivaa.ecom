@@ -97,12 +97,13 @@ const addr = {name:'QA Buyer',phone:'9876500002',line:'QA fixture street',city:'
   assert.equal((await F.req('GET','orders/'+r.json.id,{},'',{pin:'wrong'})).status,403);
  });
  await test('B21','feed outages hold known prices without random jitter or base-price clamping',async()=>{
-  const out=await F.run(`${helpers(['rates_refresh','now_iso','clampn'])}
+  const out=await F.run(`${helpers(['rates_refresh','now_iso','clampn','premium_calibrate','premium_factor_for'])}
   const BASE_GOLD=11850.0,BASE_SILVER=168.0,PURITY_22=0.9167,PURITY_18=0.75,OZ=31.1034768;
   function spot_resolve($db){$empty=['price'=>0,'high'=>0,'low'=>0,'pct'=>0,'src'=>'QA-unavailable'];return ['gold'=>$empty,'silver'=>$empty,'inr'=>$empty];}
   function angel_mcx_from_tick($db){return null;} function angel_ltp(&$db){return null;}
   $db=['settings'=>[],'rates'=>['last'=>['gold24'=>15000,'silver'=>200,'source'=>'live','t'=>'2026-09-01T00:00:00+05:30'],'history'=>[]]];echo json_encode(rates_refresh($db));`);
   assert.equal(out.json.gold24,15000);assert.equal(out.json.silver,200);assert.equal(out.json.source,'cached');assert.equal(out.json.quotedAt,'2026-09-01T00:00:00+05:30');
+  assert.equal(out.json.premiumEst,null,'no premium is invented when there is no live metal leg');
  });
  await test('B22','Cashfree collected address keys reach the dispatch row, without overwriting typed addresses',async()=>{
   const db={settings:{invoiceSeq:100},users:[],orders:[{id:'QA-cf',userId:'guest',total:100,cfOcc:true,cfAttempts:[{cfOrderId:'CF-QA',amount:100}],address:{name:'Valued Customer',phone:'9876500002',line:'Collected on Cashfree (verified address)',city:'Pending verification',pincode:'000000'}}]};
@@ -134,13 +135,18 @@ const addr = {name:'QA Buyer',phone:'9876500002',line:'QA fixture street',city:'
   echo json_encode(['empty'=>jaipur_from_anchor($db,[]),'emptyStored'=>current_rates($db),'healthy'=>jaipur_from_anchor($db,['goldPerG'=>15000,'silverPerG'=>200]),'override'=>current_rates(['rates'=>['override'=>['gold24'=>15398,'gold22'=>14149,'gold18'=>11291,'silver'=>203]]])]);`);
   assert.deepEqual(out.json.empty,{gold24:0,gold22:0,gold18:0,silver:0});assert.deepEqual(out.json.emptyStored,out.json.empty);assert.equal(out.json.healthy.gold24,15398);assert.equal(out.json.healthy.gold22,14149);assert.equal(out.json.override.gold24,15398);
  });
- await test('B21-control','healthy feed leg is retained when the other provider is unavailable',async()=>{
-  const out=await F.run(`${helpers(['rates_refresh','now_iso','clampn'])}
+ await test('B21-control','a live leg while MCX is down carries the premium (v179) and the dead leg holds',async()=>{
+  const out=await F.run(`${helpers(['rates_refresh','now_iso','clampn','premium_calibrate','premium_factor_for'])}
   const BASE_GOLD=11850.0,BASE_SILVER=168.0,PURITY_22=0.9167,PURITY_18=0.75,OZ=31.1034768;
   function spot_resolve($db){$e=['price'=>0,'high'=>0,'low'=>0,'pct'=>0,'src'=>'QA'];return ['gold'=>array_replace($e,['price'=>5000]),'silver'=>$e,'inr'=>array_replace($e,['price'=>100])];}
   function angel_mcx_from_tick($db){return null;} function angel_ltp(&$db){return null;}
   $db=['settings'=>[],'rates'=>['last'=>['gold24'=>15000,'silver'=>200],'history'=>[]]];echo json_encode(rates_refresh($db));`);
-  assert.equal(out.json.gold24,Math.round(500000/31.1034768));assert.equal(out.json.silver,200);assert.equal(out.json.source,'partial');
+  // v179: the raw spot quote (5000*100/OZ) is gone — the live leg carries the
+  // settings premium 1.1371 until the engine has calibrated samples of its own
+  assert.equal(out.json.gold24,Math.round(Math.round(500000/31.1034768,2)*1.1371),"live leg priced with the premium (got "+out.json.gold24+")");
+  assert.equal(out.json.silver,200,'dead leg held');
+  assert.equal(out.json.source,'mcx-est(partial)','honest partial-estimate label');
+  assert.equal(out.json.premiumEst.gold.factor,1.1371);assert.equal(out.json.premiumEst.gold.origin,'settings');
  });
  console.log(`\nv169 PHP: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);
 })().catch(e=>{console.error(e);process.exit(1);});
