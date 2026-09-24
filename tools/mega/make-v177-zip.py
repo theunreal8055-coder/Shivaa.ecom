@@ -142,7 +142,7 @@ def build(revision='HEAD'):
         assert bad not in purge_block, f'purge touches {bad!r}'
     assert b"array_splice($db['orders']" in purge_block, 'purge must only splice orders'
     assert b'@mkdir($bkDir' in purge_block, 'backup directory not created'
-    assert b"jout(500, ['error' => 'Could not write the safety backup'" in purge_block, 'purge must abort if the backup fails'
+    assert b"jout(500, ['error' => 'Could not write the safety backup" in purge_block, 'purge must abort if the backup fails'
     # the dashboard surface for it
     assert b'pgPreview' in contents['js/admin.js'], 'purge UI missing'
     assert b'/api/admin/purge-unpaid' in contents['js/admin.js'], 'purge API call missing'
