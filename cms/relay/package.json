@@ -1,0 +1,9 @@
+{
+  "name": "shivaa-relay",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Shivaa MCX tick relay v2 — self-healing Angel One SmartAPI poller (zero dependencies, Node 18+)",
+  "main": "relay.js",
+  "scripts": { "start": "node relay.js" },
+  "engines": { "node": ">=18" }
+}

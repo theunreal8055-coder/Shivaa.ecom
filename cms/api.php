@@ -1513,7 +1513,18 @@ function angel_tick(array &$db): array {
       $rj = json_decode((string)curl_exec($rch), true);
       $rCode = (int)curl_getinfo($rch, CURLINFO_RESPONSE_CODE);
       curl_close($rch);
-      if ($rCode === 200 && is_array($rj) && !empty($rj['gold']['ltp']) && !empty($rj['silver']['ltp'])) {
+      $relayOkNow = ($rCode === 200 && is_array($rj) && !empty($rj['gold']['ltp']) && !empty($rj['silver']['ltp']));
+      // v179 — relay health for the health strip: a tiny side file, written
+      // only on state change or a 5 min (ok) / 60 s (down) throttle — the
+      // 1 s tick path must never hammer the disk.
+      $rhFile = $GLOBALS['ROOT'] . '/data/.relay-health.json';
+      $rhPrev = is_file($rhFile) ? (json_decode((string)@file_get_contents($rhFile), true) ?: null) : null;
+      $rhThrottle = $relayOkNow ? 300 : 60;
+      if (!$rhPrev || ($rhPrev['ok'] ?? null) !== $relayOkNow || (time() - (int)($rhPrev['atT'] ?? 0)) >= $rhThrottle) {
+        @file_put_contents($rhFile, json_encode(['ok' => $relayOkNow, 'at' => now_iso(), 'atT' => time(),
+          'error' => $relayOkNow ? '' : ('HTTP ' . $rCode)]), LOCK_EX);
+      }
+      if ($relayOkNow) {
         $rj['ts'] = microtime(true); $rj['relay'] = true; $rj['servedFrom'] = 'relay-http';
         @file_put_contents($cacheFile, json_encode($rj), LOCK_EX);
         return $rj;
@@ -1937,6 +1948,95 @@ function spot_tick(array &$db, ?array $mcxTick = null): array {
 const PURITY_22 = 0.9167, PURITY_18 = 0.75, OZ = 31.1034768;
 const BASE_GOLD = 11850.0, BASE_SILVER = 168.0;
 
+/* v179 — the MCX-over-spot premium (import duty + market premium),
+   auto-learned. While the official MCX future and the international spot
+   are BOTH live, the live ratio (MCX ₹/g ÷ spot ₹/g) is recorded — a
+   rolling window of the last 200 samples. This is the same quantity the
+   owner-tunable settings factors spotImplied*Factor already carry (they
+   were used only MCX→USD until now); learning it from live data means the
+   fallback below stays honest as duties or the market structure drift. */
+function premium_calibrate(array &$db, array $mcx, float $gUsd, float $sUsd, float $inr): void {
+  if ($inr <= 0) return;
+  $gSpot = ($gUsd * $inr) / OZ; $sSpot = ($sUsd * $inr) / OZ;
+  $gM = (float)($mcx['goldPerG'] ?? 0); $sM = (float)($mcx['silverPerG'] ?? 0);
+  $entry = ['at' => time()];
+  if ($gSpot > 0 && $gM > 0) $entry['gold'] = $gM / $gSpot;
+  if ($sSpot > 0 && $sM > 0) $entry['silver'] = $sM / $sSpot;
+  if (!isset($entry['gold']) && !isset($entry['silver'])) return;
+  $cal = is_array($db['rates']['premiumCalib'] ?? null) ? $db['rates']['premiumCalib'] : [];
+  $cal[] = $entry;
+  $db['rates']['premiumCalib'] = array_slice($cal, -200);
+}
+/* v179 — the factor the fallback uses: the median of the recent sane
+   calibrated samples (< 7 days old, 0.9–1.5) when any exist, otherwise the
+   owner's settings factor. Returns [factor, origin]. */
+function premium_factor_for(array $db, string $metal): array {
+  $cutoff = time() - 7 * 86400;
+  $cal = is_array($db['rates']['premiumCalib'] ?? null) ? $db['rates']['premiumCalib'] : [];
+  $vals = [];
+  foreach ($cal as $e) {
+    if (is_array($e) && (int)($e['at'] ?? 0) >= $cutoff && isset($e[$metal])) {
+      $v = (float)$e[$metal];
+      if ($v >= 0.9 && $v <= 1.5) $vals[] = $v;
+    }
+  }
+  if ($vals) {
+    $vals = array_slice($vals, -60);
+    sort($vals);
+    return [ (float)$vals[intdiv(count($vals), 2)], 'calibrated' ];
+  }
+  $key = $metal === 'gold' ? 'spotImpliedGoldFactor' : 'spotImpliedSilverFactor';
+  $def = $metal === 'gold' ? 1.1371 : 1.1838;
+  return [ (float)($db['settings'][$key] ?? $def), 'settings' ];
+}
+/* v179 — one honest glance at the whole bullion pipeline (storefront
+   /api/rates payload + the admin health strip). Reads only — never writes.
+   'ok' = official MCX live · 'degraded' = spot + calibrated premium
+   estimate (MCX down) or spot-only live · 'down' = neither. */
+function rates_health(array $db): array {
+  $last = is_array($db['rates']['last'] ?? null) ? $db['rates']['last'] : [];
+  $lg = is_array($db['rates']['mcxLastGood'] ?? null) ? $db['rates']['mcxLastGood'] : [];
+  $sess = is_array($db['angelSession'] ?? null) ? $db['angelSession'] : [];
+  $relayOk = null; $relayAge = null; $served = null;
+  $tf = $GLOBALS['ROOT'] . '/data/.angel-tick.json';
+  if (is_file($tf)) {
+    $t = json_decode((string)@file_get_contents($tf), true);
+    if (is_array($t)) {
+      $ts = (float)($t['ts'] ?? 0);
+      $relayAge = $ts > 0 ? max(0.0, microtime(true) - $ts) : max(0.0, microtime(true) - (float)@filemtime($tf));
+      $relayOk = !empty($t['relay']); $served = (string)($t['servedFrom'] ?? '');
+    }
+  }
+  $rhFile = $GLOBALS['ROOT'] . '/data/.relay-health.json';
+  $rh = is_file($rhFile) ? (json_decode((string)@file_get_contents($rhFile), true) ?: null) : null;
+  $spotAge = (!empty($last['t'])) ? max(0, time() - strtotime((string)$last['t'])) : null;
+  $cal = is_array($db['rates']['premiumCalib'] ?? null) ? $db['rates']['premiumCalib'] : [];
+  $calLast = $cal ? end($cal) : null;
+  $pg = premium_factor_for($db, 'gold'); $ps = premium_factor_for($db, 'silver');
+  $src = (string)($last['source'] ?? 'unavailable');
+  $overall = ($src === 'live-mcx') ? 'ok' : (!empty($last['premiumEst']) || $src === 'live' ? 'degraded' : 'down');
+  return [
+    'overall' => $overall,
+    'mcx' => ['live' => $src === 'live-mcx', 'source' => $src,
+      'lastGoodAt' => (string)($lg['at'] ?? ''), 'lastGoodGoldPerG' => (float)($lg['goldPerG'] ?? 0),
+      'lastGoodSilverPerG' => (float)($lg['silverPerG'] ?? 0),
+      'goldSymbol' => (string)($lg['goldSymbol'] ?? ''), 'silverSymbol' => (string)($lg['silverSymbol'] ?? '')],
+    'tick' => ['relayFresh' => $relayOk === true && $relayAge !== null && $relayAge < 2.0,
+      'relay' => $relayOk, 'ageSec' => $relayAge === null ? null : round($relayAge, 1), 'servedFrom' => $served],
+    'relay' => is_array($rh) ? ['ok' => (bool)($rh['ok'] ?? false), 'at' => (string)($rh['at'] ?? ''), 'error' => (string)($rh['error'] ?? '')] : null,
+    'angel' => ['configured' => !empty($db['settings']['angelEnabled'])
+      && trim((string)($db['settings']['angelApiKey'] ?? '')) !== ''
+      && trim((string)($db['settings']['angelClient'] ?? '')) !== ''
+      && trim((string)($db['settings']['angelMpin'] ?? '')) !== ''
+      && trim((string)($db['settings']['angelTotpSecret'] ?? '')) !== '',
+      'lastError' => (string)($sess['lastError'] ?? ''), 'errorAt' => (string)($sess['errorAt'] ?? '')],
+    'spot' => ['src' => (array)($last['spotSrc'] ?? []), 'ageSec' => $spotAge],
+    'premium' => ['gold' => ['factor' => $pg[0], 'origin' => $pg[1]],
+                  'silver' => ['factor' => $ps[0], 'origin' => $ps[1]],
+                  'samples' => count($cal), 'lastAt' => is_array($calLast) ? (int)($calLast['at'] ?? 0) : 0],
+  ];
+}
+
 function rates_refresh(array &$db): array {
   $last = $db['rates']['last'] ?? null;
   $gold24 = $last['gold24'] ?? 0;
@@ -1966,6 +2066,8 @@ function rates_refresh(array &$db): array {
   $sess0 = $db['angelSession'] ?? null;
   $errTick = is_array($sess0) ? strtotime((string)($sess0['errorAt'] ?? '')) : false;
   $cooling = $errTick ? (time() - $errTick < 600) : false;
+  $mcx = null;
+  $premiumEst = null;   // v179 — the premium applied by the fallback, for honesty
   if (!$cooling) {
     // v71 — reuse the live 1-second tick stream; only run the full probe
     // pipeline when no fresh tick is available (first boot / after outage)
@@ -1975,6 +2077,13 @@ function rates_refresh(array &$db): array {
       $silver = $mcx['silverPerG'];
       $source = 'live-mcx';
       $db['rates']['mcx'] = $mcx;
+      // v179 — persist the last official pack: the health strip and the
+      // admin always know the last true MCX price and exactly when.
+      $db['rates']['mcxLastGood'] = ['at' => now_iso(), 'goldPerG' => (float)$mcx['goldPerG'],
+        'silverPerG' => (float)$mcx['silverPerG'], 'goldSymbol' => (string)($mcx['goldSymbol'] ?? ''),
+        'silverSymbol' => (string)($mcx['silverSymbol'] ?? '')];
+      // v179 — auto-calibrate the MCX-over-spot premium while both are live.
+      if ($gUsd > 0 && $sUsd > 0 && $inr > 0) premium_calibrate($db, $mcx, $gUsd, $sUsd, $inr);
       // v73 — if international providers were unreachable, the dollar cards
       // still render: derive LBMA-equivalent spot from the live future.
       if ($usdGold <= 0 || $usdSilver <= 0) {
@@ -1986,6 +2095,24 @@ function rates_refresh(array &$db): array {
         if (!$sUsd) { $sUsd = $usdSilver; $sUsdHi = $sUsdLo = $sUsd; $spotSrc['silver'] = 'mcx-implied'; }
         $spotImplied = true;
       }
+    }
+  }
+  /* v179 — the permanent fallback. MCX down (relay dead, Angel unconfigured
+     or failing, session cooling): price from spot × the calibrated
+     MCX-over-spot premium — duty + market premium, auto-learned while the
+     two feeds were both alive. The quote stays ≈ market with nobody
+     touching a rate; the honest 'mcx-est' label is visible to the owner,
+     the admin health strip and (via rtgs_strip/bullion_anchors) every B2B
+     RTGS line, which derive from this same anchor. */
+  if (!$mcx && $inr > 0) {
+    $pgF = premium_factor_for($db, 'gold'); $psF = premium_factor_for($db, 'silver');
+    $applied = false;
+    if ($gUsd > 0 && $pgF[0] > 0) { $gold24 = ($gUsd * $inr) / OZ * $pgF[0]; $applied = true; }
+    if ($sUsd > 0 && $psF[0] > 0) { $silver = ($sUsd * $inr) / OZ * $psF[0]; $applied = true; }
+    if ($applied) {
+      $source = ($liveLegs >= 2) ? 'mcx-est' : 'mcx-est(partial)';
+      $premiumEst = ['gold' => ['factor' => $pgF[0], 'origin' => $pgF[1]],
+                     'silver' => ['factor' => $psF[0], 'origin' => $psF[1]]];
     }
   }
   $stamp = [
@@ -2001,9 +2128,10 @@ function rates_refresh(array &$db): array {
     'usdSilverHigh' => round($sUsdHi, 3), 'usdSilverLow' => round($sUsdLo, 3), 'usdSilverPct' => $sUsdPct,
     'usdInrHigh' => round($fxHi, 3), 'usdInrLow' => round($fxLo, 3), 'usdInrPct' => $fxPct,
     'spotSrc' => $spotSrc,
-    'spotKind' => $spotImplied ? 'mcx-implied' : ($liveLegs >= 2 ? 'live' : 'partial'),
+    'spotKind' => $spotImplied ? 'mcx-implied' : ($premiumEst ? 'mcx-est' : ($liveLegs >= 2 ? 'live' : 'partial')),
     'source' => $source,
-    'quotedAt' => in_array($source, ['live', 'live-mcx'], true) ? now_iso() : ($last['quotedAt'] ?? $last['t'] ?? null),
+    'premiumEst' => $premiumEst,
+    'quotedAt' => in_array($source, ['live', 'live-mcx', 'mcx-est', 'mcx-est(partial)'], true) ? now_iso() : ($last['quotedAt'] ?? $last['t'] ?? null),
   ];
   $db['rates']['last'] = $stamp;
   $db['rates']['history'][] = $stamp;
@@ -3077,6 +3205,10 @@ try {
   /* ── rates ── */
   if ($route === 'rates' && $method === 'GET') {
     if (rates_stale($db)) { rates_refresh($db); $changed = true; }
+    // v179 — jout() exits below, so the end-of-request save never runs:
+    // persist the fresh stamp (and the calibration / last-good state the
+    // refresh just wrote) here, or it is silently lost on every poll.
+    if ($changed) db_save($DB_FILE, $db);
     $last = $db['rates']['last'];
     $base = $last;
     if (!empty($db['rates']['override'])) { $base = array_merge($base, $db['rates']['override'], ['source' => 'override (admin)', 't' => now_iso()]); }
@@ -3120,6 +3252,10 @@ try {
       'premium' => ['gold22' => gold22_premium($db), 'gold24' => gold24_premium($db), 'gold' => (int)($db['settings']['jaipurPremium'] ?? 55), 'silver' => (double)($db['settings']['jaipurSilverPremium'] ?? 3)],
       'override' => $db['rates']['override'] ?? null,
       'history' => array_slice($db['rates']['history'] ?? [], -120),
+      /* v179 — the honest pipeline state: mcx live? relay fresh? premium
+         factor + how it was learned? spot sources + age? — storefront tag
+         and the admin health strip both render from this one object. */
+      'health' => rates_health($db),
       'nextUpdateIn' => 60,
     ], $liveMeta));
   }
@@ -4335,7 +4471,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 178,
+      'rel'   => 179,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
