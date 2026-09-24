@@ -68,7 +68,81 @@
   the synced directory and are not matched by the exclude list, so a future code
   deploy would upload them (owner decision).
 
+## CURRENT STATE — v177: the v176 rework, fixed (24 Sep 2026)
+
+**Supersedes the v176 record below as the current release.** Owner request:
+*"make v176 again but better, without bugs and errors."* Forward release
+177 — v176 stays shipped, same seven files, five defects repaired, executed
+PHP tests added that catch each one. Branch `arena/01a0d168-shivaa-ecom`
+(branched from `bc666f3`, the PR #93 merge carrying v171–v176 onto `main`);
+commits `a77dacf` (fixes + suites + builder) and `29e2c0d` (builder assert
+fix; ZIP built from this commit).
+
+- **Download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/557fb51c194f4acfbe08bd0f7e69e4660c4da0cf/shivaa-update-v177.zip
+  **7 files, 427,896 B, SHA-256 `2c9fff1a…5dec2`** (full:
+  `2c9fff1a8b39e186093e44ecac0980189e7ca783337be677e35d5bea6b35dec2`);
+  builder `tools/mega/make-v177-zip.py`; deterministic (two runs, same
+  hash); member bytes match the committed source.
+- **Stamps 177 lockstep** (`__SHIVAA_REL=177`/`APP_REL = 177`/
+  `shivaa-shell-v177`/`REL=177`/`'rel' => 177`), 54 `?v=177` in index.html +
+  49 in sw.js. MEDIA stays `shivaa-media-v168`.
+- **NOT deployed, NOT owner-installed, NOT live-verified.** The test-order
+  purge has not been run anywhere — owner action on his own server (and,
+  unlike v176, it can now complete).
+
+### The five v176 defects, repaired (see DEPLOY-v177.md for the full record)
+
+1. **KILLER — the confirmed purge could never run:** the backup line used
+   `JSON_UNESIGNED_SLASHES` / `JSON_UNESIGNED_UNICODE` — constants that do
+   not exist. Every confirmed POST threw "Undefined constant" and 500'd
+   AFTER the phrase: no backup, no delete. Fixed to the real
+   `JSON_UNESCAPED_*` pair; `v177-check.js` guards the typo.
+2. **Preview ignored `?scope=`** (scope read only from the POST body) —
+   "every order" selected showed the safe slice, the short phrase and no
+   all-sales warning. GET now reads the query, POST the body; unknown →
+   safe `unpaid`.
+3. **Same-second backups could overwrite each other** — name now made
+   unique before writing (three same-second purges → three distinct valid
+   backups, executed).
+4. **Day book COD tile was structurally always ₹0** — now counts money on
+   the day it arrives from the order's payment ledger (online/UPI on
+   receipt day, proof on approval day, COD on collection day, legacy rows
+   on paidAt/createdAt; cancelled excluded; no double count). Tile renamed
+   "COD collected".
+5. **Crash-proofing + honest note:** stats byDay 500 on a row missing
+   `createdAt`; preview `TypeError` on a scalar legacy `address`; audit
+   line re-read the bearer mid-route; scope-`all` note no longer claims
+   "every paid order was untouched".
+
+Unchanged: the money-received core across dashboard/reports/cash book, the
+phrases, backup-first ordering, last-10 retention, and **only `db['orders']`
+is ever spliced** (customers/partners/products/settlements/reviews/coupons
+provably untouched — builder asserts it).
+
+### Verification — executed, on shipped bytes
+`v177-php-run.js` **17/17** (PHP 8.3 fixture; also against the extracted ZIP
+bytes) · `v177-check.js` **11/11** · full belt **40 pass / 16 retired skip /
+0 fail** (pre-edit baseline 38/16/0) · v169 gates on shipped bytes
+28/28 PHP + 25/25 pages · v168 signatures 12/12 · php-sweep 212 routes / 0
+exceptions · `node --check` on shipped JS · ZIP testzip + member match +
+deterministic hash. NOT verified: no owner install, live unreachable, purge
+not run anywhere, no main merge/deployment/real payment.
+
+### Forward-only (restated)
+v176 AND v177 are shipped — never reset/revert, restore an old ZIP,
+force-push or rewrite history. **Next release is 178+.** Owner-approved
+manual deploys only; a push is not approval. Never hand-edit
+`cms/data/db.json`. Never swap `sw.js` alone. B2B and B2C customers are out
+of scope for any sales cleanup.
+
 ## CURRENT STATE — v176: failed payments stopped counting as sales (23 Sep 2026)
+
+> **Historical record — the current release is v177.** See the
+> *CURRENT STATE — v177* section above and `DEPLOY-v177.md`. The v176
+> release stays shipped (ZIP/link unchanged); its two known defects
+> (undefined-JSON-constant purge 500, scope-blind preview) are fixed in
+> v177.
 
 **Supersedes the v169 record below as the current release.** v170–v176 all landed
 after it. Branch `arena/01a0cd08-shivaa-ecom`, HEAD

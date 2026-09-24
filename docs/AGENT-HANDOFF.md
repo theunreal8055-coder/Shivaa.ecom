@@ -1,23 +1,132 @@
-# AGENT HANDOFF — v176 published, not live-verified (23 Sep 2026)
+# AGENT HANDOFF — v177 published, not live-verified (24 Sep 2026)
 
-> **Current release: 176.** The v169 block below is history. Read the
-> *CURRENT STATE — v176* section first, then the v169 record, then the
-> historical notes. **Forward only — never revert to an older release.**
+> **Current release: 177.** The v169 block below is history. Read the
+> *CURRENT STATE — v177* section first, then the v176 record (now history),
+> then the v169 record, then the historical notes. **Forward only — never
+> revert to an older release.**
 
 ## Deployment control update — owner approval required (22 Sep 2026)
 
 PR #90 is merged at `2393a7949852b9bb1f16cdbfa8b138f83da8235e`; the owner
 reports the Hostinger MySQL migration of 77 products succeeded. Live `/api/version`
-last reported release **170**; the newest published package is **v176** (commit
-`64c46a9`). **Never deploy an older tree over a newer live site, and never deploy
+last reported release **170**; the newest published package is **v177** (source
+commit `29e2c0d`). **Never deploy an older tree over a newer live site, and never deploy
 anything without the owner's explicit yes.** Any next application release must
-move forward from **177** and pass the anti-downgrade gate. Production deployment
+move forward from **178** and pass the anti-downgrade gate. Production deployment
 is manual-only: ask the owner first, then use the approval-gated workflow from
 `main`. Merges do not authorize deployment.
 Credentials stay in GitHub Actions secrets, and the old Hostinger cron code writer
 must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
 
+## CURRENT STATE — v177 published: the v176 rework, fixed (24 Sep 2026)
+
+**This section supersedes the v176 "CURRENT STATE" below for anything about
+the current release.** v177 is the owner-requested *"make v176 again but
+better, without bugs and errors"* — a forward release, not a reset: the same
+seven files, the same owner flow, five v176 defects repaired and executed
+PHP tests added that catch each one.
+
+- **Branch / HEAD:** `arena/01a0d168-shivaa-ecom`, branched from `bc666f3`
+  (PR #93 merge, which carried v171–v176 onto `main`). Commits this release:
+  `a77dacf` (the five fixes + stamps + both v177 suites + builder) ·
+  `29e2c0d` (builder assertion fix; the ZIP is built from this commit).
+- **Latest download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/557fb51c194f4acfbe08bd0f7e69e4660c4da0cf/shivaa-update-v177.zip
+- **Archive:** 7 files, **427,896 bytes**, SHA-256
+  `2c9fff1a8b39e186093e44ecac0980189e7ca783337be677e35d5bea6b35dec2`,
+  built from source `29e2c0d86867acc73bb0c86da86bf5558c1329ee`.
+  Deterministic (two runs, identical hash); every member byte-matches its
+  committed `cms/` source. Builder: `tools/mega/make-v177-zip.py`.
+- **Stamps:** release **177** in lockstep (`__SHIVAA_REL=177`,
+  `APP_REL = 177`, `SHELL='shivaa-shell-v177'`, `REL=177`, `'rel' => 177`),
+  54 `?v=177` asset stamps in `index.html` + 49 in `sw.js`. MEDIA cache
+  deliberately stays `shivaa-media-v168` (no media changed).
+- **NOT deployed, NOT owner-installed, NOT live-verified.** The v176 ZIP and
+  link remain unchanged and valid. The test-order purge has **not** been run
+  anywhere — it is an owner action on his own server (and, unlike in v176,
+  it can now actually complete).
+
+### The five v176 defects, repaired
+
+1. **The confirmed purge could never run.** The backup line called
+   `json_encode()` with `JSON_UNESIGNED_SLASHES` / `JSON_UNESIGNED_UNICODE`
+   — constants that do not exist in PHP. Every confirmed POST
+   `/api/admin/purge-unpaid` threw *"Undefined constant"* and 500'd AFTER
+   the owner typed the phrase: no backup, no delete, generic error. This is
+   why a parser pass and a Python simulation can both be green while the
+   feature is dead. v177 uses the real `JSON_UNESCAPED_*` pair;
+   `v177-check.js` asserts the typo can never return.
+2. **The preview ignored `?scope=`.** The UI previews via
+   `GET …/purge-unpaid?scope=…`, but v176 read the scope only from the POST
+   body, so every preview answered `unpaid`: "every order" selected showed a
+   partial preview, the short phrase and no all-sales warning. v177 reads
+   GET from the query and POST from the body; unknown values collapse to
+   the safe `unpaid`.
+3. **Same-second backups could overwrite each other**
+   (`db-before-purge-<Ymd-His>.json` collision). The name is now made
+   unique (numeric suffix) before writing; three same-second purges produce
+   three distinct valid backups (executed test).
+4. **The day book's COD tile read ₹0 forever** (creation-day filter +
+   `order_money_received()` excluding COD until delivery). The cash book now
+   counts money on the day it arrives, from the order's payment ledger:
+   online/UPI rows on receipt day, a UPI proof on the day the owner approves
+   it (`approvedAt`), COD on the day its row is written (cash in hand),
+   pre-ledger legacy rows on `paidAt` then `createdAt`; cancelled excluded;
+   no double counting. Tile renamed **"COD collected"**.
+5. **Crash-proofing + an honest note.** `admin/stats` byDay could 500 on a
+   legacy row without `createdAt` (PHP 8 undefined-key + `substr(null)`);
+   the preview sample `TypeError`'d on a legacy scalar `address`; the audit
+   line re-read the bearer mid-route (now uses `need_admin`'s result); the
+   scope-`all` success note no longer claims "every paid order was
+   untouched".
+
+**Unchanged:** the money-received core (dashboard, reports and cash book
+still count only money actually received), the phrases, backup-first
+ordering, last-10 retention, and the scope: **only `db['orders']` is ever
+spliced** — B2B and B2C customers, partners, products, settlements, reviews
+and coupons are provably out of reach (the builder asserts it).
+
+### What was verified, and what was NOT
+
+**Verified (executed, on the shipped ZIP bytes as well as the working
+tree):** `v177-php-run.js` **17/17** under PHP 8.3 — revenue trio on the
+10-order book; preview scope honesty; refused phrases write nothing; the
+safe delete removes exactly the 5 unpaid attempts with a full pre-purge
+backup, byte-identical customers/partners/products and an audit line naming
+the admin; `all` refuses the short phrase; same-second backup uniqueness;
+retention trims to 10; legacy-row crash cases; COD cash only on collection
+day; proof on approval day; legacy rows once; cancelled excluded;
+`/api/version` 177 matched handshake. `v177-check.js` **11/11**. Full belt
+**40 suites pass, 16 retired skip, 0 fail** (baseline before edits:
+38/16/0). Prior gates on shipped bytes: v169 PHP 28/28, v169 pages 25/25,
+v168 signatures 12/12. Static sweep 212 routes / 0 exceptions. `node
+--check` on shipped JS. ZIP `testzip` + member match + deterministic hash.
+
+**NOT verified — state this plainly:** no owner install; the live site is
+unreachable from the sandbox; the purge itself has not been run anywhere;
+no main merge, no Hostinger deployment, no real payment.
+
+### Standing rules that still bind (do not lose these)
+
+- **FORWARD ONLY.** v176 and v177 are both shipped; new work is targeted
+  forward commits. Never reset/revert, restore an old ZIP, force-push or
+  rewrite history. **Next release is 178+.**
+- Owner-approved **manual deploys only.** A push/merge is not deployment
+  approval. Nothing here was deployed.
+- **Never hand-edit `cms/data/db.json`.** "Delete the data" requests get a
+  guarded server-side tool, never a file edit.
+- **Never swap `sw.js` alone.** Index, app, worker, API release and every
+  asset URL move coherently.
+- B2B and B2C customers are explicitly out of scope for any sales cleanup.
+
 ## CURRENT STATE — v176 published; failed payments are no longer sales (23 Sep 2026)
+
+> **Historical record — the current release is v177.** See the
+> *CURRENT STATE — v177* section above and `DEPLOY-v177.md`. The v176
+> release stays shipped; its ZIP/link are unchanged. Two of v176's defects
+> (the undefined-JSON-constant purge 500 and the scope-blind preview) are
+> recorded above and fixed in v177 — read v176's "NOT verified" list with
+> that in mind.
 
 **This section supersedes the v169 "Final verified state" below for anything
 about the current release.** v170–v176 were delivered after that record; the
