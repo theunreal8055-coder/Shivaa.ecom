@@ -513,7 +513,50 @@ function v179HealthStrip(R) {
   </div>`;
 }
 
-  /* ── RATES ── */
+  /* v180 — Data Source strip: one glance tells the owner whether product reads
+   are served by Hostinger MySQL or the JSON safety net, and why. Fed by the
+   public /api/version `db` payload (booleans/counts only — never credentials). */
+function v180DbStrip() {
+  fetch('/api/version', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(v => {
+      const el = document.getElementById('v180DbStrip');
+      if (!el || !v || !v.db) return;
+      const d = v.db;
+      const dot = c => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;background:${c === 'ok' ? '#2e7d32' : c === 'warn' ? '#b98a2f' : '#c62828'}"></span>`;
+      let cls, line;
+      if (d.mode === 'mysql') {
+        cls = 'ok';
+        line = `<b>Hostinger MySQL</b> is serving the catalogue — ${d.jsonCount != null ? d.jsonCount : d.sqlCount} designs, mirror healthy.`;
+      } else if (d.driver !== 'mysql') {
+        cls = 'warn';
+        line = `<b>JSON file</b> (db_driver not set to mysql in config.php) — SQL switch not enabled.`;
+      } else if (d.mirrorBehind || d.reason === 'mirror-behind') {
+        cls = 'warn';
+        line = `<b>JSON safety net</b> active — the SQL mirror needs a reconcile. Open <code>/upgrade-sql.php</code>, run it once, done.`;
+      } else if (d.reason === 'no-connection') {
+        cls = 'warn';
+        line = `<b>JSON safety net</b> active — MySQL not reachable (check config.php credentials), site unaffected.`;
+      } else if (d.reason === 'count-mismatch' || d.reason === 'id-mismatch' || d.reason === 'sql-empty') {
+        cls = 'warn';
+        line = `<b>JSON safety net</b> active — SQL is behind (json ${d.jsonCount ?? '?'} vs sql ${d.sqlCount ?? '?'}). Open <code>/upgrade-sql.php</code> to reconcile.`;
+      } else {
+        cls = 'warn';
+        line = `<b>JSON safety net</b> active (${esc(d.reason || 'fallback')}) — site unaffected.`;
+      }
+      el.style.borderLeft = `3px solid ${cls === 'ok' ? '#2e7d32' : '#b98a2f'}`;
+      el.innerHTML = `<h3>Data source <span style="font-size:12px;color:var(--ink-3);font-weight:400">— v180 storage dial</span></h3>
+        <p style="font-size:13.5px;font-weight:600;margin:0">${dot(cls)}${line}</p>
+        <p style="font-size:12px;color:var(--ink-3);margin:8px 0 0">driver <code>${esc(d.driver || '?')}</code> · release ${esc(String(v.rel || '?'))} · rollback anytime: set <code>db_driver => 'json'</code> in config.php</p>`;
+    })
+    .catch(() => { /* strip stays on its neutral placeholder — never blocks the tab */ });
+  return `<div class="adm-card" id="v180DbStrip" style="border-left:3px solid #999">
+    <h3>Data source</h3>
+    <p style="font-size:13.5px;margin:0;color:var(--ink-3)">Checking…</p>
+  </div>`;
+}
+
+/* ── RATES ── */
   if (tab === 'rates') {
     const R = state.rates;
     body.innerHTML = `
@@ -522,6 +565,7 @@ function v179HealthStrip(R) {
           .map(c => `<div class="stat"><small>${c[0]}</small><b>${fmt(c[1])}${c[2]}</b><span>per 10g: ${fmt(c[1] * 10)}</span></div>`).join('')}
       </div>
       ${v179HealthStrip(R)}
+      ${v180DbStrip()}
       <div class="adm-card"><h3>Feed control <span class="src-badge ${R.source === 'live' ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${esc(R.source)}</span></h3>
         <p style="font-size:13.5px;color:var(--ink-2);margin-bottom:14px">Server polls the bullion market every 10 minutes (XAU/XAG USD→INR). "Refresh now" forces an immediate poll; override pins the counter rate (e.g., for in-store boards) until cleared.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">

@@ -4,14 +4,22 @@
 
 - The agreed master roadmap for the SQL-at-3-lakh migration, the standing ZIP
   update ritual, the auto-catalogue review-queue, and the owner's billing-software
-  deployment is `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md`. **No part of it
-  is built or deployed yet** — it is the plan awaiting the owner's priority
-  choices. Live is 179; next release 180+.
-- Verified fact to never misstate: despite `config.example.php` saying
-  `db_driver => 'mysql'` and `setup-mysql.php` having created tables (77 product
-  rows copied), **the runtime never calls `get_db_pdo()`** — every read/write is
-  still `db_load`/`db_save` on `cms/data/db.json`. `orders`/`settings` SQL tables
-  are empty for that reason. "Tables exist" ≠ "site runs on MySQL".
+  deployment is `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md`. **Phase 1+2
+  (SQL runtime) is now BUILT as v180** (dual-mode overlay + mirror-on-save +
+  ZIP-only `upgrade-sql.php` reconciler; belt 41/21/0 + chain 171/171 + sweep
+  212/0) — delivered as `shivaa-update-v180.zip` + `DEPLOY-v180.md`, **not
+  deployed** (owner yes required). Billing upload + catalogue gate choice
+  still pending. Live is 179; forward-only 180+.
+- Verified fact, updated for v180: **product catalogue reads/writes now
+  ENGAGE MySQL when `db_driver => 'mysql'`** (overlay + mirror-on-save with
+  the JSON safety net — see the v180 CURRENT STATE section in
+  `docs/AGENT-HANDOFF.md`), but **orders/settings SQL tables are still empty
+  and money routes still run on extract-only JSON until Phase 3.** Until
+  v180 is deployed AND `upgrade-sql.php` has run, live behaviour is still
+  pure JSON. "Tables exist" ≠ "site runs on MySQL" — `db.mode` on
+  `/api/version` is the truth. **Never add a helper called from inside
+  `db_load`/`db_save` without a `function_exists` guard** — legacy suites
+  extract only those two bodies and fatal otherwise.
 
 ## Deployment control update — owner approval required (22 Sep 2026)
 
@@ -35,8 +43,10 @@
 
 ## Read first
 
-1. **The *CURRENT STATE — v178* section of `docs/AGENT-HANDOFF.md` and
-   `MEMORY.md`, plus `DEPLOY-v178.md`.** These are the live record.
+1. **The *CURRENT STATE — v180 BUILT* section of `docs/AGENT-HANDOFF.md`
+   and `MEMORY.md`, plus `DEPLOY-v180.md`.** These are the build record
+   (live remains 179 until the owner deploys); the *CURRENT STATE — v179
+   DEPLOYED* section is the live record.
    `DEPLOY-v177.md` / `DEPLOY-v176.md` and those sections are history
    (v177 and v176 stay shipped).
    `DEPLOY-v176.md` and the v176 section are history (v176 stays shipped).
@@ -48,10 +58,17 @@
 3. Actual branch, diff and code. Documents have contained stale counts/labels;
    verify before repeating them.
 
-## Current source state (24 September 2026) — release 177
+## Current source state (24 September 2026) — release 180 (built; live 179)
 
-- Storefront/source release **177**; hardened media cache deliberately stays
-  **168** because no media changed. Release stamps move in lockstep
+- Storefront/source release **180** (SQL runtime, built this session; live
+  is still **179** until the owner deploys); hardened media cache
+  deliberately stays **168** because no media changed. v180: 6-file ZIP
+  (api/index/sw/app/admin/`upgrade-sql.php`), stamps 179 → 180 lockstep,
+  dual-mode SQL overlay + mirror-on-save + installer, compute_price
+  hardening, admin Data-Source strip; suites `v180-check` 7/7 +
+  `v180-php-run` 8/8; superseded stamp-exact suites SKIP-forward.
+  Builder: `tools/mega/make-v180-zip.py`. See `DEPLOY-v180.md`.
+- (Prior source release **177** record follows.) Release stamps move in lockstep
   (`__SHIVAA_REL=177`, `APP_REL = 177`, `shivaa-shell-v177`, `REL=177`,
   `'rel' => 177`) plus every `?v=` asset stamp in `index.html` and `sw.js`.
 - v178 is the in-footer PWA app band the owner asked for ("download the
@@ -105,12 +122,13 @@
 **FORWARD ONLY — the owner restated this rule at the close of the v176 session;
 it is absolute.**
 
-- Preserve the latest verified source (currently **v177**). New fixes are targeted
-  forward commits; **no release reset or revert, no old-file or old-ZIP
-  restoration, no rewritten or force-pushed history. The next release is 178 or
-  higher — never reuse or renumber a shipped release.** The old v125 freeze was
-  superseded by owner-requested releases through v177; rejected v126 and
-  Truecaller must remain retired.
+- Preserve the latest verified source (currently **v180** — built, awaiting
+  owner deploy; live 179). New fixes are targeted forward commits; **no
+  release reset or revert, no old-file or old-ZIP restoration, no rewritten
+  or force-pushed history. The next release is 181 or higher — never reuse
+  or renumber a shipped release, never deploy an older tree over a newer
+  live site.** The old v125 freeze was superseded by owner-requested
+  releases through v180; rejected v126 and Truecaller must remain retired.
 - Consult the completed v168/v169 ledger IDs and tests before changing a path.
   Missing scratch logs do not mean a fix is absent. Do not replay non-idempotent
   `work/audit169/backend.py` / `frontend.py` patch scripts.
@@ -159,9 +177,13 @@ cd ../../..
 node tools/mega/php-sweep/sweep.mjs
 ```
 
-- Last verified belt: **40 active suites pass, 16 retired-feature suites skip,
-  0 fail** (38 before the v177 suites were added; the runner auto-discovers
-  `v177-check.js` and `v177-php-run.js`). The runner explicitly distinguishes SKIP from PASS.
+- Last verified belt (v180 close): **41 active suites pass, 21 retired/
+  superseded-feature suites skip, 0 fail** · chained `npm test` **exit 0,
+  171 executed checks** (relay may flake T05/T06 under chain load —
+  standalone 7/7) · php-sweep **212 routes / 0 exceptions** · deploy-approval
+  **20/20**. The runner explicitly distinguishes SKIP from PASS; five
+  stamp-exact v177–v179 suites SKIP-forward on trees newer than their
+  release (forward-only made mechanical).
 - PHP can execute via the installed PHP-WASM dependency. A parser pass is not
   runtime proof; test the relevant real PHP block/endpoints too. (The v176
   purge 500'd on nonexistent `JSON_UNESIGNED_*` constants while every parser

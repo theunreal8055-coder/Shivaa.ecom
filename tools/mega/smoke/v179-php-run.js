@@ -251,12 +251,12 @@ function book(day) {
   const cb=await F.req('GET','admin/cashbook',{},ADMIN,{date:today});
   assert.equal(cb.json.orderSales,227000,'the cancelled row contributes nothing');
  });
- await test('V17','the version endpoint reports 179 with a matched handshake',async()=>{
+  await test('V17','the version endpoint reports a matched handshake at >=179 (forward-tolerant floor)',async()=>{
   const v=await F.req('GET','version',{});
   assert.equal(v.status,200,v.body);
-  assert.equal(v.json.rel,179);
+  assert.ok(typeof v.json.rel==='number' && v.json.rel>=179, 'rel floor 179, got '+v.json.rel);
   assert.equal(v.json.stamp.matched,true,'index/app/sw stamps in lockstep');
-  assert.equal(v.json.stamp.index,179); assert.equal(v.json.stamp.app,179); assert.equal(v.json.stamp.sw,179);
+  assert.ok(v.json.stamp.matched===true,'stamps matched'); assert.equal(v.json.stamp.index,v.json.rel); assert.equal(v.json.stamp.app,v.json.rel); assert.equal(v.json.stamp.sw,v.json.rel);
  });
 
 

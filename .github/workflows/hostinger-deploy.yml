@@ -144,6 +144,7 @@ jobs:
             .htaccess
             config.php
             setup-mysql.php
+            upgrade-sql.php
             .env
             .env.*
             backups/**

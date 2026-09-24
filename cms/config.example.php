@@ -9,7 +9,13 @@
  */
 
 return [
-  // Database Mode: 'mysql' or 'json'
+  // Database Mode: 'mysql' or 'json' (v180)
+  // 'mysql'  = product reads are served by Hostinger MySQL whenever the mirror
+  //            is healthy; ANY doubt (no connection, counts differ, mirror flag)
+  //            falls back to db.json automatically and reports the reason on
+  //            /api/version → db.reason. Set 'json' to force the old path.
+  // After installing a SQL release, open /upgrade-sql.php once (admin password)
+  // to back up, upgrade the schema and reconcile the counts.
   'db_driver' => 'mysql',
 
   // Hostinger MySQL Credentials
