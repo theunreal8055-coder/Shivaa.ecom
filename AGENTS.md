@@ -6,10 +6,9 @@
   MySQL/PDO support, the installer/template and manufacturing-weight workflow are
   retained. The owner reports the 77-product Hostinger migration completed.
 - The public `/api/version` last reported **release 170** with matching
-  index/app/worker stamps. The newest published package is **v177** (source commit
-  `29e2c0d`). **Never deploy an older tree over a newer live site, and never
+  index/app/worker stamps. The newest published package is **v178** (source commit `0c8cd29`). **Never deploy an older tree over a newer live site, and never
   deploy anything without the owner's explicit yes.** Any next application
-  release must move forward from **178** and pass the anti-downgrade gate.
+  release must move forward from **179** and pass the anti-downgrade gate.
 - Production is now manual-only by owner policy. A push/merge must never update
   Hostinger or the live catalogue. Explain the proposed deployment and ask the
   owner first; one explicit yes authorizes only that one run.
@@ -23,8 +22,10 @@
 
 ## Read first
 
-1. **The *CURRENT STATE — v177* section of `docs/AGENT-HANDOFF.md` and
-   `MEMORY.md`, plus `DEPLOY-v177.md`.** These are the live record.
+1. **The *CURRENT STATE — v178* section of `docs/AGENT-HANDOFF.md` and
+   `MEMORY.md`, plus `DEPLOY-v178.md`.** These are the live record.
+   `DEPLOY-v177.md` / `DEPLOY-v176.md` and those sections are history
+   (v177 and v176 stay shipped).
    `DEPLOY-v176.md` and the v176 section are history (v176 stays shipped).
 2. `docs/SESSION-STATE-2026-09-21-v169.md` and `DEPLOY-v169.md` for the v169
    baseline, then `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `HANDOFF.md`,
@@ -40,6 +41,19 @@
   **168** because no media changed. Release stamps move in lockstep
   (`__SHIVAA_REL=177`, `APP_REL = 177`, `shivaa-shell-v177`, `REL=177`,
   `'rel' => 177`) plus every `?v=` asset stamp in `index.html` and `sw.js`.
+- v178 is the in-footer PWA app band the owner asked for ("download the
+  app without the Play Store"): a quiet footer card with a client-drawn
+  QR of `https://shivaa.in/` (qrcode-generator 1.4.4 vendored verbatim,
+  MIT) and a CTA; the captured `beforeinstallprompt` fires only on the
+  tap; the iPhone/Android/desktop guide sheet is tap-only and closes
+  instantly; the dismiss persists (30-day re-show); standalone never
+  shows the band. The v140 law (no floating install chip, no auto
+  pop-ups, instant persisted dismiss) is asserted by `v178-check.js`.
+  New assets `css/v178.css` (last sheet) + `js/v178.js` (last deferred
+  layer); stamps 177 → 178 lockstep; MEDIA stays `shivaa-media-v168`;
+  no API/admin/money changes. `v178-check.js` 17/17 +
+  `v178-php-run.js` 17/17; belt 158 checks, 0 failures. Builder:
+  `tools/mega/make-v178-zip.py`. See `DEPLOY-v178.md`.
 - v177 is the owner-requested rework of v176: five defects repaired (the
   confirmed purge 500'd on undefined `JSON_UNESIGNED_*` constants, the GET
   preview ignored `?scope=`, same-second backups could clobber each other,
@@ -52,7 +66,7 @@
   `a77dacf` + `29e2c0d` (ZIP built from `29e2c0d`).
 - Prior ledgers:104 repairs; v169 adds **36**, for **140 cumulatively recorded**.
   B20 is separately identified hardening, not a claimed cross-customer exploit.
-  **v170–v177 are separate owner-requested releases recorded in the handoff, not
+  **v170–v178 are separate owner-requested releases recorded in the handoff, not
   new ledger rows — do not recount them as bugs.** (The five v177 defects were
   genuine defects in the shipped v176 release, fixed forward — not ledger
   re-counts.)

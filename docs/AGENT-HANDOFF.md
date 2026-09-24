@@ -1,24 +1,97 @@
-# AGENT HANDOFF — v177 published, not live-verified (24 Sep 2026)
+# AGENT HANDOFF — v178 published, not live-verified (24 Sep 2026)
 
-> **Current release: 177.** The v169 block below is history. Read the
-> *CURRENT STATE — v177* section first, then the v176 record (now history),
-> then the v169 record, then the historical notes. **Forward only — never
-> revert to an older release.**
+> **Current release: 178.** The v169 block below is history. Read the
+> *CURRENT STATE — v178* section first, then the v177 record (now history),
+> then the v176 record, then the v169 record, then the historical notes.
+> **Forward only — never revert to an older release.**
 
 ## Deployment control update — owner approval required (22 Sep 2026)
 
 PR #90 is merged at `2393a7949852b9bb1f16cdbfa8b138f83da8235e`; the owner
 reports the Hostinger MySQL migration of 77 products succeeded. Live `/api/version`
-last reported release **170**; the newest published package is **v177** (source
-commit `29e2c0d`). **Never deploy an older tree over a newer live site, and never deploy
+last reported release **170**; the newest published package is **v178** (source commit `0c8cd29`). **Never deploy an older tree over a newer live site, and never deploy
 anything without the owner's explicit yes.** Any next application release must
-move forward from **178** and pass the anti-downgrade gate. Production deployment
+move forward from **179** and pass the anti-downgrade gate. Production deployment
 is manual-only: ask the owner first, then use the approval-gated workflow from
 `main`. Merges do not authorize deployment.
 Credentials stay in GitHub Actions secrets, and the old Hostinger cron code writer
 must be disabled (`deploy_code:false`). See `HOSTINGER-AUTO-DEPLOY.md`.
 
-## CURRENT STATE — v177 published: the v176 rework, fixed (24 Sep 2026)
+## CURRENT STATE — v178: use Shivaa like an app — the in-footer PWA band (24 Sep 2026)
+
+**Supersedes the v177 record below as the current release.** Owner request:
+*"How can we give customers an option to download the app in their mobile
+without even uploading it to the playstore — is apk better or webapp or a
+smarter way?"* Agreed with the owner: **PWA first.** The site already
+ships the whole app substrate (standalone manifest, 192/512 + maskable
+icons, service worker, iOS meta tags, offline shell); v178 adds only the
+missing nudge. No APK, no Play Store, no signing key, no upload — future
+releases update the "app" through the existing release dial.
+
+- **The change:** a quiet **in-footer app band** (plain HTML between the
+  footer nav and the trust row) with a **client-drawn QR** of
+  `https://shivaa.in/` and a CTA. Android Chrome/Edge: the real
+  `beforeinstallprompt` is captured (`preventDefault`) and fired **only on
+  the CTA tap**; `appinstalled` hides the band. iPhone: a **tap-only
+  two-step sheet** (Share ▢ → "Add to Home Screen"). Other Android
+  browsers: ⋮ menu → "Add to Home screen". Desktop: browser menu →
+  Install. The sheet closes instantly (×, backdrop, Esc). The card's
+  **Hide** is instant and **persists** (versioned `localStorage` key,
+  30-day courtesy re-show). Standalone (Chrome `display-mode` + iOS
+  `navigator`) never shows the band. New assets: `css/v178.css` (last
+  stylesheet) and `js/v178.js` (last deferred layer; qrcode-generator
+  1.4.4 vendored verbatim — MIT, © 2009 Kazuhiko Arase — in its own IIFE).
+- **The v140 law — enforced by tests, not memory:** the band uses no
+  `position:fixed/absolute`, the file contains **no timers**, no browser
+  alerts, **never creates the dead floating install chip's element id**,
+  the only overlay is the tap-open sheet, and every close is instant with
+  a persisted dismiss.
+- **Stamps 178 lockstep** (`__SHIVAA_REL=178` / `APP_REL = 178` /
+  `shivaa-shell-v178` / `REL = 178` / `'rel' => 178`), 56 `?v=178` in
+  `index.html` + 51 in `sw.js`, both new assets precached. MEDIA stays
+  `shivaa-media-v168` (no media changed). **No API route, no admin
+  surface, no money code, no customers/orders changed.**
+- **Download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/e8fbf5234729dfa98533fa79c9dbfdf479615db5/shivaa-update-v178.zip
+  **9 files, 445,829 B, SHA-256**
+  `72464db96b0fe9c91d11c4b6c4f9785da0b59b88b68d6c3a4bcc7c18b31f509f`,
+  built from source `0c8cd291510999503259f370d49eccf044dc4866`;
+  publication commit `e8fbf5234729dfa98533fa79c9dbfdf479615db5`;
+  builder `tools/mega/make-v178-zip.py`; deterministic; every member
+  byte-matches its committed `cms/` source.
+- **Verified (executed, on the shipped ZIP bytes):** `v178-check.js`
+  **17/17** (static invariants + the vendored QR encoder executed:
+  version-1 grid, finder patterns, timing dark-on-even, determinism, grid
+  growth + DOM behaviour of the real shipped band in an isolated browser:
+  first visit shows the card with the QR drawn on-device; the captured
+  prompt fires only on the CTA tap and never alone; a declined prompt
+  leaves the card exactly as it was; the iPhone sheet names "Share" and
+  "Add to Home Screen" and closes instantly via button, Esc and backdrop;
+  the Android fallback names the ⋮ menu; `appinstalled` hides and
+  remembers; the dismiss persists across reloads with the 30-day re-show
+  honoured; standalone never shows the band) · `v178-php-run.js`
+  **17/17** (PHP 8.3; the complete v177 regression carried over unchanged
+  + `/api/version` now 178 with a matched handshake) · full belt
+  **158 executed checks, 0 failures** (approval gate 20, v178 17, v178
+  PHP 17, v169 pages 25, v169 PHP 28, v168 boundary 39, v168 PHP 12). The
+  superseded v177 static suite stays on disk, off the belt chain. NOT
+  verified: no owner install, live site unreachable, real Chrome/Safari
+  install flows not run (faithful stubs) — a physical phone is the final
+  acceptance. No main merge, no Hostinger deployment, no real payment.
+- **Commits:** `0c8cd29` (source: band + two assets + 178 stamps + both
+  suites + builder) · `e8fbf52` (the ZIP publication).
+
+### Forward-only (restated)
+v176, v177 AND v178 are shipped — never reset/revert, restore an old ZIP,
+force-push or rewrite history. **Next release is 179+.** Owner-approved
+manual deploys only; a push is not approval. Never hand-edit
+`cms/data/db.json`. Never swap `sw.js` alone. B2B and B2C customers are
+out of scope for any sales cleanup. Agreed future phases (owner to
+approve later): Android web push (VAPID) as optional Phase 2 — iPhone web
+push is impossible, iPhone stays on the WhatsApp/SMS lanes; a direct APK
+only if ever demanded (it would introduce a permanent signing key).
+
+## CURRENT STATE — v177 published: the v176 rework, fixed (24 Sep 2026) — HISTORY, superseded as current by v178
 
 **This section supersedes the v176 "CURRENT STATE" below for anything about
 the current release.** v177 is the owner-requested *"make v176 again but

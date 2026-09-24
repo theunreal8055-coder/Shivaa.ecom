@@ -1,6 +1,45 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-## v177 published — the v176 rework, fixed (24 Sep 2026)
+## v178 published — use Shivaa like an app: no store, no APK, no upload (24 Sep 2026)
+
+**Current release: 178** (owner request: *"how can we give customers an
+option to download the app in their mobile without uploading it to the
+playstore — apk, webapp, or smarter?"*). Forward release on branch
+`arena/01a0d168-shivaa-ecom`; commits `0c8cd29` (source) + `e8fbf52`
+(the ZIP). Full record: `DEPLOY-v178.md` and the *CURRENT STATE — v178*
+section of `docs/AGENT-HANDOFF.md` / `MEMORY.md`.
+
+- **Download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/e8fbf5234729dfa98533fa79c9dbfdf479615db5/shivaa-update-v178.zip
+  — 9 files, 445,829 B, SHA-256
+  `72464db96b0fe9c91d11c4b6c4f9785da0b59b88b68d6c3a4bcc7c18b31f509f`,
+  built from source `0c8cd29`; builder `tools/mega/make-v178-zip.py`;
+  deterministic. Requires full v165+; backup first; no DB/uploads/
+  credentials/media/host `.htaccess`.
+- **The change:** the in-footer PWA app band — a quiet footer card (never
+  floating, never auto-appearing; the v140 law is enforced by tests) with
+  a client-drawn QR of `https://shivaa.in/` (qrcode-generator 1.4.4
+  vendored, MIT) and a CTA. Android Chrome/Edge: the captured
+  `beforeinstallprompt` fires ONLY on the tap; iPhone: tap-only two-step
+  sheet (Share ▢ → "Add to Home Screen"); other Android browsers: ⋮ menu;
+  desktop: menu → Install. The sheet closes instantly (×, backdrop, Esc);
+  Hide persists (30-day re-show); standalone never shows the band. New
+  assets `css/v178.css` (last sheet) + `js/v178.js` (last deferred
+  layer); sw precache +2; stamps 177 → 178 lockstep; MEDIA stays 168.
+- **Unchanged:** no API route, no admin, no money code, no customers or
+  orders; the v176/v177 purge/stats/cash-book behaviour is re-asserted by
+  the builder and re-run by the PHP suite.
+- **Verified (executed):** on the shipped ZIP bytes `v178-check.js`
+  17/17 (incl. the vendored QR encoder executed: finders/timing/
+  determinism) + `v178-php-run.js` 17/17 (PHP 8.3, full v177 regression
+  carried over, version handshake 178) · full belt **158 executed checks,
+  0 failures**. **NOT verified:** no owner install, live unreachable,
+  real browser install flows not run (stubs only) — a physical phone is
+  the final acceptance.
+- **Forward only:** v176, v177 and v178 all stay shipped; **next release
+  is 179+**; owner-approved manual deploys only.
+
+## v177 — the v176 rework, fixed (24 Sep 2026) — HISTORY, superseded as current by v178
 
 **Current release: 177** (owner request: *"make v176 again but better,
 without bugs and errors"*). Forward release on branch
@@ -44,8 +83,7 @@ carried v171–v176 onto `main`); commits `a77dacf` + `29e2c0d`. Full record:
   212 routes / 0 exceptions. **NOT verified:** no owner install, live site
   unreachable, purge not run anywhere, no main merge / deployment / real
   payment.
-- **Forward only:** v176 and v177 both stay shipped; **next release is
-  178+**; owner-approved manual deploys only.
+- **Forward only:** v176, v177 and v178 all stay shipped; **next release is 179+**; owner-approved manual deploys only.
 
 ## Deployment control update — owner approval required (22 Sep 2026)
 
