@@ -1,5 +1,64 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
+
+- **Live is 181 (verified 25 Sep 2026):** `/api/version` returned `rel:181`,
+  stamps matched, `db.driver/mode: mysql`, 78 products, mirrorBehind:false;
+  MySQL reconciled — products 78 · orders 5 · users 17 · settings 58 ·
+  reviews 767 · coupons 12 · settlements 10 (composite-key fix
+  `shv_settlement_id` = `partnerId_weekEnding` ran on live during that
+  session's reconcile — but it had NOT been committed; **re-applied into the
+  repo tree here** (api.php + upgrade-sql.php + v181-check S07 restored),
+  so v182 ships live parity instead of regressing those10 rows).
+- **v182 BUILT this session = Auto-Catalogue Intake & Review Queue (Phase 4)
+  + billing sync bridge:**
+  - Staged designs are ordinary products rows (`active=0`,
+    `status='pending_review'`, `batchId`) — they ride the v180 product
+    overlay/mirror untouched; storefront list filters `active`, PDP now 404s
+    unapproved pieces for shoppers (admin can preview).
+  - New admin routes (`need_admin` + audit): `admin/catalogue/batch` (batch
+    ledger row), `admin/catalogue/upload` (batch photo upload →
+    `uploads/catalogue/<batchId>/`, magic-byte checked, ≤8 MB ×24),
+    `admin/catalogue/import` (JSON chunk ≤200 — **REJECTS rows missing
+    weightG>0 / purity / weightSource** (standing law: never invent weights,
+    purity, prices), `admin/catalogue/queue` + `batches`, `approve`
+    (single ids or `{batchId,all:true}` = batch publish — flips
+    active=1,status=live), `skip`.
+  - `$db['catalogBatches']` dual-mode overlay/mirror ↔ `catalog_batches`
+    (added `data_json` column) with the Phase-3 laws; `products.status` +
+    `products.batch_id` columns (+ idx_status/idx_batch, one-time backfill)
+    added idempotently in `upgrade-sql.php`, which also now syncs/verifies
+    the batch ledger and uses composite settlement IDs.
+  - Admin UI: new **📦 Catalogue Intake** tab (batch ledger, photo upload,
+    JSON import w/ template, review cards showing photo/title/desc/
+    **weight source** + Approve/Skip + Batch publish).
+  - **Billing sync bridge** (priority 2): `GET /api/billing/stock` +
+    `POST /api/billing/stock-movement` — HMAC-signed
+    (`X-Shivaa-Ts`/`X-Shivaa-Signature` over `ts\nMETHOD\nroute\nrawbody`,
+    ±5 min window, hash_equals), shared secret in
+    `settings.billingSyncSecret` (admin-pasted, blank-keeps, write-only);
+    **bridge answers 403 until configured**. movementId idempotency key;
+    stock clamped ≥0; movements audited + mirrored to MySQL like any stock
+    change. Contract: `docs/BILLING-SYNC-CONTRACT.md`. Doorway only — no
+    merged billing logic (per plan §4).
+  - Stamps 182 lockstep (56×`?v=182` index, 51× sw, `shivaa-shell-v182`,
+    `REL=182`, `APP_REL=182`, `'rel'=>182`; MEDIA stays v168, v178.css stays
+    last stylesheet).
+  - Belt green **188/188** (deploy gate 20 · v182-check 9 · v182-php-run 9 ·
+    v181-php-run 6 · v180-php-run 8 · v179-php 25 · relay 7 · v169 25+28 ·
+    v168 39+12; v181-check + v180-check self-SKIP as superseded stamp-exact
+    suites — S07 settlement content lives on in v182-check S05/P07).
+  - Legacy suites made forward-tolerant: v181-php-run P01 (rel floor ≥181),
+    v180-php-run X05 (data_json = LAST slot, COLS≥19 — row grew status+batch_id).
+- Package: `shivaa-update-v182.zip` + `DEPLOY-v182.md` (run upgrade-sql.php
+  right after extract — adds the new columns before the product mirror needs
+  them; interim browsing stays on the JSON safety net).
+- **Forward-only: live 181 → never deploy < 182 from here.** Still awaiting
+  owner: the billing app zip (install stays `public_html/billing/`, outside
+  every shop ZIP); review-queue is NOW BUILT (was the open question — queue
+  is the default and the only implemented path; auto-approve would be a
+  per-batch opt-in later).
+
 ## SESSION INTAKE — SQL scaling plan + billing + auto-catalogue (24 Sep 2026, branch `arena/01a0d219-shivaa-ecom`)
 
 - Owner returned with three screenshots (10:16 am): hPanel `shivaa.in` (Business

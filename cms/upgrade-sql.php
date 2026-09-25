@@ -144,6 +144,40 @@ function shv_ensure_schema(PDO $pdo): array {
     $log[] = 'added data_json column (full-row mirror)';
   } else $log[] = 'data_json column present';
 
+  /* v182 — review-queue columns for the auto-catalogue (Phase 4) */
+  $needBackfill = false;
+  if (!$col($pdo, 'products', 'status')) {
+    $pdo->exec("ALTER TABLE `products` ADD COLUMN `status` VARCHAR(32) NOT NULL DEFAULT 'live' AFTER `active`");
+    $log[] = 'added products.status (review-queue gate)';
+    $needBackfill = true;
+  } else $log[] = 'products.status column present';
+  if (!$col($pdo, 'products', 'batch_id')) {
+    $pdo->exec("ALTER TABLE `products` ADD COLUMN `batch_id` VARCHAR(64) NULL AFTER `status`");
+    $log[] = 'added products.batch_id (catalogue batch link)';
+    $needBackfill = true;
+  } else $log[] = 'products.batch_id column present';
+  $ixc = $pdo->prepare("SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND INDEX_NAME = ?");
+  $ixc->execute(['idx_status']);
+  if (!(int)$ixc->fetchColumn()) {
+    $pdo->exec("ALTER TABLE `products` ADD INDEX `idx_status` (`status`)");
+    $log[] = 'review-queue index added (status)';
+  } else $log[] = 'status index present';
+  $ixc->execute(['idx_batch']);
+  if (!(int)$ixc->fetchColumn()) {
+    $pdo->exec("ALTER TABLE `products` ADD INDEX `idx_batch` (`batch_id`)");
+    $log[] = 'batch index added (batch_id)';
+  } else $log[] = 'batch index present';
+  if ($needBackfill) {
+    /* one-time: pull the staged state out of the full-row mirror */
+    $pdo->exec("UPDATE `products` SET `status` = CASE JSON_UNQUOTE(JSON_EXTRACT(`data_json`, '$.status'))
+      WHEN 'pending_review' THEN 'pending_review' WHEN 'skipped' THEN 'skipped' ELSE `status` END
+      WHERE `data_json` IS NOT NULL AND `data_json` != ''");
+    $pdo->exec("UPDATE `products` SET `batch_id` = NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`data_json`, '$.batchId')), '')
+      WHERE `data_json` IS NOT NULL AND `data_json` != ''");
+    $log[] = 'status/batch_id backfilled from data_json';
+  }
+
   $q = $pdo->query("SELECT DATA_TYPE FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'desc'");
   if (strtolower((string)$q->fetchColumn()) === 'text') {
@@ -189,21 +223,25 @@ function shv_ensure_schema(PDO $pdo): array {
   $pdo->exec("CREATE TABLE IF NOT EXISTS `settlements` (`id` VARCHAR(64) PRIMARY KEY, `data_json` LONGTEXT, `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   $pdo->exec("CREATE TABLE IF NOT EXISTS `catalog_batches` (
     `id` VARCHAR(64) PRIMARY KEY, `label` VARCHAR(255), `status` VARCHAR(32) DEFAULT 'pending_review',
-    `counts_json` LONGTEXT, `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+    `counts_json` LONGTEXT, `data_json` LONGTEXT, `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  if (!$col($pdo, 'catalog_batches', 'data_json')) {
+    $pdo->exec("ALTER TABLE `catalog_batches` ADD COLUMN `data_json` LONGTEXT NULL AFTER `counts_json`");
+    $log[] = 'added catalog_batches.data_json (full-row mirror)';
+  } else $log[] = 'catalog_batches.data_json column present';
   $log[] = 'Phase-3 tables ready (settings, orders, users, reviews, coupons, settlements, catalog_batches)';
   return $log;
 }
 
 function shv_upsert_products(PDO $pdo, array $products): int {
   $stmt = $pdo->prepare(
-    'INSERT INTO `products` (`id`,`sku`,`name`,`category`,`metal`,`purity`,`weightG`,`lessWeightG`,`mcScheme`,`mcValue`,`stoneValue`,`stoneDesc`,`images_json`,`desc`,`rating`,`reviews`,`stock`,`active`,`data_json`)'
-    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    'INSERT INTO `products` (`id`,`sku`,`name`,`category`,`metal`,`purity`,`weightG`,`lessWeightG`,`mcScheme`,`mcValue`,`stoneValue`,`stoneDesc`,`images_json`,`desc`,`rating`,`reviews`,`stock`,`active`,`status`,`batch_id`,`data_json`)'
+    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
     . ' ON DUPLICATE KEY UPDATE `sku`=VALUES(`sku`),`name`=VALUES(`name`),`category`=VALUES(`category`),'
     . '`metal`=VALUES(`metal`),`purity`=VALUES(`purity`),`weightG`=VALUES(`weightG`),`lessWeightG`=VALUES(`lessWeightG`),'
     . '`mcScheme`=VALUES(`mcScheme`),`mcValue`=VALUES(`mcValue`),`stoneValue`=VALUES(`stoneValue`),`stoneDesc`=VALUES(`stoneDesc`),'
     . '`images_json`=VALUES(`images_json`),`desc`=VALUES(`desc`),`rating`=VALUES(`rating`),`reviews`=VALUES(`reviews`),'
-    . '`stock`=VALUES(`stock`),`active`=VALUES(`active`),`data_json`=VALUES(`data_json`)');
+    . '`stock`=VALUES(`stock`),`active`=VALUES(`active`),`status`=VALUES(`status`),`batch_id`=VALUES(`batch_id`),`data_json`=VALUES(`data_json`)');
   $n = 0;
   foreach ($products as $p) {
     if (!is_array($p) || ($p['id'] ?? '') === '') continue;
@@ -229,6 +267,8 @@ function shv_upsert_products(PDO $pdo, array $products): int {
       (int)($p['reviews'] ?? 0),
       (int)($p['stock'] ?? 0),
       !empty($p['active']) ? 1 : 0,
+      mb_substr((string)($p['status'] ?? 'live'), 0, 32),
+      ($p['batchId'] ?? '') !== '' ? mb_substr((string)$p['batchId'], 0, 64) : null,
       $data,
     ]);
     $n++;
@@ -342,14 +382,54 @@ function shv_upsert_coupons(PDO $pdo, array $coupons): int {
   return $n;
 }
 
+/* v182 — settlements rows carry partnerId + weekEnding but NO explicit id.
+   The 25 Sep live reconcile taught this the hard way: id-less rows were
+   SKIPPED (settlements count: json=10 sql=0). One resolver — explicit id wins,
+   else composite partnerId_weekEnding, else stable position fallback — shared
+   with api.php so both sides derive the SAME key. */
+function shv_settlement_id(array $s, int $idx): string {
+  $id = trim((string)($s['id'] ?? ''));
+  if ($id !== '') return $id;
+  $pid = trim((string)($s['partnerId'] ?? ''));
+  $wk  = trim((string)($s['weekEnding'] ?? ''));
+  if ($pid !== '' && $wk !== '') return $pid . '_' . $wk;
+  return 'set_' . $idx;
+}
+
 function shv_upsert_settlements(PDO $pdo, array $settlements): int {
   $stmt = $pdo->prepare('INSERT INTO `settlements` (`id`, `data_json`, `created_at`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `data_json`=VALUES(`data_json`)');
   $n = 0;
-  foreach ($settlements as $s) {
-    if (!is_array($s) || ($s['id'] ?? '') === '') continue;
+  foreach ($settlements as $si => $s) {
+    if (!is_array($s)) continue;
+    $sid = shv_settlement_id($s, (int)$si);
     $data = json_encode($s, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
     $created = !empty($s['createdAt']) ? date('Y-m-d H:i:s', strtotime($s['createdAt'])) : date('Y-m-d H:i:s');
-    $stmt->execute([(string)$s['id'], $data, $created]);
+    $stmt->execute([$sid, $data, $created]);
+    $n++;
+  }
+  return $n;
+}
+
+/* v182 — auto-catalogue batch ledger (Phase 4) */
+function shv_upsert_catalog_batches(PDO $pdo, array $batches): int {
+  $stmt = $pdo->prepare('INSERT INTO `catalog_batches` (`id`, `label`, `status`, `counts_json`, `data_json`, `created_at`)'
+    . ' VALUES (?, ?, ?, ?, ?, ?)'
+    . ' ON DUPLICATE KEY UPDATE `label`=VALUES(`label`), `status`=VALUES(`status`),'
+    . '`counts_json`=VALUES(`counts_json`), `data_json`=VALUES(`data_json`)');
+  $n = 0;
+  foreach ($batches as $b) {
+    if (!is_array($b) || ($b['id'] ?? '') === '') continue;
+    $data = json_encode($b, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    $counts = json_encode($b['counts'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+    $created = !empty($b['createdAt']) ? date('Y-m-d H:i:s', strtotime($b['createdAt'])) : date('Y-m-d H:i:s');
+    $stmt->execute([
+      (string)$b['id'],
+      mb_substr((string)($b['label'] ?? ''), 0, 255),
+      mb_substr((string)($b['status'] ?? 'intake'), 0, 32),
+      $counts,
+      $data,
+      $created,
+    ]);
     $n++;
   }
   return $n;
@@ -413,6 +493,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $upReviews = shv_upsert_reviews($pdo, $db['reviews'] ?? []);
         $upCoupons = shv_upsert_coupons($pdo, $db['coupons'] ?? []);
         $upSettlements = shv_upsert_settlements($pdo, $db['settlements'] ?? []);
+        $upBatches = shv_upsert_catalog_batches($pdo, $db['catalogBatches'] ?? []);
 
         $sqlAfter = (int)$pdo->query('SELECT COUNT(*) FROM `products`')->fetchColumn();
         $sqlOrders = (int)$pdo->query('SELECT COUNT(*) FROM `orders`')->fetchColumn();
@@ -420,6 +501,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sqlReviews = (int)$pdo->query('SELECT COUNT(*) FROM `reviews`')->fetchColumn();
         $sqlCoupons = (int)$pdo->query('SELECT COUNT(*) FROM `coupons`')->fetchColumn();
         $sqlSettlements = (int)$pdo->query('SELECT COUNT(*) FROM `settlements`')->fetchColumn();
+        $sqlBatches = (int)$pdo->query('SELECT COUNT(*) FROM `catalog_batches`')->fetchColumn();
 
         // verify: counts equal + spot-check three rows byte-for-byte through data_json
         $mismatches = [];
@@ -429,6 +511,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($sqlReviews !== count($db['reviews'] ?? [])) $mismatches[] = "reviews count: json=" . count($db['reviews'] ?? []) . " sql=$sqlReviews";
         if ($sqlCoupons !== count($db['coupons'] ?? [])) $mismatches[] = "coupons count: json=" . count($db['coupons'] ?? []) . " sql=$sqlCoupons";
         if ($sqlSettlements !== count($db['settlements'] ?? [])) $mismatches[] = "settlements count: json=" . count($db['settlements'] ?? []) . " sql=$sqlSettlements";
+        if ($sqlBatches !== count($db['catalogBatches'] ?? [])) $mismatches[] = "catalogBatches count: json=" . count($db['catalogBatches'] ?? []) . " sql=$sqlBatches";
 
         if (count($db['products'] ?? []) > 0 && empty($mismatches)) {
           $ids = array_map(fn($p) => (string)$p['id'], array_values($db['products'] ?? []));
@@ -450,6 +533,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'jsonCount' => count($db['products'] ?? []), 'sqlCount' => $sqlAfter,
           'upSettings' => $upSettings, 'upOrders' => $upOrders, 'upUsers' => $upUsers,
           'upReviews' => $upReviews, 'upCoupons' => $upCoupons, 'upSettlements' => $upSettlements,
+          'upBatches' => $upBatches,
           'driver' => $driver,
         ];
       } catch (Throwable $e) {
@@ -462,12 +546,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($result !== null) {
   $rows = implode('', array_map(fn($l) => '<tr><td>✓</td><td>' . h($l) . '</td></tr>', $result['schema']));
   shv_ui_page('Shivaa SQL setup — done', '
-    <p class="ok">✓ Database reconciled and verified (Phase 3).</p>
+    <p class="ok">✓ Database reconciled and verified (Phase 3 + Phase 4 batch ledger).</p>
     <table><tr><th></th><th>Step</th></tr>
       <tr><td>✓</td><td>Backup written: <code>' . h($result['backup']) . '</code> (before any change)</td></tr>
       ' . $rows . '
       <tr><td>✓</td><td>Products: <b>' . (int)$result['upserted'] . '</b> · Orders: <b>' . (int)$result['upOrders'] . '</b> · Users: <b>' . (int)$result['upUsers'] . '</b></td></tr>
-      <tr><td>✓</td><td>Settings: <b>' . (int)$result['upSettings'] . ' keys</b> · Reviews: <b>' . (int)$result['upReviews'] . '</b> · Coupons: <b>' . (int)$result['upCoupons'] . '</b> · Settlements: <b>' . (int)$result['upSettlements'] . '</b></td></tr>
+      <tr><td>✓</td><td>Settings: <b>' . (int)$result['upSettings'] . ' keys</b> · Reviews: <b>' . (int)$result['upReviews'] . '</b> · Coupons: <b>' . (int)$result['upCoupons'] . '</b> · Settlements: <b>' . (int)$result['upSettlements'] . '</b> · Catalogue batches: <b>' . (int)$result['upBatches'] . '</b></td></tr>
       <tr><td>✓</td><td>All collections verified byte-identical &amp; count-matched</td></tr>
       <tr><td>✓</td><td>Mirror flag cleared — product &amp; collection reads switch to MySQL automatically</td></tr>
     </table>

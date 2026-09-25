@@ -1,4 +1,65 @@
-# AGENT HANDOFF — v181 BUILT (SQL Phase 3 & Billing Doorway); v180 LIVE ON HOSTINGER (24 Sep 2026)
+# AGENT HANDOFF — v182 BUILT (Auto-Catalogue Phase 4 + Billing Bridge); v181 LIVE ON HOSTINGER (25 Sep 2026)
+
+## CURRENT STATE — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
+
+- **LIVE IS 181 (VERIFIED 25 Sep 2026):** `https://shivaa.in/api/version` →
+  `rel:181`, `stamp.matched:true`, `db.driver/mode:"mysql"`, 78 products,
+  `mirrorBehind:false`. MySQL reconciled: products 78 · orders 5 · users 17 ·
+  settings 58 keys · reviews 767 · coupons 12 · settlements 10. Live Rates
+  streaming on MCX futures. The settlements composite-id fix
+  (`shv_settlement_id` → `partnerId_weekEnding`) ran on live during that
+  reconcile.
+- **REPO LIVE-PARITY REPAIR (this session):** the composite settlement fix +
+  v181-check S07 from the live session had never been committed — re-applied
+  to `cms/api.php`, `cms/upgrade-sql.php`, `tools/mega/smoke/v181-check.js`
+  so v182 cannot regress the live tree.
+- **v182 BUILT & GATED:** Auto-catalogue Phase 4 per
+  `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md` §3:
+  - Staging model: imported designs are products rows with `active=0`,
+    `status='pending_review'`, `batchId` (JSON + SQL `products.status`/
+    `products.batch_id` columns, indexes, backfill — added idempotently by
+    `upgrade-sql.php`). Storefront filters `active`; PDP returns 404 to
+    shoppers for unapproved pieces (admin preview allowed).
+  - Routes (all `need_admin`, audited): `admin/catalogue/batch` · `upload`
+    (batch photos → `uploads/catalogue/<batchId>/`, magic-byte + 8 MB caps) ·
+    `import` (≤200/chunk; **rejects rows missing `weightG>0`/`purity`/
+    `weightSource`** — standing law: never invent weights, purity, prices) ·
+    `queue` · `batches` · `approve` (ids or `{batchId,all:true}` batch
+    publish) · `skip`.
+  - `catalogBatches` ledger dual-mode overlay/mirror ↔ `catalog_batches`
+    (`data_json` added) under the Phase-3 safety laws (JSON write-truth,
+    mirror-on-save, count/id-matched overlay, mirror-behind fallback).
+  - Admin UI: **📦 Catalogue Intake** tab — batch ledger, photo upload, JSON
+    import with template, review cards (photo/title/desc/weight source),
+    Approve → live · Skip · Batch publish.
+  - **Billing sync bridge:** `GET /api/billing/stock` +
+    `POST /api/billing/stock-movement`, HMAC-signed (±5 min window,
+    timing-safe), secret `settings.billingSyncSecret` (write-only, blank
+    keeps), movementId idempotency, stock clamped ≥0, audited. **Dark (403)
+    until the owner pastes a key.** Contract:
+    `docs/BILLING-SYNC-CONTRACT.md`. Doorway-and-pipe only — no merged
+    billing logic (plan §4 law).
+  - Stamps 182 lockstep across all four sites; MEDIA stays `shivaa-media-v168`;
+    `v178.css` remains the last stylesheet.
+- **Belt at close: 188/188 passing** (deploy gate 20 · v182-check 9 ·
+  v182-php-run 9 · v181-php 6 · v180-php 8 · v179-php 25 · relay 7 ·
+  v169 25+28 · v168 39+12). `v181-check`/`v180-check` self-SKIP as superseded
+  stamp-exact suites; their regression content runs in the v182 suites.
+  Legacy suites made forward-tolerant: v181-php-run P01 (rel floor ≥181),
+  v180-php-run X05 (data_json last-slot; row grew +status +batch_id → COLS21).
+- **Package:** `shivaa-update-v182.zip` (6 files) + `DEPLOY-v182.md`.
+  Install ritual unchanged: backup → extract → `/upgrade-sql.php` (now also
+  adds `products.status`/`batch_id`, `catalog_batches.data_json`, backfills,
+  syncs + verifies the batch ledger) → check `/api/version` for `rel: 182`.
+- **Next steps:** owner installs v182 (explicit yes required); owner uploads
+  the billing app zip (`public_html/billing/`, outside every shop ZIP); first
+  real batch through Catalogue Intake (owner sheet gives weights/purity;
+  intake pass writes titles/descriptions); optional CDN decision when image
+  volume grows (plan §1 Phase 4 scale truths).
+
+> **Current release: 182 (BUILT & GATED). Live: 181 (verified).**
+> **Database: Hostinger MySQL active on every collection (Phase 3 complete).**
+> **Forward only — never revert to an older release; next deploy ≥ 182.**
 
 ## CURRENT STATE — v181 BUILT: SQL Phase 3 (Orders, Settings, Users, Reviews, Settlements) + Billing Doorway (24 Sep 2026)
 
