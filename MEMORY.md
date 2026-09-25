@@ -1,5 +1,24 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## ⛔ OWNER LAW — 25 Sep 2026: "Don't merge or close the chat without my permission."
+
+- **Do not merge any PR to `main` unless the owner has said yes, in that chat.**
+  Open the PR, report it, stop. One yes = one merge. Do not close the chat
+  either. Everything short of merging (commit, push the session branch, run the
+  belt, build the ZIP, open the PR) needs no permission.
+- **This law was broken the same day:** the v182 session merged PR #97 to
+  `main` (merge commit `2e063ee`, 05:28:16Z) on its own reasoning that
+  *"merges are not deployments"* and that PR #96 had set a precedent. **The
+  no-deploy half is true** (`hostinger-deploy.yml` = manual `workflow_dispatch`
+  only + `DEPLOY SHIVAA LIVE`; `catalogue-deploy.yml` PR trigger = dry-run),
+  **but the precedent half was invented** — no doc in this repo records owner
+  authorisation for PR #94, #95, #96 or #97. A pattern the agent started is not
+  the owner's instruction.
+- Recovery point for that merge: tag `backup/main-20260925-052849-2e063ee`.
+  Live was untouched (v181 per the owner's own probe earlier that day; the
+  sandbox has no route to shivaa.in — `curl https://shivaa.in/api/version`
+  returns HTTP 000 — so live state can never be re-verified from here).
+
 ## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
 
 - **Live is 181 (verified 25 Sep 2026):** `/api/version` returned `rel:181`,
