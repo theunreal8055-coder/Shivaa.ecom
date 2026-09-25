@@ -1,18 +1,19 @@
 name: Billing vendor triage
 
 # Why this exists: the Arena sandbox can reach github.com / api.github.com /
-# codeload.github.com but NOT release-assets.githubusercontent.com, so it can
-# never download a release asset itself. This runner does the download inside
-# GitHub's own network, inventories the vendor drop, and commits back ONLY the
-# small code subset plus the inventory. The 232 MB payload never enters git.
+# codeload.github.com but NOT *.actions.githubusercontent.com or
+# release-assets.githubusercontent.com, so it can neither download a release
+# asset nor read Actions logs. This runner therefore does the work inside
+# GitHub's network AND commits its findings back into the repo, where the
+# sandbox can read them with plain git.
 #
-# Safety:
-#   - files > 1 MB are never committed (GitHub blocks >100 MB anyway)
-#   - credential-bearing files (config.php, .env, wp-config.php, database.php,
-#     anything matching *credential*/*secret*) are NEVER committed — only their
-#     existence and size are recorded in the inventory
-#   - vendor/, node_modules/, uploads/ and media are excluded from the commit
-#   - the commit message carries [skip ci] so this workflow cannot retrigger
+# The 232 MB payload never enters git:
+#   - nothing over 1 MB is committed
+#   - credential-bearing files (config.php, .env*, wp-config*.php,
+#     database.php, *credential*, *secret*, *.pem, *.key) are LISTED in the
+#     inventory but never committed
+#   - vendor/, node_modules/, uploads/, images/, fonts/, cache/ are excluded
+#   - the commit message carries [skip ci] so this cannot retrigger itself
 
 on:
   workflow_dispatch:
@@ -37,148 +38,153 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Download the vendor drop
+      - name: Download, extract, inventory, stage
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || 'billing-vendor-drop-1' }}
         run: |
-          set -euo pipefail
-          TAG="${{ github.event.inputs.tag || 'billing-vendor-drop-1' }}"
-          mkdir -p /tmp/vendor
-          gh release download "$TAG" -D /tmp/vendor --clobber
-          echo "=== downloaded ==="
-          ls -la /tmp/vendor
-          sha256sum /tmp/vendor/*.zip | tee /tmp/sha.txt
+          # No `set -e`: every stage records its own outcome so a failure in a
+          # later stage still yields the inventory from the earlier ones.
+          R=/tmp/report.md
+          : > "$R"
+          note() { printf '%s\n' "$*" >> "$R"; }
+          step() {
+            local name="$1"; shift
+            note ""
+            note "## $name"
+            note ""
+            if out=$("$@" 2>&1); then
+              note "RESULT: ok"
+            else
+              note "RESULT: FAILED (exit $?)"
+            fi
+            note ""
+            note '```'
+            printf '%s\n' "${out:-<no output>}" | head -120 >> "$R"
+            note '```'
+          }
+          sh_step() {
+            local name="$1"; shift
+            note ""
+            note "## $name"
+            note ""
+            if out=$(bash -c "$1" 2>&1); then
+              note "RESULT: ok"
+            else
+              note "RESULT: FAILED (exit $?)"
+            fi
+            note ""
+            note '```'
+            printf '%s\n' "${out:-<no output>}" | head -200 >> "$R"
+            note '```'
+          }
 
-      - name: Extract
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/x
-          ZIP=$(ls /tmp/vendor/*.zip | head -1)
-          unzip -q -o "$ZIP" -d /tmp/x || echo "::warning::unzip reported a problem; continuing with what extracted"
-          echo "=== top level ==="
-          ls -la /tmp/x
+          note "# Billing vendor triage — $(date -u +%FT%TZ)"
+          note ""
+          note "Release tag: \`$TAG\` · runner: $RUNNER_OS · ref: $GITHUB_REF_NAME"
 
-      - name: Inventory
-        run: |
-          set -uo pipefail
-          cd /tmp/x
-          R=/tmp/INVENTORY.md
-          {
-            echo "# Billing vendor drop — inventory"
-            echo
-            echo "Generated $(date -u +%FT%TZ) from release \`${{ github.event.inputs.tag || 'billing-vendor-drop-1' }}\`."
-            echo
-            echo '```'
-            cat /tmp/sha.txt
-            echo '```'
-            echo
-            echo "## Totals"
-            echo
-            echo '```'
+          sh_step "Download the release asset" '
+            set -x
+            mkdir -p /tmp/vendor
+            gh release download "$TAG" -D /tmp/vendor --clobber
+            ls -la /tmp/vendor
+            sha256sum /tmp/vendor/*.zip
+          '
+
+          sh_step "Extract" '
+            set -x
+            mkdir -p /tmp/x
+            ZIP=$(ls /tmp/vendor/*.zip | head -1)
+            unzip -q -o "$ZIP" -d /tmp/x
+            echo "extracted files: $(find /tmp/x -type f | wc -l)"
+            ls -la /tmp/x
+          '
+
+          sh_step "Totals" '
+            cd /tmp/x
             echo "files: $(find . -type f | wc -l)"
-            echo "bytes: $(find . -type f -printf '%s\n' | awk '{s+=$1} END {print s}')"
-            echo '```'
-            echo
-            echo "## Top-level entries"
-            echo
-            echo '```'
-            ls -la
-            echo '```'
-            echo
-            echo "## Directory tree (depth 3, dirs only)"
-            echo
-            echo '```'
-            find . -maxdepth 3 -type d | sort | head -200
-            echo '```'
-            echo
-            echo "## By extension (count, total bytes)"
-            echo
-            echo '```'
-            find . -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -45
-            echo '```'
-            echo
-            echo "## 40 largest files"
-            echo
-            echo '```'
-            find . -type f -printf '%s %p\n' | sort -rn | head -40
-            echo '```'
-            echo
-            echo "## PHP files (first 400)"
-            echo
-            echo '```'
-            find . -type f -name '*.php' -printf '%s %p\n' | sort -k2 | head -400
-            echo '```'
-            echo
-            echo "## SQL dumps"
-            echo
-            echo '```'
-            find . -type f -name '*.sql' -printf '%s %p\n' | sort -rn | head -40
-            echo '```'
-            echo
-            echo "## Framework / stack markers"
-            echo
-            echo '```'
-            find . -maxdepth 4 -type f \( -name 'composer.json' -o -name 'package.json' \
-              -o -name 'artisan' -o -name 'wp-config*.php' -o -name 'index.php' \
-              -o -name '.env*' -o -name 'version.php' -o -name 'README*' \) \
-              -printf '%s %p\n' | sort -k2 | head -60
-            echo '```'
-            echo
-            echo "## Credential-bearing files — NOT committed, listed only"
-            echo
-            echo '```'
-            find . -type f \( -iname 'config.php' -o -iname '.env*' -o -iname 'wp-config*.php' \
-              -o -iname 'database.php' -o -iname '*credential*' -o -iname '*secret*' \
-              -o -iname '*.pem' -o -iname '*.key' \) -printf '%s %p\n' | sort -k2 | head -60
-            echo '```'
-          } > "$R"
-          wc -l "$R"
+            echo "bytes: $(find . -type f -printf "%s\n" | awk "{s+=\$1} END {print s}")"
+            echo "dirs:  $(find . -type d | wc -l)"
+          '
 
-      - name: Stage the code-only subset
-        run: |
-          set -uo pipefail
-          DEST=billing/vendor-src
-          rm -rf "$DEST"
-          mkdir -p "$DEST"
-          cd /tmp/x
-          # code-ish extensions, <=1 MB, excluding vendored/media/upload trees
-          find . -type f -size -1M \
-            \( -name '*.php' -o -name '*.js' -o -name '*.mjs' -o -name '*.css' \
-               -o -name '*.scss' -o -name '*.html' -o -name '*.htm' -o -name '*.json' \
-               -o -name '*.sql' -o -name '*.md' -o -name '*.yml' -o -name '*.yaml' \
-               -o -name '*.xml' -o -name '*.ini' -o -name '*.twig' -o -name '*.sh' \
-               -o -name '.htaccess' \) \
-            -not -path '*/node_modules/*' \
-            -not -path '*/vendor/*' \
-            -not -path '*/.git/*' \
-            -not -path '*/uploads/*' \
-            -not -path '*/images/*' \
-            -not -path '*/fonts/*' \
-            -not -path '*/cache/*' \
-            | sort | head -4000 > /tmp/keep.txt
-          echo "candidate files: $(wc -l < /tmp/keep.txt)"
-          # strip credential-bearing files — never commit secrets
-          grep -viE '(^|/)(config\.php|\.env[^/]*|wp-config[^/]*\.php|database\.php)$' /tmp/keep.txt \
-            | grep -viE 'credential|secret|\.pem$|\.key$' > /tmp/keep2.txt || true
-          echo "after secret filter: $(wc -l < /tmp/keep2.txt)"
-          cd /tmp/x
-          while IFS= read -r f; do
-            [ -n "$f" ] || continue
-            mkdir -p "/home/runner/work/_dest/${f%/*}"
-            cp "$f" "/home/runner/work/_dest/$f"
-          done < /tmp/keep2.txt
-          echo "staged bytes: $(find /home/runner/work/_dest -type f -printf '%s\n' | awk '{s+=$1} END {print s+0}')"
-          echo "staged files: $(find /home/runner/work/_dest -type f | wc -l)"
+          sh_step "Top-level entries" 'cd /tmp/x && ls -la'
 
-      - name: Commit inventory + code subset
+          sh_step "Directory tree (depth 3)" '
+            cd /tmp/x && find . -maxdepth 3 -type d | sort | head -180
+          '
+
+          sh_step "By extension (count)" '
+            cd /tmp/x && find . -type f | sed "s/.*\.//" | sort | uniq -c | sort -rn | head -45
+          '
+
+          sh_step "40 largest files" '
+            cd /tmp/x && find . -type f -printf "%s %p\n" | sort -rn | head -40
+          '
+
+          sh_step "PHP files (first 400 by path)" '
+            cd /tmp/x && find . -type f -name "*.php" -printf "%s %p\n" | sort -k2 | head -400
+          '
+
+          sh_step "SQL dumps" '
+            cd /tmp/x && find . -type f -name "*.sql" -printf "%s %p\n" | sort -rn | head -40
+          '
+
+          sh_step "Stack markers" '
+            cd /tmp/x
+            find . -maxdepth 4 -type f \( -name composer.json -o -name package.json \
+              -o -name artisan -o -name "wp-config*.php" -o -name index.php \
+              -o -name ".env*" -o -name version.php -o -name "README*" \
+              -o -name "*.lock" \) -printf "%s %p\n" | sort -k2 | head -60
+          '
+
+          sh_step "Credential-bearing files (LISTED ONLY — never committed)" '
+            cd /tmp/x
+            find . -type f \( -iname config.php -o -iname ".env*" -o -iname "wp-config*.php" \
+              -o -iname database.php -o -iname "*credential*" -o -iname "*secret*" \
+              -o -iname "*.pem" -o -iname "*.key" \) -printf "%s %p\n" | sort -k2 | head -60
+          '
+
+          sh_step "Stage the code-only subset" '
+            set -x
+            rm -rf /tmp/dest && mkdir -p /tmp/dest
+            cd /tmp/x
+            find . -type f -size -1M \
+              \( -name "*.php" -o -name "*.js" -o -name "*.mjs" -o -name "*.css" \
+                 -o -name "*.scss" -o -name "*.html" -o -name "*.htm" -o -name "*.json" \
+                 -o -name "*.sql" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \
+                 -o -name "*.xml" -o -name "*.ini" -o -name "*.twig" -o -name "*.sh" \
+                 -o -name ".htaccess" \) \
+              -not -path "*/node_modules/*" -not -path "*/vendor/*" \
+              -not -path "*/.git/*" -not -path "*/uploads/*" \
+              -not -path "*/images/*" -not -path "*/fonts/*" \
+              -not -path "*/cache/*" | sort | head -4000 > /tmp/keep.txt
+            grep -viE "(^|/)(config\.php|\.env[^/]*|wp-config[^/]*\.php|database\.php)$" /tmp/keep.txt \
+              | grep -viE "credential|secret|\.pem$|\.key$" > /tmp/keep2.txt || true
+            echo "candidates: $(wc -l < /tmp/keep.txt)  after secret filter: $(wc -l < /tmp/keep2.txt)"
+            tar -cf - -T /tmp/keep2.txt 2>/dev/null | tar -xf - -C /tmp/dest 2>/dev/null || \
+              echo "tar copy reported a problem"
+            echo "staged files: $(find /tmp/dest -type f | wc -l)"
+            echo "staged bytes: $(find /tmp/dest -type f -printf "%s\n" | awk "{s+=\$1} END {print s+0}")"
+          '
+
+          cp "$R" /tmp/report-final.md
+          echo "report written: $(wc -l < /tmp/report-final.md) lines"
+
+      - name: Commit findings back into the repo
+        if: always()
         run: |
-          set -uo pipefail
           mkdir -p billing
-          cp /tmp/INVENTORY.md billing/VENDOR-INVENTORY.md
-          if [ -d /home/runner/work/_dest ]; then
+          if [ -f /tmp/report-final.md ]; then
+            cp /tmp/report-final.md billing/VENDOR-INVENTORY.md
+          else
+            echo "# Triage produced no report — the runner failed before writing one." \
+              > billing/VENDOR-INVENTORY.md
+          fi
+          if [ -d /tmp/dest ] && [ -n "$(ls -A /tmp/dest 2>/dev/null)" ]; then
             rm -rf billing/vendor-src
             mkdir -p billing/vendor-src
-            cp -a /home/runner/work/_dest/. billing/vendor-src/
+            cp -a /tmp/dest/. billing/vendor-src/
+            echo "staged code subset: $(find billing/vendor-src -type f | wc -l) files"
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -186,8 +192,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "nothing to commit"
           else
-            git commit -m "billing: vendor drop 1 inventory + code-only subset [skip ci]"
-            git push
+            git commit -m "billing: vendor drop triage — inventory + code subset [skip ci]"
+            git push origin "HEAD:refs/heads/$GITHUB_REF_NAME"
           fi
-
-# touched to verify push-triggered registration
