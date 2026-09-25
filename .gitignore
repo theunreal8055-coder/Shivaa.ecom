@@ -25,3 +25,4 @@ launch/frames/
 
 # relay v2 runtime state (written on its host, never source)
 cms/relay/relay-last-tick.json
+launch/omni-56s/raw/*.mp4
