@@ -144,20 +144,36 @@ jobs:
               -o -iname "*.pem" -o -iname "*.key" \) -printf "%s %p\n" | sort -k2 | head -60
           '
 
+          sh_step "App source tree (hbuilds/last-source, minus build output)" '
+            cd /tmp/x/hbuilds/last-source 2>/dev/null || { echo "last-source missing"; exit 0; }
+            find . -type f -not -path "./.next/*" -not -path "./node_modules/*" \
+              -printf "%s %p\n" | sort -k2 | head -300
+          '
+
+          sh_step "public_html contents" '
+            cd /tmp/x/public_html 2>/dev/null || { echo "public_html missing"; exit 0; }
+            find . -type f -printf "%s %p\n" | sort -k2 | head -60
+          '
+
           sh_step "Stage the code-only subset" '
             set -x
             rm -rf /tmp/dest && mkdir -p /tmp/dest
             cd /tmp/x
-            find . -type f -size -1M \
-              \( -name "*.php" -o -name "*.js" -o -name "*.mjs" -o -name "*.css" \
-                 -o -name "*.scss" -o -name "*.html" -o -name "*.htm" -o -name "*.json" \
-                 -o -name "*.sql" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \
-                 -o -name "*.xml" -o -name "*.ini" -o -name "*.twig" -o -name "*.sh" \
-                 -o -name ".htaccess" \) \
-              -not -path "*/node_modules/*" -not -path "*/vendor/*" \
-              -not -path "*/.git/*" -not -path "*/uploads/*" \
-              -not -path "*/images/*" -not -path "*/fonts/*" \
-              -not -path "*/cache/*" | sort | head -4000 > /tmp/keep.txt
+            # NOTE: -size -1048576c, NOT -size -1M. GNU find rounds sizes UP to
+            # the next unit, so "-size -1M" matches only 0-byte files (that is
+            # why the first run staged nothing).
+            find . -type f -size -1048576c \
+              \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \
+                 -o -name "*.mjs" -o -name "*.cjs" -o -name "*.json" -o -name "*.css" \
+                 -o -name "*.scss" -o -name "*.html" -o -name "*.md" -o -name "*.yml" \
+                 -o -name "*.yaml" -o -name "*.prisma" -o -name "*.sql" \
+                 -o -name "*.txt" -o -name ".htaccess" -o -name ".gitignore" \) \
+              -not -path "*/node_modules/*" \
+              -not -path "*/.next/*" \
+              -not -path "*/hbuilds/current/*" \
+              -not -path "*/hbuilds/versions/*" \
+              -not -path "*/.git/*" \
+              | sort | head -4000 > /tmp/keep.txt
             grep -viE "(^|/)(config\.php|\.env[^/]*|wp-config[^/]*\.php|database\.php)$" /tmp/keep.txt \
               | grep -viE "credential|secret|\.pem$|\.key$" > /tmp/keep2.txt || true
             echo "candidates: $(wc -l < /tmp/keep.txt)  after secret filter: $(wc -l < /tmp/keep2.txt)"
@@ -165,6 +181,7 @@ jobs:
               echo "tar copy reported a problem"
             echo "staged files: $(find /tmp/dest -type f | wc -l)"
             echo "staged bytes: $(find /tmp/dest -type f -printf "%s\n" | awk "{s+=\$1} END {print s+0}")"
+            find /tmp/dest -type f | sort | head -80
           '
 
           cp "$R" /tmp/report-final.md
