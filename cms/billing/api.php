@@ -801,6 +801,13 @@ if (preg_match('#^export/([a-z]+)$#', $route, $m) && $method === 'GET') {
                    COALESCE(SUM(CASE WHEN l.`entry_type`='debit' THEN l.`amount` ELSE -l.`amount` END),0) balance
                    FROM `billing_parties` p LEFT JOIN `billing_ledger` l ON l.`party_id`=p.`id`
                    GROUP BY p.`id`, p.`name`, p.`phone`",
+    'orders'   => "SELECT `order_date`,`order_type`,`order_name`,`entity_name`,`metal`,`category`,
+                   `purity`,`pieces`,`gross_wt`,`stone_wt`,`net_wt`,`wastage_decided`,`rate`,
+                   `making_charges`,`advance_metal`,`advance_cash`,`status`,`place_of_supply`
+                   FROM `billing_orders` ORDER BY `order_date` DESC, `id` DESC",
+    'suppliers' => "SELECT `company`,`contact`,`phone`,`city`,`pin`,`gst`,`supplier_type`,
+                   `quality`,`status`,`acc_name`,`acc_number`,`ifsc`,`branch`,`notes`
+                   FROM `billing_suppliers` ORDER BY `company`",
   ];
   if (!isset($map[$what])) billing_fail('Nothing to export for: ' . $what, 404);
   $rows = $pdo->query($map[$what])->fetchAll();
@@ -1153,24 +1160,6 @@ if (preg_match('#^report/([a-z0-9_]+)$#', $route, $m) && $method === 'GET') {
   billing_json(['ok' => true, 'title' => $meta['t'], 'desc' => $meta['d'], 'live' => true,
     'why' => '', 'columns' => $data['columns'], 'rows' => $data['rows'],
     'note' => $data['note'] ?? '']);
-}
-
-if ($route === 'export/orders' && $method === 'GET') {
-  $rows = $pdo->query('SELECT `order_date`,`order_type`,`order_name`,`entity_name`,`metal`,
-    `category`,`purity`,`pieces`,`gross_wt`,`stone_wt`,`net_wt`,`wastage_decided`,`rate`,
-    `making_charges`,`advance_metal`,`advance_cash`,`status`,`place_of_supply`
-    FROM `billing_orders` ORDER BY `order_date` DESC, `id` DESC')->fetchAll();
-  billing_csv('orders', ['Date', 'Type', 'Order', 'Party', 'Metal', 'Category', 'Purity',
-    'Pieces', 'Gross g', 'Stone g', 'Net g', 'Wastage %', 'Rate', 'Making', 'Advance metal g',
-    'Advance cash', 'Status', 'Place of supply'], $rows);
-}
-
-if ($route === 'export/suppliers' && $method === 'GET') {
-  $rows = $pdo->query('SELECT `company`,`contact`,`phone`,`city`,`pin`,`gst`,`supplier_type`,
-    `quality`,`status`,`acc_name`,`acc_number`,`ifsc`,`branch`,`notes`
-    FROM `billing_suppliers` ORDER BY `company`')->fetchAll();
-  billing_csv('suppliers', ['Company', 'Contact', 'Phone', 'City', 'Pin', 'GSTIN', 'Type',
-    'Quality', 'Status', 'A/c name', 'A/c number', 'IFSC', 'Branch', 'Notes'], $rows);
 }
 
 billing_fail('Unknown route: ' . $route, 404);
