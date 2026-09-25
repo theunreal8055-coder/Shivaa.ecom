@@ -24,7 +24,7 @@ import {
    timestamp().defaultNow() is unchanged and behaves the same.
    ───────────────────────────────────────────────────────────────────────── */
 
-export const users = mysqlTable("users", {
+export const users = mysqlTable("billing_users", {
   id: int("id").autoincrement().primaryKey(),
   email: varchar("email", { length: 191 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
@@ -32,7 +32,7 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const settings = mysqlTable("settings", {
+export const settings = mysqlTable("billing_settings", {
   id: int("id").primaryKey().default(1),
   shopName: varchar("shop_name", { length: 255 }).default("Shivaa Jewellers"),
   tagline: varchar("tagline", { length: 255 }).default("Fine Gold & Silver"),
@@ -46,7 +46,7 @@ export const settings = mysqlTable("settings", {
   ratesUpdatedAt: timestamp("rates_updated_at").defaultNow(),
 });
 
-export const inventoryItems = mysqlTable("inventory_items", {
+export const inventoryItems = mysqlTable("billing_inventory_items", {
   id: int("id").autoincrement().primaryKey(),
   sku: varchar("sku", { length: 255 }).default(""),
   huid: varchar("huid", { length: 255 }).default(""),
@@ -65,7 +65,7 @@ export const inventoryItems = mysqlTable("inventory_items", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const customers = mysqlTable("customers", {
+export const customers = mysqlTable("billing_customers", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 255 }).default(""),
@@ -80,7 +80,7 @@ export const customers = mysqlTable("customers", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const suppliers = mysqlTable("suppliers", {
+export const suppliers = mysqlTable("billing_suppliers", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   company: varchar("company", { length: 255 }).default(""),
@@ -96,7 +96,7 @@ export const suppliers = mysqlTable("suppliers", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const artisans = mysqlTable("artisans", {
+export const artisans = mysqlTable("billing_artisans", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 255 }).default(""),
@@ -117,7 +117,7 @@ export type OldMetalRow = {
 };
 export type PaymentRow = { amount: number; mode: string };
 
-export const invoices = mysqlTable("invoices", {
+export const invoices = mysqlTable("billing_invoices", {
   id: int("id").autoincrement().primaryKey(),
   invNo: varchar("inv_no", { length: 255 }).notNull(),
   type: varchar("type", { length: 255 }).notNull(), // GST | Estimate
@@ -154,7 +154,7 @@ export type MetalInRow = {
   metalType: string; name: string; gross: number; tunch: number; fineWt: number;
 };
 
-export const metalInvoices = mysqlTable("metal_invoices", {
+export const metalInvoices = mysqlTable("billing_metal_invoices", {
   id: int("id").autoincrement().primaryKey(),
   billNo: varchar("bill_no", { length: 255 }).notNull(),
   partyType: varchar("party_type", { length: 255 }).default("customer"), // customer | supplier | other
@@ -173,7 +173,7 @@ export const metalInvoices = mysqlTable("metal_invoices", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const karigarJobs = mysqlTable("karigar_jobs", {
+export const karigarJobs = mysqlTable("billing_karigar_jobs", {
   id: int("id").autoincrement().primaryKey(),
   artisanId: int("artisan_id"),
   artisanName: varchar("artisan_name", { length: 255 }).default(""),
@@ -192,7 +192,7 @@ export const karigarJobs = mysqlTable("karigar_jobs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const expenses = mysqlTable("expenses", {
+export const expenses = mysqlTable("billing_expenses", {
   id: int("id").autoincrement().primaryKey(),
   date: varchar("date", { length: 255 }).notNull(),
   category: varchar("category", { length: 255 }).default("General"),
@@ -202,7 +202,7 @@ export const expenses = mysqlTable("expenses", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const ledgerEntries = mysqlTable("ledger_entries", {
+export const ledgerEntries = mysqlTable("billing_ledger_entries", {
   id: int("id").autoincrement().primaryKey(),
   customerId: int("customer_id").notNull(),
   date: varchar("date", { length: 255 }).notNull(),
@@ -215,7 +215,7 @@ export const ledgerEntries = mysqlTable("ledger_entries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const auditLogs = mysqlTable("audit_logs", {
+export const auditLogs = mysqlTable("billing_audit_logs", {
   id: int("id").autoincrement().primaryKey(),
   action: varchar("action", { length: 255 }).notNull(),
   entity: varchar("entity", { length: 255 }).default(""),

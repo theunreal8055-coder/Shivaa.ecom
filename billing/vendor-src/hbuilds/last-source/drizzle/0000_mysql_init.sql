@@ -1,4 +1,4 @@
-CREATE TABLE `artisans` (
+CREATE TABLE `billing_artisans` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`name` varchar(255) NOT NULL,
 	`phone` varchar(255) DEFAULT '',
@@ -6,20 +6,20 @@ CREATE TABLE `artisans` (
 	`address` varchar(500) DEFAULT '',
 	`notes` varchar(500) DEFAULT '',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `artisans_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_artisans_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `audit_logs` (
+CREATE TABLE `billing_audit_logs` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`action` varchar(255) NOT NULL,
 	`entity` varchar(255) DEFAULT '',
 	`entity_id` int,
 	`detail` varchar(500) DEFAULT '',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `audit_logs_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_audit_logs_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `customers` (
+CREATE TABLE `billing_customers` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`name` varchar(255) NOT NULL,
 	`phone` varchar(255) DEFAULT '',
@@ -32,10 +32,10 @@ CREATE TABLE `customers` (
 	`credit_days` int DEFAULT 0,
 	`notes` varchar(500) DEFAULT '',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `customers_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_customers_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `expenses` (
+CREATE TABLE `billing_expenses` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`date` varchar(255) NOT NULL,
 	`category` varchar(255) DEFAULT 'General',
@@ -43,10 +43,10 @@ CREATE TABLE `expenses` (
 	`amount` double DEFAULT 0,
 	`payment_mode` varchar(255) DEFAULT 'Cash',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `expenses_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_expenses_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `inventory_items` (
+CREATE TABLE `billing_inventory_items` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`sku` varchar(255) DEFAULT '',
 	`huid` varchar(255) DEFAULT '',
@@ -63,10 +63,10 @@ CREATE TABLE `inventory_items` (
 	`status` varchar(255) DEFAULT 'In Stock',
 	`notes` varchar(500) DEFAULT '',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `inventory_items_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_inventory_items_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `invoices` (
+CREATE TABLE `billing_invoices` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`inv_no` varchar(255) NOT NULL,
 	`type` varchar(255) NOT NULL,
@@ -93,10 +93,10 @@ CREATE TABLE `invoices` (
 	`status` varchar(255) DEFAULT 'Unpaid',
 	`notes` varchar(500) DEFAULT '',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `invoices_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_invoices_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `karigar_jobs` (
+CREATE TABLE `billing_karigar_jobs` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`artisan_id` int,
 	`artisan_name` varchar(255) DEFAULT '',
@@ -113,10 +113,10 @@ CREATE TABLE `karigar_jobs` (
 	`status` varchar(255) DEFAULT 'Pending',
 	`notes` varchar(500) DEFAULT '',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `karigar_jobs_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_karigar_jobs_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `ledger_entries` (
+CREATE TABLE `billing_ledger_entries` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`customer_id` int NOT NULL,
 	`date` varchar(255) NOT NULL,
@@ -127,10 +127,10 @@ CREATE TABLE `ledger_entries` (
 	`ref_id` int,
 	`note` varchar(500) DEFAULT '',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `ledger_entries_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_ledger_entries_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `metal_invoices` (
+CREATE TABLE `billing_metal_invoices` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`bill_no` varchar(255) NOT NULL,
 	`party_type` varchar(255) DEFAULT 'customer',
@@ -147,10 +147,10 @@ CREATE TABLE `metal_invoices` (
 	`balance_silver` double DEFAULT 0,
 	`notes` varchar(500) DEFAULT '',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `metal_invoices_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_metal_invoices_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `settings` (
+CREATE TABLE `billing_settings` (
 	`id` int NOT NULL DEFAULT 1,
 	`shop_name` varchar(255) DEFAULT 'Shivaa Jewellers',
 	`tagline` varchar(255) DEFAULT 'Fine Gold & Silver',
@@ -162,10 +162,10 @@ CREATE TABLE `settings` (
 	`gold_rate` double DEFAULT 7500,
 	`silver_rate` double DEFAULT 90,
 	`rates_updated_at` timestamp DEFAULT (now()),
-	CONSTRAINT `settings_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_settings_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `suppliers` (
+CREATE TABLE `billing_suppliers` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`name` varchar(255) NOT NULL,
 	`company` varchar(255) DEFAULT '',
@@ -179,15 +179,15 @@ CREATE TABLE `suppliers` (
 	`ifsc` varchar(255) DEFAULT '',
 	`notes` varchar(500) DEFAULT '',
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `suppliers_id` PRIMARY KEY(`id`)
+	CONSTRAINT `billing_suppliers_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
-CREATE TABLE `users` (
+CREATE TABLE `billing_users` (
 	`id` int AUTO_INCREMENT NOT NULL,
 	`email` varchar(191) NOT NULL,
 	`password_hash` varchar(255) NOT NULL,
 	`name` varchar(255),
 	`created_at` timestamp DEFAULT (now()),
-	CONSTRAINT `users_id` PRIMARY KEY(`id`),
-	CONSTRAINT `users_email_unique` UNIQUE(`email`)
+	CONSTRAINT `billing_users_id` PRIMARY KEY(`id`),
+	CONSTRAINT `billing_users_email_unique` UNIQUE(`email`)
 );

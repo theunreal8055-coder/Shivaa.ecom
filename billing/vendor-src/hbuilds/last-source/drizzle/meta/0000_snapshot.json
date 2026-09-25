@@ -1,11 +1,11 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "a781aeee-f980-4646-8d0b-9ca7ad6f9046",
+  "id": "256ff68e-360c-4433-902d-3d971228dc9f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
-    "artisans": {
-      "name": "artisans",
+    "billing_artisans": {
+      "name": "billing_artisans",
       "columns": {
         "id": {
           "name": "id",
@@ -65,8 +65,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "artisans_id": {
-          "name": "artisans_id",
+        "billing_artisans_id": {
+          "name": "billing_artisans_id",
           "columns": [
             "id"
           ]
@@ -75,8 +75,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "audit_logs": {
-      "name": "audit_logs",
+    "billing_audit_logs": {
+      "name": "billing_audit_logs",
       "columns": {
         "id": {
           "name": "id",
@@ -127,8 +127,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "audit_logs_id": {
-          "name": "audit_logs_id",
+        "billing_audit_logs_id": {
+          "name": "billing_audit_logs_id",
           "columns": [
             "id"
           ]
@@ -137,8 +137,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "customers": {
-      "name": "customers",
+    "billing_customers": {
+      "name": "billing_customers",
       "columns": {
         "id": {
           "name": "id",
@@ -238,8 +238,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "customers_id": {
-          "name": "customers_id",
+        "billing_customers_id": {
+          "name": "billing_customers_id",
           "columns": [
             "id"
           ]
@@ -248,8 +248,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "expenses": {
-      "name": "expenses",
+    "billing_expenses": {
+      "name": "billing_expenses",
       "columns": {
         "id": {
           "name": "id",
@@ -309,8 +309,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "expenses_id": {
-          "name": "expenses_id",
+        "billing_expenses_id": {
+          "name": "billing_expenses_id",
           "columns": [
             "id"
           ]
@@ -319,8 +319,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "inventory_items": {
-      "name": "inventory_items",
+    "billing_inventory_items": {
+      "name": "billing_inventory_items",
       "columns": {
         "id": {
           "name": "id",
@@ -452,8 +452,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "inventory_items_id": {
-          "name": "inventory_items_id",
+        "billing_inventory_items_id": {
+          "name": "billing_inventory_items_id",
           "columns": [
             "id"
           ]
@@ -462,8 +462,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "invoices": {
-      "name": "invoices",
+    "billing_invoices": {
+      "name": "billing_invoices",
       "columns": {
         "id": {
           "name": "id",
@@ -669,8 +669,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "invoices_id": {
-          "name": "invoices_id",
+        "billing_invoices_id": {
+          "name": "billing_invoices_id",
           "columns": [
             "id"
           ]
@@ -679,8 +679,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "karigar_jobs": {
-      "name": "karigar_jobs",
+    "billing_karigar_jobs": {
+      "name": "billing_karigar_jobs",
       "columns": {
         "id": {
           "name": "id",
@@ -811,8 +811,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "karigar_jobs_id": {
-          "name": "karigar_jobs_id",
+        "billing_karigar_jobs_id": {
+          "name": "billing_karigar_jobs_id",
           "columns": [
             "id"
           ]
@@ -821,8 +821,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "ledger_entries": {
-      "name": "ledger_entries",
+    "billing_ledger_entries": {
+      "name": "billing_ledger_entries",
       "columns": {
         "id": {
           "name": "id",
@@ -902,8 +902,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "ledger_entries_id": {
-          "name": "ledger_entries_id",
+        "billing_ledger_entries_id": {
+          "name": "billing_ledger_entries_id",
           "columns": [
             "id"
           ]
@@ -912,8 +912,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "metal_invoices": {
-      "name": "metal_invoices",
+    "billing_metal_invoices": {
+      "name": "billing_metal_invoices",
       "columns": {
         "id": {
           "name": "id",
@@ -1041,8 +1041,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "metal_invoices_id": {
-          "name": "metal_invoices_id",
+        "billing_metal_invoices_id": {
+          "name": "billing_metal_invoices_id",
           "columns": [
             "id"
           ]
@@ -1051,8 +1051,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "settings": {
-      "name": "settings",
+    "billing_settings": {
+      "name": "billing_settings",
       "columns": {
         "id": {
           "name": "id",
@@ -1146,8 +1146,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "settings_id": {
-          "name": "settings_id",
+        "billing_settings_id": {
+          "name": "billing_settings_id",
           "columns": [
             "id"
           ]
@@ -1156,8 +1156,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "suppliers": {
-      "name": "suppliers",
+    "billing_suppliers": {
+      "name": "billing_suppliers",
       "columns": {
         "id": {
           "name": "id",
@@ -1265,8 +1265,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "suppliers_id": {
-          "name": "suppliers_id",
+        "billing_suppliers_id": {
+          "name": "billing_suppliers_id",
           "columns": [
             "id"
           ]
@@ -1275,8 +1275,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "users": {
-      "name": "users",
+    "billing_users": {
+      "name": "billing_users",
       "columns": {
         "id": {
           "name": "id",
@@ -1318,16 +1318,16 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "users_id": {
-          "name": "users_id",
+        "billing_users_id": {
+          "name": "billing_users_id",
           "columns": [
             "id"
           ]
         }
       },
       "uniqueConstraints": {
-        "users_email_unique": {
-          "name": "users_email_unique",
+        "billing_users_email_unique": {
+          "name": "billing_users_email_unique",
           "columns": [
             "email"
           ]
