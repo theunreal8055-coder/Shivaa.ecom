@@ -586,3 +586,43 @@ git merge origin/main                      # pull the future in, then continue
 - The agent checks it started from the newest `main`, does your task, and merges
   back to `main` — so the NEXT chat automatically starts where this one ended.
 - Your live site deploys from `main` automatically (Hostinger Deploy Action — no more zip uploads after the one-time setup in `HOSTINGER-AUTO-DEPLOY.md`). One branch to watch: `main`.
+
+---
+
+## Billing app — LIVE and installed (25 Sep 2026)
+
+The showroom billing software is now running on the owner's server, in the
+shop's own database.
+
+- **Location:** `public_html/billing/` → `https://shivaa.in/billing/`
+  (the admin tile at `cms/js/admin.js` already pointed there; it was a dead
+  link until now)
+- **Stack:** plain PHP + the shop's MySQL. Not the vendor Next.js app — that
+  could never serve from a subpath (no `basePath`, no reverse proxy on shared
+  hosting), and PHP needs no Node runtime, npm install or build step.
+- **Database:** `u486999505_Shivaa`, user `u486999505_Shivaa`. Credentials read
+  from the shop's `public_html/config.php`. 11 tables, all `billing_` prefixed,
+  zero collisions with the shop's own tables.
+- **Installed:** via `public_html/billing/install.php`, which the owner ran
+  himself. Result: 11 tables created, 0 already present, login created. The
+  installer's guard verified no non-`billing_` table appeared.
+- **Deployed by:** the owner, manually, via hPanel File Manager — extracting
+  `billing/dist/shivaa-billing-setup-2.zip` into `public_html/`.
+  The agent could NOT do this: the bot token gets `403 Resource not accessible
+  by integration` on `workflow_dispatch`, and `hostinger-deploy.yml` refuses a
+  live deploy from any branch but `main` plus the exact approval phrase.
+- **Source:** `cms/billing/` (7 files, ~2,950 lines), branch
+  `arena/01a0d70e-shivaa-ecom`, commit `ed0e7e1`. Versus `main`, `cms/`
+  differs by those 7 files only — no existing shop file was modified.
+
+### Still owed
+- Owner to confirm the app renders and a bill can be raised (the agent has no
+  route to `shivaa.in`; `curl` there returns 000).
+- Never run against a real MySQL until this install, and never rendered in a
+  browser until now — both were verified only by php-parser, `node --check`
+  and php-wasm before this point.
+- The `billing_users` / `billing_settings` split from the vendor app is gone;
+  this is a fresh schema, so no data was migrated from Neon (it was empty).
+- Security items still open: the shop admin's temp password, the placeholder
+  `AUTH_SECRET` on the old Neon app, the Neon password rotation, and release
+  `billing-vendor-drop-1` (233 MB, contains a `.env`).
