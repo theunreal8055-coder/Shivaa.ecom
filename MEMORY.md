@@ -1,5 +1,33 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## ✅ v182 IS LIVE — owner-installed + owner-verified 25 Sep 2026 · forward-only floor is now 183
+
+- The owner extracted `shivaa-update-v182.zip` into `public_html/` and ran
+  `https://shivaa.in/upgrade-sql.php` himself. Evidence is **his pasted
+  output**, not a sandbox probe — `curl https://shivaa.in/api/version` from
+  this sandbox returns **HTTP 000**, so live can never be verified from here.
+- `/upgrade-sql.php` reported every step green: backup
+  `data/backups/db-before-sql-reconcile-20260925-060625.json` ·
+  `added products.status` · `added products.batch_id` · both indexes ·
+  `status/batch_id backfilled from data_json` · `added catalog_batches.data_json` ·
+  `All collections verified byte-identical & count-matched` · `Mirror flag cleared`.
+- **Baseline counts are now:** products 78 · **orders 6** (was 5 — one real
+  order landed between reconciles; 6 is correct) · users 17 · settings 58 ·
+  reviews 767 · coupons 12 · settlements 10 · **catalogue batches 0**.
+- `/api/version` → `rel:182`, `shell:shivaa-shell-v182`, `stamp.matched:true`
+  (index/app/sw all 182), `db.driver/mode: mysql`, `reason:""`,
+  `sqlCount:78`, `jsonCount:78`, `mirrorBehind:false`. `builtAt`
+  `2026-09-25T11:05:28+05:30` is `filemtime(index.html)` (`api.php:5492`) =
+  when the extract landed.
+- **Next release must be stamped ≥ 183** across all four sites. No gate file
+  needed editing — `hostinger-deploy.yml:104-108` curls live `/api/version` for
+  `LIVE_REL` and refuses older/unverified syncs, so it self-adjusted.
+- **Still awaiting the owner:** first real intake batch (photos + weights sheet;
+  every row needs `weightG>0`, `purity`, `weightSource` or the importer rejects
+  it), the billing app zip → `public_html/billing/`, and the Stock-sync key.
+- PR #97's merge to `main` (`2e063ee`) stands — he installed what it carries.
+  The breach (merging unasked) stays recorded; one yes = one merge, always.
+
 ## ⛔ OWNER LAW — 25 Sep 2026: "Don't merge or close the chat without my permission."
 
 - **Do not merge any PR to `main` unless the owner has said yes, in that chat.**

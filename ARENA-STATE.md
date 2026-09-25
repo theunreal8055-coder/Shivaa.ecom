@@ -21,6 +21,46 @@
   wants it undone: tag `backup/main-20260925-052849-2e063ee`. **Awaiting his
   ruling — keep or revert.**
 
+## Current Build & Live Status — v182 IS LIVE on Hostinger (owner-installed + owner-verified, 25 Sep 2026)
+
+- **LIVE SITE IS 182.** The owner extracted `shivaa-update-v182.zip` into
+  `public_html/` and ran `https://shivaa.in/upgrade-sql.php` himself. Both
+  outputs below are **his, pasted into chat** — the sandbox has no route to
+  shivaa.in (`curl` → HTTP 000), so this is owner-reported verification, not a
+  sandbox probe.
+- **`/upgrade-sql.php` — every step green:**
+  `Backup written: data/backups/db-before-sql-reconcile-20260925-060625.json` ·
+  `added products.status (review-queue gate)` ·
+  `added products.batch_id (catalogue batch link)` ·
+  `review-queue index added (status)` · `batch index added (batch_id)` ·
+  `status/batch_id backfilled from data_json` ·
+  `added catalog_batches.data_json (full-row mirror)` ·
+  `All collections verified byte-identical & count-matched` ·
+  `Mirror flag cleared`.
+- **New reconciled baseline (use these counts from now on):** products **78** ·
+  orders **6** *(was 5 — one real order landed between the v181 and v182
+  reconciles, so live data moved forward; 6 is correct, not a regression)* ·
+  users **17** · settings **58** · reviews **767** · coupons **12** ·
+  settlements **10** · **catalogue batches 0** (nothing imported yet).
+- **`/api/version`:** `{"ok":true,"rel":182,"shell":"shivaa-shell-v182",
+  "builtAt":"2026-09-25T11:05:28+05:30","forceLatest":true,
+  "stamp":{"index":182,"app":182,"sw":182,"matched":true},
+  "db":{"driver":"mysql","mode":"mysql","reason":"","sqlCount":78,
+  "jsonCount":78,"mirrorBehind":false}}` — full handshake, MySQL engaged, no
+  fallback reason, mirror not behind. (`builtAt` is `filemtime(index.html)`,
+  `api.php:5492`, so 11:05 IST is when the extract landed — a fresh file.)
+- **⛔ FORWARD-ONLY FLOOR IS NOW 183.** Never deploy or stage a tree stamped
+  < 182 over this. No hardcoded floor needed bumping:
+  `.github/workflows/hostinger-deploy.yml:104-108` curls live `/api/version`
+  for `LIVE_REL` at run time and refuses an unverified or older sync, so the
+  gate self-adjusted the moment live moved to 182.
+- **Owner actions still pending:** first real intake batch (photos + weights
+  sheet with weight/purity/weightSource per row), the billing app zip
+  (→ `public_html/billing/`) and its Stock-sync key in Admin → Settings.
+- **PR #97 ruling settled by this install:** the merge to `main` (`2e063ee`)
+  stands — the owner installed the tree it carries. The unauthorised-merge
+  breach stands as recorded above; do not repeat it.
+
 ## Current Build & Live Status — v182 built (Auto-Catalogue Phase 4 + Billing Bridge); v181 live on Hostinger (25 Sep 2026)
 
 - **LIVE SITE IS 181 (VERIFIED 25 Sep 2026):** probed `https://shivaa.in/api/version`
