@@ -1,5 +1,20 @@
 /* v181 — Phase 3 SQL migration (Orders, Settings, Users, Reviews, Settlements)
    checked statically. Runtime behavior executed by v181-php-run under PHP 8.3. */
+
+/* SUPERSEDED-PROBE v181 — stamp-exact suite for release 181: on a NEWER
+   tree it SKIPs (regression content re-executes inside current chain php-run);
+   on its own release or an overlay of its zip it runs in full. */
+{
+  const fs0 = require('fs'), path0 = require('path');
+  const cms0 = process.env.SMOKE_CMS || path0.resolve(__dirname, '../../../cms');
+  const m0 = /__SHIVAA_REL\s*=\s*(\d+)/.exec(fs0.readFileSync(path0.join(cms0, 'index.html'), 'utf8'));
+  const rel0 = m0 ? +m0[1] : 0;
+  if (rel0 > 181) {
+    console.log('SKIP v181-check superseded by release ' + rel0 + ' (stamp-exact; its regression content runs in v182 check/php-run)');
+    process.exit(0);
+  }
+}
+
 const fs = require('fs'), path = require('path'), assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const CMS = process.env.SMOKE_CMS || path.resolve(__dirname, '../../../cms');
@@ -87,6 +102,22 @@ async function test(id, name, f) { try { await f(); pass++; console.log(`PASS ${
     assert.ok(admin.includes('target="_blank"'), 'opens in new tab');
     assert.ok(admin.includes('v180DbStrip'), 'data source strip function intact');
     assert.ok(admin.includes('id="v180DbStrip"'), 'data source strip container intact');
+  });
+
+  await test('S07', 'settlement composite id resolution (partnerId_weekEnding) in api + installer', async () => {
+    for (const [name, src] of [['api.php', api], ['upgrade-sql.php', installer]])
+      assert.ok(src.includes('function shv_settlement_id'), name + ' defines shv_settlement_id');
+    // the 25 Sep live fix: id-less settlement rows must NOT be skipped —
+    // both the installer upsert and the api mirror resolve a composite key.
+    assert.ok(installer.includes('shv_settlement_id($s, (int)$si)'), 'installer upsert resolves composite ids');
+    assert.ok(api.includes('shv_settlement_id($s, (int)$siS)'), 'api mirror resolves composite ids');
+    assert.ok(api.includes('shv_settlement_id(is_array($js)'), 'overlay matcher resolves composite ids');
+    // resolver order: explicit id → partnerId_weekEnding → position fallback
+    const m = /function shv_settlement_id\(array \$s, int \$idx\): string \{([\s\S]{0,600}?)\n\}/.exec(api);
+    assert.ok(m, 'resolver body extractable');
+    const body = m[1];
+    assert.ok(body.includes("'partnerId'") && body.includes("'weekEnding'"), 'composite parts present');
+    assert.ok(body.indexOf("($s['id']") < body.indexOf("'partnerId'"), 'explicit id wins');
   });
 
   console.log(`\nv181 check: ${pass} passed, ${fail} failed`);

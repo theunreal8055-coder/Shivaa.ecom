@@ -15,13 +15,14 @@ async function test(id, name, f) { try { await f(); pass++; console.log(`PASS ${
   const writeConfig = phpCode =>
     F.run(`file_put_contents('/qa/config.php', base64_decode('${b64(phpCode)}'));`);
 
-  await test('P01', 'v181 release stamp and version telemetry: rel=181, matched=true', async () => {
+  await test('P01', 'v181+ release stamp and version telemetry: rel>=181 floor, matched=true', async () => {
     const v = await F.req('GET', 'version');
     assert.equal(v.status, 200);
-    assert.equal(v.json.rel, 181);
+    assert.ok(v.json.rel >= 181, 'rel floor 181');
     assert.equal(v.json.stamp.matched, true);
-    assert.equal(v.json.stamp.index, 181);
-    assert.equal(v.json.stamp.app, 181);
+    assert.equal(v.json.stamp.index, v.json.rel);
+    assert.equal(v.json.stamp.app, v.json.rel);
+    assert.equal(v.json.stamp.sw, v.json.rel);
     assert.equal(v.json.db.driver, 'json');
     assert.equal(v.json.db.mode, 'json');
     assert.equal(v.json.db.mirrorBehind, false);

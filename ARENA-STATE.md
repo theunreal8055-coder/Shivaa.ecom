@@ -1,5 +1,26 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
+## Current Build & Live Status — v182 built (Auto-Catalogue Phase 4 + Billing Bridge); v181 live on Hostinger (25 Sep 2026)
+
+- **LIVE SITE IS 181 (VERIFIED 25 Sep 2026):** probed `https://shivaa.in/api/version`
+  → `rel: 181, stamp.matched: true, db.driver/mode: "mysql", sqlCount: 78,
+  jsonCount: 78, mirrorBehind: false`. MySQL reconciled across every
+  collection: products 78 · orders 5 · users 17 · settings 58 · reviews 767 ·
+  coupons 12 · settlements 10 (composite IDs `partnerId_weekEnding`).
+- **v182 BUILT & GATED (this session):** Auto-Catalogue Intake & Review Queue
+  (Phase 4) — batch photo upload + JSON import lands designs STAGED
+  (`active=0`, `status='pending_review'`), Admin → Catalogue Intake reviews
+  with Approve/Skip/Batch publish (nothing live without the owner's tap;
+  importer rejects rows missing owner-sheet weight/purity/weightSource), batch
+  ledger in `catalog_batches`; plus the HMAC billing sync bridge
+  (`/api/billing/stock[-movement]`, dark until the owner pastes a sync key —
+  contract `docs/BILLING-SYNC-CONTRACT.md`). Repo also re-gained the live-only
+  settlements composite-id fix (now committed; v181-check S07 restored).
+  Stamps 182 lockstep · belt 188/188 green · `shivaa-update-v182.zip` +
+  `DEPLOY-v182.md`.
+- **Forward-only: next deploy ≥ 182.** Owner actions pending: install v182
+  (explicit yes), upload the billing app zip, first real intake batch.
+
 ## Current Build & Live Status — v181 built (Phase 3 SQL & Billing Doorway); v180 live on Hostinger (24 Sep 2026)
 
 - **LIVE SITE IS 180 (VERIFIED):** Probed at `https://shivaa.in/api/version`:

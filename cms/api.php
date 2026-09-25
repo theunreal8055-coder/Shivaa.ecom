@@ -76,7 +76,10 @@ function shv_sanitize_product_fields(array $b, array $existing = []): array {
   $out = $existing;
   $texts = ['name' => 200, 'category' => 60, 'metal' => 20, 'purity' => 20,
             'stoneType' => 40, 'stoneColour' => 40, 'stoneDesc' => 300,
-            'sku' => 60, 'desc' => 20000, 'mediaNote' => 300];
+            'sku' => 60, 'desc' => 20000, 'mediaNote' => 300,
+            /* v182 — intake provenance: which owner sheet/tag the weight came
+               from (standing law: weights/purity/prices are NEVER invented) */
+            'weightSource' => 120];
   foreach ($texts as $tk => $lim) {
     if (array_key_exists($tk, $b))
       $out[$tk] = is_scalar($b[$tk]) ? mb_substr(trim((string)$b[$tk]), 0, $lim) : '';
@@ -99,6 +102,16 @@ function shv_sanitize_product_fields(array $b, array $existing = []): array {
   if (array_key_exists('active', $b)) {
     $av = $b['active'];
     $out['active'] = is_bool($av) ? $av : in_array(strtolower(trim((string)$av)), ['1', 'true', 'on', 'yes'], true);
+  }
+  /* v182 — review-queue state machine: pending_review → live (owner approves)
+     / skipped (owner rejects). Anything else keeps the prior value. */
+  if (array_key_exists('status', $b)) {
+    $st = is_scalar($b['status']) ? trim((string)$b['status']) : '';
+    if (in_array($st, ['pending_review', 'live', 'skipped'], true)) $out['status'] = $st;
+  }
+  if (array_key_exists('batchId', $b)) {
+    $out['batchId'] = is_scalar($b['batchId'])
+      ? mb_substr(preg_replace('/[^A-Za-z0-9_\-]/', '', (string)$b['batchId']), 0, 64) : '';
   }
   // media arrays arrive already through shv_sanitize_product_media()
   if (array_key_exists('images', $b)) $out['images'] = is_array($b['images']) ? array_slice(array_values($b['images']), 0, 12) : [];
@@ -252,13 +265,15 @@ function shv_product_row_hash(array $p): string {
   return hash('sha256', $j === false ? '' : $j);
 }
 function shv_sql_upsert_sql(): string {
-  return 'INSERT INTO `products` (`id`,`sku`,`name`,`category`,`metal`,`purity`,`weightG`,`lessWeightG`,`mcScheme`,`mcValue`,`stoneValue`,`stoneDesc`,`images_json`,`desc`,`rating`,`reviews`,`stock`,`active`,`data_json`)'
-    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+  /* v182 — products.status / products.batch_id ride along (review-queue gate);
+     /upgrade-sql.php adds the columns idempotently in the same install step. */
+  return 'INSERT INTO `products` (`id`,`sku`,`name`,`category`,`metal`,`purity`,`weightG`,`lessWeightG`,`mcScheme`,`mcValue`,`stoneValue`,`stoneDesc`,`images_json`,`desc`,`rating`,`reviews`,`stock`,`active`,`status`,`batch_id`,`data_json`)'
+    . ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
     . ' ON DUPLICATE KEY UPDATE `sku`=VALUES(`sku`),`name`=VALUES(`name`),`category`=VALUES(`category`),'
     . '`metal`=VALUES(`metal`),`purity`=VALUES(`purity`),`weightG`=VALUES(`weightG`),`lessWeightG`=VALUES(`lessWeightG`),'
     . '`mcScheme`=VALUES(`mcScheme`),`mcValue`=VALUES(`mcValue`),`stoneValue`=VALUES(`stoneValue`),`stoneDesc`=VALUES(`stoneDesc`),'
     . '`images_json`=VALUES(`images_json`),`desc`=VALUES(`desc`),`rating`=VALUES(`rating`),`reviews`=VALUES(`reviews`),'
-    . '`stock`=VALUES(`stock`),`active`=VALUES(`active`),`data_json`=VALUES(`data_json`)';
+    . '`stock`=VALUES(`stock`),`active`=VALUES(`active`),`status`=VALUES(`status`),`batch_id`=VALUES(`batch_id`),`data_json`=VALUES(`data_json`)';
 }
 function shv_sql_product_values(array $p): array {
   $enc = fn($v) => ($j = json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) === false ? '[]' : $j;
@@ -283,6 +298,8 @@ function shv_sql_product_values(array $p): array {
     (int)($p['reviews'] ?? 0),
     (int)($p['stock'] ?? 0),
     !empty($p['active']) ? 1 : 0,
+    mb_substr((string)($p['status'] ?? 'live'), 0, 32),
+    ($p['batchId'] ?? '') !== '' ? mb_substr((string)$p['batchId'], 0, 64) : null,
     $data,
   ];
 }
@@ -389,6 +406,22 @@ function shv_version_db(): array {
     'jsonCount'    => $st['jsonCount'] ?? null,
     'mirrorBehind' => (bool)($st['mirrorBehind'] ?? false),
   ];
+}
+/* v182 — settlements rows in db.json carry partnerId + weekEnding but NO
+   explicit id (the owner's weekly partner rows never had one). The 25 Sep
+   live reconcile taught this the hard way: id-less rows were SKIPPED by the
+   upsert loop (settlements count: json=10 sql=0). One resolver — explicit id
+   wins, else the composite partnerId_weekEnding, else a stable position
+   fallback — shared by the installer, the overlay matcher and the mirror so
+   every side derives the SAME key. Rows keep their original shape: no id is
+   ever injected into the stored JSON. */
+function shv_settlement_id(array $s, int $idx): string {
+  $id = trim((string)($s['id'] ?? ''));
+  if ($id !== '') return $id;
+  $pid = trim((string)($s['partnerId'] ?? ''));
+  $wk  = trim((string)($s['weekEnding'] ?? ''));
+  if ($pid !== '' && $wk !== '') return $pid . '_' . $wk;
+  return 'set_' . $idx;
 }
 /* v181 — Phase 3 SQL overlay for settings, orders, users, reviews, coupons, settlements */
 function shv_sql_phase3_overlay(array &$db): void {
@@ -513,21 +546,24 @@ function shv_sql_phase3_overlay(array &$db): void {
       if ($allMatched) $db['coupons'] = $outCoupons;
     }
 
-    // 6. Settlements overlay
+    // 6. Settlements overlay (v182 — composite ids: partnerId_weekEnding)
     $stRows = $pdo->query('SELECT * FROM `settlements`')->fetchAll();
     $sqlSettlements = [];
-    foreach ($stRows as $str) {
+    foreach ($stRows as $si => $str) {
       $dec = json_decode((string)($str['data_json'] ?? ''), true);
-      if (is_array($dec) && ($dec['id'] ?? '') !== '') {
-        $sqlSettlements[(string)$dec['id']] = $dec;
-      }
+      if (!is_array($dec)) continue;
+      /* key = the row PK the mirror wrote (shv_settlement_id), with a
+         resolver fallback so a pre-v182 row without PK still matches */
+      $sid = (string)($str['id'] ?? '');
+      if ($sid === '') $sid = shv_settlement_id($dec, (int)$si);
+      $sqlSettlements[$sid] = $dec;
     }
     $jsonSettlements = is_array($db['settlements'] ?? null) ? $db['settlements'] : [];
     if (count($sqlSettlements) === count($jsonSettlements) && count($jsonSettlements) > 0) {
       $outSettlements = [];
       $allMatched = true;
-      foreach ($jsonSettlements as $js) {
-        $jsid = (string)($js['id'] ?? '');
+      foreach ($jsonSettlements as $jsi => $js) {
+        $jsid = shv_settlement_id(is_array($js) ? $js : [], (int)$jsi);
         if (isset($sqlSettlements[$jsid])) $outSettlements[] = $sqlSettlements[$jsid];
         else { $allMatched = false; break; }
       }
@@ -715,18 +751,174 @@ function shv_sql_phase3_mirror(array $db): void {
       }
     }
 
-    // 6. Settlements mirror
+    // 6. Settlements mirror (v182 — composite id: partnerId_weekEnding)
     if (isset($db['settlements']) && is_array($db['settlements'])) {
       $stmtSt = $pdo->prepare('INSERT INTO `settlements` (`id`, `data_json`, `created_at`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `data_json`=VALUES(`data_json`)');
-      foreach ($db['settlements'] as $s) {
-        $sid = (string)($s['id'] ?? '');
-        if ($sid === '') continue;
+      foreach ($db['settlements'] as $siS => $s) {
+        if (!is_array($s)) continue;
+        $sid = shv_settlement_id($s, (int)$siS);
         $data = json_encode($s, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
         $created = !empty($s['createdAt']) ? date('Y-m-d H:i:s', strtotime($s['createdAt'])) : date('Y-m-d H:i:s');
         $stmtSt->execute([$sid, $data, $created]);
       }
     }
 
+    if (!$inTx && $pdo->inTransaction()) $pdo->commit();
+  } catch (Throwable $e) {
+    try { if ($pdo->inTransaction()) $pdo->rollBack(); } catch (Throwable $e2) {}
+    @file_put_contents(shv_mirror_behind_file(),
+      json_encode(['at' => date('c'), 'error' => mb_substr((string)$e->getMessage(), 0, 300)]));
+  }
+}
+
+/* ═══ v182 · auto-catalogue staging (Phase 4) — shared helpers ═══════════
+   Staged designs are ORDINARY products rows (active=0, status='pending_review')
+   so they already ride the v180 product overlay/mirror untouched. The batch
+   ledger (catalogBatches → catalog_batches) follows the Phase-3 laws: JSON is
+   the write-time source of truth, SQL mirrors on save, reads overlay only when
+   counts & ids agree. Nothing reaches the storefront until the owner approves. */
+function shv_catalog_counts(array $products, string $batchId): array {
+  $c = ['total' => 0, 'pending' => 0, 'live' => 0, 'skipped' => 0];
+  foreach ($products as $p) {
+    if (!is_array($p) || (string)($p['batchId'] ?? '') !== $batchId) continue;
+    $c['total']++;
+    $st = (string)($p['status'] ?? 'live');
+    if ($st === 'pending_review') $c['pending']++;
+    elseif ($st === 'skipped') $c['skipped']++;
+    else $c['live']++;
+  }
+  return $c;
+}
+function shv_catalog_batch_view(array $b, array $products): array {
+  $counts = shv_catalog_counts($products, (string)($b['id'] ?? ''));
+  return array_merge($b, ['counts' => $counts,
+    'status' => $counts['pending'] > 0 ? 'review' : ($counts['total'] > 0 ? 'published' : (string)($b['status'] ?? 'intake'))]);
+}
+function shv_catalog_refresh_batches(array &$db): void {
+  foreach ($db['catalogBatches'] as $bi => $b) {
+    if (!is_array($b) || ($b['id'] ?? '') === '') continue;
+    $db['catalogBatches'][$bi] = shv_catalog_batch_view($b, $db['products'] ?? []);
+  }
+}
+/* v182 — save a validated upload. Web SAPIs use move_uploaded_file (the only
+   safe path for real requests — php-wasm reports SAPI "wasm", Hostinger runs
+   fpm-fcgi/cgi-fcgi where the fallback is dead); the non-web fallback exists
+   so the smoke fixture can exercise the same route code. On any real web SAPI
+   a non-uploaded tmp_name can never reach here (PHP fills $_FILES). */
+function shv_store_upload(string $tmp, string $dest): bool {
+  if (@move_uploaded_file($tmp, $dest)) return true;
+  return in_array(PHP_SAPI, ['cli', 'wasm'], true) && is_file($tmp) && @rename($tmp, $dest);
+}
+/* v182 — billing-sync HMAC guard (docs/BILLING-SYNC-CONTRACT.md). Every call
+   signs `ts \n METHOD \n route \n rawBody` with the shared secret that lives
+   ONLY in settings.billingSyncSecret. hash_equals = timing-safe; ±5 min
+   timestamp window = replay bound. Returns the decoded JSON body. */
+function shv_billing_sync_raw(): string {
+  static $raw = null;
+  if ($raw === null) {
+    $raw = (string)file_get_contents('php://input', false, null, 0, 3 * 1024 * 1024 + 1);
+    if (strlen($raw) > 3 * 1024 * 1024) jout(413, ['error' => 'Request too large']);
+  }
+  return $raw;
+}
+function shv_billing_sync_auth(array $db): array {
+  $secret = (string)($db['settings']['billingSyncSecret'] ?? '');
+  if ($secret === '') jout(403, ['error' => 'Billing sync is not configured — paste the sync key in Admin → Settings first']);
+  $ts = (string)($_SERVER['HTTP_X_SHIVAA_TS'] ?? '');
+  $sig = (string)($_SERVER['HTTP_X_SHIVAA_SIGNATURE'] ?? '');
+  if ($ts === '' || $sig === '' || !ctype_digit($ts)) jout(401, ['error' => 'Missing X-Shivaa-Ts / X-Shivaa-Signature headers']);
+  if (abs(time() - (int)$ts) > 300) jout(401, ['error' => 'Stale signature timestamp (±5 minute window)']);
+  $method = (string)($_SERVER['REQUEST_METHOD'] ?? 'GET');
+  $route = trim((string)($_GET['__route'] ?? ''), '/');
+  $raw = shv_billing_sync_raw();
+  $expect = hash_hmac('sha256', $ts . "\n" . $method . "\n" . $route . "\n" . $raw, $secret);
+  if (!hash_equals($expect, strtolower(trim($sig)))) jout(401, ['error' => 'Bad signature']);
+  $body = json_decode($raw !== '' ? $raw : '{}', true);
+  return is_array($body) ? $body : [];
+}
+/* v182 — batch-ledger dual-mode overlay (catalogBatches ↔ catalog_batches) */
+function shv_sql_catalog_overlay(array &$db): void {
+  if (($GLOBALS['__shv_sql_state']['mode'] ?? '') !== 'mysql') return;
+  $pdo = get_db_pdo();
+  if (!$pdo) return;
+  try {
+    $rows = $pdo->query('SELECT * FROM `catalog_batches`')->fetchAll();
+    $sqlB = [];
+    foreach ($rows as $r) {
+      $dec = json_decode((string)($r['data_json'] ?? ''), true);
+      if (is_array($dec) && ($dec['id'] ?? '') !== '') $sqlB[(string)$dec['id']] = $dec;
+    }
+    $jsonB = is_array($db['catalogBatches'] ?? null) ? $db['catalogBatches'] : [];
+    if (count($sqlB) === count($jsonB) && count($jsonB) > 0) {
+      $outB = [];
+      $allMatched = true;
+      foreach ($jsonB as $jb) {
+        $jid = (string)(is_array($jb) ? ($jb['id'] ?? '') : '');
+        if ($jid !== '' && isset($sqlB[$jid])) $outB[] = $sqlB[$jid];
+        else { $allMatched = false; break; }
+      }
+      if ($allMatched) $db['catalogBatches'] = $outB;
+    }
+    $bh = [];
+    foreach (($db['catalogBatches'] ?? []) as $__b) {
+      $__bid = (string)(is_array($__b) ? ($__b['id'] ?? '') : '');
+      if ($__bid !== '') $bh[$__bid] = hash('sha256', json_encode($__b));
+    }
+    $GLOBALS['__shv_catalogb_hashes'] = $bh;
+  } catch (Throwable $e) {
+    @error_log('Shivaa catalog overlay fallback: ' . $e->getMessage());
+  }
+}
+function shv_sql_catalog_mirror(array $db): void {
+  if (shv_db_driver() !== 'mysql') return;
+  $m = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+  if ($m === 'GET' || $m === 'HEAD' || $m === 'OPTIONS') return;   // reads never mutate
+  if (file_exists(shv_mirror_behind_file())) return;               // installer owns healing
+  $pdo = get_db_pdo();
+  if (!$pdo) return;
+  try {
+    $inTx = $pdo->inTransaction();
+    if (!$inTx) $pdo->beginTransaction();
+    if (isset($db['catalogBatches']) && is_array($db['catalogBatches'])) {
+      $cur = [];
+      $byId = [];
+      foreach ($db['catalogBatches'] as $b) {
+        if (!is_array($b)) continue;
+        $bid = (string)($b['id'] ?? '');
+        if ($bid === '') continue;
+        $cur[$bid] = hash('sha256', json_encode($b));
+        $byId[$bid] = $b;
+      }
+      $prev = $GLOBALS['__shv_catalogb_hashes'] ?? null;
+      $stmt = $pdo->prepare('INSERT INTO `catalog_batches` (`id`, `label`, `status`, `counts_json`, `data_json`, `created_at`)'
+        . ' VALUES (?, ?, ?, ?, ?, ?)'
+        . ' ON DUPLICATE KEY UPDATE `label`=VALUES(`label`), `status`=VALUES(`status`),'
+        . '`counts_json`=VALUES(`counts_json`), `data_json`=VALUES(`data_json`)');
+      $del = $pdo->prepare('DELETE FROM `catalog_batches` WHERE `id` = ?');
+      if (is_array($prev)) {
+        $up = [];
+        foreach ($cur as $bid => $h) if (!isset($prev[$bid]) || $prev[$bid] !== $h) $up[] = $bid;
+        $rm = array_diff_key($prev, $cur);
+      } else {
+        $up = array_keys($cur); $rm = [];   // no load snapshot — defensive full upsert
+      }
+      foreach ($up as $bid) {
+        $b = $byId[$bid];
+        $data = json_encode($b, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        $counts = json_encode($b['counts'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        $created = !empty($b['createdAt']) ? date('Y-m-d H:i:s', strtotime($b['createdAt'])) : date('Y-m-d H:i:s');
+        $stmt->execute([
+          $bid,
+          mb_substr((string)($b['label'] ?? ''), 0, 255),
+          mb_substr((string)($b['status'] ?? 'intake'), 0, 32),
+          $counts,
+          $data,
+          $created,
+        ]);
+      }
+      foreach ($rm as $bid => $_) $del->execute([$bid]);
+      $GLOBALS['__shv_catalogb_hashes'] = $cur;
+    }
     if (!$inTx && $pdo->inTransaction()) $pdo->commit();
   } catch (Throwable $e) {
     try { if ($pdo->inTransaction()) $pdo->rollBack(); } catch (Throwable $e2) {}
@@ -767,6 +959,10 @@ function db_load(string $DB_FILE): array {
       }
       if (function_exists('shv_sql_phase3_overlay')) {
         shv_sql_phase3_overlay($db);
+      }
+      /* v182 — batch-ledger overlay rides the same health gate as Phase 3 */
+      if (function_exists('shv_sql_catalog_overlay')) {
+        shv_sql_catalog_overlay($db);
       }
       return $db;
     }
@@ -827,6 +1023,8 @@ function db_save(string $DB_FILE, array $db): void {
   if (function_exists('shv_sql_products_mirror')) shv_sql_products_mirror($db['products'] ?? []);
   /* v181 — Phase 3: mirror orders, settings, users, reviews, coupons, settlements */
   if (function_exists('shv_sql_phase3_mirror')) shv_sql_phase3_mirror($db);
+  /* v182 — batch-ledger mirror (catalogBatches → catalog_batches) */
+  if (function_exists('shv_sql_catalog_mirror')) shv_sql_catalog_mirror($db);
   if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
 }
 function clampn($v, $a, $b) { return max($a, min($b, $v)); }
@@ -3731,6 +3929,9 @@ foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55,
      OFF: the old quiet behaviour — the new release is picked up on the next
      visit, with no reload. Flipped by the owner in Admin → Settings. */
   'forceLatestVersion' => true] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
+/* v182 — auto-catalogue batch ledger + billing-sync idempotency log */
+if (!isset($db['catalogBatches']) || !is_array($db['catalogBatches'])) $db['catalogBatches'] = [];
+if (!isset($db['billingMovements']) || !is_array($db['billingMovements'])) $db['billingMovements'] = [];
 /* v82 — hourly housekeeping so ephemeral collections never grow forever:
    expired bearer tokens, stale OTPs and old per-IP mail counters. Runs
    inside a request that already holds the EX write lock, at most once an
@@ -3916,6 +4117,12 @@ try {
         }
         jout(404, ['error' => 'Not found']);   // v82 — never index with null
       }
+      /* v182 — a staged (not-yet-approved) piece is invisible to shoppers:
+         only an admin may open its page before the review-queue Approve tap. */
+      if (empty($db['products'][$idx]['active'])) {
+        $uPdp = req_user($db);
+        if (!$uPdp || ($uPdp['role'] ?? '') !== 'admin') jout(404, ['error' => 'Not found']);
+      }
       $R = current_rates($db);
       $similar = [];
       foreach ($db['products'] as $x) if ($x['category'] === $db['products'][$idx]['category'] && $x['id'] !== $m[1] && !empty($x['active'])) { $y = hallmark_product($x); $y['price'] = compute_price($x, $R); $similar[] = $y; if (count($similar) >= 4) break; }
@@ -3990,6 +4197,269 @@ try {
     $name = $cat . '_' . bin2hex(random_bytes(5)) . '.' . $ext;
     if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) jout(500, ['error' => 'Could not save — check uploads/ permissions (755)']);
     jout(200, ['url' => '/uploads/' . $sub . '/' . $cat . '/' . $name, 'size' => (int)$f['size'], 'ext' => $ext]);
+  }
+
+  /* ═══ v182 · auto-catalogue intake & review queue (Phase 4) ═════════════
+     The owner's flow (plan §3): raw drop → agent intake & metadata → import
+     STAGED (active=0, status=pending_review) → owner reviews in Admin →
+     Catalogue Intake → [Approve] flips active=1 and only then it appears on
+     the site. NOTHING goes live without the owner's tap.
+     Standing law enforced at this gate: weightG, purity and the weight source
+     must come from the owner's sheet/tags — never invented. */
+  if ($route === 'admin/catalogue/batch' && $method === 'POST') {
+    $adm = need_admin($db);
+    $b = body_json();
+    $label = trim((string)($b['label'] ?? ''));
+    if ($label === '') jout(400, ['error' => 'Batch label required (e.g. "Hitesh bhai rings — 67 pcs")']);
+    $batch = ['id' => uid('cb'), 'label' => mb_substr($label, 0, 120), 'status' => 'intake',
+      'counts' => ['total' => 0, 'pending' => 0, 'live' => 0, 'skipped' => 0],
+      'createdBy' => (string)($adm['name'] ?? 'admin'), 'createdAt' => now_iso()];
+    $db['catalogBatches'][] = $batch;
+    audit_log($db, 'catalogue.batch.create', ['batchId' => $batch['id'], 'label' => $batch['label']]);
+    db_save($DB_FILE, $db); jout(200, ['batch' => $batch]);
+  }
+
+  if ($route === 'admin/catalogue/upload' && $method === 'POST') {
+    need_admin($db);
+    $batchId = preg_replace('/[^A-Za-z0-9_\-]/', '', (string)($_POST['batchId'] ?? ''));
+    if ($batchId === '') jout(400, ['error' => 'batchId required']);
+    $known = false;
+    foreach ($db['catalogBatches'] as $cb) if (is_array($cb) && ($cb['id'] ?? '') === $batchId) { $known = true; break; }
+    if (!$known) jout(404, ['error' => 'Batch not found — create the batch first']);
+    if (empty($_FILES['files'])) jout(400, ['error' => 'No files field named "files"']);
+    $files = is_array($_FILES['files']['name'])
+      ? $_FILES['files']
+      : ['name' => [$_FILES['files']['name']], 'tmp_name' => [$_FILES['files']['tmp_name']],
+         'error' => [$_FILES['files']['error']], 'size' => [$_FILES['files']['size']]];
+    $dir = __DIR__ . '/uploads/catalogue/' . $batchId;
+    if (!is_dir($dir) && !@mkdir($dir, 0755, true)) jout(500, ['error' => 'Could not create uploads/catalogue — check uploads/ permissions (755)']);
+    $urls = [];
+    foreach ($files['name'] as $fi => $fname) {
+      if (count($urls) >= 24) break;
+      if (($files['error'][$fi] ?? 1) !== UPLOAD_ERR_OK) continue;
+      if (($files['size'][$fi] ?? 0) > 8388608) continue;   // 8 MB per shot
+      $ext = strtolower(pathinfo((string)$fname, PATHINFO_EXTENSION));
+      if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) $ext = 'jpg';
+      $head = (string)@file_get_contents($files['tmp_name'][$fi], false, null, 0, 12);
+      $isImage = substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n"
+        || (substr($head, 0, 4) === 'RIFF' && substr($head, 8, 4) === 'WEBP');
+      if (!$isImage) continue;
+      $nm = 'cat_' . bin2hex(random_bytes(5)) . '.' . $ext;
+      if (!shv_store_upload($files['tmp_name'][$fi], $dir . '/' . $nm)) continue;
+      $urls[] = '/uploads/catalogue/' . $batchId . '/' . $nm;
+    }
+    if (!$urls) jout(400, ['error' => 'No valid image accepted (jpg/png/webp, ≤8 MB each, image content checked)']);
+    jout(200, ['urls' => $urls, 'batchId' => $batchId]);
+  }
+
+  if ($route === 'admin/catalogue/import' && $method === 'POST') {
+    $adm = need_admin($db);
+    rate_block($db, 'cat-import', (string)($adm['id'] ?? 'admin'), 120, 3600);
+    $b = body_json();
+    $batchId = preg_replace('/[^A-Za-z0-9_\-]/', '', (string)($b['batchId'] ?? ''));
+    if ($batchId === '') jout(400, ['error' => 'batchId required']);
+    $known = false;
+    foreach ($db['catalogBatches'] as $cb) if (is_array($cb) && ($cb['id'] ?? '') === $batchId) { $known = true; break; }
+    if (!$known) jout(404, ['error' => 'Batch not found — create the batch first']);
+    $items = is_array($b['items'] ?? null) ? $b['items'] : [];
+    if (!count($items)) jout(400, ['error' => 'items array required']);
+    if (count($items) > 200) jout(400, ['error' => 'Too many items in one call (max 200 per chunk — the batch worker loops)']);
+    $imported = [];
+    $rejected = [];
+    foreach ($items as $ii => $it) {
+      if (!is_array($it)) { $rejected[] = ['index' => $ii, 'error' => 'item must be an object']; continue; }
+      /* ── standing law: weight / purity / price facts come from the owner's
+         sheet or tags. The importer REJECTS rows that do not declare them —
+         nothing is ever invented or defaulted here. ── */
+      $wsrc  = trim((string)($it['weightSource'] ?? ''));
+      $purity = trim((string)($it['purity'] ?? ''));
+      $w = $it['weightG'] ?? null;
+      if (!is_numeric($w) || (float)$w <= 0) {
+        $rejected[] = ['index' => $ii, 'error' => 'weightG must be > 0 and taken from the owner sheet/tag — weights are NEVER invented']; continue;
+      }
+      if ($purity === '') {
+        $rejected[] = ['index' => $ii, 'error' => 'purity must come from the owner sheet/tag — purity is NEVER invented']; continue;
+      }
+      if ($wsrc === '') {
+        $rejected[] = ['index' => $ii, 'error' => 'weightSource required — record which owner sheet/tag the weight came from']; continue;
+      }
+      if (trim((string)($it['name'] ?? '')) === '') {
+        $rejected[] = ['index' => $ii, 'error' => 'name required']; continue;
+      }
+      shv_sanitize_product_media($it);
+      if (empty($it['images'])) {
+        $rejected[] = ['index' => $ii, 'error' => 'at least one image URL required (upload first)']; continue;
+      }
+      $prod = shv_sanitize_product_fields($it);
+      $prod['id'] = uid('p');
+      $prod['createdAt'] = now_iso();
+      $prod['active'] = false;
+      $prod['status'] = 'pending_review';
+      $prod['batchId'] = $batchId;
+      $prod['purity'] = mb_substr($purity, 0, 20);
+      $prod['weightSource'] = mb_substr($wsrc, 0, 120);
+      $prod['rating'] = 5.0;
+      $prod['reviews'] = 0;
+      if (!array_key_exists('stock', $it)) $prod['stock'] = 1;   // unique pieces by default
+      $db['products'][] = $prod;
+      $imported[] = ['id' => $prod['id'], 'name' => $prod['name']];
+    }
+    shv_catalog_refresh_batches($db);
+    audit_log($db, 'catalogue.import', ['batchId' => $batchId, 'imported' => count($imported), 'rejected' => count($rejected)]);
+    db_save($DB_FILE, $db);
+    jout(200, ['imported' => count($imported), 'items' => $imported, 'rejected' => $rejected, 'batches' => $db['catalogBatches']]);
+  }
+
+  if ($route === 'admin/catalogue/queue' && $method === 'GET') {
+    need_admin($db);
+    $filter = (string)($_GET['status'] ?? 'pending_review');
+    if (!in_array($filter, ['pending_review', 'live', 'skipped', 'all'], true)) $filter = 'pending_review';
+    $batchF = preg_replace('/[^A-Za-z0-9_\-]/', '', (string)($_GET['batchId'] ?? ''));
+    $items = [];
+    foreach (($db['products'] ?? []) as $p) {
+      if (!is_array($p)) continue;
+      $st = (string)($p['status'] ?? 'live');
+      if ($filter !== 'all' && $st !== $filter) continue;
+      if ($batchF !== '' && (string)($p['batchId'] ?? '') !== $batchF) continue;
+      $items[] = $p;
+    }
+    $batches = [];
+    foreach (($db['catalogBatches'] ?? []) as $bb) {
+      if (!is_array($bb) || ($bb['id'] ?? '') === '') continue;
+      $batches[] = shv_catalog_batch_view($bb, $db['products'] ?? []);
+    }
+    jout(200, ['items' => $items, 'batches' => $batches, 'filter' => $filter]);
+  }
+
+  if ($route === 'admin/catalogue/batches' && $method === 'GET') {
+    need_admin($db);
+    $batches = [];
+    foreach (($db['catalogBatches'] ?? []) as $bb) {
+      if (!is_array($bb) || ($bb['id'] ?? '') === '') continue;
+      $batches[] = shv_catalog_batch_view($bb, $db['products'] ?? []);
+    }
+    jout(200, ['batches' => $batches]);
+  }
+
+  if ($route === 'admin/catalogue/approve' && $method === 'POST') {
+    $adm = need_admin($db);
+    $b = body_json();
+    $ids = is_array($b['ids'] ?? null) ? array_values($b['ids']) : [];
+    $batchAll = preg_replace('/[^A-Za-z0-9_\-]/', '', (string)($b['batchId'] ?? ''));
+    $all = !empty($b['all']) && $batchAll !== '';
+    if (!$ids && !$all) jout(400, ['error' => 'ids[] or {batchId, all:true} required']);
+    $published = [];
+    foreach ($db['products'] as &$p) {
+      if (!is_array($p)) continue;
+      $pid = (string)($p['id'] ?? '');
+      $hit = $all
+        ? ((string)($p['batchId'] ?? '') === $batchAll && (string)($p['status'] ?? '') === 'pending_review')
+        : in_array($pid, $ids, true);
+      if (!$hit) continue;
+      $p['active'] = true;
+      $p['status'] = 'live';
+      $p['approvedAt'] = now_iso();
+      $p['approvedBy'] = (string)($adm['name'] ?? 'admin');
+      $published[] = $pid;
+    }
+    unset($p);
+    shv_catalog_refresh_batches($db);
+    if ($published) {
+      audit_log($db, 'catalogue.approve', ['count' => count($published), 'batchId' => $batchAll, 'ids' => array_slice($published, 0, 50)]);
+      db_save($DB_FILE, $db);
+    }
+    jout(200, ['published' => $published, 'batches' => $db['catalogBatches']]);
+  }
+
+  if ($route === 'admin/catalogue/skip' && $method === 'POST') {
+    $adm = need_admin($db);
+    $b = body_json();
+    $ids = is_array($b['ids'] ?? null) ? array_values($b['ids']) : [];
+    if (!$ids) jout(400, ['error' => 'ids[] required']);
+    $skipped = [];
+    foreach ($db['products'] as &$p) {
+      if (!is_array($p)) continue;
+      $pid = (string)($p['id'] ?? '');
+      if (!in_array($pid, $ids, true)) continue;
+      $p['active'] = false;
+      $p['status'] = 'skipped';
+      $skipped[] = $pid;
+    }
+    unset($p);
+    shv_catalog_refresh_batches($db);
+    if ($skipped) {
+      audit_log($db, 'catalogue.skip', ['count' => count($skipped), 'ids' => array_slice($skipped, 0, 50)]);
+      db_save($DB_FILE, $db);
+    }
+    jout(200, ['skipped' => $skipped, 'batches' => $db['catalogBatches']]);
+  }
+
+  /* ═══ v182 · billing sync bridge ═══════════════════════════════════════
+     The showroom billing app (public_html/billing/) posts stock movements and
+     reads stock snapshots over HMAC-signed calls — stock changes then flow
+     into Hostinger MySQL through the ordinary mirror-on-save path.
+     Contract: docs/BILLING-SYNC-CONTRACT.md. The shared secret lives ONLY in
+     settings.billingSyncSecret (owner-pasted in Admin → Settings); until it is
+     set, every call answers 403 and the bridge stays dark. */
+  if ($route === 'billing/stock' && $method === 'GET') {
+    shv_billing_sync_auth($db);
+    $limit = clampn((int)($_GET['limit'] ?? 500), 1, 5000);
+    $offset = max(0, (int)($_GET['offset'] ?? 0));
+    $q = trim((string)($_GET['sku'] ?? ''));
+    $rows = [];
+    foreach (($db['products'] ?? []) as $p) {
+      if (!is_array($p)) continue;
+      if ($q !== '' && strcasecmp((string)($p['sku'] ?? ''), $q) !== 0) continue;
+      $rows[] = ['id' => (string)($p['id'] ?? ''), 'sku' => (string)($p['sku'] ?? ''),
+        'name' => (string)($p['name'] ?? ''), 'category' => (string)($p['category'] ?? ''),
+        'purity' => (string)($p['purity'] ?? ''), 'weightG' => (float)($p['weightG'] ?? 0),
+        'stock' => (int)($p['stock'] ?? 0), 'active' => !empty($p['active']),
+        'status' => (string)($p['status'] ?? 'live')];
+    }
+    $total = count($rows);
+    $rows = array_slice($rows, $offset, $limit);
+    jout(200, ['products' => $rows, 'total' => $total, 'offset' => $offset, 'limit' => $limit, 'asOf' => now_iso()]);
+  }
+
+  if ($route === 'billing/stock-movement' && $method === 'POST') {
+    $b = shv_billing_sync_auth($db);
+    rate_block($db, 'billing-sync', client_ip(), 240, 3600);
+    $mid = preg_replace('/[^A-Za-z0-9_\-]/', '', (string)($b['movementId'] ?? ''));
+    if ($mid === '' || strlen($mid) > 64) jout(400, ['error' => 'movementId required (idempotency key — ≤64 chars)']);
+    if (isset($db['billingMovements'][$mid])) {
+      jout(200, ['ok' => true, 'duplicate' => true, 'movementId' => $mid, 'result' => $db['billingMovements'][$mid]]);
+    }
+    $delta = $b['delta'] ?? null;
+    if (!is_numeric($delta) || (int)$delta != $delta || (int)$delta === 0)
+      jout(400, ['error' => 'delta must be a non-zero whole number (units moved: negative = sold/issued)']);
+    $delta = (int)$delta;
+    if (abs($delta) > 100000) jout(400, ['error' => 'delta out of range (±100000)']);
+    $bySku = trim((string)($b['sku'] ?? '')) !== '';
+    $byId = trim((string)($b['productId'] ?? '')) !== '';
+    if (!$bySku && !$byId) jout(400, ['error' => 'productId or sku required']);
+    $needle = $byId ? trim((string)$b['productId']) : trim((string)$b['sku']);
+    $found = null;
+    foreach ($db['products'] as $pi => $p) {
+      if (!is_array($p)) continue;
+      $match = $byId ? ((string)($p['id'] ?? '') === $needle)
+                     : (strcasecmp((string)($p['sku'] ?? ''), $needle) === 0);
+      if ($match) { $found = $pi; break; }
+    }
+    if ($found === null) jout(404, ['error' => 'Product not found for ' . ($byId ? 'productId ' : 'sku ') . mb_substr($needle, 0, 60)]);
+    $p = &$db['products'][$found];
+    $before = (int)($p['stock'] ?? 0);
+    $p['stock'] = clampn($before + $delta, 0, 10000000);
+    $result = ['productId' => (string)($p['id'] ?? ''), 'sku' => (string)($p['sku'] ?? ''),
+      'stockBefore' => $before, 'stockAfter' => (int)$p['stock'], 'delta' => $delta,
+      'ref' => mb_substr((string)($b['ref'] ?? ''), 0, 64),
+      'note' => mb_substr((string)($b['note'] ?? ''), 0, 200), 'at' => now_iso()];
+    unset($p);
+    $db['billingMovements'][$mid] = $result;
+    if (count($db['billingMovements']) > 5000)
+      $db['billingMovements'] = array_slice($db['billingMovements'], -4000, null, true);
+    audit_log($db, 'billing.stock-movement', ['movementId' => $mid, 'delta' => $delta, 'productId' => $result['productId']]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'movementId' => $mid, 'result' => $result]);
   }
 
   /* ── making charges ── */
@@ -5017,7 +5487,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 181,
+      'rel'   => 182,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -7468,6 +7938,15 @@ try {
       elseif (!preg_match('/^[^\s]{16,160}$/', $v))
         jout(400, ['error' => 'Cashfree Secret Key looks invalid (paste the full secret key from API Keys — no spaces).']);
       else $setBody['cfSecretKey'] = $v;
+    }
+    /* v182 — billing sync key: write-only like cfSecretKey (blank keeps the
+       saved key). 16–128 chars of [A-Za-z0-9_-]; generate a long random one. */
+    if (array_key_exists('billingSyncSecret', $setBody)) {
+      $v = trim((string)$setBody['billingSyncSecret']);
+      if ($v === '') { unset($setBody['billingSyncSecret']); }   // blank never wipes the saved key
+      elseif (!preg_match('/^[A-Za-z0-9_\-]{16,128}$/', $v))
+        jout(400, ['error' => 'Billing sync key must be 16–128 chars (letters, digits, dash, underscore) — paste a long random one']);
+      else $setBody['billingSyncSecret'] = $v;
     }
     if (array_key_exists('cfEnv', $setBody) && !in_array((string)$setBody['cfEnv'], ['sandbox', 'production'], true))
       jout(400, ['error' => 'Cashfree environment must be sandbox or production.']);

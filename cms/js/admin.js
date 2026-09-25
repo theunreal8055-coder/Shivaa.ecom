@@ -49,6 +49,11 @@ async function renderAdmin(view, q) {
   if (tab === 'orders') { try { orders = (await api('/api/orders')).orders; window.ShivaaAdmin._orderMap = Object.fromEntries(orders.map(o => [o.id, o])); } catch (e) {} }
   let catalogs = [];
   if (tab === 'catalogs') { try { catalogs = (await api('/api/catalogs')).catalogs; } catch (e) {} }
+  /* v182 — auto-catalogue review queue (Phase 4): fetched for the intake tab
+     and overview so the sidebar badge shows the owner's pending count. */
+  let intakeQ = { items: [], batches: [] };
+  if (tab === 'intake' || tab === 'overview') { try { intakeQ = await api('/api/admin/catalogue/queue'); } catch (e) {} }
+  const intakePending = (intakeQ.items || []).length;
   let users = [];
   if (tab === 'customers') { try { users = (await api('/api/admin/users')).users; } catch (e) {} }
   let leads = { requests: [] };
@@ -87,12 +92,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['intake','📦','Catalogue Intake'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'intake' && intakePending ? ` <span class="cnt">${intakePending}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',intake:'Catalogue Intake & Review Queue',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${(state.rates?.source === 'live' || state.rates?.source === 'live-mcx') ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${state.rates?.source === 'live-mcx' ? 'official MCX' : esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -919,6 +924,63 @@ function v180DbStrip() {
       </div></div>`;
   }
 
+  /* ── v182 · CATALOGUE INTAKE & REVIEW QUEUE (Phase 4) ── */
+  if (tab === 'intake') {
+    const items = intakeQ.items || [], batches = intakeQ.batches || [];
+    const I = window.ShivaaAdmin._intake = window.ShivaaAdmin._intake || { urls: [], batchId: '' };
+    if (!I.batchId && batches.length) I.batchId = batches[batches.length - 1].id;
+    const bOpts = batches.map(b => `<option value="${esc(b.id)}" ${b.id === I.batchId ? 'selected' : ''}>${esc(b.label)} - ${esc(b.status)} (${b.counts.pending} pending)</option>`).join('');
+    const tmpl = [{ name: '22K Rani Haar - kundan', sku: 'RH-001', category: 'necklaces', metal: 'Gold', purity: '22K', weightG: 41.25, lessWeightG: 0, mcScheme: 'perGram', mcValue: 350, stoneValue: 12000, stoneDesc: 'kundan set', images: (I.urls[0] ? [I.urls[0]] : ['/uploads/catalogue/BATCH/shot.jpg']), desc: 'Hand-set kundan rani haar in certified 22K gold.', tags: ['bridal'], weightSource: 'owner sheet row 12' }];
+    body.innerHTML = `
+      <div class="adm-card" style="border-left:4px solid var(--gold,#d4af37)">
+        <h3>📦 Catalogue intake &amp; review queue</h3>
+        <p class="partner-note" style="font-size:12.5px">House laws: <b>titles, descriptions, tags</b> are written by the intake pass; <b>weight, purity and price inputs come ONLY from your sheet/tags</b> — the importer rejects rows that do not declare them. Every design lands <b>staged</b> (hidden from the shop) and goes live only after your <b>Approve</b> tap.</p>
+      </div>
+      <div class="adm-card"><h3>Batches ${batches.length ? '' : '— create the first one'}</h3>
+        <form class="form-grid" style="grid-template-columns:2fr auto;align-items:end" onsubmit="ShivaaAdmin.intakeCreateBatch(event)">
+          <div class="fld"><label>Batch label *</label><input name="label" placeholder="Hitesh bhai rings - 67 pcs (Sep drop)" required></div>
+          <button class="btn btn-primary btn-sm">Create batch</button>
+        </form>
+        ${batches.length ? `<div class="adm-table-wrap" style="margin-top:10px"><table class="adm-table"><thead><tr><th>Batch</th><th>Status</th><th class="num">Total</th><th class="num">Pending</th><th class="num">Live</th><th class="num">Skipped</th></tr></thead>
+          <tbody>${batches.slice().reverse().map(b => `<tr><td><b>${esc(b.label)}</b><br><small style="color:var(--ink-3)">${esc(b.id)} · ${esc(String(b.createdAt || '').slice(0, 16).replace('T', ' '))}</small></td><td>${esc(b.status)}</td><td class="num">${b.counts.total}</td><td class="num"><b>${b.counts.pending}</b></td><td class="num">${b.counts.live}</td><td class="num">${b.counts.skipped}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      </div>
+      <div class="grid2">
+        <div class="adm-card"><h3>Step 1 — upload the photos</h3>
+          <form class="form-grid" style="grid-template-columns:1fr;gap:8px" onsubmit="ShivaaAdmin.intakeUpload(event)">
+            <div class="fld"><label>Batch</label><select name="batchId" class="sortsel" style="width:100%;border-radius:12px" required>${bOpts || '<option value="">create a batch first</option>'}</select></div>
+            <div class="fld"><label>Design photos (jpg/png/webp · ≤8 MB each · up to 24 per run)</label><input name="files" type="file" multiple accept=".jpg,.jpeg,.png,.webp"></div>
+            <button class="btn btn-primary btn-sm" style="justify-self:start">Upload photos</button>
+          </form>
+          ${I.urls.length ? `<div class="fld" style="margin-top:8px"><label>Uploaded URLs (use them in the import JSON)</label><textarea id="intakeUrls" rows="3" readonly>${esc(I.urls.join('\n'))}</textarea></div>` : ''}
+        </div>
+        <div class="adm-card"><h3>Step 2 — import the metadata (JSON)</h3>
+          <form class="form-grid" style="grid-template-columns:1fr;gap:8px" onsubmit="ShivaaAdmin.intakeImport(event)">
+            <div class="fld"><label>Batch</label><select name="batchId" class="sortsel" style="width:100%;border-radius:12px" required>${bOpts || '<option value="">create a batch first</option>'}</select></div>
+            <div class="fld"><label>Items (JSON array — weightG, purity &amp; weightSource are REQUIRED on every row)</label>
+              <textarea name="items" rows="10" spellcheck="false" required>${esc(JSON.stringify(tmpl, null, 2))}</textarea></div>
+            <button class="btn btn-primary btn-sm" style="justify-self:start">Import staged (hidden)</button>
+          </form>
+        </div>
+      </div>
+      <div class="adm-card"><h3>Step 3 — review${items.length ? ' · ' + items.length + ' pending' : ''} ${batches.length ? `<button class="btn btn-gold btn-sm" style="float:right" onclick="ShivaaAdmin.intakeApproveAll(${jsArg(I.batchId)})">Batch publish — approve all pending</button>` : ''}</h3>
+        ${items.length ? `<div style="display:grid;gap:10px">${items.map(it => `
+          <div style="display:flex;gap:14px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;align-items:center;flex-wrap:wrap">
+            <img src="${esc((it.images || [])[0] || '/images/logo.png')}" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:10px;border:1px solid var(--line)" onerror="this.src='/images/logo.png'">
+            <div style="flex:1;min-width:220px">
+              <b>${esc(it.name || '')}</b> <small style="color:var(--ink-3)">${esc(it.sku || it.id || '')}</small><br>
+              <small style="color:var(--ink-3)">${esc(it.category || '')} · ${esc(it.purity || '')} · ${Number(it.weightG || 0).toFixed(3)} g · ${esc(it.status || 'pending_review')}</small><br>
+              <small style="color:var(--ink-3)">${esc(String(it.desc || '').slice(0, 140))}${String(it.desc || '').length > 140 ? '…' : ''}</small><br>
+              <span class="src-badge src-sim" style="margin-top:4px;display:inline-block">⚖ weight source: ${esc(it.weightSource || '—')}</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.intakeApprove(${jsArg(it.id || '')})">Approve → live</button>
+              <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.intakeSkip(${jsArg(it.id || '')})">Skip</button>
+            </div>
+          </div>`).join('')}</div>`
+        : '<p style="color:var(--ink-3);font-size:13.5px">Queue empty — staged designs appear here for your Approve / Skip tap.</p>'}
+      </div>`;
+  }
+
   if (tab === 'settings') {
     const S = state.settings;
     body.innerHTML = `<div class="adm-card" style="border-left:4px solid var(--gold,#d4af37)">
@@ -930,6 +992,14 @@ function v180DbStrip() {
         <a href="/billing/" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none">
           Open Billing Software &#8599;
         </a>
+      </div>
+      <div style="border-top:1px dashed var(--line);margin-top:12px;padding-top:12px">
+        <form class="form-grid" style="grid-template-columns:2fr auto;align-items:end" onsubmit="ShivaaAdmin.saveBillingSync(event)">
+          <div class="fld"><label>Stock-sync key <small>(v182 — shared HMAC secret for the billing app&rsquo;s stock movements)</small></label>
+            <input name="billingSyncSecret" type="password" autocomplete="new-password" placeholder="${S.billingSyncSecret ? '•••• saved — leave blank to keep' : 'paste a long random key (16+ chars)'}"></div>
+          <button class="btn btn-outline btn-sm">Save sync key</button>
+        </form>
+        <p style="margin:8px 0 0;font-size:12px;color:var(--ink-3,#666)">Showroom billing posts stock movements and reads stock over signed calls (contract: <code>docs/BILLING-SYNC-CONTRACT.md</code>). The bridge stays dark (403) until a key is saved here.</p>
       </div>
     </div>
     <div class="adm-card"><h3>Store settings</h3>
@@ -1929,6 +1999,87 @@ window.ShivaaAdmin.saveSettings = async e => {
   try {
     const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ phone: g('phone'), whatsapp: g('whatsapp').replace(/\D/g, ''), email: g('email'), address: g('address'), freeShipAbove: +g('freeShipAbove'), shippingFee: +g('shippingFee'), jaipurPremium: +g('jaipurPremium'), gold24Premium: +g('gold24Premium'), gold22Premium: +g('gold22Premium'), jaipurSilverPremium: +g('jaipurSilverPremium'), gstApi: { key: g('gstKey').trim() }, announcements: g('announcements').split('\n').filter(Boolean) }) });
     Object.assign(state.settings, s); toast('Settings saved');
+  } catch (err) { toast(err.message, 'err'); }
+};
+/* ── v182 · auto-catalogue intake & review queue (Phase 4) ── */
+window.ShivaaAdmin._intake = window.ShivaaAdmin._intake || { urls: [], batchId: '' };
+window.ShivaaAdmin.intakeCreateBatch = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try {
+    const r = await api('/api/admin/catalogue/batch', { method: 'POST', body: JSON.stringify({ label: String(fd.get('label') || '') }) });
+    toast('Batch created ✦');
+    window.ShivaaAdmin._intake.batchId = r.batch.id;
+    renderAdmin($('#view'), new URLSearchParams('tab=intake'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.intakeUpload = async e => {
+  e.preventDefault();
+  const src = new FormData(e.target);
+  const batchId = String(src.get('batchId') || '');
+  const fi = e.target.querySelector('[name="files"]');
+  if (!batchId) { toast('Create a batch first', 'err'); return; }
+  if (!fi || !fi.files.length) { toast('Choose photos first', 'err'); return; }
+  const fd = new FormData();
+  fd.append('batchId', batchId);
+  [...fi.files].forEach(f => fd.append('files[]', f));
+  try {
+    const r = await api('/api/admin/catalogue/upload', { method: 'POST', body: fd, timeout: 120000 });
+    const I = window.ShivaaAdmin._intake;
+    I.batchId = batchId;
+    I.urls = (I.urls || []).concat(r.urls || []);
+    toast((r.urls || []).length + ' photo(s) uploaded ✦');
+    renderAdmin($('#view'), new URLSearchParams('tab=intake'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.intakeImport = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const batchId = String(fd.get('batchId') || '');
+  let items;
+  try { items = JSON.parse(String(fd.get('items') || '[]')); } catch (err) { toast('Items must be valid JSON', 'err'); return; }
+  if (!Array.isArray(items)) { toast('Items must be a JSON array', 'err'); return; }
+  try {
+    const r = await api('/api/admin/catalogue/import', { method: 'POST', body: JSON.stringify({ batchId, items }) });
+    window.ShivaaAdmin._intake.batchId = batchId;
+    if ((r.rejected || []).length) {
+      toast('Staged ' + r.imported + ' · rejected ' + r.rejected.length + ': ' + r.rejected.slice(0, 2).map(x => '#' + x.index + ' ' + x.error).join(' | '), 'err');
+    } else {
+      toast('Staged ' + r.imported + ' design(s) — hidden until you approve ✦');
+    }
+    renderAdmin($('#view'), new URLSearchParams('tab=intake'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.intakeApprove = async id => {
+  try {
+    const r = await api('/api/admin/catalogue/approve', { method: 'POST', body: JSON.stringify({ ids: [id] }) });
+    toast((r.published || []).length ? 'Approved — now live ✦' : 'Already resolved');
+    renderAdmin($('#view'), new URLSearchParams('tab=intake'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.intakeSkip = async id => {
+  try {
+    await api('/api/admin/catalogue/skip', { method: 'POST', body: JSON.stringify({ ids: [id] }) });
+    toast('Skipped — kept staged, not live');
+    renderAdmin($('#view'), new URLSearchParams('tab=intake'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.intakeApproveAll = async batchId => {
+  if (!batchId) { toast('Select a batch first', 'err'); return; }
+  try {
+    const r = await api('/api/admin/catalogue/approve', { method: 'POST', body: JSON.stringify({ batchId, all: true }) });
+    toast((r.published || []).length ? 'Batch published — ' + r.published.length + ' live ✦' : 'Nothing pending in this batch');
+    renderAdmin($('#view'), new URLSearchParams('tab=intake'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+/* v182 — billing sync key (the bridge answers 403 until the owner pastes one) */
+window.ShivaaAdmin.saveBillingSync = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try {
+    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ billingSyncSecret: String(fd.get('billingSyncSecret') || '').trim() }) });
+    Object.assign(state.settings, s); toast('Billing sync key saved');
+    renderAdmin($('#view'), new URLSearchParams('tab=settings'));
   } catch (err) { toast(err.message, 'err'); }
 };
 /* ── v128 · payments settings (Cashfree hosted checkout) ── */

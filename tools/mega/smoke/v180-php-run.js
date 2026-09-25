@@ -99,15 +99,17 @@ async function test(id, name, f) { try { await f(); pass++; console.log(`PASS ${
         'images'=>['/uploads/a.jpg','/uploads/b.jpg'],'desc'=>'A fine QA ring','rating'=>4.7,'reviews'=>12,'stock'=>8,
         'active'=>true,'tags'=>['new'],'sizes'=>[]];
       $v = shv_sql_product_values($row);
-      $back = json_decode($v[18], true);
+      $back = json_decode($v[count($v) - 1], true);
       echo ($back === $row) ? 'IDENTICAL' : 'DRIFT';
       $h1 = shv_product_row_hash($row); $h2 = shv_product_row_hash($row);
       echo '|' . ($h1 === $h2 ? 'STABLE' : 'UNSTABLE');
       $row2 = $row; $row2['stock'] = 7;
       echo '|' . (shv_product_row_hash($row2) !== $h1 ? 'SENSITIVE' : 'BLIND');
-      echo '|' . (count($v) === 19 ? 'COLS19' : 'COLS' . count($v));
+      echo '|' . (count($v) >= 19 ? 'COLS' . count($v) : 'COLS-FEW');
     `);
-    assert.equal(r.body, 'IDENTICAL|STABLE|SENSITIVE|COLS19', r.body);
+    // layout-tolerant (v182 grew the row: +status, +batch_id before data_json):
+    // data_json stays the LAST slot and round-trips byte-identically.
+    assert.match(r.body, /^IDENTICAL\|STABLE\|SENSITIVE\|COLS\d+$/, r.body);
   });
 
   await test('X06', 'version db payload leaks no credentials (keys + raw body scan)', async () => {
