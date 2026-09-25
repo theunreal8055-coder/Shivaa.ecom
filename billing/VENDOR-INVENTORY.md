@@ -1,4 +1,4 @@
-# Billing vendor triage — 2026-09-25T06:43:11Z
+# Billing vendor triage — 2026-09-25T06:47:00Z
 
 Release tag: `billing-vendor-drop-1` · runner: Linux · ref: arena/01a0d70e-shivaa-ecom
 
@@ -11,9 +11,9 @@ RESULT: ok
 + gh release download billing-vendor-drop-1 -D /tmp/vendor --clobber
 + ls -la /tmp/vendor
 total 227212
-drwxr-xr-x  2 runner runner      4096 Sep 25 06:43 .
-drwxrwxrwt 14 root   root        4096 Sep 25 06:43 ..
--rw-r--r--  1 runner runner 232656032 Sep 25 06:43 lavenderblush-locust-296462.hostingersite.com.1.zip
+drwxr-xr-x  2 runner runner      4096 Sep 25 06:47 .
+drwxrwxrwt 14 root   root        4096 Sep 25 06:47 ..
+-rw-r--r--  1 runner runner 232656032 Sep 25 06:47 lavenderblush-locust-296462.hostingersite.com.1.zip
 + sha256sum /tmp/vendor/lavenderblush-locust-296462.hostingersite.com.1.zip
 4153c950d7e6357d4f322f3059bec98af001702eb3b7bcd4235367bcf414c40a  /tmp/vendor/lavenderblush-locust-296462.hostingersite.com.1.zip
 ```
@@ -34,8 +34,8 @@ RESULT: ok
 extracted files: 4255
 + ls -la /tmp/x
 total 16
-drwxr-xr-x  4 runner runner 4096 Sep 25 06:43 .
-drwxrwxrwt 15 root   root   4096 Sep 25 06:43 ..
+drwxr-xr-x  4 runner runner 4096 Sep 25 06:47 .
+drwxrwxrwt 15 root   root   4096 Sep 25 06:47 ..
 -rw-r--r--  1 runner runner    0 Aug 18 07:22 DO_NOT_UPLOAD_HERE
 drwxr-xr-x  7 runner runner 4096 Aug 18 07:36 hbuilds
 drwxr-xr-x  2 runner runner 4096 Aug 18 07:36 public_html
@@ -57,8 +57,8 @@ RESULT: ok
 
 ```
 total 16
-drwxr-xr-x  4 runner runner 4096 Sep 25 06:43 .
-drwxrwxrwt 15 root   root   4096 Sep 25 06:43 ..
+drwxr-xr-x  4 runner runner 4096 Sep 25 06:47 .
+drwxrwxrwt 15 root   root   4096 Sep 25 06:47 ..
 -rw-r--r--  1 runner runner    0 Aug 18 07:22 DO_NOT_UPLOAD_HERE
 drwxr-xr-x  7 runner runner 4096 Aug 18 07:36 hbuilds
 drwxr-xr-x  2 runner runner 4096 Aug 18 07:36 public_html
@@ -217,6 +217,86 @@ RESULT: ok
 408 ./hbuilds/versions/01a013cb-b9f6-721a-b983-f56b5fd0d0cb/nodejs/node_modules/caniuse-lite/data/features/credential-management.js
 ```
 
+## App source tree (hbuilds/last-source, minus build output)
+
+RESULT: ok
+
+```
+197 ./.cursor/hooks/state/continual-learning.json
+362 ./.env
+63 ./.gitignore
+5911 ./README.md
+2723 ./app/(app)/expenses/expense-form.tsx
+3268 ./app/(app)/expenses/page.tsx
+4552 ./app/(app)/inventory/item-form.tsx
+5548 ./app/(app)/inventory/page.tsx
+10772 ./app/(app)/invoices/[id]/page.tsx
+1569 ./app/(app)/invoices/[id]/payment-form.tsx
+1568 ./app/(app)/invoices/new/page.tsx
+4801 ./app/(app)/invoices/page.tsx
+4467 ./app/(app)/karigar/job-form.tsx
+3978 ./app/(app)/karigar/page.tsx
+2208 ./app/(app)/khata/[id]/entry-form.tsx
+6959 ./app/(app)/khata/[id]/page.tsx
+3849 ./app/(app)/khata/page.tsx
+726 ./app/(app)/layout.tsx
+7194 ./app/(app)/metal/[id]/page.tsx
+1116 ./app/(app)/metal/new/page.tsx
+2644 ./app/(app)/metal/page.tsx
+5915 ./app/(app)/page.tsx
+7932 ./app/(app)/parties/forms.tsx
+5888 ./app/(app)/parties/page.tsx
+6310 ./app/(app)/reports/page.tsx
+2465 ./app/(app)/settings/forms.tsx
+1571 ./app/(app)/settings/page.tsx
+1682 ./app/(app)/vault/import-form.tsx
+3546 ./app/(app)/vault/page.tsx
+1595 ./app/api/backup/route.ts
+4431 ./app/api/export/[entity]/route.ts
+1508 ./app/globals.css
+917 ./app/layout.tsx
+802 ./app/login/form.tsx
+537 ./app/login/page.tsx
+1047 ./app/setup/form.tsx
+566 ./app/setup/page.tsx
+19537 ./components/invoice-builder.tsx
+13661 ./components/metal-builder.tsx
+1025 ./components/rates-form.tsx
+6732 ./components/shell.tsx
+9914 ./components/ui.tsx
+189 ./drizzle.config.ts
+2694 ./lib/actions/auth.ts
+1484 ./lib/actions/expenses.ts
+451 ./lib/actions/helpers.ts
+1830 ./lib/actions/inventory.ts
+6312 ./lib/actions/invoices.ts
+2127 ./lib/actions/karigar.ts
+1569 ./lib/actions/khata.ts
+3185 ./lib/actions/metal.ts
+4015 ./lib/actions/parties.ts
+1541 ./lib/actions/settings.ts
+6437 ./lib/actions/vault.ts
+1589 ./lib/auth.ts
+521 ./lib/db/index.ts
+8229 ./lib/db/schema.ts
+6543 ./lib/utils.ts
+1032 ./middleware.ts
+262 ./next-env.d.ts
+104 ./next.config.ts
+106465 ./package-lock.json
+763 ./package.json
+83 ./postcss.config.mjs
+562 ./tsconfig.json
+```
+
+## public_html contents
+
+RESULT: ok
+
+```
+559 ./.htaccess
+```
+
 ## Stage the code-only subset
 
 RESULT: ok
@@ -225,24 +305,94 @@ RESULT: ok
 + rm -rf /tmp/dest
 + mkdir -p /tmp/dest
 + cd /tmp/x
-+ find . -type f -size -1M '(' -name '*.php' -o -name '*.js' -o -name '*.mjs' -o -name '*.css' -o -name '*.scss' -o -name '*.html' -o -name '*.htm' -o -name '*.json' -o -name '*.sql' -o -name '*.md' -o -name '*.yml' -o -name '*.yaml' -o -name '*.xml' -o -name '*.ini' -o -name '*.twig' -o -name '*.sh' -o -name .htaccess ')' -not -path '*/node_modules/*' -not -path '*/vendor/*' -not -path '*/.git/*' -not -path '*/uploads/*' -not -path '*/images/*' -not -path '*/fonts/*' -not -path '*/cache/*'
++ find . -type f -size -1048576c '(' -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.mjs' -o -name '*.cjs' -o -name '*.json' -o -name '*.css' -o -name '*.scss' -o -name '*.html' -o -name '*.md' -o -name '*.yml' -o -name '*.yaml' -o -name '*.prisma' -o -name '*.sql' -o -name '*.txt' -o -name .htaccess -o -name .gitignore ')' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/hbuilds/current/*' -not -path '*/hbuilds/versions/*' -not -path '*/.git/*'
 + sort
 + head -4000
 + grep -viE '(^|/)(config\.php|\.env[^/]*|wp-config[^/]*\.php|database\.php)$' /tmp/keep.txt
 + grep -viE 'credential|secret|\.pem$|\.key$'
-+ true
 ++ wc -l
 ++ wc -l
-+ echo 'candidates: 0  after secret filter: 0'
-candidates: 0  after secret filter: 0
++ echo 'candidates: 68  after secret filter: 68'
+candidates: 68  after secret filter: 68
 + tar -cf - -T /tmp/keep2.txt
 + tar -xf - -C /tmp/dest
 ++ find /tmp/dest -type f
 ++ wc -l
-+ echo 'staged files: 0'
-staged files: 0
++ echo 'staged files: 68'
+staged files: 68
 ++ find /tmp/dest -type f -printf '%s\n'
 ++ awk '{s+=$1} END {print s+0}'
-+ echo 'staged bytes: 0'
-staged bytes: 0
++ echo 'staged bytes: 439420'
+staged bytes: 439420
++ find /tmp/dest -type f
++ sort
++ head -80
+/tmp/dest/hbuilds/config/package-lock.json
+/tmp/dest/hbuilds/config/package.json
+/tmp/dest/hbuilds/config/preload-timestamp.js
+/tmp/dest/hbuilds/last-source/.cursor/hooks/state/continual-learning.json
+/tmp/dest/hbuilds/last-source/.gitignore
+/tmp/dest/hbuilds/last-source/README.md
+/tmp/dest/hbuilds/last-source/app/(app)/expenses/expense-form.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/expenses/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/inventory/item-form.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/inventory/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/invoices/[id]/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/invoices/[id]/payment-form.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/invoices/new/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/invoices/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/karigar/job-form.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/karigar/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/khata/[id]/entry-form.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/khata/[id]/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/khata/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/layout.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/metal/[id]/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/metal/new/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/metal/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/parties/forms.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/parties/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/reports/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/settings/forms.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/settings/page.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/vault/import-form.tsx
+/tmp/dest/hbuilds/last-source/app/(app)/vault/page.tsx
+/tmp/dest/hbuilds/last-source/app/api/backup/route.ts
+/tmp/dest/hbuilds/last-source/app/api/export/[entity]/route.ts
+/tmp/dest/hbuilds/last-source/app/globals.css
+/tmp/dest/hbuilds/last-source/app/layout.tsx
+/tmp/dest/hbuilds/last-source/app/login/form.tsx
+/tmp/dest/hbuilds/last-source/app/login/page.tsx
+/tmp/dest/hbuilds/last-source/app/setup/form.tsx
+/tmp/dest/hbuilds/last-source/app/setup/page.tsx
+/tmp/dest/hbuilds/last-source/components/invoice-builder.tsx
+/tmp/dest/hbuilds/last-source/components/metal-builder.tsx
+/tmp/dest/hbuilds/last-source/components/rates-form.tsx
+/tmp/dest/hbuilds/last-source/components/shell.tsx
+/tmp/dest/hbuilds/last-source/components/ui.tsx
+/tmp/dest/hbuilds/last-source/drizzle.config.ts
+/tmp/dest/hbuilds/last-source/lib/actions/auth.ts
+/tmp/dest/hbuilds/last-source/lib/actions/expenses.ts
+/tmp/dest/hbuilds/last-source/lib/actions/helpers.ts
+/tmp/dest/hbuilds/last-source/lib/actions/inventory.ts
+/tmp/dest/hbuilds/last-source/lib/actions/invoices.ts
+/tmp/dest/hbuilds/last-source/lib/actions/karigar.ts
+/tmp/dest/hbuilds/last-source/lib/actions/khata.ts
+/tmp/dest/hbuilds/last-source/lib/actions/metal.ts
+/tmp/dest/hbuilds/last-source/lib/actions/parties.ts
+/tmp/dest/hbuilds/last-source/lib/actions/settings.ts
+/tmp/dest/hbuilds/last-source/lib/actions/vault.ts
+/tmp/dest/hbuilds/last-source/lib/auth.ts
+/tmp/dest/hbuilds/last-source/lib/db/index.ts
+/tmp/dest/hbuilds/last-source/lib/db/schema.ts
+/tmp/dest/hbuilds/last-source/lib/utils.ts
+/tmp/dest/hbuilds/last-source/middleware.ts
+/tmp/dest/hbuilds/last-source/next-env.d.ts
+/tmp/dest/hbuilds/last-source/next.config.ts
+/tmp/dest/hbuilds/last-source/package-lock.json
+/tmp/dest/hbuilds/last-source/package.json
+/tmp/dest/hbuilds/last-source/postcss.config.mjs
+/tmp/dest/hbuilds/last-source/tsconfig.json
+/tmp/dest/public_html/.htaccess
 ```

@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --color-vault: #0B0F19;
+  --color-panel: #131A2A;
+  --color-panel2: #182136;
+  --color-edge: #2A344A;
+  --color-gold: #D4AF37;
+  --color-goldsoft: #F0D98C;
+  --color-sky: #38BDF8;
+  --color-ink: #F8FAFC;
+  --color-mut: #8B98B4;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-script: "Great Vibes", cursive;
+}
+
+html { color-scheme: dark; }
+
+/* Keeps scrolled-to elements clear of the fixed mobile bottom nav. */
+@media (max-width: 767px) {
+  html { scroll-padding-bottom: 7rem; }
+}
+
+body {
+  background: var(--color-vault);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-edge); border-radius: 10px; }
+
+:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media print {
+  body { background: #fff !important; color: #000 !important; }
+  .no-print { display: none !important; }
+  @page { size: A4; margin: 12mm; }
+
+  /* Areas built from the dark app cards need flattening for paper. */
+  .print-plain, .print-plain * {
+    background: transparent !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+}
