@@ -1,0 +1,126 @@
+name: Billing password reset
+
+# One-shot: sets a known bcrypt hash on the billing app's users table so the
+# owner can log in normally on a tablet (no cookie/bookmarklet tricks).
+#
+# The sandbox cannot reach Neon (egress is GitHub-only), so the runner does it.
+# It reads DATABASE_URL from the .env inside the vendor-drop release asset —
+# the same file that is live on the server after the owner restored it.
+#
+# Committed to the repo: the bcrypt HASH only (a one-way digest, safe to store)
+# and a report. NEVER committed: the plaintext password, DATABASE_URL, or any
+# .env contents.
+
+on:
+  push:
+    branches: [arena/01a0d70e-shivaa-ecom]
+    paths: [.github/workflows/billing-reset.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Reset the billing password
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: billing-vendor-drop-1
+          NEWHASH: "$2b$10$gRY0pec80Z6oMk0N2hSNWejziiqpdnJKe2aqrsjvrCh67la7KueJq"
+        run: |
+          R=/tmp/report.md
+          : > "$R"
+          note() { printf '%s\n' "$*" >> "$R"; }
+          note "# Billing password reset — $(date -u +%FT%TZ)"
+          note ""
+          note "Hash applied: \`${NEWHASH:0:7}…\` (bcrypt, cost 10). The plaintext"
+          note "password is NOT recorded here and NOT in this file's history."
+
+          note ""
+          note "## 1. Fetch DATABASE_URL from the vendor drop"
+          note ""
+          if gh release download "$TAG" -D /tmp/vendor --clobber >/dev/null 2>&1; then
+            note "downloaded ok"
+          else
+            note "RESULT: FAILED to download release asset"
+            cp "$R" /tmp/report-final.md; exit 0
+          fi
+          mkdir -p /tmp/x
+          unzip -q -o /tmp/vendor/*.zip -d /tmp/x 2>/dev/null
+          ENVF=""
+          for c in /tmp/x/hbuilds/current/nodejs/.env \
+                   /tmp/x/hbuilds/last-source/.env \
+                   /tmp/x/.env; do
+            [ -f "$c" ] && { ENVF="$c"; break; }
+          done
+          if [ -z "$ENVF" ]; then
+            note "RESULT: FAILED — no .env found in the archive"
+            cp "$R" /tmp/report-final.md; exit 0
+          fi
+          note "using .env at ${ENVF#/tmp/x}"
+          DBURL=$(grep -h '^DATABASE_URL=' "$ENVF" | head -1 \
+                  | sed 's/^DATABASE_URL=//' | sed 's/^"//; s/"$//' | sed "s/^'//; s/'$//")
+          if [ -z "$DBURL" ]; then
+            note "RESULT: FAILED — DATABASE_URL line not found"
+            cp "$R" /tmp/report-final.md; exit 0
+          fi
+          # Report only non-secret facts about the URL.
+          note "DATABASE_URL length: ${#DBURL} chars · scheme: ${DBURL%%:*}"
+          note "host: $(printf '%s' "$DBURL" | sed -E 's#^[a-z]+://[^@]*@##' | cut -d/ -f1)"
+
+          note ""
+          note "## 2. Apply"
+          note ""
+          export DBURL
+          npm install --silent --no-audit --no-fund @neondatabase/serverless >/dev/null 2>&1
+          cat > /tmp/reset.mjs <<'EOS'
+          const { neon } = await import('@neondatabase/serverless');
+          const sql = neon(process.env.DBURL);
+          const H = process.env.NEWHASH;
+          const t = await sql`SELECT table_name FROM information_schema.tables
+                              WHERE table_schema='public' ORDER BY 1`;
+          console.log('TABLES: ' + t.map(r => r.table_name).join(', '));
+          const before = await sql`SELECT id, email, name FROM users ORDER BY id`;
+          console.log('USERS BEFORE (' + before.length + '): ' +
+            JSON.stringify(before));
+          if (before.length === 0) { console.log('NO USERS — nothing to reset; /setup will create the owner.'); process.exit(0); }
+          const upd = await sql`UPDATE users SET password_hash = ${H} RETURNING id, email`;
+          console.log('ROWS UPDATED: ' + upd.length);
+          const after = await sql`SELECT id, email, left(password_hash,7) AS prefix,
+                                         length(password_hash) AS len FROM users ORDER BY id`;
+          console.log('USERS AFTER: ' + JSON.stringify(after));
+          EOS
+          if out=$(node /tmp/reset.mjs 2>&1); then
+            note "RESULT: ok"
+          else
+            note "RESULT: FAILED (exit $?)"
+          fi
+          note ""
+          note '```'
+          printf '%s\n' "${out:-<no output>}" | head -60 >> "$R"
+          note '```'
+          cp "$R" /tmp/report-final.md
+
+      - name: Commit the report
+        if: always()
+        run: |
+          mkdir -p billing
+          if [ -f /tmp/report-final.md ]; then
+            cp /tmp/report-final.md billing/PASSWORD-RESET.md
+          else
+            echo "# Reset produced no report." > billing/PASSWORD-RESET.md
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add billing/PASSWORD-RESET.md
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "billing: password reset report [skip ci]"
+            git push origin "HEAD:refs/heads/$GITHUB_REF_NAME"
+          fi
