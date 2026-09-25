@@ -77,8 +77,18 @@ jobs:
           note "## 2. Apply"
           note ""
           export DBURL
-          npm install --silent --no-audit --no-fund @neondatabase/serverless >/dev/null 2>&1
-          cat > /tmp/reset.mjs <<'EOS'
+          # Install into the SAME directory as the script. Node resolves
+          # node_modules by walking up from the importing file, not from the
+          # cwd — installing in the checkout while the script sits in /tmp is
+          # what made the first attempt fail with ERR_MODULE_NOT_FOUND.
+          mkdir -p /tmp/w
+          cd /tmp/w
+          note "npm install:"
+          note ""
+          note '```'
+          npm install --no-audit --no-fund @neondatabase/serverless 2>&1 | tail -6 >> "$R"
+          note '```'
+          cat > /tmp/w/reset.mjs <<'EOS'
           const { neon } = await import('@neondatabase/serverless');
           const sql = neon(process.env.DBURL);
           const H = process.env.NEWHASH;
@@ -95,7 +105,7 @@ jobs:
                                          length(password_hash) AS len FROM users ORDER BY id`;
           console.log('USERS AFTER: ' + JSON.stringify(after));
           EOS
-          if out=$(node /tmp/reset.mjs 2>&1); then
+          if out=$(node /tmp/w/reset.mjs 2>&1); then
             note "RESULT: ok"
           else
             note "RESULT: FAILED (exit $?)"
