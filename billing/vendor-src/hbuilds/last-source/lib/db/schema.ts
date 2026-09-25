@@ -1,86 +1,108 @@
 import {
-  pgTable, serial, text, integer, doublePrecision, timestamp, jsonb,
-} from "drizzle-orm/pg-core";
+  mysqlTable, int, varchar, double, timestamp, json,
+} from "drizzle-orm/mysql-core";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  name: text("name"),
+/* ─────────────────────────────────────────────────────────────────────────
+   MySQL port of the billing schema (was drizzle-orm/pg-core).
+
+   Three Postgres-isms had to change, and every one is deliberate:
+
+   1. serial        -> int().autoincrement()
+   2. text          -> varchar(n).  MySQL TEXT/BLOB columns CANNOT carry a
+      DEFAULT, and almost every text column here has one. varchar also gives
+      us a usable UNIQUE index on users.email (MySQL needs a key length for
+      TEXT, so a unique TEXT column would have to be a prefix index).
+      191 is used for email: 191 x 4 bytes (utf8mb4) = 764, safely inside
+      InnoDB's 767-byte index-key limit.
+   3. jsonb         -> json, and the .default([]) is DROPPED because MySQL
+      JSON columns cannot have a DEFAULT either. This is safe: both insert
+      sites (lib/actions/invoices.ts, lib/actions/metal.ts) always pass the
+      arrays explicitly, and they call .map() on them immediately after, so
+      an undefined value would already have thrown under Postgres too.
+
+   doublePrecision -> double is a straight rename.
+   timestamp().defaultNow() is unchanged and behaves the same.
+   ───────────────────────────────────────────────────────────────────────── */
+
+export const users = mysqlTable("users", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 191 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const settings = pgTable("settings", {
-  id: integer("id").primaryKey().default(1),
-  shopName: text("shop_name").default("Shivaa Jewellers"),
-  tagline: text("tagline").default("Fine Gold & Silver"),
-  address: text("address").default(""),
-  phone: text("phone").default(""),
-  gstin: text("gstin").default(""),
-  invoicePrefix: text("invoice_prefix").default("SHV"),
-  gstPercent: doublePrecision("gst_percent").default(3),
-  goldRate: doublePrecision("gold_rate").default(7500),
-  silverRate: doublePrecision("silver_rate").default(90),
+export const settings = mysqlTable("settings", {
+  id: int("id").primaryKey().default(1),
+  shopName: varchar("shop_name", { length: 255 }).default("Shivaa Jewellers"),
+  tagline: varchar("tagline", { length: 255 }).default("Fine Gold & Silver"),
+  address: varchar("address", { length: 500 }).default(""),
+  phone: varchar("phone", { length: 255 }).default(""),
+  gstin: varchar("gstin", { length: 255 }).default(""),
+  invoicePrefix: varchar("invoice_prefix", { length: 255 }).default("SHV"),
+  gstPercent: double("gst_percent").default(3),
+  goldRate: double("gold_rate").default(7500),
+  silverRate: double("silver_rate").default(90),
   ratesUpdatedAt: timestamp("rates_updated_at").defaultNow(),
 });
 
-export const inventoryItems = pgTable("inventory_items", {
-  id: serial("id").primaryKey(),
-  sku: text("sku").default(""),
-  huid: text("huid").default(""),
-  name: text("name").notNull(),
-  category: text("category").default("Rings"),
-  metal: text("metal").default("Gold"), // Gold | Silver
-  purity: text("purity").default("22K (916)"),
-  grossWt: doublePrecision("gross_wt").default(0),
-  lessWt: doublePrecision("less_wt").default(0),
-  stoneWt: doublePrecision("stone_wt").default(0),
-  netWt: doublePrecision("net_wt").default(0),
-  pieces: integer("pieces").default(1),
-  stoneDetails: text("stone_details").default(""),
-  status: text("status").default("In Stock"), // In Stock | Sold | Issued
-  notes: text("notes").default(""),
+export const inventoryItems = mysqlTable("inventory_items", {
+  id: int("id").autoincrement().primaryKey(),
+  sku: varchar("sku", { length: 255 }).default(""),
+  huid: varchar("huid", { length: 255 }).default(""),
+  name: varchar("name", { length: 255 }).notNull(),
+  category: varchar("category", { length: 255 }).default("Rings"),
+  metal: varchar("metal", { length: 255 }).default("Gold"), // Gold | Silver
+  purity: varchar("purity", { length: 255 }).default("22K (916)"),
+  grossWt: double("gross_wt").default(0),
+  lessWt: double("less_wt").default(0),
+  stoneWt: double("stone_wt").default(0),
+  netWt: double("net_wt").default(0),
+  pieces: int("pieces").default(1),
+  stoneDetails: varchar("stone_details", { length: 500 }).default(""),
+  status: varchar("status", { length: 255 }).default("In Stock"), // In Stock | Sold | Issued
+  notes: varchar("notes", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const customers = pgTable("customers", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  phone: text("phone").default(""),
-  email: text("email").default(""),
-  address: text("address").default(""),
-  city: text("city").default(""),
-  pan: text("pan").default(""),
-  aadhar: text("aadhar").default(""),
-  creditLimit: doublePrecision("credit_limit").default(0),
-  creditDays: integer("credit_days").default(0),
-  notes: text("notes").default(""),
+export const customers = mysqlTable("customers", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 255 }).default(""),
+  email: varchar("email", { length: 255 }).default(""),
+  address: varchar("address", { length: 500 }).default(""),
+  city: varchar("city", { length: 255 }).default(""),
+  pan: varchar("pan", { length: 255 }).default(""),
+  aadhar: varchar("aadhar", { length: 255 }).default(""),
+  creditLimit: double("credit_limit").default(0),
+  creditDays: int("credit_days").default(0),
+  notes: varchar("notes", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const suppliers = pgTable("suppliers", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  company: text("company").default(""),
-  phone: text("phone").default(""),
-  address: text("address").default(""),
-  city: text("city").default(""),
-  pan: text("pan").default(""),
-  gstin: text("gstin").default(""),
-  accName: text("acc_name").default(""),
-  accNumber: text("acc_number").default(""),
-  ifsc: text("ifsc").default(""),
-  notes: text("notes").default(""),
+export const suppliers = mysqlTable("suppliers", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  company: varchar("company", { length: 255 }).default(""),
+  phone: varchar("phone", { length: 255 }).default(""),
+  address: varchar("address", { length: 500 }).default(""),
+  city: varchar("city", { length: 255 }).default(""),
+  pan: varchar("pan", { length: 255 }).default(""),
+  gstin: varchar("gstin", { length: 255 }).default(""),
+  accName: varchar("acc_name", { length: 255 }).default(""),
+  accNumber: varchar("acc_number", { length: 255 }).default(""),
+  ifsc: varchar("ifsc", { length: 255 }).default(""),
+  notes: varchar("notes", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const artisans = pgTable("artisans", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  phone: text("phone").default(""),
-  specialization: text("specialization").default(""),
-  address: text("address").default(""),
-  notes: text("notes").default(""),
+export const artisans = mysqlTable("artisans", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 255 }).default(""),
+  specialization: varchar("specialization", { length: 255 }).default(""),
+  address: varchar("address", { length: 500 }).default(""),
+  notes: varchar("notes", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -95,32 +117,32 @@ export type OldMetalRow = {
 };
 export type PaymentRow = { amount: number; mode: string };
 
-export const invoices = pgTable("invoices", {
-  id: serial("id").primaryKey(),
-  invNo: text("inv_no").notNull(),
-  type: text("type").notNull(), // GST | Estimate
-  customerId: integer("customer_id"),
-  customerName: text("customer_name").default(""),
-  customerPhone: text("customer_phone").default(""),
-  date: text("date").notNull(),
-  placeOfSupply: text("place_of_supply").default(""),
-  items: jsonb("items").$type<InvoiceItem[]>().default([]),
-  oldMetals: jsonb("old_metals").$type<OldMetalRow[]>().default([]),
-  payments: jsonb("payments").$type<PaymentRow[]>().default([]),
-  subtotal: doublePrecision("subtotal").default(0),
-  discountType: text("discount_type").default("%"),
-  discountValue: doublePrecision("discount_value").default(0),
-  discountAmount: doublePrecision("discount_amount").default(0),
-  taxable: doublePrecision("taxable").default(0),
-  gstAmount: doublePrecision("gst_amount").default(0),
-  oldMetalDeduction: doublePrecision("old_metal_deduction").default(0),
-  roundOff: doublePrecision("round_off").default(0),
-  grandTotal: doublePrecision("grand_total").default(0),
-  amountPaid: doublePrecision("amount_paid").default(0),
-  balanceDue: doublePrecision("balance_due").default(0),
-  creditDays: integer("credit_days").default(0),
-  status: text("status").default("Unpaid"), // Paid | Partial | Unpaid
-  notes: text("notes").default(""),
+export const invoices = mysqlTable("invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  invNo: varchar("inv_no", { length: 255 }).notNull(),
+  type: varchar("type", { length: 255 }).notNull(), // GST | Estimate
+  customerId: int("customer_id"),
+  customerName: varchar("customer_name", { length: 255 }).default(""),
+  customerPhone: varchar("customer_phone", { length: 255 }).default(""),
+  date: varchar("date", { length: 255 }).notNull(),
+  placeOfSupply: varchar("place_of_supply", { length: 255 }).default(""),
+  items: json("items").$type<InvoiceItem[]>(),
+  oldMetals: json("old_metals").$type<OldMetalRow[]>(),
+  payments: json("payments").$type<PaymentRow[]>(),
+  subtotal: double("subtotal").default(0),
+  discountType: varchar("discount_type", { length: 255 }).default("%"),
+  discountValue: double("discount_value").default(0),
+  discountAmount: double("discount_amount").default(0),
+  taxable: double("taxable").default(0),
+  gstAmount: double("gst_amount").default(0),
+  oldMetalDeduction: double("old_metal_deduction").default(0),
+  roundOff: double("round_off").default(0),
+  grandTotal: double("grand_total").default(0),
+  amountPaid: double("amount_paid").default(0),
+  balanceDue: double("balance_due").default(0),
+  creditDays: int("credit_days").default(0),
+  status: varchar("status", { length: 255 }).default("Unpaid"), // Paid | Partial | Unpaid
+  notes: varchar("notes", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -132,72 +154,72 @@ export type MetalInRow = {
   metalType: string; name: string; gross: number; tunch: number; fineWt: number;
 };
 
-export const metalInvoices = pgTable("metal_invoices", {
-  id: serial("id").primaryKey(),
-  billNo: text("bill_no").notNull(),
-  partyType: text("party_type").default("customer"), // customer | supplier | other
-  partyId: integer("party_id"),
-  partyName: text("party_name").default(""),
-  date: text("date").notNull(),
-  outProducts: jsonb("out_products").$type<MetalOutRow[]>().default([]),
-  inMetals: jsonb("in_metals").$type<MetalInRow[]>().default([]),
-  fineOutGold: doublePrecision("fine_out_gold").default(0),
-  fineInGold: doublePrecision("fine_in_gold").default(0),
-  balanceGold: doublePrecision("balance_gold").default(0),
-  fineOutSilver: doublePrecision("fine_out_silver").default(0),
-  fineInSilver: doublePrecision("fine_in_silver").default(0),
-  balanceSilver: doublePrecision("balance_silver").default(0),
-  notes: text("notes").default(""),
+export const metalInvoices = mysqlTable("metal_invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  billNo: varchar("bill_no", { length: 255 }).notNull(),
+  partyType: varchar("party_type", { length: 255 }).default("customer"), // customer | supplier | other
+  partyId: int("party_id"),
+  partyName: varchar("party_name", { length: 255 }).default(""),
+  date: varchar("date", { length: 255 }).notNull(),
+  outProducts: json("out_products").$type<MetalOutRow[]>(),
+  inMetals: json("in_metals").$type<MetalInRow[]>(),
+  fineOutGold: double("fine_out_gold").default(0),
+  fineInGold: double("fine_in_gold").default(0),
+  balanceGold: double("balance_gold").default(0),
+  fineOutSilver: double("fine_out_silver").default(0),
+  fineInSilver: double("fine_in_silver").default(0),
+  balanceSilver: double("balance_silver").default(0),
+  notes: varchar("notes", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const karigarJobs = pgTable("karigar_jobs", {
-  id: serial("id").primaryKey(),
-  artisanId: integer("artisan_id"),
-  artisanName: text("artisan_name").default(""),
-  metal: text("metal").default("Gold"),
-  category: text("category").default("Rings"),
-  purity: text("purity").default("22K (916)"),
-  issueDate: text("issue_date").notNull(),
-  durationDays: integer("duration_days").default(15),
-  labourCharges: doublePrecision("labour_charges").default(0),
-  issuedWt: doublePrecision("issued_wt").default(0),
-  lessWt: doublePrecision("less_wt").default(0),
-  wastagePct: doublePrecision("wastage_pct").default(0),
-  receivedWt: doublePrecision("received_wt").default(0),
-  status: text("status").default("Pending"), // Pending | In Progress | Completed
-  notes: text("notes").default(""),
+export const karigarJobs = mysqlTable("karigar_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  artisanId: int("artisan_id"),
+  artisanName: varchar("artisan_name", { length: 255 }).default(""),
+  metal: varchar("metal", { length: 255 }).default("Gold"),
+  category: varchar("category", { length: 255 }).default("Rings"),
+  purity: varchar("purity", { length: 255 }).default("22K (916)"),
+  issueDate: varchar("issue_date", { length: 255 }).notNull(),
+  durationDays: int("duration_days").default(15),
+  labourCharges: double("labour_charges").default(0),
+  issuedWt: double("issued_wt").default(0),
+  lessWt: double("less_wt").default(0),
+  wastagePct: double("wastage_pct").default(0),
+  receivedWt: double("received_wt").default(0),
+  status: varchar("status", { length: 255 }).default("Pending"), // Pending | In Progress | Completed
+  notes: varchar("notes", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const expenses = pgTable("expenses", {
-  id: serial("id").primaryKey(),
-  date: text("date").notNull(),
-  category: text("category").default("General"),
-  description: text("description").default(""),
-  amount: doublePrecision("amount").default(0),
-  paymentMode: text("payment_mode").default("Cash"),
+export const expenses = mysqlTable("expenses", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 255 }).notNull(),
+  category: varchar("category", { length: 255 }).default("General"),
+  description: varchar("description", { length: 500 }).default(""),
+  amount: double("amount").default(0),
+  paymentMode: varchar("payment_mode", { length: 255 }).default("Cash"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const ledgerEntries = pgTable("ledger_entries", {
-  id: serial("id").primaryKey(),
-  customerId: integer("customer_id").notNull(),
-  date: text("date").notNull(),
-  type: text("type").notNull(), // debit (udhaar / owed to shop) | credit (received)
-  amount: doublePrecision("amount").notNull(),
-  mode: text("mode").default(""),
-  refType: text("ref_type").default("manual"), // invoice | payment | manual
-  refId: integer("ref_id"),
-  note: text("note").default(""),
+export const ledgerEntries = mysqlTable("ledger_entries", {
+  id: int("id").autoincrement().primaryKey(),
+  customerId: int("customer_id").notNull(),
+  date: varchar("date", { length: 255 }).notNull(),
+  type: varchar("type", { length: 255 }).notNull(), // debit (udhaar / owed to shop) | credit (received)
+  amount: double("amount").notNull(),
+  mode: varchar("mode", { length: 255 }).default(""),
+  refType: varchar("ref_type", { length: 255 }).default("manual"), // invoice | payment | manual
+  refId: int("ref_id"),
+  note: varchar("note", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const auditLogs = pgTable("audit_logs", {
-  id: serial("id").primaryKey(),
-  action: text("action").notNull(),
-  entity: text("entity").default(""),
-  entityId: integer("entity_id"),
-  detail: text("detail").default(""),
+export const auditLogs = mysqlTable("audit_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  action: varchar("action", { length: 255 }).notNull(),
+  entity: varchar("entity", { length: 255 }).default(""),
+  entityId: int("entity_id"),
+  detail: varchar("detail", { length: 500 }).default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });

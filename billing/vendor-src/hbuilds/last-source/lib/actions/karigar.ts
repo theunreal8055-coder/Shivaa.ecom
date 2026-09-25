@@ -39,8 +39,8 @@ export async function saveJob(_prev: ActionState, fd: FormData): Promise<ActionS
     await db().update(karigarJobs).set(values).where(eq(karigarJobs.id, id));
     await logAudit("Karigar job updated", "karigar_job", id, `${artisanName} • ${values.status}`);
   } else {
-    const [row] = await db().insert(karigarJobs).values(values).returning();
-    await logAudit("Karigar job issued", "karigar_job", row.id, `${artisanName} • ${values.issuedWt}g ${values.metal}`);
+    const [row] = await db().insert(karigarJobs).values(values);
+    await logAudit("Karigar job issued", "karigar_job", row.insertId, `${artisanName} • ${values.issuedWt}g ${values.metal}`);
   }
   revalidatePath("/karigar");
   return { ok: true, message: id ? "Job updated." : "Job issued to karigar." };

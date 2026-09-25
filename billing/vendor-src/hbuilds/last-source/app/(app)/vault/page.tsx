@@ -6,11 +6,11 @@ import {
 } from "@/lib/db";
 import { Card, PageHeader } from "@/components/ui";
 import { ImportForm } from "./import-form";
-import type { PgTable } from "drizzle-orm/pg-core";
+import type { MySqlTable } from "drizzle-orm/mysql-core";
 
 export const dynamic = "force-dynamic";
 
-async function countOf(table: PgTable) {
+async function countOf(table: MySqlTable) {
   const [row] = await db().select({ c: sql<number>`count(*)` }).from(table);
   return Number(row.c);
 }

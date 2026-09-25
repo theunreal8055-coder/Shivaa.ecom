@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, eq, ilike, sql } from "drizzle-orm";
+import { asc, eq, like, sql } from "drizzle-orm";
 import { BookUser, ChevronRight } from "lucide-react";
 import { db, customers, ledgerEntries } from "@/lib/db";
 import { inr } from "@/lib/utils";
@@ -21,7 +21,7 @@ export default async function KhataPage({ searchParams }: { searchParams: Promis
     })
     .from(customers)
     .leftJoin(ledgerEntries, eq(ledgerEntries.customerId, customers.id))
-    .where(q ? ilike(customers.name, `%${q}%`) : undefined)
+    .where(q ? like(customers.name, `%${q}%`) : undefined)
     .groupBy(customers.id, customers.name, customers.phone, customers.creditLimit)
     .orderBy(asc(customers.name));
 

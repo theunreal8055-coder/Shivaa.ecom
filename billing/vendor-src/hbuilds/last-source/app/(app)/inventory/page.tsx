@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import { db, inventoryItems } from "@/lib/db";
 import { deleteItem } from "@/lib/actions/inventory";
 import { gm, statusTone } from "@/lib/utils";
@@ -11,7 +11,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const { q = "", status = "" } = await searchParams;
 
   const conds: SQL[] = [];
-  if (q) conds.push(or(ilike(inventoryItems.name, `%${q}%`), ilike(inventoryItems.huid, `%${q}%`), ilike(inventoryItems.sku, `%${q}%`))!);
+  if (q) conds.push(or(like(inventoryItems.name, `%${q}%`), like(inventoryItems.huid, `%${q}%`), like(inventoryItems.sku, `%${q}%`))!);
   if (status) conds.push(eq(inventoryItems.status, status));
 
   const rows = await db().select().from(inventoryItems)

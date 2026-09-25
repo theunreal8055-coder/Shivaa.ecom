@@ -34,8 +34,8 @@ export async function saveItem(_prev: ActionState, fd: FormData): Promise<Action
     await db().update(inventoryItems).set(values).where(eq(inventoryItems.id, id));
     await logAudit("Item updated", "inventory", id, values.name);
   } else {
-    const [row] = await db().insert(inventoryItems).values(values).returning();
-    await logAudit("Item added", "inventory", row.id, values.name);
+    const [row] = await db().insert(inventoryItems).values(values);
+    await logAudit("Item added", "inventory", row.insertId, values.name);
   }
   revalidatePath("/inventory");
   return { ok: true, message: id ? "Item updated." : "Item added to vault." };

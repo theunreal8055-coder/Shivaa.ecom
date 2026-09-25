@@ -53,13 +53,14 @@ export async function createInvoice(payload: InvoicePayload): Promise<{ ok: fals
 
   const status = t.balanceDue <= 0 ? "Paid" : t.amountPaid > 0 ? "Partial" : "Unpaid";
 
-  const [inv] = await db().insert(invoices).values({
+  const invDate = payload.date || today();
+  const [invRes] = await db().insert(invoices).values({
     invNo,
     type: payload.type,
     customerId: cust.id,
     customerName: cust.name,
     customerPhone: cust.phone || "",
-    date: payload.date || today(),
+    date: invDate,
     placeOfSupply: str(payload.placeOfSupply),
     items: payload.items,
     oldMetals: payload.oldMetals,
@@ -78,7 +79,9 @@ export async function createInvoice(payload: InvoicePayload): Promise<{ ok: fals
     creditDays: Math.round(num(String(payload.creditDays))),
     status,
     notes: str(payload.notes),
-  }).returning();
+  });
+  // MySQL: reconstruct the two fields the code below reads from the row.
+  const inv = { id: invRes.insertId, date: invDate };
 
   const stockIds = payload.items.map((i) => i.inventoryId).filter((x): x is number => !!x);
   if (stockIds.length) {

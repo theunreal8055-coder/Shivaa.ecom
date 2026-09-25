@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
 import { Plus } from "lucide-react";
 import { db, invoices } from "@/lib/db";
 import { fmtDate, inr, statusTone } from "@/lib/utils";
@@ -11,7 +11,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const { q = "", type = "", status = "" } = await searchParams;
 
   const conds: SQL[] = [];
-  if (q) conds.push(or(ilike(invoices.customerName, `%${q}%`), ilike(invoices.invNo, `%${q}%`))!);
+  if (q) conds.push(or(like(invoices.customerName, `%${q}%`), like(invoices.invNo, `%${q}%`))!);
   if (type) conds.push(eq(invoices.type, type));
   if (status) conds.push(eq(invoices.status, status));
 

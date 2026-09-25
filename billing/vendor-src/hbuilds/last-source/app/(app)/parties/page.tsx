@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, ilike } from "drizzle-orm";
+import { desc, like } from "drizzle-orm";
 import { db, customers, suppliers, artisans } from "@/lib/db";
 import { deleteCustomer, deleteSupplier, deleteArtisan } from "@/lib/actions/parties";
 import { Card, DeleteBtn, EmptyState, PageHeader, SearchBox } from "@/components/ui";
@@ -20,13 +20,13 @@ export default async function PartiesPage({ searchParams }: { searchParams: Prom
   const q = sp.q ?? "";
 
   const custRows = tab === "customers"
-    ? await db().select().from(customers).where(q ? ilike(customers.name, `%${q}%`) : undefined).orderBy(desc(customers.id)).limit(500)
+    ? await db().select().from(customers).where(q ? like(customers.name, `%${q}%`) : undefined).orderBy(desc(customers.id)).limit(500)
     : [];
   const supRows = tab === "suppliers"
-    ? await db().select().from(suppliers).where(q ? ilike(suppliers.name, `%${q}%`) : undefined).orderBy(desc(suppliers.id)).limit(500)
+    ? await db().select().from(suppliers).where(q ? like(suppliers.name, `%${q}%`) : undefined).orderBy(desc(suppliers.id)).limit(500)
     : [];
   const artRows = tab === "karigars"
-    ? await db().select().from(artisans).where(q ? ilike(artisans.name, `%${q}%`) : undefined).orderBy(desc(artisans.id)).limit(500)
+    ? await db().select().from(artisans).where(q ? like(artisans.name, `%${q}%`) : undefined).orderBy(desc(artisans.id)).limit(500)
     : [];
 
   const addButton = tab === "customers" ? <AddCustomerButton /> : tab === "suppliers" ? <AddSupplierButton /> : <AddArtisanButton />;

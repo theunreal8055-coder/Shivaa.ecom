@@ -21,8 +21,11 @@ export async function setupOwner(_prev: ActionState, fd: FormData): Promise<Acti
   if (password.length < 6) return { ok: false, message: "Password must be at least 6 characters." };
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const [user] = await db().insert(users).values({ email, passwordHash, name: name || "Owner" }).returning();
-  await db().insert(settings).values({ id: 1, shopName }).onConflictDoUpdate({ target: settings.id, set: { shopName } });
+  // MySQL: no .returning() — the insert result carries insertId instead.
+  const [userRes] = await db().insert(users).values({ email, passwordHash, name: name || "Owner" });
+  const user = { id: userRes.insertId, email, name: name || "Owner" };
+  // Postgres onConflictDoUpdate -> MySQL onDuplicateKeyUpdate.
+  await db().insert(settings).values({ id: 1, shopName }).onDuplicateKeyUpdate({ set: { shopName } });
   await logAudit("Owner account created", "user", user.id, email);
   await createSession(user);
   redirect("/");

@@ -39,7 +39,7 @@ export async function createMetalBill(payload: MetalBillPayload): Promise<{ ok: 
   const [{ value: existing }] = await db().select({ value: count() }).from(metalInvoices);
   const billNo = `MB-${String(existing + 1).padStart(4, "0")}`;
 
-  const [bill] = await db().insert(metalInvoices).values({
+  const [billRes] = await db().insert(metalInvoices).values({
     billNo,
     partyType: payload.partyType,
     partyId: payload.partyId,
@@ -50,7 +50,9 @@ export async function createMetalBill(payload: MetalBillPayload): Promise<{ ok: 
     fineOutGold, fineInGold, balanceGold: fineOutGold - fineInGold,
     fineOutSilver, fineInSilver, balanceSilver: fineOutSilver - fineInSilver,
     notes: str(payload.notes),
-  }).returning();
+  });
+  // MySQL: only bill.id is read below (logAudit + redirect).
+  const bill = { id: billRes.insertId };
 
   const stockIds = payload.outProducts.map((p) => p.inventoryId).filter((x): x is number => !!x);
   if (stockIds.length) {

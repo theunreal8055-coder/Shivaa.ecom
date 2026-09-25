@@ -23,8 +23,8 @@ export async function saveExpense(_prev: ActionState, fd: FormData): Promise<Act
     await db().update(expenses).set(values).where(eq(expenses.id, id));
     await logAudit("Expense updated", "expense", id, `₹${values.amount} • ${values.category}`);
   } else {
-    const [row] = await db().insert(expenses).values(values).returning();
-    await logAudit("Expense added", "expense", row.id, `₹${values.amount} • ${values.category}`);
+    const [row] = await db().insert(expenses).values(values);
+    await logAudit("Expense added", "expense", row.insertId, `₹${values.amount} • ${values.category}`);
   }
   revalidatePath("/expenses");
   revalidatePath("/");

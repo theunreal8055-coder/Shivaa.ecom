@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, ilike } from "drizzle-orm";
+import { desc, like } from "drizzle-orm";
 import { Plus } from "lucide-react";
 import { db, metalInvoices } from "@/lib/db";
 import { fmtDate, gm } from "@/lib/utils";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function MetalPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q = "" } = await searchParams;
   const rows = await db().select().from(metalInvoices)
-    .where(q ? ilike(metalInvoices.partyName, `%${q}%`) : undefined)
+    .where(q ? like(metalInvoices.partyName, `%${q}%`) : undefined)
     .orderBy(desc(metalInvoices.id)).limit(300);
 
   return (

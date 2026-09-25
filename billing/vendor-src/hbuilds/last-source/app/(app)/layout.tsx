@@ -7,8 +7,10 @@ export const dynamic = "force-dynamic";
 async function getSettings() {
   const rows = await db().select().from(settings).limit(1);
   if (rows.length) return rows[0];
-  const inserted = await db().insert(settings).values({ id: 1 }).returning();
-  return inserted[0];
+  // MySQL has no RETURNING — insert, then read the row back.
+  await db().insert(settings).values({ id: 1 });
+  const [created] = await db().select().from(settings).limit(1);
+  return created;
 }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {

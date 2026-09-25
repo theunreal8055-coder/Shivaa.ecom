@@ -27,8 +27,8 @@ export async function saveCustomer(_prev: ActionState, fd: FormData): Promise<Ac
     await db().update(customers).set(values).where(eq(customers.id, id));
     await logAudit("Customer updated", "customer", id, values.name);
   } else {
-    const [row] = await db().insert(customers).values(values).returning();
-    await logAudit("Customer added", "customer", row.id, values.name);
+    const [row] = await db().insert(customers).values(values);
+    await logAudit("Customer added", "customer", row.insertId, values.name);
   }
   revalidatePath("/parties");
   revalidatePath("/khata");
@@ -64,8 +64,8 @@ export async function saveSupplier(_prev: ActionState, fd: FormData): Promise<Ac
     await db().update(suppliers).set(values).where(eq(suppliers.id, id));
     await logAudit("Supplier updated", "supplier", id, values.name);
   } else {
-    const [row] = await db().insert(suppliers).values(values).returning();
-    await logAudit("Supplier added", "supplier", row.id, values.name);
+    const [row] = await db().insert(suppliers).values(values);
+    await logAudit("Supplier added", "supplier", row.insertId, values.name);
   }
   revalidatePath("/parties");
   return { ok: true, message: "Supplier saved." };
@@ -93,8 +93,8 @@ export async function saveArtisan(_prev: ActionState, fd: FormData): Promise<Act
     await db().update(artisans).set(values).where(eq(artisans.id, id));
     await logAudit("Karigar updated", "artisan", id, values.name);
   } else {
-    const [row] = await db().insert(artisans).values(values).returning();
-    await logAudit("Karigar added", "artisan", row.id, values.name);
+    const [row] = await db().insert(artisans).values(values);
+    await logAudit("Karigar added", "artisan", row.insertId, values.name);
   }
   revalidatePath("/parties");
   revalidatePath("/karigar");
