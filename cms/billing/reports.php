@@ -106,11 +106,16 @@ const BILLING_REPORT_CATALOGUE = [
   ],
 ];
 
-/** Fine-metal factor: "22K (916)" -> 0.916, "92.5 Silver" -> 0.925. */
+/** Fine-metal factor. Prefers the exact fineness table; still understands
+ *  legacy "22K (916)" labels so rows saved before v3 keep valuing correctly. */
 function billing_fine_factor(string $purity): float {
-  if (preg_match('/\((\d{3})\)/', $purity, $m)) return ((int)$m[1]) / 1000;
-  if (preg_match('/(\d{1,2})K/i', $purity, $m)) return round(((int)$m[1]) / 24, 4);
-  if (stripos($purity, 'silver') !== false) return 0.925;
+  $p = trim($purity);
+  if (isset(BILLING_FINENESS[$p])) return BILLING_FINENESS[$p];
+  if (preg_match('/\((\d{3})\)/', $p, $m)) return ((int)$m[1]) / 1000;
+  if (preg_match('/(\d{1,2})K/i', $p, $m) && isset(BILLING_FINENESS[$m[1] . 'K'])) {
+    return BILLING_FINENESS[$m[1] . 'K'];
+  }
+  if (stripos($p, 'silver') !== false) return 0.925;
   return 1.0;
 }
 

@@ -805,7 +805,7 @@ if (preg_match('#^export/([a-z]+)$#', $route, $m) && $method === 'GET') {
                    `purity`,`pieces`,`gross_wt`,`stone_wt`,`net_wt`,`wastage_decided`,`rate`,
                    `making_charges`,`advance_metal`,`advance_cash`,`status`,`place_of_supply`
                    FROM `billing_orders` ORDER BY `order_date` DESC, `id` DESC",
-    'suppliers' => "SELECT `company`,`contact`,`phone`,`city`,`pin`,`gst`,`supplier_type`,
+    'suppliers' => "SELECT `company`,`contact`,`phone`,`city`,`pin`,`metal`,`gst`,`supplier_type`,
                    `quality`,`status`,`acc_name`,`acc_number`,`ifsc`,`branch`,`notes`
                    FROM `billing_suppliers` ORDER BY `company`",
   ];
@@ -927,16 +927,17 @@ if ($route === 'suppliers' && $method === 'POST') {
   billing_csrf();
   $company = trim((string)($_POST['company'] ?? ''));
   if ($company === '') billing_fail('Company name is required.');
-  $st = $pdo->prepare('INSERT INTO `billing_suppliers` (`company`,`contact`,`phone`,`city`,`pin`,
+  $st = $pdo->prepare('INSERT INTO `billing_suppliers` (`company`,`contact`,`phone`,`city`,`pin`,`metal`,
     `gst`,`acc_name`,`acc_number`,`ifsc`,`branch`,`supplier_type`,`quality`,`status`,`notes`)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
   $st->execute([
     billing_str($company, 191), billing_str($_POST['contact'] ?? '', 128),
     billing_str($_POST['phone'] ?? '', 32), billing_str($_POST['city'] ?? '', 128),
-    billing_str($_POST['pin'] ?? '', 16), billing_str($_POST['gst'] ?? '', 64),
+    billing_str($_POST['pin'] ?? '', 16), billing_str($_POST['metal'] ?? 'Gold', 16),
+    billing_str($_POST['gst'] ?? '', 64),
     billing_str($_POST['accName'] ?? '', 191), billing_str($_POST['accNumber'] ?? '', 64),
     billing_str($_POST['ifsc'] ?? '', 32), billing_str($_POST['branch'] ?? '', 191),
-    billing_str($_POST['supplierType'] ?? 'Wholesaler', 32),
+    billing_str($_POST['supplierType'] ?? 'Manufacturer', 32),
     billing_str($_POST['quality'] ?? 'Premium', 32),
     billing_str($_POST['status'] ?? 'New', 32), billing_str($_POST['notes'] ?? '', 500)]);
   $id = (int)$pdo->lastInsertId();
@@ -959,15 +960,16 @@ if (preg_match('#^suppliers/(\d+)$#', $route, $m) && $method === 'POST') {
   billing_csrf();
   $sid = billing_int($m[1]);
   $st = $pdo->prepare('UPDATE `billing_suppliers` SET `company`=?,`contact`=?,`phone`=?,`city`=?,
-    `pin`=?,`gst`=?,`acc_name`=?,`acc_number`=?,`ifsc`=?,`branch`=?,`supplier_type`=?,
+    `pin`=?,`metal`=?,`gst`=?,`acc_name`=?,`acc_number`=?,`ifsc`=?,`branch`=?,`supplier_type`=?,
     `quality`=?,`status`=?,`notes`=? WHERE `id`=?');
   $st->execute([
     billing_str($_POST['company'] ?? '', 191), billing_str($_POST['contact'] ?? '', 128),
     billing_str($_POST['phone'] ?? '', 32), billing_str($_POST['city'] ?? '', 128),
-    billing_str($_POST['pin'] ?? '', 16), billing_str($_POST['gst'] ?? '', 64),
+    billing_str($_POST['pin'] ?? '', 16), billing_str($_POST['metal'] ?? 'Gold', 16),
+    billing_str($_POST['gst'] ?? '', 64),
     billing_str($_POST['accName'] ?? '', 191), billing_str($_POST['accNumber'] ?? '', 64),
     billing_str($_POST['ifsc'] ?? '', 32), billing_str($_POST['branch'] ?? '', 191),
-    billing_str($_POST['supplierType'] ?? 'Wholesaler', 32),
+    billing_str($_POST['supplierType'] ?? 'Manufacturer', 32),
     billing_str($_POST['quality'] ?? 'Premium', 32),
     billing_str($_POST['status'] ?? 'New', 32), billing_str($_POST['notes'] ?? '', 500), $sid]);
   billing_audit('Updated supplier', 'supplier', $sid);
@@ -1014,10 +1016,10 @@ if ($route === 'rate-cards' && $method === 'POST') {
     WHERE `entity_type`=? AND `entity_id`=? AND `category`=? AND `purity`=?')
     ->execute([$type, $eid, $cat, billing_str($_POST['purity'] ?? '22K', 32)]);
   $st = $pdo->prepare('INSERT INTO `billing_rate_cards`
-    (`entity_type`,`entity_id`,`category`,`purity`,`making_type`,`wastage_pct`,`other_cost`)
-    VALUES (?,?,?,?,?,?,?)');
-  $st->execute([$type, $eid, billing_str($cat, 64), billing_str($_POST['purity'] ?? '22K', 32),
-    billing_str($_POST['makingType'] ?? 'Plain', 64),
+    (`entity_type`,`entity_id`,`category`,`product_name`,`purity`,`making_type`,`wastage_pct`,`other_cost`)
+    VALUES (?,?,?,?,?,?,?,?)');
+  $st->execute([$type, $eid, billing_str($cat, 64), billing_str($_POST['productName'] ?? '', 191),
+    billing_str($_POST['purity'] ?? '22K', 32), billing_str($_POST['makingType'] ?? 'Plain', 64),
     round(billing_num($_POST['wastage'] ?? 0), 2), round(billing_num($_POST['otherCost'] ?? 0), 2)]);
   billing_audit('Saved rate card row', 'rate_card', (int)$pdo->lastInsertId(), $type . ' ' . $cat);
   billing_json(['ok' => true]);

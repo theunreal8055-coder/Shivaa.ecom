@@ -61,24 +61,58 @@
     return h("span", { class: "chip " + (m[c] || "grey"), text: lbl[c] || c });
   }
 
+
+  /* ── lucide-style line icons (inline SVG, no build step) ─────────────── */
+  var ICONS = {
+    activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+    plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+    package: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+    coins: '<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    userCheck: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>',
+    listChecks: '<line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/>',
+    trendingUp: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+    building: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
+    shoppingBag: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+    spreadsheet: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/>',
+    dollar: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    upload: '<polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    dot: '<circle cx="12" cy="12" r="9"/>'
+  };
+  function icon(name, size) {
+    var s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    var n = size || 17;
+    s.setAttribute("width", n); s.setAttribute("height", n);
+    s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("fill", "none");
+    s.setAttribute("stroke", "currentColor"); s.setAttribute("stroke-width", "2");
+    s.setAttribute("stroke-linecap", "round"); s.setAttribute("stroke-linejoin", "round");
+    s.setAttribute("aria-hidden", "true");
+    s.innerHTML = ICONS[name] || ICONS.dot;
+    return s;
+  }
+
   /* ── shell ───────────────────────────────────────────────────────────── */
   var NAV = [
-    ["", "Dashboard", "▦"], ["bills", "Bills", "▤"], ["new", "New Bill", "✚"],
-    ["stock", "Stock", "⚖"], ["metal", "Metal", "◍"], ["karigar", "Karigar", "⚒"],
-    ["parties", "Parties", "☺"], ["khata", "Khata", "≡"],
-    ["expenses", "Expenses", "₹"], ["suppliers", "Suppliers", "⌂"],
-    ["orders", "Orders", "⇄"], ["reports", "Reports", "◔"], ["revenue", "Revenue", "₹"],
-    ["import", "Import", "⇪"], ["audit", "Audit", "☰"], ["settings", "Settings", "⚙"]
+    ["", "Hub", "activity"], ["bills", "Bills", "fileText"], ["new", "New Bill", "plus"],
+    ["stock", "Stock", "package"], ["metal", "Metal", "coins"], ["karigar", "Karigar", "users"],
+    ["suppliers", "Suppliers", "building"], ["orders", "Ledger", "listChecks"],
+    ["parties", "Parties", "userCheck"], ["khata", "Khata", "fileText"],
+    ["expenses", "Expenses", "trendingUp"], ["reports", "Reports", "spreadsheet"],
+    ["revenue", "Revenue", "dollar"], ["import", "Import", "upload"],
+    ["audit", "Audit", "fileText"], ["settings", "Settings", "settings"]
   ];
 
   function shell(active, content) {
     root.innerHTML = "";
     var nav = h("nav", { class: "nav" }, NAV.map(function (n) {
       return h("a", { href: "#/" + n[0], class: active === n[0] ? "on" : "" },
-        h("span", { class: "ic", text: n[2] }), n[1]);
+        h("span", { class: "ic" }, icon(n[2])), n[1]);
     }));
     var side = h("aside", { class: "side" },
-      h("div", { class: "brand" }, h("span", { class: "gem", text: "◈" }),
+      h("div", { class: "brand" }, h("span", { class: "gem" }, icon("coins", 16)),
         h("div", {}, h("b", { text: S.settings && S.settings.shop_name ? S.settings.shop_name : "Shivaa" }), h("small", { text: "Billing" }))),
       nav, h("div", { class: "spacer" }),
       h("div", { class: "who" }, "Signed in as " + (S.user ? S.user.email : ""),
@@ -109,7 +143,7 @@
       h("button", { class: "btn pri", style: "width:100%;margin-top:18px", text: "Sign in" }));
     root.appendChild(h("div", { class: "auth" },
       h("div", { class: "card" },
-        h("div", { class: "brand", style: "padding:0 0 14px" }, h("span", { class: "gem", text: "◈" }),
+        h("div", { class: "brand", style: "padding:0 0 14px" }, h("span", { class: "gem" }, icon("coins", 16)),
           h("div", {}, h("b", { text: "Shivaa Billing" }))),
         h("h1", { text: "Sign in" }), h("p", { class: "sub", text: "Showroom billing & stock" }),
         err, form)));
@@ -164,7 +198,7 @@
 
       box.innerHTML = "";
       box.appendChild(head("Dashboard", "Everything the shop has taken, online and over the counter",
-        [h("a", { class: "btn pri", href: "#/new", text: "✚ New bill" })]));
+        [h("a", { class: "btn pri", href: "#/new" }, icon("plus", 15), "New bill")]));
       box.appendChild(kpis);
       box.appendChild(h("div", { class: "grid g2", style: "margin-top:14px" }, chanCard, stockCard));
     }).catch(function (e) { box.innerHTML = ""; box.appendChild(head("Dashboard")); box.appendChild(h("div", { class: "msg err", text: e.message })); });
@@ -178,7 +212,7 @@
     function load() {
       box.innerHTML = "";
       box.appendChild(head("Bills", "Counter sales, website orders and wholesale — all in one book",
-        [h("a", { class: "btn pri", href: "#/new", text: "✚ New bill" }), exportBtn("bills")]));
+        [h("a", { class: "btn pri", href: "#/new" }, icon("plus", 15), "New bill"), exportBtn("bills")]));
       var seg = h("div", { class: "seg" }, [["all", "All"], ["b2c_offline", "Counter"], ["b2c_online", "Online"], ["b2b", "Wholesale"]].map(function (o) {
         return h("button", { class: filter === o[0] ? "on" : "", text: o[1], onclick: function () { filter = o[0]; load(); } });
       }));
@@ -506,7 +540,7 @@
       f.category = h("select", {}, S.meta.categories.map(function (c) { return h("option", { text: c }); }));
       f.metal = h("select", {}, [h("option", { text: "Gold" }), h("option", { text: "Silver" })]);
       f.purity = h("select", {}, S.meta.purities.map(function (p) { return h("option", { text: p }); }));
-      f.purity.value = "22K (916)";
+      f.purity.value = "22K";
       f.grossWt = h("input", { type: "number", step: "0.001", value: "0" });
       f.lessWt = h("input", { type: "number", step: "0.001", value: "0" });
       f.stoneWt = h("input", { type: "number", step: "0.001", value: "0" });
@@ -848,7 +882,7 @@
 
   /* ── shared bits ─────────────────────────────────────────────────────── */
   function exportBtn(entity, label) {
-    return h("a", { class: "btn sm", href: "api.php?r=export/" + entity, text: "⬇ " + (label || "CSV") });
+    return h("a", { class: "btn sm", href: "api.php?r=export/" + entity, text: (label || "CSV") });
   }
   function tableCard(headers, rows, emptyMsg) {
     if (!rows.length) return h("div", { class: "card" }, h("p", { class: "mut", text: emptyMsg || "Nothing here yet." }));
@@ -1002,7 +1036,7 @@
           durationDays: h("input", { type: "number", step: "1", value: "15" }),
           notes: h("input", {})
         };
-        f.purity.value = "22K (916)";
+        f.purity.value = "22K";
         var save = h("button", { class: "btn pri", text: "Issue job", onclick: function () {
           if (!sel.value) return toast("Select a karigar first.", true);
           save.disabled = true;
@@ -1094,16 +1128,16 @@
   /* ── router ──────────────────────────────────────────────────────────── */
 
   /* ── sourcing: suppliers, rate cards, orders, report library ─────────── */
-  var SUP_TYPES = ["Wholesaler", "Manufacturer", "Distributor", "Importer"];
+  var SUP_TYPES = ["Manufacturer", "Wholesaler", "Distributor", "Importer"];
   var QUALITY = ["Budget-friendly", "Mid-range", "Premium"];
   var SUP_STATUS = ["New", "Contacted", "Active", "On Hold", "Blacklisted", "Top Wholesaler"];
-  var METALS = ["Gold", "Silver", "Platinum", "Diamond"];
-  var PRIORITIES = ["Low Priority", "Normal", "High Priority", "Important", "Urgent", "High Quality Needed"];
-  var ORDER_STATUS = ["New", "In Progress", "Quality Check", "On Hold", "Delayed", "Ready", "Delivered", "Cancelled"];
+  var METALS = ["Gold", "Silver", "Platinum", "Both"];
+  var PRIORITIES = ["Normal", "Urgent", "Low Priority", "High Priority", "Important", "High Quality Needed"];
+  var ORDER_STATUS = ["New", "Processing", "Confirmed", "On Hold", "Dispatched", "Delivered", "Cancelled", "Delayed"];
   var MAKING = ["Plain", "Antique", "Paper Casting", "Kundan", "Meenakari", "Polki", "Stone Studded"];
-  var CATS = ["Rings", "Earrings", "Bangles", "Bracelets", "Necklaces", "Pendants", "Chains", "Nose Pins",
-    "Toe Rings", "Payal", "Tikka", "Maang Tikka", "Coin", "Bars", "Biscuits", "Other"];
-  var PURITIES = ["24K (999)", "23K", "22K (916)", "21K", "20K", "18K (750)", "14K (585)", "9K", "92.5 Silver"];
+  var CATS = ["Rings", "Bangles", "Necklaces", "Earrings", "Chains", "Mangalsutra", "Pendants",
+    "Bracelets", "Coins", "Bars", "Stone", "CZ", "Paper Casting", "Regular Casting"];
+  var PURITIES = ["24K", "22K", "20K", "18K", "14K", "9K", "92.5 Silver"];
   var STATES = ["Rajasthan", "Maharashtra", "Delhi", "Gujarat", "Uttar Pradesh", "Karnataka", "Tamil Nadu",
     "West Bengal", "Madhya Pradesh", "Punjab", "Haryana", "Kerala", "Telangana", "Bihar", "Other"];
 
@@ -1154,12 +1188,12 @@
   function supplierForm(id) {
     var s = id ? S.cache.suppliers.filter(function (x) { return x.id === id; })[0] || {} : {};
     var f = {};
-    ["company", "contact", "phone", "city", "pin", "gst", "accName", "accNumber", "ifsc",
-      "branch", "supplierType", "quality", "status", "notes"].forEach(function (n) {
+    ["company", "contact", "phone", "city", "pin", "metal", "gst", "accName", "accNumber",
+      "ifsc", "branch", "supplierType", "quality", "status", "notes"].forEach(function (n) {
         var key = { accName: "acc_name", accNumber: "acc_number", supplierType: "supplier_type" }[n] || n;
         f[n] = id ? (s[key] || "") : "";
       });
-    if (!id) { f.supplierType = "Wholesaler"; f.quality = "Premium"; f.status = "New"; }
+    if (!id) { f.supplierType = "Manufacturer"; f.quality = "Premium"; f.status = "New"; f.metal = "Gold"; }
 
     var body = h("div", { class: "grid g2" },
       fld("Company *", tag("company", inp(f.company, { required: true, placeholder: "Raj Bullion" }))),
@@ -1167,6 +1201,7 @@
       fld("Phone", tag("phone", inp(f.phone, { type: "tel" }))),
       fld("City", tag("city", inp(f.city, { placeholder: "Jaipur" }))),
       fld("PIN", tag("pin", inp(f.pin, { maxlength: 10 }))),
+      fld("Metal", tag("metal", sel(METALS, f.metal || "Gold"))),
       fld("GSTIN", tag("gst", inp(f.gst, { placeholder: "08AABCU9603R1ZM" }))),
       fld("Supplier type", tag("supplierType", sel(SUP_TYPES, f.supplierType))),
       fld("Quality tier", tag("quality", sel(QUALITY, f.quality))),
@@ -1180,7 +1215,7 @@
     sheet(id ? "Edit supplier" : "New supplier", body, id ? "Save" : "Add supplier",
       function (close) {
         var data = readForm(document.querySelector(".sheetCard"),
-          ["company", "contact", "phone", "city", "pin", "gst", "accName", "accNumber",
+          ["company", "contact", "phone", "city", "pin", "metal", "gst", "accName", "accNumber",
             "ifsc", "branch", "supplierType", "quality", "status", "notes"]);
         api(id ? "suppliers/" + id : "suppliers", { method: "POST", body: data })
           .then(function () { close(); toast(id ? "Supplier updated" : "Supplier added"); render(); })
@@ -1196,24 +1231,27 @@
       box.appendChild(h("p", { class: "mut", text: "Agreed wastage and other cost, per category and purity. One row per combination." }));
       box.appendChild(h("div", { class: "grid g2", style: "margin-top:10px" },
         tag("category", sel(CATS, CATS[0])),
-        tag("purity", sel(PURITIES, "22K (916)")),
+        tag("purity", sel(PURITIES, "22K")),
         tag("makingType", sel(MAKING, "Plain")),
+        tag("productName", inp("", { placeholder: "Product name (optional)" })),
+        tag("otherCostWrap", inp("", { type: "hidden" })),
         tag("wastage", inp("0", { type: "number", step: "0.01", placeholder: "Wastage %" })),
         tag("otherCost", inp("0", { type: "number", step: "0.01", placeholder: "Other cost ₹" }))));
       box.appendChild(h("button", { class: "btn pri sm", style: "margin-top:10px", text: "+ Save this row",
         onclick: function () {
-          var d = readForm(box, ["category", "purity", "makingType", "wastage", "otherCost"]);
+          var d = readForm(box, ["category", "purity", "makingType", "productName", "wastage", "otherCost"]);
           d.entityType = entityType; d.entityId = entityId;
           api("rate-cards", { method: "POST", body: d })
             .then(function () { toast("Rate saved"); load(); })
             .catch(function (e) { toast(e.message, true); });
         } }));
       box.appendChild(cards.length ? tableCard(
-        [{ t: "Category" }, { t: "Purity" }, { t: "Making" }, { t: "Wastage %", num: true },
+        [{ t: "Category" }, { t: "Purity" }, { t: "Making" }, { t: "Product" }, { t: "Wastage %", num: true },
           { t: "Other ₹", num: true }, { t: "" }],
         cards.map(function (r) {
           return h("tr", {}, h("td", { text: r.category }), h("td", { text: r.purity }),
-            h("td", { text: r.making_type }), h("td", { class: "num mono", text: r.wastage_pct }),
+            h("td", { text: r.making_type }), h("td", { text: r.product_name || "—" }),
+            h("td", { class: "num mono", text: r.wastage_pct }),
             h("td", { class: "num mono", text: money(r.other_cost) }),
             h("td", { class: "num" }, h("button", { class: "btn xs", text: "✕",
               onclick: function () {
@@ -1243,7 +1281,7 @@
       search.addEventListener("keydown", function (e) { if (e.key === "Enter") load(search.value); });
       box.appendChild(head("Suppliers", "Bullion houses, manufacturers and karigar vendors you buy from",
         [search, h("button", { class: "btn", text: "Search", onclick: function () { load(search.value); } }),
-          h("button", { class: "btn pri", text: "+ New supplier", onclick: function () { supplierForm(0); } }),
+          h("button", { class: "btn pri", onclick: function () { supplierForm(0); } }, icon("plus", 15), "New supplier"),
           exportBtn("suppliers")]));
       var holder = h("div", { class: "card", text: "Loading…" });
       box.appendChild(holder);
@@ -1287,7 +1325,7 @@
     var o = {};
     if (id) { rows.forEach(function (x) { if (x.id === id) o = x; }); }
     var v = function (k, d) { return o[k] === undefined || o[k] === null ? (d === undefined ? "" : d) : o[k]; };
-    if (!id) { o.orderType = "Purchase"; o.metal = "Gold"; o.purity = "22K (916)";
+    if (!id) { o.orderType = "Purchase"; o.metal = "Gold"; o.purity = "22K";
       o.priority = "Normal"; o.status = "New"; o.category = CATS[0];
       o.orderDate = new Date().toISOString().slice(0, 10); }
 
@@ -1319,7 +1357,7 @@
       fld("Party", whoWrap),
       fld("Category", tag("category", sel(CATS, v("category", CATS[0])))),
       fld("Metal", tag("metal", sel(METALS, v("metal", "Gold")))),
-      fld("Purity", tag("purity", sel(PURITIES, v("purity", "22K (916)")))),
+      fld("Purity", tag("purity", sel(PURITIES, v("purity", "22K")))),
       fld("Pieces", tag("pieces", inp(v("pieces", 0), { type: "number", step: "1" }))),
       fld("Priority", tag("priority", sel(PRIORITIES, v("priority", "Normal")))),
       fld("Status", tag("status", sel(ORDER_STATUS, v("status", "New")))),
@@ -1361,7 +1399,7 @@
       ts.addEventListener("change", function () { fType = ts.value; load(); });
       ss.addEventListener("change", function () { fStatus = ss.value; load(); });
       box.appendChild(head("Orders", "Purchases in and sales out — the deal ledger",
-        [ts, ss, h("button", { class: "btn pri", text: "+ New order", onclick: function () { orderForm(0, []); } }),
+        [ts, ss, h("button", { class: "btn pri", onclick: function () { orderForm(0, []); } }, icon("plus", 15), "New order"),
           exportBtn("orders")]));
       var holder = h("div", { class: "card", text: "Loading…" });
       box.appendChild(holder);

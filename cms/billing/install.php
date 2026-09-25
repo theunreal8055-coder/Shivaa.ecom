@@ -64,7 +64,7 @@ function inst_split(string $sql): array {
 
 $ms = billing_config();
 $ok = billing_config_ok($ms);
-$error = null; $log = []; $createdUser = false; $dbName = (string)($ms['dbname'] ?? '');
+$error = null; $log = []; $migrated = []; $createdUser = false; $dbName = (string)($ms['dbname'] ?? '');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
   $shopPass = (string)($_POST['shop_password'] ?? '');
@@ -114,6 +114,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
           if (strpos($t, 'billing_') !== 0) throw new RuntimeException('Unexpected table created: ' . $t);
         }
 
+        /* Columns added after a table already shipped. schema.sql is still
+           CREATE-only; these are the sole ALTERs the installer will ever run,
+           they are checked against INFORMATION_SCHEMA first, and every one is
+           an ADD COLUMN on a billing_ table. Nothing else can reach here. */
+        $migrations = [
+          ['billing_suppliers',  'metal',       "`metal` VARCHAR(16) NOT NULL DEFAULT 'Gold' AFTER `pin`"],
+          ['billing_rate_cards', 'product_name', "`product_name` VARCHAR(191) NOT NULL DEFAULT '' AFTER `category`"],
+        ];
+        $colSt = $pdo->prepare('SELECT COUNT(*) FROM `INFORMATION_SCHEMA`.`COLUMNS`
+                                WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = ? AND `COLUMN_NAME` = ?');
+        foreach ($migrations as $mg) {
+          list($tbl, $col, $ddl) = $mg;
+          if (strpos($tbl, 'billing_') !== 0) throw new RuntimeException('Bad migration target: ' . $tbl);
+          $colSt->execute([$tbl, $col]);
+          if ((int)$colSt->fetchColumn() > 0) { $migrated[] = "$tbl.$col already present"; continue; }
+          $pdo->exec("ALTER TABLE `$tbl` ADD COLUMN $ddl");
+          $migrated[] = "$tbl.$col added";
+        }
+
         $pdo->exec("INSERT INTO `billing_settings` (`id`) VALUES (1)
                     ON DUPLICATE KEY UPDATE `id` = `id`");
 
@@ -161,6 +180,7 @@ $e = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
   </div>
   <table><tr><th>Table</th><th>Result</th></tr>
   <?php foreach ($log as $l): ?><tr><td><code><?= $e($l['table']) ?></code></td><td><?= $l['created'] ? 'created' : 'already existed' ?></td></tr><?php endforeach; ?>
+  <?php foreach ($migrated as $mg): ?><tr><td><code><?= $e($mg) ?></code></td><td>column</td></tr><?php endforeach; ?>
   </table>
   <p style="margin-top:18px"><a href="./">Open the billing app &rarr;</a></p>
 <?php else: ?>

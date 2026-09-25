@@ -8,7 +8,7 @@
  */
 declare(strict_types=1);
 
-const BILLING_VERSION = 3;
+const BILLING_VERSION = 4;
 const BILLING_SESSION = 'shivaa_billing';
 const BILLING_CSRF = 'shivaa_billing_csrf';
 
@@ -18,9 +18,14 @@ const BILLING_CATEGORIES = [
   'Bracelets', 'Coins', 'Bars', 'Stone', 'CZ', 'Paper Casting', 'Regular Casting',
   'Loose Diamonds', 'Raw Metal',
 ];
-const BILLING_PURITIES = [
-  '24K (999)', '22K (916)', '20K (833)', '19K (791)', '18K (750)',
-  '14K (585)', '9K (375)', '92.5 Silver',
+/* Plain karat labels, exactly as shivaa_erp.tsx uses them. The fineness
+   number lives in BILLING_FINENESS so the label stays short but the maths
+   stays exact. */
+const BILLING_PURITIES = ['24K', '22K', '20K', '18K', '14K', '9K', '92.5 Silver'];
+const BILLING_METALS = ['Gold', 'Silver', 'Platinum', 'Both'];
+const BILLING_FINENESS = [
+  '24K' => 0.999, '22K' => 0.916, '20K' => 0.833, '19K' => 0.791,
+  '18K' => 0.750, '14K' => 0.585, '9K' => 0.375, '92.5 Silver' => 0.925,
 ];
 const BILLING_PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Bank Transfer', 'Cheque', 'RTGS'];
 const BILLING_EXPENSE_CATEGORIES = [
