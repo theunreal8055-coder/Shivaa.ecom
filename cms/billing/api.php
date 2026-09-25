@@ -501,4 +501,389 @@ if ($route === 'reports') {
     'cumulative' => round($gross + billing_num($shop['total'] ?? 0), 2)]);
 }
 
+/* ── metal exchange ─────────────────────────────────────────────────────── */
+if ($route === 'metal' && $method === 'GET') {
+  $st = $pdo->query("SELECT `id`,`bill_no`,`party_name`,`bill_date`,`balance_gold`,
+                     `balance_silver`,`labour_total` FROM `billing_metal_bills`
+                     ORDER BY `id` DESC LIMIT 500");
+  $rows = $st->fetchAll();
+  $gold = 0.0; $silver = 0.0;
+  foreach ($rows as $r) { $gold += billing_num($r['balance_gold']); $silver += billing_num($r['balance_silver']); }
+  billing_json(['ok' => true, 'bills' => $rows,
+                'netGold' => round($gold, 3), 'netSilver' => round($silver, 3)]);
+}
+
+if ($route === 'metal' && $method === 'POST') {
+  $in = billing_input();
+  $partyId = billing_int($in['partyId'] ?? 0);
+  $st = $pdo->prepare('SELECT * FROM `billing_parties` WHERE `id` = ?'); $st->execute([$partyId]);
+  $party = $st->fetch();
+  if (!$party) billing_fail('Select a party first.');
+
+  $outItems = []; $outGold = 0.0; $outSilver = 0.0; $labour = 0.0;
+  foreach ((is_array($in['outItems'] ?? null) ? $in['outItems'] : []) as $o) {
+    $net = billing_num($o['netWt'] ?? 0);
+    $wastage = billing_num($o['wastage'] ?? 0);
+    $fine = round($net * (1 - $wastage / 100), 3);
+    $metal = billing_str($o['metal'] ?? 'Gold', 16);
+    if ($metal === 'Silver') $outSilver += $fine; else $outGold += $fine;
+    $lab = billing_num($o['labour'] ?? 0); $labour += $lab;
+    $outItems[] = ['name' => billing_str($o['name'] ?? '', 191), 'metal' => $metal,
+                   'purity' => billing_str($o['purity'] ?? '', 32), 'netWt' => $net,
+                   'wastage' => $wastage, 'fineWt' => $fine, 'labour' => $lab];
+  }
+  $inMetals = []; $inGold = 0.0; $inSilver = 0.0;
+  foreach ((is_array($in['inMetals'] ?? null) ? $in['inMetals'] : []) as $m) {
+    $gross = billing_num($m['gross'] ?? 0);
+    $tunch = billing_num($m['tunch'] ?? 0);           // impurity %
+    $fine = round($gross * (1 - $tunch / 100), 3);
+    $metal = billing_str($m['metal'] ?? 'Gold', 16);
+    if ($metal === 'Silver') $inSilver += $fine; else $inGold += $fine;
+    $inMetals[] = ['metal' => $metal, 'name' => billing_str($m['name'] ?? '', 191),
+                   'gross' => $gross, 'tunch' => $tunch, 'fineWt' => $fine];
+  }
+
+  $st = $pdo->prepare("SELECT MAX(CAST(SUBSTRING(`bill_no`, 4) AS UNSIGNED))
+                       FROM `billing_metal_bills` WHERE `bill_no` LIKE 'MET-%'");
+  $st->execute();
+  $billNo = 'MET-' . str_pad((string)(((int)$st->fetchColumn()) + 1), 4, '0', STR_PAD_LEFT);
+  $date = billing_str($in['date'] ?? billing_today(), 10) ?: billing_today();
+
+  $pdo->prepare('INSERT INTO `billing_metal_bills`
+    (`bill_no`,`party_id`,`party_name`,`bill_date`,`out_items`,`in_metals`,
+     `fine_out_gold`,`fine_in_gold`,`balance_gold`,`fine_out_silver`,
+     `fine_in_silver`,`balance_silver`,`labour_total`,`notes`)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    ->execute([$billNo, (int)$party['id'], (string)$party['name'], $date,
+      json_encode($outItems), json_encode($inMetals),
+      round($outGold, 3), round($inGold, 3), round($outGold - $inGold, 3),
+      round($outSilver, 3), round($inSilver, 3), round($outSilver - $inSilver, 3),
+      round($labour, 2), billing_str($in['notes'] ?? '', 500)]);
+  $id = (int)$pdo->lastInsertId();
+
+  /* Labour on a metal exchange is real money, so it goes in the khata. */
+  if ($labour > 0) {
+    $pdo->prepare('INSERT INTO `billing_ledger`
+      (`party_id`,`entry_date`,`entry_type`,`amount`,`ref_type`,`ref_id`,`note`)
+      VALUES (?,?,?,?,?,?,?)')
+      ->execute([(int)$party['id'], $date, 'debit', round($labour, 2), 'metal', $id,
+                 'Labour on ' . $billNo]);
+  }
+  billing_audit('Metal bill created', 'metal', $id, $billNo);
+  billing_json(['ok' => true, 'id' => $id, 'billNo' => $billNo]);
+}
+
+if (preg_match('#^metal/(\d+)$#', $route, $m) && $method === 'GET') {
+  $st = $pdo->prepare('SELECT * FROM `billing_metal_bills` WHERE `id` = ?'); $st->execute([(int)$m[1]]);
+  $b = $st->fetch();
+  if (!$b) billing_fail('Metal bill not found.', 404);
+  $b['out_items'] = json_decode((string)($b['out_items'] ?? '[]'), true) ?: [];
+  $b['in_metals'] = json_decode((string)($b['in_metals'] ?? '[]'), true) ?: [];
+  billing_json(['ok' => true, 'bill' => $b]);
+}
+
+/* ── karigar jobs ───────────────────────────────────────────────────────── */
+if ($route === 'karigar' && $method === 'GET') {
+  $st = $pdo->query('SELECT * FROM `billing_karigar_jobs` ORDER BY `id` DESC LIMIT 500');
+  $rows = $st->fetchAll();
+  $issued = 0.0; $received = 0.0; $labour = 0.0;
+  foreach ($rows as $r) {
+    if ($r['status'] !== 'Completed') $issued += billing_num($r['issued_wt']);
+    $received += billing_num($r['received_wt']);
+    if ($r['status'] !== 'Completed') $labour += billing_num($r['labour_charges']);
+  }
+  billing_json(['ok' => true, 'jobs' => $rows,
+    'metalOut' => round($issued, 3), 'metalBack' => round($received, 3),
+    'labourDue' => round($labour, 2)]);
+}
+
+if ($route === 'karigar' && $method === 'POST') {
+  $in = billing_input();
+  $partyId = billing_int($in['partyId'] ?? 0);
+  $st = $pdo->prepare("SELECT * FROM `billing_parties` WHERE `id` = ?"); $st->execute([$partyId]);
+  $p = $st->fetch();
+  if (!$p) billing_fail('Select a karigar first.');
+  $issue = billing_str($in['issueDate'] ?? billing_today(), 10) ?: billing_today();
+  $days = billing_int($in['durationDays'] ?? 15);
+  $due = date('Y-m-d', strtotime($issue . ' +' . max(0, $days) . ' days'));
+  $pdo->prepare('INSERT INTO `billing_karigar_jobs`
+    (`party_id`,`artisan_name`,`metal`,`category`,`purity`,`issue_date`,`due_date`,
+     `labour_charges`,`issued_wt`,`less_wt`,`wastage_pct`,`status`,`notes`)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    ->execute([(int)$p['id'], (string)$p['name'], billing_str($in['metal'] ?? 'Gold', 16),
+      billing_str($in['category'] ?? 'Rings', 64), billing_str($in['purity'] ?? '22K (916)', 32),
+      $issue, $due, billing_num($in['labourCharges'] ?? 0), billing_num($in['issuedWt'] ?? 0),
+      billing_num($in['lessWt'] ?? 0), billing_num($in['wastagePct'] ?? 0),
+      'Pending', billing_str($in['notes'] ?? '', 500)]);
+  $id = (int)$pdo->lastInsertId();
+  billing_audit('Karigar job issued', 'karigar', $id, (string)$p['name']);
+  billing_json(['ok' => true, 'id' => $id]);
+}
+
+if (preg_match('#^karigar/(\d+)/complete$#', $route, $m) && $method === 'POST') {
+  $in = billing_input();
+  $st = $pdo->prepare('SELECT * FROM `billing_karigar_jobs` WHERE `id` = ?'); $st->execute([(int)$m[1]]);
+  $j = $st->fetch();
+  if (!$j) billing_fail('Job not found.', 404);
+  $recv = billing_num($in['receivedWt'] ?? 0);
+  $labour = billing_num($in['labourCharges'] ?? $j['labour_charges']);
+  $pdo->prepare("UPDATE `billing_karigar_jobs` SET `status`='Completed', `received_wt`=?,
+                 `labour_charges`=? WHERE `id`=?")->execute([$recv, $labour, (int)$j['id']]);
+
+  /* Gold that comes back is real stock again. */
+  $back = round($recv * (1 - billing_num($j['wastage_pct']) / 100), 3);
+  $itemId = billing_int($in['itemId'] ?? 0);
+  if ($itemId > 0 && $back > 0) {
+    $pdo->prepare('UPDATE `billing_items` SET `physical_pcs` = `physical_pcs` + 1,
+                   `physical_grams` = `physical_grams` + ? WHERE `id` = ?')->execute([$back, $itemId]);
+    $pdo->prepare('INSERT INTO `billing_stock_ledger`
+      (`item_id`,`sku`,`channel`,`delta_pcs`,`delta_grams`,`ref_type`,`ref_id`,`note`)
+      VALUES (?,?,?,?,?,?,?,?)')
+      ->execute([$itemId, '', 'karigar', 1, $back, 'karigar', (int)$j['id'],
+                 'Received from ' . $j['artisan_name']]);
+  }
+  /* Labour becomes payable, so it enters the khata as a credit owed out. */
+  if ($labour > 0) {
+    $pdo->prepare('INSERT INTO `billing_ledger`
+      (`party_id`,`entry_date`,`entry_type`,`amount`,`ref_type`,`ref_id`,`note`)
+      VALUES (?,?,?,?,?,?,?)')
+      ->execute([(int)$j['party_id'], billing_today(), 'credit', $labour, 'karigar', (int)$j['id'],
+                 'Labour paid on job #' . $j['id']]);
+  }
+  billing_audit('Karigar job completed', 'karigar', (int)$j['id'], $back . ' g back');
+  billing_json(['ok' => true, 'received' => $recv, 'fineBack' => $back]);
+}
+
+/* ── audit trail ────────────────────────────────────────────────────────── */
+if ($route === 'audit') {
+  $st = $pdo->query('SELECT * FROM `billing_audit` ORDER BY `id` DESC LIMIT 500');
+  billing_json(['ok' => true, 'log' => $st->fetchAll()]);
+}
+
+/* ── stock ledger ───────────────────────────────────────────────────────── */
+if ($route === 'stock/ledger' && $method === 'GET') {
+  $sql = 'SELECT l.*, i.`name` AS item_name FROM `billing_stock_ledger` l
+          LEFT JOIN `billing_items` i ON i.`id` = l.`item_id`';
+  $args = [];
+  if (($it = billing_int($_GET['itemId'] ?? 0)) > 0) { $sql .= ' WHERE l.`item_id` = ?'; $args[] = $it; }
+  $sql .= ' ORDER BY l.`id` DESC LIMIT 500';
+  $st = $pdo->prepare($sql); $st->execute($args);
+  billing_json(['ok' => true, 'ledger' => $st->fetchAll()]);
+}
+
+/* ── delete a bill: restore stock and unwind the khata ──────────────────── */
+if (preg_match('#^bills/(\d+)$#', $route, $m) && $method === 'DELETE') {
+  $st = $pdo->prepare('SELECT * FROM `billing_bills` WHERE `id` = ?'); $st->execute([(int)$m[1]]);
+  $b = $st->fetch();
+  if (!$b) billing_fail('Bill not found.', 404);
+  $items = json_decode((string)($b['items'] ?? '[]'), true) ?: [];
+  foreach ($items as $it) {
+    $iid = billing_int($it['itemId'] ?? 0);
+    if ($iid <= 0) continue;
+    $st = $pdo->prepare('SELECT * FROM `billing_items` WHERE `id` = ?'); $st->execute([$iid]);
+    $row = $st->fetch();
+    if (!$row || $row['fulfilment'] !== 'ready') continue;
+    $pcs = max(1, billing_int($it['pieces'] ?? 1));
+    $g = round(billing_num($row['net_wt']) * $pcs, 3);
+    $pdo->prepare('UPDATE `billing_items` SET `physical_pcs` = `physical_pcs` + ?,
+                   `physical_grams` = `physical_grams` + ?, `online_stock` = `online_stock` + ?
+                   WHERE `id` = ?')->execute([$pcs, $g, $pcs, $iid]);
+    $pdo->prepare('INSERT INTO `billing_stock_ledger`
+      (`item_id`,`sku`,`channel`,`delta_pcs`,`delta_grams`,`ref_type`,`ref_id`,`note`)
+      VALUES (?,?,?,?,?,?,?,?)')
+      ->execute([$iid, (string)$row['sku'], 'correction', $pcs, $g, 'bill_delete', (int)$b['id'],
+                 'Restored after deleting ' . $b['bill_no']]);
+  }
+  $pdo->prepare("DELETE FROM `billing_ledger` WHERE `ref_id` = ?
+                 AND `ref_type` IN ('bill','payment')")->execute([(int)$b['id']]);
+  $pdo->prepare('DELETE FROM `billing_bills` WHERE `id` = ?')->execute([(int)$b['id']]);
+  billing_audit('Bill deleted', 'bill', (int)$b['id'], (string)$b['bill_no']);
+  billing_json(['ok' => true]);
+}
+
+/* ── item update / delete ───────────────────────────────────────────────── */
+if (preg_match('#^items/(\d+)$#', $route, $m) && $method === 'POST') {
+  $in = billing_input();
+  $id = (int)$m[1];
+  $st = $pdo->prepare('SELECT * FROM `billing_items` WHERE `id` = ?'); $st->execute([$id]);
+  if (!$st->fetch()) billing_fail('Item not found.', 404);
+  $gross = billing_num($in['grossWt'] ?? 0); $less = billing_num($in['lessWt'] ?? 0);
+  $stone = billing_num($in['stoneWt'] ?? 0); $net = billing_num($in['netWt'] ?? 0);
+  if ($net <= 0) $net = max(0.0, $gross - $less - $stone);
+  $ful = ($in['fulfilment'] ?? 'ready') === 'made_to_order' ? 'made_to_order' : 'ready';
+  $pdo->prepare('UPDATE `billing_items` SET `sku`=?,`huid`=?,`name`=?,`category`=?,`metal`=?,
+    `purity`=?,`gross_wt`=?,`less_wt`=?,`stone_wt`=?,`net_wt`=?,`making_per_g`=?,
+    `stone_details`=?,`online_stock`=?,`fulfilment`=?,`status`=?,`notes`=? WHERE `id`=?')
+    ->execute([billing_str($in['sku'] ?? '', 64), billing_str($in['huid'] ?? '', 64),
+      billing_str($in['name'] ?? '', 191) ?: 'Unnamed', billing_str($in['category'] ?? 'Rings', 64),
+      billing_str($in['metal'] ?? 'Gold', 16), billing_str($in['purity'] ?? '', 32),
+      $gross, $less, $stone, $net, billing_num($in['makingPerG'] ?? 0),
+      billing_str($in['stoneDetails'] ?? '', 500), billing_int($in['onlineStock'] ?? 0), $ful,
+      billing_str($in['status'] ?? 'In Stock', 16), billing_str($in['notes'] ?? '', 500), $id]);
+  billing_audit('Item updated', 'item', $id, billing_str($in['name'] ?? '', 191));
+  billing_json(['ok' => true]);
+}
+if (preg_match('#^items/(\d+)$#', $route, $m) && $method === 'DELETE') {
+  $id = (int)$m[1];
+  $pdo->prepare('DELETE FROM `billing_stock_ledger` WHERE `item_id` = ?')->execute([$id]);
+  $pdo->prepare('DELETE FROM `billing_items` WHERE `id` = ?')->execute([$id]);
+  billing_audit('Item deleted', 'item', $id);
+  billing_json(['ok' => true]);
+}
+
+/* ── party update / delete ──────────────────────────────────────────────── */
+if (preg_match('#^parties/(\d+)$#', $route, $m) && $method === 'POST') {
+  $in = billing_input(); $id = (int)$m[1];
+  $st = $pdo->prepare('SELECT * FROM `billing_parties` WHERE `id` = ?'); $st->execute([$id]);
+  if (!$st->fetch()) billing_fail('Party not found.', 404);
+  $pdo->prepare('UPDATE `billing_parties` SET `kind`=?,`name`=?,`phone`=?,`email`=?,`address`=?,
+    `city`=?,`state_code`=?,`pan`=?,`gstin`=?,`aadhar`=?,`partner_id`=?,`bank_name`=?,
+    `acc_number`=?,`ifsc`=?,`credit_limit`=?,`credit_days`=?,`specialization`=?,`notes`=?
+    WHERE `id`=?')
+    ->execute([billing_str($in['kind'] ?? 'customer', 16), billing_str($in['name'] ?? '', 191) ?: 'Unnamed',
+      billing_str($in['phone'] ?? '', 32), billing_str($in['email'] ?? '', 191),
+      billing_str($in['address'] ?? '', 500), billing_str($in['city'] ?? '', 128),
+      billing_str($in['stateCode'] ?? '', 8), billing_str($in['pan'] ?? '', 32),
+      billing_str($in['gstin'] ?? '', 64), billing_str($in['aadhar'] ?? '', 32),
+      billing_str($in['partnerId'] ?? '', 64), billing_str($in['bankName'] ?? '', 128),
+      billing_str($in['accNumber'] ?? '', 64), billing_str($in['ifsc'] ?? '', 32),
+      billing_num($in['creditLimit'] ?? 0), billing_int($in['creditDays'] ?? 0),
+      billing_str($in['specialization'] ?? '', 128), billing_str($in['notes'] ?? '', 500), $id]);
+  billing_audit('Party updated', 'party', $id);
+  billing_json(['ok' => true]);
+}
+if (preg_match('#^parties/(\d+)$#', $route, $m) && $method === 'DELETE') {
+  $id = (int)$m[1];
+  $n = (int)$pdo->query('SELECT COUNT(*) FROM `billing_bills` WHERE `party_id` = ' . $id)->fetchColumn();
+  if ($n > 0) billing_fail("This party has $n bills. Delete those first so the record stays honest.", 409);
+  $pdo->prepare('DELETE FROM `billing_ledger` WHERE `party_id` = ?')->execute([$id]);
+  $pdo->prepare('DELETE FROM `billing_parties` WHERE `id` = ?')->execute([$id]);
+  billing_audit('Party deleted', 'party', $id);
+  billing_json(['ok' => true]);
+}
+if (preg_match('#^expenses/(\d+)$#', $route, $m) && $method === 'DELETE') {
+  $pdo->prepare('DELETE FROM `billing_expenses` WHERE `id` = ?')->execute([(int)$m[1]]);
+  billing_audit('Expense deleted', 'expense', (int)$m[1]);
+  billing_json(['ok' => true]);
+}
+
+/* ── change password ────────────────────────────────────────────────────── */
+if ($route === 'password' && $method === 'POST') {
+  $in = billing_input();
+  $u = billing_user();
+  $cur = (string)($in['current'] ?? ''); $new = (string)($in['next'] ?? '');
+  if (strlen($new) < 10) billing_fail('The new password must be at least 10 characters.');
+  $st = $pdo->prepare('SELECT * FROM `billing_users` WHERE `id` = ?'); $st->execute([(int)$u['id']]);
+  $row = $st->fetch();
+  if (!$row || !password_verify($cur, (string)$row['password_hash'])) billing_fail('Current password is wrong.', 401);
+  $pdo->prepare('UPDATE `billing_users` SET `password_hash` = ? WHERE `id` = ?')
+      ->execute([password_hash($new, PASSWORD_DEFAULT), (int)$u['id']]);
+  billing_audit('Password changed', 'user', (int)$u['id']);
+  billing_json(['ok' => true]);
+}
+
+/* ── CSV export ─────────────────────────────────────────────────────────── */
+if (preg_match('#^export/([a-z]+)$#', $route, $m) && $method === 'GET') {
+  $what = $m[1];
+  $map = [
+    'bills'    => "SELECT `bill_no`,`doc_type`,`channel`,`party_name`,`bill_date`,`subtotal`,
+                   `gst_amount`,`grand_total`,`amount_paid`,`balance_due`,`status`
+                   FROM `billing_bills` ORDER BY `id`",
+    'items'    => "SELECT `sku`,`huid`,`name`,`category`,`metal`,`purity`,`net_wt`,`online_stock`,
+                   `physical_pcs`,`physical_grams`,`fulfilment`,`status`
+                   FROM `billing_items` ORDER BY `id`",
+    'parties'  => "SELECT `kind`,`name`,`phone`,`email`,`city`,`gstin`,`pan`,`credit_days`
+                   FROM `billing_parties` ORDER BY `name`",
+    'expenses' => "SELECT `exp_date`,`category`,`description`,`payment_mode`,`amount`
+                   FROM `billing_expenses` ORDER BY `id`",
+    'khata'    => "SELECT p.`name`, p.`phone`,
+                   COALESCE(SUM(CASE WHEN l.`entry_type`='debit' THEN l.`amount` ELSE -l.`amount` END),0) balance
+                   FROM `billing_parties` p LEFT JOIN `billing_ledger` l ON l.`party_id`=p.`id`
+                   GROUP BY p.`id`, p.`name`, p.`phone`",
+  ];
+  if (!isset($map[$what])) billing_fail('Nothing to export for: ' . $what, 404);
+  $rows = $pdo->query($map[$what])->fetchAll();
+  $out = '';
+  if ($rows) {
+    $cols = array_keys($rows[0]);
+    $esc = function ($v) {
+      $s = $v === null ? '' : (string)$v;
+      return preg_match('/[",\n]/', $s) ? '"' . str_replace('"', '""', $s) . '"' : $s;
+    };
+    $out .= implode(',', $cols) . "\n";
+    foreach ($rows as $r) {
+      $line = [];
+      foreach ($cols as $c) $line[] = $esc($r[$c]);
+      $out .= implode(',', $line) . "\n";
+    }
+  }
+  billing_audit('Exported ' . $what, 'export', 0, count($rows) . ' rows');
+  header('Content-Type: text/csv; charset=utf-8');
+  header('Content-Disposition: attachment; filename="shivaa-' . $what . '-' . date('Ymd') . '.csv"');
+  echo $out;
+  exit;
+}
+
+/* ── WhatsApp links ─────────────────────────────────────────────────────── */
+if (preg_match('#^wa/bill/(\d+)$#', $route, $m)) {
+  $st = $pdo->prepare('SELECT * FROM `billing_bills` WHERE `id` = ?'); $st->execute([(int)$m[1]]);
+  $b = $st->fetch();
+  if (!$b) billing_fail('Bill not found.', 404);
+  $shop = $pdo->query('SELECT `shop_name` FROM `billing_settings` WHERE `id`=1')->fetch() ?: [];
+  billing_json(['ok' => true, 'url' => billing_wa_link((string)$b['party_phone'], billing_bill_wa_text($shop, $b))]);
+}
+if (preg_match('#^wa/khata/(\d+)$#', $route, $m)) {
+  $st = $pdo->prepare("SELECT p.`name`, p.`phone`,
+      COALESCE(SUM(CASE WHEN l.`entry_type`='debit' THEN l.`amount` ELSE -l.`amount` END),0) balance
+      FROM `billing_parties` p LEFT JOIN `billing_ledger` l ON l.`party_id` = p.`id`
+      WHERE p.`id` = ? GROUP BY p.`id`, p.`name`, p.`phone`");
+  $st->execute([(int)$m[1]]);
+  $p = $st->fetch();
+  if (!$p) billing_fail('Party not found.', 404);
+  $shop = $pdo->query('SELECT `shop_name` FROM `billing_settings` WHERE `id`=1')->fetch() ?: [];
+  billing_json(['ok' => true, 'url' => billing_wa_link((string)$p['phone'],
+    billing_khata_wa_text($shop, (string)$p['name'], billing_num($p['balance'])))]);
+}
+
+/* ── bulk import ────────────────────────────────────────────────────────── */
+if ($route === 'import' && $method === 'POST') {
+  $in = billing_input();
+  $rows = is_array($in['rows'] ?? null) ? $in['rows'] : [];
+  if (!$rows) billing_fail('Nothing to import.');
+  if (count($rows) > 2000) billing_fail('Import at most 2000 rows at a time.');
+  $made = 0; $skipped = 0; $errors = [];
+  $pdo->beginTransaction();
+  try {
+    $st = $pdo->prepare('SELECT `id` FROM `billing_items` WHERE `sku` = ? AND `sku` <> \'\' LIMIT 1');
+    $ins = $pdo->prepare('INSERT INTO `billing_items`
+      (`sku`,`huid`,`name`,`category`,`metal`,`purity`,`gross_wt`,`less_wt`,`stone_wt`,
+       `net_wt`,`online_stock`,`physical_pcs`,`physical_grams`,`fulfilment`,`product_id`)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    foreach ($rows as $i => $r) {
+      $name = billing_str($r['name'] ?? '', 191);
+      if ($name === '') { $skipped++; $errors[] = 'row ' . ($i + 1) . ': no name'; continue; }
+      $sku = billing_str($r['sku'] ?? '', 64);
+      if ($sku !== '') { $st->execute([$sku]); if ($st->fetch()) { $skipped++; continue; } }
+      $gross = billing_num($r['grossWt'] ?? $r['weightG'] ?? 0);
+      $less = billing_num($r['lessWt'] ?? 0); $stone = billing_num($r['stoneWt'] ?? 0);
+      $net = billing_num($r['netWt'] ?? 0);
+      if ($net <= 0) $net = max(0.0, $gross - $less - $stone);
+      $pcs = billing_int($r['physicalPcs'] ?? $r['stock'] ?? 0);
+      $ins->execute([$sku, billing_str($r['huid'] ?? '', 64), $name,
+        billing_str($r['category'] ?? 'Rings', 64), billing_str($r['metal'] ?? 'Gold', 16),
+        billing_str($r['purity'] ?? '22K (916)', 32), $gross, $less, $stone, $net,
+        billing_int($r['onlineStock'] ?? $r['stock'] ?? 0), $pcs, round($net * $pcs, 3),
+        ($r['fulfilment'] ?? 'ready') === 'made_to_order' ? 'made_to_order' : 'ready',
+        billing_str($r['productId'] ?? $r['id'] ?? '', 64)]);
+      $made++;
+    }
+    $pdo->commit();
+  } catch (Throwable $e) {
+    $pdo->rollBack();
+    billing_fail('Import failed: ' . $e->getMessage(), 500);
+  }
+  billing_audit('Bulk import', 'import', 0, "$made made, $skipped skipped");
+  billing_json(['ok' => true, 'made' => $made, 'skipped' => $skipped, 'errors' => array_slice($errors, 0, 20)]);
+}
+
 billing_fail('Unknown route: ' . $route, 404);

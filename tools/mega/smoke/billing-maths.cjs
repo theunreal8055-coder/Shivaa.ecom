@@ -43,9 +43,9 @@ echo (($w = billing_amount_words(1234567)) === 'Twelve Lakh Thirty Four Thousand
   ? "PASS " : "FAIL ") . "words got=" . $w . "\\n";
 echo ((billing_amount_words(0) === 'Zero Rupees Only') ? "PASS " : "FAIL ") . "words zero\\n";
 echo ((billing_amount_words(10000000) === 'One Crore Rupees Only') ? "PASS " : "FAIL ") . "words crore\\n";
-// Indian digit grouping
-echo ((billing_inr(1234567.5) === '1234567.50' || billing_inr(1234567.5) === '1,234,567.50')
-  ? "PASS " : "FAIL ") . "inr got=" . billing_inr(1234567.5) . "\\n";
+// Indian digit grouping (v2: 12,34,567.50 not 1,234,567.50)
+echo ((billing_inr(1234567.5) === '12,34,567.50')
+  ? "PASS " : "FAIL ") . "inr Indian grouping got=" . billing_inr(1234567.5) . "\\n";
 echo "GRAMS " . billing_grams(24.300) . " / " . billing_grams(7.000) . "\\n";
 echo "DDLGUARD good=" . var_export(billing_safe_ddl('CREATE TABLE IF NOT EXISTS \`billing_items\` ('), true)
    . " bad1=" . var_export(billing_safe_ddl('CREATE TABLE IF NOT EXISTS \`users\` ('), true)

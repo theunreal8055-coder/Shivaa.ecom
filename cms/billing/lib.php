@@ -8,7 +8,7 @@
  */
 declare(strict_types=1);
 
-const BILLING_VERSION = 1;
+const BILLING_VERSION = 2;
 const BILLING_SESSION = 'shivaa_billing';
 const BILLING_CSRF = 'shivaa_billing_csrf';
 
@@ -219,13 +219,55 @@ function billing_amount_words(float $amount): string {
   return implode(' ', $parts) . ' Rupees Only';
 }
 
-/** Indian digit grouping: 12,34,567.89 */
+/**
+ * Indian digit grouping: 12,34,567.89 — not the Western 1,234,567.89.
+ * PHP's number_format only does Western grouping, so the lakh/crore splits
+ * are done by hand.
+ */
 function billing_inr(float $v, int $decimals = 2): string {
-  return number_format($v, $decimals, '.', ',');
+  $neg = $v < 0;
+  $n = number_format(abs($v), $decimals, '.', '');
+  $parts = explode('.', $n, 2);
+  $int = (string)$parts[0];
+  $frac = isset($parts[1]) ? $parts[1] : '';
+  $last3 = substr($int, -3);
+  $rest = strlen($int) > 3 ? substr($int, 0, -3) : '';
+  if ($rest !== '') $last3 = preg_replace('/\B(?=(\d{2})+(?!\d))/', ',', $rest) . ',' . $last3;
+  return ($neg ? '-' : '') . $last3 . ($frac !== '' ? '.' . $frac : '');
 }
 
 function billing_grams(float $v): string {
-  return rtrim(rtrim(number_format($v, 3, '.', ','), '0'), '.');
+  return rtrim(rtrim(number_format($v, 3, '.', ''), '0'), '.');
+}
+
+/** wa.me link; bare 10-digit Indian numbers get the 91 prefix. */
+function billing_wa_link(string $phone, string $text): string {
+  $digits = preg_replace('/\D/', '', $phone) ?? '';
+  if (strlen($digits) === 10) $digits = '91' . $digits;
+  return 'https://wa.me/' . $digits . '?text=' . rawurlencode($text);
+}
+
+function billing_bill_wa_text(array $shop, array $bill): string {
+  $lines = [
+    '*' . ($shop['shop_name'] ?? 'Shivaa Jewellers') . '*',
+    'Bill ' . $bill['bill_no'] . ' · ' . date('d/m/Y', strtotime((string)$bill['bill_date'])),
+    'Dear ' . ($bill['party_name'] ?? '') . ',',
+    'Bill amount: ₹' . billing_inr(billing_num($bill['grand_total'])),
+    'Received: ₹' . billing_inr(billing_num($bill['amount_paid'])),
+  ];
+  $due = billing_num($bill['balance_due'] ?? 0);
+  if ($due > 0) $lines[] = 'Balance due: ₹' . billing_inr($due);
+  $lines[] = 'Thank you for shopping with us. 🙏';
+  return implode("\n", $lines);
+}
+
+function billing_khata_wa_text(array $shop, string $name, float $balance): string {
+  return implode("\n", [
+    '*' . ($shop['shop_name'] ?? 'Shivaa Jewellers') . '*',
+    'Namaste ' . $name . ' ji,',
+    'A gentle reminder — your outstanding balance is *₹' . billing_inr($balance) . '*.',
+    'Kindly clear it at your convenience. Thank you. 🙏',
+  ]);
 }
 
 /* ── audit ──────────────────────────────────────────────────────────────── */
@@ -238,16 +280,38 @@ function billing_audit(string $action, string $entity = '', int $entityId = 0, s
   } catch (Throwable $e) { /* audit must never break the main flow */ }
 }
 
-/** Read-only view of the shop's live orders, for cumulative revenue. */
+/**
+ * Read-only view of the shop's live orders, for cumulative revenue.
+ *
+ * Only 'Paid' and 'Partially paid' count. The shop's own v176 note is
+ * explicit about why: a Cashfree payment that failed or was dropped leaves
+ * the row sitting at 'Awaiting payment', and counting those rows inflates
+ * revenue with money that never arrived. For a partially paid order only the
+ * amount actually received is counted, not the order total.
+ */
 function billing_shop_revenue(PDO $pdo): array {
   try {
     $rows = $pdo->query(
-      "SELECT `total` FROM `orders` WHERE `payment_status` IN ('paid','Paid','captured','success')"
+      "SELECT `payment_status`, `total`, `amount_paid` FROM `orders`
+       WHERE `payment_status` IN ('Paid','Partially paid')"
     )->fetchAll();
   } catch (Throwable $e) {
-    return ['available' => false, 'reason' => $e->getMessage(), 'total' => 0.0, 'count' => 0];
+    return ['available' => false, 'reason' => $e->getMessage(), 'total' => 0.0, 'count' => 0,
+            'skipped' => 0];
   }
-  $sum = 0.0;
-  foreach ($rows as $r) $sum += billing_num($r['total'] ?? 0);
-  return ['available' => true, 'total' => round($sum, 2), 'count' => count($rows)];
+  $sum = 0.0; $skipped = 0;
+  try {
+    $skipped = (int)$pdo->query(
+      "SELECT COUNT(*) FROM `orders` WHERE `payment_status` NOT IN ('Paid','Partially paid')"
+    )->fetchColumn();
+  } catch (Throwable $e) { $skipped = 0; }
+
+  foreach ($rows as $r) {
+    $paid = billing_num($r['amount_paid'] ?? 0);
+    /* A fully paid order may predate amount_paid being recorded. */
+    $sum += ((string)($r['payment_status'] ?? '') === 'Paid' && $paid <= 0)
+      ? billing_num($r['total'] ?? 0) : $paid;
+  }
+  return ['available' => true, 'total' => round($sum, 2), 'count' => count($rows),
+          'skipped' => $skipped];
 }

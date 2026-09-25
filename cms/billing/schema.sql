@@ -197,6 +197,30 @@ CREATE TABLE IF NOT EXISTS `billing_ledger` (
   KEY `idx_billing_ledger_party` (`party_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Metal exchange: fine gold/silver given out against old metal received.
+-- Balances are tracked per metal because a jeweller can be owed gold while
+-- owing silver on the same visit.
+CREATE TABLE IF NOT EXISTS `billing_metal_bills` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `bill_no` VARCHAR(32) NOT NULL,
+  `party_id` INT NOT NULL DEFAULT 0,
+  `party_name` VARCHAR(191) NOT NULL DEFAULT '',
+  `bill_date` DATE NOT NULL,
+  `out_items` JSON,
+  `in_metals` JSON,
+  `fine_out_gold` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `fine_in_gold` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `balance_gold` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `fine_out_silver` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `fine_in_silver` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `balance_silver` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `labour_total` DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  `notes` VARCHAR(500) NOT NULL DEFAULT '',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uq_billing_metal_no` (`bill_no`),
+  KEY `idx_billing_metal_party` (`party_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `billing_audit` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `action` VARCHAR(128) NOT NULL,
