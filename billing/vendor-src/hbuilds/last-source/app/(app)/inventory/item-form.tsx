@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveItem } from "@/lib/actions/inventory";
-import { idle } from "@/lib/actions/helpers";
+import { idle } from "@/lib/actions/state";
 import { CATEGORIES, PURITIES } from "@/lib/utils";
 import { Button, EditIconBtn, Field, Input, Modal, Msg, Select, SubmitBtn, Textarea } from "@/components/ui";
 import type { inventoryItems } from "@/lib/db/schema";

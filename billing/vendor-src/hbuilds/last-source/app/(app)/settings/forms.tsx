@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { updateShop } from "@/lib/actions/settings";
 import { changePassword } from "@/lib/actions/auth";
-import { idle } from "@/lib/actions/helpers";
+import { idle } from "@/lib/actions/state";
 import { Field, Input, Msg, SubmitBtn, Textarea } from "@/components/ui";
 
 type Settings = {

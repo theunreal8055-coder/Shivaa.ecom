@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { updateRates } from "@/lib/actions/settings";
-import { idle } from "@/lib/actions/helpers";
+import { idle } from "@/lib/actions/state";
 import { Field, Input, SubmitBtn, Msg } from "./ui";
 
 export function RatesForm({ goldRate, silverRate }: { goldRate: number; silverRate: number }) {

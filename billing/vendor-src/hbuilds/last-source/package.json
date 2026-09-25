@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "db:push": "drizzle-kit push",
-    "vercel-build": "drizzle-kit push --force && next build"
+    "vercel-build": "next build"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

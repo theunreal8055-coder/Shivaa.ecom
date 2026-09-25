@@ -3,7 +3,7 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Loader2, Pencil, Printer, Trash2, X } from "lucide-react";
-import type { ActionState } from "@/lib/actions/helpers";
+import type { ActionState } from "@/lib/actions/state";
 
 export function cx(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(" ");

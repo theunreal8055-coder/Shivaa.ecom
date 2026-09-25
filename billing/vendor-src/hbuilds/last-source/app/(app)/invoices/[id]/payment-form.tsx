@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { IndianRupee } from "lucide-react";
 import { recordInvoicePayment } from "@/lib/actions/invoices";
-import { idle } from "@/lib/actions/helpers";
+import { idle } from "@/lib/actions/state";
 import { PAYMENT_MODES } from "@/lib/utils";
 import { Button, Field, Input, Modal, Msg, Select, SubmitBtn } from "@/components/ui";
 

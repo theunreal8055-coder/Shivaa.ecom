@@ -3,7 +3,7 @@
 import { useActionState, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { importBackup } from "@/lib/actions/vault";
-import { idle } from "@/lib/actions/helpers";
+import { idle } from "@/lib/actions/state";
 import { Msg, SubmitBtn } from "@/components/ui";
 
 export function ImportForm() {

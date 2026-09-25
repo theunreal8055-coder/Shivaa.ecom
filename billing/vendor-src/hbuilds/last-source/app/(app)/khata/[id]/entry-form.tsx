@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { IndianRupee, MinusCircle } from "lucide-react";
 import { addLedgerEntry } from "@/lib/actions/khata";
-import { idle } from "@/lib/actions/helpers";
+import { idle } from "@/lib/actions/state";
 import { PAYMENT_MODES, today } from "@/lib/utils";
 import { Button, Field, Input, Modal, Msg, Select, SubmitBtn } from "@/components/ui";
 

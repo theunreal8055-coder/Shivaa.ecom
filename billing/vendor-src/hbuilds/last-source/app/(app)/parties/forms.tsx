@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { saveCustomer, saveSupplier, saveArtisan } from "@/lib/actions/parties";
-import { idle } from "@/lib/actions/helpers";
+import { idle } from "@/lib/actions/state";
 import { Button, EditIconBtn, Field, Input, Modal, Msg, SubmitBtn, Textarea } from "@/components/ui";
 import type { customers, suppliers, artisans } from "@/lib/db/schema";
 

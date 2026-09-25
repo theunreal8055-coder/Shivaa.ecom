@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { login } from "@/lib/actions/auth";
-import { idle } from "@/lib/actions/helpers";
+import { idle } from "@/lib/actions/state";
 import { Field, Input, SubmitBtn, Msg } from "@/components/ui";
 
 export function LoginForm() {
