@@ -230,3 +230,78 @@ CREATE TABLE IF NOT EXISTS `billing_audit` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   KEY `idx_billing_audit_entity` (`entity`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Sourcing: suppliers, their rate cards, and the purchase/sale deal ledger.
+-- These come from shivaa_erp.tsx (the B2B sourcing app), which the billing
+-- app did not cover at all.
+
+CREATE TABLE IF NOT EXISTS `billing_suppliers` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `company` VARCHAR(191) NOT NULL,
+  `contact` VARCHAR(128) NOT NULL DEFAULT '',
+  `phone` VARCHAR(32) NOT NULL DEFAULT '',
+  `city` VARCHAR(128) NOT NULL DEFAULT '',
+  `pin` VARCHAR(16) NOT NULL DEFAULT '',
+  `gst` VARCHAR(64) NOT NULL DEFAULT '',
+  `acc_name` VARCHAR(191) NOT NULL DEFAULT '',
+  `acc_number` VARCHAR(64) NOT NULL DEFAULT '',
+  `ifsc` VARCHAR(32) NOT NULL DEFAULT '',
+  `branch` VARCHAR(191) NOT NULL DEFAULT '',
+  `supplier_type` VARCHAR(32) NOT NULL DEFAULT 'Wholesaler',
+  `quality` VARCHAR(32) NOT NULL DEFAULT 'Premium',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'New',
+  `notes` VARCHAR(500) NOT NULL DEFAULT '',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_billing_suppliers_status` (`status`),
+  KEY `idx_billing_suppliers_quality` (`quality`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Agreed wastage and other costs, per party, per category and purity.
+-- One row per combination, so a client rate card is just a filtered list.
+CREATE TABLE IF NOT EXISTS `billing_rate_cards` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `entity_type` VARCHAR(16) NOT NULL DEFAULT 'supplier',
+  `entity_id` INT NOT NULL,
+  `category` VARCHAR(64) NOT NULL,
+  `purity` VARCHAR(32) NOT NULL DEFAULT '22K',
+  `making_type` VARCHAR(64) NOT NULL DEFAULT 'Plain',
+  `wastage_pct` DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+  `other_cost` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  KEY `idx_billing_rate_entity` (`entity_type`, `entity_id`),
+  KEY `idx_billing_rate_category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The deal ledger. order_type Purchase = buying in, Sale = selling out.
+-- net_wt is gross less stone; fine_wt is kept as its own column because the
+-- sourcing reports treat it separately from net.
+CREATE TABLE IF NOT EXISTS `billing_orders` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `order_name` VARCHAR(191) NOT NULL DEFAULT '',
+  `order_type` VARCHAR(16) NOT NULL DEFAULT 'Purchase',
+  `entity_id` INT NOT NULL DEFAULT 0,
+  `entity_name` VARCHAR(191) NOT NULL DEFAULT '',
+  `metal` VARCHAR(16) NOT NULL DEFAULT 'Gold',
+  `category` VARCHAR(64) NOT NULL DEFAULT 'Rings',
+  `pieces` INT NOT NULL DEFAULT 0,
+  `purity` VARCHAR(32) NOT NULL DEFAULT '22K',
+  `priority` VARCHAR(32) NOT NULL DEFAULT 'Normal',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'New',
+  `place_of_supply` VARCHAR(64) NOT NULL DEFAULT '',
+  `order_date` DATE,
+  `delivery_date` DATE,
+  `gross_wt` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `stone_wt` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `net_wt` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `fine_wt` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `wastage_decided` DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+  `rate` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `making_charges` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `advance_metal` DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+  `advance_cash` DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  `notes` VARCHAR(500) NOT NULL DEFAULT '',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_billing_orders_type` (`order_type`),
+  KEY `idx_billing_orders_status` (`status`),
+  KEY `idx_billing_orders_entity` (`entity_id`),
+  KEY `idx_billing_orders_delivery` (`delivery_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

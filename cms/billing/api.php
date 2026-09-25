@@ -10,6 +10,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/lib.php';
+require __DIR__ . '/reports.php';
 
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
@@ -884,6 +885,292 @@ if ($route === 'import' && $method === 'POST') {
   }
   billing_audit('Bulk import', 'import', 0, "$made made, $skipped skipped");
   billing_json(['ok' => true, 'made' => $made, 'skipped' => $skipped, 'errors' => array_slice($errors, 0, 20)]);
+}
+
+/* ─── Suppliers (from shivaa_erp.tsx) ───────────────────────────────────── */
+
+if ($route === 'suppliers' && $method === 'GET') {
+  $q = trim((string)($_GET['q'] ?? ''));
+  $where = '';
+  $args = [];
+  if ($q !== '') {
+    $where = " WHERE s.`company` LIKE ? OR s.`city` LIKE ? OR s.`phone` LIKE ?";
+    $like = '%' . $q . '%';
+    $args = [$like, $like, $like];
+  }
+  $st = $pdo->prepare("SELECT s.*, (SELECT COUNT(*) FROM `billing_orders` o
+      WHERE o.`entity_id`=s.`id` AND o.`order_type`='Purchase') orders,
+      (SELECT COALESCE(SUM(o.`net_wt`),0) FROM `billing_orders` o
+      WHERE o.`entity_id`=s.`id` AND o.`order_type`='Purchase') net_wt,
+      (SELECT COUNT(*) FROM `billing_rate_cards` rc
+      WHERE rc.`entity_type`='supplier' AND rc.`entity_id`=s.`id`) rate_rows
+    FROM `billing_suppliers` s$where ORDER BY s.`company`");
+  $st->execute($args);
+  $rows = $st->fetchAll();
+  foreach ($rows as &$r) {
+    $r['orders'] = (int)$r['orders'];
+    $r['net_wt'] = round((float)$r['net_wt'], 3);
+    $r['rate_rows'] = (int)$r['rate_rows'];
+  }
+  unset($r);
+  billing_json(['ok' => true, 'suppliers' => $rows]);
+}
+
+if ($route === 'suppliers' && $method === 'POST') {
+  billing_csrf();
+  $company = trim((string)($_POST['company'] ?? ''));
+  if ($company === '') billing_fail('Company name is required.');
+  $st = $pdo->prepare('INSERT INTO `billing_suppliers` (`company`,`contact`,`phone`,`city`,`pin`,
+    `gst`,`acc_name`,`acc_number`,`ifsc`,`branch`,`supplier_type`,`quality`,`status`,`notes`)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+  $st->execute([
+    billing_str($company, 191), billing_str($_POST['contact'] ?? '', 128),
+    billing_str($_POST['phone'] ?? '', 32), billing_str($_POST['city'] ?? '', 128),
+    billing_str($_POST['pin'] ?? '', 16), billing_str($_POST['gst'] ?? '', 64),
+    billing_str($_POST['accName'] ?? '', 191), billing_str($_POST['accNumber'] ?? '', 64),
+    billing_str($_POST['ifsc'] ?? '', 32), billing_str($_POST['branch'] ?? '', 191),
+    billing_str($_POST['supplierType'] ?? 'Wholesaler', 32),
+    billing_str($_POST['quality'] ?? 'Premium', 32),
+    billing_str($_POST['status'] ?? 'New', 32), billing_str($_POST['notes'] ?? '', 500)]);
+  $id = (int)$pdo->lastInsertId();
+  billing_audit('Added supplier', 'supplier', $id, $company);
+  billing_json(['ok' => true, 'id' => $id]);
+}
+
+if (preg_match('#^suppliers/(\d+)$#', $route, $m) && $method === 'GET') {
+  $st = $pdo->prepare('SELECT * FROM `billing_suppliers` WHERE `id`=?');
+  $st->execute([billing_int($m[1])]);
+  $s = $st->fetch();
+  if (!$s) billing_fail('No such supplier.', 404);
+  $st = $pdo->prepare("SELECT * FROM `billing_rate_cards`
+    WHERE `entity_type`='supplier' AND `entity_id`=? ORDER BY `category`");
+  $st->execute([billing_int($m[1])]);
+  billing_json(['ok' => true, 'supplier' => $s, 'rateCards' => $st->fetchAll()]);
+}
+
+if (preg_match('#^suppliers/(\d+)$#', $route, $m) && $method === 'POST') {
+  billing_csrf();
+  $sid = billing_int($m[1]);
+  $st = $pdo->prepare('UPDATE `billing_suppliers` SET `company`=?,`contact`=?,`phone`=?,`city`=?,
+    `pin`=?,`gst`=?,`acc_name`=?,`acc_number`=?,`ifsc`=?,`branch`=?,`supplier_type`=?,
+    `quality`=?,`status`=?,`notes`=? WHERE `id`=?');
+  $st->execute([
+    billing_str($_POST['company'] ?? '', 191), billing_str($_POST['contact'] ?? '', 128),
+    billing_str($_POST['phone'] ?? '', 32), billing_str($_POST['city'] ?? '', 128),
+    billing_str($_POST['pin'] ?? '', 16), billing_str($_POST['gst'] ?? '', 64),
+    billing_str($_POST['accName'] ?? '', 191), billing_str($_POST['accNumber'] ?? '', 64),
+    billing_str($_POST['ifsc'] ?? '', 32), billing_str($_POST['branch'] ?? '', 191),
+    billing_str($_POST['supplierType'] ?? 'Wholesaler', 32),
+    billing_str($_POST['quality'] ?? 'Premium', 32),
+    billing_str($_POST['status'] ?? 'New', 32), billing_str($_POST['notes'] ?? '', 500), $sid]);
+  billing_audit('Updated supplier', 'supplier', $sid);
+  billing_json(['ok' => true]);
+}
+
+if (preg_match('#^suppliers/(\d+)$#', $route, $m) && $method === 'DELETE') {
+  billing_csrf();
+  $sid = billing_int($m[1]);
+  $st = $pdo->prepare("SELECT COUNT(*) FROM `billing_orders` WHERE `entity_id`=?");
+  $st->execute([$sid]);
+  if ((int)$st->fetchColumn() > 0) {
+    billing_fail('This supplier has orders against it. Change the orders first.', 400);
+  }
+  $pdo->prepare("DELETE FROM `billing_rate_cards` WHERE `entity_type`='supplier' AND `entity_id`=?")
+      ->execute([$sid]);
+  $pdo->prepare('DELETE FROM `billing_suppliers` WHERE `id`=?')->execute([$sid]);
+  billing_audit('Deleted supplier', 'supplier', $sid);
+  billing_json(['ok' => true]);
+}
+
+/* ─── Rate cards ────────────────────────────────────────────────────────── */
+
+if ($route === 'rate-cards' && $method === 'GET') {
+  $type = ($_GET['entity'] ?? 'supplier') === 'customer' ? 'customer' : 'supplier';
+  $eid = billing_int($_GET['id'] ?? 0);
+  if ($eid <= 0) billing_fail('Pass the party id.');
+  $st = $pdo->prepare("SELECT * FROM `billing_rate_cards`
+    WHERE `entity_type`=? AND `entity_id`=? ORDER BY `category`,`purity`");
+  $st->execute([$type, $eid]);
+  billing_json(['ok' => true, 'rateCards' => $st->fetchAll()]);
+}
+
+if ($route === 'rate-cards' && $method === 'POST') {
+  billing_csrf();
+  $type = ($_POST['entityType'] ?? 'supplier') === 'customer' ? 'customer' : 'supplier';
+  $eid = billing_int($_POST['entityId'] ?? 0);
+  if ($eid <= 0) billing_fail('Pick the party first.');
+  $cat = trim((string)($_POST['category'] ?? ''));
+  if ($cat === '') billing_fail('Category is required.');
+  // Replace any existing row for the same party/category/purity so a rate card
+  // stays one row per combination.
+  $pdo->prepare('DELETE FROM `billing_rate_cards`
+    WHERE `entity_type`=? AND `entity_id`=? AND `category`=? AND `purity`=?')
+    ->execute([$type, $eid, $cat, billing_str($_POST['purity'] ?? '22K', 32)]);
+  $st = $pdo->prepare('INSERT INTO `billing_rate_cards`
+    (`entity_type`,`entity_id`,`category`,`purity`,`making_type`,`wastage_pct`,`other_cost`)
+    VALUES (?,?,?,?,?,?,?)');
+  $st->execute([$type, $eid, billing_str($cat, 64), billing_str($_POST['purity'] ?? '22K', 32),
+    billing_str($_POST['makingType'] ?? 'Plain', 64),
+    round(billing_num($_POST['wastage'] ?? 0), 2), round(billing_num($_POST['otherCost'] ?? 0), 2)]);
+  billing_audit('Saved rate card row', 'rate_card', (int)$pdo->lastInsertId(), $type . ' ' . $cat);
+  billing_json(['ok' => true]);
+}
+
+if (preg_match('#^rate-cards/(\d+)$#', $route, $m) && $method === 'DELETE') {
+  billing_csrf();
+  $pdo->prepare('DELETE FROM `billing_rate_cards` WHERE `id`=?')->execute([billing_int($m[1])]);
+  billing_audit('Deleted rate card row', 'rate_card', billing_int($m[1]));
+  billing_json(['ok' => true]);
+}
+
+/* ─── Orders (the deal ledger) ──────────────────────────────────────────── */
+
+if ($route === 'orders' && $method === 'GET') {
+  $type = trim((string)($_GET['type'] ?? ''));
+  $status = trim((string)($_GET['status'] ?? ''));
+  $where = [];
+  $args = [];
+  if ($type === 'Purchase' || $type === 'Sale') { $where[] = '`order_type`=?'; $args[] = $type; }
+  if ($status !== '' && $status !== 'All') { $where[] = '`status`=?'; $args[] = $status; }
+  $sql = 'SELECT * FROM `billing_orders`'
+       . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
+       . ' ORDER BY `order_date` DESC, `id` DESC LIMIT 1000';
+  $st = $pdo->prepare($sql);
+  $st->execute($args);
+  $rows = $st->fetchAll();
+  foreach ($rows as &$r) {
+    $r['pieces'] = (int)$r['pieces'];
+    $r['net_wt'] = round((float)$r['net_wt'], 3);
+    $r['gross_wt'] = round((float)$r['gross_wt'], 3);
+    $r['stone_wt'] = round((float)$r['stone_wt'], 3);
+    $r['advance_metal'] = round((float)$r['advance_metal'], 3);
+    $r['value'] = round((float)$r['net_wt'] * (float)$r['rate'], 2);
+  }
+  unset($r);
+  billing_json(['ok' => true, 'orders' => $rows]);
+}
+
+$billing_order_fields = function (int $oid = 0) use ($pdo, $method): void {
+  $type = ($_POST['orderType'] ?? 'Purchase') === 'Sale' ? 'Sale' : 'Purchase';
+  $gross = round(billing_num($_POST['grossWt'] ?? 0), 3);
+  $stone = round(billing_num($_POST['stoneWt'] ?? 0), 3);
+  $net = round(max(0, $gross - $stone), 3);
+  $fine = round(billing_num($_POST['fineWt'] ?? 0), 3) ?: $net;
+  $name = billing_str($_POST['orderName'] ?? '', 191);
+  $entity = billing_int($_POST['entityId'] ?? 0);
+  $party = billing_str($_POST['entityName'] ?? '', 191);
+  if ($entity > 0 && $party === '') {
+    $t = $_POST['orderType'] === 'Sale' ? 'billing_parties' : 'billing_suppliers';
+    $col = $t === 'billing_parties' ? 'name' : 'company';
+    $st = $pdo->prepare("SELECT `$col` FROM `$t` WHERE `id`=?");
+    $st->execute([$entity]);
+    $party = billing_str($st->fetchColumn() ?: '', 191);
+  }
+  $vals = [$name, $type, $entity, $party,
+    billing_str($_POST['metal'] ?? 'Gold', 16), billing_str($_POST['category'] ?? 'Rings', 64),
+    billing_int($_POST['pieces'] ?? 0), billing_str($_POST['purity'] ?? '22K', 32),
+    billing_str($_POST['priority'] ?? 'Normal', 32), billing_str($_POST['status'] ?? 'New', 32),
+    billing_str($_POST['placeOfSupply'] ?? '', 64),
+    ($_POST['orderDate'] ?? '') ? billing_str($_POST['orderDate'], 10) : null,
+    ($_POST['deliveryDate'] ?? '') ? billing_str($_POST['deliveryDate'], 10) : null,
+    $gross, $stone, $net, $fine,
+    round(billing_num($_POST['wastageDecided'] ?? 0), 2),
+    round(billing_num($_POST['rate'] ?? 0), 2), round(billing_num($_POST['makingCharges'] ?? 0), 2),
+    round(billing_num($_POST['advanceMetal'] ?? 0), 3),
+    round(billing_num($_POST['advanceCash'] ?? 0), 2),
+    billing_str($_POST['notes'] ?? '', 500)];
+  if ($oid > 0) {
+    $cols = '`order_name`,`order_type`,`entity_id`,`entity_name`,`metal`,`category`,`pieces`,
+      `purity`,`priority`,`status`,`place_of_supply`,`order_date`,`delivery_date`,`gross_wt`,
+      `stone_wt`,`net_wt`,`fine_wt`,`wastage_decided`,`rate`,`making_charges`,`advance_metal`,
+      `advance_cash`,`notes`';
+    $vals[] = $oid;
+    $pdo->prepare("UPDATE `billing_orders` SET $cols=? WHERE `id`=?")
+        ->execute($vals);
+    billing_audit('Updated order', 'order', $oid, $name);
+    billing_json(['ok' => true]);
+  }
+  $pdo->prepare('INSERT INTO `billing_orders` (`order_name`,`order_type`,`entity_id`,`entity_name`,
+    `metal`,`category`,`pieces`,`purity`,`priority`,`status`,`place_of_supply`,`order_date`,
+    `delivery_date`,`gross_wt`,`stone_wt`,`net_wt`,`fine_wt`,`wastage_decided`,`rate`,
+    `making_charges`,`advance_metal`,`advance_cash`,`notes`)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute($vals);
+  billing_audit('Added order', 'order', (int)$pdo->lastInsertId(), $type . ' · ' . $name);
+  billing_json(['ok' => true]);
+};
+
+if ($route === 'orders' && $method === 'POST') {
+  billing_csrf();
+  $billing_order_fields(0);
+}
+
+if (preg_match('#^orders/(\d+)$#', $route, $m) && $method === 'POST') {
+  billing_csrf();
+  $billing_order_fields(billing_int($m[1]));
+}
+
+if (preg_match('#^orders/(\d+)$#', $route, $m) && $method === 'DELETE') {
+  billing_csrf();
+  $pdo->prepare('DELETE FROM `billing_orders` WHERE `id`=?')->execute([billing_int($m[1])]);
+  billing_audit('Deleted order', 'order', billing_int($m[1]));
+  billing_json(['ok' => true]);
+}
+
+/* ─── The 51-report catalogue ───────────────────────────────────────────── */
+
+if ($route === 'reports/catalogue' && $method === 'GET') {
+  $live = 0;
+  $out = [];
+  foreach (BILLING_REPORT_CATALOGUE as $cid => $cat) {
+    $reps = [];
+    foreach ($cat['reports'] as $rid => $r) {
+      if (!empty($r['live'])) $live++;
+      $reps[] = ['id' => $rid, 'title' => $r['t'], 'desc' => $r['d'],
+        'live' => !empty($r['live']), 'why' => $r['why'] ?? ''];
+    }
+    $out[] = ['id' => $cid, 'title' => $cat['title'], 'reports' => $reps];
+  }
+  billing_json(['ok' => true, 'categories' => $out, 'live' => $live, 'total' => 51]);
+}
+
+if (preg_match('#^report/([a-z0-9_]+)$#', $route, $m) && $method === 'GET') {
+  $rid = $m[1];
+  $meta = null;
+  foreach (BILLING_REPORT_CATALOGUE as $cat) {
+    if (isset($cat['reports'][$rid])) { $meta = $cat['reports'][$rid]; break; }
+  }
+  if (!$meta) billing_fail('No such report.', 404);
+  if (empty($meta['live'])) {
+    billing_json(['ok' => true, 'title' => $meta['t'], 'desc' => $meta['d'],
+      'live' => false, 'why' => $meta['why'] ?? '', 'columns' => [], 'rows' => []]);
+  }
+  require_once __DIR__ . '/reports.php';
+  try {
+    $data = billing_rep($pdo, $rid);
+  } catch (Throwable $e) {
+    billing_fail('Report failed: ' . $e->getMessage(), 500);
+  }
+  billing_json(['ok' => true, 'title' => $meta['t'], 'desc' => $meta['d'], 'live' => true,
+    'why' => '', 'columns' => $data['columns'], 'rows' => $data['rows'],
+    'note' => $data['note'] ?? '']);
+}
+
+if ($route === 'export/orders' && $method === 'GET') {
+  $rows = $pdo->query('SELECT `order_date`,`order_type`,`order_name`,`entity_name`,`metal`,
+    `category`,`purity`,`pieces`,`gross_wt`,`stone_wt`,`net_wt`,`wastage_decided`,`rate`,
+    `making_charges`,`advance_metal`,`advance_cash`,`status`,`place_of_supply`
+    FROM `billing_orders` ORDER BY `order_date` DESC, `id` DESC')->fetchAll();
+  billing_csv('orders', ['Date', 'Type', 'Order', 'Party', 'Metal', 'Category', 'Purity',
+    'Pieces', 'Gross g', 'Stone g', 'Net g', 'Wastage %', 'Rate', 'Making', 'Advance metal g',
+    'Advance cash', 'Status', 'Place of supply'], $rows);
+}
+
+if ($route === 'export/suppliers' && $method === 'GET') {
+  $rows = $pdo->query('SELECT `company`,`contact`,`phone`,`city`,`pin`,`gst`,`supplier_type`,
+    `quality`,`status`,`acc_name`,`acc_number`,`ifsc`,`branch`,`notes`
+    FROM `billing_suppliers` ORDER BY `company`')->fetchAll();
+  billing_csv('suppliers', ['Company', 'Contact', 'Phone', 'City', 'Pin', 'GSTIN', 'Type',
+    'Quality', 'Status', 'A/c name', 'A/c number', 'IFSC', 'Branch', 'Notes'], $rows);
 }
 
 billing_fail('Unknown route: ' . $route, 404);

@@ -3,7 +3,7 @@
 (function () {
   "use strict";
 
-  var S = { user: null, csrf: "", meta: null, settings: null, version: null, route: "", q: {} };
+  var S = { user: null, csrf: "", meta: null, settings: null, version: null, route: "", q: {}, cache: {} };
   var root = document.getElementById("app");
 
   /* ── plumbing ────────────────────────────────────────────────────────── */
@@ -66,7 +66,8 @@
     ["", "Dashboard", "▦"], ["bills", "Bills", "▤"], ["new", "New Bill", "✚"],
     ["stock", "Stock", "⚖"], ["metal", "Metal", "◍"], ["karigar", "Karigar", "⚒"],
     ["parties", "Parties", "☺"], ["khata", "Khata", "≡"],
-    ["expenses", "Expenses", "₹"], ["reports", "Reports", "◔"],
+    ["expenses", "Expenses", "₹"], ["suppliers", "Suppliers", "⌂"],
+    ["orders", "Orders", "⇄"], ["reports", "Reports", "◔"], ["revenue", "Revenue", "₹"],
     ["import", "Import", "⇪"], ["audit", "Audit", "☰"], ["settings", "Settings", "⚙"]
   ];
 
@@ -772,11 +773,11 @@
     }
     load(); return box;
   }
-  function reports() {
-    var box = h("div", {}, head("Reports"), h("div", { class: "card", text: "Loading…" }));
+  function revenueView() {
+    var box = h("div", {}, head("Revenue"), h("div", { class: "card", text: "Loading…" }));
     api("reports").then(function (d) {
       box.innerHTML = "";
-      box.appendChild(head("Reports", "Billing plus the website, side by side"));
+      box.appendChild(head("Revenue", "Billing plus the website, side by side"));
       box.appendChild(h("div", { class: "grid g4" },
         h("div", { class: "card kpi gold" }, h("div", { class: "lbl", text: "Cumulative" }), h("div", { class: "val", text: "₹" + money(d.cumulative, 0) })),
         h("div", { class: "card kpi" }, h("div", { class: "lbl", text: "Billing gross" }), h("div", { class: "val", text: "₹" + money(d.gross, 0) })),
@@ -1091,6 +1092,402 @@
   }
 
   /* ── router ──────────────────────────────────────────────────────────── */
+
+  /* ── sourcing: suppliers, rate cards, orders, report library ─────────── */
+  var SUP_TYPES = ["Wholesaler", "Manufacturer", "Distributor", "Importer"];
+  var QUALITY = ["Budget-friendly", "Mid-range", "Premium"];
+  var SUP_STATUS = ["New", "Contacted", "Active", "On Hold", "Blacklisted", "Top Wholesaler"];
+  var METALS = ["Gold", "Silver", "Platinum", "Diamond"];
+  var PRIORITIES = ["Low Priority", "Normal", "High Priority", "Important", "Urgent", "High Quality Needed"];
+  var ORDER_STATUS = ["New", "In Progress", "Quality Check", "On Hold", "Delayed", "Ready", "Delivered", "Cancelled"];
+  var MAKING = ["Plain", "Antique", "Paper Casting", "Kundan", "Meenakari", "Polki", "Stone Studded"];
+  var CATS = ["Rings", "Earrings", "Bangles", "Bracelets", "Necklaces", "Pendants", "Chains", "Nose Pins",
+    "Toe Rings", "Payal", "Tikka", "Maang Tikka", "Coin", "Bars", "Biscuits", "Other"];
+  var PURITIES = ["24K (999)", "23K", "22K (916)", "21K", "20K", "18K (750)", "14K (585)", "9K", "92.5 Silver"];
+  var STATES = ["Rajasthan", "Maharashtra", "Delhi", "Gujarat", "Uttar Pradesh", "Karnataka", "Tamil Nadu",
+    "West Bengal", "Madhya Pradesh", "Punjab", "Haryana", "Kerala", "Telangana", "Bihar", "Other"];
+
+  function opt(list, sel) {
+    return list.map(function (v) {
+      var o = h("option", { value: v, text: v });
+      if (String(sel || "") === String(v)) o.setAttribute("selected", "selected");
+      return o;
+    });
+  }
+  function fld(label, input) {
+    return h("label", { class: "f" }, h("span", { text: label }), input);
+  }
+  function inp(v, attrs) {
+    var a = { type: "text" };
+    Object.keys(attrs || {}).forEach(function (k) { a[k] = attrs[k]; });
+    var e = h("input", a);
+    if (v !== null && v !== undefined && v !== "") e.value = v;
+    return e;
+  }
+  function sel(list, v) { var e = h("select", {}, opt(list, v)); return e; }
+  function sheet(title, body, saveLabel, onSave) {
+    var ov = h("div", { class: "sheet" });
+    var card = h("div", { class: "sheetCard" },
+      h("div", { class: "sheetTop" }, h("h2", { text: title }),
+        h("button", { class: "x", text: "✕", onclick: function () { ov.remove(); } })),
+      h("form", { onsubmit: function (e) { e.preventDefault(); onSave(function () { ov.remove(); }); } },
+        body,
+        h("div", { class: "bar", style: "margin-top:14px;justify-content:flex-end" },
+          h("button", { type: "button", class: "btn", text: "Cancel", onclick: function () { ov.remove(); } }),
+          h("button", { type: "submit", class: "btn pri", text: saveLabel }))));
+    ov.appendChild(card);
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+    return ov;
+  }
+  function readForm(root, names) {
+    var o = {};
+    names.forEach(function (n) {
+      var el = root.querySelector('[data-f="' + n + '"]');
+      o[n] = el ? el.value : "";
+    });
+    return o;
+  }
+  function tag(name, el) { el.setAttribute("data-f", name); return el; }
+
+  /* ── suppliers ───────────────────────────────────────────────────────── */
+  function supplierForm(id) {
+    var s = id ? S.cache.suppliers.filter(function (x) { return x.id === id; })[0] || {} : {};
+    var f = {};
+    ["company", "contact", "phone", "city", "pin", "gst", "accName", "accNumber", "ifsc",
+      "branch", "supplierType", "quality", "status", "notes"].forEach(function (n) {
+        var key = { accName: "acc_name", accNumber: "acc_number", supplierType: "supplier_type" }[n] || n;
+        f[n] = id ? (s[key] || "") : "";
+      });
+    if (!id) { f.supplierType = "Wholesaler"; f.quality = "Premium"; f.status = "New"; }
+
+    var body = h("div", { class: "grid g2" },
+      fld("Company *", tag("company", inp(f.company, { required: true, placeholder: "Raj Bullion" }))),
+      fld("Contact person", tag("contact", inp(f.contact))),
+      fld("Phone", tag("phone", inp(f.phone, { type: "tel" }))),
+      fld("City", tag("city", inp(f.city, { placeholder: "Jaipur" }))),
+      fld("PIN", tag("pin", inp(f.pin, { maxlength: 10 }))),
+      fld("GSTIN", tag("gst", inp(f.gst, { placeholder: "08AABCU9603R1ZM" }))),
+      fld("Supplier type", tag("supplierType", sel(SUP_TYPES, f.supplierType))),
+      fld("Quality tier", tag("quality", sel(QUALITY, f.quality))),
+      fld("Status", tag("status", sel(SUP_STATUS, f.status))),
+      fld("Bank", tag("branch", inp(f.branch, { placeholder: "HDFC, MI Road" }))),
+      fld("Account name", tag("accName", inp(f.accName))),
+      fld("Account number", tag("accNumber", inp(f.accNumber))),
+      fld("IFSC", tag("ifsc", inp(f.ifsc, { maxlength: 11 }))),
+      fld("Notes", tag("notes", inp(f.notes))));
+
+    sheet(id ? "Edit supplier" : "New supplier", body, id ? "Save" : "Add supplier",
+      function (close) {
+        var data = readForm(document.querySelector(".sheetCard"),
+          ["company", "contact", "phone", "city", "pin", "gst", "accName", "accNumber",
+            "ifsc", "branch", "supplierType", "quality", "status", "notes"]);
+        api(id ? "suppliers/" + id : "suppliers", { method: "POST", body: data })
+          .then(function () { close(); toast(id ? "Supplier updated" : "Supplier added"); render(); })
+          .catch(function (e) { toast(e.message, true); });
+      });
+  }
+
+  function rateCardSheet(entityType, entityId, label) {
+    var box = h("div", {});
+    var ov = h("div", { class: "sheet" });
+    function draw(cards) {
+      box.innerHTML = "";
+      box.appendChild(h("p", { class: "mut", text: "Agreed wastage and other cost, per category and purity. One row per combination." }));
+      box.appendChild(h("div", { class: "grid g2", style: "margin-top:10px" },
+        tag("category", sel(CATS, CATS[0])),
+        tag("purity", sel(PURITIES, "22K (916)")),
+        tag("makingType", sel(MAKING, "Plain")),
+        tag("wastage", inp("0", { type: "number", step: "0.01", placeholder: "Wastage %" })),
+        tag("otherCost", inp("0", { type: "number", step: "0.01", placeholder: "Other cost ₹" }))));
+      box.appendChild(h("button", { class: "btn pri sm", style: "margin-top:10px", text: "+ Save this row",
+        onclick: function () {
+          var d = readForm(box, ["category", "purity", "makingType", "wastage", "otherCost"]);
+          d.entityType = entityType; d.entityId = entityId;
+          api("rate-cards", { method: "POST", body: d })
+            .then(function () { toast("Rate saved"); load(); })
+            .catch(function (e) { toast(e.message, true); });
+        } }));
+      box.appendChild(cards.length ? tableCard(
+        [{ t: "Category" }, { t: "Purity" }, { t: "Making" }, { t: "Wastage %", num: true },
+          { t: "Other ₹", num: true }, { t: "" }],
+        cards.map(function (r) {
+          return h("tr", {}, h("td", { text: r.category }), h("td", { text: r.purity }),
+            h("td", { text: r.making_type }), h("td", { class: "num mono", text: r.wastage_pct }),
+            h("td", { class: "num mono", text: money(r.other_cost) }),
+            h("td", { class: "num" }, h("button", { class: "btn xs", text: "✕",
+              onclick: function () {
+                api("rate-cards/" + r.id, { method: "DELETE" }).then(function () { toast("Row removed"); load(); });
+              } })));
+        })) : h("p", { class: "mut", style: "margin-top:10px", text: "No rates saved for " + label + " yet." }));
+    }
+    function load() {
+      api("rate-cards?entity=" + entityType + "&id=" + entityId).then(function (d) { draw(d.rateCards || []); });
+    }
+    ov.appendChild(h("div", { class: "sheetCard" },
+      h("div", { class: "sheetTop" }, h("h2", { text: "Rate card — " + label }),
+        h("button", { class: "x", text: "✕", onclick: function () { ov.remove(); } })),
+      box,
+      h("div", { class: "bar", style: "margin-top:14px;justify-content:flex-end" },
+        h("button", { class: "btn", text: "Done", onclick: function () { ov.remove(); } }))));
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+    load();
+  }
+
+  function suppliers() {
+    var box = h("div", {});
+    function load(q) {
+      box.innerHTML = "";
+      var search = inp(q || "", { placeholder: "Search company, city or phone" });
+      search.addEventListener("keydown", function (e) { if (e.key === "Enter") load(search.value); });
+      box.appendChild(head("Suppliers", "Bullion houses, manufacturers and karigar vendors you buy from",
+        [search, h("button", { class: "btn", text: "Search", onclick: function () { load(search.value); } }),
+          h("button", { class: "btn pri", text: "+ New supplier", onclick: function () { supplierForm(0); } }),
+          exportBtn("suppliers")]));
+      var holder = h("div", { class: "card", text: "Loading…" });
+      box.appendChild(holder);
+      api("suppliers" + (q ? "?q=" + encodeURIComponent(q) : "")).then(function (d) {
+        S.cache.suppliers = d.suppliers || [];
+        box.removeChild(holder);
+        box.appendChild(tableCard(
+          [{ t: "Company" }, { t: "Contact" }, { t: "City" }, { t: "Type" }, { t: "Quality" },
+            { t: "Status" }, { t: "Orders", num: true }, { t: "Net g", num: true },
+            { t: "Rates", num: true }, { t: "" }],
+          (d.suppliers || []).map(function (s) {
+            return h("tr", {},
+              h("td", { class: "b", text: s.company }),
+              h("td", { text: s.contact || "—" }),
+              h("td", { text: s.city || "—" }),
+              h("td", {}, h("span", { class: "chip grey", text: s.supplier_type })),
+              h("td", { text: s.quality }),
+              h("td", {}, chipFor(s.status === "Active" ? "Completed" : s.status === "Blacklisted" ? "Unpaid" : "Pending")),
+              h("td", { class: "num mono", text: s.orders }),
+              h("td", { class: "num mono", text: grams(s.net_wt) }),
+              h("td", { class: "num" }, h("button", { class: "btn xs", text: s.rate_rows,
+                onclick: function () { rateCardSheet("supplier", s.id, s.company); } })),
+              h("td", { class: "num" },
+                h("button", { class: "btn xs", text: "Edit", onclick: function () { supplierForm(s.id); } }),
+                " ",
+                h("button", { class: "btn xs", text: "✕", onclick: function () {
+                  if (!confirm("Delete " + s.company + "?")) return;
+                  api("suppliers/" + s.id, { method: "DELETE" })
+                    .then(function () { toast("Supplier deleted"); render(); })
+                    .catch(function (e) { toast(e.message, true); });
+                } })));
+          }), "No suppliers yet. Add the bullion houses and manufacturers you buy from."));
+      }).catch(function (e) { box.removeChild(holder); box.appendChild(h("div", { class: "msg err", text: e.message })); });
+    }
+    load("");
+    return box;
+  }
+
+  /* ── orders (the deal ledger) ────────────────────────────────────────── */
+  function orderForm(id, rows) {
+    var o = {};
+    if (id) { rows.forEach(function (x) { if (x.id === id) o = x; }); }
+    var v = function (k, d) { return o[k] === undefined || o[k] === null ? (d === undefined ? "" : d) : o[k]; };
+    if (!id) { o.orderType = "Purchase"; o.metal = "Gold"; o.purity = "22K (916)";
+      o.priority = "Normal"; o.status = "New"; o.category = CATS[0];
+      o.orderDate = new Date().toISOString().slice(0, 10); }
+
+    var supSel = sel((S.cache.suppliers || []).map(function (s) { return s.company; }), o.entity_name);
+    var partySel = sel((S.cache.parties || []).map(function (p) { return p.name; }), o.entity_name);
+    supSel.setAttribute("data-f", "entityName");
+    partySel.setAttribute("data-f", "entityName");
+    var whoWrap = h("div", {}, supSel, partySel);
+    function syncWho() {
+      var type = typeSel.value;
+      supSel.style.display = type === "Purchase" ? "" : "none";
+      partySel.style.display = type === "Sale" ? "" : "none";
+    }
+    var typeSel = sel(["Purchase", "Sale"], v("orderType", "Purchase"));
+    typeSel.addEventListener("change", syncWho);
+
+    var gross = tag("grossWt", inp(v("gross_wt", 0), { type: "number", step: "0.001" }));
+    var stone = tag("stoneWt", inp(v("stone_wt", 0), { type: "number", step: "0.001" }));
+    var netOut = h("b", { class: "mono", text: "0" });
+    function calc() {
+      var n = Math.max(0, (Number(gross.value) || 0) - (Number(stone.value) || 0));
+      netOut.textContent = n.toLocaleString("en-IN", { maximumFractionDigits: 3 }) + " g";
+    }
+    gross.addEventListener("input", calc); stone.addEventListener("input", calc);
+
+    var body = h("div", { class: "grid g2" },
+      fld("Order name *", tag("orderName", inp(v("order_name"), { required: true, placeholder: "Diwali stock — bangles" }))),
+      fld("Type", typeSel),
+      fld("Party", whoWrap),
+      fld("Category", tag("category", sel(CATS, v("category", CATS[0])))),
+      fld("Metal", tag("metal", sel(METALS, v("metal", "Gold")))),
+      fld("Purity", tag("purity", sel(PURITIES, v("purity", "22K (916)")))),
+      fld("Pieces", tag("pieces", inp(v("pieces", 0), { type: "number", step: "1" }))),
+      fld("Priority", tag("priority", sel(PRIORITIES, v("priority", "Normal")))),
+      fld("Status", tag("status", sel(ORDER_STATUS, v("status", "New")))),
+      fld("Place of supply", tag("placeOfSupply", sel(STATES, v("place_of_supply", "Rajasthan")))),
+      fld("Order date", tag("orderDate", inp(v("orderDate"), { type: "date" }))),
+      fld("Delivery date", tag("deliveryDate", inp(v("delivery_date"), { type: "date" }))),
+      fld("Gross weight (g)", gross),
+      fld("Stone weight (g)", stone),
+      fld("Net weight", netOut),
+      fld("Wastage decided (%)", tag("wastageDecided", inp(v("wastage_decided", 0), { type: "number", step: "0.01" }))),
+      fld("Rate ₹/g", tag("rate", inp(v("rate", 0), { type: "number", step: "0.01" }))),
+      fld("Making charges ₹", tag("makingCharges", inp(v("making_charges", 0), { type: "number", step: "0.01" }))),
+      fld("Advance metal (g)", tag("advanceMetal", inp(v("advance_metal", 0), { type: "number", step: "0.001" }))),
+      fld("Advance cash ₹", tag("advanceCash", inp(v("advance_cash", 0), { type: "number", step: "0.01" }))),
+      fld("Notes", tag("notes", inp(v("notes")))));
+
+    var NAMES = ["orderName", "orderType", "entityName", "category", "metal", "purity", "pieces",
+      "priority", "status", "placeOfSupply", "orderDate", "deliveryDate", "grossWt", "stoneWt",
+      "wastageDecided", "rate", "makingCharges", "advanceMetal", "advanceCash", "notes"];
+    sheet(id ? "Edit order" : "New order", body, id ? "Save" : "Add order", function (close) {
+      var data = readForm(document.querySelector(".sheetCard"), NAMES);
+      var sup = (S.cache.suppliers || []).filter(function (s) { return s.company === data.entityName; })[0];
+      var par = (S.cache.parties || []).filter(function (p) { return p.name === data.entityName; })[0];
+      data.entityId = (sup ? sup.id : (par ? par.id : 0));
+      api(id ? "orders/" + id : "orders", { method: "POST", body: data })
+        .then(function () { close(); toast(id ? "Order updated" : "Order added"); render(); })
+        .catch(function (e) { toast(e.message, true); });
+    });
+    syncWho(); calc();
+  }
+
+  function orders() {
+    var box = h("div", {});
+    var fType = "All", fStatus = "All";
+    function load() {
+      box.innerHTML = "";
+      var ts = sel(["All", "Purchase", "Sale"], fType);
+      var ss = sel(["All"].concat(ORDER_STATUS), fStatus);
+      ts.addEventListener("change", function () { fType = ts.value; load(); });
+      ss.addEventListener("change", function () { fStatus = ss.value; load(); });
+      box.appendChild(head("Orders", "Purchases in and sales out — the deal ledger",
+        [ts, ss, h("button", { class: "btn pri", text: "+ New order", onclick: function () { orderForm(0, []); } }),
+          exportBtn("orders")]));
+      var holder = h("div", { class: "card", text: "Loading…" });
+      box.appendChild(holder);
+      Promise.all([api("suppliers"), api("parties")]).then(function (r) {
+        S.cache.suppliers = r[0].suppliers || [];
+        S.cache.parties = (r[1].parties || []).filter(function (p) { return p.kind !== "karigar"; });
+        return api("orders?type=" + fType + "&status=" + fStatus);
+      }).then(function (d) {
+        var rows = d.orders || [];
+        var buy = 0, sale = 0, pcs = 0, g = 0;
+        rows.forEach(function (o) {
+          if (o.order_type === "Purchase") buy += o.value; else sale += o.value;
+          pcs += o.pieces; g += o.net_wt;
+        });
+        box.removeChild(holder);
+        box.appendChild(h("div", { class: "grid g4" },
+          h("div", { class: "card kpi" }, h("div", { class: "lbl", text: "Purchases" }), h("div", { class: "val", text: "₹" + money(buy, 0) })),
+          h("div", { class: "card kpi gold" }, h("div", { class: "lbl", text: "Sales" }), h("div", { class: "val", text: "₹" + money(sale, 0) })),
+          h("div", { class: "card kpi" }, h("div", { class: "lbl", text: "Pieces" }), h("div", { class: "val", text: String(pcs) })),
+          h("div", { class: "card kpi" }, h("div", { class: "lbl", text: "Net metal" }), h("div", { class: "val", text: grams(g) + " g" }))));
+        box.appendChild(tableCard(
+          [{ t: "Date" }, { t: "Type" }, { t: "Order" }, { t: "Party" }, { t: "Category" },
+            { t: "Pcs", num: true }, { t: "Net g", num: true }, { t: "Value ₹", num: true },
+            { t: "Priority" }, { t: "Status" }, { t: "Due" }, { t: "" }],
+          rows.map(function (o) {
+            var late = o.delivery_date && o.status !== "Delivered" && o.status !== "Cancelled"
+              && o.delivery_date < new Date().toISOString().slice(0, 10);
+            return h("tr", {},
+              h("td", { class: "mono", text: fdate(o.order_date) }),
+              h("td", {}, h("span", { class: "chip " + (o.order_type === "Sale" ? "green" : "amber"), text: o.order_type })),
+              h("td", { class: "b", text: o.order_name }),
+              h("td", { text: o.entity_name || "—" }),
+              h("td", { text: o.category }),
+              h("td", { class: "num mono", text: o.pieces }),
+              h("td", { class: "num mono", text: grams(o.net_wt) }),
+              h("td", { class: "num mono", text: money(o.value, 0) }),
+              h("td", { text: o.priority }),
+              h("td", {}, chipFor(o.status === "Delivered" ? "Completed"
+                : (o.status === "Cancelled" ? "Unpaid" : "In Progress"))),
+              h("td", { class: "mono" + (late ? " red" : ""), text: fdate(o.delivery_date) }),
+              h("td", { class: "num" },
+                h("button", { class: "btn xs", text: "Edit", onclick: function () { orderForm(o.id, rows); } }),
+                " ",
+                h("button", { class: "btn xs", text: "✕", onclick: function () {
+                  if (!confirm("Delete this order?")) return;
+                  api("orders/" + o.id, { method: "DELETE" }).then(function () { toast("Order deleted"); render(); });
+                } })));
+          }), "No orders yet."));
+      }).catch(function (e) { box.removeChild(holder); box.appendChild(h("div", { class: "msg err", text: e.message })); });
+    }
+    load();
+    return box;
+  }
+
+  /* ── the 51-report library ───────────────────────────────────────────── */
+  function analytics() {
+    var box = h("div", {});
+    box.appendChild(head("Reports", "Loading the report library…"));
+    var holder = h("div", { class: "card", text: "Loading…" });
+    box.appendChild(holder);
+    api("reports/catalogue").then(function (cat) {
+      box.innerHTML = "";
+      box.appendChild(head("Reports",
+        cat.total + " reports from the sourcing module — " + cat.live +
+        " are computed from your live data right now",
+        [exportBtn("orders", "Orders CSV")]));
+      var out = h("div", { id: "reportOut" });
+      var nav = h("div", {});
+      cat.categories.forEach(function (c) {
+        var live = c.reports.filter(function (r) { return r.live; }).length;
+        nav.appendChild(h("div", { class: "card", style: "margin-bottom:10px" },
+          h("h2", { text: c.title }),
+          h("p", { class: "mut", text: live + " of " + c.reports.length + " available" }),
+          h("div", { class: "rlist" }, c.reports.map(function (r) {
+            return h("button", {
+              class: "rbtn" + (r.live ? "" : " off"),
+              title: r.live ? r.desc : "Not available yet: " + r.why,
+              onclick: function () { if (r.live) runReport(r.id, out); else toast("Not available yet — " + r.why, true); }
+            }, h("span", { text: r.title }),
+              r.live ? null : h("small", { text: " · " + r.why }));
+          }))));
+      });
+      box.appendChild(h("div", { class: "grid g2" }, nav, h("div", {}, out)));
+    }).catch(function (e) {
+      box.innerHTML = ""; box.appendChild(head("Reports"));
+      box.appendChild(h("div", { class: "msg err", text: e.message }));
+    });
+
+    function runReport(id, out) {
+      out.innerHTML = "";
+      out.appendChild(h("div", { class: "card", text: "Running…" }));
+      api("report/" + id).then(function (d) {
+        out.innerHTML = "";
+        out.appendChild(h("div", { class: "card" },
+          h("h2", { text: d.title }),
+          h("p", { class: "mut", text: d.desc }),
+          d.note ? h("p", { class: "msg ok", style: "margin-top:8px", text: d.note }) : null,
+          h("div", { style: "margin-top:10px" },
+            tableCard(d.columns.map(function (c) { return { t: c }; }),
+              d.rows.map(function (row) {
+                return h("tr", {}, row.map(function (cell) {
+                  var isNum = typeof cell === "number";
+                  return h("td", { class: isNum ? "num mono" : null,
+                    text: isNum ? cell.toLocaleString("en-IN") : String(cell === null ? "—" : cell) });
+                }));
+              }), "No data yet for this report."))));
+        out.appendChild(h("div", { class: "bar", style: "margin-top:10px" },
+          h("button", { class: "btn sm", text: "⬇ Download CSV",
+            onclick: function () { downloadCsv(d.title, d.columns, d.rows); } })));
+      }).catch(function (e) {
+        out.innerHTML = ""; out.appendChild(h("div", { class: "msg err", text: e.message }));
+      });
+    }
+    return box;
+  }
+
+  function downloadCsv(title, columns, rows) {
+    var q = function (v) { return '"' + String(v === null || v === undefined ? "" : v).replace(/"/g, '""') + '"'; };
+    var lines = [columns.map(q).join(",")];
+    rows.forEach(function (r) { lines.push(r.map(q).join(",")); });
+    var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var a = h("a", { href: URL.createObjectURL(blob),
+      download: title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".csv" });
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
   function render() {
     var hash = (location.hash || "#/").replace(/^#\//, "");
     var parts = hash.split("/");
@@ -1107,7 +1504,10 @@
     else if (r === "parties") view = parties();
     else if (r === "khata") view = khata();
     else if (r === "expenses") view = expenses();
-    else if (r === "reports") view = reports();
+    else if (r === "suppliers") view = suppliers();
+    else if (r === "orders") view = orders();
+    else if (r === "reports") view = analytics();
+    else if (r === "revenue") view = revenueView();
     else if (r === "import") view = vault();
     else if (r === "audit") view = audit();
     else if (r === "settings") view = settingsView();

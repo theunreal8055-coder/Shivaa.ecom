@@ -12,6 +12,7 @@ if (!fixture) { console.error('usage: node php-run.cjs <fixture.php>'); process.
   php.mkdirTree('/b');
   php.writeFile('/b/lib.php', fs.readFileSync(B + 'lib.php', 'utf8'));
   php.writeFile('/b/schema.sql', fs.readFileSync(B + 'schema.sql', 'utf8'));
+  php.writeFile('/b/reports.php', fs.readFileSync(B + 'reports.php', 'utf8'));
   const out = await php.run({ code: fs.readFileSync(fixture, 'utf8') });
   process.stdout.write(Buffer.from(out.bytes).toString());
   if (out.errors) console.log('ERRORS:', String(out.errors).slice(0, 800));
