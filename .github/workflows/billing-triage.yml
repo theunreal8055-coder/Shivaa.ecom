@@ -189,3 +189,5 @@ jobs:
             git commit -m "billing: vendor drop 1 inventory + code-only subset [skip ci]"
             git push
           fi
+
+# touched to verify push-triggered registration
