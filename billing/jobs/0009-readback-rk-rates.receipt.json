@@ -1,0 +1,10 @@
+{
+  "job": "0009-readback-rk-rates.json",
+  "http": "000",
+  "content_type": "",
+  "delivered_at": "2026-09-26T07:52:33Z",
+  "accepted": false,
+  "response": "",
+  "site_version": "meta tag not found",
+  "note": "The endpoint did not answer as JSON. Most likely billing/inbox.php is not installed yet, so the storefront fallback served its homepage instead."
+}
