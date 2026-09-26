@@ -3,7 +3,7 @@ const Engine = require('php-parser');
 const parser = new Engine({ ast: { withPositions: true } });
 const B = '/home/user/Shivaa.ecom/cms/billing/';
 let bad = 0;
-for (const f of ['lib.php', 'api.php', 'index.php', 'install.php', 'reports.php']) {
+for (const f of ['lib.php', 'api.php', 'index.php', 'install.php', 'reports.php', 'inbox.php']) {
   const src = fs.readFileSync(B + f, 'utf8');
   try {
     parser.parseCode(src, f);

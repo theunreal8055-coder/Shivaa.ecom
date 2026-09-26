@@ -121,6 +121,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $migrations = [
           ['billing_suppliers',  'metal',       "`metal` VARCHAR(16) NOT NULL DEFAULT 'Gold' AFTER `pin`"],
           ['billing_rate_cards', 'product_name', "`product_name` VARCHAR(191) NOT NULL DEFAULT '' AFTER `category`"],
+          ['billing_settings',   'bridge_enabled', "`bridge_enabled` TINYINT(1) NOT NULL DEFAULT 0"],
+          ['billing_settings',   'bridge_calls', "`bridge_calls` INT NOT NULL DEFAULT 0"],
         ];
         $colSt = $pdo->prepare('SELECT COUNT(*) FROM `INFORMATION_SCHEMA`.`COLUMNS`
                                 WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = ? AND `COLUMN_NAME` = ?');

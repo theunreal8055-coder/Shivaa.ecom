@@ -8,7 +8,7 @@
  */
 declare(strict_types=1);
 
-const BILLING_VERSION = 4;
+const BILLING_VERSION = 5;
 const BILLING_SESSION = 'shivaa_billing';
 const BILLING_CSRF = 'shivaa_billing_csrf';
 
@@ -93,9 +93,15 @@ function billing_fail(string $message, int $status = 400): void {
 }
 
 function billing_input(): array {
-  $raw = file_get_contents('php://input');
-  $j = json_decode((string)$raw, true);
-  return is_array($j) ? $j : [];
+  /* php://input can only be read once per request, so the decoded body is
+     cached. inbox.php has to read it to check the bridge token before the
+     route it forwards to reads it again. */
+  static $cache = null;
+  if ($cache === null) {
+    $j = json_decode((string)file_get_contents('php://input'), true);
+    $cache = is_array($j) ? $j : [];
+  }
+  return $cache;
 }
 
 function billing_str($v, int $max = 500): string {

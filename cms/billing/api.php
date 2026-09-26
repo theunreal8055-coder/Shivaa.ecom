@@ -1164,4 +1164,21 @@ if (preg_match('#^report/([a-z0-9_]+)$#', $route, $m) && $method === 'GET') {
     'note' => $data['note'] ?? '']);
 }
 
+/* ── Arena bridge kill switch ──────────────────────────────────────────────
+   Deliberately separate from the settings INSERT: saving the shop details
+   must never flip this. */
+if ($route === 'bridge' && $method === 'GET') {
+  $s = $pdo->query('SELECT `bridge_enabled`,`bridge_calls` FROM `billing_settings` WHERE `id`=1')->fetch() ?: [];
+  billing_json(['ok' => true, 'enabled' => (int)($s['bridge_enabled'] ?? 0) === 1,
+                'calls' => (int)($s['bridge_calls'] ?? 0)]);
+}
+if ($route === 'bridge' && $method === 'POST') {
+  billing_csrf();
+  $on = (int)billing_int($_POST['enabled'] ?? 0) === 1 ? 1 : 0;
+  $pdo->prepare('UPDATE `billing_settings` SET `bridge_enabled`=? WHERE `id`=1')->execute([$on]);
+  billing_audit($on ? 'Bridge ENABLED' : 'Bridge disabled', 'bridge', 0,
+    $on ? 'Arena may now write to the live database' : 'Arena writes refused');
+  billing_json(['ok' => true, 'enabled' => (bool)$on]);
+}
+
 billing_fail('Unknown route: ' . $route, 404);

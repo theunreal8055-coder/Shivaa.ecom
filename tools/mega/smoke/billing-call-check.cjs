@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const B = path.join(__dirname, '..', '..', '..', 'cms', 'billing');
-const files = ['lib.php', 'reports.php', 'api.php', 'install.php', 'index.php'];
+const files = ['lib.php', 'reports.php', 'api.php', 'install.php', 'inbox.php', 'index.php'];
 const src = {};
 files.forEach((f) => { src[f] = fs.readFileSync(path.join(B, f), 'utf8'); });
 

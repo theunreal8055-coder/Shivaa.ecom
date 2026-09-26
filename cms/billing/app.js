@@ -862,6 +862,32 @@
           .catch(function (e) { toast(e.message, true); });
       } })));
 
+    /* Arena bridge — the switch that lets chat write straight in. */
+    var bState = h("span", { class: "chip grey", text: "checking…" });
+    var bBtn = h("button", { class: "btn", text: "…" });
+    var bNote = h("p", { class: "hint" });
+    function bDraw(on, calls) {
+      bState.className = "chip " + (on ? "green" : "grey");
+      bState.textContent = on ? "On — Arena can write" : "Off — Arena refused";
+      bBtn.className = "btn " + (on ? "" : "pri");
+      bBtn.textContent = on ? "Switch off" : "Switch on";
+      bNote.textContent = on
+        ? "Arena may create bills, parties, suppliers, rate cards and orders in this database. "
+          + calls + " calls so far. Every call is listed in Audit. Turn this off to stop it instantly."
+        : "Arena can read nothing and write nothing. Turn this on only when you want chat entries to land here automatically.";
+    }
+    bBtn.addEventListener("click", function () {
+      var turningOn = bBtn.textContent === "Switch on";
+      if (turningOn && !confirm("This lets Arena write bills and supplier data straight into your live database. Continue?")) return;
+      api("bridge", { method: "POST", body: { enabled: turningOn ? 1 : 0 } })
+        .then(function (d) { bDraw(d.enabled, 0); toast(d.enabled ? "Bridge is on" : "Bridge is off"); })
+        .catch(function (e) { toast(e.message, true); });
+    });
+    api("bridge").then(function (d) { bDraw(d.enabled, d.calls); }).catch(function () { bState.textContent = "unknown"; });
+    box.appendChild(h("div", { class: "card" },
+      h("h2", { text: "Arena bridge" }),
+      h("div", { class: "row" }, h("div", {}, bState, bNote), bBtn)));
+
     var cur = h("input", { type: "password", autocomplete: "current-password" });
     var next = h("input", { type: "password", autocomplete: "new-password" });
     var next2 = h("input", { type: "password", autocomplete: "new-password" });

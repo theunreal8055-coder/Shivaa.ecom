@@ -1,0 +1,94 @@
+name: Billing bridge
+
+# Carries an Arena-authored job to the live billing app.
+#
+#   agent writes billing/jobs/<stamp>-<slug>.json and pushes
+#     -> this workflow fires on the push (no dispatch permission needed)
+#     -> it POSTs the job to https://shivaa.in/billing/inbox.php
+#     -> the server verifies the kill switch, timestamp, nonce and shop
+#        admin password, then forwards into the normal api.php route
+#     -> the response is committed back as billing/jobs/<name>.receipt.json
+#     -> the agent reads the receipt
+#
+# The runner never sees the database. It only speaks HTTPS to the server,
+# which already holds the credentials.
+#
+# NEVER committed: the admin password. It comes from secrets at run time and
+# is written into the request body only.
+
+on:
+  push:
+    branches: [arena/01a0d70e-shivaa-ecom]
+    paths: ['billing/jobs/*.json']
+
+permissions:
+  contents: write
+
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Deliver pending jobs
+        env:
+          SHIVAA_ADMIN_PASSWORD: ${{ secrets.SHIVAA_ADMIN_PASSWORD }}
+          ENDPOINT: https://shivaa.in/billing/inbox.php
+        run: |
+          mkdir -p billing/jobs
+          shopt -s nullglob
+          jobs=(billing/jobs/*.json)
+          # Skip receipts so a receipt commit cannot retrigger delivery.
+          pending=()
+          for j in "${jobs[@]}"; do
+            case "$j" in *.receipt.json) ;; *) pending+=("$j") ;; esac
+          done
+          echo "found ${#pending[@]} pending job file(s)"
+          if [ "${#pending[@]}" -eq 0 ]; then echo "nothing to deliver"; exit 0; fi
+
+          for j in "${pending[@]}"; do
+            base="${j%.json}"
+            echo "--- delivering $j"
+            # Stamp the auth, a fresh nonce and the current time onto the job
+            # the agent authored, without ever writing them into the repo.
+            python3 - "$j" > /tmp/payload.json <<'PY'
+          import json, os, secrets, sys, time
+          job = json.load(open(sys.argv[1]))
+          job['auth'] = os.environ['SHIVAA_ADMIN_PASSWORD']
+          job['nonce'] = secrets.token_hex(16)
+          job['ts'] = int(time.time())
+          json.dump(job, sys.stdout)
+          PY
+            code=$(curl -s -o /tmp/resp.json -w '%{http_code}' --max-time 60 \
+                     -H 'Content-Type: application/json' \
+                     --data-binary @/tmp/payload.json "$ENDPOINT" || echo "000")
+            {
+              echo "{"
+              echo "  \"job\": \"$(basename "$j")\","
+              echo "  \"http\": $code,"
+              echo "  \"delivered_at\": \"$(date -u +%FT%TZ)\","
+              echo "  \"response\": $(cat /tmp/resp.json 2>/dev/null || echo 'null')"
+              echo "}"
+            } > "$base.receipt.json"
+            echo "    http $code"
+            cat /tmp/resp.json 2>/dev/null; echo
+            # Once delivered, the job file is spent. Removing it stops a later
+            # unrelated push from replaying the same write.
+            rm -f "$j"
+            rm -f /tmp/payload.json
+          done
+
+      - name: Commit receipts
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A billing/jobs
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "billing: bridge receipts [skip ci]"
+            git push origin "HEAD:refs/heads/$GITHUB_REF_NAME"
+          fi
