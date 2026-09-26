@@ -18,6 +18,7 @@ import datetime
 import glob
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -25,6 +26,21 @@ import time
 
 ENDPOINT = os.environ.get('ENDPOINT', 'https://shivaa.in/billing/inbox.php')
 AUTH = os.environ.get('SHIVAA_ADMIN_PASSWORD', '')
+
+
+def site_version():
+    """The billing version actually being served, read from the meta tag
+    index.php now emits. Stamped into every receipt so the repo always shows
+    which code was live at delivery time — the sandbox cannot reach shivaa.in,
+    and behaviour alone could not tell v9 from v10 apart."""
+    try:
+        proc = subprocess.run(['curl', '-s', '--max-time', '15',
+                               'https://shivaa.in/billing/'],
+                              capture_output=True, text=True)
+        m = re.search(r'name="billing-version" content="([^"]+)"', proc.stdout)
+        return m.group(1) if m else 'meta tag not found'
+    except Exception as e:
+        return 'unknown (%s)' % e
 
 
 def deliver(path):
@@ -73,6 +89,7 @@ def deliver(path):
         'delivered_at': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
         'accepted': accepted,
         'response': parsed if parsed is not None else body[:400],
+        'site_version': site_version(),
     }
     if not accepted:
         receipt['note'] = (

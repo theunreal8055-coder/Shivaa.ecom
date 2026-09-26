@@ -1238,6 +1238,35 @@
       fld("IFSC", tag("ifsc", inp(f.ifsc, { maxlength: 11 }))),
       fld("Notes", tag("notes", inp(f.notes))));
 
+    /* The agreed wastage lives on a separate sheet, opened from a small
+       button at the far right of the suppliers table — easy to miss on a
+       tablet. Show it here too, inside the supplier information, which is
+       where the owner asked for it. */
+    if (id) {
+      var ratesWrap = h("div", { style: "grid-column:1/-1" });
+      ratesWrap.appendChild(h("p", { class: "mut", style: "margin:10px 0 6px", text: "Agreed wastage & making charges" }));
+      ratesWrap.appendChild(h("div", { class: "mut", text: "Loading rates…" }));
+      api("rate-cards?entity=supplier&id=" + id)
+        .then(function (d) {
+          ratesWrap.innerHTML = "";
+          ratesWrap.appendChild(h("p", { class: "mut", style: "margin:10px 0 6px", text: "Agreed wastage & making charges" }));
+          var cards = d.rateCards || [];
+          ratesWrap.appendChild(cards.length ? tableCard(
+            [{ t: "Category" }, { t: "Purity" }, { t: "Making" }, { t: "Product" }, { t: "Wastage %", num: true }, { t: "Other ₹", num: true }],
+            cards.map(function (r) {
+              return h("tr", {}, h("td", { text: r.category }), h("td", { text: r.purity }),
+                h("td", { text: r.making_type }), h("td", { text: r.product_name || "—" }),
+                h("td", { class: "num mono", text: r.wastage_pct }),
+                h("td", { class: "num mono", text: money(r.other_cost) }));
+            })) : h("p", { class: "mut", text: "No rates saved yet." }));
+        })
+        .catch(function (e) {
+          ratesWrap.innerHTML = "";
+          ratesWrap.appendChild(h("div", { class: "msg err", text: "Could not load rates: " + e.message }));
+        });
+      body.appendChild(ratesWrap);
+    }
+
     sheet(id ? "Edit supplier" : "New supplier", body, id ? "Save" : "Add supplier",
       function (close) {
         var data = readForm(document.querySelector(".sheetCard"),
@@ -1286,7 +1315,15 @@
         })) : h("p", { class: "mut", style: "margin-top:10px", text: "No rates saved for " + label + " yet." }));
     }
     function load() {
-      api("rate-cards?entity=" + entityType + "&id=" + entityId).then(function (d) { draw(d.rateCards || []); });
+      /* A failure here used to be invisible: .then never ran, the sheet kept
+         showing only the add-row form, and the owner saw "no rates" with no
+         explanation. Surface the error instead. */
+      api("rate-cards?entity=" + entityType + "&id=" + entityId)
+        .then(function (d) { draw(d.rateCards || []); })
+        .catch(function (e) {
+          box.innerHTML = "";
+          box.appendChild(h("div", { class: "msg err", text: "Could not load rates: " + e.message }));
+        });
     }
     ov.appendChild(h("div", { class: "sheetCard" },
       h("div", { class: "sheetTop" }, h("h2", { text: "Rate card — " + label }),

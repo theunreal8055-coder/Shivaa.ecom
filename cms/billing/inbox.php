@@ -171,7 +171,11 @@ $csrf = bin2hex(random_bytes(16));
 $_SESSION[BILLING_CSRF] = $csrf;
 
 /* 6. Audit before the write, so a refusal mid-flight is still recorded. */
-billing_audit('Bridge call', 'bridge', 0, 'route=' . $route);
+$method = strtoupper((string)($in['method'] ?? 'POST'));
+if (!in_array($method, ['GET', 'POST'], true)) {
+  $method = 'POST';
+}
+billing_audit('Bridge call', 'bridge', 0, 'route=' . $route . ' method=' . $method);
 $pdo->prepare('UPDATE `billing_settings` SET `bridge_calls` = `bridge_calls` + 1 WHERE `id` = 1')
     ->execute();
 
@@ -184,6 +188,8 @@ $pdo->prepare('UPDATE `billing_settings` SET `bridge_calls` = `bridge_calls` + 1
 $payload = (isset($in['payload']) && is_array($in['payload'])) ? $in['payload'] : [];
 billing_input_set($payload);
 $_GET['r'] = $route;
-$_SERVER['REQUEST_METHOD'] = 'POST';
+/* GET lets the pipeline read back what it wrote (rate cards, suppliers)
+   through the very routes the UI uses. Writes stay POST. */
+$_SERVER['REQUEST_METHOD'] = $method;
 $_SERVER['HTTP_X_BILLING_CSRF'] = $csrf;
 require __DIR__ . '/api.php';
