@@ -1,6 +1,0 @@
-{
-  "route": "__switch_status_probe__",
-  "payload": {
-    "note": "Kill-switch probe. The route is deliberately NOT whitelisted, so this can never write: bridge off answers 403 'switched off', bridge on answers 400 'route not allowed'. Neither touches the database."
-  }
-}
