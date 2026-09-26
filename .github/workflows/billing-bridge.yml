@@ -92,3 +92,5 @@ jobs:
             git commit -m "billing: bridge receipts [skip ci]"
             git push origin "HEAD:refs/heads/$GITHUB_REF_NAME"
           fi
+
+# Re-pushed to register the workflow definition.
