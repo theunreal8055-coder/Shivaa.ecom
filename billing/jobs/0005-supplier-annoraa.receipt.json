@@ -1,0 +1,13 @@
+{
+  "job": "0005-supplier-annoraa.json",
+  "http": "500",
+  "content_type": "application/json; charset=utf-8",
+  "delivered_at": "2026-09-26T05:59:54Z",
+  "accepted": false,
+  "response": {
+    "ok": false,
+    "error": "Bridge fatal: Cannot redeclare billing_config() (previously declared in /home/u486999505/domains/shivaa.in/public_html/billing/lib.php:47)",
+    "hint": "If this mentions bridge_enabled, run install.php once to add the v5 columns."
+  },
+  "note": "The endpoint did not answer as JSON. Most likely billing/inbox.php is not installed yet, so the storefront fallback served its homepage instead."
+}
