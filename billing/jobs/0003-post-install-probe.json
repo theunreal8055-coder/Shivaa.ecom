@@ -1,7 +1,0 @@
-{
-  "route": "suppliers",
-  "payload": {
-    "company": "__diagnostic_probe__",
-    "notes": "Post-install probe. Expected to be refused by the kill switch. Nothing is written."
-  }
-}

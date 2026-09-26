@@ -1,7 +1,0 @@
-{
-  "route": "suppliers",
-  "payload": {
-    "company": "__diagnostic_probe__",
-    "notes": "Installation probe. The bridge is expected to refuse this because it ships switched off. Nothing is written."
-  }
-}
