@@ -1,0 +1,20 @@
+{
+  "route": "suppliers",
+  "payload": {
+    "company": "Annoraa Creations",
+    "contact": "Suken Rathod",
+    "phone": "+91-9819448086",
+    "city": "Mumbai",
+    "pin": "400002",
+    "metal": "Gold",
+    "gst": "27AAAAA0000A1Z5",
+    "accName": "Annoraa Creations Pvt Ltd",
+    "accNumber": "000123456789",
+    "ifsc": "HDFC0000001",
+    "branch": "Zaveri Bazar",
+    "supplierType": "Manufacturer",
+    "quality": "Premium",
+    "status": "Top Wholesaler",
+    "notes": "Pipeline smoke test — the row from shivaa_erp.tsx. Safe to delete."
+  }
+}
