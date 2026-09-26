@@ -1,0 +1,45 @@
+OMNI 1.1 FLASH — SHIVAA JEWELS — ONE CONTINUOUS 56s TRAILER — CHAPTER 1 OF 7 (00:00–00:08)
+DURATION: EXACTLY 8.00 SECONDS · 16:9 · 1920x1080 · 24fps · AUDIO ON
+ATTACH: the reference face image (reference-presenter.jpg)
+
+===== 1. CHARACTER LOCK =====
+SAME WOMAN IN ALL SEVEN CLIPS — she is the single continuous host of one unbroken take. Do not change her face, age, hair, jewellery, saree or voice at any point.
+ATTACH the supplied reference image and copy that face exactly: Indian woman, 27, North-Indian Rajasthani features, 5'8", luminous fair-wheatish skin with real pores and fine texture, oval face, high cheekbones, deep almond dark-brown eyes, thick natural brows, soft nude-rose lips, a small gold nose pin, long straight jet-black hair with a soft centre parting tucked behind her left ear, small gold jhumkas, one delicate 22K chain.
+WARDROBE LOCKED, identical in every clip, same drape and same folds: deep-maroon silk saree with a thin gold zari border, black silk blouse, one gold kada on the right wrist, no other jewellery, no costume change, no makeup change.
+SHE IS NEVER AGED, never replaced by another actress, never a plastic AI face, never a celebrity lookalike, never a beauty-ad retouch.
+PERFORMANCE: a confident owner-class host — warm, commanding, a small proud smile, walking and talking at the same time, gesturing to what the camera is passing. Never a news anchor, never a shopping-channel pitch, never standing still to deliver a speech.
+VOICE: ONE original female Hindi voice for all 56 seconds — warm low alto, cinematic trailer confidence, crisp Khadi Boli Hindi, persuasive and proud. Identical timbre, pace and room tone in every clip. Do not imitate any real person.
+LIP-SYNC: mouth matches the exact Hindi line of this clip. No extra words, no English narration, no ad-libs, no humming.
+
+===== 2. ONE-TAKE FILM LOCK =====
+ONE CONTINUOUS 56-SECOND STEADICAM ONER, cut into 7 chapters of exactly 8.00 seconds. THIS CLIP IS CHAPTER 1 — it is the middle of a shot that never stops.
+HARD CONTINUITY RULES: NO cut inside this clip. NO fade in, NO fade out, NO dissolve, NO establishing shot, NO re-introducing the woman, NO jumping to a new location. The camera is already moving when the clip starts and is STILL moving when it ends. She is already mid-sentence energy, already mid-stride. The building, the lighting, the grade, the room tone and the music are the SAME continuous take as the previous chapter.
+CAMERA: gimbal Steadicam at chest height, gliding forward/lateral at a steady walking pace, 35mm anamorphic, T2.0, subtle human float, occasional slow push to her face and slow reveal past her shoulder. Motion is smooth and expensive — never a handheld shake, never a snap zoom, never a drone.
+QUALITY: photoreal cinema, ARRI Alexa 35, 4K-grade detail, 24fps with natural 180-degree shutter motion blur, deep focus falloff, real practical lighting — brass chandeliers, warm 3200K key, gold bounce on skin, black marble and dark walnut, volumetric haze in the light beams, anamorphic flares, fine film grain. Rich art direction: a palace-scale Indian jewellery house, 2026, wealthy but tasteful, real metal, real stone, real skin. No CGI plastic, no cartoon VFX, no video-game look, no HDR over-sharpening.
+TEXT: ONLY the short ENGLISH headline described in this clip, gold small-caps on the dark negative space, in for 1.5s and gone. It must be spelled EXACTLY as written. NO Devanagari text on screen anywhere, NO subtitles, NO captions, NO watermark, NO readable rupee or rate numbers, NO random invented words, NO duplicate or ghost text lines. If exact spelling cannot be rendered, render NO text at all.
+AUDIO: generate her Hindi speech + one continuous instrumental score + real scene sound. The score is a SINGLE unbroken cue across all 7 chapters — santoor and sarangi over low strings and a slow dhol pulse, tempo and key never reset, intensity rising chapter by chapter, always UNDER her voice. Instrumental only: no lyrics, no sung words, no choir words, no jingle.
+
+===== 3. FIRST FRAME — start here, do not re-establish =====
+OPENING OF THE FILM. Start already in motion: camera gliding backwards through tall open bronze doors, warm gold light flooding past the lens.
+
+===== 4. THIS CHAPTER — ARRIVAL · THE WHOLE WORLD OF GOLD, ONE ROOF =====
+The camera retreats backwards down a palace-scale entrance hall and she walks straight into frame out of the light, never stopping. Two-storey brass chandeliers, black marble floor with gold inlay, a colonnade of lit vitrines running away into the distance on both sides, haze in the light beams. On her left a full-height amber ticker wall breathes with movement — every digit intentionally OUT OF FOCUS and unreadable. She gestures at the hall like it is hers. The camera keeps retreating the whole 8 seconds and, on the last beat, begins to swing around her right shoulder toward a lit archway ahead.
+
+===== 5. ON-SCREEN TEXT (English only, exact spelling, 1.5s) =====
+LIVE GOLD RATE
+Gold small-caps on dark negative space. Appears around 0.6s, gone by 2.2s. Spelled exactly as above.
+No Devanagari on screen. No second line. No subtitles. If exact spelling is not possible, show no text.
+
+===== 6. SHE SPEAKS — exactly this Hindi, lip-synced, nothing else =====
+"सोने की पूरी दुनिया, अब एक ही छत के नीचे। शिवा ज्वेल्स — हर सेकंड लाइव भाव।"
+(Pronunciation reference only, never shown: Sone ki poori duniya, ab ek hi chhat ke neeche. Shivaa Jewels — har second live bhaav.)
+Speak it inside the first 6.5s at confident trailer pace, finishing with a breath of room tone, never rushed, never cut off.
+
+===== 7. SOUND =====
+SCORE: Santoor motif over a low string pad, slow dhol pulse enters on the third second. Big room, big air.
+SCENE SOUND: Bronze doors, heels on marble, chandelier shimmer, low ticker hum. Only her voice as speech.
+
+===== 8. LAST FRAME — hand off to the next chapter =====
+Camera behind and just past her right shoulder, still gliding, her face three-quarter to lens, a tall lit archway filling the upper-left of frame, chandelier flare across the top.
+The camera must still be moving and she must still be mid-action at 8.00s. Do not slow down, do not
+stop, do not fade out, do not hold a static pose at the end.
