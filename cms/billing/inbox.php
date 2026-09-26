@@ -113,11 +113,35 @@ try {
   bridge_out(['ok' => false, 'error' => 'Database unavailable.'], 500);
 }
 
+/* From here on, nothing may escape as a bare PHP fatal. Hostinger runs with
+   display_errors off, so an uncaught exception produces a 500 with an empty
+   body — which is exactly what the first install probe returned, and it says
+   nothing about what broke. Every failure below reports itself as JSON. */
+set_exception_handler(function (Throwable $e): void {
+  bridge_out(['ok' => false, 'error' => 'Bridge fault: ' . $e->getMessage(),
+              'hint' => 'If this mentions bridge_enabled, run install.php once '
+                      . 'to add the v5 columns.'], 500);
+});
+register_shutdown_function(function (): void {
+  $err = error_get_last();
+  if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+    if (!headers_sent()) http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => 'Bridge fatal: ' . $err['message'],
+                      'hint' => 'If this mentions bridge_enabled, run install.php once '
+                             . 'to add the v5 columns.']);
+  }
+});
+
 if (bridge_locked($LOCK)) $fail('Too many attempts — wait 15 minutes.', 429);
 
 /* 1. Kill switch — checked before the password so a disabled bridge never
       even confirms whether a password is right. */
-$s = $pdo->query('SELECT `bridge_enabled` FROM `billing_settings` WHERE `id` = 1')->fetch();
+try {
+  $s = $pdo->query('SELECT `bridge_enabled` FROM `billing_settings` WHERE `id` = 1')->fetch();
+} catch (Throwable $e) {
+  $fail('billing_settings.bridge_enabled is missing — run install.php once to '
+      . 'add the v5 columns. (' . $e->getMessage() . ')', 500);
+}
 if (!$s || (int)($s['bridge_enabled'] ?? 0) !== 1) {
   $fail('The bridge is switched off. Turn it on in Billing > Settings.', 403);
 }

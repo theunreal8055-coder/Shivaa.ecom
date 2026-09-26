@@ -8,7 +8,7 @@
  */
 declare(strict_types=1);
 
-const BILLING_VERSION = 5;
+const BILLING_VERSION = 6;
 const BILLING_SESSION = 'shivaa_billing';
 const BILLING_CSRF = 'shivaa_billing_csrf';
 
