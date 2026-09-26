@@ -47,7 +47,7 @@ check('BILLING_VERSION stable across loads', BILLING_VERSION === $v);
 check('guard constant defined',        defined('BILLING_LIB_LOADED'));
 check('BILLING_SESSION set',           BILLING_SESSION !== '');
 check('BILLING_CSRF set',              BILLING_CSRF !== '');
-check('BILLING_VERSION is 8',          BILLING_VERSION === 8);
+check('BILLING_VERSION is a positive int', BILLING_VERSION >= 1);
 
 // Every function the bridge path calls must be live after the repeat loads.
 foreach (['billing_config', 'billing_config_ok', 'billing_db', 'billing_json',

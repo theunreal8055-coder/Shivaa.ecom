@@ -20,7 +20,7 @@ if (defined('BILLING_LIB_LOADED')) {
 }
 define('BILLING_LIB_LOADED', true);
 
-const BILLING_VERSION = 8;
+const BILLING_VERSION = 9;
 const BILLING_SESSION = 'shivaa_billing';
 const BILLING_CSRF = 'shivaa_billing_csrf';
 
@@ -106,14 +106,29 @@ function billing_fail(string $message, int $status = 400): void {
 
 function billing_input(): array {
   /* php://input can only be read once per request, so the decoded body is
-     cached. inbox.php has to read it to check the bridge token before the
-     route it forwards to reads it again. */
-  static $cache = null;
-  if ($cache === null) {
+     cached — in $GLOBALS, not a function static, because inbox.php has to
+     overwrite it. See billing_input_set(). */
+  if (!isset($GLOBALS['BILLING_INPUT_CACHE']) || !is_array($GLOBALS['BILLING_INPUT_CACHE'])) {
     $j = json_decode((string)file_get_contents('php://input'), true);
-    $cache = is_array($j) ? $j : [];
+    $GLOBALS['BILLING_INPUT_CACHE'] = is_array($j) ? $j : [];
   }
-  return $cache;
+  return $GLOBALS['BILLING_INPUT_CACHE'];
+}
+
+/*
+ * Replaces the cached request body. inbox.php calls this before forwarding,
+ * so the route it hands over to sees the job's payload and not the bridge
+ * envelope that wraps it.
+ *
+ * Without this, billing_input() returned {route, payload, auth, nonce, ts},
+ * so billing_input()['company'] was unset and every bridged write failed its
+ * required-field check with "Company name is required." The envelope was
+ * cached because inbox.php reads it first to check the token — and the cache
+ * comment at the time said the body was "cached above", which made the wrong
+ * shape look deliberate. Found by the first real bridge write, 26 Sep 2026.
+ */
+function billing_input_set(array $data): void {
+  $GLOBALS['BILLING_INPUT_CACHE'] = $data;
 }
 
 function billing_str($v, int $max = 500): string {

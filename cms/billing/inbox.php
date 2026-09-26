@@ -176,8 +176,13 @@ $pdo->prepare('UPDATE `billing_settings` SET `bridge_calls` = `bridge_calls` + 1
     ->execute();
 
 /* 7. Forward into the real route. api.php reads the route from $_GET['r'],
-      the body through billing_input() (cached above), and the CSRF token
-      from this header. It exits with its own JSON response. */
+      the CSRF token from this header, and the body through billing_input().
+      The body cache currently holds the bridge envelope, so it is replaced
+      with the job's payload — otherwise the route reads envelope keys like
+      route/auth/nonce instead of the fields it expects, and every write fails
+      its required-field check. */
+$payload = (isset($in['payload']) && is_array($in['payload'])) ? $in['payload'] : [];
+billing_input_set($payload);
 $_GET['r'] = $route;
 $_SERVER['REQUEST_METHOD'] = 'POST';
 $_SERVER['HTTP_X_BILLING_CSRF'] = $csrf;
