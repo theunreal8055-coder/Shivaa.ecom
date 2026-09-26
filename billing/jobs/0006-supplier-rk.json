@@ -1,0 +1,13 @@
+{
+  "route": "suppliers",
+  "payload": {
+    "company": "Shri Radhey Krishna Jewellers",
+    "contact": "Krishan Garg, Harshit Garg",
+    "phone": "+91 70656 69488",
+    "city": "Delhi",
+    "pin": "110006",
+    "metal": "Gold",
+    "supplierType": "Wholesaler",
+    "notes": "Wholesalers of 916 Gold & Diamond Ornaments. 92 Hallmarked Gold. Addr: 1153, Shop No. 2-3-4, 1st Floor, Kucha Mahajini, Chandni Chowk, Delhi-110006. Authorised distributors: Surya Golds, Reevaz, Eetaarsh. Stall E-10 Hall 5, Bharat Mandapam Pragati Maidan, 26-28 Sep 2026. Contacts: 9560014172, Rahul Rajput (Mgr) 9217514398, care 8448458463/9667297655/8826280112, 011-61336565. krishangarg97@gmail.com"
+  }
+}
