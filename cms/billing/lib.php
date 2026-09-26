@@ -20,7 +20,7 @@ if (defined('BILLING_LIB_LOADED')) {
 }
 define('BILLING_LIB_LOADED', true);
 
-const BILLING_VERSION = 9;
+const BILLING_VERSION = 10;
 const BILLING_SESSION = 'shivaa_billing';
 const BILLING_CSRF = 'shivaa_billing_csrf';
 
@@ -129,6 +129,37 @@ function billing_input(): array {
  */
 function billing_input_set(array $data): void {
   $GLOBALS['BILLING_INPUT_CACHE'] = $data;
+}
+
+/*
+ * Splits a route string that carries its own query and merges the embedded
+ * parameters back into the $_GET array.
+ *
+ * The UI's fetch helper wraps the whole route in ONE r parameter —
+ * api.php?r=rate-cards%3Fentity%3Dsupplier%26id%3D2 — so on arrival
+ * $_GET['r'] is "rate-cards?entity=supplier&id=2" and $_GET['entity'],
+ * $_GET['id'] do not exist. The rate-card GET route never matched, which is
+ * why the owner could see the supplier but never its wastage rows. The same
+ * pattern breaks the orders filter (?type=&status=) and supplier search (?q=).
+ *
+ * Returns [route, merged-get]. Keys already present in $get win, so a real
+ * query string is never overwritten by the embedded one. Found 26 Sep 2026
+ * by "I can see it but can't see the rates of wastage".
+ */
+function billing_route_split(array $get): array {
+  $route = (string)($get['r'] ?? '');
+  $pos = strpos($route, '?');
+  if ($pos === false) {
+    return [$route, $get];
+  }
+  $extra = [];
+  parse_str(substr($route, $pos + 1), $extra);
+  foreach ($extra as $k => $v) {
+    if (!isset($get[$k])) {
+      $get[$k] = $v;
+    }
+  }
+  return [substr($route, 0, $pos), $get];
 }
 
 function billing_str($v, int $max = 500): string {

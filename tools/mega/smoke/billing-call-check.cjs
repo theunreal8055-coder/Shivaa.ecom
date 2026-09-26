@@ -66,6 +66,15 @@ console.log('$_POST reads in api :', postReads, postReads === 0 ? '(correct — 
 // inbox.php loads lib.php for the kill switch and then requires api.php, which
 // loads lib.php again. Plain require redeclared billing_config() and the first
 // real bridge write died on it. Both callers must use require_once.
+// api.php must split the route string the UI sends: the fetch helper packs
+// "route?query" into one r parameter, so without billing_route_split the
+// rate-card / orders / search GET filters never reach $_GET.
+if (!/billing_route_split\(\$_GET\)/.test(src['api.php'])) {
+  console.log('route split wired in api.php : NO (BROKEN)');
+  process.exit(1);
+}
+console.log('route split wired in api.php : yes');
+
 const bareLoads = ['api.php', 'inbox.php'].filter(f =>
   /(?<!_once\s)require\s+__DIR__\s*\.\s*'\/lib\.php'/.test(src[f]));
 console.log('lib.php plain require :', bareLoads.length === 0 ? 'none (require_once everywhere)' : bareLoads.join(', ') + ' (BROKEN)');

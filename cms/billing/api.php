@@ -18,7 +18,9 @@ header('Referrer-Policy: no-referrer');
 
 billing_session_start();
 
-$route  = (string)($_GET['r'] ?? '');
+/* The UI packs "route?query" into the single r parameter; split it so the
+   GET filters (entity, id, type, status, q) actually reach $_GET. */
+list($route, $_GET) = billing_route_split($_GET);
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $WRITE  = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
