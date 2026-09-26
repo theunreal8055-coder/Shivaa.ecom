@@ -27,3 +27,8 @@ launch/frames/
 cms/relay/relay-last-tick.json
 launch/omni-56s/raw/*.mp4
 launch/omni-56s-v2/raw/*.mp4
+
+# 90s explainer build scratch (raw chapters live at repo root; masters in launch/out)
+launch/omni-90s/raw/
+launch/omni-90s/.tmp/
+launch/omni-90s/fix/06-fixed.mp4
