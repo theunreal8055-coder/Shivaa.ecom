@@ -1,0 +1,11 @@
+{
+  "job": "0006-supplier-rk.json",
+  "http": "200",
+  "content_type": "application/json; charset=utf-8",
+  "delivered_at": "2026-09-26T07:08:53Z",
+  "accepted": true,
+  "response": {
+    "ok": true,
+    "id": 2
+  }
+}
