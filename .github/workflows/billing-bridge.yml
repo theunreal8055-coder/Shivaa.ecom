@@ -54,30 +54,61 @@ jobs:
             # Stamp the auth, a fresh nonce and the current time onto the job
             # the agent authored, without ever writing them into the repo.
             python3 - "$j" > /tmp/payload.json <<'PY'
-          import json, os, secrets, sys, time
-          job = json.load(open(sys.argv[1]))
-          job['auth'] = os.environ['SHIVAA_ADMIN_PASSWORD']
-          job['nonce'] = secrets.token_hex(16)
-          job['ts'] = int(time.time())
-          json.dump(job, sys.stdout)
-          PY
-            code=$(curl -s -o /tmp/resp.json -w '%{http_code}' --max-time 60 \
-                     -H 'Content-Type: application/json' \
-                     --data-binary @/tmp/payload.json "$ENDPOINT" || echo "000")
-            {
-              echo "{"
-              echo "  \"job\": \"$(basename "$j")\","
-              echo "  \"http\": $code,"
-              echo "  \"delivered_at\": \"$(date -u +%FT%TZ)\","
-              echo "  \"response\": $(cat /tmp/resp.json 2>/dev/null || echo 'null')"
-              echo "}"
-            } > "$base.receipt.json"
-            echo "    http $code"
-            cat /tmp/resp.json 2>/dev/null; echo
-            # Once delivered, the job file is spent. Removing it stops a later
-            # unrelated push from replaying the same write.
-            rm -f "$j"
-            rm -f /tmp/payload.json
+            import json, os, secrets, sys, time
+            job = json.load(open(sys.argv[1]))
+            job['auth'] = os.environ['SHIVAA_ADMIN_PASSWORD']
+            job['nonce'] = secrets.token_hex(16)
+            job['ts'] = int(time.time())
+            json.dump(job, sys.stdout)
+            PY
+            # HTTP 200 alone proves nothing: if inbox.php is missing the SPA
+            # fallback answers 200 with the storefront homepage. Only a JSON
+            # body carrying an "ok" field counts as the endpoint answering.
+            python3 - "$j" "$base.receipt.json" "$ENDPOINT" <<'PY'
+            import json, os, subprocess, sys, datetime
+            src, receipt, endpoint = sys.argv[1], sys.argv[2], sys.argv[3]
+            raw = subprocess.run(
+                ['curl', '-s', '-D', '/tmp/hdr', '-o', '/tmp/resp.json',
+                 '-w', '%{http_code}', '--max-time', '60',
+                 '-H', 'Content-Type: application/json',
+                 '--data-binary', '@/tmp/payload.json', endpoint],
+                capture_output=True, text=True)
+            code = (raw.stdout or '000').strip() or '000'
+            ctype = ''
+            for line in open('/tmp/hdr', errors='replace'):
+                if line.lower().startswith('content-type:'):
+                    ctype = line.split(':', 1)[1].strip()
+            body = open('/tmp/resp.json', errors='replace').read()
+            try:
+                parsed = json.loads(body)
+            except Exception:
+                parsed = None
+            ok = (code == '200' and isinstance(parsed, dict)
+                  and 'ok' in parsed and 'application/json' in ctype)
+            out = {
+                'job': os.path.basename(src),
+                'http': code,
+                'content_type': ctype,
+                'delivered_at': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'accepted': bool(ok),
+                'response': parsed if parsed is not None else body[:400],
+            }
+            if not ok:
+                out['note'] = ('The endpoint did not answer as JSON. Most likely '
+                               'billing/inbox.php is not installed, so the storefront '
+                               'fallback served this page instead.')
+            json.dump(out, open(receipt, 'w'), indent=2)
+            print('    http %s  content-type %s  accepted %s' % (code, ctype or '-', ok))
+            PY
+            # Only delete the job once the endpoint genuinely accepted it, so a
+            # failed delivery is retried by the next push rather than lost.
+            if python3 -c "import json,sys;sys.exit(0 if json.load(open('$base.receipt.json')).get('accepted') else 1)"; then
+              rm -f "$j"
+              echo "    job consumed"
+            else
+              echo "    NOT accepted — job left in place for retry"
+            fi
+            rm -f /tmp/payload.json /tmp/hdr /tmp/resp.json
           done
 
       - name: Commit receipts
