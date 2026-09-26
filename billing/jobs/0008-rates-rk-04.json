@@ -1,0 +1,13 @@
+{
+  "route": "rate-cards",
+  "payload": {
+    "entityType": "supplier",
+    "entityId": 2,
+    "category": "BEZEL/BOMBAY JEWELLERY",
+    "productName": "BEZEL/BOMBAY JEWELLERY",
+    "purity": "92",
+    "makingType": "Plain",
+    "wastage": 2.75,
+    "otherCost": 0
+  }
+}
