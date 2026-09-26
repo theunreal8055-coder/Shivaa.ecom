@@ -1,0 +1,20 @@
+{
+  "route": "suppliers",
+  "payload": {
+    "company": "Annoraa Creations",
+    "contact": "Suken Rathod",
+    "phone": "+91-9819448086",
+    "city": "Mumbai",
+    "pin": "400002",
+    "metal": "Gold",
+    "gst": "27AAAAA0000A1Z5",
+    "accName": "Annoraa Creations Pvt Ltd",
+    "accNumber": "000123456789",
+    "ifsc": "HDFC0000001",
+    "branch": "Zaveri Bazar",
+    "supplierType": "Manufacturer",
+    "quality": "Premium",
+    "status": "Top Wholesaler",
+    "notes": "Pipeline smoke test 2 \u2014 verifying the receipt now rejects a non-JSON answer. Safe to delete."
+  }
+}
