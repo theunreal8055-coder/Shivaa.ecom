@@ -57,6 +57,12 @@ for (const r of routes) {
 console.log('routes parsed     :', routes.length);
 console.log('shadowed routes   :', shadowed.length ? shadowed.join('; ') : 'none');
 
-const ok = missing.length === 0 && shadowed.length === 0;
+// app.js posts application/json, so PHP never populates $_POST. A route that
+// reads $_POST silently sees an empty array: the bridge switch always wrote 0,
+// and every supplier/rate-card/order form saved blanks. 65 such reads shipped.
+const postReads = (src['api.php'].match(/\$_POST\[/g) || []).length;
+console.log('$_POST reads in api :', postReads, postReads === 0 ? '(correct — body is JSON)' : '(BROKEN)');
+
+const ok = missing.length === 0 && shadowed.length === 0 && postReads === 0;
 console.log(ok ? 'PASS' : 'FAIL');
 process.exit(ok ? 0 : 1);

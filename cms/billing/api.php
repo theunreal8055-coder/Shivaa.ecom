@@ -925,21 +925,21 @@ if ($route === 'suppliers' && $method === 'GET') {
 
 if ($route === 'suppliers' && $method === 'POST') {
   billing_csrf();
-  $company = trim((string)($_POST['company'] ?? ''));
+  $company = trim((string)(billing_input()['company'] ?? ''));
   if ($company === '') billing_fail('Company name is required.');
   $st = $pdo->prepare('INSERT INTO `billing_suppliers` (`company`,`contact`,`phone`,`city`,`pin`,`metal`,
     `gst`,`acc_name`,`acc_number`,`ifsc`,`branch`,`supplier_type`,`quality`,`status`,`notes`)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
   $st->execute([
-    billing_str($company, 191), billing_str($_POST['contact'] ?? '', 128),
-    billing_str($_POST['phone'] ?? '', 32), billing_str($_POST['city'] ?? '', 128),
-    billing_str($_POST['pin'] ?? '', 16), billing_str($_POST['metal'] ?? 'Gold', 16),
-    billing_str($_POST['gst'] ?? '', 64),
-    billing_str($_POST['accName'] ?? '', 191), billing_str($_POST['accNumber'] ?? '', 64),
-    billing_str($_POST['ifsc'] ?? '', 32), billing_str($_POST['branch'] ?? '', 191),
-    billing_str($_POST['supplierType'] ?? 'Manufacturer', 32),
-    billing_str($_POST['quality'] ?? 'Premium', 32),
-    billing_str($_POST['status'] ?? 'New', 32), billing_str($_POST['notes'] ?? '', 500)]);
+    billing_str($company, 191), billing_str(billing_input()['contact'] ?? '', 128),
+    billing_str(billing_input()['phone'] ?? '', 32), billing_str(billing_input()['city'] ?? '', 128),
+    billing_str(billing_input()['pin'] ?? '', 16), billing_str(billing_input()['metal'] ?? 'Gold', 16),
+    billing_str(billing_input()['gst'] ?? '', 64),
+    billing_str(billing_input()['accName'] ?? '', 191), billing_str(billing_input()['accNumber'] ?? '', 64),
+    billing_str(billing_input()['ifsc'] ?? '', 32), billing_str(billing_input()['branch'] ?? '', 191),
+    billing_str(billing_input()['supplierType'] ?? 'Manufacturer', 32),
+    billing_str(billing_input()['quality'] ?? 'Premium', 32),
+    billing_str(billing_input()['status'] ?? 'New', 32), billing_str(billing_input()['notes'] ?? '', 500)]);
   $id = (int)$pdo->lastInsertId();
   billing_audit('Added supplier', 'supplier', $id, $company);
   billing_json(['ok' => true, 'id' => $id]);
@@ -963,15 +963,15 @@ if (preg_match('#^suppliers/(\d+)$#', $route, $m) && $method === 'POST') {
     `pin`=?,`metal`=?,`gst`=?,`acc_name`=?,`acc_number`=?,`ifsc`=?,`branch`=?,`supplier_type`=?,
     `quality`=?,`status`=?,`notes`=? WHERE `id`=?');
   $st->execute([
-    billing_str($_POST['company'] ?? '', 191), billing_str($_POST['contact'] ?? '', 128),
-    billing_str($_POST['phone'] ?? '', 32), billing_str($_POST['city'] ?? '', 128),
-    billing_str($_POST['pin'] ?? '', 16), billing_str($_POST['metal'] ?? 'Gold', 16),
-    billing_str($_POST['gst'] ?? '', 64),
-    billing_str($_POST['accName'] ?? '', 191), billing_str($_POST['accNumber'] ?? '', 64),
-    billing_str($_POST['ifsc'] ?? '', 32), billing_str($_POST['branch'] ?? '', 191),
-    billing_str($_POST['supplierType'] ?? 'Manufacturer', 32),
-    billing_str($_POST['quality'] ?? 'Premium', 32),
-    billing_str($_POST['status'] ?? 'New', 32), billing_str($_POST['notes'] ?? '', 500), $sid]);
+    billing_str(billing_input()['company'] ?? '', 191), billing_str(billing_input()['contact'] ?? '', 128),
+    billing_str(billing_input()['phone'] ?? '', 32), billing_str(billing_input()['city'] ?? '', 128),
+    billing_str(billing_input()['pin'] ?? '', 16), billing_str(billing_input()['metal'] ?? 'Gold', 16),
+    billing_str(billing_input()['gst'] ?? '', 64),
+    billing_str(billing_input()['accName'] ?? '', 191), billing_str(billing_input()['accNumber'] ?? '', 64),
+    billing_str(billing_input()['ifsc'] ?? '', 32), billing_str(billing_input()['branch'] ?? '', 191),
+    billing_str(billing_input()['supplierType'] ?? 'Manufacturer', 32),
+    billing_str(billing_input()['quality'] ?? 'Premium', 32),
+    billing_str(billing_input()['status'] ?? 'New', 32), billing_str(billing_input()['notes'] ?? '', 500), $sid]);
   billing_audit('Updated supplier', 'supplier', $sid);
   billing_json(['ok' => true]);
 }
@@ -1005,22 +1005,22 @@ if ($route === 'rate-cards' && $method === 'GET') {
 
 if ($route === 'rate-cards' && $method === 'POST') {
   billing_csrf();
-  $type = ($_POST['entityType'] ?? 'supplier') === 'customer' ? 'customer' : 'supplier';
-  $eid = billing_int($_POST['entityId'] ?? 0);
+  $type = (billing_input()['entityType'] ?? 'supplier') === 'customer' ? 'customer' : 'supplier';
+  $eid = billing_int(billing_input()['entityId'] ?? 0);
   if ($eid <= 0) billing_fail('Pick the party first.');
-  $cat = trim((string)($_POST['category'] ?? ''));
+  $cat = trim((string)(billing_input()['category'] ?? ''));
   if ($cat === '') billing_fail('Category is required.');
   // Replace any existing row for the same party/category/purity so a rate card
   // stays one row per combination.
   $pdo->prepare('DELETE FROM `billing_rate_cards`
     WHERE `entity_type`=? AND `entity_id`=? AND `category`=? AND `purity`=?')
-    ->execute([$type, $eid, $cat, billing_str($_POST['purity'] ?? '22K', 32)]);
+    ->execute([$type, $eid, $cat, billing_str(billing_input()['purity'] ?? '22K', 32)]);
   $st = $pdo->prepare('INSERT INTO `billing_rate_cards`
     (`entity_type`,`entity_id`,`category`,`product_name`,`purity`,`making_type`,`wastage_pct`,`other_cost`)
     VALUES (?,?,?,?,?,?,?,?)');
-  $st->execute([$type, $eid, billing_str($cat, 64), billing_str($_POST['productName'] ?? '', 191),
-    billing_str($_POST['purity'] ?? '22K', 32), billing_str($_POST['makingType'] ?? 'Plain', 64),
-    round(billing_num($_POST['wastage'] ?? 0), 2), round(billing_num($_POST['otherCost'] ?? 0), 2)]);
+  $st->execute([$type, $eid, billing_str($cat, 64), billing_str(billing_input()['productName'] ?? '', 191),
+    billing_str(billing_input()['purity'] ?? '22K', 32), billing_str(billing_input()['makingType'] ?? 'Plain', 64),
+    round(billing_num(billing_input()['wastage'] ?? 0), 2), round(billing_num(billing_input()['otherCost'] ?? 0), 2)]);
   billing_audit('Saved rate card row', 'rate_card', (int)$pdo->lastInsertId(), $type . ' ' . $cat);
   billing_json(['ok' => true]);
 }
@@ -1060,34 +1060,34 @@ if ($route === 'orders' && $method === 'GET') {
 }
 
 $billing_order_fields = function (int $oid = 0) use ($pdo, $method): void {
-  $type = ($_POST['orderType'] ?? 'Purchase') === 'Sale' ? 'Sale' : 'Purchase';
-  $gross = round(billing_num($_POST['grossWt'] ?? 0), 3);
-  $stone = round(billing_num($_POST['stoneWt'] ?? 0), 3);
+  $type = (billing_input()['orderType'] ?? 'Purchase') === 'Sale' ? 'Sale' : 'Purchase';
+  $gross = round(billing_num(billing_input()['grossWt'] ?? 0), 3);
+  $stone = round(billing_num(billing_input()['stoneWt'] ?? 0), 3);
   $net = round(max(0, $gross - $stone), 3);
-  $fine = round(billing_num($_POST['fineWt'] ?? 0), 3) ?: $net;
-  $name = billing_str($_POST['orderName'] ?? '', 191);
-  $entity = billing_int($_POST['entityId'] ?? 0);
-  $party = billing_str($_POST['entityName'] ?? '', 191);
+  $fine = round(billing_num(billing_input()['fineWt'] ?? 0), 3) ?: $net;
+  $name = billing_str(billing_input()['orderName'] ?? '', 191);
+  $entity = billing_int(billing_input()['entityId'] ?? 0);
+  $party = billing_str(billing_input()['entityName'] ?? '', 191);
   if ($entity > 0 && $party === '') {
-    $t = $_POST['orderType'] === 'Sale' ? 'billing_parties' : 'billing_suppliers';
+    $t = billing_input()['orderType'] === 'Sale' ? 'billing_parties' : 'billing_suppliers';
     $col = $t === 'billing_parties' ? 'name' : 'company';
     $st = $pdo->prepare("SELECT `$col` FROM `$t` WHERE `id`=?");
     $st->execute([$entity]);
     $party = billing_str($st->fetchColumn() ?: '', 191);
   }
   $vals = [$name, $type, $entity, $party,
-    billing_str($_POST['metal'] ?? 'Gold', 16), billing_str($_POST['category'] ?? 'Rings', 64),
-    billing_int($_POST['pieces'] ?? 0), billing_str($_POST['purity'] ?? '22K', 32),
-    billing_str($_POST['priority'] ?? 'Normal', 32), billing_str($_POST['status'] ?? 'New', 32),
-    billing_str($_POST['placeOfSupply'] ?? '', 64),
-    ($_POST['orderDate'] ?? '') ? billing_str($_POST['orderDate'], 10) : null,
-    ($_POST['deliveryDate'] ?? '') ? billing_str($_POST['deliveryDate'], 10) : null,
+    billing_str(billing_input()['metal'] ?? 'Gold', 16), billing_str(billing_input()['category'] ?? 'Rings', 64),
+    billing_int(billing_input()['pieces'] ?? 0), billing_str(billing_input()['purity'] ?? '22K', 32),
+    billing_str(billing_input()['priority'] ?? 'Normal', 32), billing_str(billing_input()['status'] ?? 'New', 32),
+    billing_str(billing_input()['placeOfSupply'] ?? '', 64),
+    (billing_input()['orderDate'] ?? '') ? billing_str(billing_input()['orderDate'], 10) : null,
+    (billing_input()['deliveryDate'] ?? '') ? billing_str(billing_input()['deliveryDate'], 10) : null,
     $gross, $stone, $net, $fine,
-    round(billing_num($_POST['wastageDecided'] ?? 0), 2),
-    round(billing_num($_POST['rate'] ?? 0), 2), round(billing_num($_POST['makingCharges'] ?? 0), 2),
-    round(billing_num($_POST['advanceMetal'] ?? 0), 3),
-    round(billing_num($_POST['advanceCash'] ?? 0), 2),
-    billing_str($_POST['notes'] ?? '', 500)];
+    round(billing_num(billing_input()['wastageDecided'] ?? 0), 2),
+    round(billing_num(billing_input()['rate'] ?? 0), 2), round(billing_num(billing_input()['makingCharges'] ?? 0), 2),
+    round(billing_num(billing_input()['advanceMetal'] ?? 0), 3),
+    round(billing_num(billing_input()['advanceCash'] ?? 0), 2),
+    billing_str(billing_input()['notes'] ?? '', 500)];
   if ($oid > 0) {
     $cols = '`order_name`,`order_type`,`entity_id`,`entity_name`,`metal`,`category`,`pieces`,
       `purity`,`priority`,`status`,`place_of_supply`,`order_date`,`delivery_date`,`gross_wt`,
@@ -1174,7 +1174,7 @@ if ($route === 'bridge' && $method === 'GET') {
 }
 if ($route === 'bridge' && $method === 'POST') {
   billing_csrf();
-  $on = (int)billing_int($_POST['enabled'] ?? 0) === 1 ? 1 : 0;
+  $on = (int)billing_int(billing_input()['enabled'] ?? 0) === 1 ? 1 : 0;
   $pdo->prepare('UPDATE `billing_settings` SET `bridge_enabled`=? WHERE `id`=1')->execute([$on]);
   billing_audit($on ? 'Bridge ENABLED' : 'Bridge disabled', 'bridge', 0,
     $on ? 'Arena may now write to the live database' : 'Arena writes refused');
