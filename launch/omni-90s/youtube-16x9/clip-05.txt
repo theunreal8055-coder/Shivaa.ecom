@@ -1,0 +1,50 @@
+OMNI 1.1 FLASH — SHIVAA INC. — 90s ANIMATED EXPLAINER (YOUTUBE 16:9) — CHAPTER 5 OF 9 (00:40–00:50)
+DURATION: EXACTLY 10.00 SECONDS · 1920x1080 horizontal · 24fps · AUDIO ON
+ATTACH TO THIS PROMPT: (1) the host reference image, (2) the Shivaa Inc. logo PNG.
+
+===== 1. CHARACTER LOCK =====
+SAME HOST IN ALL NINE CLIPS — identical face, age, hair, jewellery, saree and voice. Copy the attached reference image exactly.
+HOST: Indian woman, 27, North-Indian features, luminous fair-wheatish skin with real texture and pores, oval face, high cheekbones, deep almond dark-brown eyes, thick natural brows, soft nude-rose lips, small gold nose pin, long straight jet-black hair with a soft centre parting tucked behind her left ear, small gold jhumkas, one thin 22K chain.
+WARDROBE LOCKED: deep-maroon silk saree with a thin gold zari border, black silk blouse, one gold kada on the right wrist. Same drape in every clip. No costume change, no makeup change, no age change, no second actress, no plastic AI face, no celebrity lookalike.
+PERFORMANCE: she is an EXPLAINER HOST, not a model in a trailer. She looks straight into the lens, speaks clearly and warmly, and uses simple open-hand gestures to present the graphics that appear beside her. Confident, friendly, unhurried. She never mumbles, never over-acts, never walks out of frame.
+VOICE: ONE original female Hindi voice across all 9 clips — warm mid-low alto, clear Khadi Boli Hindi, teaching pace, friendly authority. Identical timbre and room tone every clip. No English narration, no jingle, no whisper.
+LIP-SYNC: mouth matches the exact Hindi line of this clip, nothing else — no extra words, no ad-libs.
+
+===== 2. EXPLAINER FILM LOCK =====
+PHOTOREAL HOST + 2.5D MOTION-GRAPHICS EXPLAINER VIDEO. This is CHAPTER 5 of 9 of one 90-second explainer. Exactly 10.00 seconds. 24fps. Clean, modern, premium — like a top-tier fintech or Apple-style product explainer, but in an Indian gold-jewellery world.
+SET (identical in every chapter): a seamless dark charcoal studio, soft gold rim light, a subtle warm gradient background, thin floating gold light-lines and slow gold dust particles. The host stands in this studio; the graphics are animated holographic glass cards, icons, diagrams and 3D objects that float in the empty space beside her.
+GRAPHIC LANGUAGE (identical in every chapter): frosted dark-glass cards with 1px gold outlines, rounded corners, soft drop shadows; thin gold connector lines that draw themselves on; icons in a single consistent gold line-art style; smooth ease-in-out motion; elements fly in, settle, and fade out — never jittery, never cartoonish, never clip-art, never comic, never childish.
+CAMERA: locked or very slow push. No shaky handheld, no whip pans, no drone. Stable, clean, professional.
+QUALITY: photoreal human + crisp CGI graphics composited around her, ARRI-grade skin tones, shallow depth of field on her, graphics tack sharp, fine grain, no HDR over-sharpening, no video-game look.
+ON-SCREEN TEXT: ENGLISH ONLY, short, exactly as written in this chapter. Clean modern sans-serif, gold or white. NO Devanagari text anywhere on screen, NO subtitles, NO karaoke captions, NO invented words, NO duplicate or ghost text, NO readable rupee or gold-rate figures. If exact spelling cannot be rendered, render no text at all.
+PERSISTENT WATERMARK (every single second of every clip): the attached Shivaa Inc. logo sits in the BOTTOM-RIGHT corner, small (about 9 percent of frame width), soft gold, around 70 percent opacity, perfectly static, never animated, never covered by graphics or by the host, with a clean margin from both edges. It must be present in frame 1 and in the last frame.
+AUDIO: generate her Hindi speech + one continuous instrumental score + subtle UI motion sounds. The score is a single unbroken modern cue across all 9 chapters — santoor and soft strings over a gentle electronic pulse, tempo and key never reset, always UNDER her voice. No lyrics, no sung words. Soft, tasteful whooshes and clicks as graphics animate.
+CONTINUITY: same studio, same light, same grade, same music, same host position from the previous chapter. The explainer must feel like one continuous presentation, chapter after chapter — no fade to black between chapters, no re-introduction, no new set.
+
+===== 3. FORMAT & LAYOUT =====
+FORMAT: 16:9 horizontal, 1920x1080, YouTube. COMPOSITION: the host stands in the RIGHT THIRD of frame, medium shot from the knees up, facing camera. All graphics animate in the LEFT TWO-THIRDS of the frame, at her eye level, large and readable. The chapter headline sits top-left. Keep the bottom-right corner clear for the permanent logo watermark.
+
+===== 4. THIS CHAPTER — FOR JEWELLERS — bullion, metal investment, live ledger =====
+Three glass panels fan out in sequence. PANEL 1: 24K bars stacking in 3D with a BULLION DESK label. PANEL 2: a clean upward line graph labelled LIVE RATE with the axis values deliberately blurred and unreadable, a small padlock icon riding the line. PANEL 3: a partner-portal ledger UI where rows of grams and order statuses draw themselves in, all figures blurred, with a green SETTLED tick animating on the last row. The host presents each panel with her hand as it appears.
+
+===== 5. ON-SCREEN TEXT (English only, exact spelling) =====
+Chapter headline: BULLION  ·  INVESTMENT  ·  LEDGER
+Plus only the short graphic labels named in section 4. Nothing else is written on screen.
+No Devanagari, no subtitles, no invented words, no duplicated lines.
+
+===== 6. PERMANENT WATERMARK =====
+The attached Shivaa Inc. logo, bottom-right corner, about 9% of frame width, soft gold,
+~70% opacity, completely static, visible in EVERY frame of these 10 seconds, never covered
+by the host or by any animation, clean margin from both edges.
+
+===== 7. SHE SPEAKS — exactly this Hindi, lip-synced, nothing else =====
+"बुलियन भी यहीं। मेटल में इन्वेस्टमेंट भी यहीं। लाइव भाव, साफ़ हिसाब, और हर ऑर्डर का पूरा लेजर आपके पोर्टल पर।"
+(Pronunciation reference only, never shown: Bullion bhi yahin. Metal mein investment bhi yahin. Live bhaav, saaf hisaab, aur har order ka poora ledger aapke portal par.)
+Speak it inside the first 8.5s at a clear teaching pace, ending with a small breath.
+
+===== 8. SOUND =====
+SCORE: Confident, business-like groove; soft data ticks.
+SFX: soft, tasteful UI whooshes and clicks timed to the graphics. No comedy sounds, no cartoon boings.
+
+===== 9. CONTINUITY =====
+Continue directly from chapter 4: same studio, same host position and size, same lighting, same graphic style, same music bed, same watermark. No fade to black, no new intro, no restart.
