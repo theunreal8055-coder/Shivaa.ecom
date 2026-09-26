@@ -20,7 +20,7 @@ if (defined('BILLING_LIB_LOADED')) {
 }
 define('BILLING_LIB_LOADED', true);
 
-const BILLING_VERSION = 11;
+const BILLING_VERSION = 12;
 const BILLING_SESSION = 'shivaa_billing';
 const BILLING_CSRF = 'shivaa_billing_csrf';
 

@@ -96,7 +96,17 @@ if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
 }
 
 $in = billing_input();
-$route = (string)($in['route'] ?? '');
+/* A job may carry its filters inside the route string, exactly the way the
+   UI does ("rate-cards?entity=supplier&id=2"). Split before the whitelist so
+   the gate sees the bare route, and merge the filters into $_GET so the
+   forwarded api.php sees them too. Without this, a GET read-back job was
+   refused with "Route not permitted: rate-cards?entity=supplier&id=2". */
+list($route, $rq) = billing_route_split(['r' => (string)($in['route'] ?? '')]);
+foreach ($rq as $k => $v) {
+  if ($k !== 'r' && !isset($_GET[$k])) {
+    $_GET[$k] = $v;
+  }
+}
 $auth  = (string)($in['auth'] ?? '');
 $nonce = (string)($in['nonce'] ?? '');
 $ts    = (int)($in['ts'] ?? 0);
