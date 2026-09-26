@@ -63,6 +63,14 @@ console.log('shadowed routes   :', shadowed.length ? shadowed.join('; ') : 'none
 const postReads = (src['api.php'].match(/\$_POST\[/g) || []).length;
 console.log('$_POST reads in api :', postReads, postReads === 0 ? '(correct — body is JSON)' : '(BROKEN)');
 
-const ok = missing.length === 0 && shadowed.length === 0 && postReads === 0;
+// inbox.php loads lib.php for the kill switch and then requires api.php, which
+// loads lib.php again. Plain require redeclared billing_config() and the first
+// real bridge write died on it. Both callers must use require_once.
+const bareLoads = ['api.php', 'inbox.php'].filter(f =>
+  /(?<!_once\s)require\s+__DIR__\s*\.\s*'\/lib\.php'/.test(src[f]));
+console.log('lib.php plain require :', bareLoads.length === 0 ? 'none (require_once everywhere)' : bareLoads.join(', ') + ' (BROKEN)');
+
+const ok = missing.length === 0 && shadowed.length === 0 && postReads === 0
+           && bareLoads.length === 0;
 console.log(ok ? 'PASS' : 'FAIL');
 process.exit(ok ? 0 : 1);

@@ -28,7 +28,7 @@
  */
 declare(strict_types=1);
 
-require __DIR__ . '/lib.php';
+require_once __DIR__ . '/lib.php';
 
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');

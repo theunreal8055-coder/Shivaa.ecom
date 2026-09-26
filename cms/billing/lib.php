@@ -8,7 +8,19 @@
  */
 declare(strict_types=1);
 
-const BILLING_VERSION = 7;
+/*
+ * Include guard. inbox.php loads this file to check the kill switch and then
+ * hands over to api.php, which loads it again. Without this guard the second
+ * load died with "Cannot redeclare billing_config()" — which is what the first
+ * real bridge write did on 26 Sep. Placed after declare(), which PHP requires
+ * to be the first statement in the file.
+ */
+if (defined('BILLING_LIB_LOADED')) {
+  return;
+}
+define('BILLING_LIB_LOADED', true);
+
+const BILLING_VERSION = 8;
 const BILLING_SESSION = 'shivaa_billing';
 const BILLING_CSRF = 'shivaa_billing_csrf';
 
