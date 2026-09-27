@@ -82,8 +82,8 @@ Every design gets a hero beat, and every design is on screen at least twice.
 ```bash
 mkdir -p launch/flow-30s/raw
 # download from Flow into launch/flow-30s/raw/ as: shot1.mp4 shot2.mp4 shot3.mp4 outro.mp4
-bash launch/flow-30s/assemble.sh                 # 16:9 master  -> launch/out/Shivaa-Cinematic-30s.mp4
-ASPECT=9x16 bash launch/flow-30s/assemble.sh     # reel        -> launch/out/Shivaa-Cinematic-30s-9x16.mp4
+bash launch/flow-30s/assemble.sh                 # reel 9:16 -> launch/out/Shivaa-Mangalsutra-30s.mp4
+ASPECT=16x9 bash launch/flow-30s/assemble.sh     # wide 16:9 -> launch/out/Shivaa-Mangalsutra-30s-16x9.mp4
 ```
 
 The script:
@@ -123,3 +123,41 @@ Duck the music 8 dB under the VO; keep VO peaks at −6 dB.
 | Veo writes text | strengthen the negative prompt; add "any screen, label or card in frame is blank and out of focus" |
 | Motion too fast | add "single continuous take, one camera move only, gentle 50 % slow-motion feel" |
 | Necklace floats / clips skin | add "the chain rests naturally on the collarbone with correct contact and weight" |
+
+---
+
+## 9 · What was repaired in the delivered cut (27 Sep)
+
+The four Flow renders arrived at 720×1280. Three things needed fixing before this was publishable:
+
+1. **Veo burned my prompt labels into shot 1** — `"PHOOL"`, `D1 "PHOOL"`, `SOLITAIRE`,
+   `D3. TEEN BOONDH`. They are covered by our own ivory caption plates
+   (`make_captions.py`, auto-fitting text): **PHOOL · SOLITAIRE · TEEN BOONDH · TAARA**.
+2. **Shot 3 had a second pendant hanging down her back** (a mangalsutra has one pendant at the
+   front; the back shows only chain and clasp). That beat is the first 3.4 s of the clip, so the
+   delivered cut starts shot 3 at **t = 3.4 s** (`SEEK3=3.4`) and the error never appears.
+   Veo also wrote `TEEN BOONDH` under the background display pendant — blurred out
+   (`PATCH3`, t = 0–2.75 s of the trimmed shot).
+3. **No voice-over** — a Hindi female VO was recorded and mixed under the music bed with
+   side-chain ducking (`launch/flow-30s/vo/vo1..4.mp3`, cue points `V1..V4` in `assemble.sh`).
+
+Delivered timing: `S1=10  S2=10  S3=6.6 (from 3.4)  OUTRO=4  XF=0.2` → **exactly 30.00 s**.
+
+```bash
+S1=10 S2=10 S3=6.6 SEEK3=3.4 OUTRO=4 bash launch/flow-30s/assemble.sh              # 9:16
+ASPECT=16x9 S1=10 S2=10 S3=6.6 SEEK3=3.4 OUTRO=4 bash launch/flow-30s/assemble.sh  # 16:9
+```
+
+## 10 · Re-render prompt for shot 3 (to get the full 10 s back, error-free)
+
+Paste `prompts/shot3-tradition.txt` and add these two lines at the end of the shot body:
+
+```
+JEWELLERY ACCURACY: the mangalsutra has exactly ONE pendant, worn at the FRONT of the neck.
+The back of her neck shows only the fine gold chain with tiny black beads and a small clasp —
+absolutely no pendant, no tassel and no drop at the back.
+NO LABELS: no design names, no captions, no letters anywhere in frame, including on any
+background display stand or hanging piece.
+```
+
+Add the same **NO LABELS** line to shots 1 and 2 to avoid the burned-in text next time.

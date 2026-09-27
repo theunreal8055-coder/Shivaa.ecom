@@ -10,11 +10,21 @@ ASSETS = ROOT / "launch" / "omni-90s" / "assets"
 
 canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
 
+# soft dark scrim so the gold logo stays readable over Veo's busy gold plate
+scrim = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+sd = ImageDraw.Draw(scrim)
+sd.rectangle([0, 0, W, H], fill=(12, 9, 7, 170))
+sx0, sx1 = int(W * 0.05), int(W * 0.95)
+sy0, sy1 = int(H * (0.24 if W >= H else 0.36)), int(H * (0.80 if W >= H else 0.66))
+sd.rounded_rectangle([sx0, sy0, sx1, sy1], radius=int(min(W, H) * 0.045), fill=(10, 8, 6, 232),
+                     outline=(176, 138, 58, 200), width=max(1, int(min(W, H) * 0.0022)))
+canvas.alpha_composite(scrim)
+
 logo_path = ASSETS / "logo-shivaa-gold.png"
 if not logo_path.exists():
     logo_path = ASSETS / "logo-shivaa-white.png"
 logo = Image.open(logo_path).convert("RGBA")
-target_w = int(W * (0.46 if W >= H else 0.74))
+target_w = int(W * (0.40 if W >= H else 0.70))
 logo = logo.resize((target_w, max(1, int(logo.height * target_w / logo.width))), Image.LANCZOS)
 lx = (W - logo.width) // 2
 ly = int(H * 0.5) - logo.height // 2 - int(H * 0.035)
