@@ -41,7 +41,7 @@ $_GET=array_merge(['__route'=>'${route}'], json_decode(base64_decode('${b64(quer
 include '/qa/api.php';`);
   };
 
-  await test('P01', 'v182 release stamp and version telemetry: rel=182, matched=true', async () => {
+  await test('P01', 'v182+ release floor and version telemetry: matched=true', async () => {
     const v = await F.req('GET', 'version');
     assert.equal(v.status, 200);
     assert.ok(v.json.rel >= 182);

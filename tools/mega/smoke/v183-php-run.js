@@ -65,7 +65,14 @@ async function test(name, f) {
   await test('P04 Approve/Skip cannot act on ordinary, published, skipped, or orphaned pieces', async () => {
     const db = await F.db();
     const liveId = db.products.find(x => x.active && !x.batchId).id;
-    let r = await F.req('POST', 'admin/catalogue/skip', { ids: [liveId] }, ADMIN);
+    db.products.push({ id: 'p_qa_orphan', name: 'orphan QA fixture', batchId: 'cb_missing',
+      status: 'pending_review', active: false, stock: 0 });
+    F.setDb(db);
+    let r = await F.req('POST', 'admin/catalogue/approve', { ids: ['p_qa_orphan'] }, ADMIN);
+    assert.deepEqual(r.json.published, [], 'pending row with unknown batch cannot be approved');
+    r = await F.req('POST', 'admin/catalogue/skip', { ids: ['p_qa_orphan'] }, ADMIN);
+    assert.deepEqual(r.json.skipped, [], 'orphan row cannot be skipped through review');
+    r = await F.req('POST', 'admin/catalogue/skip', { ids: [liveId] }, ADMIN);
     assert.deepEqual(r.json.skipped, [], 'ordinary product cannot be skipped by intake');
     r = await F.req('POST', 'admin/catalogue/approve', { ids: [liveId] }, ADMIN);
     assert.deepEqual(r.json.published, [], 'ordinary product cannot be approved by intake');
