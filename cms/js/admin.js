@@ -930,7 +930,9 @@ function v180DbStrip() {
     const I = window.ShivaaAdmin._intake = window.ShivaaAdmin._intake || { urls: [], batchId: '' };
     if (!I.batchId && batches.length) I.batchId = batches[batches.length - 1].id;
     const bOpts = batches.map(b => `<option value="${esc(b.id)}" ${b.id === I.batchId ? 'selected' : ''}>${esc(b.label)} - ${esc(b.status)} (${b.counts.pending} pending)</option>`).join('');
-    const tmpl = [{ name: '22K Rani Haar - kundan', sku: 'RH-001', category: 'necklaces', metal: 'Gold', purity: '22K', weightG: 41.25, lessWeightG: 0, mcScheme: 'perGram', mcValue: 350, stoneValue: 12000, stoneDesc: 'kundan set', images: (I.urls[0] ? [I.urls[0]] : ['/uploads/catalogue/BATCH/shot.jpg']), desc: 'Hand-set kundan rani haar in certified 22K gold.', tags: ['bridal'], weightSource: 'owner sheet row 12' }];
+    // An editable shape, NOT an importable sample: never prefill invented weights,
+    // purity, prices, stock or photo paths in the owner's live intake form.
+    const tmpl = [{ name: '', sku: '', category: '', metal: '', purity: '', weightG: null, stock: 0, images: (I.urls[0] ? [I.urls[0]] : []), desc: '', tags: [], weightSource: '' }];
     body.innerHTML = `
       <div class="adm-card" style="border-left:4px solid var(--gold,#d4af37)">
         <h3>📦 Catalogue intake &amp; review queue</h3>
@@ -996,7 +998,7 @@ function v180DbStrip() {
       <div style="border-top:1px dashed var(--line);margin-top:12px;padding-top:12px">
         <form class="form-grid" style="grid-template-columns:2fr auto;align-items:end" onsubmit="ShivaaAdmin.saveBillingSync(event)">
           <div class="fld"><label>Stock-sync key <small>(v182 — shared HMAC secret for the billing app&rsquo;s stock movements)</small></label>
-            <input name="billingSyncSecret" type="password" autocomplete="new-password" placeholder="${S.billingSyncSecret ? '•••• saved — leave blank to keep' : 'paste a long random key (16+ chars)'}"></div>
+            <input name="billingSyncSecret" type="password" autocomplete="new-password" placeholder="${S.billingSyncConfigured ? '•••• saved — leave blank to keep' : 'paste a long random key (16+ chars)'}"></div>
           <button class="btn btn-outline btn-sm">Save sync key</button>
         </form>
         <p style="margin:8px 0 0;font-size:12px;color:var(--ink-3,#666)">Showroom billing posts stock movements and reads stock over signed calls (contract: <code>docs/BILLING-SYNC-CONTRACT.md</code>). The bridge stays dark (403) until a key is saved here.</p>
