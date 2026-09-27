@@ -1,0 +1,36 @@
+### SHOT3-TRADITION
+FLOW SETUP — Frames to Video: upload the LAST FRAME of shot 2 as the first frame. Same 3 ingredients. 8 s + Extend, trim to 10 s.
+
+--- PASTE FROM HERE ---
+
+CINEMATIC LUXURY JEWELLERY COMMERCIAL — SHIVAA INC., fine gold house, Jayal, Nagaur, Rajasthan. Campaign: THE MANGALSUTRA RANGE.
+Look: shot on ARRI Alexa 35 with Cooke anamorphic primes, 24 fps, 180-degree shutter, shallow depth of field, natural motion blur, fine film grain, rich true blacks, filmic highlight roll-off, tack-sharp macro on the jewellery.
+Palette: warm 22K gold, ivory and champagne cream, soft blush beige, deep black beads as the only dark accent; brass diya practicals and one large soft window key with gentle falloff.
+Camera: slow and deliberate only — macro push-in, gentle lateral glide, low orbit, rack focus. No shake, no whip pans, no snap zooms.
+Grade: high-end bridal-jewellery advertising, Tanishq / Malabar polish, warm but never orange; gold reads metallic, whites stay ivory.
+Photoreal. Real skin texture, real fabric weave, real metal specularity. No on-screen text, no captions, no logos, no watermarks inside the frame.
+
+CHARACTER LOCK — "MEERA" (the SAME married woman in every shot, match reference image 1 exactly):
+Indian woman, 28 years old, warm wheatish skin, oval face, softly defined brows, deep-set dark brown eyes, a small mole on the left jawline, glossy black centre-parted hair, a fine line of sindoor at the parting, minimal dewy makeup, soft kohl, natural rose lips, small gold studs only.
+Wardrobe rule: soft ivory or blush silk with a thin gold zari border in shots 1-2; a deep maroon silk saree with gold zari in the festive shot 3. No other necklace is ever visible — the mangalsutra is always the only neckpiece.
+Same face, same hair, same sindoor, same makeup in every shot. Do not restyle her.
+
+PRODUCT LOCK — "THE SHIVAA MANGALSUTRA RANGE", four designs, match the reference images exactly, identical in every shot.
+All four are light-weight BIS-hallmarked gold with a laser HUID mark, strung with tiny glossy BLACK beads on a fine gold cable chain. Black beads and gold only — never silver, never rose gold, never coloured stones.
+D1 "PHOOL" — two small four-petal gold flowers joined side by side on a double black-bead strand; the smallest, lightest, everyday piece.
+D2 "SOLITAIRE" — one emerald-cut white zircon in a square gold bezel ringed by a fine pave halo, on a single black-bead chain; modern and minimal.
+D3 "TEEN BOONDH" — three pear-shaped white zircon drops in polished gold bezels sitting side by side, black beads flanking them on a fine chain.
+D4 "TAARA" — a round star-filigree gold medallion with a graduated gold tassel drop ending in two black beads; the traditional, festive piece.
+Never invent a new pendant, never change bead colour, never add extra stones or strands.
+
+SHOT 3 of 3 — THE BOND. Continue from the first frame — same Meera, same face. One unbroken take, no cuts. Festive golden light.
+0.0-3.0 s: evening, a sandstone haveli room lit by a row of diyas and marigold garlands. Meera is now in a deep maroon silk saree. Her husband's hands come in from behind and fasten D4 "TAARA" at her nape; macro texture of skin, zari and the gold tassel settling into place.
+3.0-6.0 s: a slow 180-degree low orbit as she turns to face him; the star filigree medallion and its tassel catch the diya flames and throw warm glints; marigold petals drift softly through the foreground bokeh.
+6.0-8.5 s: she looks down at the mangalsutra, closes her hand gently around it, and shares an unforced laugh with him; the camera drifts into a macro of the black beads and gold against the maroon silk.
+8.5-10.0 s: Meera lifts her eyes to the lens with a calm, proud, closed-lip smile and takes one step forward; the frame blooms into a clean sheet of warm golden light that fills the screen completely.
+AUDIO: no dialogue. Swelling strings with a bansuri melody over a soft heartbeat sub, diya crackle, distant temple bell, bangles shifting, resolving on one sustained note as the frame blooms.
+
+NEGATIVE PROMPT:
+text, letters, numbers, subtitles, captions, logos, watermarks, price tags, deformed hands, extra fingers, warped or floating jewellery, duplicated pendants, melted metal shapes, silver or rose gold tone, coloured gemstones, plastic skin, waxy face, oversaturated orange grade, HDR halo, cartoon, anime, CGI look, fast cuts, strobing, lens flare spam, crowds, clutter, modern glass mall, western bridal gown, cleavage, tight close crop on chest
+
+VERTICAL FRAMING (use this line only for the 9:16 Reel render): compose for 9:16 — pendant and neckline in the central safe area, head room in the top third, clean empty space in the bottom fifth of the frame for captions.
