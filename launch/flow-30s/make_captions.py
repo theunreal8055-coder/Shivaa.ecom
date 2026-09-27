@@ -23,7 +23,7 @@ CAPS = [
 IVORY = (250, 245, 236, 255)
 INK = (46, 33, 22, 255)
 GOLD = (176, 138, 58, 255)
-Y0, Y1 = 0.672, 0.862           # the rows Veo wrote on (~0.74 H)
+Y0, Y1 = 0.695, 0.845           # the rows Veo wrote on (~0.74 H)
 
 
 def font(size):
@@ -57,22 +57,22 @@ for i, (name, sub) in enumerate(CAPS, start=1):
 
     # auto-fit: shrink until the tracked line fits inside the plate
     max_w = (W - 2 * pad) * 0.86
-    size = int(bh * 0.34)
-    track = int(bh * 0.055)
+    size = int(bh * 0.27)
+    track = int(bh * 0.045)
     f_name = font(size)
     while size > 10 and tracked_width(d, name, f_name, track) > max_w:
         size = int(size * 0.94)
         track = max(1, int(track * 0.94))
         f_name = font(size)
-    f_sub = font(int(bh * 0.155))
-    draw_tracked(d, name, y0 + int(bh * 0.20) + int((int(bh * 0.34) - size) * 0.5), f_name, INK, track)
+    f_sub = font(int(bh * 0.125))
+    draw_tracked(d, name, y0 + int(bh * 0.20) + int((int(bh * 0.27) - size) * 0.5), f_name, INK, track)
 
     rw = int(W * 0.10)
     ry = y0 + int(bh * 0.665)
     d.line([((W - rw) // 2, ry), ((W + rw) // 2, ry)],
            fill=(GOLD[0], GOLD[1], GOLD[2], 150), width=max(1, H // 1300))
 
-    draw_tracked(d, sub, y0 + int(bh * 0.715), f_sub, GOLD, int(bh * 0.05))
+    draw_tracked(d, sub, y0 + int(bh * 0.705), f_sub, GOLD, int(bh * 0.042))
 
     out = OUTDIR / f"cap{i}.png"
     img.save(out)

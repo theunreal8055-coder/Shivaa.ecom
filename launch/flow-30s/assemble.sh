@@ -44,7 +44,7 @@ done
 canon () { # in out seconds [seek]
   "$FF" -y -v error ${4:+-ss $4} -i "$1" -t "$3" \
     -vf "scale=${CW}:${CH}:force_original_aspect_ratio=decrease,pad=${CW}:${CH}:(ow-iw)/2:(oh-ih)/2:color=black,fps=${FPS},settb=AVTB,setsar=1,format=yuv420p" \
-    -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$2"
+    -c:v libx264 -preset ${PRE:-medium} -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$2"
 }
 echo "• trimming: shot1 ${S1}s · shot2 ${S2}s · shot3 ${S3}s (from ${SEEK3}s) · outro ${OUTRO}s — target ${TOTAL}s"
 canon "$RAW/shot1.mp4" "$WORK/c1.mp4" "$S1"
@@ -66,7 +66,7 @@ if [ "${CAPTIONS:-1}" = "1" ]; then
       [a][2:v]overlay=0:0:enable='between(t,3.60,5.60)'[b];\
       [b][3:v]overlay=0:0:enable='between(t,5.60,7.55)'[c];\
       [c][4:v]overlay=0:0:enable='gte(t,7.55)',fps=${FPS},settb=AVTB,setsar=1,format=yuv420p[v]" \
-    -map "[v]" -map 0:a? -shortest -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$WORK/c1r.mp4"
+    -map "[v]" -map 0:a? -shortest -c:v libx264 -preset ${PRE:-medium} -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$WORK/c1r.mp4"
   mv "$WORK/c1r.mp4" "$WORK/c1.mp4"
 fi
 
@@ -78,7 +78,7 @@ if [ "${PATCH3:-1}" = "1" ]; then
     "[0:v]split=2[base][cut];\
      [cut]crop=302:106:778:634,boxblur=20:2,gblur=sigma=16[blr];\
      [base][blr]overlay=778:634:enable='between(t,${P3A},${P3B})',fps=${FPS},settb=AVTB,setsar=1,format=yuv420p[v]" \
-    -map "[v]" -map 0:a? -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$WORK/c3r.mp4"
+    -map "[v]" -map 0:a? -c:v libx264 -preset ${PRE:-medium} -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$WORK/c3r.mp4"
   mv "$WORK/c3r.mp4" "$WORK/c3.mp4"
 fi
 
@@ -90,7 +90,7 @@ fit () { # in out
      [bg]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=42,eq=brightness=-0.16:saturation=0.85[bgb];\
      [fg]scale=${W}:${H}:force_original_aspect_ratio=decrease[fgs];\
      [bgb][fgs]overlay=(W-w)/2:(H-h)/2,fps=${FPS},settb=AVTB,setsar=1,format=yuv420p[v]" \
-    -map "[v]" -map 0:a? -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$2"
+    -map "[v]" -map 0:a? -c:v libx264 -preset ${PRE:-medium} -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$2"
 }
 echo "• fitting to ${W}x${H}"
 fit "$WORK/c1.mp4" "$WORK/s1.mp4"
@@ -103,13 +103,13 @@ echo "• outro logo"
 python3 "$DIR/make_outro_overlay.py" "$W" "$H" "$WORK/outro-overlay.png" >/dev/null
 "$FF" -y -v error -i "$WORK/s4.mp4" -loop 1 -framerate "$FPS" -i "$WORK/outro-overlay.png" \
   -filter_complex "[1:v]format=rgba,fade=t=in:st=0.15:d=0.7:alpha=1[lg];[0:v][lg]overlay=0:0:format=auto:shortest=1,fps=${FPS},settb=AVTB,setsar=1,format=yuv420p[v]" \
-  -map "[v]" -map 0:a? -shortest -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$WORK/s4b.mp4"
+  -map "[v]" -map 0:a? -shortest -c:v libx264 -preset ${PRE:-medium} -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$WORK/s4b.mp4"
 mv "$WORK/s4b.mp4" "$WORK/s4.mp4"
 
 # ── 5. join with dissolves (pairwise = memory safe) ──
 join () { "$FF" -y -v error -i "$1" -i "$2" -filter_complex \
     "[0:v][1:v]xfade=transition=fade:duration=${XF}:offset=$4[v];[0:a][1:a]acrossfade=d=${XF}[a]" \
-    -map "[v]" -map "[a]" -c:v libx264 -preset medium -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$3"; }
+    -map "[v]" -map "[a]" -c:v libx264 -preset ${PRE:-medium} -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$3"; }
 echo "• joining with ${XF}s dissolves"
 join "$WORK/s1.mp4" "$WORK/s2.mp4" "$WORK/j1.mp4" "$(python3 -c "print(round($S1-$XF,3))")"
 L2=$(python3 -c "print(round($S1+$S2-$XF,3))")
@@ -139,7 +139,7 @@ if [ "${VO:-1}" = "1" ] && [ -f "$VOD/vo1.mp3" ] && [ -f "$VOD/vo2.mp3" ] && [ -
      [bed][vo1]sidechaincompress=threshold=0.02:ratio=9:attack=12:release=420[duck];\
      [duck][vo2]amix=inputs=2:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=out:st=${FADE}:d=0.8[a]" \
     -map "[v]" -map "[a]" -movflags +faststart -t "$TOTAL" \
-    -c:v libx264 -preset slow -crf 19 -pix_fmt yuv420p -c:a aac -b:a 192k -ar 48000 -ac 2 "$OUT/$NAME.mp4"
+    -c:v libx264 -preset ${PREF:-slow} -crf 19 -pix_fmt yuv420p -c:a aac -b:a 192k -ar 48000 -ac 2 "$OUT/$NAME.mp4"
 else
   echo "• watermark + loudnorm (no voice-over)"
   "$FF" -y -v error -i "$WORK/j3.mp4" -i "$LOGO" -filter_complex \
@@ -147,7 +147,7 @@ else
      [0:v][wm]overlay=W-w-${MX}:H-h-${MY}:format=auto[v];\
      [0:a]loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=out:st=${FADE}:d=0.8[a]" \
     -map "[v]" -map "[a]" -movflags +faststart -t "$TOTAL" \
-    -c:v libx264 -preset slow -crf 19 -pix_fmt yuv420p -c:a aac -b:a 192k -ar 48000 -ac 2 "$OUT/$NAME.mp4"
+    -c:v libx264 -preset ${PREF:-slow} -crf 19 -pix_fmt yuv420p -c:a aac -b:a 192k -ar 48000 -ac 2 "$OUT/$NAME.mp4"
 fi
 
 "$FF" -y -v error -ss 4.6 -i "$OUT/$NAME.mp4" -frames:v 1 -q:v 2 "$OUT/$NAME-poster.jpg"
