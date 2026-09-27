@@ -1,5 +1,26 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v183 safety follow-up (27 Sep 2026, branch `arena/01a0e134-shivaa-ecom`)
+
+- Read `docs/AGENT-HANDOFF.md` + this memory. Base is v182 merge PR #97,
+  branch fixed to this Arena session. Last verified Hostinger live was v181
+  (25 Sep); **no owner approval/deploy or billing app ZIP in this session**.
+- Found v182 billing key leaked to admin settings JSON despite "write-only"
+  contract; intake form's prefilled fictional weight/purity/price/stock/media
+  could be submitted as fact; Approve/Skip by ID could change already-resolved
+  or ordinary products. Built forward-only **v183**: response-only
+  `billingSyncConfigured`, empty factual template, missing stock defaults zero,
+  only pending items in known batches are reviewable, non-finite weight rejected.
+- `shivaa-update-v183.zip` six-file cumulative package, source `2c2fde7`,
+  SHA-256 `fe2a0c114586933ecd94a127e1b240b6850c568d40aa2d36e96f79df62453e27`.
+  `DEPLOY-v183.md` explains install from either 181 (run bundled
+  upgrade-sql.php) or 182. `npm test` passed incl. v183 4 static + 4 PHP,
+  plus older gates; v183 checks passed on extracted ZIP overlay. No live
+  deploy or DB mutations. Previous packages are not to be altered.
+- Awaiting the owner's explicit yes for one live install; separately the
+  showroom billing app ZIP and real first-batch photos+owner tags/sheet.
+  Until then keep bridge unconfigured, and do not claim v183 is live.
+
 ## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
 
 - **Live is 181 (verified 25 Sep 2026):** `/api/version` returned `rel:181`,

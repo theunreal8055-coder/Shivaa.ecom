@@ -1,5 +1,17 @@
 # Shivaa — agent working guide
 
+## Latest state (27 Sep 2026) — read this before the historical v180 notes
+
+- **v183 built, not deployed by this session.** Last verified live was v181
+  (25 Sep); inspect live `/api/version` before claiming the current live
+  release. v183 supersedes the not-yet-confirmed-live v182 ZIP and includes
+  the same SQL reconciler; see `docs/AGENT-HANDOFF.md` top section and
+  `DEPLOY-v183.md`. If still on 181 install v183 directly after explicit
+  owner approval; if already on 182, advance to 183. Never auto-deploy.
+- Billing app ZIP and real first-batch owner weights/photos are still absent.
+  Do not activate billing, publish made-up stock or bypass the intake review
+  queue. This Arena session's fixed branch is `arena/01a0e134-shivaa-ecom`.
+
 ## Plan session (24 Sep 2026) — read before touching SQL/billing/catalogue work
 
 - The agreed master roadmap for the SQL-at-3-lakh migration, the standing ZIP

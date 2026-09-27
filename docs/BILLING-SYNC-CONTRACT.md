@@ -24,7 +24,8 @@ is a **doorway with one narrow pipe**, not a merge — the same law as the
 
 A single shared secret lives in the shop's settings key **`billingSyncSecret`**
 (owner-pasted in Admin → Billing Software card; 16–128 chars `[A-Za-z0-9_-]`;
-write-only — blank keeps the saved key, never shown back in full). The billing
+write-only — blank keeps the saved key; as of v183 admin GET/PUT returns only
+`billingSyncConfigured: true/false`, never the key). The billing
 app stores the same value in its own config.
 
 Every request carries two headers:

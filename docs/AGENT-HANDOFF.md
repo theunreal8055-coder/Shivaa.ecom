@@ -1,4 +1,35 @@
-# AGENT HANDOFF — v182 BUILT (Auto-Catalogue Phase 4 + Billing Bridge); v181 LIVE ON HOSTINGER (25 Sep 2026)
+# AGENT HANDOFF — v183 BUILT (safety follow-up); last verified LIVE v181 (25 Sep 2026)
+
+## CURRENT STATE — v183 BUILT, owner approval needed (27 Sep 2026)
+
+- This Arena branch starts at the PR #97 merge of v182 (`2e063ee`). No new
+  owner approval, live deploy or billing app ZIP was provided in this session.
+  Last **verified** live report remains 181 on 25 Sep; recheck `/api/version`
+  before any install. v182 was built but not confirmed live; **if still on
+  181, install v183 directly instead of v182**. If 182 is already live, v183
+  advances it. Do not deploy without explicit owner approval.
+- A targeted v182 readiness review found three safety gaps: admin settings
+  exposed the supposedly write-only billing HMAC key in GET/PUT responses;
+  the import form presented an importable-looking fictional weight/purity/
+  charges/stock/photo; Approve/Skip by ID could alter a resolved or ordinary
+  product. v183 masks the key via a response-only configured boolean, clears
+  factual template fields and defaults omitted stock to zero, and restricts
+  review actions to pending members of known batches. Non-finite weight rejected.
+- Release 183 stamps index/app/sw/api together; SQL schema unchanged from
+  v182. Cumulative six-file ZIP includes `upgrade-sql.php` so upgrades from
+  181 still run the Phase 4 reconciler. Package `shivaa-update-v183.zip`,
+  SHA-256 `fe2a0c114586933ecd94a127e1b240b6850c568d40aa2d36e96f79df62453e27`,
+  source commit `2c2fde7`; instructions: `DEPLOY-v183.md`.
+- Belt: `npm test` green including new v183 static 4/4 and executed PHP 4/4,
+  v182 PHP 9/9, all older executed suites and manual-deploy gate 20/20.
+  The same new gates passed against an extracted ZIP overlay; no live MySQL
+  or Hostinger deployment was tested. Prior ZIPs remain immutable.
+- Next owner inputs: explicit one-run approval to install v183; the actual
+  billing app ZIP for isolated `/billing/` review; real photo drop and tag/
+  owner sheet to stage a first batch. Nothing is auto-published. Never invent
+  weights/purity/price/stock or activate billing before inspecting its app.
+
+---
 
 ## CURRENT STATE — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
 
