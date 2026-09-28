@@ -1,5 +1,30 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v184 ring/product gallery repair (28 Sep 2026, `arena/01a0e134-shivaa-ecom`)
+
+- Owner asked for an update ZIP: ring/product photo gallery slides stick
+  after several swipes and controls shift position. The runtime auto-advance
+  remains by design until a user touches the gallery. Confirmed in source:
+  `aurum.css` pressed-arrow scale overwrote `translateY(-50%)`; changing
+  active dot button width moved centered hitboxes; pointercancel committed a
+  swipe and vertical gesture did not release capture. Browser root cause for
+  the owner's exact stuck frame remains unverified (Hostinger HTTPS blocked),
+  so call it a defensive state-machine fix, not a live-proven diagnosis.
+- Built cumulative **v184** from v183 (which carries v182): gesture ownership,
+  cancel snap-back, vertical capture release, touch-only fallback, route timer
+  cleanup; stable dot hitboxes and arrow transform in last `v184.css`.
+  Package: `shivaa-update-v184.zip` 7 files, SHA-256
+  `92434c8a3830ba3e64cc7df827cdfa66694076a19bdd03968a07db5f9215818f`,
+  source commit `81f1198`; instructions `DEPLOY-v184.md`.
+- `npm test` green: new real-page jsdom ring gallery 8/8, including 20 swipes,
+  pointer cancellation, vertical scrolling and legacy touch fallback; v118
+  19/19; v164 PDP 15/15. Extracted ZIP overlay also passed gallery and
+  PHP v183/v182 suites. No live deployment or schema/data mutation; last
+  verified live v181 on 25 Sep, current live unknown (TLS probe failed).
+  Owner must check `/api/version`, back up, extract only after explicit yes,
+  run included `upgrade-sql.php` if moving directly from 181, and check on
+  a real phone. STOP if live release is newer than 184.
+
 ## SESSION INTAKE — v183 safety follow-up (27 Sep 2026, branch `arena/01a0e134-shivaa-ecom`)
 
 - Read `docs/AGENT-HANDOFF.md` + this memory. Base is v182 merge PR #97,

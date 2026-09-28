@@ -1,4 +1,33 @@
-# AGENT HANDOFF — v183 BUILT (safety follow-up); last verified LIVE v181 (25 Sep 2026)
+# AGENT HANDOFF — v184 BUILT (gallery swipe/controls); live unverified since v181 on 25 Sep 2026
+
+## CURRENT STATE — v184 BUILT (28 Sep 2026)
+
+- Owner reports ring/product-page gallery controls shift and one photo appears
+  stuck after 3–4 swipes; requested the next update file. Last verified live
+  was 181 on 25 Sep; this sandbox's live HTTPS probe failed, so current live
+  version is **unknown**. No owner approval to deploy was given.
+- v184: single-owner gesture state, vertical-intent capture release, cancelled
+  swipe snap-back, pointer-capture cleanup, touch-only fallback; arrow press
+  preserves vertical centring; gallery dots use fixed-size tap targets rather
+  than moving on every active change; orphaned page timer stops. Existing
+  four-photo ring list/data left untouched. Source commit `81f1198`.
+- **Cumulative** `shivaa-update-v184.zip` (7 deployable files, 457,479 bytes,
+  SHA-256 `92434c8a3830ba3e64cc7df827cdfa66694076a19bdd03968a07db5f9215818f`)
+  includes v182 SQL reconciler and v183 hardening. If live still 181,
+  install v184 directly after owner approval and run `upgrade-sql.php`; if
+  182/183 already live, v184 advances it. STOP if live >184. See
+  `DEPLOY-v184.md`. Old v182/v183 ZIPs remain immutable and must not be
+  installed afterwards.
+- `npm test` green; v184 real-app ring gallery 8/8 including 20 repeated
+  swipes + pointer cancel + vertical scroll + touch-only fallback, v183 PHP
+  4/4, v182 PHP 9/9, older gates green. v118 check 19/19 and v164 PDP 15/15;
+  source and ZIP-overlay gallery tests green. No physical-device or live-DB
+  test — owner must smoke-check on their phone.
+- No Hostinger deploy, app/billing data writes or product data edits. The
+  unrelated billing software source and 100 real supplier records remain
+  unprovided; the gallery release does not pretend to alter billing.
+
+---
 
 ## CURRENT STATE — v183 BUILT, owner approval needed (27 Sep 2026)
 

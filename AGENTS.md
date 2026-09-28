@@ -1,5 +1,16 @@
 # Shivaa — agent working guide
 
+## Latest state (28 Sep 2026) — v184 gallery update ready, NOT live-deployed
+
+- Owner requested repair of product/ring photo swipe sticking and buttons
+  shifting. v184 cumulative ZIP is built (`DEPLOY-v184.md`), preserving v182
+  SQL/cat intake + v183 billing-key hardening. Last verified live was 181
+  on 25 Sep; the latest sandbox HTTPS probe failed, so check live version
+  before extracting. No approval to deploy was given. Never overwrite a
+  newer live release; install only with explicit owner authorization.
+- See top of `docs/AGENT-HANDOFF.md` and `MEMORY.md` for tests, safety and
+  package details. Session branch remains `arena/01a0e134-shivaa-ecom`.
+
 ## Latest state (27 Sep 2026) — read this before the historical v180 notes
 
 - **v183 built, not deployed by this session.** Last verified live was v181
