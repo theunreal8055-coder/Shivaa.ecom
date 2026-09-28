@@ -1,0 +1,54 @@
+/* v186 · Design Selection mobile width, traced to the owner's Instagram
+   screenshots. At 393 CSS px, the old #dsGrid grew to 658px and the header
+   separately grew to 504px. Never clip the root: shrink BOTH offenders. */
+@media (max-width: 680px) {
+  /* Two 1fr tracks have an automatic min-content width; the four-photo
+     flex slider inside a card made each track 324px, regardless of the
+     viewport. Zero the track/item minimum; let the existing slider viewport
+     clip only its off-screen photos, not the whole document. */
+  body[data-page="catalogues"] #dsGrid.ds-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body[data-page="catalogues"] #dsGrid > .ds-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+  body[data-page="catalogues"] #dsGrid .ds-img.ds-slider {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  body[data-page="catalogues"] #dsGrid .ds-track,
+  body[data-page="catalogues"] #dsGrid .ds-track img { min-width: 0; }
+
+  /* Account + wishlist already have visible bottom-nav buttons on phones.
+     The full scheme label alongside five header actions pushed the header
+     111px beyond a 393px screen. Keep menu, full logo, compact scheme link,
+     search, B2B portal and cart tappable; no header overflow masking. */
+  .header-top .header-actions #acctBtn,
+  .header-top .header-actions #wishBtn { display: none; }
+  .header-in.header-top { gap: 4px; }
+  .header-in.header-top .nav-toggle { flex: 0 0 40px; }
+  .header-top .brand { margin-right: 0; min-width: 0; flex: 0 1 auto; padding: 4px 6px; }
+  .header-top .brand-logo { height: 28px; max-width: 70px; }
+  .header-top .header-actions { min-width: 0; flex: 0 0 auto; }
+  .header-top .header-actions .icon-btn { width: 40px; height: 40px; }
+  .header-top .hdr-scheme-pill { padding-inline: 8px; }
+  .header-top .hdr-scheme-pill .hsp-txt { display: none; }
+  .header-top .hdr-scheme-pill::after { content: '10G'; font-size: 10px; letter-spacing: .04em; }
+}
+/* The deferred motion sheet paints dark burgundy heading text on the dark
+   burgundy Design Selection banner, making the title nearly unreadable. */
+body[data-page="catalogues"] .page-hero h1 {
+  background: none;
+  color: #fdf3dd;
+  -webkit-text-fill-color: #fdf3dd;
+  text-shadow: 0 2px 12px rgba(0,0,0,.35);
+}
+@media (max-width: 350px) {
+  /* One comfortably tappable product per row on genuinely tiny phones. */
+  body[data-page="catalogues"] #dsGrid.ds-grid { grid-template-columns: minmax(0, 1fr); }
+  /* The campaign remains in the menu. Do not shrink/overlap the logo. */
+  .header-top .hdr-scheme-pill { display: none; }
+  .header-top .brand { flex: 0 0 auto; }
+}
