@@ -1,3 +1,23 @@
+## 28 Sep 2026 — v186 Instagram Design Selection reproduction
+
+User installed v184/v185 and supplied screenshots: right-side cream gap,
+header icons beyond screen, 2-column design cards offscreen and unreadable
+banner title in Instagram WebView. Live `https://shivaa.in/api/version` via
+fetch_page succeeds: rel185, stamp matched, MySQL healthy 78/78; v184/v185
+CSS assets present. Earlier v185 diagnosis missed THIS layout bug.
+Chromium 153 real local boot with synthetic partner: root 675px, header 504px
+at 393px viewport; `#dsGrid` grid 2 `1fr` auto minima each 324px from flex
+slider, header account/wishlist duplicates and large scheme link. Deferred
+motion.css dark banner title on maroon. New `css/v186.css` zero-min tracks,
+shrink grid items, compact header, and white banner title. Rendered 320,
+360,393,430,560,768px: root width == viewport, no scroll overflow, photo
+arrow/quantity/filter checks pass. v186 package is five-file delta over
+LIVE v185 ONLY, no SQL, no server or DB changes; NOT deployed.
+Source `29a5fb7`; `shivaa-update-v186.zip` SHA-256
+`9711205a35ae8edf34cf12a53f3beb29f4bb1b8a28083fa59964e440a5969bb7`.
+Overlaying its five files on v185 source passed browser 6/6 and static 4/4.
+Owner's Instagram WebView must still confirm after owner installation.
+
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
 ## SESSION INTAKE — v185 mobile responsiveness follow-up (28 Sep 2026)

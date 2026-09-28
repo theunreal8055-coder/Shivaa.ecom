@@ -1,3 +1,32 @@
+# CURRENT STATE — v186 DESIGN SELECTION MOBILE FIX BUILT (28 Sep 2026)
+
+- Owner installed v184/v185 and sent three Instagram WebView screenshots of the
+  real `#/catalogues` page. The public read-only `/api/version` now confirms
+  **LIVE v185**, stamps matched and MySQL mode 78/78 with no mirror lag. Both
+  v184/v185 CSS assets are publicly served. The earlier guess about cream
+  overscroll/Privacy was NOT the bug in the supplied screenshots.
+- Reproduced with actual Chromium 153 at 393 CSS px: `#dsGrid` had `repeat(2,1fr)`
+  auto minimum columns forced to 324px each by four-photo sliders; document
+  scrollWidth 675px. Header separately overflowed to 504px with duplicate
+  account/wishlist buttons and full scheme pill. Deferred motion.css painted
+  near-invisible dark-burgundy title on the burgundy page banner.
+- v186 CSS is last, scoped to <=680px for grid and header, <=350px single
+  column. Header keeps menu/brand/search/B2B/cart; bottom nav still provides
+  Account/Wishlist. No root clipping. Banner title repaired. Local real-browser
+  QA on synthetic partner/catalogue at 320,360,393,430,560,768 reports
+  **root width == viewport at all 6 widths**; arrows, quantity, filters and
+  title contrast pass. At 393: 675px -> 393px root; 504px -> 393px header.
+- v186 is a **five-file DELTA over live v185**, not a v181 cumulative installer:
+  `api.php`, `css/v186.css`, `index.html`, `js/app.js`, `sw.js`. NO SQL rerun.
+  ZIP SHA-256 `9711205a35ae8edf34cf12a53f3beb29f4bb1b8a28083fa59964e440a5969bb7`;
+  source `29a5fb7`; extracted ZIP over v185 base passed real Chromium six-width QA.
+  `DEPLOY-v186.md` describes owner installation. **NOT YET DEPLOYED**; owner's
+  actual Instagram handset check remains required.
+- Keep work on session branch. Existing v185 reports, ZIP and draft PR #98
+  remain relevant history, but don't tell owner to reinstall v184/v185.
+
+---
+
 # AGENT HANDOFF — v185 BUILT (mobile canvas + narrow-page follow-up); LIVE UNVERIFIED
 
 ## CURRENT STATE — v185 BUILT (28 Sep 2026)

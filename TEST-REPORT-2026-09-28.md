@@ -1,5 +1,7 @@
 # Shivaa shop/PWA local test report — 28 September 2026
 
+**Later update (same date):** A separate public page-fetch succeeded where sandbox `curl` had failed: the live site is confirmed at **v185**, matching stamps and healthy MySQL mirror. The owner then supplied Instagram screenshots pinpointing the Design Selection overflow; v186 was subsequently reproduced and fixed in a real local browser. See `DEPLOY-v186.md`. The earlier curl result below is retained as the original test observation, not the current live status.
+
 **Scope:** The current workspace's v185 source (storefront, PHP API, SW, offline/mobile shell). Isolated PHP-WASM fixtures used synthetic accounts/data; no requests to production login, payments, uploads or billing software. No deploy or application-code change was made for this test.
 
 ## Results

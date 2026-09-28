@@ -1,3 +1,12 @@
+## Latest state (28 Sep 2026) — v186 Instagram overflow measured, package pending
+
+Owner's screenshots pinpointed a flaw on `#/catalogues` missed by v185. Live
+version 185 confirmed. Real Chromium local run proves root 675px at viewport
+393px (grid min-content + header overflow); v186 CSS reduces to 393px, tested
+at six widths. Owner-specific live Instagram verification awaits installation
+of the v186 five-file delta; see `DEPLOY-v186.md` and handoff top. Never deploy
+without explicit approval, and do not rerun SQL for this visual-only patch.
+
 # Shivaa — agent working guide
 
 ## Latest state (28 Sep 2026) — v185 mobile update built, NOT live-deployed
