@@ -1,0 +1,34 @@
+### SHOT3-GST-CTA
+FLOW SETUP — Frames to Video: last frame of shot 2 as the first frame. Same 3 ingredients. 8 s + Extend, trim to 10 s. VO line 3 (ending with the English line) goes over this shot.
+
+--- PASTE EVERYTHING BELOW THIS LINE INTO FLOW ---
+
+HIGH-ENERGY CINEMATIC B2B BRAND REEL — SHIVAA, wholesale gold jewellery platform for jewellers, Rajasthan, India. Vertical 9:16.
+Look: shot on a full-frame cinema camera with a 35mm prime, T2, shallow depth of field, 24 fps, crisp modern commercial finish, subtle film grain, deep contrast with clean highlights.
+Set: a dark premium studio — brushed charcoal and black-marble surfaces, gold rim light, thin gold LED strips, floating holographic gold interface panels and cards made of light, drifting gold particles and soft volumetric haze.
+Motion graphics: elegant gold wireframe panels, glowing grid walls of jewellery thumbnails, animated gold bar-charts, rotating 3D gold coins and bullion bars, a scanning light sweep, ripple and particle-burst transitions. All graphics are ABSTRACT SHAPES AND ICONS ONLY — completely blank, no letters, no numbers, no words anywhere.
+Camera: confident and energetic but controlled — fast dolly push-ins, snap-settle whip transitions on motion-graphic beats, low orbits, macro inserts. Always smooth, never shaky.
+Grade: rich black, warm 22K gold, ivory highlights. Premium fintech-meets-jewellery advertising.
+Photoreal human skin and real metal specularity. No on-screen text, no captions, no logos, no watermarks in frame.
+
+CHARACTER LOCK — "AARYA", the Shivaa host (the SAME woman in all three shots, match reference image 1 exactly):
+Indian woman, 30 years old, warm wheatish skin, oval face, strong groomed brows, dark confident eyes, glossy black hair pulled into a sleek low bun, minimal polished makeup with a soft berry lip, small gold studs.
+Wardrobe locked: a tailored ivory raw-silk kurta with a fine gold zari placket and a single thin gold chain; no other jewellery.
+Manner locked: poised, energetic, business-like warmth — she speaks to camera like a partner, not a model. Direct eye contact with the lens, controlled hand gestures that interact with the floating gold panels.
+Same face, same hair, same outfit in every shot. Do not restyle her.
+
+PLATFORM LOCK (the same visual world in all three shots):
+The Shivaa platform is shown as floating holographic gold interface panels around AARYA — a tall grid wall of tiny jewellery thumbnails, a live line-chart panel, a stack of gold bullion bars, a rotating ring/necklace hologram, and a shield-with-tick verification badge.
+Every panel is rendered as clean gold-on-black glass with glowing edges and abstract bar/line/icon content only. Never any letters, digits, currency symbols or words on any panel — those are added later in the edit.
+
+SHOT 3 of 3 — GST VERIFY AND THE DASHBOARD OPENS (20-30 s). Continue from the first frame. One unbroken take, no cuts, building to the payoff.
+0.0-2.5 s: a tall vertical gold VERIFICATION PANEL of light rises in front of AARYA — a blank document card with a shield outline; she raises one finger and taps it; a bright scan line runs top to bottom across the card.
+2.5-5.0 s: the shield fills with gold and a large clean TICK strikes into it with a burst of particles; a ring of light expands outward past the camera; her face is lit by the flash and she smiles.
+5.0-7.5 s: the panel unfolds outward into a full floating DASHBOARD of gold glass — rate chart, order cards, a ledger column and a catalogue grid arranging themselves around her in depth; the camera orbits her once as she looks around it, then back to the lens.
+7.5-10.0 s: she steps forward into a clean chest-up hero framing, holds direct eye contact with the lens and gives a decisive, welcoming nod; the dashboard behind her collapses into a swirl of gold particles that blooms into a full-frame sheet of warm golden light.
+AUDIO: no dialogue. The bed peaks: a rising riser into the tick, a bright impact and shimmer on the verification, a warm triumphant resolve on the dashboard unfold, ending on one sustained golden note as the frame blooms.
+
+NEGATIVE PROMPT:
+text, letters, words, numbers, digits, currency symbols, UI labels, subtitles, captions, logos, watermarks, deformed hands, extra fingers, warped jewellery, plastic skin, waxy face, over-smoothed filter, cheap stock-video look, cluttered background, flickering strobe, dark muddy grade, cartoon, anime, low-resolution holograms, crowds
+
+FRAMING: native 9:16 vertical. Keep AARYA and the key graphic in the central safe area, head room in the top eighth, and keep the bottom fifth of the frame clean and uncluttered for captions.
