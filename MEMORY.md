@@ -1,5 +1,27 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v185 mobile responsiveness follow-up (28 Sep 2026)
+
+- GitHub `gh api` connected, fixed branch. User reports non-responsive mobile
+  and extra red. Last independently verified live was v181 (25 Sep); live TLS
+  probe and Chromium binary download fail in sandbox. No live claim or deploy.
+- Real source causes: `mobile.css` root `html` background #1d0509 behind cream
+  pages; default HTML theme and PWA manifests maroon; v117.css mobile footer
+  `contain-intrinsic-size:auto 860px` and delayed aurum.css 900px override
+  historical v98 gap repair; `.ps-body table.priv-table` min-width:460px on
+  a 320px phone even though the table itself scrolls.
+- Built cumulative v185: final mobile-only `css/v185.css` sets cream canvas,
+  real footer height with higher specificity, narrow privacy scroller/wrapped
+  hero; versioned light manifest/browser chrome. Branded maroon sections
+  untouched. 10-file ZIP SHA-256
+  `59559a2e9e099dedacd94bc149c6b7a6ad368fa297929f262224d9ea1a931ce3`,
+  source `bd73a7f`, `DEPLOY-v185.md`.
+- Belt green: v185 static 4/4, v184 jsdom ring 8/8, v183 PHP 4/4,
+  v182 PHP 9/9, v117 UI 27/27; ZIP overlay checked. No physical mobile
+  screenshot/browser QA; owner must confirm on device. Next deployment only
+  after current live version read + explicit owner approval, upgrade-sql.php
+  if still on 181. Ask owner for screenshots of remaining red areas.
+
 ## SESSION INTAKE — v184 ring/product gallery repair (28 Sep 2026, `arena/01a0e134-shivaa-ecom`)
 
 - Owner asked for an update ZIP: ring/product photo gallery slides stick

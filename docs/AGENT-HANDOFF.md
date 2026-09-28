@@ -1,4 +1,31 @@
-# AGENT HANDOFF — v184 BUILT (gallery swipe/controls); live unverified since v181 on 25 Sep 2026
+# AGENT HANDOFF — v185 BUILT (mobile canvas + narrow-page follow-up); LIVE UNVERIFIED
+
+## CURRENT STATE — v185 BUILT (28 Sep 2026)
+
+- User asked whether GitHub is connected (confirmed via `gh api`) and to fix
+  non-responsive mobile layout and extra red. Work remains on the fixed session
+  branch. Hostinger HTTPS is unavailable from this sandbox; **live release is
+  unknown** (last verified v181, 25 Sep). No deployment was authorized.
+- Source findings: mobile.css forced root HTML maroon `#1d0509` behind cream
+  pages; index/PWA manifests also requested red mobile chrome. v117.css and
+  deferred aurum.css put incompatible 860/900px intrinsic footer placeholders
+  back despite v98's mobile gap repair. Privacy table's own scroll container
+  had `min-width:460px`, overflowing a 320px phone. v185.css overrides those
+  narrowly without recolouring intentional maroon hero/footer art, root
+  overflow clipping or touching real data.
+- v185 cumulative 10-file `shivaa-update-v185.zip` built from `bd73a7f`,
+  SHA-256 `59559a2e9e099dedacd94bc149c6b7a6ad368fa297929f262224d9ea1a931ce3`.
+  Includes v182 SQL reconciler, v183 safety and v184 gallery. Owner backup +
+  extract + `/upgrade-sql.php` if coming from v181; see `DEPLOY-v185.md`.
+- `npm test` green (v185 4/4 static mobile guards, v184 real-app gallery 8/8,
+  v183 PHP 4/4, v182 PHP 9/9 and older gates). v117 check 27/27. Extracted
+  v185 ZIP overlay passed mobile/gallery/PHP gates; no real browser/device
+  testing: Chromium download fails TLS and no Hostinger probe succeeded.
+- Owner needs to confirm live `/api/version` is not newer than 185, explicitly
+  approve any agent-run deployment, and test Home/Shop/PDP/Privacy/footer on
+  a real phone. Ask for page-specific screenshots if red still remains.
+
+---
 
 ## CURRENT STATE — v184 BUILT (28 Sep 2026)
 

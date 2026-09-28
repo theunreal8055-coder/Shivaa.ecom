@@ -1,5 +1,16 @@
 # Shivaa — agent working guide
 
+## Latest state (28 Sep 2026) — v185 mobile update built, NOT live-deployed
+
+- Owner reports unwanted red mobile canvas and narrow-page responsiveness.
+  `shivaa-update-v185.zip` is cumulative from v181+, including v184 gallery,
+  v183 safety and v182 SQL reconciler. Read `DEPLOY-v185.md`, the top of
+  `docs/AGENT-HANDOFF.md` and `MEMORY.md` before further code/deploy.
+- GitHub is connected; Hostinger live release is unverified due sandbox TLS.
+  Never deploy without one explicit owner yes, never overwrite a newer live
+  tree, and do not claim real-phone QA was performed. Session branch remains
+  `arena/01a0e134-shivaa-ecom`.
+
 ## Latest state (28 Sep 2026) — v184 gallery update ready, NOT live-deployed
 
 - Owner requested repair of product/ring photo swipe sticking and buttons
