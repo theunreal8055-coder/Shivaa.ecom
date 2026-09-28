@@ -1,0 +1,33 @@
+/* v185 · mobile canvas and narrow-content repair.
+   Leave the intentional maroon hero/footer/cards alone. The accidental red
+   behind cream pages came from mobile.css setting html to #1d0509, especially
+   during rubber-band/short-page exposure. */
+@media (max-width: 768px) {
+  html { background: var(--cream, #faf6ef); }
+  body { min-height: 100%; }
+
+  /* v117.css reserved 860px for every unseen footer; deferred aurum.css
+     reserved 900px. Neither equals the real footer height. v98 removed this
+     fake-height technique for the same reason, but the deferred styles brought
+     it back, creating a dark blank band / jump on phones. This selector also
+     wins if the deferred aurum sheet arrives AFTER this stylesheet. */
+  html.js-aurum body footer.footer,
+  body footer.footer {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+
+  /* The privacy table IS its own scroll container, but mobile.css gave that
+     very container min-width:460px. On a 320px phone it widened the page
+     rather than scrolling internally. Keep the table rows intact. */
+  .ps-body table.priv-table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .priv-hero-card { flex-wrap: wrap; }
+  .priv-hero-card > :not(.priv-logo) { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+}

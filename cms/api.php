@@ -836,6 +836,15 @@ function shv_billing_sync_auth(array $db): array {
   $body = json_decode($raw !== '' ? $raw : '{}', true);
   return is_array($body) ? $body : [];
 }
+/* v183 — billing sync key is write-only even for admin settings responses.
+   A boolean lets the admin form show the saved state without putting the HMAC
+   signing key in JSON responses, browser state or developer-tools snapshots. */
+function shv_settings_admin_view(array $settings): array {
+  $configured = !empty($settings['billingSyncSecret']);
+  unset($settings['billingSyncSecret']);
+  $settings['billingSyncConfigured'] = $configured;
+  return $settings;
+}
 /* v182 — batch-ledger dual-mode overlay (catalogBatches ↔ catalog_batches) */
 function shv_sql_catalog_overlay(array &$db): void {
   if (($GLOBALS['__shv_sql_state']['mode'] ?? '') !== 'mysql') return;
@@ -4274,7 +4283,7 @@ try {
       $wsrc  = trim((string)($it['weightSource'] ?? ''));
       $purity = trim((string)($it['purity'] ?? ''));
       $w = $it['weightG'] ?? null;
-      if (!is_numeric($w) || (float)$w <= 0) {
+      if (!is_numeric($w) || !is_finite((float)$w) || (float)$w <= 0) {
         $rejected[] = ['index' => $ii, 'error' => 'weightG must be > 0 and taken from the owner sheet/tag — weights are NEVER invented']; continue;
       }
       if ($purity === '') {
@@ -4300,7 +4309,8 @@ try {
       $prod['weightSource'] = mb_substr($wsrc, 0, 120);
       $prod['rating'] = 5.0;
       $prod['reviews'] = 0;
-      if (!array_key_exists('stock', $it)) $prod['stock'] = 1;   // unique pieces by default
+      // Missing inventory is unknown, not one available piece. Owner sets stock explicitly.
+      if (!array_key_exists('stock', $it)) $prod['stock'] = 0;
       $db['products'][] = $prod;
       $imported[] = ['id' => $prod['id'], 'name' => $prod['name']];
     }
@@ -4349,13 +4359,16 @@ try {
     $all = !empty($b['all']) && $batchAll !== '';
     if (!$ids && !$all) jout(400, ['error' => 'ids[] or {batchId, all:true} required']);
     $published = [];
+    $knownBatches = array_fill_keys(array_column($db['catalogBatches'], 'id'), true);
     foreach ($db['products'] as &$p) {
       if (!is_array($p)) continue;
       $pid = (string)($p['id'] ?? '');
       $hit = $all
         ? ((string)($p['batchId'] ?? '') === $batchAll && (string)($p['status'] ?? '') === 'pending_review')
         : in_array($pid, $ids, true);
-      if (!$hit) continue;
+      // A review action must not alter a skipped piece or an ordinary product.
+      if (!$hit || (string)($p['status'] ?? '') !== 'pending_review'
+          || !isset($knownBatches[(string)($p['batchId'] ?? '')])) continue;
       $p['active'] = true;
       $p['status'] = 'live';
       $p['approvedAt'] = now_iso();
@@ -4377,10 +4390,12 @@ try {
     $ids = is_array($b['ids'] ?? null) ? array_values($b['ids']) : [];
     if (!$ids) jout(400, ['error' => 'ids[] required']);
     $skipped = [];
+    $knownBatches = array_fill_keys(array_column($db['catalogBatches'], 'id'), true);
     foreach ($db['products'] as &$p) {
       if (!is_array($p)) continue;
       $pid = (string)($p['id'] ?? '');
-      if (!in_array($pid, $ids, true)) continue;
+      if (!in_array($pid, $ids, true) || (string)($p['status'] ?? '') !== 'pending_review'
+          || !isset($knownBatches[(string)($p['batchId'] ?? '')])) continue;
       $p['active'] = false;
       $p['status'] = 'skipped';
       $skipped[] = $pid;
@@ -5487,7 +5502,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 182,
+      'rel'   => 186,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -7759,7 +7774,7 @@ try {
   /* ── settings / stats / users ── */
   if ($route === 'settings' && $method === 'GET') {
     $uSet = req_user($db);
-    if ($uSet && ($uSet['role'] ?? '') === 'admin') jout(200, $db['settings']);
+    if ($uSet && ($uSet['role'] ?? '') === 'admin') jout(200, shv_settings_admin_view($db['settings']));
     // v58/v81: public projection — never expose gateway secrets / API keys.
     // Recursive: also strips secrets nested inside objects (gstApi.key) and
     // keys whose whole subtree is a credential, so a future nested setting
@@ -7978,9 +7993,11 @@ try {
         jout(400, ['error' => 'Site base URL must look like https://yourshop.com (no trailing slash).']);
       $setBody['siteBaseUrl'] = $v;
     }
+    // Response-only indicator: callers cannot persist a forged status flag.
+    unset($setBody['billingSyncConfigured']);
     foreach ($setBody as $k => $v) $db['settings'][$k] = $v;
     audit_log($db, 'settings.updated', ['keys' => implode(',', array_keys($setBody))]);
-    db_save($DB_FILE, $db); jout(200, $db['settings']);
+    db_save($DB_FILE, $db); jout(200, shv_settings_admin_view($db['settings']));
   }
   /* ── custom pages (owner-managed) ── */
   if ($route === 'pages' && $method === 'GET') {

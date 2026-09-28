@@ -1,4 +1,92 @@
+## 28 Sep 2026 — v186 Instagram Design Selection reproduction
+
+User installed v184/v185 and supplied screenshots: right-side cream gap,
+header icons beyond screen, 2-column design cards offscreen and unreadable
+banner title in Instagram WebView. Live `https://shivaa.in/api/version` via
+fetch_page succeeds: rel185, stamp matched, MySQL healthy 78/78; v184/v185
+CSS assets present. Earlier v185 diagnosis missed THIS layout bug.
+Chromium 153 real local boot with synthetic partner: root 675px, header 504px
+at 393px viewport; `#dsGrid` grid 2 `1fr` auto minima each 324px from flex
+slider, header account/wishlist duplicates and large scheme link. Deferred
+motion.css dark banner title on maroon. New `css/v186.css` zero-min tracks,
+shrink grid items, compact header, and white banner title. Rendered 320,
+360,393,430,560,768px: root width == viewport, no scroll overflow, photo
+arrow/quantity/filter checks pass. v186 package is five-file delta over
+LIVE v185 ONLY, no SQL, no server or DB changes; NOT deployed.
+Source `29a5fb7`; `shivaa-update-v186.zip` SHA-256
+`9711205a35ae8edf34cf12a53f3beb29f4bb1b8a28083fa59964e440a5969bb7`.
+Overlaying its five files on v185 source passed browser 6/6 and static 4/4.
+Owner's Instagram WebView must still confirm after owner installation.
+
 # SHIVAA — Persistent Memory (auto-loaded every chat)
+
+## SESSION INTAKE — v185 mobile responsiveness follow-up (28 Sep 2026)
+
+- GitHub `gh api` connected, fixed branch. User reports non-responsive mobile
+  and extra red. Last independently verified live was v181 (25 Sep); live TLS
+  probe and Chromium binary download fail in sandbox. No live claim or deploy.
+- Real source causes: `mobile.css` root `html` background #1d0509 behind cream
+  pages; default HTML theme and PWA manifests maroon; v117.css mobile footer
+  `contain-intrinsic-size:auto 860px` and delayed aurum.css 900px override
+  historical v98 gap repair; `.ps-body table.priv-table` min-width:460px on
+  a 320px phone even though the table itself scrolls.
+- Built cumulative v185: final mobile-only `css/v185.css` sets cream canvas,
+  real footer height with higher specificity, narrow privacy scroller/wrapped
+  hero; versioned light manifest/browser chrome. Branded maroon sections
+  untouched. 10-file ZIP SHA-256
+  `59559a2e9e099dedacd94bc149c6b7a6ad368fa297929f262224d9ea1a931ce3`,
+  source `bd73a7f`, `DEPLOY-v185.md`.
+- Belt green: v185 static 4/4, v184 jsdom ring 8/8, v183 PHP 4/4,
+  v182 PHP 9/9, v117 UI 27/27; ZIP overlay checked. No physical mobile
+  screenshot/browser QA; owner must confirm on device. Next deployment only
+  after current live version read + explicit owner approval, upgrade-sql.php
+  if still on 181. Ask owner for screenshots of remaining red areas.
+
+## SESSION INTAKE — v184 ring/product gallery repair (28 Sep 2026, `arena/01a0e134-shivaa-ecom`)
+
+- Owner asked for an update ZIP: ring/product photo gallery slides stick
+  after several swipes and controls shift position. The runtime auto-advance
+  remains by design until a user touches the gallery. Confirmed in source:
+  `aurum.css` pressed-arrow scale overwrote `translateY(-50%)`; changing
+  active dot button width moved centered hitboxes; pointercancel committed a
+  swipe and vertical gesture did not release capture. Browser root cause for
+  the owner's exact stuck frame remains unverified (Hostinger HTTPS blocked),
+  so call it a defensive state-machine fix, not a live-proven diagnosis.
+- Built cumulative **v184** from v183 (which carries v182): gesture ownership,
+  cancel snap-back, vertical capture release, touch-only fallback, route timer
+  cleanup; stable dot hitboxes and arrow transform in last `v184.css`.
+  Package: `shivaa-update-v184.zip` 7 files, SHA-256
+  `92434c8a3830ba3e64cc7df827cdfa66694076a19bdd03968a07db5f9215818f`,
+  source commit `81f1198`; instructions `DEPLOY-v184.md`.
+- `npm test` green: new real-page jsdom ring gallery 8/8, including 20 swipes,
+  pointer cancellation, vertical scrolling and legacy touch fallback; v118
+  19/19; v164 PDP 15/15. Extracted ZIP overlay also passed gallery and
+  PHP v183/v182 suites. No live deployment or schema/data mutation; last
+  verified live v181 on 25 Sep, current live unknown (TLS probe failed).
+  Owner must check `/api/version`, back up, extract only after explicit yes,
+  run included `upgrade-sql.php` if moving directly from 181, and check on
+  a real phone. STOP if live release is newer than 184.
+
+## SESSION INTAKE — v183 safety follow-up (27 Sep 2026, branch `arena/01a0e134-shivaa-ecom`)
+
+- Read `docs/AGENT-HANDOFF.md` + this memory. Base is v182 merge PR #97,
+  branch fixed to this Arena session. Last verified Hostinger live was v181
+  (25 Sep); **no owner approval/deploy or billing app ZIP in this session**.
+- Found v182 billing key leaked to admin settings JSON despite "write-only"
+  contract; intake form's prefilled fictional weight/purity/price/stock/media
+  could be submitted as fact; Approve/Skip by ID could change already-resolved
+  or ordinary products. Built forward-only **v183**: response-only
+  `billingSyncConfigured`, empty factual template, missing stock defaults zero,
+  only pending items in known batches are reviewable, non-finite weight rejected.
+- `shivaa-update-v183.zip` six-file cumulative package, source `2c2fde7`,
+  SHA-256 `fe2a0c114586933ecd94a127e1b240b6850c568d40aa2d36e96f79df62453e27`.
+  `DEPLOY-v183.md` explains install from either 181 (run bundled
+  upgrade-sql.php) or 182. `npm test` passed incl. v183 4 static + 4 PHP,
+  plus older gates; v183 checks passed on extracted ZIP overlay. No live
+  deploy or DB mutations. Previous packages are not to be altered.
+- Awaiting the owner's explicit yes for one live install; separately the
+  showroom billing app ZIP and real first-batch photos+owner tags/sheet.
+  Until then keep bridge unconfigured, and do not claim v183 is live.
 
 ## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
 

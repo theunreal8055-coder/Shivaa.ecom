@@ -1,0 +1,44 @@
+/* v184 · product-gallery controls stay put while the photo changes.
+   The legacy active dot changed the BUTTON's width (9→26/30px) in a
+   centered flex row, shifting every hit target on each slide. Give each dot
+   a fixed hit box and animate only its decorative centre instead. */
+#galWrap .gal-dots { align-items: center; gap: 2px; }
+#galWrap .gal-dots button,
+#galWrap .gal-dots button.on {
+  position: relative;
+  flex: 0 0 34px;
+  width: 34px;
+  min-width: 34px;
+  height: 38px;
+  min-height: 38px;
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  padding: 0;
+  transition: none;
+}
+#galWrap .gal-dots button::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 10px; height: 10px;
+  transform: translate(-50%, -50%);
+  border-radius: 99px;
+  background: rgba(250,246,239,.72);
+  box-shadow: 0 1px 5px rgba(0,0,0,.24);
+  transition: width .25s ease, background .25s ease;
+  pointer-events: none;
+}
+#galWrap .gal-dots button.on::before { width: 26px; background: var(--gold-2,#e6c66f); }
+#galWrap .gal-dots button:focus-visible { outline: 2px solid var(--gold-2,#e6c66f); outline-offset: -2px; }
+
+/* aurum.css had :active { transform:scale(.9) } on the gallery arrows.
+   That overwrote translateY(-50%), dropping the arrows while pressed.
+   Preserve the centring transform even if the deferred aurum sheet arrives
+   after this one. No change to their fixed absolute left/right positions. */
+html.js-aurum body[data-page="product"] .gal-nav:active {
+  transform: translateY(-50%) scale(.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  #galWrap .gal-dots button::before { transition: none; }
+}

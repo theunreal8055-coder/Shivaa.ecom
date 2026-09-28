@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 182;
+const APP_REL = 186;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3690,8 +3690,8 @@ pages.product = async (view, q, id) => {
                 : `<div class="gal-slide gal-vid on"><button type="button" class="gal-vid-load" data-video="${safeUrl(p.video) || ''}" data-poster="${p.images && p.images[0] ? safeUrl(p.images[0]) : ''}" aria-label="Play the 360-degree film"><img src="${safeUrl(p.images && p.images[0]) || ''}" alt="" draggable="false"><span class="gal-vid-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="gal-vid-tag">▶ Tap to load 360° film · saves mobile data<small class="gal-vid-always" role="button" tabindex="0" onclick="event.stopPropagation();Shivaa.setVideoAutoload(true);this.closest('.gal-vid-load').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Always load films automatically</small></span></button></div>`
               ] : []).concat((p.images || []).map((im, i) => `<div class="gal-slide${!p.video && i === 0 ? ' on' : ''}"><img src="${safeUrl(im) || ''}" alt="${esc(p.name)} ${i + 1}" draggable="false"></div>`)).join('')}
           </div>
-          <button class="gal-nav gal-prev" aria-label="Previous">‹</button>
-          <button class="gal-nav gal-next" aria-label="Next">›</button>
+          <button type="button" class="gal-nav gal-prev" aria-label="Previous photo">‹</button>
+          <button type="button" class="gal-nav gal-next" aria-label="Next photo">›</button>
           <div class="gal-dots" id="galDots">${(p.video ? 1 : 0) + (p.images || []).length > 1 ? Array.from({length: (p.video ? 1 : 0) + (p.images || []).length}, (_, i) => `<button type="button" class="${i === 0 ? 'on' : ''}" data-i="${i}" aria-label="Show ${p.video && i === 0 ? 'film' : 'photo ' + (i + (p.video ? 0 : 1))}"></button>`).join('') : ''}</div>
           <span class="gal-count" id="galCount" aria-hidden="true"></span>
           <a class="pd-stamp" href="#/hallmark?product=${encodeURIComponent(p.id)}">HUID check guide →</a>
@@ -3821,50 +3821,93 @@ pages.product = async (view, q, id) => {
       const v = track.querySelector('video');
       if (v && v.play) { try { const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {} }
     });
-    let idx = 0, sx = null, dx = 0;
+    let idx = 0;
     const gc = $('#galCount');   // v104 — phone photo counter pill
     const go = i => {
-      idx = (i + n) % n;
+      if (!n) return;
+      idx = ((i % n) + n) % n;
       track.style.transform = `translate3d(-${idx * 100}%,0,0)`;
       $$('.gal-slide', track).forEach((s, i2) => s.classList.toggle('on', i2 === idx));
       $$('#galDots button').forEach((d, i2) => { d.classList.toggle('on', i2 === idx); d.setAttribute('aria-current', i2 === idx ? 'true' : 'false'); });
       if (gc) gc.textContent = `${idx + 1} / ${n}`;
     };
-    if (gc) gc.textContent = `1 / ${n}`;
-    $('.gal-next', wrap).onclick = () => go(idx + 1);
-    $('.gal-prev', wrap).onclick = () => go(idx - 1);
+    if (gc) gc.textContent = n ? `1 / ${n}` : '';
+    $('.gal-next', wrap).onclick = e => { e.preventDefault(); go(idx + 1); };
+    $('.gal-prev', wrap).onclick = e => { e.preventDefault(); go(idx - 1); };
     $$('#galDots button').forEach((d, i2) => d.onclick = e => { e.preventDefault(); e.stopPropagation(); go(i2); });
-    /* v118 — reliable gallery gestures. Pointer capture keeps the drag alive
-       when a thumb leaves the square; vertical intent is handed back to page
-       scrolling, while horizontal intent moves exactly one photo. */
-    let sy = null, dragging = false;
+
+    /* v184 — one gesture owns one pointer. The old handlers held a captured
+       pointer even after vertical scrolling began, and treated pointercancel
+       like a completed swipe. On touch screens this can strand a translated
+       track after repeated gestures. A cancelled drag must ALWAYS snap back. */
+    let gesture = null;
+    const interactive = e => e.target.closest && e.target.closest('button, a, video');
+    const begin = (id, x, y) => {
+      if (gesture || n < 2) return false;
+      gesture = { id, x, y, dx: 0, horizontal: false };
+      return true;
+    };
+    const move = (id, x, y) => {
+      const g = gesture;
+      if (!g || g.id !== id) return false;
+      const dx = x - g.x, dy = y - g.y;
+      if (!g.horizontal && Math.abs(dx) < 10 && Math.abs(dy) < 10) return false;
+      if (!g.horizontal && Math.abs(dy) > Math.abs(dx) * 1.25) {
+        gesture = null; // hand vertical intent back to page scrolling
+        return true;
+      }
+      g.horizontal = true;
+      g.dx = dx;
+      track.style.transition = 'none';
+      track.style.transform = `translate3d(calc(-${idx * 100}% + ${dx}px),0,0)`;
+      return false;
+    };
+    const finish = (id, cancelled = false) => {
+      const g = gesture;
+      if (!g || g.id !== id) return;
+      gesture = null; // clear BEFORE releasePointerCapture triggers lostpointercapture
+      track.style.transition = '';
+      go(idx + (!cancelled && g.horizontal && Math.abs(g.dx) > 36 ? (g.dx < 0 ? 1 : -1) : 0));
+    };
     wrap.addEventListener('pointerdown', e => {
-      if (e.target.closest && e.target.closest('button, a, video')) return;
-      sx = e.clientX; sy = e.clientY; dx = 0; dragging = false;
-      try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+      if (interactive(e) || (e.isPrimary === false) || (e.pointerType !== 'touch' && e.button != null && e.button !== 0)) return;
+      if (begin(e.pointerId, e.clientX, e.clientY)) {
+        try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+      }
     });
     wrap.addEventListener('pointermove', e => {
-      if (sx == null) return;
-      const dy = e.clientY - sy; dx = e.clientX - sx;
-      if (!dragging && Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-      if (!dragging && Math.abs(dy) > Math.abs(dx) * 1.25) { sx = sy = null; return; }
-      dragging = true; track.style.transition = 'none';
-      track.style.transform = `translate3d(calc(-${idx * 100}% + ${dx}px),0,0)`;
+      const vertical = move(e.pointerId, e.clientX, e.clientY);
+      if (vertical) { try { wrap.releasePointerCapture(e.pointerId); } catch (_) {} }
     });
-    const end = () => {
-      if (sx == null) return;
-      track.style.transition = '';
-      if (dragging && Math.abs(dx) > 36) go(idx + (dx < 0 ? 1 : -1)); else go(idx);
-      sx = sy = null; dx = 0; dragging = false;
-    };
-    wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
-    wrap.addEventListener('lostpointercapture', end);
+    wrap.addEventListener('pointerup', e => {
+      finish(e.pointerId);
+      try { if (wrap.hasPointerCapture?.(e.pointerId)) wrap.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+    wrap.addEventListener('pointercancel', e => finish(e.pointerId, true));
+    wrap.addEventListener('lostpointercapture', e => finish(e.pointerId, true));
+    /* Legacy iOS/WebViews without PointerEvent still need horizontal swipe.
+       Never run both paths on one device or a single flick advances twice. */
+    if (!window.PointerEvent) {
+      wrap.addEventListener('touchstart', e => {
+        if (!interactive(e) && e.touches.length === 1)
+          begin('touch', e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+      wrap.addEventListener('touchmove', e => {
+        if (e.touches.length === 1)
+          move('touch', e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+      wrap.addEventListener('touchend', () => finish('touch'));
+      wrap.addEventListener('touchcancel', () => finish('touch', true));
+    }
     const _mobGal = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
     const _galInterval = _mobGal ? 10000 : 5200; // v42: slower on mobile, still advances
     const timer = setInterval(() => {
+      if (!isCurrent() || !wrap.isConnected) { clearInterval(timer); return; }
       const v = $('.gal-slide.on video', track); if (v && !v.paused) return; go(idx + 1);
     }, _galInterval);
-    wrap.addEventListener('pointerdown', () => clearInterval(timer), { once: true });
+    const stopTimer = () => clearInterval(timer);
+    wrap.addEventListener('pointerdown', stopTimer, { once: true });
+    if (!window.PointerEvent) wrap.addEventListener('touchstart', stopTimer, { once: true, passive: true });
   })();
   $('#brkBtn').onclick = () => { const b = $('#pdBrk'); b.hidden = !b.hidden; $('#brkBtn').setAttribute('aria-expanded', String(!b.hidden)); };
   $$('#sizeRow .size-pill').forEach(s => s.onclick = () => { $$('#sizeRow .size-pill').forEach(x => x.classList.remove('on')); s.classList.add('on'); try { localStorage.setItem('shv_ring_size', s.dataset.size); } catch (e) {} });

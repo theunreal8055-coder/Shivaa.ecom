@@ -1,4 +1,120 @@
-# AGENT HANDOFF — v182 BUILT (Auto-Catalogue Phase 4 + Billing Bridge); v181 LIVE ON HOSTINGER (25 Sep 2026)
+# CURRENT STATE — v186 DESIGN SELECTION MOBILE FIX BUILT (28 Sep 2026)
+
+- Owner installed v184/v185 and sent three Instagram WebView screenshots of the
+  real `#/catalogues` page. The public read-only `/api/version` now confirms
+  **LIVE v185**, stamps matched and MySQL mode 78/78 with no mirror lag. Both
+  v184/v185 CSS assets are publicly served. The earlier guess about cream
+  overscroll/Privacy was NOT the bug in the supplied screenshots.
+- Reproduced with actual Chromium 153 at 393 CSS px: `#dsGrid` had `repeat(2,1fr)`
+  auto minimum columns forced to 324px each by four-photo sliders; document
+  scrollWidth 675px. Header separately overflowed to 504px with duplicate
+  account/wishlist buttons and full scheme pill. Deferred motion.css painted
+  near-invisible dark-burgundy title on the burgundy page banner.
+- v186 CSS is last, scoped to <=680px for grid and header, <=350px single
+  column. Header keeps menu/brand/search/B2B/cart; bottom nav still provides
+  Account/Wishlist. No root clipping. Banner title repaired. Local real-browser
+  QA on synthetic partner/catalogue at 320,360,393,430,560,768 reports
+  **root width == viewport at all 6 widths**; arrows, quantity, filters and
+  title contrast pass. At 393: 675px -> 393px root; 504px -> 393px header.
+- v186 is a **five-file DELTA over live v185**, not a v181 cumulative installer:
+  `api.php`, `css/v186.css`, `index.html`, `js/app.js`, `sw.js`. NO SQL rerun.
+  ZIP SHA-256 `9711205a35ae8edf34cf12a53f3beb29f4bb1b8a28083fa59964e440a5969bb7`;
+  source `29a5fb7`; extracted ZIP over v185 base passed real Chromium six-width QA.
+  `DEPLOY-v186.md` describes owner installation. **NOT YET DEPLOYED**; owner's
+  actual Instagram handset check remains required.
+- Keep work on session branch. Existing v185 reports, ZIP and draft PR #98
+  remain relevant history, but don't tell owner to reinstall v184/v185.
+
+---
+
+# AGENT HANDOFF — v185 BUILT (mobile canvas + narrow-page follow-up); LIVE UNVERIFIED
+
+## CURRENT STATE — v185 BUILT (28 Sep 2026)
+
+- User asked whether GitHub is connected (confirmed via `gh api`) and to fix
+  non-responsive mobile layout and extra red. Work remains on the fixed session
+  branch. Hostinger HTTPS is unavailable from this sandbox; **live release is
+  unknown** (last verified v181, 25 Sep). No deployment was authorized.
+- Source findings: mobile.css forced root HTML maroon `#1d0509` behind cream
+  pages; index/PWA manifests also requested red mobile chrome. v117.css and
+  deferred aurum.css put incompatible 860/900px intrinsic footer placeholders
+  back despite v98's mobile gap repair. Privacy table's own scroll container
+  had `min-width:460px`, overflowing a 320px phone. v185.css overrides those
+  narrowly without recolouring intentional maroon hero/footer art, root
+  overflow clipping or touching real data.
+- v185 cumulative 10-file `shivaa-update-v185.zip` built from `bd73a7f`,
+  SHA-256 `59559a2e9e099dedacd94bc149c6b7a6ad368fa297929f262224d9ea1a931ce3`.
+  Includes v182 SQL reconciler, v183 safety and v184 gallery. Owner backup +
+  extract + `/upgrade-sql.php` if coming from v181; see `DEPLOY-v185.md`.
+- `npm test` green (v185 4/4 static mobile guards, v184 real-app gallery 8/8,
+  v183 PHP 4/4, v182 PHP 9/9 and older gates). v117 check 27/27. Extracted
+  v185 ZIP overlay passed mobile/gallery/PHP gates; no real browser/device
+  testing: Chromium download fails TLS and no Hostinger probe succeeded.
+- Owner needs to confirm live `/api/version` is not newer than 185, explicitly
+  approve any agent-run deployment, and test Home/Shop/PDP/Privacy/footer on
+  a real phone. Ask for page-specific screenshots if red still remains.
+
+---
+
+## CURRENT STATE — v184 BUILT (28 Sep 2026)
+
+- Owner reports ring/product-page gallery controls shift and one photo appears
+  stuck after 3–4 swipes; requested the next update file. Last verified live
+  was 181 on 25 Sep; this sandbox's live HTTPS probe failed, so current live
+  version is **unknown**. No owner approval to deploy was given.
+- v184: single-owner gesture state, vertical-intent capture release, cancelled
+  swipe snap-back, pointer-capture cleanup, touch-only fallback; arrow press
+  preserves vertical centring; gallery dots use fixed-size tap targets rather
+  than moving on every active change; orphaned page timer stops. Existing
+  four-photo ring list/data left untouched. Source commit `81f1198`.
+- **Cumulative** `shivaa-update-v184.zip` (7 deployable files, 457,479 bytes,
+  SHA-256 `92434c8a3830ba3e64cc7df827cdfa66694076a19bdd03968a07db5f9215818f`)
+  includes v182 SQL reconciler and v183 hardening. If live still 181,
+  install v184 directly after owner approval and run `upgrade-sql.php`; if
+  182/183 already live, v184 advances it. STOP if live >184. See
+  `DEPLOY-v184.md`. Old v182/v183 ZIPs remain immutable and must not be
+  installed afterwards.
+- `npm test` green; v184 real-app ring gallery 8/8 including 20 repeated
+  swipes + pointer cancel + vertical scroll + touch-only fallback, v183 PHP
+  4/4, v182 PHP 9/9, older gates green. v118 check 19/19 and v164 PDP 15/15;
+  source and ZIP-overlay gallery tests green. No physical-device or live-DB
+  test — owner must smoke-check on their phone.
+- No Hostinger deploy, app/billing data writes or product data edits. The
+  unrelated billing software source and 100 real supplier records remain
+  unprovided; the gallery release does not pretend to alter billing.
+
+---
+
+## CURRENT STATE — v183 BUILT, owner approval needed (27 Sep 2026)
+
+- This Arena branch starts at the PR #97 merge of v182 (`2e063ee`). No new
+  owner approval, live deploy or billing app ZIP was provided in this session.
+  Last **verified** live report remains 181 on 25 Sep; recheck `/api/version`
+  before any install. v182 was built but not confirmed live; **if still on
+  181, install v183 directly instead of v182**. If 182 is already live, v183
+  advances it. Do not deploy without explicit owner approval.
+- A targeted v182 readiness review found three safety gaps: admin settings
+  exposed the supposedly write-only billing HMAC key in GET/PUT responses;
+  the import form presented an importable-looking fictional weight/purity/
+  charges/stock/photo; Approve/Skip by ID could alter a resolved or ordinary
+  product. v183 masks the key via a response-only configured boolean, clears
+  factual template fields and defaults omitted stock to zero, and restricts
+  review actions to pending members of known batches. Non-finite weight rejected.
+- Release 183 stamps index/app/sw/api together; SQL schema unchanged from
+  v182. Cumulative six-file ZIP includes `upgrade-sql.php` so upgrades from
+  181 still run the Phase 4 reconciler. Package `shivaa-update-v183.zip`,
+  SHA-256 `fe2a0c114586933ecd94a127e1b240b6850c568d40aa2d36e96f79df62453e27`,
+  source commit `2c2fde7`; instructions: `DEPLOY-v183.md`.
+- Belt: `npm test` green including new v183 static 4/4 and executed PHP 4/4,
+  v182 PHP 9/9, all older executed suites and manual-deploy gate 20/20.
+  The same new gates passed against an extracted ZIP overlay; no live MySQL
+  or Hostinger deployment was tested. Prior ZIPs remain immutable.
+- Next owner inputs: explicit one-run approval to install v183; the actual
+  billing app ZIP for isolated `/billing/` review; real photo drop and tag/
+  owner sheet to stage a first batch. Nothing is auto-published. Never invent
+  weights/purity/price/stock or activate billing before inspecting its app.
+
+---
 
 ## CURRENT STATE — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
 

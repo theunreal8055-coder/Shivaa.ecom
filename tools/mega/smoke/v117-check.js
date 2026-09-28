@@ -122,7 +122,7 @@ const until = async (fn, ms = 8000, step = 60) => {
     /* v166: the shell asks for fonts WITH the release stamp (the CSS asks for the
        same URL), so the precache comparison must use the stamped URLs. */
     ...fontUrls,
-    '/manifest.webmanifest', '/offline.html',
+    ((/rel="manifest" href="([^"]+)"/.exec(html) || [])[1] || '/manifest.webmanifest'), '/offline.html',
     '/images/icons/icon-192.png', '/images/icons/icon-512.png',
     '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png',
   ]);

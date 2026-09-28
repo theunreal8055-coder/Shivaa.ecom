@@ -1,4 +1,47 @@
+## Latest state (28 Sep 2026) — v186 Instagram overflow measured, package pending
+
+Owner's screenshots pinpointed a flaw on `#/catalogues` missed by v185. Live
+version 185 confirmed. Real Chromium local run proves root 675px at viewport
+393px (grid min-content + header overflow); v186 CSS reduces to 393px, tested
+at six widths. Owner-specific live Instagram verification awaits installation
+of the v186 five-file delta; see `DEPLOY-v186.md` and handoff top. Never deploy
+without explicit approval, and do not rerun SQL for this visual-only patch.
+
 # Shivaa — agent working guide
+
+## Latest state (28 Sep 2026) — v185 mobile update built, NOT live-deployed
+
+- Owner reports unwanted red mobile canvas and narrow-page responsiveness.
+  `shivaa-update-v185.zip` is cumulative from v181+, including v184 gallery,
+  v183 safety and v182 SQL reconciler. Read `DEPLOY-v185.md`, the top of
+  `docs/AGENT-HANDOFF.md` and `MEMORY.md` before further code/deploy.
+- GitHub is connected; Hostinger live release is unverified due sandbox TLS.
+  Never deploy without one explicit owner yes, never overwrite a newer live
+  tree, and do not claim real-phone QA was performed. Session branch remains
+  `arena/01a0e134-shivaa-ecom`.
+
+## Latest state (28 Sep 2026) — v184 gallery update ready, NOT live-deployed
+
+- Owner requested repair of product/ring photo swipe sticking and buttons
+  shifting. v184 cumulative ZIP is built (`DEPLOY-v184.md`), preserving v182
+  SQL/cat intake + v183 billing-key hardening. Last verified live was 181
+  on 25 Sep; the latest sandbox HTTPS probe failed, so check live version
+  before extracting. No approval to deploy was given. Never overwrite a
+  newer live release; install only with explicit owner authorization.
+- See top of `docs/AGENT-HANDOFF.md` and `MEMORY.md` for tests, safety and
+  package details. Session branch remains `arena/01a0e134-shivaa-ecom`.
+
+## Latest state (27 Sep 2026) — read this before the historical v180 notes
+
+- **v183 built, not deployed by this session.** Last verified live was v181
+  (25 Sep); inspect live `/api/version` before claiming the current live
+  release. v183 supersedes the not-yet-confirmed-live v182 ZIP and includes
+  the same SQL reconciler; see `docs/AGENT-HANDOFF.md` top section and
+  `DEPLOY-v183.md`. If still on 181 install v183 directly after explicit
+  owner approval; if already on 182, advance to 183. Never auto-deploy.
+- Billing app ZIP and real first-batch owner weights/photos are still absent.
+  Do not activate billing, publish made-up stock or bypass the intake review
+  queue. This Arena session's fixed branch is `arena/01a0e134-shivaa-ecom`.
 
 ## Plan session (24 Sep 2026) — read before touching SQL/billing/catalogue work
 
