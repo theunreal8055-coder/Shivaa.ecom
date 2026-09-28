@@ -1,3 +1,11 @@
+/* Historical stamp-exact checks run on v183 only; newer releases execute
+   their own stamp checks plus the v183 PHP regressions. */
+{
+  const fs0 = require('node:fs'), path0 = require('node:path');
+  const cms0 = process.env.SMOKE_CMS || path0.resolve(__dirname, '../../../cms');
+  const m = /__SHIVAA_REL\s*=\s*(\d+)/.exec(fs0.readFileSync(path0.join(cms0, 'index.html'), 'utf8'));
+  if (m && +m[1] > 183) { console.log('SKIP v183-check superseded by release ' + m[1]); process.exit(0); }
+}
 /* v183 release + intake/billing safety regression checks (executed PHP in v183-php-run). */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

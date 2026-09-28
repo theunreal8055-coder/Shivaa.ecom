@@ -12,12 +12,12 @@ async function test(name, f) {
   F.setDb(seed());
   const secret = 'qa-billing-secret-v183-2026';
 
-  await test('P01 release 183 and matched shell/app/API stamps', async () => {
+  await test('P01 release 183+ and matched shell/app/API stamps', async () => {
     const r = await F.req('GET', 'version');
     assert.equal(r.status, 200);
-    assert.equal(r.json.rel, 183);
+    assert.ok(r.json.rel >= 183);
     assert.equal(r.json.stamp.matched, true);
-    assert.deepEqual([r.json.stamp.index, r.json.stamp.app, r.json.stamp.sw], [183, 183, 183]);
+    assert.deepEqual([r.json.stamp.index, r.json.stamp.app, r.json.stamp.sw], [r.json.rel, r.json.rel, r.json.rel]);
   });
 
   await test('P02 sync key is never returned on GET or PUT; configured state is read-only', async () => {
