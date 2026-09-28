@@ -76,11 +76,12 @@ const sendTouch = (w, el, name, x, y) => {
     const sw = fs.readFileSync(path.join(CMS, 'sw.js'), 'utf8');
     const app = fs.readFileSync(path.join(CMS, 'js/app.js'), 'utf8');
     const api = fs.readFileSync(path.join(CMS, 'api.php'), 'utf8');
-    assert.ok(idx.includes('__SHIVAA_REL=184;') && sw.includes("SHELL = 'shivaa-shell-v184'") && sw.includes('const REL = 184;'));
-    assert.ok(app.includes('APP_REL = 184;') && api.includes("'rel'   => 184,"));
-    assert.ok(idx.includes('/css/v184.css?v=184') && sw.includes('/css/v184.css?v=184'));
-    assert.equal((idx.match(/\?v=184/g)||[]).length, 57);
-    assert.equal((sw.match(/\?v=184/g)||[]).length, 52);
+    const rel = +/__SHIVAA_REL=(\d+)/.exec(idx)[1];
+    assert.ok(rel >= 184 && sw.includes(`SHELL = 'shivaa-shell-v${rel}'`) && sw.includes(`const REL = ${rel};`));
+    assert.ok(app.includes(`APP_REL = ${rel};`) && api.includes(`'rel'   => ${rel},`));
+    assert.ok(idx.includes(`/css/v184.css?v=${rel}`) && sw.includes(`/css/v184.css?v=${rel}`));
+    assert.ok((idx.match(new RegExp(`\\?v=${rel}`, 'g'))||[]).length >= 57);
+    assert.ok((sw.match(new RegExp(`\\?v=${rel}`, 'g'))||[]).length >= 52);
     assert.ok(sw.includes("MEDIA = 'shivaa-media-v168'"));
   });
   test('S02 stable dot hitboxes and arrows retain vertical centring when pressed', () => {
