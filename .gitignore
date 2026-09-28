@@ -25,10 +25,11 @@ launch/frames/
 
 # relay v2 runtime state (written on its host, never source)
 cms/relay/relay-last-tick.json
-launch/omni-56s/raw/*.mp4
-launch/omni-56s-v2/raw/*.mp4
 
-# 90s explainer build scratch (raw chapters live at repo root; masters in launch/out)
-launch/omni-90s/raw/
-launch/omni-90s/.tmp/
-launch/omni-90s/fix/06-fixed.mp4
+launch/flow-30s/raw/
+launch/flow-30s/work/
+launch/flow-30s/incoming/
+launch/flow-reel-showroom/raw/
+launch/flow-reel-showroom/work/
+launch/flow-b2b-30s/raw/
+launch/flow-b2b-30s/work/

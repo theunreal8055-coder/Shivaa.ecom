@@ -68,16 +68,28 @@ fit "$WORK/c2.mp4" "$WORK/s2.mp4"
 fit "$WORK/c3.mp4" "$WORK/s3.mp4"
 fit "$WORK/c4.mp4" "$WORK/s4.mp4"
 
-# ── 3b. burn the on-screen supers (Veo cannot spell — text is added here) ──
+# ── 3b. burn the rapid-fire on-screen supers (Veo cannot spell) ──────────────
 if [ "${SUPERS:-1}" = "1" ]; then
-  echo "• burning on-screen supers"
+  echo "• burning rapid-fire supers"
   python3 "$DIR/make_supers.py" "$W" "$H" "$WORK/sup" >/dev/null
-  sup () { "$FF" -y -v error -i "$1" -loop 1 -framerate "$FPS" -i "$2" \
-      -filter_complex "[1:v]format=rgba,fade=t=in:st=0.25:d=0.4:alpha=1[s];[0:v][s]overlay=0:0:format=auto:shortest=1,fps=${FPS},settb=AVTB,setsar=1,format=yuv420p[v]" \
-      -map "[v]" -map 0:a? -shortest -c:v libx264 -preset ${PRE:-medium} -crf 18 -c:a aac -b:a 192k -ar 48000 -ac 2 "$3"; }
-  sup "$WORK/s1.mp4" "$WORK/sup/super1.png" "$WORK/s1s.mp4"; mv "$WORK/s1s.mp4" "$WORK/s1.mp4"
-  sup "$WORK/s2.mp4" "$WORK/sup/super2.png" "$WORK/s2s.mp4"; mv "$WORK/s2s.mp4" "$WORK/s2.mp4"
-  sup "$WORK/s3.mp4" "$WORK/sup/super3.png" "$WORK/s3s.mp4"; mv "$WORK/s3s.mp4" "$WORK/s3.mp4"
+  sup () {                       # $1 in  $2 out  then N specs "png|start|end"
+    local IN="$1" OUT="$2"; shift 2
+    local args=() fc="" prev="[0:v]" idx=1 spec png st en
+    for spec in "$@"; do
+      png="${spec%%|*}"; st="${spec#*|}"; en="${st#*|}"; st="${st%%|*}"
+      args+=( -loop 1 -framerate "$FPS" -t 15 -i "$WORK/sup/$png" )
+      fc="${fc}[${idx}:v]format=rgba[p${idx}];${prev}[p${idx}]overlay=0:0:format=auto:enable=between(t\,${st}\,${en})[v${idx}];"
+      prev="[v${idx}]"; idx=$((idx+1))
+    done
+    fc="${fc}${prev}fps=${FPS},settb=AVTB,setsar=1,format=yuv420p[vo]"
+    "$FF" -y -v error -i "$IN" "${args[@]}" -filter_complex "$fc" \
+      -map "[vo]" -map 0:a? -shortest -c:v libx264 -preset ${PRE:-medium} -crf 18 \
+      -c:a aac -b:a 192k -ar 48000 -ac 2 "$OUT"
+  }
+  sup "$WORK/s1.mp4" "$WORK/s1s.mp4" "super1.png|0.5|4.5"  "super2.png|4.7|9.7"
+  sup "$WORK/s2.mp4" "$WORK/s2s.mp4" "super3.png|0.2|3.2"  "super4.png|3.3|6.4" "super5.png|6.5|9.8"
+  sup "$WORK/s3.mp4" "$WORK/s3s.mp4" "super6.png|0.2|3.9"  "super7.png|4.0|7.1" "super8.png|7.2|9.9"
+  mv "$WORK/s1s.mp4" "$WORK/s1.mp4"; mv "$WORK/s2s.mp4" "$WORK/s2.mp4"; mv "$WORK/s3s.mp4" "$WORK/s3.mp4"
 fi
 
 # ── 4. outro plate: dark scrim + big gold logo + shivaa.in ──
@@ -104,7 +116,7 @@ LOGO="$ASSETS/logo-shivaa-white.png"; [ -f "$LOGO" ] || LOGO="$ASSETS/logo-shiva
 LW=$(python3 -c "print(int($W*0.14))")
 MX=$(python3 -c "print(int($W*0.035))"); MY=$(python3 -c "print(int($H*0.035))")
 FADE=$(python3 -c "print(round($TOTAL-0.8,3))")
-VOD="$DIR/vo"
+VOD="$DIR/vo/${VOSET:-version-a}"
 if [ "${VO:-1}" = "1" ] && [ -f "$VOD/vo1.mp3" ] && [ -f "$VOD/vo2.mp3" ] && [ -f "$VOD/vo3.mp3" ]; then
   echo "• watermark + Hindi voice-over (bed ducked) + loudnorm"
   V1="${V1:-800}"; V2="${V2:-10200}"; V3="${V3:-20300}"

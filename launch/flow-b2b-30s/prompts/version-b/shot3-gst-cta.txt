@@ -1,0 +1,33 @@
+### SHIVAA · VERSION B — "TARAAZU" · SHOT3-GST-CTA
+FLOW SETUP — Frames to Video: last frame of shot 2 becomes the first frame. Same 3 ingredients. 8 s + Extend once, trim to 10 s. The English pay-off line lands here in the edit.
+
+--- PASTE EVERYTHING BELOW THIS LINE INTO GOOGLE FLOW ---
+
+HIGH-ENERGY CINEMATIC B2B COMMERCIAL — SHIVAA, India's wholesale gold jewellery platform for jewellers. Vertical 9:16. Cut to a 120 BPM track: every graphic lands on a beat.
+CAMERA / OPTICS: full-frame cinema camera, 35mm prime at T2, 24 fps, 180-degree shutter, shallow depth of field with creamy round bokeh, subtle anamorphic horizontal flare on specular gold, micro-parallax on every move. Moves are fast but mechanically smooth: dolly push-ins that decelerate into a hard settle, 15-25 degree arcs, macro snap-ins. No handheld wobble, no whip pans, no digital zoom.
+LIGHTING: dark premium studio. Key = large soft source 45 degrees camera-left, 4:1 ratio on her face; warm gold rim camera-right separating her from black; low gold kicker off a brushed-charcoal floor; thin gold LED strips receding into haze. Volumetric shafts, fine drifting gold dust, deep true blacks.
+PALETTE: charcoal #14110D, black glass, 22K gold #C9A227, warm ivory #F4EDE0. Gold reads metallic and specular, never flat orange.
+MOTION GRAPHICS: holographic gold-on-black glass panels with glowing 1px edges, floating cards with soft shadows, gold-dust particle bursts, light-sweep scan lines, wireframe-to-solid morphs, charts drawn in pure light, a shield-with-tick badge. Panels obey physics: they fly in with slight overshoot and settle with a micro-bounce. ALL GRAPHICS ARE ABSTRACT SHAPES AND ICONS ONLY — perfectly blank, zero letters, zero digits, zero words, zero currency symbols anywhere in frame.
+GRADE: rich contrast, warm gold highlights, ivory whites, filmic roll-off, fine grain. Premium fintech meets luxury jewellery. Photoreal skin texture and real metal specularity. No on-screen text, no captions, no logos, no watermarks in frame.
+
+CHARACTER LOCK — "AARYA", the Shivaa host. The SAME woman in all three shots; match reference image 1 exactly.
+Indian woman, 30 years old, warm wheatish skin with natural texture and a light sheen, oval face, high cheekbones, strong groomed brows, direct dark-brown eyes, glossy black hair in a sleek centre-parted low bun with no flyaways, minimal polished makeup, soft berry lip, small gold studs.
+WARDROBE LOCK: tailored ivory raw-silk kurta with a fine gold zari placket and one thin gold chain, sleeves to mid-forearm. No other jewellery, no dupatta.
+PERFORMANCE LOCK: a confident business partner, not a model. Crisp posture, purposeful hand gestures that physically trigger the holograms — a flick opens a panel, an open palm summons a card, a fingertip tap verifies. Direct unbroken eye contact with the lens in every close framing. Warm but decisive micro-expressions: a quick brow lift on the hook, a proud half-smile on the payoff. She never sways or drifts.
+Identical face, hair, wardrobe and energy in every shot. Do not restyle, do not age, do not change body type.
+
+PLATFORM LOCK — VERSION B, "THE SCALE". The same holographic world in all three shots: AARYA stands in a black-glass trading floor with floating gold elements — a giant slow-turning BALANCE SCALE of light hanging in the haze behind her, a scrolling GRID WALL of jewellery thumbnails, BULLION bars on a weighing pan, a spark-throwing FORGE hologram where designs are struck into gold, a SHIELD-WITH-TICK badge, and a wide DASHBOARD that unfolds into an arena of panels. The scale tips, balances and locks level on key beats. Everything is gold-on-black glass with glowing edges and floor reflections. Purely abstract — shapes, icons and sparks only, never letters, digits, labels or prices; all copy is added later in the edit.
+
+SHOT 3 of 3 — VERSION B · "IDENTITY VERIFIED, THE MARKET IS YOURS" (20-30 s). Continue from the previous last frame. One unbroken take, the biggest payoff of the film.
+VO BEING SPOKEN OVER THIS SHOT (never rendered as text): "जी.एस.टी. डालिए, पहचान पक्की। दरवाज़े के उस पार — पूरा बाज़ार। शिवा।"
+0.0-1.8 s: the balance scale dissolves into particles that re-form as a tall VERIFICATION PANEL of gold light directly in front of her — a blank document card with a shield outline. She lifts one finger, absolutely certain.
+1.8-3.4 s: she taps. A hard scan line runs top to bottom with a trail of gold particles; the room dims so the panel is the only light on her face; her eyes stay on the lens.
+3.4-5.4 s: the shield floods with gold, a large clean TICK strikes in with a particle burst and a shock-ring of light blows past the camera. She breaks into a real, warm smile.
+5.4-8.0 s: the panel explodes outward into a wide ARENA of floating dashboard panels that surround her in depth — rate charts, order cards, a ledger column, a catalogue grid — each snapping in with a micro-bounce. Camera pulls back and orbits 25 degrees, revealing how much surrounds her, then pushes back in.
+8.0-10.0 s: she steps forward into a clean chest-up hero framing, holds unbroken eye contact and gives one decisive, welcoming nod; the entire arena collapses into a vortex of gold particles rushing at the camera and blooming into a full-frame sheet of warm golden light.
+AUDIO: peak of the bed — riser into the tap, bright impact and shimmer on the tick, triumphant brass-and-strings as the arena opens, resolving on one sustained golden note as the frame blooms.
+
+NEGATIVE PROMPT:
+text, letters, words, numbers, digits, currency symbols, UI labels, subtitles, captions, logos, watermarks, price tags, deformed hands, extra fingers, six fingers, mangled jewellery, floating limbs, plastic skin, waxy over-smoothed face, beauty-filter look, cheap stock-video feel, flat grey blacks, muddy shadows, oversaturated orange, HDR halo, strobing, flicker, low-resolution holograms, cluttered background, crowds, cartoon, anime, CGI plastic look
+
+FRAMING: native 9:16 vertical. AARYA and the hero graphic sit in the central safe area; head room in the top eighth; the bottom fifth stays clean for burned-in captions. Nothing important below 80 percent of frame height.

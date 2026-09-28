@@ -8,9 +8,13 @@ W, H, OUT = int(sys.argv[1]), int(sys.argv[2]), pathlib.Path(sys.argv[3])
 OUT.mkdir(parents=True, exist_ok=True)
 
 SUPERS = [
-    ("2,00,000+ DESIGNS", "ONE SCREEN  ·  ONE PLATFORM"),
-    ("BULLION  ·  CUSTOM  ·  WASTAGE", "DEAD STOCK OR NEW  ·  RTGS OR CASH"),
-    ("VERIFY YOUR GST", "DASHBOARD OPENS  ·  shivaa.in"),
+    ("2,00,000+ DESIGNS", "RINGS  ·  CHAINS  ·  BRIDAL  ·  MANGALSUTRA"),
+    ("ONE SCREEN. ONE PLATFORM.", "SHIVAA  ·  WHOLESALE FOR JEWELLERS"),
+    ("BULLION ON TAP", "LIVE RATE  ·  BOOK IN SECONDS"),
+    ("CUSTOM ORDERS  ·  WASTAGE BUY", "YOUR DESIGN, MADE TO ORDER"),
+    ("DEAD STOCK OR NEW", "RTGS OR CASH  —  WE ARE READY"),
+    ("VERIFY YOUR GST", "JEWELLERS ONLY  ·  60 SECONDS"),
+    ("DASHBOARD OPENS INSTANTLY", "shivaa.in  →  FOR JEWELLERS"),
     ("YOU NAME IT, WE HAVE IT.", "SHIVAA  ·  shivaa.in"),
 ]
 INK = (18, 14, 10, 255); GOLD = (214, 176, 92, 255); PLATE = (250, 245, 236, 250)

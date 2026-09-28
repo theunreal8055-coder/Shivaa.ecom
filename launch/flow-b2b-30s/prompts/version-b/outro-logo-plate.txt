@@ -1,0 +1,23 @@
+### SHIVAA · VERSION B — "TARAAZU" · OUTRO-LOGO-PLATE
+FLOW SETUP — Frames to Video: last frame of shot 3 (the golden bloom) as the first frame. Generate 4 s, trim to 3 s.
+DO NOT prompt the Shivaa logo — Veo garbles letterforms. The centre stays empty and the real logo PNG is composited there in the edit.
+
+--- PASTE EVERYTHING BELOW THIS LINE INTO GOOGLE FLOW ---
+
+HIGH-ENERGY CINEMATIC B2B COMMERCIAL — SHIVAA, India's wholesale gold jewellery platform for jewellers. Vertical 9:16. Cut to a 120 BPM track: every graphic lands on a beat.
+CAMERA / OPTICS: full-frame cinema camera, 35mm prime at T2, 24 fps, 180-degree shutter, shallow depth of field with creamy round bokeh, subtle anamorphic horizontal flare on specular gold, micro-parallax on every move. Moves are fast but mechanically smooth: dolly push-ins that decelerate into a hard settle, 15-25 degree arcs, macro snap-ins. No handheld wobble, no whip pans, no digital zoom.
+LIGHTING: dark premium studio. Key = large soft source 45 degrees camera-left, 4:1 ratio on her face; warm gold rim camera-right separating her from black; low gold kicker off a brushed-charcoal floor; thin gold LED strips receding into haze. Volumetric shafts, fine drifting gold dust, deep true blacks.
+PALETTE: charcoal #14110D, black glass, 22K gold #C9A227, warm ivory #F4EDE0. Gold reads metallic and specular, never flat orange.
+MOTION GRAPHICS: holographic gold-on-black glass panels with glowing 1px edges, floating cards with soft shadows, gold-dust particle bursts, light-sweep scan lines, wireframe-to-solid morphs, charts drawn in pure light, a shield-with-tick badge. Panels obey physics: they fly in with slight overshoot and settle with a micro-bounce. ALL GRAPHICS ARE ABSTRACT SHAPES AND ICONS ONLY — perfectly blank, zero letters, zero digits, zero words, zero currency symbols anywhere in frame.
+GRADE: rich contrast, warm gold highlights, ivory whites, filmic roll-off, fine grain. Premium fintech meets luxury jewellery. Photoreal skin texture and real metal specularity. No on-screen text, no captions, no logos, no watermarks in frame.
+
+3-second luxury logo plate. No people, no jewellery, no text of any kind.
+0.0-1.2 s: from a full-frame wash of warm golden light, liquid molten gold flows inward from every edge and settles into a calm, deep charcoal-black velvet background.
+1.2-2.2 s: fine gold particles drift and settle; a soft specular shimmer sweeps once from left to right across the centre; a faint circular gold vignette forms in the exact middle, leaving that centre CLEAN, EMPTY and uncluttered.
+2.2-3.0 s: everything settles and holds perfectly still — an empty elegant dark-gold frame with a soft central glow and gentle grain. Absolutely nothing in the centre of frame.
+AUDIO: one deep cinematic gold-shimmer swell resolving into silence, with a single soft chime on the last beat.
+
+NEGATIVE PROMPT:
+text, letters, words, numbers, digits, currency symbols, UI labels, subtitles, captions, logos, watermarks, price tags, deformed hands, extra fingers, six fingers, mangled jewellery, floating limbs, plastic skin, waxy over-smoothed face, beauty-filter look, cheap stock-video feel, flat grey blacks, muddy shadows, oversaturated orange, HDR halo, strobing, flicker, low-resolution holograms, cluttered background, crowds, cartoon, anime, CGI plastic look
+
+FRAMING: native 9:16 vertical. AARYA and the hero graphic sit in the central safe area; head room in the top eighth; the bottom fifth stays clean for burned-in captions. Nothing important below 80 percent of frame height.
