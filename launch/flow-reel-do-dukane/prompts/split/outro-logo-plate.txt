@@ -1,0 +1,23 @@
+### SHIVAA · DO DUKANE (SPLIT-SCREEN) · OUTRO-LOGO-PLATE
+FLOW SETUP — Frames to Video: last frame of shot 3 (the golden bloom). Generate 4 s, trim to 3 s.
+DO NOT prompt the Shivaa logo — Veo garbles letterforms. The centre stays empty; the real logo PNG is composited in the edit.
+
+--- PASTE EVERYTHING BELOW THIS LINE INTO GOOGLE FLOW ---
+
+CINEMATIC INDIAN RETAIL COMMERCIAL — SHIVAA, India's wholesale gold jewellery platform for jewellers. Vertical 9:16, photoreal, documentary-grade realism. Cut to a 110 BPM tension bed; every beat lands with a graphic or a glance.
+CAMERA / OPTICS: full-frame cinema camera, 40mm at T2.2, 24 fps, 180-degree shutter, shallow depth of field, gentle handheld-on-rails float with micro-parallax, slow push-ins that decelerate into a settle. No whip pans, no zoom punches.
+LIGHTING: warm practical showroom light — tube lights and display spots bouncing off glass counters and gold. LEFT SIDE is slightly cooler, flatter, dustier, with a faint green fluorescent cast and tired shadows. RIGHT SIDE is warmer, cleaner, with crisp gold specular highlights and a soft rim on faces. Same room type, opposite mood.
+PALETTE: warm ivory walls, teak counters, red velvet trays, 22K gold #C9A227, deep charcoal accents. Skin tones natural Indian, never orange.
+GRADE: filmic contrast, soft highlight roll-off, subtle grain, premium Indian advertising look.
+Photoreal skin with visible texture, real metal specularity, believable fabric. No on-screen text, no captions, no logos, no watermarks, no brand names anywhere in frame — all copy is added later in the edit.
+
+3-second luxury logo plate. No people, no jewellery, no text of any kind.
+0.0-1.2 s: from a full-frame wash of warm golden light, liquid molten gold flows inward from every edge and settles into a calm, deep charcoal-black velvet background.
+1.2-2.2 s: fine gold particles drift and settle; a soft specular shimmer sweeps once from left to right; a faint circular gold vignette forms in the exact centre, leaving that centre CLEAN, EMPTY and uncluttered.
+2.2-3.0 s: everything settles and holds perfectly still — an empty elegant dark-gold frame with a soft central glow and gentle grain.
+AUDIO: one deep cinematic gold-shimmer swell resolving into silence, with a single soft chime on the last beat.
+
+NEGATIVE PROMPT:
+text, letters, words, numbers, digits, currency symbols, UI labels, subtitles, captions, logos, brand names, watermarks, price tags, readable screens, deformed hands, extra fingers, mangled jewellery, twins or duplicate faces where not intended, plastic skin, waxy over-smoothed faces, beauty-filter look, cheap stock-video feel, harsh flat lighting, blown highlights, oversaturated orange, cartoon, anime, CGI plastic look, shaky footage, crowds
+
+FRAMING: native 9:16 vertical, split down the middle. Faces sit in the upper-middle third of each half; the bottom fifth of the frame stays clean and uncluttered for burned-in captions. Nothing important below 80 percent of frame height.
