@@ -145,6 +145,15 @@ function hallmark_product(array $product): array {
   foreach (array_keys($product) as $key) {
     if (preg_match('/\A(?:hallmark|huid|bis)/i', (string)$key)) unset($product[$key]);
   }
+  /* v183 — SUPPLIER CONFIDENTIALITY. This function is the ONE public product
+     pass: the storefront list, PDP, similar grid, wishlist and every B2B
+     design-desk payload flow through it. The manufacturer who made a design
+     is a trade secret between Shivaa and the supplier, so the origin keys are
+     stripped here once, for everyone. Admin reads the mapping through the
+     explicit /api/admin/suppliers/* routes instead. function_exists keeps
+     standalone hallmark.php use (and the extracted-function legacy suites)
+     working exactly as before. */
+  if (function_exists('shv_supplier_strip')) $product = shv_supplier_strip($product);
   // v83 — legacy rows can predate the media-URL write sanitizer; re-filter
   // image/video URLs on every public response (attribute-safe chars only).
   if (function_exists('shv_safe_media_url')) {

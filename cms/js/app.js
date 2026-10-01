@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 182;
+const APP_REL = 183;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -767,16 +767,27 @@ const isPartner = () => !!(state.user && (state.user.role === 'partner' || state
    everything reverts to the public "For Jewellers" wording. */
 function updatePartnerUI() {
   const p = isPartner();
-  const pill = $('#portalPill'); if (pill) pill.hidden = !p;
+  /* v183 — a signed-in manufacturer gets their own door: the header pill and
+     the utility link point at the supplier portal, never the jeweller B2B one. */
+  const sup = !!(state.user && state.user.role === 'supplier');
+  const pill = $('#portalPill');
+  if (pill) {
+    pill.hidden = !(p || sup);
+    if (sup && !p) { pill.setAttribute('href', '#/supplier'); pill.textContent = 'Supplier Portal ✦'; }
+    else if (p) { pill.setAttribute('href', '#/partner'); pill.textContent = 'B2B Portal ✦'; }
+  }
   const row = $('#mainNav .nav-jwl');
   if (row) {
     const b = row.querySelector('b'), small = row.querySelector('small');
-    row.setAttribute('href', p ? '#/partner' : '#/b2b');
-    if (b) b.textContent = p ? 'Partner Portal' : 'For Jewellers';
-    if (small) small.textContent = p ? 'Bullion desk · design selection · schemes' : 'GST partnership · bullion desk · schemes';
+    row.setAttribute('href', sup && !p ? '#/supplier' : (p ? '#/partner' : '#/b2b'));
+    if (b) b.textContent = sup && !p ? 'Supplier Portal' : (p ? 'Partner Portal' : 'For Jewellers');
+    if (small) small.textContent = sup && !p ? 'your designs · routed orders' : (p ? 'Bullion desk · design selection · schemes' : 'GST partnership · bullion desk · schemes');
   }
   const ub = $('.ub-jwl');
-  if (ub) { ub.setAttribute('href', p ? '#/partner' : '#/b2b'); ub.innerHTML = p ? 'B2B Portal <span>✦</span>' : 'For Jewellers <span>✦</span>'; }
+  if (ub) {
+    ub.setAttribute('href', sup && !p ? '#/supplier' : (p ? '#/partner' : '#/b2b'));
+    ub.innerHTML = sup && !p ? 'Supplier Portal <span>✦</span>' : (p ? 'B2B Portal <span>✦</span>' : 'For Jewellers <span>✦</span>');
+  }
 }
 window.Shivaa.updatePartnerUI = updatePartnerUI;
 
@@ -814,6 +825,8 @@ function welcomeSession() {
   if (!bareHome) return;                     // a typed URL / shared link always wins
   const u = state.user || null;
   if (u && u.role === 'partner') location.hash = '#/partner';   // → the live Bullion Desk
+  /* v183 — a returning manufacturer lands in their own portal the same way. */
+  if (u && u.role === 'supplier') location.hash = '#/supplier';
 }
 window.Shivaa.welcomeSession = welcomeSession;
 
@@ -7661,7 +7674,7 @@ function afterLogin(r, opts = {}) {
 
   // staff go to their own consoles rather than the storefront checkout
   const role = (state.user && state.user.role) || 'customer';
-  const staffDest = role === 'admin' ? '#/admin' : role === 'partner' ? '#/partner' : null;
+  const staffDest = role === 'admin' ? '#/admin' : role === 'partner' ? '#/partner' : role === 'supplier' ? '#/supplier' : null;
   const finalDest = (staffDest && (next === 'home')) ? staffDest : dest;
 
   // v30 — if someone used the jeweller door without a partner account, say so plainly
@@ -9547,6 +9560,381 @@ pages.scheme = async (view) => {
 };
 pages.finale = pages.scheme;
 pages['gold-biscuit'] = pages.scheme;
+
+/* ═══════════════════════════════════════════════════════════════════
+   v183 · SUPPLIERS — the manufacturer programme.
+   Public: #/suppliers (apply → get a UNIQUE supplier code).
+   Private: #/supplier (portal — their designs, their routed orders).
+   The storefront NEVER shows whose design a piece is: the API strips the
+   origin fields from every product and order payload (cms/hallmark.php +
+   shv_public_order), so there is nothing here to leak either.
+   ═══════════════════════════════════════════════════════════════════ */
+const SUP_CSS = `
+<style id="supCss">
+.sup-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:22px;align-items:start}
+@media(max-width:860px){.sup-grid{grid-template-columns:1fr}}
+.sup-card{background:#fff;border:1px solid rgba(120,90,40,.16);border-radius:16px;padding:22px;box-shadow:0 10px 30px rgba(70,50,20,.05)}
+.sup-card h3{margin:0 0 12px;font-size:19px}
+.sup-steps{margin:0;padding-left:20px;display:grid;gap:8px;font-size:14.2px;color:var(--ink-2)}
+.sup-secret{margin-top:16px;border:1px dashed rgba(150,110,40,.45);background:rgba(201,162,74,.07);border-radius:12px;padding:14px}
+.sup-secret b{font-size:14.5px}.sup-secret p{margin:6px 0 0;font-size:13.5px;color:var(--ink-2)}
+.sup-form{display:grid;gap:12px}
+.sup-codebox{display:inline-flex;align-items:center;gap:10px;border:1px solid rgba(150,110,40,.4);background:rgba(201,162,74,.09);border-radius:10px;padding:8px 12px;font-weight:700;letter-spacing:.09em;font-size:15px}
+.sup-head{background:linear-gradient(120deg,#1f1a12,#3a2f18);color:#fdf6e6;padding:14px 0}
+.sup-head-in{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sup-head-in small{display:block;font-size:12.5px;opacity:.75}
+.sup-chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.chip-ok{background:#e6f6ea;color:#1d6b32}.chip-wait{background:#fdf1d8;color:#8a5a10}.chip-err{background:#fdeaea;color:#8f2020}
+.sup-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 20px}
+.sup-tabs a{padding:8px 14px;border-radius:999px;border:1px solid rgba(120,90,40,.22);font-size:13.6px;font-weight:600;color:var(--ink-2)}
+.sup-tabs a.on{background:#1f1a12;color:#fdf6e6;border-color:#1f1a12}
+.sup-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+@media(max-width:700px){.sup-kpis{grid-template-columns:repeat(2,1fr)}}
+.sup-kpi{background:#fff;border:1px solid rgba(120,90,40,.16);border-radius:14px;padding:14px;text-align:center}
+.sup-kpi b{display:block;font-size:22px}.sup-kpi span{font-size:12.5px;color:var(--ink-3)}
+.sup-ticket{background:#fff;border:1px solid rgba(120,90,40,.16);border-radius:14px;padding:16px;margin-bottom:14px}
+.sup-ticket-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.sup-ticket-top small{color:var(--ink-3);font-size:12.5px}
+.sup-lines{width:100%;border-collapse:collapse;font-size:13.6px}
+.sup-lines th{text-align:left;font-size:11.6px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);padding:6px 8px;border-bottom:1px solid rgba(120,90,40,.16)}
+.sup-lines td{padding:8px;border-bottom:1px solid rgba(120,90,40,.08);vertical-align:top}
+.sup-lines small.sup-faint{display:block;color:var(--ink-3);font-size:11.8px}
+.sup-ship{margin-top:10px;font-size:13.2px;color:var(--ink-2);background:rgba(120,90,40,.05);border-radius:10px;padding:10px}
+.sup-note-in{margin-top:8px;font-size:13px;color:var(--ink-2)}
+.sup-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.sup-empty{padding:40px 16px;text-align:center;color:var(--ink-3);font-size:14px;border:1px dashed rgba(120,90,40,.3);border-radius:14px}
+.sup-note{border:1px solid rgba(201,162,74,.5);background:rgba(201,162,74,.1);border-radius:12px;padding:12px 14px;font-size:13.8px;margin-bottom:16px}
+.sup-tablewrap{overflow-x:auto;background:#fff;border:1px solid rgba(120,90,40,.16);border-radius:14px;padding:6px 10px}
+.sup-thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.sup-thumbs img{width:62px;height:62px;object-fit:cover;border-radius:8px;border:1px solid rgba(120,90,40,.2)}
+.sup-kv{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid rgba(120,90,40,.1);font-size:14px}
+.sup-kv span{color:var(--ink-3)}.sup-kv b{text-align:right}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.grid-2{grid-template-columns:1fr}}
+</style>`;
+const supN = n => (n == null ? 0 : n);
+const SUP_FLOW = {
+  routed: [['acknowledged', 'Accept job'], ['hold', 'Hold']],
+  acknowledged: [['in_production', 'Start production'], ['hold', 'Hold']],
+  in_production: [['ready', 'Mark ready'], ['hold', 'Hold']],
+  ready: [['dispatched', 'Mark dispatched'], ['hold', 'Hold']],
+  dispatched: [['delivered', 'Mark delivered']],
+  hold: [['acknowledged', 'Resume']],
+  delivered: [], cancelled: [],
+};
+const supEsc = v => esc(String(v == null ? '' : v));
+const supStatusChip = s => {
+  const map = { routed: 'chip-wait', acknowledged: 'chip-wait', in_production: 'chip-wait',
+    ready: 'chip-ok', dispatched: 'chip-ok', delivered: 'chip-ok', hold: 'chip-err', cancelled: 'chip-err' };
+  const label = { routed: 'New — routed to you', acknowledged: 'Accepted', in_production: 'In production',
+    ready: 'Ready for dispatch', dispatched: 'Dispatched', delivered: 'Delivered', hold: 'On hold', cancelled: 'Cancelled' }[s] || s;
+  return `<span class="sup-chip ${map[s] || 'chip-wait'}">${supEsc(label)}</span>`;
+};
+const supIsSupplier = () => !!(state.user && (state.user.role === 'supplier' || state.user.role === 'admin'));
+
+async function supCopyCode(code, btn) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(code);
+    else { const t = document.createElement('textarea'); t.value = code; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+    if (btn) { const o = btn.textContent; btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = o; }, 1400); }
+  } catch (e) { toast('Copy failed — please note it down', 'err'); }
+}
+window.ShivaaSupplierCopy = supCopyCode;
+
+/* ── #/suppliers — the public manufacturer door ── */
+pages.suppliers = async (view) => {
+  const cats = Object.entries(CATS);
+  view.innerHTML = `
+  ${SUP_CSS}
+  <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="container"><div class="crumbs"><a href="#/">Home</a> / Suppliers</div>
+      <h1>For Manufacturers &amp; Karigars</h1>
+      <p>Supply your designs to Shivaa. You get your own supplier ID and a <b>unique supplier code</b> — every piece you send is tracked to it, and every order for your design lands straight in your portal.</p>
+    </div></section>
+  <div class="container" style="padding:40px 0 90px">
+    <div class="sup-grid">
+      <div class="sup-card">
+        <h3>How the supplier programme works</h3>
+        <ol class="sup-steps">
+          <li><b>Apply below.</b> Verify your mobile, tell us what you make, set a password.</li>
+          <li><b>Get your unique code.</b> Minted the moment you apply — e.g. <code>SHV-SUP-K7Q4M</code> — and reserved for you alone.</li>
+          <li><b>Shivaa approves.</b> Your portal opens; submit design photos, weights and purity.</li>
+          <li><b>Orders route to you.</b> When a customer or jeweller buys your design, the job appears in your portal with what to make and where to send it.</li>
+        </ol>
+        <div class="sup-secret">
+          <b>Your work stays confidential.</b>
+          <p>Customers and jeweller partners never see whose design it is — not on the website, not on the product page, not on the invoice. Secret is secret: by default your consignments ship to the Shivaa workshop, so even the parcel never carries your name to the buyer.</p>
+        </div>
+      </div>
+      <div class="sup-card" id="supApplyCard">
+        <h3>Manufacturer application</h3>
+        ${supIsSupplier()
+          ? `<p style="font-size:14px">You are signed in as a supplier.</p><a class="btn btn-primary btn-block" href="#/supplier">Open my supplier portal →</a>`
+          : `<form id="supApply" class="sup-form">
+          <div class="fld"><label>Firm / workshop name *</label><input name="firm" maxlength="160" required placeholder="e.g. Soni Castings"></div>
+          <div class="fld"><label>Contact person</label><input name="contactPerson" maxlength="120" placeholder="Who should we call?"></div>
+          <div class="fld"><label>Email *</label><input name="email" type="email" maxlength="190" required placeholder="you@example.com"></div>
+          <div class="fld"><label>Mobile (OTP verified) *</label>
+            <div class="kyc-inline"><input name="phone" id="supPhone" maxlength="10" inputmode="numeric" required placeholder="10-digit mobile" style="flex:1">
+            <button type="button" class="btn btn-ghost btn-sm" id="supOtpSend">Send code</button></div>
+            <span class="auth-stat" id="supOtpStat"></span></div>
+          <div class="fld" id="supOtpWrap" hidden><label>4-digit code</label><input name="otp" id="supOtp" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+          <div class="fld"><label>Password * (min 8 characters)</label><input name="password" id="supPass" type="password" minlength="8" required autocomplete="new-password"></div>
+          <div class="fld"><label>City</label><input name="city" maxlength="80" placeholder="e.g. Rajkot"></div>
+          <div class="fld"><label>State</label><input name="state" maxlength="80" placeholder="e.g. Gujarat"></div>
+          <div class="fld"><label>GSTIN (optional, validated if given)</label><input name="gstin" maxlength="15" placeholder="15-character GSTIN"></div>
+          <div class="fld"><label>What do you make?</label><input name="designNote" maxlength="1000" placeholder="Rings, kundan sets, temple jewellery…"></div>
+          <div class="fld"><label>Monthly capacity</label><input name="monthlyCapacity" maxlength="120" placeholder="e.g. 300 pieces / month"></div>
+          <button class="btn btn-primary btn-block" id="supGo">Apply &amp; get my supplier code</button>
+          <p class="auth-fine">By applying you agree that Shivaa may contact you on the details above. Your identity is never shown to buyers or partner jewellers.</p>
+        </form>`}
+      </div>
+    </div>
+    <div class="sup-card" style="margin-top:22px">
+      <h3>Already a supplier?</h3>
+      <p style="font-size:14px">Sign in with the email and password you set at application.</p>
+      <button class="btn btn-outline" onclick="Shivaa.supLogin()">Supplier portal login →</button>
+    </div>
+  </div>`;
+
+  if (supIsSupplier()) return;
+  const $f = n => view.querySelector(`[name="${n}"]`);
+  const stat = (t, kind) => { const el = view.querySelector('#supOtpStat'); if (el) { el.textContent = t; el.className = 'auth-stat ' + (kind || ''); } };
+  let otpVerified = false;
+  view.querySelector('#supOtpSend').onclick = async (e) => {
+    const phone = String($f('phone').value || '').replace(/\D/g, '').slice(-10);
+    if (!/^[6-9]\d{9}$/.test(phone)) return toast('Enter a valid 10-digit mobile number', 'err');
+    const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      const r = await api('/api/kyc/send-otp', { method: 'POST', body: JSON.stringify({ phone, email: String($f('email').value || '').trim() }) });
+      view.querySelector('#supOtpWrap').hidden = false;
+      stat(r.devCode ? 'Demo code: ' + r.devCode : (r.masked ? 'Code sent to ' + r.masked : 'Code sent to +91 ' + phone), 'wait');
+      const box = view.querySelector('#supOtp'); if (box) box.focus();
+    } catch (err) { toast(err.message, 'err'); }
+    btn.disabled = false; btn.textContent = 'Send code';
+  };
+  view.querySelector('#supOtp').addEventListener('change', async (e) => {
+    const phone = String($f('phone').value || '').replace(/\D/g, '').slice(-10);
+    const code = String(e.target.value || '').replace(/\D/g, '').slice(0, 4);
+    if (code.length !== 4) return;
+    try {
+      await api('/api/kyc/verify-otp', { method: 'POST', body: JSON.stringify({ phone, code }) });
+      otpVerified = true; stat('✓ Mobile verified', 'ok');
+    } catch (err) { otpVerified = false; stat(err.message || 'That code did not match', 'err'); }
+  });
+  view.querySelector('#supApply').onsubmit = async (e) => {
+    e.preventDefault();
+    if (!otpVerified) return toast('Verify your mobile with the code first', 'err');
+    const btn = view.querySelector('#supGo'); btn.disabled = true; btn.textContent = 'Submitting…';
+    try {
+      const body = {};
+      ['firm', 'contactPerson', 'email', 'phone', 'password', 'city', 'state', 'gstin', 'designNote', 'monthlyCapacity'].forEach(k => { body[k] = String($f(k).value || '').trim(); });
+      const r = await api('/api/suppliers/apply', { method: 'POST', body: JSON.stringify(body) });
+      const code = (r.supplier && r.supplier.code) || '';
+      if (r.token) { setToken(r.token); state.user = r.user || null; }
+      view.querySelector('#supApplyCard').innerHTML = `
+        <div class="center"><div style="font-size:44px">✦</div>
+        <h3 style="margin:8px 0 4px">Application received</h3>
+        <p style="font-size:14px;color:var(--ink-2)">Your supplier ID is reserved. Quote this code on every consignment:</p>
+        <div class="sup-codebox"><span id="supNewCode">${supEsc(code)}</span>
+          <button class="btn btn-ghost btn-sm" onclick="ShivaaSupplierCopy('${jsArg(code)}', this)">Copy</button></div>
+        <p style="font-size:13.5px;color:var(--ink-3);margin-top:10px">Our team reviews new manufacturers (usually within 48 hours). Your portal opens the moment you are approved — you can sign in now and watch the status.</p>
+        <a class="btn btn-primary" href="#/supplier" style="margin-top:12px">Open supplier portal →</a></div>`;
+      toast('Supplier code ' + code + ' reserved for you ✦');
+    } catch (err) { toast(err.message, 'err'); btn.disabled = false; btn.textContent = 'Apply & get my supplier code'; }
+  };
+};
+window.Shivaa = window.Shivaa || {};
+window.Shivaa.supLogin = () => { window._loginNext = '#/supplier'; if (window.Shivaa.openLogin) window.Shivaa.openLogin('#/supplier'); };
+
+/* ── #/supplier — the portal ── */
+pages.supplier = async (view, q) => {
+  if (!supIsSupplier()) {
+    view.innerHTML = `
+    ${SUP_CSS}
+    <section class="page-hero"><div class="container"><div class="crumbs"><a href="#/">Home</a> / Supplier Portal</div><h1>Supplier Portal</h1>
+    <p>Manufacturers and karigars only. Sign in with the email you applied with.</p></div></section>
+    <div class="container" style="padding:40px 0 90px;max-width:520px">
+      <div class="sup-card">
+        <form id="supLogin" class="sup-form">
+          <div class="fld"><label>Email</label><input name="email" type="email" autocomplete="username" required></div>
+          <div class="fld"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div>
+          <button class="btn btn-primary btn-block">Sign in to my portal</button>
+        </form>
+        <p style="font-size:13.5px;color:var(--ink-3);margin-top:14px">New manufacturer? <a href="#/suppliers">Apply here &amp; get your unique supplier code →</a></p>
+      </div>
+    </div>`;
+    view.querySelector('#supLogin').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const btn = f.querySelector('button'); btn.disabled = true; btn.textContent = 'Signing in…';
+      window._loginNext = '#/supplier';
+      try {
+        const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: f.email.value.trim(), password: f.password.value }) });
+        afterLogin(r, { silent: true });
+      } catch (err) { toast(err.message, 'err'); btn.disabled = false; btn.textContent = 'Sign in to my portal'; }
+    };
+    return;
+  }
+  const tab = q.get('tab') || 'orders';
+  let me = null, designs = { designs: [] }, orders = { orders: [] };
+  try {
+    const [m, d, o] = await Promise.all([
+      api('/api/suppliers/me').catch(() => null),
+      api('/api/supplier/designs').catch(() => ({ designs: [] })),
+      api('/api/supplier/orders').catch(() => ({ orders: [] })),
+    ]);
+    me = m; designs = d; orders = o;
+  } catch (e) { /* the banners below explain what failed */ }
+  if (!me || !me.supplier) {
+    view.innerHTML = `<div class="container" style="padding:70px 0 100px;max-width:560px"><div class="sup-card center">
+      <h3>Supplier record not found</h3><p style="font-size:14px">Your account is not linked to a supplier ID yet. WhatsApp us and we will link it.</p>
+      <a class="btn btn-outline" href="#/suppliers">Back to suppliers</a></div></div>`;
+    return;
+  }
+  const S = me.supplier, C = me.counts || {};
+  const pending = S.status !== 'approved';
+  const cats = Object.entries(CATS);
+  const imgUrl = window._supImgs || (window._supImgs = []);
+  const tabs = [['orders', '📦 Orders'], ['designs', '✦ My designs'], ['new', '＋ Submit design'], ['profile', '◈ Profile']];
+  view.innerHTML = `
+  ${SUP_CSS}
+  <section class="sup-head">
+    <div class="container sup-head-in">
+      <div><b>${supEsc(S.firm)}</b><small>Supplier portal${S.city ? ' · ' + supEsc(S.city) : ''}</small></div>
+      <div class="sup-codebox"><span>${supEsc(S.code)}</span>
+        <button class="btn btn-ghost btn-sm" onclick="ShivaaSupplierCopy('${jsArg(S.code)}', this)">Copy</button></div>
+      ${S.status === 'approved' ? '<span class="sup-chip chip-ok">Approved</span>' : `<span class="sup-chip chip-wait">${supEsc(S.status)}</span>`}
+      <button class="btn btn-ghost btn-sm" onclick="Shivaa.logout()">Sign out</button>
+    </div>
+  </section>
+  <div class="container" style="padding:26px 0 90px">
+    ${pending ? `<div class="sup-note">Your ID is <b>${supEsc(S.status)}</b>. Your unique code <b>${supEsc(S.code)}</b> is reserved for you — the portal opens as soon as Shivaa approves your workshop.</div>` : ''}
+    <nav class="sup-tabs">${tabs.map(([k, l]) => `<a href="#/supplier?tab=${k}" class="${tab === k ? 'on' : ''}">${l}</a>`).join('')}</nav>
+
+    ${tab === 'orders' ? `
+      <div class="sup-kpis">
+        <div class="sup-kpi"><b>${supN(C.open)}</b><span>open jobs</span></div>
+        <div class="sup-kpi"><b>${supN(C.orders)}</b><span>total jobs</span></div>
+        <div class="sup-kpi"><b>${supN(C.designs)}</b><span>designs with Shivaa</span></div>
+        <div class="sup-kpi"><b>${supN(C.live)}</b><span>live on the site</span></div>
+      </div>
+      ${(orders.orders || []).length ? orders.orders.map(t => `
+        <div class="sup-ticket">
+          <div class="sup-ticket-top"><b>Order ${supEsc(t.orderId)}</b>${supStatusChip(t.status)}
+            <small>${t.placedAt ? new Date(t.placedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : ''} · ${supN(t.qty)} pc${t.qty > 1 ? 's' : ''}</small></div>
+          <table class="sup-lines"><thead><tr><th>Design</th><th>SKU</th><th>Purity</th><th>Weight</th><th>Qty</th></tr></thead><tbody>
+            ${(t.lines || []).map(l => `<tr><td>${supEsc(l.name)}</td><td>${supEsc(l.sku)}</td><td>${supEsc(l.purity)}</td><td>${l.weightG ? l.weightG + ' g' : ''}</td><td>${supN(l.qty)}</td></tr>`).join('')}
+          </tbody></table>
+          <div class="sup-ship">${t.shipTo && t.shipTo.mode === 'customer'
+            ? `Ship to: <b>${supEsc(t.shipTo.name)}</b>, ${supEsc(t.shipTo.line)}, ${supEsc(t.shipTo.city)} ${supEsc(t.shipTo.pincode)} · ${supEsc(t.shipTo.phone)}`
+            : `Ship to: <b>${supEsc(t.shipTo && t.shipTo.name || 'Shivaa Jewellers')}</b> — the Shivaa workshop (no buyer details are shared with suppliers by default).`}</div>
+          ${t.note ? `<div class="sup-note-in">Your note: ${supEsc(t.note)}</div>` : ''}
+          <div class="sup-actions">
+            ${(SUP_FLOW[t.status] || []).map(([st, label]) => `<button class="btn btn-outline btn-sm" onclick="ShivaaSupplierMove('${jsArg(t.orderId)}','${st}')">${label}</button>`).join('')}
+            ${(SUP_FLOW[t.status] || []).length ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaSupplierMove('${jsArg(t.orderId)}','${t.status}','__note__')">Add note</button>` : ''}
+          </div>
+        </div>`).join('') : `<div class="sup-empty">No orders yet. When a customer or jeweller buys one of your designs, the job lands here automatically.</div>`}
+    ` : ''}
+
+    ${tab === 'designs' ? `
+      ${(designs.designs || []).length ? `<div class="sup-tablewrap"><table class="sup-lines"><thead><tr><th>Design</th><th>Your SKU</th><th>Category</th><th>Purity</th><th>Weight</th><th>Status</th></tr></thead><tbody>
+        ${designs.designs.map(d => `<tr><td>${supEsc(d.name)}<small class="sup-faint">${supEsc(d.sku)}</small></td><td>${supEsc(d.supplierSku || '—')}</td><td>${supEsc((CATS[d.category] && CATS[d.category].name) || d.category)}</td><td>${supEsc(d.purity)}</td><td>${d.weightG ? d.weightG + ' g' : ''}</td>
+          <td>${d.live ? '<span class="sup-chip chip-ok">Live on site</span>' : d.status === 'skipped' ? '<span class="sup-chip chip-err">Skipped</span>' : '<span class="sup-chip chip-wait">In review</span>'}</td></tr>`).join('')}
+      </tbody></table></div>` : `<div class="sup-empty">No designs submitted yet. Use <b>Submit design</b> to send your first piece — we review it before it goes live.</div>`}
+    ` : ''}
+
+    ${tab === 'new' ? `
+      <div class="sup-card">
+        <h3>Submit a design</h3>
+        <p style="font-size:13.5px;color:var(--ink-3)">Photos and the real weight/purity from your own piece. Nothing is published until Shivaa approves it, and your name is never shown on the product.</p>
+        <form id="supDesign" class="sup-form">
+          <div class="fld"><label>Design name *</label><input name="name" maxlength="200" required placeholder="e.g. Kundan Peacock Ring"></div>
+          <div class="fld"><label>Your design / lot number</label><input name="supplierSku" maxlength="60" placeholder="e.g. RM-114"></div>
+          <div class="fld"><label>Category *</label><select name="category" required>${cats.map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('')}</select></div>
+          <div class="grid-2">
+            <div class="fld"><label>Metal *</label><select name="metal"><option>Gold</option><option>Silver</option><option>Platinum</option></select></div>
+            <div class="fld"><label>Purity *</label><input name="purity" maxlength="20" required placeholder="22K / 18K / 925"></div>
+          </div>
+          <div class="grid-2">
+            <div class="fld"><label>Weight (grams) *</label><input name="weightG" type="number" step="0.001" min="0.001" required placeholder="0.000"></div>
+            <div class="fld"><label>Weight source *</label><input name="weightSource" maxlength="120" required placeholder="e.g. our lot sheet / tag"></div>
+          </div>
+          <div class="fld"><label>Description</label><textarea name="desc" rows="3" maxlength="2000" placeholder="Craft details, stone work, finish…"></textarea></div>
+          <div class="fld"><label>Design photos * (JPG/PNG/WEBP, up to 12)</label>
+            <input type="file" id="supFiles" accept="image/jpeg,image/png,image/webp" multiple>
+            <span class="auth-stat" id="supUpStat"></span>
+            <div class="sup-thumbs" id="supThumbs"></div></div>
+          <button class="btn btn-primary btn-block" id="supSub" type="submit">Submit for Shivaa review</button>
+        </form>
+      </div>
+    ` : ''}
+
+    ${tab === 'profile' ? `
+      <div class="sup-card">
+        <h3>${supEsc(S.firm)}</h3>
+        <div class="sup-kv"><span>Supplier code</span><b>${supEsc(S.code)}</b></div>
+        <div class="sup-kv"><span>Contact person</span><b>${supEsc(S.contactPerson || '—')}</b></div>
+        <div class="sup-kv"><span>Email</span><b>${supEsc(S.email)}</b></div>
+        <div class="sup-kv"><span>Mobile</span><b>${supEsc(S.phone)}</b></div>
+        <div class="sup-kv"><span>City / State</span><b>${supEsc(S.city)}${S.state ? ' · ' + supEsc(S.state) : ''}</b></div>
+        <div class="sup-kv"><span>Status</span><b>${supEsc(S.status)}</b></div>
+        <div class="sup-kv"><span>Applied</span><b>${S.appliedAt ? new Date(S.appliedAt).toLocaleDateString('en-IN') : '—'}</b></div>
+        <div class="sup-kv"><span>Delivery mode</span><b>${(me.portal && me.portal.dropShip) ? 'Direct dispatch (owner enabled)' : 'To the Shivaa workshop'}</b></div>
+      </div>
+    ` : ''}
+  </div>`;
+
+  if (tab === 'new') {
+    const form = view.querySelector('#supDesign');
+    const upStat = view.querySelector('#supUpStat');
+    const renderThumbs = () => { view.querySelector('#supThumbs').innerHTML = imgUrl.map(u => `<img src="${safeUrl(u)}" alt="">`).join(''); };
+    renderThumbs();
+    view.querySelector('#supFiles').onchange = async (e) => {
+      const files = [...e.target.files].slice(0, 12);
+      if (!files.length) return;
+      const fd = new FormData();
+      files.forEach(f => fd.append('files', f));
+      upStat.textContent = 'Uploading ' + files.length + ' photo(s)…';
+      try {
+        const r = await api('/api/supplier/media', { method: 'POST', body: fd, timeout: 60000 });
+        imgUrl.push(...(r.urls || []));
+        window._supImgs = imgUrl;
+        renderThumbs();
+        upStat.textContent = '✓ ' + imgUrl.length + ' photo(s) ready';
+        upStat.className = 'auth-stat ok';
+      } catch (err) { upStat.textContent = err.message; upStat.className = 'auth-stat err'; }
+      e.target.value = '';
+    };
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!imgUrl.length) return toast('Add at least one design photo first', 'err');
+      const btn = view.querySelector('#supSub'); btn.disabled = true; btn.textContent = 'Submitting…';
+      const body = {};
+      ['name', 'supplierSku', 'category', 'metal', 'purity', 'weightG', 'weightSource', 'desc'].forEach(k => { body[k] = String(form.querySelector(`[name="${k}"]`).value || '').trim(); });
+      body.images = imgUrl.slice();
+      try {
+        const r = await api('/api/supplier/designs', { method: 'POST', body: JSON.stringify(body) });
+        imgUrl.length = 0; window._supImgs = imgUrl;
+        toast('Design submitted — Shivaa will review it ✦');
+        location.hash = '#/supplier?tab=designs';
+      } catch (err) { toast(err.message, 'err'); btn.disabled = false; btn.textContent = 'Submit for Shivaa review'; }
+    };
+  }
+};
+window.ShivaaSupplierMove = async (orderId, status, note) => {
+  if (note === '__note__') {
+    const n = prompt('Add a note for this job (visible to Shivaa):');
+    if (!n) return;
+    try { await api('/api/supplier/orders/' + orderId, { method: 'PUT', body: JSON.stringify({ status, note: n }) }); toast('Note saved'); }
+    catch (e) { toast(e.message, 'err'); }
+    return;
+  }
+  try {
+    await api('/api/supplier/orders/' + orderId, { method: 'PUT', body: JSON.stringify({ status, note: '' }) });
+    toast('Job updated ✦'); route();
+  } catch (e) { toast(e.message, 'err'); }
+};
 
 /* ─────────── ROUTER ─────────── */
 const routes = Object.create(null);

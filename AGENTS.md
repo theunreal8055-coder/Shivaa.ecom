@@ -58,7 +58,34 @@
 3. Actual branch, diff and code. Documents have contained stale counts/labels;
    verify before repeating them.
 
-## Current source state (24 September 2026) — release 180 (built; live 179)
+## Current source state (1 October 2026) — release 183 (built; live 181)
+
+- Storefront/source release **183** (built this session; live is 181 until the
+  owner deploys). v183 is the **supplier (manufacturer) programme**, built on
+  top of v182 (auto-catalogue Phase 4 + billing bridge — also still
+  undeployed; v183's ZIP is a superset). Stamps 183 lockstep (56×`?v=183`
+  index, 51× sw, `shivaa-shell-v183`, `REL=183`, `APP_REL=183`, `'rel'=>183`;
+  MEDIA stays 168, v178.css stays the last sheet). **7-file ZIP** adds
+  `hallmark.php` — the public product strip rule only works if that file
+  reaches the server. Builder: `tools/mega/make-v183-zip.py`. See
+  `DEPLOY-v183.md`.
+- **The confidentiality law (v183, non-negotiable):** customers and jeweller
+  partners must never learn whose design it is. Enforced in exactly two
+  chokepoints — `hallmark_product()` → `shv_supplier_strip()` for every public
+  product payload, and `shv_public_order()` for every public order row **and
+  its item snapshots**. Keys that must never leave a public payload:
+  `supplier, supplierId, supplierCode, supplierSku, supplierName,
+  supplierNotes, supplierPayout, costPerGram, weightSource`. Any new public
+  route that returns products or orders must pass through those helpers; if
+  you add a field to products, re-check the strip list.
+- Supply routing is DERIVED from `db.orders` (item snapshots carry
+  `supplierId`/`supplierCode`), so there is no second copy to drift. Suppliers
+  never see retail math — their ticket lines are a whitelist projection.
+- Belt green except `tools/mega/smoke/v179-relay.js`, which is 7-fail in the
+  sandbox **identically on the base commit** (environmental; not a
+  regression). v182/v181/v180-check self-SKIP as superseded stamp-exact
+  suites; v182-php-run's P01 is forward-tolerant (floor ≥182).
+
 
 - Storefront/source release **180** (SQL runtime, built this session; live
   is still **179** until the owner deploys); hardened media cache

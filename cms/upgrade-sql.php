@@ -229,7 +229,24 @@ function shv_ensure_schema(PDO $pdo): array {
     $pdo->exec("ALTER TABLE `catalog_batches` ADD COLUMN `data_json` LONGTEXT NULL AFTER `counts_json`");
     $log[] = 'added catalog_batches.data_json (full-row mirror)';
   } else $log[] = 'catalog_batches.data_json column present';
+  /* v183 — supplier (manufacturer) book + the order-routing ticket ledger.
+     The code is indexed UNIQUE so "every supplier has a unique code" is
+     enforced by the database even if a future code path ever forgets to
+     check. status/supplier_id indexes keep portal queries cheap. */
+  $pdo->exec("CREATE TABLE IF NOT EXISTS `suppliers` (
+    `id` VARCHAR(64) PRIMARY KEY, `code` VARCHAR(32) NOT NULL,
+    `firm` VARCHAR(190), `status` VARCHAR(32) DEFAULT 'pending',
+    `data_json` LONGTEXT, `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uq_supplier_code` (`code`), INDEX `idx_supplier_status` (`status`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $pdo->exec("CREATE TABLE IF NOT EXISTS `supply_orders` (
+    `id` VARCHAR(64) PRIMARY KEY, `order_id` VARCHAR(64), `supplier_id` VARCHAR(64),
+    `status` VARCHAR(32) DEFAULT 'routed', `data_json` LONGTEXT,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP, `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_supply_supplier` (`supplier_id`), INDEX `idx_supply_order` (`order_id`), INDEX `idx_supply_status` (`status`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   $log[] = 'Phase-3 tables ready (settings, orders, users, reviews, coupons, settlements, catalog_batches)';
+  $log[] = 'v183 tables ready (suppliers with UNIQUE code, supply_orders routing ledger)';
   return $log;
 }
 
@@ -435,6 +452,51 @@ function shv_upsert_catalog_batches(PDO $pdo, array $batches): int {
   return $n;
 }
 
+/* v183 — supplier book + supply tickets (same upsert-by-id shape as Phase 3). */
+function shv_upsert_suppliers(PDO $pdo, array $suppliers): int {
+  $stmt = $pdo->prepare('INSERT INTO `suppliers` (`id`, `code`, `firm`, `status`, `data_json`, `created_at`)'
+    . ' VALUES (?, ?, ?, ?, ?, ?)'
+    . ' ON DUPLICATE KEY UPDATE `code`=VALUES(`code`), `firm`=VALUES(`firm`),'
+    . '`status`=VALUES(`status`), `data_json`=VALUES(`data_json`)');
+  $n = 0;
+  foreach ($suppliers as $s) {
+    if (!is_array($s) || ($s['id'] ?? '') === '') continue;
+    $created = !empty($s['appliedAt']) ? date('Y-m-d H:i:s', strtotime((string)$s['appliedAt'])) : date('Y-m-d H:i:s');
+    $stmt->execute([
+      (string)$s['id'],
+      mb_substr((string)($s['code'] ?? ''), 0, 32),
+      mb_substr((string)($s['firm'] ?? ''), 0, 190),
+      mb_substr((string)($s['status'] ?? 'pending'), 0, 32),
+      json_encode($s, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
+      $created,
+    ]);
+    $n++;
+  }
+  return $n;
+}
+
+function shv_upsert_supply_orders(PDO $pdo, array $tickets): int {
+  $stmt = $pdo->prepare('INSERT INTO `supply_orders` (`id`, `order_id`, `supplier_id`, `status`, `data_json`, `created_at`, `updated_at`)'
+    . ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+    . ' ON DUPLICATE KEY UPDATE `status`=VALUES(`status`), `data_json`=VALUES(`data_json`), `updated_at`=VALUES(`updated_at`)');
+  $n = 0;
+  foreach ($tickets as $t) {
+    if (!is_array($t) || ($t['id'] ?? '') === '') continue;
+    $created = !empty($t['createdAt']) ? date('Y-m-d H:i:s', strtotime((string)$t['createdAt'])) : date('Y-m-d H:i:s');
+    $updated = !empty($t['updatedAt']) ? date('Y-m-d H:i:s', strtotime((string)$t['updatedAt'])) : $created;
+    $stmt->execute([
+      (string)$t['id'],
+      mb_substr((string)($t['orderId'] ?? ''), 0, 64),
+      mb_substr((string)($t['supplierId'] ?? ''), 0, 64),
+      mb_substr((string)($t['status'] ?? 'routed'), 0, 32),
+      json_encode($t, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
+      $created, $updated,
+    ]);
+    $n++;
+  }
+  return $n;
+}
+
 function shv_backup_json_db(): string {
   global $DB_FILE, $ROOT;
   $dir = $ROOT . '/data/backups';
@@ -494,6 +556,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $upCoupons = shv_upsert_coupons($pdo, $db['coupons'] ?? []);
         $upSettlements = shv_upsert_settlements($pdo, $db['settlements'] ?? []);
         $upBatches = shv_upsert_catalog_batches($pdo, $db['catalogBatches'] ?? []);
+        $upSuppliers = shv_upsert_suppliers($pdo, $db['suppliers'] ?? []);
+        $upSupplyOrders = shv_upsert_supply_orders($pdo, $db['supplyOrders'] ?? []);
 
         $sqlAfter = (int)$pdo->query('SELECT COUNT(*) FROM `products`')->fetchColumn();
         $sqlOrders = (int)$pdo->query('SELECT COUNT(*) FROM `orders`')->fetchColumn();
@@ -502,6 +566,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sqlCoupons = (int)$pdo->query('SELECT COUNT(*) FROM `coupons`')->fetchColumn();
         $sqlSettlements = (int)$pdo->query('SELECT COUNT(*) FROM `settlements`')->fetchColumn();
         $sqlBatches = (int)$pdo->query('SELECT COUNT(*) FROM `catalog_batches`')->fetchColumn();
+        $sqlSuppliers = (int)$pdo->query('SELECT COUNT(*) FROM `suppliers`')->fetchColumn();
+        $sqlSupplyOrders = (int)$pdo->query('SELECT COUNT(*) FROM `supply_orders`')->fetchColumn();
 
         // verify: counts equal + spot-check three rows byte-for-byte through data_json
         $mismatches = [];
@@ -512,6 +578,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($sqlCoupons !== count($db['coupons'] ?? [])) $mismatches[] = "coupons count: json=" . count($db['coupons'] ?? []) . " sql=$sqlCoupons";
         if ($sqlSettlements !== count($db['settlements'] ?? [])) $mismatches[] = "settlements count: json=" . count($db['settlements'] ?? []) . " sql=$sqlSettlements";
         if ($sqlBatches !== count($db['catalogBatches'] ?? [])) $mismatches[] = "catalogBatches count: json=" . count($db['catalogBatches'] ?? []) . " sql=$sqlBatches";
+        if ($sqlSuppliers !== count($db['suppliers'] ?? [])) $mismatches[] = "suppliers count: json=" . count($db['suppliers'] ?? []) . " sql=$sqlSuppliers";
+        if ($sqlSupplyOrders !== count($db['supplyOrders'] ?? [])) $mismatches[] = "supplyOrders count: json=" . count($db['supplyOrders'] ?? []) . " sql=$sqlSupplyOrders";
 
         if (count($db['products'] ?? []) > 0 && empty($mismatches)) {
           $ids = array_map(fn($p) => (string)$p['id'], array_values($db['products'] ?? []));
@@ -534,6 +602,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'upSettings' => $upSettings, 'upOrders' => $upOrders, 'upUsers' => $upUsers,
           'upReviews' => $upReviews, 'upCoupons' => $upCoupons, 'upSettlements' => $upSettlements,
           'upBatches' => $upBatches,
+          'upSuppliers' => $upSuppliers, 'upSupplyOrders' => $upSupplyOrders,
           'driver' => $driver,
         ];
       } catch (Throwable $e) {
@@ -552,6 +621,7 @@ if ($result !== null) {
       ' . $rows . '
       <tr><td>✓</td><td>Products: <b>' . (int)$result['upserted'] . '</b> · Orders: <b>' . (int)$result['upOrders'] . '</b> · Users: <b>' . (int)$result['upUsers'] . '</b></td></tr>
       <tr><td>✓</td><td>Settings: <b>' . (int)$result['upSettings'] . ' keys</b> · Reviews: <b>' . (int)$result['upReviews'] . '</b> · Coupons: <b>' . (int)$result['upCoupons'] . '</b> · Settlements: <b>' . (int)$result['upSettlements'] . '</b> · Catalogue batches: <b>' . (int)$result['upBatches'] . '</b></td></tr>
+      <tr><td>✓</td><td>Suppliers: <b>' . (int)$result['upSuppliers'] . '</b> (unique codes) · Routed supply tickets: <b>' . (int)$result['upSupplyOrders'] . '</b></td></tr>
       <tr><td>✓</td><td>All collections verified byte-identical &amp; count-matched</td></tr>
       <tr><td>✓</td><td>Mirror flag cleared — product &amp; collection reads switch to MySQL automatically</td></tr>
     </table>
