@@ -65,8 +65,8 @@
   `v179-relay.js` is 7-fail in the sandbox **identically on the base commit**
   (environmental — needs the live/TLS path; not a v183 regression).
   `node tools/mega/php-sweep/sweep.mjs` → **240 routes · 0 exceptions**.
-- **Package:** `shivaa-update-v183.zip` (7 files, 483,962 bytes, SHA-256
-  `ffbef0f7f15eba79300b80d7722c2837ee61df97d5cb1894be92ce1f453a8a91`, built
+- **Package:** `shivaa-update-v183.zip` (7 files, 484,877 bytes, SHA-256
+  `504d4b88239eb1143e1cc4fd0f4e7261892ceb7b8d8aca8a30b695d8184dea7d`, built
   from `dadab8f`) + `DEPLOY-v183.md`. Ships `hallmark.php` this time — the
   strip rule only works if that file reaches the server.
 - **Still open for the next session:** a real browser pass of `#/suppliers`

@@ -21,8 +21,8 @@
   ships to the customer, address revealed) and `supplierSeesCustomer` (cannot
   act alone). Supplier design drops land STAGED under the standing
   weight/purity/weightSource law and ride the v182 review queue.
-  Stamps 183 lockstep · `shivaa-update-v183.zip` (7 files, 483,962 bytes,
-  SHA-256 `ffbef0f7f15eba79300b80d7722c2837ee61df97d5cb1894be92ce1f453a8a91`)
+  Stamps 183 lockstep · `shivaa-update-v183.zip` (7 files, 484,877 bytes,
+  SHA-256 `504d4b88239eb1143e1cc4fd0f4e7261892ceb7b8d8aca8a30b695d8184dea7d`)
   + `DEPLOY-v183.md`.
 - **Belt green:** deploy gate 20 · v183-check 10 · v183-php-run 12 ·
   v182-php-run 9 (P01 forward-tolerant) · v181-php-run 6 · v180-php-run 8 ·

@@ -81,9 +81,9 @@
   all green. `v179-relay.js` 7-fail **identically on the base commit**
   (environmental, needs the live/TLS path). `php-sweep` 240 routes / 0
   exceptions.
-- **Package:** `shivaa-update-v183.zip`, 7 files, 483,962 bytes,
-  SHA-256 `ffbef0f7f15eba79300b80d7722c2837ee61df97d5cb1894be92ce1f453a8a91`,
-  built from `dadab8f`; runbook `DEPLOY-v183.md`. **`hallmark.php` ships in
+- **Package:** `shivaa-update-v183.zip`, 7 files, 484,877 bytes,
+  SHA-256 `504d4b88239eb1143e1cc4fd0f4e7261892ceb7b8d8aca8a30b695d8184dea7d`,
+  built from `e8ca0fe`; runbook `DEPLOY-v183.md`. **`hallmark.php` ships in
   this ZIP** (the strip rule is inert without it) — the first release since
   v182 to need a 7th file.
 - **Open for the next session:** real-browser pass of `#/suppliers` +

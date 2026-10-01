@@ -2,7 +2,7 @@
 
 **Release:** 183 · **Built:** 1 Oct 2026 · **Live before this runs:** 181 (v182 was built but never deployed)
 **Status:** built + gated; **deploy only after the owner's explicit yes**
-**Source commit:** `dadab8f` · **Prerequisite:** live **181 or newer**
+**Source commit:** `e8ca0fe` · **Prerequisite:** live **181 or newer**
 
 **What this release is, in one line:** a supplier section on the website —
 manufacturers apply through the access gate (OTP-verified), the owner approves
@@ -25,8 +25,8 @@ see whose design it is**.
 ## Package
 
 **File:** `shivaa-update-v183.zip`
-**Size:** 483,962 bytes · **SHA-256:**
-`ffbef0f7f15eba79300b80d7722c2837ee61df97d5cb1894be92ce1f453a8a91`
+**Size:** 484,877 bytes · **SHA-256:**
+`504d4b88239eb1143e1cc4fd0f4e7261892ceb7b8d8aca8a30b695d8184dea7d`
 **Layout:** root of the ZIP = overwrite into `public_html/` (same as v165+).
 **7 files:**
 
@@ -36,7 +36,7 @@ see whose design it is**.
 | `hallmark.php` | 12,031 | the public product pass now strips the maker (one choke point) |
 | `index.html` | 32,047 | stamps → 183 (56× `?v=183`, `__SHIVAA_REL=183`) · **For Manufacturers** door in the drawer + footer |
 | `js/app.js` | 680,737 | `APP_REL = 183` · public `#/suppliers` (apply → reveal your code) · supplier portal `#/supplier` (orders · designs · new design · profile) · supplier login routes to the portal, header pill follows |
-| `js/admin.js` | 336,893 | 🏭 **Suppliers** tab: the book (codes, approve/suspend, rotate code, copy), design assignment, routed-order board, drop-ship rules; pending badge shows from Overview too |
+| `js/admin.js` | 341,662 | 🏭 **Suppliers** tab: the book (codes, approve/suspend, rotate code, copy), design assignment, routed-order board, drop-ship rules; pending badge shows from Overview too |
 | `sw.js` | 13,069 | SHELL/REL 183, 51× `?v=183`, MEDIA deliberately stays `shivaa-media-v168` |
 | `upgrade-sql.php` | 37,110 | Reconciler: `suppliers` table (**`UNIQUE KEY uq_supplier_code`**) + `supply_orders` ledger + indexes, upserts, count verification |
 
