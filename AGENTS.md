@@ -2,27 +2,41 @@
 
 ## Current session state — 1 October 2026
 
-- Work stays on Arena's fixed branch `arena/01a0f602-shivaa-ecom`. Release
-  **184** is pushed (`47cc3db`). The owner reports extracting v183 then v184
-  into the production public HTML folder. A safe GET to `/api/version` on
-  1 Oct 2026 returned `rel: 184`, `shell: shivaa-shell-v184`, matching index/app/
-  worker stamps, and MySQL with 78/78 counts and `mirrorBehind: false`. This
-  verifies the release handshake only—not the report or Cashfree account.
-- v184 adds a read-only, admin-gated Cashfree settlement report to Admin →
-  Reports. It uses the documented event-level `POST /pg/settlement/recon` API
-  version `2026-01-01` for this call only; ordinary Cashfree calls stay on
-  `2023-08-01`. It compares provider payment/order IDs and gross amounts with
-  existing local payments and recorded overpayments, displays event settlement
-  amounts separately, and requires manual cursor paging. It does not run on a schedule,
-  mutate payment records, or change loyalty/order expiry behavior.
-- Staging was not performed before the owner's production extraction. The
-  reconciliation report has not been run against Cashfree; inclusive/exclusive
-  processed-date boundaries, merchant entitlement, visual approval, and mobile
-  behavior remain unverified. Do not rely on the report for financial close yet.
+- Work stays on Arena's fixed branch `arena/01a0f602-shivaa-ecom`. The remote
+  branch tip is `145dced` (v185 package-only commit); this session has a local
+  release-186 candidate. The last checked/owner-reported production release is
+  v184: the 1 Oct `/api/version` read returned matched v184 stamps and MySQL
+  78/78 counts with `mirrorBehind: false`. That verifies the release handshake
+  only—not the Cashfree report or account.
+- `shivaa-update-v186.zip` is a 22-entry, root-layout staging overlay,
+  2,160,234 bytes, SHA-256
+  `9c5ec601b1a460bf9c51aa6dd2313080975c2fbc2944aa2994290f3c076339e3`.
+  Its allowlist builder checks release/cache stamps, ZIP CRC/contents and the
+  protected Gold Biscuit card/image. It includes the cumulative v183/v184
+  runtime and the v186 app-like feedback work; it is not a full-site backup.
+- Verification: `npm test` exits 0 (deploy approval 20/20, v186 source 8/8,
+  synthetic DOM 15/15, S01 API 25/25, S01 DOM 29/29, S02 14/14, v184 static
+  8/8 + PHP-WASM 6/6, relay 7/7; v183 forward check 8/8 with one stamp-exact
+  skip). `npm run test:regression`: 45 suites passed, 26 retired/stamp-specific
+  suites skipped, 0 failed. The extracted ZIP also passed v186, v184, S01/S02
+  and v183 gates over a temporary clean local release-184 tree.
+- The broad pre-launch checklist remains **0/111 fully verified**, plus the
+  incomplete Round 4 “Persistent bottom navi…” fragment. Real-device,
+  in-app-browser, live payment/CRM/ERP, legal, load, accessibility-scanner,
+  staging and production checks are not claimed. See
+  `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md` and `DEPLOY-v186.md`.
+- No staging or production upload occurred; the owner has not authorized one.
+  `DEPLOY-v186.md` is a package/runbook, not deployment approval.
+- v184 adds a read-only, admin-gated Cashfree settlement report. It uses
+  `POST /pg/settlement/recon` API version `2026-01-01` for that call only;
+  ordinary Cashfree calls remain `2023-08-01`. It compares provider payment/order
+  IDs and gross amounts, displays event settlement amounts separately, and
+  requires manual cursor paging. It does not run on a schedule or mutate
+  payment records. It has not been run against Cashfree by this agent.
 - Payment finding #27 remains blocked on the owner's commercial order-expiry
   policy. Never invent an expiry duration, auto-cancel, or points-release rule.
 - No Cashfree credentials are stored in the repo or requested in chat. Read
-  `DEPLOY-v184.md`, `docs/PAYMENT-EXPERIENCE-NEXT.md`, and
+  `DEPLOY-v186.md`, `DEPLOY-v184.md`, `docs/PAYMENT-EXPERIENCE-NEXT.md`, and
   `CASHFREE-INTEGRATION.md` before the next payment batch.
 
 ## Deployment and safety gates — standing rules
@@ -32,7 +46,7 @@
   then request explicit owner approval for that deployment; one yes authorizes
   only one run. For v184, the owner reports manual extraction to production on
   1 Oct; the release handshake was checked, but staging and the live Cashfree
-  report were not.
+  report were not. The v186 candidate has not been staged or deployed.
 - Never deploy an older tree over a newer live site. Check `/api/version` on
   the authorized target before deploying and stop if its release is newer than
   the package. Do not assume a live version from old handoff notes.
@@ -45,10 +59,10 @@
 
 ## Read first
 
-1. `DEPLOY-v184.md` for the current source/package record (not a deployment
-   authorization); `docs/PAYMENT-EXPERIENCE-NEXT.md` and
-   `CASHFREE-INTEGRATION.md` for the payment-audit delta and current endpoint
-   version notes.
+1. `DEPLOY-v186.md` for the current candidate/package record (not a deployment
+   authorization); `DEPLOY-v184.md`, `docs/PAYMENT-EXPERIENCE-NEXT.md`, and
+   `CASHFREE-INTEGRATION.md` for the payment-audit delta and endpoint-version
+   notes.
 2. Check the actual branch, git status/diff, and source. Many historical
    handoff documents—including the v180/v179 figures below—are stale and must
    not be used as current release/live truth.
@@ -56,7 +70,7 @@
    `/api/version` on the authorized server rather than assuming live MySQL or a
    release number from repository notes.
 
-## Historical source ledger — v180 snapshot (24 September 2026; superseded by v184)
+## Historical source ledger — v180 snapshot (24 September 2026; superseded by v186 candidate)
 
 - Storefront/source release **180** (SQL runtime, built this session; live
   is still **179** until the owner deploys); hardened media cache
@@ -120,14 +134,14 @@
 **FORWARD ONLY — the owner restated this rule at the close of the v176 session;
 it is absolute.**
 
-- Preserve the latest source (currently **v184** on
-  `arena/01a0f602-shivaa-ecom`; live deployment status is unverified). New
-  fixes are targeted forward commits; **no release reset or revert, no old-file
-  or old-ZIP restoration, no rewritten or force-pushed history. The next release
-  is 185 or higher — never reuse or renumber a shipped release, never deploy an
-  older tree over a newer live site.** The old v125 freeze was superseded by
-  owner-requested releases through v184; rejected v126 and Truecaller must
-  remain retired.
+- Preserve the latest source (currently a **v186 candidate** on
+  `arena/01a0f602-shivaa-ecom`; last checked/owner-reported live release is
+  v184). New fixes are targeted forward commits; **no release reset or revert,
+  no old-file or old-ZIP restoration, no rewritten or force-pushed history. The
+  next release is 187 or higher — never reuse or renumber a shipped release,
+  never deploy an older tree over a newer live site.** The old v125 freeze was
+  superseded by owner-requested releases through v186; rejected v126 and
+  Truecaller must remain retired.
 - Consult the completed v168/v169 ledger IDs and tests before changing a path.
   Missing scratch logs do not mean a fix is absent. Do not replay non-idempotent
   `work/audit169/backend.py` / `frontend.py` patch scripts.
@@ -176,13 +190,14 @@ cd ../../..
 node tools/mega/php-sweep/sweep.mjs
 ```
 
-- Last verified belt (v180 close): **41 active suites pass, 21 retired/
-  superseded-feature suites skip, 0 fail** · chained `npm test` **exit 0,
-  171 executed checks** (relay may flake T05/T06 under chain load —
-  standalone 7/7) · php-sweep **212 routes / 0 exceptions** · deploy-approval
-  **20/20**. The runner explicitly distinguishes SKIP from PASS; five
-  stamp-exact v177–v179 suites SKIP-forward on trees newer than their
-  release (forward-only made mechanical).
+- Latest measured verification (v186 candidate, 1 Oct 2026): `npm test` exits
+  0; deploy-approval **20/20**, v186 source **8/8**, synthetic DOM **15/15**,
+  relay **7/7**, S01 API **25/25**, S01 DOM **29/29**, S02 **14/14**, v184
+  static **8/8** + PHP-WASM **6/6**, v183 forward behavior **8/8 + 1 explicit
+  stamp-exact skip**. `npm run test:regression`: **45 suites passed, 26
+  retired/stamp-specific suites skipped, 0 failed**. Extracted v186 overlay
+  checks also pass over a clean local release-182 tree. No current php-sweep
+  was run. Runner distinguishes SKIP from PASS; do not count skips as passes.
 - PHP can execute via the installed PHP-WASM dependency. A parser pass is not
   runtime proof; test the relevant real PHP block/endpoints too. (The v176
   purge 500'd on nonexistent `JSON_UNESIGNED_*` constants while every parser

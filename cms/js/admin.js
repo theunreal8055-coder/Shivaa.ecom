@@ -170,9 +170,9 @@ async function renderAdmin(view, q) {
           <thead><tr><th></th><th>Name</th><th>Category</th><th>Metal</th><th class="num">Weight</th><th>Making</th><th class="num">Stock</th><th class="num">Price (live)</th><th></th></tr></thead>
           <tbody>${state.productsCache.map(p => `<tr>
             <td><img src="${safeUrl(p.images && p.images[0])}" alt=""></td>
-            <td><b>${esc(p.name)}</b><br><small style="color:var(--ink-3)">${p.sku} · ★${p.rating}</small></td>
-            <td>${CATS[p.category] || p.category}</td>
-            <td>${p.metal === 'Silver' ? 'Silver 925' : p.purity}</td>
+            <td><b>${esc(p.name)}</b><br><small style="color:var(--ink-3)">${esc(p.sku || '')} · ★${p.rating}</small></td>
+            <td>${esc(CATS[p.category] || p.category || '')}</td>
+            <td>${p.metal === 'Silver' ? 'Silver 925' : esc(p.purity || '')}</td>
             <td class="num">${p.weightG} g</td>
             <td>${p.mcScheme === 'percent' ? p.mcValue + '%' : p.mcScheme === 'perGram' ? '₹' + p.mcValue + '/g' : 'flat ' + fmt(p.mcValue)}</td>
             <td class="num"><b style="color:${p.stock <= 3 ? 'var(--warn)' : 'inherit'}">${p.stock}</b></td>
@@ -400,7 +400,7 @@ async function renderAdmin(view, q) {
       <div class="wt-grid">
         ${rings.map(p => `<div class="wt-card ${p.weightAssumed ? 'assumed' : ''}">
           <img src="${safeUrl(p.images && p.images[0])}" loading="lazy" alt="${esc(p.sku || '')}">
-          <div class="wt-tx"><b>${p.sku}</b>
+          <div class="wt-tx"><b>${esc(p.sku || '')}</b>
             <input type="number" step="0.001" min="0.5" value="${p.weightG}" data-id="${p.id}"
               placeholder="tag weight (g)" onchange="ShivaaAdmin.setWt('${p.id}', this.value)">
             <small class="wt-flag">${p.weightAssumed ? '⚠ assumed — verify' : '✓ set'}</small>
@@ -2333,7 +2333,7 @@ window.ShivaaAdmin.printLabelTag = (pid) => {
     <div class="tag-meta">${esc(p.purity)} ${esc(p.metal)} · ${p.weightG} g · SKU ${esc(p.sku || p.id)}</div>
     <div class="tag-price">₹${pr.toLocaleString('en-IN')}</div>
     <div class="tag-note">Price tracks the live rate · BIS hallmarked</div></div>`;
-  w.document.write(`<!doctype html><meta charset="utf-8"><title>Tag ${p.sku || p.id}</title><style>
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Tag ${esc(p.sku || p.id)}</title><style>
   body{font-family:Arial,sans-serif;margin:0;padding:14px}.tag{width:340px;border:2px dashed #6b1020;border-radius:12px;padding:14px;text-align:center;page-break-inside:avoid;display:inline-block;margin:6px}
   .tag-brand{font-weight:800;letter-spacing:2px;color:#6b1020;font-size:13px}.tag-qr svg{width:120px;height:120px;margin:8px auto;display:block}
   .tag-name{font-weight:700;font-size:13px;min-height:32px}.tag-meta{font-size:11px;color:#555;margin:4px 0}.tag-price{font-size:22px;font-weight:800;color:#6b1020}.tag-note{font-size:9.5px;color:#777;margin-top:5px}

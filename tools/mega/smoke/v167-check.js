@@ -229,8 +229,13 @@ function isBadLevels(levels) {
     app.includes("box.setAttribute('aria-label', headTxt.slice(0, 120))") &&
     app.includes('aria-label="Close" onclick="Shivaa.closeModal()"'));
 
+  const toastStart = app.indexOf("function toast(msg, type = 'ok')");
+  const toastEnd = app.indexOf('\nlet _modalTrap', toastStart);
+  const toastBody = toastStart >= 0 && toastEnd > toastStart ? app.slice(toastStart, toastEnd) : '';
   ok('toast() repairs a missing wrapper instead of throwing',
-    /function toast\(msg, type = 'ok'\)[\s\S]{0,420}if \(!wrap\) \{ wrap = document\.createElement\('div'\); wrap\.id = 'toastWrap'/.test(app));
+    toastBody.includes("let wrap = $('#toastWrap')") &&
+    /if \(!wrap\) \{[\s\S]*?wrap = document\.createElement\('div'\); wrap\.id = 'toastWrap'/.test(toastBody) &&
+    toastBody.includes('wrap.appendChild(t);'));
 
   ok('the duplicate #shvErr is gone — errors are addressed by pane',
     !/id="shvErr"/.test(auth) && /data-shv-err/.test(auth) &&

@@ -127,6 +127,14 @@ function shv_sanitize_product_fields(array $b, array $existing = []): array {
   return $out;
 }
 function body_json(): array {
+  // JSON writes must not accept browser-simple form types (text/plain,
+  // application/x-www-form-urlencoded, multipart). Otherwise a cross-site
+  // no-cors POST can carry parseable JSON without a CORS preflight.
+  $rawType = (string)($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '');
+  $mime = strtolower(trim(explode(';', $rawType, 2)[0]));
+  if ($mime !== 'application/json' && !preg_match('~^application/[a-z0-9!#$&^_.+-]+\\+json$~i', $mime)) {
+    jout(415, ['error' => 'Content-Type must be application/json']);
+  }
   // v81 — cap request bodies (memory-exhaustion / DoS guard)
   static $checked = false;
   if (!$checked) {
@@ -138,6 +146,30 @@ function body_json(): array {
   if (strlen((string)$raw) > 3 * 1024 * 1024) jout(413, ['error' => 'Request too large']);
   $d = json_decode($raw ?: '{}', true);
   return is_array($d) ? $d : [];
+}
+function shv_request_origin_matches_host(): bool {
+  $origin = trim((string)($_SERVER['HTTP_ORIGIN'] ?? ''));
+  if ($origin === '') return true;  // non-browser/server-to-server clients
+  if (strcasecmp($origin, 'null') === 0) return false;
+  $o = parse_url($origin);
+  $hostHeader = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+  $h = $hostHeader !== '' ? parse_url('//' . $hostHeader) : false;
+  if (!is_array($o) || !is_array($h) || empty($o['scheme']) || empty($o['host']) || empty($h['host'])) return false;
+  if (isset($o['user']) || isset($o['pass']) || isset($o['query']) || isset($o['fragment'])
+      || (isset($o['path']) && $o['path'] !== '' && $o['path'] !== '/')) return false;
+  $originScheme = strtolower((string)$o['scheme']);
+  if (!in_array($originScheme, ['http', 'https'], true)) return false;
+  $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
+  $forwardedProto = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''), 2)[0]));
+  $requestScheme = ($https !== '' && $https !== 'off' && $https !== '0') || $forwardedProto === 'https' ? 'https' : 'http';
+  $originPort = (int)($o['port'] ?? ($originScheme === 'https' ? 443 : 80));
+  $requestPort = (int)($h['port'] ?? ($requestScheme === 'https' ? 443 : 80));
+  return $originScheme === $requestScheme && strcasecmp((string)$o['host'], (string)$h['host']) === 0
+      && $originPort === $requestPort;
+}
+function shv_guard_write_origin(string $route, string $method): void {
+  if (in_array(strtoupper($method), ['GET', 'HEAD', 'OPTIONS'], true) || $route === 'pay/cashfree/webhook') return;
+  if (!shv_request_origin_matches_host()) jout(403, ['error' => 'Cross-origin state-changing request rejected']);
 }
 /* v81 — real client IP. X-Forwarded-For is a client-controlled header, so it
    is trusted ONLY when the TCP peer is a local/known proxy (e.g. a VPS with
@@ -4050,6 +4082,10 @@ function event_coupons_ensure(array &$db, array $u): array {
 $route = $_GET['__route'] ?? '';
 $route = trim((string)$route, '/');
 $method = $_SERVER['REQUEST_METHOD'];
+// Browser writes may come only from this exact origin. Requests from CLI or
+// server-to-server clients without Origin remain supported; the signed Cashfree
+// webhook has its own independent verifier and does not use browser auth.
+shv_guard_write_origin($route, $method);
 // v82 — take the global write lock BEFORE the first read for integrity routes
 shv_acquire_lock($DB_FILE, $route, $method);
 hallmark_public_route($route, $method);
@@ -4230,6 +4266,11 @@ try {
 
   /* ── products ── */
   if ($route === 'products' && $method === 'GET') {
+    foreach (['category', 'q', 'metal', 'tag'] as $__filter) {
+      if (isset($_GET[$__filter]) && !is_string($_GET[$__filter])) {
+        jout(400, ['error' => 'Invalid product filter']);
+      }
+    }
     $list = array_values(array_filter($db['products'], fn($x) => !empty($x['active'])));
     $camps = campaign_studs_catalog();
     // v164 — campaign twins only when the live db.json does not already carry
@@ -5647,7 +5688,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 184,
+      'rel'   => 186,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

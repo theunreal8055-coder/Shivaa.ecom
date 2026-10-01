@@ -20,7 +20,10 @@ function storage(initial = {}) {
   const values = new Map(Object.entries(initial).map(([k, v]) => [k, JSON.stringify(v)]));
   const localStorage = { getItem: k => values.get(k) ?? null, setItem(k, v) { values.set(k, v); }, removeItem: k => values.delete(k) };
   const c = vm.createContext({ localStorage });
-  vm.runInContext(slice(app, 'const mem =', 'const token =') + slice(app, 'const state =', '/* v57: every category face'), c);
+  const stateStart = app.indexOf('const state =');
+  const stateEnd = app.indexOf('\n};', stateStart) + 3;
+  assert(stateStart >= 0 && stateEnd > stateStart, 'state initializer boundary');
+  vm.runInContext(slice(app, 'const mem =', 'const token =') + app.slice(stateStart, stateEnd), c);
   vm.runInContext(slice(app, 'const getLater =', 'window.Shivaa.cartSaveLater') + slice(app, 'const recentQueries =', 'const pushRecentQuery ='), c);
   return { c, localStorage, get: expr => vm.runInContext(expr, c) };
 }

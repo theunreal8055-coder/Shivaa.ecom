@@ -1,0 +1,60 @@
+/* Shivaa v186 — additive microinteraction, refresh and mobile-input fixes.
+   Existing brand colors/type/layout remain the source of truth. */
+
+/* Pull-to-refresh is confined to the catalog route and reuses the maroon/gold
+   palette. Its live region is visually quiet until a real pull/refresh starts. */
+.shv-pull-status {
+  position: fixed;
+  z-index: 120;
+  top: calc(env(safe-area-inset-top, 0px) + 66px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  border: 1px solid rgba(212, 175, 90, .58);
+  border-radius: 999px;
+  background: rgba(29, 5, 9, .96);
+  color: #f5e4bd;
+  box-shadow: 0 8px 28px rgba(29, 5, 9, .28);
+  font: 500 13px/1.25 var(--ff-body, sans-serif);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -150%);
+  transition: opacity .18s ease, transform .25s cubic-bezier(.2,.8,.2,1);
+}
+.shv-pull-status.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.shv-pull-mark {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  place-items: center;
+  color: var(--gold-2, #d4af5a);
+  font-size: 17px;
+}
+.shv-pull-status.is-ready .shv-pull-mark { transform: rotate(45deg) scale(1.12); }
+.shv-pull-status.is-loading .shv-pull-mark { animation: shvPullSpin .8s linear infinite; }
+@keyframes shvPullSpin { to { transform: rotate(360deg); } }
+.shop-refresh { min-height: 40px; }
+.shop-refresh:disabled { opacity: .62; cursor: progress; }
+
+/* Prevent iOS Safari's automatic zoom-on-focus on every editable field,
+   including fields in drawers/admin panels that live outside the main view. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="color"]):not([type="file"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shv-pull-status,
+  .shv-pull-status.is-visible { transition: none; }
+  .shv-pull-status.is-loading .shv-pull-mark { animation: none; }
+}

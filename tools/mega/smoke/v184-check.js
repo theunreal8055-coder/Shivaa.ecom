@@ -1,6 +1,6 @@
-/* v184 — read-only Cashfree settlement reconciliation regression gate.
-   Stamp-exact checks skip once a later release is active; the behavioral
-   assertions are also carried in the PHP 8.3 fixture suite. */
+/* v184 — Cashfree settlement reconciliation regression gate.
+   Behavioral checks stay active on later releases; the release/cache assertion
+   follows the current matched build stamps. */
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -11,10 +11,7 @@ const rd = name => fs.readFileSync(path.join(CMS, name), 'utf8');
 const index = rd('index.html'), app = rd('js/app.js'), sw = rd('sw.js');
 const api = rd('api.php'), admin = rd('js/admin.js');
 const rel = +(index.match(/__SHIVAA_REL\s*=\s*(\d+)/) || [])[1] || 0;
-if (rel > 184) {
-  console.log(`SKIP v184-check superseded by release ${rel}; retain its assertions in the current suite`);
-  process.exit(0);
-}
+assert.ok(rel >= 184, `expected release 184 or later, found ${rel}`);
 let pass = 0, fail = 0;
 function test(id, name, fn) {
   try { fn(); pass++; console.log(`PASS ${id} ${name}`); }
@@ -26,15 +23,15 @@ const homeStart = app.indexOf('  <!-- HOME CAMPAIGN ENTRY CARD -->');
 const homeEnd = app.indexOf('  <div class="catbar-outer">', homeStart);
 const campaignBlock = homeStart >= 0 && homeEnd > homeStart ? app.slice(homeStart, homeEnd) : '';
 
-test('R01', 'v184 page, app, worker, API and cache stamps move together', () => {
-  assert.ok(index.includes('window.__SHIVAA_REL=184;'));
-  assert.ok(app.includes('const APP_REL = 184;'));
-  assert.ok(sw.includes("const SHELL = 'shivaa-shell-v184';") && sw.includes('const REL = 184;'));
-  assert.ok(api.includes("'rel'   => 184,"));
-  assert.ok(!/\?v=183(?:['"\s)]|$)/.test(index), 'index has no v183 asset URL');
-  assert.ok(!/\?v=183(?:['"\s)]|$)/.test(sw), 'worker has no v183 asset URL');
-  assert.ok(index.includes('/js/app.js?v=184'));
-  assert.ok(sw.includes("'/js/app.js?v=184'"));
+test('R01', 'page, app, worker, API and cache stamps move together for the current release', () => {
+  assert.ok(index.includes(`window.__SHIVAA_REL=${rel};`));
+  assert.ok(app.includes(`const APP_REL = ${rel};`));
+  assert.ok(sw.includes(`const SHELL = 'shivaa-shell-v${rel}';`) && sw.includes(`const REL = ${rel};`));
+  assert.ok(api.includes(`'rel'   => ${rel},`));
+  assert.ok(!new RegExp(`\\?v=${rel - 1}(?:['"\\s)]|$)`).test(index), 'index has no previous-release asset URL');
+  assert.ok(!new RegExp(`\\?v=${rel - 1}(?:['"\\s)]|$)`).test(sw), 'worker has no previous-release asset URL');
+  assert.ok(index.includes(`/js/app.js?v=${rel}`));
+  assert.ok(sw.includes(`'/js/app.js?v=${rel}'`));
   assert.ok(sw.includes("const MEDIA = 'shivaa-media-v168';"), 'unchanged media generation stays put');
   assert.ok(admin.includes('runCashfreeRecon'), 'new admin JS is reached through APP_REL loader');
   assert.ok(app.includes("injectScript('/js/admin.js?v=' + APP_REL)"));

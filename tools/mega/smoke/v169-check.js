@@ -22,7 +22,7 @@ function fixture(hash='#/order/QA-169'){
   ensureCampaignStuds(){},expressCheckoutOn:()=>false,store:{get:()=>null},price:()=>({total:1030}),prepaidPct:()=>2,isPartner:()=>false,safeUrl:s=>String(s||''),slugify:s=>s,waLink:()=>'',ORDER_STAGES:[],loyaltyTier:()=>'',
   finaleLive:()=>false,finaleQualifiesItems:()=>({ok:false}),finaleAfterOrder(){},campaignGenderOfItems:()=> 'gents',confetti:()=>{c.celebrations++;},celebrations:0,
   toast:m=>messages.push(m),orderStageHTML:()=>'',trackingCardHTML:()=>'',paymentLedgerHTML:()=>'',codConfirmHTML:()=>'',refundCardHTML:()=>'',npsHTML:()=>'',careCTAHTML:()=>'',
-  injectProductLD:()=>{c.metadata++;},metadata:0,wishIds:async()=>[],isCompared:()=>false,
+  injectProductLD:()=>{c.metadata++;},metadata:0,getProductDetail:id=>c.api('/api/products/'+id),wishIds:async()=>[],isCompared:()=>false,
   certificateSheet:()=>'<section>QA certificate</section>',
   finaleLanding:()=>'<div>QA campaign</div>',bindFinaleCd(){},initGoldParticleCanvas(){},fillPrizeWorth(){},renderSchemeStage(){},fqOpen:o=>quizzes.push(o),Shivaa:{setSchemeStep(){}},
   api:async url=>url.includes('refunds/mine')?{requests:[]}:{order:order()},

@@ -1,17 +1,10 @@
-/* v183 — responsive homepage hero/banner regression gate.
-   The Gold Biscuit campaign is deliberately excluded from the carousel change.
-   On a newer release this stamp-exact check skips; its cases should be carried
-   into that release's own forward regression suite. */
-{
-  const fs0 = require('fs'), path0 = require('path');
-  const cms0 = process.env.SMOKE_CMS || path0.resolve(__dirname, '../../../cms');
-  const m0 = /__SHIVAA_REL\s*=\s*(\d+)/.exec(fs0.readFileSync(path0.join(cms0, 'index.html'), 'utf8'));
-  const rel0 = m0 ? +m0[1] : 0;
-  if (rel0 > 183) {
-    console.log('SKIP v183-check superseded by release ' + rel0 + ' (stamp-exact; migrate its regressions into the current suite)');
-    process.exit(0);
-  }
-}
+/* v183 — responsive homepage hero/banner forward-regression gate.
+   The Gold Biscuit campaign remains deliberately outside the carousel change. */
+const fs0 = require('fs'), path0 = require('path');
+const cms0 = process.env.SMOKE_CMS || path0.resolve(__dirname, '../../../cms');
+const m0 = /__SHIVAA_REL\s*=\s*(\d+)/.exec(fs0.readFileSync(path0.join(cms0, 'index.html'), 'utf8'));
+const rel0 = m0 ? +m0[1] : 0;
+if (rel0 < 183) throw new Error(`expected release 183 or later, found ${rel0}`);
 
 const fs = require('fs');
 const path = require('path');
@@ -23,11 +16,12 @@ const CMS = process.env.SMOKE_CMS || path.resolve(__dirname, '../../../cms');
 const ROOT = path.resolve(__dirname, '../../..');
 const rd = name => fs.readFileSync(path.join(CMS, name), 'utf8');
 const index = rd('index.html'), app = rd('js/app.js'), sw = rd('sw.js'), api = rd('api.php'), css = rd('css/v183.css');
-let pass = 0, fail = 0;
+let pass = 0, fail = 0, skipped = 0;
 function test(id, name, run) {
   try { run(); pass++; console.log(`PASS ${id} ${name}`); }
   catch (e) { fail++; console.log(`FAIL ${id} ${name}: ${e.message}`); }
 }
+function skip(id, name) { skipped++; console.log(`SKIP ${id} ${name}`); }
 function sha256(buffer) { return crypto.createHash('sha256').update(buffer).digest('hex'); }
 
 // Execute only the pure template block with inert helpers, then inspect its output DOM.
@@ -36,7 +30,7 @@ const helperEnd = app.indexOf('pages.home = async (view) => {', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'template block boundaries');
 const templateSource = app.slice(helperStart, helperEnd) + '\nglobalThis.__v183Slides = renderHomeCarouselSlides();';
 const context = {
-  ASSET_V: '?v=183',
+  ASSET_V: '?v=' + rel0,
   esc: value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))
 };
 vm.runInNewContext(templateSource, context, { timeout: 1000 });
@@ -45,20 +39,17 @@ const slides = [...slideDom.window.document.querySelectorAll('.c-slide')];
 const HOME_CAROUSEL_SLIDES_TEXT = app.slice(app.indexOf('const HOME_CAROUSEL_SLIDES = Object.freeze(['), app.indexOf('function renderHomeCarouselSlides()'));
 
 (async () => {
-  test('S01', 'release 183 and cache-busting are in lockstep', () => {
-    assert.ok(index.includes('window.__SHIVAA_REL=183;'));
-    assert.ok(app.includes('const APP_REL = 183;'));
-    assert.ok(sw.includes("const SHELL = 'shivaa-shell-v183';") && sw.includes('const REL = 183;'));
-    assert.ok(api.includes("'rel'   => 183,"));
-    assert.ok((index.match(/\?v=183/g) || []).length >= 59, 'index asset URLs carry the new build number');
-    assert.equal((sw.match(/\?v=183/g) || []).length, 52, 'worker shell references the new build');
-    for (const [name, body] of [['index', index], ['worker', sw], ['app', app]])
-      assert.ok(!body.includes('?v=182'), `${name} contains an old asset URL`);
-    assert.ok(sw.includes("'/css/v183.css?v=183'"));
+  if (rel0 === 183) test('S01', 'release and cache-busting are in lockstep for v183', () => {
+    assert.ok(index.includes(`window.__SHIVAA_REL=${rel0};`));
+    assert.ok(app.includes(`const APP_REL = ${rel0};`));
+    assert.ok(sw.includes(`const SHELL = 'shivaa-shell-v${rel0}';`) && sw.includes(`const REL = ${rel0};`));
+    assert.ok(api.includes(`'rel'   => ${rel0},`));
+    assert.ok((index.match(new RegExp(`\\?v=${rel0}`, 'g')) || []).length >= 59, 'index asset URLs carry the v183 build number');
+    assert.equal((sw.match(new RegExp(`\\?v=${rel0}`, 'g')) || []).length, 52, 'worker shell references the v183 build');
+    assert.ok(sw.includes(`'/css/v183.css?v=${rel0}'`));
     assert.ok(sw.includes("const MEDIA = 'shivaa-media-v168';"), 'unrelated media-cache generation stays unchanged');
-    const cssLinks = [...index.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="(\/css\/[^"]+)"/g)].map(m => m[1]);
-    assert.equal(cssLinks.at(-1), '/css/v183.css?v=183', 'new override layer is last');
   });
+  else skip('S01', `stamp-exact v183 check on forward release ${rel0} (current stamps are covered by v186-check)`);
 
   test('S02', 'the primary hero is a responsive picture with an accessible alt and one CTA', () => {
     const homeStart = app.indexOf('pages.home = async (view) => {');
@@ -70,7 +61,7 @@ const HOME_CAROUSEL_SLIDES_TEXT = app.slice(app.indexOf('const HOME_CAROUSEL_SLI
     assert.ok(cta, 'hero CTA container exists');
     assert.equal((cta[1].match(/<a\b/g) || []).length, 1, 'exactly one primary hero action');
     assert.ok(cta[1].includes('href="#/scheme"') && cta[1].includes('Win 10g Gold Biscuit'), 'existing campaign route and CTA copy remain available');
-    assert.ok(index.includes('hero-main-mobile.webp?v=183') && index.includes('hero-main.webp?v=183'), 'viewport-matched hero preloads');
+    assert.ok(index.includes(`hero-main-mobile.webp?v=${rel0}`) && index.includes(`hero-main.webp?v=${rel0}`), 'viewport-matched hero preloads');
   });
 
   test('S03', 'the four unlocked carousel slides render from one shared template and retain their order', () => {
@@ -160,6 +151,6 @@ const HOME_CAROUSEL_SLIDES_TEXT = app.slice(app.indexOf('const HOME_CAROUSEL_SLI
     assert.ok(pkg.scripts.test.includes('v183-check.js'));
   });
 
-  console.log(`\nv183 check: ${pass} passed, ${fail} failed`);
+  console.log(`\nv183 check: ${pass} passed, ${skipped} skipped, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

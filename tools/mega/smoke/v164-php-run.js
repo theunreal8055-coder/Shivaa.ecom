@@ -66,8 +66,9 @@ function seedDb(stripStuds) {
   const b64 = s => Buffer.from(s).toString('base64');
   async function req(method, route, body, q, auth) {
     q = q || {};
+    const rawBody = body ? JSON.stringify(body) : '';
     const code = `<?php
-$GLOBALS['SHV_BODY'] = "${b64(body ? JSON.stringify(body) : '')}";
+$GLOBALS['SHV_BODY'] = "${b64(rawBody)}";
 class ShvIn { public $context; private $d; private $p = 0;
   public function stream_open($u, $m, $o, &$x) { $this->d = base64_decode($GLOBALS['SHV_BODY']); return true; }
   public function stream_read($n) { $r = substr($this->d, $this->p, $n); $this->p += strlen($r); return $r; }
@@ -80,6 +81,8 @@ stream_wrapper_register('php', 'ShvIn');
 $_SERVER['REQUEST_METHOD'] = '${method}';
 $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 $_SERVER['HTTP_HOST'] = 'www.shivaa.in';
+$_SERVER['CONTENT_TYPE'] = 'application/json';
+$_SERVER['CONTENT_LENGTH'] = '${Buffer.byteLength(rawBody)}';
 $_SERVER['HTTP_AUTHORIZATION'] = '${auth ? 'Bearer ' + auth : ''}';
 $_SERVER['REQUEST_URI'] = '/api/${route}';
 $_GET = array_merge(['__route' => '${route}'], (array) json_decode(base64_decode("${b64(JSON.stringify(q || {}))}"), true));
