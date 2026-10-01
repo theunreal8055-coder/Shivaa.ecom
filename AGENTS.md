@@ -3,9 +3,11 @@
 ## Current session state — 1 October 2026
 
 - Work stays on Arena's fixed branch `arena/01a0f602-shivaa-ecom`. Release
-  **183** is the last completed/pushed release (`7b937fc`); v184 is the next
-  source/package batch. The current live production version has **not** been
-  verified in this session. Do not repeat historic v179/v181 figures as live.
+  **184** is pushed (`47cc3db`). The owner reports extracting v183 then v184
+  into the production public HTML folder. A safe GET to `/api/version` on
+  1 Oct 2026 returned `rel: 184`, `shell: shivaa-shell-v184`, matching index/app/
+  worker stamps, and MySQL with 78/78 counts and `mirrorBehind: false`. This
+  verifies the release handshake only—not the report or Cashfree account.
 - v184 adds a read-only, admin-gated Cashfree settlement report to Admin →
   Reports. It uses the documented event-level `POST /pg/settlement/recon` API
   version `2026-01-01` for this call only; ordinary Cashfree calls stay on
@@ -13,20 +15,24 @@
   existing local payments and recorded overpayments, displays event settlement
   amounts separately, and requires manual cursor paging. It does not run on a schedule,
   mutate payment records, or change loyalty/order expiry behavior.
+- Staging was not performed before the owner's production extraction. The
+  reconciliation report has not been run against Cashfree; inclusive/exclusive
+  processed-date boundaries, merchant entitlement, visual approval, and mobile
+  behavior remain unverified. Do not rely on the report for financial close yet.
 - Payment finding #27 remains blocked on the owner's commercial order-expiry
   policy. Never invent an expiry duration, auto-cancel, or points-release rule.
-- v184 has no merchant-account verification; no Cashfree credentials are stored
-  in the repo or requested in chat. Staging, real-provider, visual approval,
-  and production checks remain pending. Read `DEPLOY-v184.md`,
-  `docs/PAYMENT-EXPERIENCE-NEXT.md`, and `CASHFREE-INTEGRATION.md` before the
-  next payment batch.
+- No Cashfree credentials are stored in the repo or requested in chat. Read
+  `DEPLOY-v184.md`, `docs/PAYMENT-EXPERIENCE-NEXT.md`, and
+  `CASHFREE-INTEGRATION.md` before the next payment batch.
 
 ## Deployment and safety gates — standing rules
 
 - Production is manual-only. A push/merge must never update Hostinger or the
   live catalogue. Stage first, verify the release handshake/cache behavior,
   then request explicit owner approval for that deployment; one yes authorizes
-  only one run. No staging or production deployment occurred for v184.
+  only one run. For v184, the owner reports manual extraction to production on
+  1 Oct; the release handshake was checked, but staging and the live Cashfree
+  report were not.
 - Never deploy an older tree over a newer live site. Check `/api/version` on
   the authorized target before deploying and stop if its release is newer than
   the package. Do not assume a live version from old handoff notes.

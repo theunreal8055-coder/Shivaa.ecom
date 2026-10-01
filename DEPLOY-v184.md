@@ -2,8 +2,8 @@
 
 **Built:** 1 Oct 2026 · **Release stamps:** 184 · **Branch:** `arena/01a0f602-shivaa-ecom`
 
-> **Status: review package only — not staged, not deployed, and not approved for production.**
-> No merchant credentials or live Cashfree response were available. This package is not authorization to deploy.
+> **Status: owner-reported production extraction on 1 Oct 2026; release handshake verified.**
+> The owner reports extracting v183 followed by v184 into the production public HTML folder. A safe `GET https://shivaa.in/api/version` returned rel 184 with matching index/app/worker stamps. Staging was not performed, and the Cashfree reconciliation report has not been exercised; do not rely on it for financial close yet.
 
 ## What changed
 
@@ -76,6 +76,7 @@ The public reference does not document exact inclusive/exclusive date-bound beha
 
 ## Staging, visual review, and deployment
 
-- **Not tested:** authorized merchant staging, a real Cashfree response, production, real phones/tablets, in-app browsers, or live financial-close behavior. No screenshots or visual approval were recorded; automated source checks are not visual approval.
-- No staging or production deployment occurred. #27 still needs the owner's commercial policy for order expiry/points release.
-- Before any deployment: inspect the report on desktop and mobile; confirm the exact processed-date edge behavior and account access on authorized staging; verify every cursor page and the v184 live release/cache handshake; record before/after evidence; then obtain explicit owner approval. Never deploy without that approval, and do not treat this package or a merge as deployment authorization.
+- The owner reports extracting v183 and v184 into the production public HTML folder. On 1 Oct 2026, the public read-only `GET /api/version` returned `rel: 184`, `shell: shivaa-shell-v184`, `matched: true` for index/app/service-worker stamps, and MySQL `sqlCount: 78`, `jsonCount: 78`, `mirrorBehind: false`. This verifies the release handshake and data-source status only.
+- **Not tested:** staging before rollout, an Admin report run, a real Cashfree response, exact processed-date edge behavior, real phones/tablets, in-app browsers, or financial-close behavior. No screenshots or visual approval were recorded.
+- #27 still needs the owner's commercial policy for order expiry/points release. Do not rely on the reconciliation report for financial close until its date boundaries and merchant access are validated on authorized staging.
+- For future releases, inspect on desktop and mobile, test authorized staging and cursor paging, record before/after evidence, and obtain explicit owner approval before production deployment. The v184 extraction was reported as the owner's manual action; no deployment was performed by this agent.
