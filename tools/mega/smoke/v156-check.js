@@ -66,7 +66,7 @@ console.log('· 1 — SHIVAA RATES: the B2C storefront speaks Shivaa, not Jaipur
     dead.filter(([w, s, t]) => s.includes(t)).map(([w, s, t]) => w + ': ' + t).join(' · ') || 'clean');
 
   const live = [
-    ['app', app, 'Shivaa Live Rates'], ['app', app, '✦ SHIVAA LIVE RATE'], ['app', app, 'SHIVAA LIVE'],
+    ['app', app, "Gold & silver jewellery at Shivaa's live rates"], ['app', app, '✦ SHIVAA LIVE RATE'], ['app', app, 'SHIVAA LIVE'],
     ['app', app, '✦ Shivaa Gold 22K / g'], ['app', app, 'GOLD 24K · SHIVAA'], ['app', app, 'GOLD 22K · SHIVAA'],
     ['app', app, 'GOLD 18K · SHIVAA'], ['app', app, 'SILVER 925 · SHIVAA'],
     ['app', app, '22K Shivaa premium'], ['app', app, '24K Shivaa premium'], ['app', app, 'Silver (Shivaa 925)'],
@@ -79,7 +79,7 @@ console.log('· 1 — SHIVAA RATES: the B2C storefront speaks Shivaa, not Jaipur
     ['index', idx, 'Shivaa gold &amp; silver, live'],
     ['api', api, 'The live Shivaa gold / silver rate at the time you buy'],
   ];
-  ok('all 25 new "Shivaa" rate-brand strings are present where the old ones stood', live.every(([w, s, t]) => s.includes(t)),
+  ok('all 25 tracked "Shivaa" rate-brand strings or current home equivalents are present', live.every(([w, s, t]) => s.includes(t)),
     live.filter(([w, s, t]) => !s.includes(t)).map(([w, s, t]) => w + ': ' + t).join(' · ') || 'all present');
 
   ok('real geography keeps its name (pickup Jaipur & Nagaur ×3, city chips, reviewer hometown)',

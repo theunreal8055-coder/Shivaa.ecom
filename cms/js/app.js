@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 182;
+const APP_REL = 183;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -2366,7 +2366,7 @@ function initCarousel() {
   clearInterval(window._carTimer);
   const track = $('#cTrack'), slides = $$('.c-slide', car), n = slides.length;
   const dots = $('#cDots');
-  dots.innerHTML = slides.map((_, i) => `<span class="c-dot ${i === 0 ? 'on' : ''}" data-i="${i}"></span>`).join('');
+  dots.innerHTML = slides.map((slide, i) => `<button type="button" class="c-dot ${i === 0 ? 'on' : ''}" data-i="${i}" aria-label="Show ${esc(slide.dataset.label || ('featured slide ' + (i + 1)))}" aria-current="${i === 0 ? 'true' : 'false'}"></button>`).join('');
   let idx = 0;
   const go = i => {
     idx = (i + n) % n;
@@ -2374,31 +2374,46 @@ function initCarousel() {
        will-change:transform in css) so slide changes stay butter-smooth on
        low-end Android instead of repainting a full-width layer. */
     track.style.transform = `translate3d(-${idx * 100}%,0,0)`;
-    $$('.c-dot', dots).forEach((d, j) => d.classList.toggle('on', j === idx));
-    // mark the visible slide so its Ken-Burns zoom + copy reveal run only there
+    $$('.c-dot', dots).forEach((d, j) => {
+      d.classList.toggle('on', j === idx);
+      d.setAttribute('aria-current', j === idx ? 'true' : 'false');
+    });
+    // Only the active slide is visible to assistive tech or keyboard focus.
+    // Its Ken-Burns zoom + copy reveal also run only on that slide.
     slides.forEach((sl, j) => {
       sl.classList.toggle('on', j === idx);
       sl.setAttribute('aria-hidden', j === idx ? 'false' : 'true');
+      if ('inert' in sl) sl.inert = j !== idx;
     });
   };
   go(0);
   const next = () => go(idx + 1), prev = () => go(idx - 1);
   $('.c-next', car).onclick = next; $('.c-prev', car).onclick = prev;
   $$('.c-dot', dots).forEach(d => d.onclick = () => go(+d.dataset.i));
+  const reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let mouseHovering = false;
   const start = () => {
     /* v113b - never stack intervals. Every pointercancel / lostpointercapture /
        visibilitychange used to add another timer on top of the running one, so
        after a scroll or a tab switch the deck advanced two, three, four slides
        per tick. clearInterval first makes start() idempotent. */
     clearInterval(window._carTimer);
+    window._carTimer = null;
+    // Autoplay is paused while the user is interacting, the tab is hidden,
+    // or the OS has requested reduced motion.
+    if (!car.isConnected || document.hidden || (reduceMotion && reduceMotion.matches) || mouseHovering || car.contains(document.activeElement)) return;
     // v42: slower auto-advance on mobile (12s vs 5.5s desktop) so it glides, not jumps
     const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
     const interval = _mob ? 12000 : 5500;
     window._carTimer = setInterval(next, interval);
   };
   const stop = () => { clearInterval(window._carTimer); window._carTimer = null; };
-  car.addEventListener('mouseenter', stop);
-  car.addEventListener('mouseleave', start);
+  car._shvCarouselStart = start;
+  car._shvCarouselStop = stop;
+  car.addEventListener('focusin', stop);
+  car.addEventListener('focusout', e => { if (!car.contains(e.relatedTarget)) start(); });
+  car.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { mouseHovering = true; stop(); } });
+  car.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { mouseHovering = false; start(); } });
   /* v113 — swipe engine rebuilt.
      The old code only listened for pointerdown/pointerup. Mobile browsers fire
      **pointercancel** (never pointerup) the instant a vertical page scroll
@@ -2460,12 +2475,22 @@ function initCarousel() {
   if (!window._carVisBound) {
     window._carVisBound = true;
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) { clearInterval(window._carTimer); window._carTimer = null; }
-      else if (location.hash === '#/' || location.hash === '' || location.hash === '#') {
-        const c = $('#heroCarousel');
-        if (c) { clearInterval(window._carTimer); start(); }
-      }
+      const active = $('#heroCarousel');
+      if (!active) { clearInterval(window._carTimer); window._carTimer = null; return; }
+      if (document.hidden) active._shvCarouselStop?.();
+      else active._shvCarouselStart?.();
     });
+  }
+  if (!window._carMotionBound) {
+    window._carMotionBound = true;
+    const motionChange = e => {
+      const active = $('#heroCarousel');
+      if (!active) return;
+      if (e.matches) active._shvCarouselStop?.();
+      else active._shvCarouselStart?.();
+    };
+    if (reduceMotion && reduceMotion.addEventListener) reduceMotion.addEventListener('change', motionChange);
+    else if (reduceMotion && reduceMotion.addListener) reduceMotion.addListener(motionChange);
   }
   start();
 }
@@ -3176,6 +3201,86 @@ pages.pickup = async (view) => {
   };
 };
 
+/* v183 — shared, art-directed hero/banner renderer. The four promoted slides
+   are copy-and-image data records, not four independent page fragments; the
+   dedicated Gold Biscuit card above the carousel intentionally stays separate. */
+function responsiveBannerPicture(desktopBase, mobileBase, alt, className = '', eager = false, width = 1584, height = 672) {
+  const loading = eager ? 'eager' : 'lazy';
+  const priority = eager ? 'high' : 'low';
+  const cls = className ? ` class="${className}"` : '';
+  return `<picture${cls}>
+    <source media="(max-width: 820px)" type="image/webp" srcset="/images/banners/${mobileBase}.webp${ASSET_V}">
+    <source media="(max-width: 820px)" srcset="/images/banners/${mobileBase}.jpg${ASSET_V}">
+    <source type="image/webp" srcset="/images/banners/${desktopBase}.webp${ASSET_V}">
+    <img src="/images/banners/${desktopBase}.jpg${ASSET_V}" alt="${esc(alt)}" width="${width}" height="${height}" loading="${loading}" fetchpriority="${priority}" decoding="async" draggable="false">
+  </picture>`;
+}
+
+const HOME_CAROUSEL_SLIDES = Object.freeze([
+  {
+    key: 'heritage', variant: 's-left', image: 'poster-heritage', mobile: 'poster-heritage-mobile', width: 1584, height: 672,
+    label: 'The House of Honest Gold',
+    alt: 'Ornate gold heritage necklace against a deep maroon background',
+    kicker: '&#10022; The House of Honest Gold',
+    headline: 'Purity you can <em class="shimmer foil-txt">pass down</em>',
+    decor: '<span class="c-frame" aria-hidden="true"><i class="cf-c c1"></i><i class="cf-c c2"></i><i class="cf-c c3"></i><i class="cf-c c4"></i></span><span class="c-wm" aria-hidden="true">99&middot;999</span>',
+    highlight: '<div class="offer-seal alt seal-plaque"><b>HUID<small>GUIDE</small></b><span>check the actual piece</span></div>',
+    description: "Every Shivaa piece is handcrafted by master karigars, weighed to the milligram and billed at Shivaa's live rate &mdash; jewellery made to be inherited, not replaced.",
+    trust: ['HUID check guide', 'Live-rate pricing'],
+    cta: 'Explore the Collections', href: '#/shop'
+  },
+  {
+    key: 'bridal', variant: 's-center', image: 'poster-bridal', mobile: 'poster-bridal-mobile', width: 1376, height: 768,
+    label: 'The bridal edit · Jayal to your city',
+    alt: 'Bridal necklace and earrings set displayed on burgundy velvet',
+    kicker: '&#10022; The bridal edit &middot; Jayal to your city',
+    headline: 'The Complete <em class="shimmer foil-txt">Trousseau</em>',
+    highlight: '<div class="offer-seal alt seal-medallion"><b>MC<small>WAIVED</small></b><span>on full bridal sets</span></div>',
+    description: 'A considered jewellery edit for wedding celebrations, with each piece shown alongside its details and live-rate price.',
+    trust: ['Live-rate pricing'],
+    cta: 'Explore Bridal', href: '#/shop?tag=wedding'
+  },
+  {
+    key: 'everyday', variant: 's-right', image: 'poster-everyday', mobile: 'poster-everyday-mobile', width: 1376, height: 768,
+    label: 'The everyday edit',
+    alt: 'Gold necklace, earrings and ring arranged on a light stone surface',
+    kicker: '&#10022; The everyday edit',
+    headline: 'Above ordinary,<br><em class="shimmer foil-txt">under &#8377;50,000</em>',
+    description: 'Studs, pendants, chains &amp; silver &mdash; with individual specifications and Shivaa-rate pricing.',
+    trust: ['Live-rate pricing', 'Daily-wear designs'],
+    cta: 'Shop the Edit', href: '#/shop?max=50000'
+  },
+  {
+    key: 'swarna-nidhi', variant: 's-band', image: 'wedding', mobile: 'wedding-mobile', width: 1376, height: 768,
+    label: 'Swarna Nidhi · the gold savings plan',
+    alt: 'Gold bars stacked in a pyramid against a dark background',
+    kicker: '&#10022; Swarna Nidhi &middot; the gold savings plan',
+    preTitle: '<div class="sn-num">11<span>+</span>1</div>',
+    headline: 'Pay eleven, own twelve',
+    description: "Save every month at that day's live gold rate &mdash; the 12th instalment is on us. A 9.09% benefit, in pure gold.",
+    trust: [],
+    cta: 'Start Saving', href: '#/savings', panel: true
+  }
+]);
+
+function renderHomeCarouselSlides() {
+  return HOME_CAROUSEL_SLIDES.map((slide, index) => `
+    <div class="c-slide ${slide.variant}" data-banner="${slide.key}" data-label="${esc(slide.label)}" aria-hidden="${index === 0 ? 'false' : 'true'}">
+      ${responsiveBannerPicture(slide.image, slide.mobile, slide.alt, 'c-picture', index === 0, slide.width, slide.height)}
+      <div class="c-fade ${slide.key === 'bridal' ? 'fade-c' : slide.key === 'everyday' ? 'fade-r' : ''}"></div>
+      ${slide.decor || ''}
+      <div class="c-body${slide.panel ? ' c-panel' : ''}">
+        <span class="label">${slide.kicker}</span>
+        ${slide.preTitle || ''}
+        <h3>${slide.headline}</h3>
+        ${slide.highlight || ''}
+        <p>${slide.description}</p>
+        ${slide.trust && slide.trust.length ? `<div class="c-trust-row" aria-label="${esc(slide.trust.join(' · '))}">${slide.trust.map(x => `<span>${esc(x)}</span>`).join('<i aria-hidden="true">·</i>')}</div>` : ''}
+        <div class="c-cta"><a class="btn btn-gold btn-lg" href="${slide.href}">${slide.cta}</a></div>
+      </div>
+    </div>`).join('');
+}
+
 pages.home = async (view) => {
   ensureCampaignStuds();
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
@@ -3186,7 +3291,7 @@ pages.home = async (view) => {
   const wishSet = state.user ? await wishIds() : [];
   view.innerHTML = `
   <section class="hero">
-    <div class="hero-img"></div><div class="hero-fade"></div>
+    <div class="hero-img">${responsiveBannerPicture('hero-main', 'hero-main-mobile', 'Bridal gold necklace set on rich maroon velvet', 'hero-picture', true)}</div><div class="hero-fade"></div>
     <div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="hero-orbs">
       <div class="orb" style="width:130px;height:130px;left:6%;top:16%;background:radial-gradient(circle at 35% 35%,#f3dfae,#b98a2f 68%,transparent 72%);animation-delay:-2s"></div>
@@ -3199,9 +3304,7 @@ pages.home = async (view) => {
         <h1>Jewellery as honest as your <em class="shimmer foil-txt">love</em></h1>
         <p class="hero-sub">Gold & silver jewellery at Shivaa's live rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
         <div class="hero-cta">
-          <a class="btn btn-gold btn-lg" href="#/shop">Shop the Collection</a>
           <a class="btn btn-gold btn-lg shv-pulse-cta" href="#/scheme">✦ Win 10g Gold Biscuit</a>
-          <a class="btn btn-light btn-lg" href="#/rates">Shivaa Live Rates</a>
         </div>
         <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
         <div class="hero-stats">
@@ -3244,54 +3347,7 @@ pages.home = async (view) => {
 
   <section class="carousel-sec">
     <div class="carousel" id="heroCarousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Featured Shivaa campaigns — use the left and right arrow keys">
-      <div class="c-track" id="cTrack">
-        <div class="c-slide s-left">
-          <img src="/images/banners/poster-heritage.jpg" srcset="/images/banners/poster-heritage-m.jpg 800w, /images/banners/poster-heritage.jpg 1584w" sizes="100vw" alt="Shivaa fine gold craftsmanship" draggable="false" decoding="async" fetchpriority="high">
-          <div class="c-fade"></div>
-          <span class="c-frame" aria-hidden="true"><i class="cf-c c1"></i><i class="cf-c c2"></i><i class="cf-c c3"></i><i class="cf-c c4"></i></span>
-          <span class="c-wm" aria-hidden="true">99&middot;999</span>
-          <div class="c-body">
-            <span class="label">&#10022; The House of Honest Gold</span>
-            <h3>Purity you can <em class="shimmer foil-txt">pass down</em></h3>
-            <div class="offer-seal alt seal-plaque"><b>HUID<small>GUIDE</small></b><span>check the actual piece</span></div>
-            <p>Every Shivaa piece is handcrafted by master karigars, weighed to the milligram and billed at Shivaa's live rate &mdash; jewellery made to be inherited, not replaced.</p>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop">Explore the Collections</a><a class="btn btn-light btn-lg" href="#/about">Our Craft &amp; Story</a></div>
-          </div>
-        </div>
-        <div class="c-slide s-center">
-          <img src="/images/banners/poster-bridal.jpg" alt="Bridal collection" draggable="false" decoding="async" loading="lazy">
-          <div class="c-fade fade-c"></div>
-          <div class="c-body">
-            <span class="label">&#10022; The bridal edit &middot; Jayal to your city</span>
-            <h3>The Complete <em class="shimmer foil-txt">Trousseau</em></h3>
-            <div class="offer-seal alt seal-medallion"><b>MC<small>WAIVED</small></b><span>on full bridal sets</span></div>
-            <div class="flash-countdown" id="wedCd"></div>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop?tag=wedding">Explore Bridal</a></div>
-          </div>
-        </div>
-        <div class="c-slide s-right">
-          <img src="/images/banners/poster-everyday.jpg" alt="Everyday edit under 50000" draggable="false" decoding="async" loading="lazy">
-          <div class="c-fade fade-r"></div>
-          <div class="c-body">
-            <span class="label">&#10022; The everyday edit</span>
-            <h3>Above ordinary,<br><em class="shimmer foil-txt">under &#8377;50,000</em></h3>
-            <div class="price-lock"><b>&#8377;2,400</b><span>from &middot; live-rate priced &middot; daily wear</span></div>
-            <p>Studs, pendants, chains &amp; silver &mdash; with individual specifications and Shivaa-rate pricing.</p>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop?max=50000">Shop the Edit</a></div>
-          </div>
-        </div>
-        <div class="c-slide s-band">
-          <img src="/images/banners/wedding.jpg" alt="Swarna Nidhi gold savings plan" draggable="false" decoding="async" loading="lazy">
-          <div class="c-fade"></div>
-          <div class="c-panel">
-            <span class="label">&#10022; Swarna Nidhi &middot; the gold savings plan</span>
-            <div class="sn-num">11<span>+</span>1</div>
-            <h3>Pay eleven, own twelve</h3>
-            <p>Save every month at that day's live gold rate &mdash; the 12th instalment is on us. A 9.09% benefit, in pure gold.</p>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/savings">Start Saving</a><a class="btn btn-light btn-lg" href="#/contact">Visit the Store</a></div>
-          </div>
-        </div>
-      </div>
+      <div class="c-track" id="cTrack">${renderHomeCarouselSlides()}</div>
       <button class="c-arrow c-prev" aria-label="Previous poster">‹</button>
       <button class="c-arrow c-next" aria-label="Next poster">›</button>
       <div class="c-dots" id="cDots"></div>
@@ -3410,7 +3466,6 @@ pages.home = async (view) => {
       </form>
     </div>
   </section>`;
-  bindCountdown($('#wedCd'), Date.now() + 6 * 864e5 + 11 * 36e5);
   const homeCd = $('#homeFinaleCd');
   if (homeCd) bindFinaleCd(homeCd);
   initCarousel();
@@ -9713,7 +9768,7 @@ function route() {
     });
     const heroEl = $('#view .hero');
     if (heroEl && !heroEl.querySelector('.hero-logo')) {
-      heroEl.insertAdjacentHTML('beforeend', '<img src="/images/logo.png" class="hero-logo" alt="">');
+      heroEl.insertAdjacentHTML('beforeend', '<img src="/images/logo.png?v=' + APP_REL + '" class="hero-logo" alt="Shivaa Inc. logo" loading="lazy" decoding="async">');
       if (!heroEl.querySelector('.hero-cue')) heroEl.insertAdjacentHTML('beforeend', '<div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>');
     }
     } catch(e) { /* v42: prevent crash on pages with unusual DOM (e.g. hallmark) */ }

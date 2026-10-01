@@ -4,6 +4,13 @@
 const fs = require('fs'); const http = require('http'); const path = require('path');
 const CMS = path.join(__dirname, '..', '..', '..', 'cms');
 const DB = JSON.parse(fs.readFileSync(path.join(CMS, 'data/db.json'), 'utf8'));
+const indexHtml = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8');
+const appSource = fs.readFileSync(path.join(CMS, 'js/app.js'), 'utf8');
+const workerSource = fs.readFileSync(path.join(CMS, 'sw.js'), 'utf8');
+const sourceRel = Number((/__SHIVAA_REL\s*=\s*(\d+)/.exec(indexHtml) || [])[1] || 0);
+const appRel = Number((/APP_REL\s*=\s*(\d+)/.exec(appSource) || [])[1] || 0);
+const workerRel = Number((/const REL\s*=\s*(\d+)/.exec(workerSource) || [])[1] || 0);
+const matched = sourceRel > 0 && sourceRel === appRel && sourceRel === workerRel;
 const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.json':'application/json',
   '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.png':'image/png', '.webp':'image/webp', '.svg':'image/svg+xml',
   '.woff2':'font/woff2', '.mp4':'video/mp4', '.ico':'image/x-icon', '.txt':'text/plain', '.xml':'application/xml',
@@ -32,9 +39,9 @@ http.createServer((req, res) => {
     } else if (u === '/api/pages') out = { pages: [] };
     /* v166 — the release endpoint the freshness controller reads (same shape as
        api.php), so the preview behaves exactly like production. */
-    else if (u === '/api/version') out = { ok: true, rel: 166, shell: 'shivaa-shell-v166', builtAt: new Date().toISOString(),
+    else if (u === '/api/version') out = { ok: true, rel: sourceRel, shell: 'shivaa-shell-v' + workerRel, builtAt: new Date().toISOString(),
       forceLatest: (DB.settings && DB.settings.forceLatestVersion) !== false,
-      stamp: { index: 166, app: 166, sw: 166, matched: true } };
+      stamp: { index: sourceRel, app: appRel, sw: workerRel, matched } };
     else if (u === '/api/auth/me') out = { user: null };
     else out = {};
     return send(200, JSON.stringify(out), 'application/json');

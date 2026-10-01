@@ -20,6 +20,14 @@ const MOCK_PORT = 48141, RELAY_PORT = 48142, RELAY2_PORT = 48143;
 const SECRET = 'GEZDGNBVGY3TQOJQ';
 const TICK_KEY = 'qa-tick-key';
 const STREAM_KEY = 'qa-stream-key';
+const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+function mockContractTag(monthOffset) {
+  const d = new Date();
+  const month = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + monthOffset, 1));
+  return '27' + MONTHS[month.getUTCMonth()] + String(month.getUTCFullYear()).slice(-2);
+}
+const MOCK_NEAR_TAG = mockContractTag(2);
+const MOCK_FAR_TAG = mockContractTag(8);
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -68,9 +76,9 @@ function handleMock(req, res) {
         if (metal !== 'GOLD' && metal !== 'SILVER') return send(400, { status: false, message: 'bad searchscrip' });
         const suffix = metal === 'GOLD' ? '1' : '2';
         return send(200, { status: true, data: [
-          { tradingsymbol: metal + '27MAR27', symboltoken: '99210020' + suffix },
+          { tradingsymbol: metal + MOCK_NEAR_TAG, symboltoken: '99210020' + suffix },
           { tradingsymbol: metal + '_BAD', symboltoken: '1' },
-          { tradingsymbol: metal + '26SEP26', symboltoken: '99210010' + suffix },
+          { tradingsymbol: metal + MOCK_FAR_TAG, symboltoken: '99210010' + suffix },
         ] });
       }
       if (req.url.includes('/quote/')) {
@@ -79,8 +87,8 @@ function handleMock(req, res) {
         if (mock.quoteMode === 'unauthorized') return send(401, { status: false, message: 'token expired' });
         const g = 90000 + mock.quoteCount, s = 105000 + mock.quoteCount;
         return send(200, { status: true, data: { fetched: [
-          { tradingsymbol: 'GOLD26SEP26', symbolToken: '992100101', ltp: g, bid: g - 5, ask: g + 5, open: g, high: g + 10, low: g - 10, close: g - 20, chg: 10, chgPct: 0.01, oi: 1000, atp: g, vol: 50, feedTime: '2026-09-24T10:00:00' },
-          { tradingsymbol: 'SILVER26SEP26', symbolToken: '992100102', ltp: s, bid: s - 20, ask: s + 20, open: s, high: s + 100, low: s - 100, close: s - 200, chg: 50, chgPct: 0.05, oi: 2000, atp: s, vol: 60, feedTime: '2026-09-24T10:00:00' },
+          { tradingsymbol: 'GOLD' + MOCK_NEAR_TAG, symbolToken: '992100201', ltp: g, bid: g - 5, ask: g + 5, open: g, high: g + 10, low: g - 10, close: g - 20, chg: 10, chgPct: 0.01, oi: 1000, atp: g, vol: 50, feedTime: new Date().toISOString() },
+          { tradingsymbol: 'SILVER' + MOCK_NEAR_TAG, symbolToken: '992100202', ltp: s, bid: s - 20, ask: s + 20, open: s, high: s + 100, low: s - 100, close: s - 200, chg: 50, chgPct: 0.05, oi: 2000, atp: s, vol: 60, feedTime: new Date().toISOString() },
         ], unfetched: [] } });
       }
       send(404, { status: false, message: 'mock: unknown path ' + req.url });
@@ -152,8 +160,8 @@ function relayLogs() { return R1 ? R1.log : ''; }
       'TOTP is a valid RFC 6238 code for the configured secret (' + mock.totpSeen[0] + ')');
     const t = await getJson(R1.base + '/tick', { 'X-Relay-Key': TICK_KEY });
     assert.equal(t.code, 200);
-    assert.equal(t.json.gold.symbol, 'GOLD26SEP26', 'nearest expiry wins, not the far month');
-    assert.equal(t.json.silver.symbol, 'SILVER26SEP26');
+    assert.equal(t.json.gold.symbol, 'GOLD' + MOCK_NEAR_TAG, 'nearest unexpired mock contract wins, not the far month');
+    assert.equal(t.json.silver.symbol, 'SILVER' + MOCK_NEAR_TAG);
     assert.ok(t.json.gold.ltp > 0 && t.json.silver.ltp > 0);
     assert.equal(t.json.relay, true);
   });

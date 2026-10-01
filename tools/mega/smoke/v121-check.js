@@ -1,12 +1,13 @@
 /* ══════════════════════════════════════════════════════════════════════════
    SHIVAA v121 check — mobile smoothness gates.
 
-   A · static   (9) v121 wiring, 121 handshake, LCP srcset + matching preload,
-                    the -m file, v121.css (layers, skip-offscreen, sweep
-                    gating), hidden guards on the second-tickers
-   B · live     (5) jsdom: boots, one visible slide with the -m srcset, the
-                     carousel advances its .on hook, shop slices still grow
-                     under content-visibility, zero page errors
+   A · static   (9) v121 wiring, 121 handshake, responsive banner image
+                    sources + matching hero preload, compact mobile crop,
+                    v121.css (layers, skip-offscreen, sweep gating), hidden
+                    guards on the second-tickers
+   B · live     (5) jsdom: boots, one active slide with a phone art source,
+                     the carousel advances its .on hook, shop slices still
+                     grow under content-visibility, zero page errors
    ══════════════════════════════════════════════════════════════════════════ */
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
@@ -79,19 +80,33 @@ function bootStore(extra = '') {
     st(html, /__SHIVAA_REL\s*=\s*(\d+)/) >= 121 && st(app, /APP_REL\s*=\s*(\d+)/) >= 121 &&
     st(sw, /SHELL = 'shivaa-shell-v(\d+)/) >= 121 && st(html, /\/js\/app\.js\?v=(\d+)/) >= 121 &&
     st(sw, /'\/js\/app\.js\?v=(\d+)'/) >= 121);
-  const slide1 = /<img src="\/images\/banners\/poster-heritage\.jpg" srcset="([^"]+)" sizes="100vw"[^>]*decoding="async"[^>]*fetchpriority="high">/.exec(app);
-  const slideLazy = (app.match(/draggable="false" decoding="async" loading="lazy">/g) || []).length;
-  const preload = /<link rel="preload" as="image" imagesrcset="([^"]+)" imagesizes="100vw" fetchpriority="high">/.exec(html);
-  const preUrls = preload ? [...preload[1].matchAll(/(\/images\/[^\s,]+)/g)].map(m => m[1]) : [];
-  ok('LCP: first slide carries a phone-sized srcset and every slide decodes async',
-    !!slide1 && slide1[1].includes('poster-heritage-m.jpg 800w') && slideLazy === 3, `lazy slides: ${slideLazy}`);
-  ok('LCP: the head preload matches the slide srcset and every file exists on disk',
-    !!preload && preUrls.length === 2 && preUrls.every(u => fs.existsSync(path.join(CMS, u))) &&
-    !/preload" as="image" href="\/images\/products\/ring-floral\.jpg"/.test(html), preUrls.join(', '));
-  const mBytes = fs.statSync(path.join(CMS, 'images/banners/poster-heritage-m.jpg')).size;
-  const fullBytes = fs.statSync(path.join(CMS, 'images/banners/poster-heritage.jpg')).size;
-  ok('the phone hero is genuinely lighter (under half the full file)',
-    mBytes < fullBytes / 2, `${mBytes}B vs ${fullBytes}B`);
+  const pictureStart = app.indexOf('function responsiveBannerPicture(');
+  const pictureEnd = app.indexOf('const HOME_CAROUSEL_SLIDES = Object.freeze([', pictureStart);
+  const pictureHelper = pictureStart >= 0 && pictureEnd > pictureStart ? app.slice(pictureStart, pictureEnd) : '';
+  const renderStart = app.indexOf('function renderHomeCarouselSlides()');
+  const homeStart = app.indexOf('pages.home = async (view) => {', renderStart);
+  const renderTemplate = renderStart >= 0 && homeStart > renderStart ? app.slice(renderStart, homeStart) : '';
+  ok('LCP: shared banner pictures art-direct mobile crops and decode asynchronously',
+    pictureHelper.includes('<source media="(max-width: 820px)" type="image/webp"') &&
+    pictureHelper.includes('${mobileBase}.jpg${ASSET_V}') &&
+    pictureHelper.includes('<source type="image/webp"') &&
+    pictureHelper.includes('decoding="async" draggable="false"') &&
+    pictureHelper.includes("eager ? 'eager' : 'lazy'") &&
+    pictureHelper.includes("eager ? 'high' : 'low'") &&
+    renderTemplate.includes('responsiveBannerPicture(slide.image, slide.mobile') && renderTemplate.includes('index === 0'));
+  const preloadLinks = [...html.matchAll(/<link rel="preload" as="image" type="image\/webp" href="([^"]+)" media="([^"]+)" fetchpriority="high">/g)]
+    .map(m => ({ url: m[1], media: m[2], file: m[1].split(/[?#]/, 1)[0] }));
+  const preloadFilesExist = preloadLinks.every(p => fs.existsSync(path.join(CMS, p.file)));
+  ok('LCP: head preloads match the primary responsive hero picture and files exist on disk',
+    preloadLinks.length === 2 && preloadFilesExist &&
+    preloadLinks.some(p => p.url.includes('/images/banners/hero-main-mobile.webp') && p.media === '(max-width: 820px)') &&
+    preloadLinks.some(p => p.url.includes('/images/banners/hero-main.webp') && p.media === '(min-width: 821px)') &&
+    app.includes("responsiveBannerPicture('hero-main', 'hero-main-mobile'"),
+    preloadLinks.map(p => p.url).join(', ') || 'missing responsive hero preloads');
+  const mobileBytes = fs.statSync(path.join(CMS, 'images/banners/hero-main-mobile.webp')).size;
+  const desktopBytes = fs.statSync(path.join(CMS, 'images/banners/hero-main.webp')).size;
+  ok('the art-directed phone hero stays materially lighter than the desktop WebP',
+    mobileBytes < desktopBytes * 0.8, `${mobileBytes}B vs ${desktopBytes}B`);
   ok('smoothness CSS: cards drop GPU layers, skip off-screen work, sweep paints on .on only',
     /@media \(pointer: coarse\)[\s\S]*?\.p-card \{ will-change: auto/.test(v121css) &&
     /\.p-card \{\s*content-visibility: auto/.test(v121css) && /contain-intrinsic-size: auto 320px/.test(v121css) &&
@@ -112,9 +127,13 @@ function bootStore(extra = '') {
     (w.Shivaa && w.Shivaa.state ? w.Shivaa.state.productsCache.length : 0) + ' pieces');
 
   w.location.hash = '#/';
-  ok('home shows exactly one visible slide carrying the phone srcset',
-    await until(() => d.querySelectorAll('.c-slide.on').length === 1 &&
-      (d.querySelector('.c-slide img') || {}).srcset.includes('poster-heritage-m.jpg')));
+  ok('home shows one active slide with its art-directed phone picture source',
+    await until(() => {
+      const active = d.querySelector('.c-slide.on');
+      const mobileSource = active && active.querySelector('picture source[media="(max-width: 820px)"][type="image/webp"]');
+      return d.querySelectorAll('.c-slide.on').length === 1 && !!mobileSource &&
+        mobileSource.getAttribute('srcset').includes('/images/banners/poster-heritage-mobile.webp');
+    }));
   const slides = [...d.querySelectorAll('.c-slide')];
   const onBefore = slides.findIndex(s => s.classList.contains('on'));
   d.querySelector('.c-next').click();
