@@ -5,6 +5,26 @@ Read before changing anything: `docs/AGENT-HANDOFF.md`, `MEMORY.md`,
 Every claim below was verified against the code in this checkout on
 18 Sep 2026 — file:line is given so it can be re-checked, not trusted.
 
+## Current follow-up — 1 Oct 2026 (v184 source; not deployed)
+
+- The source inventory `tools/mega/smoke/pay-audit-check.js` currently labels
+  **17/18** historical findings FIXED and **#27** still present/blocked. The
+  dated issue descriptions below retain the original audit state unless a
+  current fix status is called out; re-check source and tests rather than
+  treating every old paragraph as an open defect.
+- **#14:** v184 adds an on-demand, admin-only, read-only Cashfree settlement
+  report using `POST /pg/settlement/recon` with API version `2026-01-01`.
+  It matches nested provider payment/order IDs and gross `payment_amount` to
+  the existing local payment/overpayment ledger; the event settlement amount
+  is displayed separately. It fetches 10 rows at a time and requires the owner
+  to continue through every cursor page. It does not run nightly, mutate
+  orders, issue refunds, or claim that absent/unsettled provider rows are
+  errors. A merchant-account request and staging/provider verification remain
+  untested; the source ZIP is not deployment approval.
+- **#27:** still blocked on the owner's commercial decision for order expiry.
+  No duration, automatic cancellation, or loyalty-points release behavior was
+  invented in v184.
+
 ---
 
 ## 0 · Two repo-integrity problems found first (both block payment work)
@@ -290,30 +310,66 @@ indefinitely, even though `CASHFREE-INTEGRATION.md` promises *"the customer
 order-page poller **and webhook** advance the status"*. Route refund events to
 `cashfree_apply_refund()` in the webhook handler.
 
-## 13 · The ledger never records how the customer paid, or the gateway payment id
+## 13 · The ledger never records how the customer paid, or the gateway payment id — FIXED in v135
 
-`'instrument' => substr((string)($st['payment_method'] ?? ''), 0, 40)`
-(`api.php:514`) reads `payment_method` off the **order** entity. The
-documented `GET /pg/orders/{order_id}` response carries no such field — it
-returns `order_status`, `order_amount`, `customer_details`, `order_meta` and a
-`payments.url`. So `instrument` is **always an empty string**.
+The original 18 Sep audit found that the order entity has no `payment_method`
+and the ledger was missing Cashfree's payment identifiers. That historical
+finding was repaired in v135: `cashfree_payment_detail()` calls
+`GET /pg/orders/{order_id}/payments`, extracts the successful payment's
+`cf_payment_id`, `bank_reference`, method and payment group, and
+`cashfree_apply()` stores those fields with the approved local payment (or in
+an overpayment row). The current source inventory marks #13 **FIXED**; v184
+uses the stored Cashfree payment ID for its read-only reconciliation. No v184
+change to checkout or payment capture was made.
 
-Nothing in `api.php` ever calls `/pg/orders/{id}/payments` (the only
-sub-resource calls are `/refunds`, at `api.php:3779` and `api.php:3894`). The
-consequence is that the shop never stores `cf_payment_id`, `bank_reference` or
-the payment method — the three fields needed to answer *"was I charged?"*, to
-defend a chargeback, and to match Cashfree's settlement report line by line.
-The signed webhook already contains `data.payment.cf_payment_id`,
-`bank_reference` and `payment_method`; today it reads only
-`data.order.order_id` (`api.php:3758`) and throws the rest away.
+## 14 · No settlement reconciliation — on-demand report added in v184
 
-## 14 · No settlement reconciliation
+Before v184, there was no provider-backed settlement report; `admin/reports`
+was computed purely from the local ledger. v184 adds **Admin → Reports →
+Cashfree settlement reconciliation** at `GET /api/admin/payments/settlements`.
+It calls Cashfree's event-level `POST /pg/settlement/recon` with a dedicated
+`x-api-version: 2026-01-01` override (ordinary checkout calls remain on
+`2023-08-01`). The v2026 response is a paginated `{cursor, limit, data}`
+envelope; each event row nests `event_details`, `order_details`,
+`payment_details`, and `settlement_details`.
 
-Nothing calls `/pg/settlements`; `admin/reports` is computed purely from the
-local ledger. There is therefore no way to notice a payment Cashfree settled
-that the ledger missed — the exact failure #10 and #11 can produce. A nightly
-admin job that diffs the last N Cashfree orders against `cfAttempts` would
-close the loop and turn a silent loss into a to-do.
+For successful `PAYMENT` events only, the report matches
+`payment_details.cf_payment_id` and `order_details.order_id` to a local approved
+Cashfree payment or recorded overpayment, verifies the exact Cashfree order
+attempt, and compares the gross `payment_details.payment_amount` (falling back
+to the payment event amount only where applicable) with the local ledger. The
+event settlement amount is displayed separately and never compared to the
+gross shopper payment. Refund, dispute, and other event rows are surfaced for
+manual review, not applied. Missing local matches, mismatched/ambiguous IDs,
+and amount differences are flagged. Provider customer details are discarded;
+the route is admin-gated, range/cursor validated, and does not alter local
+orders, payments, refunds, or audit logs.
+
+We also checked Cashfree's distinct bulk `POST /pg/settlements` endpoint; in
+v2026 it returns settlement-level summaries, not the payment-event rows needed
+for the local payment-ID comparison, so it is not the v184 integration.
+
+This is an **on-demand report, not a nightly monitor**. It displays at most 10
+rows per request; the owner must load every returned cursor page before the
+range is complete. It does not flag a local payment merely because no settled
+row was returned (settlement timing can vary), and it does not repair ledger
+entries automatically. The public reference requires pagination plus filters,
+allows a date-range filter, documents the processed-on field names, and shows
+`+05:30` timestamps; v184 sends the chosen IST days from `00:00:00` through
+`23:59:59`. The reference does not state whether exact time bounds are
+inclusive, and no merchant credentials were available for a live API call.
+Account entitlement, live response compatibility, and boundary behavior must
+still be checked on authorized staging before relying on this report for
+financial close.
+
+This is an **on-demand report, not a nightly monitor**. It displays at most 10
+rows per request; the owner must load every returned cursor page before the
+range is complete. It does not flag a local payment merely because no settled
+row was returned (settlement timing can vary), and it does not repair ledger
+entries automatically. No merchant credentials were available for a live API
+call, so the real Cashfree account's entitlement, response behavior and date
+boundary interpretation remain unverified; test those on authorized staging
+before relying on the report for financial close.
 
 ## 15 · A double payment is swallowed twice over
 

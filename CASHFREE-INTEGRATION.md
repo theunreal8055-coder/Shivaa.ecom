@@ -1,3 +1,41 @@
+# v184 — Read-only Cashfree settlement reconciliation
+
+The admin report uses Cashfree's **Settlement Reconciliation** endpoint for
+transaction/event-level matching:
+
+- `POST /pg/settlement/recon`, with required pagination and filters objects.
+  The first request sends `cursor: null`; each next page sends the cursor
+  Cashfree returned. The filters contract says to supply a settlement ID, UTR,
+  or date-range filter; this UI uses only
+  `filters.start_date_processed_on` / `filters.end_date_processed_on`.
+  Admin calendar days are sent as `00:00:00` through `23:59:59` with the
+  documented `+05:30` offset. Cashfree's public reference shows those field
+  names and offset-format examples, but does not spell out inclusive/exclusive
+  boundary behavior. Confirm edge dates against authorized staging before
+  relying on the selected range for financial close.
+- API version `2026-01-01` is applied **only to this report call** by copying
+  the Cashfree config before the request. Standard payment/order calls remain
+  `2023-08-01`; One Click Checkout keeps its separate `2025-01-01` version.
+- The documented v2026 response envelope is `{ cursor, limit, data: [...] }`.
+  Each row nests `event_details`, `order_details`, `payment_details`, and
+  `settlement_details`; the shop matches
+  `payment_details.cf_payment_id` + `order_details.order_id`, compares the
+  gross `payment_details.payment_amount` with the approved local payment or
+  overpayment, and displays `event_details.event_settlement_amount` separately.
+  Refund/dispute/adjustment events are never auto-applied and need human review.
+- Customer details are deliberately omitted from the report. It is admin-gated,
+  read-only, and requires manual cursor paging (10 rows per request); no local
+  payments, refunds, orders, or audit logs are changed, and no nightly job is
+  created.
+- Endpoint and version docs reviewed 1 Oct 2026:
+  <https://www.cashfree.com/docs/api-reference/payments/latest/settlement-reconciliation/settlement-reconciliation>
+  and <https://www.cashfree.com/docs/api-reference/payments/latest/overview>.
+  We separately verified that `POST /pg/settlements` is the current **Get All
+  Settlements** bulk endpoint, but v2026 returns settlement-level summaries,
+  not payment rows suitable for this direct local-payment match, so v184 uses
+  `/pg/settlement/recon`. No merchant-account call was made; merchant
+  entitlement and live response behavior remain unverified.
+
 # v139 — Cashfree One Click Checkout ("1-tab quick checkout")
 
 **Owner report (18 Sep 2026):** *"I have selected the one tab quick check out

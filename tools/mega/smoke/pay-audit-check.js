@@ -1,14 +1,10 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   SHIVAA payment audit — assertion gate for docs/PAYMENT-EXPERIENCE-NEXT.md
+   SHIVAA payment audit — source inventory for docs/PAYMENT-EXPERIENCE-NEXT.md
 
-   Every check here asserts that a finding from the 18 Sep 2026 payment audit
-   is STILL PRESENT in the source. It is a regression net for the audit
-   itself: run it before fixing anything (expect 24/24), then re-run after
-   each repair and watch the corresponding line flip to FIXED.
-
-   Nothing is executed — the payment backend is PHP and this sandbox has no
-   PHP binary — so every assertion is a source-level pattern with the
-   file:line it came from. A PASS means "the bug is confirmed present".
+   The labels distinguish conditions that remain PRESENT from findings now
+   FIXED in source. This is an inventory/regression aid, not proof of a live
+   merchant integration or deployment; the new Cashfree endpoint also has an
+   executed isolated PHP suite in v184-php-run.js.
 
    Run:  node tools/mega/smoke/pay-audit-check.js
    ══════════════════════════════════════════════════════════════════════════ */
@@ -73,9 +69,33 @@ ok(13, "ledger 'instrument' reads order-entity payment_method (always empty)",
   && !/cf_payment_id/.test(api),
   'expected the order-entity read and no /payments call, no cf_payment_id anywhere');
 
-// #14 — no settlement reconciliation
-ok(14, 'no settlement reconciliation (/pg/settlements never called)',
-  !/\/pg\/settlements/.test(api));
+// #14 — a read-only settlement report must compare Cashfree's nested recon
+// events with the local payment ledger. It is not a scheduled/nightly job, and
+// the owner still has to run every cursor page.
+const settlementFnStart = api.indexOf('function cashfree_settlement_recon_payload');
+const settlementFnEnd = api.indexOf('/* v139 ·', settlementFnStart);
+const settlementFns = settlementFnStart >= 0 && settlementFnEnd > settlementFnStart
+  ? api.slice(settlementFnStart, settlementFnEnd) : '';
+const settlementRouteStart = api.indexOf("if ($route === 'admin/payments/settlements'");
+const settlementRouteEnd = api.indexOf("if ($route === 'admin/audit'", settlementRouteStart);
+const settlementRoute = settlementRouteStart >= 0 && settlementRouteEnd > settlementRouteStart
+  ? api.slice(settlementRouteStart, settlementRouteEnd) : '';
+const settlementReportSafe = settlementFns.includes("'limit' => 10")
+  && settlementFns.includes('function cashfree_settlement_recon_response(array $json): ?array')
+  && settlementFns.includes("$payment['cf_payment_id']")
+  && settlementFns.includes("$order['order_id']")
+  && settlementFns.includes("$payment['payment_amount']")
+  && settlementFns.includes("$event['event_settlement_amount']")
+  && settlementRoute.includes('need_admin($db)')
+  && settlementRoute.includes("$cfg['apiVersion'] = '2026-01-01'")
+  && settlementRoute.includes("'/pg/settlement/recon'")
+  && settlementRoute.includes('cashfree_settlement_recon_payload($from, $to, $cursor)')
+  && settlementRoute.includes("cashfree_settlement_recon_compare($db, $page['data'])")
+  && settlementRoute.includes("'hasMore' => $next !== ''")
+  && !/db_save\(|audit_log\(/.test(settlementRoute);
+ok(14, 'no read-only, admin-gated Cashfree settlement comparison is available',
+  !settlementReportSafe,
+  'expected v2026-01-01 POST /pg/settlement/recon, nested cursor pagination, local payment-ID/gross-amount comparison, and no local writes');
 
 // #15 — the clamp in order_add_payment stays (it protects every other caller);
 // the finding was that a SECOND Cashfree payment reached it and was silently
@@ -254,8 +274,8 @@ sound('storefront shell resolves its main script (Part 1 fix still in place)',
 
 const p = results.filter(Boolean).length, t = results.length;
 const pi = inv.filter(Boolean).length, ti = inv.length;
-console.log(`\n${p}/${t} audit findings still present · ${pi}/${ti} invariants intact  ${p === t && pi === ti ? '✦' : '✗'}`);
-console.log(p === t
-  ? '(expected before any repair: every finding PRESENT, every invariant OK)\n'
-  : '(a finding flipped to FIXED, or an invariant broke — re-read the audit doc)\n');
+console.log(`\n${p}/${t} audit findings still PRESENT · ${t - p} marked FIXED · ${pi}/${ti} invariants intact  ${pi === ti ? '✦' : '✗'}`);
+console.log(pi === ti
+  ? '(source inventory only; verify each PRESENT/FIXED label against the current notes and live systems)\n'
+  : '(a protected payment invariant broke — stop and re-read the audit notes)\n');
 process.exit(pi === ti ? 0 : 1);

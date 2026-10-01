@@ -1371,6 +1371,166 @@ function cashfree_call(array $cfg, string $method, string $path, ?array $body = 
   curl_close($ch);
   return ['code' => $code, 'json' => json_decode($raw, true), 'raw' => $raw, 'err' => $err];
 }
+/* v184 · event-level Cashfree settlement reconciliation. The current
+   POST /pg/settlement/recon (API v2026-01-01) returns a cursor/data envelope
+   whose event rows contain nested event/order/payment/settlement details.
+   Compare an allowlisted projection only; never return customer_details or
+   the provider's raw response to the browser. */
+function cashfree_settlement_recon_payload(string $from, string $to, string $cursor = ''): array {
+  return [
+    'pagination' => ['limit' => 10, 'cursor' => $cursor !== '' ? $cursor : null],
+    'filters' => [
+      'start_date_processed_on' => $from . 'T00:00:00+05:30',
+      'end_date_processed_on' => $to . 'T23:59:59+05:30',
+    ],
+  ];
+}
+function cashfree_reconciliation_date_valid(string $date): bool {
+  if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $m)) return false;
+  return checkdate((int)$m[2], (int)$m[3], (int)$m[1]);
+}
+/* Cashfree v2026 recon responds with {cursor, limit, data:[...]}. Reject a
+   malformed/oversized page instead of dropping rows or claiming completeness. */
+function cashfree_settlement_recon_response(array $json): ?array {
+  $data = $json['data'] ?? null;
+  if (!is_array($data) || !array_is_list($data) || count($data) > 10) return null;
+  foreach ($data as $entry) if (!is_array($entry)) return null;
+  $cursor = trim((string)($json['cursor'] ?? ''));
+  if (strlen($cursor) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $cursor)) return null;
+  return ['data' => $data, 'cursor' => $cursor];
+}
+/* Compare successful PAYMENT events to the existing Cashfree payment ledger.
+   `payment_amount` (or the PAYMENT event's amount fallback) is gross;
+   `event_settlement_amount` is displayed separately and is never compared to
+   the shopper's gross amount. Refund/dispute/adjustment events remain manual. */
+function cashfree_settlement_recon_compare(array $db, array $data): array {
+  $ownersByOrder = []; $localByPayment = []; $localByOrder = [];
+  foreach (($db['orders'] ?? []) as $o) {
+    if (!is_array($o)) continue;
+    $localOrderId = (string)($o['id'] ?? '');
+    foreach (($o['cfAttempts'] ?? []) as $attempt) {
+      $cfOrderId = trim((string)($attempt['cfOrderId'] ?? ''));
+      if ($cfOrderId !== '' && $localOrderId !== '') $ownersByOrder[$cfOrderId][$localOrderId] = true;
+    }
+    foreach (($o['payments'] ?? []) as $payment) {
+      if (!is_array($payment) || strtolower((string)($payment['mode'] ?? '')) !== 'cashfree'
+          || strtolower((string)($payment['status'] ?? '')) !== 'approved') continue;
+      $cfOrderId = trim((string)($payment['cfOrderId'] ?? $payment['gatewayPaymentId'] ?? $payment['ref'] ?? ''));
+      $cfPaymentId = trim((string)($payment['cfPaymentId'] ?? ''));
+      $record = ['orderId' => $localOrderId, 'cfOrderId' => $cfOrderId,
+        'cfPaymentId' => $cfPaymentId, 'amount' => (int)($payment['amount'] ?? 0)];
+      if ($cfPaymentId !== '') $localByPayment[$cfPaymentId][] = $record;
+      if ($cfOrderId !== '') { $localByOrder[$cfOrderId][] = $record; if ($localOrderId !== '') $ownersByOrder[$cfOrderId][$localOrderId] = true; }
+    }
+    foreach (($o['overpayments'] ?? []) as $overpayment) {
+      if (!is_array($overpayment)) continue;
+      $cfOrderId = trim((string)($overpayment['cfOrderId'] ?? ''));
+      $cfPaymentId = trim((string)($overpayment['cfPaymentId'] ?? ''));
+      $record = ['orderId' => $localOrderId, 'cfOrderId' => $cfOrderId,
+        'cfPaymentId' => $cfPaymentId, 'amount' => (int)($overpayment['amount'] ?? 0)];
+      if ($cfPaymentId !== '') $localByPayment[$cfPaymentId][] = $record;
+      if ($cfOrderId !== '') { $localByOrder[$cfOrderId][] = $record; if ($localOrderId !== '') $ownersByOrder[$cfOrderId][$localOrderId] = true; }
+    }
+  }
+
+  $out = []; $summary = ['rows' => 0, 'matched' => 0, 'amountMismatches' => 0, 'missingLocal' => 0, 'needsReview' => 0];
+  foreach ($data as $row) {
+    if (!is_array($row)) continue;
+    $event = is_array($row['event_details'] ?? null) ? $row['event_details'] : [];
+    $order = is_array($row['order_details'] ?? null) ? $row['order_details'] : [];
+    $payment = is_array($row['payment_details'] ?? null) ? $row['payment_details'] : [];
+    $settlement = is_array($row['settlement_details'] ?? null) ? $row['settlement_details'] : [];
+    $eventType = strtoupper(trim((string)($event['event_type'] ?? '')));
+    $eventStatus = strtoupper(trim((string)($event['event_status'] ?? '')));
+    $paymentStatus = strtoupper(trim((string)($payment['status'] ?? '')));
+    $cfPaymentId = trim((string)($payment['cf_payment_id'] ?? ''));
+    $cfOrderId = trim((string)($order['order_id'] ?? ''));
+    $providerAmount = is_numeric($payment['payment_amount'] ?? null)
+      ? round((float)$payment['payment_amount'], 2)
+      : ($eventType === 'PAYMENT' && is_numeric($event['event_amount'] ?? null) ? round((float)$event['event_amount'], 2) : null);
+    $ownerIds = array_keys($ownersByOrder[$cfOrderId] ?? []);
+    $localOrderId = count($ownerIds) === 1 ? (string)$ownerIds[0] : '';
+    $candidate = null; $matchedByOrder = false;
+    $status = 'needs_review';
+    $note = $eventType === 'PAYMENT'
+      ? 'Payment event is not marked SUCCESS in both provider status fields.'
+      : 'Non-payment event; review Cashfree refund, dispute, or adjustment records manually.';
+
+    if ($eventType === 'PAYMENT' && $eventStatus === 'SUCCESS' && $paymentStatus === 'SUCCESS') {
+      $exact = $cfPaymentId !== '' ? ($localByPayment[$cfPaymentId] ?? []) : [];
+      $candidate = count($exact) === 1 ? $exact[0] : null;
+      $status = 'missing_local';
+      $note = $localOrderId !== ''
+        ? 'Cashfree order is linked locally, but this successful payment is not in its approved Cashfree ledger.'
+        : 'No Shivaa order is linked to this Cashfree order or payment.';
+      if (count($exact) > 1) {
+        $status = 'ambiguous';
+        $note = 'This Cashfree payment ID appears more than once in the local ledger.';
+      } elseif (!$candidate && $cfOrderId !== '') {
+        $orderRecords = $localByOrder[$cfOrderId] ?? [];
+        $legacy = array_values(array_filter($orderRecords, static fn($p) => ($p['cfPaymentId'] ?? '') === ''));
+        if (count($legacy) === 1) { $candidate = $legacy[0]; $matchedByOrder = true; }
+      }
+      if ($candidate) {
+        $localOrderId = (string)$candidate['orderId'];
+        if ($cfOrderId === '') {
+          $status = 'needs_review';
+          $note = 'Cashfree order ID is missing; the payment ID cannot be verified against a local payment attempt.';
+        } elseif (count($ownerIds) > 1) {
+          $status = 'ambiguous';
+          $note = 'This Cashfree order ID is linked to multiple local orders.';
+        } elseif (!$ownerIds) {
+          $status = 'needs_review';
+          $note = 'Cashfree payment ID matched, but its order ID is not linked to a local payment attempt.';
+        } elseif ((($candidate['cfOrderId'] ?? '') !== '' && $candidate['cfOrderId'] !== $cfOrderId)
+            || !in_array($localOrderId, $ownerIds, true)) {
+          $status = 'order_mismatch';
+          $note = 'The payment ID and Cashfree order ID point to different local payment attempts.';
+        } elseif ($providerAmount === null) {
+          $status = 'needs_review';
+          $note = 'Local payment ID matched, but Cashfree did not return a gross payment amount.';
+        } elseif (abs($providerAmount - (float)$candidate['amount']) > 0.01) {
+          $status = 'amount_mismatch';
+          $note = 'Cashfree gross payment amount differs from the approved local payment amount.';
+        } elseif ($matchedByOrder) {
+          $status = 'legacy_match';
+          $note = 'Order ID and amount match; this older local row has no Cashfree payment ID.';
+        } else {
+          $status = 'matched';
+          $note = 'Cashfree payment ID, order ID, and gross amount match the local payment ledger.';
+        }
+      }
+    }
+
+    $out[] = [
+      'eventId' => substr(trim((string)($event['event_id'] ?? '')), 0, 60),
+      'eventType' => substr($eventType, 0, 40),
+      'eventStatus' => substr($eventStatus, 0, 24),
+      'cfPaymentId' => substr($cfPaymentId, 0, 60),
+      'cfOrderId' => substr($cfOrderId, 0, 100),
+      'localOrderId' => substr($localOrderId, 0, 100),
+      'eventAmount' => is_numeric($event['event_amount'] ?? null) ? round((float)$event['event_amount'], 2) : null,
+      'paymentAmount' => $providerAmount,
+      'localAmount' => $candidate ? (int)$candidate['amount'] : null,
+      'settlementAmount' => is_numeric($event['event_settlement_amount'] ?? null) ? round((float)$event['event_settlement_amount'], 2) : null,
+      'currency' => substr(trim((string)($payment['payment_currency'] ?? $event['event_currency'] ?? '')), 0, 8),
+      'settlementId' => substr(trim((string)($settlement['cf_settlement_id'] ?? '')), 0, 60),
+      'settlementUtr' => substr(trim((string)($settlement['settlement_utr'] ?? '')), 0, 80),
+      'settlementDate' => substr(trim((string)($settlement['settlement_date'] ?? '')), 0, 40),
+      'settlementInitiatedOn' => substr(trim((string)($settlement['settlement_initiated_on'] ?? '')), 0, 40),
+      'paymentTime' => substr(trim((string)($payment['payment_time'] ?? '')), 0, 40),
+      'paymentGroup' => substr(trim((string)($payment['payment_group'] ?? '')), 0, 30),
+      'status' => $status,
+      'note' => $note,
+    ];
+    $summary['rows']++;
+    if ($status === 'matched') $summary['matched']++;
+    elseif ($status === 'amount_mismatch') { $summary['amountMismatches']++; $summary['needsReview']++; }
+    elseif ($status === 'missing_local') { $summary['missingLocal']++; $summary['needsReview']++; }
+    else $summary['needsReview']++;
+  }
+  return ['rows' => $out, 'summary' => $summary];
+}
 /* v139 · the two objects Cashfree's "Custom website" One Click Checkout guide
    says to add to Create Order. Returns [] when OCC is off, so the caller can
    simply merge. `cart_details` is what makes the checkout summary show the
@@ -5487,7 +5647,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 183,
+      'rel'   => 184,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -7591,6 +7751,48 @@ try {
       'oldGold' => ['count' => count($goldBuys), 'amount' => array_sum(array_map(fn($g) => (int)$g['amount'], $goldBuys))],
       'lowStock' => $lowStock, 'assumedWeights' => $assumedWt, 'metalOutWithKarigars' => $metalOutMap,
       'proofPending' => $proofPending,
+    ]);
+  }
+  /* v184 · read-only Cashfree settlement report. It never saves the local
+     database or changes an order/payment; the admin explicitly fetches each
+     cursor page. This call uses the documented v2026 event-reconciliation
+     endpoint without changing the standard checkout client's v2023-08-01 setting. */
+  if ($route === 'admin/payments/settlements' && $method === 'GET') {
+    need_admin($db);
+    $from = trim((string)($_GET['from'] ?? ''));
+    $to = trim((string)($_GET['to'] ?? ''));
+    if (!cashfree_reconciliation_date_valid($from) || !cashfree_reconciliation_date_valid($to))
+      jout(400, ['error' => 'Choose valid settlement dates in YYYY-MM-DD format.']);
+    $tz = new DateTimeZone('Asia/Kolkata');
+    $today = (new DateTimeImmutable('now', $tz))->format('Y-m-d');
+    if ($to < $from || $to > $today)
+      jout(400, ['error' => 'The settlement range must be ordered and cannot include a future date.']);
+    $fromAt = new DateTimeImmutable($from . ' 00:00:00', $tz);
+    $toAt = new DateTimeImmutable($to . ' 23:59:59', $tz);
+    if ((int)$fromAt->diff($toAt)->format('%a') + 1 > 31)
+      jout(400, ['error' => 'Choose a settlement range of 31 days or less.']);
+    $cursor = trim((string)($_GET['cursor'] ?? ''));
+    if (strlen($cursor) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $cursor))
+      jout(400, ['error' => 'Invalid settlement page cursor.']);
+
+    $cfg = cashfree_cfg($db);
+    if ($cfg['appId'] === '' || $cfg['secret'] === '')
+      jout(503, ['error' => 'Cashfree API credentials are not configured; no settlement request was made.']);
+    $cfg['apiVersion'] = '2026-01-01';
+    $res = cashfree_call($cfg, 'POST', '/pg/settlement/recon', cashfree_settlement_recon_payload($from, $to, $cursor));
+    $http = (int)($res['code'] ?? 0);
+    if ($http < 200 || $http >= 300)
+      jout(502, ['error' => 'Cashfree settlements could not be fetched (HTTP ' . ($http ?: 'no response') . '). No local data was changed.', 'upstreamStatus' => $http]);
+    $json = is_array($res['json'] ?? null) ? $res['json'] : [];
+    $page = cashfree_settlement_recon_response($json);
+    if ($page === null)
+      jout(502, ['error' => 'Cashfree returned an unexpected settlement response. No local data was changed.']);
+    $next = $page['cursor'];
+    $comparison = cashfree_settlement_recon_compare($db, $page['data']);
+    jout(200, [
+      'readOnly' => true, 'range' => [$from, $to], 'dateBasis' => 'Settlement processed time (IST)',
+      'limit' => 10, 'rows' => $comparison['rows'], 'summary' => $comparison['summary'],
+      'cursor' => $next, 'hasMore' => $next !== '',
     ]);
   }
   if ($route === 'admin/audit' && $method === 'GET') {

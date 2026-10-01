@@ -248,10 +248,17 @@ async function renderAdmin(view, q) {
       </div>
       <div id="rpBody"><p class="partner-note">Choose a range and run — revenue split, GST (CGST+SGST), metal vs making, bestsellers, dead stock, karigar metal out, and payment proofs pending.</p></div>
     </div>
+    <div class="adm-card">
+      <h3>Cashfree settlement reconciliation <span style="font-size:12px;color:var(--ink-3);font-weight:400">· read-only</span></h3>
+      <p class="partner-note">Uses the From/To range above as Cashfree’s settlement-processed date filter, then compares successful payment IDs and gross amounts with Shivaa’s existing payment ledger. The event settlement amount is shown separately. Refund, dispute, and other non-payment events are flagged for manual review. Nothing in Cashfree or Shivaa is changed. Each page contains up to 10 rows.</p>
+      <button class="btn btn-outline btn-sm" id="rpCfRecon">Fetch Cashfree settlements</button>
+      <div id="cfReconBody" style="margin-top:12px"><p class="partner-note">Run this report when you want to check Cashfree’s settlement ledger. Continue through every page before treating the selected range as complete.</p></div>
+    </div>
     <div class="adm-card" id="auditCard" style="display:none;max-height:70vh;overflow:auto"><h3>Audit log (last 300)</h3><div id="auditBody"></div></div>`;
     $('#rpGo').onclick = ShivaaAdmin.runReport;
     $('#rpCsv').onclick = ShivaaAdmin.reportCSV;
     $('#rpAudit').onclick = ShivaaAdmin.openAudit;
+    $('#rpCfRecon').onclick = () => ShivaaAdmin.runCashfreeRecon();
     ShivaaAdmin.runReport();
   }
 
@@ -3888,6 +3895,51 @@ window.ShivaaAdmin.runReport = async () => {
         ${Object.entries(r.metalOutWithKarigars || {}).map(([k, v]) => `<tr><td>${k}</td><td class="num">${v.jobs}</td><td class="num">${(v.grams || 0).toFixed(2)} g</td></tr>`).join('') || '<tr><td colspan="3">Nothing outstanding ✦</td></tr>'}
       </tbody></table></div>`;
   } catch (e) { host.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
+};
+window.ShivaaAdmin.runCashfreeRecon = async (cursor = '') => {
+  const from = document.getElementById('rpFrom')?.value;
+  const to = document.getElementById('rpTo')?.value;
+  const host = document.getElementById('cfReconBody');
+  const button = document.getElementById('rpCfRecon');
+  if (!host || !from || !to) return;
+  if (button) button.disabled = true;
+  host.innerHTML = '<p class="partner-note">Fetching a read-only Cashfree settlement page…</p>';
+  try {
+    const q = new URLSearchParams({ from, to });
+    if (cursor) q.set('cursor', cursor);
+    const r = await window.Shivaa.api('/api/admin/payments/settlements?' + q.toString());
+    const money = (value, currency = 'INR') => value == null || !Number.isFinite(Number(value)) ? '—'
+      : (currency === 'INR' ? '₹' : esc(currency) + ' ') + Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    const status = {
+      matched: 'Matched', legacy_match: 'Legacy match · review', amount_mismatch: 'Amount mismatch',
+      missing_local: 'Missing from local ledger', ambiguous: 'Ambiguous local match',
+      order_mismatch: 'Order mismatch', needs_review: 'Needs review'
+    };
+    host.innerHTML = `
+      <p class="partner-note">Page: ${Number(r.summary?.rows) || 0} rows · ${Number(r.summary?.matched) || 0} exact payment matches · ${Number(r.summary?.needsReview) || 0} need review${r.hasMore ? ' · more pages available' : ' · no further page reported'}. These counts apply to this page only; continue through every page for the full range.</p>
+      <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Cashfree event</th><th>Payment / CF order</th><th>Shivaa order</th><th class="num">Gross payment</th><th class="num">Event settlement</th><th>Settlement / UTR</th><th>Settlement date / initiated</th><th>Comparison</th></tr></thead><tbody>
+        ${(r.rows || []).map(row => `<tr>
+          <td><small>${esc(row.eventType || '—')} · ${esc(row.eventId || '—')}<br>${esc(row.eventStatus || '')}</small></td>
+          <td><small>Payment ${esc(row.cfPaymentId || '—')}<br>Order ${esc(row.cfOrderId || '—')}</small></td>
+          <td>${esc(row.localOrderId || '—')}</td>
+          <td class="num">${money(row.paymentAmount, row.currency)}${row.localAmount == null ? '' : `<br><small>local ${money(row.localAmount, row.currency)}</small>`}</td>
+          <td class="num">${money(row.settlementAmount, row.currency)}</td>
+          <td><small>${esc(row.settlementId || '—')}<br>UTR ${esc(row.settlementUtr || '—')}</small></td>
+          <td><small>${esc(row.settlementDate || row.settlementInitiatedOn || '—')}</small></td>
+          <td><b>${esc(status[row.status] || 'Needs review')}</b><br><small>${esc(row.note || '')}</small></td>
+        </tr>`).join('') || '<tr><td colspan="8" class="partner-note">No settlement rows returned for this page.</td></tr>'}
+      </tbody></table></div>
+      ${r.hasMore ? '<button class="btn btn-outline btn-sm" id="cfReconNext" style="margin-top:10px">Load next 10 records</button>' : ''}`;
+    const next = document.getElementById('cfReconNext');
+    if (next) next.onclick = () => {
+      const sameRange = document.getElementById('rpFrom')?.value === from && document.getElementById('rpTo')?.value === to;
+      window.ShivaaAdmin.runCashfreeRecon(sameRange ? (r.cursor || '') : '');
+    };
+  } catch (e) {
+    host.innerHTML = '<p class="partner-note">' + esc(e.message || 'Cashfree settlement report unavailable.') + '</p>';
+  } finally {
+    if (button) button.disabled = false;
+  }
 };
 window.ShivaaAdmin.reportCSV = () => {
   const from = document.getElementById('rpFrom')?.value, to = document.getElementById('rpTo')?.value;

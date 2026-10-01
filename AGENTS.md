@@ -1,64 +1,56 @@
 # Shivaa — agent working guide
 
-## Plan session (24 Sep 2026) — read before touching SQL/billing/catalogue work
+## Current session state — 1 October 2026
 
-- The agreed master roadmap for the SQL-at-3-lakh migration, the standing ZIP
-  update ritual, the auto-catalogue review-queue, and the owner's billing-software
-  deployment is `docs/PLAN-SQL-BILLING-CATALOGUE-2026-09-24.md`. **Phase 1+2
-  (SQL runtime) is now BUILT as v180** (dual-mode overlay + mirror-on-save +
-  ZIP-only `upgrade-sql.php` reconciler; belt 41/21/0 + chain 171/171 + sweep
-  212/0) — delivered as `shivaa-update-v180.zip` + `DEPLOY-v180.md`, **not
-  deployed** (owner yes required). Billing upload + catalogue gate choice
-  still pending. Live is 179; forward-only 180+.
-- Verified fact, updated for v180: **product catalogue reads/writes now
-  ENGAGE MySQL when `db_driver => 'mysql'`** (overlay + mirror-on-save with
-  the JSON safety net — see the v180 CURRENT STATE section in
-  `docs/AGENT-HANDOFF.md`), but **orders/settings SQL tables are still empty
-  and money routes still run on extract-only JSON until Phase 3.** Until
-  v180 is deployed AND `upgrade-sql.php` has run, live behaviour is still
-  pure JSON. "Tables exist" ≠ "site runs on MySQL" — `db.mode` on
-  `/api/version` is the truth. **Never add a helper called from inside
-  `db_load`/`db_save` without a `function_exists` guard** — legacy suites
-  extract only those two bodies and fatal otherwise.
+- Work stays on Arena's fixed branch `arena/01a0f602-shivaa-ecom`. Release
+  **183** is the last completed/pushed release (`7b937fc`); v184 is the next
+  source/package batch. The current live production version has **not** been
+  verified in this session. Do not repeat historic v179/v181 figures as live.
+- v184 adds a read-only, admin-gated Cashfree settlement report to Admin →
+  Reports. It uses the documented event-level `POST /pg/settlement/recon` API
+  version `2026-01-01` for this call only; ordinary Cashfree calls stay on
+  `2023-08-01`. It compares provider payment/order IDs and gross amounts with
+  existing local payments and recorded overpayments, displays event settlement
+  amounts separately, and requires manual cursor paging. It does not run on a schedule,
+  mutate payment records, or change loyalty/order expiry behavior.
+- Payment finding #27 remains blocked on the owner's commercial order-expiry
+  policy. Never invent an expiry duration, auto-cancel, or points-release rule.
+- v184 has no merchant-account verification; no Cashfree credentials are stored
+  in the repo or requested in chat. Staging, real-provider, visual approval,
+  and production checks remain pending. Read `DEPLOY-v184.md`,
+  `docs/PAYMENT-EXPERIENCE-NEXT.md`, and `CASHFREE-INTEGRATION.md` before the
+  next payment batch.
 
-## Deployment control update — owner approval required (22 Sep 2026)
+## Deployment and safety gates — standing rules
 
-- PR #90 is merged on `main` (`2393a7949852b9bb1f16cdbfa8b138f83da8235e`):
-  MySQL/PDO support, the installer/template and manufacturing-weight workflow are
-  retained. The owner reports the 77-product Hostinger migration completed.
-- The public `/api/version` last reported **release 170** with matching
-  index/app/worker stamps. The newest published package is **v178** (source commit `0c8cd29`). **Never deploy an older tree over a newer live site, and never
-  deploy anything without the owner's explicit yes.** Any next application
-  release must move forward from **179** and pass the anti-downgrade gate.
-- Production is now manual-only by owner policy. A push/merge must never update
-  Hostinger or the live catalogue. Explain the proposed deployment and ask the
-  owner first; one explicit yes authorizes only that one run.
-- `.github/workflows/hostinger-deploy.yml` requires a manual dispatch from `main`
-  plus `DEPLOY SHIVAA LIVE`; catalogue and ring-reset workflows have separate
-  explicit phrases. Protected data/uploads/config/installer/`.htaccess` stay excluded.
-- The owner must store Hostinger FTPS values only as GitHub Actions secrets and
-  disable the old Hostinger `auto_sync.php` code writer (`deploy_code:false`). Never
-  request credentials in chat. See `HOSTINGER-AUTO-DEPLOY.md`.
-- No live deployment was performed while installing these controls.
+- Production is manual-only. A push/merge must never update Hostinger or the
+  live catalogue. Stage first, verify the release handshake/cache behavior,
+  then request explicit owner approval for that deployment; one yes authorizes
+  only one run. No staging or production deployment occurred for v184.
+- Never deploy an older tree over a newer live site. Check `/api/version` on
+  the authorized target before deploying and stop if its release is newer than
+  the package. Do not assume a live version from old handoff notes.
+- Hostinger credentials belong only in the configured GitHub Actions secrets;
+  never request secrets in chat. Keep protected data/uploads/config/installer/
+  `.htaccess` out of code packages. See `HOSTINGER-AUTO-DEPLOY.md`.
+- Preserve the current brand theme, logo artwork, and Gold Biscuit campaign
+  surfaces unless specifically asked to change them. Source fixes are not live
+  fixes until a permitted deployment is verified.
 
 ## Read first
 
-1. **The *CURRENT STATE — v180 BUILT* section of `docs/AGENT-HANDOFF.md`
-   and `MEMORY.md`, plus `DEPLOY-v180.md`.** These are the build record
-   (live remains 179 until the owner deploys); the *CURRENT STATE — v179
-   DEPLOYED* section is the live record.
-   `DEPLOY-v177.md` / `DEPLOY-v176.md` and those sections are history
-   (v177 and v176 stay shipped).
-   `DEPLOY-v176.md` and the v176 section are history (v176 stays shipped).
-2. `docs/SESSION-STATE-2026-09-21-v169.md` and `DEPLOY-v169.md` for the v169
-   baseline, then `docs/AGENT-HANDOFF.md`, `MEMORY.md`, `HANDOFF.md`,
-   `ARENA-STATE.md`. Older “current/newest”, no-ZIP and release-freeze banners
-   are historical — the v169 “final state” is history, not a restore
-   instruction.
-3. Actual branch, diff and code. Documents have contained stale counts/labels;
-   verify before repeating them.
+1. `DEPLOY-v184.md` for the current source/package record (not a deployment
+   authorization); `docs/PAYMENT-EXPERIENCE-NEXT.md` and
+   `CASHFREE-INTEGRATION.md` for the payment-audit delta and current endpoint
+   version notes.
+2. Check the actual branch, git status/diff, and source. Many historical
+   handoff documents—including the v180/v179 figures below—are stale and must
+   not be used as current release/live truth.
+3. For SQL/catalogue work, consult the relevant plan and install record; verify
+   `/api/version` on the authorized server rather than assuming live MySQL or a
+   release number from repository notes.
 
-## Current source state (24 September 2026) — release 180 (built; live 179)
+## Historical source ledger — v180 snapshot (24 September 2026; superseded by v184)
 
 - Storefront/source release **180** (SQL runtime, built this session; live
   is still **179** until the owner deploys); hardened media cache
@@ -122,13 +114,14 @@
 **FORWARD ONLY — the owner restated this rule at the close of the v176 session;
 it is absolute.**
 
-- Preserve the latest verified source (currently **v180** — built, awaiting
-  owner deploy; live 179). New fixes are targeted forward commits; **no
-  release reset or revert, no old-file or old-ZIP restoration, no rewritten
-  or force-pushed history. The next release is 181 or higher — never reuse
-  or renumber a shipped release, never deploy an older tree over a newer
-  live site.** The old v125 freeze was superseded by owner-requested
-  releases through v180; rejected v126 and Truecaller must remain retired.
+- Preserve the latest source (currently **v184** on
+  `arena/01a0f602-shivaa-ecom`; live deployment status is unverified). New
+  fixes are targeted forward commits; **no release reset or revert, no old-file
+  or old-ZIP restoration, no rewritten or force-pushed history. The next release
+  is 185 or higher — never reuse or renumber a shipped release, never deploy an
+  older tree over a newer live site.** The old v125 freeze was superseded by
+  owner-requested releases through v184; rejected v126 and Truecaller must
+  remain retired.
 - Consult the completed v168/v169 ledger IDs and tests before changing a path.
   Missing scratch logs do not mean a fix is absent. Do not replay non-idempotent
   `work/audit169/backend.py` / `frontend.py` patch scripts.
