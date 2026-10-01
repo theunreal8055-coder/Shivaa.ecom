@@ -2,9 +2,9 @@
 
 ## Current session state — 1 October 2026
 
-- Work stays on Arena's fixed branch `arena/01a0f602-shivaa-ecom`. The remote
-  branch tip is `145dced` (v185 package-only commit); this session has a local
-  release-186 candidate. The last checked/owner-reported production release is
+- Work stays on Arena's fixed branch `arena/01a0f602-shivaa-ecom`. Release-186
+  source and package were pushed in commit `7a9b0f9`. The last
+  checked/owner-reported production release is
   v184: the 1 Oct `/api/version` read returned matched v184 stamps and MySQL
   78/78 counts with `mirrorBehind: false`. That verifies the release handshake
   only—not the Cashfree report or account.
@@ -196,7 +196,7 @@ node tools/mega/php-sweep/sweep.mjs
   static **8/8** + PHP-WASM **6/6**, v183 forward behavior **8/8 + 1 explicit
   stamp-exact skip**. `npm run test:regression`: **45 suites passed, 26
   retired/stamp-specific suites skipped, 0 failed**. Extracted v186 overlay
-  checks also pass over a clean local release-182 tree. No current php-sweep
+  checks also pass over a clean local release-184 tree. No current php-sweep
   was run. Runner distinguishes SKIP from PASS; do not count skips as passes.
 - PHP can execute via the installed PHP-WASM dependency. A parser pass is not
   runtime proof; test the relevant real PHP block/endpoints too. (The v176

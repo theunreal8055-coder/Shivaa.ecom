@@ -1,6 +1,27 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-## v178 published — use Shivaa like an app: no store, no APK, no upload (24 Sep 2026)
+## Current source/package — v186 built and pushed, not deployed (1 Oct 2026)
+
+- Fixed branch `arena/01a0f602-shivaa-ecom`; source/package commit `7a9b0f9`.
+- Package `shivaa-update-v186.zip`: 22 entries, 2,160,234 bytes, SHA-256
+  `9c5ec601b1a460bf9c51aa6dd2313080975c2fbc2944aa2994290f3c076339e3`.
+  It is a cumulative `public_html` overlay for authorized staging, not a full
+  backup. See `DEPLOY-v186.md` for inventory and verification.
+- Changes: product-detail prefetch/reuse on card intent; catalog pull/button
+  refresh; optimistic serialized wishlist with accessible confirmed rollback;
+  non-blocking cart feedback; small-screen 16 px editable controls; coherent
+  release/cache stamp 186. Theme, logo and Gold Biscuit campaign remain intact.
+- Results: `npm test` exit 0; deploy gate 20/20, v186 source 8/8, synthetic DOM
+  15/15, S01 API/DOM 25/25 + 29/29, S02 14/14, v184 8/8 + 6/6, relay 7/7.
+  Regression: 45 passed, 26 skipped, 0 failed. Extracted overlay passed the
+  relevant gates over a clean local v184 tree.
+- **Not complete:** audit remains 0/111 fully verified, with the Round 4
+  “Persistent bottom navi…” item truncated. Real-device/in-app-browser,
+  staging/live systems, legal and load tests are not claimed. No staging or
+  production deployment or cache purge occurred; last checked/owner-reported
+  production is v184. Owner approval is required before staging/deployment.
+
+## Historical: v178 published — use Shivaa like an app: no store, no APK, no upload (24 Sep 2026)
 
 **Current release: 178** (owner request: *"how can we give customers an
 option to download the app in their mobile without uploading it to the

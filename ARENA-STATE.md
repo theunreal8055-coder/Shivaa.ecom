@@ -1,6 +1,16 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
-## Current Build & Live Status — v182 built (Auto-Catalogue Phase 4 + Billing Bridge); v181 live on Hostinger (25 Sep 2026)
+## Current Build & Live Status — v186 candidate; v184 last checked/owner-reported live (1 Oct 2026)
+
+- **Branch/commit:** `arena/01a0f602-shivaa-ecom` at `7a9b0f9`; source and package pushed. No PR or deployment is implied by the push.
+- **Package:** `shivaa-update-v186.zip`, root-layout staging overlay, 22 entries, 2,160,234 bytes, SHA-256 `9c5ec601b1a460bf9c51aa6dd2313080975c2fbc2944aa2994290f3c076339e3`. See `DEPLOY-v186.md`.
+- **Behavior:** bounded card-intent prefetch and route reuse; accessible catalog refresh button/pull gesture; optimistic serialized wishlist updates with rejection rollback; non-blocking cart feedback; 16 px mobile editable controls; release/cache stamps 186. Theme, supplied logo and Gold Biscuit campaign surfaces remain unchanged.
+- **Measured checks:** `npm test` exit 0; deployment gate 20/20, v186 source 8/8, focused DOM 15/15, S01 API/DOM 25/25 + 29/29, S02 14/14, v184 8/8 + PHP-WASM 6/6, relay 7/7. `npm run test:regression`: 45 passed, 26 skipped, 0 failed. Extracted overlay passed relevant gates over a clean local v184 tree. No native PHP CLI; PHP-WASM used.
+- **Audit status:** still 0/111 fully verified, plus the incomplete Round 4 “Persistent bottom navi…” fragment. v186 is partial local evidence only; do not claim all requirements passed.
+- **Deployment:** no staging/production upload, cache purge, or v186 live check. Last checked/owner-reported production release is v184. Explicit owner authorization and staging verification are still required.
+- See `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md` for audit scope and `AGENTS.md` for standing safety rules.
+
+## Historical Build Record — v182 built (Auto-Catalogue Phase 4 + Billing Bridge); v181 live on Hostinger (25 Sep 2026)
 
 - **LIVE SITE IS 181 (VERIFIED 25 Sep 2026):** probed `https://shivaa.in/api/version`
   → `rel: 181, stamp.matched: true, db.driver/mode: "mysql", sqlCount: 78,

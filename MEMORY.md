@@ -1,5 +1,13 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v186 app-like update + audit continuation (1 Oct 2026, branch `arena/01a0f602-shivaa-ecom`)
+
+- **Source/package pushed:** commit `7a9b0f9` on the fixed Arena branch. `shivaa-update-v186.zip` is a 22-entry root-layout overlay for staging, 2,160,234 bytes, SHA-256 `9c5ec601b1a460bf9c51aa6dd2313080975c2fbc2944aa2994290f3c076339e3`. Builder: `tools/mega/build-v186-package.py`; install/runbook: `DEPLOY-v186.md`.
+- **v186 behavior:** product detail prefetch/reuse after card intent with bounded cache; accessible catalog button/pull refresh with valid-data preservation; optimistic serialized wishlist changes with confirmed-rejection rollback; non-blocking cart feedback/live announcement; 16 px editable controls on small screens. Release/cache stamps align at 186. Existing theme/logo/campaign surfaces are protected and hash-checked.
+- **Tests:** `npm test` exit 0 (deploy gate 20/20, v186 source 8/8, synthetic DOM 15/15, relay 7/7, S01 API/DOM 25/25 + 29/29, S02 14/14, v184 8/8 + PHP-WASM 6/6). `npm run test:regression`: 45 suites passed, 26 retired/stamp-specific skipped, 0 failed. Extracted-overlay gates passed over clean local v184 CMS baseline. Native PHP CLI is unavailable; PHP-WASM suites passed.
+- **Audit remains open:** broad tracker count is 0/111 fully verified, plus one incomplete Round 4 fragment (“Persistent bottom navi…”). v186 only supplies partial local evidence. Real devices, in-app browsers, live financial/CRM/ERP systems, legal review, load/scanner tests, staging and production were not run.
+- **Deployment:** no staging or production upload, cache purge, or v186 live check. Last checked/owner-reported production release is v184. Owner approval remains required. `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md` is authoritative for issues and untested checks.
+
 ## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
 
 - **Live is 181 (verified 25 Sep 2026):** `/api/version` returned `rel:181`,

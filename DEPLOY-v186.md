@@ -3,6 +3,7 @@
 **Built:** 1 Oct 2026
 **Release stamp:** 186
 **Branch:** `arena/01a0f602-shivaa-ecom`
+**Source/package commit:** `7a9b0f9`
 **Live status:** owner-reported release 184; not re-probed in this turn
 **Deployment status:** no staging or production upload was performed. This archive is not deployment approval.
 

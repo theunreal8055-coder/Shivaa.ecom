@@ -1,4 +1,35 @@
-# AGENT HANDOFF — v182 BUILT (Auto-Catalogue Phase 4 + Billing Bridge); v181 LIVE ON HOSTINGER (25 Sep 2026)
+# CURRENT HANDOFF — v186 built and pushed; staging/production not performed (1 Oct 2026)
+
+## Current state
+
+- Fixed branch: `arena/01a0f602-shivaa-ecom`; source/package commit: `7a9b0f9`.
+- `shivaa-update-v186.zip` is a staging-only root-layout overlay: 22 entries,
+  2,160,234 bytes, SHA-256
+  `9c5ec601b1a460bf9c51aa6dd2313080975c2fbc2944aa2994290f3c076339e3`.
+  Package inventory and install cautions are in `DEPLOY-v186.md`.
+- v186 adds detail prefetch on card intent with bounded cache/reuse; accessible
+  catalog pull/button refresh; optimistic, serialized wishlist updates with
+  rollback after confirmed rejection; non-blocking cart feedback; and a mobile
+  16 px editable-control rule. Release/cache stamps move together to 186.
+  Theme, logo, and Gold Biscuit campaign surfaces are unchanged.
+- Measured tests: `npm test` exits 0; v186 source **8/8**, synthetic DOM
+  **15/15**, deployment gate **20/20**, S01 API/DOM **25/25 + 29/29**, S02
+  **14/14**, v184 **8/8 + 6/6**, relay **7/7**. `npm run test:regression`:
+  **45 suites passed, 26 skipped, 0 failed**. Extracted ZIP overlay passed the
+  v186, v184, S01/S02, and v183 forward checks over a clean local v184 tree.
+- Broad pre-launch audit remains **0/111 fully verified**; many direct checks
+  are untested, and Round 4 ends at the incomplete “Persistent bottom navi…”
+  fragment. Real devices, Instagram/Facebook browsers, live systems, legal
+  review, and staging were not tested.
+- Last checked/owner-reported production is v184. **No staging or production
+  upload, cache purge, or live v186 check occurred.** Owner approval is still
+  required. Do not call the source/package deployed or claim the full audit is
+  complete.
+- Builder: `tools/mega/build-v186-package.py`. Main audit and remaining statuses:
+  `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md`. Cashfree limitations remain in
+  `DEPLOY-v184.md` and `docs/PAYMENT-EXPERIENCE-NEXT.md`.
+
+## Historical handoff — v182 built; v181 reported live (25 Sep 2026)
 
 ## CURRENT STATE — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
 
