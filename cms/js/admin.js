@@ -77,6 +77,20 @@ async function renderAdmin(view, q) {
   const proofPending = payProofs.filter(o => o.paymentStatus === 'Proof submitted').length;
   let refundsData = { requests: [] };
   if (tab === 'refunds') { try { refundsData = await api('/api/admin/refunds'); } catch (e) {} }
+  /* v183 — supplier programme: the book, the design map and the routed jobs.
+     The book is fetched for overview too, so the sidebar badge shows pending
+     manufacturer applications from wherever the owner is standing. */
+  let supData = { suppliers: [], portal: {} };
+  let supOrders = { orders: [], suppliers: {} };
+  let supDesigns = { bySupplier: {}, unassigned: [] };
+  if (tab === 'suppliers' || tab === 'overview') {
+    try { supData = await api('/api/admin/suppliers'); } catch (e) {}
+  }
+  if (tab === 'suppliers') {
+    try { supOrders = await api('/api/admin/suppliers/orders'); } catch (e) {}
+    try { supDesigns = await api('/api/admin/suppliers/designs'); } catch (e) {}
+  }
+  const supPending = (supData.suppliers || []).filter(s => s.status === 'pending').length;
   let savingsData = { plans: [] };
   if (tab === 'nidhi') { try { savingsData = await api('/api/admin/savings'); } catch (e) {} }
   let reviewAsks = [];
@@ -92,12 +106,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['intake','📦','Catalogue Intake'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'intake' && intakePending ? ` <span class="cnt">${intakePending}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['intake','📦','Catalogue Intake'],['suppliers','🏭','Suppliers'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'intake' && intakePending ? ` <span class="cnt">${intakePending}</span>` : ''}${n[0] === 'suppliers' && supPending ? ` <span class="cnt">${supPending}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',intake:'Catalogue Intake & Review Queue',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',intake:'Catalogue Intake & Review Queue',suppliers:'Supplier Programme — manufacturers, codes & routed orders',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${(state.rates?.source === 'live' || state.rates?.source === 'live-mcx') ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${state.rates?.source === 'live-mcx' ? 'official MCX' : esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -978,6 +992,94 @@ function v180DbStrip() {
             </div>
           </div>`).join('')}</div>`
         : '<p style="color:var(--ink-3);font-size:13.5px">Queue empty — staged designs appear here for your Approve / Skip tap.</p>'}
+      </div>`;
+  }
+
+  /* ── v183 · SUPPLIER PROGRAMME — manufacturers, unique codes, routed jobs ── */
+  if (tab === 'suppliers') {
+    const sups = supData.suppliers || [];
+    const tickets = supOrders.orders || [];
+    const unassigned = supDesigns.unassigned || [];
+    const portal = supData.portal || {};
+    const stChip = st => `<span class="src-badge ${st === 'approved' ? 'src-live' : (st === 'suspended' || st === 'rejected') ? 'src-sim' : 'src-sim'}">${esc(st)}</span>`;
+    const supOpts = sups.map(s => `<option value="${esc(s.id)}">${esc(s.firm)} — ${esc(s.code)}</option>`).join('');
+    const tStatus = ['routed', 'acknowledged', 'in_production', 'ready', 'dispatched', 'delivered', 'hold', 'cancelled'];
+    body.innerHTML = `
+      <div class="adm-card" style="border-left:4px solid var(--gold,#d4af37)">
+        <h3>🏭 Supplier programme</h3>
+        <p class="partner-note" style="font-size:12.5px">Every manufacturer gets <b>one unique supplier code</b> (minted here, never editable to a duplicate). Designs are linked to a supplier <b>internally only</b> — the shop, the product page and the jeweller desk never reveal whose design it is. When an order is placed, the job routes to that supplier's portal automatically.</p>
+        <form class="form-grid" style="grid-template-columns:1fr 1fr auto;align-items:end;margin-top:10px" onsubmit="ShivaaAdmin.supPortal(event)">
+          <div class="fld"><label>Delivery mode</label>
+            <select name="dropShip" class="sortsel" style="width:100%;border-radius:12px">
+              <option value="0" ${portal.dropShip ? '' : 'selected'}>Ship to the Shivaa workshop (buyer never sees the maker)</option>
+              <option value="1" ${portal.dropShip ? 'selected' : ''}>Direct dispatch to the customer (drop-ship)</option>
+            </select></div>
+          <div class="fld"><label>Customer details to supplier</label>
+            <select name="seesCustomer" class="sortsel" style="width:100%;border-radius:12px">
+              <option value="0" ${portal.revealCustomer ? '' : 'selected'}>Hidden — supplier sees only city/warehouse</option>
+              <option value="1" ${portal.revealCustomer ? 'selected' : ''}>Share delivery address (drop-ship only)</option>
+            </select></div>
+          <button class="btn btn-primary btn-sm">Save portal rules</button>
+        </form>
+      </div>
+      <div class="grid2">
+        <div class="adm-card"><h3>Add / adopt a manufacturer</h3>
+          <form class="form-grid" style="grid-template-columns:1fr 1fr;align-items:end" onsubmit="ShivaaAdmin.supAdd(event)">
+            <div class="fld"><label>Firm / workshop *</label><input name="firm" required maxlength="160"></div>
+            <div class="fld"><label>Contact person</label><input name="contactPerson" maxlength="120"></div>
+            <div class="fld"><label>Email (portal login)</label><input name="email" type="email" maxlength="190"></div>
+            <div class="fld"><label>Mobile</label><input name="phone" maxlength="10" inputmode="numeric"></div>
+            <div class="fld"><label>City</label><input name="city" maxlength="80"></div>
+            <div class="fld"><label>State</label><input name="state" maxlength="80"></div>
+            <div class="fld"><label>GSTIN (optional)</label><input name="gstin" maxlength="15"></div>
+            <div class="fld"><label>Supplier code <small>(blank = auto-mint a unique one)</small></label><input name="code" maxlength="24" placeholder="e.g. SHV-SUP-ABC12"></div>
+            <div class="fld"><label>Portal password <small>(needed to create the login)</small></label><input name="password" type="password" minlength="8" autocomplete="new-password"></div>
+            <div class="fld"><label>Monthly capacity</label><input name="monthlyCapacity" maxlength="120"></div>
+            <button class="btn btn-primary btn-sm" style="justify-self:start">Create supplier ID</button>
+          </form>
+        </div>
+        <div class="adm-card"><h3>Assign designs to a supplier</h3>
+          ${unassigned.length ? `
+          <form onsubmit="ShivaaAdmin.supAssign(event)">
+            <div class="fld"><label>Supplier</label><select name="supplierId" class="sortsel" style="width:100%;border-radius:12px" required>${supOpts || '<option value="">create a supplier first</option>'}</select></div>
+            <div class="fld" style="margin-top:8px"><label>Your design number for these pieces (optional)</label><input name="supplierSku" maxlength="60"></div>
+            <div class="fld" style="margin-top:8px"><label>Unassigned designs (${unassigned.length}${unassigned.length >= 500 ? '+' : ''})</label>
+              <div style="max-height:250px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:8px">
+                <label style="display:block;font-size:12.5px;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:6px"><input type="checkbox" onchange="this.closest('.fld').querySelectorAll('input[name=productIds]').forEach(c=>c.checked=this.checked)"> Select all shown</label>
+                ${unassigned.slice(0, 200).map(p => `<label style="display:block;font-size:12.8px;padding:3px 0"><input type="checkbox" name="productIds" value="${esc(p.id)}"> ${esc(p.name)} <small style="color:var(--ink-3)">${esc(p.sku || '')}</small></label>`).join('')}
+              </div></div>
+            <button class="btn btn-primary btn-sm" style="margin-top:10px">Link designs</button>
+          </form>` : '<p class="partner-note">Every design in the catalogue is already linked to a supplier.</p>'}
+        </div>
+      </div>
+      <div class="adm-card"><h3>Supplier book (${sups.length})</h3>
+        ${sups.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Supplier</th><th>Code</th><th>Status</th><th>Designs</th><th>Jobs</th><th>Contact</th><th></th></tr></thead><tbody>
+          ${sups.map(s => `<tr>
+            <td><b>${esc(s.firm)}</b><br><small style="color:var(--ink-3)">${esc(s.city || '')}${s.state ? ', ' + esc(s.state) : ''}${s.gstin ? ' · GSTIN ' + esc(s.gstin) : ''}${s.source === 'online' ? ' · applied online' : ''}</small></td>
+            <td><b style="letter-spacing:.06em">${esc(s.code)}</b><br><button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.supCopy(${jsArg(s.code)},this)">Copy</button></td>
+            <td>${stChip(s.status)}</td>
+            <td><b>${s.counts.live}</b> live · ${s.counts.staged} staged <small style="color:var(--ink-3)">(${s.counts.designs} total)</small></td>
+            <td><b>${s.counts.open}</b> open <small style="color:var(--ink-3)">/ ${s.counts.tickets}</small></td>
+            <td><small>${esc(s.email || '—')}<br>${esc(s.phone || '')}</small></td>
+            <td style="white-space:nowrap">
+              ${s.status !== 'approved' ? `<button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.supStatus(${jsArg(s.id)},'approved')">Approve</button>` : ''}
+              ${s.status === 'approved' ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.supStatus(${jsArg(s.id)},'suspended')">Suspend</button>` : ''}
+              <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.supRotate(${jsArg(s.id)})" title="Mint a fresh unique code (routing history is by ID, so nothing breaks)">New code</button>
+            </td></tr>`).join('')}
+        </tbody></table></div>` : '<p class="partner-note">No suppliers yet — add one above, or wait for an application from the public Suppliers page.</p>'}
+      </div>
+      <div class="adm-card"><h3>Routed orders to suppliers (${tickets.length})</h3>
+        ${tickets.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Order</th><th>Supplier</th><th>Items</th><th>Status</th><th>Ship to</th><th>Move</th></tr></thead><tbody>
+          ${tickets.map(t => `<tr>
+            <td><b>${esc(t.orderId)}</b><br><small style="color:var(--ink-3)">${esc(String(t.placedAt || '').slice(0, 16).replace('T', ' '))}</small></td>
+            <td>${esc((supOrders.suppliers[t.supplierId] || {}).firm || t.supplierId)}<br><small style="color:var(--ink-3)">${esc((supOrders.suppliers[t.supplierId] || {}).code || t.supplierCode || '')}</small></td>
+            <td>${t.lines.map(l => `${esc(l.name)} × ${l.qty}`).join('<br>')}</td>
+            <td><b>${esc(t.statusLabel)}</b>${t.note ? `<br><small style="color:var(--ink-3)">${esc(t.note)}</small>` : ''}</td>
+            <td><small>${esc(t.shipTo && t.shipTo.mode === 'customer' ? 'Customer — ' + (t.shipTo.city || '') : 'Shivaa workshop')}</small></td>
+            <td><select class="sortsel" id="supm_${esc(t.id)}">${tStatus.map(x => `<option value="${x}" ${x === t.status ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
+              <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.supMove(${jsArg(t.orderId)},${jsArg(t.supplierId)},'supm_' + ${jsArg(t.id)})">Set</button></td>
+          </tr>`).join('')}
+        </tbody></table></div>` : '<p class="partner-note">No orders have routed to a supplier yet. Link a design to a supplier, then a new order for that design appears here (and in their portal).</p>'}
       </div>`;
   }
 
@@ -2003,6 +2105,74 @@ window.ShivaaAdmin.saveSettings = async e => {
 };
 /* ── v182 · auto-catalogue intake & review queue (Phase 4) ── */
 window.ShivaaAdmin._intake = window.ShivaaAdmin._intake || { urls: [], batchId: '' };
+/* ── v183 · supplier programme actions ── */
+window.ShivaaAdmin.supCopy = async (code, btn) => {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(code);
+    else { const t = document.createElement('textarea'); t.value = code; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+    if (btn) { const o = btn.textContent; btn.textContent = '✓'; setTimeout(() => { btn.textContent = o; }, 1200); }
+  } catch (e) { toast('Copy failed — ' + code, 'err'); }
+};
+window.ShivaaAdmin.supPortal = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try {
+    await api('/api/settings', { method: 'PUT', body: JSON.stringify({
+      supplierDropShip: String(fd.get('dropShip')) === '1',
+      supplierSeesCustomer: String(fd.get('seesCustomer')) === '1',
+    }) });
+    toast('Portal rules saved ✦');
+    renderAdmin($('#view'), new URLSearchParams('tab=suppliers'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.supAdd = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = {};
+  ['firm', 'contactPerson', 'email', 'phone', 'city', 'state', 'gstin', 'code', 'password', 'monthlyCapacity'].forEach(k => { body[k] = String(fd.get(k) || '').trim(); });
+  try {
+    const r = await api('/api/admin/suppliers', { method: 'POST', body: JSON.stringify(body) });
+    toast('Supplier created — code ' + (r.supplier && r.supplier.code) + (r.loginCreated ? ' · portal login ready' : ''));
+    renderAdmin($('#view'), new URLSearchParams('tab=suppliers'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.supStatus = async (id, status) => {
+  try {
+    await api('/api/admin/suppliers/' + id, { method: 'PUT', body: JSON.stringify({ status }) });
+    toast('Supplier ' + status);
+    renderAdmin($('#view'), new URLSearchParams('tab=suppliers'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.supRotate = async (id) => {
+  if (!confirm('Mint a fresh supplier code? The old code stops working on new paperwork; existing routed orders keep their history.')) return;
+  try {
+    const r = await api('/api/admin/suppliers/' + id + '/code', { method: 'POST', body: '{}' });
+    toast('New code: ' + r.code);
+    renderAdmin($('#view'), new URLSearchParams('tab=suppliers'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.supAssign = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const ids = fd.getAll('productIds').map(String).filter(Boolean);
+  if (!ids.length) { toast('Tick at least one design', 'err'); return; }
+  try {
+    const r = await api('/api/admin/suppliers/assign', { method: 'POST', body: JSON.stringify({
+      productIds: ids, supplierId: String(fd.get('supplierId') || ''), supplierSku: String(fd.get('supplierSku') || '').trim(),
+    }) });
+    toast(r.designs + ' design(s) linked ✦');
+    renderAdmin($('#view'), new URLSearchParams('tab=suppliers'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.supMove = async (orderId, supplierId, selectId) => {
+  const el = document.getElementById(selectId);
+  const status = el ? el.value : '';
+  try {
+    await api('/api/admin/suppliers/orders/' + orderId, { method: 'PUT', body: JSON.stringify({ supplierId, status, note: '' }) });
+    toast('Job moved to ' + status);
+    renderAdmin($('#view'), new URLSearchParams('tab=suppliers'));
+  } catch (err) { toast(err.message, 'err'); }
+};
 window.ShivaaAdmin.intakeCreateBatch = async e => {
   e.preventDefault();
   const fd = new FormData(e.target);

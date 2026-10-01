@@ -41,14 +41,17 @@ $_GET=array_merge(['__route'=>'${route}'], json_decode(base64_decode('${b64(quer
 include '/qa/api.php';`);
   };
 
-  await test('P01', 'v182 release stamp and version telemetry: rel=182, matched=true', async () => {
+  await test('P01', 'v182 release stamp and version telemetry: rel≥182, matched=true', async () => {
     const v = await F.req('GET', 'version');
     assert.equal(v.status, 200);
-    assert.equal(v.json.rel, 182);
+    /* forward-tolerant floor (v183+): this suite is the regression home of the
+       Phase 4 + billing content, which must keep executing on newer trees. */
+    assert.ok(v.json.rel >= 182, 'rel floor 182, got ' + v.json.rel);
     assert.equal(v.json.stamp.matched, true);
-    assert.equal(v.json.stamp.index, 182);
-    assert.equal(v.json.stamp.app, 182);
-    assert.equal(v.json.stamp.sw, 182);
+    assert.ok(v.json.stamp.index >= 182 && v.json.stamp.app >= 182 && v.json.stamp.sw >= 182,
+      'all three stamps move forward together');
+    assert.equal(v.json.stamp.index, v.json.stamp.app);
+    assert.equal(v.json.stamp.app, v.json.stamp.sw);
     assert.equal(v.json.db.driver, 'json');
     assert.equal(v.json.db.mode, 'json');
     assert.equal(v.json.db.mirrorBehind, false);

@@ -926,6 +926,152 @@ function shv_sql_catalog_mirror(array $db): void {
       json_encode(['at' => date('c'), 'error' => mb_substr((string)$e->getMessage(), 0, 300)]));
   }
 }
+/* v183 — supplier programme dual-mode rows (suppliers ↔ `suppliers`,
+   supplyOrders ↔ `supply_orders`). Same health gate as Phase 3: SQL content
+   replaces the JSON array only when counts match and every JSON id is present;
+   otherwise the JSON safety net stays and /api/version reports why. */
+function shv_sql_supplier_overlay(array &$db): void {
+  if (($GLOBALS['__shv_sql_state']['mode'] ?? '') !== 'mysql') return;
+  $pdo = get_db_pdo();
+  if (!$pdo) return;
+  try {
+    // 1. Supplier book
+    $rows = $pdo->query('SELECT * FROM `suppliers`')->fetchAll();
+    $sqlS = [];
+    foreach ($rows as $r) {
+      $dec = json_decode((string)($r['data_json'] ?? ''), true);
+      if (is_array($dec) && ($dec['id'] ?? '') !== '') $sqlS[(string)$dec['id']] = $dec;
+    }
+    $jsonS = is_array($db['suppliers'] ?? null) ? $db['suppliers'] : [];
+    if (count($sqlS) === count($jsonS) && count($jsonS) > 0) {
+      $outS = []; $allMatched = true;
+      foreach ($jsonS as $js) {
+        $jid = (string)(is_array($js) ? ($js['id'] ?? '') : '');
+        if ($jid !== '' && isset($sqlS[$jid])) $outS[] = $sqlS[$jid];
+        else { $allMatched = false; break; }
+      }
+      if ($allMatched) $db['suppliers'] = $outS;
+    }
+    $sh = [];
+    foreach (($db['suppliers'] ?? []) as $__s) {
+      $__sid = (string)(is_array($__s) ? ($__s['id'] ?? '') : '');
+      if ($__sid !== '') $sh[$__sid] = hash('sha256', json_encode($__s));
+    }
+    $GLOBALS['__shv_supplier_hashes'] = $sh;
+
+    // 2. Supply tickets (workflow state rows only — tickets are derived)
+    $rows2 = $pdo->query('SELECT * FROM `supply_orders`')->fetchAll();
+    $sqlT = [];
+    foreach ($rows2 as $r) {
+      $dec = json_decode((string)($r['data_json'] ?? ''), true);
+      if (is_array($dec) && ($dec['id'] ?? '') !== '') $sqlT[(string)$dec['id']] = $dec;
+    }
+    $jsonT = is_array($db['supplyOrders'] ?? null) ? $db['supplyOrders'] : [];
+    if (count($sqlT) === count($jsonT) && count($jsonT) > 0) {
+      $outT = []; $allMatchedT = true;
+      foreach ($jsonT as $jt) {
+        $jid = (string)(is_array($jt) ? ($jt['id'] ?? '') : '');
+        if ($jid !== '' && isset($sqlT[$jid])) $outT[] = $sqlT[$jid];
+        else { $allMatchedT = false; break; }
+      }
+      if ($allMatchedT) $db['supplyOrders'] = $outT;
+    }
+    $th = [];
+    foreach (($db['supplyOrders'] ?? []) as $__t) {
+      $__tid = (string)(is_array($__t) ? ($__t['id'] ?? '') : '');
+      if ($__tid !== '') $th[$__tid] = hash('sha256', json_encode($__t));
+    }
+    $GLOBALS['__shv_supply_hashes'] = $th;
+  } catch (Throwable $e) {
+    @error_log('Shivaa supplier overlay fallback: ' . $e->getMessage());
+  }
+}
+function shv_sql_supplier_mirror(array $db): void {
+  if (shv_db_driver() !== 'mysql') return;
+  $m = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+  if ($m === 'GET' || $m === 'HEAD' || $m === 'OPTIONS') return;   // reads never mutate
+  if (file_exists(shv_mirror_behind_file())) return;               // installer owns healing
+  $pdo = get_db_pdo();
+  if (!$pdo) return;
+  try {
+    $inTx = $pdo->inTransaction();
+    if (!$inTx) $pdo->beginTransaction();
+    // 1. Supplier book
+    if (isset($db['suppliers']) && is_array($db['suppliers'])) {
+      $cur = []; $byId = [];
+      foreach ($db['suppliers'] as $s) {
+        if (!is_array($s)) continue;
+        $sid = (string)($s['id'] ?? '');
+        if ($sid === '') continue;
+        $cur[$sid] = hash('sha256', json_encode($s));
+        $byId[$sid] = $s;
+      }
+      $prev = $GLOBALS['__shv_supplier_hashes'] ?? null;
+      $stmt = $pdo->prepare('INSERT INTO `suppliers` (`id`, `code`, `firm`, `status`, `data_json`, `created_at`)'
+        . ' VALUES (?, ?, ?, ?, ?, ?)'
+        . ' ON DUPLICATE KEY UPDATE `code`=VALUES(`code`), `firm`=VALUES(`firm`),'
+        . '`status`=VALUES(`status`), `data_json`=VALUES(`data_json`)');
+      $del = $pdo->prepare('DELETE FROM `suppliers` WHERE `id` = ?');
+      if (is_array($prev)) {
+        $up = []; foreach ($cur as $sid => $h) if (!isset($prev[$sid]) || $prev[$sid] !== $h) $up[] = $sid;
+        $rm = array_diff_key($prev, $cur);
+      } else { $up = array_keys($cur); $rm = []; }
+      foreach ($up as $sid) {
+        $s = $byId[$sid];
+        $stmt->execute([
+          $sid,
+          mb_substr((string)($s['code'] ?? ''), 0, 32),
+          mb_substr((string)($s['firm'] ?? ''), 0, 190),
+          mb_substr((string)($s['status'] ?? 'pending'), 0, 32),
+          json_encode($s, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
+          !empty($s['appliedAt']) ? date('Y-m-d H:i:s', strtotime((string)$s['appliedAt'])) : date('Y-m-d H:i:s'),
+        ]);
+      }
+      foreach ($rm as $sid => $_) $del->execute([$sid]);
+      $GLOBALS['__shv_supplier_hashes'] = $cur;
+    }
+    // 2. Supply tickets
+    if (isset($db['supplyOrders']) && is_array($db['supplyOrders'])) {
+      $curT = []; $byIdT = [];
+      foreach ($db['supplyOrders'] as $t) {
+        if (!is_array($t)) continue;
+        $tid = (string)($t['id'] ?? '');
+        if ($tid === '') continue;
+        $curT[$tid] = hash('sha256', json_encode($t));
+        $byIdT[$tid] = $t;
+      }
+      $prevT = $GLOBALS['__shv_supply_hashes'] ?? null;
+      $stmtT = $pdo->prepare('INSERT INTO `supply_orders` (`id`, `order_id`, `supplier_id`, `status`, `data_json`, `created_at`, `updated_at`)'
+        . ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+        . ' ON DUPLICATE KEY UPDATE `status`=VALUES(`status`), `data_json`=VALUES(`data_json`), `updated_at`=VALUES(`updated_at`)');
+      $delT = $pdo->prepare('DELETE FROM `supply_orders` WHERE `id` = ?');
+      if (is_array($prevT)) {
+        $upT = []; foreach ($curT as $tid => $h) if (!isset($prevT[$tid]) || $prevT[$tid] !== $h) $upT[] = $tid;
+        $rmT = array_diff_key($prevT, $curT);
+      } else { $upT = array_keys($curT); $rmT = []; }
+      foreach ($upT as $tid) {
+        $t = $byIdT[$tid];
+        $created = !empty($t['createdAt']) ? date('Y-m-d H:i:s', strtotime((string)$t['createdAt'])) : date('Y-m-d H:i:s');
+        $updated = !empty($t['updatedAt']) ? date('Y-m-d H:i:s', strtotime((string)$t['updatedAt'])) : $created;
+        $stmtT->execute([
+          $tid,
+          mb_substr((string)($t['orderId'] ?? ''), 0, 64),
+          mb_substr((string)($t['supplierId'] ?? ''), 0, 64),
+          mb_substr((string)($t['status'] ?? 'routed'), 0, 32),
+          json_encode($t, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}',
+          $created, $updated,
+        ]);
+      }
+      foreach ($rmT as $tid => $_) $delT->execute([$tid]);
+      $GLOBALS['__shv_supply_hashes'] = $curT;
+    }
+    if (!$inTx && $pdo->inTransaction()) $pdo->commit();
+  } catch (Throwable $e) {
+    try { if ($pdo->inTransaction()) $pdo->rollBack(); } catch (Throwable $e2) {}
+    @file_put_contents(shv_mirror_behind_file(),
+      json_encode(['at' => date('c'), 'error' => mb_substr((string)$e->getMessage(), 0, 300)]));
+  }
+}
 function db_load(string $DB_FILE): array {
   for ($i = 0; $i < 5; $i++) {
     if (!empty($GLOBALS['__shv_lock'])) {
@@ -963,6 +1109,10 @@ function db_load(string $DB_FILE): array {
       /* v182 — batch-ledger overlay rides the same health gate as Phase 3 */
       if (function_exists('shv_sql_catalog_overlay')) {
         shv_sql_catalog_overlay($db);
+      }
+      /* v183 — the supplier book + routing tickets ride it too */
+      if (function_exists('shv_sql_supplier_overlay')) {
+        shv_sql_supplier_overlay($db);
       }
       return $db;
     }
@@ -1025,6 +1175,8 @@ function db_save(string $DB_FILE, array $db): void {
   if (function_exists('shv_sql_phase3_mirror')) shv_sql_phase3_mirror($db);
   /* v182 — batch-ledger mirror (catalogBatches → catalog_batches) */
   if (function_exists('shv_sql_catalog_mirror')) shv_sql_catalog_mirror($db);
+  /* v183 — suppliers + supply tickets (same mirror-on-save law as Phase 3) */
+  if (function_exists('shv_sql_supplier_mirror')) shv_sql_supplier_mirror($db);
   if ($lock) { flock($lock, LOCK_UN); fclose($lock); }
 }
 function clampn($v, $a, $b) { return max($a, min($b, $v)); }
@@ -1298,6 +1450,17 @@ function finale_qualifies(array $items): bool {
 /* Browser order views do not need the entropy used to derive access pins. */
 function shv_public_order(array $o): array {
   unset($o['tail']);
+  /* v183 — an order row carries the internal supply-routing snapshot (which
+     supplier owns each design). Customers, guests and jeweller partners must
+     never see it: the maker stays a secret between Shivaa and the supplier.
+     The keys are removed from the row AND from every item snapshot here — the
+     single choke point every customer-facing order read passes through. */
+  if (function_exists('shv_supplier_strip')) {
+    $o = shv_supplier_strip($o);
+    if (is_array($o['items'] ?? null)) {
+      foreach ($o['items'] as $i => $it) if (is_array($it)) $o['items'][$i] = shv_supplier_strip($it);
+    }
+  }
   return $o;
 }
 function shv_guest_pin(array $o): string {
@@ -3481,6 +3644,371 @@ function partner_is_approved(array $db, ?array $u): bool {
 }
 
 /* ════════════════════════════════════════════════════════════════════
+   v183 · SUPPLIER (MANUFACTURER) PROGRAMME — CONFIDENTIAL BY DESIGN.
+
+   The owner's work order: manufacturers apply and get their own ID + a
+   UNIQUE supplier code; every design can be traced to its supplier so a
+   paid order is routed straight to that supplier's portal — and NOTHING
+   on the buyer side (customer or jeweller partner) may ever reveal whose
+   design it is. Secrecy is enforced mechanically, not by convention:
+
+     · `hallmark_product()` is the single public product pass — every
+       storefront/B2B payload flows through it, and it strips the origin
+       keys (supplier / supplierId / supplierCode / supplierSku / name /
+       internal notes / costPerGram). Admin-only endpoints read the
+       mapping through explicit `admin/suppliers/*` routes instead.
+     · `shv_public_order()` scrubs the same keys from order rows and from
+       every item snapshot, so a customer or partner never sees the maker.
+     · Supplier routes scope strictly to the caller's own supplierId — a
+       supplier can list/update only their own designs and tickets.
+     · Supplier codes are minted server-side, case-insensitively unique
+       across the whole supplier book (`shv_supplier_code_mint`), and are
+       never part of a public payload.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Crockford-style alphabet: no 0/1/I/L/O/U, so a code read aloud or typed
+   from a printed order slip cannot be confused with another code. */
+function shv_supplier_code_alphabet(): string { return '23456789ABCDEFGHJKMNPQRSTVWXYZ'; }
+
+function shv_supplier_code_norm(string $code): string {
+  return strtoupper((string)preg_replace('/[^A-Za-z0-9-]/', '', trim($code)));
+}
+function shv_supplier_code_valid(string $code): bool {
+  $c = shv_supplier_code_norm($code);
+  return $c !== '' && preg_match('/^[A-Z0-9][A-Z0-9-]{3,23}$/', $c) === 1;
+}
+function shv_supplier_code_taken(array $db, string $code, string $exceptId = ''): bool {
+  $c = shv_supplier_code_norm($code);
+  if ($c === '') return true;
+  foreach (($db['suppliers'] ?? []) as $s) {
+    if (!is_array($s)) continue;
+    if ($exceptId !== '' && (string)($s['id'] ?? '') === $exceptId) continue;
+    if (shv_supplier_code_norm((string)($s['code'] ?? '')) === $c) return true;
+  }
+  return false;
+}
+/* Server-minted, unique forever. `SHV-SUP-` + 5 chars of the confusion-free
+   alphabet; the loop is a formality (32^5 = 33.5M space) but the uniqueness
+   check is the actual guarantee — a re-minted code never collides. */
+function shv_supplier_code_mint(array $db): string {
+  $A = shv_supplier_code_alphabet();
+  $n = strlen($A);
+  for ($i = 0; $i < 400; $i++) {
+    $code = 'SHV-SUP-';
+    for ($j = 0; $j < 5; $j++) $code .= $A[random_int(0, $n - 1)];
+    if (!shv_supplier_code_taken($db, $code)) return $code;
+  }
+  return 'SHV-SUP-' . strtoupper(bin2hex(random_bytes(4)));
+}
+function shv_supplier_find(array $db, string $id): ?array {
+  foreach (($db['suppliers'] ?? []) as $s) if (is_array($s) && (string)($s['id'] ?? '') === $id) return $s;
+  return null;
+}
+function shv_supplier_by_code(array $db, string $code): ?array {
+  $c = shv_supplier_code_norm($code);
+  if ($c === '') return null;
+  foreach (($db['suppliers'] ?? []) as $s) if (is_array($s) && shv_supplier_code_norm((string)($s['code'] ?? '')) === $c) return $s;
+  return null;
+}
+/* Approved suppliers may open their portal; a pending/rejected/suspended one
+   gets an honest message, never a silent empty dashboard. */
+function shv_supplier_is_approved(array $db, ?array $u): bool {
+  if (!$u) return false;
+  if (($u['role'] ?? '') === 'admin') return true;
+  if (($u['role'] ?? '') !== 'supplier') return false;
+  $s = shv_supplier_find($db, (string)($u['supplierId'] ?? ''));
+  return $s !== null && ($s['status'] ?? '') === 'approved';
+}
+/* What a signed-in supplier may see about THEMSELVES (their own profile +
+   the code they quote on every dispatch). Never returned to buyers. */
+function shv_supplier_self_view(array $s): array {
+  return [
+    'id' => (string)($s['id'] ?? ''),
+    'code' => (string)($s['code'] ?? ''),
+    'firm' => (string)($s['firm'] ?? ''),
+    'contactPerson' => (string)($s['contactPerson'] ?? ''),
+    'email' => (string)($s['email'] ?? ''),
+    'phone' => (string)($s['phone'] ?? ''),
+    'city' => (string)($s['city'] ?? ''),
+    'state' => (string)($s['state'] ?? ''),
+    'status' => (string)($s['status'] ?? 'pending'),
+    'designNote' => (string)($s['designNote'] ?? ''),
+    'appliedAt' => (string)($s['appliedAt'] ?? ''),
+    'approvedAt' => (string)($s['approvedAt'] ?? ''),
+    'joined' => (string)($s['joined'] ?? ''),
+  ];
+}
+/* The origin keys that must never reach a buyer payload. Keep this list in
+   ONE place: hallmark_product() and shv_public_order() both use it. */
+function shv_supplier_secret_keys(): array {
+  return ['supplier', 'supplierId', 'supplierCode', 'supplierSku', 'supplierName',
+          'supplierNotes', 'supplierPayout', 'costPerGram', 'weightSource'];
+}
+function shv_supplier_strip(array $row): array {
+  foreach (shv_supplier_secret_keys() as $k) unset($row[$k]);
+  return $row;
+}
+/* Which supplier owns this design? Product rows carry supplierId (canonical)
+   and legs of the legacy free-text `supplier` field are accepted read-only for
+   rows adopted before v183 — matching by firm name is case-insensitive. */
+function shv_supplier_for_product(array $db, array $product): ?array {
+  $sid = trim((string)($product['supplierId'] ?? ''));
+  if ($sid !== '') { $s = shv_supplier_find($db, $sid); if ($s !== null) return $s; }
+  $legacy = trim((string)($product['supplier'] ?? ''));
+  if ($legacy !== '') {
+    foreach (($db['suppliers'] ?? []) as $s) {
+      if (!is_array($s)) continue;
+      if (strcasecmp(trim((string)($s['firm'] ?? '')), $legacy) === 0) return $s;
+    }
+  }
+  return null;
+}
+/* Freeze the routing at order time: the item snapshot remembers which
+   supplier the design belonged to WHEN IT WAS ORDERED. A later re-assignment
+   of the design can never re-route (or de-route) a historical order. */
+function shv_supplier_order_lines(array $db, array $order, string $supplierId): array {
+  $out = [];
+  foreach (($order['items'] ?? []) as $it) {
+    if (!is_array($it)) continue;
+    $sid = trim((string)($it['supplierId'] ?? ''));
+    if ($sid === '') {
+      $pid = (string)($it['productId'] ?? ($it['id'] ?? ''));
+      foreach (($db['products'] ?? []) as $p) if ((string)($p['id'] ?? '') === $pid) { 
+        $s = shv_supplier_for_product($db, $p);
+        if ($s !== null) $sid = (string)$s['id'];
+        break;
+      }
+    }
+    if ($sid !== $supplierId) continue;
+    /* FULFILMENT PROJECTION, not the raw item: a supplier needs to know WHAT
+       to make and which size/engraving was ordered — never the shop's retail
+       math (unit price, rate, making charge, tax, discounts) and never the
+       buyer's identity. Whitelist, so a future order-item field cannot leak
+       by accident. */
+    $out[] = [
+      'productId' => (string)($it['productId'] ?? ''),
+      'sku' => (string)($it['sku'] ?? ''),
+      'name' => (string)($it['name'] ?? ''),
+      'img' => (string)($it['img'] ?? ''),
+      'qty' => max(1, (int)($it['qty'] ?? 1)),
+      'weightG' => (float)($it['weightG'] ?? 0),
+      'purity' => (string)($it['purity'] ?? ''),
+      'metal' => (string)($it['metal'] ?? ''),
+      'size' => $it['size'] ?? null,
+      'engraving' => mb_substr((string)($it['engraving'] ?? ''), 0, 120),
+      'hsn' => (string)($it['hsn'] ?? ''),
+      'supplierSku' => (string)($it['supplierSku'] ?? ''),
+    ];
+  }
+  return $out;
+}
+function shv_supplier_order_codes(array $order): array {
+  $codes = [];
+  foreach (($order['items'] ?? []) as $it) {
+    if (!is_array($it)) continue;
+    $c = trim((string)($it['supplierCode'] ?? ''));
+    $i = trim((string)($it['supplierId'] ?? ''));
+    if ($i !== '') $codes[$i] = $c;
+  }
+  return $codes;
+}
+/* Ticket identity is deterministic: one ticket per (order, supplier). The same
+   pair can never produce two rows, and a derived ticket needs no write at all
+   until a human acts — reads stay read-only, so a GET never mutates the DB. */
+function shv_supply_ticket_key(string $orderId, string $supplierId): string {
+  return substr(hash('sha256', $orderId . '|' . $supplierId), 0, 24);
+}
+function shv_supply_state_find(array $db, string $orderId, string $supplierId): ?array {
+  foreach (($db['supplyOrders'] ?? []) as $t) {
+    if (!is_array($t)) continue;
+    if (($t['orderId'] ?? '') === $orderId && ($t['supplierId'] ?? '') === $supplierId) return $t;
+  }
+  return null;
+}
+/* Supplier workflow. A supplier may only move a ticket FORWARD along this
+   graph (or park it on hold); only Shivaa (admin) can force/cancel. */
+function shv_supply_flow(): array {
+  return [
+    'routed'        => ['acknowledged', 'hold', 'cancelled'],
+    'acknowledged'  => ['in_production', 'hold', 'cancelled'],
+    'in_production' => ['ready', 'hold', 'cancelled'],
+    'ready'         => ['dispatched', 'hold'],
+    'dispatched'    => ['delivered'],
+    'hold'          => ['acknowledged', 'cancelled'],
+    'delivered'     => [],
+    'cancelled'     => [],
+  ];
+}
+function shv_supply_status_label(string $s): string {
+  return [
+    'routed' => 'Routed to you', 'acknowledged' => 'Accepted', 'in_production' => 'In production',
+    'ready' => 'Ready for dispatch', 'dispatched' => 'Dispatched', 'delivered' => 'Delivered',
+    'hold' => 'On hold', 'cancelled' => 'Cancelled',
+  ][$s] ?? $s;
+}
+function shv_supply_settings(array $db): array {
+  $drop = !empty($db['settings']['supplierDropShip']);
+  return ['dropShip' => $drop, 'revealCustomer' => $drop && !empty($db['settings']['supplierSeesCustomer'])];
+}
+/* What the supplier's portal shows for ONE order of THEIR designs. Pricing is
+   deliberately absent: a supplier sees what they must make and where it goes,
+   never the shop's retail math. Delivery defaults to the Shivaa workshop —
+   direct-to-customer (drop-ship) is an owner switch, off by default, because
+   a parcel from a manufacturer is the fastest way to break the secret. */
+function shv_supply_ticket_view(array $db, array $order, string $supplierId, array $state = null, array $lines = null): array {
+  $lines = $lines ?? shv_supplier_order_lines($db, $order, $supplierId);
+  $qty = 0;
+  foreach ($lines as $l) $qty += (int)($l['qty'] ?? 1);
+  $codes = shv_supplier_order_codes($order);
+  $cfg = shv_supply_settings($db);
+  $st = $state['status'] ?? 'routed';
+  $addr = is_array($order['address'] ?? null) ? $order['address'] : [];
+  if ($cfg['revealCustomer']) {
+    $ship = ['mode' => 'customer', 'name' => (string)($addr['name'] ?? ''), 'phone' => (string)($addr['phone'] ?? ''),
+             'line' => (string)($addr['line'] ?? ''), 'city' => (string)($addr['city'] ?? ''),
+             'state' => (string)($addr['state'] ?? ''), 'pincode' => (string)($addr['pincode'] ?? '')];
+  } else {
+    $ship = ['mode' => 'shivaa', 'name' => (string)($db['settings']['storeName'] ?? 'Shivaa Jewellers'),
+             'phone' => (string)($db['settings']['phone'] ?? ''), 'line' => (string)($db['settings']['address'] ?? ''),
+             'city' => '', 'state' => '', 'pincode' => ''];
+  }
+  return [
+    'id' => 'so_' . shv_supply_ticket_key((string)($order['id'] ?? ''), $supplierId),
+    'orderId' => (string)($order['id'] ?? ''),
+    'supplierId' => $supplierId,
+    'supplierCode' => (string)($codes[$supplierId] ?? ''),
+    'status' => (string)$st,
+    'statusLabel' => shv_supply_status_label((string)$st),
+    'note' => (string)($state['note'] ?? ''),
+    'history' => is_array($state['history'] ?? null) ? $state['history'] : [],
+    'placedAt' => (string)($order['createdAt'] ?? ''),
+    'orderStatus' => (string)($order['status'] ?? ''),
+    'paymentStatus' => (string)($order['paymentStatus'] ?? ''),
+    'qty' => $qty,
+    'lines' => $lines,
+    'shipTo' => $ship,
+    'updatedAt' => (string)($state['updatedAt'] ?? ''),
+  ];
+}
+/* One supplier's book: every order whose snapshot (or live product link)
+   points at them. Sorted newest first; cancelled shop orders are kept but
+   labelled, so the supplier is never left guessing about a disappearing job. */
+function shv_supply_orders_for(array $db, string $supplierId, int $limit = 200): array {
+  $out = [];
+  foreach (array_reverse(($db['orders'] ?? [])) as $o) {
+    if (!is_array($o)) continue;
+    $lines = shv_supplier_order_lines($db, $o, $supplierId);
+    if (!$lines) continue;
+    $state = shv_supply_state_find($db, (string)($o['id'] ?? ''), $supplierId);
+    $out[] = shv_supply_ticket_view($db, $o, $supplierId, $state ?: null, $lines);
+    if (count($out) >= $limit) break;
+  }
+  return $out;
+}
+function shv_supply_orders_all(array $db, int $limit = 400): array {
+  $out = [];
+  foreach (array_reverse(($db['orders'] ?? [])) as $o) {
+    if (!is_array($o)) continue;
+    $bySupplier = [];
+    $codes = shv_supplier_order_codes($o);
+    foreach (shv_supplier_order_codes($o) as $sid => $c) $bySupplier[$sid] = true;
+    /* codes() only sees snapshots; a legacy order (placed before v183) has no
+       snapshot, so resolve live product links too — this back-fills history. */
+    foreach (($o['items'] ?? []) as $it) {
+      if (!is_array($it)) continue;
+      if (trim((string)($it['supplierId'] ?? '')) !== '') continue;
+      $pid = (string)($it['productId'] ?? ($it['id'] ?? ''));
+      foreach (($db['products'] ?? []) as $p) {
+        if ((string)($p['id'] ?? '') !== $pid) continue;
+        $s = shv_supplier_for_product($db, $p);
+        if ($s !== null) $bySupplier[(string)$s['id']] = true;
+        break;
+      }
+    }
+    foreach (array_keys($bySupplier) as $sid) {
+      $lines = shv_supplier_order_lines($db, $o, $sid);
+      if (!$lines) continue;
+      $state = shv_supply_state_find($db, (string)($o['id'] ?? ''), $sid);
+      $out[] = shv_supply_ticket_view($db, $o, $sid, $state ?: null, $lines);
+      if (count($out) >= $limit) return $out;
+    }
+  }
+  return $out;
+}
+/* Apply a status change to a derived ticket — the ONLY place a supplyOrders
+   row is born. $actor: 'supplier' enforces the flow graph; 'admin' may force. */
+function shv_supply_status_apply(array &$db, string $orderId, string $supplierId, string $status, string $note, bool $isAdmin): array {
+  $flow = shv_supply_flow();
+  $state = shv_supply_state_find($db, $orderId, $supplierId);
+  $current = (string)($state['status'] ?? 'routed');
+  if (!isset($flow[$status])) throw new RuntimeException('Unknown supply status: ' . $status);
+  if (!$isAdmin && !in_array($status, $flow[$current] ?? [], true)) {
+    throw new RuntimeException('A ' . shv_supply_status_label($current) . ' job cannot move to ' . shv_supply_status_label($status) . '.');
+  }
+  $now = now_iso();
+  $rec = $state ?: [
+    'id' => 'so_' . shv_supply_ticket_key($orderId, $supplierId),
+    'orderId' => $orderId, 'supplierId' => $supplierId,
+    'status' => 'routed', 'createdAt' => $now,
+  ];
+  $rec['status'] = $status;
+  $rec['note'] = mb_substr(trim($note), 0, 500);
+  $rec['updatedAt'] = $now;
+  $rec['history'] = array_slice(array_merge(is_array($rec['history'] ?? null) ? $rec['history'] : [],
+    [['s' => $status, 'note' => mb_substr(trim($note), 0, 200), 'by' => $isAdmin ? 'shivaa' : 'supplier', 't' => $now]]), -50);
+  if ($status === 'dispatched') $rec['dispatchedAt'] = $now;
+  if ($status === 'delivered') $rec['deliveredAt'] = $now;
+  if ($state === null) $db['supplyOrders'][] = $rec;
+  else foreach ($db['supplyOrders'] as $i => $t) {
+    if (is_array($t) && ($t['orderId'] ?? '') === $orderId && ($t['supplierId'] ?? '') === $supplierId) { $db['supplyOrders'][$i] = $rec; break; }
+  }
+  return $rec;
+}
+/* Who is asking for supplier-scoped data? A signed-in supplier is pinned to
+   their OWN supplierId — the only way to reach another supplier's book is an
+   admin request with an explicit ?supplierId=. */
+function shv_supplier_ctx(array $db): array {
+  $u = req_user($db);
+  if (!$u) jout(401, ['error' => 'Login required']);
+  if (($u['role'] ?? '') === 'admin') {
+    $sid = trim((string)($_GET['supplierId'] ?? ''));
+    if ($sid === '') jout(400, ['error' => 'supplierId required for an admin request']);
+    $s = shv_supplier_find($db, $sid);
+    if ($s === null) jout(404, ['error' => 'Supplier not found']);
+    return ['user' => $u, 'supplier' => $s, 'admin' => true];
+  }
+  if (($u['role'] ?? '') !== 'supplier') jout(403, ['error' => 'Supplier accounts only — manufacturers apply on the Suppliers page']);
+  $s = shv_supplier_find($db, (string)($u['supplierId'] ?? ''));
+  if ($s === null) jout(403, ['error' => 'Your supplier record is missing — contact Shivaa']);
+  if (($s['status'] ?? '') !== 'approved')
+    jout(403, ['error' => 'Your supplier ID is ' . ucfirst((string)($s['status'] ?? 'pending')) . ' — the portal opens after Shivaa approves it. Your code ' . (string)($s['code'] ?? '') . ' is already reserved for you.']);
+  return ['user' => $u, 'supplier' => $s, 'admin' => false];
+}
+/* Stamp every order item with its design's origin at creation time. Internal
+   only: shv_public_order() removes these keys from anything a buyer sees. */
+function shv_supplier_route_order(array &$db, array &$order): void {
+  $routed = [];
+  foreach (($order['items'] ?? []) as $i => $it) {
+    if (!is_array($it)) continue;
+    $pid = (string)($it['productId'] ?? ($it['id'] ?? ''));
+    foreach (($db['products'] ?? []) as $p) {
+      if ((string)($p['id'] ?? '') !== $pid) continue;
+      $s = shv_supplier_for_product($db, $p);
+      if ($s !== null) {
+        $order['items'][$i]['supplierId'] = (string)$s['id'];
+        $order['items'][$i]['supplierCode'] = (string)($s['code'] ?? '');
+        $routed[(string)$s['id']] = (string)($s['code'] ?? '');
+      }
+      break;
+    }
+  }
+  if ($routed) {
+    $order['supplyRouted'] = array_keys($routed);
+    audit_log($db, 'supplier.order-routed', ['order' => (string)($order['id'] ?? ''), 'suppliers' => array_keys($routed)]);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
    v113 · ONE anchor for every metal screen.
    bullion_rows() (the B2B desk) and rtgs_strip() (the retail rate strip)
    and current_rates() (storefront pricing) all call this, so a customer
@@ -3905,7 +4433,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','suppliers','supplyOrders','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit'] as $__k) $db[$__k] = $db[$__k] ?? [];
 
 /* v60 — lightweight audit trail for money/status actions */
 function audit_log(array &$db, string $what, array $meta = []): void {
@@ -3928,7 +4456,13 @@ foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55,
      one as soon as the release check sees it (never over a form or a payment).
      OFF: the old quiet behaviour — the new release is picked up on the next
      visit, with no reload. Flipped by the owner in Admin → Settings. */
-  'forceLatestVersion' => true] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
+  'forceLatestVersion' => true,
+  /* v183 — supplier programme defaults. OFF means: the manufacturer ships to
+     the Shivaa workshop and sees only city-level dispatch context, so neither
+     the parcel nor the portal can reveal the maker to the buyer. The owner can
+     switch drop-ship on in Admin → Suppliers when a supplier is trusted to
+     ship straight to the customer. */
+  'supplierDropShip' => false, 'supplierSeesCustomer' => false] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
 /* v182 — auto-catalogue batch ledger + billing-sync idempotency log */
 if (!isset($db['catalogBatches']) || !is_array($db['catalogBatches'])) $db['catalogBatches'] = [];
 if (!isset($db['billingMovements']) || !is_array($db['billingMovements'])) $db['billingMovements'] = [];
@@ -5339,6 +5873,10 @@ try {
       unset($prodStock);
     }
     unset($reserved);
+    /* v183 — freeze each design's origin on the item NOW, so the consignment
+       routes to the right supplier portal even if the design is re-assigned
+       later. Internal only: shv_public_order() strips it from buyer payloads. */
+    if (function_exists('shv_supplier_route_order')) shv_supplier_route_order($db, $order);
     $db['orders'][] = $order;
     /* v137 (#16) — only the REDEMPTION happens here; the earning does not.
        Redeeming at checkout is correct (it prices this order), but crediting
@@ -5487,7 +6025,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 182,
+      'rel'   => 183,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -6782,6 +7320,461 @@ try {
     jout(200, ['partner' => $pr, 'settlements' => $set]);
   }
 
+  /* ════════ v183 · SUPPLIERS (MANUFACTURERS) — apply, portal, routing ════════
+     Every supplier gets ONE unique code, minted here, quoted on every dispatch
+     and never shown to a buyer. Supplier routes pin strictly to the caller's
+     own supplierId (see shv_supplier_ctx). */
+
+  if ($route === 'suppliers/apply' && $method === 'POST') {
+    $b = !empty($_POST) ? $_POST : body_json();
+    rate_block($db, 'supplier-apply-ip', client_ip(), 10, 3600);
+    foreach (['firm', 'email', 'phone', 'password'] as $need)
+      if (empty($b[$need])) jout(400, ['error' => 'Firm name, email, mobile & password required']);
+    if (strlen((string)$b['password']) < 8) jout(400, ['error' => 'Password must be at least 8 characters']);
+    $sEmail = strtolower(trim((string)$b['email']));
+    if (!filter_var($sEmail, FILTER_VALIDATE_EMAIL) || strlen($sEmail) > 190) jout(400, ['error' => 'Enter a valid email']);
+    $sPhone = substr((string)preg_replace('/\D/', '', (string)$b['phone']), -10);
+    if (!preg_match('/^[6-9]\d{9}$/', $sPhone)) jout(400, ['error' => 'Enter a valid 10-digit mobile number']);
+    /* OTP proof first — same single-use code law as the partner door: a
+       verification the shop can actually call back on, burned on use. */
+    $otpOk = false;
+    foreach (($db['otps'] ?? []) as $o)
+      if (($o['phone'] ?? '') === $sPhone && ($o['purpose'] ?? 'login') !== 'reset'
+          && !empty($o['verified']) && empty($o['consumedByLogin']) && (int)($o['exp'] ?? 0) > time() - 3600) $otpOk = true;
+    if (!$otpOk) jout(400, ['error' => 'Verify your mobile with the code first']);
+    foreach (($db['users'] ?? []) as $uExist) {
+      if (strtolower((string)($uExist['email'] ?? '')) === $sEmail) jout(409, ['error' => 'Email already registered — sign in instead']);
+      if (substr((string)preg_replace('/\D/', '', (string)($uExist['phone'] ?? '')), -10) === $sPhone)
+        jout(409, ['error' => 'This mobile is already registered — sign in and ask Shivaa to link your supplier ID.']);
+    }
+    foreach (($db['suppliers'] ?? []) as $sExist) {
+      if (strtolower((string)($sExist['email'] ?? '')) === $sEmail) jout(409, ['error' => 'A supplier application already exists for this email.']);
+      $exPhone = substr((string)preg_replace('/\D/', '', (string)($sExist['phone'] ?? '')), -10);
+      if ($exPhone !== '' && $exPhone === $sPhone) jout(409, ['error' => 'A supplier application already exists for this mobile number.']);
+    }
+    $sGst = strtoupper(trim((string)($b['gstin'] ?? '')));
+    if ($sGst !== '') {
+      $g = gstin_check($sGst);
+      if (!$g['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $g['reason']]);
+    }
+    $sCats = [];
+    foreach ((array)($b['categories'] ?? []) as $sc) {
+      $sc = preg_replace('/[^a-z0-9_\-]/', '', strtolower((string)$sc));
+      if ($sc !== '' && !in_array($sc, $sCats, true)) $sCats[] = $sc;
+      if (count($sCats) >= 20) break;
+    }
+    $sup = [
+      'id' => uid('sup'),
+      'code' => shv_supplier_code_mint($db),
+      'firm' => mb_substr(trim((string)$b['firm']), 0, 160),
+      'contactPerson' => mb_substr(trim((string)($b['contactPerson'] ?? '')), 0, 120),
+      'email' => $sEmail,
+      'phone' => $sPhone,
+      'city' => mb_substr(trim((string)($b['city'] ?? '')), 0, 80),
+      'state' => mb_substr(trim((string)($b['state'] ?? '')), 0, 80),
+      'gstin' => $sGst,
+      'address' => mb_substr(trim((string)($b['address'] ?? '')), 0, 300),
+      'designNote' => mb_substr(trim((string)($b['designNote'] ?? '')), 0, 1000),
+      'categories' => $sCats,
+      'monthlyCapacity' => mb_substr(trim((string)($b['monthlyCapacity'] ?? '')), 0, 120),
+      'status' => 'pending',
+      'source' => 'online',
+      'appliedAt' => now_iso(),
+    ];
+    $db['suppliers'][] = $sup;
+    $sUser = ['id' => uid('u'), 'name' => $sup['firm'], 'email' => $sEmail, 'phone' => $sPhone,
+              'passHash' => pw_hash((string)$b['password']), 'role' => 'supplier', 'supplierId' => $sup['id'],
+              'loyaltyPoints' => 0, 'wishlist' => [], 'createdAt' => now_iso()];
+    $db['users'][] = $sUser;
+    otp_consume_verified($db, $sPhone);   // burn the verification code
+    $tk = issue_token($db, $sUser);
+    audit_log($db, 'supplier.apply', ['supplierId' => $sup['id'], 'code' => $sup['code']]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'supplier' => shv_supplier_self_view($sup), 'token' => $tk, 'user' => pub_user($sUser)]);
+  }
+
+  /* The supplier's own dashboard: profile + code + counts. */
+  if ($route === 'suppliers/me' && $method === 'GET') {
+    $ctx = shv_supplier_ctx($db);
+    $sid = (string)$ctx['supplier']['id'];
+    $designs = 0; $live = 0; $staged = 0;
+    foreach (($db['products'] ?? []) as $p) {
+      if (!is_array($p)) continue;
+      $s = shv_supplier_for_product($db, $p);
+      if ($s === null || (string)$s['id'] !== $sid) continue;
+      $designs++;
+      if (!empty($p['active'])) $live++; else $staged++;
+    }
+    $tickets = shv_supply_orders_for($db, $sid);
+    $open = 0;
+    foreach ($tickets as $t) if (!in_array($t['status'], ['delivered', 'cancelled'], true)) $open++;
+    jout(200, ['supplier' => shv_supplier_self_view($ctx['supplier']), 'counts' => [
+      'designs' => $designs, 'live' => $live, 'staged' => $staged, 'orders' => count($tickets), 'open' => $open,
+    ], 'portal' => shv_supply_settings($db)]);
+  }
+
+  /* Their own designs — staged pieces included (that is the point: they see
+     their submission's review state); nothing from any other supplier. */
+  if ($route === 'supplier/designs' && $method === 'GET') {
+    $ctx = shv_supplier_ctx($db);
+    $sid = (string)$ctx['supplier']['id'];
+    $rows = [];
+    foreach (array_reverse(($db['products'] ?? [])) as $p) {
+      if (!is_array($p)) continue;
+      $s = shv_supplier_for_product($db, $p);
+      if ($s === null || (string)$s['id'] !== $sid) continue;
+      $st = (string)($p['status'] ?? (empty($p['active']) ? 'pending_review' : 'live'));
+      $rows[] = [
+        'id' => (string)($p['id'] ?? ''), 'sku' => (string)($p['sku'] ?? ''), 'name' => (string)($p['name'] ?? ''),
+        'category' => (string)($p['category'] ?? ''), 'metal' => (string)($p['metal'] ?? ''),
+        'purity' => (string)($p['purity'] ?? ''), 'weightG' => (float)($p['weightG'] ?? 0),
+        'supplierSku' => (string)($p['supplierSku'] ?? ''), 'status' => $st,
+        'live' => !empty($p['active']), 'batchId' => (string)($p['batchId'] ?? ''),
+        'image' => is_array($p['images'] ?? null) && !empty($p['images']) ? (string)$p['images'][0] : '',
+        'createdAt' => (string)($p['createdAt'] ?? ''),
+      ];
+    }
+    jout(200, ['designs' => $rows, 'count' => count($rows)]);
+  }
+
+  /* Design intake from the manufacturer. A submitted piece is STAGED —
+     active=0, pending_review — and rides the same v182 review queue the owner
+     already works. Standing law: the supplier's own weight/purity declaration
+     is mandatory; nothing is defaulted or invented here. */
+  if ($route === 'supplier/designs' && $method === 'POST') {
+    $ctx = shv_supplier_ctx($db);
+    $sid = (string)$ctx['supplier']['id'];
+    if (!$ctx['admin']) rate_block($db, 'supplier-designs', $sid, 60, 3600);
+    $b = body_json();
+    $w = $b['weightG'] ?? null;
+    if (!is_numeric($w) || (float)$w <= 0) jout(400, ['error' => 'weightG must be > 0 and come from your own piece — weights are never guessed']);
+    $purity = trim((string)($b['purity'] ?? ''));
+    if ($purity === '') jout(400, ['error' => 'purity is required (e.g. 22K, 18K, 925) — it comes from your piece, never defaulted']);
+    $wsrc = trim((string)($b['weightSource'] ?? ''));
+    if ($wsrc === '') jout(400, ['error' => 'weightSource is required — say what the weight was measured on (your tag/lot sheet)']);
+    if (trim((string)($b['name'] ?? '')) === '') jout(400, ['error' => 'Design name required']);
+    shv_sanitize_product_media($b);
+    if (empty($b['images'])) jout(400, ['error' => 'At least one design photo is required — upload first, then submit']);
+    $prod = shv_sanitize_product_fields($b);
+    $prod['id'] = uid('p');
+    $prod['createdAt'] = now_iso();
+    $prod['active'] = false;
+    $prod['status'] = 'pending_review';
+    $prod['supplierId'] = $sid;
+    $prod['supplierCode'] = (string)($ctx['supplier']['code'] ?? '');
+    $prod['supplierSku'] = mb_substr(trim((string)($b['supplierSku'] ?? '')), 0, 60);
+    $prod['weightSource'] = 'supplier declaration — ' . mb_substr($wsrc, 0, 100);
+    $prod['purity'] = mb_substr($purity, 0, 20);
+    $prod['rating'] = 5.0;
+    $prod['reviews'] = 0;
+    if (!array_key_exists('stock', $b)) $prod['stock'] = 1;
+    /* The supplier's drop rides the v182 batch ledger so the owner reviews a
+       whole consignment at once, exactly like an owner-sheet drop. */
+    $batchId = 'sup-' . strtolower((string)($ctx['supplier']['code'] ?? 'supplier')) . '-' . date('Ymd');
+    $batchId = (string)preg_replace('/[^A-Za-z0-9_\-]/', '', $batchId);
+    $prod['batchId'] = $batchId;
+    $known = false;
+    foreach (($db['catalogBatches'] ?? []) as $cb)
+      if (is_array($cb) && (string)($cb['id'] ?? '') === $batchId) { $known = true; break; }
+    if (!$known) {
+      $db['catalogBatches'][] = ['id' => $batchId,
+        'label' => 'Supplier ' . (string)($ctx['supplier']['code'] ?? '') . ' — ' . date('d M Y'),
+        'status' => 'intake', 'source' => 'supplier',
+        'supplierId' => $sid,
+        'counts' => ['total' => 0, 'pending' => 0, 'live' => 0, 'skipped' => 0],
+        'createdBy' => 'supplier:' . (string)($ctx['supplier']['code'] ?? ''),
+        'createdAt' => now_iso()];
+    }
+    $db['products'][] = $prod;
+    shv_catalog_refresh_batches($db);
+    audit_log($db, 'supplier.design.submit', ['supplierId' => $sid, 'productId' => $prod['id'], 'batchId' => $batchId]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'product' => ['id' => $prod['id'], 'name' => $prod['name'], 'status' => $prod['status'], 'batchId' => $batchId],
+               'note' => 'Submitted for Shivaa review — it goes live only after the owner approves it.']);
+  }
+
+  /* Design photos: supplier-scoped folder, magic-byte checked, same caps as
+     the admin intake uploader. */
+  if ($route === 'supplier/media' && $method === 'POST') {
+    $ctx = shv_supplier_ctx($db);
+    if (!$ctx['admin']) rate_block($db, 'supplier-media', (string)$ctx['supplier']['id'], 120, 3600);
+    if (empty($_FILES['files'])) jout(400, ['error' => 'No files field named "files"']);
+    $files = is_array($_FILES['files']['name'])
+      ? $_FILES['files']
+      : ['name' => [$_FILES['files']['name']], 'tmp_name' => [$_FILES['files']['tmp_name']],
+         'error' => [$_FILES['files']['error']], 'size' => [$_FILES['files']['size']]];
+    $folder = strtolower((string)preg_replace('/[^A-Za-z0-9\-]/', '', (string)($ctx['supplier']['code'] ?? 'supplier')));
+    $dir = __DIR__ . '/uploads/supplier/' . ($folder !== '' ? $folder : 'supplier');
+    if (!is_dir($dir) && !@mkdir($dir, 0755, true)) jout(500, ['error' => 'Could not create uploads/supplier — check uploads/ permissions (755)']);
+    $urls = [];
+    foreach ($files['name'] as $fi => $fname) {
+      if (count($urls) >= 12) break;
+      if (($files['error'][$fi] ?? 1) !== UPLOAD_ERR_OK) continue;
+      if (($files['size'][$fi] ?? 0) > 8388608) continue;   // 8 MB per shot
+      $ext = strtolower(pathinfo((string)$fname, PATHINFO_EXTENSION));
+      if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) $ext = 'jpg';
+      $head = (string)@file_get_contents($files['tmp_name'][$fi], false, null, 0, 12);
+      $isImage = substr($head, 0, 3) === "\xFF\xD8\xFF" || substr($head, 0, 8) === "\x89PNG\r\n\x1a\n"
+        || (substr($head, 0, 4) === 'RIFF' && substr($head, 8, 4) === 'WEBP');
+      if (!$isImage) continue;
+      $nm = 'sup_' . bin2hex(random_bytes(5)) . '.' . $ext;
+      if (!shv_store_upload($files['tmp_name'][$fi], $dir . '/' . $nm)) continue;
+      $urls[] = '/uploads/supplier/' . ($folder !== '' ? $folder : 'supplier') . '/' . $nm;
+    }
+    if (!$urls) jout(400, ['error' => 'No valid image accepted (jpg/png/webp, ≤8 MB each, image content checked)']);
+    jout(200, ['urls' => $urls]);
+  }
+
+  /* Orders routed to this supplier — only their own lines, never the shop's
+     prices, and (by default) shipped to the Shivaa workshop so a parcel from
+     the factory can never reveal the maker to the buyer. */
+  if ($route === 'supplier/orders' && $method === 'GET') {
+    $ctx = shv_supplier_ctx($db);
+    $sid = (string)$ctx['supplier']['id'];
+    $orders = shv_supply_orders_for($db, $sid, 400);
+    $byStatus = [];
+    foreach ($orders as $t) $byStatus[$t['status']] = ($byStatus[$t['status']] ?? 0) + 1;
+    jout(200, ['orders' => $orders, 'byStatus' => $byStatus, 'portal' => shv_supply_settings($db)]);
+  }
+
+  if (preg_match('#^supplier/orders/([\w-]+)$#', $route, $mSO) && $method === 'PUT') {
+    $ctx = shv_supplier_ctx($db);
+    $sid = (string)$ctx['supplier']['id'];
+    $orderId = (string)$mSO[1];
+    $ord = null;
+    foreach (($db['orders'] ?? []) as $o) if (is_array($o) && (string)($o['id'] ?? '') === $orderId) { $ord = $o; break; }
+    if ($ord === null) jout(404, ['error' => 'Order not found']);
+    if (!shv_supplier_order_lines($db, $ord, $sid)) jout(403, ['error' => 'This order carries none of your designs']);
+    $b = body_json();
+    $status = trim((string)($b['status'] ?? ''));
+    try {
+      $rec = shv_supply_status_apply($db, $orderId, $sid, $status, (string)($b['note'] ?? ''), (bool)$ctx['admin']);
+    } catch (RuntimeException $e) {
+      jout(400, ['error' => $e->getMessage()]);
+    }
+    audit_log($db, 'supplier.order.status', ['orderId' => $orderId, 'supplierId' => $sid, 'status' => $status]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'ticket' => $rec]);
+  }
+
+  /* ── Shivaa side: the supplier book ── */
+  if ($route === 'admin/suppliers' && $method === 'GET') {
+    need_admin($db);
+    $designCounts = [];
+    foreach (($db['products'] ?? []) as $p) {
+      if (!is_array($p)) continue;
+      $s = shv_supplier_for_product($db, $p);
+      if ($s === null) continue;
+      $sid = (string)$s['id'];
+      $designCounts[$sid] = $designCounts[$sid] ?? ['designs' => 0, 'live' => 0, 'staged' => 0];
+      $designCounts[$sid]['designs']++;
+      if (!empty($p['active'])) $designCounts[$sid]['live']++; else $designCounts[$sid]['staged']++;
+    }
+    $ticketCounts = [];
+    foreach (shv_supply_orders_all($db, 1000) as $t) {
+      $sid = (string)$t['supplierId'];
+      $ticketCounts[$sid] = $ticketCounts[$sid] ?? ['total' => 0, 'open' => 0];
+      $ticketCounts[$sid]['total']++;
+      if (!in_array($t['status'], ['delivered', 'cancelled'], true)) $ticketCounts[$sid]['open']++;
+    }
+    $list = [];
+    foreach (($db['suppliers'] ?? []) as $s) {
+      if (!is_array($s)) continue;
+      $sid = (string)($s['id'] ?? '');
+      $v = shv_supplier_self_view($s);
+      $v['gstin'] = (string)($s['gstin'] ?? '');
+      $v['address'] = (string)($s['address'] ?? '');
+      $v['categories'] = is_array($s['categories'] ?? null) ? array_values($s['categories']) : [];
+      $v['monthlyCapacity'] = (string)($s['monthlyCapacity'] ?? '');
+      $v['source'] = (string)($s['source'] ?? 'admin');
+      $v['counts'] = array_merge(['designs' => 0, 'live' => 0, 'staged' => 0],
+        $designCounts[$sid] ?? [], ['tickets' => ($ticketCounts[$sid]['total'] ?? 0), 'open' => ($ticketCounts[$sid]['open'] ?? 0)]);
+      $list[] = $v;
+    }
+    usort($list, fn($a, $b) => strcmp((string)$a['status'], (string)$b['status']) ?: strcasecmp((string)$a['firm'], (string)$b['firm']));
+    jout(200, ['suppliers' => $list, 'portal' => shv_supply_settings($db), 'count' => count($list)]);
+  }
+
+  if ($route === 'admin/suppliers' && $method === 'POST') {
+    $adm = need_admin($db);
+    $b = body_json();
+    $firm = trim((string)($b['firm'] ?? ''));
+    if ($firm === '') jout(400, ['error' => 'firm required']);
+    $email = strtolower(trim((string)($b['email'] ?? '')));
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email (or leave it blank)']);
+    if ($email !== '') foreach (($db['users'] ?? []) as $uExist)
+      if (strtolower((string)($uExist['email'] ?? '')) === $email) jout(409, ['error' => 'This email already has an account — link it instead of creating a second one.']);
+    $code = trim((string)($b['code'] ?? ''));
+    if ($code !== '') {
+      if (!shv_supplier_code_valid($code)) jout(400, ['error' => 'Supplier code must be 4–24 chars: letters, digits, dashes']);
+      if (shv_supplier_code_taken($db, $code)) jout(409, ['error' => 'That supplier code is already taken — every supplier code is unique.']);
+      $code = shv_supplier_code_norm($code);
+    } else $code = shv_supplier_code_mint($db);
+    $gst = strtoupper(trim((string)($b['gstin'] ?? '')));
+    if ($gst !== '') { $g = gstin_check($gst); if (!$g['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $g['reason']]); }
+    $sup = [
+      'id' => uid('sup'), 'code' => $code,
+      'firm' => mb_substr($firm, 0, 160),
+      'contactPerson' => mb_substr(trim((string)($b['contactPerson'] ?? '')), 0, 120),
+      'email' => $email,
+      'phone' => substr((string)preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10),
+      'city' => mb_substr(trim((string)($b['city'] ?? '')), 0, 80),
+      'state' => mb_substr(trim((string)($b['state'] ?? '')), 0, 80),
+      'gstin' => $gst,
+      'address' => mb_substr(trim((string)($b['address'] ?? '')), 0, 300),
+      'designNote' => mb_substr(trim((string)($b['designNote'] ?? '')), 0, 1000),
+      'categories' => is_array($b['categories'] ?? null) ? array_slice(array_values(array_map(fn($c) => mb_substr((string)$c, 0, 40), $b['categories'])), 0, 20) : [],
+      'monthlyCapacity' => mb_substr(trim((string)($b['monthlyCapacity'] ?? '')), 0, 120),
+      'status' => in_array((string)($b['status'] ?? 'approved'), ['pending', 'approved', 'suspended'], true) ? (string)($b['status'] ?? 'approved') : 'approved',
+      'source' => 'admin',
+      'appliedAt' => now_iso(),
+    ];
+    if ($sup['status'] === 'approved') $sup['approvedAt'] = now_iso();
+    $db['suppliers'][] = $sup;
+    $madeUser = false;
+    if ($email !== '' && strlen((string)($b['password'] ?? '')) >= 8) {
+      $db['users'][] = ['id' => uid('u'), 'name' => $sup['firm'], 'email' => $email, 'phone' => $sup['phone'],
+        'passHash' => pw_hash((string)$b['password']), 'role' => 'supplier', 'supplierId' => $sup['id'],
+        'loyaltyPoints' => 0, 'wishlist' => [], 'createdAt' => now_iso()];
+      $madeUser = true;
+    }
+    audit_log($db, 'supplier.create', ['supplierId' => $sup['id'], 'code' => $code, 'by' => (string)($adm['name'] ?? 'admin'), 'login' => $madeUser]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'supplier' => shv_supplier_self_view($sup), 'loginCreated' => $madeUser]);
+  }
+
+  if (preg_match('#^admin/suppliers/([\w-]+)$#', $route, $mSup) && $method === 'PUT') {
+    need_admin($db);
+    $idx = null;
+    foreach (($db['suppliers'] ?? []) as $i => $s) if (is_array($s) && (string)($s['id'] ?? '') === $mSup[1]) { $idx = $i; break; }
+    if ($idx === null) jout(404, ['error' => 'Supplier not found']);
+    $b = body_json();
+    $st = $b['status'] ?? null;
+    if ($st !== null && !in_array((string)$st, ['pending', 'approved', 'rejected', 'suspended'], true))
+      jout(400, ['error' => 'Unknown supplier status']);
+    $allowed = ['firm' => 160, 'contactPerson' => 120, 'email' => 190, 'phone' => 20, 'city' => 80,
+                'state' => 80, 'gstin' => 20, 'address' => 300, 'designNote' => 1000, 'monthlyCapacity' => 120];
+    foreach ($allowed as $k => $lim) {
+      if (!array_key_exists($k, $b)) continue;
+      $v = trim((string)$b[$k]);
+      if ($k === 'email' && $v !== '' && !filter_var($v, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email']);
+      if ($k === 'gstin' && $v !== '') { $g = gstin_check(strtoupper($v)); if (!$g['valid']) jout(400, ['error' => 'GSTIN invalid: ' . $g['reason']]); $v = strtoupper($v); }
+      if ($k === 'phone') $v = substr((string)preg_replace('/\D/', '', $v), -10);
+      $db['suppliers'][$idx][$k] = mb_substr($v, 0, $lim);
+    }
+    if (array_key_exists('categories', $b) && is_array($b['categories']))
+      $db['suppliers'][$idx]['categories'] = array_slice(array_values(array_map(fn($c) => mb_substr((string)$c, 0, 40), $b['categories'])), 0, 20);
+    if ($st !== null) {
+      $db['suppliers'][$idx]['status'] = (string)$st;
+      if ((string)$st === 'approved' && empty($db['suppliers'][$idx]['approvedAt']))
+        $db['suppliers'][$idx]['approvedAt'] = now_iso();
+      /* Approval grants the portal; the legacy role link is repaired on the way
+         in (a supplier account created before this record existed). */
+      if ((string)$st === 'approved') {
+        foreach ($db['users'] as $ui => $u) {
+          if (($u['role'] ?? '') === 'supplier' && (string)($u['supplierId'] ?? '') === (string)$db['suppliers'][$idx]['id']) continue;
+          if (strtolower((string)($u['email'] ?? '')) === strtolower((string)($db['suppliers'][$idx]['email'] ?? '')) && ($db['suppliers'][$idx]['email'] ?? '') !== '')
+            { $db['users'][$ui]['role'] = 'supplier'; $db['users'][$ui]['supplierId'] = (string)$db['suppliers'][$idx]['id']; }
+        }
+      }
+    }
+    audit_log($db, 'supplier.update', ['supplierId' => $mSup[1], 'status' => (string)($db['suppliers'][$idx]['status'] ?? '')]);
+    db_save($DB_FILE, $db);
+    $out = shv_supplier_self_view($db['suppliers'][$idx]);
+    $out['gstin'] = (string)($db['suppliers'][$idx]['gstin'] ?? '');
+    jout(200, ['ok' => true, 'supplier' => $out]);
+  }
+
+  /* Rotate a code (typo'd at birth, or leaked somewhere it should not be).
+     Tickets reference supplierId, so rotation never breaks routing history. */
+  if (preg_match('#^admin/suppliers/([\w-]+)/code$#', $route, $mSupC) && $method === 'POST') {
+    $adm = need_admin($db);
+    $idx = null;
+    foreach (($db['suppliers'] ?? []) as $i => $s) if (is_array($s) && (string)($s['id'] ?? '') === $mSupC[1]) { $idx = $i; break; }
+    if ($idx === null) jout(404, ['error' => 'Supplier not found']);
+    $old = (string)($db['suppliers'][$idx]['code'] ?? '');
+    $new = shv_supplier_code_mint($db);
+    $db['suppliers'][$idx]['code'] = $new;
+    foreach (($db['products'] ?? []) as $pi => $p)
+      if (is_array($p) && (string)($p['supplierId'] ?? '') === $mSupC[1]) $db['products'][$pi]['supplierCode'] = $new;
+    audit_log($db, 'supplier.code.rotate', ['supplierId' => $mSupC[1], 'from' => $old, 'to' => $new, 'by' => (string)($adm['name'] ?? 'admin')]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'code' => $new, 'previous' => $old]);
+  }
+
+  if ($route === 'admin/suppliers/designs' && $method === 'GET') {
+    need_admin($db);
+    $bySupplier = [];
+    $unassigned = [];
+    foreach (($db['products'] ?? []) as $p) {
+      if (!is_array($p)) continue;
+      $s = shv_supplier_for_product($db, $p);
+      $row = ['id' => (string)($p['id'] ?? ''), 'sku' => (string)($p['sku'] ?? ''), 'name' => (string)($p['name'] ?? ''),
+              'category' => (string)($p['category'] ?? ''), 'active' => !empty($p['active']),
+              'supplierSku' => (string)($p['supplierSku'] ?? '')];
+      if ($s === null) { $unassigned[] = $row; continue; }
+      $bySupplier[(string)$s['id']][] = $row;
+    }
+    jout(200, ['bySupplier' => $bySupplier, 'unassigned' => array_slice($unassigned, 0, 500)]);
+  }
+
+  if ($route === 'admin/suppliers/assign' && $method === 'POST') {
+    $adm = need_admin($db);
+    $b = body_json();
+    $ids = is_array($b['productIds'] ?? null) ? array_values(array_filter(array_map('strval', $b['productIds']))) : [];
+    if (!$ids) jout(400, ['error' => 'productIds[] required']);
+    if (count($ids) > 500) jout(400, ['error' => 'Too many designs in one call (max 500)']);
+    $sid = trim((string)($b['supplierId'] ?? ''));
+    $sup = $sid !== '' ? shv_supplier_find($db, $sid) : null;
+    if ($sid !== '' && $sup === null) jout(404, ['error' => 'Supplier not found']);
+    $supplierSku = mb_substr(trim((string)($b['supplierSku'] ?? '')), 0, 60);
+    $touched = 0;
+    foreach ($db['products'] as $i => $p) {
+      if (!is_array($p) || !in_array((string)($p['id'] ?? ''), $ids, true)) continue;
+      if ($sup === null) {
+        unset($db['products'][$i]['supplierId'], $db['products'][$i]['supplierCode']);
+      } else {
+        $db['products'][$i]['supplierId'] = (string)$sup['id'];
+        $db['products'][$i]['supplierCode'] = (string)($sup['code'] ?? '');
+      }
+      if ($supplierSku !== '') $db['products'][$i]['supplierSku'] = $supplierSku;
+      $touched++;
+    }
+    if (!$touched) jout(404, ['error' => 'No matching designs found']);
+    audit_log($db, 'supplier.designs.assign', ['supplierId' => $sid, 'designs' => $touched, 'by' => (string)($adm['name'] ?? 'admin')]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'designs' => $touched, 'supplierId' => $sid]);
+  }
+
+  if ($route === 'admin/suppliers/orders' && $method === 'GET') {
+    need_admin($db);
+    $out = shv_supply_orders_all($db, 500);
+    $idx = [];
+    foreach (($db['suppliers'] ?? []) as $s) if (is_array($s))
+      $idx[(string)($s['id'] ?? '')] = ['code' => (string)($s['code'] ?? ''), 'firm' => (string)($s['firm'] ?? '')];
+    jout(200, ['orders' => $out, 'suppliers' => $idx, 'portal' => shv_supply_settings($db)]);
+  }
+
+  if (preg_match('#^admin/suppliers/orders/([\w-]+)$#', $route, $mSupO) && $method === 'PUT') {
+    $adm = need_admin($db);
+    $b = body_json();
+    $sOrderId = (string)$mSupO[1];
+    $sid = trim((string)($b['supplierId'] ?? ''));
+    $sup = shv_supplier_find($db, $sid);
+    if ($sup === null) jout(404, ['error' => 'supplierId required and must exist']);
+    $ord = null;
+    foreach (($db['orders'] ?? []) as $o) if (is_array($o) && (string)($o['id'] ?? '') === $sOrderId) { $ord = $o; break; }
+    if ($ord === null) jout(404, ['error' => 'Order not found']);
+    try {
+      $rec = shv_supply_status_apply($db, $sOrderId, $sid, trim((string)($b['status'] ?? '')), (string)($b['note'] ?? ''), true);
+    } catch (RuntimeException $e) {
+      jout(400, ['error' => $e->getMessage()]);
+    }
+    audit_log($db, 'supplier.order.status', ['orderId' => $sOrderId, 'supplierId' => $sid, 'status' => (string)$rec['status'], 'by' => (string)($adm['name'] ?? 'admin')]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'ticket' => $rec]);
+  }
+
   /* ── leads / services / misc ── */
   if ($route === 'services' && $method === 'POST') {
     rate_block($db, 'service-ip', client_ip(), 30, 3600);
@@ -7955,7 +8948,11 @@ try {
     /* v166 — forceLatestVersion joins the strict booleans: it decides whether a
        shopper's device moves itself to the newest release, so a typo must be
        refused rather than stored as a truthy string. */
-    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth', 'guestCheckout', 'forceLatestVersion'] as $occKey) {
+    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth', 'guestCheckout', 'forceLatestVersion',
+              /* v183 — supplier confidentiality switches: false means the maker
+                 ships to the Shivaa workshop and the buyer never learns who
+                 made the piece. A typo must never silently turn a switch on. */
+              'supplierDropShip', 'supplierSeesCustomer'] as $occKey) {
       if (array_key_exists($occKey, $setBody)) {
         $v = $setBody[$occKey];
         if (is_bool($v)) continue;
