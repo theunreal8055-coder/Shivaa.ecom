@@ -1,0 +1,35 @@
+### SHIVAA · DO DUKANE (SPLIT-SCREEN) · SHOT2-THE-GAP
+FLOW SETUP — Frames to Video: last frame of shot 1 becomes the first frame. Same 3 ingredients. 8 s + Extend once, trim to 10 s.
+
+--- PASTE EVERYTHING BELOW THIS LINE INTO GOOGLE FLOW ---
+
+CINEMATIC INDIAN RETAIL COMMERCIAL — SHIVAA, India's wholesale gold jewellery platform for jewellers. Vertical 9:16, photoreal, documentary-grade realism. Cut to a 110 BPM tension bed; every beat lands with a graphic or a glance.
+CAMERA / OPTICS: full-frame cinema camera, 40mm at T2.2, 24 fps, 180-degree shutter, shallow depth of field, gentle handheld-on-rails float with micro-parallax, slow push-ins that decelerate into a settle. No whip pans, no zoom punches.
+LIGHTING: warm practical showroom light — tube lights and display spots bouncing off glass counters and gold. LEFT SIDE is slightly cooler, flatter, dustier, with a faint green fluorescent cast and tired shadows. RIGHT SIDE is warmer, cleaner, with crisp gold specular highlights and a soft rim on faces. Same room type, opposite mood.
+PALETTE: warm ivory walls, teak counters, red velvet trays, 22K gold #C9A227, deep charcoal accents. Skin tones natural Indian, never orange.
+GRADE: filmic contrast, soft highlight roll-off, subtle grain, premium Indian advertising look.
+Photoreal skin with visible texture, real metal specularity, believable fabric. No on-screen text, no captions, no logos, no watermarks, no brand names anywhere in frame — all copy is added later in the edit.
+
+CHARACTER LOCKS — the same three people in every shot; match the reference images exactly.
+"SURESH" (LEFT SHOP, the struggling jeweller): Indian man, 45, medium build, salt-and-pepper hair, thick moustache, rimless glasses slipping down his nose, crumpled beige half-sleeve shirt, a pen in the pocket, a thin gold ring. Body language: hurried, apologetic, flipping pages, avoiding eye contact with the customer, sweat at the temples.
+"MOHIT" (RIGHT SHOP, the Shivaa partner): Indian man, 38, trim, clean-shaven with a sharp fade, crisp white shirt with sleeves rolled twice, slim charcoal waistcoat, a steel watch. Body language: calm, upright, one hand on a tablet, warm unhurried eye contact, a small confident smile.
+"THE CUSTOMER" (identical in both halves, same performance, same wardrobe): Indian woman, 32, in a magenta cotton-silk saree with a gold border, hair in a low bun with a small jasmine strand, a slim gold bangle. She asks for a fine meenakari mangalsutra. Her expressions differ ONLY in outcome: impatient and disappointed on the left, delighted on the right.
+Do not restyle, re-age or re-cast anyone between shots. Identical faces, wardrobe and shop layouts throughout.
+
+SPLIT-SCREEN LOCK — the frame is divided down the exact vertical centre by a thin 3-pixel line of warm gold light with a faint glow. Both halves are the SAME small Indian jewellery showroom, shot on the same lens and from the same angle, mirrored in mood:
+LEFT HALF — a stack of dog-eared printed catalogues, loose photo prints, a cluttered glass counter, a slowly emptying customer chair, a wall clock whose hands move visibly.
+RIGHT HALF — a clean counter, one tablet on a brass stand showing an abstract glowing grid of jewellery thumbnails (no readable text or digits ever), a velvet tray ready, the same wall clock barely moving.
+Both halves run at the same time with synchronised action; the gold seam pulses softly on the beat. ALL SCREEN CONTENT IS ABSTRACT — glowing tiles, shapes and light only, never letters, digits, prices or logos.
+
+SHOT 2 of 3 — "THE GAP OPENS" (10-20 s). Continue seamlessly from the previous last frame. One unbroken split-screen take; the two halves now diverge hard.
+VO SPOKEN OVER THIS SHOT (never rendered in frame): "बाईं ओर कैटलॉग पलटते रहिए… ग्राहक कुर्सी छोड़ चुका। दाईं ओर स्क्रीन खुली, डिज़ाइन सामने, सौदा तय।"
+0.0-3.0 s: LEFT — SURESH flips pages faster and faster, licking a fingertip, pulling a second stack over, phone wedged to his ear, a loose photo print sliding to the floor in slow motion. RIGHT — MOHIT taps twice; the abstract tile grid filters and re-sorts with a liquid ripple, three glowing tiles rising toward the customer.
+3.0-6.0 s: LEFT — the customer checks her phone, shifts in her seat, the clock hands sweep visibly; her smile fades. RIGHT — she leans in, eyes widening, pointing at one tile; MOHIT lifts an actual meenakari mangalsutra from a velvet tray and lays it on her palm; gold catches the spot light in a macro flash.
+6.0-8.5 s: LEFT — the chair is empty; the door swings shut behind her; SURESH looks up, one page still half-turned, catalogues collapsing sideways. RIGHT — she smiles and nods; MOHIT taps once and a soft golden confirmation pulse ripples out from the tablet across the counter.
+8.5-10.0 s: the gold centre seam brightens sharply, pushing the two outcomes apart for one beat. Hold on both faces: defeat on the left, quiet triumph on the right.
+AUDIO: the bed tightens — frantic page-flips, a ticking clock accelerating and a door click on the left; crisp taps, a silky filter whoosh and a warm chime on the right; one low impact as the seam flares.
+
+NEGATIVE PROMPT:
+text, letters, words, numbers, digits, currency symbols, UI labels, subtitles, captions, logos, brand names, watermarks, price tags, readable screens, deformed hands, extra fingers, mangled jewellery, twins or duplicate faces where not intended, plastic skin, waxy over-smoothed faces, beauty-filter look, cheap stock-video feel, harsh flat lighting, blown highlights, oversaturated orange, cartoon, anime, CGI plastic look, shaky footage, crowds
+
+FRAMING: native 9:16 vertical, split down the middle. Faces sit in the upper-middle third of each half; the bottom fifth of the frame stays clean and uncluttered for burned-in captions. Nothing important below 80 percent of frame height.

@@ -1,0 +1,24 @@
+### 08-OUTRO-LOGO-PLATE
+FLOW SETUP — Frames to Video: last frame of shot 7 (the golden bloom). Generate 4 s, trim to 3 s.
+DO NOT ask Veo to draw the Shivaa logo — the centre stays empty and assemble.sh composites the real PNG there.
+
+--- PASTE FROM HERE ---
+
+CINEMATIC JEWELLERY SHOWROOM REEL — SHIVAA, fine 22K gold jewellery house, Rajasthan. Vertical 9:16 social film.
+Look: shot on a full-frame cinema camera with a fast 35mm/50mm prime, T1.8, very shallow depth of field, creamy bokeh, 24 fps, natural motion blur, crisp modern retail commercial finish, light film grain.
+Lighting: a bright warm showroom — rows of backlit gold jewellery in glass wall cabinets, soft golden practicals, one soft key on the subject's face, gentle highlight bloom on polished gold. Clean, premium, NOT dark or moody.
+Palette: warm gold, honey beige, polished marble white, deep brown packaging, jewel-tone silk.
+Camera: handheld-smooth. Slow push-ins, gentle slides, over-the-shoulder framings, macro inserts, small parallax. No shake, no whip pans, no drone moves.
+Grade: bright, warm, high-clarity Indian jewellery-brand reel. Gold reads metallic yellow, skin natural.
+Photoreal. Real skin texture, real fabric weave, real metal specularity. No on-screen text, no captions, no logos, no watermarks, no brand names anywhere in frame.
+
+3-second luxury logo plate. No people, no jewellery, no text of any kind.
+0.0-1.2 s: from a full-frame wash of warm golden light, liquid molten gold flows inward from every edge and settles into a calm, deep charcoal-black velvet background.
+1.2-2.2 s: fine gold particles drift and settle; a soft specular shimmer sweeps once from left to right across the centre; a faint circular gold vignette forms in the exact middle of the frame, leaving that centre area CLEAN, EMPTY and completely uncluttered.
+2.2-3.0 s: everything settles and holds perfectly still — an empty, elegant dark-gold frame with a soft glow in the centre and gentle grain. Absolutely nothing in the centre of the frame.
+AUDIO: one deep cinematic gold-shimmer swell resolving into silence, with a single soft chime on the last beat.
+
+NEGATIVE PROMPT:
+text, letters, words, numbers, brand names, subtitles, captions, logos, watermarks, price tags, deformed hands, extra fingers, six fingers, warped or floating jewellery, duplicated pendants, melted metal shapes, silver or rose-gold tone, plastic skin, waxy face, over-smoothed beauty filter, oversaturated orange grade, HDR halo, dark moody lighting, cartoon, CGI look, fast cuts, strobing, crowds, cluttered background, western gown, cleavage, tight crop on chest
+
+FRAMING: native 9:16 vertical. Keep the face and the jewellery inside the central safe area, head room in the top eighth, and keep the bottom fifth of the frame clean for captions.

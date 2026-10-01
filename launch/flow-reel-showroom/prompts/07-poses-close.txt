@@ -1,0 +1,35 @@
+### 07-POSES-CLOSE
+FLOW SETUP — Frames to Video: last frame of shot 6. Same 3 ingredients. 8 s.
+
+--- PASTE FROM HERE ---
+
+CINEMATIC JEWELLERY SHOWROOM REEL — SHIVAA, fine 22K gold jewellery house, Rajasthan. Vertical 9:16 social film.
+Look: shot on a full-frame cinema camera with a fast 35mm/50mm prime, T1.8, very shallow depth of field, creamy bokeh, 24 fps, natural motion blur, crisp modern retail commercial finish, light film grain.
+Lighting: a bright warm showroom — rows of backlit gold jewellery in glass wall cabinets, soft golden practicals, one soft key on the subject's face, gentle highlight bloom on polished gold. Clean, premium, NOT dark or moody.
+Palette: warm gold, honey beige, polished marble white, deep brown packaging, jewel-tone silk.
+Camera: handheld-smooth. Slow push-ins, gentle slides, over-the-shoulder framings, macro inserts, small parallax. No shake, no whip pans, no drone moves.
+Grade: bright, warm, high-clarity Indian jewellery-brand reel. Gold reads metallic yellow, skin natural.
+Photoreal. Real skin texture, real fabric weave, real metal specularity. No on-screen text, no captions, no logos, no watermarks, no brand names anywhere in frame.
+
+CHARACTER LOCK — "PRIYA" (the SAME woman in every shot, match reference image 1 exactly):
+Indian woman, 26 years old, warm medium-brown skin, round-oval face, full cheeks, dark almond eyes, natural thick brows, long straight glossy black hair worn open over one shoulder, a small red bindi, soft everyday makeup with a warm nude-pink lip.
+Wardrobe locked: a multicoloured Kanjeevaram silk saree (green, orange, magenta and gold checks) with a rich gold zari border and a contrasting green silk blouse; a stack of green glass bangles on the left wrist.
+Same face, same hair, same saree, same bangles, same bindi in every shot. Do not restyle her, do not change her age or body type.
+
+PRODUCT LOCK — "THE SHIVAA TEMPLE BRIDAL SET" (match reference image 2, identical in every shot):
+a 22K yellow-gold South-Indian temple jewellery set — a long haram necklace with graduated deity-motif pendants and tiny gold bead drops, a matching short choker with the same motifs, large gold jhumka earrings, and two broad textured gold bangles.
+Antique-gold finish with fine granulation, small ruby-red and emerald-green kundan accents only.
+PACKAGING LOCK: a deep chocolate-brown matte paper shopping bag with a thin gold-foil border and flat gold handles, and a rigid cream-white presentation box with a gold-foil edge, lined with cream velvet.
+The bag and box are BLANK — a plain gold emblem shape at most, absolutely no letters, no words, no brand name printed anywhere.
+
+SHOT 7 of 7 — THE POSES (48.0-56.0 s). Continue from the first frame. One unbroken take, no cuts.
+0.0-2.5 s: she stands and takes a relaxed pose in front of the gold cabinet wall, one hand resting near her collarbone, head turned three-quarter, a happy natural smile.
+2.5-5.0 s: she turns her profile to the lens, touches her chin lightly, then looks back to camera and laughs softly; strands of hair move.
+5.0-7.0 s: she brings her bangled wrist up beside her face in a proud, playful pose; the gold set fills the frame with warm glints.
+7.0-8.0 s: she settles, looks straight down the lens, holds a calm confident smile, and the frame blooms softly into warm golden light.
+AUDIO: no dialogue. Music bed resolving, a light happy ambience, the bloom carried by a soft rising shimmer.
+
+NEGATIVE PROMPT:
+text, letters, words, numbers, brand names, subtitles, captions, logos, watermarks, price tags, deformed hands, extra fingers, six fingers, warped or floating jewellery, duplicated pendants, melted metal shapes, silver or rose-gold tone, plastic skin, waxy face, over-smoothed beauty filter, oversaturated orange grade, HDR halo, dark moody lighting, cartoon, CGI look, fast cuts, strobing, crowds, cluttered background, western gown, cleavage, tight crop on chest
+
+FRAMING: native 9:16 vertical. Keep the face and the jewellery inside the central safe area, head room in the top eighth, and keep the bottom fifth of the frame clean for captions.

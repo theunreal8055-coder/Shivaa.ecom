@@ -1,0 +1,32 @@
+### SHIVAA · VERSION A — "MANDI KA DARWAAZA" · SHOT2-DESK-SERVICES
+FLOW SETUP — Frames to Video: last frame of shot 1 becomes the first frame. Same 3 ingredients. 8 s + Extend once, trim to 10 s.
+
+--- PASTE EVERYTHING BELOW THIS LINE INTO GOOGLE FLOW ---
+
+HIGH-ENERGY CINEMATIC B2B COMMERCIAL — SHIVAA, India's wholesale gold jewellery platform for jewellers. Vertical 9:16. Cut to a 120 BPM track: every graphic lands on a beat.
+CAMERA / OPTICS: full-frame cinema camera, 35mm prime at T2, 24 fps, 180-degree shutter, shallow depth of field with creamy round bokeh, subtle anamorphic horizontal flare on specular gold, micro-parallax on every move. Moves are fast but mechanically smooth: dolly push-ins that decelerate into a hard settle, 15-25 degree arcs, macro snap-ins. No handheld wobble, no whip pans, no digital zoom.
+LIGHTING: dark premium studio. Key = large soft source 45 degrees camera-left, 4:1 ratio on her face; warm gold rim camera-right separating her from black; low gold kicker off a brushed-charcoal floor; thin gold LED strips receding into haze. Volumetric shafts, fine drifting gold dust, deep true blacks.
+PALETTE: charcoal #14110D, black glass, 22K gold #C9A227, warm ivory #F4EDE0. Gold reads metallic and specular, never flat orange.
+MOTION GRAPHICS: holographic gold-on-black glass panels with glowing 1px edges, floating cards with soft shadows, gold-dust particle bursts, light-sweep scan lines, wireframe-to-solid morphs, charts drawn in pure light, a shield-with-tick badge. Panels obey physics: they fly in with slight overshoot and settle with a micro-bounce. ALL GRAPHICS ARE ABSTRACT SHAPES AND ICONS ONLY — perfectly blank, zero letters, zero digits, zero words, zero currency symbols anywhere in frame.
+GRADE: rich contrast, warm gold highlights, ivory whites, filmic roll-off, fine grain. Premium fintech meets luxury jewellery. Photoreal skin texture and real metal specularity. No on-screen text, no captions, no logos, no watermarks in frame.
+
+CHARACTER LOCK — "AARYA", the Shivaa host. The SAME woman in all three shots; match reference image 1 exactly.
+Indian woman, 30 years old, warm wheatish skin with natural texture and a light sheen, oval face, high cheekbones, strong groomed brows, direct dark-brown eyes, glossy black hair in a sleek centre-parted low bun with no flyaways, minimal polished makeup, soft berry lip, small gold studs.
+WARDROBE LOCK: tailored ivory raw-silk kurta with a fine gold zari placket and one thin gold chain, sleeves to mid-forearm. No other jewellery, no dupatta.
+PERFORMANCE LOCK: a confident business partner, not a model. Crisp posture, purposeful hand gestures that physically trigger the holograms — a flick opens a panel, an open palm summons a card, a fingertip tap verifies. Direct unbroken eye contact with the lens in every close framing. Warm but decisive micro-expressions: a quick brow lift on the hook, a proud half-smile on the payoff. She never sways or drifts.
+Identical face, hair, wardrobe and energy in every shot. Do not restyle, do not age, do not change body type.
+
+PLATFORM LOCK — VERSION A, "THE DOORWAY". The same holographic world in all three shots: AARYA stands in a black-glass studio surrounded by floating gold interface elements — a tall scrolling GRID WALL of hundreds of tiny jewellery thumbnails, a rising LINE-CHART of light, a stack of BULLION bars, a wireframe-to-solid RING, a SHIELD-WITH-TICK badge, and a multi-panel DASHBOARD that unfolds in depth. Recurring motif: a tall vertical seam of gold light behind her that reads like a closed doorway and finally opens in shot 3. Everything is gold-on-black glass with glowing edges and a soft floor reflection. Purely abstract — bars, lines, icons and thumbnails only, never letters, digits, labels or prices; all copy is added later in the edit.
+
+SHOT 2 of 3 — VERSION A · "EVERY DEAL, ONE DESK" (10-20 s). Continue seamlessly from the previous last frame. One unbroken take, four hard beats.
+VO BEING SPOKEN OVER THIS SHOT (never rendered as text): "बुलियन का सौदा, कारीगरी की फ़रमाइश, वेस्टेज पर ख़रीद, डेड स्टॉक की विदाई — नक़दी हो या आर.टी.जी.एस., रास्ता कभी बंद नहीं।"
+0.0-2.2 s: the gold card in her palm shatters into particles that reassemble beside her as a slow-rotating stack of 22K BULLION bars and coins, stacking themselves on the beat. Behind her a LINE CHART of pure light draws itself upward and to the right; she glances at it, unimpressed and in control, then back to the lens.
+2.2-4.6 s: she sweeps her hand right — hard settle — and a CUSTOM ORDER hologram takes its place: a gold line-art ring sketch extrudes into a rotating wireframe, then skins into a photoreal finished ring that spins once and faces camera. Macro snap-in on the ring for 0.4 s, then back out to her proud half-smile.
+4.6-7.2 s: she pivots left; a tray of dull, scratched, slow-moving DEAD STOCK slides in from the frame edge. A bright horizontal scan bar passes over it and in its wake the tired pieces dissolve into gold particles that re-form as a clean stack of bright bullion rising upward. She watches it rise, then turns to the lens.
+7.2-10.0 s: two icons of gold light rise either side of her — a bank-transfer arrow and a cash bundle. Both pulse once, then a tick stamps into each with a particle burst. She opens both hands, squares her shoulders to the lens and holds a closing expression that says "either way, we are ready". Freeze on that pose.
+AUDIO: same 120 BPM bed, heavier, with a low brass swell: metallic clinks as bullion stacks, a digital morph whoosh on the ring, a deep sweeping scan on the transformation, two crisp lock-in clicks on the ticks.
+
+NEGATIVE PROMPT:
+text, letters, words, numbers, digits, currency symbols, UI labels, subtitles, captions, logos, watermarks, price tags, deformed hands, extra fingers, six fingers, mangled jewellery, floating limbs, plastic skin, waxy over-smoothed face, beauty-filter look, cheap stock-video feel, flat grey blacks, muddy shadows, oversaturated orange, HDR halo, strobing, flicker, low-resolution holograms, cluttered background, crowds, cartoon, anime, CGI plastic look
+
+FRAMING: native 9:16 vertical. AARYA and the hero graphic sit in the central safe area; head room in the top eighth; the bottom fifth stays clean for burned-in captions. Nothing important below 80 percent of frame height.
