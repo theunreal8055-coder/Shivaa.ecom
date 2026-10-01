@@ -35,3 +35,7 @@ launch/flow-b2b-30s/raw/
 launch/flow-b2b-30s/work/
 launch/flow-reel-do-dukane/raw/
 launch/flow-reel-do-dukane/work/
+launch/launch-video/work/
+media/*.mp4
+media/*.mov
+media/*.mkv
