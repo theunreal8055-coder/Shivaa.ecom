@@ -10,6 +10,21 @@
 
 ---
 
+## Status update — 1 October 2026 (beyond the original four phases)
+
+Phases 1–4 of this plan are **built and gated**: v180 (SQL runtime), v181
+(Phase 3 SQL & billing doorway), v182 (auto-catalogue intake + billing sync
+bridge). Live is still **181**; v182 and v183 await the owner's explicit yes.
+**v183 adds an owner-requested fifth workstream: the supplier (manufacturer)
+programme** — manufacturers set up their own IDs, each gets a unique code, and
+an order for any supplier's design routes straight to that supplier's portal
+while **customers and jeweller partners never learn whose design it is**. That
+confidentiality is enforced mechanically in `cms/hallmark.php` (public product
+payloads) and `shv_public_order()` (public order payloads). See
+`DEPLOY-v183.md` and `docs/SUPPLIER-CONFIDENTIALITY.md`.
+
+---
+
 ## 0. Where we actually stand today (read this first — one important correction)
 
 Your three screenshots (24 Sep 2026, 10:16 am) show:

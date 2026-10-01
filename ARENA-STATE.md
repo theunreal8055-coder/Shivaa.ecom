@@ -1,6 +1,39 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
-## Current Build & Live Status — v182 built (Auto-Catalogue Phase 4 + Billing Bridge); v181 live on Hostinger (25 Sep 2026)
+## Current Build & Live Status — v183 built (Supplier Programme, confidential by design); v181 live on Hostinger (1 Oct 2026)
+
+- **LIVE SITE IS 181 (unchanged; last probed 25 Sep 2026).** v182 and v183 are
+  built and gated but **not deployed**; nothing shipped this session.
+- **v183 BUILT & GATED (this session):** the supplier (manufacturer)
+  programme. Manufacturers apply through the access gate (OTP-verified,
+  GSTIN checked when given) → owner approves in Admin → 🏭 **Suppliers** →
+  the firm gets a **server-minted unique code** (`SHV-SUP-XXXXX`,
+  case-insensitive uniqueness, DB `UNIQUE uq_supplier_code`). Designs are
+  linked to the maker **internally** (`supplierId` on the product) and every
+  paid order item on a supplier's design is **routed to that supplier's
+  portal** as a work ticket with a strict workflow
+  (`routed → acknowledged → in_production → ready → dispatched → delivered`,
+  `hold`/`cancelled`). **Customers and jeweller partners never learn whose
+  design it is** — enforced mechanically in two chokepoints:
+  `hallmark_product()` (`cms/hallmark.php`) for public product payloads and
+  `shv_public_order()` (`api.php`) for public order rows **and their item
+  snapshots**. Portal rules (both default OFF): `supplierDropShip` (maker
+  ships to the customer, address revealed) and `supplierSeesCustomer` (cannot
+  act alone). Supplier design drops land STAGED under the standing
+  weight/purity/weightSource law and ride the v182 review queue.
+  Stamps 183 lockstep · `shivaa-update-v183.zip` (7 files, 483,962 bytes,
+  SHA-256 `ffbef0f7f15eba79300b80d7722c2837ee61df97d5cb1894be92ce1f453a8a91`)
+  + `DEPLOY-v183.md`.
+- **Belt green:** deploy gate 20 · v183-check 10 · v183-php-run 12 ·
+  v182-php-run 9 (P01 forward-tolerant) · v181-php-run 6 · v180-php-run 8 ·
+  v179-php 25 · v169 25+28 · v168 39+12. `v179-relay.js` is 7-fail in the
+  sandbox **identically on the base commit** — environmental, not a
+  regression. `php-sweep` 240 routes / 0 exceptions.
+- **Forward-only: next deploy ≥ 183.** Owner actions pending: install
+  v182 OR v183 (v183's ZIP is a superset — one install covers both; explicit
+  yes required), then a real-browser pass of `#/suppliers` + `#/supplier`.
+
+## Current Build & Live Status — v182 built (Auto-Catalogue Phase 4 + Billing Bridge); v181 live on Hostinger (25 Sep 2026) — superseded by v183
 
 - **LIVE SITE IS 181 (VERIFIED 25 Sep 2026):** probed `https://shivaa.in/api/version`
   → `rel: 181, stamp.matched: true, db.driver/mode: "mysql", sqlCount: 78,

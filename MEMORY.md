@@ -1,5 +1,79 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v183 SUPPLIER (MANUFACTURER) PROGRAMME, confidential by design (1 Oct 2026, branch `arena/01a0f864-shivaa-ecom`)
+
+- **Live is 181 (unchanged this session).** v182 and v183 are built but NOT
+  deployed. **Forward-only: next deploy ≥ 183** (v183's ZIP is a superset of
+  v182 — one install covers both).
+- **The owner's work order:** a supplier section on the website where
+  manufacturers set up their IDs, **every supplier carries a unique code**,
+  and an order for any supplier's design **routes straight to that supplier's
+  portal** — while **customers and jewellers never learn whose design it is**.
+  Owner may later choose to credit the maker ("Made by X"); the mapping stays
+  queryable so that door is NOT foreclosed.
+- **Suppliers are a new role, not partners.** `role:'supplier'` users live in
+  `db.suppliers` (book) — never reuse `partners` (that gate protects
+  bullion/design-selection and would leak the maker's identity to buyers).
+- **Codes:** `SHV-SUP-` + 5 chars from a confusion-free alphabet, server-minted
+  with case-insensitive uniqueness (`shv_supplier_code_taken`), reserved at
+  application time, printed/shown on order slips, rotatable by the owner
+  (rotation rewrites `supplierCode` on that supplier's products and is
+  audited). Never re-issue to a different firm.
+- **Attribution is internal:** products carry `supplierId` (+ `supplierCode`,
+  `supplierSku`, `supplierNotes`); nothing public may echo it.
+- **The two chokepoints (do not bypass):** `hallmark_product()` in
+  `cms/hallmark.php` calls `shv_supplier_strip()` (function_exists-guarded) —
+  every public product payload; and `shv_public_order()` strips the row AND
+  each `items[]` snapshot — every public order payload. Secret keys:
+  `supplier, supplierId, supplierCode, supplierSku, supplierName,
+  supplierNotes, supplierPayout, costPerGram, weightSource`.
+- **Order routing:** checkout calls `shv_supplier_route_order($db, $order)`
+  before `$db['orders'][] = $order;` — it freezes `supplierId`/`supplierCode`
+  onto each item and records `order.supplyRouted:[supplierId]`; the supplier's
+  ticket list is DERIVED from the orders (no duplicate write to keep in step).
+  Tickets default to `{mode:'shivaa', name:'Shivaa Jewellers'}` — the maker
+  ships to the Shivaa workshop; the supplier NEVER sees retail math (`lines`
+  carry design/SKU/qty only).
+- **Portal workflow:** `routed → acknowledged → in_production → ready →
+  dispatched → delivered`, plus `hold`/`cancelled`; the supplier may only
+  advance one legal step, the owner may force any status. History trail kept.
+- **Owner switches (Admin → Settings PUT, strict booleans, both default
+  false):** `supplierDropShip` (maker ships to customer; address revealed) and
+  `supplierSeesCustomer` (cannot act alone — `revealCustomer` requires
+  drop-ship ON).
+- **Supplier design drop:** staged rows (`active=false`,
+  `status='pending_review'`, `batchId`), mandatory weightG/purity/
+  weightSource/name/≥1 image (never invented; `weightSource` prefixed
+  "supplier declaration —"), auto-batch `sup-<codeLower>-YYYYMMDD` in
+  `catalogBatches` reviewed through the v182 intake queue; photos →
+  `cms/uploads/supplier/<codeLower>/` (≤12, 8 MB, magic-byte checked).
+  Rate scopes: `supplier-apply-ip` 10/h/IP, `supplier-designs` 60/h,
+  `supplier-media` 120/h.
+- **SQL:** `suppliers(id, code, firm, status, data_json, created_at)` with
+  `UNIQUE uq_supplier_code` + `idx_supplier_status`; `supply_orders(id,
+  order_id, supplier_id, status, data_json, created_at, updated_at)` + 3
+  indexes. Overlay gates on count+id match; mirror hash-diffs in one
+  transaction; installer prints `Suppliers: N (unique codes) · Routed supply
+  tickets: N`.
+- **Stamps 183 lockstep:** 56×`?v=183` index, 51× sw, `shivaa-shell-v183`,
+  `REL=183`, `APP_REL=183`, `'rel'=>183`; MEDIA stays v168, v178.css stays the
+  last stylesheet.
+- **Belt:** deployed-approval 20 · v183-check 10 · v183-php-run 12 ·
+  v182-php-run 9 (P01 made forward-tolerant: rel floor ≥182) · v181-php-run 6 ·
+  v180-php-run 8 · v179-php 25 · v169 25+28 · v168 39+12 = **all green**;
+  v182/v181/v180-check self-SKIP as superseded stamp-exact suites.
+  `v179-relay.js` is 7-fail in the sandbox **identically on the base commit**
+  (environmental — needs the live/TLS path; not a v183 regression).
+  `node tools/mega/php-sweep/sweep.mjs` → **240 routes · 0 exceptions**.
+- **Package:** `shivaa-update-v183.zip` (7 files, 483,962 bytes, SHA-256
+  `ffbef0f7f15eba79300b80d7722c2837ee61df97d5cb1894be92ce1f453a8a91`, built
+  from `dadab8f`) + `DEPLOY-v183.md`. Ships `hallmark.php` this time — the
+  strip rule only works if that file reaches the server.
+- **Still open for the next session:** a real browser pass of `#/suppliers`
+  and `#/supplier` (the sandbox has no browser — only `node --check` proof),
+  and owner-server verification of the two new SQL tables through
+  `/upgrade-sql.php` counts.
+
 ## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
 
 - **Live is 181 (verified 25 Sep 2026):** `/api/version` returned `rel:181`,

@@ -1,6 +1,96 @@
-# AGENT HANDOFF — v182 BUILT (Auto-Catalogue Phase 4 + Billing Bridge); v181 LIVE ON HOSTINGER (25 Sep 2026)
+# AGENT HANDOFF — v183 BUILT (Supplier Programme, confidential by design); v181 LIVE ON HOSTINGER (1 Oct 2026)
 
-## CURRENT STATE — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
+## CURRENT STATE — v183 BUILT: Supplier (Manufacturer) Programme (1 Oct 2026)
+
+- **LIVE IS 181 (unchanged).** v182 and v183 are built and gated but **not
+  deployed**. Nothing shipped this session. **Forward-only: next deploy ≥ 183**
+  (v183's ZIP is a superset of v182 — one install covers both).
+- **The owner's work order, verbatim intent:** add a supplier section so
+  **manufacturers can set up their own IDs**, **every supplier must have a
+  unique code**, and when someone orders **any supplier's design the order
+  goes directly to that supplier's portal** — while **customers and jewellers
+  must never know whose design it is** ("this should all be a secret").
+  The owner may later decide to credit the maker (e.g. "Made by X"); the
+  mapping stays queryable, so that door is not foreclosed.
+- **The secrecy rule is mechanical, in two chokepoints — do not bypass:**
+  - `hallmark_product()` in `cms/hallmark.php` ends by calling
+    `shv_supplier_strip()` (function_exists-guarded) → every public product
+    payload (list, PDP, catalogues, wishlist, search — anything that answers
+    through `hallmark_product`).
+  - `shv_public_order()` in `cms/api.php` strips the order row **and every
+    `items[]` snapshot**.
+  - Secret keys: `supplier, supplierId, supplierCode, supplierSku,
+    supplierName, supplierNotes, supplierPayout, costPerGram, weightSource`.
+    If you add a product field, re-check this list (`v183-check.js` S05
+    asserts the strip helpers exist; `v183-php-run.js` P05/P06 assert the
+    payloads by JSON scan).
+- **Data model:** `db.suppliers[]` (id, code, firm, contact, email, phone,
+  city, state, gstin, notes, status pending/approved/suspended, appliedAt,
+  approvedAt, userId) and `db.supplyOrders[]` (id, orderId, supplierId, code
+  snapshot, status, note, history[], amounts INTERNAL). Products carry
+  `supplierId` (+ optional `supplierCode` snapshot). The supplier portal's
+  ticket list is **derived from `db.orders` item snapshots** — there is no
+  duplicate write to drift.
+- **Codes:** `SHV-SUP-XXXXX` (Crockford-style alphabet, no I/L/O/U),
+  server-minted at application time (reserved once issued), case-insensitive
+  uniqueness server-side **and** `UNIQUE KEY uq_supplier_code` in MySQL.
+  Admin may set a custom code on adoption (same uniqueness rules) and may
+  rotate a code (audited; rewrites the snapshot on that supplier's products).
+  Codes are permanent identifiers for support/finance and appear on order
+  slips — never re-issue one to a different firm.
+- **Routes (v183):**
+  - public/supplier: `POST suppliers/apply` (OTP proof, dup email/mobile
+    guards), `GET suppliers/me`, `GET|POST supplier/designs`,
+    `POST supplier/media` (magic-byte + 8 MB + 12 images, →
+    `uploads/supplier/<codeLower>/`), `GET supplier/orders`,
+    `PUT supplier/orders/{id}` (strict forward transitions; `hold`/`cancel`
+    rules; history trail).
+  - admin (all `need_admin`, audited): `GET|POST admin/suppliers`,
+    `PUT admin/suppliers/{id}`, `POST admin/suppliers/{id}/code`,
+    `GET admin/suppliers/designs`, `POST admin/suppliers/assign`,
+    `GET admin/suppliers/orders`, `PUT admin/suppliers/orders/{id}`.
+- **Order routing:** checkout calls `shv_supplier_route_order()` before the
+  order row is appended — it stamps `supplierId`/`supplierCode` onto each item
+  that maps to a supplier and records `order.supplyRouted:[supplierId]` (an
+  internal marker that is stripped publicly).
+- **Ticket projection (whitelist, not blacklist):** a supplier's line carries
+  design name, their SKU, qty, image, line status — **never** unitPrice,
+  ratePerGram, making charge, GST, discount or order totals.
+- **Portal rules (owner switches, both default OFF):** `supplierDropShip`
+  (maker ships to the customer — and only then is the delivery address
+  revealed) and `supplierSeesCustomer` (cannot act alone; effective reveal
+  requires drop-ship ON). Both strict booleans in the settings PUT.
+- **Supplier design drop:** `POST supplier/designs` stages
+  (`active=false`, `status='pending_review'`, `batchId`
+  `sup-<codeLower>-YYYYMMDD`) under the standing law — weightG/purity/
+  weightSource/name/≥1 image all mandatory, provenance recorded as
+  "supplier declaration — …", reviewed through the v182 intake queue.
+- **SQL:** `suppliers` (id, code, firm, status, data_json, created_at;
+  UNIQUE code + status index) and `supply_orders` (id, order_id, supplier_id,
+  status, data_json, created_at, updated_at; 3 indexes) — JSON stays
+  write-truth, overlay gates on count+id match, mirror hash-diffs in a
+  transaction; `upgrade-sql.php` prints
+  `Suppliers: N (unique codes) · Routed supply tickets: N`.
+- **UI:** public `#/suppliers` (programme pitch, OTP-verified application,
+  code reveal) · portal `#/supplier` (orders/designs/new design/profile) ·
+  Admin → 🏭 **Suppliers** (book, approve/suspend, code + rotate + copy,
+  design assignment, routed-order board, portal rules); supplier logins route
+  straight to their portal and the header pill follows.
+- **Belt:** deploy gate 20 · v183-check 10 · v183-php-run 12 · v182-php-run 9
+  · v181-php-run 6 · v180-php-run 8 · v179-php 25 · v169 25+28 · v168 39+12 —
+  all green. `v179-relay.js` 7-fail **identically on the base commit**
+  (environmental, needs the live/TLS path). `php-sweep` 240 routes / 0
+  exceptions.
+- **Package:** `shivaa-update-v183.zip`, 7 files, 483,962 bytes,
+  SHA-256 `ffbef0f7f15eba79300b80d7722c2837ee61df97d5cb1894be92ce1f453a8a91`,
+  built from `dadab8f`; runbook `DEPLOY-v183.md`. **`hallmark.php` ships in
+  this ZIP** (the strip rule is inert without it) — the first release since
+  v182 to need a 7th file.
+- **Open for the next session:** real-browser pass of `#/suppliers` +
+  `#/supplier` (no browser in the sandbox — `node --check` only) and
+  owner-server verification of the two new SQL tables via `/upgrade-sql.php`.
+
+## (superseded) v182 — Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
 
 - **LIVE IS 181 (VERIFIED 25 Sep 2026):** `https://shivaa.in/api/version` →
   `rel:181`, `stamp.matched:true`, `db.driver/mode:"mysql"`, 78 products,

@@ -1077,7 +1077,8 @@ function v180DbStrip() {
             <td><b>${esc(t.statusLabel)}</b>${t.note ? `<br><small style="color:var(--ink-3)">${esc(t.note)}</small>` : ''}</td>
             <td><small>${esc(t.shipTo && t.shipTo.mode === 'customer' ? 'Customer — ' + (t.shipTo.city || '') : 'Shivaa workshop')}</small></td>
             <td><select class="sortsel" id="supm_${esc(t.id)}">${tStatus.map(x => `<option value="${x}" ${x === t.status ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
-              <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.supMove(${jsArg(t.orderId)},${jsArg(t.supplierId)},'supm_' + ${jsArg(t.id)})">Set</button></td>
+              <button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.supMove(${jsArg(t.orderId)},${jsArg(t.supplierId)},'supm_' + ${jsArg(t.id)})">Set</button>
+              <button class="btn btn-ghost btn-sm" title="Print the internal supplier job slip (carries the code; never travels with the parcel)" onclick="ShivaaAdmin.supPrint(${jsArg(t.orderId)},${jsArg(t.supplierId)})">🖨</button></td>
           </tr>`).join('')}
         </tbody></table></div>` : '<p class="partner-note">No orders have routed to a supplier yet. Link a design to a supplier, then a new order for that design appears here (and in their portal).</p>'}
       </div>`;
@@ -2171,6 +2172,47 @@ window.ShivaaAdmin.supMove = async (orderId, supplierId, selectId) => {
     await api('/api/admin/suppliers/orders/' + orderId, { method: 'PUT', body: JSON.stringify({ supplierId, status, note: '' }) });
     toast('Job moved to ' + status);
     renderAdmin($('#view'), new URLSearchParams('tab=suppliers'));
+  } catch (err) { toast(err.message, 'err'); }
+};
+/* v183 — the internal work slip: the one sheet that carries the supplier code.
+   It is printed for the workshop/accounts — it never travels inside a parcel
+   and it is never shown to a customer or a jeweller partner. */
+window.ShivaaAdmin.supPrint = async (orderId, supplierId) => {
+  try {
+    const r = await api('/api/admin/suppliers/orders');
+    const t = (r.orders || []).find(x => x.orderId === orderId && x.supplierId === supplierId);
+    if (!t) return toast('That supplier job was not found', 'err');
+    const s = (r.suppliers || {})[supplierId] || {};
+    const S = (state.settings) || {};
+    const when = new Date(t.placedAt || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const ship = t.shipTo && t.shipTo.mode === 'customer'
+      ? ['CUSTOMER (drop-ship)', t.shipTo.name, t.shipTo.line, t.shipTo.city, t.shipTo.state, t.shipTo.pincode, t.shipTo.phone].filter(Boolean).join(', ')
+      : 'SHIVAA WORKSHOP — ' + (S.address || 'Sadar Bazaar, Jayal, Nagaur, Rajasthan');
+    const rows = (t.lines || []).map((l, n) => `<tr><td>${n + 1}</td><td><b>${esc(l.name || '')}</b></td><td>${esc(l.supplierSku || l.sku || '')}</td><td>${esc(l.purity || '')}${l.metal ? ' · ' + esc(l.metal) : ''}</td><td class="num">${(l.weightG || 0).toFixed(3)}</td><td class="num">${l.qty}</td><td>${esc(l.size || '')}${l.engraving ? ' · engraved' : ''}</td></tr>`).join('');
+    const w = window.open('', '_blank', 'width=820,height=1000');
+    if (!w) return toast('Allow pop-ups to print', 'err');
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Supplier job ${esc(t.orderId)}</title><style>
+      body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;margin:0;padding:24px;font-size:13px}
+      h1,h2,h3{margin:0}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #999;padding:7px 9px;text-align:left;font-size:12.5px}th{background:#f3e9d2}
+      .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #6b1020;padding-bottom:10px}
+      .brand{font-size:22px;font-weight:800;color:#6b1020;letter-spacing:2px}.sub{color:#555;font-size:11.5px;margin-top:3px}
+      .code{font-family:'Courier New',monospace;font-size:20px;font-weight:800;letter-spacing:2px}
+      .box{border:2px solid #111;padding:12px;margin:14px 0}.muted{color:#666;font-size:11px}.num{text-align:right}
+      .sig{margin-top:40px;display:flex;justify-content:space-between}.sig div{border-top:1px solid #333;padding-top:6px;width:30%;text-align:center;font-size:11px}
+      .conf{margin-top:12px;border:1px dashed #6b1020;padding:8px;font-size:11.5px;color:#6b1020}
+      @media print{.noprt{display:none}}</style></head><body>
+      <div class="hdr"><div><div class="brand">SHIVAA JEWELLERS</div><div class="sub">${esc(S.address || 'Sadar Bazaar, Jayal, Nagaur (Raj.)')} · ${esc(S.phone || '')}</div></div>
+        <div style="text-align:right"><h2>SUPPLIER JOB SLIP</h2><div><b>${esc(t.orderId)}</b> · ${esc(when)}</div><div class="muted">internal — not for the customer</div></div></div>
+      <div class="box"><b>Supplier:</b> ${esc(s.firm || supplierId)} · <span class="code">${esc(s.code || t.supplierCode || '')}</span><br>
+        <b>Deliver to:</b> ${esc(ship)}<br><b>Job status:</b> ${esc(t.statusLabel || t.status || '')}${t.note ? '<br><b>Note:</b> ' + esc(t.note) : ''}</div>
+      <table><thead><tr><th>#</th><th>Design</th><th>Supplier SKU</th><th>Purity / metal</th><th class="num">Wt (g)</th><th class="num">Qty</th><th>Size / engraving</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="conf"><b>CONFIDENTIALITY:</b> the maker's identity, code and SKU are internal to Shivaa. Nothing on this slip may appear on a customer page, invoice, packing slip or parcel — the buyer must never learn whose design it is.</div>
+      <div class="sig"><div>Issued by</div><div>Received by (supplier)</div><div>QC on return</div></div>
+      <div class="muted" style="margin-top:10px">Trace ticket <b>${esc(t.id || '')}</b> · quote the supplier code above for support and finance queries.</div>
+      <div class="noprt" style="text-align:center;margin-top:24px"><button onclick="window.print()" style="padding:10px 26px;background:#6b1020;color:#fff;border:0;border-radius:8px;font-size:15px">🖨 Print</button></div>
+      </body></html>`);
+    w.document.close();
+    setTimeout(() => { try { w.focus(); } catch (e) {} }, 300);
   } catch (err) { toast(err.message, 'err'); }
 };
 window.ShivaaAdmin.intakeCreateBatch = async e => {

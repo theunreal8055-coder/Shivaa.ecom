@@ -119,8 +119,13 @@ async function test(id, name, f) { try { await f(); pass++; console.log(`PASS ${
     assert.ok(app.includes("if (u && u.role === 'supplier') location.hash = '#/supplier';"), 'returning manufacturer lands in the portal');
     assert.ok(app.includes('ShivaaSupplierCopy') && app.includes('ShivaaSupplierMove'), 'portal actions exported');
     assert.ok(admin.includes("['suppliers','🏭','Suppliers']"), 'admin tab');
-    for (const fnName of ['supAdd', 'supStatus', 'supRotate', 'supAssign', 'supMove', 'supPortal', 'supCopy'])
+    for (const fnName of ['supAdd', 'supStatus', 'supRotate', 'supAssign', 'supMove', 'supPortal', 'supCopy', 'supPrint'])
       assert.ok(admin.includes('ShivaaAdmin.' + fnName), 'admin action ' + fnName);
+    /* the internal job slip carries the code; the customer packing slip stays clean */
+    assert.ok(admin.includes('SUPPLIER JOB SLIP') && admin.includes('CONFIDENTIALITY:'), 'job slip is marked internal');
+    const slip = admin.slice(admin.indexOf('function admPrintDoc'), admin.indexOf('function admPrintDoc') + 6000);
+    for (const key of ['supplierCode', 'supplierName', 'supplierId', 'costPerGram'])
+      assert.ok(!slip.includes(key), 'the customer-facing packing slip/label must not carry ' + key);
     assert.ok((index.match(/href="#\/suppliers"/g) || []).length >= 3, 'footer + drawer + column doors');
     assert.ok(index.includes('#/supplier') === false || index.includes('suppliers'), 'door naming');
   });
