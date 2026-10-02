@@ -1,6 +1,18 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
-## SESSION INTAKE — v186 app-like update + audit continuation (1 Oct 2026, branch `arena/01a0f602-shivaa-ecom`)
+## ACTIVE SESSION — v187 KYC privacy candidate (2 Oct 2026, branch `arena/01a0f602-shivaa-ecom`)
+
+- **Current workspace:** fixed branch `arena/01a0f602-shivaa-ecom`, HEAD `b2c05f3` at handoff time. v187 source/tests/docs/ZIP remain uncommitted. No branch switch, commit, push, staging upload, production deploy or cache purge occurred.
+- **Live baseline:** safe GET `https://shivaa.in/api/version` on 2 Oct 2026 confirmed production v186: `rel:186`, shell `shivaa-shell-v186`, builtAt `2026-10-02T08:02:12+05:30`, index/app/SW stamps matched, MySQL mode, SQL/JSON 78/78, `mirrorBehind:false`. No live KYC file/authenticated route was probed.
+- **Selected finding:** source-confirmed KYC business-card privacy risk, severity **Medium (provisional)**; this is not a demonstrated production exposure. Remediation in v187: private sibling storage outside docroot with 0700/0600, fail-closed path validation, size/signature checks before persistence, deny direct KYC web requests, record-bound admin bearer stream, secure admin blob viewer, and explicit verified legacy migration. No malware scanner.
+- **Package:** `shivaa-update-v187.zip`, six-member incremental `public_html` overlay for v186+, 459,919 bytes, SHA-256 `50a1df1247006c71b51c523d41037c9e12f0abd665773041e9b49668359054ab`. Builder `tools/mega/build-v187-package.py`; runbook `DEPLOY-v187.md`; excludes DB, credentials, customer/KYC uploads, media and test tooling.
+- **Verified:** `npm test --prefix tools/mega/smoke` exit 0; regression 47 pass / 26 retired-feature skip / 0 fail; source 9/9; PHP-WASM 11/11; admin jsdom 6/6; storefront DOM 15/15; forward v186 source 8/8. Clean extracted-overlay tests pass after overwrite-enabled ZIP extraction. All fixtures synthetic. Stabilized the historical v156 RTGS comparison to exclude its per-response `updatedAt` timestamp while still comparing quote/config fields.
+- **Audit:** remains 0/111 fully verified; S01–S04/S12 and previous six areas are partial only; untested direct checks stay open. Round 4 is truncated at “Persistent bottom navi…”; do not infer missing requirements. Cashfree settlement report not run against provider.
+- **Not tested:** actual Apache/LiteSpeed `.htaccess`, Hostinger private-path/open_basedir/permissions, real KYC data, native PHP-FPM/MySQL, live stream, malware scan, real browser/device/in-app browser, staging or production. No such claims.
+- **Deployment gate:** no staging yet. Await explicit staging authorization and use synthetic documents. No production deploy without separate explicit owner approval after staging. Real-record legacy migration requires its own explicit consent. Production remains v186 pending a later safe version probe.
+- Full details: `docs/HANDOFF-NEXT-2026-10-02-v187.md`; audit: `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md`.
+
+## HISTORICAL SESSION INTAKE — v186 app-like update + audit continuation (1 Oct 2026, branch `arena/01a0f602-shivaa-ecom`)
 
 - **Source/package pushed:** commit `7a9b0f9` on the fixed Arena branch. `shivaa-update-v186.zip` is a 22-entry root-layout overlay for staging, 2,160,234 bytes, SHA-256 `9c5ec601b1a460bf9c51aa6dd2313080975c2fbc2944aa2994290f3c076339e3`. Builder: `tools/mega/build-v186-package.py`; install/runbook: `DEPLOY-v186.md`.
 - **v186 behavior:** product detail prefetch/reuse after card intent with bounded cache; accessible catalog button/pull refresh with valid-data preservation; optimistic serialized wishlist changes with confirmed-rejection rollback; non-blocking cart feedback/live announcement; 16 px editable controls on small screens. Release/cache stamps align at 186. Existing theme/logo/campaign surfaces are protected and hash-checked.

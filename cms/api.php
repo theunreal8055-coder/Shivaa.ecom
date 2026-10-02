@@ -841,6 +841,113 @@ function shv_store_upload(string $tmp, string $dest): bool {
   if (@move_uploaded_file($tmp, $dest)) return true;
   return in_array(PHP_SAPI, ['cli', 'wasm'], true) && is_file($tmp) && @rename($tmp, $dest);
 }
+/* v187 — business-card KYC documents are never stored in the web root.
+   Production defaults to a private sibling of the document root; an absolute
+   environment override exists for hosts with a dedicated private-data mount
+   and for the isolated PHP-WASM fixture. Refuse symlinks, relative paths, and
+   any resolved location inside this app's document root. */
+function shv_kyc_private_dir(): ?string {
+  $docRoot = realpath(__DIR__);
+  if ($docRoot === false) return null;
+  $configured = getenv('SHIVAA_PRIVATE_KYC_DIR');
+  $dir = is_string($configured) && trim($configured) !== ''
+    ? trim($configured)
+    : dirname($docRoot) . DIRECTORY_SEPARATOR . '.shivaa-private-kyc';
+  if ($dir === '' || $dir[0] !== DIRECTORY_SEPARATOR) return null;
+  if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) return null;
+  if (is_link($dir)) return null;
+  $real = realpath($dir);
+  if ($real === false || $real === $docRoot || str_starts_with($real, $docRoot . DIRECTORY_SEPARATOR)) return null;
+  if (!is_dir($real) || !is_writable($real)) return null;
+  @chmod($real, 0700);
+  $mode = @fileperms($real);
+  if ($mode === false || (($mode & 0077) !== 0)) return null;
+  return $real;
+}
+function shv_kyc_detect_ext(string $head): ?string {
+  if (strncmp($head, "\xFF\xD8\xFF", 3) === 0) return 'jpg';
+  if (strncmp($head, "\x89PNG\r\n\x1a\n", 8) === 0) return 'png';
+  if (strncmp($head, 'RIFF', 4) === 0 && substr($head, 8, 4) === 'WEBP') return 'webp';
+  if (strncmp($head, 'GIF87a', 6) === 0 || strncmp($head, 'GIF89a', 6) === 0) return 'gif';
+  if (strncmp($head, '%PDF-', 5) === 0) return 'pdf';
+  return null;
+}
+function shv_kyc_store_upload(string $tmp, string $ext): ?string {
+  if (!in_array($ext, ['jpg', 'png', 'webp', 'gif', 'pdf'], true) || !is_file($tmp)) return null;
+  $dir = shv_kyc_private_dir();
+  if ($dir === null) return null;
+  $size = @filesize($tmp);
+  if ($size === false || $size < 1 || $size > 8388608) return null;
+  $head = (string)@file_get_contents($tmp, false, null, 0, 12);
+  if (shv_kyc_detect_ext($head) !== $ext) return null;
+  $name = 'card_' . bin2hex(random_bytes(16)) . '.' . $ext;
+  $dest = $dir . DIRECTORY_SEPARATOR . $name;
+  if (!shv_store_upload($tmp, $dest) || !is_file($dest) || is_link($dest)) return null;
+  @chmod($dest, 0600);
+  $mode = @fileperms($dest);
+  $storedHead = (string)@file_get_contents($dest, false, null, 0, 12);
+  if ($mode === false || (($mode & 0077) !== 0) || shv_kyc_detect_ext($storedHead) !== $ext) {
+    @unlink($dest);
+    return null;
+  }
+  return 'private-kyc:' . $name;
+}
+function shv_kyc_legacy_path(string $ref): ?string {
+  if (!preg_match('#\\A/uploads/kyc/(card_[a-f0-9]{10}\\.(?:jpe?g|png|webp|gif|pdf))\\z#i', $ref)) return null;
+  $base = __DIR__ . '/uploads/kyc';
+  if (is_link($base) || !is_dir($base)) return null;
+  $candidate = __DIR__ . $ref;
+  if (is_link($candidate) || !is_file($candidate)) return null;
+  $realBase = realpath($base); $realFile = realpath($candidate);
+  if ($realBase === false || $realFile === false || !str_starts_with($realFile, $realBase . DIRECTORY_SEPARATOR)) return null;
+  return $realFile;
+}
+function shv_kyc_resolve_ref(string $ref): ?array {
+  $isPrivate = preg_match('#\\Aprivate-kyc:(card_[a-f0-9]{32}\\.(?:jpg|png|webp|gif|pdf))\\z#', $ref) === 1;
+  if ($isPrivate) {
+    $dir = shv_kyc_private_dir();
+    if ($dir === null) return null;
+    $name = substr($ref, strlen('private-kyc:'));
+    $candidate = $dir . DIRECTORY_SEPARATOR . $name;
+    if (is_link($candidate) || !is_file($candidate)) return null;
+    $real = realpath($candidate);
+    if ($real === false || !str_starts_with($real, $dir . DIRECTORY_SEPARATOR)) return null;
+    $pathExt = strtolower((string)pathinfo($name, PATHINFO_EXTENSION));
+    $head = (string)@file_get_contents($real, false, null, 0, 12);
+    $ext = shv_kyc_detect_ext($head);
+    if ($ext === null || $ext !== $pathExt) return null;
+  } else {
+    $real = shv_kyc_legacy_path($ref);
+    if ($real === null) return null;
+    $head = (string)@file_get_contents($real, false, null, 0, 12);
+    $ext = shv_kyc_detect_ext($head);
+    if ($ext === null) return null;
+  }
+  $size = @filesize($real);
+  if ($size === false || $size < 1 || $size > 8388608) return null;
+  return ['path' => $real, 'ext' => $ext, 'size' => $size];
+}
+function shv_kyc_migrate_copy(string $source, string $ext): ?string {
+  if (!in_array($ext, ['jpg', 'png', 'webp', 'gif', 'pdf'], true) || !is_file($source) || is_link($source)) return null;
+  $size = @filesize($source);
+  if ($size === false || $size < 1 || $size > 8388608) return null;
+  $dir = shv_kyc_private_dir();
+  if ($dir === null) return null;
+  $head = (string)@file_get_contents($source, false, null, 0, 12);
+  if (shv_kyc_detect_ext($head) !== $ext) return null;
+  $name = 'card_' . bin2hex(random_bytes(16)) . '.' . $ext;
+  $dest = $dir . DIRECTORY_SEPARATOR . $name;
+  $tmp = $dest . '.tmp';
+  if (!@copy($source, $tmp)) { @unlink($tmp); return null; }
+  $srcHash = @hash_file('sha256', $source); $tmpHash = @hash_file('sha256', $tmp);
+  if ($srcHash === false || $tmpHash === false || !hash_equals($srcHash, $tmpHash) || @filesize($tmp) !== $size) {
+    @unlink($tmp); return null;
+  }
+  @chmod($tmp, 0600);
+  $mode = @fileperms($tmp);
+  if ($mode === false || (($mode & 0077) !== 0) || !@rename($tmp, $dest)) { @unlink($tmp); return null; }
+  return 'private-kyc:' . $name;
+}
 /* v182 — billing-sync HMAC guard (docs/BILLING-SYNC-CONTRACT.md). Every call
    signs `ts \n METHOD \n route \n rawBody` with the shared secret that lives
    ONLY in settings.billingSyncSecret. hash_equals = timing-safe; ±5 min
@@ -5688,7 +5795,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 186,
+      'rel'   => 187,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -6763,27 +6870,92 @@ try {
     jout(200, ['orders' => array_reverse($list)]);
   }
 
+  /* v187 — private, admin-only business-card streaming. Partner IDs are
+     bound through the authenticated DB row; callers never supply a path. */
+  if (preg_match('#^admin/partners/([A-Za-z0-9_-]+)/business-card$#', $route, $mKycCard) && $method === 'GET') {
+    need_admin($db);
+    $partner = null;
+    foreach (($db['partners'] ?? []) as $pRow) if ((string)($pRow['id'] ?? '') === $mKycCard[1]) { $partner = $pRow; break; }
+    if (!$partner) jout(404, ['error' => 'Partner not found']);
+    $ref = (string)($partner['kyc']['businessCard'] ?? '');
+    if ($ref === '') jout(404, ['error' => 'Business card not found']);
+    if (str_starts_with($ref, 'private-kyc:') && shv_kyc_private_dir() === null)
+      jout(503, ['error' => 'Private KYC storage is unavailable']);
+    $doc = shv_kyc_resolve_ref($ref);
+    if ($doc === null) jout(404, ['error' => 'Business card not found or unsupported']);
+    $mime = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp',
+             'gif' => 'image/gif', 'pdf' => 'application/pdf'][$doc['ext']];
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: inline; filename="business-card.' . $doc['ext'] . '"');
+    header('Content-Length: ' . (int)$doc['size']);
+    header('Cache-Control: private, no-store, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: no-referrer');
+    header('X-Frame-Options: DENY');
+    header("Content-Security-Policy: default-src 'none'; sandbox; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    readfile($doc['path']);
+    exit;
+  }
+
+  /* v187 — one-time admin migration. The public directory is denied at the
+     web-server layer immediately; this route copies each legacy file to the
+     private sibling, verifies bytes, saves its new reference, then unlinks
+     the old copy. If DB persistence fails, old files are left in place. */
+  if ($route === 'admin/kyc/migrate-business-cards' && $method === 'POST') {
+    $adminKyc = need_admin($db);
+    rate_block($db, 'kyc-migrate-u', (string)($adminKyc['id'] ?? '?'), 10, 3600);
+    if (shv_kyc_private_dir() === null) jout(503, ['error' => 'Private KYC storage is unavailable; legacy records were not changed.']);
+    $migrated = 0; $missing = 0; $invalid = 0; $failed = 0; $cleanupPending = 0; $oldFiles = [];
+    foreach (array_keys($db['partners'] ?? []) as $pi) {
+      $ref = (string)($db['partners'][$pi]['kyc']['businessCard'] ?? '');
+      if (!str_starts_with($ref, '/uploads/kyc/')) continue;
+      if (!preg_match('#\\A/uploads/kyc/card_[a-f0-9]{10}\\.(?:jpe?g|png|webp|gif|pdf)\\z#i', $ref)) { $invalid++; continue; }
+      $source = shv_kyc_legacy_path($ref);
+      if ($source === null) { $missing++; continue; }
+      $size = @filesize($source);
+      $head = (string)@file_get_contents($source, false, null, 0, 12);
+      $ext = shv_kyc_detect_ext($head);
+      if ($size === false || $size < 1 || $size > 8388608 || $ext === null) { $invalid++; continue; }
+      $newRef = shv_kyc_migrate_copy($source, $ext);
+      if ($newRef === null) { $failed++; continue; }
+      $db['partners'][$pi]['kyc']['businessCard'] = $newRef;
+      $oldFiles[] = $source;
+      $migrated++;
+    }
+    if ($migrated > 0) {
+      audit_log($db, 'partner.kyc-card-migration', ['migrated' => $migrated, 'by' => $adminKyc['id'] ?? 'admin']);
+      db_save($DB_FILE, $db);
+      foreach ($oldFiles as $oldFile) if (is_file($oldFile) && !@unlink($oldFile)) $cleanupPending++;
+    }
+    jout(200, ['ok' => true, 'migrated' => $migrated, 'missing' => $missing,
+      'invalid' => $invalid, 'failed' => $failed, 'cleanupPending' => $cleanupPending]);
+  }
+
   /* ── partners (full KYC) ── */
   if ($route === 'partners/apply' && $method === 'POST') {
     // v101 — multipart submissions carry the optional business-card upload;
-    // JSON submissions (no card) keep working unchanged.
+    // JSON submissions (no card) keep working unchanged. v187 inspects, but
+    // does not persist, the temporary upload until OTP/GST/duplicate checks pass.
+    if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 10 * 1024 * 1024) jout(413, ['error' => 'Request too large']);
     $b = !empty($_POST) ? $_POST : body_json();
-    $businessCard = null;
-    if (!empty($_FILES['businessCard']) && ($_FILES['businessCard']['error'] ?? 1) === UPLOAD_ERR_OK) {
+    $cardUpload = null;
+    if (array_key_exists('businessCard', $_FILES ?? [])) {
       $cf = $_FILES['businessCard'];
-      if (($cf['size'] ?? 0) > 8388608) jout(400, ['error' => 'Business card must be under 8 MB']);
-      $head = (string)@file_get_contents($cf['tmp_name'], false, null, 0, 12);
-      $isImg = strncmp($head, "\xFF\xD8\xFF", 3) === 0
-            || strncmp($head, "\x89PNG\r\n\x1a\n", 8) === 0
-            || (strncmp($head, 'RIFF', 4) === 0 && substr($head, 8, 4) === 'WEBP')
-            || strncmp($head, 'GIF8', 4) === 0;
-      $isPdf = strncmp($head, '%PDF-', 5) === 0;
-      if (!$isImg && !$isPdf) jout(400, ['error' => 'Business card must be a real JPG / PNG / WEBP image or PDF']);
-      $ext = $isPdf ? 'pdf' : strtolower(pathinfo((string)($cf['name'] ?? 'card.jpg'), PATHINFO_EXTENSION));
-      if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'], true)) $ext = $isPdf ? 'pdf' : 'jpg';
-      if (!is_dir(__DIR__ . '/uploads/kyc')) @mkdir(__DIR__ . '/uploads/kyc', 0755, true);
-      $cardName = 'card_' . bin2hex(random_bytes(5)) . '.' . $ext;
-      if (move_uploaded_file($cf['tmp_name'], __DIR__ . '/uploads/kyc/' . $cardName)) $businessCard = '/uploads/kyc/' . $cardName;
+      if (!is_array($cf)) jout(400, ['error' => 'Business-card upload is invalid']);
+      $uploadError = (int)($cf['error'] ?? UPLOAD_ERR_NO_FILE);
+      if ($uploadError !== UPLOAD_ERR_NO_FILE) {
+        if ($uploadError !== UPLOAD_ERR_OK) jout(400, ['error' => 'Business-card upload failed']);
+        $tmp = (string)($cf['tmp_name'] ?? '');
+        $size = $tmp !== '' && is_file($tmp) ? @filesize($tmp) : false;
+        if ($size === false || $size < 1 || $size > 8388608 || (isset($cf['size']) && (int)$cf['size'] !== $size))
+          jout(400, ['error' => 'Business card must be under 8 MB']);
+        $head = (string)@file_get_contents($tmp, false, null, 0, 12);
+        $ext = shv_kyc_detect_ext($head);
+        if ($ext === null) jout(400, ['error' => 'Business card must be a real JPG / PNG / WEBP / GIF image or PDF']);
+        $cardUpload = ['tmp' => $tmp, 'ext' => $ext];
+      }
     }
     rate_block($db, 'partnerapply-ip', client_ip(), 10, 3600);
     if (empty($b['firm']) || empty($b['email']) || empty($b['phone']) || empty($b['password'])) jout(400, ['error' => 'Firm, email, phone & password required']);
@@ -6819,6 +6991,12 @@ try {
     foreach (($db['partners'] ?? []) as $pExist) {
       if (strtoupper((string)($pExist['kyc']['gstin'] ?? '')) === $gstRaw)
         jout(409, ['error' => 'An application already exists for this GSTIN.']);
+    }
+    $businessCard = null;
+    if ($cardUpload !== null) {
+      $businessCard = shv_kyc_store_upload($cardUpload['tmp'], $cardUpload['ext']);
+      if ($businessCard === null)
+        jout(503, ['error' => 'Secure business-card storage is unavailable; application was not saved.']);
     }
     $kycRec = ['gstin' => $gstRaw, 'gstinValid' => true, 'gstinState' => $gst['state'],
       'pan' => $gst['pan'], 'ownerPan' => strtoupper((string)($b['ownerPan'] ?? '')),

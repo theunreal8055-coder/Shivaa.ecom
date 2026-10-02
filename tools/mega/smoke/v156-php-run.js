@@ -7,8 +7,8 @@
         premium.gold stays the legacy 55 (back-compat for older payloads).
      3  the knob turns: gold24Premium = 500 moves ONLY the 24K line
         (anchor + 500); 22K/18K/silver do not twitch.
-     4  B2B UNTOUCHED: the rtgs block of the SAME response is byte-identical
-        between runs 1 and 3 — the desk never met the retail premium.
+     4  B2B UNTOUCHED: the RTGS quotes/config are identical between runs 1
+        and 3, ignoring the per-response updatedAt timestamp.
      5  /api/products publishes rates.gold24 = anchor + 398 (the premium
         reaches storefront pricing), and /api/version tells rel 156 with
         self-consistent stamps.
@@ -136,10 +136,17 @@ try { include '/tcrun/api.php'; } catch (Throwable $e) { echo "\\n@@FATAL " . ge
     JSON.stringify(j3));
   ok('premium.gold24 reports 500 (the rate card stays honest)', ((r3.json || {}).premium || {}).gold24 === 500);
 
-  console.log('\n· 4 — B2B UNTOUCHED: the rtgs block is byte-identical across the two premium worlds:');
-  ok('rtgs block identical between premium 398 and premium 500 runs',
-    JSON.stringify((r1.json || {}).rtgs || null) === JSON.stringify((r3.json || {}).rtgs || null),
-    `a=${JSON.stringify((r1.json || {}).rtgs || {}).rows ? 'rows' : 'empty'} b=${JSON.stringify((r3.json || {}).rtgs || {}).rows ? 'rows' : 'empty'}`);
+  console.log('\n· 4 — B2B UNTOUCHED: RTGS quotes/config stay the same across the two retail-premium settings:');
+  const rtgs1 = (r1.json || {}).rtgs ?? null, rtgs3 = (r3.json || {}).rtgs ?? null;
+  const stableRtgs = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const { updatedAt, ...stable } = value; // generated per response; not a B2B quote/config value
+    return stable;
+  };
+  const stableRtgs1 = stableRtgs(rtgs1), stableRtgs3 = stableRtgs(rtgs3);
+  ok('RTGS quotes/config are unchanged by the retail premium (per-response updatedAt excluded)',
+    JSON.stringify(stableRtgs1) === JSON.stringify(stableRtgs3),
+    `a=${JSON.stringify(stableRtgs1)} b=${JSON.stringify(stableRtgs3)}`);
 
   console.log('\n· 5 — the premium reaches storefront pricing + version truth:');
   php.writeFile('/tcrun/data/db.json', JSON.stringify(mkDb()));

@@ -684,6 +684,7 @@ function v180DbStrip() {
   /* ── PARTNERS ── */
   if (tab === 'partners') {
     const P = partnersData.partners || [];
+    const legacyCardCount = P.filter(p => String(p.kyc && p.kyc.businessCard || '').startsWith('/uploads/kyc/')).length;
     window.__partnersList = P;   // v88 — KYC detail modal reads the full records
     body.innerHTML = `
       <div class="stat-grid">
@@ -692,6 +693,7 @@ function v180DbStrip() {
         <div class="stat"><small>Pending</small><b>${P.filter(p => p.status === 'pending').length}</b><span>needs review</span></div>
         <div class="stat"><small>Cities</small><b>${new Set(P.map(p => p.city).filter(Boolean)).size}</b></div>
       </div>
+      ${legacyCardCount ? `<div class="adm-card"><h3>Secure existing business cards</h3><p class="partner-note">${legacyCardCount} older business card file(s) still need to be moved into private storage. Direct web access is blocked; only authorised admins can view them.</p><button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.migrateKycCards(this)">Secure existing cards</button></div>` : ''}
       <div class="adm-card"><h3>Partner applications & network</h3>
         <div class="adm-table-wrap"><table class="adm-table">
           <thead><tr><th>Firm</th><th>KYC</th><th>City</th><th>Phone / Email</th><th>Applied</th><th>Status</th><th></th></tr></thead>
@@ -707,7 +709,7 @@ function v180DbStrip() {
             <td><span class="status-pill ${p.status === 'approved' ? 'st-delivered' : p.status === 'pending' ? 'st-placed' : 'st-cancelled'}">${esc(p.status || '—')}</span></td>
             <td style="white-space:nowrap">${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','approved')">Approve</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','rejected')">Reject</button>` : ''}
               ${p.kyc && p.kyc.gstin ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.gstKycModal('${p.id}')" title="Full GST register details and certificate">KYC details</button>` : ''}
-              ${p.kyc && p.kyc.businessCard ? `<a class="btn btn-ghost btn-sm" href="${safeUrl(p.kyc.businessCard)}" target="_blank" rel="noopener" title="Business card uploaded with the application">Business card</a>` : ''}
+              ${p.kyc && p.kyc.businessCard ? `<button class="btn btn-ghost btn-sm" data-pid="${esc(p.id)}" onclick="ShivaaAdmin.viewBusinessCard(this)" title="View the business card through the protected admin endpoint">Business card</button>` : ''}
               <button class="btn btn-ghost btn-sm" data-em="${esc(p.email)}" onclick="ShivaaAdmin.setUserPassword(this)" title="Set a new portal password for this partner">Portal password</button></td>
           </tr>`).join('')}</tbody>
         </table></div></div>`;
@@ -1858,9 +1860,7 @@ window.ShivaaAdmin.gstKycHtml = (p) => {
     </div>`}
     ${k.businessCard ? `<div class="adm-card" style="padding:12px 14px;margin-bottom:12px">
       <b style="display:block;margin-bottom:8px">Business card uploaded with the application</b>
-      ${/\.(jpe?g|png|webp|gif)$/i.test(k.businessCard)
-        ? `<a href="${safeUrl(k.businessCard)}" target="_blank" rel="noopener"><img src="${safeUrl(k.businessCard)}" alt="Business card" style="display:block;max-height:230px;max-width:100%;border-radius:10px;border:1px solid var(--line,#ead9c0)"></a>`
-        : `<a class="btn btn-outline btn-sm" href="${safeUrl(k.businessCard)}" target="_blank" rel="noopener">📇 Open the business card (PDF) ↗</a>`}
+      <button class="btn btn-outline btn-sm" data-pid="${esc(p.id || '')}" onclick="ShivaaAdmin.viewBusinessCard(this)">View securely</button>
     </div>` : ''}
     <div class="kyc-inline" style="gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" data-g="${esc(k.gstin || '')}" onclick="ShivaaAdmin.viewGstCert(this)">📄 View GST certificate (REG-06)</button>
@@ -1875,6 +1875,44 @@ window.ShivaaAdmin.gstKycModal = (id) => {
   if (!p) return toast('Partner data not loaded — reopen the Partners tab', 'err');
   openModal(window.ShivaaAdmin.gstKycHtml(p), 'gst-kyc-modal');
 };
+window.ShivaaAdmin.migrateKycCards = async (btn) => {
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Securing documents…';
+  try {
+    const r = await api('/api/admin/kyc/migrate-business-cards', { method: 'POST', body: JSON.stringify({}) });
+    const left = (r.missing || 0) + (r.invalid || 0) + (r.failed || 0) + (r.cleanupPending || 0);
+    toast(`${r.migrated || 0} business card(s) moved to private storage${left ? `; ${left} need follow-up` : ''}`, left ? 'err' : 'ok');
+    await renderAdmin($('#view'), new URLSearchParams('tab=partners'));
+  } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = old; }
+};
+window.ShivaaAdmin.viewBusinessCard = async (btn) => {
+  const pid = btn.getAttribute('data-pid');
+  if (!pid) return toast('Partner record is unavailable', 'err');
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Loading…';
+  try {
+    const res = await fetch('/api/admin/partners/' + encodeURIComponent(pid) + '/business-card',
+      { headers: token() ? { Authorization: 'Bearer ' + token() } : {} });
+    if (!res.ok) {
+      let msg = 'Business card unavailable';
+      try { const j = await res.json(); msg = j.error || msg; } catch (e) {}
+      throw new Error(msg);
+    }
+    const type = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(type))
+      throw new Error('Unsupported business-card file type');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    if (window.ShivaaAdmin._kycBlobUrl) URL.revokeObjectURL(window.ShivaaAdmin._kycBlobUrl);
+    window.ShivaaAdmin._kycBlobUrl = url;
+    const isPdf = type === 'application/pdf';
+    openModal(`<div style="max-width:760px"><h3 style="margin:0 0 12px">Business card</h3>
+      ${isPdf
+        ? `<p class="partner-note">The file is private and available only through this authenticated admin session.</p><a class="btn btn-primary btn-sm" href="${esc(url)}" target="_blank" rel="noopener">Open secure PDF ↗</a> <a class="btn btn-outline btn-sm" href="${esc(url)}" download="business-card.pdf">Download PDF</a>`
+        : `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="Partner business card" style="display:block;max-height:70vh;max-width:100%;margin:auto;border-radius:10px;border:1px solid var(--line,#ead9c0)"></a><div style="margin-top:12px"><a class="btn btn-outline btn-sm" href="${esc(url)}" download="business-card.${type.split('/')[1] === 'jpeg' ? 'jpg' : type.split('/')[1]}">Download image</a></div>`}
+      </div>`, 'business-card-modal');
+  } catch (e) { toast(e.message, 'err'); }
+  finally { btn.disabled = false; btn.textContent = old; }
+};
+
 window.ShivaaAdmin.gstReverify = async (btn) => {
   const gstin = btn.getAttribute('data-g');
   const pid = btn.getAttribute('data-pid');

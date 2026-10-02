@@ -69,7 +69,7 @@ async function fixture() {
   for (const name of ['api.php','hallmark.php','trust.php','sms.php','mail.php','index.html','sw.js','js/app.js']) php.writeFile('/qa/'+name, fs.readFileSync(path.join(CMS,name), 'utf8'));
   const setDb = db => php.writeFile('/qa/data/db.json', JSON.stringify(db));
   const run = async code => {
-    const out = await php.run({ code: `<?php ini_set('display_errors','0'); date_default_timezone_set('Asia/Kolkata');
+    const out = await php.run({ code: `<?php ini_set('display_errors','0'); date_default_timezone_set('Asia/Kolkata'); putenv('SHIVAA_PRIVATE_KYC_DIR=/qa-private/kyc');
 register_shutdown_function(function(){ echo "\\n@@HTTP " . (http_response_code() ?: 200); });
 ${code}` });
     const text = Buffer.from(out.bytes).toString();
@@ -77,7 +77,8 @@ ${code}` });
     const body = text.split('\n@@HTTP')[0]; let json; try { json=JSON.parse(body); } catch (_) {}
     return { status:m ? +m[1] : 0, json, body, errors:out.errors || '' };
   };
-  const req = (method, route, body={}, token='', query={}, ip='203.0.113.10') => run(`
+  const req = (method, route, body={}, token='', query={}, ip='203.0.113.10', privateDir='/qa-private/kyc') => run(`
+putenv('SHIVAA_PRIVATE_KYC_DIR=' . base64_decode('${b64(privateDir)}'));
 $GLOBALS['QA_BODY'] = base64_decode('${b64(body)}');
 class QaInput { public $context; private $p=0;
   function stream_open($u,$m,$o,&$x){ return true; }
@@ -89,6 +90,12 @@ stream_wrapper_unregister('php'); stream_wrapper_register('php','QaInput');
 $_SERVER=['REQUEST_METHOD'=>'${method}','REMOTE_ADDR'=>'${ip}','HTTP_HOST'=>'qa.invalid','HTTP_AUTHORIZATION'=>'${token ? 'Bearer '+token : ''}','CONTENT_TYPE'=>'application/json','CONTENT_LENGTH'=>(string)strlen($GLOBALS['QA_BODY'])];
 $_GET=array_merge(['__route'=>'${route}'],json_decode(base64_decode('${b64(query)}'),true)); $_POST=[];
 include '/qa/api.php';`);
-  return { php, run, req, setDb, async db(){ const r=await run("echo file_get_contents('/qa/data/db.json');"); return r.json; } };
+  const uploadReq = (method, route, fields={}, files={}, token='', query={}, ip='203.0.113.11', contentLength=0, privateDir='/qa-private/kyc') => run(`
+putenv('SHIVAA_PRIVATE_KYC_DIR=' . base64_decode('${b64(privateDir)}'));
+$_SERVER=['REQUEST_METHOD'=>'${method}','REMOTE_ADDR'=>'${ip}','HTTP_HOST'=>'qa.invalid','HTTP_AUTHORIZATION'=>'${token ? 'Bearer '+token : ''}','CONTENT_TYPE'=>'multipart/form-data; boundary=qa-fixture','CONTENT_LENGTH'=>'${contentLength}'];
+$_GET=array_merge(['__route'=>'${route}'],json_decode(base64_decode('${b64(query)}'),true));
+$_POST=json_decode(base64_decode('${b64(fields)}'),true) ?: []; $_FILES=json_decode(base64_decode('${b64(files)}'),true) ?: [];
+include '/qa/api.php';`);
+  return { php, run, req, uploadReq, setDb, async db(){ const r=await run("echo file_get_contents('/qa/data/db.json');"); return r.json; } };
 }
 module.exports={ fixture,seed,ADMIN,MEMBER,source, fn:n=>{ if(!functions.has(n)) throw Error('Missing function '+n); return functions.get(n); },b64 };

@@ -1,4 +1,4 @@
-# shivaa.in Pre-launch Audit Tracker — 1 Oct 2026
+# shivaa.in Pre-launch Audit Tracker — 2 Oct 2026
 
 ## Scope and counts
 
@@ -6,19 +6,22 @@ This tracker separates complete requirements from the supplied prompt's truncate
 
 - **Complete visible checklist bullets:** 111
 - **Fully verified end-to-end for this broad audit:** 0 / 111
-- **Checklist areas with partial local evidence:** S01, S02, six earlier v183/v184-touch areas, and the Round 4 source/fixture work recorded below; every item remains open until its full acceptance test is completed.
+- **Checklist areas with partial local evidence:** S01–S04, S12, six earlier v183/v184-touch areas, and selected Round 4 source/fixture work recorded below; every item remains open until its full acceptance test is completed.
 - **Still requiring completion/direct evidence:** 111 / 111, plus the missing Round 4 continuation.
-- **Findings:** four preliminary S01/S02 findings are recorded below with provisional severity, reproduction and local retest evidence. No complete audit-wide severity ranking exists.
+- **Findings:** five preliminary findings are recorded below (three S01, one S02, one KYC privacy), each with provisional severity, reproduction and local retest evidence. No complete audit-wide severity ranking exists.
+- **Owner severity rules:** any confirmed Round 2 business-logic/fraud or CRM/ERP issue is **Critical**; any Round 3 Section B failure reproduced inside Instagram's in-app browser is **Critical**. The corresponding checks below are currently untested, so no such failures are asserted. Other severities remain provisional until reproduced.
 
 The five v183 partials are: hero-slider operation (F05), banner image optimization (PERF05), banner alt text/keyboard controls (ACC02), responsive banner behavior at mobile widths (MOB02), and responsive/WebP image strategy (R3C02). The v184 partial is asset/cache versioning (PERF01): stamps and the public release handshake were checked, but stale-client behavior was not fully tested. The v184 Cashfree reconciliation feature (#14) is an additional money-audit item, not one of the 111 complete visible bullets.
 
-The v184 release handshake was previously confirmed live. A v185 staging overlay exists on the session branch, but was not staged or deployed. This turn built and validated a cumulative v186 overlay and reran local synthetic checks; neither v185 nor v186 was staged or deployed. These results do not substitute for the direct tests below. The owner said the v184 report checks are complete, but the specific test results were not provided; they remain owner-reported, not independently reproduced.
+A safe GET of `https://shivaa.in/api/version` on 2 Oct 2026 independently confirmed production release **v186**: shell `shivaa-shell-v186`, `builtAt: 2026-10-02T08:02:12+05:30`, matched index/app/service-worker stamps, MySQL mode, 78 SQL/JSON rows and `mirrorBehind:false`. This checks the public release handshake only—not private KYC-file access, live authentication/IDOR, settlement reconciliation, or all site behavior.
 
-Separate from this broad checklist: the prior money-audit source inventory reports **17/18 findings marked FIXED; #27 remains blocked on owner policy**. The user extracted v183 and v184 to production before staging; the public `/api/version` check returned release 184 with matching stamps. The settlement report has not been run against Cashfree by this agent.
+This turn built and tested a local v187 candidate for a source-confirmed KYC upload privacy risk. `shivaa-update-v187.zip` is an incremental `public_html` overlay based on the confirmed v186 live release. It was **not** uploaded to staging or production; no cache purge or live KYC file probe occurred. These local results do not substitute for the remaining direct audit tests. The owner said earlier v184 report checks are complete, but their specific results were not provided; they remain owner-reported, not independently reproduced.
+
+Separate from this broad checklist: the prior money-audit source inventory reports **17/18 findings marked FIXED; #27 remains blocked on owner policy**. The Cashfree settlement report has not been run against Cashfree by this agent.
 
 ## S01 results — partial local QA only (1 Oct 2026)
 
-The working-tree `cms/api.php` was executed through PHP-WASM against the isolated synthetic database from `tools/mega/smoke/php-api-fixture.js`; the working-tree `cms/js/app.js` is a v186 candidate. This turn reran S01 API/DOM against both the v186 working tree and an extracted v186 overlay in jsdom/PHP-WASM with controlled fake API responses. `seed()` constructs QA-only users, products, settings and rates without reading `cms/data/db.json`; the S01 DOM fixture also uses wholly synthetic baseline data and does not read the repository DB. No customer records were used or transmitted, and no production requests, merchant credentials, real browser, MySQL server, or staging host were used.
+The working-tree `cms/api.php` was executed through PHP-WASM against the isolated synthetic database from `tools/mega/smoke/php-api-fixture.js`; the current app shell is release 187. The earlier S01 API/DOM suite was executed against a v186 tree; the v187 copied storefront DOM regression also runs with controlled fake API responses. `seed()` constructs QA-only users, products, settings and rates without reading `cms/data/db.json`; the S01 DOM fixture also uses wholly synthetic baseline data and does not read the repository DB. No customer records were used or transmitted, and no production requests, merchant credentials, real browser, MySQL server, or staging host were used.
 
 - `node tools/mega/smoke/s01-api-check.js`: **25 passed, 0 failed**. Covers SQL-shaped product search/category/metal/tag values and login credentials, reflected markup, product-path matching, unsafe-media-write rejection, unauthenticated product/review write denial, an admin-only poisoned product fixture, profile/review/contact/service/custom-page storage and reads, and scalar/type handling for the four product filters.
 - `node tools/mega/smoke/s01-dom-check.js`: **29 passed, 0 failed**. Covers search and shop URL query values, browser-stored recent searches, poisoned product fields and media URLs, profile/address/review text through shop cards, PDP, account, cart/mini-cart, custom pages, care-request tracking and contact-form handling, plus static admin product/service-rendering sink assertions. The contact UI uses a mock response while its API write is tested separately in PHP-WASM; the harnesses are not a full integrated form-to-server run. In pre-fix jsdom runs, the injected SVG was parsed but its handler did not execute; the poisoned-media fixture caused 13 DOM assertions to fail before hardening, and current assertions confirm the targeted nodes are absent (29/29 pass). Actual browser execution remains untested.
@@ -61,8 +64,8 @@ The local fix in `cms/api.php` rejects state-changing requests whose supplied Or
 | `tools/mega/smoke/s02-csrf-check.js` | Add foreign-origin, simple-content-type, opaque-origin, cookie-only and same-origin/no-Origin controls. | 14/14 isolated PHP-WASM probes pass; no provider request/SMS sent. |
 | `tools/mega/smoke/v183-check.js`, `v184-check.js`, `v185-check.js`, `v186-check.js`, `v186-dom-check.js` | Keep hero/carousel and v184 settlement assertions active on current releases; add forward-aware v183 behavior checks and v186 source/DOM gates. | v183 forward behavior 8/8 with one stamp-exact skip; v184 8/8; v185 stamp-exact check skips on 186; v186 8/8 source and 15/15 synthetic DOM pass on the working tree and extracted overlay. |
 | `tools/mega/smoke/v154-php-run.js`, `v164-php-run.js` | Update legacy PHP request harnesses for required JSON media type and byte length. | Initial regression failures were traced to missing headers; after harness correction v154 passes 11/11 and v164 passes 17/17. |
-| `tools/mega/smoke/package.json` | Include v186 source/DOM gates plus S01, S02, v183 forward checks, and retained release regressions in `npm test`. | Full smoke chain exits 0; expected retired/stamp-exact checks are explicitly reported as skips. |
-| `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md` | Record partial evidence, provisional findings, limitations, and file inventory. | Checklist remains 0/111 fully verified; selected S01/S02 and R3/R4 items have partial local evidence only. |
+| `tools/mega/smoke/package.json` | Include v187 source/PHP/admin-DOM gates, forward-compatible v186 checks, S01/S02, and retained release regressions. | Full smoke chain exits 0; expected retired/stamp-exact checks are explicitly reported as skips. |
+| `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md` | Record partial evidence, provisional findings, limitations, and file inventory. | Checklist remains 0/111 fully verified; selected S01–S04, S12, and R3/R4 items have partial local evidence only. |
 
 ## 1. Security — 12 items
 
@@ -70,8 +73,8 @@ The local fix in `cms/api.php` rejects state-changing requests whose supplied Or
 |---|---|---|
 | S01 | Probe forms, search, filters, and URL parameters for SQL/NoSQL injection and reflected, stored, and DOM XSS. | Partial: 25 isolated PHP API checks + 29 jsdom assertions pass after three local fixes; integrated form flows, MySQL runtime, real-browser execution, staging/live remain untested |
 | S02 | Attempt CSRF against checkout, login, forms, and admin state changes. | Partial: baseline cross-origin-shaped PHP-WASM probes reached contact/service/guest-checkout/login routes; after local Origin + JSON media-type guards, 14/14 isolated probes pass. Fixtures are synthetic. Real browser, provider, MySQL, staging/live remain untested. |
-| S03 | Test Cashfree Secure ID/KYC login for bypass, replay, session fixation, expiry, cookie flags, and logout token invalidation. | Not tested |
-| S04 | Attempt IDOR by changing user/order/address IDs in API calls. | Not tested |
+| S03 | Test Cashfree Secure ID/KYC login for bypass, replay, session fixation, expiry, cookie flags, and logout token invalidation. | Partial local only: v187 PHP-WASM tests expired bearer rejection, logout token invalidation/replay rejection, server-generated random token shape, and source confirms bearer-header rather than cookie auth. Cashfree Secure ID/KYC login flow, bypass/replay/session-fixation end-to-end, cookie/header behavior on the host, in-app browser and staging/live remain untested. |
+| S04 | Attempt IDOR by changing user/order/address IDs in API calls. | Partial local only: synthetic PHP-WASM verifies a member sees only their order list/address book, cannot GET another member’s order, and cannot delete another member’s address. Other user-/order-/address-ID routes, admin-vs-member policy, staging/live remain untested. |
 | S05 | Verify separate strong admin authentication, non-guessable access, login rate limits, and absence of default credentials. | Not tested |
 | S06 | Probe API auth, CORS, rate limits, and bot protection for login, OTP, search, and checkout. | Not tested |
 | S07 | Run SSL Labs; verify certificate chain, HTTPS enforcement, and HSTS. | Not tested |
@@ -79,7 +82,13 @@ The local fix in `cms/api.php` rejects state-changing requests whose supplied Or
 | S09 | Scan dependencies for known CVEs. | Not tested |
 | S10 | Verify PCI scope, that card data never reaches Shivaa servers, and webhook signatures server-side. | Not tested end-to-end |
 | S11 | Verify encryption of customer/KYC/order data and backups at rest. | Not tested |
-| S12 | Test upload type/size validation, storage outside web root, and malware scanning. | Not tested end-to-end |
+| S12 | Test upload type/size validation, storage outside web root, and malware scanning. | Partial local only: v187 source + 11 PHP-WASM checks cover 8 MB cap, magic bytes, proof-before-store, fail-closed private path, 0700/0600 permissions, admin-only streaming and legacy migration. Apache/LiteSpeed enforcement, real filesystem/production records, antivirus/malware scanning and staging/live remain untested. |
+
+### S12 preliminary KYC document privacy finding — v187 local remediation, not live-verified
+
+| Issue | Provisional severity | Reproduction steps / evidence | Recommended fix and retest |
+|---|---|---|---|
+| Business-card uploads were stored under `cms/uploads/kyc/` and recorded as `/uploads/kyc/card_<10 hex>.<ext>`. The KYC `.htaccess` denied active/executable formats but did not deny JPEG/PNG/WEBP/GIF/PDF; the root `.htaccess` serves existing files, and the admin UI rendered the stored reference as a direct link/image. This is source/config evidence that a document could be fetched directly if its URL were known; **no live document URL was probed or fetched**. | **Medium (provisional):** KYC/business contact details may be sensitive, but exploitation requires a URL disclosure/knowledge; no enumeration, leak or live access was demonstrated. | Before fix, source review showed the upload destination, allowed passive extensions, direct-file root routing, and admin raw `href`/`img` sinks. A Node baseline assertion confirmed all four source/config conditions. This was not an HTTP/browser/production reproduction. | Store new files in a private sibling of the document root with restrictive permissions; persist only opaque internal refs; deny all direct requests to `/uploads/kyc/`; stream by partner ID only after `need_admin`; migrate legacy files by verified copy → DB save → public copy removal; remove direct links from admin UI. After fix: v187 source 9/9, PHP-WASM 11/11, admin jsdom 6/6, storefront regression 15/15, extracted-overlay checks pass. Still unverified on the actual Apache/LiteSpeed host; no malware scanner is included. |
 
 ## 2. Data Privacy & India Compliance — 4 items
 
@@ -110,7 +119,7 @@ The local fix in `cms/api.php` rejects state-changing requests whose supplied Or
 
 | ID | Required direct test | Status |
 |---|---|---|
-| PERF01 | Verify all static assets are versioned/hashed and returning users receive the deployed build. | Partial: v184 stamps and live release handshake checked; stale-client behavior not fully tested |
+| PERF01 | Verify all static assets are versioned/hashed and returning users receive the deployed build. | Partial: v187 source/cache stamps are gated and a safe live `/api/version` GET confirmed v186 with matched stamps; stale-client and real service-worker/CDN behavior remain untested |
 | PERF02 | Test service-worker update-on-reload and confirm old caches cannot trap users. | Not tested on returning clients |
 | PERF03 | Verify CDN and browser caching headers separately for images and HTML. | Not tested |
 | PERF04 | Run PageSpeed/Lighthouse Core Web Vitals on mobile and desktop. | Not tested |
@@ -280,11 +289,11 @@ The local fix in `cms/api.php` rejects state-changing requests whose supplied Or
 
 | Requirement | Status |
 |---|---|
-| Rank actual findings by severity and include reproduction steps and fixes. | Four preliminary S01/S02 findings, provisional severities, reproductions and local retests are recorded above; no complete audit-wide ranking yet. |
+| Rank actual findings by severity and include reproduction steps and fixes. | Five preliminary findings (three S01, one S02, one S12 KYC privacy) include provisional severities, reproductions and local retests above; no complete audit-wide ranking yet. Apply the owner's Critical-severity rules to any future confirmed R2 business-logic/fraud, CRM/ERP, or Instagram in-app-browser R3B failure. |
 | Fix Critical security, then High, Medium, Low; handle one issue at a time. | Three S01 issues and the S02 CSRF-shaped write issue were fixed in source with targeted tests; broad audit remediation remains. |
 | Re-test each fix and adjacent flows; re-attempt security exploits after fixes. | S01 API/DOM, S02 request probes, v183 hero regression, v184 reconciliation fixtures and adjacent smoke checks pass locally; production/staging retests are not done. |
 | Do not hide errors or hardcode around root causes. | Two legacy fixture failures were traced to missing request headers, corrected at the harness, then retested (v154 11/11; v164 17/17). Current-release suites remain active. |
-| Stage before production and confirm cache/version behavior. | The v186 root-layout overlay is built and extracted-overlay tested over a clean local release-184 tree. Staging has not been authorized or performed; the last checked/owner-reported production release is v184. |
+| Stage before production and confirm cache/version behavior. | v187 is a local, extracted-overlay-tested candidate based on the 2 Oct confirmed v186 live release. No staging or production upload/cache purge was performed. Explicit owner approval is required; the KYC legacy migration is a separate data-changing admin action that must not be run on production without explicit approval. |
 | Provide final pass/fail table and deployment date. | This tracker records partial pass/fail evidence; a complete audit-wide table and deployment date are unavailable because most checks remain untested and no deployment occurred. |
 
 ## v185 predecessor-package evidence (separate from the 111-item audit)
@@ -302,6 +311,18 @@ The local fix in `cms/api.php` rejects state-changing requests whose supplied Or
 - `shivaa-update-v186.zip`: **22 entries, 2,160,234 bytes, SHA-256 `9c5ec601b1a460bf9c51aa6dd2313080975c2fbc2944aa2994290f3c076339e3`**. Builder verifies the exact allowlist, CRC, source-byte equality, release/cache stamps, excluded paths, and protected campaign hashes.
 - Extracted-overlay retest: package applied to a clean local `HEAD` CMS tree (release 184) in a temporary directory; v186 source **8/8**, DOM **15/15**, v184 source **8/8**, v184 PHP **6/6**, S01 API **25/25**, S01 DOM **29/29**, S02 **14/14**, and v183 forward behavior **8/8 with one stamp-exact skip**. This is not staging/production behavior.
 - Partial Round 4 evidence only: the v186 synthetic suite supports prefetch, refresh, optimistic wishlist/cart feedback and selected mobile control behavior. No item is fully verified against real users/devices; the audit-wide count remains **0/111 fully verified**. Round 4's persistent-bottom-navigation prompt is still incomplete.
-- The package is staging-only. No staging or production upload, cache purge, or v186 live version check occurred. The last checked/owner-reported live release is v184; do not assume it has changed since that check.
+- At v186 package build time there was no deployment. A later safe GET on 2 Oct 2026 independently confirmed v186 live with matched stamps and MySQL 78/78; this does not prove how the package reached production or verify its features. No v187 upload/cache purge occurred.
 - Prior payment audit inventory: 17/18 marked FIXED; #27 remains the owner-policy decision. The settlement report has not been run against Cashfree by this agent.
 - PHP-WASM and jsdom are not native PHP/MySQL, real-browser, in-app-browser, device, hosting-proxy, load, CRM/ERP, legal or live financial-close tests. No such behavior is claimed.
+
+
+## v187 candidate evidence — private KYC business-card handling (2 Oct 2026)
+
+- Production baseline before local work: safe GET `https://shivaa.in/api/version` returned v186, shell `shivaa-shell-v186`, release stamps matched, MySQL mode, 78 SQL/JSON rows, `mirrorBehind:false`. No KYC file request was made.
+- Finding selected: provisional Medium KYC upload privacy risk (S12); see the reproduction/fix table above. The source/config evidence is not a claim that a real production file was accessed.
+- `tools/mega/smoke/v187-check.js`: **9/9**. `v187-php-run.js`: **11/11** isolated PHP-WASM tests (unverified upload not persisted; size/type rejection; private path fail-closed; verified upload stored outside synthetic docroot with 0700/0600 modes; admin stream allow/deny; legacy migration/copy/delete/idempotence/path traversal; plus partial S03/S04 expiry/logout/random-token/order/address ownership checks). `v187-admin-check.js`: **6/6** synthetic jsdom checks. `v187-dom-check.js`: **15/15** carried forward. `v186-check.js`: **8/8**, made forward-compatible.
+- `npm test --prefix tools/mega/smoke`: **exit 0** (full retained smoke chain). `npm run test:regression --prefix tools/mega/smoke`: **47 suites passed, 26 retired-feature suites skipped, 0 failed**.
+- Extracted-overlay retest: applied the 6-file v187 ZIP over a clean local CMS archive of v186 source commit `7a9b0f9`; v187 source 9/9, v186 forward source 8/8, v187 storefront DOM 15/15, admin KYC DOM 6/6, PHP-WASM 11/11.
+- `shivaa-update-v187.zip`: **6 entries, 459,919 bytes, SHA-256 `50a1df1247006c71b51c523d41037c9e12f0abd665773041e9b49668359054ab`** at build time; deterministic allowlist includes only API, index, app/admin JS, service worker and `uploads/kyc/.htaccess`. Database, config/credentials, KYC/customer uploads, campaign media, docs/tests are excluded. Re-run `python3 tools/mega/build-v187-package.py` after source changes.
+- **Not tested:** real PHP/FPM, Hostinger open_basedir/permissions, Apache/LiteSpeed honoring the KYC `.htaccess`, actual legacy production files, live authenticated stream, antivirus/malware scanning, real browser/in-app browser, staging or production. S03/S04/S12 remain partial; total remains **0/111**. Round 4 persistent-navigation text remains truncated and unguessed.
+- Deployment state: package is a staging-only overlay on confirmed v186. No staging/production installation, cache purge, or live v187 check; owner approval remains required. Do not click the admin legacy-migration action against real records without separate explicit consent to migrate those files.

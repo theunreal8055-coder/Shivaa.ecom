@@ -1,25 +1,15 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
-## Current source/package — v186 built and pushed, not deployed (1 Oct 2026)
+## Current source/package — v187 KYC privacy candidate (2 Oct 2026)
 
-- Fixed branch `arena/01a0f602-shivaa-ecom`; source/package commit `7a9b0f9`.
-- Package `shivaa-update-v186.zip`: 22 entries, 2,160,234 bytes, SHA-256
-  `9c5ec601b1a460bf9c51aa6dd2313080975c2fbc2944aa2994290f3c076339e3`.
-  It is a cumulative `public_html` overlay for authorized staging, not a full
-  backup. See `DEPLOY-v186.md` for inventory and verification.
-- Changes: product-detail prefetch/reuse on card intent; catalog pull/button
-  refresh; optimistic serialized wishlist with accessible confirmed rollback;
-  non-blocking cart feedback; small-screen 16 px editable controls; coherent
-  release/cache stamp 186. Theme, logo and Gold Biscuit campaign remain intact.
-- Results: `npm test` exit 0; deploy gate 20/20, v186 source 8/8, synthetic DOM
-  15/15, S01 API/DOM 25/25 + 29/29, S02 14/14, v184 8/8 + 6/6, relay 7/7.
-  Regression: 45 passed, 26 skipped, 0 failed. Extracted overlay passed the
-  relevant gates over a clean local v184 tree.
-- **Not complete:** audit remains 0/111 fully verified, with the Round 4
-  “Persistent bottom navi…” item truncated. Real-device/in-app-browser,
-  staging/live systems, legal and load tests are not claimed. No staging or
-  production deployment or cache purge occurred; last checked/owner-reported
-  production is v184. Owner approval is required before staging/deployment.
+- Fixed branch: `arena/01a0f602-shivaa-ecom`; HEAD was `b2c05f3` at handoff time. v187 source, tests, docs and package are **uncommitted**. No branch switch, commit, push or deploy occurred.
+- Safe public GET of `https://shivaa.in/api/version` on 2 Oct confirmed production v186 (`shivaa-shell-v186`, `builtAt: 2026-10-02T08:02:12+05:30`, stamps matched, MySQL 78/78, `mirrorBehind:false`). This is a version handshake only; no live KYC file or authenticated route was probed.
+- v187 selects a source-confirmed KYC business-card privacy risk (provisional Medium): new cards move to private storage outside the app document root; uploads validate size/signature before storage and defer persistence until OTP/GST/duplicate checks pass; public KYC directory is denied; admin access is record-bound/token-authenticated; legacy migration is explicit and verified. No malware scanner is included.
+- Package `shivaa-update-v187.zip`: 6 entries, 459,919 bytes, SHA-256 `50a1df1247006c71b51c523d41037c9e12f0abd665773041e9b49668359054ab`. Root-layout incremental overlay for v186, not a full backup. Inventory/runbook: `DEPLOY-v187.md`; builder: `tools/mega/build-v187-package.py`.
+- Tests: `npm test --prefix tools/mega/smoke` exit 0; regression **47 suites passed, 26 retired-feature suites skipped, 0 failed**; focused v187 source **9/9**, PHP-WASM **11/11**, admin DOM **6/6**, storefront DOM **15/15**, forward v186 source **8/8**. Clean extracted overlay retested with overwrite enabled and all five focused gates passed. All fixtures synthetic.
+- Broad audit remains **0/111 fully verified**; mark direct checks untested rather than infer. Round 4 still ends at the incomplete “Persistent bottom navi…” fragment. Real host `.htaccess`/permissions, native PHP-FPM/MySQL, live KYC files, staging, real devices/in-app browsers, malware scanning and legal/financial system checks are not claimed.
+- **No staging or production upload/cache purge occurred.** Stage only with explicit authorization and synthetic records; production requires separate explicit owner approval after staging. Any migration of real legacy KYC files is a separate data-changing action requiring separate explicit consent. Production remains v186 until a later safe probe.
+- Current tracker: `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md`; detailed continuation: `docs/HANDOFF-NEXT-2026-10-02-v187.md`.
 
 ## Historical: v178 published — use Shivaa like an app: no store, no APK, no upload (24 Sep 2026)
 

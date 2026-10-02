@@ -1,33 +1,22 @@
-# CURRENT HANDOFF — v186 built and pushed; staging/production not performed (1 Oct 2026)
+# CURRENT HANDOFF — v187 KYC privacy candidate; not staged/deployed (2 Oct 2026)
 
 ## Current state
 
-- Fixed branch: `arena/01a0f602-shivaa-ecom`; source/package commit: `7a9b0f9`.
-- `shivaa-update-v186.zip` is a staging-only root-layout overlay: 22 entries,
-  2,160,234 bytes, SHA-256
-  `9c5ec601b1a460bf9c51aa6dd2313080975c2fbc2944aa2994290f3c076339e3`.
-  Package inventory and install cautions are in `DEPLOY-v186.md`.
-- v186 adds detail prefetch on card intent with bounded cache/reuse; accessible
-  catalog pull/button refresh; optimistic, serialized wishlist updates with
-  rollback after confirmed rejection; non-blocking cart feedback; and a mobile
-  16 px editable-control rule. Release/cache stamps move together to 186.
-  Theme, logo, and Gold Biscuit campaign surfaces are unchanged.
-- Measured tests: `npm test` exits 0; v186 source **8/8**, synthetic DOM
-  **15/15**, deployment gate **20/20**, S01 API/DOM **25/25 + 29/29**, S02
-  **14/14**, v184 **8/8 + 6/6**, relay **7/7**. `npm run test:regression`:
-  **45 suites passed, 26 skipped, 0 failed**. Extracted ZIP overlay passed the
-  v186, v184, S01/S02, and v183 forward checks over a clean local v184 tree.
-- Broad pre-launch audit remains **0/111 fully verified**; many direct checks
-  are untested, and Round 4 ends at the incomplete “Persistent bottom navi…”
-  fragment. Real devices, Instagram/Facebook browsers, live systems, legal
-  review, and staging were not tested.
-- Last checked/owner-reported production is v184. **No staging or production
-  upload, cache purge, or live v186 check occurred.** Owner approval is still
-  required. Do not call the source/package deployed or claim the full audit is
-  complete.
-- Builder: `tools/mega/build-v186-package.py`. Main audit and remaining statuses:
-  `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md`. Cashfree limitations remain in
-  `DEPLOY-v184.md` and `docs/PAYMENT-EXPERIENCE-NEXT.md`.
+- Fixed branch `arena/01a0f602-shivaa-ecom`; HEAD `b2c05f3` at handoff time. All v187 changes remain uncommitted; no commit, push, branch switch, staging upload, production deploy or cache purge occurred.
+- Safe GET of `https://shivaa.in/api/version` on 2 Oct confirmed live v186: `rel:186`, `shivaa-shell-v186`, `builtAt:2026-10-02T08:02:12+05:30`, matched index/app/SW stamps, MySQL mode, SQL/JSON 78/78, `mirrorBehind:false`. No live KYC file/authenticated route was probed.
+- Highest-priority selected source-confirmed finding: business-card/KYC document privacy, provisional Medium (URL-known source exposure; no real-world exploit/leak demonstrated). v187 uses private sibling storage, 0700/0600 modes, fail-closed path checks, magic-byte/size validation before persistence, direct-directory deny, record-bound admin-token streaming and an explicit verified legacy migration. No malware scanner is added.
+- Package `shivaa-update-v187.zip`: six root-layout overlay members, 459,919 bytes, SHA-256 `50a1df1247006c71b51c523d41037c9e12f0abd665773041e9b49668359054ab`; target is an existing v186+ `public_html`, not a full-site backup. Inventory and constraints: `DEPLOY-v187.md`; builder: `tools/mega/build-v187-package.py`.
+- Full `npm test --prefix tools/mega/smoke` exits 0. Regression: **47 passed, 26 retired-feature skips, 0 failed**. Focused gates: v187 source **9/9**, PHP-WASM **11/11**, admin jsdom **6/6**, synthetic storefront DOM **15/15**, forward v186 source **8/8**. Extracted-overlay checks pass over a clean local v186 archive using overwrite-enabled extraction. Fixtures are synthetic only.
+- Broad audit remains **0/111 fully verified**; all not-yet-tested direct checks remain open. Do not infer the missing Round 4 “Persistent bottom navi…” requirements. S03/S04/S12 remain partial.
+- Not verified: actual Apache/LiteSpeed denial, Hostinger private-path/open_basedir/permissions, real KYC data/migration, native PHP-FPM/MySQL, live stream headers, scanner/malware handling, real devices/in-app browsers, legal review, staging or production.
+- **Staging:** not performed. Await explicit authorization; use only synthetic documents and confirm storage is outside the docroot. **Production:** no deployment absent explicit owner approval after staging. Migration of actual legacy KYC records requires separate explicit consent.
+
+## Handoff references
+
+- Release/install/test notes: `DEPLOY-v187.md`
+- Audit tracker: `docs/PRELAUNCH-AUDIT-TRACKER-2026-10-01.md`
+- Full next-session handoff: `docs/HANDOFF-NEXT-2026-10-02-v187.md`
+- Cashfree settlement report remains unrun against Cashfree; older policy block #27 remains as previously documented.
 
 ## Historical handoff — v182 built; v181 reported live (25 Sep 2026)
 

@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node deploy-approval-check.js && node v186-check.js && node v186-dom-check.js && node v185-check.js && node v184-check.js && node v184-php-run.js && node s01-api-check.js && node s01-dom-check.js && node s02-csrf-check.js && node v183-check.js && node v182-check.js && node v181-check.js && node v180-check.js && node v182-php-run.js && node v181-php-run.js && node v180-php-run.js && node v179-php-run.js && node v179-relay.js && node v169-check.js && node v169-php-run.js && node v168-check.js && node v168-php-run.js",
-    "test:regression": "node v168-regression.js"
+    "test": "node deploy-approval-check.js && node v187-check.js && node v186-check.js && node v187-dom-check.js && node v187-admin-check.js && node v187-php-run.js && node v185-check.js && node v184-check.js && node v184-php-run.js && node s01-api-check.js && node s01-dom-check.js && node s02-csrf-check.js && node v183-check.js && node v182-check.js && node v181-check.js && node v180-check.js && node v182-php-run.js && node v181-php-run.js && node v180-php-run.js && node v179-php-run.js && node v179-relay.js && node v169-check.js && node v169-php-run.js && node v168-check.js && node v168-php-run.js",
+    "test:regression": "node v187-check.js && node v187-dom-check.js && node v187-admin-check.js && node v187-php-run.js && node v168-regression.js"
   },
   "keywords": [],
   "author": "",

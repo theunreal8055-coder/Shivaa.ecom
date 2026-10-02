@@ -18,19 +18,19 @@ function test(id, name, fn) {
   catch (error) { tests.push(false); console.error(`FAIL ${id} ${name}: ${error.message}`); }
 }
 
-test('V186-01', 'HTML, app, service worker, and API share release 186', () => {
-  assert.equal(rel, 186);
-  assert.ok(app.includes('const APP_REL = 186;'));
-  assert.ok(sw.includes("const SHELL = 'shivaa-shell-v186';"));
-  assert.ok(sw.includes('const REL = 186;'));
-  assert.ok(api.includes("'rel'   => 186,"));
+test('V186-01', 'HTML, app, service worker, and API share the current release at 186 or later', () => {
+  assert.ok(rel >= 186);
+  assert.ok(app.includes(`const APP_REL = ${rel};`));
+  assert.ok(sw.includes(`const SHELL = 'shivaa-shell-v${rel}';`));
+  assert.ok(sw.includes(`const REL = ${rel};`));
+  assert.ok(api.includes(`'rel'   => ${rel},`));
 });
-test('V186-02', 'the new catalog refresh CSS is linked and cached; old 185 asset URLs are absent', () => {
-  assert.ok(index.includes('/css/v186.css?v=186'));
-  assert.ok(sw.includes("'/css/v186.css?v=186'"));
-  assert.ok(!/\?v=185(?:['"\s)]|$)/.test(index));
-  assert.ok(!/\?v=185(?:['"\s)]|$)/.test(sw));
-  assert.ok(index.includes('/js/app.js?v=186'));
+test('V186-02', 'the catalog refresh stylesheet remains linked and every release URL uses the current cache key', () => {
+  assert.ok(index.includes(`/css/v186.css?v=${rel}`));
+  assert.ok(sw.includes(`'/css/v186.css?v=${rel}'`));
+  assert.ok(!index.includes(`?v=${rel - 1}`));
+  assert.ok(!sw.includes(`?v=${rel - 1}`));
+  assert.ok(index.includes(`/js/app.js?v=${rel}`));
 });
 test('V186-03', 'product details are prefetched only on card intent and reused for the route', () => {
   assert.ok(app.includes('function getProductDetail(id)'));
