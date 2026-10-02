@@ -16,7 +16,7 @@ const PRODUCT = { id: 'qa-v187-ring', sku: 'QA-V187-001', name: 'Synthetic v187 
   images: ['/images/logo.png'], video: '', tags: ['qa'], stock: 3, sizes: ['12'], active: true, rating: 5, reviews: 0, createdAt: '2026-10-01T12:00:00+05:30' };
 const HTML = fs.readFileSync(path.join(CMS, 'index.html'), 'utf8')
   .replace(/<link\b[^>]*>/gi, '')
-  .replace(/<script\b[^>]*src=["'][^"']*["'][^>]*>\s*<\/script>/gi, tag => /\/js\/app\.js\?v=187/.test(tag) ? tag : '');
+  .replace(/<script\b[^>]*src=["'][^"']*["'][^>]*>\s*<\/script>/gi, tag => /\/js\/app\.js\?v=\d+/.test(tag) ? tag : '');
 const mime = { '.html': 'text/html', '.js': 'text/javascript' };
 const checks = [];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

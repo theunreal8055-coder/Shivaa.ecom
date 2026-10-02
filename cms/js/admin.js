@@ -83,6 +83,12 @@ async function renderAdmin(view, q) {
   if (tab === 'orders') { try { reviewAsks = (await api('/api/admin/review-asks')).asks || []; } catch (e) {} }
   let carts = [];
   if (tab === 'overview') { try { carts = (await api('/api/admin/carts')).carts; } catch (e) {} }
+  /* v183 — segmented B2C/B2B Daily WhatsApp Broadcast Studio & Unbranded PDF Desk */
+  let broadcastPack = null;
+  if (tab === 'broadcast') {
+    const pid = q.get('productId') || '';
+    try { broadcastPack = await api('/api/admin/broadcast-pack' + (pid ? '?productId=' + encodeURIComponent(pid) : '')); window.ShivaaAdmin._broadcastPack = broadcastPack; } catch (e) {}
+  }
   const P = partnersData.partners || [];
   const pendingPartners = P.filter(x => x.status === 'pending').length;
   const newLeads = (leads.requests || []).length;
@@ -92,12 +98,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['intake','📦','Catalogue Intake'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'intake' && intakePending ? ` <span class="cnt">${intakePending}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['broadcast','📲','WA Broadcast'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['intake','📦','Catalogue Intake'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'intake' && intakePending ? ` <span class="cnt">${intakePending}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',intake:'Catalogue Intake & Review Queue',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',broadcast:'Daily WhatsApp Broadcast & PDF Desk',finale:'Gold Finale Entries',products:'Products',intake:'Catalogue Intake & Review Queue',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${(state.rates?.source === 'live' || state.rates?.source === 'live-mcx') ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${state.rates?.source === 'live-mcx' ? 'official MCX' : esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -988,6 +994,162 @@ function v180DbStrip() {
           </div>`).join('')}</div>`
         : '<p style="color:var(--ink-3);font-size:13.5px">Queue empty — staged designs appear here for your Approve / Skip tap.</p>'}
       </div>`;
+  }
+
+  /* ── v188 · DAILY WHATSAPP BROADCAST STUDIO & UNBRANDED PDF DESK ── */
+  if (tab === 'broadcast') {
+    const bp = broadcastPack || { rates: state.rates || {}, templates: {}, subscribers: { b2c: [], b2b: [], referrals: [], counts: {} }, catalogueOptions: [], b2bSummary: {} };
+    const R = bp.rates || {};
+    const T = bp.templates || {};
+    const dod = bp.designOfDay || null;
+    const subs = bp.subscribers || { b2c: [], b2b: [], referrals: [], counts: {} };
+    const opts = (bp.catalogueOptions || []).map(p =>
+      `<option value="${esc(p.id)}" ${dod && dod.id === p.id ? 'selected' : ''}>${esc(p.name)} (${esc(p.sku)} · ${p.weightG}g ${esc(p.purity)})</option>`
+    ).join('');
+    body.innerHTML = `
+      <div class="adm-card" style="border-left:4px solid var(--gold,#d4af37)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
+          <div style="max-width:680px">
+            <h3 style="margin-bottom:4px">📲 Daily WhatsApp Broadcast &amp; Dual-PDF Studio</h3>
+            <p class="partner-note" style="font-size:13px;margin:0">
+              <b>Golden Rule:</b> Never mix B2C families (&ldquo;घर के लिए&rdquo;) and B2B jewellers (&ldquo;दुकान के लिए&rdquo;) in the same broadcast list.
+              Send <b>B2B List at 9:45 AM</b> (Bullion Bell + <code>0.92</code> Fine Metal + Unbranded Customer PDF) and <b>B2C List at 10:30 AM</b> (Live Screen Rate + Design of the Day).
+            </p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaAdmin.printUnbrandedCatalogue()">🖨 Unbranded &ldquo;Counter Display&rdquo; PDF (For Customers)</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.printPartnerCatalogue()">⚖ B2B Partner Fine-Metal PDF (0.92 Rate)</button>
+            <a class="btn btn-ghost btn-sm" href="/api/whatsapp/vcard" download="Shivaa-Jewels.vcf">📇 Download vCard</a>
+          </div>
+        </div>
+        <div class="stat-grid" style="margin-top:14px">
+          <div class="stat"><small>22K Live Rate</small><b>₹${(R.gold22 || 0).toLocaleString('en-IN')}/g</b><span>${esc(R.trendLabel || 'Live')}</span></div>
+          <div class="stat"><small>TDS Gold 995 (10g)</small><b>₹${(R.bullion995Per10g || 0).toLocaleString('en-IN')}</b><span>B2B RTGS Anchor</span></div>
+          <div class="stat"><small>B2C Broadcast Club</small><b>${(subs.counts && subs.counts.b2c) || 0}</b><span>${(subs.counts && subs.counts.rateAlertsReached) || 0} target alerts reached</span></div>
+          <div class="stat"><small>B2B Partner Broadcast</small><b>${(subs.counts && subs.counts.b2b) || 0}</b><span>${(subs.counts && subs.counts.partnerReferrals) || 0} town referrals</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)">
+          <div class="fld" style="flex:1;min-width:260px;margin:0">
+            <label>👑 Pick Today&rsquo;s &ldquo;Design of the Day&rdquo; (auto-updates all broadcast templates below)</label>
+            <select id="bcDodSelect" class="sortsel" style="width:100%;border-radius:10px" onchange="ShivaaAdmin.broadcastPickProduct(this.value)">${opts}</select>
+          </div>
+          ${dod ? `<div style="font-size:12.5px;color:var(--ink-3)">Selected: <b>${esc(dod.name)}</b> · Gross <b>${dod.weightG}g</b> · Retail <b>₹${(dod.priceTotal || 0).toLocaleString('en-IN')}</b> · B2B Fine <b>${dod.fineGoldG}g</b></div>` : ''}
+        </div>
+      </div>
+
+      <h3 style="margin:18px 0 10px;font-family:var(--ff-disp)">🏠 B2C Broadcasts — &ldquo;घर के लिए&rdquo; (Retail Families &amp; Wedding Buyers)</h3>
+      <div class="grid2">
+        <div class="adm-card">
+          <h3>☀️ List 1 · 10:30 AM Live Rate + Design of the Day</h3>
+          <p class="partner-note" style="font-size:12px">Daily habit message: transparent 22K/24K/Silver rate + 1 featured design + 3g Gold Finale reminder.</p>
+          <textarea id="bc_b2c_daily" rows="11" style="width:100%;font-size:12.5px;margin:8px 0;padding:10px;border-radius:10px;border:1px solid var(--line)">${esc(T.b2c_daily || '')}</textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary btn-sm" onclick="ShivaaAdmin.copyBroadcast('bc_b2c_daily')">📋 Copy Message</button>
+            <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaAdmin.waBroadcast('bc_b2c_daily')">📲 Open WhatsApp</button>
+          </div>
+        </div>
+        <div class="adm-card">
+          <h3>🔔 List 1/2 · Instant Rate-Drop &amp; 48h Rate Lock Alert</h3>
+          <p class="partner-note" style="font-size:12px">Send whenever 22K dips or before auspicious wedding/festival buying days.</p>
+          <textarea id="bc_b2c_ratedrop" rows="11" style="width:100%;font-size:12.5px;margin:8px 0;padding:10px;border-radius:10px;border:1px solid var(--line)">${esc(T.b2c_ratedrop || '')}</textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary btn-sm" onclick="ShivaaAdmin.copyBroadcast('bc_b2c_ratedrop')">📋 Copy Message</button>
+            <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaAdmin.waBroadcast('bc_b2c_ratedrop')">📲 Open WhatsApp</button>
+          </div>
+        </div>
+        <div class="adm-card">
+          <h3>🌸 Wednesday &ldquo;Reply A, B or C&rdquo; Family Design Poll</h3>
+          <p class="partner-note" style="font-size:12px">Gets customers to reply with 1 letter — boosts your WhatsApp Broadcast delivery score to 100%.</p>
+          <textarea id="bc_b2c_poll" rows="10" style="width:100%;font-size:12.5px;margin:8px 0;padding:10px;border-radius:10px;border:1px solid var(--line)">${esc(T.b2c_poll || '')}</textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary btn-sm" onclick="ShivaaAdmin.copyBroadcast('bc_b2c_poll')">📋 Copy Message</button>
+            <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaAdmin.waBroadcast('bc_b2c_poll')">📲 Open WhatsApp</button>
+          </div>
+        </div>
+        <div class="adm-card">
+          <h3>🤝 B2C First Opening Pitch (3g 22K Tops / 100g Silver Wedge)</h3>
+          <p class="partner-note" style="font-size:12px">First message for new retail leads — removes fear of impure gold &amp; hidden kachchi-parchi rates.</p>
+          <textarea id="bc_b2c_first_pitch" rows="10" style="width:100%;font-size:12.5px;margin:8px 0;padding:10px;border-radius:10px;border:1px solid var(--line)">${esc(T.b2c_first_pitch || '')}</textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary btn-sm" onclick="ShivaaAdmin.copyBroadcast('bc_b2c_first_pitch')">📋 Copy Message</button>
+            <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaAdmin.waBroadcast('bc_b2c_first_pitch')">📲 Open WhatsApp</button>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin:22px 0 10px;font-family:var(--ff-disp)">🏪 B2B Broadcasts — &ldquo;दुकान के लिए&rdquo; (Verified Partners &amp; Prospective Town Jewellers)</h3>
+      <div class="grid2">
+        <div class="adm-card">
+          <h3>⚖️ List 3 · 9:45 AM Bullion Bell + Ready Stock + 0.92 Fine Billing</h3>
+          <p class="partner-note" style="font-size:12px">Morning wholesale broadcast for verified jeweller partners. Attach the Partner PDF + Unbranded Counter PDF.</p>
+          <textarea id="bc_b2b_morning" rows="11" style="width:100%;font-size:12.5px;margin:8px 0;padding:10px;border-radius:10px;border:1px solid var(--line)">${esc(T.b2b_morning || '')}</textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary btn-sm" onclick="ShivaaAdmin.copyBroadcast('bc_b2b_morning')">📋 Copy Message</button>
+            <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaAdmin.waBroadcast('bc_b2b_morning')">📲 Open WhatsApp</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="ShivaaAdmin.printUnbrandedCatalogue()">🖨 Unbranded PDF</button>
+          </div>
+        </div>
+        <div class="adm-card">
+          <h3>🚀 List 4 · B2B First Sales Pitch (Dead-Stock Swap + 50g Trial Lot)</h3>
+          <p class="partner-note" style="font-size:12px">Opening pitch for new jewellers in Tier-2/3 towns — pitches Dead-Stock relief &amp; 110% Tanch Guarantee first.</p>
+          <textarea id="bc_b2b_first_pitch" rows="11" style="width:100%;font-size:12.5px;margin:8px 0;padding:10px;border-radius:10px;border:1px solid var(--line)">${esc(T.b2b_first_pitch || '')}</textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary btn-sm" onclick="ShivaaAdmin.copyBroadcast('bc_b2b_first_pitch')">📋 Copy Message</button>
+            <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaAdmin.waBroadcast('bc_b2b_first_pitch')">📲 Open WhatsApp</button>
+          </div>
+        </div>
+      </div>
+      <div class="adm-card">
+        <h3>♻️ Thursday Dead-Stock Exchange Window (Pre-Friday Settlement)</h3>
+        <textarea id="bc_b2b_deadstock" rows="6" style="width:100%;font-size:12.5px;margin:8px 0;padding:10px;border-radius:10px;border:1px solid var(--line)">${esc(T.b2b_deadstock || '')}</textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-primary btn-sm" onclick="ShivaaAdmin.copyBroadcast('bc_b2b_deadstock')">📋 Copy Message</button>
+          <button type="button" class="btn btn-gold btn-sm" onclick="ShivaaAdmin.waBroadcast('bc_b2b_deadstock')">📲 Open WhatsApp</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="adm-card">
+          <h3>🏠 B2C WhatsApp Club Subscribers (${(subs.b2c || []).length})
+            <button type="button" class="btn btn-outline btn-sm" style="float:right" onclick="ShivaaAdmin.copyNumberList('b2c')">📋 Copy Numbers</button>
+          </h3>
+          ${(subs.b2c || []).length ? `<div class="adm-table-wrap"><table class="adm-table">
+            <thead><tr><th>Name / Source</th><th>Mobile</th><th>City</th><th></th></tr></thead>
+            <tbody>${(subs.b2c || []).slice(0, 50).map(s => `<tr>
+              <td><b>${esc(s.name || 'Member')}</b><br><small style="color:var(--ink-3)">${esc(s.source || '')}</small></td>
+              <td><code>${esc(s.phone)}</code></td>
+              <td>${esc(s.city || '—')}</td>
+              <td><a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="https://wa.me/91${encodeURIComponent(s.phone)}?text=${encodeURIComponent(T.b2c_daily || '')}">📲 Send</a></td>
+            </tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">Customers who join the Daily 10 AM Rate &amp; Design Club on <code>#/rates</code> appear here.</p>'}
+        </div>
+        <div class="adm-card">
+          <h3>🏪 B2B Partner &amp; Prospect List (${(subs.b2b || []).length})
+            <button type="button" class="btn btn-outline btn-sm" style="float:right" onclick="ShivaaAdmin.copyNumberList('b2b')">📋 Copy Numbers</button>
+          </h3>
+          ${(subs.b2b || []).length ? `<div class="adm-table-wrap"><table class="adm-table">
+            <thead><tr><th>Shop / Firm</th><th>Mobile</th><th>Town</th><th></th></tr></thead>
+            <tbody>${(subs.b2b || []).slice(0, 50).map(s => `<tr>
+              <td><b>${esc(s.name || 'Jeweller')}</b><br><small style="color:var(--ink-3)">${esc(s.source || '')}</small></td>
+              <td><code>${esc(s.phone)}</code></td>
+              <td>${esc(s.city || '—')}</td>
+              <td><a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="https://wa.me/91${encodeURIComponent(s.phone)}?text=${encodeURIComponent(T.b2b_morning || '')}">📲 Send</a></td>
+            </tr>`).join('')}</tbody></table></div>` : '<p class="partner-note">Approved partners, B2B opt-ins &amp; town-to-town jeweller referrals appear here.</p>'}
+        </div>
+      </div>
+
+      ${(subs.referrals || []).length ? `<div class="adm-card">
+        <h3>🤝 B2B Town-to-Town Partner Referrals (${subs.referrals.length})</h3>
+        <div class="adm-table-wrap"><table class="adm-table">
+          <thead><tr><th>Referred Shop</th><th>Town</th><th>Mobile</th><th>Referred By</th><th>Reward</th><th></th></tr></thead>
+          <tbody>${subs.referrals.map(r => `<tr>
+            <td><b>${esc(r.friendFirm)}</b></td>
+            <td>${esc(r.friendCity)}</td>
+            <td><code>${esc(r.friendPhone)}</code></td>
+            <td>${esc(r.referrerFirm || r.referrerPhone || 'Partner')}</td>
+            <td><span class="status-pill st-placed">${esc(r.rewardScheme || 'Fine Gold Credit')}</span></td>
+            <td><a class="btn btn-gold btn-sm" target="_blank" rel="noopener" href="https://wa.me/91${encodeURIComponent(r.friendPhone)}?text=${encodeURIComponent(T.b2b_first_pitch || '')}">📲 Pitch on WA</a></td>
+          </tr>`).join('')}</tbody></table></div>
+      </div>` : ''}`;
   }
 
   if (tab === 'settings') {
@@ -2720,7 +2882,22 @@ async function renderPartner(view) {
         <div class="adm-card"><h3>Your manager</h3>
           <div class="benefit"><div class="bic">☎</div><div><b>Karan Soni — Executive Director</b><p>Direct line for stock, rates & settlements: <b>${esc(state.settings.phone)}</b></p></div></div>
           <div class="benefit"><div class="bic">&#10022;</div><div><b>Daily designs on WhatsApp</b><p>New designs every morning &mdash; then select and bill them in <a href="#/catalogues" style="color:var(--gold)">Design Selection</a>.</p></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+            <a class="btn btn-gold btn-sm" href="#/catalogues?counter=1">👁 Showroom Counter Mode (Hide 0.92 Rates)</a>
+            <a class="btn btn-outline btn-sm" href="/api/whatsapp/vcard" download="Shivaa-Jewels.vcf">📇 Save Shivaa Contact (vCard)</a>
+          </div>
         </div>
+      </div>
+      <!-- v183 — Partner-to-Partner Town Referral Desk -->
+      <div class="adm-card" data-sec="dash" style="border-left:4px solid var(--gold,#d4af37)">
+        <h3>🤝 Refer a Fellow Jeweller (Non-Competing Town) &mdash; Earn Fine Gold Credit</h3>
+        <p class="partner-note" style="font-size:12.5px">Know a relative or trusted jeweller in another town/tehsil? Invite them to the Shivaa B2B network. Since they are in a different town, your local exclusivity stays 100% protected &mdash; and you receive a <b>Fine Gold Referral Credit</b> in your Friday settlement when their first lot settles.</p>
+        <form class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));align-items:end;margin-top:10px" onsubmit="ShivaaAdmin.submitPartnerReferral(event,${jsArg(partner?.firm || '')},${jsArg(partner?.phone || '')})">
+          <div class="fld"><label>Fellow Jeweller&rsquo;s Shop Name *</label><input name="friendFirm" required placeholder="e.g. Shree Balaji Jewellers"></div>
+          <div class="fld"><label>Their Town / Tehsil *</label><input name="friendCity" required placeholder="e.g. Kuchaman / Nokha / Beawar"></div>
+          <div class="fld"><label>Their 10-Digit Mobile *</label><input name="friendPhone" type="tel" pattern="[6-9][0-9]{9}" maxlength="10" required placeholder="98XXXXXXXX"></div>
+          <button class="btn btn-primary btn-sm">📲 Register &amp; Send WhatsApp Invite</button>
+        </form>
       </div>
       <!-- v101 — reports view renders in-place into this host -->
       <div id="ptReports" data-sec="reports" hidden></div>
@@ -4158,6 +4335,147 @@ window.ShivaaAdmin.loadReviews = async () => {
       <td>${r.reply ? '' : `<button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.replyReview('${r.id}')">Reply</button>`}</td></tr>`).join('')}
     </tbody></table></div>` : '<p class="partner-note">No reviews yet.</p>';
   } catch (e) { host.textContent = e.message; }
+};
+
+/* ── v183 Daily WhatsApp Broadcast Studio, Dual-PDF Generator & Partner Referrals ── */
+window.ShivaaAdmin.broadcastPickProduct = (pid) => {
+  renderAdmin($('#view'), new URLSearchParams('tab=broadcast&productId=' + encodeURIComponent(pid || '')));
+};
+window.ShivaaAdmin.copyBroadcast = async (textareaId) => {
+  const el = document.getElementById(textareaId);
+  const txt = el ? el.value : '';
+  if (!txt) return toast('Message is empty', 'err');
+  try {
+    await navigator.clipboard.writeText(txt);
+    toast('Copied to clipboard ✦ Paste into your WhatsApp Broadcast list!');
+  } catch (e) {
+    if (el) { el.select(); try { document.execCommand('copy'); toast('Copied to clipboard ✦'); return; } catch (e2) {} }
+    toast('Select text and press Ctrl+C / Copy', 'err');
+  }
+};
+window.ShivaaAdmin.waBroadcast = (textareaId) => {
+  const el = document.getElementById(textareaId);
+  const txt = el ? el.value : '';
+  if (!txt) return toast('Message is empty', 'err');
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank', 'noopener');
+};
+window.ShivaaAdmin.copyNumberList = async (seg) => {
+  const bp = window.ShivaaAdmin._broadcastPack;
+  const list = (bp && bp.subscribers && bp.subscribers[seg]) ? bp.subscribers[seg] : [];
+  if (!list.length) return toast('No subscribers in this list yet', 'err');
+  const nums = list.map(s => '+91' + s.phone).join(', ');
+  try {
+    await navigator.clipboard.writeText(nums);
+    toast(`Copied ${list.length} ${seg.toUpperCase()} phone numbers ✦`);
+  } catch (e) {
+    toast(nums, 'ok');
+  }
+};
+window.ShivaaAdmin.printUnbrandedCatalogue = (customProds) => {
+  const prods = (Array.isArray(customProds) && customProds.length ? customProds : (state.productsCache || [])).filter(p => (p.active ?? true) !== false && (p.status || 'live') === 'live').slice(0, 36);
+  const w = window.open('', '_blank', 'width=940,height=1000');
+  if (!w) return toast('Allow pop-ups to print or save the Unbranded Counter PDF', 'err');
+  const cards = prods.map(p => `
+    <div class="card">
+      <img src="${safeUrl((p.images && p.images[0]) || '/images/logo.png')}" alt="">
+      <div class="meta">
+        <b>${esc(p.name || '22K Hallmarked Design')}</b>
+        <div class="row"><span>Design Code: <b>${esc(p.sku || p.id)}</b></span><span>Purity: <b>${esc(p.metal === 'Silver' ? '925 / 999 Silver' : (p.purity || '22K BIS'))}</b></span></div>
+        <div class="wt">Gross Weight: <b>${Number(p.weightG || 0).toFixed(2)} g</b>${p.lessWeightG ? ` · Net: <b>${Math.max(0, Number(p.weightG || 0) - Number(p.lessWeightG || 0)).toFixed(2)} g</b>` : ''}</div>
+      </div>
+    </div>`).join('');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Showroom Design Catalogue — Customer Counter Edition</title><style>
+    @page{size:A4;margin:10mm}
+    body{font-family:'Segoe UI',system-ui,sans-serif;color:#1b1410;margin:0;padding:16px;background:#fff}
+    .hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #c9a44c;padding-bottom:10px;margin-bottom:16px}
+    .hdr h1{font-size:20px;margin:0;color:#4a121b;letter-spacing:.03em}
+    .hdr small{color:#666;font-size:12px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .card{border:1px solid #e5d8be;border-radius:10px;overflow:hidden;page-break-inside:avoid;background:#fffdf9}
+    .card img{width:100%;height:175px;object-fit:cover;display:block;background:#f7f2e7}
+    .meta{padding:10px;font-size:12px}
+    .meta b{display:block;font-size:13px;margin-bottom:4px;color:#221814}
+    .row{display:flex;justify-content:space-between;color:#555;font-size:11.5px;margin-bottom:4px}
+    .wt{background:#f6efe0;padding:5px 8px;border-radius:6px;font-size:12px;color:#4a121b}
+    .ftr{margin-top:18px;text-align:center;font-size:11px;color:#666;border-top:1px solid #eee;padding-top:8px}
+    @media print{.noprt{display:none!important}}
+  </style></head><body>
+    <div class="noprt" style="background:#fdf6e4;border:1px solid #d4af37;padding:10px 14px;border-radius:8px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <span><b>👁 Customer-Safe Unbranded Sheet:</b> Contains ZERO Shivaa branding, phone numbers, URLs, or 0.92 wholesale terms. Safe to share on your shop WhatsApp Status or counter!</span>
+      <button onclick="window.print()" style="padding:8px 20px;background:#6b1020;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600">🖨 Print / Save as PDF</button>
+    </div>
+    <div class="hdr">
+      <div><h1>✦ Exclusive Hallmarked Jewellery Collection</h1><small>BIS Hallmarked · 6-Digit HUID Certified · Ready Showcase Designs</small></div>
+      <div style="text-align:right"><small>Edition: ${esc(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }))}<br>${prods.length} Featured Designs</small></div>
+    </div>
+    <div class="grid">${cards}</div>
+    <div class="ftr">All ornaments carry BIS Hallmark &amp; 6-digit HUID certification. Ask at the showroom counter for today&rsquo;s live gold rate &amp; custom sizing.</div>
+  </body></html>`);
+  w.document.close();
+};
+window.ShivaaAdmin.printPartnerCatalogue = () => {
+  const prods = (state.productsCache || []).filter(p => (p.active ?? true) !== false && (p.status || 'live') === 'live').slice(0, 36);
+  const mf = Number((state.settings && state.settings.metalFactor) || 0.92);
+  const fp = (state.settings && state.settings.finePurity) || '99.50%';
+  const w = window.open('', '_blank', 'width=940,height=1000');
+  if (!w) return toast('Allow pop-ups to print or save the B2B Partner PDF', 'err');
+  const cards = prods.map(p => {
+    const wt = Number(p.weightG || 0);
+    const fine = (wt * mf).toFixed(3);
+    return `<div class="card">
+      <img src="${safeUrl((p.images && p.images[0]) || '/images/logo.png')}" alt="">
+      <div class="meta">
+        <b>${esc(p.name || '22K Design')}</b>
+        <div class="row"><span>SKU: <b>${esc(p.sku || p.id)}</b></span><span>Purity: <b>${esc(p.purity || '22K')}</b></span></div>
+        <div class="wt">Gross: <b>${wt.toFixed(2)} g</b> &rarr; Fine (${mf}): <b>${fine} g</b><br><small>Making Charge: ₹0 · Pre-tagged</small></div>
+      </div>
+    </div>`;
+  }).join('');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Shivaa Jewels — B2B Partner Fine-Metal Catalogue</title><style>
+    @page{size:A4;margin:10mm}
+    body{font-family:'Segoe UI',system-ui,sans-serif;color:#1b1410;margin:0;padding:16px;background:#fff}
+    .hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #6b1020;padding-bottom:10px;margin-bottom:16px}
+    .hdr h1{font-size:20px;margin:0;color:#6b1020}
+    .hdr small{color:#555;font-size:12px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .card{border:1px solid #d4af37;border-radius:10px;overflow:hidden;page-break-inside:avoid}
+    .card img{width:100%;height:170px;object-fit:cover;display:block;background:#f7f2e7}
+    .meta{padding:10px;font-size:12px}
+    .meta b{display:block;font-size:13px;margin-bottom:4px}
+    .row{display:flex;justify-content:space-between;color:#555;font-size:11.5px;margin-bottom:4px}
+    .wt{background:#fdf6e4;padding:6px 8px;border-radius:6px;font-size:12px;color:#6b1020}
+    @media print{.noprt{display:none!important}}
+  </style></head><body>
+    <div class="noprt" style="background:#fdf6e4;border:1px solid #6b1020;padding:10px 14px;border-radius:8px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <span><b>⚖ B2B Partner Edition (Confidential):</b> Shows <code>Weight × ${mf} = Fine ${esc(fp)} Gold</code> (₹0 Making Charge). For verified jeweller partners only.</span>
+      <button onclick="window.print()" style="padding:8px 20px;background:#6b1020;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600">🖨 Print / Save B2B PDF</button>
+    </div>
+    <div class="hdr">
+      <div><h1>SHIVAA JEWELS — B2B Partner Fine-Metal Catalogue</h1><small>Ernate Shine Jewellery Pvt. Ltd. · Jayal, Nagaur (Raj.) · +91 89050 05921 · shivaa.in/#/catalogues</small></div>
+      <div style="text-align:right"><small>Formula: <b>Weight × ${mf} = Fine ${esc(fp)}</b><br>Making Charge: <b>₹0</b> · 110% Tanch Guarantee</small></div>
+    </div>
+    <div class="grid">${cards}</div>
+  </body></html>`);
+  w.document.close();
+};
+window.ShivaaAdmin.submitPartnerReferral = async (ev, referrerFirm, referrerPhone) => {
+  ev.preventDefault();
+  const fd = new FormData(ev.target);
+  const payload = {
+    referrerFirm: referrerFirm || '',
+    referrerPhone: referrerPhone || '',
+    friendFirm: fd.get('friendFirm') || '',
+    friendCity: fd.get('friendCity') || '',
+    friendPhone: fd.get('friendPhone') || '',
+  };
+  try {
+    const r = await api('/api/b2b/refer-partner', { method: 'POST', body: JSON.stringify(payload) });
+    toast('Fellow jeweller registered ✦ Opening WhatsApp invite…');
+    ev.target.reset();
+    if (r && r.waInviteLink) window.open(r.waInviteLink, '_blank', 'noopener');
+  } catch (e) {
+    toast(e.message, 'err');
+  }
 };
 
 /* register routes */

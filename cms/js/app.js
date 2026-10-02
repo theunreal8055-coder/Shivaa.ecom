@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 187;
+const APP_REL = 188;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3327,17 +3327,22 @@ pages.giftcard = async (view) => {
 
 pages.refer = async (view) => {
   const code = (state.user && state.user.referralCode) || null;
-  view.innerHTML = v55Shell('Refer & Earn', 'Share Shivaa, ', 'both win', 'Your friend signs up with your code; after their first order completes, we credit a thank-you coupon to you both — confirmed personally by the family.',
-    `<div class="adm-card" style="text-align:center">${code ? `
-      <p style="font-size:13px;color:var(--ink-3)">Your referral code</p>
+  view.innerHTML = v55Shell('Refer & Earn · Shagun Privilege', 'Share Shivaa, ', 'both win', 'Every Shivaa delivery box carries 2 gold-foiled Shagun Privilege cards — and your digital Shagun card lives right here. When a family member or friend orders with your code, both of you receive a Shagun reward.',
+    `<div class="adm-card" style="text-align:center;border:1px solid var(--gold,#d4af37);background:linear-gradient(180deg,#fffdf8 0%,#fbf3e2 100%)">${code ? `
+      <span class="jh-badge" style="display:inline-block;margin-bottom:6px">✦ DIGITAL SHAGUN PRIVILEGE CARD</span>
+      <p style="font-size:13px;color:var(--ink-3);margin:0">Your personal family &amp; friend Shagun code</p>
       <div style="font-family:var(--ff-disp);font-size:38px;letter-spacing:.14em;color:var(--maroon-deep);margin:6px 0">${esc(code)}</div>
       <p style="font-size:13.5px">Share link: <b>shivaa.in/?ref=${esc(code)}</b></p>
-      <button class="btn btn-gold btn-sm" id="refWa" style="margin-top:12px">Share on WhatsApp ✦</button>` :
-      `<p>Sign in (or create your account) to get your personal referral code — it appears right here.</p>
+      <p style="font-size:12.5px;color:var(--ink-2);max-width:520px;margin:8px auto 0">Gift your loved ones <b>100% transparent live-rate BIS 22K HUID gold</b> (no kachchi-parchi hidden charges) + entry into the <b>100g 24K Gold Finale</b>.</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px">
+        <button class="btn btn-gold btn-sm" id="refWa">📲 Send Family Shagun Card on WhatsApp ✦</button>
+        <a class="btn btn-outline btn-sm" href="#/b2b">🏪 Refer a Fellow Jeweller (B2B) →</a>
+      </div>` :
+      `<p>Sign in (or create your account) to unlock your personal Digital Shagun Privilege Card — it appears right here.</p>
        <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="Shivaa.openLogin ? Shivaa.openLogin() : (location.hash='#/account')">Sign in</button>`}
     </div>`);
   const b = $('#refWa', view);
-  if (b) b.onclick = () => waOpen('Shivaa Jewellers — BIS hallmarked, live-rate pricing, insured delivery ✦ Use my code ' + code + ' when you sign up: shivaa.in/?ref=' + code);
+  if (b) b.onclick = () => waOpen('✦ शगुन आमंत्रण · SHIVAA JEWELS ✦\n\nनमस्ते! हमने अपने परिवार के लिए Shivaa Jewels से 100% पारदर्शी लाइव स्क्रीन रेट और BIS 22K HUID हॉलमार्क वाला सोना खरीदा है (बिना किसी कच्ची पर्ची के छुपे चार्ज के)।\n\nआप भी अपनी पहली खरीद पर विशेष शगुन छूट और 100g 24K Gold Finale में एंट्री के लिए मेरा परिवार कोड इस्तेमाल करें: *' + code + '*\n👉 shivaa.in/?ref=' + code);
   if (code) {
     api('/api/referrals/stats').then(d => {
       if (!d) return;
@@ -3347,7 +3352,7 @@ pages.refer = async (view) => {
         <div class="rs-cell"><b>${d.signedUp || 0}</b><small>friends joined</small></div>
         <div class="rs-cell"><b>${d.completed || 0}</b><small>first orders done</small></div>
         <div class="rs-cell"><b>${fmt(d.reward || 0)}</b><small>coupons earned</small></div>
-      </div><p style="font-size:12px;color:var(--ink-3);margin-top:8px">₹${d.perFriend || 250} coupon per completed friend — credited automatically.</p>`);
+      </div><p style="font-size:12px;color:var(--ink-3);margin-top:8px">₹${d.perFriend || 250} Shagun coupon per completed friend — credited automatically.</p>`);
     }).catch(() => {});
   }
 };
@@ -6631,6 +6636,40 @@ pages.account = async (view, q) => {
       <a href="javascript:Shivaa.logout()" class="acct-tile danger"><span class="at-ic">↩</span><span class="at-tx"><b>Logout</b><small>sign out safely</small></span><span class="at-go">›</span></a>
     </div>
 
+    ${(() => {
+      const live22 = Number((state.rates && state.rates.gold22) || 0);
+      let ownedGrams = 0, costMetal = 0;
+      (orders || []).forEach(o => {
+        if (o.status === 'Cancelled') return;
+        const rSnap = Number((o.rateSnapshot && o.rateSnapshot.gold22) || live22 || 0);
+        (o.items || []).forEach(it => {
+          if (String(it.metal || 'Gold') === 'Silver') return;
+          const w = Number(it.weightG || 0) * Math.max(1, Number(it.qty || 1));
+          ownedGrams += w;
+          costMetal += w * (rSnap || live22);
+        });
+      });
+      const sampleGrams = ownedGrams > 0 ? ownedGrams : 10;
+      const todayMetalVal = Math.round(sampleGrams * live22);
+      const gainVal = ownedGrams > 0 ? Math.round(todayMetalVal - costMetal) : 0;
+      const refCode = me.referralCode || '';
+      return `<div class="adm-card" id="familyGoldLocker" style="margin:18px 0;border:1px solid var(--gold,#d4af37);background:linear-gradient(180deg,#fffdf8 0%,#fbf4e4 100%)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+          <div>
+            <span class="jh-badge">✦ MY FAMILY GOLD LOCKER · 100% LIFETIME BUYBACK</span>
+            <h3 style="margin:6px 0 2px">${ownedGrams > 0 ? `Your Shivaa Gold Portfolio: ${ownedGrams.toFixed(2)} g (22K BIS)` : 'Your Family Gold Portfolio &amp; Live Buyback Value'}</h3>
+            <p style="font-size:12.5px;color:var(--ink-2);margin:0">${ownedGrams > 0
+              ? `Live metal value at today&rsquo;s Shivaa 22K rate (${fmt(live22)}/g): <b>${fmt(todayMetalVal)}</b>${gainVal > 0 ? ` <span style="color:var(--ok,#1b7f3b)">(+${fmt(gainVal)} appreciation)</span>` : ''} · 100% pure metal buyback &amp; exchange anytime.`
+              : `Every gram of 22K BIS Hallmarked gold you buy at Shivaa tracks live market appreciation here (${fmt(live22)}/g today &rarr; 10 g = <b>${fmt(todayMetalVal)}</b> metal value) with a written 100% buyback promise.`}</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a class="btn btn-gold btn-sm" href="#/refer">🎁 Share Shagun Code${refCode ? ' (' + esc(refCode) + ')' : ''}</a>
+            <a class="btn btn-outline btn-sm" href="#/buyback">♻ 100% Buyback Desk</a>
+          </div>
+        </div>
+      </div>`;
+    })()}
+
     <div id="acctBody" class="acct-body">
   ${tab === 'overview' ? `
     <div class="acct-sec">
@@ -7210,6 +7249,26 @@ pages.rates = async (view) => {
         ${(R.source !== 'live' && R.source !== 'live-mcx') ? '<p style="font-size:12px;color:var(--ink-3);margin-top:8px">*Feed shown as simulated when the bullion API is unreachable from the server; values track the last live market feed.</p>' : ''}
       </div>
     </div>
+    <div class="adm-card mt-3" id="waDailyClubCard" style="border:1px solid var(--gold,#d4af37);background:linear-gradient(180deg,#fffdf8 0%,#fbf4e3 100%)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
+        <div style="max-width:640px">
+          <span class="jh-badge">📲 DAILY 10:30 AM WHATSAPP RATE &amp; DESIGN OF THE DAY CLUB</span>
+          <h2 style="margin:6px 0 4px">Get Today&rsquo;s Live Gold Rate &amp; 1 Featured Design on WhatsApp</h2>
+          <p style="font-size:13px;color:var(--ink-2);margin:0">Join our free morning WhatsApp broadcast: every day at 10:30 AM we send the transparent 22K / 24K / Silver screen rate, one handpicked <b>Design of the Day</b> with live rupee price, and instant <b>Rate-Drop alerts</b> before wedding &amp; festival muhurats.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <a class="btn btn-gold btn-sm" href="/api/whatsapp/vcard" download="Shivaa-Jewels.vcf">📇 Step 1: Save Shivaa Contact (vCard)</a>
+          <a class="btn btn-outline btn-sm" href="#/b2b">🏪 Jeweller? Join 9:45 AM B2B Desk →</a>
+        </div>
+      </div>
+      <form class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end;margin-top:14px" onsubmit="Shivaa.subscribeWhatsApp(event,'b2c')">
+        <div class="fld"><label>Your Name</label><input name="name" placeholder="e.g. Smt. Kavita Sharma" value="${esc((state.user && state.user.name) || '')}"></div>
+        <div class="fld"><label>10-Digit WhatsApp Mobile *</label><input name="phone" type="tel" inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10" required placeholder="98XXXXXXXX" value="${esc((state.user && state.user.phone) || '')}"></div>
+        <div class="fld"><label>City / Town</label><input name="city" placeholder="e.g. Nagaur / Jaipur / Jodhpur"></div>
+        <button class="btn btn-primary btn-sm">📲 Step 2: Join Daily WhatsApp Club</button>
+      </form>
+      <p style="font-size:11.5px;color:var(--ink-3);margin:8px 0 0">💡 <b>Important WhatsApp Rule:</b> WhatsApp delivers broadcast updates only if <b>+91 89050 05921</b> is saved in your phone contacts. Tap <b>Save Shivaa Contact (vCard)</b> above so you never miss a rate drop.</p>
+    </div>
   </div>`;
   drawRateChart($('#rateChart'), R.history || []);
 };
@@ -7252,6 +7311,50 @@ window.Shivaa.rateAlert = async e => {
   e.preventDefault();
   try { await api('/api/rates/alert', { method: 'POST', body: JSON.stringify({ email: e.target[0].value, metal: 'gold22', target: +e.target[1].value }) }); toast('Alert set — we will write to you ✦'); e.target.reset(); }
   catch (err) { toast(err.message, 'err'); }
+};
+/* v183 — Segmented B2C / B2B Daily WhatsApp Broadcast Opt-In + B2B Town Referral */
+window.Shivaa.subscribeWhatsApp = async (e, segment = 'b2c') => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const payload = {
+    segment,
+    name: fd.get('name') || '',
+    phone: fd.get('phone') || '',
+    city: fd.get('city') || '',
+    firmName: fd.get('firmName') || '',
+    gst: fd.get('gst') || '',
+  };
+  try {
+    const r = await api('/api/whatsapp/subscribe', { method: 'POST', body: JSON.stringify(payload) });
+    toast(segment === 'b2b' ? 'Added to 9:45 AM B2B Bullion & Stock Broadcast ✦' : 'Joined Daily 10:30 AM Rate & Design of the Day Club ✦');
+    e.target.reset();
+    if (r && r.waLink) {
+      openModal(`<div class="center"><div style="font-size:40px">📲</div>
+        <h3 style="margin:8px 0">${segment === 'b2b' ? 'Welcome to the B2B Morning Desk!' : 'You’re in the Daily Gold & Design Club!'}</h3>
+        <p style="font-size:13.5px;color:var(--ink-2)">To make sure WhatsApp delivers our daily broadcast to your phone, complete these two quick taps:</p>
+        <div style="display:grid;gap:10px;margin-top:14px">
+          <a class="btn btn-gold" href="/api/whatsapp/vcard" download="Shivaa-Jewels.vcf">📇 1. Save Shivaa Contact (vCard)</a>
+          <a class="btn btn-primary" target="_blank" rel="noopener" href="${esc(r.waLink)}">💬 2. Send “RATE” on WhatsApp to Activate →</a>
+        </div></div>`);
+    }
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.Shivaa.referB2BPartner = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const payload = {
+    referrerFirm: fd.get('referrerFirm') || '',
+    referrerPhone: fd.get('referrerPhone') || '',
+    friendFirm: fd.get('friendFirm') || '',
+    friendCity: fd.get('friendCity') || '',
+    friendPhone: fd.get('friendPhone') || '',
+  };
+  try {
+    const r = await api('/api/b2b/refer-partner', { method: 'POST', body: JSON.stringify(payload) });
+    toast('Fellow jeweller registered ✦ Opening WhatsApp invitation…');
+    e.target.reset();
+    if (r && r.waInviteLink) window.open(r.waInviteLink, '_blank', 'noopener');
+  } catch (err) { toast(err.message, 'err'); }
 };
 
 /* ─────────── MAKING CHARGES PAGE ─────────── */
@@ -7313,8 +7416,12 @@ pages.catalogues = async (view) => {
       </div>
     </div>
     <div class="ds-head">
-      <div><span class="label">Jeweller Desk</span><h2 style="font-size:30px;margin:6px 0 4px">Design Selection &amp; Billing</h2>
-      <p style="font-size:13px;color:var(--ink-3)">Select designs → proceed → your bill is in <b>fine gold grams</b> (weight × ${(state.settings.metalFactor || 0.92)}) · <b>ZERO making charges</b> · ${(state.settings.finePurity || '99.50%')} fine metal settlement${state.user ? '' : ' · <a href="javascript:Shivaa.openLogin()" style="color:var(--gold);text-decoration:underline">login to place the order</a>'}</p></div>
+      <div><span class="label" id="dsHeadKicker">Jeweller Desk</span><h2 style="font-size:30px;margin:6px 0 4px" id="dsHeadTitle">Design Selection &amp; Billing</h2>
+      <p style="font-size:13px;color:var(--ink-3)" id="dsHeadSub">Select designs → proceed → your bill is in <b>fine gold grams</b> (weight × ${(state.settings.metalFactor || 0.92)}) · <b>ZERO making charges</b> · ${(state.settings.finePurity || '99.50%')} fine metal settlement${state.user ? '' : ' · <a href="javascript:Shivaa.openLogin()" style="color:var(--gold);text-decoration:underline">login to place the order</a>'}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button type="button" class="btn btn-outline btn-sm" id="dsCounterBtn" onclick="ShivaaDS.toggleCounterMode()">👁 Showroom Counter Mode (Hide 0.92 Rates)</button>
+        <button type="button" class="btn btn-gold btn-sm" id="dsCustomerPdfBtn" onclick="ShivaaDS.printCustomerPdf()">🖨 Unbranded Customer PDF (For WhatsApp Status)</button>
+      </div></div>
       <div class="ds-total">
         <small id="dsCount">0 designs · 0.00 g</small><small id="dsShown" style="color:#ffe9bd"></small>
         <b id="dsFine">0.00 g fine</b>
@@ -7519,6 +7626,35 @@ pages.b2b = async (view) => {
       <div style="margin-top:26px">
         <span class="label">Where our partners are</span>
         <div class="city-chips">${['Jayal', 'Nagaur', 'Jodhpur', 'Jaipur', 'Ajmer', 'Sujangarh', 'Didwana', 'Merta', 'Ladnun'].map(c => `<span>${c}</span>`).join('')}</div>
+      </div>
+    </div>
+
+    <div class="grid2 mt-3" id="b2bGrowthDesk">
+      <div class="adm-card" style="border:1px solid var(--gold,#d4af37);background:linear-gradient(180deg,#fffdf8 0%,#fbf4e3 100%)">
+        <span class="jh-badge">📲 9:45 AM B2B BULLION BELL &amp; READY-STOCK DESK</span>
+        <h3 style="margin:6px 0 4px">Get Daily 995 Bullion Rates &amp; Dual PDFs on WhatsApp</h3>
+        <p style="font-size:12.5px;color:var(--ink-2)">Receive our 9:45 AM wholesale broadcast: live TDS 995 / Silver RTGS rates, <code>Weight × 0.92</code> ready stock, and an <b>Unbranded Counter PDF</b> you can post directly on your shop&rsquo;s WhatsApp Status.</p>
+        <form class="form-grid" style="grid-template-columns:1fr 1fr;margin-top:10px" onsubmit="Shivaa.subscribeWhatsApp(event,'b2b')">
+          <div class="fld"><label>Shop / Firm Name *</label><input name="firmName" required placeholder="M/s …"></div>
+          <div class="fld"><label>Town / City *</label><input name="city" required placeholder="e.g. Didwana / Merta"></div>
+          <div class="fld full"><label>10-Digit WhatsApp Mobile *</label><input name="phone" type="tel" inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10" required placeholder="98XXXXXXXX"></div>
+          <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm">📲 Join 9:45 AM B2B Broadcast</button>
+            <a class="btn btn-outline btn-sm" href="/api/whatsapp/vcard" download="Shivaa-Jewels.vcf">📇 Save B2B Contact (vCard)</a>
+          </div>
+        </form>
+      </div>
+      <div class="adm-card" style="border:1px solid var(--line)">
+        <span class="jh-badge">🤝 TOWN-TO-TOWN JEWELLER REFERRAL</span>
+        <h3 style="margin:6px 0 4px">Refer a Fellow Jeweller (Non-Competing Town)</h3>
+        <p style="font-size:12.5px;color:var(--ink-2)">Invite a relative or fellow jeweller in another town/tehsil to liberate their Dead Stock at <code>Weight × 0.92</code> fine gold. Your local territory stays protected, and you earn a <b>Fine Gold Credit</b> in your Friday settlement.</p>
+        <form class="form-grid" style="grid-template-columns:1fr 1fr;margin-top:10px" onsubmit="Shivaa.referB2BPartner(event)">
+          <div class="fld"><label>Your Shop Name</label><input name="referrerFirm" placeholder="Your firm name"></div>
+          <div class="fld"><label>Referred Jeweller&rsquo;s Shop *</label><input name="friendFirm" required placeholder="Fellow jeweller’s shop"></div>
+          <div class="fld"><label>Their Town / Tehsil *</label><input name="friendCity" required placeholder="e.g. Kuchaman / Nokha"></div>
+          <div class="fld"><label>Their 10-Digit Mobile *</label><input name="friendPhone" type="tel" inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10" required placeholder="98XXXXXXXX"></div>
+          <button class="btn btn-gold btn-sm" style="grid-column:1/-1;justify-self:start">📲 Register &amp; Send WhatsApp Invite</button>
+        </form>
       </div>
     </div>
 
@@ -8643,9 +8779,96 @@ function initDsfilters(attempt = 0) {
   /* the summary bar is rendered at 0 before any interaction — reconcile it
      with the selections restored from storage so a returning partner sees
      the bill they already built. */
-  try { window.ShivaaDS && window.ShivaaDS.updateBar(); } catch (e) {}
+  try {
+    if (window.ShivaaDS) {
+      window.ShivaaDS.updateBar();
+      if (/[?&]counter=1/.test(location.hash)) window.ShivaaDS._counterMode = true;
+      if (window.ShivaaDS._counterMode) window.ShivaaDS.applyCounterMode();
+    }
+  } catch (e) {}
 }
 window.ShivaaDS = {
+  _counterMode: false,
+  toggleCounterMode() {
+    this._counterMode = !this._counterMode;
+    this.applyCounterMode();
+    toast(this._counterMode
+      ? '👁 Showroom Counter Mode ON — wholesale 0.92 rates hidden so you can show the screen to your customer'
+      : '⚖ B2B Partner Mode restored — 0.92 fine-metal billing visible');
+  },
+  applyCounterMode() {
+    const on = !!this._counterMode;
+    const wrap = document.getElementById('dsWrap');
+    if (wrap) wrap.classList.toggle('counter-mode', on);
+    const btn = document.getElementById('dsCounterBtn');
+    if (btn) btn.textContent = on ? '⚖ Switch Back to B2B Partner Mode (0.92)' : '👁 Showroom Counter Mode (Hide 0.92 Rates)';
+    const kicker = document.getElementById('dsHeadKicker');
+    if (kicker) kicker.textContent = on ? '✦ Showroom Counter Display' : 'Jeweller Desk';
+    const title = document.getElementById('dsHeadTitle');
+    if (title) title.textContent = on ? 'Exclusive 22K Hallmarked Showcase' : 'Design Selection & Billing';
+    const sub = document.getElementById('dsHeadSub');
+    if (sub) {
+      sub.innerHTML = on
+        ? 'BIS Hallmarked ornaments · 6-digit HUID certified · Swipe photos to inspect all angles and shortlist designs at the counter.'
+        : `Select designs → proceed → your bill is in <b>fine gold grams</b> (weight × ${(state.settings.metalFactor || 0.92)}) · <b>ZERO making charges</b> · ${(state.settings.finePurity || '99.50%')} fine metal settlement`;
+    }
+    const fineEl = document.getElementById('dsFine');
+    if (fineEl) fineEl.style.display = on ? 'none' : '';
+    const procEl = document.getElementById('dsProceed');
+    if (procEl) procEl.textContent = on ? 'Shortlist Selected' : 'Proceed → Bill';
+    const qBanner = wrap ? wrap.querySelector('.qty-banner') : null;
+    if (qBanner) qBanner.style.display = on ? 'none' : '';
+  },
+  printCustomerPdf() {
+    const selIds = Object.keys(window._sel || {}).filter(id => (window._sel[id] || 0) > 0);
+    let prods = [];
+    if (selIds.length) {
+      prods = selIds.map(id => (state.productsCache || []).find(p => p.id === id)).filter(Boolean);
+    } else {
+      prods = (state.productsCache || []).filter(p => {
+        const card = document.getElementById('ds-' + p.id);
+        return !card || card.style.display !== 'none';
+      }).slice(0, 36);
+    }
+    if (!prods.length) return toast('No designs to print', 'err');
+    const w = window.open('', '_blank', 'width=940,height=1000');
+    if (!w) return toast('Allow pop-ups to print or save the Unbranded Customer PDF', 'err');
+    const cards = prods.map(p => `
+      <div class="card">
+        <img src="${safeUrl((p.images && p.images[0]) || '/images/logo.png')}" alt="">
+        <div class="meta">
+          <b>${esc((p.name || '22K Hallmarked Design').replace('Shivaa Ring Design', 'Design'))}</b>
+          <div class="row"><span>Code: <b>${esc(p.sku || p.id)}</b></span><span>Purity: <b>${esc(p.metal === 'Silver' ? '925 Silver' : (p.purity || '22K BIS'))}</b></span></div>
+          <div class="wt">Gross Weight: <b>${Number(p.weightG || 0).toFixed(2)} g</b></div>
+        </div>
+      </div>`).join('');
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Showroom Jewellery Collection — Customer Counter Sheet</title><style>
+      @page{size:A4;margin:10mm}
+      body{font-family:'Segoe UI',system-ui,sans-serif;color:#1b1410;margin:0;padding:16px;background:#fff}
+      .hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #c9a44c;padding-bottom:10px;margin-bottom:16px}
+      .hdr h1{font-size:20px;margin:0;color:#4a121b}
+      .hdr small{color:#666;font-size:12px}
+      .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+      .card{border:1px solid #e5d8be;border-radius:10px;overflow:hidden;page-break-inside:avoid;background:#fffdf9}
+      .card img{width:100%;height:175px;object-fit:cover;display:block;background:#f7f2e7}
+      .meta{padding:10px;font-size:12px}
+      .meta b{display:block;font-size:13px;margin-bottom:4px;color:#221814}
+      .row{display:flex;justify-content:space-between;color:#555;font-size:11.5px;margin-bottom:4px}
+      .wt{background:#f6efe0;padding:5px 8px;border-radius:6px;font-size:12px;color:#4a121b}
+      @media print{.noprt{display:none!important}}
+    </style></head><body>
+      <div class="noprt" style="background:#fdf6e4;border:1px solid #d4af37;padding:10px 14px;border-radius:8px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+        <span><b>👁 Customer-Safe Unbranded Sheet (${prods.length} designs):</b> Zero Shivaa branding, phone numbers, or 0.92 wholesale terms. Share freely on your WhatsApp Status or counter!</span>
+        <button onclick="window.print()" style="padding:8px 20px;background:#6b1020;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600">🖨 Print / Save as PDF</button>
+      </div>
+      <div class="hdr">
+        <div><h1>✦ Hallmarked Gold &amp; Bridal Jewellery Collection</h1><small>BIS Hallmarked · 6-Digit HUID Certified · Showroom Counter Edition</small></div>
+        <div style="text-align:right"><small>${prods.length} Selected Designs</small></div>
+      </div>
+      <div class="grid">${cards}</div>
+    </body></html>`);
+    w.document.close();
+  },
   qty(pid, d) {
     window._sel[pid] = Math.max(0, (window._sel[pid] || 0) + d);
     if (window._sel[pid] === 0) delete window._sel[pid];

@@ -4235,6 +4235,9 @@ foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55,
 /* v182 — auto-catalogue batch ledger + billing-sync idempotency log */
 if (!isset($db['catalogBatches']) || !is_array($db['catalogBatches'])) $db['catalogBatches'] = [];
 if (!isset($db['billingMovements']) || !is_array($db['billingMovements'])) $db['billingMovements'] = [];
+/* v183 — segmented B2C/B2B WhatsApp broadcast subscribers + B2B town-partner referrals */
+if (!isset($db['whatsappSubs']) || !is_array($db['whatsappSubs'])) $db['whatsappSubs'] = [];
+if (!isset($db['partnerReferrals']) || !is_array($db['partnerReferrals'])) $db['partnerReferrals'] = [];
 /* v82 — hourly housekeeping so ephemeral collections never grow forever:
    expired bearer tokens, stale OTPs and old per-IP mail counters. Runs
    inside a request that already holds the EX write lock, at most once an
@@ -5795,7 +5798,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 187,
+      'rel'   => 188,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -8792,6 +8795,423 @@ try {
     if ($ok === false) jout(500, ['error' => 'Could not write data/sms-config.json']);
     @chmod($file, 0600);
     jout(200, ['ok' => true, 'exists' => true, 'note' => 'Saved. Now send a test SMS to your own mobile — the raw gateway reply appears under the form.']);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     v183 · Daily WhatsApp Broadcast Studio, vCard Contact Magnet & B2B Referrals
+     ══════════════════════════════════════════════════════════════════════════ */
+  if ($route === 'whatsapp/vcard' && $method === 'GET') {
+    $waNum = preg_replace('/\D/', '', (string)($db['settings']['whatsapp'] ?? '918905005921')) ?: '918905005921';
+    if (strlen($waNum) === 10) $waNum = '91' . $waNum;
+    header('Content-Type: text/vcard; charset=utf-8');
+    header('Content-Disposition: attachment; filename="Shivaa-Jewels.vcf"');
+    header('Cache-Control: no-store');
+    echo "BEGIN:VCARD\r\n"
+       . "VERSION:3.0\r\n"
+       . "N:Jewels;Shivaa;;;\r\n"
+       . "FN:Shivaa Jewels (Live Gold & Design Club)\r\n"
+       . "ORG:Ernate Shine Jewellery Pvt. Ltd. (Shivaa Jewels)\r\n"
+       . "TEL;TYPE=CELL,VOICE,WHATSAPP:+" . $waNum . "\r\n"
+       . "EMAIL:info@shivaa.in\r\n"
+       . "URL:https://shivaa.in\r\n"
+       . "ADR;TYPE=WORK:;;Near Bus Stand, Jayal;Nagaur;Rajasthan;341023;India\r\n"
+       . "NOTE:Save this contact to receive Daily 10 AM Live 22K/24K Gold & Silver Rates, Design of the Day & B2B Stock Updates on WhatsApp.\r\n"
+       . "END:VCARD\r\n";
+    exit;
+  }
+
+  if ($route === 'whatsapp/subscribe' && $method === 'POST') {
+    pub_rate($db, $DB_FILE, 'wasub', 25);
+    $b = body_json();
+    $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    if (!preg_match('/^[6-9]\d{9}$/', $phone)) {
+      jout(400, ['error' => 'Enter a valid 10-digit Indian mobile number']);
+    }
+    $segment = strtolower(trim((string)($b['segment'] ?? 'b2c'))) === 'b2b' ? 'b2b' : 'b2c';
+    $name = mb_substr(trim((string)($b['name'] ?? '')), 0, 80);
+    $city = mb_substr(trim((string)($b['city'] ?? '')), 0, 60);
+    $firmName = mb_substr(trim((string)($b['firmName'] ?? '')), 0, 100);
+    $gst = strtoupper(mb_substr(preg_replace('/[^A-Za-z0-9]/', '', (string)($b['gst'] ?? '')), 0, 15));
+    $rawTopics = is_array($b['topics'] ?? null) ? $b['topics'] : [];
+    $topics = [];
+    foreach ($rawTopics as $t) {
+      $ts = preg_replace('/[^a-z0-9_\-]/', '', strtolower((string)$t));
+      if ($ts !== '' && count($topics) < 8) $topics[] = substr($ts, 0, 32);
+    }
+    if (!$topics) {
+      $topics = $segment === 'b2b'
+        ? ['bullion_bell', 'new_stock_pdf', 'deadstock_window']
+        : ['daily_rate', 'design_of_day', 'rate_drop'];
+    }
+    $foundIdx = null;
+    foreach ($db['whatsappSubs'] as $idx => $s) {
+      if (($s['phone'] ?? '') === $phone && ($s['segment'] ?? 'b2c') === $segment) {
+        $foundIdx = $idx;
+        break;
+      }
+    }
+    $u = req_user($db);
+    $rec = [
+      'id'        => $foundIdx !== null ? ($db['whatsappSubs'][$foundIdx]['id'] ?? uid('ws')) : uid('ws'),
+      'phone'     => $phone,
+      'segment'   => $segment,
+      'name'      => $name !== '' ? $name : ($foundIdx !== null ? ($db['whatsappSubs'][$foundIdx]['name'] ?? '') : ($u['name'] ?? '')),
+      'city'      => $city !== '' ? $city : ($foundIdx !== null ? ($db['whatsappSubs'][$foundIdx]['city'] ?? '') : ''),
+      'firmName'  => $firmName !== '' ? $firmName : ($foundIdx !== null ? ($db['whatsappSubs'][$foundIdx]['firmName'] ?? '') : ''),
+      'gst'       => $gst !== '' ? $gst : ($foundIdx !== null ? ($db['whatsappSubs'][$foundIdx]['gst'] ?? '') : ''),
+      'topics'    => array_values(array_unique($topics)),
+      'source'    => mb_substr(trim((string)($b['source'] ?? ($segment === 'b2b' ? 'b2b_desk' : 'rates_page'))), 0, 40),
+      'userId'    => $u ? (string)$u['id'] : ($foundIdx !== null ? ($db['whatsappSubs'][$foundIdx]['userId'] ?? '') : ''),
+      'createdAt' => $foundIdx !== null ? ($db['whatsappSubs'][$foundIdx]['createdAt'] ?? now_iso()) : now_iso(),
+      'updatedAt' => now_iso(),
+    ];
+    if ($foundIdx !== null) {
+      $db['whatsappSubs'][$foundIdx] = $rec;
+    } else {
+      $db['whatsappSubs'][] = $rec;
+      if (count($db['whatsappSubs']) > 5000) $db['whatsappSubs'] = array_slice($db['whatsappSubs'], -5000);
+    }
+    db_save($DB_FILE, $db);
+    $waNum = preg_replace('/\D/', '', (string)($db['settings']['whatsapp'] ?? '918905005921')) ?: '918905005921';
+    if (strlen($waNum) === 10) $waNum = '91' . $waNum;
+    $greet = $segment === 'b2b'
+      ? "Namaste Shivaa Jewels (B2B Desk) ✦ I have saved your number (+91 8905005921). Please add my shop" . ($rec['firmName'] ? " ({$rec['firmName']})" : "") . " in {$rec['city']} to the Daily 9:45 AM Bullion Bell & New Stock PDF Broadcast list."
+      : "Namaste Shivaa Jewels ✦ I have saved your number (+91 8905005921). Please add my mobile ({$phone}) to the Daily 10 AM Live Gold Rate & Design of the Day WhatsApp Club (RATE).";
+    jout(200, [
+      'ok'         => true,
+      'updated'    => $foundIdx !== null,
+      'subscriber' => $rec,
+      'vcardUrl'   => '/api/whatsapp/vcard',
+      'waLink'     => 'https://wa.me/' . $waNum . '?text=' . rawurlencode($greet),
+    ]);
+  }
+
+  if ($route === 'b2b/refer-partner' && $method === 'POST') {
+    pub_rate($db, $DB_FILE, 'b2brefer', 15);
+    $b = body_json();
+    $friendFirm = mb_substr(trim((string)($b['friendFirm'] ?? '')), 0, 100);
+    $friendCity = mb_substr(trim((string)($b['friendCity'] ?? '')), 0, 60);
+    $friendPhone = substr(preg_replace('/\D/', '', (string)($b['friendPhone'] ?? '')), -10);
+    if ($friendFirm === '' || $friendCity === '') {
+      jout(400, ['error' => 'Enter the referred jeweller shop name and town/city']);
+    }
+    if (!preg_match('/^[6-9]\d{9}$/', $friendPhone)) {
+      jout(400, ['error' => 'Enter a valid 10-digit mobile number for the referred jeweller']);
+    }
+    $u = req_user($db);
+    $referrerFirm = mb_substr(trim((string)($b['referrerFirm'] ?? ($u['firmName'] ?? $u['name'] ?? ''))), 0, 100);
+    $referrerPhone = substr(preg_replace('/\D/', '', (string)($b['referrerPhone'] ?? ($u['phone'] ?? ''))), -10);
+    $note = mb_substr(trim((string)($b['note'] ?? '')), 0, 240);
+    $ref = [
+      'id'            => uid('pr'),
+      'referrerFirm'  => $referrerFirm,
+      'referrerPhone' => preg_match('/^[6-9]\d{9}$/', $referrerPhone) ? $referrerPhone : '',
+      'referrerUserId'=> $u ? (string)$u['id'] : '',
+      'friendFirm'    => $friendFirm,
+      'friendCity'    => $friendCity,
+      'friendPhone'   => $friendPhone,
+      'note'          => $note,
+      'status'        => 'Invited',
+      'rewardScheme'  => 'Fine Gold Credit in Friday Settlement',
+      'createdAt'     => now_iso(),
+    ];
+    $db['partnerReferrals'][] = $ref;
+    if (count($db['partnerReferrals']) > 2000) $db['partnerReferrals'] = array_slice($db['partnerReferrals'], -2000);
+    // Also ensure the referred B2B prospect is in the B2B prospect broadcast list
+    $existsW = false;
+    foreach ($db['whatsappSubs'] as $ws) {
+      if (($ws['phone'] ?? '') === $friendPhone && ($ws['segment'] ?? '') === 'b2b') { $existsW = true; break; }
+    }
+    if (!$existsW) {
+      $db['whatsappSubs'][] = [
+        'id'        => uid('ws'),
+        'phone'     => $friendPhone,
+        'segment'   => 'b2b',
+        'name'      => $friendFirm,
+        'city'      => $friendCity,
+        'firmName'  => $friendFirm,
+        'gst'       => '',
+        'topics'    => ['bullion_bell', 'new_stock_pdf', 'deadstock_window'],
+        'source'    => 'partner_referral',
+        'referredBy'=> $referrerFirm !== '' ? $referrerFirm : $referrerPhone,
+        'createdAt' => now_iso(),
+        'updatedAt' => now_iso(),
+      ];
+    }
+    db_save($DB_FILE, $db);
+    $fromLabel = $referrerFirm !== '' ? $referrerFirm : 'एक साथी ज्वैलर';
+    $inviteText = "नमस्ते सेठजी ({$friendFirm}, {$friendCity}) 🙏\n\n"
+      . "{$fromLabel} की ओर से आपको *Shivaa Jewels (Jayal, Nagaur)* के अधिकृत B2B पार्टनर नेटवर्क का विशेष निमंत्रण भेजा गया है।\n\n"
+      . "✦ *Weight × 0.92 = Fine 995 Gold* (₹0 मेकिंग चार्ज)\n"
+      . "✦ *Dead-Stock Exchange:* 6 महीने से रुका हुआ माल देकर तुरंत चलने वाले नए राजस्थानी व मुंबई डिज़ाइन लें\n"
+      . "✦ *110% लिखित टंच गारंटी* + 50g–100g 30-Day Exchangeable Trial Lot\n\n"
+      . "👉 30 सेकंड में GST से पार्टनर कैटलॉग अनलॉक करें: https://shivaa.in/#/b2b";
+    jout(200, [
+      'ok'           => true,
+      'referral'     => $ref,
+      'inviteText'   => $inviteText,
+      'waInviteLink' => 'https://wa.me/91' . $friendPhone . '?text=' . rawurlencode($inviteText),
+    ]);
+  }
+
+  if ($route === 'admin/broadcast-pack' && $method === 'GET') {
+    need_admin($db);
+    $live = current_rates($db);
+    $g24 = (int)round((float)($live['gold24'] ?? 0));
+    $g22 = (int)round((float)($live['gold22'] ?? 0));
+    $g18 = (int)round((float)($live['gold18'] ?? 0));
+    $sil = (float)($live['silver'] ?? 0);
+    $silKg = (int)round($sil * 1000);
+    $bul995Per10g = (int)round($g24 * 10 * 0.995);
+    $mf = (float)($db['settings']['metalFactor'] ?? 0.92);
+    $fp = (string)($db['settings']['finePurity'] ?? '99.50%');
+
+    // Compute rate delta vs previous history entry if available
+    $hist = is_array($db['rates']['history'] ?? null) ? $db['rates']['history'] : [];
+    $prev22 = count($hist) >= 2 ? (int)round((float)($hist[count($hist) - 2]['gold22'] ?? $g22)) : $g22;
+    $diff22 = $g22 - $prev22;
+    $trendLabel = $diff22 < 0
+      ? ('▼ ₹' . abs($diff22) . '/g सस्ता (Rate Drop!)')
+      : ($diff22 > 0 ? ('▲ +₹' . $diff22 . '/g') : '━ स्थिर भाव (Steady)');
+
+    // Filter live active products
+    $liveProds = array_values(array_filter($db['products'] ?? [], function ($p) {
+      return ($p['active'] ?? true) !== false && (($p['status'] ?? 'live') === 'live');
+    }));
+    if (!$liveProds) $liveProds = array_values($db['products'] ?? []);
+
+    $reqPid = trim((string)($_GET['productId'] ?? ''));
+    $dodRaw = null;
+    if ($reqPid !== '') {
+      foreach ($liveProds as $p) if (($p['id'] ?? '') === $reqPid || ($p['sku'] ?? '') === $reqPid) { $dodRaw = $p; break; }
+    }
+    if (!$dodRaw && $liveProds) {
+      // Deterministically pick a product based on day-of-year so "Design of the Day" rotates daily unless overridden
+      $dayIdx = ((int)date('z')) % count($liveProds);
+      $dodRaw = $liveProds[$dayIdx];
+    }
+
+    $formatProd = function (?array $p) use ($live, $mf): ?array {
+      if (!$p) return null;
+      $cp = compute_price($p, $live);
+      $wt = round((float)($p['weightG'] ?? 0), 2);
+      return [
+        'id'         => (string)($p['id'] ?? ''),
+        'sku'        => (string)($p['sku'] ?? ($p['id'] ?? '')),
+        'name'       => (string)($p['name'] ?? '22K BIS Hallmarked Ornament'),
+        'category'   => (string)($p['category'] ?? 'Jewellery'),
+        'metal'      => (string)($p['metal'] ?? 'Gold'),
+        'purity'     => (string)($p['purity'] ?? '22K'),
+        'weightG'    => $wt,
+        'fineGoldG'  => round($wt * $mf, 3),
+        'priceTotal' => (int)($cp['total'] ?? 0),
+        'metalValue' => (int)($cp['metalValue'] ?? 0),
+        'making'     => (int)($cp['makingCharge'] ?? 0),
+        'image'      => (string)(($p['images'][0] ?? '') ?: ''),
+        'url'        => 'https://shivaa.in/#/product/' . rawurlencode((string)($p['id'] ?? '')),
+      ];
+    };
+
+    $dod = $formatProd($dodRaw);
+    $pollProds = [];
+    $labels = ['A', 'B', 'C'];
+    foreach (array_slice($liveProds, 0, 3) as $idx => $pp) {
+      $fpItem = $formatProd($pp);
+      if ($fpItem) {
+        $fpItem['option'] = $labels[$idx] ?? (string)($idx + 1);
+        $pollProds[] = $fpItem;
+      }
+    }
+
+    $cats = [];
+    foreach ($liveProds as $lp) {
+      $c = trim((string)($lp['category'] ?? 'Jewellery'));
+      if ($c !== '') $cats[$c] = ($cats[$c] ?? 0) + 1;
+    }
+
+    $dateLabel = date('d M Y');
+    $dodName = $dod ? $dod['name'] : '22K Royal Rajasthani Necklace';
+    $dodSku  = $dod ? $dod['sku']  : 'SHV-22K';
+    $dodWt   = $dod ? number_format((float)$dod['weightG'], 2) : '6.50';
+    $dodFine = $dod ? number_format((float)$dod['fineGoldG'], 3) : '5.980';
+    $dodPrice= $dod ? number_format((int)$dod['priceTotal']) : number_format($g22 * 6);
+    $dodUrl  = $dod ? $dod['url'] : 'https://shivaa.in/#/shop';
+
+    $pA = $pollProds[0] ?? ['name' => 'Royal 22K Jhumka', 'weightG' => 4.2, 'priceTotal' => $g22 * 4];
+    $pB = $pollProds[1] ?? ['name' => 'Heritage 22K Mangalsutra', 'weightG' => 8.5, 'priceTotal' => $g22 * 8];
+    $pC = $pollProds[2] ?? ['name' => 'Bridal 22K Choker Set', 'weightG' => 18.0, 'priceTotal' => $g22 * 18];
+
+    $templates = [
+      'b2c_daily' => "✦ *SHIVAA JEWELS — आज का लाइव भाव व डिज़ाइन ({$dateLabel})* ✦\n\n"
+        . "📊 *आज का पारदर्शी स्क्रीन रेट (10:30 AM):*\n"
+        . "• 22K BIS हॉलमार्क सोना: *₹" . number_format($g22) . "/g* ({$trendLabel})\n"
+        . "• 24K शुद्ध सोना (99.9%): *₹" . number_format($g24) . "/g*\n"
+        . "• 18K हॉलमार्क सोना: *₹" . number_format($g18) . "/g*\n"
+        . "• चांदी (999 Fine): *₹" . number_format($sil, 2) . "/g* (₹" . number_format($silKg) . "/kg)\n\n"
+        . "👑 *आज का 'Design of the Day':*\n"
+        . "*{$dodName}* (SKU: `{$dodSku}`)\n"
+        . "• शुद्धता: 22K BIS Hallmarked + 6-अंकीय HUID\n"
+        . "• पक्का वज़न: *{$dodWt} ग्राम*\n"
+        . "• आज के लाइव भाव से कुल कीमत (GST सहित): *₹{$dodPrice}*\n"
+        . "👉 4 एंगल से फोटो व लाइव ब्रेकअप देखें: {$dodUrl}\n\n"
+        . "🎁 *विशेष लाभ:* मात्र 3g सोने या 100g चांदी की खरीद पर 31 दिसंबर के *100 ग्राम 24K सोने की बिस्किट* प्रतियोगिता में पक्की एंट्री + 100% लाइफटाइम बायबैक गारंटी!\n"
+        . "💬 आज के भाव पर लॉक करने के लिए इसी मैसेज पर *BOOK* लिखकर रिप्लाई करें।",
+
+      'b2c_ratedrop' => "🔔 *SHIVAA RATE ALERT — सोने के भाव में बदलाव ({$dateLabel})* 🔔\n\n"
+        . "नमस्ते जी 🙏 आज 22K BIS हॉलमार्क सोने का लाइव भाव *₹" . number_format($g22) . "/g* ({$trendLabel}) और 24K का भाव *₹" . number_format($g24) . "/g* है।\n\n"
+        . "💡 *48-Hour Rate Lock सुविधा:*\n"
+        . "यदि आपके घर में आगे शादी, त्यौहार या शुभ अवसर है, तो आप आज के भाव पर अपना डिज़ाइन या *Swarna Nidhi (11+1)* किस्त लॉक कर सकते हैं।\n\n"
+        . "👉 लाइव रेट और अलर्ट सेट करें: https://shivaa.in/#/rates\n"
+        . "💬 आज का भाव लॉक करने के लिए *LOCK* लिखकर रिप्लाई करें।",
+
+      'b2c_poll' => "🌸 *बुधवार फैमिली पोल — आपको कौन-सा डिज़ाइन सबसे ज़्यादा पसंद आया?* 🌸\n\n"
+        . "इस सप्ताह हमारे कारीगरों ने ये 3 नए 22K BIS हॉलमार्क डिज़ाइन तैयार किए हैं:\n\n"
+        . "🅰️ *Option A:* {$pA['name']} ({$pA['weightG']}g — ₹" . number_format((int)$pA['priceTotal']) . ")\n"
+        . "🅱️ *Option B:* {$pB['name']} ({$pB['weightG']}g — ₹" . number_format((int)$pB['priceTotal']) . ")\n"
+        . "🆎 *Option C:* {$pC['name']} ({$pC['weightG']}g — ₹" . number_format((int)$pC['priceTotal']) . ")\n\n"
+        . "👇 *बस A, B या C लिखकर रिप्लाई करें!* जिस डिज़ाइन को सबसे ज़्यादा वोट मिलेंगे, उस पर इस शुक्रवार *Making Charge में विशेष छूट* दी जाएगी!\n"
+        . "👉 सभी डिज़ाइन देखें: https://shivaa.in/#/shop",
+
+      'b2c_first_pitch' => "नमस्ते जी 🙏 *Shivaa Jewels (Ernate Shine Jewellery Pvt. Ltd., Jayal, Nagaur)* से।\n\n"
+        . "हम जानते हैं कि परिवार के लिए सोना खरीदते समय सबसे बड़ा डर *'कच्ची पर्ची के छुपे रेट'* और *'शुद्धता'* का होता है। इसीलिए हमने पूरी खरीद 100% पारदर्शी बनाई है:\n\n"
+        . "1️⃣ *लाइव स्क्रीन भाव:* आज 22K = ₹" . number_format($g22) . "/g | मेकिंग चार्ज पहले से सामने लिखा हुआ।\n"
+        . "2️⃣ *पक्की शुद्धता:* हर गहने पर BIS 22K (916) मुहर + 6-अंकीय HUID नंबर जिसे आप सरकारी BIS Care ऐप पर खुद जांच सकते हैं।\n"
+        . "3️⃣ *डिस्पैच से पहले वीडियो:* पैकिंग से पहले आपके गहने का डिजिटल कांटे पर वज़न और HUID का वीडियो आपके WhatsApp पर भेजा जाता है।\n"
+        . "4️⃣ *100% लाइफटाइम बायबैक* + मात्र *3g 22K गोल्ड स्टड्स* (या 100g चांदी) से शुरुआत करने पर 31 दिसंबर के *100g 24K Gold Finale* में सीधी एंट्री!\n\n"
+        . "👉 हमारा कलेक्शन व लाइव रेट देखें: https://shivaa.in/#/scheme",
+
+      'b2b_morning' => "⚖️ *SHIVAA B2B BULLION BELL & STOCK DESK ({$dateLabel} · 9:45 AM)* ⚖️\n\n"
+        . "राम-राम सेठजी 🙏 आज के होलसेल बुलियन व फाइन मेटल सेटलमेंट भाव:\n"
+        . "• *TDS Gold 995 (RTGS / 10g):* ₹" . number_format($bul995Per10g) . "\n"
+        . "• *24K Spot Anchor (1g):* ₹" . number_format($g24) . "/g\n"
+        . "• *Silver 999 RTGS (1 kg):* ₹" . number_format($silKg) . "/kg\n"
+        . "• *B2B Fine Metal Billing:* `Gross Weight × {$mf} = Fine {$fp} Gold` (*₹0 Making Charge*)\n\n"
+        . "📦 *आज का रेडी स्टॉक अपडेट:*\n"
+        . "• कुल लाइव रेडी डिज़ाइन: *" . count($liveProds) . " SKUs* (" . count($cats) . " कैटेगरी, शोकेस-रेडी प्री-टैग्ड पैकिंग)\n"
+        . "• *आज का फास्ट-मूवर:* {$dodName} (`{$dodSku}`) — Gross: *{$dodWt}g* → Fine Metal Bill: *{$dodFine}g* (₹0 मजदूरी)\n\n"
+        . "📄 *दोनों PDF आज के ब्रॉडकास्ट के साथ तैयार हैं:*\n"
+        . "1. *पार्टनर 0.92 कैटलॉग:* https://shivaa.in/#/catalogues\n"
+        . "2. *ग्राहक को दिखाने वाला Unbranded Counter View* (बिना Shivaa नाम व बिना होलसेल भाव के)\n"
+        . "♻️ *डेड-स्टॉक एक्सचेंज व शुक्रवार सेटलमेंट:* https://shivaa.in/#/deadstock",
+
+      'b2b_first_pitch' => "राम-राम सेठजी 🙏 *Shivaa Jewels (Ernate Shine Jewellery Pvt. Ltd., Jayal, Nagaur)* के B2B होलसेल डेस्क से।\n\n"
+        . "सेठजी, हम आपको नया माल बेचने के लिए नहीं, बल्कि आपकी तिजोरी में *6 महीने से रुके हुए माल (Dead Stock) को तुरंत बिकने वाले डिज़ाइनों में बदलने* के लिए जुड़ रहे हैं:\n\n"
+        . "✦ *सीधा फाइन मेटल हिसाब:* `Weight × {$mf} = Fine {$fp} Gold` — *₹0 मेकिंग चार्ज!*\n"
+        . "✦ *Dead-Stock से मुक्ति:* अपना रुका हुआ माल हमें फाइन मेटल वैल्यू पर दें और बदले में 200+ मुंबई व राजस्थानी कारीगरों के सबसे तेज़ बिकने वाले प्री-टैग्ड डिज़ाइन लें।\n"
+        . "✦ *110% लिखित टंच गारंटी:* यदि किसी भी पीस की टंच कम निकले, तो पूरा रिफंड + अंतर का *110%* हमारी तरफ से।\n"
+        . "✦ *Zero-Risk शुरुआत:* मात्र *50g–100g का 30-Day Exchangeable Trial Lot* मंगाकर देखें — जो पीस 30 दिन में न बिके, अगले शुक्रवार बिना किसी कटौती के नए डिज़ाइन से बदल लें!\n\n"
+        . "👉 मात्र 30 सेकंड में अपने GST नंबर से लाइव B2B कैटलॉग अनलॉक करें: https://shivaa.in/#/b2b",
+
+      'b2b_deadstock' => "♻️ *SHIVAA B2B — गुरुवार डेड-स्टॉक एक्सचेंज विंडो खुली है!* ♻️\n\n"
+        . "राम-राम सेठजी 🙏 कल *शुक्रवार वीकली सेटलमेंट* से पहले यदि आपकी दुकान में कोई भी 18K / 20K / 22K के धीमे या रुके हुए डिज़ाइन (Dead Stock) पड़े हैं, तो उनका वज़न और फोटो भेजें।\n\n"
+        . "• XRF / फायर-असे के बाद तुरंत आपके फाइन मेटल खाते में क्रेडिट\n"
+        . "• बदले में `Weight × {$mf}` फाइन (₹0 मेकिंग) पर इस हफ्ते के Top-Moving राजस्थानी डिज़ाइन या 24K (12% p.a.) मेटल स्कीम में ट्रांसफर!\n\n"
+        . "👉 अभी स्लॉट बुक करें: https://shivaa.in/#/deadstock",
+    ];
+
+    // Build deduplicated B2C & B2B subscriber lists
+    $b2cMap = [];
+    $b2bMap = [];
+    foreach ($db['whatsappSubs'] ?? [] as $ws) {
+      $ph = (string)($ws['phone'] ?? '');
+      if ($ph === '') continue;
+      if (($ws['segment'] ?? 'b2c') === 'b2b') {
+        $b2bMap[$ph] = [
+          'phone'     => $ph,
+          'name'      => (string)($ws['firmName'] ?: ($ws['name'] ?: 'B2B Jeweller')),
+          'city'      => (string)($ws['city'] ?? ''),
+          'source'    => (string)($ws['source'] ?? 'b2b_optin'),
+          'topics'    => $ws['topics'] ?? [],
+          'createdAt' => (string)($ws['createdAt'] ?? ''),
+        ];
+      } else {
+        $b2cMap[$ph] = [
+          'phone'     => $ph,
+          'name'      => (string)($ws['name'] ?: 'Retail Member'),
+          'city'      => (string)($ws['city'] ?? ''),
+          'source'    => (string)($ws['source'] ?? 'rates_optin'),
+          'topics'    => $ws['topics'] ?? [],
+          'createdAt' => (string)($ws['createdAt'] ?? ''),
+        ];
+      }
+    }
+    // Merge rateAlerts phones into B2C list if not already present
+    $reachedCount = 0;
+    foreach ($db['rateAlerts'] ?? [] as $ra) {
+      $cur = (float)($live[$ra['metal'] ?? 'gold22'] ?? 0);
+      if ($cur > 0 && (float)($ra['target'] ?? 0) >= $cur) $reachedCount++;
+      $ph = (string)($ra['phone'] ?? '');
+      if ($ph !== '' && !isset($b2cMap[$ph])) {
+        $b2cMap[$ph] = [
+          'phone'     => $ph,
+          'name'      => 'Rate Alert Member (₹' . (int)($ra['target'] ?? 0) . '/g)',
+          'city'      => '',
+          'source'    => 'rate_alert',
+          'topics'    => ['rate_drop', 'daily_rate'],
+          'createdAt' => (string)($ra['createdAt'] ?? ''),
+        ];
+      }
+    }
+    // Merge verified/pending partners into B2B list if not already present
+    $verifiedPartners = 0;
+    foreach ($db['partners'] ?? [] as $pt) {
+      if (strtolower((string)($pt['status'] ?? '')) === 'approved') $verifiedPartners++;
+      $ph = substr(preg_replace('/\D/', '', (string)($pt['phone'] ?? '')), -10);
+      if (preg_match('/^[6-9]\d{9}$/', $ph) && !isset($b2bMap[$ph])) {
+        $b2bMap[$ph] = [
+          'phone'     => $ph,
+          'name'      => (string)($pt['firmName'] ?? ($pt['name'] ?? 'Partner Jeweller')),
+          'city'      => (string)($pt['city'] ?? ''),
+          'source'    => 'partner_' . strtolower((string)($pt['status'] ?? 'pending')),
+          'topics'    => ['bullion_bell', 'new_stock_pdf', 'friday_ledger'],
+          'createdAt' => (string)($pt['createdAt'] ?? ''),
+        ];
+      }
+    }
+
+    jout(200, [
+      'ok'          => true,
+      'dateLabel'   => $dateLabel,
+      'rates'       => [
+        'gold24'            => $g24,
+        'gold22'            => $g22,
+        'gold18'            => $g18,
+        'silver'            => $sil,
+        'silverPerKg'       => $silKg,
+        'bullion995Per10g'  => $bul995Per10g,
+        'diff22'            => $diff22,
+        'trendLabel'        => $trendLabel,
+      ],
+      'designOfDay' => $dod,
+      'pollDesigns' => $pollProds,
+      'catalogueOptions' => array_map(fn($p) => [
+        'id'      => (string)($p['id'] ?? ''),
+        'sku'     => (string)($p['sku'] ?? ''),
+        'name'    => (string)($p['name'] ?? ''),
+        'purity'  => (string)($p['purity'] ?? '22K'),
+        'weightG' => round((float)($p['weightG'] ?? 0), 2),
+        'image'   => (string)(($p['images'][0] ?? '') ?: ''),
+      ], array_slice($liveProds, 0, 60)),
+      'b2bSummary'  => [
+        'totalSkus'        => count($liveProds),
+        'categoriesCount'  => count($cats),
+        'metalFactor'      => $mf,
+        'finePurity'       => $fp,
+        'verifiedPartners' => $verifiedPartners,
+      ],
+      'templates'   => $templates,
+      'subscribers' => [
+        'b2c'       => array_values($b2cMap),
+        'b2b'       => array_values($b2bMap),
+        'referrals' => array_slice(array_reverse($db['partnerReferrals'] ?? []), 0, 100),
+        'counts'    => [
+          'b2c'               => count($b2cMap),
+          'b2b'               => count($b2bMap),
+          'rateAlertsReached' => $reachedCount,
+          'partnerReferrals'  => count($db['partnerReferrals'] ?? []),
+        ],
+      ],
+    ]);
   }
 
   if ($changed) db_save($DB_FILE, $db);

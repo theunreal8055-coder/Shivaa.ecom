@@ -17,21 +17,21 @@ function test(id, name, work) {
   catch (error) { failed++; console.error(`FAIL ${id} ${name}: ${error.message}`); }
 }
 
-test('V187-01', 'HTML, app, service worker and API share release 187', () => {
-  assert.equal(rel, 187);
-  assert.ok(index.includes('/js/app.js?v=187'));
-  assert.ok(app.includes('const APP_REL = 187;'));
-  assert.ok(sw.includes("const SHELL = 'shivaa-shell-v187';"));
-  assert.ok(sw.includes('const REL = 187;'));
-  assert.ok(api.includes("'rel'   => 187,"));
+test('V187-01', 'HTML, app, service worker and API share release 187 or later', () => {
+  assert.ok(rel >= 187);
+  assert.ok(index.includes(`/js/app.js?v=${rel}`));
+  assert.ok(app.includes(`const APP_REL = ${rel};`));
+  assert.ok(sw.includes(`const SHELL = 'shivaa-shell-v${rel}';`));
+  assert.ok(sw.includes(`const REL = ${rel};`));
+  assert.ok(api.includes(`'rel'   => ${rel},`));
 });
 test('V187-02', 'release cache URLs advance together and the dynamic admin bundle follows APP_REL', () => {
-  assert.ok(!/[?&]v=186(?:['"\s)]|$)/.test(index));
-  assert.ok(!/[?&]v=186(?:['"\s)]|$)/.test(sw));
-  assert.ok(index.includes('/css/v186.css?v=187'));
-  assert.ok(sw.includes("'/css/v186.css?v=187'"));
+  assert.ok(!new RegExp(`[?&]v=${rel - 1}(?:['"\\s)]|$)`).test(index));
+  assert.ok(!new RegExp(`[?&]v=${rel - 1}(?:['"\\s)]|$)`).test(sw));
+  assert.ok(index.includes(`/css/v186.css?v=${rel}`));
+  assert.ok(sw.includes(`'/css/v186.css?v=${rel}'`));
   assert.ok(app.includes("injectScript('/js/admin.js?v=' + APP_REL)"));
-  assert.ok(!/\?v=186(?:['"\s)]|$)/.test(app));
+  assert.ok(!new RegExp(`\\?v=${rel - 1}(?:['"\\s)]|$)`).test(app));
 });
 test('V187-03', 'new KYC uploads use magic-byte types and secure private storage after OTP and business validation', () => {
   assert.ok(api.includes('function shv_kyc_private_dir(): ?string'));
