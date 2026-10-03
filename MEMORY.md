@@ -1,5 +1,67 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v183 FY 2026–27 Growth Mission deck (3 Oct 2026, branch `arena/01a10051-shivaa-ecom`)
+
+- **Owner's brief, verbatim intent:** an interactive dashboard for the two FY
+  numbers — **B2B partners 700** and **retail customers 1100** — both to be
+  completed **before 30 March 2027**, with a **live countdown**, available
+  **only on the admin portal**, "high FY ultra luxurious" UI. Delivered as
+  **v183** (live is still **181**; v182 was built 25 Sep and not yet installed).
+- **v183 = the FY Mission deck, built and gated this session:**
+  - `cms/api.php`: `shv_fy_defaults/config/records/lane/history/view` + four
+    routes, **all `need_admin`**: `GET|POST admin/fy-targets`,
+    `POST admin/fy-targets/entry`, `POST admin/fy-targets/entry-undo`.
+  - **Every figure is DERIVED, never invented** (the same provenance law as the
+    catalogue importer): B2B = `partners` rows with `status=approved` (pending
+    KYC shown separately), retail = `users` rows with `role=customer` (buyers
+    shown separately), plus the owner's **opening baseline** and his own
+    **ledger rows** — and a ledger row is **refused unless its source is named**
+    ("counts are NEVER invented"). Growth curve = real `joined`/`appliedAt`/
+    `createdAt` timestamps; no recorded growth ⇒ **no projection invented**
+    (verdict reads `stalled`).
+  - Targets / deadline / FY start / opening counts are owner-editable and
+    range-checked (whole numbers 1–1,000,000; a past finish line and an
+    FY-after-deadline are refused; corrupt stored values re-typed on read).
+  - Countdown is **server-pinned**: the API publishes `serverNow` (epoch-ms) +
+    `deadlineTs`, the browser computes the offset so a wrong device clock
+    cannot lie about the finish line; the ticker self-clears when the deck
+    leaves the DOM.
+  - Admin UI: **👑 FY Mission** tab (2nd in the rail) in `cms/js/admin.js`;
+    design system in the NEW `cms/css/v183.css`, **scoped entirely to
+    `.fy-deck`** and loaded with the **v117 non-blocking preload-swap** (an
+    admin-only sheet must not sit in a shopper's blocking paint path).
+  - `fyTargets` / `fyEntries` are **JSON collections** in v183 (precedent:
+    `khata`, `cashbook`, `savingsPlans`) — **no new MySQL schema**, so the deck
+    needs no reconciler run of its own.
+  - Stamps 183 lockstep (58×`?v=183` index, 52× sw, `shivaa-shell-v183`,
+    `REL=183`, `APP_REL=183`, `'rel'=>183`); MEDIA stays `shivaa-media-v168`;
+    **`v183.css` is now the last stylesheet** (v178.css no longer is — the
+    v182-check S02 assertion about v178 being last SKIPs forward at 183).
+- **Belt at close:** deploy gate **20/20** · new `v183-check` **11/11**
+  (incl. an **executed jsdom render of the shipped `admin.js`** — lanes, live
+  ticking seconds, ledger, settings, and a non-admin getting only the sign-in
+  card) · new `v183-php-run` **12/12** (real `api.php` under PHP 8.3) ·
+  v182-php 9 · v181-php 6 · v180-php 8 · v179-php 25 · v169 25+28 ·
+  v168 39+12 · php-sweep **226 routes / 0 exceptions** · regression
+  **44 passed / 24 skipped / 0 failed**. Both new suites re-run green on the
+  **unzipped ZIP overlay**. `v182-php-run` P01 made forward-tolerant
+  (rel floor ≥182), matching v181's pattern.
+- **Known environmental failure, NOT caused by v183:** `v179-relay.js` fails
+  0/7 **in this sandbox** (needs the live MCX socket). Proven pre-existing by
+  running it in a separate worktree at the untouched base commit `2e063ee`
+  (release 182) — identical 0/7.
+- **Package:** `shivaa-update-v183.zip` — **7 files, 471,325 bytes**, SHA-256
+  `20509869515bfae9931b504b79edf59f5479d1081203a21f942802d2ab4b40e3`, source
+  `557662e`. Includes `upgrade-sql.php` **unchanged from v182** so that a live
+  site still on 181 is complete after one install (idempotent; skip it if v182
+  already ran it). Builder `tools/mega/make-v183-zip.py`; see `DEPLOY-v183.md`.
+- **Preview tooling:** `tools/preview-server.js` now mocks the FY deck + a
+  preview admin sign-in and stamps every served page with a **"Local preview ·
+  fixture data · not the live store"** ribbon — its numbers are **fixtures
+  derived from the repo's `db.json`**, never live figures.
+- **Forward-only: live 181 → never deploy < 183 from here.** Still awaiting the
+  owner: the billing app zip, and an explicit yes before any live install.
+
 ## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
 
 - **Live is 181 (verified 25 Sep 2026):** `/api/version` returned `rel:181`,

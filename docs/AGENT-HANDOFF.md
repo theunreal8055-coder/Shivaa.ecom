@@ -1,4 +1,85 @@
-# AGENT HANDOFF — v182 BUILT (Auto-Catalogue Phase 4 + Billing Bridge); v181 LIVE ON HOSTINGER (25 Sep 2026)
+# AGENT HANDOFF — v183 BUILT (FY 2026–27 Growth Mission deck); v182 BUILT; v181 LIVE ON HOSTINGER (3 Oct 2026)
+
+## CURRENT STATE — v183 BUILT: FY 2026–27 Growth Mission deck (admin-only) (3 Oct 2026)
+
+- **Owner's request this session:** an interactive dashboard of the financial
+  year's two numbers — **700 B2B jeweller partners** and **1,100 retail
+  customers** — both to be completed **before 30 March 2027**, with a **live
+  countdown**, available **only on the admin portal**, in a high-FY ultra
+  luxurious finish. Built as **v183**; live remains **181** (v182 was built
+  25 Sep and is still awaiting the owner's install).
+- **What shipped:**
+  - `cms/api.php` — `shv_fy_defaults / config / records / lane / history /
+    view` plus **four routes, every one `need_admin` + audited**:
+    `GET|POST admin/fy-targets`, `POST admin/fy-targets/entry`,
+    `POST admin/fy-targets/entry-undo`. Rate-limited ledger writes.
+  - **Honesty laws applied to the numbers** (the same provenance rule the
+    catalogue importer enforces on weights): B2B achieved = `partners` rows
+    with `status=approved`; retail achieved = `users` rows with
+    `role=customer`; pending KYC and "of whom placed an order" are reported
+    **separately and never merged in**; the owner's **opening baseline** and
+    his **own ledger rows** add on top; a ledger row is **REFUSED unless its
+    source is named** ("counts are NEVER invented"); the growth curve is built
+    from the real `joined` / `appliedAt` / `createdAt` stamps; and when nothing
+    is growing the deck shows **no projection at all** (verdict `stalled`)
+    rather than inventing a pace.
+  - Targets, finish line, FY start and opening counts are **owner-editable**
+    (whole numbers 1–1,000,000; a past finish line, an FY opening after the
+    finish line, fractional/absurd values and corrupt stored types are all
+    refused or re-typed on read — proven by `v183-php-run` P08/P11).
+  - **Live countdown pinned to the server clock:** the API publishes
+    `serverNow` (epoch-ms) and `deadlineTs`; the browser derives the offset, so
+    a wrong device clock cannot misreport the finish line. The 1 s ticker
+    clears itself when the deck leaves the DOM and never leaves two running.
+  - **Admin UI** — new **👑 FY Mission** tab (2nd in the rail) in
+    `cms/js/admin.js`: countdown, two lane rings + rails with 25/50/75/100%
+    milestone ticks, achieved/target/remaining, DB-vs-logged split, needed-per
+    -day vs actual-per-day, projected finish + verdict chip, cumulative growth
+    curve, ledger with **Undo**, mission settings, print variant. A non-admin
+    gets the sign-in card and **none** of the figures.
+  - **New asset `cms/css/v183.css`** — the deck's design system (obsidian +
+    24k gold foil, Cormorant numerals, shimmer/ring-draw motion), **every rule
+    scoped inside `.fy-deck`**, with `prefers-reduced-motion`, phone and
+    `@media print` variants. Loaded with the **v117 preload-swap + noscript**
+    pattern so an admin-only sheet never blocks a shopper's paint; it is now
+    the last sheet in document order and is precached by the worker.
+  - **No schema change:** `fyTargets` / `fyEntries` are JSON collections
+    (precedent: `khata`, `cashbook`, `savingsPlans`), so the deck needs no
+    reconciler of its own.
+  - Stamps **183** lockstep (58×`?v=183` index, 52× sw, `shivaa-shell-v183`,
+    `REL=183`, `APP_REL=183`, `'rel'=>183`); MEDIA stays `shivaa-media-v168`.
+- **Belt at close:** deploy gate **20/20** · **new `v183-check` 11/11** (its
+  S10/S11 **execute the shipped `admin.js` in jsdom** — lanes, ticking seconds,
+  ledger, settings form, and the non-admin refusal) · **new `v183-php-run`
+  12/12** (real `api.php` under PHP 8.3) · v182-php 9 · v181-php 6 ·
+  v180-php 8 · v179-php 25 · v169 25+28 · v168 39+12 ·
+  **php-sweep 226 routes / 0 exceptions** · regression **44 passed / 24
+  skipped / 0 failed**. `v182-check`/`v181-check`/`v180-check` SKIP-forward as
+  superseded stamp-exact suites; `v182-php-run` P01 made forward-tolerant
+  (rel floor ≥182), the v181 pattern. Both new suites re-run green **on the
+  unzipped ZIP overlay**, as did the eight legacy suites.
+- **Known environmental failure, NOT a regression:** `v179-relay.js` is **0/7 in
+  this sandbox** (it needs the live MCX socket). Verified identical on the
+  untouched base commit `2e063ee` (release 182) in a separate git worktree —
+  v183 did not cause it, and it must not be "fixed" by editing relay code.
+- **Package:** `shivaa-update-v183.zip` — **7 files, 471,325 bytes**, SHA-256
+  `20509869515bfae9931b504b79edf59f5479d1081203a21f942802d2ab4b40e3`, source
+  commit `557662e`. It carries `upgrade-sql.php` **unchanged from v182** so a
+  live site still on 181 is complete after one install (idempotent — skip it if
+  v182 already ran it). Builder: `tools/mega/make-v183-zip.py`. Install ritual
+  in `DEPLOY-v183.md`.
+- **Preview tooling (dev only):** `tools/preview-server.js` now serves an FY
+  deck fixture derived from the repo's `db.json`, a preview admin sign-in, and
+  stamps **every** served page with a *"Local preview · fixture data · not the
+  live store"* ribbon. **Never quote preview numbers as live numbers.**
+- **Next steps:** owner installs v183 (explicit yes required); owner sets the
+  **opening counts** for 1 April 2026 once so the run-rate and projection
+  measure the year honestly; v182's open items are unchanged (billing app zip;
+  first real catalogue batch).
+
+> **Current release: 183 (BUILT & GATED). Live: 181 (verified 25 Sep 2026).**
+> **Forward only — never revert to an older release; next deploy ≥ 183.**
+
 
 ## CURRENT STATE — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
 

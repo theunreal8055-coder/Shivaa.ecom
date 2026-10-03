@@ -926,6 +926,241 @@ function shv_sql_catalog_mirror(array $db): void {
       json_encode(['at' => date('c'), 'error' => mb_substr((string)$e->getMessage(), 0, 300)]));
   }
 }
+/* ═══ v183 · FY 2026–27 GROWTH MISSION deck (admin-only) ═══════════════════
+   The owner's brief: an interactive dashboard for this financial year's two
+   numbers — 700 B2B jeweller partners and 1,100 retail customers — both to be
+   in place before 30 March 2027, with a live countdown, and visible ONLY in
+   the admin portal.
+   House law applied to the numbers themselves: nothing here is invented. The
+   "achieved" figure of every lane is DERIVED from the real collections
+   (partners rows with status=approved; users rows with role=customer) plus
+   the owner's own logged ledger rows, and a ledger row is REFUSED unless the
+   owner records which register / export / list the count came from — the same
+   provenance rule the catalogue importer enforces on weights and purity.
+   Targets, the deadline and the opening baseline are owner-editable, so the
+   deck is never a hard-coded claim. */
+function shv_fy_defaults(): array {
+  return [
+    'label'    => 'FY 2026–27 Growth Mission',
+    /* Indian financial year 2026-27 opened 1 Apr 2026; the owner's finish
+       line is 30 March 2027, 23:59:59 IST. */
+    'fyStart'  => '2026-04-01T00:00:00+05:30',
+    'deadline' => '2027-03-30T23:59:59+05:30',
+    'lanes' => [
+      'b2b'    => ['label' => 'B2B Jeweller Partners', 'target' => 700,  'baseline' => 0],
+      'retail' => ['label' => 'Retail Customers',      'target' => 1100, 'baseline' => 0],
+    ],
+  ];
+}
+/* any stored value is re-typed on the way out — a corrupt db.json can never
+   push a non-number or a bogus date into the deck or the arithmetic. */
+function shv_fy_date($v, string $fallback): string {
+  $t = (is_scalar($v) && trim((string)$v) !== '') ? strtotime(trim((string)$v)) : false;
+  return $t ? date('c', $t) : $fallback;
+}
+/* a stored value that is not a whole number falls back to the owner default
+   instead of being coerced — a corrupt db.json must never quietly turn the
+   700-partner target into a 1-partner target. */
+function shv_fy_int($v, int $fallback, int $min, int $max): int {
+  if (!is_numeric($v) || (float)$v != (int)$v) return $fallback;
+  return clampn((int)$v, $min, $max);
+}
+function shv_fy_text($v, string $fallback, int $max): string {
+  if (!is_scalar($v)) return $fallback;
+  $t = trim((string)$v);
+  return $t === '' ? $fallback : mb_substr($t, 0, $max);
+}
+function shv_fy_config(array $db): array {
+  $d = shv_fy_defaults();
+  $s = is_array($db['fyTargets'] ?? null) ? $db['fyTargets'] : [];
+  $cfg = ['label' => shv_fy_text($s['label'] ?? null, $d['label'], 80), 'lanes' => []];
+  foreach (['b2b', 'retail'] as $lane) {
+    $src = is_array($s['lanes'][$lane] ?? null) ? $s['lanes'][$lane] : [];
+    $cfg['lanes'][$lane] = [
+      'label'    => shv_fy_text($src['label'] ?? null, $d['lanes'][$lane]['label'], 60),
+      'target'   => shv_fy_int($src['target'] ?? null, $d['lanes'][$lane]['target'], 1, 1000000),
+      'baseline' => shv_fy_int($src['baseline'] ?? null, 0, 0, 1000000),
+    ];
+  }
+  $cfg['fyStart']  = shv_fy_date($s['fyStart'] ?? null, $d['fyStart']);
+  $cfg['deadline'] = shv_fy_date($s['deadline'] ?? null, $d['deadline']);
+  return $cfg;
+}
+/* owner-logged ledger rows (offline partner sign-ups, counter customers from
+   the billing software, a WhatsApp list …) — always with a recorded source. */
+function shv_fy_entries(array $db, string $lane = ''): array {
+  $out = [];
+  foreach ((is_array($db['fyEntries'] ?? null) ? $db['fyEntries'] : []) as $e) {
+    if (!is_array($e) || (string)($e['id'] ?? '') === '') continue;
+    if ($lane !== '' && (string)($e['lane'] ?? '') !== $lane) continue;
+    $out[] = ['id' => (string)$e['id'], 'lane' => (string)($e['lane'] ?? ''),
+      'count' => max(0, (int)($e['count'] ?? 0)), 'source' => (string)($e['source'] ?? ''),
+      'note' => (string)($e['note'] ?? ''), 'at' => (string)($e['at'] ?? ''),
+      'by' => (string)($e['by'] ?? '')];
+  }
+  return $out;
+}
+function shv_fy_manual_total(array $db, string $lane): int {
+  $n = 0;
+  foreach (shv_fy_entries($db, $lane) as $e) $n += (int)$e['count'];
+  return max(0, $n);
+}
+/* REAL records behind a lane. b2b = approved partner rows (the same
+   definition admin/stats has always used); retail = role=customer users, with
+   "of which placed an order" reported separately and never merged in. */
+function shv_fy_records(array $db, string $lane): array {
+  $stamps = [];
+  if ($lane === 'b2b') {
+    $approved = 0; $pending = 0; $other = 0;
+    foreach ((is_array($db['partners'] ?? null) ? $db['partners'] : []) as $p) {
+      if (!is_array($p)) continue;
+      $st = (string)($p['status'] ?? '');
+      if ($st === 'approved') $approved++;
+      elseif ($st === 'pending') $pending++;
+      else $other++;
+      $at = (string)($p['joined'] ?? ($p['appliedAt'] ?? ($p['createdAt'] ?? '')));
+      if ($at !== '') $stamps[] = $at;
+    }
+    return ['total' => $approved, 'pending' => $pending, 'other' => $other, 'buyers' => 0, 'stamps' => $stamps];
+  }
+  $cust = 0;
+  foreach ((is_array($db['users'] ?? null) ? $db['users'] : []) as $u) {
+    if (!is_array($u) || (string)($u['role'] ?? '') !== 'customer') continue;
+    $cust++;
+    $at = (string)($u['createdAt'] ?? '');
+    if ($at !== '') $stamps[] = $at;
+  }
+  $seen = [];
+  foreach ((is_array($db['orders'] ?? null) ? $db['orders'] : []) as $o) {
+    if (!is_array($o) || (string)($o['status'] ?? '') === 'Cancelled') continue;
+    $k = (string)($o['userId'] ?? ($o['email'] ?? ($o['phone'] ?? '')));
+    if ($k !== '') $seen[$k] = true;
+  }
+  return ['total' => $cust, 'pending' => 0, 'other' => 0, 'buyers' => count($seen), 'stamps' => $stamps];
+}
+function shv_fy_lane(array $db, array $cfg, string $lane, int $now): array {
+  $c = $cfg['lanes'][$lane];
+  $rec = shv_fy_records($db, $lane);
+  $manual = shv_fy_manual_total($db, $lane);
+  $achieved = $rec['total'] + (int)$c['baseline'] + $manual;
+  $target = max(1, (int)$c['target']);
+  $startTs = (int)(strtotime($cfg['fyStart']) ?: $now);
+  $endTs = (int)(strtotime($cfg['deadline']) ?: $now);
+  $remaining = max(0, $target - $achieved);
+  $daysLeft = (int)floor(max(0, $endTs - $now) / 86400);
+  $elapsedDays = max(1, (int)floor(max(0, $now - $startTs) / 86400));
+  /* real growth inside the FY window, straight off the record timestamps */
+  $fyGrowth = 0;
+  foreach ($rec['stamps'] as $s) {
+    $t = strtotime((string)$s);
+    if ($t && $t >= $startTs && $t <= $now) $fyGrowth++;
+  }
+  foreach (shv_fy_entries($db, $lane) as $e) {
+    $t = strtotime((string)$e['at']);
+    if ($t && $t >= $startTs && $t <= $now) $fyGrowth += (int)$e['count'];
+  }
+  $actualPerDay = $fyGrowth / $elapsedDays;
+  $reqPerDay = $daysLeft > 0 ? ($remaining / $daysLeft) : (float)$remaining;
+  /* projected finish at the lane's own recorded pace (never a guess dressed
+     as data: no recorded growth ⇒ no projection at all) */
+  $projTs = null;
+  if ($remaining === 0) $projTs = $now;
+  elseif ($actualPerDay > 0) $projTs = $now + (int)ceil(($remaining / $actualPerDay) * 86400);
+  if ($remaining === 0) $verdict = 'achieved';
+  elseif ($projTs === null) $verdict = 'stalled';
+  elseif ($projTs <= ($endTs - 14 * 86400)) $verdict = 'ahead';
+  elseif ($projTs <= $endTs) $verdict = 'onTrack';
+  else $verdict = 'behind';
+  return [
+    'key' => $lane, 'label' => (string)$c['label'],
+    'target' => $target, 'achieved' => $achieved, 'remaining' => $remaining,
+    'pct' => round(min(100, ($achieved / $target) * 100), 1),
+    'baseline' => (int)$c['baseline'],
+    'fromDb' => (int)$rec['total'], 'manual' => $manual,
+    'pending' => (int)$rec['pending'], 'buyers' => (int)$rec['buyers'],
+    'fyGrowth' => $fyGrowth,
+    'requiredPerDay' => round($reqPerDay, 2), 'requiredPerWeek' => round($reqPerDay * 7, 1),
+    'actualPerDay' => round($actualPerDay, 2), 'actualPerWeek' => round($actualPerDay * 7, 1),
+    'elapsedDays' => $elapsedDays, 'daysLeft' => $daysLeft,
+    'projectedAt' => $projTs ? date('c', $projTs) : null,
+    'projectedInDays' => $projTs ? (int)ceil(($projTs - $now) / 86400) : null,
+    'slackDays' => $projTs ? (int)floor(($endTs - $projTs) / 86400) : null,
+    'verdict' => $verdict,
+  ];
+}
+/* month-by-month cumulative curve, built only from real record timestamps and
+   owner-logged ledger rows (the opening balance is whatever already existed
+   before the FY opened, so the curve always adds up to the lane figure). */
+function shv_fy_history(array $db, array $cfg, string $lane, int $now): array {
+  $rec = shv_fy_records($db, $lane);
+  $startTs = (int)(strtotime($cfg['fyStart']) ?: $now);
+  if ($startTs > $now) $startTs = $now;
+  $opening = (int)$cfg['lanes'][$lane]['baseline'];
+  foreach ($rec['stamps'] as $s) { $t = strtotime((string)$s); if ($t && $t < $startTs) $opening++; }
+  $months = [];
+  $cur = strtotime(date('Y-m-01 00:00:00', $startTs));
+  $end = strtotime(date('Y-m-01 00:00:00', $now));
+  for ($g = 0; $cur && $cur <= $end && $g < 36; $g++) {
+    $months[date('Y-m', $cur)] = ['m' => date('Y-m', $cur), 'new' => 0];
+    $cur = strtotime('+1 month', $cur);
+  }
+  foreach ($rec['stamps'] as $s) {
+    $t = strtotime((string)$s);
+    if (!$t || $t < $startTs || $t > $now) continue;
+    $k = date('Y-m', $t);
+    if (isset($months[$k])) $months[$k]['new']++;
+  }
+  foreach (shv_fy_entries($db, $lane) as $e) {
+    $t = strtotime((string)$e['at']);
+    if (!$t) continue;
+    $k = date('Y-m', $t);
+    if (isset($months[$k])) $months[$k]['new'] += (int)$e['count'];
+  }
+  $cum = $opening; $out = [];
+  foreach ($months as $k => $row) { $cum += (int)$row['new']; $out[] = ['m' => $k, 'new' => (int)$row['new'], 'cum' => $cum]; }
+  return ['opening' => $opening, 'months' => $out];
+}
+function shv_fy_view(array $db): array {
+  $cfg = shv_fy_config($db);
+  $now = time();
+  $startTs = (int)(strtotime($cfg['fyStart']) ?: $now);
+  $endTs = (int)(strtotime($cfg['deadline']) ?: $now);
+  $lanes = [];
+  foreach (['b2b', 'retail'] as $lane) $lanes[$lane] = shv_fy_lane($db, $cfg, $lane, $now);
+  $target = (int)$lanes['b2b']['target'] + (int)$lanes['retail']['target'];
+  $achieved = (int)$lanes['b2b']['achieved'] + (int)$lanes['retail']['achieved'];
+  return [
+    'config' => $cfg,
+    'lanes' => $lanes,
+    'mission' => [
+      'target' => $target, 'achieved' => $achieved,
+      'remaining' => max(0, $target - $achieved),
+      'pct' => $target ? round(min(100, ($achieved / $target) * 100), 1) : 0.0,
+    ],
+    /* serverNow is epoch MILLISECONDS so the browser can pin its ticker to
+       the server clock instead of trusting the device clock. */
+    'countdown' => [
+      'deadline' => $cfg['deadline'], 'deadlineTs' => $endTs * 1000,
+      'fyStart' => $cfg['fyStart'], 'fyStartTs' => $startTs * 1000,
+      'serverNow' => $now * 1000, 'nowIso' => date('c', $now),
+      'ended' => $now >= $endTs,
+      'daysLeft' => (int)floor(max(0, $endTs - $now) / 86400),
+      'totalDays' => max(1, (int)floor(max(0, $endTs - $startTs) / 86400)),
+      'daysElapsed' => (int)floor(max(0, $now - $startTs) / 86400),
+    ],
+    'history' => ['b2b' => shv_fy_history($db, $cfg, 'b2b', $now),
+                  'retail' => shv_fy_history($db, $cfg, 'retail', $now)],
+    'entries' => shv_fy_entries($db),
+    /* provenance, printed on the deck itself so nobody mistakes a derived
+       number for an invented one */
+    'sources' => [
+      'b2b' => 'partners collection — rows with status=approved (pending applications shown separately)',
+      'retail' => 'users collection — rows with role=customer (buyers with an order shown separately)',
+      'manual' => 'owner-logged ledger rows below — each one carries the register/export it came from',
+    ],
+    'limits' => ['maxTarget' => 1000000, 'maxEntry' => 1000],
+  ];
+}
 function db_load(string $DB_FILE): array {
   for ($i = 0; $i < 5; $i++) {
     if (!empty($GLOBALS['__shv_lock'])) {
@@ -3905,7 +4140,7 @@ if ($route === 'trust') {
 $db = db_load($DB_FILE);
 /* auto-heal schema (old databases) so nothing ever fatals */
 $db['otps'] = $db['otps'] ?? [];
-foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit'] as $__k) $db[$__k] = $db[$__k] ?? [];
+foreach (['products','users','orders','partners','coupons','catalogs','reviews','settlements','serviceRequests','newsletter','contactMsgs','rateAlerts','pages','tokens','loginfails','bullionOrders','metalOrders','customOrders','finaleEntries','finaleAttempts','securityLog','resetRate','pubRate','events','carts','khata','goldPurchases','karigars','jobWork','cashbook','refundRequests','savingsPlans','auditLog','bullionAlerts','rateLimit','fyEntries'] as $__k) $db[$__k] = $db[$__k] ?? [];
 
 /* v60 — lightweight audit trail for money/status actions */
 function audit_log(array &$db, string $what, array $meta = []): void {
@@ -4460,6 +4695,106 @@ try {
     audit_log($db, 'billing.stock-movement', ['movementId' => $mid, 'delta' => $delta, 'productId' => $result['productId']]);
     db_save($DB_FILE, $db);
     jout(200, ['ok' => true, 'movementId' => $mid, 'result' => $result]);
+  }
+
+  /* ═══ v183 · FY 2026–27 Growth Mission deck — ADMIN ONLY ═════════════════
+     700 B2B partners + 1,100 retail customers before 30 March 2027, with a
+     live countdown. All four routes sit behind need_admin(): there is no
+     shopper-facing read of any of this, and nothing here is written by
+     anything but an authenticated admin (audited, like every money path). */
+  if ($route === 'admin/fy-targets' && $method === 'GET') {
+    need_admin($db);
+    jout(200, shv_fy_view($db));
+  }
+
+  if ($route === 'admin/fy-targets' && $method === 'POST') {
+    $adm = need_admin($db);
+    $b = body_json();
+    $cur = shv_fy_config($db);
+    $next = ['label' => $cur['label'], 'fyStart' => $cur['fyStart'], 'deadline' => $cur['deadline'], 'lanes' => []];
+    if (array_key_exists('label', $b)) {
+      $lbl = trim((string)$b['label']);
+      if ($lbl === '') jout(400, ['error' => 'Mission title cannot be blank']);
+      $next['label'] = mb_substr($lbl, 0, 80);
+    }
+    foreach (['b2b' => 'B2B jeweller partners', 'retail' => 'retail customers'] as $lane => $human) {
+      $src = $cur['lanes'][$lane];
+      $row = ['label' => $src['label'], 'target' => $src['target'], 'baseline' => $src['baseline']];
+      if (array_key_exists($lane . 'Label', $b)) {
+        $ll = trim((string)$b[$lane . 'Label']);
+        if ($ll === '') jout(400, ['error' => 'Lane title cannot be blank']);
+        $row['label'] = mb_substr($ll, 0, 60);
+      }
+      if (array_key_exists($lane . 'Target', $b)) {
+        $tv = $b[$lane . 'Target'];
+        if (!is_numeric($tv) || (float)$tv != (int)$tv || (int)$tv < 1 || (int)$tv > 1000000)
+          jout(400, ['error' => 'The ' . $human . ' target must be a whole number between 1 and 1,000,000']);
+        $row['target'] = (int)$tv;
+      }
+      if (array_key_exists($lane . 'Baseline', $b)) {
+        $bv = $b[$lane . 'Baseline'];
+        if (!is_numeric($bv) || (float)$bv != (int)$bv || (int)$bv < 0 || (int)$bv > 1000000)
+          jout(400, ['error' => 'The ' . $human . ' opening count must be a whole number between 0 and 1,000,000']);
+        $row['baseline'] = (int)$bv;
+      }
+      $next['lanes'][$lane] = $row;
+    }
+    if (array_key_exists('deadline', $b) || array_key_exists('fyStart', $b)) {
+      $dl = shv_fy_date($b['deadline'] ?? $cur['deadline'], '');
+      $fs = shv_fy_date($b['fyStart'] ?? $cur['fyStart'], '');
+      if ($dl === '') jout(400, ['error' => 'Finish line is not a readable date (try 2027-03-30)']);
+      if ($fs === '') jout(400, ['error' => 'Financial-year start is not a readable date (try 2026-04-01)']);
+      if (strtotime($dl) <= time()) jout(400, ['error' => 'The finish line must be in the future']);
+      if (strtotime($fs) >= strtotime($dl)) jout(400, ['error' => 'The financial year must start before the finish line']);
+      $next['deadline'] = $dl; $next['fyStart'] = $fs;
+    }
+    $db['fyTargets'] = $next;
+    audit_log($db, 'fy.targets.update', [
+      'b2bTarget' => $next['lanes']['b2b']['target'], 'retailTarget' => $next['lanes']['retail']['target'],
+      'deadline' => $next['deadline'], 'fyStart' => $next['fyStart'],
+    ]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'deck' => shv_fy_view($db)]);
+  }
+
+  if ($route === 'admin/fy-targets/entry' && $method === 'POST') {
+    $adm = need_admin($db);
+    rate_block($db, 'fy-entry', (string)($adm['id'] ?? 'admin'), 300, 3600);
+    $b = body_json();
+    $lane = (string)($b['lane'] ?? '');
+    if (!in_array($lane, ['b2b', 'retail'], true)) jout(400, ['error' => 'lane must be "b2b" or "retail"']);
+    $n = $b['count'] ?? null;
+    if (!is_numeric($n) || (float)$n != (int)$n || (int)$n < 1)
+      jout(400, ['error' => 'count must be a whole number of 1 or more']);
+    if ((int)$n > 1000) jout(400, ['error' => 'Log at most 1,000 per row — split a bigger register into batches so the ledger stays checkable']);
+    /* standing law: a count that does not say where it came from is refused. */
+    $src = trim((string)($b['source'] ?? ''));
+    if ($src === '') jout(400, ['error' => 'Source required — record which register / export / list this count came from (counts are NEVER invented)']);
+    $e = ['id' => uid('fy'), 'lane' => $lane, 'count' => (int)$n,
+      'source' => mb_substr($src, 0, 160), 'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 200),
+      'at' => now_iso(), 'by' => (string)($adm['name'] ?? 'admin')];
+    $db['fyEntries'][] = $e;
+    if (count($db['fyEntries']) > 2000) $db['fyEntries'] = array_slice($db['fyEntries'], -1500);
+    audit_log($db, 'fy.entry.add', ['lane' => $lane, 'count' => (int)$n, 'source' => $e['source']]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'entry' => $e, 'deck' => shv_fy_view($db)]);
+  }
+
+  if ($route === 'admin/fy-targets/entry-undo' && $method === 'POST') {
+    $adm = need_admin($db);
+    $b = body_json();
+    $id = preg_replace('/[^A-Za-z0-9_\-]/', '', (string)($b['id'] ?? ''));
+    if ($id === '') jout(400, ['error' => 'id required']);
+    $found = null; $kept = [];
+    foreach ((is_array($db['fyEntries'] ?? null) ? $db['fyEntries'] : []) as $e) {
+      if (is_array($e) && (string)($e['id'] ?? '') === $id) { $found = $e; continue; }
+      if (is_array($e)) $kept[] = $e;
+    }
+    if (!$found) jout(404, ['error' => 'Entry not found — it may already have been undone']);
+    $db['fyEntries'] = $kept;
+    audit_log($db, 'fy.entry.undo', ['id' => $id, 'lane' => (string)($found['lane'] ?? ''), 'count' => (int)($found['count'] ?? 0)]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'removed' => $found, 'deck' => shv_fy_view($db)]);
   }
 
   /* ── making charges ── */
@@ -5487,7 +5822,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 182,
+      'rel'   => 183,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

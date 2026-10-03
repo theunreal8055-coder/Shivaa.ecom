@@ -25,6 +25,11 @@ const MIME = {
   '.zip': 'application/zip',
 };
 
+/* v183 — every page this dev server sends carries a ribbon: the numbers on
+   screen are preview fixtures, never live data. */
+const PREVIEW_BANNER = `<div style="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#6e1e2a;color:#f7edda;font:600 11.5px/1.4 'Jost',system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;text-align:center;padding:7px 10px;box-shadow:0 -6px 20px rgba(0,0,0,.35)">Local preview · fixture data · not the live store</div>`;
+const injectBanner = buf => Buffer.from(String(buf).replace('<body>', '<body>' + PREVIEW_BANNER));
+
 const server = http.createServer((req, res) => {
   // CORS & allow any host/origin
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -228,9 +233,127 @@ const server = http.createServer((req, res) => {
       }));
     }
 
+    /* ── v183 · FY Growth Mission deck (Admin → FY Mission) ───────────────
+       PREVIEW FIXTURE ONLY. It mirrors the *shape* of the real
+       GET /api/admin/fy-targets and derives its counts from this repo's
+       cms/data/db.json so the deck looks like it will on the live site —
+       but the authoritative implementation is cms/api.php
+       (shv_fy_view), which tools/mega/smoke/v183-php-run.js executes for
+       real under PHP 8.3. Never quote preview numbers as live numbers. */
+    if (pathname.startsWith('/api/admin/fy-targets')) {
+      const FY_START = '2026-04-01T00:00:00+05:30';
+      const FY_END = '2027-03-30T23:59:59+05:30';
+      const readBody = () => new Promise(done => { let b = ''; req.on('data', c => { b += c; }); req.on('end', () => { let j = {}; try { j = JSON.parse(b); } catch (e) {} done(j); }); });
+      const fyState = global.__fyPreview = global.__fyPreview || {
+        targets: { b2b: 700, retail: 1100 }, baselines: { b2b: 40, retail: 120 },
+        entries: [{ id: 'fy_preview1', lane: 'retail', count: 20, source: 'Counter register p.4 · Jayal showroom', note: 'Week 40 walk-ins', at: new Date(Date.now() - 2 * 86400000).toISOString(), by: 'Karan Soni' }],
+      };
+      const stamps = (rows, keys) => rows.map(r => keys.map(k => r[k]).find(v => !!v) || '').filter(Boolean);
+      const lane = (key, label, rows, keyKeys, startTs) => {
+        const fromDb = rows.length;
+        const manual = fyState.entries.filter(e => e.lane === key).reduce((a, e) => a + Number(e.count || 0), 0);
+        const achieved = fromDb + fyState.baselines[key] + manual;
+        const target = fyState.targets[key];
+        const remaining = Math.max(0, target - achieved);
+        const elapsedDays = Math.max(1, Math.floor((Date.now() - startTs) / 86400000));
+        const daysLeft = Math.max(0, Math.floor((Date.parse(FY_END) - Date.now()) / 86400000));
+        const growth = stamps(rows, keyKeys).filter(s => Date.parse(s) >= startTs).length
+          + fyState.entries.filter(e => e.lane === key).reduce((a, e) => a + Number(e.count || 0), 0);
+        const perDay = growth / elapsedDays;
+        const proj = remaining === 0 ? Date.now() : (perDay > 0 ? Date.now() + (remaining / perDay) * 86400000 : null);
+        const verdict = remaining === 0 ? 'achieved' : proj === null ? 'stalled'
+          : proj <= Date.parse(FY_END) - 14 * 86400000 ? 'ahead' : proj <= Date.parse(FY_END) ? 'onTrack' : 'behind';
+        return { key, label, target, achieved, remaining, pct: Math.round(Math.min(100, achieved / target * 1000) / 10),
+          baseline: fyState.baselines[key], fromDb, manual, pending: 0, buyers: 0, fyGrowth: growth,
+          requiredPerDay: Math.round(remaining / Math.max(1, daysLeft) * 100) / 100,
+          requiredPerWeek: Math.round(remaining / Math.max(1, daysLeft) * 7 * 10) / 10,
+          actualPerDay: Math.round(perDay * 100) / 100, actualPerWeek: Math.round(perDay * 7 * 10) / 10,
+          elapsedDays, daysLeft, projectedAt: proj ? new Date(proj).toISOString() : null,
+          slackDays: proj ? Math.floor((Date.parse(FY_END) - proj) / 86400000) : null, verdict };
+      };
+      const history = (rows, keyKeys, baseline) => {
+        const startTs = Date.parse(FY_START);
+        const months = {};
+        let cur = new Date(startTs); cur.setDate(1); cur.setHours(0, 0, 0, 0);
+        const now = new Date();
+        for (let g = 0; cur <= now && g < 24; g++) { months[cur.toISOString().slice(0, 7)] = 0; cur.setMonth(cur.getMonth() + 1); }
+        let opening = baseline;
+        for (const s of stamps(rows, keyKeys)) {
+          const t = Date.parse(s); if (!t) continue;
+          if (t < startTs) { opening++; continue; }
+          const k = new Date(t).toISOString().slice(0, 7);
+          if (k in months) months[k]++;
+        }
+        let cum = opening;
+        return { opening, months: Object.entries(months).map(([m, n]) => ({ m, new: n, cum: (cum += n) })) };
+      };
+      const build = () => {
+        const startTs = Date.parse(FY_START);
+        const partners = (db.partners || []).filter(p => p.status === 'approved');
+        const customers = (db.users || []).filter(u => u.role === 'customer');
+        const b2b = lane('b2b', 'B2B Jeweller Partners', partners, ['joined', 'appliedAt', 'createdAt'], startTs);
+        const retail = lane('retail', 'Retail Customers', customers, ['createdAt'], startTs);
+        const mission = { target: b2b.target + retail.target, achieved: b2b.achieved + retail.achieved };
+        mission.remaining = Math.max(0, mission.target - mission.achieved);
+        mission.pct = Math.round(Math.min(100, mission.achieved / mission.target * 1000) / 10);
+        return { previewFixture: true, config: { label: 'FY 2026–27 Growth Mission', fyStart: FY_START, deadline: FY_END,
+            lanes: { b2b: { label: b2b.label, target: b2b.target, baseline: b2b.baseline }, retail: { label: retail.label, target: retail.target, baseline: retail.baseline } } },
+          lanes: { b2b, retail }, mission,
+          countdown: { deadline: FY_END, deadlineTs: Date.parse(FY_END), fyStart: FY_START, fyStartTs: startTs,
+            serverNow: Date.now(), nowIso: new Date().toISOString(), ended: false,
+            daysLeft: Math.floor((Date.parse(FY_END) - Date.now()) / 86400000), totalDays: 363,
+            daysElapsed: Math.floor((Date.now() - startTs) / 86400000) },
+          history: { b2b: history(partners, ['joined', 'appliedAt', 'createdAt'], b2b.baseline), retail: history(customers, ['createdAt'], retail.baseline) },
+          entries: fyState.entries.slice().reverse(),
+          sources: { b2b: 'partners collection — rows with status=approved (preview copy of db.json)',
+            retail: 'users collection — rows with role=customer (preview copy of db.json)',
+            manual: 'owner-logged ledger rows below — each one carries the register/export it came from' },
+          limits: { maxTarget: 1000000, maxEntry: 1000 } };
+      };
+      const json = o => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+      if (req.method === 'GET') return json(build());
+      return readBody().then(b => {
+        if (pathname === '/api/admin/fy-targets/entry') {
+          if (!String(b.source || '').trim()) return json({ error: 'Source required — record which register / export / list this count came from (counts are NEVER invented)' });
+          const e = { id: 'fy_' + Math.random().toString(36).slice(2, 8), lane: b.lane === 'b2b' ? 'b2b' : 'retail',
+            count: Math.max(1, Math.min(1000, Number(b.count) || 1)), source: String(b.source).slice(0, 160),
+            note: String(b.note || '').slice(0, 200), at: new Date().toISOString(), by: 'Preview Admin' };
+          fyState.entries.push(e);
+          return json({ ok: true, entry: e, deck: build() });
+        }
+        if (pathname === '/api/admin/fy-targets/entry-undo') {
+          const i = fyState.entries.findIndex(e => e.id === b.id);
+          if (i < 0) return json({ error: 'Entry not found' });
+          const [removed] = fyState.entries.splice(i, 1);
+          return json({ ok: true, removed, deck: build() });
+        }
+        if (b.b2bTarget) fyState.targets.b2b = Math.max(1, Number(b.b2bTarget) || 700);
+        if (b.retailTarget) fyState.targets.retail = Math.max(1, Number(b.retailTarget) || 1100);
+        fyState.baselines.b2b = Math.max(0, Number(b.b2bBaseline) || 0);
+        fyState.baselines.retail = Math.max(0, Number(b.retailBaseline) || 0);
+        return json({ ok: true, deck: build() });
+      });
+    }
+
+    /* ── v183 · preview sign-in: any password opens the admin panel locally ── */
+    const PREVIEW_ADMIN = { id: 'u_admin', name: 'Karan Soni', email: 'admin@shivaa.in', phone: '+91 8905005921',
+      role: 'admin', loyaltyPoints: 0, wishlist: [], profile: [], addresses: [], createdAt: new Date().toISOString() };
+    const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (pathname === '/api/auth/login' && req.method === 'POST') {
+      let body = '';
+      req.on('data', c => { body += c; });
+      return req.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, token: 'preview-admin', user: PREVIEW_ADMIN, preview: true }));
+      });
+    }
     if (pathname === '/api/auth/me') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ user: null }));
+      return res.end(JSON.stringify({ user: bearer === 'preview-admin' ? PREVIEW_ADMIN : null }));
+    }
+    if (pathname.startsWith('/api/admin/')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: true, previewFixture: true, partners: [], users: [], requests: [], log: [], purchases: [], karigars: [], jobs: [], plans: [], carts: [], orders: [], asks: [], reviews: [], alerts: [] }));
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -255,8 +378,9 @@ const server = http.createServer((req, res) => {
         const idx = path.join(CMS, 'index.html');
         return fs.readFile(idx, (e, buf) => {
           if (e) { res.writeHead(404).end('Not found'); return; }
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(buf);
+          const out = injectBanner(buf);
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': out.length });
+          res.end(out);
         });
       }
       res.writeHead(404).end('Not found: ' + pathname);
@@ -287,6 +411,16 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    /* HTML gets the preview ribbon; everything else streams untouched */
+    if (ext === '.html') {
+      return fs.readFile(filePath, (e, buf) => {
+        if (e) { res.writeHead(404).end('Not found'); return; }
+        const out = injectBanner(buf);
+        res.writeHead(200, { 'Content-Type': contentType, 'Content-Length': out.length, 'Cache-Control': 'no-cache' });
+        res.end(out);
+      });
+    }
+
     res.writeHead(200, {
       'Content-Type': contentType,
       'Content-Length': stats.size,
@@ -300,4 +434,6 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Shivaa Jewels preview server listening on http://0.0.0.0:${PORT}`);
+  console.log('  Admin → FY Mission: #/admin?tab=fy  (any password signs you in as preview admin)');
+  console.log('  ⚠ FY deck numbers here are PREVIEW FIXTURES — the authoritative deck is cms/api.php (v183-php-run.js executes it for real).');
 });

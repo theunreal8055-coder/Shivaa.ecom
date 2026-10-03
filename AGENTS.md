@@ -41,6 +41,23 @@
   request credentials in chat. See `HOSTINGER-AUTO-DEPLOY.md`.
 - No live deployment was performed while installing these controls.
 
+## Current release (3 Oct 2026) — v183 built; live is 181
+
+- **v183 = the FY 2026–27 Growth Mission deck** (owner's brief: 700 B2B
+  partners + 1,100 retail customers before 30 March 2027, live countdown,
+  **admin portal only**). Admin → **👑 FY Mission** (`#/admin?tab=fy`); four
+  `need_admin` routes under `admin/fy-targets`; new `cms/css/v183.css` scoped
+  to `.fy-deck` and loaded non-blocking. Every figure is **derived** from real
+  records plus owner-logged ledger rows that must name their source — **never
+  invent a count, a pace or a projection** (no growth ⇒ verdict `stalled`, no
+  projection). `fyTargets`/`fyEntries` are JSON collections: no new schema.
+- Read `DEPLOY-v183.md` + the *CURRENT STATE — v183 BUILT* section of
+  `docs/AGENT-HANDOFF.md` first. **`v183.css` is now the last stylesheet** —
+  assertions that `v178.css` is last belong to superseded stamp-exact suites.
+- Known sandbox-only failure: `v179-relay.js` is 0/7 here (needs the live MCX
+  socket); it fails identically on the untouched base commit. Do not "repair"
+  relay code because of it.
+
 ## Read first
 
 1. **The *CURRENT STATE — v180 BUILT* section of `docs/AGENT-HANDOFF.md`
@@ -122,10 +139,10 @@
 **FORWARD ONLY — the owner restated this rule at the close of the v176 session;
 it is absolute.**
 
-- Preserve the latest verified source (currently **v180** — built, awaiting
-  owner deploy; live 179). New fixes are targeted forward commits; **no
+- Preserve the latest verified source (currently **v183** — built, awaiting
+  owner deploy; live 181). New fixes are targeted forward commits; **no
   release reset or revert, no old-file or old-ZIP restoration, no rewritten
-  or force-pushed history. The next release is 181 or higher — never reuse
+  or force-pushed history. The next release is 184 or higher — never reuse
   or renumber a shipped release, never deploy an older tree over a newer
   live site.** The old v125 freeze was superseded by owner-requested
   releases through v180; rejected v126 and Truecaller must remain retired.
