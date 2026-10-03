@@ -26,6 +26,287 @@ const CATS = (window.Shivaa && window.Shivaa.CATS)
     };
 const IMG_FILES = ['ring-floral.jpg','ring-kundan.jpg','ring-signet.jpg','ring-couple.jpg','necklace-rani.jpg','necklace-choker.jpg','necklace-satlada.jpg','earrings-jhumka.jpg','earrings-chandbali.jpg','earrings-studs.jpg','earrings-drops.jpg','bangle-kada.jpg','bangle-pair.jpg','bracelet-tennis.jpg','bracelet-charm.jpg','pendant-om.jpg','pendant-infinity.jpg','chain-gold.jpg','mangalsutra-trad.jpg','mangalsutra-modern.jpg','nosepin.jpg','silver-anklet.jpg','silver-chain.jpg','silver-kada.jpg'];
 
+/* ═══════════════════════════════════════════════════════════════════════
+   v183 · FY GROWTH MISSION DECK (Admin → FY Mission, admin-only)
+   Pure presentation of what GET /api/admin/fy-targets returns: the server
+   owns every number, this file only draws it and ticks the countdown.
+   ═══════════════════════════════════════════════════════════════════════ */
+const FY_R = 52;                                  // ring radius in the 118px box
+const FY_C = 2 * Math.PI * FY_R;                  // its circumference
+const fyNum = n => Number(n || 0).toLocaleString('en-IN');
+const fyP2 = n => String(Math.floor(Math.abs(Number(n) || 0))).padStart(2, '0');
+const fyDay = iso => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+};
+const fyStamp = iso => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+};
+const FY_VERDICT = {
+  achieved: ['achieved', 'Target reached'],
+  ahead: ['ahead', 'Ahead of plan'],
+  onTrack: ['onTrack', 'On track'],
+  behind: ['behind', 'Behind plan'],
+  stalled: ['stalled', 'No growth logged yet'],
+};
+
+/* one lane = one of the owner's two numbers */
+function fyLaneHTML(L) {
+  const pct = Math.min(100, Math.max(0, Number(L.pct) || 0));
+  const [vk, vt] = FY_VERDICT[L.verdict] || ['stalled', '—'];
+  const ticks = [25, 50, 75, 100].map(t => `<span class="${pct >= t ? 'hit' : ''}" style="left:${t}%">${t}%</span>`).join('');
+  const rateCls = L.verdict === 'behind' ? 'r' : (L.verdict === 'stalled' ? 'w' : 'g');
+  return `
+  <div class="fy-lane" id="fyLane-${esc(L.key)}">
+    <div class="fy-lane-top">
+      <div class="fy-ring">
+        <svg viewBox="0 0 118 118" aria-hidden="true">
+          <circle class="tr" cx="59" cy="59" r="${FY_R}"></circle>
+          <circle class="pr" cx="59" cy="59" r="${FY_R}" stroke-dasharray="${FY_C.toFixed(1)}" stroke-dashoffset="${FY_C.toFixed(1)}" data-off="${(FY_C * (1 - pct / 100)).toFixed(1)}"></circle>
+        </svg>
+        <div class="fy-ring-mid"><b>${pct.toFixed(1)}%</b><span>of target</span></div>
+      </div>
+      <div class="fy-lane-id">
+        <div class="k">${L.key === 'b2b' ? 'Lane 01 · Wholesale' : 'Lane 02 · Retail'}</div>
+        <h3>${esc(L.label)}</h3>
+        <div class="num"><b>${fyNum(L.achieved)}</b> of ${fyNum(L.target)}</div>
+        <div style="margin-top:9px"><span class="fy-v ${vk}"><i></i>${vt}</span></div>
+      </div>
+    </div>
+    <div class="fy-bar"><i data-w="${pct.toFixed(1)}" style="width:0%"></i></div>
+    <div class="fy-ticks">${ticks}</div>
+    <div class="fy-metrics">
+      <div class="fy-m"><span>Still to sign</span><b>${fyNum(L.remaining)}</b></div>
+      <div class="fy-m"><span>From the live database</span><b>${fyNum(L.fromDb)}</b></div>
+      <div class="fy-m"><span>Opening count (FY start)</span><b>${fyNum(L.baseline)}</b></div>
+      <div class="fy-m"><span>Logged by you</span><b>${fyNum(L.manual)}</b></div>
+      <div class="fy-m"><span>Needed per day</span><b>${Number(L.requiredPerDay || 0).toFixed(2)}</b></div>
+      <div class="fy-m"><span>Needed per week</span><b>${Number(L.requiredPerWeek || 0).toFixed(1)}</b></div>
+      <div class="fy-m"><span>Actual per day (this FY)</span><b class="${rateCls}">${Number(L.actualPerDay || 0).toFixed(2)}</b></div>
+      <div class="fy-m"><span>Actual per week</span><b class="${rateCls}">${Number(L.actualPerWeek || 0).toFixed(1)}</b></div>
+      ${L.key === 'b2b' && Number(L.pending) ? `<div class="fy-m"><span>KYC applications pending</span><b class="w">${fyNum(L.pending)}</b></div>` : ''}
+      ${L.key === 'retail' && Number(L.buyers) ? `<div class="fy-m"><span>…of whom placed an order</span><b>${fyNum(L.buyers)}</b></div>` : ''}
+      <div class="fy-m"><span>Projected finish at this pace</span><b class="${L.verdict === 'behind' ? 'r' : 'g'}">${L.projectedAt ? fyDay(L.projectedAt) : '—'}</b></div>
+      <div class="fy-m"><span>Buffer before 30 Mar 2027</span><b class="${Number(L.slackDays) < 0 ? 'r' : 'g'}">${L.slackDays === null || L.slackDays === undefined ? '—' : (Number(L.slackDays) >= 0 ? '+' : '') + fyNum(L.slackDays) + ' days'}</b></div>
+    </div>
+  </div>`;
+}
+
+/* cumulative growth curve — the points come straight off the API's
+   month-by-month history (real record timestamps + logged rows) */
+function fyChartSVG(deck) {
+  const W = 720, H = 170, PAD = 10;
+  const series = ['b2b', 'retail'].map(k => (deck.history && deck.history[k] && deck.history[k].months) || []);
+  const maxV = Math.max(1, ...series.flat().map(p => Number(p.cum) || 0));
+  const n = Math.max(...series.map(s => s.length), 2);
+  const x = i => PAD + (i * (W - PAD * 2)) / Math.max(1, n - 1);
+  const y = v => H - PAD - ((Number(v) || 0) / maxV) * (H - PAD * 2);
+  const path = s => s.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.cum).toFixed(1)}`).join(' ');
+  const area = s => (s.length ? `${path(s)} L${x(s.length - 1).toFixed(1)},${H - PAD} L${x(0).toFixed(1)},${H - PAD} Z` : '');
+  const b2b = series[0], ret = series[1];
+  const last = s => (s.length ? `<circle class="dot" cx="${x(s.length - 1).toFixed(1)}" cy="${y(s[s.length - 1].cum).toFixed(1)}" r="3.4"></circle>` : '');
+  return `<svg class="fy-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="fyFoil" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#9c7222"></stop><stop offset="52%" stop-color="#d4af5a"></stop><stop offset="100%" stop-color="#f6e3a8"></stop>
+      </linearGradient>
+      <linearGradient id="fyArea" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(212,175,90,.34)"></stop><stop offset="100%" stop-color="rgba(212,175,90,0)"></stop>
+      </linearGradient>
+    </defs>
+    <line class="axis" x1="${PAD}" y1="${H - PAD}" x2="${W - PAD}" y2="${H - PAD}"></line>
+    <line class="axis" x1="${PAD}" y1="${PAD}" x2="${PAD}" y2="${H - PAD}"></line>
+    <path class="ar" d="${area(b2b)}"></path>
+    <path class="ln" d="${path(b2b)}" vector-effect="non-scaling-stroke"></path>
+    <path class="ln" d="${path(ret)}" vector-effect="non-scaling-stroke" stroke-dasharray="7 6" style="stroke:#e8c98a"></path>
+    ${last(b2b)}${last(ret)}
+  </svg>`;
+}
+
+function fyDeckHTML(deck) {
+  if (!deck || deck.error || !deck.lanes) {
+    return `<div class="adm-card"><h3>FY Growth Mission</h3>
+      <p style="font-size:13.5px;color:var(--ink-3)">The mission deck could not be loaded${deck && deck.error ? ' — ' + esc(String(deck.error)) : ''}.
+      This screen is admin-only: the API answers 403 to any other session. Sign in again as admin and reopen this tab.</p></div>`;
+  }
+  const L1 = deck.lanes.b2b || {}, L2 = deck.lanes.retail || {};
+  const M = deck.mission || {}, CD = deck.countdown || {}, CFG = deck.config || {};
+  const entries = (deck.entries || []).slice().reverse();
+  /* the binding lane is whichever projection lands last */
+  const projs = [L1, L2].filter(l => l.projectedAt).map(l => new Date(l.projectedAt).getTime());
+  const worst = projs.length ? Math.max(...projs) : null;
+  const binding = worst ? [L1, L2].filter(l => l.projectedAt && new Date(l.projectedAt).getTime() === worst)[0] : null;
+  const reqDay = (Number(L1.requiredPerDay) || 0) + (Number(L2.requiredPerDay) || 0);
+  const actDay = (Number(L1.actualPerDay) || 0) + (Number(L2.actualPerDay) || 0);
+  const [bvk, bvt] = FY_VERDICT[(binding && binding.verdict) || (M.remaining ? 'stalled' : 'achieved')] || ['stalled', '—'];
+  const months = ((deck.history && deck.history.b2b && deck.history.b2b.months) || []);
+  const labels = months.filter((m, i) => months.length <= 8 || i % Math.ceil(months.length / 6) === 0 || i === months.length - 1)
+    .map(m => `<span>${esc(String(m.m).slice(5))}/${esc(String(m.m).slice(2, 4))}</span>`).join('');
+  const src = deck.sources || {};
+
+  return `
+  <div class="fy-deck" id="fyDeck">
+    <div class="fy-hero">
+      <div>
+        <span class="fy-eyebrow"><i></i>Shivaa Jewellers · Owner's command deck<i></i></span>
+        <h2 class="fy-title">${esc(CFG.label || 'FY Growth Mission')}</h2>
+        <p class="fy-sub">Two numbers, one financial year: <b>${fyNum(L1.target)} ${esc(L1.label || 'B2B jeweller partners')}</b> and
+          <b>${fyNum(L2.target)} ${esc(L2.label || 'retail customers')}</b> — signed and in the book before
+          <b>${fyDay(CD.deadline)}</b>. Nothing on this deck is invented: every figure is read from the live
+          partner / customer records or from a row you logged yourself, with its source named.</p>
+      </div>
+      <div class="fy-hero-side">
+        <div class="lab">Finish line</div>
+        <div class="val">${fyDay(CD.deadline)}</div>
+        <div class="sub">23:59 IST · <b id="fyDaysLeft">${fyNum(CD.daysLeft)}</b> days to go</div>
+        <div class="sub" style="margin-top:6px">FY opened ${fyDay(CFG.fyStart)} · ${fyNum(CD.daysElapsed)} of ${fyNum(CD.totalDays)} days gone</div>
+      </div>
+    </div>
+
+    <div class="fy-clock" id="fyClock" role="timer" aria-live="off">
+      <div class="fy-cu"><b id="fyD">—</b><span>Days</span></div>
+      <div class="fy-cu"><b id="fyH">—</b><span>Hours</span></div>
+      <div class="fy-cu"><b id="fyM">—</b><span>Minutes</span></div>
+      <div class="fy-cu" id="fySecBox"><b id="fyS">—</b><span>Seconds</span></div>
+    </div>
+    <p class="fy-clock-note" id="fyClockState">Live countdown to ${esc(fyDay(CD.deadline))} — <span class="pin">pinned to the server clock (Asia/Kolkata), not this device's clock.</span></p>
+
+    <div class="fy-lanes">
+      ${fyLaneHTML(L1)}
+      ${fyLaneHTML(L2)}
+    </div>
+
+    <div class="fy-strip">
+      <div class="fy-kpi"><div class="lab">Mission total</div>
+        <div class="val">${fyNum(M.achieved)} <em>/ ${fyNum(M.target)}</em></div>
+        <div class="note">${Number(M.pct || 0).toFixed(1)}% of both targets combined</div></div>
+      <div class="fy-kpi"><div class="lab">Required run-rate</div>
+        <div class="val">${reqDay.toFixed(2)} <em>/ day</em></div>
+        <div class="note">${(reqDay * 7).toFixed(1)} per week across both lanes</div></div>
+      <div class="fy-kpi"><div class="lab">Current run-rate</div>
+        <div class="val">${actDay.toFixed(2)} <em>/ day</em></div>
+        <div class="note">${(actDay * 7).toFixed(1)} per week, measured this FY</div></div>
+      <div class="fy-kpi"><div class="lab">Binding projection</div>
+        <div class="val">${binding && binding.projectedAt ? fyDay(binding.projectedAt) : '—'}</div>
+        <div class="note"><span class="fy-v ${bvk}"><i></i>${bvt}</span></div></div>
+    </div>
+
+    <div class="fy-card">
+      <h4>Growth curve <small>cumulative, month by month</small>
+        <span class="fy-tools"><button class="fy-btn ghost sm" onclick="ShivaaAdmin.fyReload()">↻ Refresh</button><button class="fy-btn ghost sm" onclick="window.print()">⎙ Print</button></span></h4>
+      ${months.length ? fyChartSVG(deck) : '<p class="fy-empty">No monthly history yet — the curve draws itself from real partner / customer records and your logged rows.</p>'}
+      <div class="fy-legend"><span><i></i>${esc(L1.label || 'B2B')} — opening ${fyNum((deck.history && deck.history.b2b && deck.history.b2b.opening) || 0)}</span>
+        <span><i class="dash"></i>${esc(L2.label || 'Retail')} — opening ${fyNum((deck.history && deck.history.retail && deck.history.retail.opening) || 0)}</span></div>
+      ${labels ? `<div class="fy-legend" style="justify-content:space-between;color:var(--fy-faint);letter-spacing:.14em;font-size:10px;text-transform:uppercase">${labels}</div>` : ''}
+    </div>
+
+    <div class="fy-grid2">
+      <div class="fy-card">
+        <h4>Log progress <small>offline sign-ups &amp; counter customers</small></h4>
+        <form class="fy-form" onsubmit="ShivaaAdmin.fyAddEntry(event)">
+          <div class="r">
+            <div class="fy-f"><label>Lane</label>
+              <select name="lane"><option value="b2b">${esc(L1.label || 'B2B jeweller partners')}</option><option value="retail">${esc(L2.label || 'Retail customers')}</option></select></div>
+            <div class="fy-f"><label>Count</label><input name="count" type="number" min="1" max="1000" step="1" value="1" required></div>
+            <div class="fy-f"><label>Where it came from *</label><input name="source" maxlength="160" placeholder="Counter register p.4 · billing export 03 Oct" required></div>
+          </div>
+          <div class="fy-f"><label>Note (optional)</label><input name="note" maxlength="200" placeholder="Jayal showroom walk-ins, week 40"></div>
+          <button class="fy-btn" style="justify-self:start">Log it to the mission</button>
+          <p class="fy-hint"><b>House law:</b> a count is refused unless its source is named — the same rule that
+            refuses an invented weight. Online sign-ups need no logging: they arrive by themselves from the
+            partner applications and customer accounts.</p>
+        </form>
+      </div>
+      <div class="fy-card">
+        <h4>Your ledger <small>${entries.length} row${entries.length === 1 ? '' : 's'}</small></h4>
+        <div class="fy-ledger">
+          ${entries.length ? entries.slice(0, 25).map(e => `
+            <div class="fy-row">
+              <span class="n">+${fyNum(e.count)}</span>
+              <span class="m"><b>${e.lane === 'b2b' ? esc(L1.label || 'B2B') : esc(L2.label || 'Retail')}</b> · ${esc(fyStamp(e.at))} · by ${esc(e.by || 'admin')}<br>
+                <span class="src">↳ ${esc(e.source || '—')}</span>${e.note ? `<br>${esc(e.note)}` : ''}</span>
+              <button class="fy-btn ghost sm" onclick="ShivaaAdmin.fyUndoEntry('${esc(e.id)}')">Undo</button>
+            </div>`).join('') : '<p class="fy-empty">Nothing logged yet. Use this for partners and customers you signed offline — everything on the website counts itself.</p>'}
+        </div>
+      </div>
+    </div>
+
+    <div class="fy-card">
+      <h4>Mission settings <small>owner-editable</small></h4>
+      <form class="fy-form" onsubmit="ShivaaAdmin.fySaveTargets(event)">
+        <div class="r">
+          <div class="fy-f"><label>${esc(L1.label || 'B2B')} target</label><input name="b2bTarget" type="number" min="1" max="1000000" step="1" value="${fyNum(L1.target).replace(/,/g, '')}" required></div>
+          <div class="fy-f"><label>${esc(L2.label || 'Retail')} target</label><input name="retailTarget" type="number" min="1" max="1000000" step="1" value="${fyNum(L2.target).replace(/,/g, '')}" required></div>
+          <div class="fy-f"><label>Finish line</label><input name="deadline" type="date" value="${esc(String(CD.deadline || '').slice(0, 10))}" required></div>
+          <div class="fy-f"><label>Financial year opened</label><input name="fyStart" type="date" value="${esc(String(CFG.fyStart || '').slice(0, 10))}" required></div>
+        </div>
+        <div class="r">
+          <div class="fy-f"><label>${esc(L1.label || 'B2B')} opening count</label><input name="b2bBaseline" type="number" min="0" max="1000000" step="1" value="${Number(L1.baseline) || 0}"></div>
+          <div class="fy-f"><label>${esc(L2.label || 'Retail')} opening count</label><input name="retailBaseline" type="number" min="0" max="1000000" step="1" value="${Number(L2.baseline) || 0}"></div>
+          <div class="fy-f"><label>Mission title</label><input name="label" maxlength="80" value="${esc(CFG.label || '')}"></div>
+        </div>
+        <button class="fy-btn" style="justify-self:start">Save mission</button>
+        <p class="fy-hint">The <b>opening count</b> is what already stood on the day this financial year opened —
+          set it once and the curve, the run-rate and the projection all measure the year honestly.</p>
+      </form>
+    </div>
+
+    <div class="fy-foot">
+      <b>Where the numbers come from</b><br>
+      ${esc(L1.label || 'B2B')}: ${esc(src.b2b || '')}<br>
+      ${esc(L2.label || 'Retail')}: ${esc(src.retail || '')}<br>
+      Logged rows: ${esc(src.manual || '')}<br>
+      <span style="opacity:.85">Admin-only screen · release 183 · every change is written to the audit trail.</span>
+    </div>
+  </div>`;
+}
+
+/* countdown + entrance animation. The ticker is pinned to the server clock
+   (the API sends its own epoch-ms), so a wrong device clock cannot lie about
+   the finish line; it also stops itself the moment the deck leaves the DOM. */
+function fyDeckStart(deck) {
+  if (!deck || deck.error || !deck.countdown) return;
+  const endMs = Number(deck.countdown.deadlineTs) || 0;
+  const offset = (Number(deck.countdown.serverNow) || Date.now()) - Date.now();
+  if (window._fyTick) { clearInterval(window._fyTick); window._fyTick = null; }
+  const paint = () => {
+    const box = document.getElementById('fyClock');
+    if (!box) { if (window._fyTick) clearInterval(window._fyTick); window._fyTick = null; return; }
+    let ms = endMs - (Date.now() + offset);
+    const ended = ms <= 0;
+    if (ended) ms = 0;
+    const s = Math.floor(ms / 1000);
+    const set = (id, v) => { const el = document.getElementById(id); if (el && el.textContent !== v) el.textContent = v; };
+    set('fyD', fyNum(Math.floor(s / 86400)));
+    set('fyH', fyP2(Math.floor((s % 86400) / 3600)));
+    set('fyM', fyP2(Math.floor((s % 3600) / 60)));
+    set('fyS', fyP2(s % 60));
+    const dl = document.getElementById('fyDaysLeft');
+    if (dl) dl.textContent = fyNum(Math.floor(s / 86400));
+    const st = document.getElementById('fyClockState');
+    if (st) st.textContent = ended
+      ? 'The finish line has passed — this window is closed. Set a new one under Mission settings.'
+      : 'Live countdown to ' + fyDay(deck.countdown.deadline) + ' — pinned to the server clock (Asia/Kolkata), not this device\'s clock.';
+    const sec = document.getElementById('fySecBox');
+    if (sec && !ended) { sec.classList.remove('tick'); void sec.offsetWidth; sec.classList.add('tick'); }
+  };
+  paint();
+  window._fyTick = setInterval(paint, 1000);
+  /* rings and rails sweep in from zero on the next frame */
+  const go = () => {
+    const root = document.getElementById('fyDeck');
+    if (!root) return;
+    root.querySelectorAll('.fy-bar i[data-w]').forEach(el => { el.style.width = (Number(el.dataset.w) || 0) + '%'; });
+    root.querySelectorAll('.fy-ring .pr[data-off]').forEach(el => { el.setAttribute('stroke-dashoffset', el.dataset.off); });
+  };
+  if (window.requestAnimationFrame) requestAnimationFrame(() => requestAnimationFrame(go)); else go();
+}
+
 /* ════════════════ ADMIN ════════════════ */
 async function renderAdmin(view, q) {
   const tab = q.get('tab') || 'overview';
@@ -43,6 +324,10 @@ async function renderAdmin(view, q) {
   }
   let stats = {};
   if (tab === 'overview') { try { stats = await api('/api/admin/stats'); } catch (e) {} }
+  /* v183 — the FY Growth Mission deck (admin-only; the API answers 403 to
+     anyone else, and no shopper route ever renders it). */
+  let fyDeck = null;
+  if (tab === 'fy') { try { fyDeck = await api('/api/admin/fy-targets'); } catch (e) { fyDeck = { error: e.message }; } }
   let partnersData = { partners: [] };
   if (tab === 'partners') { try { partnersData = await api('/api/partners'); } catch (e) {} }
   let orders = [];
@@ -92,12 +377,12 @@ async function renderAdmin(view, q) {
     <aside class="adm-side">
       <div class="adm-logo"><img src="/images/logo.png" alt=""><div><b style="font-family:var(--ff-disp);font-size:17px">Shivaa</b><br><small style="font-size:10px;letter-spacing:.2em;opacity:.7">CONTROL ROOM</small></div></div>
       <nav class="adm-nav">
-        ${[['overview','◈','Overview'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['intake','📦','Catalogue Intake'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'intake' && intakePending ? ` <span class="cnt">${intakePending}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
+        ${[['overview','◈','Overview'],['fy','👑','FY Mission'],['reports','📊','Reports'],['finale','🎯','Gold Finale'],['products','✦','Products'],['intake','📦','Catalogue Intake'],['orders','▦','Orders'],['refunds','↩','Refunds'],['nidhi','🪙','Swarna Nidhi'],['bullion','🥇','Bullion Rates'],['weights','⚖','Ring Weights'],['rates','↻','Live Rates'],['catalogs','❒','Catalogues'],['partners','◈','B2B Partners'],['customers','♡','Customers'],['leads','✉','Leads'],['coupons','%','Coupons'],['pages','📄','Pages'],['khata','📒','Khata'],['gold','🪙','Old Gold'],['karigar','🔨','Karigar'],['cash','💵','Cash Book'],['settings','⚙','Settings']].map(n => `<a href="#/admin?tab=${n[0]}" class="${tab === n[0] ? 'on' : ''}">${n[1]} ${n[2]}${n[0] === 'finale' && finaleEntries.length ? ` <span class="cnt">${finaleEntries.length}</span>` : ''}${n[0] === 'partners' && pendingPartners ? ` <span class="cnt">${pendingPartners}</span>` : ''}${n[0] === 'leads' && newLeads ? ` <span class="cnt">${newLeads}</span>` : ''}${n[0] === 'intake' && intakePending ? ` <span class="cnt">${intakePending}</span>` : ''}${n[0] === 'refunds' && refundsData.requests.filter(r => r.status === 'requested').length ? ` <span class="cnt">${refundsData.requests.filter(r => r.status === 'requested').length}</span>` : ''}</a>`).join('')}
         <a href="#/" style="margin-top:14px">← Back to store</a>
       </nav>
     </aside>
     <main class="adm-main">
-      <div class="adm-head"><h2>${({overview:'Overview',finale:'Gold Finale Entries',products:'Products',intake:'Catalogue Intake & Review Queue',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
+      <div class="adm-head"><h2>${({overview:'Overview',fy:'FY 2026–27 Growth Mission — 700 partners · 1,100 customers',finale:'Gold Finale Entries',products:'Products',intake:'Catalogue Intake & Review Queue',orders:'Orders',bullion:'Bullion Rates',weights:'Ring Weights',rates:'Live Rates',mc:'Making Charges',catalogs:'Catalogues',partners:'B2B Partners',customers:'Customers',leads:'Leads',coupons:'Coupons',pages:'Pages',khata:'Khata — partner ledger',gold:'Old Gold Purchase Register',karigar:'Karigar Job-Work Book',cash:'Daily Cash Book & Day Close',reports:'Reports · GST · CA pack',refunds:'Refunds & Exchanges',nidhi:'Swarna Nidhi Plans',settings:'Settings'})[tab] || esc(String(tab).slice(0, 40))}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="src-badge ${(state.rates?.source === 'live' || state.rates?.source === 'live-mcx') ? 'src-live' : 'src-sim'}"><span class="live-dot"></span>${state.rates?.source === 'live-mcx' ? 'official MCX' : esc(state.rates?.source || '')} · Gold 22K ${fmt(state.rates?.gold22 || 0)}/g</span></div></div>
       <div id="admBody"></div>
     </main>
@@ -161,6 +446,17 @@ async function renderAdmin(view, q) {
           : '<p class="partner-note">No password or reset activity yet.</p>';
       } catch (e) { box.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
     })();
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     v183 · FY 2026–27 GROWTH MISSION — admin portal only.
+     700 B2B jeweller partners + 1,100 retail customers, both in place before
+     30 March 2027, with a countdown that ticks against the SERVER clock and
+     every figure derived from real records or the owner's own logged rows.
+     ══════════════════════════════════════════════════════════════════════ */
+  if (tab === 'fy') {
+    body.innerHTML = fyDeckHTML(fyDeck);
+    fyDeckStart(fyDeck);
   }
 
   if (tab === 'products') {
@@ -1156,6 +1452,55 @@ function v180DbStrip() {
   }
 }
 window.ShivaaAdmin = {};
+
+/* ── v183 · FY Growth Mission deck actions (Admin → FY Mission) ──
+   Every call is admin-only on the server and lands in the audit trail. */
+window.ShivaaAdmin.fyReload = () => {
+  const v = document.getElementById('view');
+  if (v) renderAdmin(v, new URLSearchParams('tab=fy'));
+};
+window.ShivaaAdmin.fyAddEntry = async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const payload = {
+    lane: f.lane.value,
+    count: Number(f.count.value || 0),
+    source: String(f.source.value || '').trim(),
+    note: String(f.note.value || '').trim(),
+  };
+  if (!payload.source) { toast('Name the register / export this count came from — counts are never invented', 'err'); return; }
+  try {
+    await api('/api/admin/fy-targets/entry', { method: 'POST', body: JSON.stringify(payload) });
+    toast('Logged to the mission ✦', 'ok');
+    ShivaaAdmin.fyReload();
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.fyUndoEntry = async (id) => {
+  if (!confirm('Undo this logged row? The mission figures drop back by its count.')) return;
+  try {
+    await api('/api/admin/fy-targets/entry-undo', { method: 'POST', body: JSON.stringify({ id }) });
+    toast('Row undone', 'ok');
+    ShivaaAdmin.fyReload();
+  } catch (err) { toast(err.message, 'err'); }
+};
+window.ShivaaAdmin.fySaveTargets = async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const payload = {
+    b2bTarget: Number(f.b2bTarget.value || 0),
+    retailTarget: Number(f.retailTarget.value || 0),
+    b2bBaseline: Number(f.b2bBaseline.value || 0),
+    retailBaseline: Number(f.retailBaseline.value || 0),
+    deadline: f.deadline.value,
+    fyStart: f.fyStart.value,
+    label: String(f.label.value || '').trim(),
+  };
+  try {
+    await api('/api/admin/fy-targets', { method: 'POST', body: JSON.stringify(payload) });
+    toast('Mission saved ✦', 'ok');
+    ShivaaAdmin.fyReload();
+  } catch (err) { toast(err.message, 'err'); }
+};
 
 /* ── v107 · SMS gateway configuration wizard (Settings → Code delivery) ──
    Writes data/sms-config.json through the API (admin-only, keys never

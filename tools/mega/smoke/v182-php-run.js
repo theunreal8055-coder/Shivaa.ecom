@@ -41,14 +41,16 @@ $_GET=array_merge(['__route'=>'${route}'], json_decode(base64_decode('${b64(quer
 include '/qa/api.php';`);
   };
 
-  await test('P01', 'v182 release stamp and version telemetry: rel=182, matched=true', async () => {
+  await test('P01', 'v182+ release stamp and version telemetry: rel>=182 floor, matched=true', async () => {
     const v = await F.req('GET', 'version');
     assert.equal(v.status, 200);
-    assert.equal(v.json.rel, 182);
+    /* forward-only: this suite guards the v182 machinery, not the stamp, so a
+       newer release keeps it green the same way v181-php-run P01 does. */
+    assert.ok(v.json.rel >= 182, 'rel floor 182');
     assert.equal(v.json.stamp.matched, true);
-    assert.equal(v.json.stamp.index, 182);
-    assert.equal(v.json.stamp.app, 182);
-    assert.equal(v.json.stamp.sw, 182);
+    assert.equal(v.json.stamp.index, v.json.rel);
+    assert.equal(v.json.stamp.app, v.json.rel);
+    assert.equal(v.json.stamp.sw, v.json.rel);
     assert.equal(v.json.db.driver, 'json');
     assert.equal(v.json.db.mode, 'json');
     assert.equal(v.json.db.mirrorBehind, false);
