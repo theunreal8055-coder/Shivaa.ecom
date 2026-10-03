@@ -17,10 +17,14 @@ What ships (6 files, root layout):
                    curve, ledger, mission settings
 5 · sw.js          SHELL/REL 183, 52× ?v=183, MEDIA stays shivaa-media-v168
 6 · css/v183.css   the deck's design system (scoped to .fy-deck only)
-
-No schema change: fyTargets/fyEntries are JSON collections in v183 (like
-khata / cashbook / savingsPlans), so there is no upgrade-sql.php in this ZIP
-and the install is extract-only.
+7 · upgrade-sql.php  carried forward UNCHANGED from v182 — the FY deck itself
+                   adds no schema (fyTargets/fyEntries are JSON collections,
+                   like khata / cashbook / savingsPlans), but this tree still
+                   contains the v182 catalogue machinery, so a live site that
+                   is still on 181 needs this one idempotent run to add
+                   products.status / products.batch_id / catalog_batches.
+                   data_json. If live already ran it with v182, running it
+                   again changes nothing.
 
 Usage: python3 tools/mega/make-v183-zip.py [commit-ish]
 """
@@ -39,6 +43,7 @@ FILES = [
     'js/admin.js',
     'sw.js',
     'css/v183.css',
+    'upgrade-sql.php',
 ]
 
 def git(*args):
@@ -112,6 +117,11 @@ def build(revision='HEAD'):
     ]:
         assert needle in adm, f'js/admin.js missing {needle.decode()}'
     assert adm.index(b"state.user.role !== 'admin'") < adm.index(b"['fy','"), 'tab behind the admin gate'
+
+    # ── the v182 reconciler travels with this tree (unchanged) ──
+    inst = contents['upgrade-sql.php']
+    for needle in [b'shv_ensure_schema', b'shv_upsert_catalog_batches', b'shv_settlement_id', b'batch_id']:
+        assert needle in inst, f'upgrade-sql.php missing {needle.decode()}'
 
     # ── css/v183.css: nothing outside the .fy- namespace ──
     css = re.sub(rb'/\*[\s\S]*?\*/', b'', contents['css/v183.css'])
