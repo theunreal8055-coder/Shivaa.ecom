@@ -38,14 +38,17 @@
  when MCX is down the site prices from spot × that premium (honest
  'mcx-est' label) instead of raw spot; last-good MCX persists; /api/rates
  carries a `health` object; relay pull health lands in a throttled side
- file. */
+ file.
+ v183: Bridal and Mayra appointment flow, consent-aware lead capture,
+ campaign/referral attribution and staff follow-up fields. The MEDIA
+ generation deliberately remains v168 because no media assets changed. */
 'use strict';
-const SHELL = 'shivaa-shell-v182';
+const SHELL = 'shivaa-shell-v183';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 182;
+const REL = 183;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -65,18 +68,18 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks befor
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = ['/', '/index.html',
-  '/css/fonts.css?v=182', '/css/styles.css?v=182', '/css/hallmark.css?v=182',
-  '/css/trust.css?v=182', '/css/finale.css?v=182', '/css/motion.css?v=182',
-  '/css/mobile.css?v=182', '/css/aurum.css?v=182', '/css/v107.css?v=182',
-  '/css/boost.css?v=182', '/css/v113.css?v=182', '/css/v115.css?v=182',
-  '/css/v116.css?v=182', '/css/v117.css?v=182', '/css/v118.css?v=182', '/css/v119.css?v=182', '/css/v120.css?v=182', '/css/v121.css?v=182', '/css/v122.css?v=182', '/css/v125.css?v=182', '/css/v139.css?v=182', '/css/v140.css?v=182', '/css/v167.css?v=182', '/css/v174.css?v=182', '/css/v175.css?v=182',
-  '/css/v178.css?v=182',
-  '/js/otp-autofill.js?v=182', '/js/app.js?v=182', '/js/hallmark.js?v=182',
-  '/js/trust.js?v=182', '/js/auth.js?v=182', '/js/motion.js?v=182',
-  '/js/aurum.js?v=182', '/js/v107.js?v=182', '/js/boost.js?v=182',
-  '/js/v116.js?v=182', '/js/v117.js?v=182', '/js/v118.js?v=182', '/js/v119.js?v=182', '/js/v120.js?v=182', '/js/v122.js?v=182', '/js/v125.js?v=182', '/js/v127.js?v=182', '/js/v139.js?v=182', '/js/v140.js?v=182', '/js/v166.js?v=182', '/js/v167.js?v=182',
-  '/js/v178.js?v=182',
-  '/fonts/jost.woff2?v=182', '/fonts/cormorant-garamond.woff2?v=182', '/fonts/marcellus-400.woff2?v=182',
+  '/css/fonts.css?v=183', '/css/styles.css?v=183', '/css/hallmark.css?v=183',
+  '/css/trust.css?v=183', '/css/finale.css?v=183', '/css/motion.css?v=183',
+  '/css/mobile.css?v=183', '/css/aurum.css?v=183', '/css/v107.css?v=183',
+  '/css/boost.css?v=183', '/css/v113.css?v=183', '/css/v115.css?v=183',
+  '/css/v116.css?v=183', '/css/v117.css?v=183', '/css/v118.css?v=183', '/css/v119.css?v=183', '/css/v120.css?v=183', '/css/v121.css?v=183', '/css/v122.css?v=183', '/css/v125.css?v=183', '/css/v139.css?v=183', '/css/v140.css?v=183', '/css/v167.css?v=183', '/css/v174.css?v=183', '/css/v175.css?v=183',
+  '/css/v178.css?v=183', '/css/v183.css?v=183',
+  '/js/otp-autofill.js?v=183', '/js/app.js?v=183', '/js/hallmark.js?v=183',
+  '/js/trust.js?v=183', '/js/auth.js?v=183', '/js/motion.js?v=183',
+  '/js/aurum.js?v=183', '/js/v107.js?v=183', '/js/boost.js?v=183',
+  '/js/v116.js?v=183', '/js/v117.js?v=183', '/js/v118.js?v=183', '/js/v119.js?v=183', '/js/v120.js?v=183', '/js/v122.js?v=183', '/js/v125.js?v=183', '/js/v127.js?v=183', '/js/v139.js?v=183', '/js/v140.js?v=183', '/js/v166.js?v=183', '/js/v167.js?v=183',
+  '/js/v178.js?v=183', '/js/v183.js?v=183',
+  '/fonts/jost.woff2?v=183', '/fonts/cormorant-garamond.woff2?v=183', '/fonts/marcellus-400.woff2?v=183',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];

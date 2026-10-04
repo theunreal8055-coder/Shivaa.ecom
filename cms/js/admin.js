@@ -728,6 +728,8 @@ function v180DbStrip() {
   /* ── LEADS ── */
   if (tab === 'leads') {
     const R = leads.requests || [];
+    const bridalRequests = R.filter(r => ['bridal', 'mayra'].includes(String(r.type || '').toLowerCase()));
+    const otherRequests = R.filter(r => !['bridal', 'mayra'].includes(String(r.type || '').toLowerCase()));
     const reachedAlerts = rateAlerts.filter(a => a.reached);
     const alertsCard = `<div class="adm-card"><h3>🔔 Rate-drop alerts (${rateAlerts.length})${reachedAlerts.length ? ` · <span style="color:var(--ok)">${reachedAlerts.length} ready to ping now</span>` : ''}</h3>
       ${rateAlerts.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Metal</th><th class="num">Target ₹/g</th><th class="num">Now</th><th>Contact</th><th>Watching</th><th></th></tr></thead>
@@ -737,20 +739,48 @@ function v180DbStrip() {
         <td>${esc(contact)}</td><td>${a.productId ? '<a href="#/product/' + esc(a.productId) + '">a saved piece</a>' : 'the rate'}</td>
         <td>${a.phone ? `<a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="https://wa.me/91${esc(a.phone)}?text=${encodeURIComponent('Namaste ✦ your Shivaa rate alert: ' + a.metal + ' is at ₹' + Math.round(a.currentRate) + '/g, near your target of ₹' + Math.round(a.target) + '/g — reply to hold the rate or order.')}">Ping</a>` : ''}</td></tr>`;
       }).join('')}</tbody></table></div>` : '<p class="partner-note">No alerts yet — customers set these from wishlists & product pages.</p>'}</div>`;
-    body.innerHTML = alertsCard + `<div class="adm-card"><h3>Service &amp; care requests (${R.length})</h3>
-      ${R.length ? `<div class="adm-table-wrap"><table class="adm-table">
+    const interestNames = { 'aad':'Aad', 'timaniya':'Timaniya', 'rani-haar':'Rani Haar', 'bangles-kada':'Bangdi / Kada', 'borla':'Borla', 'nath':'Nath', 'hathphool':'Hathphool', 'mangalsutra':'Mangalsutra', 'payal':'Payal', 'gold-jewellery':'Gold jewellery', 'silver-articles':'Silver articles', 'gift-combinations':'Gift combinations', 'presentation':'Presentation ideas', 'not-sure':'Not sure yet' };
+    const sourceNames = { market:'Market card', billboard:'Billboard', partner:'Partner', 'customer-referral':'Customer referral', instagram:'Instagram', whatsapp:'WhatsApp', event:'Local event', store:'Store', website:'Website', other:'Other' };
+    const timeNames = { 'late-morning':'Late morning', afternoon:'Afternoon', 'early-evening':'Early evening', flexible:'Flexible' };
+    const stageNames = { new:'Needs response', contacted:'Contacted', 'appointment-confirmed':'Visit confirmed', visited:'Visited', shortlisted:'Shortlisted', quoted:'Estimate shared', won:'Order won', closed:'Closed', cancelled:'Cancelled' };
+    const sourceCounts = {};
+    bridalRequests.forEach(r => { const k = String(r.source || 'website'); sourceCounts[k] = (sourceCounts[k] || 0) + 1; });
+    const pendingVisits = bridalRequests.filter(r => !r.status || r.status === 'new').length;
+    const bridalCard = `<div class="adm-card shv-admin-bridal"><div class="shv-admin-bridal-head"><div><span class="label">Appointment pipeline</span><h3>💍 Bridal &amp; Mayra visit requests (${bridalRequests.length})</h3><p class="partner-note">Preferred date/time is a request only. Confirm availability with the family before marking the visit confirmed.</p></div>
+        <div class="shv-admin-bridal-kpi"><b>${pendingVisits}</b><small>need first response</small></div></div>
+      ${Object.keys(sourceCounts).length ? `<div class="shv-source-chips">${Object.entries(sourceCounts).map(([k,n]) => `<span>${esc(sourceNames[k] || k)} <b>${n}</b></span>`).join('')}</div>` : ''}
+      ${bridalRequests.length ? `<div class="adm-table-wrap"><table class="adm-table shv-bridal-table"><thead><tr><th>Family</th><th>Occasion &amp; interests</th><th>Preferred visit</th><th>Source / code</th><th>Consent</th><th>Stage</th><th></th></tr></thead><tbody>
+        ${bridalRequests.map(r => {
+          const stage = stageNames[r.status] ? r.status : 'new';
+          const marketingLabel = r.marketingConsent ? 'opted in' : (r.marketingOptOutAt ? 'opted out' : 'not opted in');
+          const visitDate = r.preferredDate ? new Date(r.preferredDate + 'T12:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : 'Date not selected';
+          const picks = (Array.isArray(r.interests) ? r.interests : []).map(k => interestNames[k] || k).join(' · ') || 'Not specified';
+          const phone = String(r.phone || '').replace(/\D/g, '').slice(-10);
+          const msg = encodeURIComponent(`Namaste ${(r.name || '').split(' ')[0]} ji, Shivaa Jewels mein aapki ${r.type === 'mayra' ? 'Mayra' : 'Bridal'} visit request ${r.id} ke baare mein. Aapke pasandida samay ko confirm karne ke liye hum sampark kar rahe hain.`);
+          return `<tr><td><b>${esc(r.name || '—')}</b><br><a href="tel:+91${esc(phone)}">${esc(phone)}</a>${r.village ? `<br><small>${esc(r.village)}</small>` : ''}${r.partySize ? `<br><small>${Number(r.partySize)} expected attendee${Number(r.partySize) === 1 ? '' : 's'}</small>` : ''}</td>
+            <td><span class="pill pm">${r.type === 'mayra' ? 'Mayra / Bhaat' : 'Bridal'}</span><br><small>${esc(picks)}</small>${r.eventTimeline ? `<br><small>Event: ${esc(r.eventTimeline.replace(/-/g,' '))}</small>` : ''}${r.travelHelp ? '<br><small>Asked for travel information</small>' : ''}</td>
+            <td>${esc(visitDate)}<br><small>${esc(timeNames[r.timePreference] || 'Flexible')}</small><br><small>Received ${r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-IN') : '—'}</small></td>
+            <td>${esc(sourceNames[r.source] || r.source || 'Website')}${r.campaign ? `<br><small>Campaign: ${esc(r.campaign)}</small>` : ''}${r.referralCode ? `<br><small>Code: ${esc(r.referralCode)}</small>` : ''}</td>
+            <td><small>Appointment contact ✓<br>Marketing: ${marketingLabel}${r.marketingOptOutAt ? `<br>Opt-out recorded ${new Date(r.marketingOptOutAt).toLocaleDateString('en-IN')}` : ''}</small>${r.marketingConsent ? `<br><button type="button" class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.srMarketing(${jsArg(r.id)})">Record opt-out</button>` : ''}</td>
+            <td><select aria-label="Update visit stage for ${esc(r.name || 'family')}" onchange="ShivaaAdmin.srStatus(${jsArg(r.id)}, this.value)" style="border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px">${Object.entries(stageNames).map(([v,l]) => `<option value="${v}" ${stage === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+            <td><a class="btn btn-outline btn-sm" target="_blank" rel="noopener" href="https://wa.me/91${esc(phone)}?text=${msg}">WhatsApp</a></td></tr>`;
+        }).join('')}
+      </tbody></table></div>` : '<p class="partner-note">No bridal or Mayra visit requests yet. Website requests will appear here with their source and invitation code.</p>'}
+      <p class="shv-admin-bridal-foot">Appointment follow-up uses the separate request consent. Send optional design/rate marketing only to families who explicitly opted in.</p></div>`;
+    body.innerHTML = alertsCard + bridalCard + `<div class="adm-card"><h3>Other service &amp; care requests (${otherRequests.length})</h3>
+      ${otherRequests.length ? `<div class="adm-table-wrap"><table class="adm-table">
         <thead><tr><th>Type</th><th>Name</th><th>Phone</th><th>Email</th><th>Details</th><th>Budget</th><th>When</th><th>Status</th><th></th></tr></thead>
-        <tbody>${R.map(r => {
+        <tbody>${otherRequests.map(r => {
           const isCare = String(r.type || '').startsWith('care-');
           const statuses = isCare ? ['new', 'Confirmed', 'Picked up', 'At karigar', 'Ready', 'Delivered', 'closed'] : ['new', 'contacted', 'quoted', 'won', 'closed'];
           const stNow = isCare && r.status === 'new' ? 'new' : r.status;
           return `<tr${isCare ? ' style="background:#fffdf5"' : ''}>
           <td><span class="pill pm">${esc(r.type)}</span>${r.orderId ? '<br><small>order ' + esc(r.orderId) + '</small>' : ''}</td><td><b>${esc(r.name)}</b></td><td>${esc(r.phone)}</td><td>${esc(r.email || '—')}</td>
           <td style="max-width:280px"><small>${esc(r.details || '')}</small></td><td>${esc(r.budget || '—')}</td>
-          <td>${new Date(r.createdAt).toLocaleDateString('en-IN')}</td>
-          <td><select onchange="ShivaaAdmin.srStatus('${r.id}', this.value)" style="border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px">${statuses.map(s => `<option ${stNow === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+          <td>${r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+          <td><select onchange="ShivaaAdmin.srStatus(${jsArg(r.id)}, this.value)" style="border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px">${statuses.map(s => `<option ${stNow === s ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
           <td><button class="icon-e" title="WhatsApp update" onclick="window.open('https://wa.me/91'+String(${jsArg(r.phone)}).replace(/\\D/g,'').slice(-10)+'?text='+encodeURIComponent('Namaste '+${jsArg((r.name || '').split(' ')[0])}+' ✦ update on your Shivaa care token ${r.id}: status is now '+this.closest('tr').querySelector('select').value+'. Thank you — Shivaa Jewellers.'),'_blank')">📱</button></td>
-        </tr>`; }).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3)">No service requests yet — they land here from Bespoke &amp; Care, B2B forms and contact page.</p>'}
+        </tr>`; }).join('')}</tbody></table></div>` : '<p style="color:var(--ink-3)">No other service requests yet — they land here from Bespoke &amp; Care, B2B forms and contact page.</p>'}
     </div>`;
   }
 
@@ -2279,6 +2309,14 @@ window.ShivaaAdmin.srStatus = async (id, status) => {
   try { await api('/api/services/' + id + '/status', { method: 'PUT', body: JSON.stringify({ status }) });
     toast('Token ' + id + ' → ' + status); renderAdmin($('#view'), new URLSearchParams('tab=leads')); }
   catch (e) { toast(e.message, 'err'); }
+};
+window.ShivaaAdmin.srMarketing = async id => {
+  if (!window.confirm('Record this customer’s request to stop optional marketing updates?')) return;
+  try {
+    await api('/api/services/' + id + '/marketing', { method: 'PUT', body: JSON.stringify({ consent: false }) });
+    toast('Marketing opt-out recorded — appointment follow-up remains allowed');
+    renderAdmin($('#view'), new URLSearchParams('tab=leads'));
+  } catch (e) { toast(e.message, 'err'); }
 };
 /* ── v59 · cash book ── */
 window.ShivaaAdmin.cbAdd = async (e, date) => {

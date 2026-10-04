@@ -5487,7 +5487,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 182,
+      'rel'   => 183,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -6786,6 +6786,8 @@ try {
   if ($route === 'services' && $method === 'POST') {
     rate_block($db, 'service-ip', client_ip(), 30, 3600);
     $b = body_json();
+    // v183 — quiet honeypot exit for the public bridal appointment form.
+    if (!empty($b['website'])) jout(200, ['ok' => true, 'request' => ['id' => 'received']]);
     if (empty($b['name']) || empty($b['phone'])) jout(400, ['error' => 'Name & phone required']);
     if (!is_string($b['name'] ?? null) || mb_strlen(trim((string)$b['name'])) > 80) jout(400, ['error' => 'Name too long']);
     $phoneRaw = preg_replace('/\D/', '', (string)$b['phone']);
@@ -6797,12 +6799,66 @@ try {
     if ($su) rate_block($db, 'service-u', $su['id'] ?? '?', 30, 3600);
     $sEmail = trim((string)($b['email'] ?? ''));
     if ($sEmail !== '' && !filter_var($sEmail, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email address']);
-    $rec = ['id' => uid('sr'), 'type' => mb_substr(trim((string)($b['type'] ?? '')), 0, 40), 'name' => mb_substr(trim((string)$b['name']), 0, 80), 'phone' => $phone,
+    $type = mb_substr(trim((string)($b['type'] ?? '')), 0, 40);
+    $isBridalVisit = in_array($type, ['bridal', 'mayra'], true);
+    $rec = ['id' => uid('sr'), 'type' => $type, 'name' => mb_substr(trim((string)$b['name']), 0, 80), 'phone' => $phone,
             'userId' => $su['id'] ?? '', 'orderId' => substr((string)($b['orderId'] ?? ''), 0, 24),
             'email' => mb_substr($sEmail, 0, 120), 'details' => mb_substr(trim((string)($b['details'] ?? '')), 0, 1000), 'budget' => mb_substr(trim((string)($b['budget'] ?? '')), 0, 30),
             'status' => 'new', 'history' => [['s' => 'Booked', 't' => now_iso()]], 'createdAt' => now_iso()];
+    if ($isBridalVisit) {
+      // Appointment contact and privacy acknowledgement are required; marketing is separate and optional.
+      if (($b['contactConsent'] ?? false) !== true || ($b['privacyConsent'] ?? false) !== true)
+        jout(400, ['error' => 'Appointment contact and privacy consent are required to send this request.']);
+      $preferredDate = trim((string)($b['preferredDate'] ?? ''));
+      if ($preferredDate !== '') {
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $preferredDate, $dm)
+            || !checkdate((int)$dm[2], (int)$dm[3], (int)$dm[1]))
+          jout(400, ['error' => 'Choose a valid preferred visit date.']);
+        if ($preferredDate < date('Y-m-d')) jout(400, ['error' => 'Preferred visit date must be today or later.']);
+      }
+      $timePreference = (string)($b['timePreference'] ?? 'flexible');
+      if (!in_array($timePreference, ['late-morning', 'afternoon', 'early-evening', 'flexible'], true)) $timePreference = 'flexible';
+      $timeline = (string)($b['eventTimeline'] ?? 'prefer-in-person');
+      if (!in_array($timeline, ['under-3-months', '3-6-months', '6-plus-months', 'prefer-in-person'], true)) $timeline = 'prefer-in-person';
+      $source = strtolower(trim((string)($b['source'] ?? 'website')));
+      if (!in_array($source, ['market', 'billboard', 'partner', 'customer-referral', 'instagram', 'whatsapp', 'event', 'store', 'website', 'other'], true)) $source = 'website';
+      $campaign = preg_replace('/[^A-Za-z0-9_. -]/', '', (string)($b['campaign'] ?? ''));
+      $referralCode = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($b['referralCode'] ?? ''));
+      $allowedInterests = $type === 'bridal'
+        ? ['aad', 'timaniya', 'rani-haar', 'bangles-kada', 'borla', 'nath', 'hathphool', 'mangalsutra', 'payal', 'not-sure']
+        : ['gold-jewellery', 'silver-articles', 'gift-combinations', 'presentation', 'not-sure'];
+      $interests = [];
+      foreach (array_slice(is_array($b['interests'] ?? null) ? $b['interests'] : [], 0, 12) as $interest)
+        if (is_scalar($interest) && in_array((string)$interest, $allowedInterests, true) && !in_array((string)$interest, $interests, true)) $interests[] = (string)$interest;
+      if (!$interests) $interests = ['not-sure'];
+      $partySize = clampn((int)($b['partySize'] ?? 1), 1, 8);
+      $village = mb_substr(trim((string)($b['village'] ?? '')), 0, 80);
+      $travelHelp = ($b['travelHelp'] ?? false) === true;
+      $marketingConsent = ($b['marketingConsent'] ?? false) === true;
+      $rec['details'] = 'Interests: ' . implode(', ', $interests);
+      $rec['history'] = [['s' => 'new', 't' => now_iso()]];
+      $rec['occasion'] = $type;
+      $rec['interests'] = $interests;
+      $rec['village'] = $village;
+      $rec['preferredDate'] = $preferredDate;
+      $rec['timePreference'] = $timePreference;
+      $rec['eventTimeline'] = $timeline;
+      $rec['partySize'] = $partySize;
+      $rec['travelHelp'] = $travelHelp;
+      $rec['source'] = $source;
+      $rec['campaign'] = mb_substr($campaign, 0, 80);
+      $rec['referralCode'] = mb_substr($referralCode, 0, 40);
+      $rec['contactConsent'] = true;
+      $rec['contactConsentAt'] = now_iso();
+      $rec['privacyConsent'] = true;
+      $rec['privacyConsentAt'] = $rec['contactConsentAt'];
+      $rec['marketingConsent'] = $marketingConsent;
+      $rec['marketingConsentAt'] = $marketingConsent ? now_iso() : '';
+    }
     $db['serviceRequests'][] = $rec;
-    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $rec]);
+    db_save($DB_FILE, $db);
+    if ($isBridalVisit) jout(200, ['ok' => true, 'request' => ['id' => $rec['id'], 'type' => $rec['type'], 'status' => $rec['status'], 'createdAt' => $rec['createdAt']]]);
+    jout(200, ['ok' => true, 'request' => $rec]);
   }
   if ($route === 'services/mine' && $method === 'GET') {
     $su = req_user($db);
@@ -6828,12 +6884,38 @@ try {
     foreach ($db['serviceRequests'] as $si => $sr) if ($sr['id'] === $mS[1]) {
       $st = trim(substr((string)($b['status'] ?? ''), 0, 30));
       // v82 — fixed workflow vocabulary; blocks stored markup even from an admin session
-      if ($st !== '' && !in_array($st, ['new','contacted','quoted','won','closed','Confirmed','Picked up','At karigar','Ready','Delivered'], true))
+      if ($st !== '' && !in_array($st, ['new','contacted','quoted','won','closed','appointment-confirmed','visited','shortlisted','cancelled','Confirmed','Picked up','At karigar','Ready','Delivered'], true))
         jout(400, ['error' => 'Unknown service status']);
       if ($st) { $db['serviceRequests'][$si]['status'] = $st; $db['serviceRequests'][$si]['history'][] = ['s' => $st, 't' => now_iso()]; }
       db_save($DB_FILE, $db); jout(200, ['ok' => true, 'request' => $db['serviceRequests'][$si]]);
     }
     jout(404, ['error' => 'Request not found']);
+  }
+  if (preg_match('#^services/([\\w-]+)/marketing$#', $route, $mM)) {
+    if ($method !== 'PUT') { header('Allow: PUT'); jout(405, ['error' => 'Method not allowed']); }
+    need_admin($db);
+    $b = body_json();
+    // Staff can record a withdrawal; consent can only be granted by the customer-facing form.
+    if (($b['consent'] ?? null) !== false) jout(400, ['error' => 'Marketing consent may only be withdrawn here.']);
+    $targetPhone = '';
+    $found = false;
+    foreach ($db['serviceRequests'] as $mr) if (($mr['id'] ?? '') === $mM[1]) {
+      $found = true;
+      $targetPhone = substr(preg_replace('/\\D/', '', (string)($mr['phone'] ?? '')), -10);
+      break;
+    }
+    if (!$found) jout(404, ['error' => 'Request not found']);
+    $at = now_iso(); $affected = 0;
+    foreach ($db['serviceRequests'] as $mi => $mr) {
+      $candidatePhone = substr(preg_replace('/\\D/', '', (string)($mr['phone'] ?? '')), -10);
+      if (($mr['id'] ?? '') === $mM[1] || ($targetPhone !== '' && $candidatePhone === $targetPhone)) {
+        $db['serviceRequests'][$mi]['marketingConsent'] = false;
+        $db['serviceRequests'][$mi]['marketingOptOutAt'] = $at;
+        $affected++;
+      }
+    }
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'affected' => $affected, 'request' => ['id' => $mM[1], 'marketingConsent' => false, 'marketingOptOutAt' => $at]]);
   }
   if ($route === 'services' && $method === 'GET') { need_admin($db); jout(200, ['requests' => array_reverse($db['serviceRequests'])]); }
   if ($route === 'ev' && $method === 'POST') {
