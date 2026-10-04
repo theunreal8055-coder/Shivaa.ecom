@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 182;
+const APP_REL = 183;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -6940,21 +6940,21 @@ pages.catalogues = async (view) => {
 
   <div class="ds-wrap" id="dsWrap">
     <div class="pf-bar">
-      <div class="pf-f"><label>Search designs</label>
+      <div class="pf-f dsf-search-field"><label>Search designs</label>
         <input id="dsfSearch" type="search" enterkeyhint="search" autocomplete="off" maxlength="60" placeholder="Name or SKU…"></div>
-      <div class="pf-f"><label>Category</label>
+      <div class="pf-f dsf-category-field"><label>Category</label>
         <select id="dsfCat" class="sortsel"><option value="">All categories</option>${Object.entries(LIVE_CATS()).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('')}</select></div>
-      <div class="pf-f"><label>Stone type</label>
+      <div class="pf-f dsf-stone-field"><label>Stone type</label>
         <select id="dsfStone" class="sortsel"><option value="">All stones</option>${stoneTypes.map(s => `<option>${s}</option>`).join('')}</select></div>
-      <div class="pf-f"><label>Stone colour</label>
+      <div class="pf-f dsf-colour-field"><label>Stone colour</label>
         <select id="dsfColour" class="sortsel"><option value="">Any</option><option>White</option><option>Colour</option></select></div>
-      <div class="pf-f"><label>Purity</label>
+      <div class="pf-f dsf-purity-field"><label>Purity</label>
         <select id="dsfPurity" class="sortsel"><option value="">Any</option><option>22K</option><option>18K</option><option>925</option></select></div>
-      <div class="pf-f"><label>Sort by</label>
+      <div class="pf-f dsf-sort-field"><label>Sort by</label>
         <select id="dsfSort" class="sortsel"><option value="">Featured</option><option value="sel">Selected first</option><option value="wasc">Weight: light first</option><option value="wdesc">Weight: heavy first</option><option value="az">Name A–Z</option></select></div>
-      <div class="pf-f"><label>Weight range (g)</label>
+      <div class="pf-f dsf-weight-field"><label>Weight range (g)</label>
         <div class="pf-w"><input id="dsfWMin" type="number" step="0.1" min="0" placeholder="min" inputmode="decimal"><span>&ndash;</span><input id="dsfWMax" type="number" step="0.1" min="0" placeholder="max" inputmode="decimal"></div></div>
-      <div class="pf-f" style="flex:1 1 100%">
+      <div class="pf-f dsf-quick-field" style="flex:1 1 100%">
         <label>Quick weight</label>
         <div class="pf-chips" id="dsfQuick">
           <button type="button" class="pf-chip" data-min="0" data-max="5">Under 5 g</button>
@@ -6968,7 +6968,7 @@ pages.catalogues = async (view) => {
       </div>
     </div>
     <div class="ds-head">
-      <div><span class="label">Jeweller Desk</span><h2 style="font-size:30px;margin:6px 0 4px">Design Selection &amp; Billing</h2>
+      <div><span class="label">Jeweller Desk</span><h2 style="font-size:clamp(22px,6vw,30px);margin:6px 0 4px">Design Selection &amp; Billing</h2>
       <p style="font-size:13px;color:var(--ink-3)">Select designs → proceed → your bill is in <b>fine gold grams</b> (weight × ${(state.settings.metalFactor || 0.92)}) · <b>ZERO making charges</b> · ${(state.settings.finePurity || '99.50%')} fine metal settlement${state.user ? '' : ' · <a href="javascript:Shivaa.openLogin()" style="color:var(--gold);text-decoration:underline">login to place the order</a>'}</p></div>
       <div class="ds-total">
         <small id="dsCount">0 designs · 0.00 g</small><small id="dsShown" style="color:#ffe9bd"></small>
