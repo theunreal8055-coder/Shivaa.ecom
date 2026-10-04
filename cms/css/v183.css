@@ -1,0 +1,254 @@
+/* ══════════════════════════════════════════════════════════════════════
+   SHIVAA v183 — Bridal + Mayra appointment studio, plus staff lead queue.
+   ══════════════════════════════════════════════════════════════════════ */
+:root{--shv-bridal-ink:#2a1715;--shv-bridal-plum:#47151e;--shv-bridal-wine:#681f2d;--shv-bridal-gold:#c9a45f;--shv-bridal-gold-pale:#eadab4;--shv-bridal-paper:#fbf7ef;--shv-bridal-mist:#f5efe4}
+.shv-bridal-page{background:var(--shv-bridal-paper);color:var(--shv-bridal-ink)}
+.shv-bridal-page button,.shv-bridal-page input,.shv-bridal-page select{font:inherit}
+.shv-bridal-page button:focus-visible,.shv-bridal-page a:focus-visible,.shv-bridal-page input:focus-visible,.shv-bridal-page select:focus-visible{outline:2px solid var(--shv-bridal-gold);outline-offset:3px}
+.shv-bridal-hero{position:relative;isolation:isolate;min-height:570px;display:flex;align-items:center;color:#fff9ef;background:#21090d url('/images/banners/poster-bridal.jpg') center right/cover no-repeat}
+.shv-bridal-hero:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(28,5,9,.98) 0%,rgba(34,7,12,.94) 29%,rgba(36,8,13,.76) 46%,rgba(36,8,13,.22) 76%,rgba(36,8,13,.18) 100%)}
+.shv-bridal-hero:after{content:"";position:absolute;inset:14px;z-index:-1;border:1px solid rgba(222,187,112,.22);pointer-events:none}
+.shv-bridal-hero-in{position:relative;display:flex;align-items:center;min-height:570px;padding-top:70px;padding-bottom:70px}
+.shv-bridal-hero-copy{max-width:680px;padding:16px 0 22px}
+.shv-bridal-kicker,.shv-bridal-label{display:inline-flex;align-items:center;gap:9px;color:#aa8243;text-transform:uppercase;letter-spacing:.19em;font-size:10px;font-weight:700}
+.shv-bridal-kicker{color:#ebd39e}
+.shv-bridal-kicker i{font-size:16px;font-style:normal;color:#d2ae6b}
+.shv-bridal-overline{margin:36px 0 9px;text-transform:uppercase;letter-spacing:.22em;color:rgba(255,242,217,.66);font-size:11px;font-weight:600}
+.shv-bridal-hero h1{margin:0;max-width:660px;font-family:var(--ff-disp,'Cormorant Garamond',serif);font-size:clamp(46px,6.4vw,82px);line-height:.94;letter-spacing:-.025em;font-weight:500;color:#fff8ed}
+.shv-bridal-hero h1 em,.shv-bridal-intro h2 em,.shv-bridal-ritual h2 em,.shv-booking-heading h2 em,.shv-success-mark+h3 em,.shv-bridal-endcap h2 em{font-family:var(--ff-disp,'Cormorant Garamond',serif);font-weight:500;color:#dcbe7f}
+.shv-bridal-lede{max-width:525px;margin:21px 0 25px;color:rgba(255,248,237,.84);font-size:15px;line-height:1.8}
+.shv-bridal-hero-actions{display:flex;flex-wrap:wrap;gap:11px}
+.shv-bridal-primary,.shv-bridal-secondary{min-height:49px;padding:0 20px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;gap:12px;cursor:pointer;text-decoration:none;font-size:12px;letter-spacing:.07em;font-weight:700;transition:transform .2s,background .2s,color .2s,border-color .2s}
+.shv-bridal-primary{border:1px solid #d0ad6e;background:#d0ad6e;color:#291014}
+.shv-bridal-primary:hover{background:#e1c991;border-color:#e1c991;transform:translateY(-1px)}
+.shv-bridal-secondary{border:1px solid rgba(245,226,189,.62);background:rgba(25,5,9,.18);color:#fff5e5}
+.shv-bridal-secondary:hover{background:rgba(255,255,255,.10);border-color:#e1c991;transform:translateY(-1px)}
+.shv-bridal-hero-note{display:flex;align-items:flex-start;gap:8px;max-width:490px;margin:17px 0 0;color:rgba(255,243,223,.68);font-size:11px;line-height:1.6}
+.shv-bridal-hero-note span{color:#d0ad6e}
+.shv-bridal-hero-seal{position:absolute;right:8%;bottom:49px;width:118px;height:118px;border:1px solid rgba(233,204,148,.68);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#f0dcaf;background:rgba(36,8,13,.35);box-shadow:inset 0 0 0 5px rgba(233,204,148,.11);transform:rotate(-9deg)}
+.shv-bridal-hero-seal span{font-family:var(--ff-disp,'Cormorant Garamond',serif);font-size:17px;letter-spacing:.2em}
+.shv-bridal-hero-seal i{font-size:15px;font-style:normal;line-height:1;color:#d1ae6c}
+.shv-bridal-hero-seal small{margin-top:5px;font-size:8px;letter-spacing:.15em;text-transform:uppercase}
+.shv-bridal-intro{padding-top:84px;padding-bottom:82px}
+.shv-bridal-intro-copy{max-width:650px;text-align:center;margin:0 auto 34px}
+.shv-bridal-intro h2,.shv-bridal-ritual h2,.shv-booking-heading h2,.shv-sample-note h2,.shv-bridal-endcap h2{margin:11px 0 10px;color:#32151a;font-family:var(--ff-disp,'Cormorant Garamond',serif);font-weight:500;font-size:clamp(34px,4.5vw,52px);line-height:1.04}
+.shv-bridal-intro h2 em,.shv-booking-heading h2 em,.shv-sample-note h2 em{color:#8b642b}
+.shv-bridal-intro-copy>p,.shv-bridal-ritual-heading>p,.shv-booking-heading>p{max-width:610px;margin:0 auto;color:#75645c;font-size:14px;line-height:1.75}
+.shv-journey-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;max-width:930px;margin:0 auto}
+.shv-journey-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;min-height:254px;padding:25px 27px;text-align:left;border:1px solid rgba(111,68,43,.20);background:linear-gradient(135deg,#fffdf8 0%,#f8efe0 100%);color:var(--shv-bridal-ink);cursor:pointer;overflow:hidden;transition:transform .22s,border-color .22s,box-shadow .22s}
+.shv-journey-card:after{content:"✦";position:absolute;right:20px;top:15px;color:rgba(168,129,68,.24);font-size:58px;line-height:1}
+.shv-journey-card:hover{transform:translateY(-3px);border-color:rgba(143,101,45,.56);box-shadow:0 18px 42px rgba(59,35,21,.09)}
+.shv-journey-mark{color:#9a7540;font-size:10px;letter-spacing:.17em;font-weight:700}
+.shv-journey-mark i{margin-left:7px;font-size:15px;font-style:normal}
+.shv-journey-title{display:block;margin:17px 0 7px;color:#431920;font-family:var(--ff-disp,'Cormorant Garamond',serif);font-size:31px;line-height:1.08}
+.shv-journey-copy{max-width:380px;color:#75645c;font-size:13px;line-height:1.7}
+.shv-journey-link{display:flex;gap:10px;align-items:center;margin-top:auto;padding-top:20px;color:#7f501e;text-transform:uppercase;font-size:10px;font-weight:700;letter-spacing:.12em}
+.shv-journey-link b{font-size:15px}
+.shv-bridal-ritual{position:relative;padding:76px 0 79px;background:#2e1116;color:#fbf4e6}
+.shv-bridal-ritual:before{content:"";position:absolute;inset:14px;border:1px solid rgba(215,183,121,.19);pointer-events:none}
+.shv-bridal-ritual-in{display:grid;grid-template-columns:minmax(240px,.86fr) minmax(380px,1.14fr);gap:70px;align-items:center;position:relative}
+.shv-bridal-ritual .shv-bridal-label{color:#d5b87e}
+.shv-bridal-ritual h2{margin:14px 0 15px;color:#fff7e9;font-size:clamp(36px,4.2vw,50px)}
+.shv-bridal-ritual h2 em{color:#dcc18b}
+.shv-bridal-ritual-heading>p{max-width:350px;margin:0;color:rgba(250,237,214,.68);font-size:13px;line-height:1.75}
+.shv-ritual-steps{display:grid;gap:0}
+.shv-ritual-steps article{display:grid;grid-template-columns:45px 1fr;gap:17px;padding:18px 0;border-bottom:1px solid rgba(226,201,157,.19)}
+.shv-ritual-steps article:first-child{border-top:1px solid rgba(226,201,157,.19)}
+.shv-ritual-steps article>span{padding-top:3px;color:#d4b474;font-family:var(--ff-disp,'Cormorant Garamond',serif);font-size:21px}
+.shv-ritual-steps b{color:#fff5e3;font-family:var(--ff-disp,'Cormorant Garamond',serif);font-size:22px;font-weight:500}
+.shv-ritual-steps p{margin:4px 0 0;color:rgba(250,237,214,.68);font-size:12.5px;line-height:1.65}
+.shv-bridal-booking{padding-top:84px;padding-bottom:86px;scroll-margin-top:32px}
+.shv-booking-heading{text-align:center;max-width:700px;margin:0 auto 32px}
+.shv-booking-heading h2{margin-top:12px}
+.shv-booking-contact{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:16px;color:#a08876;font-size:12px}
+.shv-booking-contact a,.shv-booking-contact button{border:0;background:none;padding:3px;color:#724523;text-decoration:none;font-size:12px;font-weight:700;cursor:pointer}
+.shv-booking-contact a:hover,.shv-booking-contact button:hover{text-decoration:underline}
+.shv-booking-card{max-width:850px;margin:0 auto;padding:0 37px 33px;border:1px solid rgba(111,68,43,.2);background:#fffdfa;box-shadow:0 22px 68px rgba(64,38,24,.08)}
+.shv-booking-card-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 -37px 4px;padding:17px 37px;border-bottom:1px solid rgba(111,68,43,.13);background:#f8f2e8;color:#684724}
+.shv-booking-card-top>span{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:700;letter-spacing:.06em}
+.shv-booking-card-top i{color:#ac8444;font-style:normal;font-size:15px}
+.shv-booking-card-top small{color:#8b7a6d;font-size:10px}
+.shv-form-section{padding:28px 0 26px;border-bottom:1px solid rgba(111,68,43,.12)}
+.shv-form-step{display:flex;align-items:center;gap:13px;margin-bottom:19px}
+.shv-form-step>span{flex:none;width:30px;height:30px;border:1px solid rgba(171,133,75,.52);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#8f672e;font-family:var(--ff-disp,'Cormorant Garamond',serif);font-size:14px}
+.shv-form-step b{display:block;color:#42251f;font-family:var(--ff-disp,'Cormorant Garamond',serif);font-size:21px;font-weight:500;line-height:1.15}
+.shv-form-step small{display:block;margin-top:3px;color:#8c7c70;font-size:11px;line-height:1.45}
+.shv-journey-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.shv-journey-switch button{min-height:51px;border:1px solid #ded1bb;background:#fff;color:#63483a;cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.035em;transition:.2s}
+.shv-journey-switch button span{margin-right:6px;color:#a47d41;font-size:15px}
+.shv-journey-switch button:hover,.shv-journey-switch button.is-active{border-color:#986f34;background:#f8f0e2;color:#4b281d;box-shadow:inset 0 -2px #c69d59}
+.shv-form-hint{margin:9px 0 0;color:#968477;font-size:10.5px;line-height:1.55}
+.shv-interest-list{display:flex;flex-wrap:wrap;gap:8px}
+.shv-interest-chip{position:relative;cursor:pointer}
+.shv-interest-chip input{position:absolute;opacity:0;width:1px;height:1px}
+.shv-interest-chip span{display:inline-flex;align-items:center;gap:7px;min-height:37px;padding:7px 12px;border:1px solid #e4d9c7;border-radius:999px;background:#fff;color:#655147;font-size:11px;transition:.18s}
+.shv-interest-chip i{color:#b18c50;font-size:10px;font-style:normal}
+.shv-interest-chip input:checked+span{border-color:#9a7236;background:#f7efdf;color:#462619;box-shadow:inset 0 0 0 1px rgba(154,114,54,.17)}
+.shv-interest-chip input:focus-visible+span{outline:2px solid #be995c;outline-offset:2px}
+.shv-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px 18px}
+.shv-form-grid-short{max-width:680px}
+.shv-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.shv-field>label:not(.shv-checkline){color:#51372d;font-size:11px;font-weight:700}
+.shv-field>label small{color:#99877a;font-weight:400}
+.shv-field>label>span{color:#a13e36}
+.shv-field input:not([type=checkbox]),.shv-field select{width:100%;min-height:44px;padding:10px 12px;border:1px solid #ddd2c3;border-radius:2px;background:#fffefa;color:#32231e;font-size:12px;line-height:1.4}
+.shv-field input::placeholder{color:#ae9f91;opacity:1}
+.shv-field input[type=date]{color-scheme:light}
+.shv-field select{cursor:pointer}
+.shv-field>small{margin-top:-2px;color:#99877a;font-size:10px;line-height:1.45}
+.shv-phone-wrap{display:flex;align-items:center;min-height:44px;border:1px solid #ddd2c3;background:#fffefa}
+.shv-phone-wrap>span{padding-left:12px;color:#77614f;font-size:12px}
+.shv-phone-wrap input:not([type=checkbox]){min-width:0;border:0;border-radius:0;box-shadow:none;outline:none}
+.shv-phone-wrap input:focus-visible{outline:0!important}
+.shv-travel-field{justify-content:flex-end}
+.shv-checkline{display:flex;align-items:flex-start;gap:10px;color:#715f54;font-size:11px;line-height:1.6;cursor:pointer}
+.shv-checkline input{flex:none;width:16px;height:16px;margin:1px 0 0;accent-color:#785021}
+.shv-travel-field .shv-checkline{padding:10px 0 3px}
+.shv-attribution-section{padding-bottom:26px}
+.shv-consent-box{display:grid;gap:12px;padding:19px 18px;margin-top:22px;border:1px solid rgba(111,68,43,.15);background:#faf6ee}
+.shv-consent-box .shv-checkline a{color:#70491f;text-decoration:underline;text-underline-offset:2px}
+.shv-consent-box .shv-checkline b{color:#a13e36}
+.shv-marketing-check{padding-top:10px;border-top:1px solid rgba(111,68,43,.12)}
+.shv-trap{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.shv-form-error{margin:17px 0 0;padding:12px 14px;border-left:3px solid #aa3d36;background:#fff1ef;color:#782822;font-size:12px;line-height:1.55}
+.shv-form-error[hidden]{display:none}
+.shv-submit{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:52px;margin-top:19px;padding:0 20px;border:1px solid #4b2025;background:#4b2025;color:#fff6e7;cursor:pointer;text-align:left;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;transition:.2s}
+.shv-submit b{color:#e2c78d;font-size:18px;font-weight:400}
+.shv-submit:hover{background:#6b2832;border-color:#6b2832}
+.shv-submit:disabled{opacity:.58;cursor:wait}
+.shv-form-disclaimer{max-width:640px;margin:12px auto 0;color:#958579;font-size:10px;line-height:1.6;text-align:center}
+.shv-booking-success{padding:40px 10px 13px;text-align:center}
+.shv-booking-success[hidden]{display:none}
+.shv-success-mark{display:flex;align-items:center;justify-content:center;width:56px;height:56px;margin:0 auto 16px;border:1px solid #c8a363;border-radius:50%;background:#faf3e4;color:#9e783e;font-size:24px}
+.shv-booking-success h3{margin:12px 0 10px;color:#371d20;font-family:var(--ff-disp,'Cormorant Garamond',serif);font-size:37px;font-weight:500}
+.shv-booking-success h3 em{color:#8b642b}
+.shv-booking-success>p{max-width:540px;margin:0 auto;color:#75645c;font-size:13px;line-height:1.75}
+.shv-booking-success>p b{color:#4f2923}
+.shv-request-ref{display:inline-flex;gap:9px;align-items:center;margin:21px 0 17px;padding:9px 13px;border:1px solid #e4dacb;background:#faf7f1;color:#807064;font-size:10px}
+.shv-request-ref b{color:#56341e;letter-spacing:.05em}
+.shv-success-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:9px;margin-top:7px}
+.shv-success-actions .shv-bridal-primary,.shv-success-actions .shv-bridal-secondary{min-height:43px;background:#4b2025;border-color:#4b2025;color:#fff6e7}
+.shv-success-actions .shv-bridal-secondary{background:#fffdfa;color:#552c24}
+.shv-return-home{display:inline-block;margin-top:20px;color:#805c2b;text-decoration:underline;text-underline-offset:3px;font-size:11px}
+.shv-sample-note{display:grid;grid-template-columns:54px minmax(0,730px);gap:22px;align-items:start;padding-top:32px;padding-bottom:61px;border-top:1px solid rgba(111,68,43,.12)}
+.shv-sample-icon{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border:1px solid #d5c19c;border-radius:50%;color:#9d753a;background:#f6efdf;font-size:19px}
+.shv-sample-note h2{margin:7px 0 8px;font-size:33px}
+.shv-sample-note>div>p{max-width:800px;margin:0;color:#76685f;font-size:12px;line-height:1.75}
+.shv-sample-note>div>p b{color:#4b2621}
+.shv-bridal-endcap{position:relative;padding:56px 0 61px;background:#f0e6d5;text-align:center}
+.shv-bridal-endcap:before{content:"";position:absolute;inset:11px;border:1px solid rgba(138,101,49,.22);pointer-events:none}
+.shv-bridal-endcap .container{position:relative}
+.shv-bridal-endcap h2{margin:10px 0 9px;font-size:clamp(35px,4.7vw,52px)}
+.shv-bridal-endcap h2 em{color:#916b37}
+.shv-bridal-endcap p{margin:0;color:#786958;font-size:12px}
+.shv-bridal-endcap>div>div{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:20px}
+.shv-bridal-endcap>div>div>a,.shv-bridal-endcap>div>div>button{min-height:42px;padding:0 16px;border:1px solid #5a2c2c;background:#5a2c2c;color:#fff8ec;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:11px;font-weight:700;cursor:pointer}
+.shv-bridal-endcap>div>div>button{border-color:#9a783f;background:transparent;color:#634a2a}
+
+/* v183 — admin leads: dedicated bridal and Mayra follow-up queue. */
+.shv-admin-bridal{border-top:3px solid #c5a067}
+.shv-admin-bridal-head{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.shv-admin-bridal-head .label{display:block;margin-bottom:5px;color:#a27b43;font-size:9px;letter-spacing:.17em;text-transform:uppercase}
+.shv-admin-bridal-head .partner-note{max-width:720px;margin:7px 0 0}
+.shv-admin-bridal-kpi{flex:none;min-width:95px;padding:11px 13px;border:1px solid rgba(169,126,65,.24);background:#fbf7ee;text-align:center}
+.shv-admin-bridal-kpi b{display:block;color:#642c2f;font-family:var(--ff-disp,'Cormorant Garamond',serif);font-size:25px;line-height:1}
+.shv-admin-bridal-kpi small{display:block;margin-top:5px;color:#85776a;font-size:9px}
+.shv-source-chips{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 2px}
+.shv-source-chips span{padding:5px 9px;border:1px solid #eee5d6;border-radius:20px;background:#fcf9f3;color:#74604c;font-size:10px}
+.shv-source-chips b{margin-left:4px;color:#4c2921}
+.shv-bridal-table td{vertical-align:top;line-height:1.6}
+.shv-bridal-table td small{color:#796d61;font-size:10px}
+.shv-bridal-table td a:not(.btn){color:#674821}
+.shv-bridal-table td .pill{display:inline-block;margin-bottom:4px}
+.shv-admin-bridal-foot{margin:13px 0 0;color:#8a7d70;font-size:10px;line-height:1.55}
+@media(max-width:900px){
+  .shv-bridal-hero,.shv-bridal-hero-in{min-height:530px}
+  .shv-bridal-hero-seal{right:5%;bottom:30px;width:98px;height:98px}
+  .shv-bridal-ritual-in{grid-template-columns:minmax(200px,.78fr) minmax(340px,1.22fr);gap:38px}
+}
+@media(max-width:680px){
+  .shv-bridal-hero{min-height:0;background-position:61% center}
+  .shv-bridal-hero:before{background:linear-gradient(90deg,rgba(28,5,9,.97) 0%,rgba(34,7,12,.88) 57%,rgba(36,8,13,.45) 100%),linear-gradient(0deg,rgba(27,5,9,.25),transparent 40%)}
+  .shv-bridal-hero:after{inset:8px}
+  .shv-bridal-hero-in{min-height:550px;padding-top:62px;padding-bottom:73px;align-items:flex-start}
+  .shv-bridal-hero-copy{max-width:520px;padding:0}
+  .shv-bridal-kicker{font-size:9px;letter-spacing:.13em}
+  .shv-bridal-overline{margin-top:38px;font-size:9px}
+  .shv-bridal-hero h1{font-size:clamp(48px,12vw,67px)}
+  .shv-bridal-lede{max-width:440px;font-size:13px;line-height:1.75}
+  .shv-bridal-hero-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .shv-bridal-primary,.shv-bridal-secondary{min-height:46px;padding:0 10px;font-size:10px;gap:6px}
+  .shv-bridal-hero-note{max-width:370px;font-size:10px}
+  .shv-bridal-hero-seal{right:25px;bottom:17px;width:76px;height:76px;opacity:.84}
+  .shv-bridal-hero-seal span{font-size:12px}
+  .shv-bridal-hero-seal i{font-size:11px}
+  .shv-bridal-hero-seal small{font-size:6px}
+  .shv-bridal-intro{padding-top:57px;padding-bottom:57px}
+  .shv-bridal-intro-copy{margin-bottom:23px}
+  .shv-bridal-label{font-size:9px;letter-spacing:.15em}
+  .shv-bridal-intro h2,.shv-bridal-ritual h2,.shv-booking-heading h2{font-size:38px}
+  .shv-bridal-intro-copy>p,.shv-booking-heading>p{font-size:12px}
+  .shv-journey-grid{grid-template-columns:1fr;gap:10px}
+  .shv-journey-card{min-height:204px;padding:19px 20px}
+  .shv-journey-title{margin-top:12px;font-size:28px}
+  .shv-journey-copy{font-size:12px}
+  .shv-journey-link{padding-top:13px}
+  .shv-bridal-ritual{padding:54px 0 58px}
+  .shv-bridal-ritual:before{inset:8px}
+  .shv-bridal-ritual-in{grid-template-columns:1fr;gap:22px}
+  .shv-bridal-ritual-heading>p{font-size:12px}
+  .shv-ritual-steps article{grid-template-columns:33px 1fr;gap:12px;padding:14px 0}
+  .shv-ritual-steps b{font-size:19px}
+  .shv-ritual-steps p{font-size:11px}
+  .shv-bridal-booking{padding-top:56px;padding-bottom:57px;scroll-margin-top:14px}
+  .shv-booking-heading{margin-bottom:23px}
+  .shv-booking-contact{flex-wrap:wrap;font-size:11px}
+  .shv-booking-card{padding:0 17px 24px}
+  .shv-booking-card-top{margin-right:-17px;margin-left:-17px;padding:14px 17px;align-items:flex-start;flex-direction:column;gap:5px}
+  .shv-booking-card-top>span{font-size:10px}
+  .shv-booking-card-top small{font-size:9px}
+  .shv-form-section{padding:23px 0 21px}
+  .shv-form-step{gap:10px;margin-bottom:15px}
+  .shv-form-step b{font-size:19px}
+  .shv-form-step small{font-size:10px}
+  .shv-journey-switch{gap:7px}
+  .shv-journey-switch button{min-height:47px;padding:5px 7px;font-size:10px}
+  .shv-interest-list{gap:7px}
+  .shv-interest-chip span{min-height:35px;padding:6px 10px;font-size:10px}
+  .shv-form-grid{grid-template-columns:1fr;gap:14px}
+  .shv-field>label:not(.shv-checkline){font-size:10px}
+  .shv-field input:not([type=checkbox]),.shv-field select,.shv-phone-wrap{min-height:46px;font-size:12px}
+  .shv-field>small{font-size:9.5px}
+  .shv-travel-field{margin-top:0}
+  .shv-consent-box{gap:13px;padding:15px 12px;margin-top:17px}
+  .shv-checkline{gap:9px;font-size:10px}
+  .shv-checkline input{width:17px;height:17px}
+  .shv-submit{min-height:50px;padding:0 15px;font-size:11px}
+  .shv-form-disclaimer{font-size:9px}
+  .shv-booking-success{padding:31px 0 10px}
+  .shv-booking-success h3{font-size:32px}
+  .shv-booking-success>p{font-size:12px}
+  .shv-success-actions{display:grid;grid-template-columns:1fr}
+  .shv-sample-note{grid-template-columns:38px minmax(0,1fr);gap:13px;padding-top:23px;padding-bottom:39px}
+  .shv-sample-icon{width:36px;height:36px;font-size:15px}
+  .shv-sample-note h2{font-size:27px}
+  .shv-sample-note>div>p{font-size:10.5px}
+  .shv-bridal-endcap{padding:44px 0 48px}
+  .shv-bridal-endcap h2{font-size:38px}
+  .shv-bridal-endcap>div>div{display:grid;grid-template-columns:1fr;max-width:280px;margin-right:auto;margin-left:auto}
+  .shv-admin-bridal-head{align-items:flex-start}
+  .shv-admin-bridal-kpi{min-width:78px;padding:9px 7px}
+  .shv-admin-bridal .adm-table-wrap{margin-right:-4px}
+}
+@media(max-width:380px){
+  .shv-bridal-hero-in{min-height:575px}
+  .shv-bridal-hero h1{font-size:46px}
+  .shv-bridal-hero-actions{grid-template-columns:1fr}
+  .shv-bridal-hero-actions .shv-bridal-primary,.shv-bridal-hero-actions .shv-bridal-secondary{min-height:42px}
+  .shv-booking-card{padding-right:13px;padding-left:13px}
+  .shv-booking-card-top{margin-right:-13px;margin-left:-13px;padding-right:13px;padding-left:13px}
+  .shv-journey-switch button{font-size:9px}
+  .shv-admin-bridal-head{display:block}
+  .shv-admin-bridal-kpi{display:inline-block;margin-top:9px}
+}
+@media(prefers-reduced-motion:reduce){.shv-bridal-page *{scroll-behavior:auto!important;transition:none!important}}

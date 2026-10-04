@@ -17,9 +17,29 @@ const rates = { t: new Date().toISOString(), source: 'live-mcx', live: false,
   history: [Object.assign({ t: new Date(Date.now() - 6e4).toISOString() }, jaipur)], nextUpdateIn: 60 };
 
 http.createServer((req, res) => {
+  if (process.env.PREVIEW_BRIDAL === '1' && req.url === '/') {
+    res.writeHead(302, { Location: '/#/bridal' }); res.end(); return;
+  }
   const u = decodeURIComponent(req.url.split('?')[0]);
   const send = (code, body, type) => { res.writeHead(code, { 'content-type': type }); res.end(body); };
   if (u.startsWith('/api/')) {
+    // Preview-only stand-in for the live booking endpoint. Validate the minimum
+    // contract, issue a disposable reference, and deliberately do not retain PII.
+    if (u === '/api/services' && req.method === 'POST') {
+      let raw = '';
+      req.on('data', chunk => { raw += chunk; });
+      req.on('end', () => {
+        let body = {};
+        try { body = JSON.parse(raw || '{}'); } catch (_) { return send(400, JSON.stringify({ error: 'Invalid JSON' }), 'application/json'); }
+        const phone = String(body.phone || '').replace(/\D/g, '');
+        if (!['bridal', 'mayra'].includes(body.type) || !String(body.name || '').trim() || !/^[6-9]\d{9}$/.test(phone)
+            || body.contactConsent !== true || body.privacyConsent !== true)
+          return send(400, JSON.stringify({ error: 'Please complete the required fields and consent.' }), 'application/json');
+        const id = 'pv_sr_' + Date.now().toString(36);
+        return send(200, JSON.stringify({ ok: true, preview: true, request: { id, type: body.type, status: 'new', createdAt: new Date().toISOString() } }), 'application/json');
+      });
+      return;
+    }
     let out = {};
     if (u === '/api/rates') out = rates;
     else if (u === '/api/settings') out = { settings: DB.settings };
@@ -32,9 +52,9 @@ http.createServer((req, res) => {
     } else if (u === '/api/pages') out = { pages: [] };
     /* v166 — the release endpoint the freshness controller reads (same shape as
        api.php), so the preview behaves exactly like production. */
-    else if (u === '/api/version') out = { ok: true, rel: 166, shell: 'shivaa-shell-v166', builtAt: new Date().toISOString(),
+    else if (u === '/api/version') out = { ok: true, rel: 183, shell: 'shivaa-shell-v183', builtAt: new Date().toISOString(),
       forceLatest: (DB.settings && DB.settings.forceLatestVersion) !== false,
-      stamp: { index: 166, app: 166, sw: 166, matched: true } };
+      stamp: { index: 183, app: 183, sw: 183, matched: true } };
     else if (u === '/api/auth/me') out = { user: null };
     else out = {};
     return send(200, JSON.stringify(out), 'application/json');

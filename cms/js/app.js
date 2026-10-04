@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 182;
+const APP_REL = 183;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -2900,6 +2900,7 @@ pages.privacy = async (view) => {
       <div class="ps-body">
         <table class="mc-table priv-table"><thead><tr><th>Data</th><th>Example</th><th>Purpose</th></tr></thead><tbody>
         <tr><td><b>Identity & contact</b></td><td>Name, email, mobile (OTP-verified)</td><td>Accounts, orders, support</td></tr>
+        <tr><td><b>Showroom visit requests</b></td><td>Name, mobile, occasion, design interests, preferred visit window and party size; optional town, email, travel note and referral/campaign source</td><td>Respond to and follow up on a visit request. A preferred date or time is not an appointment confirmation. Marketing updates require a separate opt-in.</td></tr>
         <tr><td><b>Occasions</b> (optional)</td><td>Date of birth, anniversary</td><td>Royalty benefits, festive offers</td></tr>
         <tr><td><b>Orders & addresses</b></td><td>Purchases, delivery addresses</td><td>Fulfilment & insured delivery</td></tr>
         <tr><td><b>B2B KYC</b></td><td>GSTIN (checksum-verified), owner PAN</td><td>Partner onboarding, PMLA compliance</td></tr>
@@ -9565,6 +9566,11 @@ Object.assign(window.Shivaa, {
   redraw: () => route(true),
   openCart, closeCart, renderMiniCart, flyToBag,
 });
+/* v183 — the bridal booking route is isolated from the core shopper bundle.
+   The registration script is deferred immediately before app.js, then joined
+   to this exact route table before boot() routes the initial hash. */
+try { if (typeof window.__SHIVAA_REGISTER_BRIDAL__ === 'function') window.__SHIVAA_REGISTER_BRIDAL__(routes); }
+catch (error) { console.error('[Shivaa bridal route]', error); }
 /* ─────────── v99 · STAFF-ONLY BUNDLE, LOADED ON DEMAND ───────────
    admin.js (261KB) + qr.js (55KB) power #/admin and #/partner and nothing
    else. Verified before moving them out of index.html:
