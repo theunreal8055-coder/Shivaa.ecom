@@ -66,8 +66,11 @@ Billing settings → the GST becomes claimable input credit.*
 > broad local audience than an over-filtered tiny one.
 
 **Ads** (one under each ad set, identical pair so we can compare)
-- **Ad 1** → video `marketing/ads/shivaa-bridal-reel-A-bridal-story.mp4` (19 s) + **Caption A**
-- **Ad 2** → video `marketing/ads/shivaa-bridal-reel-B-gold-look.mp4` (10 s) + **Caption B**
+- **Ad 1** → the **Owner's Invite talking reel (Marwari)** — script in
+  `marketing/ads/OWNER-REEL-SCRIPT-MARWARI.md` (to be filmed; if not ready at
+  sprint time, lead with Reel A instead) + **Caption C**
+- **Ad 2** → video `marketing/ads/shivaa-bridal-reel-A-bridal-story.mp4` (19 s) + **Caption A**
+- (Reel B = burst-phase refresh to fight ad fatigue)
 - Both: CTA button **Send WhatsApp Message**, page = your FB page + IG @shivaa.jewels
 - Pre-filled WhatsApp text (set it in the ad → Message template):
   *"Namaste Shivaa Jewels! Mujhe bridal collection dekhna hai. Aaj ka gold rate aur designs bhejein. (Instagram ad se aaya hoon)"*
@@ -82,6 +85,7 @@ Billing settings → the GST becomes claimable input credit.*
 |---|---|---|
 | `marketing/ads/shivaa-bridal-reel-A-bridal-story.mp4` | 19 s, 1080×1920 | Bride unboxes the Shivaa bridal set → mother places the ring — family emotion, ends on the Shivaa Jewels logo |
 | `marketing/ads/shivaa-bridal-reel-B-gold-look.mp4` | 10 s, 1080×1920 | Model wearing the gold set — necklace, earring, bangles — pure product beauty |
+| **Reel C · Owner's Invite (to be filmed)** — `marketing/ads/OWNER-REEL-SCRIPT-MARWARI.md` | ~22 s target | **Owner on camera, in Marwari**, personally inviting Jayal: shop, hallmark + fix-vazan gold, 100% old-gold value, free trial, WhatsApp CTA. Owner drafted the lines himself. Lead creative when filmed. |
 | `marketing/ads/AD-CAPTIONS.md` | — | Final captions + WhatsApp pre-fill, copy-paste ready |
 | `marketing/ads/tracking-sheet.csv` | — | Fill one line per day |
 

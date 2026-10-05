@@ -40,6 +40,20 @@ bas aaiye aur aazmaiye.
 
 ---
 
+## Caption C — pair with the Owner's Invite reel (`OWNER-REEL-SCRIPT-MARWARI.md`)
+
+Ram Ram sa, Jayal! 🙏
+
+Marwadi shaadi ho ya saagan — dulhan ka set ab ghar re paas hi.
+BIS hallmark sona · fix vazan · purana sona ri 100% value · live rate app par
+FREE bridal design trial — pehen kar dekho, baad mein decide karo.
+
+📍 Shivaa Jewels, Main Road, Jayal (Nagaur) 341023
+💬 WhatsApp par baat karo — aaj hi!
+📞 89050 05921
+
+---
+
 ## On both ads
 
 - **CTA button:** Send WhatsApp Message
