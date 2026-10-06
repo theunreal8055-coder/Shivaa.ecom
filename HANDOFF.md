@@ -1,5 +1,31 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
+## v184 built — Shivaa Black retail membership (6 Oct 2026)
+
+**Current source release: 184 (built and gated); public live release: 183
+(verified 6 Oct 2026).** The stale handoff had planned 183, but the live
+version endpoint was already matched at 183, so the feature moved forward to
+184 before packaging. Nothing was deployed and no live/customer data was
+mutated. Authoritative details: `DEPLOY-v184.md`, `docs/AGENT-HANDOFF.md` and
+`MEMORY.md`.
+
+- **Package:** `shivaa-update-v184.zip`, exactly 7 code-only root files,
+  475,512 bytes, SHA-256
+  `10ddcca58f6bb15e04b7a5e481585123943efa6b87265dd67fcfaa20045ea704`;
+  deterministic source `481a1b27d889aba854b9d9a2eae5dd307287f5a8`; no data, uploads, config,
+  credentials or customer records.
+- **Feature:** retail-only, OTP/mobile-authenticated Shivaa Black claim; unique
+  16-digit card/coupon; exact six-calendar-month 20%-off-making-charges benefit;
+  dual account+registered-mobile authorization; permanent card and **Shivaa
+  Family Prestigious Member** certificate; exclusive campaign homepage; account
+  locker; automatic checkout calculation and transparent invoice labels.
+- **Executed evidence:** full forward belt **195/195**, plus deterministic rebuild,
+  ZIP integrity/entry inspection and both v184 suites against an isolated
+  extracted package.
+- **Forward only:** owner approval is required to install over live 183. If live
+  reaches 185+, do not use this package; any fix after 184 must be v185+.
+
+
 ## v178 published — use Shivaa like an app: no store, no APK, no upload (24 Sep 2026)
 
 **Current release: 178** (owner request: *"how can we give customers an

@@ -1,4 +1,59 @@
-# AGENT HANDOFF — v182 BUILT (Auto-Catalogue Phase 4 + Billing Bridge); v181 LIVE ON HOSTINGER (25 Sep 2026)
+# AGENT HANDOFF — v184 BUILT (Shivaa Black); v183 LIVE ON HOSTINGER (6 Oct 2026)
+
+## CURRENT STATE — v184 BUILT: SHIVAA BLACK RETAIL MEMBERSHIP (6 Oct 2026)
+
+- **LIVE IS 183 (PUBLICLY VERIFIED 6 OCT 2026):**
+  `https://shivaa.in/api/version` returned `rel:183`,
+  `shell:shivaa-shell-v183`, `stamp.matched:true`, `db.driver/mode:mysql`,
+  78 products and `mirrorBehind:false`. This was newer than the repository's
+  v182 record, so the Shivaa Black release was moved to **184** before packaging
+  to preserve the forward-only law. No live write or deployment occurred.
+- **v184 BUILT — Shivaa Black:** retail customers may claim one personalised
+  digital membership after OTP/mobile sign-in. The immutable issue record has
+  a unique grouped 16-digit member/coupon number, holder, issue timestamp,
+  calendar-six-month expiry (month-end clamped), bound mobile, member ID and a
+  permanent **Shivaa Family Prestigious Member** certificate. Repeat claim is
+  idempotent and cannot renew the benefit. Admin/partner roles are denied.
+- **Dual binding:** card visibility and coupon use require the issuing user ID
+  plus a SHA-256 proof of the same normalized registered mobile. Wrong-mobile
+  access is indistinguishable from an invalid code; the hash never appears in
+  customer API responses. A registered-mobile change hides the record and
+  cannot silently rebind it.
+- **Authoritative money rule:** the order API recomputes every line from the
+  catalogue/rate snapshot, sums `makingCharge × qty`, and applies exactly 20%
+  to that basis only. Metal, stones, GST and shipping remain untouched. Orders
+  persist `makingChargeSubtotal`, `makingChargeDiscount`, `couponDiscount` and
+  `discountBasis`; coupon and royalty-point rows remain separate. Invalid
+  submitted coupons now fail closed instead of placing an unnoticed full-price
+  order.
+- **Customer UI:** the homepage hero and all four campaign slides now market
+  Shivaa Black exclusively; `#/black-card` supports public/member/active/expired
+  states; the card flips to bound-mobile terms and can be copied/saved as PNG;
+  card + certificate print to PDF; My Account has a permanent Membership locker;
+  active membership auto-applies at checkout with a live making-charge basis.
+  Final responsive/print layer is `css/v184.css`.
+- **Release handshake:** 184 at all four sites; index has 57 `?v=184` URLs,
+  worker has 52, shell is `shivaa-shell-v184`, MEDIA deliberately stays v168.
+- **Regression belt:** **195/195 passing**: deploy safety 20 · v184 browser/
+  static 8 · v184 executed PHP 8 · v182 PHP 9 · v181 PHP 6 · v180 PHP 8 ·
+  v179 PHP 25 · relay 7 · v169 page 25 · v169 PHP 28 · v168 boundary 39 ·
+  upload signatures 12. v182/v181/v180 stamp-exact static suites self-skip on
+  184; their executed PHP regressions still run. The relay fixture was made
+  calendar-safe after its hardcoded Sep-2026 future expired; v169's extracted
+  checkout fixture now supplies the v184 Black helper.
+- **Package:** `shivaa-update-v184.zip` — exactly 7 root files, 475,512 bytes,
+  SHA-256 `10ddcca58f6bb15e04b7a5e481585123943efa6b87265dd67fcfaa20045ea704`;
+  deterministic rebuild and extracted-package v184 suites pass. Install guide:
+  `DEPLOY-v184.md`. No config, data, uploads, customer record or credential is
+  included.
+- **Deployment:** NOT performed. Owner approval is still required. Live remains
+  183. Install only over live 183; if live reaches 185+, this package is
+  obsolete. After v184, every correction must be v185+—never extract an older
+  package.
+
+> **Current source package: 184 (BUILT & GATED). Live: 183 (publicly verified).**
+> **Forward only. No production/customer-data mutation occurred in this work.**
+
 
 ## CURRENT STATE — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
 

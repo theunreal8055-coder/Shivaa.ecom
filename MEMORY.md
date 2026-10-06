@@ -1,5 +1,52 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v184 Shivaa Black retail membership (6 Oct 2026, branch `arena/d4bdfd94-shivaa-ecom`)
+
+- **Forward baseline corrected from public truth:** the handoff said live 181 and
+  planned v183, but the public `/api/version` check on 6 Oct returned live
+  **183**, matched, MySQL active, 78 products, mirrorBehind:false. The feature
+  was therefore stamped/packaged as **184**, not 183. No production write or
+  deploy occurred; live remains 183.
+- **Shivaa Black:** one idempotently claimed retail membership per OTP/mobile
+  account. Permanent user record: member ID, unique branded/grouped 16-digit
+  member/coupon code, holder, normalized registered mobile, issue time, exact
+  calendar-six-month expiry with month-end clamp, certificate number/title.
+  Certificate title is **Shivaa Family Prestigious Member**. Card/certificate
+  remain retrievable after benefit expiry. Admin/partner claims are denied.
+- **Privacy/authority:** GET, claim, coupon list/validation and ordering require
+  the issuing account; coupon also requires SHA-256 proof of the current
+  normalized registered mobile. Customer serialization strips the phone hash.
+  A changed mobile hides the card and cannot silently rebind it. Wrong-account
+  coupon attempts fail closed without revealing whether a code exists.
+- **Money rule:** authoritative order basis is server-recomputed
+  `Σ(makingCharge × qty)`; coupon type `making_percent` applies exactly 20% to
+  that basis only. Metal, stones, GST and shipping are untouched. Saved order
+  evidence separates coupon, Black making-charge reduction, loyalty points and
+  basis. Legacy coupons retain their historical whole-subtotal math.
+- **Experience:** exclusive Shivaa Black home hero + four campaign stories;
+  public/authenticated/active/expired `#/black-card`; premium front/reverse
+  flip card; mobile-bound terms; copy + PNG; permanent certificate + print/PDF;
+  My Account membership tile/tab; checkout auto-apply and recalculation; Black-
+  specific customer/admin order, invoice and WhatsApp labels. Responsive/print
+  final layer is `cms/css/v184.css`.
+- **Release/package:** stamps 184 in index/app/worker/API; 57 index + 52 worker
+  asset URLs; MEDIA stays v168. `shivaa-update-v184.zip` has exactly 7 root
+  files, 475,512 bytes, SHA-256
+  `10ddcca58f6bb15e04b7a5e481585123943efa6b87265dd67fcfaa20045ea704`,
+  built from `481a1b27d889aba854b9d9a2eae5dd307287f5a8`. Guide: `DEPLOY-v184.md`.
+  Package excludes all data/config/uploads/credentials and was overlaid into an
+  isolated cms copy; both v184 suites passed there.
+- **Tests:** chained belt **195/195** (v184 static/browser 8 + executed PHP 8,
+  plus every active historical gate). Executed proofs include role/auth gates,
+  atomic idempotence, code uniqueness, dual account/mobile denial, month-end
+  and leap-year expiry, exact making-charge order math, legacy coupon behavior,
+  expired permanent archive, homepage exclusivity, route/account/checkout DOM.
+  The old relay test now generates live futures relative to today; v169's
+  extracted checkout fixture includes the new Black helper.
+- **Forward-only:** install v184 only over live v183 after owner approval. If
+  live reports 185+, do not install it. Any correction after 184 is v185+.
+
+
 ## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
 
 - **Live is 181 (verified 25 Sep 2026):** `/api/version` returned `rel:181`,
