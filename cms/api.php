@@ -5186,6 +5186,11 @@ try {
     $idx = null;
     foreach (($db['users'] ?? []) as $i => $row) if (($row['id'] ?? '') === ($u['id'] ?? '')) { $idx = $i; break; }
     if ($idx === null) jout(404, ['error' => 'Customer account not found.']);
+    // v185 — claiming is idempotent but still writes/repairs a private coupon.
+    // Bound repeated calls per authenticated account so a scripted client cannot
+    // turn that recovery door into an unbounded database-write endpoint.
+    rate_block($db, 'black-card-claim', (string)$u['id'], 12, 3600, 900,
+      'Too many Shivaa Black requests — please wait 15 minutes and try again.');
 
     $created = false; $repaired = false;
     $card = is_array($db['users'][$idx]['blackCard'] ?? null) ? $db['users'][$idx]['blackCard'] : null;

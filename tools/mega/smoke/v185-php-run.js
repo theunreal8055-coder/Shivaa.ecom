@@ -149,6 +149,26 @@ function fresh() {
     assert.equal(preview.status, 200); assert.equal(preview.json.discount, 1000); assert.equal(preview.json.value, 20);
   });
 
+  await test('P09', 'claim writes are account-throttled without locking the permanent archive', async () => {
+    F.setDb(fresh());
+    let card;
+    for (let i=0; i<12; i++) {
+      const r = await F.req('POST', 'black-card/claim', {}, MEMBER);
+      assert.equal(r.status, 200, `allowed claim ${i+1}: ${r.body}`);
+      assert.equal(r.json.created, i === 0);
+      card = r.json.membership;
+    }
+    const blocked = await F.req('POST', 'black-card/claim', {}, MEMBER);
+    assert.equal(blocked.status, 429, blocked.body); assert.match(blocked.json.error, /wait 15 minutes/i);
+    assert.ok(Number(blocked.json.retryAfter) > 0 && Number(blocked.json.retryAfter) <= 900);
+    const db = await F.db(), user = db.users.find(x => x.id === 'qaMember');
+    assert.equal(user.blackCard.cardNumber, card.cardNumber, 'throttle never remints the identity');
+    assert.equal(db.coupons.filter(x => x.id === card.couponId).length, 1, 'throttle never duplicates the coupon');
+    assert.ok(Number(db.rateLimit['black-card-claim|qaMember'].until) > Math.floor(Date.now()/1000));
+    const archive = await F.req('GET', 'black-card', {}, MEMBER);
+    assert.equal(archive.status, 200); assert.equal(archive.json.membership.cardNumber, card.cardNumber);
+  });
+
   console.log(`\nv185 PHP: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('HARNESS ERROR', e); process.exit(1); });

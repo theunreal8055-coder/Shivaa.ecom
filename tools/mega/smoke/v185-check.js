@@ -52,7 +52,7 @@ function deferred(){let resolve,reject;const promise=new Promise((a,b)=>{resolve
   assert.ok(!index.includes('?v=184')&&!sw.includes('?v=184'));
  });
  await test('S02','server makes card identity, mobile, 20% basis and expiry authoritative',async()=>{
-  for(const n of ['function black_card_bound_to_user','return $bound !== \'\' && $current !== \'\' && hash_equals','function black_coupon_canonical','function black_coupon_for_user','function black_code_reserved','function black_coupon_row_reserved','function coupon_resolve','canonical fields always win',"'type' => 'making_percent'","'value' => 20","$coupon = coupon_resolve($db, $submittedCoupon, $u)"])assert.ok(api.includes(n),n);
+  for(const n of ['function black_card_bound_to_user','return $bound !== \'\' && $current !== \'\' && hash_equals','function black_coupon_canonical','function black_coupon_for_user','function black_code_reserved','function black_coupon_row_reserved','function coupon_resolve','canonical fields always win',"rate_block($db, 'black-card-claim', (string)$u['id'], 12, 3600, 900", "'type' => 'making_percent'","'value' => 20","$coupon = coupon_resolve($db, $submittedCoupon, $u)"])assert.ok(api.includes(n),n);
   assert.ok(api.includes("$out['discountPct'] = 20")&&api.includes("$out['discountBasis'] = 'making-charges'"));
   assert.ok(!/foreach \(\$db\['coupons'\].*coupon_code_matches\(\$c, \$submittedCoupon\)/.test(api));
  });
