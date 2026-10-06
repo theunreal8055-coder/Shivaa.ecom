@@ -26,6 +26,10 @@ security, checkout, export and mobile-quality pass:
 **File:** `shivaa-update-v185.zip`  
 **Size:** **485,031 bytes**  
 **SHA-256:** `67dc0243ebbb6fcf675484d0abe62f94045be8b562d6adc31e433b499e682600`  
+**Verified GitHub download:** [shivaa-update-v185.zip](https://github.com/theunreal8055-coder/Shivaa.ecom/raw/8a3d30f72d30543075e456469986ac89e58ad64d/shivaa-update-v185.zip)
+
+**Publication commit:** `8a3d30f72d30543075e456469986ac89e58ad64d` · **Git blob:** `0d3dbdb0a19e2c750d122a8e2ecd8d0794058442`
+
 **Layout:** ZIP root extracts directly into `public_html/`, allowing overwrite.  
 **Exactly 8 files:**
 

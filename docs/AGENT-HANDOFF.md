@@ -37,8 +37,13 @@
   shell `shivaa-shell-v185`; media cache intentionally remains v168.
   `shivaa-update-v185.zip` has exactly 8 root files, **485,031 bytes**, SHA-256
   `67dc0243ebbb6fcf675484d0abe62f94045be8b562d6adc31e433b499e682600`,
-  source `637dc6d0ab276d4a7497068ed9231d86635e8638`; install guide
-  `DEPLOY-v185.md`. It excludes config/data/uploads/media/billing/credentials.
+  source `637dc6d0ab276d4a7497068ed9231d86635e8638`; publication
+  `8a3d30f72d30543075e456469986ac89e58ad64d`; install guide
+  `DEPLOY-v185.md`. Immutable download:
+  `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/8a3d30f72d30543075e456469986ac89e58ad64d/shivaa-update-v185.zip`.
+  GitHub API size 485,031 and blob `0d3dbdb0a19e2c750d122a8e2ecd8d0794058442`;
+  authenticated download is byte-identical. It excludes config/data/uploads/
+  media/billing/credentials.
 - **Executed evidence:** current belt **214/214**; dedicated v185 **10/10 static+
   jsdom and 9/9 PHP 8.3**; v184 compatibility **8/8 + 8/8**; complete historical
   runner **46 PASS / 24 retired-feature SKIP / 0 FAIL** after serializing its

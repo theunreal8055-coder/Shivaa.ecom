@@ -31,8 +31,11 @@
 - **Package:** `shivaa-update-v185.zip`, exactly 8 code-only root files,
   **485,031 bytes**, SHA-256
   `67dc0243ebbb6fcf675484d0abe62f94045be8b562d6adc31e433b499e682600`,
-  source `637dc6d0ab276d4a7497068ed9231d86635e8638`; guide `DEPLOY-v185.md`.
-  Deterministic cumulative builder `tools/mega/make-v185-zip.py`; package has
+  source `637dc6d0ab276d4a7497068ed9231d86635e8638`; publication
+  `8a3d30f72d30543075e456469986ac89e58ad64d`; GitHub blob
+  `0d3dbdb0a19e2c750d122a8e2ecd8d0794058442`; guide `DEPLOY-v185.md`.
+  Authenticated GitHub download matched local bytes. Deterministic cumulative
+  builder `tools/mega/make-v185-zip.py`; package has
   v184 CSS + v185 CSS and excludes data/config/uploads/media/billing/secrets.
 - **Evidence:** `npm test` **214/214**; v185 browser/static **10/10**, PHP 8.3
   **9/9**; v184 **8/8 + 8/8**; historical runner **46 pass / 24 intentional

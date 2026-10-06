@@ -11,6 +11,10 @@ acceptance record: `DEPLOY-v185.md`.
   **485,031 bytes**, SHA-256
   `67dc0243ebbb6fcf675484d0abe62f94045be8b562d6adc31e433b499e682600`;
   deterministic source `637dc6d0ab276d4a7497068ed9231d86635e8638`.
+  **Download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/8a3d30f72d30543075e456469986ac89e58ad64d/shivaa-update-v185.zip
+  (publication `8a3d30f72d30543075e456469986ac89e58ad64d`, GitHub API size/blob and
+  authenticated raw bytes verified against local).
   It contains the full v184 payload plus `css/v185.css`; no data, uploads,
   config, credentials, customer records, media, billing, or `.htaccess`.
 - **Preserved product law:** retail-only, OTP/mobile-authenticated permanent
