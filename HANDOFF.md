@@ -1,5 +1,51 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
+## v185 packaged — hardened Shivaa Black + premium mobile finish (6 Oct 2026)
+
+**Current source/package release: 185; public live release: 183 (verified 6 Oct
+2026).** v185 is a cumulative direct upgrade for live v183 or v184. Nothing was
+deployed and no production/customer data was mutated. Authoritative install and
+acceptance record: `DEPLOY-v185.md`.
+
+- **Package:** `shivaa-update-v185.zip`, exactly 8 code-only root files,
+  **485,031 bytes**, SHA-256
+  `67dc0243ebbb6fcf675484d0abe62f94045be8b562d6adc31e433b499e682600`;
+  deterministic source `637dc6d0ab276d4a7497068ed9231d86635e8638`.
+  It contains the full v184 payload plus `css/v185.css`; no data, uploads,
+  config, credentials, customer records, media, billing, or `.htaccess`.
+- **Preserved product law:** retail-only, OTP/mobile-authenticated permanent
+  personalised card + **Shivaa Family Prestigious Member** certificate; unique
+  grouped 16-digit member/coupon number; exact six-calendar-month benefit;
+  exactly 20% of `makingCharge × qty` only; dual account + non-empty registered
+  mobile binding. Metal, stones, GST, shipping and whole-order value remain
+  outside the discount. Expiry disables the coupon, never the archive.
+- **Hardening:** immutable card terms now override drifted coupon mirrors;
+  missing/safe owned mirrors repair idempotently, owned duplicates collapse,
+  and foreign/reserved conflicts fail closed. Repeat claims cannot reissue or
+  extend membership. Claim writes are account-throttled while permanent reads
+  remain available. Empty-normalized mobile values fail closed.
+- **Checkout correctness:** stale/out-of-order validations are aborted and
+  rejected, changed input clears the applied coupon, submit requires the exact
+  validated code, points cannot exceed the post-coupon remainder, rate refresh
+  respects an active lock, and each summary line keeps its own quantity.
+- **Experience:** final premium mobile layer protects narrow widths and 48 px
+  touch targets; card faces expose synchronized accessible state; locker errors
+  distinguish safe offline cache from account/mobile denial; card and
+  certificate use native file sharing when supported with local download
+  fallback; print includes both faces and the certificate.
+- **Executed evidence:** main belt **214/214**; v185 browser/static **10/10**;
+  v185 PHP 8.3 **9/9**; preserved v184 **8/8 + 8/8**; full historical runner
+  **46 passed suites / 24 intentional retired skips / 0 failures**. Runner is
+  serial to eliminate PHP-WASM fixture races. Deterministic rebuild, committed-
+  byte checks, ZIP integrity and isolated extracted-package gates pass.
+- **Limits:** no compatible local browser was available; Chromium download
+  failed with external TLS resets. jsdom, PHP-WASM and static checks passed, but
+  physical iPhone/Android and live Hostinger acceptance remain post-install.
+- **Forward only:** install v185 only over matched v183/v184 after owner approval.
+  If live is already 185, do not extract twice; if live is 186+, this package is
+  obsolete. Every correction after v185 must be v186+.
+
+
 ## v184 built — Shivaa Black retail membership (6 Oct 2026)
 
 **Current source release: 184 (built and gated); public live release: 183

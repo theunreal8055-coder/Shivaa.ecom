@@ -1,5 +1,52 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION CLOSE — v185 Shivaa Black hardening + mobile finish (6 Oct 2026, branch `arena/d4bdfd94-shivaa-ecom`)
+
+- **State:** v185 is implemented, packaged and gated; public live remained
+  matched **183** before publication work. No deploy/live write/customer change.
+  The cumulative v185 package can upgrade matched v183 or v184 directly.
+- **Product invariants:** retail-only; OTP account + valid registered mobile;
+  unique grouped 16-digit number; permanent personalised card and **Shivaa
+  Family Prestigious Member** certificate; exact six-calendar-month coupon;
+  exactly 20% of server-recomputed `Σ(makingCharge × qty)` and nothing from
+  metal/stones/GST/shipping/whole-order value. Account+mobile dual binding and
+  permanent post-expiry retrieval remain mandatory.
+- **v185 backend:** the user's card is immutable authority for Black coupon
+  terms. Missing mirror rows resolve safely and repeat claim repairs canonical
+  fields; only provably owned duplicates collapse; reserved/foreign conflicts
+  fail closed. Empty-normalized mobiles fail closed. Repeat claim cannot renew,
+  renumber or duplicate. Claim writes are throttled at 12 per account/hour with
+  a 15-minute block; archive GET remains available.
+- **v185 checkout:** request generations and cancellation reject stale coupon
+  replies; applied state is bound to normalized input and editing invalidates
+  it; submit rejects unapplied text. Points are capped to the post-coupon
+  remainder; each rendered line uses its own quantity; rate events recompute
+  through the active locked snapshot rather than silently repricing.
+- **v185 experience:** `css/v185.css` is the final layer for narrow-phone safe
+  areas, layout containment, readable totals, 48 px controls, reduced motion
+  and complete print. Card faces synchronize `aria-hidden`/pressed state;
+  account/mobile denial is distinct from recoverable offline cache; card and
+  certificate export synchronously to PNG, use Web Share files when supported,
+  otherwise download; print contains both faces and certificate.
+- **Package:** `shivaa-update-v185.zip`, exactly 8 code-only root files,
+  **485,031 bytes**, SHA-256
+  `67dc0243ebbb6fcf675484d0abe62f94045be8b562d6adc31e433b499e682600`,
+  source `637dc6d0ab276d4a7497068ed9231d86635e8638`; guide `DEPLOY-v185.md`.
+  Deterministic cumulative builder `tools/mega/make-v185-zip.py`; package has
+  v184 CSS + v185 CSS and excludes data/config/uploads/media/billing/secrets.
+- **Evidence:** `npm test` **214/214**; v185 browser/static **10/10**, PHP 8.3
+  **9/9**; v184 **8/8 + 8/8**; historical runner **46 pass / 24 intentional
+  skip / 0 fail**. Runner is serial because concurrent PHP-WASM suites caused
+  one proven fixture race. PHP parser negative control, syntax, CSS braces,
+  diff whitespace, deterministic rebuild, ZIP entry/path/timestamp/committed-
+  byte comparison and isolated extracted-package suites passed.
+- **Honest limit:** Playwright package installed transiently but Chromium could
+  not download due TLS `ECONNRESET`; dependencies were restored. No native local
+  browser, physical mobile, Hostinger, real OTP or real payment acceptance.
+- **Forward-only:** owner approval required. Install only over matched v183/v184;
+  do not repeat on v185; v186+ makes this obsolete. Next correction is v186+.
+
+
 ## SESSION INTAKE — v184 Shivaa Black retail membership (6 Oct 2026, branch `arena/d4bdfd94-shivaa-ecom`)
 
 - **Forward baseline corrected from public truth:** the handoff said live 181 and

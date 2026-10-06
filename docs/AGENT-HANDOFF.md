@@ -1,4 +1,60 @@
-# AGENT HANDOFF — v184 BUILT (Shivaa Black); v183 LIVE ON HOSTINGER (6 Oct 2026)
+# AGENT HANDOFF — v185 PACKAGED (hardened Shivaa Black); v183 LIVE (6 Oct 2026)
+
+## CURRENT STATE — v185 PACKAGED: RESILIENCE + PREMIUM MOBILE PASS (6 Oct 2026)
+
+- **Baseline/live:** public `https://shivaa.in/api/version` still reported
+  release **183**, matched stamps, MySQL mode and `mirrorBehind:false` before
+  this build. v185 is cumulative over v184 and can be extracted directly over
+  matched live v183 or v184. No deploy, production write, OTP, payment, customer
+  mutation or credential operation occurred.
+- **Immutable product terms preserved:** Shivaa Black is retail-customer-only;
+  issue requires an OTP-authenticated account with a valid normalized registered
+  mobile. One permanent card/certificate record carries a unique grouped
+  16-digit member/coupon code, holder and exact calendar-six-month benefit.
+  Coupon authority remains exactly 20% of `Σ(makingCharge × qty)`—never metal,
+  stones, GST, shipping or whole-order value. The **Shivaa Family Prestigious
+  Member** certificate and card archive remain after expiry.
+- **API resilience:** a bound user card is now authoritative over every mutable
+  coupon mirror term. Validation/ordering can resolve the card even when a
+  mirror is missing; repeat claim recreates or canonically repairs a provably
+  owned row and collapses only safe owned duplicates. Foreign/generic code or ID
+  collisions fail closed without overwrite/deletion. Empty-normalized mobiles
+  cannot compare equal. Claim writes are capped at 12/account/hour with a
+  15-minute block, while GET archive retrieval remains available.
+- **Checkout correctness:** coupon requests have generations + AbortController;
+  stale responses cannot win; edits invalidate the applied key; order submit
+  requires the exact successfully applied input. Recalculation uses each
+  rendered line's own quantity, preserves an active rate lock through rate
+  events, and caps loyalty points at the remaining post-coupon amount.
+- **Member experience:** `css/v185.css` is linked last and protects 350–480 px
+  phones, safe areas, readable summaries and ≥48 px controls while retaining
+  laptop layout. Front/back state stays synchronized and accessible. Offline
+  safe-cache vs authorization/binding failures render different recovery
+  states. Card and certificate exports are synchronous PNG renders that open
+  the native file share sheet where supported, otherwise download; print shows
+  both card faces and certificate.
+- **Handshake/package:** index, app, API and service worker are release 185;
+  shell `shivaa-shell-v185`; media cache intentionally remains v168.
+  `shivaa-update-v185.zip` has exactly 8 root files, **485,031 bytes**, SHA-256
+  `67dc0243ebbb6fcf675484d0abe62f94045be8b562d6adc31e433b499e682600`,
+  source `637dc6d0ab276d4a7497068ed9231d86635e8638`; install guide
+  `DEPLOY-v185.md`. It excludes config/data/uploads/media/billing/credentials.
+- **Executed evidence:** current belt **214/214**; dedicated v185 **10/10 static+
+  jsdom and 9/9 PHP 8.3**; v184 compatibility **8/8 + 8/8**; complete historical
+  runner **46 PASS / 24 retired-feature SKIP / 0 FAIL** after serializing its
+  PHP-WASM-sensitive suites. Builder output is deterministic and package bytes
+  passed integrity/path/timestamp/committed-byte checks plus isolated overlay
+  tests. Expected jsdom external-script/media warnings only.
+- **Verification limit:** no local compatible browser; Playwright Chromium
+  download failed from all mirrors with TLS `ECONNRESET`. Physical phone/laptop
+  and live Hostinger acceptance remain owner post-install checks.
+- **Forward-only:** explicit owner approval is still required. Use only over
+  matched v183/v184; do not re-extract on v185; never use on v186+. Any later
+  correction is v186+.
+
+> **Current source/package: 185 (PACKAGED & GATED). Live: 183 (verified).**
+> **Forward only. No production or customer-data mutation occurred.**
+
 
 ## CURRENT STATE — v184 BUILT: SHIVAA BLACK RETAIL MEMBERSHIP (6 Oct 2026)
 
