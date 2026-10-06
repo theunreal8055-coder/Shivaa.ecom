@@ -86,7 +86,7 @@ const touchEv = (w, type, points) => { const e = new w.Event(type, { bubbles: tr
   const heroPreload = /<link rel="preload" as="image" ([^>]*?)fetchpriority="high">/.exec(html);
   const heroUrls = heroPreload ? [...heroPreload[1].matchAll(/(\/images\/[^\s"',]+)/g)].map(m => m[1]) : [];
   ok('hero LCP image preloads with high priority and exists on disk',
-    heroUrls.length > 0 && heroUrls.every(u => fs.existsSync(path.join(CMS, u))), heroUrls.join(', ') || 'missing preload');
+    heroUrls.length > 0 && heroUrls.every(u => fs.existsSync(path.join(CMS, u.split('?')[0]))), heroUrls.join(', ') || 'missing preload');
   ok('.htaccess adds brotli + immutable ?v= caching and keeps deflate',
     /mod_brotli\.c/.test(htaccess) && /BROTLI_COMPRESS/.test(htaccess) && /immutable/.test(htaccess) && /mod_deflate\.c/.test(htaccess));
   ok('honesty guards: HUID chip can only print a real HUID, and no dead image derivatives are referenced',

@@ -116,8 +116,13 @@ const until = async (fn, ms = 8000, step = 60) => {
      release from the shell and expects exactly that. */
   const SHELL_REL = (/__SHIVAA_REL=(\d+)/.exec(html) || [, '166'])[1];
   const boostStamp = SHELL_REL;
+  /* v186: a CSS-background LCP can be an explicit shell asset. Count only
+     stamped href preloads that the worker deliberately owns; responsive
+     carousel srcsets continue through the bounded media cache. */
+  const shellImagePreloads = [...html.matchAll(/<link[^>]*rel="preload"[^>]*as="image"[^>]*href="([^"]+)"[^>]*>/g)]
+    .map(m => m[1]).filter(u => swList.includes(u));
   const requested = new Set([
-    ...blockingCss, ...deferredCss, ...staticJs,
+    ...blockingCss, ...deferredCss, ...staticJs, ...shellImagePreloads,
     ...['aurum.js?v=' + boostStamp, 'motion.js?v=' + boostStamp, 'boost.js?v=' + boostStamp].map(u => '/js/' + u),
     /* v166: the shell asks for fonts WITH the release stamp (the CSS asks for the
        same URL), so the precache comparison must use the stamped URLs. */

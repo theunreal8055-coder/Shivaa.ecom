@@ -83,11 +83,20 @@ function bootStore(extra = '') {
   const slideLazy = (app.match(/draggable="false" decoding="async" loading="lazy">/g) || []).length;
   const preload = /<link rel="preload" as="image" imagesrcset="([^"]+)" imagesizes="100vw" fetchpriority="high">/.exec(html);
   const preUrls = preload ? [...preload[1].matchAll(/(\/images\/[^\s,]+)/g)].map(m => m[1]) : [];
-  ok('LCP: first slide carries a phone-sized srcset and every slide decodes async',
-    !!slide1 && slide1[1].includes('poster-heritage-m.jpg 800w') && slideLazy === 3, `lazy slides: ${slideLazy}`);
-  ok('LCP: the head preload matches the slide srcset and every file exists on disk',
-    !!preload && preUrls.length === 2 && preUrls.every(u => fs.existsSync(path.join(CMS, u))) &&
-    !/preload" as="image" href="\/images\/products\/ring-floral\.jpg"/.test(html), preUrls.join(', '));
+  /* v186 moves LCP ownership from the below-fold carousel to the opening
+     Black CSS artwork. The old responsive slide still exists, but correctly
+     becomes lazy so it cannot compete with the real opening paint. */
+  const blackPreload = /<link rel="preload" as="image" href="(\/images\/black\/hero-v\d+\.jpg\?v=\d+)" fetchpriority="high">/.exec(html);
+  const lazyResponsiveFirst = /poster-heritage\.jpg" srcset="[^"]*poster-heritage-m\.jpg 800w[^"]*" sizes="100vw"[^>]*decoding="async"[^>]*loading="lazy">/.test(app);
+  const blackLcp = !!blackPreload;
+  ok('LCP: active opening art is eager while every below-fold slide decodes async',
+    blackLcp ? lazyResponsiveFirst && slideLazy === 4 : (!!slide1 && slide1[1].includes('poster-heritage-m.jpg 800w') && slideLazy === 3), `lazy slides: ${slideLazy}`);
+  ok('LCP: the head preload matches the active artwork and every file exists on disk',
+    blackLcp
+      ? fs.existsSync(path.join(CMS, blackPreload[1].split('?')[0]))
+      : !!preload && preUrls.length === 2 && preUrls.every(u => fs.existsSync(path.join(CMS, u))) &&
+        !/preload" as="image" href="\/images\/products\/ring-floral\.jpg"/.test(html),
+    blackLcp ? blackPreload[1] : preUrls.join(', '));
   const mBytes = fs.statSync(path.join(CMS, 'images/banners/poster-heritage-m.jpg')).size;
   const fullBytes = fs.statSync(path.join(CMS, 'images/banners/poster-heritage.jpg')).size;
   ok('the phone hero is genuinely lighter (under half the full file)',
