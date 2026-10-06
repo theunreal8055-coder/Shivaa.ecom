@@ -68,8 +68,11 @@ P("Date: 5-6 Oct 2026  -  Session branch: arena/01a10c1a-shivaa-ecom  -  Repo: t
 
 # ---------------- Section 0 ----------------
 H1("0. HOW TO RESUME IN A NEW CHAT (read me first)")
-P("In the new chat, paste the GitHub link of this PDF and say: \"Read ARENA-STATE.md, HANDOFF.md and this PDF, then continue.\"\n"
-  "If the new agent cannot fetch this PDF directly (private repo), it can download it with the authenticated GitHub CLI:")
+P("This PDF is merged into main - every new Arena chat on this repo has it LOCALLY in the fresh checkout. In the new chat, just say:\n"
+  "\"Read ARENA-STATE.md, HANDOFF.md and marketing/CHAT-RECORD-instagram-ads-session-2026-10-05.pdf (local, on main), then continue.\"\n"
+  "The repo is PRIVATE, so raw.githubusercontent.com links give 404 unauthenticated - do not rely on them. To view it in a browser (logged in as theunreal8055-coder): "
+  "github.com/theunreal8055-coder/Shivaa.ecom/blob/main/marketing/CHAT-RECORD-instagram-ads-session-2026-10-05.pdf\n"
+  "Offline fallback - download with the authenticated GitHub CLI:")
 MONO("gh api repos/theunreal8055-coder/Shivaa.ecom/contents/marketing/CHAT-RECORD-instagram-ads-session-2026-10-05.pdf?ref=main \\\n     -H \"Accept: application/vnd.github.raw\" > /tmp/chat.pdf")
 P("Companion files from this session (read these too):")
 MONO("marketing/INSTAGRAM-ADS-JAYAL-PLAN.md      <- the campaign plan (budget, blueprint, checklist)\n"
@@ -134,7 +137,7 @@ AGENT("Agreed the split: owner shoots + owns Flow; agent analyses every clip fra
 
 H2("2.5 This document")
 OWNER("Give me the full chat pdf direct GitHub link so that if I paste that in a new chat we can start from there only.")
-AGENT("This PDF. Generated from the session record, committed to GitHub with the marketing/ folder, PR merged to main; direct raw link + gh api fallback + resume instructions are in Section 0.")
+AGENT("This PDF. Generated from the session record, committed to GitHub with the marketing/ folder, PR #103 merged to main; resume instructions (local read first - repo is private; gh api fallback; browser link for the logged-in owner) are in Section 0.")
 
 # ---------------- Section 3 ----------------
 H1("3. KEY NUMBERS TO REMEMBER")
