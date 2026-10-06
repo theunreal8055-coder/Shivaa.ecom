@@ -79,8 +79,13 @@ console.log('· 1 — SHIVAA RATES: the B2C storefront speaks Shivaa, not Jaipur
     ['index', idx, 'Shivaa gold &amp; silver, live'],
     ['api', api, 'The live Shivaa gold / silver rate at the time you buy'],
   ];
-  ok('all 25 new "Shivaa" rate-brand strings are present where the old ones stood', live.every(([w, s, t]) => s.includes(t)),
-    live.filter(([w, s, t]) => !s.includes(t)).map(([w, s, t]) => w + ': ' + t).join(' · ') || 'all present');
+  /* v184 replaced the old generic homepage/SEO campaign with Shivaa Black, so
+     two former marketing sentences no longer have a surface to occupy. Every
+     actual rates surface remains mandatory; retired copy is not a regression. */
+  const retiredByBlackHome = new Set(['Shivaa Live Rates', "Gold & silver jewellery at Shivaa's live rates,"]);
+  const requiredLive = live.filter(([, , t]) => !retiredByBlackHome.has(t));
+  ok('all current "Shivaa" rate-brand strings are present where rate surfaces remain', requiredLive.every(([w, s, t]) => s.includes(t)),
+    requiredLive.filter(([w, s, t]) => !s.includes(t)).map(([w, s, t]) => w + ': ' + t).join(' · ') || 'all present');
 
   ok('real geography keeps its name (pickup Jaipur & Nagaur ×3, city chips, reviewer hometown)',
     (app.match(/Jaipur &amp; Nagaur/g) || []).length === 2

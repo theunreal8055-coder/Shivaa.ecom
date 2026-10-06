@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 184;
+const APP_REL = 185;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3210,9 +3210,10 @@ function blackCardVisual(card = null, opts = {}) {
   const expires = mock ? '6 MONTHS' : blackDate(card.expiresAt);
   const thru = mock ? '••/••' : blackDate(card.expiresAt, true);
   const status = mock ? 'YOUR CARD' : (blackCardActive(card) ? 'ACTIVE' : 'EXPIRED · KEPT FOREVER');
+  const backFirst = !!opts.backFirst;
   return `<div class="bc-card-wrap${opts.home ? ' bc-card-home' : ''}">
-    <button type="button" class="bc-card" aria-pressed="false" aria-label="Flip Shivaa Black card to ${opts.backFirst ? 'front' : 'reverse'}" onclick="Shivaa.flipBlackCard(this)">
-      <span class="bc-face bc-front">
+    <button type="button" class="bc-card${backFirst ? ' is-flipped' : ''}" aria-pressed="${backFirst ? 'true' : 'false'}" aria-label="Shivaa Black card, ${backFirst ? 'reverse' : 'front'} showing. Activate to turn over" onclick="Shivaa.flipBlackCard(this)">
+      <span class="bc-face bc-front" data-bc-face="front" aria-hidden="${backFirst ? 'true' : 'false'}">
         <span class="bc-noise" aria-hidden="true"></span><span class="bc-orbit" aria-hidden="true"></span>
         <span class="bc-top"><span class="bc-brand"><img src="/images/logo.png" alt=""><span><b>SHIVAA</b><small>BLACK</small></span></span><span class="bc-status">${esc(status)}</span></span>
         <span class="bc-benefit"><b>20<span>%</span></b><small>OFF MAKING<br>CHARGES</small></span>
@@ -3221,7 +3222,7 @@ function blackCardVisual(card = null, opts = {}) {
         <span class="bc-bottom"><span><small>MEMBER</small><b>${esc(String(holder).toUpperCase())}</b></span><span><small>VALID THRU</small><b>${esc(thru)}</b></span></span>
         <span class="bc-not-pay">PRIVILEGE CARD · NOT A PAYMENT CARD</span>
       </span>
-      <span class="bc-face bc-back">
+      <span class="bc-face bc-back" data-bc-face="back" aria-hidden="${backFirst ? 'false' : 'true'}">
         <span class="bc-back-head"><b>SHIVAA BLACK</b><small>RETAIL MEMBERSHIP</small></span>
         <span class="bc-stripe" aria-hidden="true"></span>
         <span class="bc-mobile-row"><small>BOUND MOBILE</small><b>${esc(mobile)}</b></span>
@@ -3231,14 +3232,20 @@ function blackCardVisual(card = null, opts = {}) {
         <span class="bc-not-pay back">NOT A BANK / DEBIT / CREDIT CARD</span>
       </span>
     </button>
-    <span class="bc-flip-hint"><span aria-hidden="true">↻</span> Tap the card to see the ${opts.backFirst ? 'front' : 'reverse'}</span>
+    <span class="bc-flip-hint" aria-live="polite"><span aria-hidden="true">↻</span> Tap the card to see the ${backFirst ? 'front' : 'reverse'}</span>
   </div>`;
 }
 window.Shivaa.flipBlackCard = el => {
   if (!el) return;
   const on = el.classList.toggle('is-flipped');
   el.setAttribute('aria-pressed', String(on));
-  el.setAttribute('aria-label', 'Flip Shivaa Black card to ' + (on ? 'front' : 'reverse'));
+  el.setAttribute('aria-label', `Shivaa Black card, ${on ? 'reverse' : 'front'} showing. Activate to turn over`);
+  const front = el.querySelector('[data-bc-face="front"]'), back = el.querySelector('[data-bc-face="back"]');
+  if (front) front.setAttribute('aria-hidden', on ? 'true' : 'false');
+  if (back) back.setAttribute('aria-hidden', on ? 'false' : 'true');
+  const hint = el.parentElement && el.parentElement.querySelector('.bc-flip-hint');
+  if (hint) hint.innerHTML = `<span aria-hidden="true">↻</span> Tap the card to see the ${on ? 'front' : 'reverse'}`;
+  if (window.Shivaa && Shivaa.haptic) Shivaa.haptic(8);
 };
 function blackCertificateHTML(card) {
   if (!card) return '';
@@ -3286,23 +3293,25 @@ function blackMembershipHTML(card, opts = {}) {
     <div class="bc-card-zone">
       ${blackCardVisual(card)}
       <div class="bc-card-details">
-        <div><small>MEMBER / COUPON NUMBER</small><b class="bc-detail-code">${esc(blackMemberCode(card.couponCode || card.cardNumber))}</b></div>
+        <div><small>MEMBER / COUPON NUMBER</small><div class="bc-member-code-row"><b class="bc-detail-code">${esc(blackMemberCode(card.couponCode || card.cardNumber))}</b><button type="button" class="bc-code-copy" onclick="Shivaa.copyBlackCode(this)" aria-label="Copy Shivaa Black member and coupon number"><span aria-hidden="true">⧉</span> Copy</button></div></div>
         <div class="bc-detail-dates"><span><small>ISSUED</small><b>${esc(blackDate(card.issuedAt))}</b></span><span><small>VALID UNTIL</small><b>${esc(blackDate(card.expiresAt))}</b></span></div>
         <div class="bc-bind"><span aria-hidden="true">◉</span><p><b>Locked to ${esc(blackPhone(card.mobile))}</b><small>Only this registered-mobile account can reveal or apply the code.</small></p></div>
-        <div class="bc-member-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.copyBlackCode()">Copy coupon code</button><button type="button" class="btn btn-outline" onclick="Shivaa.saveBlackCard()">Save card image</button><a class="btn btn-ghost" href="#/shop">Shop jewellery</a></div>
+        <div class="bc-member-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.saveBlackCard(this)">Save / share card</button><a class="btn btn-ghost" href="#/shop">Shop jewellery</a></div>
       </div>
     </div>
     <div class="bc-scope" role="note"><b>Exactly what 20% means</b><span><i>✓</i> 20% of listed making charges × quantity</span><span><i>×</i> No reduction on metal value, stones, GST or shipping</span><span><i>✓</i> Server recalculates the saving on every order</span></div>
-    <div class="bc-cert-wrap"><div class="bc-cert-intro"><span class="bc-eyebrow">ISSUED WITH YOUR CARD · KEPT FOREVER</span><h2>Shivaa Family<br><em>Prestigious Member</em></h2><p>Your permanent family certificate was created in the same moment as your card. It stays in My Account even after the shopping privilege ends.</p><button type="button" class="btn btn-outline" onclick="Shivaa.printBlackMembership()">Save as PDF / Print</button></div>${blackCertificateHTML(card)}</div>
+    <div class="bc-cert-wrap"><div class="bc-cert-intro"><span class="bc-eyebrow">ISSUED WITH YOUR CARD · KEPT FOREVER</span><h2>Shivaa Family<br><em>Prestigious Member</em></h2><p>Your permanent family certificate was created in the same moment as your card. It stays in My Account even after the shopping privilege ends.</p><div class="bc-cert-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.saveBlackCertificate(this)">Save / share certificate</button><button type="button" class="btn btn-outline" onclick="Shivaa.printBlackMembership()">Print / save PDF</button></div></div>${blackCertificateHTML(card)}</div>
   </div>`;
 }
-window.Shivaa.copyBlackCode = async () => {
+window.Shivaa.copyBlackCode = async btn => {
   const c = state.user && state.user.blackCard;
   if (!c) return toast('Open your Shivaa Black card first', 'err');
   const code = String(c.couponCode || c.cardNumber || '').trim();
-  try { await navigator.clipboard.writeText(code); }
-  catch (e) { const t = document.createElement('textarea'); t.value = code; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (_) {} t.remove(); }
-  toast('Shivaa Black coupon copied ✦');
+  try {
+    await copyText(code);
+    if (btn) { const old = btn.innerHTML; btn.innerHTML = '<span aria-hidden="true">✓</span> Copied'; setTimeout(() => { if (document.body.contains(btn)) btn.innerHTML = old; }, 1800); }
+    toast('Shivaa Black member code copied ✦');
+  } catch (e) { toast('Could not copy — press and hold the number instead', 'err'); }
 };
 window.Shivaa.claimBlackCard = async btn => {
   if (!state.user) { openLogin('black-card'); return; }
@@ -3327,27 +3336,135 @@ window.Shivaa.printBlackMembership = () => {
   setTimeout(done, 5000);
   window.print();
 };
-window.Shivaa.saveBlackCard = () => {
+function blackCanvasBlob(canvas) {
+  /* Synchronous on purpose: navigator.share must be called while the original
+     tap still carries transient user activation. Waiting for canvas.toBlob's
+     later task makes iOS/Android reject an otherwise-supported file share. */
+  const data = canvas.toDataURL('image/png', 1), b64 = data.split(',')[1] || '';
+  const raw = atob(b64), bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  return new Blob([bytes], { type: 'image/png' });
+}
+function blackDownloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = filename; a.hidden = true; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+async function blackShareOrSave(blob, filename, title, text) {
+  let file = null;
+  try { file = typeof File === 'function' ? new File([blob], filename, { type: 'image/png' }) : null; } catch (_) {}
+  if (file && navigator.share && navigator.canShare) {
+    try {
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title, text });
+        return 'shared';
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return 'cancelled';
+      /* A share target can fail after opening; an ordinary download remains a
+         reliable fallback and does not expose the file anywhere automatically. */
+    }
+  }
+  blackDownloadBlob(blob, filename); return 'saved';
+}
+function blackFitCanvasText(ctx, text, maxWidth, maxSize, minSize, family = 'Georgia') {
+  let size = maxSize;
+  do { ctx.font = `700 ${size}px ${family}`; if (ctx.measureText(text).width <= maxWidth) break; size -= 2; } while (size > minSize);
+  return size;
+}
+function blackWrappedCanvasText(ctx, text, cx, y, maxWidth, lineHeight, maxLines = 3) {
+  const words = String(text).split(/\s+/); let line = '', lines = [];
+  words.forEach(word => {
+    const next = line ? line + ' ' + word : word;
+    if (line && ctx.measureText(next).width > maxWidth) { lines.push(line); line = word; } else line = next;
+  });
+  if (line) lines.push(line);
+  lines = lines.slice(0, maxLines);
+  lines.forEach((s, i) => ctx.fillText(s, cx, y + i * lineHeight));
+  return y + lines.length * lineHeight;
+}
+window.Shivaa.saveBlackCard = async btn => {
   const card = state.user && state.user.blackCard;
   if (!card) return toast('Open your Shivaa Black card first', 'err');
+  const old = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing card…'; }
   try {
     const cv = document.createElement('canvas'); cv.width = 1200; cv.height = 1510;
     const x = cv.getContext('2d'); if (!x) throw new Error('Canvas unavailable');
     const panel = (y, h) => { const g = x.createLinearGradient(0, y, 1200, y + h); g.addColorStop(0, '#030303'); g.addColorStop(.52, '#18130b'); g.addColorStop(1, '#050505'); x.fillStyle = g; x.fillRect(40, y, 1120, h); x.strokeStyle = '#d6af57'; x.lineWidth = 3; x.strokeRect(40, y, 1120, h); };
     x.fillStyle = '#f5efe2'; x.fillRect(0, 0, cv.width, cv.height); panel(40, 680); panel(790, 680);
-    x.fillStyle = '#e8c777'; x.font = '700 50px Georgia'; x.fillText('SHIVAA', 100, 125); x.font = '24px Arial'; x.letterSpacing = '8px'; x.fillText('B L A C K', 100, 165);
+    x.fillStyle = '#e8c777'; x.font = '700 50px Georgia'; x.fillText('SHIVAA', 100, 125); x.font = '24px Arial'; x.fillText('B L A C K', 100, 165);
     x.textAlign = 'right'; x.font = '700 118px Georgia'; x.fillText('20%', 1095, 205); x.textAlign = 'left'; x.font = '25px Arial'; x.fillText('OFF MAKING CHARGES', 772, 246);
     x.fillStyle = '#bca66f'; x.font = '20px Arial'; x.fillText('MEMBER · COUPON CODE', 100, 365); x.fillStyle = '#fff4d1'; x.font = '44px monospace'; x.fillText(blackMemberCode(card.couponCode || card.cardNumber), 100, 425);
-    x.fillStyle = '#bca66f'; x.font = '18px Arial'; x.fillText('MEMBER', 100, 560); x.fillText('VALID UNTIL', 830, 560); x.fillStyle = '#fff'; x.font = '30px Arial'; x.fillText(String(card.holderName || '').toUpperCase(), 100, 604); x.fillText(blackDate(card.expiresAt), 830, 604);
+    x.fillStyle = '#bca66f'; x.font = '18px Arial'; x.fillText('MEMBER', 100, 560); x.fillText('VALID UNTIL', 830, 560); x.fillStyle = '#fff';
+    blackFitCanvasText(x, String(card.holderName || '').toUpperCase(), 670, 30, 20, 'Arial'); x.fillText(String(card.holderName || '').toUpperCase(), 100, 604); x.font = '30px Arial'; x.fillText(blackDate(card.expiresAt), 830, 604);
     x.fillStyle = '#82745b'; x.font = '17px Arial'; x.fillText('PRIVILEGE CARD · NOT A PAYMENT CARD', 100, 675);
     x.fillStyle = '#e8c777'; x.font = '700 40px Georgia'; x.fillText('SHIVAA BLACK · REVERSE', 100, 875); x.fillStyle = '#fff'; x.font = '700 34px Arial'; x.fillText('BOUND MOBILE  ' + blackPhone(card.mobile), 100, 970);
     x.fillStyle = '#ddcfaa'; x.font = '25px Arial';
     ['20% applies only to listed making charges × quantity.', 'No reduction on metal value, stones, GST or shipping.', 'Accepted only for this registered-mobile account.', 'Card and certificate remain in My Account after expiry.'].forEach((s, i) => x.fillText('✦  ' + s, 100, 1060 + i * 62));
     x.fillStyle = '#bca66f'; x.font = '21px Arial'; x.fillText('ISSUED  ' + blackDate(card.issuedAt), 100, 1350); x.fillText('BENEFIT UNTIL  ' + blackDate(card.expiresAt), 610, 1350); x.fillStyle = '#82745b'; x.fillText('NOT A BANK / DEBIT / CREDIT CARD', 100, 1420);
-    const save = url => { const a = document.createElement('a'); a.href = url; a.download = 'shivaa-black-' + String(card.memberId || 'member').toLowerCase() + '.png'; a.click(); if (url.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(url), 1000); };
-    if (cv.toBlob) cv.toBlob(b => { if (b) { save(URL.createObjectURL(b)); toast('Card image saved ✦'); } else toast('Use “Save as PDF / Print” on this page', 'err'); }, 'image/png');
-    else { save(cv.toDataURL('image/png')); toast('Card image saved ✦'); }
-  } catch (e) { toast('Use “Save as PDF / Print” on this page', 'err'); }
+    const blob = blackCanvasBlob(cv); if (!blob) throw new Error('Image export unavailable');
+    const outcome = await blackShareOrSave(blob, 'shivaa-black-' + String(card.memberId || 'member').toLowerCase() + '.png', 'My Shivaa Black Card', 'Private Shivaa Black membership card · keep this file secure.');
+    if (outcome === 'shared') toast('Card shared from your secure account ✦');
+    if (outcome === 'saved') toast('Card image saved ✦');
+  } catch (e) { toast('Could not create the image — use Print / save PDF instead', 'err'); }
+  finally { if (btn && document.body.contains(btn)) { btn.disabled = false; btn.textContent = old || 'Save / share card'; } }
+};
+window.Shivaa.saveBlackCertificate = async btn => {
+  const card = state.user && state.user.blackCard;
+  if (!card) return toast('Open your Shivaa Black certificate first', 'err');
+  const old = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing certificate…'; }
+  try {
+    const cv = document.createElement('canvas'); cv.width = 1800; cv.height = 1270;
+    const x = cv.getContext('2d'); if (!x) throw new Error('Canvas unavailable');
+    const bg = x.createLinearGradient(0, 0, 1800, 1270); bg.addColorStop(0, '#ead18a'); bg.addColorStop(.32, '#fffdf1'); bg.addColorStop(.68, '#fffaf0'); bg.addColorStop(1, '#d9b85e'); x.fillStyle = bg; x.fillRect(0, 0, 1800, 1270);
+    x.strokeStyle = '#fff8dc'; x.lineWidth = 22; x.strokeRect(28, 28, 1744, 1214); x.strokeStyle = '#9b6e1b'; x.lineWidth = 3; x.strokeRect(48, 48, 1704, 1174); x.strokeStyle = 'rgba(112,73,12,.45)'; x.lineWidth = 1; x.strokeRect(67, 67, 1666, 1136);
+    x.save(); x.globalAlpha = .045; x.fillStyle = '#6d480c'; x.textAlign = 'center'; x.font = '700 210px Georgia'; x.fillText('SHIVAA', 900, 690); x.restore();
+    x.beginPath(); x.arc(900, 155, 72, 0, Math.PI * 2); x.fillStyle = '#f6e4a6'; x.fill(); x.strokeStyle = '#926416'; x.lineWidth = 3; x.stroke(); x.beginPath(); x.arc(900, 155, 61, 0, Math.PI * 2); x.strokeStyle = '#b98a2f'; x.stroke();
+    x.textAlign = 'center'; x.fillStyle = '#5d3c08'; x.font = '700 58px Georgia'; x.fillText('S', 900, 169); x.font = '700 12px Arial'; x.fillText('SHIVAA FAMILY', 900, 197);
+    x.fillStyle = '#7b591e'; x.font = '700 17px Arial'; x.fillText('THE HOUSE OF SHIVAA · JAYAL', 900, 267);
+    x.fillStyle = '#4f3108'; x.font = '700 68px Georgia'; x.fillText('Certificate of Prestigious Membership', 900, 358);
+    x.fillStyle = '#826a3d'; x.font = '24px Georgia'; x.fillText('The Shivaa Family proudly welcomes', 900, 423);
+    x.fillStyle = '#4d2e04'; const name = String(card.holderName || 'Shivaa Member'); blackFitCanvasText(x, name, 1250, 80, 42, 'Georgia'); x.fillText(name, 900, 520);
+    x.strokeStyle = '#9c742a'; x.lineWidth = 2; x.beginPath(); x.moveTo(300, 550); x.lineTo(1500, 550); x.stroke();
+    x.fillStyle = '#69512a'; x.font = '26px Georgia';
+    blackWrappedCanvasText(x, 'as a Shivaa Family Prestigious Member, recognised for a relationship we are honoured to keep beyond every purchase.', 900, 606, 1250, 38, 2);
+    const meta = [[card.certificateNo || '—', 'CERTIFICATE'], [card.memberId || '—', 'MEMBER ID'], [blackDate(card.certificateIssuedAt || card.issuedAt), 'ISSUED']];
+    meta.forEach((m, i) => { const left = 230 + i * 470; x.fillStyle = 'rgba(255,255,255,.40)'; x.fillRect(left, 720, 400, 105); x.strokeStyle = 'rgba(128,86,18,.32)'; x.strokeRect(left, 720, 400, 105); x.fillStyle = '#907438'; x.font = '700 13px Arial'; x.fillText(m[1], left + 200, 754); x.fillStyle = '#523607'; blackFitCanvasText(x, String(m[0]), 350, 20, 14, 'Arial'); x.fillText(String(m[0]), left + 200, 795); });
+    x.fillStyle = '#53380c'; x.textAlign = 'left'; x.font = '700 29px Georgia'; x.fillText('SHIVAA JEWELLERS', 170, 935); x.fillStyle = '#8c754a'; x.font = '17px Arial'; x.fillText('Family-issued digital membership recognition', 170, 968);
+    x.textAlign = 'right'; x.fillStyle = blackCardActive(card) ? '#1e6e3e' : '#5d451a'; x.font = '700 18px Arial'; x.fillText(blackCardActive(card) ? 'PRIVILEGE ACTIVE' : 'CERTIFICATE PERMANENTLY ARCHIVED', 1630, 950);
+    x.textAlign = 'center'; x.fillStyle = '#735f39'; x.font = '18px Arial';
+    blackWrappedCanvasText(x, `This certificate remains permanently in the member's account. The 20% making-charge privilege is separate and valid only from ${blackDate(card.issuedAt)} through ${blackDate(card.expiresAt)}. Not a government or financial certificate.`, 900, 1070, 1450, 29, 3);
+    x.fillStyle = '#9a762d'; x.font = '700 15px Arial'; x.fillText('PERMANENT ACCOUNT ARCHIVE · VERIFY THROUGH THE REGISTERED MOBILE', 900, 1188);
+    const blob = blackCanvasBlob(cv); if (!blob) throw new Error('Image export unavailable');
+    const outcome = await blackShareOrSave(blob, 'shivaa-family-certificate-' + String(card.certificateNo || 'member').toLowerCase() + '.png', 'My Shivaa Family Certificate', 'Shivaa Family Prestigious Member certificate.');
+    if (outcome === 'shared') toast('Certificate shared ✦');
+    if (outcome === 'saved') toast('Certificate image saved ✦');
+  } catch (e) { toast('Could not create the certificate image — use Print / save PDF instead', 'err'); }
+  finally { if (btn && document.body.contains(btn)) { btn.disabled = false; btn.textContent = old || 'Save / share certificate'; } }
+};
+function blackAccessErrorHTML(error, cached = false) {
+  const status = +(error && error.status) || 0;
+  const offline = !!(error && (error.isNetwork || error.isTimeout)) || (typeof navigator !== 'undefined' && navigator.onLine === false);
+  const title = status === 401 ? 'Please verify your mobile again.'
+    : status === 403 ? 'We could not verify this card’s mobile binding.'
+    : offline ? 'Your private locker is temporarily offline.' : 'Your private locker could not refresh.';
+  const copy = cached
+    ? 'Your last verified card and certificate are shown below from this signed-in session. Live benefit status and checkout use will be verified by the server when the connection returns.'
+    : status === 401 ? 'Your secure session ended. Sign in by OTP with the registered mobile to retrieve your permanent card and certificate.'
+    : status === 403 ? 'For your privacy, no card is shown. Sign in with the registered mobile or contact the Shivaa family if your number changed.'
+    : 'Nothing has been lost. Your permanent card and certificate remain in your account—retry when your connection is ready.';
+  const actions = status === 401
+    ? `<button type="button" class="btn btn-gold" onclick="Shivaa.openLogin('black-card')">Sign in by OTP</button>`
+    : status === 403
+      ? `<a class="btn btn-outline" href="#/contact">Contact Shivaa securely</a>`
+      : `<button type="button" class="btn btn-outline" onclick="Shivaa.retryBlackCard(this)">Retry secure connection</button>`;
+  return `<section class="bc-access-state ${cached ? 'cached' : 'blocked'}" role="alert"><span class="bc-access-icon" aria-hidden="true">${offline ? '↻' : '◈'}</span><div><h2>${title}</h2><p>${copy}</p></div><div class="bc-access-actions">${actions}</div></section>`;
+}
+window.Shivaa.retryBlackCard = btn => {
+  if (btn) { btn.disabled = true; btn.textContent = 'Retrying…'; }
+  route();
 };
 pages['black-card'] = async view => {
   const isCurrent = viewLifetime(view);
@@ -3359,11 +3476,18 @@ pages['black-card'] = async view => {
   if ((state.user.role || 'customer') !== 'customer') {
     view.innerHTML = emptyShell('Shivaa Black', 'Made exclusively for retail customers', `<div class="empty"><p style="color:var(--ink-3);margin-bottom:18px">Partner and admin accounts cannot claim or use this retail membership.</p><a class="btn btn-outline" href="#/">Back home</a></div>`); return;
   }
-  let card = state.user.blackCard || null;
-  try { const r = await api('/api/black-card'); card = r.membership || null; } catch (e) { if (!state.user) { openLogin('black-card'); return; } }
+  const cachedCard = state.user.blackCard || null;
+  let card = cachedCard, accessError = null;
+  try { const r = await api('/api/black-card'); card = r.membership || null; }
+  catch (e) { accessError = e; }
   if (!isCurrent()) return;
-  state.user.blackCard = card;
-  view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/account">My Account</a> / Shivaa Black</div><span class="bc-eyebrow">YOUR PRIVATE MEMBER LOCKER</span><h1>${card ? 'Shivaa Black, kept for you.' : 'Meet your Shivaa Black Card.'}</h1><p>${card ? 'Flip it, copy it, save it—your card and certificate live here whenever you return by OTP.' : 'Claim once. Your issue date, six-month expiry, private member number and certificate are saved together.'}</p></div></section><div class="container bc-page-body">${blackMembershipHTML(card)}</div>`;
+  /* A network/5xx failure may show the card already obtained in this same
+     authenticated session. Auth/mobile-binding failures fail closed. */
+  const safeCached = !!(cachedCard && accessError && ![401, 403].includes(+accessError.status || 0));
+  if (accessError && !safeCached) card = null;
+  if (!accessError && state.user) state.user.blackCard = card;
+  const notice = accessError ? blackAccessErrorHTML(accessError, safeCached) : '';
+  view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/account">My Account</a> / Shivaa Black</div><span class="bc-eyebrow">YOUR PRIVATE MEMBER LOCKER</span><h1>${card ? 'Shivaa Black, kept for you.' : accessError ? 'Your membership is protected.' : 'Meet your Shivaa Black Card.'}</h1><p>${card ? 'Flip it, copy it, save or share it—your card and certificate live here whenever you return by OTP.' : accessError ? 'We could not safely open the live locker just now. Use the recovery action below; your permanent documents are not deleted.' : 'Claim once. Your issue date, six-month expiry, private member number and certificate are saved together.'}</p></div></section><div class="container bc-page-body">${notice}${accessError && !safeCached ? '' : blackMembershipHTML(card)}</div>`;
 };
 
 pages.home = async (view) => {
@@ -5394,8 +5518,8 @@ pages.checkout = async (view) => {
       <h3>Your Order</h3>
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
       ${checkoutBlack ? `<div class="bc-checkout-pass"><span class="bc-checkout-mark">S</span><span><b>Shivaa Black found</b><small>20% off ${fmt(makingSubtotal)} in making charges · applying securely</small></span><a href="#/black-card">View card</a></div>` : ''}
-      <div class="coupon-row"><input id="couponIn" placeholder="Coupon code" value="${checkoutBlack ? esc(checkoutBlack.couponCode || checkoutBlack.cardNumber || '') : ''}"${checkoutBlack ? ' aria-label="Your Shivaa Black member coupon"' : ''}><button class="btn btn-ghost btn-sm" onclick="Shivaa.applyCoupon()">Apply</button></div>
-      <div id="couponMsg" style="font-size:12.5px;min-height:18px" aria-live="polite"></div>
+      <div class="coupon-row"><input id="couponIn" placeholder="Coupon or member code" value="${checkoutBlack ? esc(checkoutBlack.couponCode || checkoutBlack.cardNumber || '') : ''}"${checkoutBlack ? ' aria-label="Your Shivaa Black member coupon"' : ' aria-label="Coupon code"'} aria-describedby="couponMsg" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="Shivaa.couponInputChanged(this.value)"><button class="btn btn-ghost btn-sm" id="couponApplyBtn" type="button" onclick="Shivaa.applyCoupon()">Apply</button></div>
+      <div id="couponMsg" class="coupon-message" aria-live="polite"></div>
       ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
       <div class="sum-row"><span>Subtotal</span><b id="coSub">${fmt(subtotal)}</b></div>
       <div class="sum-row" id="coDiscRow" hidden><span id="coDiscLabel">Coupon discount</span><b id="coDisc" style="color:var(--ok)">− ₹0</b></div>
@@ -5428,7 +5552,9 @@ pages.checkout = async (view) => {
      the +/-2% band at submit, so a stale or hand-edited lock can never make
      the shop sell below the band. */
   const LOCKSEC = () => Math.max(300, Math.min(3600, ((window._co && window._co.lockMinutes) || 20) * 60));
-  window._co = { subtotal, makingSubtotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, couponType: null, couponValue: 0, disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online', lockMinutes: (payCfg && payCfg.lockMinutes) || 20 };
+  window._co = { subtotal, makingSubtotal, freeShip: subtotal >= state.settings.freeShipAbove,
+    coupon: null, couponType: null, couponValue: 0, couponAppliedKey: '', couponGeneration: 0, couponAbort: null,
+    disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online', lockMinutes: (payCfg && payCfg.lockMinutes) || 20 };
   try {
     const savedLock = JSON.parse(localStorage.getItem('shv_rate_lock') || 'null');
     if (savedLock && savedLock.stampedAt && savedLock.rates &&
@@ -5447,9 +5573,12 @@ pages.checkout = async (view) => {
     coRows().forEach(el => {
       const it = window._co.items.find(x => x.p.id === el.dataset.copid);
       if (!it) return;
+      /* A design may appear twice with different size/engraving and quantity.
+         Use this rendered line's quantity, not the first same-product cart row. */
+      const qty = Math.max(1, +el.dataset.qty || 1);
       const pr = price(it.p, R);
-      const t = pr.total * it.qty;
-      el.textContent = fmt(t); sub += t; making += pr.makingCharge * it.qty;
+      const t = pr.total * qty;
+      el.textContent = fmt(t); sub += t; making += pr.makingCharge * qty;
     });
     window._co.subtotal = sub;
     window._co.makingSubtotal = making;
@@ -5508,6 +5637,10 @@ pages.checkout = async (view) => {
       else { clearInterval(window._co.lockTimer); coTotals(); paintLock(); }
     }, 1000);
   }
+  /* The global rates event delegates back here so it honours this checkout's
+     active lock. The old generic refresher repriced with live rates behind the
+     “Rate locked” badge and could briefly submit/display two different totals. */
+  window._co.recalculate = coTotals;
   if (!window._co.rateLock) setLock();        // v107 — auto-arm (restored lock wins)
   coTotals(); paintLock(); startLockClock();
   /* v184 — the personal card follows its owner into checkout. Validation is
@@ -5591,37 +5724,88 @@ pages.checkout = async (view) => {
     if (memPin && /^\d{6}$/.test(memPin)) { adPin.value = memPin; onPin(); }
   }
 };
+function checkoutCouponKey(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
+}
+function resetCheckoutCoupon(co = window._co) {
+  if (!co) return;
+  co.coupon = null; co.couponType = null; co.couponValue = 0; co.couponAppliedKey = ''; co.disc = 0;
+  const label = $('#coDiscLabel'); if (label) label.textContent = 'Coupon discount';
+}
+/* v185 — an edited coupon is never silently submitted, and an earlier network
+   reply can never overwrite the result for a later code/checkout. */
+window.Shivaa.couponInputChanged = value => {
+  const co = window._co; if (!co) return;
+  const key = checkoutCouponKey(value);
+  const changedApplied = !!co.coupon && key !== co.couponAppliedKey;
+  if (co.couponAbort) { co.couponAbort.abort(); co.couponAbort = null; }
+  const applyBtn = $('#couponApplyBtn');
+  if (applyBtn) { applyBtn.disabled = false; applyBtn.removeAttribute('aria-busy'); applyBtn.textContent = 'Apply'; }
+  co.couponGeneration = (co.couponGeneration || 0) + 1;
+  if (changedApplied) resetCheckoutCoupon(co);
+  const msg = $('#couponMsg');
+  if (msg && changedApplied) {
+    msg.className = 'coupon-message warn';
+    msg.textContent = key ? 'Code changed — tap Apply to verify this code.' : '';
+  } else if (msg && !key) { msg.className = 'coupon-message'; msg.textContent = ''; }
+  window.Shivaa.updateCheckout();
+};
 window.Shivaa.applyCoupon = async (automatic = false) => {
-  const input = $('#couponIn'), msg = $('#couponMsg');
-  if (!input || !msg || !window._co) return;
-  const code = input.value.trim();
-  if (!code) return;
-  if (automatic) { msg.style.color = 'var(--ink-3)'; msg.textContent = 'Checking your mobile-bound Shivaa Black privilege…'; }
+  const input = $('#couponIn'), msg = $('#couponMsg'), btn = $('#couponApplyBtn');
+  const co = window._co;
+  if (!input || !msg || !co) return;
+  const code = input.value.trim(), key = checkoutCouponKey(code);
+  if (!key) {
+    resetCheckoutCoupon(co); msg.className = 'coupon-message warn'; msg.textContent = 'Enter a coupon or Shivaa Black member code.';
+    input.focus(); window.Shivaa.updateCheckout(); return;
+  }
+  if (co.couponAbort) co.couponAbort.abort();
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  const generation = (co.couponGeneration || 0) + 1;
+  co.couponGeneration = generation; co.couponAbort = ctl;
+  resetCheckoutCoupon(co); window.Shivaa.updateCheckout();
+  msg.className = 'coupon-message checking';
+  msg.textContent = automatic ? 'Checking your mobile-bound Shivaa Black privilege…' : 'Verifying this code securely…';
+  if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.textContent = 'Checking…'; }
   try {
-    const c = await api('/api/coupons/validate', { method: 'POST', body: JSON.stringify({ code, amount: window._co.subtotal, makingAmount: window._co.makingSubtotal }) });
-    window._co.coupon = c.code;
-    window._co.couponType = c.type;
-    window._co.couponValue = +c.value || 0;
-    window._co.disc = Number.isFinite(+c.discount) ? +c.discount
-      : c.type === 'making_percent' ? Math.round(window._co.makingSubtotal * c.value / 100)
-      : c.type === 'percent' ? Math.round(window._co.subtotal * c.value / 100) : +c.value;
+    const c = await api('/api/coupons/validate', { method: 'POST', signal: ctl && ctl.signal,
+      body: JSON.stringify({ code, amount: co.subtotal, makingAmount: co.makingSubtotal }) });
+    /* Checkout may have been rebuilt or the shopper may have typed again. */
+    if (window._co !== co || co.couponGeneration !== generation || checkoutCouponKey(input.value) !== key) return;
+    co.coupon = c.code;
+    co.couponAppliedKey = key;
+    co.couponType = c.type;
+    co.couponValue = +c.value || 0;
+    co.disc = c.type === 'making_percent' ? Math.round(co.makingSubtotal * c.value / 100)
+      : c.type === 'percent' ? Math.round(co.subtotal * c.value / 100)
+      : Number.isFinite(+c.discount) ? +c.discount : +c.value;
     const label = $('#coDiscLabel');
     if (label) label.textContent = c.type === 'making_percent' ? 'Shivaa Black · 20% off making charges' : 'Coupon discount';
-    msg.style.color = 'var(--ok)';
+    msg.className = 'coupon-message success';
     msg.textContent = c.type === 'making_percent'
-      ? `✓ Shivaa Black applied — 20% of ${fmt(c.eligibleBasis ?? window._co.makingSubtotal)} making charges saves ${fmt(window._co.disc)}`
-      : `✓ ${c.code} applied — you save ${fmt(window._co.disc)}`;
+      ? `✓ Shivaa Black applied — 20% of ${fmt(c.eligibleBasis ?? co.makingSubtotal)} making charges saves ${fmt(co.disc)}`
+      : `✓ ${c.code} applied — you save ${fmt(co.disc)}`;
   } catch (e) {
-    window._co.coupon = null; window._co.couponType = null; window._co.couponValue = 0; window._co.disc = 0;
-    msg.style.color = 'var(--bad)'; msg.textContent = e.message;
-    const label = $('#coDiscLabel'); if (label) label.textContent = 'Coupon discount';
+    if (window._co !== co || co.couponGeneration !== generation || (e && e.name === 'AbortError')) return;
+    resetCheckoutCoupon(co);
+    msg.className = 'coupon-message error'; msg.textContent = e.message;
+  } finally {
+    if (window._co === co && co.couponGeneration === generation) {
+      co.couponAbort = null;
+      if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Apply'; }
+      window.Shivaa.updateCheckout();
+    }
   }
-  window.Shivaa.updateCheckout();
 };
 window.Shivaa.updateCheckout = () => {
   if (!window._co) return;
-  const couponDisc = Math.max(0, +window._co.disc || 0);
-  const pointsDisc = $('#usePts')?.checked ? Math.min(state.user.loyaltyPoints, Math.floor(window._co.subtotal * 0.1)) : 0;
+  const co = window._co;
+  const visibleKey = checkoutCouponKey($('#couponIn')?.value || '');
+  if (co.coupon && visibleKey !== co.couponAppliedKey) resetCheckoutCoupon(co);
+  const couponDisc = Math.min(co.subtotal, Math.max(0, +co.disc || 0));
+  /* Match the order API: points remain capped at 10% AND at the subtotal left
+     after a coupon, so the preview can never promise more points than accepted. */
+  const pointsDisc = $('#usePts')?.checked ? Math.min(state.user.loyaltyPoints, Math.floor(co.subtotal * 0.1), Math.floor(Math.max(0, co.subtotal - couponDisc))) : 0;
   const disc = couponDisc + pointsDisc;
   const method = ($('#payOpts input:checked') || {}).value || window._co.payMethod || 'Online';
   window._co.payMethod = method;
@@ -5989,6 +6173,19 @@ window.Shivaa.payForOrder = async (orderId, pin) => {
 window.Shivaa.placeOrder = async () => {
   const form = $('#addrForm');
   if (!form.reportValidity()) return;
+  /* v185 — what is visible is what is submitted. Editing an applied code (or
+     tapping Place Order while auto-validation is still running) must never send
+     the old coupon behind the shopper's back. */
+  const co = window._co, couponInput = $('#couponIn');
+  const typedCouponKey = checkoutCouponKey(couponInput?.value || '');
+  if (typedCouponKey && (!co || !co.coupon || co.couponAppliedKey !== typedCouponKey || co.couponAbort)) {
+    const msg = $('#couponMsg');
+    if (msg) { msg.className = 'coupon-message warn'; msg.textContent = co && co.couponAbort ? 'Please wait — your code is still being verified.' : 'Tap Apply to verify the coupon code before placing your order.'; }
+    couponInput?.focus();
+    toast(co && co.couponAbort ? 'Please wait for coupon verification' : 'Apply or remove the coupon code first', 'err');
+    return;
+  }
+  if (!typedCouponKey && co && co.coupon) { resetCheckoutCoupon(co); window.Shivaa.updateCheckout(); }
   const btn = $('#placeBtn'); btn.disabled = true; btn.textContent = 'Placing order…';
   const btnM = document.querySelector('.mcta-bar .btn-gold'); if (btnM) { btnM.disabled = true; }
   // read by field name — positional indexing breaks the moment a field is added
@@ -10146,6 +10343,7 @@ function refreshPdLive() {
 }
 function refreshCheckoutTotals() {
   if (!$('#coSub') || !window._co) return;
+  if (typeof window._co.recalculate === 'function') { window._co.recalculate(); return; }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   window._co.subtotal = subtotal;
@@ -10154,8 +10352,9 @@ function refreshCheckoutTotals() {
     const it = items.find(x => x.p.id === el.dataset.copid && +x.qty === +el.dataset.qty);
     if (it) { const v = price(it.p).total * it.qty; if (el.dataset.last !== String(v)) { el.dataset.last = v; el.textContent = fmt(v); el.classList.remove('flash-price'); void el.offsetWidth; el.classList.add('flash-price'); } }
   });
-  let disc = window._co.disc || 0;
-  if ($('#usePts')?.checked) disc += Math.min(state.user?.loyaltyPoints || 0, Math.floor(subtotal * 0.1));
+  const couponDisc = Math.min(subtotal, Math.max(0, +window._co.disc || 0));
+  let disc = couponDisc;
+  if ($('#usePts')?.checked) disc += Math.min(state.user?.loyaltyPoints || 0, Math.floor(subtotal * 0.1), Math.floor(Math.max(0, subtotal - couponDisc)));
   const ship = window._co.freeShip ? 0 : state.settings.shippingFee;
   $('#coSub').textContent = fmt(subtotal);
   $('#coDiscRow').hidden = !(disc > 0);

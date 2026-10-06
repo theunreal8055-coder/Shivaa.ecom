@@ -27,10 +27,10 @@ const address = { name:'QA Member', phone:'9876500002', line:'1 Fixture Street',
   F.setDb(initial);
   let memberCard, otherCard;
 
-  await test('P01', 'release 184 reports a matched four-site handshake', async () => {
+  await test('P01', 'release 184+ reports a matched four-site handshake', async () => {
     const r = await F.req('GET', 'version');
-    assert.equal(r.status, 200); assert.equal(r.json.rel, 184);
-    assert.deepEqual([r.json.stamp.index, r.json.stamp.app, r.json.stamp.sw], [184,184,184]);
+    assert.equal(r.status, 200); assert.ok(r.json.rel >= 184);
+    assert.deepEqual([r.json.stamp.index, r.json.stamp.app, r.json.stamp.sw], [r.json.rel,r.json.rel,r.json.rel]);
     assert.equal(r.json.stamp.matched, true);
   });
 

@@ -3454,7 +3454,7 @@ function pub_user(array $u): array {
      was bound at issue. Expiry never removes it: black_card_public() adds the
      live/expired display state while preserving the immutable issue record. */
   $card = is_array($u['blackCard'] ?? null) ? $u['blackCard'] : null;
-  if ($card && shv_mobile($card['mobile'] ?? '') !== shv_mobile($u['phone'] ?? '')) $card = null;
+  if ($card && !black_card_bound_to_user($card, $u)) $card = null;
   return ['id' => $u['id'], 'name' => $u['name'], 'email' => $u['email'], 'phone' => $u['phone'] ?? '',
           'role' => $u['role'], 'loyaltyPoints' => $u['loyaltyPoints'] ?? 0, 'partnerId' => $u['partnerId'] ?? null,
           'createdAt' => $u['createdAt'] ?? '', 'profile' => $u['profile'] ?? [], 'addresses' => $u['addresses'] ?? [],
@@ -3893,15 +3893,30 @@ function coupon_live(array $c): bool {
   return true;
 }
 
-/* ═══ v184 · Shivaa Black retail membership ═══════════════════════════════
+/* ═══ v184/v185 · Shivaa Black retail membership ═════════════════════════
    The immutable issue record lives inside users.data_json (and therefore the
    existing JSON↔MySQL mirror); its personal coupon lives in coupons.data_json.
-   No parallel datastore and no schema migration are needed. The coupon and
-   certificate are created in the same locked write as the card. */
+   v185 makes the CARD the authority: a missing/drifted coupon row can no longer
+   change 20%, extend expiry or strand a valid member at checkout. */
+function black_card_active(array $card): bool {
+  $until = strtotime((string)($card['expiresAt'] ?? ''));
+  return $until !== false && $until >= time();
+}
+function black_card_bound_to_user(array $card, array $u): bool {
+  $bound = shv_mobile($card['mobile'] ?? '');
+  $current = shv_mobile($u['phone'] ?? '');
+  /* Empty must never equal empty: a malformed/legacy phone cannot reveal a
+     private record merely because both normalizations failed. */
+  return $bound !== '' && $current !== '' && hash_equals($bound, $current);
+}
 function black_card_public(array $card): array {
   $out = $card;
-  $until = strtotime((string)($card['expiresAt'] ?? ''));
-  $out['status'] = ($until !== false && $until >= time()) ? 'active' : 'expired';
+  /* Programme terms are code-owned, not mutable data fields. */
+  $out['program'] = 'Shivaa Black';
+  $out['discountPct'] = 20;
+  $out['discountBasis'] = 'making-charges';
+  $out['certificateTitle'] = 'Shivaa Family Prestigious Member';
+  $out['status'] = black_card_active($card) ? 'active' : 'expired';
   $out['benefitActive'] = $out['status'] === 'active';
   $out['permanentRecord'] = true;
   return $out;
@@ -3940,24 +3955,104 @@ function black_unique_identity(array $db, string $prefix): string {
   }
   throw new RuntimeException('Could not allocate a unique membership identity');
 }
-function black_coupon_ensure(array &$db, array $card, array $u): bool {
+function black_coupon_canonical(array $card, array $u): array {
   $couponId = (string)($card['couponId'] ?? '');
   $code = (string)($card['couponCode'] ?? $card['cardNumber'] ?? '');
-  foreach (($db['coupons'] ?? []) as $c) {
-    if (($couponId !== '' && (string)($c['id'] ?? '') === $couponId) || coupon_code_matches($c, $code)) return false;
-  }
-  $mobile = shv_mobile($card['mobile'] ?? $u['phone'] ?? '');
-  if ($mobile === '' || $code === '' || $couponId === '') throw new RuntimeException('The membership record is incomplete');
-  $db['coupons'][] = [
+  $mobile = shv_mobile($card['mobile'] ?? '');
+  if ($couponId === '' || coupon_code_key($code) === '' || $mobile === ''
+      || (string)($card['expiresAt'] ?? '') === '' || (string)($card['issuedAt'] ?? '') === '')
+    throw new RuntimeException('The membership record is incomplete');
+  if (!black_card_bound_to_user($card, $u))
+    throw new RuntimeException('The membership mobile binding does not match');
+  return [
     'id' => $couponId, 'code' => $code, 'type' => 'making_percent', 'basis' => 'makingCharge',
     'value' => 20, 'minOrder' => 0, 'active' => true, 'kind' => 'shivaa-black',
     'title' => 'Shivaa Black · 20% making-charge privilege',
     'note' => '20% off the making-charge component only · bound to the member mobile',
-    'forUser' => (string)$u['id'], 'forPhoneHash' => black_phone_hash($mobile),
+    'forUser' => (string)($u['id'] ?? ''), 'forPhoneHash' => black_phone_hash($mobile),
     'memberId' => (string)($card['memberId'] ?? ''), 'certificateNo' => (string)($card['certificateNo'] ?? ''),
     'expiresAt' => (string)$card['expiresAt'], 'createdAt' => (string)$card['issuedAt'],
     'serverOwned' => true, 'oncePerUser' => false, 'forNewUsers' => false,
   ];
+}
+/* Canonical virtual record: checkout remains available if the mirrored coupon
+   row is missing, while the permanent card still proves identity + validity. */
+function black_coupon_for_user(?array $u): ?array {
+  if (!$u || ($u['role'] ?? 'customer') !== 'customer') return null;
+  $card = is_array($u['blackCard'] ?? null) ? $u['blackCard'] : null;
+  if (!$card || !black_card_bound_to_user($card, $u) || !black_card_active($card)) return null;
+  try { return black_coupon_canonical($card, $u); } catch (Throwable $e) { return null; }
+}
+function black_coupon_authorized(array $coupon, ?array $u): bool {
+  $canonical = black_coupon_for_user($u);
+  if (!$canonical || ($coupon['kind'] ?? '') !== 'shivaa-black') return false;
+  return hash_equals((string)$canonical['id'], (string)($coupon['id'] ?? ''))
+      && hash_equals(coupon_code_key($canonical['code']), coupon_code_key($coupon['code'] ?? ''));
+}
+function coupon_available_to_user(array $coupon, ?array $u): bool {
+  if (($coupon['kind'] ?? '') === 'shivaa-black') return black_coupon_authorized($coupon, $u);
+  return coupon_live($coupon) && coupon_for_user($coupon, $u);
+}
+function black_code_reserved(array $db, $entered): bool {
+  $key = coupon_code_key($entered);
+  if ($key === '') return false;
+  foreach (($db['users'] ?? []) as $row) {
+    $card = is_array($row['blackCard'] ?? null) ? $row['blackCard'] : null;
+    if ($card && coupon_code_key($card['couponCode'] ?? $card['cardNumber'] ?? '') === $key) return true;
+  }
+  return false;
+}
+function black_coupon_row_reserved(array $db, array $coupon): bool {
+  $id = (string)($coupon['id'] ?? ''); $key = coupon_code_key($coupon['code'] ?? '');
+  foreach (($db['users'] ?? []) as $row) {
+    $card = is_array($row['blackCard'] ?? null) ? $row['blackCard'] : null;
+    if (!$card) continue;
+    if ($id !== '' && hash_equals((string)($card['couponId'] ?? ''), $id)) return true;
+    $cardKey = coupon_code_key($card['couponCode'] ?? $card['cardNumber'] ?? '');
+    if ($key !== '' && $cardKey !== '' && hash_equals($cardKey, $key)) return true;
+  }
+  return false;
+}
+function coupon_resolve(array $db, $entered, ?array $u): ?array {
+  /* Resolve the signed-in member's immutable card first. If ANY account card
+     owns the entered code, no malformed mirror row may reinterpret it as a
+     public generic coupon for another shopper. */
+  $black = black_coupon_for_user($u);
+  if ($black && coupon_code_matches($black, $entered)) return $black;
+  if (black_code_reserved($db, $entered)) return null;
+  foreach (($db['coupons'] ?? []) as $coupon) {
+    if (!coupon_code_matches($coupon, $entered)) continue;
+    if (black_coupon_row_reserved($db, $coupon)) return null;
+    if (coupon_available_to_user($coupon, $u)) return $coupon;
+  }
+  return null;
+}
+function black_coupon_ensure(array &$db, array $card, array $u): bool {
+  $canonical = black_coupon_canonical($card, $u);
+  $idMatches = []; $ownedCodeMatches = [];
+  foreach (($db['coupons'] ?? []) as $i => $coupon) {
+    $idMatch = (string)($coupon['id'] ?? '') === (string)$canonical['id'];
+    if ($idMatch) $idMatches[] = $i;
+    if (!coupon_code_matches($coupon, $canonical['code']) || $idMatch) continue;
+    if (($coupon['kind'] ?? '') === 'shivaa-black'
+        && hash_equals((string)($coupon['forUser'] ?? ''), (string)$canonical['forUser'])) $ownedCodeMatches[] = $i;
+    else throw new RuntimeException('The Shivaa Black member code conflicts with another coupon');
+  }
+  $found = $idMatches[0] ?? $ownedCodeMatches[0] ?? null;
+  if ($found === null) { $db['coupons'][] = $canonical; return true; }
+  /* Collapse only provably owned duplicates. A generic/other-owner code above
+     fails closed rather than being deleted. The immutable couponId wins. */
+  $drop = array_fill_keys(array_merge(array_slice($idMatches, 1), array_values(array_filter($ownedCodeMatches, fn($i) => $i !== $found))), true);
+  $fixed = array_merge($db['coupons'][$found], $canonical); // canonical fields always win
+  unset($fixed['mobile'], $fixed['forPhone']);              // never duplicate raw identity in a coupon row
+  $changed = $fixed != $db['coupons'][$found] || !empty($drop);
+  if (!$changed) return false;
+  $rebuilt = [];
+  foreach ($db['coupons'] as $i => $coupon) {
+    if (isset($drop[$i])) continue;
+    $rebuilt[] = $i === $found ? $fixed : $coupon;
+  }
+  $db['coupons'] = $rebuilt;
   return true;
 }
 function event_coupons_ensure(array &$db, array $u): array {
@@ -5078,7 +5173,7 @@ try {
     if (!$u) jout(401, ['error' => 'Sign in with your registered mobile to open Shivaa Black.']);
     if (($u['role'] ?? 'customer') !== 'customer') jout(403, ['error' => 'Shivaa Black is exclusively for retail customers.']);
     $card = is_array($u['blackCard'] ?? null) ? $u['blackCard'] : null;
-    if ($card && shv_mobile($card['mobile'] ?? '') !== shv_mobile($u['phone'] ?? ''))
+    if ($card && !black_card_bound_to_user($card, $u))
       jout(403, ['error' => 'This card is bound to a different registered mobile. Please contact Shivaa support.']);
     jout(200, ['membership' => $card ? black_card_public($card) : null]);
   }
@@ -5095,7 +5190,7 @@ try {
     $created = false; $repaired = false;
     $card = is_array($db['users'][$idx]['blackCard'] ?? null) ? $db['users'][$idx]['blackCard'] : null;
     if ($card) {
-      if (shv_mobile($card['mobile'] ?? '') !== $mobile)
+      if (!black_card_bound_to_user($card, $db['users'][$idx]))
         jout(409, ['error' => 'The existing Shivaa Black card is bound to another registered mobile. Please contact support.']);
       $repaired = black_coupon_ensure($db, $card, $db['users'][$idx]);
     } else {
@@ -5223,34 +5318,41 @@ try {
     $cu = req_user($db);
     rate_block($db, 'coupon-ip', client_ip(), 80, 3600);
     if ($cu) rate_block($db, 'coupon-u', $cu['id'] ?? '?', 120, 3600);
-    foreach ($db['coupons'] as $c) if (coupon_code_matches($c, $b['code'] ?? '') && coupon_live($c) && coupon_for_user($c, $cu)) {
-      $amount = max(0, (float)($b['amount'] ?? 0));
-      if ($amount < (float)($c['minOrder'] ?? 0)) jout(400, ['error' => 'Minimum order ₹' . number_format((float)$c['minOrder']) . ' for ' . $c['code']]);
-      // v84 — same server-side flags the order route enforces
-      if ($cu && !empty($c['oncePerUser'])) {
-        foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $cu['id'] && (($__o['coupon'] ?? '') === $c['code'])) jout(400, ['error' => 'You have already used ' . $c['code'] . '.']);
-      }
-      if ($cu && !empty($c['forNewUsers'])) {
-        foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $cu['id'] && ($__o['status'] ?? '') !== 'Cancelled') jout(400, ['error' => $c['code'] . ' is for first orders only.']);
-      }
-      /* This is a preview only. The order route below ignores this client
-         amount and recomputes every line + making charge from the catalogue. */
-      $type = (string)($c['type'] ?? 'flat');
-      $basis = $type === 'making_percent'
-        ? max(0, min($amount, (float)($b['makingAmount'] ?? 0))) : $amount;
-      $raw = $type === 'percent' || $type === 'making_percent'
-        ? $basis * (float)($c['value'] ?? 0) / 100 : (float)($c['value'] ?? 0);
-      $out = coupon_public($c);
-      $out['discount'] = (int)round(max(0, min($amount, $raw)));
-      $out['eligibleBasis'] = (int)round($basis);
-      $out['discountBasis'] = $type === 'making_percent' ? 'making-charges' : 'order-subtotal';
-      jout(200, $out);
+    $c = coupon_resolve($db, $b['code'] ?? '', $cu);
+    if (!$c) jout(404, ['error' => 'Invalid coupon code for this signed-in mobile/account']);
+    $amount = max(0, (float)($b['amount'] ?? 0));
+    if ($amount < (float)($c['minOrder'] ?? 0)) jout(400, ['error' => 'Minimum order ₹' . number_format((float)$c['minOrder']) . ' for ' . $c['code']]);
+    // v84 — same server-side flags the order route enforces
+    if ($cu && !empty($c['oncePerUser'])) {
+      foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $cu['id'] && (($__o['coupon'] ?? '') === $c['code'])) jout(400, ['error' => 'You have already used ' . $c['code'] . '.']);
     }
-    jout(404, ['error' => 'Invalid coupon code for this signed-in mobile/account']);
+    if ($cu && !empty($c['forNewUsers'])) {
+      foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $cu['id'] && ($__o['status'] ?? '') !== 'Cancelled') jout(400, ['error' => $c['code'] . ' is for first orders only.']);
+    }
+    /* This is a preview only. The order route below ignores this client
+       amount and recomputes every line + making charge from the catalogue. */
+    $type = (string)($c['type'] ?? 'flat');
+    $basis = $type === 'making_percent'
+      ? max(0, min($amount, (float)($b['makingAmount'] ?? 0))) : $amount;
+    $raw = $type === 'percent' || $type === 'making_percent'
+      ? $basis * (float)($c['value'] ?? 0) / 100 : (float)($c['value'] ?? 0);
+    $out = coupon_public($c);
+    $out['discount'] = (int)round(max(0, min($amount, $raw)));
+    $out['eligibleBasis'] = (int)round($basis);
+    $out['discountBasis'] = $type === 'making_percent' ? 'making-charges' : 'order-subtotal';
+    jout(200, $out);
   }
   if ($route === 'coupons' && $method === 'GET') {
     $u = req_user($db);
-    $list = ($u && $u['role'] === 'admin') ? $db['coupons'] : array_values(array_map('coupon_public', array_filter($db['coupons'], fn($c) => coupon_live($c) && coupon_for_user($c, $u))));
+    if ($u && $u['role'] === 'admin') jout(200, ['coupons' => $db['coupons']]);
+    $list = [];
+    /* Never expose a malformed mirror row. Project the immutable account card
+       as the only Black coupon, even if its coupon row is temporarily absent. */
+    foreach (($db['coupons'] ?? []) as $c)
+      if (($c['kind'] ?? '') !== 'shivaa-black' && !black_coupon_row_reserved($db, $c)
+          && coupon_available_to_user($c, $u)) $list[] = coupon_public($c);
+    $black = black_coupon_for_user($u);
+    if ($black) $list[] = coupon_public($black);
     jout(200, ['coupons' => $list]);
   }
   if ($route === 'coupons' && $method === 'POST') {
@@ -5438,7 +5540,7 @@ try {
     $submittedCoupon = trim((string)($b['coupon'] ?? ''));
     if ($submittedCoupon !== '') {
       if (!$u) jout(400, ['error' => 'Sign in with the mobile that owns this coupon.']);
-      foreach ($db['coupons'] as $c) if (coupon_code_matches($c, $submittedCoupon) && coupon_live($c) && coupon_for_user($c, $u)) { $coupon = $c; break; }
+      $coupon = coupon_resolve($db, $submittedCoupon, $u);
       /* Never silently place a full-price order after the shopper submitted a
          rejected personal code. In particular, another mobile/account cannot
          use (or probe through checkout with) a Shivaa Black code. */
@@ -5696,7 +5798,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 184,
+      'rel'   => 185,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

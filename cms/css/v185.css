@@ -1,0 +1,169 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIVAA v185 · BLACK MEMBER LOCKER + MOBILE FINISH
+   Loaded after v184. This layer keeps the proven laptop composition while
+   making the private locker, checkout and export controls safer on phones.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* New resilient-access and interaction surfaces. */
+.bc-access-state {
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:18px;
+  margin:0 0 28px;padding:20px 22px;border:1px solid #d7bd80;border-radius:20px;
+  background:linear-gradient(118deg,#fffaf0,#f5ead3);box-shadow:0 16px 40px rgba(61,38,6,.07);color:#36250e;
+}
+.bc-access-state.blocked { max-width:850px;margin-inline:auto;padding:28px; }
+.bc-access-icon { width:44px;height:44px;display:grid;place-items:center;border:1px solid #b88a32;border-radius:50%;background:#171109;color:#efcf7d;font:25px/1 var(--ff-disp); }
+.bc-access-state h2 { margin:0 0 4px;color:var(--maroon-deep);font-size:21px;line-height:1.15; }
+.bc-access-state p { margin:0;color:var(--ink-3);font-size:13px;line-height:1.55; }
+.bc-access-actions { display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end; }
+
+.bc-member-code-row { display:flex;align-items:center;gap:12px;min-width:0;margin-top:7px; }
+.bc-member-code-row .bc-detail-code { min-width:0;margin:0;overflow-wrap:anywhere; }
+.bc-code-copy { flex:none;min-height:40px;padding:8px 12px;border:1px solid #c7a457;border-radius:999px;background:rgba(255,255,255,.7);color:#5e4214;font:700 10px/1 var(--ff-sans,Arial);letter-spacing:.06em;cursor:pointer; }
+.bc-code-copy:hover { background:#171109;color:#f3d98e;border-color:#171109; }
+.bc-code-copy:focus-visible { outline:3px solid rgba(148,98,18,.34);outline-offset:2px; }
+.bc-cert-actions { display:flex;align-items:center;gap:9px;flex-wrap:wrap; }
+
+/* Coupon state is no longer conveyed by colour alone. */
+.coupon-message { min-height:22px;margin-top:4px;color:var(--ink-3);font-size:12.5px;line-height:1.45; }
+.coupon-message.success { color:#176b39;font-weight:600; }
+.coupon-message.error { color:#9a2720;font-weight:600; }
+.coupon-message.warn { color:#845d15;font-weight:600; }
+.coupon-message.checking { color:#65563d; }
+#couponApplyBtn[aria-busy="true"] { cursor:wait;opacity:.72; }
+
+/* A quieter premium lift without moving the established desktop geometry. */
+.bc-card-zone { position:relative;overflow:hidden; }
+.bc-card-zone::before { content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(112deg,transparent 36%,rgba(255,255,255,.38) 49%,transparent 62%);opacity:.38; }
+.bc-card-zone>* { position:relative;z-index:1; }
+.bc-certificate { isolation:isolate; }
+.bc-certificate>*:not(.bc-cert-corner) { z-index:1; }
+.bc-card-details { min-width:0; }
+
+/* ── Tablet and phone: larger targets, stable stacking, readable credentials. */
+@media (max-width:700px) {
+  .black-hero-in { padding-bottom:62px !important; }
+  .black-hero .hero-kicker { max-width:100%;padding:8px 10px;font-size:9px;line-height:1.4;white-space:normal;justify-content:center; }
+  .black-hero h1 { font-size:clamp(38px,11.5vw,52px);line-height:.98;margin:17px 0 15px; }
+  .black-hero .hero-sub { font-size:14.5px;line-height:1.62; }
+  .black-hero .hero-cta { max-width:none;width:100%; }
+  .black-hero .hero-cta .btn { min-height:50px;display:flex;align-items:center;justify-content:center; }
+
+  /* Stack the stage in normal flow. The certificate and account-status chip can
+     no longer overlap the card or leak into the section below on short phones. */
+  .bc-hero-stage { min-height:0 !important;display:grid !important;grid-template-columns:1fr;align-items:center;gap:10px;padding:8px 0 4px; }
+  .bc-stage-card { position:relative;width:min(100%,560px);justify-self:center;transform:rotate(-1.2deg); }
+  .bc-stage-cert { position:relative;right:auto;bottom:auto;width:min(92%,390px);justify-self:center;margin-top:-5px;padding:13px 15px 13px 48px;transform:rotate(1deg); }
+  .bc-stage-cert>span { left:14px; }.bc-stage-cert b { font-size:17px; }.bc-stage-cert small { font-size:9px; }
+  .bc-stage-open { position:relative;left:auto;bottom:auto;justify-self:center;margin-top:1px;max-width:94%;white-space:normal;text-align:left; }
+
+  .bc-page-hero { padding:38px 0 45px; }
+  .bc-page-hero.compact { padding:36px 0 42px; }
+  .bc-page-hero.compact h1 { font-size:clamp(34px,10vw,45px);line-height:1; }
+  .bc-page-hero p { font-size:14px;line-height:1.58; }
+  .bc-page-body { padding-top:24px;padding-bottom:74px; }
+
+  .bc-access-state,.bc-access-state.blocked { grid-template-columns:auto minmax(0,1fr);gap:12px;margin-bottom:20px;padding:17px 15px;border-radius:17px; }
+  .bc-access-icon { width:38px;height:38px;font-size:21px; }
+  .bc-access-state h2 { font-size:18px; }.bc-access-state p { font-size:12px; }
+  .bc-access-actions { grid-column:1/-1;justify-content:stretch; }
+  .bc-access-actions .btn { width:100%;min-height:48px; }
+
+  .bc-member-head { margin-bottom:20px; }
+  .bc-member-head h2 { font-size:clamp(30px,9vw,39px); }
+  .bc-card-zone { padding:15px 11px 18px;gap:20px; }
+  .bc-card-details { padding:0 4px 3px; }
+  .bc-member-code-row { align-items:stretch;gap:8px; }
+  .bc-member-code-row .bc-detail-code { flex:1;display:flex;align-items:center;padding:10px 11px;border:1px solid #ddcba5;border-radius:12px;background:rgba(255,255,255,.6);font-size:clamp(14px,4.3vw,18px);line-height:1.3; }
+  .bc-code-copy { min-width:72px;min-height:48px;border-radius:12px;font-size:10px; }
+  .bc-detail-dates { gap:18px;margin-top:17px;padding-top:16px; }
+  .bc-detail-dates span { flex:1;min-width:0; }
+  .bc-bind { align-items:flex-start;margin-top:17px; }
+  .bc-bind>span { flex:none; }.bc-bind b { font-size:12px; }.bc-bind small { font-size:9.5px; }
+  .bc-member-actions { grid-template-columns:1fr 1fr;gap:8px; }
+  .bc-member-actions .btn { min-height:48px;display:flex;align-items:center;justify-content:center;padding-inline:10px; }
+
+  .bc-scope { padding:15px; }
+  .bc-cert-wrap { gap:22px; }
+  .bc-cert-intro p { font-size:13px;line-height:1.6; }
+  .bc-cert-actions { display:grid;grid-template-columns:1fr;gap:8px; }
+  .bc-cert-actions .btn { width:100%;min-height:48px; }
+  .bc-certificate { min-height:0;padding:42px 24px 28px; }
+  .bc-certificate h2 { font-size:clamp(30px,9vw,39px);line-height:.9; }
+  .bc-cert-name { max-width:100%;overflow-wrap:anywhere; }
+  .bc-cert-meta span { min-width:0; }
+
+  .bc-claim-card { padding:32px 16px; }
+  .bc-claim-card h2 { font-size:clamp(32px,10vw,39px);line-height:1.04; }
+  .bc-claim-card>p { font-size:13px;line-height:1.6; }
+  .bc-benefit-grid b { font-size:32px; }
+  .bc-claim-btn { min-height:52px; }
+
+  .coupon-row { align-items:stretch;gap:8px; }
+  .coupon-row input { min-width:0;min-height:50px;font-size:16px; }
+  .coupon-row .btn { flex:none;min-width:84px;min-height:50px; }
+  .coupon-message { min-height:25px;font-size:12px; }
+}
+
+@media (max-width:480px) {
+  .bc-hero-promise { grid-template-columns:1fr;gap:6px; }
+  .bc-hero-promise span { min-height:42px;flex-direction:row;justify-content:flex-start;padding:8px 12px;font-size:10px; }
+  .bc-hero-promise i { min-width:25px;font-size:19px; }
+  .bc-hero-fine { font-size:9.5px;line-height:1.5; }
+  .bc-stage-cert { width:96%; }
+
+  /* Slightly taller than a bank card on very narrow screens: the private terms
+     remain readable instead of shrinking to 5px. Exported artwork stays at the
+     standard proportion. */
+  .bc-card { aspect-ratio:1.50/1;border-radius:16px; }
+  .bc-face { border-radius:16px;padding:15px; }
+  .bc-brand img { width:27px;height:27px; }.bc-brand b { font-size:13px; }.bc-brand small { font-size:7px;letter-spacing:.28em; }
+  .bc-status { font-size:6.5px;padding:5px 6px; }
+  .bc-benefit { top:23%; }.bc-benefit b { font-size:52px; }.bc-benefit small { font-size:7px;line-height:1.25; }
+  .bc-code-label { font-size:6.5px; }.bc-code { font-size:clamp(13px,4.15vw,16px);letter-spacing:0;word-spacing:0; }
+  .bc-bottom { bottom:8%;gap:10px; }.bc-bottom small { font-size:6.5px; }.bc-bottom b { font-size:9px;max-width:185px; }
+  .bc-not-pay { font-size:5px; }
+  .bc-back-head b { font-size:14px; }.bc-back-head small { font-size:6px; }
+  .bc-mobile-row { padding:7px 9px; }.bc-mobile-row small { font-size:6px; }.bc-mobile-row b { font-size:11px; }
+  .bc-back-copy { top:57%;font-size:6.9px;line-height:1.35; }
+  .bc-dates { top:76%;gap:12px; }.bc-dates small { font-size:5.5px; }.bc-dates b { font-size:7.5px; }
+  .bc-security { bottom:5.5%;font-size:6px;line-height:1.25; }.bc-not-pay.back { display:none; }
+  .bc-flip-hint { min-height:36px;margin-top:5px;font-size:10px; }
+
+  .bc-member-code-row { flex-direction:column; }
+  .bc-code-copy { width:100%; }
+  .bc-member-actions { grid-template-columns:1fr; }
+  .bc-member-actions .btn { width:100%; }
+  .bc-certificate { padding:38px 18px 25px; }
+  .bc-cert-seal { width:70px;height:70px; }.bc-cert-kicker { font-size:7.5px;letter-spacing:.17em; }
+  .bc-certificate h2 { font-size:30px; }.bc-cert-name { min-width:0;width:100%;font-size:27px;padding-inline:2px; }
+  .bc-cert-copy { font-size:10.5px; }.bc-cert-meta { grid-template-columns:1fr;gap:5px;margin:18px 0 14px; }
+  .bc-cert-meta span { padding:7px; }.bc-cert-meta b { font-size:9px; }
+  .bc-cert-foot { gap:9px; }.bc-cert-fine { font-size:6.5px; }
+  .bc-public-terms { padding:22px 18px; }
+}
+
+@media (max-width:350px) {
+  .bc-card-zone { margin-inline:-3px;padding-inline:8px; }
+  .bc-face { padding:13px; }
+  .bc-benefit b { font-size:47px; }
+  .bc-code { font-size:12px; }
+  .bc-back-copy { font-size:6.4px; }
+  .bc-certificate { margin-inline:-3px;padding-inline:15px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .bc-card-zone::before { display:none; }
+}
+
+/* Print both private card faces, then the permanent certificate. v184 printed
+   only the front because the reverse remained absolutely positioned/rotated. */
+@media print {
+  body.bc-printing .bc-member-actions,body.bc-printing .bc-cert-actions,body.bc-printing .bc-access-state { display:none !important; }
+  body.bc-printing .bc-card-zone { padding:8mm 10mm !important; }
+  body.bc-printing .bc-card-details { display:none !important; }
+  body.bc-printing .bc-card-wrap { width:165mm !important;max-width:165mm !important; }
+  body.bc-printing .bc-card { display:block !important;width:165mm !important;height:auto !important;aspect-ratio:auto !important;transform:none !important;overflow:visible !important; }
+  body.bc-printing .bc-face { position:relative !important;inset:auto !important;display:block !important;width:165mm !important;aspect-ratio:1.586/1 !important;margin:0 auto 7mm !important;transform:none !important;backface-visibility:visible !important;-webkit-backface-visibility:visible !important;break-inside:avoid !important; }
+  body.bc-printing .bc-back { transform:none !important; }
+  body.bc-printing .bc-flip-hint { display:none !important; }
+}

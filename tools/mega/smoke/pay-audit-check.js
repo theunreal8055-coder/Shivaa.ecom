@@ -235,8 +235,11 @@ sound('admin refund blocks a second refund while one is settling',
    Indian tax id in the Gold Finale TDS terms and the B2B KYC list, and "pan"
    is the pinch-zoom gesture variable. Assert on card-collection shapes only. */
 sound('no card number / CVV is collected anywhere in the storefront',
-  !/cvv|cvc|card[_-]?number|cardnumber|\bpan[_-]?number\b/i.test(app)
-  && !/<input[^>]*(name|id)="[^"]*(cardno|cardnumber|cvv|expirymonth|expiryyear)/i.test(app)
+  /* A Shivaa Black *membership* record legitimately has `cardNumber`; that is
+     a grouped coupon identity, never payment PAN. Guard collection shapes and
+     CVV/CVC identifiers rather than banning every non-payment data model. */
+  !/\b(?:cvv|cvc)\b/i.test(app)
+  && !/<input[^>]*(name|id)="[^"]*(cardno|cardnumber|cvv|cvc|expirymonth|expiryyear)/i.test(app)
   && !/<input[^>]*autocomplete="cc-/i.test(app));
 sound('CSP allows the Cashfree iframe, SDK, XHR and form posts',
   /script-src[^;]*\*\.cashfree\.com/.test(csp) && /connect-src[^;]*\*\.cashfree\.com/.test(csp)

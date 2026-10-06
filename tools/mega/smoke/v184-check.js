@@ -46,14 +46,19 @@ function boot(){
 }
 
 (async()=>{
- await test('S01','release 184 stamps, cache list and final CSS stay in lockstep',async()=>{
-  assert.ok(index.includes('window.__SHIVAA_REL=184;'));assert.ok(app.includes('const APP_REL = 184;'));
-  assert.ok(sw.includes("const SHELL = 'shivaa-shell-v184';")&&sw.includes('const REL = 184;'));assert.ok(api.includes("'rel'   => 184,"));
-  assert.equal((index.match(/\?v=184/g)||[]).length,57);assert.equal((sw.match(/\?v=184/g)||[]).length,52);
+ await test('S01','release 184+ stamps, cache list and final CSS stay in lockstep',async()=>{
+  /* Forward-tolerant: this regression remains useful after the next release
+     instead of failing merely because a newer final layer was added. */
+  const ir=+(index.match(/__SHIVAA_REL=(\d+)/)||[])[1], ar=+(app.match(/APP_REL\s*=\s*(\d+)/)||[])[1];
+  const sr=+(sw.match(/const REL\s*=\s*(\d+)/)||[])[1], sh=+(sw.match(/shivaa-shell-v(\d+)/)||[])[1];
+  const pr=+(api.match(/'rel'\s*=>\s*(\d+)/)||[])[1];
+  assert.ok(ir>=184);assert.deepEqual([ar,sr,sh,pr],[ir,ir,ir,ir]);
+  assert.ok((index.match(new RegExp('\\?v='+ir,'g'))||[]).length>=57);
+  assert.ok((sw.match(new RegExp('\\?v='+ir,'g'))||[]).length>=52);
   assert.ok(!index.includes('?v=183')&&!sw.includes('?v=183'));
   assert.ok(!index.includes('?v=182')&&!sw.includes('?v=182'));
   const links=[...index.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)].map(x=>x[1]);
-  assert.equal(links.at(-1),'/css/v184.css?v=184');assert.ok(sw.includes("'/css/v184.css?v=184'"));
+  assert.equal(links.at(-1),`/css/v${ir}.css?v=${ir}`);assert.ok(sw.includes(`'/css/v${ir}.css?v=${ir}'`));
   assert.ok(sw.includes("const MEDIA = 'shivaa-media-v168';"));
  });
  await test('S02','server model is retail-only, idempotent, dual-bound and making-charge based',async()=>{
@@ -71,7 +76,7 @@ function boot(){
   const hrefs=[...cs.matchAll(/href="([^"]+)"/g)].map(m=>m[1]);assert.ok(hrefs.length>=4&&hrefs.every(h=>h==='#/black-card'),hrefs.join(','));
  });
  await test('S04','customer UI carries flip, reverse mobile, permanent certificate, account locker and exact checkout label',async()=>{
-  for(const n of ["pages['black-card']",'Shivaa.flipBlackCard','BOUND MOBILE','Shivaa Family Prestigious Member','permanently in the member','My Shivaa Black',"tab === 'membership'",'makingSubtotal','Shivaa Black · 20% off making charges','makingAmount: window._co.makingSubtotal'])assert.ok(app.includes(n),n);
+  for(const n of ["pages['black-card']",'Shivaa.flipBlackCard','BOUND MOBILE','Shivaa Family Prestigious Member','permanently in the member','My Shivaa Black',"tab === 'membership'",'makingSubtotal','Shivaa Black · 20% off making charges','makingAmount:'])assert.ok(app.includes(n),n);
   assert.ok(app.includes("openLogin('black-card')"),'OTP login intent');
   assert.ok(index.includes('href="#/black-card" class="hdr-scheme-pill hdr-black-pill"'));
   assert.ok(admin.includes("c.type === 'making_percent'"),'admin names making-only basis');

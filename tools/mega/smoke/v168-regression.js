@@ -21,7 +21,11 @@ async function worker() {
   }
 }
 (async () => {
-  await Promise.all([worker(),worker()]);
+  /* PHP-WASM suites share fixed in-runtime fixture paths/process ids. Running
+     two interpreters concurrently made otherwise-green rate fixtures
+     intermittently return an empty block. Determinism matters more than a
+     shorter belt: execute one suite at a time. */
+  await worker();
   results.sort((a,b) => a.file.localeCompare(b.file, undefined, { numeric:true }));
   fs.writeFileSync(path.join(logDir, 'results.json'), JSON.stringify(results, null, 2)+'\n');
   const counts = type => results.filter(r => r.status === type).length;
