@@ -43,9 +43,9 @@ shipping and whole-order value remain outside the discount.
 **File:** `shivaa-update-v186.zip`  
 **Size:** **711,835 bytes**  
 **SHA-256:** `8dbb0dbd9a418c71ba79eb40079f060e78bcbe4e9ddd43c811a5e72d660145ff`  
-**Verified GitHub download:** [shivaa-update-v186.zip](https://github.com/theunreal8055-coder/Shivaa.ecom/raw/PENDING_PUBLICATION_COMMIT/shivaa-update-v186.zip)
+**Verified GitHub download:** [shivaa-update-v186.zip](https://github.com/theunreal8055-coder/Shivaa.ecom/raw/384bb1c63e110b88b867bc78a9c2bd9d84f0b13d/shivaa-update-v186.zip)
 
-**Publication commit:** `PENDING_PUBLICATION_COMMIT` · **Git blob:** `dc290e61c467eaab575ffc5364271c8589dc1dd6`
+**Publication commit:** `384bb1c63e110b88b867bc78a9c2bd9d84f0b13d` · **Git blob:** `dc290e61c467eaab575ffc5364271c8589dc1dd6`
 
 **Layout:** ZIP root extracts directly into `public_html/`, allowing overwrite.  
 **Exactly 11 files:**

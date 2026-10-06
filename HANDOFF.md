@@ -13,8 +13,8 @@ mutated. Authoritative install and acceptance record: `DEPLOY-v186.md`.
   deterministic source `0dfd1bb8537db64b3645d33070b9c84ad85fc141`; Git blob
   `dc290e61c467eaab575ffc5364271c8589dc1dd6`.
   **Download:**
-  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/PENDING_PUBLICATION_COMMIT/shivaa-update-v186.zip
-  (replace only with the immutable publication commit after push).
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/384bb1c63e110b88b867bc78a9c2bd9d84f0b13d/shivaa-update-v186.zip
+  (immutable publication commit; remote byte verification is recorded after push).
 - **Product law unchanged:** retail-only; deliberate OTP/mobile-authenticated
   issue; unique grouped 16-digit identity; permanent personalised card and
   **Shivaa Family Prestigious Member** certificate; exact calendar-six-month

@@ -38,8 +38,8 @@
   `8dbb0dbd9a418c71ba79eb40079f060e78bcbe4e9ddd43c811a5e72d660145ff`,
   source `0dfd1bb8537db64b3645d33070b9c84ad85fc141`, Git blob
   `dc290e61c467eaab575ffc5364271c8589dc1dd6`; guide `DEPLOY-v186.md`.
-  Immutable download (publication placeholder until push):
-  `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/PENDING_PUBLICATION_COMMIT/shivaa-update-v186.zip`.
+  Immutable publication download:
+  `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/384bb1c63e110b88b867bc78a9c2bd9d84f0b13d/shivaa-update-v186.zip`.
   Excludes config/data/uploads/customer media/billing/secrets/tests; includes
   only the intentional public Black hero asset in addition to cumulative code.
 - **Evidence:** active belt **233/233**; v186 browser/static **11/11**, PHP 8.3
