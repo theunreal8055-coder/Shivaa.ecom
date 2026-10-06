@@ -38,7 +38,9 @@
   Git blob `dc290e61c467eaab575ffc5364271c8589dc1dd6`, source
   `0dfd1bb8537db64b3645d33070b9c84ad85fc141`; deterministic builder
   `tools/mega/make-v186-zip.py`; guide `DEPLOY-v186.md`; immutable publication/
-  download commit is `384bb1c63e110b88b867bc78a9c2bd9d84f0b13d`; remote byte verification follows push.
+  download commit is `384bb1c63e110b88b867bc78a9c2bd9d84f0b13d`.
+  Authenticated GitHub API retrieval was byte-identical (711,835 B, same SHA-256
+  and blob); repository is private, so owner/collaborator sign-in is required.
   Package contains cumulative v184/v185/v186 code plus the one public hero JPEG,
   and excludes config/data/uploads/customer media/billing/credentials/tests.
 - **Evidence:** active belt **233/233**; v186 **11/11 + 8/8**; v185 **10/10 +

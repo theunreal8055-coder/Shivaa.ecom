@@ -47,6 +47,12 @@ shipping and whole-order value remain outside the discount.
 
 **Publication commit:** `384bb1c63e110b88b867bc78a9c2bd9d84f0b13d` · **Git blob:** `dc290e61c467eaab575ffc5364271c8589dc1dd6`
 
+Remote verification on 6 Oct 2026: the authenticated GitHub Contents API at
+that commit reported **711,835 bytes** and the blob above; its downloaded bytes
+were identical to the local archive and hashed to the SHA-256 above. The
+repository is private, so the direct link requires the owner/collaborator to be
+signed in; GitHub intentionally returns 404 to anonymous requests.
+
 **Layout:** ZIP root extracts directly into `public_html/`, allowing overwrite.  
 **Exactly 11 files:**
 
