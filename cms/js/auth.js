@@ -3,7 +3,8 @@
    ─────────────────────────────────────────────────────────────────────
    Two clear doors, like the old two-column sheet, rebuilt:
    · RETAIL CUSTOMERS — mobile + short 4-digit OTP only. New numbers are
-     welcomed: after the code checks out we collect name / DOB / place once.
+     welcomed: after the code checks out only a name is required; profile
+     details stay optional and can be added now or later.
    · JEWELLERS (B2B)  — partner email + password door, straight into the
      wholesale portal and its bullion desk.
    "Remember me" exists on BOTH doors (retail saves the number for a
@@ -25,7 +26,7 @@
   /* v57: retail codes are short 4-digit PINs */
   const OTP_LEN = 4;
 
-  let wrap = null, card = null, step = 'start';
+  let wrap = null, card = null, step = 'start', opener = null, bodyOverflow = '';
   let otpPhone = '', otpTimer = null, resendLeft = 0, verifiedPhone = '';
   /* v113b - the retail door auto-sends on the 10th digit. These two flags keep
      that auto-send and a tapped Send button/resend from reaching the SMS
@@ -65,9 +66,20 @@
     document.body.appendChild(wrap);
     card = wrap.querySelector('.shv-card');
     wrap.addEventListener('click', e => { if (e.target.dataset && e.target.dataset.close) close(); });
-    wrap.querySelector('#shvX').addEventListener('click', close);
+    wrap.querySelector('#shvX').addEventListener('click', () => close());
     wrap.querySelector('#shvHelp').addEventListener('click', help);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !wrap.hidden) close(); });
+    document.addEventListener('keydown', e => {
+      if (!wrap || wrap.hidden) return;
+      if (e.key === 'Escape') { close(); return; }
+      /* v186 — keep keyboard and screen-reader focus inside the modal. */
+      if (e.key !== 'Tab') return;
+      const focusable = [...wrap.querySelectorAll('button,a[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')]
+        .filter(el => !el.disabled && !el.closest('[hidden]') && !el.closest('details:not([open])'));
+      if (!focusable.length) { e.preventDefault(); return; }
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
   }
 
   /* open() always re-renders the landing tabs fresh — this fixes the bug
@@ -77,16 +89,21 @@
     explicitNext = intent;
     const startTab = (intent === 'partner' || intent === 'jwl') ? 'jwl' : 'retail';
     ensureShell();
+    if (wrap.hidden) { opener = document.activeElement; bodyOverflow = document.body.style.overflow || ''; }
+    wrap.classList.toggle('shv-black-intent', intent === 'black-card');
     wrap.hidden = false;
     document.body.style.overflow = 'hidden';
     go('start', startTab);
   }
-  function close() {
+  function close(preserveIntent = false) {
     if (!wrap) return;
-    wrap.hidden = true; document.body.style.overflow = '';
+    wrap.hidden = true; document.body.style.overflow = bodyOverflow;
     if (window.ShivaaOtp) ShivaaOtp.stop();
     if (otpTimer) { clearInterval(otpTimer); otpTimer = null; }
+    if (preserveIntent !== true && intent === 'black-card' && window.Shivaa && window.Shivaa.cancelBlackClaimIntent) window.Shivaa.cancelBlackClaimIntent();
     step = 'start';
+    const back = opener; opener = null;
+    if (back && typeof back.focus === 'function') setTimeout(() => { if (document.body.contains(back)) back.focus(); }, 0);
   }
   function isOpen() { return !!wrap && !wrap.hidden; }
 
@@ -103,7 +120,7 @@
     otp:      ['Enter the 4-digit code', function () { return 'Sent by SMS to +91 ' + esc(digits(otpPhone).slice(-10)); }],
     jwl:      ['Jeweller \u00b7 Partner sign-in', 'For approved B2B partners \u2014 bullion, designs & schemes'],
     register: ['Your details', 'Takes under a minute \u00b7 you earn 120 welcome points \u2726'],
-    details:  ['Tell us about you', 'One-time details after your mobile is verified'],
+    details:  ['Add your name', 'Required once · everything else is optional'],
     reset:    ['Reset your password', 'We text a 4-digit code to the mobile registered on your account'],
     resetNew: ['Choose a new password', function () { return 'Code verified for ' + esc(resetEmail || 'your account'); }],
   };
@@ -148,6 +165,7 @@
   }
   const previewNote = () => (window.Shivaa && window.Shivaa.storageBlocked)
     ? `<p class="shv-preview">&#9432; Preview mode: this sandbox blocks browser storage, so sign-ins reset when the page reloads. On shivaa.in you stay signed in.</p>` : '';
+  const blackContext = stage => intent !== 'black-card' ? '' : `<aside class="shv-black-context" aria-label="Shivaa Black sign-in progress"><span aria-hidden="true">S</span><div><small>${stage === 'details' ? 'FINAL STEP' : 'STEP 1 OF 2'} · SHIVAA BLACK</small><b>${stage === 'details' ? 'Put your name on the card' : stage === 'otp' ? 'Verify the registered mobile' : 'Your card begins with one secure OTP'}</b><p>${stage === 'details' ? 'Only your name is required. Profile details can be added now or later.' : 'After verification, your unique member number and exact six-month benefit are created automatically from your deliberate request.'}</p></div></aside>`;
   const busy = (btn, on, label) => {
     if (!btn) return;
     if (on) { btn.dataset.label = btn.dataset.label || btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="shv-spin"></span>${esc(label || 'One moment\u2026')}`; }
@@ -173,6 +191,7 @@
 
       <!-- ─── RETAIL: 4-digit mobile OTP door ─── -->
       <div class="shv-pane" id="paneRetail">
+        ${blackContext('start')}
         ${saved ? `
         <button type="button" class="shv-saved" id="shvSavedGo" title="Send a code to this number">
           <span class="sv-ic">&#128100;</span>
@@ -191,7 +210,7 @@
           <button type="submit" class="shv-cta" id="shvPhoneBtn" data-label="&#10148;&nbsp; Send 4-digit OTP">&#10148;&nbsp; Send 4-digit OTP</button>
         </form>
         <p class="shv-fine" style="text-align:center;margin-top:12px">
-          <b>New here?</b> Enter any mobile number &mdash; we text the code anyway, then ask your name, date of birth and place once.<br>
+          <b>New here?</b> Enter any mobile number &mdash; we text the code, then ask only your name. Profile details stay optional.<br>
           Creating an account earns <b>120 royalty points</b>.
         </p>
       </div>
@@ -332,8 +351,9 @@
   /* ════════════════════ STEP · otp — four boxes ════════════════════ */
   function otp(body) {
     body.innerHTML = `${backTo('start')}
+      ${blackContext('otp')}
       ${errBox()}
-      ${pendingNew ? '<p class="shv-new-hi">&#128241; New number detected &#183; the 4-digit code is on its way. Once it checks out, tell us your name, date of birth and city &#183; no password needed.</p>' : ''}
+      ${pendingNew ? '<p class="shv-new-hi">&#128241; New number detected &#183; the 4-digit code is on its way. Once it checks out, add only your name &#183; no password needed.</p>' : ''}
       <p class="shv-otp-hint">Enter the <b>4-digit</b> code sent to <b>+91 ${esc(digits(otpPhone).slice(-10))}</b></p>
       <div class="shv-otp shv-otp4" id="shvOtp">${Array.from({ length: OTP_LEN }, (_, i) => `<input inputmode="numeric" maxlength="1" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="digit ${i + 1}">`).join('')}</div>
       <div class="shv-demo" id="shvDemo" hidden></div>
@@ -394,41 +414,50 @@
   /* ───────────── STEP · details (new mobile, one-time personal form) ───────────── */
   function details(body) {
     const ph = digits(verifiedPhone || otpPhone).slice(-10);
+    const localNow = new Date();
+    const today = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     body.innerHTML = `${backTo('start')}
+      ${blackContext('details')}
       ${errBox()}
-      <p class="shv-new-hi">&#127881; Your mobile <b>+91 ${esc(ph)}</b> is verified. A few one-time details and your account is ready &#183; future logins need only the OTP.</p>
+      <p class="shv-new-hi">&#10003; Mobile <b>+91 ${esc(ph)}</b> verified. Add the name for your account${intent === 'black-card' ? ' and personalised card' : ''}; future sign-ins need only the OTP.</p>
       <form id="shvDetForm" novalidate>
         <label class="shv-lbl" for="shvDetName">Full name *</label>
         <input id="shvDetName" autocomplete="name" placeholder="e.g. Ravi Sharma" required>
-        <div class="shv-grid2">
-          <div>
-            <label class="shv-lbl" for="shvDetDob">Date of birth *</label>
-            <input id="shvDetDob" type="date" autocomplete="bday" required>
+        ${intent === 'black-card' ? '<p class="shv-name-use">This is exactly how your name will appear on Shivaa Black and its permanent certificate.</p>' : ''}
+        <details class="shv-optional">
+          <summary>Add optional profile details <small>for receipts &amp; personalised occasions</small></summary>
+          <div class="shv-optional-in">
+            <div class="shv-grid2">
+              <div>
+                <label class="shv-lbl" for="shvDetDob">Date of birth <small>(optional)</small></label>
+                <input id="shvDetDob" type="date" max="${today}" autocomplete="bday">
+              </div>
+              <div>
+                <label class="shv-lbl" for="shvDetCity">Place / city <small>(optional)</small></label>
+                <input id="shvDetCity" autocomplete="address-level2" placeholder="e.g. Nagaur">
+              </div>
+              <div>
+                <label class="shv-lbl" for="shvDetGender">Gender <small>(optional)</small></label>
+                <select id="shvDetGender" autocomplete="sex">
+                  <option value="">Prefer not to say</option>
+                  <option>Male</option><option>Female</option><option>Other</option>
+                </select>
+              </div>
+              <div>
+                <label class="shv-lbl" for="shvDetAnn">Anniversary <small>(optional)</small></label>
+                <input id="shvDetAnn" type="date" max="${today}" autocomplete="anniversary">
+              </div>
+            </div>
+            <label class="shv-lbl" for="shvDetEmail">Email <small>(optional &#183; receipts &amp; email sign-in)</small></label>
+            <input id="shvDetEmail" type="email" autocomplete="email" placeholder="you@example.com">
+            <label class="shv-lbl" for="shvDetPw">Password <small>(optional &#183; OTP works without one)</small></label>
+            <div class="shv-pw"><input id="shvDetPw" type="password" autocomplete="new-password" placeholder="only if you want email sign-in">
+              <button type="button" class="shv-eye" id="shvDetEye" aria-label="Show password">&#128065;&#65039;</button></div>
+            <div class="shv-meter"><i id="shvDetMeter"></i></div>
           </div>
-          <div>
-            <label class="shv-lbl" for="shvDetCity">Place / city *</label>
-            <input id="shvDetCity" autocomplete="address-level2" placeholder="e.g. Nagaur" required>
-          </div>
-          <div>
-            <label class="shv-lbl" for="shvDetGender">Gender</label>
-            <select id="shvDetGender" autocomplete="sex">
-              <option value="">Prefer not to say</option>
-              <option>Male</option><option>Female</option><option>Other</option>
-            </select>
-          </div>
-          <div>
-            <label class="shv-lbl" for="shvDetAnn">Anniversary <small>(optional)</small></label>
-            <input id="shvDetAnn" type="date" autocomplete="anniversary">
-          </div>
-        </div>
-        <label class="shv-lbl" for="shvDetEmail">Email <small>(optional &#183; for receipts &amp; email sign-in)</small></label>
-        <input id="shvDetEmail" type="email" autocomplete="email" placeholder="you@example.com">
-        <label class="shv-lbl" for="shvDetPw">Password <small>(optional &#183; OTP login works without one)</small></label>
-        <div class="shv-pw"><input id="shvDetPw" type="password" autocomplete="new-password" placeholder="only if you want email sign-in">
-          <button type="button" class="shv-eye" id="shvDetEye" aria-label="Show password">&#128065;&#65039;</button></div>
-        <div class="shv-meter"><i id="shvDetMeter"></i></div>
-        <label class="shv-save"><input type="checkbox" id="shvDetSave" checked><span>Save my details on this device so signing in next time is one tap</span></label>
-        <button type="submit" class="shv-cta" id="shvDetBtn" data-label="Create my account &#10022;">Create my account &#10022;</button>
+        </details>
+        <label class="shv-save"><input type="checkbox" id="shvDetSave" checked><span>Remember this mobile on this device for one-tap OTP next time</span></label>
+        <button type="submit" class="shv-cta" id="shvDetBtn" data-label="${intent === 'black-card' ? 'Continue to my Black Card &#10022;' : 'Create my account &#10022;'}">${intent === 'black-card' ? 'Continue to my Black Card &#10022;' : 'Create my account &#10022;'}</button>
       </form>
       ${previewNote()}`;
     bindBack('start', 'retail');
@@ -447,8 +476,8 @@
       const gender = $('#shvDetGender').value, ann = $('#shvDetAnn').value;
       const email = $('#shvDetEmail').value.trim(), pass = pw.value;
       if (name.length < 2) return showErr('Please tell us your full name');
-      if (!dob) return showErr('Your date of birth helps us personalise offers &#183; pick a date');
-      if (city.length < 2) return showErr('Please tell us your place / city');
+      if (dob && (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || dob > today)) return showErr('Choose a valid date of birth, or leave it blank');
+      if (city && city.length < 2) return showErr('Please complete the place / city, or leave it blank');
       if (email && !/^\S+@\S+\.\S+$/.test(email)) return showErr('That email does not look right &#183; or leave it blank');
       if (pass && pass.length < 8) return showErr('Password must be at least 8 characters &#183; or leave it blank and use OTP forever');
       const btn = $('#shvDetBtn'); busy(btn, true, 'Creating\u2026');
@@ -667,7 +696,7 @@
   }
 
   function land(r) {
-    close();
+    close(true);
     if (window.Shivaa && window.Shivaa.afterLogin) window.Shivaa.afterLogin(r);
     else { toastFallback('Signed in'); location.hash = '#/'; }
   }

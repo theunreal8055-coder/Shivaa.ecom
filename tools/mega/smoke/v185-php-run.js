@@ -25,12 +25,12 @@ function fresh() {
     return r.json.membership;
   }
 
-  await test('P01', 'release 185 reports one matched shell/index/app/API handshake', async () => {
+  await test('P01', 'release 185+ reports one matched shell/index/app/API handshake', async () => {
     F.setDb(fresh());
     const r = await F.req('GET', 'version');
-    assert.equal(r.status, 200); assert.equal(r.json.rel, 185);
-    assert.equal(r.json.shell, 'shivaa-shell-v185');
-    assert.deepEqual([r.json.stamp.index,r.json.stamp.app,r.json.stamp.sw],[185,185,185]);
+    assert.equal(r.status, 200); assert.ok(r.json.rel >= 185);
+    assert.equal(r.json.shell, 'shivaa-shell-v' + r.json.rel);
+    assert.deepEqual([r.json.stamp.index,r.json.stamp.app,r.json.stamp.sw],[r.json.rel,r.json.rel,r.json.rel]);
     assert.equal(r.json.stamp.matched, true);
   });
 

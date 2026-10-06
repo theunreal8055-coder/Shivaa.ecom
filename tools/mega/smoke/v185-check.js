@@ -44,11 +44,15 @@ function boot(){
 }
 function deferred(){let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject}}
 (async()=>{
- await test('S01','release 185 stamps, final stylesheet and worker cache are in lockstep',async()=>{
-  assert.ok(index.includes('window.__SHIVAA_REL=185;'));assert.ok(app.includes('const APP_REL = 185;'));
-  assert.ok(sw.includes("const SHELL = 'shivaa-shell-v185';")&&sw.includes('const REL = 185;'));assert.ok(api.includes("'rel'   => 185,"));
-  assert.ok(index.includes('/css/v185.css?v=185'));assert.ok(sw.includes("'/css/v185.css?v=185'"));
-  const links=[...index.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)].map(x=>x[1]);assert.equal(links.at(-1),'/css/v185.css?v=185');
+ await test('S01','release 185+ stamps, final stylesheet and worker cache are in lockstep',async()=>{
+  /* Forward-tolerant: retain the v185 safety belt when a newer cumulative
+     layer is final, while still proving every release stamp agrees. */
+  const ir=+(index.match(/__SHIVAA_REL=(\d+)/)||[])[1],ar=+(app.match(/APP_REL\s*=\s*(\d+)/)||[])[1];
+  const sr=+(sw.match(/const REL\s*=\s*(\d+)/)||[])[1],sh=+(sw.match(/shivaa-shell-v(\d+)/)||[])[1];
+  const pr=+(api.match(/'rel'\s*=>\s*(\d+)/)||[])[1];
+  assert.ok(ir>=185);assert.deepEqual([ar,sr,sh,pr],[ir,ir,ir,ir]);
+  assert.ok(index.includes(`/css/v185.css?v=${ir}`));assert.ok(sw.includes(`'/css/v185.css?v=${ir}'`));
+  const links=[...index.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)].map(x=>x[1]);assert.equal(links.at(-1),`/css/v${ir}.css?v=${ir}`);
   assert.ok(!index.includes('?v=184')&&!sw.includes('?v=184'));
  });
  await test('S02','server makes card identity, mobile, 20% basis and expiry authoritative',async()=>{

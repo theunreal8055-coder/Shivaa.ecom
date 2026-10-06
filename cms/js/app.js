@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 185;
+const APP_REL = 186;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -2742,52 +2742,92 @@ function initCatbar() {
 }
 
 /* ─────────── hero gold dust (ambience only — no 3D models) ─────────── */
+function calmMotion() {
+  try { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  catch (_) { return false; }
+}
+function finePointer() {
+  try { return !!(window.matchMedia && matchMedia('(pointer: fine)').matches); }
+  catch (_) { return !('ontouchstart' in window) && !(navigator.maxTouchPoints > 0); }
+}
 function heroDust(canvasId) {
   const cv = document.getElementById(canvasId);
   if (!cv || cv._dust) return;
-  // v42: skip heavy canvas animation on mobile — major scroll-jank source
-  if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820)) {
+  /* v186 — decorative frames must never cost battery or make a phone jitter.
+     Reduced-motion, touch and narrow devices get the complete static artwork. */
+  if (calmMotion() || !finePointer() || innerWidth <= 820) {
     cv.style.display = 'none';
     return;
   }
   cv._dust = true;
   const ctx = cv.getContext('2d');
-  if (!ctx) return;                       // v107 — canvas blocked (privacy modes, jsdom): skip the dust
-  let W, H;
+  if (!ctx) return;                       // canvas blocked (privacy modes/tests): static artwork remains
+  let W = 0, H = 0, visible = true, raf = 0, fallbackResize = false;
   const dpr = Math.min(devicePixelRatio || 1, 2);
-  const size = () => { const r = cv.parentElement.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
-  size(); addEventListener('resize', size);
-  const P = Array.from({ length: 55 }, () => ({ x: Math.random(), y: Math.random(), r: .6 + Math.random() * 1.9, p: Math.random() * 6.28, v: .00016 + Math.random() * .0004 }));
+  const size = () => {
+    if (!cv.parentElement) return;
+    const r = cv.parentElement.getBoundingClientRect();
+    W = Math.max(1, r.width); H = Math.max(1, r.height);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  let ro = null, io = null;
+  if (typeof ResizeObserver === 'function') { ro = new ResizeObserver(size); ro.observe(cv.parentElement); }
+  else { addEventListener('resize', size, { passive: true }); fallbackResize = true; }
+  if (typeof IntersectionObserver === 'function') {
+    io = new IntersectionObserver(es => { visible = !!(es[0] && es[0].isIntersecting); }, { rootMargin: '120px' });
+    io.observe(cv);
+  }
+  const cleanup = () => {
+    if (raf) cancelAnimationFrame(raf);
+    if (ro) ro.disconnect();
+    if (io) io.disconnect();
+    if (fallbackResize) removeEventListener('resize', size);
+    cv._dustCleanup = null;
+  };
+  cv._dustCleanup = cleanup;
+  size();
+  const P = Array.from({ length: 48 }, () => ({ x: Math.random(), y: Math.random(), r: .6 + Math.random() * 1.8, p: Math.random() * 6.28, v: .00014 + Math.random() * .00034 }));
   let t = 0;
-  (function f() {
-    t += .016;
-    if (!document.body.contains(cv)) return;
-    ctx.clearRect(0, 0, W, H);
-    for (const d of P) {
-      d.y -= d.v * 60; if (d.y < -.05) d.y = 1.05;
-      const a = .1 + .34 * Math.abs(Math.sin(t * 1.4 + d.p));
-      const x = d.x * W + Math.sin(t * .6 + d.p) * 8;
-      ctx.fillStyle = `rgba(240,216,150,${a})`;
-      ctx.beginPath(); ctx.arc(x, d.y * H, d.r, 0, 7); ctx.fill();
+  (function frame() {
+    if (!document.body.contains(cv)) { cleanup(); return; }
+    if (visible && !document.hidden) {
+      t += .016;
+      ctx.clearRect(0, 0, W, H);
+      for (const d of P) {
+        d.y -= d.v * 60; if (d.y < -.05) d.y = 1.05;
+        const a = .08 + .32 * Math.abs(Math.sin(t * 1.25 + d.p));
+        const x = d.x * W + Math.sin(t * .55 + d.p) * 8;
+        ctx.fillStyle = `rgba(240,216,150,${a})`;
+        ctx.beginPath(); ctx.arc(x, d.y * H, d.r, 0, 7); ctx.fill();
+      }
     }
-    requestAnimationFrame(f);
+    raf = requestAnimationFrame(frame);
   })();
 }
-/* layered 3D hero stage — image cards at different depths with mouse parallax */
+/* Layered hero depth bound to the live stage — never to window. The old global
+   mousemove/resize closures survived every return to Home and retained detached
+   hero nodes; long shopping sessions therefore accumulated animation work. */
 function initHeroStage() {
   const stage = $('.hero-stage'); if (!stage || stage._hs) return; stage._hs = true;
   heroDust('heroDust');
-  // v42: disable mouse parallax on mobile — causes card vibration at one spot
-  if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820)) return;
-  const layers = $$('[data-depth]', stage);
-  addEventListener('mousemove', e => {
+  if (calmMotion() || !finePointer() || innerWidth <= 820) return;
+  const layers = $$('[data-depth]', stage); let frame = 0, latest = null;
+  const paint = () => {
+    frame = 0; if (!latest || !document.body.contains(stage)) return;
     const r = stage.getBoundingClientRect();
-    const dx = (e.clientX - r.left) / r.width - .5, dy = (e.clientY - r.top) / r.height - .5;
+    const dx = Math.max(-.5, Math.min(.5, (latest.clientX - r.left) / Math.max(1, r.width) - .5));
+    const dy = Math.max(-.5, Math.min(.5, (latest.clientY - r.top) / Math.max(1, r.height) - .5));
     layers.forEach(el => {
-      const d = +el.dataset.depth;
+      const d = +el.dataset.depth || 1;
       el.style.setProperty('--px', (dx * -18 * d).toFixed(1) + 'px');
       el.style.setProperty('--py', (dy * -12 * d).toFixed(1) + 'px');
     });
+  };
+  stage.addEventListener('pointermove', e => { latest = e; if (!frame) frame = requestAnimationFrame(paint); }, { passive: true });
+  stage.addEventListener('pointerleave', () => {
+    latest = null; if (frame) { cancelAnimationFrame(frame); frame = 0; }
+    layers.forEach(el => { el.style.setProperty('--px', '0px'); el.style.setProperty('--py', '0px'); });
   }, { passive: true });
 }
 
@@ -3191,6 +3231,41 @@ function blackCardActive(card) {
   const t = card && Date.parse(card.expiresAt || '');
   return !!(card && Number.isFinite(t) && t >= Date.now() && card.status !== 'expired');
 }
+function blackBenefitProgress(card) {
+  const start = Date.parse(card && card.issuedAt || ''), end = Date.parse(card && card.expiresAt || '');
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return { pct: 0, days: 0 };
+  const now = Date.now(), pct = Math.max(0, Math.min(100, Math.round((now - start) / (end - start) * 100)));
+  return { pct, days: Math.max(0, Math.ceil((end - now) / 86400000)) };
+}
+function blackSaving(makingCharge, qty = 1) {
+  return Math.max(0, Math.round((+makingCharge || 0) * Math.max(1, +qty || 1) * .20));
+}
+function blackJourneyHTML(card = null, opts = {}) {
+  const signed = !!state.user, issued = !!(card && card.memberId), bagged = issued && !!(state.cart && state.cart.length);
+  const done = signed ? (issued ? (bagged ? 3 : 2) : 1) : 0;
+  const progress = Math.round(done / 3 * 100);
+  const steps = [
+    ['Verify mobile', signed ? 'Account secured' : 'OTP sign-in'],
+    ['Receive card', issued ? 'Number issued' : 'One secure tap'],
+    ['Choose jewellery', bagged ? `${cartCount()} item${cartCount() === 1 ? '' : 's'} in bag` : 'Any Shivaa piece'],
+    ['Saving applies', 'At secure checkout'],
+  ];
+  return `<nav class="bc-journey${opts.compact ? ' compact' : ''}" aria-label="Shivaa Black journey" style="--bc-progress:${progress}%">
+    <div class="bc-journey-line" aria-hidden="true"><i></i></div>
+    <ol>${steps.map((s, i) => `<li class="${i < done ? 'done' : i === done ? 'current' : ''}"${i === done ? ' aria-current="step"' : ''}><span>${i < done ? '✓' : i + 1}</span><div><b>${s[0]}</b><small>${s[1]}</small></div></li>`).join('')}</ol>
+  </nav>`;
+}
+function blackCommerceHTML(makingSubtotal, returnHash, noun = 'this piece') {
+  const u = state.user, retail = !u || (u.role || 'customer') === 'customer';
+  if (!retail) return '';
+  const card = u && u.blackCard;
+  if (card && blackCardActive(card)) {
+    const saving = blackSaving(makingSubtotal);
+    return `<aside class="bc-commerce active" data-black-commerce data-black-making="${Math.max(0, +makingSubtotal || 0)}"><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>YOUR SHIVAA BLACK PRIVILEGE</small><b class="bc-commerce-value">Save ${fmt(saving)} on ${esc(noun)}</b><p class="bc-commerce-basis">Exactly 20% of ${fmt(makingSubtotal)} making charges · verified and applied automatically at checkout.</p></div><a href="#/black-card">View card</a></aside>`;
+  }
+  if (card) return `<aside class="bc-commerce archived" data-black-commerce><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>SHIVAA BLACK · PERMANENT ARCHIVE</small><b>Your card and certificate are safely kept</b><p>The six-month making-charge benefit ended ${esc(blackDate(card.expiresAt))}; your documents remain in My Account.</p></div><a href="#/black-card">Open archive</a></aside>`;
+  return `<aside class="bc-commerce invite" data-black-commerce><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>RETAIL CUSTOMERS · SHIVAA BLACK</small><b>Unlock 20% off making charges</b><p>${u ? 'One secure tap creates your personal card.' : 'Verify your registered mobile, then your personal card is created automatically.'} No reduction is taken from metal, stones, GST or shipping.</p></div><button type="button" onclick="Shivaa.beginBlackClaim(${jsArg(returnHash)},this)">${u ? 'Create my card' : 'Verify & create'} →</button></aside>`;
+}
 function blackMemberCode(code, mock = false) {
   if (mock) return '2020  ••••  ••••  ••••';
   const clean = String(code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
@@ -3211,11 +3286,12 @@ function blackCardVisual(card = null, opts = {}) {
   const thru = mock ? '••/••' : blackDate(card.expiresAt, true);
   const status = mock ? 'YOUR CARD' : (blackCardActive(card) ? 'ACTIVE' : 'EXPIRED · KEPT FOREVER');
   const backFirst = !!opts.backFirst;
-  return `<div class="bc-card-wrap${opts.home ? ' bc-card-home' : ''}">
+  return `<div class="bc-card-wrap${opts.home ? ' bc-card-home' : ''}" data-black-card-motion>
     <button type="button" class="bc-card${backFirst ? ' is-flipped' : ''}" aria-pressed="${backFirst ? 'true' : 'false'}" aria-label="Shivaa Black card, ${backFirst ? 'reverse' : 'front'} showing. Activate to turn over" onclick="Shivaa.flipBlackCard(this)">
       <span class="bc-face bc-front" data-bc-face="front" aria-hidden="${backFirst ? 'true' : 'false'}">
-        <span class="bc-noise" aria-hidden="true"></span><span class="bc-orbit" aria-hidden="true"></span>
+        <span class="bc-noise" aria-hidden="true"></span><span class="bc-orbit" aria-hidden="true"></span><span class="bc-live-light" aria-hidden="true"></span><span class="bc-micro-grid" aria-hidden="true"></span>
         <span class="bc-top"><span class="bc-brand"><img src="/images/logo.png" alt=""><span><b>SHIVAA</b><small>BLACK</small></span></span><span class="bc-status">${esc(status)}</span></span>
+        <span class="bc-holo-seal" aria-hidden="true"><b>S</b><small>MEMBER</small></span>
         <span class="bc-benefit"><b>20<span>%</span></b><small>OFF MAKING<br>CHARGES</small></span>
         <span class="bc-code-label">MEMBER · COUPON CODE</span>
         <span class="bc-code">${esc(code)}</span>
@@ -3223,6 +3299,7 @@ function blackCardVisual(card = null, opts = {}) {
         <span class="bc-not-pay">PRIVILEGE CARD · NOT A PAYMENT CARD</span>
       </span>
       <span class="bc-face bc-back" data-bc-face="back" aria-hidden="${backFirst ? 'false' : 'true'}">
+        <span class="bc-live-light" aria-hidden="true"></span><span class="bc-micro-grid" aria-hidden="true"></span>
         <span class="bc-back-head"><b>SHIVAA BLACK</b><small>RETAIL MEMBERSHIP</small></span>
         <span class="bc-stripe" aria-hidden="true"></span>
         <span class="bc-mobile-row"><small>BOUND MOBILE</small><b>${esc(mobile)}</b></span>
@@ -3247,6 +3324,32 @@ window.Shivaa.flipBlackCard = el => {
   if (hint) hint.innerHTML = `<span aria-hidden="true">↻</span> Tap the card to see the ${on ? 'front' : 'reverse'}`;
   if (window.Shivaa && Shivaa.haptic) Shivaa.haptic(8);
 };
+function initBlackCardMotion(root = document) {
+  const wraps = [...root.querySelectorAll('[data-black-card-motion]')];
+  wraps.forEach(wrap => {
+    if (wrap._bcMotion) return; wrap._bcMotion = true;
+    if (calmMotion() || !finePointer() || innerWidth <= 700) return;
+    let raf = 0, point = null;
+    const paint = () => {
+      raf = 0; if (!point || !document.body.contains(wrap)) return;
+      const r = wrap.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (point.clientX - r.left) / Math.max(1, r.width)));
+      const y = Math.max(0, Math.min(1, (point.clientY - r.top) / Math.max(1, r.height)));
+      wrap.style.setProperty('--bc-x', (x * 100).toFixed(1) + '%');
+      wrap.style.setProperty('--bc-y', (y * 100).toFixed(1) + '%');
+      wrap.style.setProperty('--bc-rx', ((.5 - y) * 3.2).toFixed(2) + 'deg');
+      wrap.style.setProperty('--bc-ry', ((x - .5) * 4.2).toFixed(2) + 'deg');
+      wrap.classList.add('is-lit');
+    };
+    wrap.addEventListener('pointermove', e => { point = e; if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
+    wrap.addEventListener('pointerleave', () => {
+      point = null; if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      wrap.classList.remove('is-lit');
+      wrap.style.setProperty('--bc-x', '72%'); wrap.style.setProperty('--bc-y', '18%');
+      wrap.style.setProperty('--bc-rx', '0deg'); wrap.style.setProperty('--bc-ry', '0deg');
+    }, { passive: true });
+  });
+}
 function blackCertificateHTML(card) {
   if (!card) return '';
   const active = blackCardActive(card);
@@ -3269,34 +3372,40 @@ function blackCertificateHTML(card) {
   </article>`;
 }
 function blackClaimHTML(inAccount = false) {
-  return `<section class="bc-claim-card${inAccount ? ' in-account' : ''}">
+  const signed = !!state.user;
+  return `<section class="bc-claim-card${inAccount ? ' in-account' : ''}" data-black-claim>
     <div class="bc-claim-glow" aria-hidden="true"></div>
     <span class="bc-eyebrow">RETAIL CUSTOMERS · VERIFIED MOBILE ONLY</span>
     <h2>Your name. Your number.<br><em>Your Shivaa privilege.</em></h2>
     <p>Save your personal Shivaa Black Card to this account and receive a <b>flat 20% reduction on making charges</b> for six calendar months—plus your permanent Shivaa Family Prestigious Member certificate.</p>
+    ${blackJourneyHTML(null, { compact: true })}
     <div class="bc-benefit-grid">
       <span><b>20%</b><small>off making charges</small></span><span><b>6</b><small>calendar months</small></span><span><b>1</b><small>verified mobile only</small></span><span><b>∞</b><small>card + certificate kept</small></span>
     </div>
-    <button type="button" class="btn btn-gold btn-lg bc-claim-btn" onclick="Shivaa.claimBlackCard(this)">Save my Black Card ✦</button>
-    <small class="bc-claim-note">One card per retail account. Issue and expiry dates cannot be reset by claiming again.</small>
+    <button type="button" class="btn btn-gold btn-lg bc-claim-btn" onclick="Shivaa.beginBlackClaim('',this)">${signed ? 'Create my Black Card' : 'Verify mobile & create my card'} ✦</button>
+    <span class="bc-claim-status" aria-live="polite"></span>
+    <small class="bc-claim-note">One secure flow · one card per retail account · claiming again can never reset the issue or expiry date.</small>
   </section>`;
 }
 function blackMembershipHTML(card, opts = {}) {
   if (!card) return blackClaimHTML(!!opts.inAccount);
-  const active = blackCardActive(card);
-  return `<div class="bc-membership bc-print-zone">
+  const active = blackCardActive(card), life = blackBenefitProgress(card);
+  const revealing = Date.now() < (+window._blackRevealUntil || 0);
+  return `<div class="bc-membership bc-print-zone${revealing ? ' is-revealing' : ''}">
     <div class="bc-member-head">
       <div><span class="bc-eyebrow">SHIVAA BLACK · PERSONAL MEMBERSHIP</span><h2>${active ? 'Your privilege is active.' : 'Your card is safely archived.'}</h2>
       <p>${active ? `20% off making charges through <b>${esc(blackDate(card.expiresAt))}</b>. Your code is automatically offered at checkout.` : `The six-month discount ended on <b>${esc(blackDate(card.expiresAt))}</b>, but your card and prestigious-member certificate remain here permanently.`}</p></div>
       <span class="bc-validity ${active ? 'active' : 'expired'}"><i></i>${active ? 'ACTIVE' : 'EXPIRED'}</span>
     </div>
+    ${opts.inAccount ? '' : blackJourneyHTML(card)}
     <div class="bc-card-zone">
       ${blackCardVisual(card)}
       <div class="bc-card-details">
         <div><small>MEMBER / COUPON NUMBER</small><div class="bc-member-code-row"><b class="bc-detail-code">${esc(blackMemberCode(card.couponCode || card.cardNumber))}</b><button type="button" class="bc-code-copy" onclick="Shivaa.copyBlackCode(this)" aria-label="Copy Shivaa Black member and coupon number"><span aria-hidden="true">⧉</span> Copy</button></div></div>
         <div class="bc-detail-dates"><span><small>ISSUED</small><b>${esc(blackDate(card.issuedAt))}</b></span><span><small>VALID UNTIL</small><b>${esc(blackDate(card.expiresAt))}</b></span></div>
+        <div class="bc-life"><div><small>${active ? 'BENEFIT WINDOW' : 'SIX-MONTH BENEFIT COMPLETE'}</small><b>${active ? `${life.days} day${life.days === 1 ? '' : 's'} remaining` : 'Documents kept permanently'}</b></div><span role="progressbar" aria-label="Membership benefit time elapsed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${life.pct}"><i style="width:${life.pct}%"></i></span></div>
         <div class="bc-bind"><span aria-hidden="true">◉</span><p><b>Locked to ${esc(blackPhone(card.mobile))}</b><small>Only this registered-mobile account can reveal or apply the code.</small></p></div>
-        <div class="bc-member-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.saveBlackCard(this)">Save / share card</button><a class="btn btn-ghost" href="#/shop">Shop jewellery</a></div>
+        <div class="bc-member-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.saveBlackCard(this)">Save / share card</button><a class="btn btn-ghost" href="#/shop">Shop with my 20%</a></div>
       </div>
     </div>
     <div class="bc-scope" role="note"><b>Exactly what 20% means</b><span><i>✓</i> 20% of listed making charges × quantity</span><span><i>×</i> No reduction on metal value, stones, GST or shipping</span><span><i>✓</i> Server recalculates the saving on every order</span></div>
@@ -3313,21 +3422,70 @@ window.Shivaa.copyBlackCode = async btn => {
     toast('Shivaa Black member code copied ✦');
   } catch (e) { toast('Could not copy — press and hold the number instead', 'err'); }
 };
-window.Shivaa.claimBlackCard = async btn => {
-  if (!state.user) { openLogin('black-card'); return; }
-  const old = btn && btn.textContent;
-  if (btn) { btn.disabled = true; btn.textContent = 'Creating your card…'; }
-  try {
-    const r = await api('/api/black-card/claim', { method: 'POST', body: '{}' });
-    if (r.user) state.user = r.user;
-    else if (state.user) state.user.blackCard = r.membership;
-    toast(r.created ? 'Welcome to Shivaa Black ✦ Your certificate is ready.' : 'Your Shivaa Black card is already saved ✦');
-    if (r.created) confetti();
-    route();
-  } catch (e) {
-    toast(e.message || 'Could not create the card', 'err');
-    if (btn) { btn.disabled = false; btn.textContent = old || 'Save my Black Card ✦'; }
+let blackClaimPromise = null;
+function blackReturnHash(value) {
+  const h = String(value || '');
+  const page = /^#\/(?:cart|checkout|shop)(?:\?[^#]*)?$/.test(h);
+  const product = /^#\/product\/[^/?#]+(?:\?[^#]*)?$/.test(h);
+  return page || product ? h : '';
+}
+function blackClaimStatus(message, stateName = '') {
+  $$('.bc-claim-status').forEach(el => { el.textContent = message || ''; el.dataset.state = stateName; });
+}
+window.Shivaa.cancelBlackClaimIntent = () => {
+  window._blackClaimAfterLogin = false;
+  window._blackClaimReturn = '';
+  blackClaimStatus('', '');
+};
+window.Shivaa.beginBlackClaim = (returnHash = '', btn = null) => {
+  const back = blackReturnHash(returnHash);
+  window._blackClaimReturn = back;
+  window._blackClaimAfterLogin = true;
+  if (!state.user) {
+    blackClaimStatus('Opening secure mobile verification…', 'checking');
+    openLogin('black-card');
+    return;
   }
+  if ((state.user.role || 'customer') !== 'customer') { window.Shivaa.cancelBlackClaimIntent(); return toast('Shivaa Black is exclusively for retail customers.', 'err'); }
+  return window.Shivaa.claimBlackCard(btn, { returnHash: back });
+};
+window.Shivaa.claimBlackCard = (btn, opts = {}) => {
+  if (!state.user) return window.Shivaa.beginBlackClaim(opts.returnHash || '', btn);
+  if (blackClaimPromise) { blackClaimStatus('Your secure request is already in progress…', 'checking'); return blackClaimPromise; }
+  const allButtons = [...new Set([...$$('.bc-claim-btn'), ...(btn ? [btn] : [])])], old = btn && btn.textContent;
+  allButtons.forEach(b => { b.disabled = true; b.setAttribute('aria-busy', 'true'); });
+  if (btn) btn.textContent = 'Securing your card…';
+  blackClaimStatus('Verifying your account and registered mobile…', 'checking');
+  blackClaimPromise = (async () => {
+    try {
+      const r = await api('/api/black-card/claim', { method: 'POST', body: '{}' });
+      if (r.user) state.user = r.user;
+      else if (state.user) state.user.blackCard = r.membership;
+      window._blackClaimAfterLogin = false;
+      window._blackRevealUntil = Date.now() + 6500;
+      blackClaimStatus('Card secured. Preparing your private member locker…', 'success');
+      toast(r.created ? 'Welcome to Shivaa Black ✦ Your card and certificate are ready.' : 'Your Shivaa Black card is already saved ✦');
+      if (r.created) confetti();
+      const back = blackReturnHash(opts.returnHash || window._blackClaimReturn || '');
+      window._blackClaimReturn = '';
+      if (back && location.hash !== back) location.hash = back;
+      else route();
+      return r;
+    } catch (e) {
+      window._blackClaimAfterLogin = false;
+      blackClaimStatus(e.message || 'Could not create the card. Nothing was changed.', 'error');
+      toast(e.message || 'Could not create the card', 'err');
+      return null;
+    } finally {
+      allButtons.forEach(b => {
+        if (!document.body.contains(b)) return;
+        b.disabled = false; b.removeAttribute('aria-busy');
+        if (b === btn) b.textContent = old || 'Create my Black Card ✦';
+      });
+      blackClaimPromise = null;
+    }
+  })();
+  return blackClaimPromise;
 };
 window.Shivaa.printBlackMembership = () => {
   document.body.classList.add('bc-printing');
@@ -3383,6 +3541,16 @@ function blackWrappedCanvasText(ctx, text, cx, y, maxWidth, lineHeight, maxLines
   lines.forEach((s, i) => ctx.fillText(s, cx, y + i * lineHeight));
   return y + lines.length * lineHeight;
 }
+function blackCanvasOrnament(ctx, cx, cy, radius, color = '#e2bd62', alpha = .22) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 2;
+  [1, .78, .56].forEach(k => { ctx.beginPath(); ctx.arc(cx, cy, radius * k, 0, Math.PI * 2); ctx.stroke(); });
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI / 6, b = a + Math.PI / 3;
+    ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * radius * .56, cy + Math.sin(a) * radius * .56);
+    ctx.lineTo(cx + Math.cos(b) * radius, cy + Math.sin(b) * radius); ctx.stroke();
+  }
+  ctx.restore();
+}
 window.Shivaa.saveBlackCard = async btn => {
   const card = state.user && state.user.blackCard;
   if (!card) return toast('Open your Shivaa Black card first', 'err');
@@ -3393,7 +3561,12 @@ window.Shivaa.saveBlackCard = async btn => {
     const x = cv.getContext('2d'); if (!x) throw new Error('Canvas unavailable');
     const panel = (y, h) => { const g = x.createLinearGradient(0, y, 1200, y + h); g.addColorStop(0, '#030303'); g.addColorStop(.52, '#18130b'); g.addColorStop(1, '#050505'); x.fillStyle = g; x.fillRect(40, y, 1120, h); x.strokeStyle = '#d6af57'; x.lineWidth = 3; x.strokeRect(40, y, 1120, h); };
     x.fillStyle = '#f5efe2'; x.fillRect(0, 0, cv.width, cv.height); panel(40, 680); panel(790, 680);
+    blackCanvasOrnament(x, 1060, 110, 245, '#e7c46d', .20); blackCanvasOrnament(x, 1060, 860, 245, '#e7c46d', .16);
+    x.save(); x.globalAlpha = .08; x.strokeStyle = '#f4d98d'; x.lineWidth = 1;
+    for (let y = 70; y < 700; y += 42) { x.beginPath(); x.moveTo(65, y); x.lineTo(1135, y + 250); x.stroke(); }
+    x.restore();
     x.fillStyle = '#e8c777'; x.font = '700 50px Georgia'; x.fillText('SHIVAA', 100, 125); x.font = '24px Arial'; x.fillText('B L A C K', 100, 165);
+    blackCanvasOrnament(x, 145, 270, 48, '#f2d789', .62); x.textAlign = 'center'; x.fillStyle = '#f5df9e'; x.font = '700 31px Georgia'; x.fillText('S', 145, 281); x.textAlign = 'left';
     x.textAlign = 'right'; x.font = '700 118px Georgia'; x.fillText('20%', 1095, 205); x.textAlign = 'left'; x.font = '25px Arial'; x.fillText('OFF MAKING CHARGES', 772, 246);
     x.fillStyle = '#bca66f'; x.font = '20px Arial'; x.fillText('MEMBER · COUPON CODE', 100, 365); x.fillStyle = '#fff4d1'; x.font = '44px monospace'; x.fillText(blackMemberCode(card.couponCode || card.cardNumber), 100, 425);
     x.fillStyle = '#bca66f'; x.font = '18px Arial'; x.fillText('MEMBER', 100, 560); x.fillText('VALID UNTIL', 830, 560); x.fillStyle = '#fff';
@@ -3420,6 +3593,7 @@ window.Shivaa.saveBlackCertificate = async btn => {
     const x = cv.getContext('2d'); if (!x) throw new Error('Canvas unavailable');
     const bg = x.createLinearGradient(0, 0, 1800, 1270); bg.addColorStop(0, '#ead18a'); bg.addColorStop(.32, '#fffdf1'); bg.addColorStop(.68, '#fffaf0'); bg.addColorStop(1, '#d9b85e'); x.fillStyle = bg; x.fillRect(0, 0, 1800, 1270);
     x.strokeStyle = '#fff8dc'; x.lineWidth = 22; x.strokeRect(28, 28, 1744, 1214); x.strokeStyle = '#9b6e1b'; x.lineWidth = 3; x.strokeRect(48, 48, 1704, 1174); x.strokeStyle = 'rgba(112,73,12,.45)'; x.lineWidth = 1; x.strokeRect(67, 67, 1666, 1136);
+    blackCanvasOrnament(x, 88, 86, 155, '#8f6417', .14); blackCanvasOrnament(x, 1712, 1184, 155, '#8f6417', .14);
     x.save(); x.globalAlpha = .045; x.fillStyle = '#6d480c'; x.textAlign = 'center'; x.font = '700 210px Georgia'; x.fillText('SHIVAA', 900, 690); x.restore();
     x.beginPath(); x.arc(900, 155, 72, 0, Math.PI * 2); x.fillStyle = '#f6e4a6'; x.fill(); x.strokeStyle = '#926416'; x.lineWidth = 3; x.stroke(); x.beginPath(); x.arc(900, 155, 61, 0, Math.PI * 2); x.strokeStyle = '#b98a2f'; x.stroke();
     x.textAlign = 'center'; x.fillStyle = '#5d3c08'; x.font = '700 58px Georgia'; x.fillText('S', 900, 169); x.font = '700 12px Arial'; x.fillText('SHIVAA FAMILY', 900, 197);
@@ -3469,8 +3643,9 @@ window.Shivaa.retryBlackCard = btn => {
 pages['black-card'] = async view => {
   const isCurrent = viewLifetime(view);
   if (!state.user) {
-    view.innerHTML = `<section class="bc-page-hero"><div class="container bc-page-hero-in"><div><div class="crumbs"><a href="#/">Home</a> / Shivaa Black</div><span class="bc-eyebrow">RETAIL CUSTOMERS ONLY</span><h1>The Shivaa Black Card.</h1><p>A personal six-month privilege: 20% off making charges on jewellery purchases, bound to one OTP-verified mobile. Your digital card and prestigious-member certificate stay in your account forever.</p><button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.openLogin('black-card')">Sign in by mobile to continue ✦</button></div>${blackCardVisual(null, { home: true })}</div></section>
+    view.innerHTML = `<section class="bc-page-hero"><div class="container bc-page-hero-in"><div><div class="crumbs"><a href="#/">Home</a> / Shivaa Black</div><span class="bc-eyebrow">RETAIL CUSTOMERS ONLY</span><h1>The Shivaa Black Card.</h1><p>A personal six-month privilege: 20% off making charges on jewellery purchases, bound to one OTP-verified mobile. Your digital card and prestigious-member certificate stay in your account forever.</p><button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.beginBlackClaim('',this)">Verify mobile &amp; create my card ✦</button><small class="bc-hero-action-note">One seamless OTP flow · no payment details required</small></div>${blackCardVisual(null, { home: true })}</div></section>
       <div class="container bc-public-detail">${blackClaimHTML()}<div class="bc-public-terms"><h2>Private by design</h2><p>The member number is shown only after authentication. The server accepts it only when both the account ID and registered mobile match the issue record.</p><h2>Precise by design</h2><p>The reduction is 20% of making charges only. The server never applies it to metal, stones, GST, shipping or the whole order.</p></div></div>`;
+    initBlackCardMotion(view);
     return;
   }
   if ((state.user.role || 'customer') !== 'customer') {
@@ -3488,9 +3663,25 @@ pages['black-card'] = async view => {
   if (!accessError && state.user) state.user.blackCard = card;
   const notice = accessError ? blackAccessErrorHTML(accessError, safeCached) : '';
   view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/account">My Account</a> / Shivaa Black</div><span class="bc-eyebrow">YOUR PRIVATE MEMBER LOCKER</span><h1>${card ? 'Shivaa Black, kept for you.' : accessError ? 'Your membership is protected.' : 'Meet your Shivaa Black Card.'}</h1><p>${card ? 'Flip it, copy it, save or share it—your card and certificate live here whenever you return by OTP.' : accessError ? 'We could not safely open the live locker just now. Use the recovery action below; your permanent documents are not deleted.' : 'Claim once. Your issue date, six-month expiry, private member number and certificate are saved together.'}</p></div></section><div class="container bc-page-body">${notice}${accessError && !safeCached ? '' : blackMembershipHTML(card)}</div>`;
+  initBlackCardMotion(view);
+  /* An explicit pre-login “create my card” tap survives the OTP sheet. Existing
+     members simply return to their intended page; new members get one guarded,
+     idempotent claim without having to discover and press the same CTA twice. */
+  if (!accessError && window._blackClaimAfterLogin) {
+    if (card) {
+      window._blackClaimAfterLogin = false;
+      const back = blackReturnHash(window._blackClaimReturn || ''); window._blackClaimReturn = '';
+      toast('Your Shivaa Black card is ready ✦');
+      if (back) setTimeout(() => { if (isCurrent()) location.hash = back; }, 120);
+    } else {
+      const back = blackReturnHash(window._blackClaimReturn || '');
+      setTimeout(() => { if (isCurrent()) window.Shivaa.claimBlackCard(view.querySelector('.bc-claim-btn'), { returnHash: back }); }, 0);
+    }
+  }
 };
 
 pages.home = async (view) => {
+  const isCurrent = viewLifetime(view);
   ensureCampaignStuds();
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
   const best = [...best0, ...state.productsCache.filter(p => !best0.includes(p))].slice(0, 12);
@@ -3498,6 +3689,7 @@ pages.home = async (view) => {
   const spot = state.productsCache.find(p => p.id === 'p_aara') || state.productsCache[0];
   const spotPr = spot ? price(spot) : null;
   const wishSet = state.user ? await wishIds() : [];
+  if (!isCurrent()) return;
   const homeCard = state.user && (state.user.role || 'customer') === 'customer' ? (state.user.blackCard || null) : null;
   const homeActive = blackCardActive(homeCard);
   const blackCta = homeCard ? 'Open my Black Card' : (state.user ? 'Claim my Black Card' : 'Get my Black Card');
@@ -3543,7 +3735,7 @@ pages.home = async (view) => {
     <div class="carousel" id="heroCarousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="The Shivaa Black membership story — use the left and right arrow keys">
       <div class="c-track" id="cTrack">
         <div class="c-slide s-left black-slide">
-          <img src="/images/banners/poster-heritage.jpg" srcset="/images/banners/poster-heritage-m.jpg 800w, /images/banners/poster-heritage.jpg 1584w" sizes="100vw" alt="Shivaa Black membership and fine jewellery" draggable="false" decoding="async" fetchpriority="high">
+          <img src="/images/banners/poster-heritage.jpg" srcset="/images/banners/poster-heritage-m.jpg 800w, /images/banners/poster-heritage.jpg 1584w" sizes="100vw" alt="Shivaa Black membership and fine jewellery" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade"></div>
           <span class="c-frame" aria-hidden="true"><i class="cf-c c1"></i><i class="cf-c c2"></i><i class="cf-c c3"></i><i class="cf-c c4"></i></span>
           <span class="c-wm" aria-hidden="true">20%</span>
@@ -3714,13 +3906,16 @@ pages.home = async (view) => {
   loadSocialProof(); // v50: real reviews or badged promises - never invented customers
   renderTrending(); renderRecentViewed();   // v54 home strips
 
-  // pillar draw-in
-  const pio = new IntersectionObserver((es, o) => es.forEach(e => {
-    if (e.isIntersecting) { e.target.classList.add('seen'); o.unobserve(e.target); }
-  }), { threshold: .2 });
-  $$('.pillar, .wp-card, .rvl').forEach(el => pio.observe(el));
+  // pillar draw-in — disconnected when Home detaches (repeat visits stay bounded)
+  if (typeof IntersectionObserver === 'function') {
+    const pio = new IntersectionObserver((es, o) => es.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('seen'); o.unobserve(e.target); }
+    }), { threshold: .2 });
+    $$('.pillar, .wp-card, .rvl').forEach(el => pio.observe(el));
+    window._homeObserverCleanup = () => { pio.disconnect(); window._homeObserverCleanup = null; };
+  } else $$('.pillar, .wp-card, .rvl').forEach(el => el.classList.add('seen'));
 
-  initHeroStage(); initCatbar();
+  initHeroStage(); initBlackCardMotion(view); initCatbar();
   // stat count-up
   $$('.hstat b').forEach(el => {
     const m = el.textContent.match(/^([\d.,]+)(.*)$/); if (!m) return;
@@ -4039,6 +4234,8 @@ pages.product = async (view, q, id) => {
           <div class="emi-strip">◈ <span><b>No-cost EMI from <span id="pdEmi3">${fmt(emi3)}</span>/mo</b> (3 months) · standard EMI <span id="pdEmi6">${fmt(emi6)}</span>/mo (6 months) on cards & UPI-autopay</span></div>
         </div>
 
+        ${blackCommerceHTML(pr.makingCharge, '#/product/' + encodeURIComponent(p.id), 'this piece')}
+
         ${(p.sizes||[]).length ? `<div class="opt-label"><span>Size</span><a href="javascript:Shivaa.sizeGuide()" style="text-transform:none;letter-spacing:0;color:var(--gold);font-size:12.5px">Size guide</a></div>
         <div class="size-row" id="sizeRow">${(p.sizes||[]).map(s => `<button class="size-pill ${String(s) === String(localStorage.getItem('shv_ring_size') || '') ? 'on' : ''}" data-size="${esc(s)}">${esc(s)}</button>`).join('')}<a class="size-guide-link" href="#/sizer" title="Find your ring size">📏 Size guide</a></div>` : ''}
 
@@ -4157,10 +4354,17 @@ pages.product = async (view, q, id) => {
     wrap.addEventListener('lostpointercapture', end);
     const _mobGal = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
     const _galInterval = _mobGal ? 10000 : 5200; // v42: slower on mobile, still advances
-    const timer = setInterval(() => {
+    let timer = setInterval(() => {
+      if (!document.body.contains(wrap)) { stopGallery(); return; }
       const v = $('.gal-slide.on video', track); if (v && !v.paused) return; go(idx + 1);
     }, _galInterval);
-    wrap.addEventListener('pointerdown', () => clearInterval(timer), { once: true });
+    const stopGallery = () => {
+      if (timer) { clearInterval(timer); timer = 0; }
+      $$('video', wrap).forEach(v => { try { if (!v.paused) v.pause(); } catch (_) {} });
+      if (window._pdCleanup === stopGallery) window._pdCleanup = null;
+    };
+    window._pdCleanup = stopGallery;
+    wrap.addEventListener('pointerdown', stopGallery, { once: true });
   })();
   $('#brkBtn').onclick = () => { const b = $('#pdBrk'); b.hidden = !b.hidden; $('#brkBtn').setAttribute('aria-expanded', String(!b.hidden)); };
   $$('#sizeRow .size-pill').forEach(s => s.onclick = () => { $$('#sizeRow .size-pill').forEach(x => x.classList.remove('on')); s.classList.add('on'); try { localStorage.setItem('shv_ring_size', s.dataset.size); } catch (e) {} });
@@ -4214,7 +4418,16 @@ pages.product = async (view, q, id) => {
   });
   window._lastOrder = null;
 };
-window.Shivaa.pdQty = d => { window._pd.qty = Math.max(1, Math.min(9, window._pd.qty + d)); $('#pdQtyN').textContent = window._pd.qty; };
+window.Shivaa.pdQty = d => {
+  window._pd.qty = Math.max(1, Math.min(9, window._pd.qty + d)); $('#pdQtyN').textContent = window._pd.qty;
+  const offer = $('[data-black-commerce].active');
+  if (offer) {
+    const basis = (+offer.dataset.blackMaking || 0) * window._pd.qty;
+    const value = $('.bc-commerce-value', offer), copy = $('.bc-commerce-basis', offer);
+    if (value) value.textContent = `Save ${fmt(blackSaving(basis))} on this selection`;
+    if (copy) copy.textContent = `Exactly 20% of ${fmt(basis)} making charges · verified and applied automatically at checkout.`;
+  }
+};
 
 /* ─────────── v54 GLOBAL UX: scroll progress · back-to-top · buy-bar routing ─────────── */
 (function () {
@@ -4927,6 +5140,7 @@ pages.cart = async (view) => {
   }).filter(x => x.p);
   const lines = items.map(it => ({ it, pr: price(it.p) }));
   const subtotal = lines.reduce((a, l) => a + l.pr.total * l.it.qty, 0);
+  const makingSubtotal = lines.reduce((a, l) => a + l.pr.makingCharge * l.it.qty, 0);
   const shipping = subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Cart</div><h1>Your Cart</h1>
@@ -4958,6 +5172,7 @@ pages.cart = async (view) => {
     </div>
     <div class="summary">
       <div class="sum-logo"><span>Shivaa · Secure Checkout</span><img src="/images/logo.png" alt=""></div>
+      ${blackCommerceHTML(makingSubtotal, '#/cart', 'this bag')}
       <h3>Order Summary</h3>
       <div class="sum-row"><span>Subtotal (${cartCount()} items, incl. GST)</span><b data-cart-sub>${fmt(subtotal)}</b></div>
       <div class="sum-row"><span>Shipping (insured)</span><span data-cart-ship>${shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(shipping)}</b>`}</span></div>
@@ -5030,6 +5245,13 @@ function refreshCartPage() {
   const tot = view.querySelector('[data-cart-total]'); if (tot) tot.textContent = fmt(t.subtotal + t.shipping);
   const save = view.querySelector('[data-cart-save]'); if (save && prepaidPct() > 0) save.textContent = '− ' + fmt(Math.round(t.subtotal * prepaidPct() / 100));
   const mcta = view.querySelector('[data-cart-mcta]'); if (mcta) mcta.textContent = fmt(t.subtotal + t.shipping);
+  const black = view.querySelector('[data-black-commerce].active');
+  if (black) {
+    black.dataset.blackMaking = String(t.makingSubtotal);
+    const val = black.querySelector('.bc-commerce-value'), basis = black.querySelector('.bc-commerce-basis');
+    if (val) val.textContent = `Save ${fmt(blackSaving(t.makingSubtotal))} on this bag`;
+    if (basis) basis.textContent = `Exactly 20% of ${fmt(t.makingSubtotal)} making charges · verified and applied automatically at checkout.`;
+  }
   return true;
 }
 
@@ -5048,8 +5270,9 @@ function cartLines() {
 function cartTotals() {
   const lines = cartLines();
   const subtotal = lines.reduce((a, l) => a + price(l.p).total * l.qty, 0);
+  const makingSubtotal = lines.reduce((a, l) => a + price(l.p).makingCharge * l.qty, 0);
   const shipping = !subtotal || subtotal >= state.settings.freeShipAbove ? 0 : state.settings.shippingFee;
-  return { lines, subtotal, shipping, count: cartCount() };
+  return { lines, subtotal, makingSubtotal, shipping, count: cartCount() };
 }
 function flyToBag(src, fromEl) {
   return new Promise(res => {
@@ -5517,7 +5740,7 @@ pages.checkout = async (view) => {
       <div class="rate-lock-card" id="rateLockBox" aria-live="polite"></div>
       <h3>Your Order</h3>
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
-      ${checkoutBlack ? `<div class="bc-checkout-pass"><span class="bc-checkout-mark">S</span><span><b>Shivaa Black found</b><small>20% off ${fmt(makingSubtotal)} in making charges · applying securely</small></span><a href="#/black-card">View card</a></div>` : ''}
+      ${checkoutBlack ? `<div class="bc-checkout-wrap"><div class="bc-checkout-pass"><span class="bc-checkout-mark">S</span><span><b>Shivaa Black found</b><small>20% off ${fmt(makingSubtotal)} in making charges · applying securely</small></span><a href="#/black-card">View card</a></div><div class="bc-checkout-flow" aria-label="Shivaa Black checkout progress"><span class="done">✓ Card found</span><i></i><span id="bcVerifyStep" class="current">2 Verify</span><i></i><span id="bcAppliedStep">3 Apply saving</span></div></div>` : ''}
       <div class="coupon-row"><input id="couponIn" placeholder="Coupon or member code" value="${checkoutBlack ? esc(checkoutBlack.couponCode || checkoutBlack.cardNumber || '') : ''}"${checkoutBlack ? ' aria-label="Your Shivaa Black member coupon"' : ' aria-label="Coupon code"'} aria-describedby="couponMsg" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="Shivaa.couponInputChanged(this.value)"><button class="btn btn-ghost btn-sm" id="couponApplyBtn" type="button" onclick="Shivaa.applyCoupon()">Apply</button></div>
       <div id="couponMsg" class="coupon-message" aria-live="polite"></div>
       ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
@@ -5741,6 +5964,9 @@ window.Shivaa.couponInputChanged = value => {
   if (co.couponAbort) { co.couponAbort.abort(); co.couponAbort = null; }
   const applyBtn = $('#couponApplyBtn');
   if (applyBtn) { applyBtn.disabled = false; applyBtn.removeAttribute('aria-busy'); applyBtn.textContent = 'Apply'; }
+  const verifyStep = $('#bcVerifyStep'), appliedStep = $('#bcAppliedStep');
+  if (verifyStep && changedApplied) { verifyStep.className = 'current'; verifyStep.textContent = '2 Verify'; }
+  if (appliedStep && changedApplied) { appliedStep.className = ''; appliedStep.textContent = '3 Apply saving'; }
   co.couponGeneration = (co.couponGeneration || 0) + 1;
   if (changedApplied) resetCheckoutCoupon(co);
   const msg = $('#couponMsg');
@@ -5766,6 +5992,9 @@ window.Shivaa.applyCoupon = async (automatic = false) => {
   resetCheckoutCoupon(co); window.Shivaa.updateCheckout();
   msg.className = 'coupon-message checking';
   msg.textContent = automatic ? 'Checking your mobile-bound Shivaa Black privilege…' : 'Verifying this code securely…';
+  const verifyStep = $('#bcVerifyStep'), appliedStep = $('#bcAppliedStep');
+  if (verifyStep) { verifyStep.className = 'current'; verifyStep.textContent = '2 Verifying'; }
+  if (appliedStep) { appliedStep.className = ''; appliedStep.textContent = '3 Apply saving'; }
   if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.textContent = 'Checking…'; }
   try {
     const c = await api('/api/coupons/validate', { method: 'POST', signal: ctl && ctl.signal,
@@ -5785,10 +6014,19 @@ window.Shivaa.applyCoupon = async (automatic = false) => {
     msg.textContent = c.type === 'making_percent'
       ? `✓ Shivaa Black applied — 20% of ${fmt(c.eligibleBasis ?? co.makingSubtotal)} making charges saves ${fmt(co.disc)}`
       : `✓ ${c.code} applied — you save ${fmt(co.disc)}`;
+    if (c.type === 'making_percent') {
+      if (verifyStep) { verifyStep.className = 'done'; verifyStep.textContent = '✓ Mobile verified'; }
+      if (appliedStep) { appliedStep.className = 'done'; appliedStep.textContent = `✓ ${fmt(co.disc)} applied`; }
+    } else {
+      if (verifyStep) { verifyStep.className = ''; verifyStep.textContent = 'Black available'; }
+      if (appliedStep) { appliedStep.className = 'done'; appliedStep.textContent = `✓ ${String(c.code || 'Code')} applied`; }
+    }
   } catch (e) {
     if (window._co !== co || co.couponGeneration !== generation || (e && e.name === 'AbortError')) return;
     resetCheckoutCoupon(co);
     msg.className = 'coupon-message error'; msg.textContent = e.message;
+    if (verifyStep) { verifyStep.className = 'error'; verifyStep.textContent = '2 Verification paused'; }
+    if (appliedStep) { appliedStep.className = ''; appliedStep.textContent = '3 Not applied'; }
   } finally {
     if (window._co === co && co.couponGeneration === generation) {
       co.couponAbort = null;
@@ -6622,6 +6860,7 @@ pages.order = async (view, q, id) => {
   }
 };
 function confetti() {
+  if (calmMotion()) return;
   const c = document.createElement('canvas');
   Object.assign(c.style, { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 300 });
   document.body.appendChild(c);
@@ -6784,6 +7023,7 @@ pages.account = async (view, q) => {
     </div>
   </div>
   <div style="height:40px"></div>`;
+  if (tab === 'membership') initBlackCardMotion(view);
 };
 window.Shivaa.saveProfile = async e => {
   e.preventDefault();
@@ -8138,19 +8378,19 @@ function bindOtpBoxes(root, onComplete) {
   boxes.forEach((inp, i) => {
     inp.addEventListener('input', () => {
       inp.value = inp.value.replace(/\D/g, '').slice(-1);
-      if (inp.value && i < 5) boxes[i + 1].focus();
+      if (inp.value && i < boxes.length - 1) boxes[i + 1].focus();
       fire();
     });
     inp.addEventListener('keydown', e => {
       if (e.key === 'Backspace' && !inp.value && i > 0) { boxes[i - 1].focus(); boxes[i - 1].value = ''; }
       if (e.key === 'ArrowLeft' && i > 0) boxes[i - 1].focus();
-      if (e.key === 'ArrowRight' && i < 5) boxes[i + 1].focus();
+      if (e.key === 'ArrowRight' && i < boxes.length - 1) boxes[i + 1].focus();
     });
     inp.addEventListener('paste', e => {
       e.preventDefault();
-      const digits = ((e.clipboardData || window.clipboardData).getData('text').match(/\d/g) || []).slice(0, 6);
-      digits.forEach((d, j) => { if (boxes[j]) boxes[j].value = d; });
-      boxes[Math.min(digits.length, 5)].focus();
+      const pasted = ((e.clipboardData || window.clipboardData).getData('text').match(/\d/g) || []).slice(0, boxes.length);
+      pasted.forEach((d, j) => { if (boxes[j]) boxes[j].value = d; });
+      if (boxes.length) boxes[Math.min(Math.max(0, pasted.length - 1), boxes.length - 1)].focus();
       fire();
     });
   });
@@ -10034,6 +10274,13 @@ function route() {
   const view = $('#view');
   closeModal();
   if (typeof closeCart === 'function') closeCart();
+  /* v186 — route-owned observers/timers never retain detached premium art. */
+  const activeDust = document.getElementById('heroDust');
+  if (activeDust && typeof activeDust._dustCleanup === 'function') { try { activeDust._dustCleanup(); } catch (_) {} }
+  if (typeof window._homeObserverCleanup === 'function') { try { window._homeObserverCleanup(); } catch (_) {} window._homeObserverCleanup = null; }
+  /* A PDP carousel must not keep advancing a detached gallery. Release its
+     timer/video as the route changes (including product → product). */
+  if (typeof window._pdCleanup === 'function') { try { window._pdCleanup(); } catch (_) {} window._pdCleanup = null; }
   /* v166 — NO navigation may inherit an open overlay. The mega panel and its
      full-viewport backdrop used to stay on screen when the panel had been
      opened by js/v116.js's early wiring (which skips app.js's close listeners)
