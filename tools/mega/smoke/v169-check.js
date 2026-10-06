@@ -19,7 +19,7 @@ function fixture(hash='#/order/QA-169'){
   $:s=>w.document.querySelector(s),$$:s=>[...w.document.querySelectorAll(s)],esc,jsArg:s=>JSON.stringify(s),fmt:n=>'₹'+Number(n).toLocaleString('en-IN'),timeFmt:()=> 'QA date',dateFmt:()=> 'QA date',
   setTimeout:f=>{timers.push(f);return timers.length;},clearTimeout(){},
   guestPinFor:()=>'',emptyShell:(a,b,x)=>'<h1>'+b+'</h1>'+x,signInGate(){},openLogin(){},
-  ensureCampaignStuds(){},expressCheckoutOn:()=>false,store:{get:()=>null},price:()=>({total:1030}),prepaidPct:()=>2,isPartner:()=>false,safeUrl:s=>String(s||''),slugify:s=>s,waLink:()=>'',ORDER_STAGES:[],loyaltyTier:()=>'',
+  ensureCampaignStuds(){},expressCheckoutOn:()=>false,store:{get:()=>null},price:()=>({total:1030,makingCharge:0}),prepaidPct:()=>2,isPartner:()=>false,safeUrl:s=>String(s||''),slugify:s=>s,waLink:()=>'',ORDER_STAGES:[],loyaltyTier:()=>'',blackCardActive:()=>false,
   finaleLive:()=>false,finaleQualifiesItems:()=>({ok:false}),finaleAfterOrder(){},campaignGenderOfItems:()=> 'gents',confetti:()=>{c.celebrations++;},celebrations:0,
   toast:m=>messages.push(m),orderStageHTML:()=>'',trackingCardHTML:()=>'',paymentLedgerHTML:()=>'',codConfirmHTML:()=>'',refundCardHTML:()=>'',npsHTML:()=>'',careCTAHTML:()=>'',
   injectProductLD:()=>{c.metadata++;},metadata:0,wishIds:async()=>[],isCompared:()=>false,

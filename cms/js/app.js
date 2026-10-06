@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 182;
+const APP_REL = 184;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -463,7 +463,10 @@ function waOrderMsg(o) {
   o.items.forEach(it => L.push('• ' + it.name + ' × ' + it.qty + (it.size ? ' (' + it.size + ')' : '') + ' — ' + fmt(it.unitPrice * it.qty)));
   L.push('');
   L.push('Subtotal: ' + fmt(o.subtotal));
-  if (o.discount) L.push('Discount' + (o.coupon ? ' (' + o.coupon + ')' : '') + ': −' + fmt(o.discount));
+  if (o.discountBasis === 'making-charges') {
+    L.push('Shivaa Black (20% off making charges): −' + fmt(o.makingChargeDiscount || 0));
+    if (o.pointsUsed) L.push('Royalty points: −' + fmt(o.pointsUsed));
+  } else if (o.discount) L.push('Discount' + (o.coupon ? ' (' + o.coupon + ')' : '') + ': −' + fmt(o.discount));
   L.push('Shipping: ' + (o.shipping ? fmt(o.shipping) : 'FREE insured'));
   L.push('Total: ' + fmt(o.total));
   L.push('');
@@ -1315,7 +1318,7 @@ function initGoldParticleCanvas(canvasId = 'goldParticleCanvas') {
           ctx.beginPath();
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = `rgba(230, 183, 92, ${(1 - dist / 90) * 0.22})`;
+          ctx.strokeStyle = `rgba(230, 184, 92, ${(1 - dist / 90) * 0.22})`;
           ctx.lineWidth = 0.8;
           ctx.stroke();
         }
@@ -1346,7 +1349,7 @@ function initGoldParticleCanvas(canvasId = 'goldParticleCanvas') {
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255, 226, 138, ${op})`;
       ctx.shadowBlur = 10;
-      ctx.shadowColor = 'rgba(230, 183, 92, 0.85)';
+      ctx.shadowColor = 'rgba(230, 184, 92, 0.85)';
       ctx.fill();
     }
     animFrame = requestAnimationFrame(draw);
@@ -3176,6 +3179,193 @@ pages.pickup = async (view) => {
   };
 };
 
+/* ═══════════ v184 · SHIVAA BLACK RETAIL MEMBERSHIP ═══════════ */
+function blackDate(iso, short = false) {
+  const d = new Date(iso || '');
+  if (!Number.isFinite(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', short
+    ? { month: '2-digit', year: '2-digit', timeZone: 'Asia/Kolkata' }
+    : { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+}
+function blackCardActive(card) {
+  const t = card && Date.parse(card.expiresAt || '');
+  return !!(card && Number.isFinite(t) && t >= Date.now() && card.status !== 'expired');
+}
+function blackMemberCode(code, mock = false) {
+  if (mock) return '2020  ••••  ••••  ••••';
+  const clean = String(code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  return (clean.match(/.{1,4}/g) || ['—']).join('  ');
+}
+function blackPhone(phone, mock = false) {
+  const d = String(phone || '').replace(/\D/g, '').slice(-10);
+  if (mock || d.length !== 10) return '+91 ••••• •3210';
+  return '+91 ' + d.slice(0, 5) + ' ' + d.slice(5);
+}
+function blackCardVisual(card = null, opts = {}) {
+  const mock = !card || !card.memberId;
+  const holder = mock ? 'YOUR NAME' : (card.holderName || (state.user && state.user.name) || 'SHIVAA MEMBER');
+  const code = blackMemberCode(mock ? '' : (card.cardNumber || card.couponCode), mock);
+  const mobile = blackPhone(mock ? '' : card.mobile, mock);
+  const issued = mock ? 'ON CLAIM' : blackDate(card.issuedAt);
+  const expires = mock ? '6 MONTHS' : blackDate(card.expiresAt);
+  const thru = mock ? '••/••' : blackDate(card.expiresAt, true);
+  const status = mock ? 'YOUR CARD' : (blackCardActive(card) ? 'ACTIVE' : 'EXPIRED · KEPT FOREVER');
+  return `<div class="bc-card-wrap${opts.home ? ' bc-card-home' : ''}">
+    <button type="button" class="bc-card" aria-pressed="false" aria-label="Flip Shivaa Black card to ${opts.backFirst ? 'front' : 'reverse'}" onclick="Shivaa.flipBlackCard(this)">
+      <span class="bc-face bc-front">
+        <span class="bc-noise" aria-hidden="true"></span><span class="bc-orbit" aria-hidden="true"></span>
+        <span class="bc-top"><span class="bc-brand"><img src="/images/logo.png" alt=""><span><b>SHIVAA</b><small>BLACK</small></span></span><span class="bc-status">${esc(status)}</span></span>
+        <span class="bc-benefit"><b>20<span>%</span></b><small>OFF MAKING<br>CHARGES</small></span>
+        <span class="bc-code-label">MEMBER · COUPON CODE</span>
+        <span class="bc-code">${esc(code)}</span>
+        <span class="bc-bottom"><span><small>MEMBER</small><b>${esc(String(holder).toUpperCase())}</b></span><span><small>VALID THRU</small><b>${esc(thru)}</b></span></span>
+        <span class="bc-not-pay">PRIVILEGE CARD · NOT A PAYMENT CARD</span>
+      </span>
+      <span class="bc-face bc-back">
+        <span class="bc-back-head"><b>SHIVAA BLACK</b><small>RETAIL MEMBERSHIP</small></span>
+        <span class="bc-stripe" aria-hidden="true"></span>
+        <span class="bc-mobile-row"><small>BOUND MOBILE</small><b>${esc(mobile)}</b></span>
+        <span class="bc-back-copy">20% is reduced only from Shivaa&rsquo;s listed making-charge component on jewellery purchases during validity. Metal value, stones, GST, shipping and other charges are not discounted.</span>
+        <span class="bc-dates"><span><small>ISSUED</small><b>${esc(issued)}</b></span><span><small>BENEFIT UNTIL</small><b>${esc(expires)}</b></span></span>
+        <span class="bc-security">✦ Accepted only for the signed-in account with this registered mobile<br>✦ Card &amp; certificate remain in My Account after benefit expiry</span>
+        <span class="bc-not-pay back">NOT A BANK / DEBIT / CREDIT CARD</span>
+      </span>
+    </button>
+    <span class="bc-flip-hint"><span aria-hidden="true">↻</span> Tap the card to see the ${opts.backFirst ? 'front' : 'reverse'}</span>
+  </div>`;
+}
+window.Shivaa.flipBlackCard = el => {
+  if (!el) return;
+  const on = el.classList.toggle('is-flipped');
+  el.setAttribute('aria-pressed', String(on));
+  el.setAttribute('aria-label', 'Flip Shivaa Black card to ' + (on ? 'front' : 'reverse'));
+};
+function blackCertificateHTML(card) {
+  if (!card) return '';
+  const active = blackCardActive(card);
+  return `<article class="bc-certificate" aria-label="Shivaa Family Prestigious Member certificate">
+    <span class="bc-cert-corner c1"></span><span class="bc-cert-corner c2"></span><span class="bc-cert-corner c3"></span><span class="bc-cert-corner c4"></span>
+    <div class="bc-cert-seal" aria-hidden="true"><span>✦</span><b>S</b><small>FAMILY</small></div>
+    <div class="bc-cert-kicker">THE HOUSE OF SHIVAA · JAYAL</div>
+    <h2>Certificate of<br><em>Prestigious Membership</em></h2>
+    <p class="bc-cert-presents">The Shivaa Family proudly welcomes</p>
+    <div class="bc-cert-name">${esc(card.holderName || 'Shivaa Member')}</div>
+    <p class="bc-cert-copy">as a <b>Shivaa Family Prestigious Member</b>, recognised for a relationship we are honoured to keep beyond every purchase.</p>
+    <div class="bc-cert-meta">
+      <span><small>CERTIFICATE</small><b>${esc(card.certificateNo || '—')}</b></span>
+      <span><small>MEMBER ID</small><b>${esc(card.memberId || '—')}</b></span>
+      <span><small>ISSUED</small><b>${esc(blackDate(card.certificateIssuedAt || card.issuedAt))}</b></span>
+    </div>
+    <div class="bc-cert-rule"></div>
+    <div class="bc-cert-foot"><span><b>SHIVAA JEWELLERS</b><small>Family-issued digital membership recognition</small></span><span class="bc-cert-state ${active ? 'live' : 'archive'}">${active ? 'PRIVILEGE ACTIVE' : 'CERTIFICATE PERMANENTLY ARCHIVED'}</span></div>
+    <p class="bc-cert-fine">This certificate remains permanently in the member&rsquo;s account. The 20% making-charge privilege is separate and valid only from ${esc(blackDate(card.issuedAt))} through ${esc(blackDate(card.expiresAt))}. Not a government or financial certificate.</p>
+  </article>`;
+}
+function blackClaimHTML(inAccount = false) {
+  return `<section class="bc-claim-card${inAccount ? ' in-account' : ''}">
+    <div class="bc-claim-glow" aria-hidden="true"></div>
+    <span class="bc-eyebrow">RETAIL CUSTOMERS · VERIFIED MOBILE ONLY</span>
+    <h2>Your name. Your number.<br><em>Your Shivaa privilege.</em></h2>
+    <p>Save your personal Shivaa Black Card to this account and receive a <b>flat 20% reduction on making charges</b> for six calendar months—plus your permanent Shivaa Family Prestigious Member certificate.</p>
+    <div class="bc-benefit-grid">
+      <span><b>20%</b><small>off making charges</small></span><span><b>6</b><small>calendar months</small></span><span><b>1</b><small>verified mobile only</small></span><span><b>∞</b><small>card + certificate kept</small></span>
+    </div>
+    <button type="button" class="btn btn-gold btn-lg bc-claim-btn" onclick="Shivaa.claimBlackCard(this)">Save my Black Card ✦</button>
+    <small class="bc-claim-note">One card per retail account. Issue and expiry dates cannot be reset by claiming again.</small>
+  </section>`;
+}
+function blackMembershipHTML(card, opts = {}) {
+  if (!card) return blackClaimHTML(!!opts.inAccount);
+  const active = blackCardActive(card);
+  return `<div class="bc-membership bc-print-zone">
+    <div class="bc-member-head">
+      <div><span class="bc-eyebrow">SHIVAA BLACK · PERSONAL MEMBERSHIP</span><h2>${active ? 'Your privilege is active.' : 'Your card is safely archived.'}</h2>
+      <p>${active ? `20% off making charges through <b>${esc(blackDate(card.expiresAt))}</b>. Your code is automatically offered at checkout.` : `The six-month discount ended on <b>${esc(blackDate(card.expiresAt))}</b>, but your card and prestigious-member certificate remain here permanently.`}</p></div>
+      <span class="bc-validity ${active ? 'active' : 'expired'}"><i></i>${active ? 'ACTIVE' : 'EXPIRED'}</span>
+    </div>
+    <div class="bc-card-zone">
+      ${blackCardVisual(card)}
+      <div class="bc-card-details">
+        <div><small>MEMBER / COUPON NUMBER</small><b class="bc-detail-code">${esc(blackMemberCode(card.couponCode || card.cardNumber))}</b></div>
+        <div class="bc-detail-dates"><span><small>ISSUED</small><b>${esc(blackDate(card.issuedAt))}</b></span><span><small>VALID UNTIL</small><b>${esc(blackDate(card.expiresAt))}</b></span></div>
+        <div class="bc-bind"><span aria-hidden="true">◉</span><p><b>Locked to ${esc(blackPhone(card.mobile))}</b><small>Only this registered-mobile account can reveal or apply the code.</small></p></div>
+        <div class="bc-member-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.copyBlackCode()">Copy coupon code</button><button type="button" class="btn btn-outline" onclick="Shivaa.saveBlackCard()">Save card image</button><a class="btn btn-ghost" href="#/shop">Shop jewellery</a></div>
+      </div>
+    </div>
+    <div class="bc-scope" role="note"><b>Exactly what 20% means</b><span><i>✓</i> 20% of listed making charges × quantity</span><span><i>×</i> No reduction on metal value, stones, GST or shipping</span><span><i>✓</i> Server recalculates the saving on every order</span></div>
+    <div class="bc-cert-wrap"><div class="bc-cert-intro"><span class="bc-eyebrow">ISSUED WITH YOUR CARD · KEPT FOREVER</span><h2>Shivaa Family<br><em>Prestigious Member</em></h2><p>Your permanent family certificate was created in the same moment as your card. It stays in My Account even after the shopping privilege ends.</p><button type="button" class="btn btn-outline" onclick="Shivaa.printBlackMembership()">Save as PDF / Print</button></div>${blackCertificateHTML(card)}</div>
+  </div>`;
+}
+window.Shivaa.copyBlackCode = async () => {
+  const c = state.user && state.user.blackCard;
+  if (!c) return toast('Open your Shivaa Black card first', 'err');
+  const code = String(c.couponCode || c.cardNumber || '').trim();
+  try { await navigator.clipboard.writeText(code); }
+  catch (e) { const t = document.createElement('textarea'); t.value = code; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (_) {} t.remove(); }
+  toast('Shivaa Black coupon copied ✦');
+};
+window.Shivaa.claimBlackCard = async btn => {
+  if (!state.user) { openLogin('black-card'); return; }
+  const old = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating your card…'; }
+  try {
+    const r = await api('/api/black-card/claim', { method: 'POST', body: '{}' });
+    if (r.user) state.user = r.user;
+    else if (state.user) state.user.blackCard = r.membership;
+    toast(r.created ? 'Welcome to Shivaa Black ✦ Your certificate is ready.' : 'Your Shivaa Black card is already saved ✦');
+    if (r.created) confetti();
+    route();
+  } catch (e) {
+    toast(e.message || 'Could not create the card', 'err');
+    if (btn) { btn.disabled = false; btn.textContent = old || 'Save my Black Card ✦'; }
+  }
+};
+window.Shivaa.printBlackMembership = () => {
+  document.body.classList.add('bc-printing');
+  const done = () => document.body.classList.remove('bc-printing');
+  window.addEventListener('afterprint', done, { once: true });
+  setTimeout(done, 5000);
+  window.print();
+};
+window.Shivaa.saveBlackCard = () => {
+  const card = state.user && state.user.blackCard;
+  if (!card) return toast('Open your Shivaa Black card first', 'err');
+  try {
+    const cv = document.createElement('canvas'); cv.width = 1200; cv.height = 1510;
+    const x = cv.getContext('2d'); if (!x) throw new Error('Canvas unavailable');
+    const panel = (y, h) => { const g = x.createLinearGradient(0, y, 1200, y + h); g.addColorStop(0, '#030303'); g.addColorStop(.52, '#18130b'); g.addColorStop(1, '#050505'); x.fillStyle = g; x.fillRect(40, y, 1120, h); x.strokeStyle = '#d6af57'; x.lineWidth = 3; x.strokeRect(40, y, 1120, h); };
+    x.fillStyle = '#f5efe2'; x.fillRect(0, 0, cv.width, cv.height); panel(40, 680); panel(790, 680);
+    x.fillStyle = '#e8c777'; x.font = '700 50px Georgia'; x.fillText('SHIVAA', 100, 125); x.font = '24px Arial'; x.letterSpacing = '8px'; x.fillText('B L A C K', 100, 165);
+    x.textAlign = 'right'; x.font = '700 118px Georgia'; x.fillText('20%', 1095, 205); x.textAlign = 'left'; x.font = '25px Arial'; x.fillText('OFF MAKING CHARGES', 772, 246);
+    x.fillStyle = '#bca66f'; x.font = '20px Arial'; x.fillText('MEMBER · COUPON CODE', 100, 365); x.fillStyle = '#fff4d1'; x.font = '44px monospace'; x.fillText(blackMemberCode(card.couponCode || card.cardNumber), 100, 425);
+    x.fillStyle = '#bca66f'; x.font = '18px Arial'; x.fillText('MEMBER', 100, 560); x.fillText('VALID UNTIL', 830, 560); x.fillStyle = '#fff'; x.font = '30px Arial'; x.fillText(String(card.holderName || '').toUpperCase(), 100, 604); x.fillText(blackDate(card.expiresAt), 830, 604);
+    x.fillStyle = '#82745b'; x.font = '17px Arial'; x.fillText('PRIVILEGE CARD · NOT A PAYMENT CARD', 100, 675);
+    x.fillStyle = '#e8c777'; x.font = '700 40px Georgia'; x.fillText('SHIVAA BLACK · REVERSE', 100, 875); x.fillStyle = '#fff'; x.font = '700 34px Arial'; x.fillText('BOUND MOBILE  ' + blackPhone(card.mobile), 100, 970);
+    x.fillStyle = '#ddcfaa'; x.font = '25px Arial';
+    ['20% applies only to listed making charges × quantity.', 'No reduction on metal value, stones, GST or shipping.', 'Accepted only for this registered-mobile account.', 'Card and certificate remain in My Account after expiry.'].forEach((s, i) => x.fillText('✦  ' + s, 100, 1060 + i * 62));
+    x.fillStyle = '#bca66f'; x.font = '21px Arial'; x.fillText('ISSUED  ' + blackDate(card.issuedAt), 100, 1350); x.fillText('BENEFIT UNTIL  ' + blackDate(card.expiresAt), 610, 1350); x.fillStyle = '#82745b'; x.fillText('NOT A BANK / DEBIT / CREDIT CARD', 100, 1420);
+    const save = url => { const a = document.createElement('a'); a.href = url; a.download = 'shivaa-black-' + String(card.memberId || 'member').toLowerCase() + '.png'; a.click(); if (url.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(url), 1000); };
+    if (cv.toBlob) cv.toBlob(b => { if (b) { save(URL.createObjectURL(b)); toast('Card image saved ✦'); } else toast('Use “Save as PDF / Print” on this page', 'err'); }, 'image/png');
+    else { save(cv.toDataURL('image/png')); toast('Card image saved ✦'); }
+  } catch (e) { toast('Use “Save as PDF / Print” on this page', 'err'); }
+};
+pages['black-card'] = async view => {
+  const isCurrent = viewLifetime(view);
+  if (!state.user) {
+    view.innerHTML = `<section class="bc-page-hero"><div class="container bc-page-hero-in"><div><div class="crumbs"><a href="#/">Home</a> / Shivaa Black</div><span class="bc-eyebrow">RETAIL CUSTOMERS ONLY</span><h1>The Shivaa Black Card.</h1><p>A personal six-month privilege: 20% off making charges on jewellery purchases, bound to one OTP-verified mobile. Your digital card and prestigious-member certificate stay in your account forever.</p><button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.openLogin('black-card')">Sign in by mobile to continue ✦</button></div>${blackCardVisual(null, { home: true })}</div></section>
+      <div class="container bc-public-detail">${blackClaimHTML()}<div class="bc-public-terms"><h2>Private by design</h2><p>The member number is shown only after authentication. The server accepts it only when both the account ID and registered mobile match the issue record.</p><h2>Precise by design</h2><p>The reduction is 20% of making charges only. The server never applies it to metal, stones, GST, shipping or the whole order.</p></div></div>`;
+    return;
+  }
+  if ((state.user.role || 'customer') !== 'customer') {
+    view.innerHTML = emptyShell('Shivaa Black', 'Made exclusively for retail customers', `<div class="empty"><p style="color:var(--ink-3);margin-bottom:18px">Partner and admin accounts cannot claim or use this retail membership.</p><a class="btn btn-outline" href="#/">Back home</a></div>`); return;
+  }
+  let card = state.user.blackCard || null;
+  try { const r = await api('/api/black-card'); card = r.membership || null; } catch (e) { if (!state.user) { openLogin('black-card'); return; } }
+  if (!isCurrent()) return;
+  state.user.blackCard = card;
+  view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/account">My Account</a> / Shivaa Black</div><span class="bc-eyebrow">YOUR PRIVATE MEMBER LOCKER</span><h1>${card ? 'Shivaa Black, kept for you.' : 'Meet your Shivaa Black Card.'}</h1><p>${card ? 'Flip it, copy it, save it—your card and certificate live here whenever you return by OTP.' : 'Claim once. Your issue date, six-month expiry, private member number and certificate are saved together.'}</p></div></section><div class="container bc-page-body">${blackMembershipHTML(card)}</div>`;
+};
+
 pages.home = async (view) => {
   ensureCampaignStuds();
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
@@ -3184,116 +3374,99 @@ pages.home = async (view) => {
   const spot = state.productsCache.find(p => p.id === 'p_aara') || state.productsCache[0];
   const spotPr = spot ? price(spot) : null;
   const wishSet = state.user ? await wishIds() : [];
+  const homeCard = state.user && (state.user.role || 'customer') === 'customer' ? (state.user.blackCard || null) : null;
+  const homeActive = blackCardActive(homeCard);
+  const blackCta = homeCard ? 'Open my Black Card' : (state.user ? 'Claim my Black Card' : 'Get my Black Card');
   view.innerHTML = `
-  <section class="hero">
+  <section class="hero black-hero" id="blackHero" aria-labelledby="blackHeroTitle">
     <div class="hero-img"></div><div class="hero-fade"></div>
+    <div class="bc-hero-aurora" aria-hidden="true"><i></i><i></i><i></i></div>
     <div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="hero-orbs">
-      <div class="orb" style="width:130px;height:130px;left:6%;top:16%;background:radial-gradient(circle at 35% 35%,#f3dfae,#b98a2f 68%,transparent 72%);animation-delay:-2s"></div>
-      <div class="orb" style="width:70px;height:70px;left:44%;bottom:14%;background:radial-gradient(circle at 35% 35%,#fff6dd,#d4af5a 66%,transparent 72%);animation-delay:-5s"></div>
-      <div class="orb" style="width:46px;height:46px;left:12%;bottom:30%;background:radial-gradient(circle at 35% 35%,#ffe9bd,#b98a2f 64%,transparent 72%);animation-delay:-7s"></div>
-    </div>
-    <div class="container hero-in">
-      <div>
-        <span class="hero-kicker">✦ &nbsp;Jayal · Nagaur · Since 2025 &nbsp;✦</span>
-        <h1>Jewellery as honest as your <em class="shimmer foil-txt">love</em></h1>
-        <p class="hero-sub">Gold & silver jewellery at Shivaa's live rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
+    <div class="container hero-in black-hero-in">
+      <div class="bc-hero-copy">
+        <span class="hero-kicker">✦ &nbsp;SHIVAA BLACK · RETAIL MEMBERS ONLY&nbsp; ✦</span>
+        <h1 id="blackHeroTitle">The card that makes<br><em>every making charge lighter.</em></h1>
+        <p class="hero-sub"><b>Flat 20% off making charges</b> on jewellery purchases for six calendar months. Personalised to your name, locked to your verified mobile, and kept in your account forever with a shining family certificate.</p>
         <div class="hero-cta">
-          <a class="btn btn-gold btn-lg" href="#/shop">Shop the Collection</a>
-          <a class="btn btn-gold btn-lg shv-pulse-cta" href="#/scheme">✦ Win 10g Gold Biscuit</a>
-          <a class="btn btn-light btn-lg" href="#/rates">Shivaa Live Rates</a>
+          <a class="btn btn-gold btn-lg bc-main-cta" href="#/black-card">${esc(blackCta)} ✦</a>
+          <a class="btn btn-light btn-lg" href="#/shop">Explore jewellery</a>
         </div>
-        <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
-        <div class="hero-stats">
-          <div class="hstat"><b>30+</b><span>Years of karigari</span></div>
-          <div class="hstat"><b>17</b><span>Categories</span></div>
-          <div class="hstat"><b>24</b><span>Digital catalogues</span></div>
-        </div>
+        <div class="bc-hero-promise"><span><i>20%</i> making-charge reduction</span><span><i>6</i> calendar months</span><span><i>1</i> registered mobile</span></div>
+        <p class="bc-hero-fine">Not applied to metal value, stones, GST or shipping · Reward card, not a payment card</p>
       </div>
-      <div class="hero-stage">
-          <canvas id="heroDust"></canvas>
-          <div class="hs-card hs-main" data-depth="1"><img src="/images/banners/poster-bridal.jpg" alt="Shivaa bridal couture jewellery"><span class="hs-frame"></span><span class="hs-tag">✦ The Bridal House</span></div>
-          <div class="hs-card hs-a" data-depth="2.2"><img src="/images/products/necklace-rani.jpg" alt="Rani haar"><span class="hs-frame"></span></div>
-          <div class="hs-card hs-b" data-depth="3.2"><img src="/images/products/earrings-chandbali.jpg" alt="Chandbali earrings"><span class="hs-frame"></span></div>
-          <div class="hs-badge" data-depth="4"><img src="/images/logo.png" alt="Shivaa"><small>HUID check<br>Guide</small></div>
-        </div>
+      <div class="hero-stage bc-hero-stage">
+        <canvas id="heroDust"></canvas>
+        <div class="bc-stage-card" data-depth="1">${blackCardVisual(homeCard, { home: true })}</div>
+        <div class="bc-stage-cert" data-depth="2.2"><span>✦</span><b>Shivaa Family</b><small>Prestigious Member certificate included · permanent in My Account</small></div>
+        ${homeCard ? `<a class="bc-stage-open" href="#/black-card"><span class="${homeActive ? 'live' : 'expired'}"></span>${homeActive ? `Active through ${esc(blackDate(homeCard.expiresAt))}` : 'Saved permanently in your account'} →</a>` : ''}
+      </div>
     </div>
-    <div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>
+    <button type="button" class="hero-cue" aria-label="See Shivaa Black benefits" onclick="document.getElementById('blackPrivileges')?.scrollIntoView({behavior:'smooth'})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>discover</button>
   </section>
 
-  <!-- HOME CAMPAIGN ENTRY CARD -->
-  <section class="container shv-home-campaign-entry" style="margin: 28px auto 20px;">
-    <div class="shv-home-campaign-card rv">
-      <div class="shv-hcc-art">
-        <img src="/images/banners/gold-biscuit-campaign.jpg" alt="10g 24K Gold Biscuit Prize" loading="lazy">
-        <span class="shv-hcc-badge">✦ 10g 24K Bullion Prize</span>
-      </div>
-      <div class="shv-hcc-content">
-        <span class="shv-hcc-kicker">✦ FESTIVE GRAND CAMPAIGN · 2026</span>
-        <h2 class="shv-hcc-title">Win a 10g 24K Gold Biscuit <span class="gold-txt">Worth ₹1,50,000*</span></h2>
-        <p class="shv-hcc-sub">Exclusively available on our <b>6 Masterpiece 22K Gold Ear Stud Designs</b> (3 for Men &amp; 3 for Ladies). Order your stud, answer the 1-attempt quiz, and enter the CA-witnessed live draw.</p>
-        <div class="shv-hcc-cta-row">
-          <a href="#/scheme" class="btn btn-gold btn-lg shv-pulse-cta">Enter 10g Gold Scheme Funnel ✦</a>
-          <a href="#/scheme?step=gender" class="btn btn-outline btn-lg">Explore 6 Exclusive Studs (Men / Women) →</a>
-        </div>
-      </div>
+  <section class="container bc-home-entry" id="blackPrivileges">
+    <div class="bc-home-entry-card rv">
+      <div class="bc-he-monogram" aria-hidden="true"><span>20</span><i>%</i></div>
+      <div class="bc-he-copy"><span class="bc-eyebrow">ONE PRIVILEGE · PRECISELY CALCULATED</span><h2>Twenty percent off <em>only the craft.</em></h2><p>Choose any Shivaa jewellery piece during your card&rsquo;s six-month validity. At checkout, the server totals each line&rsquo;s making charge × quantity and reduces that amount by exactly 20%—never the metal, stones, GST, shipping or another component.</p>
+      <div class="bc-he-actions"><a href="#/black-card" class="btn btn-gold btn-lg">Save my personalised card ✦</a><span>OTP account required · one registered mobile</span></div></div>
+      <div class="bc-he-certificate"><span class="bc-mini-seal">S</span><small>ALSO ISSUED</small><b>Shivaa Family<br>Prestigious Member</b><em>Permanent digital certificate</em></div>
     </div>
   </section>
 
   <div class="catbar-outer">${catBarHTML()}</div>
 
-  <section class="carousel-sec">
-    <div class="carousel" id="heroCarousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Featured Shivaa campaigns — use the left and right arrow keys">
+  <section class="carousel-sec bc-carousel-sec">
+    <div class="carousel" id="heroCarousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="The Shivaa Black membership story — use the left and right arrow keys">
       <div class="c-track" id="cTrack">
-        <div class="c-slide s-left">
-          <img src="/images/banners/poster-heritage.jpg" srcset="/images/banners/poster-heritage-m.jpg 800w, /images/banners/poster-heritage.jpg 1584w" sizes="100vw" alt="Shivaa fine gold craftsmanship" draggable="false" decoding="async" fetchpriority="high">
+        <div class="c-slide s-left black-slide">
+          <img src="/images/banners/poster-heritage.jpg" srcset="/images/banners/poster-heritage-m.jpg 800w, /images/banners/poster-heritage.jpg 1584w" sizes="100vw" alt="Shivaa Black membership and fine jewellery" draggable="false" decoding="async" fetchpriority="high">
           <div class="c-fade"></div>
           <span class="c-frame" aria-hidden="true"><i class="cf-c c1"></i><i class="cf-c c2"></i><i class="cf-c c3"></i><i class="cf-c c4"></i></span>
-          <span class="c-wm" aria-hidden="true">99&middot;999</span>
+          <span class="c-wm" aria-hidden="true">20%</span>
           <div class="c-body">
-            <span class="label">&#10022; The House of Honest Gold</span>
-            <h3>Purity you can <em class="shimmer foil-txt">pass down</em></h3>
-            <div class="offer-seal alt seal-plaque"><b>HUID<small>GUIDE</small></b><span>check the actual piece</span></div>
-            <p>Every Shivaa piece is handcrafted by master karigars, weighed to the milligram and billed at Shivaa's live rate &mdash; jewellery made to be inherited, not replaced.</p>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop">Explore the Collections</a><a class="btn btn-light btn-lg" href="#/about">Our Craft &amp; Story</a></div>
+            <span class="label">&#10022; SHIVAA BLACK · THE CRAFT PRIVILEGE</span>
+            <h3>Every piece.<br><em class="shimmer foil-txt">Less making charge.</em></h3>
+            <div class="offer-seal alt seal-plaque"><b>20<small>% OFF</small></b><span>making charges only</span></div>
+            <p>For six calendar months, your private member code takes a flat 20% off the making-charge component of your jewellery order.</p>
+            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/black-card">Get Shivaa Black ✦</a></div>
           </div>
         </div>
-        <div class="c-slide s-center">
-          <img src="/images/banners/poster-bridal.jpg" alt="Bridal collection" draggable="false" decoding="async" loading="lazy">
+        <div class="c-slide s-center black-slide">
+          <img src="/images/banners/poster-bridal.jpg" alt="Personalised Shivaa Black reward card" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade fade-c"></div>
           <div class="c-body">
-            <span class="label">&#10022; The bridal edit &middot; Jayal to your city</span>
-            <h3>The Complete <em class="shimmer foil-txt">Trousseau</em></h3>
-            <div class="offer-seal alt seal-medallion"><b>MC<small>WAIVED</small></b><span>on full bridal sets</span></div>
-            <div class="flash-countdown" id="wedCd"></div>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop?tag=wedding">Explore Bridal</a></div>
+            <span class="label">&#10022; YOUR NAME · YOUR NUMBER · YOUR MOBILE</span>
+            <h3>Personal by design.<br><em class="shimmer foil-txt">Private by default.</em></h3>
+            <div class="bc-slide-code">2020&nbsp; ••••&nbsp; ••••&nbsp; ••••</div>
+            <p>Your unique member code is presented like card digits and revealed only inside your authenticated account. The server requires both your account and bound mobile.</p>
+            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/black-card">See how it works</a></div>
           </div>
         </div>
-        <div class="c-slide s-right">
-          <img src="/images/banners/poster-everyday.jpg" alt="Everyday edit under 50000" draggable="false" decoding="async" loading="lazy">
+        <div class="c-slide s-right black-slide">
+          <img src="/images/banners/poster-everyday.jpg" alt="Six month Shivaa Black making charge privilege" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade fade-r"></div>
           <div class="c-body">
-            <span class="label">&#10022; The everyday edit</span>
-            <h3>Above ordinary,<br><em class="shimmer foil-txt">under &#8377;50,000</em></h3>
-            <div class="price-lock"><b>&#8377;2,400</b><span>from &middot; live-rate priced &middot; daily wear</span></div>
-            <p>Studs, pendants, chains &amp; silver &mdash; with individual specifications and Shivaa-rate pricing.</p>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop?max=50000">Shop the Edit</a></div>
+            <span class="label">&#10022; SIX CALENDAR MONTHS · NO MINIMUM ORDER</span>
+            <h3>The saving is clear.<br><em class="shimmer foil-txt">The bill stays honest.</em></h3>
+            <div class="price-lock"><b>MC × 80%</b><span>metal · stones · GST stay untouched</span></div>
+            <p>Your checkout names the eligible making-charge basis and the exact Shivaa Black saving before you place the order.</p>
+            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/black-card">Claim the privilege</a></div>
           </div>
         </div>
-        <div class="c-slide s-band">
-          <img src="/images/banners/wedding.jpg" alt="Swarna Nidhi gold savings plan" draggable="false" decoding="async" loading="lazy">
+        <div class="c-slide s-band black-slide">
+          <img src="/images/banners/wedding.jpg" alt="Shivaa Family Prestigious Member certificate" draggable="false" decoding="async" loading="lazy">
           <div class="c-fade"></div>
           <div class="c-panel">
-            <span class="label">&#10022; Swarna Nidhi &middot; the gold savings plan</span>
-            <div class="sn-num">11<span>+</span>1</div>
-            <h3>Pay eleven, own twelve</h3>
-            <p>Save every month at that day's live gold rate &mdash; the 12th instalment is on us. A 9.09% benefit, in pure gold.</p>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/savings">Start Saving</a><a class="btn btn-light btn-lg" href="#/contact">Visit the Store</a></div>
+            <span class="label">&#10022; ISSUED TOGETHER · KEPT FOREVER</span>
+            <div class="sn-num">S<span>✦</span></div>
+            <h3>A place in the Shivaa Family</h3>
+            <p>Claiming your card also creates a shining Shivaa Family Prestigious Member certificate. Both remain in My Account after the six-month benefit ends.</p>
+            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/black-card">Open the member experience</a></div>
           </div>
         </div>
       </div>
-      <button class="c-arrow c-prev" aria-label="Previous poster">‹</button>
-      <button class="c-arrow c-next" aria-label="Next poster">›</button>
+      <button class="c-arrow c-prev" aria-label="Previous Shivaa Black story">‹</button>
+      <button class="c-arrow c-next" aria-label="Next Shivaa Black story">›</button>
       <div class="c-dots" id="cDots"></div>
     </div>
   </section>
@@ -3342,8 +3515,8 @@ pages.home = async (view) => {
     <div class="empty" style="padding:40px 20px;background:var(--white);border:1px dashed var(--gold-soft);border-radius:20px">
       <span class="label">The Collection</span>
       <h3 style="margin:10px 0 6px">The vault is being restocked</h3>
-      <p style="color:var(--ink-3);font-size:14px">New designs are being photographed & priced at today's Shivaa rate — back very soon. Meanwhile, the bullion desk & custom orders are open.</p>
-      <a class="btn btn-primary" style="margin-top:16px" href="#/b2b">For Jewellers → B2B</a>
+      <p style="color:var(--ink-3);font-size:14px">New designs are being photographed & priced at today's Shivaa rate — back very soon. Your Shivaa Black card and certificate remain available in My Account.</p>
+      <a class="btn btn-primary" style="margin-top:16px" href="#/black-card">Open Shivaa Black →</a>
     </div>
   </section>`}
 
@@ -3353,14 +3526,14 @@ pages.home = async (view) => {
   </section>
 
   <section class="container" style="padding-bottom:70px">
-    <div class="banner rv" style="min-height:280px">
-      <img src="/images/banners/b2b-bullion.jpg" alt="B2B" loading="lazy">
+    <div class="banner rv bc-home-final" style="min-height:280px">
+      <img src="/images/banners/b2b-bullion.jpg" alt="Shivaa Black permanent member locker" loading="lazy">
       <div class="b-fade"></div>
       <div class="b-body">
-        <span class="label">For jewellers</span>
-        <h3>Your counter, our supply chain</h3>
-        <p>Honest-purity gold &amp; silver stock, daily digital catalogues, insured logistics, weekly stock reports and Friday settlements — trusted by 300+ jewellers across Rajasthan.</p>
-        <a class="btn btn-gold" href="#/b2b">Become a Partner</a>
+        <span class="label">Shivaa Black · yours whenever you return</span>
+        <h3>Six months of privilege.<br>A permanent place in the family.</h3>
+        <p>Sign in by OTP from the registered mobile to retrieve your personalised card, member coupon and Shivaa Family Prestigious Member certificate—even after the discount period has ended.</p>
+        <a class="btn btn-gold" href="#/black-card">Open my member locker ✦</a>
       </div>
     </div>
   </section>
@@ -3410,7 +3583,6 @@ pages.home = async (view) => {
       </form>
     </div>
   </section>`;
-  bindCountdown($('#wedCd'), Date.now() + 6 * 864e5 + 11 * 36e5);
   const homeCd = $('#homeFinaleCd');
   if (homeCd) bindFinaleCd(homeCd);
   initCarousel();
@@ -5160,6 +5332,8 @@ pages.checkout = async (view) => {
   }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
+  const makingSubtotal = items.reduce((a, it) => a + price(it.p).makingCharge * it.qty, 0);
+  const checkoutBlack = state.user && blackCardActive(state.user.blackCard) ? state.user.blackCard : null;
   const freeShip = subtotal >= state.settings.freeShipAbove;
   /* ═══ v139 · ADDRESS PREFILL ═══
      The shop has kept an address book since v84 (/api/addresses, and the
@@ -5219,11 +5393,13 @@ pages.checkout = async (view) => {
       <div class="rate-lock-card" id="rateLockBox" aria-live="polite"></div>
       <h3>Your Order</h3>
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
-      <div class="coupon-row"><input id="couponIn" placeholder="Coupon code"><button class="btn btn-ghost btn-sm" onclick="Shivaa.applyCoupon()">Apply</button></div>
-      <div id="couponMsg" style="font-size:12.5px;min-height:18px"></div>
+      ${checkoutBlack ? `<div class="bc-checkout-pass"><span class="bc-checkout-mark">S</span><span><b>Shivaa Black found</b><small>20% off ${fmt(makingSubtotal)} in making charges · applying securely</small></span><a href="#/black-card">View card</a></div>` : ''}
+      <div class="coupon-row"><input id="couponIn" placeholder="Coupon code" value="${checkoutBlack ? esc(checkoutBlack.couponCode || checkoutBlack.cardNumber || '') : ''}"${checkoutBlack ? ' aria-label="Your Shivaa Black member coupon"' : ''}><button class="btn btn-ghost btn-sm" onclick="Shivaa.applyCoupon()">Apply</button></div>
+      <div id="couponMsg" style="font-size:12.5px;min-height:18px" aria-live="polite"></div>
       ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
       <div class="sum-row"><span>Subtotal</span><b id="coSub">${fmt(subtotal)}</b></div>
-      <div class="sum-row" id="coDiscRow" hidden><span>Coupon discount</span><b id="coDisc" style="color:var(--ok)">− ₹0</b></div>
+      <div class="sum-row" id="coDiscRow" hidden><span id="coDiscLabel">Coupon discount</span><b id="coDisc" style="color:var(--ok)">− ₹0</b></div>
+      <div class="sum-row" id="coPointsRow" hidden><span>Royalty points</span><b id="coPoints" style="color:var(--ok)">− ₹0</b></div>
       <div class="sum-row" id="coPrepaidRow"><span>Prepaid discount <em style="font-style:normal;font-size:11px;color:var(--ok)">pay online</em></span><b id="coPrepaid" style="color:var(--ok)">− ₹0</b></div>
       <div class="sum-row" id="coShipRow"><span>Shipping</span>${freeShip ? '<span class="free">FREE</span>' : `<b id="coShip">${fmt(state.settings.shippingFee)}</b>`}</div>
       <div class="sum-row" id="coCodRow" hidden><span>COD handling fee</span><b id="coCod">+ ₹0</b></div>
@@ -5252,7 +5428,7 @@ pages.checkout = async (view) => {
      the +/-2% band at submit, so a stale or hand-edited lock can never make
      the shop sell below the band. */
   const LOCKSEC = () => Math.max(300, Math.min(3600, ((window._co && window._co.lockMinutes) || 20) * 60));
-  window._co = { subtotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online', lockMinutes: (payCfg && payCfg.lockMinutes) || 20 };
+  window._co = { subtotal, makingSubtotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, couponType: null, couponValue: 0, disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online', lockMinutes: (payCfg && payCfg.lockMinutes) || 20 };
   try {
     const savedLock = JSON.parse(localStorage.getItem('shv_rate_lock') || 'null');
     if (savedLock && savedLock.stampedAt && savedLock.rates &&
@@ -5267,14 +5443,21 @@ pages.checkout = async (view) => {
     if (!$('#coSub')) { clearInterval(window._co && window._co.lockTimer); return; }   // navigated away from checkout
     const lock = activeLock();
     const R = lock ? lock.rates : state.rates;
-    let sub = 0;
+    let sub = 0, making = 0;
     coRows().forEach(el => {
       const it = window._co.items.find(x => x.p.id === el.dataset.copid);
       if (!it) return;
-      const t = price(it.p, R).total * it.qty;
-      el.textContent = fmt(t); sub += t;
+      const pr = price(it.p, R);
+      const t = pr.total * it.qty;
+      el.textContent = fmt(t); sub += t; making += pr.makingCharge * it.qty;
     });
     window._co.subtotal = sub;
+    window._co.makingSubtotal = making;
+    /* Reprice the preview whenever a live/locked rate changes. The order API
+       still recomputes this basis independently from catalogue lines. */
+    if (window._co.couponType === 'making_percent') window._co.disc = Math.round(making * window._co.couponValue / 100);
+    else if (window._co.couponType === 'percent') window._co.disc = Math.round(sub * window._co.couponValue / 100);
+    const pass = $('.bc-checkout-pass small'); if (pass) pass.textContent = `20% off ${fmt(making)} in making charges · ${window._co.couponType ? 'applied to this order' : 'applying securely'}`;
     const wasFree = window._co.freeShip;
     window._co.freeShip = sub >= state.settings.freeShipAbove;
     $('#coSub').textContent = fmt(sub);
@@ -5327,6 +5510,9 @@ pages.checkout = async (view) => {
   }
   if (!window._co.rateLock) setLock();        // v107 — auto-arm (restored lock wins)
   coTotals(); paintLock(); startLockClock();
+  /* v184 — the personal card follows its owner into checkout. Validation is
+     still performed by the API; this merely removes coupon-entry friction. */
+  if (checkoutBlack) setTimeout(() => { if (isCurrent() && $('#couponIn')) window.Shivaa.applyCoupon(true); }, 0);
   /* v139 — the saved-address switcher. One tap moves a whole saved address into
      the form; tapping is the shopper's own instruction, so replacing the fields
      is what was asked for. The chip also becomes the address this order
@@ -5405,22 +5591,38 @@ pages.checkout = async (view) => {
     if (memPin && /^\d{6}$/.test(memPin)) { adPin.value = memPin; onPin(); }
   }
 };
-window.Shivaa.applyCoupon = async () => {
-  const code = $('#couponIn').value.trim();
-  const msg = $('#couponMsg');
+window.Shivaa.applyCoupon = async (automatic = false) => {
+  const input = $('#couponIn'), msg = $('#couponMsg');
+  if (!input || !msg || !window._co) return;
+  const code = input.value.trim();
   if (!code) return;
+  if (automatic) { msg.style.color = 'var(--ink-3)'; msg.textContent = 'Checking your mobile-bound Shivaa Black privilege…'; }
   try {
-    const c = await api('/api/coupons/validate', { method: 'POST', body: JSON.stringify({ code, amount: window._co.subtotal }) });
+    const c = await api('/api/coupons/validate', { method: 'POST', body: JSON.stringify({ code, amount: window._co.subtotal, makingAmount: window._co.makingSubtotal }) });
     window._co.coupon = c.code;
-    window._co.disc = c.type === 'percent' ? Math.round(window._co.subtotal * c.value / 100) : c.value;
-    msg.style.color = 'var(--ok)'; msg.textContent = `✓ ${esc(c.code)} applied — you save ${fmt(window._co.disc)}`;
-  } catch (e) { window._co.coupon = null; window._co.disc = 0; msg.style.color = 'var(--bad)'; msg.textContent = e.message; }
+    window._co.couponType = c.type;
+    window._co.couponValue = +c.value || 0;
+    window._co.disc = Number.isFinite(+c.discount) ? +c.discount
+      : c.type === 'making_percent' ? Math.round(window._co.makingSubtotal * c.value / 100)
+      : c.type === 'percent' ? Math.round(window._co.subtotal * c.value / 100) : +c.value;
+    const label = $('#coDiscLabel');
+    if (label) label.textContent = c.type === 'making_percent' ? 'Shivaa Black · 20% off making charges' : 'Coupon discount';
+    msg.style.color = 'var(--ok)';
+    msg.textContent = c.type === 'making_percent'
+      ? `✓ Shivaa Black applied — 20% of ${fmt(c.eligibleBasis ?? window._co.makingSubtotal)} making charges saves ${fmt(window._co.disc)}`
+      : `✓ ${c.code} applied — you save ${fmt(window._co.disc)}`;
+  } catch (e) {
+    window._co.coupon = null; window._co.couponType = null; window._co.couponValue = 0; window._co.disc = 0;
+    msg.style.color = 'var(--bad)'; msg.textContent = e.message;
+    const label = $('#coDiscLabel'); if (label) label.textContent = 'Coupon discount';
+  }
   window.Shivaa.updateCheckout();
 };
 window.Shivaa.updateCheckout = () => {
   if (!window._co) return;
-  let disc = window._co.disc;
-  if ($('#usePts')?.checked) disc += Math.min(state.user.loyaltyPoints, Math.floor(window._co.subtotal * 0.1));
+  const couponDisc = Math.max(0, +window._co.disc || 0);
+  const pointsDisc = $('#usePts')?.checked ? Math.min(state.user.loyaltyPoints, Math.floor(window._co.subtotal * 0.1)) : 0;
+  const disc = couponDisc + pointsDisc;
   const method = ($('#payOpts input:checked') || {}).value || window._co.payMethod || 'Online';
   window._co.payMethod = method;
   const pct = +(state.settings.prepaidPct ?? (window._co.payCfg && window._co.payCfg.prepaidPct) ?? 2);
@@ -5428,8 +5630,10 @@ window.Shivaa.updateCheckout = () => {
   const codPct = +(state.settings.codFeePct || 0);
   const codFee = method === 'COD' && codPct > 0 ? Math.round(window._co.subtotal * codPct / 100) : 0;
   const ship = window._co.freeShip ? 0 : state.settings.shippingFee;
-  $('#coDiscRow').hidden = !(disc > 0);
-  $('#coDisc').textContent = '− ' + fmt(disc);
+  $('#coDiscRow').hidden = !(couponDisc > 0);
+  $('#coDisc').textContent = '− ' + fmt(couponDisc);
+  const por = $('#coPointsRow'); if (por) por.hidden = !(pointsDisc > 0);
+  const pov = $('#coPoints'); if (pov) pov.textContent = '− ' + fmt(pointsDisc);
   const pr = $('#coPrepaidRow'); if (pr) pr.hidden = !(prepaid > 0);
   const pv = $('#coPrepaid'); if (pv) pv.textContent = '− ' + fmt(prepaid);
   const cr = $('#coCodRow'); if (cr) cr.hidden = !(codFee > 0);
@@ -6127,7 +6331,7 @@ pages.order = async (view, q, id) => {
         ${order.items.map(it => `<div class="sum-row"><span>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b>${fmt(it.unitPrice * it.qty)}</b></div>`).join('')}
         <div class="sum-row"><span>Rate locked at</span><b>${savedRates.length ? savedRates.join('<br>') : 'Not recorded'} (${esc((order.rateSnapshot || {}).stampedAt ? timeFmt((order.rateSnapshot || {}).stampedAt) : 'order time')})</b></div>
         <div class="sum-row"><span>Subtotal</span><b>${fmt(order.subtotal)}</b></div>
-        ${order.discount ? `<div class="sum-row"><span>Discount${order.coupon ? ' (' + esc(order.coupon) + ')' : ''}${order.pointsUsed ? ' · ' + order.pointsUsed + ' pts' : ''}</span><b style="color:var(--ok)">− ${fmt(order.discount)}</b></div>` : ''}
+        ${order.discountBasis === 'making-charges' ? `<div class="sum-row"><span>Shivaa Black · 20% off ${fmt(order.makingChargeSubtotal || 0)} making charges</span><b style="color:var(--ok)">− ${fmt(order.makingChargeDiscount || 0)}</b></div>${order.pointsUsed ? `<div class="sum-row"><span>Royalty points · ${order.pointsUsed} pts</span><b style="color:var(--ok)">− ${fmt(order.pointsUsed)}</b></div>` : ''}` : (order.discount ? `<div class="sum-row"><span>Discount${order.coupon ? ' (' + esc(order.coupon) + ')' : ''}${order.pointsUsed ? ' · ' + order.pointsUsed + ' pts' : ''}</span><b style="color:var(--ok)">− ${fmt(order.discount)}</b></div>` : '')}
         <div class="sum-row"><span>Shipping</span>${order.shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(order.shipping)}</b>`}</div>
         ${order.prepaidDiscount ? `<div class="sum-row"><span>Prepaid discount</span><b style="color:var(--ok)">− ${fmt(order.prepaidDiscount)}</b></div>` : ''}
         <div class="sum-row total"><span>${isPaidNow ? 'Paid via' : 'Payment'} ${esc(order.paymentMethod)}</span><b>${fmt(order.total)}</b></div>
@@ -6239,7 +6443,7 @@ function confetti() {
 /* ─────────── WISHLIST ─────────── */
 pages.account = async (view, q) => {
   const isCurrent = viewLifetime(view);
-  if (!state.user) { signInGate(view, 'account', 'My Account', 'Sign in with the mobile number you order with — your orders, certificates, saved addresses and Royalty points sit behind it.'); openLogin('account'); return; }
+  if (!state.user) { signInGate(view, 'account', 'My Account', 'Sign in with the mobile number you order with — your Shivaa Black card, prestigious-member certificate, orders, addresses and Royalty points sit behind it.'); openLogin('account'); return; }
   const tab = q.get('tab') || 'home';
   const me = state.user;
   // v31 — a failed fetch must never blank the account page; if the session
@@ -6257,9 +6461,11 @@ pages.account = async (view, q) => {
   const filled = ['name', 'phone', 'email'].filter(k => me[k]).length + ['dob', 'anniversary', 'gender', 'city'].filter(k => prof[k]).length;
   const profPct = Math.round(filled / 7 * 100);
   const nAdr = (me.addresses || []).length;
+  const memberCard = me.blackCard && typeof me.blackCard === 'object' ? me.blackCard : null;
 
   const tiles = [
     ['overview', '◈', 'Account Overview', 'Your details, occasions & preferences'],
+    ...((me.role || 'customer') === 'customer' ? [['membership', '✦', 'My Shivaa Black', memberCard ? (blackCardActive(memberCard) ? 'Active through ' + blackDate(memberCard.expiresAt) : 'Card + certificate saved forever') : 'Claim 20% off making charges']] : []),
     ['orders', '▦', 'My Orders', orders.length + ' order' + (orders.length === 1 ? '' : 's')],
     ['certificates', '🛡', 'My Certificates', orders.length ? orders.length + ' digital purity certificate' + (orders.length === 1 ? '' : 's') : 'Issued with your first order'],
     ['addresses', '⌖', 'Manage Addresses', nAdr ? nAdr + ' saved · deliveries & billing' : 'Add delivery addresses'],
@@ -6269,7 +6475,7 @@ pages.account = async (view, q) => {
 
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / My Account</div><h1>Namaste, ${esc(me.name.split(' ')[0])}</h1>
-  <p>Your Shivaa world — orders, occasions, addresses and royalty, in one place.</p></div></section>
+  <p>Your Shivaa world — Black Card, certificates, orders, occasions, addresses and royalty, in one place.</p></div></section>
   <div class="container acct-wrap">
     <div class="acct-hero">
       <div class="ah-id">
@@ -6287,6 +6493,7 @@ pages.account = async (view, q) => {
     </div>
 
     <div id="acctBody" class="acct-body">
+  ${tab === 'membership' ? `<div class="acct-sec bc-account-sec"><div class="as-head"><h3>My Shivaa Black</h3><a class="as-note" href="#/black-card">Open full member page →</a></div>${blackMembershipHTML(memberCard, { inAccount: true })}</div>` : ''}
   ${tab === 'overview' ? `
     <div class="acct-sec">
       <div class="as-head"><h3>Account Overview</h3><span class="as-note">Complete your profile for personalised offers</span></div>
@@ -8044,7 +8251,7 @@ pages.invoice = async (view, q, id) => {
     ? `<tr class="tot"><td colspan="3">Total weight</td><td>${o.totalWeightG} g</td></tr>
        <tr class="tot"><td colspan="3">Fine metal @ ${esc(o.purity)} (× ${o.factor}, zero MC)</td><td>${o.fineGrams} g</td></tr>`
     : `<tr class="tot"><td colspan="3">Subtotal (incl. GST)</td><td>₹${o.subtotal.toLocaleString('en-IN')}</td></tr>
-       ${o.discount ? `<tr class="tot"><td colspan="3">Discount</td><td>− ₹${o.discount.toLocaleString('en-IN')}</td></tr>` : ''}
+       ${o.discountBasis === 'making-charges' ? `<tr class="tot"><td colspan="3">Shivaa Black — 20% off making charges (${fmt(o.makingChargeSubtotal || 0)} basis)</td><td>− ${fmt(o.makingChargeDiscount || 0)}</td></tr>${o.pointsUsed ? `<tr class="tot"><td colspan="3">Royalty points (${o.pointsUsed})</td><td>− ${fmt(o.pointsUsed)}</td></tr>` : ''}` : (o.discount ? `<tr class="tot"><td colspan="3">Discount</td><td>− ₹${o.discount.toLocaleString('en-IN')}</td></tr>` : '')}
        ${o.prepaidDiscount ? `<tr class="tot"><td colspan="3">Prepaid discount</td><td>− ${fmt(o.prepaidDiscount)}</td></tr>` : ''}
        ${o.shipping ? `<tr class="tot"><td colspan="3">Shipping</td><td>${fmt(o.shipping)}</td></tr>` : ''}
        ${o.codFee ? `<tr class="tot"><td colspan="3">COD fee</td><td>${fmt(o.codFee)}</td></tr>` : ''}

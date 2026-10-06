@@ -20,6 +20,22 @@ const MOCK_PORT = 48141, RELAY_PORT = 48142, RELAY2_PORT = 48143;
 const SECRET = 'GEZDGNBVGY3TQOJQ';
 const TICK_KEY = 'qa-tick-key';
 const STREAM_KEY = 'qa-stream-key';
+/* Calendar-safe futures fixture. The old test hardcoded SEP26; once that
+   contract expired the real relay correctly chose MAR27 while the mock kept
+   returning quotes for SEP26, turning the full forward-only belt red. Build a
+   nearest and a farther live contract from today's month instead. */
+const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+function fixtureContract(monthsAhead, tokenStem) {
+  const now = new Date();
+  let base = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const expiryGrace = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 30, 15);
+  if (Date.now() > expiryGrace) base = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + monthsAhead, 1));
+  const yy = String(d.getUTCFullYear()).slice(-2);
+  return { suffix:`27${MONTHS[d.getUTCMonth()]}${yy}`, goldToken:`${tokenStem}1`, silverToken:`${tokenStem}2` };
+}
+const NEAR = fixtureContract(0, '99210010');
+const FAR = fixtureContract(6, '99210020');
 
 let pass = 0, fail = 0;
 async function test(name, fn) {
@@ -66,11 +82,12 @@ function handleMock(req, res) {
         const j = JSON.parse(body || '{}');
         const metal = String(j.searchscrip || '').toUpperCase();
         if (metal !== 'GOLD' && metal !== 'SILVER') return send(400, { status: false, message: 'bad searchscrip' });
-        const suffix = metal === 'GOLD' ? '1' : '2';
+        const nearToken = metal === 'GOLD' ? NEAR.goldToken : NEAR.silverToken;
+        const farToken = metal === 'GOLD' ? FAR.goldToken : FAR.silverToken;
         return send(200, { status: true, data: [
-          { tradingsymbol: metal + '27MAR27', symboltoken: '99210020' + suffix },
+          { tradingsymbol: metal + FAR.suffix, symboltoken: farToken },
           { tradingsymbol: metal + '_BAD', symboltoken: '1' },
-          { tradingsymbol: metal + '26SEP26', symboltoken: '99210010' + suffix },
+          { tradingsymbol: metal + NEAR.suffix, symboltoken: nearToken },
         ] });
       }
       if (req.url.includes('/quote/')) {
@@ -79,8 +96,8 @@ function handleMock(req, res) {
         if (mock.quoteMode === 'unauthorized') return send(401, { status: false, message: 'token expired' });
         const g = 90000 + mock.quoteCount, s = 105000 + mock.quoteCount;
         return send(200, { status: true, data: { fetched: [
-          { tradingsymbol: 'GOLD26SEP26', symbolToken: '992100101', ltp: g, bid: g - 5, ask: g + 5, open: g, high: g + 10, low: g - 10, close: g - 20, chg: 10, chgPct: 0.01, oi: 1000, atp: g, vol: 50, feedTime: '2026-09-24T10:00:00' },
-          { tradingsymbol: 'SILVER26SEP26', symbolToken: '992100102', ltp: s, bid: s - 20, ask: s + 20, open: s, high: s + 100, low: s - 100, close: s - 200, chg: 50, chgPct: 0.05, oi: 2000, atp: s, vol: 60, feedTime: '2026-09-24T10:00:00' },
+          { tradingsymbol: 'GOLD' + NEAR.suffix, symbolToken: NEAR.goldToken, ltp: g, bid: g - 5, ask: g + 5, open: g, high: g + 10, low: g - 10, close: g - 20, chg: 10, chgPct: 0.01, oi: 1000, atp: g, vol: 50, feedTime: new Date().toISOString() },
+          { tradingsymbol: 'SILVER' + NEAR.suffix, symbolToken: NEAR.silverToken, ltp: s, bid: s - 20, ask: s + 20, open: s, high: s + 100, low: s - 100, close: s - 200, chg: 50, chgPct: 0.05, oi: 2000, atp: s, vol: 60, feedTime: new Date().toISOString() },
         ], unfetched: [] } });
       }
       send(404, { status: false, message: 'mock: unknown path ' + req.url });
@@ -152,8 +169,8 @@ function relayLogs() { return R1 ? R1.log : ''; }
       'TOTP is a valid RFC 6238 code for the configured secret (' + mock.totpSeen[0] + ')');
     const t = await getJson(R1.base + '/tick', { 'X-Relay-Key': TICK_KEY });
     assert.equal(t.code, 200);
-    assert.equal(t.json.gold.symbol, 'GOLD26SEP26', 'nearest expiry wins, not the far month');
-    assert.equal(t.json.silver.symbol, 'SILVER26SEP26');
+    assert.equal(t.json.gold.symbol, 'GOLD' + NEAR.suffix, 'nearest expiry wins, not the far month');
+    assert.equal(t.json.silver.symbol, 'SILVER' + NEAR.suffix);
     assert.ok(t.json.gold.ltp > 0 && t.json.silver.ltp > 0);
     assert.equal(t.json.relay, true);
   });

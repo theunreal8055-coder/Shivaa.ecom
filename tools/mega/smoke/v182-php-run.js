@@ -41,14 +41,14 @@ $_GET=array_merge(['__route'=>'${route}'], json_decode(base64_decode('${b64(quer
 include '/qa/api.php';`);
   };
 
-  await test('P01', 'v182 release stamp and version telemetry: rel=182, matched=true', async () => {
+  await test('P01', 'v182-or-newer release telemetry stays matched and forward-only', async () => {
     const v = await F.req('GET', 'version');
     assert.equal(v.status, 200);
-    assert.equal(v.json.rel, 182);
+    assert.ok(v.json.rel >= 182, `forward-only release: ${v.json.rel}`);
     assert.equal(v.json.stamp.matched, true);
-    assert.equal(v.json.stamp.index, 182);
-    assert.equal(v.json.stamp.app, 182);
-    assert.equal(v.json.stamp.sw, 182);
+    assert.equal(v.json.stamp.index, v.json.rel);
+    assert.equal(v.json.stamp.app, v.json.rel);
+    assert.equal(v.json.stamp.sw, v.json.rel);
     assert.equal(v.json.db.driver, 'json');
     assert.equal(v.json.db.mode, 'json');
     assert.equal(v.json.db.mirrorBehind, false);

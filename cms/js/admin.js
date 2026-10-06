@@ -761,7 +761,7 @@ function v180DbStrip() {
         <thead><tr><th>Code</th><th>Discount</th><th class="num">Min order</th><th>Note</th><th>Active</th></tr></thead>
         <tbody>${coupons.map(c => `<tr>
           <td><b style="letter-spacing:.08em">${esc(c.code)}</b></td>
-          <td>${c.type === 'percent' ? c.value + '%' : fmt(c.value)}</td>
+          <td>${c.type === 'making_percent' ? `<b>${c.value}%</b><br><small>making charges only · mobile-bound</small>` : (c.type === 'percent' ? c.value + '%' : fmt(c.value))}</td>
           <td class="num">${fmt(c.minOrder)}</td><td>${esc(c.note || '')}</td>
           <td><input type="checkbox" checked style="accent-color:var(--gold)"></td>
         </tr>`).join('')}</tbody></table></div></div>
@@ -2448,7 +2448,7 @@ window.ShivaaAdmin.printReceipt = id => {
   <table>${(o.items || []).map(it => `<tr><td>${Number(it.qty) || 0} x ${escP(it.name || '')}${it.size ? ' (' + escP(it.size) + ')' : ''}</td><td class="r">${((Number(it.unitPrice) || 0) * (Number(it.qty) || 0)).toLocaleString('en-IN')}</td></tr>`).join('')}
   ${o.shipping ? `<tr><td>Shipping</td><td class="r">${o.shipping.toLocaleString('en-IN')}</td></tr>` : ''}
   ${o.prepaidDiscount ? `<tr><td>Prepaid discount</td><td class="r">-${o.prepaidDiscount.toLocaleString('en-IN')}</td></tr>` : ''}
-  ${o.discount ? `<tr><td>Discount</td><td class="r">-${Number(o.discount).toLocaleString('en-IN')}</td></tr>` : ''}
+  ${o.discountBasis === 'making-charges' ? `<tr><td>Shivaa Black · 20% off making charges</td><td class="r">-${Number(o.makingChargeDiscount || 0).toLocaleString('en-IN')}</td></tr>${o.pointsUsed ? `<tr><td>Royalty points</td><td class="r">-${Number(o.pointsUsed).toLocaleString('en-IN')}</td></tr>` : ''}` : (o.discount ? `<tr><td>Discount</td><td class="r">-${Number(o.discount).toLocaleString('en-IN')}</td></tr>` : '')}
   ${o.codFee ? `<tr><td>COD fee</td><td class="r">${Number(o.codFee).toLocaleString('en-IN')}</td></tr>` : ''}
   </table>
   <div class="ln"></div>
@@ -4023,7 +4023,7 @@ window.ShivaaAdmin.printInvoice = (id) => {
   <tbody>${rows}
   ${o.shipping ? `<tr><td colspan="4">Insured shipping</td><td class="r">${o.shipping.toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
   ${o.prepaidDiscount ? `<tr><td colspan="4">Prepaid discount</td><td class="r">−${o.prepaidDiscount.toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
-  ${o.discount ? `<tr><td colspan="4">Coupon discount</td><td class="r">−${Number(o.discount).toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
+  ${o.discountBasis === 'making-charges' ? `<tr><td colspan="4">Shivaa Black · 20% off making charges (${Number(o.makingChargeSubtotal || 0).toLocaleString('en-IN')} basis)</td><td class="r">−${Number(o.makingChargeDiscount || 0).toLocaleString('en-IN')}</td><td colspan="3"></td></tr>${o.pointsUsed ? `<tr><td colspan="4">Royalty points</td><td class="r">−${Number(o.pointsUsed).toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}` : (o.discount ? `<tr><td colspan="4">Coupon discount</td><td class="r">−${Number(o.discount).toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : '')}
   ${o.codFee ? `<tr><td colspan="4">COD fee</td><td class="r">${Number(o.codFee).toLocaleString('en-IN')}</td><td colspan="3"></td></tr>` : ''}
   ${o.actualWeightG ? `<tr><td colspan="4">Actual scale weight (post-polishing)</td><td class="r">${o.actualWeightG} g</td><td colspan="3"></td></tr>` : ''}
   ${o.weightNote ? `<tr><td colspan="4">Weight adjustment note</td><td class="r" colspan="4">${esc(o.weightNote)}</td></tr>` : ''}
