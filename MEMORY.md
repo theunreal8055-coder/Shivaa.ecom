@@ -1,5 +1,61 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION CLOSE — v186 Shivaa Black signature journey (6 Oct 2026, branch `arena/d4bdfd94-shivaa-ecom`)
+
+- **State:** v186 implemented, packaged and deeply gated; production remained
+  matched **183**. No deploy, production write, OTP, payment or customer-data
+  mutation. Cumulative package supports matched v183/v184/v185 only.
+- **Invariants preserved:** retail-only; deliberate OTP account action; unique
+  grouped 16-digit number; account + valid normalized registered-mobile
+  binding; immutable issue and exact calendar-six-month expiry; permanent card
+  and **Shivaa Family Prestigious Member** certificate; exactly 20% of
+  server-authoritative `Σ(makingCharge × qty)` only. Metal, stones, GST,
+  shipping and whole-order value remain outside the discount.
+- **Experience:** `cms/images/black/hero-v186.jpg` (1376×768, 204,174 B) is the
+  preloaded opening/share art. `css/v186.css` adds cinematic depth, tactile
+  card light, micro-grid/holographic seal, four-step journey, claim/reveal and
+  validity states, contextual PDP/bag/checkout surfaces, Black-aware Passport,
+  narrow-phone containment, print and reduced motion. Exported PNG card and
+  certificate graphics gained matching ornament detail.
+- **Journey:** explicit claim intent survives OTP. Existing customers return to
+  or create their card; new customers require only a name (DOB/city/gender/
+  anniversary/email/password optional and collapsed). Exactly one guarded,
+  idempotent post-auth claim runs, with secure progress and safe product/bag
+  return. Cancelling clears latent intent and restores focus. Modal focus is
+  contained. Legacy four-box OTP arrows/paste no longer address six indexes.
+- **Commerce:** active members see exact 20%-of-making-charge previews on PDP
+  and bag, live quantity updates and checkout Card found → Mobile verified →
+  exact saving applied progress. Expired cards advertise no saving and retain
+  their archive. Authoritative API/checkout protections from v184/v185 are
+  unchanged.
+- **Lifecycle/performance:** hero dust uses capped DPR, visibility/resize
+  observers, reduced-motion/fine-pointer/narrow-device gates and explicit route
+  cleanup. Stage/card pointer work is local and RAF-throttled. Home observers,
+  stale async Home rendering and detached PDP gallery/video intervals are
+  cleaned/guarded. The old below-fold carousel image is lazy; Black art owns LCP.
+- **Package:** `shivaa-update-v186.zip`, 11 entries, **711,835 bytes**, SHA-256
+  `8dbb0dbd9a418c71ba79eb40079f060e78bcbe4e9ddd43c811a5e72d660145ff`,
+  Git blob `dc290e61c467eaab575ffc5364271c8589dc1dd6`, source
+  `0dfd1bb8537db64b3645d33070b9c84ad85fc141`; deterministic builder
+  `tools/mega/make-v186-zip.py`; guide `DEPLOY-v186.md`; publication/download
+  commit is `PENDING_PUBLICATION_COMMIT` until pushed verification completes.
+  Package contains cumulative v184/v185/v186 code plus the one public hero JPEG,
+  and excludes config/data/uploads/customer media/billing/credentials/tests.
+- **Evidence:** active belt **233/233**; v186 **11/11 + 8/8**; v185 **10/10 +
+  9/9**; v184 **8/8 + 8/8**; historical serial runner **48 pass / 24
+  intentional skip / 0 fail**. PHP parser negative control, JS syntax, CSS
+  structure, diff whitespace, JPEG signature, release/cache lockstep,
+  deterministic rebuild and ZIP CRC/path/time/mode/inventory/source equality
+  passed. Extracted ZIP passed v186 **11/11 + 8/8** over both v183 and v185
+  baselines.
+- **Honest limit:** no compatible native Chromium or physical device locally;
+  jsdom and PHP 8.3 WASM passed. Real phone/laptop, Hostinger, SMS and payment
+  acceptance remain post-install owner checks.
+- **Forward-only:** owner approval required. Do not repeat on v186; do not use
+  if live is v187+. Any correction is v187+; never roll a membership record
+  backward, renew it manually or rebind it silently.
+
+
 ## SESSION CLOSE — v185 Shivaa Black hardening + mobile finish (6 Oct 2026, branch `arena/d4bdfd94-shivaa-ecom`)
 
 - **State:** v185 is implemented, packaged and gated; public live remained

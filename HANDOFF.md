@@ -1,5 +1,60 @@
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
+## v186 packaged — signature Black journey, premium graphics and lifecycle safety (6 Oct 2026)
+
+**Current source/package release: 186; public live release: 183 (verified 6 Oct
+2026).** v186 is a cumulative direct upgrade for matched v183, v184 or v185.
+Nothing was deployed and no production, OTP, payment or customer data was
+mutated. Authoritative install and acceptance record: `DEPLOY-v186.md`.
+
+- **Package:** `shivaa-update-v186.zip`, exactly 11 root files, **711,835
+  bytes**, SHA-256
+  `8dbb0dbd9a418c71ba79eb40079f060e78bcbe4e9ddd43c811a5e72d660145ff`;
+  deterministic source `0dfd1bb8537db64b3645d33070b9c84ad85fc141`; Git blob
+  `dc290e61c467eaab575ffc5364271c8589dc1dd6`.
+  **Download:**
+  https://github.com/theunreal8055-coder/Shivaa.ecom/raw/PENDING_PUBLICATION_COMMIT/shivaa-update-v186.zip
+  (replace only with the immutable publication commit after push).
+- **Product law unchanged:** retail-only; deliberate OTP/mobile-authenticated
+  issue; unique grouped 16-digit identity; permanent personalised card and
+  **Shivaa Family Prestigious Member** certificate; exact calendar-six-month
+  benefit; strict account + non-empty registered-mobile binding; exactly 20%
+  of server-recomputed `Σ(makingCharge × qty)` only—never metal, stones, GST,
+  shipping or whole-order value.
+- **Premium experience:** new 1376×768 obsidian/gold campaign and share art,
+  advanced hero depth, bounded dust, tactile card lighting, micro-grid and
+  holographic seal; four-step journey; reveal and benefit timeline; richer
+  exported card/certificate graphics; complete mobile, laptop, print and
+  reduced-motion treatments in final `css/v186.css`.
+- **Seamless flow:** a deliberate claim survives OTP and continues once without
+  a second tap. New customers require only their card name; profile/email/
+  password fields are optional and collapsed. Claim calls are guarded against
+  duplication, show secure progress and return safely to product or bag.
+  Cancellation clears intent, contains modal focus and restores the opener.
+- **Shopping continuity:** active PDP and bag surfaces show the exact current
+  making-charge basis and 20% saving, updating with quantity. Checkout visibly
+  advances Card found → Mobile verified → exact saving applied while existing
+  authoritative validation, stale-request protection and locked pricing remain.
+  Expired members see an archive—not a saving—and retain both documents.
+- **Technical fixes:** four-box OTP bounds/paste bug fixed; hero and Home
+  observers, animation frames and PDP carousel/video timers release on route
+  detach; async Home rendering is generation-guarded; effects stop for reduced
+  motion and expensive touch/narrow paths; hero DPR is capped and LCP ownership
+  moved from the below-fold carousel to the preloaded Black artwork.
+- **Evidence:** main belt **233/233**; v186 **11/11 browser/static + 8/8 PHP
+  8.3**; v185 **10/10 + 9/9**; v184 **8/8 + 8/8**; historical runner **48
+  passed / 24 intentional retired skips / 0 failed**. Both v183→v186 and
+  v185→v186 isolated extracted-package overlays passed **11/11 + 8/8**.
+  Deterministic rebuild and ZIP CRC/path/time/mode/inventory/committed-byte
+  checks passed.
+- **Limits:** no compatible native browser was available (external Chromium
+  mirrors previously failed with TLS resets). Physical phone/laptop and live
+  Hostinger acceptance remain owner post-install checks.
+- **Forward only:** explicit owner approval is required. Install only over a
+  matched v183/v184/v185; never repeat on v186; v187+ makes this package
+  obsolete. Any correction after v186 must be v187+.
+
+
 ## v185 packaged — hardened Shivaa Black + premium mobile finish (6 Oct 2026)
 
 **Current source/package release: 185; public live release: 183 (verified 6 Oct

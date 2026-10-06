@@ -1,4 +1,63 @@
-# AGENT HANDOFF — v185 PACKAGED (hardened Shivaa Black); v183 LIVE (6 Oct 2026)
+# AGENT HANDOFF — v186 PACKAGED (signature Shivaa Black journey); v183 LIVE (6 Oct 2026)
+
+## CURRENT STATE — v186 PACKAGED: PREMIUM END-TO-END BLACK JOURNEY (6 Oct 2026)
+
+- **Baseline/live:** production still reported matched release **183**, MySQL and
+  `mirrorBehind:false`. v186 is cumulative and installable over matched
+  v183/v184/v185 only. This work made no production, customer, OTP, payment or
+  credential mutation and performed no deployment.
+- **Standing law:** retail customer only; OTP-authenticated account and valid
+  registered mobile; one unique grouped 16-digit member/coupon identity;
+  immutable issue plus exact six-calendar-month expiry; permanent personalised
+  card and **Shivaa Family Prestigious Member** certificate; account+mobile
+  dual binding; exactly 20% of server-recomputed `Σ(makingCharge × qty)` and
+  never metal/stones/GST/shipping/whole order.
+- **Visual release:** new public 1376×768 obsidian/gold hero/share art; final
+  `css/v186.css` layers cinematic depth, bounded dust, tactile pointer light,
+  micro-grid, holographic seal, journey/progress, reveal, validity, contextual
+  commerce/Auth surfaces, narrow-phone containment, print and reduced motion.
+  Saved card/certificate canvases carry matching ornament graphics.
+- **Seamless Auth → card:** a deliberate Black action survives the OTP sheet.
+  Existing accounts continue directly; new mobile accounts require only the
+  name printed on the card. DOB, city, gender, anniversary, email and password
+  are optional/collapsed. One promise guard prevents duplicate claim requests;
+  status is explicit; safe product/bag return hashes are strictly constrained.
+  Closing clears the marker, traps/restores focus and cannot cause a later
+  surprise claim. The legacy 4-box/6-index OTP bug is fixed.
+- **Commerce:** PDP and bag show exact active-member basis/saving and update with
+  quantity. Checkout renders Card found → Mobile verified → exact amount
+  applied, while stale validation cancellation, applied-code identity, rate
+  locks, quantity and points authority from v185 stay intact. Expired members
+  see only the permanent archive state.
+- **Lifecycle:** Home async rendering is route-generation guarded. Home
+  observers, hero resize/intersection/RAF work and PDP gallery/video intervals
+  are disconnected on route leave. Pointer effects are local, RAF-throttled,
+  DPR-bounded and suppressed for reduced motion or expensive touch/narrow paths.
+  Black art—not the below-fold carousel—owns the high-priority LCP preload.
+- **Package:** `shivaa-update-v186.zip`, 11 files, **711,835 bytes**, SHA-256
+  `8dbb0dbd9a418c71ba79eb40079f060e78bcbe4e9ddd43c811a5e72d660145ff`,
+  source `0dfd1bb8537db64b3645d33070b9c84ad85fc141`, Git blob
+  `dc290e61c467eaab575ffc5364271c8589dc1dd6`; guide `DEPLOY-v186.md`.
+  Immutable download (publication placeholder until push):
+  `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/PENDING_PUBLICATION_COMMIT/shivaa-update-v186.zip`.
+  Excludes config/data/uploads/customer media/billing/secrets/tests; includes
+  only the intentional public Black hero asset in addition to cumulative code.
+- **Evidence:** active belt **233/233**; v186 browser/static **11/11**, PHP 8.3
+  **8/8**; preserved v185 **10/10 + 9/9**, v184 **8/8 + 8/8**; historical
+  runner **48 PASS / 24 retired SKIP / 0 FAIL**. Extracted ZIP passed **11/11 +
+  8/8** over both v183 and v185 baselines. Deterministic two-build identity,
+  ZIP CRC/path/timestamp/mode/inventory/source bytes, parser/syntax/CSS/JPEG and
+  release/cache gates all pass.
+- **Limit:** no native compatible browser/physical device; Chromium mirrors
+  previously failed TLS downloads. Physical phone/laptop and live Hostinger
+  acceptance remain owner post-install checks.
+- **Forward only:** explicit owner approval required. Never repeat on v186 or
+  install when live is v187+. Corrections are v187+; do not manually renew,
+  renumber, delete or silently rebind permanent customer memberships.
+
+> **Current source/package: 186 (PACKAGED & GATED). Live: 183 (verified).**
+> **Forward only. No production/customer-data mutation occurred.**
+
 
 ## CURRENT STATE — v185 PACKAGED: RESILIENCE + PREMIUM MOBILE PASS (6 Oct 2026)
 
