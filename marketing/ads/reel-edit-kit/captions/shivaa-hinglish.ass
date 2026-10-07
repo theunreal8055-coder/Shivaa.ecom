@@ -1,0 +1,34 @@
+[Script Info]
+Title: Shivaa Jewels reel — Hinglish captions
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Hing,Noto Sans Devanagari SemiBold,60,&H00F0EFF5,&H000000FF,&H00140E0C,&H00000000,1,0,0,0,100,100,0.4,0,1,2.6,0.7,2,60,60,60,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.25,0:00:04.04,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}Ram-Ram sa! Kya aapko Jayal\Nmein shaadi ke liye aabhushan
+Dialogue: 0,0:00:04.04,0:00:04.72,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}lene hain?
+Dialogue: 0,0:00:08.25,0:00:11.60,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}To door jaane ki zaroorat nahi\Nhai sa — Shivaa Jewels par
+Dialogue: 0,0:00:11.60,0:00:14.89,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}aapko dulhan ke aabhushanon\Nka khaas sangrah mil jayega.
+Dialogue: 0,0:00:16.25,0:00:19.77,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}Hamare showroom mein aapki\Nshaadi ki taiyari ke liye design
+Dialogue: 0,0:00:19.77,0:00:22.08,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}dekhne aur chunne ki poori\Nsuvidha hai.
+Dialogue: 0,0:00:24.25,0:00:29.00,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}Haar, jhumke, chooda-bangdi\Naur poora dulhan set — apni
+Dialogue: 0,0:00:29.00,0:00:31.90,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}pasand ke design aaram se\Ndekhiye.
+Dialogue: 0,0:00:32.25,0:00:35.97,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}Shivaa ke app par hi dulhan ke\Naabhushanon ke sundar design
+Dialogue: 0,0:00:35.97,0:00:39.49,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}dekhiye, tasveerein badliye aur\Napni pasand chun lijiye.
+Dialogue: 0,0:00:40.25,0:00:44.87,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}Aur aaj ka live sone ka bhaav\Nbhi Shivaa ke app par saaf-saaf
+Dialogue: 0,0:00:44.87,0:00:45.79,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}dekh lijiye.
+Dialogue: 0,0:00:46.25,0:00:50.56,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}Pehli baar aabhushan kharidne\Nwalon ke liye khaas offer —
+Dialogue: 0,0:00:50.56,0:00:53.41,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}making charge par poore 20%\Nki chhoot.
+Dialogue: 0,0:00:54.25,0:00:57.68,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}Shivaa Jewels ka Black\NMembership card lijiye, aur
+Dialogue: 0,0:00:57.68,0:01:01.25,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}aage bhi making charge par\N20% ka labh paate rahiye.
+Dialogue: 0,0:01:01.25,0:01:05.31,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}Beti ki shaadi ka gehna\Nkharidne se pehle hallmark,
+Dialogue: 0,0:01:05.31,0:01:08.96,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}sahi wazan aur making charge\Nzaroor jaanchiye.
+Dialogue: 0,0:01:09.25,0:01:13.88,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}Free bridal design trial ke liye\NWhatsApp par 'Bridal' likho ya
+Dialogue: 0,0:01:13.88,0:01:15.00,Hing,,0,0,0,,{\an2\pos(540,1500)\fad(140,200)}abhi call karo.
