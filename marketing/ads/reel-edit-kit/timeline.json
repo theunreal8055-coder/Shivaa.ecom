@@ -17,7 +17,7 @@
       "maroon_mid": "#54101F"
     },
     "safe_area": {
-      "caption_bottom_y": 1470,
+      "caption_bottom_y": 1400,
       "max_text_width": 900,
       "note": "captions never enter top 220px or bottom 450px (Reels UI); never cover face/jewellery/shop sign"
     },
@@ -130,8 +130,8 @@
     }
   ],
   "offer_card": {
-    "start": 46.0,
-    "end": 54.0,
+    "start": 49.0,
+    "end": 53.9,
     "title": "पहली बार खरीदने वाले ग्राहकों के लिए",
     "main": "मेकिंग चार्ज पर 20% की छूट",
     "main_highlight": "20%",
