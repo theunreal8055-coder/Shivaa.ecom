@@ -1,7 +1,20 @@
-# SHIVAA JEWELS — REEL 1: FINAL READY-TO-PASTE FLOW PROMPTS (v4 locks merged)
+# SHIVAA JEWELS — REEL 1: FINAL READY-TO-PASTE FLOW PROMPTS (v5 — REAL ASSETS MERGED)
 Har block ko POORA copy karo → Google Flow me paste karo → generate.
-Ingredient: `shots/oldman-1-necklace.png` har scene me attach karo; Scene 3 me `shots/hallmark-macro.png` bhi.
 Captions (Hinglish) Flow ke BAAD edit me lagte hain — timing sheet sabse neeche.
+
+## REAL-ASSET ATTACHMENT MAP (kaunsa asset kahan lagega)
+| Asset | Kahan | Kaise |
+|---|---|---|
+| `shots/oldman-1-necklace.png` | Scenes 1–8 | Flow me **character ingredient** (har scene) |
+| `shots/hallmark-macro.png` | Scene 3 beat-1 | Flow me image reference |
+| **REAL EXTERIOR SHOP PHOTO** (owner attach karega) | **Scene 7 ka START FRAME** | Flow me **image-to-video first frame**; signboard pixel-faithful rahega |
+| **REAL LOGO PNG** (owner attach karega) | **Sirf EDIT me** — end slate + optional Scene-4 app-header composite | Flow me KABHI nahi (AI logo toda-mod deta hai); edit me exact PNG overlay |
+| Real exterior photo (blurred, optional) | End-slate background | edit me |
+
+**LOGO RULE:** logo hamesha exact, clean rectangle, ek hi baar frame me — end slate par
+(2 sec, maroon/ivory background par centre me). Reel ke beech me watermark-style logo nahi.
+**SIGN RULE:** jo asli board exterior photo me hai, wahi text/color/layout Scene 7 me rahe —
+Flow ko sign invent karne se mana hai (SIGN LOCK niche Scene 7 me).
 
 ---
 
@@ -35,9 +48,9 @@ Vertical 9:16 photorealistic continuous take, 7 seconds. The elder raises a matt
 Vertical 9:16 photorealistic continuous take, 6 seconds. Smooth slider B-roll across a counter lined with three to four premium gold bridal sets on cream velvet busts, warm spotlights flaring off the gold, soft gold chime and slider glide sound; at the end the elder's white-kurta shoulder enters frame edge and his hand gestures across the sets. No face in this clip — the elder's voice-over in the same deep gravelly voice: "सीजन सर पर है, थोक भाव निकल रहा है — समझदार आज बुक कर रहे हैं!" CHARACTER LOCK: identical 65-year-old Rajasthani village elder as the reference image — weathered tanned skin, deep smile lines, thick white beard-moustache, saffron-red kesariya-laal Rajasthani pagdi with fine folds, plain white cotton kurta-chola and white dhoti, no glasses, no jewellery on himself; he is a loyal CUSTOMER praising the shop in third person ("ye dukaan", "main barson se yahan se leta hoon"), never the owner. WORLD LOCK: bright premium showroom "Shivaa Jewels" — 3500K warm spotlights, glass cabinets with gold bridal sets, cream-maroon interiors; exterior = small-town Rajasthan main-road shop with glowing gold sign board. PHOTOGRAPHY LOCK: 35/50mm primes at f/2.0-2.8, natural skin texture, subtle grain, handheld micro-movement, realistic motion blur, no on-screen text or watermark in footage. PROP LOCK: same kundan bridal necklace (ruby-emerald drops) in Scenes 1 and 8, same matte black membership card in Scene 5, same smartphone in Scene 4. VOICE LOCK: one actor-voice all scenes — deep powerful gravelly Rajasthani elder baritone with chest resonance, sarpanch-like measured pace about 2.5 words per second, pitch drops at line ends, zero reverb, zero speed-up, crisp close-mic. STYLE: ultra-realistic Indian local-business testimonial commercial, documentary honesty, warm golden grade, layered ambience (room tone, faint street, gold and cloth foley), vertical 9:16 with lower-third headroom for captions, no music in clip. NEGATIVE: no text, no subtitles, no watermark, no logo, no extra fingers, no deformed hands, no turban colour shift, no teeth distortion, no cartoonish skin, no slow-motion, no zoom warp, no background people facing camera, no English words on boards.
 ```
 
-## SCENE 7 — LOW-FRICTION CTA (8s)
+## SCENE 7 — LOW-FRICTION CTA (8s) — IMAGE-TO-VIDEO FROM REAL EXTERIOR PHOTO
 ```
-Vertical 9:16 photorealistic continuous take, 8 seconds, golden hour. A small-town Rajasthan main-road jewellery shop with a glowing gold sign board; the elder stands beside the entrance, one hand resting on the door frame, the other open toward camera in invitation; slow dolly-in from street to doorway, evening street life softly blurred behind; evening street ambience and a soft door-bell chime. He speaks like a father's final advice, perfectly lip-synced: "सोना जहाँ से मर्जी लो, पर शिवा का रेट जरूर मिलाओ — सिर्फ पूछना, खरीदना जरूरी नहीं!" CHARACTER LOCK: identical 65-year-old Rajasthani village elder as the reference image — weathered tanned skin, deep smile lines, thick white beard-moustache, saffron-red kesariya-laal Rajasthani pagdi with fine folds, plain white cotton kurta-chola and white dhoti, no glasses, no jewellery on himself; he is a loyal CUSTOMER praising the shop in third person ("ye dukaan", "main barson se yahan se leta hoon"), never the owner. WORLD LOCK: bright premium showroom "Shivaa Jewels" — 3500K warm spotlights, glass cabinets with gold bridal sets, cream-maroon interiors; exterior = small-town Rajasthan main-road shop with glowing gold sign board. PHOTOGRAPHY LOCK: 35/50mm primes at f/2.0-2.8, natural skin texture, subtle grain, handheld micro-movement, realistic motion blur, no on-screen text or watermark in footage. PROP LOCK: same kundan bridal necklace (ruby-emerald drops) in Scenes 1 and 8, same matte black membership card in Scene 5, same smartphone in Scene 4. VOICE LOCK: one actor-voice all scenes — deep powerful gravelly Rajasthani elder baritone with chest resonance, sarpanch-like measured pace about 2.5 words per second, pitch drops at line ends, zero reverb, zero speed-up, crisp close-mic; on-camera lines perfectly lip-synced. STYLE: ultra-realistic Indian local-business testimonial commercial, documentary honesty, warm golden grade, layered ambience (room tone, faint street, gold and cloth foley), vertical 9:16 with lower-third headroom for captions, no music in clip. NEGATIVE: no text, no subtitles, no watermark, no logo, no extra fingers, no deformed hands, no turban colour shift, no teeth distortion, no cartoonish skin, no slow-motion, no zoom warp, no background people facing camera, no English words on boards.
+Image-to-video, vertical 9:16 photorealistic continuous take, 8 seconds. START FRAME: use the attached REAL exterior photograph of the Shivaa Jewels shop exactly as it is — same signboard text, same colours, same facade layout, same street perspective; do not repaint, warp, re-spell or redesign the sign. Animate from this frame: golden-hour light warming the facade, subtle handheld parallax with a slow dolly-in toward the doorway, faint evening street life drifting blurred in the background; the same 65-year-old Rajasthani elder from the character ingredient stands beside the entrance, one hand resting on the door frame, the other open toward camera in invitation; evening street ambience and a soft door-bell chime. He speaks like a father's final advice, perfectly lip-synced: "सोना जहाँ से मर्जी लो, पर शिवा का रेट जरूर मिलाओ — सिर्फ पूछना, खरीदना जरूरी नहीं!" SIGN LOCK: the shop signboard, facade and street must remain pixel-faithful to the attached photograph for the whole clip — no invented boards, no changed lettering, no extra signage. CHARACTER LOCK: identical 65-year-old Rajasthani village elder as the reference image — weathered tanned skin, deep smile lines, thick white beard-moustache, saffron-red kesariya-laal Rajasthani pagdi with fine folds, plain white cotton kurta-chola and white dhoti, no glasses, no jewellery on himself; he is a loyal CUSTOMER praising the shop in third person ("ye dukaan", "main barson se yahan se leta hoon"), never the owner. WORLD LOCK: bright premium showroom "Shivaa Jewels" — 3500K warm spotlights, glass cabinets with gold bridal sets, cream-maroon interiors; exterior = small-town Rajasthan main-road shop with glowing gold sign board. PHOTOGRAPHY LOCK: 35/50mm primes at f/2.0-2.8, natural skin texture, subtle grain, handheld micro-movement, realistic motion blur, no on-screen text or watermark in footage. PROP LOCK: same kundan bridal necklace (ruby-emerald drops) in Scenes 1 and 8, same matte black membership card in Scene 5, same smartphone in Scene 4. VOICE LOCK: one actor-voice all scenes — deep powerful gravelly Rajasthani elder baritone with chest resonance, sarpanch-like measured pace about 2.5 words per second, pitch drops at line ends, zero reverb, zero speed-up, crisp close-mic; on-camera lines perfectly lip-synced. STYLE: ultra-realistic Indian local-business testimonial commercial, documentary honesty, warm golden grade, layered ambience (room tone, faint street, gold and cloth foley), vertical 9:16 with lower-third headroom for captions, no music in clip. NEGATIVE: no text, no subtitles, no watermark, no logo, no extra fingers, no deformed hands, no turban colour shift, no teeth distortion, no cartoonish skin, no slow-motion, no zoom warp, no background people facing camera, no English words on boards.
 ```
 
 ## SCENE 8 — TRUST SEAL + LOOP (6s)
@@ -46,6 +59,14 @@ Vertical 9:16 photorealistic continuous take, 6 seconds. Tight close-up of the e
 ```
 
 ---
+
+## END SLATE (POST-EDIT, 2s — REAL LOGO YAHAN AATA HAI)
+- Background: deep-maroon fade YA blurred real exterior photo (owner wali photo).
+- Centre: **REAL LOGO PNG exact, clean rectangle, koi effect nahi** (size ~45% width).
+- Neeche ivory text: 📞 89050 05921 · WhatsApp: 'Bridal' · Main Road, Jayal
+- Optional chhota disclaimer chip agar offer mention ho: "Offer sirf making charge par lagu."
+- Sound: soft dholak thump + Scene-1 wala SLAM echo (loop feel).
+- Logo kit me ready hai: `../../logo/shivaa-logo.png` (ya owner ka attach kiya hi-res PNG use karo).
 
 ## CAPTION TIMING SHEET (Flow ke BAAD edit me — Hinglish)
 S1: 0.0–2.4 "Jayal-Nagaur walon RUKO!" · 2.4–6.0 "Kamaai lutwana band karo — ye budha barson se yahi se leta hai."
