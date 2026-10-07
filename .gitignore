@@ -25,3 +25,6 @@ launch/frames/
 
 # relay v2 runtime state (written on its host, never source)
 cms/relay/relay-last-tick.json
+
+# sandbox scratch (source video stand-ins, test frames) — never shipped
+.cache/

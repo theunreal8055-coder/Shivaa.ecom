@@ -1,0 +1,105 @@
+{
+  "meta": {
+    "title": "Shivaa Jewels — Owner UGC Reel (Jayal)",
+    "source_video": "100601_1791300779339.mp4 (Google Drive id 1gSz5OVBrw0fv5B-2npGYPtGCOrZdtaa6, 144 MB)",
+    "status": "PROVISIONAL TIMING — derived from the approved suggested timeline (handoff §6). Re-time after transcribing the real audio; see EDIT-SPEC.md §4.",
+    "font": "Noto Sans Devanagari SemiBold",
+    "font_fallback": "Mukta SemiBold",
+    "canvas": { "w": 1080, "h": 1920, "fps": 30 },
+    "colors": {
+      "ivory": "#F5EFE0",
+      "gold": "#D4AF69",
+      "maroon_deep": "#3A0A16",
+      "maroon_mid": "#54101F"
+    },
+    "safe_area": {
+      "caption_bottom_y": 1470,
+      "max_text_width": 900,
+      "note": "captions never enter top 220px or bottom 450px (Reels UI); never cover face/jewellery/shop sign"
+    },
+    "caption_font_size": 60,
+    "letter_spacing": 1.0,
+    "max_lines_per_cue": 2
+  },
+  "blocks": [
+    {
+      "id": "hook",
+      "start": 0.0,
+      "end": 5.0,
+      "text": "राम-राम सा! क्या आपको जायल में शादी के लिए आभूषण लेने हैं?",
+      "highlights": ["जायल"]
+    },
+    {
+      "id": "invite",
+      "start": 5.0,
+      "end": 11.0,
+      "text": "तो दूर जाने की जरूरत नहीं है सा—शिवा ज्वेल्स पर आपको दुल्हन के आभूषणों का खास संग्रह मिल जाएगा।",
+      "highlights": ["दुल्हन के आभूषण"]
+    },
+    {
+      "id": "showroom",
+      "start": 11.0,
+      "end": 16.0,
+      "text": "हमारे शोरूम में आपकी शादी की तैयारी के लिए डिजाइन देखने और चयन करने की पूरी सुविधा है।",
+      "highlights": []
+    },
+    {
+      "id": "bridal",
+      "start": 16.0,
+      "end": 23.0,
+      "text": "हार, झुमके, चूड़ा-बंगड़ी और पूरा दुल्हन सेट—अपनी पसंद के डिजाइन आराम से देखिए।",
+      "highlights": []
+    },
+    {
+      "id": "app",
+      "start": 23.0,
+      "end": 29.0,
+      "text": "शिवा के ऐप पर ही दुल्हन के आभूषणों के सुंदर डिजाइन देखिए, तस्वीरें बदलिए और अपनी पसंद का चयन कर लीजिए।",
+      "highlights": ["दुल्हन के आभूषण"]
+    },
+    {
+      "id": "rate",
+      "start": 29.0,
+      "end": 36.0,
+      "text": "और आज का लाइव सोने का भाव भी शिवा के ऐप पर साफ-साफ देख लीजिए।",
+      "highlights": []
+    },
+    {
+      "id": "offer",
+      "start": 36.0,
+      "end": 39.5,
+      "text": "पहली बार आभूषण खरीदने वाले ग्राहकों के लिए खास ऑफर है—मेकिंग चार्ज पर पूरे 20 प्रतिशत की छूट।",
+      "highlights": ["मेकिंग चार्ज", "20 प्रतिशत"]
+    },
+    {
+      "id": "membership",
+      "start": 39.5,
+      "end": 43.0,
+      "text": "शिवा ज्वेल्स का ब्लैक मेंबरशिप कार्ड लीजिए, और आगे भी मेकिंग चार्ज पर 20 प्रतिशत का लाभ पाते रहिए।",
+      "highlights": ["ब्लैक मेंबरशिप कार्ड", "20 प्रतिशत", "मेकिंग चार्ज"]
+    },
+    {
+      "id": "safety",
+      "start": 43.0,
+      "end": 47.0,
+      "text": "बेटी की शादी का गहना खरीदने से पहले हॉलमार्क, सही वजन और मेकिंग चार्ज जरूर जांचिए।",
+      "highlights": ["हॉलमार्क", "सही वजन", "मेकिंग चार्ज"]
+    },
+    {
+      "id": "cta",
+      "start": 47.0,
+      "end": 50.0,
+      "text": "Free bridal design trial खातर WhatsApp पर ‘Bridal’ लिखो या अभी call करो।",
+      "highlights": []
+    }
+  ],
+  "offer_card": {
+    "start": 36.0,
+    "end": 43.0,
+    "title": "पहली बार खरीदने वाले ग्राहकों के लिए",
+    "main": "मेकिंग चार्ज पर 20% की छूट",
+    "main_highlight": "20%",
+    "disclaimer": ["ऑफर केवल मेकिंग चार्ज पर लागू है।", "सदस्यता की शर्तें लागू हैं।"],
+    "note": "never imply 20% off total jewellery value"
+  }
+}
