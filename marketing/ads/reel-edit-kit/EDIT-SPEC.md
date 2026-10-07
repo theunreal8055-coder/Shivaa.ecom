@@ -85,6 +85,9 @@ ffmpeg -i 100601_1791300779339.mp4 -vf "scale=1080:1920:force_original_aspect_ra
 - **Outro (10 s):** exterior → push-in + gold light sweep → logo card → three checks
   (हॉलमार्क / सही वजन / मेकिंग चार्ज) → CTA card with **89050 05921** and मेन रोड, जायल.
   Responsible urgency only — no claims that customers will be cheated elsewhere.
+- **Outro VO:** bundled AI Hindi voice (`outro/vo-ai-hindi.mp3`) per owner decision
+  2026-10-07; owner's own recording remains an optional drop-in replacement.
+  The main reel always keeps the owner's original on-camera UGC voice (never replaced).
 
 ## 4. Re-timing to the REAL spoken audio (do this first when the video arrives)
 

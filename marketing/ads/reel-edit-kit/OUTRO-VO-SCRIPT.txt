@@ -1,0 +1,14 @@
+OUTRO VOICE-OVER SCRIPT — default: bundled AI Hindi VO (vo-ai-hindi.mp3, owner decision
+2026-10-07: "AI ki khudki voice hai, owner ki zaroorat nahi"). Owner ki apni recording
+optional replacement hai (render_outro.sh teesra argument).
+Warm, unhurried, counter-conversation pace. Total 10s. No background shout; soft bed only.
+
+00.0–03.6  बेटी की शादी का गहना लेने से पहले रुकिए।
+03.6–06.8  हॉलमार्क, सही वजन और मेकिंग चार्ज जरूर जांचिए।
+06.8–10.0  सही जानकारी के लिए अभी कॉल कीजिए — 89050 05921।
+
+Tone note: responsible urgency only. Never claim customers will be cheated
+elsewhere; we only advise checking hallmark, weight and making charge.
+
+Usage:  ./render_outro.sh EXTERIOR_PHOTO OUT.mp4 VO_AUDIO
+        (VO_AUDIO = the recorded line above, any wav/m4a/mp3)
