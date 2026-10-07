@@ -38,7 +38,11 @@ def main():
     folder = sys.argv[2] if len(sys.argv) > 2 else "video-drop"
     out = sys.argv[3] if len(sys.argv) > 3 else os.path.join(ROOT, ".cache", "media", "assembled-source.mp4")
     listing = api("repos/%s/contents/%s?ref=%s" % (REPO, folder, branch))
-    parts = sorted([e for e in listing if e["type"] == "file" and
+    if folder in ("", ".", "/"):
+        ok = lambda n: n.lower().startswith(("part-", "part_", "video-part", "segment"))
+    else:
+        ok = lambda n: True
+    parts = sorted([e for e in listing if e["type"] == "file" and ok(e["name"]) and
                     e["name"].lower().endswith((".mp4", ".m4v", ".mov", ".mkv"))],
                    key=lambda e: e["name"])
     if not parts:
