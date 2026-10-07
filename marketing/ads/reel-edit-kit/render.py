@@ -60,15 +60,28 @@ def probe(ff, src):
 
 def main():
     if len(sys.argv) < 2:
-        sys.exit("usage: python3 render.py INPUT.mp4 [OUT.mp4]")
+        sys.exit("usage: python3 render.py INPUT.mp4 [OUT.mp4] [--vo VO.mp3]")
+    vo = None
+    if "--vo" in sys.argv:
+        i = sys.argv.index("--vo"); vo = sys.argv[i + 1]; del sys.argv[i:i + 2]
     src, out = sys.argv[1], (sys.argv[2] if len(sys.argv) > 2 else os.path.join(KIT, "shivaa-jewels-final.mp4"))
     ff = ffmpeg()
     info = probe(ff, src)
     dur = info["dur"] or 60.0
+    stretch = 1.0
+    if vo:
+        vo_dur = probe(ff, vo)["dur"]
+        stretch = vo_dur / dur if dur else 1.0
+        if not (0.75 <= stretch <= 1.30):
+            print("[warn] video %.1fs vs VO %.1fs = x%.2f stretch — outside ±30%%; video will NOT be stretched, VO trimmed/padded" % (dur, vo_dur, stretch))
+            stretch = 1.0
+        dur = vo_dur if stretch != 1.0 else max(dur, vo_dur)
+        print("[vo] AI voice-over mode: original audio MUTED, video x%.3f to %.1fs" % (stretch, dur))
     print("[probe] %s  %sx%s  %.1fs  audio=%s" % (os.path.basename(src), info["w"], info["h"], dur, info["audio"]))
 
-    parts = ["[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-             "fps=30,setsar=1,format=yuv420p[base]"]
+    sp = (",setpts=PTS*%.4f" % stretch) if stretch != 1.0 else ""
+    parts = ["[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920%s,"
+             "fps=30,setsar=1,format=yuv420p[base]" % sp]
     prev, n = "base", 0
     inputs = []
     for o in OV:
@@ -89,10 +102,17 @@ def main():
     parts.append("[%s]ass=%s:fontsdir=%s[vout]" %
                  (prev, shlex.quote(os.path.join(KIT, "captions", "shivaa-jewels-captions.ass")),
                   shlex.quote(os.path.join(KIT, "fonts"))))
+    vo_idx = None
+    if vo:
+        inputs += ["-i", vo]
+        vo_idx = 1 + n
 
     cmd = [ff, "-hide_banner", "-loglevel", "warning", "-y", "-i", src] + inputs + \
           ["-filter_complex", ";".join(parts), "-map", "[vout]"]
-    if info["audio"]:
+    if vo:
+        cmd += ["-map", "%d:a" % vo_idx, "-af", "loudnorm=I=-14:TP=-1:LRA=11",
+                "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-t", "%.2f" % dur]
+    elif info["audio"]:
         cmd += ["-map", "0:a?", "-af", "loudnorm=I=-14:TP=-1:LRA=11",
                 "-c:a", "aac", "-b:a", "192k", "-ar", "48000"]
     cmd += ["-c:v", "libx264", "-profile:v", "high", "-crf", "18", "-preset", "slow",

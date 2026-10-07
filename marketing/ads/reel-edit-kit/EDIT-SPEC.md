@@ -47,10 +47,13 @@ python3 make_captions.py        # needs Pillow (+ fonttools only to re-instantia
 ## 2. Final render (where the video lives)
 
 ```bash
-python3 render.py /path/to/100601_1791300779339.mp4 shivaa-jewels-final.mp4
-# optional voice-safe loudness + export baked in:
-#   1080×1920 · 30 fps · H.264 crf 18 · AAC 192 k · loudnorm −14 LUFS · +faststart
-bash outro/render_outro.sh /path/to/shop-exterior.jpg shivaa-jewels-outro-10s.mp4 vo.m4a
+python3 render.py /path/to/100601_1791300779339.mp4 shivaa-jewels-final.mp4 --vo vo/reel-vo-full.mp4
+#   --vo = AI Hindi voice-over over the WHOLE reel (owner decision 2026-10-07):
+#          original audio is muted; video is time-matched to the VO (≤±30% stretch);
+#          captions are timed to the VO track itself (see timeline.json).
+#          Per-block VO clips: vo/reel-01…10-*.mp3 · outro VO: outro/vo-ai-hindi*.mp3
+# export baked in: 1080×1920 · 30 fps · H.264 crf 18 · AAC 192 k · loudnorm −14 LUFS · +faststart
+bash outro/render_outro.sh /path/to/shop-exterior.jpg shivaa-jewels-outro-10s.mp4   # AI VO default
 ```
 
 Requirements: any recent `ffmpeg` with libass (the static johnvansickle build, e.g. via
