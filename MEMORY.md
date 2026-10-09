@@ -1,5 +1,77 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v183 the Play Store release (9 Oct 2026, branch `arena/df056064-shivaa-ecom`)
+
+- **Live is 181** (owner-verified 25 Sep). **v182 is BUILT and GATED but never
+  deployed** — so v183 is published as a **superset of v182** and the owner
+  installs v183 instead of v182. Forward-only from 183; 181 stays the live floor.
+- **The work order: "we are launching an app today on Playstore."** Answer on
+  record: the app is a **Trusted Web Activity** of `shivaa.in` — the PWA already
+  ships the whole substrate (manifest, service worker, offline shell, maskable
+  icons, the v178 footer install band), so the Play route is cheap and there is no
+  second codebase to keep in step. The site had to ship three things and the app
+  needed one.
+- **Web side (new, ships in the ZIP):**
+  - `cms/.well-known/assetlinks.json` — the Digital Asset Links file Google
+    fetches. **TRAP FOUND:** the parent `cms/.htaccess` denies every `*.json`
+    (correctly, to protect `db.json`), which 403s exactly the file Google needs →
+    "your app is not linked to your website". Fixed by shipping a `.htaccess`
+    **inside** `.well-known/`: a deeper `.htaccess` is merged after its parent, so
+    `Require all granted` there wins. Host's own `.htaccess` untouched (house law).
+  - `"id": "/"` in **both** web manifests — the installed PWA and the Play app are
+    one identity, not two.
+  - `sitemap.php` lists `/#/delete-account` (Play needs a crawlable URL).
+- **The real Play blocker found and built: in-app account deletion.** Play's User
+  Data policy requires it for any app that allows account creation, plus a web URL
+  that does the same. Before v183 a shopper could only email the Grievance
+  Officer — which Play does not accept. `POST /api/auth/delete-account`: session
+  **or** a freshly verified OTP for the registered mobile, an explicit "type
+  DELETE" confirmation, throttled per connection and per number, admin and B2B
+  partner accounts protected. It **anonymises** the row exactly as
+  `admin/user-data/*/anonymize` has since v86 and revokes every login token;
+  order/invoice/KYC rows survive because DPDPA section 6 of the privacy policy
+  already promises tax + PMLA retention. Never a hard row delete.
+  - **Bug the executed suite caught that a parser never would:** the OTP must be
+    verified against the code itself. The erasure page never calls
+    `/auth/otp-login` (nobody signs in before deleting an account), so demanding a
+    record some other route had already marked `verified` left the logged-out path
+    dead. Also: wrong code and unknown number return one **byte-identical**
+    answer, so the route is not an account-enumeration oracle.
+- **Launch kit `playstore/`:** `README.md` (the whole plan, in order, with the two
+  gates) · `CHECKLIST.md` (tick-box runbook) · `listing.md` (paste-ready copy +
+  every App-content answer, each traced to the code that proves it) ·
+  `twa-manifest.json` (Bubblewrap's real schema — **`twa-manifest.json`, not
+  `bubblewrap.toml`**; that's PWABuilder) · `assetlinks.json` +
+  `htaccess-wellknown.txt` · `graphics/make-graphics.py` (Pillow + the repo's own
+  woff2 brand fonts, converted on the fly; icon 512, feature graphic 1024×500,
+  adaptive layers, screenshot framer — it **refuses to fabricate app UI**) ·
+  `screenshots/CAPTURE.md` + `captions.json` · `verify.mjs` (17 offline checks;
+  exit 2 = still waiting on the owner, exit 1 = actually broken).
+- **Facts checked live, not from memory:** Play requires **target API 36
+  (Android 16)** for every new app since 31 Aug 2026 — Bubblewrap 1.26's own
+  template already compiles and targets 36, so nothing to patch. And a **personal
+  developer account created after 13 Nov 2023 must run a closed test with 12
+  testers opted in for 14 continuous days** before production access. New accounts
+  also need identity verification. That is the honest answer to "launch today":
+  build, sign, upload and self-install today; public listing is ~3 weeks away on
+  that account type.
+- **Stamps 182 → 183 lockstep**; MEDIA stays `shivaa-media-v168`. Belt **190
+  passing** (deploy gate 20 · v183-check 9 · v183-php-run 9 · v182-php 9 ·
+  v181-php 6 · v180-php 8 · v179-php 25 · v169 pages 25 · v169 PHP 28 · v168
+  boundaries 39 + N40 12), re-run **against the extracted ZIP bytes**.
+  `v182-php-run` P01 made forward-tolerant (`rel >= 182` floor) so a stamp-exact
+  assertion cannot redden every later release. **v179-relay fails 7/7 in this
+  sandbox identically on pristine HEAD** (proved with a clean worktree) —
+  pre-existing, unrelated, and the relay is not deployed.
+- **Package:** `shivaa-update-v183.zip`, 11 files, 463,159 B, SHA-256
+  `e05f3146e1f7f6329bf984a598f35054ab91dca1ed0699bb51c796c0e9940670`, source
+  `295c2a68`; builder `tools/mega/make-v183-zip.py` (asserts every v182 invariant
+  plus the Play substrate, and refuses to ship credential material). Record:
+  `DEPLOY-v183.md`.
+- **Not done, on purpose:** no AAB built or signed (no JDK/Android SDK/dl.google.com
+  in the sandbox), no live site probed, no screenshot invented. Keystore stays
+  local; `.gitignore` blocks `*.keystore/*.jks/*.p12/*.pfx/playstore/twa/`.
+
 ## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
 
 - **Live is 181 (verified 25 Sep 2026):** `/api/version` returned `rel:181`,

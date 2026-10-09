@@ -43,10 +43,10 @@
 
 ## Read first
 
-1. **The *CURRENT STATE — v180 BUILT* section of `docs/AGENT-HANDOFF.md`
-   and `MEMORY.md`, plus `DEPLOY-v180.md`.** These are the build record
-   (live remains 179 until the owner deploys); the *CURRENT STATE — v179
-   DEPLOYED* section is the live record.
+1. **The *CURRENT STATE — v183 BUILT* section of `docs/AGENT-HANDOFF.md`
+   and `MEMORY.md`, plus `DEPLOY-v183.md` and `playstore/README.md`.** These are
+   the build record for the Play Store release (live remains **181** until the
+   owner deploys v183, which is a superset of the never-deployed v182).
    `DEPLOY-v177.md` / `DEPLOY-v176.md` and those sections are history
    (v177 and v176 stay shipped).
    `DEPLOY-v176.md` and the v176 section are history (v176 stays shipped).
@@ -58,7 +58,47 @@
 3. Actual branch, diff and code. Documents have contained stale counts/labels;
    verify before repeating them.
 
-## Current source state (24 September 2026) — release 180 (built; live 179)
+## Current source state (9 October 2026) — release 183 (built; live 181)
+
+- **Storefront/source release 183** — the **Play Store release**: Shivaa goes to
+  Google Play as a **Trusted Web Activity** of `shivaa.in`. 11-file ZIP:
+  `api.php` · `index.html` · `js/app.js` · `js/admin.js` · `sw.js` ·
+  `upgrade-sql.php` · `manifest.json` · `manifest.webmanifest` · `sitemap.php` ·
+  `.well-known/assetlinks.json` (NEW) · `.well-known/.htaccess` (NEW).
+- **The three web pieces the app depends on:** Digital Asset Links
+  (`/.well-known/assetlinks.json`) — and the **trap** that the parent
+  `.htaccess` denies every `*.json`, which 403s exactly that file; fixed by
+  shipping a `.htaccess` *inside* `.well-known/`, because a deeper `.htaccess`
+  merges after its parent. Plus a stable `"id": "/"` in both web manifests, and
+  the erasure page listed in `sitemap.php`.
+- **The one Play blocker that had to be built:** `POST /api/auth/delete-account`
+  and the "Privacy & my data" page. Play's User Data policy requires in-app
+  account deletion plus a web URL; emailing the Grievance Officer does not count.
+  The route anonymises the row exactly as `admin/user-data/*/anonymize` has since
+  v86, revokes every token, keeps order/KYC rows for tax + PMLA retention, and
+  never hard-deletes. Session **or** a freshly verified OTP — and the OTP must be
+  checked against the code itself, because the page never calls
+  `/auth/otp-login`.
+- **`playstore/` is the launch kit** — `README.md` is the step-by-step plan with
+  the two gates (account type; identity verification), `CHECKLIST.md` the
+  runbook, `listing.md` the paste-ready copy and App-content answers,
+  `twa-manifest.json` the Bubblewrap config, `verify.mjs` 17 offline checks.
+  Run `python3 playstore/graphics/make-graphics.py` for the icon, the 1024×500
+  feature graphic and the screenshot framer.
+- **Verified live, not from memory:** Play requires **target API 36** for new
+  apps since 31 Aug 2026 (Bubblewrap 1.26's template already targets 36), and a
+  **personal account created after 13 Nov 2023 needs a closed test with 12
+  testers over 14 continuous days** before production access. Say that plainly
+  whenever "launch today" comes up.
+- **Belt: 190 passing** (deploy gate 20 · v183-check 9 · v183-php-run 9 ·
+  v182-php 9 · v181-php 6 · v180-php 8 · v179-php 25 · v169 pages 25 · v169 PHP
+  28 · v168 39 + N40 12), re-run on the **extracted ZIP bytes**. v179-relay fails
+  7/7 identically on pristine HEAD in this sandbox — pre-existing.
+- **Not verified:** no AAB built or signed (no JDK/Android SDK/dl.google.com
+  here), no live site probed, no screenshot invented, Google's app-link
+  verification and Play's review not run.
+
+## HISTORY — release 180 built, live 179 (24 September 2026)
 
 - Storefront/source release **180** (SQL runtime, built this session; live
   is still **179** until the owner deploys); hardened media cache

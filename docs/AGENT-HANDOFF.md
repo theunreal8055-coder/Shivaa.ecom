@@ -1,6 +1,100 @@
-# AGENT HANDOFF — v182 BUILT (Auto-Catalogue Phase 4 + Billing Bridge); v181 LIVE ON HOSTINGER (25 Sep 2026)
+# AGENT HANDOFF — v183 BUILT: the Play Store release (Digital Asset Links + in-app account erasure); LIVE STAYS 181 (9 Oct 2026)
 
-## CURRENT STATE — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
+## CURRENT STATE — v183 BUILT: Shivaa on Google Play as a Trusted Web Activity (9 Oct 2026)
+
+- **The owner's work order: "we are launching an app today on Playstore."** The
+  answer delivered: a **Trusted Web Activity** of `shivaa.in`. The site already
+  shipped the entire PWA substrate (standalone manifest, service worker with an
+  offline shell, 192/512 + maskable icons, the v178 in-footer install band), so
+  this is the cheap, honest route — one codebase, and every website release is an
+  app-content release with no Play upload.
+- **Live is 181** (owner-verified 25 Sep). **v182 is BUILT and GATED but was
+  never deployed**, so v183 ships as a **superset of v182** and the owner installs
+  v183 in its place. Forward-only from **183**; never deploy below it.
+- **The web side (new files, inside the ZIP):**
+  - `cms/.well-known/assetlinks.json` — the Digital Asset Links file Google
+    fetches to prove the app owns the domain. Ships with two clearly-marked
+    fingerprint placeholders; the owner pastes the real ones after
+    `bubblewrap fingerprint` (and after Google shows the Play App Signing key)
+    and re-deploys. **This is the step that turns a browser-tab-in-a-window into
+    a real full-screen app.**
+  - `cms/.well-known/.htaccess` — **TRAP FOUND AND FIXED:** the parent
+    `cms/.htaccess` denies every `*.json` (correctly — it protects `db.json`),
+    which 403s exactly the file Google needs, and Play then reports "your app is
+    not linked to your website". A `.htaccess` in a **deeper** directory is merged
+    **after** its parent, so `Require all granted` there wins. The host's own
+    `.htaccess` is untouched (house law: never overwrite it wholesale).
+  - `"id": "/"` in **both** `manifest.json` and `manifest.webmanifest`, so the
+    installed PWA and the Play app are one identity.
+  - `sitemap.php` now lists `/#/delete-account`.
+- **The real Play blocker, found and built: in-app account deletion.** Play's User
+  Data policy requires deletion inside the app for any app that allows accounts,
+  plus a web URL that does the same. Before v183 the only path was emailing the
+  Grievance Officer, which Play does not accept.
+  - `POST /api/auth/delete-account`: a live session **or** a freshly verified OTP
+    for the registered mobile (never an email alone), an explicit "type DELETE"
+    confirmation, `rate_block` per connection **and** per number, admin and B2B
+    partner accounts refused.
+  - It **anonymises** the row with exactly the field set `admin/user-data/*/
+    /anonymize` has used since v86, and revokes every login token. Order, invoice
+    and KYC rows survive — DPDPA section 6 of the privacy policy already promises
+    tax and PMLA retention, so the app must not pretend otherwise. **Never a hard
+    row delete.**
+  - **Two bugs the executed PHP suite caught that a parser pass never would:**
+    (1) the OTP must be verified **against the code itself** — the erasure page
+    never calls `/auth/otp-login`, so requiring a record some other route had
+    already marked `verified` left the logged-out path dead; (2) wrong code and
+    unknown number must return one **byte-identical** answer, or the route is an
+    account-enumeration oracle on a 4-digit code.
+  - UI: "Privacy & my data" page (`#/delete-account`) plus a danger tile on the
+    account screen.
+- **Stamps 182 → 183 lockstep** (`__SHIVAA_REL=183`, `APP_REL = 183`,
+  `shivaa-shell-v183`, `REL=183`, `'rel' => 183`), 56 `?v=183` in `index.html`,
+  51 in `sw.js`; **MEDIA stays `shivaa-media-v168`** (no media changed).
+- **Belt at close: 190 checks passing** — deploy gate 20 · v183-check 9 ·
+  v183-php-run 9 · v182-php 9 · v181-php 6 · v180-php 8 · v179-php 25 · v169
+  pages 25 · v169 PHP 28 · v168 boundaries 39 + N40 12 — **re-run against the
+  extracted ZIP bytes**, not just the source tree. `v182-php-run` P01 was made
+  forward-tolerant (`rel >= 182` floor) so a stamp-exact assertion cannot redden
+  every later release. **v179-relay fails 7/7 in this sandbox, identically on the
+  pristine HEAD tree** (proved with a clean worktree) — pre-existing, unrelated to
+  v183, and the relay is not deployed.
+- **Package:** `shivaa-update-v183.zip`, 11 files, 463,159 bytes, SHA-256
+  `e05f3146e1f7f6329bf984a598f35054ab91dca1ed0699bb51c796c0e9940670`, source
+  `295c2a68`. Builder `tools/mega/make-v183-zip.py` asserts every v182 invariant
+  plus the Play substrate and refuses to ship credential material. Record:
+  `DEPLOY-v183.md`.
+- **The launch kit is `playstore/`** — `README.md` (the whole plan in order, with
+  the two gates), `CHECKLIST.md` (tick-box runbook), `listing.md` (paste-ready
+  listing copy and every App-content answer, each traced to the code that proves
+  it), `twa-manifest.json`, `assetlinks.json`, `htaccess-wellknown.txt`,
+  `graphics/` (icon, 1024×500 feature graphic, adaptive layers, screenshot
+  framer — built from the repository's own brand art, never fabricated UI),
+  `screenshots/CAPTURE.md`, and `verify.mjs` (17 offline checks; exit 2 = still
+  waiting on the owner, exit 1 = actually broken).
+- **Facts verified live rather than from memory:** Play requires **target API 36
+  (Android 16)** for every new app since **31 Aug 2026** — Bubblewrap 1.26's own
+  template already sets `compileSdkVersion 36` / `targetSdkVersion 36`, so nothing
+  needs patching. And a **personal developer account created after 13 Nov 2023
+  must run a closed test with 12 testers opted in for 14 continuous days** before
+  production access; new accounts also need identity verification. That is the
+  honest answer to "today": build, sign, upload and self-install today, and the
+  public listing is ~3 weeks away on that account type. Organisation accounts and
+  older personal accounts with an app in production are exempt.
+- **Not done, on purpose:** no AAB was built or signed (the sandbox has no JDK, no
+  Android SDK and no route to `dl.google.com`), no live site was probed, and no
+  screenshot was invented. The keystore stays on the owner's machine;
+  `.gitignore` blocks `*.keystore`, `*.jks`, `*.p12`, `*.pfx` and `playstore/twa/`.
+- **Open item for the owner:** the app has **user-generated content** (customers
+  post product reviews via `POST /api/reviews`), so Play expects a way to report
+  objectionable content. There is no in-app report button yet — either build one
+  or take reviews off the app's public surfaces. Do **not** answer "no UGC".
+
+## HISTORY — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
+
+> v182 was built and gated but **never deployed** (live stayed 181). v183 ships as
+> a superset of it, so the owner installs v183 in its place. Kept below as the
+> build record for the catalogue-intake and billing-bridge work.
 
 - **LIVE IS 181 (VERIFIED 25 Sep 2026):** `https://shivaa.in/api/version` →
   `rel:181`, `stamp.matched:true`, `db.driver/mode:"mysql"`, 78 products,

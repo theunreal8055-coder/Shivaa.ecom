@@ -1,3 +1,33 @@
+## v183 BUILT — the Play Store release (9 Oct 2026): live stays 181, install v183
+
+Shivaa goes to Google Play as a **Trusted Web Activity** of `shivaa.in`. The PWA
+already had the whole substrate, so this release adds only what the store needs:
+
+- **`cms/.well-known/assetlinks.json`** — the Digital Asset Links file Google
+  fetches. The parent `.htaccess` denies every `*.json`, which 403s exactly that
+  file; **`cms/.well-known/.htaccess`** re-grants it (a deeper `.htaccess` merges
+  after its parent). Fingerprints ship as placeholders — the owner pastes the
+  upload-key and Play-App-Signing SHA-256 after `bubblewrap fingerprint`.
+- **`"id": "/"`** in both web manifests — one identity for the PWA and the app.
+- **`POST /api/auth/delete-account`** + the "Privacy & my data" page — Play's
+  User Data policy requires in-app account deletion and a web URL; email does not
+  count. Anonymises like `admin/user-data/*/anonymize` has since v86, revokes
+  every token, keeps order/KYC rows for tax + PMLA retention, never hard-deletes.
+- Stamps 182 → 183 lockstep; MEDIA stays `shivaa-media-v168`. **11 files,
+  463,159 B, SHA-256
+  `e05f3146e1f7f6329bf984a598f35054ab91dca1ed0699bb51c796c0e9940670`**, source
+  `295c2a68`. Because live is still 181, this is a **superset of the
+  never-deployed v182** — install v183 in its place. Forward-only from 183.
+- **The launch kit is `playstore/`**: `README.md` is the step-by-step plan with
+  the two gates, `CHECKLIST.md` the runbook, `listing.md` the paste-ready copy.
+- Belt **190 passing**, re-run on the extracted ZIP bytes. **Not verified:** no
+  AAB built or signed here, no live site probed, no screenshot invented.
+- **Honest answer to "launching today":** a personal Play account created after
+  13 Nov 2023 must run a closed test with **12 testers over 14 continuous days**
+  before production access. Build, sign, upload and self-install today; public
+  listing is ~3 weeks away on that account type. Organisation and older personal
+  accounts are exempt.
+
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
 ## v178 published — use Shivaa like an app: no store, no APK, no upload (24 Sep 2026)
