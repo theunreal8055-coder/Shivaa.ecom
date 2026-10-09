@@ -1,0 +1,58 @@
+{
+  "packageId": "in.shivaa.jewels",
+  "host": "shivaa.in",
+  "name": "Shivaa Jewels",
+  "launcherName": "Shivaa",
+  "display": "standalone",
+  "themeColor": "#2a0a10",
+  "themeColorDark": "#1d0509",
+  "navigationColor": "#1d0509",
+  "navigationColorDark": "#1d0509",
+  "navigationDividerColor": "#1d0509",
+  "navigationDividerColorDark": "#1d0509",
+  "backgroundColor": "#2a0a10",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://shivaa.in/images/icons/icon-512.png",
+  "maskableIconUrl": "https://shivaa.in/images/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "shivaa-upload-key.keystore",
+    "alias": "shivaa"
+  },
+  "appVersionCode": 1,
+  "appVersion": "1.0.0",
+  "shortcuts": [
+    {
+      "name": "Shop jewellery",
+      "shortName": "Shop",
+      "url": "https://shivaa.in/#/shop",
+      "chosenIconUrl": "https://shivaa.in/images/icons/icon-192.png"
+    },
+    {
+      "name": "Today's gold rate",
+      "shortName": "Rates",
+      "url": "https://shivaa.in/#/rates",
+      "chosenIconUrl": "https://shivaa.in/images/icons/icon-192.png"
+    },
+    {
+      "name": "Ring size guide",
+      "shortName": "Sizes",
+      "url": "https://shivaa.in/#/size-guide",
+      "chosenIconUrl": "https://shivaa.in/images/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://shivaa.in/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "enableSiteSettingsShortcut": false,
+  "orientation": "portrait",
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "minSdkVersion": 23,
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "features": {},
+  "fingerprints": []
+}

@@ -1,0 +1,19 @@
+# ─── v183 · Play Store TWA — Digital Asset Links must stay readable ───
+#
+# Google's app-link check fetches EXACTLY this URL over HTTPS:
+#     https://shivaa.in/.well-known/assetlinks.json
+#
+# The hardening block in the parent .htaccess denies every *.json file, so
+# without this file that request answers 403 and the Play Console reports
+# "your app is not linked to your website" — the Trusted Web Activity then
+# opens in a browser-tab look instead of full-screen, and the store listing
+# is rejected as a wrapped website.
+#
+# A .htaccess in a DEEPER directory is merged after its parent, so this one
+# wins over the parent's deny rule. Nothing in the host's own .htaccess is
+# touched or replaced.
+#
+# Keep this file in the ZIP: it travels with every release, so a new signing
+# key only ever has to be pasted into assetlinks.json.
+
+Require all granted

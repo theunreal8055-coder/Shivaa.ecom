@@ -1,6 +1,7 @@
 {
   "name": "Shivaa Jewels",
   "short_name": "Shivaa",
+  "id": "/",
   "description": "Jewellery priced at live Shivaa rates. Shop, ring size guide, gold rates, B2B catalogues and the Gold Finale.",
   "start_url": "/#/",
   "scope": "/",

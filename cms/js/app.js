@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 182;
+const APP_REL = 183;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3134,6 +3134,72 @@ pages.refer = async (view) => {
       </div><p style="font-size:12px;color:var(--ink-3);margin-top:8px">₹${d.perFriend || 250} coupon per completed friend — credited automatically.</p>`);
     }).catch(() => {});
   }
+};
+
+/* v183 — "Privacy & my data": the account-deletion door Google Play insists
+   on. It is a real page, not a mailto link: Play rejects email-only deletion
+   flows, and a shopper must be able to erase the account from inside the app.
+   The same URL is what we give Play Console as the web deletion URL. */
+pages['delete-account'] = async (view) => {
+  const me = state.user;
+  view.innerHTML = v55Shell('Privacy & my data', 'Your data, ', 'your call', 'Download what we hold about you, or erase your account here and now — no email, no waiting room.',
+    `<div class="adm-card" style="margin-bottom:16px">
+      <h3 style="margin:0 0 8px">What erasing does</h3>
+      <ul style="margin:0;padding-left:18px;line-height:1.75;font-size:14px">
+        <li>Your <b>name, mobile, email, addresses, wishlist and profile</b> are removed or anonymised at once.</li>
+        <li>Every device signed in as you is signed out immediately.</li>
+        <li>Orders, invoices and hallmarking records already issued stay with us — Indian tax and PMLA law requires us to keep them — with your name taken off.</li>
+        <li>Royalty points and coupons tied to the account go with it.</li>
+      </ul>
+      <p style="font-size:12.5px;color:var(--ink-3);margin:12px 0 0">Full policy: <a href="#/privacy">Privacy Policy</a> · <a href="/docs/shivaa-privacy-policy.pdf" target="_blank" rel="noopener">PDF edition</a></p>
+    </div>
+
+    <div class="adm-card" style="border-color:#e0b3b3">
+      <h3 style="margin:0 0 4px;color:#8c2b2b">Erase my account</h3>
+      <p style="font-size:13px;color:var(--ink-3);margin:0 0 14px">We send a 4-digit code to ${me ? 'your registered mobile' : 'the mobile on the account'} to be sure it is really you.</p>
+      <form id="delForm" class="form-grid" style="grid-template-columns:1fr 1fr">
+        ${me ? '' : `<div class="fld full"><label>Registered mobile</label><input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="10" required placeholder="10-digit"></div>`}
+        <div class="fld"><label>Verification code</label><input name="code" inputmode="numeric" maxlength="4" required placeholder="4 digits"></div>
+        <div class="fld"><label>Type DELETE to confirm</label><input name="confirm" required placeholder="DELETE" autocomplete="off"></div>
+        <div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" type="button" id="delSend">Send code</button>
+          <button class="btn btn-primary btn-sm" type="submit" style="background:#8c2b2b;border-color:#8c2b2b">Erase my account</button>
+        </div>
+      </form>
+      <p id="delMsg" style="font-size:13px;margin:12px 0 0;min-height:18px"></p>
+    </div>`);
+
+  const msg = $('#delMsg', view);
+  const say = (t, bad) => { if (msg) { msg.textContent = t; msg.style.color = bad ? '#8c2b2b' : 'var(--ink-2)'; } };
+  const phoneOf = () => {
+    const f = $('#delForm', view);
+    if (me) return me.phone;
+    return (new FormData(f).get('phone') || '').toString().replace(/\D/g, '').slice(-10);
+  };
+  const sendBtn = $('#delSend', view);
+  if (sendBtn) sendBtn.onclick = async () => {
+    say('Sending…');
+    try {
+      await api('/api/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone: phoneOf() }) });
+      say('Code sent — it is valid for 5 minutes.');
+    } catch (e) { say(e.message || 'Could not send the code', true); }
+  };
+  $('#delForm', view).onsubmit = async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const confirm = (f.get('confirm') || '').toString().trim();
+    if (confirm !== 'DELETE') { say('Type DELETE exactly, so a stray tap cannot erase an account.', true); return; }
+    if (!window.confirm('Erase your Shivaa account for good? This cannot be undone.')) return;
+    say('Erasing…');
+    try {
+      await api('/api/auth/delete-account', { method: 'POST', body: JSON.stringify({
+        phone: phoneOf(), code: (f.get('code') || '').toString(), confirm }) });
+      try { setToken(null); } catch (_) {}
+      state.user = null;
+      view.innerHTML = v55Shell('Privacy & my data', 'Account ', 'erased', 'Your account has been erased and every device signed out. If you ever want to shop with us again, a new account is one OTP away.',
+        `<div class="adm-card"><p style="margin:0">Thank you. Orders already placed remain with us for tax and hallmarking records, with your name removed. Anything else, our Grievance Officer is at <a href="mailto:Support@shivaa.in">Support@shivaa.in</a>.</p></div>`);
+    } catch (err) { say(err.message || 'Could not erase the account', true); }
+  };
 };
 
 pages.videoconsult = async (view) => {
@@ -6265,6 +6331,8 @@ pages.account = async (view, q) => {
     ['addresses', '⌖', 'Manage Addresses', nAdr ? nAdr + ' saved · deliveries & billing' : 'Add delivery addresses'],
     ['loyalty', '✦', 'Royalty Points', me.loyaltyPoints + ' pts · ' + tier + ' tier'],
     ['wishlist', '♡', 'My Wishlist', wl.length + ' saved piece' + (wl.length === 1 ? '' : 's')],
+    // v183 — Google Play requires the app itself to offer account deletion
+    ['privacy', '⛨', 'Privacy & my data', 'Download your data or erase your account'],
   ];
 
   view.innerHTML = `
@@ -6282,7 +6350,7 @@ pages.account = async (view, q) => {
 
     <div class="acct-tiles">
       ${isPartner() ? `<a href="#/partner" class="acct-tile portal"><span class="at-ic">✦</span><span class="at-tx"><b>Partner Portal</b><small>bullion desk · design selection · schemes · reports</small></span><span class="at-go">›</span></a>` : ''}
-      ${tiles.map(t => `<a href="${t[0] === 'certificates' ? '#/certificates' : '#/account?tab=' + t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
+      ${tiles.map(t => `<a href="${t[0] === 'certificates' ? '#/certificates' : (t[0] === 'privacy' ? '#/delete-account' : '#/account?tab=' + t[0])}" class="acct-tile ${t[0] === 'privacy' ? 'danger' : (tab === t[0] ? 'on' : '')}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
       <a href="javascript:Shivaa.logout()" class="acct-tile danger"><span class="at-ic">↩</span><span class="at-tx"><b>Logout</b><small>sign out safely</small></span><span class="at-go">›</span></a>
     </div>
 

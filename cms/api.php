@@ -4957,6 +4957,97 @@ try {
     }
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'user' => pub_user($u)]);
   }
+  /* v183 — SELF-SERVICE ACCOUNT ERASURE.
+     Google Play's User Data policy makes this a hard requirement for any app
+     that lets people create an account: the deletion must be possible INSIDE
+     the app, and Play Console needs a URL that does the same from the web.
+     Before v183 a shopper could only ask the Grievance Officer by email, which
+     Play does not accept - the listing would have been rejected on that alone.
+
+     What this deliberately does NOT do: hard-delete the row or the orders.
+     DPDPA section 6 of the privacy policy already promises the opposite -
+     order, invoice and KYC records are retained as long as tax and PMLA law
+     requires - so the account is ANONYMISED exactly the way the admin's
+     user-data/anonymise action has done since v86, with the same field set,
+     and every login token for the account is revoked at the same time.
+
+     Proof of identity: EITHER a live session token OR a fresh OTP for the
+     registered mobile. Never an email alone - email is not proof of anything. */
+  if ($route === 'auth/delete-account' && $method === 'POST') {
+    rate_block($db, 'acct-del-ip', client_ip(), 6, 3600, 3600, 'Too many deletion attempts from this connection — try again later.');
+    $b = body_json();
+    $u = req_user($db);
+    $otpPhone = null;
+    if (!$u) {
+      // No session: the request must carry a freshly verified OTP for the number.
+      $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+      if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter the 10-digit mobile on the account']);
+      rate_block($db, 'acct-del-phone', $phone, 6, 3600, 3600, 'Too many deletion attempts for this number — try again later.');
+      $code = (string)($b['code'] ?? '');
+      if ($code === '') jout(400, ['error' => 'Request a code first']);
+      /* v183 — the code is verified HERE, against the code itself. The erasure
+         page never calls /auth/otp-login (a shopper does not want to be signed
+         in before deleting the account), so demanding a record some other
+         route already marked `verified` would leave this path dead. The window
+         is the OTP's own 5 minutes — no hour of grace on a destructive action. */
+      $matchIdx = null;
+      foreach (($db['otps'] ?? []) as $oi => $oRec) {
+        if (($oRec['phone'] ?? '') !== $phone) continue;
+        if (($oRec['purpose'] ?? 'login') === 'reset') continue;
+        if (!empty($oRec['consumedByLogin'])) continue;
+        if ($oRec['exp'] < time()) continue;
+        if (hash_equals((string)$oRec['hash'], hash('sha256', 'shv' . $phone . $code))) { $matchIdx = $oi; break; }
+      }
+      if ($matchIdx === null) {
+        // count the guess against this code, the way /auth/otp-login does
+        foreach ($db['otps'] as &$oRec) {
+          if (($oRec['phone'] ?? '') !== $phone || ($oRec['purpose'] ?? 'login') === 'reset') continue;
+          if (empty($oRec['consumedByLogin']) && $oRec['exp'] >= time()) $oRec['tries'] = (int)($oRec['tries'] ?? 0) + 1;
+        }
+        unset($oRec);
+        db_save($DB_FILE, $db);
+        /* One answer for "wrong code" and "no such number": an erasure endpoint
+           that names which numbers are registered is an account-enumeration
+           oracle, and this is a 4-digit code. */
+        jout(400, ['error' => 'That code is not valid — request a new one']);
+      }
+      $otpPhone = $phone;
+      $db['otps'][$matchIdx]['consumedByLogin'] = true;   // single use, burned here
+      foreach ($db['users'] as $uF)
+        if (substr(preg_replace('/\D/', '', (string)($uF['phone'] ?? '')), -10) === $phone) { $u = $uF; break; }
+      if (!$u) { db_save($DB_FILE, $db); jout(400, ['error' => 'That code is not valid — request a new one']); }
+    }
+    if (($u['role'] ?? '') === 'admin')
+      jout(400, ['error' => 'The owner account cannot be erased from the app — it is the showroom\'s only admin.']);
+    if (($u['role'] ?? '') === 'partner')
+      jout(400, ['error' => 'This is a B2B partner account — ask Shivaa to close it so the ledger stays intact.']);
+    // A deliberate, explicit confirmation word stops a stray double-tap.
+    if (trim((string)($b['confirm'] ?? '')) !== 'DELETE')
+      jout(400, ['error' => 'Type DELETE to confirm']);
+
+    $uid = $u['id'];
+    foreach ($db['users'] as $ui => $x) if ($x['id'] === $uid) {
+      $db['users'][$ui]['name'] = 'Deleted customer';
+      $db['users'][$ui]['email'] = 'deleted+' . $x['id'] . '@privacy.local';
+      $db['users'][$ui]['phone'] = '';
+      $db['users'][$ui]['anonymizedAt'] = now_iso();
+      $db['users'][$ui]['selfErased'] = true;
+      // v86 — erasure must clear direct identifiers, not just name/phone
+      $db['users'][$ui]['addresses'] = [];
+      $db['users'][$ui]['profile'] = ['erased' => true];
+      $db['users'][$ui]['wishlist'] = [];
+      unset($db['users'][$ui]['referralCode'], $db['users'][$ui]['referredBy']);
+      unset($db['users'][$ui]['password']);
+    }
+    // every device logged in as this account stops working immediately
+    $keptT = [];
+    foreach (($db['tokens'] ?? []) as $tk => $tRec) if (($tRec['userId'] ?? '') !== $uid) $keptT[$tk] = $tRec;
+    $db['tokens'] = $keptT;
+    audit_log($db, 'user.self_erased', ['user' => $uid, 'via' => $otpPhone ? 'otp' : 'session']);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'erased' => true,
+               'message' => 'Your account is erased. Orders already placed stay with us for tax and hallmarking records, with your name removed.']);
+  }
   if ($route === 'addresses' && $method === 'GET') {
     $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
     jout(200, ['addresses' => $u['addresses'] ?? []]);
@@ -5487,7 +5578,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 182,
+      'rel'   => 183,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

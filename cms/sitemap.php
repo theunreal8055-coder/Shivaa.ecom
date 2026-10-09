@@ -42,6 +42,7 @@ foreach ([
     '/#/contact'     => ['monthly','0.5'],
     '/#/faq'         => ['monthly','0.5'],
     '/#/privacy'     => ['yearly', '0.3'],
+    '/#/delete-account' => ['yearly', '0.3'],   // v183 — Play's account-deletion URL
     '/#/terms'       => ['yearly', '0.3'],
     '/#/shipping'    => ['yearly', '0.4'],
     '/#/refund'      => ['yearly', '0.4'],
