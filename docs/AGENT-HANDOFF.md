@@ -1,6 +1,65 @@
-# AGENT HANDOFF — v183 BUILT: the Play Store release (Digital Asset Links + in-app account erasure); LIVE STAYS 181 (9 Oct 2026)
+# AGENT HANDOFF — v184 BUILT: Amrita ji's private page + the "off making charges" money fix; LIVE STAYS 181 (10 Oct 2026)
 
-## CURRENT STATE — v183 BUILT: Shivaa on Google Play as a Trusted Web Activity (9 Oct 2026)
+## CURRENT STATE — v184 BUILT: Amrita ji's page + the making-charge coupon fix (10 Oct 2026)
+
+- **Live is 181. v182, v183 and v184 are all BUILT, GATED and NEVER DEPLOYED.**
+  Forward-only from **184**. **Nothing here is live, and nothing goes live
+  without the owner's explicit yes — a push or a merge is not approval.**
+- **The work order (verbatim intent):** a **phone-first, temporary, private
+  page for one person** — Amrita Ji, the SBI Jayal branch manager. Shipped as
+  `#/amrita`, five steps in order: (1) rate the sandwiches 1-5 stars; (2) a
+  celebration on 5 stars that degrades gracefully on anything less; (3) *"those
+  sandwiches were just a trailer, mam"* + three dishes to choose from, each with
+  its own tap animation; (4) mobile + OTP — **the existing retail OTP system** —
+  plus name, everything else explicitly optional; (5) a card for **20% off
+  making charges** with a **system-allotted** number.
+- **It is dark by default and the kill switch is server-enforced.**
+  `settings.amritaPage` is absent from the live DB. The home card and the page
+  both gate on it, and `POST /api/amrita/card` answers **404** while it is off —
+  so the owner's one click really closes the door instead of hiding a link. Her
+  record lives in its own collection `amritaGuests`; removing the page never
+  deletes her details or disables the coupon she was issued (belt test C11).
+- **Privacy:** her SBI account, branch and blocked status appear **nowhere** on
+  the page — it is about the food and the family's thanks. Belt test A15 fails
+  the build if the page ever mentions her bank, a blocked account, a branch
+  manager or an IFSC code. The page is not in `sitemap.php` and is never linked
+  unconditionally.
+- **THE MONEY FIX.** Every percent coupon used to discount the **whole order
+  value** — metal + stones + making. A coupon written "20% off making charges"
+  took 20% of the metal too (₹20,000 off a ₹1,00,000 order instead of ₹2,400).
+  v184 adds `coupon_scope()` / `coupon_discount()` in `api.php`: `scope:'making'`
+  slices the making charges only and clamps to them; absent or `'all'` is
+  byte-identical to the old behaviour. The base is computed **on the server**
+  from the making charge the server itself priced, and `coupons/validate` and the
+  order route call the **same** function, so the checkout preview and the amount
+  charged can no longer disagree. Orders record `couponScope`.
+- **RAKHI20 IS LIVE AND OVER-DISCOUNTING — FLAGGED TO THE OWNER, NOT SILENTLY
+  CHANGED.** `active:true`, no `expiresAt`, no `scope`, note *"Raksha Bandhan —
+  20% off making charges, till 28 Aug"*. Raksha Bandhan 2026 was **Fri 28 Aug**;
+  today is 10 Oct, **43 days past** the date in its own note, because that date
+  only ever lived in the human-readable note. So an expired promotion is giving
+  20% off the entire order value. It is his data and his call. The fix is one
+  click in Admin -> Coupons (v184 finally wires the previously-decorative
+  **Active** checkbox to a real `PUT /api/coupons/{id}` route and adds a
+  **"Takes off"** column plus a fix form). Belt test C15 reproduces this exact
+  coupon shape and proves the correction.
+- **A REAL BUG FIXED ON THE WAY: `cms/sw.js` DID NOT PARSE.** The v183 changelog
+  entry had been inserted *after* the comment block's closing marker, turning the
+  entire service worker into a syntax error. A worker that cannot parse never
+  registers, so the offline shell and every release announcement were silently
+  dead — and nothing ran `node --check` on it. Had v183 been deployed, the site
+  would have lost its offline shell and its "always the latest version"
+  mechanism. Fixed; belt test **A03** now runs `node --check cms/sw.js` every
+  run so it cannot recur.
+- **Verification:** deploy gate 20/20 - **v184-check 15/15 (new)** -
+  **v184-php-run 18/18 (new, executed PHP 8.3)** - v183-php 9/9 - v182-php 9/9 -
+  v181-php 6/6 - v180-php 8/8 - v179-php 25/25 - v169 25/25 + 28/28 - v168
+  39/39 + N40 12/12. `v179-relay` 0/7 is **pre-existing and unrelated** (needs
+  live Angel One credentials + network). The v183/v182/v181/v180 `-check` suites
+  SKIP on this tree by design (stamp-exact probes whose content re-runs in the
+  chain). Full runbook: **`DEPLOY-v184.md`**.
+
+## HISTORY — v183 BUILT: Shivaa on Google Play as a Trusted Web Activity (9 Oct 2026)
 
 - **The owner's work order: "we are launching an app today on Playstore."** The
   answer delivered: a **Trusted Web Activity** of `shivaa.in`. The site already

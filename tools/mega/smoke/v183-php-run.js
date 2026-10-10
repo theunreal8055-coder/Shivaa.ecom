@@ -31,14 +31,19 @@ const otpHash = code => crypto.createHash('sha256').update('shv' + MEMBER_PHONE 
                    paymentMethod:'UPI', items:[{id:'p1',qty:1}], total:50000, createdAt:new Date().toISOString() }];
   F.setDb(base);
 
-  await test('X01', 'release 183 with a matched index/app/worker handshake', async () => {
+  /* v184 — a floor, exactly like v182-php-run P01. This suite is stamp-exact for
+     release 183; on a newer tree the handshake must be allowed to move forward
+     or every later release reddens a test that is not about that release. What
+     is still asserted absolutely is the thing that actually matters: the three
+     stamps AGREE with each other and with the reported release. */
+  await test('X01', 'release >=183 with a matched index/app/worker handshake', async () => {
     const v = await F.req('GET', 'version');
     assert.equal(v.status, 200);
-    assert.equal(v.json.rel, 183);
+    assert.ok(v.json.rel >= 183, 'rel floor: got ' + v.json.rel);
     assert.equal(v.json.stamp.matched, true);
-    assert.equal(v.json.stamp.index, 183);
-    assert.equal(v.json.stamp.app, 183);
-    assert.equal(v.json.stamp.sw, 183);
+    assert.equal(v.json.stamp.index, v.json.rel);
+    assert.equal(v.json.stamp.app, v.json.rel);
+    assert.equal(v.json.stamp.sw, v.json.rel);
     assert.equal(v.json.db.driver, 'json');
   });
 

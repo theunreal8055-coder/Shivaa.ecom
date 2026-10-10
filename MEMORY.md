@@ -1,5 +1,70 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v184 Amrita ji's page + the "off making charges" money fix (10 Oct 2026, branch `arena/df056064-shivaa-ecom`)
+
+- **Live is 181. v182/v183 BUILT, GATED, NEVER DEPLOYED. v184 BUILT, GATED,
+  NEVER DEPLOYED.** Forward-only from 184. **Nothing here is live and nothing
+  goes live without the owner's explicit yes — a push/merge is not approval.**
+- **THE WORK ORDER: "a page for Amrita ji… she is the SBI Jayal branch manager,
+  her account was blocked on 1 Oct, and the family sent sandwiches made by
+  mummy."** Delivered as `#/amrita`, five steps: stars (1-5) -> a celebration on
+  5 that degrades gracefully on less -> "those sandwiches were just a trailer,
+  mam" + 3 dishes (idli sambhar / veg-cheese dosa + 2 secret chutneys / paneer
+  butter masala + laccha partha), each with its own tap animation -> mobile +
+  OTP (**the same retail OTP door**, `auth/send-otp` -> `auth/otp-login` ->
+  `auth/register` for a new number) + name, everything else explicitly optional
+  -> a card for **20% off making charges** with a **system-allotted** number.
+- **THE PAGE IS DARK BY DEFAULT.** `settings.amritaPage` is absent from the live
+  DB. The home card and the page both gate on it, AND the switch is enforced on
+  the server (`POST /api/amrita/card` answers 404 when off) so the one-click
+  take-down really closes the door. Her record lives in its own collection
+  `amritaGuests` and her coupon stays active and usable after the page is
+  removed — test C11 proves it.
+- **PRIVACY: her SBI account / branch / blocked status appear NOWHERE on the
+  page.** It is about the food and the thanks. Test A15 fails the build if the
+  page ever mentions her bank, a blocked account, a branch manager or an IFSC.
+  The page is kept out of sitemap.php and is never linked unconditionally.
+
+- **THE MONEY BUG (the real find of this session).** Every percent coupon in
+  this shop discounted the WHOLE order value — metal + stones + making. A coupon
+  written "20% off making charges" took 20% of the metal too. On a 1,00,000
+  order with 12,868 making that is 20,000 off instead of 2,400.
+  v184 adds `coupon_scope()` / `coupon_discount()`: `scope:'making'` slices the
+  making charges only and clamps to them; absent/`'all'` is byte-identical to
+  the old behaviour. Base is computed on the SERVER from the making charge the
+  server priced; `coupons/validate` and the order route call the SAME function
+  so the preview and the charge agree. Orders now record `couponScope`.
+- **RAKHI20 IS LIVE AND OVER-DISCOUNTING — FLAGGED, NOT SILENTLY FIXED.**
+  `active:true`, `expiresAt: none`, `scope: none`, note "Raksha Bandhan - 20% off
+  making charges, till 28 Aug". Raksha Bandhan 2026 was **Fri 28 Aug**; today is
+  **10 Oct** — 43 days past its own note's end date, because the date only ever
+  lived in the human-readable note. So an expired promotion is giving 20% off
+  the entire order value. **His data, his call.** Fix is one click: Admin ->
+  Coupons -> untick RAKHI20's Active box (v184 finally wires that checkbox up)
+  or use the new "Fix what a coupon takes off" form to set Making charges only.
+  Belt test C15 reproduces this exact shape and proves the fix.
+- **A REAL BUG FIXED ON THE WAY: `cms/sw.js` DID NOT PARSE.** The v183 changelog
+  entry had been inserted AFTER the comment block's closing marker, making the
+  whole service worker a syntax error. A worker that cannot parse never
+  registers -> the offline shell and every release announcement were silently
+  dead, and nothing ran `node --check` on it. Had v183 shipped, the site would
+  have lost its offline shell and its "always the latest" mechanism. Fixed, and
+  belt test A03 now runs `node --check cms/sw.js` every run.
+- **v183-php-run X01 given a `rel >= 183` floor** (same treatment v182 P01 had)
+  so a stamp-exact suite stops reddening every later release.
+
+- **Verification (run it: `cd tools/mega/smoke && npm ci && npm test`):**
+  deploy gate 20/20 - **v184-check 15/15 (new)** - **v184-php-run 18/18 (new,
+  executed PHP 8.3)** - v183-php 9/9 - v182-php 9/9 - v181-php 6/6 - v180-php
+  8/8 - v179-php 25/25 - v169 pages 25/25 + PHP 28/28 - v168 39/39 + N40 12/12.
+  `v179-relay` 0/7 is PRE-EXISTING and unrelated (needs live Angel One
+  credentials + network). v183/v182/v181/v180-check SKIP on this tree by design
+  (stamp-exact probes; their content re-runs in the chain).
+- **Full runbook: `DEPLOY-v184.md`.** Human-only steps left: tick the switch in
+  Admin -> Settings, open `#/amrita` ON A PHONE (no browser in this sandbox, so
+  the animations are verified by code review + the reduced-motion guard, not by
+  eye), and walk it once with her own number for the OTP.
+
 ## SESSION INTAKE — v183 the Play Store release (9 Oct 2026, branch `arena/df056064-shivaa-ecom`)
 
 - **Live is 181** (owner-verified 25 Sep). **v182 is BUILT and GATED but never

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 183;
+const APP_REL = 184;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3306,6 +3306,19 @@ pages.home = async (view) => {
     </div>
   </section>
 
+  <!-- v184 · AMRITA JI'S PRIVATE THANK-YOU CARD — rendered only while the owner's
+       switch (settings.amritaPage) is ON. Switching it off removes this card and
+       closes the page itself; her saved details are never touched. -->
+  ${state.settings && state.settings.amritaPage ? `
+  <section class="container shv-amrita-entry" style="margin: 0 auto 20px;">
+    <a class="shv-amrita-entry-card rv" href="#/amrita">
+      <span class="shv-ae-badge">A thank-you, made by hand</span>
+      <b class="shv-ae-title">For Amrita ji</b>
+      <span class="shv-ae-sub">Mummy made something for you &mdash; and there is more where that came from.</span>
+      <span class="shv-ae-go">Open &rarr;</span>
+    </a>
+  </section>` : ''}
+
   <div class="catbar-outer">${catBarHTML()}</div>
 
   <section class="carousel-sec">
@@ -3509,6 +3522,266 @@ pages.home = async (view) => {
     const dx = (e.clientX / innerWidth - .5), dy = (e.clientY / innerHeight - .5);
     orbs.style.transform = `translate(${dx * -18}px, ${dy * -12}px)`;
   }, { passive: true });
+};
+
+
+/* ─────────── v184 · AMRITA JI'S PRIVATE THANK-YOU PAGE ───────────
+   A phone-first, temporary page for one guest. Five steps, in order:
+     1. how were the sandwiches?      (1–5 stars)
+     2. a reaction — a celebration on 5, a graceful thank-you on anything less
+     3. "the sandwiches were only a trailer" → pick what she would like next
+     4. confirm mobile number (the SAME OTP system every customer uses) + name
+     5. the card — a real coupon, 20% off making charges, number allotted by us
+
+   The page is dark by default: it only exists while settings.amritaPage is on.
+   With the switch off this function bounces to the home page and the server
+   refuses to mint any new card, so the owner's one click really does take the
+   page down — while her saved details and her coupon stay exactly as they are.
+   ───────────────────────────────────────────────────────────────── */
+pages.amrita = async (view) => {
+  if (!(state.settings && state.settings.amritaPage)) { location.hash = '#/'; return; }
+  const AM = { step: 1, stars: 0, dish: '', name: '', phone: '', sent: false, busy: false, card: null, already: false, err: '' };
+  const DISHES = [
+    { id: 'idli', emoji: '🥣', title: 'Idli Sambhar', sub: 'with special coconut chutney', art: 'am-d-idli' },
+    { id: 'dosa', emoji: '🫓', title: 'Special Veg-Cheese Dosa', sub: 'with 2 secret chutney recipes', art: 'am-d-dosa' },
+    { id: 'paneer', emoji: '🍛', title: 'Paneer Butter Masala', sub: 'with laccha paratha', art: 'am-d-paneer' },
+  ];
+  const dishById = id => DISHES.find(d => d.id === id) || null;
+  const say = (m, bad) => { AM.err = bad ? m : ''; const el = $('#amMsg'); if (el) { el.textContent = m || ''; el.className = 'am-msg' + (bad ? ' bad' : ''); } };
+  const go = n => { AM.step = n; AM.err = ''; render(); const v = $('#amRoot'); if (v) v.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
+
+  const stepStars = () => `
+    <div class="am-card am-hello">
+      <span class="am-kicker">A thank-you, made by hand</span>
+      <h1 class="am-h1">Namaste, <em>Amrita ji</em></h1>
+      <p class="am-p">Mummy made those <b>sandwiches</b> herself, early in the morning, so they would still be fresh when they reached you. She has been asking ever since whether you liked them.</p>
+      <p class="am-p am-ask">Would you tell us how they were?</p>
+      <div class="am-stars" id="amStars" role="group" aria-label="Rate the sandwiches from 1 to 5 stars">
+        ${[1,2,3,4,5].map(n => `<button type="button" class="am-star" data-n="${n}" aria-label="${n} star${n>1?'s':''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.5 6.1 20.6l1.2-6.5L2.5 9.5l6.6-.9z"/></svg></button>`).join('')}
+      </div>
+      <p class="am-hint" id="amStarHint">Tap a star</p>
+    </div>`;
+
+  const stepReact = () => {
+    const five = AM.stars === 5;
+    return `
+    <div class="am-card am-react ${five ? 'is-five' : 'is-warm'}">
+      ${five ? `<div class="am-confetti" id="amConfetti" aria-hidden="true">${Array.from({length:26},(_,i)=>`<i style="--i:${i}"></i>`).join('')}</div>
+      <div class="am-burst" aria-hidden="true"><span></span><span></span><span></span></div>` : ''}
+      <span class="am-kicker">${five ? 'She said yes' : 'Thank you for telling us'}</span>
+      <h1 class="am-h1">${five ? 'Five stars!' : 'Noted, with thanks'}</h1>
+      <p class="am-p">${five
+        ? 'Mummy will not say much &mdash; she will just go straight back to the kitchen. That is her way of being delighted.'
+        : 'Thank you for being honest. Mummy has already made a note of it, and she says she will get it exactly right next time.'}</p>
+      <div class="am-next">
+        <button class="btn btn-gold btn-lg" onclick="Shivaa.amGo(3)">${five ? 'See what is next &rarr;' : 'There is more, when you are ready &rarr;'}</button>
+      </div>
+    </div>`;
+  };
+
+  const stepMenu = () => `
+    <div class="am-card am-menu">
+      <span class="am-kicker">Between us</span>
+      <h1 class="am-h1">Those sandwiches were<br>just a <em>trailer</em>, mam.</h1>
+      <p class="am-p">If you liked them, here is the main feature. Tell us which one you would like, and mummy will start on it.</p>
+      <div class="am-dishes">
+        ${DISHES.map(d => `
+          <button type="button" class="am-dish ${AM.dish === d.id ? 'on' : ''}" data-dish="${d.id}" onclick="Shivaa.amDish('${d.id}')">
+            <span class="am-dish-art ${d.art}" aria-hidden="true"><i>${d.emoji}</i></span>
+            <span class="am-dish-body"><b>${d.title}</b><small>${d.sub}</small></span>
+            <span class="am-dish-tick" aria-hidden="true">✓</span>
+          </button>`).join('')}
+      </div>
+      <div class="am-next">
+        <button class="btn btn-gold btn-lg" id="amMenuGo" ${AM.dish ? '' : 'disabled'} onclick="Shivaa.amGo(4)">Confirm your details &rarr;</button>
+        ${AM.dish ? '' : '<p class="am-hint">Pick one above</p>'}
+      </div>
+    </div>`;
+
+  const stepDetails = () => `
+    <div class="am-card am-details">
+      <span class="am-kicker">Almost done</span>
+      <h1 class="am-h1">Please confirm your details</h1>
+      <p class="am-p">Add your <b>mobile number</b> and your <b>name</b> &mdash; that is all we need. Everything else is optional, and you can skip it entirely.</p>
+      <form class="am-form" id="amForm" onsubmit="Shivaa.amDetails(event)">
+        <label class="am-fld"><span>Mobile number</span>
+          <div class="am-fld-row">
+            <input id="amPhone" inputmode="numeric" autocomplete="tel" maxlength="13" placeholder="10-digit mobile" value="${esc(AM.phone)}" required>
+            <button type="button" class="btn btn-ghost btn-sm" id="amOtpBtn" onclick="Shivaa.amSendOtp()">${AM.sent ? 'Resend code' : 'Send code'}</button>
+          </div>
+        </label>
+        ${AM.sent ? `<label class="am-fld"><span>Code we just sent you</span>
+          <input id="amCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="4-digit code" required></label>` : ''}
+        <label class="am-fld"><span>Your name</span>
+          <input id="amName" autocomplete="name" maxlength="80" placeholder="e.g. Amrita Sharma" value="${esc(AM.name)}" required></label>
+        <div class="am-opt">
+          <b>Optional &mdash; only if you want to</b>
+          <label class="am-fld"><span>City / town</span><input id="amCity" maxlength="60" placeholder="Where are you"></label>
+          <label class="am-fld"><span>Any occasion coming up?</span><input id="amOcc" maxlength="60" placeholder="Birthday, anniversary, a wedding&hellip;"></label>
+        </div>
+        <button class="btn btn-gold btn-lg am-submit" type="submit">Get my card &rarr;</button>
+      </form>
+    </div>`;
+
+  const stepCard = () => {
+    const d = dishById(AM.dish);
+    return `
+    <div class="am-card am-card-done">
+      <div class="am-ticket">
+        <span class="am-ticket-kicker">A thank-you card from Shivaa</span>
+        <b class="am-ticket-code" id="amCardCode">${esc(AM.card || '')}</b>
+        <span class="am-ticket-for">${esc(AM.name || 'Amrita ji')}</span>
+        <div class="am-ticket-off">
+          <b>20% off</b>
+          <span>on making charges</span>
+        </div>
+        <div class="am-ticket-note">Allotted for you. Valid on your next order &mdash; once per customer, on this account only.</div>
+      </div>
+      <div class="am-done-rows">
+        <div class="am-done-row"><span>What you chose</span><b>${d ? esc(d.title) : ''}</b></div>
+        <div class="am-done-row"><span>Mummy is starting on</span><b>${d ? esc(d.sub.replace(/^with /, '')) : ''}</b></div>
+      </div>
+      <p class="am-p">Your card is saved to your account &mdash; it will be waiting at checkout, and in your account under Coupons. No need to write it down.</p>
+      <div class="am-next">
+        <a class="btn btn-gold btn-lg" href="#/shop">Have a look at the collection</a>
+        <a class="btn btn-ghost btn-lg" href="#/account">My account</a>
+      </div>
+      ${(state.user && state.user.role === 'admin') ? `
+      <div class="am-admin-strip" id="amAdminStrip">
+        <b>Owner controls</b>
+        <span>This is only visible to you. Switching the page off removes it from the website straight away &mdash; her details and her card are kept.</span>
+        <button class="btn btn-ghost btn-sm" onclick="Shivaa.amKill()">Remove this page from the website</button>
+      </div>` : ''}
+    </div>`;
+  };
+
+  const render = () => {
+    const body = AM.step === 1 ? stepStars() : AM.step === 2 ? stepReact() : AM.step === 3 ? stepMenu() : AM.step === 4 ? stepDetails() : stepCard();
+    view.innerHTML = `
+    <div class="am-wrap" id="amRoot">
+      <div class="am-glow" aria-hidden="true"></div>
+      <div class="am-inner">
+        <div class="am-brand"><img src="/images/logo.png" alt="Shivaa" loading="lazy"><span>Shivaa &middot; Jayal</span></div>
+        ${AM.err ? `<p class="am-msg bad" id="amMsg">${esc(AM.err)}</p>` : `<p class="am-msg" id="amMsg"></p>`}
+        ${body}
+        <p class="am-foot">Made for one guest, for a few days. Nothing here is shared with anyone else.</p>
+      </div>
+    </div>`;
+    if (AM.step === 1) wireStars();
+    if (AM.step === 2 && AM.stars === 5) fireConfetti();
+  };
+
+  const wireStars = () => {
+    const box = $('#amStars'); if (!box) return;
+    const hint = $('#amStarHint');
+    const words = ['', 'Not great', 'Could be better', 'It was nice', 'Really good', 'Perfect'];
+    const paint = n => box.querySelectorAll('.am-star').forEach((b, i) => b.classList.toggle('lit', i < n));
+    box.querySelectorAll('.am-star').forEach(btn => {
+      btn.addEventListener('mouseenter', () => paint(+btn.dataset.n));
+      btn.addEventListener('click', () => {
+        AM.stars = +btn.dataset.n;
+        paint(AM.stars);
+        if (hint) hint.textContent = words[AM.stars];
+        box.querySelectorAll('.am-star').forEach(b => b.classList.add('locked'));
+        setTimeout(() => go(2), 620);
+      });
+    });
+    box.addEventListener('mouseleave', () => paint(AM.stars));
+  };
+
+  /* Celebration. Pure CSS, and it never runs when the phone asks for reduced
+     motion — the step-2 message alone carries the moment in that case. */
+  const fireConfetti = () => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const box = $('#amConfetti'); if (!box) return;
+    box.querySelectorAll('i').forEach(el => {
+      el.style.left = (Math.random() * 100).toFixed(2) + '%';
+      el.style.animationDelay = (Math.random() * 1.4).toFixed(2) + 's';
+      el.style.animationDuration = (2.2 + Math.random() * 1.6).toFixed(2) + 's';
+      el.style.setProperty('--x', (Math.random() * 80 - 40).toFixed(1) + 'px');
+    });
+    box.classList.add('go');
+    setTimeout(() => box.classList.remove('go'), 4200);
+  };
+
+  window.Shivaa.amGo = n => go(n);
+
+  window.Shivaa.amDish = id => {
+    AM.dish = id;
+    const chosen = dishById(id);
+    view.querySelectorAll('.am-dish').forEach(el => el.classList.toggle('on', el.dataset.dish === id));
+    const goBtn = $('#amMenuGo'); if (goBtn) goBtn.disabled = false;
+    const hint = view.querySelector('.am-menu .am-next .am-hint'); if (hint) hint.remove();
+    if (chosen) say(`${chosen.title} &mdash; noted. Mummy is already smiling.`);
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const el = view.querySelector('.am-dish.on .am-dish-art'); if (el) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+    }
+  };
+
+  window.Shivaa.amSendOtp = async () => {
+    const phone = ($('#amPhone').value || '').replace(/\D/g, '').slice(-10);
+    if (!/^[6-9]\d{9}$/.test(phone)) return say('Enter a valid 10-digit mobile number.', true);
+    AM.phone = phone;
+    const btn = $('#amOtpBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    say('Sending the code…');
+    try {
+      const r = await api('/api/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
+      AM.sent = true;
+      say(r.message || 'Code sent.');
+      render(); const c = $('#amCode'); if (c) c.focus();
+    } catch (e) { say(e.message, true); }
+    finally { const b2 = $('#amOtpBtn'); if (b2) { b2.disabled = false; b2.textContent = AM.sent ? 'Resend code' : 'Send code'; } }
+  };
+
+  window.Shivaa.amDetails = async e => {
+    e.preventDefault();
+    if (AM.busy) return;
+    const phone = ($('#amPhone').value || '').replace(/\D/g, '').slice(-10);
+    const code = ($('#amCode').value || '').replace(/\D/g, '');
+    const name = ($('#amName').value || '').trim();
+    if (!/^[6-9]\d{9}$/.test(phone)) return say('Enter a valid 10-digit mobile number.', true);
+    if (!/^\d{4,6}$/.test(code)) return say('Enter the code we sent you.', true);
+    if (!name) return say('Please add your name.', true);
+    if (!AM.dish) return say('Please choose what you would like next.', true);
+    AM.busy = true; AM.phone = phone; AM.name = name;
+    const btn = view.querySelector('.am-submit'); if (btn) { btn.disabled = true; btn.textContent = 'One moment…'; }
+    say('Checking your number…');
+    try {
+      // The same OTP door every retail customer walks through. An existing
+      // account signs in; a brand-new number registers with name + phone only
+      // (email and password stay optional, exactly as the site always has).
+      let token = null, user = null;
+      try {
+        const li = await api('/api/auth/otp-login', { method: 'POST', body: JSON.stringify({ phone, code }) });
+        token = li.token; user = li.user;
+      } catch (err) {
+        if (!(err && err.status === 404)) throw err;
+        const reg = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ name, phone }) });
+        token = reg.token; user = reg.user;
+      }
+      setToken(token); state.user = user;
+      say('Preparing your card…');
+      const r = await api('/api/amrita/card', { method: 'POST', body: JSON.stringify({ phone, name, stars: AM.stars, dish: AM.dish }) });
+      AM.card = r.card; AM.already = !!r.already;
+      go(5);
+    } catch (err) { say(err.message, true); const b2 = view.querySelector('.am-submit'); if (b2) { b2.disabled = false; b2.textContent = 'Get my card &rarr;'; } }
+    finally { AM.busy = false; }
+  };
+
+  /* The one-click take-down. Flipping the switch off hides the home card, sends
+     this page home, and makes the server refuse any further card — while her
+     amritaGuests record and the coupon she was issued stay untouched. */
+  window.Shivaa.amKill = async () => {
+    const btn = $('#amAdminStrip button'); if (btn) btn.disabled = true;
+    try {
+      const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ amritaPage: false }) });
+      state.settings = Object.assign(state.settings || {}, s);
+      say('Page removed. Her details and her card are kept.');
+      setTimeout(() => { location.hash = '#/'; }, 900);
+    } catch (err) { say(err.message, true); if (btn) btn.disabled = false; }
+  };
+
+  render();
 };
 
 /* ─────────── SHOP ─────────── */
@@ -5226,6 +5499,11 @@ pages.checkout = async (view) => {
   }
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
+  /* v184 — the making-charge part of the bag, computed the same way the server
+     computes it. A coupon that says "off making charges" is priced against
+     THIS, not against the whole subtotal — the server decides the number, this
+     only lets the checkout show the same number before the order is placed. */
+  const makingTotal = items.reduce((a, it) => a + price(it.p).makingCharge * it.qty, 0);
   const freeShip = subtotal >= state.settings.freeShipAbove;
   /* ═══ v139 · ADDRESS PREFILL ═══
      The shop has kept an address book since v84 (/api/addresses, and the
@@ -5318,7 +5596,7 @@ pages.checkout = async (view) => {
      the +/-2% band at submit, so a stale or hand-edited lock can never make
      the shop sell below the band. */
   const LOCKSEC = () => Math.max(300, Math.min(3600, ((window._co && window._co.lockMinutes) || 20) * 60));
-  window._co = { subtotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online', lockMinutes: (payCfg && payCfg.lockMinutes) || 20 };
+  window._co = { subtotal, makingTotal, freeShip: subtotal >= state.settings.freeShipAbove, coupon: null, disc: 0, items, rateLock: null, lockTimer: null, payCfg, payMethod: 'Online', lockMinutes: (payCfg && payCfg.lockMinutes) || 20 };
   try {
     const savedLock = JSON.parse(localStorage.getItem('shv_rate_lock') || 'null');
     if (savedLock && savedLock.stampedAt && savedLock.rates &&
@@ -5476,10 +5754,16 @@ window.Shivaa.applyCoupon = async () => {
   const msg = $('#couponMsg');
   if (!code) return;
   try {
-    const c = await api('/api/coupons/validate', { method: 'POST', body: JSON.stringify({ code, amount: window._co.subtotal }) });
+    const c = await api('/api/coupons/validate', { method: 'POST', body: JSON.stringify({ code, amount: window._co.subtotal, makingTotal: window._co.makingTotal }) });
     window._co.coupon = c.code;
-    window._co.disc = c.type === 'percent' ? Math.round(window._co.subtotal * c.value / 100) : c.value;
-    msg.style.color = 'var(--ok)'; msg.textContent = `✓ ${esc(c.code)} applied — you save ${fmt(window._co.disc)}`;
+    /* v184 — the server owns this number. It used to be recomputed here as
+       `subtotal x value%`, which is right for a whole-order coupon and wrong
+       for one scoped to making charges: the preview promised more than the
+       order route would give. Now both read the same server arithmetic. */
+    window._co.disc = Number.isFinite(+c.discount) ? +c.discount : (c.type === 'percent' ? Math.round(window._co.subtotal * c.value / 100) : c.value);
+    msg.style.color = 'var(--ok)';
+    msg.textContent = `✓ ${esc(c.code)} applied — you save ${fmt(window._co.disc)}`
+      + (c.scope === 'making' ? ` (20% of the ₹${fmt(c.discountBase)} making charges on this bag)` : '');
   } catch (e) { window._co.coupon = null; window._co.disc = 0; msg.style.color = 'var(--bad)'; msg.textContent = e.message; }
   window.Shivaa.updateCheckout();
 };

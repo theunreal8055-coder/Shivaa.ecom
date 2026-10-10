@@ -1,3 +1,64 @@
+## v184 BUILT — Amrita ji's private page + the "off making charges" fix (10 Oct 2026): live stays 181
+
+Two things, both gated behind the owner's yes.
+
+**1. A private, phone-first page for one guest — `#/amrita`**
+
+Five steps, in the order she meets them: rate the sandwiches **1-5 stars** -> on
+5 stars a full celebration (confetti, gold flare, the card lighting up), on
+anything less a warm thank-you that never scolds her -> *"those sandwiches were
+just a trailer, mam"* and three dishes to choose from (idli sambhar with special
+coconut chutney / special veg-cheese dosa with 2 secret chutney recipes / paneer
+butter masala with laccha paratha), each with its own tap animation -> her
+**mobile number + OTP** through the **same system every retail customer uses**,
+plus her name, with everything else explicitly optional -> a card for **20% off
+making charges** carrying a **system-allotted** number.
+
+- **It is dark by default.** `settings.amritaPage` is absent from the live DB.
+  The home card and the page both check it, and the **switch is enforced on the
+  server** (`POST /api/amrita/card` answers 404 while it is off), so the
+  one-click take-down really closes the door rather than hiding a link.
+- **Her details survive the page.** They live in their own collection
+  (`amritaGuests`), and the coupon she was issued stays active and usable.
+- **Her bank is nowhere on the page.** It is about the food and the thanks.
+- **Turn it on:** Admin -> Settings -> "Amrita ji's thank-you page" -> Save.
+  **Take it down:** the same box, or the one-click button at the foot of the page
+  itself (visible only while you are logged in as admin).
+
+**2. A money bug — "off making charges" used to mean "off everything"**
+
+Every percent coupon discounted the **whole order value**. A coupon written "20%
+off making charges" took 20% of the metal as well: **₹20,000 off a ₹1,00,000
+order instead of ₹2,400.** v184 lets a coupon declare `scope: 'making'`, which
+slices the making charges only and clamps to them. Absent or `'all'` behaves
+exactly as before, so nothing already stored changes. The base is computed on the
+server and the checkout preview and the order route call the same function, so
+the number she is shown and the number she is charged are finally the same.
+
+**⚠ NEEDS YOUR DECISION — `RAKHI20` is live and over-discounting.**
+
+`active: true`, **no `expiresAt`**, **no `scope`**, note *"Raksha Bandhan — 20%
+off making charges, till 28 Aug"*. Raksha Bandhan 2026 was **Friday 28 August**;
+today is 10 October — **43 days past** the date in its own note, because that
+date only ever lived in the note and never in a field the site can read. So an
+expired promotion is giving **20% off the entire order value**. **I have not
+touched it — it is your data and your call.** One click: Admin -> Coupons ->
+untick `RAKHI20`'s Active box (v184 wires that checkbox up for the first time),
+or use the new "Fix what a coupon takes off" form to set *Making charges only*.
+
+**Also fixed:** `cms/sw.js` **did not parse** — the v183 changelog entry had been
+inserted after the comment block's closing marker, so the whole service worker
+was a syntax error and never registered. The offline shell and every release
+announcement were silently dead. Fixed, and the belt now runs `node --check` on
+the worker every time.
+
+**Belt:** deploy gate 20/20 - v184-check 15/15 (new) - v184-php-run 18/18 (new,
+executed PHP) - v183-php 9/9 - v182-php 9/9 - v181-php 6/6 - v180-php 8/8 -
+v179-php 25/25 - v169 25/25 + 28/28 - v168 39/39 + N40 12/12. `v179-relay` 0/7
+is pre-existing and unrelated. Full runbook: **`DEPLOY-v184.md`**.
+
+---
+
 ## v183 BUILT — the Play Store release (9 Oct 2026): live stays 181, install v183
 
 Shivaa goes to Google Play as a **Trusted Web Activity** of `shivaa.in`. The PWA
