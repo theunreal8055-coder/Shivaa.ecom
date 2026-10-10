@@ -28,8 +28,9 @@ import shutil
 import sys
 import tempfile
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
-
+# Imported lazily inside the builders: `--check` only reads file sizes, and a
+# machine that has not installed Pillow yet must still be able to ask what is
+# missing.
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))          # repo root
 CMS = os.path.join(ROOT, 'cms')
@@ -67,6 +68,7 @@ def ttf(name, cache):
 
 
 def font(cache, name, size):
+    from PIL import ImageFont
     return ImageFont.truetype(ttf(name, cache), size)
 
 
@@ -87,6 +89,7 @@ def tracked_width(draw, text, f, tracking=0.0):
 
 def radial_glow(size, centre, radius, colour, strength=1.0):
     """A soft elliptical light source, built once and composited over the field."""
+    from PIL import Image, ImageDraw, ImageFilter
     w, h = size
     layer = Image.new('L', (w, h), 0)
     d = ImageDraw.Draw(layer)
@@ -103,6 +106,7 @@ def radial_glow(size, centre, radius, colour, strength=1.0):
 
 def maroon_field(size, glow=None):
     """The site's own background: deep maroon, warmer toward the top."""
+    from PIL import Image, ImageDraw
     w, h = size
     img = Image.new('RGB', (w, h), MAROON_DEEP)
     d = ImageDraw.Draw(img)
@@ -121,6 +125,7 @@ def maroon_field(size, glow=None):
 
 def build_icon(cache):
     """512x512 Play icon: the manifest emblem, full-bleed, no rounded corners."""
+    from PIL import Image
     src = Image.open(ICON).convert('RGBA')
     if src.size != (512, 512):
         src = src.resize((512, 512), Image.LANCZOS)
@@ -134,6 +139,7 @@ def build_icon(cache):
 
 def build_feature_graphic(cache):
     """1024x500 feature graphic - the brand wordmark over its own maroon field."""
+    from PIL import Image, ImageDraw
     W, H = 1024, 500
     img = maroon_field((W, H), glow=((W // 2, 168), 430, (90, 26, 30), 1.0))
     d = ImageDraw.Draw(img)
@@ -163,6 +169,7 @@ def build_feature_graphic(cache):
 
 def build_adaptive(cache):
     """432x432 launcher layers - emblem inside the 66% adaptive safe zone."""
+    from PIL import Image, ImageDraw
     S = 432
     fg = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     emblem = Image.open(ICON).convert('RGBA')
@@ -202,6 +209,7 @@ def build_screenshots(cache):
         if old.endswith('.png'):
             os.remove(os.path.join(dst_dir, old))
 
+    from PIL import Image, ImageDraw
     W, H = 1080, 1920
     made = []
     for i, name in enumerate(raws, 1):
