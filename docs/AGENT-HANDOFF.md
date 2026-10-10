@@ -1,6 +1,159 @@
-# AGENT HANDOFF — v182 BUILT (Auto-Catalogue Phase 4 + Billing Bridge); v181 LIVE ON HOSTINGER (25 Sep 2026)
+# AGENT HANDOFF — v184 BUILT: Amrita ji's private page + the "off making charges" money fix; LIVE STAYS 181 (10 Oct 2026)
 
-## CURRENT STATE — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
+## CURRENT STATE — v184 BUILT: Amrita ji's page + the making-charge coupon fix (10 Oct 2026)
+
+- **Live is 181. v182, v183 and v184 are all BUILT, GATED and NEVER DEPLOYED.**
+  Forward-only from **184**. **Nothing here is live, and nothing goes live
+  without the owner's explicit yes — a push or a merge is not approval.**
+- **The work order (verbatim intent):** a **phone-first, temporary, private
+  page for one person** — Amrita Ji, the SBI Jayal branch manager. Shipped as
+  `#/amrita`, five steps in order: (1) rate the sandwiches 1-5 stars; (2) a
+  celebration on 5 stars that degrades gracefully on anything less; (3) *"those
+  sandwiches were just a trailer, mam"* + three dishes to choose from, each with
+  its own tap animation; (4) mobile + OTP — **the existing retail OTP system** —
+  plus name, everything else explicitly optional; (5) a card for **20% off
+  making charges** with a **system-allotted** number.
+- **It is dark by default and the kill switch is server-enforced.**
+  `settings.amritaPage` is absent from the live DB. The home card and the page
+  both gate on it, and `POST /api/amrita/card` answers **404** while it is off —
+  so the owner's one click really closes the door instead of hiding a link. Her
+  record lives in its own collection `amritaGuests`; removing the page never
+  deletes her details or disables the coupon she was issued (belt test C11).
+- **Privacy:** her SBI account, branch and blocked status appear **nowhere** on
+  the page — it is about the food and the family's thanks. Belt test A15 fails
+  the build if the page ever mentions her bank, a blocked account, a branch
+  manager or an IFSC code. The page is not in `sitemap.php` and is never linked
+  unconditionally.
+- **THE MONEY FIX.** Every percent coupon used to discount the **whole order
+  value** — metal + stones + making. A coupon written "20% off making charges"
+  took 20% of the metal too (₹20,000 off a ₹1,00,000 order instead of ₹2,400).
+  v184 adds `coupon_scope()` / `coupon_discount()` in `api.php`: `scope:'making'`
+  slices the making charges only and clamps to them; absent or `'all'` is
+  byte-identical to the old behaviour. The base is computed **on the server**
+  from the making charge the server itself priced, and `coupons/validate` and the
+  order route call the **same** function, so the checkout preview and the amount
+  charged can no longer disagree. Orders record `couponScope`.
+- **RAKHI20 IS LIVE AND OVER-DISCOUNTING — FLAGGED TO THE OWNER, NOT SILENTLY
+  CHANGED.** `active:true`, no `expiresAt`, no `scope`, note *"Raksha Bandhan —
+  20% off making charges, till 28 Aug"*. Raksha Bandhan 2026 was **Fri 28 Aug**;
+  today is 10 Oct, **43 days past** the date in its own note, because that date
+  only ever lived in the human-readable note. So an expired promotion is giving
+  20% off the entire order value. It is his data and his call. The fix is one
+  click in Admin -> Coupons (v184 finally wires the previously-decorative
+  **Active** checkbox to a real `PUT /api/coupons/{id}` route and adds a
+  **"Takes off"** column plus a fix form). Belt test C15 reproduces this exact
+  coupon shape and proves the correction.
+- **A REAL BUG FIXED ON THE WAY: `cms/sw.js` DID NOT PARSE.** The v183 changelog
+  entry had been inserted *after* the comment block's closing marker, turning the
+  entire service worker into a syntax error. A worker that cannot parse never
+  registers, so the offline shell and every release announcement were silently
+  dead — and nothing ran `node --check` on it. Had v183 been deployed, the site
+  would have lost its offline shell and its "always the latest version"
+  mechanism. Fixed; belt test **A03** now runs `node --check cms/sw.js` every
+  run so it cannot recur.
+- **Verification:** deploy gate 20/20 - **v184-check 15/15 (new)** -
+  **v184-php-run 18/18 (new, executed PHP 8.3)** - v183-php 9/9 - v182-php 9/9 -
+  v181-php 6/6 - v180-php 8/8 - v179-php 25/25 - v169 25/25 + 28/28 - v168
+  39/39 + N40 12/12. `v179-relay` 0/7 is **pre-existing and unrelated** (needs
+  live Angel One credentials + network). The v183/v182/v181/v180 `-check` suites
+  SKIP on this tree by design (stamp-exact probes whose content re-runs in the
+  chain). Full runbook: **`DEPLOY-v184.md`**.
+
+## HISTORY — v183 BUILT: Shivaa on Google Play as a Trusted Web Activity (9 Oct 2026)
+
+- **The owner's work order: "we are launching an app today on Playstore."** The
+  answer delivered: a **Trusted Web Activity** of `shivaa.in`. The site already
+  shipped the entire PWA substrate (standalone manifest, service worker with an
+  offline shell, 192/512 + maskable icons, the v178 in-footer install band), so
+  this is the cheap, honest route — one codebase, and every website release is an
+  app-content release with no Play upload.
+- **Live is 181** (owner-verified 25 Sep). **v182 is BUILT and GATED but was
+  never deployed**, so v183 ships as a **superset of v182** and the owner installs
+  v183 in its place. Forward-only from **183**; never deploy below it.
+- **The web side (new files, inside the ZIP):**
+  - `cms/.well-known/assetlinks.json` — the Digital Asset Links file Google
+    fetches to prove the app owns the domain. Ships with two clearly-marked
+    fingerprint placeholders; the owner pastes the real ones after
+    `bubblewrap fingerprint` (and after Google shows the Play App Signing key)
+    and re-deploys. **This is the step that turns a browser-tab-in-a-window into
+    a real full-screen app.**
+  - `cms/.well-known/.htaccess` — **TRAP FOUND AND FIXED:** the parent
+    `cms/.htaccess` denies every `*.json` (correctly — it protects `db.json`),
+    which 403s exactly the file Google needs, and Play then reports "your app is
+    not linked to your website". A `.htaccess` in a **deeper** directory is merged
+    **after** its parent, so `Require all granted` there wins. The host's own
+    `.htaccess` is untouched (house law: never overwrite it wholesale).
+  - `"id": "/"` in **both** `manifest.json` and `manifest.webmanifest`, so the
+    installed PWA and the Play app are one identity.
+  - `sitemap.php` now lists `/#/delete-account`.
+- **The real Play blocker, found and built: in-app account deletion.** Play's User
+  Data policy requires deletion inside the app for any app that allows accounts,
+  plus a web URL that does the same. Before v183 the only path was emailing the
+  Grievance Officer, which Play does not accept.
+  - `POST /api/auth/delete-account`: a live session **or** a freshly verified OTP
+    for the registered mobile (never an email alone), an explicit "type DELETE"
+    confirmation, `rate_block` per connection **and** per number, admin and B2B
+    partner accounts refused.
+  - It **anonymises** the row with exactly the field set `admin/user-data/*/
+    /anonymize` has used since v86, and revokes every login token. Order, invoice
+    and KYC rows survive — DPDPA section 6 of the privacy policy already promises
+    tax and PMLA retention, so the app must not pretend otherwise. **Never a hard
+    row delete.**
+  - **Two bugs the executed PHP suite caught that a parser pass never would:**
+    (1) the OTP must be verified **against the code itself** — the erasure page
+    never calls `/auth/otp-login`, so requiring a record some other route had
+    already marked `verified` left the logged-out path dead; (2) wrong code and
+    unknown number must return one **byte-identical** answer, or the route is an
+    account-enumeration oracle on a 4-digit code.
+  - UI: "Privacy & my data" page (`#/delete-account`) plus a danger tile on the
+    account screen.
+- **Stamps 182 → 183 lockstep** (`__SHIVAA_REL=183`, `APP_REL = 183`,
+  `shivaa-shell-v183`, `REL=183`, `'rel' => 183`), 56 `?v=183` in `index.html`,
+  51 in `sw.js`; **MEDIA stays `shivaa-media-v168`** (no media changed).
+- **Belt at close: 190 checks passing** — deploy gate 20 · v183-check 9 ·
+  v183-php-run 9 · v182-php 9 · v181-php 6 · v180-php 8 · v179-php 25 · v169
+  pages 25 · v169 PHP 28 · v168 boundaries 39 + N40 12 — **re-run against the
+  extracted ZIP bytes**, not just the source tree. `v182-php-run` P01 was made
+  forward-tolerant (`rel >= 182` floor) so a stamp-exact assertion cannot redden
+  every later release. **v179-relay fails 7/7 in this sandbox, identically on the
+  pristine HEAD tree** (proved with a clean worktree) — pre-existing, unrelated to
+  v183, and the relay is not deployed.
+- **Package:** `shivaa-update-v183.zip`, 11 files, 463,159 bytes, SHA-256
+  `e05f3146e1f7f6329bf984a598f35054ab91dca1ed0699bb51c796c0e9940670`, source
+  `295c2a68`. Builder `tools/mega/make-v183-zip.py` asserts every v182 invariant
+  plus the Play substrate and refuses to ship credential material. Record:
+  `DEPLOY-v183.md`.
+- **The launch kit is `playstore/`** — `README.md` (the whole plan in order, with
+  the two gates), `CHECKLIST.md` (tick-box runbook), `listing.md` (paste-ready
+  listing copy and every App-content answer, each traced to the code that proves
+  it), `twa-manifest.json`, `assetlinks.json`, `htaccess-wellknown.txt`,
+  `graphics/` (icon, 1024×500 feature graphic, adaptive layers, screenshot
+  framer — built from the repository's own brand art, never fabricated UI),
+  `screenshots/CAPTURE.md`, and `verify.mjs` (17 offline checks; exit 2 = still
+  waiting on the owner, exit 1 = actually broken).
+- **Facts verified live rather than from memory:** Play requires **target API 36
+  (Android 16)** for every new app since **31 Aug 2026** — Bubblewrap 1.26's own
+  template already sets `compileSdkVersion 36` / `targetSdkVersion 36`, so nothing
+  needs patching. And a **personal developer account created after 13 Nov 2023
+  must run a closed test with 12 testers opted in for 14 continuous days** before
+  production access; new accounts also need identity verification. That is the
+  honest answer to "today": build, sign, upload and self-install today, and the
+  public listing is ~3 weeks away on that account type. Organisation accounts and
+  older personal accounts with an app in production are exempt.
+- **Not done, on purpose:** no AAB was built or signed (the sandbox has no JDK, no
+  Android SDK and no route to `dl.google.com`), no live site was probed, and no
+  screenshot was invented. The keystore stays on the owner's machine;
+  `.gitignore` blocks `*.keystore`, `*.jks`, `*.p12`, `*.pfx` and `playstore/twa/`.
+- **Open item for the owner:** the app has **user-generated content** (customers
+  post product reviews via `POST /api/reviews`), so Play expects a way to report
+  objectionable content. There is no in-app report button yet — either build one
+  or take reviews off the app's public surfaces. Do **not** answer "no UGC".
+
+## HISTORY — v182 BUILT: Auto-Catalogue Intake & Review Queue (Phase 4) + Billing Sync Bridge (25 Sep 2026)
+
+> v182 was built and gated but **never deployed** (live stayed 181). v183 ships as
+> a superset of it, so the owner installs v183 in its place. Kept below as the
+> build record for the catalogue-intake and billing-bridge work.
 
 - **LIVE IS 181 (VERIFIED 25 Sep 2026):** `https://shivaa.in/api/version` →
   `rel:181`, `stamp.matched:true`, `db.driver/mode:"mysql"`, 78 products,

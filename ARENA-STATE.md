@@ -1,6 +1,35 @@
 # ARENA-STATE — the continuity contract (read this first, every chat)
 
-## Current Build & Live Status — v182 built (Auto-Catalogue Phase 4 + Billing Bridge); v181 live on Hostinger (25 Sep 2026)
+## Current Build & Live Status — v184 built (Amrita ji's page + making-charge coupon fix); v181 live on Hostinger (25 Sep 2026)
+
+- **LIVE SITE IS 181 (VERIFIED 25 Sep 2026).** v182, v183 and v184 are all
+  **BUILT, GATED and NEVER DEPLOYED.** Forward-only from **184**. **Nothing here
+  is live and nothing goes live without the owner's explicit yes — a push or a
+  merge is not deployment approval.**
+- **v184 (this session):** `#/amrita`, a phone-first, private, temporary page for
+  one guest (Amrita Ji). Five steps — stars, a celebration that degrades
+  gracefully, the "sandwiches were just a trailer" reveal with three dishes,
+  mobile + OTP through the existing retail system + name, then a card for 20%
+  off making charges with a system-allotted number. **Dark by default**
+  (`settings.amritaPage`), with the switch **enforced server-side** so the
+  one-click take-down really stops the page; her details live in `amritaGuests`
+  and survive it. Her bank account appears nowhere on the page.
+- **The money fix:** a percent coupon could only ever discount the whole order
+  value, so "20% off making charges" took 20% of the metal too. `scope:'making'`
+  now exists; absent/`'all'` is unchanged. Server-computed base, shared by the
+  checkout preview and the order route.
+- **⚠ RAKHI20 IS LIVE AND OVER-DISCOUNTING — flagged, not silently changed.**
+  Active, no `expiresAt`, no `scope`, note says "till 28 Aug" — and Raksha Bandhan
+  2026 was 28 Aug, 43 days ago. An expired promotion is giving 20% off the whole
+  order value. Owner's call; one click in Admin -> Coupons (v184 wires the Active
+  checkbox and adds a scope fix form).
+- **A real bug fixed:** `cms/sw.js` did not parse (a stray comment-closer in the
+  v183 changelog), so the service worker never registered — the offline shell and
+  release announcements were dead. Fixed; the belt now `node --check`s the worker.
+- **Belt:** 20 + 15 + 18 + 9 + 9 + 6 + 8 + 25 + 25 + 28 + 39 + 12 passing;
+  `v179-relay` 0/7 pre-existing and unrelated. Runbook: `DEPLOY-v184.md`.
+
+## HISTORY — v182 built (Auto-Catalogue Phase 4 + Billing Bridge); v181 live on Hostinger (25 Sep 2026)
 
 - **LIVE SITE IS 181 (VERIFIED 25 Sep 2026):** probed `https://shivaa.in/api/version`
   → `rel: 181, stamp.matched: true, db.driver/mode: "mysql", sqlCount: 78,

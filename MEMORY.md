@@ -1,5 +1,142 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## SESSION INTAKE — v184 Amrita ji's page + the "off making charges" money fix (10 Oct 2026, branch `arena/df056064-shivaa-ecom`)
+
+- **Live is 181. v182/v183 BUILT, GATED, NEVER DEPLOYED. v184 BUILT, GATED,
+  NEVER DEPLOYED.** Forward-only from 184. **Nothing here is live and nothing
+  goes live without the owner's explicit yes — a push/merge is not approval.**
+- **THE WORK ORDER: "a page for Amrita ji… she is the SBI Jayal branch manager,
+  her account was blocked on 1 Oct, and the family sent sandwiches made by
+  mummy."** Delivered as `#/amrita`, five steps: stars (1-5) -> a celebration on
+  5 that degrades gracefully on less -> "those sandwiches were just a trailer,
+  mam" + 3 dishes (idli sambhar / veg-cheese dosa + 2 secret chutneys / paneer
+  butter masala + laccha partha), each with its own tap animation -> mobile +
+  OTP (**the same retail OTP door**, `auth/send-otp` -> `auth/otp-login` ->
+  `auth/register` for a new number) + name, everything else explicitly optional
+  -> a card for **20% off making charges** with a **system-allotted** number.
+- **THE PAGE IS DARK BY DEFAULT.** `settings.amritaPage` is absent from the live
+  DB. The home card and the page both gate on it, AND the switch is enforced on
+  the server (`POST /api/amrita/card` answers 404 when off) so the one-click
+  take-down really closes the door. Her record lives in its own collection
+  `amritaGuests` and her coupon stays active and usable after the page is
+  removed — test C11 proves it.
+- **PRIVACY: her SBI account / branch / blocked status appear NOWHERE on the
+  page.** It is about the food and the thanks. Test A15 fails the build if the
+  page ever mentions her bank, a blocked account, a branch manager or an IFSC.
+  The page is kept out of sitemap.php and is never linked unconditionally.
+
+- **THE MONEY BUG (the real find of this session).** Every percent coupon in
+  this shop discounted the WHOLE order value — metal + stones + making. A coupon
+  written "20% off making charges" took 20% of the metal too. On a 1,00,000
+  order with 12,868 making that is 20,000 off instead of 2,400.
+  v184 adds `coupon_scope()` / `coupon_discount()`: `scope:'making'` slices the
+  making charges only and clamps to them; absent/`'all'` is byte-identical to
+  the old behaviour. Base is computed on the SERVER from the making charge the
+  server priced; `coupons/validate` and the order route call the SAME function
+  so the preview and the charge agree. Orders now record `couponScope`.
+- **RAKHI20 IS LIVE AND OVER-DISCOUNTING — FLAGGED, NOT SILENTLY FIXED.**
+  `active:true`, `expiresAt: none`, `scope: none`, note "Raksha Bandhan - 20% off
+  making charges, till 28 Aug". Raksha Bandhan 2026 was **Fri 28 Aug**; today is
+  **10 Oct** — 43 days past its own note's end date, because the date only ever
+  lived in the human-readable note. So an expired promotion is giving 20% off
+  the entire order value. **His data, his call.** Fix is one click: Admin ->
+  Coupons -> untick RAKHI20's Active box (v184 finally wires that checkbox up)
+  or use the new "Fix what a coupon takes off" form to set Making charges only.
+  Belt test C15 reproduces this exact shape and proves the fix.
+- **A REAL BUG FIXED ON THE WAY: `cms/sw.js` DID NOT PARSE.** The v183 changelog
+  entry had been inserted AFTER the comment block's closing marker, making the
+  whole service worker a syntax error. A worker that cannot parse never
+  registers -> the offline shell and every release announcement were silently
+  dead, and nothing ran `node --check` on it. Had v183 shipped, the site would
+  have lost its offline shell and its "always the latest" mechanism. Fixed, and
+  belt test A03 now runs `node --check cms/sw.js` every run.
+- **v183-php-run X01 given a `rel >= 183` floor** (same treatment v182 P01 had)
+  so a stamp-exact suite stops reddening every later release.
+
+- **Verification (run it: `cd tools/mega/smoke && npm ci && npm test`):**
+  deploy gate 20/20 - **v184-check 15/15 (new)** - **v184-php-run 18/18 (new,
+  executed PHP 8.3)** - v183-php 9/9 - v182-php 9/9 - v181-php 6/6 - v180-php
+  8/8 - v179-php 25/25 - v169 pages 25/25 + PHP 28/28 - v168 39/39 + N40 12/12.
+  `v179-relay` 0/7 is PRE-EXISTING and unrelated (needs live Angel One
+  credentials + network). v183/v182/v181/v180-check SKIP on this tree by design
+  (stamp-exact probes; their content re-runs in the chain).
+- **Full runbook: `DEPLOY-v184.md`.** Human-only steps left: tick the switch in
+  Admin -> Settings, open `#/amrita` ON A PHONE (no browser in this sandbox, so
+  the animations are verified by code review + the reduced-motion guard, not by
+  eye), and walk it once with her own number for the OTP.
+
+## SESSION INTAKE — v183 the Play Store release (9 Oct 2026, branch `arena/df056064-shivaa-ecom`)
+
+- **Live is 181** (owner-verified 25 Sep). **v182 is BUILT and GATED but never
+  deployed** — so v183 is published as a **superset of v182** and the owner
+  installs v183 instead of v182. Forward-only from 183; 181 stays the live floor.
+- **The work order: "we are launching an app today on Playstore."** Answer on
+  record: the app is a **Trusted Web Activity** of `shivaa.in` — the PWA already
+  ships the whole substrate (manifest, service worker, offline shell, maskable
+  icons, the v178 footer install band), so the Play route is cheap and there is no
+  second codebase to keep in step. The site had to ship three things and the app
+  needed one.
+- **Web side (new, ships in the ZIP):**
+  - `cms/.well-known/assetlinks.json` — the Digital Asset Links file Google
+    fetches. **TRAP FOUND:** the parent `cms/.htaccess` denies every `*.json`
+    (correctly, to protect `db.json`), which 403s exactly the file Google needs →
+    "your app is not linked to your website". Fixed by shipping a `.htaccess`
+    **inside** `.well-known/`: a deeper `.htaccess` is merged after its parent, so
+    `Require all granted` there wins. Host's own `.htaccess` untouched (house law).
+  - `"id": "/"` in **both** web manifests — the installed PWA and the Play app are
+    one identity, not two.
+  - `sitemap.php` lists `/#/delete-account` (Play needs a crawlable URL).
+- **The real Play blocker found and built: in-app account deletion.** Play's User
+  Data policy requires it for any app that allows account creation, plus a web URL
+  that does the same. Before v183 a shopper could only email the Grievance
+  Officer — which Play does not accept. `POST /api/auth/delete-account`: session
+  **or** a freshly verified OTP for the registered mobile, an explicit "type
+  DELETE" confirmation, throttled per connection and per number, admin and B2B
+  partner accounts protected. It **anonymises** the row exactly as
+  `admin/user-data/*/anonymize` has since v86 and revokes every login token;
+  order/invoice/KYC rows survive because DPDPA section 6 of the privacy policy
+  already promises tax + PMLA retention. Never a hard row delete.
+  - **Bug the executed suite caught that a parser never would:** the OTP must be
+    verified against the code itself. The erasure page never calls
+    `/auth/otp-login` (nobody signs in before deleting an account), so demanding a
+    record some other route had already marked `verified` left the logged-out path
+    dead. Also: wrong code and unknown number return one **byte-identical**
+    answer, so the route is not an account-enumeration oracle.
+- **Launch kit `playstore/`:** `README.md` (the whole plan, in order, with the two
+  gates) · `CHECKLIST.md` (tick-box runbook) · `listing.md` (paste-ready copy +
+  every App-content answer, each traced to the code that proves it) ·
+  `twa-manifest.json` (Bubblewrap's real schema — **`twa-manifest.json`, not
+  `bubblewrap.toml`**; that's PWABuilder) · `assetlinks.json` +
+  `htaccess-wellknown.txt` · `graphics/make-graphics.py` (Pillow + the repo's own
+  woff2 brand fonts, converted on the fly; icon 512, feature graphic 1024×500,
+  adaptive layers, screenshot framer — it **refuses to fabricate app UI**) ·
+  `screenshots/CAPTURE.md` + `captions.json` · `verify.mjs` (17 offline checks;
+  exit 2 = still waiting on the owner, exit 1 = actually broken).
+- **Facts checked live, not from memory:** Play requires **target API 36
+  (Android 16)** for every new app since 31 Aug 2026 — Bubblewrap 1.26's own
+  template already compiles and targets 36, so nothing to patch. And a **personal
+  developer account created after 13 Nov 2023 must run a closed test with 12
+  testers opted in for 14 continuous days** before production access. New accounts
+  also need identity verification. That is the honest answer to "launch today":
+  build, sign, upload and self-install today; public listing is ~3 weeks away on
+  that account type.
+- **Stamps 182 → 183 lockstep**; MEDIA stays `shivaa-media-v168`. Belt **190
+  passing** (deploy gate 20 · v183-check 9 · v183-php-run 9 · v182-php 9 ·
+  v181-php 6 · v180-php 8 · v179-php 25 · v169 pages 25 · v169 PHP 28 · v168
+  boundaries 39 + N40 12), re-run **against the extracted ZIP bytes**.
+  `v182-php-run` P01 made forward-tolerant (`rel >= 182` floor) so a stamp-exact
+  assertion cannot redden every later release. **v179-relay fails 7/7 in this
+  sandbox identically on pristine HEAD** (proved with a clean worktree) —
+  pre-existing, unrelated, and the relay is not deployed.
+- **Package:** `shivaa-update-v183.zip`, 11 files, 463,159 B, SHA-256
+  `e05f3146e1f7f6329bf984a598f35054ab91dca1ed0699bb51c796c0e9940670`, source
+  `295c2a68`; builder `tools/mega/make-v183-zip.py` (asserts every v182 invariant
+  plus the Play substrate, and refuses to ship credential material). Record:
+  `DEPLOY-v183.md`.
+- **Not done, on purpose:** no AAB built or signed (no JDK/Android SDK/dl.google.com
+  in the sandbox), no live site probed, no screenshot invented. Keystore stays
+  local; `.gitignore` blocks `*.keystore/*.jks/*.p12/*.pfx/playstore/twa/`.
+
 ## SESSION INTAKE — v182 Auto-Catalogue Phase 4 + billing bridge (25 Sep 2026, branch `arena/01a0d6ef-shivaa-ecom`)
 
 - **Live is 181 (verified 25 Sep 2026):** `/api/version` returned `rel:181`,

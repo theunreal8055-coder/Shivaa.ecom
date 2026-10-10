@@ -758,19 +758,32 @@ function v180DbStrip() {
   if (tab === 'coupons') {
     body.innerHTML = `<div class="adm-card"><h3>Active coupons</h3>
       <div class="adm-table-wrap"><table class="adm-table">
-        <thead><tr><th>Code</th><th>Discount</th><th class="num">Min order</th><th>Note</th><th>Active</th></tr></thead>
+        <p class="partner-note" style="margin-bottom:12px"><b>v184 — &ldquo;Takes off&rdquo; is the money question.</b> A percent coupon slices a base: either the <b>whole order</b> (metal + stones + making) or the <b>making charges only</b>. Every coupon here defaults to the whole order, which is right for a shop-wide offer and wrong for one that promises &ldquo;off making charges&rdquo; &mdash; a 20% coupon written that way but scoped to the whole order takes 20% of the metal as well (&minus;₹20,000 on a ₹1,00,000 order instead of &minus;₹2,400). Check this column against each note.</p>
+        <div class="adm-table-wrap"><table class="adm-table">
+        <thead><tr><th>Code</th><th>Discount</th><th>Takes off</th><th class="num">Min order</th><th>Note</th><th>Active</th></tr></thead>
         <tbody>${coupons.map(c => `<tr>
           <td><b style="letter-spacing:.08em">${esc(c.code)}</b></td>
           <td>${c.type === 'percent' ? c.value + '%' : fmt(c.value)}</td>
+          <td>${(c.scope === 'making') ? '<b style="color:var(--gold)">Making charges</b>' : 'Whole order'}</td>
           <td class="num">${fmt(c.minOrder)}</td><td>${esc(c.note || '')}</td>
-          <td><input type="checkbox" checked style="accent-color:var(--gold)"></td>
-        </tr>`).join('')}</tbody></table></div></div>
+          <td><input type="checkbox" ${c.active !== false ? 'checked' : ''} style="accent-color:var(--gold)" onchange="ShivaaAdmin.couponToggle('${esc(c.id || '')}','${esc(c.code || '')}',this.checked)"></td>
+        </tr>`).join('')}</tbody></table></div>
+      <div class="adm-card"><h3>Fix what a coupon takes off</h3>
+        <p class="partner-note" style="margin-bottom:12px">The <b>Active</b> box above switches a coupon off without deleting it. To correct one that is scoped to the whole order when its note promises making charges, pick it here and set <b>Takes off &rarr; Making charges only</b>. The change is written to the audit log with your name on it.</p>
+        <form class="form-grid" onsubmit="ShivaaAdmin.couponFix(event)" style="max-width:640px">
+          <div class="fld"><label>Coupon</label><select name="cid" class="sortsel" style="width:100%;border-radius:12px">${coupons.map(c => `<option value="${esc(c.id || '')}">${esc(c.code)} — ${c.type === 'percent' ? c.value + '%' : '₹' + c.value} · ${(c.scope === 'making') ? 'making charges' : 'whole order'}${c.active === false ? ' · OFF' : ''}</option>`).join('')}</select></div>
+          <div class="fld"><label>Takes off</label><select name="scope" class="sortsel" style="width:100%;border-radius:12px"><option value="all">Whole order (metal + stones + making)</option><option value="making">Making charges only</option></select></div>
+          <div class="fld"><label>Switch it off?</label><select name="active" class="sortsel" style="width:100%;border-radius:12px"><option value="1">Keep it active</option><option value="0">Turn it OFF</option></select></div>
+          <div class="fld full"><label>Expiry (optional — blank removes it)</label><input name="expiresAt" placeholder="e.g. 2026-10-15 23:59"></div>
+          <button class="btn btn-primary btn-sm" style="justify-self:start">Save coupon</button>
+        </form></div></div>
       <div class="adm-card"><h3>Create coupon</h3>
         <form class="form-grid" onsubmit="ShivaaAdmin.addCoupon(event)" style="max-width:640px">
           <div class="fld"><label>Code</label><input name="code" required placeholder="AKSHAYA3"></div>
           <div class="fld"><label>Type</label><select name="type" id="cpType" class="sortsel" style="width:100%;border-radius:12px"><option value="percent">Percent %</option><option value="flat">Flat ₹</option></select></div>
           <div class="fld"><label>Value</label><input name="value" type="number" required min="1"></div>
           <div class="fld"><label>Min order ₹</label><input name="minOrder" type="number" min="0" value="0"></div>
+          <div class="fld"><label>Takes off</label><select name="scope" id="cpScope" class="sortsel" style="width:100%;border-radius:12px"><option value="all">Whole order (metal + stones + making)</option><option value="making">Making charges only</option></select></div>
           <div class="fld full"><label>Note</label><input name="note" placeholder="shown to customers"></div>
           <button class="btn btn-primary btn-sm" style="justify-self:start">Create</button>
         </form></div>`;
@@ -1074,6 +1087,17 @@ function v180DbStrip() {
               </div>
               <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
                 <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
+              /* v184 — the one private page. Off by default: nothing goes live
+                 until this is ticked, and unticking it takes the page down (the
+                 server stops issuing its card too) without deleting her saved
+                 details. */
+              <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
+                <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
+                  <input type="checkbox" name="amritaPage" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${S.amritaPage ? 'checked' : ''}>
+                  <span><b>\u{1F90D} Amrita ji's thank-you page</b><br>
+                  <small style="color:var(--ink-3)">One private page at <b>shivaa.in/#/amrita</b>, made for one guest: it asks how the sandwiches were, celebrates 5 stars, lets her pick what she would like next, confirms her mobile number with the usual OTP, and then gives her a card for <b>20% off making charges</b>. <b>It stays OFF until you tick this box</b>, and a small card on the home page is the only way in. Untick it whenever you are done &mdash; the page disappears from the site at once and the server stops issuing any new card, while her saved details and the card she already has are kept exactly as they are.</small></span>
+                </label>
+              </div>
                   <input type="checkbox" name="forceLatestVersion" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${(S.forceLatestVersion === undefined ? true : !!S.forceLatestVersion) ? 'checked' : ''}>
                   <span><b>🔄 Always show customers the latest version</b> <small style="color:var(--ink-3)">(recommended: ON)</small><br>
                   <small style="color:var(--ink-3)">Every asset on the site is stamped with the release it belongs to, so a phone or laptop that visited weeks ago can never keep an old design or an old script. With this ON, a device that is still running an older release also moves itself to the newest one automatically — the moment the release check sees it, and never while someone is filling a form or paying. Turn it OFF and the new version is simply picked up on the customer&rsquo;s next visit, with no reload.</small></span>
@@ -1955,10 +1979,29 @@ window.ShivaaAdmin.setUserPassword = async (btn) => {
     } catch (err) { toast(err.message, 'err'); }
   };
 };
+/* v184 — the coupons table used to show a checkbox that did nothing. It now
+   writes to the server, so a live over-discount can be switched off in one
+   click instead of being reported and left running. */
+window.ShivaaAdmin.couponToggle = async (id, code, on) => {
+  if (!id) { toast('This coupon has no id yet — reload the page', 'err'); return; }
+  try { await api('/api/coupons/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify({ active: !!on }) });
+    toast(`${code} is now ${on ? 'ON' : 'OFF'}`); }
+  catch (err) { toast(err.message, 'err'); renderAdmin($('#view'), new URLSearchParams('tab=coupons')); }
+};
+window.ShivaaAdmin.couponFix = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target); const g = k => String(fd.get(k) || '').trim();
+  const body = { scope: g('scope'), active: g('active') === '1' };
+  if (g('expiresAt')) body.expiresAt = g('expiresAt');
+  try { const r = await api('/api/coupons/' + encodeURIComponent(g('cid')), { method: 'PUT', body: JSON.stringify(body) });
+    toast('Coupon saved' + (r.coupon && r.coupon.scope === 'making' ? ' — it now takes off making charges only' : ''));
+    renderAdmin($('#view'), new URLSearchParams('tab=coupons')); }
+  catch (err) { toast(err.message, 'err'); }
+};
 window.ShivaaAdmin.addCoupon = async e => {
   e.preventDefault();
   const fd = new FormData(e.target); const g = k => String(fd.get(k) || '');
-  try { await api('/api/coupons', { method: 'POST', body: JSON.stringify({ code: g('code').toUpperCase(), type: g('type'), value: +g('value'), minOrder: +g('minOrder'), note: g('note') }) }); toast('Coupon created'); renderAdmin($('#view'), new URLSearchParams('tab=coupons')); }
+  try { await api('/api/coupons', { method: 'POST', body: JSON.stringify({ code: g('code').toUpperCase(), type: g('type'), value: +g('value'), minOrder: +g('minOrder'), scope: g('scope'), note: g('note') }) }); toast('Coupon created'); renderAdmin($('#view'), new URLSearchParams('tab=coupons')); }
   catch (err) { toast(err.message, 'err'); }
 };
 /* v103 — GST registration certificate for the public Trust page */
@@ -2102,7 +2145,9 @@ window.ShivaaAdmin.savePay = async e => {
                  // v142 — automatic guest checkout (One-Tap Buy)
                  guestCheckout: !!document.querySelector('[name="guestCheckout"]')?.checked,
                  // v166 — always serve the newest release to every device
-                 forceLatestVersion: !!document.querySelector('[name="forceLatestVersion"]')?.checked };
+                 forceLatestVersion: !!document.querySelector('[name="forceLatestVersion"]')?.checked,
+                 // v184 — Amrita ji's private page (the one-click kill switch)
+                 amritaPage: !!document.querySelector('[name="amritaPage"]')?.checked };
   /* v152 — the partner-key field is GONE from the save body: the settings PUT
      no longer accepts it, and any stale DB value has no reader left (route deleted). */
   // secret key is write-only: only sent when retyped (server strips it from GETs)

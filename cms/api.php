@@ -3849,6 +3849,40 @@ function coupon_live(array $c): bool {
       && strtotime((string)$c['expiresAt']) < time()) return false;
   return true;
 }
+/* v184 ── what a coupon actually discounts ──
+   Every percent coupon used to take its slice of the WHOLE line value: the
+   metal, the stones AND the making charges. That is fine for a shop-wide
+   offer, and it is wrong for an offer that says "off making charges" — a 20%
+   coupon written as "20% off making charges" silently took 20% of the metal
+   too (₹20,000 off a ₹1,00,000 order instead of ₹2,400 off its making).
+
+   A coupon may now declare a scope:
+     scope 'all'    (default, and what every existing coupon has) — the
+                    discount is a slice of the whole order value, exactly as
+                    before. Nothing that is already stored changes behaviour.
+     scope 'making' — the discount is a slice of the MAKING CHARGES ONLY, and
+                    is clamped to them. Metal and stone money is never touched.
+
+   The base is computed once, in the order route, from the per-line
+   makingCharge the server itself priced — the client can never widen it. */
+function coupon_scope($c): string {
+  if (!is_array($c) || empty($c)) return 'all';
+  $s = strtolower(trim((string)($c['scope'] ?? '')));
+  return in_array($s, ['making', 'makingcharge', 'making_charge'], true) ? 'making' : 'all';
+}
+/* v184 — one source of truth for the money a coupon saves. Both the checkout
+   preview (coupons/validate) and the order route call this, so the number a
+   shopper is shown and the number they are charged are the same number.
+   $makingBase is the making-charge part of the cart; it is ignored unless the
+   coupon is making-scoped, and a making-scoped coupon on a cart with no
+   making charges at all (e.g. bullion) simply saves nothing. */
+function coupon_discount(array $c, float $orderBase, float $makingBase): array {
+  $scope = coupon_scope($c);
+  $base = $scope === 'making' ? max(0, $makingBase) : max(0, $orderBase);
+  $raw = ($c['type'] ?? 'percent') === 'percent' ? $base * (float)($c['value'] ?? 0) / 100 : (float)($c['value'] ?? 0);
+  $disc = (int)round(max(0, min($base, $raw)));
+  return ['scope' => $scope, 'base' => $base, 'discount' => $disc];
+}
 function event_coupons_ensure(array &$db, array $u): array {
   global $DB_FILE;
   $out = [];
@@ -4957,6 +4991,97 @@ try {
     }
     db_save($DB_FILE, $db); jout(200, ['ok' => true, 'user' => pub_user($u)]);
   }
+  /* v183 — SELF-SERVICE ACCOUNT ERASURE.
+     Google Play's User Data policy makes this a hard requirement for any app
+     that lets people create an account: the deletion must be possible INSIDE
+     the app, and Play Console needs a URL that does the same from the web.
+     Before v183 a shopper could only ask the Grievance Officer by email, which
+     Play does not accept - the listing would have been rejected on that alone.
+
+     What this deliberately does NOT do: hard-delete the row or the orders.
+     DPDPA section 6 of the privacy policy already promises the opposite -
+     order, invoice and KYC records are retained as long as tax and PMLA law
+     requires - so the account is ANONYMISED exactly the way the admin's
+     user-data/anonymise action has done since v86, with the same field set,
+     and every login token for the account is revoked at the same time.
+
+     Proof of identity: EITHER a live session token OR a fresh OTP for the
+     registered mobile. Never an email alone - email is not proof of anything. */
+  if ($route === 'auth/delete-account' && $method === 'POST') {
+    rate_block($db, 'acct-del-ip', client_ip(), 6, 3600, 3600, 'Too many deletion attempts from this connection — try again later.');
+    $b = body_json();
+    $u = req_user($db);
+    $otpPhone = null;
+    if (!$u) {
+      // No session: the request must carry a freshly verified OTP for the number.
+      $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+      if (!preg_match('#^[6-9]\d{9}$#', $phone)) jout(400, ['error' => 'Enter the 10-digit mobile on the account']);
+      rate_block($db, 'acct-del-phone', $phone, 6, 3600, 3600, 'Too many deletion attempts for this number — try again later.');
+      $code = (string)($b['code'] ?? '');
+      if ($code === '') jout(400, ['error' => 'Request a code first']);
+      /* v183 — the code is verified HERE, against the code itself. The erasure
+         page never calls /auth/otp-login (a shopper does not want to be signed
+         in before deleting the account), so demanding a record some other
+         route already marked `verified` would leave this path dead. The window
+         is the OTP's own 5 minutes — no hour of grace on a destructive action. */
+      $matchIdx = null;
+      foreach (($db['otps'] ?? []) as $oi => $oRec) {
+        if (($oRec['phone'] ?? '') !== $phone) continue;
+        if (($oRec['purpose'] ?? 'login') === 'reset') continue;
+        if (!empty($oRec['consumedByLogin'])) continue;
+        if ($oRec['exp'] < time()) continue;
+        if (hash_equals((string)$oRec['hash'], hash('sha256', 'shv' . $phone . $code))) { $matchIdx = $oi; break; }
+      }
+      if ($matchIdx === null) {
+        // count the guess against this code, the way /auth/otp-login does
+        foreach ($db['otps'] as &$oRec) {
+          if (($oRec['phone'] ?? '') !== $phone || ($oRec['purpose'] ?? 'login') === 'reset') continue;
+          if (empty($oRec['consumedByLogin']) && $oRec['exp'] >= time()) $oRec['tries'] = (int)($oRec['tries'] ?? 0) + 1;
+        }
+        unset($oRec);
+        db_save($DB_FILE, $db);
+        /* One answer for "wrong code" and "no such number": an erasure endpoint
+           that names which numbers are registered is an account-enumeration
+           oracle, and this is a 4-digit code. */
+        jout(400, ['error' => 'That code is not valid — request a new one']);
+      }
+      $otpPhone = $phone;
+      $db['otps'][$matchIdx]['consumedByLogin'] = true;   // single use, burned here
+      foreach ($db['users'] as $uF)
+        if (substr(preg_replace('/\D/', '', (string)($uF['phone'] ?? '')), -10) === $phone) { $u = $uF; break; }
+      if (!$u) { db_save($DB_FILE, $db); jout(400, ['error' => 'That code is not valid — request a new one']); }
+    }
+    if (($u['role'] ?? '') === 'admin')
+      jout(400, ['error' => 'The owner account cannot be erased from the app — it is the showroom\'s only admin.']);
+    if (($u['role'] ?? '') === 'partner')
+      jout(400, ['error' => 'This is a B2B partner account — ask Shivaa to close it so the ledger stays intact.']);
+    // A deliberate, explicit confirmation word stops a stray double-tap.
+    if (trim((string)($b['confirm'] ?? '')) !== 'DELETE')
+      jout(400, ['error' => 'Type DELETE to confirm']);
+
+    $uid = $u['id'];
+    foreach ($db['users'] as $ui => $x) if ($x['id'] === $uid) {
+      $db['users'][$ui]['name'] = 'Deleted customer';
+      $db['users'][$ui]['email'] = 'deleted+' . $x['id'] . '@privacy.local';
+      $db['users'][$ui]['phone'] = '';
+      $db['users'][$ui]['anonymizedAt'] = now_iso();
+      $db['users'][$ui]['selfErased'] = true;
+      // v86 — erasure must clear direct identifiers, not just name/phone
+      $db['users'][$ui]['addresses'] = [];
+      $db['users'][$ui]['profile'] = ['erased' => true];
+      $db['users'][$ui]['wishlist'] = [];
+      unset($db['users'][$ui]['referralCode'], $db['users'][$ui]['referredBy']);
+      unset($db['users'][$ui]['password']);
+    }
+    // every device logged in as this account stops working immediately
+    $keptT = [];
+    foreach (($db['tokens'] ?? []) as $tk => $tRec) if (($tRec['userId'] ?? '') !== $uid) $keptT[$tk] = $tRec;
+    $db['tokens'] = $keptT;
+    audit_log($db, 'user.self_erased', ['user' => $uid, 'via' => $otpPhone ? 'otp' : 'session']);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'erased' => true,
+               'message' => 'Your account is erased. Orders already placed stay with us for tax and hallmarking records, with your name removed.']);
+  }
   if ($route === 'addresses' && $method === 'GET') {
     $u = req_user($db); if (!$u) jout(401, ['error' => 'Login required']);
     jout(200, ['addresses' => $u['addresses'] ?? []]);
@@ -5064,6 +5189,19 @@ try {
       if ($cu && !empty($c['forNewUsers'])) {
         foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $cu['id'] && ($__o['status'] ?? '') !== 'Cancelled') jout(400, ['error' => $c['code'] . ' is for first orders only.']);
       }
+      /* v184 — the server, not the browser, decides how much this coupon
+         saves. It used to hand back the coupon and let the client do
+         `subtotal x value%`, which is right for a whole-order coupon and
+         quietly overstates a making-charges one. The checkout now shows this
+         figure and the order route recomputes the identical one. */
+      $mkTotal = (float)($b['makingTotal'] ?? 0);
+      if ($mkTotal < 0) $mkTotal = 0;
+      $calc = coupon_discount($c, (float)($b['amount'] ?? 0), $mkTotal);
+      $c['scope'] = $calc['scope'];
+      $c['discount'] = $calc['discount'];
+      $c['discountBase'] = $calc['base'];
+      if ($calc['scope'] === 'making' && $calc['base'] <= 0)
+        jout(400, ['error' => $c['code'] . ' takes off making charges — this bag carries none (bullion and stones are already at shop rate).']);
       jout(200, $c);
     }
     jout(404, ['error' => 'Invalid coupon code']);
@@ -5088,6 +5226,9 @@ try {
     $clean = ['code' => $code, 'type' => $type, 'value' => $value,
       'minOrder' => max(0, min(10000000, (float)($b['minOrder'] ?? 0))),
       'note' => mb_substr(trim((string)($b['note'] ?? '')), 0, 140),
+      // v184 — what the coupon discounts (see coupon_scope()). Absent means
+      // 'all', which is exactly what every coupon written before v184 did.
+      'scope' => coupon_scope($b),
       // v86 — real booleans; a string "false" used to be truthy under !empty()
       'active' => array_key_exists('active', $b) ? in_array($b['active'], [true, 'true', '1', 1], true) : true,
       'oncePerUser' => in_array($b['oncePerUser'] ?? false, [true, 'true', '1', 1], true),
@@ -5102,6 +5243,158 @@ try {
     if (!empty($b['forUser']) && is_string($b['forUser'])) $clean['forUser'] = mb_substr($b['forUser'], 0, 40);
     $db['coupons'][] = array_merge(['id' => uid('c')], $clean);
     db_save($DB_FILE, $db); jout(200, ['ok' => true]);
+  }
+
+  /* v184 — edit an existing coupon. This exists because of a real one: a coupon
+     whose NOTE says "20% off making charges" but whose scope is the whole
+     order takes 20% of the metal too. The owner needs to be able to correct
+     that himself, in one click, without anyone hand-editing the live database.
+     Only these fields may move; the code itself and the coupon's history are
+     never rewritten. */
+  if (preg_match('#^coupons/([\\w-]+)$#', $route, $cpM) && $method === 'PUT') {
+    need_admin($db);
+    $b = body_json();
+    $cp = null; $cpIdx = -1;
+    foreach ($db['coupons'] as $i => $c) if ((string)($c['id'] ?? '') === $cpM[1] || strtoupper((string)($c['code'] ?? '')) === strtoupper($cpM[1])) { $cp = &$db['coupons'][$i]; $cpIdx = $i; break; }
+    if ($cpIdx < 0) jout(404, ['error' => 'Coupon not found']);
+    $changed = [];
+    if (array_key_exists('active', $b)) {
+      $v = $b['active'];
+      $cp['active'] = in_array($v, [true, 'true', '1', 1, 'on', 'yes'], true);
+      $changed[] = 'active=' . ($cp['active'] ? 'on' : 'off');
+    }
+    if (array_key_exists('scope', $b)) {
+      $cp['scope'] = coupon_scope(['scope' => $b['scope']]);
+      $changed[] = 'scope=' . $cp['scope'];
+    }
+    if (array_key_exists('value', $b)) {
+      $nv = (float)$b['value'];
+      if (!is_finite($nv) || $nv < 0 || $nv > ($cp['type'] === 'percent' ? 100 : 10000000))
+        jout(400, ['error' => 'Discount value is outside its allowed range']);
+      $cp['value'] = $cp['type'] === 'percent' ? round($nv, 4) : (int)round($nv);
+      $changed[] = 'value=' . $cp['value'];
+    }
+    if (array_key_exists('minOrder', $b)) {
+      $nv = (float)$b['minOrder'];
+      if (!is_finite($nv) || $nv < 0 || $nv > 10000000) jout(400, ['error' => 'Minimum order is outside its allowed range']);
+      $cp['minOrder'] = (int)round($nv);
+      $changed[] = 'minOrder=' . $cp['minOrder'];
+    }
+    if (array_key_exists('expiresAt', $b)) {
+      $ex = trim((string)$b['expiresAt']);
+      if ($ex === '') { unset($cp['expiresAt']); $changed[] = 'expiresAt=cleared'; }
+      else {
+        if (strtotime($ex) === false) jout(400, ['error' => 'Coupon expiry must be a valid date']);
+        $cp['expiresAt'] = mb_substr($ex, 0, 40);
+        $changed[] = 'expiresAt=' . $cp['expiresAt'];
+      }
+    }
+    if (array_key_exists('note', $b)) {
+      $cp['note'] = mb_substr(trim((string)$b['note']), 0, 140);
+      $changed[] = 'note';
+    }
+    if (!$changed) jout(400, ['error' => 'Nothing to change']);
+    audit_log($db, 'coupon.updated', ['code' => $cp['code'] ?? '?', 'changes' => implode(', ', $changed)]);
+    db_save($DB_FILE, $db); jout(200, ['ok' => true, 'coupon' => $cp]);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     v184 ── Amrita ji's thank-you page ──
+     One private, phone-first page for one guest. It asks how the sandwiches
+     were, lets her choose what she would like next, confirms her mobile
+     number with the SAME OTP system every retail customer uses, and then
+     issues one real coupon: 20% off making charges.
+
+     Two things make this safe to switch on and off without a deployment:
+
+       1. The page is dark by default. It renders only while
+          settings.amritaPage is true. The owner turns the switch on in
+          Admin → Settings, and turns it off when he is done.
+       2. The switch is enforced HERE, not just in the browser. With it off
+          this route answers 404 and no new card can be minted — so the
+          one-click "remove this page" really does close the door, not only
+          hide the link.
+
+     Her record lives in its own collection (amritaGuests) and is never
+     deleted when the page is switched off. Removing the page must never cost
+     her the card she was given.
+     ══════════════════════════════════════════════════════════════════════ */
+  $AMRITA_DISHES = [
+    'idli'   => ['title' => 'Idli Sambhar', 'sub' => 'with special coconut chutney'],
+    'dosa'   => ['title' => 'Special Veg-Cheese Dosa', 'sub' => 'with 2 secret chutney recipes'],
+    'paneer' => ['title' => 'Paneer Butter Masala', 'sub' => 'with laccha paratha'],
+  ];
+  function amrita_card_code(array $db): string {
+    // System-allotted, and unambiguous to read aloud: no 0/O, no 1/I.
+    $alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    for ($try = 0; $try < 40; $try++) {
+      $a = ''; $b = '';
+      for ($i = 0; $i < 4; $i++) { $a .= $alpha[random_int(0, strlen($alpha) - 1)]; $b .= $alpha[random_int(0, strlen($alpha) - 1)]; }
+      $code = 'AMR-' . $a . '-' . $b;
+      $clash = false;
+      foreach ($db['coupons'] as $c) if (strtoupper((string)($c['code'] ?? '')) === $code) { $clash = true; break; }
+      if (!$clash) return $code;
+    }
+    return 'AMR-' . strtoupper(bin2hex(random_bytes(4)));
+  }
+  if ($route === 'amrita/card' && $method === 'POST') {
+    // ── the one-click kill switch, enforced on the server ──
+    if (empty($db['settings']['amritaPage']))
+      jout(404, ['error' => 'This page is no longer available.']);
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Please confirm your mobile number first.']);
+    $b = body_json();
+    $phone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    // A missing or malformed number is a form mistake, and says so plainly —
+    // checked BEFORE the session comparison, so a guest who simply has not
+    // typed one yet is never told to "confirm" it.
+    if (!preg_match('#^[6-9]\d{9}$#', $phone))
+      jout(400, ['error' => 'Please add your 10-digit mobile number.']);
+    // The OTP session already proves possession of this number; require the
+    // submitted number to be the one that was verified. A token for one
+    // account can never mint a card addressed to another.
+    $uPhone = substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10);
+    if ($phone !== $uPhone)
+      jout(403, ['error' => 'Please confirm the mobile number you verified.']);
+    $stars = (int)($b['stars'] ?? 0);
+    if ($stars < 1 || $stars > 5) jout(400, ['error' => 'Please rate the sandwiches first.']);
+    $dish = (string)($b['dish'] ?? '');
+    if (!isset($AMRITA_DISHES[$dish])) jout(400, ['error' => 'Please choose what you would like next.']);
+    rate_block($db, 'amrita-card-ip', client_ip(), 20, 3600);
+    rate_block($db, 'amrita-card-u', $u['id'], 10, 3600);
+    if (!is_array($db['amritaGuests'] ?? null)) $db['amritaGuests'] = [];
+    $name = mb_substr(trim((string)($b['name'] ?? ($u['name'] ?? ''))), 0, 80);
+    if ($name === '') jout(400, ['error' => 'Please add your name.']);
+    // Idempotent: a refreshed page or a re-tapped button must never mint a
+    // second coupon for the same person.
+    $existing = null;
+    foreach ($db['amritaGuests'] as $g) if (($g['userId'] ?? '') === $u['id']) { $existing = $g; break; }
+    if ($existing && !empty($existing['cardCode'])) {
+      jout(200, ['ok' => true, 'card' => $existing['cardCode'], 'dish' => $AMRITA_DISHES[$existing['dish'] ?? $dish] ?? $AMRITA_DISHES[$dish], 'already' => true]);
+    }
+    $code = amrita_card_code($db);
+    $coupon = ['id' => uid('c'), 'code' => $code, 'type' => 'percent', 'value' => 20,
+      'minOrder' => 0, 'active' => true,
+      // v184 — the point of the whole page: 20% off MAKING CHARGES. Without
+      // this scope a percent coupon takes 20% of the metal too.
+      'scope' => 'making',
+      'oncePerUser' => true, 'forUser' => $u['id'],
+      'kind' => 'amrita',
+      'title' => '20% off making charges',
+      'note' => 'A thank-you card from Shivaa — 20% off the making charges on your order.'];
+    $db['coupons'][] = $coupon;
+    $guest = ['id' => uid('am'), 'userId' => $u['id'], 'name' => $name, 'phone' => $phone,
+      'stars' => $stars, 'dish' => $dish, 'cardCode' => $code, 'couponId' => $coupon['id'],
+      'ip' => trim(explode(',', client_ip())[0]), 'createdAt' => now_iso()];
+    $db['amritaGuests'][] = $guest;
+    audit_log($db, 'amrita.card.issued', ['userId' => $u['id'], 'card' => $code, 'stars' => $stars, 'dish' => $dish]);
+    db_save($DB_FILE, $db);
+    jout(200, ['ok' => true, 'card' => $code, 'dish' => $AMRITA_DISHES[$dish], 'already' => false]);
+  }
+  if ($route === 'amrita/guest' && $method === 'GET') {
+    // admin-only read-back, so the owner can see her details without guessing
+    need_admin($db);
+    jout(200, ['guests' => array_values($db['amritaGuests'] ?? [])]);
   }
 
   /* ── orders ── */
@@ -5218,7 +5511,7 @@ try {
         if ($ok) { foreach (['gold22','gold24','gold18','silver'] as $rk) if (isset($L[$rk]) && is_numeric($L[$rk])) $R[$rk] = (float)$L[$rk]; $lockedR = $L; }
       }
     }
-    $subtotal = 0; $items = [];
+    $subtotal = 0; $items = []; $makingBase = 0;
     $allProds = array_merge($db['products'], array_values(campaign_studs_catalog()));
     foreach (($b['items'] ?? []) as $it) {
       if (!is_array($it)) jout(400, ['error' => 'Invalid cart item — refresh your bag.']);
@@ -5242,6 +5535,9 @@ try {
           $line['campaignStud'] = true;
         }
         $subtotal += $line['unitPrice'] * $line['qty'];
+        // v184 — the making-charge part of this line, kept separately so a
+        // making-scoped coupon can be limited to it. The server prices it.
+        $makingBase += ((float)($pr['makingCharge'] ?? 0)) * $qty;
         $items[] = $line; break;
       }
       if (!$found) jout(400, ['error' => 'A selected design was not found — refresh your bag.']);
@@ -5260,12 +5556,15 @@ try {
     if ($coupon && !empty($coupon['forNewUsers'])) {
       foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $u['id'] && ($__o['status'] ?? '') !== 'Cancelled') { $coupon = null; break; }
     }
-    $discount = 0;
+    $discount = 0; $couponScope = 'all';
     if ($coupon && $subtotal >= (float)($coupon['minOrder'] ?? 0)) {
       // v82 — clamp every coupon into 0…subtotal; a mistyped percent/value
       // (negative, >100%) must never inflate the total or pay the customer.
-      $raw = $coupon['type'] === 'percent' ? $subtotal * (float)$coupon['value'] / 100 : (float)$coupon['value'];
-      $discount = (int)round(max(0, min($subtotal, $raw)));
+      // v184 — and slice the right thing: a making-charges coupon takes its
+      // percentage off the making charges only, never off the metal.
+      $calc = coupon_discount($coupon, $subtotal, $makingBase);
+      $discount = $calc['discount'];
+      $couponScope = $calc['scope'];
     }
     $pointsUsed = 0;
     if (!empty($b['usePoints']) && !empty($u)) {
@@ -5312,6 +5611,9 @@ try {
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Awaiting payment'),
       'subtotal' => $subtotal, 'discount' => $discount, 'prepaidDiscount' => $prepaid, 'codFee' => $codFee,
       'pointsUsed' => $pointsUsed, 'coupon' => $coupon['code'] ?? null,
+      // v184 — which base the coupon actually took its slice from, so the
+      // order row itself shows why the discount is what it is.
+      'couponScope' => $couponScope,
       'shipping' => $shipping, 'total' => $total, 'earnedPoints' => $earned,
       /* v137 (#16) — marks this order as one whose points are deferred to
          payment. order_grant_points() refuses to act without it, which is what
@@ -5487,7 +5789,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 182,
+      'rel'   => 184,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -7955,7 +8257,10 @@ try {
     /* v166 — forceLatestVersion joins the strict booleans: it decides whether a
        shopper's device moves itself to the newest release, so a typo must be
        refused rather than stored as a truthy string. */
-    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth', 'guestCheckout', 'forceLatestVersion'] as $occKey) {
+    /* v184 — amritaPage joins the strict booleans. It is the switch that makes
+       one private page exist at all, so a typo must be refused, never stored
+       as a truthy string that quietly puts the page live. */
+    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth', 'guestCheckout', 'forceLatestVersion', 'amritaPage'] as $occKey) {
       if (array_key_exists($occKey, $setBody)) {
         $v = $setBody[$occKey];
         if (is_bool($v)) continue;

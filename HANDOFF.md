@@ -1,3 +1,94 @@
+## v184 BUILT — Amrita ji's private page + the "off making charges" fix (10 Oct 2026): live stays 181
+
+Two things, both gated behind the owner's yes.
+
+**1. A private, phone-first page for one guest — `#/amrita`**
+
+Five steps, in the order she meets them: rate the sandwiches **1-5 stars** -> on
+5 stars a full celebration (confetti, gold flare, the card lighting up), on
+anything less a warm thank-you that never scolds her -> *"those sandwiches were
+just a trailer, mam"* and three dishes to choose from (idli sambhar with special
+coconut chutney / special veg-cheese dosa with 2 secret chutney recipes / paneer
+butter masala with laccha paratha), each with its own tap animation -> her
+**mobile number + OTP** through the **same system every retail customer uses**,
+plus her name, with everything else explicitly optional -> a card for **20% off
+making charges** carrying a **system-allotted** number.
+
+- **It is dark by default.** `settings.amritaPage` is absent from the live DB.
+  The home card and the page both check it, and the **switch is enforced on the
+  server** (`POST /api/amrita/card` answers 404 while it is off), so the
+  one-click take-down really closes the door rather than hiding a link.
+- **Her details survive the page.** They live in their own collection
+  (`amritaGuests`), and the coupon she was issued stays active and usable.
+- **Her bank is nowhere on the page.** It is about the food and the thanks.
+- **Turn it on:** Admin -> Settings -> "Amrita ji's thank-you page" -> Save.
+  **Take it down:** the same box, or the one-click button at the foot of the page
+  itself (visible only while you are logged in as admin).
+
+**2. A money bug — "off making charges" used to mean "off everything"**
+
+Every percent coupon discounted the **whole order value**. A coupon written "20%
+off making charges" took 20% of the metal as well: **₹20,000 off a ₹1,00,000
+order instead of ₹2,400.** v184 lets a coupon declare `scope: 'making'`, which
+slices the making charges only and clamps to them. Absent or `'all'` behaves
+exactly as before, so nothing already stored changes. The base is computed on the
+server and the checkout preview and the order route call the same function, so
+the number she is shown and the number she is charged are finally the same.
+
+**⚠ NEEDS YOUR DECISION — `RAKHI20` is live and over-discounting.**
+
+`active: true`, **no `expiresAt`**, **no `scope`**, note *"Raksha Bandhan — 20%
+off making charges, till 28 Aug"*. Raksha Bandhan 2026 was **Friday 28 August**;
+today is 10 October — **43 days past** the date in its own note, because that
+date only ever lived in the note and never in a field the site can read. So an
+expired promotion is giving **20% off the entire order value**. **I have not
+touched it — it is your data and your call.** One click: Admin -> Coupons ->
+untick `RAKHI20`'s Active box (v184 wires that checkbox up for the first time),
+or use the new "Fix what a coupon takes off" form to set *Making charges only*.
+
+**Also fixed:** `cms/sw.js` **did not parse** — the v183 changelog entry had been
+inserted after the comment block's closing marker, so the whole service worker
+was a syntax error and never registered. The offline shell and every release
+announcement were silently dead. Fixed, and the belt now runs `node --check` on
+the worker every time.
+
+**Belt:** deploy gate 20/20 - v184-check 15/15 (new) - v184-php-run 18/18 (new,
+executed PHP) - v183-php 9/9 - v182-php 9/9 - v181-php 6/6 - v180-php 8/8 -
+v179-php 25/25 - v169 25/25 + 28/28 - v168 39/39 + N40 12/12. `v179-relay` 0/7
+is pre-existing and unrelated. Full runbook: **`DEPLOY-v184.md`**.
+
+---
+
+## v183 BUILT — the Play Store release (9 Oct 2026): live stays 181, install v183
+
+Shivaa goes to Google Play as a **Trusted Web Activity** of `shivaa.in`. The PWA
+already had the whole substrate, so this release adds only what the store needs:
+
+- **`cms/.well-known/assetlinks.json`** — the Digital Asset Links file Google
+  fetches. The parent `.htaccess` denies every `*.json`, which 403s exactly that
+  file; **`cms/.well-known/.htaccess`** re-grants it (a deeper `.htaccess` merges
+  after its parent). Fingerprints ship as placeholders — the owner pastes the
+  upload-key and Play-App-Signing SHA-256 after `bubblewrap fingerprint`.
+- **`"id": "/"`** in both web manifests — one identity for the PWA and the app.
+- **`POST /api/auth/delete-account`** + the "Privacy & my data" page — Play's
+  User Data policy requires in-app account deletion and a web URL; email does not
+  count. Anonymises like `admin/user-data/*/anonymize` has since v86, revokes
+  every token, keeps order/KYC rows for tax + PMLA retention, never hard-deletes.
+- Stamps 182 → 183 lockstep; MEDIA stays `shivaa-media-v168`. **11 files,
+  463,159 B, SHA-256
+  `e05f3146e1f7f6329bf984a598f35054ab91dca1ed0699bb51c796c0e9940670`**, source
+  `295c2a68`. Because live is still 181, this is a **superset of the
+  never-deployed v182** — install v183 in its place. Forward-only from 183.
+- **The launch kit is `playstore/`**: `README.md` is the step-by-step plan with
+  the two gates, `CHECKLIST.md` the runbook, `listing.md` the paste-ready copy.
+- Belt **190 passing**, re-run on the extracted ZIP bytes. **Not verified:** no
+  AAB built or signed here, no live site probed, no screenshot invented.
+- **Honest answer to "launching today":** a personal Play account created after
+  13 Nov 2023 must run a closed test with **12 testers over 14 continuous days**
+  before production access. Build, sign, upload and self-install today; public
+  listing is ~3 weeks away on that account type. Organisation and older personal
+  accounts are exempt.
+
 # SHIVAA JEWELLERY — HANDOFF DOCUMENT
 
 ## v178 published — use Shivaa like an app: no store, no APK, no upload (24 Sep 2026)

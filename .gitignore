@@ -25,3 +25,16 @@ launch/frames/
 
 # relay v2 runtime state (written on its host, never source)
 cms/relay/relay-last-tick.json
+
+# ─── Play Store / Android launch kit ───
+# The signing keystore is the ONE thing that can never be recreated: lose it and
+# the app can never be updated again. It lives only on the owner's machine and
+# in his offline backup — never in git.
+*.keystore
+*.jks
+*.p12
+*.pfx
+keystore.properties
+# the Bubblewrap-generated Android project (build output, downloads icons at build time)
+playstore/twa/
+playstore/graphics/out/screenshots/
