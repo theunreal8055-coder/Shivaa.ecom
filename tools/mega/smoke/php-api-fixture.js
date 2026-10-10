@@ -51,7 +51,7 @@ class QaInput { public $context; private $p=0;
   function stream_stat(){return ['size'=>strlen($GLOBALS['QA_BODY'])];}
 }
 stream_wrapper_unregister('php'); stream_wrapper_register('php','QaInput');
-$_SERVER=['REQUEST_METHOD'=>'${method}','REMOTE_ADDR'=>'${ip}','HTTP_HOST'=>'qa.invalid','HTTP_AUTHORIZATION'=>'${token ? 'Bearer '+token : ''}'];
+$_SERVER=['REQUEST_METHOD'=>'${method}','CONTENT_TYPE'=>'application/json','REMOTE_ADDR'=>'${ip}','HTTP_HOST'=>'qa.invalid','HTTP_AUTHORIZATION'=>'${token ? 'Bearer '+token : ''}'];
 $_GET=array_merge(['__route'=>'${route}'],json_decode(base64_decode('${b64(query)}'),true)); $_POST=[];
 include '/qa/api.php';`);
   return { php, run, req, setDb, async db(){ const r=await run("echo file_get_contents('/qa/data/db.json');"); return r.json; } };

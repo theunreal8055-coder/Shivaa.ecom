@@ -170,9 +170,9 @@ async function renderAdmin(view, q) {
           <thead><tr><th></th><th>Name</th><th>Category</th><th>Metal</th><th class="num">Weight</th><th>Making</th><th class="num">Stock</th><th class="num">Price (live)</th><th></th></tr></thead>
           <tbody>${state.productsCache.map(p => `<tr>
             <td><img src="${safeUrl(p.images && p.images[0])}" alt=""></td>
-            <td><b>${esc(p.name)}</b><br><small style="color:var(--ink-3)">${p.sku} · ★${p.rating}</small></td>
-            <td>${CATS[p.category] || p.category}</td>
-            <td>${p.metal === 'Silver' ? 'Silver 925' : p.purity}</td>
+            <td><b>${esc(p.name)}</b><br><small style="color:var(--ink-3)">${esc(p.sku || '')} · ★${p.rating}</small></td>
+            <td>${esc(CATS[p.category] || p.category || '')}</td>
+            <td>${p.metal === 'Silver' ? 'Silver 925' : esc(p.purity || '')}</td>
             <td class="num">${p.weightG} g</td>
             <td>${p.mcScheme === 'percent' ? p.mcValue + '%' : p.mcScheme === 'perGram' ? '₹' + p.mcValue + '/g' : 'flat ' + fmt(p.mcValue)}</td>
             <td class="num"><b style="color:${p.stock <= 3 ? 'var(--warn)' : 'inherit'}">${p.stock}</b></td>
@@ -248,10 +248,17 @@ async function renderAdmin(view, q) {
       </div>
       <div id="rpBody"><p class="partner-note">Choose a range and run — revenue split, GST (CGST+SGST), metal vs making, bestsellers, dead stock, karigar metal out, and payment proofs pending.</p></div>
     </div>
+    <div class="adm-card">
+      <h3>Cashfree settlement reconciliation <span style="font-size:12px;color:var(--ink-3);font-weight:400">· read-only</span></h3>
+      <p class="partner-note">Uses the From/To range above as Cashfree’s settlement-processed date filter, then compares successful payment IDs and gross amounts with Shivaa’s existing payment ledger. The event settlement amount is shown separately. Refund, dispute, and other non-payment events are flagged for manual review. Nothing in Cashfree or Shivaa is changed. Each page contains up to 10 rows.</p>
+      <button class="btn btn-outline btn-sm" id="rpCfRecon">Fetch Cashfree settlements</button>
+      <div id="cfReconBody" style="margin-top:12px"><p class="partner-note">Run this report when you want to check Cashfree’s settlement ledger. Continue through every page before treating the selected range as complete.</p></div>
+    </div>
     <div class="adm-card" id="auditCard" style="display:none;max-height:70vh;overflow:auto"><h3>Audit log (last 300)</h3><div id="auditBody"></div></div>`;
     $('#rpGo').onclick = ShivaaAdmin.runReport;
     $('#rpCsv').onclick = ShivaaAdmin.reportCSV;
     $('#rpAudit').onclick = ShivaaAdmin.openAudit;
+    $('#rpCfRecon').onclick = () => ShivaaAdmin.runCashfreeRecon();
     ShivaaAdmin.runReport();
   }
 
@@ -393,7 +400,7 @@ async function renderAdmin(view, q) {
       <div class="wt-grid">
         ${rings.map(p => `<div class="wt-card ${p.weightAssumed ? 'assumed' : ''}">
           <img src="${safeUrl(p.images && p.images[0])}" loading="lazy" alt="${esc(p.sku || '')}">
-          <div class="wt-tx"><b>${p.sku}</b>
+          <div class="wt-tx"><b>${esc(p.sku || '')}</b>
             <input type="number" step="0.001" min="0.5" value="${p.weightG}" data-id="${p.id}"
               placeholder="tag weight (g)" onchange="ShivaaAdmin.setWt('${p.id}', this.value)">
             <small class="wt-flag">${p.weightAssumed ? '⚠ assumed — verify' : '✓ set'}</small>
@@ -677,6 +684,7 @@ function v180DbStrip() {
   /* ── PARTNERS ── */
   if (tab === 'partners') {
     const P = partnersData.partners || [];
+    const legacyCardCount = P.filter(p => String(p.kyc && p.kyc.businessCard || '').startsWith('/uploads/kyc/')).length;
     window.__partnersList = P;   // v88 — KYC detail modal reads the full records
     body.innerHTML = `
       <div class="stat-grid">
@@ -685,6 +693,7 @@ function v180DbStrip() {
         <div class="stat"><small>Pending</small><b>${P.filter(p => p.status === 'pending').length}</b><span>needs review</span></div>
         <div class="stat"><small>Cities</small><b>${new Set(P.map(p => p.city).filter(Boolean)).size}</b></div>
       </div>
+      ${legacyCardCount ? `<div class="adm-card"><h3>Secure existing business cards</h3><p class="partner-note">${legacyCardCount} older business card file(s) still need to be moved into private storage. Direct web access is blocked; only authorised admins can view them.</p><button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.migrateKycCards(this)">Secure existing cards</button></div>` : ''}
       <div class="adm-card"><h3>Partner applications & network</h3>
         <div class="adm-table-wrap"><table class="adm-table">
           <thead><tr><th>Firm</th><th>KYC</th><th>City</th><th>Phone / Email</th><th>Applied</th><th>Status</th><th></th></tr></thead>
@@ -700,7 +709,7 @@ function v180DbStrip() {
             <td><span class="status-pill ${p.status === 'approved' ? 'st-delivered' : p.status === 'pending' ? 'st-placed' : 'st-cancelled'}">${esc(p.status || '—')}</span></td>
             <td style="white-space:nowrap">${p.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','approved')">Approve</button> <button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.setPartner('${p.id}','rejected')">Reject</button>` : ''}
               ${p.kyc && p.kyc.gstin ? `<button class="btn btn-ghost btn-sm" onclick="ShivaaAdmin.gstKycModal('${p.id}')" title="Full GST register details and certificate">KYC details</button>` : ''}
-              ${p.kyc && p.kyc.businessCard ? `<a class="btn btn-ghost btn-sm" href="${safeUrl(p.kyc.businessCard)}" target="_blank" rel="noopener" title="Business card uploaded with the application">Business card</a>` : ''}
+              ${p.kyc && p.kyc.businessCard ? `<button class="btn btn-ghost btn-sm" data-pid="${esc(p.id)}" onclick="ShivaaAdmin.viewBusinessCard(this)" title="View the business card through the protected admin endpoint">Business card</button>` : ''}
               <button class="btn btn-ghost btn-sm" data-em="${esc(p.email)}" onclick="ShivaaAdmin.setUserPassword(this)" title="Set a new portal password for this partner">Portal password</button></td>
           </tr>`).join('')}</tbody>
         </table></div></div>`;
@@ -1875,9 +1884,7 @@ window.ShivaaAdmin.gstKycHtml = (p) => {
     </div>`}
     ${k.businessCard ? `<div class="adm-card" style="padding:12px 14px;margin-bottom:12px">
       <b style="display:block;margin-bottom:8px">Business card uploaded with the application</b>
-      ${/\.(jpe?g|png|webp|gif)$/i.test(k.businessCard)
-        ? `<a href="${safeUrl(k.businessCard)}" target="_blank" rel="noopener"><img src="${safeUrl(k.businessCard)}" alt="Business card" style="display:block;max-height:230px;max-width:100%;border-radius:10px;border:1px solid var(--line,#ead9c0)"></a>`
-        : `<a class="btn btn-outline btn-sm" href="${safeUrl(k.businessCard)}" target="_blank" rel="noopener">📇 Open the business card (PDF) ↗</a>`}
+      <button class="btn btn-outline btn-sm" data-pid="${esc(p.id || '')}" onclick="ShivaaAdmin.viewBusinessCard(this)">View securely</button>
     </div>` : ''}
     <div class="kyc-inline" style="gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" data-g="${esc(k.gstin || '')}" onclick="ShivaaAdmin.viewGstCert(this)">📄 View GST certificate (REG-06)</button>
@@ -1892,6 +1899,44 @@ window.ShivaaAdmin.gstKycModal = (id) => {
   if (!p) return toast('Partner data not loaded — reopen the Partners tab', 'err');
   openModal(window.ShivaaAdmin.gstKycHtml(p), 'gst-kyc-modal');
 };
+window.ShivaaAdmin.migrateKycCards = async (btn) => {
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Securing documents…';
+  try {
+    const r = await api('/api/admin/kyc/migrate-business-cards', { method: 'POST', body: JSON.stringify({}) });
+    const left = (r.missing || 0) + (r.invalid || 0) + (r.failed || 0) + (r.cleanupPending || 0);
+    toast(`${r.migrated || 0} business card(s) moved to private storage${left ? `; ${left} need follow-up` : ''}`, left ? 'err' : 'ok');
+    await renderAdmin($('#view'), new URLSearchParams('tab=partners'));
+  } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = old; }
+};
+window.ShivaaAdmin.viewBusinessCard = async (btn) => {
+  const pid = btn.getAttribute('data-pid');
+  if (!pid) return toast('Partner record is unavailable', 'err');
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Loading…';
+  try {
+    const res = await fetch('/api/admin/partners/' + encodeURIComponent(pid) + '/business-card',
+      { headers: token() ? { Authorization: 'Bearer ' + token() } : {} });
+    if (!res.ok) {
+      let msg = 'Business card unavailable';
+      try { const j = await res.json(); msg = j.error || msg; } catch (e) {}
+      throw new Error(msg);
+    }
+    const type = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(type))
+      throw new Error('Unsupported business-card file type');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    if (window.ShivaaAdmin._kycBlobUrl) URL.revokeObjectURL(window.ShivaaAdmin._kycBlobUrl);
+    window.ShivaaAdmin._kycBlobUrl = url;
+    const isPdf = type === 'application/pdf';
+    openModal(`<div style="max-width:760px"><h3 style="margin:0 0 12px">Business card</h3>
+      ${isPdf
+        ? `<p class="partner-note">The file is private and available only through this authenticated admin session.</p><a class="btn btn-primary btn-sm" href="${esc(url)}" target="_blank" rel="noopener">Open secure PDF ↗</a> <a class="btn btn-outline btn-sm" href="${esc(url)}" download="business-card.pdf">Download PDF</a>`
+        : `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="Partner business card" style="display:block;max-height:70vh;max-width:100%;margin:auto;border-radius:10px;border:1px solid var(--line,#ead9c0)"></a><div style="margin-top:12px"><a class="btn btn-outline btn-sm" href="${esc(url)}" download="business-card.${type.split('/')[1] === 'jpeg' ? 'jpg' : type.split('/')[1]}">Download image</a></div>`}
+      </div>`, 'business-card-modal');
+  } catch (e) { toast(e.message, 'err'); }
+  finally { btn.disabled = false; btn.textContent = old; }
+};
+
 window.ShivaaAdmin.gstReverify = async (btn) => {
   const gstin = btn.getAttribute('data-g');
   const pid = btn.getAttribute('data-pid');
@@ -2371,7 +2416,7 @@ window.ShivaaAdmin.printLabelTag = (pid) => {
     <div class="tag-meta">${esc(p.purity)} ${esc(p.metal)} · ${p.weightG} g · SKU ${esc(p.sku || p.id)}</div>
     <div class="tag-price">₹${pr.toLocaleString('en-IN')}</div>
     <div class="tag-note">Price tracks the live rate · BIS hallmarked</div></div>`;
-  w.document.write(`<!doctype html><meta charset="utf-8"><title>Tag ${p.sku || p.id}</title><style>
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Tag ${esc(p.sku || p.id)}</title><style>
   body{font-family:Arial,sans-serif;margin:0;padding:14px}.tag{width:340px;border:2px dashed #6b1020;border-radius:12px;padding:14px;text-align:center;page-break-inside:avoid;display:inline-block;margin:6px}
   .tag-brand{font-weight:800;letter-spacing:2px;color:#6b1020;font-size:13px}.tag-qr svg{width:120px;height:120px;margin:8px auto;display:block}
   .tag-name{font-weight:700;font-size:13px;min-height:32px}.tag-meta{font-size:11px;color:#555;margin:4px 0}.tag-price{font-size:22px;font-weight:800;color:#6b1020}.tag-note{font-size:9.5px;color:#777;margin-top:5px}
@@ -3933,6 +3978,51 @@ window.ShivaaAdmin.runReport = async () => {
         ${Object.entries(r.metalOutWithKarigars || {}).map(([k, v]) => `<tr><td>${k}</td><td class="num">${v.jobs}</td><td class="num">${(v.grams || 0).toFixed(2)} g</td></tr>`).join('') || '<tr><td colspan="3">Nothing outstanding ✦</td></tr>'}
       </tbody></table></div>`;
   } catch (e) { host.innerHTML = '<p class="partner-note">' + e.message + '</p>'; }
+};
+window.ShivaaAdmin.runCashfreeRecon = async (cursor = '') => {
+  const from = document.getElementById('rpFrom')?.value;
+  const to = document.getElementById('rpTo')?.value;
+  const host = document.getElementById('cfReconBody');
+  const button = document.getElementById('rpCfRecon');
+  if (!host || !from || !to) return;
+  if (button) button.disabled = true;
+  host.innerHTML = '<p class="partner-note">Fetching a read-only Cashfree settlement page…</p>';
+  try {
+    const q = new URLSearchParams({ from, to });
+    if (cursor) q.set('cursor', cursor);
+    const r = await window.Shivaa.api('/api/admin/payments/settlements?' + q.toString());
+    const money = (value, currency = 'INR') => value == null || !Number.isFinite(Number(value)) ? '—'
+      : (currency === 'INR' ? '₹' : esc(currency) + ' ') + Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    const status = {
+      matched: 'Matched', legacy_match: 'Legacy match · review', amount_mismatch: 'Amount mismatch',
+      missing_local: 'Missing from local ledger', ambiguous: 'Ambiguous local match',
+      order_mismatch: 'Order mismatch', needs_review: 'Needs review'
+    };
+    host.innerHTML = `
+      <p class="partner-note">Page: ${Number(r.summary?.rows) || 0} rows · ${Number(r.summary?.matched) || 0} exact payment matches · ${Number(r.summary?.needsReview) || 0} need review${r.hasMore ? ' · more pages available' : ' · no further page reported'}. These counts apply to this page only; continue through every page for the full range.</p>
+      <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Cashfree event</th><th>Payment / CF order</th><th>Shivaa order</th><th class="num">Gross payment</th><th class="num">Event settlement</th><th>Settlement / UTR</th><th>Settlement date / initiated</th><th>Comparison</th></tr></thead><tbody>
+        ${(r.rows || []).map(row => `<tr>
+          <td><small>${esc(row.eventType || '—')} · ${esc(row.eventId || '—')}<br>${esc(row.eventStatus || '')}</small></td>
+          <td><small>Payment ${esc(row.cfPaymentId || '—')}<br>Order ${esc(row.cfOrderId || '—')}</small></td>
+          <td>${esc(row.localOrderId || '—')}</td>
+          <td class="num">${money(row.paymentAmount, row.currency)}${row.localAmount == null ? '' : `<br><small>local ${money(row.localAmount, row.currency)}</small>`}</td>
+          <td class="num">${money(row.settlementAmount, row.currency)}</td>
+          <td><small>${esc(row.settlementId || '—')}<br>UTR ${esc(row.settlementUtr || '—')}</small></td>
+          <td><small>${esc(row.settlementDate || row.settlementInitiatedOn || '—')}</small></td>
+          <td><b>${esc(status[row.status] || 'Needs review')}</b><br><small>${esc(row.note || '')}</small></td>
+        </tr>`).join('') || '<tr><td colspan="8" class="partner-note">No settlement rows returned for this page.</td></tr>'}
+      </tbody></table></div>
+      ${r.hasMore ? '<button class="btn btn-outline btn-sm" id="cfReconNext" style="margin-top:10px">Load next 10 records</button>' : ''}`;
+    const next = document.getElementById('cfReconNext');
+    if (next) next.onclick = () => {
+      const sameRange = document.getElementById('rpFrom')?.value === from && document.getElementById('rpTo')?.value === to;
+      window.ShivaaAdmin.runCashfreeRecon(sameRange ? (r.cursor || '') : '');
+    };
+  } catch (e) {
+    host.innerHTML = '<p class="partner-note">' + esc(e.message || 'Cashfree settlement report unavailable.') + '</p>';
+  } finally {
+    if (button) button.disabled = false;
+  }
 };
 window.ShivaaAdmin.reportCSV = () => {
   const from = document.getElementById('rpFrom')?.value, to = document.getElementById('rpTo')?.value;

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 187;
+const APP_REL = 188;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -163,7 +163,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 /* v82 — only http(s)/mailto:/tel: URLs may ever land in href/src, so a
    stored "javascript:" link (e.g. via an admin settings field) cannot run. */
-const safeUrl = s => { const u = String(s ?? '').trim(); return /^(https?:|mailto:|tel:|\/|#|\.\/|\.\.\/)/i.test(u) && !/[\u0000-\u001F\u007F]/.test(u) ? u : '#'; };
+const safeUrl = s => { const u = String(s ?? '').trim(); return /^(https?:|mailto:|tel:|\/|#|\.\/|\.\.\/)/i.test(u) && !/[<>"'`\u0000-\u0020\u007F]/.test(u) ? u : '#'; };
 /* v82 — embed a value as a JS string argument inside an inline on* handler.
    esc() alone is wrong there: the HTML attribute decodes &#39; back to a
    quote BEFORE the JS runs, so a name containing ' breaks the string.
@@ -202,7 +202,11 @@ function toast(msg, type = 'ok') {
      shell, but a re-render or an embed that strips it would take every toast
      down with it, silently). Repair the wrapper instead of crashing. */
   let wrap = $('#toastWrap');
-  if (!wrap) { wrap = document.createElement('div'); wrap.id = 'toastWrap'; wrap.className = 'toast-wrap'; document.body.appendChild(wrap); }
+  if (!wrap) {
+    wrap = document.createElement('div'); wrap.id = 'toastWrap'; wrap.className = 'toast-wrap';
+    wrap.setAttribute('role', 'status'); wrap.setAttribute('aria-live', 'polite'); wrap.setAttribute('aria-atomic', 'false');
+    document.body.appendChild(wrap);
+  }
   wrap.appendChild(t);
   setTimeout(() => { t.style.transition = 'opacity .5s'; t.style.opacity = 0; setTimeout(() => t.remove(), 500); }, 3200);
 }
@@ -294,7 +298,7 @@ async function api(path, opts = {}) {
     // raw "Login required" errors (protects against reloads that wipe
     // storage, expired/purged tokens, and restored databases).
     if (res.status === 401 && requestToken && token() === requestToken) {
-      setToken(''); state.user = null;
+      setToken(''); state.user = null; resetWishSession();
       try { updateBadges(); } catch (e) {}
     }
     /* v165 — never swallow the gateway's own words again: a 502 from pay/order
@@ -316,10 +320,65 @@ const state = {
   user: null, rates: null, settings: null, mcTable: [],
   cart: cleanCart(store.get('shv_cart', [])),            // [{id, qty, size, engraving}]
   localWish: cleanIds(store.get('shv_wish', [])),
+  serverWish: [],                                        // v186 — last confirmed account wishlist
+  serverWishLoaded: false,
   compare: store.get('shv_compare', []),      // product ids, max 4 — local shortlist only
   productsCache: [], cacheAt: 0,
   catalogOk: false,   // v166 — true only once a real /api/products answer landed
 };
+
+/* v186 — warm the next product detail only after an explicit pointer/touch or
+   keyboard-focus intent. A short-lived promise cache lets the route consume
+   the in-flight response without duplicate requests; failed/stale requests are
+   discarded, and no card list is prefetched speculatively. */
+const productDetailPrefetch = new Map();
+const PRODUCT_DETAIL_PREFETCH_TTL = 15000;
+function pruneProductDetailPrefetch() {
+  const now = Date.now();
+  for (const [id, entry] of productDetailPrefetch) {
+    if (now - entry.startedAt >= PRODUCT_DETAIL_PREFETCH_TTL) productDetailPrefetch.delete(id);
+  }
+  while (productDetailPrefetch.size > 24) productDetailPrefetch.delete(productDetailPrefetch.keys().next().value);
+}
+function getProductDetail(id) {
+  const key = String(id || '');
+  pruneProductDetailPrefetch();
+  const existing = productDetailPrefetch.get(key);
+  if (existing && Date.now() - existing.startedAt < PRODUCT_DETAIL_PREFETCH_TTL) return existing.promise;
+  const entry = { startedAt: Date.now(), promise: null };
+  entry.promise = api('/api/products/' + encodeURIComponent(key)).then(data => {
+    if (!data || !data.product) throw new Error('Product details are unavailable');
+    entry.resolvedAt = Date.now();
+    return data;
+  }).catch(error => {
+    if (productDetailPrefetch.get(key) === entry) productDetailPrefetch.delete(key);
+    throw error;
+  });
+  productDetailPrefetch.set(key, entry);
+  pruneProductDetailPrefetch();
+  return entry.promise;
+}
+function prefetchProductFromLink(link) {
+  if (!link || !link.getAttribute) return;
+  const href = link.getAttribute('href') || '';
+  const match = href.match(/#\/product\/([^/?#]+)/);
+  if (!match) return;
+  let id;
+  try { id = decodeURIComponent(match[1]); } catch (e) { return; }
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(id)) return;
+  const cached = productDetailPrefetch.get(id);
+  if (cached && Date.now() - cached.startedAt < PRODUCT_DETAIL_PREFETCH_TTL) return;
+  getProductDetail(id).catch(() => {});
+}
+function prefetchProductIntent(event) {
+  if (event.type === 'pointerover' && event.pointerType === 'touch') return;
+  const target = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+  if (target) prefetchProductFromLink(target);
+}
+document.addEventListener('pointerover', prefetchProductIntent, { passive: true });
+document.addEventListener('pointerdown', prefetchProductIntent, { passive: true });
+document.addEventListener('touchstart', prefetchProductIntent, { passive: true });
+document.addEventListener('focusin', prefetchProductIntent);
 
 /* v57: every category face is the studio photograph the house selected,
    colour-graded to one warm theme (images/categories/*.jpg) */
@@ -752,11 +811,129 @@ function updateBadges() {
   refreshWishBadge();
   updateCompareUI();
 }
-async function refreshWishBadge() {
-  let wl = state.localWish;
-  if (state.user) { try { const r = await api('/api/wishlist'); wl = r.wishlist || []; } catch (e) {} }
-  const wc = $('#wishCount'); if (wc) { wc.textContent = wl.length; wc.hidden = !wl.length; }
+const optimisticWishOps = new Map();
+let wishSyncTail = Promise.resolve();
+function resetWishSession() {
+  optimisticWishOps.clear();
+  state.serverWish = [];
+  state.serverWishLoaded = false;
 }
+function visibleWishIds() {
+  const ids = new Set(state.user ? state.serverWish : state.localWish);
+  if (state.user) optimisticWishOps.forEach((op, id) => op.desired ? ids.add(id) : ids.delete(id));
+  return [...ids];
+}
+function paintWishBadge() {
+  const wc = $('#wishCount'); if (!wc) return;
+  const count = visibleWishIds().length;
+  if (wc.textContent !== String(count)) wc.textContent = count;
+  wc.hidden = !count;
+}
+async function refreshWishBadge() {
+  paintWishBadge();
+  if (!state.user) return;
+  try {
+    const r = await api('/api/wishlist');
+    if (Array.isArray(r.wishlist)) { state.serverWish = cleanIds(r.wishlist); state.serverWishLoaded = true; }
+  } catch (e) {}
+  paintWishBadge();
+}
+function paintWishButtons(id, on, busy = false) {
+  $$('.pc-wish[data-pid]').filter(b => b.dataset.pid === String(id)).forEach(b => {
+    b.classList.toggle('on', !!on);
+    b.setAttribute('aria-pressed', String(!!on));
+    b.setAttribute('aria-label', on ? 'Remove from wishlist' : 'Add to wishlist');
+    if (busy) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');
+  });
+}
+function syncWishOperation(id, op) {
+  if (op.running) return op.promise;
+  op.running = true;
+  const sameUser = () => !!state.user && String(state.user.id || '') === op.userId;
+  const run = async () => {
+    if (!sameUser()) return false;
+    if (op.pending) {
+      try {
+        const snapshot = await api('/api/wishlist');
+        if (!sameUser()) return false;
+        state.serverWish = cleanIds(snapshot.wishlist); state.serverWishLoaded = true;
+        op.confirmed = state.serverWish.includes(id);
+        op.pending = false;
+      } catch (e) {
+        return false; // unknown server state: keep the optimistic choice and retry on `online`
+      }
+    }
+    while (op.desired !== op.confirmed) {
+      const target = op.desired;
+      try {
+        const result = await api('/api/wishlist', { method: 'POST', body: JSON.stringify({ id, add: target }) });
+        if (!sameUser()) return false;
+        if (Array.isArray(result.wishlist)) state.serverWish = cleanIds(result.wishlist);
+        else {
+          const next = new Set(state.serverWish);
+          target ? next.add(id) : next.delete(id);
+          state.serverWish = [...next];
+        }
+        state.serverWishLoaded = true;
+        op.confirmed = state.serverWish.includes(id);
+        op.pending = false;
+      } catch (error) {
+        if (!state.user) {
+          optimisticWishOps.delete(id);
+          const localOn = state.localWish.includes(id);
+          paintWishButtons(id, localOn);
+          paintWishBadge();
+          toast('Your session ended. Sign in to sync this wishlist change.', 'err');
+          return false;
+        }
+        if (!sameUser()) return false;
+        // A timed-out POST may have reached the server. Read back before
+        // deciding whether to keep or roll back the optimistic state.
+        try {
+          const snapshot = await api('/api/wishlist');
+          if (!sameUser()) return false;
+          state.serverWish = cleanIds(snapshot.wishlist); state.serverWishLoaded = true;
+          op.confirmed = state.serverWish.includes(id);
+          op.pending = false;
+        } catch (readError) {
+          op.pending = true;
+          paintWishButtons(id, op.desired, true);
+          paintWishBadge();
+          toast('Wishlist sync is waiting for a connection. It will retry when you are back online.', 'err');
+          return false;
+        }
+        if (op.desired === target && op.confirmed !== target) {
+          op.desired = op.confirmed;
+          paintWishButtons(id, op.confirmed);
+          paintWishBadge();
+          toast(error.message || 'Could not sync your wishlist. Please try again.', 'err');
+          return false;
+        }
+        // A newer tap arrived during the failed request; continue with its
+        // latest desired state instead of replaying an obsolete toggle.
+      }
+    }
+    return true;
+  };
+  const queued = wishSyncTail.then(run, run);
+  wishSyncTail = queued.catch(() => {});
+  op.promise = queued.finally(() => {
+    op.running = false;
+    op.promise = null;
+    if (optimisticWishOps.get(id) === op) {
+      if (!sameUser()) optimisticWishOps.delete(id);
+      else if (!op.pending && op.desired === op.confirmed) {
+        optimisticWishOps.delete(id);
+        paintWishButtons(id, op.confirmed);
+      }
+    }
+    paintWishBadge();
+  });
+  return op.promise;
+}
+window.addEventListener('online', () => {
+  optimisticWishOps.forEach((op, id) => { if (op.pending && !op.running) syncWishOperation(id, op); });
+}, { passive: true });
 function cartCount() { return state.cart.reduce((a, i) => a + i.qty, 0); }
 const isPartner = () => !!(state.user && (state.user.role === 'partner' || state.user.role === 'admin'));
 
@@ -828,22 +1005,36 @@ function addToCart(id, qty = 1, size = null, engraving = null, opts = {}) {
   updateBadges();
   /* v91 — fly the piece's image into the bag, then glide the mini-bag open */
   const p = (state.productsCache && state.productsCache.find(x => x.id === id)) || (typeof CAMPAIGN_STUDS_DATA !== 'undefined' ? Object.values(CAMPAIGN_STUDS_DATA).flat().find(x => x.id === id) : null);
+  if (!opts.silent && opts.notify !== false) toast(p ? `Added ${qty > 1 ? qty + ' × ' : ''}${p.name} to your bag ✦` : 'Added to your bag ✦');
   const src = p && (p.images && p.images[0]);
   let fromEl = opts.fromEl || document.querySelector(`.p-card[data-pid="${id}"] .pc-imgwrap img`);
   if (src) flyToBag(src, fromEl).then(() => { if (!opts.silent) openCart(true); });
   else if (!opts.silent) openCart(true);
 }
-async function toggleWish(id) {
+function toggleWish(id) {
+  id = String(id || '');
+  const buttons = $$('.pc-wish[data-pid]').filter(b => b.dataset.pid === id);
   if (!state.user) {
-    state.localWish = state.localWish.includes(id) ? state.localWish.filter(x => x !== id) : [...state.localWish, id];
-    store.set('shv_wish', state.localWish); refreshWishBadge();
-    $$('.pc-wish[data-pid="' + id + '"]').forEach(b => b.classList.toggle('on'));
-    return;
+    const on = !state.localWish.includes(id);
+    state.localWish = on ? [...new Set([...state.localWish, id])] : state.localWish.filter(x => x !== id);
+    store.set('shv_wish', state.localWish);
+    paintWishButtons(id, on);
+    paintWishBadge();
+    toast(on ? 'Saved to wishlist' : 'Removed from wishlist');
+    return Promise.resolve(true);
   }
-  const on = $$(`.pc-wish[data-pid="${id}"]`)[0]?.classList.contains('on');
-  await api('/api/wishlist', { method: 'POST', body: JSON.stringify({ id, add: !on }) });
-  $$(`.pc-wish[data-pid="${id}"]`).forEach(b => b.classList.toggle('on', !on));
-  refreshWishBadge(); toast(!on ? 'Saved to wishlist' : 'Removed from wishlist');
+
+  let op = optimisticWishOps.get(id);
+  if (!op) {
+    const initial = state.serverWishLoaded ? state.serverWish.includes(id) : buttons.some(b => b.classList.contains('on'));
+    op = { confirmed: initial, desired: initial, pending: false, running: false, promise: null, userId: String(state.user.id || '') };
+    optimisticWishOps.set(id, op);
+  }
+  op.desired = !op.desired;
+  paintWishButtons(id, op.desired, true);
+  paintWishBadge();
+  toast(op.desired ? 'Saved to wishlist' : 'Removed from wishlist');
+  return syncWishOperation(id, op);
 }
 const isWished = id => state.user ? null : state.localWish.includes(id); // null = unknown(server), handled in card
 
@@ -1862,7 +2053,7 @@ window.Shivaa.addCampaignToCart = async (productId) => {
   const p = (state.productsCache || []).find(x => x.id === productId) ||
             allStuds.find(x => x.id === productId);
   if (!p) { toast('Product details loading...', 'err'); return; }
-  addToCart(productId, 1);
+  addToCart(productId, 1, null, null, { notify: false });
   toast(`Added ${p.name} to bag! Qualifies for 10g Gold Biscuit Draw ✦`);
   openCart(true);
 };
@@ -2366,7 +2557,7 @@ function initCarousel() {
   clearInterval(window._carTimer);
   const track = $('#cTrack'), slides = $$('.c-slide', car), n = slides.length;
   const dots = $('#cDots');
-  dots.innerHTML = slides.map((_, i) => `<span class="c-dot ${i === 0 ? 'on' : ''}" data-i="${i}"></span>`).join('');
+  dots.innerHTML = slides.map((slide, i) => `<button type="button" class="c-dot ${i === 0 ? 'on' : ''}" data-i="${i}" aria-label="Show ${esc(slide.dataset.label || ('featured slide ' + (i + 1)))}" aria-current="${i === 0 ? 'true' : 'false'}"></button>`).join('');
   let idx = 0;
   const go = i => {
     idx = (i + n) % n;
@@ -2374,31 +2565,46 @@ function initCarousel() {
        will-change:transform in css) so slide changes stay butter-smooth on
        low-end Android instead of repainting a full-width layer. */
     track.style.transform = `translate3d(-${idx * 100}%,0,0)`;
-    $$('.c-dot', dots).forEach((d, j) => d.classList.toggle('on', j === idx));
-    // mark the visible slide so its Ken-Burns zoom + copy reveal run only there
+    $$('.c-dot', dots).forEach((d, j) => {
+      d.classList.toggle('on', j === idx);
+      d.setAttribute('aria-current', j === idx ? 'true' : 'false');
+    });
+    // Only the active slide is visible to assistive tech or keyboard focus.
+    // Its Ken-Burns zoom + copy reveal also run only on that slide.
     slides.forEach((sl, j) => {
       sl.classList.toggle('on', j === idx);
       sl.setAttribute('aria-hidden', j === idx ? 'false' : 'true');
+      if ('inert' in sl) sl.inert = j !== idx;
     });
   };
   go(0);
   const next = () => go(idx + 1), prev = () => go(idx - 1);
   $('.c-next', car).onclick = next; $('.c-prev', car).onclick = prev;
   $$('.c-dot', dots).forEach(d => d.onclick = () => go(+d.dataset.i));
+  const reduceMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let mouseHovering = false;
   const start = () => {
     /* v113b - never stack intervals. Every pointercancel / lostpointercapture /
        visibilitychange used to add another timer on top of the running one, so
        after a scroll or a tab switch the deck advanced two, three, four slides
        per tick. clearInterval first makes start() idempotent. */
     clearInterval(window._carTimer);
+    window._carTimer = null;
+    // Autoplay is paused while the user is interacting, the tab is hidden,
+    // or the OS has requested reduced motion.
+    if (!car.isConnected || document.hidden || (reduceMotion && reduceMotion.matches) || mouseHovering || car.contains(document.activeElement)) return;
     // v42: slower auto-advance on mobile (12s vs 5.5s desktop) so it glides, not jumps
     const _mob = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (innerWidth <= 820);
     const interval = _mob ? 12000 : 5500;
     window._carTimer = setInterval(next, interval);
   };
   const stop = () => { clearInterval(window._carTimer); window._carTimer = null; };
-  car.addEventListener('mouseenter', stop);
-  car.addEventListener('mouseleave', start);
+  car._shvCarouselStart = start;
+  car._shvCarouselStop = stop;
+  car.addEventListener('focusin', stop);
+  car.addEventListener('focusout', e => { if (!car.contains(e.relatedTarget)) start(); });
+  car.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { mouseHovering = true; stop(); } });
+  car.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { mouseHovering = false; start(); } });
   /* v113 — swipe engine rebuilt.
      The old code only listened for pointerdown/pointerup. Mobile browsers fire
      **pointercancel** (never pointerup) the instant a vertical page scroll
@@ -2460,12 +2666,22 @@ function initCarousel() {
   if (!window._carVisBound) {
     window._carVisBound = true;
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) { clearInterval(window._carTimer); window._carTimer = null; }
-      else if (location.hash === '#/' || location.hash === '' || location.hash === '#') {
-        const c = $('#heroCarousel');
-        if (c) { clearInterval(window._carTimer); start(); }
-      }
+      const active = $('#heroCarousel');
+      if (!active) { clearInterval(window._carTimer); window._carTimer = null; return; }
+      if (document.hidden) active._shvCarouselStop?.();
+      else active._shvCarouselStart?.();
     });
+  }
+  if (!window._carMotionBound) {
+    window._carMotionBound = true;
+    const motionChange = e => {
+      const active = $('#heroCarousel');
+      if (!active) return;
+      if (e.matches) active._shvCarouselStop?.();
+      else active._shvCarouselStart?.();
+    };
+    if (reduceMotion && reduceMotion.addEventListener) reduceMotion.addEventListener('change', motionChange);
+    else if (reduceMotion && reduceMotion.addListener) reduceMotion.addListener(motionChange);
   }
   start();
 }
@@ -2811,7 +3027,7 @@ function productCard(p, opts = {}) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M18 4v16M4 8h16"/><path d="M8 8l-3 7h6L8 8zM16 8l-3 7h6l-3-7z"/></svg><span data-compare-label>${compared ? 'In Compare' : 'Compare'}</span>
     </button>
     <div class="pc-tags">${(p.tags || []).slice(0, 2).map(t => `<span class="tagx ${t === 'new' || t === 'bestseller' ? 'gold' : ''}">${esc(TAGS[t] || t)}</span>`).join('')}</div>
-    <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
+    <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="event.preventDefault();Shivaa.toggleWish('${p.id}')" aria-pressed="${wished ? 'true' : 'false'}" aria-label="${wished ? 'Remove from wishlist' : 'Add to wishlist'}">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
     </button>
     <div class="pc-body">
@@ -2966,7 +3182,7 @@ window.Shivaa.orderDetail = async id => {
 window.Shivaa.logout = () => {
   // v80: revoke the bearer token server-side (best-effort), then clear locally
   try { const t = token(); if (t) fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, keepalive: true }).catch(() => {}); } catch (e) {}
-  setToken(null); state.user = null; toast('Logged out'); location.hash = '#/'; boot(true);
+  setToken(null); state.user = null; resetWishSession(); toast('Logged out'); location.hash = '#/'; boot(true);
 };
 
 function renderRateStrip() {
@@ -3242,6 +3458,86 @@ pages.pickup = async (view) => {
   };
 };
 
+/* v183 — shared, art-directed hero/banner renderer. The four promoted slides
+   are copy-and-image data records, not four independent page fragments; the
+   dedicated Gold Biscuit card above the carousel intentionally stays separate. */
+function responsiveBannerPicture(desktopBase, mobileBase, alt, className = '', eager = false, width = 1584, height = 672) {
+  const loading = eager ? 'eager' : 'lazy';
+  const priority = eager ? 'high' : 'low';
+  const cls = className ? ` class="${className}"` : '';
+  return `<picture${cls}>
+    <source media="(max-width: 820px)" type="image/webp" srcset="/images/banners/${mobileBase}.webp${ASSET_V}">
+    <source media="(max-width: 820px)" srcset="/images/banners/${mobileBase}.jpg${ASSET_V}">
+    <source type="image/webp" srcset="/images/banners/${desktopBase}.webp${ASSET_V}">
+    <img src="/images/banners/${desktopBase}.jpg${ASSET_V}" alt="${esc(alt)}" width="${width}" height="${height}" loading="${loading}" fetchpriority="${priority}" decoding="async" draggable="false">
+  </picture>`;
+}
+
+const HOME_CAROUSEL_SLIDES = Object.freeze([
+  {
+    key: 'heritage', variant: 's-left', image: 'poster-heritage', mobile: 'poster-heritage-mobile', width: 1584, height: 672,
+    label: 'The House of Honest Gold',
+    alt: 'Ornate gold heritage necklace against a deep maroon background',
+    kicker: '&#10022; The House of Honest Gold',
+    headline: 'Purity you can <em class="shimmer foil-txt">pass down</em>',
+    decor: '<span class="c-frame" aria-hidden="true"><i class="cf-c c1"></i><i class="cf-c c2"></i><i class="cf-c c3"></i><i class="cf-c c4"></i></span><span class="c-wm" aria-hidden="true">99&middot;999</span>',
+    highlight: '<div class="offer-seal alt seal-plaque"><b>HUID<small>GUIDE</small></b><span>check the actual piece</span></div>',
+    description: "Every Shivaa piece is handcrafted by master karigars, weighed to the milligram and billed at Shivaa's live rate &mdash; jewellery made to be inherited, not replaced.",
+    trust: ['HUID check guide', 'Live-rate pricing'],
+    cta: 'Explore the Collections', href: '#/shop'
+  },
+  {
+    key: 'bridal', variant: 's-center', image: 'poster-bridal', mobile: 'poster-bridal-mobile', width: 1376, height: 768,
+    label: 'The bridal edit · Jayal to your city',
+    alt: 'Bridal necklace and earrings set displayed on burgundy velvet',
+    kicker: '&#10022; The bridal edit &middot; Jayal to your city',
+    headline: 'The Complete <em class="shimmer foil-txt">Trousseau</em>',
+    highlight: '<div class="offer-seal alt seal-medallion"><b>MC<small>WAIVED</small></b><span>on full bridal sets</span></div>',
+    description: 'A considered jewellery edit for wedding celebrations, with each piece shown alongside its details and live-rate price.',
+    trust: ['Live-rate pricing'],
+    cta: 'Explore Bridal', href: '#/shop?tag=wedding'
+  },
+  {
+    key: 'everyday', variant: 's-right', image: 'poster-everyday', mobile: 'poster-everyday-mobile', width: 1376, height: 768,
+    label: 'The everyday edit',
+    alt: 'Gold necklace, earrings and ring arranged on a light stone surface',
+    kicker: '&#10022; The everyday edit',
+    headline: 'Above ordinary,<br><em class="shimmer foil-txt">under &#8377;50,000</em>',
+    description: 'Studs, pendants, chains &amp; silver &mdash; with individual specifications and Shivaa-rate pricing.',
+    trust: ['Live-rate pricing', 'Daily-wear designs'],
+    cta: 'Shop the Edit', href: '#/shop?max=50000'
+  },
+  {
+    key: 'swarna-nidhi', variant: 's-band', image: 'wedding', mobile: 'wedding-mobile', width: 1376, height: 768,
+    label: 'Swarna Nidhi · the gold savings plan',
+    alt: 'Gold bars stacked in a pyramid against a dark background',
+    kicker: '&#10022; Swarna Nidhi &middot; the gold savings plan',
+    preTitle: '<div class="sn-num">11<span>+</span>1</div>',
+    headline: 'Pay eleven, own twelve',
+    description: "Save every month at that day's live gold rate &mdash; the 12th instalment is on us. A 9.09% benefit, in pure gold.",
+    trust: [],
+    cta: 'Start Saving', href: '#/savings', panel: true
+  }
+]);
+
+function renderHomeCarouselSlides() {
+  return HOME_CAROUSEL_SLIDES.map((slide, index) => `
+    <div class="c-slide ${slide.variant}" data-banner="${slide.key}" data-label="${esc(slide.label)}" aria-hidden="${index === 0 ? 'false' : 'true'}">
+      ${responsiveBannerPicture(slide.image, slide.mobile, slide.alt, 'c-picture', index === 0, slide.width, slide.height)}
+      <div class="c-fade ${slide.key === 'bridal' ? 'fade-c' : slide.key === 'everyday' ? 'fade-r' : ''}"></div>
+      ${slide.decor || ''}
+      <div class="c-body${slide.panel ? ' c-panel' : ''}">
+        <span class="label">${slide.kicker}</span>
+        ${slide.preTitle || ''}
+        <h3>${slide.headline}</h3>
+        ${slide.highlight || ''}
+        <p>${slide.description}</p>
+        ${slide.trust && slide.trust.length ? `<div class="c-trust-row" aria-label="${esc(slide.trust.join(' · '))}">${slide.trust.map(x => `<span>${esc(x)}</span>`).join('<i aria-hidden="true">·</i>')}</div>` : ''}
+        <div class="c-cta"><a class="btn btn-gold btn-lg" href="${slide.href}">${slide.cta}</a></div>
+      </div>
+    </div>`).join('');
+}
+
 pages.home = async (view) => {
   ensureCampaignStuds();
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
@@ -3252,7 +3548,7 @@ pages.home = async (view) => {
   const wishSet = state.user ? await wishIds() : [];
   view.innerHTML = `
   <section class="hero">
-    <div class="hero-img"></div><div class="hero-fade"></div>
+    <div class="hero-img">${responsiveBannerPicture('hero-main', 'hero-main-mobile', 'Bridal gold necklace set on rich maroon velvet', 'hero-picture', true)}</div><div class="hero-fade"></div>
     <div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="hero-orbs">
       <div class="orb" style="width:130px;height:130px;left:6%;top:16%;background:radial-gradient(circle at 35% 35%,#f3dfae,#b98a2f 68%,transparent 72%);animation-delay:-2s"></div>
@@ -3265,9 +3561,7 @@ pages.home = async (view) => {
         <h1>Jewellery as honest as your <em class="shimmer foil-txt">love</em></h1>
         <p class="hero-sub">Gold & silver jewellery at Shivaa's live rates, with every price broken down in plain sight — the same tanch our family has kept for 30+ years, now on shivaa.in.</p>
         <div class="hero-cta">
-          <a class="btn btn-gold btn-lg" href="#/shop">Shop the Collection</a>
           <a class="btn btn-gold btn-lg shv-pulse-cta" href="#/scheme">✦ Win 10g Gold Biscuit</a>
-          <a class="btn btn-light btn-lg" href="#/rates">Shivaa Live Rates</a>
         </div>
         <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
         <div class="hero-stats">
@@ -3323,54 +3617,7 @@ pages.home = async (view) => {
 
   <section class="carousel-sec">
     <div class="carousel" id="heroCarousel" role="region" tabindex="0" aria-roledescription="carousel" aria-label="Featured Shivaa campaigns — use the left and right arrow keys">
-      <div class="c-track" id="cTrack">
-        <div class="c-slide s-left">
-          <img src="/images/banners/poster-heritage.jpg" srcset="/images/banners/poster-heritage-m.jpg 800w, /images/banners/poster-heritage.jpg 1584w" sizes="100vw" alt="Shivaa fine gold craftsmanship" draggable="false" decoding="async" fetchpriority="high">
-          <div class="c-fade"></div>
-          <span class="c-frame" aria-hidden="true"><i class="cf-c c1"></i><i class="cf-c c2"></i><i class="cf-c c3"></i><i class="cf-c c4"></i></span>
-          <span class="c-wm" aria-hidden="true">99&middot;999</span>
-          <div class="c-body">
-            <span class="label">&#10022; The House of Honest Gold</span>
-            <h3>Purity you can <em class="shimmer foil-txt">pass down</em></h3>
-            <div class="offer-seal alt seal-plaque"><b>HUID<small>GUIDE</small></b><span>check the actual piece</span></div>
-            <p>Every Shivaa piece is handcrafted by master karigars, weighed to the milligram and billed at Shivaa's live rate &mdash; jewellery made to be inherited, not replaced.</p>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop">Explore the Collections</a><a class="btn btn-light btn-lg" href="#/about">Our Craft &amp; Story</a></div>
-          </div>
-        </div>
-        <div class="c-slide s-center">
-          <img src="/images/banners/poster-bridal.jpg" alt="Bridal collection" draggable="false" decoding="async" loading="lazy">
-          <div class="c-fade fade-c"></div>
-          <div class="c-body">
-            <span class="label">&#10022; The bridal edit &middot; Jayal to your city</span>
-            <h3>The Complete <em class="shimmer foil-txt">Trousseau</em></h3>
-            <div class="offer-seal alt seal-medallion"><b>MC<small>WAIVED</small></b><span>on full bridal sets</span></div>
-            <div class="flash-countdown" id="wedCd"></div>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop?tag=wedding">Explore Bridal</a></div>
-          </div>
-        </div>
-        <div class="c-slide s-right">
-          <img src="/images/banners/poster-everyday.jpg" alt="Everyday edit under 50000" draggable="false" decoding="async" loading="lazy">
-          <div class="c-fade fade-r"></div>
-          <div class="c-body">
-            <span class="label">&#10022; The everyday edit</span>
-            <h3>Above ordinary,<br><em class="shimmer foil-txt">under &#8377;50,000</em></h3>
-            <div class="price-lock"><b>&#8377;2,400</b><span>from &middot; live-rate priced &middot; daily wear</span></div>
-            <p>Studs, pendants, chains &amp; silver &mdash; with individual specifications and Shivaa-rate pricing.</p>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/shop?max=50000">Shop the Edit</a></div>
-          </div>
-        </div>
-        <div class="c-slide s-band">
-          <img src="/images/banners/wedding.jpg" alt="Swarna Nidhi gold savings plan" draggable="false" decoding="async" loading="lazy">
-          <div class="c-fade"></div>
-          <div class="c-panel">
-            <span class="label">&#10022; Swarna Nidhi &middot; the gold savings plan</span>
-            <div class="sn-num">11<span>+</span>1</div>
-            <h3>Pay eleven, own twelve</h3>
-            <p>Save every month at that day's live gold rate &mdash; the 12th instalment is on us. A 9.09% benefit, in pure gold.</p>
-            <div class="c-cta"><a class="btn btn-gold btn-lg" href="#/savings">Start Saving</a><a class="btn btn-light btn-lg" href="#/contact">Visit the Store</a></div>
-          </div>
-        </div>
-      </div>
+      <div class="c-track" id="cTrack">${renderHomeCarouselSlides()}</div>
       <button class="c-arrow c-prev" aria-label="Previous poster">‹</button>
       <button class="c-arrow c-next" aria-label="Next poster">›</button>
       <div class="c-dots" id="cDots"></div>
@@ -3489,7 +3736,6 @@ pages.home = async (view) => {
       </form>
     </div>
   </section>`;
-  bindCountdown($('#wedCd'), Date.now() + 6 * 864e5 + 11 * 36e5);
   const homeCd = $('#homeFinaleCd');
   if (homeCd) bindFinaleCd(homeCd);
   initCarousel();
@@ -3783,6 +4029,92 @@ pages.amrita = async (view) => {
 
   render();
 };
+/* v186 — catalog refresh is a progressive enhancement: touch users can pull
+   at the top of a listing, while keyboard/desktop users have the same explicit
+   Refresh button. The gesture is vertical-only and never replaces the local
+   catalogue unless a valid, non-empty server response arrives. */
+function wireShopPullToRefresh(view, apply) {
+  if (!view) return;
+  if (view._shopPullCleanup) view._shopPullCleanup();
+  const status = $('#shopPullStatus', view), label = $('[data-pull-label]', status || view);
+  const button = $('#shopRefresh', view);
+  if (!status || !button) return;
+  let startY = 0, startX = 0, distance = 0, tracking = false, refreshing = false;
+  const setStatus = (text, visible, ready = false, busy = false) => {
+    status.classList.toggle('is-visible', !!visible);
+    status.classList.toggle('is-ready', !!ready);
+    status.classList.toggle('is-loading', !!busy);
+    status.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    if (label) label.textContent = text;
+  };
+  const resetGesture = () => { tracking = false; distance = 0; };
+  const atTop = () => (window.scrollY || document.documentElement.scrollTop || 0) <= 2;
+  const onStart = e => {
+    if (!e.touches || e.touches.length !== 1 || !atTop() || refreshing) return;
+    if (e.target && e.target.closest && e.target.closest('#shopRefresh,input,select,textarea,[contenteditable="true"],.filters.open,.modal-overlay.open')) return;
+    startY = e.touches[0].clientY; startX = e.touches[0].clientX;
+    distance = 0; tracking = true;
+  };
+  const onMove = e => {
+    if (!tracking || !e.touches || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (dy < 0 || Math.abs(dx) > Math.abs(dy) + 4) { resetGesture(); setStatus('Pull to refresh', false); return; }
+    if (dy < 8) return;
+    distance = Math.min(120, dy * .55);
+    if (e.cancelable) e.preventDefault();
+    const ready = dy >= 78;
+    setStatus(ready ? 'Release to refresh' : 'Pull a little further', true, ready);
+  };
+  const onEnd = () => {
+    const shouldRefresh = tracking && distance >= 42; // 78 raw px × .55 visual resistance
+    resetGesture();
+    if (shouldRefresh) refresh(); else setStatus('Pull to refresh', false);
+  };
+  const onCancel = () => { resetGesture(); setStatus('Pull to refresh', false); };
+  async function refresh() {
+    if (refreshing) return false;
+    refreshing = true; button.disabled = true;
+    setStatus('Refreshing the collection…', true, false, true);
+    try {
+      const result = await api('/api/products', { timeout: 20000, cache: 'no-store' });
+      if (!result || !Array.isArray(result.products)) throw new Error('The collection response was incomplete.');
+      if (!result.products.length && (state.productsCache || []).some(p => !p.isCampaignStud)) {
+        throw new Error('The collection is temporarily unavailable. Your current results are still here.');
+      }
+      state.productsCache = result.products;
+      state.catalogOk = true; state.cacheAt = Date.now();
+      catalogCacheWrite(result.products);
+      ensureCampaignStuds();
+      await loadRates();
+      await apply();
+      setStatus('Collection updated', true);
+      toast('Collection refreshed ✦');
+      return true;
+    } catch (error) {
+      setStatus('Refresh failed — your saved bag is safe', true);
+      toast(error.message || 'Could not refresh the collection. Please try again.', 'err');
+      return false;
+    } finally {
+      refreshing = false; button.disabled = false;
+      setTimeout(() => { if (!refreshing) setStatus('Pull to refresh', false); }, 1800);
+    }
+  }
+  button.addEventListener('click', refresh);
+  view.addEventListener('touchstart', onStart, { passive: true });
+  view.addEventListener('touchmove', onMove, { passive: false });
+  view.addEventListener('touchend', onEnd, { passive: true });
+  view.addEventListener('touchcancel', onCancel, { passive: true });
+  view._shopPullCleanup = () => {
+    button.removeEventListener('click', refresh);
+    view.removeEventListener('touchstart', onStart);
+    view.removeEventListener('touchmove', onMove);
+    view.removeEventListener('touchend', onEnd);
+    view.removeEventListener('touchcancel', onCancel);
+    setStatus('Pull to refresh', false);
+    delete view._shopPullCleanup;
+  };
+}
 
 /* ─────────── SHOP ─────────── */
 pages.shop = async (view, q) => {
@@ -3809,10 +4141,10 @@ pages.shop = async (view, q) => {
         ${Object.entries(LIVE_CATS()).map(([k, c]) => `<label class="fcheck"><input type="checkbox" data-f="cat" value="${k}" ${cat === k ? 'checked' : ''}>${c.name}</label>`).join('')}
       </div>
       <div class="fgroup"><h3>Metal</h3>
-        ${[...metals].map(m => `<label class="fcheck"><input type="checkbox" data-f="metal" value="${m}">${m === 'Gold' ? 'Gold' : 'Silver 925'}</label>`).join('')}
+        ${[...metals].map(m => `<label class="fcheck"><input type="checkbox" data-f="metal" value="${esc(m)}">${m === 'Gold' ? 'Gold' : 'Silver 925'}</label>`).join('')}
       </div>
       <div class="fgroup"><h3>Purity</h3>
-        ${[...purities].map(p => `<label class="fcheck"><input type="checkbox" data-f="purity" value="${p}">${p === '925' ? 'Silver 925' : p + ' Gold'}</label>`).join('')}
+        ${[...purities].map(p => `<label class="fcheck"><input type="checkbox" data-f="purity" value="${esc(p)}">${p === '925' ? 'Silver 925' : esc(p) + ' Gold'}</label>`).join('')}
       </div>
       <div class="fgroup"><h3>Occasion</h3>
         ${Object.entries(TAGS).map(([k, v]) => `<label class="fcheck"><input type="checkbox" data-f="tag" value="${k}" ${tag === k ? 'checked' : ''}>${v}</label>`).join('')}
@@ -3827,10 +4159,12 @@ pages.shop = async (view, q) => {
       </div>
     </aside>
   <div class="container shop-main">
+      <div class="shv-pull-status" id="shopPullStatus" role="status" aria-live="polite" aria-atomic="true" aria-hidden="true"><span class="shv-pull-mark" aria-hidden="true">✦</span><span data-pull-label>Pull to refresh</span></div>
       <div class="shop-bar">
         <div class="res" id="resCount"></div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           ${savedRingSize() ? `<button type="button" class="size-match-chip" id="sizeMatchChip" aria-pressed="false">📏 rings in your size ${esc(savedRingSize())}</button>` : ''}
+          <button class="btn btn-ghost btn-sm shop-refresh" id="shopRefresh" type="button" aria-label="Refresh jewellery collection">↻ <span>Refresh</span></button>
           <button class="btn btn-outline btn-sm f-toggle" id="filterToggle">⚙ Filters <span class="fbadge" id="fBadge" hidden></span></button>
           <select class="sortsel" id="sortSel" aria-label="Sort pieces">
             <option value="featured">Sort · Featured</option>
@@ -3986,6 +4320,7 @@ pages.shop = async (view, q) => {
   closeSheet();
   initCatbar();
   await apply();
+  wireShopPullToRefresh(view, apply);
 };
 
 /* ─────────── PRODUCT ─────────── */
@@ -4004,7 +4339,7 @@ pages.product = async (view, q, id) => {
       <div class="skeleton" style="height:50px;width:210px;border-radius:40px"></div>
     </div></div></div>`;
   let data;
-  try { data = await api('/api/products/' + id); } catch (e) { if (!isCurrent()) return; view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
+  try { data = await getProductDetail(id); } catch (e) { if (!isCurrent()) return; view.innerHTML = `<div class="empty"><div class="big">✦</div><h3>Piece not found</h3><a class="btn btn-outline" href="#/shop">Back to shop</a></div>`; return; }
   if (!isCurrent()) return;
   /* v173 — a shared #/product/ link is often the FIRST page a new visitor
      ever loads, and it can render before /api/rates answers. The piece's own
@@ -4019,7 +4354,7 @@ pages.product = async (view, q, id) => {
   const emi3 = Math.round(pr.total / 3), emi6 = Math.round(pr.total / 6 * 1.02);
   view.innerHTML = `
   <div class="container" style="padding-top:26px">
-    <div class="crumbs" style="color:var(--ink-3)"><a href="#/">Home</a> / <a href="#/shop">Shop</a> / <a href="#/shop?category=${p.category}">${CATS[p.category]?.name}</a> / <span style="color:var(--gold)">${esc(p.name)}</span></div>
+    <div class="crumbs" style="color:var(--ink-3)"><a href="#/">Home</a> / <a href="#/shop">Shop</a> / <a href="#/shop?category=${encodeURIComponent(String(p.category || ''))}">${esc(CATS[p.category]?.name || p.category || '')}</a> / <span style="color:var(--gold)">${esc(p.name)}</span></div>
     <div class="pd-layout">
       <div class="pd-gallery">
         <div class="gal-wrap" id="galWrap">
@@ -4040,15 +4375,15 @@ pages.product = async (view, q, id) => {
       <div class="pd-info">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
           <div>
-            <div class="label">${CATS[p.category]?.name || p.category}</div>
+            <div class="label">${esc(CATS[p.category]?.name || p.category || '')}</div>
             <h1>${esc(p.name)}</h1>
-            <div class="pc-rating" style="font-size:15px">★ ${p.rating} <span style="color:var(--ink-3);font-size:13px">· ${p.reviews} reviews · SKU ${p.sku}</span></div>
+            <div class="pc-rating" style="font-size:15px">★ ${p.rating} <span style="color:var(--ink-3);font-size:13px">· ${p.reviews} reviews · SKU ${esc(p.sku || '')}</span></div>
           </div>
           <div style="display:flex;gap:8px;flex-shrink:0">
             <button class="pc-wish pd-share" onclick="Shivaa.shareProduct('${p.id}')" style="position:static;width:46px;height:46px" aria-label="Share this piece" title="Share this piece with a friend">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3"/></svg>
             </button>
-            <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" style="position:static;width:46px;height:46px" aria-label="Wishlist">
+            <button class="pc-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" style="position:static;width:46px;height:46px" aria-pressed="${wished ? 'true' : 'false'}" aria-label="${wished ? 'Remove from wishlist' : 'Add to wishlist'}">
               <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
             </button>
           </div>
@@ -4057,7 +4392,7 @@ pages.product = async (view, q, id) => {
         <div class="pd-pricebox">
           <div class="pd-total">
             <div><b id="pdTotal">${fmt(pr.total)}</b>
-              <div class="pd-live"><span class="live-dot"></span>live price · updates with the ${p.metal === 'Silver' ? 'silver' : p.purity + ' gold'} rate · incl. GST</div>
+              <div class="pd-live"><span class="live-dot"></span>live price · updates with the ${p.metal === 'Silver' ? 'silver' : esc(p.purity || '') + ' gold'} rate · incl. GST</div>
             </div>
             <button class="brk-btn-lg" id="brkBtn">💰 Price Details <b>⌄</b></button>
           </div>
@@ -4933,7 +5268,11 @@ window.Shivaa.cartMoveBack = (id, size) => {
   pages.cart($('#view'));
 };
 window.Shivaa.cartRemoveLater = (id, size) => {
-  setLater(getLater().filter(x => !(x.id === id && (x.size || '') === (size || ''))));
+  const before = getLater();
+  const next = before.filter(x => !(x.id === id && (x.size || '') === (size || '')));
+  if (next.length === before.length) return;
+  setLater(next);
+  toast('Removed from saved for later');
   pages.cart($('#view'));
 };
 function laterSectionHTML() {
@@ -4946,7 +5285,7 @@ function laterSectionHTML() {
         <a href="#/product/${p.id}"><img src="${safeUrl(p.images && p.images[0])}" alt=""></a>
         <div>
           <a href="#/product/${p.id}" class="ci-name">${esc(p.name)}</a>
-          <div class="ci-meta">${p.metal === 'Silver' ? 'Silver 925' : p.purity + ' gold'} · ${p.weightG} g${size ? ' · size ' + esc(size) : ''} · qty ${qty}</div>
+          <div class="ci-meta">${p.metal === 'Silver' ? 'Silver 925' : esc(p.purity || '') + ' gold'} · ${p.weightG} g${size ? ' · size ' + esc(size) : ''} · qty ${qty}</div>
           <div class="ci-meta js-price" data-pid="${p.id}" data-qty="${qty}">${fmt(price(p).total * qty)}</div>
         </div>
         <div class="ci-right"><a class="ci-remove" href="javascript:Shivaa.cartMoveBack(${jsArg(p.id)},${jsArg(size || '')})">Move to bag</a><br><a class="ci-remove" href="javascript:Shivaa.cartRemoveLater(${jsArg(p.id)},${jsArg(size || '')})">Remove</a></div>
@@ -4982,7 +5321,7 @@ pages.cart = async (view) => {
           <a href="#/product/${it.p.id}"><img src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
           <div>
             <a href="#/product/${it.p.id}" class="ci-name">${esc(it.p.name)}</a>
-            <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : it.p.purity + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved “' + esc(it.engraving) + '”' : ''}</div>
+            <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : esc(it.p.purity || '') + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved “' + esc(it.engraving) + '”' : ''}</div>
             <div class="ci-meta js-price" data-pid="${it.p.id}" data-qty="${it.qty}">${fmt(pr.total * it.qty)} <span style="opacity:.6">(live · incl. GST)</span></div>
             <div class="qty-row" style="transform:scale(.86);transform-origin:left">
               <button onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},-1)">−</button><b>${it.qty}</b><button onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},1)">+</button>
@@ -5024,15 +5363,20 @@ window.Shivaa.cartQty = (id, size, d) => {
   const it = state.cart.find(i => i.id === id && (i.size || '') === size);
   if (!it) return;
   it.qty += d;
-  if (it.qty <= 0) state.cart = state.cart.filter(i => i !== it);
+  const removed = it.qty <= 0;
+  if (removed) state.cart = state.cart.filter(i => i !== it);
   store.set('shv_cart', state.cart); updateBadges(); renderMiniCart();
+  if (removed) toast('Removed from your bag');
   if ((location.hash || '').startsWith('#/cart')) pages.cart($('#view'));
 };
 window.Shivaa.cartRemove = (id, size) => {
+  const before = state.cart.length;
   state.cart = state.cart.filter(i => !(i.id === id && (i.size || '') === size));
+  if (state.cart.length === before) return;
   store.set('shv_cart', state.cart); updateBadges();
   if ((location.hash || '') === '#/cart' || (location.hash || '').startsWith('#/cart')) pages.cart($('#view'));
   renderMiniCart();
+  toast('Removed from your bag');
 };
 
 /* ── v156 · BUG FIX — the 'rates' poll used to re-render the WHOLE cart page
@@ -5143,7 +5487,7 @@ function miniCartHTML() {
           <a href="#/product/${it.p.id}" data-mc-close><img src="${safeUrl(it.p.images && it.p.images[0])}" alt=""></a>
           <div class="mc-line-tx">
             <a href="#/product/${it.p.id}" class="ci-name" data-mc-close>${esc(it.p.name)}</a>
-            <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : it.p.purity + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved' : ''}</div>
+            <div class="ci-meta">${it.p.metal === 'Silver' ? 'Silver 925' : esc(it.p.purity || '') + ' gold'} · ${it.p.weightG} g${it.size ? ' · size ' + esc(it.size) : ''}${it.engraving ? ' · engraved' : ''}</div>
             <div class="mc-line-b">
               <span class="qty-row"><button aria-label="Decrease" onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},-1)">−</button><b>${it.qty}</b><button aria-label="Increase" onclick="Shivaa.cartQty(${jsArg(it.id)},${jsArg(it.size || '')},1)">+</button></span>
               <b class="js-price" data-pid="${it.p.id}" data-qty="${it.qty}">${fmt(pr.total * it.qty)}</b>
@@ -5287,7 +5631,7 @@ window.Shivaa.quickView = async (id) => {
         <button class="pc-wish qv-share" id="qvShare" aria-label="Share this piece">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3"/></svg>
         </button>
-        <button class="pc-wish qv-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" aria-label="Wishlist">
+        <button class="pc-wish qv-wish ${wished ? 'on' : ''}" data-pid="${p.id}" onclick="Shivaa.toggleWish('${p.id}')" aria-pressed="${wished ? 'true' : 'false'}" aria-label="${wished ? 'Remove from wishlist' : 'Add to wishlist'}">
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 20.5C7 16.5 3.5 13.3 3.5 9.6 3.5 7 5.5 5 8 5c1.6 0 3.1.8 4 2.1C12.9 5.8 14.4 5 16 5c2.5 0 4.5 2 4.5 4.6 0 3.7-3.5 6.9-8.5 10.9z"/></svg>
         </button>
         <span class="qv-zoom-hint" id="qvZoomHint">Double-tap to zoom</span>
@@ -7813,7 +8157,7 @@ window.Shivaa.b2bApply = async e => {
       opts = { method: 'POST', body: JSON.stringify(fields) };
     }
     const r = await api('/api/partners/apply', opts);
-    if (r.token) { setToken(r.token); state.user = r.user; }
+    if (r.token) { setToken(r.token); state.user = r.user; resetWishSession(); updateBadges(); }
     const gstHow = window._kyc.gstLive ? 'verified live with the government GST register' : 'checked and pending final confirmation';
     openModal(`<div class="center"><div style="font-size:48px">✦</div><h3 style="margin:10px 0">KYC Complete — Application Received!</h3><p style="color:var(--ink-2)">GSTIN <b>${esc($('#kyGstin').value.toUpperCase())}</b> ${gstHow} · mobile OTP verified${window._kycCard ? ' · business card attached' : ''}. Your partner portal account is live — full access once our team approves (usually within 48 hours).</p><a class="btn btn-primary" href="#/partner" style="margin-top:14px">Open Partner Portal</a></div>`);
     e.target.reset(); window._kyc = { gstin: false, otp: false }; window._kycCard = null;
@@ -7994,6 +8338,7 @@ function afterLogin(r, opts = {}) {
   const next = loginIntent();
   setToken(r.token);
   state.user = r.user || null;
+  resetWishSession();
   window._loginNext = '';
   window._loginFromHash = '';
   closeModal();
@@ -9980,6 +10325,7 @@ function route() {
   }
   const q = new URLSearchParams(qs || '');
   const view = $('#view');
+  if (view && view._shopPullCleanup) view._shopPullCleanup();
   closeModal();
   if (typeof closeCart === 'function') closeCart();
   /* v166 — NO navigation may inherit an open overlay. The mega panel and its
@@ -10065,7 +10411,7 @@ function route() {
     });
     const heroEl = $('#view .hero');
     if (heroEl && !heroEl.querySelector('.hero-logo')) {
-      heroEl.insertAdjacentHTML('beforeend', '<img src="/images/logo.png" class="hero-logo" alt="">');
+      heroEl.insertAdjacentHTML('beforeend', '<img src="/images/logo.png?v=' + APP_REL + '" class="hero-logo" alt="Shivaa Inc. logo" loading="lazy" decoding="async">');
       if (!heroEl.querySelector('.hero-cue')) heroEl.insertAdjacentHTML('beforeend', '<div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>');
     }
     } catch(e) { /* v42: prevent crash on pages with unusual DOM (e.g. hallmark) */ }
@@ -10503,7 +10849,11 @@ function catalogCacheWrite(ps) {
 /* ─────────── boot ─────────── */
 async function wishIds() {
   if (!state.user) return [];
-  try { return (await api('/api/wishlist')).wishlist || []; } catch (e) { return []; }   // v103 — never let an odd response break the PDP render
+  try {
+    const r = await api('/api/wishlist');
+    if (Array.isArray(r.wishlist)) { state.serverWish = cleanIds(r.wishlist); state.serverWishLoaded = true; }
+    return visibleWishIds();
+  } catch (e) { return visibleWishIds(); }   // v103 — never let an odd response break the PDP render
 }
 async function boot(isRedraw) {
   /* v117 — first paint was held hostage by THREE serial network rounds:
@@ -10543,7 +10893,10 @@ async function boot(isRedraw) {
     _firstBatch.then(() => { if (document.visibilityState !== 'hidden') boot(true); }).catch(() => {});
   }
   const [me = { user: null }, settings = {}, mc = { table: [] }, prods = { products: [] }, cats = { catalogs: [] }] = _packed || [];
-  state.user = me.user; state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
+  const _oldUserId = String(state.user && state.user.id || '');
+  state.user = me.user;
+  if (_oldUserId !== String(state.user && state.user.id || '')) resetWishSession();
+  state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
   /* v140 — AUTOMATIC LANDING: the moment a real /api/auth/me answer hydrates
      state.user, a signed-in jeweller on a bare URL goes straight to the live
      Bullion Desk (and a retail customer stays on home) — no login form, no

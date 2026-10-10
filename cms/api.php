@@ -127,6 +127,14 @@ function shv_sanitize_product_fields(array $b, array $existing = []): array {
   return $out;
 }
 function body_json(): array {
+  // JSON writes must not accept browser-simple form types (text/plain,
+  // application/x-www-form-urlencoded, multipart). Otherwise a cross-site
+  // no-cors POST can carry parseable JSON without a CORS preflight.
+  $rawType = (string)($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '');
+  $mime = strtolower(trim(explode(';', $rawType, 2)[0]));
+  if ($mime !== 'application/json' && !preg_match('~^application/[a-z0-9!#$&^_.+-]+\\+json$~i', $mime)) {
+    jout(415, ['error' => 'Content-Type must be application/json']);
+  }
   // v81 — cap request bodies (memory-exhaustion / DoS guard)
   static $checked = false;
   if (!$checked) {
@@ -138,6 +146,30 @@ function body_json(): array {
   if (strlen((string)$raw) > 3 * 1024 * 1024) jout(413, ['error' => 'Request too large']);
   $d = json_decode($raw ?: '{}', true);
   return is_array($d) ? $d : [];
+}
+function shv_request_origin_matches_host(): bool {
+  $origin = trim((string)($_SERVER['HTTP_ORIGIN'] ?? ''));
+  if ($origin === '') return true;  // non-browser/server-to-server clients
+  if (strcasecmp($origin, 'null') === 0) return false;
+  $o = parse_url($origin);
+  $hostHeader = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+  $h = $hostHeader !== '' ? parse_url('//' . $hostHeader) : false;
+  if (!is_array($o) || !is_array($h) || empty($o['scheme']) || empty($o['host']) || empty($h['host'])) return false;
+  if (isset($o['user']) || isset($o['pass']) || isset($o['query']) || isset($o['fragment'])
+      || (isset($o['path']) && $o['path'] !== '' && $o['path'] !== '/')) return false;
+  $originScheme = strtolower((string)$o['scheme']);
+  if (!in_array($originScheme, ['http', 'https'], true)) return false;
+  $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
+  $forwardedProto = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''), 2)[0]));
+  $requestScheme = ($https !== '' && $https !== 'off' && $https !== '0') || $forwardedProto === 'https' ? 'https' : 'http';
+  $originPort = (int)($o['port'] ?? ($originScheme === 'https' ? 443 : 80));
+  $requestPort = (int)($h['port'] ?? ($requestScheme === 'https' ? 443 : 80));
+  return $originScheme === $requestScheme && strcasecmp((string)$o['host'], (string)$h['host']) === 0
+      && $originPort === $requestPort;
+}
+function shv_guard_write_origin(string $route, string $method): void {
+  if (in_array(strtoupper($method), ['GET', 'HEAD', 'OPTIONS'], true) || $route === 'pay/cashfree/webhook') return;
+  if (!shv_request_origin_matches_host()) jout(403, ['error' => 'Cross-origin state-changing request rejected']);
 }
 /* v81 — real client IP. X-Forwarded-For is a client-controlled header, so it
    is trusted ONLY when the TCP peer is a local/known proxy (e.g. a VPS with
@@ -809,6 +841,113 @@ function shv_store_upload(string $tmp, string $dest): bool {
   if (@move_uploaded_file($tmp, $dest)) return true;
   return in_array(PHP_SAPI, ['cli', 'wasm'], true) && is_file($tmp) && @rename($tmp, $dest);
 }
+/* v187 — business-card KYC documents are never stored in the web root.
+   Production defaults to a private sibling of the document root; an absolute
+   environment override exists for hosts with a dedicated private-data mount
+   and for the isolated PHP-WASM fixture. Refuse symlinks, relative paths, and
+   any resolved location inside this app's document root. */
+function shv_kyc_private_dir(): ?string {
+  $docRoot = realpath(__DIR__);
+  if ($docRoot === false) return null;
+  $configured = getenv('SHIVAA_PRIVATE_KYC_DIR');
+  $dir = is_string($configured) && trim($configured) !== ''
+    ? trim($configured)
+    : dirname($docRoot) . DIRECTORY_SEPARATOR . '.shivaa-private-kyc';
+  if ($dir === '' || $dir[0] !== DIRECTORY_SEPARATOR) return null;
+  if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) return null;
+  if (is_link($dir)) return null;
+  $real = realpath($dir);
+  if ($real === false || $real === $docRoot || str_starts_with($real, $docRoot . DIRECTORY_SEPARATOR)) return null;
+  if (!is_dir($real) || !is_writable($real)) return null;
+  @chmod($real, 0700);
+  $mode = @fileperms($real);
+  if ($mode === false || (($mode & 0077) !== 0)) return null;
+  return $real;
+}
+function shv_kyc_detect_ext(string $head): ?string {
+  if (strncmp($head, "\xFF\xD8\xFF", 3) === 0) return 'jpg';
+  if (strncmp($head, "\x89PNG\r\n\x1a\n", 8) === 0) return 'png';
+  if (strncmp($head, 'RIFF', 4) === 0 && substr($head, 8, 4) === 'WEBP') return 'webp';
+  if (strncmp($head, 'GIF87a', 6) === 0 || strncmp($head, 'GIF89a', 6) === 0) return 'gif';
+  if (strncmp($head, '%PDF-', 5) === 0) return 'pdf';
+  return null;
+}
+function shv_kyc_store_upload(string $tmp, string $ext): ?string {
+  if (!in_array($ext, ['jpg', 'png', 'webp', 'gif', 'pdf'], true) || !is_file($tmp)) return null;
+  $dir = shv_kyc_private_dir();
+  if ($dir === null) return null;
+  $size = @filesize($tmp);
+  if ($size === false || $size < 1 || $size > 8388608) return null;
+  $head = (string)@file_get_contents($tmp, false, null, 0, 12);
+  if (shv_kyc_detect_ext($head) !== $ext) return null;
+  $name = 'card_' . bin2hex(random_bytes(16)) . '.' . $ext;
+  $dest = $dir . DIRECTORY_SEPARATOR . $name;
+  if (!shv_store_upload($tmp, $dest) || !is_file($dest) || is_link($dest)) return null;
+  @chmod($dest, 0600);
+  $mode = @fileperms($dest);
+  $storedHead = (string)@file_get_contents($dest, false, null, 0, 12);
+  if ($mode === false || (($mode & 0077) !== 0) || shv_kyc_detect_ext($storedHead) !== $ext) {
+    @unlink($dest);
+    return null;
+  }
+  return 'private-kyc:' . $name;
+}
+function shv_kyc_legacy_path(string $ref): ?string {
+  if (!preg_match('#\\A/uploads/kyc/(card_[a-f0-9]{10}\\.(?:jpe?g|png|webp|gif|pdf))\\z#i', $ref)) return null;
+  $base = __DIR__ . '/uploads/kyc';
+  if (is_link($base) || !is_dir($base)) return null;
+  $candidate = __DIR__ . $ref;
+  if (is_link($candidate) || !is_file($candidate)) return null;
+  $realBase = realpath($base); $realFile = realpath($candidate);
+  if ($realBase === false || $realFile === false || !str_starts_with($realFile, $realBase . DIRECTORY_SEPARATOR)) return null;
+  return $realFile;
+}
+function shv_kyc_resolve_ref(string $ref): ?array {
+  $isPrivate = preg_match('#\\Aprivate-kyc:(card_[a-f0-9]{32}\\.(?:jpg|png|webp|gif|pdf))\\z#', $ref) === 1;
+  if ($isPrivate) {
+    $dir = shv_kyc_private_dir();
+    if ($dir === null) return null;
+    $name = substr($ref, strlen('private-kyc:'));
+    $candidate = $dir . DIRECTORY_SEPARATOR . $name;
+    if (is_link($candidate) || !is_file($candidate)) return null;
+    $real = realpath($candidate);
+    if ($real === false || !str_starts_with($real, $dir . DIRECTORY_SEPARATOR)) return null;
+    $pathExt = strtolower((string)pathinfo($name, PATHINFO_EXTENSION));
+    $head = (string)@file_get_contents($real, false, null, 0, 12);
+    $ext = shv_kyc_detect_ext($head);
+    if ($ext === null || $ext !== $pathExt) return null;
+  } else {
+    $real = shv_kyc_legacy_path($ref);
+    if ($real === null) return null;
+    $head = (string)@file_get_contents($real, false, null, 0, 12);
+    $ext = shv_kyc_detect_ext($head);
+    if ($ext === null) return null;
+  }
+  $size = @filesize($real);
+  if ($size === false || $size < 1 || $size > 8388608) return null;
+  return ['path' => $real, 'ext' => $ext, 'size' => $size];
+}
+function shv_kyc_migrate_copy(string $source, string $ext): ?string {
+  if (!in_array($ext, ['jpg', 'png', 'webp', 'gif', 'pdf'], true) || !is_file($source) || is_link($source)) return null;
+  $size = @filesize($source);
+  if ($size === false || $size < 1 || $size > 8388608) return null;
+  $dir = shv_kyc_private_dir();
+  if ($dir === null) return null;
+  $head = (string)@file_get_contents($source, false, null, 0, 12);
+  if (shv_kyc_detect_ext($head) !== $ext) return null;
+  $name = 'card_' . bin2hex(random_bytes(16)) . '.' . $ext;
+  $dest = $dir . DIRECTORY_SEPARATOR . $name;
+  $tmp = $dest . '.tmp';
+  if (!@copy($source, $tmp)) { @unlink($tmp); return null; }
+  $srcHash = @hash_file('sha256', $source); $tmpHash = @hash_file('sha256', $tmp);
+  if ($srcHash === false || $tmpHash === false || !hash_equals($srcHash, $tmpHash) || @filesize($tmp) !== $size) {
+    @unlink($tmp); return null;
+  }
+  @chmod($tmp, 0600);
+  $mode = @fileperms($tmp);
+  if ($mode === false || (($mode & 0077) !== 0) || !@rename($tmp, $dest)) { @unlink($tmp); return null; }
+  return 'private-kyc:' . $name;
+}
 /* v182 — billing-sync HMAC guard (docs/BILLING-SYNC-CONTRACT.md). Every call
    signs `ts \n METHOD \n route \n rawBody` with the shared secret that lives
    ONLY in settings.billingSyncSecret. hash_equals = timing-safe; ±5 min
@@ -1370,6 +1509,166 @@ function cashfree_call(array $cfg, string $method, string $path, ?array $body = 
   $err = (string)curl_error($ch);
   curl_close($ch);
   return ['code' => $code, 'json' => json_decode($raw, true), 'raw' => $raw, 'err' => $err];
+}
+/* v184 · event-level Cashfree settlement reconciliation. The current
+   POST /pg/settlement/recon (API v2026-01-01) returns a cursor/data envelope
+   whose event rows contain nested event/order/payment/settlement details.
+   Compare an allowlisted projection only; never return customer_details or
+   the provider's raw response to the browser. */
+function cashfree_settlement_recon_payload(string $from, string $to, string $cursor = ''): array {
+  return [
+    'pagination' => ['limit' => 10, 'cursor' => $cursor !== '' ? $cursor : null],
+    'filters' => [
+      'start_date_processed_on' => $from . 'T00:00:00+05:30',
+      'end_date_processed_on' => $to . 'T23:59:59+05:30',
+    ],
+  ];
+}
+function cashfree_reconciliation_date_valid(string $date): bool {
+  if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $m)) return false;
+  return checkdate((int)$m[2], (int)$m[3], (int)$m[1]);
+}
+/* Cashfree v2026 recon responds with {cursor, limit, data:[...]}. Reject a
+   malformed/oversized page instead of dropping rows or claiming completeness. */
+function cashfree_settlement_recon_response(array $json): ?array {
+  $data = $json['data'] ?? null;
+  if (!is_array($data) || !array_is_list($data) || count($data) > 10) return null;
+  foreach ($data as $entry) if (!is_array($entry)) return null;
+  $cursor = trim((string)($json['cursor'] ?? ''));
+  if (strlen($cursor) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $cursor)) return null;
+  return ['data' => $data, 'cursor' => $cursor];
+}
+/* Compare successful PAYMENT events to the existing Cashfree payment ledger.
+   `payment_amount` (or the PAYMENT event's amount fallback) is gross;
+   `event_settlement_amount` is displayed separately and is never compared to
+   the shopper's gross amount. Refund/dispute/adjustment events remain manual. */
+function cashfree_settlement_recon_compare(array $db, array $data): array {
+  $ownersByOrder = []; $localByPayment = []; $localByOrder = [];
+  foreach (($db['orders'] ?? []) as $o) {
+    if (!is_array($o)) continue;
+    $localOrderId = (string)($o['id'] ?? '');
+    foreach (($o['cfAttempts'] ?? []) as $attempt) {
+      $cfOrderId = trim((string)($attempt['cfOrderId'] ?? ''));
+      if ($cfOrderId !== '' && $localOrderId !== '') $ownersByOrder[$cfOrderId][$localOrderId] = true;
+    }
+    foreach (($o['payments'] ?? []) as $payment) {
+      if (!is_array($payment) || strtolower((string)($payment['mode'] ?? '')) !== 'cashfree'
+          || strtolower((string)($payment['status'] ?? '')) !== 'approved') continue;
+      $cfOrderId = trim((string)($payment['cfOrderId'] ?? $payment['gatewayPaymentId'] ?? $payment['ref'] ?? ''));
+      $cfPaymentId = trim((string)($payment['cfPaymentId'] ?? ''));
+      $record = ['orderId' => $localOrderId, 'cfOrderId' => $cfOrderId,
+        'cfPaymentId' => $cfPaymentId, 'amount' => (int)($payment['amount'] ?? 0)];
+      if ($cfPaymentId !== '') $localByPayment[$cfPaymentId][] = $record;
+      if ($cfOrderId !== '') { $localByOrder[$cfOrderId][] = $record; if ($localOrderId !== '') $ownersByOrder[$cfOrderId][$localOrderId] = true; }
+    }
+    foreach (($o['overpayments'] ?? []) as $overpayment) {
+      if (!is_array($overpayment)) continue;
+      $cfOrderId = trim((string)($overpayment['cfOrderId'] ?? ''));
+      $cfPaymentId = trim((string)($overpayment['cfPaymentId'] ?? ''));
+      $record = ['orderId' => $localOrderId, 'cfOrderId' => $cfOrderId,
+        'cfPaymentId' => $cfPaymentId, 'amount' => (int)($overpayment['amount'] ?? 0)];
+      if ($cfPaymentId !== '') $localByPayment[$cfPaymentId][] = $record;
+      if ($cfOrderId !== '') { $localByOrder[$cfOrderId][] = $record; if ($localOrderId !== '') $ownersByOrder[$cfOrderId][$localOrderId] = true; }
+    }
+  }
+
+  $out = []; $summary = ['rows' => 0, 'matched' => 0, 'amountMismatches' => 0, 'missingLocal' => 0, 'needsReview' => 0];
+  foreach ($data as $row) {
+    if (!is_array($row)) continue;
+    $event = is_array($row['event_details'] ?? null) ? $row['event_details'] : [];
+    $order = is_array($row['order_details'] ?? null) ? $row['order_details'] : [];
+    $payment = is_array($row['payment_details'] ?? null) ? $row['payment_details'] : [];
+    $settlement = is_array($row['settlement_details'] ?? null) ? $row['settlement_details'] : [];
+    $eventType = strtoupper(trim((string)($event['event_type'] ?? '')));
+    $eventStatus = strtoupper(trim((string)($event['event_status'] ?? '')));
+    $paymentStatus = strtoupper(trim((string)($payment['status'] ?? '')));
+    $cfPaymentId = trim((string)($payment['cf_payment_id'] ?? ''));
+    $cfOrderId = trim((string)($order['order_id'] ?? ''));
+    $providerAmount = is_numeric($payment['payment_amount'] ?? null)
+      ? round((float)$payment['payment_amount'], 2)
+      : ($eventType === 'PAYMENT' && is_numeric($event['event_amount'] ?? null) ? round((float)$event['event_amount'], 2) : null);
+    $ownerIds = array_keys($ownersByOrder[$cfOrderId] ?? []);
+    $localOrderId = count($ownerIds) === 1 ? (string)$ownerIds[0] : '';
+    $candidate = null; $matchedByOrder = false;
+    $status = 'needs_review';
+    $note = $eventType === 'PAYMENT'
+      ? 'Payment event is not marked SUCCESS in both provider status fields.'
+      : 'Non-payment event; review Cashfree refund, dispute, or adjustment records manually.';
+
+    if ($eventType === 'PAYMENT' && $eventStatus === 'SUCCESS' && $paymentStatus === 'SUCCESS') {
+      $exact = $cfPaymentId !== '' ? ($localByPayment[$cfPaymentId] ?? []) : [];
+      $candidate = count($exact) === 1 ? $exact[0] : null;
+      $status = 'missing_local';
+      $note = $localOrderId !== ''
+        ? 'Cashfree order is linked locally, but this successful payment is not in its approved Cashfree ledger.'
+        : 'No Shivaa order is linked to this Cashfree order or payment.';
+      if (count($exact) > 1) {
+        $status = 'ambiguous';
+        $note = 'This Cashfree payment ID appears more than once in the local ledger.';
+      } elseif (!$candidate && $cfOrderId !== '') {
+        $orderRecords = $localByOrder[$cfOrderId] ?? [];
+        $legacy = array_values(array_filter($orderRecords, static fn($p) => ($p['cfPaymentId'] ?? '') === ''));
+        if (count($legacy) === 1) { $candidate = $legacy[0]; $matchedByOrder = true; }
+      }
+      if ($candidate) {
+        $localOrderId = (string)$candidate['orderId'];
+        if ($cfOrderId === '') {
+          $status = 'needs_review';
+          $note = 'Cashfree order ID is missing; the payment ID cannot be verified against a local payment attempt.';
+        } elseif (count($ownerIds) > 1) {
+          $status = 'ambiguous';
+          $note = 'This Cashfree order ID is linked to multiple local orders.';
+        } elseif (!$ownerIds) {
+          $status = 'needs_review';
+          $note = 'Cashfree payment ID matched, but its order ID is not linked to a local payment attempt.';
+        } elseif ((($candidate['cfOrderId'] ?? '') !== '' && $candidate['cfOrderId'] !== $cfOrderId)
+            || !in_array($localOrderId, $ownerIds, true)) {
+          $status = 'order_mismatch';
+          $note = 'The payment ID and Cashfree order ID point to different local payment attempts.';
+        } elseif ($providerAmount === null) {
+          $status = 'needs_review';
+          $note = 'Local payment ID matched, but Cashfree did not return a gross payment amount.';
+        } elseif (abs($providerAmount - (float)$candidate['amount']) > 0.01) {
+          $status = 'amount_mismatch';
+          $note = 'Cashfree gross payment amount differs from the approved local payment amount.';
+        } elseif ($matchedByOrder) {
+          $status = 'legacy_match';
+          $note = 'Order ID and amount match; this older local row has no Cashfree payment ID.';
+        } else {
+          $status = 'matched';
+          $note = 'Cashfree payment ID, order ID, and gross amount match the local payment ledger.';
+        }
+      }
+    }
+
+    $out[] = [
+      'eventId' => substr(trim((string)($event['event_id'] ?? '')), 0, 60),
+      'eventType' => substr($eventType, 0, 40),
+      'eventStatus' => substr($eventStatus, 0, 24),
+      'cfPaymentId' => substr($cfPaymentId, 0, 60),
+      'cfOrderId' => substr($cfOrderId, 0, 100),
+      'localOrderId' => substr($localOrderId, 0, 100),
+      'eventAmount' => is_numeric($event['event_amount'] ?? null) ? round((float)$event['event_amount'], 2) : null,
+      'paymentAmount' => $providerAmount,
+      'localAmount' => $candidate ? (int)$candidate['amount'] : null,
+      'settlementAmount' => is_numeric($event['event_settlement_amount'] ?? null) ? round((float)$event['event_settlement_amount'], 2) : null,
+      'currency' => substr(trim((string)($payment['payment_currency'] ?? $event['event_currency'] ?? '')), 0, 8),
+      'settlementId' => substr(trim((string)($settlement['cf_settlement_id'] ?? '')), 0, 60),
+      'settlementUtr' => substr(trim((string)($settlement['settlement_utr'] ?? '')), 0, 80),
+      'settlementDate' => substr(trim((string)($settlement['settlement_date'] ?? '')), 0, 40),
+      'settlementInitiatedOn' => substr(trim((string)($settlement['settlement_initiated_on'] ?? '')), 0, 40),
+      'paymentTime' => substr(trim((string)($payment['payment_time'] ?? '')), 0, 40),
+      'paymentGroup' => substr(trim((string)($payment['payment_group'] ?? '')), 0, 30),
+      'status' => $status,
+      'note' => $note,
+    ];
+    $summary['rows']++;
+    if ($status === 'matched') $summary['matched']++;
+    elseif ($status === 'amount_mismatch') { $summary['amountMismatches']++; $summary['needsReview']++; }
+    elseif ($status === 'missing_local') { $summary['missingLocal']++; $summary['needsReview']++; }
+    else $summary['needsReview']++;
+  }
+  return ['rows' => $out, 'summary' => $summary];
 }
 /* v139 · the two objects Cashfree's "Custom website" One Click Checkout guide
    says to add to Create Order. Returns [] when OCC is off, so the caller can
@@ -3924,6 +4223,10 @@ function event_coupons_ensure(array &$db, array $u): array {
 $route = $_GET['__route'] ?? '';
 $route = trim((string)$route, '/');
 $method = $_SERVER['REQUEST_METHOD'];
+// Browser writes may come only from this exact origin. Requests from CLI or
+// server-to-server clients without Origin remain supported; the signed Cashfree
+// webhook has its own independent verifier and does not use browser auth.
+shv_guard_write_origin($route, $method);
 // v82 — take the global write lock BEFORE the first read for integrity routes
 shv_acquire_lock($DB_FILE, $route, $method);
 hallmark_public_route($route, $method);
@@ -4104,6 +4407,11 @@ try {
 
   /* ── products ── */
   if ($route === 'products' && $method === 'GET') {
+    foreach (['category', 'q', 'metal', 'tag'] as $__filter) {
+      if (isset($_GET[$__filter]) && !is_string($_GET[$__filter])) {
+        jout(400, ['error' => 'Invalid product filter']);
+      }
+    }
     $list = array_values(array_filter($db['products'], fn($x) => !empty($x['active'])));
     $camps = campaign_studs_catalog();
     // v164 — campaign twins only when the live db.json does not already carry
@@ -5789,7 +6097,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 187,
+      'rel'   => 188,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -6864,27 +7172,92 @@ try {
     jout(200, ['orders' => array_reverse($list)]);
   }
 
+  /* v187 — private, admin-only business-card streaming. Partner IDs are
+     bound through the authenticated DB row; callers never supply a path. */
+  if (preg_match('#^admin/partners/([A-Za-z0-9_-]+)/business-card$#', $route, $mKycCard) && $method === 'GET') {
+    need_admin($db);
+    $partner = null;
+    foreach (($db['partners'] ?? []) as $pRow) if ((string)($pRow['id'] ?? '') === $mKycCard[1]) { $partner = $pRow; break; }
+    if (!$partner) jout(404, ['error' => 'Partner not found']);
+    $ref = (string)($partner['kyc']['businessCard'] ?? '');
+    if ($ref === '') jout(404, ['error' => 'Business card not found']);
+    if (str_starts_with($ref, 'private-kyc:') && shv_kyc_private_dir() === null)
+      jout(503, ['error' => 'Private KYC storage is unavailable']);
+    $doc = shv_kyc_resolve_ref($ref);
+    if ($doc === null) jout(404, ['error' => 'Business card not found or unsupported']);
+    $mime = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp',
+             'gif' => 'image/gif', 'pdf' => 'application/pdf'][$doc['ext']];
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: inline; filename="business-card.' . $doc['ext'] . '"');
+    header('Content-Length: ' . (int)$doc['size']);
+    header('Cache-Control: private, no-store, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: no-referrer');
+    header('X-Frame-Options: DENY');
+    header("Content-Security-Policy: default-src 'none'; sandbox; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    readfile($doc['path']);
+    exit;
+  }
+
+  /* v187 — one-time admin migration. The public directory is denied at the
+     web-server layer immediately; this route copies each legacy file to the
+     private sibling, verifies bytes, saves its new reference, then unlinks
+     the old copy. If DB persistence fails, old files are left in place. */
+  if ($route === 'admin/kyc/migrate-business-cards' && $method === 'POST') {
+    $adminKyc = need_admin($db);
+    rate_block($db, 'kyc-migrate-u', (string)($adminKyc['id'] ?? '?'), 10, 3600);
+    if (shv_kyc_private_dir() === null) jout(503, ['error' => 'Private KYC storage is unavailable; legacy records were not changed.']);
+    $migrated = 0; $missing = 0; $invalid = 0; $failed = 0; $cleanupPending = 0; $oldFiles = [];
+    foreach (array_keys($db['partners'] ?? []) as $pi) {
+      $ref = (string)($db['partners'][$pi]['kyc']['businessCard'] ?? '');
+      if (!str_starts_with($ref, '/uploads/kyc/')) continue;
+      if (!preg_match('#\\A/uploads/kyc/card_[a-f0-9]{10}\\.(?:jpe?g|png|webp|gif|pdf)\\z#i', $ref)) { $invalid++; continue; }
+      $source = shv_kyc_legacy_path($ref);
+      if ($source === null) { $missing++; continue; }
+      $size = @filesize($source);
+      $head = (string)@file_get_contents($source, false, null, 0, 12);
+      $ext = shv_kyc_detect_ext($head);
+      if ($size === false || $size < 1 || $size > 8388608 || $ext === null) { $invalid++; continue; }
+      $newRef = shv_kyc_migrate_copy($source, $ext);
+      if ($newRef === null) { $failed++; continue; }
+      $db['partners'][$pi]['kyc']['businessCard'] = $newRef;
+      $oldFiles[] = $source;
+      $migrated++;
+    }
+    if ($migrated > 0) {
+      audit_log($db, 'partner.kyc-card-migration', ['migrated' => $migrated, 'by' => $adminKyc['id'] ?? 'admin']);
+      db_save($DB_FILE, $db);
+      foreach ($oldFiles as $oldFile) if (is_file($oldFile) && !@unlink($oldFile)) $cleanupPending++;
+    }
+    jout(200, ['ok' => true, 'migrated' => $migrated, 'missing' => $missing,
+      'invalid' => $invalid, 'failed' => $failed, 'cleanupPending' => $cleanupPending]);
+  }
+
   /* ── partners (full KYC) ── */
   if ($route === 'partners/apply' && $method === 'POST') {
     // v101 — multipart submissions carry the optional business-card upload;
-    // JSON submissions (no card) keep working unchanged.
+    // JSON submissions (no card) keep working unchanged. v187 inspects, but
+    // does not persist, the temporary upload until OTP/GST/duplicate checks pass.
+    if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 10 * 1024 * 1024) jout(413, ['error' => 'Request too large']);
     $b = !empty($_POST) ? $_POST : body_json();
-    $businessCard = null;
-    if (!empty($_FILES['businessCard']) && ($_FILES['businessCard']['error'] ?? 1) === UPLOAD_ERR_OK) {
+    $cardUpload = null;
+    if (array_key_exists('businessCard', $_FILES ?? [])) {
       $cf = $_FILES['businessCard'];
-      if (($cf['size'] ?? 0) > 8388608) jout(400, ['error' => 'Business card must be under 8 MB']);
-      $head = (string)@file_get_contents($cf['tmp_name'], false, null, 0, 12);
-      $isImg = strncmp($head, "\xFF\xD8\xFF", 3) === 0
-            || strncmp($head, "\x89PNG\r\n\x1a\n", 8) === 0
-            || (strncmp($head, 'RIFF', 4) === 0 && substr($head, 8, 4) === 'WEBP')
-            || strncmp($head, 'GIF8', 4) === 0;
-      $isPdf = strncmp($head, '%PDF-', 5) === 0;
-      if (!$isImg && !$isPdf) jout(400, ['error' => 'Business card must be a real JPG / PNG / WEBP image or PDF']);
-      $ext = $isPdf ? 'pdf' : strtolower(pathinfo((string)($cf['name'] ?? 'card.jpg'), PATHINFO_EXTENSION));
-      if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'], true)) $ext = $isPdf ? 'pdf' : 'jpg';
-      if (!is_dir(__DIR__ . '/uploads/kyc')) @mkdir(__DIR__ . '/uploads/kyc', 0755, true);
-      $cardName = 'card_' . bin2hex(random_bytes(5)) . '.' . $ext;
-      if (move_uploaded_file($cf['tmp_name'], __DIR__ . '/uploads/kyc/' . $cardName)) $businessCard = '/uploads/kyc/' . $cardName;
+      if (!is_array($cf)) jout(400, ['error' => 'Business-card upload is invalid']);
+      $uploadError = (int)($cf['error'] ?? UPLOAD_ERR_NO_FILE);
+      if ($uploadError !== UPLOAD_ERR_NO_FILE) {
+        if ($uploadError !== UPLOAD_ERR_OK) jout(400, ['error' => 'Business-card upload failed']);
+        $tmp = (string)($cf['tmp_name'] ?? '');
+        $size = $tmp !== '' && is_file($tmp) ? @filesize($tmp) : false;
+        if ($size === false || $size < 1 || $size > 8388608 || (isset($cf['size']) && (int)$cf['size'] !== $size))
+          jout(400, ['error' => 'Business card must be under 8 MB']);
+        $head = (string)@file_get_contents($tmp, false, null, 0, 12);
+        $ext = shv_kyc_detect_ext($head);
+        if ($ext === null) jout(400, ['error' => 'Business card must be a real JPG / PNG / WEBP / GIF image or PDF']);
+        $cardUpload = ['tmp' => $tmp, 'ext' => $ext];
+      }
     }
     rate_block($db, 'partnerapply-ip', client_ip(), 10, 3600);
     if (empty($b['firm']) || empty($b['email']) || empty($b['phone']) || empty($b['password'])) jout(400, ['error' => 'Firm, email, phone & password required']);
@@ -6920,6 +7293,12 @@ try {
     foreach (($db['partners'] ?? []) as $pExist) {
       if (strtoupper((string)($pExist['kyc']['gstin'] ?? '')) === $gstRaw)
         jout(409, ['error' => 'An application already exists for this GSTIN.']);
+    }
+    $businessCard = null;
+    if ($cardUpload !== null) {
+      $businessCard = shv_kyc_store_upload($cardUpload['tmp'], $cardUpload['ext']);
+      if ($businessCard === null)
+        jout(503, ['error' => 'Secure business-card storage is unavailable; application was not saved.']);
     }
     $kycRec = ['gstin' => $gstRaw, 'gstinValid' => true, 'gstinState' => $gst['state'],
       'pan' => $gst['pan'], 'ownerPan' => strtoupper((string)($b['ownerPan'] ?? '')),
@@ -7893,6 +8272,48 @@ try {
       'oldGold' => ['count' => count($goldBuys), 'amount' => array_sum(array_map(fn($g) => (int)$g['amount'], $goldBuys))],
       'lowStock' => $lowStock, 'assumedWeights' => $assumedWt, 'metalOutWithKarigars' => $metalOutMap,
       'proofPending' => $proofPending,
+    ]);
+  }
+  /* v184 · read-only Cashfree settlement report. It never saves the local
+     database or changes an order/payment; the admin explicitly fetches each
+     cursor page. This call uses the documented v2026 event-reconciliation
+     endpoint without changing the standard checkout client's v2023-08-01 setting. */
+  if ($route === 'admin/payments/settlements' && $method === 'GET') {
+    need_admin($db);
+    $from = trim((string)($_GET['from'] ?? ''));
+    $to = trim((string)($_GET['to'] ?? ''));
+    if (!cashfree_reconciliation_date_valid($from) || !cashfree_reconciliation_date_valid($to))
+      jout(400, ['error' => 'Choose valid settlement dates in YYYY-MM-DD format.']);
+    $tz = new DateTimeZone('Asia/Kolkata');
+    $today = (new DateTimeImmutable('now', $tz))->format('Y-m-d');
+    if ($to < $from || $to > $today)
+      jout(400, ['error' => 'The settlement range must be ordered and cannot include a future date.']);
+    $fromAt = new DateTimeImmutable($from . ' 00:00:00', $tz);
+    $toAt = new DateTimeImmutable($to . ' 23:59:59', $tz);
+    if ((int)$fromAt->diff($toAt)->format('%a') + 1 > 31)
+      jout(400, ['error' => 'Choose a settlement range of 31 days or less.']);
+    $cursor = trim((string)($_GET['cursor'] ?? ''));
+    if (strlen($cursor) > 2048 || preg_match('/[\x00-\x1F\x7F]/', $cursor))
+      jout(400, ['error' => 'Invalid settlement page cursor.']);
+
+    $cfg = cashfree_cfg($db);
+    if ($cfg['appId'] === '' || $cfg['secret'] === '')
+      jout(503, ['error' => 'Cashfree API credentials are not configured; no settlement request was made.']);
+    $cfg['apiVersion'] = '2026-01-01';
+    $res = cashfree_call($cfg, 'POST', '/pg/settlement/recon', cashfree_settlement_recon_payload($from, $to, $cursor));
+    $http = (int)($res['code'] ?? 0);
+    if ($http < 200 || $http >= 300)
+      jout(502, ['error' => 'Cashfree settlements could not be fetched (HTTP ' . ($http ?: 'no response') . '). No local data was changed.', 'upstreamStatus' => $http]);
+    $json = is_array($res['json'] ?? null) ? $res['json'] : [];
+    $page = cashfree_settlement_recon_response($json);
+    if ($page === null)
+      jout(502, ['error' => 'Cashfree returned an unexpected settlement response. No local data was changed.']);
+    $next = $page['cursor'];
+    $comparison = cashfree_settlement_recon_compare($db, $page['data']);
+    jout(200, [
+      'readOnly' => true, 'range' => [$from, $to], 'dateBasis' => 'Settlement processed time (IST)',
+      'limit' => 10, 'rows' => $comparison['rows'], 'summary' => $comparison['summary'],
+      'cursor' => $next, 'hasMore' => $next !== '',
     ]);
   }
   if ($route === 'admin/audit' && $method === 'GET') {
