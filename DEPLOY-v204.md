@@ -35,3 +35,20 @@ Moved 203 → 204 in `index.html`, `sw.js` (shell `shivaa-shell-v204`, precache 
 ## Deploy
 Owner approval required. After upload, hard refresh the Black Card page on a phone, and tap
 "Get home delivery physical card" to check the address page.
+
+## Fixes added before publishing (same release 204, not yet deployed)
+- Phone: the "Get home delivery physical card" button now stacks full-width, with its note underneath.
+  It had overflowed the panel.
+- Phone: the certificate detail boxes use light text on the dark panel, not dark text on grey.
+- Checked in a headless browser at 390 px wide: no sideways overflow.
+
+## Root cause of the dead delivery button (fixed in this release)
+In v199 the document-level click handler for `[data-bc-delivery-start]` was placed after the
+closing `})();` of the app scope. `state`, `api` and `toast` were out of scope, so the click threw
+"state is not defined" and nothing happened. The same bug left `fillBannerOffer` undefined.
+v204 moves the closing brace to the end of `app.js`.
+Verified in a headless browser with mocked API responses:
+- v203: click → error, no request, page stays on `#/black-card`.
+- v204: click → `POST /api/premium/claim` → `#/black-card/delivery`, heading "Where should we deliver
+  your card?", big "GET MY CARD" button.
+Not run: the PHP backend (not installed here) and the full smoke suite. Phone test still needed.
