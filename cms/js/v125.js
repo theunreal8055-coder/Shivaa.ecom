@@ -47,8 +47,7 @@
      mount because it can land after this file first ran. */
   function lite() {
     try {
-      return doc.documentElement.classList.contains('au-lite') ||
-        (navigator.connection && navigator.connection.saveData);
+      return !!(navigator.connection && navigator.connection.saveData);
     } catch (e) { return false; }
   }
   function splay(v) {
@@ -201,6 +200,7 @@
     }
     var v = doc.createElement('video');
     v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'metadata';
+    v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
     v.setAttribute('poster', fl.p);
     v.setAttribute('aria-label', fl.title);
     v.src = fl.f;
@@ -211,11 +211,11 @@
     if ('IntersectionObserver' in win) {
       new IntersectionObserver(function (es) {
         es.forEach(function (e) {
-          v.dataset.svVis = e.intersectionRatio >= .35 ? '1' : '0';
-          if (e.intersectionRatio >= .35) { if (playGate()) splay(v); }
+          v.dataset.svVis = e.intersectionRatio >= .15 ? '1' : '0';
+          if (e.intersectionRatio >= .15) { if (playGate()) splay(v); }
           else { shut(v); }
         });
-      }, { threshold: [0, .35, .6] }).observe(v);
+      }, { threshold: [0, .15, .35, .6] }).observe(v);
     }
     return wrap;
   }
@@ -401,10 +401,10 @@
       var tipY = win.innerHeight * .72 - r.top;
       var p = Math.min(1, Math.max(0, r.height > 0 ? tipY / r.height : 0));
       if (path) path.style.strokeDashoffset = L * (1 - p);
-      items.forEach(function (it) {
+      items.forEach(function (it, idx) {
         var ir = it.getBoundingClientRect();
         var cy = ir.top - r.top + ir.height / 2;
-        var lit = cy <= tipY;
+        var lit = idx === 0 || cy <= tipY;
         if (lit !== it.classList.contains('sv-lit')) {
           it.classList.toggle('sv-lit', lit);
           var v = it.querySelector('video');

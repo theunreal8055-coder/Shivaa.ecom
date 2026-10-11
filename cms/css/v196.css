@@ -1,0 +1,45 @@
+/* v196 — colour and contrast pass + film autoplay. Loaded last, precached.
+   Every pair below was measured against WCAG 2.x (AA = 4.5:1 for text).
+   Palette: maroon #6e1e2a, gold #b98a2f, cream #faf6ef, white #fffdf9, ink #2b2118. */
+
+:root {
+  --v196-ink-on-gold: #2b1a05;   /* 5.38:1 on gold #b98a2f (was cream text, 2.95:1) */
+  --v196-gold-text: #7a5614;     /* 6.15:1 on cream, 6.52:1 on white (was gold, 2.89:1) */
+  --v196-focus: #7a5614;
+}
+
+/* ── Gold buttons: dark ink on gold, never cream on gold ─────────────── */
+.btn-gold,
+.btn-gold:hover,
+.btn-gold:focus-visible,
+.btn-gold:active {
+  color: var(--v196-ink-on-gold);
+  text-shadow: none;
+}
+.btn-gold:hover { filter: brightness(1.04); }
+
+/* ── Ghost buttons: the hover text was gold on white (2.9:1) ─────────── */
+.btn-ghost:hover,
+.btn-ghost:focus-visible {
+  border-color: var(--gold);
+  color: var(--v196-gold-text);
+}
+
+/* ── Keyboard focus is visible on every button and link ──────────────── */
+.btn:focus-visible,
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--v196-focus);
+  outline-offset: 3px;
+}
+
+/* ── The films: nothing hides a film that is playing ─────────────────── */
+.sv-case video, .sv-thread video, .sv-thread-item video, .sv-film video {
+  pointer-events: none;
+}
+
+/* Reduced motion keeps the still poster; the films never block a tap */
+@media (prefers-reduced-motion: reduce) {
+  .btn-gold:hover { filter: none; }
+}
