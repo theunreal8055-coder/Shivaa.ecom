@@ -1,0 +1,50 @@
+/* v204 — Black membership on phones + the physical-card address page.
+   Layout and copy only; the delivery fix itself is in js/app.js (IIFE scope).
+   Loaded last (after v203). */
+
+/* ── Address page: a clean, single-column form ───────────────────────── */
+.bc-delivery-form { padding: 34px 24px 30px; }
+.bc-delivery-form .bc-address {
+  border: 0; padding: 0; margin: 0 0 8px; min-width: 0;
+}
+.bc-delivery-form .bc-address legend {
+  float: none; width: 100%; padding: 0; margin: 0 0 22px;
+  font-family: var(--ff-disp, Georgia, serif); font-size: 26px; line-height: 1.15;
+  color: #fff6e2; letter-spacing: 0; text-transform: none;
+}
+.bc-delivery-form .bc-address legend small {
+  display: block; margin-top: 6px; font-size: 11px; letter-spacing: .24em;
+  text-transform: uppercase; color: #e8c877;
+}
+.bc-delivery-form .bc-addr-grid { display: grid; grid-template-columns: 1fr; gap: 6px 0; }
+.bc-delivery-form .bc-addr-f { margin: 0 0 14px; }
+.bc-delivery-form .bc-addr-f input { font-size: 16px; min-height: 52px; }
+
+/* the big "Get my card" button */
+.bc-get-card {
+  width: 100%; min-height: 64px; font-size: 16px; letter-spacing: .22em; font-weight: 700;
+  margin-top: 10px;
+}
+.bc-delivery-form .bc-claim-status { display: block; min-height: 20px; margin-top: 12px; text-align: center; }
+
+/* ── Membership card: phone sizing ───────────────────────────────────── */
+@media (max-width: 720px) {
+  .bc-card-wrap { width: 100%; max-width: 360px; margin-inline: auto; }
+  .bc-face { padding: 20px 20px 18px !important; }
+  .bc-code { font-size: 15px !important; letter-spacing: .08em !important; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+  .bc-benefit b { font-size: 46px; }
+  .bc-benefit small { font-size: 9px; letter-spacing: .14em; }
+  .bc-bottom b { font-size: 14px; }
+  .bc-not-pay { font-size: 7px; }
+  .bc-flip-hint { font-size: 12px; }
+  .bc-claim-card { padding: 34px 18px 30px !important; }
+  .bc-claim-card h2 { font-size: 34px; }
+  .bc-benefit-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .bc-member-actions { grid-template-columns: 1fr !important; gap: 10px; }
+  .bc-member-actions .btn { width: 100%; }
+}
+@media (max-width: 380px) {
+  .bc-face { padding: 16px 16px 14px !important; }
+  .bc-benefit b { font-size: 40px; }
+  .bc-code { font-size: 13px !important; }
+}

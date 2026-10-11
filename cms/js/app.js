@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 203;
+const APP_REL = 204;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3743,7 +3743,7 @@ function blackAddressFormHTML() {
   const u = state.user || {};
   const a = (Array.isArray(u.addresses) && u.addresses[0]) || {};
   const f = (k, label, val, type, auto, extra = '') => `<label class="bc-addr-f"><span>${label}</span><input name="${k}" data-bc-addr="${k}" type="${type}" value="${esc(String(val || ''))}" autocomplete="${auto}" ${extra}></label>`;
-  return `<fieldset class="bc-address" data-bc-address><legend>Where should we post your physical card? <small>free delivery</small></legend>
+  return `<fieldset class="bc-address" data-bc-address><legend>Where should we deliver your card? <small>free delivery</small></legend>
     <div class="bc-addr-grid">
       ${f('name', 'Name on the card', a.name || u.name || '', 'text', 'name')}
       ${f('phone', 'Mobile for delivery', a.phone || u.phone || '', 'tel', 'tel', 'inputmode="tel" maxlength="16"')}
@@ -3816,8 +3816,8 @@ async function blackDeliveryPage(view) {
     view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><span class="bc-eyebrow">FREE HOME DELIVERY</span><h1>Your physical card is set.</h1><p>It is set for delivery to the address on file, free of charge. Your 20% privilege already works from your account.</p><div class="bc-member-actions"><a class="btn btn-gold" href="#/black-card">Back to my card</a></div></div></section>`;
     return;
   }
-  view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><span class="bc-eyebrow">FREE HOME DELIVERY</span><h1>Where should we send your card?</h1><p>Your physical Shivaa Black card is delivered free of charge. Enter the address once; it is kept on your card.</p></div></section>
-    <section class="container bc-public-detail"><form class="bc-claim-card bc-delivery-form" data-bc-delivery-form novalidate>${blackAddressFormHTML()}<button type="submit" class="btn btn-gold btn-lg bc-delivery-btn">Send my physical card · free &#10022;</button><span class="bc-claim-status" aria-live="polite"></span></form></section>`;
+  view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><span class="bc-eyebrow">FREE HOME DELIVERY</span><h1>Where should we deliver <em>your</em> card?</h1><p>Your physical Shivaa Black card is delivered free of charge. Enter the address once; it is kept on your card.</p></div></section>
+    <section class="container bc-public-detail"><form class="bc-claim-card bc-delivery-form" data-bc-delivery-form novalidate>${blackAddressFormHTML()}<button type="submit" class="btn btn-gold btn-xl bc-delivery-btn bc-get-card">GET MY CARD &#10022;</button><span class="bc-claim-status" aria-live="polite"></span></form></section>`;
   const form = view.querySelector('[data-bc-delivery-form]');
   if (!form) return;
   form.addEventListener('submit', async ev => {
@@ -11839,7 +11839,6 @@ async function boot(isRedraw) {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => boot(), { once: true });
 else boot();
 
-})();
 
 /* v199 — the card's Premium offer: claim it once, then ask for the delivery address. */
 document.addEventListener('click', async ev => {
@@ -11880,3 +11879,4 @@ document.addEventListener('click', async (ev) => {
 });
 /* v189 — fill the footer and side-menu offer slots on every page. */
 (document.readyState === 'loading' ? document.addEventListener.bind(document, 'DOMContentLoaded') : (f => f()))(() => fillBannerOffer(document));
+})();

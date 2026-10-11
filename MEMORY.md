@@ -9,6 +9,24 @@
   live site. Never hand-edit `cms/data/db.json`. Never swap `sw.js` alone.
 - Production deploys are owner-approved only. A push or merge is not approval.
 
+## v204 — physical-card button fixed; address page rewritten; Black card phone-ready (11 Oct 2026)
+
+- v204 BUILT, pushed on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 204.
+- ROOT CAUSE of the dead "Get home delivery physical card" button (since v199): the click handler sat
+  after the big IIFE in `cms/js/app.js` closed, so `state` was out of scope and the handler threw
+  immediately. The same misplacement stopped `fillBannerOffer` (footer and side-menu offer). Fixed by
+  moving the wrapper's closing `})();` to the end of the file. Verified in a browser with the API
+  intercepted: click → `POST /api/premium/claim` → `#/black-card/delivery`.
+- Address page: "Where should we deliver *your* card?", big button "GET MY CARD ✦".
+- `cms/css/v204.css`: phone layout for the Black card and the address form.
+- Stamp 204 in `index.html`, `sw.js`, `app.js`, `api.php`. Artefacts: `shivaa-update-v204.zip`,
+  `DEPLOY-v204.md`, `tools/mega/make-v204-zip.py`.
+- Lesson: a helper defined inside the app's IIFE cannot be used from code appended after it.
+  Check `node --check` AND a click in the browser for any new handler.
+- Mistake recorded: I deleted the shipped `shivaa-update-v203.zip` during the build and restored it from git
+  (sha256 matches HEAD). Never delete or rebuild a shipped release file.
+- Not done: smoke suite, real-device check, live PHP run (PHP not installed in the sandbox).
+
 ## v203 — the Shivaa Black card: holographic foil and motion (11 Oct 2026)
 
 - v203 BUILT, pushed on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 203.
