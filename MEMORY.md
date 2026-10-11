@@ -13,6 +13,34 @@
   Forward-only from 205. Next release is 206 or higher. Live version check: `/api/version`.
   Not yet verified by the agent: the PHP backend path on the live server and a real phone run.
 
+## CURRENT STATE — refreshed 11 Oct 2026 (read this first)
+
+- **Branch:** `arena/5529f0ec-shivaa-ecom`. Head `03f78e0`, clean, pushed. Local and remote match.
+- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 206 or higher.
+  Never reuse or renumber a shipped release. Never deploy an older tree over a newer live site.
+- **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
+  delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
+  v202 home hero → v203 card holographic foil and motion → v204 delivery button fix, address page
+  "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE.
+- **Key fixes to remember:**
+  - v199 placed the delivery click handler outside the app scope. Fixed in v204; check the closing
+    `})();` of `cms/js/app.js` after any edit.
+  - v193 `.btn-gold` wiped the gold gradient. Fixed in v200.
+  - `background-clip:text` on a parent does not reach reveal-split words. Use solid colour.
+  - Do not override `position` on elements that earlier CSS already positions (v186 seals).
+- **Data policy:** `cms/data/db.json` is not tracked on this branch (commit `fa6cf79`, v191).
+  Never commit live data or hand-edit `db.json`.
+- **Open items:**
+  - Android app `playstore/twa-manifest.json` is still `appVersionCode 1`, `appVersion 1.0.0`.
+    Bump it on the next Play upload.
+  - `v179-relay` flaky inside `npm test`; passes alone. `v169-check` fixture failure unresolved.
+  - Smoke suite was not run for v200–v205 and PHP was not available in the sandbox.
+  - Copy: no "best in the world" claims until the owner provides facts.
+  - Certificate foil: print with bold shapes, not hairlines.
+- **Sandbox:** the workspace has been re-cloned during this work. Always `git fetch`, check
+  `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
+  Back up any dirty tree before a reset.
+
 ## v205 — certificate redesign + delivery flow robustness (11 Oct 2026)
 
 - v205 BUILT on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 205.
