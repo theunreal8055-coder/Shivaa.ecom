@@ -19,7 +19,7 @@ const { execFileSync } = require('node:child_process');
 const CMS = process.env.SMOKE_CMS || path.resolve(__dirname, '../../../cms');
 const rd = n => fs.readFileSync(path.join(CMS, n), 'utf8');
 const index = rd('index.html'), sw = rd('sw.js'), app = rd('js/app.js'),
-      api = rd('api.php'), css187 = rd('css/v187.css'), css184 = rd('css/v184.css');
+      api = rd('api.php'), css187 = rd('css/v187.css'), css184 = rd('css/v184-amrita.css');
 let pass = 0, fail = 0;
 setTimeout(() => { console.error('v187 harness deadline exceeded'); process.exit(1); }, 60000);
 async function test(id, name, f) { try { await f(); pass++; console.log(`PASS ${id} ${name}`); } catch (e) { fail++; console.log(`FAIL ${id} ${name}: ${e.message}`); } }
