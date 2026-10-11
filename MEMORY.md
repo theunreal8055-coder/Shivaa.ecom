@@ -1,5 +1,41 @@
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 
+## STANDING RULE — FORWARD ONLY (restated by the owner; absolute)
+
+- Preserve the latest verified source. New fixes are targeted forward commits.
+- No release reset or revert, no old-file or old-ZIP restoration, no rewritten or
+  force-pushed history.
+- Never reuse or renumber a shipped release. Never deploy an older tree over a newer
+  live site. Never hand-edit `cms/data/db.json`. Never swap `sw.js` alone.
+- Production deploys are owner-approved only. A push or merge is not approval.
+
+## SESSION INTAKE — v199 / v200 (11 Oct 2026, branch `arena/5529f0ec-shivaa-ecom`)
+
+- **v199 BUILT and pushed (`1385451`), NOT deployed.** Black Card journey: every customer
+  enters name and mobile first, then the card is shown, then the Premium offer, then
+  "Get home delivery physical card" opens a separate address page.
+  - Premium = 20% off making charges for life (virtual `SHV-P-…` coupon at checkout).
+    Free delivery applies ONLY to the physical card. This replaces the earlier
+    "Premium gives free home delivery for life" benefit. Owner chose this option (B).
+  - Artefacts: `shivaa-update-v199.zip` (129 files), `DEPLOY-v199.md`.
+- **v200 BUILT and pushed (`2f44a18`), NOT deployed.** Button colour fixes across the
+  site, found by a contrast audit of every visible button at desktop and mobile widths.
+  - Root cause: `v193.css` set `background-image` on `.btn-gold` to a white sheen only,
+    which wiped the gold gradient. Dark text then sat on dark backgrounds.
+  - Also fixed: hallmark "iPhone / iPad" outline (cream on cream), scheme page outline and
+    CTA, app banner "Hide ×", Black Card menu row, film captions.
+  - Fix lives in `cms/css/v200.css`, loaded last in `index.html`. Stamp moved 199 → 200 in
+    `index.html`, `sw.js`, `app.js` (`APP_REL`) and `api.php` (`rel`).
+  - Artefacts: `shivaa-update-v200.zip` (130 files), `DEPLOY-v200.md`,
+    `tools/mega/make-v200-zip.py` (renamed from the v199 script).
+  - Audit after fix: 0 buttons under 3:1 (was 7 unique). Hero screenshot checked.
+  - **Not done:** the v200 smoke tests were not run. No phone check yet.
+- **Known open items (inherited, unresolved):** `v179-relay` fails intermittently in the
+  full `npm test` chain (passes alone). `v169-check` checkout fixture failure is still open.
+- **Next:** the owner decides whether to deploy v200. Before deploying, run the smoke suite
+  and check the Black Card, hallmark and scheme pages on a phone after a hard refresh.
+
+
 ## SESSION INTAKE — v184 Amrita ji's page + the "off making charges" money fix (10 Oct 2026, branch `arena/df056064-shivaa-ecom`)
 
 - **Live is 181. v182/v183 BUILT, GATED, NEVER DEPLOYED. v184 BUILT, GATED,

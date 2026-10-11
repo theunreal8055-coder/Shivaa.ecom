@@ -1,4 +1,49 @@
-# AGENT HANDOFF — v184 BUILT: Amrita ji's private page + the "off making charges" money fix; LIVE STAYS 181 (10 Oct 2026)
+# AGENT HANDOFF — v200 BUILT (button colour fixes); v199 BUILT (Black Card journey); NOTHING DEPLOYED (11 Oct 2026, branch `arena/5529f0ec-shivaa-ecom`)
+
+## FORWARD-ONLY RULE (restated by the owner; absolute)
+
+Preserve the latest verified source. New fixes are targeted forward commits. No release
+reset or revert, no old-file or old-ZIP restoration, no rewritten or force-pushed history.
+Never reuse or renumber a shipped release. Never deploy an older tree over a newer live
+site. Production deploys are owner-approved only; a push or merge is not approval.
+
+## CURRENT STATE — v200 BUILT: site-wide button colour fixes (11 Oct 2026)
+
+- **Branch heads:** `2f44a18` (v200) on top of `1385451` (v199), both pushed to
+  `origin/arena/5529f0ec-shivaa-ecom`.
+- **Deliverables:** `shivaa-update-v200.zip` (130 files), `DEPLOY-v200.md`,
+  `tools/mega/make-v200-zip.py`.
+- **Why:** the owner reported button text the same colour as its background. A headless
+  contrast audit of all visible buttons (desktop + mobile, main routes) found real failures.
+  - `v193.css` `.btn-gold` set `background-image` to a sheen only, wiping the gold gradient.
+  - Hallmark outline, scheme outline and CTA, app banner `Hide ×`, Black Card side-menu
+    row, and film captions had dark or light text on a matching background.
+- **Fix:** `cms/css/v200.css` (new, loaded last). Stamp 199 → 200 in `index.html`, `sw.js`
+  (shell `shivaa-shell-v200`, precache lists `v200.css`), `app.js` (`APP_REL`), `api.php`
+  (`rel`).
+- **Verification:** re-audit gives 0 buttons under 3:1 (was 7 unique). Black Card hero
+  screenshot checked. **Not done:** smoke suite not run for v200; no phone check.
+- **Audit method (reusable):** the earlier pixel-sampling audit was unreliable for gradient
+  buttons and produced false positives. Use computed `color`, `background-image` gradient
+  stops and ancestor backgrounds, counting only visible elements.
+
+## HISTORY — v199 BUILT: Black Card journey (11 Oct 2026)
+
+- Flow: name + mobile first, then the card is shown, then the Premium 20% making-charges
+  offer, then "Get home delivery physical card" opens a separate address page.
+- Premium = 20% off making charges for life through a virtual `SHV-P-…` coupon applied at
+  checkout. **Free delivery applies only to the physical card.** This replaces the earlier
+  free-home-delivery-for-life benefit. The owner chose this option (B).
+- Tests: `v195-php-run` 17/0, `v199-check` 11/0. `v179-relay` fails intermittently inside
+  `npm test` and passes alone.
+
+## OPEN ITEMS
+
+- `v179-relay` intermittent failure in the full chain (flake; passes alone).
+- `v169-check` checkout fixture failure, still unresolved.
+- Owner decision: deploy v199 and v200 (owner yes required). Before deploying, run the smoke
+  suite and check the Black Card, hallmark and scheme pages on a phone after a hard refresh.
+
 
 ## CURRENT STATE — v184 BUILT: Amrita ji's page + the making-charge coupon fix (10 Oct 2026)
 
