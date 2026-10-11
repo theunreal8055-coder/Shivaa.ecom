@@ -1,0 +1,127 @@
+/* v203 — the Shivaa Black card itself: holographic foil, living edge, light and motion.
+   Visual only: markup, copy, prices and the pointer/flip script are unchanged.
+   Loaded last (after v202). Driven by the existing --bc-x/--bc-y/--bc-rx/--bc-ry vars. */
+
+@property --bc3-edge { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --bc3-hue  { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+/* ── The card body: deeper, with a living champagne rim ─────────────────── */
+.bc-card { transform-style: preserve-3d; }
+.bc-face {
+  overflow: hidden;
+  box-shadow:
+    0 50px 90px -30px rgba(0,0,0,.85),
+    0 0 0 1px rgba(255,236,190,.22),
+    inset 0 1px 0 rgba(255,246,220,.35),
+    inset 0 -1px 0 rgba(0,0,0,.5);
+}
+.bc-face::before {
+  /* a rotating champagne-to-violet rim that breathes around the card */
+  content: ""; position: absolute; inset: -2px; border-radius: inherit; z-index: 0; pointer-events: none;
+  padding: 2px;
+  background: conic-gradient(from var(--bc3-edge), #7b5a1c, #f7e3a1 12%, #b78a3c 24%, #5c3b7a 36%, #e8c877 48%, #fff4d2 58%, #8c6420 70%, #3a2a58 82%, #f4dc92 92%, #7b5a1c);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: .9;
+  animation: bc3Edge 8s linear infinite;
+}
+@keyframes bc3Edge { to { --bc3-edge: 360deg; } }
+
+/* ── Holographic foil that follows the pointer ─────────────────────────── */
+.bc-front::after {
+  content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit;
+  background:
+    radial-gradient(circle at var(--bc-x, 72%) var(--bc-y, 18%), rgba(255,255,255,.55), transparent 28%),
+    linear-gradient(115deg,
+      transparent 20%,
+      rgba(255,120,200,.16) 34%,
+      rgba(120,220,255,.16) 42%,
+      rgba(255,240,170,.22) 50%,
+      rgba(170,255,200,.14) 58%,
+      rgba(200,140,255,.14) 66%,
+      transparent 80%);
+  background-size: 100% 100%, 260% 100%;
+  mix-blend-mode: soft-light;
+  opacity: .9;
+  animation: bc3Foil 9s ease-in-out infinite;
+}
+@keyframes bc3Foil {
+  0%,100% { background-position: 0 0, 0% 0; }
+  50% { background-position: 0 0, 100% 0; }
+}
+
+/* ── Light sweep: one glint every few seconds ─────────────────────────── */
+.bc-front::before {
+  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,250,228,.38) 50%, transparent 60%);
+  background-size: 260% 100%; background-repeat: no-repeat;
+  animation: bc3Sweep 6.5s cubic-bezier(.45,0,.25,1) infinite;
+}
+@keyframes bc3Sweep { 0%,62% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
+
+/* ── Floating gold dust (layered, slow drift) ───────────────────────────── */
+.bc-noise {
+  background-image:
+    radial-gradient(1.6px 1.6px at 18% 28%, rgba(255,236,170,.9), transparent),
+    radial-gradient(1.2px 1.2px at 64% 72%, rgba(255,236,170,.8), transparent),
+    radial-gradient(1px 1px at 86% 34%, rgba(255,236,170,.7), transparent),
+    radial-gradient(1.4px 1.4px at 38% 84%, rgba(255,236,170,.75), transparent),
+    radial-gradient(1px 1px at 52% 16%, rgba(255,236,170,.6), transparent);
+  background-size: 140% 140%;
+  animation: bc3Dust 16s linear infinite;
+  opacity: .9;
+}
+@keyframes bc3Dust { from { background-position: 0 0; } to { background-position: 60px -90px; } }
+
+/* ── Orbit rings: now rotate, faintly ─────────────────────────────────── */
+.bc-orbit { animation: bc3Orbit 26s linear infinite; }
+@keyframes bc3Orbit { to { transform: rotate(360deg); } }
+
+/* ── Hologram seal: a turning ring of light ───────────────────────────── */
+/* the seal keeps v186 positioning; we only add a rainbow ring on ::after,
+   leaving v186's dashed ::before ring untouched */
+.bc-holo-seal::after {
+  content: ""; position: absolute; inset: -7px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg, #f4dc92, #ff9ad8, #9ad8ff, #c9ffb0, #f4dc92);
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%, #000 68%, transparent 70%);
+          mask: radial-gradient(circle, transparent 60%, #000 62%, #000 68%, transparent 70%);
+  animation: bc3Seal 5s linear infinite; opacity: .85;
+}
+@keyframes bc3Seal { to { transform: rotate(360deg); } }
+
+/* ── The number: a breathing gold glow ────────────────────────────────── */
+.bc-benefit b { text-shadow: 0 0 22px rgba(244,220,146,.35); animation: bc3Breathe 4.8s ease-in-out infinite; }
+@keyframes bc3Breathe { 0%,100% { text-shadow: 0 0 14px rgba(244,220,146,.22); } 50% { text-shadow: 0 0 34px rgba(255,236,170,.55); } }
+
+/* ── Code: a slow shimmer across the digits ───────────────────────────── */
+.bc-code {
+  background: linear-gradient(100deg, #b98a3a 0%, #fff4d2 45%, #e8c877 60%, #b98a3a 100%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: bc3Code 5.2s ease-in-out infinite;
+}
+@keyframes bc3Code { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+/* ── Back face: a lit grid, not a flat page ───────────────────────────── */
+.bc-back { background:
+  radial-gradient(140% 90% at 80% 0%, rgba(232,200,119,.16), transparent 60%),
+  linear-gradient(160deg, #120d07, #070504) !important; }
+.bc-micro-grid { opacity: .5; animation: bc3Grid 14s linear infinite; }
+@keyframes bc3Grid { to { background-position: 40px 40px; } }
+
+/* ── Stage reflection under the card ──────────────────────────────────── */
+.bc-card-wrap { position: relative; }
+.bc-card-wrap::after {
+  content: ""; position: absolute; left: 8%; right: 8%; bottom: -40px; height: 40px; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(232,200,119,.22), transparent);
+  filter: blur(10px); opacity: .9;
+}
+
+/* ── Reduced motion: keep the look, stop the movement ─────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .bc-face::before, .bc-front::after, .bc-front::before, .bc-noise, .bc-orbit,
+  .bc-holo-seal::after, .bc-benefit b, .bc-code, .bc-micro-grid { animation: none !important; }
+}
+
+/* the top-right status pill sits above the foil and sweep layers, so its text stays crisp */
+.bc-front .bc-top > span:last-child { position: relative; z-index: 6; mix-blend-mode: normal; }

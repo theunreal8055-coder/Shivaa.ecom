@@ -7,6 +7,16 @@ reset or revert, no old-file or old-ZIP restoration, no rewritten or force-pushe
 Never reuse or renumber a shipped release. Never deploy an older tree over a newer live
 site. Production deploys are owner-approved only; a push or merge is not approval.
 
+## v203 — the Shivaa Black card: holographic foil and motion (11 Oct 2026)
+
+- v203 BUILT, pushed on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 203.
+- Visual only: `cms/css/v203.css` (loaded last). Markup, copy, prices and scripts unchanged.
+- Stamp 203 in `index.html`, `sw.js`, `app.js`, `api.php`. Artefacts: `shivaa-update-v203.zip`,
+  `DEPLOY-v203.md`, `tools/mega/make-v203-zip.py`.
+- Lesson: do not override `position` on elements that earlier CSS already positions (v186 seals
+  are absolute). Add new effects on pseudo-elements the earlier CSS does not use.
+- Contrast audit: 0 under 3:1. Not done: smoke suite and phone check.
+
 ## v202 — Shivaa Black home hero redrawn (11 Oct 2026)
 
 - v202 BUILT, pushed on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 202.
