@@ -3750,7 +3750,7 @@ function pub_user(array $u): array {
   return ['id' => $u['id'], 'name' => $u['name'], 'email' => $u['email'], 'phone' => $u['phone'] ?? '',
           'role' => $u['role'], 'loyaltyPoints' => $u['loyaltyPoints'] ?? 0, 'partnerId' => $u['partnerId'] ?? null,
           'createdAt' => $u['createdAt'] ?? '', 'profile' => $u['profile'] ?? [], 'addresses' => $u['addresses'] ?? [],
-          'referralCode' => $u['referralCode'] ?? null];
+          'referralCode' => $u['referralCode'] ?? null, 'premium' => !empty($u['premium'])];
 }
 function need_admin(array $db): array {
   $u = req_user($db);
@@ -5522,7 +5522,28 @@ try {
           $offers[] = ['kind' => 'delivery', 'code' => (string)$c['code']];
       }
     }
-    jout(200, ['offers' => $offers]);
+    $viewer = req_user($db);
+    jout(200, ['offers' => $offers, 'premium' => ['claimed' => !empty($viewer['premium'])]]);
+  }
+
+  /* v191 — the Premium card: free home delivery for LIFE, free for everyone who claims it.
+     Signed-in only. Idempotent: claiming twice changes nothing. */
+  if ($route === 'premium/claim' && $method === 'POST') {
+    $cu = req_user($db);
+    if (!$cu) jout(401, ['error' => 'Sign in to claim your Premium card.']);
+    rate_block($db, 'premium-u', $cu['id'] ?? '?', 20, 3600);
+    foreach ($db['users'] as $i => $uu) {
+      if (($uu['id'] ?? '') === ($cu['id'] ?? '')) {
+        if (empty($uu['premium'])) {
+          $db['users'][$i]['premium'] = true;
+          $db['users'][$i]['premiumSince'] = date('c');
+          audit_log($db, 'premium.claimed', ['userId' => $cu['id']]);
+          db_save($GLOBALS['DB_FILE'], $db);
+        }
+        jout(200, ['ok' => true, 'user' => pub_user($db['users'][$i])]);
+      }
+    }
+    jout(404, ['error' => 'Account not found.']);
   }
 
   /* ── coupons ── */
@@ -5928,6 +5949,8 @@ try {
     $shipping = $subtotal >= $freeShip ? 0 : (int)($db['settings']['shippingFee'] ?? 250);
     /* v190 — a coupon with freeShipping (the FREEDEL card) waives the delivery fee */
     if ($coupon && !empty($coupon['freeShipping']) && $subtotal >= (float)($coupon['minOrder'] ?? 0)) $shipping = 0;
+    /* v191 — Premium card: free home delivery for life */
+    if (!empty($u) && !empty($u['premium'])) $shipping = 0;
     /* v58 — prepaid incentive: online prepayment earns an instant discount
        (default 2%); COD/WhatsApp orders pay the full total. */
     $pm = $b['paymentMethod'] ?? 'Online';
@@ -6142,7 +6165,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 190,
+      'rel'   => 191,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

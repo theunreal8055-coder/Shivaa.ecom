@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 190;
+const APP_REL = 191;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3545,7 +3545,7 @@ let _bannerOffer = { at: 0, p: null };
 function getBannerOffer() {
   if (!_bannerOffer.p || Date.now() - _bannerOffer.at > 120000) {
     _bannerOffer.at = Date.now();
-    _bannerOffer.p = api('/api/offers/banner').then(r => (r && Array.isArray(r.offers) ? r.offers : [])).catch(() => []);
+    _bannerOffer.p = api('/api/offers/banner').then(r => { _premiumInfo = (r && r.premium) || null; return (r && Array.isArray(r.offers) ? r.offers : []); }).catch(() => []);
   }
   return _bannerOffer.p;
 }
@@ -3565,6 +3565,23 @@ function bannerOfferCard(o) {
       <span class="shv-offer-go">Shop now &rarr;</span>
     </a>`;
 }
+function premiumCardHTML(prem) {
+  const claimed = !!(prem && prem.claimed) || !!(state.user && state.user.premium);
+  const cta = claimed
+    ? '<span class="shv-offer-go">Your Premium card is active &check;</span>'
+    : (state.user
+        ? '<button type="button" class="shv-offer-go shv-premium-claim" data-premium-claim>Claim my Premium card &rarr;</button>'
+        : '<a class="shv-offer-go" href="#/login">Sign in to claim &rarr;</a>');
+  return `
+    <div class="shv-offer-card shv-offer-premium rv">
+      <span class="shv-offer-shine" aria-hidden="true"></span>
+      <span class="shv-offer-badge">Premium card &middot; for everyone</span>
+      <span class="shv-offer-head"><b class="shv-offer-pct">FREE</b><span class="shv-offer-off">home delivery, for life</span></span>
+      <span class="shv-offer-sub">Every order you place, delivered free. No code needed once your card is active.</span>
+      ${cta}
+      <span class="shv-premium-msg" aria-live="polite"></span>
+    </div>`;
+}
 function bannerOfferMini(o) {
   const isDel = o.kind === 'delivery';
   const pct = Number(o.percent);
@@ -3575,16 +3592,21 @@ function bannerOfferMini(o) {
       <span class="shv-offer-mini-txt">${esc(off)} &middot; code <b>${esc(o.code)}</b></span>
     </a>`;
 }
+let _premiumInfo = null;
 async function fillBannerOffer(root) {
   const slots = (root || document).querySelectorAll('[data-banner-offer]');
   if (!slots.length) return;
   const offers = await getBannerOffer();
+  const prem = _premiumInfo;
   slots.forEach(slot => {
-    if (!offers.length) { slot.hidden = true; slot.innerHTML = ''; return; }
     const compact = slot.dataset.bannerOffer === 'compact';
-    slot.innerHTML = compact
-      ? `<div class="shv-offer-stack">${offers.map(bannerOfferMini).join('')}</div>`
-      : `<div class="shv-offer-grid">${offers.map(bannerOfferCard).join('')}</div>`;
+    if (compact) {
+      if (!offers.length) { slot.hidden = true; slot.innerHTML = ''; return; }
+      slot.innerHTML = `<div class="shv-offer-stack">${offers.map(bannerOfferMini).join('')}</div>`;
+    } else {
+      // the hero always shows the Premium card; the offer cards join it when they are live
+      slot.innerHTML = `<div class="shv-offer-grid">${offers.map(bannerOfferCard).join('')}${premiumCardHTML(prem)}</div>`;
+    }
     slot.hidden = false;
   });
 }
@@ -6008,7 +6030,7 @@ pages.checkout = async (view) => {
     });
     window._co.subtotal = sub;
     const wasFree = window._co.freeShip;
-    window._co.freeShip = sub >= state.settings.freeShipAbove || !!window._co.couponFreeShip;
+    window._co.freeShip = sub >= state.settings.freeShipAbove || !!window._co.couponFreeShip || !!(state.user && state.user.premium);
     $('#coSub').textContent = fmt(sub);
     /* v167 — TWO defects in one line. (a) The shipping row was looked up with
        '.sum-row:nth-last-child(2)', which is the *COD fee* row (the total is
@@ -10685,7 +10707,7 @@ function refreshCheckoutTotals() {
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   window._co.subtotal = subtotal;
-  window._co.freeShip = subtotal >= state.settings.freeShipAbove || !!window._co.couponFreeShip;
+  window._co.freeShip = subtotal >= state.settings.freeShipAbove || !!window._co.couponFreeShip || !!(state.user && state.user.premium);
   $$('.summary [data-copid]').forEach(el => {
     const it = items.find(x => x.p.id === el.dataset.copid && +x.qty === +el.dataset.qty);
     if (it) { const v = price(it.p).total * it.qty; if (el.dataset.last !== String(v)) { el.dataset.last = v; el.textContent = fmt(v); el.classList.remove('flash-price'); void el.offsetWidth; el.classList.add('flash-price'); } }
@@ -11105,5 +11127,23 @@ else boot();
 
 })();
 
+/* v191 — claim the Premium card (delegated: the hero is re-drawn on every visit). */
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest && ev.target.closest('[data-premium-claim]');
+  if (!btn) return;
+  const card = btn.closest('.shv-offer-premium');
+  const msg = card && card.querySelector('.shv-premium-msg');
+  btn.disabled = true;
+  try {
+    const r = await api('/api/premium/claim', { method: 'POST', body: '{}' });
+    if (r && r.user) state.user = Object.assign({}, state.user, r.user);
+    _premiumInfo = { claimed: true };
+    if (card) card.querySelector('.shv-offer-go').outerHTML = '<span class="shv-offer-go">Your Premium card is active &check;</span>';
+    if (msg) { msg.textContent = 'Premium card activated: free home delivery on every order.'; }
+  } catch (e) {
+    btn.disabled = false;
+    if (msg) { msg.textContent = e.message || 'Could not activate. Please try again.'; msg.classList.add('bad'); }
+  }
+});
 /* v189 — fill the footer and side-menu offer slots on every page. */
 (document.readyState === 'loading' ? document.addEventListener.bind(document, 'DOMContentLoaded') : (f => f()))(() => fillBannerOffer(document));

@@ -38,3 +38,6 @@ keystore.properties
 # the Bubblewrap-generated Android project (build output, downloads icons at build time)
 playstore/twa/
 playstore/graphics/out/screenshots/
+
+# v191 — live data stays on the server only (never in git)
+cms/data/db.json
