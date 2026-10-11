@@ -28,6 +28,7 @@ function fixture(hash='#/order/QA-169'){
   api:async url=>url.includes('refunds/mine')?{requests:[]}:{order:order()},
  });
  if(app.includes('function viewLifetime('))vm.runInContext(app.slice(app.indexOf('function viewLifetime('),app.indexOf('const pages =',app.indexOf('function viewLifetime('))),c);
+ if(app.includes('const productDetailPrefetch = new Map()'))vm.runInContext(app.slice(app.indexOf('const productDetailPrefetch = new Map()'),app.indexOf('function prefetchProductFromLink(')),c);
  return {c,dom,w,view,timers,messages,quizzes,load:n=>vm.runInContext(page(n),c),
   leave(){c.routeGeneration++;w.location.hash='#/contact';view.textContent='SAFE NEXT PAGE';},
   async timersDone(max=35){for(let i=0;i<max;i++){await tick();if(!timers.length)break;timers.shift()();}await tick();},

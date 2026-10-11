@@ -19,7 +19,10 @@ const tick = () => new Promise(r => setImmediate(r));
 function storage(initial = {}) {
   const values = new Map(Object.entries(initial).map(([k, v]) => [k, JSON.stringify(v)]));
   const localStorage = { getItem: k => values.get(k) ?? null, setItem(k, v) { values.set(k, v); }, removeItem: k => values.delete(k) };
-  const c = vm.createContext({ localStorage });
+  // The sandbox is a browser-like realm: the application's top-level code attaches
+  // document listeners (v186 prefetch), so the fixture must provide a DOM.
+  const dom0 = new JSDOM('<body></body>');
+  const c = vm.createContext({ localStorage, document: dom0.window.document, window: {}, console });
   vm.runInContext(slice(app, 'const mem =', 'const token =') + slice(app, 'const state =', '/* v57: every category face'), c);
   vm.runInContext(slice(app, 'const getLater =', 'window.Shivaa.cartSaveLater') + slice(app, 'const recentQueries =', 'const pushRecentQuery ='), c);
   return { c, localStorage, get: expr => vm.runInContext(expr, c) };
