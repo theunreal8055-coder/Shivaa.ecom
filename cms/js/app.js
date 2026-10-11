@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 204;
+const APP_REL = 205;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3722,7 +3722,7 @@ function blackCertificateHTML(card) {
   if (!card) return '';
   const active = blackCardActive(card);
   return `<article class="bc-certificate" aria-label="Shivaa Family Prestigious Member certificate">
-    <span class="bc-cert-corner c1"></span><span class="bc-cert-corner c2"></span><span class="bc-cert-corner c3"></span><span class="bc-cert-corner c4"></span>
+    <span class="bc-cert-frame" aria-hidden="true"></span><span class="bc-cert-corner c1"></span><span class="bc-cert-corner c2"></span><span class="bc-cert-corner c3"></span><span class="bc-cert-corner c4"></span><span class="bc-cert-corner c4"></span>
     <div class="bc-cert-seal" aria-hidden="true"><span>✦</span><b>S</b><small>FAMILY</small></div>
     <div class="bc-cert-kicker">THE HOUSE OF SHIVAA · JAYAL</div>
     <h2>Certificate of<br><em>Prestigious Membership</em></h2>
@@ -3810,8 +3810,14 @@ async function blackDeliveryPage(view) {
     view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><h1>Sign in to request your card.</h1><p>Your physical card is linked to your verified account.</p><button type="button" class="btn btn-gold" onclick="Shivaa.openLogin('black-card')">Sign in by OTP</button></div></section>`;
     return;
   }
-  const card = state.user.blackCard || null;
-  if (!card) { location.hash = '#/black-card'; return; }
+  let card = state.user.blackCard || null;
+  if (!card) {
+    try { const r = await api('/api/black-card'); card = r.membership || null; if (card) state.user.blackCard = card; } catch (e) { card = null; }
+  }
+  if (!card) {
+    view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><h1>Create your Shivaa Black card first.</h1><p>Your physical card is issued with your digital card. Create it in one step, then come back here.</p><a class="btn btn-gold btn-lg" href="#/black-card">Create my Black Card ✦</a></div></section>`;
+    return;
+  }
   if (card.delivery) {
     view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><span class="bc-eyebrow">FREE HOME DELIVERY</span><h1>Your physical card is set.</h1><p>It is set for delivery to the address on file, free of charge. Your 20% privilege already works from your account.</p><div class="bc-member-actions"><a class="btn btn-gold" href="#/black-card">Back to my card</a></div></div></section>`;
     return;
@@ -3830,7 +3836,7 @@ async function blackDeliveryPage(view) {
       const r = await api('/api/black-card/delivery', { method: 'POST', body: JSON.stringify({ address: res.address }) });
       if (r.user) state.user = r.user; else if (state.user) state.user.blackCard = r.membership;
       toast('Your physical card is set for free delivery ✦');
-      location.hash = '#/black-card';
+      if (isCurrent()) blackDeliveryPage(view); else location.hash = '#/black-card';
     } catch (e) {
       if (!isCurrent()) return;
       status.textContent = e.message || 'Could not save the address. Please try again.';
@@ -11847,16 +11853,18 @@ document.addEventListener('click', async ev => {
   ev.preventDefault();
   if (!state.user) { openLogin('black-card'); return; }
   if (btn.dataset.busy) return;
-  btn.dataset.busy = '1'; btn.disabled = true;
+  const label = btn.textContent;
+  btn.dataset.busy = '1'; btn.disabled = true; btn.textContent = 'Opening your delivery form…';
   try {
     if (!state.user.premium) {
       const r = await api('/api/premium/claim', { method: 'POST', body: '{}' });
       if (r && r.user) state.user = r.user; else state.user.premium = true;
     }
+    if (location.hash === '#/black-card/delivery') { location.hash = '#/black-card'; await new Promise(z => setTimeout(z, 30)); }
     location.hash = '#/black-card/delivery';
   } catch (e) {
-    toast(e.message || 'Could not start your physical card request', 'err');
-    btn.disabled = false; delete btn.dataset.busy;
+    toast(e.message || 'Could not start your physical card request. Please try again.', 'err');
+    btn.disabled = false; btn.textContent = label; delete btn.dataset.busy;
   }
 });
 /* v191 — claim the Premium card (delegated: the hero is re-drawn on every visit). */

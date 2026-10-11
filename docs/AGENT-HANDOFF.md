@@ -7,6 +7,17 @@ reset or revert, no old-file or old-ZIP restoration, no rewritten or force-pushe
 Never reuse or renumber a shipped release. Never deploy an older tree over a newer live
 site. Production deploys are owner-approved only; a push or merge is not approval.
 
+## v205 — certificate redesign + delivery flow robustness (11 Oct 2026)
+
+- v205 BUILT on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 205.
+- Delivery: the button shows progress; the delivery page reloads the card from the server instead of
+  bouncing; after save the confirmation re-renders (same-hash navigation did not re-render).
+  Browser test with mocked API: button → claim → form → save → "Your physical card is set." No errors.
+- Certificate: `cms/css/v205.css` redesign (guilloche texture, double frame, foil seal, engraved S, ledger);
+  markup gained a frame element and a fourth corner. Heading now cream, italic gold.
+- Stamp 205. Artefacts: `shivaa-update-v205.zip`, `DEPLOY-v205.md`.
+- Not done: PHP backend test, smoke suite, phone test.
+
 ## v204 — physical-card button fixed; address page rewritten; Black card phone-ready (11 Oct 2026)
 
 - v204 BUILT, pushed on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 204.

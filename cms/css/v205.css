@@ -1,0 +1,185 @@
+/* v205 — the Shivaa Family Prestigious Member certificate, redesigned.
+
+   Research behind it (web, Oct 2026): premium certificates lead with restraint, one
+   premium accent that catches the light, a single refined serif for the name, generous
+   margins, bold foil rather than hairlines, an embossed seal, and a guilloche
+   background as the security texture (see the notes in DEPLOY-v205.md).
+
+   Theme: obsidian + champagne gold, matching Shivaa Black. Visual only. Markup and
+   copy are unchanged. Loaded last (after v204). */
+
+/* ── The sheet: obsidian paper, guilloche security texture, a soft light falloff ── */
+.bc-certificate {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 56px 40px 40px;
+  border-radius: 6px;
+  border: 0;
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgba(244,220,146,.20), transparent 60%),
+    radial-gradient(90% 60% at 50% 110%, rgba(190,140,50,.14), transparent 65%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(232,200,119,.045) 0 1px, transparent 1px 9px),
+    linear-gradient(165deg, #0c0905 0%, #17110a 50%, #0a0704 100%);
+  box-shadow:
+    0 0 0 1px rgba(244,220,146,.55),
+    0 0 0 7px #0c0905,
+    0 0 0 8px rgba(244,220,146,.45),
+    0 60px 120px -40px rgba(120,80,10,.65),
+    inset 0 0 120px rgba(0,0,0,.6);
+  color: #fff3d6;
+}
+
+/* the guilloche sheen: a slow moving light band (replaces v184's sheen) */
+.bc-certificate::before {
+  content: "";
+  position: absolute; inset: -80% -30%; z-index: 0; pointer-events: none;
+  background:
+    repeating-linear-gradient(115deg, transparent 0 22px, rgba(255,240,200,.035) 22px 23px),
+    linear-gradient(105deg, transparent 42%, rgba(255,246,220,.18) 50%, transparent 58%);
+  animation: bc5Sheen 9s ease-in-out infinite;
+}
+@keyframes bc5Sheen { 0%,100% { transform: translateX(-18%); } 50% { transform: translateX(18%); } }
+
+/* the watermark: a huge engraved "S" under the content (replaces v184's SHIVAA word) */
+.bc-certificate::after {
+  content: "S";
+  position: absolute; left: 50%; top: 46%; z-index: 0; pointer-events: none;
+  transform: translate(-50%, -50%);
+  font: 400px/1 var(--ff-disp, Georgia, serif);
+  color: rgba(232,200,119,.045);
+  text-shadow: 0 1px 0 rgba(255,240,200,.05), 0 -1px 0 rgba(0,0,0,.6);
+}
+
+/* keep all content above the texture */
+.bc-certificate > * { position: relative; z-index: 1; }
+
+/* ── Double frame: a fine outer line and a gold inner line with a foil edge ── */
+.bc-certificate .bc-cert-corner {
+  position: absolute; z-index: 2; width: 74px; height: 74px;
+  border-color: #f4dc92; border-style: solid; border-width: 0;
+  opacity: .9;
+}
+.bc-certificate .bc-cert-corner.c1 { left: 16px; top: 16px; border-top-width: 2px; border-left-width: 2px; }
+.bc-certificate .bc-cert-corner.c2 { right: 16px; top: 16px; border-top-width: 2px; border-right-width: 2px; }
+.bc-certificate .bc-cert-corner.c3 { left: 16px; bottom: 16px; border-bottom-width: 2px; border-left-width: 2px; }
+.bc-certificate .bc-cert-corner.c4 { right: 16px; bottom: 16px; border-bottom-width: 2px; border-right-width: 2px; }
+.bc-certificate::before { border-radius: inherit; }
+.bc-certificate .bc-cert-frame {
+  position: absolute; inset: 14px; border: 1px solid rgba(232,200,119,.55); border-radius: 3px; pointer-events: none; z-index: 1;
+  box-shadow: inset 0 0 0 4px #0c0905, inset 0 0 0 5px rgba(244,220,146,.35);
+}
+
+/* ── The seal: a foil medallion with an embossed rim and a turning light ───── */
+.bc-certificate .bc-cert-seal {
+  width: 118px; height: 118px; margin: 0 auto 18px; border-radius: 50%;
+  display: grid; place-items: center; position: relative;
+  background:
+    radial-gradient(circle at 34% 28%, #fff8e0 0%, #f4dc92 22%, #b68a3b 58%, #6b4a14 100%);
+  box-shadow:
+    0 0 0 4px #0c0905,
+    0 0 0 5px #f4dc92,
+    0 0 0 9px #0c0905,
+    0 0 0 10px rgba(244,220,146,.5),
+    0 18px 40px -10px rgba(0,0,0,.8),
+    inset 0 2px 3px rgba(255,255,255,.55),
+    inset 0 -4px 8px rgba(70,40,5,.5);
+}
+.bc-certificate .bc-cert-seal::before {
+  content: ""; position: absolute; inset: 9px; border-radius: 50%; pointer-events: none;
+  border: 1px dashed rgba(70,40,5,.55);
+}
+.bc-certificate .bc-cert-seal::after {
+  content: ""; position: absolute; inset: -14px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 55%, rgba(255,240,200,.55) 62%, transparent 70%);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 64%, #000 66%, transparent 68%);
+          mask: radial-gradient(circle, transparent 62%, #000 64%, #000 66%, transparent 68%);
+  animation: bc5SealTurn 6s linear infinite;
+}
+@keyframes bc5SealTurn { to { transform: rotate(360deg); } }
+.bc-certificate .bc-cert-seal > span { position: absolute; top: 6px; color: #3a2606; font-size: 14px; opacity: .8; }
+.bc-certificate .bc-cert-seal > b {
+  font: 600 50px/1 var(--ff-disp, Georgia, serif); color: #2b1a05;
+  text-shadow: 0 1px 0 rgba(255,246,220,.7), 0 -1px 0 rgba(60,35,4,.6);
+}
+.bc-certificate .bc-cert-seal > small {
+  position: absolute; bottom: 14px; font: 600 8px/1 var(--ff-label, Arial, sans-serif);
+  letter-spacing: .24em; color: #3a2606;
+}
+
+/* ── Typography: engraved and foil-embossed, one refined serif ─────────────── */
+.bc-certificate .bc-cert-kicker {
+  font-size: 10px; letter-spacing: .38em; color: #e8c877; text-transform: uppercase;
+}
+.bc-certificate .bc-cert-presents {
+  margin: 22px 0 6px; font-size: 13px; letter-spacing: .08em; color: rgba(255,240,205,.7);
+}
+.bc-certificate .bc-cert-name {
+  font-family: var(--ff-disp, Georgia, serif); font-size: clamp(34px, 6.4vw, 46px); line-height: 1.1;
+  background: linear-gradient(100deg, #fff4d2 0%, #e8c877 35%, #fff8e6 50%, #c9a050 72%, #fff1c9 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(232,200,119,.22));
+}
+.bc-certificate .bc-cert-copy {
+  color: rgba(255,240,205,.72); font-size: 13.5px; line-height: 1.75; max-width: 440px; margin: 0 auto;
+}
+.bc-certificate .bc-cert-copy b { color: #f4dc92; font-weight: 600; }
+
+/* the ornamental divider: a hairline with a diamond at its centre */
+.bc-certificate .bc-cert-rule {
+  position: relative; height: 1px; margin: 26px auto; width: 72%;
+  background: linear-gradient(90deg, transparent, #e8c877 20%, #fff3c8 50%, #e8c877 80%, transparent);
+}
+.bc-certificate .bc-cert-rule::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 9px;
+  transform: translate(-50%, -50%) rotate(45deg); background: #f4dc92;
+  box-shadow: 0 0 0 4px #0c0905, 0 0 14px rgba(244,220,146,.6);
+}
+
+/* ── Details: a ledger, not floating boxes ─────────────────────────────────── */
+.bc-certificate .bc-cert-meta {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+  border-top: 1px solid rgba(232,200,119,.35); border-bottom: 1px solid rgba(232,200,119,.35);
+  margin: 6px 0 22px;
+}
+.bc-certificate .bc-cert-meta > * {
+  background: transparent !important; border: 0 !important; padding: 14px 6px !important;
+  color: #fff3d6 !important;
+}
+.bc-certificate .bc-cert-meta > * + * { border-left: 1px solid rgba(232,200,119,.25) !important; }
+.bc-certificate .bc-cert-meta small { color: #e8c877 !important; font-size: 9px !important; letter-spacing: .22em !important; }
+.bc-certificate .bc-cert-meta b { color: #fff6e2 !important; font-size: 14px !important; letter-spacing: .04em; }
+
+/* ── Footer: the issuer, the privilege status, the fine print ───────────────── */
+.bc-certificate .bc-cert-foot b {
+  font-family: var(--ff-disp, Georgia, serif); font-size: 17px; letter-spacing: .18em;
+  background: linear-gradient(100deg, #f4dc92, #fff3c8 50%, #c9a050);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.bc-certificate .bc-cert-foot small { color: rgba(255,240,205,.6); letter-spacing: .06em; }
+.bc-certificate .bc-cert-state {
+  display: inline-block; padding: 9px 18px; border-radius: 999px;
+  color: #bfe9cf; background: rgba(40,120,70,.22); border: 1px solid rgba(120,220,160,.5);
+  font: 600 10px/1 var(--ff-label, Arial, sans-serif); letter-spacing: .22em;
+}
+.bc-certificate .bc-cert-fine { color: rgba(255,240,205,.5); font-size: 10.5px; line-height: 1.6; margin: 18px auto 0; max-width: 460px; }
+
+/* ── Phone: keep the frame and the seal, tighten the space ─────────────────── */
+@media (max-width: 720px) {
+  .bc-certificate { padding: 44px 20px 30px; }
+  .bc-certificate .bc-cert-seal { width: 96px; height: 96px; }
+  .bc-certificate .bc-cert-seal > b { font-size: 40px; }
+  .bc-certificate .bc-cert-meta { grid-template-columns: 1fr; }
+  .bc-certificate .bc-cert-meta > * + * { border-left: 0 !important; border-top: 1px solid rgba(232,200,119,.2) !important; }
+  .bc-certificate .bc-cert-corner { width: 44px; height: 44px; }
+  .bc-certificate::after { font-size: 260px; }
+}
+
+/* ── Reduced motion: the same certificate, still ───────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .bc-certificate::before, .bc-certificate .bc-cert-seal::after { animation: none !important; }
+}
+
+/* the certificate heading: cream, with the italic line in gold (an older rule made it dark bronze) */
+.bc-certificate h2 { color: #fff6e2 !important; letter-spacing: .01em; line-height: 1.08; text-shadow: 0 1px 0 rgba(0,0,0,.6); }
+.bc-certificate h2 em { color: #e8c877 !important; font-style: italic; }
