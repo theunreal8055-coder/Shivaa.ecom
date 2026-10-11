@@ -20,6 +20,17 @@
 - Stamp 205. Artefacts: `shivaa-update-v205.zip`, `DEPLOY-v205.md`.
 - Not done: PHP backend test, smoke suite, phone test.
 
+- **Verified this session (11 Oct 2026, branch `arena/5529f0ec-shivaa-ecom` at `954d715`):**
+  - Headless browser, 390 px, API mocked: "Get home delivery physical card" opens `#/black-card/delivery`
+    for a customer with Premium and for one without (claim call runs first). The address form submits,
+    the server save runs and the success message shows, with no page errors.
+  - Certificate rendered on desktop and phone. It uses one gold seal, a double gold frame and a serif
+    name. Reference guidance (metallic accent, embossed seal, bold foil shapes, generous space) matches.
+  - Not run: the PHP backend and the smoke suite. A real phone test is still needed.
+- **Sandbox note:** the workspace was re-cloned twice during this session. Local commits were lost, but
+  the remote branch kept them. Always `git fetch` and check `origin/arena/5529f0ec-shivaa-ecom` first.
+  A `git reset --hard` to origin is safe only when `git status` is clean.
+
 ## v204 — physical-card button fixed; address page rewritten; Black card phone-ready (11 Oct 2026)
 
 - v204 BUILT, pushed on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 204.
