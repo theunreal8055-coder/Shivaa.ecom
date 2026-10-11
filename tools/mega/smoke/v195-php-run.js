@@ -27,10 +27,26 @@ const claimAddr = { name: 'QA Member', phone: '9876500002', line1: '12 Station R
     assert.equal(r.status, 200, r.body);
     assert.equal(r.json.membership, null);
   });
-  await test('D02', 'claiming with NO delivery address is refused (the last step needs it)', async () => {
-    const r = await F.req('POST', 'black-card/claim', {}, MEMBER);
-    assert.equal(r.status, 400, r.body);
-    assert.match(r.json.error, /delivery address/i);
+  await test('D02', 'claiming needs no address: the card is shown first, the address comes on the next page', async () => {
+    await F.setDb(withOther(seed()));
+    const r = await F.req('POST', 'black-card/claim', { name: 'QA Member' }, MEMBER);
+    assert.equal(r.status, 200, r.body);
+    assert.equal(r.json.created, true);
+    assert.equal(r.json.membership.holderName, 'QA Member', 'the typed name is the name on the card');
+    assert.ok(!r.json.membership.delivery, 'no delivery is set before the address step');
+    const again = await F.req('POST', 'black-card/claim', {}, MEMBER);
+    assert.equal(again.json.created, false, 'a repeat claim keeps the same card');
+  });
+  await test('D02b', 'the physical-card address step refuses an incomplete address and sets a free delivery once', async () => {
+    const bad = await F.req('POST', 'black-card/delivery', { address: { ...claimAddr, pincode: '12' } }, MEMBER);
+    assert.equal(bad.status, 400, bad.body);
+    const ok = await F.req('POST', 'black-card/delivery', { address: claimAddr }, MEMBER);
+    assert.equal(ok.status, 200, ok.body);
+    assert.equal(ok.json.membership.delivery.type, 'physical-card');
+    assert.equal(ok.json.membership.delivery.fee, 0);
+    const twice = await F.req('POST', 'black-card/delivery', { address: claimAddr }, MEMBER);
+    assert.equal(twice.status, 409, twice.body);
+    await F.setDb(withOther(seed()));   // later tests expect a fresh account with no card
   });
   await test('D03', 'a bad PIN code or mobile is refused on the server', async () => {
     const bad1 = await F.req('POST', 'black-card/claim', { address: { ...claimAddr, pincode: '12' } }, MEMBER);
@@ -138,6 +154,21 @@ const claimAddr = { name: 'QA Member', phone: '9876500002', line1: '12 Station R
     assert.equal(r.status, 200, r.body);
     assert.equal(r.json.created, false, 'an existing card is never replaced');
     assert.equal(r.json.membership.delivery.address.line1, '12 Station Road', 'the first address stays');
+  });
+
+    await test('D15', 'Premium gives 20% off making charges for life, through its own code, and no free delivery', async () => {
+    const db = seed(); db.users.find(u => u.id === 'qaMember').premium = true; await F.setDb(db);
+    const me = await F.req('GET', 'auth/me', {}, MEMBER);
+    assert.match(me.json.user.premiumCode, /^SHV-P-[0-9A-F]{8}$/);
+    const v = await F.req('POST', 'coupons/validate', { code: me.json.user.premiumCode, amount: 50000, makingAmount: 5000 }, MEMBER);
+    assert.equal(v.status, 200, v.body);
+    assert.equal(v.json.type, 'making_percent');
+    assert.equal(v.json.discount, 1000, '20% of the 5000 making charges');
+  });
+  await test('D16', 'a non-premium customer cannot use the Premium code', async () => {
+    const db = seed(); await F.setDb(db);
+    const v = await F.req('POST', 'coupons/validate', { code: 'SHV-P-00000000', amount: 50000, makingAmount: 5000 }, MEMBER);
+    assert.equal(v.status, 404, v.body);
   });
 
   console.log(`\nv195-php-run: ${pass} passed, ${fail} failed`);

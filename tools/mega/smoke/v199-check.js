@@ -1,4 +1,4 @@
-/* v198 — Shivaa Black restored from the uploaded v186 line and checked on the current tree.
+/* v199 — Shivaa Black: name + mobile, then the card, then the Premium offer, then the physical-card address page.
    Static checks on the cms/ tree: the black hero, the side-menu entry, the footer link and
    the header pill are all present; the card page is registered once; the claim sends the
    delivery address; the server returns the card on the account and the making-charge shape
@@ -14,11 +14,11 @@ function test(id, name, fn) {
 }
 const count = (s, re) => (s.match(re) || []).length;
 
-test('A01', 'release stamp 198 everywhere', () => {
-  assert(/const APP_REL = 198;/.test(app), 'APP_REL');
-  assert(/__SHIVAA_REL=198/.test(index), 'index stamp');
-  assert(/const REL = 198;/.test(sw) && /shivaa-shell-v198/.test(sw), 'sw stamp');
-  assert(/'rel'\s*=>\s*198/.test(api), 'api rel');
+test('A01', 'release stamp 199 everywhere', () => {
+  assert(/const APP_REL = 199;/.test(app), 'APP_REL');
+  assert(/__SHIVAA_REL=199/.test(index), 'index stamp');
+  assert(/const REL = 199;/.test(sw) && /shivaa-shell-v199/.test(sw), 'sw stamp');
+  assert(/'rel'\s*=>\s*199/.test(api), 'api rel');
 });
 
 test('A02', 'no v195 / v197 Black layers left wired in', () => {
@@ -30,8 +30,8 @@ test('A02', 'no v195 / v197 Black layers left wired in', () => {
 
 test('A03', 'the restored Black stylesheets are linked and precached', () => {
   for (const c of ['v184', 'v185', 'v186']) {
-    assert(index.includes(`/css/${c}.css?v=198`), `${c}.css not linked`);
-    assert(sw.includes(`/css/${c}.css?v=198`), `${c}.css not precached`);
+    assert(index.includes(`/css/${c}.css?v=199`), `${c}.css not linked`);
+    assert(sw.includes(`/css/${c}.css?v=199`), `${c}.css not precached`);
     assert(fs.existsSync(path.join(CMS, 'css', c + '.css')), `${c}.css missing`);
   }
   assert(fs.existsSync(path.join(CMS, 'images/black/hero-v186.jpg')), 'hero artwork missing');
@@ -53,10 +53,27 @@ test('B03', 'the card page is registered exactly once', () => {
   assert(count(app, /pages\['black-card'\]\s*=/g) === 1, 'pages black-card count');
 });
 
-test('C01', 'the claim asks for the delivery address and sends it', () => {
-  assert(app.includes('function blackAddressFormHTML()'), 'address form');
-  assert(app.includes("api('/api/black-card/claim', { method: 'POST', body: JSON.stringify(payload) })"), 'payload body');
-  assert(/Add your delivery address so we can post your physical card free/.test(app), 'missing-address message');
+test('C01', 'the claim asks only for name and registered mobile; the address comes later', () => {
+  assert(app.includes('function blackIntakeHTML()'), 'intake fields');
+  assert(app.includes("payload = { name: intake.name };"), 'claim sends the name');
+  assert(!app.includes("api('/api/black-card/claim', { method: 'POST', body: '{}' })"), 'old empty claim body');
+  assert(app.includes("blackClaimHTML(inAccount = false)") || app.includes('function blackClaimHTML(inAccount = false)'), 'claim card');
+  assert(/Enter a valid 10-digit Indian mobile number/.test(app), 'mobile message');
+});
+
+test('C04', 'the card shows the Premium offer and a button to the physical-card address page', () => {
+  assert(app.includes('function blackPremiumHTML(card)'), 'premium section');
+  assert(app.includes('data-bc-delivery-start'), 'delivery button');
+  assert(app.includes("location.hash = '#/black-card/delivery'"), 'goes to the address page');
+  assert(/\/black-card\\\/delivery/.test(app) || app.includes('#\\/black-card\\/delivery'), 'address page route');
+  assert(app.includes("api('/api/black-card/delivery'"), 'address saved through the delivery route');
+});
+
+test('C05', 'Premium is 20% off making charges for life, with no free delivery', () => {
+  assert(app.includes('20% off making charges</b> on every Shivaa jewellery purchase, for life'), 'premium copy on the card');
+  assert(api.includes("'premiumCode' =>"), 'premium code on the account');
+  assert(!/if \(!empty\(\$u\) && !empty\(\$u\['premium'\]\)\) \$shipping = 0;/.test(api), 'premium still waives delivery');
+  assert(api.includes("'black-card/delivery'"), 'delivery route');
 });
 
 test('C02', 'the checkout reads the making-charge shape the server returns', () => {
@@ -71,5 +88,5 @@ test('C03', 'the account payload carries the card only for its bound mobile', ()
   assert(/black_card_bound_to_user\(\$card, \$u\)\) \$card = null/.test(api), 'bound check');
 });
 
-console.log(`v198-check: ${pass} passed, ${fail} failed`);
+console.log(`v199-check: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

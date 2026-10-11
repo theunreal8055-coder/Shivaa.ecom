@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 198;
+const APP_REL = 199;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3553,8 +3553,8 @@ function premiumCardHTML(prem) {
     <div class="shv-offer-card shv-offer-premium rv">
       <span class="shv-offer-shine" aria-hidden="true"></span>
       <span class="shv-offer-badge">Premium card &middot; for everyone</span>
-      <span class="shv-offer-head"><b class="shv-offer-pct">FREE</b><span class="shv-offer-off">home delivery, for life</span></span>
-      <span class="shv-offer-sub">Every order you place, delivered free. No code needed once your card is active.</span>
+      <span class="shv-offer-head"><b class="shv-offer-pct">20%</b><span class="shv-offer-off">off making charges, for life</span></span>
+      <span class="shv-offer-sub">Lifetime savings on every Shivaa purchase. Your code applies automatically at checkout.</span>
       ${cta}
       <span class="shv-premium-msg" aria-live="polite"></span>
     </div>`;
@@ -3754,6 +3754,39 @@ function blackAddressFormHTML() {
       ${f('pincode', 'PIN code', a.pincode || '', 'text', 'postal-code', 'inputmode="numeric" maxlength="6"')}
     </div></fieldset>`;
 }
+function blackIntakeHTML() {
+  const u = state.user || null;
+  const get = k => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  const phone = u ? String(u.phone || '').replace(/\D/g, '').slice(-10) : (get('shv_bc_mobile') || '').slice(-10);
+  const name = get('shv_bc_name') || (u && u.name) || '';
+  return `<div class="bc-intake" data-bc-intake>
+    <label class="bc-addr-f"><span>Your name, as it should appear on the card</span><input data-bc-name type="text" value="${esc(name)}" maxlength="60" autocomplete="name"></label>
+    <label class="bc-addr-f"><span>Your registered mobile</span><input data-bc-mobile type="tel" inputmode="numeric" maxlength="10" value="${esc(phone)}" autocomplete="tel-national" placeholder="10-digit mobile"${u ? ' readonly aria-readonly="true"' : ''}></label>
+  </div>`;
+}
+function blackReadIntake() {
+  const root = document.querySelector('[data-black-claim] [data-bc-intake]');
+  const nameIn = root && root.querySelector('[data-bc-name]'), mobIn = root && root.querySelector('[data-bc-mobile]');
+  const name = nameIn ? nameIn.value.trim().replace(/\s+/g, ' ') : '';
+  const mobile = mobIn ? mobIn.value.replace(/\D/g, '').slice(-10) : '';
+  if (name.length < 2) return { error: 'Enter your name as it should appear on the card.', focus: nameIn };
+  if (!/^[6-9]\d{9}$/.test(mobile)) return { error: 'Enter a valid 10-digit Indian mobile number.', focus: mobIn };
+  return { name, mobile, focus: null };
+}
+function blackReadAddress(root) {
+  const pick = k => (root.querySelector(`[data-bc-addr="${k}"]`)?.value || '').trim();
+  const address = { name: pick('name'), phone: pick('phone').replace(/\D/g, '').slice(-10), line1: pick('line1'), line2: pick('line2'), city: pick('city'), state: pick('state'), pincode: pick('pincode') };
+  const checks = [
+    ['name', address.name.length >= 2, 'Enter the name the card should be issued to.'],
+    ['phone', /^[6-9]\d{9}$/.test(address.phone), 'Enter a valid 10-digit mobile for delivery.'],
+    ['line1', address.line1.length >= 5, 'Enter your house number and street.'],
+    ['city', address.city.length >= 2, 'Enter your city.'],
+    ['state', address.state.length >= 2, 'Enter your state.'],
+    ['pincode', /^[1-9]\d{5}$/.test(address.pincode), 'Enter a valid 6-digit PIN code.'],
+  ];
+  for (const [k, ok, msg] of checks) if (!ok) return { error: msg, focus: root.querySelector(`[data-bc-addr="${k}"]`) };
+  return { address };
+}
 function blackClaimHTML(inAccount = false) {
   const signed = !!state.user;
   return `<section class="bc-claim-card${inAccount ? ' in-account' : ''}" data-black-claim>
@@ -3765,10 +3798,57 @@ function blackClaimHTML(inAccount = false) {
     <div class="bc-benefit-grid">
       <span><b>20%</b><small>off making charges</small></span><span><b>6</b><small>calendar months</small></span><span><b>1</b><small>verified mobile only</small></span><span><b>∞</b><small>card + certificate kept</small></span>
     </div>
-    ${inAccount ? '' : blackAddressFormHTML()}
+    ${inAccount ? '' : blackIntakeHTML()}
     <button type="button" class="btn btn-gold btn-lg bc-claim-btn" onclick="Shivaa.beginBlackClaim('',this)">${signed ? 'Create my Black Card' : 'Verify mobile & create my card'} ✦</button>
     <span class="bc-claim-status" aria-live="polite"></span>
     <small class="bc-claim-note">One secure flow · one card per retail account · claiming again can never reset the issue or expiry date.</small>
+  </section>`;
+}
+async function blackDeliveryPage(view) {
+  const isCurrent = viewLifetime(view);
+  if (!state.user) {
+    view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><h1>Sign in to request your card.</h1><p>Your physical card is linked to your verified account.</p><button type="button" class="btn btn-gold" onclick="Shivaa.openLogin('black-card')">Sign in by OTP</button></div></section>`;
+    return;
+  }
+  const card = state.user.blackCard || null;
+  if (!card) { location.hash = '#/black-card'; return; }
+  if (card.delivery) {
+    view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><span class="bc-eyebrow">FREE HOME DELIVERY</span><h1>Your physical card is set.</h1><p>It is set for delivery to the address on file, free of charge. Your 20% privilege already works from your account.</p><div class="bc-member-actions"><a class="btn btn-gold" href="#/black-card">Back to my card</a></div></div></section>`;
+    return;
+  }
+  view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><span class="bc-eyebrow">FREE HOME DELIVERY</span><h1>Where should we send your card?</h1><p>Your physical Shivaa Black card is delivered free of charge. Enter the address once; it is kept on your card.</p></div></section>
+    <section class="container bc-public-detail"><form class="bc-claim-card bc-delivery-form" data-bc-delivery-form novalidate>${blackAddressFormHTML()}<button type="submit" class="btn btn-gold btn-lg bc-delivery-btn">Send my physical card · free &#10022;</button><span class="bc-claim-status" aria-live="polite"></span></form></section>`;
+  const form = view.querySelector('[data-bc-delivery-form]');
+  if (!form) return;
+  form.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const status = form.querySelector('.bc-claim-status'), btn = form.querySelector('.bc-delivery-btn');
+    const res = blackReadAddress(form);
+    if (res.error) { status.textContent = res.error; if (res.focus) res.focus.focus(); return; }
+    btn.disabled = true; status.textContent = 'Saving your delivery address…';
+    try {
+      const r = await api('/api/black-card/delivery', { method: 'POST', body: JSON.stringify({ address: res.address }) });
+      if (r.user) state.user = r.user; else if (state.user) state.user.blackCard = r.membership;
+      toast('Your physical card is set for free delivery ✦');
+      location.hash = '#/black-card';
+    } catch (e) {
+      if (!isCurrent()) return;
+      status.textContent = e.message || 'Could not save the address. Please try again.';
+      btn.disabled = false;
+    }
+  });
+}
+function blackPremiumHTML(card) {
+  const prem = !!(state.user && state.user.premium);
+  const d = card && card.delivery;
+  const where = d && d.address ? [d.address.city, d.address.pincode].filter(Boolean).join(' · ') : '';
+  return `<section class="bc-premium" aria-labelledby="bcPremTitle">
+    <div class="bc-prem-head"><span class="bc-eyebrow">FREE PREMIUM · FOR LIFE</span><h2 id="bcPremTitle">Lifetime savings, <em>guaranteed.</em></h2></div>
+    <p class="bc-prem-copy"><b>20% off making charges</b> on every Shivaa jewellery purchase, for life. Your code applies automatically at checkout.</p>
+    ${prem ? '<span class="bc-prem-active">Premium is active on your account &check;</span>' : ''}
+    ${d
+      ? `<p class="bc-delivery-state"><span aria-hidden="true">&check;</span> Physical card requested${where ? ' · delivery to ' + esc(where) : ''}. Delivered free.</p>`
+      : `<div class="bc-prem-cta"><button type="button" class="btn btn-gold btn-lg" data-bc-delivery-start>Get home delivery physical card &#10022;</button><small>Free delivery. Your address is taken on the next page.</small></div>`}
   </section>`;
 }
 function blackMembershipHTML(card, opts = {}) {
@@ -3793,6 +3873,7 @@ function blackMembershipHTML(card, opts = {}) {
       </div>
     </div>
     <div class="bc-scope" role="note"><b>Exactly what 20% means</b><span><i>✓</i> 20% of listed making charges × quantity</span><span><i>×</i> No reduction on metal value, stones, GST or shipping</span><span><i>✓</i> Server recalculates the saving on every order</span></div>
+    ${blackPremiumHTML(card)}
     <div class="bc-cert-wrap"><div class="bc-cert-intro"><span class="bc-eyebrow">ISSUED WITH YOUR CARD · KEPT FOREVER</span><h2>Shivaa Family<br><em>Prestigious Member</em></h2><p>Your permanent family certificate was created in the same moment as your card. It stays in My Account even after the shopping privilege ends.</p><div class="bc-cert-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.saveBlackCertificate(this)">Save / share certificate</button><button type="button" class="btn btn-outline" onclick="Shivaa.printBlackMembership()">Print / save PDF</button></div></div>${blackCertificateHTML(card)}</div>
   </div>`;
 }
@@ -3826,8 +3907,12 @@ window.Shivaa.beginBlackClaim = (returnHash = '', btn = null) => {
   window._blackClaimReturn = back;
   window._blackClaimAfterLogin = true;
   if (!state.user) {
+    const intake = blackReadIntake();
+    if (intake.error) { blackClaimStatus(intake.error, 'error'); if (intake.focus) intake.focus.focus(); return; }
+    try { sessionStorage.setItem('shv_bc_name', intake.name); sessionStorage.setItem('shv_bc_mobile', intake.mobile); } catch (e) {}
     blackClaimStatus('Opening secure mobile verification…', 'checking');
     openLogin('black-card');
+    setTimeout(() => { const i = document.getElementById('shvPhoneIn'); if (i && !i.value) i.value = intake.mobile; }, 150);
     return;
   }
   if ((state.user.role || 'customer') !== 'customer') { window.Shivaa.cancelBlackClaimIntent(); return toast('Shivaa Black is exclusively for retail customers.', 'err'); }
@@ -3836,19 +3921,15 @@ window.Shivaa.beginBlackClaim = (returnHash = '', btn = null) => {
 window.Shivaa.claimBlackCard = (btn, opts = {}) => {
   if (!state.user) return window.Shivaa.beginBlackClaim(opts.returnHash || '', btn);
   if (blackClaimPromise) { blackClaimStatus('Your secure request is already in progress…', 'checking'); return blackClaimPromise; }
-  const addrRoot = document.querySelector('[data-black-claim] [data-bc-address]');
   let payload = {};
-  if (!(state.user && state.user.blackCard) && addrRoot) {
-    const pick = k => (addrRoot.querySelector(`[data-bc-addr="${k}"]`)?.value || '').trim();
-    const address = { name: pick('name'), phone: pick('phone'), line1: pick('line1'), line2: pick('line2'), city: pick('city'), state: pick('state'), pincode: pick('pincode') };
-    const bad = !address.name || !address.phone || !address.line1 || !address.city || !address.state || !/^[1-9]\d{5}$/.test(address.pincode);
-    if (bad) {
-      blackClaimStatus('Add your delivery address so we can post your physical card free.', 'error');
-      const empty = [...addrRoot.querySelectorAll('input')].find(i => !i.value.trim() && i.name !== 'line2');
-      if (empty) empty.focus();
-      return;
+  if (!(state.user && state.user.blackCard)) {
+    const intake = blackReadIntake();
+    if (intake.error) { blackClaimStatus(intake.error, 'error'); if (intake.focus) intake.focus.focus(); return; }
+    if (state.user) {
+      const acct = String(state.user.phone || '').replace(/\D/g, '').slice(-10);
+      if (acct !== intake.mobile) { blackClaimStatus('This card is bound to your signed-in mobile. Use that number to claim it.', 'error'); return; }
     }
-    payload = { address };
+    payload = { name: intake.name };
   }
   const allButtons = [...new Set([...$$('.bc-claim-btn'), ...(btn ? [btn] : [])])], old = btn && btn.textContent;
   allButtons.forEach(b => { b.disabled = true; b.setAttribute('aria-busy', 'true'); });
@@ -3860,6 +3941,7 @@ window.Shivaa.claimBlackCard = (btn, opts = {}) => {
       if (r.user) state.user = r.user;
       else if (state.user) state.user.blackCard = r.membership;
       window._blackClaimAfterLogin = false;
+      try { sessionStorage.removeItem('shv_bc_name'); sessionStorage.removeItem('shv_bc_mobile'); } catch (e) {}
       window._blackRevealUntil = Date.now() + 6500;
       blackClaimStatus('Card secured. Preparing your private member locker…', 'success');
       toast(r.created ? 'Welcome to Shivaa Black ✦ Your card and certificate are ready.' : 'Your Shivaa Black card is already saved ✦');
@@ -4039,6 +4121,10 @@ window.Shivaa.retryBlackCard = btn => {
   route();
 };
 pages['black-card'] = async view => {
+  if (/^#\/black-card\/delivery(?:[/?#]|$)/.test(location.hash)) return blackDeliveryPage(view);
+  return blackCardPage(view);
+};
+async function blackCardPage(view) {
   const isCurrent = viewLifetime(view);
   if (!state.user) {
     view.innerHTML = `<section class="bc-page-hero"><div class="container bc-page-hero-in"><div><div class="crumbs"><a href="#/">Home</a> / Shivaa Black</div><span class="bc-eyebrow">RETAIL CUSTOMERS ONLY</span><h1>The Shivaa Black Card.</h1><p>A personal six-month privilege: 20% off making charges on jewellery purchases, bound to one OTP-verified mobile. Your digital card and prestigious-member certificate stay in your account forever.</p><button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.beginBlackClaim('',this)">Verify mobile &amp; create my card ✦</button><small class="bc-hero-action-note">One seamless OTP flow · no payment details required</small></div>${blackCardVisual(null, { home: true })}</div></section>
@@ -6418,6 +6504,7 @@ pages.checkout = async (view) => {
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   const makingSubtotal = items.reduce((a, it) => a + price(it.p).makingCharge * it.qty, 0);
   const checkoutBlack = state.user && blackCardActive(state.user.blackCard) ? state.user.blackCard : null;
+  const checkoutPremium = !checkoutBlack && state.user && state.user.premiumCode ? state.user.premiumCode : null;
   const freeShip = subtotal >= state.settings.freeShipAbove;
   /* ═══ v139 · ADDRESS PREFILL ═══
      The shop has kept an address book since v84 (/api/addresses, and the
@@ -6478,7 +6565,7 @@ pages.checkout = async (view) => {
       <h3>Your Order</h3>
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
       ${checkoutBlack ? `<div class="bc-checkout-wrap"><div class="bc-checkout-pass"><span class="bc-checkout-mark">S</span><span><b>Shivaa Black found</b><small>20% off ${fmt(makingSubtotal)} in making charges · applying securely</small></span><a href="#/black-card">View card</a></div><div class="bc-checkout-flow" aria-label="Shivaa Black checkout progress"><span class="done">✓ Card found</span><i></i><span id="bcVerifyStep" class="current">2 Verify</span><i></i><span id="bcAppliedStep">3 Apply saving</span></div></div>` : ''}
-      <div class="coupon-row"><input id="couponIn" placeholder="Coupon or member code" value="${checkoutBlack ? esc(checkoutBlack.couponCode || checkoutBlack.cardNumber || '') : ''}"${checkoutBlack ? ' aria-label="Your Shivaa Black member coupon"' : ' aria-label="Coupon code"'} aria-describedby="couponMsg" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="Shivaa.couponInputChanged(this.value)"><button class="btn btn-ghost btn-sm" id="couponApplyBtn" type="button" onclick="Shivaa.applyCoupon()">Apply</button></div>
+      <div class="coupon-row"><input id="couponIn" placeholder="Coupon or member code" value="${checkoutBlack ? esc(checkoutBlack.couponCode || checkoutBlack.cardNumber || '') : (checkoutPremium ? esc(checkoutPremium) : '')}"${checkoutBlack ? ' aria-label="Your Shivaa Black member coupon"' : ' aria-label="Coupon code"'} aria-describedby="couponMsg" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="Shivaa.couponInputChanged(this.value)"><button class="btn btn-ghost btn-sm" id="couponApplyBtn" type="button" onclick="Shivaa.applyCoupon()">Apply</button></div>
       <div id="couponMsg" class="coupon-message" aria-live="polite"></div>
       ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
       <div class="sum-row"><span>Subtotal</span><b id="coSub">${fmt(subtotal)}</b></div>
@@ -6548,7 +6635,7 @@ pages.checkout = async (view) => {
     else if (window._co.couponType === 'percent') window._co.disc = Math.round(sub * window._co.couponValue / 100);
     const pass = $('.bc-checkout-pass small'); if (pass) pass.textContent = `20% off ${fmt(making)} in making charges · ${window._co.couponType ? 'applied to this order' : 'applying securely'}`;
     const wasFree = window._co.freeShip;
-    window._co.freeShip = sub >= state.settings.freeShipAbove || !!window._co.couponFreeShip || !!(state.user && state.user.premium);
+    window._co.freeShip = sub >= state.settings.freeShipAbove || !!window._co.couponFreeShip;
     $('#coSub').textContent = fmt(sub);
     /* v167 — TWO defects in one line. (a) The shipping row was looked up with
        '.sum-row:nth-last-child(2)', which is the *COD fee* row (the total is
@@ -6605,7 +6692,7 @@ pages.checkout = async (view) => {
   coTotals(); paintLock(); startLockClock();
   /* v184 — the personal card follows its owner into checkout. Validation is
      still performed by the API; this merely removes coupon-entry friction. */
-  if (checkoutBlack) setTimeout(() => { if (isCurrent() && $('#couponIn')) window.Shivaa.applyCoupon(true); }, 0);
+  if (checkoutBlack || checkoutPremium) setTimeout(() => { if (isCurrent() && $('#couponIn')) window.Shivaa.applyCoupon(true); }, 0);
   /* v139 — the saved-address switcher. One tap moves a whole saved address into
      the form; tapping is the shopper's own instruction, so replacing the fields
      is what was asked for. The chip also becomes the address this order
@@ -11333,7 +11420,7 @@ function refreshCheckoutTotals() {
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   window._co.subtotal = subtotal;
-  window._co.freeShip = subtotal >= state.settings.freeShipAbove || !!window._co.couponFreeShip || !!(state.user && state.user.premium);
+  window._co.freeShip = subtotal >= state.settings.freeShipAbove || !!window._co.couponFreeShip;
   $$('.summary [data-copid]').forEach(el => {
     const it = items.find(x => x.p.id === el.dataset.copid && +x.qty === +el.dataset.qty);
     if (it) { const v = price(it.p).total * it.qty; if (el.dataset.last !== String(v)) { el.dataset.last = v; el.textContent = fmt(v); el.classList.remove('flash-price'); void el.offsetWidth; el.classList.add('flash-price'); } }
@@ -11754,6 +11841,25 @@ else boot();
 
 })();
 
+/* v199 — the card's Premium offer: claim it once, then ask for the delivery address. */
+document.addEventListener('click', async ev => {
+  const btn = ev.target.closest && ev.target.closest('[data-bc-delivery-start]');
+  if (!btn) return;
+  ev.preventDefault();
+  if (!state.user) { openLogin('black-card'); return; }
+  if (btn.dataset.busy) return;
+  btn.dataset.busy = '1'; btn.disabled = true;
+  try {
+    if (!state.user.premium) {
+      const r = await api('/api/premium/claim', { method: 'POST', body: '{}' });
+      if (r && r.user) state.user = r.user; else state.user.premium = true;
+    }
+    location.hash = '#/black-card/delivery';
+  } catch (e) {
+    toast(e.message || 'Could not start your physical card request', 'err');
+    btn.disabled = false; delete btn.dataset.busy;
+  }
+});
 /* v191 — claim the Premium card (delegated: the hero is re-drawn on every visit). */
 document.addEventListener('click', async (ev) => {
   const btn = ev.target.closest && ev.target.closest('[data-premium-claim]');
@@ -11766,7 +11872,7 @@ document.addEventListener('click', async (ev) => {
     if (r && r.user) state.user = Object.assign({}, state.user, r.user);
     _premiumInfo = { claimed: true };
     if (card) card.querySelector('.shv-offer-go').outerHTML = '<span class="shv-offer-go">Your Premium card is active &check;</span>';
-    if (msg) { msg.textContent = 'Premium card activated: free home delivery on every order.'; }
+    if (msg) { msg.textContent = 'Premium card activated: 20% off making charges on every order, for life.'; }
   } catch (e) {
     btn.disabled = false;
     if (msg) { msg.textContent = e.message || 'Could not activate. Please try again.'; msg.classList.add('bad'); }
