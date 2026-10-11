@@ -9,6 +9,10 @@
   live site. Never hand-edit `cms/data/db.json`. Never swap `sw.js` alone.
 - Production deploys are owner-approved only. A push or merge is not approval.
 
+- **LIVE: v205 is deployed to the live site (owner confirmed, 11 Oct 2026).** The owner reports it works.
+  Forward-only from 205. Next release is 206 or higher. Live version check: `/api/version`.
+  Not yet verified by the agent: the PHP backend path on the live server and a real phone run.
+
 ## v205 — certificate redesign + delivery flow robustness (11 Oct 2026)
 
 - v205 BUILT on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 205.
