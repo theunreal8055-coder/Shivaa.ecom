@@ -1,4 +1,4 @@
-/* v192 — static checks for the two public offers (20% off making charges, free home
+/* v193 — static checks for the two public offers (20% off making charges, free home
    delivery) for every customer: the server route, the free-delivery rule in the order
    route, the checkout hooks, the three placements, the admin default, the photos and
    the stamps. Reads the cms/ tree directly; no browser or PHP runtime needed. */
@@ -9,7 +9,7 @@ const assert = require('assert');
 const ROOT = path.join(__dirname, '..', '..', '..', 'cms');
 const rd = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const index = rd('index.html'), app = rd('js/app.js'), admin = rd('js/admin.js');
-const sw = rd('sw.js'), api = rd('api.php'), css = rd('css/v188.css'), css192 = rd('css/v192.css');
+const sw = rd('sw.js'), api = rd('api.php'), css = rd('css/v188.css'), css193 = rd('css/v193.css'), css192 = rd('css/v192.css');
 
 let pass = 0;
 function test(id, name, fn) {
@@ -17,11 +17,11 @@ function test(id, name, fn) {
   catch (e) { console.error('FAIL ' + id + ' ' + name + ': ' + e.message); process.exitCode = 1; }
 }
 
-test('D01', 'release 192 in lockstep across the stamp sites', () => {
-  assert.ok(index.includes('window.__SHIVAA_REL=192;'), 'index stamp');
-  assert.ok(app.includes('const APP_REL = 192;'), 'app stamp');
-  assert.ok(sw.includes("const SHELL = 'shivaa-shell-v192';") && sw.includes('const REL = 192;'), 'worker stamps');
-  assert.ok(api.includes("'rel'   => 192,"), 'api version endpoint');
+test('D01', 'release 193 in lockstep across the stamp sites', () => {
+  assert.ok(index.includes('window.__SHIVAA_REL=193;'), 'index stamp');
+  assert.ok(app.includes('const APP_REL = 193;'), 'app stamp');
+  assert.ok(sw.includes("const SHELL = 'shivaa-shell-v193';") && sw.includes('const REL = 193;'), 'worker stamps');
+  assert.ok(api.includes("'rel'   => 193,"), 'api version endpoint');
 });
 
 test('D02', 'offers route: GET, public, creates MAKING20 + FREEDEL once, respects the owner switch', () => {
@@ -114,13 +114,13 @@ test('E04', 'live data file is out of git and ignored', () => {
   assert.ok(gi.includes('cms/data/db.json'), 'gitignore');
 });
 
-test('F01', 'v192 mobile layer is linked last and precached', () => {
+test('F01', 'v193 mobile layer is linked last and precached', () => {
   const links = [...index.matchAll(/href="\/css\/([^"]+)"/g)].map(m => m[1]);
-  assert.equal(links[links.length - 1], 'v192.css?v=192', 'v192.css must load last');
-  assert.ok(sw.includes("'/css/v192.css?v=192'"), 'precached');
+  assert.equal(links[links.length - 1], 'v193.css?v=193', 'v193.css must load last');
+  assert.ok(sw.includes("'/css/v193.css?v=193'"), 'precached');
 });
 
-test('F02', 'v192 phone rules stay inside the phone media query; desktop is not touched', () => {
+test('F02', 'v193 phone rules stay inside the phone media query; desktop is not touched', () => {
   const phone = css192.slice(css192.indexOf('@media (max-width: 767px) {'), css192.indexOf('/* ── Phones: polished motion'));
   assert.ok(phone.length > 200, 'phone block present');
   assert.ok(!/\.shv-offer-card\s*\{[^}]*display\s*:\s*none/.test(phone), 'no hiding of offer cards');
@@ -129,7 +129,7 @@ test('F02', 'v192 phone rules stay inside the phone media query; desktop is not 
   assert.ok(!/!important/.test(global.replace(/scroll-behavior[^;]*;/g,'').replace(/transition-duration[^;]*;/g,'').replace(/max-width[^;]*;/g,'')), 'global rules avoid !important');
 });
 
-test('F03', 'v192 never stops loading spinners or animations for reduced-motion users', () => {
+test('F03', 'v193 never stops loading spinners or animations for reduced-motion users', () => {
   assert.ok(!/animation-iteration-count/.test(css192), 'no iteration override');
   assert.ok(!/\*\s*,\s*\*::before/.test(css192), 'no blanket selector');
   assert.ok(css192.includes('prefers-reduced-motion: reduce'), 'reduced-motion block');
@@ -140,4 +140,21 @@ test('F04', 'phone inputs are 16px (no iOS zoom) and buttons are at least 44px t
   assert.ok(css192.includes('min-height: 44px'), 'touch targets');
 });
 
-console.log('v192-check: ' + pass + ' passed' + (process.exitCode ? ' (with failures)' : ''));
+test('G01', 'v193 luxury layer is linked last after v192 and precached', () => {
+  const links = [...index.matchAll(/href="\/css\/([^"]+)"/g)].map(m => m[1]);
+  assert.equal(links[links.length - 1], 'v193.css?v=193', 'v193.css must load last');
+  assert.ok(links.includes('v192.css?v=193'), 'v192 still loaded');
+  assert.ok(sw.includes("'/css/v193.css?v=193'"), 'precached');
+});
+
+test('G02', 'v193 is visual only: no display rules and no layout-moving rules on flows', () => {
+  assert.ok(!/display\s*:\s*none/.test(css193), 'nothing hidden');
+  assert.ok(!/position\s*:\s*fixed/.test(css193), 'no fixed overlays');
+});
+
+test('G03', 'luxury effects are guarded: hover lifts only on fine pointers, reduced motion off', () => {
+  assert.ok(css193.includes('@media (hover: hover) and (pointer: fine)'), 'hover guard');
+  assert.ok(css193.includes('prefers-reduced-motion: reduce'), 'reduced-motion block');
+});
+
+console.log('v193-check: ' + pass + ' passed' + (process.exitCode ? ' (with failures)' : ''));

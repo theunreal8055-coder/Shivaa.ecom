@@ -1,0 +1,74 @@
+/* v193 — luxury polish layer. Loaded last, after v192. Visual only: no change to
+   prices, coupons, checkout or flows. Motion is gentle and is switched off for
+   people who ask for reduced motion. */
+
+:root {
+  --v193-gold: #c9952f;
+  --v193-gold-hi: #f1d98a;
+  --v193-ink: #1b1409;
+  --v193-ease: cubic-bezier(.2, .8, .2, 1);
+  --v193-lift: 0 18px 40px -22px rgba(60, 40, 8, .45), 0 2px 6px rgba(60, 40, 8, .08);
+}
+
+/* ── Gold hairlines and section rhythm ───────────────────────────────── */
+.section-title, .sec-title, h2.section, .page-hero h1 {
+  letter-spacing: .01em;
+}
+hr, .divider {
+  border: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201,149,47,.55), transparent);
+}
+
+/* ── Buttons: a soft gold sheen on the gold call-to-action ───────────── */
+.btn-gold {
+  background-image: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 55%);
+  box-shadow: 0 10px 24px -14px rgba(120, 80, 10, .7), inset 0 1px 0 rgba(255,255,255,.35);
+  transition: transform .35s var(--v193-ease), box-shadow .35s var(--v193-ease), filter .3s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-gold:hover { box-shadow: 0 16px 32px -14px rgba(120, 80, 10, .75), inset 0 1px 0 rgba(255,255,255,.4); filter: saturate(1.05); }
+}
+.btn:focus-visible { outline: 2px solid var(--v193-gold); outline-offset: 3px; }
+
+/* ── Cards: refined elevation on fine pointers ───────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  .shv-offer-card { transition: transform .45s var(--v193-ease), box-shadow .45s var(--v193-ease); }
+  .shv-offer-card:hover { transform: translateY(-3px); box-shadow: var(--v193-lift); }
+}
+
+/* ── Offer cards: a finer gold frame for a more premium finish ───────── */
+.shv-offer-card {
+  border: 1px solid rgba(255, 236, 178, .55);
+}
+.shv-offer-card.shv-offer-premium { border-color: rgba(233, 196, 106, .45); }
+.shv-offer-pct {
+  background: linear-gradient(180deg, #fff3c4 0%, #e9c46a 45%, #b07f22 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.shv-offer-card.shv-offer-premium .shv-offer-pct {
+  background: linear-gradient(180deg, #fff6d6 0%, #f1d98a 50%, #c9952f 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.shv-offer-badge { letter-spacing: .14em; }
+
+/* ── Footer and side-menu offers: quieter, more refined ──────────────── */
+.shv-offer-mini {
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
+}
+.shv-offer-mini-pct {
+  background: linear-gradient(180deg, #fff3c4, #c9952f);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ── Phones: luxury spacing that still fits the screen ───────────────── */
+@media (max-width: 767px) {
+  .shv-offer-card { border-radius: 18px; }
+  .shv-offer-wrap { margin-bottom: 18px; }
+}
+
+/* ── Reduced motion: no lifts, no sheen sweeps ───────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .shv-offer-card, .btn-gold { transition: none !important; }
+  .shv-offer-card:hover, .btn-gold:hover { transform: none; }
+}
