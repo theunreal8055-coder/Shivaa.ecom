@@ -1,0 +1,102 @@
+/* v194 — full-app mobile fit + fluid motion. Loaded last, precached.
+   Goal: the page never slides sideways, so no coloured strip shows at the edges,
+   every control is comfortable to tap, and motion stays smooth and calm. */
+
+:root {
+  --v194-bg: #fdf8ef;        /* cream, so any edge reveal is never red */
+  --v194-ease: cubic-bezier(.2, .8, .2, 1);
+  --v194-spring: cubic-bezier(.34, 1.4, .64, 1);
+}
+
+/* ── 1. Nothing can be wider than the screen ──────────────────────────── */
+html, body {
+  max-width: 100%;
+  overflow-x: clip;                 /* stops sideways drift on every page */
+}
+html {
+  background: var(--v194-bg);       /* rubber-band / overscroll shows cream, never red */
+  overscroll-behavior-x: none;      /* no sideways bounce on the root */
+}
+body { overscroll-behavior-x: none; }
+
+/* Media never pushes the page wider than the screen */
+img, video, iframe, svg, canvas, embed, object {
+  max-width: 100%;
+}
+img { height: auto; }
+table { max-width: 100%; }
+pre, code { max-width: 100%; overflow-wrap: anywhere; }
+
+/* Long words, emails, codes and prices wrap instead of pushing the layout out */
+h1, h2, h3, h4, p, li, td, th, label, a, span, b, strong {
+  overflow-wrap: anywhere;
+}
+
+/* Scrolling strips (tickers, marquees, carousels) are clipped by their own box */
+.rev-marquee, .bd-marquee, .ticker-wrap, .ticker,
+[class*="marquee"], [class*="ticker"], [class*="track-wrap"], [class*="rail-wrap"] {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* ── 2. Controls that feel right under a thumb ───────────────────────── */
+a, button, [role="button"], input, select, textarea, label, summary {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;       /* no 300 ms tap delay */
+}
+button, [role="button"], .btn {
+  transition: transform .28s var(--v194-ease), box-shadow .35s var(--v194-ease),
+              background-color .3s ease, color .3s ease, border-color .3s ease, opacity .3s ease;
+}
+/* Press feedback: a soft squeeze on touch (tapping), no hover on touch screens */
+@media (hover: none) and (pointer: coarse) {
+  button:active, [role="button"]:active, .btn:active {
+    transform: scale(.97);
+    transition-duration: .12s;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(0) scale(.98); }
+}
+button:disabled, .btn[disabled], .btn.is-disabled {
+  cursor: not-allowed; opacity: .55; transform: none;
+}
+
+/* Keyboard focus is always visible */
+:focus-visible {
+  outline: 2px solid #c9952f;
+  outline-offset: 3px;
+}
+
+/* ── 3. Phones: fit every block to the screen ─────────────────────────── */
+@media (max-width: 767px) {
+  body {
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+  }
+  /* Form fields never trigger the iOS zoom and stay easy to tap */
+  input, select, textarea { font-size: 16px; }
+  /* Full-width sheets and cards never run past the edges */
+  .card, .panel, .modal, .sheet, [class*="-card"], [class*="-panel"] {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  /* Grids and flex children may shrink so their text wraps */
+  [class*="grid"] > *, [class*="row"] > * { min-width: 0; }
+}
+
+/* ── 4. Motion: smooth, not busy ──────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .v194-fade-in { animation: v194FadeUp .5s var(--v194-ease) both; }
+}
+@keyframes v194FadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button, [role="button"], .btn { transition: none !important; }
+  button:active, .btn:active, .btn:hover { transform: none !important; }
+  .v194-fade-in { animation: none !important; }
+  html { scroll-behavior: auto; }
+}
