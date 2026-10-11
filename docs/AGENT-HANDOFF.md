@@ -1,4 +1,4 @@
-# AGENT HANDOFF — v200 BUILT (button colour fixes); v199 BUILT (Black Card journey); NOTHING DEPLOYED (11 Oct 2026, branch `arena/5529f0ec-shivaa-ecom`)
+# AGENT HANDOFF — LIVE v205; next 206+ (12 Oct 2026, this session `arena/eb844179-shivaa-ecom`)
 
 ## FORWARD-ONLY RULE (restated by the owner; absolute)
 
@@ -11,9 +11,11 @@ site. Production deploys are owner-approved only; a push or merge is not approva
   Forward-only from 205. Next release is 206 or higher. Live version check: `/api/version`.
   Not yet verified by the agent: the PHP backend path on the live server and a real phone run.
 
-## CURRENT STATE — refreshed 11 Oct 2026 (read this first)
+## CURRENT STATE — refreshed 12 Oct 2026 (read this first)
 
-- **Branch:** `arena/5529f0ec-shivaa-ecom`. Head `03f78e0`, clean, pushed. Local and remote match.
+- **This Arena session branch:** `arena/eb844179-shivaa-ecom`. Work, commits and pushes stay on this branch only.
+- **Tree:** fast-forwarded 12 Oct 2026 from `origin/arena/5529f0ec-shivaa-ecom` at `95a2ab5` (v205 source). Same files as that branch; not a new release.
+- **Source-of-truth branch for v199–v205:** `arena/5529f0ec-shivaa-ecom` (docs there still mention head `03f78e0`; tip is `95a2ab5` after history-bring merges that did not change files).
 - **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 206 or higher.
   Never reuse or renumber a shipped release. Never deploy an older tree over a newer live site.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
@@ -35,9 +37,8 @@ site. Production deploys are owner-approved only; a push or merge is not approva
   - Smoke suite was not run for v200–v205 and PHP was not available in the sandbox.
   - Copy: no "best in the world" claims until the owner provides facts.
   - Certificate foil: print with bold shapes, not hairlines.
-- **Sandbox:** the workspace has been re-cloned during this work. Always `git fetch`, check
-  `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
-  Back up any dirty tree before a reset.
+- **Sandbox:** this session stays on `arena/eb844179-shivaa-ecom`. Do not switch to or push
+  to `arena/5529f0ec-shivaa-ecom`. Fetch origin as needed. A reset to another branch is not allowed.
 
 ## v205 — certificate redesign + delivery flow robustness (11 Oct 2026)
 
