@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 187;
+const APP_REL = 188;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3538,6 +3538,32 @@ function renderHomeCarouselSlides() {
     </div>`).join('');
 }
 
+/* v188 — the public banner offer. The server decides whether the offer is live
+   (switch on, coupon live, public, making-scoped) and returns only the code and
+   the percent. This function just draws the card. */
+async function loadBannerOffer(view) {
+  const slot = view.querySelector('#bannerOfferSlot');
+  if (!slot) return;
+  try {
+    const r = await api('/api/offers/banner');
+    const o = r && r.offer;
+    const pct = o ? Number(o.percent) : 0;
+    if (!o || !(pct > 0)) { slot.hidden = true; slot.innerHTML = ''; return; }
+    const pctTxt = Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
+    slot.innerHTML = `
+    <a class="shv-offer-card rv" href="#/shop" aria-label="${esc(pctTxt)} percent off making charges, use code ${esc(o.code)}">
+      <span class="shv-offer-shine" aria-hidden="true"></span>
+      <span class="shv-offer-badge">Every customer &middot; every order</span>
+      <span class="shv-offer-head"><b class="shv-offer-pct">${esc(pctTxt)}%</b><span class="shv-offer-off">off making charges</span></span>
+      <span class="shv-offer-sub">Use code <b class="shv-offer-code">${esc(o.code)}</b> at checkout. Metal and stones stay at today's rate.</span>
+      <span class="shv-offer-go">Shop now &rarr;</span>
+    </a>`;
+    slot.hidden = false;
+  } catch (err) {
+    slot.hidden = true;
+  }
+}
+
 pages.home = async (view) => {
   ensureCampaignStuds();
   const best0 = state.productsCache.filter(p => p.tags && p.tags.includes('bestseller'));
@@ -3600,18 +3626,10 @@ pages.home = async (view) => {
     </div>
   </section>
 
-  <!-- v184 · AMRITA JI'S PRIVATE THANK-YOU CARD — rendered only while the owner's
-       switch (settings.amritaPage) is ON. Switching it off removes this card and
-       closes the page itself; her saved details are never touched. -->
-  ${state.settings && state.settings.amritaPage ? `
-  <section class="container shv-amrita-entry" style="margin: 0 auto 20px;">
-    <a class="shv-amrita-entry-card rv" href="#/amrita">
-      <span class="shv-ae-badge">A thank-you, made by hand</span>
-      <b class="shv-ae-title">For Amrita ji</b>
-      <span class="shv-ae-sub">Mummy made something for you &mdash; and there is more where that came from.</span>
-      <span class="shv-ae-go">Open &rarr;</span>
-    </a>
-  </section>` : ''}
+  <!-- v188 · PUBLIC BANNER OFFER — 20% off making charges for every customer.
+       Filled by loadBannerOffer() only while the owner's switch is on and the
+       owner's coupon is live. Amrita ji's private page is NOT linked from home. -->
+  <section class="container shv-offer-wrap" id="bannerOfferSlot" hidden></section>
 
   <div class="catbar-outer">${catBarHTML()}</div>
 
@@ -3738,6 +3756,7 @@ pages.home = async (view) => {
   </section>`;
   const homeCd = $('#homeFinaleCd');
   if (homeCd) bindFinaleCd(homeCd);
+  loadBannerOffer(view);
   initCarousel();
   renderRateStrip();
   loadSocialProof(); // v50: real reviews or badged promises - never invented customers
@@ -3788,9 +3807,9 @@ pages.amrita = async (view) => {
   if (!(state.settings && state.settings.amritaPage)) { location.hash = '#/'; return; }
   const AM = { step: 1, stars: 0, dish: '', name: '', phone: '', sent: false, busy: false, card: null, already: false, err: '' };
   const DISHES = [
-    { id: 'idli', emoji: '🥣', title: 'Idli Sambhar', sub: 'with special coconut chutney', art: 'am-d-idli' },
-    { id: 'dosa', emoji: '🫓', title: 'Special Veg-Cheese Dosa', sub: 'with 2 secret chutney recipes', art: 'am-d-dosa' },
-    { id: 'paneer', emoji: '🍛', title: 'Paneer Butter Masala', sub: 'with laccha paratha', art: 'am-d-paneer' },
+    { id: 'idli', emoji: '🥣', title: 'Idli Sambhar', sub: 'with special coconut chutney', art: 'am-d-idli', img: 'idli' },
+    { id: 'dosa', emoji: '🫓', title: 'Special Veg-Cheese Dosa', sub: 'with 2 secret chutney recipes', art: 'am-d-dosa', img: 'dosa' },
+    { id: 'paneer', emoji: '🍛', title: 'Paneer Butter Masala', sub: 'with laccha paratha', art: 'am-d-paneer', img: 'paneer' },
   ];
   const dishById = id => DISHES.find(d => d.id === id) || null;
   const say = (m, bad) => { AM.err = bad ? m : ''; const el = $('#amMsg'); if (el) { el.textContent = m || ''; el.className = 'am-msg' + (bad ? ' bad' : ''); } };
@@ -3833,7 +3852,7 @@ pages.amrita = async (view) => {
       <div class="am-dishes">
         ${DISHES.map(d => `
           <button type="button" class="am-dish ${AM.dish === d.id ? 'on' : ''}" data-dish="${d.id}" onclick="Shivaa.amDish('${d.id}')">
-            <span class="am-dish-art ${d.art}" aria-hidden="true"><i>${d.emoji}</i></span>
+            <span class="am-dish-art ${d.art} has-photo" aria-hidden="true"><picture><source type="image/webp" srcset="/images/amrita/${d.img}-640.webp 640w, /images/amrita/${d.img}.webp 1280w" sizes="(max-width: 640px) 50vw, 160px"><img src="/images/amrita/${d.img}.jpg" srcset="/images/amrita/${d.img}-640.jpg 640w, /images/amrita/${d.img}.jpg 1280w" sizes="(max-width: 640px) 50vw, 160px" alt="" loading="lazy" decoding="async"></picture></span>
             <span class="am-dish-body"><b>${d.title}</b><small>${d.sub}</small></span>
             <span class="am-dish-tick" aria-hidden="true">✓</span>
           </button>`).join('')}

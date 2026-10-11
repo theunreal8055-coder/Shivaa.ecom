@@ -1104,8 +1104,19 @@ function v180DbStrip() {
                 <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
                   <input type="checkbox" name="amritaPage" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${S.amritaPage ? 'checked' : ''}>
                   <span><b>\u{1F90D} Amrita ji's thank-you page</b><br>
-                  <small style="color:var(--ink-3)">One private page at <b>shivaa.in/#/amrita</b>, made for one guest: it asks how the sandwiches were, celebrates 5 stars, lets her pick what she would like next, confirms her mobile number with the usual OTP, and then gives her a card for <b>20% off making charges</b>. <b>It stays OFF until you tick this box</b>, and a small card on the home page is the only way in. Untick it whenever you are done &mdash; the page disappears from the site at once and the server stops issuing any new card, while her saved details and the card she already has are kept exactly as they are.</small></span>
+                  <small style="color:var(--ink-3)">One private page at <b>shivaa.in/#/amrita</b>, made for one guest: it asks how the sandwiches were, celebrates 5 stars, lets her pick what she would like next, confirms her mobile number with the usual OTP, and then gives her a card for <b>20% off making charges</b>. <b>It stays OFF until you tick this box</b>, and it is NOT linked from the home page or the menu: open it only from the direct link <b>shivaa.in/#/amrita</b>. Untick it whenever you are done &mdash; the page disappears from the site at once and the server stops issuing any new card, while her saved details and the card she already has are kept exactly as they are.</small></span>
                 </label>
+              </div>
+              <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
+                <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
+                  <input type="checkbox" name="bannerOfferOn" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${S.bannerOfferOn ? 'checked' : ''}>
+                  <span><b>\u{1F3F7} Banner offer: 20% off making charges, for every customer</b><br>
+                  <small style="color:var(--ink-3)">Shows a card on the main home banner for everyone, Amrita ji included. It only shows when this box is ticked AND the coupon code below is a live coupon. Create that coupon in <b>Coupons</b> first: percent type, 20, scope <b>making charges</b>, no customer restriction, with the expiry date and the usage limit you want. Untick the box and the card disappears at once; the coupon itself is not changed.</small></span>
+                </label>
+                <div style="margin-top:8px">
+                  <label style="font-size:12px;color:var(--ink-3)">Coupon code for the banner (letters and digits, 3&ndash;24)</label>
+                  <input name="bannerOfferCode" value="${String(S.bannerOfferCode || '').replace(/[^A-Za-z0-9]/g, '')}" maxlength="24" autocomplete="off" style="text-transform:uppercase" placeholder="e.g. MAKING20">
+                </div>
               </div>
                   <input type="checkbox" name="forceLatestVersion" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${(S.forceLatestVersion === undefined ? true : !!S.forceLatestVersion) ? 'checked' : ''}>
                   <span><b>🔄 Always show customers the latest version</b> <small style="color:var(--ink-3)">(recommended: ON)</small><br>
@@ -2192,7 +2203,10 @@ window.ShivaaAdmin.savePay = async e => {
                  // v166 — always serve the newest release to every device
                  forceLatestVersion: !!document.querySelector('[name="forceLatestVersion"]')?.checked,
                  // v184 — Amrita ji's private page (the one-click kill switch)
-                 amritaPage: !!document.querySelector('[name="amritaPage"]')?.checked };
+                 amritaPage: !!document.querySelector('[name="amritaPage"]')?.checked,
+                 // v188 — public banner offer (20% off making charges, everyone)
+                 bannerOfferOn: !!document.querySelector('[name="bannerOfferOn"]')?.checked,
+                 bannerOfferCode: (document.querySelector('[name="bannerOfferCode"]')?.value || '').trim().toUpperCase() };
   /* v152 — the partner-key field is GONE from the save body: the settings PUT
      no longer accepts it, and any stale DB value has no reader left (route deleted). */
   // secret key is write-only: only sent when retyped (server strips it from GETs)

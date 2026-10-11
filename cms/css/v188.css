@@ -1,0 +1,71 @@
+/* v188 — the public 20% making-charges banner card, the Amrita ji dish photos,
+   and a motion pass tuned for phones and tablets. Loaded last so it wins.
+   Every animation is switched off for people who ask for reduced motion. */
+
+/* ── Banner offer (home, for every customer) ─────────────────────────── */
+.shv-offer-wrap { margin: 0 auto 18px; padding: 0 16px; }
+.shv-offer-wrap[hidden] { display: none; }
+.shv-offer-card {
+  position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 6px;
+  padding: 18px 20px 16px; border-radius: 18px; text-decoration: none; color: #2a1d08;
+  background: linear-gradient(135deg, #fbe7b2 0%, #e9c46a 46%, #c9952f 100%);
+  box-shadow: 0 10px 30px -12px rgba(120, 80, 10, .55), inset 0 1px 0 rgba(255,255,255,.55);
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.shv-offer-card:hover, .shv-offer-card:focus-visible { transform: translateY(-2px); box-shadow: 0 16px 36px -14px rgba(120,80,10,.6), inset 0 1px 0 rgba(255,255,255,.6); }
+.shv-offer-card:active { transform: scale(.985); }
+.shv-offer-shine {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.55) 50%, transparent 65%);
+  transform: translateX(-120%); animation: shv-offer-sweep 4.8s ease-in-out 1.2s infinite;
+}
+@keyframes shv-offer-sweep { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
+.shv-offer-badge {
+  align-self: flex-start; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 999px; background: rgba(42,29,8,.88); color: #f7e3a4; font-weight: 600;
+}
+.shv-offer-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.shv-offer-pct { font-size: clamp(38px, 9vw, 56px); line-height: 1; font-weight: 700; letter-spacing: -.02em; }
+.shv-offer-off { font-size: clamp(16px, 4vw, 20px); font-weight: 600; }
+.shv-offer-sub { font-size: 14px; line-height: 1.45; max-width: 52ch; }
+.shv-offer-code {
+  display: inline-block; padding: 1px 8px; border-radius: 6px; background: rgba(255,255,255,.55);
+  letter-spacing: .06em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.shv-offer-go { margin-top: 4px; font-weight: 700; font-size: 14px; }
+
+/* ── Amrita ji's dish cards: real photos ─────────────────────────────── */
+.am-dish-art.has-photo { overflow: hidden; padding: 0; background: #1d1409; }
+.am-dish-art.has-photo picture, .am-dish-art.has-photo img { display: block; width: 100%; height: 100%; }
+.am-dish-art.has-photo img {
+  object-fit: cover; transform: scale(1.02);
+  transition: transform .6s cubic-bezier(.2,.8,.2,1);
+}
+.am-dish:hover .am-dish-art.has-photo img, .am-dish.on .am-dish-art.has-photo img { transform: scale(1.09); }
+.am-dish-art.has-photo::after { display: none; }
+.am-dish-art.has-photo i { display: none; }
+
+/* ── Motion: entrance for the offer card when it arrives ──────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .shv-offer-card { animation: shv-offer-in .7s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes shv-offer-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+}
+
+/* ── Phones and tablets ──────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .shv-offer-wrap { padding: 0 12px; margin-bottom: 14px; }
+  .shv-offer-card { border-radius: 16px; padding: 16px 16px 14px; }
+  .shv-offer-sub { font-size: 13px; }
+  .am-dish-art.has-photo { width: 76px; height: 76px; border-radius: 14px; }
+}
+@media (min-width: 641px) and (max-width: 1024px) {
+  .shv-offer-wrap { max-width: 720px; }
+}
+
+/* ── Reduced motion: keep everything, drop the movement ──────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .shv-offer-shine { animation: none; display: none; }
+  .shv-offer-card, .am-dish-art.has-photo img { transition: none; }
+  .shv-offer-card:hover, .shv-offer-card:focus-visible { transform: none; }
+}

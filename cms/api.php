@@ -5482,6 +5482,25 @@ try {
     db_save($DB_FILE, $db); jout(200, ['wishlist' => $w ?? []]);
   }
 
+  /* v188 — the public banner offer: 20% off making charges for EVERY customer,
+     Amrita ji included. It shows only while settings.bannerOfferOn is true AND
+     the owner's coupon (settings.bannerOfferCode) is live, public (no forUser)
+     and scoped to making charges. It returns the code and the percent only. */
+  if ($route === 'offers/banner' && $method === 'GET') {
+    $want = strtoupper(trim((string)($db['settings']['bannerOfferCode'] ?? '')));
+    $out = null;
+    if (!empty($db['settings']['bannerOfferOn']) && $want !== '') {
+      foreach ($db['coupons'] as $c) {
+        if (strtoupper((string)($c['code'] ?? '')) === $want && coupon_live($c) && empty($c['forUser'])
+            && coupon_scope($c) === 'making' && ($c['type'] ?? 'percent') === 'percent') {
+          $out = ['code' => (string)$c['code'], 'percent' => (float)($c['value'] ?? 0)];
+          break;
+        }
+      }
+    }
+    jout(200, ['offer' => $out]);
+  }
+
   /* ── coupons ── */
   if ($route === 'coupons/validate' && $method === 'POST') {
     $b = body_json();
@@ -6097,7 +6116,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 187,
+      'rel'   => 188,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -8681,7 +8700,7 @@ try {
     /* v184 — amritaPage joins the strict booleans. It is the switch that makes
        one private page exist at all, so a typo must be refused, never stored
        as a truthy string that quietly puts the page live. */
-    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth', 'guestCheckout', 'forceLatestVersion', 'amritaPage'] as $occKey) {
+    foreach (['cfOcc', 'cfOccAddress', 'cfOccAuth', 'guestCheckout', 'forceLatestVersion', 'amritaPage', 'bannerOfferOn'] as $occKey) {
       if (array_key_exists($occKey, $setBody)) {
         $v = $setBody[$occKey];
         if (is_bool($v)) continue;
@@ -8689,6 +8708,12 @@ try {
         if (in_array($v, [0, '0', false, 'false', 'off', 'no', '', null], true)) { $setBody[$occKey] = false; continue; }
         jout(400, ['error' => 'One Click Checkout settings must be true or false.']);
       }
+    }
+    // v188 — the banner offer's coupon code: letters and digits only, 3-24 chars
+    if (array_key_exists('bannerOfferCode', $setBody)) {
+      $bc = strtoupper(trim((string)$setBody['bannerOfferCode']));
+      if ($bc !== '' && !preg_match('/^[A-Z0-9]{3,24}$/', $bc)) jout(400, ['error' => 'Banner offer code: 3-24 letters or digits, no spaces.']);
+      $setBody['bannerOfferCode'] = $bc;
     }
     // v152 — the retired verification vendor's key: wiped with the other legacy creds.
     // v128 — fresh start: wipe every legacy gateway credential (PayU / PhonePe /
