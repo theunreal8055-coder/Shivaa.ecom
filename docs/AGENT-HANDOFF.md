@@ -1,4 +1,4 @@
-# AGENT HANDOFF — v206 BUILT (Black card 3D flip rebuilt); v205 LIVE (11 Oct 2026, session branch `arena/09f3c79f-shivaa-ecom`)
+# AGENT HANDOFF — v207 BUILT (readability pass); v205 LIVE (11 Oct 2026, session branch `arena/09f3c79f-shivaa-ecom`)
 
 ## FORWARD-ONLY RULE (restated by the owner; absolute)
 
@@ -15,13 +15,14 @@ site. Production deploys are owner-approved only; a push or merge is not approva
 
 - **Branch:** session branch `arena/09f3c79f-shivaa-ecom` (same tree as `arena/5529f0ec-shivaa-ecom`
   head `95a2ab5`). Clean and pushed after each release commit.
-- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 207 or higher.
+- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 208 or higher.
   Never reuse or renumber a shipped release. Never deploy an older tree over a newer live site.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
   delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
   v202 home hero → v203 card holographic foil and motion → v204 delivery button fix, address page
   "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE →
-  v206 Black card 3D flip rebuilt (BUILT, not deployed).
+  v206 Black card 3D flip rebuilt (BUILT, not deployed) → v207 readability pass, every word legible
+  (BUILT as `shivaa-update-v207.zip`, not deployed).
 - **Key fixes to remember:**
   - v199 placed the delivery click handler outside the app scope. Fixed in v204; check the closing
     `})();` of `cms/js/app.js` after any edit.
@@ -45,6 +46,24 @@ site. Production deploys are owner-approved only; a push or merge is not approva
 - **Sandbox:** the workspace has been re-cloned during this work. Always `git fetch`, check
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
+
+## v207 — readability pass · every word legible (11 Oct 2026)
+
+- v207 BUILT (`shivaa-update-v207.zip`), NOT deployed. Forward-only from 207. Next: 208+.
+- Owner brief task 2: text same colour as background. Audited all 45 routes desktop + phone with
+  `qa/browser/audit-contrast.mjs` (committed). Fixed forward in `cms/css/v207.css` (loaded last):
+  page-hero h1 foil cast (1.11:1 at gradient ends → light cast); `.ink-reveal` maroon sweep +
+  calm-mode on dark heroes → cream sweep; footer fine print/links (3.1–3.8:1) → .84–.93 gold;
+  app-band dismiss × (1.23:1, v200 phantom-white mis-measurement) → light gold + hover; hero
+  breadcrumbs 2.7:1 → cream .88; Black Card fine print 2–3.8:1 → readable; glass panels
+  `.svc-result`/`.shv-val-banner`/`.shv-hud-chip` on light sections (white ₹ amounts 1.03:1) →
+  dark-glass ground; gold-on-light chips/labels/avatars (1.4–2.9:1) → dark gold on light;
+  `.disp-italic` gold-on-gold (1.22:1) → cream-gold + shadow; `.fin-eng` ink deepened.
+- QA: flip ALL PASS; 83/83 index refs + 78/78 SHELL_FILES exist; `?v=` = 207 everywhere (media keeps
+  its own generation); node --check clean. Audit-boundary items (photo-scrim text, footer app-band
+  measured through translucent tints) hand-verified readable in the real render.
+- Artefacts: `shivaa-update-v207.zip` (136 files, sha256 `9f5f5b74…7f451`), `DEPLOY-v207.md`,
+  `tools/mega/make-v207-zip.py`, `qa/browser/audit-contrast.mjs [mobile]`.
 
 ## v206 — Black card 3D flip rebuilt + live motion (11 Oct 2026)
 

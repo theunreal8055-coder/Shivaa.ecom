@@ -17,13 +17,14 @@
 
 - **Branch:** session branch `arena/09f3c79f-shivaa-ecom` (same tree as `arena/5529f0ec-shivaa-ecom`
   head `95a2ab5`). Clean and pushed after each release commit.
-- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 207 or higher.
+- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 208 or higher.
   Never reuse or renumber a shipped release. Never deploy an older tree over a newer live site.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
   delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
   v202 home hero → v203 card holographic foil and motion → v204 delivery button fix, address page
   "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE →
-  v206 Black card 3D flip rebuilt (BUILT, not deployed).
+  v206 Black card 3D flip rebuilt (BUILT, not deployed) → v207 readability pass, every word legible
+  (BUILT as `shivaa-update-v207.zip`, not deployed).
 - **Key fixes to remember:**
   - v199 placed the delivery click handler outside the app scope. Fixed in v204; check the closing
     `})();` of `cms/js/app.js` after any edit.
@@ -35,6 +36,10 @@
     The card is `div[role=button][data-flip-card]`, not `<button>` (WebKit flattens 3D in form
     controls). The flip handlers are delegated inside the app IIFE (`data-flip-card`,
     `data-flip-hint`).
+  - v207: contrast audits must walk translucent layers down to the first OPAQUE ancestor
+    (compositing over white produced phantom "cream on cream" everywhere) and must treat
+    absolutely-positioned inset-0 children / filling media elements as unknown backdrops
+    (photo scrims). Worst-case multi-gradient stops are the right bias for hero shafts.
 - **Data policy:** `cms/data/db.json` is not tracked on this branch (commit `fa6cf79`, v191).
   Never commit live data or hand-edit `db.json`.
 - **Open items:**
@@ -47,6 +52,33 @@
 - **Sandbox:** the workspace has been re-cloned during this work. Always `git fetch`, check
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
+
+## v207 — readability pass · every word legible (11 Oct 2026)
+
+- v207 BUILT on the session branch (`shivaa-update-v207.zip`), NOT deployed. Forward-only from 207.
+- Task 2 of the owner's brief: text same colour as background on some pages. Audited all 45 routes
+  desktop + phone with `qa/browser/audit-contrast.mjs` (committed; boots each route in jsdom,
+  resolves cascade + custom properties + alpha compositing, flags every text node under WCAG AA).
+- Real bugs found & fixed forward in `cms/css/v207.css` (loaded last): page-hero h1 foil cast ended
+  with the hero's own colour at both ends (1.11:1) → light cream/gold cast; `.ink-reveal` maroon
+  sweep + calm-mode maroon-deep on dark heroes → cream sweep; footer fine print/links at 50–62%
+  gold (3.1–3.8:1) → .84–.93; app-band dismiss × (#5e1520 against a phantom white band, 1.23:1)
+  → light gold with hover (forward correction of a v200 mis-measurement); hero breadcrumbs .46
+  white (2.7:1) → cream .88; Black Card fine print (rgba white .27, 2–3.8:1) → readable greys/golds;
+  glass panels `.svc-result`/`.shv-val-banner`/`.shv-hud-chip` assumed dark posters but some sit on
+  light sections (white ₹ amounts at 1.03:1) → solid dark-glass ground; gold-on-light chips/labels/
+  avatars (1.4–2.9:1) → dark gold on light, light gold stays on dark contexts; `.disp-italic`
+  gold-on-gold hero words (1.22:1) → cream-gold + shadow; `.fin-eng` foil engraving ink deepened.
+- Artefacts: `shivaa-update-v207.zip` (136 files, sha256 `9f5f5b74…7f451`), `DEPLOY-v207.md`,
+  `tools/mega/make-v207-zip.py`, `qa/browser/audit-contrast.mjs [mobile]`.
+- QA: flip test still ALL PASS; 83/83 index asset refs + 78/78 SHELL_FILES exist; every `?v=` is 207
+  (media keeps its own generation number); node --check clean. t7-audit's product-walk failures are
+  the synthetic dev fixture (db.json has 6 demo products), pre-existing. No PHP in sandbox.
+- Known audited-boundary (not bugs): text over photo scrims (mega-feat cards, UGC captions —
+  readable over their `::after` scrims in the real render; audit skips them as image-backed) and the
+  footer app-band copy which the auditor measures through a translucent tint chain against a phantom
+  cream ground (real ground is the dark maroon footer, ~7:1 — hand-verified).
+- Not done: real phone/desktop visual eyeball (no browser binaries in sandbox).
 
 ## v206 — Black card 3D flip rebuilt + live motion (11 Oct 2026)
 
