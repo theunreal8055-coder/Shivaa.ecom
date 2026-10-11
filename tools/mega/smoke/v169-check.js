@@ -18,6 +18,7 @@ function fixture(hash='#/order/QA-169'){
   routeGeneration:1,pages:{},state:{user:{id:'qa',name:'QA Buyer',email:'qa@qa.invalid',addresses:[],loyaltyPoints:0},settings:{phone:'QA',freeShipAbove:50000},cart:[{id:'qaPiece',qty:1}],productsCache:[{id:'qaPiece'}],localWish:[]},
   $:s=>w.document.querySelector(s),$$:s=>[...w.document.querySelectorAll(s)],esc,jsArg:s=>JSON.stringify(s),fmt:n=>'₹'+Number(n).toLocaleString('en-IN'),timeFmt:()=> 'QA date',dateFmt:()=> 'QA date',
   setTimeout:f=>{timers.push(f);return timers.length;},clearTimeout(){},
+  blackCardActive:()=>false,
   guestPinFor:()=>'',emptyShell:(a,b,x)=>'<h1>'+b+'</h1>'+x,signInGate(){},openLogin(){},
   ensureCampaignStuds(){},expressCheckoutOn:()=>false,store:{get:()=>null},price:()=>({total:1030}),prepaidPct:()=>2,isPartner:()=>false,safeUrl:s=>String(s||''),slugify:s=>s,waLink:()=>'',ORDER_STAGES:[],loyaltyTier:()=>'',
   finaleLive:()=>false,finaleQualifiesItems:()=>({ok:false}),finaleAfterOrder(){},campaignGenderOfItems:()=> 'gents',confetti:()=>{c.celebrations++;},celebrations:0,

@@ -3747,10 +3747,15 @@ function req_user(array $db): ?array {
   return null;
 }
 function pub_user(array $u): array {
+  /* Shivaa Black: returned only in this account's own payload, and only while the
+     account still carries the registered mobile bound at issue. */
+  $card = is_array($u['blackCard'] ?? null) ? $u['blackCard'] : null;
+  if ($card && !black_card_bound_to_user($card, $u)) $card = null;
   return ['id' => $u['id'], 'name' => $u['name'], 'email' => $u['email'], 'phone' => $u['phone'] ?? '',
           'role' => $u['role'], 'loyaltyPoints' => $u['loyaltyPoints'] ?? 0, 'partnerId' => $u['partnerId'] ?? null,
           'createdAt' => $u['createdAt'] ?? '', 'profile' => $u['profile'] ?? [], 'addresses' => $u['addresses'] ?? [],
-          'referralCode' => $u['referralCode'] ?? null, 'premium' => !empty($u['premium'])];
+          'referralCode' => $u['referralCode'] ?? null, 'premium' => !empty($u['premium']),
+          'blackCard' => $card ? black_card_public($card) : null];
 }
 function need_admin(array $db): array {
   $u = req_user($db);
@@ -5760,7 +5765,7 @@ try {
          `subtotal x value%`, which is right for a whole-order coupon and
          quietly overstates a making-charges one. The checkout now shows this
          figure and the order route recomputes the identical one. */
-      $mkTotal = (float)($b['makingTotal'] ?? 0);
+      $mkTotal = (float)($b['makingTotal'] ?? $b['makingAmount'] ?? 0);
       if ($mkTotal < 0) $mkTotal = 0;
       $calc = coupon_discount($c, (float)($b['amount'] ?? 0), $mkTotal);
       $c['scope'] = $calc['scope'];
@@ -5768,6 +5773,7 @@ try {
       $c['discountBase'] = $calc['base'];
       if ($calc['scope'] === 'making' && $calc['base'] <= 0)
         jout(400, ['error' => $c['code'] . ' takes off making charges — this bag carries none (bullion and stones are already at shop rate).']);
+      if ($calc['scope'] === 'making') { $c['type'] = 'making_percent'; $c['eligibleBasis'] = (int)round($calc['base']); }
       jout(200, $c);
     }
     jout(404, ['error' => 'Invalid coupon code']);
@@ -6123,14 +6129,14 @@ try {
     if ($coupon && !empty($coupon['forNewUsers'])) {
       foreach ($db['orders'] as $__o) if (($__o['userId'] ?? '') === $u['id'] && ($__o['status'] ?? '') !== 'Cancelled') { $coupon = null; break; }
     }
-    $discount = 0; $couponScope = 'all';
+    $discount = 0; $couponScope = 'all'; $couponDisc = 0;
     if ($coupon && $subtotal >= (float)($coupon['minOrder'] ?? 0)) {
       // v82 — clamp every coupon into 0…subtotal; a mistyped percent/value
       // (negative, >100%) must never inflate the total or pay the customer.
       // v184 — and slice the right thing: a making-charges coupon takes its
       // percentage off the making charges only, never off the metal.
       $calc = coupon_discount($coupon, $subtotal, $makingBase);
-      $discount = $calc['discount'];
+      $discount = $calc['discount']; $couponDisc = (float)$calc['discount'];
       $couponScope = $calc['scope'];
     }
     $pointsUsed = 0;
@@ -6182,6 +6188,7 @@ try {
       'paymentStatus' => $pm === 'COD' ? 'Pending (COD)' : ($pm === 'WhatsApp' ? 'Confirm on WhatsApp' : 'Awaiting payment'),
       'subtotal' => $subtotal, 'discount' => $discount, 'prepaidDiscount' => $prepaid, 'codFee' => $codFee,
       'pointsUsed' => $pointsUsed, 'coupon' => $coupon['code'] ?? null,
+      'makingChargeDiscount' => $couponScope === 'making' ? round($couponDisc, 2) : 0,
       // v184 — which base the coupon actually took its slice from, so the
       // order row itself shows why the discount is what it is.
       'couponScope' => $couponScope,
@@ -6360,7 +6367,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 197,
+      'rel'   => 198,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
