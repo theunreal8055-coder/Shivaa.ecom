@@ -9,6 +9,16 @@
   live site. Never hand-edit `cms/data/db.json`. Never swap `sw.js` alone.
 - Production deploys are owner-approved only. A push or merge is not approval.
 
+## v201 — Shivaa Black membership redrawn (11 Oct 2026)
+
+- v201 BUILT, pushed on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 201.
+- Visual only: `cms/css/v201.css` (loaded last). Markup, copy, prices and logic are unchanged.
+- Stamp 201 in `index.html`, `sw.js`, `app.js`, `api.php`. Artefacts: `shivaa-update-v201.zip`
+  (131 files), `DEPLOY-v201.md`, `tools/mega/make-v201-zip.py`.
+- Contrast audit: 0 buttons under 3:1. The CTA gradient was briefly 2.6:1 and was fixed.
+- Not done: smoke suite and phone check. Copy was not changed to "best in the world" claims,
+  because the owner has not provided supporting facts.
+
 ## SESSION INTAKE — v199 / v200 (11 Oct 2026, branch `arena/5529f0ec-shivaa-ecom`)
 
 - **v199 BUILT and pushed (`1385451`), NOT deployed.** Black Card journey: every customer

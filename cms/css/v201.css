@@ -1,0 +1,156 @@
+/* v201 — the Shivaa Black membership, redrawn as a luxury object.
+   Visual only: markup, copy, prices and the OTP/claim logic are unchanged.
+   Loaded last (after v200) so it wins the cascade. */
+
+/* ── Section stage: obsidian, champagne light, fine gold frame ─────────── */
+.bc-claim-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: 58px 46px 50px;
+  background:
+    radial-gradient(900px 460px at 82% -10%, rgba(232,196,110,.20), transparent 60%),
+    radial-gradient(700px 380px at -8% 110%, rgba(190,140,50,.16), transparent 62%),
+    linear-gradient(160deg, #0b0906 0%, #17110a 46%, #0a0806 100%);
+  border: 1px solid rgba(232,200,119,.34);
+  box-shadow:
+    0 0 0 6px rgba(232,200,119,.05),
+    0 40px 110px -30px rgba(120,80,10,.55),
+    inset 0 1px 0 rgba(255,236,190,.22);
+  color: #fff6e2;
+}
+/* animated champagne hairline around the whole stage */
+.bc-claim-card::before {
+  content: "";
+  position: absolute; inset: -1px; border-radius: inherit; padding: 1px; z-index: -1;
+  background: conic-gradient(from var(--bc-spin, 0deg), rgba(232,200,119,.1), #f4dc92, rgba(232,200,119,.1) 35%, #b68a3b 60%, rgba(232,200,119,.1));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: bcSpin 9s linear infinite;
+}
+@property --bc-spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes bcSpin { to { --bc-spin: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .bc-claim-card::before { animation: none; } }
+
+/* fine grain for depth */
+.bc-claim-card::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: -1; opacity: .35;
+  background-image: radial-gradient(rgba(255,240,200,.35) .6px, transparent .7px);
+  background-size: 3px 3px;
+  mask-image: linear-gradient(180deg, transparent, #000 40%, #000 70%, transparent);
+}
+.bc-claim-glow { opacity: .9; }
+
+/* ── Headline: gold foil display type ──────────────────────────────────── */
+.bc-claim-card .bc-eyebrow {
+  letter-spacing: .42em; font-size: 10.5px; color: #e8c877;
+}
+.bc-claim-card h2, .bc-claim-card .bc-title {
+  background: linear-gradient(100deg, #fff4d2 0%, #e8c877 38%, #fff8e6 52%, #c9a050 78%, #fff1c9 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none; letter-spacing: -.01em; line-height: 1.02;
+}
+
+/* ── Journey: a gold track that fills as the member advances ───────────── */
+.bc-journey { margin-top: 26px; }
+.bc-journey-line { background: rgba(232,200,119,.14); height: 2px; border-radius: 2px; }
+.bc-journey-line i {
+  background: linear-gradient(90deg, #8c6420, #f4dc92 70%, #fff6d8);
+  box-shadow: 0 0 14px rgba(244,220,146,.6);
+}
+.bc-journey li, .bc-journey .bc-step { color: rgba(255,240,205,.55); }
+.bc-journey .active, .bc-journey .done { color: #fff1c9; }
+
+/* ── Benefit tiles: gold-foil numerals on glass ────────────────────────── */
+.bc-benefit-grid { gap: 14px; margin: 34px auto 30px; }
+.bc-benefit-grid span {
+  position: relative; overflow: hidden; min-height: 112px;
+  border: 1px solid rgba(232,200,119,.28); border-radius: 18px;
+  background: linear-gradient(160deg, rgba(255,240,200,.09), rgba(255,255,255,.015) 60%, rgba(232,200,119,.05));
+  box-shadow: inset 0 1px 0 rgba(255,240,200,.14), 0 18px 40px -22px rgba(0,0,0,.8);
+  transition: transform .5s cubic-bezier(.2,.8,.2,1), border-color .5s, box-shadow .5s;
+}
+.bc-benefit-grid span:hover { transform: translateY(-4px); border-color: rgba(244,220,146,.6); box-shadow: inset 0 1px 0 rgba(255,240,200,.2), 0 26px 50px -20px rgba(232,200,119,.25); }
+.bc-benefit-grid span::after {
+  content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255,246,220,.16), transparent);
+  transform: skewX(-18deg); transition: left 1.1s cubic-bezier(.2,.8,.2,1);
+}
+.bc-benefit-grid span:hover::after { left: 130%; }
+.bc-benefit-grid b {
+  background: linear-gradient(180deg, #fff6d8, #d9ad52);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-size: 40px;
+}
+.bc-benefit-grid small { color: rgba(255,240,205,.62); letter-spacing: .12em; text-transform: uppercase; font-size: 9.5px; }
+
+/* ── Fields: underlined, gold focus, stacked (never run into the label) ── */
+.bc-addr-f { display: flex; flex-direction: column; gap: 9px; margin: 0 0 18px; }
+.bc-addr-f > span {
+  font-size: 10.5px; letter-spacing: .24em; text-transform: uppercase; color: #e8c877;
+}
+.bc-addr-f input, .bc-claim-card input[type="text"], .bc-claim-card input[type="tel"] {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,246,220,.04) !important;
+  color: #fff6e2 !important;
+  border: 0; border-bottom: 1px solid rgba(232,200,119,.45);
+  border-radius: 10px 10px 0 0; padding: 14px 16px; font-size: 16px;
+  transition: border-color .3s, background .3s, box-shadow .3s;
+}
+.bc-addr-f input::placeholder { color: rgba(255,240,205,.36); }
+.bc-addr-f input:focus, .bc-claim-card input:focus {
+  outline: none; border-bottom-color: #f4dc92;
+  background: rgba(255,246,220,.08) !important;
+  box-shadow: 0 10px 26px -14px rgba(232,200,119,.5);
+}
+
+/* ── Primary CTA: polished gold bar with sheen ─────────────────────────── */
+.bc-claim-btn, .bc-main-cta {
+  letter-spacing: .18em; font-weight: 600;
+  background: linear-gradient(110deg, #b07a22 0%, #f4dc92 40%, #fff3c8 50%, #d9a94a 80%, #a8741f 100%) !important;
+  background-size: 220% 100% !important;
+  color: #1a1206 !important;
+  border: 1px solid rgba(255,236,180,.8) !important;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 18px 44px -12px rgba(232,200,119,.55), inset 0 1px 0 rgba(255,255,255,.6) !important;
+  animation: bcGoldSweep 6s ease-in-out infinite;
+}
+@keyframes bcGoldSweep { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@media (prefers-reduced-motion: reduce) { .bc-claim-btn, .bc-main-cta { animation: none; } }
+
+.bc-claim-note, .bc-claim-card .bc-fine { color: rgba(255,240,205,.5); letter-spacing: .04em; }
+
+/* ── Membership certificate: engraved-invitation feel ──────────────────── */
+.bc-certificate {
+  background:
+    radial-gradient(600px 300px at 50% 0%, rgba(232,200,119,.16), transparent 70%),
+    linear-gradient(170deg, #0d0a06, #1b140b 55%, #0b0805);
+  border: 1px solid rgba(232,200,119,.4);
+  border-radius: 22px;
+  box-shadow: 0 0 0 8px rgba(232,200,119,.04), 0 36px 90px -30px rgba(120,80,10,.6), inset 0 0 80px rgba(232,200,119,.06);
+  color: #fff3d6;
+}
+.bc-cert-name {
+  background: linear-gradient(100deg, #fff4d2, #e8c877 45%, #fff8e6 60%, #c9a050);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-family: var(--ff-disp, Georgia, serif); letter-spacing: .01em;
+}
+.bc-cert-corner { border-color: rgba(244,220,146,.7); }
+.bc-cert-rule { background: linear-gradient(90deg, transparent, #e8c877, transparent); height: 1px; }
+
+/* ── Physical card / benefit panels: match the stage ───────────────────── */
+.bc-commerce {
+  border-radius: 22px;
+  border: 1px solid rgba(232,200,119,.3);
+  background: linear-gradient(160deg, #120e08, #0a0806);
+  box-shadow: 0 30px 70px -30px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,240,200,.12);
+  color: #fff3d6;
+}
+
+/* ── Mobile: keep the luxury, reduce the air ───────────────────────────── */
+@media (max-width: 720px) {
+  .bc-claim-card { padding: 40px 20px 36px; border-radius: 22px; }
+  .bc-benefit-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .bc-benefit-grid span { min-height: 96px; }
+  .bc-benefit-grid b { font-size: 32px; }
+}
