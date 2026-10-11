@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 205;
+const APP_REL = 206;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3655,7 +3655,7 @@ function blackCardVisual(card = null, opts = {}) {
   const status = mock ? 'YOUR CARD' : (blackCardActive(card) ? 'ACTIVE' : 'EXPIRED · KEPT FOREVER');
   const backFirst = !!opts.backFirst;
   return `<div class="bc-card-wrap${opts.home ? ' bc-card-home' : ''}" data-black-card-motion>
-    <button type="button" class="bc-card${backFirst ? ' is-flipped' : ''}" aria-pressed="${backFirst ? 'true' : 'false'}" aria-label="Shivaa Black card, ${backFirst ? 'reverse' : 'front'} showing. Activate to turn over" onclick="Shivaa.flipBlackCard(this)">
+    <div class="bc-card${backFirst ? ' is-flipped' : ''}" role="button" tabindex="0" data-flip-card aria-pressed="${backFirst ? 'true' : 'false'}" aria-label="Shivaa Black card, ${backFirst ? 'reverse' : 'front'} showing. Activate to turn over">
       <span class="bc-face bc-front" data-bc-face="front" aria-hidden="${backFirst ? 'true' : 'false'}">
         <span class="bc-noise" aria-hidden="true"></span><span class="bc-orbit" aria-hidden="true"></span><span class="bc-live-light" aria-hidden="true"></span><span class="bc-micro-grid" aria-hidden="true"></span>
         <span class="bc-top"><span class="bc-brand"><img src="/images/logo.png" alt=""><span><b>SHIVAA</b><small>BLACK</small></span></span><span class="bc-status">${esc(status)}</span></span>
@@ -3676,20 +3676,49 @@ function blackCardVisual(card = null, opts = {}) {
         <span class="bc-security">✦ Accepted only for the signed-in account with this registered mobile<br>✦ Card &amp; certificate remain in My Account after benefit expiry</span>
         <span class="bc-not-pay back">NOT A BANK / DEBIT / CREDIT CARD</span>
       </span>
-    </button>
-    <span class="bc-flip-hint" aria-live="polite"><span aria-hidden="true">↻</span> Tap the card to see the ${backFirst ? 'front' : 'reverse'}</span>
+      <span class="bc-flip-glint" aria-hidden="true"></span>
+    </div>
+    <button type="button" class="bc-flip-hint" data-flip-hint aria-live="polite"><span class="bc-flip-icon" aria-hidden="true">↻</span> Tap the card to see the ${backFirst ? 'front' : 'reverse'}</button>
   </div>`;
 }
 window.Shivaa.flipBlackCard = el => {
-  if (!el) return;
+  if (!el || el.dataset.flipping === '1') return;   // one flight at a time
   const on = el.classList.toggle('is-flipped');
   el.setAttribute('aria-pressed', String(on));
   el.setAttribute('aria-label', `Shivaa Black card, ${on ? 'reverse' : 'front'} showing. Activate to turn over`);
   const front = el.querySelector('[data-bc-face="front"]'), back = el.querySelector('[data-bc-face="back"]');
   if (front) front.setAttribute('aria-hidden', on ? 'true' : 'false');
   if (back) back.setAttribute('aria-hidden', on ? 'false' : 'true');
-  const hint = el.parentElement && el.parentElement.querySelector('.bc-flip-hint');
-  if (hint) hint.innerHTML = `<span aria-hidden="true">↻</span> Tap the card to see the ${on ? 'front' : 'reverse'}`;
+  const wrap = el.closest ? el.closest('.bc-card-wrap') : el.parentElement;
+  const hint = wrap && wrap.querySelector('.bc-flip-hint');
+  if (hint) {
+    hint.innerHTML = `<span class="bc-flip-icon" aria-hidden="true">↻</span> Tap the card to see the ${on ? 'front' : 'reverse'}`;
+    const icon = hint.querySelector('.bc-flip-icon');
+    hint._spin = (hint._spin || 0) + 180;
+    if (icon) icon.style.transform = `rotate(${hint._spin}deg)`;
+    hint.classList.remove('is-turning'); void hint.offsetWidth; hint.classList.add('is-turning');
+  }
+  /* v206 — the live motion pass: lift while the card turns, one glint when it lands. */
+  el.dataset.flipping = '1';
+  if (wrap) {
+    wrap.classList.remove('is-landed');
+    void wrap.offsetWidth;                            // restart the one-shot animations
+    wrap.classList.add('is-flipping');
+  }
+  const finish = () => {
+    if (el.dataset.flipping !== '1') return;
+    delete el.dataset.flipping;
+    el.removeEventListener('transitionend', onEnd);
+    if (wrap) {
+      wrap.classList.remove('is-flipping');
+      wrap.classList.add('is-landed');
+      setTimeout(() => wrap.classList.remove('is-landed'), 1500);
+    }
+  };
+  const onEnd = e => { if (e.propertyName === 'transform' && e.target === el) finish(); };
+  el.addEventListener('transitionend', onEnd);
+  const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(finish, calm ? 90 : 1150);               // safety net (no transition in calm mode)
   if (window.Shivaa && Shivaa.haptic) Shivaa.haptic(8);
 };
 function initBlackCardMotion(root = document) {
@@ -3718,6 +3747,30 @@ function initBlackCardMotion(root = document) {
     }, { passive: true });
   });
 }
+/* v206 — the flip is delegated and lives INSIDE the app scope (v204 lesson: an
+   handler outside the IIFE cannot see state and dies on first click). The card
+   is a div[role=button] so the 3D scene is never flattened by a form control,
+   and the hint is a real button that turns the card over too. */
+document.addEventListener('click', ev => {
+  const t = ev.target;
+  if (!t || !t.closest) return;
+  const hint = t.closest('[data-flip-hint]');
+  if (hint) {
+    const wrap = hint.closest('.bc-card-wrap');
+    const card = wrap && wrap.querySelector('[data-flip-card]');
+    if (card) window.Shivaa.flipBlackCard(card);
+    return;
+  }
+  const card = t.closest('[data-flip-card]');
+  if (card) window.Shivaa.flipBlackCard(card);
+});
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  const t = ev.target;
+  if (!t || !t.closest || t !== t.closest('[data-flip-card]')) return;
+  ev.preventDefault();                              // Space would scroll the page
+  window.Shivaa.flipBlackCard(t.closest('[data-flip-card]'));
+});
 function blackCertificateHTML(card) {
   if (!card) return '';
   const active = blackCardActive(card);

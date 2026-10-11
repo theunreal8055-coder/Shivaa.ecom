@@ -1,0 +1,96 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   SHIVAA v206 · THE BLACK CARD TURNS — real 3D flip + live motion
+   Loaded after v205. Markup change: the card is div[role=button][data-flip-card]
+   (a <button> flattens preserve-3d in WebKit), the hint is a real button, and a
+   .bc-flip-glint layer was added inside the card.
+   FIX (the reverse never showed): v184's `.bc-card:hover { filter:brightness }`
+   forces `transform-style:flat` on the preserve-3d card — a non-none filter on
+   that element flattens the whole scene — so the moment you pointed at the card
+   to tap it, the flip collapsed and a mirrored front appeared instead of the
+   reverse. Hover light now comes from the wrap; the card itself never carries
+   a filter. Gold gradients, foil layers (v203) and seal positions (v186) are
+   untouched. `translate`/`scale` independent properties are used for the lift so
+   the v186 pointer tilt keeps owning `transform`.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. The 3D scene stays a 3D scene ─────────────────────────────────── */
+.bc-card:hover {
+  filter: none;                 /* NEVER a filter here — it flattens preserve-3d */
+  transition: transform .85s cubic-bezier(.32,.72,.19,1), box-shadow .55s ease;
+}
+.bc-card {
+  transition: transform .85s cubic-bezier(.32,.72,.19,1), box-shadow .55s ease;
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
+}
+.bc-card-wrap.is-flipping .bc-card { box-shadow: 0 40px 90px rgba(0,0,0,.42); }
+
+/* ── 2. The turn: one confident motion, lift and settle ───────────────── */
+.bc-card-wrap.is-flipping {
+  animation: bc206Lift .85s cubic-bezier(.32,.72,.19,1);
+}
+@keyframes bc206Lift {
+  0%   { scale: 1;     translate: 0 0; }
+  36%  { scale: 1.035; translate: 0 -12px; }
+  100% { scale: 1;     translate: 0 0; }
+}
+/* the floor reflection breathes with the lift (v203's ::after) */
+.bc-card-wrap.is-flipping::after {
+  animation: bc206Shadow .85s cubic-bezier(.32,.72,.19,1);
+}
+@keyframes bc206Shadow {
+  0%   { opacity: .9;  scale: 1; }
+  40%  { opacity: .45; scale: .84; }
+  100% { opacity: .9;  scale: 1; }
+}
+
+/* ── 3. One glint across the face that lands ─────────────────────────── */
+.bc-flip-glint {
+  position: absolute; inset: 0; z-index: 9; pointer-events: none;
+  border-radius: inherit; opacity: 0;
+  background: linear-gradient(100deg, transparent 40%, rgba(255,250,228,.42) 50%, transparent 60%);
+  background-size: 260% 100%; background-repeat: no-repeat; background-position: 130% 0;
+}
+.bc-card-wrap.is-landed .bc-flip-glint {
+  animation: bc206Glint 1.15s cubic-bezier(.4,0,.25,1);
+}
+@keyframes bc206Glint {
+  0%   { opacity: 0; background-position: 130% 0; }
+  18%  { opacity: 1; }
+  100% { opacity: 0; background-position: -130% 0; }
+}
+
+/* ── 4. The reverse hint is a real button ────────────────────────────── */
+.bc-flip-hint {
+  -webkit-appearance: none; appearance: none;
+  background: none; border: 0; padding: 8px 14px;
+  font-family: inherit; line-height: inherit;
+  cursor: pointer; border-radius: 999px;
+  transition: color .25s ease;
+}
+.bc-flip-hint:hover { color: #a8843d; }
+.bc-flip-hint:focus-visible { outline: 2px solid #f1ca69; outline-offset: 3px; }
+.bc-card-home .bc-flip-hint { color: #d7bd8b; }          /* hint sits on the dark hero */
+.bc-card-home .bc-flip-hint:hover { color: #ffe9b4; }
+.bc-card-home .bc-flip-hint span { color: #e7c36c; }
+.bc-flip-icon {
+  display: inline-block;
+  transition: transform .75s cubic-bezier(.32,.72,.19,1);
+}
+.bc-flip-hint.is-turning { animation: bc206Hint .55s ease; }
+@keyframes bc206Hint { 0% { opacity: .35; } 100% { opacity: 1; } }
+
+/* ── 5. Calm mode: same states, no flight ────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .bc-card, .bc-card:hover { transition: none !important; }
+  .bc-flip-icon { transition: none !important; }
+  .bc-card-wrap.is-flipping,
+  .bc-card-wrap.is-flipping::after,
+  .bc-card-wrap.is-landed .bc-flip-glint,
+  .bc-flip-hint.is-turning { animation: none !important; }
+}
+
+/* ── 6. Print: front face up, no motion furniture ────────────────────── */
+@media print {
+  body.bc-printing .bc-flip-glint { display: none !important; }
+}

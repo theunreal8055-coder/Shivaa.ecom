@@ -15,19 +15,26 @@
 
 ## CURRENT STATE — refreshed 11 Oct 2026 (read this first)
 
-- **Branch:** `arena/5529f0ec-shivaa-ecom`. Head `03f78e0`, clean, pushed. Local and remote match.
-- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 206 or higher.
+- **Branch:** session branch `arena/09f3c79f-shivaa-ecom` (same tree as `arena/5529f0ec-shivaa-ecom`
+  head `95a2ab5`). Clean and pushed after each release commit.
+- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 207 or higher.
   Never reuse or renumber a shipped release. Never deploy an older tree over a newer live site.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
   delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
   v202 home hero → v203 card holographic foil and motion → v204 delivery button fix, address page
-  "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE.
+  "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE →
+  v206 Black card 3D flip rebuilt (BUILT, not deployed).
 - **Key fixes to remember:**
   - v199 placed the delivery click handler outside the app scope. Fixed in v204; check the closing
     `})();` of `cms/js/app.js` after any edit.
   - v193 `.btn-gold` wiped the gold gradient. Fixed in v200.
   - `background-clip:text` on a parent does not reach reveal-split words. Use solid colour.
   - Do not override `position` on elements that earlier CSS already positions (v186 seals).
+  - v206: NEVER put a `filter` on `.bc-card` (the `preserve-3d` flip card) — a non-none filter
+    forces `transform-style:flat` and the reverse never shows. Hover light belongs on the wrap.
+    The card is `div[role=button][data-flip-card]`, not `<button>` (WebKit flattens 3D in form
+    controls). The flip handlers are delegated inside the app IIFE (`data-flip-card`,
+    `data-flip-hint`).
 - **Data policy:** `cms/data/db.json` is not tracked on this branch (commit `fa6cf79`, v191).
   Never commit live data or hand-edit `db.json`.
 - **Open items:**
@@ -40,6 +47,24 @@
 - **Sandbox:** the workspace has been re-cloned during this work. Always `git fetch`, check
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
+
+## v206 — Black card 3D flip rebuilt + live motion (11 Oct 2026)
+
+- v206 BUILT on the session branch, NOT deployed. Forward-only from 206.
+- "Tap the card to see the reverse" never flipped correctly because (1) v184's
+  `.bc-card:hover { filter:brightness(1.04) }` forced `transform-style:flat` on the preserve-3d
+  card the moment it was pointed at (mirrored front instead of the reverse), (2) the card was a
+  `<button>` (WebKit flattens 3D in form controls), (3) the hint was a span, not a button.
+- Fixes: filter removed from the card (hover light lives on the wrap), card is
+  `div[role=button][data-flip-card]`, hint is a real `<button data-flip-hint>` that flips too,
+  Enter/Space supported, delegated handlers inside the IIFE.
+- Motion (`cms/css/v206.css`): 850 ms turn with lift/settle (`translate`/`scale` independent
+  properties — v186 tilt keeps `transform`), floor-reflection breath, one glint on the landed
+  face (`.bc-flip-glint`), spinning ↻ hint, mid-flight re-entry lock, calm-mode + print safe.
+- Stamp 206 everywhere. Artefacts: `shivaa-update-v206.zip`, `DEPLOY-v206.md`,
+  `tools/mega/make-v206-zip.py`, `qa/browser/t-v206-flip.mjs` (jsdom, all pass on
+  `#/black-card` and the home hero).
+- Not done: PHP backend, smoke suite, real phone/desktop animation eyeball.
 
 ## v205 — certificate redesign + delivery flow robustness (11 Oct 2026)
 
