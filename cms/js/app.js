@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 196;
+const APP_REL = 197;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3636,6 +3636,7 @@ pages.home = async (view) => {
         <div class="hero-cta">
           <a class="btn btn-gold btn-lg shv-pulse-cta" href="#/scheme">✦ Win 10g Gold Biscuit</a>
         </div>
+        <div class="v197-hero-slot" data-black-hero="hero" hidden></div>
         <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
         <div class="hero-stats">
           <div class="hstat"><b>30+</b><span>Years of karigari</span></div>
@@ -3676,7 +3677,6 @@ pages.home = async (view) => {
   <!-- v188 · PUBLIC BANNER OFFER — 20% off making charges for every customer.
        Filled by fillBannerOffer() only while the owner's switch is on and the
        owner's coupon is live. Amrita ji's private page is NOT linked from home. -->
-  <section class="container v195-bh-wrap" data-black-hero hidden></section>
   <section class="container shv-offer-wrap" data-banner-offer="hero" hidden></section>
 
   <div class="catbar-outer">${catBarHTML()}</div>

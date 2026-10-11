@@ -1,0 +1,47 @@
+/* v197 — Shivaa Black is visible where customers look: a strip inside the MAIN hero,
+   in the footer, and in the side menu. Loaded last, precached. Black, gold, phone first. */
+
+.v197-hero-slot { margin-top: 20px; max-width: 580px; }
+.v197-foot-slot { margin: 0 0 26px; }
+.v197-side-slot { margin: 12px 14px 6px; }
+.v197-hero-slot[hidden], .v197-foot-slot[hidden], .v197-side-slot[hidden] { display: none; }
+
+.v195-strip {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 12px 14px 12px 12px; border-radius: 16px; text-decoration: none;
+  background: linear-gradient(120deg, #050505 0%, #17110a 60%, #050505 100%);
+  border: 1px solid rgba(217, 179, 90, .55);
+  box-shadow: 0 16px 34px -22px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 236, 178, .12);
+  color: #f7efdc;
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1), box-shadow .35s cubic-bezier(.2, .8, .2, 1);
+}
+.v195-strip:focus-visible { outline: 2px solid #fbe7a6; outline-offset: 3px; }
+.v195-strip-mark {
+  flex: none; width: 58px; height: 38px; border-radius: 9px; display: grid; place-items: center;
+  background: linear-gradient(135deg, #fff1bf 0%, #d9a945 58%, #9c6f1e 100%);
+  color: #1b1205; font: 800 10px/1 Arial, sans-serif; letter-spacing: .16em;
+}
+.v195-strip-txt { display: grid; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.v195-strip-txt b { font: 700 14px/1.25 Arial, sans-serif; color: #fbe7a6; overflow-wrap: anywhere; }
+.v195-strip-txt span { font: 12.5px/1.35 Arial, sans-serif; color: #e9dfc6; overflow-wrap: anywhere; }
+.v195-strip-go {
+  flex: none; font: 700 12px/1 Arial, sans-serif; color: #1b1205; white-space: nowrap;
+  background: linear-gradient(180deg, #fff1bf 0%, #e6bd5c 100%); padding: 10px 13px; border-radius: 999px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .v195-strip:hover { transform: translateY(-2px); box-shadow: 0 22px 40px -22px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 236, 178, .18); }
+}
+.v195-strip-foot, .v195-strip-side { border-radius: 14px; }
+
+/* Phones: the strip wraps instead of running past the edge */
+@media (max-width: 767px) {
+  .v197-hero-slot { max-width: 100%; margin-top: 16px; }
+  .v195-strip { flex-wrap: wrap; padding: 12px; }
+  .v195-strip-txt { flex: 1 1 calc(100% - 80px); }
+  .v195-strip-go { width: 100%; text-align: center; padding: 12px; }
+  .v195-strip-mark { width: 50px; height: 34px; font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v195-strip { transition: none; }
+  .v195-strip:hover { transform: none; }
+}

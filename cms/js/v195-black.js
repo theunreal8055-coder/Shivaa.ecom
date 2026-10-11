@@ -76,11 +76,29 @@
       </div>`;
   }
 
+  /* Compact strips for the main hero, the footer and the side menu. */
+  function compactHTML(m, where) {
+    const active = !!(m && m.benefitActive);
+    const label = m ? (active ? 'Your card is active' : 'Your card has expired') : 'Free card, delivered to your door';
+    const cta = m ? 'View my card' : 'Claim free';
+    return `<a class="v195-strip v195-strip-${where}" href="#/black-card" aria-label="Shivaa Black membership: 20% off making charges for six months. ${esc(label)}.">
+      <span class="v195-strip-mark" aria-hidden="true"><b>BLACK</b></span>
+      <span class="v195-strip-txt"><b>Shivaa Black &middot; 20% off making charges</b><span>${esc(label)} &middot; six months</span></span>
+      <span class="v195-strip-go">${esc(cta)} &rarr;</span>
+    </a>`;
+  }
+
+  /* One draw for every slot. data-black-hero says where: "home" = full panel,
+     "hero" = strip inside the main hero, "foot" / "side" = compact strips. */
   async function fill(root) {
     const slots = (root || document).querySelectorAll('[data-black-hero]');
     if (!slots.length) return;
     const m = await memberNow();
-    slots.forEach(s => { s.innerHTML = heroHTML(m); s.hidden = false; });
+    slots.forEach(s => {
+      const where = s.dataset.blackHero || 'home';
+      s.innerHTML = where === 'home' ? heroHTML(m) : compactHTML(m, where);
+      s.hidden = false;
+    });
   }
 
   /* ── the claim page ───────────────────────────────────────── */
@@ -281,9 +299,27 @@
     wizard(view, { step: 1, draft: draftFrom(null) });
   }
 
-  window.ShivaaBlack = { fill, page, heroHTML, cardArt };
-  // The home hero may draw before this file loads; fill it again once it is ready.
+  window.ShivaaBlack = { fill, page, heroHTML, compactHTML, cardArt };
+
+  /* Draw every slot the moment it appears. The home page is drawn after the
+     products load, so one call at start-up can miss it. Debounced and cheap. */
+  let raf = 0;
+  function sweep() {
+    raf = 0;
+    if (document.querySelector('[data-black-hero]:not([data-bk-ready])')) {
+      document.querySelectorAll('[data-black-hero]').forEach(x => x.setAttribute('data-bk-ready', '1'));
+      fill(document);
+    }
+  }
+  function queue() { if (!raf) raf = requestAnimationFrame(sweep); }
   (document.readyState === 'loading'
     ? document.addEventListener.bind(document, 'DOMContentLoaded')
-    : (f => f()))(() => fill(document));
+    : (f => f()))(() => {
+      fill(document);
+      try { new MutationObserver(queue).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+    });
+  addEventListener('hashchange', () => setTimeout(() => {
+    document.querySelectorAll('[data-black-hero]').forEach(x => x.removeAttribute('data-bk-ready'));
+    fill(document);
+  }, 300));
 })();
