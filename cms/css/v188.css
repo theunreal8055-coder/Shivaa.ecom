@@ -69,3 +69,20 @@
   .shv-offer-card, .am-dish-art.has-photo img { transition: none; }
   .shv-offer-card:hover, .shv-offer-card:focus-visible { transform: none; }
 }
+
+/* ── v189 · the same offer in the footer and the side menu (compact) ─── */
+[data-banner-offer][hidden] { display: none !important; }
+.shv-offer-foot { margin: 0 0 22px; }
+.shv-offer-side { margin: 6px 12px 12px; }
+.shv-offer-mini {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
+  text-decoration: none; color: inherit; border: 1px solid rgba(201,149,47,.55);
+  background: linear-gradient(120deg, rgba(233,196,106,.22), rgba(201,149,47,.08));
+  transition: background .3s ease, transform .3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.shv-offer-mini:hover, .shv-offer-mini:focus-visible { transform: translateX(2px); background: linear-gradient(120deg, rgba(233,196,106,.34), rgba(201,149,47,.14)); }
+.shv-offer-mini-pct { font-size: 22px; font-weight: 700; line-height: 1; color: #e9c46a; }
+.shv-offer-mini-txt { font-size: 13px; line-height: 1.35; }
+.shv-offer-mini-txt b { letter-spacing: .05em; }
+@media (prefers-reduced-motion: reduce) { .shv-offer-mini, .shv-offer-mini:hover { transition: none; transform: none; } }

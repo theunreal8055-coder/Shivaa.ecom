@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 188;
+const APP_REL = 189;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3538,30 +3538,47 @@ function renderHomeCarouselSlides() {
     </div>`).join('');
 }
 
-/* v188 — the public banner offer. The server decides whether the offer is live
-   (switch on, coupon live, public, making-scoped) and returns only the code and
-   the percent. This function just draws the card. */
-async function loadBannerOffer(view) {
-  const slot = view.querySelector('#bannerOfferSlot');
-  if (!slot) return;
-  try {
-    const r = await api('/api/offers/banner');
-    const o = r && r.offer;
-    const pct = o ? Number(o.percent) : 0;
-    if (!o || !(pct > 0)) { slot.hidden = true; slot.innerHTML = ''; return; }
-    const pctTxt = Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
-    slot.innerHTML = `
-    <a class="shv-offer-card rv" href="#/shop" aria-label="${esc(pctTxt)} percent off making charges, use code ${esc(o.code)}">
+/* v189 — the public banner offer, shown in three places: the main home banner
+   (full card), the footer and the side menu (compact). The server decides whether
+   the offer is live (owner's switch on, coupon live, public, making-scoped) and
+   returns only the code and the percent. This code only draws it. */
+let _bannerOffer = { at: 0, p: null };
+function getBannerOffer() {
+  if (!_bannerOffer.p || Date.now() - _bannerOffer.at > 120000) {
+    _bannerOffer.at = Date.now();
+    _bannerOffer.p = api('/api/offers/banner').then(r => (r && r.offer) || null).catch(() => null);
+  }
+  return _bannerOffer.p;
+}
+function bannerOfferHTML(o, variant) {
+  const pct = Number(o.percent);
+  const pctTxt = Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
+  const label = `${pctTxt}% off making charges, use code ${o.code}`;
+  if (variant === 'compact') {
+    return `<a class="shv-offer-mini" href="#/shop" aria-label="${esc(label)}">
+      <span class="shv-offer-mini-pct">${esc(pctTxt)}%</span>
+      <span class="shv-offer-mini-txt">off making charges &middot; code <b>${esc(o.code)}</b></span>
+    </a>`;
+  }
+  return `
+    <a class="shv-offer-card rv" href="#/shop" aria-label="${esc(label)}">
       <span class="shv-offer-shine" aria-hidden="true"></span>
       <span class="shv-offer-badge">Every customer &middot; every order</span>
       <span class="shv-offer-head"><b class="shv-offer-pct">${esc(pctTxt)}%</b><span class="shv-offer-off">off making charges</span></span>
       <span class="shv-offer-sub">Use code <b class="shv-offer-code">${esc(o.code)}</b> at checkout. Metal and stones stay at today's rate.</span>
       <span class="shv-offer-go">Shop now &rarr;</span>
     </a>`;
+}
+async function fillBannerOffer(root) {
+  const slots = (root || document).querySelectorAll('[data-banner-offer]');
+  if (!slots.length) return;
+  const o = await getBannerOffer();
+  const live = !!(o && Number(o.percent) > 0);
+  slots.forEach(slot => {
+    if (!live) { slot.hidden = true; slot.innerHTML = ''; return; }
+    slot.innerHTML = bannerOfferHTML(o, slot.dataset.bannerOffer);
     slot.hidden = false;
-  } catch (err) {
-    slot.hidden = true;
-  }
+  });
 }
 
 pages.home = async (view) => {
@@ -3627,9 +3644,9 @@ pages.home = async (view) => {
   </section>
 
   <!-- v188 · PUBLIC BANNER OFFER — 20% off making charges for every customer.
-       Filled by loadBannerOffer() only while the owner's switch is on and the
+       Filled by fillBannerOffer() only while the owner's switch is on and the
        owner's coupon is live. Amrita ji's private page is NOT linked from home. -->
-  <section class="container shv-offer-wrap" id="bannerOfferSlot" hidden></section>
+  <section class="container shv-offer-wrap" data-banner-offer="hero" hidden></section>
 
   <div class="catbar-outer">${catBarHTML()}</div>
 
@@ -3756,7 +3773,7 @@ pages.home = async (view) => {
   </section>`;
   const homeCd = $('#homeFinaleCd');
   if (homeCd) bindFinaleCd(homeCd);
-  loadBannerOffer(view);
+  fillBannerOffer(view);
   initCarousel();
   renderRateStrip();
   loadSocialProof(); // v50: real reviews or badged promises - never invented customers
@@ -11078,3 +11095,6 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 
 })();
+
+/* v189 — fill the footer and side-menu offer slots on every page. */
+(document.readyState === 'loading' ? document.addEventListener.bind(document, 'DOMContentLoaded') : (f => f()))(() => fillBannerOffer(document));
