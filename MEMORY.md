@@ -69,7 +69,7 @@
   light sections (white ₹ amounts at 1.03:1) → solid dark-glass ground; gold-on-light chips/labels/
   avatars (1.4–2.9:1) → dark gold on light, light gold stays on dark contexts; `.disp-italic`
   gold-on-gold hero words (1.22:1) → cream-gold + shadow; `.fin-eng` foil engraving ink deepened.
-- Artefacts: `shivaa-update-v207.zip` (136 files, sha256 `9f5f5b74…7f451`), `DEPLOY-v207.md`,
+- Artefacts: `shivaa-update-v207.zip` (136 files, sha256 `af75aa85…d9b84`; incl. phone-drawer readability addendum), `DEPLOY-v207.md`,
   `tools/mega/make-v207-zip.py`, `qa/browser/audit-contrast.mjs [mobile]`.
 - QA: flip test still ALL PASS; 83/83 index asset refs + 78/78 SHELL_FILES exist; every `?v=` is 207
   (media keeps its own generation number); node --check clean. t7-audit's product-walk failures are

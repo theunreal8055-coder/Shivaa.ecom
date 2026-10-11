@@ -62,7 +62,7 @@ site. Production deploys are owner-approved only; a push or merge is not approva
 - QA: flip ALL PASS; 83/83 index refs + 78/78 SHELL_FILES exist; `?v=` = 207 everywhere (media keeps
   its own generation); node --check clean. Audit-boundary items (photo-scrim text, footer app-band
   measured through translucent tints) hand-verified readable in the real render.
-- Artefacts: `shivaa-update-v207.zip` (136 files, sha256 `9f5f5b74…7f451`), `DEPLOY-v207.md`,
+- Artefacts: `shivaa-update-v207.zip` (136 files, sha256 `af75aa85…d9b84`; incl. phone-drawer readability addendum), `DEPLOY-v207.md`,
   `tools/mega/make-v207-zip.py`, `qa/browser/audit-contrast.mjs [mobile]`.
 
 ## v206 — Black card 3D flip rebuilt + live motion (11 Oct 2026)

@@ -55,7 +55,14 @@ Fixed in `cms/css/v207.css` (loaded **after** every other stylesheet):
    light shafts (1.22:1 worst case at 52px) → light cream-gold + soft shadow
    on dark grounds; dark gold on light.
 10. **Gold-foil engraving bar** (`.fin-eng`) + misc: `v107-chan.warn` amber,
-    bbr fine print.
+    bbr fine print, team role lines, card benefit chips, scheme CTA text on
+    the gold's light stop.
+11. **Phone nav drawer** (mobile audit addendum) — the drawer panel is dark
+    maroon but several labels compute dark (1.0–1.8:1): the category pill
+    labels (`dw-more-lbl`/`dt-more-lbl`), the call link (`dw-call`), the
+    drawer link rows (mobile.css wins the cascade), and the "For Jewellers"
+    tile sat on an emerald tint with maroon text. Light drawer palette forced
+   ; the tile gets an opaque gold ground.
 
 Audit tool (committed): `qa/browser/audit-contrast.mjs` — boots every route in
 jsdom, resolves the full CSS cascade (custom properties, inheritance, alpha
@@ -79,6 +86,8 @@ WCAG AA (4.5:1 body / 3:1 large). `node qa/browser/audit-contrast.mjs [mobile]`.
   which the auditor measures against a translucent-tint chain (real ground is
   the dark maroon footer, ~7:1). Both classes are documented in the audit
   output (`imageBacked` skip) and were hand-verified against the real paints.
+  The phone pass additionally surfaced the drawer dark-on-dark items (fix 11),
+  now fixed; its remaining flags are the same phantom classes.
 - **Black Card flip**: `qa/browser/t-v206-flip.mjs` — **ALL PASS** (21 checks ×
   2 surfaces) — v207 CSS did not touch the flip.
 - **Asset integrity (inline)**: all 83 index.html asset refs exist; all 78
@@ -91,8 +100,8 @@ WCAG AA (4.5:1 body / 3:1 large). `node qa/browser/audit-contrast.mjs [mobile]`.
 ## 4 · The zip — `shivaa-update-v207.zip`
 
 - Built with `python3 tools/mega/make-v207-zip.py`
-- **136 files, 3,709,913 bytes**
-- sha256: `9f5f5b74d136da42c15ad6af2b12c61e068cce1717eb5c0ec74bd0146297f451`
+- **136 files, 3,710,385 bytes**
+- sha256: `af75aa854e25e6ceeb06334b880d5700016a17e88984c280263353cfe0ed9b84`
 - `cms/` tree at release 207 + `docs/` + changed `media/**` + provenance; state
   exported canonically (1,080 entries, 30,474 leds).
 

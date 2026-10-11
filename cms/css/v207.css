@@ -222,3 +222,31 @@
 .sv-case-hint { color: #dbb0a2; }
 /* team role lines (gold on white, 2.58:1) */
 .team-card small { color: #8a6520; }
+
+/* ── 11 · PHONE NAV DRAWER ─────────────────────────────────────────────
+   The drawer panel is dark maroon (styles.css .nav gradient) but mobile.css
+   wins the cascade for several labels and they compute dark (1.0–1.8:1):
+   the category pill labels, the call link, the drawer link rows — and the
+   "For Jewellers" tile sat on an emerald tint with maroon text. Force the
+   light drawer palette (v207 loads last). */
+@media (max-width: 860px) {
+  .nav .nav-scroll > a,
+  .nav .nav-scroll > button { color: #f2e5cc !important; }
+  .nav .nav-scroll > a *,
+  .nav .nav-scroll > button * { color: inherit !important; }
+  .nav .dw-sec { color: rgba(212, 175, 90, .9) !important; }
+  .dw-more .dw-more-lbl,
+  .dw-more .dt-more-lbl { color: #e9d9b6 !important; }
+  .dw-foot a { color: rgba(232, 214, 180, .9) !important; }
+  .dw-call { color: var(--gold-2, #d4af5a) !important; }
+  .dw-head b { color: #f7ecd2 !important; }
+  .dw-head small { color: rgba(212, 175, 90, .92) !important; }
+  /* the tile keeps its dark ink — give it an opaque gold ground so the ink
+     never lands on the emerald tint or the maroon drawer */
+  .nav a.nav-jwl {
+    background: linear-gradient(120deg, var(--gold, #b98a2f), #b0802c 55%, var(--gold-2, #d4af5a)) !important;
+    color: #2a0a11 !important;
+  }
+  .nav a.nav-jwl .dw-tx b { color: #2a0a11 !important; }
+  .nav a.nav-jwl .dw-tx small { color: rgba(42, 10, 17, .88) !important; }
+}
