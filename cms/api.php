@@ -4219,6 +4219,139 @@ function event_coupons_ensure(array &$db, array $u): array {
   if ($out) db_save($DB_FILE, $db);
   return $out;
 }
+/* ═════════ v195 · Shivaa Black retail membership ═════════
+   Ported from the v184–v186 line and reconciled with the current coupon system.
+   - The signed-in member's card is the authority. Its 20% off the MAKING charges
+     is computed from the card on every request (never stored as a public coupon).
+   - coupon_resolve() is the ONE lookup used by coupons/validate and the order route.
+     A Black card number can never fall through to a public coupon.
+   - The claim collects the delivery address; the physical card ships FREE. */
+function black_mobile($v): string {
+  $d = substr(preg_replace('/\D/', '', is_scalar($v) ? (string)$v : ''), -10);
+  return preg_match('/^[6-9]\d{9}$/', $d) ? $d : '';
+}
+function black_code_key($v): string {
+  return strtoupper((string)preg_replace('/[^A-Za-z0-9]/', '', is_scalar($v) ? (string)$v : ''));
+}
+function black_card_active(array $card): bool {
+  $until = strtotime((string)($card['expiresAt'] ?? ''));
+  return $until !== false && $until >= time();
+}
+function black_card_bound_to_user(array $card, array $u): bool {
+  $bound = black_mobile($card['mobile'] ?? '');
+  $current = black_mobile($u['phone'] ?? '');
+  return $bound !== '' && $current !== '' && hash_equals($bound, $current);
+}
+function black_card_public(array $card): array {
+  $out = $card;
+  $out['program'] = 'Shivaa Black';
+  $out['discountPct'] = 20;
+  $out['discountBasis'] = 'making-charges';
+  $out['certificateTitle'] = 'Shivaa Family Prestigious Member';
+  $out['status'] = black_card_active($card) ? 'active' : 'expired';
+  $out['benefitActive'] = $out['status'] === 'active';
+  return $out;
+}
+function black_six_month_expiry(string $issuedAt): string {
+  $issued = new DateTimeImmutable($issuedAt);
+  /* A calendar anniversary: 31 Aug becomes 28/29 Feb, never a PHP month-end roll-over. */
+  $first = $issued->modify('first day of this month')->modify('+6 months');
+  $day = min((int)$issued->format('d'), (int)$first->format('t'));
+  return $first->setDate((int)$first->format('Y'), (int)$first->format('m'), $day)
+               ->setTime((int)$issued->format('H'), (int)$issued->format('i'), (int)$issued->format('s'))
+               ->format('c');
+}
+function black_unique_code(array $db): string {
+  $used = [];
+  foreach (($db['coupons'] ?? []) as $c) $used[black_code_key($c['code'] ?? '')] = true;
+  foreach (($db['users'] ?? []) as $u) if (is_array($u['blackCard'] ?? null))
+    $used[black_code_key($u['blackCard']['cardNumber'] ?? '')] = true;
+  for ($try = 0; $try < 80; $try++) {
+    $digits = '2020';                       // branded prefix: the Shivaa Black privilege
+    for ($i = 0; $i < 12; $i++) $digits .= (string)random_int(0, 9);
+    if (empty($used[$digits])) return implode(' ', str_split($digits, 4));
+  }
+  throw new RuntimeException('Could not allocate a unique Shivaa Black member code');
+}
+function black_unique_identity(array $db, string $prefix): string {
+  $used = [];
+  foreach (($db['users'] ?? []) as $u) {
+    $bc = is_array($u['blackCard'] ?? null) ? $u['blackCard'] : [];
+    foreach (['memberId', 'certificateNo'] as $k) if (!empty($bc[$k])) $used[(string)$bc[$k]] = true;
+  }
+  for ($try = 0; $try < 40; $try++) {
+    $id = $prefix . '-' . date('Y') . '-' . strtoupper(bin2hex(random_bytes(4)));
+    if (empty($used[$id])) return $id;
+  }
+  throw new RuntimeException('Could not allocate a unique membership identity');
+}
+/* The delivery address the card ships to. Validated on the server; the
+   client's checks are only a convenience. */
+function black_address_clean($a): array {
+  if (!is_array($a)) jout(400, ['error' => 'Please add your delivery address for the free physical card.']);
+  $txt = function ($v, int $max): string {
+    return mb_substr(trim((string)preg_replace('/\s+/u', ' ', is_scalar($v) ? (string)$v : '')), 0, $max);
+  };
+  $out = [
+    'name' => $txt($a['name'] ?? '', 80), 'phone' => black_mobile($a['phone'] ?? ''),
+    'line1' => $txt($a['line1'] ?? '', 120), 'line2' => $txt($a['line2'] ?? '', 120),
+    'city' => $txt($a['city'] ?? '', 60), 'state' => $txt($a['state'] ?? '', 60),
+    'pincode' => preg_replace('/\D/', '', is_scalar($a['pincode'] ?? '') ? (string)$a['pincode'] : ''),
+  ];
+  if (mb_strlen($out['name']) < 2) jout(400, ['error' => 'Please enter the name the card should be issued to.']);
+  if ($out['phone'] === '') jout(400, ['error' => 'Please enter a valid 10-digit mobile for delivery.']);
+  if (mb_strlen($out['line1']) < 5) jout(400, ['error' => 'Please enter your house number and street.']);
+  if (mb_strlen($out['city']) < 2 || mb_strlen($out['state']) < 2) jout(400, ['error' => 'Please enter your city and state.']);
+  if (!preg_match('/^[1-9]\d{5}$/', $out['pincode'])) jout(400, ['error' => 'Please enter a valid 6-digit PIN code.']);
+  return $out;
+}
+function black_delivery(array $address): array {
+  /* Physical card, delivered FREE: no fee is ever charged for it. */
+  return ['type' => 'physical-card', 'fee' => 0, 'status' => 'to-ship', 'address' => $address, 'addedAt' => now_iso()];
+}
+/* The canonical virtual coupon for the signed-in member. Computed from the card on
+   every call: 20% off the making charges only, bound to the member's mobile, live
+   for six months. Nothing is written to the public coupon list. */
+function black_coupon_for_user(?array $u): ?array {
+  if (!$u || ($u['role'] ?? 'customer') !== 'customer') return null;
+  $card = is_array($u['blackCard'] ?? null) ? $u['blackCard'] : null;
+  if (!$card || !black_card_bound_to_user($card, $u) || !black_card_active($card)) return null;
+  $code = (string)($card['cardNumber'] ?? '');
+  if (black_code_key($code) === '') return null;
+  return [
+    'id' => (string)($card['couponId'] ?? ''), 'code' => $code, 'type' => 'percent', 'value' => 20,
+    'scope' => 'making', 'freeShipping' => false, 'minOrder' => 0, 'active' => true,
+    'oncePerUser' => false, 'forNewUsers' => false, 'kind' => 'shivaa-black',
+    'forUser' => (string)($u['id'] ?? ''), 'title' => 'Shivaa Black · 20% off making charges',
+    'note' => 'Shivaa Black member card · 20% off the making charges only · six months',
+    'expiresAt' => (string)($card['expiresAt'] ?? ''),
+  ];
+}
+function black_code_reserved(array $db, $entered): bool {
+  $key = black_code_key($entered);
+  if ($key === '') return false;
+  foreach (($db['users'] ?? []) as $row) {
+    $card = is_array($row['blackCard'] ?? null) ? $row['blackCard'] : null;
+    if ($card && black_code_key($card['cardNumber'] ?? '') === $key) return true;
+  }
+  return false;
+}
+/* The ONE coupon lookup (v195). Order: the member's own live card, then a Black
+   code that belongs to any card (fails closed, never reinterpreted), then the
+   ordinary coupon list exactly as before. */
+function coupon_resolve(array $db, $entered, ?array $u): ?array {
+  $typed = trim(is_scalar($entered) ? (string)$entered : '');
+  if ($typed === '') return null;
+  $black = black_coupon_for_user($u);
+  if ($black && black_code_key($black['code']) === black_code_key($typed)) return $black;
+  if (black_code_reserved($db, $typed)) return null;
+  foreach (($db['coupons'] ?? []) as $c) {
+    if (strtoupper((string)($c['code'] ?? '')) !== strtoupper($typed)) continue;
+    if (coupon_live($c) && coupon_for_user($c, $u)) return $c;
+  }
+  return null;
+}
+
 /* ═════════ router ═════════ */
 $route = $_GET['__route'] ?? '';
 $route = trim((string)$route, '/');
@@ -5546,13 +5679,74 @@ try {
     jout(404, ['error' => 'Account not found.']);
   }
 
+  /* v195 — Shivaa Black: read the member's card. Signed in and retail only. */
+  if ($route === 'black-card' && $method === 'GET') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Sign in with your registered mobile to open Shivaa Black.']);
+    if (($u['role'] ?? 'customer') !== 'customer') jout(403, ['error' => 'Shivaa Black is exclusively for retail customers.']);
+    $card = is_array($u['blackCard'] ?? null) ? $u['blackCard'] : null;
+    if ($card && !black_card_bound_to_user($card, $u))
+      jout(403, ['error' => 'This card is bound to a different registered mobile. Please contact Shivaa support.']);
+    jout(200, ['membership' => $card ? black_card_public($card) : null]);
+  }
+  /* v195 — claim the card. The last step collects the delivery address; the
+     physical card is delivered FREE. Idempotent: a second claim changes nothing
+     except filling in a missing delivery address. */
+  if ($route === 'black-card/claim' && $method === 'POST') {
+    $u = req_user($db);
+    if (!$u) jout(401, ['error' => 'Sign in by OTP with your registered mobile to claim Shivaa Black.']);
+    if (($u['role'] ?? 'customer') !== 'customer') jout(403, ['error' => 'Shivaa Black is exclusively for retail customers.']);
+    $mobile = black_mobile($u['phone'] ?? '');
+    if ($mobile === '') jout(400, ['error' => 'A valid registered Indian mobile is required. Sign in by OTP or contact support.']);
+    $idx = null;
+    foreach (($db['users'] ?? []) as $i => $row) if (($row['id'] ?? '') === ($u['id'] ?? '')) { $idx = $i; break; }
+    if ($idx === null) jout(404, ['error' => 'Customer account not found.']);
+    rate_block($db, 'black-card-claim', (string)$u['id'], 12, 3600, 900,
+      'Too many Shivaa Black requests — please wait 15 minutes and try again.');
+    $body = body_json();
+    $card = is_array($db['users'][$idx]['blackCard'] ?? null) ? $db['users'][$idx]['blackCard'] : null;
+    $created = false; $changed = false;
+    if ($card) {
+      if (!black_card_bound_to_user($card, $db['users'][$idx]))
+        jout(409, ['error' => 'The existing Shivaa Black card is bound to another registered mobile. Please contact support.']);
+      if (empty($card['delivery']) && !empty($body['address'])) {
+        $card['delivery'] = black_delivery(black_address_clean($body['address']));
+        $db['users'][$idx]['blackCard'] = $card;
+        $changed = true;
+      }
+    } else {
+      $address = black_address_clean($body['address'] ?? null);
+      $issuedAt = now_iso();
+      $card = [
+        'version' => 2, 'program' => 'Shivaa Black',
+        'memberId' => black_unique_identity($db, 'SBM'),
+        'cardNumber' => black_unique_code($db),
+        'holderName' => mb_substr(trim((string)($db['users'][$idx]['name'] ?? 'Shivaa Member')), 0, 100),
+        'mobile' => $mobile, 'issuedAt' => $issuedAt,
+        'expiresAt' => black_six_month_expiry($issuedAt),
+        'discountPct' => 20, 'discountBasis' => 'making-charges',
+        'couponId' => uid('c'),
+        'certificateNo' => black_unique_identity($db, 'SFP'),
+        'certificateTitle' => 'Shivaa Family Prestigious Member', 'certificateIssuedAt' => $issuedAt,
+        'delivery' => black_delivery($address),
+      ];
+      $db['users'][$idx]['blackCard'] = $card;
+      $created = true; $changed = true;
+      audit_log($db, 'black-card.claim', ['userId' => $u['id'], 'memberId' => $card['memberId'],
+        'expiresAt' => $card['expiresAt']]);
+    }
+    if ($changed) db_save($GLOBALS['DB_FILE'], $db);
+    jout(200, ['ok' => true, 'created' => $created, 'membership' => black_card_public($card),
+      'user' => pub_user($db['users'][$idx])]);
+  }
+
   /* ── coupons ── */
   if ($route === 'coupons/validate' && $method === 'POST') {
     $b = body_json();
     $cu = req_user($db);
     rate_block($db, 'coupon-ip', client_ip(), 80, 3600);
     if ($cu) rate_block($db, 'coupon-u', $cu['id'] ?? '?', 120, 3600);
-    foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper((string)($b['code'] ?? '')) && coupon_live($c) && coupon_for_user($c, $cu)) {
+    if (($c = coupon_resolve($db, $b['code'] ?? '', $cu)) !== null) {
       if ((float)($b['amount'] ?? 0) < (float)($c['minOrder'] ?? 0)) jout(400, ['error' => 'Minimum order ₹' . number_format((float)$c['minOrder']) . ' for ' . $c['code']]);
       // v84 — same server-side flags the order route enforces
       if ($cu && !empty($c['oncePerUser'])) {
@@ -5581,6 +5775,7 @@ try {
   if ($route === 'coupons' && $method === 'GET') {
     $u = req_user($db);
     $list = ($u && $u['role'] === 'admin') ? $db['coupons'] : array_values(array_filter($db['coupons'], fn($c) => coupon_live($c) && coupon_for_user($c, $u)));
+    if ($u && ($__bk = black_coupon_for_user($u))) $list[] = $__bk;
     jout(200, ['coupons' => $list]);
   }
   if ($route === 'coupons' && $method === 'POST') {
@@ -5919,7 +6114,7 @@ try {
     // feed (metal value would collapse to ₹0 + stones).
     if ($subtotal <= 0) jout(503, ['error' => 'Live pricing is temporarily unavailable — please retry in a minute, or order on WhatsApp.']);
     $coupon = null;
-    if (!empty($b['coupon']) && !empty($u)) foreach ($db['coupons'] as $c) if (strtoupper($c['code']) === strtoupper($b['coupon']) && coupon_live($c) && coupon_for_user($c, $u)) $coupon = $c;
+    if (!empty($b['coupon']) && !empty($u)) $coupon = coupon_resolve($db, $b['coupon'], $u);
     // v84 — honour the admin's "once per customer" / "new customers only"
     // flags server-side (the checkout UI only hid the code; the API used it).
     if ($coupon && !empty($coupon['oncePerUser'])) {
@@ -6165,7 +6360,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 194,
+      'rel'   => 195,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 194;
+const APP_REL = 195;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3676,6 +3676,7 @@ pages.home = async (view) => {
   <!-- v188 · PUBLIC BANNER OFFER — 20% off making charges for every customer.
        Filled by fillBannerOffer() only while the owner's switch is on and the
        owner's coupon is live. Amrita ji's private page is NOT linked from home. -->
+  <section class="container v195-bh-wrap" data-black-hero hidden></section>
   <section class="container shv-offer-wrap" data-banner-offer="hero" hidden></section>
 
   <div class="catbar-outer">${catBarHTML()}</div>
@@ -3804,6 +3805,7 @@ pages.home = async (view) => {
   const homeCd = $('#homeFinaleCd');
   if (homeCd) bindFinaleCd(homeCd);
   fillBannerOffer(view);
+  if (window.ShivaaBlack) ShivaaBlack.fill(view);
   initCarousel();
   renderRateStrip();
   loadSocialProof(); // v50: real reviews or badged promises - never invented customers
@@ -10311,6 +10313,8 @@ pages.scheme = async (view) => {
 };
 pages.finale = pages.scheme;
 pages['gold-biscuit'] = pages.scheme;
+/* v195 — Shivaa Black: the membership card and its claim page (js/v195-black.js). */
+pages['black-card'] = (view) => (window.ShivaaBlack ? ShivaaBlack.page(view) : (view.innerHTML = '<p class="container">Loading…</p>'));
 
 /* ─────────── ROUTER ─────────── */
 const routes = Object.create(null);

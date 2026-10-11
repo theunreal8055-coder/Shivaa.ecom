@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Build shivaa-update-v194.zip from cms/ (release 194).
+"""Build shivaa-update-v195.zip from cms/ (release 195).
 
 Same exclusions as .github/workflows/hostinger-deploy.yml, so the ZIP can never
 carry live data, uploads, credentials, host rules or the one-time installers.
 One deliberate exception: uploads/kyc/.htaccess is INCLUDED because it is the
-v194 KYC lockdown (business cards served only through the admin API). The
+v195 KYC lockdown (business cards served only through the admin API). The
 workflow's uploads/** rule would otherwise skip it; apply it by hand if you
 deploy by the workflow.
 
@@ -12,7 +12,7 @@ Media (images, fonts, video, audio) is packed ONLY when this branch added or
 changed it relative to main (BASE below). The 238 MB of live product photos are
 unchanged, and shipping them would make the update useless and oversize.
 
-Usage:  python3 tools/mega/make-v194-zip.py [output.zip]
+Usage:  python3 tools/mega/make-v195-zip.py [output.zip]
 """
 import fnmatch
 import hashlib
@@ -24,7 +24,7 @@ import zipfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 CMS = os.path.join(ROOT, 'cms')
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'shivaa-update-v194.zip')
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'shivaa-update-v195.zip')
 
 # Mirrors the workflow's exclude list (paths relative to cms/).
 EXCLUDE = [
@@ -32,7 +32,7 @@ EXCLUDE = [
     'config.php', 'setup-mysql.php', 'upgrade-sql.php', '.env', '.env.*', 'backups/**',
     '*.zip', '*.rar', '*.pdf', '*.mp4', '*.psd', 'config.local.php',
 ]
-# The one exception to uploads/**: the v194 KYC lockdown.
+# The one exception to uploads/**: the v195 KYC lockdown.
 FORCE_INCLUDE = {'uploads/kyc/.htaccess'}
 
 # Media is packed only if this branch added or changed it since BASE (main).
@@ -75,11 +75,11 @@ def main():
     files.sort()
     print(f'media changed on this branch vs {BASE}: {len(media_here)}; unchanged media left out: {skipped_media}')
 
-    # Sanity: the release stamp must be 194 everywhere it is written.
+    # Sanity: the release stamp must be 195 everywhere it is written.
     idx = open(os.path.join(CMS, 'index.html'), encoding='utf-8').read()
     m = re.search(r'__SHIVAA_REL\s*=\s*(\d+)', idx)
-    assert m and m.group(1) == '194', 'index.html stamp is not 194'
-    assert 'const APP_REL = 194;' in open(os.path.join(CMS, 'js/app.js'), encoding='utf-8').read()
+    assert m and m.group(1) == '195', 'index.html stamp is not 195'
+    assert 'const APP_REL = 195;' in open(os.path.join(CMS, 'js/app.js'), encoding='utf-8').read()
 
     with zipfile.ZipFile(OUT, 'w', zipfile.ZIP_DEFLATED) as z:
         for rel in files:
