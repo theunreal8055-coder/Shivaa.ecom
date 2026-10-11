@@ -5482,23 +5482,47 @@ try {
     db_save($DB_FILE, $db); jout(200, ['wishlist' => $w ?? []]);
   }
 
-  /* v188 — the public banner offer: 20% off making charges for EVERY customer,
-     Amrita ji included. It shows only while settings.bannerOfferOn is true AND
-     the owner's coupon (settings.bannerOfferCode) is live, public (no forUser)
-     and scoped to making charges. It returns the code and the percent only. */
+  /* v190 — the public offers, for EVERY customer (guests too):
+       making — 20% off making charges (code: settings.bannerOfferCode, default MAKING20)
+       delivery — FREE home delivery (code FREEDEL)
+     Both coupons are created on first use and run until the owner switches them off
+     (settings.bannerOfferOn = false). An owner who disables one in Coupons keeps it off. */
   if ($route === 'offers/banner' && $method === 'GET') {
-    $want = strtoupper(trim((string)($db['settings']['bannerOfferCode'] ?? '')));
-    $out = null;
-    if (!empty($db['settings']['bannerOfferOn']) && $want !== '') {
-      foreach ($db['coupons'] as $c) {
-        if (strtoupper((string)($c['code'] ?? '')) === $want && coupon_live($c) && empty($c['forUser'])
-            && coupon_scope($c) === 'making' && ($c['type'] ?? 'percent') === 'percent') {
-          $out = ['code' => (string)$c['code'], 'percent' => (float)($c['value'] ?? 0)];
-          break;
+    $set = $db['settings'] ?? [];
+    $on = !array_key_exists('bannerOfferOn', $set) || !empty($set['bannerOfferOn']);
+    $offers = [];
+    if ($on) {
+      $mCode = strtoupper(trim((string)($set['bannerOfferCode'] ?? '')));
+      if ($mCode === '') $mCode = 'MAKING20';
+      if (!is_array($db['coupons'] ?? null)) $db['coupons'] = [];
+      $want = [
+        ['code' => $mCode, 'type' => 'percent', 'value' => 20, 'scope' => 'making', 'freeShipping' => false,
+         'title' => '20% off making charges', 'note' => 'Every customer: 20% off the making charges on your order.'],
+        ['code' => 'FREEDEL', 'type' => 'flat', 'value' => 0, 'scope' => 'all', 'freeShipping' => true,
+         'title' => 'Free home delivery', 'note' => 'Every customer: free home delivery on your order.'],
+      ];
+      $changed = false;
+      foreach ($want as $w) {
+        $have = false;
+        foreach ($db['coupons'] as $c) if (strtoupper((string)($c['code'] ?? '')) === $w['code']) { $have = true; break; }
+        if (!$have) {
+          $db['coupons'][] = ['id' => uid('c'), 'code' => $w['code'], 'type' => $w['type'], 'value' => $w['value'],
+            'minOrder' => 0, 'active' => true, 'scope' => $w['scope'], 'freeShipping' => $w['freeShipping'],
+            'oncePerUser' => false, 'kind' => 'public-offer', 'title' => $w['title'], 'note' => $w['note']];
+          $changed = true;
         }
       }
+      if ($changed) db_save($GLOBALS['DB_FILE'], $db);
+      foreach ($db['coupons'] as $c) {
+        if (!coupon_live($c) || !empty($c['forUser'])) continue;
+        $code = strtoupper((string)($c['code'] ?? ''));
+        if ($code === $mCode && coupon_scope($c) === 'making' && ($c['type'] ?? 'percent') === 'percent')
+          $offers[] = ['kind' => 'making', 'code' => (string)$c['code'], 'percent' => (float)($c['value'] ?? 0)];
+        if ($code === 'FREEDEL' && !empty($c['freeShipping']))
+          $offers[] = ['kind' => 'delivery', 'code' => (string)$c['code']];
+      }
     }
-    jout(200, ['offer' => $out]);
+    jout(200, ['offers' => $offers]);
   }
 
   /* ── coupons ── */
@@ -5902,6 +5926,8 @@ try {
     $discount = min($discount, $subtotal);   // combined discounts never exceed the goods value
     $freeShip = (float)($db['settings']['freeShipAbove'] ?? 50000);
     $shipping = $subtotal >= $freeShip ? 0 : (int)($db['settings']['shippingFee'] ?? 250);
+    /* v190 — a coupon with freeShipping (the FREEDEL card) waives the delivery fee */
+    if ($coupon && !empty($coupon['freeShipping']) && $subtotal >= (float)($coupon['minOrder'] ?? 0)) $shipping = 0;
     /* v58 — prepaid incentive: online prepayment earns an instant discount
        (default 2%); COD/WhatsApp orders pay the full total. */
     $pm = $b['paymentMethod'] ?? 'Online';
@@ -6116,7 +6142,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 189,
+      'rel'   => 190,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

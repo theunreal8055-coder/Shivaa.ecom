@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 189;
+const APP_REL = 190;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3538,45 +3538,53 @@ function renderHomeCarouselSlides() {
     </div>`).join('');
 }
 
-/* v189 — the public banner offer, shown in three places: the main home banner
-   (full card), the footer and the side menu (compact). The server decides whether
-   the offer is live (owner's switch on, coupon live, public, making-scoped) and
-   returns only the code and the percent. This code only draws it. */
+/* v190 — the public offers, shown in three places: the main home banner (cards),
+   the footer and the side menu (compact). The server returns the live offers for
+   every customer; this code only draws them. */
 let _bannerOffer = { at: 0, p: null };
 function getBannerOffer() {
   if (!_bannerOffer.p || Date.now() - _bannerOffer.at > 120000) {
     _bannerOffer.at = Date.now();
-    _bannerOffer.p = api('/api/offers/banner').then(r => (r && r.offer) || null).catch(() => null);
+    _bannerOffer.p = api('/api/offers/banner').then(r => (r && Array.isArray(r.offers) ? r.offers : [])).catch(() => []);
   }
   return _bannerOffer.p;
 }
-function bannerOfferHTML(o, variant) {
+function bannerOfferCard(o) {
   const pct = Number(o.percent);
   const pctTxt = Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
-  const label = `${pctTxt}% off making charges, use code ${o.code}`;
-  if (variant === 'compact') {
-    return `<a class="shv-offer-mini" href="#/shop" aria-label="${esc(label)}">
-      <span class="shv-offer-mini-pct">${esc(pctTxt)}%</span>
-      <span class="shv-offer-mini-txt">off making charges &middot; code <b>${esc(o.code)}</b></span>
-    </a>`;
-  }
+  const isDel = o.kind === 'delivery';
+  const big = isDel ? 'FREE' : pctTxt + '%';
+  const off = isDel ? 'home delivery' : 'off making charges';
+  const label = isDel ? `Free home delivery, use code ${o.code}` : `${pctTxt}% off making charges, use code ${o.code}`;
   return `
-    <a class="shv-offer-card rv" href="#/shop" aria-label="${esc(label)}">
+    <a class="shv-offer-card shv-offer-${isDel ? 'delivery' : 'making'} rv" href="#/shop" aria-label="${esc(label)}">
       <span class="shv-offer-shine" aria-hidden="true"></span>
-      <span class="shv-offer-badge">Every customer &middot; every order</span>
-      <span class="shv-offer-head"><b class="shv-offer-pct">${esc(pctTxt)}%</b><span class="shv-offer-off">off making charges</span></span>
-      <span class="shv-offer-sub">Use code <b class="shv-offer-code">${esc(o.code)}</b> at checkout. Metal and stones stay at today's rate.</span>
+      <span class="shv-offer-badge">Every customer</span>
+      <span class="shv-offer-head"><b class="shv-offer-pct">${esc(big)}</b><span class="shv-offer-off">${esc(off)}</span></span>
+      <span class="shv-offer-sub">Use code <b class="shv-offer-code">${esc(o.code)}</b> at checkout.${isDel ? ' Delivery fee waived on your order.' : ' Metal and stones stay at today\'s rate.'}</span>
       <span class="shv-offer-go">Shop now &rarr;</span>
+    </a>`;
+}
+function bannerOfferMini(o) {
+  const isDel = o.kind === 'delivery';
+  const pct = Number(o.percent);
+  const big = isDel ? 'FREE' : (Number.isInteger(pct) ? pct : pct.toFixed(1)) + '%';
+  const off = isDel ? 'home delivery' : 'off making charges';
+  return `<a class="shv-offer-mini" href="#/shop" aria-label="${esc(big + ' ' + off + ', code ' + o.code)}">
+      <span class="shv-offer-mini-pct">${esc(big)}</span>
+      <span class="shv-offer-mini-txt">${esc(off)} &middot; code <b>${esc(o.code)}</b></span>
     </a>`;
 }
 async function fillBannerOffer(root) {
   const slots = (root || document).querySelectorAll('[data-banner-offer]');
   if (!slots.length) return;
-  const o = await getBannerOffer();
-  const live = !!(o && Number(o.percent) > 0);
+  const offers = await getBannerOffer();
   slots.forEach(slot => {
-    if (!live) { slot.hidden = true; slot.innerHTML = ''; return; }
-    slot.innerHTML = bannerOfferHTML(o, slot.dataset.bannerOffer);
+    if (!offers.length) { slot.hidden = true; slot.innerHTML = ''; return; }
+    const compact = slot.dataset.bannerOffer === 'compact';
+    slot.innerHTML = compact
+      ? `<div class="shv-offer-stack">${offers.map(bannerOfferMini).join('')}</div>`
+      : `<div class="shv-offer-grid">${offers.map(bannerOfferCard).join('')}</div>`;
     slot.hidden = false;
   });
 }
@@ -6000,7 +6008,7 @@ pages.checkout = async (view) => {
     });
     window._co.subtotal = sub;
     const wasFree = window._co.freeShip;
-    window._co.freeShip = sub >= state.settings.freeShipAbove;
+    window._co.freeShip = sub >= state.settings.freeShipAbove || !!window._co.couponFreeShip;
     $('#coSub').textContent = fmt(sub);
     /* v167 — TWO defects in one line. (a) The shipping row was looked up with
        '.sum-row:nth-last-child(2)', which is the *COD fee* row (the total is
@@ -6136,15 +6144,16 @@ window.Shivaa.applyCoupon = async () => {
   try {
     const c = await api('/api/coupons/validate', { method: 'POST', body: JSON.stringify({ code, amount: window._co.subtotal, makingTotal: window._co.makingTotal }) });
     window._co.coupon = c.code;
+    window._co.couponFreeShip = !!c.freeShipping;
     /* v184 — the server owns this number. It used to be recomputed here as
        `subtotal x value%`, which is right for a whole-order coupon and wrong
        for one scoped to making charges: the preview promised more than the
        order route would give. Now both read the same server arithmetic. */
     window._co.disc = Number.isFinite(+c.discount) ? +c.discount : (c.type === 'percent' ? Math.round(window._co.subtotal * c.value / 100) : c.value);
     msg.style.color = 'var(--ok)';
-    msg.textContent = `✓ ${esc(c.code)} applied — you save ${fmt(window._co.disc)}`
+    msg.textContent = `✓ ${esc(c.code)} applied — ${window._co.disc > 0 ? 'you save ' + fmt(window._co.disc) : (c.freeShipping ? 'free home delivery' : '')}`
       + (c.scope === 'making' ? ` (20% of the ₹${fmt(c.discountBase)} making charges on this bag)` : '');
-  } catch (e) { window._co.coupon = null; window._co.disc = 0; msg.style.color = 'var(--bad)'; msg.textContent = e.message; }
+  } catch (e) { window._co.coupon = null; window._co.disc = 0; window._co.couponFreeShip = false; msg.style.color = 'var(--bad)'; msg.textContent = e.message; }
   window.Shivaa.updateCheckout();
 };
 window.Shivaa.updateCheckout = () => {
@@ -10676,7 +10685,7 @@ function refreshCheckoutTotals() {
   const items = state.cart.map(c => ({ ...c, p: state.productsCache.find(x => x.id === c.id) })).filter(x => x.p);
   const subtotal = items.reduce((a, it) => a + price(it.p).total * it.qty, 0);
   window._co.subtotal = subtotal;
-  window._co.freeShip = subtotal >= state.settings.freeShipAbove;
+  window._co.freeShip = subtotal >= state.settings.freeShipAbove || !!window._co.couponFreeShip;
   $$('.summary [data-copid]').forEach(el => {
     const it = items.find(x => x.p.id === el.dataset.copid && +x.qty === +el.dataset.qty);
     if (it) { const v = price(it.p).total * it.qty; if (el.dataset.last !== String(v)) { el.dataset.last = v; el.textContent = fmt(v); el.classList.remove('flash-price'); void el.offsetWidth; el.classList.add('flash-price'); } }

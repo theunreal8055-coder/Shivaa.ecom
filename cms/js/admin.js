@@ -1109,12 +1109,12 @@ function v180DbStrip() {
               </div>
               <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
                 <label style="display:flex;gap:9px;align-items:flex-start;font-size:13px">
-                  <input type="checkbox" name="bannerOfferOn" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${S.bannerOfferOn ? 'checked' : ''}>
-                  <span><b>\u{1F3F7} Banner offer: 20% off making charges, for every customer</b><br>
-                  <small style="color:var(--ink-3)">Shows a card on the main home banner for everyone, Amrita ji included. It only shows when this box is ticked AND the coupon code below is a live coupon. Create that coupon in <b>Coupons</b> first: percent type, 20, scope <b>making charges</b>, no customer restriction, with the expiry date and the usage limit you want. Untick the box and the card disappears at once; the coupon itself is not changed.</small></span>
+                  <input type="checkbox" name="bannerOfferOn" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${(S.bannerOfferOn === undefined ? true : !!S.bannerOfferOn) ? 'checked' : ''}>
+                  <span><b>\u{1F3F7} Offers for every customer: 20% off making charges + FREE home delivery</b><br>
+                  <small style="color:var(--ink-3)">Shown on the home banner, the footer and the side menu to every customer, guests included. The coupons <b>MAKING20</b> (20% off making charges) and <b>FREEDEL</b> (free delivery) are created automatically and run until you untick this box. You can also switch either one off under <b>Coupons</b>. Untick the box to hide both at once.</small></span>
                 </label>
                 <div style="margin-top:8px">
-                  <label style="font-size:12px;color:var(--ink-3)">Coupon code for the banner (letters and digits, 3&ndash;24)</label>
+                  <label style="font-size:12px;color:var(--ink-3)">Making-charges coupon code (blank = MAKING20; letters and digits, 3&ndash;24)</label>
                   <input name="bannerOfferCode" value="${String(S.bannerOfferCode || '').replace(/[^A-Za-z0-9]/g, '')}" maxlength="24" autocomplete="off" style="text-transform:uppercase" placeholder="e.g. MAKING20">
                 </div>
               </div>

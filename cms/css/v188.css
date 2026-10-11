@@ -86,3 +86,15 @@
 .shv-offer-mini-txt { font-size: 13px; line-height: 1.35; }
 .shv-offer-mini-txt b { letter-spacing: .05em; }
 @media (prefers-reduced-motion: reduce) { .shv-offer-mini, .shv-offer-mini:hover { transition: none; transform: none; } }
+
+/* ── v190 · two offer cards side by side (stacked on phones), the free-delivery card ── */
+.shv-offer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.shv-offer-card.shv-offer-delivery {
+  background: linear-gradient(135deg, #d9f2e3 0%, #8fd3a8 48%, #3d9b6a 100%);
+  box-shadow: 0 10px 30px -12px rgba(20, 90, 50, .55), inset 0 1px 0 rgba(255,255,255,.55);
+  color: #0d2b1b;
+}
+.shv-offer-card.shv-offer-delivery .shv-offer-badge { background: rgba(13,43,27,.88); color: #bdf0d2; }
+.shv-offer-card.shv-offer-delivery .shv-offer-code { background: rgba(255,255,255,.6); }
+.shv-offer-stack { display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 640px) { .shv-offer-grid { grid-template-columns: 1fr; } }
