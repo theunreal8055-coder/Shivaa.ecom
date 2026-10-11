@@ -9,6 +9,16 @@
   live site. Never hand-edit `cms/data/db.json`. Never swap `sw.js` alone.
 - Production deploys are owner-approved only. A push or merge is not approval.
 
+## v202 — Shivaa Black home hero redrawn (11 Oct 2026)
+
+- v202 BUILT, pushed on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 202.
+- Visual only: `cms/css/v202.css` (loaded last). Hero markup, copy, prices and scripts unchanged.
+- Stamp 202 in `index.html`, `sw.js`, `app.js`, `api.php`. Artefacts: `shivaa-update-v202.zip`,
+  `DEPLOY-v202.md`, `tools/mega/make-v202-zip.py`.
+- Lesson: `background-clip: text` on a parent does not reach the reveal script's child word spans.
+  Use solid colour or per-word styling on any headline the reveal script splits.
+- Contrast audit: 0 under 3:1. Not done: smoke suite and phone check.
+
 ## v201 — Shivaa Black membership redrawn (11 Oct 2026)
 
 - v201 BUILT, pushed on `arena/5529f0ec-shivaa-ecom`, NOT deployed. Forward-only from 201.

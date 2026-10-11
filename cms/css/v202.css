@@ -1,0 +1,118 @@
+/* v202 — the Shivaa Black home hero, redrawn with light, depth and motion.
+   Visual only: markup, copy, prices and scripts are unchanged.
+   Loaded last (after v201) so it wins the cascade. */
+
+@property --bc2-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --bc2-sweep { syntax: "<percentage>"; inherits: false; initial-value: -30%; }
+
+/* ── Stage: obsidian with a slow, layered champagne aurora ─────────────── */
+.black-hero {
+  isolation: isolate;
+  background:
+    radial-gradient(1100px 620px at 78% 38%, rgba(232,196,110,.22), transparent 62%),
+    radial-gradient(800px 500px at 8% 100%, rgba(170,120,40,.16), transparent 65%),
+    linear-gradient(120deg, #050403 0%, #100b06 48%, #060504 100%) !important;
+}
+.black-hero::before {
+  /* a slowly rotating gold light cone behind the card */
+  content: ""; position: absolute; z-index: 0; pointer-events: none;
+  width: 140vmax; height: 140vmax; left: 52%; top: 42%;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(from var(--bc2-angle), transparent 0deg, rgba(244,220,146,.10) 22deg, transparent 46deg, transparent 180deg, rgba(232,200,119,.07) 200deg, transparent 226deg, transparent 360deg);
+  animation: bc2Spin 38s linear infinite;
+  mask-image: radial-gradient(circle, #000 0%, transparent 58%);
+}
+@keyframes bc2Spin { to { --bc2-angle: 360deg; } }
+
+.black-hero .bc-hero-aurora i {
+  filter: blur(70px);
+  mix-blend-mode: screen;
+  background: radial-gradient(circle, rgba(244,220,146,.5), transparent 68%) !important;
+}
+
+/* ── Headline: champagne italic with a breathing glow ──────────────────
+   Solid colour, not background-clip: the reveal script splits words into
+   child spans, and clipped text on the parent turns those words invisible. */
+.black-hero h1 { text-wrap: balance; }
+.black-hero h1 em {
+  color: #ecc96c;
+  animation: bc2Glow 6s ease-in-out infinite;
+}
+@keyframes bc2Glow {
+  0%,100% { text-shadow: 0 0 18px rgba(225,181,71,.15); }
+  50% { text-shadow: 0 0 36px rgba(244,220,146,.42); }
+}
+
+/* ── Promise chips: glass with a light edge ───────────────────────────── */
+.black-hero .bc-hero-promise span {
+  position: relative; overflow: hidden;
+  border: 1px solid rgba(232,200,119,.26);
+  background: linear-gradient(160deg, rgba(255,240,200,.09), rgba(255,255,255,.02));
+  box-shadow: inset 0 1px 0 rgba(255,240,200,.16);
+  transition: transform .45s cubic-bezier(.2,.8,.2,1), border-color .45s;
+}
+.black-hero .bc-hero-promise span:hover { transform: translateY(-3px); border-color: rgba(244,220,146,.6); }
+.black-hero .bc-hero-promise i {
+  background: linear-gradient(180deg, #fff6d8, #d9ad52);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ── Primary CTA: gold bar with a moving sheen (matches the membership page) ── */
+.black-hero .bc-main-cta {
+  background: linear-gradient(110deg, #b07a22 0%, #f4dc92 40%, #fff3c8 50%, #d9a94a 80%, #a8741f 100%) !important;
+  background-size: 220% 100% !important;
+  color: #1a1206 !important;
+  border: 1px solid rgba(255,236,180,.85) !important;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 20px 50px -12px rgba(232,200,119,.6), inset 0 1px 0 rgba(255,255,255,.6) !important;
+  animation: bcGoldSweep 6s ease-in-out infinite;
+}
+
+/* ── Stage: halo ring + floor reflection behind the card ──────────────── */
+.bc-hero-stage { perspective: 1400px; }
+.bc-hero-stage::after {
+  content: ""; position: absolute; left: 50%; bottom: 4%; width: 74%; height: 60px;
+  transform: translateX(-50%); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(232,200,119,.35), transparent);
+  filter: blur(14px); animation: bc2Breathe 6s ease-in-out infinite;
+}
+@keyframes bc2Breathe { 0%,100% { opacity: .55; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.08); } }
+
+.bc-stage-card { filter: drop-shadow(0 40px 60px rgba(0,0,0,.6)) drop-shadow(0 0 40px rgba(232,200,119,.18)); }
+.bc-stage-card .bc-card-wrap { animation: bc2Float 7s ease-in-out infinite; }
+@keyframes bc2Float { 0%,100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+
+/* a glancing light sweep across the physical card face */
+.bc-stage-card .bc-front::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
+  background: linear-gradient(115deg, transparent 35%, rgba(255,250,228,.22) 48%, transparent 60%);
+  background-size: 250% 100%;
+  animation: bc2Glint 5.5s ease-in-out infinite;
+}
+@keyframes bc2Glint { 0%,55% { background-position: 120% 0; } 100% { background-position: -40% 0; } }
+
+/* ── Certificate chip: glass with a gold edge ─────────────────────────── */
+.bc-stage-cert {
+  border: 1px solid rgba(232,200,119,.4);
+  background: linear-gradient(150deg, rgba(20,14,7,.82), rgba(10,7,4,.7));
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 24px 50px -18px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,240,200,.18);
+}
+.bc-stage-cert b {
+  background: linear-gradient(100deg, #fff4d2, #e8c877 50%, #fff8e6);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ── Live status pill ─────────────────────────────────────────────────── */
+.bc-stage-open { border: 1px solid rgba(232,200,119,.35); background: rgba(10,7,4,.6); backdrop-filter: blur(8px); }
+
+/* ── Motion: honour reduced-motion ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .black-hero::before, .black-hero h1 em, .black-hero .bc-main-cta,
+  .bc-hero-stage::after, .bc-stage-card .bc-card-wrap, .bc-stage-card .bc-front::after { animation: none !important; }
+}
+
+/* ── Phone ────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .black-hero::before { width: 180vmax; height: 180vmax; }
+  .bc-hero-promise span { font-size: 11px; }
+}
