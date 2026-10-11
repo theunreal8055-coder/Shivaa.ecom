@@ -1,0 +1,57 @@
+/* v192 — mobile polish layer. Loaded last. Additive and conservative:
+   nothing here changes desktop layout, and layout-affecting rules are limited to
+   phone-sized screens. Every motion rule respects prefers-reduced-motion. */
+
+/* ── Global, safe everywhere ─────────────────────────────────────────── */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+a, button, [role="button"], label, summary { -webkit-tap-highlight-color: transparent; }
+button, [role="button"], summary { touch-action: manipulation; }
+img, video, canvas, svg { max-width: 100%; }
+:focus-visible { outline: 2px solid var(--gold, #c9952f); outline-offset: 3px; border-radius: 4px; }
+
+/* Smoother, premium easing for hover/press feedback (fine pointers only) */
+@media (hover: hover) and (pointer: fine) {
+  .btn { transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s ease, background-color .3s ease, color .3s ease; }
+  .btn:hover { transform: translateY(-1px); }
+}
+.btn:active { transform: scale(.98); }
+
+/* ── Phones (≤ 767px): fit to the screen, no sideways scroll ──────────── */
+@media (max-width: 767px) {
+  /* inputs at 16px stop iOS from zooming the page when a field is focused */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select, textarea { font-size: 16px; max-width: 100%; }
+
+  /* comfortable touch targets for the controls people tap most */
+  .btn, .btn-lg, button.shv-offer-go { min-height: 44px; }
+
+  /* long words and links never push the page wider than the phone */
+  h1, h2, h3, p, li { overflow-wrap: break-word; }
+
+  /* keep the bottom bar clear of the home indicator on iPhone */
+  .mnav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* smooth, momentum-friendly scrolling in side menus and sheets */
+  .nav-scroll, .drawer, .mc-drawer, .fsheet, [class*="sheet"] {
+    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  }
+
+  /* offer cards: never wider than the screen, comfortable padding */
+  .shv-offer-wrap { padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+  .shv-offer-grid { gap: 10px; }
+}
+
+/* ── Phones: polished motion (skipped for reduced motion) ─────────────── */
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  .shv-offer-card { will-change: transform; }
+  .shv-offer-card:active { transform: scale(.985); transition: transform .15s ease; }
+  .shv-premium-msg { animation: shv-fade-up .45s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes shv-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+
+/* ── Everyone: honour reduced motion, no matter the screen ────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  .btn, .btn:hover, .btn:active { transition-duration: .001ms !important; }
+}

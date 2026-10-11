@@ -1,4 +1,4 @@
-/* v191 — static checks for the two public offers (20% off making charges, free home
+/* v192 — static checks for the two public offers (20% off making charges, free home
    delivery) for every customer: the server route, the free-delivery rule in the order
    route, the checkout hooks, the three placements, the admin default, the photos and
    the stamps. Reads the cms/ tree directly; no browser or PHP runtime needed. */
@@ -9,7 +9,7 @@ const assert = require('assert');
 const ROOT = path.join(__dirname, '..', '..', '..', 'cms');
 const rd = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const index = rd('index.html'), app = rd('js/app.js'), admin = rd('js/admin.js');
-const sw = rd('sw.js'), api = rd('api.php'), css = rd('css/v188.css');
+const sw = rd('sw.js'), api = rd('api.php'), css = rd('css/v188.css'), css192 = rd('css/v192.css');
 
 let pass = 0;
 function test(id, name, fn) {
@@ -17,11 +17,11 @@ function test(id, name, fn) {
   catch (e) { console.error('FAIL ' + id + ' ' + name + ': ' + e.message); process.exitCode = 1; }
 }
 
-test('D01', 'release 191 in lockstep across the stamp sites', () => {
-  assert.ok(index.includes('window.__SHIVAA_REL=191;'), 'index stamp');
-  assert.ok(app.includes('const APP_REL = 191;'), 'app stamp');
-  assert.ok(sw.includes("const SHELL = 'shivaa-shell-v191';") && sw.includes('const REL = 191;'), 'worker stamps');
-  assert.ok(api.includes("'rel'   => 191,"), 'api version endpoint');
+test('D01', 'release 192 in lockstep across the stamp sites', () => {
+  assert.ok(index.includes('window.__SHIVAA_REL=192;'), 'index stamp');
+  assert.ok(app.includes('const APP_REL = 192;'), 'app stamp');
+  assert.ok(sw.includes("const SHELL = 'shivaa-shell-v192';") && sw.includes('const REL = 192;'), 'worker stamps');
+  assert.ok(api.includes("'rel'   => 192,"), 'api version endpoint');
 });
 
 test('D02', 'offers route: GET, public, creates MAKING20 + FREEDEL once, respects the owner switch', () => {
@@ -114,4 +114,30 @@ test('E04', 'live data file is out of git and ignored', () => {
   assert.ok(gi.includes('cms/data/db.json'), 'gitignore');
 });
 
-console.log('v191-check: ' + pass + ' passed' + (process.exitCode ? ' (with failures)' : ''));
+test('F01', 'v192 mobile layer is linked last and precached', () => {
+  const links = [...index.matchAll(/href="\/css\/([^"]+)"/g)].map(m => m[1]);
+  assert.equal(links[links.length - 1], 'v192.css?v=192', 'v192.css must load last');
+  assert.ok(sw.includes("'/css/v192.css?v=192'"), 'precached');
+});
+
+test('F02', 'v192 phone rules stay inside the phone media query; desktop is not touched', () => {
+  const phone = css192.slice(css192.indexOf('@media (max-width: 767px) {'), css192.indexOf('/* ── Phones: polished motion'));
+  assert.ok(phone.length > 200, 'phone block present');
+  assert.ok(!/\.shv-offer-card\s*\{[^}]*display\s*:\s*none/.test(phone), 'no hiding of offer cards');
+  const global = css192.slice(0, css192.indexOf('/* ── Phones (≤'));
+  assert.ok(!/\bdisplay\s*:\s*none/.test(global), 'no display:none outside the phone block');
+  assert.ok(!/!important/.test(global.replace(/scroll-behavior[^;]*;/g,'').replace(/transition-duration[^;]*;/g,'').replace(/max-width[^;]*;/g,'')), 'global rules avoid !important');
+});
+
+test('F03', 'v192 never stops loading spinners or animations for reduced-motion users', () => {
+  assert.ok(!/animation-iteration-count/.test(css192), 'no iteration override');
+  assert.ok(!/\*\s*,\s*\*::before/.test(css192), 'no blanket selector');
+  assert.ok(css192.includes('prefers-reduced-motion: reduce'), 'reduced-motion block');
+});
+
+test('F04', 'phone inputs are 16px (no iOS zoom) and buttons are at least 44px tall', () => {
+  assert.ok(css192.includes('font-size: 16px'), 'inputs');
+  assert.ok(css192.includes('min-height: 44px'), 'touch targets');
+});
+
+console.log('v192-check: ' + pass + ' passed' + (process.exitCode ? ' (with failures)' : ''));
