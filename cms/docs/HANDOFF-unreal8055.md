@@ -1,11 +1,12 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
-**COUNTDOWN: release 208 pending owner review — nothing deployed without the
+**COUNTDOWN: release 209 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
-shipped to this repository, **not live**: v206, v207, v208.
+shipped to this repository, **not live**: v206, v207, v208, v209.
 
 Last updated: 2026-10-12 (session branch `arena/09f3c79f-shivaa-ecom`, v208
-megabrief complete and packaged).
+megabrief delivered; v209 "Alive Release" — flip 5D, film case, food banners,
+flicker kill, Passport auth — packaged).
 
 ---
 
@@ -64,13 +65,16 @@ megabrief complete and packaged).
 | v205 | T3 live baseline (WWW + Netlify) | **LIVE** |
 | v206 | Black Card flip fix (`filter:none` neutralizer, glint, focus ring) | built, awaiting deploy |
 | v207 | Readability pass (45 routes × desktop + mobile audit, colour only) | built, awaiting deploy |
-| v208 | Megabrief: offer-certificate 4-box, rate-strip motion, header fix, mobile comfort (search, banners, case, drawer minis, auth, B2B), bug hunt | built, owner review pending |
+| v208 | Megabrief: offer-certificate 4-box, rate-strip motion, header fix, mobile comfort (search, banners, case, drawer minis, auth, B2B), bug hunt | built, delivered to owner |
+| v209 | The Alive Release: flip-tap + 5D on phone & laptop (is-lit filter flatten bug), film case turns itself + 4 films play, Amrita food banners animated, laptop scroll-flicker kill (sticky header backdrop-filter + v208 parallax), Passport auth reborn | built, owner review pending |
 
 ## 4 · QA tooling (all under `qa/`)
 
 - `python3 qa/preview_shim.py --port 8090` — static + API mirror (needs
   `cms/data/db.json`; `offers/banner` route added in v208). Never deploy it.
-- `node qa/browser/t-v206-flip.mjs` — flip regression (ALL PASS at v208).
+- `node qa/browser/t-v206-flip.mjs` — flip regression (ALL PASS at v209).
+- `node qa/browser/t-v209-alive.mjs` — the owner-complaint acceptance suite
+  (flip/case/food/flicker/Passport — PASS 34/0 at v209).
 - `node qa/browser/t7-audit.mjs` — routes/buttons/errors walk (PASS 4/4 at
   v208: 50 routes, 151 buttons, product page 30 controls, 0 real errors;
   jsdom internals filtered).

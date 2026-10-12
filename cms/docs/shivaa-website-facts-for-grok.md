@@ -1,7 +1,7 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
-**COUNTDOWN: release 208 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v209**.
+**COUNTDOWN: release 209 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v210**.
 Updated 2026-10-12 from `arena/09f3c79f-shivaa-ecom`.
 
 ## 1 · What the site is
@@ -54,6 +54,11 @@ biscuit is the site's core symbol — historic gold biscuits in copy are safe.
   fixed in v208).
 - Phantom class warning: **`.shv-hcc` does not exist** — the campaign banner
   wrapper is `.shv-home-campaign-card`. Any rule targeting `.shv-hcc` is dead.
+- 3D seals (v209): `filter` on ANY ancestor of the Black Card (including
+  `.bc-card-wrap.is-lit`'s old drop-shadow) flattens `preserve-3d` — the flip
+  dies. Lights/glows ride on box-shadow/opacity only. Sticky chrome never uses
+  `backdrop-filter` (Windows-Chrome scroll flash). No per-frame scroll writers
+  on banners (v208's parallax was removed in v209 for this).
 - QA: `qa/preview_shim.py` (port 8090, mirrors api.php shapes incl.
   `offers/banner` since v208), `qa/browser/t7-audit.mjs` (route/button/error
   walk), `qa/browser/t-v206-flip.mjs`, `qa/browser/audit-contrast.mjs`.

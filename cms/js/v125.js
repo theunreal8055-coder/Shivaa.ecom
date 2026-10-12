@@ -282,7 +282,10 @@
         var d = Math.min(ang, 360 - ang);
         var f = Math.max(0, 1 - d / 180);
         c.style.opacity = (.32 + .68 * f).toFixed(3);
-        c.style.filter = 'brightness(' + (.42 + .58 * f).toFixed(3) + ')';
+        /* v209 — brightness filter REMOVED (filter over videos blanks/flickers
+           on Windows Chrome); the shade comes from opacity + the .is-front
+           gold stage in v209.css. */
+        if (i === front()) c.classList.add('is-front'); else c.classList.remove('is-front');
       });
       var fi = front();
       if (fi !== lastFront) {
@@ -333,14 +336,50 @@
     });
     $('#svCasePrev').addEventListener('click', function () { stepBy(-1); });
     $('#svCaseNext').addEventListener('click', function () { stepBy(1); });
+    /* v209 — the case is alive: the front film plays the moment the case is
+       on screen (no IO-order race), and the ring turns itself gently while
+       nobody is touching it — every one of the four films wakes as it comes
+       round. One touch pauses the tour for a while. */
+    var autoT = null, autoPausedUntil = 0;
+    function playFrontNow() {
+      var f = front();
+      lastFront = f; setCount();
+      cards.forEach(function (c, i) {
+        var v = c.querySelector('video');
+        if (!v) return;
+        if (i === f) { if (caseVisible() && !reelOpen() && !REDUCED) splay(v); } else { shut(v); }
+      });
+    }
+    function scheduleAuto() {
+      if (autoT) { clearTimeout(autoT); autoT = null; }
+      if (REDUCED || !stage.isConnected) return;
+      autoT = setTimeout(function () {
+        autoT = null;
+        if (!stage.isConnected) return;
+        if (!visible || dragging || reelOpen() || Date.now() < autoPausedUntil) { scheduleAuto(); return; }
+        stepBy(1);
+        scheduleAuto();
+      }, 7200);
+    }
+    function pauseAuto(ms) { autoPausedUntil = Date.now() + (ms || 10000); }
     if ('IntersectionObserver' in win) {
       new IntersectionObserver(function (es) {
         visible = es[0].intersectionRatio > .15;
-        if (!visible) cards.forEach(function (c) { var v = c.querySelector('video'); if (v) shut(v); });
-        else kick();
+        if (!visible) {
+          cards.forEach(function (c) { var v = c.querySelector('video'); if (v) shut(v); });
+          if (autoT) { clearTimeout(autoT); autoT = null; }
+        } else {
+          playFrontNow();
+          kick();
+          scheduleAuto();
+        }
       }, { threshold: [0, .15, .5] }).observe(stage);
-    } else { visible = true; }
+    } else { visible = true; playFrontNow(); scheduleAuto(); }
+    stage.addEventListener('pointerdown', function () { pauseAuto(14000); });
+    stage.addEventListener('pointerenter', function () { pauseAuto(9000); });
+    cards.forEach(function (c) { c.addEventListener('click', function () { pauseAuto(14000); }); });
     place();
+    requestAnimationFrame(place);           /* re-measure once layout has settled */
     if ('ResizeObserver' in win) new ResizeObserver(place).observe(stage);
     casePlaces.push(function () { place(); return stage.isConnected; });
     if (!caseResizeBound) {

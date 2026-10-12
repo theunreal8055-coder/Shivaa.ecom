@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 208;
+const APP_REL = 209;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3708,7 +3708,7 @@ function blackCardVisual(card = null, opts = {}) {
   </div>`;
 }
 window.Shivaa.flipBlackCard = el => {
-  if (!el || el.dataset.flipping === '1') return;   // one flight at a time
+  if (!el || el.dataset.flipping === '1') return;   // one flight at a time (v206 invariant)
   const on = el.classList.toggle('is-flipped');
   el.setAttribute('aria-pressed', String(on));
   el.setAttribute('aria-label', `Shivaa Black card, ${on ? 'reverse' : 'front'} showing. Activate to turn over`);
@@ -3744,7 +3744,7 @@ window.Shivaa.flipBlackCard = el => {
   const onEnd = e => { if (e.propertyName === 'transform' && e.target === el) finish(); };
   el.addEventListener('transitionend', onEnd);
   const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  setTimeout(finish, calm ? 90 : 1150);               // safety net (no transition in calm mode)
+  setTimeout(finish, calm ? 90 : 800);                // safety net (flight is 0.62s)
   if (window.Shivaa && Shivaa.haptic) Shivaa.haptic(8);
 };
 function initBlackCardMotion(root = document) {
@@ -11337,24 +11337,10 @@ function initV208Polish() {
     });
   }
   if (!window._v208Para) {
+    /* v209 — the scroll-linked parallax is GONE: per-frame transform writes
+       on big banners caused the owner's laptop flash/flicker. Depth now comes
+       from static layering and hover/entrance motion only. */
     window._v208Para = true;
-    if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
-      let raf = 0;
-      const paint = () => {
-        raf = 0;
-        const vh = innerHeight;
-        document.querySelectorAll('.shv-home-campaign-card, .c-slide').forEach(el => {
-          const r = el.getBoundingClientRect();
-          if (r.bottom < -60 || r.top > vh + 60) return;
-          const mid = r.top + r.height / 2;
-          const ty = Math.max(-16, Math.min(16, (vh / 2 - mid) * 0.038));
-          el.style.setProperty('--v208-ty', ty.toFixed(1) + 'px');
-        });
-      };
-      addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
-      addEventListener('resize', () => { if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
-      paint();
-    }
   }
 }
 initV208Polish();
