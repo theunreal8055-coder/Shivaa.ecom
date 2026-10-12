@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 207;
+const APP_REL = 208;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3264,7 +3264,11 @@ function renderRateStrip() {
   const shows = [['gold22', fmt(R.gold22)], ['gold18', fmt(R.gold18)], ['silver', fmt2(R.silver)]];
   if (rt.tdsGold9999) shows.push(['rtgsG9999', rtgsVal(rt.tdsGold9999)]);
   if (rt.silverPeti) shows.push(['rtgsS9999', rtgsVal(rt.silverPeti)]);
+  /* v208 — a live ticker ribbon runs above the cells (the owner asked for the
+     rate feature under the category bar to come alive with motion). */
+  const tickTxt = `✦ Live &nbsp;·&nbsp; Gold 22K <b>₹${fmt(R.gold22)}/g</b> &nbsp;·&nbsp; Gold 18K <b>₹${fmt(R.gold18)}/g</b> &nbsp;·&nbsp; Silver 925 <b>₹${fmt2(R.silver)}/g</b> &nbsp;·&nbsp; ${R.live ? 'ticking live from the desk' : 'updated ' + timeFmt(R.t)}`;
   $('#rateStrip').innerHTML =
+    `<div class="rs-ticker" aria-hidden="true"><div class="rs-ticker-track"><span>${tickTxt}</span><span>${tickTxt}</span></div></div>` +
     cell('gold22', '✦ Shivaa Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
     cell('gold18', 'Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
     cell('silver', 'Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
@@ -3532,14 +3536,19 @@ function bannerOfferCard(o) {
   const isDel = o.kind === 'delivery';
   const big = isDel ? 'FREE' : pctTxt + '%';
   const off = isDel ? 'home delivery' : 'off making charges';
-  const label = isDel ? `Free home delivery, use code ${o.code}` : `${pctTxt}% off making charges, use code ${o.code}`;
+  const label = isDel ? `Free home delivery, use code ${o.code}` : `${pctTxt}% off making charges for Shivaa Black members`;
+  /* v208 (owner): the making-charges tab is for Shivaa Black members and shows
+     NO coupon code — the saving attaches to the membership at checkout.
+     The delivery tab keeps its FREEDEL code exactly as before. */
   return `
-    <a class="shv-offer-card shv-offer-${isDel ? 'delivery' : 'making'} rv" href="#/shop" aria-label="${esc(label)}">
+    <a class="shv-offer-card shv-offer-${isDel ? 'delivery' : 'making'} rv" href="${isDel ? '#/shop' : '#/black-card'}" aria-label="${esc(label)}">
       <span class="shv-offer-shine" aria-hidden="true"></span>
-      <span class="shv-offer-badge">Every customer</span>
+      <span class="shv-offer-badge">${isDel ? 'Every customer' : 'Shivaa Black members'}</span>
       <span class="shv-offer-head"><b class="shv-offer-pct">${esc(big)}</b><span class="shv-offer-off">${esc(off)}</span></span>
-      <span class="shv-offer-sub">Use code <b class="shv-offer-code">${esc(o.code)}</b> at checkout.${isDel ? ' Delivery fee waived on your order.' : ' Metal and stones stay at today\'s rate.'}</span>
-      <span class="shv-offer-go">Shop now &rarr;</span>
+      <span class="shv-offer-sub">${isDel
+        ? `Use code <b class="shv-offer-code">${esc(o.code)}</b> at checkout. Delivery fee waived on your order.`
+        : `For Shivaa Black members &mdash; applied to making charges at checkout, no code needed. Metal and stones stay at today&rsquo;s rate.`}</span>
+      <span class="shv-offer-go">${isDel ? 'Shop now &rarr;' : 'Get my Black Card &rarr;'}</span>
     </a>`;
 }
 function premiumCardHTML(prem) {
@@ -3559,14 +3568,30 @@ function premiumCardHTML(prem) {
       <span class="shv-premium-msg" aria-live="polite"></span>
     </div>`;
 }
+/* v208 — the fourth box: the Shivaa Family Prestigious Member certificate. */
+function certificateCardHTML() {
+  return `
+    <div class="shv-offer-card shv-offer-cert rv">
+      <span class="shv-offer-shine" aria-hidden="true"></span>
+      <span class="shv-offer-badge">Keepsake &middot; for members</span>
+      <span class="shv-offer-head"><b class="shv-offer-pct">Prestigious</b><span class="shv-offer-off">Member Certificate</span></span>
+      <span class="shv-offer-sub">Every Shivaa Black member is welcomed with a personalised Shivaa Family certificate &mdash; your name, kept in your account forever.</span>
+      <a class="shv-offer-go" href="#/black-card">See the certificate &rarr;</a>
+    </div>`;
+}
 function bannerOfferMini(o) {
   const isDel = o.kind === 'delivery';
   const pct = Number(o.percent);
   const big = isDel ? 'FREE' : (Number.isInteger(pct) ? pct : pct.toFixed(1)) + '%';
   const off = isDel ? 'home delivery' : 'off making charges';
-  return `<a class="shv-offer-mini" href="#/shop" aria-label="${esc(big + ' ' + off + ', code ' + o.code)}">
+  /* v208: the making-charges mini speaks for the Black membership (no code);
+     the delivery mini keeps FREEDEL. */
+  const txt = isDel
+    ? `${esc(off)} &middot; code <b>${esc(o.code)}</b>`
+    : `${esc(off)} &middot; <b>Black members</b>`;
+  return `<a class="shv-offer-mini" href="${isDel ? '#/shop' : '#/black-card'}" aria-label="${esc(big + ' ' + off)}">
       <span class="shv-offer-mini-pct">${esc(big)}</span>
-      <span class="shv-offer-mini-txt">${esc(off)} &middot; code <b>${esc(o.code)}</b></span>
+      <span class="shv-offer-mini-txt">${txt}</span>
     </a>`;
 }
 let _premiumInfo = null;
@@ -3581,8 +3606,9 @@ async function fillBannerOffer(root) {
       if (!offers.length) { slot.hidden = true; slot.innerHTML = ''; return; }
       slot.innerHTML = `<div class="shv-offer-stack">${offers.map(bannerOfferMini).join('')}</div>`;
     } else {
-      // the hero always shows the Premium card; the offer cards join it when they are live
-      slot.innerHTML = `<div class="shv-offer-grid">${offers.map(bannerOfferCard).join('')}${premiumCardHTML(prem)}</div>`;
+      // v208 — four boxes: the live offer cards + Premium for life + the
+      // Prestigious Member Certificate (owner's 4-box layout).
+      slot.innerHTML = `<div class="shv-offer-grid">${offers.map(bannerOfferCard).join('')}${premiumCardHTML(prem)}${certificateCardHTML()}</div>`;
     }
     slot.hidden = false;
   });
@@ -8601,8 +8627,19 @@ pages.b2b = async (view) => {
   <div class="container" style="padding:40px 0 80px;max-width:1140px">
 
     <div class="b2b-form-card aurora">
-      <div class="bf-head"><span class="label">Step 1 &middot; Partner Application</span><h2>Begin your partnership</h2><p>GSTIN is verified live against the government GST register &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
-        <div class="b2b-step"><span>1 &middot; Fill this form</span><span>2 &middot; GST &amp; OTP verify</span><span>3 &middot; Approved in 48 h</span><span>4 &middot; Portal opens</span></div></div>
+      <div class="bf-head">
+        <div class="bf-crest" aria-hidden="true"><span>&#10022;</span></div>
+        <span class="label">Step 1 &middot; Partner Application</span>
+        <h2>Begin your <em>partnership</em></h2>
+        <p>GSTIN is verified live against the government GST register &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
+        <div class="bf-trust">
+          <span>&#10022; GST verified live</span>
+          <span>&#10022; OTP-secured</span>
+          <span>&#10022; Approved in 48 hours</span>
+          <span>&#10022; Pan-India bullion desk</span>
+        </div>
+        <div class="b2b-step"><span>1 &middot; Fill this form</span><span>2 &middot; GST &amp; OTP verify</span><span>3 &middot; Approved in 48 h</span><span>4 &middot; Portal opens</span></div>
+      </div>
       <form class="form-grid kyc-form" id="b2bForm" onsubmit="Shivaa.b2bApply(event)" novalidate>
         <div class="fld"><label>Firm name *</label><input id="kyFirm" required autocomplete="organization" placeholder="M/s …" oninput="Shivaa.kycGate()"></div>
         <div class="fld"><label>Contact person</label><input id="kyPerson" autocomplete="name" placeholder="Owner / manager"></div>
@@ -11274,6 +11311,53 @@ function route() {
     try { window.Shivaa.paintNewsletterState(); } catch(e) {}
   });
 }
+/* v208 — polish pass, live for the whole session: mouse drag-to-scroll on the
+   light rails (touch keeps native momentum) and a calm 5D banner parallax
+   (inner art only — boxes and Ken-Burns images never move). Delegated, so it
+   covers every page render without re-init. */
+function initV208Polish() {
+  if (!window._v208Drag) {
+    window._v208Drag = true;
+    let drag = null;
+    document.addEventListener('pointerdown', e => {
+      const rail = e.target && e.target.closest && e.target.closest('.catbar2, .shv-rail');
+      if (!rail || e.pointerType === 'touch') return;
+      drag = { rail, x: e.clientX, sl: rail.scrollLeft };
+    });
+    document.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const d = e.clientX - drag.x;
+      if (Math.abs(d) > 3) {
+        drag.rail.classList.add('dragging');
+        drag.rail.scrollLeft = drag.sl - d;
+      }
+    });
+    addEventListener('pointerup', () => {
+      if (drag) { drag.rail.classList.remove('dragging'); drag = null; }
+    });
+  }
+  if (!window._v208Para) {
+    window._v208Para = true;
+    if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      let raf = 0;
+      const paint = () => {
+        raf = 0;
+        const vh = innerHeight;
+        document.querySelectorAll('.shv-home-campaign-card, .c-slide').forEach(el => {
+          const r = el.getBoundingClientRect();
+          if (r.bottom < -60 || r.top > vh + 60) return;
+          const mid = r.top + r.height / 2;
+          const ty = Math.max(-16, Math.min(16, (vh / 2 - mid) * 0.038));
+          el.style.setProperty('--v208-ty', ty.toFixed(1) + 'px');
+        });
+      };
+      addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
+      addEventListener('resize', () => { if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
+      paint();
+    }
+  }
+}
+initV208Polish();
 addEventListener('hashchange', route);
 try { window.Shivaa.paintNewsletterState(); } catch(e) {}
 
@@ -11324,7 +11408,7 @@ let _searchDebounce = null;
 $('#searchInput').oninput = e => {
   clearTimeout(_searchDebounce);
   const v = e.target.value;
-  _searchDebounce = setTimeout(() => { renderSugg(v); $('#searchSugg').classList.add('open'); }, 90);
+  _searchDebounce = setTimeout(() => { renderSugg(v); $('#searchSugg').classList.add('open'); }, 60);
 };
 /* v102 — "/" opens search from anywhere (never while typing in a field) */
 document.addEventListener('keydown', e => {

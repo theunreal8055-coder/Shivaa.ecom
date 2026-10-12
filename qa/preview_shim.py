@@ -524,6 +524,15 @@ class Handler(SimpleHTTPRequestHandler):
                 "nextUpdateIn": 60})
         if route == "making-charges":
             return self._json(200, {"table": d["makingCharges"], "gst": 3})
+        if route == "offers/banner":
+            # v208 QA parity — mirrors api.php offers/banner (making + FREEDEL shapes)
+            on = d["settings"].get("bannerOfferOn", True)
+            offers = []
+            if on:
+                mCode = (d["settings"].get("bannerOfferCode") or "MAKING20").upper()
+                offers = [{"kind": "making", "code": mCode, "percent": 20.0},
+                          {"kind": "delivery", "code": "FREEDEL"}]
+            return self._json(200, {"offers": offers, "premium": {"claimed": False}})
         if route == "products":
             lst = [x for x in d["products"] if x.get("active")]
             if q.get("category"): lst = [x for x in lst if x["category"] == q["category"][0]]
