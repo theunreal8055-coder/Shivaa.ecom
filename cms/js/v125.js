@@ -274,6 +274,7 @@
           '<div class="sv-case-count" id="svCaseCount"></div>' +
           '<button class="sv-case-arrow" id="svCaseNext" aria-label="Next film">›</button>' +
         '</div>' +
+        '<div class="sv-case-rail" id="svCaseRail" aria-label="All four films"></div>' +
         '<div class="sv-case-hint">' + (hintLite ? 'SAVE-DATA MODE · TAP A FILM ANY TIME' : 'DRAG TO SPIN · ALL FOUR FILMS PLAY · TAP THE FRONT FILM FOR FULL SCREEN') + '</div>' +
       '</div>';
     var stage = $('#svCaseStage'), ring = $('#svCaseRing');
@@ -286,16 +287,56 @@
       c.insertBefore(filmMedia(fl, liteMode, function () { return caseVisible() && !reelOpen(); }), c.firstChild.nextSibling);
       ring.appendChild(c); cards.push(c);
     });
+    /* v214 (owner: "all four films are not visible" on phones) — a thumb rail
+       of ALL FOUR films, always visible, tap to bring one to the front (or
+       play it full screen when it is already front). Posters only — the ring
+       above already runs the videos. */
+    var rail = $('#svCaseRail');
+    if (rail) {
+      CASE_FILMS.forEach(function (fl, i) {
+        var b = doc.createElement('button');
+        b.type = 'button';
+        b.className = 'sv-case-thumb' + (i === 0 ? ' is-front' : '');
+        b.setAttribute('aria-label', 'Show ' + fl.title);
+        b.innerHTML = '<img src="' + fl.p + '" alt="" loading="lazy" decoding="async"><span>FILM ' + fl.no + '</span>';
+        b.addEventListener('click', function () {
+          pauseAuto(14000);
+          gestureUnlock();
+          if (i === front()) { openReel(i, b, CASE_FILMS); return; }
+          var cur = (snapTo != null) ? snapTo : rot;
+          var delta = (((-i * STEP - cur) % 360) + 360) % 360; if (delta > 180) delta -= 360;
+          snapTo = cur + delta; vel = 0; kick();
+        });
+        rail.appendChild(b);
+      });
+    }
     var rot = 0, vel = 0, R = 200, dragging = false, lastX = 0, movedPx = 0, snapTo = null, raf = null, visible = false, lastFront = -1, lastMoveT = 0;
+    /* v214 — inline transforms must be written WITH the webkit prefix too:
+       older phone WebViews ignore the unprefixed property, so the four cards
+       never moved out of one spot ("all four films are not visible"). */
+    function setT(el, t) {
+      if (!el) return;
+      el.style.webkitTransform = t;
+      el.style.transform = t;
+    }
     function place() {
       if (!stage.isConnected) return;
       var cw = cards[0] ? cards[0].offsetWidth : 230;
       R = Math.max(120, Math.round(cw * .95));
-      cards.forEach(function (c, i) { c.style.transform = 'translate(-50%,-50%) rotateY(' + (i * STEP) + 'deg) translateZ(' + R + 'px)'; });
+      cards.forEach(function (c, i) { setT(c, 'translate(-50%,-50%) rotateY(' + (i * STEP) + 'deg) translateZ(' + R + 'px)'); });
     }
     function front() { return ((Math.round(-rot / STEP) % CASE_FILMS.length) + CASE_FILMS.length) % CASE_FILMS.length; }
     function caseVisible() { return visible && stage.isConnected; }
-    function setCount() { $('#svCaseCount').textContent = CASE_FILMS[front()].no + ' / 0' + CASE_FILMS.length + ' · ' + CASE_FILMS[front()].title.toUpperCase(); }
+    function setCount() {
+      var f = front();
+      $('#svCaseCount').textContent = CASE_FILMS[f].no + ' / 0' + CASE_FILMS.length + ' · ' + CASE_FILMS[f].title.toUpperCase();
+      /* v214 — the thumb rail follows the front film */
+      if (rail) {
+        Array.prototype.forEach.call(rail.children, function (t, i) {
+          if (i === f) t.classList.add('is-front'); else t.classList.remove('is-front');
+        });
+      }
+    }
     function loop() {
       if (!stage.isConnected) { raf = null; return; }
       if (!dragging) {
@@ -305,7 +346,7 @@
           if (Math.abs(snapTo - rot) < .12) { rot = snapTo; snapTo = null; }
         } else { vel = 0; }
       }
-      ring.style.transform = 'rotateY(' + rot + 'deg)';
+      setT(ring, 'rotateY(' + rot + 'deg)');
       cards.forEach(function (c, i) {
         var ang = ((i * STEP + rot) % 360 + 360) % 360;
         var d = Math.min(ang, 360 - ang);

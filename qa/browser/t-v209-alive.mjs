@@ -13,42 +13,22 @@ const ok = [], bad = [];
 const T = (n, c, x = '') => (c ? ok : bad).push(n + (x ? ' → ' + x : ''));
 const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContext|Not implemented|jsdomError: Could not parse CSS/i.test(e));
 
-/* ── 1 · the flip ── */
-{ log('S1 flip start');
+/* ── 1 · the card (v214: the flip feature is REMOVED) ── */
+{ log('S1 card no-flip start');
   const { window, doc, errors } = await boot('#/black-card', {});
-  await wait(900);
-  const card = doc.querySelector('[data-flip-card]');
-  T('flip card exists', !!card);
+  await wait(400);
+  const card = doc.querySelector('.bc-card');
+  T('card exists as a display object', !!card && card.className.includes('bc-card'));
+  T('flip affordances are gone (no data-flip-card / role=button)',
+    !doc.querySelector('[data-flip-card]') && (!card || card.getAttribute('role') !== 'button'));
+  T('no flip hint anywhere', !doc.querySelector('[data-flip-hint]') && !doc.querySelector('.bc-flip-hint'));
   if (card) {
-    T('card is div[role=button] (never <button>)', card.tagName === 'DIV' && card.getAttribute('role') === 'button');
-    click(window, card); await wait(1200);
-    T('click flips', card.classList.contains('is-flipped'));
-    click(window, card); await wait(1200);
-    T('second click flips back', !card.classList.contains('is-flipped'));
-    /* touch tap (mobile) */
-    const tap = new window.MouseEvent('click', { bubbles: true, cancelable: true });
-    card.dispatchEvent(tap); await wait(1200);
-    T('tap (touch click) flips', card.classList.contains('is-flipped'));
-    /* keyboard (after the flight has landed) */
-    card.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await wait(1200);
-    T('Enter flips', !card.classList.contains('is-flipped'));
-    /* hint button */
-    const hint = doc.querySelector('[data-flip-hint]');
-    T('tap-hint exists', !!hint);
-    if (hint) { click(window, hint); await wait(1200); T('hint flips the card', card.classList.contains('is-flipped')); }
-    /* double-tap inside the 0.62s flight: second tap ignored (industry
-       standard — no zigzag), the card still answers right after landing */
-    const before = card.classList.contains('is-flipped');
-    card.dispatchEvent(tap); card.dispatchEvent(tap);
-    await wait(1400);
-    T('mid-flight tap ignored — one clean flight', card.classList.contains('is-flipped') !== before);
-    /* still responsive afterwards */
-    card.dispatchEvent(tap); await wait(1200);
-    T('tap after double-tap still works', card.classList.contains('is-flipped') === before);
-    T('no real page errors during flip', realErrs(errors).length === 0, String(realErrs(errors)[0] || '').slice(0, 90));
+    click(window, card); await wait(900);
+    T('tap does NOT flip the card (feature removed)', !card.classList.contains('is-flipped'));
+    T('flip API removed', typeof window.Shivaa.flipBlackCard === 'undefined');
+    T('no real page errors around the card', realErrs(errors).length === 0, String(realErrs(errors)[0] || '').slice(0, 90));
   }
-  log('S1 flip done');
+  log('S1 card no-flip done');
 }
 
 /* ── 2 · the film case ── */
@@ -151,18 +131,9 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   log('S3c done');
 }
 
-/* ── 3d · v212 · clarity release — tap-to-flip + offer-banner layout ── */
-{ log('S3d v212 clarity');
+/* ── 3d · v212 offer-banner layout (flip asserts retired at v214) ── */
+{ log('S3d offer layout');
   const css212 = fs.readFileSync('cms/css/v212.css', 'utf8');
-  const app = fs.readFileSync('cms/js/app.js', 'utf8');
-  T('hint is a solid gold pill (visible on any ground)',
-    /\.bc-flip-hint\s*\{[^}]*background: rgba\(10, 7, 3, \.92\)/s.test(css212) && /\.bc-flip-hint\s*\{[^}]*color: #ffe9b4/s.test(css212));
-  T('decor never eats a tap (cert + glow + dust + faces)',
-    /pointer-events: none !important/.test(css212) && /\.bc-stage-cert/.test(css212) && /#heroDust/.test(css212));
-  T('open pill + hero-cue drop below the card', /\.bc-stage-open,\s*\.black-hero \.hero-cue\s*\{[^}]*z-index: 2/s.test(css212));
-  T('card tap physics (manipulation, no select/zoom)',
-    /touch-action: manipulation/.test(css212) && /-webkit-tap-highlight-color: transparent/.test(css212));
-  T('whole card-wrap is a tap target', app.includes("w.querySelector('[data-flip-card]')"));
   T('offer banners: art band on top, words below (no overlap)',
     /\.shv-offer-art\s*\{[^}]*position: relative/s.test(css212) && /\.shv-offer-art\s*\{[^}]*height: 104px/s.test(css212));
   T('offer banners: four crisp painted scenes',
@@ -170,25 +141,6 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
     && css212.includes('.shv-offer-premium .shv-offer-art::before') && css212.includes('.shv-offer-cert .shv-offer-art::before'));
   T('offer banners: long certificate title cannot overflow',
     /\.shv-offer-cert \.shv-offer-pct\s*\{[^}]*font-size: clamp\(28px/s.test(css212));
-
-  const { window: w2, doc: d2 } = await boot('#/', {});
-  await wait(2200);
-  const hcard = d2.querySelector('#blackHero [data-flip-card]');
-  T('hero card present for flip test', !!hcard);
-  if (hcard) {
-    const face = hcard.querySelector('.bc-face') || hcard;
-    face.dispatchEvent(new w2.MouseEvent('click', { bubbles: true, cancelable: true, view: w2 }));
-    await wait(60);
-    T('tap 1 turns the card', hcard.classList.contains('is-flipped') && hcard.getAttribute('aria-pressed') === 'true');
-    await wait(1100);
-    face.dispatchEvent(new w2.MouseEvent('click', { bubbles: true, cancelable: true, view: w2 }));
-    await wait(60);
-    T('tap 2 turns it back', !hcard.classList.contains('is-flipped') && hcard.getAttribute('aria-pressed') === 'false');
-    await wait(1100);
-    face.dispatchEvent(new w2.MouseEvent('click', { bubbles: true, cancelable: true, view: w2 }));
-    await wait(60);
-    T('tap 3 turns it again', hcard.classList.contains('is-flipped'));
-  }
   log('S3d done');
 }
 
@@ -226,6 +178,39 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
     T('mobile sidebar: compact offers render', d3.querySelectorAll('.shv-offer-mini').length > 0);
   }
   log('S3e done');
+}
+
+/* ── 3f · v214 · smooth release — float, phone case, flicker kills ── */
+{ log('S3f v214 smooth');
+  const css214 = fs.readFileSync('cms/css/v214.css', 'utf8');
+  const v125 = fs.readFileSync('cms/js/v125.js', 'utf8');
+  const app = fs.readFileSync('cms/js/app.js', 'utf8');
+  T('card floats (compositor-only translate/rotate keyframes)',
+    css214.includes('v214Float') && /@keyframes v214Float[\s\S]*?translate: 0 -8px/.test(css214));
+  T('card gleam is transform+opacity only', css214.includes('v214Gleam') && css214.includes('translateX'));
+  T('flip hint hidden if any layer still styles it', css214.includes('.bc-card-wrap .bc-flip-hint'));
+  T('case cards: touch-action pan-y restored (v213 regression)',
+    /\.sv-case-card\s*\{[^}]*touch-action: pan-y/s.test(css214));
+  T('case: all-four thumb rail styled for phones',
+    css214.includes('.sv-case-rail') && css214.includes('.sv-case-thumb'));
+  T('case JS: inline transforms written with webkit prefix',
+    v125.includes('el.style.webkitTransform') && v125.includes('function setT('));
+  T('case JS: thumb rail built with tap-to-front',
+    v125.includes('svCaseRail') && v125.includes('sv-case-thumb'));
+  T('flicker: motion blur-up images flattened (no filter on load)',
+    css214.includes('html.js-motion #view .pc-imgwrap img') && css214.includes('filter: none !important'));
+  T('flicker: aurum shimmer words + hero glow pulse + CTA halo frozen',
+    css214.includes('html.js-aurum .hero h1 em.shimmer .au-w') && css214.includes('html.js-aurum:not(.au-lite) .hero-stage::before') && css214.includes('html.js-aurum:not(.au-lite) .hero-cta .btn-gold'));
+  T('flicker: bc-home-final img filter removed', /\.bc-home-final img\s*\{[^}]*filter: none/s.test(css214));
+  T('load: off-screen sections use content-visibility', css214.includes('content-visibility: auto'));
+
+  const { window: w4, doc: d4 } = await boot('#/', { mobile: true });
+  await wait(2200);
+  const thumbs = d4.querySelectorAll('.sv-case-thumb');
+  T('phone: rail shows all four films', thumbs.length === 4, String(thumbs.length));
+  T('phone: ring still holds four film cards', d4.querySelectorAll('.sv-case-card').length === 4);
+  T('phone: no flip hint, no flip API', !d4.querySelector('.bc-flip-hint') && typeof w4.Shivaa.flipBlackCard === 'undefined');
+  log('S3f done');
 }
 
 /* ── 4 · flicker file invariants ── */
