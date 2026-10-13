@@ -1,8 +1,8 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
-**COUNTDOWN: release 212 pending owner review — nothing deployed without the
+**COUNTDOWN: release 213 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
-shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211, v212.
+shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211, v212, v213.
 
 Last updated: 2026-10-12 (session branch `arena/09f3c79f-shivaa-ecom`, v208
 megabrief delivered; v209 "Alive Release" — flip 5D, film case, food banners,
@@ -69,7 +69,8 @@ flicker kill, Passport auth — packaged).
 | v209 | The Alive Release: flip-tap + 5D on phone & laptop (is-lit filter flatten bug), film case turns itself + 4 films play, Amrita food banners animated, laptop scroll-flicker kill (sticky header backdrop-filter + v208 parallax), Passport auth reborn | built, delivered to owner |
 | v210 | The Gallery Release: the 4 case films really run (all four autoplay, gesture unlock, film FILES now ship in the zip) + the 4 home offer banners are art panels | built, delivered to owner |
 | v211 | The Stillness Release: Shivaa Black hero flicker/flash killed at the root (noise blends, blur filters, drop-shadow on the flip card, pointer-churn, infinite loops, twinkle canvas), food offer banners = painted charger-plate art panels, case degrades to still frames instead of dying | built, delivered to owner |
-| v212 | The Clarity Release: tap-to-flip works everywhere (covered tap area + invisible hint + tap friction fixed; whole card-wrap is the tap target; gold pill hint), the 4 offer banners = strict two-zone art-band/typography panels, zero text overlap | built, owner review pending |
+| v212 | The Clarity Release: tap-to-flip works everywhere (covered tap area + invisible hint + tap friction fixed; whole card-wrap is the tap target; gold pill hint), the 4 offer banners = strict two-zone art-band/typography panels, zero text overlap | built, delivered to owner |
+| v213 | The Pocket Release: the films case turns on phones (touch spin owns sideways swipes, -webkit-3D chain, films mount on save-data too), Black Card hero stage restored on mobile (styles.css display:none !important was hiding it), home orphan markup removed, sidebar thumb pass | built, owner review pending |
 
 ## 4 · QA tooling (all under `qa/`)
 

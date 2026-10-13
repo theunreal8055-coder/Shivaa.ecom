@@ -192,6 +192,42 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   log('S3d done');
 }
 
+/* ── 3e · v213 · pocket release — case on mobile + home + sidebar ── */
+{ log('S3e v213 pocket');
+  const css213 = fs.readFileSync('cms/css/v213.css', 'utf8');
+  const v125 = fs.readFileSync('cms/js/v125.js', 'utf8');
+  const app = fs.readFileSync('cms/js/app.js', 'utf8');
+  T('case: webkit 3D prefixes present (old WebViews)',
+    css213.includes('-webkit-perspective: 1250px') && css213.includes('-webkit-transform-style: preserve-3d'));
+  T('case JS: touch spin owns horizontal gestures',
+    v125.includes('THE MOBILE SPIN') && v125.includes("addEventListener('touchmove'") && v125.includes('e.preventDefault()'));
+  T('case JS: pointer path ignores touch (no double-rotate)',
+    v125.includes("e.pointerType === 'touch'"));
+  T('case JS: films mount on save-data too (hint words only)',
+    v125.includes('var liteMode = false;') && v125.includes('var hintLite = lite();'));
+  T('home: black-hero stage forced visible on phones (styles.css hides .hero-stage)',
+    /\.black-hero \.hero-stage,/.test(css213) && /display: flex !important/.test(css213));
+  T('home: orphan c-dots fragment removed', !app.includes('<div class="c-dots" id="cDots"></div>'));
+  T('sidebar: drawer scroll contained + tap hygiene',
+    css213.includes('overscroll-behavior: contain') && css213.includes('#dwClose'));
+
+  const { window: w3, doc: d3 } = await boot('#/', { mobile: true });
+  await wait(2200);
+  T('mobile home: black card stage exists', !!d3.querySelector('#blackHero .bc-hero-stage'));
+  T('mobile home: no orphan c-dots', !d3.querySelector('#cDots'));
+  T('mobile home: case mounted with 4 cards', d3.querySelectorAll('.sv-case-card').length === 4);
+  T('mobile home: films mounted (videos + posters)', d3.querySelectorAll('.sv-case-card video').length === 4 && d3.querySelectorAll('.sv-case-card .sv-film-poster').length === 4);
+  T('mobile home: case surface alive', !!(w3.ShivaaV125 && w3.ShivaaV125.caseCount() === 4));
+  const tgl = d3.querySelector('#navToggle');
+  if (tgl) {
+    tgl.dispatchEvent(new w3.MouseEvent('click', { bubbles: true, cancelable: true, view: w3 }));
+    await wait(400);
+    T('mobile sidebar: drawer opens', d3.querySelector('#mainNav').classList.contains('open'));
+    T('mobile sidebar: compact offers render', d3.querySelectorAll('.shv-offer-mini').length > 0);
+  }
+  log('S3e done');
+}
+
 /* ── 4 · flicker file invariants ── */
 { log('S4 invariants');
   const css = fs.readFileSync('cms/css/v209.css', 'utf8');

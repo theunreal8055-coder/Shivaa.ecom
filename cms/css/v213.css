@@ -1,0 +1,129 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   v213.css — "The Pocket Release" · 2026-10-13
+   Loaded after every other stylesheet. Owner brief: (1) "turn the case"
+   (Shivaa Films — the revolving case) only works on laptop, not mobile —
+   fix it · (2) fix all issues on the home page and the side bar.
+   Seals: no filter on .bc-card or ancestors · never transform .c-slide or
+   Ken-Burns images · v200 gold button gradient untouched · v211 stillness
+   and v212 clarity rules stay.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · THE REVOLVING CASE — made for thumbs ─────────────────────────
+   Why it lived on laptops only:
+   a) the 3D chain had no -webkit- prefixes — older Android/iOS WebViews
+      flatten the ring and the four films pile up in one spot;
+   b) the drag relied on pointer events alone; on phones the browser's pan
+      wins the gesture (pointercancel) and the swipe does nothing — v125.js
+      now owns horizontal touch gestures outright (JS side);
+   c) cards/buttons still allowed double-tap-zoom delay and text selection,
+      so taps on arrows and films arrived late or not at all. */
+.sv-case-stage {
+  -webkit-perspective: 1250px;
+  perspective: 1250px;
+  -webkit-perspective-origin: 50% 44%;
+  perspective-origin: 50% 44%;
+}
+.sv-case-ring {
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+}
+.sv-case-card,
+.sv-case-arrow {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.sv-case-card {
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+/* comfortable thumbs: bigger controls and a taller stage on phones */
+@media (max-width: 640px) {
+  .sv-case-stage {
+    height: min(470px, 128vw);
+    -webkit-perspective: 1100px;
+    perspective: 1100px;
+  }
+  .sv-case-arrow {
+    width: 52px;
+    height: 52px;
+    font-size: 24px;
+  }
+  .sv-case-count {
+    min-width: 120px;
+    font-size: 11px;
+    letter-spacing: .18em;
+  }
+  .sv-case-hint {
+    font-size: 10px;
+    letter-spacing: .14em;
+    margin-top: 10px;
+  }
+}
+@media (min-width: 1024px) {
+  .sv-case-stage {
+    -webkit-perspective: 1450px;
+    perspective: 1450px;
+  }
+}
+
+/* ── 2 · HOME · the Shivaa Black hero stage returns to the phone ──────
+   styles.css (≤820px) hides every legacy .hero-stage with
+   display:none !important — but the Black Card's stage IS
+   .hero-stage.bc-hero-stage, so the card, certificate and flip hint were
+   simply gone on phones (the owner's "not visible"). v184 already sizes
+   the stage for small screens (min-height 380/315px) once it is shown.
+   Scoped to the black hero ONLY — legacy stages stay hidden. */
+@media (max-width: 820px) {
+  .black-hero .hero-stage,
+  .bc-hero-stage {
+    display: flex !important;
+    height: auto;
+  }
+  .black-hero .hero-stage {
+    margin-top: 6px;
+  }
+  /* the stage glow is decorative and already pointer-transparent (v212) */
+  .bc-hero-stage::before {
+    width: 86%;
+    right: 7%;
+    top: 6%;
+  }
+}
+
+/* ── 3 · THE SIDE BAR (drawer) — thumb-first, no scroll traps ──────── */
+.nav-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.dw-row, .dw-tile, .nav-cats, .dw-close, .dw-hero-row,
+.shv-offer-mini, .shv-offer-side a, .shv-offer-side button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.dw-row, .dw-tile, .nav-cats {
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* the close button always sits above the offer strip */
+.dw-head { position: relative; z-index: 2; }
+#dwClose {
+  position: relative;
+  z-index: 3;
+}
+.shv-offer-side {
+  position: relative;
+  z-index: 1;
+}
+/* room between the offer strip and the menu head */
+.shv-offer-side:not([hidden]) + .dw-head {
+  margin-top: 8px;
+}
+
+/* ── 4 · shared tap hygiene on the home strips ─────────────────────── */
+.cat-mini-card, .pc-quick, .pc-wish, .pc-compare, .see-all,
+.sv-thread-film, .sv-reel-bar, .sv-reel-nav, .c-dot, .c-next, .c-prev {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}

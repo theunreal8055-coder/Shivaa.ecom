@@ -8,9 +8,9 @@
        zoom-from-origin transition.
    House rules honoured:
      · poster-first, muted, playsinline; films play ONLY while on screen
-     · au-lite / Save-Data: films never autoplay and never even mount a
-       <video> — posters only, the reel still loads on an explicit tap
-       (the same tap-to-load contract as the PDP 360° films)
+     · v213 (owner): the films run on phones too — save-data / au-lite only
+       changes the hint words, never the mounting; a blocked or missing film
+       falls back to its still frame (v211) and the case still turns
      · prefers-reduced-motion: no autoplay, no zoom transition
      · self-guarding + additive: any failure here cannot take the page down
      · v125 SUPERSEDES the v46 boost films row ("The house in motion") on
@@ -256,13 +256,17 @@
   var caseResizeBound = false;
   function mountCase(mount) {
     mount.dataset.mnt = '1';
-    var liteMode = lite();
+    /* v213 (owner: "the case must work on mobile") — save-data only changes
+       the hint words now. The films themselves always mount and autoplay;
+       a blocked/missing film falls back to its still frame (v211). */
+    var hintLite = lite();
+    var liteMode = false;
     mount.innerHTML =
       '<div class="sv-case">' +
         '<div class="sv-case-head">' +
           '<span class="label" style="color:var(--gold-2,#d4af5a)">Now showing</span>' +
           '<h3>Shivaa Films — turn the <em style="font-style:italic">case</em></h3>' +
-          '<p>' + (liteMode ? 'Tap a film to play it with sound.' : 'Drag the case to spin it — it settles on your film. Tap the front film for full screen.') + '</p>' +
+          '<p>' + (hintLite ? 'Tap a film to play it with sound.' : 'Drag the case to spin it — it settles on your film. Tap the front film for full screen.') + '</p>' +
         '</div>' +
         '<div class="sv-case-stage" id="svCaseStage"><div class="sv-case-ring" id="svCaseRing"></div><div class="sv-case-glow"></div></div>' +
         '<div class="sv-case-ui">' +
@@ -270,7 +274,7 @@
           '<div class="sv-case-count" id="svCaseCount"></div>' +
           '<button class="sv-case-arrow" id="svCaseNext" aria-label="Next film">›</button>' +
         '</div>' +
-        '<div class="sv-case-hint">' + (liteMode ? 'SAVE-DATA MODE · FILMS LOAD ONLY WHEN TAPPED' : 'DRAG TO SPIN · ALL FOUR FILMS PLAY · TAP THE FRONT FILM FOR FULL SCREEN') + '</div>' +
+        '<div class="sv-case-hint">' + (hintLite ? 'SAVE-DATA MODE · TAP A FILM ANY TIME' : 'DRAG TO SPIN · ALL FOUR FILMS PLAY · TAP THE FRONT FILM FOR FULL SCREEN') + '</div>' +
       '</div>';
     var stage = $('#svCaseStage'), ring = $('#svCaseRing');
     var cards = [];
@@ -334,11 +338,12 @@
       snapTo = base - d * STEP; vel = 0; kick();   /* front = −rot/STEP, so 'next' spins the ring minus-wise */
     }
     stage.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'touch') return;   /* v213 — touch uses the touch path below */
       dragging = true; lastX = e.clientX; movedPx = 0; vel = 0; snapTo = null;
       try { stage.setPointerCapture(e.pointerId); } catch (err) {}
     });
     stage.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
+      if (!dragging || e.pointerType === 'touch') return;
       var dx = e.clientX - lastX; lastX = e.clientX;
       movedPx += Math.abs(dx); lastMoveT = Date.now();
       rot += dx * .32; vel = dx * .32; kick();
@@ -351,6 +356,52 @@
     }
     stage.addEventListener('pointerup', endDrag);
     stage.addEventListener('pointercancel', endDrag);
+    /* v213 — THE MOBILE SPIN. On touch screens the browser's pan/scroll can
+       swallow pointer events mid-gesture (pointercancel), so a swipe on the
+       case used to do nothing on phones while working on laptops. The touch
+       path owns horizontal gestures outright (preventDefault the moment the
+       finger runs sideways) and hands vertical gestures back to the page. */
+    var tX = 0, tY = 0, tActive = false, tMoved = 0;
+    function gestureUnlock() {
+      cards.forEach(function (c) {
+        var v = c.querySelector('video');
+        if (v && caseVisible() && !reelOpen()) splay(v);
+      });
+    }
+    stage.addEventListener('touchstart', function (e) {
+      if (!e.touches || e.touches.length !== 1) return;
+      tActive = true; tMoved = 0;
+      tX = e.touches[0].clientX; tY = e.touches[0].clientY;
+      dragging = true; vel = 0; snapTo = null;
+      pauseAuto(14000);
+      gestureUnlock();
+    }, { passive: true });
+    stage.addEventListener('touchmove', function (e) {
+      if (!tActive || !e.touches || e.touches.length !== 1) return;
+      var x = e.touches[0].clientX, y = e.touches[0].clientY;
+      var dx = x - tX, dy = y - tY;
+      tX = x; tY = y;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (e.cancelable) e.preventDefault();    /* this gesture spins the case */
+        tMoved += Math.abs(dx);
+        lastMoveT = Date.now();
+        rot += dx * .32; vel = dx * .32;
+        kick();
+      } else {
+        /* finger runs up/down — page scroll wins, keep whatever spin happened */
+        tActive = false; dragging = false;
+        if (tMoved > 7) snapTo = Math.round(rot / STEP) * STEP;
+        kick();
+      }
+    }, { passive: false });
+    function endTouch() {
+      if (!tActive) return;
+      tActive = false; dragging = false;
+      if (tMoved > 7) snapTo = Math.round(rot / STEP) * STEP;
+      kick();
+    }
+    stage.addEventListener('touchend', endTouch);
+    stage.addEventListener('touchcancel', endTouch);
     cards.forEach(function (c, i) {
       c.addEventListener('click', function () {
         if (Date.now() - lastMoveT < 240) return;
@@ -436,7 +487,7 @@
   var thread = null;
   function mountThread(mount) {
     mount.dataset.mnt = '1';
-    var liteMode = lite();
+    var liteMode = false;   /* v213 — thread films run everywhere too */
     mount.innerHTML =
       '<div class="sv-thread" id="svThreadBox">' +
         '<svg class="sv-thread-svg" viewBox="0 0 400 1700" preserveAspectRatio="none" aria-hidden="true">' +
