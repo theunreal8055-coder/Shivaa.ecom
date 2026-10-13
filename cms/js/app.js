@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 211;
+const APP_REL = 212;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3760,7 +3760,15 @@ document.addEventListener('click', ev => {
     if (card) window.Shivaa.flipBlackCard(card);
     return;
   }
-  const card = t.closest('[data-flip-card]');
+  const cardEl = t.closest('[data-flip-card]');
+  let card = cardEl;
+  if (!card) {
+    /* v212 — the whole card area is the tap target: a tap on the wrap
+       padding, the hint row background or between elements turns the card
+       too. (The hint button itself was handled above and returned.) */
+    const w = t.closest('.bc-card-wrap');
+    card = w ? w.querySelector('[data-flip-card]') : null;
+  }
   if (card) window.Shivaa.flipBlackCard(card);
 });
 document.addEventListener('keydown', ev => {

@@ -151,6 +151,47 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   log('S3c done');
 }
 
+/* ── 3d · v212 · clarity release — tap-to-flip + offer-banner layout ── */
+{ log('S3d v212 clarity');
+  const css212 = fs.readFileSync('cms/css/v212.css', 'utf8');
+  const app = fs.readFileSync('cms/js/app.js', 'utf8');
+  T('hint is a solid gold pill (visible on any ground)',
+    /\.bc-flip-hint\s*\{[^}]*background: rgba\(10, 7, 3, \.92\)/s.test(css212) && /\.bc-flip-hint\s*\{[^}]*color: #ffe9b4/s.test(css212));
+  T('decor never eats a tap (cert + glow + dust + faces)',
+    /pointer-events: none !important/.test(css212) && /\.bc-stage-cert/.test(css212) && /#heroDust/.test(css212));
+  T('open pill + hero-cue drop below the card', /\.bc-stage-open,\s*\.black-hero \.hero-cue\s*\{[^}]*z-index: 2/s.test(css212));
+  T('card tap physics (manipulation, no select/zoom)',
+    /touch-action: manipulation/.test(css212) && /-webkit-tap-highlight-color: transparent/.test(css212));
+  T('whole card-wrap is a tap target', app.includes("w.querySelector('[data-flip-card]')"));
+  T('offer banners: art band on top, words below (no overlap)',
+    /\.shv-offer-art\s*\{[^}]*position: relative/s.test(css212) && /\.shv-offer-art\s*\{[^}]*height: 104px/s.test(css212));
+  T('offer banners: four crisp painted scenes',
+    css212.includes('.shv-offer-making .shv-offer-art::before') && css212.includes('.shv-offer-delivery .shv-offer-art::before')
+    && css212.includes('.shv-offer-premium .shv-offer-art::before') && css212.includes('.shv-offer-cert .shv-offer-art::before'));
+  T('offer banners: long certificate title cannot overflow',
+    /\.shv-offer-cert \.shv-offer-pct\s*\{[^}]*font-size: clamp\(28px/s.test(css212));
+
+  const { window: w2, doc: d2 } = await boot('#/', {});
+  await wait(2200);
+  const hcard = d2.querySelector('#blackHero [data-flip-card]');
+  T('hero card present for flip test', !!hcard);
+  if (hcard) {
+    const face = hcard.querySelector('.bc-face') || hcard;
+    face.dispatchEvent(new w2.MouseEvent('click', { bubbles: true, cancelable: true, view: w2 }));
+    await wait(60);
+    T('tap 1 turns the card', hcard.classList.contains('is-flipped') && hcard.getAttribute('aria-pressed') === 'true');
+    await wait(1100);
+    face.dispatchEvent(new w2.MouseEvent('click', { bubbles: true, cancelable: true, view: w2 }));
+    await wait(60);
+    T('tap 2 turns it back', !hcard.classList.contains('is-flipped') && hcard.getAttribute('aria-pressed') === 'false');
+    await wait(1100);
+    face.dispatchEvent(new w2.MouseEvent('click', { bubbles: true, cancelable: true, view: w2 }));
+    await wait(60);
+    T('tap 3 turns it again', hcard.classList.contains('is-flipped'));
+  }
+  log('S3d done');
+}
+
 /* ── 4 · flicker file invariants ── */
 { log('S4 invariants');
   const css = fs.readFileSync('cms/css/v209.css', 'utf8');
