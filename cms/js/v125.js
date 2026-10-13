@@ -198,6 +198,16 @@
       wrap.innerHTML = '<img src="' + fl.p + '" alt="' + fl.title + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover"><span class="sv-film-tap" aria-hidden="true">▶ Tap to play</span>';
       return wrap;
     }
+    /* v211 — the poster is a real <img> UNDER the video, always. If the film
+       file is missing, blocked or corrupt, the card keeps its still frame and
+       the case still turns: the feature can never show a dead black card. */
+    var posterImg = doc.createElement('img');
+    posterImg.className = 'sv-film-poster';
+    posterImg.src = fl.p;
+    posterImg.alt = fl.title;
+    posterImg.loading = 'lazy';
+    posterImg.decoding = 'async';
+    wrap.appendChild(posterImg);
     var v = doc.createElement('video');
     /* v210 — the owner: "four videos autoplayed". The films are the content of
        this section, so they autoplay (muted loops) whenever the case is on
@@ -217,6 +227,12 @@
        again the moment the video can actually run (never leave a dead card) */
     v.addEventListener('canplay', function () { if (playGate()) splay(v); });
     v.addEventListener('loadeddata', function () { if (playGate()) splay(v); });
+    /* v211 — a broken/missing file degrades to the still frame, loudly marked,
+       instead of a black rectangle */
+    v.addEventListener('error', function () {
+      v.style.display = 'none';
+      wrap.classList.add('sv-film-poster-only');
+    });
     if ('IntersectionObserver' in win) {
       new IntersectionObserver(function (es) {
         es.forEach(function (e) {
@@ -254,7 +270,7 @@
           '<div class="sv-case-count" id="svCaseCount"></div>' +
           '<button class="sv-case-arrow" id="svCaseNext" aria-label="Next film">›</button>' +
         '</div>' +
-        '<div class="sv-case-hint">' + (liteMode ? 'SAVE-DATA MODE · FILMS LOAD ONLY WHEN TAPPED' : 'DRAG TO SPIN · ONLY THE FRONT FILM PLAYS') + '</div>' +
+        '<div class="sv-case-hint">' + (liteMode ? 'SAVE-DATA MODE · FILMS LOAD ONLY WHEN TAPPED' : 'DRAG TO SPIN · ALL FOUR FILMS PLAY · TAP THE FRONT FILM FOR FULL SCREEN') + '</div>' +
       '</div>';
     var stage = $('#svCaseStage'), ring = $('#svCaseRing');
     var cards = [];

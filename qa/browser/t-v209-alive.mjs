@@ -129,6 +129,28 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   log('S3b done');
 }
 
+/* ── 3c · v211 · the stillness + hardening release ── */
+{ log('S3c v211 stillness');
+  const css211 = fs.readFileSync('cms/css/v211.css', 'utf8');
+  const v125 = fs.readFileSync('cms/js/v125.js', 'utf8');
+  const app = fs.readFileSync('cms/js/app.js', 'utf8');
+  T('hero: noise blend layers gone', /\.black-hero \.hero-img::after[\s\S]*display: none/.test(css211) && /\.bc-noise\s*\{[^}]*display: none/s.test(css211));
+  T('hero: aurora + stage blur filters neutralised', /\.bc-hero-aurora i\s*\{[^}]*filter: none/s.test(css211) && /\.bc-hero-stage::before\s*\{[^}]*filter: none/s.test(css211));
+  T('hero: card wrap carries no filter', /\.bc-stage-card \.bc-card-wrap\s*\{[^}]*filter: none/s.test(css211));
+  T('hero: card tilt vars frozen', /\.bc-card-wrap\[data-black-card-motion\]\s*\{[^}]*transform: none/s.test(css211));
+  T('hero: infinite accents stopped (cue/pulse/shimmer/orbit/grid)',
+    /\.black-hero \.hero-cue\s*\{[^}]*animation: none/s.test(css211) && /\.shv-pulse-cta\s*\{[^}]*animation: none/s.test(css211)
+    && /\.bc-orbit\s*\{[^}]*animation: none/s.test(css211) && /\.bc-micro-grid\s*\{[^}]*animation: none/s.test(css211));
+  T('hero JS: pointer-depth parallax retired', app.includes('pointer-depth parallax is retired'));
+  T('hero JS: dust painted once as a still starfield', app.includes('painted once as a still starfield'));
+  T('food banners: painted per-dish scenes', css211.includes('.am-d-idli::before') && css211.includes('.am-d-dosa::before') && css211.includes('.am-d-paneer::before'));
+  T('food banners: menu engraved double frame', /\.am-menu::before/.test(css211) && /\.am-menu::after/.test(css211));
+  T('case: poster img under every film', v125.includes('sv-film-poster') && v125.includes('wrap.appendChild(posterImg)'));
+  T('case: broken file degrades to still frame', v125.includes("addEventListener('error'") && v125.includes('sv-film-poster-only'));
+  T('case: hint says all four films play', v125.includes('ALL FOUR FILMS PLAY') && !v125.includes('ONLY THE FRONT FILM PLAYS'));
+  log('S3c done');
+}
+
 /* ── 4 · flicker file invariants ── */
 { log('S4 invariants');
   const css = fs.readFileSync('cms/css/v209.css', 'utf8');

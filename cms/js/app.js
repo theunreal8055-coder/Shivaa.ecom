@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 210;
+const APP_REL = 211;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -2994,32 +2994,30 @@ function heroDust(canvasId) {
     io = new IntersectionObserver(es => { visible = !!(es[0] && es[0].isIntersecting); }, { rootMargin: '120px' });
     io.observe(cv);
   }
-  const cleanup = () => {
-    if (raf) cancelAnimationFrame(raf);
+  size();
+  /* v211 "stillness" — the dust is painted once as a still starfield and
+     never redrawn. The old 60fps clearRect/twinkle loop was literally
+     flashing dots over the card and fighting the GPU on the owner's
+     laptop; a static field keeps the ambience at zero cost. */
+  const P = Array.from({ length: 26 }, () => ({ x: Math.random(), y: Math.random(), r: .6 + Math.random() * 1.8, a: .1 + Math.random() * .26 }));
+  const paintStatic = () => {
+    if (!cv.parentElement) return;
+    ctx.clearRect(0, 0, W, H);
+    for (const d of P) {
+      ctx.fillStyle = `rgba(240,216,150,${d.a})`;
+      ctx.beginPath(); ctx.arc(d.x * W, d.y * H, d.r, 0, 7); ctx.fill();
+    }
+  };
+  paintStatic();
+  if (ro) { /* ResizeObserver already wired to size(); repaint after it lands */ }
+  const roPaint = () => { size(); paintStatic(); };
+  if (typeof ResizeObserver === 'function') { ro.disconnect(); ro = new ResizeObserver(roPaint); ro.observe(cv.parentElement); }
+  cv._dustCleanup = () => {
     if (ro) ro.disconnect();
     if (io) io.disconnect();
-    if (fallbackResize) removeEventListener('resize', size);
+    if (fallbackResize) removeEventListener('resize', roPaint);
     cv._dustCleanup = null;
   };
-  cv._dustCleanup = cleanup;
-  size();
-  const P = Array.from({ length: 48 }, () => ({ x: Math.random(), y: Math.random(), r: .6 + Math.random() * 1.8, p: Math.random() * 6.28, v: .00014 + Math.random() * .00034 }));
-  let t = 0;
-  (function frame() {
-    if (!document.body.contains(cv)) { cleanup(); return; }
-    if (visible && !document.hidden) {
-      t += .016;
-      ctx.clearRect(0, 0, W, H);
-      for (const d of P) {
-        d.y -= d.v * 60; if (d.y < -.05) d.y = 1.05;
-        const a = .08 + .32 * Math.abs(Math.sin(t * 1.25 + d.p));
-        const x = d.x * W + Math.sin(t * .55 + d.p) * 8;
-        ctx.fillStyle = `rgba(240,216,150,${a})`;
-        ctx.beginPath(); ctx.arc(x, d.y * H, d.r, 0, 7); ctx.fill();
-      }
-    }
-    raf = requestAnimationFrame(frame);
-  })();
 }
 /* Layered hero depth bound to the live stage — never to window. The old global
    mousemove/resize closures survived every return to Home and retained detached
@@ -3027,24 +3025,11 @@ function heroDust(canvasId) {
 function initHeroStage() {
   const stage = $('.hero-stage'); if (!stage || stage._hs) return; stage._hs = true;
   heroDust('heroDust');
-  if (calmMotion() || !finePointer() || innerWidth <= 820) return;
-  const layers = $$('[data-depth]', stage); let frame = 0, latest = null;
-  const paint = () => {
-    frame = 0; if (!latest || !document.body.contains(stage)) return;
-    const r = stage.getBoundingClientRect();
-    const dx = Math.max(-.5, Math.min(.5, (latest.clientX - r.left) / Math.max(1, r.width) - .5));
-    const dy = Math.max(-.5, Math.min(.5, (latest.clientY - r.top) / Math.max(1, r.height) - .5));
-    layers.forEach(el => {
-      const d = +el.dataset.depth || 1;
-      el.style.setProperty('--px', (dx * -18 * d).toFixed(1) + 'px');
-      el.style.setProperty('--py', (dy * -12 * d).toFixed(1) + 'px');
-    });
-  };
-  stage.addEventListener('pointermove', e => { latest = e; if (!frame) frame = requestAnimationFrame(paint); }, { passive: true });
-  stage.addEventListener('pointerleave', () => {
-    latest = null; if (frame) { cancelAnimationFrame(frame); frame = 0; }
-    layers.forEach(el => { el.style.setProperty('--px', '0px'); el.style.setProperty('--py', '0px'); });
-  }, { passive: true });
+  /* v211 "stillness" — the pointer-depth parallax is retired. Two motion
+     systems (hero depth + card light-follow) plus the flip were re-rendering
+     the same banner on every mouse move; the owner asked for a very smooth
+     banner. The stage is now a fixed composition: card, certificate, dust. */
+  return;
 }
 
 /* ─────────── page components ─────────── */
@@ -3752,25 +3737,13 @@ function initBlackCardMotion(root = document) {
   wraps.forEach(wrap => {
     if (wrap._bcMotion) return; wrap._bcMotion = true;
     if (calmMotion() || !finePointer() || innerWidth <= 700) return;
-    let raf = 0, point = null;
-    const paint = () => {
-      raf = 0; if (!point || !document.body.contains(wrap)) return;
-      const r = wrap.getBoundingClientRect();
-      const x = Math.max(0, Math.min(1, (point.clientX - r.left) / Math.max(1, r.width)));
-      const y = Math.max(0, Math.min(1, (point.clientY - r.top) / Math.max(1, r.height)));
-      wrap.style.setProperty('--bc-x', (x * 100).toFixed(1) + '%');
-      wrap.style.setProperty('--bc-y', (y * 100).toFixed(1) + '%');
-      wrap.style.setProperty('--bc-rx', ((.5 - y) * 3.2).toFixed(2) + 'deg');
-      wrap.style.setProperty('--bc-ry', ((x - .5) * 4.2).toFixed(2) + 'deg');
-      wrap.classList.add('is-lit');
-    };
-    wrap.addEventListener('pointermove', e => { point = e; if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
-    wrap.addEventListener('pointerleave', () => {
-      point = null; if (raf) { cancelAnimationFrame(raf); raf = 0; }
-      wrap.classList.remove('is-lit');
-      wrap.style.setProperty('--bc-x', '72%'); wrap.style.setProperty('--bc-y', '18%');
-      wrap.style.setProperty('--bc-rx', '0deg'); wrap.style.setProperty('--bc-ry', '0deg');
-    }, { passive: true });
+    /* v211 "stillness" — the light no longer follows the pointer. Per-move
+       gradient/transform writes re-rendered the whole card scene (noise,
+       grid, orbit, drop-shadow) on every mouse pixel and read as flicker
+       and flashing. The salon highlight is now a static painting; is-lit
+       only raises its opacity once per hover. */
+    wrap.addEventListener('pointerenter', () => { wrap.classList.add('is-lit'); }, { passive: true });
+    wrap.addEventListener('pointerleave', () => { wrap.classList.remove('is-lit'); }, { passive: true });
   });
 }
 /* v206 — the flip is delegated and lives INSIDE the app scope (v204 lesson: an
