@@ -53,26 +53,27 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   /* drag the case */
   const stage = doc.getElementById('svCaseStage');
   if (stage) {
-    const before = stage.querySelector('#svCaseRing').style.transform;
+    const probe = () => (stage.querySelector('.sv-case-card') || {}).style ? stage.querySelector('.sv-case-card').style.transform : '';
+    const before = probe();
     stage.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true, clientX: 300, pointerId: 1 }));
     for (let x = 300; x >= 200; x -= 25) {
       stage.dispatchEvent(new window.MouseEvent('pointermove', { bubbles: true, clientX: x, pointerId: 1 }));
     }
     stage.dispatchEvent(new window.MouseEvent('pointerup', { bubbles: true, clientX: 200, pointerId: 1 }));
     await wait(300);
-    const after = doc.getElementById('svCaseRing').style.transform;
-    T('drag turns the ring', !!after && after !== before, String(after).slice(0, 30));
+    const after = probe();
+    T('drag turns the case (flat layout)', !!after && after !== before, String(after).slice(0, 40));
     /* arrows */
     const nxt = doc.getElementById('svCaseNext');
     if (nxt) {
-      const mid = doc.getElementById('svCaseRing').style.transform;
+      const mid = probe();
       click(window, nxt); await wait(350);
-      T('arrow spins the ring', doc.getElementById('svCaseRing').style.transform !== mid);
+      T('arrow spins the case', probe() !== mid);
     }
     /* give the auto-tour one tick */
-    const toured = doc.getElementById('svCaseRing').style.transform;
+    const toured = probe();
     await wait(7600);
-    T('self-tour turns on its own', doc.getElementById('svCaseRing').style.transform !== toured);
+    T('self-tour turns on its own', probe() !== toured);
   }
   log('S2 case done');
 }
@@ -211,6 +212,53 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('phone: ring still holds four film cards', d4.querySelectorAll('.sv-case-card').length === 4);
   T('phone: no flip hint, no flip API', !d4.querySelector('.bc-flip-hint') && typeof w4.Shivaa.flipBlackCard === 'undefined');
   log('S3f done');
+}
+
+/* ── 3g · v215: the proof release — flat case, blur-up dead, float alive ── */
+{ log('S3g v215 proof');
+  const fs = await import('node:fs');
+  const css215 = fs.readFileSync('cms/css/v215.css', 'utf8');
+  const v125 = fs.readFileSync('cms/js/v125.js', 'utf8');
+  const index = fs.readFileSync('cms/index.html', 'utf8');
+  const sw = fs.readFileSync('cms/sw.js', 'utf8');
+  const app = fs.readFileSync('cms/js/app.js', 'utf8');
+  const api = fs.readFileSync('cms/api.php', 'utf8');
+  const open = (css215.match(/\{/g) || []).length, close = (css215.match(/\}/g) || []).length;
+  T('v215.css exists with balanced braces', open === close && open > 10, open + '/' + close);
+
+  T('case JS: flat 2D cover-flow layout (no ring rotation)', v125.includes('function layoutCards(') && v125.includes('shrink') && !v125.includes('setT(ring'));
+  T('case CSS: ring detached from 3D (transform-style flat)', /\.sv-case-ring\s*\{[^}]*transform-style: ?flat/s.test(css215));
+  T('case CSS: stage + ring + cards all give horizontal drags to the case', /\.sv-case-stage,\.sv-case-ring,\.sv-case-card\s*\{[^}]*touch-action: ?pan-y/s.test(css215));
+  T('case CSS: thumb rail visible on every screen size', /\.sv-case-rail\s*\{[^}]*display: ?flex/s.test(css215));
+  T('case JS: wrap point folded to x=0 (spin is continuous)', v125.includes('Math.pow(ao / (n / 2), 6)'));
+
+  T('flicker: motion blur-up killed — images fade with opacity only',
+    /html\.js-motion #view \.pc-imgwrap img[\s\S]*?filter: ?none/.test(css215) && /transition: ?opacity \.5s ease/.test(css215) && !/filter: ?blur\(/.test(css215));
+  T('flicker: img-ok state also filter-free', /html\.js-motion #view img\.img-ok\s*\{[^}]*filter: ?none/s.test(css215));
+  T('load: footer + testimonial grid reserved with content-visibility', css215.includes('#view footer') && /content-visibility: ?auto/.test(css215));
+
+  T('card: organic float on three compositor properties',
+    css215.includes('v215Float') && css215.includes('v215Sway') && css215.includes('v215Breathe') && /@keyframes v215Float[\s\S]*?translate: ?0 -11px/.test(css215));
+  T('card: gleam sweeps more often (5.2s)', css215.includes('v215Gleam') && css215.includes('5.2s'));
+  T('card: reduced-motion guard present', /prefers-reduced-motion[\s\S]*?v215Float|prefers-reduced-motion[\s\S]*?animation: none/.test(css215) || css215.includes('prefers-reduced-motion'));
+
+  T('stamps: index 215 + v215.css linked', index.includes('__SHIVAA_REL=215') && index.includes('v215.css?v=215') && !index.includes('?v=214'));
+  T('stamps: sw.js shell v215 + v215.css precached', sw.includes('shivaa-shell-v215') && sw.includes('/css/v215.css?v=215') && sw.includes('const REL = 215;'));
+  T('stamps: app.js + api.php at 215', app.includes('const APP_REL = 215;') && api.includes("'rel' => 215,"));
+
+  const { window: w5, doc: d5 } = await boot('#/', { mobile: true });
+  await wait(2200);
+  T('phone: four film cards + four rail posters on screen',
+    d5.querySelectorAll('.sv-case-card').length === 4 && d5.querySelectorAll('.sv-case-thumb').length === 4);
+  const count0 = (d5.querySelector('#svCaseCount') || {}).textContent || '';
+  const nextBtn = d5.querySelector('#svCaseNext');
+  if (nextBtn) nextBtn.click();
+  await wait(900);
+  const count1 = (d5.querySelector('#svCaseCount') || {}).textContent || '';
+  T('phone: spinning the case updates the front film', count0 !== count1 && count1.length > 0, JSON.stringify([count0, count1]));
+  T('phone: no flip affordance anywhere on the home card',
+    !d5.querySelector('[data-flip-card], .bc-flip-hint') && (!w5.Shivaa || typeof w5.Shivaa.flipBlackCard === 'undefined'));
+  log('S3g done');
 }
 
 /* ── 4 · flicker file invariants ── */

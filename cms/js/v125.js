@@ -319,11 +319,36 @@
       el.style.webkitTransform = t;
       el.style.transform = t;
     }
+    /* v215 (owner: case still dead on phones) — the 3D ring is gone. A
+       preserve-3d ring rotates in the PARENT, and cheap phone WebViews
+       flatten it: the four cards pile on one spot ("all four films are not
+       visible") and a spin moves nothing ("drag to spin is not working").
+       The carousel is now pure 2D cover-flow: every card carries its own
+       flat transform, computed each frame from the spin offset. The wrap
+       point (the film passing behind) is folded to x=0 and hidden under the
+       front card, so spinning is continuous with no pop. */
     function place() {
       if (!stage.isConnected) return;
-      var cw = cards[0] ? cards[0].offsetWidth : 230;
-      R = Math.max(120, Math.round(cw * .95));
-      cards.forEach(function (c, i) { setT(c, 'translate(-50%,-50%) rotateY(' + (i * STEP) + 'deg) translateZ(' + R + 'px)'); });
+      R = cards[0] ? cards[0].offsetWidth : 230;
+      layoutCards();
+    }
+    function layoutCards() {
+      if (!stage.isConnected || !cards.length) return;
+      var cw = R || 230;
+      var n = cards.length;
+      var p = -rot / STEP;               /* front index as a float (front() rounds this) */
+      cards.forEach(function (c, i) {
+        var o = (((i - p) % n) + n + n / 2) % n - n / 2;   /* offset in steps ∈ [−n/2, n/2) */
+        var ao = Math.abs(o);
+        var shrink = 1 - Math.pow(ao / (n / 2), 6);        /* 0 exactly at the wrap → passes behind the front card */
+        var x = Math.sin(o * 1.15) * cw * .62 * shrink;
+        var y = (1 - Math.cos(o * 1.1)) * 14;
+        var sc = .62 + .38 * Math.cos(o * 1.1);
+        setT(c, 'translate(-50%,-50%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) scale(' + sc.toFixed(3) + ')');
+        c.style.opacity = Math.max(.36, 1 - ao * .28).toFixed(3);
+        c.style.zIndex = String(40 - Math.round(ao * 10));
+        if (i === front()) c.classList.add('is-front'); else c.classList.remove('is-front');
+      });
     }
     function front() { return ((Math.round(-rot / STEP) % CASE_FILMS.length) + CASE_FILMS.length) % CASE_FILMS.length; }
     function caseVisible() { return visible && stage.isConnected; }
@@ -346,17 +371,8 @@
           if (Math.abs(snapTo - rot) < .12) { rot = snapTo; snapTo = null; }
         } else { vel = 0; }
       }
-      setT(ring, 'rotateY(' + rot + 'deg)');
-      cards.forEach(function (c, i) {
-        var ang = ((i * STEP + rot) % 360 + 360) % 360;
-        var d = Math.min(ang, 360 - ang);
-        var f = Math.max(0, 1 - d / 180);
-        c.style.opacity = (.32 + .68 * f).toFixed(3);
-        /* v209 — brightness filter REMOVED (filter over videos blanks/flickers
-           on Windows Chrome); the shade comes from opacity + the .is-front
-           gold stage in v209.css. */
-        if (i === front()) c.classList.add('is-front'); else c.classList.remove('is-front');
-      });
+      /* v215 — the ring no longer rotates: every card is positioned flat in 2D */
+      layoutCards();
       var fi = front();
       if (fi !== lastFront) {
         lastFront = fi; setCount();

@@ -1,19 +1,19 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
-**COUNTDOWN: release 214 pending owner review — nothing deployed without the
+**COUNTDOWN: release 215 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
-shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211, v212, v213, v214.
+shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211, v212, v213, v214, v215.
 
-Last updated: 2026-10-12 (session branch `arena/09f3c79f-shivaa-ecom`, v208
-megabrief delivered; v209 "Alive Release" — flip 5D, film case, food banners,
-flicker kill, Passport auth — packaged).
+Last updated: 2026-10-14 (session branch `arena/09f3c79f-shivaa-ecom`,
+v215 "The Proof Release" — flat 2D case that cannot fail on phones, motion
+blur-up killed at the root, organic floating card — packaged).
 
 ---
 
 ## 1 · The absolute rules (owner's — never break)
 
 1. **Forward-only.** Never reuse or renumber a shipped release. Live is v205;
-   v206–v208 are built; **next release is v209**. Never deploy an older tree
+   v206–v215 are built; **next release is v216**. Never deploy an older tree
    over a newer live one. No reverts, no force-pushes, no resurrecting old
    zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a
@@ -71,6 +71,7 @@ flicker kill, Passport auth — packaged).
 | v211 | The Stillness Release: Shivaa Black hero flicker/flash killed at the root (noise blends, blur filters, drop-shadow on the flip card, pointer-churn, infinite loops, twinkle canvas), food offer banners = painted charger-plate art panels, case degrades to still frames instead of dying | built, delivered to owner |
 | v212 | The Clarity Release: tap-to-flip works everywhere (covered tap area + invisible hint + tap friction fixed; whole card-wrap is the tap target; gold pill hint), the 4 offer banners = strict two-zone art-band/typography panels, zero text overlap | built, delivered to owner |
 | v213 | The Pocket Release: the films case turns on phones (touch spin owns sideways swipes, -webkit-3D chain, films mount on save-data too), Black Card hero stage restored on mobile (styles.css display:none !important was hiding it), home orphan markup removed, sidebar thumb pass | built, delivered to owner |
+| v215 | The Proof Release: owner's four points solved at the root — flip stays dead (guard suite), organic three-property card float (translate/rotate/scale at 5.4/8.6/6.7s) + gleam every 5.2s, THE scroll-flicker root killed (motion.css blur-up: every content image animated blur(6px)+scale(1.06) on load — now opacity-only), phone case rebuilt as flat 2D cover-flow (no preserve-3d — cheap WebViews flattened the 3D ring, which is why drag and all-four-films kept dying), wrap fold hides the spin seam, thumb rail of all four posters on every screen | built, owner review pending |
 | v214 | The Smooth Release: tap-to-flip removed entirely (owner order), card floats + gleams (compositor-only), scroll-flicker deep pass (motion.css image blur-up killed, aurum shimmer/pulse/halo loops frozen), load smoothing (content-visibility), phone case fixed for good (pan-y restored on cards — v213's manipulation had handed swipes to the browser; webkit-prefixed inline transforms; all-four-films thumb rail) | built, owner review pending |
 
 ## 4 · QA tooling (all under `qa/`)
