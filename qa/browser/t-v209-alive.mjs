@@ -65,6 +65,8 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   if (v0) {
     T('videos muted+loop+playsinline (autoplay-safe)',
       v0.muted && v0.loop && v0.hasAttribute('playsinline'));
+    T('videos carry autoplay + preload=auto (v210)',
+      v0.hasAttribute('autoplay') && v0.preload === 'auto');
   }
   T('front card is marked', !!doc.querySelector('.sv-case-card.is-front'));
   T('counter shows a film', /0[1-4]\s*\/\s*04|UNBOXING|BLESSING|MUSE|WEARING/i.test((doc.getElementById('svCaseCount') || {}).textContent || ''));
@@ -114,6 +116,17 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
     T('confirm button enables', !(doc.getElementById('amMenuGo') || {}).disabled);
   }
   log('S3 amrita done');
+}
+
+/* ── 3b · the four offer banners are art panels now ── */
+{ log('S3b offer art');
+  const { doc } = await boot('#/', {});
+  await wait(1500);
+  const cards = doc.querySelectorAll('.shv-offer-grid .shv-offer-card');
+  T('four offer banners', cards.length === 4, String(cards.length));
+  T('every banner carries its art scene', doc.querySelectorAll('.shv-offer-grid .shv-offer-art').length === 4);
+  T('corner flourishes present', doc.querySelectorAll('.shv-offer-grid .shv-offer-orn').length === 4);
+  log('S3b done');
 }
 
 /* ── 4 · flicker file invariants ── */

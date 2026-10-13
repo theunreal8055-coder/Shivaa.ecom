@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 209;
+const APP_REL = 210;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3542,7 +3542,7 @@ function bannerOfferCard(o) {
      The delivery tab keeps its FREEDEL code exactly as before. */
   return `
     <a class="shv-offer-card shv-offer-${isDel ? 'delivery' : 'making'} rv" href="${isDel ? '#/shop' : '#/black-card'}" aria-label="${esc(label)}">
-      <span class="shv-offer-shine" aria-hidden="true"></span>
+      <span class="shv-offer-shine" aria-hidden="true"></span><span class="shv-offer-art" aria-hidden="true"></span><span class="shv-offer-orn" aria-hidden="true"></span>
       <span class="shv-offer-badge">${isDel ? 'Every customer' : 'Shivaa Black members'}</span>
       <span class="shv-offer-head"><b class="shv-offer-pct">${esc(big)}</b><span class="shv-offer-off">${esc(off)}</span></span>
       <span class="shv-offer-sub">${isDel
@@ -3560,7 +3560,7 @@ function premiumCardHTML(prem) {
         : '<a class="shv-offer-go" href="#/login">Sign in to claim &rarr;</a>');
   return `
     <div class="shv-offer-card shv-offer-premium rv">
-      <span class="shv-offer-shine" aria-hidden="true"></span>
+      <span class="shv-offer-shine" aria-hidden="true"></span><span class="shv-offer-art" aria-hidden="true"></span><span class="shv-offer-orn" aria-hidden="true"></span>
       <span class="shv-offer-badge">Premium card &middot; for everyone</span>
       <span class="shv-offer-head"><b class="shv-offer-pct">20%</b><span class="shv-offer-off">off making charges, for life</span></span>
       <span class="shv-offer-sub">Lifetime savings on every Shivaa purchase. Your code applies automatically at checkout.</span>
@@ -3572,7 +3572,7 @@ function premiumCardHTML(prem) {
 function certificateCardHTML() {
   return `
     <div class="shv-offer-card shv-offer-cert rv">
-      <span class="shv-offer-shine" aria-hidden="true"></span>
+      <span class="shv-offer-shine" aria-hidden="true"></span><span class="shv-offer-art" aria-hidden="true"></span><span class="shv-offer-orn" aria-hidden="true"></span>
       <span class="shv-offer-badge">Keepsake &middot; for members</span>
       <span class="shv-offer-head"><b class="shv-offer-pct">Prestigious</b><span class="shv-offer-off">Member Certificate</span></span>
       <span class="shv-offer-sub">Every Shivaa Black member is welcomed with a personalised Shivaa Family certificate &mdash; your name, kept in your account forever.</span>

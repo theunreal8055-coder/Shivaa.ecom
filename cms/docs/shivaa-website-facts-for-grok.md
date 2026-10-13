@@ -1,7 +1,7 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
-**COUNTDOWN: release 209 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v210**.
+**COUNTDOWN: release 210 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v211**.
 Updated 2026-10-12 from `arena/09f3c79f-shivaa-ecom`.
 
 ## 1 · What the site is
@@ -64,7 +64,9 @@ biscuit is the site's core symbol — historic gold biscuits in copy are safe.
   walk), `qa/browser/t-v206-flip.mjs`, `qa/browser/audit-contrast.mjs`.
   jsdom is installed to `/tmp/node_modules` (reinstall after sandbox resets).
 - Zips are repo-root `shivaa-update-vNNN.zip` = the `cms/` tree at zip root
-  (minus `data/`), drop-in replace for the domain root. Owner download link
+  (minus `data/`), drop-in replace for the domain root. Since v210 the zip
+  also carries `images/films/film-*` + `thread-*` (the case/thread media) —
+  do not trim them; the owner's "videos not working" was missing files. Owner download link
   form: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/09f3c79f-shivaa-ecom/shivaa-update-vNNN.zip`.
 
 ## 6 · Brand mood

@@ -185,7 +185,6 @@
   function pauseAllFilms() { mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; }); mountedFilms.forEach(shut); }
   function resumeVisibleFilms() {
     mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; });
-    if (REDUCED) return;
     mountedFilms.forEach(function (v) { if (v.dataset.svVis === '1' && v.getAttribute('src')) splay(v); });
   }
 
@@ -194,13 +193,19 @@
     /* playGate: a function that returns true when this film may play */
     var wrap = doc.createElement('div');
     wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden';
+    wrap.className = 'sv-film-wrap';
     if (liteMode) {
-      wrap.innerHTML = '<img src="' + fl.p + '" alt="' + fl.title + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover">';
+      wrap.innerHTML = '<img src="' + fl.p + '" alt="' + fl.title + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover"><span class="sv-film-tap" aria-hidden="true">▶ Tap to play</span>';
       return wrap;
     }
     var v = doc.createElement('video');
-    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'metadata';
+    /* v210 — the owner: "four videos autoplayed". The films are the content of
+       this section, so they autoplay (muted loops) whenever the case is on
+       screen: preload=auto + autoplay attribute + play() + a canplay retry,
+       and one gesture anywhere on the stage unblocks any stubborn browser. */
+    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto'; v.autoplay = true;
     v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
+    v.setAttribute('autoplay', ''); v.setAttribute('loop', '');
     v.setAttribute('poster', fl.p);
     v.setAttribute('aria-label', fl.title);
     v.src = fl.f;
@@ -208,6 +213,10 @@
     v.dataset.svVis = '0';
     wrap.appendChild(v);
     mountedFilms.push(v);
+    /* retry-paint: if play() was blocked or the file was still arriving, try
+       again the moment the video can actually run (never leave a dead card) */
+    v.addEventListener('canplay', function () { if (playGate()) splay(v); });
+    v.addEventListener('loadeddata', function () { if (playGate()) splay(v); });
     if ('IntersectionObserver' in win) {
       new IntersectionObserver(function (es) {
         es.forEach(function (e) {
@@ -254,7 +263,7 @@
       c.className = 'sv-case-card'; c.type = 'button';
       c.setAttribute('aria-label', 'Play ' + fl.title);
       c.innerHTML = '<span class="sv-case-no">FILM ' + fl.no + '</span><span class="sv-case-name">' + fl.title + '</span>';
-      c.insertBefore(filmMedia(fl, liteMode, function () { return !REDUCED && caseVisible() && !reelOpen() && front() === i; }), c.firstChild.nextSibling);
+      c.insertBefore(filmMedia(fl, liteMode, function () { return caseVisible() && !reelOpen(); }), c.firstChild.nextSibling);
       ring.appendChild(c); cards.push(c);
     });
     var rot = 0, vel = 0, R = 200, dragging = false, lastX = 0, movedPx = 0, snapTo = null, raf = null, visible = false, lastFront = -1, lastMoveT = 0;
@@ -290,10 +299,13 @@
       var fi = front();
       if (fi !== lastFront) {
         lastFront = fi; setCount();
-        cards.forEach(function (c, i) {
+        /* v210 — all four films run their muted loops while the case is on
+           screen (the owner's "four videos autoplayed"); the front one simply
+           wears the gold stage. */
+        cards.forEach(function (c) {
           var v = c.querySelector('video');
           if (!v) return;
-          if (i === fi) { if (caseVisible() && !reelOpen()) splay(v); } else { shut(v); }
+          if (caseVisible() && !reelOpen()) splay(v); else shut(v);
         });
       }
       /* settle: stop the frame loop once nothing is in flight */
@@ -344,10 +356,10 @@
     function playFrontNow() {
       var f = front();
       lastFront = f; setCount();
-      cards.forEach(function (c, i) {
+      cards.forEach(function (c) {
         var v = c.querySelector('video');
         if (!v) return;
-        if (i === f) { if (caseVisible() && !reelOpen() && !REDUCED) splay(v); } else { shut(v); }
+        if (caseVisible() && !reelOpen()) splay(v); else shut(v);
       });
     }
     function scheduleAuto() {
@@ -375,7 +387,15 @@
         }
       }, { threshold: [0, .15, .5] }).observe(stage);
     } else { visible = true; playFrontNow(); scheduleAuto(); }
-    stage.addEventListener('pointerdown', function () { pauseAuto(14000); });
+    stage.addEventListener('pointerdown', function () {
+      pauseAuto(14000);
+      /* gesture unlock: some browsers refuse the very first play() until the
+         visitor touches something — one touch wakes every film on screen */
+      cards.forEach(function (c) {
+        var v = c.querySelector('video');
+        if (v && caseVisible() && !reelOpen()) splay(v);
+      });
+    });
     stage.addEventListener('pointerenter', function () { pauseAuto(9000); });
     cards.forEach(function (c) { c.addEventListener('click', function () { pauseAuto(14000); }); });
     place();

@@ -1,8 +1,8 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
-**COUNTDOWN: release 209 pending owner review — nothing deployed without the
+**COUNTDOWN: release 210 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
-shipped to this repository, **not live**: v206, v207, v208, v209.
+shipped to this repository, **not live**: v206, v207, v208, v209, v210.
 
 Last updated: 2026-10-12 (session branch `arena/09f3c79f-shivaa-ecom`, v208
 megabrief delivered; v209 "Alive Release" — flip 5D, film case, food banners,
@@ -66,7 +66,8 @@ flicker kill, Passport auth — packaged).
 | v206 | Black Card flip fix (`filter:none` neutralizer, glint, focus ring) | built, awaiting deploy |
 | v207 | Readability pass (45 routes × desktop + mobile audit, colour only) | built, awaiting deploy |
 | v208 | Megabrief: offer-certificate 4-box, rate-strip motion, header fix, mobile comfort (search, banners, case, drawer minis, auth, B2B), bug hunt | built, delivered to owner |
-| v209 | The Alive Release: flip-tap + 5D on phone & laptop (is-lit filter flatten bug), film case turns itself + 4 films play, Amrita food banners animated, laptop scroll-flicker kill (sticky header backdrop-filter + v208 parallax), Passport auth reborn | built, owner review pending |
+| v209 | The Alive Release: flip-tap + 5D on phone & laptop (is-lit filter flatten bug), film case turns itself + 4 films play, Amrita food banners animated, laptop scroll-flicker kill (sticky header backdrop-filter + v208 parallax), Passport auth reborn | built, delivered to owner |
+| v210 | The Gallery Release: the 4 case films really run (all four autoplay, gesture unlock, film FILES now ship in the zip) + the 4 home offer banners are art panels | built, owner review pending |
 
 ## 4 · QA tooling (all under `qa/`)
 
