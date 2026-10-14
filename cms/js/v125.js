@@ -275,7 +275,7 @@
           '<button class="sv-case-arrow" id="svCaseNext" aria-label="Next film">›</button>' +
         '</div>' +
         '<div class="sv-case-rail" id="svCaseRail" aria-label="All four films"></div>' +
-        '<div class="sv-case-hint">' + (hintLite ? 'SAVE-DATA MODE · TAP A FILM ANY TIME' : 'DRAG TO SPIN · ALL FOUR FILMS PLAY · TAP THE FRONT FILM FOR FULL SCREEN') + '</div>' +
+        '<div class="sv-case-hint">' + (hintLite ? 'SAVE-DATA MODE · TAP A FILM ANY TIME' : (coarse() ? 'DRAG TO SPIN · THE FRONT FILM PLAYS · TAP A FILM TO BRING IT FRONT' : 'DRAG TO SPIN · ALL FOUR FILMS PLAY · TAP THE FRONT FILM FOR FULL SCREEN')) + '</div>' +
       '</div>';
     var stage = $('#svCaseStage'), ring = $('#svCaseRing');
     var cards = [];
@@ -284,7 +284,7 @@
       c.className = 'sv-case-card'; c.type = 'button';
       c.setAttribute('aria-label', 'Play ' + fl.title);
       c.innerHTML = '<span class="sv-case-no">FILM ' + fl.no + '</span><span class="sv-case-name">' + fl.title + '</span>';
-      c.insertBefore(filmMedia(fl, liteMode, function () { return caseVisible() && !reelOpen(); }), c.firstChild.nextSibling);
+      c.insertBefore(filmMedia(fl, liteMode, function () { return canPlay(c); }), c.firstChild.nextSibling);
       ring.appendChild(c); cards.push(c);
     });
     /* v214 (owner: "all four films are not visible" on phones) — a thumb rail
@@ -352,6 +352,13 @@
     }
     function front() { return ((Math.round(-rot / STEP) % CASE_FILMS.length) + CASE_FILMS.length) % CASE_FILMS.length; }
     function caseVisible() { return visible && stage.isConnected; }
+    /* v216 (owner: "the films are not available on mobile") — on touch
+       screens (pointer: coarse) only the FRONT film plays; the others show
+       their poster and play the moment they are brought round. Phones
+       decode a few videos at once and drop the rest, which is why three of
+       four films went dark there. Laptops keep all four playing. */
+    function coarse() { try { return !!(win.matchMedia && win.matchMedia('(pointer: coarse)').matches); } catch (e) { return false; } }
+    function canPlay(c) { return caseVisible() && !reelOpen() && (!coarse() || cards[front()] === c); }
     function setCount() {
       var f = front();
       $('#svCaseCount').textContent = CASE_FILMS[f].no + ' / 0' + CASE_FILMS.length + ' · ' + CASE_FILMS[f].title.toUpperCase();
@@ -382,7 +389,7 @@
         cards.forEach(function (c) {
           var v = c.querySelector('video');
           if (!v) return;
-          if (caseVisible() && !reelOpen()) splay(v); else shut(v);
+          if (canPlay(c)) splay(v); else shut(v);
         });
       }
       /* settle: stop the frame loop once nothing is in flight */
@@ -422,7 +429,7 @@
     function gestureUnlock() {
       cards.forEach(function (c) {
         var v = c.querySelector('video');
-        if (v && caseVisible() && !reelOpen()) splay(v);
+        if (v && canPlay(c)) splay(v);
       });
     }
     stage.addEventListener('touchstart', function (e) {
@@ -483,7 +490,7 @@
       cards.forEach(function (c) {
         var v = c.querySelector('video');
         if (!v) return;
-        if (caseVisible() && !reelOpen()) splay(v); else shut(v);
+        if (canPlay(c)) splay(v); else shut(v);
       });
     }
     function scheduleAuto() {
@@ -517,7 +524,7 @@
          visitor touches something — one touch wakes every film on screen */
       cards.forEach(function (c) {
         var v = c.querySelector('video');
-        if (v && caseVisible() && !reelOpen()) splay(v);
+        if (v && canPlay(c)) splay(v);
       });
     });
     stage.addEventListener('pointerenter', function () { pauseAuto(9000); });

@@ -242,9 +242,9 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('card: gleam sweeps more often (5.2s)', css215.includes('v215Gleam') && css215.includes('5.2s'));
   T('card: reduced-motion guard present', /prefers-reduced-motion[\s\S]*?v215Float|prefers-reduced-motion[\s\S]*?animation: none/.test(css215) || css215.includes('prefers-reduced-motion'));
 
-  T('stamps: index 215 + v215.css linked', index.includes('__SHIVAA_REL=215') && index.includes('v215.css?v=215') && !index.includes('?v=214'));
-  T('stamps: sw.js shell v215 + v215.css precached', sw.includes('shivaa-shell-v215') && sw.includes('/css/v215.css?v=215') && sw.includes('const REL = 215;'));
-  T('stamps: app.js + api.php at 215', app.includes('const APP_REL = 215;') && api.includes("'rel' => 215,"));
+  T('stamps: index 216 + v215/v216.css linked', index.includes('__SHIVAA_REL=216') && index.includes('v216.css?v=216') && !index.includes('?v=215') && !index.includes('?v=214'));
+  T('stamps: sw.js shell v216 + v216.css precached', sw.includes('shivaa-shell-v216') && sw.includes('/css/v216.css?v=216') && sw.includes('const REL = 216;'));
+  T('stamps: app.js + api.php at 216', app.includes('const APP_REL = 216;') && api.includes("'rel' => 216,"));
 
   const { window: w5, doc: d5 } = await boot('#/', { mobile: true });
   await wait(2200);
@@ -259,6 +259,23 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('phone: no flip affordance anywhere on the home card',
     !d5.querySelector('[data-flip-card], .bc-flip-hint') && (!w5.Shivaa || typeof w5.Shivaa.flipBlackCard === 'undefined'));
   log('S3g done');
+}
+
+/* ── 3h · v216: wow banners, phone films, organised hero ── */
+{ log('S3h v216 wow release');
+  const css216 = fs.readFileSync('cms/css/v216.css', 'utf8');
+  const v125src = fs.readFileSync('cms/js/v125.js', 'utf8');
+  const open = (css216.match(/\{/g) || []).length, close = (css216.match(/\}/g) || []).length;
+  T('v216.css exists with balanced braces', open === close && open > 10, open + '/' + close);
+  T('offers: four real artwork bands wired (making/delivery/premium/cert)',
+    ['art-making.jpg','art-delivery.jpg','art-premium.jpg','art-cert.jpg'].every(f => css216.includes('/images/offers/' + f)));
+  T('offers: cartoon shape pseudos switched off on every band', /shv-offer-making \.shv-offer-art::before[\s\S]*?display: ?none !important/.test(css216) && css216.includes('.shv-offer-cert .shv-offer-art::after'));
+  T('offers: sheen is transform-only (no background-position loop)', /@keyframes v216Sheen[\s\S]*?translateX/.test(css216) && !/background-position[^;]*\banimation/.test(css216));
+  T('hero: one column stage (card, certificate, status stacked)', /\.bc-hero-stage\s*\{[^}]*flex-direction: ?column/s.test(css216) && /\.bc-stage-cert\s*\{[^}]*position: ?relative/s.test(css216));
+  T('hero: single float keyframes, no drop-shadow filter on the stage card', css216.includes('@keyframes v216HeroFloat') && /\.bc-stage-card\s*\{[^}]*filter: ?none/s.test(css216));
+  T('films: phone gate canPlay() defined and used by every play path', v125src.includes('function canPlay(c)') && (v125src.match(/canPlay\(c\)/g) || []).length >= 6);
+  T('films: phone (pointer:coarse) plays only the front film', v125src.includes("(pointer: coarse)") && v125src.includes('cards[front()] === c'));
+  T('stamps: v216 css linked in index', fs.readFileSync('cms/index.html', 'utf8').includes('/css/v216.css?v=216'));
 }
 
 /* ── 4 · flicker file invariants ── */
