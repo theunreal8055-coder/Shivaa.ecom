@@ -633,8 +633,7 @@
     var view = doc.getElementById('view');
     if (!view) return;
     supersedeBoostFilms(view);
-    var c = doc.getElementById('svCaseMount');
-    if (c && !c.dataset.mnt) { try { if (win.ShivaaCase217) win.ShivaaCase217.mount(c); } catch (e) { c.dataset.mnt = 'err'; } }  /* v217 — the case is reinstalled in v217-case.js */
+    /* v218 — the revolving case was removed permanently (owner order). */
     var t = doc.getElementById('svThreadMount');
     if (t && !t.dataset.mnt) { try { mountThread(t); } catch (e) { t.dataset.mnt = 'err'; } }
   }

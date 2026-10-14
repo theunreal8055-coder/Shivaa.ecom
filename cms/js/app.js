@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 217;
+const APP_REL = 218;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -1963,7 +1963,17 @@ function renderSchemeStage(step, gender) {
 
   init3DCardTilts();
 
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  /* v218 — the funnel no longer throws the shopper to the top of the page on
+     every answer. It moves only when the active step has scrolled out of view,
+     and then just brings the step's top to a comfortable line. */
+  const firstPaint = !window._shvSchemeRendered;
+  window._shvSchemeRendered = true;
+  const activeStage = document.querySelector('.shv-scheme-stage.active');
+  if (activeStage && !firstPaint) {
+    const r = activeStage.getBoundingClientRect();
+    const offScreen = r.height > 0 && (r.top < 0 || r.top > window.innerHeight * 0.85);
+    if (offScreen) window.scrollTo({ top: Math.max(0, window.scrollY + r.top - 90), behavior: 'smooth' });
+  }
 }
 
 function renderStudsCollection(gender = 'gents') {
@@ -4250,11 +4260,6 @@ pages.home = async (view) => {
     <div class="cat-mini">
       ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}${ASSET_V}" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><b>${c.name}</b></a>`).join('')}
     </div>
-  </section>
-
-  <!-- v125 · The Films — the Revolving Case (owner pick, 16 Sep 2026). v125.js mounts it. -->
-  <section class="sec container" style="padding-top:0">
-    <div id="svCaseMount"></div>
   </section>
 
   <section class="sec container" style="padding-top:0">
@@ -11529,6 +11534,16 @@ addEventListener('scroll', (() => {
       else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
     }
   });
+  /* v218 — swipe the open menu left to close it (passive: scrolling is never blocked) */
+  let swX = null, swY = null;
+  nav.addEventListener('touchstart', e => { const t = e.touches[0]; swX = t.clientX; swY = t.clientY; }, { passive: true });
+  nav.addEventListener('touchend', e => {
+    if (swX === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - swX, dy = t.clientY - swY;
+    swX = null;
+    if (isOpen() && dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) setOpen(false);
+  }, { passive: true });
   nav.addEventListener('click', e => {
     const a = e.target.closest('a');
     if (!a || innerWidth > 820) return;
