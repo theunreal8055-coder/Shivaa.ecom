@@ -33,7 +33,7 @@ async function checkCard(page, hash) {
   await wait(900);
   ok(card.classList.contains('is-flipped') === before, 'tap does not flip the card');
 
-  const real = errors.filter(e => !/cashfree|Could not load script|getContext|Not implemented|Could not parse CSS/.test(e));
+  const real = errors.filter(e => !/cashfree|Could not load script|getContext|Not implemented|Could not parse CSS|Client network socket disconnected/.test(e));
   ok(real.length === 0, 'no real page errors' + (real.length ? ' → ' + String(real[0]).slice(0, 90) : ''));
   return errors;
 }

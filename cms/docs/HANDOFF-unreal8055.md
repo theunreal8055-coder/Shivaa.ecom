@@ -1,18 +1,18 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
-**COUNTDOWN: release 218 pending owner review — nothing deployed without the
+**COUNTDOWN: release 219 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
-shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211, v212, v213, v214, v215, v216, v217, v218.
+shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211, v212, v213, v214, v215, v216, v217, v218, v219.
 
 Last updated: 2026-10-14 (session branch `arena/09f3c79f-shivaa-ecom`,
-v218 "The Sign-in Release" — 10 g funnel entry highlighted, funnel no longer jumps to the top, sidebar restored with swipe-to-close, film case removed, Passport sign-in redesigned — packaged).
+v219 "The Depth Release" — 10 g funnel button text readable (gold fill and dark ink both set on that button), offer banners tilt and glare toward a mouse pointer with layered artwork, gold offer buttons with a light sweep, off-screen motion paused — packaged).
 
 ---
 
 ## 1 · The absolute rules (owner's — never break)
 
 1. **Forward-only.** Never reuse or renumber a shipped release. Live is v205;
-   v206–v218 are built; **next release is v219**. Never deploy an older tree
+   v206–v219 are built; **next release is v220**. Never deploy an older tree
    over a newer live one. No reverts, no force-pushes, no resurrecting old
    zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a
@@ -70,6 +70,7 @@ v218 "The Sign-in Release" — 10 g funnel entry highlighted, funnel no longer j
 | v211 | The Stillness Release: Shivaa Black hero flicker/flash killed at the root (noise blends, blur filters, drop-shadow on the flip card, pointer-churn, infinite loops, twinkle canvas), food offer banners = painted charger-plate art panels, case degrades to still frames instead of dying | built, delivered to owner |
 | v212 | The Clarity Release: tap-to-flip works everywhere (covered tap area + invisible hint + tap friction fixed; whole card-wrap is the tap target; gold pill hint), the 4 offer banners = strict two-zone art-band/typography panels, zero text overlap | built, delivered to owner |
 | v213 | The Pocket Release: the films case turns on phones (touch spin owns sideways swipes, -webkit-3D chain, films mount on save-data too), Black Card hero stage restored on mobile (styles.css display:none !important was hiding it), home orphan markup removed, sidebar thumb pass | built, delivered to owner |
+| v219 | The Depth Release: the 10 g Gold Scheme entry is readable (its gold fill never painted, so v217's dark ink sat on dark glass; both are now set on that button); the four offer banners tilt toward a mouse pointer (7 degrees max, mouse only, never on touch) with a pointer glare and a drifting artwork layer; the offer buttons are gold pills with a light sweep and lift; off-screen banners pause their sheen. New: js/v219.js (passive, rAF-batched). |
 | v218 | The Sign-in Release: the 10 g Gold Scheme entry on home is highlighted (halo ring, larger target); the funnel stops jumping to top (scroll only when the step is off screen, never on first paint); the sidebar is the earlier drawer again plus swipe-left-to-close; the film case is removed for good (script, mount, module, CSS hooks, tests); the Retail and Jeweller B2B sign-in sheet is restyled in v218.css under #shvAuthWrap, JS and IDs unchanged. |
 | v217 | The Steady Release: root cause of the refresh/jump-to-top found — content-visibility:auto on home sections and product cards (v117/v121/v122/v214) with guessed heights made the page height change while scrolling; now forced to real layout. Case reinstalled as cms/js/v217-case.js (one pointer path, no scroll/resize listeners, one play-state function; phones play the front film only). Mobile drawer rebuilt (slide + scrim + 48px targets); phone search = one full-screen panel; Win-10g campaign buttons readable + stacked on phones; offer panels get four motifs (rim, ribbon, diamond points, seal) | built, owner review pending |
 | v216 | The Wow Release: offer banners get real painted artwork (images/offers) + one slow light sweep instead of drawn shapes; phone films — on touch screens only the front film plays (phones cannot decode four at once), the others show posters and play when brought round; Black Card hero becomes one column (card, certificate, status) with one calm float, no overlap, no drop-shadow | built, owner review pending |

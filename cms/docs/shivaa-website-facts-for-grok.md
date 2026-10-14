@@ -1,7 +1,7 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
-**COUNTDOWN: release 218 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v219**.
+**COUNTDOWN: release 219 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v220**.
 Updated 2026-10-14 from `arena/09f3c79f-shivaa-ecom`.
 
 ## 1 · What the site is
