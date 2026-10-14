@@ -634,7 +634,7 @@
     if (!view) return;
     supersedeBoostFilms(view);
     var c = doc.getElementById('svCaseMount');
-    if (c && !c.dataset.mnt) { try { mountCase(c); } catch (e) { c.dataset.mnt = 'err'; } }
+    if (c && !c.dataset.mnt) { try { if (win.ShivaaCase217) win.ShivaaCase217.mount(c); } catch (e) { c.dataset.mnt = 'err'; } }  /* v217 — the case is reinstalled in v217-case.js */
     var t = doc.getElementById('svThreadMount');
     if (t && !t.dataset.mnt) { try { mountThread(t); } catch (e) { t.dataset.mnt = 'err'; } }
   }
@@ -652,11 +652,12 @@
   /* tiny test surface for the smoke gates (never used by the page itself) */
   win.ShivaaV125 = {
     open: function (i, el) { openReel(i, el); },
+    openCase: function (i, el) { openReel(i, el, CASE_FILMS); },
     close: reelClose,
     isOpen: reelOpen,
     caseNext: function () { if (caseApi) caseApi.next(); },
     caseFront: function () { return caseApi ? caseApi.front() : -1; },
-    caseCount: function () { return caseApi ? caseApi.count() : 0; },
+    caseCount: function () { return caseApi ? caseApi.count() : doc.querySelectorAll('#svCaseRing .sv-case-card').length; },
     films: CASE_FILMS.length + THREAD_FILMS.length,
     caseFilms: CASE_FILMS.length,
     threadFilms: THREAD_FILMS.length,

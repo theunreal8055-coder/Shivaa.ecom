@@ -36,7 +36,7 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   const { window, doc } = await boot('#/', {});
   await wait(1400);
   const mount = doc.getElementById('svCaseMount');
-  T('case mounts', !!mount && mount.dataset.mnt === '1', mount ? 'mnt=' + mount.dataset.mnt : 'missing');
+  T('case mounts', !!mount && /^(1|217)$/.test(mount.dataset.mnt), mount ? 'mnt=' + mount.dataset.mnt : 'missing');
   const cards = doc.querySelectorAll('.sv-case-card');
   T('four film cards', cards.length === 4, String(cards.length));
   const vids = doc.querySelectorAll('.sv-case-card video');
@@ -242,9 +242,9 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('card: gleam sweeps more often (5.2s)', css215.includes('v215Gleam') && css215.includes('5.2s'));
   T('card: reduced-motion guard present', /prefers-reduced-motion[\s\S]*?v215Float|prefers-reduced-motion[\s\S]*?animation: none/.test(css215) || css215.includes('prefers-reduced-motion'));
 
-  T('stamps: index 216 + v215/v216.css linked', index.includes('__SHIVAA_REL=216') && index.includes('v216.css?v=216') && !index.includes('?v=215') && !index.includes('?v=214'));
-  T('stamps: sw.js shell v216 + v216.css precached', sw.includes('shivaa-shell-v216') && sw.includes('/css/v216.css?v=216') && sw.includes('const REL = 216;'));
-  T('stamps: app.js + api.php at 216', app.includes('const APP_REL = 216;') && api.includes("'rel' => 216,"));
+  T('stamps: index 217 + v216/v217.css linked', index.includes('__SHIVAA_REL=217') && index.includes('v217.css?v=217') && index.includes('v216.css?v=217') && !index.includes('?v=216') && !index.includes('?v=215'));
+  T('stamps: sw.js shell v217 + v217.css + v217-case.js precached', sw.includes('shivaa-shell-v217') && sw.includes('/css/v217.css?v=217') && sw.includes('/js/v217-case.js?v=217') && sw.includes('const REL = 217;'));
+  T('stamps: app.js + api.php at 217', app.includes('const APP_REL = 217;') && api.includes("'rel' => 217,"));
 
   const { window: w5, doc: d5 } = await boot('#/', { mobile: true });
   await wait(2200);
@@ -275,7 +275,27 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('hero: single float keyframes, no drop-shadow filter on the stage card', css216.includes('@keyframes v216HeroFloat') && /\.bc-stage-card\s*\{[^}]*filter: ?none/s.test(css216));
   T('films: phone gate canPlay() defined and used by every play path', v125src.includes('function canPlay(c)') && (v125src.match(/canPlay\(c\)/g) || []).length >= 6);
   T('films: phone (pointer:coarse) plays only the front film', v125src.includes("(pointer: coarse)") && v125src.includes('cards[front()] === c'));
-  T('stamps: v216 css linked in index', fs.readFileSync('cms/index.html', 'utf8').includes('/css/v216.css?v=216'));
+  T('stamps: v217 css + case script linked in index', fs.readFileSync('cms/index.html', 'utf8').includes('/css/v217.css?v=217') && fs.readFileSync('cms/index.html', 'utf8').includes('/js/v217-case.js?v=217'));
+}
+
+/* ── 3i · v217: steady release — case reinstalled, scroll fixed, drawer, search, campaign ── */
+{ log('S3i v217 steady release');
+  const case217 = fs.readFileSync('cms/js/v217-case.js', 'utf8');
+  const css217 = fs.readFileSync('cms/css/v217.css', 'utf8');
+  const v125src = fs.readFileSync('cms/js/v125.js', 'utf8');
+  const oc = (css217.match(/\{/g) || []).length, cc = (css217.match(/\}/g) || []).length;
+  T('v217.css exists with balanced braces', oc === cc && oc > 20, oc + '/' + cc);
+  T('case217: no scroll listener, ResizeObserver, scrollTo or focus() in the case', !/addEventListener\(\s*'scroll'|ResizeObserver|scrollTo\(|\.focus\(/.test(case217));
+  T('case217: pointer path (pointerdown/move) and no page-blocking preventDefault', /pointerdown/.test(case217) && /pointermove/.test(case217) && !/preventDefault/.test((case217.split("addEventListener('pointerdown'")[1] || '').split("addEventListener('keydown'")[0]));
+  T('case217: phones play only the front film (pointer: coarse gate)', case217.includes('(pointer: coarse)') && case217.includes('i === f'));
+  T('case217: flat 2D transforms only (no rotateY ring)', case217.includes('translate3d') && !/rotateY/.test(case217));
+  T('case217: keeps the DOM hooks the styles and tests rely on', ['svCaseStage','svCaseRing','svCaseRail','svCaseCount','svCasePrev','svCaseNext','sv-case-card','sv-case-thumb'].every(k => case217.includes(k)));
+  T('v125 mounts through ShivaaCase217 and exposes openCase', v125src.includes('ShivaaCase217.mount(c)') && v125src.includes('openCase: function'));
+  T('scroll fix: content-visibility forced visible on home sections', /#view \*[\s\S]*?content-visibility: visible !important/.test(css217));
+  T('drawer: slides with transform, real scrim, 48px targets on phones', /#mainNav\.nav \{[\s\S]*?translate3d\(-104%/.test(css217) && /\.drawer-scrim\.on/.test(css217) && /min-height: 48px/.test(css217));
+  T('search: phones get one full-screen panel, inline box hidden', /#hdrSearch \{ display: none !important/.test(css217) && /#searchDrawer \{[\s\S]*?position: fixed/.test(css217));
+  T('campaign: outline button is cream text on dark glass (not the same colour)', /btn-outline \{[\s\S]*?color: #fff3d6/.test(css217) && /btn-outline \{[\s\S]*?background: rgba\(14, 8, 5/.test(css217));
+  T('offers: four distinct sparkle motifs', ['v217Spin','v217Ribbon','v217Seal','v217Twinkle'].every(k => css217.includes(k)));
 }
 
 /* ── 4 · flicker file invariants ── */
