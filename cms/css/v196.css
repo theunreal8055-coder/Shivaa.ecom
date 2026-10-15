@@ -35,7 +35,7 @@ button:focus-visible,
 }
 
 /* ── The films: nothing hides a film that is playing ─────────────────── */
-.sv-case video, .sv-thread video, .sv-thread-item video, .sv-film video {
+.sv-thread video, .sv-thread-item video, .sv-film video {
   pointer-events: none;
 }
 

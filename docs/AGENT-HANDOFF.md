@@ -1,12 +1,22 @@
-> ## CURRENT STATE — read first (updated at v220, 15 Oct 2026)
+> ## CURRENT STATE — read first (updated at v221, 15 Oct 2026)
 >
-> - **Working branch: `arena/09f3c79f-shivaa-ecom`** (only this one). PR base: `arena/5529f0ec-shivaa-ecom`.
+> - **Branch reality (v221):** this release was built on the Arena session branch
+>   `arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom` at its v220 tip
+>   (`4a9e239`) — the two trees were byte-identical when v221 started. `arena/09f3c79f-shivaa-ecom`
+>   was **not** modified, so PR #106 on it is untouched. PR base: `arena/5529f0ec-shivaa-ecom`.
 > - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
-> - **Pushed, not live:** v206–v220. Newest is **v220** (`6e88647`): billing software removed from the website.
->   Next release number: **v221**.
+> - **Pushed, not live:** v206–v221. Newest is **v221** ("The Clean-Up Release"): the dead revolving-case
+>   code (`js/v125.js`) and its dead CSS (11 stylesheets, 275 lines) removed. The live `.sv-case-no`
+>   badge the gold thread uses was deliberately preserved.
+>   Next release number: **v222**.
 > - Full handoff (release table with zip shas, QA commands, open items): **`docs/NEXT-CHAT-HEAD.md`**. Read it first.
-> - Sandbox resets between turns: `git fetch origin arena/09f3c79f-shivaa-ecom && git reset --hard FETCH_HEAD` first.
->   Rebuild `cms/data/db.json` with `python3 qa/build-test-db.py`; reinstall jsdom to /tmp.
+> - Sandbox resets between turns: `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`
+>   first (`arena/09f3c79f-shivaa-ecom` is the twin branch and works the same way).
+>   Rebuild `cms/data/db.json` with `python3 qa/build-test-db.py` (v221: it now emits `makingCharges`
+>   too — the shim serves that route and 500s without the key); reinstall jsdom to /tmp.
+>   **Before blaming the code for a flaky suite, check for stray `node` processes.** A single stuck
+>   probe at ~60% CPU on this 2-core box slowed every jsdom boot from ~2.6 s to ~36 s and made the
+>   timing-based suites fail. Killing it returned the whole gate to green.
 > - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). 10g colour, offer tilt,
 >   smoothness and sign-in look are unverified in a real browser or on a phone.
 

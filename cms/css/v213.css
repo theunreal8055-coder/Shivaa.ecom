@@ -17,56 +17,7 @@
       now owns horizontal touch gestures outright (JS side);
    c) cards/buttons still allowed double-tap-zoom delay and text selection,
       so taps on arrows and films arrived late or not at all. */
-.sv-case-stage {
-  -webkit-perspective: 1250px;
-  perspective: 1250px;
-  -webkit-perspective-origin: 50% 44%;
-  perspective-origin: 50% 44%;
-}
-.sv-case-ring {
-  -webkit-transform-style: preserve-3d;
-  transform-style: preserve-3d;
-}
-.sv-case-card,
-.sv-case-arrow {
-  touch-action: manipulation;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.sv-case-card {
-  -webkit-transform: translate(-50%, -50%);
-  transform: translate(-50%, -50%);
-}
 /* comfortable thumbs: bigger controls and a taller stage on phones */
-@media (max-width: 640px) {
-  .sv-case-stage {
-    height: min(470px, 128vw);
-    -webkit-perspective: 1100px;
-    perspective: 1100px;
-  }
-  .sv-case-arrow {
-    width: 52px;
-    height: 52px;
-    font-size: 24px;
-  }
-  .sv-case-count {
-    min-width: 120px;
-    font-size: 11px;
-    letter-spacing: .18em;
-  }
-  .sv-case-hint {
-    font-size: 10px;
-    letter-spacing: .14em;
-    margin-top: 10px;
-  }
-}
-@media (min-width: 1024px) {
-  .sv-case-stage {
-    -webkit-perspective: 1450px;
-    perspective: 1450px;
-  }
-}
 
 /* ── 2 · HOME · the Shivaa Black hero stage returns to the phone ──────
    styles.css (≤820px) hides every legacy .hero-stage with

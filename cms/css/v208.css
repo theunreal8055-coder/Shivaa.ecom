@@ -354,7 +354,7 @@ button, .btn, a.btn { touch-action: manipulation; }
   scroll-behavior: smooth;
 }
 .catbar2 > *, .shv-rail > * { scroll-snap-align: center; }
-.cb-wrap .cb-arrow, .sv-case-arrow {
+.cb-wrap .cb-arrow {
   transition: transform .25s, background .25s, color .25s;
 }
 .cb-wrap .cb-arrow:hover { transform: scale(1.08); }
@@ -548,33 +548,6 @@ button, .btn, a.btn { touch-action: manipulation; }
    Without touch-action the browser claims the horizontal drag for
    scroll/back-swipe and the case never spins (owner's E1). pan-y keeps
    vertical page scroll while the case takes the horizontal turn. */
-.sv-case-stage {
-  touch-action: pan-y;
-  -webkit-user-select: none;
-  user-select: none;
-  cursor: grab;
-}
-.sv-case-stage:active { cursor: grabbing; }
-.sv-case-card {
-  transition: box-shadow .3s, outline-color .3s;
-}
-@media (max-width: 640px) {
-  .sv-case { padding: 0 2px; }
-  .sv-case-head h2 { font-size: clamp(22px, 6.4vw, 30px); }
-  .sv-case-ui { gap: 14px; }
-  .sv-case-arrow {
-    width: 46px; height: 46px;
-    border-radius: 50%;
-    font-size: 22px;
-    display: grid;
-    place-items: center;
-    border: 1px solid rgba(212, 175, 90, .4);
-    background: rgba(212, 175, 90, .12);
-    color: #f0d28c;
-    touch-action: manipulation;
-  }
-  .sv-case-hint { font-size: 10px; letter-spacing: .18em; }
-}
 
 /* ── 13 · HEADERS & TYPE ON SMALL SCREENS ────────────────────────────── */
 @media (max-width: 860px) {

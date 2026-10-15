@@ -115,47 +115,12 @@ html { scrollbar-gutter: stable; }
    while visible (pauses the moment you touch it), per-frame filter removed.
    This layer gives the front card a gold stage and the videos a deep ground
    so a loading film never reads as a dead card. */
-.sv-case-stage {
-  touch-action: pan-y;
-  -webkit-user-select: none;
-  user-select: none;
-  cursor: grab;
-}
-.sv-case-stage:active { cursor: grabbing; }
-.sv-case-card {
-  overflow: hidden;
-  background: linear-gradient(165deg, #3a1420, #1b070c);
-  border: 1px solid rgba(212, 175, 90, .35);
-  border-radius: 18px;
-}
-.sv-case-card video, .sv-case-card img {
-  background: #170608;
-  display: block;
-}
-.sv-case-card.is-front {
-  border-color: rgba(233, 196, 106, .85);
-  box-shadow: 0 26px 70px rgba(0, 0, 0, .55), 0 0 0 1px rgba(233, 196, 106, .5),
-              0 0 46px rgba(233, 196, 106, .3);
-}
-.sv-case-card.is-front .sv-case-name { color: #ffe9b4; }
 .sv-case-no {
   background: linear-gradient(135deg, rgba(233, 196, 106, .92), rgba(184, 134, 11, .92));
   color: #240609;
   border-radius: 999px;
   padding: 3px 10px;
   letter-spacing: .14em;
-}
-.sv-case-arrow {
-  transition: transform .25s ease, background .25s ease, color .25s ease;
-}
-.sv-case-arrow:hover, .sv-case-arrow:focus-visible {
-  background: linear-gradient(135deg, #e9c46a, #d4af5a);
-  color: #240609;
-  transform: translateY(-2px) scale(1.06);
-}
-.sv-case-hint { letter-spacing: .18em; opacity: .85; }
-.sv-case-glow {
-  background: radial-gradient(52% 60% at 50% 55%, rgba(233, 196, 106, .22), transparent 70%);
 }
 
 /* ── 4 · FOOD OFFER BANNERS — Amrita ji's menu, museum-grade ──────────

@@ -52,17 +52,9 @@ html.js-motion #view img.img-ok{
    The ring is now a plain 0×0 origin (v125.js layoutCards). Kill its 3D
    styles so no browser can reinterpret the flat layout, and make the whole
    stage give horizontal drags to the case while keeping page scroll. */
-.sv-case-ring{
-  transform:none !important;
-  transform-style:flat !important;
-  will-change:auto !important}
-.sv-case-stage,.sv-case-ring,.sv-case-card{
-  touch-action:pan-y}
 
 /* ALL FOUR films are always visible: the thumb rail is no longer a phone
    fallback — every screen size shows the four posters, tap to spin. */
-.sv-case-rail{
-  display:flex !important}
 
 /* ── 4 · THE CARD — more life, more float, still flicker-free ────────
    Three independent compositor properties (translate, rotate, scale) at

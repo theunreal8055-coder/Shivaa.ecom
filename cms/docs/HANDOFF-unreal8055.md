@@ -1,18 +1,26 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
-**COUNTDOWN: release 220 pending owner review — nothing deployed without the
+**COUNTDOWN: release 221 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
-shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211, v212, v213, v214, v215, v216, v217, v218, v219, v220.
+shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211,
+v212, v213, v214, v215, v216, v217, v218, v219, v220, v221.
 
-Last updated: 2026-10-14 (session branch `arena/09f3c79f-shivaa-ecom`,
-v219 "The Depth Release" — 10 g funnel button text readable (gold fill and dark ink both set on that button), offer banners tilt and glare toward a mouse pointer with layered artwork, gold offer buttons with a light sweep, off-screen motion paused — packaged).
+Last updated: 2026-10-15 (v221 "The Clean-Up Release" — the dead revolving-case
+code is removed from `js/v125.js` and the dead case CSS from the eleven
+stylesheets that still carried it; the live `.sv-case-no` badge the gold thread
+uses is preserved — packaged).
+
+Build branch note: this repository's v221 build ran on the session branch
+`arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom`
+at its v220 tip (`4a9e239`) — the two trees were byte-identical when v221 started.
+`arena/09f3c79f-shivaa-ecom` itself was not modified.
 
 ---
 
 ## 1 · The absolute rules (owner's — never break)
 
 1. **Forward-only.** Never reuse or renumber a shipped release. Live is v205;
-   v206–v220 are built; **next release is v221**. Never deploy an older tree
+   v206–v221 are built; **next release is v222**. Never deploy an older tree
    over a newer live one. No reverts, no force-pushes, no resurrecting old
    zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a
@@ -72,6 +80,7 @@ v219 "The Depth Release" — 10 g funnel button text readable (gold fill and dar
 | v213 | The Pocket Release: the films case turns on phones (touch spin owns sideways swipes, -webkit-3D chain, films mount on save-data too), Black Card hero stage restored on mobile (styles.css display:none !important was hiding it), home orphan markup removed, sidebar thumb pass | built, delivered to owner |
 | v220 | The Billing Removal Release: the showroom billing software is taken off the website. Admin → Settings loses the Billing Software card and its sync-key form; the signed billing stock bridge (billing/stock and billing/stock-movement routes, signing helpers, billing-sync rate limit, sync-key setting) is removed from api.php; docs/BILLING-SYNC-CONTRACT.md is deleted. The billing app folder on the server (public_html/billing/) is not in this repo and must be deleted by the owner in Hostinger. |
 | v219 | The Depth Release: the 10 g Gold Scheme entry is readable (its gold fill never painted, so v217's dark ink sat on dark glass; both are now set on that button); the four offer banners tilt toward a mouse pointer (7 degrees max, mouse only, never on touch) with a pointer glare and a drifting artwork layer; the offer buttons are gold pills with a light sweep and lift; off-screen banners pause their sheen. New: js/v219.js (passive, rAF-batched). |
+| v221 | The Clean-Up Release: the dead revolving-case code is removed. `js/v125.js` loses the never-called case mount routine and its scaffolding (~15 KB); the case CSS is removed from all eleven stylesheets that still carried it (275 lines), while even the shared selector lists are trimmed selector-by-selector so every live rule survives — including bare `.sv-case-no`, which the gold thread's FILM badge still uses. No visual or behavioural change is intended. |
 | v218 | The Sign-in Release: the 10 g Gold Scheme entry on home is highlighted (halo ring, larger target); the funnel stops jumping to top (scroll only when the step is off screen, never on first paint); the sidebar is the earlier drawer again plus swipe-left-to-close; the film case is removed for good (script, mount, module, CSS hooks, tests); the Retail and Jeweller B2B sign-in sheet is restyled in v218.css under #shvAuthWrap, JS and IDs unchanged. |
 | v217 | The Steady Release: root cause of the refresh/jump-to-top found — content-visibility:auto on home sections and product cards (v117/v121/v122/v214) with guessed heights made the page height change while scrolling; now forced to real layout. Case reinstalled as cms/js/v217-case.js (one pointer path, no scroll/resize listeners, one play-state function; phones play the front film only). Mobile drawer rebuilt (slide + scrim + 48px targets); phone search = one full-screen panel; Win-10g campaign buttons readable + stacked on phones; offer panels get four motifs (rim, ribbon, diamond points, seal) | built, owner review pending |
 | v216 | The Wow Release: offer banners get real painted artwork (images/offers) + one slow light sweep instead of drawn shapes; phone films — on touch screens only the front film plays (phones cannot decode four at once), the others show posters and play when brought round; Black Card hero becomes one column (card, certificate, status) with one calm float, no overlap, no drop-shadow | built, owner review pending |

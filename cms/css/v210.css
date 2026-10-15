@@ -375,5 +375,3 @@
   white-space: nowrap;
   box-shadow: 0 12px 30px rgba(0, 0, 0, .45);
 }
-.sv-case-card .sv-case-no { z-index: 3; }
-.sv-case-hint { letter-spacing: .18em; }

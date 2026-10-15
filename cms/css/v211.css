@@ -316,7 +316,6 @@
   object-fit: cover;
   z-index: 0;
 }
-.sv-case-card .sv-film-wrap video,
 .sv-thread-film .sv-film-wrap video {
   position: relative;
   z-index: 1;

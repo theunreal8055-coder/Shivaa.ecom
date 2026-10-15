@@ -95,7 +95,9 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('food banners: menu engraved double frame', /\.am-menu::before/.test(css211) && /\.am-menu::after/.test(css211));
   T('case: poster img under every film', v125.includes('sv-film-poster') && v125.includes('wrap.appendChild(posterImg)'));
   T('case: broken file degrades to still frame', v125.includes("addEventListener('error'") && v125.includes('sv-film-poster-only'));
-  T('case: hint says all four films play', v125.includes('ALL FOUR FILMS PLAY') && !v125.includes('ONLY THE FRONT FILM PLAYS'));
+  T('case: the dead case code is gone from v125.js (v221)',
+    !v125.includes('mountCase') && !v125.includes('caseApi') && !v125.includes('sv-case-card')
+    && v125.includes('sv-case-no'));   /* .sv-case-no is LIVE: the thread's FILM badge */
   log('S3c done');
 }
 
@@ -176,9 +178,9 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('card: gleam sweeps more often (5.2s)', css215.includes('v215Gleam') && css215.includes('5.2s'));
   T('card: reduced-motion guard present', css215.includes('prefers-reduced-motion'));
 
-  T('stamps: index at 220 with v219.css + v218.css linked, no old 216/215 stamps', index.includes('__SHIVAA_REL=220') && index.includes('v219.css?v=220') && index.includes('v218.css?v=220') && !index.includes('?v=216') && !index.includes('?v=215'));
-  T('stamps: sw.js shell v220 + v219.css precached', sw.includes('shivaa-shell-v220') && sw.includes('/css/v219.css?v=220') && sw.includes('const REL = 220;'));
-  T('stamps: app.js + api.php at 220', app.includes('const APP_REL = 220;') && api.includes("'rel' => 220,"));
+  T('stamps: index at 221 with v219.css + v218.css linked, no old 216/215 stamps', index.includes('__SHIVAA_REL=221') && index.includes('v219.css?v=221') && index.includes('v218.css?v=221') && !index.includes('?v=216') && !index.includes('?v=215'));
+  T('stamps: sw.js shell v221 + v219.css precached', sw.includes('shivaa-shell-v221') && sw.includes('/css/v219.css?v=221') && sw.includes('const REL = 221;'));
+  T('stamps: app.js + api.php at 221', app.includes('const APP_REL = 221;') && api.includes("'rel' => 221,"));
 
   const { window: w5, doc: d5 } = await boot('#/', { mobile: true });
   await wait(2200);
@@ -197,7 +199,7 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('offers: sheen is transform-only (no background-position loop)', /@keyframes v216Sheen[\s\S]*?translateX/.test(css216) && !/background-position[^;]*\banimation/.test(css216));
   T('hero: one column stage (card, certificate, status stacked)', /\.bc-hero-stage\s*\{[^}]*flex-direction: ?column/s.test(css216) && /\.bc-stage-cert\s*\{[^}]*position: ?relative/s.test(css216));
   T('hero: single float keyframes, no drop-shadow filter on the stage card', css216.includes('@keyframes v216HeroFloat') && /\.bc-stage-card\s*\{[^}]*filter: ?none/s.test(css216));
-  T('stamps: v218 css linked and the case script is gone from index', fs.readFileSync('cms/index.html', 'utf8').includes('/css/v218.css?v=220') && !fs.readFileSync('cms/index.html', 'utf8').includes('v217-case'));
+  T('stamps: v218 css linked and the case script is gone from index', fs.readFileSync('cms/index.html', 'utf8').includes('/css/v218.css?v=221') && !fs.readFileSync('cms/index.html', 'utf8').includes('v217-case'));
 }
 /* ── 3i · v217: steady release — scroll fix, search, campaign (case + drawer retired at v218) ── */
 { log('S3i v217 steady release');
@@ -266,7 +268,7 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   await wait(200);
   T('v218: Retail door shows the retail pane only', !doc.getElementById('paneRetail').hidden && doc.getElementById('paneJwl').hidden);
   T('v218: retail form keeps its IDs', ['shvStartForm','shvPhoneIn','shvPhoneBtn'].every(id => !!doc.getElementById(id)));
-  T('v218: stylesheet linked', fs.readFileSync('cms/index.html', 'utf8').includes('/css/v218.css?v=220'));
+  T('v218: stylesheet linked', fs.readFileSync('cms/index.html', 'utf8').includes('/css/v218.css?v=221'));
   log('S5 done');
 }
 

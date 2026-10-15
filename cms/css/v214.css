@@ -49,63 +49,8 @@
    claim horizontal swipes again (manipulation = pan-x pan-y), so the
    touch spin never got the gesture. Cards return to pan-y: vertical page
    scroll stays free, sideways belongs to the case. */
-.sv-case-card {
-  touch-action: pan-y !important;
-}
-.sv-case-arrow {
-  touch-action: manipulation;
-}
 
 /* the thumb rail: ALL FOUR films, always visible on phones */
-.sv-case-rail {
-  display: none;
-  gap: 10px;
-  justify-content: center;
-  padding: 12px 14px 2px;
-}
-.sv-case-thumb {
-  position: relative;
-  flex: 1 1 0;
-  max-width: 110px;
-  padding: 0;
-  border: 1.5px solid rgba(212, 175, 90, .35);
-  border-radius: 12px;
-  overflow: hidden;
-  background: #170608;
-  cursor: pointer;
-  transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease;
-}
-.sv-case-thumb img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 9 / 13;
-  object-fit: cover;
-}
-.sv-case-thumb span {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  padding: 2px 7px;
-  border-radius: 99px;
-  background: rgba(16, 5, 8, .72);
-  color: #ffe9bd;
-  font-family: var(--ff-label, serif);
-  font-size: 8px;
-  letter-spacing: .18em;
-}
-.sv-case-thumb.is-front {
-  border-color: rgba(233, 196, 106, .9);
-  box-shadow: 0 0 0 1px rgba(233, 196, 106, .55), 0 12px 26px rgba(0, 0, 0, .4);
-  transform: translateY(-3px);
-}
-@media (max-width: 820px) {
-  .sv-case-rail {
-    display: flex;
-  }
-  .sv-case-stage {
-    height: min(430px, 118vw);
-  }
-}
 
 /* ── 3 · SCROLL FLICKER + LOAD SMOOTHNESS — the deep pass ─────────────
    What was still flashing while scrolling:

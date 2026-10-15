@@ -48,6 +48,20 @@ db = {
         'bullionGoldPremium': 10, 'bullionSilverPremium': 2,
         'amritaPage': True,
     },
+    # v221 — the making-charges board. cms/api.php serves this key and
+    # qa/preview_shim.py mirrors that route, so the fixture must carry it:
+    # without it the shim raised KeyError -> 500 on GET /api/making-charges on
+    # every page boot (app.js falls back to {table: []}, so nothing broke
+    # visibly, but the 500s slowed every jsdom boot and made the timing-based
+    # suites flaky). Row shape mirrors admin.js addMCRow().
+    'makingCharges': [
+        {'id': 'mc1', 'category': 'Ring', 'purity': '22K', 'mode': 'perGram',
+         'value': 620, 'min': 400, 'note': ''},
+        {'id': 'mc2', 'category': 'Chain', 'purity': '22K', 'mode': 'perGram',
+         'value': 540, 'min': 350, 'note': ''},
+        {'id': 'mc3', 'category': 'Bangle', 'purity': '22K', 'mode': 'perGram',
+         'value': 500, 'min': 300, 'note': ''},
+    ],
     'rates': {'override': None, 'last': {'gold24': 7200, 'gold22': 6600, 'gold18': 5400, 'silver': 90}},
     'orders': [], 'users': [], 'settlements': [], 'partners': [],
 }
