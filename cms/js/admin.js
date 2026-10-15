@@ -1005,26 +1005,7 @@ function v180DbStrip() {
 
   if (tab === 'settings') {
     const S = state.settings;
-    body.innerHTML = `<div class="adm-card" style="border-left:4px solid var(--gold,#d4af37)">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-        <div>
-          <h3 style="margin:0 0 4px 0">&#128188; Billing Software</h3>
-          <p style="margin:0;font-size:13px;color:var(--ink-3,#666)">Self-hosted billing app in <code>/billing/</code> &mdash; isolated from shop updates.</p>
-        </div>
-        <a href="/billing/" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none">
-          Open Billing Software &#8599;
-        </a>
-      </div>
-      <div style="border-top:1px dashed var(--line);margin-top:12px;padding-top:12px">
-        <form class="form-grid" style="grid-template-columns:2fr auto;align-items:end" onsubmit="ShivaaAdmin.saveBillingSync(event)">
-          <div class="fld"><label>Stock-sync key <small>(v182 — shared HMAC secret for the billing app&rsquo;s stock movements)</small></label>
-            <input name="billingSyncSecret" type="password" autocomplete="new-password" placeholder="${S.billingSyncSecret ? '•••• saved — leave blank to keep' : 'paste a long random key (16+ chars)'}"></div>
-          <button class="btn btn-outline btn-sm">Save sync key</button>
-        </form>
-        <p style="margin:8px 0 0;font-size:12px;color:var(--ink-3,#666)">Showroom billing posts stock movements and reads stock over signed calls (contract: <code>docs/BILLING-SYNC-CONTRACT.md</code>). The bridge stays dark (403) until a key is saved here.</p>
-      </div>
-    </div>
-    <div class="adm-card"><h3>Store settings</h3>
+    body.innerHTML = `    <div class="adm-card"><h3>Store settings</h3>
       <form class="form-grid" onsubmit="ShivaaAdmin.saveSettings(event)">
         <div class="fld"><label>Phone</label><input name="phone" value="${esc(S.phone || '')}"></div>
         <div class="fld"><label>WhatsApp number (with 91, no +)</label><input name="whatsapp" value="${esc(S.whatsapp || '918905005921')}" placeholder="918905005921"></div>
@@ -2169,16 +2150,6 @@ window.ShivaaAdmin.intakeApproveAll = async batchId => {
     const r = await api('/api/admin/catalogue/approve', { method: 'POST', body: JSON.stringify({ batchId, all: true }) });
     toast((r.published || []).length ? 'Batch published — ' + r.published.length + ' live ✦' : 'Nothing pending in this batch');
     renderAdmin($('#view'), new URLSearchParams('tab=intake'));
-  } catch (err) { toast(err.message, 'err'); }
-};
-/* v182 — billing sync key (the bridge answers 403 until the owner pastes one) */
-window.ShivaaAdmin.saveBillingSync = async e => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  try {
-    const s = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ billingSyncSecret: String(fd.get('billingSyncSecret') || '').trim() }) });
-    Object.assign(state.settings, s); toast('Billing sync key saved');
-    renderAdmin($('#view'), new URLSearchParams('tab=settings'));
   } catch (err) { toast(err.message, 'err'); }
 };
 /* ── v128 · payments settings (Cashfree hosted checkout) ── */

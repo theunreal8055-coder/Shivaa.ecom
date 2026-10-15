@@ -43,10 +43,10 @@ T('stillness: no filter or background-position animation in v219', !/filter:\s*(
 
 // 5 · wiring and stamps
 T('index loads v219.css and v219.js',
-  index.includes('/css/v219.css?v=219') && index.includes('/js/v219.js?v=219'));
+  index.includes('/css/v219.css?v=220') && index.includes('/js/v219.js?v=220'));
 T('sw precaches v219 files and names shell v219',
-  sw.includes('shivaa-shell-v219') && sw.includes('/css/v219.css?v=219') && sw.includes('/js/v219.js?v=219') && sw.includes('const REL = 219;'));
-T('app.js APP_REL = 219', app.includes('const APP_REL = 219;'));
+  sw.includes('shivaa-shell-v220') && sw.includes('/css/v219.css?v=220') && sw.includes('/js/v219.js?v=220') && sw.includes('const REL = 220;'));
+T('app.js APP_REL = 219', app.includes('const APP_REL = 220;'));
 
 // 6 · jsdom: the 10 g entry is present on the home page
 const { doc } = await boot('#/', { mobile: false });
