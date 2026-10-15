@@ -1,19 +1,41 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
-**COUNTDOWN: release 222 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v223**.
+**COUNTDOWN: release 223 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v224**.
 Updated 2026-10-15 from `arena/e8a470c6-shivaa-ecom` (branched from
 `arena/09f3c79f-shivaa-ecom` at its v220 tip `4a9e239`).
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=222`), built from the 57 historical layers by
+(stamped `?v=223`), built from the 57 historical layers by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
 **268 KB → 168 KB gzipped**. The individual layer files still exist under
 `cms/css/` (the QA suites read them, and a rollback restores `index.html`
 alone), but nothing on the page links them any more. Scripts are unchanged:
-22 deferred files, with `admin.js`/`qr.js` fetched on demand and
-`motion.js`/`aurum.js`/`boost.js` injected after first paint by `v117.js`.
+21 local files, all `defer` (plus the Cashfree SDK), with `admin.js`/`qr.js`
+fetched on demand and `motion.js`/`aurum.js`/`boost.js` injected after first
+paint by `v117.js`.
+
+**Smoothness (v223):** the gold-thread films are **poster-first with deferred
+media**. Until v222 each film `<video>` set `preload="auto"` and its `src` at
+mount, so a fresh home page pulled **all five films (~4.5 MB)** before the
+reader had scrolled anywhere near them, and each kept decoding off-screen
+frames while the reader passed. Now a film mounts with **no `src`** and
+`preload="none"` — a fresh home page requests **0 video bytes** — one
+`IntersectionObserver` with a 1200px margin calls `wake()` on the film actually
+on screen (attach the file, then play), pauses-but-keeps the near ones, and
+`rest()` releases the buffer of a film left well behind (`wake()` is
+idempotent, so scrolling back never re-downloads). A released film is never
+mistaken for a broken one (the v211 error handler returns early when there is no
+`src`), and `prefers-reduced-motion` visitors never fetch a film at all. The
+rest of the smoothness surface was measured and is already clean: **23 of 25
+scroll/touch listeners are passive** (the only blocking one is the product
+gallery's deliberate horizontal drag), idle DOM is **stable at 1897 nodes**, 264
+local asset references hold **no 404**, and product cards already reserve their
+space so images cannot shift the layout. JS bundling was considered and
+rejected (deferred files already parallelise; `app.js` alone is 760 KB with 308
+top-level declarations and two files carry top-level `'use strict'`).
+`qa/browser/t-v223-smooth.mjs` (39 assertions) now locks all of this.
 
 ## 1 · What the site is
 

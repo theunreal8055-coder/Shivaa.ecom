@@ -1,18 +1,21 @@
-> ## CURRENT STATE — read first (updated at v222, 15 Oct 2026)
+> ## CURRENT STATE — read first (updated at v223, 15 Oct 2026)
 >
 > - **Branch reality:** work continues on the Arena session branch
 >   `arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom` at its v220 tip
 >   (`4a9e239`) — the two trees were byte-identical when v221 started there. `arena/09f3c79f-shivaa-ecom`
 >   was **not** modified, so PR #106 on it is untouched. PR base: `arena/5529f0ec-shivaa-ecom`.
 > - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
-> - **Pushed, not live:** v206–v222. Newest is **v222** ("The Load Release"): the shop now loads ONE
->   stylesheet. `index.html` linked 58 render-blocking <link> tags (57 files, six of them arriving late
->   and restyling the page after first paint); they are bundled into `/css/shivaa.css` in the exact
->   historical cascade order — 1 blocking request, 168 KB gzipped instead of 268 KB, nothing late.
->   `sw.js` precaches that one file instead of 57. Also fixes a boot race in which `state.settings` was
->   null until `/api/settings` answered, so any route rendered in that window threw (the Contact page
->   read `.address` off null on a slow connection).
->   Next release number: **v223**.
+> - **Pushed, not live:** v206–v223. Newest is **v223** ("The Smooth Release"): a fresh home page used to
+>   request **all five thread films (4.5 MB)** the moment it rendered, because `filmMedia()` set
+>   `preload="auto"` AND `src` at mount, and every film then kept decoding off-screen frames while the
+>   reader scrolled past. Now the `<video>` mounts **with no `src`** and `preload="none"`, so a fresh home
+>   page requests **zero video bytes**; one observer with a 1200px margin drives `wake()` (on screen:
+>   attach the file and play), pause-and-keep (near), and `rest()` (well past: release the buffer). A
+>   released film is never mistaken for a broken one, and reduced-motion visitors never fetch a film.
+>   Next release number: **v224**.
+> - **v222** ("The Load Release") is one release back: the shop loads ONE stylesheet (58 render-blocking
+>   <link> tags bundled into `/css/shivaa.css` in the historical cascade order — 168 KB gz, nothing late),
+>   which also killed a boot race where `state.settings` was null until `/api/settings` answered.
 > - Full handoff (release table with zip shas, QA commands, open items): **`docs/NEXT-CHAT-HEAD.md`**. Read it first.
 > - Sandbox resets between turns: `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`
 >   first (`arena/09f3c79f-shivaa-ecom` is the twin branch and works the same way).
@@ -20,12 +23,18 @@
 >   `index.html` (that file now links ONLY the bundle, so a script reading it would bundle the bundle
 >   into itself). Edit the layer under `cms/css/`, then `python3 tools/build-css-bundle.py --write`.
 >   The cascade order lives in `tools/css-bundle-order.txt` — it is load-bearing, do not reorder it.
+>   **v223 media rule:** films load only via `wake()` in `cms/js/v125.js` — never put `src` or
+>   `preload="auto"` back on those `<video>` tags, and never treat a released film as broken.
 >   Rebuild `cms/data/db.json` with `python3 qa/build-test-db.py` (v221: it now emits `makingCharges`
 >   too — the shim serves that route and 500s without the key); reinstall jsdom to /tmp.
 >   **Before blaming the code for a flaky suite, check for stray `node` processes.** A single stuck
 >   probe at ~60% CPU on this 2-core box slowed every jsdom boot from ~2.6 s to ~36 s and made the
 >   timing-based suites fail. Killing it returned the whole gate to green.
 > - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). 10g colour, offer tilt,
+>   smoother-scroll feel on a real phone, and sign-in look are unverified in a real browser or on a phone.
+>   JS bundling stays a future option (deferred scripts already parallelise; `app.js` holds 308 top-level
+>   declarations) — see `docs/NEXT-CHAT-HEAD.md`. Also pending from the owner: the passive-listener hunt is
+>   a dead end (23 of 25 listeners are already passive; the one blocker is the deliberate gallery drag).
 >   smoothness and sign-in look are unverified in a real browser or on a phone.
 
 # Shivaa — agent working guide

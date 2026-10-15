@@ -73,7 +73,7 @@ T('build: it writes nothing on a dry run',
 const sheetLinks = [...index.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(m => m[1]);
 const perLayer = sheetLinks.filter(h => /\/css\/v\d+\.css|\/css\/(hallmark|trust|motion|aurum|boost)\.css/.test(h));
 T('index: links exactly ONE stylesheet', sheetLinks.length === 1, sheetLinks.join(','));
-T('index: that stylesheet is the bundle', sheetLinks[0] === '/css/shivaa.css?v=222');
+T('index: that stylesheet is the bundle', sheetLinks[0] === '/css/shivaa.css?v=223');
 T('index: no per-layer stylesheet <link> is left', perLayer.length === 0, perLayer.join(','));
 T('index: the late preload-swap pattern is gone (nothing restyles after paint)',
   !/rel="preload" as="style"/.test(index));
@@ -91,14 +91,14 @@ T('sw: that stylesheet is the bundle', cssPrecache[0] === 'shivaa.css');
 T('sw: no dead per-layer stylesheet is precached for the shopper',
   !/'\/css\/v\d+\.css\?v=\d+'/.test(sw));
 T('sw: the offline shell keeps every script and font it had',
-  sw.includes('/js/app.js?v=222') && sw.includes('/fonts/jost.woff2?v=222')
+  sw.includes('/js/app.js?v=223') && sw.includes('/fonts/jost.woff2?v=223')
   && sw.includes('/offline.html'));
 
 /* ── 5 · stamps ────────────────────────────────────────────────────── */
-T('stamps: index at 222', index.includes('__SHIVAA_REL=222') && !index.includes('?v=221'));
-T('stamps: sw.js shell v222', sw.includes('shivaa-shell-v222') && sw.includes('const REL = 222;'));
-T('stamps: app.js APP_REL 222', app.includes('const APP_REL = 222;'));
-T('stamps: api rel 222', api.includes("'rel' => 222,"));
+T('stamps: index at 223', index.includes('__SHIVAA_REL=223') && !index.includes('?v=222'));
+T('stamps: sw.js shell v223', sw.includes('shivaa-shell-v223') && sw.includes('const REL = 223;'));
+T('stamps: app.js APP_REL 223', app.includes('const APP_REL = 223;'));
+T('stamps: api rel 223', api.includes("'rel' => 223,"));
 
 /* ── 6 · the settings race that the gate found ──────────────────────
    `state.settings` used to start as null; boot caps the /api/settings wait at

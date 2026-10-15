@@ -10,6 +10,10 @@
    polyfilled/removed below so the site's own feature detection sees a normal
    desktop-ish browser. Tests may override any of it after boot().
 
+   opts.noObservers (v223): IntersectionObserver still EXISTS, but the stub
+   never fires — it models "nothing has come into view yet", which is how the
+   v223 suite proves the films do not fetch their video files at mount.
+
    Usage:  const { window, doc, errors } = await boot('#/shop');
    ═══════════════════════════════════════════════════════════════════════ */
 import { createRequire } from 'node:module';
@@ -73,7 +77,7 @@ export async function boot(hash = '#/', opts = {}) {
       };
 
       class IO { constructor(cb) { this.cb = cb; this.els = []; }
-        observe(el) { this.els.push(el); setTimeout(() => this.cb([{ isIntersecting: true, target: el, intersectionRatio: 1 }], this), 0); }
+        observe(el) { this.els.push(el); if (opts.noObservers) return; setTimeout(() => this.cb([{ isIntersecting: true, target: el, intersectionRatio: 1 }], this), 0); }
         unobserve() {} disconnect() {} takeRecords() { return []; } }
       window.IntersectionObserver = IO;
       class RO { constructor(cb) { this.cb = cb; } observe(el) { setTimeout(() => this.cb([{ target: el, contentRect: { width: 320, height: 420 } }], this), 0); } unobserve() {} disconnect() {} }

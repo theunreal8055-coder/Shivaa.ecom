@@ -1,6 +1,6 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-Written at the end of the v222 turn (15 Oct 2026, Asia/Calcutta).
+Written at the end of the v223 turn (15 Oct 2026, Asia/Calcutta).
 
 ---
 
@@ -12,7 +12,7 @@ Written at the end of the v222 turn (15 Oct 2026, Asia/Calcutta).
 - **Twin branch: `arena/09f3c79f-shivaa-ecom`.** Sits at its v220 tip (`4a9e239`).
   The session branch was branched from exactly that commit, so the two trees were
   byte-identical when v221 started. **It has not been touched since, and PR #106 on it is
-  untouched.** v221 and v222 exist only on the session branch.
+  untouched.** v221, v222 and v223 exist only on the session branch.
 - PR base for both: `arena/5529f0ec-shivaa-ecom`. `main` is **not** the release line.
 - Never create, switch to, or push to another branch. Never delete a branch. Never merge
   another branch.
@@ -23,7 +23,7 @@ Written at the end of the v222 turn (15 Oct 2026, Asia/Calcutta).
 cd /home/user/Shivaa.ecom
 git fetch origin arena/e8a470c6-shivaa-ecom
 git reset --hard FETCH_HEAD
-git log --oneline -1        # must show the newest pushed release (v222 or later)
+git log --oneline -1        # must show the newest pushed release (v223 or later)
 
 npm install --prefix /tmp jsdom@26 --no-audit --no-fund
 python3 qa/build-test-db.py
@@ -52,7 +52,7 @@ Beware `grep -c` in an `&&` chain: it exits 1 on zero matches and silently kills
 - A push, a merge, a green test, or a finished zip is **not** approval.
 - Never reuse or renumber a shipped release. Never revert. Never force-push. Never restore an old zip.
 - Never deploy an older tree over a newer one.
-- Next release number is **v223**.
+- Next release number is **v224**.
 
 ## 4 · Release table (pushed on the release branch, none live except v205)
 
@@ -66,7 +66,8 @@ Beware `grep -c` in an `&&` chain: it exits 1 on zero matches and silently kills
 | v219 | `fafed78` | `ccddcab3…728f` | 10g button readable; offer depth tilt/glare; paused sheen |
 | v220 | `6e88647` | `1b461b82…1899a` | Billing software removed from the website |
 | v221 | `5bf57a2` | `0a1a8e0a620c73ac…eb6850eb` | The Clean-Up Release: dead revolving-case code + CSS removed |
-| v222 | (see DEPLOY-v222.md) | `e05e08dd1bd550a4…d9f77643` | **The Load Release**: 58 render-blocking stylesheets → **1 bundle**; SW precaches 1 instead of 57; boot race fixed (`state.settings` null → Contact page crash) |
+| v222 | `1da18c0` | `e05e08dd1bd550a4…d9f77643` | **The Load Release**: 58 render-blocking stylesheets → **1 bundle**; SW precaches 1 instead of 57; boot race fixed (`state.settings` null → Contact page crash) |
+| v223 | `V223_COMMIT` | `82c26f8a3261685d…3aec0218` | **The Smooth Release**: films no longer mount with `src`/`preload="auto"` — a fresh home page requests **0 video bytes** instead of 4.5 MB, and a film past the reader is released (see DEPLOY-v223.md) |
 
 Each release has: `DEPLOY-vNNN.md` at repo root, `shivaa-update-vNNN.zip` at repo root,
 stamps moved everywhere (index `?v=`, `__SHIVAA_REL`, sw.js SHELL/REL/SHELL_FILES,
@@ -74,9 +75,9 @@ app.js APP_REL, api.php `'rel'`), and both countdown docs
 (`cms/docs/HANDOFF-unreal8055.md`, `cms/docs/shivaa-website-facts-for-grok.md`) —
 which **are** shipped inside the zip, so update them **before** building it.
 
-**Package file list:** v219/v220/v221 all shipped **349 files**; v222 ships **350**
-(the one addition is `css/shivaa.css`). Rebuild the list from the previous zip so it
-can never drift:
+**Package file list:** v219/v220/v221 shipped **349 files**; v222 and v223 ship **350**
+(one addition at v222: `css/shivaa.css`; v223 edits existing files only). Rebuild the list
+from the previous zip so it can never drift:
 
 ```
 cd /home/user/Shivaa.ecom
@@ -93,6 +94,7 @@ Zip link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/e8a470c6
 ## 5 · QA commands (run in this order, sequential, never in parallel)
 
 ```
+node qa/browser/t-v223-smooth.mjs                 # the smooth release: no media before it is reached
 node qa/browser/t-v222-bundle.mjs                 # the load release: order + one stylesheet
 node qa/browser/t-v221-cleanup.mjs                # dead case code gone, live bits kept
 node qa/browser/t-v220-billing-gone.mjs           # rollback guard: billing stays gone
@@ -103,8 +105,17 @@ node qa/browser/t-v218-sidebar.mjs                # sidebar + funnel scroll (exp
 node qa/browser/t-v219-depth.mjs                  # 10g fill, offer depth, stamps (expect 22/0)
 ```
 
-Expected totals at v222: bundle 36/0, cleanup 34/0, billing-gone 13/0, alive 96/0,
-flip ALL PASS, t7 4/0, sidebar 13/0, depth 22/0.
+Expected totals at v223: smooth 39/0, bundle 36/0, cleanup 34/0, billing-gone 13/0,
+alive 96/0, flip ALL PASS, t7 4/0, sidebar 13/0, depth 22/0.
+
+**`t-v223-smooth.mjs` owns the media contract.** It is the only place the "never fetch what
+the reader has not reached" rule is checked, and it holds `blockingListeners()` — a real
+balanced-paren parser over all shipped JS that fails if any scroll/touch listener besides
+the product gallery's deliberate drag is registered without `passive: true`. It boots the
+home page **twice**: once with `opts.noObservers` (nothing on screen yet — films must have
+no `src`, no `autoplay`, no `preload="auto"`) and once with observers live (films must
+still mount, attach their file, and the full-screen reel must open and close). It also
+asserts the idle DOM does not grow. **Do not re-audit listeners with grep** — see §10.
 
 **t7's route count is not a fixed number** — it derives routes from the home page's
 `#/` links, which are rendered progressively (182 → 2507 links over 5 s). A different
@@ -113,8 +124,9 @@ count between runs is timing, not a regression. The assertion that matters is
 
 When stamps move, **older suites must be rolled forward too** — their stamp bodies
 assert the newest number (long-standing convention; some labels are stale on purpose).
-At v222 the bodies in `t-v209-alive`, `t-v219-depth`, `t-v220-billing-gone` and
-`t-v221-cleanup` were updated. **Suites that used to assert a layer's own `<link>` in
+At v223 the bodies in `t-v209-alive`, `t-v219-depth`, `t-v220-billing-gone`,
+`t-v221-cleanup` and `t-v222-bundle` were updated, and their "no older stamp" guards
+moved to `!includes('?v=222')`. **Suites that used to assert a layer's own `<link>` in
 index.html now assert the layer is inside the bundle** — e.g.
 `CSS_BUNDLE.includes('/* v218.css */')`. That is a stronger check: it proves the layer
 is shipped, not just named.
@@ -143,7 +155,26 @@ layers. The rules:
 7. Adding a layer: add the file, put its name where the cascade needs it in the order
    file, regenerate, and update `CANON` in `qa/browser/t-v222-bundle.mjs`.
 
-## 7 · Rules for writing code in this repo (from earlier owner orders)
+## 7 · THE MEDIA RULE (v223 — read before touching the films)
+
+`filmMedia()` in `cms/js/v125.js` mounts the five gold-thread films. Since v223:
+
+- A film `<video>` mounts with **no `src`** and `preload="none"`. Nothing is fetched at
+  page render. Do not put `src`, `autoplay` or `preload="auto"` back on those tags — that
+  is exactly the bug v223 removes (all five films, 4.5 MB, were requested at mount).
+- One `IntersectionObserver` (`rootMargin: '1200px 0px 1200px 0px'`) does three jobs:
+  **on screen** (≥15 %) → `wake()` (attach the file, then play if the gate allows);
+  **near, not watched** → pause, keep the buffer (`shut()`); **well past** → `rest()`
+  (pause, `removeAttribute('src')`, `load()`), handing back memory and decoder.
+  `wake()` is idempotent, so scrolling back never re-downloads. **Do not "simplify" that
+  observer to two branches** — `isIntersecting` alone is true across the rest of the page.
+- **A released film is not a broken film.** The v211 error handler returns early when the
+  video has no `src`; without that, `rest()` would mark the card poster-only forever.
+- Reduced-motion visitors never fetch a film (`if (!REDUCED) wake()`).
+- The v211 guarantees stay: poster under every film, still frame for a broken file,
+  `playsinline`, films mounting on save-data too (v213), and the full-screen reel.
+
+## 8 · Rules for writing code in this repo (from earlier owner orders)
 
 - Touch-action on JS-dragged elements: `pan-y` or `none`. Never `manipulation`.
 - Inline JS 3D transforms need the `-webkit-` prefix as well (`setT` helper).
@@ -163,22 +194,25 @@ layers. The rules:
   `state.rates` was already guarded everywhere.
 - The owner says "5D" for the offer banners; there is no 5D on a screen. Ask before going further.
 
-## 8 · Pull request and handoff
+## 9 · Pull request and handoff
 
 - **PR for the session branch:** create one from `arena/e8a470c6-shivaa-ecom` → base
-  `arena/5529f0ec-shivaa-ecom` when the owner wants v221/v222 reviewed. **Do NOT merge
+  `arena/5529f0ec-shivaa-ecom` when the owner wants v221–v223 reviewed. **Do NOT merge
   or close any PR unless the owner says so.**
-- PR #106 (on `arena/09f3c79f-shivaa-ecom`) is **open, untouched, and now 2 commits behind**
+- PR #106 (on `arena/09f3c79f-shivaa-ecom`) is **open, untouched, and now 3 commits behind**
   the session branch. Leave it alone unless the owner decides otherwise.
-- Memory updated at the end of v222: `MEMORY.md`, `ARENA-STATE.md`, `AGENTS.md`,
+- Memory updated at the end of v223: `MEMORY.md`, `ARENA-STATE.md`, `AGENTS.md`,
   `docs/AGENT-HANDOFF.md` (top blocks), this file, and the two shipped countdown docs.
 
-## 9 · Open items (as of v222)
+## 10 · Open items (as of v223)
 
-1. **Owner review of v206–v222** — nothing is live except v205. Owner says yes before any zip goes up.
-2. **Owner visual check for v222 specifically:** on a phone on mobile data, the page must
-   appear once, fully styled, with **no restyle flash** a moment after it appears. That
-   flash is what v222 removes. Also open Contact and confirm the address/phone/email show.
+1. **Owner review of v206–v223** — nothing is live except v205. Owner says yes before any zip goes up.
+2. **Owner visual check for v223 specifically (on a phone, on mobile data):** scroll
+   **without stopping** through the film thread — it must feel steady now (that stutter was
+   five videos decoding at once). Stop at the films: posters instantly, the film you are
+   looking at starts a moment later. Scroll far past, come back: films must play again.
+   Tap one: the full-screen reel must still open and close. In DevTools → Network →
+   Media, a fresh home load should show **no .mp4 request at all** until you scroll down.
 3. **Billing software (owner's own app):** the site side is removed (v220). The owner must
    delete `public_html/billing/` on Hostinger and turn off its stock sync.
 4. **Billing AI chatbot (owner's ask):** BLOCKED — the owner has not provided the billing
@@ -188,15 +222,22 @@ layers. The rules:
    smoothness, sign-in sheet, sidebar swipe — none verified in a real browser or phone.
 6. **PHP checks on the server:** `php -l` unavailable here. Run `GET /api/settings` and
    `GET /api/version` after upload.
-7. **Next performance candidates (measured, not done):** the 22 deferred JS files
-   (~1 MB) are the remaining request count — but bundling them risks `'use strict'`
-   leaking across file boundaries, and first paint does not wait on them. The
-   `aurum/motion/boost.js` trio (107 KB) is already injected after first paint by
-   `v117.js`. If JS is bundled later, wrap each file and re-run the whole gate.
-8. **The twin branch `arena/09f3c79f-shivaa-ecom` is 2 commits behind.** Reconciling it is
+7. **Next performance candidates (measured, not done):** the 21 deferred JS files
+   (1,052 KB raw / 321 KB gz; `app.js` alone is 760 KB with 308 top-level declarations)
+   are the remaining request count. Deferred scripts already download in parallel and do
+   not block first paint, and bundling risks `'use strict'` scope loss across 21 files —
+   **this was considered for v223 and rejected**. Only attempt it by wrapping every file
+   (IIFE) and re-running the whole gate. No other measured win is outstanding: there is
+   **no DOM leak** (idle DOM is stable at 1897 nodes), **no 404** (264 local refs checked;
+   the 10 "missing" are runtime template paths), **no layout shift** (`.pc-imgwrap`
+   reserves `aspect-ratio`), and **no passive-listener win** (23 of 25 listeners are
+   already passive; the only blocker is the product gallery's deliberate drag). Do not
+   re-hunt these — if a future release needs them, the tests in `t-v223-smooth.mjs` are
+   the check, not grep.
+8. **The twin branch `arena/09f3c79f-shivaa-ecom` is 3 commits behind.** Reconciling it is
    the owner's decision; the agent must not force-push or rewrite either branch.
 
-## 10 · Owner communication
+## 11 · Owner communication
 
 The owner writes in Hinglish/Hindi. Reply in simple Hinglish, short, with the bare zip
 link and the sha256. Always say clearly: not live, owner approval needed, and which

@@ -211,38 +211,72 @@
     posterImg.decoding = 'async';
     wrap.appendChild(posterImg);
     var v = doc.createElement('video');
-    /* v210 — the owner: "four videos autoplayed". The films are the content of
-       this section, so they autoplay (muted loops) whenever the case is on
-       screen: preload=auto + autoplay attribute + play() + a canplay retry,
-       and one gesture anywhere on the stage unblocks any stubborn browser. */
-    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto'; v.autoplay = true;
+    /* v223 — THE FILMS ARE NO LONGER EAGER.
+       v210 autoplayed every film, so each mounted <video> set preload=auto AND
+       its src at mount time. Five thread films is ~4.5 MB, all of it requested
+       the moment the home page rendered — before the shopper had scrolled
+       anywhere near the films — and every one of them kept decoding off-screen
+       frames while the reader scrolled past. That is the hitching.
+       Now the poster below stands alone until the film is actually near the
+       viewport; only then is the file requested. Scroll well past it and the
+       buffer is handed back. Nothing here can show a dead card: the poster is
+       under the video the whole time (v211). */
+    v.muted = true; v.loop = true; v.playsInline = true;
+    v.preload = 'none';
     v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
-    v.setAttribute('autoplay', ''); v.setAttribute('loop', '');
+    v.setAttribute('loop', '');
     v.setAttribute('poster', fl.p);
     v.setAttribute('aria-label', fl.title);
-    v.src = fl.f;
     v.style.cssText = 'width:100%;height:100%;object-fit:cover';
     v.dataset.svVis = '0';
     wrap.appendChild(v);
     mountedFilms.push(v);
+    /* wake — request the file the first time it is actually wanted */
+    function wake() {
+      if (v.getAttribute('src')) return;
+      v.preload = 'auto';
+      v.src = fl.f;
+    }
+    /* rest — give the bytes and the decoder back once the reader is past it */
+    function rest() {
+      shut(v);
+      v.dataset.svVis = '0';
+      if (v.getAttribute('src')) {
+        try { v.removeAttribute('src'); v.load(); } catch (e) {}
+      }
+    }
     /* retry-paint: if play() was blocked or the file was still arriving, try
        again the moment the video can actually run (never leave a dead card) */
     v.addEventListener('canplay', function () { if (playGate()) splay(v); });
     v.addEventListener('loadeddata', function () { if (playGate()) splay(v); });
     /* v211 — a broken/missing file degrades to the still frame, loudly marked,
-       instead of a black rectangle */
+       instead of a black rectangle.
+       v223 — but a film we deliberately released is NOT a broken film: without
+       this guard, handing the buffer back at `rest()` would mark the card
+       poster-only for the rest of the session. */
     v.addEventListener('error', function () {
+      if (!v.getAttribute('src')) return;
       v.style.display = 'none';
       wrap.classList.add('sv-film-poster-only');
     });
     if ('IntersectionObserver' in win) {
+      /* one observer, two jobs. The 1200px margin means "within about a screen
+         and a half", so approaching a film starts its download early enough to
+         be ready, and leaving that whole zone releases it. */
       new IntersectionObserver(function (es) {
         es.forEach(function (e) {
-          v.dataset.svVis = e.intersectionRatio >= .15 ? '1' : '0';
-          if (e.intersectionRatio >= .15) { if (playGate()) splay(v); }
-          else { shut(v); }
+          var shown = e.intersectionRatio >= .15;
+          v.dataset.svVis = shown ? '1' : '0';
+          if (shown) {
+            if (!REDUCED) wake();          /* reduced motion: posters only, zero video bytes */
+            if (playGate()) splay(v);
+          } else if (e.isIntersecting) {
+            shut(v);                       /* still near: keep the buffer, just stop playing */
+          } else {
+            rest();                        /* well past: release it */
+          }
         });
-      }, { threshold: [0, .15, .35, .6] }).observe(v);
+      }, { rootMargin: '1200px 0px 1200px 0px', threshold: [0, .15, .35, .6, 1] }).observe(v);
     }
     return wrap;
   }
