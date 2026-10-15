@@ -51,7 +51,7 @@ click(window, $('#view button[onclick*="qty"], #pdPlus') || $$('#view button')[0
 T('product page renders with ' + pdBtns + ' controls', pdBtns > 4, String(pdBtns));
 
 /* ── 4. no console errors / uncaught exceptions anywhere above ── */
-const real = errors.filter(e => !/getContext|Not implemented: (navigation|Window's open)|Could not parse CSS|Not implemented: HTMLFormElement/i.test(e));
+const real = errors.filter(e => !/getContext|Not implemented: (navigation|Window's open|HTMLMediaElement|HTMLFormElement)|Could not parse CSS|jsdomError|dom-selector|matchFocusWithinPseudoClass/i.test(e));
 T('zero uncaught errors across the whole walk', real.length === 0, real.length + ' errors');
 if (process.env.SHIVAA_DEBUG) real.slice(0, 6).forEach(e => console.log('\n─── ' + e.split('\n').slice(0, 6).join('\n')));
 

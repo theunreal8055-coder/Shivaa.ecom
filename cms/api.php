@@ -948,33 +948,6 @@ function shv_kyc_migrate_copy(string $source, string $ext): ?string {
   if ($mode === false || (($mode & 0077) !== 0) || !@rename($tmp, $dest)) { @unlink($tmp); return null; }
   return 'private-kyc:' . $name;
 }
-/* v182 — billing-sync HMAC guard (docs/BILLING-SYNC-CONTRACT.md). Every call
-   signs `ts \n METHOD \n route \n rawBody` with the shared secret that lives
-   ONLY in settings.billingSyncSecret. hash_equals = timing-safe; ±5 min
-   timestamp window = replay bound. Returns the decoded JSON body. */
-function shv_billing_sync_raw(): string {
-  static $raw = null;
-  if ($raw === null) {
-    $raw = (string)file_get_contents('php://input', false, null, 0, 3 * 1024 * 1024 + 1);
-    if (strlen($raw) > 3 * 1024 * 1024) jout(413, ['error' => 'Request too large']);
-  }
-  return $raw;
-}
-function shv_billing_sync_auth(array $db): array {
-  $secret = (string)($db['settings']['billingSyncSecret'] ?? '');
-  if ($secret === '') jout(403, ['error' => 'Billing sync is not configured — paste the sync key in Admin → Settings first']);
-  $ts = (string)($_SERVER['HTTP_X_SHIVAA_TS'] ?? '');
-  $sig = (string)($_SERVER['HTTP_X_SHIVAA_SIGNATURE'] ?? '');
-  if ($ts === '' || $sig === '' || !ctype_digit($ts)) jout(401, ['error' => 'Missing X-Shivaa-Ts / X-Shivaa-Signature headers']);
-  if (abs(time() - (int)$ts) > 300) jout(401, ['error' => 'Stale signature timestamp (±5 minute window)']);
-  $method = (string)($_SERVER['REQUEST_METHOD'] ?? 'GET');
-  $route = trim((string)($_GET['__route'] ?? ''), '/');
-  $raw = shv_billing_sync_raw();
-  $expect = hash_hmac('sha256', $ts . "\n" . $method . "\n" . $route . "\n" . $raw, $secret);
-  if (!hash_equals($expect, strtolower(trim($sig)))) jout(401, ['error' => 'Bad signature']);
-  $body = json_decode($raw !== '' ? $raw : '{}', true);
-  return is_array($body) ? $body : [];
-}
 /* v182 — batch-ledger dual-mode overlay (catalogBatches ↔ catalog_batches) */
 function shv_sql_catalog_overlay(array &$db): void {
   if (($GLOBALS['__shv_sql_state']['mode'] ?? '') !== 'mysql') return;
@@ -4426,9 +4399,8 @@ foreach (['freeShipAbove' => 50000, 'shippingFee' => 250, 'jaipurPremium' => 55,
      OFF: the old quiet behaviour — the new release is picked up on the next
      visit, with no reload. Flipped by the owner in Admin → Settings. */
   'forceLatestVersion' => true] as $__k => $__v) if (!isset($db['settings'][$__k])) $db['settings'][$__k] = $__v;
-/* v182 — auto-catalogue batch ledger + billing-sync idempotency log */
+/* v182 — auto-catalogue batch ledger */
 if (!isset($db['catalogBatches']) || !is_array($db['catalogBatches'])) $db['catalogBatches'] = [];
-if (!isset($db['billingMovements']) || !is_array($db['billingMovements'])) $db['billingMovements'] = [];
 /* v82 — hourly housekeeping so ephemeral collections never grow forever:
    expired bearer tokens, stale OTPs and old per-IP mail counters. Runs
    inside a request that already holds the EX write lock, at most once an
@@ -4894,74 +4866,6 @@ try {
       db_save($DB_FILE, $db);
     }
     jout(200, ['skipped' => $skipped, 'batches' => $db['catalogBatches']]);
-  }
-
-  /* ═══ v182 · billing sync bridge ═══════════════════════════════════════
-     The showroom billing app (public_html/billing/) posts stock movements and
-     reads stock snapshots over HMAC-signed calls — stock changes then flow
-     into Hostinger MySQL through the ordinary mirror-on-save path.
-     Contract: docs/BILLING-SYNC-CONTRACT.md. The shared secret lives ONLY in
-     settings.billingSyncSecret (owner-pasted in Admin → Settings); until it is
-     set, every call answers 403 and the bridge stays dark. */
-  if ($route === 'billing/stock' && $method === 'GET') {
-    shv_billing_sync_auth($db);
-    $limit = clampn((int)($_GET['limit'] ?? 500), 1, 5000);
-    $offset = max(0, (int)($_GET['offset'] ?? 0));
-    $q = trim((string)($_GET['sku'] ?? ''));
-    $rows = [];
-    foreach (($db['products'] ?? []) as $p) {
-      if (!is_array($p)) continue;
-      if ($q !== '' && strcasecmp((string)($p['sku'] ?? ''), $q) !== 0) continue;
-      $rows[] = ['id' => (string)($p['id'] ?? ''), 'sku' => (string)($p['sku'] ?? ''),
-        'name' => (string)($p['name'] ?? ''), 'category' => (string)($p['category'] ?? ''),
-        'purity' => (string)($p['purity'] ?? ''), 'weightG' => (float)($p['weightG'] ?? 0),
-        'stock' => (int)($p['stock'] ?? 0), 'active' => !empty($p['active']),
-        'status' => (string)($p['status'] ?? 'live')];
-    }
-    $total = count($rows);
-    $rows = array_slice($rows, $offset, $limit);
-    jout(200, ['products' => $rows, 'total' => $total, 'offset' => $offset, 'limit' => $limit, 'asOf' => now_iso()]);
-  }
-
-  if ($route === 'billing/stock-movement' && $method === 'POST') {
-    $b = shv_billing_sync_auth($db);
-    rate_block($db, 'billing-sync', client_ip(), 240, 3600);
-    $mid = preg_replace('/[^A-Za-z0-9_\-]/', '', (string)($b['movementId'] ?? ''));
-    if ($mid === '' || strlen($mid) > 64) jout(400, ['error' => 'movementId required (idempotency key — ≤64 chars)']);
-    if (isset($db['billingMovements'][$mid])) {
-      jout(200, ['ok' => true, 'duplicate' => true, 'movementId' => $mid, 'result' => $db['billingMovements'][$mid]]);
-    }
-    $delta = $b['delta'] ?? null;
-    if (!is_numeric($delta) || (int)$delta != $delta || (int)$delta === 0)
-      jout(400, ['error' => 'delta must be a non-zero whole number (units moved: negative = sold/issued)']);
-    $delta = (int)$delta;
-    if (abs($delta) > 100000) jout(400, ['error' => 'delta out of range (±100000)']);
-    $bySku = trim((string)($b['sku'] ?? '')) !== '';
-    $byId = trim((string)($b['productId'] ?? '')) !== '';
-    if (!$bySku && !$byId) jout(400, ['error' => 'productId or sku required']);
-    $needle = $byId ? trim((string)$b['productId']) : trim((string)$b['sku']);
-    $found = null;
-    foreach ($db['products'] as $pi => $p) {
-      if (!is_array($p)) continue;
-      $match = $byId ? ((string)($p['id'] ?? '') === $needle)
-                     : (strcasecmp((string)($p['sku'] ?? ''), $needle) === 0);
-      if ($match) { $found = $pi; break; }
-    }
-    if ($found === null) jout(404, ['error' => 'Product not found for ' . ($byId ? 'productId ' : 'sku ') . mb_substr($needle, 0, 60)]);
-    $p = &$db['products'][$found];
-    $before = (int)($p['stock'] ?? 0);
-    $p['stock'] = clampn($before + $delta, 0, 10000000);
-    $result = ['productId' => (string)($p['id'] ?? ''), 'sku' => (string)($p['sku'] ?? ''),
-      'stockBefore' => $before, 'stockAfter' => (int)$p['stock'], 'delta' => $delta,
-      'ref' => mb_substr((string)($b['ref'] ?? ''), 0, 64),
-      'note' => mb_substr((string)($b['note'] ?? ''), 0, 200), 'at' => now_iso()];
-    unset($p);
-    $db['billingMovements'][$mid] = $result;
-    if (count($db['billingMovements']) > 5000)
-      $db['billingMovements'] = array_slice($db['billingMovements'], -4000, null, true);
-    audit_log($db, 'billing.stock-movement', ['movementId' => $mid, 'delta' => $delta, 'productId' => $result['productId']]);
-    db_save($DB_FILE, $db);
-    jout(200, ['ok' => true, 'movementId' => $mid, 'result' => $result]);
   }
 
   /* ── making charges ── */
@@ -6411,7 +6315,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel'   => 205,
+      'rel' => 220,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),
@@ -8975,15 +8879,6 @@ try {
       elseif (!preg_match('/^[^\s]{16,160}$/', $v))
         jout(400, ['error' => 'Cashfree Secret Key looks invalid (paste the full secret key from API Keys — no spaces).']);
       else $setBody['cfSecretKey'] = $v;
-    }
-    /* v182 — billing sync key: write-only like cfSecretKey (blank keeps the
-       saved key). 16–128 chars of [A-Za-z0-9_-]; generate a long random one. */
-    if (array_key_exists('billingSyncSecret', $setBody)) {
-      $v = trim((string)$setBody['billingSyncSecret']);
-      if ($v === '') { unset($setBody['billingSyncSecret']); }   // blank never wipes the saved key
-      elseif (!preg_match('/^[A-Za-z0-9_\-]{16,128}$/', $v))
-        jout(400, ['error' => 'Billing sync key must be 16–128 chars (letters, digits, dash, underscore) — paste a long random one']);
-      else $setBody['billingSyncSecret'] = $v;
     }
     if (array_key_exists('cfEnv', $setBody) && !in_array((string)$setBody['cfEnv'], ['sandbox', 'production'], true))
       jout(400, ['error' => 'Cashfree environment must be sandbox or production.']);

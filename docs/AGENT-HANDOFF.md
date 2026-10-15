@@ -1,4 +1,16 @@
-# AGENT HANDOFF — v200 BUILT (button colour fixes); v199 BUILT (Black Card journey); NOTHING DEPLOYED (11 Oct 2026, branch `arena/5529f0ec-shivaa-ecom`)
+> ## CURRENT STATE — read first (updated at v220, 15 Oct 2026)
+>
+> - **Working branch: `arena/09f3c79f-shivaa-ecom`** (only this one). PR base: `arena/5529f0ec-shivaa-ecom`.
+> - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
+> - **Pushed, not live:** v206–v220. Newest is **v220** (`6e88647`): billing software removed from the website.
+>   Next release number: **v221**.
+> - Full handoff (release table with zip shas, QA commands, open items): **`docs/NEXT-CHAT-HEAD.md`**. Read it first.
+> - Sandbox resets between turns: `git fetch origin arena/09f3c79f-shivaa-ecom && git reset --hard FETCH_HEAD` first.
+>   Rebuild `cms/data/db.json` with `python3 qa/build-test-db.py`; reinstall jsdom to /tmp.
+> - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). 10g colour, offer tilt,
+>   smoothness and sign-in look are unverified in a real browser or on a phone.
+
+# AGENT HANDOFF — v207 BUILT (readability pass); v205 LIVE (11 Oct 2026, session branch `arena/09f3c79f-shivaa-ecom`)
 
 ## FORWARD-ONLY RULE (restated by the owner; absolute)
 
@@ -13,19 +25,27 @@ site. Production deploys are owner-approved only; a push or merge is not approva
 
 ## CURRENT STATE — refreshed 11 Oct 2026 (read this first)
 
-- **Branch:** `arena/5529f0ec-shivaa-ecom`. Head `03f78e0`, clean, pushed. Local and remote match.
-- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 206 or higher.
+- **Branch:** session branch `arena/09f3c79f-shivaa-ecom` (same tree as `arena/5529f0ec-shivaa-ecom`
+  head `95a2ab5`). Clean and pushed after each release commit.
+- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 208 or higher.
   Never reuse or renumber a shipped release. Never deploy an older tree over a newer live site.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
   delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
   v202 home hero → v203 card holographic foil and motion → v204 delivery button fix, address page
-  "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE.
+  "GET MY CARD", phone layout → v205 certificate redesign, delivery flow robustness, LIVE →
+  v206 Black card 3D flip rebuilt (BUILT, not deployed) → v207 readability pass, every word legible
+  (BUILT as `shivaa-update-v207.zip`, not deployed).
 - **Key fixes to remember:**
   - v199 placed the delivery click handler outside the app scope. Fixed in v204; check the closing
     `})();` of `cms/js/app.js` after any edit.
   - v193 `.btn-gold` wiped the gold gradient. Fixed in v200.
   - `background-clip:text` on a parent does not reach reveal-split words. Use solid colour.
   - Do not override `position` on elements that earlier CSS already positions (v186 seals).
+  - v206: NEVER put a `filter` on `.bc-card` (the `preserve-3d` flip card) — a non-none filter
+    forces `transform-style:flat` and the reverse never shows. Hover light belongs on the wrap.
+    The card is `div[role=button][data-flip-card]`, not `<button>` (WebKit flattens 3D in form
+    controls). The flip handlers are delegated inside the app IIFE (`data-flip-card`,
+    `data-flip-hint`).
 - **Data policy:** `cms/data/db.json` is not tracked on this branch (commit `fa6cf79`, v191).
   Never commit live data or hand-edit `db.json`.
 - **Open items:**
@@ -38,6 +58,42 @@ site. Production deploys are owner-approved only; a push or merge is not approva
 - **Sandbox:** the workspace has been re-cloned during this work. Always `git fetch`, check
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
+
+## v207 — readability pass · every word legible (11 Oct 2026)
+
+- v207 BUILT (`shivaa-update-v207.zip`), NOT deployed. Forward-only from 207. Next: 208+.
+- Owner brief task 2: text same colour as background. Audited all 45 routes desktop + phone with
+  `qa/browser/audit-contrast.mjs` (committed). Fixed forward in `cms/css/v207.css` (loaded last):
+  page-hero h1 foil cast (1.11:1 at gradient ends → light cast); `.ink-reveal` maroon sweep +
+  calm-mode on dark heroes → cream sweep; footer fine print/links (3.1–3.8:1) → .84–.93 gold;
+  app-band dismiss × (1.23:1, v200 phantom-white mis-measurement) → light gold + hover; hero
+  breadcrumbs 2.7:1 → cream .88; Black Card fine print 2–3.8:1 → readable; glass panels
+  `.svc-result`/`.shv-val-banner`/`.shv-hud-chip` on light sections (white ₹ amounts 1.03:1) →
+  dark-glass ground; gold-on-light chips/labels/avatars (1.4–2.9:1) → dark gold on light;
+  `.disp-italic` gold-on-gold (1.22:1) → cream-gold + shadow; `.fin-eng` ink deepened.
+- QA: flip ALL PASS; 83/83 index refs + 78/78 SHELL_FILES exist; `?v=` = 207 everywhere (media keeps
+  its own generation); node --check clean. Audit-boundary items (photo-scrim text, footer app-band
+  measured through translucent tints) hand-verified readable in the real render.
+- Artefacts: `shivaa-update-v207.zip` (136 files, sha256 `af75aa85…d9b84`; incl. phone-drawer readability addendum), `DEPLOY-v207.md`,
+  `tools/mega/make-v207-zip.py`, `qa/browser/audit-contrast.mjs [mobile]`.
+
+## v206 — Black card 3D flip rebuilt + live motion (11 Oct 2026)
+
+- v206 BUILT on the session branch, NOT deployed. Forward-only from 206.
+- "Tap the card to see the reverse" never flipped correctly because (1) v184's
+  `.bc-card:hover { filter:brightness(1.04) }` forced `transform-style:flat` on the preserve-3d
+  card the moment it was pointed at (mirrored front instead of the reverse), (2) the card was a
+  `<button>` (WebKit flattens 3D in form controls), (3) the hint was a span, not a button.
+- Fixes: filter removed from the card (hover light lives on the wrap), card is
+  `div[role=button][data-flip-card]`, hint is a real `<button data-flip-hint>` that flips too,
+  Enter/Space supported, delegated handlers inside the IIFE.
+- Motion (`cms/css/v206.css`): 850 ms turn with lift/settle (`translate`/`scale` independent
+  properties — v186 tilt keeps `transform`), floor-reflection breath, one glint on the landed
+  face (`.bc-flip-glint`), spinning ↻ hint, mid-flight re-entry lock, calm-mode + print safe.
+- Stamp 206 everywhere. Artefacts: `shivaa-update-v206.zip`, `DEPLOY-v206.md`,
+  `tools/mega/make-v206-zip.py`, `qa/browser/t-v206-flip.mjs` (jsdom, all pass on
+  `#/black-card` and the home hero).
+- Not done: PHP backend, smoke suite, real phone/desktop animation eyeball.
 
 ## v205 — certificate redesign + delivery flow robustness (11 Oct 2026)
 

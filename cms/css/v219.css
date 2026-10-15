@@ -1,0 +1,139 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   v219.css — "The Depth Release" · 2026-10-14
+   Loaded last. Owner brief this round:
+   (1) the 10 g Gold Scheme funnel button has dark text on a dark fill — fix it;
+   (2) make the four offer banners more premium, with depth and motion;
+   (3) a great button for the offer calls to action;
+   (4) the site feels smoother.
+
+   Rules kept: transform / translate / opacity only on moving parts (no filter
+   loops, no background-position loops — v211 stillness) · the v200 gold
+   gradient is set explicitly on the 10 g button, not removed elsewhere · no
+   flip affordance (v214) · touch screens get no pointer tilt, so scrolling
+   is never taken over (touch-action rules).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · THE 10 g FUNNEL BUTTON — gold fill, dark ink, always readable ─────
+   v217 gave .btn-gold a dark ink colour (#2a0c12) while the gold fill did not
+   paint on this button, so the label sat dark-on-dark (the screenshot). Now the
+   fill and the ink are both set here, on this button only. */
+.shv-home-campaign-card .shv-hcc-cta-row a.btn-gold {
+  background: linear-gradient(180deg, #fbe9ad 0%, #e6c26e 46%, #b98a2e 100%) !important;
+  color: #2a1405 !important;
+  -webkit-text-fill-color: #2a1405;
+  border: 1px solid #f6dc92;
+  text-shadow: 0 1px 0 rgba(255, 246, 214, .55);
+  box-shadow: 0 16px 34px -12px rgba(212, 175, 90, .75), inset 0 1px 0 rgba(255, 250, 230, .75);
+}
+.shv-home-campaign-card .shv-hcc-cta-row a.btn-gold:hover,
+.shv-home-campaign-card .shv-hcc-cta-row a.btn-gold:focus-visible {
+  background: linear-gradient(180deg, #fff1c4 0%, #f0cf7e 46%, #c99a3a 100%) !important;
+  color: #2a1405 !important;
+  -webkit-text-fill-color: #2a1405;
+}
+
+/* ── 2 · OFFER BANNERS — depth, tilt and glare ──────────────────────────────
+   On a mouse, the banner tilts toward the pointer (v219.js sets two CSS
+   variables). The artwork band moves on its own layer, a glare follows the
+   pointer, and the sheen keeps sweeping. On phones, the banner stays flat. */
+.shv-offer-card {
+  overflow: hidden;
+  transform-style: flat;
+  transition: transform .8s cubic-bezier(.2, .8, .2, 1), box-shadow .6s ease !important;
+}
+.shv-offer-card.v219-tilt {
+  transform: perspective(900px) rotateX(var(--v219-rx, 0deg)) rotateY(var(--v219-ry, 0deg)) !important;
+  transition: transform .14s linear, box-shadow .3s ease !important;
+  box-shadow: 0 40px 70px -28px rgba(0, 0, 0, .95), 0 0 0 1px rgba(233, 196, 106, .3) !important;
+  will-change: transform;
+}
+/* the glare: a soft light that sits over the card and follows the pointer */
+.shv-offer-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity .4s ease;
+  background: radial-gradient(circle at var(--v219-gx, 50%) var(--v219-gy, 50%), rgba(255, 240, 200, .24), rgba(255, 240, 200, 0) 48%);
+}
+.shv-offer-card.v219-tilt::before { opacity: 1; }
+
+/* the artwork is the back layer: it drifts against the tilt */
+.shv-offer-card .shv-offer-art {
+  translate: var(--v219-ax, 0px) var(--v219-ay, 0px);
+  transition: transform 1.1s cubic-bezier(.2, .8, .2, 1), translate .5s ease !important;
+}
+.shv-offer-card.v219-tilt .shv-offer-art {
+  transition: translate .14s linear !important;
+}
+/* the sheen pauses while the banner is off screen (smoothness) */
+.shv-offer-card.v219-off .shv-offer-shine { animation-play-state: paused; }
+
+/* ── 3 · THE OFFER BUTTON — gold pill, light sweep, lifts on hover ────────── */
+.shv-offer-card .shv-offer-go {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  margin-top: 14px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 1px solid #f6dc92;
+  background: linear-gradient(180deg, #fbe7a6 0%, #dcb25c 55%, #b08127 100%);
+  color: #2a1405 !important;
+  -webkit-text-fill-color: #2a1405;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 12.5px;
+  line-height: 1.1;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 12px 26px -12px rgba(212, 175, 90, .8), inset 0 1px 0 rgba(255, 250, 230, .75);
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1), box-shadow .35s ease;
+}
+.shv-offer-card .shv-offer-go::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .6), transparent);
+  transform: skewX(-18deg);
+  transition: transform .9s cubic-bezier(.2, .8, .2, 1);
+  pointer-events: none;
+}
+.shv-offer-card .shv-offer-go:hover,
+.shv-offer-card .shv-offer-go:focus-visible {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 18px 34px -12px rgba(243, 217, 143, .9), inset 0 1px 0 rgba(255, 250, 230, .85);
+}
+.shv-offer-card .shv-offer-go:hover::after,
+.shv-offer-card .shv-offer-go:focus-visible::after {
+  transform: skewX(-18deg) translateX(330%);
+}
+.shv-offer-card .shv-offer-go:active { transform: scale(.98); }
+.shv-offer-card .shv-offer-go:focus-visible { outline: 3px solid #fff1c4; outline-offset: 3px; }
+
+
+@media (hover: none), (pointer: coarse) {
+  .shv-offer-card.v219-tilt { transform: none !important; }
+  .shv-offer-card::before { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shv-offer-card.v219-tilt { transform: none !important; }
+  .shv-offer-card::before { display: none; }
+  .shv-offer-card .shv-offer-go::after { display: none; }
+  .shv-offer-card .shv-offer-go:hover,
+  .shv-offer-card .shv-offer-go:focus-visible { transform: none; }
+}

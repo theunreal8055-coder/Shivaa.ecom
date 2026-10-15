@@ -1,0 +1,252 @@
+/* ═════════════════════════════════════════════════════════════════════
+   SHIVAA · v207 — READABILITY PASS · "every word legible on every page"
+
+   Method: every route (45) rendered desktop + phone and measured for WCAG
+   contrast text-node by text-node (qa/browser/audit-contrast.mjs), then each
+   finding traced to its source rule. This file is the forward fix layer —
+   nothing is renumbered and nothing shipped is reverted. v200's gold button
+   gradient stays; the v206 flip layer is untouched.
+   Load order: LAST stylesheet. Forward-only; do not edit v206.css instead.
+
+   What was wrong (representative measurements):
+   · page-hero h1  — motion.css cast used #3d0e15 (= the hero's own colour) at
+     both gradient ends → letters dissolved into the background (1.11:1)
+   · .ink-reveal   — maroon ink sweep over dark heroes (1.11:1); calm-mode
+     forced solid maroon-deep on the same dark maroon
+   · footer fine print — gold at 50–62% alpha over maroon (3.1–3.8:1)
+   · fv-appband ×  — v200 measured it against a phantom white band and painted
+     it #5e1520; the real band is a gold tint over the maroon footer (1.23:1)
+   · glass panels (.svc-result / .shv-val-banner / .shv-hud-chip) — light text
+     written for dark posters, but some instances sit on light sections
+     (1.03–1.9:1)
+   · Black Card fine print — rgba white .27 legalese (2–3.8:1)
+   · gold-on-light chips (pc-cat, mc-n, label, tagx, rev-av) — 1.4–2.9:1
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · PAGE-HERO HEADINGS ────────────────────────────────────────────
+   motion.css:274 (var(--page-hero-cast)) ends the foil cast with #3d0e15 —
+   identical to the hero ground, so the first/last letters of every page-hero
+   h1 vanish (1.11:1). Replace the dark ends with light gold: the gold-foil
+   mood survives (cream → gold → cream sweep) at 5.7–16:1. */
+.page-hero h1 {
+  background-image: linear-gradient(100deg,
+    #fdf3dd 4%, #f0d189 28%, #fff6dd 50%, #eccb7c 72%, #fdf3dd 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+/* motion.css:273 targets .page-hero h1 em, which becomes .ink-reveal after the
+   split (app.js). Cream sweep on the dark hero; ink-reveal's maroon stays for
+   light surfaces where it belongs. */
+.page-hero h1.ink-reveal,
+.page-hero h1 .ink-reveal,
+.page-hero .ink-reveal {
+  background-image: linear-gradient(90deg,
+    #fdf3dd 0%, #fdf3dd 38%, #eccb7c 62%, #fdf3dd 86%, #fdf3dd 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* styles.css forces var(--maroon-deep) — unreadable on the dark hero */
+  .page-hero h1.ink-reveal, .page-hero h1 .ink-reveal, .page-hero .ink-reveal {
+    color: #fdf3dd;
+    -webkit-text-fill-color: #fdf3dd;
+    background-image: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* ── 2 · FOOTER FINE PRINT & LINKS ─────────────────────────────────────
+   aurum.css fv101 footer is dark maroon; its fine print sat at 50–62% gold
+   (3.1–3.8:1) and foot links at .75 (3.1:1 worst-case over the bright radial). */
+.footer .foot-col a { color: rgba(243, 223, 182, .93); }
+.footer .foot-addr { color: rgba(243, 223, 182, .88); }
+.footer .foot-hrs { color: rgba(243, 223, 182, .84); }
+.footer .foot-legal,
+.footer .foot-legal a { color: rgba(243, 223, 182, .88); }
+.fv-legalname { color: rgba(243, 223, 182, .86); }
+.fv-tagline { color: rgba(243, 223, 182, .86); }
+.fv-news-note { color: rgba(243, 223, 182, .86); }
+.fv-hours { color: rgba(243, 223, 182, .86); }
+.fv-b2b { color: #f3dfae; }
+.fv-b2b .ghostlink { color: var(--gold-2, #d4af5a); }
+.fv-appband-copy p { color: rgba(243, 223, 182, .88); }
+.fv-appband-copy p b { color: #fff8ea; }
+.footer .v107-basis { color: rgba(243, 223, 182, .85); }
+.footer .v107-basis b { color: var(--gold-2, #d4af5a); }
+.footer .pay-chip { color: #f0dfb6; }
+
+/* ── 3 · APP-BAND DISMISS × ────────────────────────────────────────────
+   v200.css:22 set this #5e1520 after measuring against a phantom white band.
+   The band is a gold tint over the maroon footer (1.23:1). Light gold again —
+   a forward correction with a real hover + focus ring. */
+.fv-appband-x {
+  color: rgba(243, 223, 182, .88);
+  border-color: rgba(233, 213, 168, .3);
+}
+.fv-appband-x:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, .1);
+}
+.fv-appband-x:focus-visible {
+  color: #fff;
+  outline: 2px solid var(--gold-2, #d4af5a);
+  outline-offset: 2px;
+}
+
+/* ── 4 · BREADCRUMBS ON DARK HEROES ────────────────────────────────────
+   .crumbs sits at rgba white .46 (2.7:1 over the gold light shafts). */
+.page-hero .crumbs,
+.page-hero .crumbs a,
+.bc-page-hero .crumbs,
+.bc-page-hero .crumbs a {
+  color: rgba(255, 246, 222, .88);
+}
+
+/* ── 5 · BLACK CARD — FINE PRINT ───────────────────────────────────────
+   The card is a keepsake, but its legalese was 1.5–3.8:1 on the dark foil
+   face (v184 set rgba white .27/.42 and greys like #918363). Raise every
+   small line; the card keeps its premium hierarchy. */
+.bc-claim-card .bc-eyebrow,
+.bc-mobile-row .bc-eyebrow,
+.bc-card .bc-eyebrow { color: #d8bc75; }
+.bc-brand small { color: #e2c680; }
+.bc-card .bc-title { color: #fff; }
+.bc-dates small { color: #cbb888; }
+.bc-not-pay,
+.bc-not-pay.back { color: rgba(255, 255, 255, .58); }
+.bc-code-label { color: #d8c088; }
+.bc-security { color: #c4b287; }
+.bc-back-head small { color: #c4b287; }
+.bc-back-copy { color: rgba(255, 255, 255, .78); }
+.bc-back-terms { color: rgba(255, 255, 255, .62); }
+.bc-bottom small { color: #c9b886; }
+.bc-status { color: #e6d198; }
+.bc-holo { color: #cfc08e; }
+.bc-holo.back { color: #cbb888; }
+.bc-hero-fine { color: rgba(255, 248, 232, .78); }
+.bc-he-actions > span { color: rgba(255, 255, 255, .68); }
+/* the claim sheet's dim helper text (audit: grey #6e6e6e on black) */
+.bc-claim-card .intake-note,
+.bc-intake-help { color: rgba(255, 255, 255, .7); }
+
+/* ── 6 · GLASS PANELS MAKE THEIR OWN DARK GROUND ───────────────────────
+   These were written for dark posters (cream text, translucent glass). On
+   light sections the glass fell through to the cream page (1.03–1.9:1).
+   Give the panels a solid dark-glass ground so their light text always has
+   its dark stage — the look is preserved everywhere they appear. */
+.bbc-result,
+.svc-result {
+  background: linear-gradient(165deg, rgba(32, 12, 16, .88), rgba(52, 22, 28, .8));
+}
+.shv-val-banner {
+  background: linear-gradient(135deg, rgba(46, 32, 10, .92), rgba(32, 22, 8, .88));
+  border-left-color: #e6b75c;
+}
+.shv-hud-chip {
+  background: rgba(18, 10, 3, .82);
+  color: #e9c877;
+}
+.bbr-rate { color: rgba(250, 240, 218, .85); }
+.bbr-fine { color: rgba(250, 240, 218, .8); }
+.bbr-split small { color: rgba(250, 240, 218, .8); }
+.bbr-split div { background: rgba(0, 0, 0, .32); }
+
+/* ── 7 · GOLD ON LIGHT — chips, labels, avatars ────────────────────────
+   Default gold (#b98a2f family) is 2.5–2.9:1 on cream/white. Dark gold for
+   light grounds; the existing dark-section overrides keep the light gold. */
+.label { color: #8a6520; }
+.dark .label,
+.page-hero .label,
+.black-hero .label,
+.bc-page-hero .label,
+.footer .label,
+.banner .label,
+.topbar .label,
+.c-slide .label,
+.atl-copy .label,
+.hfm-copy .label,
+.op-value .label,
+.bw-copy .label,
+.ws-copy .label,
+.promo .label,
+.vc-card .label,
+.team-card .label,
+.panel-dark .label,
+.shv-sheet .label { color: var(--gold-2, #d4af5a); }
+/* the app-sheet is light: its label stays dark */
+.shv-sheet-card .label { color: #8a6520; }
+
+.pc-cat { color: #8a6520; }
+.pc-rating { color: #8a6520; }
+.mc-n { color: #8a6520; }
+.tagx.gold {
+  background: linear-gradient(135deg, var(--gold, #b98a2f), #9c7222);
+  color: #2b1a05;
+}
+.rev-av {
+  background: linear-gradient(135deg, var(--gold, #b98a2f), #8f6516);
+  color: #2b1703;
+}
+
+/* ── 8 · GOLD-ON-GOLD LARGE WORDS ──────────────────────────────────────
+   .disp-italic gold over the heroes' gold light shafts (1.22:1 worst case at
+   52px). Light cream-gold on dark grounds with a soft shadow; dark gold on
+   light grounds. */
+.disp-italic { color: #8a6520; }
+.black-hero .disp-italic,
+.hero .disp-italic,
+.page-hero .disp-italic,
+.bc-page-hero .disp-italic {
+  color: #f4dc9c;
+  text-shadow: 0 2px 18px rgba(20, 8, 2, .55);
+}
+
+/* ── 9 · GOLD-FOIL ENGRAVING BAR (.fin-bar / .fin-eng) ─────────────────
+   Dark ink on the foil's dark stops measured 1.9–2.9:1. Deeper ink. */
+.fin-eng small { color: #2a1c0c; }
+.fin-eng em { color: #2e1c02; }
+.fin-eng span { color: #332202; }
+
+/* ── 10 · MISC SMALL FAILURES ────────────────────────────────────────── */
+.v107-chan.warn { color: #8a5608; }
+.bbr-label { color: var(--gold-soft, #eed090); }
+/* scheme hero CTA: some layers pushed cream text onto the gold's light stop */
+.btn-gold.btn-xl, .btn-gold.btn-xl b { color: #2b1a05; }
+/* card benefit chips (v201 .62 alpha = 3.2:1 worst-case) */
+.bc-benefit-grid small { color: rgba(255, 246, 224, .88); }
+/* black-stage certificate chip */
+.bc-stage-cert small { color: #5c441c; }
+/* scheme video spin hint on maroon */
+.sv-case-hint { color: #dbb0a2; }
+/* team role lines (gold on white, 2.58:1) */
+.team-card small { color: #8a6520; }
+
+/* ── 11 · PHONE NAV DRAWER ─────────────────────────────────────────────
+   The drawer panel is dark maroon (styles.css .nav gradient) but mobile.css
+   wins the cascade for several labels and they compute dark (1.0–1.8:1):
+   the category pill labels, the call link, the drawer link rows — and the
+   "For Jewellers" tile sat on an emerald tint with maroon text. Force the
+   light drawer palette (v207 loads last). */
+@media (max-width: 860px) {
+  .nav .nav-scroll > a,
+  .nav .nav-scroll > button { color: #f2e5cc !important; }
+  .nav .nav-scroll > a *,
+  .nav .nav-scroll > button * { color: inherit !important; }
+  .nav .dw-sec { color: rgba(212, 175, 90, .9) !important; }
+  .dw-more .dw-more-lbl,
+  .dw-more .dt-more-lbl { color: #e9d9b6 !important; }
+  .dw-foot a { color: rgba(232, 214, 180, .9) !important; }
+  .dw-call { color: var(--gold-2, #d4af5a) !important; }
+  .dw-head b { color: #f7ecd2 !important; }
+  .dw-head small { color: rgba(212, 175, 90, .92) !important; }
+  /* the tile keeps its dark ink — give it an opaque gold ground so the ink
+     never lands on the emerald tint or the maroon drawer */
+  .nav a.nav-jwl {
+    background: linear-gradient(120deg, var(--gold, #b98a2f), #b0802c 55%, var(--gold-2, #d4af5a)) !important;
+    color: #2a0a11 !important;
+  }
+  .nav a.nav-jwl .dw-tx b { color: #2a0a11 !important; }
+  .nav a.nav-jwl .dw-tx small { color: rgba(42, 10, 17, .88) !important; }
+}

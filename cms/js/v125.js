@@ -8,9 +8,9 @@
        zoom-from-origin transition.
    House rules honoured:
      · poster-first, muted, playsinline; films play ONLY while on screen
-     · au-lite / Save-Data: films never autoplay and never even mount a
-       <video> — posters only, the reel still loads on an explicit tap
-       (the same tap-to-load contract as the PDP 360° films)
+     · v213 (owner): the films run on phones too — save-data / au-lite only
+       changes the hint words, never the mounting; a blocked or missing film
+       falls back to its still frame (v211) and the case still turns
      · prefers-reduced-motion: no autoplay, no zoom transition
      · self-guarding + additive: any failure here cannot take the page down
      · v125 SUPERSEDES the v46 boost films row ("The house in motion") on
@@ -185,7 +185,6 @@
   function pauseAllFilms() { mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; }); mountedFilms.forEach(shut); }
   function resumeVisibleFilms() {
     mountedFilms = mountedFilms.filter(function (v) { return v.isConnected; });
-    if (REDUCED) return;
     mountedFilms.forEach(function (v) { if (v.dataset.svVis === '1' && v.getAttribute('src')) splay(v); });
   }
 
@@ -194,13 +193,29 @@
     /* playGate: a function that returns true when this film may play */
     var wrap = doc.createElement('div');
     wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden';
+    wrap.className = 'sv-film-wrap';
     if (liteMode) {
-      wrap.innerHTML = '<img src="' + fl.p + '" alt="' + fl.title + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover">';
+      wrap.innerHTML = '<img src="' + fl.p + '" alt="' + fl.title + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover"><span class="sv-film-tap" aria-hidden="true">▶ Tap to play</span>';
       return wrap;
     }
+    /* v211 — the poster is a real <img> UNDER the video, always. If the film
+       file is missing, blocked or corrupt, the card keeps its still frame and
+       the case still turns: the feature can never show a dead black card. */
+    var posterImg = doc.createElement('img');
+    posterImg.className = 'sv-film-poster';
+    posterImg.src = fl.p;
+    posterImg.alt = fl.title;
+    posterImg.loading = 'lazy';
+    posterImg.decoding = 'async';
+    wrap.appendChild(posterImg);
     var v = doc.createElement('video');
-    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'metadata';
+    /* v210 — the owner: "four videos autoplayed". The films are the content of
+       this section, so they autoplay (muted loops) whenever the case is on
+       screen: preload=auto + autoplay attribute + play() + a canplay retry,
+       and one gesture anywhere on the stage unblocks any stubborn browser. */
+    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto'; v.autoplay = true;
     v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
+    v.setAttribute('autoplay', ''); v.setAttribute('loop', '');
     v.setAttribute('poster', fl.p);
     v.setAttribute('aria-label', fl.title);
     v.src = fl.f;
@@ -208,6 +223,16 @@
     v.dataset.svVis = '0';
     wrap.appendChild(v);
     mountedFilms.push(v);
+    /* retry-paint: if play() was blocked or the file was still arriving, try
+       again the moment the video can actually run (never leave a dead card) */
+    v.addEventListener('canplay', function () { if (playGate()) splay(v); });
+    v.addEventListener('loadeddata', function () { if (playGate()) splay(v); });
+    /* v211 — a broken/missing file degrades to the still frame, loudly marked,
+       instead of a black rectangle */
+    v.addEventListener('error', function () {
+      v.style.display = 'none';
+      wrap.classList.add('sv-film-poster-only');
+    });
     if ('IntersectionObserver' in win) {
       new IntersectionObserver(function (es) {
         es.forEach(function (e) {
@@ -231,13 +256,17 @@
   var caseResizeBound = false;
   function mountCase(mount) {
     mount.dataset.mnt = '1';
-    var liteMode = lite();
+    /* v213 (owner: "the case must work on mobile") — save-data only changes
+       the hint words now. The films themselves always mount and autoplay;
+       a blocked/missing film falls back to its still frame (v211). */
+    var hintLite = lite();
+    var liteMode = false;
     mount.innerHTML =
       '<div class="sv-case">' +
         '<div class="sv-case-head">' +
           '<span class="label" style="color:var(--gold-2,#d4af5a)">Now showing</span>' +
           '<h3>Shivaa Films — turn the <em style="font-style:italic">case</em></h3>' +
-          '<p>' + (liteMode ? 'Tap a film to play it with sound.' : 'Drag the case to spin it — it settles on your film. Tap the front film for full screen.') + '</p>' +
+          '<p>' + (hintLite ? 'Tap a film to play it with sound.' : 'Drag the case to spin it — it settles on your film. Tap the front film for full screen.') + '</p>' +
         '</div>' +
         '<div class="sv-case-stage" id="svCaseStage"><div class="sv-case-ring" id="svCaseRing"></div><div class="sv-case-glow"></div></div>' +
         '<div class="sv-case-ui">' +
@@ -245,7 +274,8 @@
           '<div class="sv-case-count" id="svCaseCount"></div>' +
           '<button class="sv-case-arrow" id="svCaseNext" aria-label="Next film">›</button>' +
         '</div>' +
-        '<div class="sv-case-hint">' + (liteMode ? 'SAVE-DATA MODE · FILMS LOAD ONLY WHEN TAPPED' : 'DRAG TO SPIN · ONLY THE FRONT FILM PLAYS') + '</div>' +
+        '<div class="sv-case-rail" id="svCaseRail" aria-label="All four films"></div>' +
+        '<div class="sv-case-hint">' + (hintLite ? 'SAVE-DATA MODE · TAP A FILM ANY TIME' : (coarse() ? 'DRAG TO SPIN · THE FRONT FILM PLAYS · TAP A FILM TO BRING IT FRONT' : 'DRAG TO SPIN · ALL FOUR FILMS PLAY · TAP THE FRONT FILM FOR FULL SCREEN')) + '</div>' +
       '</div>';
     var stage = $('#svCaseStage'), ring = $('#svCaseRing');
     var cards = [];
@@ -254,19 +284,91 @@
       c.className = 'sv-case-card'; c.type = 'button';
       c.setAttribute('aria-label', 'Play ' + fl.title);
       c.innerHTML = '<span class="sv-case-no">FILM ' + fl.no + '</span><span class="sv-case-name">' + fl.title + '</span>';
-      c.insertBefore(filmMedia(fl, liteMode, function () { return !REDUCED && caseVisible() && !reelOpen() && front() === i; }), c.firstChild.nextSibling);
+      c.insertBefore(filmMedia(fl, liteMode, function () { return canPlay(c); }), c.firstChild.nextSibling);
       ring.appendChild(c); cards.push(c);
     });
+    /* v214 (owner: "all four films are not visible" on phones) — a thumb rail
+       of ALL FOUR films, always visible, tap to bring one to the front (or
+       play it full screen when it is already front). Posters only — the ring
+       above already runs the videos. */
+    var rail = $('#svCaseRail');
+    if (rail) {
+      CASE_FILMS.forEach(function (fl, i) {
+        var b = doc.createElement('button');
+        b.type = 'button';
+        b.className = 'sv-case-thumb' + (i === 0 ? ' is-front' : '');
+        b.setAttribute('aria-label', 'Show ' + fl.title);
+        b.innerHTML = '<img src="' + fl.p + '" alt="" loading="lazy" decoding="async"><span>FILM ' + fl.no + '</span>';
+        b.addEventListener('click', function () {
+          pauseAuto(14000);
+          gestureUnlock();
+          if (i === front()) { openReel(i, b, CASE_FILMS); return; }
+          var cur = (snapTo != null) ? snapTo : rot;
+          var delta = (((-i * STEP - cur) % 360) + 360) % 360; if (delta > 180) delta -= 360;
+          snapTo = cur + delta; vel = 0; kick();
+        });
+        rail.appendChild(b);
+      });
+    }
     var rot = 0, vel = 0, R = 200, dragging = false, lastX = 0, movedPx = 0, snapTo = null, raf = null, visible = false, lastFront = -1, lastMoveT = 0;
+    /* v214 — inline transforms must be written WITH the webkit prefix too:
+       older phone WebViews ignore the unprefixed property, so the four cards
+       never moved out of one spot ("all four films are not visible"). */
+    function setT(el, t) {
+      if (!el) return;
+      el.style.webkitTransform = t;
+      el.style.transform = t;
+    }
+    /* v215 (owner: case still dead on phones) — the 3D ring is gone. A
+       preserve-3d ring rotates in the PARENT, and cheap phone WebViews
+       flatten it: the four cards pile on one spot ("all four films are not
+       visible") and a spin moves nothing ("drag to spin is not working").
+       The carousel is now pure 2D cover-flow: every card carries its own
+       flat transform, computed each frame from the spin offset. The wrap
+       point (the film passing behind) is folded to x=0 and hidden under the
+       front card, so spinning is continuous with no pop. */
     function place() {
       if (!stage.isConnected) return;
-      var cw = cards[0] ? cards[0].offsetWidth : 230;
-      R = Math.max(120, Math.round(cw * .95));
-      cards.forEach(function (c, i) { c.style.transform = 'translate(-50%,-50%) rotateY(' + (i * STEP) + 'deg) translateZ(' + R + 'px)'; });
+      R = cards[0] ? cards[0].offsetWidth : 230;
+      layoutCards();
+    }
+    function layoutCards() {
+      if (!stage.isConnected || !cards.length) return;
+      var cw = R || 230;
+      var n = cards.length;
+      var p = -rot / STEP;               /* front index as a float (front() rounds this) */
+      cards.forEach(function (c, i) {
+        var o = (((i - p) % n) + n + n / 2) % n - n / 2;   /* offset in steps ∈ [−n/2, n/2) */
+        var ao = Math.abs(o);
+        var shrink = 1 - Math.pow(ao / (n / 2), 6);        /* 0 exactly at the wrap → passes behind the front card */
+        var x = Math.sin(o * 1.15) * cw * .62 * shrink;
+        var y = (1 - Math.cos(o * 1.1)) * 14;
+        var sc = .62 + .38 * Math.cos(o * 1.1);
+        setT(c, 'translate(-50%,-50%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) scale(' + sc.toFixed(3) + ')');
+        c.style.opacity = Math.max(.36, 1 - ao * .28).toFixed(3);
+        c.style.zIndex = String(40 - Math.round(ao * 10));
+        if (i === front()) c.classList.add('is-front'); else c.classList.remove('is-front');
+      });
     }
     function front() { return ((Math.round(-rot / STEP) % CASE_FILMS.length) + CASE_FILMS.length) % CASE_FILMS.length; }
     function caseVisible() { return visible && stage.isConnected; }
-    function setCount() { $('#svCaseCount').textContent = CASE_FILMS[front()].no + ' / 0' + CASE_FILMS.length + ' · ' + CASE_FILMS[front()].title.toUpperCase(); }
+    /* v216 (owner: "the films are not available on mobile") — on touch
+       screens (pointer: coarse) only the FRONT film plays; the others show
+       their poster and play the moment they are brought round. Phones
+       decode a few videos at once and drop the rest, which is why three of
+       four films went dark there. Laptops keep all four playing. */
+    function coarse() { try { return !!(win.matchMedia && win.matchMedia('(pointer: coarse)').matches); } catch (e) { return false; } }
+    function canPlay(c) { return caseVisible() && !reelOpen() && (!coarse() || cards[front()] === c); }
+    function setCount() {
+      var f = front();
+      $('#svCaseCount').textContent = CASE_FILMS[f].no + ' / 0' + CASE_FILMS.length + ' · ' + CASE_FILMS[f].title.toUpperCase();
+      /* v214 — the thumb rail follows the front film */
+      if (rail) {
+        Array.prototype.forEach.call(rail.children, function (t, i) {
+          if (i === f) t.classList.add('is-front'); else t.classList.remove('is-front');
+        });
+      }
+    }
     function loop() {
       if (!stage.isConnected) { raf = null; return; }
       if (!dragging) {
@@ -276,21 +378,18 @@
           if (Math.abs(snapTo - rot) < .12) { rot = snapTo; snapTo = null; }
         } else { vel = 0; }
       }
-      ring.style.transform = 'rotateY(' + rot + 'deg)';
-      cards.forEach(function (c, i) {
-        var ang = ((i * STEP + rot) % 360 + 360) % 360;
-        var d = Math.min(ang, 360 - ang);
-        var f = Math.max(0, 1 - d / 180);
-        c.style.opacity = (.32 + .68 * f).toFixed(3);
-        c.style.filter = 'brightness(' + (.42 + .58 * f).toFixed(3) + ')';
-      });
+      /* v215 — the ring no longer rotates: every card is positioned flat in 2D */
+      layoutCards();
       var fi = front();
       if (fi !== lastFront) {
         lastFront = fi; setCount();
-        cards.forEach(function (c, i) {
+        /* v210 — all four films run their muted loops while the case is on
+           screen (the owner's "four videos autoplayed"); the front one simply
+           wears the gold stage. */
+        cards.forEach(function (c) {
           var v = c.querySelector('video');
           if (!v) return;
-          if (i === fi) { if (caseVisible() && !reelOpen()) splay(v); } else { shut(v); }
+          if (canPlay(c)) splay(v); else shut(v);
         });
       }
       /* settle: stop the frame loop once nothing is in flight */
@@ -303,11 +402,12 @@
       snapTo = base - d * STEP; vel = 0; kick();   /* front = −rot/STEP, so 'next' spins the ring minus-wise */
     }
     stage.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'touch') return;   /* v213 — touch uses the touch path below */
       dragging = true; lastX = e.clientX; movedPx = 0; vel = 0; snapTo = null;
       try { stage.setPointerCapture(e.pointerId); } catch (err) {}
     });
     stage.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
+      if (!dragging || e.pointerType === 'touch') return;
       var dx = e.clientX - lastX; lastX = e.clientX;
       movedPx += Math.abs(dx); lastMoveT = Date.now();
       rot += dx * .32; vel = dx * .32; kick();
@@ -320,6 +420,52 @@
     }
     stage.addEventListener('pointerup', endDrag);
     stage.addEventListener('pointercancel', endDrag);
+    /* v213 — THE MOBILE SPIN. On touch screens the browser's pan/scroll can
+       swallow pointer events mid-gesture (pointercancel), so a swipe on the
+       case used to do nothing on phones while working on laptops. The touch
+       path owns horizontal gestures outright (preventDefault the moment the
+       finger runs sideways) and hands vertical gestures back to the page. */
+    var tX = 0, tY = 0, tActive = false, tMoved = 0;
+    function gestureUnlock() {
+      cards.forEach(function (c) {
+        var v = c.querySelector('video');
+        if (v && canPlay(c)) splay(v);
+      });
+    }
+    stage.addEventListener('touchstart', function (e) {
+      if (!e.touches || e.touches.length !== 1) return;
+      tActive = true; tMoved = 0;
+      tX = e.touches[0].clientX; tY = e.touches[0].clientY;
+      dragging = true; vel = 0; snapTo = null;
+      pauseAuto(14000);
+      gestureUnlock();
+    }, { passive: true });
+    stage.addEventListener('touchmove', function (e) {
+      if (!tActive || !e.touches || e.touches.length !== 1) return;
+      var x = e.touches[0].clientX, y = e.touches[0].clientY;
+      var dx = x - tX, dy = y - tY;
+      tX = x; tY = y;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (e.cancelable) e.preventDefault();    /* this gesture spins the case */
+        tMoved += Math.abs(dx);
+        lastMoveT = Date.now();
+        rot += dx * .32; vel = dx * .32;
+        kick();
+      } else {
+        /* finger runs up/down — page scroll wins, keep whatever spin happened */
+        tActive = false; dragging = false;
+        if (tMoved > 7) snapTo = Math.round(rot / STEP) * STEP;
+        kick();
+      }
+    }, { passive: false });
+    function endTouch() {
+      if (!tActive) return;
+      tActive = false; dragging = false;
+      if (tMoved > 7) snapTo = Math.round(rot / STEP) * STEP;
+      kick();
+    }
+    stage.addEventListener('touchend', endTouch);
+    stage.addEventListener('touchcancel', endTouch);
     cards.forEach(function (c, i) {
       c.addEventListener('click', function () {
         if (Date.now() - lastMoveT < 240) return;
@@ -333,14 +479,58 @@
     });
     $('#svCasePrev').addEventListener('click', function () { stepBy(-1); });
     $('#svCaseNext').addEventListener('click', function () { stepBy(1); });
+    /* v209 — the case is alive: the front film plays the moment the case is
+       on screen (no IO-order race), and the ring turns itself gently while
+       nobody is touching it — every one of the four films wakes as it comes
+       round. One touch pauses the tour for a while. */
+    var autoT = null, autoPausedUntil = 0;
+    function playFrontNow() {
+      var f = front();
+      lastFront = f; setCount();
+      cards.forEach(function (c) {
+        var v = c.querySelector('video');
+        if (!v) return;
+        if (canPlay(c)) splay(v); else shut(v);
+      });
+    }
+    function scheduleAuto() {
+      if (autoT) { clearTimeout(autoT); autoT = null; }
+      if (REDUCED || !stage.isConnected) return;
+      autoT = setTimeout(function () {
+        autoT = null;
+        if (!stage.isConnected) return;
+        if (!visible || dragging || reelOpen() || Date.now() < autoPausedUntil) { scheduleAuto(); return; }
+        stepBy(1);
+        scheduleAuto();
+      }, 7200);
+    }
+    function pauseAuto(ms) { autoPausedUntil = Date.now() + (ms || 10000); }
     if ('IntersectionObserver' in win) {
       new IntersectionObserver(function (es) {
         visible = es[0].intersectionRatio > .15;
-        if (!visible) cards.forEach(function (c) { var v = c.querySelector('video'); if (v) shut(v); });
-        else kick();
+        if (!visible) {
+          cards.forEach(function (c) { var v = c.querySelector('video'); if (v) shut(v); });
+          if (autoT) { clearTimeout(autoT); autoT = null; }
+        } else {
+          playFrontNow();
+          kick();
+          scheduleAuto();
+        }
       }, { threshold: [0, .15, .5] }).observe(stage);
-    } else { visible = true; }
+    } else { visible = true; playFrontNow(); scheduleAuto(); }
+    stage.addEventListener('pointerdown', function () {
+      pauseAuto(14000);
+      /* gesture unlock: some browsers refuse the very first play() until the
+         visitor touches something — one touch wakes every film on screen */
+      cards.forEach(function (c) {
+        var v = c.querySelector('video');
+        if (v && canPlay(c)) splay(v);
+      });
+    });
+    stage.addEventListener('pointerenter', function () { pauseAuto(9000); });
+    cards.forEach(function (c) { c.addEventListener('click', function () { pauseAuto(14000); }); });
     place();
+    requestAnimationFrame(place);           /* re-measure once layout has settled */
     if ('ResizeObserver' in win) new ResizeObserver(place).observe(stage);
     casePlaces.push(function () { place(); return stage.isConnected; });
     if (!caseResizeBound) {
@@ -361,7 +551,7 @@
   var thread = null;
   function mountThread(mount) {
     mount.dataset.mnt = '1';
-    var liteMode = lite();
+    var liteMode = false;   /* v213 — thread films run everywhere too */
     mount.innerHTML =
       '<div class="sv-thread" id="svThreadBox">' +
         '<svg class="sv-thread-svg" viewBox="0 0 400 1700" preserveAspectRatio="none" aria-hidden="true">' +
@@ -443,8 +633,7 @@
     var view = doc.getElementById('view');
     if (!view) return;
     supersedeBoostFilms(view);
-    var c = doc.getElementById('svCaseMount');
-    if (c && !c.dataset.mnt) { try { mountCase(c); } catch (e) { c.dataset.mnt = 'err'; } }
+    /* v218 — the revolving case was removed permanently (owner order). */
     var t = doc.getElementById('svThreadMount');
     if (t && !t.dataset.mnt) { try { mountThread(t); } catch (e) { t.dataset.mnt = 'err'; } }
   }
@@ -462,11 +651,12 @@
   /* tiny test surface for the smoke gates (never used by the page itself) */
   win.ShivaaV125 = {
     open: function (i, el) { openReel(i, el); },
+    openCase: function (i, el) { openReel(i, el, CASE_FILMS); },
     close: reelClose,
     isOpen: reelOpen,
     caseNext: function () { if (caseApi) caseApi.next(); },
     caseFront: function () { return caseApi ? caseApi.front() : -1; },
-    caseCount: function () { return caseApi ? caseApi.count() : 0; },
+    caseCount: function () { return caseApi ? caseApi.count() : doc.querySelectorAll('#svCaseRing .sv-case-card').length; },
     films: CASE_FILMS.length + THREAD_FILMS.length,
     caseFilms: CASE_FILMS.length,
     threadFilms: THREAD_FILMS.length,

@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 205;
+const APP_REL = 220;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -1963,7 +1963,17 @@ function renderSchemeStage(step, gender) {
 
   init3DCardTilts();
 
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  /* v218 — the funnel no longer throws the shopper to the top of the page on
+     every answer. It moves only when the active step has scrolled out of view,
+     and then just brings the step's top to a comfortable line. */
+  const firstPaint = !window._shvSchemeRendered;
+  window._shvSchemeRendered = true;
+  const activeStage = document.querySelector('.shv-scheme-stage.active');
+  if (activeStage && !firstPaint) {
+    const r = activeStage.getBoundingClientRect();
+    const offScreen = r.height > 0 && (r.top < 0 || r.top > window.innerHeight * 0.85);
+    if (offScreen) window.scrollTo({ top: Math.max(0, window.scrollY + r.top - 90), behavior: 'smooth' });
+  }
 }
 
 function renderStudsCollection(gender = 'gents') {
@@ -2994,32 +3004,30 @@ function heroDust(canvasId) {
     io = new IntersectionObserver(es => { visible = !!(es[0] && es[0].isIntersecting); }, { rootMargin: '120px' });
     io.observe(cv);
   }
-  const cleanup = () => {
-    if (raf) cancelAnimationFrame(raf);
+  size();
+  /* v211 "stillness" — the dust is painted once as a still starfield and
+     never redrawn. The old 60fps clearRect/twinkle loop was literally
+     flashing dots over the card and fighting the GPU on the owner's
+     laptop; a static field keeps the ambience at zero cost. */
+  const P = Array.from({ length: 26 }, () => ({ x: Math.random(), y: Math.random(), r: .6 + Math.random() * 1.8, a: .1 + Math.random() * .26 }));
+  const paintStatic = () => {
+    if (!cv.parentElement) return;
+    ctx.clearRect(0, 0, W, H);
+    for (const d of P) {
+      ctx.fillStyle = `rgba(240,216,150,${d.a})`;
+      ctx.beginPath(); ctx.arc(d.x * W, d.y * H, d.r, 0, 7); ctx.fill();
+    }
+  };
+  paintStatic();
+  if (ro) { /* ResizeObserver already wired to size(); repaint after it lands */ }
+  const roPaint = () => { size(); paintStatic(); };
+  if (typeof ResizeObserver === 'function') { ro.disconnect(); ro = new ResizeObserver(roPaint); ro.observe(cv.parentElement); }
+  cv._dustCleanup = () => {
     if (ro) ro.disconnect();
     if (io) io.disconnect();
-    if (fallbackResize) removeEventListener('resize', size);
+    if (fallbackResize) removeEventListener('resize', roPaint);
     cv._dustCleanup = null;
   };
-  cv._dustCleanup = cleanup;
-  size();
-  const P = Array.from({ length: 48 }, () => ({ x: Math.random(), y: Math.random(), r: .6 + Math.random() * 1.8, p: Math.random() * 6.28, v: .00014 + Math.random() * .00034 }));
-  let t = 0;
-  (function frame() {
-    if (!document.body.contains(cv)) { cleanup(); return; }
-    if (visible && !document.hidden) {
-      t += .016;
-      ctx.clearRect(0, 0, W, H);
-      for (const d of P) {
-        d.y -= d.v * 60; if (d.y < -.05) d.y = 1.05;
-        const a = .08 + .32 * Math.abs(Math.sin(t * 1.25 + d.p));
-        const x = d.x * W + Math.sin(t * .55 + d.p) * 8;
-        ctx.fillStyle = `rgba(240,216,150,${a})`;
-        ctx.beginPath(); ctx.arc(x, d.y * H, d.r, 0, 7); ctx.fill();
-      }
-    }
-    raf = requestAnimationFrame(frame);
-  })();
 }
 /* Layered hero depth bound to the live stage — never to window. The old global
    mousemove/resize closures survived every return to Home and retained detached
@@ -3027,24 +3035,11 @@ function heroDust(canvasId) {
 function initHeroStage() {
   const stage = $('.hero-stage'); if (!stage || stage._hs) return; stage._hs = true;
   heroDust('heroDust');
-  if (calmMotion() || !finePointer() || innerWidth <= 820) return;
-  const layers = $$('[data-depth]', stage); let frame = 0, latest = null;
-  const paint = () => {
-    frame = 0; if (!latest || !document.body.contains(stage)) return;
-    const r = stage.getBoundingClientRect();
-    const dx = Math.max(-.5, Math.min(.5, (latest.clientX - r.left) / Math.max(1, r.width) - .5));
-    const dy = Math.max(-.5, Math.min(.5, (latest.clientY - r.top) / Math.max(1, r.height) - .5));
-    layers.forEach(el => {
-      const d = +el.dataset.depth || 1;
-      el.style.setProperty('--px', (dx * -18 * d).toFixed(1) + 'px');
-      el.style.setProperty('--py', (dy * -12 * d).toFixed(1) + 'px');
-    });
-  };
-  stage.addEventListener('pointermove', e => { latest = e; if (!frame) frame = requestAnimationFrame(paint); }, { passive: true });
-  stage.addEventListener('pointerleave', () => {
-    latest = null; if (frame) { cancelAnimationFrame(frame); frame = 0; }
-    layers.forEach(el => { el.style.setProperty('--px', '0px'); el.style.setProperty('--py', '0px'); });
-  }, { passive: true });
+  /* v211 "stillness" — the pointer-depth parallax is retired. Two motion
+     systems (hero depth + card light-follow) plus the flip were re-rendering
+     the same banner on every mouse move; the owner asked for a very smooth
+     banner. The stage is now a fixed composition: card, certificate, dust. */
+  return;
 }
 
 /* ─────────── page components ─────────── */
@@ -3264,7 +3259,11 @@ function renderRateStrip() {
   const shows = [['gold22', fmt(R.gold22)], ['gold18', fmt(R.gold18)], ['silver', fmt2(R.silver)]];
   if (rt.tdsGold9999) shows.push(['rtgsG9999', rtgsVal(rt.tdsGold9999)]);
   if (rt.silverPeti) shows.push(['rtgsS9999', rtgsVal(rt.silverPeti)]);
+  /* v208 — a live ticker ribbon runs above the cells (the owner asked for the
+     rate feature under the category bar to come alive with motion). */
+  const tickTxt = `✦ Live &nbsp;·&nbsp; Gold 22K <b>₹${fmt(R.gold22)}/g</b> &nbsp;·&nbsp; Gold 18K <b>₹${fmt(R.gold18)}/g</b> &nbsp;·&nbsp; Silver 925 <b>₹${fmt2(R.silver)}/g</b> &nbsp;·&nbsp; ${R.live ? 'ticking live from the desk' : 'updated ' + timeFmt(R.t)}`;
   $('#rateStrip').innerHTML =
+    `<div class="rs-ticker" aria-hidden="true"><div class="rs-ticker-track"><span>${tickTxt}</span><span>${tickTxt}</span></div></div>` +
     cell('gold22', '✦ Shivaa Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
     cell('gold18', 'Gold 18K / gram', fmt(R.gold18), '₹/g vs prev', R.gold18 - prev.gold18) +
     cell('silver', 'Silver 925 / gram', fmt2(R.silver), '₹/g vs prev', R.silver - prev.silver) +
@@ -3532,14 +3531,19 @@ function bannerOfferCard(o) {
   const isDel = o.kind === 'delivery';
   const big = isDel ? 'FREE' : pctTxt + '%';
   const off = isDel ? 'home delivery' : 'off making charges';
-  const label = isDel ? `Free home delivery, use code ${o.code}` : `${pctTxt}% off making charges, use code ${o.code}`;
+  const label = isDel ? `Free home delivery, use code ${o.code}` : `${pctTxt}% off making charges for Shivaa Black members`;
+  /* v208 (owner): the making-charges tab is for Shivaa Black members and shows
+     NO coupon code — the saving attaches to the membership at checkout.
+     The delivery tab keeps its FREEDEL code exactly as before. */
   return `
-    <a class="shv-offer-card shv-offer-${isDel ? 'delivery' : 'making'} rv" href="#/shop" aria-label="${esc(label)}">
-      <span class="shv-offer-shine" aria-hidden="true"></span>
-      <span class="shv-offer-badge">Every customer</span>
+    <a class="shv-offer-card shv-offer-${isDel ? 'delivery' : 'making'} rv" href="${isDel ? '#/shop' : '#/black-card'}" aria-label="${esc(label)}">
+      <span class="shv-offer-shine" aria-hidden="true"></span><span class="shv-offer-art" aria-hidden="true"></span><span class="shv-offer-orn" aria-hidden="true"></span>
+      <span class="shv-offer-badge">${isDel ? 'Every customer' : 'Shivaa Black members'}</span>
       <span class="shv-offer-head"><b class="shv-offer-pct">${esc(big)}</b><span class="shv-offer-off">${esc(off)}</span></span>
-      <span class="shv-offer-sub">Use code <b class="shv-offer-code">${esc(o.code)}</b> at checkout.${isDel ? ' Delivery fee waived on your order.' : ' Metal and stones stay at today\'s rate.'}</span>
-      <span class="shv-offer-go">Shop now &rarr;</span>
+      <span class="shv-offer-sub">${isDel
+        ? `Use code <b class="shv-offer-code">${esc(o.code)}</b> at checkout. Delivery fee waived on your order.`
+        : `For Shivaa Black members &mdash; applied to making charges at checkout, no code needed. Metal and stones stay at today&rsquo;s rate.`}</span>
+      <span class="shv-offer-go">${isDel ? 'Shop now &rarr;' : 'Get my Black Card &rarr;'}</span>
     </a>`;
 }
 function premiumCardHTML(prem) {
@@ -3551,7 +3555,7 @@ function premiumCardHTML(prem) {
         : '<a class="shv-offer-go" href="#/login">Sign in to claim &rarr;</a>');
   return `
     <div class="shv-offer-card shv-offer-premium rv">
-      <span class="shv-offer-shine" aria-hidden="true"></span>
+      <span class="shv-offer-shine" aria-hidden="true"></span><span class="shv-offer-art" aria-hidden="true"></span><span class="shv-offer-orn" aria-hidden="true"></span>
       <span class="shv-offer-badge">Premium card &middot; for everyone</span>
       <span class="shv-offer-head"><b class="shv-offer-pct">20%</b><span class="shv-offer-off">off making charges, for life</span></span>
       <span class="shv-offer-sub">Lifetime savings on every Shivaa purchase. Your code applies automatically at checkout.</span>
@@ -3559,14 +3563,30 @@ function premiumCardHTML(prem) {
       <span class="shv-premium-msg" aria-live="polite"></span>
     </div>`;
 }
+/* v208 — the fourth box: the Shivaa Family Prestigious Member certificate. */
+function certificateCardHTML() {
+  return `
+    <div class="shv-offer-card shv-offer-cert rv">
+      <span class="shv-offer-shine" aria-hidden="true"></span><span class="shv-offer-art" aria-hidden="true"></span><span class="shv-offer-orn" aria-hidden="true"></span>
+      <span class="shv-offer-badge">Keepsake &middot; for members</span>
+      <span class="shv-offer-head"><b class="shv-offer-pct">Prestigious</b><span class="shv-offer-off">Member Certificate</span></span>
+      <span class="shv-offer-sub">Every Shivaa Black member is welcomed with a personalised Shivaa Family certificate &mdash; your name, kept in your account forever.</span>
+      <a class="shv-offer-go" href="#/black-card">See the certificate &rarr;</a>
+    </div>`;
+}
 function bannerOfferMini(o) {
   const isDel = o.kind === 'delivery';
   const pct = Number(o.percent);
   const big = isDel ? 'FREE' : (Number.isInteger(pct) ? pct : pct.toFixed(1)) + '%';
   const off = isDel ? 'home delivery' : 'off making charges';
-  return `<a class="shv-offer-mini" href="#/shop" aria-label="${esc(big + ' ' + off + ', code ' + o.code)}">
+  /* v208: the making-charges mini speaks for the Black membership (no code);
+     the delivery mini keeps FREEDEL. */
+  const txt = isDel
+    ? `${esc(off)} &middot; code <b>${esc(o.code)}</b>`
+    : `${esc(off)} &middot; <b>Black members</b>`;
+  return `<a class="shv-offer-mini" href="${isDel ? '#/shop' : '#/black-card'}" aria-label="${esc(big + ' ' + off)}">
       <span class="shv-offer-mini-pct">${esc(big)}</span>
-      <span class="shv-offer-mini-txt">${esc(off)} &middot; code <b>${esc(o.code)}</b></span>
+      <span class="shv-offer-mini-txt">${txt}</span>
     </a>`;
 }
 let _premiumInfo = null;
@@ -3581,8 +3601,9 @@ async function fillBannerOffer(root) {
       if (!offers.length) { slot.hidden = true; slot.innerHTML = ''; return; }
       slot.innerHTML = `<div class="shv-offer-stack">${offers.map(bannerOfferMini).join('')}</div>`;
     } else {
-      // the hero always shows the Premium card; the offer cards join it when they are live
-      slot.innerHTML = `<div class="shv-offer-grid">${offers.map(bannerOfferCard).join('')}${premiumCardHTML(prem)}</div>`;
+      // v208 — four boxes: the live offer cards + Premium for life + the
+      // Prestigious Member Certificate (owner's 4-box layout).
+      slot.innerHTML = `<div class="shv-offer-grid">${offers.map(bannerOfferCard).join('')}${premiumCardHTML(prem)}${certificateCardHTML()}</div>`;
     }
     slot.hidden = false;
   });
@@ -3654,8 +3675,11 @@ function blackCardVisual(card = null, opts = {}) {
   const thru = mock ? '••/••' : blackDate(card.expiresAt, true);
   const status = mock ? 'YOUR CARD' : (blackCardActive(card) ? 'ACTIVE' : 'EXPIRED · KEPT FOREVER');
   const backFirst = !!opts.backFirst;
+  /* v214 (owner) — the tap-to-flip feature is REMOVED entirely. The card is
+     a floating display object; backFirst surfaces show the reverse face as a
+     static composition. No role/button/flip affordances remain. */
   return `<div class="bc-card-wrap${opts.home ? ' bc-card-home' : ''}" data-black-card-motion>
-    <button type="button" class="bc-card${backFirst ? ' is-flipped' : ''}" aria-pressed="${backFirst ? 'true' : 'false'}" aria-label="Shivaa Black card, ${backFirst ? 'reverse' : 'front'} showing. Activate to turn over" onclick="Shivaa.flipBlackCard(this)">
+    <div class="bc-card${backFirst ? ' is-flipped' : ''}" aria-label="Shivaa Black card${backFirst ? ', reverse face' : ''}">
       <span class="bc-face bc-front" data-bc-face="front" aria-hidden="${backFirst ? 'true' : 'false'}">
         <span class="bc-noise" aria-hidden="true"></span><span class="bc-orbit" aria-hidden="true"></span><span class="bc-live-light" aria-hidden="true"></span><span class="bc-micro-grid" aria-hidden="true"></span>
         <span class="bc-top"><span class="bc-brand"><img src="/images/logo.png" alt=""><span><b>SHIVAA</b><small>BLACK</small></span></span><span class="bc-status">${esc(status)}</span></span>
@@ -3676,46 +3700,22 @@ function blackCardVisual(card = null, opts = {}) {
         <span class="bc-security">✦ Accepted only for the signed-in account with this registered mobile<br>✦ Card &amp; certificate remain in My Account after benefit expiry</span>
         <span class="bc-not-pay back">NOT A BANK / DEBIT / CREDIT CARD</span>
       </span>
-    </button>
-    <span class="bc-flip-hint" aria-live="polite"><span aria-hidden="true">↻</span> Tap the card to see the ${backFirst ? 'front' : 'reverse'}</span>
+      <span class="bc-flip-glint" aria-hidden="true"></span>
+    </div>
   </div>`;
 }
-window.Shivaa.flipBlackCard = el => {
-  if (!el) return;
-  const on = el.classList.toggle('is-flipped');
-  el.setAttribute('aria-pressed', String(on));
-  el.setAttribute('aria-label', `Shivaa Black card, ${on ? 'reverse' : 'front'} showing. Activate to turn over`);
-  const front = el.querySelector('[data-bc-face="front"]'), back = el.querySelector('[data-bc-face="back"]');
-  if (front) front.setAttribute('aria-hidden', on ? 'true' : 'false');
-  if (back) back.setAttribute('aria-hidden', on ? 'false' : 'true');
-  const hint = el.parentElement && el.parentElement.querySelector('.bc-flip-hint');
-  if (hint) hint.innerHTML = `<span aria-hidden="true">↻</span> Tap the card to see the ${on ? 'front' : 'reverse'}`;
-  if (window.Shivaa && Shivaa.haptic) Shivaa.haptic(8);
-};
 function initBlackCardMotion(root = document) {
   const wraps = [...root.querySelectorAll('[data-black-card-motion]')];
   wraps.forEach(wrap => {
     if (wrap._bcMotion) return; wrap._bcMotion = true;
     if (calmMotion() || !finePointer() || innerWidth <= 700) return;
-    let raf = 0, point = null;
-    const paint = () => {
-      raf = 0; if (!point || !document.body.contains(wrap)) return;
-      const r = wrap.getBoundingClientRect();
-      const x = Math.max(0, Math.min(1, (point.clientX - r.left) / Math.max(1, r.width)));
-      const y = Math.max(0, Math.min(1, (point.clientY - r.top) / Math.max(1, r.height)));
-      wrap.style.setProperty('--bc-x', (x * 100).toFixed(1) + '%');
-      wrap.style.setProperty('--bc-y', (y * 100).toFixed(1) + '%');
-      wrap.style.setProperty('--bc-rx', ((.5 - y) * 3.2).toFixed(2) + 'deg');
-      wrap.style.setProperty('--bc-ry', ((x - .5) * 4.2).toFixed(2) + 'deg');
-      wrap.classList.add('is-lit');
-    };
-    wrap.addEventListener('pointermove', e => { point = e; if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
-    wrap.addEventListener('pointerleave', () => {
-      point = null; if (raf) { cancelAnimationFrame(raf); raf = 0; }
-      wrap.classList.remove('is-lit');
-      wrap.style.setProperty('--bc-x', '72%'); wrap.style.setProperty('--bc-y', '18%');
-      wrap.style.setProperty('--bc-rx', '0deg'); wrap.style.setProperty('--bc-ry', '0deg');
-    }, { passive: true });
+    /* v211 "stillness" — the light no longer follows the pointer. Per-move
+       gradient/transform writes re-rendered the whole card scene (noise,
+       grid, orbit, drop-shadow) on every mouse pixel and read as flicker
+       and flashing. The salon highlight is now a static painting; is-lit
+       only raises its opacity once per hover. */
+    wrap.addEventListener('pointerenter', () => { wrap.classList.add('is-lit'); }, { passive: true });
+    wrap.addEventListener('pointerleave', () => { wrap.classList.remove('is-lit'); }, { passive: true });
   });
 }
 function blackCertificateHTML(card) {
@@ -4253,10 +4253,6 @@ pages.home = async (view) => {
 
   <div class="catbar-outer">${catBarHTML()}</div>
 
-      <div class="c-dots" id="cDots"></div>
-    </div>
-  </section>
-
   <section class="rate-strip"><div class="container rate-strip-in" id="rateStrip"></div></section>
 
   <section class="sec container" style="padding-bottom:26px">
@@ -4264,11 +4260,6 @@ pages.home = async (view) => {
     <div class="cat-mini">
       ${Object.entries(LIVE_CATS()).map(([k, c]) => `<a href="#/shop?category=${k}" class="cat-mini-card"><img src="${c.img}${ASSET_V}" alt="${c.name}" loading="lazy" onerror="if(!this.dataset.lfb){this.dataset.lfb='1';this.src='/images/logo.png${ASSET_V}';}else{this.remove();}"><b>${c.name}</b></a>`).join('')}
     </div>
-  </section>
-
-  <!-- v125 · The Films — the Revolving Case (owner pick, 16 Sep 2026). v125.js mounts it. -->
-  <section class="sec container" style="padding-top:0">
-    <div id="svCaseMount"></div>
   </section>
 
   <section class="sec container" style="padding-top:0">
@@ -8548,8 +8539,19 @@ pages.b2b = async (view) => {
   <div class="container" style="padding:40px 0 80px;max-width:1140px">
 
     <div class="b2b-form-card aurora">
-      <div class="bf-head"><span class="label">Step 1 &middot; Partner Application</span><h2>Begin your partnership</h2><p>GSTIN is verified live against the government GST register &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
-        <div class="b2b-step"><span>1 &middot; Fill this form</span><span>2 &middot; GST &amp; OTP verify</span><span>3 &middot; Approved in 48 h</span><span>4 &middot; Portal opens</span></div></div>
+      <div class="bf-head">
+        <div class="bf-crest" aria-hidden="true"><span>&#10022;</span></div>
+        <span class="label">Step 1 &middot; Partner Application</span>
+        <h2>Begin your <em>partnership</em></h2>
+        <p>GSTIN is verified live against the government GST register &middot; mobile is OTP-verified &middot; Shivaa approves within 48 hours.</p>
+        <div class="bf-trust">
+          <span>&#10022; GST verified live</span>
+          <span>&#10022; OTP-secured</span>
+          <span>&#10022; Approved in 48 hours</span>
+          <span>&#10022; Pan-India bullion desk</span>
+        </div>
+        <div class="b2b-step"><span>1 &middot; Fill this form</span><span>2 &middot; GST &amp; OTP verify</span><span>3 &middot; Approved in 48 h</span><span>4 &middot; Portal opens</span></div>
+      </div>
       <form class="form-grid kyc-form" id="b2bForm" onsubmit="Shivaa.b2bApply(event)" novalidate>
         <div class="fld"><label>Firm name *</label><input id="kyFirm" required autocomplete="organization" placeholder="M/s …" oninput="Shivaa.kycGate()"></div>
         <div class="fld"><label>Contact person</label><input id="kyPerson" autocomplete="name" placeholder="Owner / manager"></div>
@@ -11221,6 +11223,39 @@ function route() {
     try { window.Shivaa.paintNewsletterState(); } catch(e) {}
   });
 }
+/* v208 — polish pass, live for the whole session: mouse drag-to-scroll on the
+   light rails (touch keeps native momentum) and a calm 5D banner parallax
+   (inner art only — boxes and Ken-Burns images never move). Delegated, so it
+   covers every page render without re-init. */
+function initV208Polish() {
+  if (!window._v208Drag) {
+    window._v208Drag = true;
+    let drag = null;
+    document.addEventListener('pointerdown', e => {
+      const rail = e.target && e.target.closest && e.target.closest('.catbar2, .shv-rail');
+      if (!rail || e.pointerType === 'touch') return;
+      drag = { rail, x: e.clientX, sl: rail.scrollLeft };
+    });
+    document.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const d = e.clientX - drag.x;
+      if (Math.abs(d) > 3) {
+        drag.rail.classList.add('dragging');
+        drag.rail.scrollLeft = drag.sl - d;
+      }
+    });
+    addEventListener('pointerup', () => {
+      if (drag) { drag.rail.classList.remove('dragging'); drag = null; }
+    });
+  }
+  if (!window._v208Para) {
+    /* v209 — the scroll-linked parallax is GONE: per-frame transform writes
+       on big banners caused the owner's laptop flash/flicker. Depth now comes
+       from static layering and hover/entrance motion only. */
+    window._v208Para = true;
+  }
+}
+initV208Polish();
 addEventListener('hashchange', route);
 try { window.Shivaa.paintNewsletterState(); } catch(e) {}
 
@@ -11271,7 +11306,7 @@ let _searchDebounce = null;
 $('#searchInput').oninput = e => {
   clearTimeout(_searchDebounce);
   const v = e.target.value;
-  _searchDebounce = setTimeout(() => { renderSugg(v); $('#searchSugg').classList.add('open'); }, 90);
+  _searchDebounce = setTimeout(() => { renderSugg(v); $('#searchSugg').classList.add('open'); }, 60);
 };
 /* v102 — "/" opens search from anywhere (never while typing in a field) */
 document.addEventListener('keydown', e => {
@@ -11499,6 +11534,16 @@ addEventListener('scroll', (() => {
       else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
     }
   });
+  /* v218 — swipe the open menu left to close it (passive: scrolling is never blocked) */
+  let swX = null, swY = null;
+  nav.addEventListener('touchstart', e => { const t = e.touches[0]; swX = t.clientX; swY = t.clientY; }, { passive: true });
+  nav.addEventListener('touchend', e => {
+    if (swX === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - swX, dy = t.clientY - swY;
+    swX = null;
+    if (isOpen() && dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) setOpen(false);
+  }, { passive: true });
   nav.addEventListener('click', e => {
     const a = e.target.closest('a');
     if (!a || innerWidth > 820) return;
