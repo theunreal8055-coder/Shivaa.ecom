@@ -9,6 +9,11 @@ import fs from 'node:fs';
 const log = m => fs.appendFileSync('/tmp/t9step.txt', m + '\n');
 fs.writeFileSync('/tmp/t9step.txt', '');
 
+/* v222 — index.html now links ONE stylesheet (/css/shivaa.css) built from
+   every layer; assertions that used to look for a layer's own <link> now
+   check the layer is inside the bundle. */
+const CSS_BUNDLE = fs.readFileSync('cms/css/shivaa.css', 'utf8');
+
 const ok = [], bad = [];
 const T = (n, c, x = '') => (c ? ok : bad).push(n + (x ? ' → ' + x : ''));
 /* v219: the sandbox has no outbound TLS to sdk.cashfree.com, so the Cashfree SDK socket drops here — environmental, not a page fault */
@@ -178,9 +183,9 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('card: gleam sweeps more often (5.2s)', css215.includes('v215Gleam') && css215.includes('5.2s'));
   T('card: reduced-motion guard present', css215.includes('prefers-reduced-motion'));
 
-  T('stamps: index at 221 with v219.css + v218.css linked, no old 216/215 stamps', index.includes('__SHIVAA_REL=221') && index.includes('v219.css?v=221') && index.includes('v218.css?v=221') && !index.includes('?v=216') && !index.includes('?v=215'));
-  T('stamps: sw.js shell v221 + v219.css precached', sw.includes('shivaa-shell-v221') && sw.includes('/css/v219.css?v=221') && sw.includes('const REL = 221;'));
-  T('stamps: app.js + api.php at 221', app.includes('const APP_REL = 221;') && api.includes("'rel' => 221,"));
+  T('stamps: index at 222 with the one bundled stylesheet, no old 216/215 stamps', index.includes('__SHIVAA_REL=222') && index.includes('/css/shivaa.css?v=222') && !index.includes('?v=216') && !index.includes('?v=215'));
+  T('stamps: sw.js shell v222 + the css bundle precached', sw.includes('shivaa-shell-v222') && sw.includes('/css/shivaa.css?v=222') && sw.includes('const REL = 222;'));
+  T('stamps: app.js + api.php at 222', app.includes('const APP_REL = 222;') && api.includes("'rel' => 222,"));
 
   const { window: w5, doc: d5 } = await boot('#/', { mobile: true });
   await wait(2200);
@@ -199,7 +204,7 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('offers: sheen is transform-only (no background-position loop)', /@keyframes v216Sheen[\s\S]*?translateX/.test(css216) && !/background-position[^;]*\banimation/.test(css216));
   T('hero: one column stage (card, certificate, status stacked)', /\.bc-hero-stage\s*\{[^}]*flex-direction: ?column/s.test(css216) && /\.bc-stage-cert\s*\{[^}]*position: ?relative/s.test(css216));
   T('hero: single float keyframes, no drop-shadow filter on the stage card', css216.includes('@keyframes v216HeroFloat') && /\.bc-stage-card\s*\{[^}]*filter: ?none/s.test(css216));
-  T('stamps: v218 css linked and the case script is gone from index', fs.readFileSync('cms/index.html', 'utf8').includes('/css/v218.css?v=221') && !fs.readFileSync('cms/index.html', 'utf8').includes('v217-case'));
+  T('stamps: v218 css linked and the case script is gone from index', CSS_BUNDLE.includes('/* v218.css */') && !fs.readFileSync('cms/index.html', 'utf8').includes('v217-case'));
 }
 /* ── 3i · v217: steady release — scroll fix, search, campaign (case + drawer retired at v218) ── */
 { log('S3i v217 steady release');
@@ -268,7 +273,7 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   await wait(200);
   T('v218: Retail door shows the retail pane only', !doc.getElementById('paneRetail').hidden && doc.getElementById('paneJwl').hidden);
   T('v218: retail form keeps its IDs', ['shvStartForm','shvPhoneIn','shvPhoneBtn'].every(id => !!doc.getElementById(id)));
-  T('v218: stylesheet linked', fs.readFileSync('cms/index.html', 'utf8').includes('/css/v218.css?v=221'));
+  T('v218: the layer is inside the bundled stylesheet', CSS_BUNDLE.includes('/* v218.css */'));
   log('S5 done');
 }
 

@@ -7,6 +7,7 @@ const ok = [], bad = [];
 const T = (n, c, x = '') => (c ? ok : bad).push(n + (x ? ' → ' + x : ''));
 const css = fs.readFileSync('cms/css/v219.css', 'utf8');
 const js = fs.readFileSync('cms/js/v219.js', 'utf8');
+const CSS_BUNDLE = fs.readFileSync('cms/css/shivaa.css', 'utf8');
 const index = fs.readFileSync('cms/index.html', 'utf8');
 const sw = fs.readFileSync('cms/sw.js', 'utf8');
 const app = fs.readFileSync('cms/js/app.js', 'utf8');
@@ -42,11 +43,11 @@ T('cta: visible focus ring', css.includes('.shv-offer-card .shv-offer-go:focus-v
 T('stillness: no filter or background-position animation in v219', !/filter:\s*(?!none)/.test(css) && !/background-position[^;]*animation/.test(css));
 
 // 5 · wiring and stamps
-T('index loads v219.css and v219.js',
-  index.includes('/css/v219.css?v=221') && index.includes('/js/v219.js?v=221'));
-T('sw precaches v219 files and names shell v221',
-  sw.includes('shivaa-shell-v221') && sw.includes('/css/v219.css?v=221') && sw.includes('/js/v219.js?v=221') && sw.includes('const REL = 221;'));
-T('app.js APP_REL = 221', app.includes('const APP_REL = 221;'));
+T('the bundle carries the v219 layer and index loads v219.js',
+  CSS_BUNDLE.includes('/* v219.css */') && index.includes('/js/v219.js?v=222'));
+T('sw precaches the bundle + v219.js and names shell v222',
+  sw.includes('shivaa-shell-v222') && sw.includes('/css/shivaa.css?v=222') && sw.includes('/js/v219.js?v=222') && sw.includes('const REL = 222;'));
+T('app.js APP_REL = 222', app.includes('const APP_REL = 222;'));
 
 // 6 · jsdom: the 10 g entry is present on the home page
 const { doc } = await boot('#/', { mobile: false });

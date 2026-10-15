@@ -1,9 +1,19 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
-**COUNTDOWN: release 221 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v222**.
+**COUNTDOWN: release 222 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v223**.
 Updated 2026-10-15 from `arena/e8a470c6-shivaa-ecom` (branched from
 `arena/09f3c79f-shivaa-ecom` at its v220 tip `4a9e239`).
+
+**Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
+(stamped `?v=222`), built from the 57 historical layers by
+`tools/build-css-bundle.py` using the cascade order in
+`tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
+**268 KB → 168 KB gzipped**. The individual layer files still exist under
+`cms/css/` (the QA suites read them, and a rollback restores `index.html`
+alone), but nothing on the page links them any more. Scripts are unchanged:
+22 deferred files, with `admin.js`/`qr.js` fetched on demand and
+`motion.js`/`aurum.js`/`boost.js` injected after first paint by `v117.js`.
 
 ## 1 · What the site is
 

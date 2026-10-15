@@ -1,0 +1,79 @@
+# tools/css-bundle-order.txt — the canonical stylesheet cascade order (v222).
+#
+# THIS ORDER IS LOAD-BEARING. Later layers deliberately override earlier ones on
+# specificity ties, and the order below is exactly the document order the 58
+# <link> tags had in index.html before v222 bundled them. Never reorder this
+# file to "tidy" it; never hand-edit cms/css/shivaa.css.
+#
+# To change the styles: edit the layer under cms/css/, then re-run
+#     python3 tools/build-css-bundle.py --write
+#
+# To ADD a new layer: put its filename where the cascade needs it (usually last),
+# add it to the end of this list, regenerate, and update CANON in
+# qa/browser/t-v222-bundle.mjs — that suite exists to catch a bad reorder.
+#
+# One entry per line. Blank lines and #-comments are ignored.
+
+fonts.css
+styles.css
+finale.css
+mobile.css
+v113.css
+v115.css
+v116.css
+v117.css
+v118.css
+v119.css
+v120.css
+v121.css
+v122.css
+v125.css
+v139.css
+v140.css
+# the six that used to arrive late through the preload-swap pattern
+hallmark.css
+trust.css
+motion.css
+aurum.css
+v107.css
+boost.css
+v167.css
+v174.css
+v175.css
+v178.css
+v183.css
+# v186.css appears TWICE, on purpose. index.html linked it at two positions
+# (lines 97 and 104): two <link>s to one sheet still occupy two places in the
+# cascade, so the bundle reproduces both. Removing either one changes which
+# layer wins a tie it currently loses.
+v186.css
+v184.css
+v185.css
+v186.css
+v184-amrita.css
+v187.css
+v188.css
+v192.css
+v193.css
+v194.css
+v196.css
+v200.css
+v201.css
+v202.css
+v203.css
+v204.css
+v205.css
+v206.css
+v207.css
+v208.css
+v209.css
+v210.css
+v211.css
+v212.css
+v213.css
+v214.css
+v215.css
+v216.css
+v217.css
+v218.css
+v219.css

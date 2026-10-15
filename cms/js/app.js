@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 221;
+const APP_REL = 222;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -316,8 +316,20 @@ async function api(path, opts = {}) {
 }
 
 /* ─────────── app state ─────────── */
+/* v222 — the shop's own defaults, in one place. `state.settings` used to start
+   as null and become an object only after /api/settings answered; boot caps
+   that wait at 6 seconds and paints the degraded page anyway. Any route
+   rendered inside that window read state.settings.<field> immediately, so a
+   shopper who tapped Contact in the first seconds on a slow connection got a
+   TypeError and a half-drawn page instead of the store address. The state now
+   starts on these defaults and the API answer still overrides them field by
+   field, exactly as before. */
+const SETTINGS_DEFAULTS = {
+  freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921',
+  whatsapp: '918905005921', email: 'Support@shivaa.in', address: '',
+};
 const state = {
-  user: null, rates: null, settings: null, mcTable: [],
+  user: null, rates: null, settings: { ...SETTINGS_DEFAULTS }, mcTable: [],
   cart: cleanCart(store.get('shv_cart', [])),            // [{id, qty, size, engraving}]
   localWish: cleanIds(store.get('shv_wish', [])),
   serverWish: [],                                        // v186 — last confirmed account wishlist
@@ -11728,7 +11740,7 @@ async function boot(isRedraw) {
   const _oldUserId = String(state.user && state.user.id || '');
   state.user = me.user;
   if (_oldUserId !== String(state.user && state.user.id || '')) resetWishSession();
-  state.settings = { freeShipAbove: 50000, shippingFee: 250, phone: '+91 8905005921', whatsapp: '918905005921', email: 'Support@shivaa.in', address: '', ...settings };
+  state.settings = { ...SETTINGS_DEFAULTS, ...settings };
   /* v140 — AUTOMATIC LANDING: the moment a real /api/auth/me answer hydrates
      state.user, a signed-in jeweller on a bare URL goes straight to the live
      Bullion Desk (and a retail customer stays on home) — no login form, no

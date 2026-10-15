@@ -1,14 +1,18 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
-**COUNTDOWN: release 221 pending owner review — nothing deployed without the
+**COUNTDOWN: release 222 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
 shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211,
-v212, v213, v214, v215, v216, v217, v218, v219, v220, v221.
+v212, v213, v214, v215, v216, v217, v218, v219, v220, v221, v222.
 
-Last updated: 2026-10-15 (v221 "The Clean-Up Release" — the dead revolving-case
-code is removed from `js/v125.js` and the dead case CSS from the eleven
-stylesheets that still carried it; the live `.sv-case-no` badge the gold thread
-uses is preserved — packaged).
+Last updated: 2026-10-15 (v222 "The Load Release" — the owner reported the site
+was not loading correctly and did not feel smooth. `index.html` linked **58
+stylesheets, every one render-blocking**, and six more arrived late and
+restyled the page after first paint. They are now one bundle, `/css/shivaa.css`:
+**1 blocking request instead of 58, 168 KB gzipped instead of 268 KB**, nothing
+arriving late. The service worker precaches that one file instead of all 57.
+A race that crashed the Contact page on a slow connection is fixed too —
+packaged).
 
 Build branch note: this repository's v221 build ran on the session branch
 `arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom`
@@ -20,7 +24,7 @@ at its v220 tip (`4a9e239`) — the two trees were byte-identical when v221 star
 ## 1 · The absolute rules (owner's — never break)
 
 1. **Forward-only.** Never reuse or renumber a shipped release. Live is v205;
-   v206–v221 are built; **next release is v222**. Never deploy an older tree
+   v206–v222 are built; **next release is v223**. Never deploy an older tree
    over a newer live one. No reverts, no force-pushes, no resurrecting old
    zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a
@@ -81,6 +85,7 @@ at its v220 tip (`4a9e239`) — the two trees were byte-identical when v221 star
 | v220 | The Billing Removal Release: the showroom billing software is taken off the website. Admin → Settings loses the Billing Software card and its sync-key form; the signed billing stock bridge (billing/stock and billing/stock-movement routes, signing helpers, billing-sync rate limit, sync-key setting) is removed from api.php; docs/BILLING-SYNC-CONTRACT.md is deleted. The billing app folder on the server (public_html/billing/) is not in this repo and must be deleted by the owner in Hostinger. |
 | v219 | The Depth Release: the 10 g Gold Scheme entry is readable (its gold fill never painted, so v217's dark ink sat on dark glass; both are now set on that button); the four offer banners tilt toward a mouse pointer (7 degrees max, mouse only, never on touch) with a pointer glare and a drifting artwork layer; the offer buttons are gold pills with a light sweep and lift; off-screen banners pause their sheen. New: js/v219.js (passive, rAF-batched). |
 | v221 | The Clean-Up Release: the dead revolving-case code is removed. `js/v125.js` loses the never-called case mount routine and its scaffolding (~15 KB); the case CSS is removed from all eleven stylesheets that still carried it (275 lines), while even the shared selector lists are trimmed selector-by-selector so every live rule survives — including bare `.sv-case-no`, which the gold thread's FILM badge still uses. No visual or behavioural change is intended. |
+| v222 | The Load Release: the shop loads as ONE stylesheet. `index.html` linked 58 render-blocking <link> tags for 57 stylesheets (and six of them arrived late through the preload-swap pattern, restyling the page after first paint); they are now bundled into `/css/shivaa.css` by `tools/build-css-bundle.py` in the exact historical cascade order — 1 blocking request, 168 KB gzipped instead of 268 KB, nothing late. `sw.js` precaches that one file instead of 57. Also fixes a boot race: `state.settings` was null until `/api/settings` answered (boot caps that at 6 s and paints anyway), so a route rendered in that window threw — the Contact page read `.address` off null and died on a slow connection. |
 | v218 | The Sign-in Release: the 10 g Gold Scheme entry on home is highlighted (halo ring, larger target); the funnel stops jumping to top (scroll only when the step is off screen, never on first paint); the sidebar is the earlier drawer again plus swipe-left-to-close; the film case is removed for good (script, mount, module, CSS hooks, tests); the Retail and Jeweller B2B sign-in sheet is restyled in v218.css under #shvAuthWrap, JS and IDs unchanged. |
 | v217 | The Steady Release: root cause of the refresh/jump-to-top found — content-visibility:auto on home sections and product cards (v117/v121/v122/v214) with guessed heights made the page height change while scrolling; now forced to real layout. Case reinstalled as cms/js/v217-case.js (one pointer path, no scroll/resize listeners, one play-state function; phones play the front film only). Mobile drawer rebuilt (slide + scrim + 48px targets); phone search = one full-screen panel; Win-10g campaign buttons readable + stacked on phones; offer panels get four motifs (rim, ribbon, diamond points, seal) | built, owner review pending |
 | v216 | The Wow Release: offer banners get real painted artwork (images/offers) + one slow light sweep instead of drawn shapes; phone films — on touch screens only the front film plays (phones cannot decode four at once), the others show posters and play when brought round; Black Card hero becomes one column (card, certificate, status) with one calm float, no overlap, no drop-shadow | built, owner review pending |

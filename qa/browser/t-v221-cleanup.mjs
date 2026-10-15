@@ -17,6 +17,7 @@ const v125 = fs.readFileSync('cms/js/v125.js', 'utf8');
 const index = fs.readFileSync('cms/index.html', 'utf8');
 const sw = fs.readFileSync('cms/sw.js', 'utf8');
 const app = fs.readFileSync('cms/js/app.js', 'utf8');
+const CSS_BUNDLE_V221 = fs.readFileSync('cms/css/shivaa.css', 'utf8');
 const api = fs.readFileSync('cms/api.php', 'utf8');
 
 /* the stylesheets this release edited */
@@ -90,13 +91,16 @@ T('css: v209 keeps the header/flicker guards',
   /backdrop-filter:\s*none/.test(CSS.v209) && /is-lit\s*\{\s*filter:\s*none/s.test(CSS.v209));
 
 /* ── 4 · the release stamps ──────────────────────────────────────── */
-T('stamps: index at 221 with no 220 stamp left',
-  index.includes('__SHIVAA_REL=221') && !index.includes('?v=220'));
-T('stamps: sw.js shell v221', sw.includes('shivaa-shell-v221') && sw.includes('const REL = 221;'));
-T('stamps: app.js APP_REL 221', app.includes('const APP_REL = 221;'));
-T('stamps: api rel 221', api.includes("'rel' => 221,"));
-T('stamps: sw precaches the edited v125 files at 221',
-  sw.includes('/css/v125.css?v=221') && sw.includes('/js/v125.js?v=221'));
+T('stamps: index at 222 with no older stamp left',
+  index.includes('__SHIVAA_REL=222') && !index.includes('?v=221'));
+T('stamps: sw.js shell v222', sw.includes('shivaa-shell-v222') && sw.includes('const REL = 222;'));
+T('stamps: app.js APP_REL 222', app.includes('const APP_REL = 222;'));
+T('stamps: api rel 222', api.includes("'rel' => 222,"));
+/* v222 bundled the stylesheets, so the SW precaches the bundle rather than
+   v125.css. The v125 CSS itself still has to be inside that bundle. */
+T('stamps: sw precaches the bundle and the v125 script at 222',
+  sw.includes('/css/shivaa.css?v=222') && sw.includes('/js/v125.js?v=222'));
+T('v221: the v125 layer is inside the bundle', CSS_BUNDLE_V221.includes('/* v125.css */'));
 
 /* ── 5 · jsdom: the live page still behaves ─────────────────────── */
 const { window, doc, errors } = await boot('#/', { mobile: false });

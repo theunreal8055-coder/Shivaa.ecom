@@ -1,17 +1,25 @@
-> ## CURRENT STATE — read first (updated at v221, 15 Oct 2026)
+> ## CURRENT STATE — read first (updated at v222, 15 Oct 2026)
 >
-> - **Branch reality (v221):** this release was built on the Arena session branch
+> - **Branch reality:** work continues on the Arena session branch
 >   `arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom` at its v220 tip
->   (`4a9e239`) — the two trees were byte-identical when v221 started. `arena/09f3c79f-shivaa-ecom`
+>   (`4a9e239`) — the two trees were byte-identical when v221 started there. `arena/09f3c79f-shivaa-ecom`
 >   was **not** modified, so PR #106 on it is untouched. PR base: `arena/5529f0ec-shivaa-ecom`.
 > - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
-> - **Pushed, not live:** v206–v221. Newest is **v221** ("The Clean-Up Release"): the dead revolving-case
->   code (`js/v125.js`) and its dead CSS (11 stylesheets, 275 lines) removed. The live `.sv-case-no`
->   badge the gold thread uses was deliberately preserved.
->   Next release number: **v222**.
+> - **Pushed, not live:** v206–v222. Newest is **v222** ("The Load Release"): the shop now loads ONE
+>   stylesheet. `index.html` linked 58 render-blocking <link> tags (57 files, six of them arriving late
+>   and restyling the page after first paint); they are bundled into `/css/shivaa.css` in the exact
+>   historical cascade order — 1 blocking request, 168 KB gzipped instead of 268 KB, nothing late.
+>   `sw.js` precaches that one file instead of 57. Also fixes a boot race in which `state.settings` was
+>   null until `/api/settings` answered, so any route rendered in that window threw (the Contact page
+>   read `.address` off null on a slow connection).
+>   Next release number: **v223**.
 > - Full handoff (release table with zip shas, QA commands, open items): **`docs/NEXT-CHAT-HEAD.md`**. Read it first.
 > - Sandbox resets between turns: `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`
 >   first (`arena/09f3c79f-shivaa-ecom` is the twin branch and works the same way).
+>   **v222 stylesheet rule:** never hand-edit `cms/css/shivaa.css` and never re-derive its order from
+>   `index.html` (that file now links ONLY the bundle, so a script reading it would bundle the bundle
+>   into itself). Edit the layer under `cms/css/`, then `python3 tools/build-css-bundle.py --write`.
+>   The cascade order lives in `tools/css-bundle-order.txt` — it is load-bearing, do not reorder it.
 >   Rebuild `cms/data/db.json` with `python3 qa/build-test-db.py` (v221: it now emits `makingCharges`
 >   too — the shim serves that route and 500s without the key); reinstall jsdom to /tmp.
 >   **Before blaming the code for a flaky suite, check for stray `node` processes.** A single stuck
