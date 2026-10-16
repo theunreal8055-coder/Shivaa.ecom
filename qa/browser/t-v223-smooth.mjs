@@ -115,10 +115,10 @@ T('scroll: every listener is passive except the deliberate gallery drag',
   blocking.length === 1 && blocking[0].file === 'app.js' && blocking[0].event === 'touchmove'
   && blocking[0].blocking && /onMove/.test(blocking[0].text),
   blocking.map(b => `${b.file}:${b.line}(${b.event})`).join(', ') || 'none found');
-T('stamps: index at 223', index.includes('__SHIVAA_REL=223') && !index.includes('?v=222'));
-T('stamps: sw.js shell v223', sw.includes('shivaa-shell-v223') && sw.includes('const REL = 223;'));
-T('stamps: app.js APP_REL 223', app.includes('const APP_REL = 223;'));
-T('stamps: api rel 223', api.includes("'rel' => 223,"));
+T('stamps: index at 224', index.includes('__SHIVAA_REL=224') && !index.includes('?v=223'));
+T('stamps: sw.js shell v224', sw.includes('shivaa-shell-v224') && sw.includes('const REL = 224;'));
+T('stamps: app.js APP_REL 224', app.includes('const APP_REL = 224;'));
+T('stamps: api rel 224', api.includes("'rel' => 224,"));
 
 /* ── 6 · proof 1: with nothing on screen, ZERO video bytes are asked for ── */
 {

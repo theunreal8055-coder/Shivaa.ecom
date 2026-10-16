@@ -32,7 +32,7 @@ async function renderAdmin(view, q) {
   if (!state.user || state.user.role !== 'admin') {
     view.innerHTML = `<div style="min-height:80vh;display:flex;align-items:center;justify-content:center;padding:30px">
       <div class="adm-card" style="max-width:430px;width:100%">
-        <div class="center"><img src="/images/logo.png" style="height:44px;margin:0 auto 12px"><h3 style="margin-bottom:4px">Admin Dashboard</h3><p style="font-size:13px;color:var(--ink-3)">Authorised staff only</p></div>
+        <div class="center"><img src="/images/logo.png" alt="Shivaa" style="height:44px;margin:0 auto 12px"><h3 style="margin-bottom:4px">Admin Dashboard</h3><p style="font-size:13px;color:var(--ink-3)">Authorised staff only</p></div>
         <form class="form-grid" style="grid-template-columns:1fr;margin-top:16px" onsubmit="ShivaaAdmin.login(event)">
           <div class="fld"><label>Email</label><input name="email" type="email" autocomplete="username" required></div>
           <div class="fld"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div>
@@ -2571,7 +2571,7 @@ async function renderPartner(view) {
   if (!state.user) {
     view.innerHTML = `<div style="min-height:80vh;display:flex;align-items:center;justify-content:center;padding:30px">
       <div class="adm-card" style="max-width:460px;width:100%">
-        <div class="center"><img src="/images/logo.png" style="height:44px;margin:0 auto 12px"><h3 style="margin-bottom:4px">Partner Portal</h3><p style="font-size:13px;color:var(--ink-3)">For approved B2B partner jewellers</p></div>
+        <div class="center"><img src="/images/logo.png" alt="Shivaa" style="height:44px;margin:0 auto 12px"><h3 style="margin-bottom:4px">Partner Portal</h3><p style="font-size:13px;color:var(--ink-3)">For approved B2B partner jewellers</p></div>
         <form class="form-grid" style="grid-template-columns:1fr;margin-top:16px" onsubmit="ShivaaAdmin.partnerLogin(event)">
           <div class="fld"><label>Email</label><input name="email" type="email" autocomplete="username" required placeholder="you@yourfirm.in"></div>
           <div class="fld"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div>
@@ -4060,7 +4060,7 @@ window.ShivaaAdmin.productPoster = (id) => {
     .url{font-size:15px;color:#fff;font-family:Jost,sans-serif;letter-spacing:.5px}
   </style></head><body><div class="poster">
     <div class="sub">✦ Shivaa Jewellers · Jaipur rates ✦</div>
-    <img src="${location.origin}${safeUrl(img)}" onerror="this.src='${location.origin}/images/logo.png'">
+    <img src="${location.origin}${safeUrl(img)}" alt="${esc(name)}" onerror="this.src='${location.origin}/images/logo.png'">
     <h1>${esc(p.name || '')}</h1>
     <div class="sub">${esc(p.purity || '')} · BIS hallmarked · lifetime exchange</div>
     <div class="price">₹${pr.gross.toLocaleString('en-IN')}</div>
@@ -4183,7 +4183,7 @@ window.ShivaaAdmin.loadReviews = async () => {
     const d = await window.Shivaa.api('/api/admin/reviews');
     const list = (d.reviews || []).slice(0, 30);
     host.innerHTML = list.length ? `<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Review</th><th>Piece</th><th></th></tr></thead><tbody>
-      ${list.map(r => `<tr><td><b>${esc(r.userName)}</b> ${r.verified ? '<span class="verified-badge">✓ verified</span>' : ''} · ${'★'.repeat(r.rating)}<br>${esc(r.text)}<br>${(r.photos || []).map(p => `<a href="${safeUrl(p)}" target="_blank" rel="noopener"><img src="${safeUrl(p)}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;margin:3px"></a>`).join('')}${r.reply ? '<div class="rv-reply"><b>Reply:</b> ' + esc(r.reply) + '</div>' : ''}</td>
+      ${list.map(r => `<tr><td><b>${esc(r.userName)}</b> ${r.verified ? '<span class="verified-badge">✓ verified</span>' : ''} · ${'★'.repeat(r.rating)}<br>${esc(r.text)}<br>${(r.photos || []).map(p => `<a href="${safeUrl(p)}" target="_blank" rel="noopener"><img src="${safeUrl(p)}" alt="Review photo" loading="lazy" style="width:44px;height:44px;object-fit:cover;border-radius:6px;margin:3px"></a>`).join('')}${r.reply ? '<div class="rv-reply"><b>Reply:</b> ' + esc(r.reply) + '</div>' : ''}</td>
       <td>${esc(r.productName || r.productId)}</td>
       <td>${r.reply ? '' : `<button class="btn btn-outline btn-sm" onclick="ShivaaAdmin.replyReview('${r.id}')">Reply</button>`}</td></tr>`).join('')}
     </tbody></table></div>` : '<p class="partner-note">No reviews yet.</p>';

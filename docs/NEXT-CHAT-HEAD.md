@@ -1,6 +1,6 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-Written at the end of the v223 turn (15 Oct 2026, Asia/Calcutta).
+Written at the end of the v224 turn (16 Oct 2026, Asia/Calcutta).
 
 ---
 
@@ -12,7 +12,7 @@ Written at the end of the v223 turn (15 Oct 2026, Asia/Calcutta).
 - **Twin branch: `arena/09f3c79f-shivaa-ecom`.** Sits at its v220 tip (`4a9e239`).
   The session branch was branched from exactly that commit, so the two trees were
   byte-identical when v221 started. **It has not been touched since, and PR #106 on it is
-  untouched.** v221, v222 and v223 exist only on the session branch.
+  untouched.** v221, v222, v223 and v224 exist only on the session branch.
 - PR base for both: `arena/5529f0ec-shivaa-ecom`. `main` is **not** the release line.
 - Never create, switch to, or push to another branch. Never delete a branch. Never merge
   another branch.
@@ -52,7 +52,7 @@ Beware `grep -c` in an `&&` chain: it exits 1 on zero matches and silently kills
 - A push, a merge, a green test, or a finished zip is **not** approval.
 - Never reuse or renumber a shipped release. Never revert. Never force-push. Never restore an old zip.
 - Never deploy an older tree over a newer one.
-- Next release number is **v224**.
+- Next release number is **v225**.
 
 ## 4 · Release table (pushed on the release branch, none live except v205)
 
@@ -67,6 +67,7 @@ Beware `grep -c` in an `&&` chain: it exits 1 on zero matches and silently kills
 | v220 | `6e88647` | `1b461b82…1899a` | Billing software removed from the website |
 | v221 | `5bf57a2` | `0a1a8e0a620c73ac…eb6850eb` | The Clean-Up Release: dead revolving-case code + CSS removed |
 | v222 | `1da18c0` | `e05e08dd1bd550a4…d9f77643` | **The Load Release**: 58 render-blocking stylesheets → **1 bundle**; SW precaches 1 instead of 57; boot race fixed (`state.settings` null → Contact page crash) |
+| v224 | `V224_COMMIT` | `abd3f873bd552052…cf3fc304` | **The Every-Corner Release**: every continuously running animation is compositor-only (hero float was animating `margin-top`; sweeps animated `left`; two loops animated `filter`) and every per-second DOM rebuild is gone (both countdowns re-created their cells once a second; the footer ticker rewrote identical markup every 2.5s) → ~35 → ~2 DOM writes/sec; new `cms/css/v224.css` carries the usability corners (iOS focus-zoom floor, dot hit areas, safe-area FABs, `dvh` chat, tabular numerals) |
 | v223 | `1f6eca7` | `82c26f8a3261685d…3aec0218` | **The Smooth Release**: films no longer mount with `src`/`preload="auto"` — a fresh home page requests **0 video bytes** instead of 4.5 MB, and a film past the reader is released (see DEPLOY-v223.md) |
 
 Each release has: `DEPLOY-vNNN.md` at repo root, `shivaa-update-vNNN.zip` at repo root,
@@ -94,6 +95,7 @@ Zip link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/e8a470c6
 ## 5 · QA commands (run in this order, sequential, never in parallel)
 
 ```
+node qa/browser/t-v224-corners.mjs                # the every-corner release: no layout animations, no DOM-rebuilding timers
 node qa/browser/t-v223-smooth.mjs                 # the smooth release: no media before it is reached
 node qa/browser/t-v222-bundle.mjs                 # the load release: order + one stylesheet
 node qa/browser/t-v221-cleanup.mjs                # dead case code gone, live bits kept
@@ -105,8 +107,8 @@ node qa/browser/t-v218-sidebar.mjs                # sidebar + funnel scroll (exp
 node qa/browser/t-v219-depth.mjs                  # 10g fill, offer depth, stamps (expect 22/0)
 ```
 
-Expected totals at v223: smooth 39/0, bundle 36/0, cleanup 34/0, billing-gone 13/0,
-alive 96/0, flip ALL PASS, t7 4/0, sidebar 13/0, depth 22/0.
+Expected totals at v224: corners 62/0, smooth 39/0, bundle 36/0, cleanup 34/0,
+billing-gone 13/0, alive 96/0, flip ALL PASS, t7 4/0, sidebar 13/0, depth 22/0.
 
 **`t-v223-smooth.mjs` owns the media contract.** It is the only place the "never fetch what
 the reader has not reached" rule is checked, and it holds `blockingListeners()` — a real
@@ -174,7 +176,45 @@ layers. The rules:
 - The v211 guarantees stay: poster under every film, still frame for a broken file,
   `playsinline`, films mounting on save-data too (v213), and the full-screen reel.
 
-## 8 · Rules for writing code in this repo (from earlier owner orders)
+## 8 · THE ANIMATION AND TIMER RULES (v224 — read before touching motion or a clock)
+
+Two classes of bug were removed at v224 and both are now locked by
+`qa/browser/t-v224-corners.mjs` (62 assertions):
+
+1. **Never animate a layout property.** `margin`, `left/top/right/bottom`,
+   `width/height`, `padding`, `font-size`, `gap`, `inset` in a `@keyframes` block
+   make the browser re-lay-out the page **every frame**. Use `transform` /
+   `translate` / `opacity` only. The suite walks every `@keyframes` block in all
+   58 layers with a balanced-brace parser and fails on any of them.
+   (Independent `translate:`/`rotate:`/`scale:` properties compose with an
+   element's existing `transform` and are the cleanest conversion — but they need
+   Chrome 104+/Safari 14.1+, and on anything older the animation silently does not
+   run. That trade was accepted deliberately: a static card beats a janky one.)
+   Geometry must be preserved by arithmetic: an element that is 40 % wide and
+   moved `left:-40% → 100%` of its parent is `translate:-100% → 250%` of its own
+   width. Do the sum, never eyeball it.
+2. **Never animate `filter`/`backdrop-filter`/`blur()` in a loop.** Two were
+   removed at v224 (a 40 px `drop-shadow` and a `blur()` on a ~500 px element);
+   `v107.css:v107-breathe` is the one documented exception (a ≤48 px chip) and
+   the suite fails if a second one appears.
+3. **No timer may rebuild markup.** Both draw countdowns used to set `innerHTML`
+   once a second forever; the footer ticker rewrote identical markup every 2.5 s;
+   `[data-rate-age]` was written every second regardless of change. The rule:
+   build the strip **once**, keep references, write only a value that actually
+   changed, and pause the timer when `document.hidden` or when the element is off
+   screen (`IntersectionObserver`, `rootMargin: '120px'`). The suite parses every
+   `setInterval(...)` callback in the shipped JS with a paren walker and fails if
+   any of them contains `innerHTML`/`outerHTML`/`insertAdjacentHTML`.
+
+Corollary for future "smoothness" requests: measure before you claim. At v224 the
+following were measured and found **already clean** — do not re-hunt them: no
+passive-listener win (23/25 passive, the blocker is the deliberate drag), no DOM
+leak, no 404, no layout shift (`.pc-imgwrap` reserves its space), no
+`background-attachment: fixed`, no missing focus rings, `user-select: none` only
+on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
+`<link>` tags were diffed against the layer list).
+
+## 9 · Rules for writing code in this repo (from earlier owner orders)
 
 - Touch-action on JS-dragged elements: `pan-y` or `none`. Never `manipulation`.
 - Inline JS 3D transforms need the `-webkit-` prefix as well (`setT` helper).
@@ -194,25 +234,31 @@ layers. The rules:
   `state.rates` was already guarded everywhere.
 - The owner says "5D" for the offer banners; there is no 5D on a screen. Ask before going further.
 
-## 9 · Pull request and handoff
+## 10 · Pull request and handoff
 
 - **PR for the session branch:** create one from `arena/e8a470c6-shivaa-ecom` → base
   `arena/5529f0ec-shivaa-ecom` when the owner wants v221–v223 reviewed. **Do NOT merge
   or close any PR unless the owner says so.**
-- PR #106 (on `arena/09f3c79f-shivaa-ecom`) is **open, untouched, and now 3 commits behind**
+- PR #106 (on `arena/09f3c79f-shivaa-ecom`) is **open, untouched, and now 4 commits behind**
   the session branch. Leave it alone unless the owner decides otherwise.
-- Memory updated at the end of v223: `MEMORY.md`, `ARENA-STATE.md`, `AGENTS.md`,
+- Memory updated at the end of v224: `MEMORY.md`, `ARENA-STATE.md`, `AGENTS.md`,
   `docs/AGENT-HANDOFF.md` (top blocks), this file, and the two shipped countdown docs.
 
-## 10 · Open items (as of v223)
+## 11 · Open items (as of v224)
 
-1. **Owner review of v206–v223** — nothing is live except v205. Owner says yes before any zip goes up.
-2. **Owner visual check for v223 specifically (on a phone, on mobile data):** scroll
-   **without stopping** through the film thread — it must feel steady now (that stutter was
-   five videos decoding at once). Stop at the films: posters instantly, the film you are
-   looking at starts a moment later. Scroll far past, come back: films must play again.
-   Tap one: the full-screen reel must still open and close. In DevTools → Network →
-   Media, a fresh home load should show **no .mp4 request at all** until you scroll down.
+1. **Owner review of v206–v224** — nothing is live except v205. Owner says yes before any zip goes up.
+2. **Owner visual check for v224 specifically (on a phone, on mobile data):** (a) scroll the
+   home page slowly — the hero cards and the gold thread must not feel heavy (that heaviness
+   was the hero float re-laying-out the page on every frame); (b) **tap the newsletter email
+   field — the page must NOT zoom in** (the most visible fix in this release); (c) tap the
+   dots under a product photo row — they must register (they used to be a 6px target);
+   (d) the concierge chat must fit the screen with its input visible and its button clear of
+   the home-indicator area; (e) the scheme countdown digits must stay steady in width.
+   Then the v223 check still applies: scroll without stopping through the film thread — it
+   must feel steady (that stutter was five videos decoding at once); posters instantly, the
+   film you are looking at starts a moment later; scroll far past and back — films play
+   again; tap one — the full-screen reel opens and closes. In DevTools → Network → Media, a
+   fresh home load should show **no .mp4 request at all** until you scroll down.
 3. **Billing software (owner's own app):** the site side is removed (v220). The owner must
    delete `public_html/billing/` on Hostinger and turn off its stock sync.
 4. **Billing AI chatbot (owner's ask):** BLOCKED — the owner has not provided the billing
@@ -223,21 +269,29 @@ layers. The rules:
 6. **PHP checks on the server:** `php -l` unavailable here. Run `GET /api/settings` and
    `GET /api/version` after upload.
 7. **Next performance candidates (measured, not done):** the 21 deferred JS files
-   (1,052 KB raw / 321 KB gz; `app.js` alone is 760 KB with 308 top-level declarations)
+   (1,056 KB raw / 322 KB gz; `app.js` alone is 762 KB with 308 top-level declarations)
    are the remaining request count. Deferred scripts already download in parallel and do
    not block first paint, and bundling risks `'use strict'` scope loss across 21 files —
-   **this was considered for v223 and rejected**. Only attempt it by wrapping every file
-   (IIFE) and re-running the whole gate. No other measured win is outstanding: there is
-   **no DOM leak** (idle DOM is stable at 1897 nodes), **no 404** (264 local refs checked;
-   the 10 "missing" are runtime template paths), **no layout shift** (`.pc-imgwrap`
-   reserves `aspect-ratio`), and **no passive-listener win** (23 of 25 listeners are
-   already passive; the only blocker is the product gallery's deliberate drag). Do not
-   re-hunt these — if a future release needs them, the tests in `t-v223-smooth.mjs` are
-   the check, not grep.
-8. **The twin branch `arena/09f3c79f-shivaa-ecom` is 3 commits behind.** Reconciling it is
+   **considered at v223 and v224 and rejected both times**. Only attempt it by wrapping
+   every file (IIFE) and re-running the whole gate. The one other candidate is
+   `content-visibility: auto` on below-fold home sections — v217 removed it because a
+   *guessed* `contain-intrinsic-size` changed the page height while scrolling (the
+   jump-to-top complaint); the safe form is `contain-intrinsic-size: auto <fallback>`, but
+   this sandbox cannot measure layout, so do not ship it blind.
+   **Already measured clean at v223/v224 — do not re-hunt:** no DOM leak (idle DOM stable
+   at 1897 nodes), no 404 (264 local refs; the 10 "missing" are runtime template paths), no
+   layout shift (`.pc-imgwrap` reserves `aspect-ratio`), no passive-listener win (23 of 25
+   listeners already passive; the only blocker is the gallery's deliberate drag), nothing
+   lost in the CSS bundle (v221's 64 `<link>` tags diffed against the layer list), no
+   `background-attachment: fixed`, `user-select: none` only on decorative UI, and
+   `cms/css/bot.css` + `cms/css/v108.css` are dead (never linked — not even before the
+   bundle — and nothing loads `bot.js`/`v108.js`): a cleanup candidate for a future release,
+   left in place at v224 because this release is not a deletion release.
+   The checks live in `qa/browser/t-v224-corners.mjs` and `t-v223-smooth.mjs`, not in grep.
+8. **The twin branch `arena/09f3c79f-shivaa-ecom` is 4 commits behind.** Reconciling it is
    the owner's decision; the agent must not force-push or rewrite either branch.
 
-## 11 · Owner communication
+## 12 · Owner communication
 
 The owner writes in Hinglish/Hindi. Reply in simple Hinglish, short, with the bare zip
 link and the sha256. Always say clearly: not live, owner approval needed, and which

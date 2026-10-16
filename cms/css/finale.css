@@ -183,7 +183,7 @@ html [data-camp].camp-off { display: none !important; }
   content: '';
   position: absolute;
   top: 0;
-  left: -70%;
+  left: 0;
   width: 50%;
   height: 100%;
   background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.6) 50%, transparent 100%);
@@ -191,8 +191,8 @@ html [data-camp].camp-off { display: none !important; }
   animation: finSheen 5s ease-in-out infinite;
 }
 @keyframes finSheen {
-  0%, 55% { left: -70%; }
-  85%, 100% { left: 140%; }
+  0%, 55% { translate: -140% 0; }
+  85%, 100% { translate: 280% 0; }
 }
 .fin-eng {
   position: absolute;
@@ -1490,8 +1490,8 @@ html [data-camp].camp-off { display: none !important; }
 
 /* ─────────────────────── ADVANCED 2030 MOTION GRAPHICS & ANIMATIONS ─────────────────────── */
 @keyframes floatBullion {
-  0%, 100% { transform: translateY(0px) rotate(0deg); filter: drop-shadow(0 20px 40px rgba(0,0,0,0.8)); }
-  50% { transform: translateY(-12px) rotate(1.2deg); filter: drop-shadow(0 28px 50px rgba(230,183,92,0.3)); }
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(1.2deg); }
 }
 .shv-poster-img-frame {
   position: relative;
@@ -1499,6 +1499,7 @@ html [data-camp].camp-off { display: none !important; }
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(212, 175, 90, 0.2);
   border: 1px solid rgba(212, 175, 90, 0.4);
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.8));
   animation: floatBullion 6s ease-in-out infinite;
   transition: transform 0.4s ease, box-shadow 0.4s ease;
 }

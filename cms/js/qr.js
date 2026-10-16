@@ -589,6 +589,7 @@ var qrcode = function() {
       img += '\u0020width="';
       img += size;
       img += '"';
+      img += '\u0020alt="QR code"';
       img += '\u0020height="';
       img += size;
       img += '"';

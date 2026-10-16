@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 223;
+const APP_REL = 224;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -1100,13 +1100,33 @@ function bindReveal(scope = document) {
   $$('.rv', scope).forEach(el => io.observe(el));
 }
 function bindCountdown(el, target) {
-  const tick = () => {
-    if (document.hidden) return;
-    const d = Math.max(0, target - Date.now());
-    const days = Math.floor(d / 864e5), hrs = Math.floor(d % 864e5 / 36e5), min = Math.floor(d % 36e5 / 6e4), sec = Math.floor(d % 6e4 / 1e3);
-    if (!document.body.contains(el)) return clearInterval(iv);
-    el.innerHTML = [[days, 'Days'], [hrs, 'Hrs'], [min, 'Min'], [sec, 'Sec']].map(x => `<div class="fc-cell"><b>${String(x[0]).padStart(2, '0')}</b><span>${x[1]}</span></div>`).join('');
+  /* v224 — this used to rebuild all four cells with innerHTML once a second
+     for as long as the page stayed open, on screen or not. Every rebuild is a
+     re-parse plus a re-layout of the strip's surroundings, which is exactly
+     what a hitch in the middle of a scroll is made of. The cells are built
+     once now, only a digit that actually changed is written, and the tick
+     stays quiet while the strip is off screen or the tab is hidden. */
+  let cells = null, onScreen = true;
+  const build = () => {
+    el.innerHTML = ['Days', 'Hrs', 'Min', 'Sec'].map(x => `<div class="fc-cell"><b>00</b><span>${x}</span></div>`).join('');
+    cells = $$('.fc-cell b', el);
   };
+  const tick = () => {
+    if (!document.body.contains(el)) return clearInterval(iv);
+    if (document.hidden || !onScreen) return;
+    if (!cells || cells.length !== 4) build();
+    const d = Math.max(0, target - Date.now());
+    const vals = [Math.floor(d / 864e5), Math.floor(d % 864e5 / 36e5), Math.floor(d % 36e5 / 6e4), Math.floor(d % 6e4 / 1e3)];
+    for (let i = 0; i < 4; i++) {
+      const t = String(vals[i]).padStart(2, '0');
+      if (cells[i].textContent !== t) cells[i].textContent = t;
+    }
+  };
+  if (window.IntersectionObserver) {
+    try {
+      new IntersectionObserver(es => { onScreen = es.some(e => e.isIntersecting); }, { rootMargin: '120px' }).observe(el);
+    } catch (e) {}
+  }
   const iv = setInterval(tick, 1000); tick();
 }
 
@@ -1315,13 +1335,35 @@ function finaleCdHTML(id = 'finaleCd') {
     <span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span></div>`;
 }
 function bindFinaleCd(el) {
-  const iv = setInterval(() => {
-    if (!document.body.contains(el)) return clearInterval(iv);
-    if (document.hidden) return;
-    if (!finaleLive()) { syncFinaleChrome(true); return clearInterval(iv); }
+  /* v224 — same discipline as bindCountdown: the strip is built once, then
+     only a changed digit is written, and the tick is skipped entirely while
+     the strip is off screen or the tab is hidden. */
+  let cells = null, onScreen = true;
+  const build = () => {
     el.innerHTML = finaleCdCells() +
       `<span class="fc-lbl">✦ Time to the CA-witnessed live draw · ${FINALE.drawLabel}</span>`;
-  }, 1000);
+    cells = $$('.fc-cell b', el);
+  };
+  const tick = () => {
+    if (!document.body.contains(el)) return clearInterval(iv);
+    if (!finaleLive()) { syncFinaleChrome(true); return clearInterval(iv); }
+    if (document.hidden || !onScreen) return;
+    if (!cells || cells.length !== 4) build();
+    const d = Math.max(0, FINALE.drawAt - Date.now());
+    const vals = [Math.floor(d / 864e5), Math.floor(d % 864e5 / 36e5), Math.floor(d % 36e5 / 6e4), Math.floor(d % 6e4 / 1e3)];
+    for (let i = 0; i < 4; i++) {
+      const t = String(vals[i]).padStart(2, '0');
+      if (cells[i].textContent !== t) cells[i].textContent = t;
+    }
+  };
+  if (window.IntersectionObserver) {
+    try {
+      new IntersectionObserver(es => { onScreen = es.some(e => e.isIntersecting); }, { rootMargin: '120px' }).observe(el);
+    } catch (e) {}
+  }
+  cells = $$('.fc-cell b', el);
+  if (cells.length !== 4) build();
+  const iv = setInterval(tick, 1000);
 }
 
 function finaleBarArt() {
@@ -11889,9 +11931,16 @@ async function boot(isRedraw) {
   // v90 — adaptive rate polling: 15 s while MCX is live, 60 s off-hours
   scheduleRatesPoll();
   setInterval(() => {
+    if (document.hidden) return;
     const R = state.rates; if (!R || !R.live) return;
     const s = Math.max(1, Math.round((R.liveAgeMs + Math.max(0, Date.now() - _lastRatesAt)) / 1000));
-    document.querySelectorAll('[data-rate-age]').forEach(el => { el.lastChild.textContent = 'MCX live · ' + s + 's ago'; });
+    const txt = 'MCX live · ' + s + 's ago';
+    /* v224 — write only a real change, and only into the trailing text node
+       (the .live-dot span sits before it). */
+    document.querySelectorAll('[data-rate-age]').forEach(el => {
+      const last = el.lastChild;
+      if (last && last.nodeType === 3 && last.nodeValue !== txt) last.nodeValue = txt;
+    });
   }, 1000);
   // campaign expiry watchdog: even with the tab left open, the finale
   // module switches itself off within 30s of 00:00 IST on 1 Jan 2027.

@@ -1,20 +1,40 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
-**COUNTDOWN: release 223 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v224**.
-Updated 2026-10-15 from `arena/e8a470c6-shivaa-ecom` (branched from
+**COUNTDOWN: release 224 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v225**.
+Updated 2026-10-16 from `arena/e8a470c6-shivaa-ecom` (branched from
 `arena/09f3c79f-shivaa-ecom` at its v220 tip `4a9e239`).
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=223`), built from the 57 historical layers by
+(stamped `?v=224`), built from the 58 historical layers (59 cascade
+positions — `v186.css` deliberately sits at two of them) by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
-**268 KB → 168 KB gzipped**. The individual layer files still exist under
+**268 KB → 168 KB gzipped** (v224 bundle: 873,144 B raw / 172,651 B gzipped). The individual layer files still exist under
 `cms/css/` (the QA suites read them, and a rollback restores `index.html`
 alone), but nothing on the page links them any more. Scripts are unchanged:
 21 local files, all `defer` (plus the Cashfree SDK), with `admin.js`/`qr.js`
 fetched on demand and `motion.js`/`aurum.js`/`boost.js` injected after first
 paint by `v117.js`.
+
+**Smoothness (v224):** every continuously running animation is compositor-only.
+The hero float, the pillar line sweep, the finale sheen and the two hover
+shines were animating `margin-top`/`left` — a full re-layout of the page on
+every frame — and two decorative loops animated `filter`/`blur()`. They now
+animate `translate`/`opacity` with the same geometry. Both draw countdowns used
+to rebuild their four cells with `innerHTML` once a second forever; the footer
+rate ticker rewrote identical markup every 2.5 s; the `data-rate-age` line was
+written every second whether or not it changed. All four now build once, write
+only a changed digit/text node, and pause off screen (120px
+`IntersectionObserver`) and on a hidden tab: **~35 DOM node writes a second →
+~2**. `css/v224.css` (last layer in the bundle) carries the usability corners:
+16px field floors so iOS never zooms a focused input (39 selectors, each one
+below 16px everywhere it appeared — nothing large is shrunk), 27px hit areas on
+the 6-8px carousel dots, `env(safe-area-inset-bottom)` on the concierge/theme/
+back-to-top FABs, a `dvh` height on the chat panel, tabular figures on live
+numbers, and `overscroll-behavior: contain` on the panels. Two CSS files on
+disk are dead and stay dead: `bot.css` and `v108.css` — never linked, not even
+before the bundle, and nothing loads `bot.js`/`v108.js`.
 
 **Smoothness (v223):** the gold-thread films are **poster-first with deferred
 media**. Until v222 each film `<video>` set `preload="auto"` and its `src` at
