@@ -174,10 +174,10 @@ the way Chrome exposes it (including that the entrance is not left queued after 
 |---|---|
 | file | `shivaa-update-v226.zip` (repo root) |
 | files | **355** (v225's 353 + `css/v226.css` + `js/v226.js`) |
-| size | **37,250,601 B** |
-| sha256 | `18d8f50ce4e0a1dc9bea58e357e185f070938ab5b46a8b0756956708979e2783` |
+| size | **37,250,664 B** |
+| sha256 | `602a519266efa2e51936c42a99d997dc3933209139a700fd7f9a4550a89ef463` |
 | built | `cd cms && zip -X -@ … < /tmp/list226.txt` (the v225 entry list + the two new files) |
-| verified | extracted to `/home/user/zv226` and `cmp`-ed against the tree: **355 of 355 identical**; `css/v226.css` 10,782 B and `js/v226.js` 16,079 B are inside; one `/* v226.css */` block; `v226Pace`/`v226VtIn`/`v226VtOut` present; exactly **one** stylesheet `<link>`; `__SHIVAA_REL=226`; `shivaa-shell-v226`; sw precaches `/js/v226.js?v=226`; `const APP_REL = 226`; `'rel' => 226`; **no `data/db.json`** |
+| verified | extracted to `/home/user/zv226` and `cmp`-ed against the tree: **355 of 355 identical**; `css/v226.css` 10,923 B and `js/v226.js` 16,079 B are inside; one `/* v226.css */` block; `v226Pace`/`v226VtIn`/`v226VtOut` present; exactly **one** stylesheet `<link>`; `__SHIVAA_REL=226`; `shivaa-shell-v226`; sw precaches `/js/v226.js?v=226`; `const APP_REL = 226`; `'rel' => 226`; **no `data/db.json`** |
 
 ## 13 · How to deploy
 
@@ -219,3 +219,25 @@ before that. Never restore an older tree over a newer one, and never reuse a rel
 - **`php -l` was not run**: PHP is not installed in this sandbox, and `cms/api.php` changed by one
   integer (`'rel' => 226`).
 - The service worker's cache bump cannot be tested without a real origin.
+
+## 16 · Correction — the zip in this document is not the zip quoted in the commit message
+
+The release commit is `136af8f` ("v226: The Butter Release — every click answers, page changes move
+like an app"). Its message quotes `37,250,601 B` / `sha256 18d8f50c…` — the package **as it stood
+when that commit was made**. Before the handoff documents were frozen, a comment in
+`cms/css/v226.css` was found to overstate its own effect (§2's `.rip-big` note said a whole-card
+ripple used "a quarter of the ink" — the alpha drops from .34 to .20, a little over half, and ink
+scales with area as well). A shipped comment that misdescribes the shipped file is the same kind of
+defect the v225 note in §15 was about, so the comment was corrected and the package rebuilt rather
+than left alone.
+
+- the shipped package is the one in §12: **355 files · 37,250,664 B ·
+  sha256 `602a519266efa2e51936c42a99d997dc3933209139a700fd7f9a4550a89ef463`** (extracted and
+  `cmp`-ed: 355/355 identical, `css/v226.css` is 10,923 B);
+- the commit message itself is **not** rewritten (forward-only: no amend, no force-push) and the
+  difference is 63 bytes of comment;
+- **the bundle is untouched**: `cms/css/shivaa.css` is byte-for-byte the same file (880,766 B raw /
+  176,195 B gz, 61 blocks) — the build script strips layer comments and keeps only the
+  `/* layer.css */` provenance headers, so the numbers in §10 stand as written;
+- nothing else in the tree changed. `qa/browser/t-v226-butter.mjs` (61/0),
+  `t-v224-corners.mjs` (64/0) and `t-v222-bundle.mjs` (36/0) were re-run after the rebuild.

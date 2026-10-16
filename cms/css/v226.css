@@ -117,7 +117,9 @@
   background: radial-gradient(circle,
     rgba(212, 175, 90, .34), rgba(212, 175, 90, .13) 55%, rgba(212, 175, 90, 0) 72%);
 }
-/* a whole card's ripple is 400px wide: same colour, a quarter of the ink */
+/* a whole card's ripple is 400px across: same colour at a little over half
+   the alpha, so a large circle cannot flood the card the way a small one
+   reads as a touch. Ink scales with area, not with alpha alone. */
 .rip-live > .rip.rip-big {
   background: radial-gradient(circle,
     rgba(212, 175, 90, .20), rgba(212, 175, 90, .07) 55%, rgba(212, 175, 90, 0) 72%);
