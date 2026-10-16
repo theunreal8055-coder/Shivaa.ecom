@@ -1,6 +1,6 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-Written at the end of the v225 turn (16 Oct 2026, Asia/Calcutta).
+Written at the end of the v226 turn (16 Oct 2026, Asia/Calcutta).
 
 ---
 
@@ -12,7 +12,7 @@ Written at the end of the v225 turn (16 Oct 2026, Asia/Calcutta).
 - **Twin branch: `arena/09f3c79f-shivaa-ecom`.** Sits at its v220 tip (`4a9e239`).
   The session branch was branched from exactly that commit, so the two trees were
   byte-identical when v221 started. **It has not been touched since, and PR #106 on it is
-  untouched.** v221, v222, v223, v224 and v225 exist only on the session branch.
+  untouched.** v221, v222, v223, v224, v225 and v226 exist only on the session branch.
 - PR base for both: `arena/5529f0ec-shivaa-ecom`. `main` is **not** the release line.
 - Never create, switch to, or push to another branch. Never delete a branch. Never merge
   another branch.
@@ -52,7 +52,7 @@ Beware `grep -c` in an `&&` chain: it exits 1 on zero matches and silently kills
 - A push, a merge, a green test, or a finished zip is **not** approval.
 - Never reuse or renumber a shipped release. Never revert. Never force-push. Never restore an old zip.
 - Never deploy an older tree over a newer one.
-- Next release number is **v226**.
+- Next release number is **v227**.
 
 ## 4 · Release table (pushed on the release branch, none live except v205)
 
@@ -69,6 +69,7 @@ Beware `grep -c` in an `&&` chain: it exits 1 on zero matches and silently kills
 | v222 | `1da18c0` | `e05e08dd1bd550a4…d9f77643` | **The Load Release**: 58 render-blocking stylesheets → **1 bundle**; SW precaches 1 instead of 57; boot race fixed (`state.settings` null → Contact page crash) |
 | v224 | `52313d1` | `abd3f873bd552052…cf3fc304` | **The Every-Corner Release**: every continuously running animation is compositor-only (hero float was animating `margin-top`; sweeps animated `left`; two loops animated `filter`) and every per-second DOM rebuild is gone (both countdowns re-created their cells once a second; the footer ticker rewrote identical markup every 2.5s) → ~35 → ~2 DOM writes/sec; new `cms/css/v224.css` carries the usability corners (iOS focus-zoom floor, dot hit areas, safe-area FABs, `dvh` chat, tabular numerals) |
 | v225 | e4cf8b4 | `3c943a937f8f6d52e8d447887ebefb188a980ccdf0d432a16cf9ed0c83b01ae0` | **The App-Feel Release**: `cms/js/v225.js` puts the chrome's scroll work in ONE frame — one passive listener, one rAF, the geometry measured only on resize/route/document-resize, writes quantised (bar 0.1%, ring 1/120 turn); a six-event scroll burst now reads the document **zero** times (two listeners × two reads per frame before). `app.js` + `aurum.js` stand down on `window.__shvHub`. `@keyframes mSkeleton` (PDP skeletons ×7 + every product-card photo placeholder) and `@keyframes auProg` (the 3px bar) stop animating `background-position` and sweep with `translate`. A phone stops reserving a GPU layer per `.p-card` (`html.au-touch`), the parallax finally runs on touch (11px vs 26, offsets cached, no rect reads in a frame), eight rails + the scheme stepper get `scroll-snap-type: x proximity` + `overscroll-behavior-x: contain`, the 16px focus-zoom floor reaches the 681–900px tablet band, twelve more numeral strips go tabular, and the card gets the house gold hairline. New suite `qa/browser/t-v225-appfeel.mjs` (80 assertions). Package: 353 files · 37,238,134 B · `3c943a93…b01ae0`. |
+| v226 | V226_COMMIT | `18d8f50ce4e0a1dc9bea58e357e185f070938ab5b46a8b0756956708979e2783` | **The Butter Release**: every click answers, and a page change moves like an app instead of a document. Measured before writing a rule: 6 routes, 1058 visible interactive elements, all 155 `:active` heads in the bundle → **265 answered a press with nothing** (102 mega-menu tiles, 40 category-bar tiles, 33 Quick-view buttons, the brand link, the offer pill, the utility/footer links), and on a phone `mobile.css`'s `*:hover{transform:none!important}` erased even the browser's answer for them. `cms/css/v226.css` (last layer) gives each family a transform press under `@media (pointer: coarse), (hover: none)` (the union, because a touchscreen laptop is coarse AND hover:hover), plus a zero-specificity catch-all. `cms/js/v226.js` reuses the v89 `.rip` span for a gold ripple (small controls at touch-down, big surfaces only on a real tap, rail items on release, the host clipped only while the ripple lives), one 5 ms haptic per real tap, rail centring on a chip/tab/step tap, and the wish + compare badge pops only the cart badge had. `html.route-jump` makes the router's scroll-to-top instant instead of a smooth slide of the page being left; a 2px gold hairline sweeps the top **only** if the next page takes longer than 180 ms; where `startViewTransition` exists the content cross-fades (chrome still, entrance stood down for that navigation). New suite `qa/browser/t-v226-butter.mjs` (61 assertions). Package: 355 files · 37,250,601 B · `18d8f50c…9e2783`. |
 | v223 | `1f6eca7` | `82c26f8a3261685d…3aec0218` | **The Smooth Release**: films no longer mount with `src`/`preload="auto"` — a fresh home page requests **0 video bytes** instead of 4.5 MB, and a film past the reader is released (see DEPLOY-v223.md) |
 
 Each release has: `DEPLOY-vNNN.md` at repo root, `shivaa-update-vNNN.zip` at repo root,
@@ -96,6 +97,7 @@ Zip link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/e8a470c6
 ## 5 · QA commands (run in this order, sequential, never in parallel)
 
 ```
+node qa/browser/t-v226-butter.mjs                 # the butter release: every press answers, drags never ripple, rail centring, route-jump, pace bar, view transitions
 node qa/browser/t-v225-appfeel.mjs                # the app-feel release: one scroll frame, zero layout reads in a frame, composited sweeps
 node qa/browser/t-v224-corners.mjs                # the every-corner release: no layout animations, no DOM-rebuilding timers
 node qa/browser/t-v223-smooth.mjs                 # the smooth release: no media before it is reached
@@ -109,8 +111,13 @@ node qa/browser/t-v218-sidebar.mjs                # sidebar + funnel scroll (exp
 node qa/browser/t-v219-depth.mjs                  # 10g fill, offer depth, stamps (expect 22/0)
 ```
 
-Expected totals at v225: appfeel 80/0, corners 64/0, smooth 39/0, bundle 36/0, cleanup 34/0,
-billing-gone 13/0, alive 96/0, flip ALL PASS, t7 4/0, sidebar 13/0, depth 22/0.
+Expected totals at v226: butter 61/0, appfeel 80/0, corners 64/0, smooth 39/0, bundle 36/0,
+cleanup 34/0, billing-gone 13/0, alive 96/0, flip ALL PASS, t7 4/0, sidebar 13/0, depth 22/0.
+
+Run the butter suite with `timeout 300` — it boots a page and drives real presses, so it takes
+~13 s; if it ever prints nothing at all, an uncaught error inside the page was swallowed by the
+harness (it records `uncaughtException` instead of crashing the runner) — check for a bare
+`location` or `document` reference in the suite, which is how the first draft of it hung.
 
 **`t-v223-smooth.mjs` owns the media contract.** It is the only place the "never fetch what
 the reader has not reached" rule is checked, and it holds `blockingListeners()` — a real
@@ -250,6 +257,31 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
   `touch-action: manipulation` in 8 older rules is a tap-latency choice, not a scroll
   bug — see §11.
 
+### v226 — the click surface (read before adding a press state or a ripple)
+
+- **One ripple system.** `motion.js` owns `.rip` on `.btn` (v89). `cms/js/v226.js` uses the *same*
+  span class for everything else and skips `.btn` on purpose — never add a third.
+- **A tap is not a drag.** A ripple/haptic is only allowed when the pointer went down and up with
+  < 8px of movement. Rail children answer on **release**, big surfaces (cards, rows) only on a real
+  tap; a scroll that starts on a card must never light it up or buzz. The suite fails a drag that
+  ripples.
+- **A host is clipped only while its ripple is alive** (`.rip-live`, removed with the span) and gets
+  `position:relative` only if it was `static` (`.rip-pos`) — never add a permanent `overflow:hidden`
+  or `position:relative` to a card in a press rule.
+- **Press rules for a finger need `!important`.** `mobile.css:38` neutralises every hover transform
+  under `@media (pointer: coarse)`; a normal rule loses to it, which is exactly why 265 elements had
+  no press on a phone. The new rules are guarded by `@media (pointer: coarse), (hover: none)` — the
+  **union**, because a touchscreen laptop is coarse *and* `hover: hover`.
+- **Never touch `transition` as a shorthand** on a family you do not own (it silently resets every
+  other transitioned property); use `transition-duration` inside the `:active` rule.
+- **A navigation's motion has one owner.** `html.route-jump` (instant scroll-to-top) and
+  `html.vt-run` (view transition, entrance stands down) live for one navigation; `motion.js`'s
+  `playPage()` checks `vt-run` before replaying `.pg`. Do not add a second page-transition mechanism.
+- **Feedback only when something is slow.** The pace bar is armed after 180 ms and created lazily:
+  a route that renders fast must leave **no** DOM behind (asserted).
+- Still true from v225: no scroll listener, no per-frame layout read. The ripple reads one rect per
+  press, outside any frame — that is the only layout read v226 added.
+
 ## 9 · Rules for writing code in this repo (from earlier owner orders)
 
 - Touch-action on JS-dragged elements: `pan-y` or `none`. Never `manipulation`.
@@ -280,10 +312,20 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
 - Memory updated at the end of v224: `MEMORY.md`, `ARENA-STATE.md`, `AGENTS.md`,
   `docs/AGENT-HANDOFF.md` (top blocks), this file, and the two shipped countdown docs.
 
-## 11 · Open items (as of v225)
+## 11 · Open items (as of v226)
 
-1. **Owner review of v206–v225** — nothing is live except v205. Owner says yes before any zip goes up.
-2. **Owner visual check for v225 specifically (on a phone):** (a) scroll the home page
+1. **Owner review of v206–v226** — nothing is live except v205. Owner says yes before any zip goes up.
+2. **Owner visual check for v226 specifically (on a phone):** (a) tap a category tile, a product
+   card, a Quick-view button, a chip, the brand logo — each must visibly answer, with the gold ripple
+   under the finger; (b) **start a scroll on a product card and drag** — no ripple, no buzz (that is
+   the tap/drag line, and only a thumb can judge it); (c) tap a chip in the home category rail — it
+   should settle centred in the rail; (d) add to wishlist/compare — the header badge should pop;
+   (e) on Chrome Android change pages — the content should cross-fade with the header completely
+   still (iPhone Safari 17 and older will simply change pages: expected); (f) on a slow connection a
+   thin gold hairline should sweep the very top until the page appears — on a fast tap it must never
+   appear; (g) a page change must start at the top **instantly**, not glide.
+   Then the v225 checks still apply:
+3. **Owner visual check for v225 (on a phone):** (a) scroll the home page
    slowly — the gold hairline at the top and the back-to-top ring must move with the
    thumb and nothing should hitch; (b) the hero/banner artwork drifts very slightly
    (11px, phone only — one number in `aurum.js`: `pxAmp`); (c) a swipe on a category
@@ -292,7 +334,7 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
    the page must not zoom** (the v224 floor stopped at 680px); (e) product cards show a
    thin gold line inside the card edge, firming up when tapped. Then the v224 checks
    still apply:
-3. **Owner visual check for v224 (on a phone, on mobile data):** (a) scroll the
+4. **Owner visual check for v224 (on a phone, on mobile data):** (a) scroll the
    home page slowly — the hero cards and the gold thread must not feel heavy (that heaviness
    was the hero float re-laying-out the page on every frame); (b) **tap the newsletter email
    field — the page must NOT zoom in** (the most visible fix in this release); (c) tap the
@@ -304,16 +346,16 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
    film you are looking at starts a moment later; scroll far past and back — films play
    again; tap one — the full-screen reel opens and closes. In DevTools → Network → Media, a
    fresh home load should show **no .mp4 request at all** until you scroll down.
-3. **Billing software (owner's own app):** the site side is removed (v220). The owner must
+5. **Billing software (owner's own app):** the site side is removed (v220). The owner must
    delete `public_html/billing/` on Hostinger and turn off its stock sync.
-4. **Billing AI chatbot (owner's ask):** BLOCKED — the owner has not provided the billing
+6. **Billing AI chatbot (owner's ask):** BLOCKED — the owner has not provided the billing
    app's code, and the sandbox cannot reach `shivaa.in` or any external AI API. Two
    questions pending: where it lives, and whether entries are previewed before saving.
-5. **Real-device checks still needed:** 10g button colours, offer tilt feel, scroll
+7. **Real-device checks still needed:** 10g button colours, offer tilt feel, scroll
    smoothness, sign-in sheet, sidebar swipe — none verified in a real browser or phone.
-6. **PHP checks on the server:** `php -l` unavailable here. Run `GET /api/settings` and
+8. **PHP checks on the server:** `php -l` unavailable here. Run `GET /api/settings` and
    `GET /api/version` after upload.
-7. **Next performance candidates (measured, not done):** the 21 deferred JS files
+9. **Next performance candidates (measured, not done):** the 21 deferred JS files
    (1,056 KB raw / 322 KB gz; `app.js` alone is 762 KB with 308 top-level declarations)
    are the remaining request count. Deferred scripts already download in parallel and do
    not block first paint, and bundling risks `'use strict'` scope loss across 21 files —
@@ -333,7 +375,7 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
    bundle — and nothing loads `bot.js`/`v108.js`): a cleanup candidate for a future release,
    left in place at v224 because this release is not a deletion release.
    The checks live in `qa/browser/t-v224-corners.mjs` and `t-v223-smooth.mjs`, not in grep.
-8. **Carried into v226+:** `touch-action: manipulation` still sits in 8 older rules
+10. **Carried into v227+:** `touch-action: manipulation` still sits in 8 older rules
    (`aurum.css:483/639/979`, `mobile.css:34`, `finale.css:1595/1626/1692` and the gallery
    drag) — left alone at v225 because it is a tap-latency choice on controls, and changing
    it alters double-tap behaviour the owner has not asked about. The six designed sheen
@@ -342,7 +384,7 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
    `cms/css/bot.css` + `cms/css/v108.css` are still dead (never linked, no loader for
    `bot.js`/`v108.js`): still a cleanup candidate, still left in place because this was not
    a deletion release.
-9. **The twin branch `arena/09f3c79f-shivaa-ecom` is 5 commits behind.** Reconciling it is
+11. **The twin branch `arena/09f3c79f-shivaa-ecom` is 6 commits behind.** Reconciling it is
    the owner's decision; the agent must not force-push or rewrite either branch.
 
 ## 12 · Owner communication

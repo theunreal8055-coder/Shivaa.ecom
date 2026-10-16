@@ -18691,24 +18691,39 @@ html.au-touch .p-card { will-change: auto; }
 }
 
  
-@media (max-width: 900px) {
-  input, select, textarea { font-size: 16px; }
-  .nl-form input, .fv-news .nl-form input, .fl-news .nl-form input, .fn-card .nl-form input,
-  .coupon-row input, .hdr-search input, .wt-tx input,
-  .shv-body input, .shv-body select,
-  .v107-wiz input, .v107-wiz select,
-  .kyc-form input, .kyc-form select, .kyc-form textarea, .kyc-form .fld input,
-  .auth-panel input, .auth-panel .fld input,
-  #shvAuthWrap .shv-body input[type="text"], #shvAuthWrap .shv-body input[type="email"],
-  #shvAuthWrap .shv-body input[type="tel"], #shvAuthWrap .shv-body input[type="password"],
-  .pf-f input, .pf-f select, .ds-filters select, .dsf-w input,
-  .boost-chat .bc-form input { font-size: 16px; }
+@media (min-width: 681px) and (max-width: 900px) {
+  .bd-deals select,
+  .boost-chat .bc-form input,
+  .coupon-row input,
+  .ds-filters select,
+  .dsf-w input,
+  .fl-news .nl-form input,
+  .fn-card .nl-form input,
+  .fv-news .nl-form input,
+  .hdr-search input,
+  .kyc-form .fld input,
+  .kyc-form input,
+  .kyc-form select,
+  .kyc-form textarea,
+  .mc-edit td input,
+  .nl-form input,
+  .pf-f input,
+  .pf-f select,
+  .rv-upload input,
+  .shv-body input,
+  .shv-body select,
+  .v107-sg-find input,
+  .v107-wiz input,
+  .v107-wiz select,
+  .wt-tx input,
+  input,
+  select,
+  textarea { font-size: 16px; }
 }
 
  
-.fc-cell b, .rs-cell b, .ds-count, .ds-count b, .gal-count, .mc-count,
-.pf-count, .qv-count, .rl-timer, .am-dish-tick, .cd-head b, .cat-cell b,
-.rs-ticker, .v107-tick {
+.rs-cell b, .ds-count, .ds-count b, .gal-count, .mc-count, .pf-count,
+.qv-count, .rl-timer, .am-dish-tick, .cd-head b, .cat-cell b, .rs-ticker {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
@@ -18722,4 +18737,134 @@ html.au-touch .p-card { will-change: auto; }
 @media (hover: none) {
   .p-card, .cat-pill, .cat-mini-card, .acct-tile, .chip, .tv-card,
   .c-slide, .gal-slide { -webkit-tap-highlight-color: transparent; }
+}
+
+ 
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after,
+  html.js-motion .pc-imgwrap:not(.img-ok)::before,
+  html.js-motion .tv-ph:not(.img-ok)::before,
+  html.js-aurum #scrollProg::after { animation: none; }
+}
+/* v226.css */
+ 
+
+ 
+@media (prefers-reduced-motion: no-preference) {
+   
+  .cb-item:active, .mega-tile:active, .mega-feat:active, .mega-cta:active,
+  .dw-row:active, .dw-tile:active, .acc-row:active, .ord-row:active,
+  .brand:active, .ub-jwl:active, .ub-contact:active, .fv-contact:active,
+  .fvt-trustlink:active, .hdr-scheme-pill:active, .shv-offer-mini:active {
+    transform: translateY(1px) scale(.988);
+  }
+   
+  .p-card:active, .cat-card:active, .cat-mini-card:active, .acct-tile:active,
+  .tv-card:active, .cert-card:active, .hm-card:active, .ms-card:active {
+    transform: translateY(1px) scale(.985);
+  }
+   
+  .pc-quick:active, .dw-close:active, .see-all:active, .sortsel:active,
+  .fv-appband-x:active, .shv-step-btn:active, .chip:active, .cat-pill:active,
+  .size-pill:active, .pay-opt:active {
+    transform: scale(.94);
+  }
+   
+  .p-card:active, .cat-card:active, .cat-mini-card:active, .acct-tile:active,
+  .tv-card:active, .cb-item:active, .dw-row:active, .dw-tile:active,
+  .mega-tile:active, .brand:active {
+    transition-duration: .12s;
+  }
+   
+  :where(button:active, [role="button"]:active, summary:active, select:active) {
+    transform: scale(.975);
+  }
+}
+
+ 
+@media (pointer: coarse), (hover: none) {
+  .cb-item:active, .mega-tile:active, .mega-feat:active, .mega-cta:active,
+  .brand:active, .ub-jwl:active, .ub-contact:active, .fv-contact:active,
+  .fvt-trustlink:active, .hdr-scheme-pill:active, .shv-offer-mini:active,
+  .see-all:active, .sortsel:active, .pc-imglink:active {
+    transform: translateY(1px) scale(.985) !important;
+  }
+}
+
+ 
+.rip-live { overflow: hidden; }
+.rip-pos { position: relative; }
+.rip-live > .rip {
+  z-index: 3;                        
+  background: radial-gradient(circle,
+    rgba(212, 175, 90, .34), rgba(212, 175, 90, .13) 55%, rgba(212, 175, 90, 0) 72%);
+}
+ 
+.rip-live > .rip.rip-big {
+  background: radial-gradient(circle,
+    rgba(212, 175, 90, .20), rgba(212, 175, 90, .07) 55%, rgba(212, 175, 90, 0) 72%);
+}
+@media (hover: none) {
+  .rip-live > .rip,
+  .rip-live > .rip.rip-big {
+    background: radial-gradient(circle,
+      rgba(255, 233, 189, .46), rgba(255, 233, 189, .15) 55%, rgba(255, 233, 189, 0) 72%);
+  }
+}
+
+ 
+#routePace {
+  position: fixed; left: 0; right: 0;
+  top: env(safe-area-inset-top, 0px);
+  height: 2px; z-index: 9999; pointer-events: none;
+  opacity: 0; transition: opacity .16s linear;
+}
+#routePace i {
+  position: absolute; inset: 0; display: block;
+  background: linear-gradient(90deg,
+    rgba(212, 175, 90, 0), #d4af5a 16%, #ffe9bd 50%, #d4af5a 84%, rgba(212, 175, 90, 0));
+  transform: translateX(-100%);
+}
+html.route-busy #routePace { opacity: 1; }
+html.route-busy #routePace i { animation: v226Pace 1.05s linear infinite; }
+@keyframes v226Pace {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+ 
+html.vt-run #view { view-transition-name: shv-view; }
+::view-transition-group(shv-view) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(.22, 1, .32, 1);
+}
+::view-transition-old(shv-view) {
+  animation: v226VtOut 170ms cubic-bezier(.4, 0, 1, 1) both;
+}
+::view-transition-new(shv-view) {
+  animation: v226VtIn 280ms cubic-bezier(.22, 1, .32, 1) both;
+}
+ 
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; }
+@keyframes v226VtOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-6px) scale(.996); }
+}
+@keyframes v226VtIn {
+  from { opacity: 0; transform: translateY(10px) scale(.998); }
+  to   { opacity: 1; transform: none; }
+}
+
+ 
+html.route-jump { scroll-behavior: auto; }
+
+ 
+@media (prefers-reduced-motion: reduce) {
+  #routePace { display: none !important; }
+  .rip-live > .rip { display: none; }
+  html.vt-run #view { view-transition-name: none; }
+  ::view-transition-group(shv-view),
+  ::view-transition-old(shv-view),
+  ::view-transition-new(shv-view) { animation: none !important; }
 }

@@ -131,9 +131,9 @@ T('bundle: carries every v224 fix', [
     (read('cms/index.html').match(/rel="stylesheet"/g) || []).length === 1);
 }
 
-T('bundle: v225.css is the last layer in the cascade',
-  ORDER[ORDER.length - 1] === 'v225.css' &&
-  BUNDLE.lastIndexOf('/* v225.css */') > BUNDLE.lastIndexOf('/* v224.css */'));
+T('bundle: v226.css is the last layer in the cascade',
+  ORDER[ORDER.length - 1] === 'v226.css' &&
+  BUNDLE.lastIndexOf('/* v226.css */') > BUNDLE.lastIndexOf('/* v225.css */'));
 
 /* ═══ 2 · no timer may rebuild the DOM ═══════════════════════════════════ */
 
@@ -286,16 +286,16 @@ T('v224: both QR renderers label their image',
 /* ═══ 4 · the release itself ═════════════════════════════════════════════ */
 
 const SW = read('cms/sw.js'), API = read('cms/api.php');
-T('stamps: index carries ?v=225 everywhere and __SHIVAA_REL=225',
-  (INDEX.match(/\?v=225/g) || []).length === 30 && INDEX.includes('__SHIVAA_REL=225'));
-T('stamps: sw.js shell, REL and every precached URL are at 225',
-  SW.includes('shivaa-shell-v225') && /REL = 225/.test(SW) && (SW.match(/\?v=225/g) || []).length === 29);
-T('stamps: app.js APP_REL and api.php rel are at 224',
-  /APP_REL = 225/.test(APP) && /'rel' => 225/.test(API));
-T('stamps: nothing in the shipped tree still says 224',
-  ![INDEX, SW, APP, API, BUNDLE].some(s => /(\?v=224|__SHIVAA_REL=224|shivaa-shell-v224|APP_REL = 223|'rel' => 223)/.test(s)));
+T('stamps: index carries ?v=226 everywhere and __SHIVAA_REL=226',
+  (INDEX.match(/\?v=226/g) || []).length === 31 && INDEX.includes('__SHIVAA_REL=226'));
+T('stamps: sw.js shell, REL and every precached URL are at 226',
+  SW.includes('shivaa-shell-v226') && /REL = 226/.test(SW) && (SW.match(/\?v=226/g) || []).length === 30);
+T('stamps: app.js APP_REL and api.php rel are at 226',
+  /APP_REL = 226/.test(APP) && /'rel' => 226/.test(API));
+T('stamps: nothing in the shipped tree still says 225',
+  ![INDEX, SW, APP, API, BUNDLE].some(s => /(\?v=225|__SHIVAA_REL=225|shivaa-shell-v225|APP_REL = 224|'rel' => 224)/.test(s)));
 T('v222: the shop still loads exactly one stylesheet',
-  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=225'));
+  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=226'));
 T('v222: the settings race fix is still there', APP.includes('SETTINGS_DEFAULTS'));
 T('v223: the films still mount with no src and no autoplay',
   !/v\.autoplay = true/.test(read('cms/js/v125.js')) && read('cms/js/v125.js').includes("v.preload = 'none'"));

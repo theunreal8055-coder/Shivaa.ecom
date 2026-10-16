@@ -1,42 +1,51 @@
-> ## CURRENT STATE — read first (updated at v225, 16 Oct 2026)
+> ## CURRENT STATE — read first (updated at v226, 16 Oct 2026)
 >
 > - **Branch reality:** work continues on the Arena session branch
 >   `arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom` at its v220 tip
 >   (`4a9e239`) — the two trees were byte-identical when v221 started there. `arena/09f3c79f-shivaa-ecom`
 >   was **not** modified, so PR #106 on it is untouched. PR base: `arena/5529f0ec-shivaa-ecom`.
 > - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
-> - **Pushed, not live:** v206–v225. Newest is **v225** ("The App-Feel Release"): the owner asked for it
->   to be even smoother and even more graphically advanced, "just like modern-day D2C brand apps". The
->   work was in the scroll frame itself. `cms/js/v225.js` now owns the chrome from **ONE** passive
->   listener and ONE rAF, measuring the geometry only when it can change (resize / route / a
->   `ResizeObserver` on the body) — before, `app.js` and `aurum.js` each ran their own scroll listener on
->   their own rAF and each read `documentElement.scrollHeight` + `clientHeight` on **every frame**; a
->   six-event scroll burst now reads the document **zero** times. The progress hairline and the
->   back-to-top ring are written quantised (0.1% / 1/120 of a turn), so the two properties that must
->   repaint repaint 120 times a page instead of 60 times a second. Both old handlers feature-detect
->   `window.__shvHub` and stand down. **Two infinite repaint loops became composited sweeps:**
->   `@keyframes mSkeleton` (the PDP skeleton ×7 **and every product-card photo placeholder** — a shop
->   page shimmered its whole grid forever) and `@keyframes auProg` (the 3px bar) animated
->   `background-position`, which no browser can composite; both now `translate` a pseudo-element with the
->   same colour, speed and angle. A phone stopped reserving a GPU layer per product card for a hover
->   state a finger cannot trigger (20–60 layers of video memory), and the sticky header drops its
->   `backdrop-filter` on touch — a sticky element that re-samples its backdrop every frame. The parallax
->   that was desktop-only now runs on touch too, at **11px instead of 26**, with each element's offset
->   **cached** so a scroll frame performs no `getBoundingClientRect()`. `cms/css/v225.css` (last layer in
->   the bundle) adds `scroll-snap-type: x proximity` + `overscroll-behavior-inline: contain` to eight
->   rails and the scheme stepper, extends the 16px focus-zoom floor to the 681–900px tablet band (an
->   iPad in portrait is 768px), puts twelve more live numeral strips on tabular figures, gives `.p-card`
->   the house gold hairline and suppresses the grey Android tap flash where the site already draws its
->   own press state. New suite `qa/browser/t-v225-appfeel.mjs`. Next release number: **v226**.
-> - One release back is **v224** ("The Every-Corner Release"): five continuously-running CSS animations
->   stopped forcing a re-layout of the page every frame (the hero float animated `margin-top`; the pillar
->   sweep, finale sheen and hover shine animated `left`; `floatBullion` a 40px `drop-shadow`; `bcBeam` a
->   `blur()`), the four DOM-rebuilding timers stopped rewriting markup they had already written and now
->   pause off screen (**~35 → ~2 DOM writes/sec**), and `cms/css/v224.css` carried ~35 usability corners
->   (the iOS focus-zoom floor, 27px hit areas on the 6–8px dots, safe-area FABs, a `dvh` chat panel,
->   tabular numerals, `alt`s). **v223** ("The Smooth Release") made the films lazy — a fresh home page
->   fetched **0 video bytes**; **v222** ("The Load Release") bundled 58 render-blocking stylesheets into
->   one.
+> - **Pushed, not live:** v206–v226. Newest is **v226** ("The Butter Release"): the owner asked for the
+>   app to be "even more perfect, even more buttery smooth, fantastic animations on every clicks".
+>   Measured before writing a rule: 6 routes, 1058 visible interactive elements, each matched against the
+>   selector head of **all 155 `:active` rules** in the shipped bundle → **265 answered a press with
+>   nothing** (102 mega-menu tiles, 40 category-bar tiles, 33 Quick-view buttons, the brand link, the
+>   offer pill, the utility and footer links). On a phone it was worse: `mobile.css:38` neutralises
+>   `*:hover{transform:none!important}` under `@media (pointer: coarse)` — correct (nothing may stick
+>   after a tap) but its own press list is short, so for those 265 even the browser's default answer was
+>   gone. That is what "the clicks feel dead" is. `cms/css/v226.css` (last layer in the bundle) gives
+>   every measured family a press — transform-only, springy, `transition-duration:.12s` while pressed so
+>   the release keeps the house spring — under `@media (pointer: coarse), (hover: none)` (the **union**,
+>   because a touchscreen laptop is coarse AND `hover: hover`) and with the `!important` the neutraliser
+>   makes necessary; a zero-specificity `:where(...)` catch-all fills in anything else without ever
+>   outranking a house rule. `cms/js/v226.js` reuses the v89 `.rip` span (motion.js owns `.btn`): small
+>   controls ripple at touch-down, big surfaces (a card, a list row) **only on a real tap**, rail items
+>   on release, so a scroll-drag never lights up or buzzes; the host is clipped only for the 700 ms its
+>   ripple is alive (`.rip-live`) and gets `position:relative` only if it was `static` (`.rip-pos`). One
+>   **5 ms haptic per real tap** (a tap = down+up with <8px of movement), gated like the house's own
+>   `haptic()`. Tapping a chip, tab or step in a snapped rail **centres it** in the rail. The wish and
+>   compare badges pop with the same `mBump` keyframe the cart badge has had since v89. `html.route-jump`
+>   makes the router's `scrollTo(0,0)` **instant** for that one navigation (it was animating a long
+>   smooth slide of the page being left, because `html{scroll-behavior:smooth}` applies to it too). A 2px
+>   gold hairline sweeps the top of the screen **only** if the next page takes longer than 180 ms — on a
+>   fast tap nothing is created at all. Where `startViewTransition` exists (Chrome/Android, Safari 18+)
+>   `#view` is named for the length of one navigation and the content cross-fades (old out −6px, new in
+>   from +10px, 280ms) while the root transition is switched off so the header, utility strip and bottom
+>   nav stay perfectly still — and `motion.js`'s `playPage()` stands the entrance down for that one
+>   navigation (`vt-run`), so two motions can never fight. Skipped for reduced motion, for `au-lite`
+>   devices, for `data-no-vt` and for a same-page link. New suite `qa/browser/t-v226-butter.mjs` (61
+>   assertions: a tap ripples, **a drag does not**, the haptic is tap-only, the rail centring call, the
+>   badge pop, route-jump, the pace bar only on a slow route, and the view-transition lifecycle against a
+>   stub of the API). Next release number: **v227**.
+> - One release back is **v225** ("The App-Feel Release"): the chrome's scroll work moved into ONE
+>   passive listener + ONE rAF (`cms/js/v225.js`, `window.__shvHub`) — `app.js` and `aurum.js` used to
+>   read `scrollHeight`/`clientHeight` on every frame, and a six-event scroll burst now reads the
+>   document **zero** times; writes are quantised (bar 0.1%, ring 1/120 turn) and the two infinite
+>   `background-position` loops (`mSkeleton`, `auProg`) became composited `translate` sweeps. **v224**
+>   ("The Every-Corner Release") took the layout animations and provided four DOM-rebuilding timers off
+>   the critical path (**~35 → ~2 DOM writes/sec**). **v223** ("The Smooth Release") made the films lazy
+>   — a fresh home page fetched **0 video bytes**; **v222** ("The Load Release") bundled 58
+>   render-blocking stylesheets into one.
 > - Full handoff (release table with zip shas, QA commands, open items): **`docs/NEXT-CHAT-HEAD.md`**. Read it first.
 > - Sandbox resets between turns: `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`
 >   first (`arena/09f3c79f-shivaa-ecom` is the twin branch and works the same way).
@@ -56,6 +65,17 @@
 >   browser can composite — use a `translate` sweep on a pseudo-element). `app.js` and `aurum.js`
 >   feature-detect the hub and stand down; `qa/browser/t-v225-appfeel.mjs` spies the getters and fails if
 >   a scroll burst reads them.
+>   **v226 click-feel rule:** one ripple system only — `motion.js` owns `.rip` on `.btn`, `js/v226.js`
+>   owns every other surface with the *same* span class. A tap is down+up with <8px of movement: never
+>   ripple or buzz a drag, and never ripple a rail child on the down of a flick. A host is clipped
+>   (`.rip-live`) only while its ripple is alive and gets `position:relative` (`.rip-pos`) only if it was
+>   `static` — never add a permanent `overflow:hidden`/`position:relative` to a card. A finger press
+>   needs `@media (pointer: coarse), (hover: none)` **and** `!important` (mobile.css's neutraliser is
+>   `!important`); never touch `transition` as a shorthand on a family you do not own. One navigation has
+>   one motion owner: `html.route-jump` + `html.vt-run` live for one navigation, `motion.js` checks
+>   `vt-run` before replaying `.pg`, and the pace bar is armed after 180 ms and created lazily so a fast
+>   route leaves no DOM behind. `qa/browser/t-v226-butter.mjs` fails a drag that ripples and a fast route
+>   that leaves a spinner.
 >   Rebuild `cms/data/db.json` with `python3 qa/build-test-db.py` (v221: it now emits `makingCharges`
 >   too — the shim serves that route and 500s without the key); reinstall jsdom to /tmp.
 >   **Before blaming the code for a flaky suite, check for stray `node` processes.** A single stuck
@@ -63,10 +83,14 @@
 >   timing-based suites fail. Killing it returned the whole gate to green.
 > - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). 10g colour, offer tilt,
 >   smoother-scroll feel on a real phone, and sign-in look are unverified in a real browser or on a phone.
->   **v225 carries:** `touch-action: manipulation` in 8 older rules is a tap-latency choice, left alone
->   (changing it alters double-tap behaviour the owner has not asked about), and the six designed sheen
->   loops (`posterShine`, `phSheen`, `auShine`, `shimText`, `mPlShimmer`, `rateShim`) still animate
->   `background-position` — one `background-clip: text`, so a composited sweep needs a wrapper element
+>   **v226 carries:** the press feel, the ripple, the haptics, the rail centring and the view transition
+>   are all verified in jsdom + against the shipped layer, but **no real phone or browser has run this**
+>   — that is the 2-minute checklist in `DEPLOY-v226.md` §14 (tap a tile / drag on a card / tap a rail
+>   chip / add to wishlist / change pages on Chrome Android / a slow-connection tap). `touch-action:
+>   manipulation` in 8 older rules is still left alone (a tap-latency choice; changing it alters
+>   double-tap behaviour the owner has not asked about), and the six designed sheen loops
+>   (`posterShine`, `phSheen`, `auShine`, `shimText`, `mPlShimmer`, `rateShim`) still animate
+>   `background-position` — one is `background-clip: text`, so a composited sweep needs a wrapper element
 >   first. JS bundling stays a future option (deferred scripts already parallelise; `app.js` holds 308
 >   top-level declarations) and `content-visibility: auto` is a future candidate **only** in its
 >   `contain-intrinsic-size: auto` form — see `docs/NEXT-CHAT-HEAD.md`. `cms/css/bot.css` and

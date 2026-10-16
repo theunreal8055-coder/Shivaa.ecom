@@ -1,21 +1,32 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
-**COUNTDOWN: release 225 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v226**.
+**COUNTDOWN: release 226 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v227**.
 Updated 2026-10-16 from `arena/e8a470c6-shivaa-ecom` (branched from
 `arena/09f3c79f-shivaa-ecom` at its v220 tip `4a9e239`).
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=225`), built from the 59 historical layers (60 cascade
+(stamped `?v=226`), built from the 60 historical layers (61 cascade
 positions — `v186.css` deliberately sits at two of them) by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
-**268 KB → 168 KB gzipped** (v225 bundle: 876,757 B raw / 173,410 B gzipped). The individual layer files still exist under
+**268 KB → 168 KB gzipped** (v226 bundle: 880,766 B raw / 176,195 B gzipped). The individual layer files still exist under
 `cms/css/` (the QA suites read them, and a rollback restores `index.html`
 alone), but nothing on the page links them any more. Scripts are unchanged:
 21 local files, all `defer` (plus the Cashfree SDK), with `admin.js`/`qr.js`
 fetched on demand and `motion.js`/`aurum.js`/`boost.js` injected after first
 paint by `v117.js`.
+
+**Click feel (v226):** every press answers. 265 of 1058 visible interactive elements had no `:active`
+rule at all (102 mega-menu tiles, 40 category-bar tiles, 33 Quick-view buttons, the brand link, the offer
+pill, the utility/footer links); on a phone `mobile.css`'s `*:hover{transform:none!important}` also erased
+the browser's own answer for them. `css/v226.css` gives each family a transform press, gapless on both
+`(pointer: coarse)` and `(hover: none)`; `js/v226.js` adds the house gold ripple (the v89 `.rip` span)
+on tap, one 5 ms haptic per real tap, rail centring on a chip/tab/step tap, and a pop on the wish and
+compare badges that only the cart badge used to have. A page change is now a cross-fade where
+`startViewTransition` exists (chrome stays still, entrance stands down) and never a smooth slide of the
+page being left (`html.route-jump`); a 2px gold hairline at the top of the screen appears only if the
+next page takes longer than 180 ms.
 
 **Smoothness (v225):** the chrome scrolls from **one frame** now. `js/v225.js` is the only place in the
 shipped tree that reads the scroller's geometry, and it measures on resize / route / document-resize

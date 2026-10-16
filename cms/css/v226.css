@@ -1,0 +1,200 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v226.css · THE BUTTER LAYER
+   Last stylesheet in the bundle, so every rule here is the final say on a tie.
+
+   v225 made the scroll frame cheap. This layer is about the thing the owner
+   actually feels: what happens in the 100 ms after a tap, and what the screen
+   does between two pages.
+
+   1 · PRESS PHYSICS (new) — measured over 6 routes and 1058 visible
+       interactive elements against all 155 `:active` heads in the bundle:
+       **265 of them answered a press with nothing**. On a phone it is worse —
+       `mobile.css` neutralises `*:hover` with `!important` (correctly: nothing
+       may stick after a tap), and its own press list is short, so most of
+       those 265 had no answer at all. This section gives every measured
+       family one, transform-only, springy, and never on a property that
+       could move the page.
+
+   2 · THE RIPPLE HOST (new) — `js/v226.js` uses the house `.rip` span from
+       v89 (`motion.js` owns `.btn`). Two host helpers: `.rip-live` clips the
+       circle while it is alive and is removed with it, so a card is never an
+       overflow box for longer than its own ripple; `.rip-pos` is added only
+       to a `position:static` host, so nothing ever re-parents a badge. The
+       gold tint is this layer's (the cream one in motion.css belongs to the
+       dark buttons).
+
+   3 · THE PACE BAR (new) — a 2px gold hairline that sweeps the top of the
+       screen *only* if the next page has taken longer than 180 ms to appear.
+       One `transform` animation, no repaint, removed from the DOM's paint by
+       `opacity:0` the rest of the time.
+
+   4 · VIEW TRANSITIONS (new) — where `startViewTransition` exists, a page
+       change cross-fades the content (never the chrome: the root transition
+       is switched off on purpose so the header, utility bar and bottom nav
+       stay rock-still) and the old/new page each move 6-10px. All
+       transform/opacity.
+
+   5 · ROUTE JUMP (new) — `html{scroll-behavior:smooth}` (motion.css:17,
+       styles.css:25) also applies to the router's own `scrollTo(0,0)`, so a
+       page change animated a long slide of the page being left. One class,
+       one scroll, instant.
+
+   6 · REDUCED MOTION — every one of the above is off.
+
+   Rules of the house, unchanged: transform/opacity only, no layout property
+   in a keyframe, no filter/blur loop, no scroll listener, no per-frame layout
+   read, and nothing here changes a font size, a box or a position.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── 1 · PRESS PHYSICS ───────────────────────────────────────────────────
+   One rule per shape rather than one universal `:active`, so a family that
+   already answers (`.btn`, `.pc-wish`, `.icon-btn`, `.qty button`, …) keeps
+   exactly the press the house gave it. The `:where()` catch-all at the end
+   has zero specificity: it can only apply where NOTHING else sets a
+   transform in the pressed state, which is exactly the "still dead" case. */
+@media (prefers-reduced-motion: no-preference) {
+  /* a. rows, links and tiles — a 1px push, the way a palm presses paper */
+  .cb-item:active, .mega-tile:active, .mega-feat:active, .mega-cta:active,
+  .dw-row:active, .dw-tile:active, .acc-row:active, .ord-row:active,
+  .brand:active, .ub-jwl:active, .ub-contact:active, .fv-contact:active,
+  .fvt-trustlink:active, .hdr-scheme-pill:active, .shv-offer-mini:active {
+    transform: translateY(1px) scale(.988);
+  }
+  /* b. cards — the lift they show on hover is answered by a push */
+  .p-card:active, .cat-card:active, .cat-mini-card:active, .acct-tile:active,
+  .tv-card:active, .cert-card:active, .hm-card:active, .ms-card:active {
+    transform: translateY(1px) scale(.985);
+  }
+  /* c. small square controls — the native 0.94 squeeze */
+  .pc-quick:active, .dw-close:active, .see-all:active, .sortsel:active,
+  .fv-appband-x:active, .shv-step-btn:active, .chip:active, .cat-pill:active,
+  .size-pill:active, .pay-opt:active {
+    transform: scale(.94);
+  }
+  /* d. the pressed state itself is quick (the release keeps the house spring) */
+  .p-card:active, .cat-card:active, .cat-mini-card:active, .acct-tile:active,
+  .tv-card:active, .cb-item:active, .dw-row:active, .dw-tile:active,
+  .mega-tile:active, .brand:active {
+    transition-duration: .12s;
+  }
+  /* e. the safety net: a pressable that nothing else answers. Zero
+        specificity, so any house rule — including the `!important`
+        neutralisers — always wins over it. */
+  :where(button:active, [role="button"]:active, summary:active, select:active) {
+    transform: scale(.975);
+  }
+}
+
+/* On a touch screen `*:hover{transform:none!important}` (mobile.css:38, under
+   `@media (pointer: coarse)`) is what takes the press away from every anchor
+   that is not in mobile.css's own short list. These are the anchors the
+   measurement found dead on a phone — the same families as (a) above, marked
+   important for the same reason mobile.css marks its own list. Buttons are NOT
+   here: `button:active` already has its `!important` rule and re-declaring it
+   would only fight it.
+
+   The guard is the union of both spellings on purpose: mobile.css neutralises
+   on `(pointer: coarse)`, and a hybrid device (a touchscreen laptop, a stylus
+   tablet) can be coarse AND hover:hover at once — exactly the case where the
+   neutraliser would fire and this answer would not. */
+@media (pointer: coarse), (hover: none) {
+  .cb-item:active, .mega-tile:active, .mega-feat:active, .mega-cta:active,
+  .brand:active, .ub-jwl:active, .ub-contact:active, .fv-contact:active,
+  .fvt-trustlink:active, .hdr-scheme-pill:active, .shv-offer-mini:active,
+  .see-all:active, .sortsel:active, .pc-imglink:active {
+    transform: translateY(1px) scale(.985) !important;
+  }
+}
+
+/* ─── 2 · THE RIPPLE HOST ─────────────────────────────────────────────────
+   `.rip` itself (size, position, `mRipple` keyframes) is motion.css's, and
+   `.btn` keeps the cream ripple it has had since v89 — the rules below name
+   only the new transport. */
+.rip-live { overflow: hidden; }
+.rip-pos { position: relative; }
+.rip-live > .rip {
+  z-index: 3;                       /* above a photo (v225 lifted those to 1) */
+  background: radial-gradient(circle,
+    rgba(212, 175, 90, .34), rgba(212, 175, 90, .13) 55%, rgba(212, 175, 90, 0) 72%);
+}
+/* a whole card's ripple is 400px wide: same colour, a quarter of the ink */
+.rip-live > .rip.rip-big {
+  background: radial-gradient(circle,
+    rgba(212, 175, 90, .20), rgba(212, 175, 90, .07) 55%, rgba(212, 175, 90, 0) 72%);
+}
+@media (hover: none) {
+  .rip-live > .rip,
+  .rip-live > .rip.rip-big {
+    background: radial-gradient(circle,
+      rgba(255, 233, 189, .46), rgba(255, 233, 189, .15) 55%, rgba(255, 233, 189, 0) 72%);
+  }
+}
+
+/* ─── 3 · THE PACE BAR ────────────────────────────────────────────────────
+   Created by js/v226.js on the first slow route and then reused for the rest
+   of the visit. `env(safe-area-inset-top)` keeps it under a notch. */
+#routePace {
+  position: fixed; left: 0; right: 0;
+  top: env(safe-area-inset-top, 0px);
+  height: 2px; z-index: 9999; pointer-events: none;
+  opacity: 0; transition: opacity .16s linear;
+}
+#routePace i {
+  position: absolute; inset: 0; display: block;
+  background: linear-gradient(90deg,
+    rgba(212, 175, 90, 0), #d4af5a 16%, #ffe9bd 50%, #d4af5a 84%, rgba(212, 175, 90, 0));
+  transform: translateX(-100%);
+}
+html.route-busy #routePace { opacity: 1; }
+html.route-busy #routePace i { animation: v226Pace 1.05s linear infinite; }
+@keyframes v226Pace {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/* ─── 4 · VIEW TRANSITIONS ────────────────────────────────────────────────
+   `html.vt-run` exists only for the duration of one navigation (js/v226.js
+   adds it before the snapshot and removes it on `finished`, with a timeout as
+   a belt). Nothing here is visible in a browser without the API. */
+html.vt-run #view { view-transition-name: shv-view; }
+::view-transition-group(shv-view) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(.22, 1, .32, 1);
+}
+::view-transition-old(shv-view) {
+  animation: v226VtOut 170ms cubic-bezier(.4, 0, 1, 1) both;
+}
+::view-transition-new(shv-view) {
+  animation: v226VtIn 280ms cubic-bezier(.22, 1, .32, 1) both;
+}
+/* the chrome must not breathe: only #view is a named element, so switching the
+   root transition off leaves the header, the utility strip and the bottom nav
+   perfectly still while the content cross-fades under them */
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; }
+@keyframes v226VtOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-6px) scale(.996); }
+}
+@keyframes v226VtIn {
+  from { opacity: 0; transform: translateY(10px) scale(.998); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ─── 5 · ROUTE JUMP ──────────────────────────────────────────────────────
+   Live for 600 ms around a page change. It cannot leak into an in-page
+   anchor scroll: js/v226.js only sets it for `#/…` links, a history walk, or
+   a popstate. */
+html.route-jump { scroll-behavior: auto; }
+
+/* ─── 6 · REDUCED MOTION ──────────────────────────────────────────────────
+   js/v226.js already refuses to run any of it; these are the belt for the
+   half-frame between a media query changing and the next press. */
+@media (prefers-reduced-motion: reduce) {
+  #routePace { display: none !important; }
+  .rip-live > .rip { display: none; }
+  html.vt-run #view { view-transition-name: none; }
+  ::view-transition-group(shv-view),
+  ::view-transition-old(shv-view),
+  ::view-transition-new(shv-view) { animation: none !important; }
+}
