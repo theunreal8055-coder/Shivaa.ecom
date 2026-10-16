@@ -112,9 +112,28 @@ T('bundle: carries every v224 fix', [
   T('css: nothing the site used to link was lost when the stylesheets were bundled',
     DEAD.every(f => fs.existsSync('cms/css/' + f)));
 }
-T('bundle: v224.css is the last layer in the cascade',
-  ORDER[ORDER.length - 1] === 'v224.css' &&
-  BUNDLE.lastIndexOf('/* v224.css */') > BUNDLE.lastIndexOf('/* v219.css */'));
+/* v222 replaced 58 render-blocking <link> tags with one bundle. The v221 tag
+   tree is the proof of what those tags were: 64 <link>s, 57 distinct files
+   (v186.css twice for its two cascade positions), and two files that were
+   never linked even then — `bot.css` and `v108.css` are dead weight with no
+   loader for `bot.js`/`v108.js` anywhere in the shipped tree. This pins the
+   inventory so a future layer cannot silently miss the bundle, which is the
+   one failure mode of the bundling change that no browser would report. */
+{
+  const ORDER = read('tools/css-bundle-order.txt').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  const DEAD = ['bot.css', 'v108.css'];
+  const LAYERS = fs.readdirSync('cms/css').filter(f => f.endsWith('.css') && f !== 'shivaa.css');
+  const orphans = LAYERS.filter(f => !ORDER.includes(f) && !DEAD.includes(f));
+  T('css: every layer on disk is either in the bundle or on the documented dead list',
+    orphans.length === 0, orphans.join(', '));
+  T('css: nothing the site used to link was lost when the stylesheets were bundled',
+    DEAD.every(f => fs.existsSync('cms/css/' + f)) &&
+    (read('cms/index.html').match(/rel="stylesheet"/g) || []).length === 1);
+}
+
+T('bundle: v225.css is the last layer in the cascade',
+  ORDER[ORDER.length - 1] === 'v225.css' &&
+  BUNDLE.lastIndexOf('/* v225.css */') > BUNDLE.lastIndexOf('/* v224.css */'));
 
 /* ═══ 2 · no timer may rebuild the DOM ═══════════════════════════════════ */
 
@@ -267,16 +286,16 @@ T('v224: both QR renderers label their image',
 /* ═══ 4 · the release itself ═════════════════════════════════════════════ */
 
 const SW = read('cms/sw.js'), API = read('cms/api.php');
-T('stamps: index carries ?v=224 everywhere and __SHIVAA_REL=224',
-  (INDEX.match(/\?v=224/g) || []).length === 29 && INDEX.includes('__SHIVAA_REL=224'));
-T('stamps: sw.js shell, REL and every precached URL are at 224',
-  SW.includes('shivaa-shell-v224') && /REL = 224/.test(SW) && (SW.match(/\?v=224/g) || []).length === 28);
+T('stamps: index carries ?v=225 everywhere and __SHIVAA_REL=225',
+  (INDEX.match(/\?v=225/g) || []).length === 30 && INDEX.includes('__SHIVAA_REL=225'));
+T('stamps: sw.js shell, REL and every precached URL are at 225',
+  SW.includes('shivaa-shell-v225') && /REL = 225/.test(SW) && (SW.match(/\?v=225/g) || []).length === 29);
 T('stamps: app.js APP_REL and api.php rel are at 224',
-  /APP_REL = 224/.test(APP) && /'rel' => 224/.test(API));
-T('stamps: nothing in the shipped tree still says 223',
-  ![INDEX, SW, APP, API, BUNDLE].some(s => /(\?v=223|__SHIVAA_REL=223|shivaa-shell-v223|APP_REL = 223|'rel' => 223)/.test(s)));
+  /APP_REL = 225/.test(APP) && /'rel' => 225/.test(API));
+T('stamps: nothing in the shipped tree still says 224',
+  ![INDEX, SW, APP, API, BUNDLE].some(s => /(\?v=224|__SHIVAA_REL=224|shivaa-shell-v224|APP_REL = 223|'rel' => 223)/.test(s)));
 T('v222: the shop still loads exactly one stylesheet',
-  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=224'));
+  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=225'));
 T('v222: the settings race fix is still there', APP.includes('SETTINGS_DEFAULTS'));
 T('v223: the films still mount with no src and no autoplay',
   !/v\.autoplay = true/.test(read('cms/js/v125.js')) && read('cms/js/v125.js').includes("v.preload = 'none'"));

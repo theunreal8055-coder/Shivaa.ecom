@@ -1,21 +1,36 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
-**COUNTDOWN: release 224 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v225**.
+**COUNTDOWN: release 225 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v226**.
 Updated 2026-10-16 from `arena/e8a470c6-shivaa-ecom` (branched from
 `arena/09f3c79f-shivaa-ecom` at its v220 tip `4a9e239`).
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=224`), built from the 58 historical layers (59 cascade
+(stamped `?v=225`), built from the 59 historical layers (60 cascade
 positions — `v186.css` deliberately sits at two of them) by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
-**268 KB → 168 KB gzipped** (v224 bundle: 873,144 B raw / 172,651 B gzipped). The individual layer files still exist under
+**268 KB → 168 KB gzipped** (v225 bundle: 876,757 B raw / 173,410 B gzipped). The individual layer files still exist under
 `cms/css/` (the QA suites read them, and a rollback restores `index.html`
 alone), but nothing on the page links them any more. Scripts are unchanged:
 21 local files, all `defer` (plus the Cashfree SDK), with `admin.js`/`qr.js`
 fetched on demand and `motion.js`/`aurum.js`/`boost.js` injected after first
 paint by `v117.js`.
+
+**Smoothness (v225):** the chrome scrolls from **one frame** now. `js/v225.js` is the only place in the
+shipped tree that reads the scroller's geometry, and it measures on resize / route / document-resize
+instead of per frame — a six-event scroll burst reads the document **zero** times (before: two listeners ×
+two reads per frame). The progress hairline takes a quantised `transform` (0.1%) and the back-to-top ring a
+1/120-of-a-turn `conic-gradient` value, so the two properties that must repaint repaint 120 times a page
+instead of 60 times a second. The parallax (hero/banner/poster media) runs on touch too, at **11px** instead
+of 26, with each element's offset **cached** — no `getBoundingClientRect()` inside a frame on any device.
+`@keyframes mSkeleton` (PDP skeletons ×7 + every product-card photo placeholder) and `@keyframes auProg`
+(the 3px bar) stopped animating `background-position` — a repaint loop no browser can composite — and sweep
+with `translate` instead. On a touch device `.p-card` stops reserving a GPU layer (`will-change`) for a
+hover state a finger cannot reach: 20–60 fewer layers. Eight rails and the scheme stepper get
+`scroll-snap-type: x proximity` + `overscroll-behavior-x: contain`, and `css/v225.css` (last layer in the
+bundle) extends the 16px focus-zoom floor to the 681–900px tablet band, adds the gold card hairline and
+suppresses the grey tap flash where the house already draws its own press state.
 
 **Smoothness (v224):** every continuously running animation is compositor-only.
 The hero float, the pillar line sweep, the finale sheen and the two hover
@@ -27,7 +42,7 @@ rate ticker rewrote identical markup every 2.5 s; the `data-rate-age` line was
 written every second whether or not it changed. All four now build once, write
 only a changed digit/text node, and pause off screen (120px
 `IntersectionObserver`) and on a hidden tab: **~35 DOM node writes a second →
-~2**. `css/v224.css` (last layer in the bundle) carries the usability corners:
+~2**. `css/v224.css` (the layer that was last before v225.css) carries the usability corners:
 16px field floors so iOS never zooms a focused input (39 selectors, each one
 below 16px everywhere it appeared — nothing large is shrunk), 27px hit areas on
 the 6-8px carousel dots, `env(safe-area-inset-bottom)` on the concierge/theme/

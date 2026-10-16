@@ -1,6 +1,6 @@
 # NEXT-CHAT-HEAD — paste this first in every new chat
 
-Written at the end of the v224 turn (16 Oct 2026, Asia/Calcutta).
+Written at the end of the v225 turn (16 Oct 2026, Asia/Calcutta).
 
 ---
 
@@ -12,7 +12,7 @@ Written at the end of the v224 turn (16 Oct 2026, Asia/Calcutta).
 - **Twin branch: `arena/09f3c79f-shivaa-ecom`.** Sits at its v220 tip (`4a9e239`).
   The session branch was branched from exactly that commit, so the two trees were
   byte-identical when v221 started. **It has not been touched since, and PR #106 on it is
-  untouched.** v221, v222, v223 and v224 exist only on the session branch.
+  untouched.** v221, v222, v223, v224 and v225 exist only on the session branch.
 - PR base for both: `arena/5529f0ec-shivaa-ecom`. `main` is **not** the release line.
 - Never create, switch to, or push to another branch. Never delete a branch. Never merge
   another branch.
@@ -52,7 +52,7 @@ Beware `grep -c` in an `&&` chain: it exits 1 on zero matches and silently kills
 - A push, a merge, a green test, or a finished zip is **not** approval.
 - Never reuse or renumber a shipped release. Never revert. Never force-push. Never restore an old zip.
 - Never deploy an older tree over a newer one.
-- Next release number is **v225**.
+- Next release number is **v226**.
 
 ## 4 · Release table (pushed on the release branch, none live except v205)
 
@@ -68,6 +68,7 @@ Beware `grep -c` in an `&&` chain: it exits 1 on zero matches and silently kills
 | v221 | `5bf57a2` | `0a1a8e0a620c73ac…eb6850eb` | The Clean-Up Release: dead revolving-case code + CSS removed |
 | v222 | `1da18c0` | `e05e08dd1bd550a4…d9f77643` | **The Load Release**: 58 render-blocking stylesheets → **1 bundle**; SW precaches 1 instead of 57; boot race fixed (`state.settings` null → Contact page crash) |
 | v224 | `52313d1` | `abd3f873bd552052…cf3fc304` | **The Every-Corner Release**: every continuously running animation is compositor-only (hero float was animating `margin-top`; sweeps animated `left`; two loops animated `filter`) and every per-second DOM rebuild is gone (both countdowns re-created their cells once a second; the footer ticker rewrote identical markup every 2.5s) → ~35 → ~2 DOM writes/sec; new `cms/css/v224.css` carries the usability corners (iOS focus-zoom floor, dot hit areas, safe-area FABs, `dvh` chat, tabular numerals) |
+| v225 | V225_COMMIT | `3c943a937f8f6d52e8d447887ebefb188a980ccdf0d432a16cf9ed0c83b01ae0` | **The App-Feel Release**: `cms/js/v225.js` puts the chrome's scroll work in ONE frame — one passive listener, one rAF, the geometry measured only on resize/route/document-resize, writes quantised (bar 0.1%, ring 1/120 turn); a six-event scroll burst now reads the document **zero** times (two listeners × two reads per frame before). `app.js` + `aurum.js` stand down on `window.__shvHub`. `@keyframes mSkeleton` (PDP skeletons ×7 + every product-card photo placeholder) and `@keyframes auProg` (the 3px bar) stop animating `background-position` and sweep with `translate`. A phone stops reserving a GPU layer per `.p-card` (`html.au-touch`), the parallax finally runs on touch (11px vs 26, offsets cached, no rect reads in a frame), eight rails + the scheme stepper get `scroll-snap-type: x proximity` + `overscroll-behavior-x: contain`, the 16px focus-zoom floor reaches the 681–900px tablet band, twelve more numeral strips go tabular, and the card gets the house gold hairline. New suite `qa/browser/t-v225-appfeel.mjs` (80 assertions). Package: 353 files · 37,238,134 B · `3c943a93…b01ae0`. |
 | v223 | `1f6eca7` | `82c26f8a3261685d…3aec0218` | **The Smooth Release**: films no longer mount with `src`/`preload="auto"` — a fresh home page requests **0 video bytes** instead of 4.5 MB, and a film past the reader is released (see DEPLOY-v223.md) |
 
 Each release has: `DEPLOY-vNNN.md` at repo root, `shivaa-update-vNNN.zip` at repo root,
@@ -95,6 +96,7 @@ Zip link: `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/e8a470c6
 ## 5 · QA commands (run in this order, sequential, never in parallel)
 
 ```
+node qa/browser/t-v225-appfeel.mjs                # the app-feel release: one scroll frame, zero layout reads in a frame, composited sweeps
 node qa/browser/t-v224-corners.mjs                # the every-corner release: no layout animations, no DOM-rebuilding timers
 node qa/browser/t-v223-smooth.mjs                 # the smooth release: no media before it is reached
 node qa/browser/t-v222-bundle.mjs                 # the load release: order + one stylesheet
@@ -107,7 +109,7 @@ node qa/browser/t-v218-sidebar.mjs                # sidebar + funnel scroll (exp
 node qa/browser/t-v219-depth.mjs                  # 10g fill, offer depth, stamps (expect 22/0)
 ```
 
-Expected totals at v224: corners 62/0, smooth 39/0, bundle 36/0, cleanup 34/0,
+Expected totals at v225: appfeel 80/0, corners 64/0, smooth 39/0, bundle 36/0, cleanup 34/0,
 billing-gone 13/0, alive 96/0, flip ALL PASS, t7 4/0, sidebar 13/0, depth 22/0.
 
 **`t-v223-smooth.mjs` owns the media contract.** It is the only place the "never fetch what
@@ -126,6 +128,11 @@ count between runs is timing, not a regression. The assertion that matters is
 
 When stamps move, **older suites must be rolled forward too** — their stamp bodies
 assert the newest number (long-standing convention; some labels are stale on purpose).
+At v225 eleven suites' bodies were rolled to 225 (including `t-v219-depth`, which had
+been missed at v224) and every "no older stamp" guard moved to `!includes('?v=224')`;
+`t-v224-corners` also gained the bundle-inventory guard (every layer on disk is either
+in `tools/css-bundle-order.txt` or on the documented dead list `bot.css` / `v108.css`),
+so a future layer cannot silently miss the bundle.
 At v223 the bodies in `t-v209-alive`, `t-v219-depth`, `t-v220-billing-gone`,
 `t-v221-cleanup` and `t-v222-bundle` were updated, and their "no older stamp" guards
 moved to `!includes('?v=222')`. **Suites that used to assert a layer's own `<link>` in
@@ -176,7 +183,7 @@ layers. The rules:
 - The v211 guarantees stay: poster under every film, still frame for a broken file,
   `playsinline`, films mounting on save-data too (v213), and the full-screen reel.
 
-## 8 · THE ANIMATION AND TIMER RULES (v224 — read before touching motion or a clock)
+## 8 · THE ANIMATION, TIMER AND SCROLL-FRAME RULES (v224, extended at v225)
 
 Two classes of bug were removed at v224 and both are now locked by
 `qa/browser/t-v224-corners.mjs` (62 assertions):
@@ -214,6 +221,35 @@ leak, no 404, no layout shift (`.pc-imgwrap` reserves its space), no
 on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
 `<link>` tags were diffed against the layer list).
 
+### v225 — the scroll frame and repaint loops (read before adding a scroll listener or an animation)
+
+`cms/js/v225.js` owns the chrome's scroll work and exposes `window.__shvHub`:
+
+- **Never add a second scroll listener that reads `documentElement.scrollHeight` /
+  `clientHeight` per frame**, and never call `getBoundingClientRect()` inside a scroll
+  frame. `app.js` and `aurum.js` used to do exactly that (two listeners, two reads
+  each, every frame). Both now feature-detect the hub and stand down; the hub's
+  `measure()` is the only reader, and the geometry is re-taken on resize, `hashchange`
+  and a `ResizeObserver` on `<body>` — never inside a frame.
+  `qa/browser/t-v225-appfeel.mjs` spies the getters and **fails if a burst reads them**.
+- **Never animate `background-position`.** It cannot be composited: the element
+  repaints itself every frame. `@keyframes mSkeleton` (skeleton + every product-card
+  photo placeholder) and `@keyframes auProg` (the 3px progress bar) were both retired
+  in favour of a `translate` sweep on a pseudo-element — same colour, speed and angle.
+  The suite asserts both are gone and the replacements are `translate`-only.
+- **`.p-card` must not carry `will-change` on a touch device** (`html.au-touch`):
+  20–60 reserved GPU layers for a hover state a finger cannot trigger.
+- The back-to-top ring is a `conic-gradient`, so its value is **quantised to 1/120 of a
+  turn** and the progress bar to 0.1%; anything that repaints per frame should be
+  quantised the same way rather than written continuously.
+- **Left alone on purpose** (do not rewrite these without the geometry in front of
+  you): the designed sheen loops `posterShine`, `phSheen`, `auShine`, `shimText`,
+  `mPlShimmer`, `rateShim` — each is a gradient baked into a finished graphic, and
+  moving one onto a composited layer means re-deriving the element's box. The two
+  `background-clip: text` ones cannot be aliased onto a pseudo at all without a wrapper.
+  `touch-action: manipulation` in 8 older rules is a tap-latency choice, not a scroll
+  bug — see §11.
+
 ## 9 · Rules for writing code in this repo (from earlier owner orders)
 
 - Touch-action on JS-dragged elements: `pan-y` or `none`. Never `manipulation`.
@@ -244,10 +280,19 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
 - Memory updated at the end of v224: `MEMORY.md`, `ARENA-STATE.md`, `AGENTS.md`,
   `docs/AGENT-HANDOFF.md` (top blocks), this file, and the two shipped countdown docs.
 
-## 11 · Open items (as of v224)
+## 11 · Open items (as of v225)
 
-1. **Owner review of v206–v224** — nothing is live except v205. Owner says yes before any zip goes up.
-2. **Owner visual check for v224 specifically (on a phone, on mobile data):** (a) scroll the
+1. **Owner review of v206–v225** — nothing is live except v205. Owner says yes before any zip goes up.
+2. **Owner visual check for v225 specifically (on a phone):** (a) scroll the home page
+   slowly — the gold hairline at the top and the back-to-top ring must move with the
+   thumb and nothing should hitch; (b) the hero/banner artwork drifts very slightly
+   (11px, phone only — one number in `aurum.js`: `pxAmp`); (c) a swipe on a category
+   rail, the account tabs or the scheme step rail should settle on a label, not between
+   two; (d) **tap the newsletter or login field on an iPad or a phone held sideways —
+   the page must not zoom** (the v224 floor stopped at 680px); (e) product cards show a
+   thin gold line inside the card edge, firming up when tapped. Then the v224 checks
+   still apply:
+3. **Owner visual check for v224 (on a phone, on mobile data):** (a) scroll the
    home page slowly — the hero cards and the gold thread must not feel heavy (that heaviness
    was the hero float re-laying-out the page on every frame); (b) **tap the newsletter email
    field — the page must NOT zoom in** (the most visible fix in this release); (c) tap the
@@ -288,7 +333,16 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
    bundle — and nothing loads `bot.js`/`v108.js`): a cleanup candidate for a future release,
    left in place at v224 because this release is not a deletion release.
    The checks live in `qa/browser/t-v224-corners.mjs` and `t-v223-smooth.mjs`, not in grep.
-8. **The twin branch `arena/09f3c79f-shivaa-ecom` is 4 commits behind.** Reconciling it is
+8. **Carried into v226+:** `touch-action: manipulation` still sits in 8 older rules
+   (`aurum.css:483/639/979`, `mobile.css:34`, `finale.css:1595/1626/1692` and the gallery
+   drag) — left alone at v225 because it is a tap-latency choice on controls, and changing
+   it alters double-tap behaviour the owner has not asked about. The six designed sheen
+   loops named in §8 are the last `background-position` animations on the site; converting
+   one needs its element's box re-derived, which is a visual change, not a perf fix.
+   `cms/css/bot.css` + `cms/css/v108.css` are still dead (never linked, no loader for
+   `bot.js`/`v108.js`): still a cleanup candidate, still left in place because this was not
+   a deletion release.
+9. **The twin branch `arena/09f3c79f-shivaa-ecom` is 5 commits behind.** Reconciling it is
    the owner's decision; the agent must not force-push or rewrite either branch.
 
 ## 12 · Owner communication

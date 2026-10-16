@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 224;
+const APP_REL = 225;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -5305,6 +5305,14 @@ window.Shivaa.pdQty = d => {
   top.setAttribute('aria-label', 'Back to top'); top.innerHTML = '↑';
   document.body.appendChild(bar); document.body.appendChild(top);
   const onScroll = () => {
+    /* v225 — cms/js/v225.js owns this bar, this toggle and the back-to-top
+       ring from ONE measured scroll frame (window.__shvHub). Standing down
+       here is what makes that "one": this handler used to ask the document for
+       its scroll height on every frame, next to a second listener doing the
+       same thing. On a page that has not loaded v225.js the branch is inert
+       and the original code below still runs — the pair can never fight over
+       the same pixel, and the bar cannot end up owned by nobody. */
+    if (window.__shvHub) return;
     const h = document.documentElement;
     const p = h.scrollTop / Math.max(1, h.scrollHeight - h.clientHeight);
     bar.style.transform = 'scaleX(' + Math.min(1, Math.max(0, p)) + ')';

@@ -1,29 +1,42 @@
-> ## CURRENT STATE — read first (updated at v224, 16 Oct 2026)
+> ## CURRENT STATE — read first (updated at v225, 16 Oct 2026)
 >
 > - **Branch reality:** work continues on the Arena session branch
 >   `arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom` at its v220 tip
 >   (`4a9e239`) — the two trees were byte-identical when v221 started there. `arena/09f3c79f-shivaa-ecom`
 >   was **not** modified, so PR #106 on it is untouched. PR base: `arena/5529f0ec-shivaa-ecom`.
 > - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
-> - **Pushed, not live:** v206–v224. Newest is **v224** ("The Every-Corner Release"). Two halves:
->   **(1) smoothness** — five continuously-running CSS animations were still forcing a **re-layout of
->   the page on every frame**: `hsFloat` animated `margin-top` on four hero cards (from the first paint
->   of the home page), `plSweep`/`plShine`/`finSheen` animated `left`, `floatBullion` animated a 40px
->   `drop-shadow` and `bcBeam`/`bcRevealCard` animated a `blur()`. All are now `translate`/`opacity`
->   with the same geometry (static filters where a shadow/blur was part of the look). Then the timers:
->   both draw countdowns rebuilt all four cells with `innerHTML` **once a second forever**, the footer
->   rate ticker rewrote identical markup every 2.5s, and the `data-rate-age` line was written every
->   second whether or not it changed — all four now build once, write only a changed digit/text node,
->   and pause off screen (120px `IntersectionObserver`) and on a hidden tab: **~35 → ~2 DOM writes/sec**.
->   **(2) usability corners** — new `cms/css/v224.css` (last layer in the bundle): the iOS focus-zoom
->   floor finally holds (39 selectors, each below 16px everywhere it appears, so nothing large shrinks),
->   27px hit areas on the 6–8px carousel dots, `env(safe-area-inset-bottom)` on the concierge/theme/
->   back-to-top FABs, `dvh` height on the chat panel, tabular figures on live numerals,
->   `overscroll-behavior: contain` on panels, email-keyboard attributes, and the missing `alt`s.
->   Next release number: **v225**.
-> - One release back is **v223** ("The Smooth Release"): the five gold-thread films no longer mount with
->   `src`/`preload="auto"` (a fresh home page pulled 4.5 MB of video before the reader scrolled anywhere).
->   **v222** ("The Load Release") bundled 58 render-blocking stylesheets into one.
+> - **Pushed, not live:** v206–v225. Newest is **v225** ("The App-Feel Release"): the owner asked for it
+>   to be even smoother and even more graphically advanced, "just like modern-day D2C brand apps". The
+>   work was in the scroll frame itself. `cms/js/v225.js` now owns the chrome from **ONE** passive
+>   listener and ONE rAF, measuring the geometry only when it can change (resize / route / a
+>   `ResizeObserver` on the body) — before, `app.js` and `aurum.js` each ran their own scroll listener on
+>   their own rAF and each read `documentElement.scrollHeight` + `clientHeight` on **every frame**; a
+>   six-event scroll burst now reads the document **zero** times. The progress hairline and the
+>   back-to-top ring are written quantised (0.1% / 1/120 of a turn), so the two properties that must
+>   repaint repaint 120 times a page instead of 60 times a second. Both old handlers feature-detect
+>   `window.__shvHub` and stand down. **Two infinite repaint loops became composited sweeps:**
+>   `@keyframes mSkeleton` (the PDP skeleton ×7 **and every product-card photo placeholder** — a shop
+>   page shimmered its whole grid forever) and `@keyframes auProg` (the 3px bar) animated
+>   `background-position`, which no browser can composite; both now `translate` a pseudo-element with the
+>   same colour, speed and angle. A phone stopped reserving a GPU layer per product card for a hover
+>   state a finger cannot trigger (20–60 layers of video memory), and the sticky header drops its
+>   `backdrop-filter` on touch — a sticky element that re-samples its backdrop every frame. The parallax
+>   that was desktop-only now runs on touch too, at **11px instead of 26**, with each element's offset
+>   **cached** so a scroll frame performs no `getBoundingClientRect()`. `cms/css/v225.css` (last layer in
+>   the bundle) adds `scroll-snap-type: x proximity` + `overscroll-behavior-inline: contain` to eight
+>   rails and the scheme stepper, extends the 16px focus-zoom floor to the 681–900px tablet band (an
+>   iPad in portrait is 768px), puts twelve more live numeral strips on tabular figures, gives `.p-card`
+>   the house gold hairline and suppresses the grey Android tap flash where the site already draws its
+>   own press state. New suite `qa/browser/t-v225-appfeel.mjs`. Next release number: **v226**.
+> - One release back is **v224** ("The Every-Corner Release"): five continuously-running CSS animations
+>   stopped forcing a re-layout of the page every frame (the hero float animated `margin-top`; the pillar
+>   sweep, finale sheen and hover shine animated `left`; `floatBullion` a 40px `drop-shadow`; `bcBeam` a
+>   `blur()`), the four DOM-rebuilding timers stopped rewriting markup they had already written and now
+>   pause off screen (**~35 → ~2 DOM writes/sec**), and `cms/css/v224.css` carried ~35 usability corners
+>   (the iOS focus-zoom floor, 27px hit areas on the 6–8px dots, safe-area FABs, a `dvh` chat panel,
+>   tabular numerals, `alt`s). **v223** ("The Smooth Release") made the films lazy — a fresh home page
+>   fetched **0 video bytes**; **v222** ("The Load Release") bundled 58 render-blocking stylesheets into
+>   one.
 > - Full handoff (release table with zip shas, QA commands, open items): **`docs/NEXT-CHAT-HEAD.md`**. Read it first.
 > - Sandbox resets between turns: `git fetch origin arena/e8a470c6-shivaa-ecom && git reset --hard FETCH_HEAD`
 >   first (`arena/09f3c79f-shivaa-ecom` is the twin branch and works the same way).
@@ -37,6 +50,12 @@
 >   **v224 animation rule:** never animate a layout property (`margin`, `left`, `width`, `top`, …) or a
 >   `filter`/`blur` in a loop — use `translate`/`transform`/`opacity`; never put a per-second `innerHTML`
 >   rebuild back into a timer. `qa/browser/t-v224-corners.mjs` fails if either returns.
+>   **v225 scroll-frame rule:** the chrome's scroll work lives in `cms/js/v225.js` (`window.__shvHub`) —
+>   never add a second scroll listener that reads `scrollHeight`/`clientHeight` per frame, never call
+>   `getBoundingClientRect()` inside a frame, and never animate `background-position` (a repaint loop no
+>   browser can composite — use a `translate` sweep on a pseudo-element). `app.js` and `aurum.js`
+>   feature-detect the hub and stand down; `qa/browser/t-v225-appfeel.mjs` spies the getters and fails if
+>   a scroll burst reads them.
 >   Rebuild `cms/data/db.json` with `python3 qa/build-test-db.py` (v221: it now emits `makingCharges`
 >   too — the shim serves that route and 500s without the key); reinstall jsdom to /tmp.
 >   **Before blaming the code for a flaky suite, check for stray `node` processes.** A single stuck
@@ -44,17 +63,16 @@
 >   timing-based suites fail. Killing it returned the whole gate to green.
 > - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). 10g colour, offer tilt,
 >   smoother-scroll feel on a real phone, and sign-in look are unverified in a real browser or on a phone.
->   JS bundling stays a future option (deferred scripts already parallelise; `app.js` holds 308 top-level
->   declarations) and `content-visibility: auto` is a future candidate **only** in its
+>   **v225 carries:** `touch-action: manipulation` in 8 older rules is a tap-latency choice, left alone
+>   (changing it alters double-tap behaviour the owner has not asked about), and the six designed sheen
+>   loops (`posterShine`, `phSheen`, `auShine`, `shimText`, `mPlShimmer`, `rateShim`) still animate
+>   `background-position` — one `background-clip: text`, so a composited sweep needs a wrapper element
+>   first. JS bundling stays a future option (deferred scripts already parallelise; `app.js` holds 308
+>   top-level declarations) and `content-visibility: auto` is a future candidate **only** in its
 >   `contain-intrinsic-size: auto` form — see `docs/NEXT-CHAT-HEAD.md`. `cms/css/bot.css` and
 >   `cms/css/v108.css` are dead (never linked, no loader for `bot.js`/`v108.js`) — cleanup candidates.
 >   The passive-listener hunt is a dead end (23 of 25 listeners are already passive; the one blocker is
 >   the deliberate gallery drag).
->   smoother-scroll feel on a real phone, and sign-in look are unverified in a real browser or on a phone.
->   JS bundling stays a future option (deferred scripts already parallelise; `app.js` holds 308 top-level
->   declarations) — see `docs/NEXT-CHAT-HEAD.md`. Also pending from the owner: the passive-listener hunt is
->   a dead end (23 of 25 listeners are already passive; the one blocker is the deliberate gallery drag).
->   smoothness and sign-in look are unverified in a real browser or on a phone.
 
 # SHIVAA — Persistent Memory (auto-loaded every chat)
 

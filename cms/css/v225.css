@@ -1,0 +1,234 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v225.css · THE APP-FEEL LAYER
+   Last stylesheet in the bundle, so every rule here is the final say on a tie.
+
+   v223 stopped the films loading themselves. v224 took the layout animations
+   and the churning timers out and fixed five usability corners. v225 closes
+   the same idea in the two places v224 did not reach — and only in places
+   v224 left open; where it already acted, this file says so and stays out of
+   the way:
+
+   1 · THE SHIMMER (new) — @keyframes mSkeleton slid `background-position` on
+       a 200%-wide gradient, which no browser can composite: the element
+       repaints itself every frame for as long as it is loading. Three
+       surfaces ran it — .skeleton (the PDP paints seven at once) and
+       .pc-imgwrap / .tv-ph while a photo loads, i.e. every card on a shop
+       page. They now sweep a pseudo-element with `translate`, which the
+       compositor runs without touching paint.
+
+   2 · THE TOP PROGRESS BAR (new) — aurum.css ran `auProg` on #scrollProg
+       forever: another background-position slide, on the one element that is
+       on screen for every page of every visit. The colour is identical; the
+       movement moved onto its own layer.
+
+   3 · CARD LAYERS ON TOUCH (new) — .p-card carries `will-change:transform`
+       for the desktop hover lift, which on a phone reserves a GPU layer per
+       card, 20-60 of them, for a hover state a finger can never trigger.
+
+   4 · RAILS (new) — eight rails scroll horizontally without snap and without
+       owning their gesture, so a flick parks between two labels and a swipe
+       at the end can hand off to the browser's back gesture.
+
+   5 · THE 16px FLOOR ON TABLETS (extension) — v224 set it at ≤680px. iOS and
+       iPadOS zoom on focus at ANY width, and an iPad in portrait is 768px.
+       This is the 681-900 band only; the phone band is already v224's.
+
+   6 · MORE LIVE NUMERALS (extension) — v224 took the countdown, the ticker
+       and "MCX live · Ns ago". Five more strips tick or re-render their
+       numbers; they get the same tabular figures.
+
+   7 · TOUCH DEPTH (new) — the gold hairline the house already draws inside
+       every photo, carried out onto the card itself, plus the Android grey
+       tap flash suppressed on things that already answer with their own
+       press state.
+
+   Rules of the house, unchanged: transform/opacity/translate only, no filter
+   or blur loops, touch-action stays pan-y/none, no source layer is edited,
+   and nothing here reads layout.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes v225Sweep {
+  from { translate: -160% 0; }
+  to   { translate: 160% 0; }
+}
+@keyframes v225BarSweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/* ─── 1 · THE LOADING SHIMMER STOPS REPAINTING ────────────────────────────
+   Same colour, same speed, same angle — the highlight just travels on its own
+   layer now. `translate` (not `transform`) so it cannot collide with any
+   transform already on the same box.
+
+   Paint order was the one thing that needed care: `.pc-imgwrap::after` is
+   already the gold inner hairline (styles.css:996) and `.glare` is a real
+   child, so the sweep is a `::before` at z-index 0 with the photos lifted one
+   level while the placeholder is live. A photo can therefore never be covered
+   by its own loading state, and the whole rule switches off the moment the
+   `img-ok` class lands. `.skeleton` is an empty div, so its `::after` can
+   simply sit on top. */
+.skeleton {
+  background: #efe6d4;                 /* the gradient's own resting tone */
+  background-image: none;
+  animation: none;                     /* retires @keyframes mSkeleton */
+  position: relative;
+  overflow: hidden;
+}
+.skeleton::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg,
+    rgba(250, 245, 232, 0) 30%, rgba(250, 245, 232, .92) 50%, rgba(250, 245, 232, 0) 70%);
+  animation: v225Sweep 1.35s linear infinite;
+}
+html.js-motion .pc-imgwrap:not(.img-ok),
+html.js-motion .tv-ph:not(.img-ok) {
+  background-image: none;
+  animation: none;
+  position: relative;
+  overflow: hidden;
+}
+html.js-motion .pc-imgwrap:not(.img-ok)::before,
+html.js-motion .tv-ph:not(.img-ok)::before {
+  content: '';
+  position: absolute; inset: 0; z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg,
+    rgba(250, 245, 232, 0) 30%, rgba(250, 245, 232, .92) 50%, rgba(250, 245, 232, 0) 70%);
+  animation: v225Sweep 1.35s linear infinite;
+}
+html.js-motion .pc-imgwrap:not(.img-ok) img,
+html.js-motion .tv-ph:not(.img-ok) img { position: relative; z-index: 1; }
+
+/* ─── 2 · THE PROGRESS BAR STOPS REPAINTING ───────────────────────────────
+   `overflow:hidden` keeps the highlight inside the 3px strip. It cannot
+   interfere with the scaleX() that js/v225.js drives, because a transform
+   does not clip. */
+html.js-aurum #scrollProg {
+  background: linear-gradient(90deg, #8a6a24, #d4af5a, #ffe9bd, #d4af5a);
+  animation: none;
+  overflow: hidden;
+}
+html.js-aurum #scrollProg::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg,
+    rgba(255, 233, 189, 0), rgba(255, 233, 189, .85), rgba(255, 233, 189, 0));
+  animation: v225BarSweep 2.4s linear infinite;
+}
+
+/* ─── 3 · NO RESERVED GPU LAYER PER CARD ON A TOUCH DEVICE ────────────────
+   aurum.js already tags the device (`html.au-touch`), so the promotion is
+   simply not made on a finger. The desktop, where the lift lives, is
+   untouched — and because the promotion is only a hint, removing it cannot
+   change a single pixel: the press and the hover still transform on demand. */
+html.au-touch .p-card { will-change: auto; }
+
+/* ─── 4 · RAILS: SNAP, AND NO SCROLL CHAINING ────────────────────────────
+   .catbar / .catbar2 / .hscroll have snapped since v208 and the sheet rules
+   have contained their gestures since v99. These eight were left out — every
+   one of them is `overflow-x:auto` and holds a row of buttons or cards, so a
+   flick parks wherever momentum dies, often between two labels.
+
+   `proximity`, not `mandatory`: these are reading rails, not carousels, and
+   nothing should feel like it is fighting the thumb. Phone-and-tablet widths
+   only — above 900px these rows fit. */
+@media (max-width: 900px) {
+  .cat-chips, .adr-sw, .stages, .sz-strip-wrap,
+  .tabs, .acct-nav, .adm-nav {
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cat-chips > *, .adr-sw > *, .stages > *,
+  .sz-strip-wrap > *, .tabs > *, .acct-nav > *, .adm-nav > * {
+    scroll-snap-align: start;
+  }
+  /* the scheme stepper: no snap at all, and its nine buttons could shrink
+     instead of scroll. The step badges are the snap points; the `→`
+     separators between them are not. */
+  .shv-stepper-wrap {
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 14px;
+  }
+  .shv-step-btn { flex: 0 0 auto; scroll-snap-align: start; }
+}
+
+/* ─── 5 · THE 16px FLOOR, ON TABLETS TOO ─────────────────────────────────
+   v224 did this for phones (≤680px). iPadOS zooms a focused field in at any
+   width, and an iPad in portrait is 768px — the exact band in between. Same
+   field list as v224, same floors, no !important: the deliberately larger
+   fields (.otp-boxes input, .shv-otp input, .bbc-wt input at 34px) are more
+   specific and stay exactly as designed, and this can only ever raise a
+   field, never shrink one. */
+@media (min-width: 681px) and (max-width: 900px) {
+  .bd-deals select,
+  .boost-chat .bc-form input,
+  .coupon-row input,
+  .ds-filters select,
+  .dsf-w input,
+  .fl-news .nl-form input,
+  .fn-card .nl-form input,
+  .fv-news .nl-form input,
+  .hdr-search input,
+  .kyc-form .fld input,
+  .kyc-form input,
+  .kyc-form select,
+  .kyc-form textarea,
+  .mc-edit td input,
+  .nl-form input,
+  .pf-f input,
+  .pf-f select,
+  .rv-upload input,
+  .shv-body input,
+  .shv-body select,
+  .v107-sg-find input,
+  .v107-wiz input,
+  .v107-wiz select,
+  .wt-tx input,
+  input,
+  select,
+  textarea { font-size: 16px; }
+}
+
+/* ─── 6 · MORE LIVE NUMERALS — the strips v224 did not name ───────────────
+   A proportional font re-fits the line every time a digit changes, so a
+   counter that re-renders shifts whatever sits beside it. Tabular figures are
+   one width per digit, which is also how a native app draws a timer. */
+.rs-cell b, .ds-count, .ds-count b, .gal-count, .mc-count, .pf-count,
+.qv-count, .rl-timer, .am-dish-tick, .cd-head b, .cat-cell b, .rs-ticker {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ─── 7 · TOUCH DEPTH ────────────────────────────────────────────────────
+   styles.css:692 gives .p-card `border:1px solid transparent`, so the grid
+   reads flatter than the rest of the house. The hairline here is the same
+   gold as the inner photo frame at a fraction of the opacity; the box is
+   already bordered, so nothing moves. Hover firms the line and layers a
+   wine-tinted shadow under the existing sh-3.
+
+   `-webkit-tap-highlight-color` is not a touch-action change: the pan-y
+   rules that keep the rails scrollable are untouched, and every element
+   listed already answers a press with its own transform. */
+.p-card { border: 1px solid rgba(212, 175, 90, .14); }
+.p-card:hover {
+  border-color: rgba(212, 175, 90, .42);
+  box-shadow: var(--sh-3), 0 18px 44px -22px rgba(110, 30, 42, .28);
+}
+@media (hover: none) {
+  .p-card, .cat-pill, .cat-mini-card, .acct-tile, .chip, .tv-card,
+  .c-slide, .gal-slide { -webkit-tap-highlight-color: transparent; }
+}
+
+/* ─── 8 · REDUCED MOTION: the two new sweeps stay still ────────────────────
+   motion.css already caps every animation globally; naming them here keeps
+   the intent explicit next to the keyframes that were added. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after,
+  html.js-motion .pc-imgwrap:not(.img-ok)::before,
+  html.js-motion .tv-ph:not(.img-ok)::before,
+  html.js-aurum #scrollProg::after { animation: none; }
+}

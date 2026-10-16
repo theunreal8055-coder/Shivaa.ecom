@@ -18606,3 +18606,120 @@ html, body { overflow-x: clip; }
   .qv-dot::after,
   .ds-dot::after { animation: none; }
 }
+/* v225.css */
+ 
+@keyframes v225Sweep {
+  from { translate: -160% 0; }
+  to   { translate: 160% 0; }
+}
+@keyframes v225BarSweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+ 
+.skeleton {
+  background: #efe6d4;                  
+  background-image: none;
+  animation: none;                      
+  position: relative;
+  overflow: hidden;
+}
+.skeleton::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg,
+    rgba(250, 245, 232, 0) 30%, rgba(250, 245, 232, .92) 50%, rgba(250, 245, 232, 0) 70%);
+  animation: v225Sweep 1.35s linear infinite;
+}
+html.js-motion .pc-imgwrap:not(.img-ok),
+html.js-motion .tv-ph:not(.img-ok) {
+  background-image: none;
+  animation: none;
+  position: relative;
+  overflow: hidden;
+}
+html.js-motion .pc-imgwrap:not(.img-ok)::before,
+html.js-motion .tv-ph:not(.img-ok)::before {
+  content: '';
+  position: absolute; inset: 0; z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg,
+    rgba(250, 245, 232, 0) 30%, rgba(250, 245, 232, .92) 50%, rgba(250, 245, 232, 0) 70%);
+  animation: v225Sweep 1.35s linear infinite;
+}
+html.js-motion .pc-imgwrap:not(.img-ok) img,
+html.js-motion .tv-ph:not(.img-ok) img { position: relative; z-index: 1; }
+
+ 
+html.js-aurum #scrollProg {
+  background: linear-gradient(90deg, #8a6a24, #d4af5a, #ffe9bd, #d4af5a);
+  animation: none;
+  overflow: hidden;
+}
+html.js-aurum #scrollProg::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg,
+    rgba(255, 233, 189, 0), rgba(255, 233, 189, .85), rgba(255, 233, 189, 0));
+  animation: v225BarSweep 2.4s linear infinite;
+}
+
+ 
+html.au-touch .p-card { will-change: auto; }
+
+ 
+@media (max-width: 900px) {
+  .cat-chips, .adr-sw, .stages, .sz-strip-wrap,
+  .tabs, .acct-nav, .adm-nav {
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cat-chips > *, .adr-sw > *, .stages > *,
+  .sz-strip-wrap > *, .tabs > *, .acct-nav > *, .adm-nav > * {
+    scroll-snap-align: start;
+  }
+   
+  .shv-stepper-wrap {
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 14px;
+  }
+  .shv-step-btn { flex: 0 0 auto; scroll-snap-align: start; }
+}
+
+ 
+@media (max-width: 900px) {
+  input, select, textarea { font-size: 16px; }
+  .nl-form input, .fv-news .nl-form input, .fl-news .nl-form input, .fn-card .nl-form input,
+  .coupon-row input, .hdr-search input, .wt-tx input,
+  .shv-body input, .shv-body select,
+  .v107-wiz input, .v107-wiz select,
+  .kyc-form input, .kyc-form select, .kyc-form textarea, .kyc-form .fld input,
+  .auth-panel input, .auth-panel .fld input,
+  #shvAuthWrap .shv-body input[type="text"], #shvAuthWrap .shv-body input[type="email"],
+  #shvAuthWrap .shv-body input[type="tel"], #shvAuthWrap .shv-body input[type="password"],
+  .pf-f input, .pf-f select, .ds-filters select, .dsf-w input,
+  .boost-chat .bc-form input { font-size: 16px; }
+}
+
+ 
+.fc-cell b, .rs-cell b, .ds-count, .ds-count b, .gal-count, .mc-count,
+.pf-count, .qv-count, .rl-timer, .am-dish-tick, .cd-head b, .cat-cell b,
+.rs-ticker, .v107-tick {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+ 
+.p-card { border: 1px solid rgba(212, 175, 90, .14); }
+.p-card:hover {
+  border-color: rgba(212, 175, 90, .42);
+  box-shadow: var(--sh-3), 0 18px 44px -22px rgba(110, 30, 42, .28);
+}
+@media (hover: none) {
+  .p-card, .cat-pill, .cat-mini-card, .acct-tile, .chip, .tv-card,
+  .c-slide, .gal-slide { -webkit-tap-highlight-color: transparent; }
+}
