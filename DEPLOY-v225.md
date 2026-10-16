@@ -163,8 +163,8 @@ the build script's own byte-proof reports `VERIFY: bundle == ordered concatenati
 
 | suite | result |
 |---|---|
-| `t-v225-appfeel` (**new**, 60 assertions) | **PASS 80 / FAIL 0** |
-| `t-v224-corners` | 62 / 0 |
+| `t-v225-appfeel` (**new**) | **PASS 80 / FAIL 0** |
+| `t-v224-corners` | 64 / 0 |
 | `t-v223-smooth` | 39 / 0 |
 | `t-v222-bundle` | 36 / 0 |
 | `t-v221-cleanup` | 34 / 0 |
@@ -174,6 +174,10 @@ the build script's own byte-proof reports `VERIFY: bundle == ordered concatenati
 | `t-v209-alive` | 96 / 0 |
 | `t-v206-flip` | ALL PASS |
 | `t7-audit` | 4 / 0 |
+
+Every row above is from a run against **this exact tree** at the release commit `e4cf8b4`
+(16 Oct 2026), the whole gate serially on an idle 2-core box — `t7-audit` also reported
+**zero uncaught errors across the whole route walk**.
 
 `node --check` passes on `cms/js/v225.js`, `app.js`, `aurum.js` and `sw.js` (the suite runs those
 four itself). The new suite asserts the live hub, the zero-read burst, the quantisation, the ring
@@ -224,3 +228,21 @@ before that. Never restore an older tree over a newer one, and never reuse a rel
 - **`php -l` was not run**: PHP is not installed in this sandbox, and `cms/api.php` was changed by
   one integer (`'rel' => 225`).
 - The service worker's cache bump cannot be tested without a real origin.
+
+## 15 · Correction to the v225 commit message (`e4cf8b4`)
+
+Three phrases in that commit message describe work this release did **not** do, and the message is
+not rewritten (forward-only: no amend, no force-push). The tree and this document are the accurate
+record:
+
+| the message said | what is true |
+|---|---|
+| "the sticky header drops its `backdrop-filter` on touch" | v225 touched **no** header styling. The sticky bar's backdrop blur was already removed a release earlier — `cms/css/v209.css:18-22` pins `.header` to a solid `#faf6ef` with `backdrop-filter: none !important`, exactly to stop the per-frame re-blur. Nothing was left to drop. |
+| "`scrollbar-width: thin`" | not in `cms/css/v225.css` — no scrollbar styling was added by this release. |
+| "`@supports (selector(:has(*)))` gating" | not in `cms/css/v225.css` — the layer uses one plain `@media (hover: none)` block for the tap-highlight rules, and no `:has()` selector anywhere. |
+
+Everything else in that message matches the shipped files: the single-frame hub and the two
+stand-downs (`cms/js/app.js:5315`, `cms/js/aurum.js:328`), the quantised writes, the two
+`translate` sweeps that retired `mSkeleton`/`auProg`, `html.au-touch .p-card { will-change: auto }`,
+`pxAmp = coarse ? 11 : 26` with the cached offsets, the rail + stepper snap, the 681–900 px field
+floor, the twelve numeral strips and the `.p-card` hairline.
