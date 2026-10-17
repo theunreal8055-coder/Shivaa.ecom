@@ -68,7 +68,7 @@ try {
 T('build: tools/build-css-bundle.py runs clean', proof.includes('VERIFY: bundle == ordered concatenation'),
   proof.startsWith('ERROR') ? proof.slice(0, 90) : '');
 T('build: it confirms all blocks are present, contiguous and in order',
-  proof.includes('VERIFY: all 61 blocks present, contiguous and in order'));
+  proof.includes('VERIFY: all 62 blocks present, contiguous and in order'));
 T('build: it writes nothing on a dry run',
   !proof.includes('wrote cms/css/shivaa.css'));
 
@@ -99,9 +99,9 @@ T('sw: the offline shell keeps every script and font it had',
 
 /* ── 5 · stamps ────────────────────────────────────────────────────── */
 T('stamps: index at 227', index.includes('__SHIVAA_REL=227') && !index.includes('?v=226'));
-T('stamps: sw.js shell v226', sw.includes('shivaa-shell-v226') && sw.includes('const REL = 226;'));
-T('stamps: app.js APP_REL 226', app.includes('const APP_REL = 226;'));
-T('stamps: api rel 226', api.includes("'rel' => 226,"));
+T('stamps: sw.js shell v227', sw.includes('shivaa-shell-v227') && sw.includes('const REL = 227;'));
+T('stamps: app.js APP_REL 227', app.includes('const APP_REL = 227;'));
+T('stamps: api rel 227', api.includes("'rel' => 227,"));
 
 /* ── 6 · the settings race that the gate found ──────────────────────
    `state.settings` used to start as null; boot caps the /api/settings wait at

@@ -95,11 +95,11 @@ T('stamps: index at 227 with no older stamp left',
   index.includes('__SHIVAA_REL=227') && !index.includes('?v=226'));
 T('stamps: sw.js shell v226', sw.includes('shivaa-shell-v227') && sw.includes('const REL = 227;'));
 T('stamps: app.js APP_REL 227', app.includes('const APP_REL = 227;'));
-T('stamps: api rel 226', api.includes("'rel' => 226,"));
+T('stamps: api rel 227', api.includes("'rel' => 227,"));
 /* v222 bundled the stylesheets, so the SW precaches the bundle rather than
    v125.css. The v125 CSS itself still has to be inside that bundle. */
 T('stamps: sw precaches the bundle and the v125 script at 224',
-  sw.includes('/css/shivaa.css?v=226') && sw.includes('/js/v125.js?v=226'));
+  sw.includes('/css/shivaa.css?v=227') && sw.includes('/js/v125.js?v=227'));
 T('v221: the v125 layer is inside the bundle', CSS_BUNDLE_V221.includes('/* v125.css */'));
 
 /* ── 5 · jsdom: the live page still behaves ─────────────────────── */

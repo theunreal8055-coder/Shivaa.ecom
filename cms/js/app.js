@@ -3984,12 +3984,15 @@ window.Shivaa.cancelBlackClaimIntent = () => {
 };
 window.Shivaa.beginBlackClaim = (returnHash = '', btn = null) => {
   const back = blackReturnHash(returnHash);
-  window._blackClaimReturn = back;
-  window._blackClaimAfterLogin = true;
+  const armIntent = () => { window._blackClaimReturn = back; window._blackClaimAfterLogin = true; };
   if (!state.user) {
     const intake = blackReadIntake();
     /* only a field on this page can be wrong; a page with no form is expected */
     if (intake.error && intake.form) { blackClaimStatus(intake.error, 'error'); if (intake.focus) intake.focus.focus(); return; }
+    /* v227 — the intent is armed only once the flow actually proceeds. It used
+       to be set before validation, so a refused claim still survived the next
+       sign-in and fired itself. */
+    armIntent();
     try {
       if (intake.name) sessionStorage.setItem('shv_bc_name', intake.name);
       if (intake.mobile) sessionStorage.setItem('shv_bc_mobile', intake.mobile);
@@ -4000,6 +4003,7 @@ window.Shivaa.beginBlackClaim = (returnHash = '', btn = null) => {
     return;
   }
   if ((state.user.role || 'customer') !== 'customer') { window.Shivaa.cancelBlackClaimIntent(); return toast('Shivaa Black is exclusively for retail customers.', 'err'); }
+  armIntent();
   return window.Shivaa.claimBlackCard(btn, { returnHash: back });
 };
 window.Shivaa.claimBlackCard = (btn, opts = {}) => {

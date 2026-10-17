@@ -83,16 +83,16 @@ T('stamp: index.html announces the release', !!relIndex && relIndex[1] === '227'
 T('stamp: app.js APP_REL matches', !!relApp && relApp[1] === '227', relApp && relApp[1]);
 T('stamp: sw.js REL matches', !!relSw && relSw[1] === '227', relSw && relSw[1]);
 T('stamp: api.php reports the same rel', !!relApi && relApi[1] === '227', relApi && relApi[1]);
-T('stamp: the service worker shell is bumped too', /shivaa-shell-v226/.test(SW));
+T('stamp: the service worker shell is bumped too', /shivaa-shell-v227/.test(SW));
 T('stamp: the new script is loaded by the page, deferred, after app.js',
-  INDEX.indexOf('/js/v226.js?v=226') > INDEX.indexOf('/js/app.js?v=226') &&
-  /<script src="\/js\/v226\.js\?v=226" defer><\/script>/.test(INDEX));
+  INDEX.indexOf('/js/v227.js?v=227') > INDEX.indexOf('/js/app.js?v=227') &&
+  /<script src="\/js\/v227\.js\?v=227" defer><\/script>/.test(INDEX));
 T('stamp: the shell precaches the bundle and the new script',
-  /'\/css\/shivaa\.css\?v=226'/.test(SW) && /'\/js\/v226\.js\?v=226'/.test(SW));
+  /'\/css\/shivaa\.css\?v=227'/.test(SW) && /'\/js\/v227\.js\?v=227'/.test(SW));
 T('stamp: nothing in the shipped tree still says 225',
   ![INDEX, SW, APP, read('cms/api.php')].some(s => /(\?v=226|__SHIVAA_REL=226|shivaa-shell-v226|APP_REL = 226|'rel' => 226)/.test(s)));
 T('v222: still exactly one stylesheet, and it is the bundle',
-  (INDEX.match(/rel="stylesheet"/g) || []).length === 1 && /href="\/css\/shivaa\.css\?v=226"/.test(INDEX));
+  (INDEX.match(/rel="stylesheet"/g) || []).length === 1 && /href="\/css\/shivaa\.css\?v=227"/.test(INDEX));
 
 /* ═══ 2 · the press surface ══════════════════════════════════════════════ */
 {
