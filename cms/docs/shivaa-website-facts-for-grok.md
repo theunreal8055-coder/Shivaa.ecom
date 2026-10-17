@@ -1,6 +1,38 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
 ---
+**v228 — THE PLAY STORE GATE** (2026-10-17). The owner asked to launch on Google
+Play. The launch kit (`playstore/`, written at v183) was already in the repo and
+green apart from two things; the first was a real gap, not a formality:
+
+1. **The account-erasure page did not exist.** Play's User Data policy asks every
+   app with accounts for an in-app erase AND a public URL that does it without
+   installing anything. `POST /api/auth/delete-account` has shipped since v183,
+   but **no page ever called it** — every document pointed at
+   `https://shivaa.in/#/delete-account`, and that hash fell through the router to
+   Home. The link Play asks for would have opened the shop. Now `#/delete-account`
+   (alias `#/erase-account`) is a real page: signed out it proves the number with
+   a fresh SMS code (deliberately no sign-in first — nobody should log in to
+   leave), signed in the session is proof; both need the word DELETE; the owner
+   account and B2B partners are refused by the server; success anonymises the
+   row, kills every device token, and the page repeats the server's own words.
+   The account screen carries a **Privacy & my data** tile. Proven end to end in
+   jsdom: code → erase → old token 401 → old password 401 → the code cannot be
+   reused.
+2. **The "Ring size guide" shortcut pointed at nothing.** `#/size-guide` was in
+   the TWA manifest since the kit was written; the sizer has always lived at
+   `#/sizer`. The shortcut is now an alias, and the suite proves all three
+   shortcuts render.
+3. **A bug the route walk found:** `holdRepeat` kept stepping a page that had
+   been left (the removed button never received `pointerup`), and the ring-size
+   page's `paint()` then threw `Cannot read properties of null`. The repeat now
+   stops when its element leaves the page; `paint`/`paintCal` are guarded.
+
+New suite `t-v228-play.mjs` (51 assertions). Nothing about the app's content
+changed: the TWA is a verified window onto `shivaa.in`, so a web release IS an
+app release.
+
+---
 **v227 — THE READING LAYER** (2026-10-17). The owner's list, in their order:
 
 1. **"the verify and create button of shivaa black membership card is not
@@ -40,13 +72,13 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
-**COUNTDOWN: release 227 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v228**.
-Updated 2026-10-17 from `arena/e8a470c6-shivaa-ecom` (branched from
+**COUNTDOWN: release 228 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v229**.
+Updated 2026-10-17 (v228) from `arena/e8a470c6-shivaa-ecom` (branched from
 `arena/09f3c79f-shivaa-ecom` at its v220 tip `4a9e239`).
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=227`), built from the 61 historical layers (62 cascade
+(stamped `?v=228`), built from the 61 historical layers (62 cascade
 positions — `v186.css` deliberately sits at two of them) by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and

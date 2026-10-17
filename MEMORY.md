@@ -1,42 +1,49 @@
-> ## CURRENT STATE — read first (updated at v227, 17 Oct 2026)
+> ## CURRENT STATE — read first (updated at v228, 17 Oct 2026)
 >
 > - **Branch reality:** work continues on the Arena session branch
 >   `arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom` at its v220 tip
 >   (`4a9e239`) — the two trees were byte-identical when v221 started there. `arena/09f3c79f-shivaa-ecom`
 >   was **not** modified, so PR #106 on it is untouched. PR base: `arena/5529f0ec-shivaa-ecom`.
 > - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
-> - **Pushed, not live:** v206–v227. Newest is **v227** ("The Reading Layer"): the owner reported that
->   the black-card "Verify & create" button does nothing on a product page, that forgot-password shows an
->   email OTP when it should ask for the mobile and then a new password, and asked for the home page's
->   bugs and the "design elements and design physics and design texts" to be made better. (1) The claim
->   was **dead on every PDP**: `blackReadIntake()` looked for `[data-black-claim] [data-bc-intake]`, a
->   form that exists only on `#/black-card`, so on a PDP it returned "Enter your name…", `beginBlackClaim`
->   took the wrong error branch, and the status writer targeted `.bc-claim-status`, which was not on the
->   page either — no sheet, no message, nothing. The reader is form-aware now, the PDP invite card carries
->   its own `.bc-commerce-status` line, the claim falls back to the account name (and sends a nameless
->   account to `#/black-card`), and the post-login auto-claim prefills first — it had been broken for
->   every first-time visitor. The intent is armed **only after validation passes** (the old code armed it
->   at the top, so a refused empty claim fired itself on the next sign-in — the new suite caught it).
->   Proven end to end on `#/product/p_smp_rings_01`: signed out the sheet opens and remembers the return
->   hash; signed in, OTP → card `SBM284596` (expires 2027-04-18) → back on the piece showing
->   "Save ₹854 on this piece". (2) **Forgot password** is mobile-first: the 4-digit code goes to the
->   registered mobile (even when the shopper starts from an email), then new password + repeat with a
->   real 30 s resend; `api.php` accepts `{phone}` or `{email}`, rate-limits per identifier and always
->   texts the registered mobile. Proven: the new password signs in 200, the old one is refused 401.
->   (3) **Home**: the rate ribbon printed `₹₹6,998/g` on every figure (the template added a sign `fmt()`
->   has printed since v120), the legacy hero hint was a bare injected `<div>` that ate taps (now a real
->   `<button data-hero-cue>`, 44 px on coarse pointers), `ub-rates`/`btn-lg` can wrap at 768 px, and the
->   news logo + mega feature art are deferred and sized. (4) **The reading layer** (`cms/css/v227.css` +
->   `cms/js/v227.js`, last bundle layer): `--shv-mnav-h` is measured from the real `.mnav` (64 px CSS
->   fallback) and drives the footer bleed, `scroll-padding-bottom` and `#backTop`; images that mount after
->   the first sweep are still deferred; the rail centres its active chip with `scrollLeft` arithmetic
->   (never `scrollIntoView`) and jumps under reduced motion; the `.fv-base`/`.fvt-id` gold floors are
->   lifted to legibility; press states reuse `--shv-press`. New suites: blackcard 28, reset 31, design 41;
->   the whole older gate green (butter 61, appfeel 80, corners 64, smooth 39, bundle 36, cleanup 34,
->   billing-gone 13, depth 22, sidebar 13, alive 96, flip all, t7 4). Package: **357 files · 37,266,250 B ·
->   sha256 `c4cbf83d6efb06fc518a3882af9b6b8727a6dd1743e40ff5fe657602769ccc0f`**. Next release number:
->   **v228**.
-> - One release back is **v226** ("The Butter Release"): every press answers. 265 of 1058 visible controls
+> - **Pushed, not live:** v206–v228. Newest is **v228** ("The Play Store Gate"): the owner asked to
+>   launch on Google Play. The kit in `playstore/` (written at v183) was already consistent; what was
+>   missing was **real**, not paperwork: (1) **the account-erasure page did not exist.**
+>   `POST /api/auth/delete-account` shipped at v183 but **nothing ever called it** — every document
+>   pointed at `https://shivaa.in/#/delete-account`, and that hash fell through the router to Home, so
+>   the URL Play would have been given opened the shop. `#/delete-account` (alias `#/erase-account`) is
+>   now a page in `app.js`: signed out it proves the number with a fresh SMS code (no sign-in first —
+>   nobody should log in in order to leave), signed in the session is proof; both demand the word
+>   DELETE; the server refuses the owner's account and B2B partners, anonymises the row, burns the code
+>   and drops every device token; the page then repeats the server's own message and, if signed in,
+>   signs itself out. The account screen carries a **Privacy & my data** tile. (2) **the TWA shortcut
+>   "Ring size guide" pointed at `#/size-guide`, which never existed** — the sizer has always been
+>   `#/sizer`; it is an alias now and all three shortcuts are proven to render. (3) **t7-audit's route
+>   walk found a real bug**: `holdRepeat` kept stepping a page that had been left (a removed button
+>   never receives `pointerup`), so the ring-size page's `paint()` threw `Cannot read properties of
+>   null`; the repeat now stops when its element leaves the page and `paint`/`paintCal` are guarded.
+>   v228 adds **no new css/js layer** (the page lives in `app.js`), so the bundle is unchanged: 62
+>   layers / 62 blocks. Stamps: index 32 × `?v=228`, sw 31, `shivaa-shell-v228`, `REL = 228`,
+>   `APP_REL = 228`, `'rel' => 228`. New suite `t-v228-play.mjs` (51 assertions — the source, the
+>   server's refusals, the TWA/asset-links/manifest links, the live signed-out erase, the signed-in
+>   erase, and the three shortcut pages). Whole gate green. Next release number: **v229**.
+> - **Google Play — where the launch stands.** Kit verified by `node playstore/verify.mjs`: 15 pass,
+>   0 fail, **2 warnings that are still the owner's to clear** — (a) **both signing fingerprints are
+>   still placeholders** in `playstore/assetlinks.json` and `cms/.well-known/assetlinks.json` (run
+>   `bubblewrap fingerprint`, paste upload-key + Play-app-signing SHA-256 into BOTH files, redeploy);
+>   (b) **zero screenshots** (capture on a phone, see `playstore/screenshots/CAPTURE.md`). Also gated
+>   on the owner: the Play account type (a personal account created after 13 Nov 2023 needs 12 testers
+>   opted in for 14 continuous days before production), identity verification, the keystore (never in
+>   git), a real UPI payment inside the TWA, and the **UGC declaration** — the app has customer reviews
+>   and no in-app report button, so it is either "reviews off in the app" or build
+>   `POST /api/reviews/report`. Nothing can be built or signed in this sandbox (no JDK/Android SDK, no
+>   route to dl.google.com, no `shivaa.in`).
+> - One release back is **v227** ("The Reading Layer"): the black-card "Verify & create" works from
+>   every product page (the reader demanded a form that only exists on `#/black-card`), forgot-password
+>   is mobile-first (4-digit SMS code → new password + repeat, real 30 s resend; `api.php` takes
+>   `{phone}` or `{email}` and always texts the registered mobile), the rate ribbon stopped printing
+>   `₹₹`, the legacy hero hint became a real button, `--shv-mnav-h` is measured rather than guessed, the
+>   rail centres its chip with `scrollLeft` arithmetic, and the deepest gold is readable.
+> - Earlier: **v226** ("The Butter Release"): every press answers. 265 of 1058 visible controls
 >   had no `:active` rule; `cms/css/v226.css` gives each family a transform press under the **union** of
 >   `(pointer: coarse)` and `(hover: none)` (the union matters: a touchscreen laptop is both), and
 >   `cms/js/v226.js` adds the v89 gold ripple (tap-only on big surfaces), one 5 ms haptic per real tap,
@@ -88,9 +95,9 @@
 >   timing-based suites fail. Killing it returned the whole gate to green.
 > - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). 10g colour, offer tilt,
 >   smoother-scroll feel on a real phone, and sign-in look are unverified in a real browser or on a phone.
->   **v227 carries:** the claim journey and the reset flow are proven end to end in jsdom against the
->   shim, but **no real phone, SMS or PHP has run this**
->   — that is the 3-minute checklist in `DEPLOY-v227.md` §9 (the claim from any product page, signed out
+>   **v228 carries:** the erasure flow is proven end to end in jsdom against the shim, but **no
+>   real phone, SMS, PHP, JDK/Android SDK or Play Console has run this**
+>   — that is the 3-minute checklist in `DEPLOY-v228.md` §9 (the claim from any product page, signed out
 >   and in / a reset by mobile, then a new password / the ribbon reads `₹6,998/g` / the last footer
 >   line clear of the bottom nav on a notched iPhone). `touch-action:
 >   manipulation` in 8 older rules is still left alone (a tap-latency choice; changing it alters
