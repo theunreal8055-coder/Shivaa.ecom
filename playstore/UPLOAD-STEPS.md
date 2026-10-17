@@ -7,6 +7,9 @@ things that burn an hour), `bash playstore/make-aab.sh` (build) and
 `node playstore/version-bump.mjs` (records the upload, guards the code). The wider plan is `playstore/README.md`; the tick-box
 version is `playstore/CHECKLIST.md`; the words to paste are `playstore/listing.md`.
 
+**Publishing (not just uploading)?** `playstore/PUBLISH.md` covers the tracks, the
+Console answers, and the seven review rejections with their one-line fixes.
+
 **One sentence of context:** the app is a **Trusted Web Activity** — a verified,
 full-screen window onto `shivaa.in`. There is no second codebase. A website
 release (`shivaa-update-vNNN.zip`) updates the app's content; only a *native*

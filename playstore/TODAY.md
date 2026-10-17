@@ -36,7 +36,7 @@ Har step ke baad agla step tabhi, jab pichhla ho jaye.
 | **T-60 · 5 min** | Testers me apna Gmail → opt-in link phone par → install | aap |
 | **T-65 · 10 min** | Phone par 5 checks (§4) | aap |
 | **T-75 · 2 min** | `node playstore/version-bump.mjs uploaded internal "first upload"` | aap |
-| **T-77 · 5 min** | `node playstore/set-fingerprint.mjs "<upload>" "<play-signing>"` → web dobara deploy → phone par **address bar gayab** | aap |
+| **T-77 · 5 min** | `node playstore/set-fingerprint.mjs "<upload>" "<play-signing>"` → **sirf** `.well-known/assetlinks.json` server par upload → `bash playstore/verify-live.sh` → phone par **address bar gayab** | aap |
 | **T+90** | Closed testing (12 testers) ya Production submit — account type ke hisaab se | aap |
 
 **Yahan main kya kar sakta hoon:** script, kit, checks, docs — sab taiyaar hain.
@@ -134,6 +134,12 @@ node playstore/verify.mjs
 | `#/delete-account` home khulta hai | live tree v228 se purana | v228 deploy karo |
 
 ---
+
+## 9 · Publish (upload ke baad ka rasta)
+
+Poora rasta — internal → closed → production, review ke 7 rejection aur unke fix —
+`playstore/PUBLISH.md` me hai. Sabse zaroori line: **assetlinks fix ke bina
+production submit mat karo**, aur UGC declaration se pehle §5 ka faisla lo.
 
 ## 8 · Aaj ke baad
 

@@ -707,6 +707,29 @@ class Handler(SimpleHTTPRequestHandler):
             return self._serve_static()
         q = parse_qs(u.query)
         d = db()
+        if route == "version":
+            # v228 — api.php reports the release + the Data Source dial; the
+            # shim answers the same shape so playstore/verify-live.sh and the
+            # admin strip can be exercised locally. No credentials, ever.
+            import re as _re
+            idx = (ROOT / "index.html").read_text(encoding="utf-8", errors="ignore")
+            app = (ROOT / "js" / "app.js").read_text(encoding="utf-8", errors="ignore")
+            sw = (ROOT / "sw.js").read_text(encoding="utf-8", errors="ignore")
+            rel_i = _re.search(r"__SHIVAA_REL\s*=\s*(\d+)", idx)
+            rel_a = _re.search(r"APP_REL\s*=\s*(\d+)", app)
+            rel_s = _re.search(r"REL\s*=\s*(\d+)", sw)
+            shell = _re.search(r"SHELL = '([^']+)'", sw)
+            ri = int(rel_i.group(1)) if rel_i else 0
+            ra = int(rel_a.group(1)) if rel_a else 0
+            rs = int(rel_s.group(1)) if rel_s else 0
+            return self._json(200, {
+                "ok": True, "rel": ri, "shell": shell.group(1) if shell else "?",
+                "stamp": {"index": ri, "app": ra, "sw": rs,
+                          "matched": ri == ra and (rs == 0 or rs == ri)},
+                "db": {"driver": "json", "mode": "json", "reason": "preview-shim",
+                       "sqlCount": None, "jsonCount": len(d.get("products", [])),
+                       "mirrorBehind": False},
+            })
         if route == "settings":
             return self._json(200, d["settings"])
         if route == "rates":

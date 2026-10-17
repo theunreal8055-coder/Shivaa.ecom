@@ -356,6 +356,14 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
    --status|uploaded <track> ["note"]|set <n>` which records every uploaded versionCode in
    `playstore/uploads.json` and refuses a reused one BEFORE the 40 MB upload. The v228b suite
    reads that ledger, so a version bump never breaks `t-v228-play`.
+   **Publishing (after the AAB exists):** `playstore/PUBLISH.md` — internal → closed → production,
+   the Console answers, the UGC decision (reviews are UGC and there is still no in-app Report
+   button: either hide reviews, or ship `POST /api/reviews/report`), and the seven review
+   rejections with their one-line fixes. `bash playstore/verify-live.sh` proves the LIVE
+   assetlinks really carries both fingerprints (exit 0 = Google's verifier will pass; it also
+   checks the deployed `js/app.js` really contains `#/delete-account`). **v228's zip still ships
+   placeholder fingerprints** — fixing them is a ONE-file upload of
+   `cms/.well-known/assetlinks.json`, never a re-deploy of the whole tree.
 3. **Owner visual check for v227 specifically (on a phone):** (a) open any product, scroll to the
    black-card invite, tap **Verify & create** — the sheet must open there with a status line under
    the button, and a signed-in claim must return to the same piece and show its saving;
