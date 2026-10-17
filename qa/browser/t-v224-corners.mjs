@@ -286,16 +286,16 @@ T('v224: both QR renderers label their image',
 /* ═══ 4 · the release itself ═════════════════════════════════════════════ */
 
 const SW = read('cms/sw.js'), API = read('cms/api.php');
-T('stamps: index carries ?v=227 everywhere and __SHIVAA_REL=227',
-  (INDEX.match(/\?v=227/g) || []).length === 32 && INDEX.includes('__SHIVAA_REL=227'));
+T('stamps: index carries ?v=228 everywhere and __SHIVAA_REL=228',
+  (INDEX.match(/\?v=228/g) || []).length === 32 && INDEX.includes('__SHIVAA_REL=228'));
 T('stamps: sw.js shell, REL and every precached URL are at 227',
-  SW.includes('shivaa-shell-v227') && /REL = 227/.test(SW) && (SW.match(/\?v=227/g) || []).length === 31);
+  SW.includes('shivaa-shell-v228') && /REL = 228/.test(SW) && (SW.match(/\?v=228/g) || []).length === 31);
 T('stamps: app.js APP_REL and api.php rel are at 227',
-  /APP_REL = 227/.test(APP) && /'rel' => 227/.test(API));
+  /APP_REL = 228/.test(APP) && /'rel' => 228/.test(API));
 T('stamps: nothing in the shipped tree still says 225',
   ![INDEX, SW, APP, API, BUNDLE].some(s => /(\?v=226|__SHIVAA_REL=226|shivaa-shell-v226|APP_REL = 226|'rel' => 226)/.test(s)));
 T('v222: the shop still loads exactly one stylesheet',
-  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=227'));
+  (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1 && INDEX.includes('/css/shivaa.css?v=228'));
 T('v222: the settings race fix is still there', APP.includes('SETTINGS_DEFAULTS'));
 T('v223: the films still mount with no src and no autoplay',
   !/v\.autoplay = true/.test(read('cms/js/v125.js')) && read('cms/js/v125.js').includes("v.preload = 'none'"));

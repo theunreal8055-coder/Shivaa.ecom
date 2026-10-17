@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 227;
+const APP_REL = 228;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -6486,7 +6486,13 @@ window.Shivaa.holdRepeat = (el, step, opts = {}) => {
   const FIRST = opts.firstDelay ?? 340, R0 = opts.repeatStart ?? 95, RMIN = opts.repeatMin ?? 32;
   let t1 = null, t2 = null, rep = R0, alive = false;
   const clear = () => { clearTimeout(t1); clearTimeout(t2); t1 = t2 = null; alive = false; };
-  const tick = () => { step(); rep = Math.max(RMIN, Math.round(rep * 0.86)); t2 = setTimeout(tick, rep); };
+  /* v228 — a stepper that is no longer on the page must stop. A route change
+     removes the button while the finger's pointerup never lands (the node is
+     gone), so the chain used to keep stepping a page that no longer exists. */
+  const tick = () => {
+    if (!el.isConnected) return clear();
+    step(); rep = Math.max(RMIN, Math.round(rep * 0.86)); t2 = setTimeout(tick, rep);
+  };
   el.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
@@ -8278,6 +8284,7 @@ pages.sizer = async view => {
   const haptic = ms => { try { navigator.vibrate?.(ms); } catch (e) {} };
   const DEFAULT_PPM = 96 / 25.4;
   const paintCal = () => {
+    if (!card || !card.isConnected) return;
     card.style.width = (85.6 * ppm).toFixed(1) + 'px'; paint();
     try {
       if (Math.abs(ppm - DEFAULT_PPM) < 0.0006) localStorage.removeItem('shv_sizer_ppm');
@@ -8285,11 +8292,13 @@ pages.sizer = async view => {
     } catch (e) {}
   };
   const paint = () => {
-    $('#szCircle').style.width = (dia * ppm).toFixed(1) + 'px';
-    $('#szCircle').style.height = (dia * ppm).toFixed(1) + 'px';
-    $('#szDia').textContent = dia.toFixed(1);
+    /* v228 — the page can be left mid-press (t7-audit caught the TypeError). */
+    const circle = $('#szCircle'), diaEl = $('#szDia'), indEl = $('#szInd');
+    if (!circle || !diaEl || !indEl) return;
+    circle.style.width = (dia * ppm).toFixed(1) + 'px';
+    circle.style.height = (dia * ppm).toFixed(1) + 'px';
+    diaEl.textContent = dia.toFixed(1);
     const ind = indSizeFromDia(dia);
-    const indEl = $('#szInd');
     if (indEl.textContent !== String(ind)) { indEl.textContent = ind; haptic(5); }
   };
   // v101 — continuous press-and-hold on every stepper (calibration + size)

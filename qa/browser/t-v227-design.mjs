@@ -168,7 +168,7 @@ T('physics: nothing shouts — no !important in this layer at all',
 T('shell: v227.css is the last layer and v227.js loads after app.js',
   ORDER[ORDER.length - 1] === 'v227.css' && ORDER[ORDER.length - 2] === 'v226.css' &&
   BUNDLE.lastIndexOf('/* v227.css */') > BUNDLE.lastIndexOf('/* v226.css */') &&
-  INDEX.indexOf('/js/v227.js?v=227') > INDEX.indexOf('/js/app.js?v=227'));
+  INDEX.indexOf('/js/v227.js?v=228') > INDEX.indexOf('/js/app.js?v=228'));
 
 /* ── 8 · live: the page a shopper gets ────────────────────────────────── */
 {

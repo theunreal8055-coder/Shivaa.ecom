@@ -79,20 +79,20 @@ const relIndex = /window\.__SHIVAA_REL=(\d+);/.exec(INDEX);
 const relApp = /const APP_REL = (\d+);/.exec(APP);
 const relSw = /const REL = (\d+);/.exec(SW);
 const relApi = /'rel' => (\d+),/.exec(read('cms/api.php'));
-T('stamp: index.html announces the release', !!relIndex && relIndex[1] === '227', relIndex && relIndex[1]);
-T('stamp: app.js APP_REL matches', !!relApp && relApp[1] === '227', relApp && relApp[1]);
-T('stamp: sw.js REL matches', !!relSw && relSw[1] === '227', relSw && relSw[1]);
-T('stamp: api.php reports the same rel', !!relApi && relApi[1] === '227', relApi && relApi[1]);
-T('stamp: the service worker shell is bumped too', /shivaa-shell-v227/.test(SW));
+T('stamp: index.html announces the release', !!relIndex && relIndex[1] === '228', relIndex && relIndex[1]);
+T('stamp: app.js APP_REL matches', !!relApp && relApp[1] === '228', relApp && relApp[1]);
+T('stamp: sw.js REL matches', !!relSw && relSw[1] === '228', relSw && relSw[1]);
+T('stamp: api.php reports the same rel', !!relApi && relApi[1] === '228', relApi && relApi[1]);
+T('stamp: the service worker shell is bumped too', /shivaa-shell-v228/.test(SW));
 T('stamp: the new script is loaded by the page, deferred, after app.js',
-  INDEX.indexOf('/js/v227.js?v=227') > INDEX.indexOf('/js/app.js?v=227') &&
-  /<script src="\/js\/v227\.js\?v=227" defer><\/script>/.test(INDEX));
+  INDEX.indexOf('/js/v227.js?v=228') > INDEX.indexOf('/js/app.js?v=228') &&
+  /<script src="\/js\/v227\.js\?v=228" defer><\/script>/.test(INDEX));
 T('stamp: the shell precaches the bundle and the new script',
-  /'\/css\/shivaa\.css\?v=227'/.test(SW) && /'\/js\/v227\.js\?v=227'/.test(SW));
+  /'\/css\/shivaa\.css\?v=228'/.test(SW) && /'\/js\/v227\.js\?v=228'/.test(SW));
 T('stamp: nothing in the shipped tree still says 225',
   ![INDEX, SW, APP, read('cms/api.php')].some(s => /(\?v=226|__SHIVAA_REL=226|shivaa-shell-v226|APP_REL = 226|'rel' => 226)/.test(s)));
 T('v222: still exactly one stylesheet, and it is the bundle',
-  (INDEX.match(/rel="stylesheet"/g) || []).length === 1 && /href="\/css\/shivaa\.css\?v=227"/.test(INDEX));
+  (INDEX.match(/rel="stylesheet"/g) || []).length === 1 && /href="\/css\/shivaa\.css\?v=228"/.test(INDEX));
 
 /* ═══ 2 · the press surface ══════════════════════════════════════════════ */
 {
@@ -237,7 +237,7 @@ T('bundle: the shipped bundle carries the press rules, not just the file',
   hasSel(BUNDLE_RULES, '.cb-item:active', 'translateY(1px)') && hasSel(BUNDLE_RULES, '.rip-live', 'overflow: hidden') &&
   hasSel(BUNDLE_RULES, 'html.vt-run #view', 'view-transition-name'));
 T('bundle: v227.css and v227.js are both in the shell and in the order file',
-  SW.includes("'/js/v227.js?v=227'") && ORDER.includes('v227.css') &&
+  SW.includes("'/js/v227.js?v=228'") && ORDER.includes('v227.css') &&
   fs.existsSync('cms/js/v227.js') && fs.existsSync('cms/css/v227.css'));
 T('bundle: the shipped JS all parses', (() => {
   try {
