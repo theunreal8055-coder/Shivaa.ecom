@@ -16,7 +16,7 @@ v37 (compute_price / current_rates ported 1:1).
 
 Run: python3 qa/preview_shim.py [--port 8090]
 """
-import argparse, json, re, secrets, threading, time
+import argparse, datetime, json, re, secrets, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -121,7 +121,11 @@ OTP_DIGITS = 4          # v106 — must match const OTP_DIGITS in cms/api.php
 # Response shapes mirror api.php exactly (demoMode/devCode, 400/404/409/429,
 # pub_user fields) so the SPA branches the same way it does against PHP.
 DEV = {"otps": [], "tokens": {}, "users": [], "wishlist": {}, "orders": {},
-       "partners": {}, "by_partner": {}, "reviews": []}
+       "partners": {}, "by_partner": {}, "reviews": [],
+       # v227 — passwords set through the reset flow (bcrypt is unavailable here)
+       "passwords": {},
+       # v227 — Shivaa Black memberships created through the claim flow
+       "blackCards": {}}
 PREVIEW_PASSWORD = "shivaa123"          # bcrypt is unavailable in the sandbox
 GST_STATES = {"08": "Rajasthan", "27": "Maharashtra", "29": "Karnataka", "24": "Gujarat",
               "07": "Delhi", "09": "UP", "33": "Tamil Nadu", "36": "Telangana",
@@ -202,12 +206,97 @@ def dev_all_users():
     return db().get("users", []) + DEV["users"]
 
 
+def dev_reset_lookup(body):
+    """v227 — the shim resolves the account by mobile (default) or email, the
+    same way api.php does, so the SPA branches identically against both."""
+    phone = dev_phone10(body.get("phone"))
+    email = str(body.get("email") or "").strip().lower()
+    if not email and dev_valid_phone(phone):
+        return next((u for u in dev_all_users() if dev_phone10(u.get("phone")) == phone), None), phone, True
+    return next((u for u in dev_all_users()
+                 if str(u.get("email", "")).lower() == email), None), phone, False
+
+
+def dev_send_reset_otp(phone):
+    """A reset code is minted to the registered mobile, never handed back to
+    the browser in api.php; the sandbox returns it so the flow is testable."""
+    now = int(time.time())
+    code = "".join(secrets.choice("0123456789") for _ in range(OTP_DIGITS))
+    DEV["otps"] = [o for o in DEV["otps"] if o["exp"] > now - 3600]
+    DEV["otps"].append({"phone": phone, "code": code, "exp": now + 300,
+                        "tries": 0, "at": now, "verified": False, "purpose": "reset"})
+    return code
+
+
+def dev_check_reset_otp(phone, code):
+    found = None
+    for o in reversed(DEV["otps"]):
+        if o["phone"] == phone and o.get("purpose") == "reset":
+            found = o
+            break
+    if found is None:
+        return 400, {"error": "Request a reset code first"}
+    if found["exp"] < int(time.time()):
+        return 400, {"error": "That code has expired - request a new one"}
+    if found["tries"] >= 5:
+        return 429, {"error": "Too many attempts on this code - request a new one"}
+    found["tries"] += 1
+    if found["code"] != str(code or ""):
+        return 400, {"error": "Incorrect code"}
+    return 200, found
+
+
+def dev_black_card(uid):
+    return DEV["blackCards"].get(uid)
+
+
+def dev_black_public(card):
+    """mirrors api.php black_card_public() - the SPA reads these fields"""
+    out = dict(card)
+    out["program"] = "Shivaa Black"
+    out["discountPct"] = 20
+    out["discountBasis"] = "making-charges"
+    out["certificateTitle"] = "Shivaa Family Prestigious Member"
+    out["status"] = "active"
+    out["benefitActive"] = True
+    return out
+
+
+def dev_black_claim(u, body):
+    """the idempotent claim api.php runs: one card per retail account"""
+    uid = u.get("id")
+    card = DEV["blackCards"].get(uid)
+    created = False
+    if not card:
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+        exp = (datetime.datetime.now() + datetime.timedelta(days=183)).strftime("%Y-%m-%dT%H:%M:%S")
+        card = {
+            "version": 2, "program": "Shivaa Black",
+            "memberId": "SBM" + str(secrets.randbelow(10 ** 6)).zfill(6),
+            "cardNumber": str(secrets.randbelow(10 ** 16)).zfill(16),
+            "holderName": str(body.get("name") or u.get("name") or "SHIVAA MEMBER").strip(),
+            "mobile": dev_phone10(u.get("phone")),
+            "issuedAt": now, "expiresAt": exp,
+            "discountPct": 20, "discountBasis": "making-charges",
+            "couponId": "c" + str(secrets.randbelow(10 ** 8)).zfill(8),
+            "certificateNo": "SFP" + str(secrets.randbelow(10 ** 6)).zfill(6),
+            "issuedTo": u.get("email", ""),
+            "delivery": None,
+        }
+        DEV["blackCards"][uid] = card
+        created = True
+    return card, created
+
+
 def dev_pub_user(u):
     return {"id": u.get("id"), "name": u.get("name"), "email": u.get("email"),
             "phone": u.get("phone", ""), "role": u.get("role", "customer"),
             "loyaltyPoints": u.get("loyaltyPoints", 0), "partnerId": u.get("partnerId"),
             "createdAt": u.get("createdAt", ""), "profile": u.get("profile", []),
-            "addresses": u.get("addresses", [])}
+            "addresses": u.get("addresses", []),
+            # v227 — api.php's pub_user() carries the member's own card, and the
+            # SPA reads state.user.blackCard straight after a claim
+            "blackCard": dev_black_public(u["blackCard"]) if u.get("blackCard") else None}
 
 
 def dev_issue(u):
@@ -308,33 +397,90 @@ class Handler(SimpleHTTPRequestHandler):
             if hit:
                 return self._json(200, {"token": dev_issue(hit), "user": dev_pub_user(hit)})
             return self._json(404, {"error": "No account with this number — please register first"})
+        if route == "auth/reset/start":
+            hit, phone, by_phone = dev_reset_lookup(body)
+            generic = {"ok": True, "sent": True, "devCode": None}
+            if not hit:
+                # deliberately identical whether or not the account exists
+                return self._json(200, dict(generic, message="If that account exists, a 4-digit code is on its way to the registered mobile."))
+            if not dev_valid_phone(hit.get("phone")):
+                return self._json(200, dict(generic, noPhone=True,
+                                            message="That account has no mobile on file."))
+            code = dev_send_reset_otp(dev_phone10(hit.get("phone")))
+            masked = dev_phone10(hit.get("phone"))
+            masked = masked[:2] + "XXXXX" + masked[-3:]
+            return self._json(200, {"ok": True, "sent": True, "demoMode": True, "devCode": code,
+                                    "phone": dev_phone10(hit.get("phone")), "masked": masked,
+                                    "via": "sms",
+                                    "message": "If that account exists, a 4-digit code is on its way to the registered mobile."})
+        if route == "auth/reset/confirm":
+            hit, phone, by_phone = dev_reset_lookup(body)
+            code = str(body.get("code") or "")
+            pw = str(body.get("password") or "")
+            if len(pw) < 8:
+                return self._json(400, {"error": "New password must be at least 8 characters"})
+            if not hit:
+                return self._json(400, {"error": "That code is not valid - request a new one"})
+            status, found = dev_check_reset_otp(dev_phone10(hit.get("phone")), code)
+            if status != 200:
+                return self._json(status, found if isinstance(found, dict) else {"error": "Incorrect code"})
+            DEV["passwords"][hit["id"]] = pw
+            # every other session for this account is revoked
+            revoked = [t for t, uid in DEV["tokens"].items() if uid == hit["id"]]
+            for t in revoked:
+                DEV["tokens"].pop(t, None)
+            DEV["otps"] = [o for o in DEV["otps"]
+                           if not (o["phone"] == dev_phone10(hit.get("phone")) and o.get("purpose") == "reset")]
+            return self._json(200, {"ok": True, "email": hit.get("email"),
+                                    "role": hit.get("role", "customer"),
+                                    "sessionsRevoked": len(revoked),
+                                    "message": "Password updated. Sign in with your email and the new password."})
         if route == "auth/register":
             name = str(body.get("name") or "").strip()
             email = str(body.get("email") or "").strip().lower()
             password = str(body.get("password") or "")
             phone = dev_phone10(body.get("phone"))
-            if not (name and email and password):
-                return self._json(400, {"error": "Name, email & password required"})
-            if len(password) < 8:
-                return self._json(400, {"error": "Password must be at least 8 characters"})
+            # v227 — mirrors api.php: a NAME and a verified OTP are the whole
+            # requirement (v56 mobile-first sign-up). Email and password are
+            # optional; a missing email gets the synthetic address the API
+            # issues. The previous shape demanded all three, which made the
+            # retail sheet's own sign-up step fail in the sandbox.
+            if not name:
+                return self._json(400, {"error": "Name is required"})
             if not dev_valid_phone(phone):
                 return self._json(400, {"error": "Valid 10-digit phone required"})
-            if not any(o["phone"] == phone and o["verified"] for o in DEV["otps"]):
+            if password and len(password) < 8:
+                return self._json(400, {"error": "Password must be at least 8 characters"})
+            if not any(o["phone"] == phone and o.get("verified") for o in DEV["otps"]):
                 return self._json(400, {"error": "Verify your phone with OTP first"})
-            if any(str(u.get("email", "")).lower() == email for u in dev_all_users()):
+            # one account per mobile — the OTP already proved possession
+            same = next((u for u in dev_all_users() if dev_phone10(u.get("phone")) == phone), None)
+            if same:
+                return self._json(200, {"token": dev_issue(same), "user": dev_pub_user(same)})
+            if email and any(str(u.get("email", "")).lower() == email for u in dev_all_users()):
                 return self._json(409, {"error": "Email already registered"})
+            if not email:
+                email = phone + "@phone.shivaa.in"
             u = {"id": "dev_u_" + secrets.token_hex(4), "name": name, "email": email,
                  "phone": phone, "role": "customer", "loyaltyPoints": 120, "wishlist": [],
+                 "profile": {k: body[k] for k in ("dob", "anniversary", "gender", "city") if body.get(k)},
                  "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())}
             DEV["users"].append(u)
+            if password:
+                DEV["passwords"][u["id"]] = password
             return self._json(200, {"token": dev_issue(u), "user": dev_pub_user(u)})
         if route == "auth/login":
             email = str(body.get("email") or "").strip().lower()
-            hit = next((u for u in db().get("users", [])
+            # v227 — the dev layer's own registered accounts sign in here too:
+            # without this, an account created through the sheet (register) could
+            # never be used to prove that a reset password works.
+            hit = next((u for u in dev_all_users()
                         if str(u.get("email", "")).lower() == email), None)
             if not hit:
                 return self._json(401, {"error": "Invalid email or password"})
-            if str(body.get("password") or "") != PREVIEW_PASSWORD:
+            given = str(body.get("password") or "")
+            dev_pw = DEV["passwords"].get(hit.get("id"))
+            if given != PREVIEW_PASSWORD and (not dev_pw or given != dev_pw):
                 return self._json(401, {"error": "Invalid email or password",
                                         "previewNote": "The shim cannot check bcrypt hashes — use '"
                                                        + PREVIEW_PASSWORD + "' for seeded accounts"})
@@ -347,10 +493,18 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(400, {"error": chk["reason"]})
             return self._json(200, {"configured": False,
                                     "note": "Add a GST API key in Admin → Settings to auto-verify legal names online"})
-        if route == "wishlist":
+        if route == "black-card/claim":
             u = dev_token(self)
             if not u:
-                return self._json(401, {"error": "Login required"})
+                return self._json(401, {"error": "Sign in by OTP with your registered mobile to claim Shivaa Black."})
+            if (u.get("role") or "customer") != "customer":
+                return self._json(403, {"error": "Shivaa Black is exclusively for retail customers."})
+            card, created = dev_black_claim(u, body)
+            u["blackCard"] = dev_black_public(card)
+            return self._json(200, {"ok": True, "created": created,
+                                    "membership": dev_black_public(card),
+                                    "user": dev_pub_user(u)})
+            return self._json(401, {"error": "Login required"})
             ids = DEV["wishlist"].setdefault(u["id"], [])
             pid = str(body.get("id") or "")
             if body.get("add") and pid and pid not in ids:
@@ -585,6 +739,15 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(200, {"wishlist": ids, "items": items})
         if route == "sms/status":
             return self._json(200, {"provider": "preview", "enabled": False, "demo": True})
+        # v227 — Shivaa Black: the member reads their card here (api.php: GET black-card)
+        if route == "black-card":
+            u = dev_token(self)
+            if not u:
+                return self._json(401, {"error": "Sign in with your registered mobile to open Shivaa Black."})
+            if (u.get("role") or "customer") != "customer":
+                return self._json(403, {"error": "Shivaa Black is exclusively for retail customers."})
+            card = dev_black_card(u.get("id"))
+            return self._json(200, {"membership": dev_black_public(card) if card else None})
         if route == "auth/me":
             u = dev_token(self)
             return self._json(200, {"user": dev_pub_user(u) if u else None})

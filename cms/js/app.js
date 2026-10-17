@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 226;
+const APP_REL = 227;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3315,7 +3315,11 @@ function renderRateStrip() {
   if (rt.silverPeti) shows.push(['rtgsS9999', rtgsVal(rt.silverPeti)]);
   /* v208 — a live ticker ribbon runs above the cells (the owner asked for the
      rate feature under the category bar to come alive with motion). */
-  const tickTxt = `✦ Live &nbsp;·&nbsp; Gold 22K <b>₹${fmt(R.gold22)}/g</b> &nbsp;·&nbsp; Gold 18K <b>₹${fmt(R.gold18)}/g</b> &nbsp;·&nbsp; Silver 925 <b>₹${fmt2(R.silver)}/g</b> &nbsp;·&nbsp; ${R.live ? 'ticking live from the desk' : 'updated ' + timeFmt(R.t)}`;
+  /* v227 — fmt()/fmt2() already print the rupee sign (v120). The ribbon kept
+     its own, so every figure in the strip read "₹₹6,998/g". One sign now, and
+     the line is shorter: the marquee's own second copy is what makes it look
+     continuous, not the length of the sentence. */
+  const tickTxt = `✦ Live from the Jaipur desk &nbsp;·&nbsp; Gold 22K <b>${fmt(R.gold22)}/g</b> &nbsp;·&nbsp; Gold 18K <b>${fmt(R.gold18)}/g</b> &nbsp;·&nbsp; Silver 925 <b>${fmt2(R.silver)}/g</b> &nbsp;·&nbsp; ${R.live ? 'ticking live' : 'updated ' + timeFmt(R.t)}`;
   $('#rateStrip').innerHTML =
     `<div class="rs-ticker" aria-hidden="true"><div class="rs-ticker-track"><span>${tickTxt}</span><span>${tickTxt}</span></div></div>` +
     cell('gold22', '✦ Shivaa Gold 22K / g', fmt(R.gold22), '₹/g vs prev', R.gold22 - prev.gold22) +
@@ -3707,7 +3711,10 @@ function blackCommerceHTML(makingSubtotal, returnHash, noun = 'this piece') {
     return `<aside class="bc-commerce active" data-black-commerce data-black-making="${Math.max(0, +makingSubtotal || 0)}"><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>YOUR SHIVAA BLACK PRIVILEGE</small><b class="bc-commerce-value">Save ${fmt(saving)} on ${esc(noun)}</b><p class="bc-commerce-basis">Exactly 20% of ${fmt(makingSubtotal)} making charges · verified and applied automatically at checkout.</p></div><a href="#/black-card">View card</a></aside>`;
   }
   if (card) return `<aside class="bc-commerce archived" data-black-commerce><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>SHIVAA BLACK · PERMANENT ARCHIVE</small><b>Your card and certificate are safely kept</b><p>The six-month making-charge benefit ended ${esc(blackDate(card.expiresAt))}; your documents remain in My Account.</p></div><a href="#/black-card">Open archive</a></aside>`;
-  return `<aside class="bc-commerce invite" data-black-commerce><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>RETAIL CUSTOMERS · SHIVAA BLACK</small><b>Unlock 20% off making charges</b><p>${u ? 'One secure tap creates your personal card.' : 'Verify your registered mobile, then your personal card is created automatically.'} No reduction is taken from metal, stones, GST or shipping.</p></div><button type="button" onclick="Shivaa.beginBlackClaim(${jsArg(returnHash)},this)">${u ? 'Create my card' : 'Verify & create'} →</button></aside>`;
+  /* v227 — the button is inside a card that shows its own result: `.bc-claim-status`
+     only lives on the Shivaa Black page, so a claim started from a product page
+     had nowhere to report what it was doing. This one line is that place. */
+  return `<aside class="bc-commerce invite" data-black-commerce><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>RETAIL CUSTOMERS · SHIVAA BLACK</small><b>Unlock 20% off making charges</b><p>${u ? 'One secure tap creates your personal card.' : 'Verify your registered mobile, then your personal card is created automatically.'} No reduction is taken from metal, stones, GST or shipping.</p><span class="bc-commerce-status bc-claim-status" role="status" aria-live="polite" data-state=""></span></div><button type="button" onclick="Shivaa.beginBlackClaim(${jsArg(returnHash)},this)">${u ? 'Create my card' : 'Verify & create'} →</button></aside>`;
 }
 function blackMemberCode(code, mock = false) {
   if (mock) return '2020  ••••  ••••  ••••';
@@ -3818,14 +3825,27 @@ function blackIntakeHTML() {
     <label class="bc-addr-f"><span>Your registered mobile</span><input data-bc-mobile type="tel" inputmode="numeric" maxlength="10" value="${esc(phone)}" autocomplete="tel-national" placeholder="10-digit mobile"${u ? ' readonly aria-readonly="true"' : ''}></label>
   </div>`;
 }
+/* v227 — the claim form only exists on #/black-card, but the "Verify & create"
+   button is on every product page (and in the cart). Reading it through
+   `[data-black-claim] [data-bc-intake]` therefore returned "Enter your name"
+   on a PDP, `beginBlackClaim` stopped there, and `blackClaimStatus` had no
+   element to write into either: the button did nothing at all. The reader
+   now says whether a form was present, so a page without one is a different
+   case (not an error) from a page whose field is genuinely wrong. */
+function blackIntakeFromPage() {
+  const scoped = document.querySelector('[data-black-claim] [data-bc-intake]');
+  if (scoped) return scoped;
+  return document.querySelector('[data-bc-intake]');
+}
 function blackReadIntake() {
-  const root = document.querySelector('[data-black-claim] [data-bc-intake]');
+  const root = blackIntakeFromPage();
   const nameIn = root && root.querySelector('[data-bc-name]'), mobIn = root && root.querySelector('[data-bc-mobile]');
+  const form = !!(nameIn || mobIn);
   const name = nameIn ? nameIn.value.trim().replace(/\s+/g, ' ') : '';
   const mobile = mobIn ? mobIn.value.replace(/\D/g, '').slice(-10) : '';
-  if (name.length < 2) return { error: 'Enter your name as it should appear on the card.', focus: nameIn };
-  if (!/^[6-9]\d{9}$/.test(mobile)) return { error: 'Enter a valid 10-digit Indian mobile number.', focus: mobIn };
-  return { name, mobile, focus: null };
+  if (form && name.length < 2) return { error: 'Enter your name as it should appear on the card.', focus: nameIn, form };
+  if (form && !/^[6-9]\d{9}$/.test(mobile)) return { error: 'Enter a valid 10-digit Indian mobile number.', focus: mobIn, form };
+  return { name, mobile, focus: null, form };
 }
 function blackReadAddress(root) {
   const pick = k => (root.querySelector(`[data-bc-addr="${k}"]`)?.value || '').trim();
@@ -3968,9 +3988,13 @@ window.Shivaa.beginBlackClaim = (returnHash = '', btn = null) => {
   window._blackClaimAfterLogin = true;
   if (!state.user) {
     const intake = blackReadIntake();
-    if (intake.error) { blackClaimStatus(intake.error, 'error'); if (intake.focus) intake.focus.focus(); return; }
-    try { sessionStorage.setItem('shv_bc_name', intake.name); sessionStorage.setItem('shv_bc_mobile', intake.mobile); } catch (e) {}
-    blackClaimStatus('Opening secure mobile verification…', 'checking');
+    /* only a field on this page can be wrong; a page with no form is expected */
+    if (intake.error && intake.form) { blackClaimStatus(intake.error, 'error'); if (intake.focus) intake.focus.focus(); return; }
+    try {
+      if (intake.name) sessionStorage.setItem('shv_bc_name', intake.name);
+      if (intake.mobile) sessionStorage.setItem('shv_bc_mobile', intake.mobile);
+    } catch (e) {}
+    blackClaimStatus(intake.form ? 'Opening secure mobile verification…' : 'Verify your registered mobile to create the card…', 'checking');
     openLogin('black-card');
     setTimeout(() => { const i = document.getElementById('shvPhoneIn'); if (i && !i.value) i.value = intake.mobile; }, 150);
     return;
@@ -3984,12 +4008,22 @@ window.Shivaa.claimBlackCard = (btn, opts = {}) => {
   let payload = {};
   if (!(state.user && state.user.blackCard)) {
     const intake = blackReadIntake();
-    if (intake.error) { blackClaimStatus(intake.error, 'error'); if (intake.focus) intake.focus.focus(); return; }
-    if (state.user) {
-      const acct = String(state.user.phone || '').replace(/\D/g, '').slice(-10);
-      if (acct !== intake.mobile) { blackClaimStatus('This card is bound to your signed-in mobile. Use that number to claim it.', 'error'); return; }
+    if (intake.error && intake.form) { blackClaimStatus(intake.error, 'error'); if (intake.focus) intake.focus.focus(); return; }
+    /* v227 — a page with no claim form: the name comes from what the sign-in
+       flow stored, or from the account itself. If neither has one (an account
+       created before names were required), the claim is not attempted with a
+       blank name: the shopper is taken to the one page that asks for it, with
+       the reason in words instead of a button that does nothing. */
+    const name = intake.name || ((state.user && state.user.name) ? String(state.user.name).trim().replace(/\s+/g, ' ') : '');
+    if (name.length < 2) {
+      blackClaimStatus('Add the name for your card on the Shivaa Black page \u2014 it is a single field.', 'error');
+      toast('One more step: tell us the name for your card.', 'err');
+      location.hash = '#/black-card';
+      return null;
     }
-    payload = { name: intake.name };
+    const acct = String((state.user && state.user.phone) || '').replace(/\D/g, '').slice(-10);
+    if (intake.mobile && acct && acct !== intake.mobile) { blackClaimStatus('This card is bound to your signed-in mobile. Use that number to claim it.', 'error'); return; }
+    payload = { name };
   }
   const allButtons = [...new Set([...$$('.bc-claim-btn'), ...(btn ? [btn] : [])])], old = btn && btn.textContent;
   allButtons.forEach(b => { b.disabled = true; b.setAttribute('aria-busy', 'true'); });
@@ -4218,6 +4252,21 @@ async function blackCardPage(view) {
       toast('Your Shivaa Black card is ready ✦');
       if (back) setTimeout(() => { if (isCurrent()) location.hash = back; }, 120);
     } else {
+      /* v227 — the auto-claim that follows a sign-in must not meet an empty
+         form: the name and the verified mobile are already known at this
+         point, and the intake reader validates whatever this form holds. The
+         fields are filled first (so the shopper sees them too), then the claim
+         runs exactly as it does for a hand-typed one. */
+      const nameIn = view.querySelector('[data-bc-name]'), mobIn = view.querySelector('[data-bc-mobile]');
+      let storedName = '', storedMobile = '';
+      try {
+        storedName = String(sessionStorage.getItem('shv_bc_name') || '').trim();
+        storedMobile = String(sessionStorage.getItem('shv_bc_mobile') || '').replace(/\D/g, '').slice(-10);
+      } catch (e) {}
+      const accountName = String((state.user && state.user.name) || '').trim();
+      const accountMobile = String((state.user && state.user.phone) || '').replace(/\D/g, '').slice(-10);
+      if (nameIn && !nameIn.value) nameIn.value = storedName.length >= 2 ? storedName : accountName;
+      if (mobIn && !mobIn.value) mobIn.value = /^[6-9]\d{9}$/.test(storedMobile) ? storedMobile : accountMobile;
       const back = blackReturnHash(window._blackClaimReturn || '');
       setTimeout(() => { if (isCurrent()) window.Shivaa.claimBlackCard(view.querySelector('.bc-claim-btn'), { returnHash: back }); }, 0);
     }
@@ -4405,7 +4454,7 @@ pages.home = async (view) => {
 
   <section class="sec container" style="padding-top:0">
     <div class="newsletter rv">
-      <img src="/images/logo.png" class="news-logo" alt="Shivaa">
+      <img src="/images/logo.png" class="news-logo" alt="Shivaa" loading="lazy" decoding="async" width="150" height="46">
       <h3>First look at new designs</h3>
       <p>Join the Shivaa circle — new collections, festive rate alerts and partner offers.</p>
       <form class="nl-form" onsubmit="Shivaa.subscribeNewsletter(event)">
@@ -11243,9 +11292,13 @@ function route() {
   window.scrollTo({ top: 0 });
   // performance: lazy-load everything below the fold (runs right after paint)
   const lazySweep = () => document.querySelectorAll('img:not([loading])').forEach(img => {
-    if (img.getBoundingClientRect().top > innerHeight + 40) { img.loading = 'lazy'; img.decoding = 'async'; }
+    if (img.getBoundingClientRect().top > innerHeight + 40) {
+      img.loading = 'lazy'; img.decoding = 'async';
+      img.dataset.shvLazy = '1';            // v227 — v227.js re-sweeps the late mounts
+    }
   });
   setTimeout(lazySweep, 0); setTimeout(lazySweep, 900);
+  setTimeout(lazySweep, 2600);              // v227 — once the CMS rows have arrived
   // branded page banners + advanced category slider
   initCatbar();
   setTimeout(() => {
@@ -11261,7 +11314,13 @@ function route() {
     const heroEl = $('#view .hero');
     if (heroEl && !heroEl.querySelector('.hero-logo')) {
       heroEl.insertAdjacentHTML('beforeend', '<img src="/images/logo.png?v=' + APP_REL + '" class="hero-logo" alt="Shivaa Inc. logo" loading="lazy" decoding="async">');
-      if (!heroEl.querySelector('.hero-cue')) heroEl.insertAdjacentHTML('beforeend', '<div class="hero-cue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg>scroll</div>');
+      /* v227 — this used to be a bare <div> styled as a control: it ate taps
+         (v212 fought exactly that over the card) and clicking it did nothing.
+         It is a labelled button now, and it goes somewhere real. */
+      if (!heroEl.querySelector('.hero-cue')) heroEl.insertAdjacentHTML('beforeend',
+        '<button type="button" class="hero-cue" data-hero-cue aria-label="Skip the banner and go to the first section">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
+        + '<span>Explore Shivaa</span></button>');
     }
     } catch(e) { /* v42: prevent crash on pages with unusual DOM (e.g. hallmark) */ }
   }, 0);
@@ -11878,7 +11937,7 @@ async function boot(isRedraw) {
     </div>
     <div class="mega-rail">
       <a class="mega-feat" href="#/shop?tag=heritage">
-        <img src="/images/banners/poster-heritage.jpg" alt="The Heritage Edit">
+        <img src="/images/banners/poster-heritage.jpg" alt="The Heritage Edit" loading="lazy" decoding="async" width="1584" height="672">
         <div><span class="mega-k">The Heritage Edit</span><b>HANDCRAFTED<br>CLASSICS</b><small>Explore the edit →</small></div>
       </a>
       <a class="mega-cta" href="#/shop?max=50000">The Under ₹50,000 Edit <span>→</span></a>

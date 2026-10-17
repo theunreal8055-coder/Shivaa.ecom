@@ -91,10 +91,10 @@ T('css: v209 keeps the header/flicker guards',
   /backdrop-filter:\s*none/.test(CSS.v209) && /is-lit\s*\{\s*filter:\s*none/s.test(CSS.v209));
 
 /* ── 4 · the release stamps ──────────────────────────────────────── */
-T('stamps: index at 226 with no older stamp left',
-  index.includes('__SHIVAA_REL=226') && !index.includes('?v=225'));
-T('stamps: sw.js shell v226', sw.includes('shivaa-shell-v226') && sw.includes('const REL = 226;'));
-T('stamps: app.js APP_REL 226', app.includes('const APP_REL = 226;'));
+T('stamps: index at 227 with no older stamp left',
+  index.includes('__SHIVAA_REL=227') && !index.includes('?v=226'));
+T('stamps: sw.js shell v226', sw.includes('shivaa-shell-v227') && sw.includes('const REL = 227;'));
+T('stamps: app.js APP_REL 227', app.includes('const APP_REL = 227;'));
 T('stamps: api rel 226', api.includes("'rel' => 226,"));
 /* v222 bundled the stylesheets, so the SW precaches the bundle rather than
    v125.css. The v125 CSS itself still has to be inside that bundle. */

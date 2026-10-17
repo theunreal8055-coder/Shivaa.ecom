@@ -5201,23 +5201,44 @@ try {
     if (($db['settings']['otpReset'] ?? true) === false) {
       jout(403, ['error' => 'Password reset by SMS is switched off on this site — please contact the owner, or use the admin-reset.php recovery file on the server.']);
     }
-    $email = strtolower(trim((string)(body_json()['email'] ?? '')));
-    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) jout(400, ['error' => 'Enter a valid email address']);
+    /* v227 — the identifier may be the account's mobile number (default) or
+       its email. Both close the same door and both deliver the code to the
+       account's registered mobile, so the possession factor never changes. */
+    $rb = body_json();
+    $email = strtolower(trim((string)($rb['email'] ?? '')));
+    $wantPhone = substr(preg_replace('/\D/', '', (string)($rb['phone'] ?? '')), -10);
+    $byPhone = ($email === '' && preg_match('#^[6-9]\d{9}$#', $wantPhone));
+    if (!$byPhone && ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL))) {
+      jout(400, ['error' => 'Enter the 10-digit mobile number on your account, or its email address']);
+    }
     rate_block($db, 'reset-ip', client_ip(), 15, 3600, 1800, 'Too many reset requests from this connection — try again later.');
     // The reply is deliberately identical whether or not the account exists.
     $generic = ['ok' => true, 'sent' => true,
-                'message' => 'If that email has a Shivaa account, a 4-digit code is on its way to the registered mobile number.'];
+                'message' => $byPhone
+                  ? 'If that mobile number has a Shivaa account, a 4-digit code is on its way to it.'
+                  : 'If that email has a Shivaa account, a 4-digit code is on its way to the registered mobile number.'];
     $helpNote = 'No mobile on file, or no SMS arriving? Use the admin-reset.php recovery file in your hosting panel, or WhatsApp +91 89050 05921.';
 
     $now = time();
-    $hits = array_values(array_filter($db['resetRate'][$email] ?? [], fn($t) => (int)$t > $now - 3600));
+    /* one counter per identifier: a shopper retrying with the number cannot be
+       throttled by someone else's email, and vice versa */
+    $rateKey = $byPhone ? ('ph:' . $wantPhone) : $email;
+    $hits = array_values(array_filter($db['resetRate'][$rateKey] ?? [], fn($t) => (int)$t > $now - 3600));
     if (!empty($hits) && $now - (int)end($hits) < 30) jout(429, ['error' => 'Please wait 30 seconds before requesting another code']);
-    if (count($hits) >= 5) jout(429, ['error' => 'Too many reset codes requested for this email — please try again after an hour, or use admin-reset.php.']);
-    $hits[] = $now; $db['resetRate'][$email] = $hits;
+    if (count($hits) >= 5) jout(429, ['error' => 'Too many reset codes requested for this account — please try again after an hour, or use admin-reset.php.']);
+    $hits[] = $now; $db['resetRate'][$rateKey] = $hits;
 
     $user = null;
-    foreach ($db['users'] as $u) if (strtolower((string)($u['email'] ?? '')) === $email) { $user = $u; break; }
+    if ($byPhone) {
+      foreach ($db['users'] as $u)
+        if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $wantPhone) { $user = $u; break; }
+    } else {
+      foreach ($db['users'] as $u) if (strtolower((string)($u['email'] ?? '')) === $email) { $user = $u; break; }
+    }
     if (!$user) { db_save($DB_FILE, $db); jout(200, $generic); }
+    /* the account's own email is what every record and every log line below
+       carries, whichever identifier the shopper used */
+    $email = strtolower((string)($user['email'] ?? ''));
 
     $phone = substr(preg_replace('/\D/', '', (string)($user['phone'] ?? '')), -10);
     if (!preg_match('#^[6-9]\d{9}$#', $phone)) {
@@ -5244,12 +5265,21 @@ try {
     // could reset any customer's — and the admin's — password.
     jout(200, array_merge($generic, ['masked' => $d['masked'], 'via' => $d['channel'],
         'devCode' => null,
-        'message' => 'If that email has a Shivaa account, a 4-digit code is on its way to ' . otp_dest_hint($d) . '.']));
+        'message' => ($byPhone
+            ? 'If that mobile number has a Shivaa account, a 4-digit code is on its way to '
+            : 'If that email has a Shivaa account, a 4-digit code is on its way to ')
+            . otp_dest_hint($d) . '.']));
   }
 
   if ($route === 'auth/reset/confirm' && $method === 'POST') {
     $b = body_json();
+    /* v227 — the same two identifiers the start route accepts. The account is
+       resolved first, then the account's own email is what the v82 rule is
+       checked against, so a reset begun by mobile and a reset begun by email
+       behave identically from here on. */
     $email = strtolower(trim((string)($b['email'] ?? '')));
+    $wantPhone = substr(preg_replace('/\D/', '', (string)($b['phone'] ?? '')), -10);
+    $byPhone = ($email === '' && preg_match('#^[6-9]\d{9}$#', $wantPhone));
     $code = preg_replace('/\D/', '', (string)($b['code'] ?? ''));
     $pw = (string)($b['password'] ?? '');
     if (strlen($pw) < 8) jout(400, ['error' => 'New password must be at least 8 characters']);
@@ -5257,8 +5287,14 @@ try {
     if (!in_array(strlen($code), [4, 6], true)) jout(400, ['error' => 'Enter the code from the SMS']);
     rate_block($db, 'otp-try-ip', client_ip(), 40, 3600, 900, 'Too many code attempts from this connection — request a new code later.');
     $idx = null; $user = null;
-    foreach ($db['users'] as $i => $u) if (strtolower((string)($u['email'] ?? '')) === $email) { $idx = $i; $user = $u; break; }
+    if ($byPhone) {
+      foreach ($db['users'] as $i => $u)
+        if (substr(preg_replace('/\D/', '', (string)($u['phone'] ?? '')), -10) === $wantPhone) { $idx = $i; $user = $u; break; }
+    } else {
+      foreach ($db['users'] as $i => $u) if (strtolower((string)($u['email'] ?? '')) === $email) { $idx = $i; $user = $u; break; }
+    }
     if ($idx === null) jout(400, ['error' => 'That code is not valid — request a new one']);
+    $email = strtolower((string)($user['email'] ?? ''));
     $phone = substr(preg_replace('/\D/', '', (string)($user['phone'] ?? '')), -10);
     // v82 — only a code minted BY the reset flow for THIS email may reset it
     // (a login/KYC code on the same number must never reset the password).
@@ -6315,7 +6351,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel' => 226,
+      'rel' => 227,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

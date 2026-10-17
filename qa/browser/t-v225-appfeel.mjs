@@ -85,11 +85,11 @@ const relIndex = /window\.__SHIVAA_REL=(\d+);/.exec(INDEX);
 const relApp = /const APP_REL = (\d+);/.exec(APP);
 const relSw = /const REL = (\d+);/.exec(SW);
 const relApi = /'rel' => (\d+),/.exec(read('cms/api.php'));
-T('stamp: index.html announces the release', !!relIndex && relIndex[1] === '226', relIndex && relIndex[1]);
-T('stamp: app.js APP_REL matches', !!relApp && relApp[1] === '226', relApp && relApp[1]);
-T('stamp: sw.js REL matches', !!relSw && relSw[1] === '226', relSw && relSw[1]);
-T('stamp: api.php reports the same rel', !!relApi && relApi[1] === '226', relApi && relApi[1]);
-T('stamp: all four agree', [relIndex, relApp, relSw, relApi].every(m => m && m[1] === '226'));
+T('stamp: index.html announces the release', !!relIndex && relIndex[1] === '227', relIndex && relIndex[1]);
+T('stamp: app.js APP_REL matches', !!relApp && relApp[1] === '227', relApp && relApp[1]);
+T('stamp: sw.js REL matches', !!relSw && relSw[1] === '227', relSw && relSw[1]);
+T('stamp: api.php reports the same rel', !!relApi && relApi[1] === '227', relApi && relApi[1]);
+T('stamp: all four agree', [relIndex, relApp, relSw, relApi].every(m => m && m[1] === '227'));
 T('stamp: the service worker shell is bumped too', /shivaa-shell-v226/.test(SW));
 T('stamp: no asset URL is left on an older release',
   !/\?v=(22[0-5])\b/.test(INDEX) && !/\?v=(22[0-5])\b/.test(SW));
@@ -237,9 +237,9 @@ T('motion: the two new sweeps are named in the reduced-motion block',
 
 /* ═══ 6 · the bundle ships all of it ════════════════════════════════════ */
 T('bundle: v225.css sits where this release put it, under the newest layer',
-  ORDER[ORDER.length - 2] === 'v225.css' && ORDER[ORDER.length - 1] === 'v226.css' &&
+  ORDER[ORDER.length - 2] === 'v226.css' && ORDER[ORDER.length - 1] === 'v227.css' &&
   BUNDLE.lastIndexOf('/* v225.css */') > BUNDLE.lastIndexOf('/* v224.css */') &&
-  BUNDLE.lastIndexOf('/* v226.css */') > BUNDLE.lastIndexOf('/* v225.css */'));
+  BUNDLE.lastIndexOf('/* v227.css */') > BUNDLE.lastIndexOf('/* v226.css */'));
 {
   const i = BUNDLE.lastIndexOf('/* v225.css */');
   T('bundle: the shipped stylesheet carries the v225 rules',

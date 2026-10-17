@@ -41,6 +41,7 @@ const CANON = [
   'v218.css', 'v219.css',
   'v224.css', 'v225.css',
   'v226.css',
+  'v227.css',
 ];
 
 const headers = [...bundle.matchAll(/^\/\* ([a-z0-9-]+\.css) \*\/$/gm)].map(m => m[1]);
@@ -75,7 +76,7 @@ T('build: it writes nothing on a dry run',
 const sheetLinks = [...index.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(m => m[1]);
 const perLayer = sheetLinks.filter(h => /\/css\/v\d+\.css|\/css\/(hallmark|trust|motion|aurum|boost)\.css/.test(h));
 T('index: links exactly ONE stylesheet', sheetLinks.length === 1, sheetLinks.join(','));
-T('index: that stylesheet is the bundle', sheetLinks[0] === '/css/shivaa.css?v=226');
+T('index: that stylesheet is the bundle', sheetLinks[0] === '/css/shivaa.css?v=227');
 T('index: no per-layer stylesheet <link> is left', perLayer.length === 0, perLayer.join(','));
 T('index: the late preload-swap pattern is gone (nothing restyles after paint)',
   !/rel="preload" as="style"/.test(index));
@@ -93,11 +94,11 @@ T('sw: that stylesheet is the bundle', cssPrecache[0] === 'shivaa.css');
 T('sw: no dead per-layer stylesheet is precached for the shopper',
   !/'\/css\/v\d+\.css\?v=\d+'/.test(sw));
 T('sw: the offline shell keeps every script and font it had',
-  sw.includes('/js/app.js?v=226') && sw.includes('/fonts/jost.woff2?v=226')
+  sw.includes('/js/app.js?v=227') && sw.includes('/fonts/jost.woff2?v=227')
   && sw.includes('/offline.html'));
 
 /* ── 5 · stamps ────────────────────────────────────────────────────── */
-T('stamps: index at 226', index.includes('__SHIVAA_REL=226') && !index.includes('?v=225'));
+T('stamps: index at 227', index.includes('__SHIVAA_REL=227') && !index.includes('?v=226'));
 T('stamps: sw.js shell v226', sw.includes('shivaa-shell-v226') && sw.includes('const REL = 226;'));
 T('stamps: app.js APP_REL 226', app.includes('const APP_REL = 226;'));
 T('stamps: api rel 226', api.includes("'rel' => 226,"));
