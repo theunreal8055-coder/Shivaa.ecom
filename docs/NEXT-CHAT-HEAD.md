@@ -346,6 +346,10 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
    reviews exist and there is no in-app report button, so either reviews come off the app surface
    or `POST /api/reviews/report` gets built; (d) Play account type decides the 12-tester / 14-day
    gate. No AAB can be built in this sandbox (no JDK/Android SDK, no dl.google.com).
+   **The owner-facing walkthrough is `playstore/UPLOAD-STEPS.md`** (keystore → bubblewrap
+   build → fingerprints → Console → internal testing, with a failure table), and
+   `node playstore/set-fingerprint.mjs --status | "<upload>" "<play-signing>"` writes the
+   two assetlinks copies together (the classic bug is editing only the kit copy).
 3. **Owner visual check for v227 specifically (on a phone):** (a) open any product, scroll to the
    black-card invite, tap **Verify & create** — the sheet must open there with a status line under
    the button, and a signed-in claim must return to the same piece and show its saving;

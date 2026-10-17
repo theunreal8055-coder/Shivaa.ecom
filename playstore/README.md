@@ -3,6 +3,9 @@
 **Read this page top to bottom once. It is the whole plan, in order, with the
 places it can stop dead marked as gates.**
 
+> **Just uploading?** `playstore/UPLOAD-STEPS.md` is the copy-paste walkthrough —
+> keystore → `bubblewrap build` → fingerprints → Play Console → internal testing.
+
 ---
 
 ## 0 · What you already have, and what this adds
@@ -15,7 +18,8 @@ an app, and it is why the Play Store route is *cheap* here: the app is a
 your own icon, your own splash screen and your own listing. No second codebase,
 no React Native rewrite, no separate content to keep in step.
 
-What was missing, and what this kit and release **v183** add:
+What this kit adds (built at v183; every web dependency it names is maintained
+by the current release — **v228** today):
 
 | Piece | What it is | Where it lives |
 |---|---|---|
@@ -61,14 +65,14 @@ listing, but you cannot publish to any track. Budget a few business days.
 
 ---
 
-## 2 · Deploy the web side (release 183)
+## 2 · Deploy the web side (the newest release — v228, never v183)
 
 The app is the website, so the website has to ship the three things the app
-depends on. Follow `DEPLOY-v183.md`:
+depends on. Follow `DEPLOY-v228.md`:
 
 1. Back up `public_html` from hPanel.
-2. Extract `shivaa-update-v183.zip` into it.
-3. Check `https://shivaa.in/api/version` → `rel: 183`, `stamp.matched: true`.
+2. Extract `shivaa-update-v228.zip` into it (`DEPLOY-v228.md` §7).
+3. Check `https://shivaa.in/api/version` → `rel: 228`, `stamp.matched: true`.
 
 Then confirm the two URLs the Play listing and Google's verifier will use:
 
@@ -128,8 +132,8 @@ bubblewrap build                         # -> app-release-bundle.aab
 `targetSdkVersion 36` — which is exactly what Play demands of every new app
 since **31 August 2026** (Android 16). Nothing to patch.
 
-Paste the fingerprint into **both** `playstore/assetlinks.json` and
-`cms/.well-known/assetlinks.json`, deploy v183 again, then:
+Paste the fingerprints into **both** copies with one command
+(`node playstore/set-fingerprint.mjs "<upload>" "<play-signing>"`), redeploy, then:
 
 ```bash
 node <repo>/playstore/verify.mjs    # exit 0 = the kit is complete
