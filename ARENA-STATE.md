@@ -1,43 +1,48 @@
-> ## CURRENT STATE — read first (updated at v226, 16 Oct 2026)
+> ## CURRENT STATE — read first (updated at v227, 17 Oct 2026)
 >
 > - **Branch reality:** work continues on the Arena session branch
 >   `arena/e8a470c6-shivaa-ecom`, which is branched from `arena/09f3c79f-shivaa-ecom` at its v220 tip
 >   (`4a9e239`) — the two trees were byte-identical when v221 started there. `arena/09f3c79f-shivaa-ecom`
 >   was **not** modified, so PR #106 on it is untouched. PR base: `arena/5529f0ec-shivaa-ecom`.
 > - **Live site: v205** (owner confirmed). Nothing newer is live. Owner approval needed for every release.
-> - **Pushed, not live:** v206–v226. Newest is **v226** ("The Butter Release"): the owner asked for the
->   app to be "even more perfect, even more buttery smooth, fantastic animations on every clicks".
->   Measured before writing a rule: 6 routes, 1058 visible interactive elements, each matched against the
->   selector head of **all 155 `:active` rules** in the shipped bundle → **265 answered a press with
->   nothing** (102 mega-menu tiles, 40 category-bar tiles, 33 Quick-view buttons, the brand link, the
->   offer pill, the utility and footer links). On a phone it was worse: `mobile.css:38` neutralises
->   `*:hover{transform:none!important}` under `@media (pointer: coarse)` — correct (nothing may stick
->   after a tap) but its own press list is short, so for those 265 even the browser's default answer was
->   gone. That is what "the clicks feel dead" is. `cms/css/v226.css` (last layer in the bundle) gives
->   every measured family a press — transform-only, springy, `transition-duration:.12s` while pressed so
->   the release keeps the house spring — under `@media (pointer: coarse), (hover: none)` (the **union**,
->   because a touchscreen laptop is coarse AND `hover: hover`) and with the `!important` the neutraliser
->   makes necessary; a zero-specificity `:where(...)` catch-all fills in anything else without ever
->   outranking a house rule. `cms/js/v226.js` reuses the v89 `.rip` span (motion.js owns `.btn`): small
->   controls ripple at touch-down, big surfaces (a card, a list row) **only on a real tap**, rail items
->   on release, so a scroll-drag never lights up or buzzes; the host is clipped only for the 700 ms its
->   ripple is alive (`.rip-live`) and gets `position:relative` only if it was `static` (`.rip-pos`). One
->   **5 ms haptic per real tap** (a tap = down+up with <8px of movement), gated like the house's own
->   `haptic()`. Tapping a chip, tab or step in a snapped rail **centres it** in the rail. The wish and
->   compare badges pop with the same `mBump` keyframe the cart badge has had since v89. `html.route-jump`
->   makes the router's `scrollTo(0,0)` **instant** for that one navigation (it was animating a long
->   smooth slide of the page being left, because `html{scroll-behavior:smooth}` applies to it too). A 2px
->   gold hairline sweeps the top of the screen **only** if the next page takes longer than 180 ms — on a
->   fast tap nothing is created at all. Where `startViewTransition` exists (Chrome/Android, Safari 18+)
->   `#view` is named for the length of one navigation and the content cross-fades (old out −6px, new in
->   from +10px, 280ms) while the root transition is switched off so the header, utility strip and bottom
->   nav stay perfectly still — and `motion.js`'s `playPage()` stands the entrance down for that one
->   navigation (`vt-run`), so two motions can never fight. Skipped for reduced motion, for `au-lite`
->   devices, for `data-no-vt` and for a same-page link. New suite `qa/browser/t-v226-butter.mjs` (61
->   assertions: a tap ripples, **a drag does not**, the haptic is tap-only, the rail centring call, the
->   badge pop, route-jump, the pace bar only on a slow route, and the view-transition lifecycle against a
->   stub of the API). Next release number: **v227**.
-> - One release back is **v225** ("The App-Feel Release"): the chrome's scroll work moved into ONE
+> - **Pushed, not live:** v206–v227. Newest is **v227** ("The Reading Layer"): the owner reported that
+>   the black-card "Verify & create" button does nothing on a product page, that forgot-password shows an
+>   email OTP when it should ask for the mobile and then a new password, and asked for the home page's
+>   bugs and the "design elements and design physics and design texts" to be made better. (1) The claim
+>   was **dead on every PDP**: `blackReadIntake()` looked for `[data-black-claim] [data-bc-intake]`, a
+>   form that exists only on `#/black-card`, so on a PDP it returned "Enter your name…", `beginBlackClaim`
+>   took the wrong error branch, and the status writer targeted `.bc-claim-status`, which was not on the
+>   page either — no sheet, no message, nothing. The reader is form-aware now, the PDP invite card carries
+>   its own `.bc-commerce-status` line, the claim falls back to the account name (and sends a nameless
+>   account to `#/black-card`), and the post-login auto-claim prefills first — it had been broken for
+>   every first-time visitor. The intent is armed **only after validation passes** (the old code armed it
+>   at the top, so a refused empty claim fired itself on the next sign-in — the new suite caught it).
+>   Proven end to end on `#/product/p_smp_rings_01`: signed out the sheet opens and remembers the return
+>   hash; signed in, OTP → card `SBM284596` (expires 2027-04-18) → back on the piece showing
+>   "Save ₹854 on this piece". (2) **Forgot password** is mobile-first: the 4-digit code goes to the
+>   registered mobile (even when the shopper starts from an email), then new password + repeat with a
+>   real 30 s resend; `api.php` accepts `{phone}` or `{email}`, rate-limits per identifier and always
+>   texts the registered mobile. Proven: the new password signs in 200, the old one is refused 401.
+>   (3) **Home**: the rate ribbon printed `₹₹6,998/g` on every figure (the template added a sign `fmt()`
+>   has printed since v120), the legacy hero hint was a bare injected `<div>` that ate taps (now a real
+>   `<button data-hero-cue>`, 44 px on coarse pointers), `ub-rates`/`btn-lg` can wrap at 768 px, and the
+>   news logo + mega feature art are deferred and sized. (4) **The reading layer** (`cms/css/v227.css` +
+>   `cms/js/v227.js`, last bundle layer): `--shv-mnav-h` is measured from the real `.mnav` (64 px CSS
+>   fallback) and drives the footer bleed, `scroll-padding-bottom` and `#backTop`; images that mount after
+>   the first sweep are still deferred; the rail centres its active chip with `scrollLeft` arithmetic
+>   (never `scrollIntoView`) and jumps under reduced motion; the `.fv-base`/`.fvt-id` gold floors are
+>   lifted to legibility; press states reuse `--shv-press`. New suites: blackcard 28, reset 31, design 41;
+>   the whole older gate green (butter 61, appfeel 80, corners 64, smooth 39, bundle 36, cleanup 34,
+>   billing-gone 13, depth 22, sidebar 13, alive 96, flip all, t7 4). Package: **357 files · 37,266,250 B ·
+>   sha256 `c4cbf83d6efb06fc518a3882af9b6b8727a6dd1743e40ff5fe657602769ccc0f`**. Next release number:
+>   **v228**.
+> - One release back is **v226** ("The Butter Release"): every press answers. 265 of 1058 visible controls
+>   had no `:active` rule; `cms/css/v226.css` gives each family a transform press under the **union** of
+>   `(pointer: coarse)` and `(hover: none)` (the union matters: a touchscreen laptop is both), and
+>   `cms/js/v226.js` adds the v89 gold ripple (tap-only on big surfaces), one 5 ms haptic per real tap,
+>   rail centring, wish/compare badge pops, `html.route-jump`, a 180 ms pace bar, and `startViewTransition`
+>   cross-fades. Suite `qa/browser/t-v226-butter.mjs` 61/0.
+> - Earlier: **v225** ("The App-Feel Release"): the chrome's scroll work moved into ONE
 >   passive listener + ONE rAF (`cms/js/v225.js`, `window.__shvHub`) — `app.js` and `aurum.js` used to
 >   read `scrollHeight`/`clientHeight` on every frame, and a six-event scroll burst now reads the
 >   document **zero** times; writes are quantised (bar 0.1%, ring 1/120 turn) and the two infinite
@@ -83,10 +88,11 @@
 >   timing-based suites fail. Killing it returned the whole gate to green.
 > - Open: billing-app AI chatbot is BLOCKED (owner has not provided the billing app code). 10g colour, offer tilt,
 >   smoother-scroll feel on a real phone, and sign-in look are unverified in a real browser or on a phone.
->   **v226 carries:** the press feel, the ripple, the haptics, the rail centring and the view transition
->   are all verified in jsdom + against the shipped layer, but **no real phone or browser has run this**
->   — that is the 2-minute checklist in `DEPLOY-v226.md` §14 (tap a tile / drag on a card / tap a rail
->   chip / add to wishlist / change pages on Chrome Android / a slow-connection tap). `touch-action:
+>   **v227 carries:** the claim journey and the reset flow are proven end to end in jsdom against the
+>   shim, but **no real phone, SMS or PHP has run this**
+>   — that is the 3-minute checklist in `DEPLOY-v227.md` §9 (the claim from any product page, signed out
+>   and in / a reset by mobile, then a new password / the ribbon reads `₹6,998/g` / the last footer
+>   line clear of the bottom nav on a notched iPhone). `touch-action:
 >   manipulation` in 8 older rules is still left alone (a tap-latency choice; changing it alters
 >   double-tap behaviour the owner has not asked about), and the six designed sheen loops
 >   (`posterShine`, `phSheen`, `auShine`, `shimText`, `mPlShimmer`, `rateShim`) still animate

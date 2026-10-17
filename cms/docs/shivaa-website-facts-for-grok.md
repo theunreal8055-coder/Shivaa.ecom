@@ -1,21 +1,71 @@
 # shivaa-website-facts-for-grok.md — Shivaa Ecom · product & tech facts
 
-**COUNTDOWN: release 226 pending owner review.** Live: **v205** (WWW +
-Netlify). Forward-only rule in force — next release number is **v227**.
-Updated 2026-10-16 from `arena/e8a470c6-shivaa-ecom` (branched from
+---
+**v227 — THE READING LAYER** (2026-10-17). The owner's list, in their order:
+
+1. **"the verify and create button of shivaa black membership card is not
+   working" on any product page.** Reproduced and root-caused: the claim
+   reader looked for `[data-black-claim] [data-bc-intake]`, a form that only
+   exists on `#/black-card`. On a PDP it returned "Enter your name…",
+   `beginBlackClaim` stopped at that error, and the status writer targeted
+   `.bc-claim-status` elements that were not on the page either — a tap with
+   no sheet, no message, nothing. The reader is form-aware now, the invite
+   card carries its own live status line, the claim falls back to the account
+   name, and an account with no name at all is sent to the one page that asks
+   for it instead of a dead button. The post-login auto-claim prefills the
+   form first — it had been silently broken for every first-time visitor.
+   Proven end to end in jsdom: OTP → name → card issued → back on the same
+   piece, now showing "Save ₹854 on this piece".
+2. **"forget password … should show a number otp button"** — forgot-password
+   is mobile-first now (email one tap away), the 4-digit code goes to the
+   registered mobile, then the shopper sets a **new password + repeat** on the
+   same screen, with a real 30 s resend countdown. `api.php` accepts `{phone}`
+   or `{email}` and always texts the registered mobile; the rate limit counts
+   per identifier. Proven: the new password signs in, the old one is refused.
+3. **Home-page bugs** — the live rate ribbon printed `₹₹6,998/g` on every
+   figure (`fmt()` has added the sign since v120); the legacy hero hint was a
+   bare `<div>` that ate taps and answered nothing; the home hero's own
+   "discover" button measured 44 % white inside 60 % opacity; the news logo
+   and the mega feature art loaded eagerly with no intrinsic size.
+4. **"make design elements and design physics and design texts more better"** —
+   `js/v227.js` + `css/v227.css` (last layer): the footer bleed follows the
+   nav's measured height instead of a guessed 60 px, below-the-fold art that
+   mounts after the first sweep is still deferred, the category rail centres
+   its active chip on arrival with `scrollLeft` arithmetic (the page never
+   moves) and stops animating under `prefers-reduced-motion`, and the deepest
+   footer copy is no longer 50 % gold on maroon.
+
+Suites: `t-v227-blackcard` 28, `t-v227-reset` 31, `t-v227-design` 41. The
+older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
+36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
+flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
+
+**COUNTDOWN: release 227 pending owner review.** Live: **v205** (WWW +
+Netlify). Forward-only rule in force — next release number is **v228**.
+Updated 2026-10-17 from `arena/e8a470c6-shivaa-ecom` (branched from
 `arena/09f3c79f-shivaa-ecom` at its v220 tip `4a9e239`).
 
 **Loading (v222):** the shop serves **one** stylesheet, `/css/shivaa.css`
-(stamped `?v=226`), built from the 60 historical layers (61 cascade
+(stamped `?v=227`), built from the 61 historical layers (62 cascade
 positions — `v186.css` deliberately sits at two of them) by
 `tools/build-css-bundle.py` using the cascade order in
 `tools/css-bundle-order.txt`. It is **58 render-blocking requests → 1**, and
-**268 KB → 168 KB gzipped** (v226 bundle: 880,766 B raw / 176,195 B gzipped). The individual layer files still exist under
+**268 KB → 168 KB gzipped** (v227 bundle: 885,408 B raw / 175,338 B gzipped). The individual layer files still exist under
 `cms/css/` (the QA suites read them, and a rollback restores `index.html`
 alone), but nothing on the page links them any more. Scripts are unchanged:
 21 local files, all `defer` (plus the Cashfree SDK), with `admin.js`/`qr.js`
 fetched on demand and `motion.js`/`aurum.js`/`boost.js` injected after first
 paint by `v117.js`.
+
+**v227 (the reading layer):** the black-card "Verify & create" button works from
+every product page now (a signed-out tap opens the mobile sheet and reports on the
+page it was pressed on, and a signed-in shopper gets the card in one pass — then
+returns to the piece they were reading, which now shows the saving); forgot-password
+is mobile-first (4-digit code to the registered mobile, then new password + repeat,
+real 30 s resend; the API accepts `{phone}` or `{email}` and always texts the
+registered mobile); the live-rate ribbon no longer prints `₹₹6,998/g`; the footer
+clears the bottom nav by its measured height instead of a guessed 60 px; and the
+category rail centres its active chip without moving the page.
 
 **Click feel (v226):** every press answers. 265 of 1058 visible interactive elements had no `:active`
 rule at all (102 mega-menu tiles, 40 category-bar tiles, 33 Quick-view buttons, the brand link, the offer

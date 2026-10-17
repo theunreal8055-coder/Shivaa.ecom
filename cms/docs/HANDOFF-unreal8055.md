@@ -1,11 +1,53 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
-**COUNTDOWN: release 226 pending owner review — nothing deployed without the
+---
+**v227 — THE READING LAYER** (2026-10-17). The owner's list, in their order:
+
+1. **"the verify and create button of shivaa black membership card is not
+   working" on any product page.** Reproduced and root-caused: the claim
+   reader looked for `[data-black-claim] [data-bc-intake]`, a form that only
+   exists on `#/black-card`. On a PDP it returned "Enter your name…",
+   `beginBlackClaim` stopped at that error, and the status writer targeted
+   `.bc-claim-status` elements that were not on the page either — a tap with
+   no sheet, no message, nothing. The reader is form-aware now, the invite
+   card carries its own live status line, the claim falls back to the account
+   name, and an account with no name at all is sent to the one page that asks
+   for it instead of a dead button. The post-login auto-claim prefills the
+   form first — it had been silently broken for every first-time visitor.
+   Proven end to end in jsdom: OTP → name → card issued → back on the same
+   piece, now showing "Save ₹854 on this piece".
+2. **"forget password … should show a number otp button"** — forgot-password
+   is mobile-first now (email one tap away), the 4-digit code goes to the
+   registered mobile, then the shopper sets a **new password + repeat** on the
+   same screen, with a real 30 s resend countdown. `api.php` accepts `{phone}`
+   or `{email}` and always texts the registered mobile; the rate limit counts
+   per identifier. Proven: the new password signs in, the old one is refused.
+3. **Home-page bugs** — the live rate ribbon printed `₹₹6,998/g` on every
+   figure (`fmt()` has added the sign since v120); the legacy hero hint was a
+   bare `<div>` that ate taps and answered nothing; the home hero's own
+   "discover" button measured 44 % white inside 60 % opacity; the news logo
+   and the mega feature art loaded eagerly with no intrinsic size.
+4. **"make design elements and design physics and design texts more better"** —
+   `js/v227.js` + `css/v227.css` (last layer): the footer bleed follows the
+   nav's measured height instead of a guessed 60 px, below-the-fold art that
+   mounts after the first sweep is still deferred, the category rail centres
+   its active chip on arrival with `scrollLeft` arithmetic (the page never
+   moves) and stops animating under `prefers-reduced-motion`, and the deepest
+   footer copy is no longer 50 % gold on maroon.
+
+Suites: `t-v227-blackcard` 28, `t-v227-reset` 31, `t-v227-design` 41. The
+older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
+36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
+flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
+
+**COUNTDOWN: release 227 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
 shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211,
-v212, v213, v214, v215, v216, v217, v218, v219, v220, v221, v222, v223, v224, v225, v226.
+v212, v213, v214, v215, v216, v217, v218, v219, v220, v221, v222, v223, v224, v225, v226, v227.
 
-Last updated: 2026-10-16 (v226 "The Butter Release" — the owner asked for it to be even more
+Last updated: 2026-10-17 (v227 "The Reading Layer" — the black-card claim works on every
+product page, forgot-password asks for the mobile then sets a new password, the home page's
+₹₹ and dead hero hint are gone, and the footer/rail/copy got measured).
 perfect, even more buttery smooth, and "fantastic animations on every clicks". Measured first: across 6
 routes and 1058 visible interactive elements, matched against all 155 `:active` selector heads in the
 shipped bundle, **265 answered a press with nothing** — 102 mega-menu tiles, 40 category-bar tiles, 33
@@ -89,7 +131,7 @@ passive** (the one blocker is the gallery's deliberate drag), **no DOM leak**
 **no layout shift** (product cards already reserve their space). Packaged; the
 v222 load release below is one release back).
 
-Build branch note: this repository's v221–v226 builds ran on the
+Build branch note: this repository's v221–v227 builds ran on the
 session branch `arena/e8a470c6-shivaa-ecom`, which is branched from
 `arena/09f3c79f-shivaa-ecom` at its v220 tip (`4a9e239`) — the two trees were
 byte-identical when v221 started. `arena/09f3c79f-shivaa-ecom` itself was not
@@ -100,7 +142,7 @@ modified.
 ## 1 · The absolute rules (owner's — never break)
 
 1. **Forward-only.** Never reuse or renumber a shipped release. Live is v205;
-   v206–v226 are built; **next release is v227**. Never deploy an older tree
+   v206–v227 are built; **next release is v228**. Never deploy an older tree
    over a newer live one. No reverts, no force-pushes, no resurrecting old
    zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a
@@ -167,6 +209,7 @@ modified.
 | v224 | The Every-Corner Release: (1) **smoothness** — every continuously running CSS animation is now compositor-only: the hero float animated `margin-top`, the pillar sweep / finale sheen / hover shine animated `left`, `floatBullion` animated a 40px `drop-shadow` and `bcBeam` a `blur()`. All five now animate `translate`/`opacity` with identical geometry (the two shadows/bursts are static filters, and the private `--px`/`--py` hero parallax was found to have no producer in any shipped file). (2) **timers** — `bindCountdown` and `bindFinaleCd` rebuilt all four cells with `innerHTML` once a second, forever, on screen or not; the footer rate ticker rebuilt byte-identical markup every 2.5 s; the `data-rate-age` line was written every second regardless of change. All four now build once, write only changed digits/text nodes, and pause when off screen (`IntersectionObserver`, 120px) or on a hidden tab. ~35 DOM node writes/second → ~2. (3) **usability corners** — new `css/v224.css` (last layer in the bundle): the iOS focus-zoom floor (a focused field under 16px makes Safari zoom the page in and never zoom back; the floor existed in v116/v120/v192/v194 but later layers overrode it — the 39 selectors raised here are below 16px *everywhere* they appear, so nothing can shrink, and the deliberately large fields (`.otp-boxes input` 17-22px, `.shv-otp input` 20-28px, `.bbc-wt input` 34px) are untouched); the quick-view/gallery dots keep their 6-8px look but gain a 27px hit area on a 20px-pitch row; the concierge, theme and back-to-top FABs clear `env(safe-area-inset-bottom)`; the chat panel gets a `dvh` height so it can never be taller than the visible screen; live numerals are tabular; panel scroll no longer drags the page behind it; the newsletter field asks for the email keyboard and no autocapitalise; and the admin/QR images that shipped without `alt` now have it. New suite `qa/browser/t-v224-corners.mjs` (62 assertions) owns all of it. | built, delivered to owner |
 | v225 | The App-Feel Release: the frame the phone paints while a thumb is moving. (1) **one scroll frame** — `app.js` and `aurum.js` each ran their own scroll listener on their own rAF and each read `documentElement.scrollHeight` + `clientHeight` on **every frame**; `js/v225.js` now owns the chrome from one passive listener and one rAF, measuring the geometry only when it can change (resize, route, a `ResizeObserver` on the body, three late passes) and quantising the writes (bar 0.1%, ring 1/120 of a turn). A six-event scroll burst reads the document **zero** times; `hub.measures` does not move, and a resize does re-measure. Both old handlers feature-detect `window.__shvHub` and stand down, so a warm cache can never leave the bar with two writers or none. (2) **parallax on the phone** — feature 12 was gated to `(hover:hover) and (pointer:fine)` over 1023px; a coarse pointer now runs it at **11px instead of 26**, still off for reduced-motion and `au-lite`, still tagged only within 80px of the viewport, and each element's document offset is **cached** (re-taken when the hub reports the document changed shape) so a scroll frame performs **no `getBoundingClientRect()`** on any device; a detached element is dropped instead of being written to for ever from a 0×0 box. (3) **two infinite repaint loops become composited sweeps** — `@keyframes mSkeleton` (the PDP skeleton ×7, plus `.pc-imgwrap` / `.tv-ph` while a photo loads, which is **every** product card) and `@keyframes auProg` (the 3px progress bar, which never idled for a second of any visit) animated `background-position`, which no browser can composite. Both now move a pseudo-element with `translate` — same colour, speed and angle; `.pc-imgwrap::after` is already the gold hairline, so the placeholder sweep is a `::before` at z-index 0 with the photos lifted while the placeholder is live. (4) **a card is no longer a GPU layer on a phone** — `.p-card` reserved `will-change: transform` for a hover state a finger cannot trigger (20–60 layers held in video memory on a shop page); `html.au-touch .p-card { will-change: auto }`, desktop untouched. (5) **rails** — eight `overflow-x:auto` rails (`.cat-chips`, `.adr-sw`, `.stages`, `.sz-strip-wrap`, `.tabs`, `.acct-nav`, `.adm-nav`) plus the scheme stepper gain `scroll-snap-type: x proximity`, snap points on their children and `overscroll-behavior-x: contain`, so a flick parks on a label and a swipe at the end cannot become the browser's back gesture. (6) **tablets** — the v224 16px focus-zoom floor extended to the 681–900px band (an iPad in portrait is 768px), same field list, still no `!important`, so nothing large can shrink. (7) **depth and digits** — twelve more live numeral strips go tabular, `.p-card` gets the house gold hairline (`rgba(212,175,90,.14)`, `.42` + a wine-tinted shadow on hover) and the Android grey tap flash is suppressed on the eight card/chip/tile selectors that already answer with their own press transform. New suite `qa/browser/t-v225-appfeel.mjs` (80 assertions). | built, delivered to owner |
 | v226 | The Butter Release: every click answers. (1) **press physics** — the measurement above; each dead family now has a transform press, and on a finger the rules carry `!important` because `mobile.css`'s `*:hover{transform:none!important}` would otherwise erase them. (2) **ripple + haptic** — `js/v226.js` reuses the v89 `.rip` span: small controls ripple at touch-down, big surfaces (a product card, a list row) ripple only on a real tap so starting a scroll never lights them up, rail items ripple on release so a flick cannot fire a ripple on every chip it passes, and the host is clipped only for the 700 ms the ripple is alive. One 5 ms vibration on a real tap, gated like the house gates haptics (coarse AND not reduced-motion). (3) **rail centring** — tapping a chip, tab or step in a snapped rail glides that item to the middle of the rail. (4) **badges** — the wish and compare counters pop with the same `mBump` keyframe the cart badge has used since v89. (5) **route jump** — `html.route-jump` makes the router's scroll-to-top instant for that one navigation instead of animating a long slide of the page being left. (6) **pace bar** — a 2px gold hairline sweeps the top of the screen only when the next page takes longer than 180 ms; on a fast tap nothing is created. (7) **view transitions** — where `startViewTransition` exists the content cross-fades (6-10px, transform/opacity) while the chrome stays still and the entrance stands down for that navigation; skipped for reduced motion, for `au-lite` devices and for a link marked `data-no-vt`. New suite `qa/browser/t-v226-butter.mjs` (61 assertions). | built, delivered to owner |
+| v227 | The Reading Layer: (1) **the black-card claim works from every product page** — the reader demanded `[data-black-claim] [data-bc-intake]`, which only exists on `#/black-card`, so a PDP tap returned "Enter your name", stopped there, and the status writer had nowhere to write either; the reader is form-aware, the invite card carries its own status line, the claim falls back to the account name and sends a nameless account to the page that asks, and the post-login auto-claim prefills its form first. (2) **forgot-password is mobile-first** — 4-digit code to the registered mobile, then new password + repeat, real 30 s resend; `api.php` takes `{phone}` or `{email}` and always texts the registered mobile. (3) **home page** — the rate ribbon printed `₹₹` on every figure, the legacy hero hint was a bare `<div>` that ate taps, the home hero's "discover" measured 44 % white in 60 % opacity, and the news logo + mega feature art loaded eagerly with no intrinsic size. (4) **the reading layer** — footer bleed follows the nav's measured height, late mounts are still deferred, the rail centres its active chip without moving the page and stops animating under reduced motion, and the deepest footer gold is readable. Suites: blackcard 28, reset 31, design 41. Packaged as `shivaa-update-v227.zip`. |
 | v218 | The Sign-in Release: the 10 g Gold Scheme entry on home is highlighted (halo ring, larger target); the funnel stops jumping to top (scroll only when the step is off screen, never on first paint); the sidebar is the earlier drawer again plus swipe-left-to-close; the film case is removed for good (script, mount, module, CSS hooks, tests); the Retail and Jeweller B2B sign-in sheet is restyled in v218.css under #shvAuthWrap, JS and IDs unchanged. |
 | v217 | The Steady Release: root cause of the refresh/jump-to-top found — content-visibility:auto on home sections and product cards (v117/v121/v122/v214) with guessed heights made the page height change while scrolling; now forced to real layout. Case reinstalled as cms/js/v217-case.js (one pointer path, no scroll/resize listeners, one play-state function; phones play the front film only). Mobile drawer rebuilt (slide + scrim + 48px targets); phone search = one full-screen panel; Win-10g campaign buttons readable + stacked on phones; offer panels get four motifs (rim, ribbon, diamond points, seal) | built, owner review pending |
 | v216 | The Wow Release: offer banners get real painted artwork (images/offers) + one slow light sweep instead of drawn shapes; phone films — on touch screens only the front film plays (phones cannot decode four at once), the others show posters and play when brought round; Black Card hero becomes one column (card, certificate, status) with one calm float, no overlap, no drop-shadow | built, owner review pending |
