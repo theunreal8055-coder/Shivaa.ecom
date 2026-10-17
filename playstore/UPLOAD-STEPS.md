@@ -1,7 +1,10 @@
 # UPLOAD-STEPS.md — uploading Shivaa Jewels to Google Play, in order
 
 This is the **linear walkthrough**: every command, every Play Console screen, in the
-order that actually works. The wider plan is `playstore/README.md`; the tick-box
+order that actually works. For a same-day push, `playstore/TODAY.md` is the
+time-boxed version; the wrappers are `bash playstore/preflight.sh` (checks six
+things that burn an hour), `bash playstore/make-aab.sh` (build) and
+`node playstore/version-bump.mjs` (records the upload, guards the code). The wider plan is `playstore/README.md`; the tick-box
 version is `playstore/CHECKLIST.md`; the words to paste are `playstore/listing.md`.
 
 **One sentence of context:** the app is a **Trusted Web Activity** — a verified,

@@ -110,8 +110,22 @@ T('twa: every shortcut hash is a route the router knows',
   }) && TWA.shortcuts.length === 3);
 T('twa: shortcuts carry an absolute https icon and url (Bubblewrap needs both)',
   TWA.shortcuts.every(s => /^https:\/\//.test(s.url) && /^https:\/\//.test(s.chosenIconUrl)));
-T('twa: versionCode starts at 1 and is never reused',
-  TWA.appVersionCode === 1 && TWA.appVersion === '1.0.0');
+/* v228b — the code moves forward with every upload (playstore/version-bump.mjs),
+   so the assertion is "a real, unused code", not the literal 1. */
+const LEDGER_PATH = 'playstore/uploads.json';
+const LEDGER = fs.existsSync(LEDGER_PATH) ? JSON.parse(read(LEDGER_PATH)) : { uploads: [] };
+const USED = (LEDGER.uploads || []).map(u => u.versionCode);
+T('twa: the manifest holds a real versionCode that Play has never seen',
+  Number.isInteger(TWA.appVersionCode) && TWA.appVersionCode >= 1 &&
+  /^\d+\.\d+\.\d+$/.test(TWA.appVersion) &&
+  !USED.includes(TWA.appVersionCode) &&
+  USED.every((v, i) => USED.indexOf(v) === i) &&
+  (LEDGER.packageId ? LEDGER.packageId === TWA.packageId : true),
+  'versionCode ' + TWA.appVersionCode + ', used: [' + USED.join(', ') + ']');
+T('twa: the upload ledger only moves forward, one code per upload',
+  (LEDGER.uploads || []).every(u => Number.isInteger(u.versionCode) && u.versionCode >= 1 &&
+    ['internal', 'closed', 'open', 'production'].includes(u.track)) &&
+  (LEDGER.uploads || []).every((u, i, a) => i === 0 || u.versionCode > a[i - 1].versionCode));
 T('links: one delegation entry, two fingerprints (upload key + Play signing key)',
   LINKS.length === 1 && LINKS[0].relation[0] === 'delegate_permission/common.handle_all_urls' &&
   LINKS[0].target.sha256_cert_fingerprints.length === 2);

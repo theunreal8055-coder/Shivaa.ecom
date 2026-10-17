@@ -5,6 +5,9 @@ places it can stop dead marked as gates.**
 
 > **Just uploading?** `playstore/UPLOAD-STEPS.md` is the copy-paste walkthrough —
 > keystore → `bubblewrap build` → fingerprints → Play Console → internal testing.
+> **In a hurry (aaj hi)?** `playstore/TODAY.md` is the time-boxed plan, and the
+> three commands are `bash playstore/preflight.sh`, `bash playstore/make-aab.sh`,
+> `node playstore/version-bump.mjs` (records an upload and never reuses a code).
 
 ---
 

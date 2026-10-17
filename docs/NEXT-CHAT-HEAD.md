@@ -350,6 +350,12 @@ on decorative UI, and the bundle carries every stylesheet v221 linked (its 64
    build → fingerprints → Console → internal testing, with a failure table), and
    `node playstore/set-fingerprint.mjs --status | "<upload>" "<play-signing>"` writes the
    two assetlinks copies together (the classic bug is editing only the kit copy).
+   **Same-day path:** `playstore/TODAY.md` (time-boxed plan) + `bash playstore/preflight.sh`
+   (six checks, exit 2 = waiting on the owner) + `bash playstore/make-aab.sh [--check|--init-key]`
+   (stages `playstore/twa/`, git-ignored, runs bubblewrap) + `node playstore/version-bump.mjs
+   --status|uploaded <track> ["note"]|set <n>` which records every uploaded versionCode in
+   `playstore/uploads.json` and refuses a reused one BEFORE the 40 MB upload. The v228b suite
+   reads that ledger, so a version bump never breaks `t-v228-play`.
 3. **Owner visual check for v227 specifically (on a phone):** (a) open any product, scroll to the
    black-card invite, tap **Verify & create** — the sheet must open there with a status line under
    the button, and a signed-in claim must return to the same piece and show its saving;
