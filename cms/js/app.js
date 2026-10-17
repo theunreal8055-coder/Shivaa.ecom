@@ -3177,6 +3177,156 @@ const signInGate = (view, next, title, blurb) => {
 
 /* ─────────── HOME ─────────── */
 pages.login = async () => { openLogin(); };
+/* ─────────── v228 · erasing an account (a Google Play requirement) ───────────
+   Play's User Data policy wants both: a way to erase the account from inside
+   the app, and a public URL that does the same without installing anything.
+   `#/delete-account` is that one page. Signed in, the session proves the
+   account. Signed out (the URL Play's listing points at), a fresh SMS code
+   proves the number — deliberately NOT a sign-in, because nobody should have
+   to log in in order to leave. The API is the only judge: it refuses the
+   owner's account and B2B partners, burns the code, anonymises the row and
+   kills every device's token. This page only repeats what the API decides. */
+pages['delete-account'] = async (view) => {
+  const signedIn = !!state.user;
+  const who = signedIn ? state.user : null;
+  let codeSent = false, sending = false, working = false;
+
+  const shell = body => {
+    view.innerHTML = `
+    <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="container"><div class="crumbs"><a href="#/">Home</a> / Privacy &amp; my data</div>
+      <h1>Delete my account</h1>
+      <p>Your data, your call. This erases your Shivaa account and everything that is not kept by law.</p></div></section>
+    <div class="container" style="padding:36px 0 60px;max-width:760px">
+      <div class="acct-sec" style="padding:26px 24px">
+        ${body}
+      </div>
+      <p class="shv-fine" style="margin-top:18px">Read the full <a href="#/privacy" style="color:var(--gold)">privacy policy</a>.
+      Questions, or you cannot reach your number? WhatsApp <b>+91 89050 05921</b> — we verify by hand and erase the same day.</p>
+    </div>`;
+  };
+
+  const form = () => {
+    shell(`
+      <div class="as-head"><h3>What gets erased</h3><span class="as-note">${signedIn ? 'signed in as ' + esc(who.name || who.phone || 'you') : 'no sign-in needed'}</span></div>
+      <ul style="margin:10px 0 20px;padding-left:20px;line-height:1.85;font-size:13.5px">
+        <li><b>Erased at once:</b> your name, mobile, email, addresses, wishlist, saved profile and every signed-in device.</li>
+        <li><b>Kept, with your name removed:</b> invoices, hallmark and KYC records that tax and PMLA law require us to hold.</li>
+        <li>Any order still in transit stays protected — call us before erasing if one is on its way.</li>
+      </ul>
+      ${signedIn ? '' : `
+      <label class="shv-lbl" for="delPhone">The mobile number on the account</label>
+      <div style="display:flex;gap:10px;align-items:center;margin:6px 0 4px">
+        <span style="opacity:.7">+91</span>
+        <input id="delPhone" inputmode="numeric" autocomplete="tel" maxlength="10" placeholder="10-digit mobile"
+          style="flex:1;padding:12px 14px;border-radius:12px;border:1px solid rgba(212,175,90,.45);background:transparent;color:inherit;font:inherit;font-size:16px">
+        <button type="button" class="btn btn-outline btn-sm" id="delSend">Send code</button>
+      </div>
+      <div class="shv-demo" id="delDemo" hidden></div>
+      <div id="delCodeWrap" hidden style="margin-top:16px">
+        <label class="shv-lbl">The 4-digit code sent by SMS</label>
+        <div class="shv-otp shv-otp4" id="delOtp" style="margin-top:8px">${[0, 1, 2, 3].map(i => `<input inputmode="numeric" maxlength="1" autocomplete="${i === 0 ? 'one-time-code' : 'off'}" aria-label="Digit ${i + 1}">`).join('')}</div>
+      </div>`}
+      <label class="shv-lbl" for="delConfirm" style="margin-top:20px">Type <b>DELETE</b> in capitals to confirm</label>
+      <input id="delConfirm" autocomplete="off" placeholder="DELETE"
+        style="width:100%;margin-top:6px;padding:12px 14px;border-radius:12px;border:1px solid rgba(212,175,90,.45);background:transparent;color:inherit;font:inherit;font-size:16px;letter-spacing:.2em">
+      <div class="shv-err" id="delErr" role="alert" style="margin-top:12px"></div>
+      <button type="button" class="btn btn-primary" id="delGo" style="margin-top:14px;width:100%">Erase my account</button>
+      <p class="shv-fine" style="margin-top:12px">This cannot be undone. Prefer to talk first? WhatsApp <b>+91 89050 05921</b>.</p>`);
+  };
+
+  const err = msg => { const e = $('#delErr'); if (e) { e.textContent = msg || ''; } };
+  const btnBusy = (b, on, label) => { if (!b) return; b.disabled = on; b.textContent = on ? (label || 'Working…') : (b.dataset.label || 'Erase my account'); };
+
+  const sendCode = async () => {
+    if (sending) return;
+    const input = $('#delPhone');
+    const phone = (input ? input.value : '').replace(/\D/g, '').slice(-10);
+    if (!/^[6-9]\d{9}$/.test(phone)) return err('Enter the 10-digit mobile that is on the account.');
+    err('');
+    sending = true;
+    const b = $('#delSend');
+    btnBusy(b, true, 'Sending…');
+    try {
+      const d = await api('/api/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
+      codeSent = true;
+      const wrap = $('#delCodeWrap'); if (wrap) wrap.hidden = false;
+      const demo = $('#delDemo');
+      if (demo) {
+        if (d.devCode) { demo.hidden = false; demo.innerHTML = 'Demo mode is on: your code is <b>' + esc(String(d.devCode)) + '</b>'; }
+        else demo.hidden = true;
+      }
+      const boxes = $$('#delOtp input');
+      if (boxes[0]) boxes[0].focus();
+      toast('Code sent by SMS ✦');
+    } catch (e) {
+      err(e.message || 'The code could not be sent — try again in a minute.');
+    } finally {
+      sending = false;
+      if (b) { b.disabled = false; b.textContent = 'Resend code'; }
+    }
+  };
+
+  const erase = async () => {
+    if (working) return;
+    err('');
+    const confirmWord = ($('#delConfirm') || {}).value || '';
+    if (confirmWord.trim() !== 'DELETE') return err('Type DELETE in capitals to confirm.');
+    const body = { confirm: 'DELETE' };
+    if (!signedIn) {
+      const phone = ($('#delPhone') || {}).value || '';
+      const clean = String(phone).replace(/\D/g, '').slice(-10);
+      if (!/^[6-9]\d{9}$/.test(clean)) return err('Enter the 10-digit mobile that is on the account.');
+      if (!codeSent) return err('Send the code to your mobile first — it proves the number is yours.');
+      const code = $$('#delOtp input').map(b => b.value).join('');
+      if (code.length !== 4) return err('Enter the 4-digit code we sent you.');
+      body.phone = clean;
+      body.code = code;
+    }
+    working = true;
+    const go = $('#delGo');
+    btnBusy(go, true, 'Erasing…');
+    try {
+      const d = await api('/api/auth/delete-account', { method: 'POST', body: JSON.stringify(body) });
+      if (signedIn) {
+        try { setToken(''); state.user = null; resetWishSession(); updateBadges(); } catch (e) {}
+      }
+      shell(`
+        <div class="as-head"><h3>Done — your account is erased</h3><span class="as-note">${esc(new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }))}</span></div>
+        <p style="margin:12px 0 18px;line-height:1.8;font-size:14px">${esc((d && d.message) || 'Your account is erased.')}</p>
+        <p class="shv-fine">Changed your mind? Nothing is lost for good — write to us and we will tell you exactly what we still hold and why.</p>
+        <a class="btn btn-primary" href="#/" style="margin-top:16px">Back to the shop</a>`);
+      try { toast('Account erased ✦'); } catch (e) {}
+    } catch (e) {
+      err(e.message || 'That did not work — please retry, or WhatsApp us.');
+      btnBusy(go, false);
+    } finally {
+      working = false;
+    }
+  };
+
+  form();
+  if (!signedIn) {
+    const send = $('#delSend'); if (send) send.onclick = sendCode;
+    const phoneIn = $('#delPhone'); if (phoneIn) phoneIn.addEventListener('input', () => { phoneIn.value = phoneIn.value.replace(/\D/g, '').slice(0, 10); });
+    const boxes = $$('#delOtp input');
+    boxes.forEach((b, i) => {
+      b.addEventListener('input', () => { b.value = b.value.replace(/\D/g, '').slice(0, 1); if (b.value && i < 3) boxes[i + 1].focus(); });
+      b.addEventListener('keydown', ev => { if (ev.key === 'Backspace' && !b.value && i > 0) boxes[i - 1].focus(); });
+      b.addEventListener('paste', ev => {
+        ev.preventDefault();
+        const t = String((ev.clipboardData || window.clipboardData).getData('text') || '').replace(/\D/g, '').slice(0, 4);
+        [...t].forEach((c, j) => { if (boxes[j]) boxes[j].value = c; });
+        if (t.length === 4) $('#delGo').focus();
+      });
+    });
+  }
+  const go = $('#delGo'); if (go) go.onclick = erase;
+  const conf = $('#delConfirm'); if (conf) conf.addEventListener('keydown', ev => { if (ev.key === 'Enter') erase(); });
+};
+/* the older spelling people may have bookmarked, and the URL in sitemap.php */
+pages['erase-account'] = pages['delete-account'];
+
 pages.privacy = async (view) => {
   view.innerHTML = `
   <section class="page-hero"><div class="dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="container"><div class="crumbs"><a href="#/">Home</a> / Privacy Policy</div><h1>Your Data, Our <em class="disp-italic">Aman</em></h1>
@@ -7861,6 +8011,7 @@ pages.account = async (view, q) => {
     <div class="acct-tiles">
       ${isPartner() ? `<a href="#/partner" class="acct-tile portal"><span class="at-ic">✦</span><span class="at-tx"><b>Partner Portal</b><small>bullion desk · design selection · schemes · reports</small></span><span class="at-go">›</span></a>` : ''}
       ${tiles.map(t => `<a href="${t[0] === 'certificates' ? '#/certificates' : '#/account?tab=' + t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
+      <a href="#/delete-account" class="acct-tile"><span class="at-ic">🛡️</span><span class="at-tx"><b>Privacy &amp; my data</b><small>download nothing, erase everything — your call</small></span><span class="at-go">›</span></a>
       <a href="javascript:Shivaa.logout()" class="acct-tile danger"><span class="at-ic">↩</span><span class="at-tx"><b>Logout</b><small>sign out safely</small></span><span class="at-go">›</span></a>
     </div>
 
@@ -11142,6 +11293,9 @@ pages['gold-biscuit'] = pages.scheme;
 
 /* ─────────── ROUTER ─────────── */
 const routes = Object.create(null);
+/* v228 — the Play shortcut "Ring size guide" opens #/size-guide, which fell
+   through the router to Home because the sizer has always been #/sizer. */
+pages['size-guide'] = pages.sizer;
 Object.keys(pages).forEach(k => routes[k] = pages[k]);
 Object.assign(window.Shivaa, {
   api, state, store, token, setToken, toast, openModal, closeModal, toggleWish, addToCart,

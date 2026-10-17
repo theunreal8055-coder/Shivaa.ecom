@@ -125,7 +125,9 @@ DEV = {"otps": [], "tokens": {}, "users": [], "wishlist": {}, "orders": {},
        # v227 — passwords set through the reset flow (bcrypt is unavailable here)
        "passwords": {},
        # v227 — Shivaa Black memberships created through the claim flow
-       "blackCards": {}}
+       "blackCards": {},
+       # v228 — accounts erased through #/delete-account (<uid> -> "otp"|"session")
+       "erased": {}}
 PREVIEW_PASSWORD = "shivaa123"          # bcrypt is unavailable in the sandbox
 GST_STATES = {"08": "Rajasthan", "27": "Maharashtra", "29": "Karnataka", "24": "Gujarat",
               "07": "Delhi", "09": "UP", "33": "Tamil Nadu", "36": "Telangana",
@@ -329,7 +331,8 @@ def dev_send_otp(phone):
 
 def dev_check_otp(phone, code):
     """Returns (http_status, payload, otp_record|None) like api.php."""
-    found = next((o for o in reversed(DEV["otps"]) if o["phone"] == phone), None)
+    found = next((o for o in reversed(DEV["otps"])
+                  if o["phone"] == phone and not o.get("consumedByLogin")), None)
     if found is None:
         return 400, {"error": "Request an OTP first"}, None
     if found["exp"] < int(time.time()):
@@ -469,6 +472,52 @@ class Handler(SimpleHTTPRequestHandler):
             if password:
                 DEV["passwords"][u["id"]] = password
             return self._json(200, {"token": dev_issue(u), "user": dev_pub_user(u)})
+        if route == "auth/delete-account":
+            # v228 — mirrors api.php: a session *or* a fresh SMS code proves the
+            # account; the owner and B2B partners are refused; the row is
+            # anonymised and every device token is dropped.
+            if str(body.get("confirm") or "").strip() != "DELETE":
+                return self._json(400, {"error": "Type DELETE to confirm"})
+            u = dev_token(self)
+            via = "session"
+            if not u:
+                phone = dev_phone10(body.get("phone"))
+                if not dev_valid_phone(phone):
+                    return self._json(400, {"error": "Enter the 10-digit mobile on the account"})
+                code = str(body.get("code") or "")
+                if not code:
+                    return self._json(400, {"error": "Request a code first"})
+                status, payload, _rec = dev_check_otp(phone, code)
+                if status != 200:
+                    return self._json(400, {"error": "That code is not valid — request a new one"})
+                if _rec is not None:
+                    _rec["consumedByLogin"] = True   # single use, burned here
+                u = next((x for x in dev_all_users() if dev_phone10(x.get("phone")) == phone), None)
+                if not u:
+                    return self._json(400, {"error": "That code is not valid — request a new one"})
+                via = "otp"
+            role = (u.get("role") or "customer")
+            if role == "admin":
+                return self._json(400, {"error": "The owner account cannot be erased from the app"})
+            if role == "partner":
+                return self._json(400, {"error": "This is a B2B partner account — ask Shivaa to close it"})
+            uid = u.get("id")
+            # anon-out the in-memory user (the seeded db is read-only here)
+            for x in DEV["users"]:
+                if x.get("id") == uid:
+                    x["name"] = "Deleted customer"
+                    x["email"] = "deleted+" + str(uid) + "@privacy.local"
+                    x["phone"] = ""
+                    x["addresses"] = []
+                    x["wishlist"] = []
+                    x["profile"] = {"erased": True}
+                    x["selfErased"] = True
+                    DEV["passwords"].pop(uid, None)
+                    DEV["blackCards"].pop(uid, None)
+            DEV["tokens"] = {t: v for t, v in DEV["tokens"].items() if v != uid}
+            DEV["erased"] = dict(DEV.get("erased") or {}, **{str(uid): via})
+            return self._json(200, {"ok": True, "erased": True,
+                                    "message": "Your account is erased. Orders already placed stay with us for tax and hallmarking records, with your name removed."})
         if route == "auth/login":
             email = str(body.get("email") or "").strip().lower()
             # v227 — the dev layer's own registered accounts sign in here too:
