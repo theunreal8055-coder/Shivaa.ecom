@@ -16,7 +16,7 @@ v37 (compute_price / current_rates ported 1:1).
 
 Run: python3 qa/preview_shim.py [--port 8090]
 """
-import argparse, datetime, json, re, secrets, threading, time
+import argparse, copy, datetime, json, re, secrets, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -127,7 +127,12 @@ DEV = {"otps": [], "tokens": {}, "users": [], "wishlist": {}, "orders": {},
        # v227 — Shivaa Black memberships created through the claim flow
        "blackCards": {},
        # v228 — accounts erased through #/delete-account (<uid> -> "otp"|"session")
-       "erased": {}}
+       "erased": {},
+       # v229 — in-store bills uploaded through Admin -> In-store Bills. The
+       # document bytes live in RAM only: the sandbox has no private folder
+       # beside a document root, and inventing one would hide the very failure
+       # mode (503, nothing saved) the owner has to be told about.
+       "bills": []}
 PREVIEW_PASSWORD = "shivaa123"          # bcrypt is unavailable in the sandbox
 GST_STATES = {"08": "Rajasthan", "27": "Maharashtra", "29": "Karnataka", "24": "Gujarat",
               "07": "Delhi", "09": "UP", "33": "Tamil Nadu", "36": "Telangana",
@@ -248,20 +253,103 @@ def dev_check_reset_otp(phone, code):
     return 200, found
 
 
+def _is_num(v):
+    try:
+        float(v)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
 def dev_black_card(uid):
+    card = DEV["blackCards"].get(uid)
+    if card:
+        return card
+    # v229 — adopt the card already stored on the account, the way api.php reads
+    # users[i].blackCard. DEV["blackCards"] only ever held cards the shim itself
+    # created, so a fixture member arrived cardless and every membership
+    # assertion had nothing to look at.
+    if not uid:
+        return None
+    u = next((x for x in dev_all_users() if x.get("id") == uid), None)
+    own = (u or {}).get("blackCard")
+    if isinstance(own, dict) and own:
+        DEV["blackCards"][uid] = copy.deepcopy(own)
     return DEV["blackCards"].get(uid)
+
+
+def dev_black_pct():
+    """v229 - mirrors api.php black_discount_pct(): ONE setting, default 25,
+    clamped 0-40. Every dev surface reads it through here so the shim cannot
+    drift from the server it stands in for."""
+    v = DEV_SETTINGS.get("blackDiscountPct", db()["settings"].get("blackDiscountPct"))
+    try:
+        n = int(round(float(v)))
+    except (TypeError, ValueError):
+        return 25
+    return max(0, min(40, n))
+
+
+def dev_add_months(iso, months):
+    """v229 - mirrors api.php black_add_months(): whole calendar months, and a
+    31st lands on the last day of a shorter month instead of rolling over."""
+    try:
+        start = datetime.datetime.fromisoformat(str(iso).replace("Z", ""))
+    except ValueError:
+        return iso
+    total = start.month - 1 + max(1, int(months))
+    year, month = start.year + total // 12, total % 12 + 1
+    import calendar
+    day = min(start.day, calendar.monthrange(year, month)[1])
+    return start.replace(year=year, month=month, day=day).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def dev_black_left(card):
+    """seconds left on a card; negative once it has expired"""
+    try:
+        until = datetime.datetime.fromisoformat(str(card.get("expiresAt", "")).replace("Z", ""))
+    except ValueError:
+        return 0
+    return int((until - datetime.datetime.now()).total_seconds())
 
 
 def dev_black_public(card):
     """mirrors api.php black_card_public() - the SPA reads these fields"""
     out = dict(card)
     out["program"] = "Shivaa Black"
-    out["discountPct"] = 20
+    out["discountPct"] = dev_black_pct()
     out["discountBasis"] = "making-charges"
     out["certificateTitle"] = "Shivaa Family Prestigious Member"
-    out["status"] = "active"
-    out["benefitActive"] = True
+    left = dev_black_left(card)
+    out["status"] = "active" if left >= 0 else "expired"
+    out["benefitActive"] = left >= 0
+    # v229 - the renewal facts travel with the card, so the page and the server
+    # can never disagree about whether the button exists.
+    out["daysLeft"] = max(0, left // 86400)
+    out["renewals"] = int(card.get("renewals") or 0)
+    out["renewable"] = left <= 30 * 86400
     return out
+
+
+def dev_black_renew(u, months=6):
+    """v229 - mirrors POST black-card/renew. Returns (status, payload)."""
+    card = DEV["blackCards"].get(u.get("id"))
+    if not card:
+        return 404, {"error": "Create your Shivaa Black card first."}
+    left = dev_black_left(card)
+    if left > 30 * 86400:
+        days = left // 86400
+        return 409, {"error": "Renewal opens in the last 30 days of your validity — %d days to go." % days,
+                     "daysLeft": days, "renewable": False}
+    previous = card.get("expiresAt")
+    card["previousExpiresAt"] = previous
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    card["expiresAt"] = dev_add_months(previous if left > 0 else now, months)
+    card["renewedAt"] = now
+    card["renewals"] = int(card.get("renewals") or 0) + 1
+    card["discountPct"] = dev_black_pct()
+    return 200, {"ok": True, "membership": dev_black_public(card), "user": dev_pub_user(u),
+                 "previousExpiresAt": previous, "renewals": card["renewals"]}
 
 
 def dev_black_claim(u, body):
@@ -290,6 +378,169 @@ def dev_black_claim(u, body):
     return card, created
 
 
+def dev_file_kind(data):
+    """v229 - the file type is decided by the BYTES, never by the filename.
+    Mirrors api.php shv_bill_detect_ext() on the way in and again on the way
+    out: a text file renamed lie.png must be refused here too, or the suite
+    would be testing a server that does not exist."""
+    if not isinstance(data, (bytes, bytearray)) or len(data) < 12:
+        return None
+    head = bytes(data[:12])
+    if head.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "webp"
+    if head.startswith(b"%PDF-"):
+        return "pdf"
+    return None
+
+
+DEV_BILL_MIME = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp",
+                 "pdf": "application/pdf"}
+
+
+def dev_multipart(raw, boundary):
+    """v229 - hand-rolled multipart parser (cgi.FieldStorage is gone in 3.13).
+
+    Splitting on b"\r\n" + boundary silently drops the FIRST part of every
+    upload, which is exactly the part that carries the customer's name, so the
+    split is on the delimiter itself and the preamble is discarded. The trailing
+    CRLF is removed by length, never by strip(): strip() eats document bytes and
+    a PDF that loses its last two bytes is a corrupt PDF.
+    """
+    parts = []
+    delim = b"--" + boundary
+    for chunk in raw.split(delim)[1:]:
+        if chunk[:2] == b"--":
+            continue                                   # closing delimiter
+        chunk = chunk.lstrip(b"\r\n")
+        head, _, data = chunk.partition(b"\r\n\r\n")
+        if data.endswith(b"\r\n"):
+            data = data[:-2]
+        disp = b""
+        ctype = ""
+        for line in head.split(b"\r\n"):
+            low = line.lower()
+            if low.startswith(b"content-disposition:"):
+                disp = line
+            elif low.startswith(b"content-type:"):
+                ctype = line.split(b":", 1)[1].strip().decode("utf-8", "replace")
+        name = filename = None
+        m = re.search(rb'name="([^"]*)"', disp)
+        if m:
+            name = m.group(1).decode("utf-8", "replace")
+        m = re.search(rb'filename="([^"]*)"', disp)
+        if m:
+            filename = m.group(1).decode("utf-8", "replace")
+        parts.append({"name": name, "filename": filename, "type": ctype, "data": data})
+    return parts
+
+
+def dev_bill_public(b, admin=False):
+    """v229 - mirrors api.php bill_public($b, $admin). One serialiser, and the
+    owner's private note plus the stored reference only ever leave for an
+    admin."""
+    files = [{"i": i, "ext": f.get("ext", ""), "size": int(f.get("size") or 0),
+              "label": f.get("label", ""), "uploadedAt": f.get("uploadedAt", "")}
+             for i, f in enumerate(b.get("files", []))]
+    out = {"id": b.get("id", ""), "billNo": b.get("billNo", ""), "billDate": b.get("billDate", ""),
+           "store": b.get("store", ""), "customerName": b.get("customerName", ""),
+           "amount": float(b.get("amount") or 0), "items": b.get("items", ""),
+           "files": files, "createdAt": b.get("createdAt", ""), "updatedAt": b.get("updatedAt", "")}
+    if admin:
+        out["phone"] = b.get("phone", "")
+        out["userId"] = b.get("userId", "")
+        out["notes"] = b.get("notes", "")
+        out["createdBy"] = b.get("createdBy", "")
+        out["anonymizedAt"] = b.get("anonymizedAt")
+    return out
+
+
+def dev_bills_for(u):
+    """v229 - mirrors api.php bills_for_user(): by account id when linked,
+    otherwise by the last ten digits of the mobile written on the paper."""
+    uid = u.get("id") or ""
+    mobile = dev_phone10(u.get("phone"))
+    out = []
+    for b in DEV["bills"]:
+        if uid and b.get("userId") == uid:
+            out.append(b)
+        elif mobile and dev_phone10(b.get("phone")) == mobile:
+            out.append(b)
+    out.sort(key=lambda b: str(b.get("billDate", "")), reverse=True)
+    return out
+
+
+def dev_bill_find(bill_id):
+    return next((b for b in DEV["bills"] if b.get("id") == bill_id), None)
+
+
+def dev_bill_validate(f, create=False):
+    """v229 - mirrors api.php bill_clean(). Returns an error string or ''."""
+    phone = re.sub(r"\D", "", str(f.get("phone") or ""))[-10:]
+    date = str(f.get("billDate") or "").strip()[:10]
+    if not create:
+        return ""
+    if not str(f.get("billNo") or "").strip():
+        return "The bill number is required — it is what the customer and your register both quote."
+    if not str(f.get("customerName") or "").strip():
+        return "The customer name is required."
+    if not re.match(r"^[6-9]\d{9}$", phone):
+        return "A valid 10-digit customer mobile is required — it is how the bill reaches the right account."
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+        return "The bill date must look like 2026-05-06."
+    try:
+        if datetime.datetime.strptime(date, "%Y-%m-%d").date() > datetime.date.today():
+            return "A bill date cannot be in the future."
+    except ValueError:
+        return "The bill date must look like 2026-05-06."
+    return ""
+
+
+def dev_bill_store(files, existing=None, cap=6):
+    """v229 - mirrors api.php bill_files_from_upload(). Returns (rows, error).
+    Over the cap the upload is REFUSED, not truncated: a bill missing its last
+    page is worse than an error the owner can act on. The type comes from the
+    bytes, never from the filename."""
+    rows = list(existing or [])
+    for part in files:
+        if len(rows) >= cap:
+            return None, ("Each bill takes up to 6 files of 8 MB — jpg, png, webp or pdf, "
+                          "and the file must really be one of those.")
+        data = part.get("data") or b""
+        if len(data) < 1 or len(data) > 8388608:
+            return None, ("Each bill takes up to 6 files of 8 MB — jpg, png, webp or pdf, "
+                          "and the file must really be one of those.")
+        kind = dev_file_kind(data)
+        if kind is None:
+            return None, ("Each bill takes up to 6 files of 8 MB — jpg, png, webp or pdf, "
+                          "and the file must really be one of those.")
+        label = str(part.get("filename") or "")[:80]
+        rows.append({"ref": "private-bills:bill_" + secrets.token_hex(16) + "." + kind,
+                     "ext": kind, "size": len(data), "label": label, "originalName": label,
+                     "uploadedAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "_bytes": data})
+    return rows, ""
+
+
+def dev_bill_link(row):
+    """v229 - mirrors api.php bill_link_user(): the mobile on the paper finds the
+    account, so a customer who registers later still sees their old bills."""
+    if row.get("userId"):
+        return False
+    phone = dev_phone10(row.get("phone"))
+    if not phone:
+        return False
+    for u in dev_all_users():
+        if (u.get("role") or "customer") != "customer":
+            continue
+        if dev_phone10(u.get("phone")) == phone:
+            row["userId"] = u.get("id")
+            return True
+    return False
+
+
 def dev_pub_user(u):
     return {"id": u.get("id"), "name": u.get("name"), "email": u.get("email"),
             "phone": u.get("phone", ""), "role": u.get("role", "customer"),
@@ -297,8 +548,12 @@ def dev_pub_user(u):
             "createdAt": u.get("createdAt", ""), "profile": u.get("profile", []),
             "addresses": u.get("addresses", []),
             # v227 — api.php's pub_user() carries the member's own card, and the
-            # SPA reads state.user.blackCard straight after a claim
-            "blackCard": dev_black_public(u["blackCard"]) if u.get("blackCard") else None}
+            # SPA reads state.user.blackCard straight after a claim.
+            # v229 — read it through dev_black_card(), not off the row: db() is
+            # re-read from disk every call, so after a renewal the row is the
+            # stale one and DEV holds the truth.
+            "blackCard": dev_black_public(dev_black_card(u.get("id")))
+            if dev_black_card(u.get("id")) else None}
 
 
 def dev_issue(u):
@@ -369,15 +624,100 @@ class Handler(SimpleHTTPRequestHandler):
         if not u.path.startswith("/api/"):
             return self._json(405, {"error": "Preview shim is read-only"})
         route = u.path[len("/api/"):]
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        raw = self.rfile.read(length) if length else b""
+        ctype = (self.headers.get("Content-Type") or "")
+        if ctype.lower().startswith("multipart/form-data"):
+            # v229 — Admin -> In-store Bills uploads real files
+            mb = re.search(r'boundary=(?:"([^"]+)"|([^;]+))', ctype, re.I)
+            boundary = (mb.group(1) or mb.group(2) or "").strip().encode() if mb else b""
+            fields, files = {}, []
+            for part in dev_multipart(raw, boundary):
+                if part.get("filename"):
+                    files.append(part)
+                elif part.get("name"):
+                    fields[part["name"]] = part["data"].decode("utf-8", "replace")
+            return self.dev_multipart_api(route, fields, files, parse_qs(u.query))
         try:
-            length = int(self.headers.get("Content-Length", 0) or 0)
-            body = json.loads(self.rfile.read(length) or b"{}") if length else {}
+            body = json.loads(raw or b"{}")
         except ValueError:
             body = {}
         if not isinstance(body, dict):
             body = {}
         if self.dev_api(route, body) is not False:
             return
+        return self._json(405, {"error": "Preview shim is read-only"})
+
+    def dev_multipart_api(self, route, fields, files, q):
+        """v229 — the bill desk. Owner-side only: a customer token gets 403 here,
+        exactly as api.php's need_admin() does."""
+        u = dev_token(self)
+        if not u or u.get("role") != "admin":
+            return self._json(403, {"error": "Admin access required"})
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+        if route == "admin/store-bills":
+            err = dev_bill_validate(fields, create=True)
+            if err:
+                return self._json(400, {"error": err})
+            rows, err2 = dev_bill_store(files)
+            if rows is None:
+                return self._json(400, {"error": err2})
+            if not rows:
+                return self._json(400, {"error": "Attach the bill itself — a photo or a PDF of the paper."})
+            try:
+                amount = round(max(0.0, min(1e8, float(fields.get("amount") or 0))), 2)
+            except ValueError:
+                amount = 0.0
+            row = {"id": "sb_" + secrets.token_hex(8),
+                   "billNo": str(fields.get("billNo") or "").strip()[:40],
+                   "billDate": str(fields.get("billDate") or "").strip()[:10],
+                   "store": (str(fields.get("store") or "").strip()[:120] or "Shivaa Jewels · Jaipur"),
+                   "customerName": str(fields.get("customerName") or "").strip()[:120],
+                   "phone": re.sub(r"\D", "", str(fields.get("phone") or ""))[-10:],
+                   "userId": "", "amount": amount,
+                   "items": str(fields.get("items") or "").strip()[:600],
+                   "notes": str(fields.get("notes") or "").strip()[:600],
+                   "files": rows, "createdBy": u.get("id"), "createdAt": now, "updatedAt": now}
+            linked = dev_bill_link(row)
+            DEV["bills"].append(row)
+            return self._json(200, {"ok": True, "linked": linked, "bill": dev_bill_public(row, True)})
+        m = re.match(r"^admin/store-bills/([\w-]+)$", route)
+        if m:
+            b = dev_bill_find(m.group(1))
+            if not b:
+                return self._json(404, {"error": "Bill not found"})
+            drop = (q.get("dropFile") or [None])[0]
+            if drop is not None:
+                i = int(drop)
+                if i < 0 or i >= len(b.get("files", [])):
+                    return self._json(404, {"error": "That page of the bill does not exist."})
+                b["files"].pop(i)
+            err = dev_bill_validate(fields, create=False)
+            if err:
+                return self._json(400, {"error": err})
+            for k in ("billNo", "billDate", "store", "customerName", "phone", "amount", "items", "notes"):
+                if k not in fields:
+                    continue
+                if k == "amount":
+                    try:
+                        b[k] = round(max(0.0, min(1e8, float(fields[k] or 0))), 2)
+                    except ValueError:
+                        pass
+                elif k == "phone":
+                    b[k] = re.sub(r"\D", "", str(fields[k]))[-10:]
+                elif k == "billDate":
+                    if re.match(r"^\d{4}-\d{2}-\d{2}$", str(fields[k])[:10]):
+                        b[k] = str(fields[k])[:10]
+                else:
+                    b[k] = str(fields[k]).strip()[:600 if k in ("items", "notes") else 120]
+            if files:
+                rows, err2 = dev_bill_store(files, existing=b.get("files", []))
+                if rows is None:
+                    return self._json(400, {"error": err2})
+                b["files"] = rows
+            dev_bill_link(b)
+            b["updatedAt"] = now
+            return self._json(200, {"ok": True, "bill": dev_bill_public(b, True)})
         return self._json(405, {"error": "Preview shim is read-only"})
 
     def dev_api(self, route, body):
@@ -542,6 +882,61 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(400, {"error": chk["reason"]})
             return self._json(200, {"configured": False,
                                     "note": "Add a GST API key in Admin → Settings to auto-verify legal names online"})
+        # ── v229 · renewal, member side ──
+        if route == "black-card/renew":
+            u = dev_token(self)
+            if not u:
+                return self._json(401, {"error": "Sign in with your registered mobile to renew Shivaa Black."})
+            if (u.get("role") or "customer") != "customer":
+                return self._json(403, {"error": "Shivaa Black is exclusively for retail customers."})
+            status, payload = dev_black_renew(u, 6)
+            if status == 200:
+                u["blackCard"] = payload["membership"]
+            return self._json(status, payload)
+        # ── v229 · the owner's side of Shivaa Black ──
+        if route == "admin/black-card/renew":
+            u = dev_token(self)
+            if not u or u.get("role") != "admin":
+                return self._json(403, {"error": "Admin access required"})
+            try:
+                months = int(body.get("months") or 6)
+            except (TypeError, ValueError):
+                return self._json(400, {"error": "months must be between 1 and 36"})
+            if months < 1 or months > 36:
+                return self._json(400, {"error": "months must be between 1 and 36"})
+            target = next((x for x in dev_all_users() if x.get("id") == body.get("userId")), None)
+            if not target:
+                return self._json(404, {"error": "Customer not found"})
+            status, payload = dev_black_renew(target, months)
+            if status == 200:
+                target["blackCard"] = payload["membership"]
+            return self._json(status, payload)
+        if route == "admin/black-card/delivery":
+            u = dev_token(self)
+            if not u or u.get("role") != "admin":
+                return self._json(403, {"error": "Admin access required"})
+            status = str(body.get("status") or "")
+            if status not in ("to-ship", "printed", "shipped"):
+                return self._json(400, {"error": "status must be to-ship, printed or shipped"})
+            target = next((x for x in dev_all_users() if x.get("id") == body.get("userId")), None)
+            if not target:
+                return self._json(404, {"error": "Customer not found"})
+            card = dev_black_card(target.get("id")) or target.get("blackCard")
+            if not card:
+                return self._json(404, {"error": "This customer has no Shivaa Black card"})
+            if not card.get("delivery"):
+                return self._json(409, {"error": "This member has not requested the free physical card yet"})
+            card["delivery"]["status"] = status
+            card["delivery"]["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            track = re.sub(r"[^A-Za-z0-9 _-]", "", str(body.get("trackingNo") or ""))[:60].strip()
+            if track:
+                card["delivery"]["trackingNo"] = track
+            if status == "shipped" and not card["delivery"].get("shippedAt"):
+                card["delivery"]["shippedAt"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            DEV["blackCards"][target.get("id")] = card
+            target["blackCard"] = dev_black_public(card)
+            return self._json(200, {"ok": True, "membership": dev_black_public(card),
+                                    "delivery": card["delivery"]})
         if route == "black-card/claim":
             u = dev_token(self)
             if not u:
@@ -657,11 +1052,38 @@ class Handler(SimpleHTTPRequestHandler):
                 body = {}
             if not isinstance(body, dict):
                 return self._json(400, {"error": "Invalid payload"})
+            # v229 — blackDiscountPct is clamped and refused out of range here
+            # exactly as api.php's $numRules does: a shim that quietly accepted
+            # 90 would let a suite pass against a server that says 400.
+            if "blackDiscountPct" in body:
+                v = body["blackDiscountPct"]
+                if isinstance(v, (dict, list)) or not str(v).strip() or not _is_num(v):
+                    return self._json(400, {"error": "blackDiscountPct must be a number"})
+                n = int(round(float(v)))
+                if n < 0 or n > 40:
+                    return self._json(400, {"error": "blackDiscountPct is outside its allowed range (0–40)"})
+                body["blackDiscountPct"] = n
             # mirror api.php: merge keys, keep everything else (incl. cin/udyam/gstin)
             DEV_SETTINGS.update({k: v for k, v in body.items()})
             return self._json(200, db()["settings"])
         return self._json(405, {"error": "Preview shim is read-only"})
-    def do_DELETE(self, *a):self._json(405, {"error": "Preview shim is read-only"})
+    def do_DELETE(self, *a):
+        u = urlparse(self.path)
+        route = u.path[len("/api/"):] if u.path.startswith("/api/") else ""
+        m = re.match(r"^admin/store-bills/([\w-]+)$", route)
+        if m:
+            # v229 — deleting a bill deletes its stored pages too, which is the
+            # only verb on this desk that destroys anything.
+            me = dev_token(self)
+            if not me or me.get("role") != "admin":
+                return self._json(403, {"error": "Admin access required"})
+            b = dev_bill_find(m.group(1))
+            if not b:
+                return self._json(404, {"error": "Bill not found"})
+            gone = len(b.get("files", []))
+            DEV["bills"] = [x for x in DEV["bills"] if x.get("id") != m.group(1)]
+            return self._json(200, {"ok": True, "deleted": m.group(1), "filesUnlinked": gone})
+        return self._json(405, {"error": "Preview shim is read-only"})
 
     def _serve_static(self):
         import mimetypes, shutil
@@ -840,6 +1262,80 @@ class Handler(SimpleHTTPRequestHandler):
         # ── v107 audit extras ─────────────────────────────────────────────
         if route == "auth/delivery":
             return self._json(200, {"channel": "email", "configured": False, "provider": None})
+        # ── v229 · in-store bills, customer side: view and download only ──
+        if route == "store-bills":
+            u = dev_token(self)
+            if not u:
+                return self._json(401, {"error": "Sign in with your registered mobile to see your in-store purchases."})
+            if (u.get("role") or "customer") == "admin":
+                rows = [dev_bill_public(b, True) for b in reversed(DEV["bills"])]
+                return self._json(200, {"bills": rows, "count": len(rows), "storage": True})
+            mine = dev_bills_for(u)
+            return self._json(200, {"bills": [dev_bill_public(b) for b in mine], "count": len(mine)})
+        m = re.match(r"^store-bills/([\w-]+)/file/(\d+)$", route)
+        if m:
+            u = dev_token(self)
+            if not u:
+                return self._json(401, {"error": "Sign in to open your in-store purchase."})
+            b = dev_bill_find(m.group(1))
+            if not b:
+                return self._json(404, {"error": "Purchase not found."})
+            if (u.get("role") or "customer") != "admin" and b not in dev_bills_for(u):
+                return self._json(403, {"error": "This purchase belongs to another customer."})
+            idx = int(m.group(2))
+            files = b.get("files", [])
+            if idx < 0 or idx >= len(files):
+                return self._json(404, {"error": "That page of the bill does not exist."})
+            data = files[idx].get("_bytes") or b""
+            ext = files[idx].get("ext", "")
+            # re-checked on the way out, exactly as api.php does
+            if dev_file_kind(data) != ext:
+                return self._json(404, {"error": "Bill file not found or unsupported."})
+            want_dl = q.get("download", [""])[0] not in ("", "0", "false")
+            body = bytes(data)
+            self.send_response(200)
+            self.send_header("Content-Type", DEV_BILL_MIME.get(ext, "application/octet-stream"))
+            self.send_header("Content-Disposition",
+                             ("%s; filename=\"shivaa-bill-%s-%d.%s\"" %
+                              ("attachment" if want_dl else "inline",
+                               re.sub(r"[^A-Za-z0-9_-]", "", str(b.get("billNo") or b.get("id"))),
+                               idx + 1, ext)))
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "private, no-store, max-age=0")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "SAMEORIGIN")
+            self.send_header("X-Shivaa-Preview", "read-only-shim")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        # ── v229 · the owner's side ──
+        if route == "admin/black-card/queue":
+            u = dev_token(self)
+            if not u or u.get("role") != "admin":
+                return self._json(403, {"error": "Admin access required"})
+            qq = {"members": 0, "active": 0, "expired": 0, "renewable": 0,
+                  "toShip": 0, "printed": 0, "shipped": 0, "pct": dev_black_pct()}
+            for row in dev_all_users():
+                card = dev_black_card(row.get("id")) or row.get("blackCard")
+                if not card:
+                    continue
+                qq["members"] += 1
+                pub = dev_black_public(card)
+                qq["active" if pub["status"] == "active" else "expired"] += 1
+                if pub["renewable"]:
+                    qq["renewable"] += 1
+                d = card.get("delivery") or {}
+                if d:
+                    st = str(d.get("status") or "to-ship")
+                    qq["printed" if st == "printed" else ("shipped" if st == "shipped" else "toShip")] += 1
+            return self._json(200, qq)
+        if route == "admin/store-bills":
+            u = dev_token(self)
+            if not u or u.get("role") != "admin":
+                return self._json(403, {"error": "Admin access required"})
+            rows = [dev_bill_public(b, True) for b in reversed(DEV["bills"])]
+            return self._json(200, {"bills": rows, "count": len(rows), "storage": True,
+                                    "storageDir": "private (outside the web root)"})
         if route == "sms/config" or route == "sms/status" or route.startswith("admin/"):
             return self._json(401, {"error": "admin only"})
         if route == "pay/config":

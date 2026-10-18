@@ -65,6 +65,73 @@ db = {
     'rates': {'override': None, 'last': {'gold24': 7200, 'gold22': 6600, 'gold18': 5400, 'silver': 90}},
     'orders': [], 'users': [], 'settlements': [], 'partners': [],
 }
-os.makedirs(os.path.dirname(OUT), exist_ok=True)
-json.dump(db, open(OUT, 'w', encoding='utf-8'), ensure_ascii=False)
-print('wrote', OUT, 'with', len(pick), 'products')
+
+
+def staff(today):
+    """v229 — the accounts the Shivaa Black and in-store bill suites need.
+
+    The plain fixture has ZERO users, which means no admin token exists at all,
+    so nothing owner-side can be exercised. --with-staff adds:
+      · the owner (admin) — the only writer on the bill desk and the card queue;
+      · one Shivaa Black member whose card expires in 18 days, i.e. inside the
+        30-day renewal window, holding a free card still 'to-ship'. Its stored
+        discountPct is deliberately 20: the programme moved to 25 in v229, and a
+        card created under the old number must still show the new one, because
+        the server overrides it from the setting rather than from the row;
+      · one unrelated customer, who must get 403 on somebody else's bill.
+
+    Dates are relative to today, so the fixture never goes stale: a hard-coded
+    expiry would silently turn 'renewal open' into 'expired' six months later
+    and the suite would keep passing for the wrong reason.
+    """
+    import datetime as dt
+    exp = today + dt.timedelta(days=18)
+    issued = today - dt.timedelta(days=165)
+    iso = lambda d: d.strftime('%Y-%m-%dT%H:%M:%S')
+    return [
+        {'id': 'u_owner', 'name': 'Shivaa Owner', 'email': 'owner@shivaa.in',
+         'phone': '9000000001', 'role': 'admin', 'loyaltyPoints': 0,
+         'createdAt': iso(today - dt.timedelta(days=900)), 'addresses': [], 'profile': {}},
+        {'id': 'u_aarti', 'name': 'Aarti Sharma', 'email': 'aarti@example.com',
+         'phone': '9308956260', 'role': 'customer', 'loyaltyPoints': 340,
+         'createdAt': iso(today - dt.timedelta(days=400)),
+         'addresses': [{'name': 'Aarti Sharma', 'phone': '9308956260', 'line1': '14 Gangaur Marg',
+                        'city': 'Jaipur', 'state': 'Rajasthan', 'pin': '302001'}],
+         'profile': {},
+         'blackCard': {
+             'version': 2, 'program': 'Shivaa Black',
+             'memberId': 'SBM000123', 'cardNumber': '2020 1234 5678 9012',
+             'holderName': 'Aarti Sharma', 'mobile': '9308956260',
+             'issuedAt': iso(issued), 'expiresAt': iso(exp),
+             'discountPct': 20, 'discountBasis': 'making-charges',
+             'couponId': 'c_black_aarti', 'certificateNo': 'SFP000123',
+             'certificateTitle': 'Shivaa Family Prestigious Member',
+             'certificateIssuedAt': iso(issued), 'renewals': 0,
+             'delivery': {'status': 'to-ship', 'name': 'Aarti Sharma',
+                          'address': '14 Gangaur Marg', 'city': 'Jaipur', 'pincode': '302001',
+                          'phone': '9308956260', 'requestedAt': iso(issued)}}},
+        {'id': 'u_rohit', 'name': 'Rohit Mehta', 'email': 'rohit@example.com',
+         'phone': '9812345678', 'role': 'customer', 'loyaltyPoints': 10,
+         'createdAt': iso(today - dt.timedelta(days=60)), 'addresses': [], 'profile': {}},
+    ]
+
+
+if __name__ == '__main__':
+    import argparse
+    import datetime
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('--with-staff', action='store_true',
+                    help='add the owner, one Shivaa Black member inside the renewal window, '
+                         'and one unrelated customer (the v229 suites need them)')
+    a = ap.parse_args()
+    if a.with_staff:
+        db['users'] = staff(datetime.date.today())
+        # The percentage is deliberately ABSENT: settings.blackDiscountPct has no
+        # row yet on the live site either, so the code's own default (25) is what
+        # must be proven, not a number the fixture handed it.
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
+    json.dump(db, open(OUT, 'w', encoding='utf-8'), ensure_ascii=False)
+    print('wrote', OUT, 'with', len(pick), 'products',
+          'and %d user(s)' % len(db['users']),
+          '(--with-staff)' if a.with_staff else '(plain)')
