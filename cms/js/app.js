@@ -535,7 +535,7 @@ function waOrderMsg(o) {
   L.push('');
   L.push('Subtotal: ' + fmt(o.subtotal));
   if (o.discountBasis === 'making-charges') {
-    L.push('Shivaa Black (20% off making charges): −' + fmt(o.makingChargeDiscount || 0));
+    L.push('Shivaa Black (' + blackOrderPct(o) + '% off making charges): −' + fmt(o.makingChargeDiscount || 0));
     if (o.pointsUsed) L.push('Royalty points: −' + fmt(o.pointsUsed));
   } else if (o.discount) L.push('Discount' + (o.coupon ? ' (' + o.coupon + ')' : '') + ': −' + fmt(o.discount));
   L.push('Shipping: ' + (o.shipping ? fmt(o.shipping) : 'FREE insured'));
@@ -3324,6 +3324,144 @@ pages['delete-account'] = async (view) => {
   const go = $('#delGo'); if (go) go.onclick = erase;
   const conf = $('#delConfirm'); if (conf) conf.addEventListener('keydown', ev => { if (ev.key === 'Enter') erase(); });
 };
+/* ═══ v229 — in-store purchases ═══════════════════════════════════════════
+   Customers buy at the counter and the paper bill stays with the owner, who
+   uploads it from Admin → In-store Bills. This is the customer's half of that
+   contract and it has exactly two verbs: VIEW and DOWNLOAD. Nothing else is
+   offered here and nothing else is served: files live outside the web root and
+   are fetched by index with this account's own bearer token. */
+const BILL_EXT = {
+  jpg: ['JPG photo', '🖼'], jpeg: ['JPG photo', '🖼'], png: ['PNG image', '🖼'],
+  webp: ['WEBP image', '🖼'], pdf: ['PDF document', '📄'],
+};
+let _billObjectUrl = '';
+function billFileName(disposition, billId, index, ctype) {
+  const m = /filename="?([^";]+)"?/i.exec(String(disposition || ''));
+  if (m && m[1]) return String(m[1]).slice(0, 120);
+  const ext = ctype.indexOf('pdf') >= 0 ? 'pdf'
+    : ctype.indexOf('png') >= 0 ? 'png' : ctype.indexOf('webp') >= 0 ? 'webp' : 'jpg';
+  return 'shivaa-bill-' + String(billId) + '-' + (Number(index) + 1) + '.' + ext;
+}
+/* Defined ABOVE the page on purpose: the viewer is the interesting half, and
+   keeping it next to the markup that calls it means a reader never has to
+   search 8,000 lines to find out what "View" actually does. */
+window.Shivaa.openBillFile = async (btn, billId, index, mode) => {
+  if (!token()) { openLogin('my-bills'); return; }
+  const want = mode === 'download' ? 'download' : 'view';
+  const old = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = want === 'download' ? 'Preparing…' : 'Opening…'; }
+  try {
+    const res = await fetch('/api/store-bills/' + encodeURIComponent(billId) + '/file/' +
+      encodeURIComponent(index) + (want === 'download' ? '?download=1' : ''), {
+      headers: { Authorization: 'Bearer ' + token() }, credentials: 'same-origin',
+    });
+    if (!res.ok) {
+      let msg = 'That file could not be opened.';
+      try { const j = await res.json(); if (j && j.error) msg = String(j.error); } catch (e) { /* not JSON */ }
+      toast(msg, 'err');
+      return;
+    }
+    const ctype = String(res.headers.get('content-type') || '');
+    const blob = await res.blob();
+    /* One object URL alive at a time: opening a second file revokes the first,
+       so flicking through six pages never leaves six blobs behind. */
+    if (_billObjectUrl) { URL.revokeObjectURL(_billObjectUrl); _billObjectUrl = ''; }
+    _billObjectUrl = URL.createObjectURL(blob);
+    const url = _billObjectUrl;
+    if (want === 'download') {
+      const a = document.createElement('a');
+      a.href = url; a.rel = 'noopener';
+      a.download = billFileName(res.headers.get('content-disposition'), billId, index, ctype);
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('Your bill is downloading ✦');
+      return;
+    }
+    if (ctype.indexOf('pdf') >= 0) {
+      const w = window.open(url, '_blank', 'noopener');
+      if (!w) toast('Allow pop-ups to open the PDF — or use Download instead.', 'err');
+      return;
+    }
+    if (/^image\//.test(ctype)) {
+      openModal(`<img class="bill-view-img" src="${url}" alt="Your Shivaa in-store purchase bill">`, 'bill-view');
+      return;
+    }
+    toast('This file cannot be previewed here — use Download instead.', 'err');
+  } catch (e) {
+    toast('Could not reach your bill — check your connection and try again.', 'err');
+  } finally {
+    /* Re-armed even when the modal took over, and only if the button is still
+       in the document: the page may have been torn down mid-flight. */
+    if (btn && document.body.contains(btn)) {
+      btn.disabled = false;
+      btn.textContent = old || (want === 'download' ? 'Download' : 'View');
+    }
+  }
+};
+function billFileSize(n) {
+  const b = Number(n) || 0;
+  if (b <= 0) return '';
+  return b > 1048576 ? ' · ' + (b / 1048576).toFixed(1) + ' MB' : ' · ' + Math.max(1, Math.round(b / 1024)) + ' KB';
+}
+function billFileRowHTML(b, f) {
+  const meta = BILL_EXT[String(f.ext || '').toLowerCase()] || ['file', '📎'];
+  return `<span class="bill-file"><i aria-hidden="true">${meta[1]}</i>
+    <small>${esc(String(f.label || (meta[0] + ' · page ' + (Number(f.i) + 1))))}${esc(billFileSize(f.size))}</small>
+    <span class="bill-file-act">
+      <button type="button" class="btn btn-outline btn-sm" onclick="Shivaa.openBillFile(this,'${esc(String(b.id))}',${Number(f.i)},'view')">View</button>
+      <button type="button" class="btn btn-gold btn-sm" onclick="Shivaa.openBillFile(this,'${esc(String(b.id))}',${Number(f.i)},'download')">Download</button>
+    </span>
+  </span>`;
+}
+function billCardHTML(b) {
+  const files = Array.isArray(b.files) ? b.files : [];
+  return `<article class="bill-card">
+    <div class="bill-head"><b>Bill ${esc(String(b.billNo || '—'))}</b><span class="bill-date">${esc(b.billDate ? dateFmt(b.billDate) : '')}</span></div>
+    <p class="bill-store">${esc(String(b.store || 'Shivaa Jewels · Jaipur'))}</p>
+    ${b.items ? `<p class="bill-items">${esc(String(b.items))}</p>` : ''}
+    <p class="bill-amount">Amount <b>${fmt(Number(b.amount) || 0)}</b></p>
+    ${files.length
+      ? `<div class="bill-files">${files.map(f => billFileRowHTML(b, f)).join('')}</div>`
+      : '<p class="bill-nofile">The shop has not attached a copy of this bill yet.</p>'}
+  </article>`;
+}
+pages['my-bills'] = async view => {
+  const isCurrent = viewLifetime(view);
+  view.innerHTML = `<section class="page-hero bill-hero"><div class="container">
+    <div class="crumbs"><a href="#/">Home</a> / <a href="#/account">My Account</a> / In-store purchases</div>
+    <h1>Your in-store purchases</h1>
+    <p>View and download your in-store purchases — every bill the shop has linked to your registered mobile.</p>
+  </div></section>
+  <div class="container bill-wrap"><div data-bill-list><p class="bill-empty">Loading your in-store purchases…</p></div></div>`;
+  if (!state.user) {
+    const list = view.querySelector('[data-bill-list]');
+    if (!isCurrent() || !list) return;
+    list.innerHTML = `<div class="bill-empty"><b>Sign in to see your in-store purchases.</b>
+      <p>We match the bills the shop uploaded to the mobile number written on your paper bill.</p>
+      <label class="bill-mobile" for="billMobile">Your registered mobile</label>
+      <input id="billMobile" type="tel" inputmode="tel" autocomplete="tel" maxlength="10" placeholder="10-digit mobile">
+      <button type="button" class="btn btn-gold" onclick="openLogin('my-bills')">Sign in with OTP</button></div>`;
+    return;
+  }
+  try {
+    const r = await api('/api/store-bills');
+    const list = view.querySelector('[data-bill-list]');
+    if (!isCurrent() || !list) return;
+    const bills = Array.isArray(r && r.bills) ? r.bills : [];
+    if (!bills.length) {
+      list.innerHTML = `<div class="bill-empty"><b>No in-store purchases linked yet</b>
+        <p>When you buy at the shop, ask us to link your bill to this mobile number — it then appears here, ready to view and download.</p></div>`;
+      return;
+    }
+    list.innerHTML = bills.map(billCardHTML).join('');
+  } catch (e) {
+    const list = view.querySelector('[data-bill-list]');
+    if (!isCurrent() || !list) return;
+    list.innerHTML = `<div class="bill-empty"><b>We could not load your in-store purchases.</b>
+      <p>${esc((e && e.message) || 'Please try again in a moment.')}</p>
+      <button type="button" class="btn btn-outline" onclick="route()">Retry</button></div>`;
+  }
+};
+
 /* the older spelling people may have bookmarked, and the URL in sitemap.php */
 pages['erase-account'] = pages['delete-account'];
 
@@ -3835,7 +3973,30 @@ function blackBenefitProgress(card) {
   return { pct, days: Math.max(0, Math.ceil((end - now) / 86400000)) };
 }
 function blackSaving(makingCharge, qty = 1) {
-  return Math.max(0, Math.round((+makingCharge || 0) * Math.max(1, +qty || 1) * .20));
+  return Math.max(0, Math.round((+makingCharge || 0) * Math.max(1, +qty || 1) * blackPct() / 100));
+}
+/* v229 — the Shivaa Black member percentage is ONE setting
+   (settings.blackDiscountPct, default 25, clamped 0-40). Every live Black
+   surface reads it through here, so the card, the certificate, the PDP strip,
+   the bag strip, checkout and the server can never disagree. A card's own
+   discountPct wins when it carries one, which keeps an old record honest. */
+function blackPct() {
+  const own = Number(state.user && state.user.blackCard && state.user.blackCard.discountPct);
+  if (Number.isFinite(own) && own > 0) return Math.max(0, Math.min(40, Math.round(own)));
+  const s = Number(state.settings && state.settings.blackDiscountPct);
+  if (Number.isFinite(s) && String(state.settings.blackDiscountPct).trim() !== '')
+    return Math.max(0, Math.min(40, Math.round(s)));
+  return 25;
+}
+function blackPctWord() { return blackPct() + '%'; }
+/* A receipt never follows a setting. An order placed at 20% must still say 20%
+   after the programme moves to 25%, so historical rows derive their own rate
+   from the two numbers the order actually carries. */
+function blackOrderPct(o) {
+  const disc = Number(o && o.makingChargeDiscount) || 0;
+  const basis = Number(o && o.makingChargeSubtotal) || 0;
+  if (disc > 0 && basis > 0) return Math.max(0, Math.min(60, Math.round(disc / basis * 100)));
+  return blackPct();
 }
 function blackJourneyHTML(card = null, opts = {}) {
   const signed = !!state.user, issued = !!(card && card.memberId), bagged = issued && !!(state.cart && state.cart.length);
@@ -3858,13 +4019,13 @@ function blackCommerceHTML(makingSubtotal, returnHash, noun = 'this piece') {
   const card = u && u.blackCard;
   if (card && blackCardActive(card)) {
     const saving = blackSaving(makingSubtotal);
-    return `<aside class="bc-commerce active" data-black-commerce data-black-making="${Math.max(0, +makingSubtotal || 0)}"><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>YOUR SHIVAA BLACK PRIVILEGE</small><b class="bc-commerce-value">Save ${fmt(saving)} on ${esc(noun)}</b><p class="bc-commerce-basis">Exactly 20% of ${fmt(makingSubtotal)} making charges · verified and applied automatically at checkout.</p></div><a href="#/black-card">View card</a></aside>`;
+    return `<aside class="bc-commerce active" data-black-commerce data-black-making="${Math.max(0, +makingSubtotal || 0)}"><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>YOUR SHIVAA BLACK PRIVILEGE</small><b class="bc-commerce-value">Save ${fmt(saving)} on ${esc(noun)}</b><p class="bc-commerce-basis">Exactly ${blackPct()}% of ${fmt(makingSubtotal)} making charges · verified and applied automatically at checkout.</p></div><a href="#/black-card">View card</a></aside>`;
   }
   if (card) return `<aside class="bc-commerce archived" data-black-commerce><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>SHIVAA BLACK · PERMANENT ARCHIVE</small><b>Your card and certificate are safely kept</b><p>The six-month making-charge benefit ended ${esc(blackDate(card.expiresAt))}; your documents remain in My Account.</p></div><a href="#/black-card">Open archive</a></aside>`;
   /* v227 — the button is inside a card that shows its own result: `.bc-claim-status`
      only lives on the Shivaa Black page, so a claim started from a product page
      had nowhere to report what it was doing. This one line is that place. */
-  return `<aside class="bc-commerce invite" data-black-commerce><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>RETAIL CUSTOMERS · SHIVAA BLACK</small><b>Unlock 20% off making charges</b><p>${u ? 'One secure tap creates your personal card.' : 'Verify your registered mobile, then your personal card is created automatically.'} No reduction is taken from metal, stones, GST or shipping.</p><span class="bc-commerce-status bc-claim-status" role="status" aria-live="polite" data-state=""></span></div><button type="button" onclick="Shivaa.beginBlackClaim(${jsArg(returnHash)},this)">${u ? 'Create my card' : 'Verify & create'} →</button></aside>`;
+  return `<aside class="bc-commerce invite" data-black-commerce><span class="bc-commerce-mark" aria-hidden="true">S</span><div><small>RETAIL CUSTOMERS · SHIVAA BLACK</small><b>Unlock ${blackPct()}% off making charges</b><p>${u ? 'One secure tap creates your personal card.' : 'Verify your registered mobile, then your personal card is created automatically.'} No reduction is taken from metal, stones, GST or shipping.</p><span class="bc-commerce-status bc-claim-status" role="status" aria-live="polite" data-state=""></span></div><button type="button" onclick="Shivaa.beginBlackClaim(${jsArg(returnHash)},this)">${u ? 'Create my card' : 'Verify & create'} →</button></aside>`;
 }
 function blackMemberCode(code, mock = false) {
   if (mock) return '2020  ••••  ••••  ••••';
@@ -3895,7 +4056,7 @@ function blackCardVisual(card = null, opts = {}) {
         <span class="bc-noise" aria-hidden="true"></span><span class="bc-orbit" aria-hidden="true"></span><span class="bc-live-light" aria-hidden="true"></span><span class="bc-micro-grid" aria-hidden="true"></span>
         <span class="bc-top"><span class="bc-brand"><img src="/images/logo.png" alt=""><span><b>SHIVAA</b><small>BLACK</small></span></span><span class="bc-status">${esc(status)}</span></span>
         <span class="bc-holo-seal" aria-hidden="true"><b>S</b><small>MEMBER</small></span>
-        <span class="bc-benefit"><b>20<span>%</span></b><small>OFF MAKING<br>CHARGES</small></span>
+        <span class="bc-benefit"><b>${blackPct()}<span>%</span></b><small>OFF MAKING<br>CHARGES</small></span>
         <span class="bc-code-label">MEMBER · COUPON CODE</span>
         <span class="bc-code">${esc(code)}</span>
         <span class="bc-bottom"><span><small>MEMBER</small><b>${esc(String(holder).toUpperCase())}</b></span><span><small>VALID THRU</small><b>${esc(thru)}</b></span></span>
@@ -3906,7 +4067,7 @@ function blackCardVisual(card = null, opts = {}) {
         <span class="bc-back-head"><b>SHIVAA BLACK</b><small>RETAIL MEMBERSHIP</small></span>
         <span class="bc-stripe" aria-hidden="true"></span>
         <span class="bc-mobile-row"><small>BOUND MOBILE</small><b>${esc(mobile)}</b></span>
-        <span class="bc-back-copy">20% is reduced only from Shivaa&rsquo;s listed making-charge component on jewellery purchases during validity. Metal value, stones, GST, shipping and other charges are not discounted.</span>
+        <span class="bc-back-copy">${blackPct()}% is reduced only from Shivaa&rsquo;s listed making-charge component on jewellery purchases during validity. Metal value, stones, GST, shipping and other charges are not discounted.</span>
         <span class="bc-dates"><span><small>ISSUED</small><b>${esc(issued)}</b></span><span><small>BENEFIT UNTIL</small><b>${esc(expires)}</b></span></span>
         <span class="bc-security">✦ Accepted only for the signed-in account with this registered mobile<br>✦ Card &amp; certificate remain in My Account after benefit expiry</span>
         <span class="bc-not-pay back">NOT A BANK / DEBIT / CREDIT CARD</span>
@@ -3932,23 +4093,55 @@ function initBlackCardMotion(root = document) {
 function blackCertificateHTML(card) {
   if (!card) return '';
   const active = blackCardActive(card);
-  return `<article class="bc-certificate" aria-label="Shivaa Family Prestigious Member certificate">
-    <span class="bc-cert-frame" aria-hidden="true"></span><span class="bc-cert-corner c1"></span><span class="bc-cert-corner c2"></span><span class="bc-cert-corner c3"></span><span class="bc-cert-corner c4"></span><span class="bc-cert-corner c4"></span>
+  const pct = blackPct();
+  const renewals = Number(card.renewals) || 0;
+  /* v229 — a certificate has to carry its own proof: who issued it, who holds
+     it, which tier, which numbers, which window, who signed it, and where a
+     stranger can verify it. Two typefaces, hierarchy by size, four record
+     boxes (the certificate number and the member ID are different things and
+     used to share one box), and a promise line that states the percentage,
+     both dates and the scope so the counter conversation never has to happen. */
+  return `<article class="bc-certificate v229" aria-label="Shivaa Family Prestigious Member certificate">
+    <span class="bc-cert-frame" aria-hidden="true"></span><span class="bc-cert-guilloche" aria-hidden="true"></span><span class="bc-cert-corner c1"></span><span class="bc-cert-corner c2"></span><span class="bc-cert-corner c3"></span><span class="bc-cert-corner c4"></span>
     <div class="bc-cert-seal" aria-hidden="true"><span>✦</span><b>S</b><small>FAMILY</small></div>
-    <div class="bc-cert-kicker">THE HOUSE OF SHIVAA · JAYAL</div>
+    <div class="bc-cert-kicker">THE HOUSE OF SHIVAA · JAIPUR</div>
     <h2>Certificate of<br><em>Prestigious Membership</em></h2>
     <p class="bc-cert-presents">The Shivaa Family proudly welcomes</p>
-    <div class="bc-cert-name">${esc(card.holderName || 'Shivaa Member')}</div>
+    <div class="bc-cert-name">${esc(String(card.holderName || 'Shivaa Member').toUpperCase())}</div>
     <p class="bc-cert-copy">as a <b>Shivaa Family Prestigious Member</b>, recognised for a relationship we are honoured to keep beyond every purchase.</p>
     <div class="bc-cert-meta">
       <span><small>CERTIFICATE</small><b>${esc(card.certificateNo || '—')}</b></span>
       <span><small>MEMBER ID</small><b>${esc(card.memberId || '—')}</b></span>
       <span><small>ISSUED</small><b>${esc(blackDate(card.certificateIssuedAt || card.issuedAt))}</b></span>
+      <span><small>VALID THROUGH</small><b>${esc(blackDate(card.expiresAt))}</b></span>
     </div>
+    <p class="bc-cert-promise">${pct}% off Shivaa&rsquo;s listed making charges from <b>${esc(blackDate(card.issuedAt))}</b> through <b>${esc(blackDate(card.expiresAt))}</b> &mdash; never on metal value, stones, GST or shipping.</p>
     <div class="bc-cert-rule"></div>
-    <div class="bc-cert-foot"><span><b>SHIVAA JEWELLERS</b><small>Family-issued digital membership recognition</small></span><span class="bc-cert-state ${active ? 'live' : 'archive'}">${active ? 'PRIVILEGE ACTIVE' : 'CERTIFICATE PERMANENTLY ARCHIVED'}</span></div>
-    <p class="bc-cert-fine">This certificate remains permanently in the member&rsquo;s account. The 20% making-charge privilege is separate and valid only from ${esc(blackDate(card.issuedAt))} through ${esc(blackDate(card.expiresAt))}. Not a government or financial certificate.</p>
+    <div class="bc-cert-foot">
+      <span class="bc-cert-sign"><b>For Shivaa Jewels</b><small>Proprietor · the Shivaa Family</small></span>
+      <span class="bc-cert-state ${active ? 'live' : 'archive'}">${active ? (renewals ? 'PRIVILEGE ACTIVE · RENEWED ' + renewals + '×' : 'PRIVILEGE ACTIVE') : 'CERTIFICATE PERMANENTLY ARCHIVED'}</span>
+    </div>
+    <p class="bc-cert-verify">Verify at <b>shivaa.in</b> &rarr; My Account &rarr; Shivaa Black, quoting certificate ${esc(card.certificateNo || '—')}.</p>
+    <p class="bc-cert-fine">This certificate remains permanently in the member&rsquo;s account, including after the benefit window closes. The ${pct}% making-charge privilege is separate and valid only from ${esc(blackDate(card.issuedAt))} through ${esc(blackDate(card.expiresAt))}. Not a government or financial certificate.</p>
   </article>`;
+}
+/* v229 — renewal. The strip exists only when the SERVER says the window is
+   open (card.renewable), never from a date the client computed itself, so a
+   stale page cannot offer a renewal the API will refuse. */
+function blackRenewHTML(card) {
+  if (!card || !card.renewable) return '';
+  const left = Number(card.daysLeft) || 0;
+  const renewals = Number(card.renewals) || 0;
+  return `<div class="bc-renew" data-bc-renew>
+    <div class="bc-renew-copy"><span class="bc-eyebrow">RENEWAL OPEN</span>
+      <b>${left > 0 ? 'Your privilege ends in ' + left + ' day' + (left === 1 ? '' : 's') + '.' : 'Your six-month window has closed.'}</b>
+      <p>One tap adds six calendar months. Your member number, card number and certificate stay exactly as they are${renewals ? ' · renewed ' + renewals + '× so far' : ''}.</p>
+    </div>
+    <div class="bc-renew-act">
+      <button type="button" class="btn btn-gold" data-bc-renew-btn onclick="Shivaa.renewBlackCard(this)">↻ Renew for six months</button>
+      <p class="bc-renew-status" role="status" aria-live="polite" data-bc-renew-status></p>
+    </div>
+  </div>`;
 }
 function blackAddressFormHTML() {
   const u = state.user || {};
@@ -4017,10 +4210,10 @@ function blackClaimHTML(inAccount = false) {
     <div class="bc-claim-glow" aria-hidden="true"></div>
     <span class="bc-eyebrow">RETAIL CUSTOMERS · VERIFIED MOBILE ONLY</span>
     <h2>Your name. Your number.<br><em>Your Shivaa privilege.</em></h2>
-    <p>Save your personal Shivaa Black Card to this account and receive a <b>flat 20% reduction on making charges</b> for six calendar months—plus your permanent Shivaa Family Prestigious Member certificate.</p>
+    <p>Save your personal Shivaa Black Card to this account and receive a <b>flat ${blackPct()}% reduction on making charges</b> for six calendar months—plus your permanent Shivaa Family Prestigious Member certificate.</p>
     ${blackJourneyHTML(null, { compact: true })}
     <div class="bc-benefit-grid">
-      <span><b>20%</b><small>off making charges</small></span><span><b>6</b><small>calendar months</small></span><span><b>1</b><small>verified mobile only</small></span><span><b>∞</b><small>card + certificate kept</small></span>
+      <span><b>${blackPct()}%</b><small>off making charges</small></span><span><b>6</b><small>calendar months</small></span><span><b>1</b><small>verified mobile only</small></span><span><b>∞</b><small>card + certificate kept</small></span>
     </div>
     ${inAccount ? '' : blackIntakeHTML()}
     <button type="button" class="btn btn-gold btn-lg bc-claim-btn" onclick="Shivaa.beginBlackClaim('',this)">${signed ? 'Create my Black Card' : 'Verify mobile & create my card'} ✦</button>
@@ -4043,7 +4236,7 @@ async function blackDeliveryPage(view) {
     return;
   }
   if (card.delivery) {
-    view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><span class="bc-eyebrow">FREE HOME DELIVERY</span><h1>Your physical card is set.</h1><p>It is set for delivery to the address on file, free of charge. Your 20% privilege already works from your account.</p><div class="bc-member-actions"><a class="btn btn-gold" href="#/black-card">Back to my card</a></div></div></section>`;
+    view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><span class="bc-eyebrow">FREE HOME DELIVERY</span><h1>Your physical card is set.</h1><p>It is set for delivery to the address on file, free of charge. Your ${blackPct()}% privilege already works from your account.</p><div class="bc-member-actions"><a class="btn btn-gold" href="#/black-card">Back to my card</a></div></div></section>`;
     return;
   }
   view.innerHTML = `<section class="bc-page-hero compact"><div class="container"><div class="crumbs"><a href="#/black-card">Shivaa Black</a> / Physical card</div><span class="bc-eyebrow">FREE HOME DELIVERY</span><h1>Where should we deliver <em>your</em> card?</h1><p>Your physical Shivaa Black card is delivered free of charge. Enter the address once; it is kept on your card.</p></div></section>
@@ -4088,7 +4281,7 @@ function blackMembershipHTML(card, opts = {}) {
   return `<div class="bc-membership bc-print-zone${revealing ? ' is-revealing' : ''}">
     <div class="bc-member-head">
       <div><span class="bc-eyebrow">SHIVAA BLACK · PERSONAL MEMBERSHIP</span><h2>${active ? 'Your privilege is active.' : 'Your card is safely archived.'}</h2>
-      <p>${active ? `20% off making charges through <b>${esc(blackDate(card.expiresAt))}</b>. Your code is automatically offered at checkout.` : `The six-month discount ended on <b>${esc(blackDate(card.expiresAt))}</b>, but your card and prestigious-member certificate remain here permanently.`}</p></div>
+      <p>${active ? `${blackPct()}% off making charges through <b>${esc(blackDate(card.expiresAt))}</b>. Your code is automatically offered at checkout.` : `The six-month discount ended on <b>${esc(blackDate(card.expiresAt))}</b>, but your card and prestigious-member certificate remain here permanently.`}</p></div>
       <span class="bc-validity ${active ? 'active' : 'expired'}"><i></i>${active ? 'ACTIVE' : 'EXPIRED'}</span>
     </div>
     ${opts.inAccount ? '' : blackJourneyHTML(card)}
@@ -4099,10 +4292,11 @@ function blackMembershipHTML(card, opts = {}) {
         <div class="bc-detail-dates"><span><small>ISSUED</small><b>${esc(blackDate(card.issuedAt))}</b></span><span><small>VALID UNTIL</small><b>${esc(blackDate(card.expiresAt))}</b></span></div>
         <div class="bc-life"><div><small>${active ? 'BENEFIT WINDOW' : 'SIX-MONTH BENEFIT COMPLETE'}</small><b>${active ? `${life.days} day${life.days === 1 ? '' : 's'} remaining` : 'Documents kept permanently'}</b></div><span role="progressbar" aria-label="Membership benefit time elapsed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${life.pct}"><i style="width:${life.pct}%"></i></span></div>
         <div class="bc-bind"><span aria-hidden="true">◉</span><p><b>Locked to ${esc(blackPhone(card.mobile))}</b><small>Only this registered-mobile account can reveal or apply the code.</small></p></div>
-        <div class="bc-member-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.saveBlackCard(this)">Save / share card</button><a class="btn btn-ghost" href="#/shop">Shop with my 20%</a></div>
+        <div class="bc-member-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.saveBlackCard(this)">Save / share card</button><a class="btn btn-ghost" href="#/shop">Shop with my ${blackPct()}%</a></div>
       </div>
     </div>
-    <div class="bc-scope" role="note"><b>Exactly what 20% means</b><span><i>✓</i> 20% of listed making charges × quantity</span><span><i>×</i> No reduction on metal value, stones, GST or shipping</span><span><i>✓</i> Server recalculates the saving on every order</span></div>
+    <div class="bc-scope" role="note"><b>Exactly what ${blackPct()}% means</b><span><i>✓</i> ${blackPct()}% of listed making charges × quantity</span><span><i>×</i> No reduction on metal value, stones, GST or shipping</span><span><i>✓</i> Server recalculates the saving on every order</span></div>
+    ${blackRenewHTML(card)}
     ${blackPremiumHTML(card)}
     <div class="bc-cert-wrap"><div class="bc-cert-intro"><span class="bc-eyebrow">ISSUED WITH YOUR CARD · KEPT FOREVER</span><h2>Shivaa Family<br><em>Prestigious Member</em></h2><p>Your permanent family certificate was created in the same moment as your card. It stays in My Account even after the shopping privilege ends.</p><div class="bc-cert-actions"><button type="button" class="btn btn-gold" onclick="Shivaa.saveBlackCertificate(this)">Save / share certificate</button><button type="button" class="btn btn-outline" onclick="Shivaa.printBlackMembership()">Print / save PDF</button></div></div>${blackCertificateHTML(card)}</div>
   </div>`;
@@ -4295,14 +4489,14 @@ window.Shivaa.saveBlackCard = async btn => {
     x.restore();
     x.fillStyle = '#e8c777'; x.font = '700 50px Georgia'; x.fillText('SHIVAA', 100, 125); x.font = '24px Arial'; x.fillText('B L A C K', 100, 165);
     blackCanvasOrnament(x, 145, 270, 48, '#f2d789', .62); x.textAlign = 'center'; x.fillStyle = '#f5df9e'; x.font = '700 31px Georgia'; x.fillText('S', 145, 281); x.textAlign = 'left';
-    x.textAlign = 'right'; x.font = '700 118px Georgia'; x.fillText('20%', 1095, 205); x.textAlign = 'left'; x.font = '25px Arial'; x.fillText('OFF MAKING CHARGES', 772, 246);
+    x.textAlign = 'right'; x.font = '700 118px Georgia'; x.fillText(blackPct() + '%', 1095, 205); x.textAlign = 'left'; x.font = '25px Arial'; x.fillText('OFF MAKING CHARGES', 772, 246);
     x.fillStyle = '#bca66f'; x.font = '20px Arial'; x.fillText('MEMBER · COUPON CODE', 100, 365); x.fillStyle = '#fff4d1'; x.font = '44px monospace'; x.fillText(blackMemberCode(card.couponCode || card.cardNumber), 100, 425);
     x.fillStyle = '#bca66f'; x.font = '18px Arial'; x.fillText('MEMBER', 100, 560); x.fillText('VALID UNTIL', 830, 560); x.fillStyle = '#fff';
     blackFitCanvasText(x, String(card.holderName || '').toUpperCase(), 670, 30, 20, 'Arial'); x.fillText(String(card.holderName || '').toUpperCase(), 100, 604); x.font = '30px Arial'; x.fillText(blackDate(card.expiresAt), 830, 604);
     x.fillStyle = '#82745b'; x.font = '17px Arial'; x.fillText('PRIVILEGE CARD · NOT A PAYMENT CARD', 100, 675);
     x.fillStyle = '#e8c777'; x.font = '700 40px Georgia'; x.fillText('SHIVAA BLACK · REVERSE', 100, 875); x.fillStyle = '#fff'; x.font = '700 34px Arial'; x.fillText('BOUND MOBILE  ' + blackPhone(card.mobile), 100, 970);
     x.fillStyle = '#ddcfaa'; x.font = '25px Arial';
-    ['20% applies only to listed making charges × quantity.', 'No reduction on metal value, stones, GST or shipping.', 'Accepted only for this registered-mobile account.', 'Card and certificate remain in My Account after expiry.'].forEach((s, i) => x.fillText('✦  ' + s, 100, 1060 + i * 62));
+    [blackPct() + '% applies only to listed making charges × quantity.', 'No reduction on metal value, stones, GST or shipping.', 'Accepted only for this registered-mobile account.', 'Card and certificate remain in My Account after expiry.'].forEach((s, i) => x.fillText('✦  ' + s, 100, 1060 + i * 62));
     x.fillStyle = '#bca66f'; x.font = '21px Arial'; x.fillText('ISSUED  ' + blackDate(card.issuedAt), 100, 1350); x.fillText('BENEFIT UNTIL  ' + blackDate(card.expiresAt), 610, 1350); x.fillStyle = '#82745b'; x.fillText('NOT A BANK / DEBIT / CREDIT CARD', 100, 1420);
     const blob = blackCanvasBlob(cv); if (!blob) throw new Error('Image export unavailable');
     const outcome = await blackShareOrSave(blob, 'shivaa-black-' + String(card.memberId || 'member').toLowerCase() + '.png', 'My Shivaa Black Card', 'Private Shivaa Black membership card · keep this file secure.');
@@ -4311,14 +4505,53 @@ window.Shivaa.saveBlackCard = async btn => {
   } catch (e) { toast('Could not create the image — use Print / save PDF instead', 'err'); }
   finally { if (btn && document.body.contains(btn)) { btn.disabled = false; btn.textContent = old || 'Save / share card'; } }
 };
+/* v229 — renewal in one tap. The button is disabled and marked aria-busy for
+   the whole round trip, the server's own words are shown verbatim (a 409 says
+   how many days are left, which is more useful than "try again later"), and
+   the page is only repainted if it is still the page the member is on. */
+window.Shivaa.renewBlackCard = async btn => {
+  if (!(state.user && state.user.blackCard)) return toast('Open your Shivaa Black card first', 'err');
+  const old = btn && btn.textContent;
+  const status = document.querySelector('[data-bc-renew-status]');
+  if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.textContent = 'Renewing…'; }
+  if (status) status.textContent = 'Adding six calendar months to your membership…';
+  try {
+    const r = await api('/api/black-card/renew', { method: 'POST' });
+    if (r && r.membership) {
+      state.user.blackCard = r.membership;
+      if (r.user) state.user = r.user;
+      toast('Shivaa Black renewed through ' + blackDate(r.membership.expiresAt) + ' ✦');
+      const view = document.getElementById('view');
+      if (view && typeof pages['black-card'] === 'function') await pages['black-card'](view);
+      return;
+    }
+    if (status) status.textContent = 'Renewal did not complete — please try again.';
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : 'Renewal did not complete — please try again.';
+    if (status) status.textContent = msg;
+    toast(msg, 'err');
+  } finally {
+    if (btn && document.body.contains(btn)) {
+      btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = old || '↻ Renew for six months';
+    }
+  }
+};
 window.Shivaa.saveBlackCertificate = async btn => {
   const card = state.user && state.user.blackCard;
   if (!card) return toast('Open your Shivaa Black certificate first', 'err');
   const old = btn && btn.textContent;
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing certificate…'; }
   try {
-    const cv = document.createElement('canvas'); cv.width = 1800; cv.height = 1270;
+    /* v229 — A4 LANDSCAPE AT 300 DPI (3508×2480), the size a membership
+       certificate is actually framed at. The drawing below is written on the
+       old 1800×1270 sheet and scaled uniformly, so every proportion holds and
+       the artwork is rendered at print resolution instead of being upscaled
+       afterwards — a soft seal is what makes a certificate look fake. */
+    const cv = document.createElement('canvas'); cv.width = 3508; cv.height = 2480;
     const x = cv.getContext('2d'); if (!x) throw new Error('Canvas unavailable');
+    const BK = cv.width / 1800;
+    x.fillStyle = '#fffaf0'; x.fillRect(0, 0, cv.width, cv.height);
+    x.scale(BK, BK);
     const bg = x.createLinearGradient(0, 0, 1800, 1270); bg.addColorStop(0, '#ead18a'); bg.addColorStop(.32, '#fffdf1'); bg.addColorStop(.68, '#fffaf0'); bg.addColorStop(1, '#d9b85e'); x.fillStyle = bg; x.fillRect(0, 0, 1800, 1270);
     x.strokeStyle = '#fff8dc'; x.lineWidth = 22; x.strokeRect(28, 28, 1744, 1214); x.strokeStyle = '#9b6e1b'; x.lineWidth = 3; x.strokeRect(48, 48, 1704, 1174); x.strokeStyle = 'rgba(112,73,12,.45)'; x.lineWidth = 1; x.strokeRect(67, 67, 1666, 1136);
     blackCanvasOrnament(x, 88, 86, 155, '#8f6417', .14); blackCanvasOrnament(x, 1712, 1184, 155, '#8f6417', .14);
@@ -4332,12 +4565,19 @@ window.Shivaa.saveBlackCertificate = async btn => {
     x.strokeStyle = '#9c742a'; x.lineWidth = 2; x.beginPath(); x.moveTo(300, 550); x.lineTo(1500, 550); x.stroke();
     x.fillStyle = '#69512a'; x.font = '26px Georgia';
     blackWrappedCanvasText(x, 'as a Shivaa Family Prestigious Member, recognised for a relationship we are honoured to keep beyond every purchase.', 900, 606, 1250, 38, 2);
-    const meta = [[card.certificateNo || '—', 'CERTIFICATE'], [card.memberId || '—', 'MEMBER ID'], [blackDate(card.certificateIssuedAt || card.issuedAt), 'ISSUED']];
-    meta.forEach((m, i) => { const left = 230 + i * 470; x.fillStyle = 'rgba(255,255,255,.40)'; x.fillRect(left, 720, 400, 105); x.strokeStyle = 'rgba(128,86,18,.32)'; x.strokeRect(left, 720, 400, 105); x.fillStyle = '#907438'; x.font = '700 13px Arial'; x.fillText(m[1], left + 200, 754); x.fillStyle = '#523607'; blackFitCanvasText(x, String(m[0]), 350, 20, 14, 'Arial'); x.fillText(String(m[0]), left + 200, 795); });
+    /* v229 — four record boxes: the certificate number and the member ID are
+       different identifiers and used to share one box, and a certificate with
+       no expiry on it invites exactly the argument it exists to prevent. */
+    const meta = [[card.certificateNo || '—', 'CERTIFICATE'], [card.memberId || '—', 'MEMBER ID'],
+      [blackDate(card.certificateIssuedAt || card.issuedAt), 'ISSUED'], [blackDate(card.expiresAt), 'VALID THROUGH']];
+    /* four boxes across the same 1520px measure the three used to span:
+       350 wide with a 40px gutter, so nothing overlaps and nothing crowds the
+       border. Centred text keeps the labels on the box's own axis. */
+    meta.forEach((m, i) => { const left = 140 + i * 390; x.fillStyle = 'rgba(255,255,255,.40)'; x.fillRect(left, 720, 350, 105); x.strokeStyle = 'rgba(128,86,18,.32)'; x.strokeRect(left, 720, 350, 105); x.fillStyle = '#907438'; x.font = '700 13px Arial'; x.fillText(m[1], left + 175, 754); x.fillStyle = '#523607'; blackFitCanvasText(x, String(m[0]), 310, 19, 13, 'Arial'); x.fillText(String(m[0]), left + 175, 795); });
     x.fillStyle = '#53380c'; x.textAlign = 'left'; x.font = '700 29px Georgia'; x.fillText('SHIVAA JEWELLERS', 170, 935); x.fillStyle = '#8c754a'; x.font = '17px Arial'; x.fillText('Family-issued digital membership recognition', 170, 968);
     x.textAlign = 'right'; x.fillStyle = blackCardActive(card) ? '#1e6e3e' : '#5d451a'; x.font = '700 18px Arial'; x.fillText(blackCardActive(card) ? 'PRIVILEGE ACTIVE' : 'CERTIFICATE PERMANENTLY ARCHIVED', 1630, 950);
     x.textAlign = 'center'; x.fillStyle = '#735f39'; x.font = '18px Arial';
-    blackWrappedCanvasText(x, `This certificate remains permanently in the member's account. The 20% making-charge privilege is separate and valid only from ${blackDate(card.issuedAt)} through ${blackDate(card.expiresAt)}. Not a government or financial certificate.`, 900, 1070, 1450, 29, 3);
+    blackWrappedCanvasText(x, `This certificate remains permanently in the member's account. The ${blackPct()}% making-charge privilege is separate and valid only from ${blackDate(card.issuedAt)} through ${blackDate(card.expiresAt)}. Not a government or financial certificate.`, 900, 1070, 1450, 29, 3);
     x.fillStyle = '#9a762d'; x.font = '700 15px Arial'; x.fillText('PERMANENT ACCOUNT ARCHIVE · VERIFY THROUGH THE REGISTERED MOBILE', 900, 1188);
     const blob = blackCanvasBlob(cv); if (!blob) throw new Error('Image export unavailable');
     const outcome = await blackShareOrSave(blob, 'shivaa-family-certificate-' + String(card.certificateNo || 'member').toLowerCase() + '.png', 'My Shivaa Family Certificate', 'Shivaa Family Prestigious Member certificate.');
@@ -4375,8 +4615,8 @@ pages['black-card'] = async view => {
 async function blackCardPage(view) {
   const isCurrent = viewLifetime(view);
   if (!state.user) {
-    view.innerHTML = `<section class="bc-page-hero"><div class="container bc-page-hero-in"><div><div class="crumbs"><a href="#/">Home</a> / Shivaa Black</div><span class="bc-eyebrow">RETAIL CUSTOMERS ONLY</span><h1>The Shivaa Black Card.</h1><p>A personal six-month privilege: 20% off making charges on jewellery purchases, bound to one OTP-verified mobile. Your digital card and prestigious-member certificate stay in your account forever.</p><button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.beginBlackClaim('',this)">Verify mobile &amp; create my card ✦</button><small class="bc-hero-action-note">One seamless OTP flow · no payment details required</small></div>${blackCardVisual(null, { home: true })}</div></section>
-      <div class="container bc-public-detail">${blackClaimHTML()}<div class="bc-public-terms"><h2>Private by design</h2><p>The member number is shown only after authentication. The server accepts it only when both the account ID and registered mobile match the issue record.</p><h2>Precise by design</h2><p>The reduction is 20% of making charges only. The server never applies it to metal, stones, GST, shipping or the whole order.</p></div></div>`;
+    view.innerHTML = `<section class="bc-page-hero"><div class="container bc-page-hero-in"><div><div class="crumbs"><a href="#/">Home</a> / Shivaa Black</div><span class="bc-eyebrow">RETAIL CUSTOMERS ONLY</span><h1>The Shivaa Black Card.</h1><p>A personal six-month privilege: ${blackPct()}% off making charges on jewellery purchases, bound to one OTP-verified mobile. Your digital card and prestigious-member certificate stay in your account forever.</p><button type="button" class="btn btn-gold btn-lg" onclick="Shivaa.beginBlackClaim('',this)">Verify mobile &amp; create my card ✦</button><small class="bc-hero-action-note">One seamless OTP flow · no payment details required</small></div>${blackCardVisual(null, { home: true })}</div></section>
+      <div class="container bc-public-detail">${blackClaimHTML()}<div class="bc-public-terms"><h2>Private by design</h2><p>The member number is shown only after authentication. The server accepts it only when both the account ID and registered mobile match the issue record.</p><h2>Precise by design</h2><p>The reduction is ${blackPct()}% of making charges only. The server never applies it to metal, stones, GST, shipping or the whole order.</p></div></div>`;
     initBlackCardMotion(view);
     return;
   }
@@ -4449,13 +4689,13 @@ pages.home = async (view) => {
       <div class="bc-hero-copy">
         <span class="hero-kicker">✦ &nbsp;SHIVAA BLACK · RETAIL MEMBERS ONLY&nbsp; ✦</span>
         <h1 id="blackHeroTitle">The card that makes<br><em>every making charge lighter.</em></h1>
-        <p class="hero-sub"><b>Flat 20% off making charges</b> on jewellery purchases for six calendar months. Personalised to your name, locked to your verified mobile, and kept in your account forever with a shining family certificate.</p>
+        <p class="hero-sub"><b>Flat ${blackPct()}% off making charges</b> on jewellery purchases for six calendar months. Personalised to your name, locked to your verified mobile, and kept in your account forever with a shining family certificate.</p>
         <div class="hero-cta">
           <a class="btn btn-gold btn-lg bc-main-cta" href="#/black-card">${esc(blackCta)} ✦</a>
           <a class="btn btn-light btn-lg" href="#/shop">Explore jewellery</a>
           <a class="btn btn-ghost btn-lg shv-pulse-cta" href="#/scheme">✦ Win 10g Gold Biscuit</a>
         </div>
-        <div class="bc-hero-promise"><span><i>20%</i> making-charge reduction</span><span><i>6</i> calendar months</span><span><i>1</i> registered mobile</span></div>
+        <div class="bc-hero-promise"><span><i>${blackPct()}%</i> making-charge reduction</span><span><i>6</i> calendar months</span><span><i>1</i> registered mobile</span></div>
         <p class="bc-hero-fine">Not applied to metal value, stones, GST or shipping · Reward card, not a payment card</p>
         <div class="hero-trust"><a href="#/hallmark">✦ HUID check guide</a><a href="#/trust">✦ Why Trust Shivaa</a><span>✦ Live-Rate Pricing</span><span>✦ Insured Delivery</span></div>
         <div class="hero-stats">
@@ -4477,7 +4717,7 @@ pages.home = async (view) => {
   <section class="container bc-home-entry" id="blackPrivileges">
     <div class="bc-home-entry-card rv">
       <div class="bc-he-monogram" aria-hidden="true"><span>20</span><i>%</i></div>
-      <div class="bc-he-copy"><span class="bc-eyebrow">ONE PRIVILEGE · PRECISELY CALCULATED</span><h2>Twenty percent off <em>only the craft.</em></h2><p>Choose any Shivaa jewellery piece during your card&rsquo;s six-month validity. At checkout, the server totals each line&rsquo;s making charge × quantity and reduces that amount by exactly 20%—never the metal, stones, GST, shipping or another component.</p>
+      <div class="bc-he-copy"><span class="bc-eyebrow">ONE PRIVILEGE · PRECISELY CALCULATED</span><h2>${blackPctWord()} off <em>only the craft.</em></h2><p>Choose any Shivaa jewellery piece during your card&rsquo;s six-month validity. At checkout, the server totals each line&rsquo;s making charge × quantity and reduces that amount by exactly 20%—never the metal, stones, GST, shipping or another component.</p>
       <div class="bc-he-actions"><a href="#/black-card" class="btn btn-gold btn-lg">Save my personalised card ✦</a><span>OTP account required · one registered mobile</span></div></div>
       <div class="bc-he-certificate"><span class="bc-mini-seal">S</span><small>ALSO ISSUED</small><b>Shivaa Family<br>Prestigious Member</b><em>Permanent digital certificate</em></div>
     </div>
@@ -4662,7 +4902,7 @@ pages.home = async (view) => {
      2. a reaction — a celebration on 5, a graceful thank-you on anything less
      3. "the sandwiches were only a trailer" → pick what she would like next
      4. confirm mobile number (the SAME OTP system every customer uses) + name
-     5. the card — a real coupon, 20% off making charges, number allotted by us
+     5. the card — a real coupon at the member percentage (settings.blackDiscountPct),
 
    The page is dark by default: it only exists while settings.amritaPage is on.
    With the switch off this function bounces to the home page and the server
@@ -5493,7 +5733,7 @@ window.Shivaa.pdQty = d => {
     const basis = (+offer.dataset.blackMaking || 0) * window._pd.qty;
     const value = $('.bc-commerce-value', offer), copy = $('.bc-commerce-basis', offer);
     if (value) value.textContent = `Save ${fmt(blackSaving(basis))} on this selection`;
-    if (copy) copy.textContent = `Exactly 20% of ${fmt(basis)} making charges · verified and applied automatically at checkout.`;
+    if (copy) copy.textContent = `Exactly ${blackPct()}% of ${fmt(basis)} making charges · verified and applied automatically at checkout.`;
   }
 };
 
@@ -6335,7 +6575,7 @@ function refreshCartPage() {
     black.dataset.blackMaking = String(t.makingSubtotal);
     const val = black.querySelector('.bc-commerce-value'), basis = black.querySelector('.bc-commerce-basis');
     if (val) val.textContent = `Save ${fmt(blackSaving(t.makingSubtotal))} on this bag`;
-    if (basis) basis.textContent = `Exactly 20% of ${fmt(t.makingSubtotal)} making charges · verified and applied automatically at checkout.`;
+    if (basis) basis.textContent = `Exactly ${blackPct()}% of ${fmt(t.makingSubtotal)} making charges · verified and applied automatically at checkout.`;
   }
   return true;
 }
@@ -6832,7 +7072,7 @@ pages.checkout = async (view) => {
       <div class="rate-lock-card" id="rateLockBox" aria-live="polite"></div>
       <h3>Your Order</h3>
       ${items.map(it => `<div class="sum-row"><span>${esc(it.p.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b data-copid="${it.p.id}" data-qty="${it.qty}">${fmt(price(it.p).total * it.qty)}</b></div>`).join('')}
-      ${checkoutBlack ? `<div class="bc-checkout-wrap"><div class="bc-checkout-pass"><span class="bc-checkout-mark">S</span><span><b>Shivaa Black found</b><small>20% off ${fmt(makingSubtotal)} in making charges · applying securely</small></span><a href="#/black-card">View card</a></div><div class="bc-checkout-flow" aria-label="Shivaa Black checkout progress"><span class="done">✓ Card found</span><i></i><span id="bcVerifyStep" class="current">2 Verify</span><i></i><span id="bcAppliedStep">3 Apply saving</span></div></div>` : ''}
+      ${checkoutBlack ? `<div class="bc-checkout-wrap"><div class="bc-checkout-pass"><span class="bc-checkout-mark">S</span><span><b>Shivaa Black found</b><small>${blackPct()}% off ${fmt(makingSubtotal)} in making charges · applying securely</small></span><a href="#/black-card">View card</a></div><div class="bc-checkout-flow" aria-label="Shivaa Black checkout progress"><span class="done">✓ Card found</span><i></i><span id="bcVerifyStep" class="current">2 Verify</span><i></i><span id="bcAppliedStep">3 Apply saving</span></div></div>` : ''}
       <div class="coupon-row"><input id="couponIn" placeholder="Coupon or member code" value="${checkoutBlack ? esc(checkoutBlack.couponCode || checkoutBlack.cardNumber || '') : (checkoutPremium ? esc(checkoutPremium) : '')}"${checkoutBlack ? ' aria-label="Your Shivaa Black member coupon"' : ' aria-label="Coupon code"'} aria-describedby="couponMsg" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="Shivaa.couponInputChanged(this.value)"><button class="btn btn-ghost btn-sm" id="couponApplyBtn" type="button" onclick="Shivaa.applyCoupon()">Apply</button></div>
       <div id="couponMsg" class="coupon-message" aria-live="polite"></div>
       ${state.user.loyaltyPoints > 0 ? `<div class="points-box">✦ You have <b>${state.user.loyaltyPoints} royalty points</b> (₹1 each). <label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="usePts" onchange="Shivaa.updateCheckout()"> Redeem up to ${Math.min(state.user.loyaltyPoints, Math.floor(subtotal * 0.1))} pts (10% cap)</label></div>` : ''}
@@ -6901,7 +7141,7 @@ pages.checkout = async (view) => {
        still recomputes this basis independently from catalogue lines. */
     if (window._co.couponType === 'making_percent') window._co.disc = Math.round(making * window._co.couponValue / 100);
     else if (window._co.couponType === 'percent') window._co.disc = Math.round(sub * window._co.couponValue / 100);
-    const pass = $('.bc-checkout-pass small'); if (pass) pass.textContent = `20% off ${fmt(making)} in making charges · ${window._co.couponType ? 'applied to this order' : 'applying securely'}`;
+    const pass = $('.bc-checkout-pass small'); if (pass) pass.textContent = `${+window._co.couponValue || blackPct()}% off ${fmt(making)} in making charges · ${window._co.couponType ? 'applied to this order' : 'applying securely'}`;
     const wasFree = window._co.freeShip;
     window._co.freeShip = sub >= state.settings.freeShipAbove || !!window._co.couponFreeShip;
     $('#coSub').textContent = fmt(sub);
@@ -7101,10 +7341,10 @@ window.Shivaa.applyCoupon = async (automatic = false) => {
       : c.type === 'percent' ? Math.round(co.subtotal * c.value / 100)
       : Number.isFinite(+c.discount) ? +c.discount : +c.value;
     const label = $('#coDiscLabel');
-    if (label) label.textContent = c.type === 'making_percent' ? 'Shivaa Black · 20% off making charges' : 'Coupon discount';
+    if (label) label.textContent = c.type === 'making_percent' ? 'Shivaa Black · ' + (+c.value || blackPct()) + '% off making charges' : 'Coupon discount';
     msg.className = 'coupon-message success';
     msg.textContent = c.type === 'making_percent'
-      ? `✓ Shivaa Black applied — 20% of ${fmt(c.eligibleBasis ?? co.makingSubtotal)} making charges saves ${fmt(co.disc)}`
+      ? `✓ Shivaa Black applied — ${+c.value || blackPct()}% of ${fmt(c.eligibleBasis ?? co.makingSubtotal)} making charges saves ${fmt(co.disc)}`
       : `✓ ${c.code} applied — you save ${fmt(co.disc)}`;
     if (c.type === 'making_percent') {
       if (verifyStep) { verifyStep.className = 'done'; verifyStep.textContent = '✓ Mobile verified'; }
@@ -7858,7 +8098,7 @@ pages.order = async (view, q, id) => {
         ${order.items.map(it => `<div class="sum-row"><span>${esc(it.name)}${it.size ? ' (' + esc(it.size) + ')' : ''} × ${it.qty}</span><b>${fmt(it.unitPrice * it.qty)}</b></div>`).join('')}
         <div class="sum-row"><span>Rate locked at</span><b>${savedRates.length ? savedRates.join('<br>') : 'Not recorded'} (${esc((order.rateSnapshot || {}).stampedAt ? timeFmt((order.rateSnapshot || {}).stampedAt) : 'order time')})</b></div>
         <div class="sum-row"><span>Subtotal</span><b>${fmt(order.subtotal)}</b></div>
-        ${order.discountBasis === 'making-charges' ? `<div class="sum-row"><span>Shivaa Black · 20% off ${fmt(order.makingChargeSubtotal || 0)} making charges</span><b style="color:var(--ok)">− ${fmt(order.makingChargeDiscount || 0)}</b></div>${order.pointsUsed ? `<div class="sum-row"><span>Royalty points · ${order.pointsUsed} pts</span><b style="color:var(--ok)">− ${fmt(order.pointsUsed)}</b></div>` : ''}` : (order.discount ? `<div class="sum-row"><span>Discount${order.coupon ? ' (' + esc(order.coupon) + ')' : ''}${order.pointsUsed ? ' · ' + order.pointsUsed + ' pts' : ''}</span><b style="color:var(--ok)">− ${fmt(order.discount)}</b></div>` : '')}
+        ${order.discountBasis === 'making-charges' ? `<div class="sum-row"><span>Shivaa Black · ${blackOrderPct(order)}% off ${fmt(order.makingChargeSubtotal || 0)} making charges</span><b style="color:var(--ok)">− ${fmt(order.makingChargeDiscount || 0)}</b></div>${order.pointsUsed ? `<div class="sum-row"><span>Royalty points · ${order.pointsUsed} pts</span><b style="color:var(--ok)">− ${fmt(order.pointsUsed)}</b></div>` : ''}` : (order.discount ? `<div class="sum-row"><span>Discount${order.coupon ? ' (' + esc(order.coupon) + ')' : ''}${order.pointsUsed ? ' · ' + order.pointsUsed + ' pts' : ''}</span><b style="color:var(--ok)">− ${fmt(order.discount)}</b></div>` : '')}
         <div class="sum-row"><span>Shipping</span>${order.shipping === 0 ? '<span class="free">FREE</span>' : `<b>${fmt(order.shipping)}</b>`}</div>
         ${order.prepaidDiscount ? `<div class="sum-row"><span>Prepaid discount</span><b style="color:var(--ok)">− ${fmt(order.prepaidDiscount)}</b></div>` : ''}
         <div class="sum-row total"><span>${isPaidNow ? 'Paid via' : 'Payment'} ${esc(order.paymentMethod)}</span><b>${fmt(order.total)}</b></div>
@@ -7993,8 +8233,9 @@ pages.account = async (view, q) => {
 
   const tiles = [
     ['overview', '◈', 'Account Overview', 'Your details, occasions & preferences'],
-    ...((me.role || 'customer') === 'customer' ? [['membership', '✦', 'My Shivaa Black', memberCard ? (blackCardActive(memberCard) ? 'Active through ' + blackDate(memberCard.expiresAt) : 'Card + certificate saved forever') : 'Claim 20% off making charges']] : []),
+    ...((me.role || 'customer') === 'customer' ? [['membership', '✦', 'My Shivaa Black', memberCard ? (blackCardActive(memberCard) ? 'Active through ' + blackDate(memberCard.expiresAt) : 'Card + certificate saved forever') : 'Claim ' + blackPct() + '% off making charges']] : []),
     ['orders', '▦', 'My Orders', orders.length + ' order' + (orders.length === 1 ? '' : 's')],
+    ['my-bills', '🧾', 'In-store Purchases', 'view and download your in-store purchases'],
     ['certificates', '🛡', 'My Certificates', orders.length ? orders.length + ' digital purity certificate' + (orders.length === 1 ? '' : 's') : 'Issued with your first order'],
     ['addresses', '⌖', 'Manage Addresses', nAdr ? nAdr + ' saved · deliveries & billing' : 'Add delivery addresses'],
     ['loyalty', '✦', 'Royalty Points', me.loyaltyPoints + ' pts · ' + tier + ' tier'],
@@ -8016,7 +8257,7 @@ pages.account = async (view, q) => {
 
     <div class="acct-tiles">
       ${isPartner() ? `<a href="#/partner" class="acct-tile portal"><span class="at-ic">✦</span><span class="at-tx"><b>Partner Portal</b><small>bullion desk · design selection · schemes · reports</small></span><span class="at-go">›</span></a>` : ''}
-      ${tiles.map(t => `<a href="${t[0] === 'certificates' ? '#/certificates' : '#/account?tab=' + t[0]}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
+      ${tiles.map(t => `<a href="${t[0] === 'certificates' ? '#/certificates' : (t[0] === 'my-bills' ? '#/my-bills' : '#/account?tab=' + t[0])}" class="acct-tile ${tab === t[0] ? 'on' : ''}"><span class="at-ic">${t[1]}</span><span class="at-tx"><b>${t[2]}</b><small>${t[3]}</small></span><span class="at-go">›</span></a>`).join('')}
       <a href="#/delete-account" class="acct-tile"><span class="at-ic">🛡️</span><span class="at-tx"><b>Privacy &amp; my data</b><small>download nothing, erase everything — your call</small></span><span class="at-go">›</span></a>
       <a href="javascript:Shivaa.logout()" class="acct-tile danger"><span class="at-ic">↩</span><span class="at-tx"><b>Logout</b><small>sign out safely</small></span><span class="at-go">›</span></a>
     </div>
@@ -9796,7 +10037,7 @@ pages.invoice = async (view, q, id) => {
     ? `<tr class="tot"><td colspan="3">Total weight</td><td>${o.totalWeightG} g</td></tr>
        <tr class="tot"><td colspan="3">Fine metal @ ${esc(o.purity)} (× ${o.factor}, zero MC)</td><td>${o.fineGrams} g</td></tr>`
     : `<tr class="tot"><td colspan="3">Subtotal (incl. GST)</td><td>₹${o.subtotal.toLocaleString('en-IN')}</td></tr>
-       ${o.discountBasis === 'making-charges' ? `<tr class="tot"><td colspan="3">Shivaa Black — 20% off making charges (${fmt(o.makingChargeSubtotal || 0)} basis)</td><td>− ${fmt(o.makingChargeDiscount || 0)}</td></tr>${o.pointsUsed ? `<tr class="tot"><td colspan="3">Royalty points (${o.pointsUsed})</td><td>− ${fmt(o.pointsUsed)}</td></tr>` : ''}` : (o.discount ? `<tr class="tot"><td colspan="3">Discount</td><td>− ₹${o.discount.toLocaleString('en-IN')}</td></tr>` : '')}
+       ${o.discountBasis === 'making-charges' ? `<tr class="tot"><td colspan="3">Shivaa Black — ${blackOrderPct(o)}% off making charges (${fmt(o.makingChargeSubtotal || 0)} basis)</td><td>− ${fmt(o.makingChargeDiscount || 0)}</td></tr>${o.pointsUsed ? `<tr class="tot"><td colspan="3">Royalty points (${o.pointsUsed})</td><td>− ${fmt(o.pointsUsed)}</td></tr>` : ''}` : (o.discount ? `<tr class="tot"><td colspan="3">Discount</td><td>− ₹${o.discount.toLocaleString('en-IN')}</td></tr>` : '')}
        ${o.prepaidDiscount ? `<tr class="tot"><td colspan="3">Prepaid discount</td><td>− ${fmt(o.prepaidDiscount)}</td></tr>` : ''}
        ${o.shipping ? `<tr class="tot"><td colspan="3">Shipping</td><td>${fmt(o.shipping)}</td></tr>` : ''}
        ${o.codFee ? `<tr class="tot"><td colspan="3">COD fee</td><td>${fmt(o.codFee)}</td></tr>` : ''}
