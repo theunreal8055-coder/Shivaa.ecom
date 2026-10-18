@@ -103,7 +103,11 @@ def staff(today):
              'memberId': 'SBM000123', 'cardNumber': '2020 1234 5678 9012',
              'holderName': 'Aarti Sharma', 'mobile': '9308956260',
              'issuedAt': iso(issued), 'expiresAt': iso(exp),
-             'discountPct': 20, 'discountBasis': 'making-charges',
+             # v230 — stored at 25 on purpose. The programme ships at 20, and the
+             # point of this row is to prove the server OVERRIDES whatever a card
+             # carries with the setting: a card that stored the same number as the
+             # default would let that assertion pass while testing nothing.
+             'discountPct': 25, 'discountBasis': 'making-charges',
              'couponId': 'c_black_aarti', 'certificateNo': 'SFP000123',
              'certificateTitle': 'Shivaa Family Prestigious Member',
              'certificateIssuedAt': iso(issued), 'renewals': 0,

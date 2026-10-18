@@ -1233,14 +1233,15 @@ function v180DbStrip() {
               </div>
               <div class="fld full" style="border-top:1px dashed var(--line);padding-top:10px">
                 <label style="font-size:13px"><b>✦ Shivaa Black member discount — % off MAKING CHARGES</b></label>
-                <input name="blackDiscountPct" type="number" min="0" max="40" step="1" value="${Number.isFinite(+S.blackDiscountPct) && String(S.blackDiscountPct).trim() !== '' ? Math.round(+S.blackDiscountPct) : 25}" style="max-width:160px">
+                <input name="blackDiscountPct" type="number" min="0" max="40" step="1" value="${Number.isFinite(+S.blackDiscountPct) && String(S.blackDiscountPct).trim() !== '' ? Math.round(+S.blackDiscountPct) : 20}" style="max-width:160px">
                 <small style="color:var(--ink-3);display:block;margin-top:6px;line-height:1.55">
                   ONE number for the whole programme — every member's card, certificate, checkout line and the
                   downloaded artwork follow it the moment you save, and <b>no card number changes</b> because no coupon
-                  is stored per member. Default <b>25</b>. Keep it above the public <b>MAKING20</b> offer (20), or a
-                  KYC-verified membership pays the same as a guest and the privilege means nothing. <b>0</b> switches
-                  the discount off without deleting anybody's card, certificate or member number. This does not touch
-                  the Premium lifetime 20%, Amrita ji's personal ticket, metal value, stones, GST or shipping.
+                  is stored per member. Ships at <b>20</b>, which is what the site has always promised. Raise it only
+                  when you have decided the member rate should differ from the public <b>MAKING20</b> offer — until then
+                  every mention of the offer stays at 20%, on screen and in print. <b>0</b> switches the discount off
+                  without deleting anybody's card, certificate or member number. This does not touch the Premium lifetime
+                  20%, Amrita ji's personal ticket, metal value, stones, GST or shipping.
                 </small>
               </div>
                   <input type="checkbox" name="forceLatestVersion" style="width:18px;height:18px;accent-color:var(--gold);margin-top:2px" ${(S.forceLatestVersion === undefined ? true : !!S.forceLatestVersion) ? 'checked' : ''}>
@@ -2325,7 +2326,7 @@ window.ShivaaAdmin.savePay = async e => {
                  /* v229 — the Shivaa Black member percentage. Clamped here AND
                     on the server, because a form that only clamps in the browser
                     is a form that a stale tab can still submit out of range. */
-                 blackDiscountPct: Math.max(0, Math.min(40, Math.round(Number(document.querySelector('[name="blackDiscountPct"]')?.value ?? 25) || 0))) };
+                 blackDiscountPct: Math.max(0, Math.min(40, Math.round(Number(document.querySelector('[name="blackDiscountPct"]')?.value ?? 20) || 0))) };
   /* v152 — the partner-key field is GONE from the save body: the settings PUT
      no longer accepts it, and any stale DB value has no reader left (route deleted). */
   // secret key is write-only: only sent when retyped (server strips it from GETs)

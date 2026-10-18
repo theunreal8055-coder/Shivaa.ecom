@@ -59,12 +59,12 @@ styles are in /css/v184-amrita.css (precached); the visual polish is in
 by the polish. MEDIA stays at v168.
 */
 'use strict';
-const SHELL = 'shivaa-shell-v229';
+const SHELL = 'shivaa-shell-v230';
 /* v166 — the release this worker belongs to. It is announced to every open tab
    the moment the new worker activates, so a page that is running an older
    release can move itself to the newest one (js/v166.js, "always the latest").
    Keep in lockstep with window.__SHIVAA_REL and APP_REL. */
-const REL = 229;
+const REL = 230;
 /* v120 — MEDIA generation bump: purges pre-v113 poisoned entries (category faces
    that 404'd into the SPA fallback were cached AS images for 30 days) and any
    other stale art. Old caches auto-delete on activate; phones re-fetch once. */
@@ -84,13 +84,13 @@ const MEDIA_TTL = 1000 * 60 * 60 * 24 * 30;   // 30 days; v168 also checks befor
    precached too — v117.js injects them post-paint, and a warm precache makes
    that injection instant and offline-safe. */
 const SHELL_FILES = [
-  '/css/shivaa.css?v=229', '/',
+  '/css/shivaa.css?v=230', '/',
   '/index.html',
-  '/js/otp-autofill.js?v=229', '/js/app.js?v=229', '/js/hallmark.js?v=229',
-  '/js/trust.js?v=229', '/js/auth.js?v=229', '/js/v219.js?v=229', '/js/motion.js?v=229',
-  '/js/aurum.js?v=229', '/js/v107.js?v=229', '/js/boost.js?v=229',
-  '/js/v116.js?v=229', '/js/v117.js?v=229', '/js/v118.js?v=229', '/js/v119.js?v=229', '/js/v120.js?v=229', '/js/v122.js?v=229', '/js/v125.js?v=229', '/js/v127.js?v=229', '/js/v139.js?v=229', '/js/v140.js?v=229', '/js/v166.js?v=229', '/js/v167.js?v=229',
-  '/js/v178.js?v=229', '/js/v194.js?v=229', '/js/v225.js?v=229', '/js/v226.js?v=229', '/js/v227.js?v=229', '/fonts/jost.woff2?v=229', '/fonts/cormorant-garamond.woff2?v=229', '/fonts/marcellus-400.woff2?v=229',
+  '/js/otp-autofill.js?v=230', '/js/app.js?v=230', '/js/hallmark.js?v=230',
+  '/js/trust.js?v=230', '/js/auth.js?v=230', '/js/v219.js?v=230', '/js/motion.js?v=230',
+  '/js/aurum.js?v=230', '/js/v107.js?v=230', '/js/boost.js?v=230',
+  '/js/v116.js?v=230', '/js/v117.js?v=230', '/js/v118.js?v=230', '/js/v119.js?v=230', '/js/v120.js?v=230', '/js/v122.js?v=230', '/js/v125.js?v=230', '/js/v127.js?v=230', '/js/v139.js?v=230', '/js/v140.js?v=230', '/js/v166.js?v=230', '/js/v167.js?v=230',
+  '/js/v178.js?v=230', '/js/v194.js?v=230', '/js/v225.js?v=230', '/js/v226.js?v=230', '/js/v227.js?v=230', '/fonts/jost.woff2?v=230', '/fonts/cormorant-garamond.woff2?v=230', '/fonts/marcellus-400.woff2?v=230',
   '/manifest.webmanifest', '/offline.html',
   '/images/icons/icon-192.png', '/images/icons/icon-512.png',
   '/images/icons/icon-maskable-512.png', '/images/icons/apple-touch-icon.png'];

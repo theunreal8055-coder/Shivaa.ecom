@@ -67,8 +67,8 @@ const jput = async (p, body, tok) => {
 };
 
 /* ── 1 · the server: one number, and a renewal that keeps the number ───── */
-T('api: the member percentage is one setting with a default of 25',
-  /function black_pct_setting\([\s\S]{0,400}?return 25;/.test(API));
+T('api: the member percentage is one setting, and it ships at 20',
+  /function black_pct_setting\([\s\S]{0,600}?return 20;/.test(API));
 T('api: that setting is clamped 0-40 on the server',
   /max\(0, min\(40,/.test(API));
 /* "before the router runs" is the wrong test: the router comment sits above
@@ -117,12 +117,12 @@ T('api: the free card has a delivery status route with three states',
   /'admin\/black-card\/delivery'[\s\S]{0,700}?\['to-ship', 'printed', 'shipped'\]/.test(API));
 T('api: the queue counts are one cheap pass over users[]',
   /'admin\/black-card\/queue' && \$method === 'GET'/.test(API));
-T('shim: the dev mirror reads one setting too, default 25, clamped the same way',
-  /def dev_black_pct\(\):[\s\S]{0,500}?return 25/.test(SHIM) && /max\(0, min\(40, n\)\)/.test(SHIM));
+T('shim: the dev mirror reads one setting too, defaults to the shipped 20, clamps the same way',
+  /def dev_black_pct\(\):[\s\S]{0,700}?return 20/.test(SHIM) && /max\(0, min\(40, n\)\)/.test(SHIM));
 
 /* ── 2 · the client: every live surface reads the one number ───────────── */
-T('app: blackPct() prefers the card, then the setting, then 25',
-  /function blackPct\(\) \{[\s\S]{0,700}?return 25;\s*\}/.test(APP_J));
+T('app: blackPct() prefers the card, then the setting, then the shipped 20',
+  /function blackPct\(\) \{[\s\S]{0,900}?return 20;\s*\}/.test(APP_J));
 T('app: blackPct() clamps to the same band as the server',
   /function blackPct\(\)[\s\S]{0,700}?Math\.max\(0, Math\.min\(40,/.test(APP_J));
 T('app: the saving follows the setting, not a literal .20',
@@ -148,8 +148,8 @@ T('app: order rows use it, so a receipt never follows a setting',
 }
 
 /* ── 3 · the certificate is a document ─────────────────────────────────── */
-T('cert: the markup is the v229 certificate',
-  /class="bc-certificate v229"/.test(APP));
+T('cert: the markup carries both release classes (v229 built it, v230 makes it legible)',
+  /class="bc-certificate v229 v230"/.test(APP));
 {
   const cert = APP.slice(APP.indexOf('function blackCertificateHTML(card)'));
   const body = cert.slice(0, cert.indexOf('\nfunction ') > 0 ? cert.indexOf('\nfunction ') : 4000);
@@ -233,7 +233,8 @@ await until(() => $('.bc-certificate'), 15000);
 await wait(320);
 
 const certEl = $('.bc-certificate');
-T('live: the certificate rendered', !!certEl && certEl.classList.contains('v229'), certEl && certEl.className);
+T('live: the certificate rendered with both layers on it',
+  !!certEl && certEl.classList.contains('v229') && certEl.classList.contains('v230'), certEl && certEl.className);
 T('live: no page fault got here', faults().length === 0, faults().slice(0, 2).join(' | '));
 T('live: no console error either', errors.filter(e => !NOISE.test(e)).length === 0,
   errors.filter(e => !NOISE.test(e)).slice(0, 2).join(' | '));
@@ -248,7 +249,7 @@ T('live: the member name is the uppercase name on the account',
   WS(($('.bc-cert-name') || {}).textContent) === 'AARTI SHARMA', WS(($('.bc-cert-name') || {}).textContent));
 const promise = WS(($('.bc-cert-promise') || {}).textContent);
 T('live: the promise line names the percentage and both dates',
-  /25%/.test(promise) && /\d{2} \w{3} \d{4}/.test(promise) && /never on metal value, stones, GST or shipping/.test(promise),
+  /20%/.test(promise) && /\d{1,2} \w{3} \d{4}/.test(promise) && /never on metal value, stones, GST or shipping/.test(promise),
   promise.slice(0, 110));
 T('live: the signatory has a title',
   /For Shivaa Jewels/.test(WS(($('.bc-cert-sign') || {}).textContent)) &&
@@ -256,10 +257,10 @@ T('live: the signatory has a title',
 T('live: the verify line names the site and the certificate number',
   /shivaa\.in/.test(WS(($('.bc-cert-verify') || {}).textContent)) &&
   WS(($('.bc-cert-verify') || {}).textContent).includes(boxes[0]), WS(($('.bc-cert-verify') || {}).textContent).slice(0, 90));
-T('live: the card face shows the setting, not the stored 20',
-  /25/.test(WS(($('.bc-benefit') || {}).textContent)), WS(($('.bc-benefit') || {}).textContent));
+T('live: the card face shows the setting, not the value stored on the card',
+  /20/.test(WS(($('.bc-benefit') || {}).textContent)), WS(($('.bc-benefit') || {}).textContent));
 T('live: the scope note repeats the same one number',
-  /Exactly what 25% means/.test(WS(($('.bc-scope') || {}).textContent)), WS(($('.bc-scope') || {}).textContent).slice(0, 60));
+  /Exactly what 20% means/.test(WS(($('.bc-scope') || {}).textContent)), WS(($('.bc-scope') || {}).textContent).slice(0, 60));
 
 const strip = $('.bc-renew');
 T('live: the renewal strip is there, because the server says the window is open', !!strip);
@@ -318,8 +319,8 @@ T('live: and the server agrees with all three',
 
 const put90 = await jput('/api/settings', { blackDiscountPct: 90 }, ADMIN);
 T('live: 90 is refused, not stored', put90.status === 400, put90.status);
-const putBack = await jput('/api/settings', { blackDiscountPct: 25 }, ADMIN);
-T('live: restored to the default for whoever runs this next', putBack.status === 200, putBack.status);
+const putBack = await jput('/api/settings', { blackDiscountPct: 20 }, ADMIN);
+T('live: restored to the shipped default for whoever runs this next', putBack.status === 200, putBack.status);
 
 /* ── 8 · nothing regressed on the way ──────────────────────────────────── */
 T('live: the canvas savers take their guard path in jsdom, without a fault',

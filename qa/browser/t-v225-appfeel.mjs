@@ -85,28 +85,28 @@ const relIndex = /window\.__SHIVAA_REL=(\d+);/.exec(INDEX);
 const relApp = /const APP_REL = (\d+);/.exec(APP);
 const relSw = /const REL = (\d+);/.exec(SW);
 const relApi = /'rel' => (\d+),/.exec(read('cms/api.php'));
-T('stamp: index.html announces the release', !!relIndex && relIndex[1] === '229', relIndex && relIndex[1]);
-T('stamp: app.js APP_REL matches', !!relApp && relApp[1] === '229', relApp && relApp[1]);
-T('stamp: sw.js REL matches', !!relSw && relSw[1] === '229', relSw && relSw[1]);
-T('stamp: api.php reports the same rel', !!relApi && relApi[1] === '229', relApi && relApi[1]);
-T('stamp: all four agree', [relIndex, relApp, relSw, relApi].every(m => m && m[1] === '229'));
-T('stamp: the service worker shell is bumped too', /shivaa-shell-v229/.test(SW));
+T('stamp: index.html announces the release', !!relIndex && relIndex[1] === '230', relIndex && relIndex[1]);
+T('stamp: app.js APP_REL matches', !!relApp && relApp[1] === '230', relApp && relApp[1]);
+T('stamp: sw.js REL matches', !!relSw && relSw[1] === '230', relSw && relSw[1]);
+T('stamp: api.php reports the same rel', !!relApi && relApi[1] === '230', relApi && relApi[1]);
+T('stamp: all four agree', [relIndex, relApp, relSw, relApi].every(m => m && m[1] === '230'));
+T('stamp: the service worker shell is bumped too', /shivaa-shell-v230/.test(SW));
 T('stamp: no asset URL is left on an older release',
   !/\?v=(22[0-5])\b/.test(INDEX) && !/\?v=(22[0-5])\b/.test(SW));
 {
   const urls = [...INDEX.matchAll(/(?:src|href)="(\/[^"]+)"/g)].map(m => m[1])
     .filter(u => /^\/(js|css|fonts)\//.test(u));
-  const unstamped = urls.filter(u => !/\?v=229$/.test(u));
-  T('stamp: every script, stylesheet and font URL carries ?v=229',
+  const unstamped = urls.filter(u => !/\?v=230$/.test(u));
+  T('stamp: every script, stylesheet and font URL carries ?v=230',
     unstamped.length === 0 && urls.length > 12, unstamped.slice(0, 3).join(' ') || urls.length + ' urls');
 }
 T('stamp: index.html loads exactly one stylesheet, and it is the bundle',
-  (INDEX.match(/rel="stylesheet"/g) || []).length === 1 && /href="\/css\/shivaa\.css\?v=229"/.test(INDEX));
+  (INDEX.match(/rel="stylesheet"/g) || []).length === 1 && /href="\/css\/shivaa\.css\?v=230"/.test(INDEX));
 T('stamp: the shell precaches the bundle and the new script',
-  /'\/css\/shivaa\.css\?v=229'/.test(SW) && /'\/js\/v227\.js\?v=229'/.test(SW));
+  /'\/css\/shivaa\.css\?v=230'/.test(SW) && /'\/js\/v227\.js\?v=230'/.test(SW));
 T('stamp: the new script is loaded by the page, deferred, after app.js',
-  INDEX.indexOf('/js/v227.js?v=229') > INDEX.indexOf('/js/app.js?v=229') &&
-  /<script src="\/js\/v227\.js\?v=229" defer><\/script>/.test(INDEX));
+  INDEX.indexOf('/js/v227.js?v=230') > INDEX.indexOf('/js/app.js?v=230') &&
+  /<script src="\/js\/v227\.js\?v=230" defer><\/script>/.test(INDEX));
 
 /* ═══ 2 · one scroll frame, and nothing reads layout inside it ═══════════ */
 T('hub: v225.js installs window.__shvHub once and refuses a second one',
@@ -237,9 +237,9 @@ T('motion: the two new sweeps are named in the reduced-motion block',
 
 /* ═══ 6 · the bundle ships all of it ════════════════════════════════════ */
 T('bundle: v225.css sits where this release put it, under the newest layer',
-  ORDER[ORDER.length - 2] === 'v227.css' && ORDER[ORDER.length - 1] === 'v229.css' &&
+  ORDER[ORDER.length - 2] === 'v229.css' && ORDER[ORDER.length - 1] === 'v230.css' &&
   BUNDLE.lastIndexOf('/* v225.css */') > BUNDLE.lastIndexOf('/* v224.css */') &&
-  BUNDLE.lastIndexOf('/* v229.css */') > BUNDLE.lastIndexOf('/* v227.css */'));
+  BUNDLE.lastIndexOf('/* v230.css */') > BUNDLE.lastIndexOf('/* v229.css */'));
 {
   const i = BUNDLE.lastIndexOf('/* v225.css */');
   T('bundle: the shipped stylesheet carries the v225 rules',
@@ -260,7 +260,7 @@ T('bundle: v225.css sits where this release put it, under the newest layer',
     orphans.length === 0, orphans.join(', '));
   T('bundle: nothing the site used to link was lost', DEAD.every(f => fs.existsSync('cms/css/' + f)));
   T('bundle: the inventory grew by exactly one layer, as this release did',
-    ORDER.length === 63 && layers.length === 64, ORDER.length + '/' + layers.length);
+    ORDER.length === 64 && layers.length === 65, ORDER.length + '/' + layers.length);
 }
 {
   let checked = 0, broken = [];
@@ -284,7 +284,7 @@ T('bundle: v225.css sits where this release put it, under the newest layer',
   T('live: the chrome it owns is on the page',
     !!doc.getElementById('scrollProg') && !!doc.getElementById('backTop'));
   T('live: only one stylesheet is requested', doc.querySelectorAll('link[rel=stylesheet]').length === 1);
-  T('live: the page runs on the stamped release', window.__SHIVAA_REL === 229, String(window.__SHIVAA_REL));
+  T('live: the page runs on the stamped release', window.__SHIVAA_REL === 230, String(window.__SHIVAA_REL));
 
   /* the scroller's own metrics must not be asked for while a thumb moves */
   let reads = 0;

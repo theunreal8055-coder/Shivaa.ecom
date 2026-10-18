@@ -183,9 +183,9 @@ const realErrs = es => es.filter(e => !/cashfree|Could not load script|getContex
   T('card: gleam sweeps more often (5.2s)', css215.includes('v215Gleam') && css215.includes('5.2s'));
   T('card: reduced-motion guard present', css215.includes('prefers-reduced-motion'));
 
-  T('stamps: index at 226 with the one bundled stylesheet, no old 216/215 stamps', index.includes('__SHIVAA_REL=229') && index.includes('/css/shivaa.css?v=229') && !index.includes('?v=216') && !index.includes('?v=215'));
-  T('stamps: sw.js shell v229 + the css bundle precached', sw.includes('shivaa-shell-v229') && sw.includes('/css/shivaa.css?v=229') && sw.includes('const REL = 229;'));
-  T('stamps: app.js + api.php at 229', app.includes('const APP_REL = 229;') && api.includes("'rel' => 229,"));
+  T('stamps: index at 226 with the one bundled stylesheet, no old 216/215 stamps', index.includes('__SHIVAA_REL=230') && index.includes('/css/shivaa.css?v=230') && !index.includes('?v=216') && !index.includes('?v=215'));
+  T('stamps: sw.js shell v229 + the css bundle precached', sw.includes('shivaa-shell-v230') && sw.includes('/css/shivaa.css?v=230') && sw.includes('const REL = 230;'));
+  T('stamps: app.js + api.php at 229', app.includes('const APP_REL = 230;') && api.includes("'rel' => 230,"));
 
   const { window: w5, doc: d5 } = await boot('#/', { mobile: true });
   await wait(2200);

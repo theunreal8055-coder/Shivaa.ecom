@@ -4228,7 +4228,11 @@ function black_card_bound_to_user(array $card, array $u): bool {
    Default 25 — the gap over the public MAKING20 offer the owner asked for. */
 function black_pct_setting(array $db): int {
   $v = $db['settings']['blackDiscountPct'] ?? null;
-  if ($v === null || $v === '' || is_array($v) || !is_numeric($v)) return 25;
+  /* v230 (owner): "25% is a false claim — everywhere an offer is mentioned it
+     must be 20% off making charges for prestigious members." The default ships
+     at 20. The setting stays the owner's to change (Admin -> Settings, 0-40);
+     what ships must match what the site has always said. */
+  if ($v === null || $v === '' || is_array($v) || !is_numeric($v)) return 20;
   return max(0, min(40, (int)round((float)$v)));
 }
 function black_discount_pct(): int {
@@ -6865,7 +6869,7 @@ try {
     $appRel = (int)(preg_match('/APP_REL\s*=\s*(\d+)/', (string)@file_get_contents(__DIR__ . '/js/app.js'), $ma) ? $ma[1] : 0);
     jout(200, [
       'ok'    => true,
-      'rel' => 229,
+      'rel' => 230,
       'shell' => $sh,
       'builtAt' => (function_exists('date') ? date('c', (int)(@filemtime(__DIR__ . '/index.html') ?: time())) : ''),
       'forceLatest' => (bool)(($db['settings']['forceLatestVersion'] ?? true) !== false),

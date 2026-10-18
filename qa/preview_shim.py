@@ -279,14 +279,15 @@ def dev_black_card(uid):
 
 
 def dev_black_pct():
-    """v229 - mirrors api.php black_discount_pct(): ONE setting, default 25,
-    clamped 0-40. Every dev surface reads it through here so the shim cannot
-    drift from the server it stands in for."""
+    """v229 - mirrors api.php black_discount_pct(): ONE setting, clamped 0-40.
+    v230 - the default is 20, matching the server: a mirror that defaults to a
+    different number than the thing it mirrors proves nothing.
+    Every dev surface reads it through here."""
     v = DEV_SETTINGS.get("blackDiscountPct", db()["settings"].get("blackDiscountPct"))
     try:
         n = int(round(float(v)))
     except (TypeError, ValueError):
-        return 25
+        return 20
     return max(0, min(40, n))
 
 

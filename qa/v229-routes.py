@@ -134,7 +134,7 @@ def main():
     T('queue: the owner sees it', st == 200, st)
     T('queue: one member, one free card still to post',
       q.get('members') == 1 and q.get('toShip') == 1, q)
-    T('queue: the percentage it reports is the default 25', q.get('pct') == 25, q.get('pct'))
+    T('queue: the percentage it reports is the shipped 20', q.get('pct') == 20, q.get('pct'))
     T('queue: that member is inside the renewal window', q.get('renewable') == 1, q)
     st, _ = jget('/api/admin/black-card/queue')
     T('queue: no token, no answer', st in (401, 403), st)
@@ -147,8 +147,8 @@ def main():
     st, m = jget('/api/black-card', token=mem)
     card = m.get('membership') or {}
     T('member: she has a card', st == 200 and bool(card), st)
-    T('member: the stored 20 is overridden by the setting (25)',
-      card.get('discountPct') == 25, card.get('discountPct'))
+    T('member: the value stored on the card is overridden by the setting (20)',
+      card.get('discountPct') == 20, card.get('discountPct'))
     T('member: the card reports its renewal facts',
       card.get('renewable') is True and 15 <= int(card.get('daysLeft') or 0) <= 20
       and card.get('renewals') == 0,
@@ -289,11 +289,11 @@ def main():
     T('setting: 90 is refused, not stored', st == 400, (st, s))
     st, _, s = req('PUT', '/api/settings', body={'blackDiscountPct': 'soon'}, token=admin)
     T('setting: a word is refused too', st == 400, (st, s))
-    st, _, s = req('PUT', '/api/settings', body={'blackDiscountPct': 25}, token=admin)
-    T('setting: restored to the default',
-      st == 200 and json.loads(s or b'{}').get('blackDiscountPct') == 25, (st, s))
+    st, _, s = req('PUT', '/api/settings', body={'blackDiscountPct': 20}, token=admin)
+    T('setting: restored to the shipped default',
+      st == 200 and json.loads(s or b'{}').get('blackDiscountPct') == 20, (st, s))
     st, m25 = jget('/api/black-card', token=mem)
-    T('setting: and the card is back on 25', (m25.get('membership') or {}).get('discountPct') == 25,
+    T('setting: and the card is back on 20', (m25.get('membership') or {}).get('discountPct') == 20,
       (m25.get('membership') or {}).get('discountPct'))
 
     # ── 8 · the desk's destructive verbs ────────────────────────────────────

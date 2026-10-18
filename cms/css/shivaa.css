@@ -19168,3 +19168,201 @@ html { scroll-padding-bottom: calc(var(--shv-mnav-h) + 12px); }
   .bc-certificate.v229, .bc-certificate.v229 * { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
 }
 body.bc-printing .bc-renew { display:none !important; }
+/* v230.css */
+ 
+
+ 
+.bc-certificate.v229 .bc-cert-name,
+.bc-certificate.v230 .bc-cert-name {
+   
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: #2b1a05 !important;
+  color: #2b1a05 !important;
+  filter: none !important;
+   
+  text-shadow: 0 1px 0 rgba(255, 253, 244, .85);
+  font-family: var(--ff-disp, Georgia, serif);
+  font-weight: 700;
+  font-size: clamp(31px, 7.4vw, 55px);
+  line-height: 1.06;
+  letter-spacing: .06em;
+  margin: 8px auto 2px;
+  max-width: 22ch;
+  overflow-wrap: anywhere;
+}
+ 
+
+ 
+.bc-certificate.v229 .bc-cert-copy,
+.bc-certificate.v230 .bc-cert-copy { color: #4b3410; font-size: 13.5px; line-height: 1.72; }
+.bc-certificate.v229 .bc-cert-copy b,
+.bc-certificate.v230 .bc-cert-copy b { color: #2b1a05; font-weight: 700; }
+.bc-certificate.v229 .bc-cert-presents,
+.bc-certificate.v230 .bc-cert-presents { color: #6d4f16; }
+
+ 
+.bc-cert-name-rule {
+  display: block; position: relative; z-index: 1;
+  width: min(360px, 68%); height: 9px; margin: 9px auto 3px;
+  background:
+    linear-gradient(90deg, transparent, rgba(155, 110, 27, .75) 18%, rgba(155, 110, 27, .75) 82%, transparent) 0 0 / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, rgba(155, 110, 27, .45) 26%, rgba(155, 110, 27, .45) 74%, transparent) 0 5px / 100% 1px no-repeat,
+    radial-gradient(circle at 50% 4.5px, #b98a2f 0 2.4px, transparent 2.6px) 0 0 / 100% 9px no-repeat;
+}
+
+ 
+.bc-certificate.v229 .bc-cert-seal,
+.bc-certificate.v230 .bc-cert-seal {
+  width: 96px; height: 96px; margin: 0 auto 18px;
+  border: 1px solid #9b6e1b; border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 252, 235, .95), rgba(255, 252, 235, 0) 58%),
+    conic-gradient(from 0deg, rgba(155, 110, 27, .55) 0 1.2deg, transparent 1.2deg 6deg),
+    radial-gradient(circle, #fdf4d6 0 58%, #f0dca4 59% 70%, #fdf4d6 71% 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .7), 0 6px 16px -8px rgba(91, 56, 9, .55),
+    inset 0 0 0 5px rgba(255, 253, 244, .7), inset 0 0 0 6px rgba(155, 110, 27, .5);
+  display: grid; place-content: center; gap: 1px; text-align: center;
+}
+.bc-certificate.v229 .bc-cert-seal b,
+.bc-certificate.v230 .bc-cert-seal b {
+  font-family: var(--ff-disp, Georgia, serif); font-size: 34px; line-height: 1;
+  color: #6d4a10; text-shadow: 0 1px 0 rgba(255, 253, 244, .9);
+}
+.bc-certificate.v229 .bc-cert-seal small,
+.bc-certificate.v230 .bc-cert-seal small {
+  font-size: 6.6px; letter-spacing: .26em; color: #7b591e; text-transform: uppercase;
+}
+.bc-certificate.v229 .bc-cert-seal > span,
+.bc-certificate.v230 .bc-cert-seal > span { font-size: 9px; line-height: 1; color: #a8791f; }
+
+ 
+.bc-certificate.v229 .bc-cert-guilloche,
+.bc-certificate.v230 .bc-cert-guilloche {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none; opacity: .62;
+  background-image:
+    repeating-linear-gradient(58deg, rgba(155, 110, 27, .19) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-58deg, rgba(155, 110, 27, .19) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(58deg, rgba(155, 110, 27, .14) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-58deg, rgba(155, 110, 27, .14) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(155, 110, 27, .10) 0 1px, transparent 1px 7px);
+  background-repeat: repeat-x;
+  background-size: 100% 52px, 100% 52px, 100% 52px, 100% 52px, 100% 52px;
+  background-position: 0 6px, 0 6px, 0 calc(100% - 58px), 0 calc(100% - 58px), 0 calc(100% - 58px);
+}
+.bc-certificate.v229,
+.bc-certificate.v230 {
+   
+  box-shadow: 0 34px 70px rgba(91, 56, 9, .18), inset 0 0 0 7px #fff9df,
+    inset 0 0 0 8px rgba(155, 110, 27, .35), inset 0 0 0 12px #fffdf5,
+    inset 0 0 0 13px rgba(155, 110, 27, .5);
+}
+.bc-certificate.v229 .bc-cert-corner,
+.bc-certificate.v230 .bc-cert-corner { border-color: #9b6e1b; opacity: .8; width: 54px; height: 54px; }
+
+ 
+.bc-certificate.v229 .bc-cert-meta span,
+.bc-certificate.v230 .bc-cert-meta span {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .62), rgba(255, 253, 244, .34));
+  border: 1px solid rgba(155, 110, 27, .42);
+  border-top: 2px solid rgba(155, 110, 27, .7);
+  border-radius: 7px; padding: 9px 8px 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 1px 2px rgba(91, 56, 9, .08);
+}
+.bc-certificate.v229 .bc-cert-meta small,
+.bc-certificate.v230 .bc-cert-meta small { color: #6d4f16; font-size: 8.4px; letter-spacing: .17em; }
+.bc-certificate.v229 .bc-cert-meta b,
+.bc-certificate.v230 .bc-cert-meta b { color: #2b1a05; font-size: 15px; letter-spacing: .035em; }
+
+.bc-certificate.v229 .bc-cert-promise,
+.bc-certificate.v230 .bc-cert-promise {
+  max-width: 64ch; margin: 16px auto 0; padding: 11px 16px;
+  border-top: 1px solid rgba(155, 110, 27, .45);
+  border-bottom: 1px solid rgba(155, 110, 27, .45);
+  background: rgba(255, 253, 244, .42);
+  font-size: 13.5px; line-height: 1.66; color: #43290a;
+}
+.bc-certificate.v229 .bc-cert-promise b,
+.bc-certificate.v230 .bc-cert-promise b { color: #2b1a05; }
+
+.bc-certificate.v229 .bc-cert-sign b,
+.bc-certificate.v230 .bc-cert-sign b {
+  border-bottom: 1px solid rgba(155, 110, 27, .75);
+  padding-bottom: 6px; margin-bottom: 5px;
+  font-family: var(--ff-disp, Georgia, serif); font-style: italic;
+  font-size: 22px; letter-spacing: .015em; color: #2b1a05;
+  text-shadow: 0 1px 0 rgba(255, 253, 244, .8);
+}
+.bc-certificate.v229 .bc-cert-sign small,
+.bc-certificate.v230 .bc-cert-sign small { color: #6d4f16; font-size: 8.8px; letter-spacing: .16em; }
+
+.bc-certificate.v229 .bc-cert-verify,
+.bc-certificate.v230 .bc-cert-verify {
+  display: flex; align-items: center; gap: 10px; justify-content: center;
+  max-width: 70ch; margin: 14px auto 0;
+  font-size: 10.4px; letter-spacing: .1em; color: #6d4f16;
+}
+.bc-certificate.v229 .bc-cert-verify::before,
+.bc-certificate.v229 .bc-cert-verify::after,
+.bc-certificate.v230 .bc-cert-verify::before,
+.bc-certificate.v230 .bc-cert-verify::after {
+  content: ""; flex: 1 1 auto; height: 1px; min-width: 14px;
+  background: linear-gradient(90deg, transparent, rgba(155, 110, 27, .55), transparent);
+}
+.bc-certificate.v229 .bc-cert-verify b,
+.bc-certificate.v230 .bc-cert-verify b { color: #2b1a05; }
+.bc-certificate.v229 .bc-cert-fine,
+.bc-certificate.v230 .bc-cert-fine { color: #6d4f16; font-size: 10px; line-height: 1.62; }
+
+.bc-certificate.v229 .bc-cert-state,
+.bc-certificate.v230 .bc-cert-state { border-color: rgba(155, 110, 27, .6); background: rgba(255, 244, 209, .6); color: #6d4a10; }
+.bc-certificate.v229 .bc-cert-state.live,
+.bc-certificate.v230 .bc-cert-state.live { border-color: rgba(30, 110, 62, .55); background: rgba(232, 246, 236, .75); color: #1c6539; }
+.bc-certificate.v229 .bc-cert-kicker,
+.bc-certificate.v230 .bc-cert-kicker { color: #6d4f16; }
+.bc-certificate.v229 h2,
+.bc-certificate.v230 h2 { color: #2b1a05; }
+.bc-certificate.v229 h2 em,
+.bc-certificate.v230 h2 em { color: #6d4a10; }
+
+ 
+@media (max-width: 700px) {
+  .bc-certificate.v229 .bc-cert-name,
+  .bc-certificate.v230 .bc-cert-name { font-size: clamp(27px, 8.6vw, 38px); letter-spacing: .045em; }
+  .bc-certificate.v229 .bc-cert-seal,
+  .bc-certificate.v230 .bc-cert-seal { width: 78px; height: 78px; }
+  .bc-certificate.v229 .bc-cert-seal b,
+  .bc-certificate.v230 .bc-cert-seal b { font-size: 28px; }
+  .bc-certificate.v229 .bc-cert-meta b,
+  .bc-certificate.v230 .bc-cert-meta b { font-size: 13.5px; }
+  .bc-certificate.v229 .bc-cert-promise,
+  .bc-certificate.v230 .bc-cert-promise { font-size: 12.6px; padding: 9px 12px; }
+  .bc-cert-name-rule { width: 74%; }
+}
+
+ 
+ 
+.bc-certificate.v229,
+.bc-certificate.v230 { contain: paint; }
+ 
+.bc-certificate.v229 .bc-cert-frame,
+.bc-certificate.v229 .bc-cert-guilloche,
+.bc-certificate.v229 .bc-cert-corner,
+.bc-certificate.v230 .bc-cert-frame,
+.bc-certificate.v230 .bc-cert-guilloche,
+.bc-certificate.v230 .bc-cert-corner { pointer-events: none; }
+
+ 
+@media print {
+  .bc-certificate.v229, .bc-certificate.v229 *,
+  .bc-certificate.v230, .bc-certificate.v230 * {
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+  .bc-certificate.v229 .bc-cert-name,
+  .bc-certificate.v230 .bc-cert-name { color: #000 !important; -webkit-text-fill-color: #000 !important; text-shadow: none !important; }
+  .bc-certificate.v229 .bc-cert-guilloche,
+  .bc-certificate.v230 .bc-cert-guilloche { opacity: .4; }
+}

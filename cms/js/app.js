@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 229;
+const APP_REL = 230;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -3989,7 +3989,10 @@ function blackPct() {
   const s = Number(state.settings && state.settings.blackDiscountPct);
   if (Number.isFinite(s) && String(state.settings.blackDiscountPct).trim() !== '')
     return Math.max(0, Math.min(40, Math.round(s)));
-  return 25;
+  /* v230 (owner): the shipped default is 20 — the number the site has always
+     promised. It must agree with api.php black_pct_setting() or the page and the
+     checkout would quote two different offers. */
+  return 20;
 }
 function blackPctWord() { return blackPct() + '%'; }
 /* A receipt never follows a setting. An order placed at 20% must still say 20%
@@ -4104,13 +4107,18 @@ function blackCertificateHTML(card) {
      boxes (the certificate number and the member ID are different things and
      used to share one box), and a promise line that states the percentage,
      both dates and the scope so the counter conversation never has to happen. */
-  return `<article class="bc-certificate v229" aria-label="Shivaa Family Prestigious Member certificate">
+  /* v230 — the sheet carries both release classes on purpose: v229 built the
+     document (four record boxes, promise line, signatory, verify line) and v230
+     makes it legible (the name was foil-clipped and transparent on cream paper).
+     Keeping both means neither layer has to restate the other's rules. */
+  return `<article class="bc-certificate v229 v230" aria-label="Shivaa Family Prestigious Member certificate">
     <span class="bc-cert-frame" aria-hidden="true"></span><span class="bc-cert-guilloche" aria-hidden="true"></span><span class="bc-cert-corner c1"></span><span class="bc-cert-corner c2"></span><span class="bc-cert-corner c3"></span><span class="bc-cert-corner c4"></span>
     <div class="bc-cert-seal" aria-hidden="true"><span>✦</span><b>S</b><small>FAMILY</small></div>
     <div class="bc-cert-kicker">THE HOUSE OF SHIVAA · JAIPUR</div>
     <h2>Certificate of<br><em>Prestigious Membership</em></h2>
     <p class="bc-cert-presents">The Shivaa Family proudly welcomes</p>
     <div class="bc-cert-name">${esc(String(card.holderName || 'Shivaa Member').toUpperCase())}</div>
+    <span class="bc-cert-name-rule" aria-hidden="true"></span>
     <p class="bc-cert-copy">as a <b>Shivaa Family Prestigious Member</b>, recognised for a relationship we are honoured to keep beyond every purchase.</p>
     <div class="bc-cert-meta">
       <span><small>CERTIFICATE</small><b>${esc(card.certificateNo || '—')}</b></span>
@@ -4564,7 +4572,10 @@ window.Shivaa.saveBlackCertificate = async btn => {
     x.fillStyle = '#7b591e'; x.font = '700 17px Arial'; x.fillText('THE HOUSE OF SHIVAA · JAYAL', 900, 267);
     x.fillStyle = '#4f3108'; x.font = '700 68px Georgia'; x.fillText('Certificate of Prestigious Membership', 900, 358);
     x.fillStyle = '#826a3d'; x.font = '24px Georgia'; x.fillText('The Shivaa Family proudly welcomes', 900, 423);
-    x.fillStyle = '#4d2e04'; const name = String(card.holderName || 'Shivaa Member'); blackFitCanvasText(x, name, 1250, 80, 42, 'Georgia'); x.fillText(name, 900, 520);
+    /* v230 — the same ink as the screen certificate. The downloaded sheet is
+       cream paper too, so a lighter brown here would repeat on paper exactly the
+       bug the owner just reported on screen. */
+    x.fillStyle = '#2b1a05'; const name = String(card.holderName || 'Shivaa Member'); blackFitCanvasText(x, name, 1250, 80, 42, 'Georgia'); x.fillText(name, 900, 520);
     x.strokeStyle = '#9c742a'; x.lineWidth = 2; x.beginPath(); x.moveTo(300, 550); x.lineTo(1500, 550); x.stroke();
     x.fillStyle = '#69512a'; x.font = '26px Georgia';
     blackWrappedCanvasText(x, 'as a Shivaa Family Prestigious Member, recognised for a relationship we are honoured to keep beyond every purchase.', 900, 606, 1250, 38, 2);
