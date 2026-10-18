@@ -260,7 +260,7 @@ T('bundle: v225.css sits where this release put it, under the newest layer',
     orphans.length === 0, orphans.join(', '));
   T('bundle: nothing the site used to link was lost', DEAD.every(f => fs.existsSync('cms/css/' + f)));
   T('bundle: the inventory grew by exactly one layer, as this release did',
-    ORDER.length === 65 && layers.length === 66, ORDER.length + '/' + layers.length);
+    ORDER.length === 66 && layers.length === 67, ORDER.length + '/' + layers.length);
 }
 {
   let checked = 0, broken = [];
