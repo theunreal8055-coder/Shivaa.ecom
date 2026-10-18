@@ -147,7 +147,7 @@ T('cascade: the last word on the name colour is the v230 ink',
 T('cascade: the copy line was cream-on-cream too, and is ink now',
   /\.bc-certificate\.v230 \.bc-cert-copy \{ color: #4b3410/.test(V230) &&
   ratio('#4b3410', PAPER_LIGHT) >= 7, ratio('#4b3410', PAPER_LIGHT).toFixed(2));
-T('markup: the sheet carries both release classes', /class="bc-certificate v229 v230"/.test(APP));
+T('markup: the sheet carries every release class that styles it', /class="bc-certificate v229 v230 v231"/.test(APP));
 T('canvas: the downloaded A4 sheet draws the name in the same ink',
   /x\.fillStyle = '#2b1a05'; const name = String\(card\.holderName/.test(APP_J));
 T('print: ink prints as ink, with the foil shadow off',
@@ -231,14 +231,14 @@ T('smooth: the per-glyph filter is really gone from the shipped bundle',
 T('smooth: still exactly one blocking stylesheet',
   (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length === 1,
   (INDEX.match(/<link[^>]+rel="stylesheet"/g) || []).length + ' stylesheet links');
-T('bundle: the new layer is in the shipped bundle, exactly once, and last',
+T('bundle: the v230 layer is in the shipped bundle, exactly once, after v229',
   (BUNDLE.match(/^\/\* v230\.css \*\/$/gm) || []).length === 1 &&
   BUNDLE.lastIndexOf('/* v230.css */') > BUNDLE.lastIndexOf('/* v229.css */'),
   BUNDLE.lastIndexOf('/* v230.css */') + ' vs ' + BUNDLE.lastIndexOf('/* v229.css */'));
-T('stamps: every carrier is at 230',
-  (INDEX.match(/\?v=230/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*230/.test(INDEX) &&
-  /shivaa-shell-v230/.test(SW) && /const REL = 230/.test(SW) && (SW.match(/\?v=230/g) || []).length === 31 &&
-  /APP_REL = 230/.test(APP) && /'rel' => 230/.test(API));
+T('stamps: every carrier is at 231',
+  (INDEX.match(/\?v=231/g) || []).length === 32 && /__SHIVAA_REL\s*=\s*231/.test(INDEX) &&
+  /shivaa-shell-v231/.test(SW) && /const REL = 231/.test(SW) && (SW.match(/\?v=231/g) || []).length === 31 &&
+  /APP_REL = 231/.test(APP) && /'rel' => 231/.test(API));
 
 /* ── 6 · live: what the member actually sees ───────────────────────────── */
 const login = await jpost('/api/auth/login', { email: 'aarti@example.com', password: 'shivaa123' });
@@ -255,7 +255,7 @@ await until(() => $('.bc-certificate'), 15000);
 await wait(320);
 
 const cert = $('.bc-certificate');
-T('live: the certificate rendered with both layers', !!cert && cert.classList.contains('v229') && cert.classList.contains('v230'),
+T('live: the certificate rendered with every layer', !!cert && ['v229', 'v230', 'v231'].every(c => cert.classList.contains(c)),
   cert && cert.className);
 const nameEl = $('.bc-cert-name');
 T('live: the name is the member name, in caps', !!nameEl && WS(nameEl.textContent) === 'AARTI SHARMA', WS(nameEl && nameEl.textContent));

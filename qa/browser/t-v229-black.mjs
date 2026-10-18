@@ -148,8 +148,8 @@ T('app: order rows use it, so a receipt never follows a setting',
 }
 
 /* ── 3 · the certificate is a document ─────────────────────────────────── */
-T('cert: the markup carries both release classes (v229 built it, v230 makes it legible)',
-  /class="bc-certificate v229 v230"/.test(APP));
+T('cert: the markup carries every release class that styles it',
+  /class="bc-certificate v229 v230 v231"/.test(APP));
 {
   const cert = APP.slice(APP.indexOf('function blackCertificateHTML(card)'));
   const body = cert.slice(0, cert.indexOf('\nfunction ') > 0 ? cert.indexOf('\nfunction ') : 4000);
@@ -233,8 +233,8 @@ await until(() => $('.bc-certificate'), 15000);
 await wait(320);
 
 const certEl = $('.bc-certificate');
-T('live: the certificate rendered with both layers on it',
-  !!certEl && certEl.classList.contains('v229') && certEl.classList.contains('v230'), certEl && certEl.className);
+T('live: the certificate rendered with every layer on it',
+  !!certEl && ['v229', 'v230', 'v231'].every(c => certEl.classList.contains(c)), certEl && certEl.className);
 T('live: no page fault got here', faults().length === 0, faults().slice(0, 2).join(' | '));
 T('live: no console error either', errors.filter(e => !NOISE.test(e)).length === 0,
   errors.filter(e => !NOISE.test(e)).slice(0, 2).join(' | '));

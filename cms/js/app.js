@@ -11,7 +11,7 @@
    layer, which is exactly how "the update changed nothing" happened — reload
    exactly once so the release pairs up. The sessionStorage flag makes the
    guard fire at most once per tab; it can never loop. */
-const APP_REL = 230;
+const APP_REL = 231;
 /* v166 · ASSET_V — the stamp every asset URL this script builds must carry.
    `.htaccess` serves any `?v=` URL as `immutable` for a YEAR, so a literal
    frozen token (the old `?v=125` on category photos, `?v=122` on the logo
@@ -4111,8 +4111,10 @@ function blackCertificateHTML(card) {
      document (four record boxes, promise line, signatory, verify line) and v230
      makes it legible (the name was foil-clipped and transparent on cream paper).
      Keeping both means neither layer has to restate the other's rules. */
-  return `<article class="bc-certificate v229 v230" aria-label="Shivaa Family Prestigious Member certificate">
-    <span class="bc-cert-frame" aria-hidden="true"></span><span class="bc-cert-guilloche" aria-hidden="true"></span><span class="bc-cert-corner c1"></span><span class="bc-cert-corner c2"></span><span class="bc-cert-corner c3"></span><span class="bc-cert-corner c4"></span>
+  return `<article class="bc-certificate v229 v230 v231" aria-label="Shivaa Family Prestigious Member certificate">
+    <span class="bc-cert-frame" aria-hidden="true"></span><span class="bc-cert-guilloche" aria-hidden="true"></span><span class="bc-cert-guilloche bc-guilloche-foot" aria-hidden="true"></span>
+    <span class="bc-cert-microtext" aria-hidden="true" data-microtext="SHIVAA FAMILY · PRESTIGIOUS MEMBER · SHIVAA JEWELS JAIPUR · NOT A FINANCIAL INSTRUMENT · SHIVAA FAMILY · PRESTIGIOUS MEMBER · SHIVAA JEWELS JAIPUR · NOT A FINANCIAL INSTRUMENT · SHIVAA FAMILY · PRESTIGIOUS MEMBER · SHIVAA JEWELS JAIPUR ·"></span>
+    <span class="bc-cert-corner c1"></span><span class="bc-cert-corner c2"></span><span class="bc-cert-corner c3"></span><span class="bc-cert-corner c4"></span>
     <div class="bc-cert-seal" aria-hidden="true"><span>✦</span><b>S</b><small>FAMILY</small></div>
     <div class="bc-cert-kicker">THE HOUSE OF SHIVAA · JAIPUR</div>
     <h2>Certificate of<br><em>Prestigious Membership</em></h2>
