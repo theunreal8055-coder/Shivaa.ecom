@@ -126,14 +126,15 @@
   Forward-only from 205. Next release is 206 or higher. Live version check: `/api/version`.
   Not yet verified by the agent: the PHP backend path on the live server and a real phone run.
 
-## CURRENT STATE — refreshed 18 Oct 2026 (read this first)
+## CURRENT STATE — refreshed 18 Oct 2026, after v230 (read this first)
 
 - **Branch:** the Arena session branch `arena/e8a470c6-shivaa-ecom` (the owner was told the session is
   hard-wired to it and said "Isi pe kaam kr"). `arena/09f3c79f-shivaa-ecom` is untouched. Commit and push
   after every coherent stage — a sandbox reset in this release wiped several hours of uncommitted work
   and the whole v229 build had to be redone from its own written contract.
-- **Live:** **v228** (owner-confirmed 17 Oct 2026, "working fine and good"). **v229 is built and pending
-  the owner's yes**; the next release after it is v230. Forward-only from 228: never reuse or renumber a
+- **Live:** **v228** (owner-confirmed 17 Oct 2026, "working fine and good"). **v229 and v230 are built and
+  pending the owner's yes — deploy v230, not v229**: v230 contains all of v229 and corrects the 25% member
+  rate v229 shipped with, which the owner rejected as a false claim. The next release after v230 is v231. Forward-only from 228: never reuse or renumber a
   shipped release, never deploy an older tree over a newer live site.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
   delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
@@ -169,7 +170,58 @@
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
 
-## v229 — the Paperwork Release (18 Oct 2026) · BUILT, not live
+## v230 — the Legibility Release (18 Oct 2026) · BUILT, not live · deploy this, not v229
+
+Two owner reports the same day v229 was handed over, both real, both worth more than the fix:
+
+- **A colour is not a treatment.** "The name of the prestigious customer in the membership certificate is
+  of same colour as of background." `v201`/`v205` had given `.bc-cert-name` a **gold foil**: a gradient
+  `background` clipped to the glyphs with `color:transparent`, plus a dark `drop-shadow` filter — correct
+  on the **dark** certificate stage those releases shipped, and the paper certificate is **cream**. The
+  foil's mid-stop measures **~1.4:1** on it (WCAG asks 4.5:1; large text 3:1). **v229 set a colour, which
+  won the cascade and changed nothing visible**, because `background-clip:text`, the foil
+  `background-image` and the dark-stage filter all still applied. The lesson is the part worth keeping:
+  when a previous release styled an element for a different stage, *setting one property is not removing
+  a treatment* — reset every mechanism (background, clip, `-webkit-text-fill-color`, which beats `color`
+  where set, and `filter`). `css/v230.css` does that with `!important`, narrowly, because `styles.css`
+  itself has foil utilities using `-webkit-text-fill-color:transparent !important` and a legibility fix a
+  utility can beat is not a fix. Ink `#2b1a05` on paper: **15.4:1** lightest stop, **9.6:1** darkest
+  (AAA); the copy line was cream-on-cream and is ink now; the A4 download draws the same ink; print forces
+  black. The suite **computes** both ratios — the failing one and the fixed one — so the bug is proved and
+  nobody can restore the foil without a red line explaining what it costs.
+- **The number that ships is a promise.** "On the card you have mention the 25% … this is a false claim …
+  should be only at 20% off making charges for the customers of prestigious members." Because v229 made the
+  rate ONE setting, this was a **default** change in four places (`api.php black_pct_setting()`, `app.js
+  blackPct()`, the Admin field + its save, the dev mirror) and nothing else moved: the 0-40 clamp and the
+  owner's control stayed, no card was reissued, and the fixture's stored `discountPct` flipped **20 → 25**
+  so the suite still proves the server overrides whatever a card carries. The consequence is now recorded
+  rather than hidden: a member and a guest with public `MAKING20` get the same 20%, and that is the owner's
+  decision — the membership's difference is the card, the certificate, the free physical card and the
+  account. **The v229 zip is pushed and must not be deployed**; the release table says so, because a green
+  gate on a wrong number is still a wrong number.
+- **Graphics further, smoothness as subtraction.** Seal with a conic tick band and two rings; engraved
+  double-rule border; denser guilloche plus a vertical band; record boxes with an accent edge; the promise
+  line in a cartouche (it is the legal line); a signature rule; a hairlined verify strip; a flourish under
+  the name. For smoothness the release **removed** work instead of adding tricks: a per-glyph `filter`
+  (re-rasterises its subtree on every paint) and a gradient clipped to glyph outlines are gone from the
+  most painted element on the member page, and `contain:paint` keeps the rest inside the sheet. No
+  `@keyframes`, no `transition`, no `will-change` — a document that moves is a document nobody trusts.
+- **Three red lines on the first v230 gate were all assertion faults, and two were worse than none**: a
+  check ending in `|| true` (cannot fail, reports green while proving nothing), and
+  `!/filter:\s*(?!none)/` where `\s*` matches zero characters so the lookahead is tested at the space and
+  passes on `filter: none`. Also a cascade check that compared `lastIndexOf('.bc-cert-name {')` — which the
+  layer's own **print** rule ends with, so it compared the fix against itself and lost. And a doc anchor
+  missed by two characters (a bullet, not two spaces), which aborted that file's patch silently while the
+  next command in the chain built the zip anyway — so for one minute the package carried a document that
+  still promised members 25%. **A doc that ships inside the zip gets grepped for the claim afterwards.**
+- **QA:** `bash qa/v230-gate.sh` → **21 checks, 0 red**; new `qa/browser/t-v230-cert.mjs` **61/0** (it also
+  proves 20 is a default, not a new literal, by moving the setting to 22 and watching the certificate
+  follow, then restoring 20); v229 still green — bills 102/0, black 88/0, routes 61/0.
+- **Package:** `shivaa-update-v230.zip` — **359 files · 37,326,620 B · sha256
+  `371084903c4359ce069e08dfee63149f44475786c36a76b1fb7ba743342a4dfe`**. Rollback stays
+  `shivaa-update-v228.zip` (what is live) — **never** "roll back" to v229.
+
+## v229 — the Paperwork Release (18 Oct 2026) · BUILT, superseded by v230 (do not deploy alone)
 
 Five things the owner asked for in one update, plus the paperwork that makes them safe to deploy.
 

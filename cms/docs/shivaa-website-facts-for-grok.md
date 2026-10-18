@@ -185,15 +185,20 @@ status chips "Spot mode"/"Override active".
 
 ## 3 · Memberships & offers
 
-- **Shivaa Black Card** (v184+, reworked v227 and v229) — retail-only,
-  six-month, OTP-verified personal membership. The discount is **not a fixed
-  20%**: since v229 it is ONE setting, `settings.blackDiscountPct`
-  (**default 25**, clamped 0-40, and 0 switches the benefit off *without
-  deleting anybody's card*), set in **Admin → Settings**. The server resolves it
+- **Shivaa Black Card** (v184+, reworked v227, v229 and v230) — retail-only,
+  six-month, OTP-verified personal membership: **20% off making charges**, which
+  is what every member-facing surface says and what the site has always promised.
+  Since v229 that number is ONE setting (`settings.blackDiscountPct`, clamped
+  0-40, and 0 switches the benefit off *without deleting anybody's card*), set in
+  **Admin → Settings**; since **v230 it ships at 20**, because a 25% default was
+  a claim the site never made and the owner called it false. Do not quote any
+  other percentage for Shivaa Black unless the owner has changed the setting. The server resolves it
   once per request; the card, the certificate, checkout and the downloaded
   artwork all read the same number, and **no coupon row is stored per member**,
   so changing it moves every member at once and no card number ever changes.
-  A card created under the old 20% therefore shows 25% after deploy.
+  A card carries its own stored percentage and the server **overrides it from the
+  setting**, so no card has to be reissued for a rate change and a card created
+  under an older number quotes the current one.
   **Historical orders are the exception**: an invoice or order row derives its own
   rate from that order's two numbers, because a receipt must never follow a
   setting.
@@ -209,7 +214,9 @@ status chips "Spot mode"/"Override active".
   sidebar badge counting what is still to post, a CSV export and a printable
   posting list of address labels.
 - **Prestigious Member Certificate** — a lifetime keepsake issued with the card,
-  and since v229 a real document: four record boxes (certificate no · member ID ·
+  since v229 a real document, and since v230 a legible one (the member's name was
+  gold foil clipped to transparent glyphs on cream paper, about 1.4:1 contrast; it
+  is now ink at 15.4:1, and the downloaded A4 sheet draws the same ink): four record boxes (certificate no · member ID ·
   issued · valid through), the member's name in caps as the largest element after
   the title, a promise line stating the percentage, both dates and the scope
   (*never on metal value, stones, GST or shipping*), a signatory **with a title**

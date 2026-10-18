@@ -1,6 +1,69 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
 ---
+**v230 — THE LEGIBILITY RELEASE** (2026-10-18). The owner looked at the v229
+certificate and the v229 card and reported two things. Both were real, and neither
+was a matter of taste:
+
+1. **"the name of the prestigious customer in the membership certificate is of
+   same colour as of background."** Measured, not guessed: `v201`/`v205` gave
+   `.bc-cert-name` a **gold-foil treatment** — a gradient `background` clipped to
+   the glyphs with `color:transparent`, plus a dark `drop-shadow` filter. That was
+   correct on the **dark** certificate stage those releases shipped. The paper
+   certificate that `v184`/`v229` render is **cream**
+   (`#f4e2a6 → #fffdf1 → #ead18a`), and the foil's mid-stop measures about
+   **1.4:1** against it (WCAG asks 4.5:1, and 3:1 for large text). v229 set
+   `color:#3d2405`, which **wins the colour cascade but left the treatment in
+   place** — `background-clip:text`, the foil `background-image` and the
+   dark-stage filter all still applied. *Setting a colour is not the same as
+   removing a treatment.* `css/v230.css` §1 removes all four mechanisms with
+   `!important` — the clipped background, the clip itself, `-webkit-text-fill-color`
+   (which beats `color` where it is set) and the filter — and puts ink
+   **`#2b1a05`** on paper: **15.4:1** on the lightest stop, **9.6:1** on the
+   darkest (AAA). `!important` is deliberate and narrow: `styles.css` has foil
+   utilities that use `-webkit-text-fill-color:transparent !important`, and a
+   legibility fix a utility class can beat is not a fix. The suite asserts that
+   every `!important` in the layer is ink, a foil reset or a print declaration —
+   never a layout property. `.bc-cert-copy` was cream-on-cream for the same reason
+   and is ink now; the **A4 download draws the same ink**; print forces pure
+   black.
+2. **"on the card you have mention the 25% of on making charges so this is a false
+   claim ... should be only at 20% off making charges for the customers of
+   prestigious members."** Because v229 made the rate ONE setting, this is a
+   **default** change in the four places that carry it — `api.php
+   black_pct_setting()`, `app.js blackPct()`, the Admin Settings field and its
+   save body, and `qa/preview_shim.py dev_black_pct()` — and nothing else moves.
+   The clamp stays **0-40** and the setting is still the owner's to change; only
+   what ships changed. The fixture's stored `discountPct` flips **20 → 25** so the
+   suite still proves the server overrides whatever a card carries, and the
+   Settings help text now says what ships instead of arguing for a number the
+   owner did not choose. **Consequence to remember:** a member card and the public
+   `MAKING20` offer now quote the same 20% — that is the owner's decision, and
+   Premium's lifetime 20% and Amrita ji's ticket were already 20% and are
+   untouched.
+
+**Graphics taken further** (also asked for): a seal with a conic tick band, two
+rings and a foil sheen; a double-rule engraved border; a denser guilloche with a
+fifth vertical band; record boxes with an accent top edge and an inset highlight;
+the promise line in a **cartouche** (it is the legal line); a signature rule to
+sign on; the verify line as a strip with hairlines either side; and a **flourish
+under the name** so the eye lands on it. Small screens keep every one of those
+decisions instead of dropping them.
+
+**Smoothness was subtraction.** The certificate is the most painted element on the
+member page: this removes a per-glyph `filter` (a filter re-rasterises on every
+paint of its subtree) and a gradient clipped to glyph outlines, then adds
+`contain: paint` so the sheet does not repaint the page through it. **No
+`@keyframes`, no `transition`, no `will-change`** — a document that moves is a
+document nobody trusts.
+
+New suite `qa/browser/t-v230-cert.mjs` (**61 assertions**): it computes WCAG
+contrast for both the failing foil and the fixed ink so the bug is proved rather
+than described, checks the cascade order in the shipped bundle, and proves 20 is a
+*default* and not a new literal by moving the setting to 22 and watching the
+certificate follow. New gate **`bash qa/v230-gate.sh`** → **21 checks, 0 red**
+(v229's suites still green: bills 102/0, black 88/0, routes 61/0).
+
 **v229 — THE PAPERWORK RELEASE** (2026-10-18). The owner asked for the whole
 queued list in one update — *"Sab banao agle update main"* — plus one more thing:
 offline/in-store purchase bills, and a member certificate built to the best level
@@ -135,17 +198,23 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
-**COUNTDOWN: release 229 pending owner review — nothing deployed without the
+**COUNTDOWN: release 230 pending owner review — nothing deployed without the
 owner's explicit yes.** Live today: **v228** (the owner uploaded it on 17 Oct
 2026 and reported it "working fine and good"; v206–v227 went live with it).
-Built and shipped to this repository, **not live**: **v229**.
+Built and shipped to this repository, **not live**: **v229, v230**. Deploy v230
+— it contains v229, and v229 on its own quotes 25% to members, which the owner
+has called a false claim.
 
-Last updated: 2026-10-18 (v229 "The Paperwork Release" — Admin gains a Shivaa Black
-control room with the free-card posting queue, members can renew in one tap, the member
-percentage becomes ONE setting (default 25) instead of a literal 20 in nine places,
-in-store paper bills get a private owner-side vault with a customer page that can only
-View and Download, and the certificate becomes a document with four record boxes, a
-signatory, a verify line and an A4 300 dpi download).
+Last updated: 2026-10-18 (v230 "The Legibility Release" — the certificate's member name
+was gold foil clipped to transparent glyphs on cream paper, about 1.4:1, and is now ink at
+15.4:1; the member rate ships at 20% because 25% was a claim the site never made; the sheet
+is engraved rather than decorated; and the paint cost of the certificate went down because a
+per-glyph filter and a glyph-clipped gradient were removed. Earlier the same day: v229
+"The Paperwork Release" — Admin gained a Shivaa Black control room with the free-card posting
+queue, members can renew in one tap, the member percentage became ONE setting, in-store paper
+bills got a private owner-side vault with a customer page that can only View and Download, and
+the certificate became a document with four record boxes, a signatory, a verify line and an
+A4 300 dpi download).
 product page, forgot-password asks for the mobile then sets a new password, the home page's
 ₹₹ and dead hero hint are gone, and the footer/rail/copy got measured).
 perfect, even more buttery smooth, and "fantastic animations on every clicks". Measured first: across 6
@@ -242,7 +311,8 @@ modified.
 ## 1 · The absolute rules (owner's — never break)
 
 1. **Forward-only.** Never reuse or renumber a shipped release. Live is **v228**;
-   **v229 is built and pending the owner's yes**; **the next release is v230**.
+   **v229 and v230 are built and pending the owner's yes** (deploy **v230** — it
+   contains v229 and corrects its 25% claim); **the next release is v231**.
    Never deploy an older tree over a newer live one. No reverts, no force-pushes,
    no resurrecting old zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a
@@ -310,6 +380,7 @@ modified.
 | v225 | The App-Feel Release: the frame the phone paints while a thumb is moving. (1) **one scroll frame** — `app.js` and `aurum.js` each ran their own scroll listener on their own rAF and each read `documentElement.scrollHeight` + `clientHeight` on **every frame**; `js/v225.js` now owns the chrome from one passive listener and one rAF, measuring the geometry only when it can change (resize, route, a `ResizeObserver` on the body, three late passes) and quantising the writes (bar 0.1%, ring 1/120 of a turn). A six-event scroll burst reads the document **zero** times; `hub.measures` does not move, and a resize does re-measure. Both old handlers feature-detect `window.__shvHub` and stand down, so a warm cache can never leave the bar with two writers or none. (2) **parallax on the phone** — feature 12 was gated to `(hover:hover) and (pointer:fine)` over 1023px; a coarse pointer now runs it at **11px instead of 26**, still off for reduced-motion and `au-lite`, still tagged only within 80px of the viewport, and each element's document offset is **cached** (re-taken when the hub reports the document changed shape) so a scroll frame performs **no `getBoundingClientRect()`** on any device; a detached element is dropped instead of being written to for ever from a 0×0 box. (3) **two infinite repaint loops become composited sweeps** — `@keyframes mSkeleton` (the PDP skeleton ×7, plus `.pc-imgwrap` / `.tv-ph` while a photo loads, which is **every** product card) and `@keyframes auProg` (the 3px progress bar, which never idled for a second of any visit) animated `background-position`, which no browser can composite. Both now move a pseudo-element with `translate` — same colour, speed and angle; `.pc-imgwrap::after` is already the gold hairline, so the placeholder sweep is a `::before` at z-index 0 with the photos lifted while the placeholder is live. (4) **a card is no longer a GPU layer on a phone** — `.p-card` reserved `will-change: transform` for a hover state a finger cannot trigger (20–60 layers held in video memory on a shop page); `html.au-touch .p-card { will-change: auto }`, desktop untouched. (5) **rails** — eight `overflow-x:auto` rails (`.cat-chips`, `.adr-sw`, `.stages`, `.sz-strip-wrap`, `.tabs`, `.acct-nav`, `.adm-nav`) plus the scheme stepper gain `scroll-snap-type: x proximity`, snap points on their children and `overscroll-behavior-x: contain`, so a flick parks on a label and a swipe at the end cannot become the browser's back gesture. (6) **tablets** — the v224 16px focus-zoom floor extended to the 681–900px band (an iPad in portrait is 768px), same field list, still no `!important`, so nothing large can shrink. (7) **depth and digits** — twelve more live numeral strips go tabular, `.p-card` gets the house gold hairline (`rgba(212,175,90,.14)`, `.42` + a wine-tinted shadow on hover) and the Android grey tap flash is suppressed on the eight card/chip/tile selectors that already answer with their own press transform. New suite `qa/browser/t-v225-appfeel.mjs` (80 assertions). | built, delivered to owner |
 | v226 | The Butter Release: every click answers. (1) **press physics** — the measurement above; each dead family now has a transform press, and on a finger the rules carry `!important` because `mobile.css`'s `*:hover{transform:none!important}` would otherwise erase them. (2) **ripple + haptic** — `js/v226.js` reuses the v89 `.rip` span: small controls ripple at touch-down, big surfaces (a product card, a list row) ripple only on a real tap so starting a scroll never lights them up, rail items ripple on release so a flick cannot fire a ripple on every chip it passes, and the host is clipped only for the 700 ms the ripple is alive. One 5 ms vibration on a real tap, gated like the house gates haptics (coarse AND not reduced-motion). (3) **rail centring** — tapping a chip, tab or step in a snapped rail glides that item to the middle of the rail. (4) **badges** — the wish and compare counters pop with the same `mBump` keyframe the cart badge has used since v89. (5) **route jump** — `html.route-jump` makes the router's scroll-to-top instant for that one navigation instead of animating a long slide of the page being left. (6) **pace bar** — a 2px gold hairline sweeps the top of the screen only when the next page takes longer than 180 ms; on a fast tap nothing is created. (7) **view transitions** — where `startViewTransition` exists the content cross-fades (6-10px, transform/opacity) while the chrome stays still and the entrance stands down for that navigation; skipped for reduced motion, for `au-lite` devices and for a link marked `data-no-vt`. New suite `qa/browser/t-v226-butter.mjs` (61 assertions). | built, delivered to owner |
 | v227 | The Reading Layer: (1) **the black-card claim works from every product page** — the reader demanded `[data-black-claim] [data-bc-intake]`, which only exists on `#/black-card`, so a PDP tap returned "Enter your name", stopped there, and the status writer had nowhere to write either; the reader is form-aware, the invite card carries its own status line, the claim falls back to the account name and sends a nameless account to the page that asks, and the post-login auto-claim prefills its form first. (2) **forgot-password is mobile-first** — 4-digit code to the registered mobile, then new password + repeat, real 30 s resend; `api.php` takes `{phone}` or `{email}` and always texts the registered mobile. (3) **home page** — the rate ribbon printed `₹₹` on every figure, the legacy hero hint was a bare `<div>` that ate taps, the home hero's "discover" measured 44 % white in 60 % opacity, and the news logo + mega feature art loaded eagerly with no intrinsic size. (4) **the reading layer** — footer bleed follows the nav's measured height, late mounts are still deferred, the rail centres its active chip without moving the page and stops animating under reduced motion, and the deepest footer gold is readable. Suites: blackcard 28, reset 31, design 41. Packaged as `shivaa-update-v227.zip`. |
+| v230 | **The Legibility Release**: the owner reported that the member's name on the certificate was the same colour as the background. It was — `v201`/`v205` clipped a gold foil into `.bc-cert-name` (`background-clip:text` + `color:transparent` + a dark `drop-shadow`) for the **dark** stage those releases shipped, and the paper certificate is cream, so it measured ~**1.4:1**. v229 had set a colour, which won the cascade but left the treatment in place; `css/v230.css` removes all four mechanisms (`background`, `background-clip`, `-webkit-text-fill-color`, `filter`) with `!important` scoped to ink/foil/print only, and puts ink `#2b1a05` on paper at **15.4:1 / 9.6:1** (AAA), with the same ink in the A4 download and pure black in print. Second report: **25% is a false claim — prestigious members are 20% off making charges**; since v229 the rate is ONE setting, so the *default* moved in `api.php`, `app.js`, the Admin field and the dev mirror, the clamp (0-40) and the owner's control did not, and the fixture now stores 25 so the override is still proven. Graphics taken further (seal with a conic tick band and two rings, engraved double-rule border, denser guilloche, record boxes with an accent edge, the promise line in a cartouche, a signature rule, a hairlined verify strip, a flourish under the name), and smoothness as subtraction: a per-glyph filter and a glyph-clipped gradient removed from the most painted element on the member page, `contain:paint` added, **no keyframes, no transitions, no will-change**. New `qa/browser/t-v230-cert.mjs` (61 assertions — it computes WCAG contrast for both the failing foil and the fixed ink, and proves 20 is a default by moving the setting to 22); new gate `bash qa/v230-gate.sh` → **21 checks, 0 red** with v229 still green (bills 102/0, black 88/0, routes 61/0). **358 files** (adds `css/v230.css`). | built, awaiting the owner's yes — **deploy this, not v229** |
 | v229 | **The Paperwork Release**: (1) `Admin → Shivaa Black` — members were only ever rows in `users[]`, so there was nowhere to see who holds a card, when it runs out, or which free plastic cards still have to be printed and posted; the tab adds the list, a summary strip, filters, per-member **↻ Renew** (1-36 months, a live card **extends from its own expiry**), **🖶 Printed → ✔ Shipped**, CSV, a printable posting list of address labels and a sidebar badge fed by `GET /api/admin/black-card/queue`. (2) **Renewal exists**: `POST /api/black-card/renew`, open only in the last 30 days of validity or after expiry (else **409** naming the days left), rate-blocked 6/h, keeping `memberId`/`cardNumber`/`certificateNo` and adding six **calendar** months. (3) **The offer gap closed**: the member percentage was a literal 20 in nine places — exactly what public `MAKING20` gives a guest — and is now ONE setting, `settings.blackDiscountPct` (default **25**, 0-40, 0 = off without deleting cards), resolved once per request; no coupon row per member, so one number moves everybody and no card number changes, while `blackOrderPct(o)` keeps historical receipts on the rate they actually paid. (4) **In-store bills**: owner-side upload only, `.shivaa-private-bills` **beside** the docroot (env override, 0700/0600, no symlinks, magic bytes in *and* out), streamed **by index** with `no-store`/`nosniff`/`SAMEORIGIN`; the customer page `#/my-bills` has **exactly two verbs, View and Download**, and `bill_public($b,$admin)` never sends the owner's note or a stored `ref` to a customer; unavailable storage is a **503 that says nothing was saved** plus an amber box, and erasure anonymizes bills at **both** routes because a bill is a GST record. (5) **The certificate is a document**: four record boxes (certificate no and member ID are different identifiers and shared one box), valid-through, a promise line with the percentage, both dates and the scope, a signatory **with a title**, a verify line naming `shivaa.in` and the certificate number, `RENEWED n×`, one guilloche band, four corner ornaments (the old markup shipped `c4` twice), an archived pill that turns **gold** not grey, and an **A4 landscape 3508×2480 @300 dpi** download. Gate: `bash qa/v229-gate.sh` → **20 checks, 0 red**; new suites `t-v229-black` 88/0, `t-v229-bills` 102/0, `qa/v229-routes.py` 61/0. | built, awaiting the owner's yes |
 | v228 | The Play Store Gate: the erasure page Google requires now exists. `POST /api/auth/delete-account` had shipped at v183 with no caller and no page — every document pointed at `#/delete-account`, which fell through the router to Home, so the URL Play would have been given opened the shop. `#/delete-account` (alias `#/erase-account`) is now a page: signed out it proves the number with a fresh SMS code (no sign-in first), signed in the session is proof, both need the word DELETE, the owner and B2B partners are refused server-side, success anonymises the row and kills every device token, and the page repeats the server's message; the account screen carries a Privacy & my data tile. The TWA shortcut "Ring size guide" pointed at `#/size-guide`, which never existed (the sizer is `#/sizer`) — now an alias, and all three shortcuts are proven to render. `holdRepeat` also stopped stepping pages that were left (t7-audit caught the TypeError on the size page). New suite `t-v228-play.mjs` (51). Packaged as `shivaa-update-v228.zip`. |
 | v218 | The Sign-in Release: the 10 g Gold Scheme entry on home is highlighted (halo ring, larger target); the funnel stops jumping to top (scroll only when the step is off screen, never on first paint); the sidebar is the earlier drawer again plus swipe-left-to-close; the film case is removed for good (script, mount, module, CSS hooks, tests); the Retail and Jeweller B2B sign-in sheet is restyled in v218.css under #shvAuthWrap, JS and IDs unchanged. |
@@ -344,7 +415,19 @@ modified.
   (`window.__blobStore`) so a suite can prove that opening a second file revokes
   the first. `getContext` still returns null by design — the canvas savers always
   take their toast-guard path, so assert the guard, never a blob.
-- **`bash qa/v229-gate.sh`** — the whole release gate in one command: bundle
+- **`bash qa/v230-gate.sh`** — the current release gate in one command: bundle
+  proof (64 layers / 64 blocks), `qa/phpbal.py cms/api.php`, `node --check` ×4, the
+  sixteen historic suites on the plain fixture, `qa/v229-routes.py`, then the three
+  stateful suites each on a **fresh staffed shim**, then `playstore/verify.mjs`.
+  **21 checks, 0 red** at v230. (`qa/v229-gate.sh` is the previous release's gate
+  and is kept for the same reason the older suites are kept.)
+- `node qa/browser/t-v230-cert.mjs` — the legibility release (61 assertions):
+  WCAG contrast computed for the failing foil and the fixed ink, the cascade order
+  in the shipped bundle, the graphics, the smoothness subtractions, and a proof
+  that 20 is a *default* rather than a new literal (it moves the setting to 22 and
+  watches the certificate follow, then restores 20). Re-runnable: no OTP, no
+  renewal consumed.
+- **`bash qa/v229-gate.sh`** — the v229 gate in one command: bundle
   proof, `qa/phpbal.py cms/api.php`, `node --check` ×3, the sixteen historic
   suites on the plain fixture, `qa/v229-routes.py`, then the two v229 suites each
   on a **fresh staffed shim**. Builds its own fixtures and starts/stops its own
