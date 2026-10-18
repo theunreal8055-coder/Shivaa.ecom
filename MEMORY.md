@@ -126,15 +126,16 @@
   Forward-only from 205. Next release is 206 or higher. Live version check: `/api/version`.
   Not yet verified by the agent: the PHP backend path on the live server and a real phone run.
 
-## CURRENT STATE — refreshed 18 Oct 2026, after v230 (read this first)
+## CURRENT STATE — refreshed 18 Oct 2026, after v231 (read this first)
 
 - **Branch:** the Arena session branch `arena/e8a470c6-shivaa-ecom` (the owner was told the session is
   hard-wired to it and said "Isi pe kaam kr"). `arena/09f3c79f-shivaa-ecom` is untouched. Commit and push
   after every coherent stage — a sandbox reset in this release wiped several hours of uncommitted work
   and the whole v229 build had to be redone from its own written contract.
-- **Live:** **v228** (owner-confirmed 17 Oct 2026, "working fine and good"). **v229 and v230 are built and
-  pending the owner's yes — deploy v230, not v229**: v230 contains all of v229 and corrects the 25% member
-  rate v229 shipped with, which the owner rejected as a false claim. The next release after v230 is v231. Forward-only from 228: never reuse or renumber a
+- **Live:** **v228** (owner-confirmed 17 Oct 2026, "working fine and good"). **v229, v230 and v231 are
+  built and pending the owner's yes — deploy v231 only.** Not v229: it quotes 25% to members, the claim the
+  owner rejected. Not v230 alone: its legibility fix is keyed on a class list (`.bc-certificate.v230
+  .bc-cert-name`), which v231 restated on the bare selector so no edit can lose it. The next release is v232. Forward-only from 228: never reuse or renumber a
   shipped release, never deploy an older tree over a newer live site.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
   delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
@@ -170,7 +171,54 @@
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
 
-## v230 — the Legibility Release (18 Oct 2026) · BUILT, not live · deploy this, not v229
+## v231 — the Engraved Layer (18 Oct 2026) · BUILT, not live · deploy this, not v229 or v230
+
+The owner sent the same two-bug report twice — the second time after v230 had already fixed both. Nothing
+was wrong with v230. What the second message actually asked for was "graphics even more" and "make the app
+smooth", so v231 does the three things v230 left open, and the reply handed him the newest zip with the
+measured proof rather than asking him to re-check.
+
+- **Make a fix structural, not selector-deep.** v230 reset the certificate name under
+  `.bc-certificate.v230 .bc-cert-name` — correct, and one class-list edit away from dead. v231 states the
+  same four-mechanism reset on the **bare** `.bc-cert-name` (`background`, `background-image`,
+  `background-clip`, `-webkit-text-fill-color` + `color`, `filter`, each `!important`), and gives every other
+  line of the document `-webkit-text-fill-color: currentColor` + `background-clip: border-box`. That guard
+  deliberately **restates no colours**: a legibility layer that also picks the palette is a layer nobody can
+  restyle without a fight. The suite asserts the absence of hex values in the guard, which is the rare case
+  of testing what a rule does *not* say.
+- **Microtext, from an attribute.** The banknote cue the design research asks for and the HTML sheet never
+  had (the canvas download has carried it since v229): one 9px band of 5.5px letterspaced text under the top
+  border, `content: attr(data-microtext)` so there is **no text node** for a screen reader to read out and
+  nothing duplicated in markup, and `display:none` in print. **One band, not two** — a pseudo-element of a
+  9px-tall parent cannot be positioned at the foot of a 600px sheet, and decorative layers positioned by
+  guesswork are how a certificate ends up with a stray line through the signature. The first draft did
+  exactly that (`bottom:-100%; transform:translateY(...)`) and was replaced before it shipped.
+- **"Less paint" is a number.** The guilloche was a full-sheet element whose gradients were merely
+  *positioned* as bands, so the browser rasterised ~900×600. It is now two **58px** elements (44px on a
+  phone) with a `.bc-guilloche-foot` modifier: same artwork, about a fifth of the area — and the suite
+  asserts the height, because otherwise the claim is a feeling. Still no `@keyframes`, no `transition`, no
+  `will-change`, no `filter`; `contain:paint` from v230 still isolates the sheet.
+- **Two red lines on the first gate, both the same family as v229's and v230's — an anchor that is not what
+  it thinks it is.** (a) A stamp pin written as a **regex** (`/__SHIVAA_REL\s*=\s*230/`) survived a roll
+  that only replaces literal spellings, and then demanded a release that no longer exists: *when you roll
+  stamps, grep for the regex spellings too.* (b) A slice ended on `indexOf('/* ── §2')` over a string whose
+  comments had already been stripped, so `indexOf` returned **-1** and `slice(start, -1)` became "everything
+  except the last character" — swallowing a later section's colours and failing a check about an earlier one.
+  *A -1 from indexOf is never a position*; end slices on tokens that survive the stripping you did, and
+  assert the slice is real (`group.length > 200`) before trusting it.
+- **A stale comment is a live bug with a delay.** `blackPct()`'s own header comment still said "default 25"
+  after the default moved to 20 — found only because the release ritual greps the shipped tree for the
+  rejected claim rather than trusting the diff. It ships inside the zip, and a comment that contradicts its
+  function is how the next agent restores the wrong number.
+- **QA:** `bash qa/v231-gate.sh` → **22 checks, 0 red**; new `qa/browser/t-v231-ink.mjs` **53/0** (recomputes
+  both WCAG ratios — ink now clears AAA on *both* paper stops — proves the bare-selector reset is in the
+  shipped bundle *after* the foil rule, and proves 20 is a default by moving the setting to 21); v230 61/0,
+  v229 bills 102/0, black 88/0, routes 61/0.
+- **Package:** `shivaa-update-v231.zip` — **360 files · 37,333,506 B · sha256
+  `114394131d4033ca8e18dea9bf139bb8495b3691529f0b2fcb13c42647fb937c`**. Rollback stays
+  `shivaa-update-v228.zip` (what is live) — never v229 or v230.
+
+## v230 — the Legibility Release (18 Oct 2026) · BUILT, superseded by v231 (do not deploy alone)
 
 Two owner reports the same day v229 was handed over, both real, both worth more than the fix:
 

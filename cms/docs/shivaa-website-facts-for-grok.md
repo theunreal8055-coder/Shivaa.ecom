@@ -214,9 +214,17 @@ status chips "Spot mode"/"Override active".
   sidebar badge counting what is still to post, a CSV export and a printable
   posting list of address labels.
 - **Prestigious Member Certificate** — a lifetime keepsake issued with the card,
-  since v229 a real document, and since v230 a legible one (the member's name was
-  gold foil clipped to transparent glyphs on cream paper, about 1.4:1 contrast; it
-  is now ink at 15.4:1, and the downloaded A4 sheet draws the same ink): four record boxes (certificate no · member ID ·
+  since v229 a real document, since v230 a legible one (the member's name was gold
+  foil clipped to transparent glyphs on cream paper, about 1.4:1 contrast; it is
+  now ink at 15.4:1 on the lightest paper and 9.6:1 on the darkest, and the
+  downloaded A4 sheet draws the same ink), and since v231 an **engraved** one: a
+  banknote-style **microtext band** under the top border reading *SHIVAA FAMILY ·
+  PRESTIGIOUS MEMBER · SHIVAA JEWELS JAIPUR · NOT A FINANCIAL INSTRUMENT*, a
+  guilloche in two fine bands, four corner ornaments each set with a gold diamond,
+  a seal with a tick band and two rings, the promise line in a cartouche, a
+  signature rule with a title under it, and a verify line naming `shivaa.in`. It is
+  a recognition document, **not a financial instrument**, and it says so on the
+  sheet: four record boxes (certificate no · member ID ·
   issued · valid through), the member's name in caps as the largest element after
   the title, a promise line stating the percentage, both dates and the scope
   (*never on metal value, stones, GST or shipping*), a signatory **with a title**

@@ -3979,7 +3979,9 @@ function blackSaving(makingCharge, qty = 1) {
   return Math.max(0, Math.round((+makingCharge || 0) * Math.max(1, +qty || 1) * blackPct() / 100));
 }
 /* v229 — the Shivaa Black member percentage is ONE setting
-   (settings.blackDiscountPct, default 25, clamped 0-40). Every live Black
+   (settings.blackDiscountPct, clamped 0-40; it ships at **20** since v230 — the
+   owner: "25% is a false claim ... should be only at 20% off making charges for
+   the customers of prestigious members"). Every live Black
    surface reads it through here, so the card, the certificate, the PDP strip,
    the bag strip, checkout and the server can never disagree. A card's own
    discountPct wins when it carries one, which keeps an old record honest. */
