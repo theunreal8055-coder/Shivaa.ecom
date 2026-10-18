@@ -91,17 +91,53 @@ export async function boot(hash = '#/', opts = {}) {
       window.alert = () => {};
       window.confirm = () => true;
 
-      /* fetch → the preview shim, with the same signature the app uses */
+      /* fetch → the preview shim, with the same signature the app uses.
+         v229 — the bytes are read ONCE, as an ArrayBuffer, and every accessor
+         is derived from that single read: a real Response body cannot be
+         consumed twice, and a bill is a PNG or a PDF that r.text() would
+         mangle. FormData bodies pass straight through (the bill desk uploads
+         real multipart). */
       const nf = globalThis.fetch;
       window.fetch = (url, o = {}) => {
         const u = String(url).startsWith('http') ? String(url) : BASE + (String(url).startsWith('/') ? url : '/' + url);
         return nf(u, o).then(async r => {
-          const body = await r.text();
-          let json = null; try { json = body ? JSON.parse(body) : null; } catch (e) {}
+          const buf = await r.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          let body = '';
+          try { body = new TextDecoder('utf-8').decode(bytes); } catch (e) { body = ''; }
+          let json; let parsed = false;
+          const asJson = () => {
+            if (!parsed) { parsed = true; try { json = body ? JSON.parse(body) : null; } catch (e) { json = null; } }
+            return json;
+          };
           return { ok: r.ok, status: r.status, statusText: r.statusText, headers: r.headers,
-                   text: async () => body, json: async () => { if (json === null) throw new Error('not json: ' + body.slice(0, 120)); return json; } };
+                   text: async () => body,
+                   json: async () => { const j = asJson(); if (j === null) throw new Error('not json: ' + body.slice(0, 120)); return j; },
+                   arrayBuffer: async () => buf,
+                   blob: async () => new window.Blob([bytes], { type: r.headers.get('content-type') || '' }) };
         });
       };
+
+      /* v229 — jsdom has neither of these, and the bill viewer needs both.
+         They are backed by a countable map so a suite can prove the property
+         that actually matters: opening a second file revokes the first, so a
+         customer flicking through six pages never leaks six blobs. */
+      window.__blobStore = new Map();
+      let __blobSeq = 0;
+      window.URL.createObjectURL = (blob) => {
+        const url = 'blob:shivaa/' + (++__blobSeq);
+        window.__blobStore.set(url, blob);
+        return url;
+      };
+      window.URL.revokeObjectURL = (url) => { window.__blobStore.delete(String(url)); };
+
+      /* v229 — opts.seed(window) runs before a single byte of app.js executes,
+         which is the only moment a suite can put a token in localStorage: the
+         app reads shv_token during its own boot and hydrates state.user from
+         /api/auth/me, and every JSDOM.fromURL gets a fresh localStorage. */
+      if (typeof opts.seed === 'function') {
+        try { opts.seed(window); } catch (e) { errors.push('opts.seed threw: ' + (e && e.message)); }
+      }
 
       window.navigator.clipboard = { writeText: async () => {}, readText: async () => '' };
       window.HTMLCanvasElement.prototype.getContext = () => null;   // app.js guards every use
