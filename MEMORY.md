@@ -126,17 +126,26 @@
   Forward-only from 205. Next release is 206 or higher. Live version check: `/api/version`.
   Not yet verified by the agent: the PHP backend path on the live server and a real phone run.
 
-## CURRENT STATE — refreshed 18 Oct 2026, after v231 (read this first)
+## CURRENT STATE — refreshed 18 Oct 2026, after v232 (read this first)
 
 - **Branch:** the Arena session branch `arena/e8a470c6-shivaa-ecom` (the owner was told the session is
   hard-wired to it and said "Isi pe kaam kr"). `arena/09f3c79f-shivaa-ecom` is untouched. Commit and push
   after every coherent stage — a sandbox reset in this release wiped several hours of uncommitted work
   and the whole v229 build had to be redone from its own written contract.
-- **Live:** **v228** (owner-confirmed 17 Oct 2026, "working fine and good"). **v229, v230 and v231 are
-  built and pending the owner's yes — deploy v231 only.** Not v229: it quotes 25% to members, the claim the
-  owner rejected. Not v230 alone: its legibility fix is keyed on a class list (`.bc-certificate.v230
-  .bc-cert-name`), which v231 restated on the bare selector so no edit can lose it. The next release is v232. Forward-only from 228: never reuse or renumber a
-  shipped release, never deploy an older tree over a newer live site.
+- **Live:** **v228** (owner-confirmed 17 Oct 2026, "working fine and good"). **v229, v230, v231 and v232
+  are built and pending the owner's yes — deploy v232 only** (it contains all three). Not v229: it quotes
+  25% to members, the claim the owner rejected. Not v230 alone: its legibility fix is keyed on a class
+  list, which v231 restated on the bare selector. Not v231 alone: it still asks for **123 animation
+  frames a second on a page nobody is touching**. **The next release is v233.** Forward-only from 228:
+  never reuse or renumber a shipped release, never deploy an older tree over a newer live site.
+- **v232's measured facts (keep them; they are the proof the owner was given):** idle animation frames
+  **123/s → 0/s** on a silent home page (1264 frames in 12 s, 1148 of them from `_msTick` and the cursor
+  glow, both of which ran from parse to tab-close); layout reads for ten pointer moves over one card
+  **10 → 1**, and 20 more on a settled card **20 → 0**; images decoding on the main thread **56 of 68 → 0**
+  (the LCP set is skipped on purpose); a hidden tab asks the server for the gold rate **0** times (it asked
+  once a second). **The press answer v226 wrote for `.p-card`/`.cat-card` and the offer banner has been
+  dead on every phone since it shipped** — `styles.css:4637` and `v219.css:129` neutralise it with
+  `transform:none !important`; v232 restores it with v226's own values, important, `no-preference`-gated.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
   delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
   v202 home hero → v203 card holographic foil and motion → v204 delivery button fix, address page
@@ -171,7 +180,74 @@
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
 
-## v231 — the Engraved Layer (18 Oct 2026) · BUILT, not live · deploy this, not v229 or v230
+## v232 — the Idle Release (18 Oct 2026) · BUILT, not live · **deploy this**, not v229/v230/v231
+
+Prompt: *"App is not feeling smooth, it should feel like buttery smooth and ultra smooth, without
+decreasing the quality."* Nothing was added. The app was measured, the work nobody needs was removed, and
+every effect that stayed is the same effect.
+
+1. **Two loops that never slept.** `_msTick` (the bullion interpolator) and the cursor glow ran at 60 fps
+   from the moment `app.js` parsed until the tab closed — 1264 `requestAnimationFrame` calls in the first
+   twelve seconds of a silent home page, 1148 of them from those two. `_msTick` also ran **two
+   `document.querySelector` calls inside every frame**; the glow wrote **`style.left`/`style.top`**, a
+   forced layout of a 340 px `mix-blend-mode:screen` layer per frame, with the mouse parked. Now: the
+   interpolator keeps its nodes, wakes on a `rates` event, lands **exactly** on the last frame
+   (`lastIndexOf`, not `indexOf` — the assignment appears twice in the function) and sleeps in a hidden
+   tab; the glow sits at a `0,0` origin (`#cursorGlow{left:0;top:0}` in `css/v232.css`), moves on
+   `translate3d`, wakes on a real `mousemove`, and ends when it catches up. Hot-target growth uses the
+   `scale` property (`460/340 = 1.3529`) inside `@supports (scale:1)`, so the old width/height rule stays
+   as the fallback. The rates poll stops in a hidden tab too.
+2. **One tilt engine.** `bindTilt()` hung a `mousemove` on every card and read a rect **per event**;
+   `init3DCardTilts()` hung a `touchmove` on four families (a layout read per touch event *while
+   scrolling*); `bindMagnetic()` did the same on every button and glare card. One delegated listener per
+   engine, one cached rect per element visit, one write per frame, a scroll stands a touch tilt down, and
+   the maths is byte-identical (7°/9°/900px/4px; 5°/-2px on touch; 7px/5px magnetic). Windows:
+   `window.__shvTilt`, `window.__shvMagnetic`, `window.__shvGlow`, `window.__shvDecode`.
+3. **The press restore** (the real find): v226's `.p-card:active`/`.cat-card:active` and the offer card's
+   own press rule lose to **`!important` neutralisers** — `styles.css:4637` under `@media (max-width:820px)`
+   and `v219.css:129` under `(hover:none),(pointer:coarse)`. An `!important` declaration beats a normal one
+   whatever the order, so those three surfaces never answered a finger on a phone. `css/v232.css` §1
+   restores them with v226's values, `!important`, **both phone guards written as separate blocks** (a
+   nested media list inside an `and` is MQ4 and a rule that fails to parse is how the press went missing),
+   inside `prefers-reduced-motion: no-preference`, with a §6 block that turns it back off.
+4. **Layers, blur, decode.** Nine families carried a permanent `will-change:transform`
+   (`styles.css:1532`); only `.p-card` had ever been reset. §2 releases all nine, promotes on `:hover`/
+   `:focus-within` under `(hover:hover) and (pointer:fine)`, flattens on touch. §3: on a phone every
+   product card's `.pc-quick` pill is permanently visible **and** carried `backdrop-filter:blur(6px)`
+   behind `rgba(255,252,244,.96)` — the blur cannot be seen, the GPU pays for it per card per frame; the
+   blur is off on coarse pointers and the fill closes to `.98` (so it reads *more* solid). **The fixed bars
+   were measured and keep their glass** (`.header` .92, `.pd-stickybar` .97, `.mnav` .97, `.mcta-bar` .97,
+   `#pdpBuybar` .96, `.kyc-bar` .97, `.shop-bar` .94, `.shv-scheme-stepper` .95) — two on screen at once
+   is not a hundred. `app.js` sweeps + observes `decoding="async"` on every image except `#preloader`,
+   `.hero`, `.page-hero`, `.poster`, `.c-slide`, `.gal-track`, `[data-lcp]`, `loading="eager"` and
+   `fetchpriority="high"`.
+5. **`content-visibility` deliberately untouched.** v117/v121/v122/v214/v215 guessed fixed intrinsic
+   heights; the page height changed while scrolling and the page jumped toward the top (owner-reported),
+   and v217 sealed it (`#view *` is `visible !important`). Off-screen skipping is not worth that. **Do not
+   reopen it.**
+6. **No new request.** The governors live in `app.js`; `css/v232.css` is the only new file (the 66th
+   cascade position). Bundle **910,723 B raw / 179,425 B gzipped, 66 layers / 66 blocks** (Python counts
+   910,662 *characters* — `wc -c` counts bytes; say which you mean). Gate `bash qa/v232-gate.sh` → **23
+   checks, 0 red**: t-v232-idle 87/0, v231-ink 53/0, v230-cert 61/0, v229 bills 102/0, black 88/0, routes
+   61/0, and the sixteen historic suites unchanged. Package `shivaa-update-v232.zip`: **361 files ·
+   37,349,816 B · `14b9e9ca24571b051ead061c64766a8675044cb09687f2195380975a5a4b4023`**; rollback is
+   `shivaa-update-v228.zip`.
+
+**Lessons this release added (all cost a red line first):**
+- **A frame-cost assertion needs a settle longer than the last late mount.** The new suite tallied eight
+  unrelated rect reads because it measured immediately after the grid rendered. Settle 5 s (shop) / 11 s
+  (home) before counting.
+- **Do not mix normalised and raw text in one `&&`.** `WS(SHIPPED)` matched while
+  `SHIPPED.match(/\.pc-quick \{/)` did not, because the shipped rule is written across lines.
+- **`indexOf` on an assignment that appears twice in a function finds the initialiser.** Use `lastIndexOf`
+  and say why in the comment.
+- **Don't anchor on a comment in a `stripJs`'d string** (again — the v231 lesson, repeated here).
+- **A per-event `getBoundingClientRect()` is the tell.** Grep `addEventListener('mousemove'` and
+  `('touchmove'` and look inside the handler; `bindMagnetic` hid behind a comment that praised itself.
+
+## v231 — the Engraved Layer (18 Oct 2026) · BUILT, superseded by v232 (do not deploy alone)
+
+
 
 The owner sent the same two-bug report twice — the second time after v230 had already fixed both. Nothing
 was wrong with v230. What the second message actually asked for was "graphics even more" and "make the app
