@@ -126,12 +126,15 @@
   Forward-only from 205. Next release is 206 or higher. Live version check: `/api/version`.
   Not yet verified by the agent: the PHP backend path on the live server and a real phone run.
 
-## CURRENT STATE — refreshed 11 Oct 2026 (read this first)
+## CURRENT STATE — refreshed 18 Oct 2026 (read this first)
 
-- **Branch:** session branch `arena/09f3c79f-shivaa-ecom` (same tree as `arena/5529f0ec-shivaa-ecom`
-  head `95a2ab5`). Clean and pushed after each release commit.
-- **Live:** v205 (owner-confirmed). Forward-only from 205. Next release is 208 or higher.
-  Never reuse or renumber a shipped release. Never deploy an older tree over a newer live site.
+- **Branch:** the Arena session branch `arena/e8a470c6-shivaa-ecom` (the owner was told the session is
+  hard-wired to it and said "Isi pe kaam kr"). `arena/09f3c79f-shivaa-ecom` is untouched. Commit and push
+  after every coherent stage — a sandbox reset in this release wiped several hours of uncommitted work
+  and the whole v229 build had to be redone from its own written contract.
+- **Live:** **v228** (owner-confirmed 17 Oct 2026, "working fine and good"). **v229 is built and pending
+  the owner's yes**; the next release after it is v230. Forward-only from 228: never reuse or renumber a
+  shipped release, never deploy an older tree over a newer live site.
 - **Release history on this branch:** v199 Black card journey (name and mobile first, Premium 20% for life,
   delivery free only on the physical card) → v200 button colour fixes → v201 membership redrawn →
   v202 home hero → v203 card holographic foil and motion → v204 delivery button fix, address page
@@ -165,6 +168,61 @@
 - **Sandbox:** the workspace has been re-cloned during this work. Always `git fetch`, check
   `origin/arena/5529f0ec-shivaa-ecom`, and reset to it only when `git status` is clean.
   Back up any dirty tree before a reset.
+
+## v229 — the Paperwork Release (18 Oct 2026) · BUILT, not live
+
+Five things the owner asked for in one update, plus the paperwork that makes them safe to deploy.
+
+- **The member percentage is ONE setting.** It was a literal `20` in nine places — exactly what the public
+  `MAKING20` coupon gives a guest who never signed in, so a KYC-verified card bought nothing. Now
+  `settings.blackDiscountPct` (default **25**, clamped 0-40, `0` = benefit off *without deleting anybody's
+  card*), resolved once per request into `$GLOBALS['shv_black_pct']` **before the router**, read on the client
+  through `blackPct()`. No coupon row is stored per member, so one number moves every member and **no card
+  number ever changes**. Two rules fell out of this and both matter more than the feature:
+  **a receipt never follows a setting** (`blackOrderPct(o)` derives an old order's rate from that order's own
+  two numbers), and **each surviving literal must name its own programme** — Premium's lifetime 20%, Amrita
+  ji's ticket and the public banner offer kept theirs, asserted with a ±4-line proximity window because markup
+  splits a card across lines and a single-line marker match gives false failures.
+  **Deploying raises every existing member 20% → 25% automatically.** That is the intended fix and
+  `DEPLOY-v229.md` §3 says so in terms the owner can act on.
+- **Renewal.** `POST /api/black-card/renew` — last 30 days of validity or after expiry, else **409** naming the
+  days left; rate-blocked 6/h; **six calendar months** via `black_add_months()` (a 31st lands on the last day of
+  a shorter month, never rolls over); `memberId`/`cardNumber`/`certificateNo` unchanged. The owner's route takes
+  1-36 months and **extends a live card from its own expiry**. The strip is drawn only from `card.renewable` —
+  the server's answer, never a date the client computed itself.
+- **In-store bills.** Owner-side upload only. `.shivaa-private-bills` **beside** the docroot (env
+  `SHIVAA_PRIVATE_BILLS_DIR`, 0700/0600, refuses a symlink or an in-docroot path), type from magic bytes **in and
+  out**, ≤6 files × 8 MB, streamed **by index** (`/file/{i}`) with `no-store`/`nosniff`/`SAMEORIGIN`.
+  `#/my-bills` has **exactly two verbs — View and Download**; the negative is asserted on the source, the API
+  payload *and* the rendered DOM. `bill_public($b, $admin)` is one serialiser whose flag decides whether the
+  owner's note, the mobile and the stored `ref` leave the server at all — a shared serialiser that leaks one
+  field is how a private note ends up on a customer's screen. Unavailable storage is a **503 that says nothing
+  was saved** plus an amber box with both fixes, never a save button that appears to work. Erasure
+  **anonymizes** bills at both routes because a bill is a GST/tax record: the paper stays, the person leaves it.
+- **The certificate is a document.** Four record boxes (certificate no and member ID are different identifiers
+  and used to share one), valid-through, the name in caps as the largest element after the title, a promise line
+  with the percentage + both dates + scope, a **signatory with a title**, a **verify line** naming `shivaa.in`
+  and the certificate number, `RENEWED n×`, one guilloche band, four corner ornaments (the old markup shipped
+  `c4` twice), an archived pill that turns **gold** not grey, and an **A4 landscape 3508×2480 @300 dpi**
+  download — the same drawing scaled by `BK = 3508/1800`, so the seal is rendered at print resolution instead
+  of upscaled.
+- **QA.** `bash qa/v229-gate.sh` → **20 checks, 0 red**: the bundle proof, `qa/phpbal.py` (there is no `php`
+  binary here), `node --check` ×3, sixteen historic suites on the plain fixture, `qa/v229-routes.py` **61/0**
+  (real multipart, byte-identical stream, the 401/403/409 boundaries between three people), `t-v229-bills`
+  **102/0**, `t-v229-black` **88/0**, `playstore/verify.mjs` exit 2 by design. `qa/build-test-db.py
+  --with-staff` adds the owner (the plain fixture has ZERO users, so no admin token exists at all), a member
+  expiring in 18 days with a `to-ship` free card and a stored `discountPct` of **20** — so the suite proves the
+  setting overrides a card created under the old number — and a stranger who must get 403.
+- **Package.** `shivaa-update-v229.zip` — **358 files · 37,317,163 B · sha256
+  `c9c54cf09476be53f07b6a21eb3ed9f60852918177fe68cb4beb5f71a8a62d23`**, built by `qa/make-update-zip.py 229`
+  (the previous zip's exact list plus `css/v229.css`). Rollback stays `shivaa-update-v228.zip`.
+- **Lessons that cost the most.** A dev mirror must be as strict as the server it stands in for — the shim's
+  `dev_file_kind` originally fell back to the uploaded filename, so a text file named `lie.png` passed locally
+  and would have failed in production. A stateful preview must **refuse** to run rather than fake-fail:
+  `qa/v229-routes.py` exits 3 + SKIP on a dirty shim. A suite you cannot re-run is a suite nobody re-runs, so
+  the bills suite signs in with the preview password instead of the 30-second-cooldown OTP. And a slice has a
+  direction: the bill buttons live in `billFileRowHTML`, **above** `pages['my-bills']`, so slicing from the page
+  excluded the markup under test — assert the slice's own contents first.
 
 ## v207 — readability pass · every word legible (11 Oct 2026)
 

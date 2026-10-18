@@ -100,7 +100,7 @@ if printf '%s' "$APPJS" | grep -q "pages\['delete-account'\]"; then
   ok "the deployed app.js contains the erasure page Play requires"
 else
   bad "the deployed app.js does NOT contain #/delete-account — the live tree is older than v228.
-          Deploy shivaa-update-v228.zip before pointing Play at this URL."
+          Deploy shivaa-update-v229.zip (or any newer release) before pointing Play at this URL."
 fi
 AREL=$(printf '%s' "$APPJS" | grep -o 'APP_REL *= *[0-9]*' | head -1 | grep -o '[0-9]*$')
 [ -n "${AREL:-}" ] && ok "APP_REL ${AREL}" || note "APP_REL not found in the deployed js (minified?)"
@@ -114,7 +114,10 @@ else
   REL=$(printf '%s' "$VER" | grep -o '"rel"[[:space:]]*:[[:space:]]*[0-9]*' | head -1 | grep -o '[0-9]*$')
   DB=$(printf '%s' "$VER" | grep -o '"mode"[[:space:]]*:[[:space:]]*"[a-z]*"' | head -1 | cut -d'"' -f4)
   MT=$(printf '%s' "$VER" | grep -o '"matched"[[:space:]]*:[[:space:]]*\(true\|false\)' | head -1 | grep -o '\(true\|false\)$')
-  [ "${REL:-0}" -ge 228 ] && ok "live release v$REL" || bad "live release is v${REL:-?} — deploy shivaa-update-v228.zip"
+  # -ge 228, NOT an equality: the erasure page Play requires shipped at v228 and
+  # the live site is v228 today. Rolling this to the newest release would fail for
+  # a package the owner has not uploaded yet — the normal state between releases.
+  [ "${REL:-0}" -ge 228 ] && ok "live release v$REL" || bad "live release is v${REL:-?} — deploy shivaa-update-v229.zip (or newer)"
   [ "${MT:-}" = "true" ] && ok "release stamps are consistent (index = app = sw)" || note "stamp.matched=${MT:-?} — index/app/sw disagree, check the deploy"
   [ "${DB:-}" = "mysql" ] && ok "data source: mysql" || note "data source: ${DB:-unknown} (JSON safety net — the app is unaffected)"
 fi
@@ -132,7 +135,7 @@ if [ "$N" -gt 0 ]; then
   say "NOT READY — $N problem(s) above. Google's verifier fails while these exist."
   exit 2
 fi
-say "READY — assetlinks live hai, app v228 deployed hai, URLs up hain."
+say "READY — assetlinks live hai, app v${REL:-?} deployed hai, URLs up hain."
 say "Ab phone par app uninstall → reinstall karo (verification cache clear hota hai):"
 say "  Play Console → Internal testing → opt-in link → install → open"
 say "  Address bar nahi dikhna chahiye. Dikh raha hai? 60 s ruko, app data clear karo, phir kholo."

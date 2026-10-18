@@ -185,11 +185,55 @@ status chips "Spot mode"/"Override active".
 
 ## 3 · Memberships & offers
 
-- **Shivaa Black Card** (v184+) — retail-only, six-month, OTP-verified
-  personal membership: **20% off making charges** + lifetime keepsake
-  **Prestigious Member Certificate** (name + member id, flip card in account,
-  zero invented award copy). Partner-tier pricing is separate.
-- **Premium card** (v191) — free home delivery for life, free claim.
+- **Shivaa Black Card** (v184+, reworked v227 and v229) — retail-only,
+  six-month, OTP-verified personal membership. The discount is **not a fixed
+  20%**: since v229 it is ONE setting, `settings.blackDiscountPct`
+  (**default 25**, clamped 0-40, and 0 switches the benefit off *without
+  deleting anybody's card*), set in **Admin → Settings**. The server resolves it
+  once per request; the card, the certificate, checkout and the downloaded
+  artwork all read the same number, and **no coupon row is stored per member**,
+  so changing it moves every member at once and no card number ever changes.
+  A card created under the old 20% therefore shows 25% after deploy.
+  **Historical orders are the exception**: an invoice or order row derives its own
+  rate from that order's two numbers, because a receipt must never follow a
+  setting.
+- **Renewal** (v229) — `POST /api/black-card/renew`, one tap on `#/black-card`.
+  It opens only in the **last 30 days** of validity or after expiry (otherwise
+  **409** with the days left), is rate-blocked 6/hour, and adds **six calendar
+  months** while keeping `memberId`, `cardNumber` and `certificateNo` — the number
+  printed on the plastic card never changes. The owner's route
+  (`POST /api/admin/black-card/renew`, 1-36 months) **extends a live card from its
+  own expiry**, so renewing somebody early never costs them a day.
+- **The free physical card** (v229) — `Admin → Shivaa Black` tracks it
+  `to-ship → printed → shipped` (`POST /api/admin/black-card/delivery`), with a
+  sidebar badge counting what is still to post, a CSV export and a printable
+  posting list of address labels.
+- **Prestigious Member Certificate** — a lifetime keepsake issued with the card,
+  and since v229 a real document: four record boxes (certificate no · member ID ·
+  issued · valid through), the member's name in caps as the largest element after
+  the title, a promise line stating the percentage, both dates and the scope
+  (*never on metal value, stones, GST or shipping*), a signatory **with a title**
+  (*For Shivaa Jewels · Proprietor · the Shivaa Family*), a verify line naming
+  `shivaa.in` and the certificate number, `RENEWED n×`, and a pill that turns
+  **gold** ("certificate permanently archived") when the window closes while the
+  certificate itself stays in the account forever. Downloads as **A4 landscape
+  3508×2480 px @300 dpi**. No invented award copy, ever.
+- **In-store purchase bills** (v229) — customers buy at the counter and the paper
+  bill stays with the owner, who uploads it from **Admin → In-store Bills**
+  (jpg/png/webp/pdf, ≤6 files × 8 MB, name, mobile, bill no, date, store, amount,
+  items, private note). Files live in `.shivaa-private-bills` **beside**
+  `public_html` — never inside the web root — and are streamed **by index** with
+  `no-store`, `nosniff` and `SAMEORIGIN`. The customer side (`#/my-bills`, also an
+  account tile) has **exactly two verbs: View and Download**. There is no upload,
+  edit, delete or dispute control on that side and the owner's private note is
+  never sent to a customer. Bills auto-link to an account by the mobile written on
+  the paper. Erasure **anonymizes** a bill rather than deleting it (it is a GST/tax
+  record) at both erasure routes. If the private folder is unavailable, uploads
+  answer **503** and the admin tab says so — nothing is ever half-saved.
+- **Premium card** (v191) — free home delivery for life, free claim, and its own
+  **lifetime 20%** making-charge benefit. That 20% is a *separate programme* and
+  was deliberately left alone when Shivaa Black moved to a setting; so were
+  Amrita ji's personal ticket and the public `MAKING20` offer.
 - Public offers (v190): `MAKING20` (20% off making) + `FREEDEL` (free home
   delivery). v208 presentation: the making offer is labelled **Shivaa Black
   members only, no coupon code shown** (attached at checkout); FREEDEL keeps

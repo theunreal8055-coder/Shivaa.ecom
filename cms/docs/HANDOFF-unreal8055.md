@@ -1,6 +1,69 @@
 # HANDOFF-unreal8055.md — Shivaa Ecom · agent-to-agent handoff
 
 ---
+**v229 — THE PAPERWORK RELEASE** (2026-10-18). The owner asked for the whole
+queued list in one update — *"Sab banao agle update main"* — plus one more thing:
+offline/in-store purchase bills, and a member certificate built to the best level
+research allows. Five gaps, all built, gate green (**20 checks, 0 red**), **not
+live**:
+
+1. **Admin had no Shivaa Black screen at all.** Members were rows inside
+   `users[]`. Now `Admin → Shivaa Black`: every member with card number, member
+   ID, issued, valid-through, days left and renewal count; a summary strip;
+   filters; **↻ Renew** per member (1-36 months, and a live card **extends from
+   its own expiry** rather than resetting a clock the customer already earned);
+   **🖶 Printed → ✔ Shipped** for the free physical card; CSV; a printable
+   posting list of address labels; and a sidebar badge counting what is still to
+   post (`GET /api/admin/black-card/queue`, one pass over `users[]`).
+2. **Renewal did not exist.** A six-month card simply stopped. `POST
+   /api/black-card/renew` opens only in the **last 30 days** of validity or after
+   expiry (otherwise **409** naming the days left), is rate-blocked 6/h, and keeps
+   `memberId` / `cardNumber` / `certificateNo` — the number on the plastic in the
+   customer's pocket never changes. Six **calendar** months (`black_add_months()`:
+   a 31st lands on the last day of a shorter month, never rolls over).
+3. **The offer gap.** Every Black line said **20%**, which is exactly what the
+   public `MAKING20` coupon gives a guest. The percentage is now ONE setting,
+   `settings.blackDiscountPct` (**default 25**, clamped 0-40, 0 = benefit off
+   without deleting anybody's card), resolved once per request into
+   `$GLOBALS['shv_black_pct']` and read on the client through `blackPct()`. No
+   coupon row is stored per member, so one number moves every member and no card
+   number changes. **Deploying therefore raises every existing member from 20% to
+   25% automatically** — that is the intended fix, and `DEPLOY-v229.md` §3 says so
+   in terms the owner can act on. Historical rows are the exception and stay
+   exceptions: `blackOrderPct(o)` derives an old order's rate from that order's own
+   two numbers, because a receipt must never follow a setting.
+4. **In-store bills.** Owner-side upload only (`Admin → In-store Bills`): jpg /
+   png / webp / pdf, ≤6 files × 8 MB, stored in `.shivaa-private-bills` **beside**
+   the document root (env `SHIVAA_PRIVATE_BILLS_DIR`, 0700/0600, refuses a symlink
+   or an in-docroot path), type decided by magic bytes **on the way in and again on
+   the way out**. Customers get `#/my-bills` with **exactly two verbs — View and
+   Download** — and `GET /api/store-bills/{id}/file/{i}` **by index**, `no-store`,
+   `nosniff`, `SAMEORIGIN`. `bill_public($b, $admin)` is one serialiser whose
+   `$admin` flag decides whether the owner's private note, the mobile and the
+   stored `ref` leave the server at all. Unavailable storage is a **503 that says
+   nothing was saved** plus an amber box in the tab — never a save button that
+   appears to work. Erasure treats a bill like the tax record it is:
+   `bills_anonymize()` runs at **both** erasure routes and the record survives.
+5. **The certificate became a document.** Four record boxes (certificate no ·
+   member ID · issued · **valid through** — the first two are different
+   identifiers and used to share one box), the name in caps as the largest element
+   after the title, a promise line stating the percentage, both dates and the scope
+   (*never on metal value, stones, GST or shipping*), a **signatory with a title**
+   (*For Shivaa Jewels · Proprietor · the Shivaa Family*), a **verify line** naming
+   `shivaa.in` and the certificate number, `RENEWED n×`, one guilloche band, four
+   corner ornaments (the old markup shipped `c4` twice), and a state pill that
+   turns **gold** rather than grey when the window closes — the certificate is
+   still an honour. The download is now **A4 landscape 3508×2480 @300 dpi**: the
+   same drawing scaled uniformly (`BK = 3508/1800`) so the seal is rendered at
+   print resolution instead of upscaled.
+
+New QA: `qa/v229-gate.sh` (the whole gate in one command), `qa/v229-routes.py`
+(61 real-HTTP checks; **exits 3 + SKIP** on a dirty shim rather than failing on
+fixture drift), `qa/browser/t-v229-black.mjs` (88), `qa/browser/t-v229-bills.mjs`
+(102), `qa/phpbal.py` (brace/string balance for a 592 KB PHP file — there is no
+`php` binary here), `qa/make-update-zip.py` (the zip is the previous zip's exact
+list plus what this release added), and `qa/build-test-db.py --with-staff`.
+
 **v228 — THE PLAY STORE GATE** (2026-10-17). The owner asked to launch on Google
 Play. The launch kit (`playstore/`, written at v183) was already in the repo and
 green apart from two things; the first was a real gap, not a formality:
@@ -72,14 +135,17 @@ older gate is unchanged and green (butter 61, appfeel 80, corners 64, bundle
 36, smooth 39, cleanup 34, billing-gone 13, depth 22, sidebar 13, alive 96,
 flip all, t7 4). Packaged as `shivaa-update-v227.zip`.
 
-**COUNTDOWN: release 228 pending owner review — nothing deployed without the
-owner's explicit yes.** Live today on WWW + Netlify: **v205**. Built and
-shipped to this repository, **not live**: v206, v207, v208, v209, v210, v211,
-v212, v213, v214, v215, v216, v217, v218, v219, v220, v221, v222, v223, v224, v225, v226, v227, v228.
+**COUNTDOWN: release 229 pending owner review — nothing deployed without the
+owner's explicit yes.** Live today: **v228** (the owner uploaded it on 17 Oct
+2026 and reported it "working fine and good"; v206–v227 went live with it).
+Built and shipped to this repository, **not live**: **v229**.
 
-Last updated: 2026-10-17 (v228 "The Play Store Gate" — the account-erasure page Play
-requires now exists and works signed out as well as in, the Ring-size-guide shortcut opens
-the sizer, and the route walk found a stepper that kept running after its page was left).
+Last updated: 2026-10-18 (v229 "The Paperwork Release" — Admin gains a Shivaa Black
+control room with the free-card posting queue, members can renew in one tap, the member
+percentage becomes ONE setting (default 25) instead of a literal 20 in nine places,
+in-store paper bills get a private owner-side vault with a customer page that can only
+View and Download, and the certificate becomes a document with four record boxes, a
+signatory, a verify line and an A4 300 dpi download).
 product page, forgot-password asks for the mobile then sets a new password, the home page's
 ₹₹ and dead hero hint are gone, and the footer/rail/copy got measured).
 perfect, even more buttery smooth, and "fantastic animations on every clicks". Measured first: across 6
@@ -175,10 +241,10 @@ modified.
 
 ## 1 · The absolute rules (owner's — never break)
 
-1. **Forward-only.** Never reuse or renumber a shipped release. Live is v205;
-   v206–v228 are built; **next release is v229**. Never deploy an older tree
-   over a newer live one. No reverts, no force-pushes, no resurrecting old
-   zips.
+1. **Forward-only.** Never reuse or renumber a shipped release. Live is **v228**;
+   **v229 is built and pending the owner's yes**; **the next release is v230**.
+   Never deploy an older tree over a newer live one. No reverts, no force-pushes,
+   no resurrecting old zips.
 2. **Nothing goes live without the owner's explicit yes.** A push, a merge, a
    green test run, or a finished zip is NOT approval. If the owner only
    reviews, review only.
@@ -244,6 +310,7 @@ modified.
 | v225 | The App-Feel Release: the frame the phone paints while a thumb is moving. (1) **one scroll frame** — `app.js` and `aurum.js` each ran their own scroll listener on their own rAF and each read `documentElement.scrollHeight` + `clientHeight` on **every frame**; `js/v225.js` now owns the chrome from one passive listener and one rAF, measuring the geometry only when it can change (resize, route, a `ResizeObserver` on the body, three late passes) and quantising the writes (bar 0.1%, ring 1/120 of a turn). A six-event scroll burst reads the document **zero** times; `hub.measures` does not move, and a resize does re-measure. Both old handlers feature-detect `window.__shvHub` and stand down, so a warm cache can never leave the bar with two writers or none. (2) **parallax on the phone** — feature 12 was gated to `(hover:hover) and (pointer:fine)` over 1023px; a coarse pointer now runs it at **11px instead of 26**, still off for reduced-motion and `au-lite`, still tagged only within 80px of the viewport, and each element's document offset is **cached** (re-taken when the hub reports the document changed shape) so a scroll frame performs **no `getBoundingClientRect()`** on any device; a detached element is dropped instead of being written to for ever from a 0×0 box. (3) **two infinite repaint loops become composited sweeps** — `@keyframes mSkeleton` (the PDP skeleton ×7, plus `.pc-imgwrap` / `.tv-ph` while a photo loads, which is **every** product card) and `@keyframes auProg` (the 3px progress bar, which never idled for a second of any visit) animated `background-position`, which no browser can composite. Both now move a pseudo-element with `translate` — same colour, speed and angle; `.pc-imgwrap::after` is already the gold hairline, so the placeholder sweep is a `::before` at z-index 0 with the photos lifted while the placeholder is live. (4) **a card is no longer a GPU layer on a phone** — `.p-card` reserved `will-change: transform` for a hover state a finger cannot trigger (20–60 layers held in video memory on a shop page); `html.au-touch .p-card { will-change: auto }`, desktop untouched. (5) **rails** — eight `overflow-x:auto` rails (`.cat-chips`, `.adr-sw`, `.stages`, `.sz-strip-wrap`, `.tabs`, `.acct-nav`, `.adm-nav`) plus the scheme stepper gain `scroll-snap-type: x proximity`, snap points on their children and `overscroll-behavior-x: contain`, so a flick parks on a label and a swipe at the end cannot become the browser's back gesture. (6) **tablets** — the v224 16px focus-zoom floor extended to the 681–900px band (an iPad in portrait is 768px), same field list, still no `!important`, so nothing large can shrink. (7) **depth and digits** — twelve more live numeral strips go tabular, `.p-card` gets the house gold hairline (`rgba(212,175,90,.14)`, `.42` + a wine-tinted shadow on hover) and the Android grey tap flash is suppressed on the eight card/chip/tile selectors that already answer with their own press transform. New suite `qa/browser/t-v225-appfeel.mjs` (80 assertions). | built, delivered to owner |
 | v226 | The Butter Release: every click answers. (1) **press physics** — the measurement above; each dead family now has a transform press, and on a finger the rules carry `!important` because `mobile.css`'s `*:hover{transform:none!important}` would otherwise erase them. (2) **ripple + haptic** — `js/v226.js` reuses the v89 `.rip` span: small controls ripple at touch-down, big surfaces (a product card, a list row) ripple only on a real tap so starting a scroll never lights them up, rail items ripple on release so a flick cannot fire a ripple on every chip it passes, and the host is clipped only for the 700 ms the ripple is alive. One 5 ms vibration on a real tap, gated like the house gates haptics (coarse AND not reduced-motion). (3) **rail centring** — tapping a chip, tab or step in a snapped rail glides that item to the middle of the rail. (4) **badges** — the wish and compare counters pop with the same `mBump` keyframe the cart badge has used since v89. (5) **route jump** — `html.route-jump` makes the router's scroll-to-top instant for that one navigation instead of animating a long slide of the page being left. (6) **pace bar** — a 2px gold hairline sweeps the top of the screen only when the next page takes longer than 180 ms; on a fast tap nothing is created. (7) **view transitions** — where `startViewTransition` exists the content cross-fades (6-10px, transform/opacity) while the chrome stays still and the entrance stands down for that navigation; skipped for reduced motion, for `au-lite` devices and for a link marked `data-no-vt`. New suite `qa/browser/t-v226-butter.mjs` (61 assertions). | built, delivered to owner |
 | v227 | The Reading Layer: (1) **the black-card claim works from every product page** — the reader demanded `[data-black-claim] [data-bc-intake]`, which only exists on `#/black-card`, so a PDP tap returned "Enter your name", stopped there, and the status writer had nowhere to write either; the reader is form-aware, the invite card carries its own status line, the claim falls back to the account name and sends a nameless account to the page that asks, and the post-login auto-claim prefills its form first. (2) **forgot-password is mobile-first** — 4-digit code to the registered mobile, then new password + repeat, real 30 s resend; `api.php` takes `{phone}` or `{email}` and always texts the registered mobile. (3) **home page** — the rate ribbon printed `₹₹` on every figure, the legacy hero hint was a bare `<div>` that ate taps, the home hero's "discover" measured 44 % white in 60 % opacity, and the news logo + mega feature art loaded eagerly with no intrinsic size. (4) **the reading layer** — footer bleed follows the nav's measured height, late mounts are still deferred, the rail centres its active chip without moving the page and stops animating under reduced motion, and the deepest footer gold is readable. Suites: blackcard 28, reset 31, design 41. Packaged as `shivaa-update-v227.zip`. |
+| v229 | **The Paperwork Release**: (1) `Admin → Shivaa Black` — members were only ever rows in `users[]`, so there was nowhere to see who holds a card, when it runs out, or which free plastic cards still have to be printed and posted; the tab adds the list, a summary strip, filters, per-member **↻ Renew** (1-36 months, a live card **extends from its own expiry**), **🖶 Printed → ✔ Shipped**, CSV, a printable posting list of address labels and a sidebar badge fed by `GET /api/admin/black-card/queue`. (2) **Renewal exists**: `POST /api/black-card/renew`, open only in the last 30 days of validity or after expiry (else **409** naming the days left), rate-blocked 6/h, keeping `memberId`/`cardNumber`/`certificateNo` and adding six **calendar** months. (3) **The offer gap closed**: the member percentage was a literal 20 in nine places — exactly what public `MAKING20` gives a guest — and is now ONE setting, `settings.blackDiscountPct` (default **25**, 0-40, 0 = off without deleting cards), resolved once per request; no coupon row per member, so one number moves everybody and no card number changes, while `blackOrderPct(o)` keeps historical receipts on the rate they actually paid. (4) **In-store bills**: owner-side upload only, `.shivaa-private-bills` **beside** the docroot (env override, 0700/0600, no symlinks, magic bytes in *and* out), streamed **by index** with `no-store`/`nosniff`/`SAMEORIGIN`; the customer page `#/my-bills` has **exactly two verbs, View and Download**, and `bill_public($b,$admin)` never sends the owner's note or a stored `ref` to a customer; unavailable storage is a **503 that says nothing was saved** plus an amber box, and erasure anonymizes bills at **both** routes because a bill is a GST record. (5) **The certificate is a document**: four record boxes (certificate no and member ID are different identifiers and shared one box), valid-through, a promise line with the percentage, both dates and the scope, a signatory **with a title**, a verify line naming `shivaa.in` and the certificate number, `RENEWED n×`, one guilloche band, four corner ornaments (the old markup shipped `c4` twice), an archived pill that turns **gold** not grey, and an **A4 landscape 3508×2480 @300 dpi** download. Gate: `bash qa/v229-gate.sh` → **20 checks, 0 red**; new suites `t-v229-black` 88/0, `t-v229-bills` 102/0, `qa/v229-routes.py` 61/0. | built, awaiting the owner's yes |
 | v228 | The Play Store Gate: the erasure page Google requires now exists. `POST /api/auth/delete-account` had shipped at v183 with no caller and no page — every document pointed at `#/delete-account`, which fell through the router to Home, so the URL Play would have been given opened the shop. `#/delete-account` (alias `#/erase-account`) is now a page: signed out it proves the number with a fresh SMS code (no sign-in first), signed in the session is proof, both need the word DELETE, the owner and B2B partners are refused server-side, success anonymises the row and kills every device token, and the page repeats the server's message; the account screen carries a Privacy & my data tile. The TWA shortcut "Ring size guide" pointed at `#/size-guide`, which never existed (the sizer is `#/sizer`) — now an alias, and all three shortcuts are proven to render. `holdRepeat` also stopped stepping pages that were left (t7-audit caught the TypeError on the size page). New suite `t-v228-play.mjs` (51). Packaged as `shivaa-update-v228.zip`. |
 | v218 | The Sign-in Release: the 10 g Gold Scheme entry on home is highlighted (halo ring, larger target); the funnel stops jumping to top (scroll only when the step is off screen, never on first paint); the sidebar is the earlier drawer again plus swipe-left-to-close; the film case is removed for good (script, mount, module, CSS hooks, tests); the Retail and Jeweller B2B sign-in sheet is restyled in v218.css under #shvAuthWrap, JS and IDs unchanged. |
 | v217 | The Steady Release: root cause of the refresh/jump-to-top found — content-visibility:auto on home sections and product cards (v117/v121/v122/v214) with guessed heights made the page height change while scrolling; now forced to real layout. Case reinstalled as cms/js/v217-case.js (one pointer path, no scroll/resize listeners, one play-state function; phones play the front film only). Mobile drawer rebuilt (slide + scrim + 48px targets); phone search = one full-screen panel; Win-10g campaign buttons readable + stacked on phones; offer panels get four motifs (rim, ribbon, diamond points, seal) | built, owner review pending |
@@ -267,6 +334,55 @@ modified.
 - `node qa/browser/harness.mjs` — jsdom boot harness (jsdom lives at
   `/tmp/node_modules` — `npm install --prefix /tmp jsdom` after sandbox
   resets). Run long audits with `nohup` + **unique log names**.
+  v229 additions: **`opts.seed(window)`** runs in `beforeParse`, which is the
+  only moment a suite can put `shv_token` in localStorage (app.js reads it and
+  fetches `/api/auth/me` during its own boot, and every `JSDOM.fromURL` gets a
+  fresh localStorage); the fetch stub reads the body **once** with
+  `arrayBuffer()` and derives `text()/json()/arrayBuffer()/blob()` from that one
+  read, because a bill is a PNG that `r.text()` would mangle; and
+  **`URL.createObjectURL`/`revokeObjectURL`** are stubbed over a countable map
+  (`window.__blobStore`) so a suite can prove that opening a second file revokes
+  the first. `getContext` still returns null by design — the canvas savers always
+  take their toast-guard path, so assert the guard, never a blob.
+- **`bash qa/v229-gate.sh`** — the whole release gate in one command: bundle
+  proof, `qa/phpbal.py cms/api.php`, `node --check` ×3, the sixteen historic
+  suites on the plain fixture, `qa/v229-routes.py`, then the two v229 suites each
+  on a **fresh staffed shim**. Builds its own fixtures and starts/stops its own
+  shim on port 8090 — do not start another one while it runs. Exit 0 = green.
+  `t8-v106` and `t10-v107` are deliberately excluded and the script says why
+  (t8-v106 hangs at step 1 on the untouched HEAD tree too — proved by running
+  HEAD's own extracted copy).
+- `python3 qa/v229-routes.py` — the HTTP round trip jsdom cannot reach: a real
+  multipart upload, a byte-identical stream, and the 401/403/409 boundaries
+  between three people (61 checks). **Exits 3 with SKIP** when the shim already
+  carries uploaded bills, because the dev layer keeps state in RAM and a second
+  run would fail on fixture drift rather than on code.
+- `node qa/browser/t-v229-black.mjs` — the certificate, the renewal and the ONE
+  number (88 assertions). **Consumes the fixture member's renewable window**, so
+  rebuild the staffed fixture and restart the shim to run it again; it restores
+  `blackDiscountPct` to 25 before finishing.
+- `node qa/browser/t-v229-bills.mjs` — the in-store bill contract, both halves
+  and the negatives (102 assertions). Signs both customers in with the preview
+  password, **not** OTP: the shim's OTP has a 30 s cooldown, and a suite that
+  cannot be re-run inside a minute is a suite nobody re-runs. It deletes its own
+  bill, so it passes back to back against one shim.
+- `python3 qa/build-test-db.py [--with-staff]` — the fixture. **`--with-staff`**
+  adds the owner (the plain fixture has ZERO users, so no admin token exists at
+  all), one Shivaa Black member expiring in 18 days — inside the renewal window,
+  free card `to-ship`, stored `discountPct` deliberately **20** so the suite
+  proves the setting overrides a card created under the old number — and one
+  unrelated customer who must get 403 on somebody else's bill. Dates are relative
+  to today, and `blackDiscountPct` is deliberately **absent** from settings,
+  because it is absent on the live site too and the code's own default is what has
+  to be proven.
+- `python3 qa/phpbal.py cms/api.php` — the cheapest honest check available with no
+  `php` binary: strips comments and strings, then proves every brace, paren and
+  bracket balances and the file ends at depth 0. Not a parser; run it after every
+  api.php splice.
+- `python3 qa/make-update-zip.py NNN` — builds `shivaa-update-vNNN.zip` as the
+  previous zip's **exact** file list plus what this release added, refusing to
+  build if a listed file is missing from the tree or a forbidden path (`data/`,
+  `.htaccess`, `config.php`) appears in it.
 
 ## 5 · Owner bug-board → fix map (v208)
 

@@ -210,8 +210,11 @@ its own header, so the next person does not have to rediscover it.
 
 1. Download **`shivaa-update-v229.zip`** (repo root, or
    `https://github.com/theunreal8055-coder/Shivaa.ecom/raw/arena/e8a470c6-shivaa-ecom/shivaa-update-v229.zip`).
-   **358 files · 37,310,932 B · sha256
-   `df8c358f30c34a81d5803744ab260ed6ef2d96cf7fef55cae42764e190b2ced1`**
+   **358 files · 37,317,163 B · sha256
+   `c9c54cf09476be53f07b6a21eb3ed9f60852918177fe68cb4beb5f71a8a62d23`**
+   (built by `python3 qa/make-update-zip.py 229` — the previous zip's exact file
+   list plus `css/v229.css`. It was rebuilt once, after the two countdown docs in
+   `cms/docs/` were updated, because those ship inside the zip.)
 2. Unzip **into `public_html`**, overwriting. Paths inside the zip are relative to
    `cms/`, so `api.php` lands at `public_html/api.php`. The zip contains **no**
    `data/db.json` (your live records are never overwritten), **no** `.htaccess`,
